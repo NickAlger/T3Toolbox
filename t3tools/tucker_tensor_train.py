@@ -1,3 +1,6 @@
+# Authors: Nick Alger and Blake Christierson
+# Copyright: MIT License (2026)
+# https://github.com/NickAlger/TuckerTensorTrainTools
 import numpy as np
 import typing as typ
 
@@ -19,6 +22,11 @@ __all__ = [
     't3_tucker_ranks',
     't3_tt_ranks',
     't3_structure',
+    't3_add',
+    't3_scale',
+    't3_dot_t3',
+    't3_apply',
+    't3_entry',
     't3_svd',
     't3_to_dense',
     't3_reverse',
@@ -154,7 +162,7 @@ def t3_shape(
     >>> print(t3_shape(x))
         (14, 15, 16)
     >>> print(t3_to_dense(x).shape == t3_shape(x))
-    True
+        True
     """
     basis_cores, tt_cores = x
     return tuple([B.shape[1] for B in basis_cores])
@@ -407,14 +415,13 @@ def t3_check(
             )
 
 
-
 ###########################################################
 ################    Basic T3 functions    #################
 ###########################################################
 
 def t3_to_dense(
         x: TuckerTensorTrain,
-        use_jax: bool = True,
+        use_jax: bool = False,
 ) -> NDArray:
     """Contract Tucker tensor train to dense tensor.
 
@@ -423,7 +430,7 @@ def t3_to_dense(
     x : TuckerTensorTrain
         Tucker tensor train with shape (N1, ..., Nd).
     use_jax: bool
-        Use jax if True, numpy if False. Default: True
+        Use jax if True, numpy if False. Default: False
 
     Returns
     -------
@@ -442,28 +449,10 @@ def t3_to_dense(
     >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
     >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
     >>> x = (basis_cores, tt_cores)
-    >>> x_dense = t3_to_dense(x, use_jax=False) # use numpy
-    >>> x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->ijk', *(basis_cores + tt_cores))
-    >>> print(np.linalg.norm(x_dense - x_dense2) / np.linalg.norm(x_dense))
-        7.48952547844518e-16
-
-    >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
-    >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
-    >>> x = (basis_cores, tt_cores)
-    >>> x_dense = t3_to_dense(x) # use jax with default precision (usually single)
-    >>> x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->ijk', *(basis_cores + tt_cores))
-    >>> print(np.linalg.norm(x_dense - x_dense2) / np.linalg.norm(x_dense))
-        9.650846e-08
-
-    >>> import jax
-    >>> jax.config.update("jax_enable_x64", True) # turn on double precision in jax
-    >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
-    >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
-    >>> x = (basis_cores, tt_cores)
     >>> x_dense = t3_to_dense(x)
     >>> x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->ijk', *(basis_cores + tt_cores))
     >>> print(np.linalg.norm(x_dense - x_dense2) / np.linalg.norm(x_dense))
-        6.911323613449324e-16
+        7.48952547844518e-16
     """
     xnp = jnp if use_jax else np
 
@@ -515,8 +504,8 @@ def t3_reverse(
     >>> reversed_x = t3_reverse(x)
     >>> print(t3_structure(reversed_x))
         ((16, 15, 14), (6, 5, 4), (1, 2, 3, 1))
-    >>> x_dense = t3_to_dense(x, use_jax=False)
-    >>> reversed_x_dense = t3_to_dense(reversed_x, use_jax=False)
+    >>> x_dense = t3_to_dense(x)
+    >>> reversed_x_dense = t3_to_dense(reversed_x)
     >>> x_dense2 = reversed_x_dense.transpose([2,1,0])
     >>> print(np.linalg.norm(x_dense - x_dense2))
         1.859018050214056e-13
@@ -531,7 +520,7 @@ def t3_reverse(
 
 def t3_zeros(
         structure:  T3Structure,
-        use_jax:    bool = True,
+        use_jax:    bool = False,
 ) -> TuckerTensorTrain:
     """Construct Tucker tensor train of zeros.
 
@@ -540,7 +529,7 @@ def t3_zeros(
     structure:  T3Structure
         Tucker tensor train structure, (shape, tucker_ranks, tt_ranks)=((N1,...,Nd), (n1,...,nd), (1,r1,...,r(d-1),1))).
     use_jax: bool
-        Use jax if True, numpy if False. Default: True
+        Use jax if True, numpy if False. Default: False
 
     Returns
     -------
@@ -630,7 +619,7 @@ def t3_save(
 
 def t3_load(
         file,
-        use_jax: bool = True,
+        use_jax: bool = False,
 ) -> TuckerTensorTrain:
     """Save Tucker tensor train to file with numpy.savez()
 
@@ -642,7 +631,12 @@ def t3_load(
         ``.npz`` extension will be appended to the filename if it is not
         already there.
     use_jax: bool
-        If True, returned TuckerTensorTrain cores are jnp.ndaray (default). Otherwise, np.ndarray
+        If True, returned TuckerTensorTrain cores are jnp.ndaray. Otherwise, np.ndarray. Default: False
+
+    Returns
+    -------
+    TuckerTensorTrain
+        Tucker tensor train loaded from the file
 
     Raises
     ------
@@ -664,7 +658,7 @@ def t3_load(
     >>> x = (basis_cores, tt_cores)
     >>> fname = 't3_file'
     >>> t3_save(fname, x)
-    >>> x2 = t3_load(fname, use_jax=False)
+    >>> x2 = t3_load(fname)
     >>> basis_cores2, tt_cores2 = x2
     >>> print([np.linalg.norm(B - B2) for B, B2 in zip(basis_cores, basis_cores2)])
         [0.0, 0.0, 0.0]
@@ -698,7 +692,463 @@ def t3_load(
 ########    Linear algebra operations, inner product, and norm    #########
 ###########################################################################
 
+def t3_add(
+        x: TuckerTensorTrain,
+        y: TuckerTensorTrain,
+        use_jax: bool = False,
+) -> TuckerTensorTrain:
+    """Add TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x+y with summed ranks.
 
+    Parameters
+    ----------
+    x: TuckerTensorTrain
+        First summand. structure=((N1,...,Nd), (n1,...,nd), (1, r1,...,r(d-1),1))
+    y: TuckerTensorTrain
+        Second summand. structure=((N1,...,Nd), (m1,...,md), (1, q1,...,q(d-1),1))
+    use_jax: bool
+        If True, returned TuckerTensorTrain cores are jnp.ndaray. Otherwise, np.ndarray. Default: False
+
+    Returns
+    -------
+    z: TuckerTensorTrain
+        Sum of Tucker tensor trains, z=x+y. structure=((N1,...,Nd), (n1+m1,...,nd+md), (1, r1+q1,...,r(d-1)+q(d-1),1))
+
+    Raises
+    ------
+    RuntimeError
+        Error raised if the Tucker tensor trains have different shapes.
+
+    See Also
+    --------
+    TuckerTensorTrain
+    t3_shape
+    t3_scale
+
+    Notes
+    -----
+    The basis cores for z are vertically stacked versions of the basis cores for x and y
+
+    The first TT-core for z is a block 1x2x2 tensor, with:
+        - the first TT-core for x in the (0,0,0) block,
+        - the first TT-core for y in the (0,1,1) block,
+        - zeros elsewhere
+
+    Intermediate TT-cores for z are block 2x2x2 tensors, with:
+        - the TT-cores for x in the (0,0,0) block,
+        - the TT-cores for y in the (1,1,1) block,
+        - zeros elsewhere.
+
+    The last TT-cores for z is a block 2x2x1 tensor, with:
+        - the last TT-core for x in the (0,0,0) block,
+        - the last TT-core for y in the (1,1,0) block,
+        - zeros elsewhere
+
+    Examples
+    --------
+    >>> from numpy.random import randn
+    >>> from t3tools.tucker_tensor_train import *
+    >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
+    >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
+    >>> x = (basis_cores_x, tt_cores_x)
+    >>> basis_cores_y = (randn(5,14), randn(6,15), randn(7,16))
+    >>> tt_cores_y = (randn(1,5,4), randn(4,6,3), randn(3,7,1))
+    >>> y = (basis_cores_y, tt_cores_y)
+    >>> z = t3_add(x, y)
+    >>> print(t3_structure(x))
+        ((14, 15, 16), (4, 5, 6), (1, 3, 2, 1))
+    >>> print(t3_structure(y))
+        ((14, 15, 16), (5, 6, 7), (1, 4, 3, 1))
+    >>> print(t3_structure(z))
+        ((14, 15, 16), (9, 11, 13), (1, 7, 5, 1))
+    >>> print(np.linalg.norm(t3_to_dense(x) + t3_to_dense(y) - t3_to_dense(z)))
+        6.524094086845177e-13
+    """
+    x_shape = t3_shape(x)
+    y_shape = t3_shape(y)
+    if x_shape != y_shape:
+        raise RuntimeError(
+            'Attempted to add TuckerTensorTrains x+y with inconsistent shapes.'
+            + str(x_shape) + ' = x_shape != y_shape = ' + str(y_shape)
+        )
+
+    xnp = jnp if use_jax else np
+
+    basis_cores_x, tt_cores_x = x
+    basis_cores_y, tt_cores_y = y
+    basis_cores_z = [xnp.concatenate([Bx, By], axis=0) for Bx, By in zip(basis_cores_x, basis_cores_y)]
+
+    tt_cores_z = []
+
+    Gx = tt_cores_x[0]
+    Gy = tt_cores_y[0]
+    G000 = Gx
+    G001 = xnp.zeros((1, Gx.shape[1], Gy.shape[2]))
+    G010 = xnp.zeros((1, Gy.shape[1], Gx.shape[2]))
+    G011 = Gy
+    Gz = xnp.block([[G000, G001], [G010, G011]])
+    tt_cores_z.append(Gz)
+
+    for Gx, Gy in zip(tt_cores_x[1:-1], tt_cores_y[1:-1]):
+        G000 = Gx
+        G001 = xnp.zeros((Gx.shape[0], Gx.shape[1], Gy.shape[2]))
+        G010 = xnp.zeros((Gx.shape[0], Gy.shape[1], Gx.shape[2]))
+        G011 = xnp.zeros((Gx.shape[0], Gy.shape[1], Gy.shape[2]))
+        G100 = xnp.zeros((Gy.shape[0], Gx.shape[1], Gx.shape[2]))
+        G101 = xnp.zeros((Gy.shape[0], Gx.shape[1], Gy.shape[2]))
+        G110 = xnp.zeros((Gy.shape[0], Gy.shape[1], Gx.shape[2]))
+        G111 = Gy
+        Gz = xnp.block([[[G000, G001], [G010, G011]], [[G100, G101], [G110, G111]]])
+        tt_cores_z.append(Gz)
+
+    Gx = tt_cores_x[-1]
+    Gy = tt_cores_y[-1]
+    G000 = Gx.transpose([2,0,1])
+    G001 = xnp.zeros((1, Gx.shape[0], Gy.shape[1]))
+    G010 = xnp.zeros((1, Gy.shape[0], Gx.shape[1]))
+    G011 = Gy.transpose([2,0,1])
+    Gz = xnp.block([
+        [G000, G001],
+        [G010, G011],
+    ]).transpose([1,2,0])
+    tt_cores_z.append(Gz)
+
+    z = (tuple(basis_cores_z), tuple(tt_cores_z))
+    return z
+
+
+def t3_scale(
+        x: TuckerTensorTrain,
+        s, # scalar
+) -> TuckerTensorTrain:
+    """Scale TuckerTensorTrain x by a scaling factor s.
+
+    Parameters
+    ----------
+    x: TuckerTensorTrain
+        Tucker tensor train
+    s: scalar
+        scaling factor
+
+    Returns
+    -------
+    z: TuckerTensorTrain
+        scaled TuckerTensorTrain z=s*x, with the same structure as x.
+
+    See Also
+    --------
+    TuckerTensorTrain
+    t3_add
+
+    Notes
+    -----
+    Scales the last basis core of x, leaving all other cores unchanged
+
+    Examples
+    --------
+    >>> from numpy.random import randn
+    >>> from t3tools.tucker_tensor_train import *
+    >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
+    >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
+    >>> x = (basis_cores, tt_cores)
+    >>> s = randn()
+    >>> z = t3_scale(x, s)
+    >>> print(np.linalg.norm(s*t3_to_dense(x) - t3_to_dense(z)))
+        1.6268482531988893e-13
+    """
+    basis_cores, tt_cores = x
+
+    scaled_basis_cores = [B.copy() for B in basis_cores]
+    scaled_basis_cores[-1] = s*scaled_basis_cores[-1]
+
+    copied_tt_cores = [G.copy() for G in tt_cores]
+
+    z = (tuple(scaled_basis_cores), tuple(copied_tt_cores))
+    return z
+
+
+def t3_dot_t3(
+        x: TuckerTensorTrain,
+        y: TuckerTensorTrain,
+        use_jax: bool = False,
+):
+    """Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains x, y with the same shape, (x, y)_HS.
+
+    Parameters
+    ----------
+    x: TuckerTensorTrain
+        First Tucker tensor train. shape=(N1,...,Nd)
+    y: TuckerTensorTrain
+        Second Tucker tensor train. shape=(N1,...,Nd)
+    use_jax: bool
+        If True, use jax operations. Otherwise, numpy. Default: False
+
+    Returns
+    -------
+    scalar
+        Hilbert-Schmidt (dot) product of Tucker tensor trains, (x, y)_HS.
+
+    Raises
+    ------
+    RuntimeError
+        Error raised if the Tucker tensor trains have different shapes.
+
+    See Also
+    --------
+    TuckerTensorTrain
+    t3_shape
+    t3_add
+    t3_scale
+
+    Notes
+    -----
+    Algorithm contracts the TuckerTensorTrains in a zippering fashion from left to right.
+
+    Examples
+    --------
+    >>> from numpy.random import randn
+    >>> from t3tools.tucker_tensor_train import *
+    >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
+    >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
+    >>> x = (basis_cores_x, tt_cores_x)
+    >>> basis_cores_y = (randn(5,14), randn(6,15), randn(7,16))
+    >>> tt_cores_y = (randn(1,5,4), randn(4,6,3), randn(3,7,1))
+    >>> y = (basis_cores_y, tt_cores_y)
+    >>> x_dot_y = t3_dot_t3(x, y)
+    >>> x_dot_y2 = np.sum(t3_to_dense(x) * t3_to_dense(y))
+    >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
+        8.731149137020111e-11
+    """
+    xnp = jnp if use_jax else np
+
+    x_shape = t3_shape(x)
+    y_shape = t3_shape(y)
+    if x_shape != y_shape:
+        raise RuntimeError(
+            'Attempted to dot TuckerTensorTrains (x,y)_HS with inconsistent shapes.'
+            + str(x_shape) + ' = x_shape != y_shape = ' + str(y_shape)
+        )
+
+    basis_cores_x, tt_cores_x = x
+    basis_cores_y, tt_cores_y = y
+
+    M_sp = xnp.ones((1,1))
+    for Bx_ai, Gx_sat, By_bi, Gy_pbq in zip(basis_cores_x, tt_cores_x, basis_cores_y, tt_cores_y):
+        tmp_ab = xnp.einsum('ai,bi->ab', Bx_ai, By_bi)
+        tmp_sbt = xnp.einsum('sat,ab->sbt', Gx_sat, tmp_ab)
+        tmp_pbt = xnp.einsum('sp,sbt->pbt', M_sp, tmp_sbt)
+        tmp_tq = xnp.einsum('pbt,pbq->tq', tmp_pbt, Gy_pbq)
+        M_sp = tmp_tq
+
+    return M_sp[0,0]
+
+
+###############################################################################
+########    Scalar valued multilinear function applies and entries    #########
+###############################################################################
+
+def t3_apply(
+        x: TuckerTensorTrain, # shape=(N1,...,Nd)
+        vecs: typ.Sequence[NDArray], # len=d, elm_shape=(Ni,) or (num_applies, Ni)
+        use_jax: bool = False,
+) -> NDArray:
+    '''Contract TuckerTensorTrain with vectors in all indices.
+
+    Parameters
+    ----------
+    x: TuckerTensorTrain
+        Tucker tensor train. shape=(N1,...,Nd)
+    vecs: typ.Sequence[NDArray]
+        Vectors to contract with indices of x. len=d, elm_shape=(Ni,) or (num_applies, Ni) if vectorized
+    use_jax: bool
+        If True, use jax operations. Otherwise, numpy. Default: False
+
+    Returns
+    -------
+    NDArray or scalar
+        Result of contracting x with the vectors in all indices.
+        scalar if vecs elements are vectors, NDArray with shape (num_applies,) if vecs elements are matrices (i.e., vectorized applies)
+
+    Raises
+    ------
+    RuntimeError
+        Error raised if the provided vectors in vecs are inconsistent with each other or the Tucker tensor train x.
+
+    See Also
+    --------
+    TuckerTensorTrain
+    t3_shape
+    t3_entry
+
+    Notes
+    -----
+    Algorithm contracts vectors with cores of the TuckerTensorTrains in a zippering fashion from left to right.
+
+    Examples
+    --------
+    >>> from numpy.random import randn
+    >>> from t3tools.tucker_tensor_train import *
+    >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
+    >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
+    >>> x = (basis_cores_x, tt_cores_x)
+    >>> vecs = [randn(14), randn(15), randn(16)]
+    >>> result = t3_apply(x, vecs)
+    >>> result2 = np.einsum('ijk,i,j,k', t3_to_dense(x), vecs[0], vecs[1], vecs[2])
+    >>> print(np.abs(result - result2))
+
+    >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
+    >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
+    >>> x = (basis_cores_x, tt_cores_x)
+    >>> vecs = [randn(3,14), randn(3,15), randn(3,16)]
+    >>> result = t3_apply(x, vecs)
+    >>> result2 = np.einsum('ijk,ni,nj,nk->n', t3_to_dense(x), vecs[0], vecs[1], vecs[2])
+    >>> print(np.linalg.norm(result - result2))
+        1.3334750051052994e-12
+    '''
+    xnp = jnp if use_jax else np
+
+    basis_cores, tt_cores = x
+    shape, tucker_ranks, tt_ranks = t3_structure(x)
+
+    if len(vecs)  != len(shape):
+        raise RuntimeError(
+            'Attempted to apply TuckerTensorTrain to wrong number of vectors.'
+            + str(str(len(shape)) + ' = num_indices != len(vecs) = ' + str(len(vecs)))
+        )
+
+    vecs_dims = [len(v.shape) for v in vecs]
+    if vecs_dims != [vecs_dims[0]]*len(vecs_dims):
+        raise RuntimeError(
+            'Inconsistent array dimensions for vecs.'
+            + '[len(v.shape) for v in vecs]=' + str([len(v.shape) for v in vecs])
+        )
+
+    if vecs_dims[0] == 1:
+        vecs = [v.reshape((1,-1)) for v in vecs]
+
+    num_applies = vecs[0].shape[0]
+    if [v.shape[0] for v in vecs] != [num_applies] * len(vecs):
+        raise RuntimeError(
+            'Inconsistent numbers of applies per index.'
+            + '[v.shape[0] for v in vecs]=' + str([v.shape[0] for v in vecs])
+        )
+
+    vector_sizes = tuple([v.shape[1] for v in vecs])
+    if vector_sizes != shape:
+        raise RuntimeError(
+            'Input vector sizes to not match tensor shape.'
+            + str(vector_sizes) + ' = vector_sizes != x_shape = ' + str(shape)
+        )
+
+    mu_na = xnp.ones((num_applies, 1))
+    for V_ni, B_xi, G_axb in zip(vecs, basis_cores, tt_cores):
+        v_nx = xnp.einsum('ni,xi->nx', V_ni, B_xi)
+        g_anb = xnp.einsum('axb,nx->anb', G_axb, v_nx)
+        mu_nb = xnp.einsum('na,anb->nb', mu_na, g_anb)
+        mu_na = mu_nb
+
+    result = mu_na.reshape((num_applies,))
+    if num_applies == 1:
+        result = result[0]
+
+    return result
+
+
+def t3_entry(
+        x: TuckerTensorTrain, # shape=(N1,...,Nd)
+        index: typ.Union[typ.Sequence[int], typ.Sequence[typ.Sequence[int]]], # len=d. one entry: typ.Sequence[int]. many entries: typ.Sequence[typ.Sequence[int]], elm_size=num_entries
+        use_jax: bool = False,
+) -> NDArray:
+    '''Compute an entry (or multiple entries) of a TuckerTensorTrain.
+
+    Parameters
+    ----------
+    x: TuckerTensorTrain
+        Tucker tensor train. shape=(N1,...,Nd)
+    index: typ.Union[typ.Sequence[int], typ.Sequence[typ.Sequence[int]]]
+        Index of the desired entry (typ.Sequence[int]), or indices of desired entries (typ.Sequence[typ.Sequence[int]])
+        len(index)=d. If many entries: elm_size=num_entries
+    use_jax: bool
+        If True, use jax operations. Otherwise, numpy. Default: False
+
+    Returns
+    -------
+    scalar or NDArray
+        Desired entry or entries.
+        scalar if one entry, NDArray with shape (num_entries,) if many entries (i.e., vectorized entry computation)
+
+    Raises
+    ------
+    RuntimeError
+        Error raised if the provided indices in index are inconsistent with each other or the Tucker tensor train x.
+
+    See Also
+    --------
+    TuckerTensorTrain
+    t3_shape
+    t3_apply
+
+    Notes
+    -----
+    Algorithm contracts core slices of the TuckerTensorTrains in a zippering fashion from left to right.
+
+    Examples
+    --------
+    >>> from numpy.random import randn
+    >>> from t3tools.tucker_tensor_train import *
+    >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
+    >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
+    >>> x = (basis_cores_x, tt_cores_x)
+    >>> index = [9, 4, 7]
+    >>> result = t3_entry(x, index)
+    >>> result2 = t3_to_dense(x)[9, 4, 7]
+    >>> print(np.abs(result - result2))
+        0.0
+
+    >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
+    >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
+    >>> x = (basis_cores_x, tt_cores_x)
+    >>> index = [[9,8], [4,10], [7,13]] # get 2 entries at once
+    >>> entries = t3_entry(x, index)
+    >>> x_dense = t3_to_dense(x)
+    >>> entries2 = np.array([x_dense[9, 4, 7], x_dense[8, 10, 13]])
+    >>> print(np.linalg.norm(entries - entries2))
+        1.7763568394002505e-15
+    '''
+    xnp = jnp if use_jax else np
+
+    basis_cores, tt_cores = x
+    shape, tucker_ranks, tt_ranks = t3_structure(x)
+
+    if len(index)  != len(shape):
+        raise RuntimeError(
+            'Wrong number of indices for TuckerTensorTrain.'
+            + str(str(len(shape)) + ' = num tensor indices != num provided indices = ' + str(len(index)))
+        )
+
+    if isinstance(index[0], int):
+        index = [[ind] for ind in index]
+    else:
+        index = [list(ind) for ind in index]
+
+    num_entries = len(index[0])
+    if [len(ind) for ind in index] != [num_entries] * len(shape):
+        raise RuntimeError(
+            'Inconsistent numbers of index entries across different dimensions. The following should be all the same:'
+            + '[len(ind) for ind in index]=' + str([len(ind) for ind in index])
+        )
+
+    mu_na = xnp.ones((num_entries, 1))
+    for ind, B_xi, G_axb in zip(index, basis_cores, tt_cores):
+        v_xn = B_xi[:, ind]
+        g_anb = xnp.einsum('axb,xn->anb', G_axb, v_xn)
+        mu_nb = xnp.einsum('na,anb->nb', mu_na, g_anb)
+        mu_na = mu_nb
+
+    result = mu_na.reshape((num_entries,))
+    if num_entries == 1:
+        result = result[0]
+
+    return result
 
 
 #########################################################################
@@ -852,7 +1302,7 @@ def right_svd_ith_tt_core(
     return (tuple(basis_cores), tuple(new_tt_cores)), ss_x
 
 
-def inner_svd_ith_tt_core(
+def up_svd_ith_tt_core(
         ii: int, # which tt core to orthogonalize
         x: TuckerTensorTrain,
         max_rank: int = None,
@@ -882,7 +1332,7 @@ def inner_svd_ith_tt_core(
     return (tuple(new_basis_cores), tuple(new_tt_cores)), ss_x
 
 
-def outer_svd_ith_tt_core(
+def down_svd_ith_tt_core(
         ii: int, # which tt core to orthogonalize
         x: TuckerTensorTrain,
         max_rank: int = None,
