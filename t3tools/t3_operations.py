@@ -8,10 +8,10 @@ from .tt_basic_operations import *
 __all__ = [
     'TuckerTensorTrain',
     'T3Structure',
-    't3_get_shape',
-    't3_get_tucker_ranks',
-    't3_get_tt_ranks',
-    't3_get_structure',
+    't3_shape',
+    't3_tucker_ranks',
+    't3_tt_ranks',
+    't3_structure',
     't3_svd',
     't3_to_dense',
     'left_svd_3tensor',
@@ -38,13 +38,70 @@ __all__ = [
 ########    Tucker Tensor Train operations    ########
 ######################################################
 
-Array = typ.Union[np.ndarray, jnp.ndarray]
 
+NDArray = typ.Union[np.ndarray, jnp.ndarray]
+
+
+#: Tuple containing Tucker Tensor Train basis cores and TT-cores.
+#:
+#: Components:
+#:  - **basis_cores** : *Sequence[NDArray]*
+#:    Basis matrices with shape `(ni, Ni)` for `i=1,...,d`. len(basis_cores)=d.
+#:  - **tt_cores** : *Sequence[NDArray]*
+#:    Tensor train cores with shape `(ri, ni, r(i+1))` for `i=1,...,d`. len(tt_cores)=d. r0=rd=1.
+#:
+#: Structure:
+#:  - shape: `(N1, ..., Nd)`
+#:  - tucker ranks: `(n1, ..., nd)`
+#:  - tt ranks: `(1, r1, ..., r(d-1), 1)`
+#:
+#: Examples
+#: --------
+#:  >>> from numpy.random import randn
+#:  >>> from t3tools.t3_operations import *
+#:  >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
+#:  >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
+#:  >>> x = (basis_cores, tt_cores)
+#:  >>> print(isinstance(x, TuckerTensorTrain))
+#:      True
+#:  >>> t3_check_correctness(x) # does nothing if everything is ok
+#:  >>> shape, tucker_ranks, tt_ranks = t3_structure(x)
+#:  >>> print(shape)
+#:      (14, 15, 16)
+#:  >>> print(tucker_ranks)
+#:      (4, 5, 6)
+#:  >>> print(tt_ranks)
+#:      (1, 3, 2, 1)
 TuckerTensorTrain = typ.Tuple[
-    typ.Sequence[Array], # basis_cores, len=d, elm_shape=(ni, Ni)
-    typ.Sequence[Array], # tt_cores, len=d, elm_shape=(ri, ni, r(i+1))
+    typ.Sequence[NDArray], # basis_cores, len=d, elm_shape=(ni, Ni)
+    typ.Sequence[NDArray], # tt_cores, len=d, elm_shape=(ri, ni, r(i+1))
 ]
 
+
+#: Tuple containing the structure of a Tucker Tensor Train.
+#:
+#: Components:
+#:  - **shape** : *Sequence[NDArray]*
+#:    Shape of the represented tensor, `(N1, ..., Nd)`.
+#:  - **tucker_ranks** : *Sequence[NDArray]*
+#:    Tucker ranks, `(n1, ..., nd)`.
+#:  - **tt_ranks** : *Sequence[NDArray]*
+#:     TT-ranks, `(1, r1, ..., r(d-1), 1)`.
+#:
+#: Examples
+#: --------
+#:  >>> from numpy.random import randn
+#:  >>> from t3tools.t3_operations import *
+#:  >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
+#:  >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
+#:  >>> x = (basis_cores, tt_cores)
+#:  >>> shape, tucker_ranks, tt_ranks = t3_structure(x)
+#:  >>> print(shape)
+#:      (14, 15, 16)
+#:  >>> print(tucker_ranks)
+#:      (4, 5, 6)
+#:  >>> print(tt_ranks)
+#:      (1, 3, 2, 1)
 T3Structure = typ.Tuple[
     typ.Sequence[int], # shape, len=d
     typ.Sequence[int], # tucker_ranks, len=d
@@ -52,7 +109,7 @@ T3Structure = typ.Tuple[
 ]
 
 
-def t3_get_shape(
+def t3_shape(
         x: TuckerTensorTrain,
 ) -> typ.Tuple[int,...]: # shape of x, (N1,N2,...,Nd), len=d
     r"""Get the shape of the tensor represented by a Tucker tensor train.
@@ -60,51 +117,82 @@ def t3_get_shape(
     Parameters
     ----------
     x : TuckerTensorTrain
-        Tucker tensor train representation of a tensor of shape (N1, N2, ..., Nd)
+        Tucker tensor train representation of a tensor of shape (N1, N2, ..., Nd).
 
     Returns
     -------
     typ.Tuple[int,...]
-        Shape of tensor represented by x. (N1, N2, ..., Nd). len=d
+        (N1, N2, ..., Nd), the shape of tensor represented by x.
 
     See Also
     --------
     TuckerTensorTrain
     T3Structure
-    t3_get_tucker_ranks
-    t3_get_tt_ranks
-    t3_get_structure
+    t3_tucker_ranks
+    t3_tt_ranks
+    t3_structure
 
     Examples
     --------
-
-    >>> basis_cores = (np.random.randn(4,14), np.random.randn(5,15), np.random.randn(6,16))
-    >>> tt_cores = (np.random.randn(1,4,3), np.random.randn(3,5,2), np.random.randn(2,6,1))
+    >>> from numpy.random import randn
+    >>> from t3tools.t3_operations import t3_shape, t3_to_dense
+    >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
+    >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
     >>> x = (basis_cores, tt_cores)
-    >>> print(t3_get_shape(x))
+    >>> print(t3_shape(x))
     (14, 15, 16)
-    >>> print(t3_to_dense(x).shape == t3_get_shape(x))
+    >>> print(t3_to_dense(x).shape == t3_shape(x))
     True
     """
     basis_cores, tt_cores = x
     return tuple([B.shape[1] for B in basis_cores])
 
 
-def t3_get_tucker_ranks(
+def t3_tucker_ranks(
         x: TuckerTensorTrain,
 ) -> typ.Tuple[int,...]: # tucker_ranks=(n1,n2,...,nd)
+    '''Get the Tucker ranks of a Tucker tensor train.
+
+    Parameters
+    ----------
+    x : TuckerTensorTrain
+        Tucker tensor train with Tucker ranks (n1, n2, ..., nd)
+        
+    Returns
+    -------
+    typ.Tuple[int,...]
+        (n1, n2, ..., nd), the Tucker ranks.
+
+    See Also
+    --------
+    TuckerTensorTrain
+    T3Structure
+    t3_shape
+    t3_tt_ranks
+    t3_structure
+
+    Examples
+    --------
+    >>> from numpy.random import randn
+    >>> from t3tools.t3_operations import t3_tucker_ranks
+    >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
+    >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
+    >>> x = (basis_cores, tt_cores)
+    >>> print(t3_tucker_ranks(x))
+    (4, 5, 6)
+    '''
     basis_cores, tt_cores = x
     return tuple([B.shape[0] for B in basis_cores])
 
 
-def t3_get_tt_ranks(
+def t3_tt_ranks(
         x: TuckerTensorTrain,
 ) -> typ.Tuple[int,...]: # tucker_ranks=(r1,r2,...,n(d+1))
     basis_cores, tt_cores = x
     return tt_get_ranks(tt_cores)
 
 
-def t3_get_structure(
+def t3_structure(
         x: TuckerTensorTrain,
 ) -> T3Structure:
     return t3_get_shape(x), t3_get_tucker_ranks(x), t3_get_tt_ranks(x)
@@ -116,10 +204,12 @@ def t3_check_correctness(
     basis_cores, tt_cores = x
     tt_check_correctness(tt_cores)
 
-    assert(len(basis_cores) == len(tt_cores))
+    if len(basis_cores) != len(tt_cores):
+        raise RuntimeError(str(len(basis_cores)) + ' = len(basis_cores) != len(tt_cores) = ' + str(len(tt_cores)))
 
-    for B in basis_cores:
-        assert(len(B.shape) == 2)
+    for ii, B in enumerate(basis_cores):
+        if len(B.shape) != 2:
+            raise RuntimeError('basis_cores['+str(ii)+'] is not a matrix. shape='+str(B.shape))
 
     for n, B in zip(tt_get_shape(tt_cores), basis_cores):
         assert(B.shape[0] == n)

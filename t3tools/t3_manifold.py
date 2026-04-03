@@ -6,7 +6,7 @@ import functools as ft
 import typing as typ
 
 from .tt_basic_operations import *
-from .t3_basic_operations import *
+from .t3_operations import *
 
 
 __all__ = [
