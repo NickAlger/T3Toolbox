@@ -1010,57 +1010,53 @@ def orthogonalize_relative_to_ith_tt_core(
     return new_x
 
 
-# def t3_orthogonal_representations(
-#         x: TuckerTensorTrain,
-#         use_jax: bool = False,
-# ) -> typ.Tuple[
-#     TuckerTensorTrain, # non-orthogonal cores
-#     T3Orthogonals, # orthogonalizations of x
-# ]:
-#     xnp = jnp if use_jax else np
-#
-#     basis_cores, tt_cores = x
-#
-#     num_cores = len(tt_cores)
-#
-#     # Orthogonalize basis matrices
-#     for ii in range(num_cores):
-#         x, _ = up_svd_ith_basis_core(ii, x, use_jax=use_jax)
-#
-#     # Right orthogonalize
-#     for ii in range(num_cores-1, 0, -1): # num_cores-1, num_cores-2, ..., 1
-#         x, _ = right_svd_ith_tt_core(ii, x, use_jax=use_jax)
-#
-#
-#
-#     G0 = x[1][0]
-#     _, ss_first, _ = right_svd_3tensor(G0, use_jax=use_jax)
-#
-#     # Sweep left to right computing SVDS
-#     all_ss_basis = []
-#     all_ss_tt = [ss_first]
-#     for ii in range(num_cores):
-#         min_rank = min_tucker_ranks[ii] if min_tucker_ranks is not None else None
-#         max_rank = max_tucker_ranks[ii] if max_tucker_ranks is not None else None
-#         # SVD inbetween tt core and basis core
-#         x, ss_basis = up_svd_ith_tt_core(
-#             ii, x, min_rank, max_rank, rtol, atol, use_jax,
-#         )
-#         all_ss_basis.append(ss_basis)
-#
-#         if ii < num_cores-1:
-#             min_rank = min_tt_ranks[ii+1] if min_tt_ranks is not None else None
-#             max_rank = max_tt_ranks[ii+1] if max_tt_ranks is not None else None
-#             # SVD inbetween ith tt core and (i+1)th tt core
-#             x, ss_tt = left_svd_ith_tt_core(
-#                 ii, x, min_rank, max_rank, rtol, atol, use_jax,
-#             )
-#         else:
-#             Gf = x[1][-1]
-#             _, ss_tt, _ = left_svd_3tensor(Gf, use_jax=use_jax)
-#         all_ss_tt.append(ss_tt)
-#
-#     return x, tuple(all_ss_basis), tuple(all_ss_tt)
+def t3_orthogonal_representations(
+        x: TuckerTensorTrain,
+        use_jax: bool = False,
+) -> typ.Tuple[
+    TuckerTensorTrain, # non-orthogonal cores
+    T3Orthogonals, # orthogonalizations of x
+]:
+    xnp = jnp if use_jax else np
+
+    basis_cores, tt_cores = x
+
+    num_cores = len(tt_cores)
+
+    # Orthogonalize basis matrices
+    for ii in range(num_cores):
+        x = up_svd_ith_basis_core(ii, x, use_jax=use_jax)[0]
+
+    # Right orthogonalize
+    for ii in range(num_cores-1, 0, -1): # num_cores-1, num_cores-2, ..., 1
+        x = right_svd_ith_tt_core(ii, x, use_jax=use_jax)[0]
+
+    non_orthogonal_basis_cores = []
+    non_orthogonal_tt_cores = []
+
+    orthogonal_basis_cores = []
+    left_orthogonal_tt_cores = []
+    right_orthogonal_tt_cores = []
+    outer_orthogonal_tt_cores = []
+    # Sweep left to right
+    for ii in range(num_cores):
+        # SVD inbetween tt core and basis core
+        x, ss_basis = up_svd_ith_tt_core(
+            ii, x, use_jax=use_jax,
+        )
+        all_ss_basis.append(ss_basis)
+
+        if ii < num_cores-1:
+            # SVD inbetween ith tt core and (i+1)th tt core
+            x, ss_tt = left_svd_ith_tt_core(
+                ii, x, use_jax=use_jax,
+            )
+        else:
+            Gf = x[1][-1]
+            _, ss_tt, _ = left_svd_3tensor(Gf, use_jax=use_jax)
+        all_ss_tt.append(ss_tt)
+
+    return x, tuple(all_ss_basis), tuple(all_ss_tt)
 
 
 

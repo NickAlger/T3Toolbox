@@ -1144,12 +1144,14 @@ def t3_entry(
 ########################    Rank adjustment    #########################
 ########################################################################
 
-def t3_remove_useless_rank(
+def t3_minimal_ranks(
         structure: T3Structure,
 ) -> typ.Tuple[
     typ.Tuple[int,...], # new_tucker_ranks
     typ.Tuple[int,...], # new_tt_ranks
 ]:
+    '''Find minimal ranks for a TuckerTensorTrain with a given structure. (remove useless rank)
+    '''
     shape, tucker_ranks, tt_ranks = structure
     d = len(shape)
     assert(len(tucker_ranks) == d)
@@ -1181,11 +1183,13 @@ def t3_remove_useless_rank(
     return tuple(new_tucker_ranks), tuple(new_tt_ranks)
 
 
-def t3_pad_rank(
+def t3_pad_ranks(
         x:                  TuckerTensorTrain,
         new_tucker_ranks:   typ.Sequence[int],
         new_tt_ranks:       typ.Sequence[int],
 ) -> TuckerTensorTrain:
+    '''Increase TuckerTensorTrain ranks via zero padding.
+    '''
     shape, old_tucker_ranks, old_tt_ranks = t3_structure(x)
     num_cores = len(shape)
     assert(len(old_tucker_ranks) == len(new_tucker_ranks))
