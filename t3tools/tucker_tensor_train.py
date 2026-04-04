@@ -1145,13 +1145,12 @@ def t3_entry(
 ########################################################################
 
 def t3_remove_useless_rank(
-        shape:          typ.Sequence[int], # len=d
-        tucker_ranks:   typ.Sequence[int], # len=d
-        tt_ranks:       typ.Sequence[int], # len=d+1
+        structure: T3Structure,
 ) -> typ.Tuple[
     typ.Tuple[int,...], # new_tucker_ranks
     typ.Tuple[int,...], # new_tt_ranks
 ]:
+    shape, tucker_ranks, tt_ranks = structure
     d = len(shape)
     assert(len(tucker_ranks) == d)
     assert(len(tt_ranks) == d+1)
@@ -1183,27 +1182,24 @@ def t3_remove_useless_rank(
 
 
 def t3_pad_rank(
-        cores:              TuckerTensorTrain,
+        x:                  TuckerTensorTrain,
         new_tucker_ranks:   typ.Sequence[int],
         new_tt_ranks:       typ.Sequence[int],
 ) -> TuckerTensorTrain:
-    t3_check_correctness(cores)
-    shape = t3_get_shape(cores)
+    shape, old_tucker_ranks, old_tt_ranks = t3_structure(x)
     num_cores = len(shape)
-    old_tt_ranks        = t3_get_tt_ranks(cores)
-    old_tucker_ranks    = t3_get_tucker_ranks(cores)
     assert(len(old_tucker_ranks) == len(new_tucker_ranks))
     assert(len(old_tt_ranks) == len(new_tt_ranks))
 
     delta_tucker_ranks  = [r_new - r_old for r_new, r_old in zip(new_tucker_ranks, old_tucker_ranks)]
     delta_tt_ranks      = [r_new - r_old for r_new, r_old in zip(new_tt_ranks, old_tt_ranks)]
 
-    tucker_cores, tt_cores = cores
+    basis_cores, tt_cores = x
 
-    new_tucker_cores = []
+    new_basis_cores = []
     for ii in range(num_cores):
-        new_tucker_cores.append(jnp.pad(
-            tucker_cores[ii],
+        new_basis_cores.append(jnp.pad(
+            basis_cores[ii],
             ((0,delta_tucker_ranks[ii]), (0,0)),
         ))
 
@@ -1218,7 +1214,7 @@ def t3_pad_rank(
             ),
         ))
 
-    return tuple(new_tucker_cores), tuple(new_tt_cores)
+    return tuple(new_basis_cores), tuple(new_tt_cores)
 
 
 
