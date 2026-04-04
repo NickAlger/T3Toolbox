@@ -1273,34 +1273,89 @@ def tucker_svd_dense(
 
 
 def tt_svd_dense(
-        T: jnp.ndarray,
-        max_mid_ranks: typ.Sequence[int] = None, # len=k-1, i.e., Correct: (r1, ..., r_{k-1}), Incorrect: (1,r1, ..., r_{k-1},1)
+        T: NDArray,
+        min_ranks:  typ.Sequence[int] = None, # len=d+1
+        max_ranks:  typ.Sequence[int] = None,  # len=d+1
         rtol: float = None,
         atol: float = None,
+        use_jax: bool = False,
 ) -> typ.Tuple[
-    typ.Tuple[jnp.ndarray,...], # tt_cores
-    typ.Tuple[jnp.ndarray,...], # singular values of unfoldings
+    typ.Tuple[NDArray,...], # tt_cores
+    typ.Tuple[NDArray,...], # singular values of unfoldings
 ]:
+    '''Conpute tensor train (TT) decomposition and unfolding singular values for dense tensor.
+
+    Parameters
+    ----------
+    T: NDArray
+        The dense tensor. shape=(N1, ..., Nd)
+    min_ranks: typ.Sequence[int]
+        Minimum TT-ranks for truncation. len=d+1. e.g., (1,3,3,3,1)
+    max_ranks: typ.Sequence[int]
+        Maximum Tucker ranks for truncation. len=d+1. e.g., (1,5,5,5,1)
+    rtol: float
+        Relative tolerance for truncation.
+    atol: float
+        Absolute tolerance for truncation.
+    use_jax: bool
+        If True, use jax operations. Otherwise, numpy. Default: False
+
+    Returns
+    -------
+    typ.Tuple[NDArray,...]
+        TT cores. len=d. elm_shape=(ri, ni, r(i+1))
+    typ.Tuple[NDArray,...]
+        Singular values of unfoldings. len=d+1. elm_shape=(ri,)
+
+    See Also
+    --------
+    truncated_svd
+    tucker_svd_dense
+    t3_svd_dense
+    t3_svd
+
+    Examples
+    --------
+    >>> from numpy.random import randn
+    >>> from t3tools.tucker_tensor_train import *
+    >>> from t3tools.t3_orthogonalization_and_svd import *
+    >>> T0 = np.random.randn(40, 50, 60)
+    >>> c0 = 1.0 / np.arange(1, 41)**2
+    >>> c1 = 1.0 / np.arange(1, 51)**2
+    >>> c2 = 1.0 / np.arange(1, 61)**2
+    >>> T = np.einsum('ijk,i,j,k->ijk', T0, c0, c1, c2)
+    >>> cores, ss = tt_svd_dense(T, rtol=1e-2)
+    >>> print([G.shape for G in cores])
+        [(1, 40, 6), (6, 50, 7), (7, 60, 1)]
+    >>> T2 = jnp.einsum('aib,bjc,ckd->ijk', cores[0], cores[1], cores[2])
+    >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-2
+        0.013056156368977757
+    >>> cores, ss = tt_svd_dense(T, rtol=1e-3)
+    >>> print([G.shape for G in cores])
+        [(1, 40, 13), (13, 50, 13), (13, 60, 1)]
+    >>> T2 = jnp.einsum('aib,bjc,ckd->ijk', cores[0], cores[1], cores[2])
+    >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-3
+        0.0023999063535883633
+    >>> cores, ss = tt_svd_dense(T, rtol=1e-4)
+    >>> print([G.shape for G in cores])
+        [(1, 40, 30), (30, 50, 30), (30, 60, 1)]
+    >>> T2 = jnp.einsum('aib,bjc,ckd->ijk', cores[0], cores[1], cores[2])
+    >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-4
+        0.0002850622316036925
+    '''
     nn = T.shape
-    rtol = 0.0 if rtol is None else rtol
-    atol = 0.0 if atol is None else atol
 
     X = T.reshape((1,) + T.shape)
     singular_values_of_unfoldings = []
     cores = []
     for ii in range(len(nn)-1):
         rL = X.shape[0]
-        U, ss, Vt = jnp.linalg.svd(X.reshape((rL * nn[ii], -1)), full_matrices=False)
 
-        if max_mid_ranks is not None:
-            ss = ss[:max_mid_ranks[ii]]
+        min_rank = None if min_ranks is None else min_ranks[ii+1]
+        max_rank = None if max_ranks is None else max_ranks[ii+1]
 
-        tol = jnp.maximum(ss[0] * rtol, atol)
-
-        rR = jnp.sum(ss >= tol)
-        U = U[:, :rR]
-        ss = ss[:rR]
-        Vt = Vt[:rR, :]
+        U, ss, Vt = truncated_svd(X.reshape((rL * nn[ii], -1)), min_rank, max_rank, rtol, atol, use_jax)
+        rR = len(ss)
 
         singular_values_of_unfoldings.append(ss)
         cores.append(U.reshape((rL, nn[ii], rR)))
@@ -1308,6 +1363,7 @@ def tt_svd_dense(
     cores.append(X.reshape(X.shape + (1,)))
 
     return tuple(cores), tuple(singular_values_of_unfoldings)
+
 
 def t3_svd_dense(
         T: jnp.ndarray, # shape=(N1, N2, .., Nd)
