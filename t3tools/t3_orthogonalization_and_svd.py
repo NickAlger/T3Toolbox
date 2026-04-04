@@ -13,7 +13,7 @@ except:
 from t3tools.tucker_tensor_train import *
 
 __all__ = [
-    'T3Orthogonalizations',
+    'T3Orthogonals',
     't3_svd',
     'truncated_svd',
     'left_svd_3tensor',
