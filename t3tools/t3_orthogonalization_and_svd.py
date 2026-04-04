@@ -85,6 +85,7 @@ def truncated_svd(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
+    >>> from t3tools.t3_orthogonalization_and_svd import *
     >>> A = np.random.randn(55,70)
     >>> U, ss, Vt = truncated_svd(A)
     >>> A2 = np.einsum('ix,x,xj->ij', U, ss, Vt)
@@ -206,6 +207,7 @@ def left_svd_3tensor(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
+    >>> from t3tools.t3_orthogonalization_and_svd import *
     >>> G_i_a_j = np.random.randn(5,7,6)
     >>> U_i_a_x, ss_x, Vt_x_j = left_svd_3tensor(G_i_a_j)
     >>> G_i_a_j2 = np.einsum('iax,x,xj->iaj', U_i_a_x, ss_x, Vt_x_j)
@@ -289,6 +291,7 @@ def right_svd_3tensor(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
+    >>> from t3tools.t3_orthogonalization_and_svd import *
     >>> G_i_a_j = np.random.randn(5,7,6)
     >>> U_i_x, ss_x, Vt_x_a_j = right_svd_3tensor(G_i_a_j)
     >>> G_i_a_j2 = np.einsum('ix,x,xaj->iaj', U_i_x, ss_x, Vt_x_a_j)
@@ -371,6 +374,7 @@ def outer_svd_3tensor(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
+    >>> from t3tools.t3_orthogonalization_and_svd import *
     >>> G_i_a_j = np.random.randn(5,7,6)
     >>> U_i_x_j, ss_x, Vt_x_a = outer_svd_3tensor(G_i_a_j)
     >>> G_i_a_j2 = np.einsum('ixj,x,xa->iaj', U_i_x_j, ss_x, Vt_x_a)
@@ -446,6 +450,7 @@ def up_svd_ith_basis_core(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
+    >>> from t3tools.t3_orthogonalization_and_svd import *
     >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
     >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
     >>> x = (basis_cores_x, tt_cores_x)
@@ -539,6 +544,7 @@ def left_svd_ith_tt_core(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
+    >>> from t3tools.t3_orthogonalization_and_svd import *
     >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
     >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
     >>> x = (basis_cores_x, tt_cores_x)
@@ -624,6 +630,7 @@ def right_svd_ith_tt_core(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
+    >>> from t3tools.t3_orthogonalization_and_svd import *
     >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
     >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
     >>> x = (basis_cores_x, tt_cores_x)
@@ -708,6 +715,7 @@ def up_svd_ith_tt_core(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
+    >>> from t3tools.t3_orthogonalization_and_svd import *
     >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
     >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
     >>> x = (basis_cores_x, tt_cores_x)
@@ -791,6 +799,7 @@ def down_svd_ith_tt_core(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
+    >>> from t3tools.t3_orthogonalization_and_svd import *
     >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
     >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
     >>> x = (basis_cores_x, tt_cores_x)
@@ -874,6 +883,7 @@ def orthogonalize_relative_to_ith_basis_core(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
+    >>> from t3tools.t3_orthogonalization_and_svd import *
     >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
     >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
     >>> x = (basis_cores_x, tt_cores_x)
@@ -953,6 +963,7 @@ def orthogonalize_relative_to_ith_tt_core(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
+    >>> from t3tools.t3_orthogonalization_and_svd import *
     >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
     >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
     >>> x = (basis_cores_x, tt_cores_x)
@@ -1051,6 +1062,7 @@ def t3_svd(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
+    >>> from t3tools.t3_orthogonalization_and_svd import *
     >>> basis_cores_x = (randn(4,6), randn(5,7), randn(6,8))
     >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
     >>> x = (basis_cores_x, tt_cores_x)
@@ -1163,46 +1175,101 @@ def t3_svd(
 #
 
 def tucker_svd_dense(
-        T: jnp.ndarray, # shape=(N1, N2, .., Nd)
-        max_ranks: typ.Sequence[int] = None, # len=d
+        T: NDArray, # shape=(N1, N2, .., Nd)
+        min_ranks:  typ.Sequence[int] = None, # len=d
+        max_ranks:  typ.Sequence[int] = None,  # len=d
         rtol: float = None,
         atol: float = None,
+        use_jax: bool = False,
 ) -> typ.Tuple[
     typ.Tuple[
-        typ.Tuple[jnp.ndarray, ...], # Tucker bases, ith_elm_shape=(ni, Ni)
-        jnp.ndarray, # Tucker core, shape=(n1,n2,...,nd)
+        typ.Tuple[NDArray,...], # Tucker bases, ith_elm_shape=(ni, Ni)
+        NDArray, # Tucker core, shape=(n1,n2,...,nd)
     ],
-    typ.Tuple[jnp.ndarray], # singular values of unfoldings
+    typ.Tuple[NDArray,...], # singular values of matricizations
 ]:
-    rtol = 0.0 if rtol is None else rtol
-    atol = 0.0 if atol is None else atol
+    '''Conpute Tucker decomposition and matricization singular values for dense tensor.
+
+    Parameters
+    ----------
+    T: NDArray
+        The dense tensor. shape=(N1, ..., Nd)
+    min_ranks: typ.Sequence[int]
+        Minimum Tucker ranks for truncation. len=d
+    max_ranks: typ.Sequence[int]
+        Maximum Tucker ranks for truncation. len=d
+    rtol: float
+        Relative tolerance for truncation.
+    atol: float
+        Absolute tolerance for truncation.
+    use_jax: bool
+        If True, use jax operations. Otherwise, numpy. Default: False
+
+    Returns
+    -------
+    typ.Tuple[typ.Tuple[NDArray,...],NDArray]
+        Tucker decomposition (tucker_bases, tucker_core). tucker_bases[ii].shape=(ni,Ni). tucker_core.shape=(n1,...,nd)
+    typ.Tuple[NDArray,...]
+        Singular values of matricizations
+
+    See Also
+    --------
+    truncated_svd
+    tt_svd_dense
+    t3_svd_dense
+    t3_svd
+
+    Examples
+    --------
+    >>> from numpy.random import randn
+    >>> from t3tools.tucker_tensor_train import *
+    >>> from t3tools.t3_orthogonalization_and_svd import *
+    >>> T0 = np.random.randn(40, 50, 60)
+    >>> c0 = 1.0 / np.arange(1, 41)**2
+    >>> c1 = 1.0 / np.arange(1, 51)**2
+    >>> c2 = 1.0 / np.arange(1, 61)**2
+    >>> T = np.einsum('ijk,i,j,k->ijk', T0, c0, c1, c2)
+    >>> (bases, core), ss = tucker_svd_dense(T, rtol=1e-2)
+    >>> print(core.shape)
+        (3, 4, 3)
+    >>> T2 = jnp.einsum('abc, ai,bj,ck->ijk', core, bases[0], bases[1], bases[2])
+    >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-2
+        0.016764601091053873
+    >>> (bases, core), ss = tucker_svd_dense(T, rtol=1e-3)
+    >>> print(core.shape)
+        (9, 9, 9)
+    >>> T2 = jnp.einsum('abc, ai,bj,ck->ijk', core, bases[0], bases[1], bases[2])
+    >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-3
+        0.002418671417862558
+    >>> (bases, core), ss = tucker_svd_dense(T, rtol=1e-4)
+    >>> print(core.shape)
+        (20, 21, 21)
+    >>> T2 = jnp.einsum('abc, ai,bj,ck->ijk', core, bases[0], bases[1], bases[2])
+    >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-4
+        0.0003418353245534034
+    '''
+    xnp = jnp if use_jax else np
 
     bases = []
-    singular_values_of_unfoldings = []
+    singular_values_of_matricizations = []
     C = T
     for ii in range(len(T.shape)):
         C_swap = C.swapaxes(ii,0)
         old_shape_swap = C_swap.shape
 
+        min_rank = None if min_ranks is None else min_ranks[ii]
+        max_rank = None if max_ranks is None else max_ranks[ii]
+
         C_swap_mat = C_swap.reshape((old_shape_swap[0], -1))
-        U, ss, Vt = jnp.linalg.svd(C_swap_mat, full_matrices=False)
+        U, ss, Vt = truncated_svd(C_swap_mat, min_rank, max_rank, rtol, atol, use_jax)
+        rM_new = len(ss)
 
-        if max_ranks is not None:
-            ss = ss[:max_ranks[ii]]
-
-        tol = jnp.maximum(ss[0] * rtol, atol)
-
-        rM_new = jnp.sum(ss >= tol)
-        U = U[:, :rM_new]
-        ss = ss[:rM_new]
-        Vt = Vt[:rM_new, :]
-
-        singular_values_of_unfoldings.append(ss)
+        singular_values_of_matricizations.append(ss)
         bases.append(U.T)
         C_swap = (ss.reshape((-1,1)) * Vt).reshape((rM_new,) + old_shape_swap[1:])
         C = C_swap.swapaxes(0, ii)
 
-    return (tuple(bases), C), tuple(singular_values_of_unfoldings)
+    return (tuple(bases), C), tuple(singular_values_of_matricizations)
 
 
 def tt_svd_dense(
