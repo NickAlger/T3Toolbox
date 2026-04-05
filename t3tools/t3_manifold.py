@@ -3,10 +3,7 @@
 # https://github.com/NickAlger/TuckerTensorTrainTools
 import numpy as np
 import typing as typ
-from t3tools.tucker_tensor_train import *
-from t3tools.t3_base_variation_format import *
-from t3tools.t3_orthogonalization import *
-from t3tools.t3_svd import *
+import t3tools.tucker_tensor_train as t3
 
 try:
     import jax.numpy as jnp
@@ -18,15 +15,27 @@ NDArray = typ.Union[np.ndarray, jnp.ndarray]
 
 
 __all__ = [
+    # Base-variation format
+    'T3Base',
+    'T3Variation',
+    't3_check_base',
+    't3_check_variation',
+    't3base_hole_shapes',
+    't3_check_base_variation_fit',
+    'bv_to_t3',
+    't3_orthogonal_representations',
+    # Tangent vectors
     'T3Tangent',
     't3tangent_to_dense',
     't3tangent_to_t3',
+    't3tangent_zeros',
+    't3tangent_randn',
+    # Projection and retraction
     't3_orthogonal_gauge_projection',
     't3_oblique_gauge_projection',
     'project_t3_onto_tangent_space',
     't3_retract',
-    't3tangent_zeros',
-    't3tangent_randn',
+    # Tangent linear algebra
     't3tangent_scale',
     't3tangent_add',
     't3tangent_neg',
@@ -35,9 +44,642 @@ __all__ = [
     't3tangent_norm',
 ]
 
+################################################################
+########    TuckerTensorTrain base-variation format    #########
+################################################################
+
+T3Base = typ.Tuple[
+    typ.Sequence[NDArray],  # base_basis_cores. B_xo B_yo = I_xy    B.shape = (n, N)
+    typ.Sequence[NDArray],  # base_left_tt_cores. P_iax P_iay = I_xy, P.shape = (rL, n, rR)
+    typ.Sequence[NDArray],  # base_right_tt_cores. Q_xaj Q_yaj = I_xy  Q.shape = (rL, n, rR)
+    typ.Sequence[NDArray],  # base_outer_tt_cores. R_ixj R_iyj = I_xy  R.shape = (rL, n, rR)
+]
+"""
+Tuple containing base cores for base-variation representation of TuckerTensorTrains
+
+Often, one works with TuckerTensorTrains of the following forms::
+
+    1 -- L0 -- H1 -- R2 -- R3 -- 1
+         |     |     |     |
+         U0    U1    U2    U3
+         |     |     |     |
+
+    1 -- L0 -- L1 -- O2 -- R3 -- 1
+         |     |     |     |
+         U0    U1    V2    U3
+         |     |     |     |
+
+The "basis cores" are:
+    - basis_cores       = (U0, U1, U2, U3)
+    - left_tt_cores     = (L0, L1, L2, L3)
+    - right_tt_cores    = (R0, R1, R2, R3)
+    - outer_tt_cores    = (O0, O1, O2, O3)
+The "variation cores" are:
+    - basis_variations  = (V0, V1, V2, V3)
+    - tt_variations     = (H0, H1, H2, H3)
+
+See Also
+--------
+T3Variation
+t3_check_base
+t3_check_variation
+t3_check_base_variation_fit
+
+Examples
+--------
+>>> import numpy as np
+>>> import t3tools.t3_manifold as t3m
+>>> basis_cores = (randn(10, 14), randn(11, 15), randn(12, 16))
+>>> left_tt_cores = (randn(1, 10, 2), randn(2, 11, 3), randn(3, 12, 1))
+>>> right_tt_cores = (randn(1, 10, 4), randn(4, 11, 5), randn(5, 12, 1))
+>>> outer_tt_cores = (randn(1, 9, 4), randn(2, 8, 5), randn(3, 7, 1))
+>>> base = (basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+>>> t3m.t3_check_base(base) # Does nothing since base is internally consistent
+>>> var_basis_cores = (randn(9,14), randn(8,15), randn(7,16))
+>>> var_tt_cores = (randn(1,10,4), randn(2,11,5), randn(3,12,1))
+>>> variation = (var_basis_cores, var_tt_cores)
+>>> t3m.t3_check_variation(variation) # Does nothing since variation is internally consistent
+>>> t3m.t3_check_base_variation_fit(base, variation) # Does nothing since variation fits in base
+"""
+
+
+T3Variation = typ.Tuple[
+    typ.Sequence[NDArray],  # variation_basis_cores.
+    typ.Sequence[NDArray],  # variation_tt_cores.
+]
+"""
+Tuple containing variation cores for base-variation representation of TuckerTensorTrains
+
+See Also
+--------
+T3Base
+t3_check_base
+t3_check_variation
+t3_check_base_variation_fit
+"""
+
+
+def t3_check_base(
+        base: T3Base,
+) -> None:
+    '''Check that T3Base core shapes are internally consistent.
+
+    Contractions of the following forms must make sense::
+
+        1 -- L0 -- ( ) -- R2 -- R3 -- 1
+             |     |      |     |
+             U0    U1     U2    U3
+             |     |      |     |
+
+        1 -- L0 -- L1 -- O2 -- R3 -- 1
+             |     |     |     |
+             U0    U1    ( )   U3
+             |     |     |     |
+
+
+    Here:
+        - basis_cores       = (U0, U1, U2, U3)
+        - left_tt_cores     = (L0, L1, L2, L3)
+        - right_tt_cores    = (R0, R1, R2, R3)
+        - outer_tt_cores    = (O0, O1, O2, O3)
+
+    Raises
+    ------
+    RuntimeError
+        - Error raised if any core shapes are inconsistent
+    '''
+    basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
+
+    num_cores = len(basis_cores)
+    all_num_cores = [len(basis_cores), len(left_tt_cores), len(right_tt_cores), len(outer_tt_cores)]
+    if all_num_cores != [num_cores]*4:
+        raise RuntimeError(
+            'Orthogonals have different numbers of cores. These should all be equal:\n'
+            + '[len(basis_cores), len(left_tt_cores), len(right_tt_cores), len(outer_tt_cores)]=\n'
+            + str(all_num_cores)
+        )
+
+    # Check that basis_cores are matrices
+    for ii, B in enumerate(basis_cores):
+        if len(B.shape) != 2:
+            raise RuntimeError(
+                'basis_core is not a matrix:\n'
+                + 'basis_cores['+str(ii) + '].shape=' + str(B.shape)
+            )
+
+    # Check that outer_tt_cores are 3-tensors with leading and trailing 1 dims
+    for ii, G in enumerate(outer_tt_cores):
+        if len(G.shape) != 3:
+            raise RuntimeError(
+                'outer_tt_core is not a 3-tensor:\n'
+                + 'outer_tt_cores['+str(ii) + '].shape=' + str(G.shape)
+            )
+
+    if outer_tt_cores[0].shape[0] != 1:
+        raise RuntimeError(
+            'First outer_tt_core must have shape (1, . , .).\n'
+            + 'outer_tt_cores[0].shape=' + str(outer_tt_cores[0].shape)
+        )
+
+    if outer_tt_cores[-1].shape[2] != 1:
+        raise RuntimeError(
+            'Last outer_tt_core must have shape ( . , . , 1).\n'
+            + 'outer_tt_cores[-1].shape=' + str(outer_tt_cores[-1].shape)
+        )
+
+    # Check that left_tt_cores are 3-tensors with leading and trailing 1 dims
+    for ii, G in enumerate(left_tt_cores):
+        if len(G.shape) != 3:
+            raise RuntimeError(
+                'left_tt_core is not a 3-tensor:\n'
+                + 'left_tt_cores['+str(ii) + '].shape=' + str(G.shape)
+            )
+
+    if left_tt_cores[0].shape[0] != 1:
+        raise RuntimeError(
+            'First left_tt_core must have shape (1, . , .).\n'
+            + 'left_tt_cores[0].shape=' + str(left_tt_cores[0].shape)
+        )
+
+    if left_tt_cores[-1].shape[2] != 1:
+        raise RuntimeError(
+            'Last left_tt_core must have shape ( . , . , 1).\n'
+            + 'left_tt_cores[-1].shape=' + str(left_tt_cores[-1].shape)
+        )
+
+    # Check that right_tt_cores are 3-tensors with leading and trailing 1 dims
+    for ii, G in enumerate(right_tt_cores):
+        if len(G.shape) != 3:
+            raise RuntimeError(
+                'right_tt_core is not a 3-tensor:\n'
+                + 'right_tt_cores['+str(ii) + '].shape=' + str(G.shape)
+            )
+
+    if right_tt_cores[0].shape[0] != 1:
+        raise RuntimeError(
+            'First right_tt_core must have shape (1, . , .).\n'
+            + 'right_tt_cores[0].shape=' + str(right_tt_cores[0].shape)
+        )
+
+    if right_tt_cores[-1].shape[2] != 1:
+        raise RuntimeError(
+            'Last right_tt_core must have shape ( . , . , 1).\n'
+            + 'right_tt_cores[-1].shape=' + str(right_tt_cores[-1].shape)
+        )
+
+    # Check outer-left consistency
+    for ii in range(1, num_cores):
+        GO = outer_tt_cores[ii]
+        GL = left_tt_cores[ii-1]
+        if GO.shape[0] != GL.shape[2]:
+            raise RuntimeError(
+                'Inconsistency in outer_tt_core and left_tt_core shapes:\n'
+                + str(GO.shape[0]) + ' = GO.shape[0] != GL.shape[2] = ' + str(GL.shape[2]) + '\n'
+                + 'left_tt_cores[' + str(ii - 1) + '].shape=' + str(GL.shape) + '\n'
+                + 'outer_tt_cores['+str(ii)+'].shape=' + str(GO.shape)
+            )
+
+    # Check outer-right consistency
+    for ii in range(0, num_cores-1):
+        GO = outer_tt_cores[ii]
+        GR = right_tt_cores[ii+1]
+        if GO.shape[2] != GR.shape[0]:
+            raise RuntimeError(
+                'Inconsistency in outer_tt_core and right_tt_core shapes:\n'
+                + str(GO.shape[2]) + ' = GO.shape[2] != GR.shape[0] = ' + str(GR.shape[0]) + '\n'
+                + 'outer_tt_cores['+str(ii)+'].shape=' + str(GO.shape) + '\n'
+                + 'right_tt_cores['+str(ii+11)+'].shape=' + str(GR.shape)
+            )
+
+    # Check left-left consistency
+    for ii in range(1, num_cores):
+        GL1 = left_tt_cores[ii-1]
+        GL2 = left_tt_cores[ii]
+        if GL1.shape[2] != GL2.shape[0]:
+            raise RuntimeError(
+                'Inconsistency in left_tt_core shapes:\n'
+                + str(GL1.shape[2]) + ' = GL1.shape[2] != GL2.shape[0] = ' + str(GL2.shape[0]) + '\n'
+                + 'left_tt_cores['+str(ii-1)+'].shape=' + str(GL1.shape) + '\n'
+                + 'left_tt_cores['+str(ii)+'].shape=' + str(GL2.shape)
+            )
+
+    # Check outer-left consistency
+    for ii in range(0, num_cores-1):
+        G = left_tt_cores[ii]
+        B = basis_cores[ii]
+        if G.shape[1] != B.shape[0]:
+            raise RuntimeError(
+                'Inconsistency in left_tt_core and basis_core shapes:\n'
+                + str(G.shape[1]) + ' = G.shape[1] != B.shape[0] = ' + str(B.shape[0]) + '\n'
+                + 'left_tt_cores['+str(ii)+'].shape=' + str(G.shape) + '\n'
+                + 'basis_cores['+str(ii)+'].shape=' + str(B.shape)
+            )
+
+    # Check right-right consistency
+    for ii in range(0, num_cores-1):
+        GR1 = right_tt_cores[ii]
+        GR2 = right_tt_cores[ii+1]
+        if GR1.shape[2] != GR2.shape[0]:
+            raise RuntimeError(
+                'Inconsistency in right_tt_core shapes:\n'
+                + str(GR1.shape[2]) + ' = GR1.shape[2] != GR2.shape[0] = ' + str(GR2.shape[0]) + '\n'
+                + 'right_tt_cores['+str(ii)+'].shape=' + str(GR1.shape) + '\n'
+                + 'right_tt_cores['+str(ii+11)+'].shape=' + str(GR2.shape)
+            )
+
+    # Check outer-left consistency
+    for ii in range(1, num_cores):
+        G = right_tt_cores[ii]
+        B = basis_cores[ii]
+        if G.shape[1] != B.shape[0]:
+            raise RuntimeError(
+                'Inconsistency in right_tt_core and basis_core shapes:\n'
+                + str(G.shape[1]) + ' = G.shape[1] != B.shape[0] = ' + str(B.shape[0]) + '\n'
+                + 'right_tt_cores['+str(ii)+'].shape=' + str(G.shape) + '\n'
+                + 'basis_cores['+str(ii)+'].shape=' + str(B.shape)
+            )
+
+
+def t3_check_variation(
+        variation: T3Variation,
+) -> None:
+    '''Check that T3Variation core shapes are appropriate.
+
+    Raises
+    ------
+    RuntimeError
+        - Error raised if any core shapes are inappropriate
+    '''
+    var_basis_cores, var_tt_cores = variation
+
+    if len(var_basis_cores) != len(var_tt_cores):
+        raise RuntimeError(
+            str(len(var_basis_cores)) + ' = len(var_basis_cores) != len(var_tt_cores) = ' + str(len(var_tt_cores))
+        )
+    num_cores = len(var_basis_cores)
+
+    # Check that basis_cores are matrices
+    for ii, B in enumerate(var_basis_cores):
+        if len(B.shape) != 2:
+            raise RuntimeError(
+                'var_basis_core is not a matrix:\n'
+                + 'var_basis_cores['+str(ii) + '].shape=' + str(B.shape)
+            )
+
+    # Check that outer_tt_cores are 3-tensors with leading and trailing 1 dims
+    for ii, G in enumerate(var_tt_cores):
+        if len(G.shape) != 3:
+            raise RuntimeError(
+                'var_tt_core is not a 3-tensor:\n'
+                + 'var_tt_cores['+str(ii) + '].shape=' + str(G.shape)
+            )
+
+
+def t3base_hole_shapes(
+        base: T3Base,
+) -> typ.Tuple[
+    typ.Tuple[int,...], # variation_basis_shapes. len=d. elm_len=2
+    typ.Tuple[int,...], # variation_tt_shapes. len=d. elm_len=3
+]:
+    '''T3Variation core shapes that fit with given T3Base.
+
+    Shapes of the "holes" in the following tensor diagrams::
+
+        1 -- L0 -- ( ) -- R2 -- R3 -- 1
+             |      |      |      |
+             U0     U1     U2     U3
+             |      |      |      |
+
+        1 -- L0 -- L1 -- O2 -- R3 -- 1
+             |     |     |     |
+             U0    U1    ( )   U3
+             |     |     |     |
+
+    Here:
+        - basis_cores       = (U0, U1, U2, U3)
+        - left_tt_cores     = (L0, L1, L2, L3)
+        - right_tt_cores    = (R0, R1, R2, R3)
+        - outer_tt_cores    = (O0, O1, O2, O3)
+
+    Parameters
+    ----------
+    base: T3Base
+        Base cores
+
+    Returns
+    -------
+    typ.Tuple[int,...]
+        Variation basis core shapes. len=d. elm_len=2
+    typ.Tuple[int,...]
+        Variation TT core shapes. len=d. elm_len=3
+
+    Raises
+    ------
+    RuntimeError
+        - Error raised if any base_core shapes are inconsistent
+
+    Examples
+    --------
+    >>> from numpy.random import randn
+    >>> from t3tools.tucker_tensor_train import *
+    >>> from t3tools.t3_base_variation_format import *
+    >>> basis_cores = (randn(10,14), randn(11,15), randn(12,16))
+    >>> left_tt_cores = (randn(1,10,2), randn(2,11,3), randn(3,12,1))
+    >>> right_tt_cores = (randn(1,10,4), randn(4,11,5), randn(5,12,1))
+    >>> outer_tt_cores = (randn(1,9,4), randn(2,8,5), randn(3,7,1))
+    >>> base = (basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+    >>> (var_basis_shapes, var_tt_shapes) = t3base_hole_shapes(base)
+    >>> print(var_basis_shapes)
+        ((9, 14), (8, 15), (7, 16))
+    >>> print(var_tt_shapes)
+        ((1, 10, 4), (2, 11, 5), (3, 12, 1))
+    '''
+    t3_check_base(base)
+    basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
+    num_cores = len(basis_cores)
+
+    variation_basis_shapes = []
+    for ii in range(num_cores):
+        n = outer_tt_cores[ii].shape[1]
+        N = basis_cores[ii].shape[1]
+        variation_basis_shapes.append((n,N))
+
+    variation_tt_shapes = []
+    for ii in range(num_cores):
+        rL = 1 if ii==0 else left_tt_cores[ii-1].shape[2]
+        n = basis_cores[ii].shape[0]
+        rR = 1 if ii==num_cores-1 else right_tt_cores[ii+1].shape[0]
+        variation_tt_shapes.append((rL, n, rR))
+
+    return tuple(variation_basis_shapes), tuple(variation_tt_shapes)
+
+
+def t3_check_base_variation_fit(
+        base: T3Base,
+        variation: T3Variation,
+) -> None:
+    '''Check that the variation cores fit into the corresponding holes of the base.
+
+    Parameters
+    ----------
+    base: T3Base
+        Base cores
+    variation: T3Variation
+        Variation cores
+
+    Raises
+    ------
+    RuntimeError
+        - Error raised if the base is internally inconsistent
+        - Error raised if the variation is internally incorrect
+        - Error raised if the base and variation do not fit with each other
+
+    See Also
+    --------
+    T3Base
+    T3Variation
+    t3_check_base
+    t3_check_variation
+    '''
+    t3_check_base(base)
+    t3_check_variation(variation)
+
+    var_basis_cores, var_tt_cores = variation
+    var_basis_shapes = tuple([B.shape for B in var_basis_cores])
+    var_tt_shapes = tuple([G.shape for G in var_tt_cores])
+
+    hole_basis_shapes, hole_tt_shapes = t3base_hole_shapes(base)
+
+    if var_basis_shapes != hole_basis_shapes:
+        raise RuntimeError(
+            'Variation basis does do not fit into base:\n'
+            + 'var_basis_shapes=' + str(var_basis_shapes) + '\n'
+            + 'hole_basis_shapes=' + str(hole_basis_shapes) + '\n'
+        )
+
+    if var_tt_shapes != hole_tt_shapes:
+        raise RuntimeError(
+            'Variation tt does do not fit into base:\n'
+            + 'var_tt_shapes=' + str(var_tt_shapes) + '\n'
+            + 'hole_tt_shapes=' + str(hole_tt_shapes) + '\n'
+        )
+
+
+def bv_to_t3(
+        replacement_ind: int,
+        replace_tt: bool, # If True, replace TT-core. If False, replace basis_core.
+        base: T3Base,
+        variation: T3Variation,
+) -> t3.TuckerTensorTrain:
+    '''Convert basis-variation representation to TuckerTensorTrain.
+
+    If replacement_ind=1, replace_tt=True::
+
+        1 -- L0 -- H1 -- R2 -- R3 -- 1
+             |     |     |     |
+             U0    U1    U2    U3
+             |     |     |     |
+
+    If replacement_ind=2, replace_tt=False::
+
+        1 -- L0 -- L1 -- O2 -- R3 -- 1
+             |     |     |     |
+             U0    U1    V2    U3
+             |     |     |     |
+
+    Parameters
+    ----------
+    replacement_ind: int
+        Index of core to replace. 0 <= replacement_ind < num_cores
+    replace_tt: bool
+        Indicates whether to replace a TT-core (True) or a basis core (False)
+    base: T3Base
+        Base cores
+    variation: T3Variation
+        Variation cores
+
+    Raises
+    ------
+    RuntimeError
+        - Error raised if the base is internally inconsistent
+        - Error raised if the variation is internally incorrect
+        - Error raised if the base and variation do not fit with each other
+
+    Examples
+    --------
+    >>> from numpy.random import randn
+    >>> from t3tools.tucker_tensor_train import *
+    >>> from t3tools.t3_base_variation_format import *
+    >>> (U0,U1,U2) = (randn(10, 14), randn(11, 15), randn(12, 16))
+    >>> (L0,L1,L2) = (randn(1, 10, 2), randn(2, 11, 3), randn(3, 12, 1))
+    >>> (R0,R1,R2) = (randn(1, 10, 4), randn(4, 11, 5), randn(5, 12, 1))
+    >>> (O0,O1,O2) = (randn(1, 9, 4), randn(2, 8, 5), randn(3, 7, 1))
+    >>> base = ((U0,U1,U2), (L0,L1,L2), (R0,R1,R2), (O0,O1,O2))
+    >>> (V0,V1,V2) = (randn(9,14), randn(8,15), randn(7,16))
+    >>> (H0,H1,H2) = (randn(1,10,4), randn(2,11,5), randn(3,12,1))
+    >>> variation = ((V0,V1,V2), (H0,H1,H2))
+    >>> ((B0, B1, B2), (G0, G1, G2)) = bv_to_t3(1, True, base, variation) # replace index-1 TT-core
+    >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,U1,U2), (L0,H1,R2)))
+        True
+    >>> ((B0, B1, B2), (G0, G1, G2)) = bv_to_t3(1, False, base, variation) # replace index-1 basis core
+    >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,O1,R2)))
+        True
+    '''
+    t3_check_base(base)
+    t3_check_variation(variation)
+
+    basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
+    basis_vars, tt_vars = variation
+
+    if replace_tt:
+        x_basis_cores = basis_cores
+        x_tt_cores = (
+                tuple(left_tt_cores[:replacement_ind]) +
+                (tt_vars[replacement_ind],) +
+                tuple(right_tt_cores[replacement_ind+1:])
+        )
+    else:
+        x_basis_cores = (
+            tuple(basis_cores[:replacement_ind]) +
+            (basis_vars[replacement_ind],) +
+            tuple(basis_cores[replacement_ind+1:])
+        )
+        x_tt_cores = (
+                tuple(left_tt_cores[:replacement_ind]) +
+                (outer_tt_cores[replacement_ind],) +
+                tuple(right_tt_cores[replacement_ind+1:])
+        )
+
+    return (x_basis_cores, x_tt_cores)
+
+
+def t3_orthogonal_representations(
+        x: t3.TuckerTensorTrain,
+        use_jax: bool = False,
+) -> typ.Tuple[
+    T3Base, # orthogonal base
+    T3Variation, # variations
+]:
+    '''Construct base-variation representations of TuckerTensorTrain with orthogonal base.
+
+    Input TuckerTensorTrain::
+
+                  1 -- G0 -- G1 -- G2 -- G3 -- 1
+        X    =         |     |     |     |
+                       B0    B1    B2    B3
+                       |     |     |     |
+
+    Base-variation representation with non-orthogonal TT-core H1::
+
+                  1 -- L0 -- H1 -- R2 -- R3 -- 1
+        X    =         |     |     |     |
+                       U0    U1    U2    U3
+                       |     |     |     |
+
+    Base-variation representation with non-orthogonal basis core V2::
+
+                  1 -- L0 -- L1 -- O2 -- R3 -- 1
+        X    =         |     |     |     |
+                       U0    U1    V2    U3
+                       |     |     |     |
+
+    The input tensor train x is defined by:
+        - x_basis_cores     = (B0, B1, B2, B3)
+        - x_tt_cores        = (G0, G1, G2, G3)
+    The "basis cores" are:
+        - basis_cores       = (U0,U1, U2, U3), up orthogonal
+        - left_tt_cores     = (L0, L1, L2, L3), left orthogonal
+        - right_tt_cores    = (R0, R1, R2, R3), right orthogonal
+        - outer_tt_cores    = (O0, O1, O2, O3), down orthogonal
+    The "variation cores" are:
+        - basis_variations  = (V0, V1, V2, V3)
+        - tt_variations     = (H0, H1, H2, H3)
+
+    Parameters
+    ----------
+    x: TuckerTensorTrain
+        Input TuckerTensorTrain
+        x = (x_basis_cores, x_tt_cores)
+        x_basis_cores = (B0, ..., Bd)
+        x_tt_cores = (G0, ..., Gd)
+    use_jax: bool
+        If True use jax operations, if False use numpy.
+
+    Returns
+    -------
+    T3Base
+        Orthogonal base for base-variation representations of x.
+    T3Variation
+        Variation for base-variation representaions of x.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from t3tools import *
+    >>> x = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+    >>> base, variation = t3_orthogonal_representations(x) # Compute orthogonal representations
+    >>> basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
+    >>> basis_vars, tt_vars = variation
+    >>> (U0,U1,U2) = basis_cores
+    >>> (L0,L1,L2) = left_tt_cores
+    >>> (R0,R1,R2) = right_tt_cores
+    >>> (O0,O1,O2) = outer_tt_cores
+    >>> (V0,V1,V2) = basis_vars
+    >>> (H0,H1,H2) = tt_vars
+    >>> x2 = ((U0,U1,U2), (L0,H1,R2)) # representation with TT-core variation in index 1
+    >>> print(np.linalg.norm(t3_to_dense(x) - t3_to_dense(x2))) # Still represents origional tensor
+    4.978421562425667e-12
+    >>> x3 = ((U0,V1,U2), (L0,O1,R2)) # representation with basis core variation in index 1
+    >>> print(np.linalg.norm(t3_to_dense(x) - t3_to_dense(x3))) # Still represents origional tensor
+    5.4355175448533146e-12
+    >>> print(np.linalg.norm(U1 @ U1.T - np.eye(U1.shape[0]))) # U: orthogonal
+    1.1915111872574236e-15
+    >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', L1, L1) - np.eye(L1.shape[2]))) # L: left orthogonal
+    9.733823879665448e-16
+    >>> print(np.linalg.norm(np.einsum('iaj,kaj->ik', R1, R1) - np.eye(R1.shape[0]))) # R: right orthogonal
+    8.027553546330097e-16
+    >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', O1, O1) - np.eye(O1.shape[1]))) # O: outer orthogonal
+    1.3870474292323159e-15
+    '''
+    t3.t3_check(x)
+
+    num_cores = len(x[1])
+
+    # Orthogonalize basis matrices
+    for ii in range(num_cores):
+        x = t3.up_svd_ith_basis_core(ii, x, use_jax=use_jax)[0]
+    basis_cores = tuple([U.copy() for U in x[0]])
+
+    # Right orthogonalize
+    for ii in range(num_cores-1, 0, -1): # num_cores-1, num_cores-2, ..., 1
+        x = t3.right_svd_ith_tt_core(ii, x, use_jax=use_jax)[0]
+    right_tt_cores = tuple([G.copy() for G in x[1]])
+
+    basis_variations = []
+    tt_variations = []
+
+    left_tt_cores = []
+    outer_tt_cores = []
+    # Sweep left to right
+    for ii in range(num_cores):
+        tt_variations.append(x[1][ii])
+
+        tmp = t3.down_svd_ith_tt_core(ii, x, use_jax=use_jax)[0]
+        outer_tt_cores.append(tmp[1][ii])
+        basis_variations.append(tmp[0][ii])
+
+        if ii < num_cores-1:
+            x = t3.left_svd_ith_tt_core(ii, x, use_jax=use_jax)[0]
+        left_tt_cores.append(x[1][ii])
+
+    base = (basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+    variation = (basis_variations, tt_variations)
+    return base, variation
+
+
 
 ####################################################################
-###########    Fixed rank TuckerTensorTrain manifold   #############
+#######################    Tangent vectors  ########################
 ####################################################################
 
 T3Tangent = typ.Tuple[
@@ -127,13 +769,13 @@ def t3tangent_to_dense(
     basis_terms = [bv_to_t3(ii, False, base, variation) for ii in range(num_cores)]
     tt_terms    = [bv_to_t3(ii, True, base, variation) for ii in range(num_cores)]
     terms = basis_terms + tt_terms
-    V = t3_to_dense(terms[0])
+    V = t3.t3_to_dense(terms[0])
     for t in terms[1:]:
-        V = V + t3_to_dense(t)
+        V = V + t3.t3_to_dense(t)
 
     if include_shift:
         basis_cores, left_tt_cores, _, _ = base
-        P = t3_to_dense((basis_cores, left_tt_cores))
+        P = t3.t3_to_dense((basis_cores, left_tt_cores))
         X = P + V
     else:
         X = V
@@ -145,7 +787,7 @@ def t3tangent_to_t3(
         x: T3Tangent,
         include_shift: bool = False,  # False: v. True: p+v. p=base point, v=tangent vector
         use_jax: bool = False,
-) -> TuckerTensorTrain:
+) -> t3.TuckerTensorTrain:
     '''Rank 2r Tucker tensor train representation of tangent vector.
 
     Without shift, we use the formula::
@@ -260,6 +902,108 @@ def t3tangent_to_t3(
 
     return tuple(x_basis_cores), tuple(x_tt_cores)
 
+
+def t3tangent_zeros(
+        orthogonal_base: T3Base, # orthogonal base
+        use_jax: bool = False,
+) -> T3Tangent:
+    """Construct the zero vector in a Tucker tensor train tangent space.
+
+    Parameters
+    ----------
+    orthogonal_base: T3Base
+        Orthogonal representations of base point on manifold where tangent space is attached
+    use_jax: bool
+        If True, return jax arrays, if False return numpy.
+
+    Returns
+    -------
+    T3Tangent
+        Zero vector in the tangent space
+
+    See Also
+    --------
+    T3Tangent
+    t3tangent_randn
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from t3tools import *
+    >>> p = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+    >>> base, vars0 = t3_orthogonal_representations(p)
+    >>> z = t3tangent_zeros(base)
+    >>> print(np.linalg.norm(t3tangent_to_dense(z)))
+    0.0
+    """
+    xnp = jnp if use_jax else np
+
+    t3_check_base(orthogonal_base)
+
+    var_basis_shapes, var_tt_shapes = t3base_hole_shapes(orthogonal_base)
+
+    basis_vars = tuple([xnp.zeros(s) for s in var_basis_shapes])
+    tt_vars = tuple([xnp.zeros(s) for s in var_tt_shapes])
+
+    zero = (orthogonal_base, (basis_vars, tt_vars))
+    return zero
+
+
+def t3tangent_randn(
+        orthogonal_base: T3Base, # orthogonal base
+        use_jax: bool = False,
+        apply_gauge_projection: bool = True,
+) -> T3Tangent:
+    """Draw a random T3Tangent from a uniform normal disribution on the tangent space.
+
+    Parameters
+    ----------
+    orthogonal_base: T3Base
+        Orthogonal representations of base point on manifold where tangent space is attached
+
+    Returns
+    -------
+    T3Tangent
+        Random tangent vector. gauged.
+    use_jax: bool
+        If True, return jax arrays, if False return numpy. Should update this to use pure jax, rather than converting numpy->jax.
+    apply_gauge_projection: bool
+        Default: True. If False, gauge projection is not applied and vector is not i.i.d. N(0,1) on the tangent space
+
+    See Also
+    --------
+    T3Tangent
+    t3tangent_zeros
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from t3tools import *
+    >>> p = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+    >>> base, vars0 = t3_orthogonal_representations(p)
+    >>> x = t3tangent_randn(base) # Random tangent vector
+    """
+    t3_check_base(orthogonal_base)
+
+    var_basis_shapes, var_tt_shapes = t3base_hole_shapes(orthogonal_base)
+
+    if use_jax:
+        _randn = lambda x: jnp.array(np.random.randn(x))
+    else:
+        _randn = np.random.randn
+
+    basis_vars0 = tuple([_randn(*s) for s in var_basis_shapes])
+    tt_vars0 = tuple([_randn(*s) for s in var_tt_shapes])
+
+    x = (orthogonal_base, (basis_vars0, tt_vars0))
+    if apply_gauge_projection:
+        x = t3_orthogonal_gauge_projection(x)
+    return x
+
+
+####################################################################
+#################    Projection and retraction   ###################
+####################################################################
 
 def t3_orthogonal_gauge_projection(
         x: T3Tangent,
@@ -450,7 +1194,7 @@ def tt_zipper_right_to_left(
 
 
 def project_t3_onto_tangent_space(
-        x: TuckerTensorTrain, # Tucker tensor train to be projected
+        x: t3.TuckerTensorTrain, # Tucker tensor train to be projected
         orthogonal_base: T3Base, # Orthogonal representations of base point
         use_jax: bool = False,
 ) -> T3Tangent:
@@ -492,7 +1236,7 @@ def project_t3_onto_tangent_space(
     """
     xnp = jnp if use_jax else np
 
-    t3_check(x)
+    t3.t3_check(x)
     t3_check_base(orthogonal_base)
 
     basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = orthogonal_base
@@ -537,7 +1281,7 @@ def project_t3_onto_tangent_space(
 def t3_retract(
         x: T3Tangent,
         use_jax: bool = False,
-) -> TuckerTensorTrain: # retracted Tucker tensor train
+) -> t3.TuckerTensorTrain: # retracted Tucker tensor train
     """Retract Tucker tensor train tangent vector to manifold.
 
     Parameters
@@ -577,10 +1321,10 @@ def t3_retract(
     t3_check_base_variation_fit(*x)
 
     basis_cores, left_tt_cores, _, _ = x[0]
-    _, base_tucker_ranks, base_tt_ranks = t3_structure((basis_cores, left_tt_cores))
+    _, base_tucker_ranks, base_tt_ranks = t3.t3_structure((basis_cores, left_tt_cores))
 
     x_t3 = t3tangent_to_t3(x, include_shift=True)
-    retracted_x_t3, _, _ = t3_svd(
+    retracted_x_t3, _, _ = t3.t3_svd(
         x_t3,
         max_tt_ranks = base_tt_ranks,
         max_tucker_ranks = base_tucker_ranks,
@@ -590,109 +1334,7 @@ def t3_retract(
 
 
 ####################################################################
-############    Construct special kinds of T3Tangent   #############
-####################################################################
-
-def t3tangent_zeros(
-        orthogonal_base: T3Base, # orthogonal base
-        use_jax: bool = False,
-) -> T3Tangent:
-    """Construct the zero vector in a Tucker tensor train tangent space.
-
-    Parameters
-    ----------
-    orthogonal_base: T3Base
-        Orthogonal representations of base point on manifold where tangent space is attached
-    use_jax: bool
-        If True, return jax arrays, if False return numpy.
-
-    Returns
-    -------
-    T3Tangent
-        Zero vector in the tangent space
-
-    See Also
-    --------
-    T3Tangent
-    t3tangent_randn
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from t3tools import *
-    >>> p = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
-    >>> base, vars0 = t3_orthogonal_representations(p)
-    >>> z = t3tangent_zeros(base)
-    >>> print(np.linalg.norm(t3tangent_to_dense(z)))
-    0.0
-    """
-    xnp = jnp if use_jax else np
-
-    t3_check_base(orthogonal_base)
-
-    var_basis_shapes, var_tt_shapes = t3base_hole_shapes(orthogonal_base)
-
-    basis_vars = tuple([xnp.zeros(s) for s in var_basis_shapes])
-    tt_vars = tuple([xnp.zeros(s) for s in var_tt_shapes])
-
-    zero = (orthogonal_base, (basis_vars, tt_vars))
-    return zero
-
-
-def t3tangent_randn(
-        orthogonal_base: T3Base, # orthogonal base
-        use_jax: bool = False,
-        apply_gauge_projection: bool = True,
-) -> T3Tangent:
-    """Draw a random T3Tangent from a uniform normal disribution on the tangent space.
-
-    Parameters
-    ----------
-    orthogonal_base: T3Base
-        Orthogonal representations of base point on manifold where tangent space is attached
-
-    Returns
-    -------
-    T3Tangent
-        Random tangent vector. gauged.
-    use_jax: bool
-        If True, return jax arrays, if False return numpy. Should update this to use pure jax, rather than converting numpy->jax.
-    apply_gauge_projection: bool
-        Default: True. If False, gauge projection is not applied and vector is not i.i.d. N(0,1) on the tangent space
-
-    See Also
-    --------
-    T3Tangent
-    t3tangent_zeros
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> from t3tools import *
-    >>> p = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
-    >>> base, vars0 = t3_orthogonal_representations(p)
-    >>> x = t3tangent_randn(base) # Random tangent vector
-    """
-    t3_check_base(orthogonal_base)
-
-    var_basis_shapes, var_tt_shapes = t3base_hole_shapes(orthogonal_base)
-
-    if use_jax:
-        _randn = lambda x: jnp.array(np.random.randn(x))
-    else:
-        _randn = np.random.randn
-
-    basis_vars0 = tuple([_randn(*s) for s in var_basis_shapes])
-    tt_vars0 = tuple([_randn(*s) for s in var_tt_shapes])
-
-    x = (orthogonal_base, (basis_vars0, tt_vars0))
-    if apply_gauge_projection:
-        x = t3_orthogonal_gauge_projection(x)
-    return x
-
-
-####################################################################
-##################    T3Tangent linear algebra   ###################
+###################    Tangent linear algebra   ####################
 ####################################################################
 
 def t3tangent_scale(

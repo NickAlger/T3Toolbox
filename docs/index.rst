@@ -3,15 +3,15 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to TuckerTensorTrainTools's documentation!
-==================================================
+TuckerTensorTrainTools's documentation
+======================================
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
    
-   modules
+   t3tools
 
 
 Indices and tables
@@ -20,13 +20,6 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
-
-Authors
-=======
-
-* Nick Alger
-* Blake Christierson
 
 
 Background
@@ -59,7 +52,10 @@ The Tucker tensor train with d indices is represented as a Tuple of cores, ((B0,
 	- ((N1,...,Nd), (n1,...,nd), (1,r1,...,r(d-1),1)) is the *structure*.
 	
 
-	
+
+Tucker tensor trains represent dense tensors
+--------------------------------------------
+
 Although the Tucker tensor train is defined by its cores, we always keep in mind that it *represents* a dense tensor in R^(N1 x ... x Nd). Tensor train representations are not unique; this fact is exploited by many Tensor train algorithms. 
 
 When we perform operations with Tucker tensor trains, like adding them, scaling them, taking inner products, etc, we typically are simulating these operations on the represented dense tensors, using the cores as a computational device to avoid operating on gigantically large arrays. We are not performing the operations "corewise".
@@ -140,43 +136,51 @@ In this case:
 We keep track of which parts of the cores are supposed to be zero, and prevent filling in these parts, with *edge masks*. For each edge, the mask is a boolean vector of the form (1,...,1,0,...,0). 
 	- The masks for the edges between basis cores and TT-cores have length n. For the ith edge, the first ni entries are 1, and the remaining entries are 0. These *Tucker edge masks* are collected into a boolean array with shape (d+1, r).
 	- The masks for the edges between adjacent TT-cores have length r. For the ith edge, the first ri entries are 1, and the remaining entries are 0. These *TT edge masks* are collected into boolean array with shape (d,n).
-	
-	
+
 
 Relevant literature
-===================
+-------------------
 
-* Most of the algorithms here are extensions of standard tensor train algorithms (no Tucker)
-	* For an introduction to tensor train methods, we highly recommend two extremely well written Ph.D. Theses: Chapter 1 of Voorhaar, Willem Hendrik Voorhaar's Ph.D. thesis [1], and Chapter 3 of Patrick Gelß's Ph.D. thesis [2]. 
+* Most of the Tucker tensor train algorithms are described in Appendix A of our paper [1]. 
+
+* The probing algorithms are described in Section 4 of our paper [1].
+
+* The algorithms here are extensions of standard tensor train algorithms (no Tucker)
+	* For an introduction to tensor train methods, we highly recommend two extremely well written Ph.D. Theses: Chapter 1 of Voorhaar, Willem Hendrik Voorhaar's Ph.D. thesis [2], and Chapter 3 of Patrick Gelß's Ph.D. thesis [3]. 
 	* The foundations behind these algorithms were established over the last 20 years. 
-		* Oseledets [3] defines the basics of Tensor trains and TT-SVD. 
-		* In [4], Holtz, Rohwedder, and Schneider detail the manifold of fixed rank tensor trains and its tangent space and presents gauged representations and oblique gauge projection, but only used left-orthogonal representations for tangent vector bases.
-		* Using both left- and right-orthogonal representations was proposed in Khoromskij [5].
-		* The modern manifold methods are given in Steinlechner [6]. 
+		* Oseledets [4] defines the basics of Tensor trains and TT-SVD. 
+		* In [5], Holtz, Rohwedder, and Schneider detail the manifold of fixed rank tensor trains and its tangent space and presents gauged representations and oblique gauge projection, but only used left-orthogonal representations for tangent vector bases.
+		* Using both left- and right-orthogonal representations was proposed in Khoromskij, Oseledets, and Schneider [6].
+		* The modern manifold methods are given in Steinlechner [7]. 
 		* Some of these methods may have been known to the physics community earlier, where tensor trains are known as "Matrix product states."
 
-* The basics of the Tucker decomposition are described well in Kolda's review paper [7].
+* The basics of the Tucker decomposition are described well in Kolda's review paper [8].
 
-* Most of the more difficult Tucker tensor train algorithms are described in Appendix A of our paper [8]. 
 
-* The probing algorithms are described in Section 4 of our paper [8].
+[1] Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026). "Tucker Tensor Train Taylor Series." arXiv preprint arXiv:2603.21141. `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
 
-[1] Voorhaar, Willem Hendrik. "Tensor train approximations: Riemannian methods, randomized linear algebra and applications to machine learning." Diss. Ph. D. dissertation, Section de Mathématiques, Univ. Geneva, Geneva, Switzerland, 2022.
+[2] Voorhaar, Willem Hendrik. "Tensor train approximations: Riemannian methods, randomized linear algebra and applications to machine learning." Diss. Ph. D. dissertation, Section de Mathématiques, Univ. Geneva, Geneva, Switzerland, 2022.
 
-[2] Gelß, Patrick. The tensor-train format and its applications: Modeling and analysis of chemical reaction networks, catalytic processes, fluid flows, and Brownian dynamics. Diss. 2017.
+[3] Gelß, Patrick. The tensor-train format and its applications: Modeling and analysis of chemical reaction networks, catalytic processes, fluid flows, and Brownian dynamics. Diss. 2017.
 
-[3] Oseledets, Ivan V. "Tensor-train decomposition." SIAM Journal on Scientific Computing 33.5 (2011): 2295-2317.
+[4] Oseledets, Ivan V. "Tensor-train decomposition." SIAM Journal on Scientific Computing 33.5 (2011): 2295-2317.
 
-[4] Holtz, Sebastian, Thorsten Rohwedder, and Reinhold Schneider. "On manifolds of tensors of fixed TT-rank." Numerische Mathematik 120.4 (2012): 701-731.
+[5] Holtz, Sebastian, Thorsten Rohwedder, and Reinhold Schneider. "On manifolds of tensors of fixed TT-rank." Numerische Mathematik 120.4 (2012): 701-731.
 
-[5] Khoromskij, Boris N., Ivan V. Oseledets, and Reinhold Schneider. "Efficient time-stepping scheme for dynamics on TT-manifolds." (2012).
+[6] Khoromskij, Boris N., Ivan V. Oseledets, and Reinhold Schneider. "Efficient time-stepping scheme for dynamics on TT-manifolds." (2012).
 
-[6] Steinlechner, Michael. "Riemannian optimization for high-dimensional tensor completion." SIAM Journal on Scientific Computing 38.5 (2016): S461-S484. `https://epubs.siam.org/doi/10.1137/15M1010506 <https://epubs.siam.org/doi/10.1137/15M1010506>`_
+[7] Steinlechner, Michael. "Riemannian optimization for high-dimensional tensor completion." SIAM Journal on Scientific Computing 38.5 (2016): S461-S484. `https://epubs.siam.org/doi/10.1137/15M1010506 <https://epubs.siam.org/doi/10.1137/15M1010506>`_
 
-[7] Kolda, Tamara G., and Brett W. Bader. "Tensor decompositions and applications." SIAM review 51.3 (2009): 455-500. `https://epubs.siam.org/doi/10.1137/07070111X <https://epubs.siam.org/doi/10.1137/07070111X>`_
+[8] Kolda, Tamara G., and Brett W. Bader. "Tensor decompositions and applications." SIAM review 51.3 (2009): 455-500. `https://epubs.siam.org/doi/10.1137/07070111X <https://epubs.siam.org/doi/10.1137/07070111X>`_
 
-[8] Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026). "Tucker Tensor Train Taylor Series." arXiv preprint arXiv:2603.21141. `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
 
+
+
+Authors
+=======
+
+* Nick Alger
+* Blake Christierson
 
 
 
