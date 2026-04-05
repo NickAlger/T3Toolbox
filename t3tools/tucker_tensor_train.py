@@ -27,6 +27,7 @@ __all__ = [
     't3_reverse',
     't3_check',
     't3_zeros',
+    't3_corewise_randn',
     't3_minimal_ranks',
     't3_pad_ranks',
     't3_save',
@@ -64,21 +65,12 @@ Structure:
 
 Examples
 --------
->>> from numpy.random import randn
+>>> import numpy as np
 >>> from t3tools.tucker_tensor_train import *
->>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
->>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
->>> x = (basis_cores, tt_cores)
->>> print(isinstance(x, TuckerTensorTrain))
-    True
->>> t3_check_correctness(x) # does nothing if everything is ok
->>> shape, tucker_ranks, tt_ranks = t3_structure(x)
->>> print(shape)
-    (14, 15, 16)
->>> print(tucker_ranks)
-    (4, 5, 6)
->>> print(tt_ranks)
-    (1, 3, 2, 1)
+>>> basis_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
+>>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
+>>> x = (basis_cores, tt_cores) # TuckerTensorTrain, all cores filled with ones
+>>> t3_check(x) # does nothing if shapes are consistent
 """
 
 
@@ -112,18 +104,18 @@ Components:
 
 Examples
 --------
->>> from numpy.random import randn
+>>> import numpy as np
 >>> from t3tools.tucker_tensor_train import *
->>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
->>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
->>> x = (basis_cores, tt_cores)
+>>> basis_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
+>>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
+>>> x = (basis_cores, tt_cores) # TuckerTensorTrain, all cores filled with ones
 >>> shape, tucker_ranks, tt_ranks = t3_structure(x)
 >>> print(shape)
-    (14, 15, 16)
+(14, 15, 16)
 >>> print(tucker_ranks)
-    (4, 5, 6)
+(4, 5, 6)
 >>> print(tt_ranks)
-    (1, 3, 2, 1)
+(1, 3, 2, 1)
 """
 
 
@@ -156,18 +148,18 @@ def t3_structure(
 
     Examples
     --------
-    >>> from numpy.random import randn
+    >>> import numpy as np
     >>> from t3tools.tucker_tensor_train import *
-    >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
-    >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
+    >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
+    >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
     >>> x = (basis_cores, tt_cores)
     >>> shape, tucker_ranks, tt_ranks = t3_structure(x)
     >>> print(shape)
-        (14, 15, 16)
+    (14, 15, 16)
     >>> print(tucker_ranks)
-        (4, 5, 6)
+    (4, 5, 6)
     >>> print(tt_ranks)
-        (1, 3, 2, 1)
+    (1, 3, 2, 1)
     """
     basis_cores, tt_cores = x
     shape = tuple([B.shape[1] for B in basis_cores])
@@ -201,61 +193,75 @@ def t3_check(
 
     Examples
     --------
-    >>> from numpy.random import randn
+    >>> import numpy as np
     >>> from t3tools.tucker_tensor_train import *
-    >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
-    >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
+    >>> basis_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
+    >>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
     >>> x = (basis_cores, tt_cores)
     >>> t3_check(x) # Nothing happens because T3 is consistent
 
-    >>> basis_cores = (randn(4,14), randn(5,15))
-    >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
+    >>> import numpy as np
+    >>> from t3tools.tucker_tensor_train import *
+    >>> basis_cores = (np.ones((4,14)), np.ones((5,15)))
+    >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
     >>> x = (basis_cores, tt_cores)
     >>> t3_check(x)
-        RuntimeError: Inconsistent TuckerTensorTrain.
-        2 = len(basis_cores) != len(tt_cores) = 3
+    RuntimeError: Inconsistent TuckerTensorTrain.
+    2 = len(basis_cores) != len(tt_cores) = 3
 
-    >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
-    >>> tt_cores = (randn(4,3), randn(3,5,2), randn(2,6,1))
+    >>> import numpy as np
+    >>> from t3tools.tucker_tensor_train import *
+    >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
+    >>> tt_cores = (np.ones((4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
     >>> x = (basis_cores, tt_cores)
     >>> t3_check(x)
-        RuntimeError: Inconsistent TuckerTensorTrain.
-        tt_cores[0] is not a 3-tensor. shape=(4, 3)
+    RuntimeError: Inconsistent TuckerTensorTrain.
+    tt_cores[0] is not a 3-tensor. shape=(4, 3)
 
-    >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
-    >>> tt_cores = (randn(9,4,3), randn(3,5,2), randn(2,6,1))
+    >>> import numpy as np
+    >>> from t3tools.tucker_tensor_train import *
+    >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
+    >>> tt_cores = (np.ones((9,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
     >>> x = (basis_cores, tt_cores)
     >>> t3_check(x)
-        RuntimeError: Inconsistent TuckerTensorTrain.
-        First TT rank is not one. tt_ranks = (9, 3, 2, 1)
+    RuntimeError: Inconsistent TuckerTensorTrain.
+    First TT rank is not one. tt_ranks = (9, 3, 2, 1)
 
-    >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
-    >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,9))
+    >>> import numpy as np
+    >>> from t3tools.tucker_tensor_train import *
+    >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
+    >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,9)))
     >>> x = (basis_cores, tt_cores)
     >>> t3_check(x)
-        RuntimeError: Inconsistent TuckerTensorTrain.
-        Last TT rank is not one. tt_ranks = (1, 3, 2, 9)
+    RuntimeError: Inconsistent TuckerTensorTrain.
+    Last TT rank is not one. tt_ranks = (1, 3, 2, 9)
 
-    >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
-    >>> tt_cores = (randn(1,4,9), randn(3,5,2), randn(2,6,1))
+    >>> import numpy as np
+    >>> from t3tools.tucker_tensor_train import *
+    >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
+    >>> tt_cores = (np.ones((1,4,9)), np.ones((3,5,2)), np.ones((2,6,1)))
     >>> x = (basis_cores, tt_cores)
     >>> t3_check(x)
-        RuntimeError: Inconsistent TuckerTensorTrain.
-        (1, 3, 2, 1) = left_tt_ranks != right_tt_ranks = (1, 9, 2, 1)
+    RuntimeError: Inconsistent TuckerTensorTrain.
+    (1, 3, 2, 1) = left_tt_ranks != right_tt_ranks = (1, 9, 2, 1)
 
-    >>> basis_cores = (randn(4,14), randn(5,15,3), randn(6,16))
-    >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
+    >>> import numpy as np
+    >>> from t3tools.tucker_tensor_train import *
+    >>> basis_cores = (np.ones((4,14)), np.ones((5,15,3)), np.ones((6,16)))
+    >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
     >>> x = (basis_cores, tt_cores)
     >>> t3_check(x)
-        RuntimeError: Inconsistent TuckerTensorTrain.
-        basis_cores[1] is not a matrix. shape=(5, 15, 3)
+    RuntimeError: Inconsistent TuckerTensorTrain.
+    basis_cores[1] is not a matrix. shape=(5, 15, 3)
 
-    >>> basis_cores = (randn(4,14), randn(5,15), randn(9,16))
-    >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
+    >>> import numpy as np
+    >>> from t3tools.tucker_tensor_train import *
+    >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((9,16)))
+    >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
     >>> x = (basis_cores, tt_cores)
     >>> t3_check(x)
-        RuntimeError: Inconsistent TuckerTensorTrain.
-        9 = basis_cores[2].shape[0] != tt_cores[2].shape[1] = 6
+    RuntimeError: Inconsistent TuckerTensorTrain.
+    9 = basis_cores[2].shape[0] != tt_cores[2].shape[1] = 6
     '''
     basis_cores, tt_cores = x
     if len(basis_cores) != len(tt_cores):
@@ -337,15 +343,14 @@ def t3_to_dense(
 
     Examples
     --------
-    >>> from numpy.random import randn
+    >>> import numpy as np
     >>> from t3tools.tucker_tensor_train import *
-    >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
-    >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
-    >>> x = (basis_cores, tt_cores)
-    >>> x_dense = t3_to_dense(x)
-    >>> x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->ijk', *(basis_cores + tt_cores))
+    >>> x = t3_corewise_randn(((14,15,16),(4,5,6),(1,3,2,1))) # make TuckerTensorTrain
+    >>> x_dense = t3_to_dense(x) # Convert TuckerTensorTrain to dense tensor
+    >>> ((B0,B1,B2), (G0,G1,G2)) = x
+    >>> x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->ijk', B0, B1, B2, G0, G1, G2)
     >>> print(np.linalg.norm(x_dense - x_dense2) / np.linalg.norm(x_dense))
-        7.48952547844518e-16
+    7.48952547844518e-16
     """
     xnp = jnp if use_jax else np
 
@@ -387,21 +392,18 @@ def t3_reverse(
     Examples
     --------
     >>> import numpy as np
-    >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
-    >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
-    >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
-    >>> x = (basis_cores, tt_cores)
+    >>> x = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1))) # Make TuckerTensorTrain
     >>> print(t3_structure(x))
-        ((14, 15, 16), (4, 5, 6), (1, 3, 2, 1))
+    ((14, 15, 16), (4, 5, 6), (1, 3, 2, 1))
     >>> reversed_x = t3_reverse(x)
     >>> print(t3_structure(reversed_x))
-        ((16, 15, 14), (6, 5, 4), (1, 2, 3, 1))
+    ((16, 15, 14), (6, 5, 4), (1, 2, 3, 1))
     >>> x_dense = t3_to_dense(x)
     >>> reversed_x_dense = t3_to_dense(reversed_x)
     >>> x_dense2 = reversed_x_dense.transpose([2,1,0])
     >>> print(np.linalg.norm(x_dense - x_dense2))
-        1.859018050214056e-13
+    1.859018050214056e-13
     """
     basis_cores, tt_cores = x
 
@@ -436,7 +438,7 @@ def t3_zeros(
 
     Examples
     --------
-    >>> from numpy.random import randn
+    >>> import numpy as np
     >>> from t3tools.tucker_tensor_train import *
     >>> shape = (14, 15, 16)
     >>> tucker_ranks = (4, 5, 6)
@@ -444,7 +446,7 @@ def t3_zeros(
     >>> structure = (shape, tucker_ranks, tt_ranks)
     >>> z = t3_zeros(structure)
     >>> print(np.linalg.norm(t3_to_dense(z)))
-        0.0
+    0.0
     """
     xnp = jnp if use_jax else np
 
@@ -452,6 +454,52 @@ def t3_zeros(
 
     tt_cores = tuple([xnp.zeros((tt_ranks[ii], tucker_ranks[ii], tt_ranks[ii+1])) for ii in range(len(tucker_ranks))])
     basis_cores = tuple([xnp.zeros((n, N)) for n, N  in zip(tucker_ranks, shape)])
+    z = (basis_cores, tt_cores)
+    return z
+
+
+def t3_corewise_randn(
+        structure:  T3Structure,
+        use_jax:    bool = False,
+) -> TuckerTensorTrain:
+    """Construct Tucker tensor train with random cores (i.i.d. N(0,1) entries).
+
+    Parameters
+    ----------
+    structure:  T3Structure
+        Tucker tensor train structure
+        (shape, tucker_ranks, tt_ranks)=((N1,...,Nd), (n1,...,nd), (1,r1,...,r(d-1),1))).
+    use_jax: bool
+        Use jax if True, numpy if False. Default: False
+
+    Returns
+    -------
+    NDArray
+        Dense tensor represented by x, which has shape (N1, ..., Nd)
+
+    See Also
+    --------
+    TuckerTensorTrain
+    T3Structure
+
+    Examples
+    --------
+    >>> from t3tools.tucker_tensor_train import *
+    >>> shape = (14, 15, 16)
+    >>> tucker_ranks = (4, 5, 6)
+    >>> tt_ranks = (1, 3, 2, 1)
+    >>> structure = (shape, tucker_ranks, tt_ranks)
+    >>> x = t3_corewise_randn(structure) # TuckerTensorTrain with random cores
+    """
+    shape, tucker_ranks, tt_ranks = structure
+
+    if use_jax:
+        _randn = lambda x: jnp.array(np.random.randn(x))
+    else:
+        _randn = np.random.randn
+
+    tt_cores = tuple([_randn(tt_ranks[ii], tucker_ranks[ii], tt_ranks[ii+1]) for ii in range(len(tucker_ranks))])
+    basis_cores = tuple([_randn(n, N) for n, N  in zip(tucker_ranks, shape)])
     z = (basis_cores, tt_cores)
     return z
 
@@ -485,19 +533,18 @@ def t3_save(
 
     Examples
     --------
-    >>> from numpy.random import randn
+    >>> import numpy as np
     >>> from t3tools.tucker_tensor_train import *
-    >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
-    >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
-    >>> x = (basis_cores, tt_cores)
+    >>> x = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> fname = 't3_file'
-    >>> t3_save(fname, x)
-    >>> x2 = t3_load(fname, use_jax=False)
+    >>> t3_save(fname, x) # Save to file 't3_file.npz'
+    >>> x2 = t3_load(fname) # Load from file
+    >>> basis_cores, tt_cores = x
     >>> basis_cores2, tt_cores2 = x2
     >>> print([np.linalg.norm(B - B2) for B, B2 in zip(basis_cores, basis_cores2)])
-        [0.0, 0.0, 0.0]
+    [0.0, 0.0, 0.0]
     >>> print([np.linalg.norm(G - G2) for G, G2 in zip(tt_cores, tt_cores2)])
-        [0.0, 0.0, 0.0]
+    [0.0, 0.0, 0.0]
     """
     t3_check(x)
     basis_cores, tt_cores = x
@@ -544,19 +591,18 @@ def t3_load(
 
     Examples
     --------
-    >>> from numpy.random import randn
+    >>> import numpy as np
     >>> from t3tools.tucker_tensor_train import *
-    >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
-    >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
-    >>> x = (basis_cores, tt_cores)
+    >>> x = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> fname = 't3_file'
-    >>> t3_save(fname, x)
-    >>> x2 = t3_load(fname)
+    >>> t3_save(fname, x) # Save to file 't3_file.npz'
+    >>> x2 = t3_load(fname) # Load from file
+    >>> basis_cores, tt_cores = x
     >>> basis_cores2, tt_cores2 = x2
     >>> print([np.linalg.norm(B - B2) for B, B2 in zip(basis_cores, basis_cores2)])
-        [0.0, 0.0, 0.0]
+    [0.0, 0.0, 0.0]
     >>> print([np.linalg.norm(G - G2) for G, G2 in zip(tt_cores, tt_cores2)])
-        [0.0, 0.0, 0.0]
+    [0.0, 0.0, 0.0]
     """
     if isinstance(file, str):
         if not file.endswith('.npz'):
@@ -624,24 +670,23 @@ def t3_apply(
 
     Examples
     --------
-    >>> from numpy.random import randn
+    >>> import numpy as np
     >>> from t3tools.tucker_tensor_train import *
-    >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
-    >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
-    >>> x = (basis_cores_x, tt_cores_x)
-    >>> vecs = [randn(14), randn(15), randn(16)]
-    >>> result = t3_apply(x, vecs)
+    >>> x = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+    >>> vecs = [np.random.randn(14), np.random.randn(15), np.random.randn(16)]
+    >>> result = t3_apply(x, vecs) # <-- contract x with vecs in all indices
     >>> result2 = np.einsum('ijk,i,j,k', t3_to_dense(x), vecs[0], vecs[1], vecs[2])
     >>> print(np.abs(result - result2))
+    5.229594535194337e-12
 
-    >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
-    >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
-    >>> x = (basis_cores_x, tt_cores_x)
-    >>> vecs = [randn(3,14), randn(3,15), randn(3,16)]
+    >>> import numpy as np
+    >>> from t3tools.tucker_tensor_train import *
+    >>> x = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+    >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
     >>> result = t3_apply(x, vecs)
     >>> result2 = np.einsum('ijk,ni,nj,nk->n', t3_to_dense(x), vecs[0], vecs[1], vecs[2])
     >>> print(np.linalg.norm(result - result2))
-        1.3334750051052994e-12
+    3.1271953680324864e-12
     '''
     xnp = jnp if use_jax else np
 
@@ -732,26 +777,24 @@ def t3_entry(
 
     Examples
     --------
-    >>> from numpy.random import randn
+    >>> import numpy as np
     >>> from t3tools.tucker_tensor_train import *
-    >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
-    >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
-    >>> x = (basis_cores_x, tt_cores_x)
+    >>> x = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> index = [9, 4, 7]
     >>> result = t3_entry(x, index)
     >>> result2 = t3_to_dense(x)[9, 4, 7]
     >>> print(np.abs(result - result2))
-        0.0
+    1.3322676295501878e-15
 
-    >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
-    >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
-    >>> x = (basis_cores_x, tt_cores_x)
-    >>> index = [[9,8], [4,10], [7,13]] # get 2 entries at once
+    >>> import numpy as np
+    >>> from t3tools.tucker_tensor_train import *
+    >>> x = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+    >>> index = [[9,8], [4,10], [7,13]] # get entries (9,4,7) and (8,10,13)
     >>> entries = t3_entry(x, index)
     >>> x_dense = t3_to_dense(x)
     >>> entries2 = np.array([x_dense[9, 4, 7], x_dense[8, 10, 13]])
     >>> print(np.linalg.norm(entries - entries2))
-        1.7763568394002505e-15
+    1.7763568394002505e-15
     '''
     xnp = jnp if use_jax else np
 
