@@ -6,6 +6,7 @@ import typing as typ
 from t3tools.tucker_tensor_train import *
 from t3tools.t3_base_variation_format import *
 from t3tools.t3_orthogonalization import *
+from t3tools.t3_svd import *
 
 try:
     import jax.numpy as jnp
@@ -229,6 +230,77 @@ def t3tangent_to_t3(
     x_tt_cores.append(G)
 
     return tuple(x_basis_cores), tuple(x_tt_cores)
+
+
+def t3_orthogonal_gauge_projection(
+        x: T3Tangent,
+        use_jax: bool = False,
+) -> T3Tangent:
+    """Makes tangent vector representation gauged via orthogonal projection. Changes tangent vector.
+
+    Gauge condition:
+        - All variation basis cores are orthogonal to the corresponding base basis cores
+        - All but the last variation TT-core are left-perpendicular to the corresponding base TT-cores
+
+    Parameters
+    ----------
+    x: T3Tangent
+        Tangent vector to project
+
+    use_jax: bool
+        If True, use jax operations, if False use numpy.
+
+    Returns
+    -------
+    T3Tangent
+        Projected tangent vector satisfying Gauge condition
+
+    See Also
+    --------
+    t3_oblique_gauge_projection
+
+    Example
+    -------
+    >>> from numpy.random import randn
+    >>> from t3tools.t3_manifold import *
+    >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
+    >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
+    >>> p = (basis_cores, tt_cores)
+    # >>> base, vars0 = t3_orthogonal_representations(t3_svd(p)[0])
+    >>> base, vars0 = t3_orthogonal_representations(p)
+    >>> v_basis = tuple([randn(*B.shape) for B in vars0[0]])
+    >>> v_tt = tuple([randn(*G.shape) for G in vars0[1]])
+    >>> v = (v_basis, v_tt)
+    >>> x = (base, v)
+    >>> projected_x = t3_orthogonal_gauge_projection(x)
+    >>> (U0,U1,U2), (L0,L1,L2), _, _ = base
+    >>> ((V0,V1,V2), (H0,H1,H2)) = projected_x[1]
+    >>> print(np.linalg.norm(V1 @ U1.T)) # Gauge condition for basis core 1
+        3.512073125137391e-15
+    >>>  print(np.linalg.norm(np.einsum('iaj,iak->jk', H1, L1))) # Gauge condition for TT-core 1
+        1.5807940730805242e-15
+    """
+    xnp = jnp if use_jax else np
+
+    t3_check_base_variation_fit(*x)
+    base, vars = x
+    basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
+    basis_vars, tt_vars = vars
+
+    new_tt_variations = []
+    for dV, P in zip(tt_vars[:-1], left_tt_cores[:-1]):
+        dV2 = dV - xnp.einsum('iaj,jk->iak', P, xnp.einsum('iaj,iak->jk', P, dV))
+        new_tt_variations.append(dV2)
+    new_tt_variations.append(tt_vars[-1])
+
+    new_basis_variations = []
+    for dB, B in zip(basis_vars, basis_cores):
+        dB2 = dB - (dB @ B.T) @ B
+        new_basis_variations.append(dB2)
+
+    new_vars = (tuple(new_basis_variations), tuple(new_tt_variations))
+    new_x = (base, new_vars)
+    return new_x
 
 
 # # # #
