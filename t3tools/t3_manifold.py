@@ -239,8 +239,10 @@ def t3_orthogonal_gauge_projection(
     """Makes tangent vector representation gauged via orthogonal projection. Changes tangent vector.
 
     Gauge condition:
-        - All variation basis cores are orthogonal to the corresponding base basis cores
-        - All but the last variation TT-core are left-perpendicular to the corresponding base TT-cores
+        - All variation basis cores Vi are orthogonal to the corresponding base basis cores Ui:
+            Ui @ Vi.T = 0    for    i=1,...,d
+        - All but the last variation TT-cores H are left-perpendicular to the corresponding base left TT-cores L:
+            einsum('iaj,iak->jk', Hi, Li) = 0    for    i=1,...,d-1
 
     Parameters
     ----------
@@ -257,6 +259,7 @@ def t3_orthogonal_gauge_projection(
 
     See Also
     --------
+    T3Tangent
     t3_oblique_gauge_projection
 
     Example
@@ -301,6 +304,106 @@ def t3_orthogonal_gauge_projection(
     new_vars = (tuple(new_basis_variations), tuple(new_tt_variations))
     new_x = (base, new_vars)
     return new_x
+
+
+def t3_oblique_gauge_projection(
+        x: T3Tangent,
+        use_jax: bool = False,
+) -> T3Tangent:
+    """Makes variations left-perpendicular while preserving tangent vector.
+
+    Method:
+        1) Make basis variations left-perpendicular by pushing remainder onto tt variations
+        2) Make tt variations left-perpendicular by standard sweeping tt method
+
+    Parameters
+    ----------
+    x: T3Tangent
+        Tangent vector to project
+
+    use_jax: bool
+        If True, use jax operations, if False use numpy.
+
+    Returns
+    -------
+    T3Tangent
+        Projected tangent vector satisfying Gauge condition
+
+    See Also
+    --------
+    T3Tangent
+    t3_orthogonal_gauge_projection
+
+    Examples
+    --------
+    >>> from numpy.random import randn
+    >>> from t3tools.t3_manifold import *
+    >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
+    >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
+    >>> p = (basis_cores, tt_cores)
+    >>> base, vars0 = t3_orthogonal_representations(p)
+    >>> v_basis = tuple([randn(*B.shape) for B in vars0[0]])
+    >>> v_tt = tuple([randn(*G.shape) for G in vars0[1]])
+    >>> v = (v_basis, v_tt)
+    >>> x = (base, v)
+    >>> projected_x = t3_oblique_gauge_projection(x)
+    >>> x_dense = t3tangent_to_dense(x)
+    >>> proj_x_dense = t3tangent_to_dense(projected_x)
+    >>> print(np.linalg.norm(x_dense - proj_x_dense)) # Zero since projection preserves represented tangent vector
+        3.4398319441148304e-15
+    >>> (U0,U1,U2), (L0,L1,L2), _, _ = base
+    >>> ((V0,V1,V2), (H0,H1,H2)) = projected_x[1]
+    >>> print(np.linalg.norm(V1 @ U1.T)) # Gauge condition for basis core 1
+        2.931519226677228e-15
+    >>>  print(np.linalg.norm(np.einsum('iaj,iak->jk', H1, L1))) # Gauge condition for TT-core 1
+        6.99005312491287e-16
+    """
+    xnp = jnp if use_jax else np
+
+    t3_check_base_variation_fit(*x)
+    base, vars = x
+    basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
+    basis_vars, tt_vars = vars
+    num_cores = len(basis_cores)
+
+    tt_vars = list(tt_vars)
+    basis_vars = list(basis_vars)
+
+    # Make basis variations left-perpendicular
+    for ii in range(num_cores):
+        B_io = basis_cores[ii]
+        dB_jo = basis_vars[ii]
+        R_aib = outer_tt_cores[ii]
+        dG_ajb = tt_vars[ii]
+
+        X_ji = dB_jo @ B_io.T
+        dB_parallel_jo = X_ji @ B_io
+        dB2_jo = dB_jo - dB_parallel_jo # dB_perp
+        # dG2_ajb = dG_ajb + xnp.einsum('aib,ji->ajb', R_aib, X_ji)
+        dG2_ajb = dG_ajb + xnp.einsum('aib,ij->ajb', R_aib, X_ji) # <-- Why is this correct?
+
+        tt_vars[ii] = dG2_ajb
+        basis_vars[ii] = dB2_jo
+
+    # Make tt cores left-perpendicular
+    for ii in range(num_cores-1):
+        dV1 = tt_vars[ii]
+        dV2 = tt_vars[ii+1]
+
+        P1 = left_tt_cores[ii]
+        Q2 = right_tt_cores[ii+1]
+        X = xnp.einsum('iaj,iak->jk', P1, dV1)
+        new_dV1 = dV1 - xnp.einsum('iaj,jk->iak', P1, X)
+        new_dV2 = dV2 + xnp.einsum('jk,kbl->jbl', X, Q2)
+
+        tt_vars[ii] = new_dV1
+        tt_vars[ii+1] = new_dV2
+
+    new_vars = tuple(basis_vars), tuple(tt_vars)
+    new_x = (base, new_vars)
+    return new_x
+
+
 
 
 # # # #
