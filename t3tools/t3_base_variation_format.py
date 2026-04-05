@@ -3,7 +3,6 @@
 # https://github.com/NickAlger/TuckerTensorTrainTools
 import numpy as np
 import typing as typ
-from t3tools.linalg import *
 from t3tools.tucker_tensor_train import *
 
 try:

@@ -1,3 +1,238 @@
+# Authors: Nick Alger and Blake Christierson
+# Copyright: MIT License (2026)
+# https://github.com/NickAlger/TuckerTensorTrainTools
+import numpy as np
+import typing as typ
+from t3tools.tucker_tensor_train import *
+from t3tools.t3_base_variation_format import *
+from t3tools.t3_orthogonalization import *
+
+try:
+    import jax.numpy as jnp
+except:
+    print('jax import failed in tucker_tensor_train. Defaulting to numpy.')
+    jnp = np
+
+NDArray = typ.Union[np.ndarray, jnp.ndarray]
+
+
+####################################################################
+###########    Fixed rank TuckerTensorTrain manifold   #############
+####################################################################
+
+T3Tangent = typ.Tuple[
+    T3Base, # Orthogonal representations of base point
+    T3Variation, # Variations
+]
+"""Tuple representation of a Tucker tensor train tangent vector in terms of an orthogonal base and variations.
+
+Implements the representation of a tangent vector as a sum of the following form::
+
+          1 -- H0 -- R1 -- R2 -- R3 -- 1            1 -- L0 -- L1 -- L2 -- H3 -- 1
+               |     |     |     |                       |     |     |     |
+    v  =       U0    U1    U2    U3       +  ... +       U0    U1    U2    U3
+               |     |     |     |                       |     |     |     |
+    
+          1 -- O0 -- R1 -- R2 -- R3 -- 1            1 -- L0 -- L1 -- L2 -- O3 -- 1
+       +       |     |     |     |                       |     |     |     |
+               V0    U1    U2    U3       + ... +        U0    U1    U2    V3
+               |     |     |     |                       |     |     |     |
+
+**Components**
+    - T3Base: orthogonal representation of the base point where the tangent space is attached.
+        - basis_cores       = (U0,...,Ud), orthogonal
+        - left_tt_cores     = (L0,...Ld), left-orthogonal
+        - right_tt_cores    = (R0,...,Rd), right-orthogonal
+        - outer_tt_cores    = (O0,...,Od), outer-orthogonal
+    - T3Variation: The variations defining the tangent vector w.r.t. the base point.
+        - basis_variations  = (V0,...,Vd)
+        - tt_variations     = (H0,...,Hd)
+
+"""
+
+def t3tangent_to_dense(
+        x: T3Tangent,
+        include_shift: bool = False, # False: V. True: P+V. P=base point, V=tangent vector
+) -> NDArray:
+    """Convert Tangent vector to Tucker tensor train manifold into dense tensor.
+
+    Examples
+    --------
+    >>> from numpy.random import randn
+    >>> from t3tools.t3_manifold import *
+    >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
+    >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
+    >>> p = (basis_cores, tt_cores)
+    >>> base, vars0 = t3_orthogonal_representations(p)
+    >>> v_basis = tuple([randn(*B.shape) for B in vars0[0]])
+    >>> v_tt = tuple([randn(*G.shape) for G in vars0[1]])
+    >>> v = (v_basis, v_tt)
+    >>> x = (base, v)
+    >>> v_dense = t3tangent_to_dense(x)
+    >>> ((U0,U1,U2), (L0,L1,L2), (R0,R1,R2), (O0,O1,O2)) = base
+    >>> ((V0,V1,V2), (H0,H1,H2)) = v
+    >>> t1 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', U0,U1,U2,H0,R1,R2)
+    >>> t2 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', U0,U1,U2,L0,H1,R2)
+    >>> t3 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', U0,U1,U2,L0,L1,H2)
+    >>> t4 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', V0,U1,U2,O0,R1,R2)
+    >>> t5 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', U0,V1,U2,L0,O1,R2)
+    >>> t6 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', U0,U1,V2,L0,L1,O2)
+    >>> v_dense2 = t1 + t2 + t3 + t4 + t5 + t6
+    >>> print(np.linalg.norm(v_dense - v_dense2))
+        1.2760924630140578e-14
+    >>> p_plus_v_dense = t3tangent_to_dense(x, include_shift=True)
+    >>> p_plus_v_dense2 =  t3_to_dense(p) + v_dense
+    >>> print(np.linalg.norm(p_plus_v_dense - p_plus_v_dense2))
+        1.2677102046134292e-12
+    """
+    t3_check_base_variation_fit(*x)
+
+    base, variation = x
+    num_cores = len(variation[0])
+    basis_terms = [bv_to_t3(ii, False, base, variation) for ii in range(num_cores)]
+    tt_terms    = [bv_to_t3(ii, True, base, variation) for ii in range(num_cores)]
+    terms = basis_terms + tt_terms
+    V = t3_to_dense(terms[0])
+    for t in terms[1:]:
+        V = V + t3_to_dense(t)
+
+    if include_shift:
+        basis_cores, left_tt_cores, _, _ = base
+        P = t3_to_dense((basis_cores, left_tt_cores))
+        X = P + V
+    else:
+        X = V
+
+    return X
+
+
+def t3tangent_to_t3(
+        x: T3Tangent,
+        include_shift: bool = False,  # False: v. True: p+v. p=base point, v=tangent vector
+        use_jax: bool = False,
+) -> TuckerTensorTrain:
+    '''Rank 2r Tucker tensor train representation of tangent vector.
+
+    Without shift, we use the formula::
+
+        v(x,y,z,w) = ([dU1(B x) L1(B x)]) ([R2(B y)        0]) ([R3(B z)        0]) ([R4(B w) ])
+                     (                  ) ([dU2(B y) L2(B y)]) ([dU3(B z) L3(B z)]) ([dU4(B w)])
+                     (         +        ) (         +        ) (        +         ) (    +     )
+                     ([O1(dB x)       0]) ([0              0]) ([0              0]) ([0       ])
+                     (                  ) ([O2(dB y)       0]) ([O3(dB z)       0]) ([O4(dB w)])
+
+    With shift is same as unshifted, except last core modified as follows::
+
+        [R4(B w) ]                  [R4(B w)           ]
+        [dU4(B w)]                  [L4(B w) + dU4(B w)]
+            +             ->            +
+        [0       ]                  [0                 ]
+        [O4(dB w)]                  [O4(dB w)          ]
+
+    Parameters
+    ----------
+    x: T3Tangent
+        Tangent vector which will be converted to TuckerTensorTrain with doubled ranks.
+    include_shift: bool
+        If False, return tangent vector v only. If True, shift tangent vector so it is attached at the base point, p+v.
+    use_jax: bool
+        If True, returned TuckerTensorTrain cores are jnp.ndaray. Otherwise, np.ndarray. Default: False
+
+    Returns
+    -------
+    TuckerTensorTrain
+        Tucker tensor train representation of tangent vector, which has doubled ranks
+
+    See Also
+    --------
+    T3Tangent
+
+    Examples
+    --------
+    >>> from numpy.random import randn
+    >>> from t3tools.t3_manifold import *
+    >>> basis_cores = (randn(4,14), randn(5,15), randn(6,16))
+    >>> tt_cores = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
+    >>> p = (basis_cores, tt_cores)
+    >>> base, vars0 = t3_orthogonal_representations(p)
+    >>> v_basis = tuple([randn(*B.shape) for B in vars0[0]])
+    >>> v_tt = tuple([randn(*G.shape) for G in vars0[1]])
+    >>> v = (v_basis, v_tt)
+    >>> x = (base, v)
+    >>> v_t3 = t3tangent_to_t3(x) # tangent vector only (attached at zero)
+    >>> v_dense = t3_to_dense(v_t3)
+    >>> v_dense2 = t3tangent_to_dense(x)
+    >>> print(np.linalg.norm(v_dense - v_dense2))
+        2.678565538404836e-15
+    >>> p_plus_v_t3 = t3tangent_to_t3(x, include_shift=True) # shifted tangent vector (include attachment at base point)
+    >>> p_plus_v_dense = t3_to_dense(p_plus_v_t3)
+    >>> p_plus_v_dense2 = v_dense2 + t3_to_dense(p)
+    >>> print(np.linalg.norm(p_plus_v_dense - p_plus_v_dense2))
+        1.2102169224182523e-12
+    '''
+    xnp = jnp if use_jax else np
+
+    t3_check_base_variation_fit(*x)
+    base, vars = x
+    basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
+    basis_vars, tt_vars = vars
+
+    num_cores = len(basis_cores)
+
+    x_basis_cores = []
+    for B, dB in zip(basis_cores, basis_vars):
+        B2 = xnp.concatenate([B, dB], axis=0)
+        x_basis_cores.append(B2)
+
+    x_tt_cores = []
+
+    dU = tt_vars[0]
+    O = outer_tt_cores[0]
+    L = left_tt_cores[0]
+    Z = xnp.zeros((O.shape[0], O.shape[1], L.shape[2]))
+    G_top = xnp.concatenate([dU, L], axis=2)
+    G_bot = xnp.concatenate([O, Z], axis=2)
+    G = xnp.concatenate([G_top, G_bot], axis=1)
+    x_tt_cores.append(G)
+
+    for ii in range(1, num_cores-1):
+        L = left_tt_cores[ii]
+        R = right_tt_cores[ii]
+        O = outer_tt_cores[ii]
+        dU = tt_vars[ii]
+        Z001 = xnp.zeros((R.shape[0], dU.shape[1], L.shape[2]))
+        Z100 = xnp.zeros((R.shape[0], O.shape[1], R.shape[2]))
+        Z101 = xnp.zeros((R.shape[0], O.shape[1], L.shape[2])) #Z001
+        Z111 = xnp.zeros((L.shape[0], O.shape[1], L.shape[2])) #jnp.zeros(L.shape)
+        G_top = xnp.concatenate([
+            xnp.concatenate([R, Z001], axis=2),
+            xnp.concatenate([dU, L], axis=2)
+        ], axis=0)
+        G_bot = xnp.concatenate([
+            xnp.concatenate([Z100, Z101], axis=2),
+            xnp.concatenate([O, Z111], axis=2)
+        ], axis=0)
+        G = xnp.concatenate([G_top, G_bot], axis=1)
+        x_tt_cores.append(G)
+
+    dU = tt_vars[-1]
+    L = left_tt_cores[-1]
+    R = right_tt_cores[-1]
+    O = outer_tt_cores[-1]
+    Z = xnp.zeros((R.shape[0], O.shape[1], R.shape[2]))
+    if include_shift:
+        G_top = xnp.concatenate([R, L + dU], axis=0)
+    else:
+        G_top = xnp.concatenate([R, dU], axis=0)
+    G_bot = xnp.concatenate([Z, O], axis=0)
+    G = xnp.concatenate([G_top, G_bot], axis=1)
+    x_tt_cores.append(G)
+
+    return tuple(x_basis_cores), tuple(x_tt_cores)
+
+
+# # # #
+
 import numpy as np
 import jax
 import jax.numpy as jnp
@@ -7,7 +242,7 @@ import typing as typ
 
 from .tt_basic_operations import *
 from .tucker_tensor_train import *
-
+from t3tools.t3_base_variation_format import *
 
 __all__ = [
     'T3TangentSpace',
