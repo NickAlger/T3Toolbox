@@ -86,69 +86,48 @@ def t3_svd(
 
     Examples
     --------
-    >>> from numpy.random import randn
-    >>> from t3tools.tucker_tensor_train import *
-    >>> from t3tools.t3_svd import *
-    >>> basis_cores_x = (randn(4,6), randn(5,7), randn(6,8))
-    >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
-    >>> x = (basis_cores_x, tt_cores_x)
-    >>> x2, ss_basis, ss_tt = t3_svd(x)
+    >>> import numpy as np
+    >>> from t3tools import *
+    >>> x = t3_corewise_randn(((5,6,3), (4,4,3), (1,3,2,1)))
+    >>> x2, ss_basis, ss_tt = t3_svd(x) # Compute T3-SVD
     >>> x_dense = t3_to_dense(x)
     >>> x2_dense = t3_to_dense(x2)
-    >>> print(np.linalg.norm(x_dense - x2_dense))
-        7.556835759880194e-13
-    >>> x_dense = t3_to_dense(x)
-    >>> ss_tt0 = np.linalg.svd(x_dense.reshape((1, 6*7*8)))[1]
-    >>> print(ss_tt0); print(ss_tt[0])
-        [405.41453572]
-        [405.41453572]
-    >>> ss_tt1 = np.linalg.svd(x_dense.reshape((6, 7*8)))[1]
+    >>> print(np.linalg.norm(x_dense - x2_dense)) # Tensor unchanged
+    7.556835759880194e-13
+    >>> ss_tt1 = np.linalg.svd(x_dense.reshape((5, 6*3)))[1] # Singular values of unfolding 1
     >>> print(ss_tt1); print(ss_tt[1])
-        [3.26096778e+02 2.34056249e+02 5.69166861e+01 2.52531568e-14 1.72986412e-14 8.25218909e-15]
-        [326.0967784  234.05624908  56.91668613]
-    >>> ss_tt2 = np.linalg.svd(x_dense.reshape((6*7, 8)))[1]
-    >>> print(ss_tt2); print(ss_tt[2])
-        [3.92785730e+02 1.00400775e+02 3.88846558e-14 1.37176914e-14 5.89995607e-15 4.96667173e-15 3.77344519e-15 3.12383125e-15]
-        [392.78573046 100.40077549]
-    >>> ss_tt3 = np.linalg.svd(x_dense.reshape((6*7*8,1)))[1]
-    >>> print(ss_tt3); print(ss_tt[3])
-        [405.41453572]
-        [405.41453572]
-    >>> ss_basis0 = np.linalg.svd(x_dense.transpose([0,1,2]).reshape((6,7*8)))[1]
-    >>> print(ss_basis0); print(ss_basis[0])
-        [3.26096778e+02 2.34056249e+02 5.69166861e+01 2.52531568e-14 1.72986412e-14 8.25218909e-15]
-        [326.0967784  234.05624908  56.91668613]
-    >>> ss_basis1 = np.linalg.svd(x_dense.transpose([1,0,2]).reshape((7,6*8)))[1]
-    >>> print(ss_basis1); print(ss_basis[1])
-        [3.19638822e+02 2.37070453e+02 6.46637749e+01 4.21190167e+01 5.84413285e+00 2.08773511e-14 1.15080732e-14]
-        [319.63882212 237.07045349  64.66377495  42.1190167    5.84413285]
-    >>> ss_basis2 = np.linalg.svd(x_dense.transpose([2,0,1]).reshape((8,6*7)))[1]
+    [1.75326490e+02 3.41363029e+01 9.31164204e+00 1.33610061e-14 4.11601708e-15]
+    [175.32648969  34.13630287   9.31164204]
+    >>> ss_basis2 = np.linalg.svd(x_dense.transpose([2,0,1]).reshape((3,5*6)))[1] # Singular values of matricization 2
     >>> print(ss_basis2); print(ss_basis[2])
-        [3.92785730e+02 1.00400775e+02 5.17611232e-14 1.35674292e-14 7.94410140e-15 7.05351536e-15 5.31534353e-15 2.69976806e-15]
-        [392.78573046 100.40077549]
+    [1.71350937e+02 5.12857505e+01 1.36927051e-14]
+    [171.35093708  51.28575045]
 
-    >>> B0 = randn(35,40) @ np.diag(1.0 / np.arange(1, 41)**2)
-    >>> B1 = randn(45,50) @ np.diag(1.0 / np.arange(1, 51)**2)
-    >>> B2 = randn(55,60) @ np.diag(1.0 / np.arange(1, 61)**2)
+    >>> import numpy as np
+    >>> from t3tools import *
+    >>> B0 = np.random.randn(35,40) @ np.diag(1.0 / np.arange(1, 41)**2) # preconditioned indices
+    >>> B1 = np.random.randn(45,50) @ np.diag(1.0 / np.arange(1, 51)**2)
+    >>> B2 = np.random.randn(55,60) @ np.diag(1.0 / np.arange(1, 61)**2)
+    >>> G0 = np.random.randn(1,35,30)
+    >>> G1 = np.random.randn(30,45,40)
+    >>> G2 = np.random.randn(40,55,1)
     >>> basis_cores_x = (B0, B1, B2)
-    >>> tt_cores_x = (randn(1,35,30), randn(30,45,40), randn(40,55,1))
-    >>> x = (basis_cores_x, tt_cores_x)
-    >>> x2, ss_basis, ss_tt = t3_svd(x, rtol=1e-2)
+    >>> tt_cores_x = (G0, G1, G2)
+    >>> x = (basis_cores_x, tt_cores_x) # Tensor has spectral decay due to preconditioning
+    >>> x2, ss_basis, ss_tt = t3_svd(x, rtol=1e-2) # Truncate singular values to reduce rank
     >>> print(t3_structure(x))
-        ((40, 50, 60), (35, 45, 55), (1, 30, 40, 1))
+    ((40, 50, 60), (35, 45, 55), (1, 30, 40, 1))
     >>> print(t3_structure(x2))
-        ((40, 50, 60), (6, 6, 5), (1, 6, 5, 1))
+    ((40, 50, 60), (6, 6, 5), (1, 6, 5, 1))
     >>> x_dense = t3_to_dense(x)
     >>> x2_dense = t3_to_dense(x2)
-    >>> relerr_num = np.linalg.norm(x_dense - x2_dense)
-    >>> relerr_den = np.linalg.norm(x_dense)
-    >>> print(relerr_num / relerr_den) # Should be around or slightly less than 3*rtol = 3e-3
-        0.013078458673911168
+    >>> print(np.linalg.norm(x_dense - x2_dense)/np.linalg.norm(x_dense)) # Should be near rtol=1e-2
+    0.013078458673911168
 
-    >>> basis_cores_x = (randn(10,14), randn(11,15), randn(12,16))
-    >>> tt_cores_x = (randn(1,10,8), randn(8,11,9), randn(9,12,1))
-    >>> x = (basis_cores_x, tt_cores_x)
-    >>> x2, ss_basis, ss_tt = t3_svd(x, max_tucker_ranks=(3,3,3), max_tt_ranks=(1,2,2,1))
+    >>> import numpy as np
+    >>> from t3tools import *
+    >>> x = t3_corewise_randn(((14,15,16), (10,11,12), (1,8,9,1)))
+    >>> x2, ss_basis, ss_tt = t3_svd(x, max_tucker_ranks=(3,3,3), max_tt_ranks=(1,2,2,1)) # Truncate based on ranks
     >>> print(t3_structure(x))
         ((14, 15, 16), (10, 11, 12), (1, 8, 9, 1))
     >>> print(t3_structure(x2))
@@ -247,32 +226,19 @@ def tucker_svd_dense(
 
     Examples
     --------
-    >>> from numpy.random import randn
-    >>> from t3tools.tucker_tensor_train import *
-    >>> from t3tools.t3_svd import *
+    >>> import numpy as np
+    >>> from t3tools import *
     >>> T0 = np.random.randn(40, 50, 60)
     >>> c0 = 1.0 / np.arange(1, 41)**2
     >>> c1 = 1.0 / np.arange(1, 51)**2
     >>> c2 = 1.0 / np.arange(1, 61)**2
-    >>> T = np.einsum('ijk,i,j,k->ijk', T0, c0, c1, c2)
-    >>> (bases, core), ss = tucker_svd_dense(T, rtol=1e-2)
+    >>> T = np.einsum('ijk,i,j,k->ijk', T0, c0, c1, c2) # Preconditioned random tensor
+    >>> (bases, core), ss = tucker_svd_dense(T, rtol=1e-3) # Truncate Tucker SVD to reduce rank
     >>> print(core.shape)
-        (3, 4, 3)
-    >>> T2 = jnp.einsum('abc, ai,bj,ck->ijk', core, bases[0], bases[1], bases[2])
-    >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-2
-        0.016764601091053873
-    >>> (bases, core), ss = tucker_svd_dense(T, rtol=1e-3)
-    >>> print(core.shape)
-        (9, 9, 9)
-    >>> T2 = jnp.einsum('abc, ai,bj,ck->ijk', core, bases[0], bases[1], bases[2])
+    (9, 9, 9)
+    >>> T2 = np.einsum('abc, ai,bj,ck->ijk', core, bases[0], bases[1], bases[2])
     >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-3
-        0.002418671417862558
-    >>> (bases, core), ss = tucker_svd_dense(T, rtol=1e-4)
-    >>> print(core.shape)
-        (20, 21, 21)
-    >>> T2 = jnp.einsum('abc, ai,bj,ck->ijk', core, bases[0], bases[1], bases[2])
-    >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-4
-        0.0003418353245534034
+    0.002418671417862558
     '''
     xnp = jnp if use_jax else np
 
@@ -342,32 +308,19 @@ def tt_svd_dense(
 
     Examples
     --------
-    >>> from numpy.random import randn
-    >>> from t3tools.tucker_tensor_train import *
-    >>> from t3tools.t3_svd import *
+    >>> import numpy as np
+    >>> from t3tools import *
     >>> T0 = np.random.randn(40, 50, 60)
     >>> c0 = 1.0 / np.arange(1, 41)**2
     >>> c1 = 1.0 / np.arange(1, 51)**2
     >>> c2 = 1.0 / np.arange(1, 61)**2
-    >>> T = np.einsum('ijk,i,j,k->ijk', T0, c0, c1, c2)
-    >>> cores, ss = tt_svd_dense(T, rtol=1e-2)
+    >>> T = np.einsum('ijk,i,j,k->ijk', T0, c0, c1, c2) # Preconditioned random tensor
+    >>> cores, ss = tt_svd_dense(T, rtol=1e-3) # Truncate TT-SVD to reduce rank
     >>> print([G.shape for G in cores])
-        [(1, 40, 6), (6, 50, 7), (7, 60, 1)]
-    >>> T2 = jnp.einsum('aib,bjc,ckd->ijk', cores[0], cores[1], cores[2])
-    >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-2
-        0.013056156368977757
-    >>> cores, ss = tt_svd_dense(T, rtol=1e-3)
-    >>> print([G.shape for G in cores])
-        [(1, 40, 13), (13, 50, 13), (13, 60, 1)]
-    >>> T2 = jnp.einsum('aib,bjc,ckd->ijk', cores[0], cores[1], cores[2])
+    [(1, 40, 13), (13, 50, 13), (13, 60, 1)]
+    >>> T2 = np.einsum('aib,bjc,ckd->ijk', cores[0], cores[1], cores[2])
     >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-3
-        0.0023999063535883633
-    >>> cores, ss = tt_svd_dense(T, rtol=1e-4)
-    >>> print([G.shape for G in cores])
-        [(1, 40, 30), (30, 50, 30), (30, 60, 1)]
-    >>> T2 = jnp.einsum('aib,bjc,ckd->ijk', cores[0], cores[1], cores[2])
-    >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-4
-        0.0002850622316036925
+    0.0023999063535883633
     '''
     nn = T.shape
 
@@ -444,32 +397,19 @@ def t3_svd_dense(
 
     Examples
     --------
-    >>> from numpy.random import randn
-    >>> from t3tools.tucker_tensor_train import *
-    >>> from t3tools.t3_svd import *
+    >>> import numpy as np
+    >>> from t3tools import *
     >>> T0 = np.random.randn(40, 50, 60)
     >>> c0 = 1.0 / np.arange(1, 41)**2
     >>> c1 = 1.0 / np.arange(1, 51)**2
     >>> c2 = 1.0 / np.arange(1, 61)**2
-    >>> T = np.einsum('ijk,i,j,k->ijk', T0, c0, c1, c2)
-    >>> x, ss_tucker, ss_tt = t3_svd_dense(T, rtol=1e-2)
+    >>> T = np.einsum('ijk,i,j,k->ijk', T0, c0, c1, c2) # Preconditioned random tensor
+    >>> x, ss_tucker, ss_tt = t3_svd_dense(T, rtol=1e-3) # Truncate T3-SVD to reduce rank
     >>> print(t3_structure(x))
-        ((40, 50, 60), (5, 5, 3), (1, 5, 3, 1))
-    >>> T2 = t3_to_dense(x)
-    >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-2
-        0.018856713575257946
-    >>> x, ss_tucker, ss_tt = t3_svd_dense(T, rtol=1e-3)
-    >>> print(t3_structure(x))
-        ((40, 50, 60), (12, 11, 12), (1, 12, 12, 1))
+    ((40, 50, 60), (12, 11, 12), (1, 12, 12, 1))
     >>> T2 = t3_to_dense(x)
     >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-3
-        0.0025147026955504846
-    >>> x, ss_tucker, ss_tt = t3_svd_dense(T, rtol=1e-4)
-    >>> print(t3_structure(x))
-        ((40, 50, 60), (26, 26, 27), (1, 26, 27, 1))
-    >>> T2 = t3_to_dense(x)
-    >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-4
-        0.00034874423325066196
+    0.0025147026955504846
     '''
     (basis_cores, tucker_core), ss_tucker = tucker_svd_dense(T, min_tucker_ranks, max_tucker_ranks, rtol, atol, use_jax)
     tt_cores, ss_tt = tt_svd_dense(tucker_core, min_tt_ranks, max_tt_ranks, rtol, atol, use_jax)

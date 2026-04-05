@@ -105,7 +105,7 @@ Components:
 Examples
 --------
 >>> import numpy as np
->>> from t3tools.tucker_tensor_train import *
+>>> from t3tools import *
 >>> basis_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
 >>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
 >>> x = (basis_cores, tt_cores) # TuckerTensorTrain, all cores filled with ones
@@ -680,7 +680,7 @@ def t3_apply(
     5.229594535194337e-12
 
     >>> import numpy as np
-    >>> from t3tools.tucker_tensor_train import *
+    >>> from t3tools import *
     >>> x = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
     >>> result = t3_apply(x, vecs)
@@ -787,7 +787,7 @@ def t3_entry(
     1.3322676295501878e-15
 
     >>> import numpy as np
-    >>> from t3tools.tucker_tensor_train import *
+    >>> from t3tools import *
     >>> x = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> index = [[9,8], [4,10], [7,13]] # get entries (9,4,7) and (8,10,13)
     >>> entries = t3_entry(x, index)
