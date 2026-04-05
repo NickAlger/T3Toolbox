@@ -3,8 +3,12 @@
 # https://github.com/NickAlger/TuckerTensorTrainTools
 import numpy as np
 import typing as typ
+
+from fontTools.ttLib.woff2 import base128Size
+
 from t3tools.linalg import *
 from t3tools.tucker_tensor_train import *
+from t3tools.t3_base_variation_format import *
 
 try:
     import jax.numpy as jnp
@@ -15,8 +19,6 @@ except:
 NDArray = typ.Union[np.ndarray, jnp.ndarray]
 
 __all__ = [
-    'T3Base',
-    'T3Variation',
     'up_svd_ith_basis_core',
     'left_svd_ith_tt_core',
     'right_svd_ith_tt_core',
@@ -25,134 +27,6 @@ __all__ = [
     'orthogonalize_relative_to_ith_basis_core',
     'orthogonalize_relative_to_ith_tt_core',
 ]
-
-T3Base = typ.Tuple[
-    typ.Sequence[NDArray],  # base_basis_cores. B_xo B_yo = I_xy    B.shape = (n, N)
-    typ.Sequence[NDArray],  # base_left_tt_cores. P_iax P_iay = I_xy, P.shape = (rL, n, rR)
-    typ.Sequence[NDArray],  # base_right_tt_cores. Q_xaj Q_yaj = I_xy  Q.shape = (rL, n, rR)
-    typ.Sequence[NDArray],  # base_outer_tt_cores. R_ixj R_iyj = I_xy  R.shape = (rL, n, rR)
-]
-
-T3Variation = typ.Tuple[
-    typ.Sequence[NDArray],  # variation_basis_cores.
-    typ.Sequence[NDArray],  # variation_tt_cores.
-]
-
-
-def t3_check_base(
-        orth_cores: T3Base,
-) -> None:
-    basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = orth_cores
-
-    num_cores = len(basis_cores)
-    all_num_cores = [len(basis_cores), len(left_tt_cores), len(right_tt_cores), len(outer_tt_cores)]
-    if all_num_cores != [num_cores]*4:
-        raise RuntimeError(
-            'Orthogonals have different numbers of cores. These should all be equal:\n'
-            + '[len(basis_cores), len(left_tt_cores), len(right_tt_cores), len(outer_tt_cores)]=\n'
-            + str(all_num_cores)
-        )
-
-    # Check that basis_cores are matrices
-    for ii, B in enumerate(basis_cores):
-        if len(B.shape) != 2:
-            raise RuntimeError(
-                'basis_core is not a matrix:\n'
-                + 'basis_cores['+str(ii) + '].shape=' + str(B.shape)
-            )
-
-    # Check that outer_tt_cores are 3-tensors with leading and trailing 1 dims
-    for ii, G in enumerate(outer_tt_cores):
-        if len(G.shape) != 3:
-            raise RuntimeError(
-                'outer_tt_core is not a 3-tensor:\n'
-                + 'outer_tt_cores['+str(ii) + '].shape=' + str(G.shape)
-            )
-
-    if outer_tt_cores[0].shape[0] != 1:
-        raise RuntimeError(
-            'First outer_tt_core must have shape (1, . , .).\n'
-            + 'outer_tt_cores[0].shape=' + str(outer_tt_cores[0].shape)
-        )
-
-    if outer_tt_cores[-1].shape[2] != 1:
-        raise RuntimeError(
-            'Last outer_tt_core must have shape ( . , . , 1).\n'
-            + 'outer_tt_cores[-1].shape=' + str(outer_tt_cores[-1].shape)
-        )
-
-    # Check that left_tt_cores are 3-tensors with leading and trailing 1 dims
-    for ii, G in enumerate(left_tt_cores):
-        if len(G.shape) != 3:
-            raise RuntimeError(
-                'left_tt_core is not a 3-tensor:\n'
-                + 'left_tt_cores['+str(ii) + '].shape=' + str(G.shape)
-            )
-
-    if left_tt_cores[0].shape[0] != 1:
-        raise RuntimeError(
-            'First left_tt_core must have shape (1, . , .).\n'
-            + 'left_tt_cores[0].shape=' + str(left_tt_cores[0].shape)
-        )
-
-    if left_tt_cores[-1].shape[2] != 1:
-        raise RuntimeError(
-            'Last left_tt_core must have shape ( . , . , 1).\n'
-            + 'left_tt_cores[-1].shape=' + str(left_tt_cores[-1].shape)
-        )
-
-    # Check that right_tt_cores are 3-tensors with leading and trailing 1 dims
-    for ii, G in enumerate(right_tt_cores):
-        if len(G.shape) != 3:
-            raise RuntimeError(
-                'right_tt_core is not a 3-tensor:\n'
-                + 'right_tt_cores['+str(ii) + '].shape=' + str(G.shape)
-            )
-
-    if right_tt_cores[0].shape[0] != 1:
-        raise RuntimeError(
-            'First right_tt_core must have shape (1, . , .).\n'
-            + 'right_tt_cores[0].shape=' + str(right_tt_cores[0].shape)
-        )
-
-    if right_tt_cores[-1].shape[2] != 1:
-        raise RuntimeError(
-            'Last right_tt_core must have shape ( . , . , 1).\n'
-            + 'right_tt_cores[-1].shape=' + str(right_tt_cores[-1].shape)
-        )
-
-    # Check outer-left consistency
-    for ii in range(1, num_cores):
-        GO = outer_tt_cores[ii]
-        GL = left_tt_cores[ii-1]
-        if GO.shape[0] != GL.shape[2]:
-            raise RuntimeError(
-                'Inconsistency in outer_tt_core and left_tt_core shapes:\n'
-                + 'outer_tt_cores['+str(ii)+'].shape=' + str(GO.shape) + '\n'
-                + 'left_tt_cores['+str(ii-1)+'].shape=' + str(GL.shape)
-            )
-
-    # Check outer-right consistency
-    for ii in range(0, num_cores-1):
-        GO = outer_tt_cores[ii]
-        GR = right_tt_cores[ii+1]
-        if GO.shape[2] != GR.shape[0]:
-            raise RuntimeError(
-                'Inconsistency in outer_tt_core and right_tt_core shapes:\n'
-                + 'outer_tt_cores['+str(ii)+'].shape=' + str(GO.shape) + '\n'
-                + 'right_tt_cores['+str(ii+11)+'].shape=' + str(GR.shape)
-            )
-
-
-def t3_check_nonorthogonals_fit(
-        orth_cores: T3Orthogonals,
-        nonorth_cores: T3NonOrthogonals,
-) -> None:
-    orth_basis_cores, left_orth_tt_cores, right_orth_tt_cores, outer_orth_tt_cores = orth_cores
-    nonorth_basis_cores, nonorth_tt_cores = nonorth_cores
-
-
-
 
 
 ##########################################
@@ -213,7 +87,7 @@ def up_svd_ith_basis_core(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
-    >>> from t3tools.t3_orthogonalization_and_svd import *
+    >>> from t3tools.t3_orthogonalization import *
     >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
     >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
     >>> x = (basis_cores_x, tt_cores_x)
@@ -307,7 +181,7 @@ def left_svd_ith_tt_core(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
-    >>> from t3tools.t3_orthogonalization_and_svd import *
+    >>> from t3tools.t3_orthogonalization import *
     >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
     >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
     >>> x = (basis_cores_x, tt_cores_x)
@@ -393,7 +267,7 @@ def right_svd_ith_tt_core(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
-    >>> from t3tools.t3_orthogonalization_and_svd import *
+    >>> from t3tools.t3_orthogonalization import *
     >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
     >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
     >>> x = (basis_cores_x, tt_cores_x)
@@ -478,7 +352,7 @@ def up_svd_ith_tt_core(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
-    >>> from t3tools.t3_orthogonalization_and_svd import *
+    >>> from t3tools.t3_orthogonalization import *
     >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
     >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
     >>> x = (basis_cores_x, tt_cores_x)
@@ -562,7 +436,7 @@ def down_svd_ith_tt_core(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
-    >>> from t3tools.t3_orthogonalization_and_svd import *
+    >>> from t3tools.t3_orthogonalization import *
     >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
     >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
     >>> x = (basis_cores_x, tt_cores_x)
@@ -646,7 +520,7 @@ def orthogonalize_relative_to_ith_basis_core(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
-    >>> from t3tools.t3_orthogonalization_and_svd import *
+    >>> from t3tools.t3_orthogonalization import *
     >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
     >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
     >>> x = (basis_cores_x, tt_cores_x)
@@ -726,7 +600,7 @@ def orthogonalize_relative_to_ith_tt_core(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
-    >>> from t3tools.t3_orthogonalization_and_svd import *
+    >>> from t3tools.t3_orthogonalization import *
     >>> basis_cores_x = (randn(4,14), randn(5,15), randn(6,16))
     >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
     >>> x = (basis_cores_x, tt_cores_x)
@@ -760,53 +634,130 @@ def orthogonalize_relative_to_ith_tt_core(
     return new_x
 
 
-def t3_orthogonals(
+def t3_orthogonal_representations(
         x: TuckerTensorTrain,
         use_jax: bool = False,
 ) -> typ.Tuple[
-    TuckerTensorTrain, # non-orthogonal cores
-    T3Orthogonals, # orthogonalizations of x
+    T3Base, # orthogonal base
+    T3Variation, # variations
 ]:
+    '''Construct base-variation representations of TuckerTensorTrain with orthogonal base.
+
+    Input TuckerTensorTrain::
+
+                  1 -- G0 -- G1 -- G2 -- G3 -- 1
+        X    =         |     |     |     |
+                       B0    B1    B2    B3
+                       |     |     |     |
+
+    Base-variation representation with non-orthogonal TT-core H1::
+
+                  1 -- L0 -- H1 -- R2 -- R3 -- 1
+        X    =         |     |     |     |
+                       U0    U1    U2    U3
+                       |     |     |     |
+
+    Base-variation representation with non-orthogonal basis core V2::
+
+                  1 -- L0 -- L1 -- O2 -- R3 -- 1
+        X    =         |     |     |     |
+                       U0    U1    V2    U3
+                       |     |     |     |
+
+    The input tensor train x is defined by:
+        - x_basis_cores     = (B0, B1, B2, B3)
+        - x_tt_cores        = (G0, G1, G2, G3)
+    The "basis cores" are:
+        - basis_cores       = (U0,U1, U2, U3), up orthogonal
+        - left_tt_cores     = (L0, L1, L2, L3), left orthogonal
+        - right_tt_cores    = (R0, R1, R2, R3), right orthogonal
+        - outer_tt_cores    = (O0, O1, O2, O3), down orthogonal
+    The "variation cores" are:
+        - basis_variations  = (V0, V1, V2, V3)
+        - tt_variations     = (H0, H1, H2, H3)
+
+    Parameters
+    ----------
+    x: TuckerTensorTrain
+        Input TuckerTensorTrain
+        x = (x_basis_cores, x_tt_cores)
+        x_basis_cores = (B0, ..., Bd)
+        x_tt_cores = (G0, ..., Gd)
+    use_jax: bool
+        If True use jax operations, if False use numpy.
+
+    Returns
+    -------
+    T3Base
+        Orthogonal base for base-variation representations of x.
+    T3Variation
+        Variation for base-variation representaions of x.
+
+    Examples
+    --------
+    >>> from numpy.random import randn
+    >>> from t3tools.tucker_tensor_train import *
+    >>> from t3tools.t3_base_variation_format import *
+    >>> x_basis_cores = (randn(4, 14), randn(5, 15), randn(6, 16))
+    >>> x_tt_cores = (randn(1, 4, 2), randn(2, 5, 3), randn(3, 6, 1))
+    >>> x = (x_basis_cores, x_tt_cores)
+    >>> base, variation = t3_orthogonal_representations(x)
+    >>> basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
+    >>> basis_vars, tt_vars = variation
+    >>> (U0,U1,U2) = basis_cores
+    >>> (L0,L1,L2) = left_tt_cores
+    >>> (R0,R1,R2) = right_tt_cores
+    >>> (O0,O1,O2) = outer_tt_cores
+    >>> (V0,V1,V2) = basis_vars
+    >>> (H0,H1,H2) = tt_vars
+    >>> x2 = ((U0,U1,U2), (L0,H1,R2)) # representation with TT-core variation
+    >>> print(np.linalg.norm(t3_to_dense(x) - t3_to_dense(x2)))
+        4.978421562425667e-12
+    >>> x3 = ((U0,V1,U2), (L0,O1,R2)) # representation with basis core variation
+    >>> print(np.linalg.norm(t3_to_dense(x) - t3_to_dense(x3)))
+        5.4355175448533146e-12
+    >>> print(np.linalg.norm(U1 @ U1.T - np.eye(U1.shape[0]))) # U: orthogonal
+        1.1915111872574236e-15
+    >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', L1, L1) - np.eye(L1.shape[2]))) # L: left orthogonal
+        9.733823879665448e-16
+    >>> print(np.linalg.norm(np.einsum('iaj,kaj->ik', R1, R1) - np.eye(R1.shape[0]))) # R: right orthogonal
+        8.027553546330097e-16
+    >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', O1, O1) - np.eye(O1.shape[1]))) # O: outer orthogonal
+        1.3870474292323159e-15
+    '''
     t3_check(x)
 
-    xnp = jnp if use_jax else np
-
-    basis_cores, tt_cores = x
-    num_cores = len(tt_cores)
+    num_cores = len(x[1])
 
     # Orthogonalize basis matrices
     for ii in range(num_cores):
         x = up_svd_ith_basis_core(ii, x, use_jax=use_jax)[0]
-    orthogonal_basis_cores = tuple([B.copy() for B in x[0]])
+    basis_cores = tuple([U.copy() for U in x[0]])
 
     # Right orthogonalize
     for ii in range(num_cores-1, 0, -1): # num_cores-1, num_cores-2, ..., 1
         x = right_svd_ith_tt_core(ii, x, use_jax=use_jax)[0]
-    right_orthogonal_tt_cores = tuple([G.copy() for G in x[1]])
+    right_tt_cores = tuple([G.copy() for G in x[1]])
 
-    non_orthogonal_basis_cores = []
-    non_orthogonal_tt_cores = []
+    basis_variations = []
+    tt_variations = []
 
-    left_orthogonal_tt_cores = []
-    outer_orthogonal_tt_cores = []
+    left_tt_cores = []
+    outer_tt_cores = []
     # Sweep left to right
     for ii in range(num_cores):
-        # SVD inbetween tt core and basis core
-        x, ss_basis = up_svd_ith_tt_core(
-            ii, x, use_jax=use_jax,
-        )
-        all_ss_basis.append(ss_basis)
+        tt_variations.append(x[1][ii])
+
+        tmp = down_svd_ith_tt_core(ii, x, use_jax=use_jax)[0]
+        outer_tt_cores.append(tmp[1][ii])
+        basis_variations.append(tmp[0][ii])
 
         if ii < num_cores-1:
-            # SVD inbetween ith tt core and (i+1)th tt core
-            x, ss_tt = left_svd_ith_tt_core(
-                ii, x, use_jax=use_jax,
-            )
-        else:
-            Gf = x[1][-1]
-            _, ss_tt, _ = left_svd_3tensor(Gf, use_jax=use_jax)
-        all_ss_tt.append(ss_tt)
+            x = left_svd_ith_tt_core(ii, x, use_jax=use_jax)[0]
+        left_tt_cores.append(x[1][ii])
 
-    return x, tuple(all_ss_basis), tuple(all_ss_tt)
+    base = (basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+    variation = (basis_variations, tt_variations)
+    return base, variation
 
 

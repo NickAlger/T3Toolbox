@@ -3,6 +3,7 @@
 # https://github.com/NickAlger/TuckerTensorTrainTools
 import numpy as np
 import typing as typ
+from t3tools.linalg import *
 from t3tools.tucker_tensor_train import *
 from t3tools.t3_orthogonalization import *
 
@@ -87,7 +88,7 @@ def t3_svd(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
-    >>> from t3tools.t3_orthogonalization_and_svd import *
+    >>> from t3tools.t3_svd import *
     >>> basis_cores_x = (randn(4,6), randn(5,7), randn(6,8))
     >>> tt_cores_x = (randn(1,4,3), randn(3,5,2), randn(2,6,1))
     >>> x = (basis_cores_x, tt_cores_x)
@@ -248,7 +249,7 @@ def tucker_svd_dense(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
-    >>> from t3tools.t3_orthogonalization_and_svd import *
+    >>> from t3tools.t3_svd import *
     >>> T0 = np.random.randn(40, 50, 60)
     >>> c0 = 1.0 / np.arange(1, 41)**2
     >>> c1 = 1.0 / np.arange(1, 51)**2
@@ -343,7 +344,7 @@ def tt_svd_dense(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
-    >>> from t3tools.t3_orthogonalization_and_svd import *
+    >>> from t3tools.t3_svd import *
     >>> T0 = np.random.randn(40, 50, 60)
     >>> c0 = 1.0 / np.arange(1, 41)**2
     >>> c1 = 1.0 / np.arange(1, 51)**2
@@ -445,7 +446,7 @@ def t3_svd_dense(
     --------
     >>> from numpy.random import randn
     >>> from t3tools.tucker_tensor_train import *
-    >>> from t3tools.t3_orthogonalization_and_svd import *
+    >>> from t3tools.t3_svd import *
     >>> T0 = np.random.randn(40, 50, 60)
     >>> c0 = 1.0 / np.arange(1, 41)**2
     >>> c1 = 1.0 / np.arange(1, 51)**2
