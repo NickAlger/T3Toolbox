@@ -22,7 +22,7 @@ __all__ = [
     't3_check_variation',
     't3base_hole_shapes',
     't3_check_bv_fit',
-    'bv_to_t3',
+    'ith_bv_to_t3',
     't3_orthogonal_representations',
     # Tangent vectors
     't3tangent_to_dense',
@@ -485,7 +485,7 @@ def t3_check_bv_fit(
         )
 
 
-def bv_to_t3(
+def ith_bv_to_t3(
         replacement_ind: int,
         replace_tt: bool, # If True, replace TT-core. If False, replace basis_core.
         base: T3Base,
@@ -538,10 +538,10 @@ def bv_to_t3(
     >>> (V0,V1,V2) = (randn(9,14), randn(8,15), randn(7,16))
     >>> (H0,H1,H2) = (randn(1,10,4), randn(2,11,5), randn(3,12,1))
     >>> variation = ((V0,V1,V2), (H0,H1,H2))
-    >>> ((B0, B1, B2), (G0, G1, G2)) = t3m.bv_to_t3(1, True, base, variation) # replace index-1 TT-core
+    >>> ((B0, B1, B2), (G0, G1, G2)) = t3m.ith_bv_to_t3(1, True, base, variation) # replace index-1 TT-core
     >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,U1,U2), (L0,H1,R2)))
         True
-    >>> ((B0, B1, B2), (G0, G1, G2)) = t3m.bv_to_t3(1, False, base, variation) # replace index-1 basis core
+    >>> ((B0, B1, B2), (G0, G1, G2)) = t3m.ith_bv_to_t3(1, False, base, variation) # replace index-1 basis core
     >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,O1,R2)))
         True
     '''
@@ -789,8 +789,8 @@ def t3tangent_to_dense(
     t3_check_bv_fit(variation, base)
 
     num_cores = len(variation[0])
-    basis_terms = [bv_to_t3(ii, False, base, variation) for ii in range(num_cores)]
-    tt_terms    = [bv_to_t3(ii, True, base, variation) for ii in range(num_cores)]
+    basis_terms = [ith_bv_to_t3(ii, False, base, variation) for ii in range(num_cores)]
+    tt_terms    = [ith_bv_to_t3(ii, True, base, variation) for ii in range(num_cores)]
     terms = basis_terms + tt_terms
     V = t3.t3_to_dense(terms[0])
     for t in terms[1:]:

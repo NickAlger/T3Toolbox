@@ -18,14 +18,14 @@ Includes:
 	- Probing T3s
 	- Probing tangent vectors
 	- Transpose of the tangent vector to probes map
-	- Conversion between varied-rank and uniform-rank T3s
+	- Varied-rank and uniform-rank T3s
 	
 
 Contents
 ========
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 1
    
    t3tools
 
