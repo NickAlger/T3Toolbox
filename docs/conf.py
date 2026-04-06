@@ -23,9 +23,8 @@ extensions = [
     'autoapi.extension',
     "sphinx.ext.autodoc",
     'sphinx.ext.autosummary',
-#    'sphinx.ext.inheritance_diagram',
-#    'autoapi.sphinx',
     "sphinx.ext.napoleon",
+    'sphinx.ext.githubpages',
 ]
 autoapi_dirs = ['../t3tools']
 numpydoc_show_class_members = False
