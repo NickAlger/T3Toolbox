@@ -1,0 +1,42 @@
+t3tools.manifold.orthogonal_gauge_projection
+============================================
+
+.. py:function:: t3tools.manifold.orthogonal_gauge_projection(variation: T3Variation, orthogonal_base: T3Base, use_jax: bool = False) -> T3Variation
+
+   Makes tangent variation gauged via orthogonal projection. Changes tangent vector.
+
+   Gauge condition:
+       - All variation basis cores Vi are orthogonal to the corresponding base basis cores Ui:
+           Ui @ Vi.T = 0    for    i=1,...,d
+       - All but the last variation TT-cores H are left-perpendicular to the corresponding base left TT-cores L:
+           einsum('iaj,iak->jk', Hi, Li) = 0    for    i=1,...,d-1
+
+   :param variation: The variation which will become gauged.
+   :type variation: T3Variation,
+   :param orthogonal_base: The base representations. Must be orthogonal for the operation to work properly.
+   :type orthogonal_base: T3Base,
+   :param use_jax: If True, use jax operations, if False use numpy.
+   :type use_jax: bool
+
+   :returns: Projected variation satisfying Gauge condition.
+             Represents different tangent vector than original variation.
+   :rtype: T3Variation
+
+   .. seealso:: :py:obj:`T3Base`, :py:obj:`T3Variation`, :py:obj:`t3_oblique_gauge_projection`
+
+   .. rubric:: Example
+
+   >>> import numpy as np
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> import t3tools.t3_manifold as t3m
+   >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+   >>> base, _ = t3m.orthogonal_representations(p)
+   >>> variation = t3m.tangent_randn(base)
+   >>> proj_variation = t3m.orthogonal_gauge_projection(variation, base) # Make gauged via orthogonal projection
+   >>> (U0,U1,U2), (L0,L1,L2), _, _ = base
+   >>> ((V0,V1,V2), (H0,H1,H2)) = proj_variation
+   >>> print(np.linalg.norm(V1 @ U1.T)) # Gauge condition for basis core 1
+   3.512073125137391e-15
+   >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', H1, L1))) # Gauge condition for TT-core 1
+   1.5807940730805242e-15
+

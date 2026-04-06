@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>t3tools.tucker_tensor_train.t3_neg &#8212; TuckerTensorTrainTools 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/agogo.css?v=08520df9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="t3tools.tucker_tensor_train.t3_sub" href="t3_sub.html" />
+    <link rel="prev" title="t3tools.tucker_tensor_train.t3_scale" href="t3_scale.html" /> 
+  </head><body>
+    <div class="header-wrapper" role="banner">
+      <div class="header">
+        <div class="headertitle"><a
+          href="../../../index.html">TuckerTensorTrainTools 0.1 documentation</a></div>
+        <div class="rel" role="navigation" aria-label="Related">
+          <a href="t3_scale.html" title="t3tools.tucker_tensor_train.t3_scale"
+             accesskey="P">previous</a> |
+          <a href="t3_sub.html" title="t3tools.tucker_tensor_train.t3_sub"
+             accesskey="N">next</a> |
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a>
+        </div>
+       </div>
+    </div>
+
+    <div class="content-wrapper">
+      <div class="content">
+        <div class="document">
+            
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="t3tools-tucker-tensor-train-t3-neg">
+<h1>t3tools.tucker_tensor_train.t3_neg<a class="headerlink" href="#t3tools-tucker-tensor-train-t3-neg" title="Link to this heading">¶</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="t3tools.tucker_tensor_train.t3_neg">
+<span class="sig-prename descclassname"><span class="pre">t3tools.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">t3_neg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain"><span class="pre">TuckerTensorTrain</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="index.html#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain"><span class="pre">TuckerTensorTrain</span></a></span></span><a class="headerlink" href="#t3tools.tucker_tensor_train.t3_neg" title="Link to this definition">¶</a></dt>
+<dd><p>Scale TuckerTensorTrain x by a scaling factor -1.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> (<a class="reference internal" href="index.html#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – Tucker tensor train</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul>
+<li><p><em>TuckerTensorTrain</em> – scaled TuckerTensorTrain -x, with the same structure as x.</p>
+<p>Raises</p>
+</li>
+<li><p><em>——</em></p></li>
+<li><p><em>RuntimeError</em> –</p>
+<ul class="simple">
+<li><p>Error raised if the TuckerTensorTrains is internally inconsistent</p></li>
+</ul>
+</li>
+</ul>
+</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="index.html#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TuckerTensorTrain</span></code></a>, <a class="reference internal" href="t3_add.html#t3tools.tucker_tensor_train.t3_add" title="t3tools.tucker_tensor_train.t3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_add</span></code></a>, <a class="reference internal" href="t3_scale.html#t3tools.tucker_tensor_train.t3_scale" title="t3tools.tucker_tensor_train.t3_scale"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_scale</span></code></a>, <a class="reference internal" href="t3_sub.html#t3tools.tucker_tensor_train.t3_sub" title="t3tools.tucker_tensor_train.t3_sub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_sub</span></code></a></p>
+</div>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">neg_x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_neg</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">t3</span><span class="o">.</span><span class="n">t3_to_dense</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_to_dense</span><span class="p">(</span><span class="n">neg_x</span><span class="p">)))</span>
+<span class="go">0.0</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+        </div>
+        <div class="sidebar">
+          
+          <h3>Table of Contents</h3>
+          <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">t3tools</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="../corewise/index.html">t3tools.corewise</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../dense/index.html">t3tools.dense</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../manifold/index.html">t3tools.manifold</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../probing/index.html">t3tools.probing</a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="index.html">t3tools.tucker_tensor_train</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../uniform_manifold/index.html">t3tools.uniform_manifold</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../uniform_probing/index.html">t3tools.uniform_probing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../uniform_tucker_tensor_train/index.html">t3tools.uniform_tucker_tensor_train</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          <search role="search">
+            <h3 style="margin-top: 1.5em;">Search</h3>
+            <form class="search" action="../../../search.html" method="get">
+                <input type="text" name="q" />
+                <input type="submit" value="Go" />
+            </form>
+          </search>
+
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+    <div class="footer-wrapper">
+      <div class="footer">
+        <div class="left">
+          <div role="navigation" aria-label="Related">
+            <a href="t3_scale.html" title="t3tools.tucker_tensor_train.t3_scale"
+              >previous</a> |
+            <a href="t3_sub.html" title="t3tools.tucker_tensor_train.t3_sub"
+              >next</a> |
+            <a href="../../../py-modindex.html" title="Python Module Index"
+              >modules</a> |
+            <a href="../../../genindex.html" title="General Index"
+              >index</a>
+          </div>
+          <div role="note" aria-label="source link">
+              <br/>
+              <a href="../../../_sources/autoapi/t3tools/tucker_tensor_train/t3_neg.rst.txt"
+                rel="nofollow">Show Source</a>
+          </div>
+        </div>
+
+        <div class="right">
+          
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2026, Nick Alger and Blake Christierson.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+  </body>
+</html>

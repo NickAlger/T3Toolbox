@@ -1,0 +1,8 @@
+t3tools.tucker_tensor_train.pad_ranks
+=====================================
+
+.. py:function:: t3tools.tucker_tensor_train.pad_ranks(x: TuckerTensorTrain, new_tucker_ranks: Sequence[int], new_tt_ranks: Sequence[int]) -> TuckerTensorTrain
+
+   Increase TuckerTensorTrain ranks via zero padding.
+
+

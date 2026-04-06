@@ -1,0 +1,16 @@
+t3tools.probing.compute_taus
+============================
+
+.. py:function:: t3tools.probing.compute_taus(var_tt_cores: Sequence[NDArray], left_tt_cores: Sequence[NDArray], outer_tt_cores: Sequence[NDArray], xis: Sequence[NDArray], dxis: Sequence[NDArray], nus: Sequence[NDArray], use_jax: bool = False) -> Tuple[NDArray, Ellipsis]
+
+   Compute var-rightward edge variables tau.
+   Used for probing a tangent vector.
+
+   See Section 5.2.3, particularly Formula (38), in:
+       Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+       "Tucker Tensor Train Taylor Series."
+       arXiv preprint arXiv:2603.21141.
+       `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+
+   .. seealso:: :py:obj:`compute_dxis`, :py:obj:`compute_sigmas`, :py:obj:`compute_detas`, :py:obj:`assemble_tangent_probes`, :py:obj:`probe_tangent`
+

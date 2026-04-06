@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>t3tools.tucker_tensor_train &#8212; TuckerTensorTrainTools 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/agogo.css?v=08520df9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="t3tools.tucker_tensor_train.t3_structure" href="t3_structure.html" />
+    <link rel="prev" title="t3tools.probing.probe_tangent_transpose" href="../probing/probe_tangent_transpose.html" /> 
+  </head><body>
+    <div class="header-wrapper" role="banner">
+      <div class="header">
+        <div class="headertitle"><a
+          href="../../../index.html">TuckerTensorTrainTools 0.1 documentation</a></div>
+        <div class="rel" role="navigation" aria-label="Related">
+          <a href="../probing/probe_tangent_transpose.html" title="t3tools.probing.probe_tangent_transpose"
+             accesskey="P">previous</a> |
+          <a href="t3_structure.html" title="t3tools.tucker_tensor_train.t3_structure"
+             accesskey="N">next</a> |
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a>
+        </div>
+       </div>
+    </div>
+
+    <div class="content-wrapper">
+      <div class="content">
+        <div class="document">
+            
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="module-t3tools.tucker_tensor_train">
+<span id="t3tools-tucker-tensor-train"></span><h1>t3tools.tucker_tensor_train<a class="headerlink" href="#module-t3tools.tucker_tensor_train" title="Link to this heading">¶</a></h1>
+<section id="attributes">
+<h2>Attributes<a class="headerlink" href="#attributes" title="Link to this heading">¶</a></h2>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TuckerTensorTrain</span></code></a></p></td>
+<td><p>Tuple containing Tucker Tensor Train basis cores and TT-cores.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3tools.tucker_tensor_train.T3Structure" title="t3tools.tucker_tensor_train.T3Structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Structure</span></code></a></p></td>
+<td><p>Tuple containing the structure of a Tucker Tensor Train.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+</div>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_structure.html#t3tools.tucker_tensor_train.t3_structure" title="t3tools.tucker_tensor_train.t3_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_structure</span></code></a>(→ T3Structure)</p></td>
+<td><p>Get the structure of a Tucker tensor train.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="check_t3.html#t3tools.tucker_tensor_train.check_t3" title="t3tools.tucker_tensor_train.check_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3</span></code></a>(→ None)</p></td>
+<td><p>Check correctness / consistency of Tucker tensor train.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_to_dense.html#t3tools.tucker_tensor_train.t3_to_dense" title="t3tools.tucker_tensor_train.t3_to_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_to_dense</span></code></a>(→ NDArray)</p></td>
+<td><p>Contract Tucker tensor train to dense tensor.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_reverse.html#t3tools.tucker_tensor_train.t3_reverse" title="t3tools.tucker_tensor_train.t3_reverse"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_reverse</span></code></a>(→ NDArray)</p></td>
+<td><p>Reverse Tucker tensor train.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_zeros.html#t3tools.tucker_tensor_train.t3_zeros" title="t3tools.tucker_tensor_train.t3_zeros"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_zeros</span></code></a>(→ TuckerTensorTrain)</p></td>
+<td><p>Construct Tucker tensor train of zeros.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_corewise_randn.html#t3tools.tucker_tensor_train.t3_corewise_randn" title="t3tools.tucker_tensor_train.t3_corewise_randn"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_corewise_randn</span></code></a>(→ TuckerTensorTrain)</p></td>
+<td><p>Construct Tucker tensor train with random cores (i.i.d. N(0,1) entries).</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_save.html#t3tools.tucker_tensor_train.t3_save" title="t3tools.tucker_tensor_train.t3_save"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_save</span></code></a>(→ None)</p></td>
+<td><p>Save Tucker tensor train to file with numpy.savez()</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_load.html#t3tools.tucker_tensor_train.t3_load" title="t3tools.tucker_tensor_train.t3_load"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_load</span></code></a>(→ TuckerTensorTrain)</p></td>
+<td><p>Save Tucker tensor train to file with numpy.savez()</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_apply.html#t3tools.tucker_tensor_train.t3_apply" title="t3tools.tucker_tensor_train.t3_apply"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_apply</span></code></a>(→ NDArray)</p></td>
+<td><p>Contract TuckerTensorTrain with vectors in all indices.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_entry.html#t3tools.tucker_tensor_train.t3_entry" title="t3tools.tucker_tensor_train.t3_entry"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_entry</span></code></a>(→ NDArray)</p></td>
+<td><p>Compute an entry (or multiple entries) of a TuckerTensorTrain.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="compute_minimal_ranks.html#t3tools.tucker_tensor_train.compute_minimal_ranks" title="t3tools.tucker_tensor_train.compute_minimal_ranks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_minimal_ranks</span></code></a>(→ Tuple[Tuple[int, Ellipsis], ...)</p></td>
+<td><p>Find minimal ranks for a TuckerTensorTrain with a given structure. (remove useless rank)</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="pad_ranks.html#t3tools.tucker_tensor_train.pad_ranks" title="t3tools.tucker_tensor_train.pad_ranks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pad_ranks</span></code></a>(→ TuckerTensorTrain)</p></td>
+<td><p>Increase TuckerTensorTrain ranks via zero padding.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="up_svd_ith_basis_core.html#t3tools.tucker_tensor_train.up_svd_ith_basis_core" title="t3tools.tucker_tensor_train.up_svd_ith_basis_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_svd_ith_basis_core</span></code></a>(→ Tuple[TuckerTensorTrain, NDArray])</p></td>
+<td><p>Compute SVD of ith basis core and contract non-orthogonal factor up into the TT-core above.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="left_svd_ith_tt_core.html#t3tools.tucker_tensor_train.left_svd_ith_tt_core" title="t3tools.tucker_tensor_train.left_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_ith_tt_core</span></code></a>(→ Tuple[TuckerTensorTrain, NDArray])</p></td>
+<td><p>Compute SVD of ith TT-core left unfolding and contract non-orthogonal factor into the TT-core to the right.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="right_svd_ith_tt_core.html#t3tools.tucker_tensor_train.right_svd_ith_tt_core" title="t3tools.tucker_tensor_train.right_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd_ith_tt_core</span></code></a>(→ Tuple[TuckerTensorTrain, NDArray])</p></td>
+<td><p>Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor into the TT-core to the left.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="up_svd_ith_tt_core.html#t3tools.tucker_tensor_train.up_svd_ith_tt_core" title="t3tools.tucker_tensor_train.up_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_svd_ith_tt_core</span></code></a>(→ Tuple[TuckerTensorTrain, NDArray])</p></td>
+<td><p>Compute SVD of ith TT-core outer unfolding and keep non-orthogonal factor with this core.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="down_svd_ith_tt_core.html#t3tools.tucker_tensor_train.down_svd_ith_tt_core" title="t3tools.tucker_tensor_train.down_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">down_svd_ith_tt_core</span></code></a>(→ Tuple[TuckerTensorTrain, NDArray])</p></td>
+<td><p>Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the basis core below.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="orthogonalize_relative_to_ith_basis_core.html#t3tools.tucker_tensor_train.orthogonalize_relative_to_ith_basis_core" title="t3tools.tucker_tensor_train.orthogonalize_relative_to_ith_basis_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonalize_relative_to_ith_basis_core</span></code></a>(...)</p></td>
+<td><p>Orthogonalize all cores in the TuckerTensorTrain except for the ith basis core.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="orthogonalize_relative_to_ith_tt_core.html#t3tools.tucker_tensor_train.orthogonalize_relative_to_ith_tt_core" title="t3tools.tucker_tensor_train.orthogonalize_relative_to_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonalize_relative_to_ith_tt_core</span></code></a>(→ TuckerTensorTrain)</p></td>
+<td><p>Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_svd.html#t3tools.tucker_tensor_train.t3_svd" title="t3tools.tucker_tensor_train.t3_svd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_svd</span></code></a>(→ Tuple[TuckerTensorTrain, Tuple[NDArray, ...)</p></td>
+<td><p>Compute (truncated) T3-SVD of TuckerTensorTrain.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_add.html#t3tools.tucker_tensor_train.t3_add" title="t3tools.tucker_tensor_train.t3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_add</span></code></a>(→ TuckerTensorTrain)</p></td>
+<td><p>Add TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x+y with summed ranks.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_scale.html#t3tools.tucker_tensor_train.t3_scale" title="t3tools.tucker_tensor_train.t3_scale"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_scale</span></code></a>(→ TuckerTensorTrain)</p></td>
+<td><p>Scale TuckerTensorTrain x by a scaling factor s.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_neg.html#t3tools.tucker_tensor_train.t3_neg" title="t3tools.tucker_tensor_train.t3_neg"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_neg</span></code></a>(→ TuckerTensorTrain)</p></td>
+<td><p>Scale TuckerTensorTrain x by a scaling factor -1.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_sub.html#t3tools.tucker_tensor_train.t3_sub" title="t3tools.tucker_tensor_train.t3_sub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_sub</span></code></a>(→ TuckerTensorTrain)</p></td>
+<td><p>Subtract TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x-y with summed ranks.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_dot_t3.html#t3tools.tucker_tensor_train.t3_dot_t3" title="t3tools.tucker_tensor_train.t3_dot_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_dot_t3</span></code></a>(x, y[, use_jax])</p></td>
+<td><p>Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains x, y with the same shape, (x, y)_HS.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_norm.html#t3tools.tucker_tensor_train.t3_norm" title="t3tools.tucker_tensor_train.t3_norm"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_norm</span></code></a>(x[, use_orthogonalization, use_jax])</p></td>
+<td><p>Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains x, y with the same shape, (x, y)_HS.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_svd_dense.html#t3tools.tucker_tensor_train.t3_svd_dense" title="t3tools.tucker_tensor_train.t3_svd_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_svd_dense</span></code></a>(→ Tuple[TuckerTensorTrain, Tuple[NDArray, ...)</p></td>
+<td><p>Compute TuckerTensorTrain and edge singular values for dense tensor.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="module-contents">
+<h2>Module Contents<a class="headerlink" href="#module-contents" title="Link to this heading">¶</a></h2>
+<dl class="py data">
+<dt class="sig sig-object py" id="t3tools.tucker_tensor_train.TuckerTensorTrain">
+<span class="sig-prename descclassname"><span class="pre">t3tools.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">TuckerTensorTrain</span></span><a class="headerlink" href="#t3tools.tucker_tensor_train.TuckerTensorTrain" title="Link to this definition">¶</a></dt>
+<dd><p>Tuple containing Tucker Tensor Train basis cores and TT-cores.</p>
+<p>Tensor network diagram:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">1</span> <span class="o">--</span> <span class="n">G0</span> <span class="o">--</span> <span class="n">G1</span> <span class="o">--</span> <span class="n">G2</span> <span class="o">--</span> <span class="n">G3</span> <span class="o">--</span> <span class="mi">1</span>
+     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
+     <span class="n">B0</span>    <span class="n">B1</span>    <span class="n">B2</span>    <span class="n">B3</span>
+     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
+</pre></div>
+</div>
+<dl>
+<dt>Components:</dt><dd><ul>
+<li><dl>
+<dt><strong>basis_cores</strong><span class="classifier"><em>Sequence[NDArray]</em></span></dt><dd><p>Basis matrices (B0, …, Bd) with shape (ni, Ni) for i=1,…,d. len(basis_cores)=d.</p>
+</dd>
+</dl>
+</li>
+<li><dl>
+<dt><strong>tt_cores</strong><span class="classifier"><em>Sequence[NDArray]</em></span></dt><dd><p>Tensor train cores (G0, …, Gd) with shape (ri, ni, r(i+1)) for i=1,…,d. len(tt_cores)=d. r0=rd=1.</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+<dt>Structure:</dt><dd><ul class="simple">
+<li><p>shape: (N1, …, Nd)</p></li>
+<li><p>tucker ranks: (n1, …, nd)</p></li>
+<li><p>tt ranks: (1, r1, …, r(d-1), 1)</p></li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">basis_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span><span class="mi">14</span><span class="p">)),</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">5</span><span class="p">,</span><span class="mi">15</span><span class="p">)),</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">6</span><span class="p">,</span><span class="mi">16</span><span class="p">))]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tt_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">3</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">2</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">1</span><span class="p">))]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">basis_cores</span><span class="p">,</span> <span class="n">tt_cores</span><span class="p">)</span> <span class="c1"># TuckerTensorTrain, all cores filled with ones</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">t3</span><span class="o">.</span><span class="n">check_t3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="c1"># does nothing because t3 core shapes are consistent</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3tools.tucker_tensor_train.T3Structure">
+<span class="sig-prename descclassname"><span class="pre">t3tools.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">T3Structure</span></span><a class="headerlink" href="#t3tools.tucker_tensor_train.T3Structure" title="Link to this definition">¶</a></dt>
+<dd><p>Tuple containing the structure of a Tucker Tensor Train.</p>
+<p>Tensor network diagram:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">1</span> <span class="o">-</span><span class="p">[</span><span class="n">r0</span><span class="p">]</span><span class="o">-</span> <span class="n">G0</span> <span class="o">-</span><span class="p">[</span><span class="n">r1</span><span class="p">]</span><span class="o">-</span> <span class="n">G1</span> <span class="o">-</span><span class="p">[</span><span class="n">r2</span><span class="p">]</span><span class="o">-</span> <span class="n">G2</span> <span class="o">-</span><span class="p">[</span><span class="n">r3</span><span class="p">]</span><span class="o">-</span> <span class="n">G3</span> <span class="o">-</span><span class="p">[</span><span class="n">r4</span><span class="p">]</span><span class="o">-</span> <span class="mi">1</span>
+         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>
+         <span class="p">[</span><span class="n">n0</span><span class="p">]</span>      <span class="p">[</span><span class="n">n1</span><span class="p">]</span>      <span class="p">[</span><span class="n">n2</span><span class="p">]</span>      <span class="p">[</span><span class="n">n3</span><span class="p">]</span>
+         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>
+         <span class="n">B0</span>        <span class="n">B1</span>        <span class="n">B2</span>        <span class="n">B3</span>
+         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>
+         <span class="p">[</span><span class="n">N0</span><span class="p">]</span>      <span class="p">[</span><span class="n">N1</span><span class="p">]</span>      <span class="p">[</span><span class="n">N2</span><span class="p">]</span>      <span class="p">[</span><span class="n">N3</span><span class="p">]</span>
+         <span class="o">|</span>         <span class="o">|</span>     <span class="o">|</span>             <span class="o">|</span>
+</pre></div>
+</div>
+<dl>
+<dt>Components:</dt><dd><ul>
+<li><dl>
+<dt><strong>shape</strong><span class="classifier"><em>Sequence[NDArray]</em></span></dt><dd><p>Shape of the represented tensor, (N1, …, Nd). len=d</p>
+</dd>
+</dl>
+</li>
+<li><dl>
+<dt><strong>tucker_ranks</strong><span class="classifier"><em>Sequence[NDArray]</em></span></dt><dd><p>Tucker ranks, (n1, …, nd). len=d</p>
+</dd>
+</dl>
+</li>
+<li><dl>
+<dt><strong>tt_ranks</strong><span class="classifier"><em>Sequence[NDArray]</em></span></dt><dd><p>TT-ranks, (1, r1, …, r(d-1), 1). len=d+1. tt_ranks[0]=tt_ranks[-1]=1</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">basis_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span><span class="mi">14</span><span class="p">)),</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">5</span><span class="p">,</span><span class="mi">15</span><span class="p">)),</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">6</span><span class="p">,</span><span class="mi">16</span><span class="p">))]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tt_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">3</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">2</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">1</span><span class="p">))]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">basis_cores</span><span class="p">,</span> <span class="n">tt_cores</span><span class="p">)</span> <span class="c1"># TuckerTensorTrain, all cores filled with ones</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">shape</span><span class="p">,</span> <span class="n">tucker_ranks</span><span class="p">,</span> <span class="n">tt_ranks</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_structure</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
+<span class="go">(14, 15, 16)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">tucker_ranks</span><span class="p">)</span>
+<span class="go">(4, 5, 6)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">tt_ranks</span><span class="p">)</span>
+<span class="go">(1, 3, 2, 1)</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+        </div>
+        <div class="sidebar">
+          
+          <h3>Table of Contents</h3>
+          <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">t3tools</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="../corewise/index.html">t3tools.corewise</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../dense/index.html">t3tools.dense</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../manifold/index.html">t3tools.manifold</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../probing/index.html">t3tools.probing</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">t3tools.tucker_tensor_train</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../uniform_manifold/index.html">t3tools.uniform_manifold</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../uniform_probing/index.html">t3tools.uniform_probing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../uniform_tucker_tensor_train/index.html">t3tools.uniform_tucker_tensor_train</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          <search role="search">
+            <h3 style="margin-top: 1.5em;">Search</h3>
+            <form class="search" action="../../../search.html" method="get">
+                <input type="text" name="q" />
+                <input type="submit" value="Go" />
+            </form>
+          </search>
+
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+    <div class="footer-wrapper">
+      <div class="footer">
+        <div class="left">
+          <div role="navigation" aria-label="Related">
+            <a href="../probing/probe_tangent_transpose.html" title="t3tools.probing.probe_tangent_transpose"
+              >previous</a> |
+            <a href="t3_structure.html" title="t3tools.tucker_tensor_train.t3_structure"
+              >next</a> |
+            <a href="../../../py-modindex.html" title="Python Module Index"
+              >modules</a> |
+            <a href="../../../genindex.html" title="General Index"
+              >index</a>
+          </div>
+          <div role="note" aria-label="source link">
+              <br/>
+              <a href="../../../_sources/autoapi/t3tools/tucker_tensor_train/index.rst.txt"
+                rel="nofollow">Show Source</a>
+          </div>
+        </div>
+
+        <div class="right">
+          
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2026, Nick Alger and Blake Christierson.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+  </body>
+</html>

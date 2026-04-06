@@ -1,0 +1,53 @@
+t3tools.uniform_manifold
+========================
+
+.. py:module:: t3tools.uniform_manifold
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   t3tools.uniform_manifold.UniformT3Variations
+
+
+Classes
+-------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3tools/uniform_manifold/UniformT3TangentSpace
+
+.. autoapisummary::
+
+   t3tools.uniform_manifold.UniformT3TangentSpace
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3tools/uniform_manifold/pack_matrices
+   /autoapi/t3tools/uniform_manifold/unpack_matrices
+   /autoapi/t3tools/uniform_manifold/ut3_orthogonal_gauge_projection
+   /autoapi/t3tools/uniform_manifold/ut3_orthogonal_gauge_projection_using_map
+   /autoapi/t3tools/uniform_manifold/get_t3_tangent_space_dim
+
+.. autoapisummary::
+
+   t3tools.uniform_manifold.pack_matrices
+   t3tools.uniform_manifold.unpack_matrices
+   t3tools.uniform_manifold.ut3_orthogonal_gauge_projection
+   t3tools.uniform_manifold.ut3_orthogonal_gauge_projection_using_map
+   t3tools.uniform_manifold.get_t3_tangent_space_dim
+
+
+Module Contents
+---------------
+
+.. py:data:: UniformT3Variations
+

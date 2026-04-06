@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>TuckerTensorTrainTools’s documentation &#8212; TuckerTensorTrainTools 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="_static/agogo.css?v=08520df9" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css?v=4ae1632d" />
+    <script src="_static/documentation_options.js?v=2709fde1"></script>
+    <script src="_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="icon" href="_static/favicon.ico"/>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="API Reference" href="autoapi/index.html" /> 
+  </head><body>
+    <div class="header-wrapper" role="banner">
+      <div class="header">
+        <div class="headertitle"><a
+          href="#">TuckerTensorTrainTools 0.1 documentation</a></div>
+        <div class="rel" role="navigation" aria-label="Related">
+          <a href="autoapi/index.html" title="API Reference"
+             accesskey="N">next</a> |
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a>
+        </div>
+       </div>
+    </div>
+
+    <div class="content-wrapper">
+      <div class="content">
+        <div class="document">
+            
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="tuckertensortraintools-s-documentation">
+<h1>TuckerTensorTrainTools’s documentation<a class="headerlink" href="#tuckertensortraintools-s-documentation" title="Link to this heading">¶</a></h1>
+<p>A Python library for working with Tucker tensor trains (T3).
+Includes:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Basic T3 operations (entries, addition, scaling, inner product)</p></li>
+<li><p>Orthogonalization</p></li>
+<li><p>T3-SVD</p></li>
+<li><p>Orthogonal representation of tangent vectors to the fixed rank T3-manifold</p></li>
+<li><p>Orthogonal and oblique gauge projections of tangent vector representations</p></li>
+<li><p>Conversion of tangent vector representations to rank-2r T3s</p></li>
+<li><p>Retraction of tangent vectors to the T3-manifold</p></li>
+<li><p>Probing T3s</p></li>
+<li><p>Probing tangent vectors</p></li>
+<li><p>Transpose of the tangent vector to probes map</p></li>
+<li><p>Varied-rank and uniform-rank T3s</p></li>
+<li><p>Option to use either Numpy or Jax</p></li>
+</ul>
+</div></blockquote>
+</section>
+<section id="contents">
+<h1>Contents<a class="headerlink" href="#contents" title="Link to this heading">¶</a></h1>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="autoapi/index.html">API Reference</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="autoapi/t3tools/index.html">t3tools</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/t3tools/index.html#submodules">Submodules</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/corewise/index.html">t3tools.corewise</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/dense/index.html">t3tools.dense</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/manifold/index.html">t3tools.manifold</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/probing/index.html">t3tools.probing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/tucker_tensor_train/index.html">t3tools.tucker_tensor_train</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/uniform_manifold/index.html">t3tools.uniform_manifold</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/uniform_probing/index.html">t3tools.uniform_probing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/uniform_tucker_tensor_train/index.html">t3tools.uniform_tucker_tensor_train</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+<section id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</section>
+<section id="design-philosophy">
+<h1>Design philosophy<a class="headerlink" href="#design-philosophy" title="Link to this heading">¶</a></h1>
+<p>This package is written in a <a class="reference external" href="https://en.wikipedia.org/wiki/Functional_programming">functional programming</a> style. It is a library of mathematical functions that perform operations on basic types (mostly, arrays and nested sequences of arrays).</p>
+<ul>
+<li><p>Functions have no side effects, and functions always yield the same output for a given input.</p></li>
+<li><p>Custom types are aliases of composite basic types</p></li>
+<li><p>Numerical functions are suitable for <a class="reference external" href="https://docs.jax.dev/en/latest/_autosummary/jax.jit.html">just-in-time (jit) compilation</a> in <a class="reference external" href="https://docs.jax.dev/en/latest/index.html">jax</a>, after removing non-numerical parameters by <a class="reference external" href="https://en.wikipedia.org/wiki/Partial_application">partial evaluation</a>. E.g.,:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">jax</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">get_entry_123</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_entry</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">use_jax</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">A</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">),(</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">),(</span><span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span> <span class="c1"># random 10x10x10 Tucker tensor train</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a123</span> <span class="o">=</span> <span class="n">get_entry_123</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">a123</span><span class="p">)</span>
+<span class="go">11.756762</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">get_entry_123_jit</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">get_entry_123</span><span class="p">)</span> <span class="c1"># jit compile</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a123_jit</span> <span class="o">=</span> <span class="n">get_entry_123_jit</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">a123_jit</span><span class="p">)</span>
+<span class="go">11.756762</span>
+</pre></div>
+</div>
+</li>
+<li><p>Most numerical functions are suitable for <a class="reference external" href="https://en.wikipedia.org/wiki/Automatic_differentiation">automatic differentiation (AD)</a> in jax. E.g.,:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">jax</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span> <span class="c1"># enable double precision for finite difference</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">A</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">),(</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">),(</span><span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span> <span class="c1"># random 10x10x10 Tucker tensor train</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">apply_A_sym</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">u</span><span class="p">:</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_apply</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="p">(</span><span class="n">u</span><span class="p">,</span><span class="n">u</span><span class="p">,</span><span class="n">u</span><span class="p">),</span> <span class="n">use_jax</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="c1"># symmetric apply function</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">u0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Auuu0</span> <span class="o">=</span> <span class="n">apply_A_sym</span><span class="p">(</span><span class="n">u0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">g0</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">apply_A_sym</span><span class="p">)(</span><span class="n">u0</span><span class="p">)</span> <span class="c1"># gradient using automatic differentiation</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">du</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dAuuu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">g0</span><span class="p">,</span> <span class="n">du</span><span class="p">)</span> <span class="c1"># derivative in direction du</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">dAuuu</span><span class="p">)</span>
+<span class="go">766.5390335764645</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">s</span> <span class="o">=</span> <span class="mf">1e-7</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">u1</span> <span class="o">=</span> <span class="n">u0</span> <span class="o">+</span> <span class="n">s</span><span class="o">*</span><span class="n">du</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Auuu1</span> <span class="o">=</span> <span class="n">apply_A_sym</span><span class="p">(</span><span class="n">u1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dAuuu_diff</span> <span class="o">=</span> <span class="p">(</span><span class="n">Auuu1</span> <span class="o">-</span> <span class="n">Auuu0</span><span class="p">)</span> <span class="o">/</span> <span class="n">s</span> <span class="c1"># finite difference approximation</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">dAuuu_diff</span><span class="p">)</span>
+<span class="go">766.5390504030256</span>
+</pre></div>
+</div>
+</li>
+<li><dl class="simple">
+<dt><em>AD Caveat</em>: We do not recommend automatically differentiating through functions that involve singular value decompositions (SVDs) because support for <a class="reference external" href="https://en.wikipedia.org/wiki/Eigenvalue_perturbation">singular value sensitivity</a> in jax is questionable. This includes:</dt><dd><ul class="simple">
+<li><p>Orthogonalization (uses SVDs for stability and robustness),</p></li>
+<li><p>Retraction,</p></li>
+<li><p>Stabilized computation of TuckerTensorTrain norms (uses orthogonalization).</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</section>
+<section id="background">
+<h1>Background<a class="headerlink" href="#background" title="Link to this heading">¶</a></h1>
+<section id="tucker-tensor-trains">
+<h2>Tucker tensor trains<a class="headerlink" href="#tucker-tensor-trains" title="Link to this heading">¶</a></h2>
+<p>Tucker tensor trains consist of a Tucker decomposition composed with a tensor train decomposition of the central Tucker core. We may diagram a Tucker tensor train with 4 indices like this, using graphical tensor notation:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">1</span> <span class="o">-</span><span class="p">[</span><span class="n">r0</span><span class="p">]</span><span class="o">-</span> <span class="n">G0</span> <span class="o">-</span><span class="p">[</span><span class="n">r1</span><span class="p">]</span><span class="o">-</span> <span class="n">G1</span> <span class="o">-</span><span class="p">[</span><span class="n">r2</span><span class="p">]</span><span class="o">-</span> <span class="n">G2</span> <span class="o">-</span><span class="p">[</span><span class="n">r3</span><span class="p">]</span><span class="o">-</span> <span class="n">G3</span> <span class="o">-</span><span class="p">[</span><span class="n">r4</span><span class="p">]</span><span class="o">-</span> <span class="mi">1</span>
+         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>
+         <span class="p">[</span><span class="n">n0</span><span class="p">]</span>      <span class="p">[</span><span class="n">n1</span><span class="p">]</span>      <span class="p">[</span><span class="n">n2</span><span class="p">]</span>      <span class="p">[</span><span class="n">n3</span><span class="p">]</span>
+         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>
+         <span class="n">B0</span>        <span class="n">B1</span>        <span class="n">B2</span>        <span class="n">B3</span>
+         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>
+         <span class="p">[</span><span class="n">N0</span><span class="p">]</span>      <span class="p">[</span><span class="n">N1</span><span class="p">]</span>      <span class="p">[</span><span class="n">N2</span><span class="p">]</span>      <span class="p">[</span><span class="n">N3</span><span class="p">]</span>
+         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Gi and Bi are <em>cores</em>, which are smaller tensors that are being contracted with each other to form a larger tensor.</p></li>
+<li><p>Edges in the network indicate contraction of adjacent cores.</p></li>
+<li><p>The bracket notation in the middle of edges, like -[r1]-, indicates the size of the edge (its “bandwidth”, you might say).</p></li>
+</ul>
+<dl class="simple">
+<dt>The Tucker tensor train with d indices is represented as a Tuple of cores, ((B0,…,Bd), (G0,…,Gd)).</dt><dd><ul class="simple">
+<li><p>Bi are the <em>basis cores</em>, which are matrices with shape (ni, Ni)</p></li>
+<li><p>Gi are the <em>TT-cores</em>, which are 3-tensors with shape (ri, ni, r(i+1))</p></li>
+<li><p>(N1,…,Nd) is the <em>shape</em> of the fully contracted tensor</p></li>
+<li><p>(n1,…,nd) are the <em>Tucker ranks</em></p></li>
+<li><p>(1,ri,…,r(d-1),1) are the <em>TT-ranks</em></p></li>
+<li><p>((N1,…,Nd), (n1,…,nd), (1,r1,…,r(d-1),1)) is the <em>structure</em>.</p></li>
+</ul>
+</dd>
+</dl>
+</section>
+<section id="tucker-tensor-trains-represent-dense-tensors">
+<h2>Tucker tensor trains represent dense tensors<a class="headerlink" href="#tucker-tensor-trains-represent-dense-tensors" title="Link to this heading">¶</a></h2>
+<p>Although the Tucker tensor train is defined by its cores, we always keep in mind that it <em>represents</em> a dense tensor in R^(N1 x … x Nd). Tensor train representations are not unique; this fact is exploited by many Tensor train algorithms.</p>
+<p>When we perform operations with Tucker tensor trains, like adding them, scaling them, taking inner products, etc, we typically are simulating these operations on the represented dense tensors, using the cores as a computational device to avoid operating on gigantically large arrays. We are not performing the operations “corewise”.</p>
+<dl class="simple">
+<dt>For example, consider the Tucker tensor trains:</dt><dd><ul class="simple">
+<li><p>x = ((A0,…,Ad), (F0,…,Fd))</p></li>
+<li><p>y = ((B0,…,Bd), (G0,…,Gd))</p></li>
+<li><p>z = ((C0,…,Cd), (H0,…,Hd))</p></li>
+</ul>
+</dd>
+<dt>We want</dt><dd><p>z “=” x “+” y</p>
+</dd>
+<dt>to mean the following: if you added the N1 x … x Nd tensor represented by x to the tensor N1 x … x Nd represented by y, then the resulting N1 x … x Nd tensor can be represented by the Tucker tensor train z. I.e.,</dt><dd><p>t3_to_dense(z) = t3_to_dense(x) + t3_to_dense(y).</p>
+</dd>
+</dl>
+<p>We do not mean “add the cores”. E.g., generally
+Ci =/= Ai + Bi.</p>
+</section>
+<section id="t3-manifold">
+<h2>T3 Manifold<a class="headerlink" href="#t3-manifold" title="Link to this heading">¶</a></h2>
+<p>Under certain conditions on the ranks (basically, if the ranks are not unnecessairily large), the set of Tucker tensor trains with fixed ranks forms an embedded submanifold in R^(N1 x … x Nd). In this case, any tangent vector may be represented as a sum which looks like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>      <span class="mi">1</span><span class="o">--</span><span class="n">H0</span><span class="o">--</span><span class="n">R1</span><span class="o">--</span><span class="n">R2</span><span class="o">--</span><span class="mi">1</span>   <span class="mi">1</span><span class="o">--</span><span class="n">L0</span><span class="o">--</span><span class="n">H1</span><span class="o">--</span><span class="n">R2</span><span class="o">--</span><span class="mi">1</span>   <span class="mi">1</span><span class="o">--</span><span class="n">L0</span><span class="o">--</span><span class="n">L1</span><span class="o">--</span><span class="n">H2</span><span class="o">--</span><span class="mi">1</span>
+         <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>          <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>          <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>
+<span class="n">v</span>  <span class="o">=</span>     <span class="n">U0</span>  <span class="n">U1</span>  <span class="n">U2</span>    <span class="o">+</span>    <span class="n">U0</span>  <span class="n">U1</span>  <span class="n">U2</span>    <span class="o">+</span>    <span class="n">U0</span>  <span class="n">U1</span>  <span class="n">U2</span>
+         <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>          <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>          <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>
+
+      <span class="mi">1</span><span class="o">--</span><span class="n">O0</span><span class="o">--</span><span class="n">R1</span><span class="o">--</span><span class="n">R2</span><span class="o">--</span><span class="mi">1</span>   <span class="mi">1</span><span class="o">--</span><span class="n">L0</span><span class="o">--</span><span class="n">O1</span><span class="o">--</span><span class="n">R2</span><span class="o">--</span><span class="mi">1</span>   <span class="mi">1</span><span class="o">--</span><span class="n">L0</span><span class="o">--</span><span class="n">L1</span><span class="o">--</span><span class="n">O2</span><span class="o">--</span><span class="mi">1</span>
+         <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>          <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>          <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>
+   <span class="o">+</span>     <span class="n">V0</span>  <span class="n">U1</span>  <span class="n">U2</span>    <span class="o">+</span>    <span class="n">U0</span>  <span class="n">V1</span>  <span class="n">U2</span>    <span class="o">+</span>    <span class="n">U0</span>  <span class="n">U1</span>  <span class="n">V2</span>
+         <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>          <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>          <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><dl class="simple">
+<dt>The following “base” cores are orthogonal representations of the base point where the tangent space is attached. When performing computations, these are computed once per tangent space, then fixed for all tangent vectors in the space:</dt><dd><ul>
+<li><p>basis_cores       = (U0,…,Ud), orthogonal</p></li>
+<li><p>left_tt_cores     = (L0,…Ld), left-orthogonal</p></li>
+<li><p>right_tt_cores    = (R0,…,Rd), right-orthogonal</p></li>
+<li><p>outer_tt_cores    = (O0,…,Od), outer-orthogonal</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>The following “variation” cores define the tangent vector w.r.t. the base cores:</dt><dd><ul>
+<li><p>basis_variations  = (V0,…,Vd)</p></li>
+<li><p>tt_variations     = (H0,…,Hd)</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+<p>Under certain <em>gauge conditions</em>, the representation of a tangent vector by its variation is unique, and performing linear algebra with the variation is equivalent to performing the corresponding linear algebra operations with the dense tensor.</p>
+</section>
+<section id="probing">
+<h2>Probing<a class="headerlink" href="#probing" title="Link to this heading">¶</a></h2>
+<p>Probing a tensor means contracting the tensor with vectors in all but one index, resulting in a vector of the size of that remaining index. Probing a N1 x N2 x N3 Tucker tensor with vectors u1, u2, u3 (lengths N1, N2, N3, respectively) looks like this:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>                 <span class="mi">1</span><span class="o">--</span><span class="n">G0</span><span class="o">--</span><span class="n">G1</span><span class="o">--</span><span class="n">G2</span><span class="o">--</span><span class="mi">1</span>
+                    <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>
+<span class="n">first</span> <span class="n">probe</span><span class="p">:</span>  <span class="o">=</span>     <span class="n">B0</span>  <span class="n">B1</span>  <span class="n">B2</span>
+<span class="p">(</span><span class="nb">len</span><span class="o">=</span><span class="n">N1</span><span class="p">)</span>            <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>
+                        <span class="n">u2</span>  <span class="n">u3</span>
+
+                 <span class="mi">1</span><span class="o">--</span><span class="n">G0</span><span class="o">--</span><span class="n">G1</span><span class="o">--</span><span class="n">G2</span><span class="o">--</span><span class="mi">1</span>
+                    <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>
+<span class="n">second</span> <span class="n">probe</span><span class="p">:</span> <span class="o">=</span>     <span class="n">B0</span>  <span class="n">B1</span>  <span class="n">B2</span>
+<span class="p">(</span><span class="nb">len</span><span class="o">=</span><span class="n">N2</span><span class="p">)</span>            <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>
+                    <span class="n">u1</span>      <span class="n">u3</span>
+
+                 <span class="mi">1</span><span class="o">--</span><span class="n">G0</span><span class="o">--</span><span class="n">G1</span><span class="o">--</span><span class="n">G2</span><span class="o">--</span><span class="mi">1</span>
+                    <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>
+<span class="n">third</span> <span class="n">probe</span><span class="p">:</span>  <span class="o">=</span>     <span class="n">B0</span>  <span class="n">B1</span>  <span class="n">B2</span>
+<span class="p">(</span><span class="nb">len</span><span class="o">=</span><span class="n">N3</span><span class="p">)</span>            <span class="o">|</span>   <span class="o">|</span>   <span class="o">|</span>
+                    <span class="n">u1</span>  <span class="n">u2</span>
+</pre></div>
+</div>
+</section>
+<section id="uniform-tucker-tensor-trains">
+<h2>Uniform Tucker tensor trains<a class="headerlink" href="#uniform-tucker-tensor-trains" title="Link to this heading">¶</a></h2>
+<p>For computational efficiency, it can be helpful to pad the cores of a Tucker tensor train with zeros, so that it has uniform ranks. Then the computational operations become uniform, which improves pipelining efficiency and GPU performance.</p>
+<dl class="simple">
+<dt>In this case:</dt><dd><ul class="simple">
+<li><p>The basis cores B0, …, Bd all have the same shape (n,N) and can be stacked into a <em>basis supercore</em> with shape (d,n,N).</p></li>
+<li><p>The TT-cores G0, …, Gd all have the same shape (r,n,r), and can be stacked into <em>TT supercore</em> with shape (d,r,n,r).</p></li>
+</ul>
+</dd>
+<dt>We keep track of which parts of the cores are supposed to be zero (to prevent filling in these parts during computations) with <em>edge masks</em>. For each edge, the mask is a boolean vector of the form (1,…,1,0,…,0).</dt><dd><ul class="simple">
+<li><p>The masks for the edges between basis cores and TT-cores have length n. For the ith edge, the first ni entries are 1, and the remaining entries are 0. These <em>Tucker edge masks</em> are collected into a boolean array with shape (d, n).</p></li>
+<li><p>The masks for the edges between adjacent TT-cores have length r. For the ith edge, the first ri entries are 1, and the remaining entries are 0. These <em>TT edge masks</em> are collected into boolean array with shape (d+1,r).</p></li>
+</ul>
+</dd>
+</dl>
+</section>
+<section id="relevant-literature">
+<h2>Relevant literature<a class="headerlink" href="#relevant-literature" title="Link to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Most of the Tucker tensor train algorithms are described in Appendix A of our paper [1].</p></li>
+<li><p>The probing algorithms are described in Section 5 of our paper [1].</p></li>
+<li><dl class="simple">
+<dt>The algorithms here are extensions of standard tensor train algorithms (no Tucker)</dt><dd><ul>
+<li><p>For an introduction to tensor train methods, we highly recommend two extremely well written Ph.D. Theses: Chapter 1 of Voorhaar, Willem Hendrik Voorhaar’s Ph.D. thesis [2], and Chapter 3 of Patrick Gelß’s Ph.D. thesis [3].</p></li>
+<li><dl class="simple">
+<dt>The foundations behind these algorithms were established over the last 20 years.</dt><dd><ul>
+<li><p>Oseledets [4] defines the basics of Tensor trains and TT-SVD.</p></li>
+<li><p>In [5], Holtz, Rohwedder, and Schneider detail the manifold of fixed rank tensor trains and its tangent space and presents gauged representations and oblique gauge projection, but only used left-orthogonal representations for tangent vector bases.</p></li>
+<li><p>Using both left- and right-orthogonal representations was proposed in Khoromskij, Oseledets, and Schneider [6].</p></li>
+<li><p>The modern manifold methods are given in Steinlechner [7].</p></li>
+<li><p>Some of these methods may have been known to the physics community earlier, where tensor trains are known as “Matrix product states.”</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>The basics of the Tucker decomposition are described well in Kolda’s review paper [8].</p></li>
+</ul>
+<p>[1] Alger, N., Christierson, B., Chen, P., &amp; Ghattas, O. (2026). “Tucker Tensor Train Taylor Series.” arXiv preprint arXiv:2603.21141. <a class="reference external" href="https://arxiv.org/abs/2603.21141">https://arxiv.org/abs/2603.21141</a></p>
+<p>[2] Voorhaar, Willem Hendrik. “Tensor train approximations: Riemannian methods, randomized linear algebra and applications to machine learning.” Diss. Ph. D. dissertation, Section de Mathématiques, Univ. Geneva, Geneva, Switzerland, 2022.</p>
+<p>[3] Gelß, Patrick. The tensor-train format and its applications: Modeling and analysis of chemical reaction networks, catalytic processes, fluid flows, and Brownian dynamics. Diss. 2017.</p>
+<p>[4] Oseledets, Ivan V. “Tensor-train decomposition.” SIAM Journal on Scientific Computing 33.5 (2011): 2295-2317.</p>
+<p>[5] Holtz, Sebastian, Thorsten Rohwedder, and Reinhold Schneider. “On manifolds of tensors of fixed TT-rank.” Numerische Mathematik 120.4 (2012): 701-731.</p>
+<p>[6] Khoromskij, Boris N., Ivan V. Oseledets, and Reinhold Schneider. “Efficient time-stepping scheme for dynamics on TT-manifolds.” (2012).</p>
+<p>[7] Steinlechner, Michael. “Riemannian optimization for high-dimensional tensor completion.” SIAM Journal on Scientific Computing 38.5 (2016): S461-S484. <a class="reference external" href="https://epubs.siam.org/doi/10.1137/15M1010506">https://epubs.siam.org/doi/10.1137/15M1010506</a></p>
+<p>[8] Kolda, Tamara G., and Brett W. Bader. “Tensor decompositions and applications.” SIAM review 51.3 (2009): 455-500. <a class="reference external" href="https://epubs.siam.org/doi/10.1137/07070111X">https://epubs.siam.org/doi/10.1137/07070111X</a></p>
+</section>
+</section>
+<section id="authors">
+<h1>Authors<a class="headerlink" href="#authors" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Nick Alger</p></li>
+<li><p>Blake Christierson</p></li>
+</ul>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+        </div>
+        <div class="sidebar">
+          
+          <h3>Table of Contents</h3>
+          <ul>
+<li class="toctree-l1"><a class="reference internal" href="autoapi/index.html">API Reference</a></li>
+</ul>
+
+          <search role="search">
+            <h3 style="margin-top: 1.5em;">Search</h3>
+            <form class="search" action="search.html" method="get">
+                <input type="text" name="q" />
+                <input type="submit" value="Go" />
+            </form>
+          </search>
+
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+    <div class="footer-wrapper">
+      <div class="footer">
+        <div class="left">
+          <div role="navigation" aria-label="Related">
+            <a href="autoapi/index.html" title="API Reference"
+              >next</a> |
+            <a href="py-modindex.html" title="Python Module Index"
+              >modules</a> |
+            <a href="genindex.html" title="General Index"
+              >index</a>
+          </div>
+          <div role="note" aria-label="source link">
+              <br/>
+              <a href="_sources/index.rst.txt"
+                rel="nofollow">Show Source</a>
+          </div>
+        </div>
+
+        <div class="right">
+          
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2026, Nick Alger and Blake Christierson.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+  </body>
+</html>

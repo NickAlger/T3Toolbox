@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>t3tools.manifold.check_fit &#8212; TuckerTensorTrainTools 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/agogo.css?v=08520df9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="t3tools.manifold.ith_bv_to_t3" href="ith_bv_to_t3.html" />
+    <link rel="prev" title="t3tools.manifold.hole_shapes" href="hole_shapes.html" /> 
+  </head><body>
+    <div class="header-wrapper" role="banner">
+      <div class="header">
+        <div class="headertitle"><a
+          href="../../../index.html">TuckerTensorTrainTools 0.1 documentation</a></div>
+        <div class="rel" role="navigation" aria-label="Related">
+          <a href="hole_shapes.html" title="t3tools.manifold.hole_shapes"
+             accesskey="P">previous</a> |
+          <a href="ith_bv_to_t3.html" title="t3tools.manifold.ith_bv_to_t3"
+             accesskey="N">next</a> |
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a>
+        </div>
+       </div>
+    </div>
+
+    <div class="content-wrapper">
+      <div class="content">
+        <div class="document">
+            
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="t3tools-manifold-check-fit">
+<h1>t3tools.manifold.check_fit<a class="headerlink" href="#t3tools-manifold-check-fit" title="Link to this heading">¶</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="t3tools.manifold.check_fit">
+<span class="sig-prename descclassname"><span class="pre">t3tools.manifold.</span></span><span class="sig-name descname"><span class="pre">check_fit</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#t3tools.manifold.T3Variation" title="t3tools.manifold.T3Variation"><span class="pre">T3Variation</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#t3tools.manifold.T3Base" title="t3tools.manifold.T3Base"><span class="pre">T3Base</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#t3tools.manifold.check_fit" title="Link to this definition">¶</a></dt>
+<dd><p>Check that the variation cores fit into the corresponding holes of the base.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>variation</strong> (<a class="reference internal" href="index.html#t3tools.manifold.T3Variation" title="t3tools.manifold.T3Variation"><em>T3Variation</em></a>) – Variation cores</p></li>
+<li><p><strong>base</strong> (<a class="reference internal" href="index.html#t3tools.manifold.T3Base" title="t3tools.manifold.T3Base"><em>T3Base</em></a>) – Base cores</p></li>
+</ul>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>RuntimeError</strong> – <ul class="simple">
+<li><p>Error raised if the base is internally inconsistent</p></li>
+<li><p>Error raised if the variation is internally incorrect</p></li>
+<li><p>Error raised if the base and variation do not fit with each other</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="index.html#t3tools.manifold.T3Base" title="t3tools.manifold.T3Base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Base</span></code></a>, <a class="reference internal" href="index.html#t3tools.manifold.T3Variation" title="t3tools.manifold.T3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Variation</span></code></a>, <a class="reference internal" href="check_t3base.html#t3tools.manifold.check_t3base" title="t3tools.manifold.check_t3base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3base</span></code></a>, <a class="reference internal" href="check_t3variation.html#t3tools.manifold.check_t3variation" title="t3tools.manifold.check_t3variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3variation</span></code></a></p>
+</div>
+</dd></dl>
+
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+        </div>
+        <div class="sidebar">
+          
+          <h3>Table of Contents</h3>
+          <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">t3tools</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="../corewise/index.html">t3tools.corewise</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../dense/index.html">t3tools.dense</a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="index.html">t3tools.manifold</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../probing/index.html">t3tools.probing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/index.html">t3tools.tucker_tensor_train</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../uniform_manifold/index.html">t3tools.uniform_manifold</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../uniform_probing/index.html">t3tools.uniform_probing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../uniform_tucker_tensor_train/index.html">t3tools.uniform_tucker_tensor_train</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          <search role="search">
+            <h3 style="margin-top: 1.5em;">Search</h3>
+            <form class="search" action="../../../search.html" method="get">
+                <input type="text" name="q" />
+                <input type="submit" value="Go" />
+            </form>
+          </search>
+
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+    <div class="footer-wrapper">
+      <div class="footer">
+        <div class="left">
+          <div role="navigation" aria-label="Related">
+            <a href="hole_shapes.html" title="t3tools.manifold.hole_shapes"
+              >previous</a> |
+            <a href="ith_bv_to_t3.html" title="t3tools.manifold.ith_bv_to_t3"
+              >next</a> |
+            <a href="../../../py-modindex.html" title="Python Module Index"
+              >modules</a> |
+            <a href="../../../genindex.html" title="General Index"
+              >index</a>
+          </div>
+          <div role="note" aria-label="source link">
+              <br/>
+              <a href="../../../_sources/autoapi/t3tools/manifold/check_fit.rst.txt"
+                rel="nofollow">Show Source</a>
+          </div>
+        </div>
+
+        <div class="right">
+          
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2026, Nick Alger and Blake Christierson.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+  </body>
+</html>

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>t3tools.dense &#8212; TuckerTensorTrainTools 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/agogo.css?v=08520df9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="t3tools.dense.truncated_svd" href="truncated_svd.html" />
+    <link rel="prev" title="t3tools.corewise.corewise_norm" href="../corewise/corewise_norm.html" /> 
+  </head><body>
+    <div class="header-wrapper" role="banner">
+      <div class="header">
+        <div class="headertitle"><a
+          href="../../../index.html">TuckerTensorTrainTools 0.1 documentation</a></div>
+        <div class="rel" role="navigation" aria-label="Related">
+          <a href="../corewise/corewise_norm.html" title="t3tools.corewise.corewise_norm"
+             accesskey="P">previous</a> |
+          <a href="truncated_svd.html" title="t3tools.dense.truncated_svd"
+             accesskey="N">next</a> |
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a>
+        </div>
+       </div>
+    </div>
+
+    <div class="content-wrapper">
+      <div class="content">
+        <div class="document">
+            
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="module-t3tools.dense">
+<span id="t3tools-dense"></span><h1>t3tools.dense<a class="headerlink" href="#module-t3tools.dense" title="Link to this heading">¶</a></h1>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+</div>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="truncated_svd.html#t3tools.dense.truncated_svd" title="t3tools.dense.truncated_svd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">truncated_svd</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
+<td><p>Compute (truncated) singular value decomposition of matrix.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="left_svd_3tensor.html#t3tools.dense.left_svd_3tensor" title="t3tools.dense.left_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_3tensor</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
+<td><p>Compute (truncated) singular value decomposition of 3-tensor left unfolding.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="right_svd_3tensor.html#t3tools.dense.right_svd_3tensor" title="t3tools.dense.right_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd_3tensor</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
+<td><p>Compute (truncated) singular value decomposition of 3-tensor right unfolding.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="outer_svd_3tensor.html#t3tools.dense.outer_svd_3tensor" title="t3tools.dense.outer_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">outer_svd_3tensor</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
+<td><p>Compute (truncated) singular value decomposition of 3-tensor outer unfolding.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="tucker_svd_dense.html#t3tools.dense.tucker_svd_dense" title="t3tools.dense.tucker_svd_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tucker_svd_dense</span></code></a>(→ Tuple[Tuple[Tuple[NDArray, ...)</p></td>
+<td><p>Compute Tucker decomposition and matricization singular values for dense tensor.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="tt_svd_dense.html#t3tools.dense.tt_svd_dense" title="t3tools.dense.tt_svd_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tt_svd_dense</span></code></a>(→ Tuple[Tuple[NDArray, Ellipsis], ...)</p></td>
+<td><p>Compute tensor train (TT) decomposition and unfolding singular values for dense tensor.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="dense_probes.html#t3tools.dense.dense_probes" title="t3tools.dense.dense_probes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">dense_probes</span></code></a>(→ Tuple[NDArray])</p></td>
+<td><p>Probe a dense tensor.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+        </div>
+        <div class="sidebar">
+          
+          <h3>Table of Contents</h3>
+          <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">t3tools</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="../corewise/index.html">t3tools.corewise</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">t3tools.dense</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../manifold/index.html">t3tools.manifold</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../probing/index.html">t3tools.probing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/index.html">t3tools.tucker_tensor_train</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../uniform_manifold/index.html">t3tools.uniform_manifold</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../uniform_probing/index.html">t3tools.uniform_probing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../uniform_tucker_tensor_train/index.html">t3tools.uniform_tucker_tensor_train</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          <search role="search">
+            <h3 style="margin-top: 1.5em;">Search</h3>
+            <form class="search" action="../../../search.html" method="get">
+                <input type="text" name="q" />
+                <input type="submit" value="Go" />
+            </form>
+          </search>
+
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+    <div class="footer-wrapper">
+      <div class="footer">
+        <div class="left">
+          <div role="navigation" aria-label="Related">
+            <a href="../corewise/corewise_norm.html" title="t3tools.corewise.corewise_norm"
+              >previous</a> |
+            <a href="truncated_svd.html" title="t3tools.dense.truncated_svd"
+              >next</a> |
+            <a href="../../../py-modindex.html" title="Python Module Index"
+              >modules</a> |
+            <a href="../../../genindex.html" title="General Index"
+              >index</a>
+          </div>
+          <div role="note" aria-label="source link">
+              <br/>
+              <a href="../../../_sources/autoapi/t3tools/dense/index.rst.txt"
+                rel="nofollow">Show Source</a>
+          </div>
+        </div>
+
+        <div class="right">
+          
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2026, Nick Alger and Blake Christierson.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+  </body>
+</html>

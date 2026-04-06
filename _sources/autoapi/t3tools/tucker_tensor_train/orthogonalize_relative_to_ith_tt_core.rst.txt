@@ -1,0 +1,51 @@
+t3tools.tucker_tensor_train.orthogonalize_relative_to_ith_tt_core
+=================================================================
+
+.. py:function:: t3tools.tucker_tensor_train.orthogonalize_relative_to_ith_tt_core(ii: int, x: TuckerTensorTrain, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> TuckerTensorTrain
+
+   Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
+
+   Orthogonal is done relative to the ith TT-core:
+       - All basis cores are orthogonalized.
+       - TT-cores to the left are left orthogonalized.
+       - ith TT-core is not orthogonalized.
+       - TT-cores to the right are right orthogonalized.
+
+   :param ii: index of TT-core that is not orthogonalized
+   :type ii: int
+   :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
+   :type x: TuckerTensorTrain
+   :param min_rank: Minimum rank for truncation.
+   :type min_rank: int
+   :param min_rank: Maximum rank for truncation.
+   :type min_rank: int
+   :param rtol: Relative tolerance for truncation.
+   :type rtol: float
+   :param atol: Absolute tolerance for truncation.
+   :type atol: float
+   :param use_jax: If True, use jax operations. Otherwise, numpy. Default: False
+   :type use_jax: bool
+
+   .. seealso:: :py:obj:`up_svd_ith_basis_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`
+
+   :returns: **new_x** -- New TuckerTensorTrain representing the same tensor, but orthogonalized relative to the ith TT-core.
+   :rtype: NDArray
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+   >>> x2 = t3.orthogonalize_relative_to_ith_tt_core(1, x)
+   >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
+   8.800032152216517e-13
+   >>> ((B0, B1, B2), (G0, G1, G2)) = x2
+   >>> XL = np.einsum('axb,xi -> aib', G0, B0) # Everything to the left of G1
+   >>> print(np.linalg.norm(np.einsum('aib,aic->bc', XL, XL) - np.eye(G1.shape[0]))) # Left subtree is left orthogonal
+   9.820411604510197e-16
+   >>> print(np.linalg.norm(np.einsum('xi,yi->xy', B1, B1) - np.eye(G1.shape[1]))) # Core below G1 is up orthogonal
+   2.1875310121178e-15
+   >>> XR = np.einsum('axb,xi->aib', G2, B2) # Everything to the right of G1
+   >>> print(np.linalg.norm(np.einsum('aib,cib->ac', XR, XR) - np.eye(G1.shape[2]))) # Right subtree is right orthogonal
+   1.180550381921849e-15
+

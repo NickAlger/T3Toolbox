@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>t3tools.manifold.orthogonal_gauge_projection &#8212; TuckerTensorTrainTools 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/agogo.css?v=08520df9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="t3tools.manifold.oblique_gauge_projection" href="oblique_gauge_projection.html" />
+    <link rel="prev" title="t3tools.manifold.tangent_randn" href="tangent_randn.html" /> 
+  </head><body>
+    <div class="header-wrapper" role="banner">
+      <div class="header">
+        <div class="headertitle"><a
+          href="../../../index.html">TuckerTensorTrainTools 0.1 documentation</a></div>
+        <div class="rel" role="navigation" aria-label="Related">
+          <a href="tangent_randn.html" title="t3tools.manifold.tangent_randn"
+             accesskey="P">previous</a> |
+          <a href="oblique_gauge_projection.html" title="t3tools.manifold.oblique_gauge_projection"
+             accesskey="N">next</a> |
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a>
+        </div>
+       </div>
+    </div>
+
+    <div class="content-wrapper">
+      <div class="content">
+        <div class="document">
+            
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="t3tools-manifold-orthogonal-gauge-projection">
+<h1>t3tools.manifold.orthogonal_gauge_projection<a class="headerlink" href="#t3tools-manifold-orthogonal-gauge-projection" title="Link to this heading">¶</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="t3tools.manifold.orthogonal_gauge_projection">
+<span class="sig-prename descclassname"><span class="pre">t3tools.manifold.</span></span><span class="sig-name descname"><span class="pre">orthogonal_gauge_projection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#t3tools.manifold.T3Variation" title="t3tools.manifold.T3Variation"><span class="pre">T3Variation</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">orthogonal_base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#t3tools.manifold.T3Base" title="t3tools.manifold.T3Base"><span class="pre">T3Base</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="index.html#t3tools.manifold.T3Variation" title="t3tools.manifold.T3Variation"><span class="pre">T3Variation</span></a></span></span><a class="headerlink" href="#t3tools.manifold.orthogonal_gauge_projection" title="Link to this definition">¶</a></dt>
+<dd><p>Makes tangent variation gauged via orthogonal projection. Changes tangent vector.</p>
+<dl class="simple">
+<dt>Gauge condition:</dt><dd><ul class="simple">
+<li><dl class="simple">
+<dt>All variation basis cores Vi are orthogonal to the corresponding base basis cores Ui:</dt><dd><p>Ui &#64; Vi.T = 0    for    i=1,…,d</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>All but the last variation TT-cores H are left-perpendicular to the corresponding base left TT-cores L:</dt><dd><p>einsum(‘iaj,iak-&gt;jk’, Hi, Li) = 0    for    i=1,…,d-1</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>variation</strong> (<a class="reference internal" href="index.html#t3tools.manifold.T3Variation" title="t3tools.manifold.T3Variation"><em>T3Variation</em></a><em>,</em>) – The variation which will become gauged.</p></li>
+<li><p><strong>orthogonal_base</strong> (<a class="reference internal" href="index.html#t3tools.manifold.T3Base" title="t3tools.manifold.T3Base"><em>T3Base</em></a><em>,</em>) – The base representations. Must be orthogonal for the operation to work properly.</p></li>
+<li><p><strong>use_jax</strong> (<em>bool</em>) – If True, use jax operations, if False use numpy.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Projected variation satisfying Gauge condition.
+Represents different tangent vector than original variation.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="index.html#t3tools.manifold.T3Variation" title="t3tools.manifold.T3Variation">T3Variation</a></p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="index.html#t3tools.manifold.T3Base" title="t3tools.manifold.T3Base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Base</span></code></a>, <a class="reference internal" href="index.html#t3tools.manifold.T3Variation" title="t3tools.manifold.T3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Variation</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_oblique_gauge_projection</span></code></p>
+</div>
+<p class="rubric">Example</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.t3_manifold</span> <span class="k">as</span> <span class="nn">t3m</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">base</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">orthogonal_representations</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">variation</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_randn</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">proj_variation</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">orthogonal_gauge_projection</span><span class="p">(</span><span class="n">variation</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span> <span class="c1"># Make gauged via orthogonal projection</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">U0</span><span class="p">,</span><span class="n">U1</span><span class="p">,</span><span class="n">U2</span><span class="p">),</span> <span class="p">(</span><span class="n">L0</span><span class="p">,</span><span class="n">L1</span><span class="p">,</span><span class="n">L2</span><span class="p">),</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">base</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">((</span><span class="n">V0</span><span class="p">,</span><span class="n">V1</span><span class="p">,</span><span class="n">V2</span><span class="p">),</span> <span class="p">(</span><span class="n">H0</span><span class="p">,</span><span class="n">H1</span><span class="p">,</span><span class="n">H2</span><span class="p">))</span> <span class="o">=</span> <span class="n">proj_variation</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">V1</span> <span class="o">@</span> <span class="n">U1</span><span class="o">.</span><span class="n">T</span><span class="p">))</span> <span class="c1"># Gauge condition for basis core 1</span>
+<span class="go">3.512073125137391e-15</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;iaj,iak-&gt;jk&#39;</span><span class="p">,</span> <span class="n">H1</span><span class="p">,</span> <span class="n">L1</span><span class="p">)))</span> <span class="c1"># Gauge condition for TT-core 1</span>
+<span class="go">1.5807940730805242e-15</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+        </div>
+        <div class="sidebar">
+          
+          <h3>Table of Contents</h3>
+          <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">t3tools</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="../corewise/index.html">t3tools.corewise</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../dense/index.html">t3tools.dense</a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="index.html">t3tools.manifold</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../probing/index.html">t3tools.probing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/index.html">t3tools.tucker_tensor_train</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../uniform_manifold/index.html">t3tools.uniform_manifold</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../uniform_probing/index.html">t3tools.uniform_probing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../uniform_tucker_tensor_train/index.html">t3tools.uniform_tucker_tensor_train</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          <search role="search">
+            <h3 style="margin-top: 1.5em;">Search</h3>
+            <form class="search" action="../../../search.html" method="get">
+                <input type="text" name="q" />
+                <input type="submit" value="Go" />
+            </form>
+          </search>
+
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+    <div class="footer-wrapper">
+      <div class="footer">
+        <div class="left">
+          <div role="navigation" aria-label="Related">
+            <a href="tangent_randn.html" title="t3tools.manifold.tangent_randn"
+              >previous</a> |
+            <a href="oblique_gauge_projection.html" title="t3tools.manifold.oblique_gauge_projection"
+              >next</a> |
+            <a href="../../../py-modindex.html" title="Python Module Index"
+              >modules</a> |
+            <a href="../../../genindex.html" title="General Index"
+              >index</a>
+          </div>
+          <div role="note" aria-label="source link">
+              <br/>
+              <a href="../../../_sources/autoapi/t3tools/manifold/orthogonal_gauge_projection.rst.txt"
+                rel="nofollow">Show Source</a>
+          </div>
+        </div>
+
+        <div class="right">
+          
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2026, Nick Alger and Blake Christierson.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+  </body>
+</html>

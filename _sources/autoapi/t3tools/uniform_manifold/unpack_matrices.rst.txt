@@ -1,0 +1,4 @@
+t3tools.uniform_manifold.unpack_matrices
+========================================
+
+.. py:function:: t3tools.uniform_manifold.unpack_matrices(uniform_MM: jnp.ndarray, nn: typ.Sequence[int], NN: typ.Sequence[int]) -> typ.Tuple[jnp.ndarray, Ellipsis]

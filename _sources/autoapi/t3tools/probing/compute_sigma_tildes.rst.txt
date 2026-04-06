@@ -1,0 +1,14 @@
+t3tools.probing.compute_sigma_tildes
+====================================
+
+.. py:function:: t3tools.probing.compute_sigma_tildes(deta_tildes, right_tt_cores: Sequence[NDArray], xis: Sequence[NDArray], nus, use_jax: bool = False) -> Tuple[NDArray, Ellipsis]
+
+   Adjoint-var-leftward edge variables sigma_tilde.
+   Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
+
+   See Section 5.2.4, particularly Formula (45), in:
+       Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+       "Tucker Tensor Train Taylor Series."
+       arXiv preprint arXiv:2603.21141.
+       `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+

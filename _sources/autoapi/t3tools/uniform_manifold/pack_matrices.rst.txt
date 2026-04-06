@@ -1,0 +1,4 @@
+t3tools.uniform_manifold.pack_matrices
+======================================
+
+.. py:function:: t3tools.uniform_manifold.pack_matrices(MM: typ.Sequence[jnp.ndarray]) -> jnp.ndarray

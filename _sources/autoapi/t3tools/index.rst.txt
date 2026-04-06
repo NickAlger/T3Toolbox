@@ -1,0 +1,22 @@
+t3tools
+=======
+
+.. py:module:: t3tools
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /autoapi/t3tools/corewise/index
+   /autoapi/t3tools/dense/index
+   /autoapi/t3tools/manifold/index
+   /autoapi/t3tools/probing/index
+   /autoapi/t3tools/tucker_tensor_train/index
+   /autoapi/t3tools/uniform_manifold/index
+   /autoapi/t3tools/uniform_probing/index
+   /autoapi/t3tools/uniform_tucker_tensor_train/index
+
+
