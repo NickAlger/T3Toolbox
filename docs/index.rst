@@ -6,7 +6,7 @@
 TuckerTensorTrainTools's documentation
 ======================================
 
-A library for working with Tucker tensor trains (T3). 
+A Python library for working with Tucker tensor trains (T3). 
 Includes:
 	- Basic T3 operations (entries, addition, scaling, inner product)
 	- Orthogonalization
