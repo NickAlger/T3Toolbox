@@ -29,27 +29,44 @@ This package is written in a `functional programming <https://en.wikipedia.org/w
 
 - All functions always yield the same output for a given input. 
 - All custom types are aliases of composite basic types
-- All numerical functions are suitable for `just-in-time (jit) compilation <https://docs.jax.dev/en/latest/_autosummary/jax.jit.html>`_ in `jax <https://docs.jax.dev/en/latest/index.html>`_, after removing non-numerical parameters by `partial evaluation <https://en.wikipedia.org/wiki/Partial_application>`_.
-	- E.g.,::
+- All numerical functions are suitable for `just-in-time (jit) compilation <https://docs.jax.dev/en/latest/_autosummary/jax.jit.html>`_ in `jax <https://docs.jax.dev/en/latest/index.html>`_, after removing non-numerical parameters by `partial evaluation <https://en.wikipedia.org/wiki/Partial_application>`_. E.g.,::
 		
-		>>> import numpy as np
-		>>> import jax
-		>>> import t3tools.tucker_tensor_train as t3
-		>>> get_entry_123 = lambda x: t3.t3_entry(x, (1,2,3), use_jax=True)
-		>>> A = t3.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # 10x10x10 Tucker tensor train with random cores
-		>>> a123 = get_entry_123(A)
-		>>> print(a123)
-		11.756762
-		>>> get_entry_123_jit = jax.jit(get_entry_123) # jit compile
-		>>> a123_jit = get_entry_123_jit(A)
-		>>> print(a123_jit)
-		11.756762
+	>>> import numpy as np
+	>>> import jax
+	>>> import t3tools.tucker_tensor_train as t3
+	>>> get_entry_123 = lambda x: t3.t3_entry(x, (1,2,3), use_jax=True)
+	>>> A = t3.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 Tucker tensor train
+	>>> a123 = get_entry_123(A)
+	>>> print(a123)
+	11.756762
+	>>> get_entry_123_jit = jax.jit(get_entry_123) # jit compile
+	>>> a123_jit = get_entry_123_jit(A)
+	>>> print(a123_jit)
+	11.756762
 
-- Most numerical functions are suitable for `automatic differentiation (AD) <https://en.wikipedia.org/wiki/Automatic_differentiation>`_ in jax. For example,::
+- Most numerical functions are suitable for `automatic differentiation (AD) <https://en.wikipedia.org/wiki/Automatic_differentiation>`_ in jax. E.g.,::
 
-	probing example
+	>>> import numpy as np
+	>>> import jax
+	>>> import t3tools.tucker_tensor_train as t3
+	>>> jax.config.update("jax_enable_x64", True) # enable double precision for finite difference
+	>>> A = t3.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 Tucker tensor train
+	>>> apply_A_sym = lambda u: t3.t3_apply(A, (u,u,u), use_jax=True) # symmetric apply function
+	>>> u0 = np.random.randn(10)
+	>>> Auuu0 = apply_A_sym(u0)
+	>>> g0 = jax.grad(apply_A_sym)(u0) # gradient using automatic differentiation
+	>>> du = np.random.randn(10)
+	>>> dAuuu = np.dot(g0, du) # derivative in direction du
+	>>> print(dAuuu)
+	766.5390335764645
+	>>> s = 1e-7
+	>>> u1 = u0 + s*du
+	>>> Auuu1 = apply_A_sym(u1)
+	>>> dAuuu_diff = (Auuu1 - Auuu0) / s # finite difference approximation
+	>>> print(dAuuu_diff)
+	766.5390504030256
 
-- *AD Caveat*: We do not recommend automatically differentiating through functions that involve singular value decompositions (SVDs) because support for `singular value sensitivity <https://en.wikipedia.org/wiki/Eigenvalue_perturbation>`_ in jax is questionable. This includes 
+- *AD Caveat*: We do not recommend automatically differentiating through functions that involve singular value decompositions (SVDs) because support for `singular value sensitivity <https://en.wikipedia.org/wiki/Eigenvalue_perturbation>`_ in jax is questionable. This includes:
 	- Orthogonalization (uses SVDs for stability and robustness), 
 	- Retraction, 
 	- Stabilized computation of TuckerTensorTrain norms (uses orthogonalization). 
@@ -72,7 +89,7 @@ Tucker tensor trains consist of a Tucker decomposition composed with a tensor tr
              [N0]      [N1]      [N2]      [N3]
              |         |         |         |
 
-- Gi and Bi are *cores*, which are smaller tensors that are being contracted with each other bo form a larger tensor.
+- Gi and Bi are *cores*, which are smaller tensors that are being contracted with each other to form a larger tensor.
 - Edges in the network indicate contraction of adjacent cores.
 - The bracket notation in the middle of edges, like -[r1]-, indicates the size of the edge (its "bandwidth", you might say).
 

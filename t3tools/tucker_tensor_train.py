@@ -731,6 +731,28 @@ def t3_apply(
     >>> result2 = np.einsum('ijk,ni,nj,nk->n', t3.t3_to_dense(x), vecs[0], vecs[1], vecs[2])
     >>> print(np.linalg.norm(result - result2))
     3.1271953680324864e-12
+
+    Example using jax automatic differentiation:
+
+	>>> import numpy as np
+    >>> import jax
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> jax.config.update("jax_enable_x64", True)
+    >>> A = t3.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 Tucker tensor train
+    >>> apply_A_sym = lambda u: t3.t3_apply(A, (u,u,u), use_jax=True) # symmetric apply function
+    >>> u0 = np.random.randn(10)
+    >>> Auuu0 = apply_A_sym(u0)
+    >>> g0 = jax.grad(apply_A_sym)(u0) # gradient using automatic differentiation
+    >>> du = np.random.randn(10)
+    >>> dAuuu = np.dot(g0, du) # derivative in direction du
+    >>> print(dAuuu)
+    766.5390335764645
+    >>> s = 1e-7
+    >>> u1 = u0 + s*du
+    >>> Auuu1 = apply_A_sym(u1)
+    >>> dAuuu_diff = (Auuu1 - Auuu0) / s # finite difference approximation
+    >>> print(dAuuu_diff)
+    766.5390504030256
     '''
     xnp = jnp if use_jax else np
 
@@ -851,7 +873,7 @@ def t3_entry(
     >>> import jax
     >>> import t3tools.tucker_tensor_train as t3
     >>> get_entry_123 = lambda x: t3.t3_entry(x, (1,2,3), use_jax=True)
-    >>> A = t3.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # 10x10x10 Tucker tensor train with random cores
+    >>> A = t3.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 Tucker tensor train
     >>> a123 = get_entry_123(A)
     >>> print(a123)
     11.756762
