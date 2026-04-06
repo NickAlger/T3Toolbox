@@ -97,7 +97,7 @@ See Also
 T3Variation
 t3_check_base
 t3base_hole_shapes
-t3_check_base_variation_fit
+t3_check_bv_fit
 
 
 Examples
@@ -114,7 +114,7 @@ Examples
 >>> var_tt_cores = (np.ones((1,10,4)), np.ones((2,11,5)), np.ones((3,12,1)))
 >>> variation = (var_basis_cores, var_tt_cores)
 >>> t3m.t3_check_variation(variation) # Does nothing since variation is internally consistent
->>> t3m.t3_check_base_variation_fit(base, variation) # Does nothing since variation fits in base
+>>> t3m.t3_check_bv_fit(base, variation) # Does nothing since variation fits in base
 """
 
 
@@ -136,7 +136,7 @@ See Also
 T3Base
 t3_check_variation
 t3base_hole_shapes
-t3_check_base_variation_fit
+t3_check_bv_fit
 """
 
 
@@ -606,7 +606,7 @@ def t3_orthogonal_representations(
     The input tensor train x is defined by:
         - x_basis_cores     = (B0, B1, B2, B3)
         - x_tt_cores        = (G0, G1, G2, G3)
-    The "basis cores" are:
+    The "base cores" are:
         - basis_cores       = (U0,U1, U2, U3), up orthogonal
         - left_tt_cores     = (L0, L1, L2, L3), left orthogonal
         - right_tt_cores    = (R0, R1, R2, R3), right orthogonal
