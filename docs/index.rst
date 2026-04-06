@@ -193,7 +193,7 @@ Relevant literature
 
 * Most of the Tucker tensor train algorithms are described in Appendix A of our paper [1]. 
 
-* The probing algorithms are described in Section 4 of our paper [1].
+* The probing algorithms are described in Section 5 of our paper [1].
 
 * The algorithms here are extensions of standard tensor train algorithms (no Tucker)
 	* For an introduction to tensor train methods, we highly recommend two extremely well written Ph.D. Theses: Chapter 1 of Voorhaar, Willem Hendrik Voorhaar's Ph.D. thesis [2], and Chapter 3 of Patrick Gelß's Ph.D. thesis [3]. 
