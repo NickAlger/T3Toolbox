@@ -82,21 +82,21 @@ See Also
 --------
 T3Variation
 t3_check_base
-t3_check_variation
 t3_check_base_variation_fit
+t3base_hole_shapes
 
 Examples
 --------
 >>> import numpy as np
 >>> import t3tools.t3_manifold as t3m
->>> basis_cores = (randn(10, 14), randn(11, 15), randn(12, 16))
->>> left_tt_cores = (randn(1, 10, 2), randn(2, 11, 3), randn(3, 12, 1))
->>> right_tt_cores = (randn(1, 10, 4), randn(4, 11, 5), randn(5, 12, 1))
->>> outer_tt_cores = (randn(1, 9, 4), randn(2, 8, 5), randn(3, 7, 1))
+>>> basis_cores = (np.ones((10, 14)), np.ones((11, 15)), np.ones((12, 16)))
+>>> left_tt_cores = (np.ones((1, 10, 2)), np.ones((2, 11, 3)), np.ones((3, 12, 1)))
+>>> right_tt_cores = (np.ones((1, 10, 4)), np.ones((4, 11, 5)), np.ones((5, 12, 1)))
+>>> outer_tt_cores = (np.ones((1, 9, 4)), np.ones((2, 8, 5)), np.ones((3, 7, 1)))
 >>> base = (basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
 >>> t3m.t3_check_base(base) # Does nothing since base is internally consistent
->>> var_basis_cores = (randn(9,14), randn(8,15), randn(7,16))
->>> var_tt_cores = (randn(1,10,4), randn(2,11,5), randn(3,12,1))
+>>> var_basis_cores = (np.ones((9,14)), np.ones((8,15)), np.ones((7,16)))
+>>> var_tt_cores = (np.ones((1,10,4)), np.ones((2,11,5)), np.ones((3,12,1)))
 >>> variation = (var_basis_cores, var_tt_cores)
 >>> t3m.t3_check_variation(variation) # Does nothing since variation is internally consistent
 >>> t3m.t3_check_base_variation_fit(base, variation) # Does nothing since variation fits in base
@@ -108,14 +108,20 @@ T3Variation = typ.Tuple[
     typ.Sequence[NDArray],  # variation_tt_cores.
 ]
 """
-Tuple containing variation cores for base-variation representation of TuckerTensorTrains
+Tuple containing variation cores for base-variation representation of TuckerTensorTrains.
+
+*Components*
+    - typ.Sequence[NDArray]: variation_basis_cores.
+    - typ.Sequence[NDArray]: variation_tt_cores.
+    
+The variation components should fit in the "holes" of a T3Base.
 
 See Also
 --------
 T3Base
-t3_check_base
 t3_check_variation
 t3_check_base_variation_fit
+t3base_hole_shapes
 """
 
 
@@ -308,7 +314,7 @@ def t3_check_variation(
     Raises
     ------
     RuntimeError
-        - Error raised if any core shapes are inappropriate
+        - Error raised if any variation core shapes are inappropriate
     '''
     var_basis_cores, var_tt_cores = variation
 
@@ -380,19 +386,18 @@ def t3base_hole_shapes(
 
     Examples
     --------
-    >>> from numpy.random import randn
-    >>> from t3tools.tucker_tensor_train import *
-    >>> from t3tools.t3_base_variation_format import *
-    >>> basis_cores = (randn(10,14), randn(11,15), randn(12,16))
-    >>> left_tt_cores = (randn(1,10,2), randn(2,11,3), randn(3,12,1))
-    >>> right_tt_cores = (randn(1,10,4), randn(4,11,5), randn(5,12,1))
-    >>> outer_tt_cores = (randn(1,9,4), randn(2,8,5), randn(3,7,1))
+    >>> import numpy as np
+    >>> import t3tools.t3_manifold as t3m
+    >>> basis_cores = (np.ones((10,14)), np.ones((11,15)), np.ones((12,16)))
+    >>> left_tt_cores = (np.ones((1,10,2)), np.ones((2,11,3)), np.ones((3,12,1)))
+    >>> right_tt_cores = (np.ones((1,10,4)), np.ones((4,11,5)), np.ones((5,12,1)))
+    >>> outer_tt_cores = (np.ones((1,9,4)), np.ones((2,8,5)), np.ones((3,7,1)))
     >>> base = (basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-    >>> (var_basis_shapes, var_tt_shapes) = t3base_hole_shapes(base)
+    >>> (var_basis_shapes, var_tt_shapes) = t3m.t3base_hole_shapes(base)
     >>> print(var_basis_shapes)
-        ((9, 14), (8, 15), (7, 16))
+    ((9, 14), (8, 15), (7, 16))
     >>> print(var_tt_shapes)
-        ((1, 10, 4), (2, 11, 5), (3, 12, 1))
+    ((1, 10, 4), (2, 11, 5), (3, 12, 1))
     '''
     t3_check_base(base)
     basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
@@ -507,9 +512,9 @@ def bv_to_t3(
 
     Examples
     --------
-    >>> from numpy.random import randn
-    >>> from t3tools.tucker_tensor_train import *
-    >>> from t3tools.t3_base_variation_format import *
+    >>> import numpy as np
+    >>> import t3tools.t3_manifold as t3m
+    >>> randn = np.random.randn # shorthand
     >>> (U0,U1,U2) = (randn(10, 14), randn(11, 15), randn(12, 16))
     >>> (L0,L1,L2) = (randn(1, 10, 2), randn(2, 11, 3), randn(3, 12, 1))
     >>> (R0,R1,R2) = (randn(1, 10, 4), randn(4, 11, 5), randn(5, 12, 1))
@@ -518,10 +523,10 @@ def bv_to_t3(
     >>> (V0,V1,V2) = (randn(9,14), randn(8,15), randn(7,16))
     >>> (H0,H1,H2) = (randn(1,10,4), randn(2,11,5), randn(3,12,1))
     >>> variation = ((V0,V1,V2), (H0,H1,H2))
-    >>> ((B0, B1, B2), (G0, G1, G2)) = bv_to_t3(1, True, base, variation) # replace index-1 TT-core
+    >>> ((B0, B1, B2), (G0, G1, G2)) = t3m.bv_to_t3(1, True, base, variation) # replace index-1 TT-core
     >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,U1,U2), (L0,H1,R2)))
         True
-    >>> ((B0, B1, B2), (G0, G1, G2)) = bv_to_t3(1, False, base, variation) # replace index-1 basis core
+    >>> ((B0, B1, B2), (G0, G1, G2)) = t3m.bv_to_t3(1, False, base, variation) # replace index-1 basis core
     >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,O1,R2)))
         True
     '''
@@ -615,9 +620,10 @@ def t3_orthogonal_representations(
     Examples
     --------
     >>> import numpy as np
-    >>> from t3tools import *
-    >>> x = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
-    >>> base, variation = t3_orthogonal_representations(x) # Compute orthogonal representations
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.t3_manifold as t3m
+    >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+    >>> base, variation = t3m.t3_orthogonal_representations(x) # Compute orthogonal representations
     >>> basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
     >>> basis_vars, tt_vars = variation
     >>> (U0,U1,U2) = basis_cores
@@ -627,10 +633,10 @@ def t3_orthogonal_representations(
     >>> (V0,V1,V2) = basis_vars
     >>> (H0,H1,H2) = tt_vars
     >>> x2 = ((U0,U1,U2), (L0,H1,R2)) # representation with TT-core variation in index 1
-    >>> print(np.linalg.norm(t3_to_dense(x) - t3_to_dense(x2))) # Still represents origional tensor
+    >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Still represents origional tensor
     4.978421562425667e-12
     >>> x3 = ((U0,V1,U2), (L0,O1,R2)) # representation with basis core variation in index 1
-    >>> print(np.linalg.norm(t3_to_dense(x) - t3_to_dense(x3))) # Still represents origional tensor
+    >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x3))) # Still represents origional tensor
     5.4355175448533146e-12
     >>> print(np.linalg.norm(U1 @ U1.T - np.eye(U1.shape[0]))) # U: orthogonal
     1.1915111872574236e-15
@@ -720,15 +726,16 @@ For functions that require gauged tangents, make the tangent gauged with:
 Examples
 --------
 >>> import numpy as np
->>> from t3tools import *
->>> p = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
->>> base, _ = t3_orthogonal_representations(p)
->>> basis_variation_shapes, tt_variation_shapes = t3base_hole_shapes(base)
+>>> import t3tools.tucker_tensor_train as t3
+>>> import t3tools.t3_manifold as t3m
+>>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+>>> base, _ = t3m.t3_orthogonal_representations(p)
+>>> basis_variation_shapes, tt_variation_shapes = t3m.t3base_hole_shapes(base)
 >>> basis_variations = tuple([np.random.randn(*s) for s in basis_variation_shapes])
 >>> tt_variations = tuple([np.random.randn(*s) for s in tt_variation_shapes])
 >>> variation = (basis_variations, tt_variations)
 >>> x = (base, variation) # This is a T3Tangent. Variation does not satisfy gauge conditions
->>> x_gauged = t3_oblique_gauge_projection(x) # Gauged version of x
+>>> x_gauged = t3m.t3_oblique_gauge_projection(x) # Gauged version of x
 """
 
 
@@ -739,26 +746,27 @@ def t3tangent_to_dense(
     """Convert Tangent vector to Tucker tensor train manifold into dense tensor.
 
     Examples
-    --------=
+    --------
     >>> import numpy as np
-    >>> from t3tools.t3_manifold import *
-    >>> p = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
-    >>> base, vars0 = t3_orthogonal_representations(p)
-    >>> x = t3tangent_randn(base)
-    >>> v_dense = t3tangent_to_dense(x) # Convert tangent, v, to dense
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.t3_manifold as t3m
+    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+    >>> base, vars0 = t3m.t3_orthogonal_representations(p)
+    >>> x = t3m.t3tangent_randn(base)
+    >>> v_dense = t3m.t3tangent_to_dense(x) # Convert tangent, v, to dense
     >>> ((U0,U1,U2), (L0,L1,L2), (R0,R1,R2), (O0,O1,O2)) = base
     >>> ((V0,V1,V2), (H0,H1,H2)) = x[1]
-    >>> t1 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', U0,U1,U2,H0,R1,R2)
-    >>> t2 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', U0,U1,U2,L0,H1,R2)
-    >>> t3 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', U0,U1,U2,L0,L1,H2)
-    >>> t4 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', V0,U1,U2,O0,R1,R2)
-    >>> t5 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', U0,V1,U2,L0,O1,R2)
-    >>> t6 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', U0,U1,V2,L0,L1,O2)
-    >>> v_dense2 = t1 + t2 + t3 + t4 + t5 + t6
+    >>> s1 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', U0,U1,U2,H0,R1,R2)
+    >>> s2 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', U0,U1,U2,L0,H1,R2)
+    >>> s3 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', U0,U1,U2,L0,L1,H2)
+    >>> s4 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', V0,U1,U2,O0,R1,R2)
+    >>> s5 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', U0,V1,U2,L0,O1,R2)
+    >>> s6 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', U0,U1,V2,L0,L1,O2)
+    >>> v_dense2 = s1 + s2 + s3 + s4 + s5 + s6
     >>> print(np.linalg.norm(v_dense - v_dense2))
     1.2760924630140578e-14
-    >>> p_plus_v_dense = t3tangent_to_dense(x, include_shift=True) # Convert shifted tangent, p+v, to dense
-    >>> p_plus_v_dense2 =  t3_to_dense(p) + v_dense
+    >>> p_plus_v_dense = t3m.t3tangent_to_dense(x, include_shift=True) # Convert shifted tangent, p+v, to dense
+    >>> p_plus_v_dense2 =  t3.t3_to_dense(p) + v_dense
     >>> print(np.linalg.norm(p_plus_v_dense - p_plus_v_dense2))
     1.2677102046134292e-12
     """
@@ -827,18 +835,19 @@ def t3tangent_to_t3(
     Examples
     --------
     >>> import numpy as np
-    >>> from t3tools import *
-    >>> p = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
-    >>> base, vars0 = t3_orthogonal_representations(p)
-    >>> x = t3tangent_randn(base)
-    >>> v_t3 = t3tangent_to_t3(x) # tangent vector only (attached at zero)
-    >>> v_dense = t3_to_dense(v_t3)
-    >>> v_dense2 = t3tangent_to_dense(x)
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.t3_manifold as t3m
+    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+    >>> base, vars0 = t3m.t3_orthogonal_representations(p)
+    >>> x = t3m.t3tangent_randn(base)
+    >>> v_t3 = t3m.t3tangent_to_t3(x) # tangent vector only (attached at zero)
+    >>> v_dense = t3.t3_to_dense(v_t3)
+    >>> v_dense2 = t3m.t3tangent_to_dense(x)
     >>> print(np.linalg.norm(v_dense - v_dense2))
     2.678565538404836e-15
-    >>> p_plus_v_t3 = t3tangent_to_t3(x, include_shift=True) # shifted tangent vector (include attachment at base point)
-    >>> p_plus_v_dense = t3_to_dense(p_plus_v_t3)
-    >>> p_plus_v_dense2 = v_dense2 + t3_to_dense(p)
+    >>> p_plus_v_t3 = t3m.t3tangent_to_t3(x, include_shift=True) # shifted tangent vector (include attachment at base point)
+    >>> p_plus_v_dense = t3.t3_to_dense(p_plus_v_t3)
+    >>> p_plus_v_dense2 = v_dense2 + t3.t3_to_dense(p)
     >>> print(np.linalg.norm(p_plus_v_dense - p_plus_v_dense2))
     1.2102169224182523e-12
     '''
@@ -929,11 +938,12 @@ def t3tangent_zeros(
     Examples
     --------
     >>> import numpy as np
-    >>> from t3tools import *
-    >>> p = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
-    >>> base, vars0 = t3_orthogonal_representations(p)
-    >>> z = t3tangent_zeros(base)
-    >>> print(np.linalg.norm(t3tangent_to_dense(z)))
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.t3_manifold as t3m
+    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+    >>> base, vars0 = t3m.t3_orthogonal_representations(p)
+    >>> z = t3m.t3tangent_zeros(base)
+    >>> print(np.linalg.norm(t3m.t3tangent_to_dense(z)))
     0.0
     """
     xnp = jnp if use_jax else np
@@ -977,11 +987,24 @@ def t3tangent_randn(
 
     Examples
     --------
+
+    Apply Gauge projection (default):
+
     >>> import numpy as np
-    >>> from t3tools import *
-    >>> p = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
-    >>> base, vars0 = t3_orthogonal_representations(p)
-    >>> x = t3tangent_randn(base) # Random tangent vector
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.t3_manifold as t3m
+    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+    >>> base, vars0 = t3m.t3_orthogonal_representations(p)
+    >>> x = t3m.t3tangent_randn(base) # Random tangent vector, gauged.
+
+    Don't apply Gauge projection:
+
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.t3_manifold as t3m
+    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+    >>> base, vars0 = t3m.t3_orthogonal_representations(p)
+    >>> x = t3m.t3tangent_randn(base, apply_gauge_projection=False) # Random tangent vector, ungauged
     """
     t3_check_base(orthogonal_base)
 
@@ -1038,11 +1061,12 @@ def t3_orthogonal_gauge_projection(
     Example
     -------
     >>> import numpy as np
-    >>> from t3tools import *
-    >>> p = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
-    >>> base, vars0 = t3_orthogonal_representations(p)
-    >>> x = t3tangent_randn(base)
-    >>> projected_x = t3_orthogonal_gauge_projection(x) # Make gauged via orthogonal projection
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.t3_manifold as t3m
+    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+    >>> base, vars0 = t3m.t3_orthogonal_representations(p)
+    >>> x = t3m.t3tangent_randn(base)
+    >>> projected_x = t3m.t3_orthogonal_gauge_projection(x) # Make gauged via orthogonal projection
     >>> (U0,U1,U2), (L0,L1,L2), _, _ = base
     >>> ((V0,V1,V2), (H0,H1,H2)) = projected_x[1]
     >>> print(np.linalg.norm(V1 @ U1.T)) # Gauge condition for basis core 1
@@ -1104,13 +1128,14 @@ def t3_oblique_gauge_projection(
     Examples
     --------
     >>> import numpy as np
-    >>> from t3tools import *
-    >>> p = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
-    >>> base, vars0 = t3_orthogonal_representations(p)
-    >>> x = t3tangent_randn(base)
-    >>> projected_x = t3_oblique_gauge_projection(x) # Make gauged via oblique projection
-    >>> x_dense = t3tangent_to_dense(x)
-    >>> proj_x_dense = t3tangent_to_dense(projected_x)
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.t3_manifold as t3m
+    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+    >>> base, vars0 = t3m.t3_orthogonal_representations(p)
+    >>> x = t3m.t3tangent_randn(base)
+    >>> projected_x = t3m.t3_oblique_gauge_projection(x) # Make gauged via oblique projection
+    >>> x_dense = t3m.t3tangent_to_dense(x)
+    >>> proj_x_dense = t3m.t3tangent_to_dense(projected_x)
     >>> print(np.linalg.norm(x_dense - proj_x_dense)) # Zero since projection preserves represented tangent vector
     3.4398319441148304e-15
     >>> (U0,U1,U2), (L0,L1,L2), _, _ = base
@@ -1223,14 +1248,15 @@ def project_t3_onto_tangent_space(
     Examples
     --------
     >>> import numpy as np
-    >>> from t3tools import *
-    >>> p = t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
-    >>> base, _ = t3_orthogonal_representations(p)
-    >>> x = t3_corewise_randn(((14,15,16), (7,4,8), (1,5,4,1)))
-    >>> proj_x = project_t3_onto_tangent_space(x, base) # Project x onto tangent space
-    >>> P = t3_to_dense(p)
-    >>> X = t3_to_dense(x)
-    >>> proj_X = t3tangent_to_dense(proj_x)
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.t3_manifold as t3m
+    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+    >>> base, _ = t3m.t3_orthogonal_representations(p)
+    >>> x = t3.t3_corewise_randn(((14,15,16), (7,4,8), (1,5,4,1)))
+    >>> proj_x = t3m.project_t3_onto_tangent_space(x, base) # Project x onto tangent space
+    >>> P = t3.t3_to_dense(p)
+    >>> X = t3.t3_to_dense(x)
+    >>> proj_X = t3m.t3tangent_to_dense(proj_x)
     >>> print(np.sum((X - proj_X) * (proj_X - P)) / np.sum(X)) # Check that x was projected orthogonally
     3.351282624686308e-11
     """
@@ -1629,10 +1655,10 @@ def t3tangent_dot_t3tangent(
     x_basis_vars, x_tt_vars = gauged_x[1]
     y_basis_vars, y_tt_vars = gauged_y[1]
 
-    t1 = xnp.sum([np.sum(Bx*By) for Bx, By in zip(x_basis_vars, y_basis_vars)])
-    t2 = xnp.sum([np.sum(Gx*Gy) for Gx, Gy in zip(x_tt_vars, y_tt_vars)])
+    s1 = xnp.sum([np.sum(Bx*By) for Bx, By in zip(x_basis_vars, y_basis_vars)])
+    s2 = xnp.sum([np.sum(Gx*Gy) for Gx, Gy in zip(x_tt_vars, y_tt_vars)])
 
-    return t1+t2
+    return s1+s2
 
 
 def t3tangent_norm(

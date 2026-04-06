@@ -827,7 +827,7 @@ def t3_entry(
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
-    >>> index = [9, 4, 7] # get entri (9,4,7)
+    >>> index = [9, 4, 7] # get entry (9,4,7)
     >>> result = t3.t3_entry(x, index)
     >>> result2 = t3.t3_to_dense(x)[9, 4, 7]
     >>> print(np.abs(result - result2))
@@ -844,6 +844,21 @@ def t3_entry(
     >>> entries2 = np.array([x_dense[9, 4, 7], x_dense[8, 10, 13]])
     >>> print(np.linalg.norm(entries - entries2))
     1.7763568394002505e-15
+
+    Example using jax jit compiling:
+
+	>>> import numpy as np
+    >>> import jax
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> get_entry_123 = lambda x: t3.t3_entry(x, (1,2,3), use_jax=True)
+    >>> A = t3.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # 10x10x10 Tucker tensor train with random cores
+    >>> a123 = get_entry_123(A)
+    >>> print(a123)
+    11.756762
+    >>> get_entry_123_jit = jax.jit(get_entry_123) # jit compile
+    >>> a123_jit = get_entry_123_jit(A)
+    >>> print(a123_jit)
+    11.756762
     '''
     xnp = jnp if use_jax else np
 

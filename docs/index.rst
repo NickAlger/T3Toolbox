@@ -22,6 +22,32 @@ Indices and tables
 * :ref:`search`
 
 
+Design philosophy
+=================
+
+This package is written in a functional language style. It is a library of functions that perform actions on basic types (mostly, arrays and nested sequences of arrays). 
+
+- All functions always yield the same output for a given input. 
+- All custom types are aliases of composite basic types
+- All numerical functions are suitable for jit compilation in jax, after closing over non-numerical parameters.
+	- E.g.,::
+		
+		>>> import numpy as np
+		>>> import jax
+		>>> import t3tools.tucker_tensor_train as t3
+		>>> get_entry_123 = lambda x: t3.t3_entry(x, (1,2,3), use_jax=True)
+		>>> A = t3.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # 10x10x10 Tucker tensor train with random cores
+		>>> a123 = get_entry_123(A)
+		>>> print(a123)
+		11.756762
+		>>> get_entry_123_jit = jax.jit(get_entry_123) # jit compile
+		>>> a123_jit = get_entry_123_jit(A)
+		>>> print(a123_jit)
+		11.756762
+        		
+)
+
+
 Background
 ==========
 
