@@ -1,5 +1,2 @@
 autoapi
-autodoc
-autosummary
-napoleon
-githubpages
+
