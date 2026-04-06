@@ -25,11 +25,11 @@ Indices and tables
 Design philosophy
 =================
 
-This package is written in a functional language style. It is a library of functions that perform actions on basic types (mostly, arrays and nested sequences of arrays). 
+This package is written in a `functional programming <https://en.wikipedia.org/wiki/Functional_programming>`_ style. It is a library of mathematical functions that perform operations on basic types (mostly, arrays and nested sequences of arrays). 
 
 - All functions always yield the same output for a given input. 
 - All custom types are aliases of composite basic types
-- All numerical functions are suitable for jit compilation in jax, after closing over non-numerical parameters.
+- All numerical functions are suitable for `just-in-time (jit) compilation <https://docs.jax.dev/en/latest/_autosummary/jax.jit.html>`_ in `jax <https://docs.jax.dev/en/latest/index.html>`_, after removing non-numerical parameters by `partial evaluation <https://en.wikipedia.org/wiki/Partial_application>`_.
 	- E.g.,::
 		
 		>>> import numpy as np
@@ -44,8 +44,15 @@ This package is written in a functional language style. It is a library of funct
 		>>> a123_jit = get_entry_123_jit(A)
 		>>> print(a123_jit)
 		11.756762
-        		
-)
+
+- Most numerical functions are suitable for `automatic differentiation (AD) <https://en.wikipedia.org/wiki/Automatic_differentiation>`_ in jax. For example,::
+
+	probing example
+
+- *AD Caveat*: We do not recommend automatically differentiating through functions that involve singular value decompositions (SVDs) because support for `singular value sensitivity <https://en.wikipedia.org/wiki/Eigenvalue_perturbation>`_ in jax is questionable. This includes 
+	- Orthogonalization (uses SVDs for stability and robustness), 
+	- Retraction, 
+	- Stabilized computation of TuckerTensorTrain norms (uses orthogonalization). 
 
 
 Background
