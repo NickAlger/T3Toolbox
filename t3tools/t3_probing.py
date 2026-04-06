@@ -4,6 +4,7 @@
 import numpy as np
 import typing as typ
 import t3tools.tucker_tensor_train as t3
+import t3tools.t3_manifold as t3m
 
 try:
     import jax.numpy as jnp
@@ -339,10 +340,10 @@ def t3_assemble_probes(
 ###
 
 def t3_compute_dxis(
-        var_basis_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ni,Ni)
+        var_basis_cores: typ.Sequence[NDArray], # len=d. elm_shape=(nOi,Ni)
         ww: typ.Sequence[NDArray], # len=d. elm_shape=(num_probes,Ni)
         use_jax: bool = False,
-) -> typ.Tuple[NDArray,...]: # xis. len=d, elm_shape=(num_probes,ni)
+) -> typ.Tuple[NDArray,...]: # xis. len=d, elm_shape=(num_probes,nOi)
     '''Compute var-upward edge variables dxi.
 
     Same as t3_compute_dxis(), except with var_basis_cores in place of basis_cores.
@@ -396,7 +397,7 @@ def t3_compute_sigmas(
     num_probes = xis[0].shape[0]
 
     sigmas = [xnp.zeros((num_probes,1))]
-    for ii in range(num_cores-1):
+    for ii in range(num_cores):
         Q = right_tt_cores[ii]
         O = outer_tt_cores[ii]
         dG = var_tt_cores[ii]
@@ -406,9 +407,9 @@ def t3_compute_sigmas(
         mu = mus[ii]
         sigma = sigmas[-1]
 
-        sigma_next_t1   = sigma @ xnp.einsum('iaj,a->ij', Q, xi)
-        sigma_next_t2   = mu    @ xnp.einsum('iaj,a->ij', dG, xi)
-        sigma_next_t3   = mu    @ xnp.einsum('iaj,a->ij', O, dxi)
+        sigma_next_t1   = xnp.einsum('pi,iaj,pa->pj', sigma, Q, xi)
+        sigma_next_t2   = xnp.einsum('pi,iaj,pa->pj', mu, dG, xi)
+        sigma_next_t3   = xnp.einsum('pi,iaj,pa->pj', mu, O, dxi)
 
         sigma_next = sigma_next_t1 + sigma_next_t2 + sigma_next_t3
         sigmas.append(sigma_next)
@@ -445,6 +446,219 @@ def t3_compute_taus(
         xis[::-1], dxis[::-1], nus[::-1],
         use_jax=use_jax
     )[::-1]
+
+
+def t3_compute_detas(
+        var_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,ni,rR(i+1))
+        left_tt_cores: typ.Sequence[NDArray],  # len=d, elm_shape=(rLi,ni,rL(i+1))
+        right_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rRi,ni,rR(i+1))
+        mus: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,nLi)
+        nus: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,nRi)
+        sigmas: typ.Sequence[NDArray], # len=d+1, elm_shape=(num_probes,rR(i+1))
+        taus: typ.Sequence[NDArray], # len=d+1, elm_shape=(num_probes,rL(i+1))
+        use_jax: bool = False,
+) -> typ.Sequence[NDArray]: # detas. len=d, elm_shape=(num_probes,ni)
+    '''Compute var-downward edge variables deta.
+
+    See Section 5.2.3, particularly Formula (40), in:
+        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+        "Tucker Tensor Train Taylor Series."
+        arXiv preprint arXiv:2603.21141.
+        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+
+    See Also
+    --------
+    t3_compute_dxis
+    t3_compute_sigmas
+    t3_compute_taus
+    t3_assemble_tangent_probes
+    t3tangent_probes
+    '''
+    xnp = jnp if use_jax else np
+
+    num_cores = len(var_tt_cores)
+
+    detas = []
+    for ii in range(num_cores):
+        P = left_tt_cores[ii]
+        Q = right_tt_cores[ii]
+        dG = var_tt_cores[ii]
+
+        mu = mus[ii]
+        nu = nus[ii+1]
+        sigma = sigmas[ii]
+        tau = taus[ii+1]
+
+        s1 = xnp.einsum('pi,iaj,pj->pa', sigma, Q, nu)
+        s2 = xnp.einsum('pi,iaj,pj->pa', mu,    dG, nu)
+        s3 = xnp.einsum('pi,iaj,pj->pa', mu,    P, tau)
+
+        deta = s1 + s2 + s3
+        detas.append(deta)
+    return tuple(detas)
+
+
+def t3_assemble_tangent_probes(
+        basis_cores: typ.Sequence[NDArray],  # len=d. elm_shape=(ni,Ni)
+        var_basis_cores: typ.Sequence[NDArray], # len=d. elm_shape=(nOi,Ni)
+        etas: typ.Sequence[NDArray], # etas. len=d, elm_shape=(num_probes,ni)
+        detas: typ.Sequence[NDArray], # detas. len=d, elm_shape=(num_probes,ni)
+        use_jax: bool = False,
+) -> typ.Tuple[NDArray,...]: # probes. len=d, elm_shape=(num_probes,Ni)
+    '''Assemble tangent vector probes from edge variables.
+
+    See Section 5.2.3, particularly Formula (41), in:
+        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+        "Tucker Tensor Train Taylor Series."
+        arXiv preprint arXiv:2603.21141.
+        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+
+    See Also
+    --------
+    t3_compute_dxis
+    t3_compute_sigmas
+    t3_compute_taus
+    t3_compute_detas
+    t3tangent_probes
+    '''
+    xnp = jnp if use_jax else np
+
+    num_cores = len(basis_cores)
+    probes = []
+    for ii in range(num_cores):
+        B = basis_cores[ii]
+        dB = var_basis_cores[ii]
+
+        eta = etas[ii]
+        deta = detas[ii]
+
+        s1 = xnp.einsum('ao,pa->po', B, deta)
+        s2 = xnp.einsum('ao,pa->po', dB, eta)
+
+        probe = s1 + s2
+        probes.append(probe)
+    return tuple(probes)
+
+
+def t3tangent_probes(
+        x:      t3m.T3Tangent, # shape=(N1,...,Nd)
+        ww:     typ.Sequence[NDArray], # input vectors, len=d, elm_shape=(Ni,) or (num_probes,Ni)
+        use_jax: bool = False,
+) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(Ni,) or (num_probes,Ni)
+    '''Probe a tangent vector.
+
+    See Section 5.2.3 in:
+        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+        "Tucker Tensor Train Taylor Series."
+        arXiv preprint arXiv:2603.21141.
+        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+
+    Parameters
+    ----------
+    x: t3m.T3Tangent
+        Tangent vector to probe.
+        shape=(N1,...,Nd)
+    ww: typ.Sequence[NDArray]
+        input vectors to probe with. len=d, elm_shape=(Ni,) or (num_probes,Ni)
+    use_jax: bool
+        If True, use jax for linear algebra operations. Otherwise, use numpy.
+
+    Returns
+    -------
+    typ.Tuple[NDArray,...]
+        Probes, zz. len=d, elm_shape=(Ni,) or (num_probes,Ni)
+
+    See Also
+    --------
+    t3_probes
+    t3tangent_probes_transpose
+    t3_compute_xis
+    t3_compute_mus
+    t3_compute_nus
+    t3_compute_etas
+    t3_compute_dxis
+    t3_compute_sigmas
+    t3_assemble_probes
+    t3_compute_detas
+    t3_assemble_tangent_probes
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.t3_manifold as t3m
+    >>> import t3tools.t3_probing as t3p
+    >>> import t3tools.dense as dense
+    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(1,3,4,1)))
+    >>> base, _ = t3m.t3_orthogonal_representations(p)
+    >>> x = t3m.t3tangent_randn(base)
+    >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+    >>> zz = t3p.t3tangent_probes(x, ww)
+    >>> x_dense = t3m.t3tangent_to_dense(x)
+    >>> zz2 = dense.dense_probes(x_dense, ww)
+    >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
+    [4.6257812371663175e-15, 3.628238740198284e-15, 5.6097341748343224e-15]
+    '''
+    x_shape = tuple([B.shape[1] for B in x[1][0]])
+    assert(len(ww) == len(x_shape))
+
+    vectorized = True
+    if len(ww[0].shape) == 1:
+        vectorized = False
+        ww = [w.reshape((1,-1)) for w in ww]
+
+    assert(tuple([w.shape[1] for w in ww]) == x_shape)
+
+    ((basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores),
+     (var_basis_cores, var_tt_cores)) = x
+
+    xis = t3_compute_xis(
+        basis_cores, ww, use_jax,
+    )
+
+    mus = t3_compute_mus(
+        left_tt_cores, xis, use_jax=use_jax,
+    )
+
+    nus = t3_compute_nus(
+        right_tt_cores, xis, use_jax=use_jax,
+    )
+
+    etas = t3_compute_etas(
+        outer_tt_cores, mus, nus, use_jax=use_jax,
+    )
+
+    dxis = t3_compute_dxis(
+        var_basis_cores, ww, use_jax=use_jax,
+    )
+
+    sigmas = t3_compute_sigmas(
+        var_tt_cores, right_tt_cores, outer_tt_cores,
+        xis, dxis, mus,
+        use_jax=use_jax,
+    )
+
+    taus = t3_compute_taus(
+        var_tt_cores, left_tt_cores, outer_tt_cores,
+        xis, dxis, nus,
+        use_jax=use_jax,
+    )
+
+    detas = t3_compute_detas(
+        var_tt_cores, left_tt_cores, right_tt_cores,
+        mus, nus, sigmas, taus,
+        use_jax=use_jax,
+    )
+
+    zz = t3_assemble_tangent_probes(
+        basis_cores, var_basis_cores,
+        etas, detas,
+        use_jax=use_jax,
+    )
+
+    if not vectorized:
+        zz = tuple([z.reshape(-1) for z in zz])
+    return zz
 
 
 # def t3_assemble_tangent_actions(
