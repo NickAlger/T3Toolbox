@@ -125,6 +125,7 @@ def t3_compute_xis(
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # xis. len=d, elm_shape=(num_probes,ni)
     '''Compute upward edge variables associated with edges between Tucker cores and adjacent TT-cores.
+    Used for probing a Tucker tensor train.
 
     See Section 5.2, particularly Figure 9 in:
         Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
@@ -165,6 +166,7 @@ def t3_compute_mus(
         use_jax: bool = False,
 ) -> typ.Sequence[NDArray]: # mus. len=d+1, elm_shape=(num_probes,ri)
     '''Compute leftward edge variables associated with edges between adjacent TT-cores.
+    Used for probing a Tucker tensor train.
 
     See Section 5.2, particularly Figure 9 in:
         Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
@@ -219,6 +221,7 @@ def t3_compute_nus(
         use_jax: bool = False,
 ) -> typ.Sequence[NDArray]: # nus. len=d+1, elm_shape=(num_probes,ri)
     '''Compute rightward edge variables associated with edges between adjacent TT-cores.
+    Used for probing a Tucker tensor train.
 
     See Section 5.2, particularly Figure 9 in:
         Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
@@ -259,6 +262,7 @@ def t3_compute_etas(
         use_jax: bool = False,
 ) -> typ.Sequence[NDArray]: # etas. len=d, elm_shape=(num_probes,ni)
     '''Compute downward edge variables associated with edges between Tucker cores and adjacent TT-cores.
+    Used for probing a Tucker tensor train.
 
     See Section 5.2, particularly Figure 9 in:
         Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
@@ -345,6 +349,7 @@ def t3_compute_dxis(
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # xis. len=d, elm_shape=(num_probes,nOi)
     '''Compute var-upward edge variables dxi.
+    Used for probing a tangent vector.
 
     Same as t3_compute_dxis(), except with var_basis_cores in place of basis_cores.
 
@@ -376,6 +381,7 @@ def t3_compute_sigmas(
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # sigmas. len=d+1, elm_shape=(num_probes,rR(i+1))
     '''Compute var-leftward edge variables sigma.
+    Used for probing a tangent vector.
 
     See Section 5.2.3, particularly Formula (36), in:
         Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
@@ -426,6 +432,7 @@ def t3_compute_taus(
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # taus. len=d+1, elm_shape=(num_probes,rL(i+1))
     '''Compute var-rightward edge variables tau.
+    Used for probing a tangent vector.
 
     See Section 5.2.3, particularly Formula (38), in:
         Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
@@ -459,6 +466,7 @@ def t3_compute_detas(
         use_jax: bool = False,
 ) -> typ.Sequence[NDArray]: # detas. len=d, elm_shape=(num_probes,ni)
     '''Compute var-downward edge variables deta.
+    Used for probing a tangent vector.
 
     See Section 5.2.3, particularly Formula (40), in:
         Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
@@ -679,61 +687,138 @@ def t3tangent_probes(
     return zz
 
 
-# #
-#
-# def t3_compute_tau_tildes(
-#         TS,
-#         reduced_xx,
-#         reduced_dyy,
-#         mus,
-# ):
-#     '''Adjoints for right-to-left pushthrough partial sums (adjoints go the other way, left to right).
-#     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
-#     '''
-#     tau_tildes = [jnp.zeros(1)]
-#     for ii in range(TS.num_cores-1):
-#         P = TS.left_orthogonal_tt_cores[ii]
-#         x = reduced_xx[ii]
-#         dy = reduced_dyy[ii]
-#
-#         mu = mus[ii]
-#         tau_tilde = tau_tildes[-1]
-#
-#         tau_tilde_next_t1   = tau_tilde @ jnp.einsum('iaj,a->ij', P, x)
-#         tau_tilde_next_t2   = mu        @ jnp.einsum('iaj,a->ij', P, dy)
-#
-#         tau_tilde_next = tau_tilde_next_t1 + tau_tilde_next_t2
-#         tau_tildes.append(tau_tilde_next)
-#     return tuple(tau_tildes)
-#
-#
-# def t3_compute_sigma_tildes(
-#         TS,
-#         reduced_xx,
-#         reduced_dyy,
-#         nus,
-# ):
-#     '''Adjoints for left-to-right pushthrough partial sums (adjoints go the other way, right-to-left).
-#     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
-#     '''
-#     sigma_tildes_reversed = [jnp.zeros(1)]
-#     for ii in range(TS.num_cores-1, 0, -1):
-#         Q = TS.right_orthogonal_tt_cores[ii]
-#         x = reduced_xx[ii]
-#         dy = reduced_dyy[ii]
-#
-#         nu = nus[ii]
-#         sigma_tilde = sigma_tildes_reversed[-1]
-#
-#         sigma_tilde_prev_t1 = jnp.einsum('iaj,a->ij', Q, x)  @ sigma_tilde
-#         sigma_tilde_prev_t2 = jnp.einsum('iaj,a->ij', Q, dy) @ nu
-#
-#         sigma_tilde_prev = sigma_tilde_prev_t1 + sigma_tilde_prev_t2
-#         sigma_tildes_reversed.append(sigma_tilde_prev)
-#     sigma_tildes = sigma_tildes_reversed[::-1]
-#     return tuple(sigma_tildes)
-#
-#
+####
+
+def t3_compute_deta_tildes(
+        basis_cores: typ.Sequence[NDArray], # len=d, elm_shape=(ni,Ni)
+        ztildes: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,Ni)
+        use_jax: bool = False,
+) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(num_probes,ni)
+    '''Adjoint-var-upward edge variables deta_tilde.
+    Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
+
+    See Section 5.2.4, particularly Formula (43), in:
+        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+        "Tucker Tensor Train Taylor Series."
+        arXiv preprint arXiv:2603.21141.
+        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+    '''
+    xnp = jnp if use_jax else np
+    return tuple([xnp.einsum('ao,po->pa', U, zt) for U, zt in zip(basis_cores, ztildes)])
+
+
+def t3_compute_tau_tildes(
+        left_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,ni,rL(i+d))
+        xis: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,ni)
+        mus, # len=d+1, elm_shape=(num_probes,rLi)
+        deta_tildes, # len=d+1, elm_shape=(num_probes,ni)
+        use_jax: bool = False,
+) -> typ.Tuple[NDArray,...]: # len=d+1, elm_shape=(num_probes,rLi)
+    '''Adjoint-var-rightward edge variables tau_tilde.
+    Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
+
+    See Section 5.2.4, particularly Formula (44), in:
+        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+        "Tucker Tensor Train Taylor Series."
+        arXiv preprint arXiv:2603.21141.
+        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+    '''
+    xnp = jnp if use_jax else np
+
+    num_cores = len(left_tt_cores)
+    num_probes = mus.shape[0]
+
+    tau_tildes = [xnp.zeros(num_probes, 1)]
+    for ii in range(num_cores):
+        P = left_tt_cores[ii]
+        xi = xis[ii]
+        deta_tilde = deta_tildes[ii]
+
+        mu = mus[ii]
+        tau_tilde = tau_tildes[-1]
+
+        tau_tilde_next_t1   = xnp.einsum('pi,iaj,pa->pj', tau_tilde, P, xi)
+        tau_tilde_next_t2   = xnp.einsum('pi,iaj,pa->pj', mu, P, deta_tilde)
+
+        tau_tilde_next = tau_tilde_next_t1 + tau_tilde_next_t2
+        tau_tildes.append(tau_tilde_next)
+    return tuple(tau_tildes)
+
+
+def t3_compute_sigma_tildes(
+        right_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rRi,ni,rR(i+d))
+        xis: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,ni)
+        nus, # len=d+1, elm_shape=(num_probes,rRi)
+        deta_tildes, # len=d+1, elm_shape=(num_probes,ni)
+        use_jax: bool = False,
+) -> typ.Tuple[NDArray,...]: # len=d+1, elm_shape=(num_probes,rRi)
+    '''Adjoint-var-leftward edge variables sigma_tilde.
+    Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
+
+    See Section 5.2.4, particularly Formula (45), in:
+        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+        "Tucker Tensor Train Taylor Series."
+        arXiv preprint arXiv:2603.21141.
+        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+    '''
+    return t3_compute_tau_tildes(
+        tt_reverse(right_tt_cores), xis[::-1], nus[::-1], deta_tildes[::-1], use_jax=use_jax,
+    )[::-1]
+
+
+def t3_compute_dxi_tildes(
+        outer_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
+        mus: typ.Sequence[NDArray], # len=d+1, elm_shape=(num_probes,rLi)
+        nus: typ.Sequence[NDArray], # len=d+1, elm_shape=(num_probes,rRi)
+        sigma_tildes: typ.Sequence[NDArray], # len=d+1, elm_shape=(num_probes,rRi)
+        tau_tildes: typ.Sequence[NDArray], # len=d+1, elm_shape=(num_probes,rLi)
+        use_jax: bool = False,
+) -> typ.Tuple[NDArray,...]: # dxi_tildes. len=d, elm_shape=(num_probes,nOi)
+    '''Adjoint-var-downward edge variables dxi_tilde.
+    Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
+
+    See Section 5.2.4, particularly Formula (46), in:
+        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+        "Tucker Tensor Train Taylor Series."
+        arXiv preprint arXiv:2603.21141.
+        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+    '''
+    xnp = jnp if use_jax else np
+    return tuple([
+        xnp.einsum('pi,iaj,pj->pa', tt, O, nu) +
+        xnp.einsum('pi,iaj,pj->pa', mu, O, st)
+        for O, mu, nu, st, tt in
+        zip(outer_tt_cores, mus[:-1], nus[1:], sigma_tildes[1:], tau_tildes[:-1])
+    ])
+
+
+def t3_assemble_basis_variations(
+        ztildes: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,Ni)
+        etas: typ.Sequence[NDArray], # etas. len=d, elm_shape=(num_probes,ni)
+        ww: typ.Sequence[NDArray], # input vectors, len=d, elm_shape=(Ni,) or (num_probes,Ni)
+        dxi_tildes: typ.Sequence[NDArray], #len=d, elm_shape=(num_probes,nOi)
+        use_jax: bool = False,
+):
+    '''Assemble basis core variations, delta_U_tilde.
+    Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
+
+    See Section 5.2.4, particularly Formula (47), in:
+        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+        "Tucker Tensor Train Taylor Series."
+        arXiv preprint arXiv:2603.21141.
+        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+    '''
+    xnp = jnp if use_jax else np
+    return tuple([
+        xnp.einsum('po,pa->pao', z_tilde, eta) +
+        xnp.einsum('po,pa->pao', w, dxi_tilde)
+        for z_tilde, eta, w, dxi_tilde in
+        zip(ztildes, etas, ww, dxi_tildes)
+    ])
+
+
+
+
 # def t3_assemble_core_perturbations(
 #         TS,
 #         xx,
