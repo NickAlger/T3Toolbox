@@ -29,14 +29,14 @@ __all__ = [
     't3_compute_taus',
     't3_compute_detas',
     't3_assemble_tangent_probes',
-
-    # 't3tangent_probes_transpose',
-    # Actions of a tangent vector
-    # 't3_assemble_tangent_actions',
-    # # Transpose of tangent vector to actions map
-    # 't3_compute_tau_tildes',
-    # 't3_compute_sigma_tildes',
-    # 't3_assemble_core_perturbations',
+    # Transpose of map from tangent vector to probes
+    't3_compute_deta_tildes',
+    't3_compute_tau_tildes',
+    't3_compute_sigma_tildes',
+    't3_compute_dxi_tildes',
+    't3_assemble_basis_variations',
+    't3_assemble_tt_variations',
+    't3tangent_probes_transpose',
 ]
 
 #
@@ -549,8 +549,9 @@ def t3_assemble_tangent_probes(
 
 
 def t3tangent_probes(
-        x:      t3m.T3Tangent, # shape=(N1,...,Nd)
+        variation: t3m.T3Variation, # basis_var_shapes=(nOi,Ni), tt_var_shapes=tt_hole_shapes=(rLi,ni,rRi)
         ww:     typ.Sequence[NDArray], # input vectors, len=d, elm_shape=(Ni,) or (num_probes,Ni)
+        base: t3m.T3Base, # basis_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(Ni,) or (num_probes,Ni)
     '''Probe a tangent vector.
@@ -602,10 +603,10 @@ def t3tangent_probes(
     >>> import t3tools.dense as dense
     >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(1,3,4,1)))
     >>> base, _ = t3m.t3_orthogonal_representations(p)
-    >>> x = t3m.t3tangent_randn(base)
+    >>> _, variation = t3m.t3tangent_randn(base)
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-    >>> zz = t3p.t3tangent_probes(x, ww)
-    >>> zz2 = dense.dense_probes(t3m.t3tangent_to_dense(x), ww)
+    >>> zz = t3p.t3tangent_probes(variation, ww, base)
+    >>> zz2 = dense.dense_probes(t3m.t3tangent_to_dense((base, variation)), ww)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [4.6257812371663175e-15, 3.628238740198284e-15, 5.6097341748343224e-15]
 
@@ -618,14 +619,14 @@ def t3tangent_probes(
     >>> import t3tools.dense as dense
     >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(1,3,4,1)))
     >>> base, _ = t3m.t3_orthogonal_representations(p)
-    >>> x = t3m.t3tangent_randn(base)
+    >>> _, variation = t3m.t3tangent_randn(base)
     >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-    >>> zzz = t3p.t3tangent_probes(x, www) # Compute probes!
-    >>> zzz2 = dense.dense_probes(t3m.t3tangent_to_dense(x), www)
+    >>> zzz = t3p.t3tangent_probes(variation, www, base) # Compute probes!
+    >>> zzz2 = dense.dense_probes(t3m.t3tangent_to_dense((base, variation)), www)
     >>> print([np.linalg.norm(zz - zz2, axis=1) for zz, zz2 in zip(zzz, zzz2)])
     [array([3.18560984e-15, 5.06339604e-15]), array([1.74264349e-15, 5.10008230e-15]), array([2.17576097e-15, 2.94156728e-15])]
     '''
-    x_shape = tuple([B.shape[1] for B in x[1][0]])
+    x_shape = tuple([B.shape[1] for B in variation[0]])
     assert(len(ww) == len(x_shape))
 
     vectorized = True
@@ -635,8 +636,8 @@ def t3tangent_probes(
 
     assert(tuple([w.shape[1] for w in ww]) == x_shape)
 
-    ((basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores),
-     (var_basis_cores, var_tt_cores)) = x
+    (basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores) = base
+    (var_basis_cores, var_tt_cores) = variation
 
     xis = t3_compute_xis(
         basis_cores, ww, use_jax,
@@ -690,8 +691,8 @@ def t3tangent_probes(
 ####
 
 def t3_compute_deta_tildes(
+        ztildes: typ.Sequence[NDArray],  # len=d, elm_shape=(num_probes,Ni)
         basis_cores: typ.Sequence[NDArray], # len=d, elm_shape=(ni,Ni)
-        ztildes: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,Ni)
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(num_probes,ni)
     '''Adjoint-var-upward edge variables deta_tilde.
@@ -708,10 +709,10 @@ def t3_compute_deta_tildes(
 
 
 def t3_compute_tau_tildes(
+        deta_tildes,  # len=d+1, elm_shape=(num_probes,ni)
         left_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,ni,rL(i+d))
         xis: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,ni)
         mus, # len=d+1, elm_shape=(num_probes,rLi)
-        deta_tildes, # len=d+1, elm_shape=(num_probes,ni)
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # len=d+1, elm_shape=(num_probes,rLi)
     '''Adjoint-var-rightward edge variables tau_tilde.
@@ -726,9 +727,9 @@ def t3_compute_tau_tildes(
     xnp = jnp if use_jax else np
 
     num_cores = len(left_tt_cores)
-    num_probes = mus.shape[0]
+    num_probes = mus[0].shape[0]
 
-    tau_tildes = [xnp.zeros(num_probes, 1)]
+    tau_tildes = [xnp.zeros((num_probes, 1))]
     for ii in range(num_cores):
         P = left_tt_cores[ii]
         xi = xis[ii]
@@ -746,10 +747,10 @@ def t3_compute_tau_tildes(
 
 
 def t3_compute_sigma_tildes(
+        deta_tildes,  # len=d+1, elm_shape=(num_probes,ni)
         right_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rRi,ni,rR(i+d))
         xis: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,ni)
         nus, # len=d+1, elm_shape=(num_probes,rRi)
-        deta_tildes, # len=d+1, elm_shape=(num_probes,ni)
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # len=d+1, elm_shape=(num_probes,rRi)
     '''Adjoint-var-leftward edge variables sigma_tilde.
@@ -762,16 +763,16 @@ def t3_compute_sigma_tildes(
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
     return t3_compute_tau_tildes(
-        tt_reverse(right_tt_cores), xis[::-1], nus[::-1], deta_tildes[::-1], use_jax=use_jax,
+        deta_tildes[::-1], tt_reverse(right_tt_cores), xis[::-1], nus[::-1], use_jax=use_jax,
     )[::-1]
 
 
 def t3_compute_dxi_tildes(
+        sigma_tildes: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,rRi)
+        tau_tildes: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,rLi)
         outer_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
-        mus: typ.Sequence[NDArray], # len=d+1, elm_shape=(num_probes,rLi)
-        nus: typ.Sequence[NDArray], # len=d+1, elm_shape=(num_probes,rRi)
-        sigma_tildes: typ.Sequence[NDArray], # len=d+1, elm_shape=(num_probes,rRi)
-        tau_tildes: typ.Sequence[NDArray], # len=d+1, elm_shape=(num_probes,rLi)
+        mus: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,rLi)
+        nus: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,rRi)
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # dxi_tildes. len=d, elm_shape=(num_probes,nOi)
     '''Adjoint-var-downward edge variables dxi_tilde.
@@ -794,9 +795,10 @@ def t3_compute_dxi_tildes(
 
 def t3_assemble_basis_variations(
         ztildes: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,Ni)
-        etas: typ.Sequence[NDArray], # etas. len=d, elm_shape=(num_probes,ni)
-        ww: typ.Sequence[NDArray], # input vectors, len=d, elm_shape=(Ni,) or (num_probes,Ni)
         dxi_tildes: typ.Sequence[NDArray], #len=d, elm_shape=(num_probes,nOi)
+        ww: typ.Sequence[NDArray],  # input vectors, len=d, elm_shape=(Ni,) or (num_probes,Ni)
+        etas: typ.Sequence[NDArray],  # etas. len=d, elm_shape=(num_probes,ni)
+        sum_over_probes: bool = False,
         use_jax: bool = False,
 ):
     '''Assemble basis core variations, delta_U_tilde.
@@ -809,90 +811,223 @@ def t3_assemble_basis_variations(
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
     xnp = jnp if use_jax else np
-    return tuple([
-        xnp.einsum('po,pa->pao', z_tilde, eta) +
-        xnp.einsum('po,pa->pao', w, dxi_tilde)
-        for z_tilde, eta, w, dxi_tilde in
-        zip(ztildes, etas, ww, dxi_tildes)
-    ])
+    if sum_over_probes:
+        dU_tildes = tuple([
+            xnp.einsum('po,pa->ao', z_tilde, eta) +
+            xnp.einsum('po,pa->ao', w, dxi_tilde)
+            for z_tilde, eta, w, dxi_tilde in
+            zip(ztildes, etas, ww, dxi_tildes)
+        ])
+    else:
+        dU_tildes = tuple([
+            xnp.einsum('po,pa->pao', z_tilde, eta) +
+            xnp.einsum('po,pa->pao', w, dxi_tilde)
+            for z_tilde, eta, w, dxi_tilde in
+            zip(ztildes, etas, ww, dxi_tildes)
+        ])
+    return dU_tildes
 
 
+def t3_assemble_tt_variations(
+        sigma_tildes: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,rRi)
+        tau_tildes: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,rLi)
+        deta_tildes,  # len=d+1, elm_shape=(num_probes,ni)
+        xis: typ.Sequence[NDArray],  # len=d, elm_shape=(num_probes,ni)
+        mus,  # len=d+1, elm_shape=(num_probes,rLi)
+        nus,  # len=d+1, elm_shape=(num_probes,rRi)
+        sum_over_probes: bool = False,
+        use_jax: bool = False,
+) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(rLi,nOi,rRi)
+    '''Assemble basis core variations, delta_U_tilde.
+    Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
+
+    See Section 5.2.4, particularly Formula (48), in:
+        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+        "Tucker Tensor Train Taylor Series."
+        arXiv preprint arXiv:2603.21141.
+        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+    '''
+    xnp = jnp if use_jax else np
+    if sum_over_probes:
+        dG_tildes = tuple([
+            xnp.einsum('pi,pa,pj->iaj', mu, xi, sigma_tilde) +
+            xnp.einsum('pi,pa,pj->iaj', tau_tilde, xi, nu) +
+            xnp.einsum('pi,pa,pj->iaj', mu, deta_tilde, nu)
+            for xi, mu, nu, sigma_tilde, tau_tilde, deta_tilde in
+            zip(xis, mus[:-1], nus[1:], sigma_tildes[1:], tau_tildes[:-1], deta_tildes)
+        ])
+    else:
+        dG_tildes =  tuple([
+            xnp.einsum('pi,pa,pj->piaj', mu,        xi,  sigma_tilde) +
+            xnp.einsum('pi,pa,pj->piaj', tau_tilde, xi,  nu) +
+            xnp.einsum('pi,pa,pj->piaj', mu,        deta_tilde, nu)
+            for xi, mu, nu, sigma_tilde, tau_tilde, deta_tilde in
+            zip(xis, mus[:-1], nus[1:], sigma_tildes[1:], tau_tildes[:-1], deta_tildes)
+        ])
+    return dG_tildes
 
 
-# def t3_assemble_core_perturbations(
-#         TS,
-#         xx,
-#         dyy,
-#         reduced_xx,
-#         reduced_dyy,
-#         mus,
-#         nus,
-#         sigma_tildes,
-#         tau_tildes,
-# ):
-#     '''Apply transpose of mapping from Tucker tensor train tangent vector to its actions,
-#     using already computed mus, nus, sigmas, taus.
-#     '''
-#     tt_core_perturbations = []
-#     for ii in range(TS.num_cores):
-#         mu = mus[ii]
-#         nu = nus[ii]
-#         sigma_tilde = sigma_tildes[ii]
-#         tau_tilde = tau_tildes[ii]
-#         x_hat = reduced_xx[ii]
-#         dy_hat = reduced_dyy[ii]
-#
-#         dU_t1 = jnp.einsum('i,a,j->iaj', mu,        x_hat,  sigma_tilde)
-#         dU_t2 = jnp.einsum('i,a,j->iaj', tau_tilde, x_hat,  nu)
-#         dU_t3 = jnp.einsum('i,a,j->iaj', mu,        dy_hat, nu)
-#
-#         dU = dU_t1 + dU_t2 + dU_t3
-#         tt_core_perturbations.append(dU)
-#
-#     basis_core_perturbations = []
-#     for ii in range(TS.num_cores):
-#         R = TS.up_orthogonal_tt_cores[ii]
-#         mu = mus[ii]
-#         nu = nus[ii]
-#         sigma_tilde = sigma_tildes[ii]
-#         tau_tilde = tau_tildes[ii]
-#         x = xx[ii]
-#         dy = dyy[ii]
-#
-#         dB_t1 = jnp.outer(jnp.einsum('i,iaj,j->a', mu,          R, sigma_tilde),    x)
-#         dB_t2 = jnp.outer(jnp.einsum('i,iaj,j->a', tau_tilde,   R, nu),             x)
-#         dB_t3 = jnp.outer(jnp.einsum('i,iaj,j->a', mu,          R, nu),             dy)
-#
-#         dB = dB_t1 + dB_t2 + dB_t3
-#         basis_core_perturbations.append(dB)
-#
-#     return tuple(tt_core_perturbations), tuple(basis_core_perturbations)
-#
-#
-# def t3_tangent_actions_transpose(
-#         action_perturbations: typ.Sequence[jnp.ndarray],  # inputs, len=k, elm_shape=(Ni,)
-#         TS: T3TangentSpace, # shape=(N1, N2, ..., Nk)
-#         input_vectors:  typ.Sequence[jnp.ndarray], # inputs, len=k, elm_shape=(Ni,)
-# ) -> T3Variations:
-#     '''Transpose of mapping u -> ttt_tangent_actions(u, TS, input_vectors), where TS, input_vectors are fixed
-#
-#     '''
-#     xx = input_vectors
-#     dyy = action_perturbations
-#
-#     reduced_xx  = [B @ x for B,  x in zip(TS.orthogonal_basis_cores, xx)]
-#     reduced_dyy = [B @ dy for B, dy in zip(TS.orthogonal_basis_cores, dyy)]
-#
-#     mus = t3_compute_mus(TS, reduced_xx)
-#     nus = t3_compute_nus(TS, reduced_xx)
-#     tau_tildes = t3_compute_tau_tildes(TS, reduced_xx, reduced_dyy, mus)
-#     sigma_tildes = t3_compute_sigma_tildes(TS, reduced_xx, reduced_dyy, nus)
-#
-#     tt_core_perturbations, basis_core_perturbations = t3_assemble_core_perturbations(
-#         TS, xx, dyy, reduced_xx, reduced_dyy, mus, nus, sigma_tildes, tau_tildes,
-#     )
-#
-#     return basis_core_perturbations, tt_core_perturbations
-#
-#
-#
+def t3tangent_probes_transpose(
+        ztildes: typ.Sequence[NDArray], # len=d, elm_shape=(Ni,) or (num_probes,Ni)
+        ww: typ.Sequence[NDArray],  # input vectors, len=d, elm_shape=(Ni,) or (num_probes,Ni)
+        base: t3m.T3Base, # basis_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
+        sum_over_probes: bool = False,
+        use_jax: bool = False,
+) -> typ.Tuple[
+    typ.Tuple[NDArray,...], # dU_tildes. len=d, elm_shape=(nOi,Ni)
+    typ.Tuple[NDArray,...], # dG_tildes. len=d, elm_shape=(rLi,ni,rRi)
+]:
+    '''Apply the transpose of the map from a T3Tangent to its probes. Apply to ztildes.
+
+    See Section 5.2.4 in:
+        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+        "Tucker Tensor Train Taylor Series."
+        arXiv preprint arXiv:2603.21141.
+        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+
+    Parameters
+    ----------
+    ztildes: typ.Sequence[NDArray]
+        Probe residuals to apply the map to
+        len=d, elm_shape=(Ni,) or (num_probes,Ni)
+    base: t3m.T3Base,
+        Orthogonal base for point where the tangent space attaches to the manifold.
+        shape=(N1,...,Nd)
+    sum_over_probes: bool
+        Sum results over all probe residuals, rather than returning results for each probe residual
+    use_jax: bool
+        If True, use jax for linear algebra operations. Otherwise, use numpy.
+
+    Returns
+    -------
+    t3m.T3Tangent
+        Tangent vector resulting from applying transpose map to ztildes
+
+    See Also
+    --------
+    t3_probes
+    t3tangent_probes
+
+    Examples
+    --------
+
+    Apply transpose map with one set of probing vectors:
+
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.t3_manifold as t3m
+    >>> import t3tools.t3_probing as t3p
+    >>> import t3tools.dense as dense
+    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(1,3,4,1)))
+    >>> base, _ = t3m.t3_orthogonal_representations(p)
+    >>> _, var1 = t3m.t3tangent_randn(base)
+    >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+    >>> zz1 = t3p.t3tangent_probes(var1, ww, base)
+    >>> zz2 = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+    >>> var2 = t3p.t3tangent_probes_transpose(zz2, ww, base)
+    >>> ipA = np.sum([np.sum(B1*B2) for B1, B2 in zip(var1[0], var2[0])]) + np.sum([np.sum(G1*G2) for G1, G2 in zip(var1[1], var2[1])])
+    >>> print(ipA)
+    17.958317927787
+    >>> ipB = np.sum([np.sum(z1*z2) for z1, z2 in zip(zz1, zz2)])
+    >>> print(ipB)
+    17.958317927787
+
+    Apply transpose map with two sets of probing vectors
+
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.t3_manifold as t3m
+    >>> import t3tools.t3_probing as t3p
+    >>> import t3tools.dense as dense
+    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(1,3,4,1)))
+    >>> base, _ = t3m.t3_orthogonal_representations(p)
+    >>> _, var1 = t3m.t3tangent_randn(base)
+    >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+    >>> zz1 = t3p.t3tangent_probes(var1, ww, base)
+    >>> zz2 = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+    >>> var2 = t3p.t3tangent_probes_transpose(zz2, ww, base)
+    >>> ipA = np.sum([np.sum(B1*B2) for B1, B2 in zip(var1[0], var2[0])]) + np.sum([np.sum(G1*G2) for G1, G2 in zip(var1[1], var2[1])])
+    >>> print(ipA)
+    -3.232813601335514
+    >>> ipB = np.sum([np.sum(z1*z2) for z1, z2 in zip(zz1, zz2)])
+    >>> print(ipB)
+    -3.232813601335513
+    '''
+    num_cores = len(ztildes)
+    assert(len(ww) == num_cores)
+
+    if len(ww[0].shape) == 1:
+        vectorized = False
+        for w in ww:
+            assert(len(w.shape) == 1)
+        for zt in ztildes:
+            assert(len(zt.shape) == 1)
+
+        ww = [w.reshape((1,-1)) for w in ww]
+        ztildes = [zt.reshape((1,-1)) for zt in ztildes]
+    else:
+        vectorized = True
+        for w in ww:
+            assert(len(w.shape) == 2)
+        for zt in ztildes:
+            assert(len(zt.shape) == 2)
+
+    (basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores) = base
+    base_shape = tuple([B.shape[1] for B in basis_cores])
+    assert(tuple([w.shape[1] for w in ww]) == base_shape)
+    assert(tuple([zt.shape[1] for zt in ztildes]) == base_shape)
+
+    (basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores) = base
+
+    xis = t3_compute_xis(
+        basis_cores, ww, use_jax,
+    )
+
+    mus = t3_compute_mus(
+        left_tt_cores, xis, use_jax=use_jax,
+    )
+
+    nus = t3_compute_nus(
+        right_tt_cores, xis, use_jax=use_jax,
+    )
+
+    etas = t3_compute_etas(
+        outer_tt_cores, mus, nus, use_jax=use_jax,
+    )
+
+    #
+
+    deta_tildes = t3_compute_deta_tildes(
+        ztildes, basis_cores, use_jax=use_jax,
+    )
+
+    tau_tildes = t3_compute_tau_tildes(
+        deta_tildes, left_tt_cores, xis, mus, use_jax=use_jax,
+    )
+
+    sigma_tildes = t3_compute_sigma_tildes(
+        deta_tildes, right_tt_cores, xis, nus, use_jax=use_jax,
+    )
+
+    dxi_tildes = t3_compute_dxi_tildes(
+        sigma_tildes, tau_tildes, outer_tt_cores, mus, nus, use_jax=use_jax,
+    )
+
+    #
+
+    dU_tildes = t3_assemble_basis_variations(
+        ztildes, dxi_tildes, ww, etas,
+        sum_over_probes=sum_over_probes, use_jax=use_jax,
+    )
+
+    dG_tildes = t3_assemble_tt_variations(
+        sigma_tildes, tau_tildes, deta_tildes, xis, mus, nus,
+        sum_over_probes=sum_over_probes, use_jax=use_jax,
+    )
+
+    if not vectorized:
+        dU_tildes = tuple([dU_tilde.reshape(dU_tilde.shape[1:]) for dU_tilde in dU_tildes])
+        dG_tildes = tuple([dG_tilde.reshape(dG_tilde.shape[1:]) for dG_tilde in dG_tildes])
+
+    return dU_tildes, dG_tildes
+
