@@ -16,16 +16,21 @@ NDArray = typ.Union[np.ndarray, jnp.ndarray]
 __all__ = [
     # Actions of a Tucker tensor train
     't3_probes',
-    # 't3tangent_probes',
-    # 't3tangent_probes_transpose',
-    # Actions of a tangent vector
     't3_compute_xis',
     't3_compute_mus',
     't3_compute_nus',
     't3_compute_etas',
     't3_assemble_probes',
-    # 't3_compute_sigmas',
-    # 't3_compute_taus',
+    # Actions of a tangent vector
+    't3tangent_probes',
+    't3_compute_dxis',
+    't3_compute_sigmas',
+    't3_compute_taus',
+    't3_compute_detas',
+    't3_assemble_tangent_probes',
+
+    # 't3tangent_probes_transpose',
+    # Actions of a tangent vector
     # 't3_assemble_tangent_actions',
     # # Transpose of tangent vector to actions map
     # 't3_compute_tau_tildes',
@@ -115,10 +120,39 @@ def t3_probes(
 
 def t3_compute_xis(
         basis_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ni,Ni)
-        ww, # len=d. elm_shape=(num_probes,Ni)
+        ww: typ.Sequence[NDArray], # len=d. elm_shape=(num_probes,Ni)
         use_jax: bool = False,
-) -> typ.Sequence[NDArray]: # xis. len=d, elm_shape=(num_probes,ni)
+) -> typ.Tuple[NDArray,...]: # xis. len=d, elm_shape=(num_probes,ni)
     '''Compute upward edge variables associated with edges between Tucker cores and adjacent TT-cores.
+
+    See Section 5.2, particularly Figure 9 in:
+        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+        "Tucker Tensor Train Taylor Series."
+        arXiv preprint arXiv:2603.21141.
+        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+
+    Parameters
+    ----------
+    basis_cores: typ.Sequence[NDArray]
+        Basis cores for Tucker tensor train.
+        len=d. elm_shape=(ni,Ni)
+    ww: typ.Sequence[NDArray]
+        input vectors to probe with. len=d, elm_shape=(Ni,) or (num_probes,Ni)
+    use_jax: bool
+        If True, use jax for linear algebra operations. Otherwise, use numpy.
+
+    Returns
+    -------
+    typ.Tuple[NDArray,...]
+        upward edge variables xi. len=d, elm_shape=(num_probes,ni)
+
+    See Also
+    --------
+    t3_probes
+    t3_compute_mus
+    t3_compute_nus
+    t3_compute_etas
+    t3_assemble_probes
     '''
     xnp = jnp if use_jax else np
     return tuple([xnp.einsum('io,po->pi', U, w) for U, w in zip(basis_cores, ww)])
@@ -126,10 +160,40 @@ def t3_compute_xis(
 
 def t3_compute_mus(
         left_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ri,ni,r(i+1))
-        xis, # len=d. elm_shape=(num_probes,ni)
+        xis: typ.Sequence[NDArray], # len=d. elm_shape=(num_probes,ni)
         use_jax: bool = False,
 ) -> typ.Sequence[NDArray]: # mus. len=d+1, elm_shape=(num_probes,ri)
-    '''Compute leftward edge variables associated with edges between adjacent TT-cores.'''
+    '''Compute leftward edge variables associated with edges between adjacent TT-cores.
+
+    See Section 5.2, particularly Figure 9 in:
+        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+        "Tucker Tensor Train Taylor Series."
+        arXiv preprint arXiv:2603.21141.
+        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+
+    Parameters
+    ----------
+    left_tt_cores: typ.Sequence[NDArray]
+        Left TT-cores for Tucker tensor train.
+        len=d. elm_shape=(ri,ni,r(i+1))
+    xis: typ.Sequence[NDArray]
+        upward edge variables xi. len=d. elm_shape=(num_probes,ni)
+    use_jax: bool
+        If True, use jax for linear algebra operations. Otherwise, use numpy.
+
+    Returns
+    -------
+    typ.Tuple[NDArray,...]
+        leftward edge variables mu. len=d+1, elm_shape=(num_probes,ri)
+
+    See Also
+    --------
+    t3_probes
+    t3_compute_xis
+    t3_compute_nus
+    t3_compute_etas
+    t3_assemble_probes
+    '''
     xnp = jnp if use_jax else np
 
     num_probes = xis[0].shape[0]
@@ -149,7 +213,37 @@ def t3_compute_nus(
         xis, # len=d. elm_shape=(num_probes,ni)
         use_jax: bool = False,
 ) -> typ.Sequence[NDArray]: # nus. len=d+1, elm_shape=(num_probes,ri)
-    '''Compute rightward edge variables associated with edges between adjacent TT-cores.'''
+    '''Compute rightward edge variables associated with edges between adjacent TT-cores.
+
+    See Section 5.2, particularly Figure 9 in:
+        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+        "Tucker Tensor Train Taylor Series."
+        arXiv preprint arXiv:2603.21141.
+        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+
+    Parameters
+    ----------
+    right_tt_cores: typ.Sequence[NDArray]
+        Right TT-cores for Tucker tensor train.
+        len=d. elm_shape=(ri,ni,r(i+1))
+    xis: typ.Sequence[NDArray]
+        upward edge variables xi. len=d. elm_shape=(num_probes,ni)
+    use_jax: bool
+        If True, use jax for linear algebra operations. Otherwise, use numpy.
+
+    Returns
+    -------
+    typ.Tuple[NDArray,...]
+        rightward edge variables nu. len=d+1, elm_shape=(num_probes,ri)
+
+    See Also
+    --------
+    t3_probes
+    t3_compute_xis
+    t3_compute_mus
+    t3_compute_etas
+    t3_assemble_probes
+    '''
     reversed_tt_cores = tuple([G.swapaxes(0,2) for G in right_tt_cores[::-1]])
     return t3_compute_mus(reversed_tt_cores, xis[::-1], use_jax=use_jax)[::-1]
 
@@ -161,6 +255,37 @@ def t3_compute_etas(
         use_jax: bool = False,
 ) -> typ.Sequence[NDArray]: # etas. len=d, elm_shape=(num_probes,ni)
     '''Compute downward edge variables associated with edges between Tucker cores and adjacent TT-cores.
+
+    See Section 5.2, particularly Figure 9 in:
+        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+        "Tucker Tensor Train Taylor Series."
+        arXiv preprint arXiv:2603.21141.
+        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+
+    Parameters
+    ----------
+    outer_tt_cores: typ.Sequence[NDArray]
+        Outer TT-cores for Tucker tensor train.
+        len=d. elm_shape=(ri,ni,r(i+1))
+    mus: typ.Sequence[NDArray]
+        leftward edge variables mu. len=d+1. elm_shape=(num_probes,ri)
+    nus: typ.Sequence[NDArray]
+        rightward edge variables mu. len=d+1. elm_shape=(num_probes,ri)
+    use_jax: bool
+        If True, use jax for linear algebra operations. Otherwise, use numpy.
+
+    Returns
+    -------
+    typ.Tuple[NDArray,...]
+        downward edge variables eta. len=d+1, elm_shape=(num_probes,ni)
+
+    See Also
+    --------
+    t3_probes
+    t3_compute_xis
+    t3_compute_xis
+    t3_compute_nus
+    t3_assemble_probes
     '''
     xnp = jnp if use_jax else np
     return tuple([
@@ -175,6 +300,35 @@ def t3_assemble_probes(
         use_jax: bool = False,
 ) -> typ.Sequence[NDArray]: # zz. len=d, elm_shape=(num_probes,Ni)
     '''Assemble probes from downward edge variables.
+
+    See Section 5.2, particularly Figure 9 in:
+        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+        "Tucker Tensor Train Taylor Series."
+        arXiv preprint arXiv:2603.21141.
+        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+
+    Parameters
+    ----------
+    basis_cores: typ.Sequence[NDArray]
+        Basis cores for Tucker tensor train.
+        len=d. elm_shape=(ni,Ni)
+    etas: typ.Sequence[NDArray]
+        downward edge variables eta. len=d. elm_shape=(num_probes,ni)
+    use_jax: bool
+        If True, use jax for linear algebra operations. Otherwise, use numpy.
+
+    Returns
+    -------
+    typ.Tuple[NDArray,...]
+        probes z. len=d, elm_shape=(num_probes,Ni)
+
+    See Also
+    --------
+    t3_probes
+    t3_compute_xis
+    t3_compute_mus
+    t3_compute_nus
+    t3_compute_etas
     '''
     xnp = jnp if use_jax else np
     return tuple([xnp.einsum('pa,ao->po', eta, U) for U, eta in zip(basis_cores, etas)])
