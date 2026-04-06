@@ -4,7 +4,7 @@
 import numpy as np
 import typing as typ
 import t3tools.tucker_tensor_train as t3
-import t3tools.t3_manifold as t3m
+import t3tools.manifold as t3m
 
 try:
     import jax.numpy as jnp
