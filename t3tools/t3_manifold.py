@@ -21,7 +21,7 @@ __all__ = [
     't3_check_base',
     't3_check_variation',
     't3base_hole_shapes',
-    't3_check_base_variation_fit',
+    't3_check_bv_fit',
     'bv_to_t3',
     't3_orthogonal_representations',
     # Tangent vectors
@@ -434,7 +434,7 @@ def t3base_hole_shapes(
     return tuple(variation_basis_shapes), tuple(variation_tt_shapes)
 
 
-def t3_check_base_variation_fit(
+def t3_check_bv_fit(
         variation: T3Variation,
         base: T3Base,
 ) -> None:
@@ -786,7 +786,7 @@ def t3tangent_to_dense(
     >>> print(np.linalg.norm(p_plus_v_dense - p_plus_v_dense2))
     1.2677102046134292e-12
     """
-    t3_check_base_variation_fit(variation, base)
+    t3_check_bv_fit(variation, base)
 
     num_cores = len(variation[0])
     basis_terms = [bv_to_t3(ii, False, base, variation) for ii in range(num_cores)]
@@ -873,7 +873,7 @@ def t3tangent_to_t3(
     '''
     xnp = jnp if use_jax else np
 
-    t3_check_base_variation_fit(variation, base)
+    t3_check_bv_fit(variation, base)
     basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
     basis_vars, tt_vars = variation
 
@@ -1099,7 +1099,7 @@ def t3_orthogonal_gauge_projection(
     """
     xnp = jnp if use_jax else np
 
-    t3_check_base_variation_fit(variation, orthogonal_base)
+    t3_check_bv_fit(variation, orthogonal_base)
     basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = orthogonal_base
     basis_vars, tt_vars = variation
 
@@ -1195,7 +1195,7 @@ def t3_oblique_gauge_projection(
     """
     xnp = jnp if use_jax else np
 
-    t3_check_base_variation_fit(variation, orthogonal_base)
+    t3_check_bv_fit(variation, orthogonal_base)
     basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = orthogonal_base
     basis_vars, tt_vars = variation
     num_cores = len(basis_cores)
@@ -1396,7 +1396,7 @@ def t3_retract(
     >>> print(np.linalg.norm(ret_V2 - V2)) # vector changes
     4.9488133126395654e-05
     """
-    t3_check_base_variation_fit(variation, base)
+    t3_check_bv_fit(variation, base)
 
     basis_cores, left_tt_cores, _, _ = base
     _, base_tucker_ranks, base_tt_ranks = t3.t3_structure((basis_cores, left_tt_cores))
