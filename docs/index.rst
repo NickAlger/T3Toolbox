@@ -126,7 +126,7 @@ Ci =/= Ai + Bi.
 T3 Manifold
 -----------
 
-Under certain conditions on the ranks (basically, if the ranks are not unnecessairily large), the set of Tucker tensor trains with fixed ranks forms an embedded submanifold in R^(N1 x ... x Nd). In this case, any tangent vector may be represented as a sum which looks like this (for 3 tensors; the pattern is the same for higher dimensions)::
+Under certain conditions on the ranks (basically, if the ranks are not unnecessairily large), the set of Tucker tensor trains with fixed ranks forms an embedded submanifold in R^(N1 x ... x Nd). In this case, any tangent vector may be represented as a sum which looks like this::
 
           1--H0--R1--R2--1   1--L0--H1--R2--1   1--L0--L1--H2--1
              |   |   |          |   |   |          |   |   | 
@@ -153,39 +153,39 @@ Under certain *gauge conditions*, the representation of a tangent vector by its 
 Probing
 -------
 
-Probing a tensor means contracting the tensor with vectors in all but one index, resulting in a vector of the size of that remaining index. Probing a Tucker tensor with 3 indices with vectors u1, u2, u3 looks like this::
+Probing a tensor means contracting the tensor with vectors in all but one index, resulting in a vector of the size of that remaining index. Probing a N1 x N2 x N3 Tucker tensor with vectors u1, u2, u3 (lengths N1, N2, N3, respectively) looks like this::
 
                      1--G0--G1--G2--1
                         |   |   |    
     first probe:  =     B0  B1  B2   
-                        |   |   |    
+    (len=N1)            |   |   |    
                             u2  u3
                         
                      1--G0--G1--G2--1
                         |   |   |    
     second probe: =     B0  B1  B2   
-                        |   |   |    
+    (len=N2)            |   |   |    
                         u1      u3
                         
                      1--G0--G1--G2--1
                         |   |   |    
     third probe:  =     B0  B1  B2   
-                        |   |   |    
+    (len=N3)            |   |   |    
                         u1  u2
        
                  
 Uniform Tucker tensor trains
 ----------------------------
 
-For computational efficiency, it can be helpful to pad the cores of a Tucker tensor train with zeros, so that it has uniform ranks. Then the computational operations become more uniform, which improves pipelining efficiency and GPU performance.
+For computational efficiency, it can be helpful to pad the cores of a Tucker tensor train with zeros, so that it has uniform ranks. Then the computational operations become uniform, which improves pipelining efficiency and GPU performance.
 
 In this case:
 	- The basis cores B0, ..., Bd all have the same shape (n,N) and can be stacked into a *basis supercore* with shape (d,n,N). 
 	- The TT-cores G0, ..., Gd all have the same shape (r,n,r), and can be stacked into *TT supercore* with shape (d,r,n,r).
 
-We keep track of which parts of the cores are supposed to be zero, and prevent filling in these parts, with *edge masks*. For each edge, the mask is a boolean vector of the form (1,...,1,0,...,0). 
-	- The masks for the edges between basis cores and TT-cores have length n. For the ith edge, the first ni entries are 1, and the remaining entries are 0. These *Tucker edge masks* are collected into a boolean array with shape (d+1, r).
-	- The masks for the edges between adjacent TT-cores have length r. For the ith edge, the first ri entries are 1, and the remaining entries are 0. These *TT edge masks* are collected into boolean array with shape (d,n).
+We keep track of which parts of the cores are supposed to be zero (to prevent filling in these parts during computations) with *edge masks*. For each edge, the mask is a boolean vector of the form (1,...,1,0,...,0). 
+	- The masks for the edges between basis cores and TT-cores have length n. For the ith edge, the first ni entries are 1, and the remaining entries are 0. These *Tucker edge masks* are collected into a boolean array with shape (d, n).
+	- The masks for the edges between adjacent TT-cores have length r. For the ith edge, the first ri entries are 1, and the remaining entries are 0. These *TT edge masks* are collected into boolean array with shape (d+1,r).
 
 
 Relevant literature
@@ -225,12 +225,13 @@ Relevant literature
 
 
 
-
 Authors
 =======
 
 * Nick Alger
 * Blake Christierson
+
+
 
 
 
