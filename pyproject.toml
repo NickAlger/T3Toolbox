@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "t3tools"
+version = "2026.0.0"
+description = "Library for working with Tucker tensor trains"
+requires-python = ">=3.8"
+# List project dependencies here
+dependencies = [
+    "numpy",
+]
+
+authors = [
+  {name = "Nick Alger", email = "nalger225@gmail.com"},
+  {name = "Blake Christierson", email="bechristierson@utexas.edu"},
+]
+maintainers = [
+  {name = "Nick Alger", email = "nalger225@gmail.com"}
+]
+readme = "README.rst"
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["Tucker tensor train", "Tucker decomposition", "tensor train", "tensor"]
+classifiers = [
+  "Programming Language :: Python"
+]
+
+[project.optional-dependencies]
+jax = ["jax"]
+
+[project.urls]
+Homepage = "https://github.com/NickAlger/TuckerTensorTrainTools"
+Documentation = "https://github.com/NickAlger/TuckerTensorTrainTools/docs/_build/html/index.html"
+Repository = "https://github.com/NickAlger/TuckerTensorTrainTools"
+"Bug Tracker" = "https://github.com/NickAlger/TuckerTensorTrainTools/issues"
+Changelog = "https://github.com/NickAlger/TuckerTensorTrainTools/blob/master/CHANGELOG.md"
+
