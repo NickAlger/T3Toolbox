@@ -208,6 +208,10 @@ def t3_compute_mus(
     return tuple(mus)
 
 
+def tt_reverse(tt_cores):
+    return tuple([G.swapaxes(0, 2) for G in tt_cores[::-1]])
+
+
 def t3_compute_nus(
         right_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ri,ni,r(i+1))
         xis, # len=d. elm_shape=(num_probes,ni)
@@ -244,8 +248,7 @@ def t3_compute_nus(
     t3_compute_etas
     t3_assemble_probes
     '''
-    reversed_tt_cores = tuple([G.swapaxes(0,2) for G in right_tt_cores[::-1]])
-    return t3_compute_mus(reversed_tt_cores, xis[::-1], use_jax=use_jax)[::-1]
+    return t3_compute_mus(tt_reverse(right_tt_cores), xis[::-1], use_jax=use_jax)[::-1]
 
 
 def t3_compute_etas(
@@ -333,65 +336,117 @@ def t3_assemble_probes(
     xnp = jnp if use_jax else np
     return tuple([xnp.einsum('pa,ao->po', eta, U) for U, eta in zip(basis_cores, etas)])
 
-####
-#
-# def t3_compute_sigmas(
-#         tt_variations,
-#         TS,
-#         reduced_xx,
-#         reduced_dxx,
-#         mus,
-# ):
-#     '''Left-to-right pushthrough partial sums used to compute actions of a Tucker tensor train tangent vector'''
-#     sigmas = [jnp.zeros(1)]
-#     for ii in range(TS.num_cores-1):
-#         Q = TS.right_orthogonal_tt_cores[ii]
-#         R = TS.up_orthogonal_tt_cores[ii]
-#         dU = tt_variations[ii]
-#         x = reduced_xx[ii]
-#         dx = reduced_dxx[ii]
-#
-#         mu = mus[ii]
-#         sigma = sigmas[-1]
-#
-#         sigma_next_t1   = sigma @ jnp.einsum('iaj,a->ij', Q, x) # jnp.einsum('i,ij->j', sigma,  jnp.einsum('iaj,a->ij', Q, x))
-#         sigma_next_t2   = mu    @ jnp.einsum('iaj,a->ij', dU, x) # jnp.einsum('i,ij->j', mu,     jnp.einsum('iaj,a->ij', dU, x))
-#         sigma_next_t3   = mu    @ jnp.einsum('iaj,a->ij', R, dx) # jnp.einsum('i,ij->j', mu,     jnp.einsum('iaj,a->ij', R, dx))
-#
-#         sigma_next = sigma_next_t1 + sigma_next_t2 + sigma_next_t3
-#         sigmas.append(sigma_next)
-#     return tuple(sigmas)
-#
-#
-# def t3_compute_taus(
-#         tt_variations,
-#         TS,
-#         reduced_xx,
-#         reduced_dxx,
-#         nus,
-# ):
-#     '''Right-to-left pushthrough partial sums used to compute actions of a Tucker tensor train tangent vector'''
-#     taus_reversed = [jnp.zeros(1)]
-#     for ii in range(TS.num_cores-1, 0, -1):
-#         P = TS.left_orthogonal_tt_cores[ii]
-#         R = TS.up_orthogonal_tt_cores[ii]
-#         dU = tt_variations[ii]
-#         x = reduced_xx[ii]
-#         dx = reduced_dxx[ii]
-#
-#         nu = nus[ii]
-#         tau = taus_reversed[-1]
-#
-#         tau_prev_t1 = jnp.einsum('iaj,a->ij', P, x) @ tau # jnp.einsum('ij,j->i', jnp.einsum('iaj,a->ij', P, x),  tau)
-#         tau_prev_t2 = jnp.einsum('iaj,a->ij', dU, x) @ nu # jnp.einsum('ij,j->i', jnp.einsum('iaj,a->ij', dU, x), nu)
-#         tau_prev_t3 = jnp.einsum('iaj,a->ij', R, dx) @ nu # jnp.einsum('ij,j->i', jnp.einsum('iaj,a->ij', R, dx), nu)
-#
-#         tau_prev = tau_prev_t1 + tau_prev_t2 + tau_prev_t3
-#         taus_reversed.append(tau_prev)
-#     taus = taus_reversed[::-1]
-#     return tuple(taus)
-#
-#
+###
+
+def t3_compute_dxis(
+        var_basis_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ni,Ni)
+        ww: typ.Sequence[NDArray], # len=d. elm_shape=(num_probes,Ni)
+        use_jax: bool = False,
+) -> typ.Tuple[NDArray,...]: # xis. len=d, elm_shape=(num_probes,ni)
+    '''Compute var-upward edge variables dxi.
+
+    Same as t3_compute_dxis(), except with var_basis_cores in place of basis_cores.
+
+    See Section 5.2.3, particularly Formula (34), in:
+        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+        "Tucker Tensor Train Taylor Series."
+        arXiv preprint arXiv:2603.21141.
+        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+
+    See Also
+    --------
+    t3_compute_xis
+    t3_compute_sigmas
+    t3_compute_taus
+    t3_compute_detas
+    t3_assemble_tangent_probes
+    t3tangent_probes
+    '''
+    return t3_compute_xis(var_basis_cores, ww, use_jax)
+
+
+def t3_compute_sigmas(
+        var_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,ni,rR(i+1))
+        right_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rRi,ni,rR(i+1))
+        outer_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
+        xis: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,ni),
+        dxis: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,nOi)
+        mus: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,nLi)
+        use_jax: bool = False,
+) -> typ.Tuple[NDArray,...]: # sigmas. len=d+1, elm_shape=(num_probes,rR(i+1))
+    '''Compute var-leftward edge variables sigma.
+
+    See Section 5.2.3, particularly Formula (36), in:
+        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+        "Tucker Tensor Train Taylor Series."
+        arXiv preprint arXiv:2603.21141.
+        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+
+    See Also
+    --------
+    t3_compute_dxis
+    t3_compute_taus
+    t3_compute_detas
+    t3_assemble_tangent_probes
+    t3tangent_probes
+    '''
+    xnp = jnp if use_jax else np
+
+    num_cores = len(xis)
+    num_probes = xis[0].shape[0]
+
+    sigmas = [xnp.zeros((num_probes,1))]
+    for ii in range(num_cores-1):
+        Q = right_tt_cores[ii]
+        O = outer_tt_cores[ii]
+        dG = var_tt_cores[ii]
+        xi = xis[ii]
+        dxi = dxis[ii]
+
+        mu = mus[ii]
+        sigma = sigmas[-1]
+
+        sigma_next_t1   = sigma @ xnp.einsum('iaj,a->ij', Q, xi)
+        sigma_next_t2   = mu    @ xnp.einsum('iaj,a->ij', dG, xi)
+        sigma_next_t3   = mu    @ xnp.einsum('iaj,a->ij', O, dxi)
+
+        sigma_next = sigma_next_t1 + sigma_next_t2 + sigma_next_t3
+        sigmas.append(sigma_next)
+    return tuple(sigmas)
+
+
+def t3_compute_taus(
+        var_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,ni,rR(i+1))
+        left_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,ni,rL(i+1))
+        outer_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
+        xis: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,ni),
+        dxis: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,nOi)
+        nus: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,nRi)
+        use_jax: bool = False,
+) -> typ.Tuple[NDArray,...]: # taus. len=d+1, elm_shape=(num_probes,rL(i+1))
+    '''Compute var-rightward edge variables tau.
+
+    See Section 5.2.3, particularly Formula (38), in:
+        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+        "Tucker Tensor Train Taylor Series."
+        arXiv preprint arXiv:2603.21141.
+        `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+
+    See Also
+    --------
+    t3_compute_dxis
+    t3_compute_sigmas
+    t3_compute_detas
+    t3_assemble_tangent_probes
+    t3tangent_probes
+    '''
+    return t3_compute_sigmas(
+        tt_reverse(var_tt_cores), tt_reverse(left_tt_cores), tt_reverse(outer_tt_cores),
+        xis[::-1], dxis[::-1], nus[::-1],
+        use_jax=use_jax
+    )[::-1]
+
+
 # def t3_assemble_tangent_actions(
 #         TS,
 #         tt_variations,
