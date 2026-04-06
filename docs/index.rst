@@ -6,7 +6,7 @@
 TuckerTensorTrainTools's documentation
 ======================================
 
-A Numpy/Jax library for working with Tucker tensor trains (T3). 
+A library for working with Tucker tensor trains (T3). 
 Includes:
 	- Basic T3 operations (entries, addition, scaling, inner product)
 	- Orthogonalization
@@ -19,13 +19,14 @@ Includes:
 	- Probing tangent vectors
 	- Transpose of the tangent vector to probes map
 	- Varied-rank and uniform-rank T3s
+	- Option to use either Numpy or Jax
 	
 
 Contents
 ========
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 4
    
    t3tools
 
