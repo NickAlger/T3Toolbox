@@ -584,6 +584,9 @@ def t3tangent_probes(
 
     Examples
     --------
+
+    Probe tangent with one set of vectors:
+
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.t3_manifold as t3m
@@ -594,10 +597,25 @@ def t3tangent_probes(
     >>> x = t3m.t3tangent_randn(base)
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> zz = t3p.t3tangent_probes(x, ww)
-    >>> x_dense = t3m.t3tangent_to_dense(x)
-    >>> zz2 = dense.dense_probes(x_dense, ww)
+    >>> zz2 = dense.dense_probes(t3m.t3tangent_to_dense(x), ww)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [4.6257812371663175e-15, 3.628238740198284e-15, 5.6097341748343224e-15]
+
+    Probe tangent with two sets of vectors:
+
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.t3_manifold as t3m
+    >>> import t3tools.t3_probing as t3p
+    >>> import t3tools.dense as dense
+    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(1,3,4,1)))
+    >>> base, _ = t3m.t3_orthogonal_representations(p)
+    >>> x = t3m.t3tangent_randn(base)
+    >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+    >>> zzz = t3p.t3tangent_probes(x, www) # Compute probes!
+    >>> zzz2 = dense.dense_probes(t3m.t3tangent_to_dense(x), www)
+    >>> print([np.linalg.norm(zz - zz2, axis=1) for zz, zz2 in zip(zzz, zzz2)])
+    [array([3.18560984e-15, 5.06339604e-15]), array([1.74264349e-15, 5.10008230e-15]), array([2.17576097e-15, 2.94156728e-15])]
     '''
     x_shape = tuple([B.shape[1] for B in x[1][0]])
     assert(len(ww) == len(x_shape))
