@@ -16,14 +16,14 @@ NDArray = typ.Union[np.ndarray, jnp.ndarray]
 
 __all__ = [
     # Actions of a Tucker tensor train
-    't3_probes',
+    'probe_t3',
     'compute_xis',
     'compute_mus',
     'compute_nus',
     'compute_etas',
     'assemble_probes',
     # Actions of a tangent vector
-    'tangent_probes',
+    'probe_tangent',
     'compute_dxis',
     'compute_sigmas',
     'compute_taus',
@@ -36,12 +36,12 @@ __all__ = [
     'compute_dxi_tildes',
     'assemble_basis_variations',
     'assemble_tt_variations',
-    'tangent_probes_transpose',
+    'probe_tangent_transpose',
 ]
 
 #
 
-def t3_probes(
+def probe_t3(
         x:      t3.TuckerTensorTrain, # structure=((N1,...,Nd),(n1,...,nd),(1,r1,...,r(d-1),1))
         ww:     typ.Sequence[NDArray], # input vectors, len=d, elm_shape=(Ni,) or (num_probes,Ni)
         use_jax: bool = False,
@@ -71,13 +71,13 @@ def t3_probes(
 
     See Also
     --------
-    t3tangent_probes
-    t3tangent_probes_transpose
-    t3_compute_xis
-    t3_compute_mus
-    t3_compute_nus
-    t3_compute_etas
-    t3_assemble_probes
+    probe_tangent
+    probe_tangent_transpose
+    compute_xis
+    compute_mus
+    compute_nus
+    compute_etas
+    assemble_probes
 
     Examples
     --------
@@ -87,7 +87,7 @@ def t3_probes(
     >>> import t3tools.dense as dense
     >>> x = t3.t3_corewise_randn(((10,11,12),(5,6,4),(1,3,4,1)))
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-    >>> zz = t3p.t3_probes(x, ww)
+    >>> zz = t3p.probe_t3(x, ww)
     >>> x_dense = t3.t3_to_dense(x)
     >>> zz2 = dense.dense_probes(x_dense, ww)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
@@ -150,11 +150,11 @@ def compute_xis(
 
     See Also
     --------
-    t3_probes
-    t3_compute_mus
-    t3_compute_nus
-    t3_compute_etas
-    t3_assemble_probes
+    probe_t3
+    compute_mus
+    compute_nus
+    compute_etas
+    assemble_probes
     '''
     xnp = jnp if use_jax else np
     return tuple([xnp.einsum('io,po->pi', U, w) for U, w in zip(basis_cores, ww)])
@@ -191,11 +191,11 @@ def compute_mus(
 
     See Also
     --------
-    t3_probes
-    t3_compute_xis
-    t3_compute_nus
-    t3_compute_etas
-    t3_assemble_probes
+    probe_t3
+    compute_xis
+    compute_nus
+    compute_etas
+    assemble_probes
     '''
     xnp = jnp if use_jax else np
 
@@ -246,11 +246,11 @@ def compute_nus(
 
     See Also
     --------
-    t3_probes
-    t3_compute_xis
-    t3_compute_mus
-    t3_compute_etas
-    t3_assemble_probes
+    probe_t3
+    compute_xis
+    compute_mus
+    compute_etas
+    assemble_probes
     '''
     return compute_mus(tt_reverse(right_tt_cores), xis[::-1], use_jax=use_jax)[::-1]
 
@@ -289,11 +289,11 @@ def compute_etas(
 
     See Also
     --------
-    t3_probes
-    t3_compute_xis
-    t3_compute_xis
-    t3_compute_nus
-    t3_assemble_probes
+    probe_t3
+    compute_xis
+    compute_xis
+    compute_nus
+    assemble_probes
     '''
     xnp = jnp if use_jax else np
     return tuple([
@@ -332,11 +332,11 @@ def assemble_probes(
 
     See Also
     --------
-    t3_probes
-    t3_compute_xis
-    t3_compute_mus
-    t3_compute_nus
-    t3_compute_etas
+    probe_t3
+    compute_xis
+    compute_mus
+    compute_nus
+    compute_etas
     '''
     xnp = jnp if use_jax else np
     return tuple([xnp.einsum('pa,ao->po', eta, U) for U, eta in zip(basis_cores, etas)])
@@ -361,12 +361,12 @@ def compute_dxis(
 
     See Also
     --------
-    t3_compute_xis
-    t3_compute_sigmas
-    t3_compute_taus
-    t3_compute_detas
-    t3_assemble_tangent_probes
-    t3tangent_probes
+    compute_xis
+    compute_sigmas
+    compute_taus
+    compute_detas
+    assemble_tangent_probes
+    probe_tangent
     '''
     return compute_xis(var_basis_cores, ww, use_jax)
 
@@ -391,11 +391,11 @@ def compute_sigmas(
 
     See Also
     --------
-    t3_compute_dxis
-    t3_compute_taus
-    t3_compute_detas
-    t3_assemble_tangent_probes
-    t3tangent_probes
+    compute_dxis
+    compute_taus
+    compute_detas
+    assemble_tangent_probes
+    probe_tangent
     '''
     xnp = jnp if use_jax else np
 
@@ -442,11 +442,11 @@ def compute_taus(
 
     See Also
     --------
-    t3_compute_dxis
-    t3_compute_sigmas
-    t3_compute_detas
-    t3_assemble_tangent_probes
-    t3tangent_probes
+    compute_dxis
+    compute_sigmas
+    compute_detas
+    assemble_tangent_probes
+    probe_tangent
     '''
     return compute_sigmas(
         tt_reverse(var_tt_cores), tt_reverse(left_tt_cores), tt_reverse(outer_tt_cores),
@@ -476,11 +476,11 @@ def compute_detas(
 
     See Also
     --------
-    t3_compute_dxis
-    t3_compute_sigmas
-    t3_compute_taus
-    t3_assemble_tangent_probes
-    t3tangent_probes
+    compute_dxis
+    compute_sigmas
+    compute_taus
+    assemble_tangent_probes
+    probe_tangent
     '''
     xnp = jnp if use_jax else np
 
@@ -523,11 +523,11 @@ def assemble_tangent_probes(
 
     See Also
     --------
-    t3_compute_dxis
-    t3_compute_sigmas
-    t3_compute_taus
-    t3_compute_detas
-    t3tangent_probes
+    compute_dxis
+    compute_sigmas
+    compute_taus
+    compute_detas
+    probe_tangent
     '''
     xnp = jnp if use_jax else np
 
@@ -548,7 +548,7 @@ def assemble_tangent_probes(
     return tuple(probes)
 
 
-def tangent_probes(
+def probe_tangent(
         variation: t3m.T3Variation, # basis_var_shapes=(nOi,Ni), tt_var_shapes=tt_hole_shapes=(rLi,ni,rRi)
         ww:     typ.Sequence[NDArray], # input vectors, len=d, elm_shape=(Ni,) or (num_probes,Ni)
         base: t3m.T3Base, # basis_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
@@ -579,17 +579,17 @@ def tangent_probes(
 
     See Also
     --------
-    t3_probes
-    t3tangent_probes_transpose
-    t3_compute_xis
-    t3_compute_mus
-    t3_compute_nus
-    t3_compute_etas
-    t3_compute_dxis
-    t3_compute_sigmas
-    t3_assemble_probes
-    t3_compute_detas
-    t3_assemble_tangent_probes
+    probe_t3
+    probe_tangent_transpose
+    compute_xis
+    compute_mus
+    compute_nus
+    compute_etas
+    compute_dxis
+    compute_sigmas
+    assemble_probes
+    compute_detas
+    assemble_tangent_probes
 
     Examples
     --------
@@ -605,7 +605,7 @@ def tangent_probes(
     >>> base, _ = t3m.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-    >>> zz = t3p.tangent_probes(variation, ww, base)
+    >>> zz = t3p.probe_tangent(variation, ww, base)
     >>> zz2 = dense.dense_probes(t3m.tangent_to_dense(variation, base), ww)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [4.6257812371663175e-15, 3.628238740198284e-15, 5.6097341748343224e-15]
@@ -621,7 +621,7 @@ def tangent_probes(
     >>> base, _ = t3m.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
     >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-    >>> zzz = t3p.tangent_probes(variation, www, base) # Compute probes!
+    >>> zzz = t3p.probe_tangent(variation, www, base) # Compute probes!
     >>> zzz2 = dense.dense_probes(t3m.tangent_to_dense(variation, base), www)
     >>> print([np.linalg.norm(zz - zz2, axis=1) for zz, zz2 in zip(zzz, zzz2)])
     [array([3.18560984e-15, 5.06339604e-15]), array([1.74264349e-15, 5.10008230e-15]), array([2.17576097e-15, 2.94156728e-15])]
@@ -869,7 +869,7 @@ def assemble_tt_variations(
     return dG_tildes
 
 
-def tangent_probes_transpose(
+def probe_tangent_transpose(
         ztildes: typ.Sequence[NDArray], # len=d, elm_shape=(Ni,) or (num_probes,Ni)
         ww: typ.Sequence[NDArray],  # input vectors, len=d, elm_shape=(Ni,) or (num_probes,Ni)
         base: t3m.T3Base, # basis_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
@@ -907,8 +907,8 @@ def tangent_probes_transpose(
 
     See Also
     --------
-    t3_probes
-    t3tangent_probes
+    probe_t3
+    tangent_probes
 
     Examples
     --------
@@ -925,9 +925,9 @@ def tangent_probes_transpose(
     >>> base, _ = t3m.orthogonal_representations(p)
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> v1 = t3m.tangent_randn(base)
-    >>> zz1 = t3p.tangent_probes(v1, ww, base)
+    >>> zz1 = t3p.probe_tangent(v1, ww, base)
     >>> zz2 = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-    >>> v2 = t3p.tangent_probes_transpose(zz2, ww, base)
+    >>> v2 = t3p.probe_tangent_transpose(zz2, ww, base)
     >>> ipA = cw.corewise_dot(v1, v2)
     >>> print(ipA)
     17.958317927787
@@ -946,8 +946,8 @@ def tangent_probes_transpose(
     >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(1,3,4,1)))
     >>> base, _ = t3m.orthogonal_representations(p)
     >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-    >>> apply_J = lambda v: t3p.tangent_probes(v, ww, base)
-    >>> apply_Jt = lambda z: t3p.tangent_probes_transpose(z, ww, base)
+    >>> apply_J = lambda v: t3p.probe_tangent(v, ww, base)
+    >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, ww, base)
     >>> v = t3m.tangent_randn(base)
     >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
     >>> print(cw.corewise_dot(z, apply_J(v)) - cw.corewise_dot(apply_Jt(z), v))

@@ -460,8 +460,8 @@ def check_fit(
     --------
     T3Base
     T3Variation
-    t3_check_base
-    t3_check_variation
+    check_t3base
+    check_t3variation
     '''
     check_t3base(base)
     check_t3variation(variation)
@@ -664,7 +664,7 @@ def orthogonal_representations(
     >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', O1, O1) - np.eye(O1.shape[1]))) # O: outer orthogonal
     1.3870474292323159e-15
     '''
-    t3.t3_check(x)
+    t3.check_t3(x)
 
     num_cores = len(x[1])
 
@@ -746,13 +746,13 @@ Examples
 >>> import t3tools.tucker_tensor_train as t3
 >>> import t3tools.t3_manifold as t3m
 >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
->>> base, _ = t3m.t3_orthogonal_representations(p)
->>> basis_variation_shapes, tt_variation_shapes = t3m.t3base_hole_shapes(base)
+>>> base, _ = t3m.orthogonal_representations(p)
+>>> basis_variation_shapes, tt_variation_shapes = t3m.hole_shapes(base)
 >>> basis_variations = tuple([np.random.randn(*s) for s in basis_variation_shapes])
 >>> tt_variations = tuple([np.random.randn(*s) for s in tt_variation_shapes])
 >>> variation = (basis_variations, tt_variations)
 >>> x = (base, variation) # This is a T3Tangent. Variation does not satisfy gauge conditions
->>> x_gauged = t3m.t3_oblique_gauge_projection(x) # Gauged version of x
+>>> x_gauged = t3m.oblique_gauge_projection(x) # Gauged version of x
 """
 
 
@@ -1150,7 +1150,7 @@ def oblique_gauge_projection(
     --------
     T3Base
     T3Variation
-    t3_orthogonal_gauge_projection
+    orthogonal_gauge_projection
 
     Examples
     --------
@@ -1289,8 +1289,8 @@ def project_t3_onto_tangent_space(
     See Also
     --------
     T3Base
-    t3_oblique_gauge_projection
-    t3_orthogonal_gauge_projection
+    oblique_gauge_projection
+    orthogonal_gauge_projection
 
     Examples
     --------
@@ -1309,7 +1309,7 @@ def project_t3_onto_tangent_space(
     """
     xnp = jnp if use_jax else np
 
-    t3.t3_check(x)
+    t3.check_t3(x)
     check_t3base(orthogonal_base)
 
     basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = orthogonal_base

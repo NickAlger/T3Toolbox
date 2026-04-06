@@ -27,7 +27,7 @@ __all__ = [
     't3_entry',
     't3_to_dense',
     't3_reverse',
-    't3_check',
+    'check_t3',
     't3_zeros',
     't3_corewise_randn',
     'compute_minimal_ranks',
@@ -91,7 +91,7 @@ Examples
 >>> basis_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
 >>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
 >>> x = (basis_cores, tt_cores) # TuckerTensorTrain, all cores filled with ones
->>> t3.t3_check(x) # does nothing because t3 core shapes are consistent
+>>> t3.check_t3(x) # does nothing because t3 core shapes are consistent
 """
 
 
@@ -189,7 +189,7 @@ def t3_structure(
     return shape, tucker_ranks, tt_ranks
 
 
-def t3_check(
+def check_t3(
         x: TuckerTensorTrain,
 ) -> None:
     '''Check correctness / consistency of Tucker tensor train.
@@ -222,7 +222,7 @@ def t3_check(
     >>> basis_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
     >>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
     >>> x = (basis_cores, tt_cores)
-    >>> t3.t3_check(x) # Nothing happens because T3 is consistent
+    >>> t3.check_t3(x) # Nothing happens because T3 is consistent
 
     (Bad) Mismatch between number of basis cores and number of TT-cores:
 
@@ -231,7 +231,7 @@ def t3_check(
     >>> basis_cores = (np.ones((4,14)), np.ones((5,15))) # one too few basis cores
     >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
     >>> x = (basis_cores, tt_cores)
-    >>> t3.t3_check(x)
+    >>> t3.check_t3(x)
     RuntimeError: Inconsistent TuckerTensorTrain.
     2 = len(basis_cores) != len(tt_cores) = 3
 
@@ -242,7 +242,7 @@ def t3_check(
     >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
     >>> tt_cores = (np.ones((4,3)), np.ones((3,5,2)), np.ones((2,6,1))) # first TT-core is not a 3-tensor
     >>> x = (basis_cores, tt_cores)
-    >>> t3.t3_check(x)
+    >>> t3.check_t3(x)
     RuntimeError: Inconsistent TuckerTensorTrain.
     tt_cores[0] is not a 3-tensor. shape=(4, 3)
 
@@ -253,7 +253,7 @@ def t3_check(
     >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16))) # First TT-rank is not 1
     >>> tt_cores = (np.ones((9,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
     >>> x = (basis_cores, tt_cores)
-    >>> t3.t3_check(x)
+    >>> t3.check_t3(x)
     RuntimeError: Inconsistent TuckerTensorTrain.
     First TT rank is not one. tt_ranks = (9, 3, 2, 1)
 
@@ -264,7 +264,7 @@ def t3_check(
     >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
     >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,9))) # Last TT-rank is not 1
     >>> x = (basis_cores, tt_cores)
-    >>> t3.t3_check(x)
+    >>> t3.check_t3(x)
     RuntimeError: Inconsistent TuckerTensorTrain.
     Last TT rank is not one. tt_ranks = (1, 3, 2, 9)
 
@@ -275,7 +275,7 @@ def t3_check(
     >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
     >>> tt_cores = (np.ones((1,4,9)), np.ones((3,5,2)), np.ones((2,6,1))) # Inconsistent TT-core shapes
     >>> x = (basis_cores, tt_cores)
-    >>> t3.t3_check(x)
+    >>> t3.check_t3(x)
     RuntimeError: Inconsistent TuckerTensorTrain.
     (1, 3, 2, 1) = left_tt_ranks != right_tt_ranks = (1, 9, 2, 1)
 
@@ -286,7 +286,7 @@ def t3_check(
     >>> basis_cores = (np.ones((4,14)), np.ones((5,15,3)), np.ones((6,16))) # Basis core 2 is not a matrix
     >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
     >>> x = (basis_cores, tt_cores)
-    >>> t3.t3_check(x)
+    >>> t3.check_t3(x)
     RuntimeError: Inconsistent TuckerTensorTrain.
     basis_cores[1] is not a matrix. shape=(5, 15, 3)
 
@@ -297,7 +297,7 @@ def t3_check(
     >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((9,16)))
     >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))) # Last basis and TT-cores inconsistent
     >>> x = (basis_cores, tt_cores)
-    >>> t3.t3_check(x)
+    >>> t3.check_t3(x)
     RuntimeError: Inconsistent TuckerTensorTrain.
     9 = basis_cores[2].shape[0] != tt_cores[2].shape[1] = 6
     '''
@@ -568,7 +568,7 @@ def t3_save(
     --------
     TuckerTensorTrain
     t3_load
-    t3_check
+    check_t3
 
     Examples
     --------
@@ -585,7 +585,7 @@ def t3_save(
     >>> print([np.linalg.norm(G - G2) for G, G2 in zip(tt_cores, tt_cores2)])
     [0.0, 0.0, 0.0]
     """
-    t3_check(x)
+    check_t3(x)
     basis_cores, tt_cores = x
     cores_dict = {'basis_cores_'+str(ii): basis_cores[ii] for ii in range(len(basis_cores))}
     cores_dict.update({'tt_cores_'+str(ii): tt_cores[ii] for ii in range(len(tt_cores))})
@@ -626,7 +626,7 @@ def t3_load(
     --------
     TuckerTensorTrain
     t3_save
-    t3_check
+    check_t3
 
     Examples
     --------
@@ -662,7 +662,7 @@ def t3_load(
         tt_cores = [jnp.array(G) for G in tt_cores]
 
     x = (tuple(basis_cores), tuple(tt_cores))
-    t3_check(x)
+    check_t3(x)
     return x
 
 
@@ -1817,8 +1817,8 @@ def t3_add(
     >>> print(np.linalg.norm(t3.t3_to_dense(x) + t3.t3_to_dense(y) - t3.t3_to_dense(z)))
     6.524094086845177e-13
     """
-    t3_check(x)
-    t3_check(y)
+    check_t3(x)
+    check_t3(y)
 
     x_shape = t3_structure(x)[0]
     y_shape = t3_structure(y)[0]
@@ -1917,7 +1917,7 @@ def t3_scale(
     >>> print(np.linalg.norm(s*t3.t3_to_dense(x) - t3.t3_to_dense(z)))
     1.6268482531988893e-13
     """
-    t3_check(x)
+    check_t3(x)
 
     basis_cores, tt_cores = x
 
@@ -2068,8 +2068,8 @@ def t3_dot_t3(
     >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
     8.731149137020111e-11
     """
-    t3_check(x)
-    t3_check(y)
+    check_t3(x)
+    check_t3(y)
 
     xnp = jnp if use_jax else np
 
@@ -2137,7 +2137,7 @@ def t3_norm(
     >>> print(np.abs(norm_x - np.linalg.norm(t3.t3_to_dense(x))))
     1.3642420526593924e-12
     """
-    t3_check(x)
+    check_t3(x)
     xnp = jnp if use_jax else np
 
     if use_orthogonalization:
