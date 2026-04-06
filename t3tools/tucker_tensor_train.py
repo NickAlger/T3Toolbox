@@ -30,8 +30,8 @@ __all__ = [
     't3_check',
     't3_zeros',
     't3_corewise_randn',
-    't3_minimal_ranks',
-    't3_pad_ranks',
+    'compute_minimal_ranks',
+    'pad_ranks',
     't3_save',
     't3_load',
     # Orthogonalization
@@ -927,7 +927,7 @@ def t3_entry(
 ########################    Rank adjustment    #########################
 ########################################################################
 
-def t3_minimal_ranks(
+def compute_minimal_ranks(
         structure: T3Structure,
 ) -> typ.Tuple[
     typ.Tuple[int,...], # new_tucker_ranks
@@ -966,7 +966,7 @@ def t3_minimal_ranks(
     return tuple(new_tucker_ranks), tuple(new_tt_ranks)
 
 
-def t3_pad_ranks(
+def pad_ranks(
         x:                  TuckerTensorTrain,
         new_tucker_ranks:   typ.Sequence[int],
         new_tt_ranks:       typ.Sequence[int],

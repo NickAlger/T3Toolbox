@@ -17,26 +17,26 @@ NDArray = typ.Union[np.ndarray, jnp.ndarray]
 __all__ = [
     # Actions of a Tucker tensor train
     't3_probes',
-    't3_compute_xis',
-    't3_compute_mus',
-    't3_compute_nus',
-    't3_compute_etas',
-    't3_assemble_probes',
+    'compute_xis',
+    'compute_mus',
+    'compute_nus',
+    'compute_etas',
+    'assemble_probes',
     # Actions of a tangent vector
-    't3tangent_probes',
-    't3_compute_dxis',
-    't3_compute_sigmas',
-    't3_compute_taus',
-    't3_compute_detas',
-    't3_assemble_tangent_probes',
+    'tangent_probes',
+    'compute_dxis',
+    'compute_sigmas',
+    'compute_taus',
+    'compute_detas',
+    'assemble_tangent_probes',
     # Transpose of map from tangent vector to probes
-    't3_compute_deta_tildes',
-    't3_compute_tau_tildes',
-    't3_compute_sigma_tildes',
-    't3_compute_dxi_tildes',
-    't3_assemble_basis_variations',
-    't3_assemble_tt_variations',
-    't3tangent_probes_transpose',
+    'compute_deta_tildes',
+    'compute_tau_tildes',
+    'compute_sigma_tildes',
+    'compute_dxi_tildes',
+    'assemble_basis_variations',
+    'assemble_tt_variations',
+    'tangent_probes_transpose',
 ]
 
 #
@@ -108,18 +108,18 @@ def t3_probes(
     for B, w in zip(basis_cores, ww):
         assert(B.shape[1] == w.shape[1])
 
-    xis = t3_compute_xis(basis_cores, ww, use_jax=use_jax)
-    mus = t3_compute_mus(tt_cores, xis, use_jax=use_jax)
-    nus = t3_compute_nus(tt_cores, xis, use_jax=use_jax)
-    etas = t3_compute_etas(tt_cores, mus, nus, use_jax=use_jax)
-    zz = t3_assemble_probes(basis_cores, etas, use_jax=use_jax)
+    xis = compute_xis(basis_cores, ww, use_jax=use_jax)
+    mus = compute_mus(tt_cores, xis, use_jax=use_jax)
+    nus = compute_nus(tt_cores, xis, use_jax=use_jax)
+    etas = compute_etas(tt_cores, mus, nus, use_jax=use_jax)
+    zz = assemble_probes(basis_cores, etas, use_jax=use_jax)
 
     if not vectorized:
         zz = tuple([z.reshape(-1) for z in zz])
     return zz
 
 
-def t3_compute_xis(
+def compute_xis(
         basis_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ni,Ni)
         ww: typ.Sequence[NDArray], # len=d. elm_shape=(num_probes,Ni)
         use_jax: bool = False,
@@ -160,7 +160,7 @@ def t3_compute_xis(
     return tuple([xnp.einsum('io,po->pi', U, w) for U, w in zip(basis_cores, ww)])
 
 
-def t3_compute_mus(
+def compute_mus(
         left_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ri,ni,r(i+1))
         xis: typ.Sequence[NDArray], # len=d. elm_shape=(num_probes,ni)
         use_jax: bool = False,
@@ -215,7 +215,7 @@ def tt_reverse(tt_cores):
     return tuple([G.swapaxes(0, 2) for G in tt_cores[::-1]])
 
 
-def t3_compute_nus(
+def compute_nus(
         right_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ri,ni,r(i+1))
         xis, # len=d. elm_shape=(num_probes,ni)
         use_jax: bool = False,
@@ -252,10 +252,10 @@ def t3_compute_nus(
     t3_compute_etas
     t3_assemble_probes
     '''
-    return t3_compute_mus(tt_reverse(right_tt_cores), xis[::-1], use_jax=use_jax)[::-1]
+    return compute_mus(tt_reverse(right_tt_cores), xis[::-1], use_jax=use_jax)[::-1]
 
 
-def t3_compute_etas(
+def compute_etas(
         outer_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ri,ni,r(i+1))
         mus, # len=d. elm_shape=(num_probes,ri)
         nus, # len=d. elm_shape=(num_probes,ri)
@@ -302,7 +302,7 @@ def t3_compute_etas(
     ])
 
 
-def t3_assemble_probes(
+def assemble_probes(
         basis_cores: typ.Sequence[NDArray],  # len=d. elm_shape=(ni,Ni)
         etas,  # len=d. elm_shape=(num_probes,ni)
         use_jax: bool = False,
@@ -343,7 +343,7 @@ def t3_assemble_probes(
 
 ###
 
-def t3_compute_dxis(
+def compute_dxis(
         var_basis_cores: typ.Sequence[NDArray], # len=d. elm_shape=(nOi,Ni)
         ww: typ.Sequence[NDArray], # len=d. elm_shape=(num_probes,Ni)
         use_jax: bool = False,
@@ -368,10 +368,10 @@ def t3_compute_dxis(
     t3_assemble_tangent_probes
     t3tangent_probes
     '''
-    return t3_compute_xis(var_basis_cores, ww, use_jax)
+    return compute_xis(var_basis_cores, ww, use_jax)
 
 
-def t3_compute_sigmas(
+def compute_sigmas(
         var_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,ni,rR(i+1))
         right_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rRi,ni,rR(i+1))
         outer_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
@@ -422,7 +422,7 @@ def t3_compute_sigmas(
     return tuple(sigmas)
 
 
-def t3_compute_taus(
+def compute_taus(
         var_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,ni,rR(i+1))
         left_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,ni,rL(i+1))
         outer_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
@@ -448,14 +448,14 @@ def t3_compute_taus(
     t3_assemble_tangent_probes
     t3tangent_probes
     '''
-    return t3_compute_sigmas(
+    return compute_sigmas(
         tt_reverse(var_tt_cores), tt_reverse(left_tt_cores), tt_reverse(outer_tt_cores),
         xis[::-1], dxis[::-1], nus[::-1],
         use_jax=use_jax
     )[::-1]
 
 
-def t3_compute_detas(
+def compute_detas(
         var_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,ni,rR(i+1))
         left_tt_cores: typ.Sequence[NDArray],  # len=d, elm_shape=(rLi,ni,rL(i+1))
         right_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rRi,ni,rR(i+1))
@@ -506,7 +506,7 @@ def t3_compute_detas(
     return tuple(detas)
 
 
-def t3_assemble_tangent_probes(
+def assemble_tangent_probes(
         basis_cores: typ.Sequence[NDArray],  # len=d. elm_shape=(ni,Ni)
         var_basis_cores: typ.Sequence[NDArray], # len=d. elm_shape=(nOi,Ni)
         etas: typ.Sequence[NDArray], # etas. len=d, elm_shape=(num_probes,ni)
@@ -548,7 +548,7 @@ def t3_assemble_tangent_probes(
     return tuple(probes)
 
 
-def t3tangent_probes(
+def tangent_probes(
         variation: t3m.T3Variation, # basis_var_shapes=(nOi,Ni), tt_var_shapes=tt_hole_shapes=(rLi,ni,rRi)
         ww:     typ.Sequence[NDArray], # input vectors, len=d, elm_shape=(Ni,) or (num_probes,Ni)
         base: t3m.T3Base, # basis_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
@@ -602,11 +602,11 @@ def t3tangent_probes(
     >>> import t3tools.t3_probing as t3p
     >>> import t3tools.dense as dense
     >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(1,3,4,1)))
-    >>> base, _ = t3m.t3_orthogonal_representations(p)
-    >>> variation = t3m.t3tangent_randn(base)
+    >>> base, _ = t3m.orthogonal_representations(p)
+    >>> variation = t3m.tangent_randn(base)
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-    >>> zz = t3p.t3tangent_probes(variation, ww, base)
-    >>> zz2 = dense.dense_probes(t3m.t3tangent_to_dense(variation, base), ww)
+    >>> zz = t3p.tangent_probes(variation, ww, base)
+    >>> zz2 = dense.dense_probes(t3m.tangent_to_dense(variation, base), ww)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [4.6257812371663175e-15, 3.628238740198284e-15, 5.6097341748343224e-15]
 
@@ -618,15 +618,15 @@ def t3tangent_probes(
     >>> import t3tools.t3_probing as t3p
     >>> import t3tools.dense as dense
     >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(1,3,4,1)))
-    >>> base, _ = t3m.t3_orthogonal_representations(p)
-    >>> variation = t3m.t3tangent_randn(base)
+    >>> base, _ = t3m.orthogonal_representations(p)
+    >>> variation = t3m.tangent_randn(base)
     >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-    >>> zzz = t3p.t3tangent_probes(variation, www, base) # Compute probes!
-    >>> zzz2 = dense.dense_probes(t3m.t3tangent_to_dense(variation, base), www)
+    >>> zzz = t3p.tangent_probes(variation, www, base) # Compute probes!
+    >>> zzz2 = dense.dense_probes(t3m.tangent_to_dense(variation, base), www)
     >>> print([np.linalg.norm(zz - zz2, axis=1) for zz, zz2 in zip(zzz, zzz2)])
     [array([3.18560984e-15, 5.06339604e-15]), array([1.74264349e-15, 5.10008230e-15]), array([2.17576097e-15, 2.94156728e-15])]
     '''
-    t3m.t3_check_bv_fit(variation, base)
+    t3m.check_fit(variation, base)
 
     x_shape = tuple([B.shape[1] for B in variation[0]])
     assert(len(ww) == len(x_shape))
@@ -641,45 +641,45 @@ def t3tangent_probes(
     (basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores) = base
     (var_basis_cores, var_tt_cores) = variation
 
-    xis = t3_compute_xis(
+    xis = compute_xis(
         basis_cores, ww, use_jax,
     )
 
-    mus = t3_compute_mus(
+    mus = compute_mus(
         left_tt_cores, xis, use_jax=use_jax,
     )
 
-    nus = t3_compute_nus(
+    nus = compute_nus(
         right_tt_cores, xis, use_jax=use_jax,
     )
 
-    etas = t3_compute_etas(
+    etas = compute_etas(
         outer_tt_cores, mus, nus, use_jax=use_jax,
     )
 
-    dxis = t3_compute_dxis(
+    dxis = compute_dxis(
         var_basis_cores, ww, use_jax=use_jax,
     )
 
-    sigmas = t3_compute_sigmas(
+    sigmas = compute_sigmas(
         var_tt_cores, right_tt_cores, outer_tt_cores,
         xis, dxis, mus,
         use_jax=use_jax,
     )
 
-    taus = t3_compute_taus(
+    taus = compute_taus(
         var_tt_cores, left_tt_cores, outer_tt_cores,
         xis, dxis, nus,
         use_jax=use_jax,
     )
 
-    detas = t3_compute_detas(
+    detas = compute_detas(
         var_tt_cores, left_tt_cores, right_tt_cores,
         mus, nus, sigmas, taus,
         use_jax=use_jax,
     )
 
-    zz = t3_assemble_tangent_probes(
+    zz = assemble_tangent_probes(
         basis_cores, var_basis_cores,
         etas, detas,
         use_jax=use_jax,
@@ -692,7 +692,7 @@ def t3tangent_probes(
 
 ####
 
-def t3_compute_deta_tildes(
+def compute_deta_tildes(
         ztildes: typ.Sequence[NDArray],  # len=d, elm_shape=(num_probes,Ni)
         basis_cores: typ.Sequence[NDArray], # len=d, elm_shape=(ni,Ni)
         use_jax: bool = False,
@@ -710,7 +710,7 @@ def t3_compute_deta_tildes(
     return tuple([xnp.einsum('ao,po->pa', U, zt) for U, zt in zip(basis_cores, ztildes)])
 
 
-def t3_compute_tau_tildes(
+def compute_tau_tildes(
         deta_tildes,  # len=d+1, elm_shape=(num_probes,ni)
         left_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,ni,rL(i+d))
         xis: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,ni)
@@ -748,7 +748,7 @@ def t3_compute_tau_tildes(
     return tuple(tau_tildes)
 
 
-def t3_compute_sigma_tildes(
+def compute_sigma_tildes(
         deta_tildes,  # len=d+1, elm_shape=(num_probes,ni)
         right_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rRi,ni,rR(i+d))
         xis: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,ni)
@@ -764,12 +764,12 @@ def t3_compute_sigma_tildes(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    return t3_compute_tau_tildes(
+    return compute_tau_tildes(
         deta_tildes[::-1], tt_reverse(right_tt_cores), xis[::-1], nus[::-1], use_jax=use_jax,
     )[::-1]
 
 
-def t3_compute_dxi_tildes(
+def compute_dxi_tildes(
         sigma_tildes: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,rRi)
         tau_tildes: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,rLi)
         outer_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
@@ -795,7 +795,7 @@ def t3_compute_dxi_tildes(
     ])
 
 
-def t3_assemble_basis_variations(
+def assemble_basis_variations(
         ztildes: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,Ni)
         dxi_tildes: typ.Sequence[NDArray], #len=d, elm_shape=(num_probes,nOi)
         ww: typ.Sequence[NDArray],  # input vectors, len=d, elm_shape=(Ni,) or (num_probes,Ni)
@@ -830,7 +830,7 @@ def t3_assemble_basis_variations(
     return dU_tildes
 
 
-def t3_assemble_tt_variations(
+def assemble_tt_variations(
         sigma_tildes: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,rRi)
         tau_tildes: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,rLi)
         deta_tildes,  # len=d+1, elm_shape=(num_probes,ni)
@@ -869,7 +869,7 @@ def t3_assemble_tt_variations(
     return dG_tildes
 
 
-def t3tangent_probes_transpose(
+def tangent_probes_transpose(
         ztildes: typ.Sequence[NDArray], # len=d, elm_shape=(Ni,) or (num_probes,Ni)
         ww: typ.Sequence[NDArray],  # input vectors, len=d, elm_shape=(Ni,) or (num_probes,Ni)
         base: t3m.T3Base, # basis_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
@@ -922,12 +922,12 @@ def t3tangent_probes_transpose(
     >>> import t3tools.dense as dense
     >>> import t3tools.corewise as cw
     >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(1,3,4,1)))
-    >>> base, _ = t3m.t3_orthogonal_representations(p)
+    >>> base, _ = t3m.orthogonal_representations(p)
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-    >>> v1 = t3m.t3tangent_randn(base)
-    >>> zz1 = t3p.t3tangent_probes(v1, ww, base)
+    >>> v1 = t3m.tangent_randn(base)
+    >>> zz1 = t3p.tangent_probes(v1, ww, base)
     >>> zz2 = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-    >>> v2 = t3p.t3tangent_probes_transpose(zz2, ww, base)
+    >>> v2 = t3p.tangent_probes_transpose(zz2, ww, base)
     >>> ipA = cw.corewise_dot(v1, v2)
     >>> print(ipA)
     17.958317927787
@@ -944,11 +944,11 @@ def t3tangent_probes_transpose(
     >>> import t3tools.dense as dense
     >>> import t3tools.corewise as cw
     >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(1,3,4,1)))
-    >>> base, _ = t3m.t3_orthogonal_representations(p)
+    >>> base, _ = t3m.orthogonal_representations(p)
     >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-    >>> apply_J = lambda v: t3p.t3tangent_probes(v, ww, base)
-    >>> apply_Jt = lambda z: t3p.t3tangent_probes_transpose(z, ww, base)
-    >>> v = t3m.t3tangent_randn(base)
+    >>> apply_J = lambda v: t3p.tangent_probes(v, ww, base)
+    >>> apply_Jt = lambda z: t3p.tangent_probes_transpose(z, ww, base)
+    >>> v = t3m.tangent_randn(base)
     >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
     >>> print(cw.corewise_dot(z, apply_J(v)) - cw.corewise_dot(apply_Jt(z), v))
     7.105427357601002e-15
@@ -979,48 +979,48 @@ def t3tangent_probes_transpose(
 
     (basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores) = base
 
-    xis = t3_compute_xis(
+    xis = compute_xis(
         basis_cores, ww, use_jax,
     )
 
-    mus = t3_compute_mus(
+    mus = compute_mus(
         left_tt_cores, xis, use_jax=use_jax,
     )
 
-    nus = t3_compute_nus(
+    nus = compute_nus(
         right_tt_cores, xis, use_jax=use_jax,
     )
 
-    etas = t3_compute_etas(
+    etas = compute_etas(
         outer_tt_cores, mus, nus, use_jax=use_jax,
     )
 
     #
 
-    deta_tildes = t3_compute_deta_tildes(
+    deta_tildes = compute_deta_tildes(
         ztildes, basis_cores, use_jax=use_jax,
     )
 
-    tau_tildes = t3_compute_tau_tildes(
+    tau_tildes = compute_tau_tildes(
         deta_tildes, left_tt_cores, xis, mus, use_jax=use_jax,
     )
 
-    sigma_tildes = t3_compute_sigma_tildes(
+    sigma_tildes = compute_sigma_tildes(
         deta_tildes, right_tt_cores, xis, nus, use_jax=use_jax,
     )
 
-    dxi_tildes = t3_compute_dxi_tildes(
+    dxi_tildes = compute_dxi_tildes(
         sigma_tildes, tau_tildes, outer_tt_cores, mus, nus, use_jax=use_jax,
     )
 
     #
 
-    dU_tildes = t3_assemble_basis_variations(
+    dU_tildes = assemble_basis_variations(
         ztildes, dxi_tildes, ww, etas,
         sum_over_probes=sum_over_probes, use_jax=use_jax,
     )
 
-    dG_tildes = t3_assemble_tt_variations(
+    dG_tildes = assemble_tt_variations(
         sigma_tildes, tau_tildes, deta_tildes, xis, mus, nus,
         sum_over_probes=sum_over_probes, use_jax=use_jax,
     )
