@@ -1,9 +1,9 @@
 t3tools.tucker_tensor_train.compute_minimal_ranks
 =================================================
 
-.. py:function:: t3tools.tucker_tensor_train.compute_minimal_ranks(structure: T3Structure) -> Tuple[Tuple[int, Ellipsis], Tuple[int, Ellipsis]]
+.. py:function:: t3tools.tucker_tensor_train.compute_minimal_ranks(s: T3Structure) -> Tuple[Tuple[int, Ellipsis], Tuple[int, Ellipsis]]
 
-   Find minimal ranks for a TuckerTensorTrain with a given structure. (remove useless rank)
+   Find minimal ranks for a TuckerTensorTrain with a given structure. (such that there is no useless rank)
 
    .. rubric:: Examples
 

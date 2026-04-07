@@ -30,6 +30,7 @@ Functions
    /autoapi/t3tools/tucker_tensor_train/t3_apply
    /autoapi/t3tools/tucker_tensor_train/t3_entry
    /autoapi/t3tools/tucker_tensor_train/compute_minimal_ranks
+   /autoapi/t3tools/tucker_tensor_train/are_t3_ranks_minimal
    /autoapi/t3tools/tucker_tensor_train/pad_t3
    /autoapi/t3tools/tucker_tensor_train/up_svd_ith_basis_core
    /autoapi/t3tools/tucker_tensor_train/left_svd_ith_tt_core
@@ -60,6 +61,7 @@ Functions
    t3tools.tucker_tensor_train.t3_apply
    t3tools.tucker_tensor_train.t3_entry
    t3tools.tucker_tensor_train.compute_minimal_ranks
+   t3tools.tucker_tensor_train.are_t3_ranks_minimal
    t3tools.tucker_tensor_train.pad_t3
    t3tools.tucker_tensor_train.up_svd_ith_basis_core
    t3tools.tucker_tensor_train.left_svd_ith_tt_core
