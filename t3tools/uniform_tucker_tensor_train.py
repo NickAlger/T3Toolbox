@@ -453,7 +453,7 @@ def ut3_add(
     >>> x_plus_y_cores, x_plus_y_masks = ut3.ut3_add(x_cores, x_masks, y_cores, y_masks) # add x+y
     >>> dense_x = t3.t3_to_dense(x)
     >>> dense_y = t3.t3_to_dense(y)
-    >>> dense_x_plus_y = ut3.ut3_to_dense(x_cores, x_masks)
+    >>> dense_x_plus_y = ut3.ut3_to_dense(x_plus_y_cores, x_plus_y_masks)
     >>> print(np.linalg.norm(dense_x + dense_y - dense_x_plus_y))
     0.0
     """
@@ -525,11 +525,11 @@ def ut3_scale(
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (2,3,2,2)))
-    >>> uniform_x = ut3.t3_to_ut3(x)
+    >>> cores, masks = ut3.t3_to_ut3(x)
     >>> s = 3.5
-    >>> uniform_sx = ut3.ut3_scale(uniform_x, s) # scale x
+    >>> sx_cores = ut3.ut3_scale(cores, s) # scale x
     >>> dense_x = t3.t3_to_dense(x)
-    >>> dense_sx = ut3.ut3_to_dense(uniform_sx)
+    >>> dense_sx = ut3.ut3_to_dense(sx_cores, masks)
     >>> print(np.linalg.norm(s*dense_x - dense_sx))
     1.4502362601421634e-12
     """
@@ -565,12 +565,12 @@ def ut3_neg(
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (2,3,2,2)))
-    >>> uniform_x = ut3.t3_to_ut3(x)
-    >>> uniform_neg_x = ut3.ut3_neg(uniform_x) # flip x
+    >>> cores, masks = ut3.t3_to_ut3(x)
+    >>> neg_cores = ut3.ut3_neg(cores) # flip x
     >>> dense_x = t3.t3_to_dense(x)
-    >>> dense_neg_x = ut3.ut3_to_dense(uniform_neg_x)
+    >>> dense_neg_x = ut3.ut3_to_dense(neg_cores, masks)
     >>> print(np.linalg.norm(-dense_x - dense_neg_x))
-    1.4502362601421634e-12
+    0.0
     """
     return ut3_scale(x_cores, -1.0, use_jax=use_jax)
 
@@ -614,14 +614,14 @@ def ut3_sub(
     >>> x_cores, x_masks = ut3.t3_to_ut3(x)
     >>> y = t3.t3_corewise_randn(((14,15,16), (6,7,8), (3,5,6,1)))
     >>> y_cores, y_masks = ut3.t3_to_ut3(y)
-    >>> x_plus_y_cores, x_plus_y_masks = ut3.ut3_sub(x_cores, x_masks, y_cores, y_masks) # add x+y
+    >>> x_minus_y_cores, x_minus_y_masks = ut3.ut3_sub(x_cores, x_masks, y_cores, y_masks) # add x+y
     >>> dense_x = t3.t3_to_dense(x)
     >>> dense_y = t3.t3_to_dense(y)
-    >>> dense_x_plus_y = ut3.ut3_to_dense(x_cores, x_masks)
-    >>> print(np.linalg.norm(dense_x - dense_y - dense_x_plus_y))
+    >>> dense_x_minus_y = ut3.ut3_to_dense(x_minus_y_cores, x_minus_y_masks)
+    >>> print(np.linalg.norm(dense_x - dense_y - dense_x_minus_y))
     0.0
     """
-    return ut3_add(x_cores, x_masks, *ut3_neg(y_cores,use_jax=use_jax), y_masks, use_jax=use_jax)
+    return ut3_add(x_cores, x_masks, ut3_neg(y_cores, use_jax=use_jax), y_masks, use_jax=use_jax)
 
 
 # # # #
