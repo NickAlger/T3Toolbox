@@ -1,0 +1,12 @@
+t3tools.uniform_tucker_tensor_train.ut3_attached_tangent_vector_to_ut3
+======================================================================
+
+.. py:function:: t3tools.uniform_tucker_tensor_train.ut3_attached_tangent_vector_to_ut3(variations: Tuple[jax.numpy.ndarray, jax.numpy.ndarray], orthogonal_basis_cores: jax.numpy.ndarray, left_orthogonal_tt_cores: jax.numpy.ndarray, right_orthogonal_tt_cores: jax.numpy.ndarray, up_orthogonal_tt_cores: jax.numpy.ndarray) -> Tuple[jax.numpy.ndarray, jax.numpy.ndarray]
+
+   Rank 2r Tucker tensor train representation of *attached* tangent vector:
+   u(x,y,z,w) = ([dU1(B x) P1(B x)]) ([Q2(B y)        0]) ([Q3(B z)        0]) ([Q4(B w) ])
+                (                  ) ([dU2(B y) P2(B y)]) ([dU3(B z) P3(B z)]) ([P4(B w) + dU4(B w)])
+                (         +        ) (         +        ) (        +         ) (    +     )
+                ([R1(dB x)       0]) ([0              0]) ([0              0]) ([0       ])
+                (                  ) ([R2(dB y)       0]) ([R3(dB z)       0]) ([R4(dB w)])
+

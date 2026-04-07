@@ -1,0 +1,4 @@
+t3tools.uniform_tucker_tensor_train.t3_to_ut3
+=============================================
+
+.. py:function:: t3tools.uniform_tucker_tensor_train.t3_to_ut3(x: t3tools.tucker_tensor_train.TuckerTensorTrain) -> UniformTuckerTensorTrain

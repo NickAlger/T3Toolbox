@@ -1,0 +1,4 @@
+t3tools.uniform_tucker_tensor_train.ut3_retract
+===============================================
+
+.. py:function:: t3tools.uniform_tucker_tensor_train.ut3_retract(variations: Tuple[jax.numpy.ndarray, jax.numpy.ndarray], orthogonal_basis_cores: jax.numpy.ndarray, left_orthogonal_tt_cores: jax.numpy.ndarray, right_orthogonal_tt_cores: jax.numpy.ndarray, up_orthogonal_tt_cores: jax.numpy.ndarray, doubled_rank_masks: Tuple[jax.numpy.ndarray, jax.numpy.ndarray, jax.numpy.ndarray]) -> Tuple[jax.numpy.ndarray, jax.numpy.ndarray]

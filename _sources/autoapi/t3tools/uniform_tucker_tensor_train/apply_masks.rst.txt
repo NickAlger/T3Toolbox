@@ -1,0 +1,4 @@
+t3tools.uniform_tucker_tensor_train.apply_masks
+===============================================
+
+.. py:function:: t3tools.uniform_tucker_tensor_train.apply_masks(X: Tuple[jax.numpy.ndarray, jax.numpy.ndarray], masks: Tuple[jax.numpy.ndarray, jax.numpy.ndarray, jax.numpy.ndarray]) -> Tuple[jax.numpy.ndarray, jax.numpy.ndarray]

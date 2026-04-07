@@ -1,0 +1,4 @@
+t3tools.uniform_tucker_tensor_train.ut3_to_t3
+=============================================
+
+.. py:function:: t3tools.uniform_tucker_tensor_train.ut3_to_t3(uniform_t3: Tuple[jax.numpy.ndarray, jax.numpy.ndarray], shape, tucker_ranks, tt_ranks) -> TuckerTensorTrain

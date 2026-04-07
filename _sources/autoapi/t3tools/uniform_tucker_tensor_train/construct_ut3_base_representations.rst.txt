@@ -1,0 +1,4 @@
+t3tools.uniform_tucker_tensor_train.construct_ut3_base_representations
+======================================================================
+
+.. py:function:: t3tools.uniform_tucker_tensor_train.construct_ut3_base_representations(base_point: Tuple[jax.numpy.ndarray, jax.numpy.ndarray], masks: Tuple[jax.numpy.ndarray, jax.numpy.ndarray]) -> Tuple[jax.numpy.ndarray, jax.numpy.ndarray, jax.numpy.ndarray, jax.numpy.ndarray, jax.numpy.ndarray, jax.numpy.ndarray]

@@ -174,7 +174,7 @@
 </li>
         <li><a href="autoapi/t3tools/tucker_tensor_train/orthogonalize_relative_to_ith_tt_core.html#t3tools.tucker_tensor_train.orthogonalize_relative_to_ith_tt_core">t3tools.tucker_tensor_train.orthogonalize_relative_to_ith_tt_core()</a>
 </li>
-        <li><a href="autoapi/t3tools/tucker_tensor_train/pad_ranks.html#t3tools.tucker_tensor_train.pad_ranks">t3tools.tucker_tensor_train.pad_ranks()</a>
+        <li><a href="autoapi/t3tools/tucker_tensor_train/pad_t3.html#t3tools.tucker_tensor_train.pad_t3">t3tools.tucker_tensor_train.pad_t3()</a>
 </li>
         <li><a href="autoapi/t3tools/tucker_tensor_train/right_svd_ith_tt_core.html#t3tools.tucker_tensor_train.right_svd_ith_tt_core">t3tools.tucker_tensor_train.right_svd_ith_tt_core()</a>
 </li>
@@ -225,6 +225,34 @@
         <li><a href="autoapi/t3tools/uniform_manifold/ut3_orthogonal_gauge_projection.html#t3tools.uniform_manifold.ut3_orthogonal_gauge_projection">t3tools.uniform_manifold.ut3_orthogonal_gauge_projection()</a>
 </li>
         <li><a href="autoapi/t3tools/uniform_manifold/ut3_orthogonal_gauge_projection_using_map.html#t3tools.uniform_manifold.ut3_orthogonal_gauge_projection_using_map">t3tools.uniform_manifold.ut3_orthogonal_gauge_projection_using_map()</a>
+</li>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/apply_masks.html#t3tools.uniform_tucker_tensor_train.apply_masks">t3tools.uniform_tucker_tensor_train.apply_masks()</a>
+</li>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/construct_ut3_base_representations.html#t3tools.uniform_tucker_tensor_train.construct_ut3_base_representations">t3tools.uniform_tucker_tensor_train.construct_ut3_base_representations()</a>
+</li>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/left_orthogonalize_utt.html#t3tools.uniform_tucker_tensor_train.left_orthogonalize_utt">t3tools.uniform_tucker_tensor_train.left_orthogonalize_utt()</a>
+</li>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/make_ut3_masks.html#t3tools.uniform_tucker_tensor_train.make_ut3_masks">t3tools.uniform_tucker_tensor_train.make_ut3_masks()</a>
+</li>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/orthogonalize_ut3_basis_cores.html#t3tools.uniform_tucker_tensor_train.orthogonalize_ut3_basis_cores">t3tools.uniform_tucker_tensor_train.orthogonalize_ut3_basis_cores()</a>
+</li>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/right_orthogonalize_utt.html#t3tools.uniform_tucker_tensor_train.right_orthogonalize_utt">t3tools.uniform_tucker_tensor_train.right_orthogonalize_utt()</a>
+</li>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/t3_to_ut3.html#t3tools.uniform_tucker_tensor_train.t3_to_ut3">t3tools.uniform_tucker_tensor_train.t3_to_ut3()</a>
+</li>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/ut3_attached_tangent_vector_to_ut3.html#t3tools.uniform_tucker_tensor_train.ut3_attached_tangent_vector_to_ut3">t3tools.uniform_tucker_tensor_train.ut3_attached_tangent_vector_to_ut3()</a>
+</li>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/ut3_project_dense_tensor_onto_tangent_space.html#t3tools.uniform_tucker_tensor_train.ut3_project_dense_tensor_onto_tangent_space">t3tools.uniform_tucker_tensor_train.ut3_project_dense_tensor_onto_tangent_space()</a>
+</li>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/ut3_retract.html#t3tools.uniform_tucker_tensor_train.ut3_retract">t3tools.uniform_tucker_tensor_train.ut3_retract()</a>
+</li>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/ut3_svd_masked.html#t3tools.uniform_tucker_tensor_train.ut3_svd_masked">t3tools.uniform_tucker_tensor_train.ut3_svd_masked()</a>
+</li>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/ut3_tangent_vector_to_ut3.html#t3tools.uniform_tucker_tensor_train.ut3_tangent_vector_to_ut3">t3tools.uniform_tucker_tensor_train.ut3_tangent_vector_to_ut3()</a>
+</li>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/ut3_to_dense.html#t3tools.uniform_tucker_tensor_train.ut3_to_dense">t3tools.uniform_tucker_tensor_train.ut3_to_dense()</a>
+</li>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/ut3_to_t3.html#t3tools.uniform_tucker_tensor_train.ut3_to_t3">t3tools.uniform_tucker_tensor_train.ut3_to_t3()</a>
 </li>
       </ul></li>
   </ul></td>
@@ -669,8 +697,6 @@
         <li><a href="autoapi/t3tools/probing/compute_sigmas.html#t3tools.probing.compute_sigmas">built-in function</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     t3tools.probing.compute_tau_tildes()
 
@@ -720,6 +746,8 @@
         <li><a href="autoapi/t3tools/tucker_tensor_train/index.html#module-t3tools.tucker_tensor_train">module</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     t3tools.tucker_tensor_train.check_t3()
 
@@ -763,10 +791,10 @@
 </li>
       </ul></li>
       <li>
-    t3tools.tucker_tensor_train.pad_ranks()
+    t3tools.tucker_tensor_train.pad_t3()
 
       <ul>
-        <li><a href="autoapi/t3tools/tucker_tensor_train/pad_ranks.html#t3tools.tucker_tensor_train.pad_ranks">built-in function</a>
+        <li><a href="autoapi/t3tools/tucker_tensor_train/pad_t3.html#t3tools.tucker_tensor_train.pad_t3">built-in function</a>
 </li>
       </ul></li>
       <li>
@@ -965,6 +993,104 @@
 
       <ul>
         <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/index.html#module-t3tools.uniform_tucker_tensor_train">module</a>
+</li>
+      </ul></li>
+      <li>
+    t3tools.uniform_tucker_tensor_train.apply_masks()
+
+      <ul>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/apply_masks.html#t3tools.uniform_tucker_tensor_train.apply_masks">built-in function</a>
+</li>
+      </ul></li>
+      <li>
+    t3tools.uniform_tucker_tensor_train.construct_ut3_base_representations()
+
+      <ul>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/construct_ut3_base_representations.html#t3tools.uniform_tucker_tensor_train.construct_ut3_base_representations">built-in function</a>
+</li>
+      </ul></li>
+      <li>
+    t3tools.uniform_tucker_tensor_train.left_orthogonalize_utt()
+
+      <ul>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/left_orthogonalize_utt.html#t3tools.uniform_tucker_tensor_train.left_orthogonalize_utt">built-in function</a>
+</li>
+      </ul></li>
+      <li>
+    t3tools.uniform_tucker_tensor_train.make_ut3_masks()
+
+      <ul>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/make_ut3_masks.html#t3tools.uniform_tucker_tensor_train.make_ut3_masks">built-in function</a>
+</li>
+      </ul></li>
+      <li>
+    t3tools.uniform_tucker_tensor_train.orthogonalize_ut3_basis_cores()
+
+      <ul>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/orthogonalize_ut3_basis_cores.html#t3tools.uniform_tucker_tensor_train.orthogonalize_ut3_basis_cores">built-in function</a>
+</li>
+      </ul></li>
+      <li>
+    t3tools.uniform_tucker_tensor_train.right_orthogonalize_utt()
+
+      <ul>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/right_orthogonalize_utt.html#t3tools.uniform_tucker_tensor_train.right_orthogonalize_utt">built-in function</a>
+</li>
+      </ul></li>
+      <li>
+    t3tools.uniform_tucker_tensor_train.t3_to_ut3()
+
+      <ul>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/t3_to_ut3.html#t3tools.uniform_tucker_tensor_train.t3_to_ut3">built-in function</a>
+</li>
+      </ul></li>
+      <li>
+    t3tools.uniform_tucker_tensor_train.ut3_attached_tangent_vector_to_ut3()
+
+      <ul>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/ut3_attached_tangent_vector_to_ut3.html#t3tools.uniform_tucker_tensor_train.ut3_attached_tangent_vector_to_ut3">built-in function</a>
+</li>
+      </ul></li>
+      <li>
+    t3tools.uniform_tucker_tensor_train.ut3_project_dense_tensor_onto_tangent_space()
+
+      <ul>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/ut3_project_dense_tensor_onto_tangent_space.html#t3tools.uniform_tucker_tensor_train.ut3_project_dense_tensor_onto_tangent_space">built-in function</a>
+</li>
+      </ul></li>
+      <li>
+    t3tools.uniform_tucker_tensor_train.ut3_retract()
+
+      <ul>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/ut3_retract.html#t3tools.uniform_tucker_tensor_train.ut3_retract">built-in function</a>
+</li>
+      </ul></li>
+      <li>
+    t3tools.uniform_tucker_tensor_train.ut3_svd_masked()
+
+      <ul>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/ut3_svd_masked.html#t3tools.uniform_tucker_tensor_train.ut3_svd_masked">built-in function</a>
+</li>
+      </ul></li>
+      <li>
+    t3tools.uniform_tucker_tensor_train.ut3_tangent_vector_to_ut3()
+
+      <ul>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/ut3_tangent_vector_to_ut3.html#t3tools.uniform_tucker_tensor_train.ut3_tangent_vector_to_ut3">built-in function</a>
+</li>
+      </ul></li>
+      <li>
+    t3tools.uniform_tucker_tensor_train.ut3_to_dense()
+
+      <ul>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/ut3_to_dense.html#t3tools.uniform_tucker_tensor_train.ut3_to_dense">built-in function</a>
+</li>
+      </ul></li>
+      <li>
+    t3tools.uniform_tucker_tensor_train.ut3_to_t3()
+
+      <ul>
+        <li><a href="autoapi/t3tools/uniform_tucker_tensor_train/ut3_to_t3.html#t3tools.uniform_tucker_tensor_train.ut3_to_t3">built-in function</a>
 </li>
       </ul></li>
       <li><a href="autoapi/t3tools/manifold/index.html#t3tools.manifold.T3Variation">T3Variation (in module t3tools.manifold)</a>

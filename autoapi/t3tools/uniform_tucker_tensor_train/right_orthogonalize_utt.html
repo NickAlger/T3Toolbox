@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3tools.tucker_tensor_train.compute_minimal_ranks &#8212; TuckerTensorTrainTools 0.1 documentation</title>
+    <title>t3tools.uniform_tucker_tensor_train.right_orthogonalize_utt &#8212; TuckerTensorTrainTools 0.1 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/agogo.css?v=08520df9" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
@@ -15,17 +15,17 @@
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3tools.tucker_tensor_train.pad_t3" href="pad_t3.html" />
-    <link rel="prev" title="t3tools.tucker_tensor_train.t3_entry" href="t3_entry.html" /> 
+    <link rel="next" title="t3tools.uniform_tucker_tensor_train.orthogonalize_ut3_basis_cores" href="orthogonalize_ut3_basis_cores.html" />
+    <link rel="prev" title="t3tools.uniform_tucker_tensor_train.left_orthogonalize_utt" href="left_orthogonalize_utt.html" /> 
   </head><body>
     <div class="header-wrapper" role="banner">
       <div class="header">
         <div class="headertitle"><a
           href="../../../index.html">TuckerTensorTrainTools 0.1 documentation</a></div>
         <div class="rel" role="navigation" aria-label="Related">
-          <a href="t3_entry.html" title="t3tools.tucker_tensor_train.t3_entry"
+          <a href="left_orthogonalize_utt.html" title="t3tools.uniform_tucker_tensor_train.left_orthogonalize_utt"
              accesskey="P">previous</a> |
-          <a href="pad_t3.html" title="t3tools.tucker_tensor_train.pad_t3"
+          <a href="orthogonalize_ut3_basis_cores.html" title="t3tools.uniform_tucker_tensor_train.orthogonalize_ut3_basis_cores"
              accesskey="N">next</a> |
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |
@@ -43,13 +43,12 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <section id="t3tools-tucker-tensor-train-compute-minimal-ranks">
-<h1>t3tools.tucker_tensor_train.compute_minimal_ranks<a class="headerlink" href="#t3tools-tucker-tensor-train-compute-minimal-ranks" title="Link to this heading">¶</a></h1>
+  <section id="t3tools-uniform-tucker-tensor-train-right-orthogonalize-utt">
+<h1>t3tools.uniform_tucker_tensor_train.right_orthogonalize_utt<a class="headerlink" href="#t3tools-uniform-tucker-tensor-train-right-orthogonalize-utt" title="Link to this heading">¶</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3tools.tucker_tensor_train.compute_minimal_ranks">
-<span class="sig-prename descclassname"><span class="pre">t3tools.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">compute_minimal_ranks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">structure</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#t3tools.tucker_tensor_train.T3Structure" title="t3tools.tucker_tensor_train.T3Structure"><span class="pre">T3Structure</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3tools.tucker_tensor_train.compute_minimal_ranks" title="Link to this definition">¶</a></dt>
-<dd><p>Find minimal ranks for a TuckerTensorTrain with a given structure. (remove useless rank)</p>
-</dd></dl>
+<dt class="sig sig-object py" id="t3tools.uniform_tucker_tensor_train.right_orthogonalize_utt">
+<span class="sig-prename descclassname"><span class="pre">t3tools.uniform_tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">right_orthogonalize_utt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tt_cores</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">jax.numpy.ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">jax.numpy.ndarray</span></span></span><a class="headerlink" href="#t3tools.uniform_tucker_tensor_train.right_orthogonalize_utt" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
 
 </section>
 
@@ -70,10 +69,10 @@
 <li class="toctree-l4"><a class="reference internal" href="../dense/index.html">t3tools.dense</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../manifold/index.html">t3tools.manifold</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../probing/index.html">t3tools.probing</a></li>
-<li class="toctree-l4 current"><a class="reference internal" href="index.html">t3tools.tucker_tensor_train</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/index.html">t3tools.tucker_tensor_train</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../uniform_manifold/index.html">t3tools.uniform_manifold</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../uniform_probing/index.html">t3tools.uniform_probing</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../uniform_tucker_tensor_train/index.html">t3tools.uniform_tucker_tensor_train</a></li>
+<li class="toctree-l4 current"><a class="reference internal" href="index.html">t3tools.uniform_tucker_tensor_train</a></li>
 </ul>
 </li>
 </ul>
@@ -99,9 +98,9 @@
       <div class="footer">
         <div class="left">
           <div role="navigation" aria-label="Related">
-            <a href="t3_entry.html" title="t3tools.tucker_tensor_train.t3_entry"
+            <a href="left_orthogonalize_utt.html" title="t3tools.uniform_tucker_tensor_train.left_orthogonalize_utt"
               >previous</a> |
-            <a href="pad_t3.html" title="t3tools.tucker_tensor_train.pad_t3"
+            <a href="orthogonalize_ut3_basis_cores.html" title="t3tools.uniform_tucker_tensor_train.orthogonalize_ut3_basis_cores"
               >next</a> |
             <a href="../../../py-modindex.html" title="Python Module Index"
               >modules</a> |
@@ -110,7 +109,7 @@
           </div>
           <div role="note" aria-label="source link">
               <br/>
-              <a href="../../../_sources/autoapi/t3tools/tucker_tensor_train/compute_minimal_ranks.rst.txt"
+              <a href="../../../_sources/autoapi/t3tools/uniform_tucker_tensor_train/right_orthogonalize_utt.rst.txt"
                 rel="nofollow">Show Source</a>
           </div>
         </div>

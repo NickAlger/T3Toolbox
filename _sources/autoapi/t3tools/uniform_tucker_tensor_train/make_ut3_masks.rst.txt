@@ -1,0 +1,4 @@
+t3tools.uniform_tucker_tensor_train.make_ut3_masks
+==================================================
+
+.. py:function:: t3tools.uniform_tucker_tensor_train.make_ut3_masks(padded_N: int, padded_tucker_rank: int, padded_tt_rank: int, unpadded_shape: Sequence[int], unpadded_tucker_ranks: Sequence[int], unpadded_tt_ranks: Sequence[int]) -> Tuple[jax.numpy.ndarray, jax.numpy.ndarray, jax.numpy.ndarray]

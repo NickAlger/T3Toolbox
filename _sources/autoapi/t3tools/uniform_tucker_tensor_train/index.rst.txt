@@ -4,3 +4,42 @@ t3tools.uniform_tucker_tensor_train
 .. py:module:: t3tools.uniform_tucker_tensor_train
 
 
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3tools/uniform_tucker_tensor_train/t3_to_ut3
+   /autoapi/t3tools/uniform_tucker_tensor_train/ut3_to_t3
+   /autoapi/t3tools/uniform_tucker_tensor_train/ut3_tangent_vector_to_ut3
+   /autoapi/t3tools/uniform_tucker_tensor_train/ut3_attached_tangent_vector_to_ut3
+   /autoapi/t3tools/uniform_tucker_tensor_train/left_orthogonalize_utt
+   /autoapi/t3tools/uniform_tucker_tensor_train/right_orthogonalize_utt
+   /autoapi/t3tools/uniform_tucker_tensor_train/orthogonalize_ut3_basis_cores
+   /autoapi/t3tools/uniform_tucker_tensor_train/ut3_svd_masked
+   /autoapi/t3tools/uniform_tucker_tensor_train/ut3_retract
+   /autoapi/t3tools/uniform_tucker_tensor_train/construct_ut3_base_representations
+   /autoapi/t3tools/uniform_tucker_tensor_train/make_ut3_masks
+   /autoapi/t3tools/uniform_tucker_tensor_train/apply_masks
+   /autoapi/t3tools/uniform_tucker_tensor_train/ut3_to_dense
+   /autoapi/t3tools/uniform_tucker_tensor_train/ut3_project_dense_tensor_onto_tangent_space
+
+.. autoapisummary::
+
+   t3tools.uniform_tucker_tensor_train.t3_to_ut3
+   t3tools.uniform_tucker_tensor_train.ut3_to_t3
+   t3tools.uniform_tucker_tensor_train.ut3_tangent_vector_to_ut3
+   t3tools.uniform_tucker_tensor_train.ut3_attached_tangent_vector_to_ut3
+   t3tools.uniform_tucker_tensor_train.left_orthogonalize_utt
+   t3tools.uniform_tucker_tensor_train.right_orthogonalize_utt
+   t3tools.uniform_tucker_tensor_train.orthogonalize_ut3_basis_cores
+   t3tools.uniform_tucker_tensor_train.ut3_svd_masked
+   t3tools.uniform_tucker_tensor_train.ut3_retract
+   t3tools.uniform_tucker_tensor_train.construct_ut3_base_representations
+   t3tools.uniform_tucker_tensor_train.make_ut3_masks
+   t3tools.uniform_tucker_tensor_train.apply_masks
+   t3tools.uniform_tucker_tensor_train.ut3_to_dense
+   t3tools.uniform_tucker_tensor_train.ut3_project_dense_tensor_onto_tangent_space
+
+

@@ -109,7 +109,7 @@ Tucker tensor trains consist of a Tucker decomposition composed with a tensor tr
 
 - Gi and Bi are *cores*, which are smaller tensors that are being contracted with each other to form a larger tensor.
 - Edges in the network indicate contraction of adjacent cores.
-- Ni, ni, ri, written next to edges, indicate the size of the edge (its "bandwidth", you might say).
+- Natural numbers Ni, ni, ri, written next to edges, indicate the size of the edge (its "bandwidth", you might say).
 
 The Tucker tensor train with d indices is represented as a Tuple of cores, ((B0,...,Bd), (G0,...,Gd)).
 	- Bi are the *basis cores*, which are matrices with shape (ni, Ni)
