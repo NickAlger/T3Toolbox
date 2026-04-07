@@ -1,16 +1,16 @@
-t3tools.uniform_tucker_tensor_train.ut3_add
+t3tools.uniform_tucker_tensor_train.ut3_sub
 ===========================================
 
-.. py:function:: t3tools.uniform_tucker_tensor_train.ut3_add(x: UniformTuckerTensorTrain, y: UniformTuckerTensorTrain, use_jax: bool = False) -> UniformTuckerTensorTrain
+.. py:function:: t3tools.uniform_tucker_tensor_train.ut3_sub(x: UniformTuckerTensorTrain, y: UniformTuckerTensorTrain, use_jax: bool = False) -> UniformTuckerTensorTrain
 
-   Add two UniformTuckerTensorTrains, x,y -> x+y.
+   Subtract two UniformTuckerTensorTrains, x,y -> x-y.
 
-   :param x: First summand
+   :param x: First uniform Tensor train
    :type x: UniformTuckerTensorTrain
-   :param y: Second summand
+   :param y: Second uniform Tensor train
    :type y: UniformTuckerTensorTrain
 
-   :returns: Sum, x+y
+   :returns: Difference, x-y
    :rtype: UniformTuckerTensorTrain
 
    .. rubric:: Examples
@@ -22,10 +22,10 @@ t3tools.uniform_tucker_tensor_train.ut3_add
    >>> uniform_x = ut3.t3_to_ut3(x)
    >>> y = t3.t3_corewise_randn(((14,15,16), (6,7,8), (3,5,6,1)))
    >>> uniform_y = ut3.t3_to_ut3(y)
-   >>> uniform_x_plus_y = ut3.ut3_add(uniform_x, uniform_y) # add x+y
+   >>> uniform_x_minus_y = ut3.ut3_sub(uniform_x, uniform_y) # subtract x-y
    >>> dense_x = t3.t3_to_dense(x)
    >>> dense_y = t3.t3_to_dense(y)
-   >>> dense_x_plus_y = ut3.ut3_to_dense(uniform_x_plus_y)
-   >>> print(np.linalg.norm(dense_x + dense_y - dense_x_plus_y))
+   >>> dense_x_minus_y = ut3.ut3_to_dense(uniform_x_minus_y)
+   >>> print(np.linalg.norm(dense_x - dense_y - dense_x_minus_y))
    0.0
 

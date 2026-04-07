@@ -23,6 +23,9 @@ Functions
    /autoapi/t3tools/uniform_tucker_tensor_train/t3_to_ut3
    /autoapi/t3tools/uniform_tucker_tensor_train/ut3_to_t3
    /autoapi/t3tools/uniform_tucker_tensor_train/ut3_add
+   /autoapi/t3tools/uniform_tucker_tensor_train/ut3_scale
+   /autoapi/t3tools/uniform_tucker_tensor_train/ut3_neg
+   /autoapi/t3tools/uniform_tucker_tensor_train/ut3_sub
 
 .. autoapisummary::
 
@@ -31,6 +34,9 @@ Functions
    t3tools.uniform_tucker_tensor_train.t3_to_ut3
    t3tools.uniform_tucker_tensor_train.ut3_to_t3
    t3tools.uniform_tucker_tensor_train.ut3_add
+   t3tools.uniform_tucker_tensor_train.ut3_scale
+   t3tools.uniform_tucker_tensor_train.ut3_neg
+   t3tools.uniform_tucker_tensor_train.ut3_sub
 
 
 Module Contents

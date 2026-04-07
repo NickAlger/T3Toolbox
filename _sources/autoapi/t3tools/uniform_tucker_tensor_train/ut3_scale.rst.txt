@@ -1,0 +1,29 @@
+t3tools.uniform_tucker_tensor_train.ut3_scale
+=============================================
+
+.. py:function:: t3tools.uniform_tucker_tensor_train.ut3_scale(x: UniformTuckerTensorTrain, s, use_jax: bool = False) -> UniformTuckerTensorTrain
+
+   Scale a uniform Tucker tensor train, s,x -> s*x.
+
+   :param x: Original uniform Tucker tensor train
+   :type x: UniformTuckerTensorTrain
+   :param s: Scaling factor
+   :type s: scalar
+
+   :returns: Scaled uniform Tucker tensor train, s*x
+   :rtype: UniformTuckerTensorTrain
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> import t3tools.uniform_tucker_tensor_train as ut3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (2,3,2,2)))
+   >>> uniform_x = ut3.t3_to_ut3(x)
+   >>> s = 3.5
+   >>> uniform_sx = ut3.ut3_scale(uniform_x, s) # scale x
+   >>> dense_x = t3.t3_to_dense(x)
+   >>> dense_sx = ut3.ut3_to_dense(uniform_sx)
+   >>> print(np.linalg.norm(s*dense_x - dense_sx))
+   1.4502362601421634e-12
+
