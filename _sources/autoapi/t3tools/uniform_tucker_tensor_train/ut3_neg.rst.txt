@@ -17,10 +17,10 @@ t3tools.uniform_tucker_tensor_train.ut3_neg
    >>> import t3tools.tucker_tensor_train as t3
    >>> import t3tools.uniform_tucker_tensor_train as ut3
    >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (2,3,2,2)))
-   >>> uniform_x = ut3.t3_to_ut3(x)
-   >>> uniform_neg_x = ut3.ut3_neg(uniform_x) # flip x
+   >>> cores, masks = ut3.t3_to_ut3(x)
+   >>> neg_cores = ut3.ut3_neg(cores) # flip x
    >>> dense_x = t3.t3_to_dense(x)
-   >>> dense_neg_x = ut3.ut3_to_dense(uniform_neg_x)
+   >>> dense_neg_x = ut3.ut3_to_dense(neg_cores, masks)
    >>> print(np.linalg.norm(-dense_x - dense_neg_x))
-   1.4502362601421634e-12
+   0.0
 

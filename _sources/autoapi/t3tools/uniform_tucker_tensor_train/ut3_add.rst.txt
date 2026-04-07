@@ -29,7 +29,7 @@ t3tools.uniform_tucker_tensor_train.ut3_add
    >>> x_plus_y_cores, x_plus_y_masks = ut3.ut3_add(x_cores, x_masks, y_cores, y_masks) # add x+y
    >>> dense_x = t3.t3_to_dense(x)
    >>> dense_y = t3.t3_to_dense(y)
-   >>> dense_x_plus_y = ut3.ut3_to_dense(x_cores, x_masks)
+   >>> dense_x_plus_y = ut3.ut3_to_dense(x_plus_y_cores, x_plus_y_masks)
    >>> print(np.linalg.norm(dense_x + dense_y - dense_x_plus_y))
    0.0
 

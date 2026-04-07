@@ -26,10 +26,10 @@ t3tools.uniform_tucker_tensor_train.ut3_sub
    >>> x_cores, x_masks = ut3.t3_to_ut3(x)
    >>> y = t3.t3_corewise_randn(((14,15,16), (6,7,8), (3,5,6,1)))
    >>> y_cores, y_masks = ut3.t3_to_ut3(y)
-   >>> x_plus_y_cores, x_plus_y_masks = ut3.ut3_sub(x_cores, x_masks, y_cores, y_masks) # add x+y
+   >>> x_minus_y_cores, x_minus_y_masks = ut3.ut3_sub(x_cores, x_masks, y_cores, y_masks) # add x+y
    >>> dense_x = t3.t3_to_dense(x)
    >>> dense_y = t3.t3_to_dense(y)
-   >>> dense_x_plus_y = ut3.ut3_to_dense(x_cores, x_masks)
-   >>> print(np.linalg.norm(dense_x - dense_y - dense_x_plus_y))
+   >>> dense_x_minus_y = ut3.ut3_to_dense(x_minus_y_cores, x_minus_y_masks)
+   >>> print(np.linalg.norm(dense_x - dense_y - dense_x_minus_y))
    0.0
 
