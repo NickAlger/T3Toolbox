@@ -31,6 +31,7 @@ __all__ = [
     't3_zeros',
     't3_corewise_randn',
     'compute_minimal_ranks',
+    'are_t3_ranks_minimal',
     'pad_t3',
     't3_save',
     't3_load',
@@ -943,21 +944,20 @@ def t3_entry(
 ########################################################################
 
 def compute_minimal_ranks(
-        structure: T3Structure,
+        s: T3Structure,
 ) -> typ.Tuple[
     typ.Tuple[int,...], # new_tucker_ranks
     typ.Tuple[int,...], # new_tt_ranks
 ]:
-    '''Find minimal ranks for a TuckerTensorTrain with a given structure. (remove useless rank)
+    '''Find minimal ranks for a TuckerTensorTrain with a given structure. (such that there is no useless rank)
 
     Examples
     --------
     >>> import t3tools.tucker_tensor_train as t3
     >>> print(t3.compute_minimal_ranks(((10,11,12,13), (14,15,16,17), (98,99,100,101,102))))
     ((10, 11, 12, 13), (1, 10, 100, 13, 1))
-
     '''
-    shape, tucker_ranks, tt_ranks = structure
+    shape, tucker_ranks, tt_ranks = s
     d = len(shape)
     assert(len(tucker_ranks) == d)
     assert(len(tt_ranks) == d+1)
@@ -988,6 +988,36 @@ def compute_minimal_ranks(
         new_tt_ranks[ii+1] = rR
 
     return tuple(new_tucker_ranks), tuple(new_tt_ranks)
+
+
+def are_t3_ranks_minimal(
+        x: TuckerTensorTrain,
+) -> bool:
+    """Checks if the ranks of a Tucker train are minimal.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> x = t3.t3_corewise_randn(((13,14,15,16), (4,5,6,7), (1,4,9,7,1)))
+    >>> print(t3.are_t3_ranks_minimal(x))
+    True
+
+    Using T3-SVD to make equivalent T3 with minimal ranks:
+
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> x = t3.t3_corewise_randn(((13,14,15,16), (4,5,6,7), (1,99,9,7,1)))
+    >>> print(t3.are_t3_ranks_minimal(x))
+    False
+    >>> x2 = t3.t3_svd(x)[0]
+    >>> print(t3.are_t3_ranks_minimal(x2))
+    True
+    """
+    s = structure(x)
+    _, tucker_ranks, tt_ranks = s
+    minimal_tucker_ranks, minimal_tt_ranks = compute_minimal_ranks(s)
+    return (tucker_ranks == minimal_tucker_ranks) and (tt_ranks == minimal_tt_ranks)
 
 
 def pad_t3(

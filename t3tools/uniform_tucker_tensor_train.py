@@ -20,6 +20,7 @@ __all__ = [
     'original_structure',
     't3_to_ut3',
     'ut3_to_t3',
+    'are_ut3_ranks_minimal',
     # Linear algebra operations:
     'ut3_add',
     'ut3_scale',
@@ -405,6 +406,35 @@ def ut3_to_dense(
     """
     check_ut3(cores, masks)
     return t3.t3_to_dense(ut3_to_t3(cores, masks, use_jax=use_jax), use_jax=use_jax)
+
+
+def are_ut3_ranks_minimal(
+        masks: UniformTuckerTensorTrainMasks,
+) -> bool:
+    """Checks if the ranks of a uniform Tucker train are minimal.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.uniform_tucker_tensor_train as ut3
+    >>> x = t3.t3_corewise_randn(((13,14,15,16), (4,5,6,7), (1,4,9,7,1)))
+    >>> cores, masks = ut3.t3_to_ut3(x)
+    >>> print(ut3.are_ut3_ranks_minimal(masks))
+    True
+
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.uniform_tucker_tensor_train as ut3
+    >>> x = t3.t3_corewise_randn(((13,14,15,16), (4,5,6,7), (1,99,9,7,1)))
+    >>> cores, masks = ut3.t3_to_ut3(x)
+    >>> print(ut3.are_ut3_ranks_minimal(masks))
+    False
+    """
+    s = original_structure(masks)
+    _, tucker_ranks, tt_ranks = s
+    minimal_tucker_ranks, minimal_tt_ranks = t3.compute_minimal_ranks(s)
+    return (tucker_ranks == minimal_tucker_ranks) and (tt_ranks == minimal_tt_ranks)
 
 
 ###################################################
