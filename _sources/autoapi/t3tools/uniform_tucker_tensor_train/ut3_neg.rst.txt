@@ -1,15 +1,15 @@
 t3tools.uniform_tucker_tensor_train.ut3_neg
 ===========================================
 
-.. py:function:: t3tools.uniform_tucker_tensor_train.ut3_neg(x: UniformTuckerTensorTrain, use_jax: bool = False) -> UniformTuckerTensorTrain
+.. py:function:: t3tools.uniform_tucker_tensor_train.ut3_neg(x_cores: UniformTuckerTensorTrainCores, use_jax: bool = False) -> UniformTuckerTensorTrainCores
 
    Flip a uniform Tucker tensor train, x -> -x.
 
-   :param x: Original uniform Tucker tensor train
-   :type x: UniformTuckerTensorTrain
+   :param x_cores: Original uniform Tucker tensor train cores
+   :type x_cores: UniformTuckerTensorTrainCores
 
-   :returns: Flipped uniform Tucker tensor train, -x
-   :rtype: UniformTuckerTensorTrain
+   :returns: Cores for flipped uniform Tucker tensor train, -x
+   :rtype: UniformTuckerTensorTrainCores
 
    .. rubric:: Examples
 

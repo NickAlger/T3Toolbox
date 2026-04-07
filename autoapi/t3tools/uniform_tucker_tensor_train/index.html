@@ -49,8 +49,11 @@
 <h2>Attributes<a class="headerlink" href="#attributes" title="Link to this heading">¶</a></h2>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.uniform_tucker_tensor_train.UniformTuckerTensorTrain" title="t3tools.uniform_tucker_tensor_train.UniformTuckerTensorTrain"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformTuckerTensorTrain</span></code></a></p></td>
-<td><p>Tuple containing supercores and edge masks defining a Uniform Tucker tensor train</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.uniform_tucker_tensor_train.UniformTuckerTensorTrainCores" title="t3tools.uniform_tucker_tensor_train.UniformTuckerTensorTrainCores"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformTuckerTensorTrainCores</span></code></a></p></td>
+<td><p>Tuple containing supercores of a Uniform Tucker tensor train</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3tools.uniform_tucker_tensor_train.UniformTuckerTensorTrainMasks" title="t3tools.uniform_tucker_tensor_train.UniformTuckerTensorTrainMasks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformTuckerTensorTrainMasks</span></code></a></p></td>
+<td><p>Tuple containing edge masks for a Uniform Tucker tensor train</p></td>
 </tr>
 </tbody>
 </table>
@@ -67,22 +70,22 @@
 <tr class="row-even"><td><p><a class="reference internal" href="original_structure.html#t3tools.uniform_tucker_tensor_train.original_structure" title="t3tools.uniform_tucker_tensor_train.original_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">original_structure</span></code></a>(...)</p></td>
 <td><p>Get original (unpadded) structure of a uniform Tucker tensor train.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_to_ut3.html#t3tools.uniform_tucker_tensor_train.t3_to_ut3" title="t3tools.uniform_tucker_tensor_train.t3_to_ut3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_to_ut3</span></code></a>(→ UniformTuckerTensorTrain)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_to_ut3.html#t3tools.uniform_tucker_tensor_train.t3_to_ut3" title="t3tools.uniform_tucker_tensor_train.t3_to_ut3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_to_ut3</span></code></a>(→ Tuple[UniformTuckerTensorTrainCores, ...)</p></td>
 <td><p>Convert TuckerTensorTrain to UniformTuckerTensorTrain.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="ut3_to_t3.html#t3tools.uniform_tucker_tensor_train.ut3_to_t3" title="t3tools.uniform_tucker_tensor_train.ut3_to_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_to_t3</span></code></a>(→ t3tools.tucker_tensor_train.TuckerTensorTrain)</p></td>
 <td><p>Convert UniformTuckerTensorTrain to TuckerTensorTrain.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="ut3_add.html#t3tools.uniform_tucker_tensor_train.ut3_add" title="t3tools.uniform_tucker_tensor_train.ut3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_add</span></code></a>(→ UniformTuckerTensorTrain)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="ut3_add.html#t3tools.uniform_tucker_tensor_train.ut3_add" title="t3tools.uniform_tucker_tensor_train.ut3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_add</span></code></a>(→ Tuple[UniformTuckerTensorTrainCores, ...)</p></td>
 <td><p>Add two UniformTuckerTensorTrains, x,y -&gt; x+y.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ut3_scale.html#t3tools.uniform_tucker_tensor_train.ut3_scale" title="t3tools.uniform_tucker_tensor_train.ut3_scale"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_scale</span></code></a>(→ UniformTuckerTensorTrain)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="ut3_scale.html#t3tools.uniform_tucker_tensor_train.ut3_scale" title="t3tools.uniform_tucker_tensor_train.ut3_scale"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_scale</span></code></a>(→ UniformTuckerTensorTrainCores)</p></td>
 <td><p>Scale a uniform Tucker tensor train, s,x -&gt; s*x.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="ut3_neg.html#t3tools.uniform_tucker_tensor_train.ut3_neg" title="t3tools.uniform_tucker_tensor_train.ut3_neg"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_neg</span></code></a>(→ UniformTuckerTensorTrain)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="ut3_neg.html#t3tools.uniform_tucker_tensor_train.ut3_neg" title="t3tools.uniform_tucker_tensor_train.ut3_neg"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_neg</span></code></a>(→ UniformTuckerTensorTrainCores)</p></td>
 <td><p>Flip a uniform Tucker tensor train, x -&gt; -x.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ut3_sub.html#t3tools.uniform_tucker_tensor_train.ut3_sub" title="t3tools.uniform_tucker_tensor_train.ut3_sub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_sub</span></code></a>(→ UniformTuckerTensorTrain)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="ut3_sub.html#t3tools.uniform_tucker_tensor_train.ut3_sub" title="t3tools.uniform_tucker_tensor_train.ut3_sub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_sub</span></code></a>(→ Tuple[UniformTuckerTensorTrainCores, ...)</p></td>
 <td><p>Subtract two UniformTuckerTensorTrains, x,y -&gt; x-y.</p></td>
 </tr>
 </tbody>
@@ -91,20 +94,20 @@
 <section id="module-contents">
 <h2>Module Contents<a class="headerlink" href="#module-contents" title="Link to this heading">¶</a></h2>
 <dl class="py data">
-<dt class="sig sig-object py" id="t3tools.uniform_tucker_tensor_train.UniformTuckerTensorTrain">
-<span class="sig-prename descclassname"><span class="pre">t3tools.uniform_tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">UniformTuckerTensorTrain</span></span><a class="headerlink" href="#t3tools.uniform_tucker_tensor_train.UniformTuckerTensorTrain" title="Link to this definition">¶</a></dt>
-<dd><p>Tuple containing supercores and edge masks defining a Uniform Tucker tensor train</p>
-<p>UniformTuckerTensor train created by padding the cores of a TuckerTensorTrain
+<dt class="sig sig-object py" id="t3tools.uniform_tucker_tensor_train.UniformTuckerTensorTrainCores">
+<span class="sig-prename descclassname"><span class="pre">t3tools.uniform_tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">UniformTuckerTensorTrainCores</span></span><a class="headerlink" href="#t3tools.uniform_tucker_tensor_train.UniformTuckerTensorTrainCores" title="Link to this definition">¶</a></dt>
+<dd><p>Tuple containing supercores of a Uniform Tucker tensor train</p>
+<p>Uniform Tucker tensor trains are created by padding a Tucker tensor train
 so that the ranks are uniform, then stacking the TT-cores and basis cores into
 “supercores”, which have one more dimension.</p>
-<p>Edge masks are boolean vectors, associated with the edges, which track the padding.</p>
+<p>Padding may be tracked with boolean mask arrays associated with the edges.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>UniformTuckerTensorTrainMasks</p>
 <dl class="simple">
 <dt><strong>Components</strong></dt><dd><ul class="simple">
 <li><p>basis_supercore:      NDArray. shape=(d, n, N).       Stacked padded basis cores</p></li>
 <li><p>tt_supercore:         NDArray. shape=(d, r, n, r).    Stacked padded TT-cores</p></li>
-<li><p>shape_edge_masks:     NDArray. shape=(d,N).   Stacked masks for edges between basis cores and exterior of tensor</p></li>
-<li><p>tucker_edge_masks:    NDArray. shape=(d,n).   Stacked masks for edges between basis cores and adjacent TT-cores</p></li>
-<li><p>tt_edge_masks:        NDArray. shape=(d+1,r). Stacked masks for edges between adjacent TT-cores</p></li>
 </ul>
 </dd>
 <dt>Here:</dt><dd><ul class="simple">
@@ -115,15 +118,53 @@ so that the ranks are uniform, then stacking the TT-cores and basis cores into
 </ul>
 </dd>
 </dl>
+</div>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.uniform_tucker_tensor_train</span> <span class="k">as</span> <span class="nn">ut3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">uniform_x</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">t3_to_ut3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ut3</span><span class="o">.</span><span class="n">padded_structure</span><span class="p">(</span><span class="n">uniform_x</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cores</span><span class="p">,</span> <span class="n">masks</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">t3_to_ut3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ut3</span><span class="o">.</span><span class="n">padded_structure</span><span class="p">(</span><span class="n">cores</span><span class="p">))</span>
 <span class="go">(3, 16, 6, 3)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ut3</span><span class="o">.</span><span class="n">original_structure</span><span class="p">(</span><span class="n">uniform_x</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ut3</span><span class="o">.</span><span class="n">original_structure</span><span class="p">(</span><span class="n">masks</span><span class="p">))</span>
+<span class="go">((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3tools.uniform_tucker_tensor_train.UniformTuckerTensorTrainMasks">
+<span class="sig-prename descclassname"><span class="pre">t3tools.uniform_tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">UniformTuckerTensorTrainMasks</span></span><a class="headerlink" href="#t3tools.uniform_tucker_tensor_train.UniformTuckerTensorTrainMasks" title="Link to this definition">¶</a></dt>
+<dd><p>Tuple containing edge masks for a Uniform Tucker tensor train</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p>UniformTuckerTensorTrainCores</p>
+<dl class="simple">
+<dt><strong>Components</strong></dt><dd><ul class="simple">
+<li><p>shape_masks:  NDArray. shape=(d,N).   Stacked masks for edges between basis cores and exterior of tensor</p></li>
+<li><p>tucker_masks: NDArray. shape=(d,n).   Stacked masks for edges between basis cores and adjacent TT-cores</p></li>
+<li><p>tt_masks:     NDArray. shape=(d+1,r). Stacked masks for edges between adjacent TT-cores</p></li>
+</ul>
+</dd>
+<dt>Here:</dt><dd><ul class="simple">
+<li><p>d = num_cores</p></li>
+<li><p>N = padded_shape</p></li>
+<li><p>n = padded_tucker_rank</p></li>
+<li><p>r = padded_tt_rank</p></li>
+</ul>
+</dd>
+</dl>
+</div>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.uniform_tucker_tensor_train</span> <span class="k">as</span> <span class="nn">ut3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cores</span><span class="p">,</span> <span class="n">masks</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">t3_to_ut3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ut3</span><span class="o">.</span><span class="n">padded_structure</span><span class="p">(</span><span class="n">cores</span><span class="p">))</span>
+<span class="go">(3, 16, 6, 3)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ut3</span><span class="o">.</span><span class="n">original_structure</span><span class="p">(</span><span class="n">masks</span><span class="p">))</span>
 <span class="go">((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))</span>
 </pre></div>
 </div>

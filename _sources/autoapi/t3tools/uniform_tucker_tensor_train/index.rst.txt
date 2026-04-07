@@ -9,7 +9,8 @@ Attributes
 
 .. autoapisummary::
 
-   t3tools.uniform_tucker_tensor_train.UniformTuckerTensorTrain
+   t3tools.uniform_tucker_tensor_train.UniformTuckerTensorTrainCores
+   t3tools.uniform_tucker_tensor_train.UniformTuckerTensorTrainMasks
 
 
 Functions
@@ -42,28 +43,29 @@ Functions
 Module Contents
 ---------------
 
-.. py:data:: UniformTuckerTensorTrain
+.. py:data:: UniformTuckerTensorTrainCores
 
-   Tuple containing supercores and edge masks defining a Uniform Tucker tensor train
+   Tuple containing supercores of a Uniform Tucker tensor train
 
-   UniformTuckerTensor train created by padding the cores of a TuckerTensorTrain
+   Uniform Tucker tensor trains are created by padding a Tucker tensor train
    so that the ranks are uniform, then stacking the TT-cores and basis cores into
    "supercores", which have one more dimension.
 
-   Edge masks are boolean vectors, associated with the edges, which track the padding.
+   Padding may be tracked with boolean mask arrays associated with the edges.
 
-   **Components**
-       - basis_supercore:      NDArray. shape=(d, n, N).       Stacked padded basis cores
-       - tt_supercore:         NDArray. shape=(d, r, n, r).    Stacked padded TT-cores
-       - shape_edge_masks:     NDArray. shape=(d,N).   Stacked masks for edges between basis cores and exterior of tensor
-       - tucker_edge_masks:    NDArray. shape=(d,n).   Stacked masks for edges between basis cores and adjacent TT-cores
-       - tt_edge_masks:        NDArray. shape=(d+1,r). Stacked masks for edges between adjacent TT-cores
+   .. seealso::
 
-   Here:
-       - d = num_cores
-       - N = padded_shape
-       - n = padded_tucker_rank
-       - r = padded_tt_rank
+      UniformTuckerTensorTrainMasks
+
+      **Components**
+          - basis_supercore:      NDArray. shape=(d, n, N).       Stacked padded basis cores
+          - tt_supercore:         NDArray. shape=(d, r, n, r).    Stacked padded TT-cores
+
+      Here:
+          - d = num_cores
+          - N = padded_shape
+          - n = padded_tucker_rank
+          - r = padded_tt_rank
 
    .. rubric:: Examples
 
@@ -71,9 +73,40 @@ Module Contents
    >>> import t3tools.tucker_tensor_train as t3
    >>> import t3tools.uniform_tucker_tensor_train as ut3
    >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
-   >>> uniform_x = ut3.t3_to_ut3(x)
-   >>> print(ut3.padded_structure(uniform_x))
+   >>> cores, masks = ut3.t3_to_ut3(x)
+   >>> print(ut3.padded_structure(cores))
    (3, 16, 6, 3)
-   >>> print(ut3.original_structure(uniform_x))
+   >>> print(ut3.original_structure(masks))
+   ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
+
+.. py:data:: UniformTuckerTensorTrainMasks
+
+   Tuple containing edge masks for a Uniform Tucker tensor train
+
+   .. seealso::
+
+      UniformTuckerTensorTrainCores
+
+      **Components**
+          - shape_masks:  NDArray. shape=(d,N).   Stacked masks for edges between basis cores and exterior of tensor
+          - tucker_masks: NDArray. shape=(d,n).   Stacked masks for edges between basis cores and adjacent TT-cores
+          - tt_masks:     NDArray. shape=(d+1,r). Stacked masks for edges between adjacent TT-cores
+
+      Here:
+          - d = num_cores
+          - N = padded_shape
+          - n = padded_tucker_rank
+          - r = padded_tt_rank
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> import t3tools.uniform_tucker_tensor_train as ut3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
+   >>> cores, masks = ut3.t3_to_ut3(x)
+   >>> print(ut3.padded_structure(cores))
+   (3, 16, 6, 3)
+   >>> print(ut3.original_structure(masks))
    ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
 

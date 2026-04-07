@@ -1,17 +1,17 @@
 t3tools.uniform_tucker_tensor_train.ut3_scale
 =============================================
 
-.. py:function:: t3tools.uniform_tucker_tensor_train.ut3_scale(x: UniformTuckerTensorTrain, s, use_jax: bool = False) -> UniformTuckerTensorTrain
+.. py:function:: t3tools.uniform_tucker_tensor_train.ut3_scale(x_cores: UniformTuckerTensorTrainCores, s, use_jax: bool = False) -> UniformTuckerTensorTrainCores
 
    Scale a uniform Tucker tensor train, s,x -> s*x.
 
-   :param x: Original uniform Tucker tensor train
-   :type x: UniformTuckerTensorTrain
+   :param x_cores: Original uniform Tucker tensor train cores
+   :type x_cores: UniformTuckerTensorTrainCores
    :param s: Scaling factor
    :type s: scalar
 
-   :returns: Scaled uniform Tucker tensor train, s*x
-   :rtype: UniformTuckerTensorTrain
+   :returns: Cores for scaled uniform Tucker tensor train, s*x
+   :rtype: UniformTuckerTensorTrainCores
 
    .. rubric:: Examples
 
