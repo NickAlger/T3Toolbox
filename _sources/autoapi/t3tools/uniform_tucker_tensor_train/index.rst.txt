@@ -9,8 +9,6 @@ Attributes
 
 .. autoapisummary::
 
-   t3tools.uniform_tucker_tensor_train.jnp
-   t3tools.uniform_tucker_tensor_train.NDArray
    t3tools.uniform_tucker_tensor_train.UniformTuckerTensorTrain
 
 
@@ -35,10 +33,6 @@ Functions
 
 Module Contents
 ---------------
-
-.. py:data:: jnp
-
-.. py:data:: NDArray
 
 .. py:data:: UniformTuckerTensorTrain
 
