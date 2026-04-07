@@ -190,7 +190,7 @@ def check_t3base(
                 + 'basis_cores['+str(ii) + '].shape=' + str(B.shape)
             )
 
-    # Check that outer_tt_cores are 3-tensors with leading and trailing 1 dims
+    # Check that outer_tt_cores are 3-tensors
     for ii, G in enumerate(outer_tt_cores):
         if len(G.shape) != 3:
             raise RuntimeError(
@@ -198,19 +198,7 @@ def check_t3base(
                 + 'outer_tt_cores['+str(ii) + '].shape=' + str(G.shape)
             )
 
-    if outer_tt_cores[0].shape[0] != 1:
-        raise RuntimeError(
-            'First outer_tt_core must have shape (1, . , .).\n'
-            + 'outer_tt_cores[0].shape=' + str(outer_tt_cores[0].shape)
-        )
-
-    if outer_tt_cores[-1].shape[2] != 1:
-        raise RuntimeError(
-            'Last outer_tt_core must have shape ( . , . , 1).\n'
-            + 'outer_tt_cores[-1].shape=' + str(outer_tt_cores[-1].shape)
-        )
-
-    # Check that left_tt_cores are 3-tensors with leading and trailing 1 dims
+    # Check that left_tt_cores are 3-tensors
     for ii, G in enumerate(left_tt_cores):
         if len(G.shape) != 3:
             raise RuntimeError(
@@ -218,37 +206,13 @@ def check_t3base(
                 + 'left_tt_cores['+str(ii) + '].shape=' + str(G.shape)
             )
 
-    if left_tt_cores[0].shape[0] != 1:
-        raise RuntimeError(
-            'First left_tt_core must have shape (1, . , .).\n'
-            + 'left_tt_cores[0].shape=' + str(left_tt_cores[0].shape)
-        )
-
-    if left_tt_cores[-1].shape[2] != 1:
-        raise RuntimeError(
-            'Last left_tt_core must have shape ( . , . , 1).\n'
-            + 'left_tt_cores[-1].shape=' + str(left_tt_cores[-1].shape)
-        )
-
-    # Check that right_tt_cores are 3-tensors with leading and trailing 1 dims
+    # Check that right_tt_cores are 3-tensors
     for ii, G in enumerate(right_tt_cores):
         if len(G.shape) != 3:
             raise RuntimeError(
                 'right_tt_core is not a 3-tensor:\n'
                 + 'right_tt_cores['+str(ii) + '].shape=' + str(G.shape)
             )
-
-    if right_tt_cores[0].shape[0] != 1:
-        raise RuntimeError(
-            'First right_tt_core must have shape (1, . , .).\n'
-            + 'right_tt_cores[0].shape=' + str(right_tt_cores[0].shape)
-        )
-
-    if right_tt_cores[-1].shape[2] != 1:
-        raise RuntimeError(
-            'Last right_tt_core must have shape ( . , . , 1).\n'
-            + 'right_tt_cores[-1].shape=' + str(right_tt_cores[-1].shape)
-        )
 
     # Check outer-left consistency
     for ii in range(1, num_cores):
@@ -349,7 +313,7 @@ def check_t3variation(
                 + 'var_basis_cores['+str(ii) + '].shape=' + str(B.shape)
             )
 
-    # Check that outer_tt_cores are 3-tensors with leading and trailing 1 dims
+    # Check that outer_tt_cores are 3-tensors
     for ii, G in enumerate(var_tt_cores):
         if len(G.shape) != 3:
             raise RuntimeError(
