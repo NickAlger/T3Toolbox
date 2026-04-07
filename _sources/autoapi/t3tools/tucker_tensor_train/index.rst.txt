@@ -101,7 +101,11 @@ Module Contents
    Structure:
        - shape: (N1, ..., Nd)
        - tucker ranks: (n1, ..., nd)
-       - tt ranks: (1, r1, ..., r(d-1), 1)
+       - tt ranks: (r0, r1, ..., r(d-1), rd)
+
+   Note: typically r0=rd=1, and "1" in the diagram is the number 1.
+   However, it is allowed for these ranks to not be 1, in which case
+   the "1"s in the diagram are vectors of ones.
 
    .. rubric:: Examples
 

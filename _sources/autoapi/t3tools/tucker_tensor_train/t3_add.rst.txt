@@ -5,14 +5,14 @@ t3tools.tucker_tensor_train.t3_add
 
    Add TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x+y with summed ranks.
 
-   :param x: First summand. structure=((N1,...,Nd), (n1,...,nd), (1, r1,...,r(d-1),1))
+   :param x: First summand. structure=((N1,...,Nd), (n1,...,nd), (r0, r1,...,rd))
    :type x: TuckerTensorTrain
-   :param y: Second summand. structure=((N1,...,Nd), (m1,...,md), (1, q1,...,q(d-1),1))
+   :param y: Second summand. structure=((N1,...,Nd), (m1,...,md), (q0, q1,...,qd))
    :type y: TuckerTensorTrain
    :param use_jax: If True, returned TuckerTensorTrain cores are jnp.ndaray. Otherwise, np.ndarray. Default: False
    :type use_jax: bool
 
-   :returns: **z** -- Sum of Tucker tensor trains, z=x+y. structure=((N1,...,Nd), (n1+m1,...,nd+md), (1, r1+q1,...,r(d-1)+q(d-1),1))
+   :returns: **z** -- Sum of Tucker tensor trains, z=x+y. structure=((N1,...,Nd), (n1+m1,...,nd+md), (r0+q0, r1+q1,...,rd+qd))
    :rtype: TuckerTensorTrain
 
    :raises RuntimeError: - Error raised if either of the TuckerTensorTrains are internally inconsistent
@@ -24,20 +24,10 @@ t3tools.tucker_tensor_train.t3_add
 
    The basis cores for z are vertically stacked versions of the basis cores for x and y
 
-   The first TT-core for z is a block 1x2x2 tensor, with:
-       - the first TT-core for x in the (0,0,0) block,
-       - the first TT-core for y in the (0,1,1) block,
-       - zeros elsewhere
-
-   Intermediate TT-cores for z are block 2x2x2 tensors, with:
+   TT-cores for z are block 2x2x2 tensors, with:
        - the TT-cores for x in the (0,0,0) block,
        - the TT-cores for y in the (1,1,1) block,
        - zeros elsewhere.
-
-   The last TT-cores for z is a block 2x2x1 tensor, with:
-       - the last TT-core for x in the (0,0,0) block,
-       - the last TT-core for y in the (1,1,0) block,
-       - zeros elsewhere
 
    .. rubric:: Examples
 

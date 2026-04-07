@@ -130,6 +130,25 @@
 <span class="go">    ((14, 15, 16), (3, 3, 2), (1, 2, 2, 1))</span>
 </pre></div>
 </div>
+<p>Example where first and last ranks are not ones:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x2</span><span class="p">,</span> <span class="n">ss_basis</span><span class="p">,</span> <span class="n">ss_tt</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_svd</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="c1"># Compute T3-SVD</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x_dense</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_to_dense</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">contract_ones</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x2_dense</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_to_dense</span><span class="p">(</span><span class="n">x2</span><span class="p">,</span> <span class="n">contract_ones</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x_dense</span> <span class="o">-</span> <span class="n">x2_dense</span><span class="p">))</span> <span class="c1"># Tensor unchanged</span>
+<span class="go">5.486408687260824e-13</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ss_tt0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">x_dense</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span><span class="mi">5</span><span class="o">*</span><span class="mi">6</span><span class="o">*</span><span class="mi">3</span><span class="o">*</span><span class="mi">2</span><span class="p">)))[</span><span class="mi">1</span><span class="p">]</span> <span class="c1"># Singular values of leading unfolding</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ss_tt0</span><span class="p">);</span> <span class="nb">print</span><span class="p">(</span><span class="n">ss_tt</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="go">[303.0474449   88.85034392]</span>
+<span class="go">[303.0474449   88.85034392]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ss_tt3</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">svd</span><span class="p">(</span><span class="n">x_dense</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="mi">2</span><span class="o">*</span><span class="mi">5</span><span class="o">*</span><span class="mi">6</span><span class="o">*</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">)))[</span><span class="mi">1</span><span class="p">]</span> <span class="c1"># Singular values of trailing unfolding</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ss_tt3</span><span class="p">);</span> <span class="nb">print</span><span class="p">(</span><span class="n">ss_tt</span><span class="p">[</span><span class="mi">3</span><span class="p">])</span>
+<span class="go">[299.45433768 100.29574828]</span>
+<span class="go">[299.45433768 100.29574828]</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </section>

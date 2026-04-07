@@ -15,3 +15,13 @@ t3tools.tucker_tensor_train.pad_t3
    >>> print(t3.t3_structure(padded_x))
    ((17, 18, 17), (8, 8, 8), (1, 5, 6, 1))
 
+   Example where first and last ranks are nonzero:
+
+   >>> import numpy as np
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (3,3,2,4)))
+   >>> new_structure = ((17,18,17), (8,8,8), (5,5,6,7))
+   >>> padded_x = t3.pad_t3(x, new_structure)
+   >>> print(t3.t3_structure(padded_x))
+   ((17, 18, 17), (8, 8, 8), (5, 5, 6, 7))
+

@@ -49,3 +49,16 @@ t3tools.tucker_tensor_train.orthogonalize_relative_to_ith_tt_core
    >>> print(np.linalg.norm(np.einsum('aib,cib->ac', XR, XR) - np.eye(G1.shape[2]))) # Right subtree is right orthogonal
    1.180550381921849e-15
 
+   Example where first and last TT-ranks are not 1:
+
+   >>> import numpy as np
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
+   >>> x2 = t3.orthogonalize_relative_to_ith_tt_core(0, x)
+   >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
+   5.4708999671349535e-12
+   >>> ((B0, B1, B2), (G0, G1, G2)) = x2
+   >>> XR = np.einsum('yi,zj,byc,czd->bijd', B1, B2, G1, G2) # Everything to the right of G0
+   >>> print(np.linalg.norm(np.einsum('bijd,cijd->bc', XR, XR) - np.eye(G0.shape[2]))) # Right subtree is right orthogonal
+   8.816596607002667e-16
+

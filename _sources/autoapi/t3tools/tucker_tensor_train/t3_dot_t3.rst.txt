@@ -35,3 +35,14 @@ t3tools.tucker_tensor_train.t3_dot_t3
    >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
    8.731149137020111e-11
 
+   Example where leading and trailing TT-ranks are not 1:
+
+   >>> import numpy as np
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
+   >>> y = t3.t3_corewise_randn(((14,15,16), (3,7,2), (3,5,6,3)))
+   >>> x_dot_y = t3.t3_dot_t3(x, y)
+   >>> x_dot_y2 = np.sum(t3.t3_to_dense(x) * t3.t3_to_dense(y))
+   >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
+   1.3096723705530167e-10
+

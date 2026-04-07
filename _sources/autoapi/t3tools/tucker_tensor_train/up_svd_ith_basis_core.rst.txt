@@ -7,7 +7,7 @@ t3tools.tucker_tensor_train.up_svd_ith_basis_core
 
    :param ii: index of basis core to SVD
    :type ii: int
-   :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
+   :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (r0,r1,...r(d-1),rd))
    :type x: TuckerTensorTrain
    :param min_rank: Minimum rank for truncation.
    :type min_rank: int

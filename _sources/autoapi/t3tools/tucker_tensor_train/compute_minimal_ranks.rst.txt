@@ -5,4 +5,9 @@ t3tools.tucker_tensor_train.compute_minimal_ranks
 
    Find minimal ranks for a TuckerTensorTrain with a given structure. (remove useless rank)
 
+   .. rubric:: Examples
+
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> print(t3.compute_minimal_ranks(((10,11,12,13), (14,15,16,17), (98,99,100,101,102))))
+   ((10, 11, 12, 13), (1, 10, 100, 13, 1))
 

@@ -178,10 +178,13 @@
 <dt>Structure:</dt><dd><ul class="simple">
 <li><p>shape: (N1, …, Nd)</p></li>
 <li><p>tucker ranks: (n1, …, nd)</p></li>
-<li><p>tt ranks: (1, r1, …, r(d-1), 1)</p></li>
+<li><p>tt ranks: (r0, r1, …, r(d-1), rd)</p></li>
 </ul>
 </dd>
 </dl>
+<p>Note: typically r0=rd=1, and “1” in the diagram is the number 1.
+However, it is allowed for these ranks to not be 1, in which case
+the “1”s in the diagram are vectors of ones.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>

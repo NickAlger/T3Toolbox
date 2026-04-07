@@ -52,13 +52,13 @@
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<a class="reference internal" href="index.html#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – First summand. structure=((N1,…,Nd), (n1,…,nd), (1, r1,…,r(d-1),1))</p></li>
-<li><p><strong>y</strong> (<a class="reference internal" href="index.html#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – Second summand. structure=((N1,…,Nd), (m1,…,md), (1, q1,…,q(d-1),1))</p></li>
+<li><p><strong>x</strong> (<a class="reference internal" href="index.html#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – First summand. structure=((N1,…,Nd), (n1,…,nd), (r0, r1,…,rd))</p></li>
+<li><p><strong>y</strong> (<a class="reference internal" href="index.html#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – Second summand. structure=((N1,…,Nd), (m1,…,md), (q0, q1,…,qd))</p></li>
 <li><p><strong>use_jax</strong> (<em>bool</em>) – If True, returned TuckerTensorTrain cores are jnp.ndaray. Otherwise, np.ndarray. Default: False</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><strong>z</strong> – Difference of Tucker tensor trains, z=x-y. structure=((N1,…,Nd), (n1+m1,…,nd+md), (1, r1+q1,…,r(d-1)+q(d-1),1))</p>
+<dd class="field-even"><p><strong>z</strong> – Difference of Tucker tensor trains, z=x-y. structure=((N1,…,Nd), (n1+m1,…,nd+md), (r0+q0, r1+q1, rd+qd))</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="index.html#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain">TuckerTensorTrain</a></p>

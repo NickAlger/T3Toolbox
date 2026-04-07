@@ -48,6 +48,17 @@ t3tools.tucker_tensor_train.t3_apply
    >>> print(np.linalg.norm(result - result2))
    3.1271953680324864e-12
 
+   First and last TT-ranks are not ones:
+
+   >>> import numpy as np
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,4)))
+   >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
+   >>> result = t3.t3_apply(x, vecs)
+   >>> result2 = np.einsum('ijk,ni,nj,nk->n', t3.t3_to_dense(x), vecs[0], vecs[1], vecs[2])
+   >>> print(np.linalg.norm(result - result2))
+   6.481396196459234e-12
+
    Example using jax automatic differentiation:
 
        >>> import numpy as np
@@ -67,6 +78,6 @@ t3tools.tucker_tensor_train.t3_apply
    >>> u1 = u0 + s*du
    >>> Auuu1 = apply_A_sym(u1)
    >>> dAuuu_diff = (Auuu1 - Auuu0) / s # finite difference approximation
-   >>> print(dAuuu_diff)
+   >>> print(dAuuu_diff) #ths same as dAuuu
    766.5390504030256
 

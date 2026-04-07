@@ -45,3 +45,16 @@ t3tools.tucker_tensor_train.orthogonalize_relative_to_ith_basis_core
    >>> print(np.linalg.norm(np.einsum('iyk,iwk->yw', X, X) - np.eye(B1.shape[0]))) # Complement of B1 is orthogonal
    1.7116160385376214e-15
 
+   Example where first and last TT-ranks are not 1:
+
+   >>> import numpy as np
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
+   >>> x2 = t3.orthogonalize_relative_to_ith_basis_core(0, x)
+   >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
+   5.152424496985265e-12
+   >>> ((B0, B1, B2), (G0, G1, G2)) = x2
+   >>> X = np.einsum('yj,zk,axb,byc,czd->axjkd', B1, B2, G0, G1, G2) # Contraction of everything except B0
+   >>> print(np.linalg.norm(np.einsum('axjkd,ayjkd->xy', X, X) - np.eye(B0.shape[0]))) # Complement of B1 is orthogonal
+   2.3594586449868743e-15
+

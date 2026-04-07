@@ -84,3 +84,22 @@ t3tools.tucker_tensor_train.t3_svd
    >>> print(t3.t3_structure(x2))
        ((14, 15, 16), (3, 3, 2), (1, 2, 2, 1))
 
+   Example where first and last ranks are not ones:
+
+   >>> import numpy as np
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> x = t3.t3_corewise_randn(((5,6,3), (4,4,3), (2,3,2,2)))
+   >>> x2, ss_basis, ss_tt = t3.t3_svd(x) # Compute T3-SVD
+   >>> x_dense = t3.t3_to_dense(x, contract_ones=False)
+   >>> x2_dense = t3.t3_to_dense(x2, contract_ones=False)
+   >>> print(np.linalg.norm(x_dense - x2_dense)) # Tensor unchanged
+   5.486408687260824e-13
+   >>> ss_tt0 = np.linalg.svd(x_dense.reshape((2,5*6*3*2)))[1] # Singular values of leading unfolding
+   >>> print(ss_tt0); print(ss_tt[0])
+   [303.0474449   88.85034392]
+   [303.0474449   88.85034392]
+   >>> ss_tt3 = np.linalg.svd(x_dense.reshape((2*5*6*3,2)))[1] # Singular values of trailing unfolding
+   >>> print(ss_tt3); print(ss_tt[3])
+   [299.45433768 100.29574828]
+   [299.45433768 100.29574828]
+

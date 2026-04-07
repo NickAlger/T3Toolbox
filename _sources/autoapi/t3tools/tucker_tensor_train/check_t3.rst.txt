@@ -45,28 +45,6 @@ t3tools.tucker_tensor_train.check_t3
    RuntimeError: Inconsistent TuckerTensorTrain.
    tt_cores[0] is not a 3-tensor. shape=(4, 3)
 
-   (Bad) First TT-rank is not 1:
-
-   >>> import numpy as np
-   >>> import t3tools.tucker_tensor_train as t3
-   >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16))) # First TT-rank is not 1
-   >>> tt_cores = (np.ones((9,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
-   >>> x = (basis_cores, tt_cores)
-   >>> t3.check_t3(x)
-   RuntimeError: Inconsistent TuckerTensorTrain.
-   First TT rank is not one. tt_ranks = (9, 3, 2, 1)
-
-   (Bad) Last TT-rank is not 1:
-
-   >>> import numpy as np
-   >>> import t3tools.tucker_tensor_train as t3
-   >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
-   >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,9))) # Last TT-rank is not 1
-   >>> x = (basis_cores, tt_cores)
-   >>> t3.check_t3(x)
-   RuntimeError: Inconsistent TuckerTensorTrain.
-   Last TT rank is not one. tt_ranks = (1, 3, 2, 9)
-
    (Bad) TT-core shapes inconsistent with each other:
 
    >>> import numpy as np
@@ -89,7 +67,7 @@ t3tools.tucker_tensor_train.check_t3
    RuntimeError: Inconsistent TuckerTensorTrain.
    basis_cores[1] is not a matrix. shape=(5, 15, 3)
 
-   (Bad) Inconsist shapes for basis core and adjacent TT-core
+   (Bad) Inconsistent shapes for basis core and adjacent TT-core
 
    >>> import numpy as np
    >>> import t3tools.tucker_tensor_train as t3

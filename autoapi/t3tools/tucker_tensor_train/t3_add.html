@@ -52,13 +52,13 @@
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<a class="reference internal" href="index.html#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – First summand. structure=((N1,…,Nd), (n1,…,nd), (1, r1,…,r(d-1),1))</p></li>
-<li><p><strong>y</strong> (<a class="reference internal" href="index.html#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – Second summand. structure=((N1,…,Nd), (m1,…,md), (1, q1,…,q(d-1),1))</p></li>
+<li><p><strong>x</strong> (<a class="reference internal" href="index.html#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – First summand. structure=((N1,…,Nd), (n1,…,nd), (r0, r1,…,rd))</p></li>
+<li><p><strong>y</strong> (<a class="reference internal" href="index.html#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – Second summand. structure=((N1,…,Nd), (m1,…,md), (q0, q1,…,qd))</p></li>
 <li><p><strong>use_jax</strong> (<em>bool</em>) – If True, returned TuckerTensorTrain cores are jnp.ndaray. Otherwise, np.ndarray. Default: False</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><strong>z</strong> – Sum of Tucker tensor trains, z=x+y. structure=((N1,…,Nd), (n1+m1,…,nd+md), (1, r1+q1,…,r(d-1)+q(d-1),1))</p>
+<dd class="field-even"><p><strong>z</strong> – Sum of Tucker tensor trains, z=x+y. structure=((N1,…,Nd), (n1+m1,…,nd+md), (r0+q0, r1+q1,…,rd+qd))</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="index.html#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain">TuckerTensorTrain</a></p>
@@ -78,22 +78,10 @@
 <p class="rubric">Notes</p>
 <p>The basis cores for z are vertically stacked versions of the basis cores for x and y</p>
 <dl class="simple">
-<dt>The first TT-core for z is a block 1x2x2 tensor, with:</dt><dd><ul class="simple">
-<li><p>the first TT-core for x in the (0,0,0) block,</p></li>
-<li><p>the first TT-core for y in the (0,1,1) block,</p></li>
-<li><p>zeros elsewhere</p></li>
-</ul>
-</dd>
-<dt>Intermediate TT-cores for z are block 2x2x2 tensors, with:</dt><dd><ul class="simple">
+<dt>TT-cores for z are block 2x2x2 tensors, with:</dt><dd><ul class="simple">
 <li><p>the TT-cores for x in the (0,0,0) block,</p></li>
 <li><p>the TT-cores for y in the (1,1,1) block,</p></li>
 <li><p>zeros elsewhere.</p></li>
-</ul>
-</dd>
-<dt>The last TT-cores for z is a block 2x2x1 tensor, with:</dt><dd><ul class="simple">
-<li><p>the last TT-core for x in the (0,0,0) block,</p></li>
-<li><p>the last TT-core for y in the (1,1,0) block,</p></li>
-<li><p>zeros elsewhere</p></li>
 </ul>
 </dd>
 </dl>
