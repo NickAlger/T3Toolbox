@@ -55,7 +55,7 @@
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><ul class="simple">
-<li><p><em>T3Tangent</em> – Random tangent vector. If base is orthogonal and gauge projection is applied,
+<li><p><em>T3Tangent</em> – Random tangent vector. If base is orthogonal, ranks are minimal, and gauge projection is applied,
 then the random tangent vector is distributed according to
 a standard multivariate distribution on the tangent space.</p></li>
 <li><p><strong>use_jax</strong> (<em>bool</em>) – If True, return jax arrays, if False return numpy. Should update this to use pure jax, rather than converting numpy-&gt;jax.</p></li>
@@ -72,7 +72,7 @@ a standard multivariate distribution on the tangent space.</p></li>
 <p>Apply Gauge projection (default):</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.t3_manifold</span> <span class="k">as</span> <span class="nn">t3m</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.manifold</span> <span class="k">as</span> <span class="nn">t3m</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">p</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">base</span><span class="p">,</span> <span class="n">vars0</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">orthogonal_representations</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_randn</span><span class="p">(</span><span class="n">base</span><span class="p">)</span> <span class="c1"># Random tangent vector, gauged.</span>
@@ -81,7 +81,7 @@ a standard multivariate distribution on the tangent space.</p></li>
 <p>Don’t apply Gauge projection:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.t3_manifold</span> <span class="k">as</span> <span class="nn">t3m</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.manifold</span> <span class="k">as</span> <span class="nn">t3m</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">p</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">base</span><span class="p">,</span> <span class="n">vars0</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">orthogonal_representations</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_randn</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">apply_gauge_projection</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> <span class="c1"># Random tangent vector, ungauged</span>

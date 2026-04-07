@@ -35,7 +35,7 @@ t3tools.manifold.ith_bv_to_t3
    .. rubric:: Examples
 
    >>> import numpy as np
-   >>> import t3tools.t3_manifold as t3m
+   >>> import t3tools.manifold as t3m
    >>> randn = np.random.randn # shorthand
    >>> (U0,U1,U2) = (randn(10, 14), randn(11, 15), randn(12, 16))
    >>> (L0,L1,L2) = (randn(1, 10, 2), randn(2, 11, 3), randn(3, 12, 1))
@@ -47,8 +47,8 @@ t3tools.manifold.ith_bv_to_t3
    >>> variation = ((V0,V1,V2), (H0,H1,H2))
    >>> ((B0, B1, B2), (G0, G1, G2)) = t3m.ith_bv_to_t3(1, True, base, variation) # replace index-1 TT-core
    >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,U1,U2), (L0,H1,R2)))
-       True
+   True
    >>> ((B0, B1, B2), (G0, G1, G2)) = t3m.ith_bv_to_t3(1, False, base, variation) # replace index-1 basis core
    >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,O1,R2)))
-       True
+   True
 

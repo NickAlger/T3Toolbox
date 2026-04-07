@@ -34,7 +34,7 @@ t3tools.manifold.hole_shapes
    .. rubric:: Examples
 
    >>> import numpy as np
-   >>> import t3tools.t3_manifold as t3m
+   >>> import t3tools.manifold as t3m
    >>> basis_cores = (np.ones((10,14)), np.ones((11,15)), np.ones((12,16)))
    >>> left_tt_cores = (np.ones((1,10,2)), np.ones((2,11,3)), np.ones((3,12,1)))
    >>> right_tt_cores = (np.ones((1,10,4)), np.ones((4,11,5)), np.ones((5,12,1)))
