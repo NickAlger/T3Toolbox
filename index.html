@@ -195,11 +195,15 @@ Includes:</p>
 <li><p>z = ((C0,…,Cd), (H0,…,Hd))</p></li>
 </ul>
 </dd>
-<dt>We want</dt><dd><p>z “=” x “+” y</p>
-</dd>
-<dt>to mean the following: if you added the N1 x … x Nd tensor represented by x to the tensor N1 x … x Nd represented by y, then the resulting N1 x … x Nd tensor can be represented by the Tucker tensor train z. I.e.,</dt><dd><p>t3_to_dense(z) = t3_to_dense(x) + t3_to_dense(y).</p>
-</dd>
 </dl>
+<p>We want:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">z</span> <span class="s2">&quot;=&quot;</span> <span class="n">x</span> <span class="s2">&quot;+&quot;</span> <span class="n">y</span>
+</pre></div>
+</div>
+<p>to mean the following: if you added the N1 x … x Nd tensor represented by x to the tensor N1 x … x Nd represented by y, then the resulting N1 x … x Nd tensor can be represented by the Tucker tensor train z. I.e.,:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">t3_to_dense</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="o">=</span> <span class="n">t3_to_dense</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">t3_to_dense</span><span class="p">(</span><span class="n">y</span><span class="p">)</span><span class="o">.</span>
+</pre></div>
+</div>
 <p>We do not mean “add the cores”. E.g., generally
 Ci =/= Ai + Bi.</p>
 </section>
