@@ -18,6 +18,7 @@ __all__ = [
     'UniformTuckerTensorTrainMasks',
     'padded_structure',
     'original_structure',
+    'apply_masks',
     't3_to_ut3',
     'ut3_to_t3',
     'are_ut3_ranks_minimal',
@@ -166,7 +167,6 @@ def check_ut3(
         )
 
 
-
 def padded_structure(
         cores: UniformTuckerTensorTrainCores,
 ) -> typ.Tuple[
@@ -255,6 +255,24 @@ def original_structure(
     ])
 
     return original_shape, original_tucker_ranks, original_tt_ranks
+
+
+def apply_masks(
+        cores: UniformTuckerTensorTrainCores,
+        masks: UniformTuckerTensorTrainMasks,
+) -> UniformTuckerTensorTrainCores: # cores with masks applied
+    """Apply masks to uniform Tucker tensor train cores to zero out superflous entries.
+    """
+    shape_mask, tucker_mask, tt_mask = masks
+    BB, GG = cores
+    BB = jnp.einsum('dao,do->dao', BB, shape_mask)
+    BB = jnp.einsum('dao,da->dao', BB, tucker_mask)
+    GG = jnp.einsum('diaj,di->diaj', GG, tt_mask[:-1])
+    GG = jnp.einsum('diaj,da->diaj', GG, tucker_mask)
+    GG = jnp.einsum('diaj,dj->diaj', GG, tt_mask[1:])
+    masked_cores = (BB, GG)
+    return masked_cores
+
 
 
 def t3_to_ut3(
@@ -652,6 +670,11 @@ def ut3_sub(
     0.0
     """
     return ut3_add(x_cores, x_masks, ut3_neg(y_cores, use_jax=use_jax), y_masks, use_jax=use_jax)
+
+
+###################################################
+#############    Orthogonalization    #############
+###################################################
 
 
 # # # #
@@ -1144,53 +1167,6 @@ def ut3_sub(
 #     ])
 #     masks = (shape_masks, tucker_masks, tt_masks)
 #     return masks
-#
-#
-# @jax.jit
-# def apply_masks(
-#         X: typ.Tuple[
-#             jnp.ndarray, # basis_cores, shape=(d, n, N)
-#             jnp.ndarray, # tt_cores, shape=(d, r, n, r)
-#         ],
-#         masks: typ.Tuple[
-#             jnp.ndarray,  # shape_masks, shape=(d, N)
-#             jnp.ndarray,  # basis_mask, shape=(d, n)
-#             jnp.ndarray,  # tt_mask, shape=(d+1, r)
-#         ],
-# ) -> typ.Tuple[
-#     jnp.ndarray, # masked_basis_cores, shape=(d, n, N)
-#     jnp.ndarray, # masked_tt_cores, shape=(d, r, n, r)
-# ]:
-#     shape_mask, tucker_mask, tt_mask = masks
-#     BB, GG = X
-#     BB = jnp.einsum('dao,do->dao', BB, shape_mask)
-#     BB = jnp.einsum('dao,da->dao', BB, tucker_mask)
-#     GG = jnp.einsum('diaj,di->diaj', GG, tt_mask[:-1])
-#     GG = jnp.einsum('diaj,da->diaj', GG, tucker_mask)
-#     GG = jnp.einsum('diaj,dj->diaj', GG, tt_mask[1:])
-#     return BB, GG
-#
-#
-#
-#
-#
-# def ut3_to_dense(
-#         uniform_t3: typ.Tuple[
-#             jnp.ndarray, # uniform_basis_cores, shape=(d, n, N)
-#             jnp.ndarray, # uniform_tt_cores, shape=(d, r, n, r)
-#         ],
-#         original_shape,
-# ):
-#     uniform_basis_cores, uniform_tt_cores = uniform_t3
-#     d, n, N = uniform_basis_cores.shape
-#     r = uniform_tt_cores.shape[1]
-#
-#     tt_ranks = tuple([1] + [r]*(d-1) + [1])
-#     tucker_ranks = tuple([n]*(d))
-#
-#     t3 = ut3_to_t3(uniform_t3, original_shape, tucker_ranks, tt_ranks)
-#     return t3_to_dense(t3)
-#
 #
 #
 # def ut3_project_dense_tensor_onto_tangent_space(
