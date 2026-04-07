@@ -35,8 +35,7 @@ t3tools.probing.probe_tangent_transpose
    >>> import t3tools.tucker_tensor_train as t3
    >>> import t3tools.manifold as t3m
    >>> import t3tools.probing as t3p
-   >>> import t3tools.dense as dense
-   >>> import t3tools.corewise as cw
+   >>> import t3tools.util as util
    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
    >>> base, _ = t3m.orthogonal_representations(p)
    >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
@@ -44,10 +43,10 @@ t3tools.probing.probe_tangent_transpose
    >>> zz1 = t3p.probe_tangent(v1, ww, base)
    >>> zz2 = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
    >>> v2 = t3p.probe_tangent_transpose(zz2, ww, base)
-   >>> ipA = cw.corewise_dot(v1, v2)
+   >>> ipA = util.corewise_dot(v1, v2)
    >>> print(ipA)
    17.958317927787
-   >>> ipB = cw.corewise_dot(zz1, zz2)
+   >>> ipB = util.corewise_dot(zz1, zz2)
    >>> print(ipB)
    17.958317927787
 
@@ -57,8 +56,7 @@ t3tools.probing.probe_tangent_transpose
    >>> import t3tools.tucker_tensor_train as t3
    >>> import t3tools.manifold as t3m
    >>> import t3tools.probing as t3p
-   >>> import t3tools.dense as dense
-   >>> import t3tools.corewise as cw
+   >>> import t3tools.util as util
    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
    >>> base, _ = t3m.orthogonal_representations(p)
    >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
@@ -66,6 +64,6 @@ t3tools.probing.probe_tangent_transpose
    >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, ww, base)
    >>> v = t3m.tangent_randn(base)
    >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-   >>> print(cw.corewise_dot(z, apply_J(v)) - cw.corewise_dot(apply_Jt(z), v))
+   >>> print(util.corewise_dot(z, apply_J(v)) - util.corewise_dot(apply_Jt(z), v))
    7.105427357601002e-15
 

@@ -124,26 +124,32 @@
 <tr class="row-even"><td><p><a class="reference internal" href="orthogonalize_relative_to_ith_tt_core.html#t3tools.tucker_tensor_train.orthogonalize_relative_to_ith_tt_core" title="t3tools.tucker_tensor_train.orthogonalize_relative_to_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonalize_relative_to_ith_tt_core</span></code></a>(→ TuckerTensorTrain)</p></td>
 <td><p>Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.</p></td>
 </tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_add.html#t3tools.tucker_tensor_train.t3_add" title="t3tools.tucker_tensor_train.t3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_add</span></code></a>(→ TuckerTensorTrain)</p></td>
+<td><p>Add TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x+y with summed ranks.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_scale.html#t3tools.tucker_tensor_train.t3_scale" title="t3tools.tucker_tensor_train.t3_scale"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_scale</span></code></a>(→ TuckerTensorTrain)</p></td>
+<td><p>Scale TuckerTensorTrain x by a scaling factor s.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_neg.html#t3tools.tucker_tensor_train.t3_neg" title="t3tools.tucker_tensor_train.t3_neg"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_neg</span></code></a>(→ TuckerTensorTrain)</p></td>
+<td><p>Scale TuckerTensorTrain x by a scaling factor -1.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_sub.html#t3tools.tucker_tensor_train.t3_sub" title="t3tools.tucker_tensor_train.t3_sub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_sub</span></code></a>(→ TuckerTensorTrain)</p></td>
+<td><p>Subtract TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x-y with summed ranks.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_dot_t3.html#t3tools.tucker_tensor_train.t3_dot_t3" title="t3tools.tucker_tensor_train.t3_dot_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_dot_t3</span></code></a>(x, y[, use_jax])</p></td>
+<td><p>Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains x, y with the same shape, (x, y)_HS.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_norm.html#t3tools.tucker_tensor_train.t3_norm" title="t3tools.tucker_tensor_train.t3_norm"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_norm</span></code></a>(x[, use_orthogonalization, use_jax])</p></td>
+<td><p>Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains x, y with the same shape, (x, y)_HS.</p></td>
+</tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="t3_svd.html#t3tools.tucker_tensor_train.t3_svd" title="t3tools.tucker_tensor_train.t3_svd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_svd</span></code></a>(→ Tuple[TuckerTensorTrain, Tuple[NDArray, ...)</p></td>
 <td><p>Compute (truncated) T3-SVD of TuckerTensorTrain.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_add.html#t3tools.tucker_tensor_train.t3_add" title="t3tools.tucker_tensor_train.t3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_add</span></code></a>(→ TuckerTensorTrain)</p></td>
-<td><p>Add TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x+y with summed ranks.</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="tucker_svd_dense.html#t3tools.tucker_tensor_train.tucker_svd_dense" title="t3tools.tucker_tensor_train.tucker_svd_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tucker_svd_dense</span></code></a>(→ Tuple[Tuple[Tuple[NDArray, ...)</p></td>
+<td><p>Compute Tucker decomposition and matricization singular values for dense tensor.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_scale.html#t3tools.tucker_tensor_train.t3_scale" title="t3tools.tucker_tensor_train.t3_scale"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_scale</span></code></a>(→ TuckerTensorTrain)</p></td>
-<td><p>Scale TuckerTensorTrain x by a scaling factor s.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_neg.html#t3tools.tucker_tensor_train.t3_neg" title="t3tools.tucker_tensor_train.t3_neg"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_neg</span></code></a>(→ TuckerTensorTrain)</p></td>
-<td><p>Scale TuckerTensorTrain x by a scaling factor -1.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_sub.html#t3tools.tucker_tensor_train.t3_sub" title="t3tools.tucker_tensor_train.t3_sub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_sub</span></code></a>(→ TuckerTensorTrain)</p></td>
-<td><p>Subtract TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x-y with summed ranks.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_dot_t3.html#t3tools.tucker_tensor_train.t3_dot_t3" title="t3tools.tucker_tensor_train.t3_dot_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_dot_t3</span></code></a>(x, y[, use_jax])</p></td>
-<td><p>Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains x, y with the same shape, (x, y)_HS.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_norm.html#t3tools.tucker_tensor_train.t3_norm" title="t3tools.tucker_tensor_train.t3_norm"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_norm</span></code></a>(x[, use_orthogonalization, use_jax])</p></td>
-<td><p>Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains x, y with the same shape, (x, y)_HS.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="tt_svd_dense.html#t3tools.tucker_tensor_train.tt_svd_dense" title="t3tools.tucker_tensor_train.tt_svd_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tt_svd_dense</span></code></a>(→ Tuple[Tuple[NDArray, Ellipsis], ...)</p></td>
+<td><p>Compute tensor train (TT) decomposition and unfolding singular values for dense tensor.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="t3_svd_dense.html#t3tools.tucker_tensor_train.t3_svd_dense" title="t3tools.tucker_tensor_train.t3_svd_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_svd_dense</span></code></a>(→ Tuple[TuckerTensorTrain, Tuple[NDArray, ...)</p></td>
 <td><p>Compute TuckerTensorTrain and edge singular values for dense tensor.</p></td>
@@ -268,14 +274,13 @@ the “1”s in the diagram are vectors of ones.</p>
 <li class="toctree-l1 current"><a class="reference internal" href="../../index.html">API Reference</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="../index.html">t3tools</a><ul class="current">
 <li class="toctree-l3 current"><a class="reference internal" href="../index.html#submodules">Submodules</a><ul class="current">
-<li class="toctree-l4"><a class="reference internal" href="../corewise/index.html">t3tools.corewise</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../dense/index.html">t3tools.dense</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../manifold/index.html">t3tools.manifold</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../probing/index.html">t3tools.probing</a></li>
 <li class="toctree-l4 current"><a class="current reference internal" href="#">t3tools.tucker_tensor_train</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../uniform_manifold/index.html">t3tools.uniform_manifold</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../uniform_probing/index.html">t3tools.uniform_probing</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../uniform_tucker_tensor_train/index.html">t3tools.uniform_tucker_tensor_train</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../util/index.html">t3tools.util</a></li>
 </ul>
 </li>
 </ul>

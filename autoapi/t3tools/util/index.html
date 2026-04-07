@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>t3tools.util &#8212; TuckerTensorTrainTools 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/agogo.css?v=08520df9" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
+    <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
+    <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="icon" href="../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="t3tools.util.numpy_scan" href="numpy_scan.html" />
+    <link rel="prev" title="t3tools.uniform_tucker_tensor_train.ut3_sub" href="../uniform_tucker_tensor_train/ut3_sub.html" /> 
+  </head><body>
+    <div class="header-wrapper" role="banner">
+      <div class="header">
+        <div class="headertitle"><a
+          href="../../../index.html">TuckerTensorTrainTools 0.1 documentation</a></div>
+        <div class="rel" role="navigation" aria-label="Related">
+          <a href="../uniform_tucker_tensor_train/ut3_sub.html" title="t3tools.uniform_tucker_tensor_train.ut3_sub"
+             accesskey="P">previous</a> |
+          <a href="numpy_scan.html" title="t3tools.util.numpy_scan"
+             accesskey="N">next</a> |
+          <a href="../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |
+          <a href="../../../genindex.html" title="General Index"
+             accesskey="I">index</a>
+        </div>
+       </div>
+    </div>
+
+    <div class="content-wrapper">
+      <div class="content">
+        <div class="document">
+            
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="module-t3tools.util">
+<span id="t3tools-util"></span><h1>t3tools.util<a class="headerlink" href="#module-t3tools.util" title="Link to this heading">¶</a></h1>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
+</div>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="numpy_scan.html#t3tools.util.numpy_scan" title="t3tools.util.numpy_scan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy_scan</span></code></a>(f, init, xs[, length])</p></td>
+<td><p>Numpy version of jax.lax.scan.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="corewise_add.html#t3tools.util.corewise_add" title="t3tools.util.corewise_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">corewise_add</span></code></a>(X, Y)</p></td>
+<td><p>Add nested objects, X,Y -&gt; X+Y.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="corewise_sub.html#t3tools.util.corewise_sub" title="t3tools.util.corewise_sub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">corewise_sub</span></code></a>(X, Y)</p></td>
+<td><p>Subtract nested objects, X,Y -&gt; X-Y.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="corewise_scale.html#t3tools.util.corewise_scale" title="t3tools.util.corewise_scale"><code class="xref py py-obj docutils literal notranslate"><span class="pre">corewise_scale</span></code></a>(X, s)</p></td>
+<td><p>Scale nested objects, X,s -&gt; s*X.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="corewise_neg.html#t3tools.util.corewise_neg" title="t3tools.util.corewise_neg"><code class="xref py py-obj docutils literal notranslate"><span class="pre">corewise_neg</span></code></a>(X)</p></td>
+<td><p>Negate nested objects, X -&gt; -X.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="corewise_dot.html#t3tools.util.corewise_dot" title="t3tools.util.corewise_dot"><code class="xref py py-obj docutils literal notranslate"><span class="pre">corewise_dot</span></code></a>(X, Y[, use_jax])</p></td>
+<td><p>Dot product of nested objects, X,Y -&gt; X.Y.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="corewise_norm.html#t3tools.util.corewise_norm" title="t3tools.util.corewise_norm"><code class="xref py py-obj docutils literal notranslate"><span class="pre">corewise_norm</span></code></a>(X[, use_jax])</p></td>
+<td><p>Norm of nested objects, X -&gt; ||X||</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="truncated_svd.html#t3tools.util.truncated_svd" title="t3tools.util.truncated_svd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">truncated_svd</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
+<td><p>Compute (truncated) singular value decomposition of matrix.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="left_svd_3tensor.html#t3tools.util.left_svd_3tensor" title="t3tools.util.left_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_3tensor</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
+<td><p>Compute (truncated) singular value decomposition of 3-tensor left unfolding.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="right_svd_3tensor.html#t3tools.util.right_svd_3tensor" title="t3tools.util.right_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd_3tensor</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
+<td><p>Compute (truncated) singular value decomposition of 3-tensor right unfolding.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="outer_svd_3tensor.html#t3tools.util.outer_svd_3tensor" title="t3tools.util.outer_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">outer_svd_3tensor</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
+<td><p>Compute (truncated) singular value decomposition of 3-tensor outer unfolding.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="probe_dense.html#t3tools.util.probe_dense" title="t3tools.util.probe_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">probe_dense</span></code></a>(→ Tuple[NDArray])</p></td>
+<td><p>Probe a dense tensor.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+        </div>
+        <div class="sidebar">
+          
+          <h3>Table of Contents</h3>
+          <ul class="current">
+<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">API Reference</a><ul class="current">
+<li class="toctree-l2 current"><a class="reference internal" href="../index.html">t3tools</a><ul class="current">
+<li class="toctree-l3 current"><a class="reference internal" href="../index.html#submodules">Submodules</a><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="../manifold/index.html">t3tools.manifold</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../probing/index.html">t3tools.probing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/index.html">t3tools.tucker_tensor_train</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../uniform_manifold/index.html">t3tools.uniform_manifold</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../uniform_probing/index.html">t3tools.uniform_probing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../uniform_tucker_tensor_train/index.html">t3tools.uniform_tucker_tensor_train</a></li>
+<li class="toctree-l4 current"><a class="current reference internal" href="#">t3tools.util</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+          <search role="search">
+            <h3 style="margin-top: 1.5em;">Search</h3>
+            <form class="search" action="../../../search.html" method="get">
+                <input type="text" name="q" />
+                <input type="submit" value="Go" />
+            </form>
+          </search>
+
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+    <div class="footer-wrapper">
+      <div class="footer">
+        <div class="left">
+          <div role="navigation" aria-label="Related">
+            <a href="../uniform_tucker_tensor_train/ut3_sub.html" title="t3tools.uniform_tucker_tensor_train.ut3_sub"
+              >previous</a> |
+            <a href="numpy_scan.html" title="t3tools.util.numpy_scan"
+              >next</a> |
+            <a href="../../../py-modindex.html" title="Python Module Index"
+              >modules</a> |
+            <a href="../../../genindex.html" title="General Index"
+              >index</a>
+          </div>
+          <div role="note" aria-label="source link">
+              <br/>
+              <a href="../../../_sources/autoapi/t3tools/util/index.rst.txt"
+                rel="nofollow">Show Source</a>
+          </div>
+        </div>
+
+        <div class="right">
+          
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2026, Nick Alger and Blake Christierson.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+  </body>
+</html>

@@ -1,0 +1,50 @@
+t3tools.util.right_svd_3tensor
+==============================
+
+.. py:function:: t3tools.util.right_svd_3tensor(G0_i_a_j: NDArray, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> Tuple[NDArray, NDArray, NDArray]
+
+   Compute (truncated) singular value decomposition of 3-tensor right unfolding.
+
+   Last two indices of the tensor are grouped for the SVD.
+
+   G0_i_a_j = einsum('iax,x,xj->ixj', U_i_x, ss_x, Vt_x_a_j).
+   Equality may be approximate if truncation is used.
+
+   :param G0_i_a_j: 3-tensor. shape=(ni, na, nj)
+   :type G0_i_a_j: NDArray
+   :param min_rank: Minimum rank for truncation.
+   :type min_rank: int
+   :param min_rank: Maximum rank for truncation.
+   :type min_rank: int
+   :param rtol: Relative tolerance for truncation.
+   :type rtol: float
+   :param atol: Absolute tolerance for truncation.
+   :type atol: float
+   :param use_jax: If True, use jax operations. Otherwise, numpy. Default: False
+   :type use_jax: bool
+
+   :returns: * **U_i_x** (*NDArray*) -- Left singular vectors. shape=(ni, nx).
+               einsum('ix,iy->xy', U_i_x, U_i_x) = identity matrix
+             * **ss_x** (*NDArray*) -- Singular values. Non-negative. shape=(nx,).
+             * **Vt_x_a_j** (*NDArray*) -- Right singular vectors, reshaped into 3-tensor. shape=(nx, na, nj)
+               einsum('xaj,yaj->xy', Vt_x_a_j, Vt_x_a_j) = identity matrix
+
+   :raises RuntimeError: Error raised if the provided indices in index are inconsistent with each other or the Tucker tensor train x.
+
+   .. seealso:: :py:obj:`truncated_svd`, :py:obj:`left_svd_3tensor`, :py:obj:`outer_svd_3tensor`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`t3_svd`
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3tools.dense as dense
+   >>> G_i_a_j = np.random.randn(5,7,6)
+   >>> U_i_x, ss_x, Vt_x_a_j = dense.right_svd_3tensor(G_i_a_j)
+   >>> G_i_a_j2 = np.einsum('ix,x,xaj->iaj', U_i_x, ss_x, Vt_x_a_j)
+   >>> print(np.linalg.norm(G_i_a_j - G_i_a_j2)) # SVD exact to numerical precision
+   1.2503321403334437e-14
+   >>> rank = len(ss_x)
+   >>> print(np.linalg.norm(np.einsum('ix,iy->xy', U_i_x, U_i_x) - np.eye(rank))) # U is orthogonal
+   1.6591938592301729e-15
+   >>> print(np.linalg.norm(np.einsum('xaj,yaj->xy', Vt_x_a_j, Vt_x_a_j) - np.eye(rank))) # Vt is right-orthogonal
+   1.9466202162000267e-15
+

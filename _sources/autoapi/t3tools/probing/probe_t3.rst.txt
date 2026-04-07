@@ -29,12 +29,12 @@ t3tools.probing.probe_t3
    >>> import numpy as np
    >>> import t3tools.tucker_tensor_train as t3
    >>> import t3tools.probing as t3p
-   >>> import t3tools.dense as dense
+   >>> import t3tools.util as util
    >>> x = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
    >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
    >>> zz = t3p.probe_t3(x, ww)
    >>> x_dense = t3.t3_to_dense(x)
-   >>> zz2 = dense.probe_dense(x_dense, ww)
+   >>> zz2 = util.probe_dense(x_dense, ww)
    >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
    [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
 

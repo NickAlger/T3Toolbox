@@ -100,12 +100,12 @@ the Hilbert-Schmidt inner product on the ambient space:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.manifold</span> <span class="k">as</span> <span class="nn">t3m</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.corewise</span> <span class="k">as</span> <span class="nn">cw</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.util</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">p</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">base</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">orthogonal_representations</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">u</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_randn</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">apply_gauge_projection</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">v</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_randn</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">apply_gauge_projection</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">bad_u_inner_v</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">corewise_dot</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="c1"># u and v are ungauged, so this will not give the right answer</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">bad_u_inner_v</span> <span class="o">=</span> <span class="n">util</span><span class="o">.</span><span class="n">corewise_dot</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="c1"># u and v are ungauged, so this will not give the right answer</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">u_dense</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_to_dense</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">v_dense</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_to_dense</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">u_inner_v_true</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">u_dense</span> <span class="o">*</span> <span class="n">v_dense</span><span class="p">)</span>
@@ -113,7 +113,7 @@ the Hilbert-Schmidt inner product on the ambient space:</p>
 <span class="go">6.21838915941413</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">u_gauged</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">oblique_gauge_projection</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span> <span class="c1"># make them gauged and try again</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">v_gauged</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">oblique_gauge_projection</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">u_inner_v</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">corewise_dot</span><span class="p">(</span><span class="n">u_gauged</span><span class="p">,</span> <span class="n">v_gauged</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">u_inner_v</span> <span class="o">=</span> <span class="n">util</span><span class="o">.</span><span class="n">corewise_dot</span><span class="p">(</span><span class="n">u_gauged</span><span class="p">,</span> <span class="n">v_gauged</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">u_inner_v</span> <span class="o">-</span> <span class="n">u_inner_v_true</span><span class="p">))</span> <span class="c1"># Now the error is numerical zero</span>
 <span class="go">0.0</span>
 </pre></div>
@@ -135,14 +135,13 @@ the Hilbert-Schmidt inner product on the ambient space:</p>
 <li class="toctree-l1 current"><a class="reference internal" href="../../index.html">API Reference</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="../index.html">t3tools</a><ul class="current">
 <li class="toctree-l3 current"><a class="reference internal" href="../index.html#submodules">Submodules</a><ul class="current">
-<li class="toctree-l4"><a class="reference internal" href="../corewise/index.html">t3tools.corewise</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../dense/index.html">t3tools.dense</a></li>
 <li class="toctree-l4 current"><a class="reference internal" href="index.html">t3tools.manifold</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../probing/index.html">t3tools.probing</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/index.html">t3tools.tucker_tensor_train</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../uniform_manifold/index.html">t3tools.uniform_manifold</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../uniform_probing/index.html">t3tools.uniform_probing</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../uniform_tucker_tensor_train/index.html">t3tools.uniform_tucker_tensor_train</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../util/index.html">t3tools.util</a></li>
 </ul>
 </li>
 </ul>

@@ -80,12 +80,12 @@ structure=((N1,…,Nd),(n1,…,nd),(1,r1,…,r(d-1),1))</p></li>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.probing</span> <span class="k">as</span> <span class="nn">t3p</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.dense</span> <span class="k">as</span> <span class="nn">dense</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.util</span> <span class="k">as</span> <span class="nn">util</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">10</span><span class="p">,</span><span class="mi">11</span><span class="p">,</span><span class="mi">12</span><span class="p">),(</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">4</span><span class="p">),(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">2</span><span class="p">)))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">ww</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">11</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">12</span><span class="p">))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">zz</span> <span class="o">=</span> <span class="n">t3p</span><span class="o">.</span><span class="n">probe_t3</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">ww</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x_dense</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_to_dense</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">zz2</span> <span class="o">=</span> <span class="n">dense</span><span class="o">.</span><span class="n">probe_dense</span><span class="p">(</span><span class="n">x_dense</span><span class="p">,</span> <span class="n">ww</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">zz2</span> <span class="o">=</span> <span class="n">util</span><span class="o">.</span><span class="n">probe_dense</span><span class="p">(</span><span class="n">x_dense</span><span class="p">,</span> <span class="n">ww</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">z</span> <span class="o">-</span> <span class="n">z2</span><span class="p">)</span> <span class="k">for</span> <span class="n">z</span><span class="p">,</span> <span class="n">z2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">zz</span><span class="p">,</span> <span class="n">zz2</span><span class="p">)])</span>
 <span class="go">[1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]</span>
 </pre></div>
@@ -107,14 +107,13 @@ structure=((N1,…,Nd),(n1,…,nd),(1,r1,…,r(d-1),1))</p></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../../index.html">API Reference</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="../index.html">t3tools</a><ul class="current">
 <li class="toctree-l3 current"><a class="reference internal" href="../index.html#submodules">Submodules</a><ul class="current">
-<li class="toctree-l4"><a class="reference internal" href="../corewise/index.html">t3tools.corewise</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../dense/index.html">t3tools.dense</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../manifold/index.html">t3tools.manifold</a></li>
 <li class="toctree-l4 current"><a class="reference internal" href="index.html">t3tools.probing</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/index.html">t3tools.tucker_tensor_train</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../uniform_manifold/index.html">t3tools.uniform_manifold</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../uniform_probing/index.html">t3tools.uniform_probing</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../uniform_tucker_tensor_train/index.html">t3tools.uniform_tucker_tensor_train</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../util/index.html">t3tools.util</a></li>
 </ul>
 </li>
 </ul>
