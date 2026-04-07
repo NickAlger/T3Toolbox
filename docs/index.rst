@@ -8,6 +8,7 @@ TuckerTensorTrainTools's documentation
 
 A Python library for working with Tucker tensor trains (T3). 
 Includes:
+
 	- Basic T3 operations (entries, addition, scaling, inner product)
 	- Orthogonalization
 	- T3-SVD
@@ -27,8 +28,6 @@ Contents
 
 .. toctree::
    :maxdepth: 4
-   
-   t3tools
 
 
 Indices and tables
@@ -135,10 +134,15 @@ For example, consider the Tucker tensor trains:
 	* x = ((A0,...,Ad), (F0,...,Fd))
 	* y = ((B0,...,Bd), (G0,...,Gd))
 	* z = ((C0,...,Cd), (H0,...,Hd))
-We want
+	
+We want::
+
 	z "=" x "+" y
-to mean the following: if you added the N1 x ... x Nd tensor represented by x to the tensor N1 x ... x Nd represented by y, then the resulting N1 x ... x Nd tensor can be represented by the Tucker tensor train z. I.e.,
+	
+to mean the following: if you added the N1 x ... x Nd tensor represented by x to the tensor N1 x ... x Nd represented by y, then the resulting N1 x ... x Nd tensor can be represented by the Tucker tensor train z. I.e.,::
+
 	t3_to_dense(z) = t3_to_dense(x) + t3_to_dense(y).
+	
 We do not mean "add the cores". E.g., generally
 Ci =/= Ai + Bi.
 
