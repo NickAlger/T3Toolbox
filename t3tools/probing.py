@@ -39,7 +39,10 @@ __all__ = [
     'probe_tangent_transpose',
 ]
 
-#
+
+#####################################################
+########    Probing a Tucker Tensor Train    ########
+#####################################################
 
 def probe_t3(
         x:      t3.TuckerTensorTrain, # structure=((N1,...,Nd),(n1,...,nd),(1,r1,...,r(d-1),1))
@@ -83,15 +86,15 @@ def probe_t3(
     --------
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.t3_probing as t3p
+    >>> import t3tools.probing as t3p
     >>> import t3tools.dense as dense
-    >>> x = t3.t3_corewise_randn(((10,11,12),(5,6,4),(1,3,4,1)))
+    >>> x = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> zz = t3p.probe_t3(x, ww)
     >>> x_dense = t3.t3_to_dense(x)
     >>> zz2 = dense.dense_probes(x_dense, ww)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
-    [1.3259763141008934e-13, 2.6471889228499147e-13, 2.4290827307404746e-13]
+    [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
     '''
     shape = t3.t3_structure(x)[0]
     assert(len(ww) == len(shape))
@@ -201,7 +204,7 @@ def compute_mus(
 
     num_probes = xis[0].shape[0]
     num_cores = len(xis)
-    mus = [xnp.ones((num_probes, 1))]
+    mus = [xnp.ones((num_probes, left_tt_cores[0].shape[0]))]
     for ii in range(num_cores):
         P = left_tt_cores[ii]
         xi = xis[ii]
@@ -341,7 +344,10 @@ def assemble_probes(
     xnp = jnp if use_jax else np
     return tuple([xnp.einsum('pa,ao->po', eta, U) for U, eta in zip(basis_cores, etas)])
 
-###
+
+#####################################################
+###########    Probing a tangent vector    ##########
+#####################################################
 
 def compute_dxis(
         var_basis_cores: typ.Sequence[NDArray], # len=d. elm_shape=(nOi,Ni)
@@ -402,7 +408,7 @@ def compute_sigmas(
     num_cores = len(xis)
     num_probes = xis[0].shape[0]
 
-    sigmas = [xnp.zeros((num_probes,1))]
+    sigmas = [xnp.zeros((num_probes, right_tt_cores[0].shape[0]))]
     for ii in range(num_cores):
         Q = right_tt_cores[ii]
         O = outer_tt_cores[ii]
@@ -598,10 +604,10 @@ def probe_tangent(
 
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.t3_manifold as t3m
-    >>> import t3tools.t3_probing as t3p
+    >>> import t3tools.manifold as t3m
+    >>> import t3tools.probing as t3p
     >>> import t3tools.dense as dense
-    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(1,3,4,1)))
+    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
     >>> base, _ = t3m.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
@@ -614,10 +620,10 @@ def probe_tangent(
 
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.t3_manifold as t3m
-    >>> import t3tools.t3_probing as t3p
+    >>> import t3tools.manifold as t3m
+    >>> import t3tools.probing as t3p
     >>> import t3tools.dense as dense
-    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(1,3,4,1)))
+    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
     >>> base, _ = t3m.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
     >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
@@ -690,7 +696,9 @@ def probe_tangent(
     return zz
 
 
-####
+###############################################################
+###########    Transpose of tangent to probes map    ##########
+###############################################################
 
 def compute_deta_tildes(
         ztildes: typ.Sequence[NDArray],  # len=d, elm_shape=(num_probes,Ni)
@@ -731,7 +739,7 @@ def compute_tau_tildes(
     num_cores = len(left_tt_cores)
     num_probes = mus[0].shape[0]
 
-    tau_tildes = [xnp.zeros((num_probes, 1))]
+    tau_tildes = [xnp.zeros((num_probes, left_tt_cores[0].shape[0]))]
     for ii in range(num_cores):
         P = left_tt_cores[ii]
         xi = xis[ii]
@@ -917,11 +925,11 @@ def probe_tangent_transpose(
 
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.t3_manifold as t3m
-    >>> import t3tools.t3_probing as t3p
+    >>> import t3tools.manifold as t3m
+    >>> import t3tools.probing as t3p
     >>> import t3tools.dense as dense
     >>> import t3tools.corewise as cw
-    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(1,3,4,1)))
+    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
     >>> base, _ = t3m.orthogonal_representations(p)
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> v1 = t3m.tangent_randn(base)
@@ -939,11 +947,11 @@ def probe_tangent_transpose(
 
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.t3_manifold as t3m
-    >>> import t3tools.t3_probing as t3p
+    >>> import t3tools.manifold as t3m
+    >>> import t3tools.probing as t3p
     >>> import t3tools.dense as dense
     >>> import t3tools.corewise as cw
-    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(1,3,4,1)))
+    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
     >>> base, _ = t3m.orthogonal_representations(p)
     >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
     >>> apply_J = lambda v: t3p.probe_tangent(v, ww, base)
