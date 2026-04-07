@@ -19,7 +19,11 @@ __all__ = [
     'original_structure',
     't3_to_ut3',
     'ut3_to_t3',
+    # Linear algebra operations:
     'ut3_add',
+    'ut3_scale',
+    'ut3_neg',
+    'ut3_sub',
 ]
 
 ###################################################
@@ -360,7 +364,7 @@ def ut3_add(
         y: UniformTuckerTensorTrain,
         use_jax: bool = False,
 ) -> UniformTuckerTensorTrain: # z = x + y
-    """Add two UniformTuckerTensorTrains.
+    """Add two UniformTuckerTensorTrains, x,y -> x+y.
 
     Parameters
     ----------
@@ -383,7 +387,7 @@ def ut3_add(
     >>> uniform_x = ut3.t3_to_ut3(x)
     >>> y = t3.t3_corewise_randn(((14,15,16), (6,7,8), (3,5,6,1)))
     >>> uniform_y = ut3.t3_to_ut3(y)
-    >>> uniform_x_plus_y = ut3.ut3_add(uniform_x, uniform_y) # add uniform T3s
+    >>> uniform_x_plus_y = ut3.ut3_add(uniform_x, uniform_y) # add x+y
     >>> dense_x = t3.t3_to_dense(x)
     >>> dense_y = t3.t3_to_dense(y)
     >>> dense_x_plus_y = ut3.ut3_to_dense(uniform_x_plus_y)
@@ -404,9 +408,6 @@ def ut3_add(
 
     x_basis_supercore, x_tt_supercore, x_shape_edge_masks, x_tucker_edge_masks, x_tt_edge_masks = x
     y_basis_supercore, y_tt_supercore, y_shape_edge_masks, y_tucker_edge_masks, y_tt_edge_masks = y
-
-    print('x_tucker_edge_masks.shape=', x_tucker_edge_masks.shape)
-    print('y_tucker_edge_masks.shape=', y_tucker_edge_masks.shape)
 
     z_shape_edge_masks  = x_shape_edge_masks + y_shape_edge_masks # Addition nonsensical if these are not the same.
     z_tucker_edge_masks = xnp.concatenate([x_tucker_edge_masks,   y_tucker_edge_masks],   axis=1)
@@ -429,6 +430,119 @@ def ut3_add(
 
     return z_basis_supercore, z_tt_supercore, z_shape_edge_masks, z_tucker_edge_masks, z_tt_edge_masks
 
+
+def ut3_scale(
+        x: UniformTuckerTensorTrain,
+        s, # scalar
+        use_jax: bool = False,
+) -> UniformTuckerTensorTrain: # z = s*x
+    """Scale a uniform Tucker tensor train, s,x -> s*x.
+
+    Parameters
+    ----------
+    x: UniformTuckerTensorTrain
+        Original uniform Tucker tensor train
+    s: scalar
+        Scaling factor
+
+    Returns
+    -------
+    UniformTuckerTensorTrain
+        Scaled uniform Tucker tensor train, s*x
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.uniform_tucker_tensor_train as ut3
+    >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (2,3,2,2)))
+    >>> uniform_x = ut3.t3_to_ut3(x)
+    >>> s = 3.5
+    >>> uniform_sx = ut3.ut3_scale(uniform_x, s) # scale x
+    >>> dense_x = t3.t3_to_dense(x)
+    >>> dense_sx = ut3.ut3_to_dense(uniform_sx)
+    >>> print(np.linalg.norm(s*dense_x - dense_sx))
+    1.4502362601421634e-12
+    """
+    xnp = jnp if use_jax else np
+    x_basis_supercore, x_tt_supercore, x_shape_edge_masks, x_tucker_edge_masks, x_tt_edge_masks = x
+
+    first_x_basis_supercore = x_basis_supercore[:1,:,:]
+    rest_x_basis_supercore = x_basis_supercore[1:, :, :]
+    sx_basis_supercore = xnp.concatenate([s*first_x_basis_supercore, rest_x_basis_supercore], axis=0)
+
+    sx = (sx_basis_supercore, x_tt_supercore, x_shape_edge_masks, x_tucker_edge_masks, x_tt_edge_masks)
+    return sx
+
+
+def ut3_neg(
+        x: UniformTuckerTensorTrain,
+        use_jax: bool = False,
+) -> UniformTuckerTensorTrain: # z = s*x
+    """Flip a uniform Tucker tensor train, x -> -x.
+
+    Parameters
+    ----------
+    x: UniformTuckerTensorTrain
+        Original uniform Tucker tensor train
+
+    Returns
+    -------
+    UniformTuckerTensorTrain
+        Flipped uniform Tucker tensor train, -x
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.uniform_tucker_tensor_train as ut3
+    >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (2,3,2,2)))
+    >>> uniform_x = ut3.t3_to_ut3(x)
+    >>> uniform_neg_x = ut3.ut3_neg(uniform_x) # flip x
+    >>> dense_x = t3.t3_to_dense(x)
+    >>> dense_neg_x = ut3.ut3_to_dense(uniform_neg_x)
+    >>> print(np.linalg.norm(-dense_x - dense_neg_x))
+    1.4502362601421634e-12
+    """
+    return ut3_scale(x, -1.0, use_jax=use_jax)
+
+
+def ut3_sub(
+        x: UniformTuckerTensorTrain,
+        y: UniformTuckerTensorTrain,
+        use_jax: bool = False,
+) -> UniformTuckerTensorTrain: # z = x - y
+    """Subtract two UniformTuckerTensorTrains, x,y -> x-y.
+
+    Parameters
+    ----------
+    x: UniformTuckerTensorTrain
+        First uniform Tensor train
+    y: UniformTuckerTensorTrain
+        Second uniform Tensor train
+
+    Returns
+    -------
+    UniformTuckerTensorTrain
+        Difference, x-y
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.uniform_tucker_tensor_train as ut3
+    >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (2,3,2,2)))
+    >>> uniform_x = ut3.t3_to_ut3(x)
+    >>> y = t3.t3_corewise_randn(((14,15,16), (6,7,8), (3,5,6,1)))
+    >>> uniform_y = ut3.t3_to_ut3(y)
+    >>> uniform_x_minus_y = ut3.ut3_sub(uniform_x, uniform_y) # subtract x-y
+    >>> dense_x = t3.t3_to_dense(x)
+    >>> dense_y = t3.t3_to_dense(y)
+    >>> dense_x_minus_y = ut3.ut3_to_dense(uniform_x_minus_y)
+    >>> print(np.linalg.norm(dense_x - dense_y - dense_x_minus_y))
+    0.0
+    """
+    return ut3_add(x, ut3_neg(y, use_jax=use_jax), use_jax=use_jax)
 
 
 # # # #
