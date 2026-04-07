@@ -4,14 +4,20 @@
 import numpy as np
 import typing as typ
 import t3tools.tucker_tensor_train as t3
+import t3tools.util as util
 
+numpy_scan = util.numpy_scan
 try:
     import jax.numpy as jnp
+    import jax
+    jax_scan = jax.lax.scan
 except:
-    print('jax import failed in tucker_tensor_train. Defaulting to numpy.')
+    print('jax import failed. Defaulting to numpy.')
     jnp = np
+    jax_scan = numpy_scan
 
 NDArray = typ.Union[np.ndarray, jnp.ndarray]
+
 
 __all__ = [
     'UniformTuckerTensorTrainCores',
@@ -676,7 +682,72 @@ def ut3_sub(
 #############    Orthogonalization    #############
 ###################################################
 
+def left_orthogonalize_utt(
+        tt_supercore:       NDArray,  # shape=(d, r, n, r)
+        use_jax: bool = False,
+) -> NDArray: # new_tt_cores
+    if use_jax:
+        xnp = jnp
+        scan = jax_scan
+    else:
+        xnp = np
+        scan = numpy_scan
 
+    d, r, n, _ = tt_supercore.shape
+
+    def _orth_one_core(
+            prev_R: NDArray, # shape=(r, r)
+            G: NDArray, # shape=(r, n, r)
+    ):
+        G = xnp.einsum('ij,jak->iak', prev_R, G)
+        # Q, R = xnp.linalg.qr(G.reshape((r*n, r)), mode='reduced')
+        Q, ss, Vt = xnp.linalg.svd(G.reshape((r*n, r)), full_matrices=False)
+        R = xnp.einsum('i,ij->ij', ss, Vt)
+
+        G = Q.reshape((r, n, r))
+        return R, G
+
+    R0 = xnp.eye(r)
+    R, first_new_tt_cores = scan(_orth_one_core, R0, tt_supercore[:-1])
+    last_new_tt_core = xnp.einsum('ij,djak->diak', R, tt_supercore[-1:])
+    new_tt_supercore = xnp.concatenate([first_new_tt_cores, last_new_tt_core], axis=0)
+    return new_tt_supercore
+
+
+def right_orthogonalize_utt(
+        tt_supercore: NDArray,  # shape=(d, r, n, r)
+        use_jax: bool = False,
+) -> NDArray: # new_tt_cores
+    return left_orthogonalize_utt(
+        tt_supercore[::-1].swapaxes(1,3), use_jax=use_jax,
+    )[::-1].swapaxes(3,1)
+
+
+def orthogonalize_ut3_basis_cores(
+        basis_cores: NDArray,  # shape=(d, n, N)
+        tt_cores: NDArray,  # shape=(d, r, n, r)
+        use_jax: bool = False,
+) -> typ.Tuple[
+    NDArray, # new_basis_cores
+    NDArray, # new_tt_cores
+]:
+    xnp = jnp if use_jax else np
+
+    d, n, N = basis_cores.shape
+    r = tt_cores.shape[1]
+
+    # QQ, RR = xnp.linalg.qr(basis_cores.swapaxes(1,2), mode='reduced')
+    QQ, sss, VVt = xnp.linalg.svd(basis_cores.swapaxes(1, 2), full_matrices=False) # use SVD because QR sometimes yields nans
+    RR = xnp.einsum('da,dab->dab', sss, VVt)
+
+    new_basis_cores = QQ.swapaxes(2,1)
+    new_tt_cores = xnp.einsum('dab,dibj->diaj', RR, tt_cores)
+
+    n2 = QQ.shape[-1]
+    new_basis_cores = xnp.concatenate([new_basis_cores, xnp.zeros((d, n-n2, N))], axis=1)
+    new_tt_cores = xnp.concatenate([new_tt_cores, xnp.zeros((d, r, n-n2, r))], axis=2)
+
+    return new_basis_cores, new_tt_cores
 
 
 # # # #
@@ -854,58 +925,6 @@ def ut3_sub(
 #     return tangent_basis_cores, tangent_tt_cores
 #
 #
-# def left_orthogonalize_utt(
-#         tt_cores:       jnp.ndarray,  # shape=(d, r, n, r)
-# ) -> jnp.ndarray: # new_tt_cores
-#     d, r, n, _ = tt_cores.shape
-#
-#     def _orth_one_core(
-#             prev_R: jnp.ndarray, # shape=(r, r)
-#             G: jnp.ndarray, # shape=(r, n, r)
-#     ):
-#         G = jnp.einsum('ij,jak->iak', prev_R, G)
-#         # Q, R = jnp.linalg.qr(G.reshape((r*n, r)), mode='reduced')
-#         Q, ss, Vt = jnp.linalg.svd(G.reshape((r*n, r)), full_matrices=False)
-#         R = jnp.einsum('i,ij->ij', ss, Vt)
-#
-#         G = Q.reshape((r, n, r))
-#         return R, G
-#
-#     R0 = jnp.eye(r)
-#     R, first_new_tt_cores = jax.lax.scan(_orth_one_core, R0, tt_cores[:-1])
-#     last_new_tt_core = jnp.einsum('ij,djak->diak', R, tt_cores[-1:])
-#     new_tt_cores = jnp.concatenate([first_new_tt_cores, last_new_tt_core], axis=0)
-#     return new_tt_cores
-#
-#
-# def right_orthogonalize_utt(
-#         tt_cores:       jnp.ndarray,  # shape=(d, r, n, r)
-# ) -> jnp.ndarray: # new_tt_cores
-#     return left_orthogonalize_utt(tt_cores[::-1].swapaxes(1,3))[::-1].swapaxes(3,1)
-#
-#
-# def orthogonalize_ut3_basis_cores(
-#         basis_cores,  # shape=(d, n, N)
-#         tt_cores,  # shape=(d, r, n, r)
-# ) -> typ.Tuple[
-#     jnp.ndarray, # new_basis_cores
-#     jnp.ndarray, # new_tt_cores
-# ]:
-#     d, n, N = basis_cores.shape
-#     r = tt_cores.shape[1]
-#
-#     # QQ, RR = jnp.linalg.qr(basis_cores.swapaxes(1,2), mode='reduced')
-#     QQ, sss, VVt = jnp.linalg.svd(basis_cores.swapaxes(1, 2), full_matrices=False) # use SVD because QR sometimes yields nans
-#     RR = jnp.einsum('da,dab->dab', sss, VVt)
-#
-#     new_basis_cores = QQ.swapaxes(2,1)
-#     new_tt_cores = jnp.einsum('dab,dibj->diaj', RR, tt_cores)
-#
-#     n2 = QQ.shape[-1]
-#     new_basis_cores = jnp.concatenate([new_basis_cores, jnp.zeros((d, n-n2, N))], axis=1)
-#     new_tt_cores = jnp.concatenate([new_tt_cores, jnp.zeros((d, r, n-n2, r))], axis=2)
-#
-#     return new_basis_cores, new_tt_cores
 #
 #
 # @jax.jit

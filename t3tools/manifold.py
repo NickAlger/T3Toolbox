@@ -8,7 +8,7 @@ import t3tools.tucker_tensor_train as t3
 try:
     import jax.numpy as jnp
 except:
-    print('jax import failed in tucker_tensor_train. Defaulting to numpy.')
+    print('jax import failed. Defaulting to numpy.')
     jnp = np
 
 NDArray = typ.Union[np.ndarray, jnp.ndarray]
@@ -1121,12 +1121,12 @@ def oblique_gauge_projection(
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.manifold as t3m
-    >>> import t3tools.corewise as cw
+    >>> import t3tools.util
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> base, _ = t3m.orthogonal_representations(p)
     >>> u = t3m.tangent_randn(base, apply_gauge_projection=False)
     >>> v = t3m.tangent_randn(base, apply_gauge_projection=False)
-    >>> bad_u_inner_v = cw.corewise_dot(u, v) # u and v are ungauged, so this will not give the right answer
+    >>> bad_u_inner_v = util.corewise_dot(u, v) # u and v are ungauged, so this will not give the right answer
     >>> u_dense = t3m.tangent_to_dense(u, base)
     >>> v_dense = t3m.tangent_to_dense(v, base)
     >>> u_inner_v_true = np.sum(u_dense * v_dense)
@@ -1134,7 +1134,7 @@ def oblique_gauge_projection(
     6.21838915941413
     >>> u_gauged = t3m.oblique_gauge_projection(u, base) # make them gauged and try again
     >>> v_gauged = t3m.oblique_gauge_projection(v, base)
-    >>> u_inner_v = cw.corewise_dot(u_gauged, v_gauged)
+    >>> u_inner_v = util.corewise_dot(u_gauged, v_gauged)
     >>> print(np.abs(u_inner_v - u_inner_v_true)) # Now the error is numerical zero
     0.0
     """
@@ -1324,7 +1324,7 @@ def retract(
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.manifold as t3m
-    >>> import t3tools.corewise as cw
+    >>> import t3tools.util
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> base, _ = t3m.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base) # Random tangent vector
@@ -1333,7 +1333,7 @@ def retract(
     >>> V = t3m.tangent_to_dense(variation, base, include_shift=True)
     >>> print(np.linalg.norm(ret_V - V)) # vector changes
     0.14335564543255402
-    >>> v2 = cw.corewise_scale(variation, 1e-2) # make the tangent vector shorter for smaller retraction
+    >>> v2 = util.corewise_scale(variation, 1e-2) # make the tangent vector shorter for smaller retraction
     >>> ret_v2 = t3m.retract(v2, base)
     >>> ret_V2 = t3.t3_to_dense(ret_v2)
     >>> V2 = t3m.tangent_to_dense(v2, base, include_shift=True)
