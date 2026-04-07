@@ -13,6 +13,16 @@ except:
 
 NDArray = typ.Union[np.ndarray, jnp.ndarray]
 
+__all__ = [
+    'UniformTuckerTensorTrain',
+    'padded_structure',
+    'original_structure',
+    't3_to_ut3',
+    'ut3_to_t3',
+
+]
+
+
 UniformTuckerTensorTrain = typ.Tuple[
     NDArray, # basis_supercore, shape=(d, n, N)
     NDArray, # tt_supercore, shape=(d, r, n, r)
