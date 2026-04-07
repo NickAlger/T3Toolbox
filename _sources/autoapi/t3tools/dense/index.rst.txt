@@ -16,7 +16,7 @@ Functions
    /autoapi/t3tools/dense/outer_svd_3tensor
    /autoapi/t3tools/dense/tucker_svd_dense
    /autoapi/t3tools/dense/tt_svd_dense
-   /autoapi/t3tools/dense/dense_probes
+   /autoapi/t3tools/dense/probe_dense
 
 .. autoapisummary::
 
@@ -26,6 +26,6 @@ Functions
    t3tools.dense.outer_svd_3tensor
    t3tools.dense.tucker_svd_dense
    t3tools.dense.tt_svd_dense
-   t3tools.dense.dense_probes
+   t3tools.dense.probe_dense
 
 
