@@ -124,14 +124,15 @@ Module Contents
 
    Tensor network diagram::
 
-       1 -[r0]- G0 -[r1]- G1 -[r2]- G2 -[r3]- G3 -[r4]- 1
+           r0        r1        r2        r2        r4
+       1 ------ G0 ------ G1 ------ G2 ------ G3 ------ 1
                 |         |         |         |
-                [n0]      [n1]      [n2]      [n3]
+                |n0       |n1       |n2       |n3
                 |         |         |         |
                 B0        B1        B2        B3
                 |         |         |         |
-                [N0]      [N1]      [N2]      [N3]
-                |         |     |             |
+                |N0       |N1       |N2       |N3
+                |         |         |         |
 
 
    Components:
