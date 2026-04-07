@@ -82,7 +82,11 @@ Components:
 Structure:
     - shape: (N1, ..., Nd)
     - tucker ranks: (n1, ..., nd)
-    - tt ranks: (1, r1, ..., r(d-1), 1)
+    - tt ranks: (r0, r1, ..., r(d-1), rd)
+    
+Note: typically r0=rd=1, and "1" in the diagram is the number 1. 
+However, it is allowed for these ranks to not be 1, in which case
+the "1"s in the diagram are vectors of ones.
 
 Examples
 --------
@@ -246,28 +250,6 @@ def check_t3(
     RuntimeError: Inconsistent TuckerTensorTrain.
     tt_cores[0] is not a 3-tensor. shape=(4, 3)
 
-    (Bad) First TT-rank is not 1:
-
-    >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16))) # First TT-rank is not 1
-    >>> tt_cores = (np.ones((9,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
-    >>> x = (basis_cores, tt_cores)
-    >>> t3.check_t3(x)
-    RuntimeError: Inconsistent TuckerTensorTrain.
-    First TT rank is not one. tt_ranks = (9, 3, 2, 1)
-
-    (Bad) Last TT-rank is not 1:
-
-    >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
-    >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,9))) # Last TT-rank is not 1
-    >>> x = (basis_cores, tt_cores)
-    >>> t3.check_t3(x)
-    RuntimeError: Inconsistent TuckerTensorTrain.
-    Last TT rank is not one. tt_ranks = (1, 3, 2, 9)
-
     (Bad) TT-core shapes inconsistent with each other:
 
     >>> import numpy as np
@@ -290,7 +272,7 @@ def check_t3(
     RuntimeError: Inconsistent TuckerTensorTrain.
     basis_cores[1] is not a matrix. shape=(5, 15, 3)
 
-    (Bad) Inconsist shapes for basis core and adjacent TT-core
+    (Bad) Inconsistent shapes for basis core and adjacent TT-core
 
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
@@ -323,18 +305,6 @@ def check_t3(
             + str(left_tt_ranks) + ' = left_tt_ranks != right_tt_ranks = ' + str(right_tt_ranks)
         )
 
-    if right_tt_ranks[0] != 1:
-        raise RuntimeError(
-            'Inconsistent TuckerTensorTrain.\n'
-            + str('First TT rank is not one. tt_ranks = ' + str(right_tt_ranks))
-        )
-
-    if right_tt_ranks[-1] != 1:
-        raise RuntimeError(
-            'Inconsistent TuckerTensorTrain.\n'
-            + str('Last TT rank is not one. tt_ranks = ' + str(right_tt_ranks))
-        )
-
     for ii, B in enumerate(basis_cores):
         if len(B.shape) != 2:
             raise RuntimeError(
@@ -358,6 +328,7 @@ def check_t3(
 
 def t3_to_dense(
         x: TuckerTensorTrain,
+        contract_ones: bool = True,
         use_jax: bool = False,
 ) -> NDArray:
     """Contract Tucker tensor train to dense tensor.
@@ -366,6 +337,9 @@ def t3_to_dense(
     ----------
     x : TuckerTensorTrain
         Tucker tensor train with shape (N1, ..., Nd).
+    contract_ones: bool
+        If true (default), contract with leading and training 1's, yielding shape=(N1,...,Nd).
+        If false, do not contract with leading and trailing 1's, yielding shape=(r0,N1,...,Nd,rd).
     use_jax: bool
         Use jax if True, numpy if False. Default: False
 
@@ -389,20 +363,50 @@ def t3_to_dense(
     >>> x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->ijk', B0, B1, B2, G0, G1, G2)
     >>> print(np.linalg.norm(x_dense - x_dense2) / np.linalg.norm(x_dense))
     7.48952547844518e-16
+
+    Case where the first and last TT-ranks are not 1:
+
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> x = t3.t3_corewise_randn(((14,15,16),(4,5,6),(2,3,2,4))) # make TuckerTensorTrain
+    >>> x_dense = t3.t3_to_dense(x) # Convert TuckerTensorTrain to dense tensor
+    >>> ((B0,B1,B2), (G0,G1,G2)) = x
+    >>> x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->ijk', B0, B1, B2, G0, G1, G2)
+    >>> print(np.linalg.norm(x_dense - x_dense2) / np.linalg.norm(x_dense))
+    1.4635914598284152e-15
+
+    Example where leading and trailing ones are not contracted
+
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> x = t3.t3_corewise_randn(((14,15,16),(4,5,6),(2,3,4,2))) # make TuckerTensorTrain
+    >>> x_dense = t3.t3_to_dense(x, contract_ones=False) # Convert TuckerTensorTrain to dense tensor
+    >>> print(x_dense.shape)
+    (2, 14, 15, 16, 2)
+    >>> ((B0,B1,B2), (G0,G1,G2)) = x
+    >>> x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->aijkd', B0, B1, B2, G0, G1, G2)
+    >>> print(np.linalg.norm(x_dense - x_dense2) / np.linalg.norm(x_dense))
+    1.1217675019342066e-15
     """
     xnp = jnp if use_jax else np
 
     basis_cores, tt_cores = x
     big_tt_cores = [xnp.einsum('iaj,ab->ibj', G, U) for G, U in zip(tt_cores, basis_cores)]
 
-    G = big_tt_cores[0]
-    rL, n, rR = G.shape
-    T = G.reshape((n, rR))
-    for G in big_tt_cores[1:-1]:
+    # T = xnp.ones(big_tt_cores[0].shape[0])
+
+    T = big_tt_cores[0]
+    for G in big_tt_cores[1:]:
         T = xnp.tensordot(T, G, axes=1)
-    G = big_tt_cores[-1]
-    rL, n, rR = G.shape
-    T = xnp.tensordot(T, G.reshape((rL, n)), axes=1)
+
+    if contract_ones:
+        mu_L = xnp.ones(big_tt_cores[0].shape[0])
+        mu_R = xnp.ones(big_tt_cores[-1].shape[2])
+
+        T = xnp.tensordot(mu_L, T, axes=1)
+        T = xnp.tensordot(T, mu_R, axes=1)
+
+    # T = xnp.tensordot(T, xnp.ones(big_tt_cores[-1].shape[-1]), axes=1)
 
     return T
 
@@ -732,6 +736,17 @@ def t3_apply(
     >>> print(np.linalg.norm(result - result2))
     3.1271953680324864e-12
 
+    First and last TT-ranks are not ones:
+
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,4)))
+    >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
+    >>> result = t3.t3_apply(x, vecs)
+    >>> result2 = np.einsum('ijk,ni,nj,nk->n', t3.t3_to_dense(x), vecs[0], vecs[1], vecs[2])
+    >>> print(np.linalg.norm(result - result2))
+    6.481396196459234e-12
+
     Example using jax automatic differentiation:
 
 	>>> import numpy as np
@@ -751,7 +766,7 @@ def t3_apply(
     >>> u1 = u0 + s*du
     >>> Auuu1 = apply_A_sym(u1)
     >>> dAuuu_diff = (Auuu1 - Auuu0) / s # finite difference approximation
-    >>> print(dAuuu_diff)
+    >>> print(dAuuu_diff) #ths same as dAuuu
     766.5390504030256
     '''
     xnp = jnp if use_jax else np
@@ -791,14 +806,14 @@ def t3_apply(
             + str(vector_sizes) + ' = vector_sizes != x_shape = ' + str(shape)
         )
 
-    mu_na = xnp.ones((num_applies, 1))
+    mu_na = xnp.ones((num_applies, tt_cores[0].shape[0]))
     for V_ni, B_xi, G_axb in zip(vecs, basis_cores, tt_cores):
         v_nx = xnp.einsum('ni,xi->nx', V_ni, B_xi)
         g_anb = xnp.einsum('axb,nx->anb', G_axb, v_nx)
         mu_nb = xnp.einsum('na,anb->nb', mu_na, g_anb)
         mu_na = mu_nb
+    result = xnp.einsum('na->n', mu_na)
 
-    result = mu_na.reshape((num_applies,))
     if not vectorized:
         result = result[0]
 
@@ -909,14 +924,14 @@ def t3_entry(
             + '[len(ind) for ind in index]=' + str([len(ind) for ind in index])
         )
 
-    mu_na = xnp.ones((num_entries, 1))
+    mu_na = xnp.ones((num_entries, tt_cores[0].shape[0]))
     for ind, B_xi, G_axb in zip(index, basis_cores, tt_cores):
         v_xn = B_xi[:, ind]
         g_anb = xnp.einsum('axb,xn->anb', G_axb, v_xn)
         mu_nb = xnp.einsum('na,anb->nb', mu_na, g_anb)
         mu_na = mu_nb
+    result = xnp.einsum('na->n', mu_na)
 
-    result = mu_na.reshape((num_entries,))
     if not vectorized:
         result = result[0]
 
@@ -934,6 +949,13 @@ def compute_minimal_ranks(
     typ.Tuple[int,...], # new_tt_ranks
 ]:
     '''Find minimal ranks for a TuckerTensorTrain with a given structure. (remove useless rank)
+
+    Examples
+    --------
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> print(t3.compute_minimal_ranks(((10,11,12,13), (14,15,16,17), (98,99,100,101,102))))
+    ((10, 11, 12, 13), (1, 10, 100, 13, 1))
+
     '''
     shape, tucker_ranks, tt_ranks = structure
     d = len(shape)
@@ -946,6 +968,7 @@ def compute_minimal_ranks(
     for ii in range(d):
         new_tucker_ranks[ii] = int(np.minimum(new_tucker_ranks[ii], shape[ii]))
 
+    new_tt_ranks[-1] = 1
     for ii in range(d-1, 0, -1):
         n   = new_tucker_ranks[ii]
         rL  = new_tt_ranks[ii]
@@ -953,6 +976,7 @@ def compute_minimal_ranks(
 
         new_tt_ranks[ii] = int(np.minimum(rL, n*rR))
 
+    new_tt_ranks[0] = 1
     for ii in range(d):
         n   = new_tucker_ranks[ii]
         rL  = new_tt_ranks[ii]
@@ -982,6 +1006,16 @@ def pad_t3(
     >>> padded_x = t3.pad_t3(x, new_structure)
     >>> print(t3.t3_structure(padded_x))
     ((17, 18, 17), (8, 8, 8), (1, 5, 6, 1))
+
+    Example where first and last ranks are nonzero:
+
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (3,3,2,4)))
+    >>> new_structure = ((17,18,17), (8,8,8), (5,5,6,7))
+    >>> padded_x = t3.pad_t3(x, new_structure)
+    >>> print(t3.t3_structure(padded_x))
+    ((17, 18, 17), (8, 8, 8), (5, 5, 6, 7))
     '''
     xnp = jnp if use_jax else np
 
@@ -1046,7 +1080,7 @@ def up_svd_ith_basis_core(
     ii: int
         index of basis core to SVD
     x: TuckerTensorTrain
-        The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
+        The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (r0,r1,...r(d-1),rd))
     min_rank: int
         Minimum rank for truncation.
     min_rank: int
@@ -1504,6 +1538,19 @@ def orthogonalize_relative_to_ith_basis_core(
     >>> X = np.einsum('xi,axb,byc,czd,zk->iyk', B0, G0, G1, G2, B2) # Contraction of everything except B1
     >>> print(np.linalg.norm(np.einsum('iyk,iwk->yw', X, X) - np.eye(B1.shape[0]))) # Complement of B1 is orthogonal
     1.7116160385376214e-15
+
+    Example where first and last TT-ranks are not 1:
+
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
+    >>> x2 = t3.orthogonalize_relative_to_ith_basis_core(0, x)
+    >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
+    5.152424496985265e-12
+    >>> ((B0, B1, B2), (G0, G1, G2)) = x2
+    >>> X = np.einsum('yj,zk,axb,byc,czd->axjkd', B1, B2, G0, G1, G2) # Contraction of everything except B0
+    >>> print(np.linalg.norm(np.einsum('axjkd,ayjkd->xy', X, X) - np.eye(B0.shape[0]))) # Complement of B1 is orthogonal
+    2.3594586449868743e-15
     '''
     shape, tucker_ranks, tt_ranks = t3_structure(x)
 
@@ -1586,6 +1633,19 @@ def orthogonalize_relative_to_ith_tt_core(
     >>> XR = np.einsum('axb,xi->aib', G2, B2) # Everything to the right of G1
     >>> print(np.linalg.norm(np.einsum('aib,cib->ac', XR, XR) - np.eye(G1.shape[2]))) # Right subtree is right orthogonal
     1.180550381921849e-15
+
+    Example where first and last TT-ranks are not 1:
+
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
+    >>> x2 = t3.orthogonalize_relative_to_ith_tt_core(0, x)
+    >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
+    5.4708999671349535e-12
+    >>> ((B0, B1, B2), (G0, G1, G2)) = x2
+    >>> XR = np.einsum('yi,zj,byc,czd->bijd', B1, B2, G1, G2) # Everything to the right of G0
+    >>> print(np.linalg.norm(np.einsum('bijd,cijd->bc', XR, XR) - np.eye(G0.shape[2]))) # Right subtree is right orthogonal
+    8.816596607002667e-16
     '''
     shape, tucker_ranks, tt_ranks = t3_structure(x)
 
@@ -1721,6 +1781,25 @@ def t3_svd(
         ((14, 15, 16), (10, 11, 12), (1, 8, 9, 1))
     >>> print(t3.t3_structure(x2))
         ((14, 15, 16), (3, 3, 2), (1, 2, 2, 1))
+
+    Example where first and last ranks are not ones:
+
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> x = t3.t3_corewise_randn(((5,6,3), (4,4,3), (2,3,2,2)))
+    >>> x2, ss_basis, ss_tt = t3.t3_svd(x) # Compute T3-SVD
+    >>> x_dense = t3.t3_to_dense(x, contract_ones=False)
+    >>> x2_dense = t3.t3_to_dense(x2, contract_ones=False)
+    >>> print(np.linalg.norm(x_dense - x2_dense)) # Tensor unchanged
+    5.486408687260824e-13
+    >>> ss_tt0 = np.linalg.svd(x_dense.reshape((2,5*6*3*2)))[1] # Singular values of leading unfolding
+    >>> print(ss_tt0); print(ss_tt[0])
+    [303.0474449   88.85034392]
+    [303.0474449   88.85034392]
+    >>> ss_tt3 = np.linalg.svd(x_dense.reshape((2*5*6*3,2)))[1] # Singular values of trailing unfolding
+    >>> print(ss_tt3); print(ss_tt[3])
+    [299.45433768 100.29574828]
+    [299.45433768 100.29574828]
     '''
     xnp = jnp if use_jax else np
 
@@ -1780,16 +1859,16 @@ def t3_add(
     Parameters
     ----------
     x: TuckerTensorTrain
-        First summand. structure=((N1,...,Nd), (n1,...,nd), (1, r1,...,r(d-1),1))
+        First summand. structure=((N1,...,Nd), (n1,...,nd), (r0, r1,...,rd))
     y: TuckerTensorTrain
-        Second summand. structure=((N1,...,Nd), (m1,...,md), (1, q1,...,q(d-1),1))
+        Second summand. structure=((N1,...,Nd), (m1,...,md), (q0, q1,...,qd))
     use_jax: bool
         If True, returned TuckerTensorTrain cores are jnp.ndaray. Otherwise, np.ndarray. Default: False
 
     Returns
     -------
     z: TuckerTensorTrain
-        Sum of Tucker tensor trains, z=x+y. structure=((N1,...,Nd), (n1+m1,...,nd+md), (1, r1+q1,...,r(d-1)+q(d-1),1))
+        Sum of Tucker tensor trains, z=x+y. structure=((N1,...,Nd), (n1+m1,...,nd+md), (r0+q0, r1+q1,...,rd+qd))
 
     Raises
     ------
@@ -1809,20 +1888,11 @@ def t3_add(
     -----
     The basis cores for z are vertically stacked versions of the basis cores for x and y
 
-    The first TT-core for z is a block 1x2x2 tensor, with:
-        - the first TT-core for x in the (0,0,0) block,
-        - the first TT-core for y in the (0,1,1) block,
-        - zeros elsewhere
-
-    Intermediate TT-cores for z are block 2x2x2 tensors, with:
+    TT-cores for z are block 2x2x2 tensors, with:
         - the TT-cores for x in the (0,0,0) block,
         - the TT-cores for y in the (1,1,1) block,
         - zeros elsewhere.
 
-    The last TT-cores for z is a block 2x2x1 tensor, with:
-        - the last TT-core for x in the (0,0,0) block,
-        - the last TT-core for y in the (1,1,0) block,
-        - zeros elsewhere
 
     Examples
     --------
@@ -1855,16 +1925,7 @@ def t3_add(
 
     tt_cores_z = []
 
-    Gx = tt_cores_x[0]
-    Gy = tt_cores_y[0]
-    G000 = Gx
-    G001 = xnp.zeros((1, Gx.shape[1], Gy.shape[2]))
-    G010 = xnp.zeros((1, Gy.shape[1], Gx.shape[2]))
-    G011 = Gy
-    Gz = xnp.block([[G000, G001], [G010, G011]])
-    tt_cores_z.append(Gz)
-
-    for Gx, Gy in zip(tt_cores_x[1:-1], tt_cores_y[1:-1]):
+    for Gx, Gy in zip(tt_cores_x, tt_cores_y):
         G000 = Gx
         G001 = xnp.zeros((Gx.shape[0], Gx.shape[1], Gy.shape[2]))
         G010 = xnp.zeros((Gx.shape[0], Gy.shape[1], Gx.shape[2]))
@@ -1875,18 +1936,6 @@ def t3_add(
         G111 = Gy
         Gz = xnp.block([[[G000, G001], [G010, G011]], [[G100, G101], [G110, G111]]])
         tt_cores_z.append(Gz)
-
-    Gx = tt_cores_x[-1]
-    Gy = tt_cores_y[-1]
-    G000 = Gx.transpose([2,0,1])
-    G001 = xnp.zeros((1, Gx.shape[0], Gy.shape[1]))
-    G010 = xnp.zeros((1, Gy.shape[0], Gx.shape[1]))
-    G011 = Gy.transpose([2,0,1])
-    Gz = xnp.block([
-        [G000, G001],
-        [G010, G011],
-    ]).transpose([1,2,0])
-    tt_cores_z.append(Gz)
 
     z = (tuple(basis_cores_z), tuple(tt_cores_z))
     return z
@@ -1998,16 +2047,16 @@ def t3_sub(
     Parameters
     ----------
     x: TuckerTensorTrain
-        First summand. structure=((N1,...,Nd), (n1,...,nd), (1, r1,...,r(d-1),1))
+        First summand. structure=((N1,...,Nd), (n1,...,nd), (r0, r1,...,rd))
     y: TuckerTensorTrain
-        Second summand. structure=((N1,...,Nd), (m1,...,md), (1, q1,...,q(d-1),1))
+        Second summand. structure=((N1,...,Nd), (m1,...,md), (q0, q1,...,qd))
     use_jax: bool
         If True, returned TuckerTensorTrain cores are jnp.ndaray. Otherwise, np.ndarray. Default: False
 
     Returns
     -------
     z: TuckerTensorTrain
-        Difference of Tucker tensor trains, z=x-y. structure=((N1,...,Nd), (n1+m1,...,nd+md), (1, r1+q1,...,r(d-1)+q(d-1),1))
+        Difference of Tucker tensor trains, z=x-y. structure=((N1,...,Nd), (n1+m1,...,nd+md), (r0+q0, r1+q1, rd+qd))
 
     Raises
     ------
@@ -2086,6 +2135,17 @@ def t3_dot_t3(
     >>> x_dot_y2 = np.sum(t3.t3_to_dense(x) * t3.t3_to_dense(y))
     >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
     8.731149137020111e-11
+
+    Example where leading and trailing TT-ranks are not 1:
+
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
+    >>> y = t3.t3_corewise_randn(((14,15,16), (3,7,2), (3,5,6,3)))
+    >>> x_dot_y = t3.t3_dot_t3(x, y)
+    >>> x_dot_y2 = np.sum(t3.t3_to_dense(x) * t3.t3_to_dense(y))
+    >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
+    1.3096723705530167e-10
     """
     check_t3(x)
     check_t3(y)
@@ -2103,7 +2163,10 @@ def t3_dot_t3(
     basis_cores_x, tt_cores_x = x
     basis_cores_y, tt_cores_y = y
 
-    M_sp = xnp.ones((1,1))
+    r0_x = tt_cores_x[0].shape[0]
+    r0_y = tt_cores_y[0].shape[0]
+
+    M_sp = xnp.ones((r0_x, r0_y))
     for Bx_ai, Gx_sat, By_bi, Gy_pbq in zip(basis_cores_x, tt_cores_x, basis_cores_y, tt_cores_y):
         tmp_ab = xnp.einsum('ai,bi->ab', Bx_ai, By_bi)
         tmp_sbt = xnp.einsum('sat,ab->sbt', Gx_sat, tmp_ab)
@@ -2111,7 +2174,11 @@ def t3_dot_t3(
         tmp_tq = xnp.einsum('pbt,pbq->tq', tmp_pbt, Gy_pbq)
         M_sp = tmp_tq
 
-    return M_sp[0,0]
+    rd_x = tt_cores_x[-1].shape[2]
+    rd_y = tt_cores_y[-1].shape[2]
+
+    result = xnp.einsum('tq,t,q', M_sp, np.ones(rd_x), np.ones(rd_y))
+    return result
 
 
 def t3_norm(
@@ -2125,9 +2192,6 @@ def t3_norm(
     ----------
     x: TuckerTensorTrain
         First Tucker tensor train. shape=(N1,...,Nd)
-    use_orthogonalization: bool
-        If True, use orthogonalization-based algorithm (more stable).
-        If False, use zippering algorithm (faster, easier to differentiate).
     use_jax: bool
         If True, use jax operations. Otherwise, numpy. Default: False
 
@@ -2151,7 +2215,7 @@ def t3_norm(
     --------
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
-    >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+    >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
     >>> norm_x = t3.t3_norm(x)
     >>> print(np.abs(norm_x - np.linalg.norm(t3.t3_to_dense(x))))
     1.3642420526593924e-12
@@ -2159,14 +2223,7 @@ def t3_norm(
     check_t3(x)
     xnp = jnp if use_jax else np
 
-    if use_orthogonalization:
-        shape, _, _ = t3_structure(x)
-        last_ind = len(shape)-1
-        x2 = orthogonalize_relative_to_ith_basis_core(last_ind, x, use_jax=use_jax)
-        basis_cores, tt_cores = x2
-        return xnp.linalg.norm(basis_cores[-1])
-    else:
-        return xnp.sqrt(t3_dot_t3(x, x, use_jax=use_jax))
+    return xnp.sqrt(t3_dot_t3(x, x, use_jax=use_jax))
 
 
 def t3_svd_dense(
@@ -2179,7 +2236,7 @@ def t3_svd_dense(
         atol: float = None,
         use_jax: bool = False,
 ) -> typ.Tuple[
-    TuckerTensorTrain, # new_x
+    TuckerTensorTrain, # Approximation of T by Tucker tensor train
     typ.Tuple[NDArray,...], # basis singular values, len=k
     typ.Tuple[NDArray,...], # tt singular values, len=k-1
 ]:

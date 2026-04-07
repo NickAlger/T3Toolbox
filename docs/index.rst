@@ -84,9 +84,9 @@ This package is written in a `functional programming <https://en.wikipedia.org/w
 	766.5390504030256
 
 - *AD Caveat*: We do not recommend automatically differentiating through functions that involve singular value decompositions (SVDs) because support for `singular value sensitivity <https://en.wikipedia.org/wiki/Eigenvalue_perturbation>`_ in jax is questionable. This includes:
+	- T3-SVD,
 	- Orthogonalization (uses SVDs for stability and robustness), 
-	- Retraction, 
-	- Stabilized computation of TuckerTensorTrain norms (uses orthogonalization). 
+	- Retraction.
 
 
 Background
@@ -117,7 +117,10 @@ The Tucker tensor train with d indices is represented as a Tuple of cores, ((B0,
 	- (N1,...,Nd) is the *shape* of the fully contracted tensor
 	- (n1,...,nd) are the *Tucker ranks*
 	- (1,ri,...,r(d-1),1) are the *TT-ranks*
-	- ((N1,...,Nd), (n1,...,nd), (1,r1,...,r(d-1),1)) is the *structure*.
+	- ((N1,...,Nd), (n1,...,nd), (r0,r1,...,r(d-1),rd)) is the *structure*.
+	- 1=(1,...,1) denotes the ones vector of the appropriate size
+
+Note: typically r0=rd=1, and the "1" on the left and right sides is just the number 1. However, this is not required.
 	
 
 
