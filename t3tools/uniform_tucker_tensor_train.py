@@ -19,9 +19,12 @@ __all__ = [
     'original_structure',
     't3_to_ut3',
     'ut3_to_t3',
-
+    'ut3_add',
 ]
 
+###################################################
+########    Uniform Tucker Tensor Train    ########
+###################################################
 
 UniformTuckerTensorTrain = typ.Tuple[
     NDArray, # basis_supercore, shape=(d, n, N)
@@ -65,6 +68,59 @@ Examples
 ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
 """
 
+def check_ut3(
+        x: UniformTuckerTensorTrain,
+) -> None:
+    """Check internal shape consistency of UniformTuckerTensorTrain.
+
+    Parameters
+    ----------
+    x: UniformTuckerTensorTrain
+        The uniform Tucker tensor train
+
+    Raises:
+    -------
+    RuntimeError:
+        Raised if internal shapes are inconsistent.
+    """
+    basis_supercore, tt_supercore, shape_edge_masks, tucker_edge_masks, tt_edge_masks = x
+
+    d, n, N = basis_supercore.shape
+    _, r, _, _ = tt_supercore.shape
+
+    shapes_string =     'basis_supercore.shape = '      + str(basis_supercore.shape) + '\n'
+    shapes_string +=    'tt_supercore.shape = '         + str(tt_supercore.shape) + '\n'
+    shapes_string +=    'shape_edge_masks.shape = '     + str(shape_edge_masks.shape) + '\n'
+    shapes_string +=    'tucker_edge_masks.shape = '    + str(tucker_edge_masks.shape) + '\n'
+    shapes_string +=    'tt_edge_masks.shape = '        + str(tt_edge_masks.shape)
+
+    if basis_supercore.shape != (d,n,N):
+        raise RuntimeError(
+            'basis_supercore has incorrect shape.\n' + shapes_string
+        )
+
+    if tt_supercore.shape != (d,r,n,r):
+        raise RuntimeError(
+            'tt_supercore has incorrect shape.\n' + shapes_string
+        )
+
+    if shape_edge_masks.shape != (d,N):
+        raise RuntimeError(
+            'shape_edge_masks has incorrect shape.\n' + shapes_string
+        )
+
+    if tucker_edge_masks.shape != (d,n):
+        raise RuntimeError(
+            'tucker_edge_masks has incorrect shape.\n' + shapes_string
+        )
+
+    if tt_edge_masks.shape != (d+1,r):
+        raise RuntimeError(
+            'tt_edge_masks has incorrect shape.\n' + shapes_string
+        )
+
+
+
 def padded_structure(
         x: UniformTuckerTensorTrain,
 ) -> typ.Tuple[
@@ -73,6 +129,34 @@ def padded_structure(
     int, # n, padded_tucker_rank
     int, # r, padded_tt_rank
 ]:
+    """Get padded structure of uniform Tucker tensor train.
+
+    Parameters
+    ----------
+    x: UniformTuckerTensorTrain
+        The uniform Tucker tensor train.
+
+    Returns
+    -------
+    num_cores: int
+        Number of cores
+    N: int
+        Size of each index
+    n: int
+        padded Tucker rank
+    r: int
+        padded TT-rank
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.uniform_tucker_tensor_train as ut3
+    >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
+    >>> uniform_x = ut3.t3_to_ut3(x)
+    >>> print(ut3.padded_structure(uniform_x))
+    (3, 16, 6, 3)
+    """
     basis_supercore, tt_supercore, _, _, _ = x
 
     d, n, N = basis_supercore.shape
@@ -83,6 +167,29 @@ def padded_structure(
 def original_structure(
         x: UniformTuckerTensorTrain,
 ) -> t3.T3Structure:
+    """Get original (unpadded) structure of a uniform Tucker tensor train.
+
+    Parameters
+    ----------
+    x: UniformTuckerTensorTrain
+
+    Returns
+    -------
+    t3.T3Structure
+        Structure of the unpadded Tucker tensor train
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.uniform_tucker_tensor_train as ut3
+    >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
+    >>> uniform_x = ut3.t3_to_ut3(x)
+    >>> print(ut3.padded_structure(uniform_x))
+    (3, 16, 6, 3)
+    >>> print(ut3.original_structure(uniform_x))
+    ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
+    """
     _, _, shape_edge_masks, tucker_edge_masks, tt_edge_masks = x
 
     original_shape = tuple([
@@ -121,7 +228,7 @@ def t3_to_ut3(
     >>> print(ut3.original_structure(uniform_x))
     ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
     >>> x2 = ut3.ut3_to_t3(uniform_x) # Convert ut3 -> t3
-    >>> print(t3.t3_structure(x2))
+    >>> print(t3.structure(x2))
     ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
     >>> print([np.linalg.norm(B - B2) for B, B2  in zip(x[0], x2[0])])
     [0.0, 0.0, 0.0]
@@ -130,7 +237,7 @@ def t3_to_ut3(
     """
     xnp = jnp if use_jax else np
 
-    shape, tucker_ranks, tt_ranks = t3.t3_structure(x)
+    shape, tucker_ranks, tt_ranks = t3.structure(x)
 
     d = len(shape)
     N = max(shape)
@@ -184,7 +291,7 @@ def ut3_to_t3(
     >>> print(ut3.original_structure(uniform_x))
     ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
     >>> x2 = ut3.ut3_to_t3(uniform_x) # Convert ut3 -> t3
-    >>> print(t3.t3_structure(x2))
+    >>> print(t3.structure(x2))
     ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
     >>> print([np.linalg.norm(B - B2) for B, B2  in zip(x[0], x2[0])])
     [0.0, 0.0, 0.0]
@@ -212,6 +319,116 @@ def ut3_to_t3(
     ])
 
     return basis_cores, tt_cores
+
+
+def ut3_to_dense(
+        uniform_x: UniformTuckerTensorTrain,
+) -> NDArray:
+    """Construct dense tensor represented by uniform Tucker tensor train
+
+    Parameters
+    ----------
+    uniform_x: UniformTuckerTensorTrain
+        The uniform Tucker tensor train
+
+    Returns
+    -------
+    NDArray
+        The dense tensor represented by uniform_x
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.uniform_tucker_tensor_train as ut3
+    >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (2,3,2,2)))
+    >>> uniform_x = ut3.t3_to_ut3(x)
+    >>> x_dense = t3.t3_to_dense(x)
+    >>> x_dense2 = ut3.ut3_to_dense(uniform_x)
+    >>> print(np.linalg.norm(x_dense - x_dense2))
+    0.0
+    """
+    check_ut3(uniform_x)
+    return t3.t3_to_dense(ut3_to_t3(uniform_x))
+
+###################################################
+#########    Linear algebra operations    #########
+###################################################
+
+def ut3_add(
+        x: UniformTuckerTensorTrain,
+        y: UniformTuckerTensorTrain,
+        use_jax: bool = False,
+) -> UniformTuckerTensorTrain: # z = x + y
+    """Add two UniformTuckerTensorTrains.
+
+    Parameters
+    ----------
+    x: UniformTuckerTensorTrain
+        First summand
+    y: UniformTuckerTensorTrain
+        Second summand
+
+    Returns
+    -------
+    UniformTuckerTensorTrain
+        Sum, x+y
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.uniform_tucker_tensor_train as ut3
+    >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (2,3,2,2)))
+    >>> uniform_x = ut3.t3_to_ut3(x)
+    >>> y = t3.t3_corewise_randn(((14,15,16), (6,7,8), (3,5,6,1)))
+    >>> uniform_y = ut3.t3_to_ut3(y)
+    >>> uniform_x_plus_y = ut3.ut3_add(uniform_x, uniform_y) # add uniform T3s
+    >>> dense_x = t3.t3_to_dense(x)
+    >>> dense_y = t3.t3_to_dense(y)
+    >>> dense_x_plus_y = ut3.ut3_to_dense(uniform_x_plus_y)
+    >>> print(np.linalg.norm(dense_x + dense_y - dense_x_plus_y))
+    0.0
+    """
+    xnp = jnp if use_jax else np
+
+    d_x, N_x, n_x, r_x = padded_structure(x)
+    d_y, N_y, n_y, r_y = padded_structure(y)
+    if N_x != N_y or d_x != d_y:
+        raise RuntimeError(
+            'Attempted to add UniformTuckerTensorTrains x+y with inconsistent shapes.\n'
+            'Must have d_x=d_y and N_x=N_y:\n'
+            + '(d_x, N_x, n_x, r_x) = ' + str(padded_structure(x)) + '\n'
+            + '(d_y, N_y, n_y, r_y) = ' + str(padded_structure(y))
+        )
+
+    x_basis_supercore, x_tt_supercore, x_shape_edge_masks, x_tucker_edge_masks, x_tt_edge_masks = x
+    y_basis_supercore, y_tt_supercore, y_shape_edge_masks, y_tucker_edge_masks, y_tt_edge_masks = y
+
+    print('x_tucker_edge_masks.shape=', x_tucker_edge_masks.shape)
+    print('y_tucker_edge_masks.shape=', y_tucker_edge_masks.shape)
+
+    z_shape_edge_masks  = x_shape_edge_masks + y_shape_edge_masks # Addition nonsensical if these are not the same.
+    z_tucker_edge_masks = xnp.concatenate([x_tucker_edge_masks,   y_tucker_edge_masks],   axis=1)
+    z_tt_edge_masks     = xnp.concatenate([x_tt_edge_masks,       y_tt_edge_masks],       axis=1)
+
+    z_basis_supercore = xnp.concatenate([x_basis_supercore, y_basis_supercore], axis=1)
+
+    r0, n0 = r_x, n_x
+    r1, n1 = r_y, n_y
+    d = d_x
+    G000 = x_tt_supercore
+    G001 = xnp.zeros((d, r0, n0, r1))
+    G010 = xnp.zeros((d, r0, n1, r0))
+    G011 = xnp.zeros((d, r0, n1, r1))
+    G100 = xnp.zeros((d, r1, n0, r0))
+    G101 = xnp.zeros((d, r1, n0, r1))
+    G110 = xnp.zeros((d, r1, n1, r0))
+    G111 = y_tt_supercore
+    z_tt_supercore = xnp.block([[[G000, G001], [G010, G011]], [[G100, G101], [G110, G111]]])
+
+    return z_basis_supercore, z_tt_supercore, z_shape_edge_masks, z_tucker_edge_masks, z_tt_edge_masks
+
 
 
 # # # #

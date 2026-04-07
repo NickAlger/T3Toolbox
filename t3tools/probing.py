@@ -96,7 +96,7 @@ def probe_t3(
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
     '''
-    shape = t3.t3_structure(x)[0]
+    shape = t3.structure(x)[0]
     assert(len(ww) == len(shape))
 
     xnp = jnp if use_jax else np

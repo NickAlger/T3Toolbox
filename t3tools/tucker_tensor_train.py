@@ -22,7 +22,7 @@ __all__ = [
     # Tucker tensor train
     'TuckerTensorTrain',
     'T3Structure',
-    't3_structure',
+    'structure',
     't3_apply',
     't3_entry',
     't3_to_dense',
@@ -134,7 +134,7 @@ Examples
 >>> basis_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
 >>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
 >>> x = (basis_cores, tt_cores) # TuckerTensorTrain, all cores filled with ones
->>> shape, tucker_ranks, tt_ranks = t3.t3_structure(x)
+>>> shape, tucker_ranks, tt_ranks = t3.structure(x)
 >>> print(shape)
 (14, 15, 16)
 >>> print(tucker_ranks)
@@ -148,7 +148,7 @@ Examples
 ########    Structural properties and consistency checks    #########
 #####################################################################
 
-def t3_structure(
+def structure(
         x: TuckerTensorTrain,
 ) -> T3Structure:
     """Get the structure of a Tucker tensor train.
@@ -178,7 +178,7 @@ def t3_structure(
     >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
     >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
     >>> x = (basis_cores, tt_cores)
-    >>> shape, tucker_ranks, tt_ranks = t3.t3_structure(x)
+    >>> shape, tucker_ranks, tt_ranks = t3.structure(x)
     >>> print(shape)
     (14, 15, 16)
     >>> print(tucker_ranks)
@@ -214,7 +214,7 @@ def check_t3(
     t3_shape
     t3_tucker_ranks
     t3_tt_ranks
-    t3_structure
+    structure
 
     Examples
     --------
@@ -429,17 +429,17 @@ def t3_reverse(
     See Also
     --------
     TuckerTensorTrain
-    t3_structure
+    structure
 
     Examples
     --------
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1))) # Make TuckerTensorTrain
-    >>> print(t3.t3_structure(x))
+    >>> print(t3.structure(x))
     ((14, 15, 16), (4, 5, 6), (1, 3, 2, 1))
     >>> reversed_x = t3.t3_reverse(x)
-    >>> print(t3.t3_structure(reversed_x))
+    >>> print(t3.structure(reversed_x))
     ((16, 15, 14), (6, 5, 4), (1, 2, 3, 1))
     >>> x_dense = t3.t3_to_dense(x)
     >>> reversed_x_dense = t3.t3_to_dense(reversed_x)
@@ -772,7 +772,7 @@ def t3_apply(
     xnp = jnp if use_jax else np
 
     basis_cores, tt_cores = x
-    shape, tucker_ranks, tt_ranks = t3_structure(x)
+    shape, tucker_ranks, tt_ranks = structure(x)
 
     if len(vecs)  != len(shape):
         raise RuntimeError(
@@ -902,7 +902,7 @@ def t3_entry(
     xnp = jnp if use_jax else np
 
     basis_cores, tt_cores = x
-    shape, tucker_ranks, tt_ranks = t3_structure(x)
+    shape, tucker_ranks, tt_ranks = structure(x)
 
     if len(index)  != len(shape):
         raise RuntimeError(
@@ -1004,7 +1004,7 @@ def pad_t3(
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
     >>> new_structure = ((17,18,17), (8,8,8), (1,5,6,1))
     >>> padded_x = t3.pad_t3(x, new_structure)
-    >>> print(t3.t3_structure(padded_x))
+    >>> print(t3.structure(padded_x))
     ((17, 18, 17), (8, 8, 8), (1, 5, 6, 1))
 
     Example where first and last ranks are nonzero:
@@ -1014,14 +1014,14 @@ def pad_t3(
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (3,3,2,4)))
     >>> new_structure = ((17,18,17), (8,8,8), (5,5,6,7))
     >>> padded_x = t3.pad_t3(x, new_structure)
-    >>> print(t3.t3_structure(padded_x))
+    >>> print(t3.structure(padded_x))
     ((17, 18, 17), (8, 8, 8), (5, 5, 6, 7))
     '''
     xnp = jnp if use_jax else np
 
     new_shape, new_tucker_ranks, new_tt_ranks = new_structure
 
-    old_shape, old_tucker_ranks, old_tt_ranks = t3_structure(x)
+    old_shape, old_tucker_ranks, old_tt_ranks = structure(x)
     num_cores = len(old_shape)
     assert(len(old_shape) == len(new_shape))
     assert(len(old_tucker_ranks) == len(new_tucker_ranks))
@@ -1552,7 +1552,7 @@ def orthogonalize_relative_to_ith_basis_core(
     >>> print(np.linalg.norm(np.einsum('axjkd,ayjkd->xy', X, X) - np.eye(B0.shape[0]))) # Complement of B1 is orthogonal
     2.3594586449868743e-15
     '''
-    shape, tucker_ranks, tt_ranks = t3_structure(x)
+    shape, tucker_ranks, tt_ranks = structure(x)
 
     new_x = x
     for jj in range(ii):
@@ -1647,7 +1647,7 @@ def orthogonalize_relative_to_ith_tt_core(
     >>> print(np.linalg.norm(np.einsum('bijd,cijd->bc', XR, XR) - np.eye(G0.shape[2]))) # Right subtree is right orthogonal
     8.816596607002667e-16
     '''
-    shape, tucker_ranks, tt_ranks = t3_structure(x)
+    shape, tucker_ranks, tt_ranks = structure(x)
 
     new_x = x
     for jj in range(ii):
@@ -1762,9 +1762,9 @@ def t3_svd(
     >>> tt_cores_x = (G0, G1, G2)
     >>> x = (basis_cores_x, tt_cores_x) # Tensor has spectral decay due to preconditioning
     >>> x2, ss_basis, ss_tt = t3.t3_svd(x, rtol=1e-2) # Truncate singular values to reduce rank
-    >>> print(t3.t3_structure(x))
+    >>> print(t3.structure(x))
     ((40, 50, 60), (35, 45, 55), (1, 30, 40, 1))
-    >>> print(t3.t3_structure(x2))
+    >>> print(t3.structure(x2))
     ((40, 50, 60), (6, 6, 5), (1, 6, 5, 1))
     >>> x_dense = t3.t3_to_dense(x)
     >>> x2_dense = t3.t3_to_dense(x2)
@@ -1777,9 +1777,9 @@ def t3_svd(
     >>> import t3tools.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (10,11,12), (1,8,9,1)))
     >>> x2, ss_basis, ss_tt = t3.t3_svd(x, max_tucker_ranks=(3,3,3), max_tt_ranks=(1,2,2,1)) # Truncate based on ranks
-    >>> print(t3.t3_structure(x))
+    >>> print(t3.structure(x))
         ((14, 15, 16), (10, 11, 12), (1, 8, 9, 1))
-    >>> print(t3.t3_structure(x2))
+    >>> print(t3.structure(x2))
         ((14, 15, 16), (3, 3, 2), (1, 2, 2, 1))
 
     Example where first and last ranks are not ones:
@@ -1901,7 +1901,7 @@ def t3_add(
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> y = t3.t3_corewise_randn(((14,15,16), (3,7,2), (1,5,6,1)))
     >>> z = t3.t3_add(x, y)
-    >>> print(t3.t3_structure(z))
+    >>> print(t3.structure(z))
     ((14, 15, 16), (7, 12, 8), (1, 8, 8, 1))
     >>> print(np.linalg.norm(t3.t3_to_dense(x) + t3.t3_to_dense(y) - t3.t3_to_dense(z)))
     6.524094086845177e-13
@@ -1909,8 +1909,8 @@ def t3_add(
     check_t3(x)
     check_t3(y)
 
-    x_shape = t3_structure(x)[0]
-    y_shape = t3_structure(y)[0]
+    x_shape = structure(x)[0]
+    y_shape = structure(y)[0]
     if x_shape != y_shape:
         raise RuntimeError(
             'Attempted to add TuckerTensorTrains x+y with inconsistent shapes.'
@@ -2079,7 +2079,7 @@ def t3_sub(
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> y = t3.t3_corewise_randn(((14,15,16), (3,7,2), (1,5,6,1)))
     >>> z = t3.t3_sub(x, y)
-    >>> print(t3.t3_structure(z))
+    >>> print(t3.structure(z))
     ((14, 15, 16), (7, 12, 8), (1, 8, 8, 1))
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(y) - t3.t3_to_dense(z)))
     3.5875705233607603e-13
@@ -2152,8 +2152,8 @@ def t3_dot_t3(
 
     xnp = jnp if use_jax else np
 
-    x_shape = t3_structure(x)[0]
-    y_shape = t3_structure(y)[0]
+    x_shape = structure(x)[0]
+    y_shape = structure(y)[0]
     if x_shape != y_shape:
         raise RuntimeError(
             'Attempted to dot TuckerTensorTrains (x,y)_HS with inconsistent shapes.'
@@ -2287,7 +2287,7 @@ def t3_svd_dense(
     >>> c2 = 1.0 / np.arange(1, 61)**2
     >>> T = np.einsum('ijk,i,j,k->ijk', T0, c0, c1, c2) # Preconditioned random tensor
     >>> x, ss_tucker, ss_tt = t3.t3_svd_dense(T, rtol=1e-3) # Truncate T3-SVD to reduce rank
-    >>> print(t3.t3_structure(x))
+    >>> print(t3.structure(x))
     ((40, 50, 60), (12, 11, 12), (1, 12, 12, 1))
     >>> T2 = t3.t3_to_dense(x)
     >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-3

@@ -1343,7 +1343,7 @@ def retract(
     check_fit(variation, base)
 
     basis_cores, left_tt_cores, _, _ = base
-    _, base_tucker_ranks, base_tt_ranks = t3.t3_structure((basis_cores, left_tt_cores))
+    _, base_tucker_ranks, base_tt_ranks = t3.structure((basis_cores, left_tt_cores))
 
     x_t3 = tangent_to_t3(variation, base, include_shift=True)
     retracted_x_t3, _, _ = t3.t3_svd(
