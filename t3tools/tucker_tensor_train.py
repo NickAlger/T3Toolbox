@@ -969,6 +969,7 @@ def compute_minimal_ranks(
 def pad_t3(
         x:                  TuckerTensorTrain,
         new_structure:      T3Structure,
+        use_jax: bool = False,
 ) -> TuckerTensorTrain:
     '''Increase TuckerTensorTrain ranks via zero padding.
 
@@ -982,6 +983,8 @@ def pad_t3(
     >>> print(t3.t3_structure(padded_x))
     ((17, 18, 17), (8, 8, 8), (1, 5, 6, 1))
     '''
+    xnp = jnp if use_jax else np
+
     new_shape, new_tucker_ranks, new_tt_ranks = new_structure
 
     old_shape, old_tucker_ranks, old_tt_ranks = t3_structure(x)
@@ -998,7 +1001,7 @@ def pad_t3(
 
     new_basis_cores = []
     for ii in range(num_cores):
-        new_basis_cores.append(jnp.pad(
+        new_basis_cores.append(xnp.pad(
             basis_cores[ii],
             (
                 (0,delta_tucker_ranks[ii]),
@@ -1008,7 +1011,7 @@ def pad_t3(
 
     new_tt_cores = []
     for ii in range(num_cores):
-        new_tt_cores.append(jnp.pad(
+        new_tt_cores.append(xnp.pad(
             tt_cores[ii],
             (
                 (0,delta_tt_ranks[ii]),
