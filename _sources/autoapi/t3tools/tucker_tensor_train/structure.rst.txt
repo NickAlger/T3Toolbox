@@ -1,7 +1,7 @@
-t3tools.tucker_tensor_train.t3_structure
-========================================
+t3tools.tucker_tensor_train.structure
+=====================================
 
-.. py:function:: t3tools.tucker_tensor_train.t3_structure(x: TuckerTensorTrain) -> T3Structure
+.. py:function:: t3tools.tucker_tensor_train.structure(x: TuckerTensorTrain) -> T3Structure
 
    Get the structure of a Tucker tensor train.
 
@@ -20,7 +20,7 @@ t3tools.tucker_tensor_train.t3_structure
    >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
    >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
    >>> x = (basis_cores, tt_cores)
-   >>> shape, tucker_ranks, tt_ranks = t3.t3_structure(x)
+   >>> shape, tucker_ranks, tt_ranks = t3.structure(x)
    >>> print(shape)
    (14, 15, 16)
    >>> print(tucker_ranks)

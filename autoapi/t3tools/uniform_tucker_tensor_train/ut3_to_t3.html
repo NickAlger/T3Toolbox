@@ -15,6 +15,7 @@
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
+    <link rel="next" title="t3tools.uniform_tucker_tensor_train.ut3_add" href="ut3_add.html" />
     <link rel="prev" title="t3tools.uniform_tucker_tensor_train.t3_to_ut3" href="t3_to_ut3.html" /> 
   </head><body>
     <div class="header-wrapper" role="banner">
@@ -24,6 +25,8 @@
         <div class="rel" role="navigation" aria-label="Related">
           <a href="t3_to_ut3.html" title="t3tools.uniform_tucker_tensor_train.t3_to_ut3"
              accesskey="P">previous</a> |
+          <a href="ut3_add.html" title="t3tools.uniform_tucker_tensor_train.ut3_add"
+             accesskey="N">next</a> |
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |
           <a href="../../../genindex.html" title="General Index"
@@ -57,7 +60,7 @@
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ut3</span><span class="o">.</span><span class="n">original_structure</span><span class="p">(</span><span class="n">uniform_x</span><span class="p">))</span>
 <span class="go">((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x2</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">ut3_to_t3</span><span class="p">(</span><span class="n">uniform_x</span><span class="p">)</span> <span class="c1"># Convert ut3 -&gt; t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">t3</span><span class="o">.</span><span class="n">t3_structure</span><span class="p">(</span><span class="n">x2</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">t3</span><span class="o">.</span><span class="n">structure</span><span class="p">(</span><span class="n">x2</span><span class="p">))</span>
 <span class="go">((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">B</span> <span class="o">-</span> <span class="n">B2</span><span class="p">)</span> <span class="k">for</span> <span class="n">B</span><span class="p">,</span> <span class="n">B2</span>  <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">x2</span><span class="p">[</span><span class="mi">0</span><span class="p">])])</span>
 <span class="go">[0.0, 0.0, 0.0]</span>
@@ -117,6 +120,8 @@
           <div role="navigation" aria-label="Related">
             <a href="t3_to_ut3.html" title="t3tools.uniform_tucker_tensor_train.t3_to_ut3"
               >previous</a> |
+            <a href="ut3_add.html" title="t3tools.uniform_tucker_tensor_train.ut3_add"
+              >next</a> |
             <a href="../../../py-modindex.html" title="Python Module Index"
               >modules</a> |
             <a href="../../../genindex.html" title="General Index"

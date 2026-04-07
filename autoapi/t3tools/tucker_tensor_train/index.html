@@ -15,7 +15,7 @@
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3tools.tucker_tensor_train.t3_structure" href="t3_structure.html" />
+    <link rel="next" title="t3tools.tucker_tensor_train.structure" href="structure.html" />
     <link rel="prev" title="t3tools.probing.probe_tangent_transpose" href="../probing/probe_tangent_transpose.html" /> 
   </head><body>
     <div class="header-wrapper" role="banner">
@@ -25,7 +25,7 @@
         <div class="rel" role="navigation" aria-label="Related">
           <a href="../probing/probe_tangent_transpose.html" title="t3tools.probing.probe_tangent_transpose"
              accesskey="P">previous</a> |
-          <a href="t3_structure.html" title="t3tools.tucker_tensor_train.t3_structure"
+          <a href="structure.html" title="t3tools.tucker_tensor_train.structure"
              accesskey="N">next</a> |
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |
@@ -64,7 +64,7 @@
 </div>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_structure.html#t3tools.tucker_tensor_train.t3_structure" title="t3tools.tucker_tensor_train.t3_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_structure</span></code></a>(→ T3Structure)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="structure.html#t3tools.tucker_tensor_train.structure" title="t3tools.tucker_tensor_train.structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">structure</span></code></a>(→ T3Structure)</p></td>
 <td><p>Get the structure of a Tucker tensor train.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="check_t3.html#t3tools.tucker_tensor_train.check_t3" title="t3tools.tucker_tensor_train.check_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3</span></code></a>(→ None)</p></td>
@@ -237,7 +237,7 @@ the “1”s in the diagram are vectors of ones.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">basis_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span><span class="mi">14</span><span class="p">)),</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">5</span><span class="p">,</span><span class="mi">15</span><span class="p">)),</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">6</span><span class="p">,</span><span class="mi">16</span><span class="p">))]</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">tt_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">3</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">2</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">1</span><span class="p">))]</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">basis_cores</span><span class="p">,</span> <span class="n">tt_cores</span><span class="p">)</span> <span class="c1"># TuckerTensorTrain, all cores filled with ones</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">shape</span><span class="p">,</span> <span class="n">tucker_ranks</span><span class="p">,</span> <span class="n">tt_ranks</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_structure</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">shape</span><span class="p">,</span> <span class="n">tucker_ranks</span><span class="p">,</span> <span class="n">tt_ranks</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">structure</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
 <span class="go">(14, 15, 16)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">tucker_ranks</span><span class="p">)</span>
@@ -299,7 +299,7 @@ the “1”s in the diagram are vectors of ones.</p>
           <div role="navigation" aria-label="Related">
             <a href="../probing/probe_tangent_transpose.html" title="t3tools.probing.probe_tangent_transpose"
               >previous</a> |
-            <a href="t3_structure.html" title="t3tools.tucker_tensor_train.t3_structure"
+            <a href="structure.html" title="t3tools.tucker_tensor_train.structure"
               >next</a> |
             <a href="../../../py-modindex.html" title="Python Module Index"
               >modules</a> |

@@ -1,0 +1,31 @@
+t3tools.uniform_tucker_tensor_train.ut3_add
+===========================================
+
+.. py:function:: t3tools.uniform_tucker_tensor_train.ut3_add(x: UniformTuckerTensorTrain, y: UniformTuckerTensorTrain, use_jax: bool = False) -> UniformTuckerTensorTrain
+
+   Add two UniformTuckerTensorTrains.
+
+   :param x: First summand
+   :type x: UniformTuckerTensorTrain
+   :param y: Second summand
+   :type y: UniformTuckerTensorTrain
+
+   :returns: Sum, x+y
+   :rtype: UniformTuckerTensorTrain
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> import t3tools.uniform_tucker_tensor_train as ut3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (2,3,2,2)))
+   >>> uniform_x = ut3.t3_to_ut3(x)
+   >>> y = t3.t3_corewise_randn(((14,15,16), (6,7,8), (3,5,6,1)))
+   >>> uniform_y = ut3.t3_to_ut3(y)
+   >>> uniform_x_plus_y = ut3.ut3_add(uniform_x, uniform_y) # add uniform T3s
+   >>> dense_x = t3.t3_to_dense(x)
+   >>> dense_y = t3.t3_to_dense(y)
+   >>> dense_x_plus_y = ut3.ut3_to_dense(uniform_x_plus_y)
+   >>> print(np.linalg.norm(dense_x + dense_y - dense_x_plus_y))
+   0.0
+

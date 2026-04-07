@@ -19,7 +19,7 @@ Functions
 .. toctree::
    :hidden:
 
-   /autoapi/t3tools/tucker_tensor_train/t3_structure
+   /autoapi/t3tools/tucker_tensor_train/structure
    /autoapi/t3tools/tucker_tensor_train/check_t3
    /autoapi/t3tools/tucker_tensor_train/t3_to_dense
    /autoapi/t3tools/tucker_tensor_train/t3_reverse
@@ -49,7 +49,7 @@ Functions
 
 .. autoapisummary::
 
-   t3tools.tucker_tensor_train.t3_structure
+   t3tools.tucker_tensor_train.structure
    t3tools.tucker_tensor_train.check_t3
    t3tools.tucker_tensor_train.t3_to_dense
    t3tools.tucker_tensor_train.t3_reverse
@@ -147,7 +147,7 @@ Module Contents
    >>> basis_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
    >>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
    >>> x = (basis_cores, tt_cores) # TuckerTensorTrain, all cores filled with ones
-   >>> shape, tucker_ranks, tt_ranks = t3.t3_structure(x)
+   >>> shape, tucker_ranks, tt_ranks = t3.structure(x)
    >>> print(shape)
    (14, 15, 16)
    >>> print(tucker_ranks)
