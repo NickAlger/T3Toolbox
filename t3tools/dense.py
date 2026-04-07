@@ -21,7 +21,7 @@ __all__ = [
     'tucker_svd_dense',
     'tt_svd_dense',
     #
-    'dense_probes',
+    'probe_dense',
 ]
 
 
@@ -559,7 +559,7 @@ def tt_svd_dense(
 ##########    Probe dense tensor    ###########
 ###############################################
 
-def dense_probes(
+def probe_dense(
         T:          NDArray,
         vectors:    typ.Sequence[NDArray],
         use_jax: bool = False,
@@ -595,7 +595,7 @@ def dense_probes(
     >>> u0 = np.random.randn(10)
     >>> u1 = np.random.randn(11)
     >>> u2 = np.random.randn(12)
-    >>> yy = dense.dense_probes(T, (u0,u1,u2))
+    >>> yy = dense.probe_dense(T, (u0,u1,u2))
     >>> y0 = np.einsum('ijk,j,k', T, u1, u2)
     >>> y1 = np.einsum('ijk,i,k', T, u0, u2)
     >>> y2 = np.einsum('ijk,i,j', T, u0, u1)
@@ -615,9 +615,9 @@ def dense_probes(
     >>> u1, v1 = np.random.randn(11), np.random.randn(11)
     >>> u2, v2 = np.random.randn(12), np.random.randn(12)
     >>> uuu = [np.vstack([u0,v0]), np.vstack([u1,v1]), np.vstack([u2,v2])]
-    >>> yyy = dense.dense_probes(T, uuu)
-    >>> yy_u = dense.dense_probes(T, (u0,u1,u2))
-    >>> yy_v = dense.dense_probes(T, (v0,v1,v2))
+    >>> yyy = dense.probe_dense(T, uuu)
+    >>> yy_u = dense.probe_dense(T, (u0,u1,u2))
+    >>> yy_v = dense.probe_dense(T, (v0,v1,v2))
     >>> print(np.linalg.norm(yy_u[0] - yyy[0][0,:]))
     0.0
     >>> print(np.linalg.norm(yy_u[1] - yyy[1][0,:]))
@@ -645,7 +645,7 @@ def dense_probes(
             assert (len(vectors[ii].shape) == 2)
     else:
         raise RuntimeError(
-            'Wrong vectors[ii] shape in dense_probes. Should be vector or matrix.\n'
+            'Wrong vectors[ii] shape in probe_dense. Should be vector or matrix.\n'
             + 'vectors[0].shape=' + str(vectors[0].shape)
         )
 

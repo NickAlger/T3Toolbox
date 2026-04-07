@@ -92,7 +92,7 @@ def probe_t3(
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> zz = t3p.probe_t3(x, ww)
     >>> x_dense = t3.t3_to_dense(x)
-    >>> zz2 = dense.dense_probes(x_dense, ww)
+    >>> zz2 = dense.probe_dense(x_dense, ww)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
     '''
@@ -612,7 +612,7 @@ def probe_tangent(
     >>> variation = t3m.tangent_randn(base)
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> zz = t3p.probe_tangent(variation, ww, base)
-    >>> zz2 = dense.dense_probes(t3m.tangent_to_dense(variation, base), ww)
+    >>> zz2 = dense.probe_dense(t3m.tangent_to_dense(variation, base), ww)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [4.6257812371663175e-15, 3.628238740198284e-15, 5.6097341748343224e-15]
 
@@ -628,7 +628,7 @@ def probe_tangent(
     >>> variation = t3m.tangent_randn(base)
     >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
     >>> zzz = t3p.probe_tangent(variation, www, base) # Compute probes!
-    >>> zzz2 = dense.dense_probes(t3m.tangent_to_dense(variation, base), www)
+    >>> zzz2 = dense.probe_dense(t3m.tangent_to_dense(variation, base), www)
     >>> print([np.linalg.norm(zz - zz2, axis=1) for zz, zz2 in zip(zzz, zzz2)])
     [array([3.18560984e-15, 5.06339604e-15]), array([1.74264349e-15, 5.10008230e-15]), array([2.17576097e-15, 2.94156728e-15])]
     '''
