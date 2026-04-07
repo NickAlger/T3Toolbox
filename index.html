@@ -154,20 +154,21 @@ Includes:</p>
 <section id="tucker-tensor-trains">
 <h2>Tucker tensor trains<a class="headerlink" href="#tucker-tensor-trains" title="Link to this heading">¶</a></h2>
 <p>Tucker tensor trains consist of a Tucker decomposition composed with a tensor train decomposition of the central Tucker core. We may diagram a Tucker tensor train with 4 indices like this, using graphical tensor notation:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">1</span> <span class="o">-</span><span class="p">[</span><span class="n">r0</span><span class="p">]</span><span class="o">-</span> <span class="n">G0</span> <span class="o">-</span><span class="p">[</span><span class="n">r1</span><span class="p">]</span><span class="o">-</span> <span class="n">G1</span> <span class="o">-</span><span class="p">[</span><span class="n">r2</span><span class="p">]</span><span class="o">-</span> <span class="n">G2</span> <span class="o">-</span><span class="p">[</span><span class="n">r3</span><span class="p">]</span><span class="o">-</span> <span class="n">G3</span> <span class="o">-</span><span class="p">[</span><span class="n">r4</span><span class="p">]</span><span class="o">-</span> <span class="mi">1</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>    <span class="n">r0</span>        <span class="n">r1</span>        <span class="n">r2</span>        <span class="n">r2</span>        <span class="n">r4</span>
+<span class="mi">1</span> <span class="o">------</span> <span class="n">G0</span> <span class="o">------</span> <span class="n">G1</span> <span class="o">------</span> <span class="n">G2</span> <span class="o">------</span> <span class="n">G3</span> <span class="o">------</span> <span class="mi">1</span>
          <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>
-         <span class="p">[</span><span class="n">n0</span><span class="p">]</span>      <span class="p">[</span><span class="n">n1</span><span class="p">]</span>      <span class="p">[</span><span class="n">n2</span><span class="p">]</span>      <span class="p">[</span><span class="n">n3</span><span class="p">]</span>
+         <span class="o">|</span><span class="n">n0</span>       <span class="o">|</span><span class="n">n1</span>       <span class="o">|</span><span class="n">n2</span>       <span class="o">|</span><span class="n">n3</span>
          <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>
          <span class="n">B0</span>        <span class="n">B1</span>        <span class="n">B2</span>        <span class="n">B3</span>
          <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>
-         <span class="p">[</span><span class="n">N0</span><span class="p">]</span>      <span class="p">[</span><span class="n">N1</span><span class="p">]</span>      <span class="p">[</span><span class="n">N2</span><span class="p">]</span>      <span class="p">[</span><span class="n">N3</span><span class="p">]</span>
+         <span class="o">|</span><span class="n">N0</span>       <span class="o">|</span><span class="n">N1</span>       <span class="o">|</span><span class="n">N2</span>       <span class="o">|</span><span class="n">N3</span>
          <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>
 </pre></div>
 </div>
 <ul class="simple">
 <li><p>Gi and Bi are <em>cores</em>, which are smaller tensors that are being contracted with each other to form a larger tensor.</p></li>
 <li><p>Edges in the network indicate contraction of adjacent cores.</p></li>
-<li><p>The bracket notation in the middle of edges, like -[r1]-, indicates the size of the edge (its “bandwidth”, you might say).</p></li>
+<li><p>Ni, ni, ri, written next to edges, indicate the size of the edge (its “bandwidth”, you might say).</p></li>
 </ul>
 <dl class="simple">
 <dt>The Tucker tensor train with d indices is represented as a Tuple of cores, ((B0,…,Bd), (G0,…,Gd)).</dt><dd><ul class="simple">

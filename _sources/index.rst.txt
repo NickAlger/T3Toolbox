@@ -97,18 +97,19 @@ Tucker tensor trains
 
 Tucker tensor trains consist of a Tucker decomposition composed with a tensor train decomposition of the central Tucker core. We may diagram a Tucker tensor train with 4 indices like this, using graphical tensor notation::
 
-    1 -[r0]- G0 -[r1]- G1 -[r2]- G2 -[r3]- G3 -[r4]- 1
+        r0        r1        r2        r2        r4
+    1 ------ G0 ------ G1 ------ G2 ------ G3 ------ 1
              |         |         |         |
-             [n0]      [n1]      [n2]      [n3]
+             |n0       |n1       |n2       |n3
              |         |         |         |
              B0        B1        B2        B3
              |         |         |         |
-             [N0]      [N1]      [N2]      [N3]
+             |N0       |N1       |N2       |N3
              |         |         |         |
 
 - Gi and Bi are *cores*, which are smaller tensors that are being contracted with each other to form a larger tensor.
 - Edges in the network indicate contraction of adjacent cores.
-- The bracket notation in the middle of edges, like -[r1]-, indicates the size of the edge (its "bandwidth", you might say).
+- Ni, ni, ri, written next to edges, indicate the size of the edge (its "bandwidth", you might say).
 
 The Tucker tensor train with d indices is represented as a Tuple of cores, ((B0,...,Bd), (G0,...,Gd)).
 	- Bi are the *basis cores*, which are matrices with shape (ni, Ni)
