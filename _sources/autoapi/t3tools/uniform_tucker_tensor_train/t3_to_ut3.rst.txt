@@ -1,4 +1,26 @@
 t3tools.uniform_tucker_tensor_train.t3_to_ut3
 =============================================
 
-.. py:function:: t3tools.uniform_tucker_tensor_train.t3_to_ut3(x: t3tools.tucker_tensor_train.TuckerTensorTrain) -> UniformTuckerTensorTrain
+.. py:function:: t3tools.uniform_tucker_tensor_train.t3_to_ut3(x: t3tools.tucker_tensor_train.TuckerTensorTrain, use_jax: bool = False) -> UniformTuckerTensorTrain
+
+   Convert TuckerTensorTrain to UniformTuckerTensorTrain.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> import t3tools.uniform_tucker_tensor_train as ut3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
+   >>> uniform_x = ut3.t3_to_ut3(x) # Convert t3 -> ut3
+   >>> print(ut3.padded_structure(uniform_x))
+   (3, 16, 6, 3)
+   >>> print(ut3.original_structure(uniform_x))
+   ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
+   >>> x2 = ut3.ut3_to_t3(uniform_x) # Convert ut3 -> t3
+   >>> print(t3.t3_structure(x2))
+   ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
+   >>> print([np.linalg.norm(B - B2) for B, B2  in zip(x[0], x2[0])])
+   [0.0, 0.0, 0.0]
+   >>> print([np.linalg.norm(G - G2) for G, G2  in zip(x[1], x2[1])])
+   [0.0, 0.0, 0.0]
+

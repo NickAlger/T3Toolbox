@@ -1,4 +1,0 @@
-t3tools.uniform_tucker_tensor_train.ut3_svd_masked
-==================================================
-
-.. py:function:: t3tools.uniform_tucker_tensor_train.ut3_svd_masked(uniform_t3: Tuple[jax.numpy.ndarray, jax.numpy.ndarray], masks: Tuple[jax.numpy.ndarray, jax.numpy.ndarray]) -> Tuple[Tuple[jax.numpy.ndarray, jax.numpy.ndarray], jax.numpy.ndarray, jax.numpy.ndarray]

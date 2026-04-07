@@ -1,0 +1,4 @@
+t3tools.uniform_tucker_tensor_train.padded_structure
+====================================================
+
+.. py:function:: t3tools.uniform_tucker_tensor_train.padded_structure(x: UniformTuckerTensorTrain) -> Tuple[int, int, int, int]

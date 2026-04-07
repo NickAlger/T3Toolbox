@@ -1,7 +1,7 @@
 t3tools.tucker_tensor_train.pad_t3
 ==================================
 
-.. py:function:: t3tools.tucker_tensor_train.pad_t3(x: TuckerTensorTrain, new_structure: T3Structure) -> TuckerTensorTrain
+.. py:function:: t3tools.tucker_tensor_train.pad_t3(x: TuckerTensorTrain, new_structure: T3Structure, use_jax: bool = False) -> TuckerTensorTrain
 
    Increase TuckerTensorTrain ranks via zero padding.
 

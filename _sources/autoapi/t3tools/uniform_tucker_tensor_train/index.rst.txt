@@ -4,42 +4,74 @@ t3tools.uniform_tucker_tensor_train
 .. py:module:: t3tools.uniform_tucker_tensor_train
 
 
+Attributes
+----------
+
+.. autoapisummary::
+
+   t3tools.uniform_tucker_tensor_train.jnp
+   t3tools.uniform_tucker_tensor_train.NDArray
+   t3tools.uniform_tucker_tensor_train.UniformTuckerTensorTrain
+
+
 Functions
 ---------
 
 .. toctree::
    :hidden:
 
+   /autoapi/t3tools/uniform_tucker_tensor_train/padded_structure
+   /autoapi/t3tools/uniform_tucker_tensor_train/original_structure
    /autoapi/t3tools/uniform_tucker_tensor_train/t3_to_ut3
    /autoapi/t3tools/uniform_tucker_tensor_train/ut3_to_t3
-   /autoapi/t3tools/uniform_tucker_tensor_train/ut3_tangent_vector_to_ut3
-   /autoapi/t3tools/uniform_tucker_tensor_train/ut3_attached_tangent_vector_to_ut3
-   /autoapi/t3tools/uniform_tucker_tensor_train/left_orthogonalize_utt
-   /autoapi/t3tools/uniform_tucker_tensor_train/right_orthogonalize_utt
-   /autoapi/t3tools/uniform_tucker_tensor_train/orthogonalize_ut3_basis_cores
-   /autoapi/t3tools/uniform_tucker_tensor_train/ut3_svd_masked
-   /autoapi/t3tools/uniform_tucker_tensor_train/ut3_retract
-   /autoapi/t3tools/uniform_tucker_tensor_train/construct_ut3_base_representations
-   /autoapi/t3tools/uniform_tucker_tensor_train/make_ut3_masks
-   /autoapi/t3tools/uniform_tucker_tensor_train/apply_masks
-   /autoapi/t3tools/uniform_tucker_tensor_train/ut3_to_dense
-   /autoapi/t3tools/uniform_tucker_tensor_train/ut3_project_dense_tensor_onto_tangent_space
 
 .. autoapisummary::
 
+   t3tools.uniform_tucker_tensor_train.padded_structure
+   t3tools.uniform_tucker_tensor_train.original_structure
    t3tools.uniform_tucker_tensor_train.t3_to_ut3
    t3tools.uniform_tucker_tensor_train.ut3_to_t3
-   t3tools.uniform_tucker_tensor_train.ut3_tangent_vector_to_ut3
-   t3tools.uniform_tucker_tensor_train.ut3_attached_tangent_vector_to_ut3
-   t3tools.uniform_tucker_tensor_train.left_orthogonalize_utt
-   t3tools.uniform_tucker_tensor_train.right_orthogonalize_utt
-   t3tools.uniform_tucker_tensor_train.orthogonalize_ut3_basis_cores
-   t3tools.uniform_tucker_tensor_train.ut3_svd_masked
-   t3tools.uniform_tucker_tensor_train.ut3_retract
-   t3tools.uniform_tucker_tensor_train.construct_ut3_base_representations
-   t3tools.uniform_tucker_tensor_train.make_ut3_masks
-   t3tools.uniform_tucker_tensor_train.apply_masks
-   t3tools.uniform_tucker_tensor_train.ut3_to_dense
-   t3tools.uniform_tucker_tensor_train.ut3_project_dense_tensor_onto_tangent_space
 
+
+Module Contents
+---------------
+
+.. py:data:: jnp
+
+.. py:data:: NDArray
+
+.. py:data:: UniformTuckerTensorTrain
+
+   Tuple containing supercores and edge masks defining a Uniform Tucker tensor train
+
+   UniformTuckerTensor train created by padding the cores of a TuckerTensorTrain
+   so that the ranks are uniform, then stacking the TT-cores and basis cores into
+   "supercores", which have one more dimension.
+
+   Edge masks are boolean vectors, associated with the edges, which track the padding.
+
+   **Components**
+       - basis_supercore:      NDArray. shape=(d, n, N).       Stacked padded basis cores
+       - tt_supercore:         NDArray. shape=(d, r, n, r).    Stacked padded TT-cores
+       - shape_edge_masks:     NDArray. shape=(d,N).   Stacked masks for edges between basis cores and exterior of tensor
+       - tucker_edge_masks:    NDArray. shape=(d,n).   Stacked masks for edges between basis cores and adjacent TT-cores
+       - tt_edge_masks:        NDArray. shape=(d+1,r). Stacked masks for edges between adjacent TT-cores
+
+   Here:
+       - d = num_cores
+       - N = padded_shape
+       - n = padded_tucker_rank
+       - r = padded_tt_rank
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> import t3tools.uniform_tucker_tensor_train as ut3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
+   >>> uniform_x = ut3.t3_to_ut3(x)
+   >>> print(ut3.padded_structure(uniform_x))
+   (3, 16, 6, 3)
+   >>> print(ut3.original_structure(uniform_x))
+   ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
 

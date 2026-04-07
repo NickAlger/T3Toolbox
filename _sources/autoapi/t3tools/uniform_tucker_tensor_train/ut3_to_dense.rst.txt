@@ -1,4 +1,0 @@
-t3tools.uniform_tucker_tensor_train.ut3_to_dense
-================================================
-
-.. py:function:: t3tools.uniform_tucker_tensor_train.ut3_to_dense(uniform_t3: Tuple[jax.numpy.ndarray, jax.numpy.ndarray], original_shape)

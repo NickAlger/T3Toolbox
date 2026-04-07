@@ -1,4 +1,0 @@
-t3tools.uniform_tucker_tensor_train.left_orthogonalize_utt
-==========================================================
-
-.. py:function:: t3tools.uniform_tucker_tensor_train.left_orthogonalize_utt(tt_cores: jax.numpy.ndarray) -> jax.numpy.ndarray
