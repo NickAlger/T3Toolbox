@@ -324,6 +324,13 @@ We keep track of which parts of the cores are supposed to be zero (to prevent fi
 	- The masks for the edges between adjacent TT-cores have length r. For the ith edge, the first ri entries are 1, and the remaining entries are 0. These *TT edge masks* are collected into boolean array with shape (d+1,r).
 
 
+**Note:** Use uniform Tucker tensor trains with **minimal ranks only**. 
+If the ranks are degenerate (not minimal), then some operations with 
+uniform Tucker tensor trains, particularly orthogonalization, T3-SVD, 
+and manifold operations, may give results that are inconsistent with the 
+corresponding operations on regular Tucker tensor trains. 
+A Tucker tensor train may be converted to one with minimal ranks via T3-SVD.
+
 Relevant literature
 -------------------
 

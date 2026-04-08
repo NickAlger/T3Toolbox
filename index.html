@@ -377,6 +377,12 @@ Ci =/= Ai + Bi.</p>
 </ul>
 </dd>
 </dl>
+<p><strong>Note:</strong> Use uniform Tucker tensor trains with <strong>minimal ranks only</strong>.
+If the ranks are degenerate (not minimal), then some operations with
+uniform Tucker tensor trains, particularly orthogonalization, T3-SVD,
+and manifold operations, may give results that are inconsistent with the
+corresponding operations on regular Tucker tensor trains.
+A Tucker tensor train may be converted to one with minimal ranks via T3-SVD.</p>
 </section>
 <section id="relevant-literature">
 <h2>Relevant literature<a class="headerlink" href="#relevant-literature" title="Link to this heading">¶</a></h2>
