@@ -39,6 +39,22 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         ee = ut3.unpack_edge_tensors(E, submask)
         self.assertEqual([(6, 5, 4, 0), (6, 5, 4, 1), (6, 5, 4, 2)], [e.shape for e in ee])
 
+    def test_t3_to_ut3_to_t3(self):
+        x = t3.t3_corewise_randn(((14, 15, 16), (4, 6, 5), (3, 3, 2, 4)))
+        cores, masks = ut3.t3_to_ut3(x)  # Convert t3 -> ut3
+        x2 = ut3.ut3_to_t3(cores, masks)  # Convert ut3 -> t3
+        dense_x = t3.t3_to_dense(x)
+        dense_x2 = t3.t3_to_dense(x2)
+        self.assertLessEqual(norm(dense_x - dense_x2), numpy_tol * norm(dense_x))
+
+    def test_ut3_to_dense(self):
+        x = t3.t3_corewise_randn(((14, 15, 16), (4, 6, 5), (3, 3, 2, 4)))
+        cores, masks = ut3.t3_to_ut3(x)  # Convert t3 -> ut3
+        dense_x = t3.t3_to_dense(x)
+        dense_x2 = ut3.ut3_to_dense(cores, masks)
+        self.assertLessEqual(norm(dense_x - dense_x2), numpy_tol * norm(dense_x))
+
+
 
 
 if __name__ == '__main__':
