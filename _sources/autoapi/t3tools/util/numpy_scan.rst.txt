@@ -2,3 +2,9 @@ t3tools.util.numpy_scan
 =======================
 
 .. py:function:: t3tools.util.numpy_scan(f, init, xs, length=None)
+
+   Numpy version of jax.lax.scan.
+   https://docs.jax.dev/en/latest/_autosummary/jax.lax.scan.html
+
+   Generated with help from AI.
+

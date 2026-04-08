@@ -22,6 +22,7 @@ Functions
    /autoapi/t3tools/uniform_tucker_tensor_train/padded_structure
    /autoapi/t3tools/uniform_tucker_tensor_train/original_structure
    /autoapi/t3tools/uniform_tucker_tensor_train/apply_masks
+   /autoapi/t3tools/uniform_tucker_tensor_train/unpack_edge_tensors
    /autoapi/t3tools/uniform_tucker_tensor_train/t3_to_ut3
    /autoapi/t3tools/uniform_tucker_tensor_train/ut3_to_t3
    /autoapi/t3tools/uniform_tucker_tensor_train/are_ut3_ranks_minimal
@@ -37,6 +38,7 @@ Functions
    t3tools.uniform_tucker_tensor_train.padded_structure
    t3tools.uniform_tucker_tensor_train.original_structure
    t3tools.uniform_tucker_tensor_train.apply_masks
+   t3tools.uniform_tucker_tensor_train.unpack_edge_tensors
    t3tools.uniform_tucker_tensor_train.t3_to_ut3
    t3tools.uniform_tucker_tensor_train.ut3_to_t3
    t3tools.uniform_tucker_tensor_train.are_ut3_ranks_minimal
