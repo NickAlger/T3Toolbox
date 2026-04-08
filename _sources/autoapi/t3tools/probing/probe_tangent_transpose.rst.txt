@@ -1,7 +1,7 @@
 t3tools.probing.probe_tangent_transpose
 =======================================
 
-.. py:function:: t3tools.probing.probe_tangent_transpose(ztildes: Sequence[NDArray], ww: Sequence[NDArray], base: t3tools.manifold.T3Base, sum_over_probes: bool = False, use_jax: bool = False) -> Tuple[Tuple[NDArray, Ellipsis], Tuple[NDArray, Ellipsis]]
+.. py:function:: t3tools.probing.probe_tangent_transpose(ztildes: Sequence[NDArray], ww: Sequence[NDArray], base: t3tools.base_variation_format.T3Base, sum_over_probes: bool = False, use_jax: bool = False) -> Tuple[Tuple[NDArray, Ellipsis], Tuple[NDArray, Ellipsis]]
 
    Apply the transpose of the map from a T3Tangent to its probes. Apply to ztildes.
 
@@ -36,8 +36,9 @@ t3tools.probing.probe_tangent_transpose
    >>> import t3tools.manifold as t3m
    >>> import t3tools.probing as t3p
    >>> import t3tools.util as util
+   >>> import t3tools.orthogonalization as orth
    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
-   >>> base, _ = t3m.orthogonal_representations(p)
+   >>> base, _ = orth.orthogonal_representations(p)
    >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
    >>> v1 = t3m.tangent_randn(base)
    >>> zz1 = t3p.probe_tangent(v1, ww, base)
@@ -57,8 +58,9 @@ t3tools.probing.probe_tangent_transpose
    >>> import t3tools.manifold as t3m
    >>> import t3tools.probing as t3p
    >>> import t3tools.util as util
+   >>> import t3tools.orthogonalization as orth
    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
-   >>> base, _ = t3m.orthogonal_representations(p)
+   >>> base, _ = orth.orthogonal_representations(p)
    >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
    >>> apply_J = lambda v: t3p.probe_tangent(v, ww, base)
    >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, ww, base)

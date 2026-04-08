@@ -1,7 +1,7 @@
 t3tools.manifold.tangent_to_t3
 ==============================
 
-.. py:function:: t3tools.manifold.tangent_to_t3(variation: T3Variation, base: T3Base, include_shift: bool = False, use_jax: bool = False) -> t3tools.tucker_tensor_train.TuckerTensorTrain
+.. py:function:: t3tools.manifold.tangent_to_t3(variation: t3tools.base_variation_format.T3Variation, base: t3tools.base_variation_format.T3Base, include_shift: bool = False, use_jax: bool = False) -> t3tools.tucker_tensor_train.TuckerTensorTrain
 
    Rank 2r Tucker tensor train representation of tangent vector.
 
@@ -40,8 +40,9 @@ t3tools.manifold.tangent_to_t3
    >>> import numpy as np
    >>> import t3tools.tucker_tensor_train as t3
    >>> import t3tools.manifold as t3m
+   >>> import t3tools.orthogonalization as orth
    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
-   >>> base, _ = t3m.orthogonal_representations(p)
+   >>> base, _ = orth.orthogonal_representations(p)
    >>> variation = t3m.tangent_randn(base)
    >>> v_t3 = t3m.tangent_to_t3(variation, base) # tangent vector only (attached at zero)
    >>> v_dense = t3.t3_to_dense(v_t3)

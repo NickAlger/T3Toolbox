@@ -97,36 +97,6 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="pad_t3.html#t3tools.tucker_tensor_train.pad_t3" title="t3tools.tucker_tensor_train.pad_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pad_t3</span></code></a>(→ TuckerTensorTrain)</p></td>
 <td><p>Increase TuckerTensorTrain ranks via zero padding.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="left_svd_3tensor.html#t3tools.tucker_tensor_train.left_svd_3tensor" title="t3tools.tucker_tensor_train.left_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_3tensor</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
-<td><p>Compute (truncated) singular value decomposition of 3-tensor left unfolding.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="right_svd_3tensor.html#t3tools.tucker_tensor_train.right_svd_3tensor" title="t3tools.tucker_tensor_train.right_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd_3tensor</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
-<td><p>Compute (truncated) singular value decomposition of 3-tensor right unfolding.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="outer_svd_3tensor.html#t3tools.tucker_tensor_train.outer_svd_3tensor" title="t3tools.tucker_tensor_train.outer_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">outer_svd_3tensor</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
-<td><p>Compute (truncated) singular value decomposition of 3-tensor outer unfolding.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="up_svd_ith_basis_core.html#t3tools.tucker_tensor_train.up_svd_ith_basis_core" title="t3tools.tucker_tensor_train.up_svd_ith_basis_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_svd_ith_basis_core</span></code></a>(→ Tuple[TuckerTensorTrain, NDArray])</p></td>
-<td><p>Compute SVD of ith basis core and contract non-orthogonal factor up into the TT-core above.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="left_svd_ith_tt_core.html#t3tools.tucker_tensor_train.left_svd_ith_tt_core" title="t3tools.tucker_tensor_train.left_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_ith_tt_core</span></code></a>(→ Tuple[TuckerTensorTrain, NDArray])</p></td>
-<td><p>Compute SVD of ith TT-core left unfolding and contract non-orthogonal factor into the TT-core to the right.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="right_svd_ith_tt_core.html#t3tools.tucker_tensor_train.right_svd_ith_tt_core" title="t3tools.tucker_tensor_train.right_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd_ith_tt_core</span></code></a>(→ Tuple[TuckerTensorTrain, NDArray])</p></td>
-<td><p>Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor into the TT-core to the left.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="up_svd_ith_tt_core.html#t3tools.tucker_tensor_train.up_svd_ith_tt_core" title="t3tools.tucker_tensor_train.up_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_svd_ith_tt_core</span></code></a>(→ Tuple[TuckerTensorTrain, NDArray])</p></td>
-<td><p>Compute SVD of ith TT-core outer unfolding and keep non-orthogonal factor with this core.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="down_svd_ith_tt_core.html#t3tools.tucker_tensor_train.down_svd_ith_tt_core" title="t3tools.tucker_tensor_train.down_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">down_svd_ith_tt_core</span></code></a>(→ Tuple[TuckerTensorTrain, NDArray])</p></td>
-<td><p>Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the basis core below.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="orthogonalize_relative_to_ith_basis_core.html#t3tools.tucker_tensor_train.orthogonalize_relative_to_ith_basis_core" title="t3tools.tucker_tensor_train.orthogonalize_relative_to_ith_basis_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonalize_relative_to_ith_basis_core</span></code></a>(...)</p></td>
-<td><p>Orthogonalize all cores in the TuckerTensorTrain except for the ith basis core.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="orthogonalize_relative_to_ith_tt_core.html#t3tools.tucker_tensor_train.orthogonalize_relative_to_ith_tt_core" title="t3tools.tucker_tensor_train.orthogonalize_relative_to_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonalize_relative_to_ith_tt_core</span></code></a>(→ TuckerTensorTrain)</p></td>
-<td><p>Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.</p></td>
-</tr>
 <tr class="row-even"><td><p><a class="reference internal" href="t3_add.html#t3tools.tucker_tensor_train.t3_add" title="t3tools.tucker_tensor_train.t3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_add</span></code></a>(→ TuckerTensorTrain)</p></td>
 <td><p>Add TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x+y with summed ranks.</p></td>
 </tr>
@@ -144,18 +114,6 @@
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="t3_norm.html#t3tools.tucker_tensor_train.t3_norm" title="t3tools.tucker_tensor_train.t3_norm"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_norm</span></code></a>(x[, use_orthogonalization, use_jax])</p></td>
 <td><p>Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains x, y with the same shape, (x, y)_HS.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_svd.html#t3tools.tucker_tensor_train.t3_svd" title="t3tools.tucker_tensor_train.t3_svd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_svd</span></code></a>(→ Tuple[TuckerTensorTrain, Tuple[NDArray, ...)</p></td>
-<td><p>Compute (truncated) T3-SVD of TuckerTensorTrain.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="tucker_svd_dense.html#t3tools.tucker_tensor_train.tucker_svd_dense" title="t3tools.tucker_tensor_train.tucker_svd_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tucker_svd_dense</span></code></a>(→ Tuple[Tuple[Tuple[NDArray, ...)</p></td>
-<td><p>Compute Tucker decomposition and matricization singular values for dense tensor.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="tt_svd_dense.html#t3tools.tucker_tensor_train.tt_svd_dense" title="t3tools.tucker_tensor_train.tt_svd_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tt_svd_dense</span></code></a>(→ Tuple[Tuple[NDArray, Ellipsis], ...)</p></td>
-<td><p>Compute tensor train (TT) decomposition and unfolding singular values for dense tensor.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_svd_dense.html#t3tools.tucker_tensor_train.t3_svd_dense" title="t3tools.tucker_tensor_train.t3_svd_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_svd_dense</span></code></a>(→ Tuple[TuckerTensorTrain, Tuple[NDArray, ...)</p></td>
-<td><p>Compute TuckerTensorTrain and edge singular values for dense tensor.</p></td>
 </tr>
 </tbody>
 </table>

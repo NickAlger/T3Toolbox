@@ -1,0 +1,39 @@
+t3tools.orthogonalization
+=========================
+
+.. py:module:: t3tools.orthogonalization
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3tools/orthogonalization/left_svd_3tensor
+   /autoapi/t3tools/orthogonalization/right_svd_3tensor
+   /autoapi/t3tools/orthogonalization/outer_svd_3tensor
+   /autoapi/t3tools/orthogonalization/up_svd_ith_basis_core
+   /autoapi/t3tools/orthogonalization/left_svd_ith_tt_core
+   /autoapi/t3tools/orthogonalization/right_svd_ith_tt_core
+   /autoapi/t3tools/orthogonalization/up_svd_ith_tt_core
+   /autoapi/t3tools/orthogonalization/down_svd_ith_tt_core
+   /autoapi/t3tools/orthogonalization/orthogonalize_relative_to_ith_basis_core
+   /autoapi/t3tools/orthogonalization/orthogonalize_relative_to_ith_tt_core
+   /autoapi/t3tools/orthogonalization/orthogonal_representations
+
+.. autoapisummary::
+
+   t3tools.orthogonalization.left_svd_3tensor
+   t3tools.orthogonalization.right_svd_3tensor
+   t3tools.orthogonalization.outer_svd_3tensor
+   t3tools.orthogonalization.up_svd_ith_basis_core
+   t3tools.orthogonalization.left_svd_ith_tt_core
+   t3tools.orthogonalization.right_svd_ith_tt_core
+   t3tools.orthogonalization.up_svd_ith_tt_core
+   t3tools.orthogonalization.down_svd_ith_tt_core
+   t3tools.orthogonalization.orthogonalize_relative_to_ith_basis_core
+   t3tools.orthogonalization.orthogonalize_relative_to_ith_tt_core
+   t3tools.orthogonalization.orthogonal_representations
+
+

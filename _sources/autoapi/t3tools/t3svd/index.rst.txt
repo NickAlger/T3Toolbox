@@ -1,0 +1,25 @@
+t3tools.t3svd
+=============
+
+.. py:module:: t3tools.t3svd
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3tools/t3svd/t3_svd
+   /autoapi/t3tools/t3svd/tucker_svd_dense
+   /autoapi/t3tools/t3svd/tt_svd_dense
+   /autoapi/t3tools/t3svd/t3_svd_dense
+
+.. autoapisummary::
+
+   t3tools.t3svd.t3_svd
+   t3tools.t3svd.tucker_svd_dense
+   t3tools.t3svd.tt_svd_dense
+   t3tools.t3svd.t3_svd_dense
+
+

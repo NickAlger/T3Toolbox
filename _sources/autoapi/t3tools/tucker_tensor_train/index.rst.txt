@@ -32,26 +32,12 @@ Functions
    /autoapi/t3tools/tucker_tensor_train/compute_minimal_ranks
    /autoapi/t3tools/tucker_tensor_train/are_t3_ranks_minimal
    /autoapi/t3tools/tucker_tensor_train/pad_t3
-   /autoapi/t3tools/tucker_tensor_train/left_svd_3tensor
-   /autoapi/t3tools/tucker_tensor_train/right_svd_3tensor
-   /autoapi/t3tools/tucker_tensor_train/outer_svd_3tensor
-   /autoapi/t3tools/tucker_tensor_train/up_svd_ith_basis_core
-   /autoapi/t3tools/tucker_tensor_train/left_svd_ith_tt_core
-   /autoapi/t3tools/tucker_tensor_train/right_svd_ith_tt_core
-   /autoapi/t3tools/tucker_tensor_train/up_svd_ith_tt_core
-   /autoapi/t3tools/tucker_tensor_train/down_svd_ith_tt_core
-   /autoapi/t3tools/tucker_tensor_train/orthogonalize_relative_to_ith_basis_core
-   /autoapi/t3tools/tucker_tensor_train/orthogonalize_relative_to_ith_tt_core
    /autoapi/t3tools/tucker_tensor_train/t3_add
    /autoapi/t3tools/tucker_tensor_train/t3_scale
    /autoapi/t3tools/tucker_tensor_train/t3_neg
    /autoapi/t3tools/tucker_tensor_train/t3_sub
    /autoapi/t3tools/tucker_tensor_train/t3_dot_t3
    /autoapi/t3tools/tucker_tensor_train/t3_norm
-   /autoapi/t3tools/tucker_tensor_train/t3_svd
-   /autoapi/t3tools/tucker_tensor_train/tucker_svd_dense
-   /autoapi/t3tools/tucker_tensor_train/tt_svd_dense
-   /autoapi/t3tools/tucker_tensor_train/t3_svd_dense
 
 .. autoapisummary::
 
@@ -68,26 +54,12 @@ Functions
    t3tools.tucker_tensor_train.compute_minimal_ranks
    t3tools.tucker_tensor_train.are_t3_ranks_minimal
    t3tools.tucker_tensor_train.pad_t3
-   t3tools.tucker_tensor_train.left_svd_3tensor
-   t3tools.tucker_tensor_train.right_svd_3tensor
-   t3tools.tucker_tensor_train.outer_svd_3tensor
-   t3tools.tucker_tensor_train.up_svd_ith_basis_core
-   t3tools.tucker_tensor_train.left_svd_ith_tt_core
-   t3tools.tucker_tensor_train.right_svd_ith_tt_core
-   t3tools.tucker_tensor_train.up_svd_ith_tt_core
-   t3tools.tucker_tensor_train.down_svd_ith_tt_core
-   t3tools.tucker_tensor_train.orthogonalize_relative_to_ith_basis_core
-   t3tools.tucker_tensor_train.orthogonalize_relative_to_ith_tt_core
    t3tools.tucker_tensor_train.t3_add
    t3tools.tucker_tensor_train.t3_scale
    t3tools.tucker_tensor_train.t3_neg
    t3tools.tucker_tensor_train.t3_sub
    t3tools.tucker_tensor_train.t3_dot_t3
    t3tools.tucker_tensor_train.t3_norm
-   t3tools.tucker_tensor_train.t3_svd
-   t3tools.tucker_tensor_train.tucker_svd_dense
-   t3tools.tucker_tensor_train.tt_svd_dense
-   t3tools.tucker_tensor_train.t3_svd_dense
 
 
 Module Contents

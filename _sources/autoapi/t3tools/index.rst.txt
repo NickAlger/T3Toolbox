@@ -10,8 +10,11 @@ Submodules
 .. toctree::
    :maxdepth: 1
 
+   /autoapi/t3tools/base_variation_format/index
    /autoapi/t3tools/manifold/index
+   /autoapi/t3tools/orthogonalization/index
    /autoapi/t3tools/probing/index
+   /autoapi/t3tools/t3svd/index
    /autoapi/t3tools/tucker_tensor_train/index
    /autoapi/t3tools/uniform_manifold/index
    /autoapi/t3tools/uniform_probing/index

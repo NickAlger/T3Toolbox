@@ -1,7 +1,7 @@
 t3tools.manifold.tangent_randn
 ==============================
 
-.. py:function:: t3tools.manifold.tangent_randn(base: T3Base, use_jax: bool = False, apply_gauge_projection: bool = True) -> T3Variation
+.. py:function:: t3tools.manifold.tangent_randn(base: t3tools.base_variation_format.T3Base, use_jax: bool = False, apply_gauge_projection: bool = True) -> t3tools.base_variation_format.T3Variation
 
    Draw a random T3Variation.
 
@@ -23,8 +23,9 @@ t3tools.manifold.tangent_randn
    >>> import numpy as np
    >>> import t3tools.tucker_tensor_train as t3
    >>> import t3tools.manifold as t3m
+   >>> import t3tools.orthogonalization as orth
    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
-   >>> base, vars0 = t3m.orthogonal_representations(p)
+   >>> base, vars0 = orth.orthogonal_representations(p)
    >>> v = t3m.tangent_randn(base) # Random tangent vector, gauged.
 
    Don't apply Gauge projection:
@@ -32,7 +33,8 @@ t3tools.manifold.tangent_randn
    >>> import numpy as np
    >>> import t3tools.tucker_tensor_train as t3
    >>> import t3tools.manifold as t3m
+   import t3tools.orthogonalization as orth
    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
-   >>> base, vars0 = t3m.orthogonal_representations(p)
+   >>> base, vars0 = orth.orthogonal_representations(p)
    >>> v = t3m.tangent_randn(base, apply_gauge_projection=False) # Random tangent vector, ungauged
 
