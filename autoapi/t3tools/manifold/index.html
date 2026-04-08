@@ -76,28 +76,31 @@
 <tr class="row-even"><td><p><a class="reference internal" href="orthogonal_representations.html#t3tools.manifold.orthogonal_representations" title="t3tools.manifold.orthogonal_representations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonal_representations</span></code></a>(→ Tuple[T3Base, T3Variation])</p></td>
 <td><p>Construct base-variation representations of TuckerTensorTrain with orthogonal base.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="tangent_to_dense.html#t3tools.manifold.tangent_to_dense" title="t3tools.manifold.tangent_to_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tangent_to_dense</span></code></a>(→ NDArray)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="manifold_dim.html#t3tools.manifold.manifold_dim" title="t3tools.manifold.manifold_dim"><code class="xref py py-obj docutils literal notranslate"><span class="pre">manifold_dim</span></code></a>(→ int)</p></td>
+<td><p>Get the dimension of the fixed rank T3 manifold with a given structure.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="tangent_to_dense.html#t3tools.manifold.tangent_to_dense" title="t3tools.manifold.tangent_to_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tangent_to_dense</span></code></a>(→ NDArray)</p></td>
 <td><p>Convert Tangent vector to Tucker tensor train manifold into dense tensor.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="tangent_to_t3.html#t3tools.manifold.tangent_to_t3" title="t3tools.manifold.tangent_to_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tangent_to_t3</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="tangent_to_t3.html#t3tools.manifold.tangent_to_t3" title="t3tools.manifold.tangent_to_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tangent_to_t3</span></code></a>(...)</p></td>
 <td><p>Rank 2r Tucker tensor train representation of tangent vector.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="tangent_zeros.html#t3tools.manifold.tangent_zeros" title="t3tools.manifold.tangent_zeros"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tangent_zeros</span></code></a>(→ T3Variation)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="tangent_zeros.html#t3tools.manifold.tangent_zeros" title="t3tools.manifold.tangent_zeros"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tangent_zeros</span></code></a>(→ T3Variation)</p></td>
 <td><p>Construct the zero vector in a Tucker tensor train tangent space.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="tangent_randn.html#t3tools.manifold.tangent_randn" title="t3tools.manifold.tangent_randn"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tangent_randn</span></code></a>(→ T3Variation)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="tangent_randn.html#t3tools.manifold.tangent_randn" title="t3tools.manifold.tangent_randn"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tangent_randn</span></code></a>(→ T3Variation)</p></td>
 <td><p>Draw a random T3Variation.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="orthogonal_gauge_projection.html#t3tools.manifold.orthogonal_gauge_projection" title="t3tools.manifold.orthogonal_gauge_projection"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonal_gauge_projection</span></code></a>(→ T3Variation)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="orthogonal_gauge_projection.html#t3tools.manifold.orthogonal_gauge_projection" title="t3tools.manifold.orthogonal_gauge_projection"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonal_gauge_projection</span></code></a>(→ T3Variation)</p></td>
 <td><p>Makes tangent variation gauged via orthogonal projection. Changes tangent vector.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="oblique_gauge_projection.html#t3tools.manifold.oblique_gauge_projection" title="t3tools.manifold.oblique_gauge_projection"><code class="xref py py-obj docutils literal notranslate"><span class="pre">oblique_gauge_projection</span></code></a>(→ T3Variation)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="oblique_gauge_projection.html#t3tools.manifold.oblique_gauge_projection" title="t3tools.manifold.oblique_gauge_projection"><code class="xref py py-obj docutils literal notranslate"><span class="pre">oblique_gauge_projection</span></code></a>(→ T3Variation)</p></td>
 <td><p>Makes variations left-perpendicular while preserving tangent vector.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="project_t3_onto_tangent_space.html#t3tools.manifold.project_t3_onto_tangent_space" title="t3tools.manifold.project_t3_onto_tangent_space"><code class="xref py py-obj docutils literal notranslate"><span class="pre">project_t3_onto_tangent_space</span></code></a>(→ T3Variation)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="project_t3_onto_tangent_space.html#t3tools.manifold.project_t3_onto_tangent_space" title="t3tools.manifold.project_t3_onto_tangent_space"><code class="xref py py-obj docutils literal notranslate"><span class="pre">project_t3_onto_tangent_space</span></code></a>(→ T3Variation)</p></td>
 <td><p>Projects TuckerTensorTrain onto tangent space to the manifold of fixed rank TuckerTensorTrains.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="retract.html#t3tools.manifold.retract" title="t3tools.manifold.retract"><code class="xref py py-obj docutils literal notranslate"><span class="pre">retract</span></code></a>(→ t3tools.tucker_tensor_train.TuckerTensorTrain)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="retract.html#t3tools.manifold.retract" title="t3tools.manifold.retract"><code class="xref py py-obj docutils literal notranslate"><span class="pre">retract</span></code></a>(→ t3tools.tucker_tensor_train.TuckerTensorTrain)</p></td>
 <td><p>Retract Tucker tensor train tangent vector to manifold.</p></td>
 </tr>
 </tbody>

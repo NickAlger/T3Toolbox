@@ -25,6 +25,7 @@ Functions
    /autoapi/t3tools/manifold/check_fit
    /autoapi/t3tools/manifold/ith_bv_to_t3
    /autoapi/t3tools/manifold/orthogonal_representations
+   /autoapi/t3tools/manifold/manifold_dim
    /autoapi/t3tools/manifold/tangent_to_dense
    /autoapi/t3tools/manifold/tangent_to_t3
    /autoapi/t3tools/manifold/tangent_zeros
@@ -42,6 +43,7 @@ Functions
    t3tools.manifold.check_fit
    t3tools.manifold.ith_bv_to_t3
    t3tools.manifold.orthogonal_representations
+   t3tools.manifold.manifold_dim
    t3tools.manifold.tangent_to_dense
    t3tools.manifold.tangent_to_t3
    t3tools.manifold.tangent_zeros
