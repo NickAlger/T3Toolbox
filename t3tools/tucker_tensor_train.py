@@ -920,6 +920,28 @@ def t3_entry(
     >>> a123_jit = get_entry_123_jit(A)
     >>> print(a123_jit)
     -1.3764523
+
+    Example using jax automatic differentiation
+
+    >>> import numpy as np
+    >>> import jax
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.util as util
+    >>> jax.config.update("jax_enable_x64", True) # enable double precision for finite difference
+    >>> get_entry_123 = lambda x: t3.t3_entry(x, (1,2,3), use_jax=True)
+    >>> A0 = t3.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 Tucker tensor train
+    >>> f0 = get_entry_123(A0)
+    >>> G0 = jax.grad(get_entry_123)(A0) # gradient using automatic differentiation
+    >>> dA = t3.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1)))
+    >>> df = util.corewise_dot(dA, G0) # sensitivity in direction dA
+    >>> print(df)
+    -7.418801772515241
+    >>> s = 1e-7
+    >>> A1 = util.corewise_add(A0, util.corewise_scale(dA, s)) # A1 = A0 + s*dA
+    >>> f1 = get_entry_123(A1)
+    >>> df_diff = (f1 - f0) / s # finite difference
+    >>> print(df_diff)
+    -7.418812309825662
     '''
     xnp = jnp if use_jax else np
 
