@@ -24,6 +24,7 @@ __all__ = [
     'UniformTuckerTensorTrainMasks',
     'padded_structure',
     'original_structure',
+    'unpack_edge_tensors',
     'apply_masks',
     't3_to_ut3',
     'ut3_to_t3',
@@ -282,6 +283,60 @@ def apply_masks(
     masked_cores = (BB, GG)
     return masked_cores
 
+
+def unpack_edge_tensors(
+        packed_edge_tensors: NDArray, # shape=(...,c,m) or (c,m). E.g., (num_vecs,d,N) or (d,N)
+        submask: NDArray, # shape=(c,m). Typical use case: component of UniformTuckerTensorTrainMasks
+) -> typ.Tuple[
+    NDArray, # shape=(...,mi) or (mi,). E.g., (num_vecs,Ni) or (Ni,)
+]: # len=c, e.g., len=d
+    """Get ragged (variable length) edge vectors from uniform edge vectors.
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> import t3tools.uniform_tucker_tensor_train as ut3
+    >>> E = np.array([[1,2,3,4],[5,6,7,8]])
+    >>> submask = [[True, False, True, True],[False, True, False, False]]
+    >>> print(ut3.unpack_edge_tensors(E, submask))
+    (array([1, 3, 4]), array([6]))
+
+    Get a tensor from each "edge":
+
+    >>> import numpy as np
+    >>> import t3tools.uniform_tucker_tensor_train as ut3
+    >>> E = np.random.randn(6,5,4,3,2)
+    >>> submask = [[False, False],[False, True], [True, True]]
+    >>> ee = ut3.unpack_edge_tensors(E, submask)
+    >>> print([e.shape for e in ee])
+    [(6, 5, 4, 0), (6, 5, 4, 1), (6, 5, 4, 2)]
+
+    Practical use case: remove zero singular values from uniform T3-SVD
+
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.uniform_tucker_tensor_train as ut3
+    >>> import t3tools.t3svd as t3svd
+    >>> s0 = ((11,12,13), (6,7,5), (1,3,6,2))
+    >>> s = (s0[0],) + t3.compute_minimal_ranks(s0)
+    >>> x = t3.t3_corewise_randn(s)
+    >>> _, _, ss_tt = t3svd.t3_svd(x)
+    >>> print(ss_tt[1])
+    [2627.79225375  441.12769204  328.73617961]
+    >>> cores, masks = ut3.t3_to_ut3(x)
+    >>> _, _, ss_tt_from_ut3 = ut3.ut3_svd(cores, masks)
+    >>> print(ss_tt_from_ut3[1])
+    [2627.79225375  441.12769204  328.73617961    0.            0.        ]
+    >>> print(ut3.unpack_edge_tensors(ss_tt_from_ut3, masks[2])[1])
+    [2627.79225375  441.12769204  328.73617961]
+    """
+    c = packed_edge_tensors.shape[-2]
+    unpacked_edge_vectors = []
+    for ii in range(c):
+        TTi = np.take(packed_edge_tensors, ii, axis=-2)
+        Ti = TTi[..., submask[ii]]
+        unpacked_edge_vectors.append(Ti)
+    return tuple(unpacked_edge_vectors)
 
 
 def t3_to_ut3(
@@ -857,25 +912,41 @@ def ut3_svd(
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.uniform_tucker_tensor_train as ut3
     >>> import t3tools.t3svd as t3svd
-    >>> s0 = ((11,12,13), (5,6,4), (3,4,3,1))
+    >>> s0 = ((11,12,13), (6,7,5), (1,3,6,2))
     >>> s = (s0[0],) + t3.compute_minimal_ranks(s0)
     >>> x = t3.t3_corewise_randn(s)
-    # >>> x = t3svd.t3_svd(x)[0]
     >>> cores, masks = ut3.t3_to_ut3(x)
-    >>> cores2, ss_basis, ss_tt = ut3.ut3_svd(cores, masks)
-    >>> x2 = ut3.ut3_to_t3(cores2, masks)
-    >>> x3, ss_basis3, ss_tt3 = t3svd.t3_svd(x)
-    # >>> x3, ss_basis3, ss_tt3 = t3svd.t3_svd(x2)
-    # >>> np.linalg.norm(ss_basis[0][masks[1][0]] - ss_basis3[0])
-    >>> np.linalg.norm(ss_basis[0][masks[1][0]] - ss_basis3[0]) / np.linalg.norm(ss_basis3[0])
-    >>> np.linalg.norm(ss_basis[1][masks[1][1]] - ss_basis3[1]) / np.linalg.norm(ss_basis3[1])
-    >>> np.linalg.norm(ss_basis[2][masks[1][2]] - ss_basis3[2]) / np.linalg.norm(ss_basis3[2])
+    >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = ut3.ut3_svd(cores, masks) # Uniform T3-SVD
+    >>> print(np.linalg.norm(ut3.ut3_to_dense(ux2, masks) - t3.t3_to_dense(x)))
+    3.782447238250888e-12
+    >>> _, ss_basis, ss_tt = t3svd.t3_svd(x) # Non-uniform T3-SVD
+    >>> print(ss_tt[1])
+    [980.86624688 624.1067954  159.88424271]
+    >>> print(ss_tt_from_ut3[1])
+    [980.86624688 624.1067954  159.88424271   0.           0.        ]
+    >>> _, tucker_masks, tt_masks = masks
+    >>> print(ut3.unpack_edge_tensors(ss_tt_from_ut3, tt_masks)[1])
+    [980.86624688 624.1067954  159.88424271]
+    >>> ut3.unpack_edge_tensors(ss_basis_from_ut3, tucker_masks)[0] - ss_basis[0]
+    array([ 1.13686838e-12, -2.27373675e-13, -1.13686838e-13])
 
-    >>> np.linalg.norm(ss_tt[0][masks[2][0]] - ss_tt3[0]) / np.linalg.norm(ss_tt3[0])
-    >>> np.linalg.norm(ss_tt[1][masks[2][1]] - ss_tt3[1]) / np.linalg.norm(ss_tt3[1])
-    >>> np.linalg.norm(ss_tt[2][masks[2][2]] - ss_tt3[2]) / np.linalg.norm(ss_tt3[2])
-    >>> np.linalg.norm(ss_tt[3][masks[2][3]] - ss_tt3[3]) / np.linalg.norm(ss_tt3[3])
+    Non-example with degenerate (unnecessairily large) ranks
 
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.uniform_tucker_tensor_train as ut3
+    >>> import t3tools.t3svd as t3svd
+    >>> s = ((3,4,3), (4,6,7), (3,5,1,2))
+    >>> x = t3.t3_corewise_randn(s)
+    >>> cores, masks = ut3.t3_to_ut3(x)
+    >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = ut3.ut3_svd(cores, masks)
+    >>> print(np.linalg.norm(ut3.ut3_to_dense(ux2, masks) - t3.t3_to_dense(x))) # OK
+    9.404253555983741e-13
+    >>> _, ss_basis, ss_tt = t3svd.t3_svd(x) # Non-uniform T3-SVD
+    >>> print(ss_tt[1])
+    [913.44494453 127.532224    16.08102313]
+    >>> print(ss_tt_from_ut3[1]) # Incorrect singular values:
+    [417.45514528 401.58448034  72.5343983   22.41273808   0.        ]
     """
     if use_jax:
         xnp = jnp
@@ -946,13 +1017,8 @@ def ut3_svd(
     G_last = xnp.einsum('diaj,jk->diak', new_tt_cores[-1:], Yf)
     new_tt_cores = xnp.concatenate([new_tt_cores[:-1], G_last], axis=0)
 
-    print(type(ss_tt0))
-    print(type(tt_singular_values0))
-
     tt_singular_values = xnp.concatenate([ss_tt0.reshape((1, r)), tt_singular_values0], axis=0)
     return (new_basis_cores, new_tt_cores), basis_singular_values, tt_singular_values
-
-
 
 
 #
