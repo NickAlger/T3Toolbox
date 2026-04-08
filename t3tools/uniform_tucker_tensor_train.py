@@ -857,8 +857,6 @@ def ut3_svd(
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.uniform_tucker_tensor_train as ut3
     >>> import t3tools.t3svd as t3svd
-    >>> import jax
-    >>> jax.config.update('jax_enable_x64', True)
     >>> s0 = ((11,12,13), (5,6,4), (3,4,3,1))
     >>> s = (s0[0],) + t3.compute_minimal_ranks(s0)
     >>> x = t3.t3_corewise_randn(s)
@@ -912,7 +910,7 @@ def ut3_svd(
         # Note: B.shape=(n, N)
 
         M = G.swapaxes(1,2).reshape((r*r, n))
-        U, ss_basis, Vt = jnp.linalg.svd(M, full_matrices=False)
+        U, ss_basis, Vt = xnp.linalg.svd(M, full_matrices=False)
         n2 = len(ss_basis)
         U           = xnp.concatenate([U,           xnp.zeros((r*r, n-n2))],    axis=1)
         ss_basis    = xnp.concatenate([ss_basis,    xnp.zeros((n-n2, ))],       axis=0)
