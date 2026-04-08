@@ -3,6 +3,8 @@
 # https://github.com/NickAlger/TuckerTensorTrainTools
 import numpy as np
 import unittest
+
+import t3tools.orthogonalization
 import t3tools.tucker_tensor_train as t3
 import t3tools.manifold as t3m
 import t3tools.probing as t3p
@@ -14,7 +16,7 @@ jax_tol = 1e-5
 norm = np.linalg.norm
 randn = np.random.randn
 
-class TestTuckerTensorTrain(unittest.TestCase):
+class TestProbing(unittest.TestCase):
     def test_probe_dense1(self):
         T = np.random.randn(10, 11, 12)
         u0 = np.random.randn(10)
@@ -67,7 +69,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
     def test_probe_tangent(self):
         p = t3.t3_corewise_randn(((10, 11, 12), (5, 6, 4), (2, 3, 4, 2)))
-        base, _ = t3m.orthogonal_representations(p)
+        base, _ = t3tools.orthogonalization.orthogonal_representations(p)
         variation = t3m.tangent_randn(base)
         ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         zz = t3p.probe_tangent(variation, ww, base)
@@ -78,7 +80,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
     def test_probe_tangent2(self):
         p = t3.t3_corewise_randn(((10, 11, 12), (5, 6, 4), (2, 3, 4, 2)))
-        base, _ = t3m.orthogonal_representations(p)
+        base, _ = t3tools.orthogonalization.orthogonal_representations(p)
         variation = t3m.tangent_randn(base)
         www = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
         zzz = t3p.probe_tangent(variation, www, base)  # Compute probes!
@@ -89,7 +91,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
     def test_probe_tangent_transpose1(self):
         p = t3.t3_corewise_randn(((10, 11, 12), (5, 6, 4), (2, 3, 4, 2)))
-        base, _ = t3m.orthogonal_representations(p)
+        base, _ = t3tools.orthogonalization.orthogonal_representations(p)
         ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         v1 = t3m.tangent_randn(base)
         zz1 = t3p.probe_tangent(v1, ww, base)
@@ -101,7 +103,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
     def test_probe_tangent_transpose2(self):
         p = t3.t3_corewise_randn(((10, 11, 12), (5, 6, 4), (2, 3, 4, 2)))
-        base, _ = t3m.orthogonal_representations(p)
+        base, _ = t3tools.orthogonalization.orthogonal_representations(p)
         ww = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
         apply_J = lambda v: t3p.probe_tangent(v, ww, base)
         apply_Jt = lambda z: t3p.probe_tangent_transpose(z, ww, base)
