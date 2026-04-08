@@ -749,6 +749,110 @@ def orthogonalize_ut3_basis_cores(
 
     return new_basis_supercore, new_tt_supercore
 
+#
+
+def ut3_svd_masked(
+        uniform_t3: typ.Tuple[
+            jnp.ndarray, # basis_cores, shape=(d, n, N)
+            jnp.ndarray, # tt_cores, shape=(d, r, N, r)
+        ],
+        masks: typ.Tuple[
+            jnp.ndarray,  # basis_cores_mask, shape=(d, n)
+            jnp.ndarray,  # tt_cores_mask, shape=(d+1, r)
+        ], # use to control rank truncation
+) -> typ.Tuple[
+    typ.Tuple[
+        jnp.ndarray, # new_basis_cores, shape=(d, n, N)
+        jnp.ndarray, # new_tt_cores, shape=(d, r, n, r)
+    ],
+    jnp.ndarray, # basis_singular_values, shape=(d, n)
+    jnp.ndarray, # tt_singular_values, shape=(d+1, r)
+]:
+    basis_cores, tt_cores = uniform_t3
+
+    shape_mask, basis_masks, tt_masks = masks
+
+    d, n, N = basis_cores.shape
+    r = tt_cores.shape[1]
+
+    basis_cores, tt_cores = orthogonalize_ut3_basis_cores(basis_cores, tt_cores)
+    tt_cores = right_orthogonalize_utt(tt_cores)
+
+    _, ss_tt00, _ = jnp.linalg.svd(tt_cores[0].reshape((r, n*r)), full_matrices=False)
+    ss_tt0 = jnp.concatenate([ss_tt00, jnp.zeros(r-len(ss_tt00))], axis=0)
+    if len(ss_tt0) != len(tt_masks[0]):
+        print('shape_mask.shape=', shape_mask.shape)
+        print('basis_masks.shape=', basis_masks.shape)
+        print('tt_masks.shape=', tt_masks.shape)
+        print('basis_cores.shape=', basis_cores.shape)
+        print('tt_cores.shape=', tt_cores.shape)
+        print('d=', d)
+        print('n=', n)
+        print('N=', N)
+        print('r=', r)
+        print('ss_tt0.shape=', ss_tt0.shape)
+        print('tt_masks[0].shape=', tt_masks[0].shape)
+        print('tt_cores[0].shape=', tt_cores[0].shape)
+        print('ss_tt00.shape=', ss_tt00.shape)
+
+
+
+    ss_tt0 = ss_tt0 * tt_masks[0]
+
+    def _step(
+            carry: jnp.ndarray,
+            x,
+    ):
+        Y = carry # shape=(r, r)
+        B, G, basis_mask, tt_mask = x
+
+        G = jnp.einsum('ij,jak->iak', Y, G) # shape=(r, n, r)
+        # Note: B.shape=(n, N)
+
+        M = G.swapaxes(1,2).reshape((r*r, n))
+        U, ss_basis, Vt = jnp.linalg.svd(M, full_matrices=False)
+        n2 = len(ss_basis)
+        U           = jnp.concatenate([U,           jnp.zeros((r*r, n-n2))],    axis=1)
+        ss_basis    = jnp.concatenate([ss_basis,    jnp.zeros((n-n2, ))],           axis=0)
+        Vt          = jnp.concatenate([Vt,          jnp.zeros((n-n2, n))],      axis=0)
+
+        U           = U         * basis_mask.reshape((1,-1))
+        ss_basis    = ss_basis  * basis_mask
+        Vt          = Vt        * basis_mask.reshape((-1,1))
+
+        new_B = jnp.einsum('ij,jk->ik', Vt, B)
+
+        M = jnp.einsum('ij,j->ij', U, ss_basis).reshape((r, r, n)).swapaxes(1,2).reshape((r*n, r))
+        U, ss_tt, Vt = jnp.linalg.svd(M, full_matrices=False)
+
+        U       = U     * tt_mask.reshape((1,-1))
+        ss_tt   = ss_tt * tt_mask
+        Vt      = Vt    * tt_mask.reshape((-1,1))
+
+        new_G = U.reshape((r, n, r))
+
+        Y_next = jnp.einsum('i,ij->ij', ss_tt, Vt)  # shape=(r, r)
+
+        return Y_next, (new_B, new_G, ss_basis, ss_tt)
+
+    Y0 = jnp.eye(r)
+    Yf, (new_basis_cores, new_tt_cores, basis_singular_values, tt_singular_values0) = jax.lax.scan(
+        _step,
+        Y0,
+        (basis_cores, tt_cores, basis_masks, tt_masks[1:]),
+    )
+
+    # G_last = jnp.einsum('diaj,jk->diak', new_tt_cores[-1:], Yf)[:, :, :, :r]
+    G_last = jnp.einsum('diaj,jk->diak', new_tt_cores[-1:], Yf)
+    new_tt_cores = jnp.concatenate([new_tt_cores[:-1], G_last], axis=0)
+
+    tt_singular_values = jnp.concatenate([ss_tt0.reshape((1, r)), tt_singular_values0], axis=0)
+    return (new_basis_cores, new_tt_cores), basis_singular_values, tt_singular_values
+
+
+
+
+#
 
 def construct_ut3_base_representations(
         base_point: typ.Tuple[
@@ -1016,105 +1120,6 @@ def construct_ut3_base_representations(
 #
 #
 #
-#
-# @jax.jit
-# def ut3_svd_masked(
-#         uniform_t3: typ.Tuple[
-#             jnp.ndarray, # basis_cores, shape=(d, n, N)
-#             jnp.ndarray, # tt_cores, shape=(d, r, N, r)
-#         ],
-#         masks: typ.Tuple[
-#             jnp.ndarray,  # basis_cores_mask, shape=(d, n)
-#             jnp.ndarray,  # tt_cores_mask, shape=(d+1, r)
-#         ], # use to control rank truncation
-# ) -> typ.Tuple[
-#     typ.Tuple[
-#         jnp.ndarray, # new_basis_cores, shape=(d, n, N)
-#         jnp.ndarray, # new_tt_cores, shape=(d, r, n, r)
-#     ],
-#     jnp.ndarray, # basis_singular_values, shape=(d, n)
-#     jnp.ndarray, # tt_singular_values, shape=(d+1, r)
-# ]:
-#     basis_cores, tt_cores = uniform_t3
-#
-#     shape_mask, basis_masks, tt_masks = masks
-#
-#     d, n, N = basis_cores.shape
-#     r = tt_cores.shape[1]
-#
-#     basis_cores, tt_cores = orthogonalize_ut3_basis_cores(basis_cores, tt_cores)
-#     tt_cores = right_orthogonalize_utt(tt_cores)
-#
-#     _, ss_tt00, _ = jnp.linalg.svd(tt_cores[0].reshape((r, n*r)), full_matrices=False)
-#     ss_tt0 = jnp.concatenate([ss_tt00, jnp.zeros(r-len(ss_tt00))], axis=0)
-#     if len(ss_tt0) != len(tt_masks[0]):
-#         print('shape_mask.shape=', shape_mask.shape)
-#         print('basis_masks.shape=', basis_masks.shape)
-#         print('tt_masks.shape=', tt_masks.shape)
-#         print('basis_cores.shape=', basis_cores.shape)
-#         print('tt_cores.shape=', tt_cores.shape)
-#         print('d=', d)
-#         print('n=', n)
-#         print('N=', N)
-#         print('r=', r)
-#         print('ss_tt0.shape=', ss_tt0.shape)
-#         print('tt_masks[0].shape=', tt_masks[0].shape)
-#         print('tt_cores[0].shape=', tt_cores[0].shape)
-#         print('ss_tt00.shape=', ss_tt00.shape)
-#
-#
-#
-#     ss_tt0 = ss_tt0 * tt_masks[0]
-#
-#     def _step(
-#             carry: jnp.ndarray,
-#             x,
-#     ):
-#         Y = carry # shape=(r, r)
-#         B, G, basis_mask, tt_mask = x
-#
-#         G = jnp.einsum('ij,jak->iak', Y, G) # shape=(r, n, r)
-#         # Note: B.shape=(n, N)
-#
-#         M = G.swapaxes(1,2).reshape((r*r, n))
-#         U, ss_basis, Vt = jnp.linalg.svd(M, full_matrices=False)
-#         n2 = len(ss_basis)
-#         U           = jnp.concatenate([U,           jnp.zeros((r*r, n-n2))],    axis=1)
-#         ss_basis    = jnp.concatenate([ss_basis,    jnp.zeros((n-n2, ))],           axis=0)
-#         Vt          = jnp.concatenate([Vt,          jnp.zeros((n-n2, n))],      axis=0)
-#
-#         U           = U         * basis_mask.reshape((1,-1))
-#         ss_basis    = ss_basis  * basis_mask
-#         Vt          = Vt        * basis_mask.reshape((-1,1))
-#
-#         new_B = jnp.einsum('ij,jk->ik', Vt, B)
-#
-#         M = jnp.einsum('ij,j->ij', U, ss_basis).reshape((r, r, n)).swapaxes(1,2).reshape((r*n, r))
-#         U, ss_tt, Vt = jnp.linalg.svd(M, full_matrices=False)
-#
-#         U       = U     * tt_mask.reshape((1,-1))
-#         ss_tt   = ss_tt * tt_mask
-#         Vt      = Vt    * tt_mask.reshape((-1,1))
-#
-#         new_G = U.reshape((r, n, r))
-#
-#         Y_next = jnp.einsum('i,ij->ij', ss_tt, Vt)  # shape=(r, r)
-#
-#         return Y_next, (new_B, new_G, ss_basis, ss_tt)
-#
-#     Y0 = jnp.eye(r)
-#     Yf, (new_basis_cores, new_tt_cores, basis_singular_values, tt_singular_values0) = jax.lax.scan(
-#         _step,
-#         Y0,
-#         (basis_cores, tt_cores, basis_masks, tt_masks[1:]),
-#     )
-#
-#     # G_last = jnp.einsum('diaj,jk->diak', new_tt_cores[-1:], Yf)[:, :, :, :r]
-#     G_last = jnp.einsum('diaj,jk->diak', new_tt_cores[-1:], Yf)
-#     new_tt_cores = jnp.concatenate([new_tt_cores[:-1], G_last], axis=0)
-#
-#     tt_singular_values = jnp.concatenate([ss_tt0.reshape((1, r)), tt_singular_values0], axis=0)
-#     return (new_basis_cores, new_tt_cores), basis_singular_values, tt_singular_values
 #
 #
 # @jax.jit
