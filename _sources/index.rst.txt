@@ -223,7 +223,7 @@ The Tucker tensor train with d indices is represented as a Tuple of cores, ((B0,
 	- ((N1,...,Nd), (n1,...,nd), (r0,r1,...,r(d-1),rd)) is the *structure*.
 	- 1=(1,...,1) denotes the ones vector of the appropriate size
 
-Note: typically r0=rd=1, and the "1" on the left and right sides is just the number 1. However, this is not required.
+Typically r0=rd=1, and the "1" on the left and right sides is just the number 1. However, this is not required.
 	
 
 
