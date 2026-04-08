@@ -27,20 +27,43 @@ __all__ = [
 
 
 def numpy_scan(f, init, xs, length=None):
-    """Numpy version of jax.lax.scan.
-    https://docs.jax.dev/en/latest/_autosummary/jax.lax.scan.html
-    """
-    if xs is None:
-        xs = [None] * length
-    if not isinstance(xs, typ.Tuple):
-        xs = (xs,)
+    # Generated using AI
+    # Determine number of steps from the first array found in xs
+    if length is None:
+        # Simple helper to find leading dimension of first array in structure
+        def get_length(tree):
+            if isinstance(tree, (list, tuple)): return get_length(tree[0])
+            if isinstance(tree, dict): return get_length(next(iter(tree.values())))
+            return len(tree)
+
+        length = get_length(xs)
+
+    def get_slice(tree, i):
+        """Recursively slice the leading axis of arrays in a structure."""
+        if isinstance(tree, tuple):
+            return tuple(get_slice(x, i) for x in tree)
+        if isinstance(tree, list):
+            return [get_slice(x, i) for x in tree]
+        if isinstance(tree, dict):
+            return {k: get_slice(v, i) for k, v in tree.items()}
+        return tree[i]
+
     carry = init
-    ys = []
-    for ii in range(len(xs[0])):
-        x = tuple([elm[ii] for elm in xs])
-        carry, y = f(carry, x)
-        ys.append(y)
-    return carry, np.stack(ys)
+    ys_list = []
+
+    for i in range(length):
+        # Slice the structure to get a tuple/dict of elements for this step
+        current_xs = get_slice(xs, i)
+        carry, y = f(carry, current_xs)
+        ys_list.append(y)
+
+    # In JAX, the second return value (ys) matches the structure of the y returned by f
+    # For a simple implementation, we assume y is a single array or simple structure:
+    if isinstance(ys_list[0], (tuple, list)):
+        # If f returns a tuple of outputs, stack each component separately
+        return carry, tuple(np.stack([step[i] for step in ys_list]) for i in range(len(ys_list[0])))
+
+    return carry, np.stack(ys_list)
 
 
 ###############################################

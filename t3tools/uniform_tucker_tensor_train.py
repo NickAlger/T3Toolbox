@@ -34,6 +34,8 @@ __all__ = [
     'ut3_scale',
     'ut3_neg',
     'ut3_sub',
+    #
+    'ut3_svd',
 ]
 
 ###################################################
@@ -836,78 +838,92 @@ def orthogonalize_ut3_basis_cores(
 
 #
 
-def ut3_svd_masked(
-        uniform_t3: typ.Tuple[
-            jnp.ndarray, # basis_cores, shape=(d, n, N)
-            jnp.ndarray, # tt_cores, shape=(d, r, N, r)
-        ],
-        masks: typ.Tuple[
-            jnp.ndarray,  # basis_cores_mask, shape=(d, n)
-            jnp.ndarray,  # tt_cores_mask, shape=(d+1, r)
-        ], # use to control rank truncation
+def ut3_svd(
+        cores: UniformTuckerTensorTrainCores,
+        masks: UniformTuckerTensorTrainMasks,
+        use_jax: bool = False,
 ) -> typ.Tuple[
-    typ.Tuple[
-        jnp.ndarray, # new_basis_cores, shape=(d, n, N)
-        jnp.ndarray, # new_tt_cores, shape=(d, r, n, r)
-    ],
-    jnp.ndarray, # basis_singular_values, shape=(d, n)
-    jnp.ndarray, # tt_singular_values, shape=(d+1, r)
+    UniformTuckerTensorTrainCores,
+    NDArray, # basis_singular_values, shape=(d, n)
+    NDArray, # tt_singular_values, shape=(d+1, r)
 ]:
-    basis_cores, tt_cores = uniform_t3
+    """Compute T3-SVD of uniform Tucker tensor train.
+
+    Only guaranteed to give correct results if ranks are minimal.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3tools.uniform_tucker_tensor_train as ut3
+    >>> import t3tools.t3svd as t3svd
+    >>> s0 = ((11,12,13), (5,6,4), (3,4,3,1))
+    >>> s = (s0[0],) + t3.compute_minimal_ranks(s0)
+    >>> x = t3.t3_corewise_randn(s)
+    # >>> x = t3svd.t3_svd(x)[0]
+    >>> cores, masks = ut3.t3_to_ut3(x)
+    >>> cores2, ss_basis, ss_tt = ut3.ut3_svd(cores, masks)
+    >>> x2 = ut3.ut3_to_t3(cores2, masks)
+    >>> x3, ss_basis3, ss_tt3 = t3svd.t3_svd(x)
+    # >>> x3, ss_basis3, ss_tt3 = t3svd.t3_svd(x2)
+    # >>> np.linalg.norm(ss_basis[0][masks[1][0]] - ss_basis3[0])
+    >>> np.linalg.norm(ss_basis[0][masks[1][0]] - ss_basis3[0]) / np.linalg.norm(ss_basis3[0])
+    >>> np.linalg.norm(ss_basis[1][masks[1][1]] - ss_basis3[1]) / np.linalg.norm(ss_basis3[1])
+    >>> np.linalg.norm(ss_basis[2][masks[1][2]] - ss_basis3[2]) / np.linalg.norm(ss_basis3[2])
+
+    >>> np.linalg.norm(ss_tt[0][masks[2][0]] - ss_tt3[0]) / np.linalg.norm(ss_tt3[0])
+    >>> np.linalg.norm(ss_tt[1][masks[2][1]] - ss_tt3[1]) / np.linalg.norm(ss_tt3[1])
+    >>> np.linalg.norm(ss_tt[2][masks[2][2]] - ss_tt3[2]) / np.linalg.norm(ss_tt3[2])
+    >>> np.linalg.norm(ss_tt[3][masks[2][3]] - ss_tt3[3]) / np.linalg.norm(ss_tt3[3])
+
+    """
+    if use_jax:
+        xnp = jnp
+        scan = jax_scan
+    else:
+        xnp = np
+        scan = numpy_scan
+
+    basis_supercore, tt_supercore = cores
 
     shape_mask, basis_masks, tt_masks = masks
 
-    d, n, N = basis_cores.shape
-    r = tt_cores.shape[1]
+    d, n, N = basis_supercore.shape
+    r = tt_supercore.shape[1]
 
-    basis_cores, tt_cores = orthogonalize_ut3_basis_cores(basis_cores, tt_cores)
-    tt_cores = right_orthogonalize_utt(tt_cores)
+    basis_supercore, tt_supercore = orthogonalize_ut3_basis_cores(basis_supercore, tt_supercore, use_jax=use_jax)
+    tt_supercore = right_orthogonalize_utt(tt_supercore, use_jax=use_jax)
 
-    _, ss_tt00, _ = jnp.linalg.svd(tt_cores[0].reshape((r, n*r)), full_matrices=False)
-    ss_tt0 = jnp.concatenate([ss_tt00, jnp.zeros(r-len(ss_tt00))], axis=0)
-    if len(ss_tt0) != len(tt_masks[0]):
-        print('shape_mask.shape=', shape_mask.shape)
-        print('basis_masks.shape=', basis_masks.shape)
-        print('tt_masks.shape=', tt_masks.shape)
-        print('basis_cores.shape=', basis_cores.shape)
-        print('tt_cores.shape=', tt_cores.shape)
-        print('d=', d)
-        print('n=', n)
-        print('N=', N)
-        print('r=', r)
-        print('ss_tt0.shape=', ss_tt0.shape)
-        print('tt_masks[0].shape=', tt_masks[0].shape)
-        print('tt_cores[0].shape=', tt_cores[0].shape)
-        print('ss_tt00.shape=', ss_tt00.shape)
-
+    _, ss_tt00, _ = xnp.linalg.svd(tt_supercore[0].reshape((r, n*r)), full_matrices=False)
+    ss_tt0 = xnp.concatenate([ss_tt00, xnp.zeros(r-len(ss_tt00))], axis=0)
 
     ss_tt0 = ss_tt0 * tt_masks[0]
 
     def _step(
-            carry: jnp.ndarray,
+            carry: NDArray,
             x,
     ):
         Y = carry # shape=(r, r)
         B, G, basis_mask, tt_mask = x
 
-        G = jnp.einsum('ij,jak->iak', Y, G) # shape=(r, n, r)
+        G = xnp.einsum('ij,jak->iak', Y, G) # shape=(r, n, r)
         # Note: B.shape=(n, N)
 
         M = G.swapaxes(1,2).reshape((r*r, n))
         U, ss_basis, Vt = jnp.linalg.svd(M, full_matrices=False)
         n2 = len(ss_basis)
-        U           = jnp.concatenate([U,           jnp.zeros((r*r, n-n2))],    axis=1)
-        ss_basis    = jnp.concatenate([ss_basis,    jnp.zeros((n-n2, ))],           axis=0)
-        Vt          = jnp.concatenate([Vt,          jnp.zeros((n-n2, n))],      axis=0)
+        U           = xnp.concatenate([U,           xnp.zeros((r*r, n-n2))],    axis=1)
+        ss_basis    = xnp.concatenate([ss_basis,    xnp.zeros((n-n2, ))],       axis=0)
+        Vt          = xnp.concatenate([Vt,          xnp.zeros((n-n2, n))],      axis=0)
 
         U           = U         * basis_mask.reshape((1,-1))
         ss_basis    = ss_basis  * basis_mask
         Vt          = Vt        * basis_mask.reshape((-1,1))
 
-        new_B = jnp.einsum('ij,jk->ik', Vt, B)
+        new_B = xnp.einsum('ij,jk->ik', Vt, B)
 
-        M = jnp.einsum('ij,j->ij', U, ss_basis).reshape((r, r, n)).swapaxes(1,2).reshape((r*n, r))
-        U, ss_tt, Vt = jnp.linalg.svd(M, full_matrices=False)
+        M = xnp.einsum('ij,j->ij', U, ss_basis).reshape((r, r, n)).swapaxes(1,2).reshape((r*n, r))
+        U, ss_tt, Vt = xnp.linalg.svd(M, full_matrices=False)
 
         U       = U     * tt_mask.reshape((1,-1))
         ss_tt   = ss_tt * tt_mask
@@ -915,22 +931,25 @@ def ut3_svd_masked(
 
         new_G = U.reshape((r, n, r))
 
-        Y_next = jnp.einsum('i,ij->ij', ss_tt, Vt)  # shape=(r, r)
+        Y_next = xnp.einsum('i,ij->ij', ss_tt, Vt)  # shape=(r, r)
 
         return Y_next, (new_B, new_G, ss_basis, ss_tt)
 
-    Y0 = jnp.eye(r)
-    Yf, (new_basis_cores, new_tt_cores, basis_singular_values, tt_singular_values0) = jax.lax.scan(
+    Y0 = xnp.eye(r)
+    Yf, (new_basis_cores, new_tt_cores, basis_singular_values, tt_singular_values0) = scan(
         _step,
         Y0,
-        (basis_cores, tt_cores, basis_masks, tt_masks[1:]),
+        (basis_supercore, tt_supercore, basis_masks, tt_masks[1:]),
     )
 
-    # G_last = jnp.einsum('diaj,jk->diak', new_tt_cores[-1:], Yf)[:, :, :, :r]
-    G_last = jnp.einsum('diaj,jk->diak', new_tt_cores[-1:], Yf)
-    new_tt_cores = jnp.concatenate([new_tt_cores[:-1], G_last], axis=0)
+    # G_last = xnp.einsum('diaj,jk->diak', new_tt_cores[-1:], Yf)[:, :, :, :r]
+    G_last = xnp.einsum('diaj,jk->diak', new_tt_cores[-1:], Yf)
+    new_tt_cores = xnp.concatenate([new_tt_cores[:-1], G_last], axis=0)
 
-    tt_singular_values = jnp.concatenate([ss_tt0.reshape((1, r)), tt_singular_values0], axis=0)
+    print(type(ss_tt0))
+    print(type(tt_singular_values0))
+
+    tt_singular_values = xnp.concatenate([ss_tt0.reshape((1, r)), tt_singular_values0], axis=0)
     return (new_basis_cores, new_tt_cores), basis_singular_values, tt_singular_values
 
 
