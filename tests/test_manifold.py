@@ -3,7 +3,6 @@ import unittest
 import t3tools.tucker_tensor_train as t3
 import t3tools.manifold as t3m
 import t3tools.util as util
-from t3tools.tucker_tensor_train import t3_to_dense
 
 np.random.seed(0)
 numpy_tol = 1e-9
