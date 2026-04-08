@@ -1,7 +1,7 @@
-t3tools.util.probe_dense
-========================
+t3tools.probing.probe_dense
+===========================
 
-.. py:function:: t3tools.util.probe_dense(T: NDArray, vectors: Sequence[NDArray], use_jax: bool = False) -> Tuple[NDArray]
+.. py:function:: t3tools.probing.probe_dense(T: NDArray, vectors: Sequence[NDArray], use_jax: bool = False) -> Tuple[NDArray]
 
    Probe a dense tensor.
 
@@ -24,12 +24,12 @@ t3tools.util.probe_dense
    Probe with one set of vectors:
 
    >>> import numpy as np
-   >>> import t3tools.dense as dense
+   >>> import t3tools.probing as t3p
    >>> T = np.random.randn(10,11,12)
    >>> u0 = np.random.randn(10)
    >>> u1 = np.random.randn(11)
    >>> u2 = np.random.randn(12)
-   >>> yy = dense.probe_dense(T, (u0,u1,u2))
+   >>> yy = t3p.probe_dense(T, (u0,u1,u2))
    >>> y0 = np.einsum('ijk,j,k', T, u1, u2)
    >>> y1 = np.einsum('ijk,i,k', T, u0, u2)
    >>> y2 = np.einsum('ijk,i,j', T, u0, u1)
@@ -43,15 +43,15 @@ t3tools.util.probe_dense
    Probe with two sets of vectors:
 
    >>> import numpy as np
-   >>> import t3tools.dense as dense
+   >>> import t3tools.t3p as t3p
    >>> T = np.random.randn(10,11,12)
    >>> u0, v0 = np.random.randn(10), np.random.randn(10)
    >>> u1, v1 = np.random.randn(11), np.random.randn(11)
    >>> u2, v2 = np.random.randn(12), np.random.randn(12)
    >>> uuu = [np.vstack([u0,v0]), np.vstack([u1,v1]), np.vstack([u2,v2])]
-   >>> yyy = dense.probe_dense(T, uuu)
-   >>> yy_u = dense.probe_dense(T, (u0,u1,u2))
-   >>> yy_v = dense.probe_dense(T, (v0,v1,v2))
+   >>> yyy = t3p.probe_dense(T, uuu)
+   >>> yy_u = t3p.probe_dense(T, (u0,u1,u2))
+   >>> yy_v = t3p.probe_dense(T, (v0,v1,v2))
    >>> print(np.linalg.norm(yy_u[0] - yyy[0][0,:]))
    0.0
    >>> print(np.linalg.norm(yy_u[1] - yyy[1][0,:]))

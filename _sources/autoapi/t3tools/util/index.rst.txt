@@ -21,7 +21,6 @@ Functions
    /autoapi/t3tools/util/left_svd_3tensor
    /autoapi/t3tools/util/right_svd_3tensor
    /autoapi/t3tools/util/outer_svd_3tensor
-   /autoapi/t3tools/util/probe_dense
 
 .. autoapisummary::
 
@@ -36,6 +35,5 @@ Functions
    t3tools.util.left_svd_3tensor
    t3tools.util.right_svd_3tensor
    t3tools.util.outer_svd_3tensor
-   t3tools.util.probe_dense
 
 

@@ -10,6 +10,7 @@ Functions
 .. toctree::
    :hidden:
 
+   /autoapi/t3tools/probing/probe_dense
    /autoapi/t3tools/probing/probe_t3
    /autoapi/t3tools/probing/compute_xis
    /autoapi/t3tools/probing/compute_mus
@@ -32,6 +33,7 @@ Functions
 
 .. autoapisummary::
 
+   t3tools.probing.probe_dense
    t3tools.probing.probe_t3
    t3tools.probing.compute_xis
    t3tools.probing.compute_mus
