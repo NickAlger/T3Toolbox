@@ -959,7 +959,7 @@ def tangent_randn(
     >>> import t3tools.manifold as t3m
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> base, vars0 = t3m.orthogonal_representations(p)
-    >>> x = t3m.tangent_randn(base) # Random tangent vector, gauged.
+    >>> v = t3m.tangent_randn(base) # Random tangent vector, gauged.
 
     Don't apply Gauge projection:
 
@@ -968,7 +968,7 @@ def tangent_randn(
     >>> import t3tools.manifold as t3m
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> base, vars0 = t3m.orthogonal_representations(p)
-    >>> x = t3m.tangent_randn(base, apply_gauge_projection=False) # Random tangent vector, ungauged
+    >>> v = t3m.tangent_randn(base, apply_gauge_projection=False) # Random tangent vector, ungauged
     """
     check_t3base(base)
 
@@ -1031,6 +1031,7 @@ def orthogonal_gauge_projection(
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.manifold as t3m
+    >>> import t3tools.util as util
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> base, _ = t3m.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
@@ -1041,6 +1042,9 @@ def orthogonal_gauge_projection(
     3.512073125137391e-15
     >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', H1, L1))) # Gauge condition for TT-core 1
     1.5807940730805242e-15
+    >>> v_minus_p_dot_p = util.corewise_dot(util.corewise_sub(variation, proj_variation), proj_variation)
+    >>> print(v_minus_p_dot_p) # Projection is orthogonal w.r.t. corewise dot
+    -4.995303314442243e-18
     """
     xnp = jnp if use_jax else np
 
