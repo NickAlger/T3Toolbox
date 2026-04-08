@@ -15,14 +15,16 @@ except:
 NDArray = typ.Union[np.ndarray, jnp.ndarray]
 
 __all__ = [
-    # Actions of a Tucker tensor train
+    # Probe a dense tensor
+    'probe_dense',
+    # Probe a Tucker tensor train
     'probe_t3',
     'compute_xis',
     'compute_mus',
     'compute_nus',
     'compute_etas',
     'assemble_probes',
-    # Actions of a tangent vector
+    # Probe a tangent vector
     'probe_tangent',
     'compute_dxis',
     'compute_sigmas',
@@ -38,6 +40,130 @@ __all__ = [
     'assemble_tt_variations',
     'probe_tangent_transpose',
 ]
+
+
+###############################################
+##########    Probe dense tensor    ###########
+###############################################
+
+def probe_dense(
+        T:          NDArray,
+        vectors:    typ.Sequence[NDArray],
+        use_jax: bool = False,
+) -> typ.Tuple[NDArray]:
+    """Probe a dense tensor.
+
+    Parameters
+    ----------
+    T: NDArray
+        Tensor to be probed. shape=(N1,...,Nd)
+    vectors: typ.Sequence[NDArray]
+        Probing input vectors.
+        len=d.
+        elm_shape=(Ni,) or elm_shape=(num_probes, Ni)
+    use_jax: bool
+        Whether to use jax for numerical operations (default: False)
+
+    Returns
+    -------
+    typ.Tuple[NDArray]
+        Probes.
+        len=d.
+        elm_shape=(Ni,) or elm_shape=(num_probes, Ni)
+
+    Examples
+    --------
+
+    Probe with one set of vectors:
+
+    >>> import numpy as np
+    >>> import t3tools.probing as t3p
+    >>> T = np.random.randn(10,11,12)
+    >>> u0 = np.random.randn(10)
+    >>> u1 = np.random.randn(11)
+    >>> u2 = np.random.randn(12)
+    >>> yy = t3p.probe_dense(T, (u0,u1,u2))
+    >>> y0 = np.einsum('ijk,j,k', T, u1, u2)
+    >>> y1 = np.einsum('ijk,i,k', T, u0, u2)
+    >>> y2 = np.einsum('ijk,i,j', T, u0, u1)
+    >>> print(np.linalg.norm(yy[0] - y0))
+    2.0928808318295785e-14
+    >>> print(np.linalg.norm(yy[1] - y1))
+    1.0841599276764049e-14
+    >>> print(np.linalg.norm(yy[2] - y2))
+    1.2970142174948615e-14
+
+    Probe with two sets of vectors:
+
+    >>> import numpy as np
+    >>> import t3tools.t3p as t3p
+    >>> T = np.random.randn(10,11,12)
+    >>> u0, v0 = np.random.randn(10), np.random.randn(10)
+    >>> u1, v1 = np.random.randn(11), np.random.randn(11)
+    >>> u2, v2 = np.random.randn(12), np.random.randn(12)
+    >>> uuu = [np.vstack([u0,v0]), np.vstack([u1,v1]), np.vstack([u2,v2])]
+    >>> yyy = t3p.probe_dense(T, uuu)
+    >>> yy_u = t3p.probe_dense(T, (u0,u1,u2))
+    >>> yy_v = t3p.probe_dense(T, (v0,v1,v2))
+    >>> print(np.linalg.norm(yy_u[0] - yyy[0][0,:]))
+    0.0
+    >>> print(np.linalg.norm(yy_u[1] - yyy[1][0,:]))
+    0.0
+    >>> print(np.linalg.norm(yy_u[2] - yyy[2][0,:]))
+    0.0
+    >>> print(np.linalg.norm(yy_v[0] - yyy[0][1,:]))
+    0.0
+    >>> print(np.linalg.norm(yy_v[1] - yyy[1][1,:]))
+    0.0
+    >>> print(np.linalg.norm(yy_v[2] - yyy[2][1,:]))
+    0.0
+    """
+    xnp = jnp if use_jax else np
+
+    num_cores = len(T.shape)
+    assert(len(vectors) == num_cores)
+    if len(vectors[0].shape) == 1:
+        vectorized=False
+        for ii in range(num_cores):
+            assert (len(vectors[ii].shape) == 1)
+    elif len(vectors[0].shape) == 2:
+        vectorized=True
+        for ii in range(num_cores):
+            assert (len(vectors[ii].shape) == 2)
+    else:
+        raise RuntimeError(
+            'Wrong vectors[ii] shape in probe_dense. Should be vector or matrix.\n'
+            + 'vectors[0].shape=' + str(vectors[0].shape)
+        )
+
+    vectors = list(vectors)
+    if vectorized == False:
+        for ii in range(num_cores):
+            vectors[ii] = vectors[ii].reshape((1,-1))
+
+    vector_lengths = tuple([x.shape[1] for x in vectors])
+    assert(vector_lengths == T.shape)
+
+    probes = []
+    for ii in range(num_cores):
+        Ai = T
+        for jj in range(ii):
+            if jj == 0:
+                Ai = xnp.einsum('pi,i...->p...', vectors[jj], Ai)
+            else:
+                Ai = xnp.einsum('pi,pi...->p...', vectors[jj], Ai)
+
+        for jj in range(num_cores-1, ii, -1):
+            if ii==0 and jj==num_cores-1:
+                Ai = xnp.einsum('pi,...i->p...', vectors[jj], Ai)
+            else:
+                Ai = xnp.einsum('pi,p...i->p...', vectors[jj], Ai)
+        probes.append(Ai)
+
+    if not vectorized:
+        probes = [Ai.reshape(-1) for Ai in probes]
+
+    return tuple(probes)
 
 
 #####################################################
@@ -87,12 +213,11 @@ def probe_t3(
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.probing as t3p
-    >>> import t3tools.util as util
     >>> x = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> zz = t3p.probe_t3(x, ww)
     >>> x_dense = t3.t3_to_dense(x)
-    >>> zz2 = util.probe_dense(x_dense, ww)
+    >>> zz2 = t3p.probe_dense(x_dense, ww)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
     '''
@@ -606,13 +731,12 @@ def probe_tangent(
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.manifold as t3m
     >>> import t3tools.probing as t3p
-    >>> import t3tools.util as util
     >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
     >>> base, _ = t3m.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> zz = t3p.probe_tangent(variation, ww, base)
-    >>> zz2 = util.probe_dense(t3m.tangent_to_dense(variation, base), ww)
+    >>> zz2 = t3p.probe_dense(t3m.tangent_to_dense(variation, base), ww)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [4.6257812371663175e-15, 3.628238740198284e-15, 5.6097341748343224e-15]
 
@@ -622,13 +746,12 @@ def probe_tangent(
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.manifold as t3m
     >>> import t3tools.probing as t3p
-    >>> import t3tools.util as util
     >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
     >>> base, _ = t3m.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
     >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
     >>> zzz = t3p.probe_tangent(variation, www, base) # Compute probes!
-    >>> zzz2 = util.probe_dense(t3m.tangent_to_dense(variation, base), www)
+    >>> zzz2 = t3p.probe_dense(t3m.tangent_to_dense(variation, base), www)
     >>> print([np.linalg.norm(zz - zz2, axis=1) for zz, zz2 in zip(zzz, zzz2)])
     [array([3.18560984e-15, 5.06339604e-15]), array([1.74264349e-15, 5.10008230e-15]), array([2.17576097e-15, 2.94156728e-15])]
     '''
