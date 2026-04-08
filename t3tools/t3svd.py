@@ -173,13 +173,7 @@ def t3_svd(
     num_cores = len(tt_cores)
 
     # make leading and trailing TT-ranks equal to 1
-    G0 = x[1][0]
-    G0 = xnp.tensordot(xnp.ones((1, G0.shape[0])), G0, axes=1)
-
-    Gf = x[1][-1]
-    Gf = xnp.tensordot(Gf, xnp.ones((Gf.shape[2], 1)), axes=1)
-
-    x = (tuple(x[0]), (G0,) + tuple(x[1][1:-1]) + (Gf,))
+    x = t3.squash_tails(x)
 
     # Orthogonalize basis matrices
     for ii in range(num_cores):

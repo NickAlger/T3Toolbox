@@ -23,6 +23,14 @@ class TestTuckerTensorTrain(unittest.TestCase):
         self.assertEqual((4, 5, 6), tucker_ranks)
         self.assertEqual((2,3,7,5), tt_ranks)
 
+    def test_squash_tails(self):
+        x = t3.t3_corewise_randn(((11, 12, 13), (6, 7, 8), (9, 3, 4, 8)))
+        x2 = t3.squash_tails(x)
+        self.assertEqual(((11, 12, 13), (6, 7, 8), (1, 3, 4, 1)), t3.structure(x2))
+        x_dense = t3.t3_to_dense(x)
+        x2_dense = t3.t3_to_dense(x2)
+        self.assertLessEqual(norm(x_dense - x2_dense), numpy_tol * norm(x_dense))
+
     def test_t3_to_dense1(self):
         x = t3.t3_corewise_randn(((14, 15, 16), (4, 5, 6), (2, 3, 7, 5)))  # make TuckerTensorTrain
         x_dense = t3.t3_to_dense(x)  # Convert TuckerTensorTrain to dense tensor
@@ -42,7 +50,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
     def test_t3_reverse1(self):
         x = t3.t3_corewise_randn(((14, 15, 16), (4, 5, 6), (2, 3, 2, 1)))  # Make TuckerTensorTrain
         self.assertEqual(((14, 15, 16), (4, 5, 6), (2, 3, 2, 1)), t3.structure(x))
-        reversed_x = t3.t3_reverse(x)
+        reversed_x = t3.reverse_t3(x)
         self.assertEqual(((16, 15, 14), (6, 5, 4), (1, 2, 3, 2)), t3.structure(reversed_x))
         x_dense = t3.t3_to_dense(x)
         reversed_x_dense = t3.t3_to_dense(reversed_x)

@@ -27,7 +27,8 @@ __all__ = [
     't3_apply',
     't3_entry',
     't3_to_dense',
-    't3_reverse',
+    'squash_tails',
+    'reverse_t3',
     'check_t3',
     't3_zeros',
     't3_corewise_randn',
@@ -403,7 +404,36 @@ def t3_to_dense(
     return T
 
 
-def t3_reverse(
+def squash_tails(
+        x: TuckerTensorTrain,
+        use_jax: bool = False,
+) -> TuckerTensorTrain:
+    """Make leading and trailing Tucker ranks equal to 1 (r0=rd=1).
+
+    Examples
+    ________
+    >>> import numpy as np
+    >>> import t3tools.tucker_tensor_train as t3
+    >>> x = t3.t3_corewise_randn(((11,12,13), (6,7,8), (9,3,4,8)))
+    >>> x2 = t3.squash_tails(x)
+    >>> print(t3.structure(x2))
+    ((11, 12, 13), (6, 7, 8), (1, 3, 4, 1))
+    >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2)))
+    5.805155892491438e-12
+    """
+    xnp = jnp if use_jax else np
+
+    G0 = x[1][0]
+    G0 = xnp.tensordot(xnp.ones((1, G0.shape[0])), G0, axes=1)
+
+    Gf = x[1][-1]
+    Gf = xnp.tensordot(Gf, xnp.ones((Gf.shape[2], 1)), axes=1)
+
+    x = (tuple(x[0]), (G0,) + tuple(x[1][1:-1]) + (Gf,))
+    return x
+
+
+def reverse_t3(
         x: TuckerTensorTrain,
 ) -> NDArray:
     """Reverse Tucker tensor train.
@@ -430,7 +460,7 @@ def t3_reverse(
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1))) # Make TuckerTensorTrain
     >>> print(t3.structure(x))
     ((14, 15, 16), (4, 5, 6), (1, 3, 2, 1))
-    >>> reversed_x = t3.t3_reverse(x)
+    >>> reversed_x = t3.reverse_t3(x)
     >>> print(t3.structure(reversed_x))
     ((16, 15, 14), (6, 5, 4), (1, 2, 3, 1))
     >>> x_dense = t3.t3_to_dense(x)
