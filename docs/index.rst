@@ -26,16 +26,21 @@ Includes:
 Modules
 =======
 
+Tucker tensor trains:
+
 * :doc:`/autoapi/t3tools/tucker_tensor_train/index`
 * :doc:`/autoapi/t3tools/base_variation_format/index`
 * :doc:`/autoapi/t3tools/orthogonalization/index`
 * :doc:`/autoapi/t3tools/t3svd/index`
 * :doc:`/autoapi/t3tools/manifold/index`
 * :doc:`/autoapi/t3tools/probing/index`
+* :doc:`/autoapi/t3tools/util/index`
+
+Uniform T3s:
+
 * :doc:`/autoapi/t3tools/uniform_tucker_tensor_train/index`
 * :doc:`/autoapi/t3tools/uniform_manifold/index`
 * :doc:`/autoapi/t3tools/uniform_probing/index`
-* :doc:`/autoapi/t3tools/util/index`
 
 
 Indices and tables
