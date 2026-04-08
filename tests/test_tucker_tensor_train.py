@@ -67,7 +67,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
     def test_t3_save_and_t3_load1(self):
         x = t3.t3_corewise_randn(((14, 15, 16), (4, 5, 6), (1, 3, 2, 1)))
-        fname = 't3_test_file'
+        fname = 't3_test_file1945145272' # hopefully no one else has used this filename
         t3.t3_save(fname, x)  # Save to file 't3_file.npz'
         x2 = t3.t3_load(fname)  # Load from file
         basis_cores, tt_cores = x
@@ -132,6 +132,60 @@ class TestTuckerTensorTrain(unittest.TestCase):
         new_structure = ((17, 18, 17), (8, 8, 8), (5, 5, 6, 7))
         padded_x = t3.pad_t3(x, new_structure)
         self.assertEqual(new_structure, t3.structure(padded_x))
+
+    def test_left_svd_3tensor(self):
+        G_i_a_j = np.random.randn(5, 7, 6)
+        U_i_a_x, ss_x, Vt_x_j = t3.left_svd_3tensor(G_i_a_j)
+        G_i_a_j2 = np.einsum('iax,x,xj->iaj', U_i_a_x, ss_x, Vt_x_j)
+        self.assertLessEqual(norm(G_i_a_j - G_i_a_j2), numpy_tol * norm(G_i_a_j))
+
+        rank = len(ss_x)
+        self.assertEqual(6, rank)
+
+        self.assertLessEqual(
+            norm(np.einsum('iax,iay->xy', U_i_a_x, U_i_a_x) - np.eye(rank)),
+            numpy_tol * norm(np.eye(rank))
+        )
+        self.assertLessEqual(
+            norm(np.einsum('xj,yj->xy', Vt_x_j, Vt_x_j) - np.eye(rank)),
+            numpy_tol * norm(np.eye(rank))
+        )
+
+    def test_right_svd_3tensor(self):
+        G_i_a_j = np.random.randn(5, 7, 6)
+        U_i_x, ss_x, Vt_x_a_j = t3.right_svd_3tensor(G_i_a_j)
+        G_i_a_j2 = np.einsum('ix,x,xaj->iaj', U_i_x, ss_x, Vt_x_a_j)
+        self.assertLessEqual(norm(G_i_a_j - G_i_a_j2), numpy_tol * norm(G_i_a_j))
+
+        rank = len(ss_x)
+        self.assertEqual(5, rank)
+
+        self.assertLessEqual(
+            norm(np.einsum('ix,iy->xy', U_i_x, U_i_x) - np.eye(rank)),
+            numpy_tol * norm(np.eye(rank))
+        )
+        self.assertLessEqual(
+            norm(np.einsum('xaj,yaj->xy', Vt_x_a_j, Vt_x_a_j) - np.eye(rank)),
+            numpy_tol * norm(np.eye(rank))
+        )
+
+    def test_outer_svd_3tensor(self):
+        G_i_a_j = np.random.randn(5, 7, 6)
+        U_i_x_j, ss_x, Vt_x_a = t3.outer_svd_3tensor(G_i_a_j)
+        G_i_a_j2 = np.einsum('ixj,x,xa->iaj', U_i_x_j, ss_x, Vt_x_a)
+        self.assertLessEqual(norm(G_i_a_j - G_i_a_j2), numpy_tol * norm(G_i_a_j))
+
+        rank = len(ss_x)
+        self.assertEqual(7, rank)
+
+        self.assertLessEqual(
+            norm(np.einsum('ixj,iyj->xy', U_i_x_j, U_i_x_j) - np.eye(rank)),
+            numpy_tol * norm(np.eye(rank))
+        )
+        self.assertLessEqual(
+            norm(np.einsum('xa,ya->xy', Vt_x_a, Vt_x_a) - np.eye(rank)),
+            numpy_tol * norm(np.eye(rank))
+        )
 
     def test_up_svd_ith_basis_core(self):
         shape = (14, 15, 16)
