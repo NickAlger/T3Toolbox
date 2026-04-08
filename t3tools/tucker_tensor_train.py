@@ -2469,6 +2469,9 @@ def tt_svd_dense(
         X = ss.reshape((-1,1)) * Vt
     cores.append(X.reshape(X.shape + (1,)))
 
+    norm_T_vec = np.array([np.linalg.norm(T)])
+    singular_values_of_unfoldings = [norm_T_vec,] + singular_values_of_unfoldings + [norm_T_vec,]
+
     return tuple(cores), tuple(singular_values_of_unfoldings)
 
 
@@ -2484,8 +2487,8 @@ def t3_svd_dense(
         use_jax: bool = False,
 ) -> typ.Tuple[
     TuckerTensorTrain, # Approximation of T by Tucker tensor train
-    typ.Tuple[NDArray,...], # basis singular values, len=k
-    typ.Tuple[NDArray,...], # tt singular values, len=k-1
+    typ.Tuple[NDArray,...], # basis singular values, len=d
+    typ.Tuple[NDArray,...], # tt singular values, len=d+1
 ]:
     '''Compute TuckerTensorTrain and edge singular values for dense tensor.
 
