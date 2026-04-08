@@ -796,7 +796,6 @@ def ut3_svd_masked(
         print('ss_tt00.shape=', ss_tt00.shape)
 
 
-
     ss_tt0 = ss_tt0 * tt_masks[0]
 
     def _step(
