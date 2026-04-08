@@ -20,7 +20,7 @@ Includes:
 	- Probing tangent vectors
 	- Transpose of the tangent vector to probes map
 	- Varied-rank and uniform-rank T3s
-	- Option to use either `Numpy <https://numpy.org/>`_ or `Jax <https://docs.jax.dev/en/latest/index.html>`_ for linear algebra operations
+	- Option to use either Numpy or Jax for linear algebra operations
 	
 
 Modules
@@ -52,7 +52,10 @@ Websites
 
 Installation
 ============
-The package is pure python.
+The package is pure python. Dependencies:
+
+* `Numpy <https://numpy.org/install/>`_ (required)
+* `Jax <https://docs.jax.dev/en/latest/installation.html>`_ (optional)
 
 Install from source::
 
