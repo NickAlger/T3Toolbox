@@ -22,7 +22,8 @@ Functions
    /autoapi/t3tools/tucker_tensor_train/structure
    /autoapi/t3tools/tucker_tensor_train/check_t3
    /autoapi/t3tools/tucker_tensor_train/t3_to_dense
-   /autoapi/t3tools/tucker_tensor_train/t3_reverse
+   /autoapi/t3tools/tucker_tensor_train/squash_tails
+   /autoapi/t3tools/tucker_tensor_train/reverse_t3
    /autoapi/t3tools/tucker_tensor_train/t3_zeros
    /autoapi/t3tools/tucker_tensor_train/t3_corewise_randn
    /autoapi/t3tools/tucker_tensor_train/t3_save
@@ -44,7 +45,8 @@ Functions
    t3tools.tucker_tensor_train.structure
    t3tools.tucker_tensor_train.check_t3
    t3tools.tucker_tensor_train.t3_to_dense
-   t3tools.tucker_tensor_train.t3_reverse
+   t3tools.tucker_tensor_train.squash_tails
+   t3tools.tucker_tensor_train.reverse_t3
    t3tools.tucker_tensor_train.t3_zeros
    t3tools.tucker_tensor_train.t3_corewise_randn
    t3tools.tucker_tensor_train.t3_save

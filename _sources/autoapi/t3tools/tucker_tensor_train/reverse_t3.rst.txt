@@ -1,7 +1,7 @@
-t3tools.tucker_tensor_train.t3_reverse
+t3tools.tucker_tensor_train.reverse_t3
 ======================================
 
-.. py:function:: t3tools.tucker_tensor_train.t3_reverse(x: TuckerTensorTrain) -> NDArray
+.. py:function:: t3tools.tucker_tensor_train.reverse_t3(x: TuckerTensorTrain) -> NDArray
 
    Reverse Tucker tensor train.
 
@@ -20,7 +20,7 @@ t3tools.tucker_tensor_train.t3_reverse
    >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1))) # Make TuckerTensorTrain
    >>> print(t3.structure(x))
    ((14, 15, 16), (4, 5, 6), (1, 3, 2, 1))
-   >>> reversed_x = t3.t3_reverse(x)
+   >>> reversed_x = t3.reverse_t3(x)
    >>> print(t3.structure(reversed_x))
    ((16, 15, 14), (6, 5, 4), (1, 2, 3, 1))
    >>> x_dense = t3.t3_to_dense(x)
