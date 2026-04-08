@@ -1794,7 +1794,7 @@ def t3_add(
     >>> y = t3.t3_corewise_randn(((14,15,16), (3,7,2), (1,5,6,1)))
     >>> z = t3.t3_add(x, y)
     >>> print(t3.structure(z))
-    ((14, 15, 16), (7, 12, 8), (1, 8, 8, 1))
+    ((14, 15, 16), (7, 12, 8), (2, 8, 8, 2))
     >>> print(np.linalg.norm(t3.t3_to_dense(x) + t3.t3_to_dense(y) - t3.t3_to_dense(z)))
     6.524094086845177e-13
     """
@@ -1972,7 +1972,7 @@ def t3_sub(
     >>> y = t3.t3_corewise_randn(((14,15,16), (3,7,2), (1,5,6,1)))
     >>> z = t3.t3_sub(x, y)
     >>> print(t3.structure(z))
-    ((14, 15, 16), (7, 12, 8), (1, 8, 8, 1))
+    ((14, 15, 16), (7, 12, 8), (2, 8, 8, 2))
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(y) - t3.t3_to_dense(z)))
     3.5875705233607603e-13
     """
@@ -2131,7 +2131,6 @@ def t3_svd(
         rtol: float = None,
         atol: float = None,
         use_jax: bool = False,
-
 ) -> typ.Tuple[
     TuckerTensorTrain, # new_x
     typ.Tuple[NDArray,...], # basis singular values, len=d
@@ -2260,6 +2259,15 @@ def t3_svd(
     basis_cores, tt_cores = x
 
     num_cores = len(tt_cores)
+
+    # make leading and trailing TT-ranks equal to 1
+    G0 = x[1][0]
+    G0 = xnp.tensordot(xnp.ones((1, G0.shape[0])), G0, axes=1)
+
+    Gf = x[1][-1]
+    Gf = xnp.tensordot(Gf, xnp.ones((Gf.shape[2], 1)), axes=1)
+
+    x = (tuple(x[0]), (G0,) + tuple(x[1][1:-1]) + (Gf,))
 
     # Orthogonalize basis matrices
     for ii in range(num_cores):
