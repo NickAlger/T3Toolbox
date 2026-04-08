@@ -30,6 +30,7 @@ Functions
    /autoapi/t3tools/uniform_tucker_tensor_train/ut3_scale
    /autoapi/t3tools/uniform_tucker_tensor_train/ut3_neg
    /autoapi/t3tools/uniform_tucker_tensor_train/ut3_sub
+   /autoapi/t3tools/uniform_tucker_tensor_train/ut3_svd
 
 .. autoapisummary::
 
@@ -44,6 +45,7 @@ Functions
    t3tools.uniform_tucker_tensor_train.ut3_scale
    t3tools.uniform_tucker_tensor_train.ut3_neg
    t3tools.uniform_tucker_tensor_train.ut3_sub
+   t3tools.uniform_tucker_tensor_train.ut3_svd
 
 
 Module Contents
