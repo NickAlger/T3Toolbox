@@ -18,9 +18,6 @@ Functions
    /autoapi/t3tools/util/corewise_dot
    /autoapi/t3tools/util/corewise_norm
    /autoapi/t3tools/util/truncated_svd
-   /autoapi/t3tools/util/left_svd_3tensor
-   /autoapi/t3tools/util/right_svd_3tensor
-   /autoapi/t3tools/util/outer_svd_3tensor
 
 .. autoapisummary::
 
@@ -32,8 +29,5 @@ Functions
    t3tools.util.corewise_dot
    t3tools.util.corewise_norm
    t3tools.util.truncated_svd
-   t3tools.util.left_svd_3tensor
-   t3tools.util.right_svd_3tensor
-   t3tools.util.outer_svd_3tensor
 
 

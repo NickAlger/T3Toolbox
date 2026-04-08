@@ -27,8 +27,6 @@ t3tools.util.truncated_svd
              * **Vt** (*NDArray*) -- Right singular vectors. shape=(k, M)
                Vt @ Vt.T = identity matrix
 
-   .. seealso:: :py:obj:`left_svd_3tensor`, :py:obj:`right_svd_3tensor`, :py:obj:`outer_svd_3tensor`, :py:obj:`t3_svd`
-
    .. rubric:: Examples
 
    >>> import numpy as np

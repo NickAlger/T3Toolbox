@@ -1,7 +1,7 @@
-t3tools.util.right_svd_3tensor
-==============================
+t3tools.tucker_tensor_train.right_svd_3tensor
+=============================================
 
-.. py:function:: t3tools.util.right_svd_3tensor(G0_i_a_j: NDArray, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> Tuple[NDArray, NDArray, NDArray]
+.. py:function:: t3tools.tucker_tensor_train.right_svd_3tensor(G0_i_a_j: NDArray, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> Tuple[NDArray, NDArray, NDArray]
 
    Compute (truncated) singular value decomposition of 3-tensor right unfolding.
 
@@ -36,9 +36,9 @@ t3tools.util.right_svd_3tensor
    .. rubric:: Examples
 
    >>> import numpy as np
-   >>> import t3tools.dense as dense
+   >>> import t3tools.tucker_tensor_train as t3
    >>> G_i_a_j = np.random.randn(5,7,6)
-   >>> U_i_x, ss_x, Vt_x_a_j = dense.right_svd_3tensor(G_i_a_j)
+   >>> U_i_x, ss_x, Vt_x_a_j = t3.right_svd_3tensor(G_i_a_j)
    >>> G_i_a_j2 = np.einsum('ix,x,xaj->iaj', U_i_x, ss_x, Vt_x_a_j)
    >>> print(np.linalg.norm(G_i_a_j - G_i_a_j2)) # SVD exact to numerical precision
    1.2503321403334437e-14

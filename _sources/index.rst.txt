@@ -227,7 +227,8 @@ The Tucker tensor train with d indices is represented as a Tuple of cores, ((B0,
 	- 1=(1,...,1) denotes the ones vector of the appropriate size
 
 Typically r0=rd=1, and the "1" on the left and right sides is just the number 1. However, this is not required.
-	
+Having r0, r1 > 1 is allowed, in which case the "1"s in the diagram are vectors of ones, (1,1,...,1).
+
 
 
 Tucker tensor trains represent dense tensors
