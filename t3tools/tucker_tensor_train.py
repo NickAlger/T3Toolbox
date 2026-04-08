@@ -57,6 +57,24 @@ __all__ = [
     't3_svd',
 ]
 
+u = typ.Tuple[int]
+"""
+Test
+
+Examples
+--------
+>>> import numpy as np
+>>> import t3tools.tucker_tensor_train as t3
+>>> randn = np.random.randn
+>>> x_basis_cores = [randn(4, 14), randn(5, 15), randn(6, 16)]
+>>> x_tt_cores = [randn(1, 4, 3), randn(3, 5, 2), randn(2, 6, 1)]
+>>> x = (x_basis_cores, x_tt_cores)  # TuckerTensorTrain, x
+>>> y_basis_cores = [randn(7, 14), randn(6, 15), randn(8, 16)]
+>>> y_tt_cores = [randn(1, 7, 4), randn(4, 6, 5), randn(5, 6, 1)]
+>>> y = (basis_cores, tt_cores)  # TuckerTensorTrain, y
+>>> x_plus_y = t3.t3_add(x, y)
+>>> print(t3_structure(x_plus_y)
+"""
 
 #####################################################
 ####################    Types    ####################
@@ -897,11 +915,11 @@ def t3_entry(
     >>> A = t3.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 Tucker tensor train
     >>> a123 = get_entry_123(A)
     >>> print(a123)
-    11.756762
+    -1.3764521
     >>> get_entry_123_jit = jax.jit(get_entry_123) # jit compile
     >>> a123_jit = get_entry_123_jit(A)
     >>> print(a123_jit)
-    11.756762
+    -1.3764523
     '''
     xnp = jnp if use_jax else np
 

@@ -37,9 +37,12 @@ def numpy_scan(f, init, xs, length=None):
     """
     if xs is None:
         xs = [None] * length
+    if not isinstance(xs, typ.Tuple):
+        xs = (xs,)
     carry = init
     ys = []
-    for x in xs:
+    for ii in range(len(xs[0])):
+        x = tuple([elm[ii] for elm in xs])
         carry, y = f(carry, x)
         ys.append(y)
     return carry, np.stack(ys)

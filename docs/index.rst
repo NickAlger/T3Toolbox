@@ -20,15 +20,19 @@ Includes:
 	- Probing tangent vectors
 	- Transpose of the tangent vector to probes map
 	- Varied-rank and uniform-rank T3s
-	- Option to use either Numpy or Jax
+	- Option to use either `Numpy <https://numpy.org/>`_ or `Jax <https://docs.jax.dev/en/latest/index.html>`_ for linear algebra operations
 	
 
-Contents
-========
+Modules
+=======
 
-
-.. toctree::
-   :maxdepth: 4
+* :doc:`/autoapi/t3tools/tucker_tensor_train/index`
+* :doc:`/autoapi/t3tools/manifold/index`
+* :doc:`/autoapi/t3tools/probing/index`
+* :doc:`/autoapi/t3tools/uniform_tucker_tensor_train/index`
+* :doc:`/autoapi/t3tools/uniform_manifold/index`
+* :doc:`/autoapi/t3tools/uniform_probing/index`
+* :doc:`/autoapi/t3tools/util/index`
 
 
 Indices and tables
@@ -37,6 +41,105 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+
+Websites
+========
+
+* Github: https://github.com/NickAlger/TuckerTensorTrainTools
+* Documentation: https://nickalger.github.io/TuckerTensorTrainTools/
+
+
+Installation
+============
+The package is pure python.
+
+Install from source::
+
+	git clone https://github.com/NickAlger/TuckerTensorTrainTools.git
+	cd TuckerTensorTrainTools
+	pip install .
+
+
+Examples
+========
+
+* Create two random Tucker tensor trains and **add** them::
+
+	>>> import numpy as np
+	>>> import t3tools.tucker_tensor_train as t3
+	>>> randn = np.random.randn
+	>>> # Make Tucker tensor train x:
+	>>> x_basis_cores = [randn(5, 21), randn(5, 22), randn(5, 23)]
+	>>> x_tt_cores = [randn(1, 5, 4), randn(4, 5, 4), randn(4, 5, 1)]
+	>>> x = (x_basis_cores, x_tt_cores)
+	>>> # Make Tucker tensor train y:
+	>>> y_basis_cores = [randn(9, 21), randn(9, 22), randn(9, 23)]
+	>>> y_tt_cores = [randn(1, 9, 2), randn(2, 9, 2), randn(2, 9, 1)]
+	>>> y = (y_basis_cores, y_tt_cores)
+	>>> # Add x+y:
+	>>> x_plus_y = t3.t3_add(x, y)
+	>>> # x+y has doubled ranks:
+	>>> print(t3.structure(x_plus_y))
+	((21, 22, 23), (14, 14, 14), (2, 6, 6, 2))
+	>>> # Convert to dense to check error:
+	>>> x_dense = t3.t3_to_dense(x)
+	>>> y_dense = t3.t3_to_dense(y)
+	>>> x_plus_y_dense = t3.t3_to_dense(x_plus_y)
+	>>> print(np.linalg.norm(x_dense + y_dense - x_plus_y_dense))
+	0.0
+
+* **Retract** random tangent vector to the manifold of fixed rank Tucker tensor trains::
+
+	>>> import numpy as np
+	>>> import t3tools.tucker_tensor_train as t3
+	>>> import t3tools.manifold as t3m
+	>>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1))) # tangent space base point
+	>>> base, _ = t3m.orthogonal_representations(p)
+	>>> v = t3m.tangent_randn(base) # Random tangent vector.
+	>>> ret_v = t3m.retract(v, base) # Retract tangent vector to manifold.
+	>>> v_as_t3 = t3m.tangent_to_t3(v, base) # Convert tangent vector to rank-2r T3
+	>>> p_plus_v = t3.t3_add(p, v_as_t3) # Shift tangent so its tail is at p instead of 0
+	>>> retracted_distance = t3.t3_norm(t3.t3_sub(p_plus_v, ret_v))
+	>>> print(retracted_distance)
+	0.14470074958504858
+
+* **Probe** Tucker tensor train with random vectors::
+
+	>>> import numpy as np
+	>>> import t3tools.tucker_tensor_train as t3
+	>>> import t3tools.probing as t3p
+	>>> x = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2))) # random T3
+	>>> w1 = np.random.randn(10) # random probing vectors
+	>>> w2 = np.random.randn(11)
+	>>> w3 = np.random.randn(12)
+	>>> zz = t3p.probe_t3(x, (w1, w2, w3)) # Probe T3-tensor
+	>>> x_dense = t3.t3_to_dense(x) # Convert to dense to check error
+	>>> z1 = np.einsum('ijk,j,k->i', x_dense, w2, w3) # Probe dense tensor (brute force)
+	>>> z2 = np.einsum('ijk,i,k->j', x_dense, w1, w3)
+	>>> z3 = np.einsum('ijk,i,j->k', x_dense, w1, w2)
+	>>> zzb = [z1, z2, z3]
+	>>> print([np.linalg.norm(z - zb) for z, zb in zip(zz, zzb)])
+	[8.806144583576081e-13, 5.012223052900821e-13, 4.968721252978153e-13]
+
+* Convert Tucker tensor train to **uniform** Tucker tensor train::
+
+	>>> import numpy as np
+	>>> import t3tools.tucker_tensor_train as t3
+	>>> import t3tools.uniform_tucker_tensor_train as ut3
+	>>> x = t3.t3_corewise_randn(((14,15,16), (4,5,3), (1,4,2,1))) # T3
+	>>> index = (3,1,2)
+	>>> x_312 = t3.t3_entry(x, index)
+	>>> print(x_312) # (3,1,2) entry from T3:
+	-1.4931654579929192
+	>>> cores, masks = ut3.t3_to_ut3(x) # Convert to Uniform T3
+	>>> print(ut3.original_structure(masks)) # original (shape, tucker_ranks, tt_ranks):
+	((14, 15, 16), (4, 5, 3), (1, 4, 2, 1))
+	>>> print(ut3.padded_structure(cores)) # uniform shape and ranks, (d,N,n,r):
+	(3, 16, 5, 4)
+	>>> x_312_uniform = ut3.ut3_entry(cores, index) # (3,1,2) entry from uniform T3:
+	>>> print(x_312_uniform)
+	-1.4931654579929197
 
 
 Design philosophy
