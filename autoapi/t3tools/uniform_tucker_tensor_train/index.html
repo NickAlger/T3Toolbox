@@ -14,19 +14,13 @@
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
-    <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3tools.uniform_tucker_tensor_train.padded_structure" href="padded_structure.html" />
-    <link rel="prev" title="t3tools.uniform_probing" href="../uniform_probing/index.html" /> 
+    <link rel="search" title="Search" href="../../../search.html" /> 
   </head><body>
     <div class="header-wrapper" role="banner">
       <div class="header">
         <div class="headertitle"><a
           href="../../../index.html">TuckerTensorTrainTools 0.1 documentation</a></div>
         <div class="rel" role="navigation" aria-label="Related">
-          <a href="../uniform_probing/index.html" title="t3tools.uniform_probing"
-             accesskey="P">previous</a> |
-          <a href="padded_structure.html" title="t3tools.uniform_tucker_tensor_train.padded_structure"
-             accesskey="N">next</a> |
           <a href="../../../py-modindex.html" title="Python Module Index"
              >modules</a> |
           <a href="../../../genindex.html" title="General Index"
@@ -82,16 +76,19 @@
 <tr class="row-even"><td><p><a class="reference internal" href="are_ut3_ranks_minimal.html#t3tools.uniform_tucker_tensor_train.are_ut3_ranks_minimal" title="t3tools.uniform_tucker_tensor_train.are_ut3_ranks_minimal"><code class="xref py py-obj docutils literal notranslate"><span class="pre">are_ut3_ranks_minimal</span></code></a>(→ bool)</p></td>
 <td><p>Checks if the ranks of a uniform Tucker train are minimal.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="ut3_add.html#t3tools.uniform_tucker_tensor_train.ut3_add" title="t3tools.uniform_tucker_tensor_train.ut3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_add</span></code></a>(→ Tuple[UniformTuckerTensorTrainCores, ...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="ut3_entry.html#t3tools.uniform_tucker_tensor_train.ut3_entry" title="t3tools.uniform_tucker_tensor_train.ut3_entry"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_entry</span></code></a>(→ NDArray)</p></td>
+<td><p>Compute entry (entries) of a uniform Tucker tensor train.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="ut3_add.html#t3tools.uniform_tucker_tensor_train.ut3_add" title="t3tools.uniform_tucker_tensor_train.ut3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_add</span></code></a>(→ Tuple[UniformTuckerTensorTrainCores, ...)</p></td>
 <td><p>Add two UniformTuckerTensorTrains, x,y -&gt; x+y.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ut3_scale.html#t3tools.uniform_tucker_tensor_train.ut3_scale" title="t3tools.uniform_tucker_tensor_train.ut3_scale"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_scale</span></code></a>(→ UniformTuckerTensorTrainCores)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="ut3_scale.html#t3tools.uniform_tucker_tensor_train.ut3_scale" title="t3tools.uniform_tucker_tensor_train.ut3_scale"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_scale</span></code></a>(→ UniformTuckerTensorTrainCores)</p></td>
 <td><p>Scale a uniform Tucker tensor train, s,x -&gt; s*x.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="ut3_neg.html#t3tools.uniform_tucker_tensor_train.ut3_neg" title="t3tools.uniform_tucker_tensor_train.ut3_neg"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_neg</span></code></a>(→ UniformTuckerTensorTrainCores)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="ut3_neg.html#t3tools.uniform_tucker_tensor_train.ut3_neg" title="t3tools.uniform_tucker_tensor_train.ut3_neg"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_neg</span></code></a>(→ UniformTuckerTensorTrainCores)</p></td>
 <td><p>Flip a uniform Tucker tensor train, x -&gt; -x.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ut3_sub.html#t3tools.uniform_tucker_tensor_train.ut3_sub" title="t3tools.uniform_tucker_tensor_train.ut3_sub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_sub</span></code></a>(→ Tuple[UniformTuckerTensorTrainCores, ...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="ut3_sub.html#t3tools.uniform_tucker_tensor_train.ut3_sub" title="t3tools.uniform_tucker_tensor_train.ut3_sub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_sub</span></code></a>(→ Tuple[UniformTuckerTensorTrainCores, ...)</p></td>
 <td><p>Subtract two UniformTuckerTensorTrains, x,y -&gt; x-y.</p></td>
 </tr>
 </tbody>
@@ -188,25 +185,7 @@ so that the ranks are uniform, then stacking the TT-cores and basis cores into
         <div class="sidebar">
           
           <h3>Table of Contents</h3>
-          <ul class="current">
-<li class="toctree-l1 current"><a class="reference internal" href="../../index.html">API Reference</a><ul class="current">
-<li class="toctree-l2 current"><a class="reference internal" href="../index.html">t3tools</a><ul class="current">
-<li class="toctree-l3 current"><a class="reference internal" href="../index.html#submodules">Submodules</a><ul class="current">
-<li class="toctree-l4"><a class="reference internal" href="../manifold/index.html">t3tools.manifold</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../probing/index.html">t3tools.probing</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/index.html">t3tools.tucker_tensor_train</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../uniform_manifold/index.html">t3tools.uniform_manifold</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../uniform_probing/index.html">t3tools.uniform_probing</a></li>
-<li class="toctree-l4 current"><a class="current reference internal" href="#">t3tools.uniform_tucker_tensor_train</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../util/index.html">t3tools.util</a></li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-</li>
-</ul>
-
+          
           <search role="search">
             <h3 style="margin-top: 1.5em;">Search</h3>
             <form class="search" action="../../../search.html" method="get">
@@ -224,10 +203,6 @@ so that the ranks are uniform, then stacking the TT-cores and basis cores into
       <div class="footer">
         <div class="left">
           <div role="navigation" aria-label="Related">
-            <a href="../uniform_probing/index.html" title="t3tools.uniform_probing"
-              >previous</a> |
-            <a href="padded_structure.html" title="t3tools.uniform_tucker_tensor_train.padded_structure"
-              >next</a> |
             <a href="../../../py-modindex.html" title="Python Module Index"
               >modules</a> |
             <a href="../../../genindex.html" title="General Index"

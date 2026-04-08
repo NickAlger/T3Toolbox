@@ -25,6 +25,7 @@ Functions
    /autoapi/t3tools/uniform_tucker_tensor_train/t3_to_ut3
    /autoapi/t3tools/uniform_tucker_tensor_train/ut3_to_t3
    /autoapi/t3tools/uniform_tucker_tensor_train/are_ut3_ranks_minimal
+   /autoapi/t3tools/uniform_tucker_tensor_train/ut3_entry
    /autoapi/t3tools/uniform_tucker_tensor_train/ut3_add
    /autoapi/t3tools/uniform_tucker_tensor_train/ut3_scale
    /autoapi/t3tools/uniform_tucker_tensor_train/ut3_neg
@@ -38,6 +39,7 @@ Functions
    t3tools.uniform_tucker_tensor_train.t3_to_ut3
    t3tools.uniform_tucker_tensor_train.ut3_to_t3
    t3tools.uniform_tucker_tensor_train.are_ut3_ranks_minimal
+   t3tools.uniform_tucker_tensor_train.ut3_entry
    t3tools.uniform_tucker_tensor_train.ut3_add
    t3tools.uniform_tucker_tensor_train.ut3_scale
    t3tools.uniform_tucker_tensor_train.ut3_neg
