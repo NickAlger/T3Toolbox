@@ -25,7 +25,7 @@ t3tools.manifold.tangent_randn
    >>> import t3tools.manifold as t3m
    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
    >>> base, vars0 = t3m.orthogonal_representations(p)
-   >>> x = t3m.tangent_randn(base) # Random tangent vector, gauged.
+   >>> v = t3m.tangent_randn(base) # Random tangent vector, gauged.
 
    Don't apply Gauge projection:
 
@@ -34,5 +34,5 @@ t3tools.manifold.tangent_randn
    >>> import t3tools.manifold as t3m
    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
    >>> base, vars0 = t3m.orthogonal_representations(p)
-   >>> x = t3m.tangent_randn(base, apply_gauge_projection=False) # Random tangent vector, ungauged
+   >>> v = t3m.tangent_randn(base, apply_gauge_projection=False) # Random tangent vector, ungauged
 
