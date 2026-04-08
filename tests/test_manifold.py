@@ -123,6 +123,21 @@ class TestTuckerTensorTrain(unittest.TestCase):
                 numpy_tol * norm(np.eye(O.shape[1]))
             )
 
+    def test_manifold_dim(self):
+        s = ((5, 6, 3), (5, 3, 2), (2, 2, 4, 1))
+        mdim = t3m.manifold_dim(s)
+        p = t3.t3_corewise_randn(s)
+        base, _ = t3m.orthogonal_representations(p)
+        basis_shapes, tt_shapes = t3m.hole_shapes(base)
+        num_basis_entries = np.sum([np.prod(shape) for shape in basis_shapes])
+        num_tt_entries = np.sum([np.prod(shape) for shape in tt_shapes])
+        num_core_entries = num_basis_entries + num_tt_entries
+        vv = [t3m.tangent_randn(base, apply_gauge_projection=False) for _ in range(num_core_entries)]
+        dense_vv = np.stack([t3m.tangent_to_dense(v, base) for v in vv])
+        _, ss, _ = np.linalg.svd(dense_vv.reshape((num_core_entries, -1)), full_matrices=False)
+        self.assertLessEqual(ss[mdim], numpy_tol * ss[0]) # first zero singular value
+        self.assertGreaterEqual(ss[mdim-1], 1e8 * ss[mdim]) # last nonzero singular value
+
     def test_tangent_to_dense(self):
         p = t3.t3_corewise_randn(((14, 15, 16), (4, 5, 6), (2, 3, 2, 2)))
         base, _ = t3m.orthogonal_representations(p)

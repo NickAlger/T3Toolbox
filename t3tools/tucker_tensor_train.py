@@ -530,7 +530,7 @@ def t3_zeros(
 
 
 def t3_corewise_randn(
-        structure:  T3Structure,
+        s: T3Structure,
         use_jax:    bool = False,
 ) -> TuckerTensorTrain:
     """Construct Tucker tensor train with random cores (i.i.d. N(0,1) entries).
@@ -563,7 +563,7 @@ def t3_corewise_randn(
     >>> structure = (shape, tucker_ranks, tt_ranks)
     >>> x = t3.t3_corewise_randn(structure) # TuckerTensorTrain with random cores
     """
-    shape, tucker_ranks, tt_ranks = structure
+    shape, tucker_ranks, tt_ranks = s
 
     if use_jax:
         _randn = lambda x: jnp.array(np.random.randn(x))
