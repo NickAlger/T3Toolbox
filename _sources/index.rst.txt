@@ -64,7 +64,7 @@ Install from source::
 Examples
 ========
 
-* Create two random Tucker tensor trains and **add** them::
+1. Create two random Tucker tensor trains and **add** them::
 
 	>>> import numpy as np
 	>>> import t3tools.tucker_tensor_train as t3
@@ -89,7 +89,7 @@ Examples
 	>>> print(np.linalg.norm(x_dense + y_dense - x_plus_y_dense))
 	0.0
 
-* **Retract** random tangent vector to the manifold of fixed rank Tucker tensor trains::
+2. **Retract** random tangent vector to the manifold of fixed rank Tucker tensor trains::
 
 	>>> import numpy as np
 	>>> import t3tools.tucker_tensor_train as t3
@@ -104,7 +104,7 @@ Examples
 	>>> print(retracted_distance)
 	0.14470074958504858
 
-* **Probe** Tucker tensor train with random vectors::
+3. **Probe** Tucker tensor train with random vectors::
 
 	>>> import numpy as np
 	>>> import t3tools.tucker_tensor_train as t3
@@ -122,7 +122,7 @@ Examples
 	>>> print([np.linalg.norm(z - zb) for z, zb in zip(zz, zzb)])
 	[8.806144583576081e-13, 5.012223052900821e-13, 4.968721252978153e-13]
 
-* Convert Tucker tensor train to **uniform** Tucker tensor train::
+4. Convert Tucker tensor train to **uniform** Tucker tensor train::
 
 	>>> import numpy as np
 	>>> import t3tools.tucker_tensor_train as t3
@@ -169,22 +169,22 @@ This package is written in a `functional programming <https://en.wikipedia.org/w
 	>>> import numpy as np
 	>>> import jax
 	>>> import t3tools.tucker_tensor_train as t3
+	>>> import t3tools.util as util
 	>>> jax.config.update("jax_enable_x64", True) # enable double precision for finite difference
-	>>> A = t3.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 Tucker tensor train
-	>>> apply_A_sym = lambda u: t3.t3_apply(A, (u,u,u), use_jax=True) # symmetric apply function
-	>>> u0 = np.random.randn(10)
-	>>> Auuu0 = apply_A_sym(u0)
-	>>> g0 = jax.grad(apply_A_sym)(u0) # gradient using automatic differentiation
-	>>> du = np.random.randn(10)
-	>>> dAuuu = np.dot(g0, du) # derivative in direction du
-	>>> print(dAuuu)
-	766.5390335764645
+	>>> get_entry_123 = lambda x: t3.t3_entry(x, (1,2,3), use_jax=True)
+	>>> A0 = t3.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 Tucker tensor train
+	>>> f0 = get_entry_123(A0)
+	>>> G0 = jax.grad(get_entry_123)(A0) # gradient using automatic differentiation
+	>>> dA = t3.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1)))
+	>>> df = util.corewise_dot(dA, G0) # sensitivity in direction dA
+	>>> print(df)
+	-7.418801772515241
 	>>> s = 1e-7
-	>>> u1 = u0 + s*du
-	>>> Auuu1 = apply_A_sym(u1)
-	>>> dAuuu_diff = (Auuu1 - Auuu0) / s # finite difference approximation
-	>>> print(dAuuu_diff)
-	766.5390504030256
+	>>> A1 = util.corewise_add(A0, util.corewise_scale(dA, s)) # A1 = A0 + s*dA
+	>>> f1 = get_entry_123(A1)
+	>>> df_diff = (f1 - f0) / s # finite difference
+	>>> print(df_diff)
+	-7.418812309825662
 
 - *AD Caveat*: We do not recommend automatically differentiating through functions that involve singular value decompositions (SVDs) because support for `singular value sensitivity <https://en.wikipedia.org/wiki/Eigenvalue_perturbation>`_ in jax is questionable. This includes:
 	- T3-SVD,

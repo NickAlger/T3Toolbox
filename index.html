@@ -97,7 +97,7 @@ Includes:</p>
 </section>
 <section id="examples">
 <h1>Examples<a class="headerlink" href="#examples" title="Link to this heading">¶</a></h1>
-<ul>
+<ol class="arabic">
 <li><p>Create two random Tucker tensor trains and <strong>add</strong> them:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
@@ -179,7 +179,7 @@ Includes:</p>
 </pre></div>
 </div>
 </li>
-</ul>
+</ol>
 </section>
 <section id="design-philosophy">
 <h1>Design philosophy<a class="headerlink" href="#design-philosophy" title="Link to this heading">¶</a></h1>
@@ -207,22 +207,22 @@ Includes:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">jax</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.util</span> <span class="k">as</span> <span class="nn">util</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">jax</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="s2">&quot;jax_enable_x64&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span> <span class="c1"># enable double precision for finite difference</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">A</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">),(</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">),(</span><span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span> <span class="c1"># random 10x10x10 Tucker tensor train</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">apply_A_sym</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">u</span><span class="p">:</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_apply</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="p">(</span><span class="n">u</span><span class="p">,</span><span class="n">u</span><span class="p">,</span><span class="n">u</span><span class="p">),</span> <span class="n">use_jax</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="c1"># symmetric apply function</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">u0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">Auuu0</span> <span class="o">=</span> <span class="n">apply_A_sym</span><span class="p">(</span><span class="n">u0</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">g0</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">apply_A_sym</span><span class="p">)(</span><span class="n">u0</span><span class="p">)</span> <span class="c1"># gradient using automatic differentiation</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">du</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">dAuuu</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">g0</span><span class="p">,</span> <span class="n">du</span><span class="p">)</span> <span class="c1"># derivative in direction du</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">dAuuu</span><span class="p">)</span>
-<span class="go">766.5390335764645</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">get_entry_123</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_entry</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">use_jax</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">A0</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">),(</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">),(</span><span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span> <span class="c1"># random 10x10x10 Tucker tensor train</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">f0</span> <span class="o">=</span> <span class="n">get_entry_123</span><span class="p">(</span><span class="n">A0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">G0</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">get_entry_123</span><span class="p">)(</span><span class="n">A0</span><span class="p">)</span> <span class="c1"># gradient using automatic differentiation</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dA</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">),(</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">),(</span><span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">df</span> <span class="o">=</span> <span class="n">util</span><span class="o">.</span><span class="n">corewise_dot</span><span class="p">(</span><span class="n">dA</span><span class="p">,</span> <span class="n">G0</span><span class="p">)</span> <span class="c1"># sensitivity in direction dA</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
+<span class="go">-7.418801772515241</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">s</span> <span class="o">=</span> <span class="mf">1e-7</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">u1</span> <span class="o">=</span> <span class="n">u0</span> <span class="o">+</span> <span class="n">s</span><span class="o">*</span><span class="n">du</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">Auuu1</span> <span class="o">=</span> <span class="n">apply_A_sym</span><span class="p">(</span><span class="n">u1</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">dAuuu_diff</span> <span class="o">=</span> <span class="p">(</span><span class="n">Auuu1</span> <span class="o">-</span> <span class="n">Auuu0</span><span class="p">)</span> <span class="o">/</span> <span class="n">s</span> <span class="c1"># finite difference approximation</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">dAuuu_diff</span><span class="p">)</span>
-<span class="go">766.5390504030256</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">A1</span> <span class="o">=</span> <span class="n">util</span><span class="o">.</span><span class="n">corewise_add</span><span class="p">(</span><span class="n">A0</span><span class="p">,</span> <span class="n">util</span><span class="o">.</span><span class="n">corewise_scale</span><span class="p">(</span><span class="n">dA</span><span class="p">,</span> <span class="n">s</span><span class="p">))</span> <span class="c1"># A1 = A0 + s*dA</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">f1</span> <span class="o">=</span> <span class="n">get_entry_123</span><span class="p">(</span><span class="n">A1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">df_diff</span> <span class="o">=</span> <span class="p">(</span><span class="n">f1</span> <span class="o">-</span> <span class="n">f0</span><span class="p">)</span> <span class="o">/</span> <span class="n">s</span> <span class="c1"># finite difference</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">df_diff</span><span class="p">)</span>
+<span class="go">-7.418812309825662</span>
 </pre></div>
 </div>
 </li>
