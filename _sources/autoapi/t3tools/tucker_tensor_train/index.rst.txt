@@ -19,7 +19,7 @@ Functions
 .. toctree::
    :hidden:
 
-   /autoapi/t3tools/tucker_tensor_train/structure
+   /autoapi/t3tools/tucker_tensor_train/get_structure
    /autoapi/t3tools/tucker_tensor_train/check_t3
    /autoapi/t3tools/tucker_tensor_train/t3_to_dense
    /autoapi/t3tools/tucker_tensor_train/squash_tails
@@ -42,7 +42,7 @@ Functions
 
 .. autoapisummary::
 
-   t3tools.tucker_tensor_train.structure
+   t3tools.tucker_tensor_train.get_structure
    t3tools.tucker_tensor_train.check_t3
    t3tools.tucker_tensor_train.t3_to_dense
    t3tools.tucker_tensor_train.squash_tails

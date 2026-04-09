@@ -10,7 +10,7 @@ t3tools.tucker_tensor_train.check_t3
 
    :raises RuntimeError: Error raised if the cores of the Tucker tensor train have inconsistent shapes.
 
-   .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`T3Structure`, :py:obj:`t3_shape`, :py:obj:`t3_tucker_ranks`, :py:obj:`t3_tt_ranks`, :py:obj:`structure`
+   .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`T3Structure`, :py:obj:`t3_shape`, :py:obj:`t3_tucker_ranks`, :py:obj:`t3_tt_ranks`, :py:obj:`get_structure`
 
    .. rubric:: Examples
 

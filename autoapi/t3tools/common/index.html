@@ -39,19 +39,6 @@
             
   <section id="module-t3tools.common">
 <span id="t3tools-common"></span><h1>t3tools.common<a class="headerlink" href="#module-t3tools.common" title="Link to this heading">¶</a></h1>
-<section id="attributes">
-<h2>Attributes<a class="headerlink" href="#attributes" title="Link to this heading">¶</a></h2>
-<table class="autosummary longtable docutils align-default">
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.common.jax_scan" title="t3tools.common.jax_scan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jax_scan</span></code></a></p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#t3tools.common.NDArray" title="t3tools.common.NDArray"><code class="xref py py-obj docutils literal notranslate"><span class="pre">NDArray</span></code></a></p></td>
-<td><p></p></td>
-</tr>
-</tbody>
-</table>
-</section>
 <section id="functions">
 <h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">¶</a></h2>
 <div class="toctree-wrapper compound">
@@ -61,42 +48,8 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="numpy_scan.html#t3tools.common.numpy_scan" title="t3tools.common.numpy_scan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy_scan</span></code></a>(f, init, xs[, length])</p></td>
 <td><p>Numpy version of jax.lax.scan.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="corewise_add.html#t3tools.common.corewise_add" title="t3tools.common.corewise_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">corewise_add</span></code></a>(X, Y)</p></td>
-<td><p>Add nested objects, X,Y -&gt; X+Y.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="corewise_sub.html#t3tools.common.corewise_sub" title="t3tools.common.corewise_sub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">corewise_sub</span></code></a>(X, Y)</p></td>
-<td><p>Subtract nested objects, X,Y -&gt; X-Y.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="corewise_scale.html#t3tools.common.corewise_scale" title="t3tools.common.corewise_scale"><code class="xref py py-obj docutils literal notranslate"><span class="pre">corewise_scale</span></code></a>(X, s)</p></td>
-<td><p>Scale nested objects, X,s -&gt; s*X.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="corewise_neg.html#t3tools.common.corewise_neg" title="t3tools.common.corewise_neg"><code class="xref py py-obj docutils literal notranslate"><span class="pre">corewise_neg</span></code></a>(X)</p></td>
-<td><p>Negate nested objects, X -&gt; -X.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="corewise_dot.html#t3tools.common.corewise_dot" title="t3tools.common.corewise_dot"><code class="xref py py-obj docutils literal notranslate"><span class="pre">corewise_dot</span></code></a>(X, Y[, use_jax])</p></td>
-<td><p>Dot product of nested objects, X,Y -&gt; X.Y.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="corewise_norm.html#t3tools.common.corewise_norm" title="t3tools.common.corewise_norm"><code class="xref py py-obj docutils literal notranslate"><span class="pre">corewise_norm</span></code></a>(X[, use_jax])</p></td>
-<td><p>Norm of nested objects, X -&gt; ||X||</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="truncated_svd.html#t3tools.common.truncated_svd" title="t3tools.common.truncated_svd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">truncated_svd</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
-<td><p>Compute (truncated) singular value decomposition of matrix.</p></td>
-</tr>
 </tbody>
 </table>
-</section>
-<section id="module-contents">
-<h2>Module Contents<a class="headerlink" href="#module-contents" title="Link to this heading">¶</a></h2>
-<dl class="py data">
-<dt class="sig sig-object py" id="t3tools.common.jax_scan">
-<span class="sig-prename descclassname"><span class="pre">t3tools.common.</span></span><span class="sig-name descname"><span class="pre">jax_scan</span></span><a class="headerlink" href="#t3tools.common.jax_scan" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
-<dl class="py data">
-<dt class="sig sig-object py" id="t3tools.common.NDArray">
-<span class="sig-prename descclassname"><span class="pre">t3tools.common.</span></span><span class="sig-name descname"><span class="pre">NDArray</span></span><a class="headerlink" href="#t3tools.common.NDArray" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
 </section>
 </section>
 

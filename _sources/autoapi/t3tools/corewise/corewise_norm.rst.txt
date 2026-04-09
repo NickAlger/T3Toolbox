@@ -1,7 +1,7 @@
-t3tools.common.corewise_norm
-============================
+t3tools.corewise.corewise_norm
+==============================
 
-.. py:function:: t3tools.common.corewise_norm(X, use_jax: bool = False)
+.. py:function:: t3tools.corewise.corewise_norm(X)
 
    Norm of nested objects, X -> ||X||
 

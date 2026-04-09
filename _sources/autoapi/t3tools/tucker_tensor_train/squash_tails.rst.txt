@@ -1,7 +1,7 @@
 t3tools.tucker_tensor_train.squash_tails
 ========================================
 
-.. py:function:: t3tools.tucker_tensor_train.squash_tails(x: TuckerTensorTrain, use_jax: bool = False) -> TuckerTensorTrain
+.. py:function:: t3tools.tucker_tensor_train.squash_tails(x: TuckerTensorTrain) -> TuckerTensorTrain
 
    Make leading and trailing Tucker ranks equal to 1 (r0=rd=1).
 
@@ -11,7 +11,7 @@ t3tools.tucker_tensor_train.squash_tails
    >>> import t3tools.tucker_tensor_train as t3
    >>> x = t3.t3_corewise_randn(((10,10,10), (5,5,5), (9,3,3,9)))
    >>> x2 = t3.squash_tails(x)
-   >>> print(t3.structure(x2))
+   >>> print(t3.get_structure(x2))
    ((10, 10, 10), (5, 5, 5), (1, 3, 3, 1))
    >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2)))
    5.805155892491438e-12

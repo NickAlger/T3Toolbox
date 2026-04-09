@@ -1,7 +1,7 @@
-t3tools.common.corewise_sub
-===========================
+t3tools.corewise.corewise_sub
+=============================
 
-.. py:function:: t3tools.common.corewise_sub(X, Y)
+.. py:function:: t3tools.corewise.corewise_sub(X: NDArrayTree, Y: NDArrayTree) -> NDArrayTree
 
    Subtract nested objects, X,Y -> X-Y.
 

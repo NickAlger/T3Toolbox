@@ -1,7 +1,7 @@
-t3tools.common.truncated_svd
+t3tools.linalg.truncated_svd
 ============================
 
-.. py:function:: t3tools.common.truncated_svd(A: NDArray, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> Tuple[NDArray, NDArray, NDArray]
+.. py:function:: t3tools.linalg.truncated_svd(A: NDArray, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None) -> Tuple[NDArray, NDArray, NDArray]
 
    Compute (truncated) singular value decomposition of matrix.
 

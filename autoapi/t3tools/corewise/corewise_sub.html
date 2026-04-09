@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3tools.common.corewise_dot &#8212; TuckerTensorTrainTools 0.1 documentation</title>
+    <title>t3tools.corewise.corewise_sub &#8212; TuckerTensorTrainTools 0.1 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/agogo.css?v=08520df9" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
@@ -37,19 +37,19 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <section id="t3tools-common-corewise-dot">
-<h1>t3tools.common.corewise_dot<a class="headerlink" href="#t3tools-common-corewise-dot" title="Link to this heading">¶</a></h1>
+  <section id="t3tools-corewise-corewise-sub">
+<h1>t3tools.corewise.corewise_sub<a class="headerlink" href="#t3tools-corewise-corewise-sub" title="Link to this heading">¶</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3tools.common.corewise_dot">
-<span class="sig-prename descclassname"><span class="pre">t3tools.common.</span></span><span class="sig-name descname"><span class="pre">corewise_dot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3tools.common.corewise_dot" title="Link to this definition">¶</a></dt>
-<dd><p>Dot product of nested objects, X,Y -&gt; X.Y.</p>
+<dt class="sig sig-object py" id="t3tools.corewise.corewise_sub">
+<span class="sig-prename descclassname"><span class="pre">t3tools.corewise.</span></span><span class="sig-name descname"><span class="pre">corewise_sub</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#t3tools.corewise.NDArrayTree" title="t3tools.corewise.NDArrayTree"><span class="pre">NDArrayTree</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#t3tools.corewise.NDArrayTree" title="t3tools.corewise.NDArrayTree"><span class="pre">NDArrayTree</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="index.html#t3tools.corewise.NDArrayTree" title="t3tools.corewise.NDArrayTree"><span class="pre">NDArrayTree</span></a></span></span><a class="headerlink" href="#t3tools.corewise.corewise_sub" title="Link to this definition">¶</a></dt>
+<dd><p>Subtract nested objects, X,Y -&gt; X-Y.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.corewise</span> <span class="k">as</span> <span class="nn">cw</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">X</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="p">(),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">Y</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="p">(),</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">cw</span><span class="o">.</span><span class="n">corewise_dot</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">))</span>
-<span class="go">7.0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">cw</span><span class="o">.</span><span class="n">corewise_sub</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">))</span>
+<span class="go">(array([-1., -1., -1.]), (-2, (), array([2., 2.])))</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -90,7 +90,7 @@
           </div>
           <div role="note" aria-label="source link">
               <br/>
-              <a href="../../../_sources/autoapi/t3tools/common/corewise_dot.rst.txt"
+              <a href="../../../_sources/autoapi/t3tools/corewise/corewise_sub.rst.txt"
                 rel="nofollow">Show Source</a>
           </div>
         </div>

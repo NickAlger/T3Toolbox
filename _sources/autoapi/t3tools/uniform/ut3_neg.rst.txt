@@ -1,7 +1,7 @@
 t3tools.uniform.ut3_neg
 =======================
 
-.. py:function:: t3tools.uniform.ut3_neg(x_cores: UniformTuckerTensorTrainCores, use_jax: bool = False) -> UniformTuckerTensorTrainCores
+.. py:function:: t3tools.uniform.ut3_neg(x_cores: UniformTuckerTensorTrainCores) -> UniformTuckerTensorTrainCores
 
    Flip a uniform Tucker tensor train, x -> -x.
 

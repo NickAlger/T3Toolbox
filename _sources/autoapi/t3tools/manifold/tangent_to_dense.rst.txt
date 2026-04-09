@@ -1,7 +1,7 @@
 t3tools.manifold.tangent_to_dense
 =================================
 
-.. py:function:: t3tools.manifold.tangent_to_dense(variation: t3tools.base_variation_format.T3Variation, base: t3tools.base_variation_format.T3Base, include_shift: bool = False) -> t3tools.common.NDArray
+.. py:function:: t3tools.manifold.tangent_to_dense(variation: t3tools.base_variation_format.T3Variation, base: t3tools.base_variation_format.T3Base, include_shift: bool = False) -> NDArray
 
    Convert Tangent vector to Tucker tensor train manifold into dense tensor.
 

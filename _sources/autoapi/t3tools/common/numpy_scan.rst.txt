@@ -5,6 +5,5 @@ t3tools.common.numpy_scan
 
    Numpy version of jax.lax.scan.
    https://docs.jax.dev/en/latest/_autosummary/jax.lax.scan.html
-
    Generated with help from AI.
 

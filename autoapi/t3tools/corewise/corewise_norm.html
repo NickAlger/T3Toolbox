@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3tools.common.corewise_neg &#8212; TuckerTensorTrainTools 0.1 documentation</title>
+    <title>t3tools.corewise.corewise_norm &#8212; TuckerTensorTrainTools 0.1 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/agogo.css?v=08520df9" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
@@ -37,18 +37,20 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <section id="t3tools-common-corewise-neg">
-<h1>t3tools.common.corewise_neg<a class="headerlink" href="#t3tools-common-corewise-neg" title="Link to this heading">¶</a></h1>
+  <section id="t3tools-corewise-corewise-norm">
+<h1>t3tools.corewise.corewise_norm<a class="headerlink" href="#t3tools-corewise-corewise-norm" title="Link to this heading">¶</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3tools.common.corewise_neg">
-<span class="sig-prename descclassname"><span class="pre">t3tools.common.</span></span><span class="sig-name descname"><span class="pre">corewise_neg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3tools.common.corewise_neg" title="Link to this definition">¶</a></dt>
-<dd><p>Negate nested objects, X -&gt; -X.</p>
+<dt class="sig sig-object py" id="t3tools.corewise.corewise_norm">
+<span class="sig-prename descclassname"><span class="pre">t3tools.corewise.</span></span><span class="sig-name descname"><span class="pre">corewise_norm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3tools.corewise.corewise_norm" title="Link to this definition">¶</a></dt>
+<dd><p>Norm of nested objects, X -&gt; ||X||</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.corewise</span> <span class="k">as</span> <span class="nn">cw</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">X</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="p">(),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">cw</span><span class="o">.</span><span class="n">corewise_neg</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>
-<span class="go">(array([-1., -1., -1.]), (-1, (), array([-1., -1.])))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">cw</span><span class="o">.</span><span class="n">corewise_norm</span><span class="p">(</span><span class="n">X</span><span class="p">))</span>
+<span class="go">2.449489742783178</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">3</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">+</span> <span class="mi">2</span><span class="p">))</span>
+<span class="go">2.449489742783178</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -89,7 +91,7 @@
           </div>
           <div role="note" aria-label="source link">
               <br/>
-              <a href="../../../_sources/autoapi/t3tools/common/corewise_neg.rst.txt"
+              <a href="../../../_sources/autoapi/t3tools/corewise/corewise_norm.rst.txt"
                 rel="nofollow">Show Source</a>
           </div>
         </div>

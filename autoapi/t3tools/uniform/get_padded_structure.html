@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3tools.uniform.padded_structure &#8212; TuckerTensorTrainTools 0.1 documentation</title>
+    <title>t3tools.uniform.get_padded_structure &#8212; TuckerTensorTrainTools 0.1 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/agogo.css?v=08520df9" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
@@ -37,11 +37,11 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <section id="t3tools-uniform-padded-structure">
-<h1>t3tools.uniform.padded_structure<a class="headerlink" href="#t3tools-uniform-padded-structure" title="Link to this heading">¶</a></h1>
+  <section id="t3tools-uniform-get-padded-structure">
+<h1>t3tools.uniform.get_padded_structure<a class="headerlink" href="#t3tools-uniform-get-padded-structure" title="Link to this heading">¶</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3tools.uniform.padded_structure">
-<span class="sig-prename descclassname"><span class="pre">t3tools.uniform.</span></span><span class="sig-name descname"><span class="pre">padded_structure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cores</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#t3tools.uniform.UniformTuckerTensorTrainCores" title="t3tools.uniform.UniformTuckerTensorTrainCores"><span class="pre">UniformTuckerTensorTrainCores</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3tools.uniform.padded_structure" title="Link to this definition">¶</a></dt>
+<dt class="sig sig-object py" id="t3tools.uniform.get_padded_structure">
+<span class="sig-prename descclassname"><span class="pre">t3tools.uniform.</span></span><span class="sig-name descname"><span class="pre">get_padded_structure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cores</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#t3tools.uniform.UniformTuckerTensorTrainCores" title="t3tools.uniform.UniformTuckerTensorTrainCores"><span class="pre">UniformTuckerTensorTrainCores</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3tools.uniform.get_padded_structure" title="Link to this definition">¶</a></dt>
 <dd><p>Get padded structure of uniform Tucker tensor train.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -63,7 +63,7 @@
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.uniform_tucker_tensor_train</span> <span class="k">as</span> <span class="nn">ut3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">cores</span><span class="p">,</span> <span class="n">masks</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">t3_to_ut3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ut3</span><span class="o">.</span><span class="n">padded_structure</span><span class="p">(</span><span class="n">cores</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ut3</span><span class="o">.</span><span class="n">get_padded_structure</span><span class="p">(</span><span class="n">cores</span><span class="p">))</span>
 <span class="go">(3, 16, 6, 3)</span>
 </pre></div>
 </div>
@@ -105,7 +105,7 @@
           </div>
           <div role="note" aria-label="source link">
               <br/>
-              <a href="../../../_sources/autoapi/t3tools/uniform/padded_structure.rst.txt"
+              <a href="../../../_sources/autoapi/t3tools/uniform/get_padded_structure.rst.txt"
                 rel="nofollow">Show Source</a>
           </div>
         </div>

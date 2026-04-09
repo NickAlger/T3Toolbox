@@ -1,4 +1,4 @@
 t3tools.uniform_orthogonalization.orthogonalize_ut3_basis_cores
 ===============================================================
 
-.. py:function:: t3tools.uniform_orthogonalization.orthogonalize_ut3_basis_cores(basis_supercore: t3tools.common.NDArray, tt_supercore: t3tools.common.NDArray, use_jax: bool = False) -> Tuple[t3tools.common.NDArray, t3tools.common.NDArray]
+.. py:function:: t3tools.uniform_orthogonalization.orthogonalize_ut3_basis_cores(basis_supercore: NDArray, tt_supercore: NDArray, use_jax: bool = False) -> Tuple[NDArray, NDArray]

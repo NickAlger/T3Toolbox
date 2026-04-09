@@ -1,7 +1,7 @@
 t3tools.uniform.ut3_entry
 =========================
 
-.. py:function:: t3tools.uniform.ut3_entry(cores: UniformTuckerTensorTrainCores, index: t3tools.common.NDArray, use_jax: bool = False) -> t3tools.common.NDArray
+.. py:function:: t3tools.uniform.ut3_entry(cores: UniformTuckerTensorTrainCores, index: NDArray) -> NDArray
 
    Compute entry (entries) of a uniform Tucker tensor train.
 
@@ -20,9 +20,9 @@ t3tools.uniform.ut3_entry
    >>> print(x_312) # (3,1,2) entry from T3:
    -1.4931654579929192
    >>> cores, masks = ut3.t3_to_ut3(x) # Convert to Uniform T3
-   >>> print(ut3.original_structure(masks)) # original (shape, tucker_ranks, tt_ranks):
+   >>> print(ut3.get_original_structure(masks)) # original (shape, tucker_ranks, tt_ranks):
    ((14, 15, 16), (4, 5, 3), (1, 4, 2, 1))
-   >>> print(ut3.padded_structure(cores)) # uniform shape and ranks, (d,N,n,r):
+   >>> print(ut3.get_padded_structure(cores)) # uniform shape and ranks, (d,N,n,r):
    (3, 16, 5, 4)
    >>> x_312_uniform = ut3.ut3_entry(cores, index) # (3,1,2) entry from uniform T3:
    >>> print(x_312_uniform)

@@ -1,7 +1,7 @@
 t3tools.tucker_tensor_train.t3_load
 ===================================
 
-.. py:function:: t3tools.tucker_tensor_train.t3_load(file, use_jax: bool = False) -> TuckerTensorTrain
+.. py:function:: t3tools.tucker_tensor_train.t3_load(file) -> TuckerTensorTrain
 
    Save Tucker tensor train to file with numpy.savez()
 

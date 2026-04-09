@@ -1,7 +1,7 @@
 t3tools.uniform.ut3_scale
 =========================
 
-.. py:function:: t3tools.uniform.ut3_scale(x_cores: UniformTuckerTensorTrainCores, s, use_jax: bool = False) -> UniformTuckerTensorTrainCores
+.. py:function:: t3tools.uniform.ut3_scale(x_cores: UniformTuckerTensorTrainCores, s) -> UniformTuckerTensorTrainCores
 
    Scale a uniform Tucker tensor train, s,x -> s*x.
 

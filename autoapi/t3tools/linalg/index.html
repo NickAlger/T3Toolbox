@@ -5,7 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3tools.common.corewise_sub &#8212; TuckerTensorTrainTools 0.1 documentation</title>
+    <title>t3tools.linalg &#8212; TuckerTensorTrainTools 0.1 documentation</title>
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=a746c00c" />
     <link rel="stylesheet" type="text/css" href="../../../_static/agogo.css?v=08520df9" />
     <link rel="stylesheet" type="text/css" href="../../../_static/graphviz.css?v=4ae1632d" />
@@ -37,23 +37,20 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <section id="t3tools-common-corewise-sub">
-<h1>t3tools.common.corewise_sub<a class="headerlink" href="#t3tools-common-corewise-sub" title="Link to this heading">¶</a></h1>
-<dl class="py function">
-<dt class="sig sig-object py" id="t3tools.common.corewise_sub">
-<span class="sig-prename descclassname"><span class="pre">t3tools.common.</span></span><span class="sig-name descname"><span class="pre">corewise_sub</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">Y</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3tools.common.corewise_sub" title="Link to this definition">¶</a></dt>
-<dd><p>Subtract nested objects, X,Y -&gt; X-Y.</p>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.corewise</span> <span class="k">as</span> <span class="nn">cw</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">X</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="p">(),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">Y</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="p">(),</span> <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="mi">2</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">cw</span><span class="o">.</span><span class="n">corewise_sub</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Y</span><span class="p">))</span>
-<span class="go">(array([-1., -1., -1.]), (-2, (), array([2., 2.])))</span>
-</pre></div>
+  <section id="module-t3tools.linalg">
+<span id="t3tools-linalg"></span><h1>t3tools.linalg<a class="headerlink" href="#module-t3tools.linalg" title="Link to this heading">¶</a></h1>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">¶</a></h2>
+<div class="toctree-wrapper compound">
 </div>
-</dd></dl>
-
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="truncated_svd.html#t3tools.linalg.truncated_svd" title="t3tools.linalg.truncated_svd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">truncated_svd</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
+<td><p>Compute (truncated) singular value decomposition of matrix.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
 </section>
 
 
@@ -90,7 +87,7 @@
           </div>
           <div role="note" aria-label="source link">
               <br/>
-              <a href="../../../_sources/autoapi/t3tools/common/corewise_sub.rst.txt"
+              <a href="../../../_sources/autoapi/t3tools/linalg/index.rst.txt"
                 rel="nofollow">Show Source</a>
           </div>
         </div>

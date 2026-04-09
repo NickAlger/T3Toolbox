@@ -41,41 +41,38 @@
 <h1>t3tools.probing.probe_tangent_transpose<a class="headerlink" href="#t3tools-probing-probe-tangent-transpose" title="Link to this heading">¶</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="t3tools.probing.probe_tangent_transpose">
-<span class="sig-prename descclassname"><span class="pre">t3tools.probing.</span></span><span class="sig-name descname"><span class="pre">probe_tangent_transpose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ztildes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#t3tools.common.NDArray" title="t3tools.common.NDArray"><span class="pre">t3tools.common.NDArray</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ww</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#t3tools.common.NDArray" title="t3tools.common.NDArray"><span class="pre">t3tools.common.NDArray</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../base_variation_format/index.html#t3tools.base_variation_format.T3Base" title="t3tools.base_variation_format.T3Base"><span class="pre">t3tools.base_variation_format.T3Base</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">sum_over_probes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#t3tools.common.NDArray" title="t3tools.common.NDArray"><span class="pre">t3tools.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#t3tools.common.NDArray" title="t3tools.common.NDArray"><span class="pre">t3tools.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3tools.probing.probe_tangent_transpose" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">t3tools.probing.</span></span><span class="sig-name descname"><span class="pre">probe_tangent_transpose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ztildes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ww</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../base_variation_format/index.html#t3tools.base_variation_format.T3Base" title="t3tools.base_variation_format.T3Base"><span class="pre">t3tools.base_variation_format.T3Base</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">sum_over_probes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3tools.probing.probe_tangent_transpose" title="Link to this definition">¶</a></dt>
 <dd><p>Apply the transpose of the map from a T3Tangent to its probes. Apply to ztildes.</p>
-<dl class="simple">
+<blockquote>
+<div><dl class="simple">
 <dt>See Section 5.2.4 in:</dt><dd><p>Alger, N., Christierson, B., Chen, P., &amp; Ghattas, O. (2026).
 “Tucker Tensor Train Taylor Series.”
 arXiv preprint arXiv:2603.21141.
 <a class="reference external" href="https://arxiv.org/abs/2603.21141">https://arxiv.org/abs/2603.21141</a></p>
 </dd>
 </dl>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>ztildes</strong> (<em>typ.Sequence</em><em>[</em><a class="reference internal" href="../common/index.html#t3tools.common.NDArray" title="t3tools.common.NDArray"><em>NDArray</em></a><em>]</em>) – Probe residuals to apply the map to
-len=d, elm_shape=(Ni,) or (num_probes,Ni)</p></li>
-<li><p><strong>base</strong> (<em>t3m.T3Base</em><em>,</em>) – Orthogonal base for point where the tangent space attaches to the manifold.
-shape=(N1,…,Nd)</p></li>
-<li><p><strong>sum_over_probes</strong> (<em>bool</em>) – Sum results over all probe residuals, rather than returning results for each probe residual</p></li>
-<li><p><strong>use_jax</strong> (<em>bool</em>) – If True, use jax for linear algebra operations. Otherwise, use numpy.</p></li>
-</ul>
+<dl class="simple">
+<dt>ztildes: typ.Sequence[NDArray]</dt><dd><p>Probe residuals to apply the map to
+len=d, elm_shape=(Ni,) or (num_probes,Ni)</p>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Tangent vector resulting from applying transpose map to ztildes</p>
+<dt>base: t3m.T3Base,</dt><dd><p>Orthogonal base for point where the tangent space attaches to the manifold.
+shape=(N1,…,Nd)</p>
 </dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>t3m.T3Tangent</p>
+<dt>sum_over_probes: bool</dt><dd><p>Sum results over all probe residuals, rather than returning results for each probe residual</p>
+</dd>
+<dt>use_jax: bool</dt><dd><p>If True, use jax for linear algebra operations. Otherwise, use numpy.</p>
 </dd>
 </dl>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p><a class="reference internal" href="probe_t3.html#t3tools.probing.probe_t3" title="t3tools.probing.probe_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">probe_t3</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">tangent_probes</span></code></p>
-</div>
-<p class="rubric">Examples</p>
+<dl class="simple">
+<dt>t3m.T3Tangent</dt><dd><p>Tangent vector resulting from applying transpose map to ztildes</p>
+</dd>
+</dl>
+<p>probe_t3
+tangent_probes</p>
 <p>Apply transpose map with one set of probing vectors:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+</div></blockquote>
+<dl>
+<dt>import t3tools.corewise    &gt;&gt;&gt; import numpy as np</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.manifold</span> <span class="k">as</span> <span class="nn">t3m</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.probing</span> <span class="k">as</span> <span class="nn">t3p</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.common</span> <span class="k">as</span> <span class="nn">common</span>
@@ -87,17 +84,19 @@ shape=(N1,…,Nd)</p></li>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">zz1</span> <span class="o">=</span> <span class="n">t3p</span><span class="o">.</span><span class="n">probe_tangent</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span> <span class="n">ww</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">zz2</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">11</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">12</span><span class="p">))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">v2</span> <span class="o">=</span> <span class="n">t3p</span><span class="o">.</span><span class="n">probe_tangent_transpose</span><span class="p">(</span><span class="n">zz2</span><span class="p">,</span> <span class="n">ww</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">ipA</span> <span class="o">=</span> <span class="n">common</span><span class="o">.</span><span class="n">corewise_dot</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ipA</span> <span class="o">=</span> <span class="n">t3tools</span><span class="o">.</span><span class="n">corewise</span><span class="o">.</span><span class="n">corewise_dot</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ipA</span><span class="p">)</span>
 <span class="go">17.958317927787</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">ipB</span> <span class="o">=</span> <span class="n">common</span><span class="o">.</span><span class="n">corewise_dot</span><span class="p">(</span><span class="n">zz1</span><span class="p">,</span> <span class="n">zz2</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ipB</span><span class="p">)</span>
+</pre></div>
+</div>
+</dd>
+<dt>import t3tools.corewise    &gt;&gt;&gt; ipB = t3tools.corewise.corewise_dot(zz1, zz2)</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ipB</span><span class="p">)</span>
 <span class="go">17.958317927787</span>
 </pre></div>
 </div>
 <p>Apply transpose map with two sets of probing vectors:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+</dd>
+<dt>import t3tools.corewise    &gt;&gt;&gt; import numpy as np</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.manifold</span> <span class="k">as</span> <span class="nn">t3m</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.probing</span> <span class="k">as</span> <span class="nn">t3p</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.common</span> <span class="k">as</span> <span class="nn">common</span>
@@ -109,10 +108,12 @@ shape=(N1,…,Nd)</p></li>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">apply_Jt</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">z</span><span class="p">:</span> <span class="n">t3p</span><span class="o">.</span><span class="n">probe_tangent_transpose</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">ww</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">v</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_randn</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">z</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">10</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">11</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">12</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">common</span><span class="o">.</span><span class="n">corewise_dot</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">apply_J</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="o">-</span> <span class="n">common</span><span class="o">.</span><span class="n">corewise_dot</span><span class="p">(</span><span class="n">apply_Jt</span><span class="p">(</span><span class="n">z</span><span class="p">),</span> <span class="n">v</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">t3tools</span><span class="o">.</span><span class="n">corewise</span><span class="o">.</span><span class="n">corewise_dot</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">apply_J</span><span class="p">(</span><span class="n">v</span><span class="p">))</span> <span class="o">-</span> <span class="n">t3tools</span><span class="o">.</span><span class="n">corewise</span><span class="o">.</span><span class="n">corewise_dot</span><span class="p">(</span><span class="n">apply_Jt</span><span class="p">(</span><span class="n">z</span><span class="p">),</span> <span class="n">v</span><span class="p">))</span>
 <span class="go">7.105427357601002e-15</span>
 </pre></div>
 </div>
+</dd>
+</dl>
 </dd></dl>
 
 </section>

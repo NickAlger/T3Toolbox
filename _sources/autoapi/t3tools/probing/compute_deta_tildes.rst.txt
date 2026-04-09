@@ -1,7 +1,7 @@
 t3tools.probing.compute_deta_tildes
 ===================================
 
-.. py:function:: t3tools.probing.compute_deta_tildes(ztildes: Sequence[t3tools.common.NDArray], basis_cores: Sequence[t3tools.common.NDArray], use_jax: bool = False) -> Tuple[t3tools.common.NDArray, Ellipsis]
+.. py:function:: t3tools.probing.compute_deta_tildes(ztildes: Sequence[NDArray], basis_cores: Sequence[NDArray]) -> Tuple[NDArray, Ellipsis]
 
    Adjoint-var-upward edge variables deta_tilde.
    Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.

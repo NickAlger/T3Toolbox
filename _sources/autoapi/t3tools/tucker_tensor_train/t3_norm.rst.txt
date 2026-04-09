@@ -1,7 +1,7 @@
 t3tools.tucker_tensor_train.t3_norm
 ===================================
 
-.. py:function:: t3tools.tucker_tensor_train.t3_norm(x: TuckerTensorTrain, use_orthogonalization: bool = True, use_jax: bool = False)
+.. py:function:: t3tools.tucker_tensor_train.t3_norm(x: TuckerTensorTrain, use_orthogonalization: bool = True)
 
    Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains x, y with the same shape, (x, y)_HS.
 

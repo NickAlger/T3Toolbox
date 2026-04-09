@@ -1,0 +1,19 @@
+t3tools.linalg
+==============
+
+.. py:module:: t3tools.linalg
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3tools/linalg/truncated_svd
+
+.. autoapisummary::
+
+   t3tools.linalg.truncated_svd
+
+

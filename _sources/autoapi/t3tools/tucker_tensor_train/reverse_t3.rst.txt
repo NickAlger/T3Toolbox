@@ -1,7 +1,7 @@
 t3tools.tucker_tensor_train.reverse_t3
 ======================================
 
-.. py:function:: t3tools.tucker_tensor_train.reverse_t3(x: TuckerTensorTrain) -> t3tools.common.NDArray
+.. py:function:: t3tools.tucker_tensor_train.reverse_t3(x: TuckerTensorTrain) -> NDArray
 
    Reverse Tucker tensor train.
 
@@ -11,17 +11,17 @@ t3tools.tucker_tensor_train.reverse_t3
    :returns: **reversed_x** -- Tucker tensor train with index order reversed. shape=(Nd, ..., N1), tucker_ranks=(nd,...,n1), tt_ranks=(1,r(d-1),...,r1,1)
    :rtype: TuckerTensorTrain
 
-   .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`structure`
+   .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`get_structure`
 
    .. rubric:: Examples
 
    >>> import numpy as np
    >>> import t3tools.tucker_tensor_train as t3
    >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1))) # Make TuckerTensorTrain
-   >>> print(t3.structure(x))
+   >>> print(t3.get_structure(x))
    ((14, 15, 16), (4, 5, 6), (1, 3, 2, 1))
    >>> reversed_x = t3.reverse_t3(x)
-   >>> print(t3.structure(reversed_x))
+   >>> print(t3.get_structure(reversed_x))
    ((16, 15, 14), (6, 5, 4), (1, 2, 3, 1))
    >>> x_dense = t3.t3_to_dense(x)
    >>> reversed_x_dense = t3.t3_to_dense(reversed_x)

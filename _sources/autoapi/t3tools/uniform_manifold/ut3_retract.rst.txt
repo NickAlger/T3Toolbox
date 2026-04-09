@@ -1,4 +1,4 @@
 t3tools.uniform_manifold.ut3_retract
 ====================================
 
-.. py:function:: t3tools.uniform_manifold.ut3_retract(variations: Tuple[t3tools.common.jnp.ndarray, t3tools.common.jnp.ndarray], orthogonal_basis_cores: t3tools.common.jnp.ndarray, left_orthogonal_tt_cores: t3tools.common.jnp.ndarray, right_orthogonal_tt_cores: t3tools.common.jnp.ndarray, up_orthogonal_tt_cores: t3tools.common.jnp.ndarray, doubled_rank_masks: Tuple[t3tools.common.jnp.ndarray, t3tools.common.jnp.ndarray, t3tools.common.jnp.ndarray]) -> Tuple[t3tools.common.jnp.ndarray, t3tools.common.jnp.ndarray]
+.. py:function:: t3tools.uniform_manifold.ut3_retract(variations: Tuple[jnp.ndarray, jnp.ndarray], orthogonal_basis_cores: jnp.ndarray, left_orthogonal_tt_cores: jnp.ndarray, right_orthogonal_tt_cores: jnp.ndarray, up_orthogonal_tt_cores: jnp.ndarray, doubled_rank_masks: Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]) -> Tuple[jnp.ndarray, jnp.ndarray]

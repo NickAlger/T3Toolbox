@@ -1,7 +1,7 @@
 t3tools.orthogonalization.orthogonalize_relative_to_ith_tt_core
 ===============================================================
 
-.. py:function:: t3tools.orthogonalization.orthogonalize_relative_to_ith_tt_core(ii: int, x: t3tools.tucker_tensor_train.TuckerTensorTrain, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3tools.tucker_tensor_train.TuckerTensorTrain
+.. py:function:: t3tools.orthogonalization.orthogonalize_relative_to_ith_tt_core(ii: int, x: t3tools.tucker_tensor_train.TuckerTensorTrain, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None) -> t3tools.tucker_tensor_train.TuckerTensorTrain
 
    Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
 

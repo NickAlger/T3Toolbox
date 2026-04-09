@@ -1,7 +1,7 @@
 t3tools.tucker_tensor_train.t3_corewise_randn
 =============================================
 
-.. py:function:: t3tools.tucker_tensor_train.t3_corewise_randn(s: T3Structure, use_jax: bool = False) -> TuckerTensorTrain
+.. py:function:: t3tools.tucker_tensor_train.t3_corewise_randn(s: T3Structure) -> TuckerTensorTrain
 
    Construct Tucker tensor train with random cores (i.i.d. N(0,1) entries).
 

@@ -19,8 +19,8 @@ Functions
 .. toctree::
    :hidden:
 
-   /autoapi/t3tools/uniform/padded_structure
-   /autoapi/t3tools/uniform/original_structure
+   /autoapi/t3tools/uniform/get_padded_structure
+   /autoapi/t3tools/uniform/get_original_structure
    /autoapi/t3tools/uniform/apply_masks
    /autoapi/t3tools/uniform/unpack_edge_tensors
    /autoapi/t3tools/uniform/t3_to_ut3
@@ -34,8 +34,8 @@ Functions
 
 .. autoapisummary::
 
-   t3tools.uniform.padded_structure
-   t3tools.uniform.original_structure
+   t3tools.uniform.get_padded_structure
+   t3tools.uniform.get_original_structure
    t3tools.uniform.apply_masks
    t3tools.uniform.unpack_edge_tensors
    t3tools.uniform.t3_to_ut3
@@ -82,7 +82,7 @@ Module Contents
    >>> import t3tools.uniform_tucker_tensor_train as ut3
    >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
    >>> cores, masks = ut3.t3_to_ut3(x)
-   >>> print(ut3.padded_structure(cores))
+   >>> print(ut3.get_padded_structure(cores))
    (3, 16, 6, 3)
    >>> print(ut3.original_structure(masks))
    ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
@@ -113,7 +113,7 @@ Module Contents
    >>> import t3tools.uniform_tucker_tensor_train as ut3
    >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
    >>> cores, masks = ut3.t3_to_ut3(x)
-   >>> print(ut3.padded_structure(cores))
+   >>> print(ut3.get_padded_structure(cores))
    (3, 16, 6, 3)
    >>> print(ut3.original_structure(masks))
    ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
