@@ -1,0 +1,4 @@
+t3tools.uniform_probing.ut3_assemble_tangent_tt_core_perturbations
+==================================================================
+
+.. py:function:: t3tools.uniform_probing.ut3_assemble_tangent_tt_core_perturbations(mus: jax.numpy.ndarray, nus: jax.numpy.ndarray, sigma_tildes: jax.numpy.ndarray, tau_tildes: jax.numpy.ndarray, reduced_xx: jax.numpy.ndarray, reduced_dyy: jax.numpy.ndarray, batch_size: int = None) -> jax.numpy.ndarray

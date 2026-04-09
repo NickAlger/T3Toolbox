@@ -1,0 +1,4 @@
+t3tools.uniform_probing.ut3_assemble_tangent_actions
+====================================================
+
+.. py:function:: t3tools.uniform_probing.ut3_assemble_tangent_actions(basis_variations: jax.numpy.ndarray, tt_variations: jax.numpy.ndarray, mus: jax.numpy.ndarray, nus: jax.numpy.ndarray, sigmas: jax.numpy.ndarray, taus: jax.numpy.ndarray, orthogonal_basis_cores: jax.numpy.ndarray, left_orthogonal_tt_cores: jax.numpy.ndarray, right_orthogonal_tt_cores: jax.numpy.ndarray, up_orthogonal_tt_cores: jax.numpy.ndarray, batch_size: int = None) -> jax.numpy.ndarray

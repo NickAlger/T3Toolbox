@@ -1,0 +1,4 @@
+t3tools.uniform_probing.ut3_nus
+===============================
+
+.. py:function:: t3tools.uniform_probing.ut3_nus(tt_cores: jax.numpy.ndarray, reduced_xx: jax.numpy.ndarray, batch_size: int = None) -> jax.numpy.ndarray
