@@ -4,7 +4,11 @@
 import numpy as np
 import typing as typ
 import t3tools.tucker_tensor_train as t3
-from t3tools.common import jnp, NDArray, numpy_scan, jax_scan
+import t3tools.common as common
+
+xnp = np
+scan = common.numpy_scan
+NDArray = np.ndarray
 
 __all__ = [
     'left_orthogonalize_utt',

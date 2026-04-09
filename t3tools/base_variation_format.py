@@ -6,7 +6,12 @@ import numpy as np
 import typing as typ
 
 import t3tools.tucker_tensor_train as t3
-from t3tools.common import jnp, NDArray
+import t3tools.common as common
+
+xnp = np
+randn = np.random.randn
+scan = common.numpy_scan
+NDArray = np.ndarray
 
 __all__ = [
     'T3Base',

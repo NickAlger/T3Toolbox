@@ -4,6 +4,7 @@
 import numpy as np
 import unittest
 
+import t3tools.corewise
 import t3tools.orthogonalization
 import t3tools.tucker_tensor_train as t3
 import t3tools.manifold as t3m
@@ -97,8 +98,8 @@ class TestProbing(unittest.TestCase):
         zz1 = t3p.probe_tangent(v1, ww, base)
         zz2 = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         v2 = t3p.probe_tangent_transpose(zz2, ww, base)
-        ipA = common.corewise_dot(v1, v2)
-        ipB = common.corewise_dot(zz1, zz2)
+        ipA = t3tools.corewise.corewise_dot(v1, v2)
+        ipB = t3tools.corewise.corewise_dot(zz1, zz2)
         self.assertLessEqual(np.abs(ipA - ipB), numpy_tol * (np.abs(ipA) + np.abs(ipB)))
 
     def test_probe_tangent_transpose2(self):
@@ -109,8 +110,8 @@ class TestProbing(unittest.TestCase):
         apply_Jt = lambda z: t3p.probe_tangent_transpose(z, ww, base)
         v = t3m.tangent_randn(base)
         z = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
-        ipA = common.corewise_dot(z, apply_J(v))
-        ipB = common.corewise_dot(apply_Jt(z), v)
+        ipA = t3tools.corewise.corewise_dot(z, apply_J(v))
+        ipB = t3tools.corewise.corewise_dot(apply_Jt(z), v)
         self.assertLessEqual(np.abs(ipA - ipB), numpy_tol * (np.abs(ipA) + np.abs(ipB)))
 
 

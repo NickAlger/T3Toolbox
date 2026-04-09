@@ -23,8 +23,8 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         s = ((14,15,16), (4,6,5), (2,3,2,1))
         x = t3.t3_corewise_randn(s)
         cores, masks = ut3.t3_to_ut3(x)
-        self.assertEqual((3, 16, 6, 3), ut3.padded_structure(cores))
-        self.assertEqual(s, ut3.original_structure(masks))
+        self.assertEqual((3, 16, 6, 3), ut3.get_padded_structure(cores))
+        self.assertEqual(s, ut3.get_original_structure(masks))
 
     def test_unpack_edge_vectors1(self):
         E = np.array([[1, 2, 3, 4], [5, 6, 7, 8]])

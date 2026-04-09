@@ -42,7 +42,7 @@ class TestT3SVD(unittest.TestCase):
             norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2)), numpy_tol * norm(t3.t3_to_dense(x))
         )
 
-        (N0, N1, N2), (n0, n1, n2), (r0, r1, r2, r3) = t3.structure(x2)
+        (N0, N1, N2), (n0, n1, n2), (r0, r1, r2, r3) = t3.get_structure(x2)
 
         x2_dense = t3.t3_to_dense(x2, contract_ones=False)
 
@@ -98,7 +98,7 @@ class TestT3SVD(unittest.TestCase):
         ss_basis1 = np.linalg.svd(x_dense.swapaxes(0, 1).reshape((N1, -1)))[1]
         ss_basis2 = np.linalg.svd(x_dense.swapaxes(0, 2).reshape((N2, -1)))[1]
 
-        _, (n0, n1, n2), (r0, r1, r2, r3) = t3.structure(x2)
+        _, (n0, n1, n2), (r0, r1, r2, r3) = t3.get_structure(x2)
 
         ss_tt0_a, ss_tt0_b = ss_tt0[:r0], ss_tt0[r0:]
         ss_tt1_a, ss_tt1_b = ss_tt1[:r1], ss_tt1[r1:]

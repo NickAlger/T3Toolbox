@@ -1,11 +1,18 @@
 
 
+
 # # # # WORK IN PROGRESS DO NOT USE
 
 import jax
 import jax.numpy as jnp
 import typing as typ
 import functools as ft
+
+import t3tools.common as common
+
+xnp = np
+scan = common.numpy_scan
+NDArray = np.ndarray
 
 
 __all__ = [

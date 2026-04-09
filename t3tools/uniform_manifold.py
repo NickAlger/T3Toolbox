@@ -4,7 +4,12 @@
 import numpy as np
 import typing as typ
 import t3tools.tucker_tensor_train as t3
-from t3tools.common import jnp, NDArray, numpy_scan, jax_scan
+# from t3tools.common import jnp, NDArray, numpy_scan, jax_scan
+import t3tools.common as common
+
+xnp = np
+scan = common.numpy_scan
+NDArray = np.ndarray
 
 __all__ = [
     'ut3_tangent_vector_to_ut3',

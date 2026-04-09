@@ -6,7 +6,12 @@ import typing as typ
 
 import t3tools.base_variation_format
 import t3tools.tucker_tensor_train as t3
-from t3tools.common import jnp, NDArray
+# from t3tools.common import jnp, NDArray
+import t3tools.common as common
+
+xnp = np
+scan = common.numpy_scan
+NDArray = np.ndarray
 
 __all__ = [
     # Probe a dense tensor
@@ -43,7 +48,6 @@ __all__ = [
 def probe_dense(
         T:          NDArray,
         vectors:    typ.Sequence[NDArray],
-        use_jax: bool = False,
 ) -> typ.Tuple[NDArray]:
     """Probe a dense tensor.
 
@@ -112,8 +116,6 @@ def probe_dense(
     >>> print(np.linalg.norm(yy_v[2] - yyy[2][1,:]))
     0.0
     """
-    xnp = jnp if use_jax else np
-
     num_cores = len(T.shape)
     assert(len(vectors) == num_cores)
     if len(vectors[0].shape) == 1:
@@ -167,7 +169,6 @@ def probe_dense(
 def probe_t3(
         x:      t3.TuckerTensorTrain, # structure=((N1,...,Nd),(n1,...,nd),(1,r1,...,r(d-1),1))
         ww:     typ.Sequence[NDArray], # input vectors, len=d, elm_shape=(Ni,) or (num_probes,Ni)
-        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(Ni,) or (num_probes,Ni)
     '''Probe a Tucker tensor train.
 
@@ -215,10 +216,8 @@ def probe_t3(
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
     '''
-    shape = t3.structure(x)[0]
+    shape = t3.get_structure(x)[0]
     assert(len(ww) == len(shape))
-
-    xnp = jnp if use_jax else np
 
     vectorized = True
     if len(ww[0].shape) == 1:
@@ -230,11 +229,11 @@ def probe_t3(
     for B, w in zip(basis_cores, ww):
         assert(B.shape[1] == w.shape[1])
 
-    xis = compute_xis(basis_cores, ww, use_jax=use_jax)
-    mus = compute_mus(tt_cores, xis, use_jax=use_jax)
-    nus = compute_nus(tt_cores, xis, use_jax=use_jax)
-    etas = compute_etas(tt_cores, mus, nus, use_jax=use_jax)
-    zz = assemble_probes(basis_cores, etas, use_jax=use_jax)
+    xis = compute_xis(basis_cores, ww)
+    mus = compute_mus(tt_cores, xis)
+    nus = compute_nus(tt_cores, xis)
+    etas = compute_etas(tt_cores, mus, nus)
+    zz = assemble_probes(basis_cores, etas)
 
     if not vectorized:
         zz = tuple([z.reshape(-1) for z in zz])
@@ -244,7 +243,6 @@ def probe_t3(
 def compute_xis(
         basis_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ni,Ni)
         ww: typ.Sequence[NDArray], # len=d. elm_shape=(num_probes,Ni)
-        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # xis. len=d, elm_shape=(num_probes,ni)
     '''Compute upward edge variables associated with edges between Tucker cores and adjacent TT-cores.
     Used for probing a Tucker tensor train.
@@ -278,7 +276,6 @@ def compute_xis(
     compute_etas
     assemble_probes
     '''
-    xnp = jnp if use_jax else np
     return tuple([xnp.einsum('io,po->pi', U, w) for U, w in zip(basis_cores, ww)])
 
 
@@ -319,8 +316,6 @@ def compute_mus(
     compute_etas
     assemble_probes
     '''
-    xnp = jnp if use_jax else np
-
     num_probes = xis[0].shape[0]
     num_cores = len(xis)
     mus = [xnp.ones((num_probes, left_tt_cores[0].shape[0]))]
@@ -340,7 +335,6 @@ def tt_reverse(tt_cores):
 def compute_nus(
         right_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ri,ni,r(i+1))
         xis, # len=d. elm_shape=(num_probes,ni)
-        use_jax: bool = False,
 ) -> typ.Sequence[NDArray]: # nus. len=d+1, elm_shape=(num_probes,ri)
     '''Compute rightward edge variables associated with edges between adjacent TT-cores.
     Used for probing a Tucker tensor train.
@@ -374,14 +368,13 @@ def compute_nus(
     compute_etas
     assemble_probes
     '''
-    return compute_mus(tt_reverse(right_tt_cores), xis[::-1], use_jax=use_jax)[::-1]
+    return compute_mus(tt_reverse(right_tt_cores), xis[::-1])[::-1]
 
 
 def compute_etas(
         outer_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ri,ni,r(i+1))
         mus, # len=d. elm_shape=(num_probes,ri)
         nus, # len=d. elm_shape=(num_probes,ri)
-        use_jax: bool = False,
 ) -> typ.Sequence[NDArray]: # etas. len=d, elm_shape=(num_probes,ni)
     '''Compute downward edge variables associated with edges between Tucker cores and adjacent TT-cores.
     Used for probing a Tucker tensor train.
@@ -417,7 +410,6 @@ def compute_etas(
     compute_nus
     assemble_probes
     '''
-    xnp = jnp if use_jax else np
     return tuple([
         xnp.einsum('pi,iaj,pj->pa', mu, G, nu)
         for mu, G, nu in zip(mus[:-1], outer_tt_cores, nus[1:])
@@ -427,7 +419,6 @@ def compute_etas(
 def assemble_probes(
         basis_cores: typ.Sequence[NDArray],  # len=d. elm_shape=(ni,Ni)
         etas,  # len=d. elm_shape=(num_probes,ni)
-        use_jax: bool = False,
 ) -> typ.Sequence[NDArray]: # zz. len=d, elm_shape=(num_probes,Ni)
     '''Assemble probes from downward edge variables.
 
@@ -460,7 +451,6 @@ def assemble_probes(
     compute_nus
     compute_etas
     '''
-    xnp = jnp if use_jax else np
     return tuple([xnp.einsum('pa,ao->po', eta, U) for U, eta in zip(basis_cores, etas)])
 
 
@@ -471,7 +461,6 @@ def assemble_probes(
 def compute_dxis(
         var_basis_cores: typ.Sequence[NDArray], # len=d. elm_shape=(nOi,Ni)
         ww: typ.Sequence[NDArray], # len=d. elm_shape=(num_probes,Ni)
-        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # xis. len=d, elm_shape=(num_probes,nOi)
     '''Compute var-upward edge variables dxi.
     Used for probing a tangent vector.
@@ -493,7 +482,7 @@ def compute_dxis(
     assemble_tangent_probes
     probe_tangent
     '''
-    return compute_xis(var_basis_cores, ww, use_jax)
+    return compute_xis(var_basis_cores, ww)
 
 
 def compute_sigmas(
@@ -503,7 +492,6 @@ def compute_sigmas(
         xis: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,ni),
         dxis: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,nOi)
         mus: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,nLi)
-        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # sigmas. len=d+1, elm_shape=(num_probes,rR(i+1))
     '''Compute var-leftward edge variables sigma.
     Used for probing a tangent vector.
@@ -522,8 +510,6 @@ def compute_sigmas(
     assemble_tangent_probes
     probe_tangent
     '''
-    xnp = jnp if use_jax else np
-
     num_cores = len(xis)
     num_probes = xis[0].shape[0]
 
@@ -554,7 +540,6 @@ def compute_taus(
         xis: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,ni),
         dxis: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,nOi)
         nus: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,nRi)
-        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # taus. len=d+1, elm_shape=(num_probes,rL(i+1))
     '''Compute var-rightward edge variables tau.
     Used for probing a tangent vector.
@@ -576,7 +561,6 @@ def compute_taus(
     return compute_sigmas(
         tt_reverse(var_tt_cores), tt_reverse(left_tt_cores), tt_reverse(outer_tt_cores),
         xis[::-1], dxis[::-1], nus[::-1],
-        use_jax=use_jax
     )[::-1]
 
 
@@ -588,7 +572,6 @@ def compute_detas(
         nus: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,nRi)
         sigmas: typ.Sequence[NDArray], # len=d+1, elm_shape=(num_probes,rR(i+1))
         taus: typ.Sequence[NDArray], # len=d+1, elm_shape=(num_probes,rL(i+1))
-        use_jax: bool = False,
 ) -> typ.Sequence[NDArray]: # detas. len=d, elm_shape=(num_probes,ni)
     '''Compute var-downward edge variables deta.
     Used for probing a tangent vector.
@@ -607,8 +590,6 @@ def compute_detas(
     assemble_tangent_probes
     probe_tangent
     '''
-    xnp = jnp if use_jax else np
-
     num_cores = len(var_tt_cores)
 
     detas = []
@@ -636,7 +617,6 @@ def assemble_tangent_probes(
         var_basis_cores: typ.Sequence[NDArray], # len=d. elm_shape=(nOi,Ni)
         etas: typ.Sequence[NDArray], # etas. len=d, elm_shape=(num_probes,ni)
         detas: typ.Sequence[NDArray], # detas. len=d, elm_shape=(num_probes,ni)
-        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # probes. len=d, elm_shape=(num_probes,Ni)
     '''Assemble tangent vector probes from edge variables.
 
@@ -654,8 +634,6 @@ def assemble_tangent_probes(
     compute_detas
     probe_tangent
     '''
-    xnp = jnp if use_jax else np
-
     num_cores = len(basis_cores)
     probes = []
     for ii in range(num_cores):
@@ -677,7 +655,6 @@ def probe_tangent(
         variation: t3tools.base_variation_format.T3Variation, # basis_var_shapes=(nOi,Ni), tt_var_shapes=tt_hole_shapes=(rLi,ni,rRi)
         ww:     typ.Sequence[NDArray], # input vectors, len=d, elm_shape=(Ni,) or (num_probes,Ni)
         base: t3tools.base_variation_format.T3Base, # basis_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
-        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(Ni,) or (num_probes,Ni)
     '''Probe a tangent vector.
 
@@ -767,47 +744,43 @@ def probe_tangent(
     (var_basis_cores, var_tt_cores) = variation
 
     xis = compute_xis(
-        basis_cores, ww, use_jax,
+        basis_cores, ww,
     )
 
     mus = compute_mus(
-        left_tt_cores, xis, use_jax=use_jax,
+        left_tt_cores, xis,
     )
 
     nus = compute_nus(
-        right_tt_cores, xis, use_jax=use_jax,
+        right_tt_cores, xis,
     )
 
     etas = compute_etas(
-        outer_tt_cores, mus, nus, use_jax=use_jax,
+        outer_tt_cores, mus, nus,
     )
 
     dxis = compute_dxis(
-        var_basis_cores, ww, use_jax=use_jax,
+        var_basis_cores, ww,
     )
 
     sigmas = compute_sigmas(
         var_tt_cores, right_tt_cores, outer_tt_cores,
         xis, dxis, mus,
-        use_jax=use_jax,
     )
 
     taus = compute_taus(
         var_tt_cores, left_tt_cores, outer_tt_cores,
         xis, dxis, nus,
-        use_jax=use_jax,
     )
 
     detas = compute_detas(
         var_tt_cores, left_tt_cores, right_tt_cores,
         mus, nus, sigmas, taus,
-        use_jax=use_jax,
     )
 
     zz = assemble_tangent_probes(
         basis_cores, var_basis_cores,
         etas, detas,
-        use_jax=use_jax,
     )
 
     if not vectorized:
@@ -822,7 +795,6 @@ def probe_tangent(
 def compute_deta_tildes(
         ztildes: typ.Sequence[NDArray],  # len=d, elm_shape=(num_probes,Ni)
         basis_cores: typ.Sequence[NDArray], # len=d, elm_shape=(ni,Ni)
-        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(num_probes,ni)
     '''Adjoint-var-upward edge variables deta_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
@@ -833,7 +805,6 @@ def compute_deta_tildes(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    xnp = jnp if use_jax else np
     return tuple([xnp.einsum('ao,po->pa', U, zt) for U, zt in zip(basis_cores, ztildes)])
 
 
@@ -842,7 +813,6 @@ def compute_tau_tildes(
         left_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,ni,rL(i+d))
         xis: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,ni)
         mus, # len=d+1, elm_shape=(num_probes,rLi)
-        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # len=d+1, elm_shape=(num_probes,rLi)
     '''Adjoint-var-rightward edge variables tau_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
@@ -853,8 +823,6 @@ def compute_tau_tildes(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    xnp = jnp if use_jax else np
-
     num_cores = len(left_tt_cores)
     num_probes = mus[0].shape[0]
 
@@ -880,7 +848,6 @@ def compute_sigma_tildes(
         right_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rRi,ni,rR(i+d))
         xis: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,ni)
         nus, # len=d+1, elm_shape=(num_probes,rRi)
-        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # len=d+1, elm_shape=(num_probes,rRi)
     '''Adjoint-var-leftward edge variables sigma_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
@@ -892,7 +859,7 @@ def compute_sigma_tildes(
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
     return compute_tau_tildes(
-        deta_tildes[::-1], tt_reverse(right_tt_cores), xis[::-1], nus[::-1], use_jax=use_jax,
+        deta_tildes[::-1], tt_reverse(right_tt_cores), xis[::-1], nus[::-1],
     )[::-1]
 
 
@@ -902,7 +869,6 @@ def compute_dxi_tildes(
         outer_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
         mus: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,rLi)
         nus: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,rRi)
-        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # dxi_tildes. len=d, elm_shape=(num_probes,nOi)
     '''Adjoint-var-downward edge variables dxi_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
@@ -913,7 +879,6 @@ def compute_dxi_tildes(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    xnp = jnp if use_jax else np
     return tuple([
         xnp.einsum('pi,iaj,pj->pa', tt, O, nu) +
         xnp.einsum('pi,iaj,pj->pa', mu, O, st)
@@ -928,7 +893,6 @@ def assemble_basis_variations(
         ww: typ.Sequence[NDArray],  # input vectors, len=d, elm_shape=(Ni,) or (num_probes,Ni)
         etas: typ.Sequence[NDArray],  # etas. len=d, elm_shape=(num_probes,ni)
         sum_over_probes: bool = False,
-        use_jax: bool = False,
 ):
     '''Assemble basis core variations, delta_U_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
@@ -939,7 +903,6 @@ def assemble_basis_variations(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    xnp = jnp if use_jax else np
     if sum_over_probes:
         dU_tildes = tuple([
             xnp.einsum('po,pa->ao', z_tilde, eta) +
@@ -965,7 +928,6 @@ def assemble_tt_variations(
         mus,  # len=d+1, elm_shape=(num_probes,rLi)
         nus,  # len=d+1, elm_shape=(num_probes,rRi)
         sum_over_probes: bool = False,
-        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(rLi,nOi,rRi)
     '''Assemble basis core variations, delta_U_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
@@ -976,7 +938,6 @@ def assemble_tt_variations(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    xnp = jnp if use_jax else np
     if sum_over_probes:
         dG_tildes = tuple([
             xnp.einsum('pi,pa,pj->iaj', mu, xi, sigma_tilde) +
@@ -1001,7 +962,6 @@ def probe_tangent_transpose(
         ww: typ.Sequence[NDArray],  # input vectors, len=d, elm_shape=(Ni,) or (num_probes,Ni)
         base: t3tools.base_variation_format.T3Base, # basis_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
         sum_over_probes: bool = False,
-        use_jax: bool = False,
 ) -> typ.Tuple[
     typ.Tuple[NDArray,...], # dU_tildes. len=d, elm_shape=(nOi,Ni)
     typ.Tuple[NDArray,...], # dG_tildes. len=d, elm_shape=(rLi,ni,rRi)
@@ -1042,7 +1002,7 @@ def probe_tangent_transpose(
 
     Apply transpose map with one set of probing vectors:
 
-    >>> import numpy as np
+import t3tools.corewise    >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.manifold as t3m
     >>> import t3tools.probing as t3p
@@ -1055,16 +1015,16 @@ def probe_tangent_transpose(
     >>> zz1 = t3p.probe_tangent(v1, ww, base)
     >>> zz2 = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> v2 = t3p.probe_tangent_transpose(zz2, ww, base)
-    >>> ipA = common.corewise_dot(v1, v2)
+    >>> ipA = t3tools.corewise.corewise_dot(v1, v2)
     >>> print(ipA)
     17.958317927787
-    >>> ipB = common.corewise_dot(zz1, zz2)
+import t3tools.corewise    >>> ipB = t3tools.corewise.corewise_dot(zz1, zz2)
     >>> print(ipB)
     17.958317927787
 
     Apply transpose map with two sets of probing vectors:
 
-    >>> import numpy as np
+import t3tools.corewise    >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.manifold as t3m
     >>> import t3tools.probing as t3p
@@ -1077,7 +1037,7 @@ def probe_tangent_transpose(
     >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, ww, base)
     >>> v = t3m.tangent_randn(base)
     >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-    >>> print(common.corewise_dot(z, apply_J(v)) - common.corewise_dot(apply_Jt(z), v))
+    >>> print(t3tools.corewise.corewise_dot(z, apply_J(v)) - t3tools.corewise.corewise_dot(apply_Jt(z), v))
     7.105427357601002e-15
     '''
     num_cores = len(ztildes)
@@ -1107,49 +1067,49 @@ def probe_tangent_transpose(
     (basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores) = base
 
     xis = compute_xis(
-        basis_cores, ww, use_jax,
+        basis_cores, ww,
     )
 
     mus = compute_mus(
-        left_tt_cores, xis, use_jax=use_jax,
+        left_tt_cores, xis,
     )
 
     nus = compute_nus(
-        right_tt_cores, xis, use_jax=use_jax,
+        right_tt_cores, xis,
     )
 
     etas = compute_etas(
-        outer_tt_cores, mus, nus, use_jax=use_jax,
+        outer_tt_cores, mus, nus,
     )
 
     #
 
     deta_tildes = compute_deta_tildes(
-        ztildes, basis_cores, use_jax=use_jax,
+        ztildes, basis_cores,
     )
 
     tau_tildes = compute_tau_tildes(
-        deta_tildes, left_tt_cores, xis, mus, use_jax=use_jax,
+        deta_tildes, left_tt_cores, xis, mus,
     )
 
     sigma_tildes = compute_sigma_tildes(
-        deta_tildes, right_tt_cores, xis, nus, use_jax=use_jax,
+        deta_tildes, right_tt_cores, xis, nus,
     )
 
     dxi_tildes = compute_dxi_tildes(
-        sigma_tildes, tau_tildes, outer_tt_cores, mus, nus, use_jax=use_jax,
+        sigma_tildes, tau_tildes, outer_tt_cores, mus, nus,
     )
 
     #
 
     dU_tildes = assemble_basis_variations(
         ztildes, dxi_tildes, ww, etas,
-        sum_over_probes=sum_over_probes, use_jax=use_jax,
+        sum_over_probes=sum_over_probes,
     )
 
     dG_tildes = assemble_tt_variations(
         sigma_tildes, tau_tildes, deta_tildes, xis, mus, nus,
-        sum_over_probes=sum_over_probes, use_jax=use_jax,
+        sum_over_probes=sum_over_probes,
     )
 
     if not vectorized:

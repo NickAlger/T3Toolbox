@@ -8,8 +8,12 @@ import t3tools.tucker_tensor_train as t3
 import t3tools.orthogonalization as orth
 import t3tools.t3svd as t3svd
 import t3tools.base_variation_format as bvf
-from t3tools.common import jnp, NDArray
+import t3tools.common as common
 
+xnp = np
+randn = np.random.randn
+scan = common.numpy_scan
+NDArray = np.ndarray
 
 __all__ = [
     # Tangent vectors
@@ -156,7 +160,6 @@ def tangent_to_t3(
         variation: bvf.T3Variation,
         base: bvf.T3Base,
         include_shift: bool = False,  # False: v. True: p+v. p=base point, v=tangent vector
-        use_jax: bool = False,
 ) -> t3.TuckerTensorTrain:
     '''Rank 2r Tucker tensor train representation of tangent vector.
 
@@ -218,8 +221,6 @@ def tangent_to_t3(
     >>> print(np.linalg.norm(p_plus_v_dense - p_plus_v_dense2))
     1.2102169224182523e-12
     '''
-    xnp = jnp if use_jax else np
-
     bvf.check_fit(variation, base)
     basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
     basis_vars, tt_vars = variation
@@ -280,7 +281,6 @@ def tangent_to_t3(
 
 def tangent_zeros(
         base: bvf.T3Base, # orthogonal base
-        use_jax: bool = False,
 ) -> bvf.T3Variation:
     """Construct the zero vector in a Tucker tensor train tangent space.
 
@@ -312,8 +312,6 @@ def tangent_zeros(
     >>> print(np.linalg.norm(t3m.tangent_to_dense(z, base)))
     0.0
     """
-    xnp = jnp if use_jax else np
-
     bvf.check_t3base(base)
 
     var_basis_shapes, var_tt_shapes = bvf.hole_shapes(base)
@@ -327,7 +325,6 @@ def tangent_zeros(
 
 def tangent_randn(
         base: bvf.T3Base, # orthogonal base
-        use_jax: bool = False,
         apply_gauge_projection: bool = True,
 ) -> bvf.T3Variation:
     """Draw a random T3Variation.
@@ -379,11 +376,6 @@ def tangent_randn(
 
     var_basis_shapes, var_tt_shapes = bvf.hole_shapes(base)
 
-    if use_jax:
-        _randn = lambda x: jnp.array(np.random.randn(x))
-    else:
-        _randn = np.random.randn
-
     basis_vars0 = tuple([_randn(*s) for s in var_basis_shapes])
     tt_vars0 = tuple([_randn(*s) for s in var_tt_shapes])
 
@@ -400,7 +392,6 @@ def tangent_randn(
 def orthogonal_gauge_projection(
         variation: bvf.T3Variation,
         orthogonal_base: bvf.T3Base,
-        use_jax: bool = False,
 ) -> bvf.T3Variation:
     """Makes tangent variation gauged via orthogonal projection. Changes tangent vector.
 
@@ -449,12 +440,10 @@ def orthogonal_gauge_projection(
     3.512073125137391e-15
     >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', H1, L1))) # Gauge condition for TT-core 1
     1.5807940730805242e-15
-    >>> v_minus_p_dot_p = common.corewise_dot(common.corewise_sub(variation, proj_variation), proj_variation)
+import t3tools.corewise    >>> v_minus_p_dot_p = common.corewise_dot(t3tools.corewise.corewise_sub(variation, proj_variation), proj_variation)
     >>> print(v_minus_p_dot_p) # Projection is orthogonal w.r.t. corewise dot
     -4.995303314442243e-18
     """
-    xnp = jnp if use_jax else np
-
     bvf.check_fit(variation, orthogonal_base)
     basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = orthogonal_base
     basis_vars, tt_vars = variation
@@ -476,7 +465,6 @@ def orthogonal_gauge_projection(
 def oblique_gauge_projection(
         variation: bvf.T3Variation,
         orthogonal_base: bvf.T3Base,
-        use_jax: bool = False,
 ) -> bvf.T3Variation:
     """Makes variations left-perpendicular while preserving tangent vector.
 
@@ -531,7 +519,7 @@ def oblique_gauge_projection(
     With minimal ranks, orthogonal bases, and gauged variations, the corewise dot product faithfully represents
     the Hilbert-Schmidt inner product on the ambient space:
 
-    >>> import numpy as np
+import t3tools.corewise    >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.manifold as t3m
     >>> import t3tools.common
@@ -540,20 +528,18 @@ def oblique_gauge_projection(
     >>> base, _ = t3tools.orthogonalization.orthogonal_representations(p)
     >>> u = t3m.tangent_randn(base, apply_gauge_projection=False)
     >>> v = t3m.tangent_randn(base, apply_gauge_projection=False)
-    >>> bad_u_inner_v = common.corewise_dot(u, v) # u and v are ungauged, so this will not give the right answer
+    >>> bad_u_inner_v = t3tools.corewise.corewise_dot(u, v) # u and v are ungauged, so this will not give the right answer
     >>> u_dense = t3m.tangent_to_dense(u, base)
     >>> v_dense = t3m.tangent_to_dense(v, base)
     >>> u_inner_v_true = np.sum(u_dense * v_dense)
     >>> print(np.abs(bad_u_inner_v - u_inner_v_true)) # error nonzero because we didn't respect gauge
     6.21838915941413
-    >>> u_gauged = t3m.oblique_gauge_projection(u, base) # make them gauged and try again
+import t3tools.corewise    >>> u_gauged = t3m.oblique_gauge_projection(u, base) # make them gauged and try again
     >>> v_gauged = t3m.oblique_gauge_projection(v, base)
-    >>> u_inner_v = common.corewise_dot(u_gauged, v_gauged)
+    >>> u_inner_v = t3tools.corewise.corewise_dot(u_gauged, v_gauged)
     >>> print(np.abs(u_inner_v - u_inner_v_true)) # Now the error is numerical zero
     0.0
     """
-    xnp = jnp if use_jax else np
-
     bvf.check_fit(variation, orthogonal_base)
     basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = orthogonal_base
     basis_vars, tt_vars = variation
@@ -601,10 +587,7 @@ def tt_reverse(cores):
 def tt_zipper_left_to_right(
         coresA: typ.Sequence[NDArray],
         coresB: typ.Sequence[NDArray],
-        use_jax: bool = False,
 ) -> typ.Tuple[NDArray, ...]:  # zipper_matrices. len=num_cores+1
-    xnp = jnp if use_jax else np
-
     zipper_matrices = [xnp.array([[1.0]])]
     for GA, GB in zip(coresA, coresB):
         Z_prev = zipper_matrices[-1]
@@ -618,13 +601,12 @@ def tt_zipper_right_to_left(
         coresB: typ.Sequence[NDArray],
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray, ...]:  # zipper_matrices. len=num_cores+1
-    return tt_zipper_left_to_right(tt_reverse(coresA), tt_reverse(coresB), use_jax=use_jax)[::-1]
+    return tt_zipper_left_to_right(tt_reverse(coresA), tt_reverse(coresB))[::-1]
 
 
 def project_t3_onto_tangent_space(
         x: t3.TuckerTensorTrain, # Tucker tensor train to be projected
         orthogonal_base: bvf.T3Base, # Orthogonal representations of base point
-        use_jax: bool = False,
 ) -> bvf.T3Variation:
     """Projects TuckerTensorTrain onto tangent space to the manifold of fixed rank TuckerTensorTrains.
 
@@ -665,8 +647,6 @@ def project_t3_onto_tangent_space(
     >>> print(np.sum((X - proj_X) * (proj_X - P)) / np.sum(X)) # Check that x was projected orthogonally
     -2.7295025395842007e-13
     """
-    xnp = jnp if use_jax else np
-
     t3.check_t3(x)
     bvf.check_t3base(orthogonal_base)
 
@@ -686,8 +666,8 @@ def project_t3_onto_tangent_space(
         G_other2 = xnp.einsum('aib,ix->axb', G_other, B_other @ B.T)
         other_tt_cores2.append(G_other2)
 
-    zipper_left2right = tt_zipper_left_to_right(other_tt_cores2, left_tt_cores, use_jax=use_jax)[:-1]
-    zipper_right2left = tt_zipper_right_to_left(other_tt_cores2, right_tt_cores, use_jax=use_jax)[1:]
+    zipper_left2right = tt_zipper_left_to_right(other_tt_cores2, left_tt_cores)[:-1]
+    zipper_right2left = tt_zipper_right_to_left(other_tt_cores2, right_tt_cores)[1:]
 
     ungauged_tt_variations = []
     ungauged_basis_variations = []
@@ -712,7 +692,6 @@ def project_t3_onto_tangent_space(
 def retract(
         variation: bvf.T3Variation,
         base: bvf.T3Base,
-        use_jax: bool = False,
 ) -> t3.TuckerTensorTrain: # retracted Tucker tensor train
     """Retract Tucker tensor train tangent vector to manifold.
 
@@ -751,7 +730,7 @@ def retract(
     >>> V = t3m.tangent_to_dense(variation, base, include_shift=True)
     >>> print(np.linalg.norm(ret_V - V)) # vector changes
     0.14335564543255402
-    >>> v2 = common.corewise_scale(variation, 1e-2) # make the tangent vector shorter for smaller retraction
+import t3tools.corewise    >>> v2 = t3tools.corewise.corewise_scale(variation, 1e-2) # make the tangent vector shorter for smaller retraction
     >>> ret_v2 = t3m.retract(v2, base)
     >>> ret_V2 = t3.t3_to_dense(ret_v2)
     >>> V2 = t3m.tangent_to_dense(v2, base, include_shift=True)
@@ -761,14 +740,13 @@ def retract(
     bvf.check_fit(variation, base)
 
     basis_cores, left_tt_cores, _, _ = base
-    _, base_tucker_ranks, base_tt_ranks = t3.structure((basis_cores, left_tt_cores))
+    _, base_tucker_ranks, base_tt_ranks = t3.get_structure((basis_cores, left_tt_cores))
 
     x_t3 = tangent_to_t3(variation, base, include_shift=True)
     retracted_x_t3, _, _ = t3svd.t3_svd(
         x_t3,
         max_tt_ranks = base_tt_ranks,
         max_tucker_ranks = base_tucker_ranks,
-        use_jax=use_jax,
     )
     return retracted_x_t3
 
