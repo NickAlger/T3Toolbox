@@ -8,7 +8,7 @@ import t3tools.base_variation_format as bvf
 import t3tools.orthogonalization as orth
 import t3tools.tucker_tensor_train as t3
 import t3tools.manifold as t3m
-import t3tools.util as util
+import t3tools.common as common
 
 
 np.random.seed(0)
@@ -116,14 +116,14 @@ class TestManifold(unittest.TestCase):
 
         # Check that projection was orthogonal
 
-        v_minus_p_dot_p = util.corewise_dot(
-            util.corewise_sub(variation, proj_variation),
+        v_minus_p_dot_p = common.corewise_dot(
+            common.corewise_sub(variation, proj_variation),
             proj_variation
         )
 
         self.assertLessEqual(
             np.abs(v_minus_p_dot_p),
-            numpy_tol * util.corewise_norm(variation)
+            numpy_tol * common.corewise_norm(variation)
         )
 
     def test_oblique_gauge_projection(self):

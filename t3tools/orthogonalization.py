@@ -1,22 +1,13 @@
 # Authors: Nick Alger and Blake Christierson
 # Copyright: MIT License (2026)
 # https://github.com/NickAlger/TuckerTensorTrainTools
-import numpy
 import numpy as np
 import typing as typ
 
-import t3tools.util as util
+import t3tools.common as common
 import t3tools.tucker_tensor_train as t3
 import t3tools.base_variation_format as bvf
-
-try:
-    import jax.numpy as jnp
-except:
-    print('jax import failed in tucker_tensor_train. Defaulting to numpy.')
-    jnp = np
-
-NDArray = typ.Union[np.ndarray, jnp.ndarray]
-
+from t3tools.common import jnp, NDArray
 
 __all__ = [
     'left_svd_3tensor',
@@ -114,7 +105,7 @@ def left_svd_3tensor(
     ni, na, nj = G0_i_a_j.shape
     G0_ia_j = G0_i_a_j.reshape((ni*na, nj))
 
-    U_ia_x, ss_x, Vt_x_j = util.truncated_svd(G0_ia_j, min_rank, max_rank, rtol, atol, use_jax)
+    U_ia_x, ss_x, Vt_x_j = common.truncated_svd(G0_ia_j, min_rank, max_rank, rtol, atol, use_jax)
 
     nx = len(ss_x)
     U_i_a_x = U_ia_x.reshape((ni, na, nx))
@@ -355,7 +346,7 @@ def up_svd_ith_basis_core(
     U_i_o = basis_cores[ii]
     U_o_i = U_i_o.T
 
-    U2_o_x, ss_x, Vt_x_i = util.truncated_svd(U_o_i, min_rank, max_rank, rtol, atol, use_jax)
+    U2_o_x, ss_x, Vt_x_i = common.truncated_svd(U_o_i, min_rank, max_rank, rtol, atol, use_jax)
     R_x_i = xnp.einsum('x,xi->xi', ss_x, Vt_x_i)
     # U2_o_x, R_x_i = xnp.linalg.qr(U_o_i, mode='reduced')
 

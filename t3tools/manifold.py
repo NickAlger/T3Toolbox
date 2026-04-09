@@ -8,14 +8,7 @@ import t3tools.tucker_tensor_train as t3
 import t3tools.orthogonalization as orth
 import t3tools.t3svd as t3svd
 import t3tools.base_variation_format as bvf
-
-try:
-    import jax.numpy as jnp
-except:
-    print('jax import failed. Defaulting to numpy.')
-    jnp = np
-
-NDArray = typ.Union[np.ndarray, jnp.ndarray]
+from t3tools.common import jnp, NDArray
 
 
 __all__ = [
@@ -444,7 +437,7 @@ def orthogonal_gauge_projection(
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.manifold as t3m
-    >>> import t3tools.util as util
+    >>> import t3tools.common as common
     >>> import t3tools.orthogonalization as orth
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> base, _ = orth.orthogonal_representations(p)
@@ -456,7 +449,7 @@ def orthogonal_gauge_projection(
     3.512073125137391e-15
     >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', H1, L1))) # Gauge condition for TT-core 1
     1.5807940730805242e-15
-    >>> v_minus_p_dot_p = util.corewise_dot(util.corewise_sub(variation, proj_variation), proj_variation)
+    >>> v_minus_p_dot_p = common.corewise_dot(common.corewise_sub(variation, proj_variation), proj_variation)
     >>> print(v_minus_p_dot_p) # Projection is orthogonal w.r.t. corewise dot
     -4.995303314442243e-18
     """
@@ -541,13 +534,13 @@ def oblique_gauge_projection(
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.manifold as t3m
-    >>> import t3tools.util
+    >>> import t3tools.common
     >>> import t3tools.orthogonalization as orth
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> base, _ = t3tools.orthogonalization.orthogonal_representations(p)
     >>> u = t3m.tangent_randn(base, apply_gauge_projection=False)
     >>> v = t3m.tangent_randn(base, apply_gauge_projection=False)
-    >>> bad_u_inner_v = util.corewise_dot(u, v) # u and v are ungauged, so this will not give the right answer
+    >>> bad_u_inner_v = common.corewise_dot(u, v) # u and v are ungauged, so this will not give the right answer
     >>> u_dense = t3m.tangent_to_dense(u, base)
     >>> v_dense = t3m.tangent_to_dense(v, base)
     >>> u_inner_v_true = np.sum(u_dense * v_dense)
@@ -555,7 +548,7 @@ def oblique_gauge_projection(
     6.21838915941413
     >>> u_gauged = t3m.oblique_gauge_projection(u, base) # make them gauged and try again
     >>> v_gauged = t3m.oblique_gauge_projection(v, base)
-    >>> u_inner_v = util.corewise_dot(u_gauged, v_gauged)
+    >>> u_inner_v = common.corewise_dot(u_gauged, v_gauged)
     >>> print(np.abs(u_inner_v - u_inner_v_true)) # Now the error is numerical zero
     0.0
     """
@@ -748,7 +741,7 @@ def retract(
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.manifold as t3m
-    >>> import t3tools.util
+    >>> import t3tools.common
     >>> import import t3tools.orthogonalization as orth
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> base, _ = orth.orthogonal_representations(p)
@@ -758,7 +751,7 @@ def retract(
     >>> V = t3m.tangent_to_dense(variation, base, include_shift=True)
     >>> print(np.linalg.norm(ret_V - V)) # vector changes
     0.14335564543255402
-    >>> v2 = util.corewise_scale(variation, 1e-2) # make the tangent vector shorter for smaller retraction
+    >>> v2 = common.corewise_scale(variation, 1e-2) # make the tangent vector shorter for smaller retraction
     >>> ret_v2 = t3m.retract(v2, base)
     >>> ret_V2 = t3.t3_to_dense(ret_v2)
     >>> V2 = t3m.tangent_to_dense(v2, base, include_shift=True)

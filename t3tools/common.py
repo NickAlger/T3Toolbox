@@ -4,16 +4,11 @@
 import numpy as np
 import typing as typ
 
-try:
-    import jax.numpy as jnp
-except:
-    print('jax import failed. Defaulting to numpy.')
-    jnp = np
-
-NDArray = typ.Union[np.ndarray, jnp.ndarray]
-
 __all__ = [
+    'jnp',
+    'NDArray',
     'numpy_scan',
+    'jax_scan',
     #
     'truncated_svd',
     #
@@ -58,6 +53,18 @@ def numpy_scan(f, init, xs, length=None):
         return carry, tuple(np.stack([step[i] for step in ys_list]) for i in range(len(ys_list[0])))
 
     return carry, np.stack(ys_list)
+
+
+try:
+    import jax.numpy as jnp
+    import jax
+    jax_scan = jax.lax.scan
+except ImportError:
+    print('jax import failed. Defaulting to numpy.')
+    jnp = np
+    jax_scan = numpy_scan
+
+NDArray = typ.Union[np.ndarray, jnp.ndarray]
 
 
 ###############################################

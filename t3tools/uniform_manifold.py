@@ -1,8 +1,308 @@
+# Authors: Nick Alger and Blake Christierson
+# Copyright: MIT License (2026)
+# https://github.com/NickAlger/TuckerTensorTrainTools
+import numpy as np
+import typing as typ
+import t3tools.tucker_tensor_train as t3
+from t3tools.common import jnp, NDArray, numpy_scan, jax_scan
+
+__all__ = [
+    'ut3_tangent_vector_to_ut3',
+    'ut3_retract',
+    'ut3_project_dense_tensor_onto_tangent_space',
+    'ut3_orthogonal_gauge_projection',
+]
+
+#### WORK IN PROGRESS DO NOT USE
+
+############################################################
+########    Uniform Tucker Tensor Train Manifold    ########
+############################################################
+
+def ut3_tangent_vector_to_ut3(
+        variations: typ.Tuple[
+            jnp.ndarray, # basis_variations, shape=(d, n, N)
+            jnp.ndarray, # tt_variations, shape=(d, r, n, r)
+        ],
+        orthogonal_basis_cores: jnp.ndarray,  # shape=(d, n, N)
+        left_orthogonal_tt_cores: jnp.ndarray,  # shape=(d, r, n, r)
+        right_orthogonal_tt_cores: jnp.ndarray,  # shape=(d, r, n, r)
+        up_orthogonal_tt_cores: jnp.ndarray,  # shape=(d, r, n, r)
+) -> typ.Tuple[
+    jnp.ndarray, # tangent_basis_cores, shape=(d, 2n, N)
+    jnp.ndarray, # tangent_tt_cores, shape=(d, 2r, 2n, 2r)
+]:
+    '''Rank 2r Tucker tensor train representation of tangent vector:
+            u(x,y,z,w) = ([dU1(B x) P1(B x)]) ([Q2(B y)        0]) ([Q3(B z)        0]) ([Q4(B w) ])
+                         (                  ) ([dU2(B y) P2(B y)]) ([dU3(B z) P3(B z)]) ([dU4(B w)])
+                         (         +        ) (         +        ) (        +         ) (    +     )
+                         ([R1(dB x)       0]) ([0              0]) ([0              0]) ([0       ])
+                         (                  ) ([R2(dB y)       0]) ([R3(dB z)       0]) ([R4(dB w)])
+    '''
+    basis_variations, tt_variations = variations
+
+    d, n, N = basis_variations.shape
+    r = tt_variations.shape[1]
+
+    tangent_basis_cores = jnp.concatenate([orthogonal_basis_cores, basis_variations], axis=1)
+
+    dU = tt_variations
+    R = up_orthogonal_tt_cores
+    P = left_orthogonal_tt_cores
+    Q = right_orthogonal_tt_cores
+    Z = jnp.zeros((d, r, n, r))
+
+    first_tangent_tt_core = jnp.concatenate([
+        jnp.concatenate([
+            jnp.concatenate([dU[:1], P[:1]], axis=3),
+            jnp.concatenate([Z[:1], Z[:1]], axis=3),
+        ], axis=1),
+        jnp.concatenate([
+            jnp.concatenate([R[:1], Z[:1]], axis=3),
+            jnp.concatenate([Z[:1], Z[:1]], axis=3),
+        ], axis=1)
+    ], axis=2)
+
+    mid_tangent_tt_cores = jnp.concatenate([
+        jnp.concatenate([
+            jnp.concatenate([Q[1:-1], Z[1:-1]], axis=3),
+            jnp.concatenate([dU[1:-1], P[1:-1]], axis=3),
+        ], axis=1),
+        jnp.concatenate([
+            jnp.concatenate([Z[1:-1], Z[1:-1]], axis=3),
+            jnp.concatenate([R[1:-1], Z[1:-1]], axis=3),
+        ], axis=1)
+    ], axis=2)
+
+    last_tangent_tt_core = jnp.concatenate([
+        jnp.concatenate([
+            jnp.concatenate([Q[-1:], Z[-1:]], axis=3),
+            jnp.concatenate([dU[-1:], Z[-1:]], axis=3),
+        ], axis=1),
+        jnp.concatenate([
+            jnp.concatenate([Z[-1:], Z[-1:]], axis=3),
+            jnp.concatenate([R[-1:], Z[-1:]], axis=3),
+        ], axis=1)
+    ], axis=2)
+
+    tangent_tt_cores = jnp.concatenate(
+        [first_tangent_tt_core, mid_tangent_tt_cores, last_tangent_tt_core],
+        axis=0
+    )
+
+    return tangent_basis_cores, tangent_tt_cores
+
+
+def ut3_attached_tangent_vector_to_ut3(
+        variations: typ.Tuple[
+            jnp.ndarray, # basis_variations, shape=(d, n, N)
+            jnp.ndarray, # tt_variations, shape=(d, r, n, r)
+        ],
+        orthogonal_basis_cores:     jnp.ndarray, # shape=(d, n, N)
+        left_orthogonal_tt_cores:   jnp.ndarray, # shape=(d, r, n, r)
+        right_orthogonal_tt_cores:  jnp.ndarray, # shape=(d, r, n, r)
+        up_orthogonal_tt_cores:     jnp.ndarray, # shape=(d, r, n, r)
+) -> typ.Tuple[
+    jnp.ndarray, # tangent_basis_cores, shape=(d, 2n, N)
+    jnp.ndarray, # tangent_tt_cores, shape=(2, 2r, 2n, 2r)
+]:
+    '''Rank 2r Tucker tensor train representation of *attached* tangent vector:
+            u(x,y,z,w) = ([dU1(B x) P1(B x)]) ([Q2(B y)        0]) ([Q3(B z)        0]) ([Q4(B w) ])
+                         (                  ) ([dU2(B y) P2(B y)]) ([dU3(B z) P3(B z)]) ([P4(B w) + dU4(B w)])
+                         (         +        ) (         +        ) (        +         ) (    +     )
+                         ([R1(dB x)       0]) ([0              0]) ([0              0]) ([0       ])
+                         (                  ) ([R2(dB y)       0]) ([R3(dB z)       0]) ([R4(dB w)])
+    '''
+    basis_variations, tt_variations = variations
+    # (orthogonal_basis_cores,
+    #  left_orthogonal_tt_cores,
+    #  right_orthogonal_tt_cores,
+    #  up_orthogonal_tt_cores,
+    #  _, _,
+    #  ) = base_representations
+
+    d, n, N = basis_variations.shape
+    r = tt_variations.shape[1]
+
+    tangent_basis_cores = jnp.concatenate([orthogonal_basis_cores, basis_variations], axis=1)
+
+    dU = tt_variations
+    R = up_orthogonal_tt_cores
+    P = left_orthogonal_tt_cores
+    Q = right_orthogonal_tt_cores
+    Z = jnp.zeros((d, r, n, r))
+
+    first_tangent_tt_core = jnp.concatenate([
+        jnp.concatenate([
+            jnp.concatenate([dU[:1], P[:1]], axis=3),
+            jnp.concatenate([Z[:1], Z[:1]], axis=3),
+        ], axis=1),
+        jnp.concatenate([
+            jnp.concatenate([R[:1], Z[:1]], axis=3),
+            jnp.concatenate([Z[:1], Z[:1]], axis=3),
+        ], axis=1)
+    ], axis=2)
+
+    mid_tangent_tt_cores = jnp.concatenate([
+        jnp.concatenate([
+            jnp.concatenate([Q[1:-1], Z[1:-1]], axis=3),
+            jnp.concatenate([dU[1:-1], P[1:-1]], axis=3),
+        ], axis=1),
+        jnp.concatenate([
+            jnp.concatenate([Z[1:-1], Z[1:-1]], axis=3),
+            jnp.concatenate([R[1:-1], Z[1:-1]], axis=3),
+        ], axis=1)
+    ], axis=2)
+
+    last_tangent_tt_core = jnp.concatenate([
+        jnp.concatenate([
+            jnp.concatenate([Q[-1:], Z[-1:]], axis=3),
+            jnp.concatenate([P[-1:] + dU[-1:], Z[-1:]], axis=3),
+        ], axis=1),
+        jnp.concatenate([
+            jnp.concatenate([Z[-1:], Z[-1:]], axis=3),
+            jnp.concatenate([R[-1:], Z[-1:]], axis=3),
+        ], axis=1)
+    ], axis=2)
+
+    tangent_tt_cores = jnp.concatenate(
+        [first_tangent_tt_core, mid_tangent_tt_cores, last_tangent_tt_core],
+        axis=0
+    )
+
+    return tangent_basis_cores, tangent_tt_cores
 
 
 
 
-# # # # BAD DON'T USE
+
+def ut3_retract(
+        variations: typ.Tuple[
+            jnp.ndarray, # basis_variations, shape=(d, n, N)
+            jnp.ndarray, # tt_variations, shape=(d, r, n, r)
+        ],
+        orthogonal_basis_cores:     jnp.ndarray, # shape=(d, n, N)
+        left_orthogonal_tt_cores:   jnp.ndarray, # shape=(d, r, n, r)
+        right_orthogonal_tt_cores:  jnp.ndarray, # shape=(d, r, n, r)
+        up_orthogonal_tt_cores:     jnp.ndarray, # shape=(d, r, n, r)
+        doubled_rank_masks: typ.Tuple[
+            jnp.ndarray,  # shape_mask, shape=(d, N)
+            jnp.ndarray,  # tucker_cores_mask, shape=(d, 2*n)
+            jnp.ndarray,  # tt_cores_mask, shape=(d+1, 2*r)
+        ],  # use to specify ranks
+) -> typ.Tuple[
+    jnp.ndarray, # retracted_basis_cores, shape=(d, n, N)
+    jnp.ndarray, # retracted_tt_cores, shape=(d, r, n, r)
+]:
+    basis_variations, tt_variations = variations
+
+    d, n, N = basis_variations.shape
+    r = tt_variations.shape[1]
+
+    X = ut3_attached_tangent_vector_to_ut3(
+        variations,
+        orthogonal_basis_cores,
+        left_orthogonal_tt_cores,
+        right_orthogonal_tt_cores,
+        up_orthogonal_tt_cores,
+    )
+
+    (basis_cores0, tt_cores0), _, _ = ut3_svd_masked(
+        X,
+        doubled_rank_masks,
+        # basis_ranks, tt_ranks,
+    )
+
+    basis_cores = basis_cores0[:, :n, :]
+    tt_cores = tt_cores0[:, :r, :n, :r]
+    return basis_cores, tt_cores
+
+
+def ut3_project_dense_tensor_onto_tangent_space(
+        T:                          jnp.ndarray, # shape=(N, N, ..., N)
+        orthogonal_basis_cores:     jnp.ndarray, # shape=(d, n, N)
+        left_orthogonal_tt_cores:   jnp.ndarray, # shape=(d, r, n, r)
+        right_orthogonal_tt_cores:  jnp.ndarray, # shape=(d, r, n, r)
+        up_orthogonal_tt_cores:     jnp.ndarray, # shape=(d, r, n, r)
+):
+    '''Very expensive, probably only useful for debugging other functions'''
+    d, n, N = orthogonal_basis_cores.shape
+    r = left_orthogonal_tt_cores.shape[1]
+
+    XX = []
+    for ii in range(d):
+        X = T.reshape((1,) + T.shape + (1,))
+        X = jnp.pad(
+            X,
+            [(0, r-1)] + [(0, 0)]*d + [(0, r-1)],
+        )
+        for jj in range(ii):
+            B = orthogonal_basis_cores[jj]
+            P = left_orthogonal_tt_cores[jj]
+            X = jnp.einsum('ac,ec...->ea...', B, X)
+            X = jnp.einsum('axb,ax...->b...', P, X)
+
+        for jj in range(d-1, ii, -1):
+            B = orthogonal_basis_cores[jj]
+            Q = right_orthogonal_tt_cores[jj]
+            X = jnp.einsum('bc,...ce->...be', B, X)
+            X = jnp.einsum('...xb,axb->...a', X, Q)
+
+        XX.append(X)
+
+    BB_tilde = []
+    GG_tilde = []
+    for ii in range(d):
+        X = XX[ii]
+        B = orthogonal_basis_cores[ii]
+        S = up_orthogonal_tt_cores[ii]
+        G_tilde = jnp.einsum('aob,ko->akb', X, B)
+        B_tilde = jnp.einsum('aob,akb->ko', X, S)
+        BB_tilde.append(B_tilde)
+        GG_tilde.append(G_tilde)
+
+    ungauged_basis_variations = jnp.stack(BB_tilde)
+    ungauged_tt_variations = jnp.stack(GG_tilde)
+    ungauged_variations = (ungauged_basis_variations, ungauged_tt_variations)
+
+    variations = ut3_orthogonal_gauge_projection_using_map(
+        ungauged_variations,
+        orthogonal_basis_cores,
+        left_orthogonal_tt_cores,
+    )
+    return variations
+
+
+
+def ut3_orthogonal_gauge_projection(
+        U: UniformT3Variations,
+        orthogonal_basis_cores,
+        left_orthogonal_tt_cores,
+) -> UniformT3Variations:
+    '''Makes variations left-perpendicular by orthogonally projecting away the parallel components.
+    Changes tangent vector.
+    dV_L -> (I - P_L P_L^T) dV_L
+    '''
+    basis_variations, tt_variations = U
+
+    first_gauged_tt_variations = jax.lax.map(
+        lambda P_dV: P_dV[1] - jnp.einsum('iaj,jk->iak', P_dV[0], jnp.einsum('iaj,iak->jk', P_dV[0], P_dV[1])),
+        (left_orthogonal_tt_cores[:-1], tt_variations[:-1]),
+    )
+    last_gauged_tt_variation = tt_variations[-1,:,:,:]
+    gauged_tt_variations = jnp.concatenate(
+        [first_gauged_tt_variations, last_gauged_tt_variation.reshape((1,) + last_gauged_tt_variation.shape)],
+        axis=0
+    )
+
+    gauged_basis_variations = jax.lax.map(
+        lambda B_dB: B_dB[1] - (B_dB[1] @ B_dB[0].T) @ B_dB[0], (orthogonal_basis_cores, basis_variations),
+    )
+
+    return gauged_basis_variations, gauged_tt_variations
+
+
+# # #
 
 
 ###############    UNIFORM TUCKER TENSOR TRAIN    ###############
@@ -193,7 +493,7 @@ class UniformT3TangentSpace:
         return cls(*children)
 
 
-def ut3_orthogonal_gauge_projection(
+def ut3_orthogonal_gauge_projection_for_loop(
         U: UniformT3Variations,
         UTS: UniformT3TangentSpace,
 ) -> UniformT3Variations:
@@ -235,56 +535,5 @@ def ut3_orthogonal_gauge_projection(
 
 
 
-@jax.jit
-def ut3_orthogonal_gauge_projection_using_map(
-        U: UniformT3Variations,
-        orthogonal_basis_cores,
-        left_orthogonal_tt_cores,
-) -> UniformT3Variations:
-    '''Makes variations left-perpendicular by orthogonally projecting away the parallel components.
-    Changes tangent vector.
-    dV_L -> (I - P_L P_L^T) dV_L
-    '''
-    basis_variations, tt_variations = U
-
-    first_gauged_tt_variations = jax.lax.map(
-        lambda P_dV: P_dV[1] - jnp.einsum('iaj,jk->iak', P_dV[0], jnp.einsum('iaj,iak->jk', P_dV[0], P_dV[1])),
-        (left_orthogonal_tt_cores[:-1], tt_variations[:-1]),
-    )
-    last_gauged_tt_variation = tt_variations[-1,:,:,:]
-    gauged_tt_variations = jnp.concatenate(
-        [first_gauged_tt_variations, last_gauged_tt_variation.reshape((1,) + last_gauged_tt_variation.shape)],
-        axis=0
-    )
-
-    gauged_basis_variations = jax.lax.map(
-        lambda B_dB: B_dB[1] - (B_dB[1] @ B_dB[0].T) @ B_dB[0], (orthogonal_basis_cores, basis_variations),
-    )
-
-    return gauged_basis_variations, gauged_tt_variations
 
 
-def get_t3_tangent_space_dim(
-        shape: typ.Sequence[int], # len=d
-        tucker_ranks: typ.Sequence[int], # len=d
-        tt_ranks: typ.Sequence[int], # len=d+1
-) -> int:
-    num_cores = len(shape)
-    assert(len(tucker_ranks) == num_cores)
-    assert(len(tt_ranks) == num_cores+1)
-    manifold_dim: int = 0
-    for ii in range(num_cores):
-        n = tucker_ranks[ii]
-        rL = tt_ranks[ii]
-        rR = tt_ranks[ii+1]
-        if ii == num_cores-1:
-            manifold_dim += rL * n * rR
-        else:
-            manifold_dim += (rL * n - rR) * rR
-
-    for ii in range(num_cores):
-        n = tucker_ranks[ii]
-        N = shape[ii]
-        manifold_dim += (N - n) * n
-
-    return manifold_dim

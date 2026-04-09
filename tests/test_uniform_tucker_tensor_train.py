@@ -8,8 +8,8 @@ import t3tools.base_variation_format as bvf
 import t3tools.orthogonalization as orth
 import t3tools.tucker_tensor_train as t3
 import t3tools.manifold as t3m
-import t3tools.util as util
-import t3tools.uniform_tucker_tensor_train as ut3
+import t3tools.common as common
+import t3tools.uniform as ut3
 
 
 np.random.seed(0)

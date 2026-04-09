@@ -6,14 +6,7 @@ import typing as typ
 
 import t3tools.base_variation_format
 import t3tools.tucker_tensor_train as t3
-
-try:
-    import jax.numpy as jnp
-except:
-    print('jax import failed. Defaulting to numpy.')
-    jnp = np
-
-NDArray = typ.Union[np.ndarray, jnp.ndarray]
+from t3tools.common import jnp, NDArray
 
 __all__ = [
     # Probe a dense tensor
@@ -1053,7 +1046,7 @@ def probe_tangent_transpose(
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.manifold as t3m
     >>> import t3tools.probing as t3p
-    >>> import t3tools.util as util
+    >>> import t3tools.common as common
     >>> import t3tools.orthogonalization as orth
     >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
     >>> base, _ = orth.orthogonal_representations(p)
@@ -1062,10 +1055,10 @@ def probe_tangent_transpose(
     >>> zz1 = t3p.probe_tangent(v1, ww, base)
     >>> zz2 = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> v2 = t3p.probe_tangent_transpose(zz2, ww, base)
-    >>> ipA = util.corewise_dot(v1, v2)
+    >>> ipA = common.corewise_dot(v1, v2)
     >>> print(ipA)
     17.958317927787
-    >>> ipB = util.corewise_dot(zz1, zz2)
+    >>> ipB = common.corewise_dot(zz1, zz2)
     >>> print(ipB)
     17.958317927787
 
@@ -1075,7 +1068,7 @@ def probe_tangent_transpose(
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.manifold as t3m
     >>> import t3tools.probing as t3p
-    >>> import t3tools.util as util
+    >>> import t3tools.common as common
     >>> import t3tools.orthogonalization as orth
     >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
     >>> base, _ = orth.orthogonal_representations(p)
@@ -1084,7 +1077,7 @@ def probe_tangent_transpose(
     >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, ww, base)
     >>> v = t3m.tangent_randn(base)
     >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-    >>> print(util.corewise_dot(z, apply_J(v)) - util.corewise_dot(apply_Jt(z), v))
+    >>> print(common.corewise_dot(z, apply_J(v)) - common.corewise_dot(apply_Jt(z), v))
     7.105427357601002e-15
     '''
     num_cores = len(ztildes)

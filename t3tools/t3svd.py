@@ -4,19 +4,10 @@
 import numpy as np
 import typing as typ
 
-import t3tools.util as util
+import t3tools.common as common
 import t3tools.tucker_tensor_train as t3
 import t3tools.orthogonalization as orth
-
-try:
-    import jax.numpy as jnp
-except:
-    print('jax import failed in tucker_tensor_train. Defaulting to numpy.')
-    jnp = np
-
-NDArray = typ.Union[np.ndarray, jnp.ndarray]
-
-
+from t3tools.common import jnp, NDArray
 
 __all__ = [
     't3_svd',
@@ -261,7 +252,7 @@ def tucker_svd_dense(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.util as util
+    >>> import t3tools.common as common
     >>> import t3tools.t3svd as t3svd
     >>> T0 = np.random.randn(40, 50, 60)
     >>> c0 = 1.0 / np.arange(1, 41)**2
@@ -288,7 +279,7 @@ def tucker_svd_dense(
         max_rank = None if max_ranks is None else max_ranks[ii]
 
         C_swap_mat = C_swap.reshape((old_shape_swap[0], -1))
-        U, ss, Vt = util.truncated_svd(C_swap_mat, min_rank, max_rank, rtol, atol, use_jax)
+        U, ss, Vt = common.truncated_svd(C_swap_mat, min_rank, max_rank, rtol, atol, use_jax)
         rM_new = len(ss)
 
         singular_values_of_matricizations.append(ss)
@@ -368,7 +359,7 @@ def tt_svd_dense(
         min_rank = None if min_ranks is None else min_ranks[ii+1]
         max_rank = None if max_ranks is None else max_ranks[ii+1]
 
-        U, ss, Vt = util.truncated_svd(X.reshape((rL * nn[ii], -1)), min_rank, max_rank, rtol, atol, use_jax)
+        U, ss, Vt = common.truncated_svd(X.reshape((rL * nn[ii], -1)), min_rank, max_rank, rtol, atol, use_jax)
         rR = len(ss)
 
         singular_values_of_unfoldings.append(ss)
