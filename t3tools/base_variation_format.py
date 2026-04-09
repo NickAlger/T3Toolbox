@@ -6,15 +6,7 @@ import numpy as np
 import typing as typ
 
 import t3tools.tucker_tensor_train as t3
-
-try:
-    import jax.numpy as jnp
-except:
-    print('jax import failed. Defaulting to numpy.')
-    jnp = np
-
-NDArray = typ.Union[np.ndarray, jnp.ndarray]
-
+from t3tools.common import jnp, NDArray
 
 __all__ = [
     'T3Base',
