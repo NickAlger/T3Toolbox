@@ -39,59 +39,26 @@
             
   <section id="module-t3tools.uniform_manifold">
 <span id="t3tools-uniform-manifold"></span><h1>t3tools.uniform_manifold<a class="headerlink" href="#module-t3tools.uniform_manifold" title="Link to this heading">¶</a></h1>
-<section id="attributes">
-<h2>Attributes<a class="headerlink" href="#attributes" title="Link to this heading">¶</a></h2>
-<table class="autosummary longtable docutils align-default">
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.uniform_manifold.UniformT3Variations" title="t3tools.uniform_manifold.UniformT3Variations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformT3Variations</span></code></a></p></td>
-<td><p></p></td>
-</tr>
-</tbody>
-</table>
-</section>
-<section id="classes">
-<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading">¶</a></h2>
-<div class="toctree-wrapper compound">
-</div>
-<table class="autosummary longtable docutils align-default">
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="UniformT3TangentSpace.html#t3tools.uniform_manifold.UniformT3TangentSpace" title="t3tools.uniform_manifold.UniformT3TangentSpace"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformT3TangentSpace</span></code></a></p></td>
-<td><p></p></td>
-</tr>
-</tbody>
-</table>
-</section>
 <section id="functions">
 <h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">¶</a></h2>
 <div class="toctree-wrapper compound">
 </div>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="pack_matrices.html#t3tools.uniform_manifold.pack_matrices" title="t3tools.uniform_manifold.pack_matrices"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pack_matrices</span></code></a>(→ jnp.ndarray)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="ut3_tangent_vector_to_ut3.html#t3tools.uniform_manifold.ut3_tangent_vector_to_ut3" title="t3tools.uniform_manifold.ut3_tangent_vector_to_ut3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_tangent_vector_to_ut3</span></code></a>(...)</p></td>
+<td><p>Rank 2r Tucker tensor train representation of tangent vector:</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="ut3_retract.html#t3tools.uniform_manifold.ut3_retract" title="t3tools.uniform_manifold.ut3_retract"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_retract</span></code></a>(→ Tuple[t3tools.common.jnp.ndarray, ...)</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="unpack_matrices.html#t3tools.uniform_manifold.unpack_matrices" title="t3tools.uniform_manifold.unpack_matrices"><code class="xref py py-obj docutils literal notranslate"><span class="pre">unpack_matrices</span></code></a>(→ typ.Tuple[jnp.ndarray, Ellipsis])</p></td>
-<td><p></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="ut3_project_dense_tensor_onto_tangent_space.html#t3tools.uniform_manifold.ut3_project_dense_tensor_onto_tangent_space" title="t3tools.uniform_manifold.ut3_project_dense_tensor_onto_tangent_space"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_project_dense_tensor_onto_tangent_space</span></code></a>(T, ...)</p></td>
+<td><p>Very expensive, probably only useful for debugging other functions</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="ut3_orthogonal_gauge_projection.html#t3tools.uniform_manifold.ut3_orthogonal_gauge_projection" title="t3tools.uniform_manifold.ut3_orthogonal_gauge_projection"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_orthogonal_gauge_projection</span></code></a>(→ UniformT3Variations)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="ut3_orthogonal_gauge_projection.html#t3tools.uniform_manifold.ut3_orthogonal_gauge_projection" title="t3tools.uniform_manifold.ut3_orthogonal_gauge_projection"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_orthogonal_gauge_projection</span></code></a>(→ UniformT3Variations)</p></td>
 <td><p>Makes variations left-perpendicular by orthogonally projecting away the parallel components.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ut3_orthogonal_gauge_projection_using_map.html#t3tools.uniform_manifold.ut3_orthogonal_gauge_projection_using_map" title="t3tools.uniform_manifold.ut3_orthogonal_gauge_projection_using_map"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_orthogonal_gauge_projection_using_map</span></code></a>(...)</p></td>
-<td><p>Makes variations left-perpendicular by orthogonally projecting away the parallel components.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="get_t3_tangent_space_dim.html#t3tools.uniform_manifold.get_t3_tangent_space_dim" title="t3tools.uniform_manifold.get_t3_tangent_space_dim"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_t3_tangent_space_dim</span></code></a>(→ int)</p></td>
-<td><p></p></td>
 </tr>
 </tbody>
 </table>
-</section>
-<section id="module-contents">
-<h2>Module Contents<a class="headerlink" href="#module-contents" title="Link to this heading">¶</a></h2>
-<dl class="py data">
-<dt class="sig sig-object py" id="t3tools.uniform_manifold.UniformT3Variations">
-<span class="sig-prename descclassname"><span class="pre">t3tools.uniform_manifold.</span></span><span class="sig-name descname"><span class="pre">UniformT3Variations</span></span><a class="headerlink" href="#t3tools.uniform_manifold.UniformT3Variations" title="Link to this definition">¶</a></dt>
-<dd></dd></dl>
-
 </section>
 </section>
 

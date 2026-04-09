@@ -1,7 +1,7 @@
 t3tools.probing.assemble_probes
 ===============================
 
-.. py:function:: t3tools.probing.assemble_probes(basis_cores: Sequence[NDArray], etas, use_jax: bool = False) -> Sequence[NDArray]
+.. py:function:: t3tools.probing.assemble_probes(basis_cores: Sequence[t3tools.common.NDArray], etas, use_jax: bool = False) -> Sequence[t3tools.common.NDArray]
 
    Assemble probes from downward edge variables.
 

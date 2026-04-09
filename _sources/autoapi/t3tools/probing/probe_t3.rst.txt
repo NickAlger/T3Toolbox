@@ -1,7 +1,7 @@
 t3tools.probing.probe_t3
 ========================
 
-.. py:function:: t3tools.probing.probe_t3(x: t3tools.tucker_tensor_train.TuckerTensorTrain, ww: Sequence[NDArray], use_jax: bool = False) -> Tuple[NDArray, Ellipsis]
+.. py:function:: t3tools.probing.probe_t3(x: t3tools.tucker_tensor_train.TuckerTensorTrain, ww: Sequence[t3tools.common.NDArray], use_jax: bool = False) -> Tuple[t3tools.common.NDArray, Ellipsis]
 
    Probe a Tucker tensor train.
 

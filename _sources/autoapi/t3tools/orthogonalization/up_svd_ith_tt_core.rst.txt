@@ -1,7 +1,7 @@
 t3tools.orthogonalization.up_svd_ith_tt_core
 ============================================
 
-.. py:function:: t3tools.orthogonalization.up_svd_ith_tt_core(ii: int, x: t3tools.tucker_tensor_train.TuckerTensorTrain, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> Tuple[t3tools.tucker_tensor_train.TuckerTensorTrain, NDArray]
+.. py:function:: t3tools.orthogonalization.up_svd_ith_tt_core(ii: int, x: t3tools.tucker_tensor_train.TuckerTensorTrain, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> Tuple[t3tools.tucker_tensor_train.TuckerTensorTrain, t3tools.common.NDArray]
 
    Compute SVD of ith TT-core outer unfolding and keep non-orthogonal factor with this core.
 

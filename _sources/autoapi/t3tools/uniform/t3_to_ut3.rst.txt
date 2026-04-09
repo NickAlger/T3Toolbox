@@ -1,0 +1,20 @@
+t3tools.uniform.t3_to_ut3
+=========================
+
+.. py:function:: t3tools.uniform.t3_to_ut3(x: t3tools.tucker_tensor_train.TuckerTensorTrain, use_jax: bool = False) -> Tuple[UniformTuckerTensorTrainCores, UniformTuckerTensorTrainMasks]
+
+   Convert TuckerTensorTrain to UniformTuckerTensorTrain.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> import t3tools.uniform_tucker_tensor_train as ut3
+   >>> x = t3.t3_corewise_randn(((14, 15, 16), (4, 6, 5), (3, 3, 2, 4)))
+   >>> cores, masks = ut3.t3_to_ut3(x)  # Convert t3 -> ut3
+   >>> x2 = ut3.ut3_to_t3(cores, masks)  # Convert ut3 -> t3
+   >>> dense_x = t3.t3_to_dense(x)
+   >>> dense_x2 = t3.t3_to_dense(x2)
+   >>> print(np.linalg.norm(dense_x - dense_x2))
+   0.0
+

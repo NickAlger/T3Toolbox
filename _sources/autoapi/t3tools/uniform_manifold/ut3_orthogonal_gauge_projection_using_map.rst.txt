@@ -1,9 +1,0 @@
-t3tools.uniform_manifold.ut3_orthogonal_gauge_projection_using_map
-==================================================================
-
-.. py:function:: t3tools.uniform_manifold.ut3_orthogonal_gauge_projection_using_map(U: UniformT3Variations, orthogonal_basis_cores, left_orthogonal_tt_cores) -> UniformT3Variations
-
-   Makes variations left-perpendicular by orthogonally projecting away the parallel components.
-   Changes tangent vector.
-   dV_L -> (I - P_L P_L^T) dV_L
-

@@ -1,0 +1,46 @@
+t3tools.uniform.ut3_entry
+=========================
+
+.. py:function:: t3tools.uniform.ut3_entry(cores: UniformTuckerTensorTrainCores, index: t3tools.common.NDArray, use_jax: bool = False) -> t3tools.common.NDArray
+
+   Compute entry (entries) of a uniform Tucker tensor train.
+
+   If index is outside the tensor, the result is undefined.
+   In this case, the function may either return a meaningless number,
+   or raise an error.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> import t3tools.uniform_tucker_tensor_train as ut3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,3), (1,4,2,1))) # T3
+   >>> index = (3,1,2)
+   >>> x_312 = t3.t3_entry(x, index)
+   >>> print(x_312) # (3,1,2) entry from T3:
+   -1.4931654579929192
+   >>> cores, masks = ut3.t3_to_ut3(x) # Convert to Uniform T3
+   >>> print(ut3.original_structure(masks)) # original (shape, tucker_ranks, tt_ranks):
+   ((14, 15, 16), (4, 5, 3), (1, 4, 2, 1))
+   >>> print(ut3.padded_structure(cores)) # uniform shape and ranks, (d,N,n,r):
+   (3, 16, 5, 4)
+   >>> x_312_uniform = ut3.ut3_entry(cores, index) # (3,1,2) entry from uniform T3:
+   >>> print(x_312_uniform)
+   -1.4931654579929197
+
+   Multiple entries:
+
+   >>> import numpy as np
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> import t3tools.uniform_tucker_tensor_train as ut3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,3), (1,4,2,1)))
+   >>> index = ((3,10), (1,9), (2,8))
+   >>> x_312 = t3.t3_entry(x, index)
+   >>> print(x_312)
+   -6.127319174475167
+   >>> cores, masks = ut3.t3_to_ut3(x)
+   >>> x_312_uniform = ut3.ut3_entry(cores, index)
+   >>> print(x_312_uniform)
+   -6.127319174475165
+
+

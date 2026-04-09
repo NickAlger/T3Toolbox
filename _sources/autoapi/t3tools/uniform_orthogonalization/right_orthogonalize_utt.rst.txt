@@ -1,0 +1,4 @@
+t3tools.uniform_orthogonalization.right_orthogonalize_utt
+=========================================================
+
+.. py:function:: t3tools.uniform_orthogonalization.right_orthogonalize_utt(tt_supercore: t3tools.common.NDArray, use_jax: bool = False) -> t3tools.common.NDArray

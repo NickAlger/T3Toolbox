@@ -1,7 +1,7 @@
 t3tools.tucker_tensor_train.t3_to_dense
 =======================================
 
-.. py:function:: t3tools.tucker_tensor_train.t3_to_dense(x: TuckerTensorTrain, contract_ones: bool = True, use_jax: bool = False) -> NDArray
+.. py:function:: t3tools.tucker_tensor_train.t3_to_dense(x: TuckerTensorTrain, contract_ones: bool = True, use_jax: bool = False) -> t3tools.common.NDArray
 
    Contract Tucker tensor train to dense tensor.
 

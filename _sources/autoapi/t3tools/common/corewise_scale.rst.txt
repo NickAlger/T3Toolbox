@@ -1,0 +1,15 @@
+t3tools.common.corewise_scale
+=============================
+
+.. py:function:: t3tools.common.corewise_scale(X, s)
+
+   Scale nested objects, X,s -> s*X.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3tools.corewise as cw
+   >>> X = (np.ones(3), (1, (), np.ones(2)))
+   >>> print(cw.corewise_scale(X, 1.5))
+   (array([-1., -1., -1.]), (-2, (), array([2., 2.])))
+

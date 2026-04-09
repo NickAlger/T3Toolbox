@@ -1,0 +1,4 @@
+t3tools.uniform_orthogonalization.construct_ut3_base_representations
+====================================================================
+
+.. py:function:: t3tools.uniform_orthogonalization.construct_ut3_base_representations(base_point: Tuple[t3tools.common.jnp.ndarray, t3tools.common.jnp.ndarray], masks: Tuple[t3tools.common.jnp.ndarray, t3tools.common.jnp.ndarray]) -> Tuple[t3tools.common.jnp.ndarray, t3tools.common.jnp.ndarray, t3tools.common.jnp.ndarray, t3tools.common.jnp.ndarray, t3tools.common.jnp.ndarray, t3tools.common.jnp.ndarray]

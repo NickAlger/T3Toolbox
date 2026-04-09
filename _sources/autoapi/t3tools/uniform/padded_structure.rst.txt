@@ -1,0 +1,25 @@
+t3tools.uniform.padded_structure
+================================
+
+.. py:function:: t3tools.uniform.padded_structure(cores: UniformTuckerTensorTrainCores) -> Tuple[int, int, int, int]
+
+   Get padded structure of uniform Tucker tensor train.
+
+   :param cores: Cores of the uniform Tucker tensor train
+   :type cores: UniformTuckerTensorTrainCores
+
+   :returns: * **num_cores** (*int*) -- Number of cores
+             * **N** (*int*) -- Size of each index
+             * **n** (*int*) -- padded Tucker rank
+             * **r** (*int*) -- padded TT-rank
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> import t3tools.uniform_tucker_tensor_train as ut3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
+   >>> cores, masks = ut3.t3_to_ut3(x)
+   >>> print(ut3.padded_structure(cores))
+   (3, 16, 6, 3)
+

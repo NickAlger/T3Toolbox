@@ -1,4 +1,0 @@
-t3tools.uniform_manifold.get_t3_tangent_space_dim
-=================================================
-
-.. py:function:: t3tools.uniform_manifold.get_t3_tangent_space_dim(shape: typ.Sequence[int], tucker_ranks: typ.Sequence[int], tt_ranks: typ.Sequence[int]) -> int

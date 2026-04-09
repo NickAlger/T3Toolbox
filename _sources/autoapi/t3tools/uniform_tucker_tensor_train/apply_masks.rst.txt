@@ -1,8 +1,0 @@
-t3tools.uniform_tucker_tensor_train.apply_masks
-===============================================
-
-.. py:function:: t3tools.uniform_tucker_tensor_train.apply_masks(cores: UniformTuckerTensorTrainCores, masks: UniformTuckerTensorTrainMasks) -> UniformTuckerTensorTrainCores
-
-   Apply masks to uniform Tucker tensor train cores to zero out superflous entries.
-
-

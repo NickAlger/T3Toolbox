@@ -1,0 +1,26 @@
+t3tools.uniform.ut3_neg
+=======================
+
+.. py:function:: t3tools.uniform.ut3_neg(x_cores: UniformTuckerTensorTrainCores, use_jax: bool = False) -> UniformTuckerTensorTrainCores
+
+   Flip a uniform Tucker tensor train, x -> -x.
+
+   :param x_cores: Original uniform Tucker tensor train cores
+   :type x_cores: UniformTuckerTensorTrainCores
+
+   :returns: Cores for flipped uniform Tucker tensor train, -x
+   :rtype: UniformTuckerTensorTrainCores
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> import t3tools.uniform_tucker_tensor_train as ut3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (2,3,2,2)))
+   >>> cores, masks = ut3.t3_to_ut3(x)
+   >>> neg_cores = ut3.ut3_neg(cores) # flip x
+   >>> dense_x = t3.t3_to_dense(x)
+   >>> dense_neg_x = ut3.ut3_to_dense(neg_cores, masks)
+   >>> print(np.linalg.norm(-dense_x - dense_neg_x))
+   0.0
+
