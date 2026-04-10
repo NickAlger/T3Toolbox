@@ -385,12 +385,12 @@
 <li class="toctree-l3"><a class="reference internal" href="t3_entry.html">t3tools.tucker_tensor_train.t3_entry</a></li>
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">t3tools.tucker_tensor_train.compute_minimal_ranks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="are_t3_ranks_minimal.html">t3tools.tucker_tensor_train.are_t3_ranks_minimal</a></li>
-<li class="toctree-l3"><a class="reference internal" href="pad_t3.html">t3tools.tucker_tensor_train.pad_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="change_structure.html">t3tools.tucker_tensor_train.change_structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_add.html">t3tools.tucker_tensor_train.t3_add</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_scale.html">t3tools.tucker_tensor_train.t3_scale</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_neg.html">t3tools.tucker_tensor_train.t3_neg</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_sub.html">t3tools.tucker_tensor_train.t3_sub</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_dot_t3.html">t3tools.tucker_tensor_train.t3_dot_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3_inner_product_t3.html">t3tools.tucker_tensor_train.t3_inner_product_t3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_norm.html">t3tools.tucker_tensor_train.t3_norm</a></li>
 </ul>
 </details></li>
@@ -497,7 +497,27 @@
 <dl class="py function">
 <dt class="sig sig-object py" id="t3tools.tucker_tensor_train.compute_minimal_ranks">
 <span class="sig-prename descclassname"><span class="pre">t3tools.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">compute_minimal_ranks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../jax/tucker_tensor_train/index.html#id1" title="t3tools.jax.tucker_tensor_train.T3Structure"><span class="pre">T3Structure</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3tools.tucker_tensor_train.compute_minimal_ranks" title="Link to this definition">#</a></dt>
-<dd><p>Find minimal ranks for a Tucker tensor train with a given structure.</p>
+<dd><p>Find minimal ranks for a generic Tucker tensor train with a given structure.</p>
+<dl class="simple">
+<dt>Minimal ranks satisfy:</dt><dd><ul class="simple">
+<li><p>Left TT core unfoldings are full rank: r(i+1) &lt;= (ri*ni)</p></li>
+<li><p>Right TT core unfoldings are full rank: ri &lt;= (ni*r(i+1))</p></li>
+<li><p>Outer TT core unfoldings are full rank: ni &lt;= (ri*r(i+1))</p></li>
+<li><p>Basis matrices have full row rank: ni &lt;= Ni</p></li>
+</ul>
+</dd>
+</dl>
+<p>In this function, minimal ranks are defined with respect to a
+generic Tucker tensor train of the given form based on its structure.
+We do not account for possible additional rank deficiency due to
+the numerical values within the cores.</p>
+<dl class="simple">
+<dt>Minimal ranks always exist and are unique.</dt><dd><ul class="simple">
+<li><p>Minimal TT ranks are equal to the ranks of (N*…*Ni) x (N(i+1)*…*N(d-1)) matrix unfoldings.</p></li>
+<li><p>Minimal basis ranks are equal to the ranks of Ni x (N1*…*N(i-1)*N(i+1)*…*N(d-1)) matricizations.</p></li>
+</ul>
+</dd>
+</dl>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">t3</span><span class="o">.</span><span class="n">compute_minimal_ranks</span><span class="p">(((</span><span class="mi">10</span><span class="p">,</span><span class="mi">11</span><span class="p">,</span><span class="mi">12</span><span class="p">,</span><span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">,</span><span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">98</span><span class="p">,</span><span class="mi">99</span><span class="p">,</span><span class="mi">100</span><span class="p">,</span><span class="mi">101</span><span class="p">,</span><span class="mi">102</span><span class="p">))))</span>

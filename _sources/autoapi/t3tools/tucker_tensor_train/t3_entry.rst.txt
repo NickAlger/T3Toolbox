@@ -3,12 +3,15 @@ t3tools.tucker_tensor_train.t3_entry
 
 .. py:function:: t3tools.tucker_tensor_train.t3_entry(x: TuckerTensorTrain, index: Union[Sequence[int], Sequence[Sequence[int]]], xnp=np) -> t3tools.common.NDArray
 
-   Compute an entry (or multiple entries) of a TuckerTensorTrain.
+   Compute an entry (or multiple entries) of a Tucker tensor train.
+
+       This is the entry of the N0 x ... x N(d-1) tensor *represented* by the
+       Tucker tensor train, even though this dense tensor is never formed.
 
        Parameters
        ----------
        x: TuckerTensorTrain
-           Tucker tensor train. shape=(N1,...,Nd)
+           Tucker tensor train. shape=(N0,...,N(d-1))
        index: typ.Union[typ.Sequence[int], typ.Sequence[typ.Sequence[int]]]
            Index of the desired entry (typ.Sequence[int]), or indices of desired entries (typ.Sequence[typ.Sequence[int]])
            len(index)=d. If many entries: elm_size=num_entries
@@ -19,7 +22,7 @@ t3tools.tucker_tensor_train.t3_entry
        -------
        scalar or NDArray
            Desired entry or entries.
-           scalar if one entry, NDArray with shape (num_entries,) if many entries (i.e., vectorized entry computation)
+           Scalar if one entry, or NDArray with shape (num_entries,) if many entries.
 
        Raises
        ------
@@ -31,10 +34,6 @@ t3tools.tucker_tensor_train.t3_entry
        TuckerTensorTrain
        t3_shape
        t3_apply
-
-       Notes
-       -----
-       Algorithm contracts core slices of the TuckerTensorTrains in a zippering fashion from left to right.
 
        Examples
        --------

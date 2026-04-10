@@ -385,12 +385,12 @@
 <li class="toctree-l3"><a class="reference internal" href="t3_entry.html">t3tools.tucker_tensor_train.t3_entry</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_minimal_ranks.html">t3tools.tucker_tensor_train.compute_minimal_ranks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="are_t3_ranks_minimal.html">t3tools.tucker_tensor_train.are_t3_ranks_minimal</a></li>
-<li class="toctree-l3"><a class="reference internal" href="pad_t3.html">t3tools.tucker_tensor_train.pad_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="change_structure.html">t3tools.tucker_tensor_train.change_structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_add.html">t3tools.tucker_tensor_train.t3_add</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_scale.html">t3tools.tucker_tensor_train.t3_scale</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_neg.html">t3tools.tucker_tensor_train.t3_neg</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_sub.html">t3tools.tucker_tensor_train.t3_sub</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_dot_t3.html">t3tools.tucker_tensor_train.t3_dot_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3_inner_product_t3.html">t3tools.tucker_tensor_train.t3_inner_product_t3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_norm.html">t3tools.tucker_tensor_train.t3_norm</a></li>
 </ul>
 </details></li>
@@ -501,14 +501,14 @@
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<a class="reference internal" href="../jax/tucker_tensor_train/index.html#id0" title="t3tools.jax.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – Tucker tensor train. shape=(N1,…,Nd)</p></li>
-<li><p><strong>vecs</strong> (<em>typ.Sequence</em><em>[</em><a class="reference internal" href="../common/index.html#t3tools.common.NDArray" title="t3tools.common.NDArray"><em>NDArray</em></a><em>]</em>) – Vectors to contract with indices of x. len=d, elm_shape=(Ni,) or (num_applies, Ni) if vectorized</p></li>
+<li><p><strong>x</strong> (<a class="reference internal" href="../jax/tucker_tensor_train/index.html#id0" title="t3tools.jax.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – Tucker tensor train. shape=(N0,…,N(d-1))</p></li>
+<li><p><strong>vecs</strong> (<em>typ.Sequence</em><em>[</em><a class="reference internal" href="../common/index.html#t3tools.common.NDArray" title="t3tools.common.NDArray"><em>NDArray</em></a><em>]</em>) – Vectors to contract with indices of x. len=d, elm_shape=(Ni,) or (num_applies, Ni) if vectorization is desired.</p></li>
 <li><p><strong>xnp</strong> – Linear algebra backend. Default: np (numpy)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Result of contracting x with the vectors in all indices.
-scalar if vecs elements are vectors, NDArray with shape (num_applies,) if vecs elements are matrices (i.e., vectorized applies)</p>
+scalar if vecs elements are vectors, NDArray with shape (num_applies,) if vecs elements are matrices.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="../common/index.html#t3tools.common.NDArray" title="t3tools.common.NDArray">NDArray</a> or scalar</p>
@@ -521,8 +521,6 @@ scalar if vecs elements are vectors, NDArray with shape (num_applies,) if vecs e
 <p class="admonition-title">See also</p>
 <p><a class="reference internal" href="index.html#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TuckerTensorTrain</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_shape</span></code>, <a class="reference internal" href="t3_entry.html#t3tools.tucker_tensor_train.t3_entry" title="t3tools.tucker_tensor_train.t3_entry"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_entry</span></code></a></p>
 </div>
-<p class="rubric">Notes</p>
-<p>Algorithm contracts vectors with cores of the TuckerTensorTrains in a zippering fashion from left to right.</p>
 <p class="rubric">Examples</p>
 <p>Apply to one set of vectors:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>

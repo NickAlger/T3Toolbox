@@ -270,7 +270,47 @@
   <section id="tuckertensortraintools">
 <h1>TuckerTensorTrainTools<a class="headerlink" href="#tuckertensortraintools" title="Link to this heading">#</a></h1>
 <p>A Python library for working with Tucker tensor trains (T3).
-Includes:</p>
+Tucker tensor trains are the composition of a <a class="reference external" href="https://en.wikipedia.org/wiki/Tucker_decomposition">Tucker decomposition</a>
+with a <a class="reference external" href="https://en.wikipedia.org/wiki/Matrix_product_state">tensor train</a> (also called matrix product states) representation of the central Tucker core.</p>
+<p>Tensor network diagram for a Tucker tensor train:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>    <span class="n">r0</span>        <span class="n">r1</span>        <span class="n">r2</span>       <span class="n">r</span><span class="p">(</span><span class="n">d</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>          <span class="n">rd</span>
+<span class="mi">1</span> <span class="o">------</span> <span class="n">G0</span> <span class="o">------</span> <span class="n">G1</span> <span class="o">------</span> <span class="o">...</span> <span class="o">------</span> <span class="n">G</span><span class="p">(</span><span class="n">d</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">------</span> <span class="mi">1</span>
+         <span class="o">|</span>         <span class="o">|</span>                    <span class="o">|</span>
+         <span class="o">|</span> <span class="n">n0</span>      <span class="o">|</span> <span class="n">n1</span>                 <span class="o">|</span> <span class="n">nd</span>
+         <span class="o">|</span>         <span class="o">|</span>                    <span class="o">|</span>
+         <span class="n">B0</span>        <span class="n">B1</span>                   <span class="n">Bd</span>
+         <span class="o">|</span>         <span class="o">|</span>                    <span class="o">|</span>
+         <span class="o">|</span> <span class="n">N0</span>      <span class="o">|</span> <span class="n">N1</span>                 <span class="o">|</span> <span class="n">Nd</span>
+         <span class="o">|</span>         <span class="o">|</span>                    <span class="o">|</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Gi and Bi are <em>cores</em>, which are smaller tensors that are being contracted with each other to form a larger tensor.</p></li>
+<li><p>Edges in the network indicate contraction of adjacent cores.</p></li>
+<li><p>Natural numbers Ni, ni, ri, written next to edges, indicate the size of the edge (its “bandwidth”, you might say).</p></li>
+</ul>
+<p>The components of a dth order Tucker tensor train are:</p>
+<ul class="simple">
+<li><p>Basis cores: (B0, B1, …, B(d-1)) with shapes (ni, Ni).</p></li>
+<li><p>TT cores: (G0, G1, …, G(d-1)) with shapes (ri, ni, r(i+1)).</p></li>
+</ul>
+<p>The structure of a Tucker tensor train is defined by:</p>
+<ul class="simple">
+<li><p>Tensor shape: (N0, N1, …, N(d-1))</p></li>
+<li><p>Tucker ranks: (n0, r1, …, n(d-1))</p></li>
+<li><p>TT ranks: (r0, r1, …, rd)</p></li>
+</ul>
+<p>Typically, the first and last TT-ranks satisfy r0=rd=1, and “1” in the diagram
+is the number 1. However, it is allowed for these ranks to not be 1, in which case
+the “1”s in the diagram are vectors of ones.</p>
+<p>When the ranks of a Tucker tensor train are moderate, they can break the curse of dimensionality.
+Whereas the memory required to store a dense tensor is O(N^d), the memory required to store a
+Tucker tensor train is O(dnr^2 + dnN).</p>
+<p>Unless specified otherwise, operations in this package are defined with respect
+to the dense N0 x … x N(d-1) tensors that are <em>represented</em> by the Tucker tensor train,
+even though these dense tensors are not formed during computations.</p>
+<section id="includes">
+<h2>Includes:<a class="headerlink" href="#includes" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p>Basic T3 operations (entries, addition, scaling, inner product)</p></li>
 <li><p>Orthogonalization</p></li>
@@ -283,22 +323,29 @@ Includes:</p>
 <li><p>Probing tangent vectors</p></li>
 <li><p>Transpose of the tangent vector to probes map</p></li>
 <li><p>Varied-rank and uniform-rank T3s</p></li>
-<li><p>Option to use either Numpy or <a class="reference external" href="https://docs.jax.dev/en/latest/index.html">Jax</a> for linear algebra operations</p></li>
+<li><p>Option to use either <a class="reference external" href="https://numpy.org/">Numpy</a> or <a class="reference external" href="https://docs.jax.dev/en/latest/index.html">Jax</a> for linear algebra operations</p></li>
 </ul>
-<p>Websites:</p>
+</section>
+<section id="websites">
+<h2>Websites:<a class="headerlink" href="#websites" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p>Github: <a class="reference external" href="https://github.com/NickAlger/TuckerTensorTrainTools">https://github.com/NickAlger/TuckerTensorTrainTools</a></p></li>
 <li><p>Documentation: <a class="reference external" href="https://nickalger.github.io/TuckerTensorTrainTools/">https://nickalger.github.io/TuckerTensorTrainTools/</a></p></li>
 </ul>
-<p>Authors:</p>
+</section>
+<section id="authors">
+<h2>Authors:<a class="headerlink" href="#authors" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p>Nick Alger (<a class="reference external" href="mailto:nalger225&#37;&#52;&#48;gmail&#46;com">nalger225<span>&#64;</span>gmail<span>&#46;</span>com</a>)</p></li>
 <li><p>Blake Christierson (<a class="reference external" href="mailto:bechristierson&#37;&#52;&#48;utexas&#46;edu">bechristierson<span>&#64;</span>utexas<span>&#46;</span>edu</a>)</p></li>
 </ul>
-<p>License:</p>
+</section>
+<section id="license">
+<h2>License:<a class="headerlink" href="#license" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><a class="reference external" href="https://mit-license.org/">MIT License</a></p></li>
 </ul>
+</section>
 </section>
 <section id="modules">
 <h1>Modules<a class="headerlink" href="#modules" title="Link to this heading">#</a></h1>
@@ -327,10 +374,10 @@ Includes:</p>
 </ul>
 <p>Jax versions of all modules are available under t3tools.jax:</p>
 <ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">t3tools.tucker_tensor_train</span>&#160;&#160; <span class="pre">-&gt;</span> <span class="pre">t3tools.jax.tucker_tensor_train</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">t3tools.base_variation_format</span> <span class="pre">-&gt;</span> <span class="pre">t3tools.jax.base_variation_format</span></code></p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">t3tools.orthogonalization</span>&#160;&#160;&#160;&#160; <span class="pre">-&gt;</span> <span class="pre">t3tools.jax.orthogonalization</span></code></p></li>
-<li><p>etc…</p></li>
+<li><p>t3tools.jax.tucker_tensor_train</p></li>
+<li><p>t3tools.jax.base_variation_format</p></li>
+<li><p>t3tools.jax.orthogonalization</p></li>
+<li><p>…</p></li>
 </ul>
 </section>
 <section id="indices-and-tables">
@@ -487,7 +534,7 @@ Includes:</p>
 </div>
 </li>
 <li><dl class="simple">
-<dt><em>AD Caveat</em>: We do not recommend automatically differentiating through functions that involve singular value decompositions (SVDs) because support for <a class="reference external" href="https://en.wikipedia.org/wiki/Eigenvalue_perturbation">singular value sensitivity</a> in jax is questionable. This includes:</dt><dd><ul class="simple">
+<dt>AD Caveat: We do not recommend automatically differentiating through functions that involve singular value decompositions (SVDs) because support for <a class="reference external" href="https://en.wikipedia.org/wiki/Eigenvalue_perturbation">singular value sensitivity</a> in jax is questionable. This includes:</dt><dd><ul class="simple">
 <li><p>T3-SVD,</p></li>
 <li><p>Orthogonalization (uses SVDs for stability and robustness),</p></li>
 <li><p>Retraction.</p></li>
@@ -499,40 +546,6 @@ Includes:</p>
 </section>
 <section id="t3-background">
 <h1>T3 Background<a class="headerlink" href="#t3-background" title="Link to this heading">#</a></h1>
-<section id="tucker-tensor-trains">
-<h2>Tucker tensor trains<a class="headerlink" href="#tucker-tensor-trains" title="Link to this heading">#</a></h2>
-<p>Tucker tensor trains consist of a Tucker decomposition composed with a tensor train decomposition of the central Tucker core. We may diagram a Tucker tensor train with 4 indices like this, using graphical tensor notation:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>    <span class="n">r0</span>        <span class="n">r1</span>        <span class="n">r2</span>        <span class="n">r2</span>        <span class="n">r4</span>
-<span class="mi">1</span> <span class="o">------</span> <span class="n">G0</span> <span class="o">------</span> <span class="n">G1</span> <span class="o">------</span> <span class="n">G2</span> <span class="o">------</span> <span class="n">G3</span> <span class="o">------</span> <span class="mi">1</span>
-         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>
-         <span class="o">|</span><span class="n">n0</span>       <span class="o">|</span><span class="n">n1</span>       <span class="o">|</span><span class="n">n2</span>       <span class="o">|</span><span class="n">n3</span>
-         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>
-         <span class="n">B0</span>        <span class="n">B1</span>        <span class="n">B2</span>        <span class="n">B3</span>
-         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>
-         <span class="o">|</span><span class="n">N0</span>       <span class="o">|</span><span class="n">N1</span>       <span class="o">|</span><span class="n">N2</span>       <span class="o">|</span><span class="n">N3</span>
-         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>
-</pre></div>
-</div>
-<ul class="simple">
-<li><p>Gi and Bi are <em>cores</em>, which are smaller tensors that are being contracted with each other to form a larger tensor.</p></li>
-<li><p>Edges in the network indicate contraction of adjacent cores.</p></li>
-<li><p>Natural numbers Ni, ni, ri, written next to edges, indicate the size of the edge (its “bandwidth”, you might say).</p></li>
-</ul>
-<dl class="simple">
-<dt>The Tucker tensor train with d indices is represented as a Tuple of cores, ((B0,…,Bd), (G0,…,Gd)).</dt><dd><ul class="simple">
-<li><p>Bi are the <em>basis cores</em>, which are matrices with shape (ni, Ni)</p></li>
-<li><p>Gi are the <em>TT-cores</em>, which are 3-tensors with shape (ri, ni, r(i+1))</p></li>
-<li><p>(N1,…,Nd) is the <em>shape</em> of the fully contracted tensor</p></li>
-<li><p>(n1,…,nd) are the <em>Tucker ranks</em></p></li>
-<li><p>(1,ri,…,r(d-1),1) are the <em>TT-ranks</em></p></li>
-<li><p>((N1,…,Nd), (n1,…,nd), (r0,r1,…,r(d-1),rd)) is the <em>structure</em>.</p></li>
-<li><p>1=(1,…,1) denotes the ones vector of the appropriate size</p></li>
-</ul>
-</dd>
-</dl>
-<p>Typically r0=rd=1, and the “1” on the left and right sides is just the number 1. However, this is not required.
-Having r0, r1 &gt; 1 is allowed, in which case the “1”s in the diagram are vectors of ones, (1,1,…,1).</p>
-</section>
 <section id="tucker-tensor-trains-represent-dense-tensors">
 <h2>Tucker tensor trains represent dense tensors<a class="headerlink" href="#tucker-tensor-trains-represent-dense-tensors" title="Link to this heading">#</a></h2>
 <p>Although the Tucker tensor train is defined by its cores, we always keep in mind that it <em>represents</em> a dense tensor in R^(N1 x … x Nd). Tensor train representations are not unique; this fact is exploited by many Tensor train algorithms.</p>
@@ -754,14 +767,19 @@ A Tucker tensor train may be converted to one with minimal ranks via T3-SVD.</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">TuckerTensorTrainTools</a></li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">TuckerTensorTrainTools</a><ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#includes">Includes:</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#websites">Websites:</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#authors">Authors:</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#license">License:</a></li>
+</ul>
+</li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#modules">Modules</a></li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#indices-and-tables">Indices and tables</a></li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a></li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#examples">Examples</a></li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#design-philosophy">Design philosophy</a></li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#t3-background">T3 Background</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tucker-tensor-trains">Tucker tensor trains</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tucker-tensor-trains-represent-dense-tensors">Tucker tensor trains represent dense tensors</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3-manifold">T3 Manifold</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#probing">Probing</a></li>

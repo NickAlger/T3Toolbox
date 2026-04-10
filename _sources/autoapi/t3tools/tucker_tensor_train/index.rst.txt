@@ -34,6 +34,12 @@ t3tools.tucker_tensor_train
    is the number 1. However, it is allowed for these ranks to not be 1, in which case
    the "1"s in the diagram are vectors of ones.
 
+   Operations here are defined with respect to the dense N0 x ... x N(d-1) tensors that
+   are *represented* by the Tucker tensor train, even though these dense tensors
+   are not formed during computations.
+
+   For corewise operations, see :mod:`t3tools.corewise`
+
 
 
 Attributes
@@ -64,12 +70,12 @@ Functions
    /autoapi/t3tools/tucker_tensor_train/t3_entry
    /autoapi/t3tools/tucker_tensor_train/compute_minimal_ranks
    /autoapi/t3tools/tucker_tensor_train/are_t3_ranks_minimal
-   /autoapi/t3tools/tucker_tensor_train/pad_t3
+   /autoapi/t3tools/tucker_tensor_train/change_structure
    /autoapi/t3tools/tucker_tensor_train/t3_add
    /autoapi/t3tools/tucker_tensor_train/t3_scale
    /autoapi/t3tools/tucker_tensor_train/t3_neg
    /autoapi/t3tools/tucker_tensor_train/t3_sub
-   /autoapi/t3tools/tucker_tensor_train/t3_dot_t3
+   /autoapi/t3tools/tucker_tensor_train/t3_inner_product_t3
    /autoapi/t3tools/tucker_tensor_train/t3_norm
 
 .. autoapisummary::
@@ -87,12 +93,12 @@ Functions
    t3tools.tucker_tensor_train.t3_entry
    t3tools.tucker_tensor_train.compute_minimal_ranks
    t3tools.tucker_tensor_train.are_t3_ranks_minimal
-   t3tools.tucker_tensor_train.pad_t3
+   t3tools.tucker_tensor_train.change_structure
    t3tools.tucker_tensor_train.t3_add
    t3tools.tucker_tensor_train.t3_scale
    t3tools.tucker_tensor_train.t3_neg
    t3tools.tucker_tensor_train.t3_sub
-   t3tools.tucker_tensor_train.t3_dot_t3
+   t3tools.tucker_tensor_train.t3_inner_product_t3
    t3tools.tucker_tensor_train.t3_norm
 
 
@@ -101,14 +107,14 @@ Module Contents
 
 .. py:data:: TuckerTensorTrain
 
-   Tuple containing Tucker Tensor Train basis cores and TT-cores.
+   Tuple containing Tucker tensor train basis cores and TT cores.
 
    Components:
 
    - **basis_cores** : *Sequence[NDArray]*
-       Basis matrices (B0, ..., B(d-1)) with shapes (ni, Ni) for i=1,...,d. len=d.
+       Basis matrices (B0, ..., B(d-1)), with shapes (ni, Ni) for i=1,...,d-1. len=d.
    - **tt_cores** : *Sequence[NDArray]*
-       Tensor train cores (G0, ..., G(d-1)) with shapes (ri, ni, r(i+1)) for i=1,...,d. len=d.
+       Tensor train 3-tensor cores (G0, ..., G(d-1)), with shapes (ri, ni, r(i+1)) for i=1,...,d-1. len=d.
 
    .. rubric:: Examples
 
@@ -121,15 +127,15 @@ Module Contents
 
 .. py:data:: T3Structure
 
-   Tuple containing the structure of a Tucker Tensor Train.
+   Tuple containing the structure of a Tucker tensor train.
 
    Components:
 
-   - **shape** : *Sequence[NDArray]*
+   - **shape** : *Sequence[int]*
        Shape of the represented tensor, (N0, ..., N(d-1)). len=d
-   - **tucker_ranks** : *Sequence[NDArray]*
+   - **tucker_ranks** : *Sequence[int]*
        Tucker ranks, (n0, ..., n(d-1)). len=d
-   - **tt_ranks** : *Sequence[NDArray]*
+   - **tt_ranks** : *Sequence[int]*
        TT-ranks, (1, r1, ..., r(d-1), 1). len=d+1.
 
    .. rubric:: Examples
@@ -139,7 +145,7 @@ Module Contents
    >>> basis_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
    >>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
    >>> x = (basis_cores, tt_cores)
-   >>> shape, tucker_ranks, tt_ranks = t3.structure(x)
+   >>> shape, tucker_ranks, tt_ranks = t3.get_structure(x)
    >>> print(shape)
    (14, 15, 16)
    >>> print(tucker_ranks)

@@ -3,7 +3,7 @@ t3tools.tucker_tensor_train.t3_save
 
 .. py:function:: t3tools.tucker_tensor_train.t3_save(file, x: TuckerTensorTrain) -> None
 
-   Save Tucker tensor train to a file.
+   Save a Tucker tensor train to a file.
 
    :param file: Either the filename (string) or an open file (file-like object)
                 where the data will be saved. If file is a string or a Path, the

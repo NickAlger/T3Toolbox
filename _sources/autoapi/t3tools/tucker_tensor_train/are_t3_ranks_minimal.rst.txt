@@ -3,7 +3,10 @@ t3tools.tucker_tensor_train.are_t3_ranks_minimal
 
 .. py:function:: t3tools.tucker_tensor_train.are_t3_ranks_minimal(x: TuckerTensorTrain) -> bool
 
-   Check if the ranks of a Tucker train are minimal.
+   Check if the ranks of a Tucker tensor train are minimal.
+
+       See Also:
+           compute_minimal_ranks
 
        Example
        -------

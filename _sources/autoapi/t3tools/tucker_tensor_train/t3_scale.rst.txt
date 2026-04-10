@@ -5,21 +5,23 @@ t3tools.tucker_tensor_train.t3_scale
 
    Multipy a Tucker tensor train by a scaling factor.
 
+   Scaling is defined with respect to the dense N0 x ... x N(d-1) tensor that
+   is *represented* by the Tucker tensor trains, even though this dense tensor
+   is not formed during computations.
+
+   For corewise scaling, see :func:`t3tools.corewise.corewise_scale`
+
    :param x: Tucker tensor train
    :type x: TuckerTensorTrain
    :param s: scaling factor
    :type s: scalar
 
-   :returns: **z** -- scaled TuckerTensorTrain z=s*x, with the same structure as x.
+   :returns: Scaled TuckerTensorTrain s*x, with the same structure as x.
    :rtype: TuckerTensorTrain
 
    :raises RuntimeError: - Error raised if the TuckerTensorTrains are internally inconsistent
 
-   .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`t3_add`, :py:obj:`t3_neg`, :py:obj:`t3_sub`
-
-   .. rubric:: Notes
-
-   Scales the last basis core of x, leaving all other cores unchanged
+   .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`t3_add`, :py:obj:`t3_neg`, :py:obj:`t3_sub`, :func:`~t3tools.corewise.corewise_scale`
 
    .. rubric:: Examples
 

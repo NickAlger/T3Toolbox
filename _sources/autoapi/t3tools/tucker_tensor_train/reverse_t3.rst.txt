@@ -5,10 +5,10 @@ t3tools.tucker_tensor_train.reverse_t3
 
    Reverse Tucker tensor train.
 
-   :param x: Tucker tensor train with shape=(N1, ..., Nd), tucker_ranks=(n1,...,nd), tt_ranks=(1,r1,...,r(d-1),1)
+   :param x: Tucker tensor train with shape=(N0, ..., N(d-1)), tucker_ranks=(n0,...,n(d-1)), tt_ranks=(1,r1,...,r(d-1),1).
    :type x: TuckerTensorTrain
 
-   :returns: **reversed_x** -- Tucker tensor train with index order reversed. shape=(Nd, ..., N1), tucker_ranks=(nd,...,n1), tt_ranks=(1,r(d-1),...,r1,1)
+   :returns: **reversed_x** -- Tucker tensor train with index order reversed. shape=(N(d-1), ..., N0), tucker_ranks=(n(d-1),...,n0), tt_ranks=(1,r(d-1),...,r1,1).
    :rtype: TuckerTensorTrain
 
    .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`get_structure`

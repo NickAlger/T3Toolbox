@@ -385,12 +385,12 @@
 <li class="toctree-l3"><a class="reference internal" href="t3_entry.html">t3tools.tucker_tensor_train.t3_entry</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_minimal_ranks.html">t3tools.tucker_tensor_train.compute_minimal_ranks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="are_t3_ranks_minimal.html">t3tools.tucker_tensor_train.are_t3_ranks_minimal</a></li>
-<li class="toctree-l3"><a class="reference internal" href="pad_t3.html">t3tools.tucker_tensor_train.pad_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="change_structure.html">t3tools.tucker_tensor_train.change_structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_add.html">t3tools.tucker_tensor_train.t3_add</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_scale.html">t3tools.tucker_tensor_train.t3_scale</a></li>
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">t3tools.tucker_tensor_train.t3_neg</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_sub.html">t3tools.tucker_tensor_train.t3_sub</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_dot_t3.html">t3tools.tucker_tensor_train.t3_dot_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3_inner_product_t3.html">t3tools.tucker_tensor_train.t3_inner_product_t3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_norm.html">t3tools.tucker_tensor_train.t3_norm</a></li>
 </ul>
 </details></li>
@@ -498,28 +498,30 @@
 <dt class="sig sig-object py" id="t3tools.tucker_tensor_train.t3_neg">
 <span class="sig-prename descclassname"><span class="pre">t3tools.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">t3_neg</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../jax/tucker_tensor_train/index.html#id0" title="t3tools.jax.tucker_tensor_train.TuckerTensorTrain"><span class="pre">TuckerTensorTrain</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../jax/tucker_tensor_train/index.html#id0" title="t3tools.jax.tucker_tensor_train.TuckerTensorTrain"><span class="pre">TuckerTensorTrain</span></a></span></span><a class="headerlink" href="#t3tools.tucker_tensor_train.t3_neg" title="Link to this definition">#</a></dt>
 <dd><p>Scale a Tucker tensor train by -1.</p>
+<p>Negation is defined with respect to the dense N0 x … x N(d-1) tensor that
+is <em>represented</em> by the Tucker tensor trains, even though this dense tensor
+is not formed during computations.</p>
+<p>For corewise negation, see <a class="reference internal" href="../corewise/corewise_neg.html#t3tools.corewise.corewise_neg" title="t3tools.corewise.corewise_neg"><code class="xref py py-func docutils literal notranslate"><span class="pre">t3tools.corewise.corewise_neg()</span></code></a></p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>x</strong> (<a class="reference internal" href="../jax/tucker_tensor_train/index.html#id0" title="t3tools.jax.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – Tucker tensor train</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><ul>
-<li><p><em>TuckerTensorTrain</em> – scaled TuckerTensorTrain -x, with the same structure as x.</p>
-<p>Raises</p>
-</li>
-<li><p><em>——</em></p></li>
-<li><p><em>RuntimeError</em> –</p>
-<ul class="simple">
+<dd class="field-even"><p>Negated TuckerTensorTrain -x, with the same structure as x.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../jax/tucker_tensor_train/index.html#id0" title="t3tools.jax.tucker_tensor_train.TuckerTensorTrain">TuckerTensorTrain</a></p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>RuntimeError</strong> – <ul class="simple">
 <li><p>Error raised if the TuckerTensorTrains is internally inconsistent</p></li>
-</ul>
-</li>
 </ul>
 </p>
 </dd>
 </dl>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
-<p><a class="reference internal" href="index.html#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TuckerTensorTrain</span></code></a>, <a class="reference internal" href="t3_add.html#t3tools.tucker_tensor_train.t3_add" title="t3tools.tucker_tensor_train.t3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_add</span></code></a>, <a class="reference internal" href="t3_scale.html#t3tools.tucker_tensor_train.t3_scale" title="t3tools.tucker_tensor_train.t3_scale"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_scale</span></code></a>, <a class="reference internal" href="t3_sub.html#t3tools.tucker_tensor_train.t3_sub" title="t3tools.tucker_tensor_train.t3_sub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_sub</span></code></a></p>
+<p><a class="reference internal" href="index.html#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TuckerTensorTrain</span></code></a>, <a class="reference internal" href="t3_add.html#t3tools.tucker_tensor_train.t3_add" title="t3tools.tucker_tensor_train.t3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_add</span></code></a>, <a class="reference internal" href="t3_scale.html#t3tools.tucker_tensor_train.t3_scale" title="t3tools.tucker_tensor_train.t3_scale"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_scale</span></code></a>, <a class="reference internal" href="t3_sub.html#t3tools.tucker_tensor_train.t3_sub" title="t3tools.tucker_tensor_train.t3_sub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_sub</span></code></a>, <a class="reference internal" href="../corewise/corewise_neg.html#t3tools.corewise.corewise_neg" title="t3tools.corewise.corewise_neg"><code class="xref py py-func docutils literal notranslate"><span class="pre">corewise_neg()</span></code></a></p>
 </div>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>

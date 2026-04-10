@@ -5,7 +5,7 @@ t3tools.tucker_tensor_train.get_structure
 
    Get the structure of a Tucker tensor train.
 
-   :param x: Tucker tensor train with shape (N1, ..., Nd), Tucker ranks (n1, ..., nd), and TT-ranks (1, r1, ..., r(d-1), 1)).
+   :param x: Tucker tensor train with shape (N0, ..., N(d-1)), Tucker ranks (n0, ..., n(d-1)), and TT-ranks (1, r1, ..., r(d-1), 1)).
    :type x: TuckerTensorTrain
 
    :returns: ((N1, ..., Nd), (n1, ..., nd), (1, r1, ... r(d-1), 1)), the structure of the Tucker tensor train.

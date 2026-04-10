@@ -3,16 +3,16 @@ t3tools.tucker_tensor_train.t3_to_dense
 
 .. py:function:: t3tools.tucker_tensor_train.t3_to_dense(x: TuckerTensorTrain, contract_ones: bool = True, xnp=np) -> t3tools.common.NDArray
 
-   Contract Tucker tensor train to dense tensor.
+   Contract a Tucker tensor train to a dense tensor.
 
-   :param x: Tucker tensor train with shape (N1, ..., Nd).
+   :param x: Tucker tensor train with shape (N0, ..., N(d-1)).
    :type x: TuckerTensorTrain
-   :param contract_ones: If true (default), contract with leading and training 1's, yielding shape=(N1,...,Nd).
-                         If false, do not contract with leading and trailing 1's, yielding shape=(r0,N1,...,Nd,rd).
+   :param contract_ones: If true (default), contract with leading and training 1's, yielding shape=(N0,...,N(d-1)).
+                         If false, do not contract with leading and trailing 1's, yielding shape=(r0,N0,...,N(d-1),rd).
    :type contract_ones: bool
-   :param xnp: Linear algebra backend. Default: np (numpy)
+   :param xnp: Linear algebra backend. Default: np (numpy).
 
-   :returns: Dense tensor represented by x, which has shape (N1, ..., Nd)
+   :returns: Dense tensor represented by x, which has shape (N0, ..., N(d-1)).
    :rtype: NDArray
 
    .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`t3_shape`

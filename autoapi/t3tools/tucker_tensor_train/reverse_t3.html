@@ -385,12 +385,12 @@
 <li class="toctree-l3"><a class="reference internal" href="t3_entry.html">t3tools.tucker_tensor_train.t3_entry</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_minimal_ranks.html">t3tools.tucker_tensor_train.compute_minimal_ranks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="are_t3_ranks_minimal.html">t3tools.tucker_tensor_train.are_t3_ranks_minimal</a></li>
-<li class="toctree-l3"><a class="reference internal" href="pad_t3.html">t3tools.tucker_tensor_train.pad_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="change_structure.html">t3tools.tucker_tensor_train.change_structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_add.html">t3tools.tucker_tensor_train.t3_add</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_scale.html">t3tools.tucker_tensor_train.t3_scale</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_neg.html">t3tools.tucker_tensor_train.t3_neg</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_sub.html">t3tools.tucker_tensor_train.t3_sub</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_dot_t3.html">t3tools.tucker_tensor_train.t3_dot_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3_inner_product_t3.html">t3tools.tucker_tensor_train.t3_inner_product_t3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_norm.html">t3tools.tucker_tensor_train.t3_norm</a></li>
 </ul>
 </details></li>
@@ -500,10 +500,10 @@
 <dd><p>Reverse Tucker tensor train.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>x</strong> (<a class="reference internal" href="../jax/tucker_tensor_train/index.html#id0" title="t3tools.jax.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – Tucker tensor train with shape=(N1, …, Nd), tucker_ranks=(n1,…,nd), tt_ranks=(1,r1,…,r(d-1),1)</p>
+<dd class="field-odd"><p><strong>x</strong> (<a class="reference internal" href="../jax/tucker_tensor_train/index.html#id0" title="t3tools.jax.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – Tucker tensor train with shape=(N0, …, N(d-1)), tucker_ranks=(n0,…,n(d-1)), tt_ranks=(1,r1,…,r(d-1),1).</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><strong>reversed_x</strong> – Tucker tensor train with index order reversed. shape=(Nd, …, N1), tucker_ranks=(nd,…,n1), tt_ranks=(1,r(d-1),…,r1,1)</p>
+<dd class="field-even"><p><strong>reversed_x</strong> – Tucker tensor train with index order reversed. shape=(N(d-1), …, N0), tucker_ranks=(n(d-1),…,n0), tt_ranks=(1,r(d-1),…,r1,1).</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference internal" href="../jax/tucker_tensor_train/index.html#id0" title="t3tools.jax.tucker_tensor_train.TuckerTensorTrain">TuckerTensorTrain</a></p>

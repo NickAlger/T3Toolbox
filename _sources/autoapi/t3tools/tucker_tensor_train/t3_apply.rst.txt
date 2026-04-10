@@ -5,23 +5,19 @@ t3tools.tucker_tensor_train.t3_apply
 
    Contract a Tucker tensor train with vectors in all indices.
 
-   :param x: Tucker tensor train. shape=(N1,...,Nd)
+   :param x: Tucker tensor train. shape=(N0,...,N(d-1))
    :type x: TuckerTensorTrain
-   :param vecs: Vectors to contract with indices of x. len=d, elm_shape=(Ni,) or (num_applies, Ni) if vectorized
+   :param vecs: Vectors to contract with indices of x. len=d, elm_shape=(Ni,) or (num_applies, Ni) if vectorization is desired.
    :type vecs: typ.Sequence[NDArray]
    :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: Result of contracting x with the vectors in all indices.
-             scalar if vecs elements are vectors, NDArray with shape (num_applies,) if vecs elements are matrices (i.e., vectorized applies)
+             scalar if vecs elements are vectors, NDArray with shape (num_applies,) if vecs elements are matrices.
    :rtype: NDArray or scalar
 
    :raises RuntimeError: Error raised if the provided vectors in vecs are inconsistent with each other or the Tucker tensor train x.
 
    .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`t3_shape`, :py:obj:`t3_entry`
-
-   .. rubric:: Notes
-
-   Algorithm contracts vectors with cores of the TuckerTensorTrains in a zippering fashion from left to right.
 
    .. rubric:: Examples
 

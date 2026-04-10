@@ -5,7 +5,13 @@ t3tools.tucker_tensor_train.t3_norm
 
    Compute Hilbert-Schmidt (Frobenius) norm of a Tucker tensor train.
 
-   :param x: First Tucker tensor train. shape=(N1,...,Nd)
+   The Hilbert-Schmidt norm is defined with respect to the dense N0 x ... x N(d-1) tensor
+   that is *represented* by the Tucker tensor trains, even though this dense tensor
+   is not formed during computations.
+
+   For corewise norm, see :func:`t3tools.corewise.corewise_norm`
+
+   :param x: First Tucker tensor train. shape=(N0,...,N(d-1))
    :type x: TuckerTensorTrain
    :param xnp: Linear algebra backend. Default: np (numpy)
 
@@ -14,7 +20,7 @@ t3tools.tucker_tensor_train.t3_norm
 
    :raises RuntimeError: - Error raised if the TuckerTensorTrain is internally inconsistent
 
-   .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`t3_shape`, :py:obj:`t3_dot_t3`
+   .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`t3_dot_t3`, :func:`t3tools.corewise.corewise_norm`
 
    .. rubric:: Examples
 

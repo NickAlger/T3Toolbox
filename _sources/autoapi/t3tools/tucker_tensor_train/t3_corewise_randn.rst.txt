@@ -3,16 +3,16 @@ t3tools.tucker_tensor_train.t3_corewise_randn
 
 .. py:function:: t3tools.tucker_tensor_train.t3_corewise_randn(s: T3Structure, randn: Callable[Ellipsis, t3tools.common.NDArray] = np.random.randn) -> TuckerTensorTrain
 
-   Construct Tucker tensor train with random cores.
+   Construct a Tucker tensor train with random cores.
 
    :param structure: Tucker tensor train structure
-                     (shape, tucker_ranks, tt_ranks)=((N1,...,Nd), (n1,...,nd), (1,r1,...,r(d-1),1))).
+                     (shape, tucker_ranks, tt_ranks)=((N0,...,N(d-1)), (n0,...,n(d-1)), (1,r1,...,r(d-1),1))).
    :type structure: T3Structure
    :param randn: Function for creating random arrays. Arguments are a sequence of ints defining the shape of the array.
                  Default: np.random.randn (numpy)
    :type randn: typ.Callable[[..., NDArray]
 
-   :returns: Dense tensor represented by x, which has shape (N1, ..., Nd)
+   :returns: Dense tensor represented by x, which has shape (N0, ..., N(d-1))
    :rtype: NDArray
 
    .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`T3Structure`

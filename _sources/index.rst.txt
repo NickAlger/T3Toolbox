@@ -7,7 +7,50 @@ TuckerTensorTrainTools
 ======================
 
 A Python library for working with Tucker tensor trains (T3). 
+Tucker tensor trains are the composition of a `Tucker decomposition <https://en.wikipedia.org/wiki/Tucker_decomposition>`_ 
+with a `tensor train <https://en.wikipedia.org/wiki/Matrix_product_state>`_ (also called matrix product states) representation of the central Tucker core. 
+
+Tensor network diagram for a Tucker tensor train::
+
+        r0        r1        r2       r(d-1)          rd
+    1 ------ G0 ------ G1 ------ ... ------ G(d-1) ------ 1
+             |         |                    |
+             | n0      | n1                 | nd
+             |         |                    |
+             B0        B1                   Bd
+             |         |                    |
+             | N0      | N1                 | Nd
+             |         |                    |
+
+- Gi and Bi are *cores*, which are smaller tensors that are being contracted with each other to form a larger tensor.
+- Edges in the network indicate contraction of adjacent cores.
+- Natural numbers Ni, ni, ri, written next to edges, indicate the size of the edge (its "bandwidth", you might say).
+
+The components of a dth order Tucker tensor train are:
+
+- Basis cores: (B0, B1, ..., B(d-1)) with shapes (ni, Ni).
+- TT cores: (G0, G1, ..., G(d-1)) with shapes (ri, ni, r(i+1)).
+
+The structure of a Tucker tensor train is defined by:
+
+- Tensor shape: (N0, N1, ..., N(d-1))
+- Tucker ranks: (n0, r1, ..., n(d-1))
+- TT ranks: (r0, r1, ..., rd)
+
+Typically, the first and last TT-ranks satisfy r0=rd=1, and "1" in the diagram
+is the number 1. However, it is allowed for these ranks to not be 1, in which case
+the "1"s in the diagram are vectors of ones.
+
+When the ranks of a Tucker tensor train are moderate, they can break the curse of dimensionality.
+Whereas the memory required to store a dense tensor is O(N^d), the memory required to store a 
+Tucker tensor train is O(dnr^2 + dnN).
+
+Unless specified otherwise, operations in this package are defined with respect 
+to the dense N0 x ... x N(d-1) tensors that are *represented* by the Tucker tensor train, 
+even though these dense tensors are not formed during computations.
+
 Includes:
+---------
 
 - Basic T3 operations (entries, addition, scaling, inner product)
 - Orthogonalization
@@ -20,23 +63,27 @@ Includes:
 - Probing tangent vectors
 - Transpose of the tangent vector to probes map
 - Varied-rank and uniform-rank T3s
-- Option to use either Numpy or `Jax <https://docs.jax.dev/en/latest/index.html>`_ for linear algebra operations
+- Option to use either `Numpy <https://numpy.org/>`_ or `Jax <https://docs.jax.dev/en/latest/index.html>`_ for linear algebra operations
 
 
 Websites:
+---------
 
 * Github: https://github.com/NickAlger/TuckerTensorTrainTools
 * Documentation: https://nickalger.github.io/TuckerTensorTrainTools/
 
 
 Authors:
+--------
 
 * Nick Alger (nalger225@gmail.com)
 * Blake Christierson (bechristierson@utexas.edu)
 
 License:
+--------
 
 * `MIT License <https://mit-license.org/>`_
+
 
 Modules
 =======
@@ -67,10 +114,10 @@ Utilities:
 
 Jax versions of all modules are available under t3tools.jax:
 
-- ``t3tools.tucker_tensor_train   -> t3tools.jax.tucker_tensor_train``
-- ``t3tools.base_variation_format -> t3tools.jax.base_variation_format``
-- ``t3tools.orthogonalization     -> t3tools.jax.orthogonalization``
-- etc...
+- t3tools.jax.tucker_tensor_train
+- t3tools.jax.base_variation_format
+- t3tools.jax.orthogonalization
+- ...
 
 
 Indices and tables
@@ -222,7 +269,7 @@ This package is written in a `functional programming <https://en.wikipedia.org/w
 	>>> print(df_diff)
 	-7.418812309825662
 
-- *AD Caveat*: We do not recommend automatically differentiating through functions that involve singular value decompositions (SVDs) because support for `singular value sensitivity <https://en.wikipedia.org/wiki/Eigenvalue_perturbation>`_ in jax is questionable. This includes:
+- AD Caveat: We do not recommend automatically differentiating through functions that involve singular value decompositions (SVDs) because support for `singular value sensitivity <https://en.wikipedia.org/wiki/Eigenvalue_perturbation>`_ in jax is questionable. This includes:
 	- T3-SVD,
 	- Orthogonalization (uses SVDs for stability and robustness), 
 	- Retraction.
@@ -230,38 +277,6 @@ This package is written in a `functional programming <https://en.wikipedia.org/w
 
 T3 Background
 ==========
-
-Tucker tensor trains
---------------------
-
-Tucker tensor trains consist of a Tucker decomposition composed with a tensor train decomposition of the central Tucker core. We may diagram a Tucker tensor train with 4 indices like this, using graphical tensor notation::
-
-        r0        r1        r2        r2        r4
-    1 ------ G0 ------ G1 ------ G2 ------ G3 ------ 1
-             |         |         |         |
-             |n0       |n1       |n2       |n3
-             |         |         |         |
-             B0        B1        B2        B3
-             |         |         |         |
-             |N0       |N1       |N2       |N3
-             |         |         |         |
-
-- Gi and Bi are *cores*, which are smaller tensors that are being contracted with each other to form a larger tensor.
-- Edges in the network indicate contraction of adjacent cores.
-- Natural numbers Ni, ni, ri, written next to edges, indicate the size of the edge (its "bandwidth", you might say).
-
-The Tucker tensor train with d indices is represented as a Tuple of cores, ((B0,...,Bd), (G0,...,Gd)).
-	- Bi are the *basis cores*, which are matrices with shape (ni, Ni)
-	- Gi are the *TT-cores*, which are 3-tensors with shape (ri, ni, r(i+1))
-	- (N1,...,Nd) is the *shape* of the fully contracted tensor
-	- (n1,...,nd) are the *Tucker ranks*
-	- (1,ri,...,r(d-1),1) are the *TT-ranks*
-	- ((N1,...,Nd), (n1,...,nd), (r0,r1,...,r(d-1),rd)) is the *structure*.
-	- 1=(1,...,1) denotes the ones vector of the appropriate size
-
-Typically r0=rd=1, and the "1" on the left and right sides is just the number 1. However, this is not required.
-Having r0, r1 > 1 is allowed, in which case the "1"s in the diagram are vectors of ones, (1,1,...,1).
-
 
 
 Tucker tensor trains represent dense tensors
