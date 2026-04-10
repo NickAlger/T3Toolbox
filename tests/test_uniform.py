@@ -17,7 +17,7 @@ tol = 1e-9
 norm = np.linalg.norm
 randn = np.random.randn
 
-class TestUniformTuckerTensorTrain(unittest.TestCase):
+class TestUniform(unittest.TestCase):
     def test_padded_and_original_structure(self):
         s = ((14,15,16), (4,6,5), (2,3,2,1))
         x = t3.t3_corewise_randn(s)

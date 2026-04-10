@@ -4,10 +4,15 @@
 import numpy as np
 import unittest
 
-import t3tools.linalg
 import t3tools.orthogonalization as orth
 import t3tools.tucker_tensor_train as t3
 
+try:
+    import t3tools.jax.orthogonalization as orth_jax
+    import jax
+    jax.config.update("jax_enable_x64", True)
+except ImportError:
+    orth_jax = orth
 
 np.random.seed(0)
 tol = 1e-9
@@ -15,301 +20,303 @@ norm = np.linalg.norm
 randn = np.random.randn
 
 class Orthogonalization(unittest.TestCase):
+    def check_relerr(self, xtrue, x):
+        self.assertLessEqual(norm(xtrue - x), tol * norm(xtrue))
+
     def test_up_svd_ith_basis_core(self):
-        shape = (14, 15, 16)
-        tucker_ranks = (4, 5, 6)
-        tt_ranks = (4, 3, 2, 6)
-        x = t3.t3_corewise_randn((shape, tucker_ranks, tt_ranks))
-        dense_x = t3.t3_to_dense(x)
-        for ind in range(len(shape)):
-            x2, ss = orth.up_svd_ith_basis_core(ind, x)
-            dense_x2 = t3.t3_to_dense(x2)
-            self.assertLessEqual(norm(dense_x - dense_x2), tol * norm(dense_x))
+        structures = [
+            ((14, 15, 16), (4, 5, 6), (4, 3, 2, 6)),
+        ]
 
-            basis_cores2, tt_cores2 = x2
-            B = basis_cores2[ind]
-            G = tt_cores2[ind]
-            rank = len(ss)
-            self.assertEqual(B.shape[0], rank)
-            self.assertEqual(G.shape[1], rank)
+        for STRUCTURE in structures:
+            for ORTH in [orth, orth_jax]:
+                with self.subTest(ORTH=ORTH, STRUCTURE=STRUCTURE):
+                    x = t3.t3_corewise_randn(STRUCTURE)
+                    dense_x = t3.t3_to_dense(x)
+                    for ind in range(len(STRUCTURE[0])):
 
-            I = np.eye(rank)
-            self.assertLessEqual(norm(B @ B.T - I), tol * norm(I))
+                        x2, ss = ORTH.up_svd_ith_basis_core(ind, x)
+
+                        dense_x2 = t3.t3_to_dense(x2)
+                        self.check_relerr(dense_x, dense_x2)
+
+                        basis_cores2, tt_cores2 = x2
+                        B = basis_cores2[ind]
+                        G = tt_cores2[ind]
+                        rank = len(ss)
+                        self.assertEqual(B.shape[0], rank)
+                        self.assertEqual(G.shape[1], rank)
+
+                        I = np.eye(rank)
+                        self.check_relerr(I, B @ B.T)
 
     def test_left_svd_ith_tt_core(self):
-        shape = (14, 15, 16)
-        tucker_ranks = (4, 5, 6)
-        tt_ranks = (4, 3, 2, 6)
-        x = t3.t3_corewise_randn((shape, tucker_ranks, tt_ranks))
-        dense_x = t3.t3_to_dense(x)
-        for ind in range(len(shape)-1):
-            x2, ss = orth.left_svd_ith_tt_core(ind, x)
-            dense_x2 = t3.t3_to_dense(x2)
-            self.assertLessEqual(norm(dense_x - dense_x2), tol * norm(dense_x))
+        structures = [
+            ((14, 15, 16), (4, 5, 6), (4, 3, 2, 6)),
+        ]
 
-            basis_cores2, tt_cores2 = x2
-            G = tt_cores2[ind]
-            G_next = tt_cores2[ind+1]
-            rank = len(ss)
-            self.assertEqual(G.shape[2], rank)
-            self.assertEqual(G_next.shape[0], rank)
+        for STRUCTURE in structures:
+            for ORTH in [orth, orth_jax]:
+                with self.subTest(ORTH=ORTH, STRUCTURE=STRUCTURE):
+                    x = t3.t3_corewise_randn(STRUCTURE)
+                    dense_x = t3.t3_to_dense(x)
+                    for ind in range(len(STRUCTURE[0])-1):
 
-            I = np.eye(rank)
-            self.assertLessEqual(
-                norm(np.einsum('iaj,iak->jk', G, G) - I),
-                tol * norm(I)
-            )
+                        x2, ss = ORTH.left_svd_ith_tt_core(ind, x)
+
+                        dense_x2 = t3.t3_to_dense(x2)
+                        self.check_relerr(dense_x, dense_x2)
+
+                        basis_cores2, tt_cores2 = x2
+                        G = tt_cores2[ind]
+                        G_next = tt_cores2[ind+1]
+                        rank = len(ss)
+                        self.assertEqual(G.shape[2], rank)
+                        self.assertEqual(G_next.shape[0], rank)
+
+                        I = np.eye(rank)
+                        self.check_relerr(I, np.einsum('iaj,iak->jk', G, G))
 
     def test_right_svd_ith_tt_core(self):
-        shape = (14, 15, 16)
-        tucker_ranks = (4, 5, 6)
-        tt_ranks = (4, 3, 2, 6)
-        x = t3.t3_corewise_randn((shape, tucker_ranks, tt_ranks))
-        dense_x = t3.t3_to_dense(x)
-        for ind in range(len(shape)-1,0,-1):
-            x2, ss = orth.right_svd_ith_tt_core(ind, x)
-            dense_x2 = t3.t3_to_dense(x2)
-            self.assertLessEqual(norm(dense_x - dense_x2), tol * norm(dense_x))
+        structures = [
+            ((14, 15, 16), (4, 5, 6), (4, 3, 2, 6)),
+        ]
 
-            basis_cores2, tt_cores2 = x2
-            G_prev = tt_cores2[ind-1]
-            G = tt_cores2[ind]
-            rank = len(ss)
-            self.assertEqual(G.shape[0], rank)
-            self.assertEqual(G_prev.shape[2], rank)
+        for STRUCTURE in structures:
+            for ORTH in [orth, orth_jax]:
+                with self.subTest(ORTH=ORTH, STRUCTURE=STRUCTURE):
+                    x = t3.t3_corewise_randn(STRUCTURE)
+                    dense_x = t3.t3_to_dense(x)
+                    for ind in range(len(STRUCTURE)-1,0,-1):
 
-            I = np.eye(rank)
-            self.assertLessEqual(
-                norm(np.einsum('iaj,kaj->ik', G, G) - I),
-                tol * norm(I)
-            )
+                        x2, ss = ORTH.right_svd_ith_tt_core(ind, x)
+
+                        dense_x2 = t3.t3_to_dense(x2)
+                        self.check_relerr(dense_x, dense_x2)
+
+                        basis_cores2, tt_cores2 = x2
+                        G_prev = tt_cores2[ind-1]
+                        G = tt_cores2[ind]
+                        rank = len(ss)
+                        self.assertEqual(G.shape[0], rank)
+                        self.assertEqual(G_prev.shape[2], rank)
+
+                        I = np.eye(rank)
+                        self.check_relerr(I, np.einsum('iaj,kaj->ik', G, G))
 
     def test_up_svd_ith_tt_core(self):
-        shape = (14, 15, 16)
-        tucker_ranks = (4, 5, 6)
-        tt_ranks = (4, 3, 2, 6)
-        x = t3.t3_corewise_randn((shape, tucker_ranks, tt_ranks))
-        dense_x = t3.t3_to_dense(x)
-        for ind in range(len(shape) - 1, 0, -1):
-            x2, ss = orth.up_svd_ith_tt_core(ind, x)
-            dense_x2 = t3.t3_to_dense(x2)
-            self.assertLessEqual(norm(dense_x - dense_x2), tol * norm(dense_x))
+        structures = [
+            ((14, 15, 16), (4, 5, 6), (4, 3, 2, 6)),
+        ]
 
-            basis_cores2, tt_cores2 = x2
-            B = basis_cores2[ind]
-            G = tt_cores2[ind]
-            rank = len(ss)
-            self.assertEqual(G.shape[1], rank)
-            self.assertEqual(B.shape[0], rank)
+        for STRUCTURE in structures:
+            for ORTH in [orth, orth_jax]:
+                with self.subTest(ORTH=ORTH, STRUCTURE=STRUCTURE):
+                    x = t3.t3_corewise_randn(STRUCTURE)
+                    dense_x = t3.t3_to_dense(x)
+                    for ind in range(len(STRUCTURE[0])):
 
-            # No orthogonality on this one
+                        x2, ss = ORTH.up_svd_ith_tt_core(ind, x)
+
+                        dense_x2 = t3.t3_to_dense(x2)
+                        self.check_relerr(dense_x, dense_x2)
+
+                        basis_cores2, tt_cores2 = x2
+                        B = basis_cores2[ind]
+                        G = tt_cores2[ind]
+                        rank = len(ss)
+                        self.assertEqual(G.shape[1], rank)
+                        self.assertEqual(B.shape[0], rank)
+
+                        # No orthogonality on this one
 
     def test_down_svd_ith_tt_core(self):
-        shape = (14, 15, 16)
-        tucker_ranks = (4, 5, 6)
-        tt_ranks = (4, 3, 2, 6)
-        x = t3.t3_corewise_randn((shape, tucker_ranks, tt_ranks))
-        dense_x = t3.t3_to_dense(x)
-        for ind in range(len(shape) - 1, 0, -1):
-            x2, ss = orth.down_svd_ith_tt_core(ind, x)
-            dense_x2 = t3.t3_to_dense(x2)
-            self.assertLessEqual(norm(dense_x - dense_x2), tol * norm(dense_x))
+        structures = [
+            ((14, 15, 16), (4, 5, 6), (4, 3, 2, 6)),
+        ]
 
-            basis_cores2, tt_cores2 = x2
-            B = basis_cores2[ind]
-            G = tt_cores2[ind]
-            rank = len(ss)
-            self.assertEqual(G.shape[1], rank)
-            self.assertEqual(B.shape[0], rank)
+        for STRUCTURE in structures:
+            for ORTH in [orth, orth_jax]:
+                with self.subTest(ORTH=ORTH, STRUCTURE=STRUCTURE):
+                    x = t3.t3_corewise_randn(STRUCTURE)
+                    dense_x = t3.t3_to_dense(x)
+                    for ind in range(len(STRUCTURE[0])):
 
-            I = np.eye(rank)
-            self.assertLessEqual(
-                norm(np.einsum('iaj,ibj->ab', G, G) - I),
-                tol * norm(I)
-            )
+                        x2, ss = ORTH.down_svd_ith_tt_core(ind, x)
+
+                        dense_x2 = t3.t3_to_dense(x2)
+                        self.check_relerr(dense_x, dense_x2)
+
+                        basis_cores2, tt_cores2 = x2
+                        B = basis_cores2[ind]
+                        G = tt_cores2[ind]
+                        rank = len(ss)
+                        self.assertEqual(G.shape[1], rank)
+                        self.assertEqual(B.shape[0], rank)
+
+                        I = np.eye(rank)
+                        self.check_relerr(I, np.einsum('iaj,ibj->ab', G, G))
 
     def test_orthogonalize_relative_to_ith_basis_core(self):
-        shape = (14, 15, 16)
-        tucker_ranks = (4, 5, 6)
-        tt_ranks = (4, 3, 2, 6)
-        x = t3.t3_corewise_randn((shape, tucker_ranks, tt_ranks))
-        dense_x = t3.t3_to_dense(x)
+        structures = [
+            ((14, 15, 16), (4, 5, 6), (4, 3, 2, 6)),
+        ]
 
-        # ind=0
-        x2 = orth.orthogonalize_relative_to_ith_basis_core(0, x)
-        dense_x2 = t3.t3_to_dense(x2)
-        self.assertLessEqual(norm(dense_x - dense_x2), tol * norm(dense_x))
+        for STRUCTURE in structures:
+            for ORTH in [orth, orth_jax]:
+                with self.subTest(ORTH=ORTH, STRUCTURE=STRUCTURE):
+                    x = t3.t3_corewise_randn(STRUCTURE)
+                    dense_x = t3.t3_to_dense(x)
 
-        ((B0, B1, B2), (G0, G1, G2)) = x2
-        X = np.einsum('yj,zk,axb,byc,czd->axjkd', B1, B2, G0, G1, G2)
-        I = np.eye(B0.shape[0])
-        self.assertLessEqual(
-            norm(np.einsum('axjkd,ayjkd->xy', X, X) - I),
-            norm(tol * I)
-        )
+                    # ind=0
+                    x2 = ORTH.orthogonalize_relative_to_ith_basis_core(0, x)
 
-        # ind=1
-        x2 = orth.orthogonalize_relative_to_ith_basis_core(1, x)
-        dense_x2 = t3.t3_to_dense(x2)
-        self.assertLessEqual(norm(dense_x - dense_x2), tol * norm(dense_x))
+                    dense_x2 = t3.t3_to_dense(x2)
+                    self.check_relerr(dense_x, dense_x2)
 
-        ((B0, B1, B2), (G0, G1, G2)) = x2
-        X = np.einsum('xi,zk,axb,byc,czd->aiykd', B0, B2, G0, G1, G2)
-        I = np.eye(B1.shape[0])
-        self.assertLessEqual(
-            norm(np.einsum('aiykd,aiwkd->yw', X, X) - I),
-            norm(tol * I)
-        )
+                    ((B0, B1, B2), (G0, G1, G2)) = x2
+                    X = np.einsum('yj,zk,axb,byc,czd->axjkd', B1, B2, G0, G1, G2)
+                    I = np.eye(B0.shape[0])
+                    self.check_relerr(I, np.einsum('axjkd,ayjkd->xy', X, X))
 
-        # ind=2
-        x2 = orth.orthogonalize_relative_to_ith_basis_core(2, x)
-        dense_x2 = t3.t3_to_dense(x2)
-        self.assertLessEqual(norm(dense_x - dense_x2), tol * norm(dense_x))
+                    # ind=1
+                    x2 = ORTH.orthogonalize_relative_to_ith_basis_core(1, x)
 
-        ((B0, B1, B2), (G0, G1, G2)) = x2
-        X = np.einsum('xi,yj,axb,byc,czd->aijzd', B0, B1, G0, G1, G2)
-        I = np.eye(B2.shape[0])
-        self.assertLessEqual(
-            norm(np.einsum('aijzd,aijwd->zw', X, X) - I),
-            norm(tol * I)
-        )
+                    dense_x2 = t3.t3_to_dense(x2)
+                    self.check_relerr(dense_x, dense_x2)
+
+                    ((B0, B1, B2), (G0, G1, G2)) = x2
+                    X = np.einsum('xi,zk,axb,byc,czd->aiykd', B0, B2, G0, G1, G2)
+                    I = np.eye(B1.shape[0])
+                    self.check_relerr(I, np.einsum('aiykd,aiwkd->yw', X, X))
+
+                    # ind=2
+                    x2 = ORTH.orthogonalize_relative_to_ith_basis_core(2, x)
+
+                    dense_x2 = t3.t3_to_dense(x2)
+                    self.check_relerr(dense_x, dense_x2)
+
+                    ((B0, B1, B2), (G0, G1, G2)) = x2
+                    X = np.einsum('xi,yj,axb,byc,czd->aijzd', B0, B1, G0, G1, G2)
+                    I = np.eye(B2.shape[0])
+                    self.check_relerr(I,np.einsum('aijzd,aijwd->zw', X, X))
+
 
     def test_orthogonalize_relative_to_ith_tt_core(self):
-        shape = (14, 15, 16)
-        tucker_ranks = (4, 5, 6)
-        tt_ranks = (4, 3, 2, 6)
-        x = t3.t3_corewise_randn((shape, tucker_ranks, tt_ranks))
-        dense_x = t3.t3_to_dense(x)
+        structures = [
+            ((14, 15, 16), (4, 5, 6), (4, 3, 2, 6)),
+        ]
 
-        # ind=0
-        x2 = orth.orthogonalize_relative_to_ith_tt_core(0, x)
-        dense_x2 = t3.t3_to_dense(x2)
-        self.assertLessEqual(norm(dense_x - dense_x2), tol * norm(dense_x))
+        for STRUCTURE in structures:
+            for ORTH in [orth, orth_jax]:
+                with self.subTest(ORTH=ORTH, STRUCTURE=STRUCTURE):
+                    x = t3.t3_corewise_randn(STRUCTURE)
+                    dense_x = t3.t3_to_dense(x)
 
-        ((B0, B1, B2), (G0, G1, G2)) = x2
-        X = np.einsum('yj,zk,byc,czd->bjkd', B1, B2, G1, G2)
-        I = np.eye(G0.shape[2])
-        self.assertLessEqual(
-            norm(np.einsum('bjkd,cjkd->bc', X, X) - I),
-            norm(tol * I)
-        )
+                    # ind=0
+                    x2 = ORTH.orthogonalize_relative_to_ith_tt_core(0, x)
 
-        I = np.eye(G0.shape[1])
-        self.assertLessEqual(
-            norm(np.einsum('ai,bi->ab', B0, B0) - I),
-            norm(tol * I)
-        )
+                    dense_x2 = t3.t3_to_dense(x2)
+                    self.check_relerr(dense_x, dense_x2)
 
-        # ind=1
-        x2 = orth.orthogonalize_relative_to_ith_tt_core(1, x)
-        dense_x2 = t3.t3_to_dense(x2)
-        self.assertLessEqual(norm(dense_x - dense_x2), tol * norm(dense_x))
+                    ((B0, B1, B2), (G0, G1, G2)) = x2
+                    X = np.einsum('yj,zk,byc,czd->bjkd', B1, B2, G1, G2)
+                    I = np.eye(G0.shape[2])
+                    self.check_relerr(I, np.einsum('bjkd,cjkd->bc', X, X))
 
-        ((B0, B1, B2), (G0, G1, G2)) = x2
-        X = np.einsum('xi,axb->aib', B0, G0)
-        I = np.eye(G1.shape[0])
-        self.assertLessEqual(
-            norm(np.einsum('aib,aic->bc', X, X) - I),
-            norm(tol * I)
-        )
+                    I = np.eye(G0.shape[1])
+                    self.check_relerr(I, np.einsum('ai,bi->ab', B0, B0))
 
-        I = np.eye(G1.shape[1])
-        self.assertLessEqual(
-            norm(np.einsum('ai,bi->ab', B1, B1) - I),
-            norm(tol * I)
-        )
+                    # ind=1
+                    x2 = ORTH.orthogonalize_relative_to_ith_tt_core(1, x)
 
-        X = np.einsum('zk,czd->ckd', B2, G2)
-        I = np.eye(G1.shape[2])
-        self.assertLessEqual(
-            norm(np.einsum('ckd,bkd->cb', X, X) - I),
-            norm(tol * I)
-        )
+                    dense_x2 = t3.t3_to_dense(x2)
+                    self.check_relerr(dense_x, dense_x2)
 
-        # ind=2
-        x2 = orth.orthogonalize_relative_to_ith_tt_core(2, x)
-        dense_x2 = t3.t3_to_dense(x2)
-        self.assertLessEqual(norm(dense_x - dense_x2), tol * norm(dense_x))
+                    ((B0, B1, B2), (G0, G1, G2)) = x2
+                    X = np.einsum('xi,axb->aib', B0, G0)
+                    I = np.eye(G1.shape[0])
+                    self.check_relerr(I, np.einsum('aib,aic->bc', X, X))
 
-        ((B0, B1, B2), (G0, G1, G2)) = x2
-        X = np.einsum('xi,yj,axb,byc->aijc', B0, B1, G0, G1)
-        I = np.eye(G2.shape[0])
-        self.assertLessEqual(
-            norm(np.einsum('aijc,aijd->cd', X, X) - I),
-            norm(tol * I)
-        )
+                    I = np.eye(G1.shape[1])
+                    self.check_relerr(I, np.einsum('ai,bi->ab', B1, B1))
 
-        I = np.eye(G2.shape[1])
-        self.assertLessEqual(
-            norm(np.einsum('ai,bi->ab', B2, B2) - I),
-            norm(tol * I)
-        )
+                    X = np.einsum('zk,czd->ckd', B2, G2)
+                    I = np.eye(G1.shape[2])
+                    self.check_relerr(I, np.einsum('ckd,bkd->cb', X, X))
+
+                    # ind=2
+                    x2 = ORTH.orthogonalize_relative_to_ith_tt_core(2, x)
+
+                    dense_x2 = t3.t3_to_dense(x2)
+                    self.check_relerr(dense_x, dense_x2)
+
+                    ((B0, B1, B2), (G0, G1, G2)) = x2
+                    X = np.einsum('xi,yj,axb,byc->aijc', B0, B1, G0, G1)
+                    I = np.eye(G2.shape[0])
+                    self.check_relerr(I, np.einsum('aijc,aijd->cd', X, X))
+
+                    I = np.eye(G2.shape[1])
+                    self.check_relerr(I, np.einsum('ai,bi->ab', B2, B2))
 
     def test_orthogonal_representations(self):
-        x = t3.t3_corewise_randn(((14, 15, 16), (4, 5, 6), (1, 3, 2, 1)))
-        base, variation = orth.orthogonal_representations(x)  # Compute orthogonal representations
-        basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
-        basis_vars, tt_vars = variation
-        (U0, U1, U2) = basis_cores
-        (L0, L1, L2) = left_tt_cores
-        (R0, R1, R2) = right_tt_cores
-        (O0, O1, O2) = outer_tt_cores
-        (V0, V1, V2) = basis_vars
-        (H0, H1, H2) = tt_vars
+        structures = [
+            ((14, 15, 16), (4, 5, 6), (1, 3, 2, 1)),
+        ]
 
-        # TT replacement
+        for STRUCTURE in structures:
+            for ORTH in [orth, orth_jax]:
+                with self.subTest(ORTH=ORTH, STRUCTURE=STRUCTURE):
+                    x = t3.t3_corewise_randn(STRUCTURE)
 
-        x2 = ((U0, U1, U2), (H0, R1, R2))
-        self.assertLessEqual(norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2)), tol * norm(t3.t3_to_dense(x)))
+                    base, variation = ORTH.orthogonal_representations(x)  # Compute orthogonal representations
 
-        x2 = ((U0, U1, U2), (L0, H1, R2))
-        self.assertLessEqual(norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2)), tol * norm(t3.t3_to_dense(x)))
+                    basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
+                    basis_vars, tt_vars = variation
+                    (U0, U1, U2) = basis_cores
+                    (L0, L1, L2) = left_tt_cores
+                    (R0, R1, R2) = right_tt_cores
+                    (O0, O1, O2) = outer_tt_cores
+                    (V0, V1, V2) = basis_vars
+                    (H0, H1, H2) = tt_vars
 
-        x2 = ((U0, U1, U2), (L0, L1, H2))
-        self.assertLessEqual(norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2)), tol * norm(t3.t3_to_dense(x)))
+                    # TT replacement
 
-        # basis replacement
+                    x2 = ((U0, U1, U2), (H0, R1, R2))
+                    self.check_relerr(t3.t3_to_dense(x), t3.t3_to_dense(x2))
 
-        x2 = ((V0, U1, U2), (O0, R1, R2))
-        self.assertLessEqual(norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2)), tol * norm(t3.t3_to_dense(x)))
+                    x2 = ((U0, U1, U2), (L0, H1, R2))
+                    self.check_relerr(t3.t3_to_dense(x), t3.t3_to_dense(x2))
 
-        x2 = ((U0, V1, U2), (L0, O1, R2))
-        self.assertLessEqual(norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2)), tol * norm(t3.t3_to_dense(x)))
+                    x2 = ((U0, U1, U2), (L0, L1, H2))
+                    self.check_relerr(t3.t3_to_dense(x), t3.t3_to_dense(x2))
 
-        x2 = ((U0, U1, V2), (L0, L1, O2))
-        self.assertLessEqual(norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2)), tol * norm(t3.t3_to_dense(x)))
+                    # basis replacement
 
-        # Basis orthogonality
+                    x2 = ((V0, U1, U2), (O0, R1, R2))
+                    self.check_relerr(t3.t3_to_dense(x), t3.t3_to_dense(x2))
 
-        for U in [U0, U1, U2]:
-            self.assertLessEqual(
-                norm(U @ U.T - np.eye(U.shape[0])),
-                tol * norm(np.eye(U.shape[0]))
-            )
+                    x2 = ((U0, V1, U2), (L0, O1, R2))
+                    self.check_relerr(t3.t3_to_dense(x), t3.t3_to_dense(x2))
 
-        # left orthogonality
+                    x2 = ((U0, U1, V2), (L0, L1, O2))
+                    self.check_relerr(t3.t3_to_dense(x), t3.t3_to_dense(x2))
 
-        for L in [L0, L1]: # Last core need not be left orthogonal
-            self.assertLessEqual(
-                norm(np.einsum('iaj,iak->jk', L, L) - np.eye(L.shape[2])),
-                tol * norm(np.eye(L.shape[2]))
-            )
+                    # Basis orthogonality
+                    for U in [U0, U1, U2]:
+                        self.check_relerr(np.eye(U.shape[0]), U @ U.T)
 
-        # right orthogonality
+                    # left orthogonality
+                    for L in [L0, L1]: # Last core need not be left orthogonal
+                        self.check_relerr(np.eye(L.shape[2]), np.einsum('iaj,iak->jk', L, L))
 
-        for R in [R1, R2]: # First core need not be right orthogonal
-            self.assertLessEqual(
-                norm(np.einsum('iaj,kaj->ik', R, R) - np.eye(R.shape[0])),
-                tol * norm(np.eye(R.shape[0]))
-            )
+                    # right orthogonality
+                    for R in [R1, R2]: # First core need not be right orthogonal
+                        self.check_relerr(np.eye(R.shape[0]), np.einsum('iaj,kaj->ik', R, R))
 
-        # outer orthogonality
-
-        for O in [O0, O1, O2]:
-            self.assertLessEqual(
-                norm(np.einsum('iaj,ibj->ab', O, O) - np.eye(O.shape[1])),
-                tol * norm(np.eye(O.shape[1]))
-            )
+                    # outer orthogonality
+                    for O in [O0, O1, O2]:
+                        self.check_relerr(np.eye(O.shape[1]), np.einsum('iaj,ibj->ab', O, O))
 
 
 if __name__ == '__main__':
