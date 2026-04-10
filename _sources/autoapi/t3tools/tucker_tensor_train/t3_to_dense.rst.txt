@@ -1,7 +1,7 @@
 t3tools.tucker_tensor_train.t3_to_dense
 =======================================
 
-.. py:function:: t3tools.tucker_tensor_train.t3_to_dense(x: TuckerTensorTrain, contract_ones: bool = True) -> NDArray
+.. py:function:: t3tools.tucker_tensor_train.t3_to_dense(x: TuckerTensorTrain, contract_ones: bool = True, xnp=np) -> NDArray
 
    Contract Tucker tensor train to dense tensor.
 
@@ -10,8 +10,7 @@ t3tools.tucker_tensor_train.t3_to_dense
    :param contract_ones: If true (default), contract with leading and training 1's, yielding shape=(N1,...,Nd).
                          If false, do not contract with leading and trailing 1's, yielding shape=(r0,N1,...,Nd,rd).
    :type contract_ones: bool
-   :param use_jax: Use jax if True, numpy if False. Default: False
-   :type use_jax: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: Dense tensor represented by x, which has shape (N1, ..., Nd)
    :rtype: NDArray

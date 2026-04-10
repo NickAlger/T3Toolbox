@@ -1,7 +1,7 @@
 t3tools.probing.compute_sigmas
 ==============================
 
-.. py:function:: t3tools.probing.compute_sigmas(var_tt_cores: Sequence[NDArray], right_tt_cores: Sequence[NDArray], outer_tt_cores: Sequence[NDArray], xis: Sequence[NDArray], dxis: Sequence[NDArray], mus: Sequence[NDArray]) -> Tuple[NDArray, Ellipsis]
+.. py:function:: t3tools.probing.compute_sigmas(var_tt_cores: Sequence[NDArray], right_tt_cores: Sequence[NDArray], outer_tt_cores: Sequence[NDArray], xis: Sequence[NDArray], dxis: Sequence[NDArray], mus: Sequence[NDArray], xnp=np) -> Tuple[NDArray, Ellipsis]
 
    Compute var-leftward edge variables sigma.
    Used for probing a tangent vector.

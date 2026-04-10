@@ -1,7 +1,7 @@
 t3tools.uniform.ut3_add
 =======================
 
-.. py:function:: t3tools.uniform.ut3_add(x_cores: UniformTuckerTensorTrainCores, x_masks: UniformTuckerTensorTrainMasks, y_cores: UniformTuckerTensorTrainCores, y_masks: UniformTuckerTensorTrainMasks, use_jax: bool = False) -> Tuple[UniformTuckerTensorTrainCores, UniformTuckerTensorTrainMasks]
+.. py:function:: t3tools.uniform.ut3_add(x_cores: UniformTuckerTensorTrainCores, x_masks: UniformTuckerTensorTrainMasks, y_cores: UniformTuckerTensorTrainCores, y_masks: UniformTuckerTensorTrainMasks, xnp=np) -> Tuple[UniformTuckerTensorTrainCores, UniformTuckerTensorTrainMasks]
 
    Add two UniformTuckerTensorTrains, x,y -> x+y.
 
@@ -13,6 +13,7 @@ t3tools.uniform.ut3_add
    :type y_cores: UniformTuckerTensorTrainCores
    :param y_masks: Second summand masks
    :type y_masks: UniformTuckerTensorTrainMasks
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: * *UniformTuckerTensorTrainCores* -- Cores for sum, x+y
              * *UniformTuckerTensorTrainMasks* -- Cores for sum x+y

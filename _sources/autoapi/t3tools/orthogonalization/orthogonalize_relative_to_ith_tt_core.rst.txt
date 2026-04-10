@@ -1,7 +1,7 @@
 t3tools.orthogonalization.orthogonalize_relative_to_ith_tt_core
 ===============================================================
 
-.. py:function:: t3tools.orthogonalization.orthogonalize_relative_to_ith_tt_core(ii: int, x: t3tools.tucker_tensor_train.TuckerTensorTrain, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None) -> t3tools.tucker_tensor_train.TuckerTensorTrain
+.. py:function:: t3tools.orthogonalization.orthogonalize_relative_to_ith_tt_core(ii: int, x: t3tools.tucker_tensor_train.TuckerTensorTrain, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, xnp=np) -> t3tools.tucker_tensor_train.TuckerTensorTrain
 
    Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
 
@@ -23,8 +23,7 @@ t3tools.orthogonalization.orthogonalize_relative_to_ith_tt_core
    :type rtol: float
    :param atol: Absolute tolerance for truncation.
    :type atol: float
-   :param use_jax: If True, use jax operations. Otherwise, numpy. Default: False
-   :type use_jax: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    .. seealso:: :py:obj:`up_svd_ith_basis_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`
 

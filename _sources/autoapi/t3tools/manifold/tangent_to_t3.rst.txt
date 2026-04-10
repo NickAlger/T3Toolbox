@@ -1,7 +1,7 @@
 t3tools.manifold.tangent_to_t3
 ==============================
 
-.. py:function:: t3tools.manifold.tangent_to_t3(variation: t3tools.base_variation_format.T3Variation, base: t3tools.base_variation_format.T3Base, include_shift: bool = False) -> t3tools.tucker_tensor_train.TuckerTensorTrain
+.. py:function:: t3tools.manifold.tangent_to_t3(variation: t3tools.base_variation_format.T3Variation, base: t3tools.base_variation_format.T3Base, include_shift: bool = False, xnp=np) -> t3tools.tucker_tensor_train.TuckerTensorTrain
 
    Rank 2r Tucker tensor train representation of tangent vector.
 
@@ -27,8 +27,7 @@ t3tools.manifold.tangent_to_t3
    :type base: T3Base,
    :param include_shift: If False, return tangent vector v only. If True, shift tangent vector so it is attached at the base point, p+v.
    :type include_shift: bool
-   :param use_jax: If True, returned TuckerTensorTrain cores are jnp.ndaray. Otherwise, np.ndarray. Default: False
-   :type use_jax: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: Tucker tensor train representation of tangent vector, which has doubled ranks
    :rtype: TuckerTensorTrain

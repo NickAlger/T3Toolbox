@@ -11,15 +11,9 @@ Functions
    :hidden:
 
    /autoapi/t3tools/uniform_manifold/ut3_tangent_vector_to_ut3
-   /autoapi/t3tools/uniform_manifold/ut3_retract
-   /autoapi/t3tools/uniform_manifold/ut3_project_dense_tensor_onto_tangent_space
-   /autoapi/t3tools/uniform_manifold/ut3_orthogonal_gauge_projection
 
 .. autoapisummary::
 
    t3tools.uniform_manifold.ut3_tangent_vector_to_ut3
-   t3tools.uniform_manifold.ut3_retract
-   t3tools.uniform_manifold.ut3_project_dense_tensor_onto_tangent_space
-   t3tools.uniform_manifold.ut3_orthogonal_gauge_projection
 
 

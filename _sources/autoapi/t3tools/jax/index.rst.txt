@@ -4,3 +4,73 @@ t3tools.jax
 .. py:module:: t3tools.jax
 
 
+Attributes
+----------
+
+.. autoapisummary::
+
+   t3tools.jax.corewise
+   t3tools.jax.linalg
+   t3tools.jax.base_variation_format
+   t3tools.jax.manifold
+   t3tools.jax.orthogonalization
+   t3tools.jax.probing
+   t3tools.jax.tucker_tensor_train
+   t3tools.jax.uniform
+   t3tools.jax.uniform_manifold
+   t3tools.jax.uniform_orthogonalization
+   t3tools.jax.uniform_probing
+   t3tools.jax.uniform_t3svd
+
+
+Package Contents
+----------------
+
+.. py:data:: corewise
+   :value: None
+
+
+.. py:data:: linalg
+   :value: None
+
+
+.. py:data:: base_variation_format
+   :value: None
+
+
+.. py:data:: manifold
+   :value: None
+
+
+.. py:data:: orthogonalization
+   :value: None
+
+
+.. py:data:: probing
+   :value: None
+
+
+.. py:data:: tucker_tensor_train
+   :value: None
+
+
+.. py:data:: uniform
+   :value: None
+
+
+.. py:data:: uniform_manifold
+   :value: None
+
+
+.. py:data:: uniform_orthogonalization
+   :value: None
+
+
+.. py:data:: uniform_probing
+   :value: None
+
+
+.. py:data:: uniform_t3svd
+   :value: None
+
+

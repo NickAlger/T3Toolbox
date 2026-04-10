@@ -1,14 +1,13 @@
 t3tools.manifold.tangent_zeros
 ==============================
 
-.. py:function:: t3tools.manifold.tangent_zeros(base: t3tools.base_variation_format.T3Base) -> t3tools.base_variation_format.T3Variation
+.. py:function:: t3tools.manifold.tangent_zeros(base: t3tools.base_variation_format.T3Base, xnp=np) -> t3tools.base_variation_format.T3Variation
 
    Construct the zero vector in a Tucker tensor train tangent space.
 
    :param base: Representations of base point on manifold where tangent space is attached
    :type base: T3Base
-   :param use_jax: If True, return jax arrays, if False return numpy.
-   :type use_jax: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: Variation representing the zero vector in the tangent space
    :rtype: T3Variation

@@ -1,7 +1,7 @@
 t3tools.tucker_tensor_train.t3_apply
 ====================================
 
-.. py:function:: t3tools.tucker_tensor_train.t3_apply(x: TuckerTensorTrain, vecs: Sequence[NDArray]) -> NDArray
+.. py:function:: t3tools.tucker_tensor_train.t3_apply(x: TuckerTensorTrain, vecs: Sequence[NDArray], xnp=np) -> NDArray
 
    Contract TuckerTensorTrain with vectors in all indices.
 
@@ -9,8 +9,7 @@ t3tools.tucker_tensor_train.t3_apply
    :type x: TuckerTensorTrain
    :param vecs: Vectors to contract with indices of x. len=d, elm_shape=(Ni,) or (num_applies, Ni) if vectorized
    :type vecs: typ.Sequence[NDArray]
-   :param use_jax: If True, use jax operations. Otherwise, numpy. Default: False
-   :type use_jax: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: Result of contracting x with the vectors in all indices.
              scalar if vecs elements are vectors, NDArray with shape (num_applies,) if vecs elements are matrices (i.e., vectorized applies)

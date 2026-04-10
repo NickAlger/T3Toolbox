@@ -1,7 +1,7 @@
 t3tools.t3svd.tt_svd_dense
 ==========================
 
-.. py:function:: t3tools.t3svd.tt_svd_dense(T: NDArray, min_ranks: Sequence[int] = None, max_ranks: Sequence[int] = None, rtol: float = None, atol: float = None) -> Tuple[Tuple[NDArray, Ellipsis], Tuple[NDArray, Ellipsis]]
+.. py:function:: t3tools.t3svd.tt_svd_dense(T: NDArray, min_ranks: Sequence[int] = None, max_ranks: Sequence[int] = None, rtol: float = None, atol: float = None, xnp=np) -> Tuple[Tuple[NDArray, Ellipsis], Tuple[NDArray, Ellipsis]]
 
    Compute tensor train (TT) decomposition and unfolding singular values for dense tensor.
 
@@ -15,8 +15,7 @@ t3tools.t3svd.tt_svd_dense
    :type rtol: float
    :param atol: Absolute tolerance for truncation.
    :type atol: float
-   :param use_jax: If True, use jax operations. Otherwise, numpy. Default: False
-   :type use_jax: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: * *typ.Tuple[NDArray,...]* -- TT cores. len=d. elm_shape=(ri, ni, r(i+1))
              * *typ.Tuple[NDArray,...]* -- Singular values of unfoldings. len=d+1. elm_shape=(ri,)

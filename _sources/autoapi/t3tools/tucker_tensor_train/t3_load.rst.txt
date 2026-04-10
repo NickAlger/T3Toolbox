@@ -1,7 +1,7 @@
 t3tools.tucker_tensor_train.t3_load
 ===================================
 
-.. py:function:: t3tools.tucker_tensor_train.t3_load(file) -> TuckerTensorTrain
+.. py:function:: t3tools.tucker_tensor_train.t3_load(file, xnp=np) -> TuckerTensorTrain
 
    Save Tucker tensor train to file with numpy.savez()
 
@@ -10,8 +10,7 @@ t3tools.tucker_tensor_train.t3_load
                 ``.npz`` extension will be appended to the filename if it is not
                 already there.
    :type file: str or file
-   :param use_jax: If True, returned TuckerTensorTrain cores are jnp.ndaray. Otherwise, np.ndarray. Default: False
-   :type use_jax: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: Tucker tensor train loaded from the file
    :rtype: TuckerTensorTrain

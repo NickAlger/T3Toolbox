@@ -1,7 +1,7 @@
 t3tools.manifold.orthogonal_gauge_projection
 ============================================
 
-.. py:function:: t3tools.manifold.orthogonal_gauge_projection(variation: t3tools.base_variation_format.T3Variation, orthogonal_base: t3tools.base_variation_format.T3Base) -> t3tools.base_variation_format.T3Variation
+.. py:function:: t3tools.manifold.orthogonal_gauge_projection(variation: t3tools.base_variation_format.T3Variation, orthogonal_base: t3tools.base_variation_format.T3Base, xnp=np) -> t3tools.base_variation_format.T3Variation
 
    Makes tangent variation gauged via orthogonal projection. Changes tangent vector.
 
@@ -17,8 +17,8 @@ t3tools.manifold.orthogonal_gauge_projection
            The variation which will become gauged.
        orthogonal_base: T3Base,
            The base representations. Must be orthogonal for the operation to work properly.
-       use_jax: bool
-           If True, use jax operations, if False use numpy.
+       xnp:
+           Linear algebra backend. Default: np (numpy)
 
        Returns
        -------

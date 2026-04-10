@@ -1,7 +1,7 @@
 t3tools.t3svd.t3_svd_dense
 ==========================
 
-.. py:function:: t3tools.t3svd.t3_svd_dense(T: NDArray, min_tucker_ranks: Sequence[int] = None, max_tucker_ranks: Sequence[int] = None, min_tt_ranks: Sequence[int] = None, max_tt_ranks: Sequence[int] = None, rtol: float = None, atol: float = None) -> Tuple[t3tools.tucker_tensor_train.TuckerTensorTrain, Tuple[NDArray, Ellipsis], Tuple[NDArray, Ellipsis]]
+.. py:function:: t3tools.t3svd.t3_svd_dense(T: NDArray, min_tucker_ranks: Sequence[int] = None, max_tucker_ranks: Sequence[int] = None, min_tt_ranks: Sequence[int] = None, max_tt_ranks: Sequence[int] = None, rtol: float = None, atol: float = None, xnp=np) -> Tuple[t3tools.tucker_tensor_train.TuckerTensorTrain, Tuple[NDArray, Ellipsis], Tuple[NDArray, Ellipsis]]
 
    Compute TuckerTensorTrain and edge singular values for dense tensor.
 
@@ -19,8 +19,7 @@ t3tools.t3svd.t3_svd_dense
    :type rtol: float
    :param atol: Absolute tolerance for truncation.
    :type atol: float
-   :param use_jax: If True, use jax operations. Otherwise, numpy. Default: False
-   :type use_jax: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: * *TuckerTensorTrain* -- Tucker tensor train approxiamtion of T
              * *typ.Tuple[NDArray,...]* -- Singular values of matricizations. len=d. elm_shape=(ni,)

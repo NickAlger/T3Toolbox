@@ -1,7 +1,7 @@
 t3tools.manifold.oblique_gauge_projection
 =========================================
 
-.. py:function:: t3tools.manifold.oblique_gauge_projection(variation: t3tools.base_variation_format.T3Variation, orthogonal_base: t3tools.base_variation_format.T3Base) -> t3tools.base_variation_format.T3Variation
+.. py:function:: t3tools.manifold.oblique_gauge_projection(variation: t3tools.base_variation_format.T3Variation, orthogonal_base: t3tools.base_variation_format.T3Base, xnp=np) -> t3tools.base_variation_format.T3Variation
 
    Makes variations left-perpendicular while preserving tangent vector.
 
@@ -16,8 +16,8 @@ t3tools.manifold.oblique_gauge_projection
        orthogonal_base: T3Base,
            Orthogonal representations of the base point on the manifold.
            If non-orthogonal, this method doesn't work properly.
-       use_jax: bool
-           If True, use jax operations, if False use numpy.
+       xnp:
+           Linear algebra backend. Default: np (numpy)
 
        Returns
        -------
@@ -56,7 +56,8 @@ t3tools.manifold.oblique_gauge_projection
        With minimal ranks, orthogonal bases, and gauged variations, the corewise dot product faithfully represents
        the Hilbert-Schmidt inner product on the ambient space:
 
-   import t3tools.corewise    >>> import numpy as np
+       import t3tools.corewise
+       >>> import numpy as np
        >>> import t3tools.tucker_tensor_train as t3
        >>> import t3tools.manifold as t3m
        >>> import t3tools.common

@@ -1,7 +1,7 @@
 t3tools.tucker_tensor_train.t3_entry
 ====================================
 
-.. py:function:: t3tools.tucker_tensor_train.t3_entry(x: TuckerTensorTrain, index: Union[Sequence[int], Sequence[Sequence[int]]]) -> NDArray
+.. py:function:: t3tools.tucker_tensor_train.t3_entry(x: TuckerTensorTrain, index: Union[Sequence[int], Sequence[Sequence[int]]], xnp=np) -> NDArray
 
    Compute an entry (or multiple entries) of a TuckerTensorTrain.
 
@@ -12,8 +12,8 @@ t3tools.tucker_tensor_train.t3_entry
        index: typ.Union[typ.Sequence[int], typ.Sequence[typ.Sequence[int]]]
            Index of the desired entry (typ.Sequence[int]), or indices of desired entries (typ.Sequence[typ.Sequence[int]])
            len(index)=d. If many entries: elm_size=num_entries
-       use_jax: bool
-           If True, use jax operations. Otherwise, numpy. Default: False
+       xnp:
+           Linear algebra backend. Default: np (numpy)
 
        Returns
        -------

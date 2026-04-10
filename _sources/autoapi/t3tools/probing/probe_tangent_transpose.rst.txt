@@ -1,7 +1,7 @@
 t3tools.probing.probe_tangent_transpose
 =======================================
 
-.. py:function:: t3tools.probing.probe_tangent_transpose(ztildes: Sequence[NDArray], ww: Sequence[NDArray], base: t3tools.base_variation_format.T3Base, sum_over_probes: bool = False) -> Tuple[Tuple[NDArray, Ellipsis], Tuple[NDArray, Ellipsis]]
+.. py:function:: t3tools.probing.probe_tangent_transpose(ztildes: Sequence[NDArray], ww: Sequence[NDArray], base: t3tools.base_variation_format.T3Base, sum_over_probes: bool = False, xnp=np) -> Tuple[Tuple[NDArray, Ellipsis], Tuple[NDArray, Ellipsis]]
 
    Apply the transpose of the map from a T3Tangent to its probes. Apply to ztildes.
 
@@ -21,8 +21,8 @@ t3tools.probing.probe_tangent_transpose
            shape=(N1,...,Nd)
        sum_over_probes: bool
            Sum results over all probe residuals, rather than returning results for each probe residual
-       use_jax: bool
-           If True, use jax for linear algebra operations. Otherwise, use numpy.
+       xnp:
+           Linear algebra backend. Default: np (numpy)
 
        Returns
        -------

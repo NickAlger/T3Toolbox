@@ -1,7 +1,7 @@
 t3tools.orthogonalization.outer_svd_3tensor
 ===========================================
 
-.. py:function:: t3tools.orthogonalization.outer_svd_3tensor(G0_i_a_j: NDArray, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None) -> Tuple[NDArray, NDArray, NDArray]
+.. py:function:: t3tools.orthogonalization.outer_svd_3tensor(G0_i_a_j: NDArray, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, xnp=np) -> Tuple[NDArray, NDArray, NDArray]
 
    Compute (truncated) singular value decomposition of 3-tensor outer unfolding.
 
@@ -21,8 +21,7 @@ t3tools.orthogonalization.outer_svd_3tensor
    :type rtol: float
    :param atol: Absolute tolerance for truncation.
    :type atol: float
-   :param use_jax: If True, use jax operations. Otherwise, numpy. Default: False
-   :type use_jax: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: * **U_i_x_j** (*NDArray*) -- Left singular vectors. shape=(ni, nx, nj).
                einsum('ixj,iyj->xy', U_i_x_j, U_i_x_j) = identity matrix

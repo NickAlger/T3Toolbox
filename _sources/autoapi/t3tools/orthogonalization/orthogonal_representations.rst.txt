@@ -1,7 +1,7 @@
 t3tools.orthogonalization.orthogonal_representations
 ====================================================
 
-.. py:function:: t3tools.orthogonalization.orthogonal_representations(x: t3tools.tucker_tensor_train.TuckerTensorTrain) -> Tuple[t3tools.base_variation_format.T3Base, t3tools.base_variation_format.T3Variation]
+.. py:function:: t3tools.orthogonalization.orthogonal_representations(x: t3tools.tucker_tensor_train.TuckerTensorTrain, xnp=np) -> Tuple[t3tools.base_variation_format.T3Base, t3tools.base_variation_format.T3Variation]
 
    Construct base-variation representations of TuckerTensorTrain with orthogonal base.
 
@@ -43,8 +43,7 @@ t3tools.orthogonalization.orthogonal_representations
              x_basis_cores = (B0, ..., Bd)
              x_tt_cores = (G0, ..., Gd)
    :type x: TuckerTensorTrain
-   :param use_jax: If True use jax operations, if False use numpy.
-   :type use_jax: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: * *T3Base* -- Orthogonal base for base-variation representations of x.
              * *T3Variation* -- Variation for base-variation representaions of x.

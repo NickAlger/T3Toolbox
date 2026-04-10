@@ -1,4 +1,0 @@
-t3tools.uniform_probing.ut3_tau_tildes
-======================================
-
-.. py:function:: t3tools.uniform_probing.ut3_tau_tildes(reduced_dyy: jax.numpy.ndarray, left_orthogonal_tt_cores: jax.numpy.ndarray, mus: jax.numpy.ndarray, reduced_xx: jax.numpy.ndarray, batch_size: int = None) -> jax.numpy.ndarray

@@ -1,12 +1,15 @@
 t3tools.manifold.tangent_randn
 ==============================
 
-.. py:function:: t3tools.manifold.tangent_randn(base: t3tools.base_variation_format.T3Base, apply_gauge_projection: bool = True) -> t3tools.base_variation_format.T3Variation
+.. py:function:: t3tools.manifold.tangent_randn(base: t3tools.base_variation_format.T3Base, apply_gauge_projection: bool = True, randn: Callable[Ellipsis, NDArray] = np.random.randn) -> t3tools.base_variation_format.T3Variation
 
    Draw a random T3Variation.
 
    :param orthogonal_base: Representations of base point on manifold where tangent space is attached.
    :type orthogonal_base: T3Base
+   :param randn: Function for creating random arrays. Arguments are a sequence of ints defining the shape of the array.
+                 Default: np.random.randn (numpy)
+   :type randn: typ.Callable[[..., NDArray]
 
    :returns: * *T3Tangent* -- Random tangent vector. If base is orthogonal, ranks are minimal, and gauge projection is applied,
                then the random tangent vector is distributed according to

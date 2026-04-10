@@ -1,7 +1,7 @@
 t3tools.tucker_tensor_train.t3_dot_t3
 =====================================
 
-.. py:function:: t3tools.tucker_tensor_train.t3_dot_t3(x: TuckerTensorTrain, y: TuckerTensorTrain)
+.. py:function:: t3tools.tucker_tensor_train.t3_dot_t3(x: TuckerTensorTrain, y: TuckerTensorTrain, xnp=np)
 
    Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains x, y with the same shape, (x, y)_HS.
 
@@ -9,8 +9,7 @@ t3tools.tucker_tensor_train.t3_dot_t3
    :type x: TuckerTensorTrain
    :param y: Second Tucker tensor train. shape=(N1,...,Nd)
    :type y: TuckerTensorTrain
-   :param use_jax: If True, use jax operations. Otherwise, numpy. Default: False
-   :type use_jax: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: Hilbert-Schmidt (dot) product of Tucker tensor trains, (x, y)_HS.
    :rtype: scalar

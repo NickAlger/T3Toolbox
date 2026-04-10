@@ -1,7 +1,7 @@
 t3tools.linalg.truncated_svd
 ============================
 
-.. py:function:: t3tools.linalg.truncated_svd(A: NDArray, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None) -> Tuple[NDArray, NDArray, NDArray]
+.. py:function:: t3tools.linalg.truncated_svd(A: NDArray, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, xnp=np) -> Tuple[NDArray, NDArray, NDArray]
 
    Compute (truncated) singular value decomposition of matrix.
 
@@ -18,8 +18,7 @@ t3tools.linalg.truncated_svd
    :type rtol: float
    :param atol: Absolute tolerance for truncation. Remove singular values satisfying sigma < maximum(atol, rtol*sigma1).
    :type atol: float
-   :param use_jax: If True, use jax operations. Otherwise, numpy. Default: False
-   :type use_jax: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: * **U** (*NDArray*) -- Left singular vectors. shape=(N, k).
                U.T @ U = identity matrix

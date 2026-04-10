@@ -41,7 +41,7 @@
 <h1>t3tools.probing.probe_dense<a class="headerlink" href="#t3tools-probing-probe-dense" title="Link to this heading">¶</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="t3tools.probing.probe_dense">
-<span class="sig-prename descclassname"><span class="pre">t3tools.probing.</span></span><span class="sig-name descname"><span class="pre">probe_dense</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">T</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">NDArray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vectors</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3tools.probing.probe_dense" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">t3tools.probing.</span></span><span class="sig-name descname"><span class="pre">probe_dense</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">T</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">NDArray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vectors</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xnp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3tools.probing.probe_dense" title="Link to this definition">¶</a></dt>
 <dd><p>Probe a dense tensor.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -50,7 +50,7 @@
 <li><p><strong>vectors</strong> (<em>typ.Sequence</em><em>[</em><em>NDArray</em><em>]</em>) – Probing input vectors.
 len=d.
 elm_shape=(Ni,) or elm_shape=(num_probes, Ni)</p></li>
-<li><p><strong>use_jax</strong> (<em>bool</em>) – Whether to use jax for numerical operations (default: False)</p></li>
+<li><p><strong>xnp</strong> – Linear algebra backend. Default: np (numpy)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>

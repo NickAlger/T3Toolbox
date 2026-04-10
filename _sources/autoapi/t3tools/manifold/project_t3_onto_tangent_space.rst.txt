@@ -1,7 +1,7 @@
 t3tools.manifold.project_t3_onto_tangent_space
 ==============================================
 
-.. py:function:: t3tools.manifold.project_t3_onto_tangent_space(x: t3tools.tucker_tensor_train.TuckerTensorTrain, orthogonal_base: t3tools.base_variation_format.T3Base) -> t3tools.base_variation_format.T3Variation
+.. py:function:: t3tools.manifold.project_t3_onto_tangent_space(x: t3tools.tucker_tensor_train.TuckerTensorTrain, orthogonal_base: t3tools.base_variation_format.T3Base, xnp=np) -> t3tools.base_variation_format.T3Variation
 
    Projects TuckerTensorTrain onto tangent space to the manifold of fixed rank TuckerTensorTrains.
 
@@ -9,8 +9,7 @@ t3tools.manifold.project_t3_onto_tangent_space
    :type x: t3.TuckerTensorTrain
    :param orthogonal_base: Minimal rank orthogonal representations of base point on manifold where tangent space is attached
    :type orthogonal_base: T3Base
-   :param use_jax: If True, use jax operations, if False use numpy.
-   :type use_jax: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: Gauged variation representing the orthogonal projection of x onto the tangent space.
    :rtype: T3Variation

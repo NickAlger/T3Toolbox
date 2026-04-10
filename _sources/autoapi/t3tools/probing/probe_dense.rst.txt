@@ -1,7 +1,7 @@
 t3tools.probing.probe_dense
 ===========================
 
-.. py:function:: t3tools.probing.probe_dense(T: NDArray, vectors: Sequence[NDArray]) -> Tuple[NDArray]
+.. py:function:: t3tools.probing.probe_dense(T: NDArray, vectors: Sequence[NDArray], xnp=np) -> Tuple[NDArray]
 
    Probe a dense tensor.
 
@@ -11,8 +11,7 @@ t3tools.probing.probe_dense
                    len=d.
                    elm_shape=(Ni,) or elm_shape=(num_probes, Ni)
    :type vectors: typ.Sequence[NDArray]
-   :param use_jax: Whether to use jax for numerical operations (default: False)
-   :type use_jax: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: Probes.
              len=d.

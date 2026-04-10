@@ -1,7 +1,7 @@
 t3tools.tucker_tensor_train.t3_add
 ==================================
 
-.. py:function:: t3tools.tucker_tensor_train.t3_add(x: TuckerTensorTrain, y: TuckerTensorTrain) -> TuckerTensorTrain
+.. py:function:: t3tools.tucker_tensor_train.t3_add(x: TuckerTensorTrain, y: TuckerTensorTrain, xnp=np) -> TuckerTensorTrain
 
    Add TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x+y with summed ranks.
 
@@ -9,8 +9,7 @@ t3tools.tucker_tensor_train.t3_add
    :type x: TuckerTensorTrain
    :param y: Second summand. structure=((N1,...,Nd), (m1,...,md), (q0, q1,...,qd))
    :type y: TuckerTensorTrain
-   :param use_jax: If True, returned TuckerTensorTrain cores are jnp.ndaray. Otherwise, np.ndarray. Default: False
-   :type use_jax: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: **z** -- Sum of Tucker tensor trains, z=x+y. structure=((N1,...,Nd), (n1+m1,...,nd+md), (r0+q0, r1+q1,...,rd+qd))
    :rtype: TuckerTensorTrain

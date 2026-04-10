@@ -41,7 +41,7 @@
 <h1>t3tools.manifold.oblique_gauge_projection<a class="headerlink" href="#t3tools-manifold-oblique-gauge-projection" title="Link to this heading">¶</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="t3tools.manifold.oblique_gauge_projection">
-<span class="sig-prename descclassname"><span class="pre">t3tools.manifold.</span></span><span class="sig-name descname"><span class="pre">oblique_gauge_projection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../base_variation_format/index.html#t3tools.base_variation_format.T3Variation" title="t3tools.base_variation_format.T3Variation"><span class="pre">t3tools.base_variation_format.T3Variation</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">orthogonal_base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../base_variation_format/index.html#t3tools.base_variation_format.T3Base" title="t3tools.base_variation_format.T3Base"><span class="pre">t3tools.base_variation_format.T3Base</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../base_variation_format/index.html#t3tools.base_variation_format.T3Variation" title="t3tools.base_variation_format.T3Variation"><span class="pre">t3tools.base_variation_format.T3Variation</span></a></span></span><a class="headerlink" href="#t3tools.manifold.oblique_gauge_projection" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">t3tools.manifold.</span></span><span class="sig-name descname"><span class="pre">oblique_gauge_projection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../base_variation_format/index.html#t3tools.base_variation_format.T3Variation" title="t3tools.base_variation_format.T3Variation"><span class="pre">t3tools.base_variation_format.T3Variation</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">orthogonal_base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../base_variation_format/index.html#t3tools.base_variation_format.T3Base" title="t3tools.base_variation_format.T3Base"><span class="pre">t3tools.base_variation_format.T3Base</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">xnp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../base_variation_format/index.html#t3tools.base_variation_format.T3Variation" title="t3tools.base_variation_format.T3Variation"><span class="pre">t3tools.base_variation_format.T3Variation</span></a></span></span><a class="headerlink" href="#t3tools.manifold.oblique_gauge_projection" title="Link to this definition">¶</a></dt>
 <dd><p>Makes variations left-perpendicular while preserving tangent vector.</p>
 <blockquote>
 <div><dl class="simple">
@@ -55,7 +55,7 @@
 <dt>orthogonal_base: T3Base,</dt><dd><p>Orthogonal representations of the base point on the manifold.
 If non-orthogonal, this method doesn’t work properly.</p>
 </dd>
-<dt>use_jax: bool</dt><dd><p>If True, use jax operations, if False use numpy.</p>
+<dt>xnp:</dt><dd><p>Linear algebra backend. Default: np (numpy)</p>
 </dd>
 </dl>
 <dl class="simple">
@@ -88,25 +88,24 @@ orthogonal_gauge_projection</p>
 </div>
 <p>With minimal ranks, orthogonal bases, and gauged variations, the corewise dot product faithfully represents
 the Hilbert-Schmidt inner product on the ambient space:</p>
+<p>import t3tools.corewise
+&gt;&gt;&gt; import numpy as np
+&gt;&gt;&gt; import t3tools.tucker_tensor_train as t3
+&gt;&gt;&gt; import t3tools.manifold as t3m
+&gt;&gt;&gt; import t3tools.common
+&gt;&gt;&gt; import t3tools.orthogonalization as orth
+&gt;&gt;&gt; p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+&gt;&gt;&gt; base, _ = t3tools.orthogonalization.orthogonal_representations(p)
+&gt;&gt;&gt; u = t3m.tangent_randn(base, apply_gauge_projection=False)
+&gt;&gt;&gt; v = t3m.tangent_randn(base, apply_gauge_projection=False)
+&gt;&gt;&gt; bad_u_inner_v = t3tools.corewise.corewise_dot(u, v) # u and v are ungauged, so this will not give the right answer
+&gt;&gt;&gt; u_dense = t3m.tangent_to_dense(u, base)
+&gt;&gt;&gt; v_dense = t3m.tangent_to_dense(v, base)
+&gt;&gt;&gt; u_inner_v_true = np.sum(u_dense * v_dense)
+&gt;&gt;&gt; print(np.abs(bad_u_inner_v - u_inner_v_true)) # error nonzero because we didn’t respect gauge
+6.21838915941413</p>
 </div></blockquote>
 <dl>
-<dt>import t3tools.corewise    &gt;&gt;&gt; import numpy as np</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.manifold</span> <span class="k">as</span> <span class="nn">t3m</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.common</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.orthogonalization</span> <span class="k">as</span> <span class="nn">orth</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">base</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">t3tools</span><span class="o">.</span><span class="n">orthogonalization</span><span class="o">.</span><span class="n">orthogonal_representations</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">u</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_randn</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">apply_gauge_projection</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">v</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_randn</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">apply_gauge_projection</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">bad_u_inner_v</span> <span class="o">=</span> <span class="n">t3tools</span><span class="o">.</span><span class="n">corewise</span><span class="o">.</span><span class="n">corewise_dot</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">)</span> <span class="c1"># u and v are ungauged, so this will not give the right answer</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">u_dense</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_to_dense</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">v_dense</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_to_dense</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">u_inner_v_true</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">u_dense</span> <span class="o">*</span> <span class="n">v_dense</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">bad_u_inner_v</span> <span class="o">-</span> <span class="n">u_inner_v_true</span><span class="p">))</span> <span class="c1"># error nonzero because we didn&#39;t respect gauge</span>
-<span class="go">6.21838915941413</span>
-</pre></div>
-</div>
-</dd>
 <dt>import t3tools.corewise    &gt;&gt;&gt; u_gauged = t3m.oblique_gauge_projection(u, base) # make them gauged and try again</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">v_gauged</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">oblique_gauge_projection</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">u_inner_v</span> <span class="o">=</span> <span class="n">t3tools</span><span class="o">.</span><span class="n">corewise</span><span class="o">.</span><span class="n">corewise_dot</span><span class="p">(</span><span class="n">u_gauged</span><span class="p">,</span> <span class="n">v_gauged</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">u_inner_v</span> <span class="o">-</span> <span class="n">u_inner_v_true</span><span class="p">))</span> <span class="c1"># Now the error is numerical zero</span>

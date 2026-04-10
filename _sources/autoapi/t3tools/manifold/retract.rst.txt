@@ -1,7 +1,7 @@
 t3tools.manifold.retract
 ========================
 
-.. py:function:: t3tools.manifold.retract(variation: t3tools.base_variation_format.T3Variation, base: t3tools.base_variation_format.T3Base) -> t3tools.tucker_tensor_train.TuckerTensorTrain
+.. py:function:: t3tools.manifold.retract(variation: t3tools.base_variation_format.T3Variation, base: t3tools.base_variation_format.T3Base, xnp=np) -> t3tools.tucker_tensor_train.TuckerTensorTrain
 
    Retract Tucker tensor train tangent vector to manifold.
 
@@ -11,8 +11,8 @@ t3tools.manifold.retract
            Variation representing the tangent vector we wish to retract to the manifold
        base: T3Base,
            Representation of the base point on the manifold where the tangent space is attached.
-       use_jax: bool
-           If True, use jax operations, if False use numpy.
+       xnp:
+           Linear algebra backend. Default: np (numpy)
 
        Returns
        -------

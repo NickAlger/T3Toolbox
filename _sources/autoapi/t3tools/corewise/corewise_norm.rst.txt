@@ -1,7 +1,7 @@
 t3tools.corewise.corewise_norm
 ==============================
 
-.. py:function:: t3tools.corewise.corewise_norm(X)
+.. py:function:: t3tools.corewise.corewise_norm(X, xnp=np)
 
    Norm of nested objects, X -> ||X||
 

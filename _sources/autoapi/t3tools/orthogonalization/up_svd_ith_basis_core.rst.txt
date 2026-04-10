@@ -1,7 +1,7 @@
 t3tools.orthogonalization.up_svd_ith_basis_core
 ===============================================
 
-.. py:function:: t3tools.orthogonalization.up_svd_ith_basis_core(ii: int, x: t3tools.tucker_tensor_train.TuckerTensorTrain, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None) -> Tuple[t3tools.tucker_tensor_train.TuckerTensorTrain, NDArray]
+.. py:function:: t3tools.orthogonalization.up_svd_ith_basis_core(ii: int, x: t3tools.tucker_tensor_train.TuckerTensorTrain, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, xnp=np) -> Tuple[t3tools.tucker_tensor_train.TuckerTensorTrain, NDArray]
 
    Compute SVD of ith basis core and contract non-orthogonal factor up into the TT-core above.
 
@@ -17,8 +17,7 @@ t3tools.orthogonalization.up_svd_ith_basis_core
    :type rtol: float
    :param atol: Absolute tolerance for truncation.
    :type atol: float
-   :param use_jax: If True, use jax operations. Otherwise, numpy. Default: False
-   :type use_jax: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor, but with ith basis core orthogonal.
                new_tt_cores[ii].shape = (ri, new_ni, r(i+1))

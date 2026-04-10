@@ -1,4 +1,0 @@
-t3tools.uniform_probing.compute_summed_result_in_batches
-========================================================
-
-.. py:function:: t3tools.uniform_probing.compute_summed_result_in_batches(func: Callable, XX: Sequence[jax.numpy.ndarray], batch_size: int)

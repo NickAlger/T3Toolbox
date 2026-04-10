@@ -1,7 +1,7 @@
 t3tools.t3svd.tucker_svd_dense
 ==============================
 
-.. py:function:: t3tools.t3svd.tucker_svd_dense(T: NDArray, min_ranks: Sequence[int] = None, max_ranks: Sequence[int] = None, rtol: float = None, atol: float = None) -> Tuple[Tuple[Tuple[NDArray, Ellipsis], NDArray], Tuple[NDArray, Ellipsis]]
+.. py:function:: t3tools.t3svd.tucker_svd_dense(T: NDArray, min_ranks: Sequence[int] = None, max_ranks: Sequence[int] = None, rtol: float = None, atol: float = None, xnp=np) -> Tuple[Tuple[Tuple[NDArray, Ellipsis], NDArray], Tuple[NDArray, Ellipsis]]
 
    Compute Tucker decomposition and matricization singular values for dense tensor.
 
@@ -15,8 +15,7 @@ t3tools.t3svd.tucker_svd_dense
    :type rtol: float
    :param atol: Absolute tolerance for truncation.
    :type atol: float
-   :param use_jax: If True, use jax operations. Otherwise, numpy. Default: False
-   :type use_jax: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: * *typ.Tuple[typ.Tuple[NDArray,...],NDArray]* -- Tucker decomposition (tucker_bases, tucker_core). tucker_bases[ii].shape=(ni,Ni). tucker_core.shape=(n1,...,nd)
              * *typ.Tuple[NDArray,...]* -- Singular values of matricizations

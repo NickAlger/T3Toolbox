@@ -11,15 +11,9 @@ Functions
    :hidden:
 
    /autoapi/t3tools/uniform_orthogonalization/left_orthogonalize_utt
-   /autoapi/t3tools/uniform_orthogonalization/right_orthogonalize_utt
-   /autoapi/t3tools/uniform_orthogonalization/orthogonalize_ut3_basis_cores
-   /autoapi/t3tools/uniform_orthogonalization/construct_ut3_base_representations
 
 .. autoapisummary::
 
    t3tools.uniform_orthogonalization.left_orthogonalize_utt
-   t3tools.uniform_orthogonalization.right_orthogonalize_utt
-   t3tools.uniform_orthogonalization.orthogonalize_ut3_basis_cores
-   t3tools.uniform_orthogonalization.construct_ut3_base_representations
 
 

@@ -1,7 +1,7 @@
 t3tools.uniform.ut3_entry
 =========================
 
-.. py:function:: t3tools.uniform.ut3_entry(cores: UniformTuckerTensorTrainCores, index: NDArray) -> NDArray
+.. py:function:: t3tools.uniform.ut3_entry(cores: UniformTuckerTensorTrainCores, index: NDArray, xnp=np, scan=common.numpy_scan) -> NDArray
 
    Compute entry (entries) of a uniform Tucker tensor train.
 

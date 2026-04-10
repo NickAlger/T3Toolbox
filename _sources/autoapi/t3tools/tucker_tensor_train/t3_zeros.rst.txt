@@ -1,14 +1,13 @@
 t3tools.tucker_tensor_train.t3_zeros
 ====================================
 
-.. py:function:: t3tools.tucker_tensor_train.t3_zeros(structure: T3Structure) -> TuckerTensorTrain
+.. py:function:: t3tools.tucker_tensor_train.t3_zeros(structure: T3Structure, xnp=np) -> TuckerTensorTrain
 
    Construct Tucker tensor train of zeros.
 
    :param structure: Tucker tensor train structure, (shape, tucker_ranks, tt_ranks)=((N1,...,Nd), (n1,...,nd), (1,r1,...,r(d-1),1))).
    :type structure: T3Structure
-   :param use_jax: Use jax if True, numpy if False. Default: False
-   :type use_jax: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: Dense tensor represented by x, which has shape (N1, ..., Nd)
    :rtype: NDArray

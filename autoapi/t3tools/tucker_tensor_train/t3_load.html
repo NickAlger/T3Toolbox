@@ -41,7 +41,7 @@
 <h1>t3tools.tucker_tensor_train.t3_load<a class="headerlink" href="#t3tools-tucker-tensor-train-t3-load" title="Link to this heading">¶</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="t3tools.tucker_tensor_train.t3_load">
-<span class="sig-prename descclassname"><span class="pre">t3tools.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">t3_load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="index.html#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain"><span class="pre">TuckerTensorTrain</span></a></span></span><a class="headerlink" href="#t3tools.tucker_tensor_train.t3_load" title="Link to this definition">¶</a></dt>
+<span class="sig-prename descclassname"><span class="pre">t3tools.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">t3_load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xnp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="index.html#t3tools.tucker_tensor_train.TuckerTensorTrain" title="t3tools.tucker_tensor_train.TuckerTensorTrain"><span class="pre">TuckerTensorTrain</span></a></span></span><a class="headerlink" href="#t3tools.tucker_tensor_train.t3_load" title="Link to this definition">¶</a></dt>
 <dd><p>Save Tucker tensor train to file with numpy.savez()</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -50,7 +50,7 @@
 where the data will be saved. If file is a string or a Path, the
 <code class="docutils literal notranslate"><span class="pre">.npz</span></code> extension will be appended to the filename if it is not
 already there.</p></li>
-<li><p><strong>use_jax</strong> (<em>bool</em>) – If True, returned TuckerTensorTrain cores are jnp.ndaray. Otherwise, np.ndarray. Default: False</p></li>
+<li><p><strong>xnp</strong> – Linear algebra backend. Default: np (numpy)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>

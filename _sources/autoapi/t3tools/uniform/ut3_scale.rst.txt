@@ -1,7 +1,7 @@
 t3tools.uniform.ut3_scale
 =========================
 
-.. py:function:: t3tools.uniform.ut3_scale(x_cores: UniformTuckerTensorTrainCores, s) -> UniformTuckerTensorTrainCores
+.. py:function:: t3tools.uniform.ut3_scale(x_cores: UniformTuckerTensorTrainCores, s, xnp=np) -> UniformTuckerTensorTrainCores
 
    Scale a uniform Tucker tensor train, s,x -> s*x.
 
@@ -9,6 +9,7 @@ t3tools.uniform.ut3_scale
    :type x_cores: UniformTuckerTensorTrainCores
    :param s: Scaling factor
    :type s: scalar
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: Cores for scaled uniform Tucker tensor train, s*x
    :rtype: UniformTuckerTensorTrainCores

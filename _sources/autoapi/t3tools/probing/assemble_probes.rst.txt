@@ -1,7 +1,7 @@
 t3tools.probing.assemble_probes
 ===============================
 
-.. py:function:: t3tools.probing.assemble_probes(basis_cores: Sequence[NDArray], etas) -> Sequence[NDArray]
+.. py:function:: t3tools.probing.assemble_probes(basis_cores: Sequence[NDArray], etas, xnp=np) -> Sequence[NDArray]
 
    Assemble probes from downward edge variables.
 
@@ -16,8 +16,7 @@ t3tools.probing.assemble_probes
    :type basis_cores: typ.Sequence[NDArray]
    :param etas: downward edge variables eta. len=d. elm_shape=(num_probes,ni)
    :type etas: typ.Sequence[NDArray]
-   :param use_jax: If True, use jax for linear algebra operations. Otherwise, use numpy.
-   :type use_jax: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
    :returns: probes z. len=d, elm_shape=(num_probes,Ni)
    :rtype: typ.Tuple[NDArray,...]

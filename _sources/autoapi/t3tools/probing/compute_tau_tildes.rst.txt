@@ -1,7 +1,7 @@
 t3tools.probing.compute_tau_tildes
 ==================================
 
-.. py:function:: t3tools.probing.compute_tau_tildes(deta_tildes, left_tt_cores: Sequence[NDArray], xis: Sequence[NDArray], mus) -> Tuple[NDArray, Ellipsis]
+.. py:function:: t3tools.probing.compute_tau_tildes(deta_tildes, left_tt_cores: Sequence[NDArray], xis: Sequence[NDArray], mus, xnp=np) -> Tuple[NDArray, Ellipsis]
 
    Adjoint-var-rightward edge variables tau_tilde.
    Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.

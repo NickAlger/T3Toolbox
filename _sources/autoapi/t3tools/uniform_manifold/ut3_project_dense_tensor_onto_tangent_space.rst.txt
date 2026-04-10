@@ -1,7 +1,0 @@
-t3tools.uniform_manifold.ut3_project_dense_tensor_onto_tangent_space
-====================================================================
-
-.. py:function:: t3tools.uniform_manifold.ut3_project_dense_tensor_onto_tangent_space(T: jnp.ndarray, orthogonal_basis_cores: jnp.ndarray, left_orthogonal_tt_cores: jnp.ndarray, right_orthogonal_tt_cores: jnp.ndarray, up_orthogonal_tt_cores: jnp.ndarray)
-
-   Very expensive, probably only useful for debugging other functions
-
