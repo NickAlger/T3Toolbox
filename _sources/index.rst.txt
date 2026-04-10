@@ -22,7 +22,9 @@ Tensor network diagram for a Tucker tensor train::
              | N0      | N1                 | Nd
              |         |                    |
 
-- Gi and Bi are *cores*, which are smaller tensors that are being contracted with each other to form a larger tensor.
+Here:
+
+- Gi and Bi are *cores*, which are small tensors that are being contracted with each other to form a large dense N0 x ... x N(d-1) tensor.
 - Edges in the network indicate contraction of adjacent cores.
 - Natural numbers Ni, ni, ri, written next to edges, indicate the size of the edge (its "bandwidth", you might say).
 
@@ -230,10 +232,10 @@ Design philosophy
 
 This package is written in a `functional programming <https://en.wikipedia.org/wiki/Functional_programming>`_ style. It is a library of mathematical functions that perform operations on basic types (mostly, arrays and nested sequences of arrays). 
 
-- Functions have no side effects, and functions always yield the same output for a given input. 
+- Functions have no side effects, and functions always yield the same output for a given input (except a couple functions that generate random tensors). 
 - Custom types are aliases of composite basic types
 
-- Jax of numerical functions are suitable for `just-in-time (jit) compilation <https://docs.jax.dev/en/latest/_autosummary/jax.jit.html>`_ in jax, after removing non-numerical parameters by `partial evaluation <https://en.wikipedia.org/wiki/Partial_application>`_. E.g.,::
+- Jax versions of numerical functions are suitable for `just-in-time (jit) compilation <https://docs.jax.dev/en/latest/_autosummary/jax.jit.html>`_ in jax, after removing non-numerical parameters by `partial evaluation <https://en.wikipedia.org/wiki/Partial_application>`_. E.g.,::
 		
 	>>> import numpy as np
 	>>> import jax
@@ -271,6 +273,7 @@ This package is written in a `functional programming <https://en.wikipedia.org/w
 	-7.418812309825662
 
 - AD Caveat: We do not recommend automatically differentiating through functions that involve singular value decompositions (SVDs) because support for `singular value sensitivity <https://en.wikipedia.org/wiki/Eigenvalue_perturbation>`_ in jax is questionable. This includes:
+
 	- T3-SVD,
 	- Orthogonalization (uses SVDs for stability and robustness), 
 	- Retraction.
@@ -301,7 +304,7 @@ We want::
 
 	z "=" x "+" y
 	
-to mean the following: if you added the N0 x ... x N(d-1) tensor represented by x to the tensor N0 x ... x N(d-1) represented by y, then the resulting N0 x ... x N(d-1) tensor can be represented by the Tucker tensor train z. I.e.,::
+to mean the following: if you added the N0 x ... x N(d-1) tensor represented by x to the N0 x ... x N(d-1) tensor represented by y, then the resulting N0 x ... x N(d-1) tensor can be represented by the Tucker tensor train z. I.e.,::
 
 	t3_to_dense(z) = t3_to_dense(x) + t3_to_dense(y).
 	
@@ -313,29 +316,28 @@ Minimal rank conditions
 -----------------------
 
 Tucker tensor trains are said to have *minimal ranks* if they satisfy:
-
 	- Left TT core unfoldings are full rank: r(i+1) <= (ri*ni)
 	- Right TT core unfoldings are full rank: ri <= (ni*r(i+1))
 	- Outer TT core unfoldings are full rank: ni <= (ri*r(i+1))
 	- Basis matrices have full row rank: ni <= Ni
 
 Minimal rank properties:
-
 	- Minimal ranks always exist and are unique.
 	- Minimal tucker ranks ni are equal to the ranks of Ni x (N1*...*N(i-1)*N(i+1)*...*N(d-1)) matricizations.
 	- Minimal TT ranks ri are equal to the ranks of (N*...*Ni) x (N(i+1)*...*N(d-1)) matrix unfoldings.
 	- Minimal rank representations of any T3 may be constructed with T3-SVD.
 
 In this package, minimal ranks are typically defined with respect to a
-generic Tucker tensor train of the given form based on its structure.
+generic Tucker tensor train of the given structure.
 We do not account for possible additional rank deficiency due to
 the numerical values within the cores.
 
+Tucker tensor trains that do not have minimal ranks are degenerate, as they can always be reduced to minimal rank Tucker tensor trains (without changing the represented tensor) using T3-SVD. This is analogous to a low rank matrix approximation A = B C, where A is NxM, B is Nxk, C is kxM, and k>min(N,M).
 
 T3 Manifold
 -----------
 
-Under certain conditions on the ranks (basically, if the ranks are not unnecessairily large), the set of Tucker tensor trains with fixed ranks forms an embedded submanifold in R^(N1 x ... x Nd). In this case, any tangent vector may be represented as a sum which looks like this::
+Under the minimal rank conditions, the set of Tucker tensor trains with fixed ranks forms an embedded submanifold in R^(N1 x ... x Nd). In this case, any tangent vector may be represented as a sum which looks like this::
 
           1--H0--R1--R2--1   1--L0--H1--R2--1   1--L0--L1--H2--1
              |   |   |          |   |   |          |   |   | 
