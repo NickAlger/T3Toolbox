@@ -2,7 +2,6 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/TuckerTensorTrainTools
 # Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
-import numpy as np
 import typing as typ
 
 import t3tools.tucker_tensor_train as t3

@@ -5,6 +5,12 @@ import numpy as np
 import unittest
 
 import t3tools.base_variation_format as bvf
+try:
+    import t3tools.jax.base_variation_format as bvf_jax
+    import jax
+    jax.config.update("jax_enable_x64", True)
+except ImportError:
+    bvf_jax = bvf
 
 
 np.random.seed(0)
@@ -19,9 +25,16 @@ class TestBaseVariationFormat(unittest.TestCase):
         right_tt_cores = (np.ones((3, 10, 4)), np.ones((4, 11, 5)), np.ones((5, 12, 4)))
         outer_tt_cores = (np.ones((5, 9, 4)), np.ones((2, 8, 5)), np.ones((3, 7, 4)))
         base = (basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-        (var_basis_shapes, var_tt_shapes) = bvf.hole_shapes(base)
+
+        shapes = bvf.hole_shapes(base)
+        var_basis_shapes, var_tt_shapes = shapes
+
         self.assertEqual(var_basis_shapes, ((9, 14), (8, 15), (7, 16)))
         self.assertEqual(var_tt_shapes, ((5, 10, 4), (2, 11, 5), (3, 12, 4)))
+
+        shapes_jax = bvf_jax.hole_shapes(base)
+        self.assertEqual(shapes, shapes_jax)
+
 
     def test_ith_bv_to_t3(self):
         (U0, U1, U2) = (randn(10, 14), randn(11, 15), randn(12, 16))
@@ -54,6 +67,15 @@ class TestBaseVariationFormat(unittest.TestCase):
 
         ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_bv_to_t3(2, False, base, variation)
         self.assertEqual(((U0, U1, V2), (L0, L1, O2)), ((B0, B1, B2), (G0, G1, G2)))
+
+        #
+
+        for ii in range(len(base[0])):
+            for true_false in [True, False]:
+                result = bvf.ith_bv_to_t3(ii, true_false, base, variation)
+                result_jax = bvf_jax.ith_bv_to_t3(ii, true_false, base, variation)
+                self.assertEqual(result, result_jax)
+
 
 
 if __name__ == '__main__':

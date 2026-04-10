@@ -22,5 +22,4 @@ check_t3base        = bvf.check_t3base
 check_t3variation   = bvf.check_t3variation
 hole_shapes         = bvf.hole_shapes
 check_fit           = bvf.check_fit
-
-ith_bv_to_t3 = ft.partial(bvf.ith_bv_to_t3, xnp=jnp)
+ith_bv_to_t3        = bvf.ith_bv_to_t3
