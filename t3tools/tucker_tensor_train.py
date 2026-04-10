@@ -1107,6 +1107,7 @@ def pad_t3(
 def t3_add(
         x: TuckerTensorTrain,
         y: TuckerTensorTrain,
+        squash: bool = True,
         xnp = np,
 ) -> TuckerTensorTrain:
     """Add TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x+y with summed ranks.
@@ -1191,6 +1192,8 @@ def t3_add(
         tt_cores_z.append(Gz)
 
     z = (tuple(basis_cores_z), tuple(tt_cores_z))
+    if squash:
+        z = squash_tails(z)
     return z
 
 
@@ -1293,6 +1296,7 @@ def t3_neg(
 def t3_sub(
         x: TuckerTensorTrain,
         y: TuckerTensorTrain,
+        squash: bool = True,
         xnp = np,
 ) -> TuckerTensorTrain:
     """Subtract TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x-y with summed ranks.
@@ -1337,7 +1341,7 @@ def t3_sub(
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(y) - t3.t3_to_dense(z)))
     3.5875705233607603e-13
     """
-    return t3_add(x, t3_neg(y), xnp=xnp)
+    return t3_add(x, t3_neg(y), squash=squash, xnp=xnp)
 
 
 def t3_dot_t3(
