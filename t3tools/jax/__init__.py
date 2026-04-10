@@ -1,38 +1,47 @@
 import typing as typ
 import numpy as np
 import jax
-import jax as jnp
+import jax.numpy as jnp
+import importlib.util
 
+__all__ = [
+    "corewise",
+    "linalg",
+    "base_variation_format",
+    "manifold",
+    "orthogonalization",
+    "probing",
+    "probing",
+    "tucker_tensor_train",
+    "uniform",
+    "uniform_manifold",
+    "uniform_orthogonalization",
+    "uniform_probing",
+    "uniform_t3svd",
+]
 
-import t3tools.corewise                     as corewise
-import t3tools.linalg                       as linalg
-import t3tools.base_variation_format        as base_variation_format
-import t3tools.manifold                     as manifold
-import t3tools.orthogonalization            as orthogonalization
-import t3tools.probing                      as probing
-import t3tools.tucker_tensor_train          as tucker_tensor_train
-import t3tools.uniform                      as uniform
-import t3tools.uniform_manifold             as uniform_manifold
-import t3tools.uniform_orthogonalization    as uniform_orthogonalization
-import t3tools.uniform_probing              as uniform_probing
-import t3tools.uniform_t3svd                as uniform_t3svd
+def load_isolated(module_name):
+    spec = importlib.util.find_spec(module_name)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
 
-
-for m in [
-    corewise,
-    linalg,
-    base_variation_format,
-    manifold,
-    orthogonalization,
-    probing,
-    tucker_tensor_train,
-    uniform,
-    uniform_manifold,
-    uniform_orthogonalization,
-    uniform_probing,
-    uniform_t3svd,
-]:
     m.xnp = jnp
-    m.randn = lambda s: jnp.array(np.random.randn(s))
+    m.randn = lambda *args, **kwargs: jnp.array(np.random.randn(*args, **kwargs))
     m.scan = jax.lax.scan
     m.NDArray = typ.Union[np.ndarray, jnp.ndarray]
+
+    return m
+
+
+corewise                    = load_isolated("t3tools.corewise")
+linalg                      = load_isolated("t3tools.linalg")
+base_variation_format       = load_isolated("t3tools.base_variation_format")
+manifold                    = load_isolated("t3tools.manifold")
+orthogonalization           = load_isolated("t3tools.orthogonalization")
+probing                     = load_isolated("t3tools.probing")
+tucker_tensor_train         = load_isolated("t3tools.tucker_tensor_train")
+uniform                     = load_isolated("t3tools.uniform")
+uniform_manifold            = load_isolated("t3tools.uniform_manifold")
+uniform_orthogonalization   = load_isolated("t3tools.uniform_orthogonalization")
+uniform_probing             = load_isolated("t3tools.uniform_probing")
+uniform_t3svd               = load_isolated("t3tools.uniform_t3svd")

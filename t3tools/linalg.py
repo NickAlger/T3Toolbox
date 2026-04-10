@@ -2,7 +2,7 @@ import typing as typ
 import numpy as np
 
 NDArray = np.ndarray
-xnp = np
+# xnp = np
 
 __all__ = [
     'truncated_svd',
@@ -18,6 +18,7 @@ def truncated_svd(
         max_rank: int = None,  # 1 <= min_rank <= max_rank <= minimum(ni*na, nj)
         rtol: float = None,  # removes singular values satisfying sigma < maximum(atol, rtol*sigma1)
         atol: float = None,  # removes singular values satisfying sigma < maximum(atol, rtol*sigma1)
+        xnp = np,
 ) -> typ.Tuple[
     NDArray, # U, shape=(N,k)
     NDArray, # ss, shape=(k,)
@@ -40,8 +41,8 @@ def truncated_svd(
         Relative tolerance for truncation. Remove singular values satisfying sigma < maximum(atol, rtol*sigma1).
     atol: float
         Absolute tolerance for truncation. Remove singular values satisfying sigma < maximum(atol, rtol*sigma1).
-    use_jax: bool
-        If True, use jax operations. Otherwise, numpy. Default: False
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------

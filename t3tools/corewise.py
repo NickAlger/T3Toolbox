@@ -2,7 +2,6 @@ import typing as typ
 import numpy as np
 
 NDArray = np.ndarray
-xnp = np
 
 __all__ = [
     'NDArrayTree',
@@ -95,7 +94,7 @@ def corewise_neg(X: NDArrayTree) -> NDArrayTree:
         return -X
 
 
-def corewise_dot(X: NDArrayTree, Y: NDArrayTree, use_jax: bool = False):
+def corewise_dot(X: NDArrayTree, Y: NDArrayTree, xnp=np):
     '''Dot product of nested objects, X,Y -> X.Y.
 
     Examples
@@ -115,7 +114,7 @@ def corewise_dot(X: NDArrayTree, Y: NDArrayTree, use_jax: bool = False):
         return xnp.sum(X * Y)
 
 
-def corewise_norm(X):
+def corewise_norm(X, xnp=np):
     '''Norm of nested objects, X -> ||X||
 
     Examples

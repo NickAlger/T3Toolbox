@@ -3,7 +3,8 @@
 # https://github.com/NickAlger/TuckerTensorTrainTools
 import numpy as np
 import typing as typ
-import t3tools.tucker_tensor_train as t3
+import t3tools.orthogonalization as orth
+import t3tools.uniform as ut3
 import t3tools.common as common
 
 xnp = np
@@ -19,11 +20,10 @@ __all__ = [
 ###################################################
 
 def ut3_svd(
-        cores: UniformTuckerTensorTrainCores,
-        masks: UniformTuckerTensorTrainMasks,
-        use_jax: bool = False,
+        cores: ut3.UniformTuckerTensorTrainCores,
+        masks: ut3.UniformTuckerTensorTrainMasks,
 ) -> typ.Tuple[
-    UniformTuckerTensorTrainCores,
+    ut3.UniformTuckerTensorTrainCores,
     NDArray, # basis_singular_values, shape=(d, n)
     NDArray, # tt_singular_values, shape=(d+1, r)
 ]:
@@ -73,13 +73,6 @@ def ut3_svd(
     >>> print(ss_tt_from_ut3[1]) # Incorrect singular values:
     [417.45514528 401.58448034  72.5343983   22.41273808   0.        ]
     """
-    if use_jax:
-        xnp = jnp
-        scan = jax_scan
-    else:
-        xnp = np
-        scan = numpy_scan
-
     basis_supercore, tt_supercore = cores
 
     shape_mask, basis_masks, tt_masks = masks
@@ -87,8 +80,8 @@ def ut3_svd(
     d, n, N = basis_supercore.shape
     r = tt_supercore.shape[1]
 
-    basis_supercore, tt_supercore = orthogonalize_ut3_basis_cores(basis_supercore, tt_supercore, use_jax=use_jax)
-    tt_supercore = right_orthogonalize_utt(tt_supercore, use_jax=use_jax)
+    basis_supercore, tt_supercore = orth.orthogonalize_ut3_basis_cores(basis_supercore, tt_supercore)
+    tt_supercore = orth.right_orthogonalize_utt(tt_supercore)
 
     _, ss_tt00, _ = xnp.linalg.svd(tt_supercore[0].reshape((r, n*r)), full_matrices=False)
     ss_tt0 = xnp.concatenate([ss_tt00, xnp.zeros(r-len(ss_tt00))], axis=0)

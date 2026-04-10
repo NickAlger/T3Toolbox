@@ -11,8 +11,6 @@ import t3tools.orthogonalization as orth
 # from t3tools.common import jnp, NDArray
 import t3tools.common as common
 
-xnp = np
-scan = common.numpy_scan
 NDArray = np.ndarray
 
 __all__ = [
@@ -35,6 +33,7 @@ def t3_svd(
         max_tucker_ranks:   typ.Sequence[int] = None, # len=d
         rtol: float = None,
         atol: float = None,
+        xnp = np,
 ) -> typ.Tuple[
     t3.TuckerTensorTrain, # new_x
     typ.Tuple[NDArray,...], # basis singular values, len=d
@@ -58,8 +57,8 @@ def t3_svd(
         Relative tolerance for truncation.
     atol: float
         Absolute tolerance for truncation.
-    use_jax: bool
-        If True, use jax operations. Otherwise, numpy. Default: False
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -167,18 +166,18 @@ def t3_svd(
     num_cores = len(tt_cores)
 
     # make leading and trailing TT-ranks equal to 1
-    x = t3.squash_tails(x)
+    x = t3.squash_tails(x, xnp=xnp)
 
     # Orthogonalize basis matrices
     for ii in range(num_cores):
-        x, _ = orth.up_svd_ith_basis_core(ii, x)
+        x, _ = orth.up_svd_ith_basis_core(ii, x, xnp=xnp)
 
     # Right orthogonalize
     for ii in range(num_cores-1, 0, -1): # num_cores-1, num_cores-2, ..., 1
-        x, _ = orth.right_svd_ith_tt_core(ii, x)
+        x, _ = orth.right_svd_ith_tt_core(ii, x, xnp=xnp)
 
     G0 = x[1][0]
-    _, ss_first, _ = orth.right_svd_3tensor(G0)
+    _, ss_first, _ = orth.right_svd_3tensor(G0, xnp=xnp)
 
     # Sweep left to right computing SVDS
     all_ss_basis = []
@@ -188,7 +187,7 @@ def t3_svd(
         max_rank = max_tucker_ranks[ii] if max_tucker_ranks is not None else None
         # SVD inbetween tt core and basis core
         x, ss_basis = orth.up_svd_ith_tt_core(
-            ii, x, min_rank, max_rank, rtol, atol,
+            ii, x, min_rank, max_rank, rtol, atol, xnp=xnp,
         )
         all_ss_basis.append(ss_basis)
 
@@ -197,11 +196,11 @@ def t3_svd(
             max_rank = max_tt_ranks[ii+1] if max_tt_ranks is not None else None
             # SVD inbetween ith tt core and (i+1)th tt core
             x, ss_tt = orth.left_svd_ith_tt_core(
-                ii, x, min_rank, max_rank, rtol, atol,
+                ii, x, min_rank, max_rank, rtol, atol, xnp=xnp,
             )
         else:
             Gf = x[1][-1]
-            _, ss_tt, _ = orth.left_svd_3tensor(Gf)
+            _, ss_tt, _ = orth.left_svd_3tensor(Gf, xnp=xnp)
         all_ss_tt.append(ss_tt)
 
     return x, tuple(all_ss_basis), tuple(all_ss_tt)
@@ -213,6 +212,7 @@ def tucker_svd_dense(
         max_ranks:  typ.Sequence[int] = None,  # len=d
         rtol: float = None,
         atol: float = None,
+        xnp = np,
 ) -> typ.Tuple[
     typ.Tuple[
         typ.Tuple[NDArray,...], # Tucker bases, ith_elm_shape=(ni, Ni)
@@ -234,8 +234,8 @@ def tucker_svd_dense(
         Relative tolerance for truncation.
     atol: float
         Absolute tolerance for truncation.
-    use_jax: bool
-        If True, use jax operations. Otherwise, numpy. Default: False
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -279,7 +279,9 @@ def tucker_svd_dense(
         max_rank = None if max_ranks is None else max_ranks[ii]
 
         C_swap_mat = C_swap.reshape((old_shape_swap[0], -1))
-        U, ss, Vt = t3tools.linalg.truncated_svd(C_swap_mat, min_rank, max_rank, rtol, atol)
+        U, ss, Vt = t3tools.linalg.truncated_svd(
+            C_swap_mat, min_rank, max_rank, rtol, atol, xnp=xnp,
+        )
         rM_new = len(ss)
 
         singular_values_of_matricizations.append(ss)
@@ -296,6 +298,7 @@ def tt_svd_dense(
         max_ranks:  typ.Sequence[int] = None,  # len=d+1
         rtol: float = None,
         atol: float = None,
+        xnp = np,
 ) -> typ.Tuple[
     typ.Tuple[NDArray,...], # tt_cores
     typ.Tuple[NDArray,...], # singular values of unfoldings
@@ -314,8 +317,8 @@ def tt_svd_dense(
         Relative tolerance for truncation.
     atol: float
         Absolute tolerance for truncation.
-    use_jax: bool
-        If True, use jax operations. Otherwise, numpy. Default: False
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -358,7 +361,9 @@ def tt_svd_dense(
         min_rank = None if min_ranks is None else min_ranks[ii+1]
         max_rank = None if max_ranks is None else max_ranks[ii+1]
 
-        U, ss, Vt = t3tools.linalg.truncated_svd(X.reshape((rL * nn[ii], -1)), min_rank, max_rank, rtol, atol)
+        U, ss, Vt = t3tools.linalg.truncated_svd(
+            X.reshape((rL * nn[ii], -1)), min_rank, max_rank, rtol, atol, xnp=xnp,
+        )
         rR = len(ss)
 
         singular_values_of_unfoldings.append(ss)
@@ -380,6 +385,7 @@ def t3_svd_dense(
         max_tt_ranks:  typ.Sequence[int] = None,  # len=d+1
         rtol: float = None,
         atol: float = None,
+        xnp = np,
 ) -> typ.Tuple[
     t3.TuckerTensorTrain, # Approximation of T by Tucker tensor train
     typ.Tuple[NDArray,...], # basis singular values, len=d
@@ -403,8 +409,8 @@ def t3_svd_dense(
         Relative tolerance for truncation.
     atol: float
         Absolute tolerance for truncation.
-    use_jax: bool
-        If True, use jax operations. Otherwise, numpy. Default: False
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -438,6 +444,10 @@ def t3_svd_dense(
     >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-3
     0.0025147026955504846
     '''
-    (basis_cores, tucker_core), ss_tucker = tucker_svd_dense(T, min_tucker_ranks, max_tucker_ranks, rtol, atol)
-    tt_cores, ss_tt = tt_svd_dense(tucker_core, min_tt_ranks, max_tt_ranks, rtol, atol)
+    (basis_cores, tucker_core), ss_tucker = tucker_svd_dense(
+        T, min_tucker_ranks, max_tucker_ranks, rtol, atol, xnp=xnp,
+    )
+    tt_cores, ss_tt = tt_svd_dense(
+        tucker_core, min_tt_ranks, max_tt_ranks, rtol, atol, xnp=xnp,
+    )
     return (basis_cores, tt_cores), ss_tucker, ss_tt

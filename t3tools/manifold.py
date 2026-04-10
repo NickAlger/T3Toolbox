@@ -10,9 +10,7 @@ import t3tools.t3svd as t3svd
 import t3tools.base_variation_format as bvf
 import t3tools.common as common
 
-xnp = np
-randn = np.random.randn
-scan = common.numpy_scan
+
 NDArray = np.ndarray
 
 __all__ = [
@@ -107,6 +105,7 @@ def tangent_to_dense(
         variation: bvf.T3Variation,
         base: bvf.T3Base,
         include_shift: bool = False, # False: V. True: P+V. P=base point, V=tangent vector
+        xnp = np,
 ) -> NDArray:
     """Convert Tangent vector to Tucker tensor train manifold into dense tensor.
 
@@ -144,7 +143,7 @@ def tangent_to_dense(
     terms = basis_terms + tt_terms
     V = t3.t3_to_dense(terms[0])
     for t in terms[1:]:
-        V = V + t3.t3_to_dense(t)
+        V = V + t3.t3_to_dense(t, xnp=xnp)
 
     if include_shift:
         basis_cores, left_tt_cores, _, _ = base
@@ -160,6 +159,7 @@ def tangent_to_t3(
         variation: bvf.T3Variation,
         base: bvf.T3Base,
         include_shift: bool = False,  # False: v. True: p+v. p=base point, v=tangent vector
+        xnp = np,
 ) -> t3.TuckerTensorTrain:
     '''Rank 2r Tucker tensor train representation of tangent vector.
 
@@ -187,8 +187,8 @@ def tangent_to_t3(
         Representation of the base point at which the tangent space attaches to the manifold.
     include_shift: bool
         If False, return tangent vector v only. If True, shift tangent vector so it is attached at the base point, p+v.
-    use_jax: bool
-        If True, returned TuckerTensorTrain cores are jnp.ndaray. Otherwise, np.ndarray. Default: False
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -281,6 +281,7 @@ def tangent_to_t3(
 
 def tangent_zeros(
         base: bvf.T3Base, # orthogonal base
+        xnp = np,
 ) -> bvf.T3Variation:
     """Construct the zero vector in a Tucker tensor train tangent space.
 
@@ -288,8 +289,8 @@ def tangent_zeros(
     ----------
     base: T3Base
         Representations of base point on manifold where tangent space is attached
-    use_jax: bool
-        If True, return jax arrays, if False return numpy.
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -326,6 +327,7 @@ def tangent_zeros(
 def tangent_randn(
         base: bvf.T3Base, # orthogonal base
         apply_gauge_projection: bool = True,
+        randn: typ.Callable[..., NDArray] = np.random.randn,
 ) -> bvf.T3Variation:
     """Draw a random T3Variation.
 
@@ -333,6 +335,9 @@ def tangent_randn(
     ----------
     orthogonal_base: T3Base
         Representations of base point on manifold where tangent space is attached.
+    randn: typ.Callable[[..., NDArray]
+        Function for creating random arrays. Arguments are a sequence of ints defining the shape of the array.
+        Default: np.random.randn (numpy)
 
     Returns
     -------
@@ -376,8 +381,8 @@ def tangent_randn(
 
     var_basis_shapes, var_tt_shapes = bvf.hole_shapes(base)
 
-    basis_vars0 = tuple([_randn(*s) for s in var_basis_shapes])
-    tt_vars0 = tuple([_randn(*s) for s in var_tt_shapes])
+    basis_vars0 = tuple([randn(*s) for s in var_basis_shapes])
+    tt_vars0 = tuple([randn(*s) for s in var_tt_shapes])
 
     variation = (basis_vars0, tt_vars0)
     if apply_gauge_projection:
@@ -392,6 +397,7 @@ def tangent_randn(
 def orthogonal_gauge_projection(
         variation: bvf.T3Variation,
         orthogonal_base: bvf.T3Base,
+        xnp = np,
 ) -> bvf.T3Variation:
     """Makes tangent variation gauged via orthogonal projection. Changes tangent vector.
 
@@ -407,8 +413,8 @@ def orthogonal_gauge_projection(
         The variation which will become gauged.
     orthogonal_base: T3Base,
         The base representations. Must be orthogonal for the operation to work properly.
-    use_jax: bool
-        If True, use jax operations, if False use numpy.
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -465,6 +471,7 @@ import t3tools.corewise    >>> v_minus_p_dot_p = common.corewise_dot(t3tools.cor
 def oblique_gauge_projection(
         variation: bvf.T3Variation,
         orthogonal_base: bvf.T3Base,
+        xnp = np,
 ) -> bvf.T3Variation:
     """Makes variations left-perpendicular while preserving tangent vector.
 
@@ -479,8 +486,8 @@ def oblique_gauge_projection(
     orthogonal_base: T3Base,
         Orthogonal representations of the base point on the manifold.
         If non-orthogonal, this method doesn't work properly.
-    use_jax: bool
-        If True, use jax operations, if False use numpy.
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -519,7 +526,8 @@ def oblique_gauge_projection(
     With minimal ranks, orthogonal bases, and gauged variations, the corewise dot product faithfully represents
     the Hilbert-Schmidt inner product on the ambient space:
 
-import t3tools.corewise    >>> import numpy as np
+    import t3tools.corewise
+    >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.manifold as t3m
     >>> import t3tools.common
@@ -587,6 +595,7 @@ def tt_reverse(cores):
 def tt_zipper_left_to_right(
         coresA: typ.Sequence[NDArray],
         coresB: typ.Sequence[NDArray],
+        xnp = np,
 ) -> typ.Tuple[NDArray, ...]:  # zipper_matrices. len=num_cores+1
     zipper_matrices = [xnp.array([[1.0]])]
     for GA, GB in zip(coresA, coresB):
@@ -599,14 +608,15 @@ def tt_zipper_left_to_right(
 def tt_zipper_right_to_left(
         coresA: typ.Sequence[NDArray],
         coresB: typ.Sequence[NDArray],
-        use_jax: bool = False,
+        xnp = np,
 ) -> typ.Tuple[NDArray, ...]:  # zipper_matrices. len=num_cores+1
-    return tt_zipper_left_to_right(tt_reverse(coresA), tt_reverse(coresB))[::-1]
+    return tt_zipper_left_to_right(tt_reverse(coresA), tt_reverse(coresB), xnp=xnp)[::-1]
 
 
 def project_t3_onto_tangent_space(
         x: t3.TuckerTensorTrain, # Tucker tensor train to be projected
         orthogonal_base: bvf.T3Base, # Orthogonal representations of base point
+        xnp = np,
 ) -> bvf.T3Variation:
     """Projects TuckerTensorTrain onto tangent space to the manifold of fixed rank TuckerTensorTrains.
 
@@ -616,8 +626,8 @@ def project_t3_onto_tangent_space(
         TuckerTensorTrain to project
     orthogonal_base: T3Base
         Minimal rank orthogonal representations of base point on manifold where tangent space is attached
-    use_jax: bool
-        If True, use jax operations, if False use numpy.
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -692,6 +702,7 @@ def project_t3_onto_tangent_space(
 def retract(
         variation: bvf.T3Variation,
         base: bvf.T3Base,
+        xnp = np,
 ) -> t3.TuckerTensorTrain: # retracted Tucker tensor train
     """Retract Tucker tensor train tangent vector to manifold.
 
@@ -701,8 +712,8 @@ def retract(
         Variation representing the tangent vector we wish to retract to the manifold
     base: T3Base,
         Representation of the base point on the manifold where the tangent space is attached.
-    use_jax: bool
-        If True, use jax operations, if False use numpy.
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -742,11 +753,12 @@ import t3tools.corewise    >>> v2 = t3tools.corewise.corewise_scale(variation, 1
     basis_cores, left_tt_cores, _, _ = base
     _, base_tucker_ranks, base_tt_ranks = t3.get_structure((basis_cores, left_tt_cores))
 
-    x_t3 = tangent_to_t3(variation, base, include_shift=True)
+    x_t3 = tangent_to_t3(variation, base, include_shift=True, xnp=xnp)
     retracted_x_t3, _, _ = t3svd.t3_svd(
         x_t3,
         max_tt_ranks = base_tt_ranks,
         max_tucker_ranks = base_tucker_ranks,
+        xnp=xnp,
     )
     return retracted_x_t3
 

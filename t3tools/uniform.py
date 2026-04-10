@@ -8,8 +8,8 @@ import t3tools.tucker_tensor_train as t3
 # from t3tools.common import jnp, NDArray, numpy_scan, jax_scan
 import t3tools.common as common
 
-xnp = np
-scan = common.numpy_scan
+# xnp = np
+# scan = common.numpy_scan
 NDArray = np.ndarray
 
 __all__ = [
@@ -261,6 +261,7 @@ def get_original_structure(
 def apply_masks(
         cores: UniformTuckerTensorTrainCores,
         masks: UniformTuckerTensorTrainMasks,
+        xnp = np,
 ) -> UniformTuckerTensorTrainCores: # cores with masks applied
     """Apply masks to uniform Tucker tensor train cores to zero out superflous entries.
     """
@@ -278,6 +279,7 @@ def apply_masks(
 def unpack_edge_tensors(
         packed_edge_tensors: NDArray, # shape=(...,c,m) or (c,m). E.g., (num_vecs,d,N) or (d,N)
         submask: NDArray, # shape=(c,m). Typical use case: component of UniformTuckerTensorTrainMasks
+        xnp = np,
 ) -> typ.Tuple[
     NDArray, # shape=(...,mi) or (mi,). E.g., (num_vecs,Ni) or (Ni,)
 ]: # len=c, e.g., len=d
@@ -324,7 +326,7 @@ def unpack_edge_tensors(
     c = packed_edge_tensors.shape[-2]
     unpacked_edge_vectors = []
     for ii in range(c):
-        TTi = np.take(packed_edge_tensors, ii, axis=-2)
+        TTi = xnp.take(packed_edge_tensors, ii, axis=-2)
         Ti = TTi[..., submask[ii]]
         unpacked_edge_vectors.append(Ti)
     return tuple(unpacked_edge_vectors)
@@ -332,6 +334,7 @@ def unpack_edge_tensors(
 
 def t3_to_ut3(
         x: t3.TuckerTensorTrain,
+        xnp = np,
 ) -> typ.Tuple[
     UniformTuckerTensorTrainCores,
     UniformTuckerTensorTrainMasks,
@@ -390,6 +393,7 @@ def t3_to_ut3(
 def ut3_to_t3(
         cores: UniformTuckerTensorTrainCores,
         masks: UniformTuckerTensorTrainMasks,
+        xnp = np,
 ) -> t3.TuckerTensorTrain:
     '''Convert UniformTuckerTensorTrain to TuckerTensorTrain.
 
@@ -437,6 +441,7 @@ def ut3_to_t3(
 def ut3_to_dense(
         cores: UniformTuckerTensorTrainCores,
         masks: UniformTuckerTensorTrainMasks,
+        xnp = np,
 ) -> NDArray:
     """Construct dense tensor represented by uniform Tucker tensor train
 
@@ -465,7 +470,7 @@ def ut3_to_dense(
     0.0
     """
     check_ut3(cores, masks)
-    return t3.t3_to_dense(ut3_to_t3(cores, masks, use_jax=use_jax), use_jax=use_jax)
+    return t3.t3_to_dense(ut3_to_t3(cores, masks), xnp=xnp)
 
 
 def are_ut3_ranks_minimal(
@@ -500,6 +505,8 @@ def are_ut3_ranks_minimal(
 def ut3_entry(
         cores: UniformTuckerTensorTrainCores,
         index: NDArray, # dtype=int. shape=(d,) or shape=(num_entries,d)
+        xnp = np,
+        scan = common.numpy_scan,
 ) -> NDArray:
     """Compute entry (entries) of a uniform Tucker tensor train.
 
@@ -582,7 +589,7 @@ def ut3_add(
         x_masks: UniformTuckerTensorTrainMasks,
         y_cores: UniformTuckerTensorTrainCores,
         y_masks: UniformTuckerTensorTrainMasks,
-        use_jax: bool = False,
+        xnp = np,
 ) -> typ.Tuple[
     UniformTuckerTensorTrainCores, # x+y cores
     UniformTuckerTensorTrainMasks, # x+y masks
@@ -599,6 +606,8 @@ def ut3_add(
         Second summand cores
     y_masks: UniformTuckerTensorTrainMasks
         Second summand masks
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -667,6 +676,7 @@ def ut3_add(
 def ut3_scale(
         x_cores: UniformTuckerTensorTrainCores,
         s, # scalar
+        xnp = np,
 ) -> UniformTuckerTensorTrainCores: # cores for z = s*x
     """Scale a uniform Tucker tensor train, s,x -> s*x.
 
@@ -676,6 +686,8 @@ def ut3_scale(
         Original uniform Tucker tensor train cores
     s: scalar
         Scaling factor
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -707,6 +719,7 @@ def ut3_scale(
 
 def ut3_neg(
         x_cores: UniformTuckerTensorTrainCores,
+        xnp = np,
 ) -> UniformTuckerTensorTrainCores: # cores for z = -x
     """Flip a uniform Tucker tensor train, x -> -x.
 
@@ -733,7 +746,7 @@ def ut3_neg(
     >>> print(np.linalg.norm(-dense_x - dense_neg_x))
     0.0
     """
-    return ut3_scale(x_cores, -1.0)
+    return ut3_scale(x_cores, -1.0, xnp=xnp)
 
 
 def ut3_sub(
@@ -741,6 +754,7 @@ def ut3_sub(
         x_masks: UniformTuckerTensorTrainMasks,
         y_cores: UniformTuckerTensorTrainCores,
         y_masks: UniformTuckerTensorTrainMasks,
+        xnp = np
 ) -> typ.Tuple[
     UniformTuckerTensorTrainCores, # x-y cores
     UniformTuckerTensorTrainMasks, # x-y masks
@@ -757,6 +771,8 @@ def ut3_sub(
         Second term cores
     y_masks: UniformTuckerTensorTrainMasks
         Second term masks
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -781,7 +797,7 @@ def ut3_sub(
     >>> print(np.linalg.norm(dense_x - dense_y - dense_x_minus_y))
     0.0
     """
-    return ut3_add(x_cores, x_masks, ut3_neg(y_cores), y_masks)
+    return ut3_add(x_cores, x_masks, ut3_neg(y_cores, xnp=xnp), y_masks, xnp=xnp)
 
 
 

@@ -8,9 +8,10 @@ import typing as typ
 import t3tools.tucker_tensor_train as t3
 import t3tools.common as common
 
-xnp = np
-randn = np.random.randn
-scan = common.numpy_scan
+
+# xnp = np
+# randn = np.random.randn
+# scan = common.numpy_scan
 NDArray = np.ndarray
 
 __all__ = [

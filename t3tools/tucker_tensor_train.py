@@ -7,9 +7,9 @@ import typing as typ
 # from t3tools.common import jnp, NDArray
 import t3tools.common as common
 
-xnp = np
-randn = np.random.randn
-scan = common.numpy_scan
+# xnp = np
+# randn = np.random.randn
+# scan = common.numpy_scan
 NDArray = np.ndarray
 
 __all__ = [
@@ -315,6 +315,7 @@ def check_t3(
 def t3_to_dense(
         x: TuckerTensorTrain,
         contract_ones: bool = True,
+        xnp = np,
 ) -> NDArray:
     """Contract Tucker tensor train to dense tensor.
 
@@ -325,8 +326,8 @@ def t3_to_dense(
     contract_ones: bool
         If true (default), contract with leading and training 1's, yielding shape=(N1,...,Nd).
         If false, do not contract with leading and trailing 1's, yielding shape=(r0,N1,...,Nd,rd).
-    use_jax: bool
-        Use jax if True, numpy if False. Default: False
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -376,8 +377,6 @@ def t3_to_dense(
     basis_cores, tt_cores = x
     big_tt_cores = [xnp.einsum('iaj,ab->ibj', G, U) for G, U in zip(tt_cores, basis_cores)]
 
-    # T = xnp.ones(big_tt_cores[0].shape[0])
-
     T = big_tt_cores[0]
     for G in big_tt_cores[1:]:
         T = xnp.tensordot(T, G, axes=1)
@@ -396,6 +395,7 @@ def t3_to_dense(
 
 def squash_tails(
         x: TuckerTensorTrain,
+        xnp = np,
 ) -> TuckerTensorTrain:
     """Make leading and trailing Tucker ranks equal to 1 (r0=rd=1).
 
@@ -466,6 +466,7 @@ def reverse_t3(
 
 def t3_zeros(
         structure:  T3Structure,
+        xnp = np,
 ) -> TuckerTensorTrain:
     """Construct Tucker tensor train of zeros.
 
@@ -473,8 +474,8 @@ def t3_zeros(
     ----------
     structure:  T3Structure
         Tucker tensor train structure, (shape, tucker_ranks, tt_ranks)=((N1,...,Nd), (n1,...,nd), (1,r1,...,r(d-1),1))).
-    use_jax: bool
-        Use jax if True, numpy if False. Default: False
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -508,6 +509,7 @@ def t3_zeros(
 
 def t3_corewise_randn(
         s: T3Structure,
+        randn: typ.Callable[...,NDArray] = np.random.randn,
 ) -> TuckerTensorTrain:
     """Construct Tucker tensor train with random cores (i.i.d. N(0,1) entries).
 
@@ -516,8 +518,9 @@ def t3_corewise_randn(
     structure:  T3Structure
         Tucker tensor train structure
         (shape, tucker_ranks, tt_ranks)=((N1,...,Nd), (n1,...,nd), (1,r1,...,r(d-1),1))).
-    use_jax: bool
-        Use jax if True, numpy if False. Default: False
+    randn: typ.Callable[[..., NDArray]
+        Function for creating random arrays. Arguments are a sequence of ints defining the shape of the array.
+        Default: np.random.randn (numpy)
 
     Returns
     -------
@@ -602,6 +605,7 @@ def t3_save(
 
 def t3_load(
         file,
+        xnp = np,
 ) -> TuckerTensorTrain:
     """Save Tucker tensor train to file with numpy.savez()
 
@@ -612,8 +616,8 @@ def t3_load(
         where the data will be saved. If file is a string or a Path, the
         ``.npz`` extension will be appended to the filename if it is not
         already there.
-    use_jax: bool
-        If True, returned TuckerTensorTrain cores are jnp.ndaray. Otherwise, np.ndarray. Default: False
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -660,7 +664,7 @@ def t3_load(
     basis_cores = [d['basis_cores_' + str(ii)] for ii in range(num_cores)]
     tt_cores = [d['tt_cores_' + str(ii)] for ii in range(num_cores)]
 
-    basis_cores = [xnp.array(B) for B in basis_cores] # in case we are using jax
+    basis_cores = [xnp.array(B) for B in basis_cores] # in case we are using jax or some other linalg backend
     tt_cores = [xnp.array(G) for G in tt_cores]
 
     x = (tuple(basis_cores), tuple(tt_cores))
@@ -675,6 +679,7 @@ def t3_load(
 def t3_apply(
         x: TuckerTensorTrain, # shape=(N1,...,Nd)
         vecs: typ.Sequence[NDArray], # len=d, elm_shape=(Ni,) or (num_applies, Ni)
+        xnp = np,
 ) -> NDArray:
     '''Contract TuckerTensorTrain with vectors in all indices.
 
@@ -684,8 +689,8 @@ def t3_apply(
         Tucker tensor train. shape=(N1,...,Nd)
     vecs: typ.Sequence[NDArray]
         Vectors to contract with indices of x. len=d, elm_shape=(Ni,) or (num_applies, Ni) if vectorized
-    use_jax: bool
-        If True, use jax operations. Otherwise, numpy. Default: False
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -818,6 +823,7 @@ def t3_apply(
 def t3_entry(
         x: TuckerTensorTrain, # shape=(N1,...,Nd)
         index: typ.Union[typ.Sequence[int], typ.Sequence[typ.Sequence[int]]], # len=d. one entry: typ.Sequence[int]. many entries: typ.Sequence[typ.Sequence[int]], elm_size=num_entries
+        xnp = np,
 ) -> NDArray:
     '''Compute an entry (or multiple entries) of a TuckerTensorTrain.
 
@@ -828,8 +834,8 @@ def t3_entry(
     index: typ.Union[typ.Sequence[int], typ.Sequence[typ.Sequence[int]]]
         Index of the desired entry (typ.Sequence[int]), or indices of desired entries (typ.Sequence[typ.Sequence[int]])
         len(index)=d. If many entries: elm_size=num_entries
-    use_jax: bool
-        If True, use jax operations. Otherwise, numpy. Default: False
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -1036,6 +1042,7 @@ import t3tools.t3svd    >>> x2 = t3tools.t3svd.t3_svd(x)[0]
 def pad_t3(
         x:                  TuckerTensorTrain,
         new_structure:      T3Structure,
+        xnp = np,
 ) -> TuckerTensorTrain:
     '''Increase TuckerTensorTrain ranks via zero padding.
 
@@ -1104,6 +1111,7 @@ def pad_t3(
 def t3_add(
         x: TuckerTensorTrain,
         y: TuckerTensorTrain,
+        xnp = np,
 ) -> TuckerTensorTrain:
     """Add TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x+y with summed ranks.
 
@@ -1113,8 +1121,8 @@ def t3_add(
         First summand. structure=((N1,...,Nd), (n1,...,nd), (r0, r1,...,rd))
     y: TuckerTensorTrain
         Second summand. structure=((N1,...,Nd), (m1,...,md), (q0, q1,...,qd))
-    use_jax: bool
-        If True, returned TuckerTensorTrain cores are jnp.ndaray. Otherwise, np.ndarray. Default: False
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -1289,6 +1297,7 @@ def t3_neg(
 def t3_sub(
         x: TuckerTensorTrain,
         y: TuckerTensorTrain,
+        xnp = np,
 ) -> TuckerTensorTrain:
     """Subtract TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x-y with summed ranks.
 
@@ -1298,8 +1307,8 @@ def t3_sub(
         First summand. structure=((N1,...,Nd), (n1,...,nd), (r0, r1,...,rd))
     y: TuckerTensorTrain
         Second summand. structure=((N1,...,Nd), (m1,...,md), (q0, q1,...,qd))
-    use_jax: bool
-        If True, returned TuckerTensorTrain cores are jnp.ndaray. Otherwise, np.ndarray. Default: False
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -1332,12 +1341,13 @@ def t3_sub(
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(y) - t3.t3_to_dense(z)))
     3.5875705233607603e-13
     """
-    return t3_add(x, t3_neg(y))
+    return t3_add(x, t3_neg(y), xnp=xnp)
 
 
 def t3_dot_t3(
         x: TuckerTensorTrain,
         y: TuckerTensorTrain,
+        xnp = np,
 ):
     """Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains x, y with the same shape, (x, y)_HS.
 
@@ -1347,8 +1357,8 @@ def t3_dot_t3(
         First Tucker tensor train. shape=(N1,...,Nd)
     y: TuckerTensorTrain
         Second Tucker tensor train. shape=(N1,...,Nd)
-    use_jax: bool
-        If True, use jax operations. Otherwise, numpy. Default: False
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -1428,7 +1438,7 @@ def t3_dot_t3(
 
 def t3_norm(
         x: TuckerTensorTrain,
-        use_orthogonalization: bool = True,
+        xnp = np,
 ):
     """Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains x, y with the same shape, (x, y)_HS.
 
@@ -1436,8 +1446,8 @@ def t3_norm(
     ----------
     x: TuckerTensorTrain
         First Tucker tensor train. shape=(N1,...,Nd)
-    use_jax: bool
-        If True, use jax operations. Otherwise, numpy. Default: False
+    xnp:
+        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -1465,6 +1475,6 @@ def t3_norm(
     1.3642420526593924e-12
     """
     check_t3(x)
-    return xnp.sqrt(t3_dot_t3(x, x))
+    return xnp.sqrt(t3_dot_t3(x, x, xnp=xnp))
 
 
