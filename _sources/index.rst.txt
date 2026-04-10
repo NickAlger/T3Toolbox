@@ -49,15 +49,16 @@ Unless specified otherwise, operations in this package are defined with respect
 to the dense N0 x ... x N(d-1) tensors that are *represented* by the Tucker tensor train, 
 even though these dense tensors are not formed during computations.
 
-Includes:
----------
+Included functionality:
+-----------------------
 
 - Basic T3 operations (entries, addition, scaling, inner product)
+- Determination of minimal ranks
 - Orthogonalization
 - T3-SVD
 - Orthogonal representation of tangent vectors to the fixed rank T3-manifold
 - Orthogonal and oblique gauge projections of tangent vector representations
-- Conversion of tangent vector representations to rank-2r T3s
+- Conversion of tangent vector representations to doubled rank T3s
 - Retraction of tangent vectors to the T3-manifold
 - Probing T3s
 - Probing tangent vectors
@@ -66,23 +67,38 @@ Includes:
 - Option to use either `Numpy <https://numpy.org/>`_ or `Jax <https://docs.jax.dev/en/latest/index.html>`_ for linear algebra operations
 
 
-Websites:
----------
+Websites
+--------
 
 * Github: https://github.com/NickAlger/TuckerTensorTrainTools
 * Documentation: https://nickalger.github.io/TuckerTensorTrainTools/
 
 
-Authors:
---------
+Authors
+-------
 
 * Nick Alger (nalger225@gmail.com)
 * Blake Christierson (bechristierson@utexas.edu)
 
-License:
---------
+License
+-------
 
 * `MIT License <https://mit-license.org/>`_
+
+
+Installation
+============
+The package is pure python. Dependencies:
+
+* `Numpy <https://numpy.org/install/>`_ (required)
+* `Jax <https://docs.jax.dev/en/latest/installation.html>`_ (optional)
+
+Install from source::
+
+	git clone https://github.com/NickAlger/TuckerTensorTrainTools.git
+	cd TuckerTensorTrainTools
+	pip install .
+
 
 
 Modules
@@ -126,21 +142,6 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
-
-
-Installation
-============
-The package is pure python. Dependencies:
-
-* `Numpy <https://numpy.org/install/>`_ (required)
-* `Jax <https://docs.jax.dev/en/latest/installation.html>`_ (optional)
-
-Install from source::
-
-	git clone https://github.com/NickAlger/TuckerTensorTrainTools.git
-	cd TuckerTensorTrainTools
-	pip install .
 
 
 Examples
@@ -276,34 +277,61 @@ This package is written in a `functional programming <https://en.wikipedia.org/w
 
 
 T3 Background
-==========
+=============
 
 
 Tucker tensor trains represent dense tensors
 --------------------------------------------
 
-Although the Tucker tensor train is defined by its cores, we always keep in mind that it *represents* a dense tensor in R^(N1 x ... x Nd). Tensor train representations are not unique; this fact is exploited by many Tensor train algorithms. 
+Although the Tucker tensor train is defined by its cores, we always keep in mind that it *represents* a 
+dense N0 x ... x N(d-1) tensor. Tucker tensor train representations are not unique. In particular, you can
+always insert a matrix times its inverse in the middle of an edge, then absorb the matrix into one of the 
+cores on the edge and absorb the inverse into the other. This changes the T3 representation, but does not change 
+the dense tensor being represented.
 
-When we perform operations with Tucker tensor trains, like adding them, scaling them, taking inner products, etc, we typically are simulating these operations on the represented dense tensors, using the cores as a computational device to avoid operating on gigantically large arrays. We are not performing the operations "corewise".
+When we perform operations with Tucker tensor trains, like adding them, scaling them, taking inner products, etc, we typically are simulating these operations on the represented dense tensors, using the cores merely as a computational device. We are not performing the operations "corewise".
 
 For example, consider the Tucker tensor trains:
-	* x = ((A0,...,Ad), (F0,...,Fd))
-	* y = ((B0,...,Bd), (G0,...,Gd))
-	* z = ((C0,...,Cd), (H0,...,Hd))
+
+	* x = ((A0,...,A(d-1)), (F0,...,F(d-1)))
+	* y = ((B0,...,B(d-1)), (G0,...,G(d-1)))
+	* z = ((C0,...,C(d-1)), (H0,...,H(d-1)))
 	
 We want::
 
 	z "=" x "+" y
 	
-to mean the following: if you added the N1 x ... x Nd tensor represented by x to the tensor N1 x ... x Nd represented by y, then the resulting N1 x ... x Nd tensor can be represented by the Tucker tensor train z. I.e.,::
+to mean the following: if you added the N0 x ... x N(d-1) tensor represented by x to the tensor N0 x ... x N(d-1) represented by y, then the resulting N0 x ... x N(d-1) tensor can be represented by the Tucker tensor train z. I.e.,::
 
 	t3_to_dense(z) = t3_to_dense(x) + t3_to_dense(y).
 	
-We do not mean "add the cores". E.g., generally
-Ci =/= Ai + Bi.
+We do not mean "add the cores". Generally,
+Ci =/= Ai + Bi and Hi =/= Fi + Gi.
 
-         
-         
+
+Minimal rank conditions
+-----------------------
+
+Tucker tensor trains are said to have *minimal ranks* if they satisfy:
+
+	- Left TT core unfoldings are full rank: r(i+1) <= (ri*ni)
+	- Right TT core unfoldings are full rank: ri <= (ni*r(i+1))
+	- Outer TT core unfoldings are full rank: ni <= (ri*r(i+1))
+	- Basis matrices have full row rank: ni <= Ni
+
+Minimal rank properties:
+
+	- Minimal ranks always exist and are unique.
+	- Minimal tucker ranks ni are equal to the ranks of Ni x (N1*...*N(i-1)*N(i+1)*...*N(d-1)) matricizations.
+	- Minimal TT ranks ri are equal to the ranks of (N*...*Ni) x (N(i+1)*...*N(d-1)) matrix unfoldings.
+	- Minimal rank representations of any T3 may be constructed with T3-SVD.
+
+In this package, minimal ranks are typically defined with respect to a
+generic Tucker tensor train of the given form based on its structure.
+We do not account for possible additional rank deficiency due to
+the numerical values within the cores.
+
+
 T3 Manifold
 -----------
 

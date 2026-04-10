@@ -309,15 +309,16 @@ Tucker tensor train is O(dnr^2 + dnN).</p>
 <p>Unless specified otherwise, operations in this package are defined with respect
 to the dense N0 x … x N(d-1) tensors that are <em>represented</em> by the Tucker tensor train,
 even though these dense tensors are not formed during computations.</p>
-<section id="includes">
-<h2>Includes:<a class="headerlink" href="#includes" title="Link to this heading">#</a></h2>
+<section id="included-functionality">
+<h2>Included functionality:<a class="headerlink" href="#included-functionality" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p>Basic T3 operations (entries, addition, scaling, inner product)</p></li>
+<li><p>Determination of minimal ranks</p></li>
 <li><p>Orthogonalization</p></li>
 <li><p>T3-SVD</p></li>
 <li><p>Orthogonal representation of tangent vectors to the fixed rank T3-manifold</p></li>
 <li><p>Orthogonal and oblique gauge projections of tangent vector representations</p></li>
-<li><p>Conversion of tangent vector representations to rank-2r T3s</p></li>
+<li><p>Conversion of tangent vector representations to doubled rank T3s</p></li>
 <li><p>Retraction of tangent vectors to the T3-manifold</p></li>
 <li><p>Probing T3s</p></li>
 <li><p>Probing tangent vectors</p></li>
@@ -327,25 +328,39 @@ even though these dense tensors are not formed during computations.</p>
 </ul>
 </section>
 <section id="websites">
-<h2>Websites:<a class="headerlink" href="#websites" title="Link to this heading">#</a></h2>
+<h2>Websites<a class="headerlink" href="#websites" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p>Github: <a class="reference external" href="https://github.com/NickAlger/TuckerTensorTrainTools">https://github.com/NickAlger/TuckerTensorTrainTools</a></p></li>
 <li><p>Documentation: <a class="reference external" href="https://nickalger.github.io/TuckerTensorTrainTools/">https://nickalger.github.io/TuckerTensorTrainTools/</a></p></li>
 </ul>
 </section>
 <section id="authors">
-<h2>Authors:<a class="headerlink" href="#authors" title="Link to this heading">#</a></h2>
+<h2>Authors<a class="headerlink" href="#authors" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p>Nick Alger (<a class="reference external" href="mailto:nalger225&#37;&#52;&#48;gmail&#46;com">nalger225<span>&#64;</span>gmail<span>&#46;</span>com</a>)</p></li>
 <li><p>Blake Christierson (<a class="reference external" href="mailto:bechristierson&#37;&#52;&#48;utexas&#46;edu">bechristierson<span>&#64;</span>utexas<span>&#46;</span>edu</a>)</p></li>
 </ul>
 </section>
 <section id="license">
-<h2>License:<a class="headerlink" href="#license" title="Link to this heading">#</a></h2>
+<h2>License<a class="headerlink" href="#license" title="Link to this heading">#</a></h2>
 <ul class="simple">
 <li><p><a class="reference external" href="https://mit-license.org/">MIT License</a></p></li>
 </ul>
 </section>
+</section>
+<section id="installation">
+<h1>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h1>
+<p>The package is pure python. Dependencies:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://numpy.org/install/">Numpy</a> (required)</p></li>
+<li><p><a class="reference external" href="https://docs.jax.dev/en/latest/installation.html">Jax</a> (optional)</p></li>
+</ul>
+<p>Install from source:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">NickAlger</span><span class="o">/</span><span class="n">TuckerTensorTrainTools</span><span class="o">.</span><span class="n">git</span>
+<span class="n">cd</span> <span class="n">TuckerTensorTrainTools</span>
+<span class="n">pip</span> <span class="n">install</span> <span class="o">.</span>
+</pre></div>
+</div>
 </section>
 <section id="modules">
 <h1>Modules<a class="headerlink" href="#modules" title="Link to this heading">#</a></h1>
@@ -387,20 +402,6 @@ even though these dense tensors are not formed during computations.</p>
 <li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
 <li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
 </ul>
-</section>
-<section id="installation">
-<h1>Installation<a class="headerlink" href="#installation" title="Link to this heading">#</a></h1>
-<p>The package is pure python. Dependencies:</p>
-<ul class="simple">
-<li><p><a class="reference external" href="https://numpy.org/install/">Numpy</a> (required)</p></li>
-<li><p><a class="reference external" href="https://docs.jax.dev/en/latest/installation.html">Jax</a> (optional)</p></li>
-</ul>
-<p>Install from source:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">NickAlger</span><span class="o">/</span><span class="n">TuckerTensorTrainTools</span><span class="o">.</span><span class="n">git</span>
-<span class="n">cd</span> <span class="n">TuckerTensorTrainTools</span>
-<span class="n">pip</span> <span class="n">install</span> <span class="o">.</span>
-</pre></div>
-</div>
 </section>
 <section id="examples">
 <h1>Examples<a class="headerlink" href="#examples" title="Link to this heading">#</a></h1>
@@ -548,26 +549,55 @@ even though these dense tensors are not formed during computations.</p>
 <h1>T3 Background<a class="headerlink" href="#t3-background" title="Link to this heading">#</a></h1>
 <section id="tucker-tensor-trains-represent-dense-tensors">
 <h2>Tucker tensor trains represent dense tensors<a class="headerlink" href="#tucker-tensor-trains-represent-dense-tensors" title="Link to this heading">#</a></h2>
-<p>Although the Tucker tensor train is defined by its cores, we always keep in mind that it <em>represents</em> a dense tensor in R^(N1 x … x Nd). Tensor train representations are not unique; this fact is exploited by many Tensor train algorithms.</p>
-<p>When we perform operations with Tucker tensor trains, like adding them, scaling them, taking inner products, etc, we typically are simulating these operations on the represented dense tensors, using the cores as a computational device to avoid operating on gigantically large arrays. We are not performing the operations “corewise”.</p>
-<dl class="simple">
-<dt>For example, consider the Tucker tensor trains:</dt><dd><ul class="simple">
-<li><p>x = ((A0,…,Ad), (F0,…,Fd))</p></li>
-<li><p>y = ((B0,…,Bd), (G0,…,Gd))</p></li>
-<li><p>z = ((C0,…,Cd), (H0,…,Hd))</p></li>
+<p>Although the Tucker tensor train is defined by its cores, we always keep in mind that it <em>represents</em> a
+dense N0 x … x N(d-1) tensor. Tucker tensor train representations are not unique. In particular, you can
+always insert a matrix times its inverse in the middle of an edge, then absorb the matrix into one of the
+cores on the edge and absorb the inverse into the other. This changes the T3 representation, but does not change
+the dense tensor being represented.</p>
+<p>When we perform operations with Tucker tensor trains, like adding them, scaling them, taking inner products, etc, we typically are simulating these operations on the represented dense tensors, using the cores merely as a computational device. We are not performing the operations “corewise”.</p>
+<p>For example, consider the Tucker tensor trains:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>x = ((A0,…,A(d-1)), (F0,…,F(d-1)))</p></li>
+<li><p>y = ((B0,…,B(d-1)), (G0,…,G(d-1)))</p></li>
+<li><p>z = ((C0,…,C(d-1)), (H0,…,H(d-1)))</p></li>
 </ul>
-</dd>
-</dl>
+</div></blockquote>
 <p>We want:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">z</span> <span class="s2">&quot;=&quot;</span> <span class="n">x</span> <span class="s2">&quot;+&quot;</span> <span class="n">y</span>
 </pre></div>
 </div>
-<p>to mean the following: if you added the N1 x … x Nd tensor represented by x to the tensor N1 x … x Nd represented by y, then the resulting N1 x … x Nd tensor can be represented by the Tucker tensor train z. I.e.,:</p>
+<p>to mean the following: if you added the N0 x … x N(d-1) tensor represented by x to the tensor N0 x … x N(d-1) represented by y, then the resulting N0 x … x N(d-1) tensor can be represented by the Tucker tensor train z. I.e.,:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">t3_to_dense</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="o">=</span> <span class="n">t3_to_dense</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">+</span> <span class="n">t3_to_dense</span><span class="p">(</span><span class="n">y</span><span class="p">)</span><span class="o">.</span>
 </pre></div>
 </div>
-<p>We do not mean “add the cores”. E.g., generally
-Ci =/= Ai + Bi.</p>
+<p>We do not mean “add the cores”. Generally,
+Ci =/= Ai + Bi and Hi =/= Fi + Gi.</p>
+</section>
+<section id="minimal-rank-conditions">
+<h2>Minimal rank conditions<a class="headerlink" href="#minimal-rank-conditions" title="Link to this heading">#</a></h2>
+<p>Tucker tensor trains are said to have <em>minimal ranks</em> if they satisfy:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Left TT core unfoldings are full rank: r(i+1) &lt;= (ri*ni)</p></li>
+<li><p>Right TT core unfoldings are full rank: ri &lt;= (ni*r(i+1))</p></li>
+<li><p>Outer TT core unfoldings are full rank: ni &lt;= (ri*r(i+1))</p></li>
+<li><p>Basis matrices have full row rank: ni &lt;= Ni</p></li>
+</ul>
+</div></blockquote>
+<p>Minimal rank properties:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Minimal ranks always exist and are unique.</p></li>
+<li><p>Minimal tucker ranks ni are equal to the ranks of Ni x (N1*…*N(i-1)*N(i+1)*…*N(d-1)) matricizations.</p></li>
+<li><p>Minimal TT ranks ri are equal to the ranks of (N*…*Ni) x (N(i+1)*…*N(d-1)) matrix unfoldings.</p></li>
+<li><p>Minimal rank representations of any T3 may be constructed with T3-SVD.</p></li>
+</ul>
+</div></blockquote>
+<p>In this package, minimal ranks are typically defined with respect to a
+generic Tucker tensor train of the given form based on its structure.
+We do not account for possible additional rank deficiency due to
+the numerical values within the cores.</p>
 </section>
 <section id="t3-manifold">
 <h2>T3 Manifold<a class="headerlink" href="#t3-manifold" title="Link to this heading">#</a></h2>
@@ -768,19 +798,20 @@ A Tucker tensor train may be converted to one with minimal ranks via T3-SVD.</p>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#">TuckerTensorTrainTools</a><ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#includes">Includes:</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#websites">Websites:</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#authors">Authors:</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#license">License:</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#included-functionality">Included functionality:</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#websites">Websites</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#authors">Authors</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#license">License</a></li>
 </ul>
 </li>
+<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a></li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#modules">Modules</a></li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#indices-and-tables">Indices and tables</a></li>
-<li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a></li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#examples">Examples</a></li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#design-philosophy">Design philosophy</a></li>
 <li class="toc-h1 nav-item toc-entry"><a class="reference internal nav-link" href="#t3-background">T3 Background</a><ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tucker-tensor-trains-represent-dense-tensors">Tucker tensor trains represent dense tensors</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#minimal-rank-conditions">Minimal rank conditions</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3-manifold">T3 Manifold</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#probing">Probing</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#uniform-tucker-tensor-trains">Uniform Tucker tensor trains</a></li>
