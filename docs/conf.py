@@ -43,5 +43,9 @@ autoapi_own_page_level = 'function'
 
 html_favicon = 'favicon.ico'
 
-html_theme = 'agogo'
+html_theme = "pydata_sphinx_theme"
 html_static_path = ['_static']
+
+html_theme_options = {}
+
+

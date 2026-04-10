@@ -3,39 +3,40 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-TuckerTensorTrainTools's documentation
-======================================
+TuckerTensorTrainTools
+======================
 
 A Python library for working with Tucker tensor trains (T3). 
 Includes:
 
-	- Basic T3 operations (entries, addition, scaling, inner product)
-	- Orthogonalization
-	- T3-SVD
-	- Orthogonal representation of tangent vectors to the fixed rank T3-manifold
-	- Orthogonal and oblique gauge projections of tangent vector representations
-	- Conversion of tangent vector representations to rank-2r T3s
-	- Retraction of tangent vectors to the T3-manifold
-	- Probing T3s
-	- Probing tangent vectors
-	- Transpose of the tangent vector to probes map
-	- Varied-rank and uniform-rank T3s
-	- Option to use either Numpy or Jax for linear algebra operations
+- Basic T3 operations (entries, addition, scaling, inner product)
+- Orthogonalization
+- T3-SVD
+- Orthogonal representation of tangent vectors to the fixed rank T3-manifold
+- Orthogonal and oblique gauge projections of tangent vector representations
+- Conversion of tangent vector representations to rank-2r T3s
+- Retraction of tangent vectors to the T3-manifold
+- Probing T3s
+- Probing tangent vectors
+- Transpose of the tangent vector to probes map
+- Varied-rank and uniform-rank T3s
+- Option to use either Numpy or `Jax <https://docs.jax.dev/en/latest/index.html>`_ for linear algebra operations
 
 
-Websites
-========
+Websites:
 
 * Github: https://github.com/NickAlger/TuckerTensorTrainTools
 * Documentation: https://nickalger.github.io/TuckerTensorTrainTools/
 
 
-Authors
-=======
+Authors:
 
 * Nick Alger (nalger225@gmail.com)
 * Blake Christierson (bechristierson@utexas.edu)
 
+License:
+
+* `MIT License <https://mit-license.org/>`_
 
 Modules
 =======
@@ -62,6 +63,14 @@ Utilities:
 * :doc:`/autoapi/t3tools/corewise/index`
 * :doc:`/autoapi/t3tools/linalg/index`
 * :doc:`/autoapi/t3tools/common/index`
+
+
+Jax versions of all modules are available under t3tools.jax:
+
+- ``t3tools.tucker_tensor_train   -> t3tools.jax.tucker_tensor_train``
+- ``t3tools.base_variation_format -> t3tools.jax.base_variation_format``
+- ``t3tools.orthogonalization     -> t3tools.jax.orthogonalization``
+- etc...
 
 
 Indices and tables
@@ -175,13 +184,14 @@ This package is written in a `functional programming <https://en.wikipedia.org/w
 
 - Functions have no side effects, and functions always yield the same output for a given input. 
 - Custom types are aliases of composite basic types
-- Jax versions of numerical functions are suitable for `just-in-time (jit) compilation <https://docs.jax.dev/en/latest/_autosummary/jax.jit.html>`_ in `jax <https://docs.jax.dev/en/latest/index.html>`_, after removing non-numerical parameters by `partial evaluation <https://en.wikipedia.org/wiki/Partial_application>`_. E.g.,::
+
+- Jax of numerical functions are suitable for `just-in-time (jit) compilation <https://docs.jax.dev/en/latest/_autosummary/jax.jit.html>`_ in jax, after removing non-numerical parameters by `partial evaluation <https://en.wikipedia.org/wiki/Partial_application>`_. E.g.,::
 		
 	>>> import numpy as np
 	>>> import jax
 	>>> import t3tools.jax.tucker_tensor_train as t3_jax
 	>>> get_entry_123 = lambda x: t3_jax.t3_entry(x, (1,2,3))
-	>>> A = t3_jax.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 Tucker tensor train
+	>>> A = t3_jax.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 T3
 	>>> a123 = get_entry_123(A)
 	>>> print(a123)
 	11.756762
@@ -198,7 +208,7 @@ This package is written in a `functional programming <https://en.wikipedia.org/w
 	>>> from t3tools.jax import corewise as cw
 	>>> jax.config.update("jax_enable_x64", True) # enable double precision for finite difference
 	>>> get_entry_123 = lambda x: t3_jax.t3_entry(x, (1,2,3))
-	>>> A0 = t3_jax.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 Tucker tensor train
+	>>> A0 = t3_jax.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 T3
 	>>> f0 = get_entry_123(A0)
 	>>> G0 = jax.grad(get_entry_123)(A0) # gradient using automatic differentiation
 	>>> dA = t3_jax.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1)))
@@ -218,7 +228,7 @@ This package is written in a `functional programming <https://en.wikipedia.org/w
 	- Retraction.
 
 
-Background
+T3 Background
 ==========
 
 Tucker tensor trains
@@ -388,4 +398,10 @@ Relevant literature
 
 
 
+Complete contents
+=================
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 4
 
