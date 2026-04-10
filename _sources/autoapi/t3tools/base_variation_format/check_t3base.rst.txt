@@ -19,7 +19,7 @@ t3tools.base_variation_format.check_t3base
 
 
    Here:
-       - basis_cores       = (U0, U1, U2, U3)
+       - tucker_cores      = (U0, U1, U2, U3)
        - left_tt_cores     = (L0, L1, L2, L3)
        - right_tt_cores    = (R0, R1, R2, R3)
        - outer_tt_cores    = (O0, O1, O2, O3)

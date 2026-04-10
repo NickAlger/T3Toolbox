@@ -3,7 +3,7 @@ t3tools.base_variation_format.ith_bv_to_t3
 
 .. py:function:: t3tools.base_variation_format.ith_bv_to_t3(replacement_ind: int, replace_tt: bool, base: T3Base, variation: T3Variation) -> t3tools.tucker_tensor_train.TuckerTensorTrain
 
-   Convert basis-variation representation to TuckerTensorTrain.
+   Convert base-variation representation to TuckerTensorTrain.
 
    If replacement_ind=1, replace_tt=True::
 
@@ -21,7 +21,7 @@ t3tools.base_variation_format.ith_bv_to_t3
 
    :param replacement_ind: Index of core to replace. 0 <= replacement_ind < num_cores
    :type replacement_ind: int
-   :param replace_tt: Indicates whether to replace a TT-core (True) or a basis core (False)
+   :param replace_tt: Indicates whether to replace a TT-core (True) or a Tucker core (False)
    :type replace_tt: bool
    :param base: Base cores
    :type base: T3Base
@@ -48,7 +48,7 @@ t3tools.base_variation_format.ith_bv_to_t3
    >>> ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_bv_to_t3(1, True, base, variation) # replace index-1 TT-core
    >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,U1,U2), (L0,H1,R2)))
    True
-   >>> ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_bv_to_t3(1, False, base, variation) # replace index-1 basis core
+   >>> ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_bv_to_t3(1, False, base, variation) # replace index-1 tucker core
    >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,O1,R2)))
    True
 

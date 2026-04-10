@@ -495,7 +495,8 @@ even though these dense tensors are not formed during computations.</p>
 <p>This package is written in a <a class="reference external" href="https://en.wikipedia.org/wiki/Functional_programming">functional programming</a> style. It is a library of mathematical functions that perform operations on basic types (mostly, arrays and nested sequences of arrays).</p>
 <ul>
 <li><p>Functions have no side effects, and functions always yield the same output for a given input (except a couple functions that generate random tensors).</p></li>
-<li><p>Custom types are aliases of composite basic types</p></li>
+<li><p>Custom types are aliases of composite basic types.</p></li>
+<li><p>We took great effort to reduce dependencies in our code as much as possible, both externally and internally. Many functions here could literally be copied and pasted into other projects, and would work just fine.</p></li>
 <li><p>Jax versions of numerical functions are suitable for <a class="reference external" href="https://docs.jax.dev/en/latest/_autosummary/jax.jit.html">just-in-time (jit) compilation</a> in jax, after removing non-numerical parameters by <a class="reference external" href="https://en.wikipedia.org/wiki/Partial_application">partial evaluation</a>. E.g.,:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">jax</span>

@@ -56,13 +56,13 @@ Module Contents
    In each of these, there is a special "variation" core, indicated by parentheses (X), surrounded by base cores.
 
    The components of T3Base are the "base cores":
-       - basis_cores       = (U0, ..., Ud), elm_shape=(ni, Ni)
+       - tucker_cores      = (U0, ..., Ud), elm_shape=(ni, Ni)
        - left_tt_cores     = (L0, ..., Ld), elm_shape=(rLi, ni, rL(i+1))
        - right_tt_cores    = (R0, ..., Rd), elm_shape=(rRi, ni, rR(i+1))
        - outer_tt_cores    = (O0, ..., Od), elm_shape=(rLi, nOi, rR(i+1))
 
    The components of T3Variations are the "variation cores":
-       - basis_variations  = (V0, ..., Vd), elm_shape=(nOi, Ni)
+       - tucker_variations = (V0, ..., Vd), elm_shape=(nOi, Ni)
        - tt_variations     = (H0, ..., Hd), elm_shape=(rLi, ni, rRi)
 
    A tangent vector can be written as the sum of all of the tensor diagrams above.
@@ -70,8 +70,8 @@ Module Contents
    tangent space attaches to the manifold, and the variation cores define the
    tangent vector with respect to the base cores.
 
-   Often, it is desirable for the basis cores to be **orthogonal** as follows:
-       - basis_cores       = (U0,...,Ud), orthogonal:       U_ia U_ja = delta_ij
+   Often, it is desirable for the base cores to be **orthogonal** as follows:
+       - tucker_cores       = (U0,...,Ud), orthogonal:       U_ia U_ja = delta_ij
        - left_tt_cores     = (L0,...,Ld), left-orthogonal:  L_abi L_abj = delta_ij
        - right_tt_cores    = (R0,...,Rd), right-orthogonal  R_ibc R_jbc = delta_ij
        - outer_tt_cores    = (O0,...,Od), outer-orthogonal  O_aib O_ajb = delta_ij
@@ -90,15 +90,15 @@ Module Contents
 
    >>> import numpy as np
    >>> import t3tools.base_variation_format as bvf
-   >>> basis_cores = (np.ones((10, 14)), np.ones((11, 15)), np.ones((12, 16)))
+   >>> tucker_cores = (np.ones((10, 14)), np.ones((11, 15)), np.ones((12, 16)))
    >>> left_tt_cores = (np.ones((1, 10, 2)), np.ones((2, 11, 3)), np.ones((3, 12, 1)))
    >>> right_tt_cores = (np.ones((1, 10, 4)), np.ones((4, 11, 5)), np.ones((5, 12, 1)))
    >>> outer_tt_cores = (np.ones((1, 9, 4)), np.ones((2, 8, 5)), np.ones((3, 7, 1)))
-   >>> base = (basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+   >>> base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
    >>> bvf.check_t3base(base) # Does nothing since base is internally consistent
-   >>> var_basis_cores = (np.ones((9,14)), np.ones((8,15)), np.ones((7,16)))
+   >>> var_tucker_cores = (np.ones((9,14)), np.ones((8,15)), np.ones((7,16)))
    >>> var_tt_cores = (np.ones((1,10,4)), np.ones((2,11,5)), np.ones((3,12,1)))
-   >>> variation = (var_basis_cores, var_tt_cores)
+   >>> variation = (var_tucker_cores, var_tt_cores)
    >>> bvf.check_t3variation(variation) # Does nothing since variation is internally consistent
    >>> bvf.check_fit(base, variation) # Does nothing since variation fits in base
 
@@ -107,7 +107,7 @@ Module Contents
    Tuple containing variation cores for base-variation representation of TuckerTensorTrains.
 
    *Components*
-       - basis_variations  = (V0, ..., Vd), elm_shape=(nOi, Ni)
+       - tucker_variations  = (V0, ..., Vd), elm_shape=(nOi, Ni)
        - tt_variations     = (H0, ..., Hd), elm_shape=(rLi, ni, rRi)
 
    The variation components should fit in the "holes" of a T3Base.

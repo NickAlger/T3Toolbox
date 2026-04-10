@@ -233,7 +233,10 @@ Design philosophy
 This package is written in a `functional programming <https://en.wikipedia.org/wiki/Functional_programming>`_ style. It is a library of mathematical functions that perform operations on basic types (mostly, arrays and nested sequences of arrays). 
 
 - Functions have no side effects, and functions always yield the same output for a given input (except a couple functions that generate random tensors). 
-- Custom types are aliases of composite basic types
+
+- Custom types are aliases of composite basic types.
+
+- We took great effort to reduce dependencies in our code as much as possible, both externally and internally. Many functions here could literally be copied and pasted into other projects, and would work just fine.
 
 - Jax versions of numerical functions are suitable for `just-in-time (jit) compilation <https://docs.jax.dev/en/latest/_autosummary/jax.jit.html>`_ in jax, after removing non-numerical parameters by `partial evaluation <https://en.wikipedia.org/wiki/Partial_application>`_. E.g.,::
 		

@@ -524,7 +524,7 @@
 <td><p>Check that the variation cores fit into the corresponding holes of the base.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="ith_bv_to_t3.html#t3tools.base_variation_format.ith_bv_to_t3" title="t3tools.base_variation_format.ith_bv_to_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ith_bv_to_t3</span></code></a>(...)</p></td>
-<td><p>Convert basis-variation representation to TuckerTensorTrain.</p></td>
+<td><p>Convert base-variation representation to TuckerTensorTrain.</p></td>
 </tr>
 </tbody>
 </table>
@@ -551,14 +551,14 @@
 <p>In each of these, there is a special “variation” core, indicated by parentheses (X), surrounded by base cores.</p>
 <dl class="simple">
 <dt>The components of T3Base are the “base cores”:</dt><dd><ul class="simple">
-<li><p>basis_cores       = (U0, …, Ud), elm_shape=(ni, Ni)</p></li>
+<li><p>tucker_cores      = (U0, …, Ud), elm_shape=(ni, Ni)</p></li>
 <li><p>left_tt_cores     = (L0, …, Ld), elm_shape=(rLi, ni, rL(i+1))</p></li>
 <li><p>right_tt_cores    = (R0, …, Rd), elm_shape=(rRi, ni, rR(i+1))</p></li>
 <li><p>outer_tt_cores    = (O0, …, Od), elm_shape=(rLi, nOi, rR(i+1))</p></li>
 </ul>
 </dd>
 <dt>The components of T3Variations are the “variation cores”:</dt><dd><ul class="simple">
-<li><p>basis_variations  = (V0, …, Vd), elm_shape=(nOi, Ni)</p></li>
+<li><p>tucker_variations = (V0, …, Vd), elm_shape=(nOi, Ni)</p></li>
 <li><p>tt_variations     = (H0, …, Hd), elm_shape=(rLi, ni, rRi)</p></li>
 </ul>
 </dd>
@@ -568,8 +568,8 @@ In this case, the base cores are representations of the point where the
 tangent space attaches to the manifold, and the variation cores define the
 tangent vector with respect to the base cores.</p>
 <dl class="simple">
-<dt>Often, it is desirable for the basis cores to be <strong>orthogonal</strong> as follows:</dt><dd><ul class="simple">
-<li><p>basis_cores       = (U0,…,Ud), orthogonal:       U_ia U_ja = delta_ij</p></li>
+<dt>Often, it is desirable for the base cores to be <strong>orthogonal</strong> as follows:</dt><dd><ul class="simple">
+<li><p>tucker_cores       = (U0,…,Ud), orthogonal:       U_ia U_ja = delta_ij</p></li>
 <li><p>left_tt_cores     = (L0,…,Ld), left-orthogonal:  L_abi L_abj = delta_ij</p></li>
 <li><p>right_tt_cores    = (R0,…,Rd), right-orthogonal  R_ibc R_jbc = delta_ij</p></li>
 <li><p>outer_tt_cores    = (O0,…,Od), outer-orthogonal  O_aib O_ajb = delta_ij</p></li>
@@ -591,15 +591,15 @@ to linear algebra operations with the N1 x … x Nd tangent vectors represented 
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.base_variation_format</span> <span class="k">as</span> <span class="nn">bvf</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">basis_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span> <span class="mi">14</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">11</span><span class="p">,</span> <span class="mi">15</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">12</span><span class="p">,</span> <span class="mi">16</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span> <span class="mi">14</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">11</span><span class="p">,</span> <span class="mi">15</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">12</span><span class="p">,</span> <span class="mi">16</span><span class="p">)))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">left_tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">3</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">right_tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">4</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">5</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">5</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">outer_tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">4</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">base</span> <span class="o">=</span> <span class="p">(</span><span class="n">basis_cores</span><span class="p">,</span> <span class="n">left_tt_cores</span><span class="p">,</span> <span class="n">right_tt_cores</span><span class="p">,</span> <span class="n">outer_tt_cores</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">base</span> <span class="o">=</span> <span class="p">(</span><span class="n">tucker_cores</span><span class="p">,</span> <span class="n">left_tt_cores</span><span class="p">,</span> <span class="n">right_tt_cores</span><span class="p">,</span> <span class="n">outer_tt_cores</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">bvf</span><span class="o">.</span><span class="n">check_t3base</span><span class="p">(</span><span class="n">base</span><span class="p">)</span> <span class="c1"># Does nothing since base is internally consistent</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">var_basis_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">9</span><span class="p">,</span><span class="mi">14</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">8</span><span class="p">,</span><span class="mi">15</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">7</span><span class="p">,</span><span class="mi">16</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">var_tucker_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">9</span><span class="p">,</span><span class="mi">14</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">8</span><span class="p">,</span><span class="mi">15</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">7</span><span class="p">,</span><span class="mi">16</span><span class="p">)))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">var_tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="mi">4</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span><span class="mi">11</span><span class="p">,</span><span class="mi">5</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span><span class="mi">12</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">variation</span> <span class="o">=</span> <span class="p">(</span><span class="n">var_basis_cores</span><span class="p">,</span> <span class="n">var_tt_cores</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">variation</span> <span class="o">=</span> <span class="p">(</span><span class="n">var_tucker_cores</span><span class="p">,</span> <span class="n">var_tt_cores</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">bvf</span><span class="o">.</span><span class="n">check_t3variation</span><span class="p">(</span><span class="n">variation</span><span class="p">)</span> <span class="c1"># Does nothing since variation is internally consistent</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">bvf</span><span class="o">.</span><span class="n">check_fit</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">variation</span><span class="p">)</span> <span class="c1"># Does nothing since variation fits in base</span>
 </pre></div>
@@ -612,7 +612,7 @@ to linear algebra operations with the N1 x … x Nd tangent vectors represented 
 <dd><p>Tuple containing variation cores for base-variation representation of TuckerTensorTrains.</p>
 <dl class="simple">
 <dt><em>Components</em></dt><dd><ul class="simple">
-<li><p>basis_variations  = (V0, …, Vd), elm_shape=(nOi, Ni)</p></li>
+<li><p>tucker_variations  = (V0, …, Vd), elm_shape=(nOi, Ni)</p></li>
 <li><p>tt_variations     = (H0, …, Hd), elm_shape=(rLi, ni, rRi)</p></li>
 </ul>
 </dd>
