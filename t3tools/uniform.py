@@ -14,12 +14,14 @@ NDArray = common.NDArray
 __all__ = [
     'UniformTuckerTensorTrainCores',
     'UniformTuckerTensorTrainMasks',
+    'check_ut3',
     'get_padded_structure',
     'get_original_structure',
     'unpack_edge_tensors',
     'apply_masks',
     't3_to_ut3',
     'ut3_to_t3',
+    'ut3_to_dense',
     'are_ut3_ranks_minimal',
     'ut3_entry',
     # Linear algebra operations:
