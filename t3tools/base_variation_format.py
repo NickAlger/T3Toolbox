@@ -1,18 +1,12 @@
 # Authors: Nick Alger and Blake Christierson
 # Copyright: MIT License (2026)
 # https://github.com/NickAlger/TuckerTensorTrainTools
-import numpy
 import numpy as np
 import typing as typ
 
 import t3tools.tucker_tensor_train as t3
-import t3tools.common as common
+from t3tools.common import NDArray
 
-
-# xnp = np
-# randn = np.random.randn
-# scan = common.numpy_scan
-NDArray = np.ndarray
 
 __all__ = [
     'T3Base',

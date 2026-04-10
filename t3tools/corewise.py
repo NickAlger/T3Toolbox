@@ -1,7 +1,11 @@
+# Authors: Nick Alger and Blake Christierson
+# Copyright: MIT License (2026)
+# https://github.com/NickAlger/TuckerTensorTrainTools
 import typing as typ
 import numpy as np
 
-NDArray = np.ndarray
+from t3tools.common import NDArray
+
 
 __all__ = [
     'NDArrayTree',

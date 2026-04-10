@@ -6,9 +6,8 @@ import typing as typ
 
 import t3tools.base_variation_format
 import t3tools.tucker_tensor_train as t3
+from t3tools.common import NDArray
 
-
-NDArray = np.ndarray
 
 __all__ = [
     # Probe a dense tensor

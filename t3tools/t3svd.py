@@ -4,14 +4,11 @@
 import numpy as np
 import typing as typ
 
-import t3tools.common as common
 import t3tools.linalg
 import t3tools.tucker_tensor_train as t3
 import t3tools.orthogonalization as orth
-# from t3tools.common import jnp, NDArray
-import t3tools.common as common
+from t3tools.common import NDArray
 
-NDArray = np.ndarray
 
 __all__ = [
     't3_svd',
@@ -177,7 +174,7 @@ def t3_svd(
         x, _ = orth.right_svd_ith_tt_core(ii, x, xnp=xnp)
 
     G0 = x[1][0]
-    _, ss_first, _ = orth.right_svd_3tensor(G0, xnp=xnp)
+    _, ss_first, _ = t3tools.linalg.right_svd_3tensor(G0, xnp=xnp)
 
     # Sweep left to right computing SVDS
     all_ss_basis = []
@@ -200,7 +197,7 @@ def t3_svd(
             )
         else:
             Gf = x[1][-1]
-            _, ss_tt, _ = orth.left_svd_3tensor(Gf, xnp=xnp)
+            _, ss_tt, _ = t3tools.linalg.left_svd_3tensor(Gf, xnp=xnp)
         all_ss_tt.append(ss_tt)
 
     return x, tuple(all_ss_basis), tuple(all_ss_tt)

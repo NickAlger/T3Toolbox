@@ -2,15 +2,18 @@
 # Copyright: MIT License (2026)
 # https://github.com/NickAlger/TuckerTensorTrainTools
 import numpy as np
+import typing as typ
 
 __all__ = [
-    # 'jnp',
-    # 'NDArray',
+    'NDArray',
     'numpy_scan',
-    # 'jax_scan',
-    #
-    #
 ]
+
+try:
+    import jax.numpy as jnp
+    NDArray = typ.Union[np.ndarray, jnp.ndarray]
+except ImportError:
+    NDArray = np.ndarray
 
 
 def numpy_scan(f, init, xs, length=None):
@@ -44,20 +47,5 @@ def numpy_scan(f, init, xs, length=None):
         return carry, tuple(np.stack([step[i] for step in ys_list]) for i in range(len(ys_list[0])))
 
     return carry, np.stack(ys_list)
-
-
-# try:
-#     import jax.numpy as jnp
-#     import jax
-#     jax_scan = jax.lax.scan
-# except ImportError:
-#     print('jax import failed. Defaulting to numpy.')
-#     jnp = np
-#     jax_scan = numpy_scan
-#
-# NDArray = typ.Union[np.ndarray, jnp.ndarray]
-
-
-
 
 

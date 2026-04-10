@@ -8,10 +8,8 @@ import t3tools.tucker_tensor_train as t3
 import t3tools.orthogonalization as orth
 import t3tools.t3svd as t3svd
 import t3tools.base_variation_format as bvf
-import t3tools.common as common
+from t3tools.common import NDArray
 
-
-NDArray = np.ndarray
 
 __all__ = [
     # Tangent vectors

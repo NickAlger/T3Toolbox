@@ -4,13 +4,8 @@
 import numpy as np
 import typing as typ
 
-# from t3tools.common import jnp, NDArray
-import t3tools.common as common
+from t3tools.common import NDArray
 
-# xnp = np
-# randn = np.random.randn
-# scan = common.numpy_scan
-NDArray = np.ndarray
 
 __all__ = [
     # Tucker tensor train
