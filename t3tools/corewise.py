@@ -5,9 +5,6 @@
 import typing as typ
 import numpy as np
 
-from t3tools.common import NDArray
-
-
 __all__ = [
     'NDArrayTree',
     'corewise_add',
@@ -17,6 +14,9 @@ __all__ = [
     'corewise_dot',
     'corewise_norm',
 ]
+
+NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
+
 
 ###############################################
 ########    Corewise linear algebra    ########

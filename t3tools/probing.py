@@ -7,8 +7,6 @@ import typing as typ
 
 import t3tools.base_variation_format
 import t3tools.tucker_tensor_train as t3
-from t3tools.common import NDArray
-
 
 __all__ = [
     # Probe a dense tensor
@@ -36,6 +34,8 @@ __all__ = [
     'assemble_tt_variations',
     'probe_tangent_transpose',
 ]
+
+NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
 
 
 ###############################################

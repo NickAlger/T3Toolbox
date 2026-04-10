@@ -6,15 +6,8 @@ import numpy as np
 import typing as typ
 
 __all__ = [
-    'NDArray',
     'numpy_scan',
 ]
-
-try:
-    import jax.numpy as jnp
-    NDArray = typ.Union[np.ndarray, jnp.ndarray]
-except ImportError:
-    NDArray = np.ndarray
 
 
 def numpy_scan(f, init, xs, length=None):

@@ -9,8 +9,6 @@ import t3tools.linalg
 import t3tools.tucker_tensor_train as t3
 import t3tools.base_variation_format as bvf
 import t3tools.linalg as linalg
-from t3tools.common import NDArray
-
 
 __all__ = [
     'up_svd_ith_basis_core',
@@ -22,6 +20,8 @@ __all__ = [
     'orthogonalize_relative_to_ith_tt_core',
     'orthogonal_representations',
 ]
+
+NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
 
 
 ##########################################

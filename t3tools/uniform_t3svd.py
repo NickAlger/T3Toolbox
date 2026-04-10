@@ -8,13 +8,14 @@ import t3tools.orthogonalization as orth
 import t3tools.uniform as ut3
 import t3tools.common as common
 
-xnp = np
 scan = common.numpy_scan
-NDArray = np.ndarray
 
 __all__ = [
     'ut3_svd',
 ]
+
+NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
+
 
 ###################################################
 ##############    Uniform T3-SVD    ###############

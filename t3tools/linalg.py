@@ -6,8 +6,6 @@ import typing as typ
 import numpy as np
 
 import t3tools
-from t3tools.common import NDArray
-
 
 __all__ = [
     'truncated_svd',
@@ -15,6 +13,9 @@ __all__ = [
     'right_svd_3tensor',
     'outer_svd_3tensor',
 ]
+
+NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
+
 
 ######################################
 ########    Truncated SVD    #########

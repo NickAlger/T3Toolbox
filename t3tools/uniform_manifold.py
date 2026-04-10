@@ -8,9 +8,7 @@ import t3tools.tucker_tensor_train as t3
 # from t3tools.common import jnp, NDArray, numpy_scan, jax_scan
 import t3tools.common as common
 
-xnp = np
 scan = common.numpy_scan
-NDArray = np.ndarray
 
 __all__ = [
     'ut3_tangent_vector_to_ut3',
@@ -18,6 +16,9 @@ __all__ = [
     'ut3_project_dense_tensor_onto_tangent_space',
     'ut3_orthogonal_gauge_projection',
 ]
+
+NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
+
 
 #### WORK IN PROGRESS DO NOT USE
 

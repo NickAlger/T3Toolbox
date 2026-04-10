@@ -7,9 +7,7 @@ import typing as typ
 import t3tools.tucker_tensor_train as t3
 import t3tools.common as common
 
-xnp = np
 scan = common.numpy_scan
-NDArray = np.ndarray
 
 __all__ = [
     'left_orthogonalize_utt',
@@ -17,6 +15,9 @@ __all__ = [
     'orthogonalize_ut3_basis_cores',
     'construct_ut3_base_representations',
 ]
+
+NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
+
 
 if False:
 

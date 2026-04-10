@@ -41,9 +41,6 @@ For corewise operations, see :mod:`t3tools.corewise`
 import numpy as np
 import typing as typ
 
-from t3tools.common import NDArray
-
-
 __all__ = [
     # Tucker tensor train
     'TuckerTensorTrain',
@@ -70,6 +67,8 @@ __all__ = [
     't3_inner_product_t3',
     't3_norm',
 ]
+
+NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
 
 
 ###########################################
@@ -380,7 +379,7 @@ def t3_to_dense(
     1.1217675019342066e-15
     """
     tucker_cores, tt_cores = x
-    big_tt_cores = [xnp.einsum('iaj,ab->ibj', G, U) for G, U in zip(tt_cores, basis_cores)]
+    big_tt_cores = [xnp.einsum('iaj,ab->ibj', G, U) for G, U in zip(tt_cores, tucker_cores)]
 
     T = big_tt_cores[0]
     for G in big_tt_cores[1:]:

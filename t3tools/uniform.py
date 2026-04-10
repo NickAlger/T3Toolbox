@@ -8,9 +8,6 @@ import typing as typ
 import t3tools.tucker_tensor_train as t3
 import t3tools.common as common
 
-NDArray = common.NDArray
-
-
 __all__ = [
     'UniformTuckerTensorTrainCores',
     'UniformTuckerTensorTrainMasks',
@@ -30,6 +27,9 @@ __all__ = [
     'ut3_neg',
     'ut3_sub',
 ]
+
+NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
+
 
 ###################################################
 ########    Uniform Tucker Tensor Train    ########

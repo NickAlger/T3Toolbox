@@ -8,8 +8,6 @@ import typing as typ
 import t3tools.linalg
 import t3tools.tucker_tensor_train as t3
 import t3tools.orthogonalization as orth
-from t3tools.common import NDArray
-
 
 __all__ = [
     't3_svd',
@@ -17,6 +15,8 @@ __all__ = [
     'tt_svd_dense',
     't3_svd_dense',
 ]
+
+NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
 
 
 ###############################################
