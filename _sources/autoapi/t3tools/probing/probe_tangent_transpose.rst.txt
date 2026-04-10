@@ -1,7 +1,7 @@
 t3tools.probing.probe_tangent_transpose
 =======================================
 
-.. py:function:: t3tools.probing.probe_tangent_transpose(ztildes: Sequence[t3tools.common.NDArray], ww: Sequence[t3tools.common.NDArray], base: t3tools.base_variation_format.T3Base, sum_over_probes: bool = False, xnp=np) -> Tuple[Tuple[t3tools.common.NDArray, Ellipsis], Tuple[t3tools.common.NDArray, Ellipsis]]
+.. py:function:: t3tools.probing.probe_tangent_transpose(ztildes: Sequence[NDArray], ww: Sequence[NDArray], base: t3tools.base_variation_format.T3Base, sum_over_probes: bool = False, xnp=np) -> Tuple[Tuple[NDArray, Ellipsis], Tuple[NDArray, Ellipsis]]
 
    Apply the transpose of the map from a T3Tangent to its probes. Apply to ztildes.
 

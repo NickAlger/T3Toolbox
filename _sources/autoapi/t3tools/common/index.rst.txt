@@ -4,14 +4,6 @@ t3tools.common
 .. py:module:: t3tools.common
 
 
-Attributes
-----------
-
-.. autoapisummary::
-
-   t3tools.common.NDArray
-
-
 Functions
 ---------
 
@@ -24,9 +16,4 @@ Functions
 
    t3tools.common.numpy_scan
 
-
-Module Contents
----------------
-
-.. py:data:: NDArray
 

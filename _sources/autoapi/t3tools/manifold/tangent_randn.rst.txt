@@ -1,7 +1,7 @@
 t3tools.manifold.tangent_randn
 ==============================
 
-.. py:function:: t3tools.manifold.tangent_randn(base: t3tools.base_variation_format.T3Base, apply_gauge_projection: bool = True, randn: Callable[Ellipsis, t3tools.common.NDArray] = np.random.randn) -> t3tools.base_variation_format.T3Variation
+.. py:function:: t3tools.manifold.tangent_randn(base: t3tools.base_variation_format.T3Base, apply_gauge_projection: bool = True, randn: Callable[Ellipsis, NDArray] = np.random.randn) -> t3tools.base_variation_format.T3Variation
 
    Draw a random T3Variation.
 

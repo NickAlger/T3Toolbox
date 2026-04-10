@@ -1,7 +1,7 @@
 t3tools.probing.assemble_tangent_probes
 =======================================
 
-.. py:function:: t3tools.probing.assemble_tangent_probes(basis_cores: Sequence[t3tools.common.NDArray], var_basis_cores: Sequence[t3tools.common.NDArray], etas: Sequence[t3tools.common.NDArray], detas: Sequence[t3tools.common.NDArray], xnp=np) -> Tuple[t3tools.common.NDArray, Ellipsis]
+.. py:function:: t3tools.probing.assemble_tangent_probes(basis_cores: Sequence[NDArray], var_basis_cores: Sequence[NDArray], etas: Sequence[NDArray], detas: Sequence[NDArray], xnp=np) -> Tuple[NDArray, Ellipsis]
 
    Assemble tangent vector probes from edge variables.
 

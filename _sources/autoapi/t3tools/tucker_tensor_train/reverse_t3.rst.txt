@@ -1,7 +1,7 @@
 t3tools.tucker_tensor_train.reverse_t3
 ======================================
 
-.. py:function:: t3tools.tucker_tensor_train.reverse_t3(x: TuckerTensorTrain) -> t3tools.common.NDArray
+.. py:function:: t3tools.tucker_tensor_train.reverse_t3(x: TuckerTensorTrain) -> NDArray
 
    Reverse Tucker tensor train.
 

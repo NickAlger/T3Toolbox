@@ -1,7 +1,7 @@
 t3tools.tucker_tensor_train.t3_entry
 ====================================
 
-.. py:function:: t3tools.tucker_tensor_train.t3_entry(x: TuckerTensorTrain, index: Union[Sequence[int], Sequence[Sequence[int]]], xnp=np) -> t3tools.common.NDArray
+.. py:function:: t3tools.tucker_tensor_train.t3_entry(x: TuckerTensorTrain, index: Union[Sequence[int], Sequence[Sequence[int]]], xnp=np) -> NDArray
 
    Compute an entry (or multiple entries) of a Tucker tensor train.
 

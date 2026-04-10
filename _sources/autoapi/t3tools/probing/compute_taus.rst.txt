@@ -1,7 +1,7 @@
 t3tools.probing.compute_taus
 ============================
 
-.. py:function:: t3tools.probing.compute_taus(var_tt_cores: Sequence[t3tools.common.NDArray], left_tt_cores: Sequence[t3tools.common.NDArray], outer_tt_cores: Sequence[t3tools.common.NDArray], xis: Sequence[t3tools.common.NDArray], dxis: Sequence[t3tools.common.NDArray], nus: Sequence[t3tools.common.NDArray], xnp=np) -> Tuple[t3tools.common.NDArray, Ellipsis]
+.. py:function:: t3tools.probing.compute_taus(var_tt_cores: Sequence[NDArray], left_tt_cores: Sequence[NDArray], outer_tt_cores: Sequence[NDArray], xis: Sequence[NDArray], dxis: Sequence[NDArray], nus: Sequence[NDArray], xnp=np) -> Tuple[NDArray, Ellipsis]
 
    Compute var-rightward edge variables tau.
    Used for probing a tangent vector.
