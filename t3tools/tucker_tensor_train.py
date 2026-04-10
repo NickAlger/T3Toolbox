@@ -2,6 +2,36 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/TuckerTensorTrainTools
 # Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
+"""
+This module contains type aliases and functions for basic operations with Tucker tensor trains (T3).
+
+Tensor network diagram for a Tucker tensor train::
+
+        r0        r1        r2       r(d-1)          rd
+    1 ------ G0 ------ G1 ------ ... ------ G(d-1) ------ 1
+             |         |                    |
+             | n0      | n1                 | nd
+             |         |                    |
+             B0        B1                   Bd
+             |         |                    |
+             | N0      | N1                 | Nd
+             |         |                    |
+
+The components of a dth order Tucker tensor train are:
+
+- Basis cores: (B0, B1, ..., B(d-1)) with shapes (ni, Ni).
+- TT cores: (G0, G1, ..., G(d-1)) with shapes (ri, ni, r(i+1)).
+
+The structure of a Tucker tensor train is defined by:
+
+- Tensor shape: (N0, N1, ..., N(d-1))
+- Tucker ranks: (n0, r1, ..., n(d-1))
+- TT ranks: (r0, r1, ..., rd)
+
+Typically, the first and last TT-ranks satisfy r0=rd=1, and "1" in the diagram
+is the number 1. However, it is allowed for these ranks to not be 1, in which case
+the "1"s in the diagram are vectors of ones.
+"""
 import numpy as np
 import typing as typ
 
@@ -47,27 +77,12 @@ TuckerTensorTrain = typ.Tuple[
 """
 Tuple containing Tucker Tensor Train basis cores and TT-cores.
 
-Tensor network diagram::
-
-    1 -- G0 -- G1 -- G2 -- G3 -- 1
-         |     |     |     |
-         B0    B1    B2    B3
-         |     |     |     |
-    
 Components:
-    - **basis_cores** : *Sequence[NDArray]*
-        Basis matrices (B0, ..., Bd) with shape (ni, Ni) for i=1,...,d. len(basis_cores)=d.
-    - **tt_cores** : *Sequence[NDArray]*
-        Tensor train cores (G0, ..., Gd) with shape (ri, ni, r(i+1)) for i=1,...,d. len(tt_cores)=d. r0=rd=1.
 
-Structure:
-    - shape: (N1, ..., Nd)
-    - tucker ranks: (n1, ..., nd)
-    - tt ranks: (r0, r1, ..., r(d-1), rd)
-    
-Note: typically r0=rd=1, and "1" in the diagram is the number 1. 
-However, it is allowed for these ranks to not be 1, in which case
-the "1"s in the diagram are vectors of ones.
+- **basis_cores** : *Sequence[NDArray]*
+    Basis matrices (B0, ..., B(d-1)) with shapes (ni, Ni) for i=1,...,d. len=d.
+- **tt_cores** : *Sequence[NDArray]*
+    Tensor train cores (G0, ..., G(d-1)) with shapes (ri, ni, r(i+1)) for i=1,...,d. len=d.
 
 Examples
 --------
@@ -75,7 +90,7 @@ Examples
 >>> import t3tools.tucker_tensor_train as t3
 >>> basis_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
 >>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
->>> x = (basis_cores, tt_cores) # TuckerTensorTrain, all cores filled with ones
+>>> x = (basis_cores, tt_cores) # TuckerTensorTrain, cores filled with ones
 >>> t3.check_t3(x) # does nothing because t3 core shapes are consistent
 """
 
@@ -88,26 +103,14 @@ T3Structure = typ.Tuple[
 """
 Tuple containing the structure of a Tucker Tensor Train.
 
-Tensor network diagram::
-
-        r0        r1        r2        r2        r4
-    1 ------ G0 ------ G1 ------ G2 ------ G3 ------ 1
-             |         |         |         |
-             |n0       |n1       |n2       |n3
-             |         |         |         |
-             B0        B1        B2        B3
-             |         |         |         |
-             |N0       |N1       |N2       |N3
-             |         |         |         |
-         
-
 Components:
-    - **shape** : *Sequence[NDArray]*
-        Shape of the represented tensor, (N1, ..., Nd). len=d
-    - **tucker_ranks** : *Sequence[NDArray]*
-        Tucker ranks, (n1, ..., nd). len=d
-    - **tt_ranks** : *Sequence[NDArray]*
-        TT-ranks, (1, r1, ..., r(d-1), 1). len=d+1. tt_ranks[0]=tt_ranks[-1]=1
+
+- **shape** : *Sequence[NDArray]*
+    Shape of the represented tensor, (N0, ..., N(d-1)). len=d
+- **tucker_ranks** : *Sequence[NDArray]*
+    Tucker ranks, (n0, ..., n(d-1)). len=d
+- **tt_ranks** : *Sequence[NDArray]*
+    TT-ranks, (1, r1, ..., r(d-1), 1). len=d+1.
 
 Examples
 --------
@@ -115,7 +118,7 @@ Examples
 >>> import t3tools.tucker_tensor_train as t3
 >>> basis_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
 >>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
->>> x = (basis_cores, tt_cores) # TuckerTensorTrain, all cores filled with ones
+>>> x = (basis_cores, tt_cores)
 >>> shape, tucker_ranks, tt_ranks = t3.structure(x)
 >>> print(shape)
 (14, 15, 16)
@@ -178,7 +181,7 @@ def get_structure(
 def check_t3(
         x: TuckerTensorTrain,
 ) -> None:
-    '''Check correctness / consistency of Tucker tensor train.
+    '''Check rank and shape consistency of Tucker tensor train.
 
     Parameters
     ----------
@@ -507,7 +510,7 @@ def t3_corewise_randn(
         s: T3Structure,
         randn: typ.Callable[...,NDArray] = np.random.randn,
 ) -> TuckerTensorTrain:
-    """Construct Tucker tensor train with random cores (i.i.d. N(0,1) entries).
+    """Construct Tucker tensor train with random cores.
 
     Parameters
     ----------
@@ -550,7 +553,7 @@ def t3_save(
         file,
         x: TuckerTensorTrain,
 ) -> None:
-    """Save Tucker tensor train to file with numpy.savez()
+    """Save Tucker tensor train to a file.
 
     Parameters
     ----------
@@ -603,7 +606,7 @@ def t3_load(
         file,
         xnp = np,
 ) -> TuckerTensorTrain:
-    """Save Tucker tensor train to file with numpy.savez()
+    """Load a Tucker tensor train from a file.
 
     Parameters
     ----------
@@ -677,7 +680,7 @@ def t3_apply(
         vecs: typ.Sequence[NDArray], # len=d, elm_shape=(Ni,) or (num_applies, Ni)
         xnp = np,
 ) -> NDArray:
-    '''Contract TuckerTensorTrain with vectors in all indices.
+    '''Contract a Tucker tensor train with vectors in all indices.
 
     Parameters
     ----------
@@ -964,7 +967,7 @@ def compute_minimal_ranks(
     typ.Tuple[int,...], # new_tucker_ranks
     typ.Tuple[int,...], # new_tt_ranks
 ]:
-    '''Find minimal ranks for a TuckerTensorTrain with a given structure. (such that there is no useless rank)
+    '''Find minimal ranks for a Tucker tensor train with a given structure.
 
     Examples
     --------
@@ -1008,7 +1011,7 @@ def compute_minimal_ranks(
 def are_t3_ranks_minimal(
         x: TuckerTensorTrain,
 ) -> bool:
-    """Checks if the ranks of a Tucker train are minimal.
+    """Check if the ranks of a Tucker train are minimal.
 
     Example
     -------
@@ -1040,7 +1043,7 @@ def pad_t3(
         new_structure:      T3Structure,
         xnp = np,
 ) -> TuckerTensorTrain:
-    '''Increase TuckerTensorTrain ranks via zero padding.
+    '''Increase Tucker tensor train ranks and/or shape via zero padding.
 
     Examples
     --------
@@ -1110,7 +1113,7 @@ def t3_add(
         squash: bool = True,
         xnp = np,
 ) -> TuckerTensorTrain:
-    """Add TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x+y with summed ranks.
+    """Add two TuckerTensorTrains with the same shape, yielding a Tucker tensor train with summed ranks.
 
     Parameters
     ----------
@@ -1201,7 +1204,7 @@ def t3_scale(
         x: TuckerTensorTrain,
         s, # scalar
 ) -> TuckerTensorTrain:
-    """Scale TuckerTensorTrain x by a scaling factor s.
+    """Multipy a Tucker tensor train by a scaling factor.
 
     Parameters
     ----------
@@ -1257,7 +1260,7 @@ def t3_scale(
 def t3_neg(
         x: TuckerTensorTrain,
 ) -> TuckerTensorTrain:
-    """Scale TuckerTensorTrain x by a scaling factor -1.
+    """Scale a Tucker tensor train by -1.
 
     Parameters
     ----------
@@ -1299,7 +1302,7 @@ def t3_sub(
         squash: bool = True,
         xnp = np,
 ) -> TuckerTensorTrain:
-    """Subtract TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x-y with summed ranks.
+    """Subtract Tucker tensor trains with the same shape, yielding a Tucker tensor train with summed ranks.
 
     Parameters
     ----------
@@ -1349,7 +1352,7 @@ def t3_dot_t3(
         y: TuckerTensorTrain,
         xnp = np,
 ):
-    """Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains x, y with the same shape, (x, y)_HS.
+    """Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains with the same shape.
 
     Parameters
     ----------
@@ -1440,7 +1443,7 @@ def t3_norm(
         x: TuckerTensorTrain,
         xnp = np,
 ):
-    """Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains x, y with the same shape, (x, y)_HS.
+    """Compute Hilbert-Schmidt (Frobenius) norm of a Tucker tensor train.
 
     Parameters
     ----------

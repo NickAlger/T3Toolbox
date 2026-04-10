@@ -41,6 +41,7 @@ autoapi_own_page_level = 'function'
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
+html_title = "TuckerTensorTrainTools " + release
 html_favicon = 'favicon.ico'
 
 html_theme = "pydata_sphinx_theme"
