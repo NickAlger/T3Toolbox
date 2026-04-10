@@ -292,7 +292,7 @@ with a <a class="reference external" href="https://en.wikipedia.org/wiki/Matrix_
 </ul>
 <p>The components of a dth order Tucker tensor train are:</p>
 <ul class="simple">
-<li><p>Basis cores: (B0, B1, …, B(d-1)) with shapes (ni, Ni).</p></li>
+<li><p>Tucker cores: (B0, B1, …, B(d-1)) with shapes (ni, Ni).</p></li>
 <li><p>TT cores: (G0, G1, …, G(d-1)) with shapes (ri, ni, r(i+1)).</p></li>
 </ul>
 <p>The structure of a Tucker tensor train is defined by:</p>
@@ -412,13 +412,13 @@ even though these dense tensors are not formed during computations.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">randn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Make Tucker tensor train x:</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x_basis_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">21</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">22</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">23</span><span class="p">)]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x_tucker_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">21</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">22</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">23</span><span class="p">)]</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x_tt_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_basis_cores</span><span class="p">,</span> <span class="n">x_tt_cores</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_tucker_cores</span><span class="p">,</span> <span class="n">x_tt_cores</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Make Tucker tensor train y:</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">y_basis_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">randn</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">21</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">22</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">23</span><span class="p">)]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y_tucker_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">randn</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">21</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">22</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span> <span class="mi">23</span><span class="p">)]</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">y_tt_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">y</span> <span class="o">=</span> <span class="p">(</span><span class="n">y_basis_cores</span><span class="p">,</span> <span class="n">y_tt_cores</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y</span> <span class="o">=</span> <span class="p">(</span><span class="n">y_tucker_cores</span><span class="p">,</span> <span class="n">y_tt_cores</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># Add x+y:</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x_plus_y</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_add</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="c1"># x+y has doubled ranks:</span>
@@ -582,12 +582,12 @@ Ci =/= Ai + Bi and Hi =/= Fi + Gi.</p>
 <li><p>Left TT core unfoldings are full rank: r(i+1) &lt;= (ri*ni)</p></li>
 <li><p>Right TT core unfoldings are full rank: ri &lt;= (ni*r(i+1))</p></li>
 <li><p>Outer TT core unfoldings are full rank: ni &lt;= (ri*r(i+1))</p></li>
-<li><p>Basis matrices have full row rank: ni &lt;= Ni</p></li>
+<li><p>Tucker cores have full row rank: ni &lt;= Ni</p></li>
 </ul>
 </dd>
 <dt>Minimal rank properties:</dt><dd><ul class="simple">
 <li><p>Minimal ranks always exist and are unique.</p></li>
-<li><p>Minimal tucker ranks ni are equal to the ranks of Ni x (N1*…*N(i-1)*N(i+1)*…*N(d-1)) matricizations.</p></li>
+<li><p>Minimal Tucker ranks ni are equal to the ranks of Ni x (N1*…*N(i-1)*N(i+1)*…*N(d-1)) matricizations.</p></li>
 <li><p>Minimal TT ranks ri are equal to the ranks of (N*…*Ni) x (N(i+1)*…*N(d-1)) matrix unfoldings.</p></li>
 <li><p>Minimal rank representations of any T3 may be constructed with T3-SVD.</p></li>
 </ul>
@@ -616,7 +616,7 @@ the numerical values within the cores.</p>
 <ul class="simple">
 <li><dl class="simple">
 <dt>The following “base” cores are orthogonal representations of the base point where the tangent space is attached. When performing computations, these are computed once per tangent space, then fixed for all tangent vectors in the space:</dt><dd><ul>
-<li><p>basis_cores       = (U0,…,Ud), orthogonal</p></li>
+<li><p>tucker_cores      = (U0,…,Ud), orthogonal</p></li>
 <li><p>left_tt_cores     = (L0,…Ld), left-orthogonal</p></li>
 <li><p>right_tt_cores    = (R0,…,Rd), right-orthogonal</p></li>
 <li><p>outer_tt_cores    = (O0,…,Od), outer-orthogonal</p></li>
@@ -626,7 +626,7 @@ the numerical values within the cores.</p>
 </li>
 <li><dl class="simple">
 <dt>The following “variation” cores define the tangent vector w.r.t. the base cores:</dt><dd><ul>
-<li><p>basis_variations  = (V0,…,Vd)</p></li>
+<li><p>tucker_variations = (V0,…,Vd)</p></li>
 <li><p>tt_variations     = (H0,…,Hd)</p></li>
 </ul>
 </dd>
@@ -663,12 +663,12 @@ the numerical values within the cores.</p>
 <p>For computational efficiency, it can be helpful to pad the cores of a Tucker tensor train with zeros, so that it has uniform ranks. Then the computational operations become uniform, which improves pipelining efficiency and GPU performance.</p>
 <dl class="simple">
 <dt>In this case:</dt><dd><ul class="simple">
-<li><p>The basis cores B0, …, Bd all have the same shape (n,N) and can be stacked into a <em>basis supercore</em> with shape (d,n,N).</p></li>
+<li><p>The Tucker cores B0, …, Bd all have the same shape (n,N) and can be stacked into a <em>Tucker supercore</em> with shape (d,n,N).</p></li>
 <li><p>The TT-cores G0, …, Gd all have the same shape (r,n,r), and can be stacked into <em>TT supercore</em> with shape (d,r,n,r).</p></li>
 </ul>
 </dd>
 <dt>We keep track of which parts of the cores are supposed to be zero (to prevent filling in these parts during computations) with <em>edge masks</em>. For each edge, the mask is a boolean vector of the form (1,…,1,0,…,0).</dt><dd><ul class="simple">
-<li><p>The masks for the edges between basis cores and TT-cores have length n. For the ith edge, the first ni entries are 1, and the remaining entries are 0. These <em>Tucker edge masks</em> are collected into a boolean array with shape (d, n).</p></li>
+<li><p>The masks for the edges between Tucker cores and TT-cores have length n. For the ith edge, the first ni entries are 1, and the remaining entries are 0. These <em>Tucker edge masks</em> are collected into a boolean array with shape (d, n).</p></li>
 <li><p>The masks for the edges between adjacent TT-cores have length r. For the ith edge, the first ri entries are 1, and the remaining entries are 0. These <em>TT edge masks</em> are collected into boolean array with shape (d+1,r).</p></li>
 </ul>
 </dd>

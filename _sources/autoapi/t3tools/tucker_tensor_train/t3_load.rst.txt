@@ -27,9 +27,9 @@ t3tools.tucker_tensor_train.t3_load
    >>> fname = 't3_file'
    >>> t3.t3_save(fname, x) # Save to file 't3_file.npz'
    >>> x2 = t3.t3_load(fname) # Load from file
-   >>> basis_cores, tt_cores = x
-   >>> basis_cores2, tt_cores2 = x2
-   >>> print([np.linalg.norm(B - B2) for B, B2 in zip(basis_cores, basis_cores2)])
+   >>> tucker_cores, tt_cores = x
+   >>> tucker_cores2, tt_cores2 = x2
+   >>> print([np.linalg.norm(B - B2) for B, B2 in zip(tucker_cores, tucker_cores2)])
    [0.0, 0.0, 0.0]
    >>> print([np.linalg.norm(G - G2) for G, G2 in zip(tt_cores, tt_cores2)])
    [0.0, 0.0, 0.0]

@@ -30,7 +30,7 @@ Here:
 
 The components of a dth order Tucker tensor train are:
 
-- Basis cores: (B0, B1, ..., B(d-1)) with shapes (ni, Ni).
+- Tucker cores: (B0, B1, ..., B(d-1)) with shapes (ni, Ni).
 - TT cores: (G0, G1, ..., G(d-1)) with shapes (ri, ni, r(i+1)).
 
 The structure of a Tucker tensor train is defined by:
@@ -155,13 +155,13 @@ Examples
 	>>> import t3tools.tucker_tensor_train as t3
 	>>> randn = np.random.randn
 	>>> # Make Tucker tensor train x:
-	>>> x_basis_cores = [randn(5, 21), randn(5, 22), randn(5, 23)]
+	>>> x_tucker_cores = [randn(5, 21), randn(5, 22), randn(5, 23)]
 	>>> x_tt_cores = [randn(1, 5, 4), randn(4, 5, 4), randn(4, 5, 1)]
-	>>> x = (x_basis_cores, x_tt_cores)
+	>>> x = (x_tucker_cores, x_tt_cores)
 	>>> # Make Tucker tensor train y:
-	>>> y_basis_cores = [randn(9, 21), randn(9, 22), randn(9, 23)]
+	>>> y_tucker_cores = [randn(9, 21), randn(9, 22), randn(9, 23)]
 	>>> y_tt_cores = [randn(1, 9, 2), randn(2, 9, 2), randn(2, 9, 1)]
-	>>> y = (y_basis_cores, y_tt_cores)
+	>>> y = (y_tucker_cores, y_tt_cores)
 	>>> # Add x+y:
 	>>> x_plus_y = t3.t3_add(x, y)
 	>>> # x+y has doubled ranks:
@@ -319,11 +319,11 @@ Tucker tensor trains are said to have *minimal ranks* if they satisfy:
 	- Left TT core unfoldings are full rank: r(i+1) <= (ri*ni)
 	- Right TT core unfoldings are full rank: ri <= (ni*r(i+1))
 	- Outer TT core unfoldings are full rank: ni <= (ri*r(i+1))
-	- Basis matrices have full row rank: ni <= Ni
+	- Tucker cores have full row rank: ni <= Ni
 
 Minimal rank properties:
 	- Minimal ranks always exist and are unique.
-	- Minimal tucker ranks ni are equal to the ranks of Ni x (N1*...*N(i-1)*N(i+1)*...*N(d-1)) matricizations.
+	- Minimal Tucker ranks ni are equal to the ranks of Ni x (N1*...*N(i-1)*N(i+1)*...*N(d-1)) matricizations.
 	- Minimal TT ranks ri are equal to the ranks of (N*...*Ni) x (N(i+1)*...*N(d-1)) matrix unfoldings.
 	- Minimal rank representations of any T3 may be constructed with T3-SVD.
 
@@ -350,12 +350,12 @@ Under the minimal rank conditions, the set of Tucker tensor trains with fixed ra
              |   |   |          |   |   |          |   |   | 
 
 - The following "base" cores are orthogonal representations of the base point where the tangent space is attached. When performing computations, these are computed once per tangent space, then fixed for all tangent vectors in the space:
-	- basis_cores       = (U0,...,Ud), orthogonal
+	- tucker_cores      = (U0,...,Ud), orthogonal
 	- left_tt_cores     = (L0,...Ld), left-orthogonal
 	- right_tt_cores    = (R0,...,Rd), right-orthogonal
 	- outer_tt_cores    = (O0,...,Od), outer-orthogonal
 - The following "variation" cores define the tangent vector w.r.t. the base cores:
-	- basis_variations  = (V0,...,Vd)
+	- tucker_variations = (V0,...,Vd)
 	- tt_variations     = (H0,...,Hd)
 
 Under certain *gauge conditions*, the representation of a tangent vector by its variation is unique, and performing linear algebra with the variation is equivalent to performing the corresponding linear algebra operations with the dense tensor.
@@ -391,11 +391,11 @@ Uniform Tucker tensor trains
 For computational efficiency, it can be helpful to pad the cores of a Tucker tensor train with zeros, so that it has uniform ranks. Then the computational operations become uniform, which improves pipelining efficiency and GPU performance.
 
 In this case:
-	- The basis cores B0, ..., Bd all have the same shape (n,N) and can be stacked into a *basis supercore* with shape (d,n,N). 
+	- The Tucker cores B0, ..., Bd all have the same shape (n,N) and can be stacked into a *Tucker supercore* with shape (d,n,N). 
 	- The TT-cores G0, ..., Gd all have the same shape (r,n,r), and can be stacked into *TT supercore* with shape (d,r,n,r).
 
 We keep track of which parts of the cores are supposed to be zero (to prevent filling in these parts during computations) with *edge masks*. For each edge, the mask is a boolean vector of the form (1,...,1,0,...,0). 
-	- The masks for the edges between basis cores and TT-cores have length n. For the ith edge, the first ni entries are 1, and the remaining entries are 0. These *Tucker edge masks* are collected into a boolean array with shape (d, n).
+	- The masks for the edges between Tucker cores and TT-cores have length n. For the ith edge, the first ni entries are 1, and the remaining entries are 0. These *Tucker edge masks* are collected into a boolean array with shape (d, n).
 	- The masks for the edges between adjacent TT-cores have length r. For the ith edge, the first ri entries are 1, and the remaining entries are 0. These *TT edge masks* are collected into boolean array with shape (d+1,r).
 
 

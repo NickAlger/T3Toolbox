@@ -107,11 +107,11 @@ Module Contents
 
 .. py:data:: TuckerTensorTrain
 
-   Tuple containing Tucker tensor train basis cores and TT cores.
+   Tuple containing Tucker tensor train Tucker cores and TT cores.
 
    Components:
 
-   - **basis_cores** : *Sequence[NDArray]*
+   - **tucker_cores** : *Sequence[NDArray]*
        Basis matrices (B0, ..., B(d-1)), with shapes (ni, Ni) for i=1,...,d-1. len=d.
    - **tt_cores** : *Sequence[NDArray]*
        Tensor train 3-tensor cores (G0, ..., G(d-1)), with shapes (ri, ni, r(i+1)) for i=1,...,d-1. len=d.
@@ -120,9 +120,9 @@ Module Contents
 
    >>> import numpy as np
    >>> import t3tools.tucker_tensor_train as t3
-   >>> basis_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
+   >>> tucker_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
    >>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
-   >>> x = (basis_cores, tt_cores) # TuckerTensorTrain, cores filled with ones
+   >>> x = (tucker_cores, tt_cores) # TuckerTensorTrain, cores filled with ones
    >>> t3.check_t3(x) # does nothing because t3 core shapes are consistent
 
 .. py:data:: T3Structure
@@ -142,9 +142,9 @@ Module Contents
 
    >>> import numpy as np
    >>> import t3tools.tucker_tensor_train as t3
-   >>> basis_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
+   >>> tucker_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
    >>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
-   >>> x = (basis_cores, tt_cores)
+   >>> x = (tucker_cores, tt_cores)
    >>> shape, tucker_ranks, tt_ranks = t3.get_structure(x)
    >>> print(shape)
    (14, 15, 16)

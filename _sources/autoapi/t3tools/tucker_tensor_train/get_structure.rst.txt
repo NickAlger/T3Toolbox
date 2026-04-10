@@ -17,9 +17,9 @@ t3tools.tucker_tensor_train.get_structure
 
    >>> import numpy as np
    >>> import t3tools.tucker_tensor_train as t3
-   >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
+   >>> tucker_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
    >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
-   >>> x = (basis_cores, tt_cores)
+   >>> x = (tucker_cores, tt_cores)
    >>> shape, tucker_ranks, tt_ranks = t3.get_structure(x)
    >>> print(shape)
    (14, 15, 16)

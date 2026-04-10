@@ -18,7 +18,7 @@ t3tools.tucker_tensor_train.compute_minimal_ranks
 
    Minimal ranks always exist and are unique.
        - Minimal TT ranks are equal to the ranks of (N*...*Ni) x (N(i+1)*...*N(d-1)) matrix unfoldings.
-       - Minimal basis ranks are equal to the ranks of Ni x (N1*...*N(i-1)*N(i+1)*...*N(d-1)) matricizations.
+       - Minimal Tucker ranks are equal to the ranks of Ni x (N1*...*N(i-1)*N(i+1)*...*N(d-1)) matricizations.
 
    .. rubric:: Examples
 
