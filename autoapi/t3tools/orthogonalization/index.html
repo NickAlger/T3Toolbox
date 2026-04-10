@@ -45,37 +45,28 @@
 </div>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="left_svd_3tensor.html#t3tools.orthogonalization.left_svd_3tensor" title="t3tools.orthogonalization.left_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_3tensor</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
-<td><p>Compute (truncated) singular value decomposition of 3-tensor left unfolding.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="right_svd_3tensor.html#t3tools.orthogonalization.right_svd_3tensor" title="t3tools.orthogonalization.right_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd_3tensor</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
-<td><p>Compute (truncated) singular value decomposition of 3-tensor right unfolding.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="outer_svd_3tensor.html#t3tools.orthogonalization.outer_svd_3tensor" title="t3tools.orthogonalization.outer_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">outer_svd_3tensor</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
-<td><p>Compute (truncated) singular value decomposition of 3-tensor outer unfolding.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="up_svd_ith_basis_core.html#t3tools.orthogonalization.up_svd_ith_basis_core" title="t3tools.orthogonalization.up_svd_ith_basis_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_svd_ith_basis_core</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="up_svd_ith_basis_core.html#t3tools.orthogonalization.up_svd_ith_basis_core" title="t3tools.orthogonalization.up_svd_ith_basis_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_svd_ith_basis_core</span></code></a>(...)</p></td>
 <td><p>Compute SVD of ith basis core and contract non-orthogonal factor up into the TT-core above.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="left_svd_ith_tt_core.html#t3tools.orthogonalization.left_svd_ith_tt_core" title="t3tools.orthogonalization.left_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_ith_tt_core</span></code></a>(...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="left_svd_ith_tt_core.html#t3tools.orthogonalization.left_svd_ith_tt_core" title="t3tools.orthogonalization.left_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_ith_tt_core</span></code></a>(...)</p></td>
 <td><p>Compute SVD of ith TT-core left unfolding and contract non-orthogonal factor into the TT-core to the right.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="right_svd_ith_tt_core.html#t3tools.orthogonalization.right_svd_ith_tt_core" title="t3tools.orthogonalization.right_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd_ith_tt_core</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="right_svd_ith_tt_core.html#t3tools.orthogonalization.right_svd_ith_tt_core" title="t3tools.orthogonalization.right_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd_ith_tt_core</span></code></a>(...)</p></td>
 <td><p>Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor into the TT-core to the left.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="up_svd_ith_tt_core.html#t3tools.orthogonalization.up_svd_ith_tt_core" title="t3tools.orthogonalization.up_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_svd_ith_tt_core</span></code></a>(...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="up_svd_ith_tt_core.html#t3tools.orthogonalization.up_svd_ith_tt_core" title="t3tools.orthogonalization.up_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_svd_ith_tt_core</span></code></a>(...)</p></td>
 <td><p>Compute SVD of ith TT-core outer unfolding and keep non-orthogonal factor with this core.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="down_svd_ith_tt_core.html#t3tools.orthogonalization.down_svd_ith_tt_core" title="t3tools.orthogonalization.down_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">down_svd_ith_tt_core</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="down_svd_ith_tt_core.html#t3tools.orthogonalization.down_svd_ith_tt_core" title="t3tools.orthogonalization.down_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">down_svd_ith_tt_core</span></code></a>(...)</p></td>
 <td><p>Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the basis core below.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="orthogonalize_relative_to_ith_basis_core.html#t3tools.orthogonalization.orthogonalize_relative_to_ith_basis_core" title="t3tools.orthogonalization.orthogonalize_relative_to_ith_basis_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonalize_relative_to_ith_basis_core</span></code></a>(...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="orthogonalize_relative_to_ith_basis_core.html#t3tools.orthogonalization.orthogonalize_relative_to_ith_basis_core" title="t3tools.orthogonalization.orthogonalize_relative_to_ith_basis_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonalize_relative_to_ith_basis_core</span></code></a>(...)</p></td>
 <td><p>Orthogonalize all cores in the TuckerTensorTrain except for the ith basis core.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="orthogonalize_relative_to_ith_tt_core.html#t3tools.orthogonalization.orthogonalize_relative_to_ith_tt_core" title="t3tools.orthogonalization.orthogonalize_relative_to_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonalize_relative_to_ith_tt_core</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="orthogonalize_relative_to_ith_tt_core.html#t3tools.orthogonalization.orthogonalize_relative_to_ith_tt_core" title="t3tools.orthogonalization.orthogonalize_relative_to_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonalize_relative_to_ith_tt_core</span></code></a>(...)</p></td>
 <td><p>Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="orthogonal_representations.html#t3tools.orthogonalization.orthogonal_representations" title="t3tools.orthogonalization.orthogonal_representations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonal_representations</span></code></a>(...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="orthogonal_representations.html#t3tools.orthogonalization.orthogonal_representations" title="t3tools.orthogonalization.orthogonal_representations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonal_representations</span></code></a>(...)</p></td>
 <td><p>Construct base-variation representations of TuckerTensorTrain with orthogonal base.</p></td>
 </tr>
 </tbody>

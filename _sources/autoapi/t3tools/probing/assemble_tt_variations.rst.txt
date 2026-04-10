@@ -1,7 +1,7 @@
 t3tools.probing.assemble_tt_variations
 ======================================
 
-.. py:function:: t3tools.probing.assemble_tt_variations(sigma_tildes: Sequence[NDArray], tau_tildes: Sequence[NDArray], deta_tildes, xis: Sequence[NDArray], mus, nus, sum_over_probes: bool = False, xnp=np) -> Tuple[NDArray, Ellipsis]
+.. py:function:: t3tools.probing.assemble_tt_variations(sigma_tildes: Sequence[t3tools.common.NDArray], tau_tildes: Sequence[t3tools.common.NDArray], deta_tildes, xis: Sequence[t3tools.common.NDArray], mus, nus, sum_over_probes: bool = False, xnp=np) -> Tuple[t3tools.common.NDArray, Ellipsis]
 
    Assemble basis core variations, delta_U_tilde.
    Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.

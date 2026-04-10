@@ -1,7 +1,7 @@
 t3tools.t3svd.tt_svd_dense
 ==========================
 
-.. py:function:: t3tools.t3svd.tt_svd_dense(T: NDArray, min_ranks: Sequence[int] = None, max_ranks: Sequence[int] = None, rtol: float = None, atol: float = None, xnp=np) -> Tuple[Tuple[NDArray, Ellipsis], Tuple[NDArray, Ellipsis]]
+.. py:function:: t3tools.t3svd.tt_svd_dense(T: t3tools.common.NDArray, min_ranks: Sequence[int] = None, max_ranks: Sequence[int] = None, rtol: float = None, atol: float = None, xnp=np) -> Tuple[Tuple[t3tools.common.NDArray, Ellipsis], Tuple[t3tools.common.NDArray, Ellipsis]]
 
    Compute tensor train (TT) decomposition and unfolding singular values for dense tensor.
 
