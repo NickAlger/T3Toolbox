@@ -13,8 +13,7 @@ import t3tools.uniform as ut3
 
 
 np.random.seed(0)
-numpy_tol = 1e-9
-jax_tol = 1e-5
+tol = 1e-9
 norm = np.linalg.norm
 randn = np.random.randn
 
@@ -45,14 +44,14 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         x2 = ut3.ut3_to_t3(cores, masks)  # Convert ut3 -> t3
         dense_x = t3.t3_to_dense(x)
         dense_x2 = t3.t3_to_dense(x2)
-        self.assertLessEqual(norm(dense_x - dense_x2), numpy_tol * norm(dense_x))
+        self.assertLessEqual(norm(dense_x - dense_x2), tol * norm(dense_x))
 
     def test_ut3_to_dense(self):
         x = t3.t3_corewise_randn(((14, 15, 16), (4, 6, 5), (3, 3, 2, 4)))
         cores, masks = ut3.t3_to_ut3(x)  # Convert t3 -> ut3
         dense_x = t3.t3_to_dense(x)
         dense_x2 = ut3.ut3_to_dense(cores, masks)
-        self.assertLessEqual(norm(dense_x - dense_x2), numpy_tol * norm(dense_x))
+        self.assertLessEqual(norm(dense_x - dense_x2), tol * norm(dense_x))
 
 
 

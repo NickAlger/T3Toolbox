@@ -8,8 +8,7 @@ import t3tools.tucker_tensor_train as t3
 
 
 np.random.seed(0)
-numpy_tol = 1e-9
-jax_tol = 1e-5
+tol = 1e-9
 norm = np.linalg.norm
 randn = np.random.randn
 
@@ -29,7 +28,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         self.assertEqual(((11, 12, 13), (6, 7, 8), (1, 3, 4, 1)), t3.get_structure(x2))
         x_dense = t3.t3_to_dense(x)
         x2_dense = t3.t3_to_dense(x2)
-        self.assertLessEqual(norm(x_dense - x2_dense), numpy_tol * norm(x_dense))
+        self.assertLessEqual(norm(x_dense - x2_dense), tol * norm(x_dense))
 
     def test_t3_to_dense1(self):
         x = t3.t3_corewise_randn(((14, 15, 16), (4, 5, 6), (2, 3, 7, 5)))  # make TuckerTensorTrain
@@ -42,7 +41,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                 else:
                     x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->aijkd', B0, B1, B2, G0, G1, G2)
                 self.assertEqual(true_shape, x_dense.shape)
-                self.assertLessEqual(norm(x_dense - x_dense2), numpy_tol * norm(x_dense))
+                self.assertLessEqual(norm(x_dense - x_dense2), tol * norm(x_dense))
 
     def test_t3_to_dense2(self):
         # leading and trailing ones not contracted
@@ -51,7 +50,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         ((B0, B1, B2), (G0, G1, G2)) = x
         x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->aijkd', B0, B1, B2, G0, G1, G2)
         self.assertEqual((2, 14, 15, 16, 5), x_dense.shape)
-        self.assertLessEqual(norm(x_dense - x_dense2), numpy_tol * norm(x_dense))
+        self.assertLessEqual(norm(x_dense - x_dense2), tol * norm(x_dense))
 
     def test_t3_reverse1(self):
         x = t3.t3_corewise_randn(((14, 15, 16), (4, 5, 6), (2, 3, 2, 1)))  # Make TuckerTensorTrain
@@ -61,7 +60,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         x_dense = t3.t3_to_dense(x)
         reversed_x_dense = t3.t3_to_dense(reversed_x)
         x_dense2 = reversed_x_dense.transpose([2, 1, 0])
-        self.assertLessEqual(norm(x_dense - x_dense2), numpy_tol * norm(x_dense))
+        self.assertLessEqual(norm(x_dense - x_dense2), tol * norm(x_dense))
 
     def test_t3_zeros1(self):
         shape = (14, 15, 16)
@@ -71,7 +70,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         z = t3.t3_zeros(structure)
         self.assertEqual(structure, t3.get_structure(z))
         dense_z = t3.t3_to_dense(z)
-        self.assertLessEqual(norm(dense_z), numpy_tol)
+        self.assertLessEqual(norm(dense_z), tol)
 
     def test_t3_corewise_randn1(self):
         shape = (14, 15, 16)
@@ -89,30 +88,30 @@ class TestTuckerTensorTrain(unittest.TestCase):
         basis_cores, tt_cores = x
         basis_cores2, tt_cores2 = x2
         for B, B2 in zip(basis_cores, basis_cores2):
-            self.assertLessEqual(norm(B - B2), numpy_tol * norm(B))
+            self.assertLessEqual(norm(B - B2), tol * norm(B))
         for G, G2 in zip(tt_cores, tt_cores2):
-            self.assertLessEqual(norm(G - G2), numpy_tol * norm(G))
+            self.assertLessEqual(norm(G - G2), tol * norm(G))
 
     def test_t3_apply1(self):
         x = t3.t3_corewise_randn(((14, 15, 16), (4, 5, 6), (4, 3, 2, 7)))
         vecs = [randn(14), randn(15), randn(16)]
         result = t3.t3_apply(x, vecs)  # <-- contract x with vecs in all indices
         result2 = np.einsum('ijk,i,j,k', t3.t3_to_dense(x), vecs[0], vecs[1], vecs[2])
-        self.assertLessEqual(np.abs(result - result2), numpy_tol * np.abs(result2))
+        self.assertLessEqual(np.abs(result - result2), tol * np.abs(result2))
 
     def test_t3_apply2(self):
         x = t3.t3_corewise_randn(((14, 15, 16), (4, 5, 6), (4, 3, 2, 7)))
         vecs = [randn(3, 14), randn(3, 15), randn(3, 16)]
         result = t3.t3_apply(x, vecs)
         result2 = np.einsum('ijk,ni,nj,nk->n', t3.t3_to_dense(x), vecs[0], vecs[1], vecs[2])
-        self.assertLessEqual(norm(result - result2), numpy_tol * norm(result2))
+        self.assertLessEqual(norm(result - result2), tol * norm(result2))
 
     def test_t3_entry1(self):
         x = t3.t3_corewise_randn(((14, 15, 16), (4, 5, 6), (4, 3, 2, 7)))
         index = [9, 4, 7]  # get entry (9,4,7)
         result = t3.t3_entry(x, index)
         result2 = t3.t3_to_dense(x)[9, 4, 7]
-        self.assertLessEqual(np.abs(result - result2), numpy_tol * np.abs(result2))
+        self.assertLessEqual(np.abs(result - result2), tol * np.abs(result2))
 
     def test_t3_entry2(self):
         x = t3.t3_corewise_randn(((14, 15, 16), (4, 5, 6), (6, 2, 4, 3)))
@@ -120,7 +119,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         entries = t3.t3_entry(x, index)
         x_dense = t3.t3_to_dense(x)
         entries2 = np.array([x_dense[9, 4, 7], x_dense[8, 10, 13]])
-        self.assertLessEqual(norm(entries - entries2), numpy_tol * norm(entries2))
+        self.assertLessEqual(norm(entries - entries2), tol * norm(entries2))
 
     def test_compute_minimal_ranks1(self):
         mr = t3.compute_minimal_ranks(((10, 11, 12, 13), (14, 15, 16, 17), (98, 99, 100, 101, 102)))
@@ -158,7 +157,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         dense_x_plus_y2 = t3.t3_to_dense(x) + t3.t3_to_dense(y)
         self.assertLessEqual(
             norm(dense_x_plus_y - dense_x_plus_y2),
-            numpy_tol * norm(dense_x_plus_y2)
+            tol * norm(dense_x_plus_y2)
         )
 
     def test_t3_scale(self):
@@ -169,7 +168,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         dense_sx = t3.t3_to_dense(sx)
         self.assertLessEqual(
             norm(s * dense_x - dense_sx),
-            numpy_tol * norm(s * dense_x)
+            tol * norm(s * dense_x)
         )
 
     def test_t3_neg(self):
@@ -179,7 +178,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         dense_neg_x = t3.t3_to_dense(neg_x)
         self.assertLessEqual(
             norm(-dense_x - dense_neg_x),
-            numpy_tol * norm(-dense_x)
+            tol * norm(-dense_x)
         )
 
     def test_t3_sub(self):
@@ -191,7 +190,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         dense_x_minus_y2 = t3.t3_to_dense(x) - t3.t3_to_dense(y)
         self.assertLessEqual(
             norm(dense_x_minus_y - dense_x_minus_y2),
-            numpy_tol * norm(dense_x_minus_y2)
+            tol * norm(dense_x_minus_y2)
         )
 
     def test_t3_dot_t3(self):
@@ -201,14 +200,14 @@ class TestTuckerTensorTrain(unittest.TestCase):
         x_dot_y2 = np.sum(t3.t3_to_dense(x) * t3.t3_to_dense(y))
         self.assertLessEqual(
             np.abs(x_dot_y - x_dot_y2),
-            numpy_tol * np.abs(x_dot_y2)
+            tol * np.abs(x_dot_y2)
         )
 
     def test_t3_norm(self):
         x = t3.t3_corewise_randn(((14, 15, 16), (4, 5, 6), (2, 3, 2, 1)))
         norm_x = t3.t3_norm(x)
         norm_x2 = np.linalg.norm(t3.t3_to_dense(x))
-        self.assertLessEqual(np.abs(norm_x - norm_x2), numpy_tol * np.abs(norm_x))
+        self.assertLessEqual(np.abs(norm_x - norm_x2), tol * np.abs(norm_x))
 
 
 if __name__ == '__main__':

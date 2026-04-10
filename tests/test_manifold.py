@@ -13,8 +13,7 @@ import t3tools.common as common
 
 
 np.random.seed(0)
-numpy_tol = 1e-9
-jax_tol = 1e-5
+tol = 1e-9
 norm = np.linalg.norm
 randn = np.random.randn
 
@@ -31,7 +30,7 @@ class TestManifold(unittest.TestCase):
         vv = [t3m.tangent_randn(base, apply_gauge_projection=False) for _ in range(num_core_entries)]
         dense_vv = np.stack([t3m.tangent_to_dense(v, base) for v in vv])
         _, ss, _ = np.linalg.svd(dense_vv.reshape((num_core_entries, -1)), full_matrices=False)
-        self.assertLessEqual(ss[mdim], numpy_tol * ss[0]) # first zero singular value
+        self.assertLessEqual(ss[mdim], tol * ss[0]) # first zero singular value
         self.assertGreaterEqual(ss[mdim-1], 1e8 * ss[mdim]) # last nonzero singular value
 
     def test_tangent_to_dense(self):
@@ -48,11 +47,11 @@ class TestManifold(unittest.TestCase):
         s5 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', U0, V1, U2, L0, O1, R2)
         s6 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', U0, U1, V2, L0, L1, O2)
         v_dense2 = s1 + s2 + s3 + s4 + s5 + s6
-        self.assertLessEqual(norm(v_dense - v_dense2), numpy_tol * norm(v_dense2))
+        self.assertLessEqual(norm(v_dense - v_dense2), tol * norm(v_dense2))
 
         p_plus_v_dense = t3m.tangent_to_dense(variation, base, include_shift=True)  # Convert shifted tangent, p+v, to dense
         p_plus_v_dense2 = t3.t3_to_dense(p) + v_dense
-        self.assertLessEqual(norm(p_plus_v_dense - p_plus_v_dense2), numpy_tol * norm(p_plus_v_dense2))
+        self.assertLessEqual(norm(p_plus_v_dense - p_plus_v_dense2), tol * norm(p_plus_v_dense2))
 
     def test_tangent_to_t3(self):
         p = t3.t3_corewise_randn(((14, 15, 16), (4, 5, 6), (2, 3, 2, 2)))
@@ -61,18 +60,18 @@ class TestManifold(unittest.TestCase):
         v_t3 = t3m.tangent_to_t3(variation, base)  # tangent vector only (attached at zero)
         v_dense = t3.t3_to_dense(v_t3)
         v_dense2 = t3m.tangent_to_dense(variation, base)
-        self.assertLessEqual(norm(v_dense - v_dense2), numpy_tol * norm(v_dense))
+        self.assertLessEqual(norm(v_dense - v_dense2), tol * norm(v_dense))
 
         p_plus_v_t3 = t3m.tangent_to_t3(variation, base, include_shift=True)  # shifted tangent vector (include attachment at base point)
         p_plus_v_dense = t3.t3_to_dense(p_plus_v_t3)
         p_plus_v_dense2 = v_dense2 + t3.t3_to_dense(p)
-        self.assertLessEqual(norm(p_plus_v_dense - p_plus_v_dense2), numpy_tol * norm(p_plus_v_dense2))
+        self.assertLessEqual(norm(p_plus_v_dense - p_plus_v_dense2), tol * norm(p_plus_v_dense2))
 
     def test_tangent_zeros(self):
         p = t3.t3_corewise_randn(((14, 15, 16), (4, 5, 6), (7, 3, 2, 5)))
         base, _ = orth.orthogonal_representations(p)
         z = t3m.tangent_zeros(base)
-        self.assertLessEqual(norm(t3m.tangent_to_dense(z, base)), numpy_tol)
+        self.assertLessEqual(norm(t3m.tangent_to_dense(z, base)), tol)
 
         shapes = bvf.hole_shapes(base)
         basis_z, tt_z = z
@@ -110,10 +109,10 @@ class TestManifold(unittest.TestCase):
         # Gauge conditions
 
         for V, U in zip([V0, V1, V2], [U0, U1, U2]):
-            self.assertLessEqual(norm(V @ U.T), numpy_tol)
+            self.assertLessEqual(norm(V @ U.T), tol)
 
         for H, L in zip([H0, H1], [L0, L1]): # no gauge condition on H2
-            self.assertLessEqual(norm(np.einsum('iaj,iak->jk', H, L)), numpy_tol)
+            self.assertLessEqual(norm(np.einsum('iaj,iak->jk', H, L)), tol)
 
         # Check that projection was orthogonal
 
@@ -124,7 +123,7 @@ class TestManifold(unittest.TestCase):
 
         self.assertLessEqual(
             np.abs(v_minus_p_dot_p),
-            numpy_tol * t3tools.corewise.corewise_norm(variation)
+            tol * t3tools.corewise.corewise_norm(variation)
         )
 
     def test_oblique_gauge_projection(self):
@@ -136,7 +135,7 @@ class TestManifold(unittest.TestCase):
         proj_v_dense = t3m.tangent_to_dense(proj_variation, base)
 
         # Check that vector represents same tangent after oblique projection
-        self.assertLessEqual(norm(v_dense - proj_v_dense), numpy_tol * norm(v_dense))
+        self.assertLessEqual(norm(v_dense - proj_v_dense), tol * norm(v_dense))
 
         (U0, U1, U2), (L0, L1, L2), _, _ = base
         ((V0, V1, V2), (H0, H1, H2)) = proj_variation
@@ -144,10 +143,10 @@ class TestManifold(unittest.TestCase):
         # Check gauge conditions
 
         for U, V in zip([U0, U1, U2], [V0, V1, V2]):
-            self.assertLessEqual(norm(V @ U.T), numpy_tol)
+            self.assertLessEqual(norm(V @ U.T), tol)
 
         for L, H in zip([L0, L1], [H0, H1]):
-            self.assertLessEqual(norm(np.einsum('iaj,iak->jk', H1, L1)), numpy_tol)
+            self.assertLessEqual(norm(np.einsum('iaj,iak->jk', H1, L1)), tol)
 
     def test_project_t3_into_tangent_space(self):
         p = t3.t3_corewise_randn(((14, 15, 16), (4, 5, 6), (1, 3, 2, 1)))
@@ -157,7 +156,7 @@ class TestManifold(unittest.TestCase):
         P = t3.t3_to_dense(p)
         X = t3.t3_to_dense(x)
         proj_X = t3m.tangent_to_dense(proj_x, base)
-        self.assertLessEqual(np.abs(np.sum((X - proj_X) * (proj_X - P))), numpy_tol * np.linalg.norm(X))
+        self.assertLessEqual(np.abs(np.sum((X - proj_X) * (proj_X - P))), tol * np.linalg.norm(X))
 
 
     def test_retract(self):
@@ -167,7 +166,7 @@ class TestManifold(unittest.TestCase):
         ret_v = t3m.retract(z, base)
         ret_V = t3.t3_to_dense(ret_v)
         P = t3.t3_to_dense(p)
-        self.assertLessEqual(norm(ret_V - P), numpy_tol)
+        self.assertLessEqual(norm(ret_V - P), tol)
 
         # Need to figure out a good way to automatically check the condition that
         # the Jacobian of the retraction is the identity.

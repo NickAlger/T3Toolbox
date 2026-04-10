@@ -8,8 +8,7 @@ import t3tools.base_variation_format as bvf
 
 
 np.random.seed(0)
-numpy_tol = 1e-9
-jax_tol = 1e-5
+tol = 1e-9
 norm = np.linalg.norm
 randn = np.random.randn
 

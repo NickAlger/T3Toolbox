@@ -34,15 +34,20 @@ Tucker tensor trains:
 * :doc:`/autoapi/t3tools/t3svd/index`
 * :doc:`/autoapi/t3tools/manifold/index`
 * :doc:`/autoapi/t3tools/probing/index`
-* :doc:`/autoapi/t3tools/common/index`
 
-Uniform T3s:
+Uniform Tucker tensor trains:
 
 * :doc:`/autoapi/t3tools/uniform/index`
 * :doc:`/autoapi/t3tools/uniform_orthogonalization/index`
 * :doc:`/autoapi/t3tools/uniform_t3svd/index`
 * :doc:`/autoapi/t3tools/uniform_manifold/index`
 * :doc:`/autoapi/t3tools/uniform_probing/index`
+
+Utilities:
+
+* :doc:`/autoapi/t3tools/corewise/index`
+* :doc:`/autoapi/t3tools/linalg/index`
+* :doc:`/autoapi/t3tools/common/index`
 
 
 Indices and tables
