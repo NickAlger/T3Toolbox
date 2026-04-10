@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>t3tools.jax.tucker_tensor_train.t3_corewise_randn &#8212; TuckerTensorTrainTools 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/agogo.css?v=08520df9" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css?v=4ae1632d" />
+    <script src="../../../../_static/documentation_options.js?v=2709fde1"></script>
+    <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="icon" href="../../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+  </head><body>
+    <div class="header-wrapper" role="banner">
+      <div class="header">
+        <div class="headertitle"><a
+          href="../../../../index.html">TuckerTensorTrainTools 0.1 documentation</a></div>
+        <div class="rel" role="navigation" aria-label="Related">
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |
+          <a href="../../../../genindex.html" title="General Index"
+             accesskey="I">index</a>
+        </div>
+       </div>
+    </div>
+
+    <div class="content-wrapper">
+      <div class="content">
+        <div class="document">
+            
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="t3tools-jax-tucker-tensor-train-t3-corewise-randn">
+<h1>t3tools.jax.tucker_tensor_train.t3_corewise_randn<a class="headerlink" href="#t3tools-jax-tucker-tensor-train-t3-corewise-randn" title="Link to this heading">¶</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="t3tools.jax.tucker_tensor_train.t3_corewise_randn">
+<span class="sig-prename descclassname"><span class="pre">t3tools.jax.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">t3_corewise_randn</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#id1" title="t3tools.jax.tucker_tensor_train.T3Structure"><span class="pre">T3Structure</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">randn</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">typ.Callable</span><span class="p"><span class="pre">[</span></span><span class="pre">Ellipsis</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../../common/index.html#t3tools.common.NDArray" title="t3tools.common.NDArray"><span class="pre">NDArray</span></a><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">np.random.randn</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="index.html#id0" title="t3tools.jax.tucker_tensor_train.TuckerTensorTrain"><span class="pre">TuckerTensorTrain</span></a></span></span><a class="headerlink" href="#t3tools.jax.tucker_tensor_train.t3_corewise_randn" title="Link to this definition">¶</a></dt>
+<dd><p>Construct Tucker tensor train with random cores (i.i.d. N(0,1) entries).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>structure</strong> (<a class="reference internal" href="index.html#id1" title="t3tools.jax.tucker_tensor_train.T3Structure"><em>T3Structure</em></a>) – Tucker tensor train structure
+(shape, tucker_ranks, tt_ranks)=((N1,…,Nd), (n1,…,nd), (1,r1,…,r(d-1),1))).</p></li>
+<li><p><strong>randn</strong> (<em>typ.Callable</em><em>[</em><em>[</em><em>...</em><em>, </em><a class="reference internal" href="../../common/index.html#t3tools.common.NDArray" title="t3tools.common.NDArray"><em>NDArray</em></a><em>]</em>) – Function for creating random arrays. Arguments are a sequence of ints defining the shape of the array.
+Default: np.random.randn (numpy)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Dense tensor represented by x, which has shape (N1, …, Nd)</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="../../common/index.html#t3tools.common.NDArray" title="t3tools.common.NDArray">NDArray</a></p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="index.html#id0" title="t3tools.jax.tucker_tensor_train.TuckerTensorTrain"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TuckerTensorTrain</span></code></a>, <a class="reference internal" href="index.html#id1" title="t3tools.jax.tucker_tensor_train.T3Structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Structure</span></code></a></p>
+</div>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">t3tools</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">shape</span> <span class="o">=</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_ranks</span> <span class="o">=</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tt_ranks</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">structure</span> <span class="o">=</span> <span class="p">(</span><span class="n">shape</span><span class="p">,</span> <span class="n">tucker_ranks</span><span class="p">,</span> <span class="n">tt_ranks</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(</span><span class="n">structure</span><span class="p">)</span> <span class="c1"># TuckerTensorTrain with random cores</span>
+</pre></div>
+</div>
+</dd></dl>
+
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+        </div>
+        <div class="sidebar">
+          
+          <h3>Table of Contents</h3>
+          
+          <search role="search">
+            <h3 style="margin-top: 1.5em;">Search</h3>
+            <form class="search" action="../../../../search.html" method="get">
+                <input type="text" name="q" />
+                <input type="submit" value="Go" />
+            </form>
+          </search>
+
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+    <div class="footer-wrapper">
+      <div class="footer">
+        <div class="left">
+          <div role="navigation" aria-label="Related">
+            <a href="../../../../py-modindex.html" title="Python Module Index"
+              >modules</a> |
+            <a href="../../../../genindex.html" title="General Index"
+              >index</a>
+          </div>
+          <div role="note" aria-label="source link">
+              <br/>
+              <a href="../../../../_sources/autoapi/t3tools/jax/tucker_tensor_train/t3_corewise_randn.rst.txt"
+                rel="nofollow">Show Source</a>
+          </div>
+        </div>
+
+        <div class="right">
+          
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2026, Nick Alger and Blake Christierson.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+  </body>
+</html>

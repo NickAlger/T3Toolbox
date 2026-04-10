@@ -1,0 +1,6 @@
+t3tools.jax.uniform_t3svd
+=========================
+
+.. py:module:: t3tools.jax.uniform_t3svd
+
+

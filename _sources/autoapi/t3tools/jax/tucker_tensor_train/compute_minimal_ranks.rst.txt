@@ -1,0 +1,13 @@
+t3tools.jax.tucker_tensor_train.compute_minimal_ranks
+=====================================================
+
+.. py:function:: t3tools.jax.tucker_tensor_train.compute_minimal_ranks(s: T3Structure) -> typ.Tuple[typ.Tuple[int, Ellipsis], typ.Tuple[int, Ellipsis]]
+
+   Find minimal ranks for a TuckerTensorTrain with a given structure. (such that there is no useless rank)
+
+   .. rubric:: Examples
+
+   >>> import t3tools.tucker_tensor_train as t3
+   >>> print(t3.compute_minimal_ranks(((10,11,12,13), (14,15,16,17), (98,99,100,101,102))))
+   ((10, 11, 12, 13), (1, 10, 100, 13, 1))
+

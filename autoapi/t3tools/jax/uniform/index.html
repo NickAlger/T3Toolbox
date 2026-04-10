@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+
+<html lang="en" data-content_root="../../../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>t3tools.jax.uniform &#8212; TuckerTensorTrainTools 0.1 documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=a746c00c" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/agogo.css?v=08520df9" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/graphviz.css?v=4ae1632d" />
+    <script src="../../../../_static/documentation_options.js?v=2709fde1"></script>
+    <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
+    <link rel="icon" href="../../../../_static/favicon.ico"/>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+  </head><body>
+    <div class="header-wrapper" role="banner">
+      <div class="header">
+        <div class="headertitle"><a
+          href="../../../../index.html">TuckerTensorTrainTools 0.1 documentation</a></div>
+        <div class="rel" role="navigation" aria-label="Related">
+          <a href="../../../../py-modindex.html" title="Python Module Index"
+             >modules</a> |
+          <a href="../../../../genindex.html" title="General Index"
+             accesskey="I">index</a>
+        </div>
+       </div>
+    </div>
+
+    <div class="content-wrapper">
+      <div class="content">
+        <div class="document">
+            
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <section id="module-t3tools.jax.uniform">
+<span id="t3tools-jax-uniform"></span><h1>t3tools.jax.uniform<a class="headerlink" href="#module-t3tools.jax.uniform" title="Link to this heading">¶</a></h1>
+<section id="attributes">
+<h2>Attributes<a class="headerlink" href="#attributes" title="Link to this heading">¶</a></h2>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.jax.uniform.UniformTuckerTensorTrainCores" title="t3tools.jax.uniform.UniformTuckerTensorTrainCores"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformTuckerTensorTrainCores</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3tools.jax.uniform.UniformTuckerTensorTrainMasks" title="t3tools.jax.uniform.UniformTuckerTensorTrainMasks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformTuckerTensorTrainMasks</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.jax.uniform.get_padded_structure" title="t3tools.jax.uniform.get_padded_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_padded_structure</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3tools.jax.uniform.get_original_structure" title="t3tools.jax.uniform.get_original_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_original_structure</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.jax.uniform.are_ut3_ranks_minimal" title="t3tools.jax.uniform.are_ut3_ranks_minimal"><code class="xref py py-obj docutils literal notranslate"><span class="pre">are_ut3_ranks_minimal</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3tools.jax.uniform.unpack_edge_tensors" title="t3tools.jax.uniform.unpack_edge_tensors"><code class="xref py py-obj docutils literal notranslate"><span class="pre">unpack_edge_tensors</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.jax.uniform.apply_masks" title="t3tools.jax.uniform.apply_masks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_masks</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3tools.jax.uniform.t3_to_ut3" title="t3tools.jax.uniform.t3_to_ut3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_to_ut3</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.jax.uniform.ut3_to_t3" title="t3tools.jax.uniform.ut3_to_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_to_t3</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3tools.jax.uniform.ut3_entry" title="t3tools.jax.uniform.ut3_entry"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_entry</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.jax.uniform.ut3_add" title="t3tools.jax.uniform.ut3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_add</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3tools.jax.uniform.ut3_scale" title="t3tools.jax.uniform.ut3_scale"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_scale</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.jax.uniform.ut3_neg" title="t3tools.jax.uniform.ut3_neg"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_neg</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3tools.jax.uniform.ut3_sub" title="t3tools.jax.uniform.ut3_sub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_sub</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="module-contents">
+<h2>Module Contents<a class="headerlink" href="#module-contents" title="Link to this heading">¶</a></h2>
+<dl class="py data">
+<dt class="sig sig-object py" id="t3tools.jax.uniform.UniformTuckerTensorTrainCores">
+<span class="sig-prename descclassname"><span class="pre">t3tools.jax.uniform.</span></span><span class="sig-name descname"><span class="pre">UniformTuckerTensorTrainCores</span></span><a class="headerlink" href="#t3tools.jax.uniform.UniformTuckerTensorTrainCores" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3tools.jax.uniform.UniformTuckerTensorTrainMasks">
+<span class="sig-prename descclassname"><span class="pre">t3tools.jax.uniform.</span></span><span class="sig-name descname"><span class="pre">UniformTuckerTensorTrainMasks</span></span><a class="headerlink" href="#t3tools.jax.uniform.UniformTuckerTensorTrainMasks" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3tools.jax.uniform.get_padded_structure">
+<span class="sig-prename descclassname"><span class="pre">t3tools.jax.uniform.</span></span><span class="sig-name descname"><span class="pre">get_padded_structure</span></span><a class="headerlink" href="#t3tools.jax.uniform.get_padded_structure" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3tools.jax.uniform.get_original_structure">
+<span class="sig-prename descclassname"><span class="pre">t3tools.jax.uniform.</span></span><span class="sig-name descname"><span class="pre">get_original_structure</span></span><a class="headerlink" href="#t3tools.jax.uniform.get_original_structure" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3tools.jax.uniform.are_ut3_ranks_minimal">
+<span class="sig-prename descclassname"><span class="pre">t3tools.jax.uniform.</span></span><span class="sig-name descname"><span class="pre">are_ut3_ranks_minimal</span></span><a class="headerlink" href="#t3tools.jax.uniform.are_ut3_ranks_minimal" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3tools.jax.uniform.unpack_edge_tensors">
+<span class="sig-prename descclassname"><span class="pre">t3tools.jax.uniform.</span></span><span class="sig-name descname"><span class="pre">unpack_edge_tensors</span></span><a class="headerlink" href="#t3tools.jax.uniform.unpack_edge_tensors" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3tools.jax.uniform.apply_masks">
+<span class="sig-prename descclassname"><span class="pre">t3tools.jax.uniform.</span></span><span class="sig-name descname"><span class="pre">apply_masks</span></span><a class="headerlink" href="#t3tools.jax.uniform.apply_masks" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3tools.jax.uniform.t3_to_ut3">
+<span class="sig-prename descclassname"><span class="pre">t3tools.jax.uniform.</span></span><span class="sig-name descname"><span class="pre">t3_to_ut3</span></span><a class="headerlink" href="#t3tools.jax.uniform.t3_to_ut3" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3tools.jax.uniform.ut3_to_t3">
+<span class="sig-prename descclassname"><span class="pre">t3tools.jax.uniform.</span></span><span class="sig-name descname"><span class="pre">ut3_to_t3</span></span><a class="headerlink" href="#t3tools.jax.uniform.ut3_to_t3" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3tools.jax.uniform.ut3_entry">
+<span class="sig-prename descclassname"><span class="pre">t3tools.jax.uniform.</span></span><span class="sig-name descname"><span class="pre">ut3_entry</span></span><a class="headerlink" href="#t3tools.jax.uniform.ut3_entry" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3tools.jax.uniform.ut3_add">
+<span class="sig-prename descclassname"><span class="pre">t3tools.jax.uniform.</span></span><span class="sig-name descname"><span class="pre">ut3_add</span></span><a class="headerlink" href="#t3tools.jax.uniform.ut3_add" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3tools.jax.uniform.ut3_scale">
+<span class="sig-prename descclassname"><span class="pre">t3tools.jax.uniform.</span></span><span class="sig-name descname"><span class="pre">ut3_scale</span></span><a class="headerlink" href="#t3tools.jax.uniform.ut3_scale" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3tools.jax.uniform.ut3_neg">
+<span class="sig-prename descclassname"><span class="pre">t3tools.jax.uniform.</span></span><span class="sig-name descname"><span class="pre">ut3_neg</span></span><a class="headerlink" href="#t3tools.jax.uniform.ut3_neg" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3tools.jax.uniform.ut3_sub">
+<span class="sig-prename descclassname"><span class="pre">t3tools.jax.uniform.</span></span><span class="sig-name descname"><span class="pre">ut3_sub</span></span><a class="headerlink" href="#t3tools.jax.uniform.ut3_sub" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</section>
+</section>
+
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+        </div>
+        <div class="sidebar">
+          
+          <h3>Table of Contents</h3>
+          
+          <search role="search">
+            <h3 style="margin-top: 1.5em;">Search</h3>
+            <form class="search" action="../../../../search.html" method="get">
+                <input type="text" name="q" />
+                <input type="submit" value="Go" />
+            </form>
+          </search>
+
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+    <div class="footer-wrapper">
+      <div class="footer">
+        <div class="left">
+          <div role="navigation" aria-label="Related">
+            <a href="../../../../py-modindex.html" title="Python Module Index"
+              >modules</a> |
+            <a href="../../../../genindex.html" title="General Index"
+              >index</a>
+          </div>
+          <div role="note" aria-label="source link">
+              <br/>
+              <a href="../../../../_sources/autoapi/t3tools/jax/uniform/index.rst.txt"
+                rel="nofollow">Show Source</a>
+          </div>
+        </div>
+
+        <div class="right">
+          
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2026, Nick Alger and Blake Christierson.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 9.1.0.
+    </div>
+        </div>
+        <div class="clearer"></div>
+      </div>
+    </div>
+
+  </body>
+</html>

@@ -1,0 +1,6 @@
+t3tools.jax.uniform_manifold
+============================
+
+.. py:module:: t3tools.jax.uniform_manifold
+
+
