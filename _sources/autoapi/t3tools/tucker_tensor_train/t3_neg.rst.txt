@@ -3,7 +3,7 @@ t3tools.tucker_tensor_train.t3_neg
 
 .. py:function:: t3tools.tucker_tensor_train.t3_neg(x: TuckerTensorTrain) -> TuckerTensorTrain
 
-   Scale TuckerTensorTrain x by a scaling factor -1.
+   Scale a Tucker tensor train by -1.
 
    :param x: Tucker tensor train
    :type x: TuckerTensorTrain

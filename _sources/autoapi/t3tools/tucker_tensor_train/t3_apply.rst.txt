@@ -3,7 +3,7 @@ t3tools.tucker_tensor_train.t3_apply
 
 .. py:function:: t3tools.tucker_tensor_train.t3_apply(x: TuckerTensorTrain, vecs: Sequence[t3tools.common.NDArray], xnp=np) -> t3tools.common.NDArray
 
-   Contract TuckerTensorTrain with vectors in all indices.
+   Contract a Tucker tensor train with vectors in all indices.
 
    :param x: Tucker tensor train. shape=(N1,...,Nd)
    :type x: TuckerTensorTrain

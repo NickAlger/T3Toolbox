@@ -3,7 +3,7 @@ t3tools.tucker_tensor_train.check_t3
 
 .. py:function:: t3tools.tucker_tensor_train.check_t3(x: TuckerTensorTrain) -> None
 
-   Check correctness / consistency of Tucker tensor train.
+   Check rank and shape consistency of Tucker tensor train.
 
    :param x:
    :type x: TuckerTensorTrain

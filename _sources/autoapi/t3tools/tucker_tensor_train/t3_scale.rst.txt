@@ -3,7 +3,7 @@ t3tools.tucker_tensor_train.t3_scale
 
 .. py:function:: t3tools.tucker_tensor_train.t3_scale(x: TuckerTensorTrain, s) -> TuckerTensorTrain
 
-   Scale TuckerTensorTrain x by a scaling factor s.
+   Multipy a Tucker tensor train by a scaling factor.
 
    :param x: Tucker tensor train
    :type x: TuckerTensorTrain

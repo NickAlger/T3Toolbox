@@ -3,7 +3,7 @@ t3tools.tucker_tensor_train.t3_dot_t3
 
 .. py:function:: t3tools.tucker_tensor_train.t3_dot_t3(x: TuckerTensorTrain, y: TuckerTensorTrain, xnp=np)
 
-   Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains x, y with the same shape, (x, y)_HS.
+   Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains with the same shape.
 
    :param x: First Tucker tensor train. shape=(N1,...,Nd)
    :type x: TuckerTensorTrain

@@ -3,7 +3,7 @@ t3tools.tucker_tensor_train.t3_sub
 
 .. py:function:: t3tools.tucker_tensor_train.t3_sub(x: TuckerTensorTrain, y: TuckerTensorTrain, squash: bool = True, xnp=np) -> TuckerTensorTrain
 
-   Subtract TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x-y with summed ranks.
+   Subtract Tucker tensor trains with the same shape, yielding a Tucker tensor train with summed ranks.
 
    :param x: First summand. structure=((N1,...,Nd), (n1,...,nd), (r0, r1,...,rd))
    :type x: TuckerTensorTrain

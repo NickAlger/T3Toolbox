@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3tools.tucker_tensor_train &#8212; TuckerTensorTrainTools 0.1 documentation</title>
+    <title>t3tools.tucker_tensor_train &#8212; TuckerTensorTrainTools 0.1</title>
   
   
   
@@ -117,7 +117,7 @@
   
   
   
-    <p class="title logo__title">TuckerTensorTrainTools 0.1 documentation</p>
+    <p class="title logo__title">TuckerTensorTrainTools 0.1</p>
   
 </a></div>
     
@@ -491,6 +491,33 @@
                   
   <section id="module-t3tools.tucker_tensor_train">
 <span id="t3tools-tucker-tensor-train"></span><h1>t3tools.tucker_tensor_train<a class="headerlink" href="#module-t3tools.tucker_tensor_train" title="Link to this heading">#</a></h1>
+<p>This module contains type aliases and functions for basic operations with Tucker tensor trains (T3).</p>
+<p>Tensor network diagram for a Tucker tensor train:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>    <span class="n">r0</span>        <span class="n">r1</span>        <span class="n">r2</span>       <span class="n">r</span><span class="p">(</span><span class="n">d</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>          <span class="n">rd</span>
+<span class="mi">1</span> <span class="o">------</span> <span class="n">G0</span> <span class="o">------</span> <span class="n">G1</span> <span class="o">------</span> <span class="o">...</span> <span class="o">------</span> <span class="n">G</span><span class="p">(</span><span class="n">d</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">------</span> <span class="mi">1</span>
+         <span class="o">|</span>         <span class="o">|</span>                    <span class="o">|</span>
+         <span class="o">|</span> <span class="n">n0</span>      <span class="o">|</span> <span class="n">n1</span>                 <span class="o">|</span> <span class="n">nd</span>
+         <span class="o">|</span>         <span class="o">|</span>                    <span class="o">|</span>
+         <span class="n">B0</span>        <span class="n">B1</span>                   <span class="n">Bd</span>
+         <span class="o">|</span>         <span class="o">|</span>                    <span class="o">|</span>
+         <span class="o">|</span> <span class="n">N0</span>      <span class="o">|</span> <span class="n">N1</span>                 <span class="o">|</span> <span class="n">Nd</span>
+         <span class="o">|</span>         <span class="o">|</span>                    <span class="o">|</span>
+</pre></div>
+</div>
+<p>The components of a dth order Tucker tensor train are:</p>
+<ul class="simple">
+<li><p>Basis cores: (B0, B1, …, B(d-1)) with shapes (ni, Ni).</p></li>
+<li><p>TT cores: (G0, G1, …, G(d-1)) with shapes (ri, ni, r(i+1)).</p></li>
+</ul>
+<p>The structure of a Tucker tensor train is defined by:</p>
+<ul class="simple">
+<li><p>Tensor shape: (N0, N1, …, N(d-1))</p></li>
+<li><p>Tucker ranks: (n0, r1, …, n(d-1))</p></li>
+<li><p>TT ranks: (r0, r1, …, rd)</p></li>
+</ul>
+<p>Typically, the first and last TT-ranks satisfy r0=rd=1, and “1” in the diagram
+is the number 1. However, it is allowed for these ranks to not be 1, in which case
+the “1”s in the diagram are vectors of ones.</p>
 <section id="attributes">
 <h2>Attributes<a class="headerlink" href="#attributes" title="Link to this heading">#</a></h2>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
@@ -515,7 +542,7 @@
 <td><p>Get the structure of a Tucker tensor train.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="check_t3.html#t3tools.tucker_tensor_train.check_t3" title="t3tools.tucker_tensor_train.check_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3</span></code></a>(→ None)</p></td>
-<td><p>Check correctness / consistency of Tucker tensor train.</p></td>
+<td><p>Check rank and shape consistency of Tucker tensor train.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="t3_to_dense.html#t3tools.tucker_tensor_train.t3_to_dense" title="t3tools.tucker_tensor_train.t3_to_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_to_dense</span></code></a>(→ t3tools.common.NDArray)</p></td>
 <td><p>Contract Tucker tensor train to dense tensor.</p></td>
@@ -530,46 +557,46 @@
 <td><p>Construct Tucker tensor train of zeros.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="t3_corewise_randn.html#t3tools.tucker_tensor_train.t3_corewise_randn" title="t3tools.tucker_tensor_train.t3_corewise_randn"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_corewise_randn</span></code></a>(→ TuckerTensorTrain)</p></td>
-<td><p>Construct Tucker tensor train with random cores (i.i.d. N(0,1) entries).</p></td>
+<td><p>Construct Tucker tensor train with random cores.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="t3_save.html#t3tools.tucker_tensor_train.t3_save" title="t3tools.tucker_tensor_train.t3_save"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_save</span></code></a>(→ None)</p></td>
-<td><p>Save Tucker tensor train to file with numpy.savez()</p></td>
+<td><p>Save Tucker tensor train to a file.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="t3_load.html#t3tools.tucker_tensor_train.t3_load" title="t3tools.tucker_tensor_train.t3_load"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_load</span></code></a>(→ TuckerTensorTrain)</p></td>
-<td><p>Save Tucker tensor train to file with numpy.savez()</p></td>
+<td><p>Load a Tucker tensor train from a file.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="t3_apply.html#t3tools.tucker_tensor_train.t3_apply" title="t3tools.tucker_tensor_train.t3_apply"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_apply</span></code></a>(→ t3tools.common.NDArray)</p></td>
-<td><p>Contract TuckerTensorTrain with vectors in all indices.</p></td>
+<td><p>Contract a Tucker tensor train with vectors in all indices.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="t3_entry.html#t3tools.tucker_tensor_train.t3_entry" title="t3tools.tucker_tensor_train.t3_entry"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_entry</span></code></a>(→ t3tools.common.NDArray)</p></td>
 <td><p>Compute an entry (or multiple entries) of a TuckerTensorTrain.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="compute_minimal_ranks.html#t3tools.tucker_tensor_train.compute_minimal_ranks" title="t3tools.tucker_tensor_train.compute_minimal_ranks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_minimal_ranks</span></code></a>(→ Tuple[Tuple[int, Ellipsis], ...)</p></td>
-<td><p>Find minimal ranks for a TuckerTensorTrain with a given structure. (such that there is no useless rank)</p></td>
+<td><p>Find minimal ranks for a Tucker tensor train with a given structure.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="are_t3_ranks_minimal.html#t3tools.tucker_tensor_train.are_t3_ranks_minimal" title="t3tools.tucker_tensor_train.are_t3_ranks_minimal"><code class="xref py py-obj docutils literal notranslate"><span class="pre">are_t3_ranks_minimal</span></code></a>(→ bool)</p></td>
-<td><p>Checks if the ranks of a Tucker train are minimal.</p></td>
+<td><p>Check if the ranks of a Tucker train are minimal.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="pad_t3.html#t3tools.tucker_tensor_train.pad_t3" title="t3tools.tucker_tensor_train.pad_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pad_t3</span></code></a>(→ TuckerTensorTrain)</p></td>
-<td><p>Increase TuckerTensorTrain ranks via zero padding.</p></td>
+<td><p>Increase Tucker tensor train ranks and/or shape via zero padding.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="t3_add.html#t3tools.tucker_tensor_train.t3_add" title="t3tools.tucker_tensor_train.t3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_add</span></code></a>(→ TuckerTensorTrain)</p></td>
-<td><p>Add TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x+y with summed ranks.</p></td>
+<td><p>Add two TuckerTensorTrains with the same shape, yielding a Tucker tensor train with summed ranks.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="t3_scale.html#t3tools.tucker_tensor_train.t3_scale" title="t3tools.tucker_tensor_train.t3_scale"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_scale</span></code></a>(→ TuckerTensorTrain)</p></td>
-<td><p>Scale TuckerTensorTrain x by a scaling factor s.</p></td>
+<td><p>Multipy a Tucker tensor train by a scaling factor.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="t3_neg.html#t3tools.tucker_tensor_train.t3_neg" title="t3tools.tucker_tensor_train.t3_neg"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_neg</span></code></a>(→ TuckerTensorTrain)</p></td>
-<td><p>Scale TuckerTensorTrain x by a scaling factor -1.</p></td>
+<td><p>Scale a Tucker tensor train by -1.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="t3_sub.html#t3tools.tucker_tensor_train.t3_sub" title="t3tools.tucker_tensor_train.t3_sub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_sub</span></code></a>(→ TuckerTensorTrain)</p></td>
-<td><p>Subtract TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x-y with summed ranks.</p></td>
+<td><p>Subtract Tucker tensor trains with the same shape, yielding a Tucker tensor train with summed ranks.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="t3_dot_t3.html#t3tools.tucker_tensor_train.t3_dot_t3" title="t3tools.tucker_tensor_train.t3_dot_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_dot_t3</span></code></a>(x, y[, xnp])</p></td>
-<td><p>Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains x, y with the same shape, (x, y)_HS.</p></td>
+<td><p>Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains with the same shape.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="t3_norm.html#t3tools.tucker_tensor_train.t3_norm" title="t3tools.tucker_tensor_train.t3_norm"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_norm</span></code></a>(x[, xnp])</p></td>
-<td><p>Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains x, y with the same shape, (x, y)_HS.</p></td>
+<td><p>Compute Hilbert-Schmidt (Frobenius) norm of a Tucker tensor train.</p></td>
 </tr>
 </tbody>
 </table>
@@ -581,43 +608,25 @@
 <dt class="sig sig-object py" id="t3tools.tucker_tensor_train.TuckerTensorTrain">
 <span class="sig-prename descclassname"><span class="pre">t3tools.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">TuckerTensorTrain</span></span><a class="headerlink" href="#t3tools.tucker_tensor_train.TuckerTensorTrain" title="Link to this definition">#</a></dt>
 <dd><p>Tuple containing Tucker Tensor Train basis cores and TT-cores.</p>
-<p>Tensor network diagram:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">1</span> <span class="o">--</span> <span class="n">G0</span> <span class="o">--</span> <span class="n">G1</span> <span class="o">--</span> <span class="n">G2</span> <span class="o">--</span> <span class="n">G3</span> <span class="o">--</span> <span class="mi">1</span>
-     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
-     <span class="n">B0</span>    <span class="n">B1</span>    <span class="n">B2</span>    <span class="n">B3</span>
-     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
-</pre></div>
-</div>
-<dl>
-<dt>Components:</dt><dd><ul>
+<p>Components:</p>
+<ul>
 <li><dl>
-<dt><strong>basis_cores</strong><span class="classifier"><em>Sequence[NDArray]</em></span></dt><dd><p>Basis matrices (B0, …, Bd) with shape (ni, Ni) for i=1,…,d. len(basis_cores)=d.</p>
+<dt><strong>basis_cores</strong><span class="classifier"><em>Sequence[NDArray]</em></span></dt><dd><p>Basis matrices (B0, …, B(d-1)) with shapes (ni, Ni) for i=1,…,d. len=d.</p>
 </dd>
 </dl>
 </li>
 <li><dl>
-<dt><strong>tt_cores</strong><span class="classifier"><em>Sequence[NDArray]</em></span></dt><dd><p>Tensor train cores (G0, …, Gd) with shape (ri, ni, r(i+1)) for i=1,…,d. len(tt_cores)=d. r0=rd=1.</p>
+<dt><strong>tt_cores</strong><span class="classifier"><em>Sequence[NDArray]</em></span></dt><dd><p>Tensor train cores (G0, …, G(d-1)) with shapes (ri, ni, r(i+1)) for i=1,…,d. len=d.</p>
 </dd>
 </dl>
 </li>
 </ul>
-</dd>
-<dt>Structure:</dt><dd><ul class="simple">
-<li><p>shape: (N1, …, Nd)</p></li>
-<li><p>tucker ranks: (n1, …, nd)</p></li>
-<li><p>tt ranks: (r0, r1, …, r(d-1), rd)</p></li>
-</ul>
-</dd>
-</dl>
-<p>Note: typically r0=rd=1, and “1” in the diagram is the number 1.
-However, it is allowed for these ranks to not be 1, in which case
-the “1”s in the diagram are vectors of ones.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">basis_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span><span class="mi">14</span><span class="p">)),</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">5</span><span class="p">,</span><span class="mi">15</span><span class="p">)),</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">6</span><span class="p">,</span><span class="mi">16</span><span class="p">))]</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">tt_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">3</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">2</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">1</span><span class="p">))]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">basis_cores</span><span class="p">,</span> <span class="n">tt_cores</span><span class="p">)</span> <span class="c1"># TuckerTensorTrain, all cores filled with ones</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">basis_cores</span><span class="p">,</span> <span class="n">tt_cores</span><span class="p">)</span> <span class="c1"># TuckerTensorTrain, cores filled with ones</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">t3</span><span class="o">.</span><span class="n">check_t3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="c1"># does nothing because t3 core shapes are consistent</span>
 </pre></div>
 </div>
@@ -627,44 +636,30 @@ the “1”s in the diagram are vectors of ones.</p>
 <dt class="sig sig-object py" id="t3tools.tucker_tensor_train.T3Structure">
 <span class="sig-prename descclassname"><span class="pre">t3tools.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">T3Structure</span></span><a class="headerlink" href="#t3tools.tucker_tensor_train.T3Structure" title="Link to this definition">#</a></dt>
 <dd><p>Tuple containing the structure of a Tucker Tensor Train.</p>
-<p>Tensor network diagram:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>    <span class="n">r0</span>        <span class="n">r1</span>        <span class="n">r2</span>        <span class="n">r2</span>        <span class="n">r4</span>
-<span class="mi">1</span> <span class="o">------</span> <span class="n">G0</span> <span class="o">------</span> <span class="n">G1</span> <span class="o">------</span> <span class="n">G2</span> <span class="o">------</span> <span class="n">G3</span> <span class="o">------</span> <span class="mi">1</span>
-         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>
-         <span class="o">|</span><span class="n">n0</span>       <span class="o">|</span><span class="n">n1</span>       <span class="o">|</span><span class="n">n2</span>       <span class="o">|</span><span class="n">n3</span>
-         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>
-         <span class="n">B0</span>        <span class="n">B1</span>        <span class="n">B2</span>        <span class="n">B3</span>
-         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>
-         <span class="o">|</span><span class="n">N0</span>       <span class="o">|</span><span class="n">N1</span>       <span class="o">|</span><span class="n">N2</span>       <span class="o">|</span><span class="n">N3</span>
-         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>         <span class="o">|</span>
-</pre></div>
-</div>
-<dl>
-<dt>Components:</dt><dd><ul>
+<p>Components:</p>
+<ul>
 <li><dl>
-<dt><strong>shape</strong><span class="classifier"><em>Sequence[NDArray]</em></span></dt><dd><p>Shape of the represented tensor, (N1, …, Nd). len=d</p>
+<dt><strong>shape</strong><span class="classifier"><em>Sequence[NDArray]</em></span></dt><dd><p>Shape of the represented tensor, (N0, …, N(d-1)). len=d</p>
 </dd>
 </dl>
 </li>
 <li><dl>
-<dt><strong>tucker_ranks</strong><span class="classifier"><em>Sequence[NDArray]</em></span></dt><dd><p>Tucker ranks, (n1, …, nd). len=d</p>
+<dt><strong>tucker_ranks</strong><span class="classifier"><em>Sequence[NDArray]</em></span></dt><dd><p>Tucker ranks, (n0, …, n(d-1)). len=d</p>
 </dd>
 </dl>
 </li>
 <li><dl>
-<dt><strong>tt_ranks</strong><span class="classifier"><em>Sequence[NDArray]</em></span></dt><dd><p>TT-ranks, (1, r1, …, r(d-1), 1). len=d+1. tt_ranks[0]=tt_ranks[-1]=1</p>
+<dt><strong>tt_ranks</strong><span class="classifier"><em>Sequence[NDArray]</em></span></dt><dd><p>TT-ranks, (1, r1, …, r(d-1), 1). len=d+1.</p>
 </dd>
 </dl>
 </li>
 </ul>
-</dd>
-</dl>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">basis_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span><span class="mi">14</span><span class="p">)),</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">5</span><span class="p">,</span><span class="mi">15</span><span class="p">)),</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">6</span><span class="p">,</span><span class="mi">16</span><span class="p">))]</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">tt_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">3</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">2</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">1</span><span class="p">))]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">basis_cores</span><span class="p">,</span> <span class="n">tt_cores</span><span class="p">)</span> <span class="c1"># TuckerTensorTrain, all cores filled with ones</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="p">(</span><span class="n">basis_cores</span><span class="p">,</span> <span class="n">tt_cores</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">shape</span><span class="p">,</span> <span class="n">tucker_ranks</span><span class="p">,</span> <span class="n">tt_ranks</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">structure</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">shape</span><span class="p">)</span>
 <span class="go">(14, 15, 16)</span>
