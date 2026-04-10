@@ -1,7 +1,7 @@
 t3tools.tucker_tensor_train.t3_add
 ==================================
 
-.. py:function:: t3tools.tucker_tensor_train.t3_add(x: TuckerTensorTrain, y: TuckerTensorTrain, xnp=np) -> TuckerTensorTrain
+.. py:function:: t3tools.tucker_tensor_train.t3_add(x: TuckerTensorTrain, y: TuckerTensorTrain, squash: bool = True, xnp=np) -> TuckerTensorTrain
 
    Add TuckerTensorTrains x, y with the same shape, yielding a TuckerTensorTrain z=x+y with summed ranks.
 

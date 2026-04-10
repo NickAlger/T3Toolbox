@@ -58,6 +58,20 @@ Includes:</p>
 </ul>
 </div></blockquote>
 </section>
+<section id="websites">
+<h1>Websites<a class="headerlink" href="#websites" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Github: <a class="reference external" href="https://github.com/NickAlger/TuckerTensorTrainTools">https://github.com/NickAlger/TuckerTensorTrainTools</a></p></li>
+<li><p>Documentation: <a class="reference external" href="https://nickalger.github.io/TuckerTensorTrainTools/">https://nickalger.github.io/TuckerTensorTrainTools/</a></p></li>
+</ul>
+</section>
+<section id="authors">
+<h1>Authors<a class="headerlink" href="#authors" title="Link to this heading">¶</a></h1>
+<ul class="simple">
+<li><p>Nick Alger (<a class="reference external" href="mailto:nalger225&#37;&#52;&#48;gmail&#46;com">nalger225<span>&#64;</span>gmail<span>&#46;</span>com</a>)</p></li>
+<li><p>Blake Christierson (<a class="reference external" href="mailto:bechristierson&#37;&#52;&#48;utexas&#46;edu">bechristierson<span>&#64;</span>utexas<span>&#46;</span>edu</a>)</p></li>
+</ul>
+</section>
 <section id="modules">
 <h1>Modules<a class="headerlink" href="#modules" title="Link to this heading">¶</a></h1>
 <p>Tucker tensor trains:</p>
@@ -90,13 +104,6 @@ Includes:</p>
 <li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
 <li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
 <li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
-</ul>
-</section>
-<section id="websites">
-<h1>Websites<a class="headerlink" href="#websites" title="Link to this heading">¶</a></h1>
-<ul class="simple">
-<li><p>Github: <a class="reference external" href="https://github.com/NickAlger/TuckerTensorTrainTools">https://github.com/NickAlger/TuckerTensorTrainTools</a></p></li>
-<li><p>Documentation: <a class="reference external" href="https://nickalger.github.io/TuckerTensorTrainTools/">https://nickalger.github.io/TuckerTensorTrainTools/</a></p></li>
 </ul>
 </section>
 <section id="installation">
@@ -205,12 +212,12 @@ Includes:</p>
 <ul>
 <li><p>Functions have no side effects, and functions always yield the same output for a given input.</p></li>
 <li><p>Custom types are aliases of composite basic types</p></li>
-<li><p>Numerical functions are suitable for <a class="reference external" href="https://docs.jax.dev/en/latest/_autosummary/jax.jit.html">just-in-time (jit) compilation</a> in <a class="reference external" href="https://docs.jax.dev/en/latest/index.html">jax</a>, after removing non-numerical parameters by <a class="reference external" href="https://en.wikipedia.org/wiki/Partial_application">partial evaluation</a>. E.g.,:</p>
+<li><p>Jax versions of numerical functions are suitable for <a class="reference external" href="https://docs.jax.dev/en/latest/_autosummary/jax.jit.html">just-in-time (jit) compilation</a> in <a class="reference external" href="https://docs.jax.dev/en/latest/index.html">jax</a>, after removing non-numerical parameters by <a class="reference external" href="https://en.wikipedia.org/wiki/Partial_application">partial evaluation</a>. E.g.,:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">jax</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">get_entry_123</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_entry</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">use_jax</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">A</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">),(</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">),(</span><span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span> <span class="c1"># random 10x10x10 Tucker tensor train</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.jax.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3_jax</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">get_entry_123</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">t3_jax</span><span class="o">.</span><span class="n">t3_entry</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">A</span> <span class="o">=</span> <span class="n">t3_jax</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">),(</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">),(</span><span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span> <span class="c1"># random 10x10x10 Tucker tensor train</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">a123</span> <span class="o">=</span> <span class="n">get_entry_123</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">a123</span><span class="p">)</span>
 <span class="go">11.756762</span>
@@ -221,7 +228,7 @@ Includes:</p>
 </pre></div>
 </div>
 </li>
-<li><p>Most numerical functions are suitable for <a class="reference external" href="https://en.wikipedia.org/wiki/Automatic_differentiation">automatic differentiation (AD)</a> in jax. E.g.,:</p>
+<li><p>Jax versions of most numerical functions are suitable for <a class="reference external" href="https://en.wikipedia.org/wiki/Automatic_differentiation">automatic differentiation (AD)</a> in jax. E.g.,:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">jax</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">t3tools.jax</span> <span class="kn">import</span> <span class="n">tucker_tensor_train</span> <span class="k">as</span> <span class="n">t3_jax</span>
@@ -429,13 +436,6 @@ A Tucker tensor train may be converted to one with minimal ranks via T3-SVD.</p>
 <p>[7] Steinlechner, Michael. “Riemannian optimization for high-dimensional tensor completion.” SIAM Journal on Scientific Computing 38.5 (2016): S461-S484. <a class="reference external" href="https://epubs.siam.org/doi/10.1137/15M1010506">https://epubs.siam.org/doi/10.1137/15M1010506</a></p>
 <p>[8] Kolda, Tamara G., and Brett W. Bader. “Tensor decompositions and applications.” SIAM review 51.3 (2009): 455-500. <a class="reference external" href="https://epubs.siam.org/doi/10.1137/07070111X">https://epubs.siam.org/doi/10.1137/07070111X</a></p>
 </section>
-</section>
-<section id="authors">
-<h1>Authors<a class="headerlink" href="#authors" title="Link to this heading">¶</a></h1>
-<ul class="simple">
-<li><p>Nick Alger</p></li>
-<li><p>Blake Christierson</p></li>
-</ul>
 </section>
 
 

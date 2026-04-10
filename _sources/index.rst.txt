@@ -21,7 +21,21 @@ Includes:
 	- Transpose of the tangent vector to probes map
 	- Varied-rank and uniform-rank T3s
 	- Option to use either Numpy or Jax for linear algebra operations
-	
+
+
+Websites
+========
+
+* Github: https://github.com/NickAlger/TuckerTensorTrainTools
+* Documentation: https://nickalger.github.io/TuckerTensorTrainTools/
+
+
+Authors
+=======
+
+* Nick Alger (nalger225@gmail.com)
+* Blake Christierson (bechristierson@utexas.edu)
+
 
 Modules
 =======
@@ -57,12 +71,6 @@ Indices and tables
 * :ref:`modindex`
 * :ref:`search`
 
-
-Websites
-========
-
-* Github: https://github.com/NickAlger/TuckerTensorTrainTools
-* Documentation: https://nickalger.github.io/TuckerTensorTrainTools/
 
 
 Installation
@@ -167,13 +175,13 @@ This package is written in a `functional programming <https://en.wikipedia.org/w
 
 - Functions have no side effects, and functions always yield the same output for a given input. 
 - Custom types are aliases of composite basic types
-- Numerical functions are suitable for `just-in-time (jit) compilation <https://docs.jax.dev/en/latest/_autosummary/jax.jit.html>`_ in `jax <https://docs.jax.dev/en/latest/index.html>`_, after removing non-numerical parameters by `partial evaluation <https://en.wikipedia.org/wiki/Partial_application>`_. E.g.,::
+- Jax versions of numerical functions are suitable for `just-in-time (jit) compilation <https://docs.jax.dev/en/latest/_autosummary/jax.jit.html>`_ in `jax <https://docs.jax.dev/en/latest/index.html>`_, after removing non-numerical parameters by `partial evaluation <https://en.wikipedia.org/wiki/Partial_application>`_. E.g.,::
 		
 	>>> import numpy as np
 	>>> import jax
-	>>> import t3tools.tucker_tensor_train as t3
-	>>> get_entry_123 = lambda x: t3.t3_entry(x, (1,2,3), use_jax=True)
-	>>> A = t3.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 Tucker tensor train
+	>>> import t3tools.jax.tucker_tensor_train as t3_jax
+	>>> get_entry_123 = lambda x: t3_jax.t3_entry(x, (1,2,3))
+	>>> A = t3_jax.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 Tucker tensor train
 	>>> a123 = get_entry_123(A)
 	>>> print(a123)
 	11.756762
@@ -182,7 +190,7 @@ This package is written in a `functional programming <https://en.wikipedia.org/w
 	>>> print(a123_jit)
 	11.756762
 
-- Most numerical functions are suitable for `automatic differentiation (AD) <https://en.wikipedia.org/wiki/Automatic_differentiation>`_ in jax. E.g.,::
+- Jax versions of most numerical functions are suitable for `automatic differentiation (AD) <https://en.wikipedia.org/wiki/Automatic_differentiation>`_ in jax. E.g.,::
 
 	>>> import numpy as np
 	>>> import jax
@@ -377,16 +385,6 @@ Relevant literature
 [7] Steinlechner, Michael. "Riemannian optimization for high-dimensional tensor completion." SIAM Journal on Scientific Computing 38.5 (2016): S461-S484. `https://epubs.siam.org/doi/10.1137/15M1010506 <https://epubs.siam.org/doi/10.1137/15M1010506>`_
 
 [8] Kolda, Tamara G., and Brett W. Bader. "Tensor decompositions and applications." SIAM review 51.3 (2009): 455-500. `https://epubs.siam.org/doi/10.1137/07070111X <https://epubs.siam.org/doi/10.1137/07070111X>`_
-
-
-
-Authors
-=======
-
-* Nick Alger
-* Blake Christierson
-
-
 
 
 
