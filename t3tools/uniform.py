@@ -366,7 +366,7 @@ def t3_to_ut3(
     padded_tucker_ranks = (n,)*d
     padded_tt_ranks = (r,)*(d+1)
 
-    padded_basis_cores, padded_tt_cores = t3.pad_t3(
+    padded_basis_cores, padded_tt_cores = t3.change_structure(
         x, (padded_shape, padded_tucker_ranks, padded_tt_ranks),
     )
 

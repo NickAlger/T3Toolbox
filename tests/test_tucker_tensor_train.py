@@ -283,7 +283,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
             for T3 in [t3, t3_jax]:
                 with self.subTest(T3=T3, STRUCTURE1=STRUCTURE1, STRUCTURE2=STRUCTURE2):
                     x = t3.t3_corewise_randn(STRUCTURE1)
-                    padded_x = T3.pad_t3(x, STRUCTURE2)
+                    padded_x = T3.change_structure(x, STRUCTURE2)
                     self.assertEqual(STRUCTURE2, t3.get_structure(padded_x))
 
     def test_t3_add_sub(self):
@@ -356,7 +356,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                     with self.subTest(T3=T3, STRUCTURE_X=STRUCTURE_X, STRUCTURE_Y=STRUCTURE_Y):
                         x = t3.t3_corewise_randn(STRUCTURE_X)
                         y = t3.t3_corewise_randn(STRUCTURE_Y)
-                        x_dot_y = t3.t3_dot_t3(x, y)
+                        x_dot_y = t3.t3_inner_product_t3(x, y)
                         x_dot_y2 = np.sum(t3.t3_to_dense(x) * t3.t3_to_dense(y))
                         self.check_relerr(x_dot_y2, x_dot_y)
 

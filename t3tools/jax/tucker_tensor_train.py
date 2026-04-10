@@ -51,10 +51,10 @@ t3_to_dense         = ft.partial(t3.t3_to_dense, xnp=jnp)
 squash_tails        = ft.partial(t3.squash_tails, xnp=jnp)
 t3_zeros            = ft.partial(t3.t3_zeros, xnp=jnp)
 t3_corewise_randn   = ft.partial(t3.t3_corewise_randn, xnp=jnp)
-pad_t3              = ft.partial(t3.pad_t3, xnp=jnp)
+pad_t3              = ft.partial(t3.change_structure, xnp=jnp)
 t3_add              = ft.partial(t3.t3_add, xnp=jnp)
 t3_sub              = ft.partial(t3.t3_sub, xnp=jnp)
-t3_dot_t3           = ft.partial(t3.t3_dot_t3, xnp=jnp)
+t3_dot_t3           = ft.partial(t3.t3_inner_product_t3, xnp=jnp)
 t3_norm             = ft.partial(t3.t3_norm, xnp=jnp)
 
 
@@ -1072,7 +1072,7 @@ def pad_t3(
     >>> import t3tools.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
     >>> new_structure = ((17,18,17), (8,8,8), (1,5,6,1))
-    >>> padded_x = t3.pad_t3(x, new_structure)
+    >>> padded_x = t3.change_structure(x, new_structure)
     >>> print(t3.get_structure(padded_x))
     ((17, 18, 17), (8, 8, 8), (1, 5, 6, 1))
 
@@ -1082,7 +1082,7 @@ def pad_t3(
     >>> import t3tools.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (3,3,2,4)))
     >>> new_structure = ((17,18,17), (8,8,8), (5,5,6,7))
-    >>> padded_x = t3.pad_t3(x, new_structure)
+    >>> padded_x = t3.change_structure(x, new_structure)
     >>> print(t3.get_structure(padded_x))
     ((17, 18, 17), (8, 8, 8), (5, 5, 6, 7))
     '''
@@ -1408,7 +1408,7 @@ def t3_dot_t3(
     >>> import t3tools.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> y = t3.t3_corewise_randn(((14,15,16), (3,7,2), (1,5,6,1)))
-    >>> x_dot_y = t3.t3_dot_t3(x, y)
+    >>> x_dot_y = t3.t3_inner_product_t3(x, y)
     >>> x_dot_y2 = np.sum(t3.t3_to_dense(x) * t3.t3_to_dense(y))
     >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
     8.731149137020111e-11
@@ -1419,7 +1419,7 @@ def t3_dot_t3(
     >>> import t3tools.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
     >>> y = t3.t3_corewise_randn(((14,15,16), (3,7,2), (3,5,6,3)))
-    >>> x_dot_y = t3.t3_dot_t3(x, y)
+    >>> x_dot_y = t3.t3_inner_product_t3(x, y)
     >>> x_dot_y2 = np.sum(t3.t3_to_dense(x) * t3.t3_to_dense(y))
     >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
     1.3096723705530167e-10

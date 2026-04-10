@@ -31,6 +31,12 @@ The structure of a Tucker tensor train is defined by:
 Typically, the first and last TT-ranks satisfy r0=rd=1, and "1" in the diagram
 is the number 1. However, it is allowed for these ranks to not be 1, in which case
 the "1"s in the diagram are vectors of ones.
+
+Operations here are defined with respect to the dense N0 x ... x N(d-1) tensors that
+are *represented* by the Tucker tensor train, even though these dense tensors
+are not formed during computations.
+
+For corewise operations, see :mod:`t3tools.corewise`
 """
 import numpy as np
 import typing as typ
@@ -53,7 +59,7 @@ __all__ = [
     't3_corewise_randn',
     'compute_minimal_ranks',
     'are_t3_ranks_minimal',
-    'pad_t3',
+    'change_structure',
     't3_save',
     't3_load',
     # Linear algebra
@@ -61,7 +67,7 @@ __all__ = [
     't3_scale',
     't3_neg',
     't3_sub',
-    't3_dot_t3',
+    't3_inner_product_t3',
     't3_norm',
 ]
 
@@ -75,14 +81,14 @@ TuckerTensorTrain = typ.Tuple[
     typ.Sequence[NDArray], # tt_cores, len=d, elm_shape=(ri, ni, r(i+1))
 ]
 """
-Tuple containing Tucker Tensor Train basis cores and TT-cores.
+Tuple containing Tucker tensor train basis cores and TT cores.
 
 Components:
 
 - **basis_cores** : *Sequence[NDArray]*
-    Basis matrices (B0, ..., B(d-1)) with shapes (ni, Ni) for i=1,...,d. len=d.
+    Basis matrices (B0, ..., B(d-1)), with shapes (ni, Ni) for i=1,...,d-1. len=d.
 - **tt_cores** : *Sequence[NDArray]*
-    Tensor train cores (G0, ..., G(d-1)) with shapes (ri, ni, r(i+1)) for i=1,...,d. len=d.
+    Tensor train 3-tensor cores (G0, ..., G(d-1)), with shapes (ri, ni, r(i+1)) for i=1,...,d-1. len=d.
 
 Examples
 --------
@@ -101,15 +107,15 @@ T3Structure = typ.Tuple[
     typ.Sequence[int], # tt_ranks, len=d+1
 ]
 """
-Tuple containing the structure of a Tucker Tensor Train.
+Tuple containing the structure of a Tucker tensor train.
 
 Components:
 
-- **shape** : *Sequence[NDArray]*
+- **shape** : *Sequence[int]*
     Shape of the represented tensor, (N0, ..., N(d-1)). len=d
-- **tucker_ranks** : *Sequence[NDArray]*
+- **tucker_ranks** : *Sequence[int]*
     Tucker ranks, (n0, ..., n(d-1)). len=d
-- **tt_ranks** : *Sequence[NDArray]*
+- **tt_ranks** : *Sequence[int]*
     TT-ranks, (1, r1, ..., r(d-1), 1). len=d+1.
 
 Examples
@@ -119,7 +125,7 @@ Examples
 >>> basis_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
 >>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
 >>> x = (basis_cores, tt_cores)
->>> shape, tucker_ranks, tt_ranks = t3.structure(x)
+>>> shape, tucker_ranks, tt_ranks = t3.get_structure(x)
 >>> print(shape)
 (14, 15, 16)
 >>> print(tucker_ranks)
@@ -141,7 +147,7 @@ def get_structure(
     Parameters
     ----------
     x : TuckerTensorTrain
-        Tucker tensor train with shape (N1, ..., Nd), Tucker ranks (n1, ..., nd), and TT-ranks (1, r1, ..., r(d-1), 1)).
+        Tucker tensor train with shape (N0, ..., N(d-1)), Tucker ranks (n0, ..., n(d-1)), and TT-ranks (1, r1, ..., r(d-1), 1)).
 
     Returns
     -------
@@ -316,22 +322,22 @@ def t3_to_dense(
         contract_ones: bool = True,
         xnp = np,
 ) -> NDArray:
-    """Contract Tucker tensor train to dense tensor.
+    """Contract a Tucker tensor train to a dense tensor.
 
     Parameters
     ----------
     x : TuckerTensorTrain
-        Tucker tensor train with shape (N1, ..., Nd).
+        Tucker tensor train with shape (N0, ..., N(d-1)).
     contract_ones: bool
-        If true (default), contract with leading and training 1's, yielding shape=(N1,...,Nd).
-        If false, do not contract with leading and trailing 1's, yielding shape=(r0,N1,...,Nd,rd).
+        If true (default), contract with leading and training 1's, yielding shape=(N0,...,N(d-1)).
+        If false, do not contract with leading and trailing 1's, yielding shape=(r0,N0,...,N(d-1),rd).
     xnp:
-        Linear algebra backend. Default: np (numpy)
+        Linear algebra backend. Default: np (numpy).
 
     Returns
     -------
     NDArray
-        Dense tensor represented by x, which has shape (N1, ..., Nd)
+        Dense tensor represented by x, which has shape (N0, ..., N(d-1)).
 
     See Also
     --------
@@ -396,7 +402,7 @@ def squash_tails(
         x: TuckerTensorTrain,
         xnp = np,
 ) -> TuckerTensorTrain:
-    """Make leading and trailing Tucker ranks equal to 1 (r0=rd=1).
+    """Make leading and trailing TT ranks equal to 1 (r0=rd=1).
 
     Examples
     ________
@@ -427,12 +433,12 @@ def reverse_t3(
     Parameters
     ----------
     x : TuckerTensorTrain
-        Tucker tensor train with shape=(N1, ..., Nd), tucker_ranks=(n1,...,nd), tt_ranks=(1,r1,...,r(d-1),1)
+        Tucker tensor train with shape=(N0, ..., N(d-1)), tucker_ranks=(n0,...,n(d-1)), tt_ranks=(1,r1,...,r(d-1),1).
 
     Returns
     -------
     reversed_x : TuckerTensorTrain
-        Tucker tensor train with index order reversed. shape=(Nd, ..., N1), tucker_ranks=(nd,...,n1), tt_ranks=(1,r(d-1),...,r1,1)
+        Tucker tensor train with index order reversed. shape=(N(d-1), ..., N0), tucker_ranks=(n(d-1),...,n0), tt_ranks=(1,r(d-1),...,r1,1).
 
     See Also
     --------
@@ -467,19 +473,19 @@ def t3_zeros(
         structure:  T3Structure,
         xnp = np,
 ) -> TuckerTensorTrain:
-    """Construct Tucker tensor train of zeros.
+    """Construct a Tucker tensor train of zeros.
 
     Parameters
     ----------
     structure:  T3Structure
-        Tucker tensor train structure, (shape, tucker_ranks, tt_ranks)=((N1,...,Nd), (n1,...,nd), (1,r1,...,r(d-1),1))).
+        Tucker tensor train structure, (shape, tucker_ranks, tt_ranks)=((N0,...,N(d-1)), (n0,...,n(d-1)), (1,r1,...,r(d-1),1))).
     xnp:
         Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
     NDArray
-        Dense tensor represented by x, which has shape (N1, ..., Nd)
+        Dense tensor represented by x, which has shape (N0, ..., N(d-1))
 
     See Also
     --------
@@ -510,13 +516,13 @@ def t3_corewise_randn(
         s: T3Structure,
         randn: typ.Callable[...,NDArray] = np.random.randn,
 ) -> TuckerTensorTrain:
-    """Construct Tucker tensor train with random cores.
+    """Construct a Tucker tensor train with random cores.
 
     Parameters
     ----------
     structure:  T3Structure
         Tucker tensor train structure
-        (shape, tucker_ranks, tt_ranks)=((N1,...,Nd), (n1,...,nd), (1,r1,...,r(d-1),1))).
+        (shape, tucker_ranks, tt_ranks)=((N0,...,N(d-1)), (n0,...,n(d-1)), (1,r1,...,r(d-1),1))).
     randn: typ.Callable[[..., NDArray]
         Function for creating random arrays. Arguments are a sequence of ints defining the shape of the array.
         Default: np.random.randn (numpy)
@@ -524,7 +530,7 @@ def t3_corewise_randn(
     Returns
     -------
     NDArray
-        Dense tensor represented by x, which has shape (N1, ..., Nd)
+        Dense tensor represented by x, which has shape (N0, ..., N(d-1))
 
     See Also
     --------
@@ -553,7 +559,7 @@ def t3_save(
         file,
         x: TuckerTensorTrain,
 ) -> None:
-    """Save Tucker tensor train to a file.
+    """Save a Tucker tensor train to a file.
 
     Parameters
     ----------
@@ -676,7 +682,7 @@ def t3_load(
 ###############################################################################
 
 def t3_apply(
-        x: TuckerTensorTrain, # shape=(N1,...,Nd)
+        x: TuckerTensorTrain, # shape=(N0,...,N(d-1))
         vecs: typ.Sequence[NDArray], # len=d, elm_shape=(Ni,) or (num_applies, Ni)
         xnp = np,
 ) -> NDArray:
@@ -685,9 +691,9 @@ def t3_apply(
     Parameters
     ----------
     x: TuckerTensorTrain
-        Tucker tensor train. shape=(N1,...,Nd)
+        Tucker tensor train. shape=(N0,...,N(d-1))
     vecs: typ.Sequence[NDArray]
-        Vectors to contract with indices of x. len=d, elm_shape=(Ni,) or (num_applies, Ni) if vectorized
+        Vectors to contract with indices of x. len=d, elm_shape=(Ni,) or (num_applies, Ni) if vectorization is desired.
     xnp:
         Linear algebra backend. Default: np (numpy)
 
@@ -695,7 +701,7 @@ def t3_apply(
     -------
     NDArray or scalar
         Result of contracting x with the vectors in all indices.
-        scalar if vecs elements are vectors, NDArray with shape (num_applies,) if vecs elements are matrices (i.e., vectorized applies)
+        scalar if vecs elements are vectors, NDArray with shape (num_applies,) if vecs elements are matrices.
 
     Raises
     ------
@@ -707,10 +713,6 @@ def t3_apply(
     TuckerTensorTrain
     t3_shape
     t3_entry
-
-    Notes
-    -----
-    Algorithm contracts vectors with cores of the TuckerTensorTrains in a zippering fashion from left to right.
 
     Examples
     --------
@@ -820,16 +822,19 @@ def t3_apply(
 
 
 def t3_entry(
-        x: TuckerTensorTrain, # shape=(N1,...,Nd)
+        x: TuckerTensorTrain, # shape=(N0,...,N(d-1))
         index: typ.Union[typ.Sequence[int], typ.Sequence[typ.Sequence[int]]], # len=d. one entry: typ.Sequence[int]. many entries: typ.Sequence[typ.Sequence[int]], elm_size=num_entries
         xnp = np,
 ) -> NDArray:
-    '''Compute an entry (or multiple entries) of a TuckerTensorTrain.
+    '''Compute an entry (or multiple entries) of a Tucker tensor train.
+
+    This is the entry of the N0 x ... x N(d-1) tensor *represented* by the
+    Tucker tensor train, even though this dense tensor is never formed.
 
     Parameters
     ----------
     x: TuckerTensorTrain
-        Tucker tensor train. shape=(N1,...,Nd)
+        Tucker tensor train. shape=(N0,...,N(d-1))
     index: typ.Union[typ.Sequence[int], typ.Sequence[typ.Sequence[int]]]
         Index of the desired entry (typ.Sequence[int]), or indices of desired entries (typ.Sequence[typ.Sequence[int]])
         len(index)=d. If many entries: elm_size=num_entries
@@ -840,7 +845,7 @@ def t3_entry(
     -------
     scalar or NDArray
         Desired entry or entries.
-        scalar if one entry, NDArray with shape (num_entries,) if many entries (i.e., vectorized entry computation)
+        Scalar if one entry, or NDArray with shape (num_entries,) if many entries.
 
     Raises
     ------
@@ -852,10 +857,6 @@ def t3_entry(
     TuckerTensorTrain
     t3_shape
     t3_apply
-
-    Notes
-    -----
-    Algorithm contracts core slices of the TuckerTensorTrains in a zippering fashion from left to right.
 
     Examples
     --------
@@ -967,7 +968,22 @@ def compute_minimal_ranks(
     typ.Tuple[int,...], # new_tucker_ranks
     typ.Tuple[int,...], # new_tt_ranks
 ]:
-    '''Find minimal ranks for a Tucker tensor train with a given structure.
+    '''Find minimal ranks for a generic Tucker tensor train with a given structure.
+
+    Minimal ranks satisfy:
+        - Left TT core unfoldings are full rank: r(i+1) <= (ri*ni)
+        - Right TT core unfoldings are full rank: ri <= (ni*r(i+1))
+        - Outer TT core unfoldings are full rank: ni <= (ri*r(i+1))
+        - Basis matrices have full row rank: ni <= Ni
+
+    In this function, minimal ranks are defined with respect to a
+    generic Tucker tensor train of the given form based on its structure.
+    We do not account for possible additional rank deficiency due to
+    the numerical values within the cores.
+
+    Minimal ranks always exist and are unique.
+        - Minimal TT ranks are equal to the ranks of (N*...*Ni) x (N(i+1)*...*N(d-1)) matrix unfoldings.
+        - Minimal basis ranks are equal to the ranks of Ni x (N1*...*N(i-1)*N(i+1)*...*N(d-1)) matricizations.
 
     Examples
     --------
@@ -1011,7 +1027,10 @@ def compute_minimal_ranks(
 def are_t3_ranks_minimal(
         x: TuckerTensorTrain,
 ) -> bool:
-    """Check if the ranks of a Tucker train are minimal.
+    """Check if the ranks of a Tucker tensor train are minimal.
+
+    See Also:
+        compute_minimal_ranks
 
     Example
     -------
@@ -1038,7 +1057,7 @@ import t3tools.t3svd    >>> x2 = t3tools.t3svd.t3_svd(x)[0]
     return (tucker_ranks == minimal_tucker_ranks) and (tt_ranks == minimal_tt_ranks)
 
 
-def pad_t3(
+def change_structure(
         x:                  TuckerTensorTrain,
         new_structure:      T3Structure,
         xnp = np,
@@ -1051,7 +1070,7 @@ def pad_t3(
     >>> import t3tools.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
     >>> new_structure = ((17,18,17), (8,8,8), (1,5,6,1))
-    >>> padded_x = t3.pad_t3(x, new_structure)
+    >>> padded_x = t3.change_structure(x, new_structure)
     >>> print(t3.get_structure(padded_x))
     ((17, 18, 17), (8, 8, 8), (1, 5, 6, 1))
 
@@ -1061,7 +1080,7 @@ def pad_t3(
     >>> import t3tools.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (3,3,2,4)))
     >>> new_structure = ((17,18,17), (8,8,8), (5,5,6,7))
-    >>> padded_x = t3.pad_t3(x, new_structure)
+    >>> padded_x = t3.change_structure(x, new_structure)
     >>> print(t3.get_structure(padded_x))
     ((17, 18, 17), (8, 8, 8), (5, 5, 6, 7))
     '''
@@ -1113,21 +1132,33 @@ def t3_add(
         squash: bool = True,
         xnp = np,
 ) -> TuckerTensorTrain:
-    """Add two TuckerTensorTrains with the same shape, yielding a Tucker tensor train with summed ranks.
+    """Add two Tucker tensor trains, yielding a Tucker tensor train with summed ranks.
+
+    Addition is defined with respect to the dense N0 x ... x N(d-1) tensors that
+    are *represented* by the Tucker tensor trains, even though these dense tensors
+    are not formed during computations.
+
+    For corewise addition, see :func:`t3tools.corewise.corewise_add`
 
     Parameters
     ----------
     x: TuckerTensorTrain
-        First summand. structure=((N1,...,Nd), (n1,...,nd), (r0, r1,...,rd))
+        First summand. structure=((N0,...,N(d-1)), (n0,...,n(d-1)), (r0, r1,...,rd))
     y: TuckerTensorTrain
-        Second summand. structure=((N1,...,Nd), (m1,...,md), (q0, q1,...,qd))
+        Second summand. structure=((N0,...,N(d-1)), (m0,...,m(d-1)), (q0, q1,...,qd))
+    squash: bool
+        Squash the first and last TT cores so that r0=rd=1 in the result. Default: True.
     xnp:
         Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
-    z: TuckerTensorTrain
-        Sum of Tucker tensor trains, z=x+y. structure=((N1,...,Nd), (n1+m1,...,nd+md), (r0+q0, r1+q1,...,rd+qd))
+    TuckerTensorTrain
+        Sum of Tucker tensor trains, x+y.
+            - shape=(N0,...,N(d-1),
+            - tucker_ranks=(n0+m0,...,n(d-1)+m(d-1),
+            - TT ranks=(1, r1+q1,...,r(d-1)+q(d-1),1)) if squash=True,
+            or (r0+q0, r1+q1,...,r(d-1)+q(d-1),rd+qd)) if squash=False.
 
     Raises
     ------
@@ -1138,19 +1169,11 @@ def t3_add(
     See Also
     --------
     TuckerTensorTrain
-    t3_shape
     t3_scale
     t3_sub
     t3_neg
-
-    Notes
-    -----
-    The basis cores for z are vertically stacked versions of the basis cores for x and y
-
-    TT-cores for z are block 2x2x2 tensors, with:
-        - the TT-cores for x in the (0,0,0) block,
-        - the TT-cores for y in the (1,1,1) block,
-        - zeros elsewhere.
+    squash_tails
+    :func:`~t3tools.corewise.corewise_add`
 
 
     Examples
@@ -1206,6 +1229,12 @@ def t3_scale(
 ) -> TuckerTensorTrain:
     """Multipy a Tucker tensor train by a scaling factor.
 
+    Scaling is defined with respect to the dense N0 x ... x N(d-1) tensor that
+    is *represented* by the Tucker tensor trains, even though this dense tensor
+    is not formed during computations.
+
+    For corewise scaling, see :func:`t3tools.corewise.corewise_scale`
+
     Parameters
     ----------
     x: TuckerTensorTrain
@@ -1215,8 +1244,8 @@ def t3_scale(
 
     Returns
     -------
-    z: TuckerTensorTrain
-        scaled TuckerTensorTrain z=s*x, with the same structure as x.
+    TuckerTensorTrain
+        Scaled TuckerTensorTrain s*x, with the same structure as x.
 
     Raises
     ------
@@ -1229,10 +1258,7 @@ def t3_scale(
     t3_add
     t3_neg
     t3_sub
-
-    Notes
-    -----
-    Scales the last basis core of x, leaving all other cores unchanged
+    :func:`~t3tools.corewise.corewise_scale`
 
     Examples
     --------
@@ -1262,6 +1288,12 @@ def t3_neg(
 ) -> TuckerTensorTrain:
     """Scale a Tucker tensor train by -1.
 
+    Negation is defined with respect to the dense N0 x ... x N(d-1) tensor that
+    is *represented* by the Tucker tensor trains, even though this dense tensor
+    is not formed during computations.
+
+    For corewise negation, see :func:`t3tools.corewise.corewise_neg`
+
     Parameters
     ----------
     x: TuckerTensorTrain
@@ -1270,9 +1302,9 @@ def t3_neg(
     Returns
     -------
     TuckerTensorTrain
-        scaled TuckerTensorTrain -x, with the same structure as x.
+        Negated TuckerTensorTrain -x, with the same structure as x.
 
-        Raises
+    Raises
     ------
     RuntimeError
         - Error raised if the TuckerTensorTrains is internally inconsistent
@@ -1283,6 +1315,7 @@ def t3_neg(
     t3_add
     t3_scale
     t3_sub
+    :func:`~t3tools.corewise.corewise_neg`
 
     Examples
     --------
@@ -1302,21 +1335,33 @@ def t3_sub(
         squash: bool = True,
         xnp = np,
 ) -> TuckerTensorTrain:
-    """Subtract Tucker tensor trains with the same shape, yielding a Tucker tensor train with summed ranks.
+    """Subtract two Tucker tensor trains, yielding a Tucker tensor train with summed ranks.
+
+    Subtraction is defined with respect to the dense N0 x ... x N(d-1) tensors that
+    are *represented* by the Tucker tensor trains, even though these dense tensors
+    are not formed during computations.
+
+    For corewise subtraction, see :func:`t3tools.corewise.corewise_sub`
 
     Parameters
     ----------
     x: TuckerTensorTrain
-        First summand. structure=((N1,...,Nd), (n1,...,nd), (r0, r1,...,rd))
+        First summand. structure=((N0,...,N(d-1)), (n1,...,nd), (r0, r1,...,rd))
     y: TuckerTensorTrain
-        Second summand. structure=((N1,...,Nd), (m1,...,md), (q0, q1,...,qd))
+        Second summand. structure=((N0,...,N(d-1)), (m1,...,md), (q0, q1,...,qd))
+    squash: bool
+        Squash the first and last TT cores so that r0=rd=1 in the result. Default: True.
     xnp:
         Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
-    z: TuckerTensorTrain
-        Difference of Tucker tensor trains, z=x-y. structure=((N1,...,Nd), (n1+m1,...,nd+md), (r0+q0, r1+q1, rd+qd))
+    TuckerTensorTrain
+        Difference of Tucker tensor trains, x-y.
+            - shape=(N0,...,N(d-1),
+            - tucker_ranks=(n0+m0,...,n(d-1)+m(d-1),
+            - TT ranks=(1, r1+q1,...,r(d-1)+q(d-1),1)) if squash=True,
+            or (r0+q0, r1+q1,...,r(d-1)+q(d-1),rd+qd)) if squash=False.
 
     Raises
     ------
@@ -1331,6 +1376,7 @@ def t3_sub(
     t3_add
     t3_scale
     t3_neg
+    :func:`~t3tools.corewise.corewise_neg`
 
     Examples
     --------
@@ -1338,35 +1384,44 @@ def t3_sub(
     >>> import t3tools.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> y = t3.t3_corewise_randn(((14,15,16), (3,7,2), (1,5,6,1)))
-    >>> z = t3.t3_sub(x, y)
-    >>> print(t3.get_structure(z))
+    >>> x_minus_y = t3.t3_sub(x, y)
+    >>> print(t3.get_structure(x_minus_y))
     ((14, 15, 16), (7, 12, 8), (2, 8, 8, 2))
-    >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(y) - t3.t3_to_dense(z)))
+    >>> dense_x = t3.t3_to_dense(x)
+    >>> dense_y = t3.t3_to_dense(y)
+    >>> dense_x_minus_y = t3.t3_to_dense(x_minus_y)
+    >>> print(np.linalg.norm(dense_x - dense_y - dense_x_minus_y))
     3.5875705233607603e-13
     """
     return t3_add(x, t3_neg(y), squash=squash, xnp=xnp)
 
 
-def t3_dot_t3(
+def t3_inner_product_t3(
         x: TuckerTensorTrain,
         y: TuckerTensorTrain,
         xnp = np,
 ):
-    """Compute Hilbert-Schmidt (dot) product of two TuckerTensorTrains with the same shape.
+    """Compute Hilbert-Schmidt inner product of two Tucker tensor trains.
+
+    The Hilbert-Schmidt inner product is defined with respect to the dense N0 x ... x N(d-1)
+    tensors that are *represented* by the Tucker tensor trains, even though these dense tensors
+    are not formed during computations.
+
+    For corewise dot product, see :func:`t3tools.corewise.corewise_dot`
 
     Parameters
     ----------
     x: TuckerTensorTrain
-        First Tucker tensor train. shape=(N1,...,Nd)
+        First Tucker tensor train. shape=(N0,...,N(d-1))
     y: TuckerTensorTrain
-        Second Tucker tensor train. shape=(N1,...,Nd)
+        Second Tucker tensor train. shape=(N0,...,N(d-1))
     xnp:
         Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
     scalar
-        Hilbert-Schmidt (dot) product of Tucker tensor trains, (x, y)_HS.
+        Hilbert-Schmidt inner product of Tucker tensor trains, (x, y)_HS.
 
     Raises
     ------
@@ -1380,6 +1435,7 @@ def t3_dot_t3(
     t3_shape
     t3_add
     t3_scale
+    :func:`~t3tools.corewise.corewise_dot`
 
     Notes
     -----
@@ -1391,7 +1447,7 @@ def t3_dot_t3(
     >>> import t3tools.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> y = t3.t3_corewise_randn(((14,15,16), (3,7,2), (1,5,6,1)))
-    >>> x_dot_y = t3.t3_dot_t3(x, y)
+    >>> x_dot_y = t3.t3_inner_product_t3(x, y)
     >>> x_dot_y2 = np.sum(t3.t3_to_dense(x) * t3.t3_to_dense(y))
     >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
     8.731149137020111e-11
@@ -1402,7 +1458,7 @@ def t3_dot_t3(
     >>> import t3tools.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
     >>> y = t3.t3_corewise_randn(((14,15,16), (3,7,2), (3,5,6,3)))
-    >>> x_dot_y = t3.t3_dot_t3(x, y)
+    >>> x_dot_y = t3.t3_inner_product_t3(x, y)
     >>> x_dot_y2 = np.sum(t3.t3_to_dense(x) * t3.t3_to_dense(y))
     >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
     1.3096723705530167e-10
@@ -1417,6 +1473,9 @@ def t3_dot_t3(
             'Attempted to dot TuckerTensorTrains (x,y)_HS with inconsistent shapes.'
             + str(x_shape) + ' = x_shape != y_shape = ' + str(y_shape)
         )
+
+    x = squash_tails(x, xnp=xnp)
+    y = squash_tails(y, xnp=xnp)
 
     basis_cores_x, tt_cores_x = x
     basis_cores_y, tt_cores_y = y
@@ -1445,10 +1504,16 @@ def t3_norm(
 ):
     """Compute Hilbert-Schmidt (Frobenius) norm of a Tucker tensor train.
 
+    The Hilbert-Schmidt norm is defined with respect to the dense N0 x ... x N(d-1) tensor
+    that is *represented* by the Tucker tensor trains, even though this dense tensor
+    is not formed during computations.
+
+    For corewise norm, see :func:`t3tools.corewise.corewise_norm`
+
     Parameters
     ----------
     x: TuckerTensorTrain
-        First Tucker tensor train. shape=(N1,...,Nd)
+        First Tucker tensor train. shape=(N0,...,N(d-1))
     xnp:
         Linear algebra backend. Default: np (numpy)
 
@@ -1465,8 +1530,8 @@ def t3_norm(
     See Also
     --------
     TuckerTensorTrain
-    t3_shape
     t3_dot_t3
+    :func:`t3tools.corewise.corewise_norm`
 
     Examples
     --------
@@ -1478,6 +1543,6 @@ def t3_norm(
     1.3642420526593924e-12
     """
     check_t3(x)
-    return xnp.sqrt(t3_dot_t3(x, x, xnp=xnp))
+    return xnp.sqrt(t3_inner_product_t3(x, x, xnp=xnp))
 
 
