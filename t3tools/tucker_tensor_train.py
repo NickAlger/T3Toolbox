@@ -77,15 +77,15 @@ __all__ = [
 ###########################################
 
 TuckerTensorTrain = typ.Tuple[
-    typ.Sequence[NDArray], # basis_cores, len=d, elm_shape=(ni, Ni)
+    typ.Sequence[NDArray], # tucker_cores, len=d, elm_shape=(ni, Ni)
     typ.Sequence[NDArray], # tt_cores, len=d, elm_shape=(ri, ni, r(i+1))
 ]
 """
-Tuple containing Tucker tensor train basis cores and TT cores.
+Tuple containing Tucker tensor train Tucker cores and TT cores.
 
 Components:
 
-- **basis_cores** : *Sequence[NDArray]*
+- **tucker_cores** : *Sequence[NDArray]*
     Basis matrices (B0, ..., B(d-1)), with shapes (ni, Ni) for i=1,...,d-1. len=d.
 - **tt_cores** : *Sequence[NDArray]*
     Tensor train 3-tensor cores (G0, ..., G(d-1)), with shapes (ri, ni, r(i+1)) for i=1,...,d-1. len=d.
@@ -94,9 +94,9 @@ Examples
 --------
 >>> import numpy as np
 >>> import t3tools.tucker_tensor_train as t3
->>> basis_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
+>>> tucker_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
 >>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
->>> x = (basis_cores, tt_cores) # TuckerTensorTrain, cores filled with ones
+>>> x = (tucker_cores, tt_cores) # TuckerTensorTrain, cores filled with ones
 >>> t3.check_t3(x) # does nothing because t3 core shapes are consistent
 """
 
@@ -122,9 +122,9 @@ Examples
 --------
 >>> import numpy as np
 >>> import t3tools.tucker_tensor_train as t3
->>> basis_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
+>>> tucker_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
 >>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
->>> x = (basis_cores, tt_cores)
+>>> x = (tucker_cores, tt_cores)
 >>> shape, tucker_ranks, tt_ranks = t3.get_structure(x)
 >>> print(shape)
 (14, 15, 16)
@@ -166,9 +166,9 @@ def get_structure(
     --------
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
-    >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
+    >>> tucker_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
     >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
-    >>> x = (basis_cores, tt_cores)
+    >>> x = (tucker_cores, tt_cores)
     >>> shape, tucker_ranks, tt_ranks = t3.get_structure(x)
     >>> print(shape)
     (14, 15, 16)
@@ -177,9 +177,9 @@ def get_structure(
     >>> print(tt_ranks)
     (1, 3, 2, 1)
     """
-    basis_cores, tt_cores = x
-    shape = tuple([B.shape[1] for B in basis_cores])
-    tucker_ranks = tuple([B.shape[0] for B in basis_cores])
+    tucker_cores, tt_cores = x
+    shape = tuple([B.shape[1] for B in tucker_cores])
+    tucker_ranks = tuple([B.shape[0] for B in tucker_cores])
     tt_ranks = tuple([int(tt_cores[0].shape[0])] + [int(G.shape[2]) for G in tt_cores])
     return shape, tucker_ranks, tt_ranks
 
@@ -214,29 +214,29 @@ def check_t3(
 
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
-    >>> basis_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
+    >>> tucker_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
     >>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
-    >>> x = (basis_cores, tt_cores)
+    >>> x = (tucker_cores, tt_cores)
     >>> t3.check_t3(x) # Nothing happens because T3 is consistent
 
-    (Bad) Mismatch between number of basis cores and number of TT-cores:
+    (Bad) Mismatch between number of Tucker cores and number of TT-cores:
 
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
-    >>> basis_cores = (np.ones((4,14)), np.ones((5,15))) # one too few basis cores
+    >>> tucker_cores = (np.ones((4,14)), np.ones((5,15))) # one too few Tucker cores
     >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
-    >>> x = (basis_cores, tt_cores)
+    >>> x = (tucker_cores, tt_cores)
     >>> t3.check_t3(x)
     RuntimeError: Inconsistent TuckerTensorTrain.
-    2 = len(basis_cores) != len(tt_cores) = 3
+    2 = len(tucker_cores) != len(tt_cores) = 3
 
     (Bad) One of the TT-cores is not a 3-tensor:
 
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
-    >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
+    >>> tucker_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
     >>> tt_cores = (np.ones((4,3)), np.ones((3,5,2)), np.ones((2,6,1))) # first TT-core is not a 3-tensor
-    >>> x = (basis_cores, tt_cores)
+    >>> x = (tucker_cores, tt_cores)
     >>> t3.check_t3(x)
     RuntimeError: Inconsistent TuckerTensorTrain.
     tt_cores[0] is not a 3-tensor. shape=(4, 3)
@@ -245,9 +245,9 @@ def check_t3(
 
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
-    >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
+    >>> tucker_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
     >>> tt_cores = (np.ones((1,4,9)), np.ones((3,5,2)), np.ones((2,6,1))) # Inconsistent TT-core shapes
-    >>> x = (basis_cores, tt_cores)
+    >>> x = (tucker_cores, tt_cores)
     >>> t3.check_t3(x)
     RuntimeError: Inconsistent TuckerTensorTrain.
     (1, 3, 2, 1) = left_tt_ranks != right_tt_ranks = (1, 9, 2, 1)
@@ -256,29 +256,29 @@ def check_t3(
 
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
-    >>> basis_cores = (np.ones((4,14)), np.ones((5,15,3)), np.ones((6,16))) # Basis core 2 is not a matrix
+    >>> tucker_cores = (np.ones((4,14)), np.ones((5,15,3)), np.ones((6,16))) # Basis core 2 is not a matrix
     >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
-    >>> x = (basis_cores, tt_cores)
+    >>> x = (tucker_cores, tt_cores)
     >>> t3.check_t3(x)
     RuntimeError: Inconsistent TuckerTensorTrain.
-    basis_cores[1] is not a matrix. shape=(5, 15, 3)
+    tucker_cores[1] is not a matrix. shape=(5, 15, 3)
 
-    (Bad) Inconsistent shapes for basis core and adjacent TT-core
+    (Bad) Inconsistent shapes for tucker core and adjacent TT-core
 
     >>> import numpy as np
     >>> import t3tools.tucker_tensor_train as t3
-    >>> basis_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((9,16)))
-    >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))) # Last basis and TT-cores inconsistent
-    >>> x = (basis_cores, tt_cores)
+    >>> tucker_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((9,16)))
+    >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))) # Last Tucker and TT-cores inconsistent
+    >>> x = (tucker_cores, tt_cores)
     >>> t3.check_t3(x)
     RuntimeError: Inconsistent TuckerTensorTrain.
-    9 = basis_cores[2].shape[0] != tt_cores[2].shape[1] = 6
+    9 = tucker_cores[2].shape[0] != tt_cores[2].shape[1] = 6
     '''
-    basis_cores, tt_cores = x
-    if len(basis_cores) != len(tt_cores):
+    tucker_cores, tt_cores = x
+    if len(tucker_cores) != len(tt_cores):
         raise RuntimeError(
             'Inconsistent TuckerTensorTrain.\n'
-            + str(len(basis_cores)) + ' = len(basis_cores) != len(tt_cores) = ' + str(len(tt_cores))
+            + str(len(tucker_cores)) + ' = len(tucker_cores) != len(tt_cores) = ' + str(len(tt_cores))
         )
 
     for ii, G in enumerate(tt_cores):
@@ -296,18 +296,18 @@ def check_t3(
             + str(left_tt_ranks) + ' = left_tt_ranks != right_tt_ranks = ' + str(right_tt_ranks)
         )
 
-    for ii, B in enumerate(basis_cores):
+    for ii, B in enumerate(tucker_cores):
         if len(B.shape) != 2:
             raise RuntimeError(
                 'Inconsistent TuckerTensorTrain.\n'
-                + 'basis_cores['+str(ii)+'] is not a matrix. shape='+str(B.shape)
+                + 'tucker_cores['+str(ii)+'] is not a matrix. shape='+str(B.shape)
             )
 
-    for ii, (B, G) in enumerate(zip(basis_cores, tt_cores)):
+    for ii, (B, G) in enumerate(zip(tucker_cores, tt_cores)):
         if B.shape[0] != G.shape[1]:
             raise RuntimeError(
                 'Inconsistent TuckerTensorTrain.\n'
-                + str(B.shape[0]) + ' = basis_cores[' + str(ii) + '].shape[0]'
+                + str(B.shape[0]) + ' = tucker_cores[' + str(ii) + '].shape[0]'
                 + ' != '
                 + 'tt_cores[' + str(ii) + '].shape[1] = ' + str(G.shape[1])
             )
@@ -379,7 +379,7 @@ def t3_to_dense(
     >>> print(np.linalg.norm(x_dense - x_dense2) / np.linalg.norm(x_dense))
     1.1217675019342066e-15
     """
-    basis_cores, tt_cores = x
+    tucker_cores, tt_cores = x
     big_tt_cores = [xnp.einsum('iaj,ab->ibj', G, U) for G, U in zip(tt_cores, basis_cores)]
 
     T = big_tt_cores[0]
@@ -461,11 +461,11 @@ def reverse_t3(
     >>> print(np.linalg.norm(x_dense - x_dense2))
     1.859018050214056e-13
     """
-    basis_cores, tt_cores = x
+    tucker_cores, tt_cores = x
 
-    reversed_basis_cores = tuple([B.copy() for B in basis_cores[::-1]])
+    reversed_tucker_cores = tuple([B.copy() for B in tucker_cores[::-1]])
     reversed_tt_cores = tuple([G.swapaxes(0,2).copy() for G in tt_cores[::-1]])
-    reversed_x = (reversed_basis_cores, reversed_tt_cores)
+    reversed_x = (reversed_tucker_cores, reversed_tt_cores)
     return reversed_x
 
 
@@ -507,8 +507,8 @@ def t3_zeros(
     shape, tucker_ranks, tt_ranks = structure
 
     tt_cores = tuple([xnp.zeros((tt_ranks[ii], tucker_ranks[ii], tt_ranks[ii+1])) for ii in range(len(tucker_ranks))])
-    basis_cores = tuple([xnp.zeros((n, N)) for n, N  in zip(tucker_ranks, shape)])
-    z = (basis_cores, tt_cores)
+    tucker_cores = tuple([xnp.zeros((n, N)) for n, N  in zip(tucker_ranks, shape)])
+    z = (tucker_cores, tt_cores)
     return z
 
 
@@ -550,8 +550,8 @@ def t3_corewise_randn(
     shape, tucker_ranks, tt_ranks = s
 
     tt_cores = tuple([randn(tt_ranks[ii], tucker_ranks[ii], tt_ranks[ii+1]) for ii in range(len(tucker_ranks))])
-    basis_cores = tuple([randn(n, N) for n, N  in zip(tucker_ranks, shape)])
-    z = (basis_cores, tt_cores)
+    tucker_cores = tuple([randn(n, N) for n, N  in zip(tucker_ranks, shape)])
+    z = (tucker_cores, tt_cores)
     return z
 
 
@@ -590,16 +590,16 @@ def t3_save(
     >>> fname = 't3_file'
     >>> t3.t3_save(fname, x) # Save to file 't3_file.npz'
     >>> x2 = t3.t3_load(fname) # Load from file
-    >>> basis_cores, tt_cores = x
-    >>> basis_cores2, tt_cores2 = x2
-    >>> print([np.linalg.norm(B - B2) for B, B2 in zip(basis_cores, basis_cores2)])
+    >>> tucker_cores, tt_cores = x
+    >>> tucker_cores2, tt_cores2 = x2
+    >>> print([np.linalg.norm(B - B2) for B, B2 in zip(tucker_cores, tucker_cores2)])
     [0.0, 0.0, 0.0]
     >>> print([np.linalg.norm(G - G2) for G, G2 in zip(tt_cores, tt_cores2)])
     [0.0, 0.0, 0.0]
     """
     check_t3(x)
-    basis_cores, tt_cores = x
-    cores_dict = {'basis_cores_'+str(ii): basis_cores[ii] for ii in range(len(basis_cores))}
+    tucker_cores, tt_cores = x
+    cores_dict = {'tucker_cores_'+str(ii): tucker_cores[ii] for ii in range(len(tucker_cores))}
     cores_dict.update({'tt_cores_'+str(ii): tt_cores[ii] for ii in range(len(tt_cores))})
 
     try:
@@ -648,9 +648,9 @@ def t3_load(
     >>> fname = 't3_file'
     >>> t3.t3_save(fname, x) # Save to file 't3_file.npz'
     >>> x2 = t3.t3_load(fname) # Load from file
-    >>> basis_cores, tt_cores = x
-    >>> basis_cores2, tt_cores2 = x2
-    >>> print([np.linalg.norm(B - B2) for B, B2 in zip(basis_cores, basis_cores2)])
+    >>> tucker_cores, tt_cores = x
+    >>> tucker_cores2, tt_cores2 = x2
+    >>> print([np.linalg.norm(B - B2) for B, B2 in zip(tucker_cores, tucker_cores2)])
     [0.0, 0.0, 0.0]
     >>> print([np.linalg.norm(G - G2) for G, G2 in zip(tt_cores, tt_cores2)])
     [0.0, 0.0, 0.0]
@@ -666,13 +666,13 @@ def t3_load(
 
     assert (len(d.files) % 2 == 0)
     num_cores = len(d.files) // 2
-    basis_cores = [d['basis_cores_' + str(ii)] for ii in range(num_cores)]
+    tucker_cores = [d['tucker_cores_' + str(ii)] for ii in range(num_cores)]
     tt_cores = [d['tt_cores_' + str(ii)] for ii in range(num_cores)]
 
-    basis_cores = [xnp.array(B) for B in basis_cores] # in case we are using jax or some other linalg backend
+    tucker_cores = [xnp.array(B) for B in tucker_cores] # in case we are using jax or some other linalg backend
     tt_cores = [xnp.array(G) for G in tt_cores]
 
-    x = (tuple(basis_cores), tuple(tt_cores))
+    x = (tuple(tucker_cores), tuple(tt_cores))
     check_t3(x)
     return x
 
@@ -772,7 +772,7 @@ def t3_apply(
     >>> print(dAuuu_diff) #ths same as dAuuu
     766.5390504030256
     '''
-    basis_cores, tt_cores = x
+    tucker_cores, tt_cores = x
     shape, tucker_ranks, tt_ranks = get_structure(x)
 
     if len(vecs)  != len(shape):
@@ -808,7 +808,7 @@ def t3_apply(
         )
 
     mu_na = xnp.ones((num_applies, tt_cores[0].shape[0]))
-    for V_ni, B_xi, G_axb in zip(vecs, basis_cores, tt_cores):
+    for V_ni, B_xi, G_axb in zip(vecs, tucker_cores, tt_cores):
         v_nx = xnp.einsum('ni,xi->nx', V_ni, B_xi)
         g_anb = xnp.einsum('axb,nx->anb', G_axb, v_nx)
         mu_nb = xnp.einsum('na,anb->nb', mu_na, g_anb)
@@ -921,7 +921,7 @@ import t3tools.corewise    >>> A1 = t3tools.corewise.corewise_add(A0, t3tools.co
     >>> print(df_diff)
     -7.418812309825662
     '''
-    basis_cores, tt_cores = x
+    tucker_cores, tt_cores = x
     shape, tucker_ranks, tt_ranks = get_structure(x)
 
     if len(index)  != len(shape):
@@ -945,7 +945,7 @@ import t3tools.corewise    >>> A1 = t3tools.corewise.corewise_add(A0, t3tools.co
         )
 
     mu_na = xnp.ones((num_entries, tt_cores[0].shape[0]))
-    for ind, B_xi, G_axb in zip(index, basis_cores, tt_cores):
+    for ind, B_xi, G_axb in zip(index, tucker_cores, tt_cores):
         v_xn = B_xi[:, ind]
         g_anb = xnp.einsum('axb,xn->anb', G_axb, v_xn)
         mu_nb = xnp.einsum('na,anb->nb', mu_na, g_anb)
@@ -983,7 +983,7 @@ def compute_minimal_ranks(
 
     Minimal ranks always exist and are unique.
         - Minimal TT ranks are equal to the ranks of (N*...*Ni) x (N(i+1)*...*N(d-1)) matrix unfoldings.
-        - Minimal basis ranks are equal to the ranks of Ni x (N1*...*N(i-1)*N(i+1)*...*N(d-1)) matricizations.
+        - Minimal Tucker ranks are equal to the ranks of Ni x (N1*...*N(i-1)*N(i+1)*...*N(d-1)) matricizations.
 
     Examples
     --------
@@ -1096,12 +1096,12 @@ def change_structure(
     delta_tucker_ranks  = [n_new - n_old for n_new, n_old in zip(new_tucker_ranks, old_tucker_ranks)]
     delta_tt_ranks      = [r_new - r_old for r_new, r_old in zip(new_tt_ranks, old_tt_ranks)]
 
-    basis_cores, tt_cores = x
+    tucker_cores, tt_cores = x
 
-    new_basis_cores = []
+    new_tucker_cores = []
     for ii in range(num_cores):
-        new_basis_cores.append(xnp.pad(
-            basis_cores[ii],
+        new_tucker_cores.append(xnp.pad(
+            tucker_cores[ii],
             (
                 (0,delta_tucker_ranks[ii]),
                 (0,delta_shape[ii]),
@@ -1119,7 +1119,7 @@ def change_structure(
             ),
         ))
 
-    return tuple(new_basis_cores), tuple(new_tt_cores)
+    return tuple(new_tucker_cores), tuple(new_tt_cores)
 
 
 ###########################################################
@@ -1199,9 +1199,9 @@ def t3_add(
             + str(x_shape) + ' = x_shape != y_shape = ' + str(y_shape)
         )
 
-    basis_cores_x, tt_cores_x = x
-    basis_cores_y, tt_cores_y = y
-    basis_cores_z = [xnp.concatenate([Bx, By], axis=0) for Bx, By in zip(basis_cores_x, basis_cores_y)]
+    tucker_cores_x, tt_cores_x = x
+    tucker_cores_y, tt_cores_y = y
+    tucker_cores_z = [xnp.concatenate([Bx, By], axis=0) for Bx, By in zip(tucker_cores_x, tucker_cores_y)]
 
     tt_cores_z = []
 
@@ -1217,7 +1217,7 @@ def t3_add(
         Gz = xnp.block([[[G000, G001], [G010, G011]], [[G100, G101], [G110, G111]]])
         tt_cores_z.append(Gz)
 
-    z = (tuple(basis_cores_z), tuple(tt_cores_z))
+    z = (tuple(tucker_cores_z), tuple(tt_cores_z))
     if squash:
         z = squash_tails(z)
     return z
@@ -1272,14 +1272,14 @@ def t3_scale(
     """
     check_t3(x)
 
-    basis_cores, tt_cores = x
+    tucker_cores, tt_cores = x
 
-    scaled_basis_cores = [B.copy() for B in basis_cores]
-    scaled_basis_cores[-1] = s*scaled_basis_cores[-1]
+    scaled_tucker_cores = [B.copy() for B in tucker_cores]
+    scaled_tucker_cores[-1] = s*scaled_tucker_cores[-1]
 
     copied_tt_cores = [G.copy() for G in tt_cores]
 
-    z = (tuple(scaled_basis_cores), tuple(copied_tt_cores))
+    z = (tuple(scaled_tucker_cores), tuple(copied_tt_cores))
     return z
 
 
@@ -1477,14 +1477,14 @@ def t3_inner_product_t3(
     x = squash_tails(x, xnp=xnp)
     y = squash_tails(y, xnp=xnp)
 
-    basis_cores_x, tt_cores_x = x
-    basis_cores_y, tt_cores_y = y
+    tucker_cores_x, tt_cores_x = x
+    tucker_cores_y, tt_cores_y = y
 
     r0_x = tt_cores_x[0].shape[0]
     r0_y = tt_cores_y[0].shape[0]
 
     M_sp = xnp.ones((r0_x, r0_y))
-    for Bx_ai, Gx_sat, By_bi, Gy_pbq in zip(basis_cores_x, tt_cores_x, basis_cores_y, tt_cores_y):
+    for Bx_ai, Gx_sat, By_bi, Gy_pbq in zip(tucker_cores_x, tt_cores_x, tucker_cores_y, tt_cores_y):
         tmp_ab = xnp.einsum('ai,bi->ab', Bx_ai, By_bi)
         tmp_sbt = xnp.einsum('sat,ab->sbt', Gx_sat, tmp_ab)
         tmp_pbt = xnp.einsum('sp,sbt->pbt', M_sp, tmp_sbt)
