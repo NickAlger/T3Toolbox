@@ -58,23 +58,29 @@
 </div>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="get_padded_structure.html#t3tools.uniform.get_padded_structure" title="t3tools.uniform.get_padded_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_padded_structure</span></code></a>(→ Tuple[int, int, int, int])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="check_ut3.html#t3tools.uniform.check_ut3" title="t3tools.uniform.check_ut3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_ut3</span></code></a>(→ None)</p></td>
+<td><p>Check internal shape consistency of UniformTuckerTensorTrain.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="get_padded_structure.html#t3tools.uniform.get_padded_structure" title="t3tools.uniform.get_padded_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_padded_structure</span></code></a>(→ Tuple[int, int, int, int])</p></td>
 <td><p>Get padded structure of uniform Tucker tensor train.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="get_original_structure.html#t3tools.uniform.get_original_structure" title="t3tools.uniform.get_original_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_original_structure</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="get_original_structure.html#t3tools.uniform.get_original_structure" title="t3tools.uniform.get_original_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_original_structure</span></code></a>(...)</p></td>
 <td><p>Get original (unpadded) structure of a uniform Tucker tensor train.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="apply_masks.html#t3tools.uniform.apply_masks" title="t3tools.uniform.apply_masks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_masks</span></code></a>(→ UniformTuckerTensorTrainCores)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="apply_masks.html#t3tools.uniform.apply_masks" title="t3tools.uniform.apply_masks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_masks</span></code></a>(→ UniformTuckerTensorTrainCores)</p></td>
 <td><p>Apply masks to uniform Tucker tensor train cores to zero out superflous entries.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="unpack_edge_tensors.html#t3tools.uniform.unpack_edge_tensors" title="t3tools.uniform.unpack_edge_tensors"><code class="xref py py-obj docutils literal notranslate"><span class="pre">unpack_edge_tensors</span></code></a>(→ Tuple[NDArray])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="unpack_edge_tensors.html#t3tools.uniform.unpack_edge_tensors" title="t3tools.uniform.unpack_edge_tensors"><code class="xref py py-obj docutils literal notranslate"><span class="pre">unpack_edge_tensors</span></code></a>(→ Tuple[NDArray])</p></td>
 <td><p>Get ragged (variable length) edge vectors from uniform edge vectors.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_to_ut3.html#t3tools.uniform.t3_to_ut3" title="t3tools.uniform.t3_to_ut3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_to_ut3</span></code></a>(→ Tuple[UniformTuckerTensorTrainCores, ...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_to_ut3.html#t3tools.uniform.t3_to_ut3" title="t3tools.uniform.t3_to_ut3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_to_ut3</span></code></a>(→ Tuple[UniformTuckerTensorTrainCores, ...)</p></td>
 <td><p>Convert TuckerTensorTrain to UniformTuckerTensorTrain.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ut3_to_t3.html#t3tools.uniform.ut3_to_t3" title="t3tools.uniform.ut3_to_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_to_t3</span></code></a>(→ t3tools.tucker_tensor_train.TuckerTensorTrain)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="ut3_to_t3.html#t3tools.uniform.ut3_to_t3" title="t3tools.uniform.ut3_to_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_to_t3</span></code></a>(→ t3tools.tucker_tensor_train.TuckerTensorTrain)</p></td>
 <td><p>Convert UniformTuckerTensorTrain to TuckerTensorTrain.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="ut3_to_dense.html#t3tools.uniform.ut3_to_dense" title="t3tools.uniform.ut3_to_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_to_dense</span></code></a>(→ NDArray)</p></td>
+<td><p>Construct dense tensor represented by uniform Tucker tensor train</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="are_ut3_ranks_minimal.html#t3tools.uniform.are_ut3_ranks_minimal" title="t3tools.uniform.are_ut3_ranks_minimal"><code class="xref py py-obj docutils literal notranslate"><span class="pre">are_ut3_ranks_minimal</span></code></a>(→ bool)</p></td>
 <td><p>Checks if the ranks of a uniform Tucker train are minimal.</p></td>

@@ -19,12 +19,14 @@ Functions
 .. toctree::
    :hidden:
 
+   /autoapi/t3tools/uniform/check_ut3
    /autoapi/t3tools/uniform/get_padded_structure
    /autoapi/t3tools/uniform/get_original_structure
    /autoapi/t3tools/uniform/apply_masks
    /autoapi/t3tools/uniform/unpack_edge_tensors
    /autoapi/t3tools/uniform/t3_to_ut3
    /autoapi/t3tools/uniform/ut3_to_t3
+   /autoapi/t3tools/uniform/ut3_to_dense
    /autoapi/t3tools/uniform/are_ut3_ranks_minimal
    /autoapi/t3tools/uniform/ut3_entry
    /autoapi/t3tools/uniform/ut3_add
@@ -34,12 +36,14 @@ Functions
 
 .. autoapisummary::
 
+   t3tools.uniform.check_ut3
    t3tools.uniform.get_padded_structure
    t3tools.uniform.get_original_structure
    t3tools.uniform.apply_masks
    t3tools.uniform.unpack_edge_tensors
    t3tools.uniform.t3_to_ut3
    t3tools.uniform.ut3_to_t3
+   t3tools.uniform.ut3_to_dense
    t3tools.uniform.are_ut3_ranks_minimal
    t3tools.uniform.ut3_entry
    t3tools.uniform.ut3_add

@@ -11,6 +11,7 @@ Attributes
 
    t3tools.jax.uniform.UniformTuckerTensorTrainCores
    t3tools.jax.uniform.UniformTuckerTensorTrainMasks
+   t3tools.jax.uniform.check_ut3
    t3tools.jax.uniform.get_padded_structure
    t3tools.jax.uniform.get_original_structure
    t3tools.jax.uniform.are_ut3_ranks_minimal
@@ -18,6 +19,7 @@ Attributes
    t3tools.jax.uniform.apply_masks
    t3tools.jax.uniform.t3_to_ut3
    t3tools.jax.uniform.ut3_to_t3
+   t3tools.jax.uniform.ut3_to_dense
    t3tools.jax.uniform.ut3_entry
    t3tools.jax.uniform.ut3_add
    t3tools.jax.uniform.ut3_scale
@@ -32,6 +34,8 @@ Module Contents
 
 .. py:data:: UniformTuckerTensorTrainMasks
 
+.. py:data:: check_ut3
+
 .. py:data:: get_padded_structure
 
 .. py:data:: get_original_structure
@@ -45,6 +49,8 @@ Module Contents
 .. py:data:: t3_to_ut3
 
 .. py:data:: ut3_to_t3
+
+.. py:data:: ut3_to_dense
 
 .. py:data:: ut3_entry
 

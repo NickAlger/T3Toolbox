@@ -49,25 +49,31 @@
 <tr class="row-even"><td><p><a class="reference internal" href="#t3tools.jax.uniform.UniformTuckerTensorTrainMasks" title="t3tools.jax.uniform.UniformTuckerTensorTrainMasks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformTuckerTensorTrainMasks</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.jax.uniform.get_padded_structure" title="t3tools.jax.uniform.get_padded_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_padded_structure</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.jax.uniform.check_ut3" title="t3tools.jax.uniform.check_ut3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_ut3</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#t3tools.jax.uniform.get_original_structure" title="t3tools.jax.uniform.get_original_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_original_structure</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3tools.jax.uniform.get_padded_structure" title="t3tools.jax.uniform.get_padded_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_padded_structure</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.jax.uniform.are_ut3_ranks_minimal" title="t3tools.jax.uniform.are_ut3_ranks_minimal"><code class="xref py py-obj docutils literal notranslate"><span class="pre">are_ut3_ranks_minimal</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.jax.uniform.get_original_structure" title="t3tools.jax.uniform.get_original_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_original_structure</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#t3tools.jax.uniform.unpack_edge_tensors" title="t3tools.jax.uniform.unpack_edge_tensors"><code class="xref py py-obj docutils literal notranslate"><span class="pre">unpack_edge_tensors</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3tools.jax.uniform.are_ut3_ranks_minimal" title="t3tools.jax.uniform.are_ut3_ranks_minimal"><code class="xref py py-obj docutils literal notranslate"><span class="pre">are_ut3_ranks_minimal</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.jax.uniform.apply_masks" title="t3tools.jax.uniform.apply_masks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_masks</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.jax.uniform.unpack_edge_tensors" title="t3tools.jax.uniform.unpack_edge_tensors"><code class="xref py py-obj docutils literal notranslate"><span class="pre">unpack_edge_tensors</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#t3tools.jax.uniform.t3_to_ut3" title="t3tools.jax.uniform.t3_to_ut3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_to_ut3</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3tools.jax.uniform.apply_masks" title="t3tools.jax.uniform.apply_masks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_masks</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.jax.uniform.ut3_to_t3" title="t3tools.jax.uniform.ut3_to_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_to_t3</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.jax.uniform.t3_to_ut3" title="t3tools.jax.uniform.t3_to_ut3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_to_ut3</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3tools.jax.uniform.ut3_to_t3" title="t3tools.jax.uniform.ut3_to_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_to_t3</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3tools.jax.uniform.ut3_to_dense" title="t3tools.jax.uniform.ut3_to_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_to_dense</span></code></a></p></td>
 <td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#t3tools.jax.uniform.ut3_entry" title="t3tools.jax.uniform.ut3_entry"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_entry</span></code></a></p></td>
@@ -98,6 +104,11 @@
 <dl class="py data">
 <dt class="sig sig-object py" id="t3tools.jax.uniform.UniformTuckerTensorTrainMasks">
 <span class="sig-prename descclassname"><span class="pre">t3tools.jax.uniform.</span></span><span class="sig-name descname"><span class="pre">UniformTuckerTensorTrainMasks</span></span><a class="headerlink" href="#t3tools.jax.uniform.UniformTuckerTensorTrainMasks" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3tools.jax.uniform.check_ut3">
+<span class="sig-prename descclassname"><span class="pre">t3tools.jax.uniform.</span></span><span class="sig-name descname"><span class="pre">check_ut3</span></span><a class="headerlink" href="#t3tools.jax.uniform.check_ut3" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py data">
@@ -133,6 +144,11 @@
 <dl class="py data">
 <dt class="sig sig-object py" id="t3tools.jax.uniform.ut3_to_t3">
 <span class="sig-prename descclassname"><span class="pre">t3tools.jax.uniform.</span></span><span class="sig-name descname"><span class="pre">ut3_to_t3</span></span><a class="headerlink" href="#t3tools.jax.uniform.ut3_to_t3" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3tools.jax.uniform.ut3_to_dense">
+<span class="sig-prename descclassname"><span class="pre">t3tools.jax.uniform.</span></span><span class="sig-name descname"><span class="pre">ut3_to_dense</span></span><a class="headerlink" href="#t3tools.jax.uniform.ut3_to_dense" title="Link to this definition">¶</a></dt>
 <dd></dd></dl>
 
 <dl class="py data">
