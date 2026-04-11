@@ -3,8 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-TuckerTensorTrainTools
-======================
+T3Toolbox
+=========
 
 A Python library for working with Tucker tensor trains (T3). 
 Tucker tensor trains are the composition of a `Tucker decomposition <https://en.wikipedia.org/wiki/Tucker_decomposition>`_ 
@@ -108,33 +108,33 @@ Modules
 
 Tucker tensor trains:
 
-* :doc:`/autoapi/t3tools/tucker_tensor_train/index`
-* :doc:`/autoapi/t3tools/base_variation_format/index`
-* :doc:`/autoapi/t3tools/orthogonalization/index`
-* :doc:`/autoapi/t3tools/t3svd/index`
-* :doc:`/autoapi/t3tools/manifold/index`
-* :doc:`/autoapi/t3tools/probing/index`
+* :doc:`/autoapi/t3toolbox/tucker_tensor_train/index`
+* :doc:`/autoapi/t3toolbox/base_variation_format/index`
+* :doc:`/autoapi/t3toolbox/orthogonalization/index`
+* :doc:`/autoapi/t3toolbox/t3svd/index`
+* :doc:`/autoapi/t3toolbox/manifold/index`
+* :doc:`/autoapi/t3toolbox/probing/index`
 
 Uniform Tucker tensor trains:
 
-* :doc:`/autoapi/t3tools/uniform/index`
-* :doc:`/autoapi/t3tools/uniform_orthogonalization/index`
-* :doc:`/autoapi/t3tools/uniform_t3svd/index`
-* :doc:`/autoapi/t3tools/uniform_manifold/index`
-* :doc:`/autoapi/t3tools/uniform_probing/index`
+* :doc:`/autoapi/t3toolbox/uniform/index`
+* :doc:`/autoapi/t3toolbox/uniform_orthogonalization/index`
+* :doc:`/autoapi/t3toolbox/uniform_t3svd/index`
+* :doc:`/autoapi/t3toolbox/uniform_manifold/index`
+* :doc:`/autoapi/t3toolbox/uniform_probing/index`
 
 Utilities:
 
-* :doc:`/autoapi/t3tools/corewise/index`
-* :doc:`/autoapi/t3tools/linalg/index`
-* :doc:`/autoapi/t3tools/common/index`
+* :doc:`/autoapi/t3toolbox/corewise/index`
+* :doc:`/autoapi/t3toolbox/linalg/index`
+* :doc:`/autoapi/t3toolbox/common/index`
 
 
-Jax versions of all modules are available under t3tools.jax:
+Jax versions of all modules are available under t3toolbox.jax:
 
-- t3tools.jax.tucker_tensor_train
-- t3tools.jax.base_variation_format
-- t3tools.jax.orthogonalization
+- t3toolbox.jax.tucker_tensor_train
+- t3toolbox.jax.base_variation_format
+- t3toolbox.jax.orthogonalization
 - ...
 
 
@@ -152,7 +152,7 @@ Examples
 1. Create two random Tucker tensor trains and **add** them::
 
 	>>> import numpy as np
-	>>> import t3tools.tucker_tensor_train as t3
+	>>> import t3toolbox.tucker_tensor_train as t3
 	>>> randn = np.random.randn
 	>>> # Make Tucker tensor train x:
 	>>> x_tucker_cores = [randn(5, 21), randn(5, 22), randn(5, 23)]
@@ -177,8 +177,8 @@ Examples
 2. **Retract** random tangent vector to the manifold of fixed rank Tucker tensor trains::
 
 	>>> import numpy as np
-	>>> import t3tools.tucker_tensor_train as t3
-	>>> import t3tools.manifold as t3m
+	>>> import t3toolbox.tucker_tensor_train as t3
+	>>> import t3toolbox.manifold as t3m
 	>>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1))) # tangent space base point
 	>>> base, _ = t3m.orthogonal_representations(p)
 	>>> v = t3m.tangent_randn(base) # Random tangent vector.
@@ -192,8 +192,8 @@ Examples
 3. **Probe** Tucker tensor train with random vectors::
 
 	>>> import numpy as np
-	>>> import t3tools.tucker_tensor_train as t3
-	>>> import t3tools.probing as t3p
+	>>> import t3toolbox.tucker_tensor_train as t3
+	>>> import t3toolbox.probing as t3p
 	>>> x = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2))) # random T3
 	>>> w1 = np.random.randn(10) # random probing vectors
 	>>> w2 = np.random.randn(11)
@@ -210,8 +210,8 @@ Examples
 4. Convert Tucker tensor train to **uniform** Tucker tensor train::
 
 	>>> import numpy as np
-	>>> import t3tools.tucker_tensor_train as t3
-	>>> import t3tools.uniform_tucker_tensor_train as ut3
+	>>> import t3toolbox.tucker_tensor_train as t3
+	>>> import t3toolbox.uniform_tucker_tensor_train as ut3
 	>>> x = t3.t3_corewise_randn(((14,15,16), (4,5,3), (1,4,2,1))) # T3
 	>>> index = (3,1,2)
 	>>> x_312 = t3.t3_entry(x, index)
@@ -242,19 +242,19 @@ This package is written in a `functional programming <https://en.wikipedia.org/w
 Compatibility with Jax
 ======================
 
-Jax versions of all functions are available under t3tools.jax. For example, if you want to use jax as the linear algebra backend to add two Tucker tensor trains, you would replace:
+Jax versions of all functions are available under t3toolbox.jax. For example, if you want to use jax as the linear algebra backend to add two Tucker tensor trains, you would replace:
 
-	>>> t3tools.tucker_tensor_train.t3_add(x, y)
+	>>> t3toolbox.tucker_tensor_train.t3_add(x, y)
 	
 with:
 	
-	>>> t3tools.jax.tucker_tensor_train.t3_add(x, y)
+	>>> t3toolbox.jax.tucker_tensor_train.t3_add(x, y)
 	
 - Both numpy and jax versions of functions can be used together within the same code::
 
 	>>> import numpy as np
-	>>> import t3tools.tucker_tensor_train as t3
-	>>> import t3tools.jax.tucker_tensor_train as t3_jax
+	>>> import t3toolbox.tucker_tensor_train as t3
+	>>> import t3toolbox.jax.tucker_tensor_train as t3_jax
 	>>> structure = ((9,8,7),(5,4,3),(1,6,5,1))
 	>>> x = t3.t3_corewise_randn(structure)
 	>>> y = t3.t3_corewise_randn(structure)
@@ -267,8 +267,8 @@ with:
 
 	>>> import numpy as np
 	>>> import jax.numpy as jnp
-	>>> import t3tools.tucker_tensor_train as t3
-	>>> import t3tools.jax.tucker_tensor_train as t3_jax
+	>>> import t3toolbox.tucker_tensor_train as t3
+	>>> import t3toolbox.jax.tucker_tensor_train as t3_jax
 	>>> structure = ((9,8,7),(5,4,3),(1,6,5,1))
 	>>> x_np = t3.t3_corewise_randn(structure)
 	>>> x_jax = t3_jax.t3_corewise_randn(structure)
@@ -319,7 +319,7 @@ with:
 		
 	>>> import numpy as np
 	>>> import jax
-	>>> import t3tools.jax.tucker_tensor_train as t3_jax
+	>>> import t3toolbox.jax.tucker_tensor_train as t3_jax
 	>>> get_entry_123 = lambda x: t3_jax.t3_entry(x, (1,2,3))
 	>>> A = t3_jax.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 T3
 	>>> a123 = get_entry_123(A)
@@ -334,8 +334,8 @@ with:
 
 	>>> import numpy as np
 	>>> import jax
-	>>> from t3tools.jax import tucker_tensor_train as t3_jax
-	>>> from t3tools.jax import corewise as cw
+	>>> from t3toolbox.jax import tucker_tensor_train as t3_jax
+	>>> from t3toolbox.jax import corewise as cw
 	>>> jax.config.update("jax_enable_x64", True) # enable double precision for finite difference
 	>>> get_entry_123 = lambda x: t3_jax.t3_entry(x, (1,2,3))
 	>>> A0 = t3_jax.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 T3
