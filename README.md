@@ -3,8 +3,8 @@ WORK IN PROGRESS DO NOT USE
 # T3Toolbox
 
 A Python library for working with Tucker tensor trains (T3). 
-Tucker tensor trains are the composition of a `Tucker decomposition <https://en.wikipedia.org/wiki/Tucker_decomposition>`_ 
-with a `tensor train <https://en.wikipedia.org/wiki/Matrix_product_state>`_ (also called matrix product states) representation of the central Tucker core. 
+Tucker tensor trains are the composition of a [Tucker decomposition](https://en.wikipedia.org/wiki/Tucker_decomposition) 
+with a [tensor train](https://en.wikipedia.org/wiki/Matrix_product_state) (also called matrix product states) representation of the central Tucker core. 
 
 Tensor network diagram for a Tucker tensor train::
 
@@ -61,7 +61,7 @@ even though these dense tensors are not formed during computations.
 - Probing tangent vectors
 - Transpose of the tangent vector to probes map
 - Varied-rank and uniform-rank T3s
-- Option to use either `Numpy <https://numpy.org/>`_ or `Jax <https://docs.jax.dev/en/latest/index.html>`_ for linear algebra operations
+- Option to use either [Numpy](https://numpy.org/) or [Jax](https://docs.jax.dev/en/latest/index.html) for linear algebra operations
 
 
 # Websites
@@ -77,14 +77,14 @@ even though these dense tensors are not formed during computations.
 
 # License
 
-* `MIT License <https://mit-license.org/>`_
+* [MIT License](https://mit-license.org/)
 
 
 # Installation
 The package is pure python. Dependencies:
 
-* `Numpy <https://numpy.org/install/>`_ (required)
-* `Jax <https://docs.jax.dev/en/latest/installation.html>`_ (optional)
+* [Numpy](https://numpy.org/install/) (required)
+* [Jax](https://docs.jax.dev/en/latest/installation.html) (optional)
 
 Install from source::
 
