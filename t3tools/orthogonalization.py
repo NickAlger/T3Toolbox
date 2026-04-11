@@ -11,12 +11,12 @@ import t3tools.base_variation_format as bvf
 import t3tools.linalg as linalg
 
 __all__ = [
-    'up_svd_ith_basis_core',
+    'up_svd_ith_tucker_core',
     'left_svd_ith_tt_core',
     'right_svd_ith_tt_core',
     'up_svd_ith_tt_core',
     'down_svd_ith_tt_core',
-    'orthogonalize_relative_to_ith_basis_core',
+    'orthogonalize_relative_to_ith_tucker_core',
     'orthogonalize_relative_to_ith_tt_core',
     'orthogonal_representations',
 ]
@@ -28,7 +28,7 @@ NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray,
 ########    Orthogonalization    #########
 ##########################################
 
-def up_svd_ith_basis_core(
+def up_svd_ith_tucker_core(
         ii: int, # which base core to orthogonalize
         x: t3.TuckerTensorTrain,
         min_rank: int = None,
@@ -40,12 +40,12 @@ def up_svd_ith_basis_core(
     t3.TuckerTensorTrain, # new_x
     NDArray, # ss_x. singular values
 ]:
-    '''Compute SVD of ith basis core and contract non-orthogonal factor up into the TT-core above.
+    '''Compute SVD of ith tucker core and contract non-orthogonal factor up into the TT-core above.
 
     Parameters
     ----------
     ii: int
-        index of basis core to SVD
+        index of tucker core to SVD
     x: TuckerTensorTrain
         The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (r0,r1,...r(d-1),rd))
     min_rank: int
@@ -62,12 +62,12 @@ def up_svd_ith_basis_core(
     Returns
     -------
     new_x: NDArray
-        New TuckerTensorTrain representing the same tensor, but with ith basis core orthogonal.
+        New TuckerTensorTrain representing the same tensor, but with ith tucker core orthogonal.
         new_tt_cores[ii].shape = (ri, new_ni, r(i+1))
-        new_basis_cores[ii].shape = (new_ni, Ni)
-        new_basis_cores[ii] @ new_basis_cores[ii].T = identity matrix
+        new_tucker_cores[ii].shape = (new_ni, Ni)
+        new_tucker_cores[ii] @ new_tucker_cores[ii].T = identity matrix
     ss_x: NDArray
-        Singular values of prior ith basis core. shape=(new_ni,).
+        Singular values of prior ith tucker core. shape=(new_ni,).
 
     See Also
     --------
@@ -85,18 +85,18 @@ def up_svd_ith_basis_core(
     >>> import t3tools.orthogonalization as orth
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> ind = 1
-    >>> x2, ss = orth.up_svd_ith_basis_core(ind, x)
+    >>> x2, ss = orth.up_svd_ith_tucker_core(ind, x)
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
     5.772851635866132e-13
-    >>> basis_cores2, tt_cores2 = x2
+    >>> tucker_cores2, tt_cores2 = x2
     >>> rank = len(ss)
-    >>> B = basis_cores2[ind]
-    >>> print(np.linalg.norm(B @ B.T - np.eye(rank))) # basis core is orthogonal
+    >>> B = tucker_cores2[ind]
+    >>> print(np.linalg.norm(B @ B.T - np.eye(rank))) # Tucker core is orthogonal
     8.456498415401757e-16
     '''
-    basis_cores, tt_cores = x
+    tucker_cores, tt_cores = x
     G_a_i_b = tt_cores[ii]
-    U_i_o = basis_cores[ii]
+    U_i_o = tucker_cores[ii]
     U_o_i = U_i_o.T
 
     U2_o_x, ss_x, Vt_x_i = t3tools.linalg.truncated_svd(U_o_i, min_rank, max_rank, rtol, atol, xnp=xnp)
@@ -109,10 +109,10 @@ def up_svd_ith_basis_core(
     new_tt_cores = list(tt_cores)
     new_tt_cores[ii] = G2_a_x_b
 
-    new_basis_cores = list(basis_cores)
-    new_basis_cores[ii] = U2_x_o
+    new_tucker_cores = list(tucker_cores)
+    new_tucker_cores[ii] = U2_x_o
 
-    new_x = (tuple(new_basis_cores), tuple(new_tt_cores))
+    new_x = (tuple(new_tucker_cores), tuple(new_tt_cores))
 
     return new_x, ss_x
 
@@ -162,7 +162,7 @@ def left_svd_ith_tt_core(
     --------
     truncated_svd
     left_svd_3tensor
-    up_svd_ith_basis_core
+    up_svd_ith_tucker_core
     right_svd_ith_tt_core
     up_svd_ith_tt_core
     down_svd_ith_tt_core
@@ -178,12 +178,12 @@ def left_svd_ith_tt_core(
     >>> x2, ss = orth.left_svd_ith_tt_core(ind, x)
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
         5.186463661974644e-13
-    >>> basis_cores2, tt_cores2 = x2
+    >>> tucker_cores2, tt_cores2 = x2
     >>> G = tt_cores2[ind]
     >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', G, G) - np.eye(G.shape[2]))) # TT-core is left-orthogonal
         4.453244025338311e-16
     '''
-    basis_cores, tt_cores = x
+    tucker_cores, tt_cores = x
 
     A0_a_i_b = tt_cores[ii]
     B0_b_j_c = tt_cores[ii+1]
@@ -195,7 +195,7 @@ def left_svd_ith_tt_core(
     new_tt_cores[ii] = A_a_i_x
     new_tt_cores[ii+1] = B_x_j_c
 
-    return (tuple(basis_cores), tuple(new_tt_cores)), ss_x
+    return (tuple(tucker_cores), tuple(new_tt_cores)), ss_x
 
 
 def right_svd_ith_tt_core(
@@ -243,7 +243,7 @@ def right_svd_ith_tt_core(
     --------
     truncated_svd
     left_svd_3tensor
-    up_svd_ith_basis_core
+    up_svd_ith_tucker_core
     left_svd_ith_tt_core
     up_svd_ith_tt_core
     down_svd_ith_tt_core
@@ -259,12 +259,12 @@ def right_svd_ith_tt_core(
     >>> x2, ss = orth.right_svd_ith_tt_core(ind, x)
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
         5.304678679078675e-13
-    >>> basis_cores2, tt_cores2 = x2
+    >>> tucker_cores2, tt_cores2 = x2
     >>> G = tt_cores2[ind]
     >>> print(np.linalg.norm(np.einsum('iaj,kaj->ik', G, G) - np.eye(G.shape[0]))) # TT-core is right orthogonal
         4.207841813173725e-16
     '''
-    basis_cores, tt_cores = x
+    tucker_cores, tt_cores = x
 
     A0_a_i_b = tt_cores[ii-1]
     B0_b_j_c = tt_cores[ii]
@@ -276,7 +276,7 @@ def right_svd_ith_tt_core(
     new_tt_cores[ii-1] = A_a_i_x
     new_tt_cores[ii] = B_x_j_c
 
-    return (tuple(basis_cores), tuple(new_tt_cores)), ss_x
+    return (tuple(tucker_cores), tuple(new_tt_cores)), ss_x
 
 
 def up_svd_ith_tt_core(
@@ -315,7 +315,7 @@ def up_svd_ith_tt_core(
     new_x: NDArray
         New TuckerTensorTrain representing the same tensor.
         new_tt_cores[ii].shape = (ri, new_ni, r(i+1))
-        new_basis_cores[ii].shape = (new_ni, Ni)
+        new_tucker_cores[ii].shape = (new_ni, Ni)
     ss_x: NDArray
         Singular values of prior ith TT-core outer unfolding. shape=(new_ri,).
 
@@ -323,7 +323,7 @@ def up_svd_ith_tt_core(
     --------
     truncated_svd
     outer_svd_3tensor
-    up_svd_ith_basis_core
+    up_svd_ith_tucker_core
     left_svd_ith_tt_core
     right_svd_ith_tt_core
     down_svd_ith_tt_core
@@ -339,10 +339,10 @@ def up_svd_ith_tt_core(
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
     1.002901486286745e-12
     '''
-    basis_cores, tt_cores = x
+    tucker_cores, tt_cores = x
 
     G0_a_i_b = tt_cores[ii]
-    Q0_i_o = basis_cores[ii]
+    Q0_i_o = tucker_cores[ii]
 
     U_a_x_b, ss_x, Vt_x_i = linalg.outer_svd_3tensor(G0_a_i_b, min_rank, max_rank, rtol, atol, xnp=xnp)
 
@@ -352,10 +352,10 @@ def up_svd_ith_tt_core(
     new_tt_cores = list(tt_cores)
     new_tt_cores[ii] = G_a_x_b
 
-    new_basis_cores = list(basis_cores)
-    new_basis_cores[ii] = Q_x_o
+    new_tucker_cores = list(tucker_cores)
+    new_tucker_cores[ii] = Q_x_o
 
-    return (tuple(new_basis_cores), tuple(new_tt_cores)), ss_x
+    return (tuple(new_tucker_cores), tuple(new_tt_cores)), ss_x
 
 
 def down_svd_ith_tt_core(
@@ -370,7 +370,7 @@ def down_svd_ith_tt_core(
     t3.TuckerTensorTrain, # new_x
     NDArray, # singular values, shape=(new_ni,)
 ]:
-    '''Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the basis core below.
+    '''Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the tucker core below.
 
     Parameters
     ----------
@@ -394,7 +394,7 @@ def down_svd_ith_tt_core(
     new_x: NDArray
         New TuckerTensorTrain representing the same tensor, but with ith TT-core outer orthogonal.
         new_tt_cores[ii].shape = (ri, new_ni, r(i+1))
-        new_basis_cores[ii].shape = (new_ni, Ni)
+        new_tucker_cores[ii].shape = (new_ni, Ni)
         einsum('iaj,ibj->ab', new_tt_cores[ii], new_tt_cores[ii]) = identity matrix
     ss_x: NDArray
         Singular values of prior ith TT-core outer unfolding. shape=(new_ni,).
@@ -403,7 +403,7 @@ def down_svd_ith_tt_core(
     --------
     truncated_svd
     outer_svd_3tensor
-    up_svd_ith_basis_core
+    up_svd_ith_tucker_core
     left_svd_ith_tt_core
     right_svd_ith_tt_core
     up_svd_ith_tt_core
@@ -419,15 +419,15 @@ def down_svd_ith_tt_core(
     >>> x2, ss = orth.down_svd_ith_tt_core(ind, x)
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
     4.367311712704942e-12
-    >>> basis_cores2, tt_cores2 = x2
+    >>> tucker_cores2, tt_cores2 = x2
     >>> G = tt_cores2[ind]
     >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1]))) # TT-core is outer orthogonal
     1.0643458053135608e-15
     '''
-    basis_cores, tt_cores = x
+    tucker_cores, tt_cores = x
 
     G0_a_i_b = tt_cores[ii]
-    Q0_i_o = basis_cores[ii]
+    Q0_i_o = tucker_cores[ii]
 
     G_a_x_b, ss_x, Vt_x_i = linalg.outer_svd_3tensor(G0_a_i_b, min_rank, max_rank, rtol, atol, xnp=xnp)
 
@@ -436,13 +436,13 @@ def down_svd_ith_tt_core(
     new_tt_cores = list(tt_cores)
     new_tt_cores[ii] = G_a_x_b
 
-    new_basis_cores = list(basis_cores)
-    new_basis_cores[ii] = Q_x_o
+    new_tucker_cores = list(tucker_cores)
+    new_tucker_cores[ii] = Q_x_o
 
-    return (tuple(new_basis_cores), tuple(new_tt_cores)), ss_x
+    return (tuple(new_tucker_cores), tuple(new_tt_cores)), ss_x
 
 
-def orthogonalize_relative_to_ith_basis_core(
+def orthogonalize_relative_to_ith_tucker_core(
         ii: int,
         x: t3.TuckerTensorTrain,
         min_rank: int = None,
@@ -451,11 +451,11 @@ def orthogonalize_relative_to_ith_basis_core(
         atol: float = None,
         xnp = np,
 ) -> t3.TuckerTensorTrain:
-    '''Orthogonalize all cores in the TuckerTensorTrain except for the ith basis core.
+    '''Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker core.
 
-    Orthogonal is done relative to the ith basis core:
-        - ith basis core is not orthogonalized
-        - All other basis cores are orthogonalized.
+    Orthogonal is done relative to the ith tucker core:
+        - ith tucker core is not orthogonalized
+        - All other tucker cores are orthogonalized.
         - TT-cores to the left are left orthogonalized.
         - TT-core directly above is outer orthogonalized.
         - TT-cores to the right are right orthogonalized.
@@ -463,7 +463,7 @@ def orthogonalize_relative_to_ith_basis_core(
     Parameters
     ----------
     ii: int
-        index of basis core that is not orthogonalized
+        index of tucker core that is not orthogonalized
     x: TuckerTensorTrain
         The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
     min_rank: int
@@ -480,11 +480,11 @@ def orthogonalize_relative_to_ith_basis_core(
     Returns
     -------
     new_x: NDArray
-        New TuckerTensorTrain representing the same tensor, but orthogonalized relative to the ith basis core.
+        New TuckerTensorTrain representing the same tensor, but orthogonalized relative to the ith tucker core.
 
     See Also
     --------
-    up_svd_ith_basis_core
+    up_svd_ith_tucker_core
     left_svd_ith_tt_core
     right_svd_ith_tt_core
     up_svd_ith_tt_core
@@ -496,7 +496,7 @@ def orthogonalize_relative_to_ith_basis_core(
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.orthogonalization as orth
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
-    >>> x2 = orth.orthogonalize_relative_to_ith_basis_core(1, x)
+    >>> x2 = orth.orthogonalize_relative_to_ith_tucker_core(1, x)
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
     8.800032152216517e-13
     >>> ((B0, B1, B2), (G0, G1, G2)) = x2
@@ -510,7 +510,7 @@ def orthogonalize_relative_to_ith_basis_core(
     >>> import t3tools.tucker_tensor_train as t3
     >>> import t3tools.orthogonalization as orth
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
-    >>> x2 = orth.orthogonalize_relative_to_ith_basis_core(0, x)
+    >>> x2 = orth.orthogonalize_relative_to_ith_tucker_core(0, x)
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
     5.152424496985265e-12
     >>> ((B0, B1, B2), (G0, G1, G2)) = x2
@@ -523,12 +523,12 @@ def orthogonalize_relative_to_ith_basis_core(
     new_x = x
     for jj in range(ii):
         new_x = down_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
-        new_x = up_svd_ith_basis_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
+        new_x = up_svd_ith_tucker_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
         new_x = left_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
 
     for jj in range(len(shape)-1, ii, -1):
         new_x = down_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
-        new_x = up_svd_ith_basis_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
+        new_x = up_svd_ith_tucker_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
         new_x = right_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
 
     new_x = down_svd_ith_tt_core(ii, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
@@ -547,7 +547,7 @@ def orthogonalize_relative_to_ith_tt_core(
     '''Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
 
     Orthogonal is done relative to the ith TT-core:
-        - All basis cores are orthogonalized.
+        - All Tucker cores are orthogonalized.
         - TT-cores to the left are left orthogonalized.
         - ith TT-core is not orthogonalized.
         - TT-cores to the right are right orthogonalized.
@@ -571,7 +571,7 @@ def orthogonalize_relative_to_ith_tt_core(
 
     See Also
     --------
-    up_svd_ith_basis_core
+    up_svd_ith_tucker_core
     left_svd_ith_tt_core
     right_svd_ith_tt_core
     up_svd_ith_tt_core
@@ -620,15 +620,15 @@ def orthogonalize_relative_to_ith_tt_core(
     new_x = x
     for jj in range(ii):
         new_x = down_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
-        new_x = up_svd_ith_basis_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
+        new_x = up_svd_ith_tucker_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
         new_x = left_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
 
     for jj in range(len(shape)-1, ii, -1):
         new_x = down_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
-        new_x = up_svd_ith_basis_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
+        new_x = up_svd_ith_tucker_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
         new_x = right_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
 
-    new_x = up_svd_ith_basis_core(ii, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
+    new_x = up_svd_ith_tucker_core(ii, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
     return new_x
 
 
@@ -655,7 +655,7 @@ def orthogonal_representations(
                        U0    U1    U2    U3
                        |     |     |     |
 
-    Base-variation representation with non-orthogonal basis core V2::
+    Base-variation representation with non-orthogonal tucker core V2::
 
                   1 -- L0 -- L1 -- O2 -- R3 -- 1
         X    =         |     |     |     |
@@ -663,23 +663,23 @@ def orthogonal_representations(
                        |     |     |     |
 
     The input tensor train x is defined by:
-        - x_basis_cores     = (B0, B1, B2, B3)
+        - x_tucker_cores     = (B0, B1, B2, B3)
         - x_tt_cores        = (G0, G1, G2, G3)
     The "base cores" are:
-        - basis_cores       = (U0,U1, U2, U3), up orthogonal
+        - tucker_cores       = (U0,U1, U2, U3), up orthogonal
         - left_tt_cores     = (L0, L1, L2, L3), left orthogonal
         - right_tt_cores    = (R0, R1, R2, R3), right orthogonal
         - outer_tt_cores    = (O0, O1, O2, O3), down orthogonal
     The "variation cores" are:
-        - basis_variations  = (V0, V1, V2, V3)
+        - tucker_variations  = (V0, V1, V2, V3)
         - tt_variations     = (H0, H1, H2, H3)
 
     Parameters
     ----------
     x: TuckerTensorTrain
         Input TuckerTensorTrain
-        x = (x_basis_cores, x_tt_cores)
-        x_basis_cores = (B0, ..., Bd)
+        x = (x_tucker_cores, x_tt_cores)
+        x_tucker_cores = (B0, ..., Bd)
         x_tt_cores = (G0, ..., Gd)
     xnp:
         Linear algebra backend. Default: np (numpy)
@@ -698,18 +698,18 @@ def orthogonal_representations(
     >>> import t3tools.orthogonalization as orth
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> base, variation = orth.orthogonal_representations(x) # Compute orthogonal representations
-    >>> basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
-    >>> basis_vars, tt_vars = variation
-    >>> (U0,U1,U2) = basis_cores
+    >>> tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
+    >>> tucker_vars, tt_vars = variation
+    >>> (U0,U1,U2) = tucker_cores
     >>> (L0,L1,L2) = left_tt_cores
     >>> (R0,R1,R2) = right_tt_cores
     >>> (O0,O1,O2) = outer_tt_cores
-    >>> (V0,V1,V2) = basis_vars
+    >>> (V0,V1,V2) = tucker_vars
     >>> (H0,H1,H2) = tt_vars
     >>> x2 = ((U0,U1,U2), (L0,H1,R2)) # representation with TT-core variation in index 1
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Still represents origional tensor
     4.978421562425667e-12
-    >>> x3 = ((U0,V1,U2), (L0,O1,R2)) # representation with basis core variation in index 1
+    >>> x3 = ((U0,V1,U2), (L0,O1,R2)) # representation with tucker core variation in index 1
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x3))) # Still represents origional tensor
     5.4355175448533146e-12
     >>> print(np.linalg.norm(U1 @ U1.T - np.eye(U1.shape[0]))) # U: orthogonal
@@ -728,18 +728,18 @@ def orthogonal_representations(
     >>> import t3tools.orthogonalization as orth
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
     >>> base, variation = orth.orthogonal_representations(x) # Compute orthogonal representations
-    >>> basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
-    >>> basis_vars, tt_vars = variation
-    >>> (U0,U1,U2) = basis_cores
+    >>> tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
+    >>> tucker_vars, tt_vars = variation
+    >>> (U0,U1,U2) = tucker_cores
     >>> (L0,L1,L2) = left_tt_cores
     >>> (R0,R1,R2) = right_tt_cores
     >>> (O0,O1,O2) = outer_tt_cores
-    >>> (V0,V1,V2) = basis_vars
+    >>> (V0,V1,V2) = tucker_vars
     >>> (H0,H1,H2) = tt_vars
     >>> x2 = ((U0,U1,U2), (L0,H1,R2)) # representation with TT-core variation in index 1
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Still represents origional tensor
     2.5341562994067855e-12
-    >>> x3 = ((V0,U1,U2), (O0,R1,R2)) # representation with basis core variation in index 0
+    >>> x3 = ((V0,U1,U2), (O0,R1,R2)) # representation with tucker core variation in index 0
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x3))) # Still represents origional tensor
     2.9206090606788446e-12
     >>> print(np.linalg.norm(U0 @ U0.T - np.eye(U0.shape[0]))) # U: orthogonal
@@ -755,17 +755,17 @@ def orthogonal_representations(
 
     num_cores = len(x[1])
 
-    # Orthogonalize basis matrices
+    # Orthogonalize Tucker matrices
     for ii in range(num_cores):
-        x = up_svd_ith_basis_core(ii, x, xnp=xnp)[0]
-    basis_cores = tuple([U.copy() for U in x[0]])
+        x = up_svd_ith_tucker_core(ii, x, xnp=xnp)[0]
+    tucker_cores = tuple([U.copy() for U in x[0]])
 
     # Right orthogonalize
     for ii in range(num_cores-1, 0, -1): # num_cores-1, num_cores-2, ..., 1
         x = right_svd_ith_tt_core(ii, x, xnp=xnp)[0]
     right_tt_cores = tuple([G.copy() for G in x[1]])
 
-    basis_variations = []
+    tucker_variations = []
     tt_variations = []
 
     left_tt_cores = []
@@ -776,13 +776,13 @@ def orthogonal_representations(
 
         tmp = down_svd_ith_tt_core(ii, x, xnp=xnp)[0]
         outer_tt_cores.append(tmp[1][ii])
-        basis_variations.append(tmp[0][ii])
+        tucker_variations.append(tmp[0][ii])
 
         if ii < num_cores-1:
             x = left_svd_ith_tt_core(ii, x, xnp=xnp)[0]
         left_tt_cores.append(x[1][ii])
 
-    base = (basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-    variation = (basis_variations, tt_variations)
+    base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+    variation = (tucker_variations, tt_variations)
     return base, variation
 

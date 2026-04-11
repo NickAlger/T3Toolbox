@@ -168,7 +168,7 @@ def t3_svd(
 
     # Orthogonalize basis matrices
     for ii in range(num_cores):
-        x, _ = orth.up_svd_ith_basis_core(ii, x, xnp=xnp)
+        x, _ = orth.up_svd_ith_tucker_core(ii, x, xnp=xnp)
 
     # Right orthogonalize
     for ii in range(num_cores-1, 0, -1): # num_cores-1, num_cores-2, ..., 1

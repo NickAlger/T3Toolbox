@@ -236,7 +236,56 @@ This package is written in a `functional programming <https://en.wikipedia.org/w
 
 - Custom types are aliases of composite basic types.
 
-- We took great effort to reduce dependencies in our code as much as possible, both externally and internally. Many functions here could literally be copied and pasted into other projects, and would work just fine.
+- We took great effort to reduce dependencies in our code as much as possible, both externally and internally. Many functions here could literally be copied and pasted into other projects, and would work just fine if one replaces the generic NDArray TypeVar with the appropriate array backend (e.g., np.ndarray or jnp.ndarray).
+
+
+Compatibility with Jax
+======================
+
+Jax versions of all functions are available under t3tools.jax. For example, if you want to use jax as the linear algebra backend to add two Tucker tensor trains, you would replace:
+
+	>>> t3tools.tucker_tensor_train.t3_add(x, y)
+	
+with:
+	
+	>>> t3tools.jax.tucker_tensor_train.t3_add(x, y)
+	
+- Both numpy and jax versions of functions can be used together within the same code::
+
+	>>> import numpy as np
+	>>> import t3tools.tucker_tensor_train as t3
+	>>> import t3tools.jax.tucker_tensor_train as t3_jax
+	>>> structure = ((9,8,7),(5,4,3),(1,6,5,1))
+	>>> x = t3.t3_corewise_randn(structure)
+	>>> y = t3.t3_corewise_randn(structure)
+	>>> print(type(t3.t3_add(x, y)[0][0]))
+	<class 'numpy.ndarray'>
+	>>> print(type(t3_jax.t3_add(x, y)[0][0]))
+	<class 'jaxlib.xla_extension.ArrayImpl'>
+	
+- For functions that do not explicitly call jax or numpy functions, the arrays that are output will be the same type as the arrays that are input::
+
+	>>> import numpy as np
+	>>> import jax.numpy as jnp
+	>>> import t3tools.tucker_tensor_train as t3
+	>>> import t3tools.jax.tucker_tensor_train as t3_jax
+	>>> structure = ((9,8,7),(5,4,3),(1,6,5,1))
+	>>> x_np = t3.t3_corewise_randn(structure)
+	>>> x_jax = t3_jax.t3_corewise_randn(structure)
+	>>> rev_np_x_np = t3.reverse_t3(x_np)
+	>>> rev_np_x_jax = t3.reverse_t3(x_jax)
+	>>> rev_jax_x_np = t3_jax.reverse_t3(x_np)
+	>>> rev_jax_x_jax = t3_jax.reverse_t3(x_jax)
+	>>> print(type(rev_np_x_np[0][0]))
+	<class 'numpy.ndarray'>
+	>>> print(type(rev_np_x_jax[0][0]))
+	<class 'jaxlib.xla_extension.ArrayImpl'>
+	>>> print(type(rev_jax_x_np[0][0]))
+	<class 'numpy.ndarray'>
+	>>> print(type(rev_jax_x_jax[0][0]))
+	<class 'jaxlib.xla_extension.ArrayImpl'>
+
+- If Jax is not installed, jax versions of functions will default to use numpy instead.
 
 - Jax versions of numerical functions are suitable for `just-in-time (jit) compilation <https://docs.jax.dev/en/latest/_autosummary/jax.jit.html>`_ in jax, after removing non-numerical parameters by `partial evaluation <https://en.wikipedia.org/wiki/Partial_application>`_. E.g.,::
 		

@@ -35,7 +35,7 @@ class Orthogonalization(unittest.TestCase):
                     dense_x = t3.t3_to_dense(x)
                     for ind in range(len(STRUCTURE[0])):
 
-                        x2, ss = ORTH.up_svd_ith_basis_core(ind, x)
+                        x2, ss = ORTH.up_svd_ith_tucker_core(ind, x)
 
                         dense_x2 = t3.t3_to_dense(x2)
                         self.check_relerr(dense_x, dense_x2)
@@ -169,7 +169,7 @@ class Orthogonalization(unittest.TestCase):
                     dense_x = t3.t3_to_dense(x)
 
                     # ind=0
-                    x2 = ORTH.orthogonalize_relative_to_ith_basis_core(0, x)
+                    x2 = ORTH.orthogonalize_relative_to_ith_tucker_core(0, x)
 
                     dense_x2 = t3.t3_to_dense(x2)
                     self.check_relerr(dense_x, dense_x2)
@@ -180,7 +180,7 @@ class Orthogonalization(unittest.TestCase):
                     self.check_relerr(I, np.einsum('axjkd,ayjkd->xy', X, X))
 
                     # ind=1
-                    x2 = ORTH.orthogonalize_relative_to_ith_basis_core(1, x)
+                    x2 = ORTH.orthogonalize_relative_to_ith_tucker_core(1, x)
 
                     dense_x2 = t3.t3_to_dense(x2)
                     self.check_relerr(dense_x, dense_x2)
@@ -191,7 +191,7 @@ class Orthogonalization(unittest.TestCase):
                     self.check_relerr(I, np.einsum('aiykd,aiwkd->yw', X, X))
 
                     # ind=2
-                    x2 = ORTH.orthogonalize_relative_to_ith_basis_core(2, x)
+                    x2 = ORTH.orthogonalize_relative_to_ith_tucker_core(2, x)
 
                     dense_x2 = t3.t3_to_dense(x2)
                     self.check_relerr(dense_x, dense_x2)

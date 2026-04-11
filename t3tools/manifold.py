@@ -62,10 +62,10 @@ def manifold_dim(
     29
     >>> p = t3.t3_corewise_randn(s)
     >>> base, _ = orth.orthogonal_representations(p)
-    >>> basis_shapes, tt_shapes = bvf.hole_shapes(base)
-    >>> num_basis_entries = np.sum([np.prod(shape) for shape in basis_shapes])
+    >>> tucker_shapes, tt_shapes = bvf.hole_shapes(base)
+    >>> num_tucker_entries = np.sum([np.prod(shape) for shape in tucker_shapes])
     >>> num_tt_entries = np.sum([np.prod(shape) for shape in tt_shapes])
-    >>> num_core_entries = num_basis_entries + num_tt_entries
+    >>> num_core_entries = num_tucker_entries + num_tt_entries
     >>> print(num_core_entries)
     80
     >>> vv = [t3m.tangent_randn(base, apply_gauge_projection=False) for _ in range(num_core_entries)]
@@ -137,16 +137,16 @@ def tangent_to_dense(
     bvf.check_fit(variation, base)
 
     num_cores = len(variation[0])
-    basis_terms = [bvf.ith_bv_to_t3(ii, False, base, variation) for ii in range(num_cores)]
+    tucker_terms = [bvf.ith_bv_to_t3(ii, False, base, variation) for ii in range(num_cores)]
     tt_terms    = [bvf.ith_bv_to_t3(ii, True, base, variation) for ii in range(num_cores)]
-    terms = basis_terms + tt_terms
+    terms = tucker_terms + tt_terms
     V = t3.t3_to_dense(terms[0])
     for t in terms[1:]:
         V = V + t3.t3_to_dense(t, xnp=xnp)
 
     if include_shift:
-        basis_cores, left_tt_cores, _, _ = base
-        P = t3.t3_to_dense((basis_cores, left_tt_cores))
+        tucker_cores, left_tt_cores, _, _ = base
+        P = t3.t3_to_dense((tucker_cores, left_tt_cores))
         X = P + V
     else:
         X = V
@@ -221,15 +221,15 @@ def tangent_to_t3(
     1.2102169224182523e-12
     '''
     bvf.check_fit(variation, base)
-    basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
-    basis_vars, tt_vars = variation
+    tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
+    tucker_vars, tt_vars = variation
 
-    num_cores = len(basis_cores)
+    num_cores = len(tucker_cores)
 
-    x_basis_cores = []
-    for B, dB in zip(basis_cores, basis_vars):
+    x_tucker_cores = []
+    for B, dB in zip(tucker_cores, tucker_vars):
         B2 = xnp.concatenate([B, dB], axis=0)
-        x_basis_cores.append(B2)
+        x_tucker_cores.append(B2)
 
     x_tt_cores = []
 
@@ -275,7 +275,7 @@ def tangent_to_t3(
     G = xnp.concatenate([G_top, G_bot], axis=1)
     x_tt_cores.append(G)
 
-    return tuple(x_basis_cores), tuple(x_tt_cores)
+    return tuple(x_tucker_cores), tuple(x_tt_cores)
 
 
 def tangent_zeros(
@@ -314,12 +314,12 @@ def tangent_zeros(
     """
     bvf.check_t3base(base)
 
-    var_basis_shapes, var_tt_shapes = bvf.hole_shapes(base)
+    var_tucker_shapes, var_tt_shapes = bvf.hole_shapes(base)
 
-    basis_vars = tuple([xnp.zeros(s) for s in var_basis_shapes])
+    tucker_vars = tuple([xnp.zeros(s) for s in var_tucker_shapes])
     tt_vars = tuple([xnp.zeros(s) for s in var_tt_shapes])
 
-    zero_variation = (basis_vars, tt_vars)
+    zero_variation = (tucker_vars, tt_vars)
     return zero_variation
 
 
@@ -378,12 +378,12 @@ def tangent_randn(
     """
     bvf.check_t3base(base)
 
-    var_basis_shapes, var_tt_shapes = bvf.hole_shapes(base)
+    var_tucker_shapes, var_tt_shapes = bvf.hole_shapes(base)
 
-    basis_vars0 = tuple([randn(*s) for s in var_basis_shapes])
+    tucker_vars0 = tuple([randn(*s) for s in var_tucker_shapes])
     tt_vars0 = tuple([randn(*s) for s in var_tt_shapes])
 
-    variation = (basis_vars0, tt_vars0)
+    variation = (tucker_vars0, tt_vars0)
     if apply_gauge_projection:
         variation = orthogonal_gauge_projection(variation, base)
     return variation
@@ -401,7 +401,7 @@ def orthogonal_gauge_projection(
     """Makes tangent variation gauged via orthogonal projection. Changes tangent vector.
 
     Gauge condition:
-        - All variation basis cores Vi are orthogonal to the corresponding base basis cores Ui:
+        - All variation Tucker cores Vi are orthogonal to the corresponding base Tucker cores Ui:
             Ui @ Vi.T = 0    for    i=1,...,d
         - All but the last variation TT-cores H are left-perpendicular to the corresponding base left TT-cores L:
             einsum('iaj,iak->jk', Hi, Li) = 0    for    i=1,...,d-1
@@ -441,7 +441,7 @@ def orthogonal_gauge_projection(
     >>> proj_variation = t3m.orthogonal_gauge_projection(variation, base) # Make gauged via orthogonal projection
     >>> (U0,U1,U2), (L0,L1,L2), _, _ = base
     >>> ((V0,V1,V2), (H0,H1,H2)) = proj_variation
-    >>> print(np.linalg.norm(V1 @ U1.T)) # Gauge condition for basis core 1
+    >>> print(np.linalg.norm(V1 @ U1.T)) # Gauge condition for tucker core 1
     3.512073125137391e-15
     >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', H1, L1))) # Gauge condition for TT-core 1
     1.5807940730805242e-15
@@ -450,8 +450,8 @@ import t3tools.corewise    >>> v_minus_p_dot_p = common.corewise_dot(t3tools.cor
     -4.995303314442243e-18
     """
     bvf.check_fit(variation, orthogonal_base)
-    basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = orthogonal_base
-    basis_vars, tt_vars = variation
+    tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = orthogonal_base
+    tucker_vars, tt_vars = variation
 
     new_tt_variations = []
     for dV, P in zip(tt_vars[:-1], left_tt_cores[:-1]):
@@ -459,12 +459,12 @@ import t3tools.corewise    >>> v_minus_p_dot_p = common.corewise_dot(t3tools.cor
         new_tt_variations.append(dV2)
     new_tt_variations.append(tt_vars[-1])
 
-    new_basis_variations = []
-    for dB, B in zip(basis_vars, basis_cores):
+    new_tucker_variations = []
+    for dB, B in zip(tucker_vars, tucker_cores):
         dB2 = dB - (dB @ B.T) @ B
-        new_basis_variations.append(dB2)
+        new_tucker_variations.append(dB2)
 
-    return tuple(new_basis_variations), tuple(new_tt_variations)
+    return tuple(new_tucker_variations), tuple(new_tt_variations)
 
 
 def oblique_gauge_projection(
@@ -517,7 +517,7 @@ def oblique_gauge_projection(
     3.4398319441148304e-15
     >>> (U0,U1,U2), (L0,L1,L2), _, _ = base
     >>> ((V0,V1,V2), (H0,H1,H2)) = proj_variation
-    >>> print(np.linalg.norm(V1 @ U1.T)) # Gauge condition for basis core 1
+    >>> print(np.linalg.norm(V1 @ U1.T)) # Gauge condition for Tucker core 1
     2.931519226677228e-15
     >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', H1, L1))) # Gauge condition for TT-core 1
     6.99005312491287e-16
@@ -548,17 +548,17 @@ import t3tools.corewise    >>> u_gauged = t3m.oblique_gauge_projection(u, base) 
     0.0
     """
     bvf.check_fit(variation, orthogonal_base)
-    basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = orthogonal_base
-    basis_vars, tt_vars = variation
-    num_cores = len(basis_cores)
+    tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = orthogonal_base
+    tucker_vars, tt_vars = variation
+    num_cores = len(tucker_cores)
 
     tt_vars = list(tt_vars)
-    basis_vars = list(basis_vars)
+    tucker_vars = list(tucker_vars)
 
-    # Make basis variations left-perpendicular
+    # Make Tucker variations left-perpendicular
     for ii in range(num_cores):
-        B_io = basis_cores[ii]
-        dB_jo = basis_vars[ii]
+        B_io = tucker_cores[ii]
+        dB_jo = tucker_vars[ii]
         R_aib = outer_tt_cores[ii]
         dG_ajb = tt_vars[ii]
 
@@ -568,7 +568,7 @@ import t3tools.corewise    >>> u_gauged = t3m.oblique_gauge_projection(u, base) 
         dG2_ajb = dG_ajb + xnp.einsum('aib,ij->ajb', R_aib, X_ji)
 
         tt_vars[ii] = dG2_ajb
-        basis_vars[ii] = dB2_jo
+        tucker_vars[ii] = dB2_jo
 
     # Make tt cores left-perpendicular
     for ii in range(num_cores-1):
@@ -584,7 +584,7 @@ import t3tools.corewise    >>> u_gauged = t3m.oblique_gauge_projection(u, base) 
         tt_vars[ii] = new_dV1
         tt_vars[ii+1] = new_dV2
 
-    return tuple(basis_vars), tuple(tt_vars)
+    return tuple(tucker_vars), tuple(tt_vars)
 
 
 def tt_reverse(cores):
@@ -659,11 +659,11 @@ def project_t3_onto_tangent_space(
     t3.check_t3(x)
     bvf.check_t3base(orthogonal_base)
 
-    basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = orthogonal_base
-    other_basis_cores, other_tt_cores = x
+    tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = orthogonal_base
+    other_tucker_cores, other_tt_cores = x
 
-    base_shape = tuple([B.shape[1] for B in basis_cores])
-    other_shape = tuple([B.shape[1] for B in other_basis_cores])
+    base_shape = tuple([B.shape[1] for B in tucker_cores])
+    other_shape = tuple([B.shape[1] for B in other_tucker_cores])
     if base_shape != other_shape:
         raise RuntimeError(
             'Attempted to retract TuckerTensorTrain with wrong shape onto tangent space.\n'
@@ -671,7 +671,7 @@ def project_t3_onto_tangent_space(
         )
 
     other_tt_cores2 = []
-    for G_other, B_other, B in zip(other_tt_cores, other_basis_cores, basis_cores):
+    for G_other, B_other, B in zip(other_tt_cores, other_tucker_cores, tucker_cores):
         G_other2 = xnp.einsum('aib,ix->axb', G_other, B_other @ B.T)
         other_tt_cores2.append(G_other2)
 
@@ -679,11 +679,11 @@ def project_t3_onto_tangent_space(
     zipper_right2left = tt_zipper_right_to_left(other_tt_cores2, right_tt_cores)[1:]
 
     ungauged_tt_variations = []
-    ungauged_basis_variations = []
+    ungauged_tucker_variations = []
     for ZL_ax, ZR_by, G_aib, B_io, R0_xjy, B0_jo in zip(
             zipper_left2right, zipper_right2left,
-            other_tt_cores, other_basis_cores,
-            outer_tt_cores, basis_cores,
+            other_tt_cores, other_tucker_cores,
+            outer_tt_cores, tucker_cores,
     ):
         X_xiy = xnp.einsum('ax,aib,by->xiy', ZL_ax, G_aib, ZR_by)
         dG_xjy = xnp.einsum('xiy,ij->xjy', X_xiy, B_io @ B0_jo.T)
@@ -691,9 +691,9 @@ def project_t3_onto_tangent_space(
         dB_jo = xnp.einsum('ij,io->jo', M_ij, B_io)
 
         ungauged_tt_variations.append(dG_xjy)
-        ungauged_basis_variations.append(dB_jo)
+        ungauged_tucker_variations.append(dB_jo)
 
-    ungauged_u = (ungauged_basis_variations, ungauged_tt_variations)
+    ungauged_u = (ungauged_tucker_variations, ungauged_tt_variations)
     gauged_u = orthogonal_gauge_projection(ungauged_u, orthogonal_base)
     return gauged_u
 
@@ -749,8 +749,8 @@ import t3tools.corewise    >>> v2 = t3tools.corewise.corewise_scale(variation, 1
     """
     bvf.check_fit(variation, base)
 
-    basis_cores, left_tt_cores, _, _ = base
-    _, base_tucker_ranks, base_tt_ranks = t3.get_structure((basis_cores, left_tt_cores))
+    tucker_cores, left_tt_cores, _, _ = base
+    _, base_tucker_ranks, base_tt_ranks = t3.get_structure((tucker_cores, left_tt_cores))
 
     x_t3 = tangent_to_t3(variation, base, include_shift=True, xnp=xnp)
     retracted_x_t3, _, _ = t3svd.t3_svd(
