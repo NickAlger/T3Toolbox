@@ -1,5 +1,18 @@
 WORK IN PROGRESS DO NOT USE
 
+# Installation
+The package is pure python. Dependencies:
+
+* [Numpy](https://numpy.org/install/) (required)
+* [Jax](https://docs.jax.dev/en/latest/installation.html) (optional)
+
+Install from source::
+
+	git clone https://github.com/NickAlger/T3Toolbox.git
+	cd T3Toolbox
+	pip install .
+	
+
 # T3Toolbox
 
 A Python library for working with Tucker tensor trains (T3). 
@@ -68,19 +81,6 @@ even though these dense tensors are not formed during computations.
 
 * Nick Alger (nalger225@gmail.com)
 * Blake Christierson (bechristierson@utexas.edu)
-
-
-# Installation
-The package is pure python. Dependencies:
-
-* [Numpy](https://numpy.org/install/) (required)
-* [Jax](https://docs.jax.dev/en/latest/installation.html) (optional)
-
-Install from source::
-
-	git clone https://github.com/NickAlger/T3Toolbox.git
-	cd T3Toolbox
-	pip install .
 
 # Documentation
 
