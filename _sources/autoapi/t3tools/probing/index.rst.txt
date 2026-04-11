@@ -27,7 +27,7 @@ Functions
    /autoapi/t3tools/probing/compute_tau_tildes
    /autoapi/t3tools/probing/compute_sigma_tildes
    /autoapi/t3tools/probing/compute_dxi_tildes
-   /autoapi/t3tools/probing/assemble_basis_variations
+   /autoapi/t3tools/probing/assemble_tucker_variations
    /autoapi/t3tools/probing/assemble_tt_variations
    /autoapi/t3tools/probing/probe_tangent_transpose
 
@@ -50,7 +50,7 @@ Functions
    t3tools.probing.compute_tau_tildes
    t3tools.probing.compute_sigma_tildes
    t3tools.probing.compute_dxi_tildes
-   t3tools.probing.assemble_basis_variations
+   t3tools.probing.assemble_tucker_variations
    t3tools.probing.assemble_tt_variations
    t3tools.probing.probe_tangent_transpose
 

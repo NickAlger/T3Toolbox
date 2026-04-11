@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3tools.probing.assemble_basis_variations &#8212; TuckerTensorTrainTools 0.1</title>
+    <title>t3tools.probing.assemble_tucker_variations &#8212; TuckerTensorTrainTools 0.1</title>
   
   
   
@@ -42,7 +42,7 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3tools/probing/assemble_basis_variations';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3tools/probing/assemble_tucker_variations';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
@@ -337,7 +337,7 @@
 <li class="toctree-l3"><a class="reference internal" href="compute_tau_tildes.html">t3tools.probing.compute_tau_tildes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_sigma_tildes.html">t3tools.probing.compute_sigma_tildes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_dxi_tildes.html">t3tools.probing.compute_dxi_tildes</a></li>
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3tools.probing.assemble_basis_variations</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3tools.probing.assemble_tucker_variations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="assemble_tt_variations.html">t3tools.probing.assemble_tt_variations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="probe_tangent_transpose.html">t3tools.probing.probe_tangent_transpose</a></li>
 </ul>
@@ -453,7 +453,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3tools.probing</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3tools.probing.assemble_basis_variations</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3tools.probing.assemble_tucker_variations</span></li>
   </ul>
 </nav>
 </div>
@@ -470,12 +470,12 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="t3tools-probing-assemble-basis-variations">
-<h1>t3tools.probing.assemble_basis_variations<a class="headerlink" href="#t3tools-probing-assemble-basis-variations" title="Link to this heading">#</a></h1>
+  <section id="t3tools-probing-assemble-tucker-variations">
+<h1>t3tools.probing.assemble_tucker_variations<a class="headerlink" href="#t3tools-probing-assemble-tucker-variations" title="Link to this heading">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3tools.probing.assemble_basis_variations">
-<span class="sig-prename descclassname"><span class="pre">t3tools.probing.</span></span><span class="sig-name descname"><span class="pre">assemble_basis_variations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ztildes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dxi_tildes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ww</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">etas</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sum_over_probes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xnp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3tools.probing.assemble_basis_variations" title="Link to this definition">#</a></dt>
-<dd><p>Assemble basis core variations, delta_U_tilde.
+<dt class="sig sig-object py" id="t3tools.probing.assemble_tucker_variations">
+<span class="sig-prename descclassname"><span class="pre">t3tools.probing.</span></span><span class="sig-name descname"><span class="pre">assemble_tucker_variations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ztildes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dxi_tildes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ww</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">etas</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sum_over_probes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xnp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3tools.probing.assemble_tucker_variations" title="Link to this definition">#</a></dt>
+<dd><p>Assemble Tucker core variations, delta_U_tilde.
 Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.</p>
 <dl class="simple">
 <dt>See Section 5.2.4, particularly Formula (47), in:</dt><dd><p>Alger, N., Christierson, B., Chen, P., &amp; Ghattas, O. (2026).
@@ -535,14 +535,14 @@ arXiv preprint arXiv:2603.21141.
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3tools.probing.assemble_basis_variations"><code class="docutils literal notranslate"><span class="pre">t3tools.probing.assemble_basis_variations()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3tools.probing.assemble_tucker_variations"><code class="docutils literal notranslate"><span class="pre">t3tools.probing.assemble_tucker_variations()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3tools/probing/assemble_basis_variations.rst.txt">
+    <a href="../../../_sources/autoapi/t3tools/probing/assemble_tucker_variations.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

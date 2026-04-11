@@ -1,12 +1,12 @@
 t3tools.probing.compute_dxis
 ============================
 
-.. py:function:: t3tools.probing.compute_dxis(var_basis_cores: Sequence[NDArray], ww: Sequence[NDArray], xnp=np) -> Tuple[NDArray, Ellipsis]
+.. py:function:: t3tools.probing.compute_dxis(var_tucker_cores: Sequence[NDArray], ww: Sequence[NDArray], xnp=np) -> Tuple[NDArray, Ellipsis]
 
    Compute var-upward edge variables dxi.
    Used for probing a tangent vector.
 
-   Same as t3_compute_dxis(), except with var_basis_cores in place of basis_cores.
+   Same as t3_compute_dxis(), except with var_tucker_cores in place of tucker_cores.
 
    See Section 5.2.3, particularly Formula (34), in:
        Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
