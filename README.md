@@ -3,8 +3,7 @@ WORK IN PROGRESS DO NOT USE
 # T3Toolbox
 
 A Python library for working with Tucker tensor trains (T3). 
-Tucker tensor trains are the composition of a [Tucker decomposition](https://en.wikipedia.org/wiki/Tucker_decomposition) 
-with a [tensor train](https://en.wikipedia.org/wiki/Matrix_product_state) (also called matrix product states) representation of the central Tucker core. 
+
 
 # Installation
 The package is pure python. Dependencies:
@@ -25,6 +24,9 @@ Install from source::
 
 
 # Tucker tensor trains
+
+Tucker tensor trains are the composition of a [Tucker decomposition](https://en.wikipedia.org/wiki/Tucker_decomposition) 
+with a [tensor train](https://en.wikipedia.org/wiki/Matrix_product_state) (also called matrix product states) representation of the central Tucker core. 
 
 Tensor network diagram for a Tucker tensor train::
 
