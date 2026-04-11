@@ -64,20 +64,10 @@ even though these dense tensors are not formed during computations.
 - Option to use either [Numpy](https://numpy.org/) or [Jax](https://docs.jax.dev/en/latest/index.html) for linear algebra operations
 
 
-# Websites
-
-* Github: https://github.com/NickAlger/T3Toolbox
-* Documentation: https://nickalger.github.io/T3Toolbox/
-
-
 # Authors
 
 * Nick Alger (nalger225@gmail.com)
 * Blake Christierson (bechristierson@utexas.edu)
-
-# License
-
-* [MIT License](https://mit-license.org/)
 
 
 # Installation
