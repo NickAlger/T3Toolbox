@@ -382,7 +382,7 @@ generic Tucker tensor train of the given structure.
 We do not account for possible additional rank deficiency due to
 the numerical values within the cores.
 
-Tucker tensor trains that do not have minimal ranks are degenerate, as they can always be reduced to minimal rank Tucker tensor trains (without changing the represented tensor) using T3-SVD. This is analogous to a low rank matrix approximation A = B C, where A is NxM, B is Nxk, C is kxM, and k>min(N,M).
+Tucker tensor trains that do not have minimal ranks are degenerate, as they can always be reduced to minimal rank Tucker tensor trains (without changing the represented tensor) using T3-SVD. This degeneracy is analogous to a low rank matrix approximation A = B C, where A is NxM, B is Nxk, C is kxM, and k>min(N,M).
 
 T3 Manifold
 -----------
