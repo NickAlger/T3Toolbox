@@ -36,14 +36,14 @@ NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray,
 ###################################################
 
 UniformTuckerTensorTrainCores = typ.Tuple[
-    NDArray, # basis_supercore, shape=(d, n, N)
+    NDArray, # tucker_supercore, shape=(d, n, N)
     NDArray, # tt_supercore, shape=(d, r, n, r)
 ]
 """
 Tuple containing supercores of a Uniform Tucker tensor train
 
 Uniform Tucker tensor trains are created by padding a Tucker tensor train 
-so that the ranks are uniform, then stacking the TT-cores and basis cores into
+so that the ranks are uniform, then stacking the TT cores and Tucker cores into
 "supercores", which have one more dimension.
 
 Padding may be tracked with boolean mask arrays associated with the edges.
@@ -53,7 +53,7 @@ See Also
 UniformTuckerTensorTrainMasks
 
 **Components**
-    - basis_supercore:      NDArray. shape=(d, n, N).       Stacked padded basis cores
+    - tucker_supercore:      NDArray. shape=(d, n, N).       Stacked padded tucker cores
     - tt_supercore:         NDArray. shape=(d, r, n, r).    Stacked padded TT-cores
     
 Here:
@@ -89,8 +89,8 @@ See Also
 UniformTuckerTensorTrainCores
 
 **Components**
-    - shape_masks:  NDArray. shape=(d,N).   Stacked masks for edges between basis cores and exterior of tensor
-    - tucker_masks: NDArray. shape=(d,n).   Stacked masks for edges between basis cores and adjacent TT-cores
+    - shape_masks:  NDArray. shape=(d,N).   Stacked masks for edges between Tucker cores and exterior of tensor
+    - tucker_masks: NDArray. shape=(d,n).   Stacked masks for edges between Tucker cores and adjacent TT-cores
     - tt_masks:     NDArray. shape=(d+1,r). Stacked masks for edges between adjacent TT-cores
 
 Here:
@@ -131,21 +131,21 @@ def check_ut3(
     RuntimeError:
         Raised if internal shapes are inconsistent.
     """
-    basis_supercore, tt_supercore = cores
+    tucker_supercore, tt_supercore = cores
     shape_masks, tucker_masks, tt_masks = masks
 
-    d, n, N = basis_supercore.shape
+    d, n, N = tucker_supercore.shape
     _, r, _, _ = tt_supercore.shape
 
-    shapes_string =     'basis_supercore.shape = ' + str(basis_supercore.shape) + '\n'
+    shapes_string =     'tucker_supercore.shape = ' + str(tucker_supercore.shape) + '\n'
     shapes_string +=    'tt_supercore.shape = '    + str(tt_supercore.shape) + '\n'
     shapes_string +=    'shape_masks.shape = '     + str(shape_masks.shape) + '\n'
     shapes_string +=    'tucker_masks.shape = '    + str(tucker_masks.shape) + '\n'
     shapes_string +=    'tt_masks.shape = '        + str(tt_masks.shape)
 
-    if basis_supercore.shape != (d,n,N):
+    if tucker_supercore.shape != (d,n,N):
         raise RuntimeError(
-            'basis_supercore has incorrect shape.\n' + shapes_string
+            'tucker_supercore has incorrect shape.\n' + shapes_string
         )
 
     if tt_supercore.shape != (d,r,n,r):
@@ -205,9 +205,9 @@ def get_padded_structure(
     >>> print(ut3.get_padded_structure(cores))
     (3, 16, 6, 3)
     """
-    basis_supercore, tt_supercore = cores
+    tucker_supercore, tt_supercore = cores
 
-    d, n, N = basis_supercore.shape
+    d, n, N = tucker_supercore.shape
     r = tt_supercore.shape[1]
     return d, N, n, r
 
@@ -366,11 +366,11 @@ def t3_to_ut3(
     padded_tucker_ranks = (n,)*d
     padded_tt_ranks = (r,)*(d+1)
 
-    padded_basis_cores, padded_tt_cores = t3.change_structure(
+    padded_tucker_cores, padded_tt_cores = t3.change_structure(
         x, (padded_shape, padded_tucker_ranks, padded_tt_ranks),
     )
 
-    basis_supercore = xnp.stack(padded_basis_cores)
+    tucker_supercore = xnp.stack(padded_tucker_cores)
     tt_supercore = xnp.stack(padded_tt_cores)
 
     shape_masks = xnp.stack([
@@ -388,7 +388,7 @@ def t3_to_ut3(
         for ri in tt_ranks
     ])
 
-    return (basis_supercore, tt_supercore), (shape_masks, tucker_masks, tt_masks)
+    return (tucker_supercore, tt_supercore), (shape_masks, tucker_masks, tt_masks)
 
 
 def ut3_to_t3(
@@ -417,17 +417,17 @@ def ut3_to_t3(
     >>> print([np.linalg.norm(G - G2) for G, G2  in zip(x[1], x2[1])])
     [0.0, 0.0, 0.0]
     '''
-    basis_supercore, tt_supercore = cores
+    tucker_supercore, tt_supercore = cores
     shape_masks, tucker_masks, tt_masks = masks
 
     shape_inds  = [xnp.argwhere(em).reshape(-1) for em in list(shape_masks)]
     tucker_inds = [xnp.argwhere(em).reshape(-1) for em in list(tucker_masks)]
     tt_inds     = [xnp.argwhere(em).reshape(-1) for em in list(tt_masks)]
 
-    basis_cores = tuple([
+    tucker_cores = tuple([
         B[ii,:][:,jj]
         for ii, jj, B
-        in zip(tucker_inds, shape_inds, list(basis_supercore))
+        in zip(tucker_inds, shape_inds, list(tucker_supercore))
     ])
 
     tt_cores = tuple([
@@ -436,7 +436,7 @@ def ut3_to_t3(
         in zip(tt_inds[:-1], tucker_inds, tt_inds[1:], list(tt_supercore))
     ])
 
-    return basis_cores, tt_cores
+    return tucker_cores, tt_cores
 
 
 def ut3_to_dense(
@@ -550,7 +550,7 @@ def ut3_entry(
     -6.127319174475165
 
     """
-    basis_supercore, tt_supercore = cores
+    tucker_supercore, tt_supercore = cores
 
     d, N, n, r = get_padded_structure(cores)
 
@@ -572,7 +572,7 @@ def ut3_entry(
         return mu_nb, 0
 
     init = xnp.ones((num_entries, r))
-    xs = (index, basis_supercore, tt_supercore)
+    xs = (index, tucker_supercore, tt_supercore)
     final_mu = scan(_func, init, xs, length=None)[0]
     result = xnp.einsum('na->n', final_mu)
 
@@ -646,17 +646,17 @@ def ut3_add(
             + '(d_y, N_y, n_y, r_y) = ' + str(get_padded_structure(y_cores))
         )
 
-    x_basis_supercore, x_tt_supercore = x_cores
+    x_tucker_supercore, x_tt_supercore = x_cores
     x_shape_masks, x_tucker_masks, x_tt_masks = x_masks
 
-    y_basis_supercore, y_tt_supercore = y_cores
+    y_tucker_supercore, y_tt_supercore = y_cores
     y_shape_masks, y_tucker_masks, y_tt_masks = y_masks
 
     z_shape_masks  = x_shape_masks + y_shape_masks # Addition is nonsensical if these are not the same.
     z_tucker_masks = xnp.concatenate([x_tucker_masks,   y_tucker_masks],   axis=1)
     z_tt_masks     = xnp.concatenate([x_tt_masks,       y_tt_masks],       axis=1)
 
-    z_basis_supercore = xnp.concatenate([x_basis_supercore, y_basis_supercore], axis=1)
+    z_tucker_supercore = xnp.concatenate([x_tucker_supercore, y_tucker_supercore], axis=1)
 
     r0, n0 = r_x, n_x
     r1, n1 = r_y, n_y
@@ -671,7 +671,7 @@ def ut3_add(
     G111 = y_tt_supercore
     z_tt_supercore = xnp.block([[[G000, G001], [G010, G011]], [[G100, G101], [G110, G111]]])
 
-    return (z_basis_supercore, z_tt_supercore), (z_shape_masks, z_tucker_masks, z_tt_masks)
+    return (z_tucker_supercore, z_tt_supercore), (z_shape_masks, z_tucker_masks, z_tt_masks)
 
 
 def ut3_scale(
@@ -709,13 +709,13 @@ def ut3_scale(
     >>> print(np.linalg.norm(s*dense_x - dense_sx))
     1.4502362601421634e-12
     """
-    x_basis_supercore, x_tt_supercore = x_cores
+    x_tucker_supercore, x_tt_supercore = x_cores
 
-    first_x_basis_supercore = x_basis_supercore[:1,:,:]
-    rest_x_basis_supercore = x_basis_supercore[1:, :, :]
-    sx_basis_supercore = xnp.concatenate([s*first_x_basis_supercore, rest_x_basis_supercore], axis=0)
+    first_x_tucker_supercore = x_tucker_supercore[:1,:,:]
+    rest_x_tucker_supercore = x_tucker_supercore[1:, :, :]
+    sx_tucker_supercore = xnp.concatenate([s*first_x_tucker_supercore, rest_x_tucker_supercore], axis=0)
 
-    return sx_basis_supercore, x_tt_supercore
+    return sx_tucker_supercore, x_tt_supercore
 
 
 def ut3_neg(
@@ -815,7 +815,7 @@ def ut3_sub(
 #     'ut3_attached_tangent_vector_to_ut3',
 #     'left_orthogonalize_utt',
 #     'right_orthogonalize_utt',
-#     'orthogonalize_ut3_basis_cores',
+#     'orthogonalize_ut3_tucker_cores',
 #     'ut3_svd_masked',
 #     'ut3_retract',
 #     'construct_ut3_base_representations',
@@ -841,7 +841,7 @@ def ut3_sub(
 #         unpadded_tt_ranks:      typ.Sequence[int], # len=d+1
 # ) -> typ.Tuple[
 #     jnp.ndarray,  # shape_masks, shape=(d, N)
-#     jnp.ndarray,  # basis_mask, shape=(d, n)
+#     jnp.ndarray,  # tucker_mask, shape=(d, n)
 #     jnp.ndarray,  # tt_mask, shape=(d+1, r)
 # ]:  # use to specify ranks
 #     shape_masks = jnp.stack([
