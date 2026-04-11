@@ -6,7 +6,7 @@ t3tools.orthogonalization.orthogonalize_relative_to_ith_tt_core
    Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
 
    Orthogonal is done relative to the ith TT-core:
-       - All basis cores are orthogonalized.
+       - All Tucker cores are orthogonalized.
        - TT-cores to the left are left orthogonalized.
        - ith TT-core is not orthogonalized.
        - TT-cores to the right are right orthogonalized.
@@ -25,7 +25,7 @@ t3tools.orthogonalization.orthogonalize_relative_to_ith_tt_core
    :type atol: float
    :param xnp: Linear algebra backend. Default: np (numpy)
 
-   .. seealso:: :py:obj:`up_svd_ith_basis_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`
+   .. seealso:: :py:obj:`up_svd_ith_tucker_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`
 
    :returns: **new_x** -- New TuckerTensorTrain representing the same tensor, but orthogonalized relative to the ith TT-core.
    :rtype: NDArray

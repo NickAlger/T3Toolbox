@@ -31,10 +31,10 @@ t3tools.manifold.manifold_dim
    29
    >>> p = t3.t3_corewise_randn(s)
    >>> base, _ = orth.orthogonal_representations(p)
-   >>> basis_shapes, tt_shapes = bvf.hole_shapes(base)
-   >>> num_basis_entries = np.sum([np.prod(shape) for shape in basis_shapes])
+   >>> tucker_shapes, tt_shapes = bvf.hole_shapes(base)
+   >>> num_tucker_entries = np.sum([np.prod(shape) for shape in tucker_shapes])
    >>> num_tt_entries = np.sum([np.prod(shape) for shape in tt_shapes])
-   >>> num_core_entries = num_basis_entries + num_tt_entries
+   >>> num_core_entries = num_tucker_entries + num_tt_entries
    >>> print(num_core_entries)
    80
    >>> vv = [t3m.tangent_randn(base, apply_gauge_projection=False) for _ in range(num_core_entries)]

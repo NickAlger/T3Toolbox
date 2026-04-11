@@ -25,7 +25,7 @@ t3tools.orthogonalization.right_svd_ith_tt_core
                einsum('iaj,kaj->ik', new_tt_cores[ii], new_tt_cores[ii]) = identity matrix
              * **ss_x** (*NDArray*) -- Singular values of prior ith TT-core right unfolding. shape=(new_ri,).
 
-   .. seealso:: :py:obj:`truncated_svd`, :py:obj:`left_svd_3tensor`, :py:obj:`up_svd_ith_basis_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`, :py:obj:`t3_svd`
+   .. seealso:: :py:obj:`truncated_svd`, :py:obj:`left_svd_3tensor`, :py:obj:`up_svd_ith_tucker_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`, :py:obj:`t3_svd`
 
    .. rubric:: Examples
 
@@ -37,7 +37,7 @@ t3tools.orthogonalization.right_svd_ith_tt_core
    >>> x2, ss = orth.right_svd_ith_tt_core(ind, x)
    >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
        5.304678679078675e-13
-   >>> basis_cores2, tt_cores2 = x2
+   >>> tucker_cores2, tt_cores2 = x2
    >>> G = tt_cores2[ind]
    >>> print(np.linalg.norm(np.einsum('iaj,kaj->ik', G, G) - np.eye(G.shape[0]))) # TT-core is right orthogonal
        4.207841813173725e-16

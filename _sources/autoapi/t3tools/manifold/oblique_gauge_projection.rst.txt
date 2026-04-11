@@ -48,7 +48,7 @@ t3tools.manifold.oblique_gauge_projection
        3.4398319441148304e-15
        >>> (U0,U1,U2), (L0,L1,L2), _, _ = base
        >>> ((V0,V1,V2), (H0,H1,H2)) = proj_variation
-       >>> print(np.linalg.norm(V1 @ U1.T)) # Gauge condition for basis core 1
+       >>> print(np.linalg.norm(V1 @ U1.T)) # Gauge condition for Tucker core 1
        2.931519226677228e-15
        >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', H1, L1))) # Gauge condition for TT-core 1
        6.99005312491287e-16

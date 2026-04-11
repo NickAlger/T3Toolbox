@@ -21,10 +21,10 @@ t3tools.orthogonalization.up_svd_ith_tt_core
 
    :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor.
                new_tt_cores[ii].shape = (ri, new_ni, r(i+1))
-               new_basis_cores[ii].shape = (new_ni, Ni)
+               new_tucker_cores[ii].shape = (new_ni, Ni)
              * **ss_x** (*NDArray*) -- Singular values of prior ith TT-core outer unfolding. shape=(new_ri,).
 
-   .. seealso:: :py:obj:`truncated_svd`, :py:obj:`outer_svd_3tensor`, :py:obj:`up_svd_ith_basis_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`, :py:obj:`t3_svd`
+   .. seealso:: :py:obj:`truncated_svd`, :py:obj:`outer_svd_3tensor`, :py:obj:`up_svd_ith_tucker_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`, :py:obj:`t3_svd`
 
    .. rubric:: Examples
 

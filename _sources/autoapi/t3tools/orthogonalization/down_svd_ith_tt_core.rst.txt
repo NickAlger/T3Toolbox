@@ -3,7 +3,7 @@ t3tools.orthogonalization.down_svd_ith_tt_core
 
 .. py:function:: t3tools.orthogonalization.down_svd_ith_tt_core(ii: int, x: t3tools.tucker_tensor_train.TuckerTensorTrain, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, xnp=np) -> Tuple[t3tools.tucker_tensor_train.TuckerTensorTrain, NDArray]
 
-   Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the basis core below.
+   Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the tucker core below.
 
    :param ii: index of TT-core to SVD
    :type ii: int
@@ -21,11 +21,11 @@ t3tools.orthogonalization.down_svd_ith_tt_core
 
    :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor, but with ith TT-core outer orthogonal.
                new_tt_cores[ii].shape = (ri, new_ni, r(i+1))
-               new_basis_cores[ii].shape = (new_ni, Ni)
+               new_tucker_cores[ii].shape = (new_ni, Ni)
                einsum('iaj,ibj->ab', new_tt_cores[ii], new_tt_cores[ii]) = identity matrix
              * **ss_x** (*NDArray*) -- Singular values of prior ith TT-core outer unfolding. shape=(new_ni,).
 
-   .. seealso:: :py:obj:`truncated_svd`, :py:obj:`outer_svd_3tensor`, :py:obj:`up_svd_ith_basis_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`t3_svd`
+   .. seealso:: :py:obj:`truncated_svd`, :py:obj:`outer_svd_3tensor`, :py:obj:`up_svd_ith_tucker_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`t3_svd`
 
    .. rubric:: Examples
 
@@ -37,7 +37,7 @@ t3tools.orthogonalization.down_svd_ith_tt_core
    >>> x2, ss = orth.down_svd_ith_tt_core(ind, x)
    >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
    4.367311712704942e-12
-   >>> basis_cores2, tt_cores2 = x2
+   >>> tucker_cores2, tt_cores2 = x2
    >>> G = tt_cores2[ind]
    >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1]))) # TT-core is outer orthogonal
    1.0643458053135608e-15

@@ -48,7 +48,7 @@
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
     <link rel="next" title="t3tools.orthogonalization.right_svd_ith_tt_core" href="right_svd_ith_tt_core.html" />
-    <link rel="prev" title="t3tools.orthogonalization.up_svd_ith_basis_core" href="up_svd_ith_basis_core.html" />
+    <link rel="prev" title="t3tools.orthogonalization.up_svd_ith_tucker_core" href="up_svd_ith_tucker_core.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -281,29 +281,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../jax/orthogonalization/index.html">t3tools.jax.orthogonalization</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../jax/probing/index.html">t3tools.jax.probing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../jax/t3svd/index.html">t3tools.jax.t3svd</a></li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../jax/tucker_tensor_train/index.html">t3tools.jax.tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/get_structure.html">t3tools.jax.tucker_tensor_train.get_structure</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/check_t3.html">t3tools.jax.tucker_tensor_train.check_t3</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_to_dense.html">t3tools.jax.tucker_tensor_train.t3_to_dense</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/squash_tails.html">t3tools.jax.tucker_tensor_train.squash_tails</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/reverse_t3.html">t3tools.jax.tucker_tensor_train.reverse_t3</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_zeros.html">t3tools.jax.tucker_tensor_train.t3_zeros</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_corewise_randn.html">t3tools.jax.tucker_tensor_train.t3_corewise_randn</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_save.html">t3tools.jax.tucker_tensor_train.t3_save</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_load.html">t3tools.jax.tucker_tensor_train.t3_load</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_apply.html">t3tools.jax.tucker_tensor_train.t3_apply</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_entry.html">t3tools.jax.tucker_tensor_train.t3_entry</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/compute_minimal_ranks.html">t3tools.jax.tucker_tensor_train.compute_minimal_ranks</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/are_t3_ranks_minimal.html">t3tools.jax.tucker_tensor_train.are_t3_ranks_minimal</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/pad_t3.html">t3tools.jax.tucker_tensor_train.pad_t3</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_add.html">t3tools.jax.tucker_tensor_train.t3_add</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_scale.html">t3tools.jax.tucker_tensor_train.t3_scale</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_neg.html">t3tools.jax.tucker_tensor_train.t3_neg</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_sub.html">t3tools.jax.tucker_tensor_train.t3_sub</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_dot_t3.html">t3tools.jax.tucker_tensor_train.t3_dot_t3</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_norm.html">t3tools.jax.tucker_tensor_train.t3_norm</a></li>
-</ul>
-</details></li>
+<li class="toctree-l3"><a class="reference internal" href="../jax/tucker_tensor_train/index.html">t3tools.jax.tucker_tensor_train</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../jax/uniform/index.html">t3tools.jax.uniform</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../jax/uniform_manifold/index.html">t3tools.jax.uniform_manifold</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../jax/uniform_orthogonalization/index.html">t3tools.jax.uniform_orthogonalization</a></li>
@@ -331,12 +309,12 @@
 </ul>
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3tools.orthogonalization</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="up_svd_ith_basis_core.html">t3tools.orthogonalization.up_svd_ith_basis_core</a></li>
+<li class="toctree-l3"><a class="reference internal" href="up_svd_ith_tucker_core.html">t3tools.orthogonalization.up_svd_ith_tucker_core</a></li>
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">t3tools.orthogonalization.left_svd_ith_tt_core</a></li>
 <li class="toctree-l3"><a class="reference internal" href="right_svd_ith_tt_core.html">t3tools.orthogonalization.right_svd_ith_tt_core</a></li>
 <li class="toctree-l3"><a class="reference internal" href="up_svd_ith_tt_core.html">t3tools.orthogonalization.up_svd_ith_tt_core</a></li>
 <li class="toctree-l3"><a class="reference internal" href="down_svd_ith_tt_core.html">t3tools.orthogonalization.down_svd_ith_tt_core</a></li>
-<li class="toctree-l3"><a class="reference internal" href="orthogonalize_relative_to_ith_basis_core.html">t3tools.orthogonalization.orthogonalize_relative_to_ith_basis_core</a></li>
+<li class="toctree-l3"><a class="reference internal" href="orthogonalize_relative_to_ith_tucker_core.html">t3tools.orthogonalization.orthogonalize_relative_to_ith_tucker_core</a></li>
 <li class="toctree-l3"><a class="reference internal" href="orthogonalize_relative_to_ith_tt_core.html">t3tools.orthogonalization.orthogonalize_relative_to_ith_tt_core</a></li>
 <li class="toctree-l3"><a class="reference internal" href="orthogonal_representations.html">t3tools.orthogonalization.orthogonal_representations</a></li>
 </ul>
@@ -502,7 +480,7 @@
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>ii</strong> (<em>int</em>) – index of TT-core to SVD</p></li>
-<li><p><strong>x</strong> (<a class="reference internal" href="../jax/tucker_tensor_train/index.html#id0" title="t3tools.jax.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – The Tucker tensor train. structure=((N1,…,Nd), (n1,…,nd), (1,r1,…r(d-1),1))</p></li>
+<li><p><strong>x</strong> (<a class="reference internal" href="../jax/tucker_tensor_train/index.html#t3tools.jax.tucker_tensor_train.TuckerTensorTrain" title="t3tools.jax.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – The Tucker tensor train. structure=((N1,…,Nd), (n1,…,nd), (1,r1,…r(d-1),1))</p></li>
 <li><p><strong>min_rank</strong> (<em>int</em>) – Minimum rank for truncation.</p></li>
 <li><p><strong>min_rank</strong> – Maximum rank for truncation.</p></li>
 <li><p><strong>rtol</strong> (<em>float</em>) – Relative tolerance for truncation.</p></li>
@@ -523,7 +501,7 @@ einsum(‘iaj,iak-&gt;jk’, new_tt_cores[ii], new_tt_cores[ii]) = identity matr
 </dl>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
-<p><code class="xref py py-obj docutils literal notranslate"><span class="pre">truncated_svd</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_3tensor</span></code>, <a class="reference internal" href="up_svd_ith_basis_core.html#t3tools.orthogonalization.up_svd_ith_basis_core" title="t3tools.orthogonalization.up_svd_ith_basis_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_svd_ith_basis_core</span></code></a>, <a class="reference internal" href="right_svd_ith_tt_core.html#t3tools.orthogonalization.right_svd_ith_tt_core" title="t3tools.orthogonalization.right_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd_ith_tt_core</span></code></a>, <a class="reference internal" href="up_svd_ith_tt_core.html#t3tools.orthogonalization.up_svd_ith_tt_core" title="t3tools.orthogonalization.up_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_svd_ith_tt_core</span></code></a>, <a class="reference internal" href="down_svd_ith_tt_core.html#t3tools.orthogonalization.down_svd_ith_tt_core" title="t3tools.orthogonalization.down_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">down_svd_ith_tt_core</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_svd</span></code></p>
+<p><code class="xref py py-obj docutils literal notranslate"><span class="pre">truncated_svd</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_3tensor</span></code>, <a class="reference internal" href="up_svd_ith_tucker_core.html#t3tools.orthogonalization.up_svd_ith_tucker_core" title="t3tools.orthogonalization.up_svd_ith_tucker_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_svd_ith_tucker_core</span></code></a>, <a class="reference internal" href="right_svd_ith_tt_core.html#t3tools.orthogonalization.right_svd_ith_tt_core" title="t3tools.orthogonalization.right_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd_ith_tt_core</span></code></a>, <a class="reference internal" href="up_svd_ith_tt_core.html#t3tools.orthogonalization.up_svd_ith_tt_core" title="t3tools.orthogonalization.up_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_svd_ith_tt_core</span></code></a>, <a class="reference internal" href="down_svd_ith_tt_core.html#t3tools.orthogonalization.down_svd_ith_tt_core" title="t3tools.orthogonalization.down_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">down_svd_ith_tt_core</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_svd</span></code></p>
 </div>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
@@ -534,7 +512,7 @@ einsum(‘iaj,iak-&gt;jk’, new_tt_cores[ii], new_tt_cores[ii]) = identity matr
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x2</span><span class="p">,</span> <span class="n">ss</span> <span class="o">=</span> <span class="n">orth</span><span class="o">.</span><span class="n">left_svd_ith_tt_core</span><span class="p">(</span><span class="n">ind</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">t3</span><span class="o">.</span><span class="n">t3_to_dense</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="o">-</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_to_dense</span><span class="p">(</span><span class="n">x2</span><span class="p">)))</span> <span class="c1"># Tensor unchanged</span>
 <span class="go">    5.186463661974644e-13</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">basis_cores2</span><span class="p">,</span> <span class="n">tt_cores2</span> <span class="o">=</span> <span class="n">x2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_cores2</span><span class="p">,</span> <span class="n">tt_cores2</span> <span class="o">=</span> <span class="n">x2</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">G</span> <span class="o">=</span> <span class="n">tt_cores2</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;iaj,iak-&gt;jk&#39;</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">G</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">G</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">])))</span> <span class="c1"># TT-core is left-orthogonal</span>
 <span class="go">    4.453244025338311e-16</span>
@@ -555,12 +533,12 @@ einsum(‘iaj,iak-&gt;jk’, new_tt_cores[ii], new_tt_cores[ii]) = identity matr
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="up_svd_ith_basis_core.html"
+       href="up_svd_ith_tucker_core.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3tools.orthogonalization.up_svd_ith_basis_core</p>
+        <p class="prev-next-title">t3tools.orthogonalization.up_svd_ith_tucker_core</p>
       </div>
     </a>
     <a class="right-next"

@@ -47,7 +47,7 @@
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3tools.orthogonalization.up_svd_ith_basis_core" href="up_svd_ith_basis_core.html" />
+    <link rel="next" title="t3tools.orthogonalization.up_svd_ith_tucker_core" href="up_svd_ith_tucker_core.html" />
     <link rel="prev" title="t3tools.manifold.retract" href="../manifold/retract.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -281,29 +281,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../jax/orthogonalization/index.html">t3tools.jax.orthogonalization</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../jax/probing/index.html">t3tools.jax.probing</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../jax/t3svd/index.html">t3tools.jax.t3svd</a></li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../jax/tucker_tensor_train/index.html">t3tools.jax.tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/get_structure.html">t3tools.jax.tucker_tensor_train.get_structure</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/check_t3.html">t3tools.jax.tucker_tensor_train.check_t3</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_to_dense.html">t3tools.jax.tucker_tensor_train.t3_to_dense</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/squash_tails.html">t3tools.jax.tucker_tensor_train.squash_tails</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/reverse_t3.html">t3tools.jax.tucker_tensor_train.reverse_t3</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_zeros.html">t3tools.jax.tucker_tensor_train.t3_zeros</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_corewise_randn.html">t3tools.jax.tucker_tensor_train.t3_corewise_randn</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_save.html">t3tools.jax.tucker_tensor_train.t3_save</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_load.html">t3tools.jax.tucker_tensor_train.t3_load</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_apply.html">t3tools.jax.tucker_tensor_train.t3_apply</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_entry.html">t3tools.jax.tucker_tensor_train.t3_entry</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/compute_minimal_ranks.html">t3tools.jax.tucker_tensor_train.compute_minimal_ranks</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/are_t3_ranks_minimal.html">t3tools.jax.tucker_tensor_train.are_t3_ranks_minimal</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/pad_t3.html">t3tools.jax.tucker_tensor_train.pad_t3</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_add.html">t3tools.jax.tucker_tensor_train.t3_add</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_scale.html">t3tools.jax.tucker_tensor_train.t3_scale</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_neg.html">t3tools.jax.tucker_tensor_train.t3_neg</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_sub.html">t3tools.jax.tucker_tensor_train.t3_sub</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_dot_t3.html">t3tools.jax.tucker_tensor_train.t3_dot_t3</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../jax/tucker_tensor_train/t3_norm.html">t3tools.jax.tucker_tensor_train.t3_norm</a></li>
-</ul>
-</details></li>
+<li class="toctree-l3"><a class="reference internal" href="../jax/tucker_tensor_train/index.html">t3tools.jax.tucker_tensor_train</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../jax/uniform/index.html">t3tools.jax.uniform</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../jax/uniform_manifold/index.html">t3tools.jax.uniform_manifold</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../jax/uniform_orthogonalization/index.html">t3tools.jax.uniform_orthogonalization</a></li>
@@ -331,12 +309,12 @@
 </ul>
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">t3tools.orthogonalization</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="up_svd_ith_basis_core.html">t3tools.orthogonalization.up_svd_ith_basis_core</a></li>
+<li class="toctree-l3"><a class="reference internal" href="up_svd_ith_tucker_core.html">t3tools.orthogonalization.up_svd_ith_tucker_core</a></li>
 <li class="toctree-l3"><a class="reference internal" href="left_svd_ith_tt_core.html">t3tools.orthogonalization.left_svd_ith_tt_core</a></li>
 <li class="toctree-l3"><a class="reference internal" href="right_svd_ith_tt_core.html">t3tools.orthogonalization.right_svd_ith_tt_core</a></li>
 <li class="toctree-l3"><a class="reference internal" href="up_svd_ith_tt_core.html">t3tools.orthogonalization.up_svd_ith_tt_core</a></li>
 <li class="toctree-l3"><a class="reference internal" href="down_svd_ith_tt_core.html">t3tools.orthogonalization.down_svd_ith_tt_core</a></li>
-<li class="toctree-l3"><a class="reference internal" href="orthogonalize_relative_to_ith_basis_core.html">t3tools.orthogonalization.orthogonalize_relative_to_ith_basis_core</a></li>
+<li class="toctree-l3"><a class="reference internal" href="orthogonalize_relative_to_ith_tucker_core.html">t3tools.orthogonalization.orthogonalize_relative_to_ith_tucker_core</a></li>
 <li class="toctree-l3"><a class="reference internal" href="orthogonalize_relative_to_ith_tt_core.html">t3tools.orthogonalization.orthogonalize_relative_to_ith_tt_core</a></li>
 <li class="toctree-l3"><a class="reference internal" href="orthogonal_representations.html">t3tools.orthogonalization.orthogonal_representations</a></li>
 </ul>
@@ -497,8 +475,8 @@
 </div>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="up_svd_ith_basis_core.html#t3tools.orthogonalization.up_svd_ith_basis_core" title="t3tools.orthogonalization.up_svd_ith_basis_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_svd_ith_basis_core</span></code></a>(...)</p></td>
-<td><p>Compute SVD of ith basis core and contract non-orthogonal factor up into the TT-core above.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="up_svd_ith_tucker_core.html#t3tools.orthogonalization.up_svd_ith_tucker_core" title="t3tools.orthogonalization.up_svd_ith_tucker_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_svd_ith_tucker_core</span></code></a>(...)</p></td>
+<td><p>Compute SVD of ith tucker core and contract non-orthogonal factor up into the TT-core above.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="left_svd_ith_tt_core.html#t3tools.orthogonalization.left_svd_ith_tt_core" title="t3tools.orthogonalization.left_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_ith_tt_core</span></code></a>(...)</p></td>
 <td><p>Compute SVD of ith TT-core left unfolding and contract non-orthogonal factor into the TT-core to the right.</p></td>
@@ -510,10 +488,10 @@
 <td><p>Compute SVD of ith TT-core outer unfolding and keep non-orthogonal factor with this core.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="down_svd_ith_tt_core.html#t3tools.orthogonalization.down_svd_ith_tt_core" title="t3tools.orthogonalization.down_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">down_svd_ith_tt_core</span></code></a>(...)</p></td>
-<td><p>Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the basis core below.</p></td>
+<td><p>Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the tucker core below.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="orthogonalize_relative_to_ith_basis_core.html#t3tools.orthogonalization.orthogonalize_relative_to_ith_basis_core" title="t3tools.orthogonalization.orthogonalize_relative_to_ith_basis_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonalize_relative_to_ith_basis_core</span></code></a>(...)</p></td>
-<td><p>Orthogonalize all cores in the TuckerTensorTrain except for the ith basis core.</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="orthogonalize_relative_to_ith_tucker_core.html#t3tools.orthogonalization.orthogonalize_relative_to_ith_tucker_core" title="t3tools.orthogonalization.orthogonalize_relative_to_ith_tucker_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonalize_relative_to_ith_tucker_core</span></code></a>(...)</p></td>
+<td><p>Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker core.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="orthogonalize_relative_to_ith_tt_core.html#t3tools.orthogonalization.orthogonalize_relative_to_ith_tt_core" title="t3tools.orthogonalization.orthogonalize_relative_to_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonalize_relative_to_ith_tt_core</span></code></a>(...)</p></td>
 <td><p>Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.</p></td>
@@ -547,11 +525,11 @@
       </div>
     </a>
     <a class="right-next"
-       href="up_svd_ith_basis_core.html"
+       href="up_svd_ith_tucker_core.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3tools.orthogonalization.up_svd_ith_basis_core</p>
+        <p class="prev-next-title">t3tools.orthogonalization.up_svd_ith_tucker_core</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
