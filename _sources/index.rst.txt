@@ -285,8 +285,6 @@ with:
 	>>> print(type(rev_jax_x_jax[0][0]))
 	<class 'jaxlib.xla_extension.ArrayImpl'>
 
-- If Jax is not installed, jax versions of functions will default to use numpy instead.
-
 - Jax versions of numerical functions are suitable for `just-in-time (jit) compilation <https://docs.jax.dev/en/latest/_autosummary/jax.jit.html>`_ in jax, after removing non-numerical parameters by `partial evaluation <https://en.wikipedia.org/wiki/Partial_application>`_. E.g.,::
 		
 	>>> import numpy as np

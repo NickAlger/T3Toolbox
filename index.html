@@ -547,7 +547,6 @@ even though these dense tensors are not formed during computations.</p>
 </pre></div>
 </div>
 </li>
-<li><p>If Jax is not installed, jax versions of functions will default to use numpy instead.</p></li>
 <li><p>Jax versions of numerical functions are suitable for <a class="reference external" href="https://docs.jax.dev/en/latest/_autosummary/jax.jit.html">just-in-time (jit) compilation</a> in jax, after removing non-numerical parameters by <a class="reference external" href="https://en.wikipedia.org/wiki/Partial_application">partial evaluation</a>. E.g.,:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">jax</span>
