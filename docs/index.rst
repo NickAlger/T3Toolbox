@@ -1,7 +1,50 @@
-.. TuckerTensorTrainTools documentation master file, created by
+.. T3Toolbox documentation master file, created by
    sphinx-quickstart on Thu Apr  2 21:15:11 2026.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
+
+Modules
+=======
+
+Tucker tensor trains:
+
+* :doc:`/autoapi/t3toolbox/tucker_tensor_train/index`
+* :doc:`/autoapi/t3toolbox/base_variation_format/index`
+* :doc:`/autoapi/t3toolbox/orthogonalization/index`
+* :doc:`/autoapi/t3toolbox/t3svd/index`
+* :doc:`/autoapi/t3toolbox/manifold/index`
+* :doc:`/autoapi/t3toolbox/probing/index`
+
+Uniform Tucker tensor trains:
+
+* :doc:`/autoapi/t3toolbox/uniform/index`
+* :doc:`/autoapi/t3toolbox/uniform_orthogonalization/index`
+* :doc:`/autoapi/t3toolbox/uniform_t3svd/index`
+* :doc:`/autoapi/t3toolbox/uniform_manifold/index`
+* :doc:`/autoapi/t3toolbox/uniform_probing/index`
+
+Utilities:
+
+* :doc:`/autoapi/t3toolbox/corewise/index`
+* :doc:`/autoapi/t3toolbox/linalg/index`
+* :doc:`/autoapi/t3toolbox/common/index`
+
+
+Jax versions of all modules are available under t3toolbox.jax:
+
+- t3toolbox.jax.tucker_tensor_train
+- t3toolbox.jax.base_variation_format
+- t3toolbox.jax.orthogonalization
+- ...
+
+
+Indices and tables
+==================
+
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
+
 
 T3Toolbox
 =========
@@ -72,8 +115,8 @@ Included functionality:
 Websites
 --------
 
-* Github: https://github.com/NickAlger/TuckerTensorTrainTools
-* Documentation: https://nickalger.github.io/TuckerTensorTrainTools/
+* Github: https://github.com/NickAlger/T3Toolbox
+* Documentation: https://nickalger.github.io/T3Toolbox/
 
 
 Authors
@@ -97,53 +140,9 @@ The package is pure python. Dependencies:
 
 Install from source::
 
-	git clone https://github.com/NickAlger/TuckerTensorTrainTools.git
-	cd TuckerTensorTrainTools
+	git clone https://github.com/NickAlger/T3Toolbox.git
+	cd T3Toolbox
 	pip install .
-
-
-
-Modules
-=======
-
-Tucker tensor trains:
-
-* :doc:`/autoapi/t3toolbox/tucker_tensor_train/index`
-* :doc:`/autoapi/t3toolbox/base_variation_format/index`
-* :doc:`/autoapi/t3toolbox/orthogonalization/index`
-* :doc:`/autoapi/t3toolbox/t3svd/index`
-* :doc:`/autoapi/t3toolbox/manifold/index`
-* :doc:`/autoapi/t3toolbox/probing/index`
-
-Uniform Tucker tensor trains:
-
-* :doc:`/autoapi/t3toolbox/uniform/index`
-* :doc:`/autoapi/t3toolbox/uniform_orthogonalization/index`
-* :doc:`/autoapi/t3toolbox/uniform_t3svd/index`
-* :doc:`/autoapi/t3toolbox/uniform_manifold/index`
-* :doc:`/autoapi/t3toolbox/uniform_probing/index`
-
-Utilities:
-
-* :doc:`/autoapi/t3toolbox/corewise/index`
-* :doc:`/autoapi/t3toolbox/linalg/index`
-* :doc:`/autoapi/t3toolbox/common/index`
-
-
-Jax versions of all modules are available under t3toolbox.jax:
-
-- t3toolbox.jax.tucker_tensor_train
-- t3toolbox.jax.base_variation_format
-- t3toolbox.jax.orthogonalization
-- ...
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
 
 
 Examples
