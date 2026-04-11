@@ -23,7 +23,7 @@ class Orthogonalization(unittest.TestCase):
     def check_relerr(self, xtrue, x):
         self.assertLessEqual(norm(xtrue - x), tol * norm(xtrue))
 
-    def test_up_svd_ith_basis_core(self):
+    def test_up_svd_ith_tucker_core(self):
         structures = [
             ((14, 15, 16), (4, 5, 6), (4, 3, 2, 6)),
         ]
@@ -40,8 +40,8 @@ class Orthogonalization(unittest.TestCase):
                         dense_x2 = t3.t3_to_dense(x2)
                         self.check_relerr(dense_x, dense_x2)
 
-                        basis_cores2, tt_cores2 = x2
-                        B = basis_cores2[ind]
+                        tucker_cores2, tt_cores2 = x2
+                        B = tucker_cores2[ind]
                         G = tt_cores2[ind]
                         rank = len(ss)
                         self.assertEqual(B.shape[0], rank)
@@ -67,7 +67,7 @@ class Orthogonalization(unittest.TestCase):
                         dense_x2 = t3.t3_to_dense(x2)
                         self.check_relerr(dense_x, dense_x2)
 
-                        basis_cores2, tt_cores2 = x2
+                        tucker_cores2, tt_cores2 = x2
                         G = tt_cores2[ind]
                         G_next = tt_cores2[ind+1]
                         rank = len(ss)
@@ -94,7 +94,7 @@ class Orthogonalization(unittest.TestCase):
                         dense_x2 = t3.t3_to_dense(x2)
                         self.check_relerr(dense_x, dense_x2)
 
-                        basis_cores2, tt_cores2 = x2
+                        tucker_cores2, tt_cores2 = x2
                         G_prev = tt_cores2[ind-1]
                         G = tt_cores2[ind]
                         rank = len(ss)
@@ -121,8 +121,8 @@ class Orthogonalization(unittest.TestCase):
                         dense_x2 = t3.t3_to_dense(x2)
                         self.check_relerr(dense_x, dense_x2)
 
-                        basis_cores2, tt_cores2 = x2
-                        B = basis_cores2[ind]
+                        tucker_cores2, tt_cores2 = x2
+                        B = tucker_cores2[ind]
                         G = tt_cores2[ind]
                         rank = len(ss)
                         self.assertEqual(G.shape[1], rank)
@@ -147,8 +147,8 @@ class Orthogonalization(unittest.TestCase):
                         dense_x2 = t3.t3_to_dense(x2)
                         self.check_relerr(dense_x, dense_x2)
 
-                        basis_cores2, tt_cores2 = x2
-                        B = basis_cores2[ind]
+                        tucker_cores2, tt_cores2 = x2
+                        B = tucker_cores2[ind]
                         G = tt_cores2[ind]
                         rank = len(ss)
                         self.assertEqual(G.shape[1], rank)
@@ -157,7 +157,7 @@ class Orthogonalization(unittest.TestCase):
                         I = np.eye(rank)
                         self.check_relerr(I, np.einsum('iaj,ibj->ab', G, G))
 
-    def test_orthogonalize_relative_to_ith_basis_core(self):
+    def test_orthogonalize_relative_to_ith_tucker_core(self):
         structures = [
             ((14, 15, 16), (4, 5, 6), (4, 3, 2, 6)),
         ]
@@ -271,13 +271,13 @@ class Orthogonalization(unittest.TestCase):
 
                     base, variation = ORTH.orthogonal_representations(x)  # Compute orthogonal representations
 
-                    basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
-                    basis_vars, tt_vars = variation
-                    (U0, U1, U2) = basis_cores
+                    tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
+                    tucker_vars, tt_vars = variation
+                    (U0, U1, U2) = tucker_cores
                     (L0, L1, L2) = left_tt_cores
                     (R0, R1, R2) = right_tt_cores
                     (O0, O1, O2) = outer_tt_cores
-                    (V0, V1, V2) = basis_vars
+                    (V0, V1, V2) = tucker_vars
                     (H0, H1, H2) = tt_vars
 
                     # TT replacement
@@ -291,7 +291,7 @@ class Orthogonalization(unittest.TestCase):
                     x2 = ((U0, U1, U2), (L0, L1, H2))
                     self.check_relerr(t3.t3_to_dense(x), t3.t3_to_dense(x2))
 
-                    # basis replacement
+                    # tucker replacement
 
                     x2 = ((V0, U1, U2), (O0, R1, R2))
                     self.check_relerr(t3.t3_to_dense(x), t3.t3_to_dense(x2))

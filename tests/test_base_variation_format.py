@@ -22,17 +22,17 @@ class TestBaseVariationFormat(unittest.TestCase):
     def test_hole_shapes(self):
         for BVF in [bvf, bvf_jax]:
             with self.subTest(BVF=BVF):
-                basis_cores = (np.ones((10, 14)), np.ones((11, 15)), np.ones((12, 16)))
+                tucker_cores = (np.ones((10, 14)), np.ones((11, 15)), np.ones((12, 16)))
                 left_tt_cores = (np.ones((5, 10, 2)), np.ones((2, 11, 3)), np.ones((3, 12, 2)))
                 right_tt_cores = (np.ones((3, 10, 4)), np.ones((4, 11, 5)), np.ones((5, 12, 4)))
                 outer_tt_cores = (np.ones((5, 9, 4)), np.ones((2, 8, 5)), np.ones((3, 7, 4)))
-                base = (basis_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+                base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
 
                 shapes = BVF.hole_shapes(base)
 
-                var_basis_shapes, var_tt_shapes = shapes
+                var_tucker_shapes, var_tt_shapes = shapes
 
-                self.assertEqual(var_basis_shapes, ((9, 14), (8, 15), (7, 16)))
+                self.assertEqual(var_tucker_shapes, ((9, 14), (8, 15), (7, 16)))
                 self.assertEqual(var_tt_shapes, ((5, 10, 4), (2, 11, 5), (3, 12, 4)))
 
                 shapes_jax = bvf_jax.hole_shapes(base)

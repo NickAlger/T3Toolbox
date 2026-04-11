@@ -46,10 +46,10 @@ class TestManifold(unittest.TestCase):
 
                     p = t3.t3_corewise_randn(SHAPE)
                     base, _ = orth.orthogonal_representations(p)
-                    basis_shapes, tt_shapes = bvf.hole_shapes(base)
-                    num_basis_entries = np.sum([np.prod(shape) for shape in basis_shapes])
+                    tucker_shapes, tt_shapes = bvf.hole_shapes(base)
+                    num_tucker_entries = np.sum([np.prod(shape) for shape in tucker_shapes])
                     num_tt_entries = np.sum([np.prod(shape) for shape in tt_shapes])
-                    num_core_entries = num_basis_entries + num_tt_entries
+                    num_core_entries = num_tucker_entries + num_tt_entries
                     vv = [t3m.tangent_randn(base, apply_gauge_projection=False) for _ in range(num_core_entries)]
                     dense_vv = np.stack([t3m.tangent_to_dense(v, base) for v in vv])
                     _, ss, _ = np.linalg.svd(dense_vv.reshape((num_core_entries, -1)), full_matrices=False)
@@ -128,10 +128,10 @@ class TestManifold(unittest.TestCase):
                     self.assertLessEqual(norm(t3m.tangent_to_dense(z, base)), tol)
 
                     shapes = bvf.hole_shapes(base)
-                    basis_z, tt_z = z
-                    basis_shapes, tt_shapes = shapes
+                    tucker_z, tt_z = z
+                    tucker_shapes, tt_shapes = shapes
 
-                    for B, s in zip(basis_z, basis_shapes):
+                    for B, s in zip(tucker_z, tucker_shapes):
                         self.assertEqual(B.shape, s)
 
                     for G, s in zip(tt_z, tt_shapes):
@@ -152,10 +152,10 @@ class TestManifold(unittest.TestCase):
                     v = T3M.tangent_randn(base)  # Random tangent vector, gauged.
 
                     shapes = bvf.hole_shapes(base)
-                    basis_v, tt_v = v
-                    basis_shapes, tt_shapes = shapes
+                    tucker_v, tt_v = v
+                    tucker_shapes, tt_shapes = shapes
 
-                    for B, s in zip(basis_v, basis_shapes):
+                    for B, s in zip(tucker_v, tucker_shapes):
                         self.assertEqual(B.shape, s)
 
                     for G, s in zip(tt_v, tt_shapes):

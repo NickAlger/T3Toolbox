@@ -26,9 +26,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
     def test_get_structure(self):
         for T3 in [t3, t3_jax]:
             with self.subTest(T3=T3):
-                basis_cores = (np.ones((4, 14)), np.ones((5, 15)), np.ones((6, 16)))
+                tucker_cores = (np.ones((4, 14)), np.ones((5, 15)), np.ones((6, 16)))
                 tt_cores = (np.ones((2, 4, 3)), np.ones((3, 5, 7)), np.ones((7, 6, 5)))
-                x = (basis_cores, tt_cores)
+                x = (tucker_cores, tt_cores)
 
                 shape, tucker_ranks, tt_ranks = T3.get_structure(x)
 
@@ -147,10 +147,10 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                     os.remove(fname)
 
-                    basis_cores, tt_cores = x
-                    basis_cores2, tt_cores2 = x2
+                    tucker_cores, tt_cores = x
+                    tucker_cores2, tt_cores2 = x2
 
-                    for B, B2 in zip(basis_cores, basis_cores2):
+                    for B, B2 in zip(tucker_cores, tucker_cores2):
                         self.check_relerr(B, B2)
 
                     for G, G2 in zip(tt_cores, tt_cores2):
