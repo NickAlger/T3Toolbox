@@ -3,7 +3,7 @@ requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "t3tools"
+name = "t3toolbox"
 version = "2026.0.0"
 description = "Library for working with Tucker tensor trains"
 requires-python = ">=3.8"

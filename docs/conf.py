@@ -11,7 +11,7 @@ sys.path.insert(0, basedir)
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'TuckerTensorTrainTools'
+project = 'T3Toolbox'
 copyright = '2026, Nick Alger and Blake Christierson'
 author = 'Nick Alger and Blake Christierson'
 release = '0.1'
@@ -41,7 +41,7 @@ autoapi_own_page_level = 'function'
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_title = "TuckerTensorTrainTools " + release
+html_title = "T3Toolbox " + release
 html_favicon = 'favicon.ico'
 
 html_theme = "pydata_sphinx_theme"
