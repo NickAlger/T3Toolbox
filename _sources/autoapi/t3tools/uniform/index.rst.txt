@@ -60,7 +60,7 @@ Module Contents
    Tuple containing supercores of a Uniform Tucker tensor train
 
    Uniform Tucker tensor trains are created by padding a Tucker tensor train
-   so that the ranks are uniform, then stacking the TT-cores and basis cores into
+   so that the ranks are uniform, then stacking the TT cores and Tucker cores into
    "supercores", which have one more dimension.
 
    Padding may be tracked with boolean mask arrays associated with the edges.
@@ -70,7 +70,7 @@ Module Contents
       UniformTuckerTensorTrainMasks
 
       **Components**
-          - basis_supercore:      NDArray. shape=(d, n, N).       Stacked padded basis cores
+          - tucker_supercore:      NDArray. shape=(d, n, N).       Stacked padded tucker cores
           - tt_supercore:         NDArray. shape=(d, r, n, r).    Stacked padded TT-cores
 
       Here:
@@ -100,8 +100,8 @@ Module Contents
       UniformTuckerTensorTrainCores
 
       **Components**
-          - shape_masks:  NDArray. shape=(d,N).   Stacked masks for edges between basis cores and exterior of tensor
-          - tucker_masks: NDArray. shape=(d,n).   Stacked masks for edges between basis cores and adjacent TT-cores
+          - shape_masks:  NDArray. shape=(d,N).   Stacked masks for edges between Tucker cores and exterior of tensor
+          - tucker_masks: NDArray. shape=(d,n).   Stacked masks for edges between Tucker cores and adjacent TT-cores
           - tt_masks:     NDArray. shape=(d+1,r). Stacked masks for edges between adjacent TT-cores
 
       Here:

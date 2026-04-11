@@ -542,7 +542,7 @@
 <span class="sig-prename descclassname"><span class="pre">t3tools.uniform.</span></span><span class="sig-name descname"><span class="pre">UniformTuckerTensorTrainCores</span></span><a class="headerlink" href="#t3tools.uniform.UniformTuckerTensorTrainCores" title="Link to this definition">#</a></dt>
 <dd><p>Tuple containing supercores of a Uniform Tucker tensor train</p>
 <p>Uniform Tucker tensor trains are created by padding a Tucker tensor train
-so that the ranks are uniform, then stacking the TT-cores and basis cores into
+so that the ranks are uniform, then stacking the TT cores and Tucker cores into
 “supercores”, which have one more dimension.</p>
 <p>Padding may be tracked with boolean mask arrays associated with the edges.</p>
 <div class="admonition seealso">
@@ -550,7 +550,7 @@ so that the ranks are uniform, then stacking the TT-cores and basis cores into
 <p>UniformTuckerTensorTrainMasks</p>
 <dl class="simple">
 <dt><strong>Components</strong></dt><dd><ul class="simple">
-<li><p>basis_supercore:      NDArray. shape=(d, n, N).       Stacked padded basis cores</p></li>
+<li><p>tucker_supercore:      NDArray. shape=(d, n, N).       Stacked padded tucker cores</p></li>
 <li><p>tt_supercore:         NDArray. shape=(d, r, n, r).    Stacked padded TT-cores</p></li>
 </ul>
 </dd>
@@ -586,8 +586,8 @@ so that the ranks are uniform, then stacking the TT-cores and basis cores into
 <p>UniformTuckerTensorTrainCores</p>
 <dl class="simple">
 <dt><strong>Components</strong></dt><dd><ul class="simple">
-<li><p>shape_masks:  NDArray. shape=(d,N).   Stacked masks for edges between basis cores and exterior of tensor</p></li>
-<li><p>tucker_masks: NDArray. shape=(d,n).   Stacked masks for edges between basis cores and adjacent TT-cores</p></li>
+<li><p>shape_masks:  NDArray. shape=(d,N).   Stacked masks for edges between Tucker cores and exterior of tensor</p></li>
+<li><p>tucker_masks: NDArray. shape=(d,n).   Stacked masks for edges between Tucker cores and adjacent TT-cores</p></li>
 <li><p>tt_masks:     NDArray. shape=(d+1,r). Stacked masks for edges between adjacent TT-cores</p></li>
 </ul>
 </dd>
