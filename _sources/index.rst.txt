@@ -46,6 +46,20 @@ Indices and tables
 * :ref:`search`
 
 
+Installation
+============
+The package is pure python. Dependencies:
+
+* `Numpy <https://numpy.org/install/>`_ (required)
+* `Jax <https://docs.jax.dev/en/latest/installation.html>`_ (optional)
+
+Install from source::
+
+	git clone https://github.com/NickAlger/T3Toolbox.git
+	cd T3Toolbox
+	pip install .
+
+
 T3Toolbox
 =========
 
@@ -129,20 +143,6 @@ License
 -------
 
 * `MIT License <https://mit-license.org/>`_
-
-
-Installation
-============
-The package is pure python. Dependencies:
-
-* `Numpy <https://numpy.org/install/>`_ (required)
-* `Jax <https://docs.jax.dev/en/latest/installation.html>`_ (optional)
-
-Install from source::
-
-	git clone https://github.com/NickAlger/T3Toolbox.git
-	cd T3Toolbox
-	pip install .
 
 
 Examples
