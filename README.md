@@ -5,7 +5,7 @@ WORK IN PROGRESS DO NOT USE
 A Python library for working with Tucker tensor trains (T3). 
 
 
-# Installation
+## Installation
 The package is pure python. Dependencies:
 
 * [Numpy](https://numpy.org/install/) (required)
@@ -18,12 +18,12 @@ Install from source::
 	pip install .
 
 
-# Documentation
+## Documentation
 
 * https://nickalger.github.io/T3Toolbox/
 
 
-# Tucker tensor trains
+## Tucker tensor trains
 
 Tucker tensor trains are the composition of a [Tucker decomposition](https://en.wikipedia.org/wiki/Tucker_decomposition) 
 with a [tensor train](https://en.wikipedia.org/wiki/Matrix_product_state) (also called matrix product states) representation of the central Tucker core. 
@@ -69,7 +69,7 @@ Unless specified otherwise, operations in this package are defined with respect
 to the dense N0 x ... x N(d-1) tensors that are *represented* by the Tucker tensor train, 
 even though these dense tensors are not formed during computations.
 
-# Included functionality:
+## Included functionality:
 
 - Basic T3 operations (entries, addition, scaling, inner product)
 - Determination of minimal ranks
@@ -86,13 +86,13 @@ even though these dense tensors are not formed during computations.
 - Option to use either [Numpy](https://numpy.org/) or [Jax](https://docs.jax.dev/en/latest/index.html) for linear algebra operations
 
 
-# Authors
+## Authors
 
 * Nick Alger (nalger225@gmail.com)
 * Blake Christierson (bechristierson@utexas.edu)
 
 
-# Github repo
+## Github repo
 
 * https://github.com/NickAlger/T3Toolbox
 
