@@ -1,0 +1,35 @@
+t3toolbox.manifold
+==================
+
+.. py:module:: t3toolbox.manifold
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/manifold/manifold_dim
+   /autoapi/t3toolbox/manifold/tangent_to_dense
+   /autoapi/t3toolbox/manifold/tangent_to_t3
+   /autoapi/t3toolbox/manifold/tangent_zeros
+   /autoapi/t3toolbox/manifold/tangent_randn
+   /autoapi/t3toolbox/manifold/orthogonal_gauge_projection
+   /autoapi/t3toolbox/manifold/oblique_gauge_projection
+   /autoapi/t3toolbox/manifold/project_t3_onto_tangent_space
+   /autoapi/t3toolbox/manifold/retract
+
+.. autoapisummary::
+
+   t3toolbox.manifold.manifold_dim
+   t3toolbox.manifold.tangent_to_dense
+   t3toolbox.manifold.tangent_to_t3
+   t3toolbox.manifold.tangent_zeros
+   t3toolbox.manifold.tangent_randn
+   t3toolbox.manifold.orthogonal_gauge_projection
+   t3toolbox.manifold.oblique_gauge_projection
+   t3toolbox.manifold.project_t3_onto_tangent_space
+   t3toolbox.manifold.retract
+
+

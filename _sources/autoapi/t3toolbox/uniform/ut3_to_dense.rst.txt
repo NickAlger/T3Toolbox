@@ -1,0 +1,27 @@
+t3toolbox.uniform.ut3_to_dense
+==============================
+
+.. py:function:: t3toolbox.uniform.ut3_to_dense(cores: UniformTuckerTensorTrainCores, masks: UniformTuckerTensorTrainMasks, xnp=np) -> NDArray
+
+   Construct dense tensor represented by uniform Tucker tensor train
+
+   :param cores: Cores for the uniform Tucker tensor train
+   :type cores: UniformTuckerTensorTrainCores,
+   :param masks: Masks for the uniform Tucker tensor train
+   :type masks: UniformTuckerTensorTrainMasks,
+
+   :returns: The dense tensor represented by uniform_x
+   :rtype: NDArray
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (2,3,2,2)))
+   >>> cores, masks = ut3.t3_to_ut3(x)
+   >>> x_dense = t3.t3_to_dense(x)
+   >>> x_dense2 = ut3.ut3_to_dense(cores, masks)
+   >>> print(np.linalg.norm(x_dense - x_dense2))
+   0.0
+

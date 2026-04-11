@@ -1,0 +1,19 @@
+t3toolbox.uniform_manifold
+==========================
+
+.. py:module:: t3toolbox.uniform_manifold
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/uniform_manifold/ut3_tangent_vector_to_ut3
+
+.. autoapisummary::
+
+   t3toolbox.uniform_manifold.ut3_tangent_vector_to_ut3
+
+

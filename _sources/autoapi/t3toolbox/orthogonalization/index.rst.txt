@@ -1,0 +1,33 @@
+t3toolbox.orthogonalization
+===========================
+
+.. py:module:: t3toolbox.orthogonalization
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/orthogonalization/up_svd_ith_tucker_core
+   /autoapi/t3toolbox/orthogonalization/left_svd_ith_tt_core
+   /autoapi/t3toolbox/orthogonalization/right_svd_ith_tt_core
+   /autoapi/t3toolbox/orthogonalization/up_svd_ith_tt_core
+   /autoapi/t3toolbox/orthogonalization/down_svd_ith_tt_core
+   /autoapi/t3toolbox/orthogonalization/orthogonalize_relative_to_ith_tucker_core
+   /autoapi/t3toolbox/orthogonalization/orthogonalize_relative_to_ith_tt_core
+   /autoapi/t3toolbox/orthogonalization/orthogonal_representations
+
+.. autoapisummary::
+
+   t3toolbox.orthogonalization.up_svd_ith_tucker_core
+   t3toolbox.orthogonalization.left_svd_ith_tt_core
+   t3toolbox.orthogonalization.right_svd_ith_tt_core
+   t3toolbox.orthogonalization.up_svd_ith_tt_core
+   t3toolbox.orthogonalization.down_svd_ith_tt_core
+   t3toolbox.orthogonalization.orthogonalize_relative_to_ith_tucker_core
+   t3toolbox.orthogonalization.orthogonalize_relative_to_ith_tt_core
+   t3toolbox.orthogonalization.orthogonal_representations
+
+

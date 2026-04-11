@@ -1,0 +1,43 @@
+t3toolbox.jax.manifold
+======================
+
+.. py:module:: t3toolbox.jax.manifold
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   t3toolbox.jax.manifold.manifold_dim
+   t3toolbox.jax.manifold.tangent_to_dense
+   t3toolbox.jax.manifold.tangent_to_t3
+   t3toolbox.jax.manifold.tangent_zeros
+   t3toolbox.jax.manifold.tangent_randn
+   t3toolbox.jax.manifold.orthogonal_gauge_projection
+   t3toolbox.jax.manifold.oblique_gauge_projection
+   t3toolbox.jax.manifold.project_t3_onto_tangent_space
+   t3toolbox.jax.manifold.retract
+
+
+Module Contents
+---------------
+
+.. py:data:: manifold_dim
+
+.. py:data:: tangent_to_dense
+
+.. py:data:: tangent_to_t3
+
+.. py:data:: tangent_zeros
+
+.. py:data:: tangent_randn
+
+.. py:data:: orthogonal_gauge_projection
+
+.. py:data:: oblique_gauge_projection
+
+.. py:data:: project_t3_onto_tangent_space
+
+.. py:data:: retract
+

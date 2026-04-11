@@ -1,0 +1,37 @@
+t3toolbox.jax.base_variation_format
+===================================
+
+.. py:module:: t3toolbox.jax.base_variation_format
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   t3toolbox.jax.base_variation_format.T3Base
+   t3toolbox.jax.base_variation_format.T3Variation
+   t3toolbox.jax.base_variation_format.check_t3base
+   t3toolbox.jax.base_variation_format.check_t3variation
+   t3toolbox.jax.base_variation_format.hole_shapes
+   t3toolbox.jax.base_variation_format.check_fit
+   t3toolbox.jax.base_variation_format.ith_bv_to_t3
+
+
+Module Contents
+---------------
+
+.. py:data:: T3Base
+
+.. py:data:: T3Variation
+
+.. py:data:: check_t3base
+
+.. py:data:: check_t3variation
+
+.. py:data:: hole_shapes
+
+.. py:data:: check_fit
+
+.. py:data:: ith_bv_to_t3
+

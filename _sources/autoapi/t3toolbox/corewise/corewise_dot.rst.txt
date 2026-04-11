@@ -1,0 +1,16 @@
+t3toolbox.corewise.corewise_dot
+===============================
+
+.. py:function:: t3toolbox.corewise.corewise_dot(X: NDArrayTree, Y: NDArrayTree, xnp=np)
+
+   Dot product of nested objects, X,Y -> X.Y.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.corewise as cw
+   >>> X = (np.ones(3), (1, (), np.ones(2)))
+   >>> Y = (2*np.ones(3), (3, (), -np.ones(2)))
+   >>> print(cw.corewise_dot(X, Y))
+   7.0
+

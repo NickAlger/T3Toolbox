@@ -1,0 +1,28 @@
+t3toolbox.jax.linalg
+====================
+
+.. py:module:: t3toolbox.jax.linalg
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   t3toolbox.jax.linalg.truncated_svd
+   t3toolbox.jax.linalg.left_svd_3tensor
+   t3toolbox.jax.linalg.right_svd_3tensor
+   t3toolbox.jax.linalg.outer_svd_3tensor
+
+
+Module Contents
+---------------
+
+.. py:data:: truncated_svd
+
+.. py:data:: left_svd_3tensor
+
+.. py:data:: right_svd_3tensor
+
+.. py:data:: outer_svd_3tensor
+

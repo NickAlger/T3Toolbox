@@ -1,0 +1,57 @@
+t3toolbox.probing
+=================
+
+.. py:module:: t3toolbox.probing
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/probing/probe_dense
+   /autoapi/t3toolbox/probing/probe_t3
+   /autoapi/t3toolbox/probing/compute_xis
+   /autoapi/t3toolbox/probing/compute_mus
+   /autoapi/t3toolbox/probing/compute_nus
+   /autoapi/t3toolbox/probing/compute_etas
+   /autoapi/t3toolbox/probing/assemble_probes
+   /autoapi/t3toolbox/probing/compute_dxis
+   /autoapi/t3toolbox/probing/compute_sigmas
+   /autoapi/t3toolbox/probing/compute_taus
+   /autoapi/t3toolbox/probing/compute_detas
+   /autoapi/t3toolbox/probing/assemble_tangent_probes
+   /autoapi/t3toolbox/probing/probe_tangent
+   /autoapi/t3toolbox/probing/compute_deta_tildes
+   /autoapi/t3toolbox/probing/compute_tau_tildes
+   /autoapi/t3toolbox/probing/compute_sigma_tildes
+   /autoapi/t3toolbox/probing/compute_dxi_tildes
+   /autoapi/t3toolbox/probing/assemble_tucker_variations
+   /autoapi/t3toolbox/probing/assemble_tt_variations
+   /autoapi/t3toolbox/probing/probe_tangent_transpose
+
+.. autoapisummary::
+
+   t3toolbox.probing.probe_dense
+   t3toolbox.probing.probe_t3
+   t3toolbox.probing.compute_xis
+   t3toolbox.probing.compute_mus
+   t3toolbox.probing.compute_nus
+   t3toolbox.probing.compute_etas
+   t3toolbox.probing.assemble_probes
+   t3toolbox.probing.compute_dxis
+   t3toolbox.probing.compute_sigmas
+   t3toolbox.probing.compute_taus
+   t3toolbox.probing.compute_detas
+   t3toolbox.probing.assemble_tangent_probes
+   t3toolbox.probing.probe_tangent
+   t3toolbox.probing.compute_deta_tildes
+   t3toolbox.probing.compute_tau_tildes
+   t3toolbox.probing.compute_sigma_tildes
+   t3toolbox.probing.compute_dxi_tildes
+   t3toolbox.probing.assemble_tucker_variations
+   t3toolbox.probing.assemble_tt_variations
+   t3toolbox.probing.probe_tangent_transpose
+
+

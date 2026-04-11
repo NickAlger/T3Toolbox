@@ -1,0 +1,19 @@
+t3toolbox.uniform_orthogonalization
+===================================
+
+.. py:module:: t3toolbox.uniform_orthogonalization
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/uniform_orthogonalization/left_orthogonalize_utt
+
+.. autoapisummary::
+
+   t3toolbox.uniform_orthogonalization.left_orthogonalize_utt
+
+

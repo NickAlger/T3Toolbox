@@ -1,0 +1,42 @@
+t3toolbox.corewise
+==================
+
+.. py:module:: t3toolbox.corewise
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   t3toolbox.corewise.NDArrayTree
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/corewise/corewise_add
+   /autoapi/t3toolbox/corewise/corewise_sub
+   /autoapi/t3toolbox/corewise/corewise_scale
+   /autoapi/t3toolbox/corewise/corewise_neg
+   /autoapi/t3toolbox/corewise/corewise_dot
+   /autoapi/t3toolbox/corewise/corewise_norm
+
+.. autoapisummary::
+
+   t3toolbox.corewise.corewise_add
+   t3toolbox.corewise.corewise_sub
+   t3toolbox.corewise.corewise_scale
+   t3toolbox.corewise.corewise_neg
+   t3toolbox.corewise.corewise_dot
+   t3toolbox.corewise.corewise_norm
+
+
+Module Contents
+---------------
+
+.. py:data:: NDArrayTree
+

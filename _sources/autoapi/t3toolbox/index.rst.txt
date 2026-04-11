@@ -1,0 +1,29 @@
+t3toolbox
+=========
+
+.. py:module:: t3toolbox
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /autoapi/t3toolbox/base_variation_format/index
+   /autoapi/t3toolbox/common/index
+   /autoapi/t3toolbox/corewise/index
+   /autoapi/t3toolbox/jax/index
+   /autoapi/t3toolbox/linalg/index
+   /autoapi/t3toolbox/manifold/index
+   /autoapi/t3toolbox/orthogonalization/index
+   /autoapi/t3toolbox/probing/index
+   /autoapi/t3toolbox/t3svd/index
+   /autoapi/t3toolbox/tucker_tensor_train/index
+   /autoapi/t3toolbox/uniform/index
+   /autoapi/t3toolbox/uniform_manifold/index
+   /autoapi/t3toolbox/uniform_orthogonalization/index
+   /autoapi/t3toolbox/uniform_probing/index
+   /autoapi/t3toolbox/uniform_t3svd/index
+
+

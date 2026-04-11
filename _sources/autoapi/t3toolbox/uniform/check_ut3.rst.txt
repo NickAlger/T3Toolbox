@@ -1,0 +1,15 @@
+t3toolbox.uniform.check_ut3
+===========================
+
+.. py:function:: t3toolbox.uniform.check_ut3(cores: UniformTuckerTensorTrainCores, masks: UniformTuckerTensorTrainMasks) -> None
+
+   Check internal shape consistency of UniformTuckerTensorTrain.
+
+   :param cores: Cores of the uniform Tucker tensor train
+   :type cores: UniformTuckerTensorTrainCores
+   :param masks: Edge masks for the uniform Tucker tensor train
+   :type masks: UniformTuckerTensorTrainEdgeMasks
+   :param Raises:
+   :param -------:
+   :param RuntimeError: Raised if internal shapes are inconsistent.
+

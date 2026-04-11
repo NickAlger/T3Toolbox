@@ -1,0 +1,4 @@
+t3toolbox.uniform_orthogonalization.left_orthogonalize_utt
+==========================================================
+
+.. py:function:: t3toolbox.uniform_orthogonalization.left_orthogonalize_utt(tt_supercore: NDArray, use_jax: bool = False) -> NDArray

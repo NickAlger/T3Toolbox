@@ -1,0 +1,64 @@
+t3toolbox.jax.uniform
+=====================
+
+.. py:module:: t3toolbox.jax.uniform
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   t3toolbox.jax.uniform.UniformTuckerTensorTrainCores
+   t3toolbox.jax.uniform.UniformTuckerTensorTrainMasks
+   t3toolbox.jax.uniform.check_ut3
+   t3toolbox.jax.uniform.get_padded_structure
+   t3toolbox.jax.uniform.get_original_structure
+   t3toolbox.jax.uniform.are_ut3_ranks_minimal
+   t3toolbox.jax.uniform.unpack_edge_tensors
+   t3toolbox.jax.uniform.apply_masks
+   t3toolbox.jax.uniform.t3_to_ut3
+   t3toolbox.jax.uniform.ut3_to_t3
+   t3toolbox.jax.uniform.ut3_to_dense
+   t3toolbox.jax.uniform.ut3_entry
+   t3toolbox.jax.uniform.ut3_add
+   t3toolbox.jax.uniform.ut3_scale
+   t3toolbox.jax.uniform.ut3_neg
+   t3toolbox.jax.uniform.ut3_sub
+
+
+Module Contents
+---------------
+
+.. py:data:: UniformTuckerTensorTrainCores
+
+.. py:data:: UniformTuckerTensorTrainMasks
+
+.. py:data:: check_ut3
+
+.. py:data:: get_padded_structure
+
+.. py:data:: get_original_structure
+
+.. py:data:: are_ut3_ranks_minimal
+
+.. py:data:: unpack_edge_tensors
+
+.. py:data:: apply_masks
+
+.. py:data:: t3_to_ut3
+
+.. py:data:: ut3_to_t3
+
+.. py:data:: ut3_to_dense
+
+.. py:data:: ut3_entry
+
+.. py:data:: ut3_add
+
+.. py:data:: ut3_scale
+
+.. py:data:: ut3_neg
+
+.. py:data:: ut3_sub
+

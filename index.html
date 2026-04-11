@@ -367,26 +367,26 @@ even though these dense tensors are not formed during computations.</p>
 <h1>Modules<a class="headerlink" href="#modules" title="Link to this heading">#</a></h1>
 <p>Tucker tensor trains:</p>
 <ul class="simple">
-<li><p><a class="reference internal" href="autoapi/t3tools/tucker_tensor_train/index.html"><span class="doc">t3tools.tucker_tensor_train</span></a></p></li>
-<li><p><a class="reference internal" href="autoapi/t3tools/base_variation_format/index.html"><span class="doc">t3tools.base_variation_format</span></a></p></li>
-<li><p><a class="reference internal" href="autoapi/t3tools/orthogonalization/index.html"><span class="doc">t3tools.orthogonalization</span></a></p></li>
-<li><p><a class="reference internal" href="autoapi/t3tools/t3svd/index.html"><span class="doc">t3tools.t3svd</span></a></p></li>
-<li><p><a class="reference internal" href="autoapi/t3tools/manifold/index.html"><span class="doc">t3tools.manifold</span></a></p></li>
-<li><p><a class="reference internal" href="autoapi/t3tools/probing/index.html"><span class="doc">t3tools.probing</span></a></p></li>
+<li><p><span class="xref std std-doc">/autoapi/t3tools/tucker_tensor_train/index</span></p></li>
+<li><p><span class="xref std std-doc">/autoapi/t3tools/base_variation_format/index</span></p></li>
+<li><p><span class="xref std std-doc">/autoapi/t3tools/orthogonalization/index</span></p></li>
+<li><p><span class="xref std std-doc">/autoapi/t3tools/t3svd/index</span></p></li>
+<li><p><span class="xref std std-doc">/autoapi/t3tools/manifold/index</span></p></li>
+<li><p><span class="xref std std-doc">/autoapi/t3tools/probing/index</span></p></li>
 </ul>
 <p>Uniform Tucker tensor trains:</p>
 <ul class="simple">
-<li><p><a class="reference internal" href="autoapi/t3tools/uniform/index.html"><span class="doc">t3tools.uniform</span></a></p></li>
-<li><p><a class="reference internal" href="autoapi/t3tools/uniform_orthogonalization/index.html"><span class="doc">t3tools.uniform_orthogonalization</span></a></p></li>
-<li><p><a class="reference internal" href="autoapi/t3tools/uniform_t3svd/index.html"><span class="doc">t3tools.uniform_t3svd</span></a></p></li>
-<li><p><a class="reference internal" href="autoapi/t3tools/uniform_manifold/index.html"><span class="doc">t3tools.uniform_manifold</span></a></p></li>
-<li><p><a class="reference internal" href="autoapi/t3tools/uniform_probing/index.html"><span class="doc">t3tools.uniform_probing</span></a></p></li>
+<li><p><span class="xref std std-doc">/autoapi/t3tools/uniform/index</span></p></li>
+<li><p><span class="xref std std-doc">/autoapi/t3tools/uniform_orthogonalization/index</span></p></li>
+<li><p><span class="xref std std-doc">/autoapi/t3tools/uniform_t3svd/index</span></p></li>
+<li><p><span class="xref std std-doc">/autoapi/t3tools/uniform_manifold/index</span></p></li>
+<li><p><span class="xref std std-doc">/autoapi/t3tools/uniform_probing/index</span></p></li>
 </ul>
 <p>Utilities:</p>
 <ul class="simple">
-<li><p><a class="reference internal" href="autoapi/t3tools/corewise/index.html"><span class="doc">t3tools.corewise</span></a></p></li>
-<li><p><a class="reference internal" href="autoapi/t3tools/linalg/index.html"><span class="doc">t3tools.linalg</span></a></p></li>
-<li><p><a class="reference internal" href="autoapi/t3tools/common/index.html"><span class="doc">t3tools.common</span></a></p></li>
+<li><p><span class="xref std std-doc">/autoapi/t3tools/corewise/index</span></p></li>
+<li><p><span class="xref std std-doc">/autoapi/t3tools/linalg/index</span></p></li>
+<li><p><span class="xref std std-doc">/autoapi/t3tools/common/index</span></p></li>
 </ul>
 <p>Jax versions of all modules are available under t3tools.jax:</p>
 <ul class="simple">
@@ -549,6 +549,38 @@ even though these dense tensors are not formed during computations.</p>
 </li>
 <li><p>Jax versions of numerical functions are suitable for <a class="reference external" href="https://docs.jax.dev/en/latest/_autosummary/jax.jit.html">just-in-time (jit) compilation</a> in jax, after removing non-numerical parameters by <a class="reference external" href="https://en.wikipedia.org/wiki/Partial_application">partial evaluation</a>. E.g.,:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">jax</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.jax.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3_jax</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">get_entry_123</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">t3_jax</span><span class="o">.</span><span class="n">t3_entry</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">A</span> <span class="o">=</span> <span class="n">t3_jax</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">),(</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">),(</span><span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span> <span class="c1"># random 10x10x10 T3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a123</span> <span class="o">=</span> <span class="n">get_entry_123</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">a123</span><span class="p">)</span>
+<span class="go">11.756762</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">get_entry_123_jit</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">get_entry_123</span><span class="p">)</span> <span class="c1"># jit compile</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a123_jit</span> <span class="o">=</span> <span class="n">get_entry_123_jit</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">a123_jit</span><span class="p">)</span>
+<span class="go">11.756762</span>
+</pre></div>
+</div>
+</li>
+<li><p>Jax versions of most numerical functions are suitable for</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">jax</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.jax.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3_jax</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">get_entry_123</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">t3_jax</span><span class="o">.</span><span class="n">t3_entry</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">A</span> <span class="o">=</span> <span class="n">t3_jax</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">),(</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">),(</span><span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span> <span class="c1"># random 10x10x10 T3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a123</span> <span class="o">=</span> <span class="n">get_entry_123</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">a123</span><span class="p">)</span>
+<span class="go">11.756762</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">get_entry_123_jit</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="n">get_entry_123</span><span class="p">)</span> <span class="c1"># jit compile</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a123_jit</span> <span class="o">=</span> <span class="n">get_entry_123_jit</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">a123_jit</span><span class="p">)</span>
+<span class="go">11.756762</span>
+</pre></div>
+</div>
+</li>
+<li><p>Jax versions of most numerical functions are suitable for</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">jax</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3tools.jax.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3_jax</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">get_entry_123</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">t3_jax</span><span class="o">.</span><span class="n">t3_entry</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
@@ -771,37 +803,37 @@ A Tucker tensor train may be converted to one with minimal ranks via T3-SVD.</p>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="autoapi/index.html">API Reference</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="autoapi/t3tools/index.html">t3tools</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="autoapi/t3tools/base_variation_format/index.html">t3tools.base_variation_format</a></li>
-<li class="toctree-l3"><a class="reference internal" href="autoapi/t3tools/common/index.html">t3tools.common</a></li>
-<li class="toctree-l3"><a class="reference internal" href="autoapi/t3tools/corewise/index.html">t3tools.corewise</a></li>
-<li class="toctree-l3"><a class="reference internal" href="autoapi/t3tools/jax/index.html">t3tools.jax</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/jax/base_variation_format/index.html">t3tools.jax.base_variation_format</a></li>
-<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/jax/corewise/index.html">t3tools.jax.corewise</a></li>
-<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/jax/linalg/index.html">t3tools.jax.linalg</a></li>
-<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/jax/manifold/index.html">t3tools.jax.manifold</a></li>
-<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/jax/orthogonalization/index.html">t3tools.jax.orthogonalization</a></li>
-<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/jax/probing/index.html">t3tools.jax.probing</a></li>
-<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/jax/t3svd/index.html">t3tools.jax.t3svd</a></li>
-<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/jax/tucker_tensor_train/index.html">t3tools.jax.tucker_tensor_train</a></li>
-<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/jax/uniform/index.html">t3tools.jax.uniform</a></li>
-<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/jax/uniform_manifold/index.html">t3tools.jax.uniform_manifold</a></li>
-<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/jax/uniform_orthogonalization/index.html">t3tools.jax.uniform_orthogonalization</a></li>
-<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/jax/uniform_probing/index.html">t3tools.jax.uniform_probing</a></li>
-<li class="toctree-l4"><a class="reference internal" href="autoapi/t3tools/jax/uniform_t3svd/index.html">t3tools.jax.uniform_t3svd</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoapi/t3toolbox/index.html">t3toolbox</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/t3toolbox/base_variation_format/index.html">t3toolbox.base_variation_format</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/t3toolbox/common/index.html">t3toolbox.common</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/t3toolbox/corewise/index.html">t3toolbox.corewise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/t3toolbox/jax/index.html">t3toolbox.jax</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3toolbox/jax/base_variation_format/index.html">t3toolbox.jax.base_variation_format</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3toolbox/jax/corewise/index.html">t3toolbox.jax.corewise</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3toolbox/jax/linalg/index.html">t3toolbox.jax.linalg</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3toolbox/jax/manifold/index.html">t3toolbox.jax.manifold</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3toolbox/jax/orthogonalization/index.html">t3toolbox.jax.orthogonalization</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3toolbox/jax/probing/index.html">t3toolbox.jax.probing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3toolbox/jax/t3svd/index.html">t3toolbox.jax.t3svd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3toolbox/jax/tucker_tensor_train/index.html">t3toolbox.jax.tucker_tensor_train</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3toolbox/jax/uniform/index.html">t3toolbox.jax.uniform</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3toolbox/jax/uniform_manifold/index.html">t3toolbox.jax.uniform_manifold</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3toolbox/jax/uniform_orthogonalization/index.html">t3toolbox.jax.uniform_orthogonalization</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3toolbox/jax/uniform_probing/index.html">t3toolbox.jax.uniform_probing</a></li>
+<li class="toctree-l4"><a class="reference internal" href="autoapi/t3toolbox/jax/uniform_t3svd/index.html">t3toolbox.jax.uniform_t3svd</a></li>
 </ul>
 </li>
-<li class="toctree-l3"><a class="reference internal" href="autoapi/t3tools/linalg/index.html">t3tools.linalg</a></li>
-<li class="toctree-l3"><a class="reference internal" href="autoapi/t3tools/manifold/index.html">t3tools.manifold</a></li>
-<li class="toctree-l3"><a class="reference internal" href="autoapi/t3tools/orthogonalization/index.html">t3tools.orthogonalization</a></li>
-<li class="toctree-l3"><a class="reference internal" href="autoapi/t3tools/probing/index.html">t3tools.probing</a></li>
-<li class="toctree-l3"><a class="reference internal" href="autoapi/t3tools/t3svd/index.html">t3tools.t3svd</a></li>
-<li class="toctree-l3"><a class="reference internal" href="autoapi/t3tools/tucker_tensor_train/index.html">t3tools.tucker_tensor_train</a></li>
-<li class="toctree-l3"><a class="reference internal" href="autoapi/t3tools/uniform/index.html">t3tools.uniform</a></li>
-<li class="toctree-l3"><a class="reference internal" href="autoapi/t3tools/uniform_manifold/index.html">t3tools.uniform_manifold</a></li>
-<li class="toctree-l3"><a class="reference internal" href="autoapi/t3tools/uniform_orthogonalization/index.html">t3tools.uniform_orthogonalization</a></li>
-<li class="toctree-l3"><a class="reference internal" href="autoapi/t3tools/uniform_probing/index.html">t3tools.uniform_probing</a></li>
-<li class="toctree-l3"><a class="reference internal" href="autoapi/t3tools/uniform_t3svd/index.html">t3tools.uniform_t3svd</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/t3toolbox/linalg/index.html">t3toolbox.linalg</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/t3toolbox/manifold/index.html">t3toolbox.manifold</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/t3toolbox/orthogonalization/index.html">t3toolbox.orthogonalization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/t3toolbox/probing/index.html">t3toolbox.probing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/t3toolbox/t3svd/index.html">t3toolbox.t3svd</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/t3toolbox/tucker_tensor_train/index.html">t3toolbox.tucker_tensor_train</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/t3toolbox/uniform/index.html">t3toolbox.uniform</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/t3toolbox/uniform_manifold/index.html">t3toolbox.uniform_manifold</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/t3toolbox/uniform_orthogonalization/index.html">t3toolbox.uniform_orthogonalization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/t3toolbox/uniform_probing/index.html">t3toolbox.uniform_probing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="autoapi/t3toolbox/uniform_t3svd/index.html">t3toolbox.uniform_t3svd</a></li>
 </ul>
 </li>
 </ul>

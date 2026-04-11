@@ -1,0 +1,43 @@
+t3toolbox.manifold.tangent_randn
+================================
+
+.. py:function:: t3toolbox.manifold.tangent_randn(base: t3toolbox.base_variation_format.T3Base, apply_gauge_projection: bool = True, randn: Callable[Ellipsis, NDArray] = np.random.randn) -> t3toolbox.base_variation_format.T3Variation
+
+   Draw a random T3Variation.
+
+   :param orthogonal_base: Representations of base point on manifold where tangent space is attached.
+   :type orthogonal_base: T3Base
+   :param randn: Function for creating random arrays. Arguments are a sequence of ints defining the shape of the array.
+                 Default: np.random.randn (numpy)
+   :type randn: typ.Callable[[..., NDArray]
+
+   :returns: * *T3Tangent* -- Random tangent vector. If base is orthogonal, ranks are minimal, and gauge projection is applied,
+               then the random tangent vector is distributed according to
+               a standard multivariate distribution on the tangent space.
+             * **use_jax** (*bool*) -- If True, return jax arrays, if False return numpy. Should update this to use pure jax, rather than converting numpy->jax.
+             * **apply_gauge_projection** (*bool*) -- Default: True. If False, gauge projection is not applied and vector is not i.i.d. N(0,1) on the tangent space
+
+   .. seealso:: :py:obj:`t3tangent_zeros`
+
+   .. rubric:: Examples
+
+   Apply Gauge projection (default):
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.manifold as t3m
+   >>> import t3toolbox.orthogonalization as orth
+   >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+   >>> base, vars0 = orth.orthogonal_representations(p)
+   >>> v = t3m.tangent_randn(base) # Random tangent vector, gauged.
+
+   Don't apply Gauge projection:
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.manifold as t3m
+   import t3tools.orthogonalization as orth
+   >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+   >>> base, vars0 = orth.orthogonal_representations(p)
+   >>> v = t3m.tangent_randn(base, apply_gauge_projection=False) # Random tangent vector, ungauged
+

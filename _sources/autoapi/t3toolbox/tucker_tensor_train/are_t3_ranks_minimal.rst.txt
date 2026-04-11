@@ -1,0 +1,29 @@
+t3toolbox.tucker_tensor_train.are_t3_ranks_minimal
+==================================================
+
+.. py:function:: t3toolbox.tucker_tensor_train.are_t3_ranks_minimal(x: TuckerTensorTrain) -> bool
+
+   Check if the ranks of a Tucker tensor train are minimal.
+
+   .. seealso:: compute_minimal_ranks
+
+   .. rubric:: Example
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> x = t3.t3_corewise_randn(((13,14,15,16), (4,5,6,7), (1,4,9,7,1)))
+   >>> print(t3.are_t3_ranks_minimal(x))
+   True
+
+   Using T3-SVD to make equivalent T3 with minimal ranks:
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.t3svd as t3svd
+   >>> x = t3.t3_corewise_randn(((13,14,15,16), (4,5,6,7), (1,99,9,7,1)))
+   >>> print(t3.are_t3_ranks_minimal(x))
+   False
+   >>> x2 = t3svd.t3_svd(x)[0]
+   >>> print(t3.are_t3_ranks_minimal(x2))
+   True
+

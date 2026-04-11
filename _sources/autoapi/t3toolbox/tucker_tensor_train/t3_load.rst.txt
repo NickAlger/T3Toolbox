@@ -1,0 +1,36 @@
+t3toolbox.tucker_tensor_train.t3_load
+=====================================
+
+.. py:function:: t3toolbox.tucker_tensor_train.t3_load(file, xnp=np) -> TuckerTensorTrain
+
+   Load a Tucker tensor train from a file.
+
+   :param file: Either the filename (string) or an open file (file-like object)
+                where the data will be saved. If file is a string or a Path, the
+                ``.npz`` extension will be appended to the filename if it is not
+                already there.
+   :type file: str or file
+   :param xnp: Linear algebra backend. Default: np (numpy)
+
+   :returns: Tucker tensor train loaded from the file
+   :rtype: TuckerTensorTrain
+
+   :raises RuntimeError: Error raised if the Tucker tensor train fails to load, or is inconsistent.
+
+   .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`t3_save`, :py:obj:`check_t3`
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+   >>> fname = 't3_file'
+   >>> t3.t3_save(fname, x) # Save to file 't3_file.npz'
+   >>> x2 = t3.t3_load(fname) # Load from file
+   >>> tucker_cores, tt_cores = x
+   >>> tucker_cores2, tt_cores2 = x2
+   >>> print([np.linalg.norm(B - B2) for B, B2 in zip(tucker_cores, tucker_cores2)])
+   [0.0, 0.0, 0.0]
+   >>> print([np.linalg.norm(G - G2) for G, G2 in zip(tt_cores, tt_cores2)])
+   [0.0, 0.0, 0.0]
+

@@ -1,0 +1,124 @@
+t3toolbox.uniform
+=================
+
+.. py:module:: t3toolbox.uniform
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   t3toolbox.uniform.UniformTuckerTensorTrainCores
+   t3toolbox.uniform.UniformTuckerTensorTrainMasks
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/uniform/check_ut3
+   /autoapi/t3toolbox/uniform/get_padded_structure
+   /autoapi/t3toolbox/uniform/get_original_structure
+   /autoapi/t3toolbox/uniform/apply_masks
+   /autoapi/t3toolbox/uniform/unpack_edge_tensors
+   /autoapi/t3toolbox/uniform/t3_to_ut3
+   /autoapi/t3toolbox/uniform/ut3_to_t3
+   /autoapi/t3toolbox/uniform/ut3_to_dense
+   /autoapi/t3toolbox/uniform/are_ut3_ranks_minimal
+   /autoapi/t3toolbox/uniform/ut3_entry
+   /autoapi/t3toolbox/uniform/ut3_add
+   /autoapi/t3toolbox/uniform/ut3_scale
+   /autoapi/t3toolbox/uniform/ut3_neg
+   /autoapi/t3toolbox/uniform/ut3_sub
+
+.. autoapisummary::
+
+   t3toolbox.uniform.check_ut3
+   t3toolbox.uniform.get_padded_structure
+   t3toolbox.uniform.get_original_structure
+   t3toolbox.uniform.apply_masks
+   t3toolbox.uniform.unpack_edge_tensors
+   t3toolbox.uniform.t3_to_ut3
+   t3toolbox.uniform.ut3_to_t3
+   t3toolbox.uniform.ut3_to_dense
+   t3toolbox.uniform.are_ut3_ranks_minimal
+   t3toolbox.uniform.ut3_entry
+   t3toolbox.uniform.ut3_add
+   t3toolbox.uniform.ut3_scale
+   t3toolbox.uniform.ut3_neg
+   t3toolbox.uniform.ut3_sub
+
+
+Module Contents
+---------------
+
+.. py:data:: UniformTuckerTensorTrainCores
+
+   Tuple containing supercores of a Uniform Tucker tensor train
+
+   Uniform Tucker tensor trains are created by padding a Tucker tensor train
+   so that the ranks are uniform, then stacking the TT cores and Tucker cores into
+   "supercores", which have one more dimension.
+
+   Padding may be tracked with boolean mask arrays associated with the edges.
+
+   .. seealso::
+
+      UniformTuckerTensorTrainMasks
+
+      **Components**
+          - tucker_supercore:      NDArray. shape=(d, n, N).       Stacked padded tucker cores
+          - tt_supercore:         NDArray. shape=(d, r, n, r).    Stacked padded TT-cores
+
+      Here:
+          - d = num_cores
+          - N = padded_shape
+          - n = padded_tucker_rank
+          - r = padded_tt_rank
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
+   >>> cores, masks = ut3.t3_to_ut3(x)
+   >>> print(ut3.get_padded_structure(cores))
+   (3, 16, 6, 3)
+   >>> print(ut3.original_structure(masks))
+   ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
+
+.. py:data:: UniformTuckerTensorTrainMasks
+
+   Tuple containing edge masks for a Uniform Tucker tensor train
+
+   .. seealso::
+
+      UniformTuckerTensorTrainCores
+
+      **Components**
+          - shape_masks:  NDArray. shape=(d,N).   Stacked masks for edges between Tucker cores and exterior of tensor
+          - tucker_masks: NDArray. shape=(d,n).   Stacked masks for edges between Tucker cores and adjacent TT-cores
+          - tt_masks:     NDArray. shape=(d+1,r). Stacked masks for edges between adjacent TT-cores
+
+      Here:
+          - d = num_cores
+          - N = padded_shape
+          - n = padded_tucker_rank
+          - r = padded_tt_rank
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
+   >>> cores, masks = ut3.t3_to_ut3(x)
+   >>> print(ut3.get_padded_structure(cores))
+   (3, 16, 6, 3)
+   >>> print(ut3.original_structure(masks))
+   ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
+

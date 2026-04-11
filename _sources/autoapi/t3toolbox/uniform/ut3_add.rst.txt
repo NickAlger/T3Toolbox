@@ -1,0 +1,36 @@
+t3toolbox.uniform.ut3_add
+=========================
+
+.. py:function:: t3toolbox.uniform.ut3_add(x_cores: UniformTuckerTensorTrainCores, x_masks: UniformTuckerTensorTrainMasks, y_cores: UniformTuckerTensorTrainCores, y_masks: UniformTuckerTensorTrainMasks, xnp=np) -> Tuple[UniformTuckerTensorTrainCores, UniformTuckerTensorTrainMasks]
+
+   Add two UniformTuckerTensorTrains, x,y -> x+y.
+
+   :param x_cores: First summand cores
+   :type x_cores: UniformTuckerTensorTrainCores
+   :param x_masks: First summand masks
+   :type x_masks: UniformTuckerTensorTrainMasks
+   :param y_cores: Second summand cores
+   :type y_cores: UniformTuckerTensorTrainCores
+   :param y_masks: Second summand masks
+   :type y_masks: UniformTuckerTensorTrainMasks
+   :param xnp: Linear algebra backend. Default: np (numpy)
+
+   :returns: * *UniformTuckerTensorTrainCores* -- Cores for sum, x+y
+             * *UniformTuckerTensorTrainMasks* -- Cores for sum x+y
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+   >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (2,3,2,2)))
+   >>> x_cores, x_masks = ut3.t3_to_ut3(x)
+   >>> y = t3.t3_corewise_randn(((14,15,16), (6,7,8), (3,5,6,1)))
+   >>> y_cores, y_masks = ut3.t3_to_ut3(y)
+   >>> x_plus_y_cores, x_plus_y_masks = ut3.ut3_add(x_cores, x_masks, y_cores, y_masks) # add x+y
+   >>> dense_x = t3.t3_to_dense(x)
+   >>> dense_y = t3.t3_to_dense(y)
+   >>> dense_x_plus_y = ut3.ut3_to_dense(x_plus_y_cores, x_plus_y_masks)
+   >>> print(np.linalg.norm(dense_x + dense_y - dense_x_plus_y))
+   0.0
+

@@ -1,0 +1,80 @@
+t3toolbox.probing.probe_tangent_transpose
+=========================================
+
+.. py:function:: t3toolbox.probing.probe_tangent_transpose(ztildes: Sequence[NDArray], ww: Sequence[NDArray], base: t3toolbox.base_variation_format.T3Base, sum_over_probes: bool = False, xnp=np) -> Tuple[Tuple[NDArray, Ellipsis], Tuple[NDArray, Ellipsis]]
+
+   Apply the transpose of the map from a T3Tangent to its probes. Apply to ztildes.
+
+       See Section 5.2.4 in:
+           Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+           "Tucker Tensor Train Taylor Series."
+           arXiv preprint arXiv:2603.21141.
+           `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+
+       Parameters
+       ----------
+       ztildes: typ.Sequence[NDArray]
+           Probe residuals to apply the map to
+           len=d, elm_shape=(Ni,) or (num_probes,Ni)
+       base: t3m.T3Base,
+           Orthogonal base for point where the tangent space attaches to the manifold.
+           shape=(N1,...,Nd)
+       sum_over_probes: bool
+           Sum results over all probe residuals, rather than returning results for each probe residual
+       xnp:
+           Linear algebra backend. Default: np (numpy)
+
+       Returns
+       -------
+       t3m.T3Tangent
+           Tangent vector resulting from applying transpose map to ztildes
+
+       See Also
+       --------
+       probe_t3
+       tangent_probes
+
+       Examples
+       --------
+
+       Apply transpose map with one set of probing vectors:
+
+   import t3tools.corewise    >>> import numpy as np
+       >>> import t3toolbox.tucker_tensor_train as t3
+       >>> import t3toolbox.manifold as t3m
+       >>> import t3toolbox.probing as t3p
+       >>> import t3toolbox.common as common
+       >>> import t3toolbox.orthogonalization as orth
+       >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+       >>> base, _ = orth.orthogonal_representations(p)
+       >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+       >>> v1 = t3m.tangent_randn(base)
+       >>> zz1 = t3p.probe_tangent(v1, ww, base)
+       >>> zz2 = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+       >>> v2 = t3p.probe_tangent_transpose(zz2, ww, base)
+       >>> ipA = t3toolbox.corewise.corewise_dot(v1, v2)
+       >>> print(ipA)
+       17.958317927787
+   import t3tools.corewise    >>> ipB = t3tools.corewise.corewise_dot(zz1, zz2)
+       >>> print(ipB)
+       17.958317927787
+
+       Apply transpose map with two sets of probing vectors:
+
+   import t3tools.corewise    >>> import numpy as np
+       >>> import t3toolbox.tucker_tensor_train as t3
+       >>> import t3toolbox.manifold as t3m
+       >>> import t3toolbox.probing as t3p
+       >>> import t3toolbox.common as common
+       >>> import t3toolbox.orthogonalization as orth
+       >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+       >>> base, _ = orth.orthogonal_representations(p)
+       >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+       >>> apply_J = lambda v: t3p.probe_tangent(v, ww, base)
+       >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, ww, base)
+       >>> v = t3m.tangent_randn(base)
+       >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+       >>> print(t3toolbox.corewise.corewise_dot(z, apply_J(v)) - t3toolbox.corewise.corewise_dot(apply_Jt(z), v))
+       7.105427357601002e-15
+
+

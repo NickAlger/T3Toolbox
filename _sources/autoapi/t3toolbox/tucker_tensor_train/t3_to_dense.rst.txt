@@ -1,0 +1,54 @@
+t3toolbox.tucker_tensor_train.t3_to_dense
+=========================================
+
+.. py:function:: t3toolbox.tucker_tensor_train.t3_to_dense(x: TuckerTensorTrain, contract_ones: bool = True, xnp=np) -> NDArray
+
+   Contract a Tucker tensor train to a dense tensor.
+
+   :param x: Tucker tensor train with shape (N0, ..., N(d-1)).
+   :type x: TuckerTensorTrain
+   :param contract_ones: If true (default), contract with leading and training 1's, yielding shape=(N0,...,N(d-1)).
+                         If false, do not contract with leading and trailing 1's, yielding shape=(r0,N0,...,N(d-1),rd).
+   :type contract_ones: bool
+   :param xnp: Linear algebra backend. Default: np (numpy).
+
+   :returns: Dense tensor represented by x, which has shape (N0, ..., N(d-1)).
+   :rtype: NDArray
+
+   .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`t3_shape`
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> x = t3.t3_corewise_randn(((14,15,16),(4,5,6),(1,3,2,1))) # make TuckerTensorTrain
+   >>> x_dense = t3.t3_to_dense(x) # Convert TuckerTensorTrain to dense tensor
+   >>> ((B0,B1,B2), (G0,G1,G2)) = x
+   >>> x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->ijk', B0, B1, B2, G0, G1, G2)
+   >>> print(np.linalg.norm(x_dense - x_dense2) / np.linalg.norm(x_dense))
+   7.48952547844518e-16
+
+   Case where the first and last TT-ranks are not 1:
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> x = t3.t3_corewise_randn(((14,15,16),(4,5,6),(2,3,2,4))) # make TuckerTensorTrain
+   >>> x_dense = t3.t3_to_dense(x) # Convert TuckerTensorTrain to dense tensor
+   >>> ((B0,B1,B2), (G0,G1,G2)) = x
+   >>> x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->ijk', B0, B1, B2, G0, G1, G2)
+   >>> print(np.linalg.norm(x_dense - x_dense2) / np.linalg.norm(x_dense))
+   1.4635914598284152e-15
+
+   Example where leading and trailing ones are not contracted
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> x = t3.t3_corewise_randn(((14,15,16),(4,5,6),(2,3,4,2))) # make TuckerTensorTrain
+   >>> x_dense = t3.t3_to_dense(x, contract_ones=False) # Convert TuckerTensorTrain to dense tensor
+   >>> print(x_dense.shape)
+   (2, 14, 15, 16, 2)
+   >>> ((B0,B1,B2), (G0,G1,G2)) = x
+   >>> x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->aijkd', B0, B1, B2, G0, G1, G2)
+   >>> print(np.linalg.norm(x_dense - x_dense2) / np.linalg.norm(x_dense))
+   1.1217675019342066e-15
+

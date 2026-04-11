@@ -1,0 +1,17 @@
+t3toolbox.corewise.corewise_norm
+================================
+
+.. py:function:: t3toolbox.corewise.corewise_norm(X, xnp=np)
+
+   Norm of nested objects, X -> ||X||
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.corewise as cw
+   >>> X = (np.ones(3), (1, (), np.ones(2)))
+   >>> print(cw.corewise_norm(X))
+   2.449489742783178
+   >>> print(np.sqrt(3 + 1 + 2))
+   2.449489742783178
+

@@ -1,0 +1,28 @@
+t3toolbox.jax.t3svd
+===================
+
+.. py:module:: t3toolbox.jax.t3svd
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   t3toolbox.jax.t3svd.t3_svd
+   t3toolbox.jax.t3svd.tucker_svd_dense
+   t3toolbox.jax.t3svd.tt_svd_dense
+   t3toolbox.jax.t3svd.t3_svd_dense
+
+
+Module Contents
+---------------
+
+.. py:data:: t3_svd
+
+.. py:data:: tucker_svd_dense
+
+.. py:data:: tt_svd_dense
+
+.. py:data:: t3_svd_dense
+

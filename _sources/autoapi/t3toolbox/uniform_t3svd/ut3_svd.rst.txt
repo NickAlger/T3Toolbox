@@ -1,0 +1,51 @@
+t3toolbox.uniform_t3svd.ut3_svd
+===============================
+
+.. py:function:: t3toolbox.uniform_t3svd.ut3_svd(cores: t3toolbox.uniform.UniformTuckerTensorTrainCores, masks: t3toolbox.uniform.UniformTuckerTensorTrainMasks) -> Tuple[t3toolbox.uniform.UniformTuckerTensorTrainCores, NDArray, NDArray]
+
+   Compute T3-SVD of uniform Tucker tensor train.
+
+   Only guaranteed to give correct results if ranks are minimal.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+   >>> import t3toolbox.t3svd as t3svd
+   >>> s0 = ((11,12,13), (6,7,5), (1,3,6,2))
+   >>> s = (s0[0],) + t3.compute_minimal_ranks(s0)
+   >>> x = t3.t3_corewise_randn(s)
+   >>> cores, masks = ut3.t3_to_ut3(x)
+   >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = ut3.ut3_svd(cores, masks) # Uniform T3-SVD
+   >>> print(np.linalg.norm(ut3.ut3_to_dense(ux2, masks) - t3.t3_to_dense(x)))
+   3.782447238250888e-12
+   >>> _, ss_basis, ss_tt = t3svd.t3_svd(x) # Non-uniform T3-SVD
+   >>> print(ss_tt[1])
+   [980.86624688 624.1067954  159.88424271]
+   >>> print(ss_tt_from_ut3[1])
+   [980.86624688 624.1067954  159.88424271   0.           0.        ]
+   >>> _, tucker_masks, tt_masks = masks
+   >>> print(ut3.unpack_edge_tensors(ss_tt_from_ut3, tt_masks)[1])
+   [980.86624688 624.1067954  159.88424271]
+   >>> ut3.unpack_edge_tensors(ss_basis_from_ut3, tucker_masks)[0] - ss_basis[0]
+   array([ 1.13686838e-12, -2.27373675e-13, -1.13686838e-13])
+
+   Non-example with degenerate (unnecessairily large) ranks
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+   >>> import t3toolbox.t3svd as t3svd
+   >>> s = ((3,4,3), (4,6,7), (3,5,1,2))
+   >>> x = t3.t3_corewise_randn(s)
+   >>> cores, masks = ut3.t3_to_ut3(x)
+   >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = ut3.ut3_svd(cores, masks)
+   >>> print(np.linalg.norm(ut3.ut3_to_dense(ux2, masks) - t3.t3_to_dense(x))) # OK
+   9.404253555983741e-13
+   >>> _, ss_basis, ss_tt = t3svd.t3_svd(x) # Non-uniform T3-SVD
+   >>> print(ss_tt[1])
+   [913.44494453 127.532224    16.08102313]
+   >>> print(ss_tt_from_ut3[1]) # Incorrect singular values:
+   [417.45514528 401.58448034  72.5343983   22.41273808   0.        ]
+
