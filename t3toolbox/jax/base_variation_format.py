@@ -4,7 +4,7 @@
 # Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
 import functools as ft
 import jax.numpy as jnp
-import t3tools.base_variation_format as bvf
+import t3toolbox.base_variation_format as bvf
 
 __all__ = [
     'T3Base',

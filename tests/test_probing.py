@@ -4,14 +4,14 @@
 import numpy as np
 import unittest
 
-import t3tools.corewise as cw
-import t3tools.orthogonalization as orth
-import t3tools.tucker_tensor_train as t3
-import t3tools.manifold as t3m
-import t3tools.probing as t3p
+import t3toolbox.corewise as cw
+import t3toolbox.orthogonalization as orth
+import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.manifold as t3m
+import t3toolbox.probing as t3p
 
 try:
-    import t3tools.jax.probing as t3p_jax
+    import t3toolbox.jax.probing as t3p_jax
     import jax
     jax.config.update("jax_enable_x64", True)
 except ImportError:

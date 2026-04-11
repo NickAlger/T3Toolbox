@@ -5,7 +5,7 @@
 import typing as typ
 import numpy as np
 
-import t3tools
+import t3toolbox
 
 __all__ = [
     'truncated_svd',
@@ -67,7 +67,7 @@ def truncated_svd(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.dense as dense
+    >>> import t3toolbox.dense as dense
     >>> A = np.random.randn(55,70)
     >>> U, ss, Vt = dense.truncated_svd(A)
     >>> A2 = np.einsum('ix,x,xj->ij', U, ss, Vt)
@@ -80,7 +80,7 @@ def truncated_svd(
     1.1027751835566194e-14
 
     >>> import numpy as np
-    >>> import t3tools.dense as dense
+    >>> import t3toolbox.dense as dense
     >>> A = np.random.randn(55, 70) @ np.diag(1.0 / np.arange(1,71)**2) # Create matrix with spectral decay
     >>> U, ss, Vt = dense.truncated_svd(A, rtol=1e-2) # Truncated SVD with relative tolerance 1e-2
     >>> A2 = np.einsum('ix,x,xj->ij', U, ss, Vt)
@@ -186,7 +186,7 @@ def left_svd_3tensor(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.orthogonalization as orth
     >>> G_i_a_j = np.random.randn(5,7,6)
     >>> U_i_a_x, ss_x, Vt_x_j = orth.left_svd_3tensor(G_i_a_j)
     >>> G_i_a_j2 = np.einsum('iax,x,xj->iaj', U_i_a_x, ss_x, Vt_x_j)
@@ -201,7 +201,7 @@ def left_svd_3tensor(
     ni, na, nj = G0_i_a_j.shape
     G0_ia_j = G0_i_a_j.reshape((ni*na, nj))
 
-    U_ia_x, ss_x, Vt_x_j = t3tools.linalg.truncated_svd(G0_ia_j, min_rank, max_rank, rtol, atol, xnp=xnp)
+    U_ia_x, ss_x, Vt_x_j = t3toolbox.linalg.truncated_svd(G0_ia_j, min_rank, max_rank, rtol, atol, xnp=xnp)
 
     nx = len(ss_x)
     U_i_a_x = U_ia_x.reshape((ni, na, nx))
@@ -269,7 +269,7 @@ def right_svd_3tensor(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.orthogonalization as orth
     >>> G_i_a_j = np.random.randn(5,7,6)
     >>> U_i_x, ss_x, Vt_x_a_j = orth.right_svd_3tensor(G_i_a_j)
     >>> G_i_a_j2 = np.einsum('ix,x,xaj->iaj', U_i_x, ss_x, Vt_x_a_j)
@@ -351,7 +351,7 @@ def outer_svd_3tensor(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.orthogonalization as orth
     >>> G_i_a_j = np.random.randn(5,7,6)
     >>> U_i_x_j, ss_x, Vt_x_a = orth.outer_svd_3tensor(G_i_a_j)
     >>> G_i_a_j2 = np.einsum('ixj,x,xa->iaj', U_i_x_j, ss_x, Vt_x_a)

@@ -5,10 +5,10 @@
 import numpy as np
 import typing as typ
 
-import t3tools.linalg
-import t3tools.tucker_tensor_train as t3
-import t3tools.base_variation_format as bvf
-import t3tools.linalg as linalg
+import t3toolbox.linalg
+import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.base_variation_format as bvf
+import t3toolbox.linalg as linalg
 
 __all__ = [
     'up_svd_ith_tucker_core',
@@ -81,8 +81,8 @@ def up_svd_ith_tucker_core(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.orthogonalization as orth
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> ind = 1
     >>> x2, ss = orth.up_svd_ith_tucker_core(ind, x)
@@ -99,7 +99,7 @@ def up_svd_ith_tucker_core(
     U_i_o = tucker_cores[ii]
     U_o_i = U_i_o.T
 
-    U2_o_x, ss_x, Vt_x_i = t3tools.linalg.truncated_svd(U_o_i, min_rank, max_rank, rtol, atol, xnp=xnp)
+    U2_o_x, ss_x, Vt_x_i = t3toolbox.linalg.truncated_svd(U_o_i, min_rank, max_rank, rtol, atol, xnp=xnp)
     R_x_i = xnp.einsum('x,xi->xi', ss_x, Vt_x_i)
     # U2_o_x, R_x_i = xnp.linalg.qr(U_o_i, mode='reduced')
 
@@ -171,8 +171,8 @@ def left_svd_ith_tt_core(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.orthogonalization as orth
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> ind = 1
     >>> x2, ss = orth.left_svd_ith_tt_core(ind, x)
@@ -252,8 +252,8 @@ def right_svd_ith_tt_core(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.orthogonalization as orth
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> ind = 1
     >>> x2, ss = orth.right_svd_ith_tt_core(ind, x)
@@ -332,8 +332,8 @@ def up_svd_ith_tt_core(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.orthogonalization as orth
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> x2, ss = orth.up_svd_ith_tt_core(1, x)
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
@@ -412,8 +412,8 @@ def down_svd_ith_tt_core(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.orthogonalization as orth
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> ind = 1
     >>> x2, ss = orth.down_svd_ith_tt_core(ind, x)
@@ -493,8 +493,8 @@ def orthogonalize_relative_to_ith_tucker_core(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.orthogonalization as orth
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> x2 = orth.orthogonalize_relative_to_ith_tucker_core(1, x)
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
@@ -507,8 +507,8 @@ def orthogonalize_relative_to_ith_tucker_core(
     Example where first and last TT-ranks are not 1:
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.orthogonalization as orth
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
     >>> x2 = orth.orthogonalize_relative_to_ith_tucker_core(0, x)
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
@@ -585,8 +585,8 @@ def orthogonalize_relative_to_ith_tt_core(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.orthogonalization as orth
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> x2 = orth.orthogonalize_relative_to_ith_tt_core(1, x)
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
@@ -604,8 +604,8 @@ def orthogonalize_relative_to_ith_tt_core(
     Example where first and last TT-ranks are not 1:
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.orthogonalization as orth
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
     >>> x2 = orth.orthogonalize_relative_to_ith_tt_core(0, x)
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
@@ -694,8 +694,8 @@ def orthogonal_representations(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.orthogonalization as orth
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> base, variation = orth.orthogonal_representations(x) # Compute orthogonal representations
     >>> tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
@@ -724,8 +724,8 @@ def orthogonal_representations(
     Example where r0 and rd are not 1:
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.orthogonalization as orth
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
     >>> base, variation = orth.orthogonal_representations(x) # Compute orthogonal representations
     >>> tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base

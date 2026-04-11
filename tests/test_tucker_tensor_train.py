@@ -5,10 +5,10 @@ import numpy as np
 import unittest
 import os
 
-import t3tools.tucker_tensor_train as t3
+import t3toolbox.tucker_tensor_train as t3
 
 try:
-    import t3tools.jax.t3 as t3_jax
+    import t3toolbox.jax.t3 as t3_jax
     import jax
     jax.config.update("jax_enable_x64", True)
 except ImportError:

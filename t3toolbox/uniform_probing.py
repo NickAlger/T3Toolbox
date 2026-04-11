@@ -10,7 +10,7 @@ if False:
     import typing as typ
     import functools as ft
 
-    import t3tools.common as common
+    import t3toolbox.common as common
 
     xnp = np
     scan = common.numpy_scan

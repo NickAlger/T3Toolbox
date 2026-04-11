@@ -4,7 +4,7 @@
 # Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
 import typing as typ
 
-import t3tools.tucker_tensor_train as t3
+import t3toolbox.tucker_tensor_train as t3
 
 NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
 
@@ -90,7 +90,7 @@ oblique_gauge_projection
 Examples
 --------
 >>> import numpy as np
->>> import t3tools.base_variation_format as bvf
+>>> import t3toolbox.base_variation_format as bvf
 >>> tucker_cores = (np.ones((10, 14)), np.ones((11, 15)), np.ones((12, 16)))
 >>> left_tt_cores = (np.ones((1, 10, 2)), np.ones((2, 11, 3)), np.ones((3, 12, 1)))
 >>> right_tt_cores = (np.ones((1, 10, 4)), np.ones((4, 11, 5)), np.ones((5, 12, 1)))
@@ -352,7 +352,7 @@ def hole_shapes(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.base_variation_format as bvf
+    >>> import t3toolbox.base_variation_format as bvf
     >>> tucker_cores = (np.ones((10,14)), np.ones((11,15)), np.ones((12,16)))
     >>> left_tt_cores = (np.ones((1,10,2)), np.ones((2,11,3)), np.ones((3,12,1)))
     >>> right_tt_cores = (np.ones((1,10,4)), np.ones((4,11,5)), np.ones((5,12,1)))
@@ -478,7 +478,7 @@ def ith_bv_to_t3(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.base_variation_format as bvf
+    >>> import t3toolbox.base_variation_format as bvf
     >>> randn = np.random.randn # shorthand
     >>> (U0,U1,U2) = (randn(10, 14), randn(11, 15), randn(12, 16))
     >>> (L0,L1,L2) = (randn(1, 10, 2), randn(2, 11, 3), randn(3, 12, 1))

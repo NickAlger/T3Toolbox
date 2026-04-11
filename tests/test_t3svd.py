@@ -4,11 +4,11 @@
 import numpy as np
 import unittest
 
-import t3tools.tucker_tensor_train as t3
-import t3tools.t3svd as t3svd
+import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.t3svd as t3svd
 
 try:
-    import t3tools.jax.t3svd as t3svd_jax
+    import t3toolbox.jax.t3svd as t3svd_jax
     import jax
     jax.config.update("jax_enable_x64", True)
 except ImportError:

@@ -36,7 +36,7 @@ Operations here are defined with respect to the dense N0 x ... x N(d-1) tensors 
 are *represented* by the Tucker tensor train, even though these dense tensors
 are not formed during computations.
 
-For corewise operations, see :mod:`t3tools.corewise`
+For corewise operations, see :mod:`t3toolbox.corewise`
 """
 import numpy as np
 import typing as typ
@@ -92,7 +92,7 @@ Components:
 Examples
 --------
 >>> import numpy as np
->>> import t3tools.tucker_tensor_train as t3
+>>> import t3toolbox.tucker_tensor_train as t3
 >>> tucker_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
 >>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
 >>> x = (tucker_cores, tt_cores) # TuckerTensorTrain, cores filled with ones
@@ -120,7 +120,7 @@ Components:
 Examples
 --------
 >>> import numpy as np
->>> import t3tools.tucker_tensor_train as t3
+>>> import t3toolbox.tucker_tensor_train as t3
 >>> tucker_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
 >>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
 >>> x = (tucker_cores, tt_cores)
@@ -164,7 +164,7 @@ def get_structure(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> tucker_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
     >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
     >>> x = (tucker_cores, tt_cores)
@@ -212,7 +212,7 @@ def check_t3(
     (Good) Consistent Tucker tensor train:
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> tucker_cores = [np.ones((4,14)),np.ones((5,15)),np.ones((6,16))]
     >>> tt_cores = [np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))]
     >>> x = (tucker_cores, tt_cores)
@@ -221,7 +221,7 @@ def check_t3(
     (Bad) Mismatch between number of Tucker cores and number of TT-cores:
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> tucker_cores = (np.ones((4,14)), np.ones((5,15))) # one too few Tucker cores
     >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
     >>> x = (tucker_cores, tt_cores)
@@ -232,7 +232,7 @@ def check_t3(
     (Bad) One of the TT-cores is not a 3-tensor:
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> tucker_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
     >>> tt_cores = (np.ones((4,3)), np.ones((3,5,2)), np.ones((2,6,1))) # first TT-core is not a 3-tensor
     >>> x = (tucker_cores, tt_cores)
@@ -243,7 +243,7 @@ def check_t3(
     (Bad) TT-core shapes inconsistent with each other:
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> tucker_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((6,16)))
     >>> tt_cores = (np.ones((1,4,9)), np.ones((3,5,2)), np.ones((2,6,1))) # Inconsistent TT-core shapes
     >>> x = (tucker_cores, tt_cores)
@@ -254,7 +254,7 @@ def check_t3(
     (Bad) Basis core is not a matrix:
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> tucker_cores = (np.ones((4,14)), np.ones((5,15,3)), np.ones((6,16))) # Basis core 2 is not a matrix
     >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
     >>> x = (tucker_cores, tt_cores)
@@ -265,7 +265,7 @@ def check_t3(
     (Bad) Inconsistent shapes for tucker core and adjacent TT-core
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> tucker_cores = (np.ones((4,14)), np.ones((5,15)), np.ones((9,16)))
     >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))) # Last Tucker and TT-cores inconsistent
     >>> x = (tucker_cores, tt_cores)
@@ -346,7 +346,7 @@ def t3_to_dense(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16),(4,5,6),(1,3,2,1))) # make TuckerTensorTrain
     >>> x_dense = t3.t3_to_dense(x) # Convert TuckerTensorTrain to dense tensor
     >>> ((B0,B1,B2), (G0,G1,G2)) = x
@@ -357,7 +357,7 @@ def t3_to_dense(
     Case where the first and last TT-ranks are not 1:
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16),(4,5,6),(2,3,2,4))) # make TuckerTensorTrain
     >>> x_dense = t3.t3_to_dense(x) # Convert TuckerTensorTrain to dense tensor
     >>> ((B0,B1,B2), (G0,G1,G2)) = x
@@ -368,7 +368,7 @@ def t3_to_dense(
     Example where leading and trailing ones are not contracted
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16),(4,5,6),(2,3,4,2))) # make TuckerTensorTrain
     >>> x_dense = t3.t3_to_dense(x, contract_ones=False) # Convert TuckerTensorTrain to dense tensor
     >>> print(x_dense.shape)
@@ -406,7 +406,7 @@ def squash_tails(
     Examples
     ________
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((10,10,10), (5,5,5), (9,3,3,9)))
     >>> x2 = t3.squash_tails(x)
     >>> print(t3.get_structure(x2))
@@ -447,7 +447,7 @@ def reverse_t3(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1))) # Make TuckerTensorTrain
     >>> print(t3.get_structure(x))
     ((14, 15, 16), (4, 5, 6), (1, 3, 2, 1))
@@ -494,7 +494,7 @@ def t3_zeros(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> shape = (14, 15, 16)
     >>> tucker_ranks = (4, 5, 6)
     >>> tt_ranks = (1, 3, 2, 1)
@@ -538,8 +538,8 @@ def t3_corewise_randn(
 
     Examples
     --------
-    >>> from t3tools import *
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> from t3toolbox import *
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> shape = (14, 15, 16)
     >>> tucker_ranks = (4, 5, 6)
     >>> tt_ranks = (1, 3, 2, 1)
@@ -584,7 +584,7 @@ def t3_save(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> fname = 't3_file'
     >>> t3.t3_save(fname, x) # Save to file 't3_file.npz'
@@ -642,7 +642,7 @@ def t3_load(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> fname = 't3_file'
     >>> t3.t3_save(fname, x) # Save to file 't3_file.npz'
@@ -719,7 +719,7 @@ def t3_apply(
     Apply to one set of vectors:
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> vecs = [np.random.randn(14), np.random.randn(15), np.random.randn(16)]
     >>> result = t3.t3_apply(x, vecs) # <-- contract x with vecs in all indices
@@ -730,7 +730,7 @@ def t3_apply(
     Apply to multiple sets of vectors (vectorized):
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
     >>> result = t3.t3_apply(x, vecs)
@@ -741,7 +741,7 @@ def t3_apply(
     First and last TT-ranks are not ones:
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,4)))
     >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
     >>> result = t3.t3_apply(x, vecs)
@@ -753,7 +753,7 @@ def t3_apply(
 
 	>>> import numpy as np
     >>> import jax
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> jax.config.update("jax_enable_x64", True)
     >>> A = t3.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 Tucker tensor train
     >>> apply_A_sym = lambda u: t3.t3_apply(A, (u,u,u), use_jax=True) # symmetric apply function
@@ -863,7 +863,7 @@ def t3_entry(
     Compute one entry:
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> index = [9, 4, 7] # get entry (9,4,7)
     >>> result = t3.t3_entry(x, index)
@@ -874,7 +874,7 @@ def t3_entry(
     Compute multiple entries (vectorized):
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> index = [[9,8], [4,10], [7,13]] # get entries (9,4,7) and (8,10,13)
     >>> entries = t3.t3_entry(x, index)
@@ -887,7 +887,7 @@ def t3_entry(
 
 	>>> import numpy as np
     >>> import jax
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> get_entry_123 = lambda x: t3.t3_entry(x, (1,2,3), use_jax=True)
     >>> A = t3.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 Tucker tensor train
     >>> a123 = get_entry_123(A)
@@ -900,21 +900,24 @@ def t3_entry(
 
     Example using jax automatic differentiation
 
-import t3tools.corewise    >>> import numpy as np
+
+    >>> import numpy as np
     >>> import jax
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.common as common
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.common as common
+    >>> import t3toolbox.corewise as cw
     >>> jax.config.update("jax_enable_x64", True) # enable double precision for finite difference
     >>> get_entry_123 = lambda x: t3.t3_entry(x, (1,2,3), use_jax=True)
     >>> A0 = t3.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 Tucker tensor train
     >>> f0 = get_entry_123(A0)
     >>> G0 = jax.grad(get_entry_123)(A0) # gradient using automatic differentiation
     >>> dA = t3.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1)))
-    >>> df = t3tools.corewise.corewise_dot(dA, G0) # sensitivity in direction dA
+    >>> df = cw.corewise_dot(dA, G0) # sensitivity in direction dA
     >>> print(df)
     -7.418801772515241
-import t3tools.corewise    >>> s = 1e-7
-import t3tools.corewise    >>> A1 = t3tools.corewise.corewise_add(A0, t3tools.corewise.corewise_scale(dA, s)) # A1 = A0 + s*dA
+    >>> s = 1e-7
+    >>> import t3toolbox.corewise as cw
+    >>> A1 = cw.corewise_add(A0, cw.corewise_scale(dA, s)) # A1 = A0 + s*dA
     >>> f1 = get_entry_123(A1)
     >>> df_diff = (f1 - f0) / s # finite difference
     >>> print(df_diff)
@@ -986,7 +989,7 @@ def compute_minimal_ranks(
 
     Examples
     --------
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> print(t3.compute_minimal_ranks(((10,11,12,13), (14,15,16,17), (98,99,100,101,102))))
     ((10, 11, 12, 13), (1, 10, 100, 13, 1))
     '''
@@ -1034,7 +1037,7 @@ def are_t3_ranks_minimal(
     Example
     -------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((13,14,15,16), (4,5,6,7), (1,4,9,7,1)))
     >>> print(t3.are_t3_ranks_minimal(x))
     True
@@ -1042,11 +1045,12 @@ def are_t3_ranks_minimal(
     Using T3-SVD to make equivalent T3 with minimal ranks:
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.t3svd as t3svd
     >>> x = t3.t3_corewise_randn(((13,14,15,16), (4,5,6,7), (1,99,9,7,1)))
     >>> print(t3.are_t3_ranks_minimal(x))
     False
-import t3tools.t3svd    >>> x2 = t3tools.t3svd.t3_svd(x)[0]
+    >>> x2 = t3svd.t3_svd(x)[0]
     >>> print(t3.are_t3_ranks_minimal(x2))
     True
     """
@@ -1066,7 +1070,7 @@ def change_structure(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
     >>> new_structure = ((17,18,17), (8,8,8), (1,5,6,1))
     >>> padded_x = t3.change_structure(x, new_structure)
@@ -1076,7 +1080,7 @@ def change_structure(
     Example where first and last ranks are nonzero:
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (3,3,2,4)))
     >>> new_structure = ((17,18,17), (8,8,8), (5,5,6,7))
     >>> padded_x = t3.change_structure(x, new_structure)
@@ -1137,7 +1141,7 @@ def t3_add(
     are *represented* by the Tucker tensor trains, even though these dense tensors
     are not formed during computations.
 
-    For corewise addition, see :func:`t3tools.corewise.corewise_add`
+    For corewise addition, see :func:`t3toolbox.corewise.corewise_add`
 
     Parameters
     ----------
@@ -1172,13 +1176,13 @@ def t3_add(
     t3_sub
     t3_neg
     squash_tails
-    :func:`~t3tools.corewise.corewise_add`
+    :func:`~t3toolbox.corewise.corewise_add`
 
 
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> y = t3.t3_corewise_randn(((14,15,16), (3,7,2), (1,5,6,1)))
     >>> z = t3.t3_add(x, y)
@@ -1232,7 +1236,7 @@ def t3_scale(
     is *represented* by the Tucker tensor trains, even though this dense tensor
     is not formed during computations.
 
-    For corewise scaling, see :func:`t3tools.corewise.corewise_scale`
+    For corewise scaling, see :func:`t3toolbox.corewise.corewise_scale`
 
     Parameters
     ----------
@@ -1257,12 +1261,12 @@ def t3_scale(
     t3_add
     t3_neg
     t3_sub
-    :func:`~t3tools.corewise.corewise_scale`
+    :func:`~t3toolbox.corewise.corewise_scale`
 
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> s = 3.2
     >>> z = t3.t3_scale(x, s)
@@ -1291,7 +1295,7 @@ def t3_neg(
     is *represented* by the Tucker tensor trains, even though this dense tensor
     is not formed during computations.
 
-    For corewise negation, see :func:`t3tools.corewise.corewise_neg`
+    For corewise negation, see :func:`t3toolbox.corewise.corewise_neg`
 
     Parameters
     ----------
@@ -1314,12 +1318,12 @@ def t3_neg(
     t3_add
     t3_scale
     t3_sub
-    :func:`~t3tools.corewise.corewise_neg`
+    :func:`~t3toolbox.corewise.corewise_neg`
 
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> neg_x = t3.t3_neg(x)
     >>> print(np.linalg.norm(t3.t3_to_dense(x) + t3.t3_to_dense(neg_x)))
@@ -1340,7 +1344,7 @@ def t3_sub(
     are *represented* by the Tucker tensor trains, even though these dense tensors
     are not formed during computations.
 
-    For corewise subtraction, see :func:`t3tools.corewise.corewise_sub`
+    For corewise subtraction, see :func:`t3toolbox.corewise.corewise_sub`
 
     Parameters
     ----------
@@ -1375,12 +1379,12 @@ def t3_sub(
     t3_add
     t3_scale
     t3_neg
-    :func:`~t3tools.corewise.corewise_neg`
+    :func:`~t3toolbox.corewise.corewise_neg`
 
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> y = t3.t3_corewise_randn(((14,15,16), (3,7,2), (1,5,6,1)))
     >>> x_minus_y = t3.t3_sub(x, y)
@@ -1406,7 +1410,7 @@ def t3_inner_product_t3(
     tensors that are *represented* by the Tucker tensor trains, even though these dense tensors
     are not formed during computations.
 
-    For corewise dot product, see :func:`t3tools.corewise.corewise_dot`
+    For corewise dot product, see :func:`t3toolbox.corewise.corewise_dot`
 
     Parameters
     ----------
@@ -1434,7 +1438,7 @@ def t3_inner_product_t3(
     t3_shape
     t3_add
     t3_scale
-    :func:`~t3tools.corewise.corewise_dot`
+    :func:`~t3toolbox.corewise.corewise_dot`
 
     Notes
     -----
@@ -1443,7 +1447,7 @@ def t3_inner_product_t3(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> y = t3.t3_corewise_randn(((14,15,16), (3,7,2), (1,5,6,1)))
     >>> x_dot_y = t3.t3_inner_product_t3(x, y)
@@ -1454,7 +1458,7 @@ def t3_inner_product_t3(
     Example where leading and trailing TT-ranks are not 1:
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
     >>> y = t3.t3_corewise_randn(((14,15,16), (3,7,2), (3,5,6,3)))
     >>> x_dot_y = t3.t3_inner_product_t3(x, y)
@@ -1507,7 +1511,7 @@ def t3_norm(
     that is *represented* by the Tucker tensor trains, even though this dense tensor
     is not formed during computations.
 
-    For corewise norm, see :func:`t3tools.corewise.corewise_norm`
+    For corewise norm, see :func:`t3toolbox.corewise.corewise_norm`
 
     Parameters
     ----------
@@ -1530,12 +1534,12 @@ def t3_norm(
     --------
     TuckerTensorTrain
     t3_dot_t3
-    :func:`t3tools.corewise.corewise_norm`
+    :func:`t3toolbox.corewise.corewise_norm`
 
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
     >>> norm_x = t3.t3_norm(x)
     >>> print(np.abs(norm_x - np.linalg.norm(t3.t3_to_dense(x))))

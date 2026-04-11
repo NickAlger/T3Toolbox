@@ -5,7 +5,7 @@
 import functools as ft
 import numpy as np
 import jax.numpy as jnp
-import t3tools.tucker_tensor_train as t3
+import t3toolbox.tucker_tensor_train as t3
 
 __all__ = [
     # Tucker tensor train

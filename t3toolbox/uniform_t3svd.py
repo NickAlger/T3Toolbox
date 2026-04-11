@@ -4,9 +4,9 @@
 # Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
 import numpy as np
 import typing as typ
-import t3tools.orthogonalization as orth
-import t3tools.uniform as ut3
-import t3tools.common as common
+import t3toolbox.orthogonalization as orth
+import t3toolbox.uniform as ut3
+import t3toolbox.common as common
 
 scan = common.numpy_scan
 
@@ -36,9 +36,9 @@ def ut3_svd(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.uniform_tucker_tensor_train as ut3
-    >>> import t3tools.t3svd as t3svd
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> import t3toolbox.t3svd as t3svd
     >>> s0 = ((11,12,13), (6,7,5), (1,3,6,2))
     >>> s = (s0[0],) + t3.compute_minimal_ranks(s0)
     >>> x = t3.t3_corewise_randn(s)
@@ -60,9 +60,9 @@ def ut3_svd(
     Non-example with degenerate (unnecessairily large) ranks
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.uniform_tucker_tensor_train as ut3
-    >>> import t3tools.t3svd as t3svd
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> import t3toolbox.t3svd as t3svd
     >>> s = ((3,4,3), (4,6,7), (3,5,1,2))
     >>> x = t3.t3_corewise_randn(s)
     >>> cores, masks = ut3.t3_to_ut3(x)

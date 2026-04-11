@@ -4,9 +4,9 @@
 import numpy as np
 import unittest
 
-import t3tools.linalg as linalg
+import t3toolbox.linalg as linalg
 try:
-    import t3tools.jax.linalg as linalg_jax
+    import t3toolbox.jax.linalg as linalg_jax
     import jax
     jax.config.update("jax_enable_x64", True)
 except ImportError:

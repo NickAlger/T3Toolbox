@@ -4,7 +4,7 @@
 # Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
 import functools as ft
 import jax.numpy as jnp
-import t3tools.corewise as cw
+import t3toolbox.corewise as cw
 
 __all__ = [
     'NDArrayTree',

@@ -286,6 +286,36 @@ with:
 	<class 'jaxlib.xla_extension.ArrayImpl'>
 
 - Jax versions of numerical functions are suitable for `just-in-time (jit) compilation <https://docs.jax.dev/en/latest/_autosummary/jax.jit.html>`_ in jax, after removing non-numerical parameters by `partial evaluation <https://en.wikipedia.org/wiki/Partial_application>`_. E.g.,::
+
+	>>> import numpy as np
+	>>> import jax
+	>>> import t3toolbox.jax.tucker_tensor_train as t3_jax
+	>>> get_entry_123 = lambda x: t3_jax.t3_entry(x, (1,2,3))
+	>>> A = t3_jax.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 T3
+	>>> a123 = get_entry_123(A)
+	>>> print(a123)
+	11.756762
+	>>> get_entry_123_jit = jax.jit(get_entry_123) # jit compile
+	>>> a123_jit = get_entry_123_jit(A)
+	>>> print(a123_jit)
+	11.756762
+
+- Jax versions of most numerical functions are suitable for
+
+	>>> import numpy as np
+	>>> import jax
+	>>> import t3toolbox.jax.tucker_tensor_train as t3_jax
+	>>> get_entry_123 = lambda x: t3_jax.t3_entry(x, (1,2,3))
+	>>> A = t3_jax.t3_corewise_randn(((10,10,10),(5,5,5),(1,4,4,1))) # random 10x10x10 T3
+	>>> a123 = get_entry_123(A)
+	>>> print(a123)
+	11.756762
+	>>> get_entry_123_jit = jax.jit(get_entry_123) # jit compile
+	>>> a123_jit = get_entry_123_jit(A)
+	>>> print(a123_jit)
+	11.756762
+
+- Jax versions of most numerical functions are suitable for
 		
 	>>> import numpy as np
 	>>> import jax

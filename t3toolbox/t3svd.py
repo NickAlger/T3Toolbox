@@ -5,9 +5,9 @@
 import numpy as np
 import typing as typ
 
-import t3tools.linalg
-import t3tools.tucker_tensor_train as t3
-import t3tools.orthogonalization as orth
+import t3toolbox.linalg
+import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.orthogonalization as orth
 
 __all__ = [
     't3_svd',
@@ -86,8 +86,8 @@ def t3_svd(
     (ranks may decrease to minimal values, but no approximation error)
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.t3svd as t3svd
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.t3svd as t3svd
     >>> x = t3.t3_corewise_randn(((5,6,3), (4,4,3), (1,3,2,1)))
     >>> x2, ss_tucker, ss_tt = t3svd.t3_svd(x) # Compute T3-SVD
     >>> x_dense = t3.t3_to_dense(x)
@@ -106,8 +106,8 @@ def t3_svd(
     T3-SVD with truncation based on relative tolerance:
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.t3svd as t3svd
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.t3svd as t3svd
     >>> B0 = np.random.randn(35,40) @ np.diag(1.0 / np.arange(1, 41)**2) # preconditioned indices
     >>> B1 = np.random.randn(45,50) @ np.diag(1.0 / np.arange(1, 51)**2)
     >>> B2 = np.random.randn(55,60) @ np.diag(1.0 / np.arange(1, 61)**2)
@@ -130,8 +130,8 @@ def t3_svd(
     T3-SVD with truncation based on absolute tolerance:
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.t3svd as t3svd
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.t3svd as t3svd
     >>> x = t3.t3_corewise_randn(((14,15,16), (10,11,12), (1,8,9,1)))
     >>> x2, ss_tucker, ss_tt = t3svd.t3_svd(x, max_tucker_ranks=(3,3,3), max_tt_ranks=(1,2,2,1)) # Truncate based on ranks
     >>> print(t3.get_structure(x))
@@ -142,8 +142,8 @@ def t3_svd(
     Example where first and last ranks are not ones:
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.t3svd as t3svd
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.t3svd as t3svd
     >>> x = t3.t3_corewise_randn(((5,6,3), (4,4,3), (2,3,2,2)))
     >>> x2, ss_tucker, ss_tt = t3svd.t3_svd(x) # Compute T3-SVD
     >>> x_dense = t3.t3_to_dense(x, contract_ones=False)
@@ -175,7 +175,7 @@ def t3_svd(
         x, _ = orth.right_svd_ith_tt_core(ii, x, xnp=xnp)
 
     G0 = x[1][0]
-    _, ss_first, _ = t3tools.linalg.right_svd_3tensor(G0, xnp=xnp)
+    _, ss_first, _ = t3toolbox.linalg.right_svd_3tensor(G0, xnp=xnp)
 
     # Sweep left to right computing SVDS
     all_ss_tucker = []
@@ -198,7 +198,7 @@ def t3_svd(
             )
         else:
             Gf = x[1][-1]
-            _, ss_tt, _ = t3tools.linalg.left_svd_3tensor(Gf, xnp=xnp)
+            _, ss_tt, _ = t3toolbox.linalg.left_svd_3tensor(Gf, xnp=xnp)
         all_ss_tt.append(ss_tt)
 
     return x, tuple(all_ss_tucker), tuple(all_ss_tt)
@@ -252,8 +252,8 @@ def tucker_svd_dense(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.common as common
-    >>> import t3tools.t3svd as t3svd
+    >>> import t3toolbox.common as common
+    >>> import t3toolbox.t3svd as t3svd
     >>> T0 = np.random.randn(40, 50, 60)
     >>> c0 = 1.0 / np.arange(1, 41)**2
     >>> c1 = 1.0 / np.arange(1, 51)**2
@@ -277,7 +277,7 @@ def tucker_svd_dense(
         max_rank = None if max_ranks is None else max_ranks[ii]
 
         C_swap_mat = C_swap.reshape((old_shape_swap[0], -1))
-        U, ss, Vt = t3tools.linalg.truncated_svd(
+        U, ss, Vt = t3toolbox.linalg.truncated_svd(
             C_swap_mat, min_rank, max_rank, rtol, atol, xnp=xnp,
         )
         rM_new = len(ss)
@@ -335,7 +335,7 @@ def tt_svd_dense(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.t3svd as t3svd
+    >>> import t3toolbox.t3svd as t3svd
     >>> T0 = np.random.randn(40, 50, 60)
     >>> c0 = 1.0 / np.arange(1, 41)**2
     >>> c1 = 1.0 / np.arange(1, 51)**2
@@ -359,7 +359,7 @@ def tt_svd_dense(
         min_rank = None if min_ranks is None else min_ranks[ii+1]
         max_rank = None if max_ranks is None else max_ranks[ii+1]
 
-        U, ss, Vt = t3tools.linalg.truncated_svd(
+        U, ss, Vt = t3toolbox.linalg.truncated_svd(
             X.reshape((rL * nn[ii], -1)), min_rank, max_rank, rtol, atol, xnp=xnp,
         )
         rR = len(ss)
@@ -429,7 +429,7 @@ def t3_svd_dense(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.t3svd as t3svd
+    >>> import t3toolbox.t3svd as t3svd
     >>> T0 = np.random.randn(40, 50, 60)
     >>> c0 = 1.0 / np.arange(1, 41)**2
     >>> c1 = 1.0 / np.arange(1, 51)**2

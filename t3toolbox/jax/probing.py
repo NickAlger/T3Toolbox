@@ -4,7 +4,7 @@
 # Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
 import functools as ft
 import jax.numpy as jnp
-import t3tools.probing as t3p
+import t3toolbox.probing as t3p
 
 __all__ = [
     # Probe a dense tensor

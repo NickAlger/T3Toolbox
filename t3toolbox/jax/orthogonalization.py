@@ -4,7 +4,7 @@
 # Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
 import functools as ft
 import jax.numpy as jnp
-import t3tools.orthogonalization as orth
+import t3toolbox.orthogonalization as orth
 
 __all__ = [
     'up_svd_ith_tucker_core',

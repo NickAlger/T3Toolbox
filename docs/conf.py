@@ -26,14 +26,14 @@ extensions = [
     "sphinx.ext.napoleon",
     'sphinx.ext.githubpages',
 ]
-autoapi_dirs = ['../t3tools']
+autoapi_dirs = ['../t3toolbox']
 numpydoc_show_class_members = False
 autosummary_generate = True
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 
-autoapi_modules = {'t3tools': None}
+autoapi_modules = {'t3toolbox': None}
 autoapi_own_page_level = 'function'
 
 

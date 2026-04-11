@@ -1,10 +1,10 @@
 import numpy as np
 import jax
 
-from t3tools.jax import tucker_tensor_train as t3_jax
-from t3tools import tucker_tensor_train as t3
+from t3toolbox.jax import tucker_tensor_train as t3_jax
+from t3toolbox import tucker_tensor_train as t3
 
-from t3tools.jax import corewise as cw
+from t3toolbox.jax import corewise as cw
 
 jax.config.update("jax_enable_x64", True) # enable double precision for finite difference
 get_entry_123 = lambda x: t3_jax.t3_entry(x, (1,2,3))
@@ -21,4 +21,4 @@ f1 = get_entry_123(A1)
 df_diff = (f1 - f0) / s # finite difference
 print(df_diff)
 
-# from t3tools import tucker_tensor_train as t3
+# from t3toolbox import tucker_tensor_train as t3

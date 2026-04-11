@@ -4,8 +4,8 @@
 # Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
 import numpy as np
 import typing as typ
-import t3tools.tucker_tensor_train as t3
-import t3tools.common as common
+import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.common as common
 
 scan = common.numpy_scan
 

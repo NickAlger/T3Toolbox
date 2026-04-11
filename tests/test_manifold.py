@@ -4,14 +4,14 @@
 import numpy as np
 import unittest
 
-import t3tools.base_variation_format as bvf
-import t3tools.corewise
-import t3tools.orthogonalization as orth
-import t3tools.tucker_tensor_train as t3
-import t3tools.manifold as t3m
+import t3toolbox.base_variation_format as bvf
+import t3toolbox.corewise
+import t3toolbox.orthogonalization as orth
+import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.manifold as t3m
 
 try:
-    import t3tools.jax.manifold as t3m_jax
+    import t3toolbox.jax.manifold as t3m_jax
     import jax
     jax.config.update("jax_enable_x64", True)
 except ImportError:
@@ -188,14 +188,14 @@ class TestManifold(unittest.TestCase):
 
                     # Check that projection was orthogonal
 
-                    v_minus_p_dot_p = t3tools.corewise.corewise_dot(
-                        t3tools.corewise.corewise_sub(variation, proj_variation),
+                    v_minus_p_dot_p = t3toolbox.corewise.corewise_dot(
+                        t3toolbox.corewise.corewise_sub(variation, proj_variation),
                         proj_variation
                     )
 
                     self.assertLessEqual(
                         np.abs(v_minus_p_dot_p),
-                        tol * t3tools.corewise.corewise_norm(variation)
+                        tol * t3toolbox.corewise.corewise_norm(variation)
                     )
 
     def test_oblique_gauge_projection(self):

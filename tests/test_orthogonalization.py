@@ -4,11 +4,11 @@
 import numpy as np
 import unittest
 
-import t3tools.orthogonalization as orth
-import t3tools.tucker_tensor_train as t3
+import t3toolbox.orthogonalization as orth
+import t3toolbox.tucker_tensor_train as t3
 
 try:
-    import t3tools.jax.orthogonalization as orth_jax
+    import t3toolbox.jax.orthogonalization as orth_jax
     import jax
     jax.config.update("jax_enable_x64", True)
 except ImportError:

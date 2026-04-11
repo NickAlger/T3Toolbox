@@ -4,9 +4,9 @@
 import numpy as np
 import unittest
 
-import t3tools.base_variation_format as bvf
+import t3toolbox.base_variation_format as bvf
 try:
-    import t3tools.jax.base_variation_format as bvf_jax
+    import t3toolbox.jax.base_variation_format as bvf_jax
     import jax
     jax.config.update("jax_enable_x64", True)
 except ImportError:

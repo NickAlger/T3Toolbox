@@ -31,7 +31,7 @@ def corewise_add(X: NDArrayTree, Y: NDArrayTree) -> NDArrayTree:
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.corewise as cw
+    >>> import t3toolbox.corewise as cw
     >>> X = (np.ones(3), (1, (), np.ones(2)))
     >>> Y = (2*np.ones(3), (3, (), -np.ones(2)))
     >>> print(cw.corewise_add(X, Y))
@@ -51,7 +51,7 @@ def corewise_sub(X: NDArrayTree, Y: NDArrayTree) -> NDArrayTree:
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.corewise as cw
+    >>> import t3toolbox.corewise as cw
     >>> X = (np.ones(3), (1, (), np.ones(2)))
     >>> Y = (2*np.ones(3), (3, (), -np.ones(2)))
     >>> print(cw.corewise_sub(X, Y))
@@ -71,7 +71,7 @@ def corewise_scale(X: NDArrayTree, s) -> NDArrayTree:
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.corewise as cw
+    >>> import t3toolbox.corewise as cw
     >>> X = (np.ones(3), (1, (), np.ones(2)))
     >>> print(cw.corewise_scale(X, 1.5))
     (array([-1., -1., -1.]), (-2, (), array([2., 2.])))
@@ -88,7 +88,7 @@ def corewise_neg(X: NDArrayTree) -> NDArrayTree:
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.corewise as cw
+    >>> import t3toolbox.corewise as cw
     >>> X = (np.ones(3), (1, (), np.ones(2)))
     >>> print(cw.corewise_neg(X))
     (array([-1., -1., -1.]), (-1, (), array([-1., -1.])))
@@ -105,7 +105,7 @@ def corewise_dot(X: NDArrayTree, Y: NDArrayTree, xnp=np):
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.corewise as cw
+    >>> import t3toolbox.corewise as cw
     >>> X = (np.ones(3), (1, (), np.ones(2)))
     >>> Y = (2*np.ones(3), (3, (), -np.ones(2)))
     >>> print(cw.corewise_dot(X, Y))
@@ -125,7 +125,7 @@ def corewise_norm(X, xnp=np):
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.corewise as cw
+    >>> import t3toolbox.corewise as cw
     >>> X = (np.ones(3), (1, (), np.ones(2)))
     >>> print(cw.corewise_norm(X))
     2.449489742783178

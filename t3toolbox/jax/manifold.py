@@ -5,7 +5,7 @@
 import functools as ft
 import numpy as np
 import jax.numpy as jnp
-import t3tools.manifold as t3m
+import t3toolbox.manifold as t3m
 
 __all__ = [
     # Tangent vectors

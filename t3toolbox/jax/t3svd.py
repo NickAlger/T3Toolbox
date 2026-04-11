@@ -4,7 +4,7 @@
 # Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
 import functools as ft
 import jax.numpy as jnp
-import t3tools.t3svd as t3svd
+import t3toolbox.t3svd as t3svd
 
 __all__ = [
     't3_svd',

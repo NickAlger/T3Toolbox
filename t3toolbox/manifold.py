@@ -5,10 +5,10 @@
 import numpy as np
 import typing as typ
 
-import t3tools.tucker_tensor_train as t3
-import t3tools.orthogonalization as orth
-import t3tools.t3svd as t3svd
-import t3tools.base_variation_format as bvf
+import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.orthogonalization as orth
+import t3toolbox.t3svd as t3svd
+import t3toolbox.base_variation_format as bvf
 
 __all__ = [
     # Tangent vectors
@@ -39,8 +39,8 @@ def manifold_dim(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.manifold as t3m
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
     >>> s = ((15,16,13), (9,10,8), (2,7,6,3))
     >>> mdim = t3m.manifold_dim(s)
     >>> print(mdim)
@@ -52,10 +52,10 @@ def manifold_dim(
     dimension of the tangent space, which is the dimension of the manifold.
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.manifold as t3m
-    >>> import t3tools.base_variation_format as bvf
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.base_variation_format as bvf
+    >>> import t3toolbox.orthogonalization as orth
     >>> s = ((5,6,3), (5,3,2), (2,2,4,1))
     >>> mdim = t3m.manifold_dim(s)
     >>> print(mdim)
@@ -111,9 +111,9 @@ def tangent_to_dense(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.manifold as t3m
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.orthogonalization as orth
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
     >>> base, _ = orth.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
@@ -203,9 +203,9 @@ def tangent_to_t3(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.manifold as t3m
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.orthogonalization as orth
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
     >>> base, _ = orth.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
@@ -303,9 +303,9 @@ def tangent_zeros(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.manifold as t3m
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.orthogonalization as orth
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> base, _ = orth.orthogonal_representations(p)
     >>> z = t3m.tangent_zeros(base)
@@ -359,9 +359,9 @@ def tangent_randn(
     Apply Gauge projection (default):
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.manifold as t3m
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.orthogonalization as orth
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> base, vars0 = orth.orthogonal_representations(p)
     >>> v = t3m.tangent_randn(base) # Random tangent vector, gauged.
@@ -369,8 +369,8 @@ def tangent_randn(
     Don't apply Gauge projection:
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.manifold as t3m
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
     import t3tools.orthogonalization as orth
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> base, vars0 = orth.orthogonal_representations(p)
@@ -431,10 +431,10 @@ def orthogonal_gauge_projection(
     -------
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.manifold as t3m
-    >>> import t3tools.common as common
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.common as common
+    >>> import t3toolbox.orthogonalization as orth
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> base, _ = orth.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
@@ -504,9 +504,9 @@ def oblique_gauge_projection(
     --------
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.manifold as t3m
-    >>> import import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import import t3toolbox.orthogonalization as orth
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> base, _ = orth.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
@@ -527,15 +527,15 @@ def oblique_gauge_projection(
 
     import t3tools.corewise
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.manifold as t3m
-    >>> import t3tools.common
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.common
+    >>> import t3toolbox.orthogonalization as orth
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
-    >>> base, _ = t3tools.orthogonalization.orthogonal_representations(p)
+    >>> base, _ = t3toolbox.orthogonalization.orthogonal_representations(p)
     >>> u = t3m.tangent_randn(base, apply_gauge_projection=False)
     >>> v = t3m.tangent_randn(base, apply_gauge_projection=False)
-    >>> bad_u_inner_v = t3tools.corewise.corewise_dot(u, v) # u and v are ungauged, so this will not give the right answer
+    >>> bad_u_inner_v = t3toolbox.corewise.corewise_dot(u, v) # u and v are ungauged, so this will not give the right answer
     >>> u_dense = t3m.tangent_to_dense(u, base)
     >>> v_dense = t3m.tangent_to_dense(v, base)
     >>> u_inner_v_true = np.sum(u_dense * v_dense)
@@ -543,7 +543,7 @@ def oblique_gauge_projection(
     6.21838915941413
 import t3tools.corewise    >>> u_gauged = t3m.oblique_gauge_projection(u, base) # make them gauged and try again
     >>> v_gauged = t3m.oblique_gauge_projection(v, base)
-    >>> u_inner_v = t3tools.corewise.corewise_dot(u_gauged, v_gauged)
+    >>> u_inner_v = t3toolbox.corewise.corewise_dot(u_gauged, v_gauged)
     >>> print(np.abs(u_inner_v - u_inner_v_true)) # Now the error is numerical zero
     0.0
     """
@@ -643,9 +643,9 @@ def project_t3_onto_tangent_space(
     --------
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.manifold as t3m
-    >>> import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.orthogonalization as orth
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> base, _ = orth.orthogonal_representations(p)
     >>> x = t3.t3_corewise_randn(((14,15,16), (7,4,8), (2,5,4,2)))
@@ -728,10 +728,10 @@ def retract(
     --------
 
     >>> import numpy as np
-    >>> import t3tools.tucker_tensor_train as t3
-    >>> import t3tools.manifold as t3m
-    >>> import t3tools.common
-    >>> import import t3tools.orthogonalization as orth
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.common
+    >>> import import t3toolbox.orthogonalization as orth
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> base, _ = orth.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base) # Random tangent vector

@@ -4,7 +4,7 @@
 # Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
 import functools as ft
 import jax.numpy as jnp
-import t3tools.uniform as ut3
+import t3toolbox.uniform as ut3
 
 __all__ = [
     'UniformTuckerTensorTrainCores',
