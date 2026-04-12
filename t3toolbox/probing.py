@@ -168,6 +168,9 @@ def probe_dense(
 def probe_t3(
         x:  t3.TuckerTensorTrain, # structure=((N1,...,Nd),(n1,...,nd),(1,r1,...,r(d-1),1))
         ww: typ.Sequence[NDArray], # input vectors, len=d, elm_shape=(...,Ni)
+        shape_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(Ni,)
+        tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(ni,)
+        tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(ri,)
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,Ni)
     '''Probe a Tucker tensor train.
@@ -224,17 +227,63 @@ def probe_t3(
     for B, w in zip(tucker_cores, ww):
         assert(B.shape[1] == w.shape[-1])
 
-    xis = compute_xis(tucker_cores, ww, xnp=xnp)
-    mus = compute_mus(tt_cores, xis, xnp=xnp)
-    nus = compute_nus(tt_cores, xis, xnp=xnp)
-    etas = compute_etas(tt_cores, mus, nus, xnp=xnp)
-    zz = assemble_probes(tucker_cores, etas, xnp=xnp)
+    ww = _apply_edge_weights(ww, shape_weights) if shape_weights is not None else ww
+
+    xis = compute_xis(
+        tucker_cores,
+        ww,
+        shape_weights=shape_weights,
+        up_tucker_weights=tucker_weights,
+        xnp=xnp,
+    )
+
+    mus = compute_mus(
+        tt_cores,
+        xis,
+        up_tucker_weights=tucker_weights,
+        left_tt_weights=tt_weights,
+        xnp=xnp,
+    )
+
+    nus = compute_nus(
+        tt_cores,
+        xis,
+        up_tucker_weights=tucker_weights,
+        right_tt_weights=tt_weights,
+        xnp=xnp,
+    )
+
+    etas = compute_etas(
+        tt_cores,
+        mus,
+        nus,
+        outer_tucker_weights=tucker_weights,
+        left_tt_weights=tt_weights,
+        right_tt_weights=tt_weights,
+        xnp=xnp,
+    )
+
+    zz = assemble_probes(
+        tucker_cores,
+        etas,
+        shape_weights=shape_weights,
+        tucker_weights=tucker_weights,
+        xnp=xnp,
+    )
 
     return zz
 
 
-def _apply_edge_mask(edge_variable, edge_mask, xnp=np):
-    return xnp.einsum('...i,i->...i', edge_variable, edge_mask)
+def _apply_edge_weight(edge_variable, edge_weight, xnp=np):
+    return xnp.einsum('...i,i->...i', edge_variable, edge_weight)
+
+
+def _apply_edge_weights(edge_variables, edge_weights, xnp=np):
+    (weighted_edge_variables,) = map(
+        lambda v_w: (_apply_edge_weight(v_w[0], v_w[1], xnp=xnp),),
+        (edge_variables, edge_weights)
+    )
+    return weighted_edge_variables
 
 
 def compute_xis(
@@ -285,13 +334,13 @@ def compute_xis(
 
         ind = 2
         if w_weights is not None:
-            w = _apply_edge_mask(w, x[ind])
+            w = _apply_edge_weight(w, x[ind])
             ind += 1
 
         xi = xnp.einsum('io,...o->...i', U, w)
 
         if xi_weights is not None:
-            xi = _apply_edge_mask(xi, x[ind])
+            xi = _apply_edge_weight(xi, x[ind])
             ind += 1
 
         return (xi,)
@@ -352,11 +401,11 @@ def compute_mus(
 
         ind = 2
         if xi_weights is not None:
-            xi = _apply_edge_mask(xi, x[ind])
+            xi = _apply_edge_weight(xi, x[ind])
             ind += 1
 
         if mu_weights is not None:
-            mu = _apply_edge_mask(mu, x[ind])
+            mu = _apply_edge_weight(mu, x[ind])
             ind += 1
 
         mu_next = xnp.einsum(
@@ -490,11 +539,11 @@ def compute_etas(
 
         ind = 3
         if mu_weights is not None:
-            mu = _apply_edge_mask(mu, x[ind])
+            mu = _apply_edge_weight(mu, x[ind])
             ind += 1
 
         if nu_weights is not None:
-            nu = _apply_edge_mask(nu, x[ind])
+            nu = _apply_edge_weight(nu, x[ind])
             ind += 1
 
         eta = xnp.einsum(
@@ -504,7 +553,7 @@ def compute_etas(
         )
 
         if eta_weights is not None:
-            eta = _apply_edge_mask(eta, x[ind])
+            eta = _apply_edge_weight(eta, x[ind])
             ind += 1
 
         return (eta,)
@@ -565,13 +614,13 @@ def assemble_probes(
 
         ind = 0
         if eta_weights is not None:
-            eta = _apply_edge_mask(eta, x[ind])
+            eta = _apply_edge_weight(eta, x[ind])
             ind += 1
 
         z = xnp.einsum('...a,ao->...o', eta, U)
 
         if z_weights is not None:
-            z = _apply_edge_mask(z, x[ind])
+            z = _apply_edge_weight(z, x[ind])
             ind += 1
 
         return (z,)
@@ -659,19 +708,19 @@ def compute_sigmas(
 
         ind = 6
         if xi_weights is not None:
-            xi = _apply_edge_mask(xi, x[ind])
+            xi = _apply_edge_weight(xi, x[ind])
             ind += 1
 
         if dxi_weights is not None:
-            dxi = _apply_edge_mask(dxi, x[ind])
+            dxi = _apply_edge_weight(dxi, x[ind])
             ind += 1
 
         if mu_weights is not None:
-            mu = _apply_edge_mask(mu, x[ind])
+            mu = _apply_edge_weight(mu, x[ind])
             ind += 1
 
         if sigma_weights is not None:
-            sigma = _apply_edge_mask(sigma, x[ind])
+            sigma = _apply_edge_weight(sigma, x[ind])
             ind += 1
 
         sigma_next_t1 = xnp.einsum(
@@ -807,19 +856,19 @@ def compute_detas(
 
         ind = 7
         if mu_weights is not None:
-            mu = _apply_edge_mask(mu, x[ind])
+            mu = _apply_edge_weight(mu, x[ind])
             ind += 1
 
         if tau_weights is not None:
-            tau = _apply_edge_mask(tau, x[ind])
+            tau = _apply_edge_weight(tau, x[ind])
             ind += 1
 
         if nu_weights is not None:
-            nu = _apply_edge_mask(nu, x[ind])
+            nu = _apply_edge_weight(nu, x[ind])
             ind += 1
 
         if sigma_weights is not None:
-            sigma = _apply_edge_mask(sigma, x[ind])
+            sigma = _apply_edge_weight(sigma, x[ind])
             ind += 1
 
         s1 = xnp.einsum(
@@ -840,7 +889,7 @@ def compute_detas(
         deta = s1 + s2 + s3
 
         if deta_weights is not None:
-            deta = _apply_edge_mask(deta, x[ind])
+            deta = _apply_edge_weight(deta, x[ind])
             ind += 1
 
         return (deta,)
@@ -892,11 +941,11 @@ def assemble_tangent_probes(
 
         ind = 4
         if eta_weights is not None:
-            eta = _apply_edge_mask(eta, x[ind])
+            eta = _apply_edge_weight(eta, x[ind])
             ind += 1
 
         if deta_weights is not None:
-            deta = _apply_edge_mask(deta, x[ind])
+            deta = _apply_edge_weight(deta, x[ind])
             ind += 1
 
         s1 = xnp.einsum('ao,...a->...o', B, deta)
@@ -904,7 +953,7 @@ def assemble_tangent_probes(
         probe = s1 + s2
 
         if probe_weights is not None:
-            probe = _apply_edge_mask(probe, x[ind])
+            probe = _apply_edge_weight(probe, x[ind])
             ind += 1
 
         return (probe,)
@@ -1012,10 +1061,7 @@ def probe_tangent(
     (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores) = base
     (var_tucker_cores, var_tt_cores) = variation
 
-    (ww,) = map(
-        lambda v_m: (_apply_edge_mask(v_m[0], v_m[1], xnp=xnp),),
-        (ww, shape_weights)
-    )
+    ww = _apply_edge_weights(ww, shape_weights) if shape_weights is not None else ww
 
     xis = compute_xis(
         up_tucker_cores,
