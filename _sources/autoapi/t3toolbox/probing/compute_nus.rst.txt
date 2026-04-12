@@ -19,7 +19,7 @@ t3toolbox.probing.compute_nus
    :type xis: typ.Sequence[NDArray]
    :param xnp: Linear algebra backend. Default: np (numpy)
 
-   :returns: rightward edge variables nu. len=d+1, elm_shape=(...,ri)
+   :returns: rightward edge variables nu. len=d, elm_shape=(...,r(i+1))
    :rtype: typ.Tuple[NDArray,...]
 
    .. seealso:: :py:obj:`probe_t3`, :py:obj:`compute_xis`, :py:obj:`compute_mus`, :py:obj:`compute_etas`, :py:obj:`assemble_probes`

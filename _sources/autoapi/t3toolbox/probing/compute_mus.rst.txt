@@ -1,7 +1,7 @@
 t3toolbox.probing.compute_mus
 =============================
 
-.. py:function:: t3toolbox.probing.compute_mus(left_tt_cores: Sequence[NDArray], xis: Sequence[NDArray], xnp=np) -> Sequence[NDArray]
+.. py:function:: t3toolbox.probing.compute_mus(left_tt_cores: Sequence[NDArray], xis: Sequence[NDArray], scan=common.ragged_scan, xnp=np) -> Sequence[NDArray]
 
    Compute leftward edge variables associated with edges between adjacent TT-cores.
    Used for probing a Tucker tensor train.
@@ -19,7 +19,7 @@ t3toolbox.probing.compute_mus
    :type xis: typ.Sequence[NDArray]
    :param xnp: Linear algebra backend. Default: np (numpy)
 
-   :returns: leftward edge variables mu. len=d+1, elm_shape=(...,ri)
+   :returns: leftward edge variables mu. len=d, elm_shape=(...,ri)
    :rtype: typ.Tuple[NDArray,...]
 
    .. seealso:: :py:obj:`probe_t3`, :py:obj:`compute_xis`, :py:obj:`compute_nus`, :py:obj:`compute_etas`, :py:obj:`assemble_probes`

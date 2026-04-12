@@ -489,8 +489,8 @@ arXiv preprint arXiv:2603.21141.
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>outer_tt_cores</strong> (<em>typ.Sequence</em><em>[</em><em>NDArray</em><em>]</em>) – Outer TT-cores for Tucker tensor train.
 len=d. elm_shape=(ri,ni,r(i+1))</p></li>
-<li><p><strong>mus</strong> (<em>typ.Sequence</em><em>[</em><em>NDArray</em><em>]</em>) – leftward edge variables mu. len=d+1. elm_shape=(num_probes,ri)</p></li>
-<li><p><strong>nus</strong> (<em>typ.Sequence</em><em>[</em><em>NDArray</em><em>]</em>) – rightward edge variables mu. len=d+1. elm_shape=(num_probes,ri)</p></li>
+<li><p><strong>mus</strong> (<em>typ.Sequence</em><em>[</em><em>NDArray</em><em>]</em>) – leftward edge variables mu. len=d. elm_shape=(num_probes,ri)</p></li>
+<li><p><strong>nus</strong> (<em>typ.Sequence</em><em>[</em><em>NDArray</em><em>]</em>) – rightward edge variables mu. len=d. elm_shape=(num_probes,r(i+1))</p></li>
 <li><p><strong>xnp</strong> – Linear algebra backend. Default: np (numpy)</p></li>
 </ul>
 </dd>

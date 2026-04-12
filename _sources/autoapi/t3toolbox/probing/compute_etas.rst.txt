@@ -15,9 +15,9 @@ t3toolbox.probing.compute_etas
    :param outer_tt_cores: Outer TT-cores for Tucker tensor train.
                           len=d. elm_shape=(ri,ni,r(i+1))
    :type outer_tt_cores: typ.Sequence[NDArray]
-   :param mus: leftward edge variables mu. len=d+1. elm_shape=(num_probes,ri)
+   :param mus: leftward edge variables mu. len=d. elm_shape=(num_probes,ri)
    :type mus: typ.Sequence[NDArray]
-   :param nus: rightward edge variables mu. len=d+1. elm_shape=(num_probes,ri)
+   :param nus: rightward edge variables mu. len=d. elm_shape=(num_probes,r(i+1))
    :type nus: typ.Sequence[NDArray]
    :param xnp: Linear algebra backend. Default: np (numpy)
 
