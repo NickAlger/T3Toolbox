@@ -10,36 +10,50 @@ __all__ = [
 ]
 
 
-def numpy_scan(f, init, xs, length=None):
-    """Numpy version of jax.lax.scan.
+Carry = typ.TypeVar('Carry')
+ScanX = typ.TypeVar('ScanX')
+ScanY = typ.TypeVar('ScanY')
+NDArray = typ.TypeVar('NDArray')
+StackedNDArray = typ.TypeVar('StackedNDArray')
+
+
+def ragged_scan(
+        f: typ.Callable[[Carry, typ.Sequence[ScanX]], typ.Tuple[Carry, ScanY]],
+        init: Carry,
+        xs: typ.Sequence[typ.Sequence[ScanX]], # elements all have length L
+) -> typ.Tuple[
+    Carry,
+    typ.Tuple[typ.Tuple[ScanY, ...], ...], # elements all have length L
+]:
+    """Similar to jax.lax.scan, except for ragged-sized arrays
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.scan.html
-    Generated with help from AI.
+
     """
-    if length is None:
-        def get_length(tree):
-            if isinstance(tree, (list, tuple)): return get_length(tree[0])
-            return len(tree)
-
-        length = get_length(xs)
-
-    def get_slice(tree, i):
-        if isinstance(tree, tuple):
-            return tuple(get_slice(x, i) for x in tree)
-        if isinstance(tree, list):
-            return [get_slice(x, i) for x in tree]
-        return tree[i]
-
+    length = len(xs[0])
     carry = init
-    ys_list = []
+    ys_list = [[] for _ in range(length)]
 
-    for i in range(length):
-        current_xs = get_slice(xs, i)
-        carry, y = f(carry, current_xs)
-        ys_list.append(y)
+    for ii in range(length):
+        x = [x[ii] for x in xs]
+        carry, y = f(carry, x)
+        for l, elm in zip(ys_list, y):
+            l.append(y)
 
-    if isinstance(ys_list[0], (tuple, list)):
-        return carry, tuple(np.stack([step[i] for step in ys_list]) for i in range(len(ys_list[0])))
+    return carry, tuple([tuple(y) for y in ys_list])
 
-    return carry, np.stack(ys_list)
+
+def numpy_scan(
+        f: typ.Callable[[Carry, NDArray], typ.Tuple[Carry, NDArray]],
+        init: Carry,
+        xs: typ.Sequence[StackedNDArray], # xs[ii].shape[0] = L
+) -> typ.Tuple[
+    Carry,
+    typ.Tuple[StackedNDArray, ...], # ith_elm.shape[0] = L
+]:
+    xs_list = [list(x) for x in xs]
+    carry, ys_list = ragged_scan(f, init, xs_list)
+    ys = tuple([np.stack(y) for y in ys_list])
+    return carry, ys
+
 
 
