@@ -1,7 +1,7 @@
 t3toolbox.probing.assemble_tangent_probes
 =========================================
 
-.. py:function:: t3toolbox.probing.assemble_tangent_probes(tucker_cores: Sequence[NDArray], var_tucker_cores: Sequence[NDArray], etas: Sequence[NDArray], detas: Sequence[NDArray], map=common.ragged_map, xnp=np) -> Tuple[NDArray, Ellipsis]
+.. py:function:: t3toolbox.probing.assemble_tangent_probes(tucker_cores: Sequence[NDArray], var_tucker_cores: Sequence[NDArray], etas: Sequence[NDArray], detas: Sequence[NDArray], xmap=common.ragged_map, xnp=np) -> Tuple[NDArray, Ellipsis]
 
    Assemble tangent vector probes from edge variables.
 
