@@ -277,26 +277,28 @@ def compute_xis(
     compute_etas
     assemble_probes
     '''
-    def _func(U_w_masks):
-        U, w = U_w_masks[0], U_w_masks[1]
+    w_masks     = shape_masks
+    xi_masks    = tucker_masks
 
-        if shape_masks is not None:
-            shape_mask = U_w_masks[2]
-            w = _apply_edge_mask(w, shape_mask)
+    def _func(x):
+        U, w = x[0], x[1]
+
+        ind = 2
+        if w_masks is not None:
+            w = _apply_edge_mask(w, x[ind])
+            ind += 1
 
         xi = xnp.einsum('io,...o->...i', U, w)
 
-        if tucker_masks is not None:
-            tucker_mask = U_w_masks[-1]
-            xi = _apply_edge_mask(xi, tucker_mask)
+        if xi_masks is not None:
+            xi = _apply_edge_mask(xi, x[ind])
+            ind += 1
 
         return (xi,)
 
     xs = (tucker_cores, ww)
-    if shape_masks is not None:
-        xs = xs + (shape_masks,)
-    if tucker_masks is not None:
-        xs = xs + (tucker_masks,)
+    xs = xs + (w_masks,)    if w_masks  is not None else xs
+    xs = xs + (xi_masks,)   if xi_masks is not None else xs
 
     (xis,) = map(_func, xs)
     return xis
@@ -342,16 +344,20 @@ def compute_mus(
     compute_etas
     assemble_probes
     '''
-    def _func(mu, P_xi_masks):
-        P, xi = P_xi_masks[0], P_xi_masks[1]
+    xi_masks = tucker_masks
+    mu_masks = tt_masks[:-1] if tt_masks is not None else None
 
-        if tucker_masks is not None:
-            tucker_mask = P_xi_masks[2]
-            xi = _apply_edge_mask(xi, tucker_mask)
+    def _func(mu, x):
+        P, xi = x[0], x[1]
 
-        if tt_masks is not None:
-            tt_mask = P_xi_masks[-1]
-            mu = _apply_edge_mask(mu, tt_mask)
+        ind = 2
+        if xi_masks is not None:
+            xi = _apply_edge_mask(xi, x[ind])
+            ind += 1
+
+        if mu_masks is not None:
+            mu = _apply_edge_mask(mu, x[ind])
+            ind += 1
 
         mu_next = xnp.einsum(
             '...aj,...a->...j',
@@ -365,10 +371,8 @@ def compute_mus(
     init = xnp.ones(vectorization_shape + (r0,))
 
     xs = (left_tt_cores, xis)
-    if tucker_masks is not None:
-        xs = xs + (tucker_masks,)
-    if tt_masks is not None:
-        xs = xs + (tt_masks[:-1],)
+    xs = xs + (xi_masks,) if xi_masks is not None else xs
+    xs = xs + (mu_masks,) if mu_masks is not None else xs
 
     last_mu, (mus,) = scan(_func, init, xs)
     return mus
@@ -476,14 +480,21 @@ def compute_etas(
     compute_nus
     assemble_probes
     '''
-    def _func(mu_G_nu_masks):
-        mu, G, nu = mu_G_nu_masks[0], mu_G_nu_masks[1], mu_G_nu_masks[2]
+    mu_masks    = tt_masks[:-1] if tt_masks is not None else None
+    nu_masks    = tt_masks[1:]  if tt_masks is not None else None
+    eta_masks   = tucker_masks
 
-        if tt_masks is not None:
-            left_tt_mask = mu_G_nu_masks[3]
-            right_tt_mask = mu_G_nu_masks[4]
-            mu = _apply_edge_mask(mu, left_tt_mask)
-            nu = _apply_edge_mask(nu, right_tt_mask)
+    def _func(x):
+        mu, G, nu = x[0], x[1], x[2]
+
+        ind = 3
+        if mu_masks is not None:
+            mu = _apply_edge_mask(mu, x[ind])
+            ind += 1
+
+        if nu_masks is not None:
+            nu = _apply_edge_mask(nu, x[ind])
+            ind += 1
 
         eta = xnp.einsum(
             '...aj,...j->...a',
@@ -491,17 +502,16 @@ def compute_etas(
             nu,
         )
 
-        if tucker_masks is not None:
-            tucker_mask = mu_G_nu_masks[-1]
-            eta = _apply_edge_mask(eta, tucker_mask)
+        if eta_masks is not None:
+            eta = _apply_edge_mask(eta, x[ind])
+            ind += 1
 
         return (eta,)
 
     xs = (mus, outer_tt_cores, nus)
-    if tt_masks is not None:
-        xs = xs + (tt_masks[:-1], tt_masks[1:])
-    if tucker_masks is not None:
-        xs = xs + (tucker_masks,)
+    xs = xs + (mu_masks,)   if mu_masks     is not None else xs
+    xs = xs + (nu_masks,)   if nu_masks     is not None else xs
+    xs = xs + (eta_masks,)  if eta_masks    is not None else xs
 
     (etas,) = map(_func, xs)
     return etas
@@ -546,26 +556,28 @@ def assemble_probes(
     compute_nus
     compute_etas
     '''
-    def _func(eta_U_masks):
-        eta, U = eta_U_masks[0], eta_U_masks[1]
+    eta_masks   = tucker_masks
+    z_masks     = shape_masks
 
-        if tucker_masks is not None:
-            tucker_mask = eta_U_masks[2]
-            eta = _apply_edge_mask(eta, tucker_mask)
+    def _func(x):
+        eta, U = x[0], x[1]
+
+        ind = 0
+        if eta_masks is not None:
+            eta = _apply_edge_mask(eta, x[ind])
+            ind += 1
 
         z = xnp.einsum('...a,ao->...o', eta, U)
 
-        if shape_masks is not None:
-            shape_mask = eta_U_masks[-1]
-            z = _apply_edge_mask(z, shape_mask)
+        if z_masks is not None:
+            z = _apply_edge_mask(z, x[ind])
+            ind += 1
 
         return (z,)
 
     xs = (etas, tucker_cores)
-    if tucker_masks is not None:
-        xs = xs + (tucker_masks,)
-    if shape_masks is not None:
-        xs = xs + (shape_masks,)
+    xs = xs + (eta_masks,)  if eta_masks    is not None else xs
+    xs = xs + (z_masks,)    if z_masks      is not None else xs
 
     (zz,) = map(_func, xs)
     return zz
