@@ -1,7 +1,7 @@
 t3toolbox.probing.compute_detas
 ===============================
 
-.. py:function:: t3toolbox.probing.compute_detas(var_tt_cores: Sequence[NDArray], left_tt_cores: Sequence[NDArray], right_tt_cores: Sequence[NDArray], mus: Sequence[NDArray], nus: Sequence[NDArray], sigmas: Sequence[NDArray], taus: Sequence[NDArray], outer_tucker_masks: Sequence[NDArray] = None, left_tt_masks: Sequence[NDArray] = None, right_tt_masks: Sequence[NDArray] = None, map=common.ragged_map, xnp=np) -> Sequence[NDArray]
+.. py:function:: t3toolbox.probing.compute_detas(var_tt_cores: Sequence[NDArray], left_tt_cores: Sequence[NDArray], right_tt_cores: Sequence[NDArray], mus: Sequence[NDArray], nus: Sequence[NDArray], sigmas: Sequence[NDArray], taus: Sequence[NDArray], up_tucker_weights: Sequence[NDArray] = None, left_tt_weights: Sequence[NDArray] = None, right_tt_weights: Sequence[NDArray] = None, map=common.ragged_map, xnp=np) -> Sequence[NDArray]
 
    Compute var-downward edge variables deta.
    Used for probing a tangent vector.

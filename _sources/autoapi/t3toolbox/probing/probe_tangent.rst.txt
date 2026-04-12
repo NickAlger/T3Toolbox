@@ -1,7 +1,7 @@
 t3toolbox.probing.probe_tangent
 ===============================
 
-.. py:function:: t3toolbox.probing.probe_tangent(variation: t3toolbox.base_variation_format.T3Variation, ww: Sequence[NDArray], base: t3toolbox.base_variation_format.T3Base, xnp=np) -> Tuple[NDArray, Ellipsis]
+.. py:function:: t3toolbox.probing.probe_tangent(variation: t3toolbox.base_variation_format.T3Variation, ww: Sequence[NDArray], base: t3toolbox.base_variation_format.T3Base, shape_weights: Sequence[NDArray] = None, up_tucker_weights: Sequence[NDArray] = None, outer_tucker_weights: Sequence[NDArray] = None, left_tt_weights: Sequence[NDArray] = None, right_tt_weights: Sequence[NDArray] = None, map=common.ragged_map, xnp=np) -> Tuple[NDArray, Ellipsis]
 
    Probe a tangent vector.
 
