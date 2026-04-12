@@ -435,6 +435,7 @@ def compute_etas(
 def assemble_probes(
         tucker_cores: typ.Sequence[NDArray],  # len=d. elm_shape=(ni,Ni)
         etas,  # len=d. elm_shape=(...,ni)
+        map = common.ragged_map,
         xnp = np,
 ) -> typ.Sequence[NDArray]: # zz. len=d, elm_shape=(...,Ni)
     '''Assemble probes from downward edge variables.
@@ -468,10 +469,13 @@ def assemble_probes(
     compute_nus
     compute_etas
     '''
-    return tuple([
-        xnp.einsum('...a,ao->...o', eta, U)
-        for U, eta in zip(tucker_cores, etas)
-    ])
+    def _func(eta_U):
+        eta, U = eta_U
+        z = xnp.einsum('...a,ao->...o', eta, U)
+        return [z]
+
+    zz_tuple = map(_func, (etas, tucker_cores))
+    return zz_tuple[0]
 
 
 #####################################################
@@ -602,6 +606,7 @@ def compute_detas(
         nus: typ.Sequence[NDArray],  # len=d, elm_shape=(num_probes,nRi)
         sigmas: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,rRi)
         taus: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,rL(i+1))
+        map = common.ragged_map,
         xnp = np,
 ) -> typ.Sequence[NDArray]: # detas. len=d, elm_shape=(num_probes,ni)
     '''Compute var-downward edge variables deta.
@@ -621,19 +626,8 @@ def compute_detas(
     assemble_tangent_probes
     probe_tangent
     '''
-    num_cores = len(var_tt_cores)
-
-    detas = []
-    for ii in range(num_cores):
-        P = left_tt_cores[ii]
-        Q = right_tt_cores[ii]
-        dG = var_tt_cores[ii]
-
-        mu = mus[ii]
-        nu = nus[ii]
-        sigma = sigmas[ii]
-        tau = taus[ii]
-
+    def _func(P_Q_dG_mu_nu_sigma_tau):
+        P, Q, dG, mu, nu, sigma, tau = P_Q_dG_mu_nu_sigma_tau
         s1 = xnp.einsum(
             '...aj,...j->...a',
             xnp.einsum('...i,iaj->...aj', sigma, Q),
@@ -649,10 +643,11 @@ def compute_detas(
             xnp.einsum('...i,iaj->...aj', mu, P),
             tau,
         )
-
         deta = s1 + s2 + s3
-        detas.append(deta)
-    return tuple(detas)
+        return [deta]
+
+    detas_tuple = map(_func, (left_tt_cores, right_tt_cores, var_tt_cores, mus, nus, sigmas, taus))
+    return detas_tuple[0]
 
 
 def assemble_tangent_probes(
@@ -660,6 +655,7 @@ def assemble_tangent_probes(
         var_tucker_cores: typ.Sequence[NDArray], # len=d. elm_shape=(nOi,Ni)
         etas: typ.Sequence[NDArray], # etas. len=d, elm_shape=(num_probes,ni)
         detas: typ.Sequence[NDArray], # detas. len=d, elm_shape=(num_probes,ni)
+        map = common.ragged_map,
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # probes. len=d, elm_shape=(num_probes,Ni)
     '''Assemble tangent vector probes from edge variables.
@@ -678,21 +674,15 @@ def assemble_tangent_probes(
     compute_detas
     probe_tangent
     '''
-    num_cores = len(tucker_cores)
-    probes = []
-    for ii in range(num_cores):
-        B = tucker_cores[ii]
-        dB = var_tucker_cores[ii]
-
-        eta = etas[ii]
-        deta = detas[ii]
-
+    def _func(B_dB_eta_deta):
+        B, dB, eta, deta = B_dB_eta_deta
         s1 = xnp.einsum('ao,...a->...o', B, deta)
         s2 = xnp.einsum('ao,...a->...o', dB, eta)
-
         probe = s1 + s2
-        probes.append(probe)
-    return tuple(probes)
+        return [probe]
+
+    probes_tuple = map(_func, (tucker_cores, var_tucker_cores, etas, detas))
+    return probes_tuple[0]
 
 
 def probe_tangent(
