@@ -636,7 +636,6 @@ def orthogonalize_relative_to_ith_tt_core(
 def orthogonal_representations(
         x: t3.TuckerTensorTrain,
         map = common.ragged_map,
-        use_svd: bool = True, # True: orthogonalize with SVD. False: orthogonalize with QR
         scan = common.ragged_scan,
         xnp = np,
 ) -> typ.Tuple[
@@ -757,49 +756,74 @@ def orthogonal_representations(
     '''
     t3.check_t3(x)
 
-    num_cores = len(x[1])
+    # Orthogonalize Tucker cores upward to get up_tt_cores
+    def _up_func(Bio_Gaib):
+        Bio, Gaib = Bio_Gaib
+        Boi = Bio.T
 
-    # Orthogonalize Tucker cores
-    def _up_func(Uio_Gaib):
-        Uio, Gaib = Uio_Gaib
-        Uoi = Uio.T
-
-        if use_svd:
-            new_Uox, ssx, VTxi = t3toolbox.linalg.truncated_svd(Uoi, xnp=xnp)
-            Rxi = xnp.einsum('x,xi->xi', ssx, VTxi)
-        else:
-            new_Uox, Rxi = xnp.linalg.qr(Uoi, mode='reduced')
+        Uox, ssx, WTxi = t3toolbox.linalg.truncated_svd(Boi, xnp=xnp)
+        Rxi = xnp.einsum('x,xi->xi', ssx, WTxi)
 
         new_Gaxb = xnp.einsum('aib,xi->axb', Gaib, Rxi)
-        new_Uxo = new_Uox.T
+        new_Uxo = Uox.T
         return (new_Uxo, new_Gaxb)
 
-    x = map(_up_func, x)
-    tucker_cores = x[0]
+    up_tucker_cores, tt_cores = map(_up_func, x)
 
-    # Right orthogonalize
-    for ii in range(num_cores-1, 0, -1): # num_cores-1, num_cores-2, ..., 1
-        x = right_svd_ith_tt_core(ii, x, xnp=xnp)[0]
-    right_tt_cores = tuple([G.copy() for G in x[1]])
+    # Sweep left-to-right, generating left orthogonal tt_cores L
+    def _left_func(Cxb, Gbjc_tuple):
+        Gbjc = Gbjc_tuple[0]
+        Hxjc = xnp.einsum('xb,bjc->xjc', Cxb, Gbjc)
 
-    tucker_variations = []
-    tt_variations = []
+        Lxjy, ssy, VTyc = linalg.left_svd_3tensor(Hxjc, xnp=xnp)
+        Ryc = ssy.reshape((-1, 1)) * VTyc
+        return Ryc, [Lxjy]
 
-    left_tt_cores = []
-    outer_tt_cores = []
-    # Sweep left to right
-    for ii in range(num_cores):
-        tt_variations.append(x[1][ii])
+    C0 = xnp.eye(tt_cores[0].shape[0])
+    Cf, (LL,) = scan(_left_func, C0, [tt_cores[:-1]])
+    Lf = xnp.einsum('xb,bjc->xjc', Cf, tt_cores[-1])
+    left_tt_cores = tuple(LL) + (Lf,)
 
-        tmp = down_svd_ith_tt_core(ii, x, xnp=xnp)[0]
-        outer_tt_cores.append(tmp[1][ii])
-        tucker_variations.append(tmp[0][ii])
+    # Sweep right-to-left, generating tt_variations H, and right orthogonal tt_cores R
+    def _right_func(Ccx, Gbjc_tuple):
+        Gbjc = Gbjc_tuple[0]
+        Hbjx = xnp.einsum('bjc,cx->bjx', Gbjc, Ccx)
 
-        if ii < num_cores-1:
-            x = left_svd_ith_tt_core(ii, x, xnp=xnp)[0]
-        left_tt_cores.append(x[1][ii])
+        Wby, ssy, Ryjx = linalg.right_svd_3tensor(Hbjx, xnp=xnp)
+        Cby = Wby * ssy.reshape((1, -1))
+        return Cby, (Ryjx, Hbjx)
 
-    base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+    Cf = xnp.eye(left_tt_cores[-1].shape[2])
+
+    res = scan(_right_func, Cf, (left_tt_cores[1:][::-1],))
+    C0, res1 = res
+    (RR_rev, HH_rev) = res1
+
+    # C0, (RR_rev, HH_rev) = scan(_right_func, Cf, (left_tt_cores[1:][::-1],))
+
+    R0 = xnp.einsum('bjc,cx->bjx', left_tt_cores[0], C0)
+    right_tt_cores = (R0,) + tuple(RR_rev[::-1])
+    tt_variations = (R0,) + tuple(HH_rev[::-1])
+
+    # Orthogonalize TT cores downward to get outer_tt_cores O and tucker_variations V
+    def _down_func(Uio_Haib):
+        Uio, Haib,  = Uio_Haib
+        Oaxb, ssx, WTxi = linalg.outer_svd_3tensor(Haib, xnp=xnp)
+        Cxi = ssx.reshape((-1, 1)) * WTxi
+
+        print('Haib.shape=', Haib.shape)
+        print('Uio.shape=', Uio.shape)
+        print('Cxi.shape=', Cxi.shape)
+
+        Vxo = np.einsum('xi,io->xo', Cxi, Uio)
+        return (Vxo, Oaxb)
+
+    print('up_tucker_cores:\n', [U.shape for U in up_tucker_cores])
+    print('tt_variations:\n', [H.shape for H in tt_variations])
+
+    tucker_variations, outer_tt_cores = map(_down_func, (up_tucker_cores, tt_variations))
+
+    base = (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
     variation = (tucker_variations, tt_variations)
     return base, variation
 

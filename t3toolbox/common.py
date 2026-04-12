@@ -23,10 +23,10 @@ StackedNDArray = typ.TypeVar('StackedNDArray')
 def ragged_scan(
         f: typ.Callable[[CarryType, typ.Tuple[InputType]], typ.Tuple[CarryType, typ.Sequence[OutputType]]],
         init: CarryType,
-        xs: typ.Sequence[typ.Sequence[InputType]], # elements all have length L
+        xs: typ.Sequence[typ.Sequence[InputType]], # len=k, elements all have length L
 ) -> typ.Tuple[
     CarryType,
-    typ.Tuple[typ.Tuple[OutputType, ...], ...], # elements all have length L
+    typ.Tuple[typ.Tuple[OutputType, ...], ...], # len=k, elements all have length L
 ]:
     """Similar to jax.lax.scan, except for ragged-sized arrays
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.scan.html
@@ -35,10 +35,14 @@ def ragged_scan(
     length = len(xs[0])
     carry = init
 
-    ys_list = [[] for _ in range(len(xs))]
+    ys_list = []
     for ii in range(length):
         x = tuple([x[ii] for x in xs])
         carry, y = f(carry, x)
+
+        if ii==0:
+            ys_list = [[] for _ in range(len(y))]
+
         for l, elm in zip(ys_list, y):
             l.append(elm)
 
@@ -67,10 +71,14 @@ def ragged_map(
 ]:
     length = len(xs[0])
 
-    ys_list = [[] for _ in range(len(xs))]
+    ys_list = []
     for ii in range(length):
         x = tuple([elm[ii] for elm in xs])
         y = f(x)
+
+        if ii==0:
+            ys_list = [[] for _ in range(len(y))]
+
         for l, elm in zip(ys_list, y):
             l.append(elm)
 
