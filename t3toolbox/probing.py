@@ -636,6 +636,11 @@ def compute_sigmas(
     assemble_tangent_probes
     probe_tangent
     '''
+    xi_masks    = up_tucker_masks
+    dxi_masks   = outer_tucker_masks
+    mu_masks    = left_tt_masks[:-1]    if left_tt_masks    is not None else None
+    sigma_masks = right_tt_masks[:-1]   if right_tt_masks   is not None else None  # Yes, [:-1]. init sigma is zero.
+
     def _func(sigma, Q_O_dG_xi_dxi_mu_masks):
         Q = Q_O_dG_xi_dxi_mu_masks[0]
         O = Q_O_dG_xi_dxi_mu_masks[1]
@@ -646,24 +651,24 @@ def compute_sigmas(
 
         ind = 6
         if up_tucker_masks is not None:
-            up_tucker_mask = Q_O_dG_xi_dxi_mu_masks[ind]
+            xi_mask = Q_O_dG_xi_dxi_mu_masks[ind]
             ind = ind + 1
-            xi = _apply_edge_mask(xi, up_tucker_mask)
+            xi = _apply_edge_mask(xi, xi_mask)
 
         if outer_tucker_masks is not None:
-            outer_tucker_mask = Q_O_dG_xi_dxi_mu_masks[ind]
+            dxi_mask = Q_O_dG_xi_dxi_mu_masks[ind]
             ind = ind + 1
-            dxi = _apply_edge_mask(dxi, outer_tucker_mask)
+            dxi = _apply_edge_mask(dxi, dxi_mask)
 
         if left_tt_masks is not None:
-            left_tt_mask = Q_O_dG_xi_dxi_mu_masks[ind]
+            mu_mask = Q_O_dG_xi_dxi_mu_masks[ind]
             ind += 1
-            mu = _apply_edge_mask(mu, left_tt_mask)
+            mu = _apply_edge_mask(mu, mu_mask)
 
         if right_tt_masks is not None:
-            right_tt_mask = Q_O_dG_xi_dxi_mu_masks[ind]
+            sigma_mask = Q_O_dG_xi_dxi_mu_masks[ind]
             ind += 1
-            sigma = _apply_edge_mask(sigma, right_tt_mask)
+            sigma = _apply_edge_mask(sigma, sigma_mask)
 
         sigma_next_t1 = xnp.einsum(
             '...aj,...a->...j',
@@ -689,14 +694,10 @@ def compute_sigmas(
     init = xnp.zeros(vectorization_shape + (rR0,))
 
     xs = (right_tt_cores, outer_tt_cores, var_tt_cores, xis, dxis, mus)
-    if up_tucker_masks is not None:
-        xs = xs + (up_tucker_masks,)
-    if outer_tucker_masks is not None:
-        xs = xs + (outer_tucker_masks,)
-    if left_tt_masks is not None:
-        xs = xs + (left_tt_masks[:-1],)
-    if right_tt_masks is not None:
-        xs = xs + (right_tt_masks[:-1],) # Yes, [:-1]. Note: init sigma is zero.
+    xs = xs + (xi_masks,) if xi_masks is not None else xs
+    xs = xs + (dxi_masks,) if dxi_masks is not None else xs
+    xs = xs + (mu_masks,) if mu_masks is not None else xs
+    xs = xs + (sigma_masks,) if sigma_masks is not None else xs
 
     last_sigma, (sigmas,) = scan(_func, init, xs)
     return sigmas
@@ -791,27 +792,31 @@ def compute_detas(
     assemble_tangent_probes
     probe_tangent
     '''
-    def _func(P_Q_dG_mu_nu_sigma_tau_masks):
-        P = P_Q_dG_mu_nu_sigma_tau_masks[0]
-        Q = P_Q_dG_mu_nu_sigma_tau_masks[1]
-        dG = P_Q_dG_mu_nu_sigma_tau_masks[2]
-        mu = P_Q_dG_mu_nu_sigma_tau_masks[3]
-        nu = P_Q_dG_mu_nu_sigma_tau_masks[4]
-        sigma = P_Q_dG_mu_nu_sigma_tau_masks[5]
-        tau = P_Q_dG_mu_nu_sigma_tau_masks[6]
+    mu_masks    = left_tt_masks[:-1]    if left_tt_masks        is not None else None
+    tau_masks   = left_tt_masks[1:]     if left_tt_masks        is not None else None
+    nu_masks    = right_tt_masks[1:]    if right_tt_masks       is not None else None
+    sigma_masks = right_tt_masks[:-1]   if right_tt_masks       is not None else None
+    deta_masks  = outer_tucker_masks
+
+    def _func(x):
+        P, Q, dG, mu, nu, sigma, tau = x[0], x[1], x[2], x[3], x[4], x[5], x[6]
 
         ind = 7
-        if left_tt_masks is not None:
-            left_tt_mask = P_Q_dG_mu_nu_sigma_tau_masks[ind]
+        if mu_masks is not None:
+            mu = _apply_edge_mask(mu, x[ind])
             ind += 1
-            mu = _apply_edge_mask(mu, left_tt_mask)
-            tau = _apply_edge_mask(tau, left_tt_mask)
 
-        if right_tt_masks is not None:
-            right_tt_mask = P_Q_dG_mu_nu_sigma_tau_masks[ind]
+        if tau_masks is not None:
+            tau = _apply_edge_mask(tau, x[ind])
             ind += 1
-            nu = _apply_edge_mask(nu, right_tt_mask)
-            sigma = _apply_edge_mask(sigma, right_tt_mask)
+
+        if nu_masks is not None:
+            nu = _apply_edge_mask(nu, x[ind])
+            ind += 1
+
+        if sigma_masks is not None:
+            sigma = _apply_edge_mask(sigma, x[ind])
+            ind += 1
 
         s1 = xnp.einsum(
             '...aj,...j->...a',
@@ -830,20 +835,18 @@ def compute_detas(
         )
         deta = s1 + s2 + s3
 
-        if outer_tucker_masks is not None:
-            outer_tucker_mask = P_Q_dG_mu_nu_sigma_tau_masks[ind]
+        if deta_masks is not None:
+            deta = _apply_edge_mask(deta, x[ind])
             ind = ind + 1
-            deta = _apply_edge_mask(deta, outer_tucker_mask)
 
         return (deta,)
 
     xs = (left_tt_cores, right_tt_cores, var_tt_cores, mus, nus, sigmas, taus)
-    if left_tt_masks is not None:
-        xs = xs + (left_tt_masks,)
-    if right_tt_masks is not None:
-        xs = xs + (right_tt_masks,)
-    if outer_tucker_masks is not None:
-        xs = xs + (outer_tucker_masks,)
+    xs = xs + (mu_masks,)       if mu_masks     is not None else xs
+    xs = xs + (tau_masks,)      if tau_masks    is not None else xs
+    xs = xs + (nu_masks,)       if nu_masks     is not None else xs
+    xs = xs + (sigma_masks,)    if sigma_masks  is not None else xs
+    xs = xs + (deta_masks,)     if deta_masks   is not None else xs
 
     detas_tuple = map(_func, xs)
     return detas_tuple[0]
@@ -876,41 +879,36 @@ def assemble_tangent_probes(
     compute_detas
     probe_tangent
     '''
-    def _func(B_dB_eta_deta_masks):
-        B = B_dB_eta_deta_masks[0]
-        dB = B_dB_eta_deta_masks[1]
-        eta = B_dB_eta_deta_masks[2]
-        deta = B_dB_eta_deta_masks[3]
+    eta_masks   = up_tucker_masks
+    deta_masks  = outer_tucker_masks
+    probe_masks = shape_masks
+
+    def _func(x):
+        B, dB, eta, deta = x[0], x[1], x[2], x[3]
 
         ind = 4
-        if up_tucker_masks is not None:
-            up_tucker_mask = B_dB_eta_deta_masks[ind]
+        if eta_masks is not None:
+            eta = _apply_edge_mask(eta, x[ind])
             ind += 1
-            eta = _apply_edge_mask(eta, up_tucker_mask)
 
-        if outer_tucker_masks is not None:
-            outer_tucker_mask = B_dB_eta_deta_masks[ind]
+        if deta_masks is not None:
+            deta = _apply_edge_mask(deta, x[ind])
             ind += 1
-            deta = _apply_edge_mask(deta, outer_tucker_mask)
 
         s1 = xnp.einsum('ao,...a->...o', B, deta)
         s2 = xnp.einsum('ao,...a->...o', dB, eta)
         probe = s1 + s2
 
-        if shape_masks is not None:
-            shape_mask = B_dB_eta_deta_masks[ind]
+        if probe_masks is not None:
+            probe = _apply_edge_mask(probe, x[ind])
             ind += 1
-            probe = _apply_edge_mask(probe, shape_mask)
 
         return (probe,)
 
     xs = (tucker_cores, var_tucker_cores, etas, detas)
-    if up_tucker_masks is not None:
-        xs = xs + (up_tucker_masks,)
-    if outer_tucker_masks is not None:
-        xs = xs + (outer_tucker_masks,)
-    if shape_masks is not None:
-        xs = xs + (shape_masks,)
+    xs = xs + (eta_masks,)      if eta_masks    is not None else xs
+    xs = xs + (deta_masks,)     if deta_masks   is not None else xs
+    xs = xs + (probe_masks,)    if probe_masks  is not None else xs
 
     (probes,) = map(_func, xs)
     return probes
