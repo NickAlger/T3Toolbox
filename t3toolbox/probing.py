@@ -547,39 +547,6 @@ def compute_sigmas(
     last_sigma, sigmas_tuple = scan(_func, init, xs)
     return sigmas_tuple[0]
 
-    # num_cores = len(xis)
-    #
-    # sigmas = [xnp.zeros(xis[0].shape[:-1] + (right_tt_cores[0].shape[0],))]
-    # for ii in range(num_cores):
-    #     Q = right_tt_cores[ii]
-    #     O = outer_tt_cores[ii]
-    #     dG = var_tt_cores[ii]
-    #     xi = xis[ii]
-    #     dxi = dxis[ii]
-    #
-    #     mu = mus[ii]
-    #     sigma = sigmas[-1]
-    #
-    #     sigma_next_t1 = xnp.einsum(
-    #         '...aj,...a->...j',
-    #         xnp.einsum('...i,iaj->...aj', sigma, Q),
-    #         xi
-    #     )
-    #     sigma_next_t2 = xnp.einsum(
-    #         '...aj,...a->...j',
-    #         xnp.einsum('...i,iaj->...aj', mu, dG),
-    #         xi
-    #     )
-    #     sigma_next_t3 = xnp.einsum(
-    #         '...aj,...a->...j',
-    #         xnp.einsum('...i,iaj->...aj', mu, O),
-    #         dxi
-    #     )
-    #
-    #     sigma_next = sigma_next_t1 + sigma_next_t2 + sigma_next_t3
-    #     sigmas.append(sigma_next)
-    # return tuple(sigmas)
-
 
 def compute_taus(
         var_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,ni,rR(i+1))
@@ -876,8 +843,9 @@ def compute_tau_tildes(
         left_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,ni,rL(i+d))
         xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,ni)
         mus, # len=d, elm_shape=(...,rLi)
+        scan = common.ragged_scan,
         xnp = np,
-) -> typ.Tuple[NDArray,...]: # len=d+1, elm_shape=(...,rLi)
+) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,rLi)
     '''Adjoint-var-rightward edge variables tau_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
 
@@ -887,17 +855,8 @@ def compute_tau_tildes(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    num_cores = len(left_tt_cores)
-
-    tau_tildes = [xnp.zeros(mus[0].shape[:-1] + (left_tt_cores[0].shape[0],))]
-    for ii in range(num_cores):
-        P = left_tt_cores[ii]
-        xi = xis[ii]
-        deta_tilde = deta_tildes[ii]
-
-        mu = mus[ii]
-        tau_tilde = tau_tildes[-1]
-
+    def _func(tau_tilde, P_xi_deta_tilde_mu):
+        P, xi, deta_tilde, mu = P_xi_deta_tilde_mu
         tau_tilde_next_t1 = xnp.einsum(
             '...aj,...a->...j',
             xnp.einsum('...i,iaj->...aj', tau_tilde, P),
@@ -908,19 +867,22 @@ def compute_tau_tildes(
             xnp.einsum('...i,iaj->...aj', mu, P),
             deta_tilde
         )
-
         tau_tilde_next = tau_tilde_next_t1 + tau_tilde_next_t2
-        tau_tildes.append(tau_tilde_next)
-    return tuple(tau_tildes)
+        return tau_tilde_next, [tau_tilde]
+
+    init = xnp.zeros(mus[0].shape[:-1] + (left_tt_cores[0].shape[0],))
+    xs = (left_tt_cores, xis, deta_tildes, mus)
+    last_tau_tilde, tau_tildes_tuple = scan(_func, init, xs)
+    return tau_tildes_tuple[0]
 
 
 def compute_sigma_tildes(
-        deta_tildes,  # len=d+1, elm_shape=(...,ni)
+        deta_tildes,  # len=d, elm_shape=(...,ni)
         right_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rRi,ni,rR(i+d))
         xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,ni)
         nus, # len=d, elm_shape=(...,rR(i+1))
         xnp = np,
-) -> typ.Tuple[NDArray,...]: # len=d+1, elm_shape=(...,rRi)
+) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,rR(i+1))
     '''Adjoint-var-leftward edge variables sigma_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
 
@@ -937,8 +899,8 @@ def compute_sigma_tildes(
 
 
 def compute_dxi_tildes(
-        sigma_tildes: typ.Sequence[NDArray],  # len=d+1, elm_shape=(...,rRi)
-        tau_tildes: typ.Sequence[NDArray],  # len=d+1, elm_shape=(...,rLi)
+        sigma_tildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rR(i+1))
+        tau_tildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rLi)
         outer_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
         mus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rLi)
         nus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rR(i+1))
@@ -966,7 +928,7 @@ def compute_dxi_tildes(
             st
         )
         for O, mu, nu, st, tt in
-        zip(outer_tt_cores, mus, nus, sigma_tildes[1:], tau_tildes[:-1])
+        zip(outer_tt_cores, mus, nus, sigma_tildes, tau_tildes)
     ])
 
 
@@ -1005,8 +967,8 @@ def assemble_tucker_variations(
 
 
 def assemble_tt_variations(
-        sigma_tildes: typ.Sequence[NDArray],  # len=d+1, elm_shape=(...,rRi)
-        tau_tildes: typ.Sequence[NDArray],  # len=d+1, elm_shape=(...,rLi)
+        sigma_tildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rR(i+1))
+        tau_tildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rLi)
         deta_tildes,  # len=d+1, elm_shape=(...,ni)
         xis: typ.Sequence[NDArray],  # len=d, elm_shape=(...,ni)
         mus,  # len=d, elm_shape=(...,rLi)
@@ -1043,7 +1005,7 @@ def assemble_tt_variations(
                 nu
             )
             for xi, mu, nu, sigma_tilde, tau_tilde, deta_tilde in
-            zip(xis, mus, nus, sigma_tildes[1:], tau_tildes[:-1], deta_tildes)
+            zip(xis, mus, nus, sigma_tildes, tau_tildes, deta_tildes)
         ])
     else:
         dG_tildes =  tuple([
@@ -1065,7 +1027,7 @@ def assemble_tt_variations(
                nu
            )
             for xi, mu, nu, sigma_tilde, tau_tilde, deta_tilde in
-            zip(xis, mus, nus, sigma_tildes[1:], tau_tildes[:-1], deta_tildes)
+            zip(xis, mus, nus, sigma_tildes, tau_tildes, deta_tildes)
         ])
     return dG_tildes
 
