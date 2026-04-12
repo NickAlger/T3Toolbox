@@ -14,7 +14,7 @@ __all__ = [
     'check_ut3',
     'get_padded_structure',
     'get_original_structure',
-    'unpack_edge_tensors',
+    'unpack',
     'apply_masks',
     't3_to_ut3',
     'ut3_to_t3',
@@ -277,12 +277,21 @@ def apply_masks(
     return masked_cores
 
 
-def unpack_edge_tensors(
+def pack(
+        unpacked_tensors = typ.Sequence[NDArray], # len=c, shape=(...,mi)
+) -> NDArray: # packed_tensors, shape=(...,c,m), where m=max(m1, m2, ..., mc)
+    pass
+
+
+# shape = sfixed + (c,) + sragged
+
+def unpack(
         packed_edge_tensors: NDArray, # shape=(...,c,m) or (c,m). E.g., (num_vecs,d,N) or (d,N)
         submask: NDArray, # shape=(c,m). Typical use case: component of UniformTuckerTensorTrainMasks
         xnp = np,
 ) -> typ.Tuple[
     NDArray, # shape=(...,mi) or (mi,). E.g., (num_vecs,Ni) or (Ni,)
+    ...
 ]: # len=c, e.g., len=d
     """Get ragged (variable length) edge vectors from uniform edge vectors.
 
@@ -292,7 +301,7 @@ def unpack_edge_tensors(
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> E = np.array([[1,2,3,4],[5,6,7,8]])
     >>> submask = [[True, False, True, True],[False, True, False, False]]
-    >>> print(ut3.unpack_edge_tensors(E, submask))
+    >>> print(ut3.unpack(E, submask))
     (array([1, 3, 4]), array([6]))
 
     Get a tensor from each "edge":
@@ -301,7 +310,7 @@ def unpack_edge_tensors(
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> E = np.random.randn(6,5,4,3,2)
     >>> submask = [[False, False],[False, True], [True, True]]
-    >>> ee = ut3.unpack_edge_tensors(E, submask)
+    >>> ee = ut3.unpack(E, submask)
     >>> print([e.shape for e in ee])
     [(6, 5, 4, 0), (6, 5, 4, 1), (6, 5, 4, 2)]
 
@@ -321,7 +330,7 @@ def unpack_edge_tensors(
     >>> _, _, ss_tt_from_ut3 = ut3.ut3_svd(cores, masks)
     >>> print(ss_tt_from_ut3[1])
     [2627.79225375  441.12769204  328.73617961    0.            0.        ]
-    >>> print(ut3.unpack_edge_tensors(ss_tt_from_ut3, masks[2])[1])
+    >>> print(ut3.unpack(ss_tt_from_ut3, masks[2])[1])
     [2627.79225375  441.12769204  328.73617961]
     """
     c = packed_edge_tensors.shape[-2]
@@ -578,6 +587,85 @@ def ut3_entry(
 
     if not vectorized:
         result = result[0]
+
+    return result
+
+
+def ut3_apply(
+        cores: UniformTuckerTensorTrainCores,
+        input_vectors: NDArray, # shape=(d,N) or shape=(...,d,N)
+        xnp = np,
+        scan = common.numpy_scan,
+) -> NDArray: # shape=(d,N) or (...,d,N)
+    """Apply a uniform Tucker tensor train to vectors. WORK IN PROGRESS
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform as ut3
+    >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+    >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
+    >>> result = t3.t3_apply(x, vecs)
+    >>> cores, masks = ut3.t3_to_ut3(x)
+    >>> uvecs =
+    >>> print(np.linalg.norm(result - result2))
+
+	>>> import numpy as np
+	>>> import t3toolbox.uniform_tucker_tensor_train as ut3
+	>>> d = 3
+	>>> N = 11
+	>>> n = 7
+	>>> r = 4
+	>>> tucker_supercore = np.random.randn(d,n,N)
+	>>> tt_supercore = np.random.randn(d,r,n,r)
+	>>> cores = (tucker_supercore, basis_supercore)
+	>>> ww = np.random.randn(d, N)
+	>>> result = ut3.ut3_apply(cores, ww)
+	>>> result2 = xnp.einsum('di,dxi,da', ww, tucker_supercore, tt_supercore)
+	>>> x_312 = t3.t3_entry(x, index)
+	>>> print(x_312) # (3,1,2) entry from T3:
+	-1.4931654579929192
+	>>> cores, masks = ut3.t3_to_ut3(x) # Convert to Uniform T3
+	>>> print(ut3.get_original_structure(masks)) # original (shape, tucker_ranks, tt_ranks):
+	((14, 15, 16), (4, 5, 3), (1, 4, 2, 1))
+	>>> print(ut3.get_padded_structure(cores)) # uniform shape and ranks, (d,N,n,r):
+	(3, 16, 5, 4)
+	>>> x_312_uniform = ut3.ut3_entry(cores, index) # (3,1,2) entry from uniform T3:
+	>>> print(x_312_uniform)
+	-1.4931654579929197
+
+    Multiple entries:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,3), (1,4,2,1)))
+    >>> index = ((3,10), (1,9), (2,8))
+    >>> x_312 = t3.t3_entry(x, index)
+    >>> print(x_312)
+    -6.127319174475167
+    >>> cores, masks = ut3.t3_to_ut3(x)
+    >>> x_312_uniform = ut3.ut3_entry(cores, index)
+    >>> print(x_312_uniform)
+    -6.127319174475165
+
+    """
+    tucker_supercore, tt_supercore = cores
+
+    d, N, n, r = get_padded_structure(cores)
+
+    def _func(mu_Na, x):
+        w_Ni, B_xi, G_axb = x
+        xi_Nx = xnp.einsum('...i,xi->...x', w_Ni, B_xi)
+        tmp_Nxb = xnp.einsum('...a,axb->...xb', mu_Na, G_axb)
+        mu_Nb = xnp.einsum('...xb,...Nx->...b', tmp_Nxb, xi_Nx)
+        return mu_Nb, 0
+
+    init = xnp.ones((input_vectors.shape[:-2], r))
+    xs = (input_vectors.moveaxis(-2,0), tucker_supercore, tt_supercore)
+    final_mu = scan(_func, init, xs, length=None)[0]
+    result = xnp.einsum('...a->...', final_mu)
 
     return result
 

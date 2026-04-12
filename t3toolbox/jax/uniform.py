@@ -12,7 +12,7 @@ __all__ = [
     'check_ut3',
     'get_padded_structure',
     'get_original_structure',
-    'unpack_edge_tensors',
+    'unpack',
     'apply_masks',
     't3_to_ut3',
     'ut3_to_t3',
@@ -34,13 +34,13 @@ get_padded_structure            = ut3.get_padded_structure
 get_original_structure          = ut3.get_original_structure
 are_ut3_ranks_minimal           = ut3.are_ut3_ranks_minimal
 
-unpack_edge_tensors = ft.partial(ut3.unpack_edge_tensors, xnp=jnp)
-apply_masks         = ft.partial(ut3.apply_masks, xnp=jnp)
-t3_to_ut3           = ft.partial(ut3.t3_to_ut3, xnp=jnp)
-ut3_to_t3           = ft.partial(ut3.ut3_to_t3, xnp=jnp)
-ut3_to_dense        = ft.partial(ut3.ut3_to_dense, xnp=jnp)
-ut3_entry           = ft.partial(ut3.ut3_entry, xnp=jnp)
-ut3_add             = ft.partial(ut3.ut3_add, xnp=jnp)
-ut3_scale           = ft.partial(ut3.ut3_scale, xnp=jnp)
-ut3_neg             = ft.partial(ut3.ut3_neg, xnp=jnp)
-ut3_sub             = ft.partial(ut3.ut3_sub, xnp=jnp)
+unpack          = ft.partial(ut3.unpack, xnp=jnp)
+apply_masks     = ft.partial(ut3.apply_masks, xnp=jnp)
+t3_to_ut3       = ft.partial(ut3.t3_to_ut3, xnp=jnp)
+ut3_to_t3       = ft.partial(ut3.ut3_to_t3, xnp=jnp)
+ut3_to_dense    = ft.partial(ut3.ut3_to_dense, xnp=jnp)
+ut3_entry       = ft.partial(ut3.ut3_entry, xnp=jnp)
+ut3_add         = ft.partial(ut3.ut3_add, xnp=jnp)
+ut3_scale       = ft.partial(ut3.ut3_scale, xnp=jnp)
+ut3_neg         = ft.partial(ut3.ut3_neg, xnp=jnp)
+ut3_sub         = ft.partial(ut3.ut3_sub, xnp=jnp)

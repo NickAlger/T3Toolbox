@@ -38,7 +38,7 @@ class TestUniform(unittest.TestCase):
                 E = np.array([[1, 2, 3, 4], [5, 6, 7, 8]])
                 submask = [[True, False, True, True], [False, True, False, False]]
 
-                ee = UT3.unpack_edge_tensors(E, submask)
+                ee = UT3.unpack(E, submask)
 
                 self.assertEqual([1, 3, 4], list(ee[0]))
                 self.assertEqual([6], list(ee[1]))
@@ -49,7 +49,7 @@ class TestUniform(unittest.TestCase):
                 E = np.random.randn(6, 5, 4, 3, 2)
                 submask = [[False, False], [False, True], [True, True]]
 
-                ee = UT3.unpack_edge_tensors(E, submask)
+                ee = UT3.unpack(E, submask)
 
                 self.assertEqual([(6, 5, 4, 0), (6, 5, 4, 1), (6, 5, 4, 2)], [e.shape for e in ee])
 

@@ -52,9 +52,9 @@ def ut3_svd(
     >>> print(ss_tt_from_ut3[1])
     [980.86624688 624.1067954  159.88424271   0.           0.        ]
     >>> _, tucker_masks, tt_masks = masks
-    >>> print(ut3.unpack_edge_tensors(ss_tt_from_ut3, tt_masks)[1])
+    >>> print(ut3.unpack(ss_tt_from_ut3, tt_masks)[1])
     [980.86624688 624.1067954  159.88424271]
-    >>> ut3.unpack_edge_tensors(ss_basis_from_ut3, tucker_masks)[0] - ss_basis[0]
+    >>> ut3.unpack(ss_basis_from_ut3, tucker_masks)[0] - ss_basis[0]
     array([ 1.13686838e-12, -2.27373675e-13, -1.13686838e-13])
 
     Non-example with degenerate (unnecessairily large) ranks
