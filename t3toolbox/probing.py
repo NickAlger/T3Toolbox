@@ -7,6 +7,7 @@ import typing as typ
 
 import t3toolbox.base_variation_format
 import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.common as common
 
 __all__ = [
     # Probe a dense tensor
@@ -275,8 +276,9 @@ def compute_xis(
 def compute_mus(
         left_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ri,ni,r(i+1))
         xis: typ.Sequence[NDArray], # len=d. elm_shape=(...,ni)
+        scan = common.ragged_scan,
         xnp = np,
-) -> typ.Sequence[NDArray]: # mus. len=d+1, elm_shape=(...,ri)
+) -> typ.Sequence[NDArray]: # mus. len=d, elm_shape=(...,ri)
     '''Compute leftward edge variables associated with edges between adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -299,7 +301,7 @@ def compute_mus(
     Returns
     -------
     typ.Tuple[NDArray,...]
-        leftward edge variables mu. len=d+1, elm_shape=(...,ri)
+        leftward edge variables mu. len=d, elm_shape=(...,ri)
 
     See Also
     --------
@@ -309,20 +311,18 @@ def compute_mus(
     compute_etas
     assemble_probes
     '''
-    num_cores = len(xis)
-    mus = [xnp.ones(xis[0].shape[:-1] + (left_tt_cores[0].shape[0],))]
-    for ii in range(num_cores):
-        P = left_tt_cores[ii]
-        xi = xis[ii]
-        mu = mus[-1]
+    def _func(mu, P_xi):
+        P, xi = P_xi
         mu_next = xnp.einsum(
             '...aj,...a->...j',
             xnp.einsum('...i,iaj->...aj', mu, P),
             xi,
         )
-        mus.append(mu_next)
-    return tuple(mus)
+        return mu_next, [mu]
 
+    init = xnp.ones(xis[0].shape[:-1] + (left_tt_cores[0].shape[0],))
+    last_mu, mus_tuple = scan(_func, init, [left_tt_cores, xis])
+    return mus_tuple[0]
 
 def tt_reverse(tt_cores):
     return tuple([G.swapaxes(0, 2) for G in tt_cores[::-1]])
@@ -332,7 +332,7 @@ def compute_nus(
         right_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ri,ni,r(i+1))
         xis, # len=d. elm_shape=(...,ni)
         xnp = np,
-) -> typ.Sequence[NDArray]: # nus. len=d+1, elm_shape=(...,ri)
+) -> typ.Sequence[NDArray]: # nus. len=d, elm_shape=(...,r(i+1))
     '''Compute rightward edge variables associated with edges between adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -355,7 +355,7 @@ def compute_nus(
     Returns
     -------
     typ.Tuple[NDArray,...]
-        rightward edge variables nu. len=d+1, elm_shape=(...,ri)
+        rightward edge variables nu. len=d, elm_shape=(...,r(i+1))
 
     See Also
     --------
@@ -371,7 +371,7 @@ def compute_nus(
 def compute_etas(
         outer_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ri,ni,r(i+1))
         mus, # len=d. elm_shape=(...,ri)
-        nus, # len=d. elm_shape=(...,ri)
+        nus, # len=d. elm_shape=(...,r(i+1))
         xnp = np,
 ) -> typ.Sequence[NDArray]: # etas. len=d, elm_shape=(...,ni)
     '''Compute downward edge variables associated with edges between Tucker cores and adjacent TT-cores.
@@ -389,9 +389,9 @@ def compute_etas(
         Outer TT-cores for Tucker tensor train.
         len=d. elm_shape=(ri,ni,r(i+1))
     mus: typ.Sequence[NDArray]
-        leftward edge variables mu. len=d+1. elm_shape=(num_probes,ri)
+        leftward edge variables mu. len=d. elm_shape=(num_probes,ri)
     nus: typ.Sequence[NDArray]
-        rightward edge variables mu. len=d+1. elm_shape=(num_probes,ri)
+        rightward edge variables mu. len=d. elm_shape=(num_probes,r(i+1))
     xnp:
         Linear algebra backend. Default: np (numpy)
 
@@ -414,7 +414,8 @@ def compute_etas(
             xnp.einsum('...i,iaj->...aj', mu, G),
             nu,
         )
-        for mu, G, nu in zip(mus[:-1], outer_tt_cores, nus[1:])
+        # for mu, G, nu in zip(mus[:-1], outer_tt_cores, nus[1:])
+        for mu, G, nu in zip(mus, outer_tt_cores, nus)
     ])
 
 
@@ -589,8 +590,8 @@ def compute_detas(
         var_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,ni,rR(i+1))
         left_tt_cores: typ.Sequence[NDArray],  # len=d, elm_shape=(rLi,ni,rL(i+1))
         right_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rRi,ni,rR(i+1))
-        mus: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,nLi)
-        nus: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,nRi)
+        mus: typ.Sequence[NDArray],  # len=d, elm_shape=(num_probes,nLi)
+        nus: typ.Sequence[NDArray],  # len=d, elm_shape=(num_probes,nRi)
         sigmas: typ.Sequence[NDArray], # len=d+1, elm_shape=(num_probes,rR(i+1))
         taus: typ.Sequence[NDArray], # len=d+1, elm_shape=(num_probes,rL(i+1))
         xnp = np,
@@ -621,7 +622,7 @@ def compute_detas(
         dG = var_tt_cores[ii]
 
         mu = mus[ii]
-        nu = nus[ii+1]
+        nu = nus[ii]
         sigma = sigmas[ii]
         tau = taus[ii+1]
 
@@ -846,7 +847,7 @@ def compute_tau_tildes(
         deta_tildes,  # len=d+1, elm_shape=(...,ni)
         left_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,ni,rL(i+d))
         xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,ni)
-        mus, # len=d+1, elm_shape=(...,rLi)
+        mus, # len=d, elm_shape=(...,rLi)
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # len=d+1, elm_shape=(...,rLi)
     '''Adjoint-var-rightward edge variables tau_tilde.
@@ -889,7 +890,7 @@ def compute_sigma_tildes(
         deta_tildes,  # len=d+1, elm_shape=(...,ni)
         right_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rRi,ni,rR(i+d))
         xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,ni)
-        nus, # len=d+1, elm_shape=(...,rRi)
+        nus, # len=d, elm_shape=(...,rR(i+1))
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # len=d+1, elm_shape=(...,rRi)
     '''Adjoint-var-leftward edge variables sigma_tilde.
@@ -911,8 +912,8 @@ def compute_dxi_tildes(
         sigma_tildes: typ.Sequence[NDArray],  # len=d+1, elm_shape=(...,rRi)
         tau_tildes: typ.Sequence[NDArray],  # len=d+1, elm_shape=(...,rLi)
         outer_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
-        mus: typ.Sequence[NDArray],  # len=d+1, elm_shape=(...,rLi)
-        nus: typ.Sequence[NDArray],  # len=d+1, elm_shape=(...,rRi)
+        mus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rLi)
+        nus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rR(i+1))
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # dxi_tildes. len=d, elm_shape=(...,nOi)
     '''Adjoint-var-downward edge variables dxi_tilde.
@@ -937,7 +938,7 @@ def compute_dxi_tildes(
             st
         )
         for O, mu, nu, st, tt in
-        zip(outer_tt_cores, mus[:-1], nus[1:], sigma_tildes[1:], tau_tildes[:-1])
+        zip(outer_tt_cores, mus, nus, sigma_tildes[1:], tau_tildes[:-1])
     ])
 
 
@@ -980,8 +981,8 @@ def assemble_tt_variations(
         tau_tildes: typ.Sequence[NDArray],  # len=d+1, elm_shape=(...,rLi)
         deta_tildes,  # len=d+1, elm_shape=(...,ni)
         xis: typ.Sequence[NDArray],  # len=d, elm_shape=(...,ni)
-        mus,  # len=d+1, elm_shape=(...,rLi)
-        nus,  # len=d+1, elm_shape=(...,rRi)
+        mus,  # len=d, elm_shape=(...,rLi)
+        nus,  # len=d, elm_shape=(...,rR(i+1))
         sum_over_probes: bool = False,
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,rLi,nOi,rRi)
@@ -1014,7 +1015,7 @@ def assemble_tt_variations(
                 nu
             )
             for xi, mu, nu, sigma_tilde, tau_tilde, deta_tilde in
-            zip(xis, mus[:-1], nus[1:], sigma_tildes[1:], tau_tildes[:-1], deta_tildes)
+            zip(xis, mus, nus, sigma_tildes[1:], tau_tildes[:-1], deta_tildes)
         ])
     else:
         dG_tildes =  tuple([
@@ -1036,7 +1037,7 @@ def assemble_tt_variations(
                nu
            )
             for xi, mu, nu, sigma_tilde, tau_tilde, deta_tilde in
-            zip(xis, mus[:-1], nus[1:], sigma_tildes[1:], tau_tildes[:-1], deta_tildes)
+            zip(xis, mus, nus, sigma_tildes[1:], tau_tildes[:-1], deta_tildes)
         ])
     return dG_tildes
 

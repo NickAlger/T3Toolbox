@@ -18,7 +18,7 @@ StackedNDArray = typ.TypeVar('StackedNDArray')
 
 
 def ragged_scan(
-        f: typ.Callable[[Carry, typ.Sequence[ScanX]], typ.Tuple[Carry, ScanY]],
+        f: typ.Callable[[Carry, typ.Tuple[ScanX]], typ.Tuple[Carry, typ.Sequence[ScanY]]],
         init: Carry,
         xs: typ.Sequence[typ.Sequence[ScanX]], # elements all have length L
 ) -> typ.Tuple[
@@ -31,13 +31,13 @@ def ragged_scan(
     """
     length = len(xs[0])
     carry = init
-    ys_list = [[] for _ in range(length)]
 
+    ys_list = [[] for _ in range(length)]
     for ii in range(length):
-        x = [x[ii] for x in xs]
+        x = tuple([x[ii] for x in xs])
         carry, y = f(carry, x)
         for l, elm in zip(ys_list, y):
-            l.append(y)
+            l.append(elm)
 
     return carry, tuple([tuple(y) for y in ys_list])
 
