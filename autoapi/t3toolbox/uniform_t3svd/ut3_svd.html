@@ -376,7 +376,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../uniform/get_padded_structure.html">t3toolbox.uniform.get_padded_structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/get_original_structure.html">t3toolbox.uniform.get_original_structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/apply_masks.html">t3toolbox.uniform.apply_masks</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../uniform/unpack_edge_tensors.html">t3toolbox.uniform.unpack_edge_tensors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../uniform/unpack.html">t3toolbox.uniform.unpack</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/t3_to_ut3.html">t3toolbox.uniform.t3_to_ut3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/ut3_to_t3.html">t3toolbox.uniform.ut3_to_t3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/ut3_to_dense.html">t3toolbox.uniform.ut3_to_dense</a></li>
@@ -494,9 +494,9 @@
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ss_tt_from_ut3</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
 <span class="go">[980.86624688 624.1067954  159.88424271   0.           0.        ]</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">_</span><span class="p">,</span> <span class="n">tucker_masks</span><span class="p">,</span> <span class="n">tt_masks</span> <span class="o">=</span> <span class="n">masks</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ut3</span><span class="o">.</span><span class="n">unpack_edge_tensors</span><span class="p">(</span><span class="n">ss_tt_from_ut3</span><span class="p">,</span> <span class="n">tt_masks</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ut3</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="n">ss_tt_from_ut3</span><span class="p">,</span> <span class="n">tt_masks</span><span class="p">)[</span><span class="mi">1</span><span class="p">])</span>
 <span class="go">[980.86624688 624.1067954  159.88424271]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">ut3</span><span class="o">.</span><span class="n">unpack_edge_tensors</span><span class="p">(</span><span class="n">ss_basis_from_ut3</span><span class="p">,</span> <span class="n">tucker_masks</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">ss_basis</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ut3</span><span class="o">.</span><span class="n">unpack</span><span class="p">(</span><span class="n">ss_basis_from_ut3</span><span class="p">,</span> <span class="n">tucker_masks</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">ss_basis</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
 <span class="go">array([ 1.13686838e-12, -2.27373675e-13, -1.13686838e-13])</span>
 </pre></div>
 </div>

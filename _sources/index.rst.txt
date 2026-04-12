@@ -113,7 +113,7 @@ to the dense N0 x ... x N(d-1) tensors that are *represented* by the Tucker tens
 even though these dense tensors are not formed during computations.
 
 Included functionality:
------------------------
+=======================
 
 - Basic T3 operations (entries, addition, scaling, inner product)
 - Determination of minimal ranks
@@ -131,22 +131,17 @@ Included functionality:
 
 
 Websites
---------
+========
 
 * Github: https://github.com/NickAlger/T3Toolbox
 * Documentation: https://nickalger.github.io/T3Toolbox/
 
 
 Authors
--------
+=======
 
 * Nick Alger (nalger225@gmail.com)
 * Blake Christierson (bechristierson@utexas.edu)
-
-License
--------
-
-* `MIT License <https://mit-license.org/>`_
 
 
 Examples

@@ -14,7 +14,7 @@ t3toolbox.probing.probe_tangent
    :param x: Tangent vector to probe.
              shape=(N1,...,Nd)
    :type x: t3m.T3Tangent
-   :param ww: input vectors to probe with. len=d, elm_shape=(Ni,) or (num_probes,Ni)
+   :param ww: input vectors to probe with. len=d, elm_shape=(...,Ni)
    :type ww: typ.Sequence[NDArray]
    :param xnp: Linear algebra backend. Default: np (numpy)
 

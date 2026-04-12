@@ -15,7 +15,7 @@ Attributes
    t3toolbox.jax.uniform.get_padded_structure
    t3toolbox.jax.uniform.get_original_structure
    t3toolbox.jax.uniform.are_ut3_ranks_minimal
-   t3toolbox.jax.uniform.unpack_edge_tensors
+   t3toolbox.jax.uniform.unpack
    t3toolbox.jax.uniform.apply_masks
    t3toolbox.jax.uniform.t3_to_ut3
    t3toolbox.jax.uniform.ut3_to_t3
@@ -42,7 +42,7 @@ Module Contents
 
 .. py:data:: are_ut3_ranks_minimal
 
-.. py:data:: unpack_edge_tensors
+.. py:data:: unpack
 
 .. py:data:: apply_masks
 

@@ -377,7 +377,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../uniform/get_padded_structure.html">t3toolbox.uniform.get_padded_structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/get_original_structure.html">t3toolbox.uniform.get_original_structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/apply_masks.html">t3toolbox.uniform.apply_masks</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../uniform/unpack_edge_tensors.html">t3toolbox.uniform.unpack_edge_tensors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../uniform/unpack.html">t3toolbox.uniform.unpack</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/t3_to_ut3.html">t3toolbox.uniform.t3_to_ut3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/ut3_to_t3.html">t3toolbox.uniform.ut3_to_t3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/ut3_to_dense.html">t3toolbox.uniform.ut3_to_dense</a></li>
@@ -488,12 +488,12 @@ arXiv preprint arXiv:2603.21141.
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>x</strong> (<em>t3.TuckerTensorTrain</em>) – Tucker tensor train to probe.
 structure=((N1,…,Nd),(n1,…,nd),(1,r1,…,r(d-1),1))</p></li>
-<li><p><strong>ww</strong> (<em>typ.Sequence</em><em>[</em><em>NDArray</em><em>]</em>) – input vectors to probe with. len=d, elm_shape=(Ni,) or (num_probes,Ni)</p></li>
+<li><p><strong>ww</strong> (<em>typ.Sequence</em><em>[</em><em>NDArray</em><em>]</em>) – input vectors to probe with. len=d, elm_shape=(…,Ni)</p></li>
 <li><p><strong>xnp</strong> – Linear algebra backend. Default: np (numpy)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Probes, zz. len=d, elm_shape=(Ni,) or (num_probes,Ni)</p>
+<dd class="field-even"><p>Probes, zz. len=d, elm_shape=(…,Ni)</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>typ.Tuple[NDArray,…]</p>

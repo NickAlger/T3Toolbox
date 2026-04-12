@@ -15,11 +15,11 @@ t3toolbox.probing.compute_mus
    :param left_tt_cores: Left TT-cores for Tucker tensor train.
                          len=d. elm_shape=(ri,ni,r(i+1))
    :type left_tt_cores: typ.Sequence[NDArray]
-   :param xis: upward edge variables xi. len=d. elm_shape=(num_probes,ni)
+   :param xis: upward edge variables xi. len=d. elm_shape=(...,ni)
    :type xis: typ.Sequence[NDArray]
    :param xnp: Linear algebra backend. Default: np (numpy)
 
-   :returns: leftward edge variables mu. len=d+1, elm_shape=(num_probes,ri)
+   :returns: leftward edge variables mu. len=d+1, elm_shape=(...,ri)
    :rtype: typ.Tuple[NDArray,...]
 
    .. seealso:: :py:obj:`probe_t3`, :py:obj:`compute_xis`, :py:obj:`compute_nus`, :py:obj:`compute_etas`, :py:obj:`assemble_probes`
