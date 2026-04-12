@@ -1,7 +1,7 @@
 t3toolbox.probing.assemble_probes
 =================================
 
-.. py:function:: t3toolbox.probing.assemble_probes(tucker_cores: Sequence[NDArray], etas, xnp=np) -> Sequence[NDArray]
+.. py:function:: t3toolbox.probing.assemble_probes(tucker_cores: Sequence[NDArray], etas, map=common.ragged_map, xnp=np) -> Sequence[NDArray]
 
    Assemble probes from downward edge variables.
 
