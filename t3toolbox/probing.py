@@ -236,7 +236,7 @@ def probe_t3(
 def compute_xis(
         tucker_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ni,Ni)
         ww: typ.Sequence[NDArray], # len=d. elm_shape=(...,Ni)
-        xmap = common.ragged_map,
+        map = common.ragged_map,
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # xis. len=d, elm_shape=(...,ni)
     '''Compute upward edge variables associated with edges between Tucker cores and adjacent TT-cores.
@@ -276,7 +276,7 @@ def compute_xis(
         xi = xnp.einsum('io,...o->...i', U, w)
         return [xi]
 
-    xis_tuple = xmap(_func, (tucker_cores, ww))
+    xis_tuple = map(_func, (tucker_cores, ww))
     return xis_tuple[0]
 
 
@@ -380,7 +380,7 @@ def compute_etas(
         outer_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ri,ni,r(i+1))
         mus, # len=d. elm_shape=(...,ri)
         nus, # len=d. elm_shape=(...,r(i+1))
-        xmap = common.ragged_map,
+        map = common.ragged_map,
         xnp = np,
 ) -> typ.Sequence[NDArray]: # etas. len=d, elm_shape=(...,ni)
     '''Compute downward edge variables associated with edges between Tucker cores and adjacent TT-cores.
@@ -426,14 +426,14 @@ def compute_etas(
         )
         return [eta]
 
-    etas_tuple = xmap(_func, (mus, outer_tt_cores, nus))
+    etas_tuple = map(_func, (mus, outer_tt_cores, nus))
     return etas_tuple[0]
 
 
 def assemble_probes(
         tucker_cores: typ.Sequence[NDArray],  # len=d. elm_shape=(ni,Ni)
         etas,  # len=d. elm_shape=(...,ni)
-        xmap = common.ragged_map,
+        map = common.ragged_map,
         xnp = np,
 ) -> typ.Sequence[NDArray]: # zz. len=d, elm_shape=(...,Ni)
     '''Assemble probes from downward edge variables.
@@ -472,7 +472,7 @@ def assemble_probes(
         z = xnp.einsum('...a,ao->...o', eta, U)
         return [z]
 
-    zz_tuple = xmap(_func, (etas, tucker_cores))
+    zz_tuple = map(_func, (etas, tucker_cores))
     return zz_tuple[0]
 
 
@@ -604,7 +604,7 @@ def compute_detas(
         nus: typ.Sequence[NDArray],  # len=d, elm_shape=(num_probes,nRi)
         sigmas: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,rRi)
         taus: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,rL(i+1))
-        xmap = common.ragged_map,
+        map = common.ragged_map,
         xnp = np,
 ) -> typ.Sequence[NDArray]: # detas. len=d, elm_shape=(num_probes,ni)
     '''Compute var-downward edge variables deta.
@@ -644,7 +644,7 @@ def compute_detas(
         deta = s1 + s2 + s3
         return [deta]
 
-    detas_tuple = xmap(_func, (left_tt_cores, right_tt_cores, var_tt_cores, mus, nus, sigmas, taus))
+    detas_tuple = map(_func, (left_tt_cores, right_tt_cores, var_tt_cores, mus, nus, sigmas, taus))
     return detas_tuple[0]
 
 
@@ -653,7 +653,7 @@ def assemble_tangent_probes(
         var_tucker_cores: typ.Sequence[NDArray], # len=d. elm_shape=(nOi,Ni)
         etas: typ.Sequence[NDArray], # etas. len=d, elm_shape=(num_probes,ni)
         detas: typ.Sequence[NDArray], # detas. len=d, elm_shape=(num_probes,ni)
-        xmap = common.ragged_map,
+        map = common.ragged_map,
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # probes. len=d, elm_shape=(num_probes,Ni)
     '''Assemble tangent vector probes from edge variables.
@@ -679,7 +679,7 @@ def assemble_tangent_probes(
         probe = s1 + s2
         return [probe]
 
-    probes_tuple = xmap(_func, (tucker_cores, var_tucker_cores, etas, detas))
+    probes_tuple = map(_func, (tucker_cores, var_tucker_cores, etas, detas))
     return probes_tuple[0]
 
 
@@ -825,7 +825,7 @@ def probe_tangent(
 def compute_deta_tildes(
         ztildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,Ni)
         tucker_cores: typ.Sequence[NDArray], # len=d, elm_shape=(ni,Ni)
-        xmap = common.ragged_map,
+        map = common.ragged_map,
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,ni)
     '''Adjoint-var-upward edge variables deta_tilde.
@@ -842,7 +842,7 @@ def compute_deta_tildes(
         deta_tilde = xnp.einsum('ao,...o->...a', U, zt)
         return [deta_tilde]
 
-    deta_tildes_tuple = xmap(_func, (tucker_cores, ztildes))
+    deta_tildes_tuple = map(_func, (tucker_cores, ztildes))
     return deta_tildes_tuple[0]
 
 
@@ -912,7 +912,7 @@ def compute_dxi_tildes(
         outer_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
         mus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rLi)
         nus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rR(i+1))
-        xmap = common.ragged_map,
+        map = common.ragged_map,
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # dxi_tildes. len=d, elm_shape=(...,nOi)
     '''Adjoint-var-downward edge variables dxi_tilde.
@@ -941,7 +941,7 @@ def compute_dxi_tildes(
         )
         return [dxi_tilde]
 
-    dxi_tildes_tuple = xmap(_func, (outer_tt_cores, mus, nus, sigma_tildes, tau_tildes))
+    dxi_tildes_tuple = map(_func, (outer_tt_cores, mus, nus, sigma_tildes, tau_tildes))
     return dxi_tildes_tuple[0]
 
 
@@ -951,7 +951,7 @@ def assemble_tucker_variations(
         ww: typ.Sequence[NDArray],  # input vectors, len=d, elm_shape=(Ni,) or (...,Ni)
         etas: typ.Sequence[NDArray],  # etas. len=d, elm_shape=(...,ni)
         sum_over_probes: bool = False,
-        xmap = common.ragged_map,
+        map = common.ragged_map,
         xnp = np,
 ):
     '''Assemble Tucker core variations, delta_U_tilde.
@@ -979,7 +979,7 @@ def assemble_tucker_variations(
             )
         return [dU_tilde]
 
-    dU_tildes_tuple = xmap(_func, (ztildes, etas, ww, dxi_tildes))
+    dU_tildes_tuple = map(_func, (ztildes, etas, ww, dxi_tildes))
     return dU_tildes_tuple[0]
 
 
@@ -991,7 +991,7 @@ def assemble_tt_variations(
         mus,  # len=d, elm_shape=(...,rLi)
         nus,  # len=d, elm_shape=(...,rR(i+1))
         sum_over_probes: bool = False,
-        xmap = common.ragged_map,
+        map = common.ragged_map,
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,rLi,nOi,rRi)
     '''Assemble TT core variations, delta_G_tilde.
@@ -1047,7 +1047,7 @@ def assemble_tt_variations(
             )
         return [dG_tilde]
 
-    dG_tildes_tuple = xmap(_func, (xis, mus, nus, sigma_tildes, tau_tildes, deta_tildes))
+    dG_tildes_tuple = map(_func, (xis, mus, nus, sigma_tildes, tau_tildes, deta_tildes))
     return dG_tildes_tuple[0]
 
 

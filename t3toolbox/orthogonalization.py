@@ -9,6 +9,7 @@ import t3toolbox.linalg
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.base_variation_format as bvf
 import t3toolbox.linalg as linalg
+import t3toolbox.common as common
 
 __all__ = [
     'up_svd_ith_tucker_core',
@@ -634,6 +635,9 @@ def orthogonalize_relative_to_ith_tt_core(
 
 def orthogonal_representations(
         x: t3.TuckerTensorTrain,
+        map = common.ragged_map,
+        use_svd: bool = True, # True: orthogonalize with SVD. False: orthogonalize with QR
+        scan = common.ragged_scan,
         xnp = np,
 ) -> typ.Tuple[
     bvf.T3Base, # orthogonal base
@@ -755,10 +759,23 @@ def orthogonal_representations(
 
     num_cores = len(x[1])
 
-    # Orthogonalize Tucker matrices
-    for ii in range(num_cores):
-        x = up_svd_ith_tucker_core(ii, x, xnp=xnp)[0]
-    tucker_cores = tuple([U.copy() for U in x[0]])
+    # Orthogonalize Tucker cores
+    def _up_func(Uio_Gaib):
+        Uio, Gaib = Uio_Gaib
+        Uoi = Uio.T
+
+        if use_svd:
+            new_Uox, ssx, VTxi = t3toolbox.linalg.truncated_svd(Uoi, xnp=xnp)
+            Rxi = xnp.einsum('x,xi->xi', ssx, VTxi)
+        else:
+            new_Uox, Rxi = xnp.linalg.qr(Uoi, mode='reduced')
+
+        new_Gaxb = xnp.einsum('aib,xi->axb', Gaib, Rxi)
+        new_Uxo = new_Uox.T
+        return (new_Uxo, new_Gaxb)
+
+    x = map(_up_func, x)
+    tucker_cores = x[0]
 
     # Right orthogonalize
     for ii in range(num_cores-1, 0, -1): # num_cores-1, num_cores-2, ..., 1

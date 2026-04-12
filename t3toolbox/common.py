@@ -35,7 +35,7 @@ def ragged_scan(
     length = len(xs[0])
     carry = init
 
-    ys_list = [[] for _ in range(length)]
+    ys_list = [[] for _ in range(len(xs))]
     for ii in range(length):
         x = tuple([x[ii] for x in xs])
         carry, y = f(carry, x)
@@ -61,13 +61,13 @@ def numpy_scan(
 
 def ragged_map(
         f: typ.Callable[[typ.Tuple[InputType]], typ.Tuple[typ.Sequence[OutputType]]],
-        xs: typ.Sequence[typ.Sequence[InputType]], # elements all have length L
+        xs: typ.Sequence[typ.Sequence[InputType]], # len(xs[0])=len(xs[1])=...=L
 ) -> typ.Tuple[
     typ.Tuple[typ.Tuple[OutputType, ...], ...], # elements all have length L
 ]:
     length = len(xs[0])
 
-    ys_list = [[] for _ in range(length)]
+    ys_list = [[] for _ in range(len(xs))]
     for ii in range(length):
         x = tuple([elm[ii] for elm in xs])
         y = f(x)
