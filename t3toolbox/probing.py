@@ -238,13 +238,13 @@ def _apply_edge_mask(edge_variable, edge_mask, xnp=np):
 
 
 def compute_xis(
-        tucker_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ni,Ni)
+        up_tucker_cores: typ.Sequence[NDArray], # len=d. elm_shape=(nUi,Ni)
         ww: typ.Sequence[NDArray], # len=d. elm_shape=(...,Ni)
-        shape_masks: typ.Sequence[NDArray] = None, # len=d, elm_shape=(Ni,)
-        tucker_masks: typ.Sequence[NDArray] = None, # len=d, elm_shape=(ni,)
+        shape_weights: typ.Sequence[NDArray] = None, # len=d, elm_shape=(Ni,)
+        up_tucker_weights: typ.Sequence[NDArray] = None, # len=d, elm_shape=(nUi,)
         map = common.ragged_map,
         xnp = np,
-) -> typ.Tuple[NDArray,...]: # xis. len=d, elm_shape=(...,ni)
+) -> typ.Tuple[NDArray,...]: # xis. len=d, elm_shape=(...,nUi)
     '''Compute upward edge variables associated with edges between Tucker cores and adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -256,9 +256,9 @@ def compute_xis(
 
     Parameters
     ----------
-    tucker_cores: typ.Sequence[NDArray]
+    up_tucker_cores: typ.Sequence[NDArray]
         Tucker cores for Tucker tensor train.
-        len=d. elm_shape=(ni,Ni)
+        len=d. elm_shape=(nUi,Ni)
     ww: typ.Sequence[NDArray]
         input vectors to probe with. len=d, elm_shape=(...,Ni)
     xnp:
@@ -267,7 +267,7 @@ def compute_xis(
     Returns
     -------
     typ.Tuple[NDArray,...]
-        upward edge variables xi. len=d, elm_shape=(...,ni)
+        upward edge variables xi. len=d, elm_shape=(...,nUi)
 
     See Also
     --------
@@ -277,41 +277,41 @@ def compute_xis(
     compute_etas
     assemble_probes
     '''
-    w_masks     = shape_masks
-    xi_masks    = tucker_masks
+    w_weights     = shape_weights
+    xi_weights    = up_tucker_weights
 
     def _func(x):
         U, w = x[0], x[1]
 
         ind = 2
-        if w_masks is not None:
+        if w_weights is not None:
             w = _apply_edge_mask(w, x[ind])
             ind += 1
 
         xi = xnp.einsum('io,...o->...i', U, w)
 
-        if xi_masks is not None:
+        if xi_weights is not None:
             xi = _apply_edge_mask(xi, x[ind])
             ind += 1
 
         return (xi,)
 
-    xs = (tucker_cores, ww)
-    xs = xs + (w_masks,)    if w_masks  is not None else xs
-    xs = xs + (xi_masks,)   if xi_masks is not None else xs
+    xs = (up_tucker_cores, ww)
+    xs = xs + (w_weights,)    if w_weights  is not None else xs
+    xs = xs + (xi_weights,)   if xi_weights is not None else xs
 
     (xis,) = map(_func, xs)
     return xis
 
 
 def compute_mus(
-        left_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ri,ni,r(i+1))
-        xis: typ.Sequence[NDArray], # len=d. elm_shape=(...,ni)
-        tucker_masks: typ.Sequence[NDArray] = None, # len=d, elm_shape=(ni,)
-        tt_masks: typ.Sequence[NDArray] = None, # len=d+1, elm_shape=(ri,)
+        left_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(rLi,nUi,rL(i+1))
+        xis: typ.Sequence[NDArray], # len=d. elm_shape=(...,nUi)
+        up_tucker_weights: typ.Sequence[NDArray] = None, # len=d, elm_shape=(nUi,)
+        left_tt_weights: typ.Sequence[NDArray] = None, # len=d+1, elm_shape=(rLi,)
         scan = common.ragged_scan,
         xnp = np,
-) -> typ.Sequence[NDArray]: # mus. len=d, elm_shape=(...,ri)
+) -> typ.Sequence[NDArray]: # mus. len=d, elm_shape=(...,rLi)
     '''Compute leftward edge variables associated with edges between adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -325,16 +325,16 @@ def compute_mus(
     ----------
     left_tt_cores: typ.Sequence[NDArray]
         Left TT-cores for Tucker tensor train.
-        len=d. elm_shape=(ri,ni,r(i+1))
+        len=d. elm_shape=(rLi,nUi,rL(i+1))
     xis: typ.Sequence[NDArray]
-        upward edge variables xi. len=d. elm_shape=(...,ni)
+        upward edge variables xi. len=d. elm_shape=(...,nUi)
     xnp:
         Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
     typ.Tuple[NDArray,...]
-        leftward edge variables mu. len=d, elm_shape=(...,ri)
+        leftward edge variables mu. len=d, elm_shape=(...,rLi)
 
     See Also
     --------
@@ -344,18 +344,18 @@ def compute_mus(
     compute_etas
     assemble_probes
     '''
-    xi_masks = tucker_masks
-    mu_masks = tt_masks[:-1] if tt_masks is not None else None
+    xi_weights = up_tucker_weights
+    mu_weights = left_tt_weights[:-1] if left_tt_weights is not None else None
 
     def _func(mu, x):
         P, xi = x[0], x[1]
 
         ind = 2
-        if xi_masks is not None:
+        if xi_weights is not None:
             xi = _apply_edge_mask(xi, x[ind])
             ind += 1
 
-        if mu_masks is not None:
+        if mu_weights is not None:
             mu = _apply_edge_mask(mu, x[ind])
             ind += 1
 
@@ -371,8 +371,8 @@ def compute_mus(
     init = xnp.ones(vectorization_shape + (r0,))
 
     xs = (left_tt_cores, xis)
-    xs = xs + (xi_masks,) if xi_masks is not None else xs
-    xs = xs + (mu_masks,) if mu_masks is not None else xs
+    xs = xs + (xi_weights,) if xi_weights is not None else xs
+    xs = xs + (mu_weights,) if mu_weights is not None else xs
 
     last_mu, (mus,) = scan(_func, init, xs)
     return mus
@@ -383,12 +383,12 @@ def tt_reverse(tt_cores):
 
 
 def compute_nus(
-        right_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ri,ni,r(i+1))
-        xis, # len=d. elm_shape=(...,ni)
-        tucker_masks: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(ni,)
-        tt_masks: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(ri,)
+        right_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(rRi,nUi,rR(i+1))
+        xis, # len=d. elm_shape=(...,nUi)
+        up_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nUi,)
+        right_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rRi,)
         xnp = np,
-) -> typ.Sequence[NDArray]: # nus. len=d, elm_shape=(...,r(i+1))
+) -> typ.Sequence[NDArray]: # nus. len=d, elm_shape=(...,rR(i+1))
     '''Compute rightward edge variables associated with edges between adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -402,16 +402,16 @@ def compute_nus(
     ----------
     right_tt_cores: typ.Sequence[NDArray]
         Right TT-cores for Tucker tensor train.
-        len=d. elm_shape=(ri,ni,r(i+1))
+        len=d. elm_shape=(rRi,nUi,rR(i+1))
     xis: typ.Sequence[NDArray]
-        upward edge variables xi. len=d. elm_shape=(...,ni)
+        upward edge variables xi. len=d. elm_shape=(...,nUi)
     xnp:
         Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
     typ.Tuple[NDArray,...]
-        rightward edge variables nu. len=d, elm_shape=(...,r(i+1))
+        rightward edge variables nu. len=d, elm_shape=(...,rR(i+1))
 
     See Also
     --------
@@ -423,14 +423,14 @@ def compute_nus(
     '''
     rev_tt_cores = tt_reverse(right_tt_cores)
     rev_xis = xis[::-1]
-    rev_tucker_masks    = None if tucker_masks  is None else tucker_masks[::-1]
-    rev_tt_masks        = None if tt_masks      is None else tt_masks[::-1]
+    rev_up_tucker_weights = None if up_tucker_weights   is None else up_tucker_weights[::-1]
+    rev_right_tt_weights  = None if right_tt_weights    is None else right_tt_weights[::-1]
 
     rev_nus = compute_mus(
         rev_tt_cores,
         rev_xis,
-        tucker_masks=rev_tucker_masks,
-        tt_masks=rev_tt_masks,
+        up_tucker_weights=rev_up_tucker_weights,
+        left_tt_weights=rev_right_tt_weights,
         xnp=xnp,
     )
     nus = rev_nus[::-1]
@@ -438,14 +438,15 @@ def compute_nus(
 
 
 def compute_etas(
-        outer_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ri,ni,r(i+1))
-        mus, # len=d. elm_shape=(...,ri)
-        nus, # len=d. elm_shape=(...,r(i+1))
-        tucker_masks: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(ni,)
-        tt_masks: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(ri,)
+        outer_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(rLi,nOi,rR(i+1))
+        mus, # len=d. elm_shape=(...,rLi)
+        nus, # len=d. elm_shape=(...,rR(i+1))
+        outer_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
+        left_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rLi,)
+        right_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rRi,)
         map = common.ragged_map,
         xnp = np,
-) -> typ.Sequence[NDArray]: # etas. len=d, elm_shape=(...,ni)
+) -> typ.Sequence[NDArray]: # etas. len=d, elm_shape=(...,nOi)
     '''Compute downward edge variables associated with edges between Tucker cores and adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -480,19 +481,19 @@ def compute_etas(
     compute_nus
     assemble_probes
     '''
-    mu_masks    = tt_masks[:-1] if tt_masks is not None else None
-    nu_masks    = tt_masks[1:]  if tt_masks is not None else None
-    eta_masks   = tucker_masks
+    mu_weights    = left_tt_weights[:-1]    if left_tt_weights    is not None else None
+    nu_weights    = right_tt_weights[1:]    if right_tt_weights   is not None else None
+    eta_weights   = outer_tucker_weights
 
     def _func(x):
         mu, G, nu = x[0], x[1], x[2]
 
         ind = 3
-        if mu_masks is not None:
+        if mu_weights is not None:
             mu = _apply_edge_mask(mu, x[ind])
             ind += 1
 
-        if nu_masks is not None:
+        if nu_weights is not None:
             nu = _apply_edge_mask(nu, x[ind])
             ind += 1
 
@@ -502,16 +503,16 @@ def compute_etas(
             nu,
         )
 
-        if eta_masks is not None:
+        if eta_weights is not None:
             eta = _apply_edge_mask(eta, x[ind])
             ind += 1
 
         return (eta,)
 
     xs = (mus, outer_tt_cores, nus)
-    xs = xs + (mu_masks,)   if mu_masks     is not None else xs
-    xs = xs + (nu_masks,)   if nu_masks     is not None else xs
-    xs = xs + (eta_masks,)  if eta_masks    is not None else xs
+    xs = xs + (mu_weights,)   if mu_weights     is not None else xs
+    xs = xs + (nu_weights,)   if nu_weights     is not None else xs
+    xs = xs + (eta_weights,)  if eta_weights    is not None else xs
 
     (etas,) = map(_func, xs)
     return etas
@@ -520,8 +521,8 @@ def compute_etas(
 def assemble_probes(
         tucker_cores: typ.Sequence[NDArray],  # len=d. elm_shape=(ni,Ni)
         etas,  # len=d. elm_shape=(...,ni)
-        shape_masks: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(Ni,)
-        tucker_masks: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(ni,)
+        shape_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(Ni,)
+        tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(ni,)
         map = common.ragged_map,
         xnp = np,
 ) -> typ.Sequence[NDArray]: # zz. len=d, elm_shape=(...,Ni)
@@ -556,28 +557,28 @@ def assemble_probes(
     compute_nus
     compute_etas
     '''
-    eta_masks   = tucker_masks
-    z_masks     = shape_masks
+    eta_weights   = tucker_weights
+    z_weights     = shape_weights
 
     def _func(x):
         eta, U = x[0], x[1]
 
         ind = 0
-        if eta_masks is not None:
+        if eta_weights is not None:
             eta = _apply_edge_mask(eta, x[ind])
             ind += 1
 
         z = xnp.einsum('...a,ao->...o', eta, U)
 
-        if z_masks is not None:
+        if z_weights is not None:
             z = _apply_edge_mask(z, x[ind])
             ind += 1
 
         return (z,)
 
     xs = (etas, tucker_cores)
-    xs = xs + (eta_masks,)  if eta_masks    is not None else xs
-    xs = xs + (z_masks,)    if z_masks      is not None else xs
+    xs = xs + (eta_weights,)  if eta_weights    is not None else xs
+    xs = xs + (z_weights,)    if z_weights      is not None else xs
 
     (zz,) = map(_func, xs)
     return zz
@@ -590,8 +591,8 @@ def assemble_probes(
 def compute_dxis(
         var_tucker_cores: typ.Sequence[NDArray], # len=d. elm_shape=(nOi,Ni)
         ww: typ.Sequence[NDArray], # len=d. elm_shape=(...,Ni)
-        shape_masks: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(Ni,)
-        outer_tucker_masks: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
+        shape_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(Ni,)
+        outer_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # xis. len=d, elm_shape=(...,nOi)
     '''Compute var-upward edge variables dxi.
@@ -614,7 +615,7 @@ def compute_dxis(
     assemble_tangent_probes
     probe_tangent
     '''
-    return compute_xis(var_tucker_cores, ww, shape_masks, outer_tucker_masks, xnp=xnp)
+    return compute_xis(var_tucker_cores, ww, shape_weights, outer_tucker_weights, xnp=xnp)
 
 
 def compute_sigmas(
@@ -624,10 +625,10 @@ def compute_sigmas(
         xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,nUi),
         dxis: typ.Sequence[NDArray], # len=d, elm_shape=(...,nOi)
         mus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,nLi)
-        up_tucker_masks: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nUi,)
-        outer_tucker_masks: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
-        left_tt_masks: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rLi,)
-        right_tt_masks: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rRi,)
+        up_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nUi,)
+        outer_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
+        left_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rLi,)
+        right_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rRi,)
         scan = common.ragged_scan,
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # sigmas. len=d, elm_shape=(...,rR(i+1))
@@ -648,28 +649,28 @@ def compute_sigmas(
     assemble_tangent_probes
     probe_tangent
     '''
-    xi_masks    = up_tucker_masks
-    dxi_masks   = outer_tucker_masks
-    mu_masks    = left_tt_masks[:-1]    if left_tt_masks    is not None else None
-    sigma_masks = right_tt_masks[:-1]   if right_tt_masks   is not None else None  # Yes, [:-1]. init sigma is zero.
+    xi_weights    = up_tucker_weights
+    dxi_weights   = outer_tucker_weights
+    mu_weights    = left_tt_weights[:-1]    if left_tt_weights    is not None else None
+    sigma_weights = right_tt_weights[:-1]   if right_tt_weights   is not None else None  # Yes, [:-1]. init sigma is zero.
 
     def _func(sigma, x):
         Q, O, dG, xi, dxi, mu = x[0], x[1], x[2], x[3], x[4], x[5]
 
         ind = 6
-        if xi_masks is not None:
+        if xi_weights is not None:
             xi = _apply_edge_mask(xi, x[ind])
             ind += 1
 
-        if dxi_masks is not None:
+        if dxi_weights is not None:
             dxi = _apply_edge_mask(dxi, x[ind])
             ind += 1
 
-        if mu_masks is not None:
+        if mu_weights is not None:
             mu = _apply_edge_mask(mu, x[ind])
             ind += 1
 
-        if sigma_masks is not None:
+        if sigma_weights is not None:
             sigma = _apply_edge_mask(sigma, x[ind])
             ind += 1
 
@@ -697,10 +698,10 @@ def compute_sigmas(
     init = xnp.zeros(vectorization_shape + (rR0,))
 
     xs = (right_tt_cores, outer_tt_cores, var_tt_cores, xis, dxis, mus)
-    xs = xs + (xi_masks,)       if xi_masks     is not None else xs
-    xs = xs + (dxi_masks,)      if dxi_masks    is not None else xs
-    xs = xs + (mu_masks,)       if mu_masks     is not None else xs
-    xs = xs + (sigma_masks,)    if sigma_masks  is not None else xs
+    xs = xs + (xi_weights,)       if xi_weights     is not None else xs
+    xs = xs + (dxi_weights,)      if dxi_weights    is not None else xs
+    xs = xs + (mu_weights,)       if mu_weights     is not None else xs
+    xs = xs + (sigma_weights,)    if sigma_weights  is not None else xs
 
     last_sigma, (sigmas,) = scan(_func, init, xs)
     return sigmas
@@ -713,10 +714,10 @@ def compute_taus(
         xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,nUi),
         dxis: typ.Sequence[NDArray], # len=d, elm_shape=(...,nOi)
         nus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,nR(i+1))
-        up_tucker_masks: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nUi,)
-        outer_tucker_masks: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
-        left_tt_masks: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rLi,)
-        right_tt_masks: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rRi,)
+        up_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nUi,)
+        outer_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
+        left_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rLi,)
+        right_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rRi,)
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # taus. len=d, elm_shape=(...,rL(i+1))
     '''Compute var-rightward edge variables tau.
@@ -742,10 +743,10 @@ def compute_taus(
     rev_xis     = xis[::-1]
     rev_dxis    = dxis[::-1]
     rev_nus     = nus[::-1]
-    rev_up_tucker_masks     = None if up_tucker_masks       is None else up_tucker_masks[::-1]
-    rev_outer_tucker_masks  = None if outer_tucker_masks    is None else outer_tucker_masks[::-1]
-    rev_left_tt_masks       = None if left_tt_masks         is None else left_tt_masks[::-1]
-    rev_right_tt_masks      = None if right_tt_masks        is None else right_tt_masks[::-1]
+    rev_up_tucker_weights     = None if up_tucker_weights       is None else up_tucker_weights[::-1]
+    rev_outer_tucker_weights  = None if outer_tucker_weights    is None else outer_tucker_weights[::-1]
+    rev_left_tt_weights       = None if left_tt_weights         is None else left_tt_weights[::-1]
+    rev_right_tt_weights      = None if right_tt_weights        is None else right_tt_weights[::-1]
 
     rev_taus = compute_sigmas(
         rev_var_tt_cores,
@@ -754,10 +755,10 @@ def compute_taus(
         rev_xis,
         rev_dxis,
         rev_nus,
-        up_tucker_masks=rev_up_tucker_masks,
-        outer_tucker_masks=rev_outer_tucker_masks,
-        left_tt_masks=rev_left_tt_masks,
-        right_tt_masks=rev_right_tt_masks,
+        up_tucker_weights=rev_up_tucker_weights,
+        outer_tucker_weights=rev_outer_tucker_weights,
+        left_tt_weights=rev_left_tt_weights,
+        right_tt_weights=rev_right_tt_weights,
         xnp=xnp
     )
     taus = rev_taus[::-1]
@@ -772,9 +773,9 @@ def compute_detas(
         nus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,nRi)
         sigmas: typ.Sequence[NDArray], # len=d, elm_shape=(...,rRi)
         taus: typ.Sequence[NDArray], # len=d, elm_shape=(...,rL(i+1))
-        outer_tucker_masks: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
-        left_tt_masks: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rLi,)
-        right_tt_masks: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rRi,)
+        up_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nUi,)
+        left_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rLi,)
+        right_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rRi,)
         map = common.ragged_map,
         xnp = np,
 ) -> typ.Sequence[NDArray]: # detas. len=d, elm_shape=(...,nUi)
@@ -795,29 +796,29 @@ def compute_detas(
     assemble_tangent_probes
     probe_tangent
     '''
-    mu_masks    = left_tt_masks[:-1]    if left_tt_masks        is not None else None
-    tau_masks   = left_tt_masks[1:]     if left_tt_masks        is not None else None
-    nu_masks    = right_tt_masks[1:]    if right_tt_masks       is not None else None
-    sigma_masks = right_tt_masks[:-1]   if right_tt_masks       is not None else None
-    deta_masks  = outer_tucker_masks
+    mu_weights    = left_tt_weights[:-1]    if left_tt_weights        is not None else None
+    tau_weights   = left_tt_weights[1:]     if left_tt_weights        is not None else None
+    nu_weights    = right_tt_weights[1:]    if right_tt_weights       is not None else None
+    sigma_weights = right_tt_weights[:-1]   if right_tt_weights       is not None else None
+    deta_weights  = up_tucker_weights
 
     def _func(x):
         P, Q, dG, mu, nu, sigma, tau = x[0], x[1], x[2], x[3], x[4], x[5], x[6]
 
         ind = 7
-        if mu_masks is not None:
+        if mu_weights is not None:
             mu = _apply_edge_mask(mu, x[ind])
             ind += 1
 
-        if tau_masks is not None:
+        if tau_weights is not None:
             tau = _apply_edge_mask(tau, x[ind])
             ind += 1
 
-        if nu_masks is not None:
+        if nu_weights is not None:
             nu = _apply_edge_mask(nu, x[ind])
             ind += 1
 
-        if sigma_masks is not None:
+        if sigma_weights is not None:
             sigma = _apply_edge_mask(sigma, x[ind])
             ind += 1
 
@@ -838,18 +839,18 @@ def compute_detas(
         )
         deta = s1 + s2 + s3
 
-        if deta_masks is not None:
+        if deta_weights is not None:
             deta = _apply_edge_mask(deta, x[ind])
             ind += 1
 
         return (deta,)
 
     xs = (left_tt_cores, right_tt_cores, var_tt_cores, mus, nus, sigmas, taus)
-    xs = xs + (mu_masks,)       if mu_masks     is not None else xs
-    xs = xs + (tau_masks,)      if tau_masks    is not None else xs
-    xs = xs + (nu_masks,)       if nu_masks     is not None else xs
-    xs = xs + (sigma_masks,)    if sigma_masks  is not None else xs
-    xs = xs + (deta_masks,)     if deta_masks   is not None else xs
+    xs = xs + (mu_weights,)       if mu_weights     is not None else xs
+    xs = xs + (tau_weights,)      if tau_weights    is not None else xs
+    xs = xs + (nu_weights,)       if nu_weights     is not None else xs
+    xs = xs + (sigma_weights,)    if sigma_weights  is not None else xs
+    xs = xs + (deta_weights,)     if deta_weights   is not None else xs
 
     detas_tuple = map(_func, xs)
     return detas_tuple[0]
@@ -860,9 +861,9 @@ def assemble_tangent_probes(
         var_tucker_cores: typ.Sequence[NDArray], # len=d. elm_shape=(nOi,Ni)
         etas: typ.Sequence[NDArray], # etas. len=d, elm_shape=(...,nUi)
         detas: typ.Sequence[NDArray], # detas. len=d, elm_shape=(...,nUi)
-        shape_masks: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(Ni,)
-        up_tucker_masks: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nUi,)
-        outer_tucker_masks: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
+        shape_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(Ni,)
+        up_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nUi,)
+        outer_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
         map = common.ragged_map,
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # probes. len=d, elm_shape=(...,Ni)
@@ -882,19 +883,19 @@ def assemble_tangent_probes(
     compute_detas
     probe_tangent
     '''
-    eta_masks   = up_tucker_masks
-    deta_masks  = outer_tucker_masks
-    probe_masks = shape_masks
+    eta_weights   = up_tucker_weights
+    deta_weights  = outer_tucker_weights
+    probe_weights = shape_weights
 
     def _func(x):
         B, dB, eta, deta = x[0], x[1], x[2], x[3]
 
         ind = 4
-        if eta_masks is not None:
+        if eta_weights is not None:
             eta = _apply_edge_mask(eta, x[ind])
             ind += 1
 
-        if deta_masks is not None:
+        if deta_weights is not None:
             deta = _apply_edge_mask(deta, x[ind])
             ind += 1
 
@@ -902,16 +903,16 @@ def assemble_tangent_probes(
         s2 = xnp.einsum('ao,...a->...o', dB, eta)
         probe = s1 + s2
 
-        if probe_masks is not None:
+        if probe_weights is not None:
             probe = _apply_edge_mask(probe, x[ind])
             ind += 1
 
         return (probe,)
 
     xs = (tucker_cores, var_tucker_cores, etas, detas)
-    xs = xs + (eta_masks,)      if eta_masks    is not None else xs
-    xs = xs + (deta_masks,)     if deta_masks   is not None else xs
-    xs = xs + (probe_masks,)    if probe_masks  is not None else xs
+    xs = xs + (eta_weights,)      if eta_weights    is not None else xs
+    xs = xs + (deta_weights,)     if deta_weights   is not None else xs
+    xs = xs + (probe_weights,)    if probe_weights  is not None else xs
 
     (probes,) = map(_func, xs)
     return probes
@@ -921,6 +922,12 @@ def probe_tangent(
         variation: t3toolbox.base_variation_format.T3Variation, # tucker_var_shapes=(nOi,Ni), tt_var_shapes=tt_hole_shapes=(rLi,ni,rRi)
         ww:     typ.Sequence[NDArray], # input vectors, len=d, elm_shape=(...,Ni)
         base: t3toolbox.base_variation_format.T3Base, # tucker_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
+        shape_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(Ni,)
+        up_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nUi,)
+        outer_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
+        left_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rLi,)
+        right_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rRi,)
+        map = common.ragged_map,
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,Ni)
     '''Probe a tangent vector.
@@ -1002,51 +1009,107 @@ def probe_tangent(
 
     assert(tuple([w.shape[-1] for w in ww]) == x_shape)
 
-    (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores) = base
+    (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores) = base
     (var_tucker_cores, var_tt_cores) = variation
 
+    (ww,) = map(
+        lambda v_m: (_apply_edge_mask(v_m[0], v_m[1], xnp=xnp),),
+        (ww, shape_weights)
+    )
+
     xis = compute_xis(
-        tucker_cores, ww, xnp=xnp,
+        up_tucker_cores,
+        ww,
+        shape_weights=None,
+        up_tucker_weights=up_tucker_weights,
+        xnp=xnp,
     )
 
     mus = compute_mus(
-        left_tt_cores, xis, xnp=xnp,
+        left_tt_cores,
+        xis,
+        left_tt_weights=left_tt_weights,
+        up_tucker_weights=None,
+        xnp=xnp,
     )
 
     nus = compute_nus(
-        right_tt_cores, xis, xnp=xnp,
+        right_tt_cores,
+        xis,
+        right_tt_weights=right_tt_weights,
+        up_tucker_weights=None,
+        xnp=xnp,
     )
 
     etas = compute_etas(
-        outer_tt_cores, mus, nus, xnp=xnp,
+        outer_tt_cores,
+        mus,
+        nus,
+        outer_tucker_weights=outer_tucker_weights,
+        left_tt_weights=None,
+        right_tt_weights=None,
+        xnp=xnp,
     )
 
     dxis = compute_dxis(
-        var_tucker_cores, ww, xnp=xnp,
+        var_tucker_cores,
+        ww,
+        shape_weights=None,
+        outer_tucker_weights=outer_tucker_weights,
+        xnp=xnp,
     )
 
     sigmas = compute_sigmas(
-        var_tt_cores, right_tt_cores, outer_tt_cores,
-        xis, dxis, mus,
+        var_tt_cores,
+        right_tt_cores,
+        outer_tt_cores,
+        xis,
+        dxis,
+        mus,
+        up_tucker_weights=None,
+        outer_tucker_weights=None,
+        left_tt_weights=left_tt_weights,
+        right_tt_weights=right_tt_weights,
         xnp=xnp,
     )
 
     taus = compute_taus(
-        var_tt_cores, left_tt_cores, outer_tt_cores,
-        xis, dxis, nus,
+        var_tt_cores,
+        left_tt_cores,
+        outer_tt_cores,
+        xis,
+        dxis,
+        nus,
+        up_tucker_weights=None,
+        outer_tucker_weights=None,
+        left_tt_weights=left_tt_weights,
+        right_tt_weights=right_tt_weights,
         xnp=xnp,
     )
 
     detas = compute_detas(
-        var_tt_cores, left_tt_cores, right_tt_cores,
-        mus, nus, sigmas, taus,
+        var_tt_cores,
+        left_tt_cores,
+        right_tt_cores,
+        mus,
+        nus,
+        sigmas,
+        taus,
+        up_tucker_weights=up_tucker_weights,
+        left_tt_weights=None,
+        right_tt_weights=None,
         xnp=xnp,
     )
 
     zz = assemble_tangent_probes(
-        tucker_cores, var_tucker_cores,
-        etas, detas,
+        up_tucker_cores,
+        var_tucker_cores,
+        etas,
+        detas,
         xnp=xnp,
+        shape_weights=shape_weights,
+        up_tucker_weights=None,
+        outer_tucker_weights=None,
     )
 
     return zz
