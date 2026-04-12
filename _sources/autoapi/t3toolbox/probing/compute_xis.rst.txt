@@ -1,7 +1,7 @@
 t3toolbox.probing.compute_xis
 =============================
 
-.. py:function:: t3toolbox.probing.compute_xis(tucker_cores: Sequence[NDArray], ww: Sequence[NDArray], map=common.ragged_map, xnp=np) -> Tuple[NDArray, Ellipsis]
+.. py:function:: t3toolbox.probing.compute_xis(tucker_cores: Sequence[NDArray], ww: Sequence[NDArray], shape_masks: Sequence[NDArray] = None, tucker_masks: Sequence[NDArray] = None, map=common.ragged_map, xnp=np) -> Tuple[NDArray, Ellipsis]
 
    Compute upward edge variables associated with edges between Tucker cores and adjacent TT-cores.
    Used for probing a Tucker tensor train.
