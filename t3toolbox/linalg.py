@@ -201,7 +201,7 @@ def left_svd_3tensor(
     ni, na, nj = G0_i_a_j.shape
     G0_ia_j = G0_i_a_j.reshape((ni*na, nj))
 
-    U_ia_x, ss_x, Vt_x_j = t3toolbox.linalg.truncated_svd(G0_ia_j, min_rank, max_rank, rtol, atol, xnp=xnp)
+    U_ia_x, ss_x, Vt_x_j = truncated_svd(G0_ia_j, min_rank, max_rank, rtol, atol, xnp=xnp)
 
     nx = len(ss_x)
     U_i_a_x = U_ia_x.reshape((ni, na, nx))
@@ -367,3 +367,5 @@ def outer_svd_3tensor(
     U_i_j_x, ss_x, Vt_x_a = left_svd_3tensor(G0_i_j_a, min_rank, max_rank, rtol, atol, xnp=xnp)
     U_i_x_j = U_i_j_x.swapaxes(1, 2)
     return U_i_x_j, ss_x, Vt_x_a
+
+
