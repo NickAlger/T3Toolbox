@@ -36,6 +36,8 @@ __all__ = [
     'probe_tangent_transpose',
 ]
 
+from t3toolbox.common import ragged_map
+
 NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
 
 
@@ -236,6 +238,7 @@ def probe_t3(
 def compute_xis(
         tucker_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ni,Ni)
         ww: typ.Sequence[NDArray], # len=d. elm_shape=(...,Ni)
+        map = common.ragged_map,
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # xis. len=d, elm_shape=(...,ni)
     '''Compute upward edge variables associated with edges between Tucker cores and adjacent TT-cores.
@@ -270,7 +273,13 @@ def compute_xis(
     compute_etas
     assemble_probes
     '''
-    return tuple([xnp.einsum('io,...o->...i', U, w) for U, w in zip(tucker_cores, ww)])
+    def _func(U_w):
+        U, w = U_w
+        xi = xnp.einsum('io,...o->...i', U, w)
+        return [xi]
+
+    xis_tuple = map(_func, (tucker_cores, ww))
+    return xis_tuple[0]
 
 
 def compute_mus(
@@ -373,6 +382,7 @@ def compute_etas(
         outer_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(ri,ni,r(i+1))
         mus, # len=d. elm_shape=(...,ri)
         nus, # len=d. elm_shape=(...,r(i+1))
+        map = common.ragged_map,
         xnp = np,
 ) -> typ.Sequence[NDArray]: # etas. len=d, elm_shape=(...,ni)
     '''Compute downward edge variables associated with edges between Tucker cores and adjacent TT-cores.
@@ -409,14 +419,17 @@ def compute_etas(
     compute_nus
     assemble_probes
     '''
-    return tuple([
-        xnp.einsum(
+    def _func(mu_G_nu):
+        mu, G, nu = mu_G_nu
+        eta = xnp.einsum(
             '...aj,...j->...a',
             xnp.einsum('...i,iaj->...aj', mu, G),
             nu,
         )
-        for mu, G, nu in zip(mus, outer_tt_cores, nus)
-    ])
+        return [eta]
+
+    etas_tuple = map(_func, (mus, outer_tt_cores, nus))
+    return etas_tuple[0]
 
 
 def assemble_probes(
