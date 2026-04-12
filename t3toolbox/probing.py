@@ -641,34 +641,25 @@ def compute_sigmas(
     mu_masks    = left_tt_masks[:-1]    if left_tt_masks    is not None else None
     sigma_masks = right_tt_masks[:-1]   if right_tt_masks   is not None else None  # Yes, [:-1]. init sigma is zero.
 
-    def _func(sigma, Q_O_dG_xi_dxi_mu_masks):
-        Q = Q_O_dG_xi_dxi_mu_masks[0]
-        O = Q_O_dG_xi_dxi_mu_masks[1]
-        dG = Q_O_dG_xi_dxi_mu_masks[2]
-        xi = Q_O_dG_xi_dxi_mu_masks[3]
-        dxi = Q_O_dG_xi_dxi_mu_masks[4]
-        mu = Q_O_dG_xi_dxi_mu_masks[5]
+    def _func(sigma, x):
+        Q, O, dG, xi, dxi, mu = x[0], x[1], x[2], x[3], x[4], x[5]
 
         ind = 6
-        if up_tucker_masks is not None:
-            xi_mask = Q_O_dG_xi_dxi_mu_masks[ind]
-            ind = ind + 1
-            xi = _apply_edge_mask(xi, xi_mask)
-
-        if outer_tucker_masks is not None:
-            dxi_mask = Q_O_dG_xi_dxi_mu_masks[ind]
-            ind = ind + 1
-            dxi = _apply_edge_mask(dxi, dxi_mask)
-
-        if left_tt_masks is not None:
-            mu_mask = Q_O_dG_xi_dxi_mu_masks[ind]
+        if xi_masks is not None:
+            xi = _apply_edge_mask(xi, x[ind])
             ind += 1
-            mu = _apply_edge_mask(mu, mu_mask)
 
-        if right_tt_masks is not None:
-            sigma_mask = Q_O_dG_xi_dxi_mu_masks[ind]
+        if dxi_masks is not None:
+            dxi = _apply_edge_mask(dxi, x[ind])
             ind += 1
-            sigma = _apply_edge_mask(sigma, sigma_mask)
+
+        if mu_masks is not None:
+            mu = _apply_edge_mask(mu, x[ind])
+            ind += 1
+
+        if sigma_masks is not None:
+            sigma = _apply_edge_mask(sigma, x[ind])
+            ind += 1
 
         sigma_next_t1 = xnp.einsum(
             '...aj,...a->...j',
@@ -694,10 +685,10 @@ def compute_sigmas(
     init = xnp.zeros(vectorization_shape + (rR0,))
 
     xs = (right_tt_cores, outer_tt_cores, var_tt_cores, xis, dxis, mus)
-    xs = xs + (xi_masks,) if xi_masks is not None else xs
-    xs = xs + (dxi_masks,) if dxi_masks is not None else xs
-    xs = xs + (mu_masks,) if mu_masks is not None else xs
-    xs = xs + (sigma_masks,) if sigma_masks is not None else xs
+    xs = xs + (xi_masks,)       if xi_masks     is not None else xs
+    xs = xs + (dxi_masks,)      if dxi_masks    is not None else xs
+    xs = xs + (mu_masks,)       if mu_masks     is not None else xs
+    xs = xs + (sigma_masks,)    if sigma_masks  is not None else xs
 
     last_sigma, (sigmas,) = scan(_func, init, xs)
     return sigmas
@@ -837,7 +828,7 @@ def compute_detas(
 
         if deta_masks is not None:
             deta = _apply_edge_mask(deta, x[ind])
-            ind = ind + 1
+            ind += 1
 
         return (deta,)
 
