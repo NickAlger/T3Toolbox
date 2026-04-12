@@ -324,6 +324,7 @@ def compute_mus(
     last_mu, mus_tuple = scan(_func, init, [left_tt_cores, xis])
     return mus_tuple[0]
 
+
 def tt_reverse(tt_cores):
     return tuple([G.swapaxes(0, 2) for G in tt_cores[::-1]])
 
@@ -414,7 +415,6 @@ def compute_etas(
             xnp.einsum('...i,iaj->...aj', mu, G),
             nu,
         )
-        # for mu, G, nu in zip(mus[:-1], outer_tt_cores, nus[1:])
         for mu, G, nu in zip(mus, outer_tt_cores, nus)
     ])
 
@@ -499,9 +499,10 @@ def compute_sigmas(
         outer_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
         xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,ni),
         dxis: typ.Sequence[NDArray], # len=d, elm_shape=(...,nOi)
-        mus: typ.Sequence[NDArray],  # len=d+1, elm_shape=(...,nLi)
+        mus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,nLi)
+        scan = common.ragged_scan,
         xnp = np,
-) -> typ.Tuple[NDArray,...]: # sigmas. len=d+1, elm_shape=(...,rR(i+1))
+) -> typ.Tuple[NDArray,...]: # sigmas. len=d, elm_shape=(...,rR(i+1))
     '''Compute var-leftward edge variables sigma.
     Used for probing a tangent vector.
 
@@ -519,18 +520,8 @@ def compute_sigmas(
     assemble_tangent_probes
     probe_tangent
     '''
-    num_cores = len(xis)
-
-    sigmas = [xnp.zeros(xis[0].shape[:-1] + (right_tt_cores[0].shape[0],))]
-    for ii in range(num_cores):
-        Q = right_tt_cores[ii]
-        O = outer_tt_cores[ii]
-        dG = var_tt_cores[ii]
-        xi = xis[ii]
-        dxi = dxis[ii]
-
-        mu = mus[ii]
-        sigma = sigmas[-1]
+    def _func(sigma, Q_O_dG_xi_dxi_mu):
+        Q, O, dG, xi, dxi, mu = Q_O_dG_xi_dxi_mu
 
         sigma_next_t1 = xnp.einsum(
             '...aj,...a->...j',
@@ -547,10 +538,47 @@ def compute_sigmas(
             xnp.einsum('...i,iaj->...aj', mu, O),
             dxi
         )
-
         sigma_next = sigma_next_t1 + sigma_next_t2 + sigma_next_t3
-        sigmas.append(sigma_next)
-    return tuple(sigmas)
+
+        return sigma_next, [sigma]
+
+    init = xnp.zeros(xis[0].shape[:-1] + (right_tt_cores[0].shape[0],))
+    xs = [right_tt_cores, outer_tt_cores, var_tt_cores, xis, dxis, mus]
+    last_sigma, sigmas_tuple = scan(_func, init, xs)
+    return sigmas_tuple[0]
+
+    # num_cores = len(xis)
+    #
+    # sigmas = [xnp.zeros(xis[0].shape[:-1] + (right_tt_cores[0].shape[0],))]
+    # for ii in range(num_cores):
+    #     Q = right_tt_cores[ii]
+    #     O = outer_tt_cores[ii]
+    #     dG = var_tt_cores[ii]
+    #     xi = xis[ii]
+    #     dxi = dxis[ii]
+    #
+    #     mu = mus[ii]
+    #     sigma = sigmas[-1]
+    #
+    #     sigma_next_t1 = xnp.einsum(
+    #         '...aj,...a->...j',
+    #         xnp.einsum('...i,iaj->...aj', sigma, Q),
+    #         xi
+    #     )
+    #     sigma_next_t2 = xnp.einsum(
+    #         '...aj,...a->...j',
+    #         xnp.einsum('...i,iaj->...aj', mu, dG),
+    #         xi
+    #     )
+    #     sigma_next_t3 = xnp.einsum(
+    #         '...aj,...a->...j',
+    #         xnp.einsum('...i,iaj->...aj', mu, O),
+    #         dxi
+    #     )
+    #
+    #     sigma_next = sigma_next_t1 + sigma_next_t2 + sigma_next_t3
+    #     sigmas.append(sigma_next)
+    # return tuple(sigmas)
 
 
 def compute_taus(
@@ -559,7 +587,7 @@ def compute_taus(
         outer_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
         xis: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,ni),
         dxis: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,nOi)
-        nus: typ.Sequence[NDArray],  # len=d+1, elm_shape=(num_probes,nRi)
+        nus: typ.Sequence[NDArray],  # len=d, elm_shape=(num_probes,nR(i+1))
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # taus. len=d+1, elm_shape=(num_probes,rL(i+1))
     '''Compute var-rightward edge variables tau.
@@ -592,8 +620,8 @@ def compute_detas(
         right_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rRi,ni,rR(i+1))
         mus: typ.Sequence[NDArray],  # len=d, elm_shape=(num_probes,nLi)
         nus: typ.Sequence[NDArray],  # len=d, elm_shape=(num_probes,nRi)
-        sigmas: typ.Sequence[NDArray], # len=d+1, elm_shape=(num_probes,rR(i+1))
-        taus: typ.Sequence[NDArray], # len=d+1, elm_shape=(num_probes,rL(i+1))
+        sigmas: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,rRi)
+        taus: typ.Sequence[NDArray], # len=d, elm_shape=(num_probes,rL(i+1))
         xnp = np,
 ) -> typ.Sequence[NDArray]: # detas. len=d, elm_shape=(num_probes,ni)
     '''Compute var-downward edge variables deta.
@@ -624,7 +652,7 @@ def compute_detas(
         mu = mus[ii]
         nu = nus[ii]
         sigma = sigmas[ii]
-        tau = taus[ii+1]
+        tau = taus[ii]
 
         s1 = xnp.einsum(
             '...aj,...j->...a',
