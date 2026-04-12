@@ -1,0 +1,4 @@
+t3toolbox.common.ragged_map
+===========================
+
+.. py:function:: t3toolbox.common.ragged_map(f: Callable[[Tuple[InputType]], Tuple[Sequence[OutputType]]], xs: Sequence[Sequence[InputType]]) -> Tuple[Tuple[Tuple[OutputType, Ellipsis], Ellipsis]]

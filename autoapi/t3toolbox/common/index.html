@@ -47,7 +47,7 @@
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3toolbox.common.numpy_scan" href="numpy_scan.html" />
+    <link rel="next" title="t3toolbox.common.ragged_scan" href="ragged_scan.html" />
     <link rel="prev" title="t3toolbox.base_variation_format.ith_bv_to_t3" href="../base_variation_format/ith_bv_to_t3.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -261,7 +261,9 @@
 </ul>
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">t3toolbox.common</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="ragged_scan.html">t3toolbox.common.ragged_scan</a></li>
 <li class="toctree-l3"><a class="reference internal" href="numpy_scan.html">t3toolbox.common.numpy_scan</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ragged_map.html">t3toolbox.common.ragged_map</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../corewise/index.html">t3toolbox.corewise</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -475,7 +477,13 @@
 </div>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="numpy_scan.html#t3toolbox.common.numpy_scan" title="t3toolbox.common.numpy_scan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy_scan</span></code></a>(→ Tuple[Carry, Tuple[StackedNDArray, Ellipsis]])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="ragged_scan.html#t3toolbox.common.ragged_scan" title="t3toolbox.common.ragged_scan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ragged_scan</span></code></a>(→ Tuple[CarryType, Tuple[Tuple[OutputType, ...)</p></td>
+<td><p>Similar to jax.lax.scan, except for ragged-sized arrays</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="numpy_scan.html#t3toolbox.common.numpy_scan" title="t3toolbox.common.numpy_scan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy_scan</span></code></a>(→ Tuple[CarryType, Tuple[StackedNDArray, ...)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="ragged_map.html#t3toolbox.common.ragged_map" title="t3toolbox.common.ragged_map"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ragged_map</span></code></a>(→ Tuple[Tuple[Tuple[OutputType, Ellipsis], ...)</p></td>
 <td><p></p></td>
 </tr>
 </tbody>
@@ -504,11 +512,11 @@
       </div>
     </a>
     <a class="right-next"
-       href="numpy_scan.html"
+       href="ragged_scan.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.common.numpy_scan</p>
+        <p class="prev-next-title">t3toolbox.common.ragged_scan</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

@@ -10,10 +10,14 @@ Functions
 .. toctree::
    :hidden:
 
+   /autoapi/t3toolbox/common/ragged_scan
    /autoapi/t3toolbox/common/numpy_scan
+   /autoapi/t3toolbox/common/ragged_map
 
 .. autoapisummary::
 
+   t3toolbox.common.ragged_scan
    t3toolbox.common.numpy_scan
+   t3toolbox.common.ragged_map
 
 

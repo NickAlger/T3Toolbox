@@ -1,4 +1,4 @@
 t3toolbox.common.numpy_scan
 ===========================
 
-.. py:function:: t3toolbox.common.numpy_scan(f: Callable[[Carry, NDArray], Tuple[Carry, NDArray]], init: Carry, xs: Sequence[StackedNDArray]) -> Tuple[Carry, Tuple[StackedNDArray, Ellipsis]]
+.. py:function:: t3toolbox.common.numpy_scan(f: Callable[[CarryType, NDArray], Tuple[CarryType, NDArray]], init: CarryType, xs: Sequence[StackedNDArray]) -> Tuple[CarryType, Tuple[StackedNDArray, Ellipsis]]
