@@ -811,15 +811,8 @@ def orthogonal_representations(
         Oaxb, ssx, WTxi = linalg.outer_svd_3tensor(Haib, xnp=xnp)
         Cxi = ssx.reshape((-1, 1)) * WTxi
 
-        print('Haib.shape=', Haib.shape)
-        print('Uio.shape=', Uio.shape)
-        print('Cxi.shape=', Cxi.shape)
-
         Vxo = np.einsum('xi,io->xo', Cxi, Uio)
         return (Vxo, Oaxb)
-
-    print('up_tucker_cores:\n', [U.shape for U in up_tucker_cores])
-    print('tt_variations:\n', [H.shape for H in tt_variations])
 
     tucker_variations, outer_tt_cores = map(_down_func, (up_tucker_cores, tt_variations))
 
