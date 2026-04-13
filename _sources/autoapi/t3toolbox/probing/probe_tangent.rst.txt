@@ -1,7 +1,7 @@
 t3toolbox.probing.probe_tangent
 ===============================
 
-.. py:function:: t3toolbox.probing.probe_tangent(variation: t3toolbox.base_variation_format.T3Variation, ww: Sequence[NDArray], base: t3toolbox.base_variation_format.T3Base, weights: Tuple[Sequence[NDArray], Sequence[NDArray], Sequence[NDArray], Sequence[NDArray], Sequence[NDArray]] = (None, None, None, None), map=common.ragged_map, scan=common.ragged_scan, xnp=np) -> Tuple[NDArray, Ellipsis]
+.. py:function:: t3toolbox.probing.probe_tangent(variation: t3toolbox.base_variation_format.T3Variation, ww: Sequence[NDArray], base: t3toolbox.base_variation_format.T3Base, edge_weights: Tuple[Sequence[NDArray], Sequence[NDArray], Sequence[NDArray], Sequence[NDArray], Sequence[NDArray]] = (None, None, None, None, None), map=common.ragged_map, scan=common.ragged_scan, xnp=np) -> Tuple[NDArray, Ellipsis]
 
    Probe a tangent vector.
 
@@ -56,4 +56,32 @@ t3toolbox.probing.probe_tangent
    >>> zzz2 = t3p.probe_dense(t3m.tangent_to_dense(variation, base), www)
    >>> print([np.linalg.norm(zz - zz2, axis=1) for zz, zz2 in zip(zzz, zzz2)])
    [array([3.18560984e-15, 5.06339604e-15]), array([1.74264349e-15, 5.10008230e-15]), array([2.17576097e-15, 2.94156728e-15])]
+
+   Example with weights
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.manifold as t3m
+   >>> import t3toolbox.probing as t3p
+   >>> import t3toolbox.orthogonalization as orth
+   >>> randn = np.random.randn
+   >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,5,4)))
+   >>> base, _ = orth.orthogonal_representations(p)
+   >>> variation = t3m.tangent_randn(base)
+   >>> NN = [U.shape[1] for U in base[0]]
+   >>> nnU = [U.shape[0] for U in base[0]]
+   >>> rrL = [L.shape[0] for L in base[1]] + [base[1][-1].shape[2]]
+   >>> rrR = [R.shape[0] for R in base[2]] + [base[2][-1].shape[2]]
+   >>> nnO = [O.shape[1] for O in base[3]] + [base[3][-1].shape[2]]
+   >>> shape_weights = [randn(N) for N in NN]
+   >>> up_tucker_weights = [randn(nU) for nU in nnU]
+   >>> outer_tucker_weights = [randn(nO) for nO in nnO]
+   >>> left_tt_weights = [randn(rL) for rL in rrL]
+   >>> right_tt_weights = [randn(rR) for rR in rrR]
+   >>> edge_weights = (shape_weights, up_tucker_weights, outer_tucker_weights, left_tt_weights, right_tt_weights)
+   >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+   >>> zzz = t3p.probe_tangent(variation, www, base, edge_weights=edge_weights)
+   >>> weighted_variation, weighted_base = t3p.absorb_weights_into_tangent(variation, base, edge_weights)
+   >>> zzz2 = t3p.probe_tangent(weighted_variation, www, weighted_base)
+   >>> print([np.linalg.norm(zz - zz2, axis=1) / np.linalg.norm(zz2) for zz, zz2 in zip(zzz, zzz2)])
 

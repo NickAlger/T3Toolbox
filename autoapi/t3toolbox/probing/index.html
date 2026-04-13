@@ -336,6 +336,7 @@
 <li class="toctree-l3"><a class="reference internal" href="compute_detas.html">t3toolbox.probing.compute_detas</a></li>
 <li class="toctree-l3"><a class="reference internal" href="assemble_tangent_probes.html">t3toolbox.probing.assemble_tangent_probes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="probe_tangent.html">t3toolbox.probing.probe_tangent</a></li>
+<li class="toctree-l3"><a class="reference internal" href="absorb_weights_into_tangent.html">t3toolbox.probing.absorb_weights_into_tangent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_deta_tildes.html">t3toolbox.probing.compute_deta_tildes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_tau_tildes.html">t3toolbox.probing.compute_tau_tildes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_sigma_tildes.html">t3toolbox.probing.compute_sigma_tildes</a></li>
@@ -520,25 +521,28 @@
 <tr class="row-even"><td><p><a class="reference internal" href="probe_tangent.html#t3toolbox.probing.probe_tangent" title="t3toolbox.probing.probe_tangent"><code class="xref py py-obj docutils literal notranslate"><span class="pre">probe_tangent</span></code></a>([map, scan, xnp])</p></td>
 <td><p>Probe a tangent vector.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="compute_deta_tildes.html#t3toolbox.probing.compute_deta_tildes" title="t3toolbox.probing.compute_deta_tildes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_deta_tildes</span></code></a>(→ Tuple[NDArray, Ellipsis])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="absorb_weights_into_tangent.html#t3toolbox.probing.absorb_weights_into_tangent" title="t3toolbox.probing.absorb_weights_into_tangent"><code class="xref py py-obj docutils literal notranslate"><span class="pre">absorb_weights_into_tangent</span></code></a>(...)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="compute_deta_tildes.html#t3toolbox.probing.compute_deta_tildes" title="t3toolbox.probing.compute_deta_tildes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_deta_tildes</span></code></a>(→ Tuple[NDArray, Ellipsis])</p></td>
 <td><p>Adjoint-var-upward edge variables deta_tilde.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="compute_tau_tildes.html#t3toolbox.probing.compute_tau_tildes" title="t3toolbox.probing.compute_tau_tildes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_tau_tildes</span></code></a>(→ Tuple[NDArray, Ellipsis])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="compute_tau_tildes.html#t3toolbox.probing.compute_tau_tildes" title="t3toolbox.probing.compute_tau_tildes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_tau_tildes</span></code></a>(→ Tuple[NDArray, Ellipsis])</p></td>
 <td><p>Adjoint-var-rightward edge variables tau_tilde.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="compute_sigma_tildes.html#t3toolbox.probing.compute_sigma_tildes" title="t3toolbox.probing.compute_sigma_tildes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_sigma_tildes</span></code></a>(→ Tuple[NDArray, Ellipsis])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="compute_sigma_tildes.html#t3toolbox.probing.compute_sigma_tildes" title="t3toolbox.probing.compute_sigma_tildes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_sigma_tildes</span></code></a>(→ Tuple[NDArray, Ellipsis])</p></td>
 <td><p>Adjoint-var-leftward edge variables sigma_tilde.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="compute_dxi_tildes.html#t3toolbox.probing.compute_dxi_tildes" title="t3toolbox.probing.compute_dxi_tildes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_dxi_tildes</span></code></a>(→ Tuple[NDArray, Ellipsis])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="compute_dxi_tildes.html#t3toolbox.probing.compute_dxi_tildes" title="t3toolbox.probing.compute_dxi_tildes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_dxi_tildes</span></code></a>(→ Tuple[NDArray, Ellipsis])</p></td>
 <td><p>Adjoint-var-downward edge variables dxi_tilde.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="assemble_tucker_variations.html#t3toolbox.probing.assemble_tucker_variations" title="t3toolbox.probing.assemble_tucker_variations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">assemble_tucker_variations</span></code></a>(ztildes, dxi_tildes, ww, etas)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="assemble_tucker_variations.html#t3toolbox.probing.assemble_tucker_variations" title="t3toolbox.probing.assemble_tucker_variations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">assemble_tucker_variations</span></code></a>(ztildes, dxi_tildes, ww, etas)</p></td>
 <td><p>Assemble Tucker core variations, delta_U_tilde.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="assemble_tt_variations.html#t3toolbox.probing.assemble_tt_variations" title="t3toolbox.probing.assemble_tt_variations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">assemble_tt_variations</span></code></a>(→ Tuple[NDArray, Ellipsis])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="assemble_tt_variations.html#t3toolbox.probing.assemble_tt_variations" title="t3toolbox.probing.assemble_tt_variations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">assemble_tt_variations</span></code></a>(→ Tuple[NDArray, Ellipsis])</p></td>
 <td><p>Assemble TT core variations, delta_G_tilde.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="probe_tangent_transpose.html#t3toolbox.probing.probe_tangent_transpose" title="t3toolbox.probing.probe_tangent_transpose"><code class="xref py py-obj docutils literal notranslate"><span class="pre">probe_tangent_transpose</span></code></a>(→ Tuple[Tuple[NDArray, ...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="probe_tangent_transpose.html#t3toolbox.probing.probe_tangent_transpose" title="t3toolbox.probing.probe_tangent_transpose"><code class="xref py py-obj docutils literal notranslate"><span class="pre">probe_tangent_transpose</span></code></a>(→ Tuple[Tuple[NDArray, ...)</p></td>
 <td><p>Apply the transpose of the map from a T3Tangent to its probes. Apply to ztildes.</p></td>
 </tr>
 </tbody>

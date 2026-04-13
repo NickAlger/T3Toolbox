@@ -1,0 +1,4 @@
+t3toolbox.probing.absorb_weights_into_tangent
+=============================================
+
+.. py:function:: t3toolbox.probing.absorb_weights_into_tangent(variation: t3toolbox.base_variation_format.T3Variation, base: t3toolbox.base_variation_format.T3Base, edge_weights: Tuple[Sequence[NDArray], Sequence[NDArray], Sequence[NDArray], Sequence[NDArray], Sequence[NDArray]] = (None, None, None, None)) -> Tuple[t3toolbox.base_variation_format.T3Variation, t3toolbox.base_variation_format.T3Base]
