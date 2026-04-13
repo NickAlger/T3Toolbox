@@ -48,7 +48,7 @@
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
     <link rel="next" title="t3toolbox.tucker_tensor_train.t3_add" href="t3_add.html" />
-    <link rel="prev" title="t3toolbox.tucker_tensor_train.are_t3_ranks_minimal" href="are_t3_ranks_minimal.html" />
+    <link rel="prev" title="t3toolbox.tucker_tensor_train.change_tt_core_shapes" href="change_tt_core_shapes.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -373,6 +373,8 @@
 <li class="toctree-l3"><a class="reference internal" href="t3_entry.html">t3toolbox.tucker_tensor_train.t3_entry</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_minimal_ranks.html">t3toolbox.tucker_tensor_train.compute_minimal_ranks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="are_t3_ranks_minimal.html">t3toolbox.tucker_tensor_train.are_t3_ranks_minimal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="change_tucker_core_shapes.html">t3toolbox.tucker_tensor_train.change_tucker_core_shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="change_tt_core_shapes.html">t3toolbox.tucker_tensor_train.change_tt_core_shapes</a></li>
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.tucker_tensor_train.change_structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_add.html">t3toolbox.tucker_tensor_train.t3_add</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_scale.html">t3toolbox.tucker_tensor_train.t3_scale</a></li>
@@ -391,6 +393,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../uniform/unpack.html">t3toolbox.uniform.unpack</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/t3_to_ut3.html">t3toolbox.uniform.t3_to_ut3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/ut3_to_t3.html">t3toolbox.uniform.ut3_to_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../uniform/bv_to_ubv.html">t3toolbox.uniform.bv_to_ubv</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/ut3_to_dense.html">t3toolbox.uniform.ut3_to_dense</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/are_ut3_ranks_minimal.html">t3toolbox.uniform.are_ut3_ranks_minimal</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/ut3_entry.html">t3toolbox.uniform.ut3_entry</a></li>
@@ -401,7 +404,6 @@
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../uniform_manifold/index.html">t3toolbox.uniform_manifold</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../uniform_manifold/tangent_to_uniform_tangent.html">t3toolbox.uniform_manifold.tangent_to_uniform_tangent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform_manifold/uniform_tangent_to_uniform_t3.html">t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3</a></li>
 </ul>
 </details></li>
@@ -486,7 +488,7 @@
 <h1>t3toolbox.tucker_tensor_train.change_structure<a class="headerlink" href="#t3toolbox-tucker-tensor-train-change-structure" title="Link to this heading">#</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.change_structure">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">change_structure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../jax/tucker_tensor_train/index.html#t3toolbox.jax.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.jax.tucker_tensor_train.TuckerTensorTrain"><span class="pre">TuckerTensorTrain</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_structure</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../jax/tucker_tensor_train/index.html#t3toolbox.jax.tucker_tensor_train.T3Structure" title="t3toolbox.jax.tucker_tensor_train.T3Structure"><span class="pre">T3Structure</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">xnp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../jax/tucker_tensor_train/index.html#t3toolbox.jax.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.jax.tucker_tensor_train.TuckerTensorTrain"><span class="pre">TuckerTensorTrain</span></a></span></span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.change_structure" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">change_structure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../jax/tucker_tensor_train/index.html#t3toolbox.jax.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.jax.tucker_tensor_train.TuckerTensorTrain"><span class="pre">TuckerTensorTrain</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_structure</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../jax/tucker_tensor_train/index.html#t3toolbox.jax.tucker_tensor_train.T3Structure" title="t3toolbox.jax.tucker_tensor_train.T3Structure"><span class="pre">T3Structure</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../jax/tucker_tensor_train/index.html#t3toolbox.jax.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.jax.tucker_tensor_train.TuckerTensorTrain"><span class="pre">TuckerTensorTrain</span></a></span></span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.change_structure" title="Link to this definition">#</a></dt>
 <dd><p>Increase Tucker tensor train ranks and/or shape via zero padding.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
@@ -523,12 +525,12 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="are_t3_ranks_minimal.html"
+       href="change_tt_core_shapes.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.tucker_tensor_train.are_t3_ranks_minimal</p>
+        <p class="prev-next-title">t3toolbox.tucker_tensor_train.change_tt_core_shapes</p>
       </div>
     </a>
     <a class="right-next"

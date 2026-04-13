@@ -72,6 +72,8 @@ Functions
    /autoapi/t3toolbox/tucker_tensor_train/t3_entry
    /autoapi/t3toolbox/tucker_tensor_train/compute_minimal_ranks
    /autoapi/t3toolbox/tucker_tensor_train/are_t3_ranks_minimal
+   /autoapi/t3toolbox/tucker_tensor_train/change_tucker_core_shapes
+   /autoapi/t3toolbox/tucker_tensor_train/change_tt_core_shapes
    /autoapi/t3toolbox/tucker_tensor_train/change_structure
    /autoapi/t3toolbox/tucker_tensor_train/t3_add
    /autoapi/t3toolbox/tucker_tensor_train/t3_scale
@@ -96,6 +98,8 @@ Functions
    t3toolbox.tucker_tensor_train.t3_entry
    t3toolbox.tucker_tensor_train.compute_minimal_ranks
    t3toolbox.tucker_tensor_train.are_t3_ranks_minimal
+   t3toolbox.tucker_tensor_train.change_tucker_core_shapes
+   t3toolbox.tucker_tensor_train.change_tt_core_shapes
    t3toolbox.tucker_tensor_train.change_structure
    t3toolbox.tucker_tensor_train.t3_add
    t3toolbox.tucker_tensor_train.t3_scale

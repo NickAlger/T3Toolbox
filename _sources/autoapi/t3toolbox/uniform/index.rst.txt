@@ -13,6 +13,7 @@ Attributes
    t3toolbox.uniform.UniformEdgeWeights
    t3toolbox.uniform.UniformT3Base
    t3toolbox.uniform.UniformT3Variation
+   t3toolbox.uniform.UniformBVEdgeWeights
 
 
 Functions
@@ -29,6 +30,7 @@ Functions
    /autoapi/t3toolbox/uniform/unpack
    /autoapi/t3toolbox/uniform/t3_to_ut3
    /autoapi/t3toolbox/uniform/ut3_to_t3
+   /autoapi/t3toolbox/uniform/bv_to_ubv
    /autoapi/t3toolbox/uniform/ut3_to_dense
    /autoapi/t3toolbox/uniform/are_ut3_ranks_minimal
    /autoapi/t3toolbox/uniform/ut3_entry
@@ -47,6 +49,7 @@ Functions
    t3toolbox.uniform.unpack
    t3toolbox.uniform.t3_to_ut3
    t3toolbox.uniform.ut3_to_t3
+   t3toolbox.uniform.bv_to_ubv
    t3toolbox.uniform.ut3_to_dense
    t3toolbox.uniform.are_ut3_ranks_minimal
    t3toolbox.uniform.ut3_entry
@@ -149,4 +152,17 @@ Module Contents
    The variation components should fit in the "holes" of a UniformT3Variation.
 
    .. seealso:: :py:obj:`t3toolbox.tucker_tensor_train.T3Variation`, :py:obj:`UniformT3Base`
+
+.. py:data:: UniformBVEdgeWeights
+
+   Edge weights for base-variation format.
+
+   *Components*
+       - shape_weights:        NDArray, shape=(d,Ni)
+       - up_tucker_weights:    NDArray, shape=(d,nUi)
+       - outer_tucker_weights: NDArray, shape=(d,nOi)
+       - left_tt_weights:      NDArray, shape=(d+1,rLi)
+       - right_tt_weights:     NDArray, shape=(d+1,rRi)
+
+   .. seealso:: :py:obj:`t3tools.tucker_tensor_train.EdgeWeights`, :py:obj:`t3tools.base_variation_format.BVEdgeWeights`, :py:obj:`UniformT3Variation`, :py:obj:`UniformT3Base`
 

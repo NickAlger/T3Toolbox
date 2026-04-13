@@ -1,7 +1,7 @@
 t3toolbox.tucker_tensor_train.change_structure
 ==============================================
 
-.. py:function:: t3toolbox.tucker_tensor_train.change_structure(x: TuckerTensorTrain, new_structure: T3Structure, xnp=np) -> TuckerTensorTrain
+.. py:function:: t3toolbox.tucker_tensor_train.change_structure(x: TuckerTensorTrain, new_structure: T3Structure, use_jax: bool = False) -> TuckerTensorTrain
 
    Increase Tucker tensor train ranks and/or shape via zero padding.
 

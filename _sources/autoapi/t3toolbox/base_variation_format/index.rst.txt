@@ -11,6 +11,7 @@ Attributes
 
    t3toolbox.base_variation_format.T3Base
    t3toolbox.base_variation_format.T3Variation
+   t3toolbox.base_variation_format.BVEdgeWeights
 
 
 Functions
@@ -56,7 +57,7 @@ Module Contents
    In each of these, there is a special "variation" core, indicated by parentheses (X), surrounded by base cores.
 
    The components of T3Base are the "base cores":
-       - tucker_cores      = (U0, ..., Ud), elm_shape=(ni, Ni)
+       - up_tucker_cores   = (U0, ..., Ud), elm_shape=(ni, Ni)
        - left_tt_cores     = (L0, ..., Ld), elm_shape=(rLi, ni, rL(i+1))
        - right_tt_cores    = (R0, ..., Rd), elm_shape=(rRi, ni, rR(i+1))
        - outer_tt_cores    = (O0, ..., Od), elm_shape=(rLi, nOi, rR(i+1))
@@ -113,4 +114,17 @@ Module Contents
    The variation components should fit in the "holes" of a T3Base.
 
    .. seealso:: :py:obj:`T3Base`, :py:obj:`check_t3variation`, :py:obj:`hole_shapes`, :py:obj:`check_fit`
+
+.. py:data:: BVEdgeWeights
+
+   Edge weights for base-variation format.
+
+   *Components*
+       - shape_weights:        typ.Sequence[NDArray], len=d, elm_shape=(Ni,)
+       - up_tucker_weights:    typ.Sequence[NDArray], len=d, elm_shape=(nUi,)
+       - outer_tucker_weights: typ.Sequence[NDArray], len=d, elm_shape=(nOi,)
+       - left_tt_weights:      typ.Sequence[NDArray], len=d+1, elm_shape=(rLi,)
+       - right_tt_weights:     typ.Sequence[NDArray], len=d+1, elm_shape=(rRi,)
+
+   .. seealso:: :py:obj:`t3tools.tucker_tensor_train.EdgeWeights`, :py:obj:`T3Variation`, :py:obj:`T3Base`
 

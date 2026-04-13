@@ -373,6 +373,8 @@
 <li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/t3_entry.html">t3toolbox.tucker_tensor_train.t3_entry</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/compute_minimal_ranks.html">t3toolbox.tucker_tensor_train.compute_minimal_ranks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/are_t3_ranks_minimal.html">t3toolbox.tucker_tensor_train.are_t3_ranks_minimal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/change_tucker_core_shapes.html">t3toolbox.tucker_tensor_train.change_tucker_core_shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/change_tt_core_shapes.html">t3toolbox.tucker_tensor_train.change_tt_core_shapes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/change_structure.html">t3toolbox.tucker_tensor_train.change_structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/t3_add.html">t3toolbox.tucker_tensor_train.t3_add</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/t3_scale.html">t3toolbox.tucker_tensor_train.t3_scale</a></li>
@@ -391,6 +393,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../uniform/unpack.html">t3toolbox.uniform.unpack</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/t3_to_ut3.html">t3toolbox.uniform.t3_to_ut3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/ut3_to_t3.html">t3toolbox.uniform.ut3_to_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../uniform/bv_to_ubv.html">t3toolbox.uniform.bv_to_ubv</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/ut3_to_dense.html">t3toolbox.uniform.ut3_to_dense</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/are_ut3_ranks_minimal.html">t3toolbox.uniform.are_ut3_ranks_minimal</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/ut3_entry.html">t3toolbox.uniform.ut3_entry</a></li>
@@ -401,7 +404,6 @@
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../uniform_manifold/index.html">t3toolbox.uniform_manifold</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../uniform_manifold/tangent_to_uniform_tangent.html">t3toolbox.uniform_manifold.tangent_to_uniform_tangent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform_manifold/uniform_tangent_to_uniform_t3.html">t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3</a></li>
 </ul>
 </details></li>
@@ -491,6 +493,9 @@
 <tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.base_variation_format.T3Variation" title="t3toolbox.base_variation_format.T3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Variation</span></code></a></p></td>
 <td><p>Tuple containing variation cores for base-variation representation of TuckerTensorTrains.</p></td>
 </tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.base_variation_format.BVEdgeWeights" title="t3toolbox.base_variation_format.BVEdgeWeights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">BVEdgeWeights</span></code></a></p></td>
+<td><p>Edge weights for base-variation format.</p></td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -541,7 +546,7 @@
 <p>In each of these, there is a special “variation” core, indicated by parentheses (X), surrounded by base cores.</p>
 <dl class="simple">
 <dt>The components of T3Base are the “base cores”:</dt><dd><ul class="simple">
-<li><p>tucker_cores      = (U0, …, Ud), elm_shape=(ni, Ni)</p></li>
+<li><p>up_tucker_cores   = (U0, …, Ud), elm_shape=(ni, Ni)</p></li>
 <li><p>left_tt_cores     = (L0, …, Ld), elm_shape=(rLi, ni, rL(i+1))</p></li>
 <li><p>right_tt_cores    = (R0, …, Rd), elm_shape=(rRi, ni, rR(i+1))</p></li>
 <li><p>outer_tt_cores    = (O0, …, Od), elm_shape=(rLi, nOi, rR(i+1))</p></li>
@@ -614,6 +619,26 @@ to linear algebra operations with the N1 x … x Nd tangent vectors represented 
 </div>
 </dd></dl>
 
+<dl class="py data">
+<dt class="sig sig-object py" id="t3toolbox.base_variation_format.BVEdgeWeights">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.base_variation_format.</span></span><span class="sig-name descname"><span class="pre">BVEdgeWeights</span></span><a class="headerlink" href="#t3toolbox.base_variation_format.BVEdgeWeights" title="Link to this definition">#</a></dt>
+<dd><p>Edge weights for base-variation format.</p>
+<dl class="simple">
+<dt><em>Components</em></dt><dd><ul class="simple">
+<li><p>shape_weights:        typ.Sequence[NDArray], len=d, elm_shape=(Ni,)</p></li>
+<li><p>up_tucker_weights:    typ.Sequence[NDArray], len=d, elm_shape=(nUi,)</p></li>
+<li><p>outer_tucker_weights: typ.Sequence[NDArray], len=d, elm_shape=(nOi,)</p></li>
+<li><p>left_tt_weights:      typ.Sequence[NDArray], len=d+1, elm_shape=(rLi,)</p></li>
+<li><p>right_tt_weights:     typ.Sequence[NDArray], len=d+1, elm_shape=(rRi,)</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3tools.tucker_tensor_train.EdgeWeights</span></code>, <a class="reference internal" href="#t3toolbox.base_variation_format.T3Variation" title="t3toolbox.base_variation_format.T3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Variation</span></code></a>, <a class="reference internal" href="#t3toolbox.base_variation_format.T3Base" title="t3toolbox.base_variation_format.T3Base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Base</span></code></a></p>
+</div>
+</dd></dl>
+
 </section>
 </section>
 
@@ -669,6 +694,7 @@ to linear algebra operations with the N1 x … x Nd tangent vectors represented 
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-contents">Module Contents</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.base_variation_format.T3Base"><code class="docutils literal notranslate"><span class="pre">T3Base</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.base_variation_format.T3Variation"><code class="docutils literal notranslate"><span class="pre">T3Variation</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.base_variation_format.BVEdgeWeights"><code class="docutils literal notranslate"><span class="pre">BVEdgeWeights</span></code></a></li>
 </ul>
 </li>
 </ul>
