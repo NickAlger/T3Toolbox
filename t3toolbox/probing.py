@@ -874,8 +874,8 @@ def compute_taus(
         rev_nus,
         up_tucker_weights=rev_up_tucker_weights,
         outer_tucker_weights=rev_outer_tucker_weights,
-        left_tt_weights=rev_left_tt_weights,
-        right_tt_weights=rev_right_tt_weights,
+        left_tt_weights=rev_right_tt_weights,
+        right_tt_weights=rev_left_tt_weights,
         scan=scan,
         xnp=xnp
     )
