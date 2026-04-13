@@ -7,6 +7,7 @@ import typing as typ
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.common as common
+from t3toolbox.common import *
 
 __all__ = [
     'UniformTuckerTensorTrainCores',
@@ -14,6 +15,7 @@ __all__ = [
     'check_ut3',
     'get_padded_structure',
     'get_original_structure',
+    'pack_tensors',
     'unpack',
     'apply_masks',
     't3_to_ut3',
@@ -27,8 +29,6 @@ __all__ = [
     'ut3_neg',
     'ut3_sub',
 ]
-
-NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
 
 
 ###################################################
@@ -277,10 +277,39 @@ def apply_masks(
     return masked_cores
 
 
-def pack(
-        unpacked_tensors = typ.Sequence[NDArray], # len=c, shape=(...,mi)
-) -> NDArray: # packed_tensors, shape=(...,c,m), where m=max(m1, m2, ..., mc)
-    pass
+def pack_tensors(
+        unpacked_tensors = typ.Sequence[NDArray], # len=d, ith_elm.shape=(m1i, ..., mki)
+        use_jax: bool = False,
+) -> NDArray: # packed_tensors, shape=(d,)+(m1,...,mk), where mj=max(mj1, ..., mjd)
+    """Use zero-padding to pack several tensors with ragged shapes into one tensor with an extra dimension.
+    """
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
+
+    if not unpacked_tensors:
+        return ()
+
+    k = len(unpacked_tensors[0].shape)
+    packed_shape = [max([x.shape[ii] for x in unpacked_tensors]) for ii in range(k)]
+
+    delta_shapes = [[packed_shape[ii] - x.shape[ii] for ii in range(k)] for x in unpacked_tensors]
+
+    padded_tensors_list = []
+    for x, delta in zip(unpacked_tensors, delta_shapes):
+        pads = [(0, d) for d in delta]
+        padded_x = xnp.pad(
+            x, pads,
+        )
+        padded_tensors_list.append(padded_x)
+
+    packed_tensors = xnp.stack(padded_tensors_list)
+    return packed_tensors
+
+
+
+
+
 
 
 # shape = sfixed + (c,) + sragged

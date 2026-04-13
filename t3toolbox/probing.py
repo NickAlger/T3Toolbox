@@ -118,6 +118,22 @@ def probe_t3(
     >>> zz2 = t3p.probe_t3(ww, x)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [3.372228193172379e-14, 3.826148129405782e-14, 2.294115439089251e-14]
+
+    For uniform T3:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.probing as t3p
+    >>> import t3toolbox.uniform as ut3
+    >>> x = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+    >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+    >>> uniform_x, masks = ut3.t3_to_ut3(x)
+    >>> uniform_ww = ut3.pack_tensors(ww)
+    >>> uniform_zz = t3p.probe_t3(uniform_ww, uniform_x, edge_weights=masks)
+    >>> zz = t3p.probe_t3(ww, x)
+    >>> uniform_zz2 = ut3.pack_tensors(zz)
+    >>> print(np.linalg.norm(uniform_zz - uniform_zz2))
+    0.0
     '''
     is_ragged = isinstance(x[0], typ.Sequence)
     xnp, xmap, xscan = get_backend(is_ragged, use_jax)
