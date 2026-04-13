@@ -763,7 +763,8 @@ def compute_sigmas(
     xi_weights    = up_tucker_weights
     dxi_weights   = outer_tucker_weights
     mu_weights    = left_tt_weights[:-1]    if left_tt_weights  is not None else None
-    sigma_weights = right_tt_weights[:-1]   if right_tt_weights is not None else None  # Yes, [:-1]. init sigma is zero.
+    # sigma_weights = right_tt_weights[:-1]   if right_tt_weights is not None else None  # Yes, [:-1]. init sigma is zero.
+    sigma_weights = right_tt_weights[1:] if right_tt_weights is not None else None
 
     def _func(sigma, x):
         Q, O, dG, xi, dxi, mu = x[0], x[1], x[2], x[3], x[4], x[5]
@@ -781,9 +782,9 @@ def compute_sigmas(
             mu = _apply_edge_weight(mu, x[ind])
             ind += 1
 
-        if sigma_weights is not None:
-            sigma = _apply_edge_weight(sigma, x[ind])
-            ind += 1
+        # if sigma_weights is not None:
+        #     sigma = _apply_edge_weight(sigma, x[ind])
+        #     ind += 1
 
         sigma_next_t1 = xnp.einsum(
             '...aj,...a->...j',
@@ -800,8 +801,12 @@ def compute_sigmas(
             xnp.einsum('...i,iaj->...aj', mu, O),
             dxi
         )
-
         sigma_next = sigma_next_t1 + sigma_next_t2 + sigma_next_t3
+
+        if sigma_weights is not None:
+            sigma_next = _apply_edge_weight(sigma_next, x[ind])
+            ind += 1
+
         return sigma_next, (sigma,)
 
     rR0 = right_tt_cores[0].shape[0]
@@ -1217,9 +1222,9 @@ def probe_tangent(
         xis,
         dxis,
         mus,
-        up_tucker_weights=None,
+        # up_tucker_weights=None,
         outer_tucker_weights=None,
-        left_tt_weights=left_tt_weights,
+        # left_tt_weights=left_tt_weights,
         right_tt_weights=right_tt_weights,
         scan=scan,
         xnp=xnp,
@@ -1232,10 +1237,10 @@ def probe_tangent(
         xis,
         dxis,
         nus,
-        up_tucker_weights=None,
+        # up_tucker_weights=None,
         outer_tucker_weights=None,
         left_tt_weights=left_tt_weights,
-        right_tt_weights=right_tt_weights,
+        # right_tt_weights=right_tt_weights,
         scan=scan,
         xnp=xnp,
     )
@@ -1313,21 +1318,19 @@ def absorb_weights_into_tangent(
     ])
 
     outer_tt_cores = tuple([
-        np.einsum('i,iaj,a,j->iaj', lw, O, tw, rw)
-        for lw, rw, tw, O in zip(
+        np.einsum('i,iaj,j->iaj', lw, O, rw)
+        for lw, rw, O in zip(
             left_tt_weights[:-1],
             right_tt_weights[1:],
-            outer_tucker_weights,
             outer_tt_cores0,
         )
     ])
 
     var_tt_cores = tuple([
-        np.einsum('i,iaj,a,j->iaj', lw, H, tw, rw)
-        for lw, rw, tw, H in zip(
+        np.einsum('i,iaj,j->iaj', lw, H, rw)
+        for lw, rw, H in zip(
             left_tt_weights[:-1],
             right_tt_weights[1:],
-            up_tucker_weights,
             var_tt_cores0,
         )
     ])
