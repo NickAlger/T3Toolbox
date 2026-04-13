@@ -1492,8 +1492,7 @@ def probe_tangent_transpose(
     >>> v = t3m.tangent_randn(base)
     >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
     >>> print(cw.corewise_dot(z, apply_J(v)) - cw.corewise_dot(apply_Jt(z), v))
-
-
+    -1.7763568394002505e-15
     '''
     num_cores = len(ztildes)
     assert(len(ww) == num_cores)
@@ -1505,6 +1504,7 @@ def probe_tangent_transpose(
      left_tt_weights, right_tt_weights,
      ) = edge_weights
 
+    weighted_ztildes = _apply_edge_weights(ztildes, shape_weights, xnp=xnp) if shape_weights is not None else ztildes
     weighted_ww = _apply_edge_weights(ww, shape_weights, xnp=xnp) if shape_weights is not None else ww
 
     weighted_xis = compute_weighted_xis(
@@ -1530,7 +1530,7 @@ def probe_tangent_transpose(
     #
 
     weighted_deta_tildes = compute_weighted_deta_tildes(
-        up_tucker_cores, ztildes,
+        up_tucker_cores, weighted_ztildes,
         up_tucker_weights=up_tucker_weights, xnp=xnp,
     )
 
@@ -1552,7 +1552,7 @@ def probe_tangent_transpose(
     #
 
     dU_tildes = assemble_tucker_variations(
-        ztildes, weighted_dxi_tildes, weighted_ww, weighted_etas,
+        weighted_ztildes, weighted_dxi_tildes, weighted_ww, weighted_etas,
         sum_over_probes=sum_over_probes, xnp=xnp,
     )
 
