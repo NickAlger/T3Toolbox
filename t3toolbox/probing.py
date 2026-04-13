@@ -126,7 +126,7 @@ def probe_t3(
     >>> import t3toolbox.probing as t3p
     >>> import t3toolbox.uniform as ut3
     >>> x = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
-    >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+    >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
     >>> uniform_x, masks = ut3.t3_to_ut3(x)
     >>> uniform_ww = ut3.pack_tensors(ww)
     >>> uniform_zz = t3p.probe_t3(uniform_ww, uniform_x, edge_weights=masks)

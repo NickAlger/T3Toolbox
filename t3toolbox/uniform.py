@@ -12,6 +12,9 @@ from t3toolbox.common import *
 __all__ = [
     'UniformTuckerTensorTrainCores',
     'UniformEdgeWeights',
+    'UniformT3Base',
+    'UniformT3Variation',
+    #
     'check_ut3',
     'get_padded_structure',
     'get_original_structure',
@@ -112,6 +115,48 @@ Examples
 ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
 """
 
+UniformT3Base = typ.Tuple[
+    NDArray,  # up_tucker_supercore. shape=(d, n, N),      up orthogonal elements
+    NDArray,  # left_tt_supercore.   shape=(d, rL, n, rR), left orthogonal elements
+    NDArray,  # right_tt_supercore.  shape=(d, rL, n, rR), right orthogonal elements
+    NDArray,  # outer_tt_supercores. shape=(d, rL, n, rR), outer orthogonal elements
+]
+"""
+Base supercores for base-variation representation of Uniform Tucker tensor train.
+
+The components of T3Base are the "base cores":
+    - up_tucker_cores: NDArray, shape=(d, nU, N),    up orthogonal elements 
+    - left_tt_cores:   NDArray, shape=(d, r, nU, r), left orthogonal elements
+    - right_tt_cores:  NDArray, shape=(d, r, nU, r), right orthogonal elements
+    - outer_tt_cores:  NDArray, shape=(d, r, nO, r), outer orthogonal elements
+
+See Also
+--------
+t3toolbox.tucker_tensor_train.T3Base
+UniformT3Variation
+"""
+
+UniformT3Variation = typ.Tuple[
+    NDArray,  # var_tucker_supercore.
+    NDArray,  # var_tt_supercore.
+]
+"""
+Variation supercores for base-variation representation of Uniform Tucker tensor train.
+
+*Components*
+    - var_tucker_supercore: NDArray, shape=(d,nO,N)
+    - var_tt_supercore:     NDArray, shape=(d,r,nU,r)
+
+The variation components should fit in the "holes" of a UniformT3Variation.
+
+See Also
+--------
+t3toolbox.tucker_tensor_train.T3Variation
+UniformT3Base
+"""
+
+
+#
 
 def check_ut3(
         cores: UniformTuckerTensorTrainCores,

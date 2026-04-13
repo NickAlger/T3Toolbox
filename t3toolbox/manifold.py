@@ -9,6 +9,7 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.orthogonalization as orth
 import t3toolbox.t3svd as t3svd
 import t3toolbox.base_variation_format as bvf
+from t3toolbox.common import *
 
 __all__ = [
     # Tangent vectors
@@ -23,8 +24,6 @@ __all__ = [
     'project_t3_onto_tangent_space',
     'retract',
 ]
-
-NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
 
 
 ####################################################################

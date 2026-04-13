@@ -5,6 +5,7 @@
 import typing as typ
 
 import t3toolbox.tucker_tensor_train as t3
+from t3toolbox.common import *
 
 NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
 
@@ -17,8 +18,6 @@ __all__ = [
     'check_fit',
     'ith_bv_to_t3',
 ]
-
-NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
 
 
 ################################################################
