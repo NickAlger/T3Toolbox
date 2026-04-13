@@ -1,7 +1,7 @@
-t3toolbox.probing.compute_dxis
-==============================
+t3toolbox.probing.compute_weighted_dxis
+=======================================
 
-.. py:function:: t3toolbox.probing.compute_dxis(var_tucker_cores: Sequence[NDArray], ww: Sequence[NDArray], shape_weights: Sequence[NDArray] = None, outer_tucker_weights: Sequence[NDArray] = None, map=common.ragged_map, xnp=np) -> Tuple[NDArray, Ellipsis]
+.. py:function:: t3toolbox.probing.compute_weighted_dxis(var_tucker_cores: Sequence[NDArray], weighted_ww: Sequence[NDArray], outer_tucker_weights: Sequence[NDArray] = None, map=common.ragged_map, xnp=np) -> Tuple[NDArray, Ellipsis]
 
    Compute var-upward edge variables dxi.
    Used for probing a tangent vector.

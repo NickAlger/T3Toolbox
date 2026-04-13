@@ -10,19 +10,18 @@ Functions
 .. toctree::
    :hidden:
 
-   /autoapi/t3toolbox/probing/probe_dense
    /autoapi/t3toolbox/probing/probe_t3
    /autoapi/t3toolbox/probing/absorb_weights_into_cores
-   /autoapi/t3toolbox/probing/compute_xis
-   /autoapi/t3toolbox/probing/compute_mus
-   /autoapi/t3toolbox/probing/compute_nus
-   /autoapi/t3toolbox/probing/compute_etas
-   /autoapi/t3toolbox/probing/assemble_probes
-   /autoapi/t3toolbox/probing/compute_dxis
-   /autoapi/t3toolbox/probing/compute_sigmas
-   /autoapi/t3toolbox/probing/compute_taus
-   /autoapi/t3toolbox/probing/compute_detas
-   /autoapi/t3toolbox/probing/assemble_tangent_probes
+   /autoapi/t3toolbox/probing/compute_weighted_xis
+   /autoapi/t3toolbox/probing/compute_weighted_mus
+   /autoapi/t3toolbox/probing/compute_weighted_nus
+   /autoapi/t3toolbox/probing/compute_weighted_etas
+   /autoapi/t3toolbox/probing/assemble_weighted_zs
+   /autoapi/t3toolbox/probing/compute_weighted_dxis
+   /autoapi/t3toolbox/probing/compute_weighted_sigmas
+   /autoapi/t3toolbox/probing/compute_weighted_taus
+   /autoapi/t3toolbox/probing/compute_weighted_detas
+   /autoapi/t3toolbox/probing/assemble_weighted_tangent_zs
    /autoapi/t3toolbox/probing/probe_tangent
    /autoapi/t3toolbox/probing/absorb_weights_into_tangent
    /autoapi/t3toolbox/probing/compute_deta_tildes
@@ -32,22 +31,22 @@ Functions
    /autoapi/t3toolbox/probing/assemble_tucker_variations
    /autoapi/t3toolbox/probing/assemble_tt_variations
    /autoapi/t3toolbox/probing/probe_tangent_transpose
+   /autoapi/t3toolbox/probing/probe_dense
 
 .. autoapisummary::
 
-   t3toolbox.probing.probe_dense
    t3toolbox.probing.probe_t3
    t3toolbox.probing.absorb_weights_into_cores
-   t3toolbox.probing.compute_xis
-   t3toolbox.probing.compute_mus
-   t3toolbox.probing.compute_nus
-   t3toolbox.probing.compute_etas
-   t3toolbox.probing.assemble_probes
-   t3toolbox.probing.compute_dxis
-   t3toolbox.probing.compute_sigmas
-   t3toolbox.probing.compute_taus
-   t3toolbox.probing.compute_detas
-   t3toolbox.probing.assemble_tangent_probes
+   t3toolbox.probing.compute_weighted_xis
+   t3toolbox.probing.compute_weighted_mus
+   t3toolbox.probing.compute_weighted_nus
+   t3toolbox.probing.compute_weighted_etas
+   t3toolbox.probing.assemble_weighted_zs
+   t3toolbox.probing.compute_weighted_dxis
+   t3toolbox.probing.compute_weighted_sigmas
+   t3toolbox.probing.compute_weighted_taus
+   t3toolbox.probing.compute_weighted_detas
+   t3toolbox.probing.assemble_weighted_tangent_zs
    t3toolbox.probing.probe_tangent
    t3toolbox.probing.absorb_weights_into_tangent
    t3toolbox.probing.compute_deta_tildes
@@ -57,5 +56,6 @@ Functions
    t3toolbox.probing.assemble_tucker_variations
    t3toolbox.probing.assemble_tt_variations
    t3toolbox.probing.probe_tangent_transpose
+   t3toolbox.probing.probe_dense
 
 

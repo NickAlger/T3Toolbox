@@ -1,0 +1,16 @@
+t3toolbox.probing.compute_weighted_sigmas
+=========================================
+
+.. py:function:: t3toolbox.probing.compute_weighted_sigmas(var_tt_cores: Sequence[NDArray], right_tt_cores: Sequence[NDArray], outer_tt_cores: Sequence[NDArray], weighted_xis: Sequence[NDArray], weighted_dxis: Sequence[NDArray], weighted_mus: Sequence[NDArray], right_tt_weights: Sequence[NDArray] = None, scan=common.ragged_scan, xnp=np) -> Tuple[NDArray, Ellipsis]
+
+   Compute var-leftward edge variables sigma.
+   Used for probing a tangent vector.
+
+   See Section 5.2.3, particularly Formula (36), in:
+       Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+       "Tucker Tensor Train Taylor Series."
+       arXiv preprint arXiv:2603.21141.
+       `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+
+   .. seealso:: :py:obj:`compute_dxis`, :py:obj:`compute_taus`, :py:obj:`compute_detas`, :py:obj:`assemble_tangent_probes`, :py:obj:`probe_tangent`
+

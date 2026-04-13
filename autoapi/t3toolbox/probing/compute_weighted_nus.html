@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.probing.assemble_tangent_probes &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.probing.compute_weighted_nus &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/probing/assemble_tangent_probes';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/probing/compute_weighted_nus';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3toolbox.probing.probe_tangent" href="probe_tangent.html" />
-    <link rel="prev" title="t3toolbox.probing.compute_detas" href="compute_detas.html" />
+    <link rel="next" title="t3toolbox.probing.compute_weighted_etas" href="compute_weighted_etas.html" />
+    <link rel="prev" title="t3toolbox.probing.compute_weighted_mus" href="compute_weighted_mus.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -322,19 +322,18 @@
 </ul>
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.probing</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="probe_dense.html">t3toolbox.probing.probe_dense</a></li>
 <li class="toctree-l3"><a class="reference internal" href="probe_t3.html">t3toolbox.probing.probe_t3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="absorb_weights_into_cores.html">t3toolbox.probing.absorb_weights_into_cores</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_xis.html">t3toolbox.probing.compute_xis</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_mus.html">t3toolbox.probing.compute_mus</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_nus.html">t3toolbox.probing.compute_nus</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_etas.html">t3toolbox.probing.compute_etas</a></li>
-<li class="toctree-l3"><a class="reference internal" href="assemble_probes.html">t3toolbox.probing.assemble_probes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_dxis.html">t3toolbox.probing.compute_dxis</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_sigmas.html">t3toolbox.probing.compute_sigmas</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_taus.html">t3toolbox.probing.compute_taus</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_detas.html">t3toolbox.probing.compute_detas</a></li>
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.probing.assemble_tangent_probes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_weighted_xis.html">t3toolbox.probing.compute_weighted_xis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_weighted_mus.html">t3toolbox.probing.compute_weighted_mus</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.probing.compute_weighted_nus</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_weighted_etas.html">t3toolbox.probing.compute_weighted_etas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="assemble_weighted_zs.html">t3toolbox.probing.assemble_weighted_zs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_weighted_dxis.html">t3toolbox.probing.compute_weighted_dxis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_weighted_sigmas.html">t3toolbox.probing.compute_weighted_sigmas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_weighted_taus.html">t3toolbox.probing.compute_weighted_taus</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_weighted_detas.html">t3toolbox.probing.compute_weighted_detas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="assemble_weighted_tangent_zs.html">t3toolbox.probing.assemble_weighted_tangent_zs</a></li>
 <li class="toctree-l3"><a class="reference internal" href="probe_tangent.html">t3toolbox.probing.probe_tangent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="absorb_weights_into_tangent.html">t3toolbox.probing.absorb_weights_into_tangent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_deta_tildes.html">t3toolbox.probing.compute_deta_tildes</a></li>
@@ -344,6 +343,7 @@
 <li class="toctree-l3"><a class="reference internal" href="assemble_tucker_variations.html">t3toolbox.probing.assemble_tucker_variations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="assemble_tt_variations.html">t3toolbox.probing.assemble_tt_variations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="probe_tangent_transpose.html">t3toolbox.probing.probe_tangent_transpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="probe_dense.html">t3toolbox.probing.probe_dense</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../t3svd/index.html">t3toolbox.t3svd</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -457,7 +457,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.probing</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.probing.assemble_tangent_probes</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.probing.compute_weighted_nus</span></li>
   </ul>
 </nav>
 </div>
@@ -474,22 +474,39 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="t3toolbox-probing-assemble-tangent-probes">
-<h1>t3toolbox.probing.assemble_tangent_probes<a class="headerlink" href="#t3toolbox-probing-assemble-tangent-probes" title="Link to this heading">#</a></h1>
+  <section id="t3toolbox-probing-compute-weighted-nus">
+<h1>t3toolbox.probing.compute_weighted_nus<a class="headerlink" href="#t3toolbox-probing-compute-weighted-nus" title="Link to this heading">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3toolbox.probing.assemble_tangent_probes">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.probing.</span></span><span class="sig-name descname"><span class="pre">assemble_tangent_probes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tucker_cores</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">var_tucker_cores</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">etas</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">detas</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape_weights</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">up_tucker_weights</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outer_tucker_weights</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">map</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">common.ragged_map</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xnp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.probing.assemble_tangent_probes" title="Link to this definition">#</a></dt>
-<dd><p>Assemble tangent vector probes from edge variables.</p>
+<dt class="sig sig-object py" id="t3toolbox.probing.compute_weighted_nus">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.probing.</span></span><span class="sig-name descname"><span class="pre">compute_weighted_nus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">right_tt_cores</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weighted_xis</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">right_tt_weights</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scan</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">common.ragged_scan</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xnp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.probing.compute_weighted_nus" title="Link to this definition">#</a></dt>
+<dd><p>Compute rightward edge variables associated with edges between adjacent TT-cores.
+Used for probing a Tucker tensor train.</p>
 <dl class="simple">
-<dt>See Section 5.2.3, particularly Formula (41), in:</dt><dd><p>Alger, N., Christierson, B., Chen, P., &amp; Ghattas, O. (2026).
+<dt>See Section 5.2, particularly Figure 9 in:</dt><dd><p>Alger, N., Christierson, B., Chen, P., &amp; Ghattas, O. (2026).
 “Tucker Tensor Train Taylor Series.”
 arXiv preprint arXiv:2603.21141.
 <a class="reference external" href="https://arxiv.org/abs/2603.21141">https://arxiv.org/abs/2603.21141</a></p>
 </dd>
 </dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>right_tt_cores</strong> (<em>typ.Sequence</em><em>[</em><em>NDArray</em><em>]</em>) – Right TT-cores for Tucker tensor train.
+len=d. elm_shape=(rRi,nUi,rR(i+1))</p></li>
+<li><p><strong>xis</strong> (<em>typ.Sequence</em><em>[</em><em>NDArray</em><em>]</em>) – upward edge variables xi. len=d. elm_shape=(…,nUi)</p></li>
+<li><p><strong>xnp</strong> – Linear algebra backend. Default: np (numpy)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>rightward edge variables nu. len=d, elm_shape=(…,rR(i+1))</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>typ.Tuple[NDArray,…]</p>
+</dd>
+</dl>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
-<p><a class="reference internal" href="compute_dxis.html#t3toolbox.probing.compute_dxis" title="t3toolbox.probing.compute_dxis"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_dxis</span></code></a>, <a class="reference internal" href="compute_sigmas.html#t3toolbox.probing.compute_sigmas" title="t3toolbox.probing.compute_sigmas"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_sigmas</span></code></a>, <a class="reference internal" href="compute_taus.html#t3toolbox.probing.compute_taus" title="t3toolbox.probing.compute_taus"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_taus</span></code></a>, <a class="reference internal" href="compute_detas.html#t3toolbox.probing.compute_detas" title="t3toolbox.probing.compute_detas"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_detas</span></code></a>, <a class="reference internal" href="probe_tangent.html#t3toolbox.probing.probe_tangent" title="t3toolbox.probing.probe_tangent"><code class="xref py py-obj docutils literal notranslate"><span class="pre">probe_tangent</span></code></a></p>
+<p><a class="reference internal" href="probe_t3.html#t3toolbox.probing.probe_t3" title="t3toolbox.probing.probe_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">probe_t3</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_xis</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_mus</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_etas</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">assemble_probes</span></code></p>
 </div>
 </dd></dl>
 
@@ -506,20 +523,20 @@ arXiv preprint arXiv:2603.21141.
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="compute_detas.html"
+       href="compute_weighted_mus.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.probing.compute_detas</p>
+        <p class="prev-next-title">t3toolbox.probing.compute_weighted_mus</p>
       </div>
     </a>
     <a class="right-next"
-       href="probe_tangent.html"
+       href="compute_weighted_etas.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.probing.probe_tangent</p>
+        <p class="prev-next-title">t3toolbox.probing.compute_weighted_etas</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -542,14 +559,14 @@ arXiv preprint arXiv:2603.21141.
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.probing.assemble_tangent_probes"><code class="docutils literal notranslate"><span class="pre">t3toolbox.probing.assemble_tangent_probes()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.probing.compute_weighted_nus"><code class="docutils literal notranslate"><span class="pre">t3toolbox.probing.compute_weighted_nus()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/probing/assemble_tangent_probes.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/probing/compute_weighted_nus.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

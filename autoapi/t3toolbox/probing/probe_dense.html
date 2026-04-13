@@ -47,8 +47,8 @@
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3toolbox.probing.probe_t3" href="probe_t3.html" />
-    <link rel="prev" title="t3toolbox.probing" href="index.html" />
+    <link rel="next" title="t3toolbox.t3svd" href="../t3svd/index.html" />
+    <link rel="prev" title="t3toolbox.probing.probe_tangent_transpose" href="probe_tangent_transpose.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -322,19 +322,18 @@
 </ul>
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.probing</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.probing.probe_dense</a></li>
 <li class="toctree-l3"><a class="reference internal" href="probe_t3.html">t3toolbox.probing.probe_t3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="absorb_weights_into_cores.html">t3toolbox.probing.absorb_weights_into_cores</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_xis.html">t3toolbox.probing.compute_xis</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_mus.html">t3toolbox.probing.compute_mus</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_nus.html">t3toolbox.probing.compute_nus</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_etas.html">t3toolbox.probing.compute_etas</a></li>
-<li class="toctree-l3"><a class="reference internal" href="assemble_probes.html">t3toolbox.probing.assemble_probes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_dxis.html">t3toolbox.probing.compute_dxis</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_sigmas.html">t3toolbox.probing.compute_sigmas</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_taus.html">t3toolbox.probing.compute_taus</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_detas.html">t3toolbox.probing.compute_detas</a></li>
-<li class="toctree-l3"><a class="reference internal" href="assemble_tangent_probes.html">t3toolbox.probing.assemble_tangent_probes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_weighted_xis.html">t3toolbox.probing.compute_weighted_xis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_weighted_mus.html">t3toolbox.probing.compute_weighted_mus</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_weighted_nus.html">t3toolbox.probing.compute_weighted_nus</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_weighted_etas.html">t3toolbox.probing.compute_weighted_etas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="assemble_weighted_zs.html">t3toolbox.probing.assemble_weighted_zs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_weighted_dxis.html">t3toolbox.probing.compute_weighted_dxis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_weighted_sigmas.html">t3toolbox.probing.compute_weighted_sigmas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_weighted_taus.html">t3toolbox.probing.compute_weighted_taus</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_weighted_detas.html">t3toolbox.probing.compute_weighted_detas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="assemble_weighted_tangent_zs.html">t3toolbox.probing.assemble_weighted_tangent_zs</a></li>
 <li class="toctree-l3"><a class="reference internal" href="probe_tangent.html">t3toolbox.probing.probe_tangent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="absorb_weights_into_tangent.html">t3toolbox.probing.absorb_weights_into_tangent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_deta_tildes.html">t3toolbox.probing.compute_deta_tildes</a></li>
@@ -344,6 +343,7 @@
 <li class="toctree-l3"><a class="reference internal" href="assemble_tucker_variations.html">t3toolbox.probing.assemble_tucker_variations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="assemble_tt_variations.html">t3toolbox.probing.assemble_tt_variations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="probe_tangent_transpose.html">t3toolbox.probing.probe_tangent_transpose</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.probing.probe_dense</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../t3svd/index.html">t3toolbox.t3svd</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -478,7 +478,7 @@
 <h1>t3toolbox.probing.probe_dense<a class="headerlink" href="#t3toolbox-probing-probe-dense" title="Link to this heading">#</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="t3toolbox.probing.probe_dense">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.probing.</span></span><span class="sig-name descname"><span class="pre">probe_dense</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">T</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">NDArray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vectors</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xnp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.probing.probe_dense" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.probing.</span></span><span class="sig-name descname"><span class="pre">probe_dense</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vectors</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">T</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">NDArray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xnp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.probing.probe_dense" title="Link to this definition">#</a></dt>
 <dd><p>Probe a dense tensor.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -507,7 +507,7 @@ elm_shape=(Ni,) or elm_shape=(num_probes, Ni)</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">u0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">u1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">11</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">u2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">12</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">yy</span> <span class="o">=</span> <span class="n">t3p</span><span class="o">.</span><span class="n">probe_dense</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="p">(</span><span class="n">u0</span><span class="p">,</span><span class="n">u1</span><span class="p">,</span><span class="n">u2</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">yy</span> <span class="o">=</span> <span class="n">t3p</span><span class="o">.</span><span class="n">probe_dense</span><span class="p">((</span><span class="n">u0</span><span class="p">,</span><span class="n">u1</span><span class="p">,</span><span class="n">u2</span><span class="p">),</span><span class="n">T</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">y0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ijk,j,k&#39;</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">u1</span><span class="p">,</span> <span class="n">u2</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">y1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ijk,i,k&#39;</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">u0</span><span class="p">,</span> <span class="n">u2</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">y2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ijk,i,j&#39;</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">u0</span><span class="p">,</span> <span class="n">u1</span><span class="p">)</span>
@@ -527,9 +527,9 @@ elm_shape=(Ni,) or elm_shape=(num_probes, Ni)</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">u1</span><span class="p">,</span> <span class="n">v1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">11</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">11</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">u2</span><span class="p">,</span> <span class="n">v2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">12</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">12</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">uuu</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">u0</span><span class="p">,</span><span class="n">v0</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">u1</span><span class="p">,</span><span class="n">v1</span><span class="p">]),</span> <span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">([</span><span class="n">u2</span><span class="p">,</span><span class="n">v2</span><span class="p">])]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">yyy</span> <span class="o">=</span> <span class="n">t3p</span><span class="o">.</span><span class="n">probe_dense</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">uuu</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">yy_u</span> <span class="o">=</span> <span class="n">t3p</span><span class="o">.</span><span class="n">probe_dense</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="p">(</span><span class="n">u0</span><span class="p">,</span><span class="n">u1</span><span class="p">,</span><span class="n">u2</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">yy_v</span> <span class="o">=</span> <span class="n">t3p</span><span class="o">.</span><span class="n">probe_dense</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="p">(</span><span class="n">v0</span><span class="p">,</span><span class="n">v1</span><span class="p">,</span><span class="n">v2</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">yyy</span> <span class="o">=</span> <span class="n">t3p</span><span class="o">.</span><span class="n">probe_dense</span><span class="p">(</span><span class="n">uuu</span><span class="p">,</span><span class="n">T</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">yy_u</span> <span class="o">=</span> <span class="n">t3p</span><span class="o">.</span><span class="n">probe_dense</span><span class="p">((</span><span class="n">u0</span><span class="p">,</span><span class="n">u1</span><span class="p">,</span><span class="n">u2</span><span class="p">),</span><span class="n">T</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">yy_v</span> <span class="o">=</span> <span class="n">t3p</span><span class="o">.</span><span class="n">probe_dense</span><span class="p">((</span><span class="n">v0</span><span class="p">,</span><span class="n">v1</span><span class="p">,</span><span class="n">v2</span><span class="p">),</span><span class="n">T</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">yy_u</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">yyy</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">,:]))</span>
 <span class="go">0.0</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">yy_u</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">yyy</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">,:]))</span>
@@ -559,20 +559,20 @@ elm_shape=(Ni,) or elm_shape=(num_probes, Ni)</p>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="index.html"
+       href="probe_tangent_transpose.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.probing</p>
+        <p class="prev-next-title">t3toolbox.probing.probe_tangent_transpose</p>
       </div>
     </a>
     <a class="right-next"
-       href="probe_t3.html"
+       href="../t3svd/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.probing.probe_t3</p>
+        <p class="prev-next-title">t3toolbox.t3svd</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
