@@ -81,8 +81,8 @@ class TestProbing(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for T3P in [t3p, t3p_jax]:
-                with self.subTest(T3P=T3P, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     x = t3.t3_corewise_randn(STRUCTURE)
 
                     SHAPE = STRUCTURE[0]
@@ -90,7 +90,7 @@ class TestProbing(unittest.TestCase):
                           np.random.randn(SHAPE[1]),
                           np.random.randn(SHAPE[2]))
 
-                    zz = T3P.probe_t3(ww, x)
+                    zz = t3p.probe_t3(ww, x, use_jax=USE_JAX)
 
                     x_dense = t3.t3_to_dense(x)
                     zz2 = t3p.probe_dense(ww, x_dense)
@@ -105,8 +105,8 @@ class TestProbing(unittest.TestCase):
         NUM_PROBES = 2
 
         for STRUCTURE in structures:
-            for T3P in [t3p, t3p_jax]:
-                with self.subTest(T3P=T3P, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     x = t3.t3_corewise_randn(STRUCTURE)
 
                     SHAPE = STRUCTURE[0]
@@ -114,7 +114,7 @@ class TestProbing(unittest.TestCase):
                            np.random.randn(NUM_PROBES, SHAPE[1]),
                            np.random.randn(NUM_PROBES, SHAPE[2]))
 
-                    zzz = T3P.probe_t3(www, x)
+                    zzz = t3p.probe_t3(www, x, use_jax=USE_JAX)
 
                     zzz2 = t3p.probe_dense(www, t3.t3_to_dense(x))
 

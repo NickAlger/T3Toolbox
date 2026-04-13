@@ -9,8 +9,10 @@ from networkx.utils.random_sequence import weighted_choice
 
 import t3toolbox.base_variation_format
 import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.uniform as ut3
 import t3toolbox.common as common
 import t3toolbox.base_variation_format as bvf
+from t3toolbox.common import *
 
 __all__ = [
     # Probe a dense tensor
@@ -41,23 +43,16 @@ __all__ = [
     'probe_tangent_transpose',
 ]
 
-NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
-
 
 #####################################################
 ########    Probing a Tucker Tensor Train    ########
 #####################################################
 
 def probe_t3(
-        ww: typ.Sequence[NDArray],
-        x: t3.TuckerTensorTrain, edge_weights: typ.Tuple[
-            typ.Sequence[NDArray],  # shape_weights, len=d, elm_shape=(Ni,)
-            typ.Sequence[NDArray],  # tucker_weights, len=d, elm_shape=(ni,)
-            typ.Sequence[NDArray],  # tt_weights, len=d+1, elm_shape=(ri,)
-        ] = (None, None, None),
-        map=common.ragged_map,
-        scan=common.ragged_scan,
-        xnp=np,
+        ww:             typ.Union[typ.Sequence[NDArray],    NDArray],
+        x:              typ.Union[t3.TuckerTensorTrain,     ut3.UniformTuckerTensorTrainCores],
+        edge_weights:   typ.Union[t3.EdgeWeights,           ut3.UniformEdgeWeights] = (None, None, None),
+        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,Ni)
     '''Probe a Tucker tensor train.
 
@@ -124,26 +119,25 @@ def probe_t3(
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [3.372228193172379e-14, 3.826148129405782e-14, 2.294115439089251e-14]
     '''
-    shape = t3.get_structure(x)[0]
-    assert(len(ww) == len(shape))
+    is_ragged = isinstance(x[0], typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+
+    #
 
     tucker_cores, tt_cores = x
-
-    for B, w in zip(tucker_cores, ww):
-        assert(B.shape[1] == w.shape[-1])
 
     shape_weights, tucker_weights, tt_weights = edge_weights
 
     left_tt_weights     = tt_weights[:-1]   if tt_weights is not None else None
     right_tt_weights    = tt_weights[1:]    if tt_weights is not None else None
 
-    weighted_ww = _apply_edge_weights(ww, shape_weights, map=map, xnp=xnp) if shape_weights is not None else ww
+    weighted_ww = _apply_edge_weights(ww, shape_weights, map=xmap, xnp=xnp) if shape_weights is not None else ww
 
     weighted_xis = compute_weighted_xis(
         tucker_cores,
         weighted_ww,
         up_tucker_weights=tucker_weights,
-        map=map,
+        map=xmap,
         xnp=xnp,
     )
 
@@ -151,7 +145,7 @@ def probe_t3(
         tt_cores,
         weighted_xis,
         left_tt_weights=left_tt_weights,
-        scan=scan,
+        scan=xscan,
         xnp=xnp,
     )
 
@@ -159,7 +153,7 @@ def probe_t3(
         tt_cores,
         weighted_xis,
         right_tt_weights=right_tt_weights,
-        scan=scan,
+        scan=xscan,
         xnp=xnp,
     )
 
@@ -168,7 +162,7 @@ def probe_t3(
         weighted_mus,
         weighted_nus,
         outer_tucker_weights=tucker_weights,
-        map=map,
+        map=xmap,
         xnp=xnp,
     )
 
@@ -176,7 +170,7 @@ def probe_t3(
         tucker_cores,
         weighted_etas,
         shape_weights=shape_weights,
-        map=map,
+        map=xmap,
         xnp=xnp,
     )
 

@@ -45,6 +45,7 @@ __all__ = [
     # Tucker tensor train
     'TuckerTensorTrain',
     'T3Structure',
+    'EdgeWeights',
     'get_structure',
     't3_apply',
     't3_entry',
@@ -134,6 +135,22 @@ Examples
 (1, 3, 2, 1)
 """
 
+EdgeWeights = typ.Tuple[
+    typ.Sequence[NDArray],  # shape_weights, len=d, elm_shape=(Ni,)
+    typ.Sequence[NDArray],  # tucker_weights, len=d, elm_shape=(ni,)
+    typ.Sequence[NDArray],  # tt_weights, len=d+1, elm_shape=(ri,)
+]
+"""Weighting vectors for the edges of a Tucker tensor train.
+
+Components:
+
+- **shape_weights** : *Sequence[int]*
+    Weights for externally facing edges. len=d, elm_shape=(Ni,)
+- **tucker_weights** : *Sequence[int]*
+    Weights for edges between Tucker cores and TT cores. len=d, elm_shape=(ni,)
+- **tt_weights** : *Sequence[int]*
+    Weights for edges between adjacent TT cores. len=d+1, elm_shape=(ri,)
+"""
 
 #####################################################################
 ########    Structural properties and consistency checks    #########

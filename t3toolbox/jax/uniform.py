@@ -28,7 +28,7 @@ __all__ = [
 
 
 UniformTuckerTensorTrainCores   = ut3.UniformTuckerTensorTrainCores
-UniformTuckerTensorTrainMasks   = ut3.UniformTuckerTensorTrainMasks
+UniformTuckerTensorTrainMasks   = ut3.UniformEdgeWeights
 check_ut3                       = ut3.check_ut3
 get_padded_structure            = ut3.get_padded_structure
 get_original_structure          = ut3.get_original_structure
