@@ -1,7 +1,7 @@
 t3toolbox.probing.probe_t3
 ==========================
 
-.. py:function:: t3toolbox.probing.probe_t3(ww: Sequence[NDArray], x: t3toolbox.tucker_tensor_train.TuckerTensorTrain, edge_weights: Tuple[Sequence[NDArray], Sequence[NDArray], Sequence[NDArray]] = (None, None, None), map=common.ragged_map, scan=common.ragged_scan, xnp=np) -> Tuple[NDArray, Ellipsis]
+.. py:function:: t3toolbox.probing.probe_t3(ww: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], x: t3toolbox.common.typ.Union[t3toolbox.tucker_tensor_train.TuckerTensorTrain, t3toolbox.uniform.UniformTuckerTensorTrainCores], edge_weights: t3toolbox.common.typ.Union[t3toolbox.tucker_tensor_train.EdgeWeights, t3toolbox.uniform.UniformEdgeWeights] = (None, None, None), use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
 
    Probe a Tucker tensor train.
 

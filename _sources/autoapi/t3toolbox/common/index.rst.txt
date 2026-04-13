@@ -4,6 +4,14 @@ t3toolbox.common
 .. py:module:: t3toolbox.common
 
 
+Attributes
+----------
+
+.. autoapisummary::
+
+   t3toolbox.common.jax_scan
+
+
 Functions
 ---------
 
@@ -13,11 +21,20 @@ Functions
    /autoapi/t3toolbox/common/ragged_scan
    /autoapi/t3toolbox/common/numpy_scan
    /autoapi/t3toolbox/common/ragged_map
+   /autoapi/t3toolbox/common/numpy_map
+   /autoapi/t3toolbox/common/get_backend
 
 .. autoapisummary::
 
    t3toolbox.common.ragged_scan
    t3toolbox.common.numpy_scan
    t3toolbox.common.ragged_map
+   t3toolbox.common.numpy_map
+   t3toolbox.common.get_backend
 
+
+Module Contents
+---------------
+
+.. py:data:: jax_scan
 

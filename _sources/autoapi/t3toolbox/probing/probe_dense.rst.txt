@@ -1,7 +1,7 @@
 t3toolbox.probing.probe_dense
 =============================
 
-.. py:function:: t3toolbox.probing.probe_dense(vectors: Sequence[NDArray], T: NDArray, xnp=np) -> Tuple[NDArray]
+.. py:function:: t3toolbox.probing.probe_dense(vectors: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], T: t3toolbox.common.NDArray, xnp=np) -> t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray]
 
    Probe a dense tensor.
 

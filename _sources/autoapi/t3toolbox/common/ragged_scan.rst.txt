@@ -1,7 +1,7 @@
 t3toolbox.common.ragged_scan
 ============================
 
-.. py:function:: t3toolbox.common.ragged_scan(f: Callable[[CarryType, Tuple[InputType]], Tuple[CarryType, Sequence[OutputType]]], init: CarryType, xs: Sequence[Sequence[InputType]]) -> Tuple[CarryType, Tuple[Tuple[OutputType, Ellipsis], Ellipsis]]
+.. py:function:: t3toolbox.common.ragged_scan(f: Callable[[CarryType, Sequence[NDArray]], Tuple[CarryType, Sequence[NDArray]]], init: CarryType, xs: Sequence[Union[Sequence[NDArray], NDArray]]) -> Tuple[CarryType, Tuple[Tuple[NDArray, Ellipsis], Ellipsis]]
 
    Similar to jax.lax.scan, except for ragged-sized arrays
    https://docs.jax.dev/en/latest/_autosummary/jax.lax.scan.html

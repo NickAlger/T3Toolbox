@@ -264,6 +264,8 @@
 <li class="toctree-l3"><a class="reference internal" href="../common/ragged_scan.html">t3toolbox.common.ragged_scan</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../common/numpy_scan.html">t3toolbox.common.numpy_scan</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../common/ragged_map.html">t3toolbox.common.ragged_map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../common/numpy_map.html">t3toolbox.common.numpy_map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../common/get_backend.html">t3toolbox.common.get_backend</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../corewise/index.html">t3toolbox.corewise</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -484,8 +486,8 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.uniform.UniformTuckerTensorTrainCores" title="t3toolbox.uniform.UniformTuckerTensorTrainCores"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformTuckerTensorTrainCores</span></code></a></p></td>
 <td><p>Tuple containing supercores of a Uniform Tucker tensor train</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.uniform.UniformTuckerTensorTrainMasks" title="t3toolbox.uniform.UniformTuckerTensorTrainMasks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformTuckerTensorTrainMasks</span></code></a></p></td>
-<td><p>Tuple containing edge masks for a Uniform Tucker tensor train</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.uniform.UniformEdgeWeights" title="t3toolbox.uniform.UniformEdgeWeights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformEdgeWeights</span></code></a></p></td>
+<td><p>Tuple containing edge masks for a Uniform Tucker tensor train. Often used for masking.</p></td>
 </tr>
 </tbody>
 </table>
@@ -586,17 +588,17 @@ so that the ranks are uniform, then stacking the TT cores and Tucker cores into
 </dd></dl>
 
 <dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.uniform.UniformTuckerTensorTrainMasks">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.uniform.</span></span><span class="sig-name descname"><span class="pre">UniformTuckerTensorTrainMasks</span></span><a class="headerlink" href="#t3toolbox.uniform.UniformTuckerTensorTrainMasks" title="Link to this definition">#</a></dt>
-<dd><p>Tuple containing edge masks for a Uniform Tucker tensor train</p>
+<dt class="sig sig-object py" id="t3toolbox.uniform.UniformEdgeWeights">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.uniform.</span></span><span class="sig-name descname"><span class="pre">UniformEdgeWeights</span></span><a class="headerlink" href="#t3toolbox.uniform.UniformEdgeWeights" title="Link to this definition">#</a></dt>
+<dd><p>Tuple containing edge masks for a Uniform Tucker tensor train. Often used for masking.</p>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
 <p>UniformTuckerTensorTrainCores</p>
 <dl class="simple">
 <dt><strong>Components</strong></dt><dd><ul class="simple">
-<li><p>shape_masks:  NDArray. shape=(d,N).   Stacked masks for edges between Tucker cores and exterior of tensor</p></li>
-<li><p>tucker_masks: NDArray. shape=(d,n).   Stacked masks for edges between Tucker cores and adjacent TT-cores</p></li>
-<li><p>tt_masks:     NDArray. shape=(d+1,r). Stacked masks for edges between adjacent TT-cores</p></li>
+<li><p>shape_masks:  NDArray. shape=(d,N).   Weights for edges between Tucker cores and exterior of tensor</p></li>
+<li><p>tucker_masks: NDArray. shape=(d,n).   Weights for edges between Tucker cores and adjacent TT-cores</p></li>
+<li><p>tt_masks:     NDArray. shape=(d+1,r). Weights for edges between adjacent TT-cores</p></li>
 </ul>
 </dd>
 <dt>Here:</dt><dd><ul class="simple">
@@ -676,7 +678,7 @@ so that the ranks are uniform, then stacking the TT cores and Tucker cores into
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#functions">Functions</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-contents">Module Contents</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform.UniformTuckerTensorTrainCores"><code class="docutils literal notranslate"><span class="pre">UniformTuckerTensorTrainCores</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform.UniformTuckerTensorTrainMasks"><code class="docutils literal notranslate"><span class="pre">UniformTuckerTensorTrainMasks</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform.UniformEdgeWeights"><code class="docutils literal notranslate"><span class="pre">UniformEdgeWeights</span></code></a></li>
 </ul>
 </li>
 </ul>

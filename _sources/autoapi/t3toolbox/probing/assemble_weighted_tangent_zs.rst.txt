@@ -1,7 +1,7 @@
 t3toolbox.probing.assemble_weighted_tangent_zs
 ==============================================
 
-.. py:function:: t3toolbox.probing.assemble_weighted_tangent_zs(tucker_cores: Sequence[NDArray], var_tucker_cores: Sequence[NDArray], weighted_etas: Sequence[NDArray], weighted_detas: Sequence[NDArray], shape_weights: Sequence[NDArray] = None, map=common.ragged_map, xnp=np) -> Tuple[NDArray, Ellipsis]
+.. py:function:: t3toolbox.probing.assemble_weighted_tangent_zs(tucker_cores: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], var_tucker_cores: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], weighted_etas: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], weighted_detas: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], shape_weights: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray] = None, map=common.ragged_map, xnp=np) -> t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
 
    Assemble tangent vector probes from edge variables.
 

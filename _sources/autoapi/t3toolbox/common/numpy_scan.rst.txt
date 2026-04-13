@@ -1,4 +1,8 @@
 t3toolbox.common.numpy_scan
 ===========================
 
-.. py:function:: t3toolbox.common.numpy_scan(f: Callable[[CarryType, NDArray], Tuple[CarryType, NDArray]], init: CarryType, xs: Sequence[StackedNDArray]) -> Tuple[CarryType, Tuple[StackedNDArray, Ellipsis]]
+.. py:function:: t3toolbox.common.numpy_scan(f: Callable[[CarryType, Sequence[NDArray]], Tuple[CarryType, Sequence[NDArray]]], init: CarryType, xs: Sequence[Union[Sequence[NDArray], NDArray]]) -> Tuple[CarryType, Tuple[NDArray, Ellipsis]]
+
+   Similar to jax.lax.scan, except returns numpy arrays instead of jax arrays.
+
+

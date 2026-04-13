@@ -264,6 +264,8 @@
 <li class="toctree-l3"><a class="reference internal" href="ragged_scan.html">t3toolbox.common.ragged_scan</a></li>
 <li class="toctree-l3"><a class="reference internal" href="numpy_scan.html">t3toolbox.common.numpy_scan</a></li>
 <li class="toctree-l3"><a class="reference internal" href="ragged_map.html">t3toolbox.common.ragged_map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="numpy_map.html">t3toolbox.common.numpy_map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="get_backend.html">t3toolbox.common.get_backend</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../corewise/index.html">t3toolbox.corewise</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -477,24 +479,49 @@
                   
   <section id="module-t3toolbox.common">
 <span id="t3toolbox-common"></span><h1>t3toolbox.common<a class="headerlink" href="#module-t3toolbox.common" title="Link to this heading">#</a></h1>
+<section id="attributes">
+<h2>Attributes<a class="headerlink" href="#attributes" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.common.jax_scan" title="t3toolbox.common.jax_scan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jax_scan</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
 <section id="functions">
 <h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">#</a></h2>
 <div class="toctree-wrapper compound">
 </div>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="ragged_scan.html#t3toolbox.common.ragged_scan" title="t3toolbox.common.ragged_scan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ragged_scan</span></code></a>(→ Tuple[CarryType, Tuple[Tuple[OutputType, ...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="ragged_scan.html#t3toolbox.common.ragged_scan" title="t3toolbox.common.ragged_scan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ragged_scan</span></code></a>(→ Tuple[CarryType, Tuple[Tuple[NDArray, ...)</p></td>
 <td><p>Similar to jax.lax.scan, except for ragged-sized arrays</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="numpy_scan.html#t3toolbox.common.numpy_scan" title="t3toolbox.common.numpy_scan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy_scan</span></code></a>(→ Tuple[CarryType, Tuple[StackedNDArray, ...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="numpy_scan.html#t3toolbox.common.numpy_scan" title="t3toolbox.common.numpy_scan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy_scan</span></code></a>(→ Tuple[CarryType, Tuple[NDArray, Ellipsis]])</p></td>
+<td><p>Similar to jax.lax.scan, except returns numpy arrays instead of jax arrays.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="ragged_map.html#t3toolbox.common.ragged_map" title="t3toolbox.common.ragged_map"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ragged_map</span></code></a>(→ Tuple[Tuple[NDArray, Ellipsis], Ellipsis])</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="ragged_map.html#t3toolbox.common.ragged_map" title="t3toolbox.common.ragged_map"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ragged_map</span></code></a>(→ Tuple[Tuple[Tuple[OutputType, Ellipsis], ...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="numpy_map.html#t3toolbox.common.numpy_map" title="t3toolbox.common.numpy_map"><code class="xref py py-obj docutils literal notranslate"><span class="pre">numpy_map</span></code></a>(→ Tuple[NDArray, Ellipsis])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="get_backend.html#t3toolbox.common.get_backend" title="t3toolbox.common.get_backend"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_backend</span></code></a>(is_ragged, use_jax)</p></td>
 <td><p></p></td>
 </tr>
 </tbody>
 </table>
 </div>
+</section>
+<section id="module-contents">
+<h2>Module Contents<a class="headerlink" href="#module-contents" title="Link to this heading">#</a></h2>
+<dl class="py data">
+<dt class="sig sig-object py" id="t3toolbox.common.jax_scan">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.common.</span></span><span class="sig-name descname"><span class="pre">jax_scan</span></span><a class="headerlink" href="#t3toolbox.common.jax_scan" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
 </section>
 </section>
 
@@ -545,7 +572,12 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#attributes">Attributes</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#functions">Functions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-contents">Module Contents</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.common.jax_scan"><code class="docutils literal notranslate"><span class="pre">jax_scan</span></code></a></li>
+</ul>
+</li>
 </ul>
   </nav></div>
 

@@ -1,0 +1,4 @@
+t3toolbox.common.get_backend
+============================
+
+.. py:function:: t3toolbox.common.get_backend(is_ragged: bool, use_jax: bool)

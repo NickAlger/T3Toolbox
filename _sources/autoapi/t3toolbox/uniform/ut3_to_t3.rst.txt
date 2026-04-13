@@ -1,7 +1,7 @@
 t3toolbox.uniform.ut3_to_t3
 ===========================
 
-.. py:function:: t3toolbox.uniform.ut3_to_t3(cores: UniformTuckerTensorTrainCores, masks: UniformTuckerTensorTrainMasks, xnp=np) -> t3toolbox.tucker_tensor_train.TuckerTensorTrain
+.. py:function:: t3toolbox.uniform.ut3_to_t3(cores: UniformTuckerTensorTrainCores, masks: UniformEdgeWeights, xnp=np) -> t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
    Convert UniformTuckerTensorTrain to TuckerTensorTrain.
 

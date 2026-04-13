@@ -264,6 +264,8 @@
 <li class="toctree-l3"><a class="reference internal" href="../common/ragged_scan.html">t3toolbox.common.ragged_scan</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../common/numpy_scan.html">t3toolbox.common.numpy_scan</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../common/ragged_map.html">t3toolbox.common.ragged_map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../common/numpy_map.html">t3toolbox.common.numpy_map</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../common/get_backend.html">t3toolbox.common.get_backend</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../corewise/index.html">t3toolbox.corewise</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -518,6 +520,9 @@ are not formed during computations.</p>
 <tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.tucker_tensor_train.T3Structure" title="t3toolbox.tucker_tensor_train.T3Structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Structure</span></code></a></p></td>
 <td><p>Tuple containing the structure of a Tucker tensor train.</p></td>
 </tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.tucker_tensor_train.EdgeWeights" title="t3toolbox.tucker_tensor_train.EdgeWeights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">EdgeWeights</span></code></a></p></td>
+<td><p>Weighting vectors for the edges of a Tucker tensor train.</p></td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -664,6 +669,30 @@ are not formed during computations.</p>
 </div>
 </dd></dl>
 
+<dl class="py data">
+<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.EdgeWeights">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">EdgeWeights</span></span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.EdgeWeights" title="Link to this definition">#</a></dt>
+<dd><p>Weighting vectors for the edges of a Tucker tensor train.</p>
+<p>Components:</p>
+<ul>
+<li><dl>
+<dt><strong>shape_weights</strong><span class="classifier"><em>Sequence[int]</em></span></dt><dd><p>Weights for externally facing edges. len=d, elm_shape=(Ni,)</p>
+</dd>
+</dl>
+</li>
+<li><dl>
+<dt><strong>tucker_weights</strong><span class="classifier"><em>Sequence[int]</em></span></dt><dd><p>Weights for edges between Tucker cores and TT cores. len=d, elm_shape=(ni,)</p>
+</dd>
+</dl>
+</li>
+<li><dl>
+<dt><strong>tt_weights</strong><span class="classifier"><em>Sequence[int]</em></span></dt><dd><p>Weights for edges between adjacent TT cores. len=d+1, elm_shape=(ri,)</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd></dl>
+
 </section>
 </section>
 
@@ -719,6 +748,7 @@ are not formed during computations.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-contents">Module Contents</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain"><code class="docutils literal notranslate"><span class="pre">TuckerTensorTrain</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.T3Structure"><code class="docutils literal notranslate"><span class="pre">T3Structure</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.EdgeWeights"><code class="docutils literal notranslate"><span class="pre">EdgeWeights</span></code></a></li>
 </ul>
 </li>
 </ul>

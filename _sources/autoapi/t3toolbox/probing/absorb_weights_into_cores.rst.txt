@@ -1,4 +1,4 @@
 t3toolbox.probing.absorb_weights_into_cores
 ===========================================
 
-.. py:function:: t3toolbox.probing.absorb_weights_into_cores(x0: t3toolbox.tucker_tensor_train.TuckerTensorTrain, weights: Tuple[Sequence[NDArray], Sequence[NDArray], Sequence[NDArray]]) -> t3toolbox.tucker_tensor_train.TuckerTensorTrain
+.. py:function:: t3toolbox.probing.absorb_weights_into_cores(x0: t3toolbox.tucker_tensor_train.TuckerTensorTrain, weights: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]]) -> t3toolbox.tucker_tensor_train.TuckerTensorTrain

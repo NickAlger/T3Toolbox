@@ -1,7 +1,7 @@
 t3toolbox.probing.probe_tangent_transpose
 =========================================
 
-.. py:function:: t3toolbox.probing.probe_tangent_transpose(ztildes: Sequence[NDArray], ww: Sequence[NDArray], base: t3toolbox.base_variation_format.T3Base, edge_weights: Tuple[Sequence[NDArray], Sequence[NDArray], Sequence[NDArray], Sequence[NDArray], Sequence[NDArray]] = (None, None, None, None, None), sum_over_probes: bool = False, xnp=np) -> Tuple[Tuple[NDArray, Ellipsis], Tuple[NDArray, Ellipsis]]
+.. py:function:: t3toolbox.probing.probe_tangent_transpose(ztildes: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], ww: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], base: t3toolbox.base_variation_format.T3Base, edge_weights: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]] = (None, None, None, None, None), sum_over_probes: bool = False, xnp=np) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]]
 
    Apply the transpose of the map from a T3Tangent to its probes. Apply to ztildes.
 

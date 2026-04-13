@@ -10,7 +10,7 @@ Attributes
 .. autoapisummary::
 
    t3toolbox.uniform.UniformTuckerTensorTrainCores
-   t3toolbox.uniform.UniformTuckerTensorTrainMasks
+   t3toolbox.uniform.UniformEdgeWeights
 
 
 Functions
@@ -91,18 +91,18 @@ Module Contents
    >>> print(ut3.original_structure(masks))
    ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
 
-.. py:data:: UniformTuckerTensorTrainMasks
+.. py:data:: UniformEdgeWeights
 
-   Tuple containing edge masks for a Uniform Tucker tensor train
+   Tuple containing edge masks for a Uniform Tucker tensor train. Often used for masking.
 
    .. seealso::
 
       UniformTuckerTensorTrainCores
 
       **Components**
-          - shape_masks:  NDArray. shape=(d,N).   Stacked masks for edges between Tucker cores and exterior of tensor
-          - tucker_masks: NDArray. shape=(d,n).   Stacked masks for edges between Tucker cores and adjacent TT-cores
-          - tt_masks:     NDArray. shape=(d+1,r). Stacked masks for edges between adjacent TT-cores
+          - shape_masks:  NDArray. shape=(d,N).   Weights for edges between Tucker cores and exterior of tensor
+          - tucker_masks: NDArray. shape=(d,n).   Weights for edges between Tucker cores and adjacent TT-cores
+          - tt_masks:     NDArray. shape=(d+1,r). Weights for edges between adjacent TT-cores
 
       Here:
           - d = num_cores

@@ -1,7 +1,7 @@
 t3toolbox.probing.compute_weighted_dxi_tildes
 =============================================
 
-.. py:function:: t3toolbox.probing.compute_weighted_dxi_tildes(weighted_sigma_tildes: Sequence[NDArray], weighted_tau_tildes: Sequence[NDArray], outer_tt_cores: Sequence[NDArray], weighted_mus: Sequence[NDArray], weighted_nus: Sequence[NDArray], outer_tucker_weights: Sequence[NDArray] = None, map=common.ragged_map, xnp=np) -> Tuple[NDArray, Ellipsis]
+.. py:function:: t3toolbox.probing.compute_weighted_dxi_tildes(weighted_sigma_tildes: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], weighted_tau_tildes: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], outer_tt_cores: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], weighted_mus: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], weighted_nus: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], outer_tucker_weights: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray] = None, map=common.ragged_map, xnp=np) -> t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
 
    Adjoint-var-downward edge variables dxi_tilde.
    Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.

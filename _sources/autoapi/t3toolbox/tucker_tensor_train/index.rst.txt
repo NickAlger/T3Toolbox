@@ -49,6 +49,7 @@ Attributes
 
    t3toolbox.tucker_tensor_train.TuckerTensorTrain
    t3toolbox.tucker_tensor_train.T3Structure
+   t3toolbox.tucker_tensor_train.EdgeWeights
 
 
 Functions
@@ -154,4 +155,17 @@ Module Contents
    (4, 5, 6)
    >>> print(tt_ranks)
    (1, 3, 2, 1)
+
+.. py:data:: EdgeWeights
+
+   Weighting vectors for the edges of a Tucker tensor train.
+
+   Components:
+
+   - **shape_weights** : *Sequence[int]*
+       Weights for externally facing edges. len=d, elm_shape=(Ni,)
+   - **tucker_weights** : *Sequence[int]*
+       Weights for edges between Tucker cores and TT cores. len=d, elm_shape=(ni,)
+   - **tt_weights** : *Sequence[int]*
+       Weights for edges between adjacent TT cores. len=d+1, elm_shape=(ri,)
 

@@ -1,7 +1,7 @@
 t3toolbox.probing.compute_weighted_sigmas
 =========================================
 
-.. py:function:: t3toolbox.probing.compute_weighted_sigmas(var_tt_cores: Sequence[NDArray], right_tt_cores: Sequence[NDArray], outer_tt_cores: Sequence[NDArray], weighted_xis: Sequence[NDArray], weighted_dxis: Sequence[NDArray], weighted_mus: Sequence[NDArray], right_tt_weights: Sequence[NDArray] = None, scan=common.ragged_scan, xnp=np) -> Tuple[NDArray, Ellipsis]
+.. py:function:: t3toolbox.probing.compute_weighted_sigmas(var_tt_cores: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], right_tt_cores: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], outer_tt_cores: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], weighted_xis: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], weighted_dxis: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], weighted_mus: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], right_tt_weights: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray] = None, scan=common.ragged_scan, xnp=np) -> t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
 
    Compute var-leftward edge variables sigma.
    Used for probing a tangent vector.
