@@ -11,21 +11,21 @@ Attributes
 
    t3toolbox.jax.probing.probe_dense
    t3toolbox.jax.probing.probe_t3
-   t3toolbox.jax.probing.compute_xis
-   t3toolbox.jax.probing.compute_mus
-   t3toolbox.jax.probing.compute_nus
-   t3toolbox.jax.probing.compute_etas
+   t3toolbox.jax.probing.compute_weighted_xis
+   t3toolbox.jax.probing.compute_weighted_mus
+   t3toolbox.jax.probing.compute_weighted_nus
+   t3toolbox.jax.probing.compute_weighted_etas
    t3toolbox.jax.probing.assemble_probes
    t3toolbox.jax.probing.probe_tangent
-   t3toolbox.jax.probing.compute_dxis
-   t3toolbox.jax.probing.compute_sigmas
-   t3toolbox.jax.probing.compute_taus
-   t3toolbox.jax.probing.compute_detas
+   t3toolbox.jax.probing.compute_weighted_dxis
+   t3toolbox.jax.probing.compute_weighted_sigmas
+   t3toolbox.jax.probing.compute_weighted_taus
+   t3toolbox.jax.probing.compute_weighted_detas
    t3toolbox.jax.probing.assemble_tangent_probes
-   t3toolbox.jax.probing.compute_deta_tildes
-   t3toolbox.jax.probing.compute_tau_tildes
-   t3toolbox.jax.probing.compute_sigma_tildes
-   t3toolbox.jax.probing.compute_dxi_tildes
+   t3toolbox.jax.probing.compute_weighted_deta_tildes
+   t3toolbox.jax.probing.compute_weighted_tau_tildes
+   t3toolbox.jax.probing.compute_weighted_sigma_tildes
+   t3toolbox.jax.probing.compute_weighted_dxi_tildes
    t3toolbox.jax.probing.assemble_basis_variations
    t3toolbox.jax.probing.assemble_tt_variations
    t3toolbox.jax.probing.probe_tangent_transpose
@@ -38,35 +38,35 @@ Module Contents
 
 .. py:data:: probe_t3
 
-.. py:data:: compute_xis
+.. py:data:: compute_weighted_xis
 
-.. py:data:: compute_mus
+.. py:data:: compute_weighted_mus
 
-.. py:data:: compute_nus
+.. py:data:: compute_weighted_nus
 
-.. py:data:: compute_etas
+.. py:data:: compute_weighted_etas
 
 .. py:data:: assemble_probes
 
 .. py:data:: probe_tangent
 
-.. py:data:: compute_dxis
+.. py:data:: compute_weighted_dxis
 
-.. py:data:: compute_sigmas
+.. py:data:: compute_weighted_sigmas
 
-.. py:data:: compute_taus
+.. py:data:: compute_weighted_taus
 
-.. py:data:: compute_detas
+.. py:data:: compute_weighted_detas
 
 .. py:data:: assemble_tangent_probes
 
-.. py:data:: compute_deta_tildes
+.. py:data:: compute_weighted_deta_tildes
 
-.. py:data:: compute_tau_tildes
+.. py:data:: compute_weighted_tau_tildes
 
-.. py:data:: compute_sigma_tildes
+.. py:data:: compute_weighted_sigma_tildes
 
-.. py:data:: compute_dxi_tildes
+.. py:data:: compute_weighted_dxi_tildes
 
 .. py:data:: assemble_basis_variations
 

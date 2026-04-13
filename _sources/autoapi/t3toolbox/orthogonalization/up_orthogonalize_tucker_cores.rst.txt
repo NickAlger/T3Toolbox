@@ -1,0 +1,8 @@
+t3toolbox.orthogonalization.up_orthogonalize_tucker_cores
+=========================================================
+
+.. py:function:: t3toolbox.orthogonalization.up_orthogonalize_tucker_cores(x: t3toolbox.tucker_tensor_train.TuckerTensorTrain, map=common.ragged_map, xnp=np) -> t3toolbox.tucker_tensor_train.TuckerTensorTrain
+
+   Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
+
+

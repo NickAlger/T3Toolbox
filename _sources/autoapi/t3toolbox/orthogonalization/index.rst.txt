@@ -17,6 +17,9 @@ Functions
    /autoapi/t3toolbox/orthogonalization/down_svd_ith_tt_core
    /autoapi/t3toolbox/orthogonalization/orthogonalize_relative_to_ith_tucker_core
    /autoapi/t3toolbox/orthogonalization/orthogonalize_relative_to_ith_tt_core
+   /autoapi/t3toolbox/orthogonalization/up_orthogonalize_tucker_cores
+   /autoapi/t3toolbox/orthogonalization/left_orthogonalize_tt_cores
+   /autoapi/t3toolbox/orthogonalization/right_orthogonalize_tt_cores
    /autoapi/t3toolbox/orthogonalization/orthogonal_representations
 
 .. autoapisummary::
@@ -28,6 +31,9 @@ Functions
    t3toolbox.orthogonalization.down_svd_ith_tt_core
    t3toolbox.orthogonalization.orthogonalize_relative_to_ith_tucker_core
    t3toolbox.orthogonalization.orthogonalize_relative_to_ith_tt_core
+   t3toolbox.orthogonalization.up_orthogonalize_tucker_cores
+   t3toolbox.orthogonalization.left_orthogonalize_tt_cores
+   t3toolbox.orthogonalization.right_orthogonalize_tt_cores
    t3toolbox.orthogonalization.orthogonal_representations
 
 

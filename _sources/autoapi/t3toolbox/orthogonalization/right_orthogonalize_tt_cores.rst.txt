@@ -1,0 +1,4 @@
+t3toolbox.orthogonalization.right_orthogonalize_tt_cores
+========================================================
+
+.. py:function:: t3toolbox.orthogonalization.right_orthogonalize_tt_cores(tt_cores: Sequence[NDArray], scan=common.ragged_scan, xnp=np) -> Tuple[NDArray]

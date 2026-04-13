@@ -318,6 +318,9 @@
 <li class="toctree-l3"><a class="reference internal" href="../../orthogonalization/down_svd_ith_tt_core.html">t3toolbox.orthogonalization.down_svd_ith_tt_core</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../orthogonalization/orthogonalize_relative_to_ith_tucker_core.html">t3toolbox.orthogonalization.orthogonalize_relative_to_ith_tucker_core</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../orthogonalization/orthogonalize_relative_to_ith_tt_core.html">t3toolbox.orthogonalization.orthogonalize_relative_to_ith_tt_core</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../orthogonalization/up_orthogonalize_tucker_cores.html">t3toolbox.orthogonalization.up_orthogonalize_tucker_cores</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../orthogonalization/left_orthogonalize_tt_cores.html">t3toolbox.orthogonalization.left_orthogonalize_tt_cores</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../orthogonalization/right_orthogonalize_tt_cores.html">t3toolbox.orthogonalization.right_orthogonalize_tt_cores</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../orthogonalization/orthogonal_representations.html">t3toolbox.orthogonalization.orthogonal_representations</a></li>
 </ul>
 </details></li>
@@ -358,6 +361,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/check_t3.html">t3toolbox.tucker_tensor_train.check_t3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_to_dense.html">t3toolbox.tucker_tensor_train.t3_to_dense</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/squash_tails.html">t3toolbox.tucker_tensor_train.squash_tails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/reverse_tt.html">t3toolbox.tucker_tensor_train.reverse_tt</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/reverse_t3.html">t3toolbox.tucker_tensor_train.reverse_t3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_zeros.html">t3toolbox.tucker_tensor_train.t3_zeros</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_corewise_randn.html">t3toolbox.tucker_tensor_train.t3_corewise_randn</a></li>
@@ -486,16 +490,16 @@
 <tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.probe_t3" title="t3toolbox.jax.probing.probe_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">probe_t3</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_xis" title="t3toolbox.jax.probing.compute_xis"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_xis</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_weighted_xis" title="t3toolbox.jax.probing.compute_weighted_xis"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_weighted_xis</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_mus" title="t3toolbox.jax.probing.compute_mus"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_mus</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_weighted_mus" title="t3toolbox.jax.probing.compute_weighted_mus"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_weighted_mus</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_nus" title="t3toolbox.jax.probing.compute_nus"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_nus</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_weighted_nus" title="t3toolbox.jax.probing.compute_weighted_nus"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_weighted_nus</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_etas" title="t3toolbox.jax.probing.compute_etas"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_etas</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_weighted_etas" title="t3toolbox.jax.probing.compute_weighted_etas"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_weighted_etas</span></code></a></p></td>
 <td><p></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.assemble_probes" title="t3toolbox.jax.probing.assemble_probes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">assemble_probes</span></code></a></p></td>
@@ -504,31 +508,31 @@
 <tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.probe_tangent" title="t3toolbox.jax.probing.probe_tangent"><code class="xref py py-obj docutils literal notranslate"><span class="pre">probe_tangent</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_dxis" title="t3toolbox.jax.probing.compute_dxis"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_dxis</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_weighted_dxis" title="t3toolbox.jax.probing.compute_weighted_dxis"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_weighted_dxis</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_sigmas" title="t3toolbox.jax.probing.compute_sigmas"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_sigmas</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_weighted_sigmas" title="t3toolbox.jax.probing.compute_weighted_sigmas"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_weighted_sigmas</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_taus" title="t3toolbox.jax.probing.compute_taus"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_taus</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_weighted_taus" title="t3toolbox.jax.probing.compute_weighted_taus"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_weighted_taus</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_detas" title="t3toolbox.jax.probing.compute_detas"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_detas</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_weighted_detas" title="t3toolbox.jax.probing.compute_weighted_detas"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_weighted_detas</span></code></a></p></td>
 <td><p></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.assemble_tangent_probes" title="t3toolbox.jax.probing.assemble_tangent_probes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">assemble_tangent_probes</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_deta_tildes" title="t3toolbox.jax.probing.compute_deta_tildes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_deta_tildes</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_weighted_deta_tildes" title="t3toolbox.jax.probing.compute_weighted_deta_tildes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_weighted_deta_tildes</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_tau_tildes" title="t3toolbox.jax.probing.compute_tau_tildes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_tau_tildes</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_weighted_tau_tildes" title="t3toolbox.jax.probing.compute_weighted_tau_tildes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_weighted_tau_tildes</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_sigma_tildes" title="t3toolbox.jax.probing.compute_sigma_tildes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_sigma_tildes</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_weighted_sigma_tildes" title="t3toolbox.jax.probing.compute_weighted_sigma_tildes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_weighted_sigma_tildes</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_dxi_tildes" title="t3toolbox.jax.probing.compute_dxi_tildes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_dxi_tildes</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.compute_weighted_dxi_tildes" title="t3toolbox.jax.probing.compute_weighted_dxi_tildes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_weighted_dxi_tildes</span></code></a></p></td>
 <td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.jax.probing.assemble_basis_variations" title="t3toolbox.jax.probing.assemble_basis_variations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">assemble_basis_variations</span></code></a></p></td>
@@ -557,23 +561,23 @@
 <dd></dd></dl>
 
 <dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_xis">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_xis</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_xis" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_weighted_xis">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_weighted_xis</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_weighted_xis" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_mus">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_mus</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_mus" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_weighted_mus">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_weighted_mus</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_weighted_mus" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_nus">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_nus</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_nus" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_weighted_nus">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_weighted_nus</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_weighted_nus" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_etas">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_etas</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_etas" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_weighted_etas">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_weighted_etas</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_weighted_etas" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py data">
@@ -587,23 +591,23 @@
 <dd></dd></dl>
 
 <dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_dxis">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_dxis</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_dxis" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_weighted_dxis">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_weighted_dxis</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_weighted_dxis" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_sigmas">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_sigmas</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_sigmas" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_weighted_sigmas">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_weighted_sigmas</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_weighted_sigmas" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_taus">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_taus</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_taus" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_weighted_taus">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_weighted_taus</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_weighted_taus" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_detas">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_detas</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_detas" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_weighted_detas">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_weighted_detas</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_weighted_detas" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py data">
@@ -612,23 +616,23 @@
 <dd></dd></dl>
 
 <dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_deta_tildes">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_deta_tildes</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_deta_tildes" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_weighted_deta_tildes">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_weighted_deta_tildes</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_weighted_deta_tildes" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_tau_tildes">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_tau_tildes</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_tau_tildes" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_weighted_tau_tildes">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_weighted_tau_tildes</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_weighted_tau_tildes" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_sigma_tildes">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_sigma_tildes</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_sigma_tildes" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_weighted_sigma_tildes">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_weighted_sigma_tildes</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_weighted_sigma_tildes" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_dxi_tildes">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_dxi_tildes</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_dxi_tildes" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.jax.probing.compute_weighted_dxi_tildes">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.jax.probing.</span></span><span class="sig-name descname"><span class="pre">compute_weighted_dxi_tildes</span></span><a class="headerlink" href="#t3toolbox.jax.probing.compute_weighted_dxi_tildes" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py data">
@@ -700,21 +704,21 @@
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-contents">Module Contents</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.probe_dense"><code class="docutils literal notranslate"><span class="pre">probe_dense</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.probe_t3"><code class="docutils literal notranslate"><span class="pre">probe_t3</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_xis"><code class="docutils literal notranslate"><span class="pre">compute_xis</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_mus"><code class="docutils literal notranslate"><span class="pre">compute_mus</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_nus"><code class="docutils literal notranslate"><span class="pre">compute_nus</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_etas"><code class="docutils literal notranslate"><span class="pre">compute_etas</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_weighted_xis"><code class="docutils literal notranslate"><span class="pre">compute_weighted_xis</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_weighted_mus"><code class="docutils literal notranslate"><span class="pre">compute_weighted_mus</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_weighted_nus"><code class="docutils literal notranslate"><span class="pre">compute_weighted_nus</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_weighted_etas"><code class="docutils literal notranslate"><span class="pre">compute_weighted_etas</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.assemble_probes"><code class="docutils literal notranslate"><span class="pre">assemble_probes</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.probe_tangent"><code class="docutils literal notranslate"><span class="pre">probe_tangent</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_dxis"><code class="docutils literal notranslate"><span class="pre">compute_dxis</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_sigmas"><code class="docutils literal notranslate"><span class="pre">compute_sigmas</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_taus"><code class="docutils literal notranslate"><span class="pre">compute_taus</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_detas"><code class="docutils literal notranslate"><span class="pre">compute_detas</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_weighted_dxis"><code class="docutils literal notranslate"><span class="pre">compute_weighted_dxis</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_weighted_sigmas"><code class="docutils literal notranslate"><span class="pre">compute_weighted_sigmas</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_weighted_taus"><code class="docutils literal notranslate"><span class="pre">compute_weighted_taus</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_weighted_detas"><code class="docutils literal notranslate"><span class="pre">compute_weighted_detas</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.assemble_tangent_probes"><code class="docutils literal notranslate"><span class="pre">assemble_tangent_probes</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_deta_tildes"><code class="docutils literal notranslate"><span class="pre">compute_deta_tildes</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_tau_tildes"><code class="docutils literal notranslate"><span class="pre">compute_tau_tildes</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_sigma_tildes"><code class="docutils literal notranslate"><span class="pre">compute_sigma_tildes</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_dxi_tildes"><code class="docutils literal notranslate"><span class="pre">compute_dxi_tildes</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_weighted_deta_tildes"><code class="docutils literal notranslate"><span class="pre">compute_weighted_deta_tildes</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_weighted_tau_tildes"><code class="docutils literal notranslate"><span class="pre">compute_weighted_tau_tildes</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_weighted_sigma_tildes"><code class="docutils literal notranslate"><span class="pre">compute_weighted_sigma_tildes</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.compute_weighted_dxi_tildes"><code class="docutils literal notranslate"><span class="pre">compute_weighted_dxi_tildes</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.assemble_basis_variations"><code class="docutils literal notranslate"><span class="pre">assemble_basis_variations</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.assemble_tt_variations"><code class="docutils literal notranslate"><span class="pre">assemble_tt_variations</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.jax.probing.probe_tangent_transpose"><code class="docutils literal notranslate"><span class="pre">probe_tangent_transpose</span></code></a></li>
