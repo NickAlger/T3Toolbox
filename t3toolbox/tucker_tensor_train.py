@@ -50,6 +50,7 @@ __all__ = [
     't3_entry',
     't3_to_dense',
     'squash_tails',
+    'reverse_tt',
     'reverse_t3',
     'check_t3',
     't3_zeros',
@@ -424,6 +425,12 @@ def squash_tails(
     return x
 
 
+def reverse_tt(tt_cores):
+    """Reverse a tensor train (no Tucker).
+    """
+    return tuple([G.swapaxes(0, 2) for G in tt_cores[::-1]])
+
+
 def reverse_t3(
         x: TuckerTensorTrain,
 ) -> NDArray:
@@ -463,7 +470,7 @@ def reverse_t3(
     tucker_cores, tt_cores = x
 
     reversed_tucker_cores = tuple([B.copy() for B in tucker_cores[::-1]])
-    reversed_tt_cores = tuple([G.swapaxes(0,2).copy() for G in tt_cores[::-1]])
+    reversed_tt_cores = reverse_tt(tt_cores)
     reversed_x = (reversed_tucker_cores, reversed_tt_cores)
     return reversed_x
 

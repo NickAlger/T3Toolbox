@@ -8,6 +8,7 @@ import typing as typ
 import t3toolbox.linalg
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.orthogonalization as orth
+import t3toolbox.common as common
 
 __all__ = [
     't3_svd',
@@ -31,6 +32,8 @@ def t3_svd(
         max_tucker_ranks:   typ.Sequence[int] = None, # len=d
         rtol: float = None,
         atol: float = None,
+        map=common.ragged_map,
+        scan=common.ragged_scan,
         xnp = np,
 ) -> typ.Tuple[
     t3.TuckerTensorTrain, # new_x
@@ -167,12 +170,10 @@ def t3_svd(
     x = t3.squash_tails(x, xnp=xnp)
 
     # Orthogonalize Tucker matrices
-    for ii in range(num_cores):
-        x, _ = orth.up_svd_ith_tucker_core(ii, x, xnp=xnp)
+    x = orth.up_orthogonalize_tucker_cores(x, map=map, xnp=np)
 
     # Right orthogonalize
-    for ii in range(num_cores-1, 0, -1): # num_cores-1, num_cores-2, ..., 1
-        x, _ = orth.right_svd_ith_tt_core(ii, x, xnp=xnp)
+    x = x[0], orth.right_orthogonalize_tt_cores(x[1], scan=scan, xnp=xnp)
 
     G0 = x[1][0]
     _, ss_first, _ = t3toolbox.linalg.right_svd_3tensor(G0, xnp=xnp)

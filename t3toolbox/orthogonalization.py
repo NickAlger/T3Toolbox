@@ -19,6 +19,10 @@ __all__ = [
     'down_svd_ith_tt_core',
     'orthogonalize_relative_to_ith_tucker_core',
     'orthogonalize_relative_to_ith_tt_core',
+    #
+    'up_orthogonalize_tucker_cores',
+    'left_orthogonalize_tt_cores',
+    'right_orthogonalize_tt_cores',
     'orthogonal_representations',
 ]
 
@@ -633,6 +637,56 @@ def orthogonalize_relative_to_ith_tt_core(
     return new_x
 
 
+def up_orthogonalize_tucker_cores(
+        x: t3.TuckerTensorTrain,
+        map = common.ragged_map,
+        xnp=np,
+) -> t3.TuckerTensorTrain:
+    """Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
+    """
+    def _up_func(Bio_Gaib):
+        Bio, Gaib = Bio_Gaib
+        Boi = Bio.T
+
+        Uox, ssx, WTxi = t3toolbox.linalg.truncated_svd(Boi, xnp=xnp)
+        Rxi = xnp.einsum('x,xi->xi', ssx, WTxi)
+
+        new_Gaxb = xnp.einsum('aib,xi->axb', Gaib, Rxi)
+        new_Uxo = Uox.T
+        return (new_Uxo, new_Gaxb)
+
+    up_tucker_cores, new_tt_cores = map(_up_func, x)
+    return (up_tucker_cores, new_tt_cores)
+
+
+def left_orthogonalize_tt_cores(
+        tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(ri,ni,r(i+1))
+        scan = common.ragged_scan,
+        xnp = np,
+) -> typ.Tuple[NDArray]:
+    def _left_func(Cxb, Gbjc_tuple):
+        Gbjc = Gbjc_tuple[0]
+        Hxjc = xnp.einsum('xb,bjc->xjc', Cxb, Gbjc)
+
+        Lxjy, ssy, VTyc = linalg.left_svd_3tensor(Hxjc, xnp=xnp)
+        Ryc = ssy.reshape((-1, 1)) * VTyc
+        return Ryc, (Lxjy,)
+
+    C0 = xnp.eye(tt_cores[0].shape[0])
+    Cf, (LL,) = scan(_left_func, C0, [tt_cores[:-1]])
+    Lf = xnp.einsum('xb,bjc->xjc', Cf, tt_cores[-1])
+    left_tt_cores = tuple(LL) + (Lf,)
+    return left_tt_cores
+
+
+def right_orthogonalize_tt_cores(
+        tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(ri,ni,r(i+1))
+        scan = common.ragged_scan,
+        xnp = np,
+) -> typ.Tuple[NDArray]:
+    return t3.reverse_tt(left_orthogonalize_tt_cores(t3.reverse_tt(tt_cores), scan=scan, xnp=xnp))
+
+
 def orthogonal_representations(
         x: t3.TuckerTensorTrain,
         already_left_orthogonal: bool = False,
@@ -757,32 +811,10 @@ def orthogonal_representations(
     '''
     if not already_left_orthogonal:
         # Orthogonalize Tucker cores upward to get up_tt_cores U
-        def _up_func(Bio_Gaib):
-            Bio, Gaib = Bio_Gaib
-            Boi = Bio.T
-
-            Uox, ssx, WTxi = t3toolbox.linalg.truncated_svd(Boi, xnp=xnp)
-            Rxi = xnp.einsum('x,xi->xi', ssx, WTxi)
-
-            new_Gaxb = xnp.einsum('aib,xi->axb', Gaib, Rxi)
-            new_Uxo = Uox.T
-            return (new_Uxo, new_Gaxb)
-
-        up_tucker_cores, tt_cores = map(_up_func, x)
+        up_tucker_cores, tt_cores = up_orthogonalize_tucker_cores(x, map=map, xnp=np)
 
         # Sweep left-to-right, generating left orthogonal tt_cores L
-        def _left_func(Cxb, Gbjc_tuple):
-            Gbjc = Gbjc_tuple[0]
-            Hxjc = xnp.einsum('xb,bjc->xjc', Cxb, Gbjc)
-
-            Lxjy, ssy, VTyc = linalg.left_svd_3tensor(Hxjc, xnp=xnp)
-            Ryc = ssy.reshape((-1, 1)) * VTyc
-            return Ryc, [Lxjy]
-
-        C0 = xnp.eye(tt_cores[0].shape[0])
-        Cf, (LL,) = scan(_left_func, C0, [tt_cores[:-1]])
-        Lf = xnp.einsum('xb,bjc->xjc', Cf, tt_cores[-1])
-        left_tt_cores = tuple(LL) + (Lf,)
+        left_tt_cores = left_orthogonalize_tt_cores(tt_cores, scan=scan, xnp=np)
     else:
         up_tucker_cores, left_tt_cores = x
 

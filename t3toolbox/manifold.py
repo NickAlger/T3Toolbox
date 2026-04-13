@@ -587,10 +587,6 @@ import t3tools.corewise    >>> u_gauged = t3m.oblique_gauge_projection(u, base) 
     return tuple(tucker_vars), tuple(tt_vars)
 
 
-def tt_reverse(cores):
-    return tuple([G.swapaxes(0, 2) for G in cores[::-1]])
-
-
 def tt_zipper_left_to_right(
         coresA: typ.Sequence[NDArray],
         coresB: typ.Sequence[NDArray],
@@ -609,7 +605,7 @@ def tt_zipper_right_to_left(
         coresB: typ.Sequence[NDArray],
         xnp = np,
 ) -> typ.Tuple[NDArray, ...]:  # zipper_matrices. len=num_cores+1
-    return tt_zipper_left_to_right(tt_reverse(coresA), tt_reverse(coresB), xnp=xnp)[::-1]
+    return tt_zipper_left_to_right(t3.reverse_tt(coresA), t3.reverse_tt(coresB), xnp=xnp)[::-1]
 
 
 def project_t3_onto_tangent_space(

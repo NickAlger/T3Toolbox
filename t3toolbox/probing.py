@@ -350,10 +350,6 @@ def compute_weighted_mus(
     return weighted_mus
 
 
-def tt_reverse(tt_cores):
-    return tuple([G.swapaxes(0, 2) for G in tt_cores[::-1]])
-
-
 def compute_weighted_nus(
         right_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(rRi,nUi,rR(i+1))
         weighted_xis, # len=d. elm_shape=(...,nUi)
@@ -393,7 +389,7 @@ def compute_weighted_nus(
     compute_etas
     assemble_probes
     '''
-    rev_tt_cores = tt_reverse(right_tt_cores)
+    rev_tt_cores = t3.reverse_tt(right_tt_cores)
     rev_weighted_xis = weighted_xis[::-1]
     rev_right_tt_weights  = None if right_tt_weights is None else right_tt_weights[::-1]
 
@@ -673,9 +669,9 @@ def compute_weighted_taus(
     assemble_tangent_probes
     probe_tangent
     '''
-    rev_var_tt_cores    = tt_reverse(var_tt_cores)
-    rev_left_tt_cores   = tt_reverse(left_tt_cores)
-    rev_outer_tt_cores  = tt_reverse(outer_tt_cores)
+    rev_var_tt_cores    = t3.reverse_tt(var_tt_cores)
+    rev_left_tt_cores   = t3.reverse_tt(left_tt_cores)
+    rev_outer_tt_cores  = t3.reverse_tt(outer_tt_cores)
     rev_weighted_xis    = weighted_xis[::-1]
     rev_weighted_dxis   = weighted_dxis[::-1]
     rev_weighted_nus    = weighted_nus[::-1]
@@ -1204,7 +1200,7 @@ def compute_weighted_sigma_tildes(
     rev_right_tt_weights = right_tt_weights[::-1] if right_tt_weights is not None else None
 
     return compute_weighted_tau_tildes(
-        weighted_deta_tildes[::-1], tt_reverse(right_tt_cores), weighted_xis[::-1], weighted_nus[::-1],
+        weighted_deta_tildes[::-1], t3.reverse_tt(right_tt_cores), weighted_xis[::-1], weighted_nus[::-1],
         left_tt_weights = rev_right_tt_weights,
         scan=scan, xnp=xnp,
     )[::-1]
