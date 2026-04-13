@@ -1,7 +1,7 @@
 t3toolbox.uniform.get_padded_structure
 ======================================
 
-.. py:function:: t3toolbox.uniform.get_padded_structure(cores: UniformTuckerTensorTrainCores) -> Tuple[int, int, int, int]
+.. py:function:: t3toolbox.uniform.get_padded_structure(cores: UniformTuckerTensorTrainCores) -> t3toolbox.common.typ.Tuple[int, int, int, int]
 
    Get padded structure of uniform Tucker tensor train.
 

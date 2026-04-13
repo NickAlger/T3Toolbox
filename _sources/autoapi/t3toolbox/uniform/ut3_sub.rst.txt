@@ -1,7 +1,7 @@
 t3toolbox.uniform.ut3_sub
 =========================
 
-.. py:function:: t3toolbox.uniform.ut3_sub(x_cores: UniformTuckerTensorTrainCores, x_masks: UniformEdgeWeights, y_cores: UniformTuckerTensorTrainCores, y_masks: UniformEdgeWeights, xnp=np) -> Tuple[UniformTuckerTensorTrainCores, UniformEdgeWeights]
+.. py:function:: t3toolbox.uniform.ut3_sub(x_cores: UniformTuckerTensorTrainCores, x_masks: UniformEdgeWeights, y_cores: UniformTuckerTensorTrainCores, y_masks: UniformEdgeWeights, xnp=np) -> t3toolbox.common.typ.Tuple[UniformTuckerTensorTrainCores, UniformEdgeWeights]
 
    Subtract two UniformTuckerTensorTrains, x,y -> x-y.
 

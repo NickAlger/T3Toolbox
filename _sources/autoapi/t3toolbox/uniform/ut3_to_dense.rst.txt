@@ -1,7 +1,7 @@
 t3toolbox.uniform.ut3_to_dense
 ==============================
 
-.. py:function:: t3toolbox.uniform.ut3_to_dense(cores: UniformTuckerTensorTrainCores, masks: UniformEdgeWeights, xnp=np) -> NDArray
+.. py:function:: t3toolbox.uniform.ut3_to_dense(cores: UniformTuckerTensorTrainCores, masks: UniformEdgeWeights, xnp=np) -> t3toolbox.common.NDArray
 
    Construct dense tensor represented by uniform Tucker tensor train
 

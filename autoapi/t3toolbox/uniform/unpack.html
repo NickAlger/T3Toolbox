@@ -48,7 +48,7 @@
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
     <link rel="next" title="t3toolbox.uniform.t3_to_ut3" href="t3_to_ut3.html" />
-    <link rel="prev" title="t3toolbox.uniform.apply_masks" href="apply_masks.html" />
+    <link rel="prev" title="t3toolbox.uniform.pack_tensors" href="pack_tensors.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -387,6 +387,7 @@
 <li class="toctree-l3"><a class="reference internal" href="get_padded_structure.html">t3toolbox.uniform.get_padded_structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="get_original_structure.html">t3toolbox.uniform.get_original_structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="apply_masks.html">t3toolbox.uniform.apply_masks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="pack_tensors.html">t3toolbox.uniform.pack_tensors</a></li>
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.uniform.unpack</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_to_ut3.html">t3toolbox.uniform.t3_to_ut3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="ut3_to_t3.html">t3toolbox.uniform.ut3_to_t3</a></li>
@@ -484,7 +485,7 @@
 <h1>t3toolbox.uniform.unpack<a class="headerlink" href="#t3toolbox-uniform-unpack" title="Link to this heading">#</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="t3toolbox.uniform.unpack">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.uniform.</span></span><span class="sig-name descname"><span class="pre">unpack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">packed_edge_tensors</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">NDArray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">submask</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">NDArray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xnp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.uniform.unpack" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.uniform.</span></span><span class="sig-name descname"><span class="pre">unpack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">packed_edge_tensors</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.common.NDArray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">submask</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.common.NDArray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xnp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.NDArray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.uniform.unpack" title="Link to this definition">#</a></dt>
 <dd><p>Get ragged (variable length) edge vectors from uniform edge vectors.</p>
 <p class="rubric">Example</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
@@ -539,12 +540,12 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="apply_masks.html"
+       href="pack_tensors.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.uniform.apply_masks</p>
+        <p class="prev-next-title">t3toolbox.uniform.pack_tensors</p>
       </div>
     </a>
     <a class="right-next"
