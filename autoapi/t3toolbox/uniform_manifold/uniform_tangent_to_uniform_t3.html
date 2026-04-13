@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.uniform_manifold.ut3_tangent_vector_to_ut3 &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3 &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/uniform_manifold/ut3_tangent_vector_to_ut3';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/uniform_manifold/uniform_tangent_to_uniform_t3';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
     <link rel="next" title="t3toolbox.uniform_orthogonalization" href="../uniform_orthogonalization/index.html" />
-    <link rel="prev" title="t3toolbox.uniform_manifold" href="index.html" />
+    <link rel="prev" title="t3toolbox.uniform_manifold.tangent_to_uniform_tangent" href="tangent_to_uniform_tangent.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -401,7 +401,8 @@
 </ul>
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.uniform_manifold</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.uniform_manifold.ut3_tangent_vector_to_ut3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tangent_to_uniform_tangent.html">t3toolbox.uniform_manifold.tangent_to_uniform_tangent</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../uniform_orthogonalization/index.html">t3toolbox.uniform_orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -464,7 +465,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.uniform_manifold</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.uniform_manifold.ut3_tangent_vector_to_ut3</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3</span></li>
   </ul>
 </nav>
 </div>
@@ -481,18 +482,18 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="t3toolbox-uniform-manifold-ut3-tangent-vector-to-ut3">
-<h1>t3toolbox.uniform_manifold.ut3_tangent_vector_to_ut3<a class="headerlink" href="#t3toolbox-uniform-manifold-ut3-tangent-vector-to-ut3" title="Link to this heading">#</a></h1>
+  <section id="t3toolbox-uniform-manifold-uniform-tangent-to-uniform-t3">
+<h1>t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3<a class="headerlink" href="#t3toolbox-uniform-manifold-uniform-tangent-to-uniform-t3" title="Link to this heading">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3toolbox.uniform_manifold.ut3_tangent_vector_to_ut3">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.uniform_manifold.</span></span><span class="sig-name descname"><span class="pre">ut3_tangent_vector_to_ut3</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variations</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">jnp.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">jnp.ndarray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orthogonal_basis_cores</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">jnp.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">left_orthogonal_tt_cores</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">jnp.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">right_orthogonal_tt_cores</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">jnp.ndarray</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">up_orthogonal_tt_cores</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">jnp.ndarray</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">jnp.ndarray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">jnp.ndarray</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.uniform_manifold.ut3_tangent_vector_to_ut3" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.uniform_manifold.</span></span><span class="sig-name descname"><span class="pre">uniform_tangent_to_uniform_t3</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variations</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformT3Variation" title="t3toolbox.uniform.UniformT3Variation"><span class="pre">t3toolbox.uniform.UniformT3Variation</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformT3Base" title="t3toolbox.uniform.UniformT3Base"><span class="pre">t3toolbox.uniform.UniformT3Base</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_shift</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformTuckerTensorTrainCores" title="t3toolbox.uniform.UniformTuckerTensorTrainCores"><span class="pre">t3toolbox.uniform.UniformTuckerTensorTrainCores</span></a></span></span><a class="headerlink" href="#t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3" title="Link to this definition">#</a></dt>
 <dd><p>Rank 2r Tucker tensor train representation of tangent vector:
-u(x,y,z,w) = ([dU1(B x) P1(B x)]) ([Q2(B y)        0]) ([Q3(B z)        0]) ([Q4(B w) ])</p>
+u(x,y,z,w) = ([dG1(B x) L1(B x)]) ([R2(B y)        0]) ([R3(B z)        0]) ([R4(B w) ])</p>
 <blockquote>
-<div><p>(                  ) ([dU2(B y) P2(B y)]) ([dU3(B z) P3(B z)]) ([dU4(B w)])
+<div><p>(                  ) ([dG2(B y) L2(B y)]) ([dG3(B z) L3(B z)]) ([dG4(B w)])
 (         +        ) (         +        ) (        +         ) (    +     )
-([R1(dB x)       0]) ([0              0]) ([0              0]) ([0       ])
-(                  ) ([R2(dB y)       0]) ([R3(dB z)       0]) ([R4(dB w)])</p>
+([O1(dB x)       0]) ([0              0]) ([0              0]) ([0       ])
+(                  ) ([O2(dB y)       0]) ([O3(dB z)       0]) ([O4(dB w)])</p>
 </div></blockquote>
 </dd></dl>
 
@@ -509,12 +510,12 @@ u(x,y,z,w) = ([dU1(B x) P1(B x)]) ([Q2(B y)        0]) ([Q3(B z)        0]) ([Q4
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="index.html"
+       href="tangent_to_uniform_tangent.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.uniform_manifold</p>
+        <p class="prev-next-title">t3toolbox.uniform_manifold.tangent_to_uniform_tangent</p>
       </div>
     </a>
     <a class="right-next"
@@ -545,14 +546,14 @@ u(x,y,z,w) = ([dU1(B x) P1(B x)]) ([Q2(B y)        0]) ([Q3(B z)        0]) ([Q4
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_manifold.ut3_tangent_vector_to_ut3"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_manifold.ut3_tangent_vector_to_ut3()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/uniform_manifold/ut3_tangent_vector_to_ut3.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/uniform_manifold/uniform_tangent_to_uniform_t3.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

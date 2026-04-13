@@ -10,10 +10,12 @@ Functions
 .. toctree::
    :hidden:
 
-   /autoapi/t3toolbox/uniform_manifold/ut3_tangent_vector_to_ut3
+   /autoapi/t3toolbox/uniform_manifold/tangent_to_uniform_tangent
+   /autoapi/t3toolbox/uniform_manifold/uniform_tangent_to_uniform_t3
 
 .. autoapisummary::
 
-   t3toolbox.uniform_manifold.ut3_tangent_vector_to_ut3
+   t3toolbox.uniform_manifold.tangent_to_uniform_tangent
+   t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3
 
 

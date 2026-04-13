@@ -401,7 +401,8 @@
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../uniform_manifold/index.html">t3toolbox.uniform_manifold</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../uniform_manifold/ut3_tangent_vector_to_ut3.html">t3toolbox.uniform_manifold.ut3_tangent_vector_to_ut3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../uniform_manifold/tangent_to_uniform_tangent.html">t3toolbox.uniform_manifold.tangent_to_uniform_tangent</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../uniform_manifold/uniform_tangent_to_uniform_t3.html">t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../uniform_orthogonalization/index.html">t3toolbox.uniform_orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -489,6 +490,12 @@
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.uniform.UniformEdgeWeights" title="t3toolbox.uniform.UniformEdgeWeights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformEdgeWeights</span></code></a></p></td>
 <td><p>Tuple containing edge masks for a Uniform Tucker tensor train. Often used for masking.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.uniform.UniformT3Base" title="t3toolbox.uniform.UniformT3Base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformT3Base</span></code></a></p></td>
+<td><p>Base supercores for base-variation representation of Uniform Tucker tensor train.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.uniform.UniformT3Variation" title="t3toolbox.uniform.UniformT3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformT3Variation</span></code></a></p></td>
+<td><p>Variation supercores for base-variation representation of Uniform Tucker tensor train.</p></td>
 </tr>
 </tbody>
 </table>
@@ -628,6 +635,43 @@ so that the ranks are uniform, then stacking the TT cores and Tucker cores into
 </div>
 </dd></dl>
 
+<dl class="py data">
+<dt class="sig sig-object py" id="t3toolbox.uniform.UniformT3Base">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.uniform.</span></span><span class="sig-name descname"><span class="pre">UniformT3Base</span></span><a class="headerlink" href="#t3toolbox.uniform.UniformT3Base" title="Link to this definition">#</a></dt>
+<dd><p>Base supercores for base-variation representation of Uniform Tucker tensor train.</p>
+<dl class="simple">
+<dt>The components of T3Base are the “base cores”:</dt><dd><ul class="simple">
+<li><p>up_tucker_cores: NDArray, shape=(d, nU, N),    up orthogonal elements</p></li>
+<li><p>left_tt_cores:   NDArray, shape=(d, r, nU, r), left orthogonal elements</p></li>
+<li><p>right_tt_cores:  NDArray, shape=(d, r, nU, r), right orthogonal elements</p></li>
+<li><p>outer_tt_cores:  NDArray, shape=(d, r, nO, r), outer orthogonal elements</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.T3Base</span></code>, <a class="reference internal" href="#t3toolbox.uniform.UniformT3Variation" title="t3toolbox.uniform.UniformT3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformT3Variation</span></code></a></p>
+</div>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3toolbox.uniform.UniformT3Variation">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.uniform.</span></span><span class="sig-name descname"><span class="pre">UniformT3Variation</span></span><a class="headerlink" href="#t3toolbox.uniform.UniformT3Variation" title="Link to this definition">#</a></dt>
+<dd><p>Variation supercores for base-variation representation of Uniform Tucker tensor train.</p>
+<dl class="simple">
+<dt><em>Components</em></dt><dd><ul class="simple">
+<li><p>var_tucker_supercore: NDArray, shape=(d,nO,N)</p></li>
+<li><p>var_tt_supercore:     NDArray, shape=(d,r,nU,r)</p></li>
+</ul>
+</dd>
+</dl>
+<p>The variation components should fit in the “holes” of a UniformT3Variation.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.T3Variation</span></code>, <a class="reference internal" href="#t3toolbox.uniform.UniformT3Base" title="t3toolbox.uniform.UniformT3Base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformT3Base</span></code></a></p>
+</div>
+</dd></dl>
+
 </section>
 </section>
 
@@ -683,6 +727,8 @@ so that the ranks are uniform, then stacking the TT cores and Tucker cores into
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-contents">Module Contents</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform.UniformTuckerTensorTrainCores"><code class="docutils literal notranslate"><span class="pre">UniformTuckerTensorTrainCores</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform.UniformEdgeWeights"><code class="docutils literal notranslate"><span class="pre">UniformEdgeWeights</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform.UniformT3Base"><code class="docutils literal notranslate"><span class="pre">UniformT3Base</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform.UniformT3Variation"><code class="docutils literal notranslate"><span class="pre">UniformT3Variation</span></code></a></li>
 </ul>
 </li>
 </ul>

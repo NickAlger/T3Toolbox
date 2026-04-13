@@ -11,6 +11,8 @@ Attributes
 
    t3toolbox.uniform.UniformTuckerTensorTrainCores
    t3toolbox.uniform.UniformEdgeWeights
+   t3toolbox.uniform.UniformT3Base
+   t3toolbox.uniform.UniformT3Variation
 
 
 Functions
@@ -123,4 +125,28 @@ Module Contents
    (3, 16, 6, 3)
    >>> print(ut3.original_structure(masks))
    ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
+
+.. py:data:: UniformT3Base
+
+   Base supercores for base-variation representation of Uniform Tucker tensor train.
+
+   The components of T3Base are the "base cores":
+       - up_tucker_cores: NDArray, shape=(d, nU, N),    up orthogonal elements
+       - left_tt_cores:   NDArray, shape=(d, r, nU, r), left orthogonal elements
+       - right_tt_cores:  NDArray, shape=(d, r, nU, r), right orthogonal elements
+       - outer_tt_cores:  NDArray, shape=(d, r, nO, r), outer orthogonal elements
+
+   .. seealso:: :py:obj:`t3toolbox.tucker_tensor_train.T3Base`, :py:obj:`UniformT3Variation`
+
+.. py:data:: UniformT3Variation
+
+   Variation supercores for base-variation representation of Uniform Tucker tensor train.
+
+   *Components*
+       - var_tucker_supercore: NDArray, shape=(d,nO,N)
+       - var_tt_supercore:     NDArray, shape=(d,r,nU,r)
+
+   The variation components should fit in the "holes" of a UniformT3Variation.
+
+   .. seealso:: :py:obj:`t3toolbox.tucker_tensor_train.T3Variation`, :py:obj:`UniformT3Base`
 

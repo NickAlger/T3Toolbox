@@ -1,0 +1,4 @@
+t3toolbox.uniform_manifold.tangent_to_uniform_tangent
+=====================================================
+
+.. py:function:: t3toolbox.uniform_manifold.tangent_to_uniform_tangent(variation: t3toolbox.base_variation_format.T3Variation, base: t3toolbox.base_variation_format.T3Base, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.uniform.UniformT3Base, t3toolbox.uniform.UniformT3Variation]
