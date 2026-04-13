@@ -99,4 +99,5 @@ t3toolbox.probing.probe_tangent_transpose
    >>> v = t3m.tangent_randn(base)
    >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
    >>> print(cw.corewise_dot(z, apply_J(v)) - cw.corewise_dot(apply_Jt(z), v))
+   -1.7763568394002505e-15
 
