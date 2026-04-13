@@ -24,7 +24,7 @@ Functions
    /autoapi/t3toolbox/probing/assemble_weighted_tangent_zs
    /autoapi/t3toolbox/probing/probe_tangent
    /autoapi/t3toolbox/probing/absorb_weights_into_tangent
-   /autoapi/t3toolbox/probing/compute_deta_tildes
+   /autoapi/t3toolbox/probing/compute_weighted_deta_tildes
    /autoapi/t3toolbox/probing/compute_tau_tildes
    /autoapi/t3toolbox/probing/compute_sigma_tildes
    /autoapi/t3toolbox/probing/compute_dxi_tildes
@@ -49,7 +49,7 @@ Functions
    t3toolbox.probing.assemble_weighted_tangent_zs
    t3toolbox.probing.probe_tangent
    t3toolbox.probing.absorb_weights_into_tangent
-   t3toolbox.probing.compute_deta_tildes
+   t3toolbox.probing.compute_weighted_deta_tildes
    t3toolbox.probing.compute_tau_tildes
    t3toolbox.probing.compute_sigma_tildes
    t3toolbox.probing.compute_dxi_tildes

@@ -336,7 +336,7 @@
 <li class="toctree-l3"><a class="reference internal" href="assemble_weighted_tangent_zs.html">t3toolbox.probing.assemble_weighted_tangent_zs</a></li>
 <li class="toctree-l3"><a class="reference internal" href="probe_tangent.html">t3toolbox.probing.probe_tangent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="absorb_weights_into_tangent.html">t3toolbox.probing.absorb_weights_into_tangent</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_deta_tildes.html">t3toolbox.probing.compute_deta_tildes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_weighted_deta_tildes.html">t3toolbox.probing.compute_weighted_deta_tildes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_tau_tildes.html">t3toolbox.probing.compute_tau_tildes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_sigma_tildes.html">t3toolbox.probing.compute_sigma_tildes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_dxi_tildes.html">t3toolbox.probing.compute_dxi_tildes</a></li>
@@ -507,9 +507,9 @@ shape=(N1,…,Nd)</p>
 <p>probe_t3
 tangent_probes</p>
 <p>Apply transpose map with one set of probing vectors:</p>
-</div></blockquote>
-<dl>
-<dt>import t3tools.corewise    &gt;&gt;&gt; import numpy as np</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.corewise</span> <span class="k">as</span> <span class="nn">cw</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.manifold</span> <span class="k">as</span> <span class="nn">t3m</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.probing</span> <span class="k">as</span> <span class="nn">t3p</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.common</span> <span class="k">as</span> <span class="nn">common</span>
@@ -521,19 +521,19 @@ tangent_probes</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">zz1</span> <span class="o">=</span> <span class="n">t3p</span><span class="o">.</span><span class="n">probe_tangent</span><span class="p">(</span><span class="n">ww</span><span class="p">,</span> <span class="n">v1</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">zz2</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">11</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">12</span><span class="p">))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">v2</span> <span class="o">=</span> <span class="n">t3p</span><span class="o">.</span><span class="n">probe_tangent_transpose</span><span class="p">(</span><span class="n">zz2</span><span class="p">,</span> <span class="n">ww</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">ipA</span> <span class="o">=</span> <span class="n">t3toolbox</span><span class="o">.</span><span class="n">corewise</span><span class="o">.</span><span class="n">corewise_dot</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ipA</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">corewise_dot</span><span class="p">(</span><span class="n">v1</span><span class="p">,</span> <span class="n">v2</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ipA</span><span class="p">)</span>
 <span class="go">17.958317927787</span>
-</pre></div>
-</div>
-</dd>
-<dt>import t3tools.corewise    &gt;&gt;&gt; ipB = t3tools.corewise.corewise_dot(zz1, zz2)</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ipB</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ipB</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">corewise_dot</span><span class="p">(</span><span class="n">zz1</span><span class="p">,</span> <span class="n">zz2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ipB</span><span class="p">)</span>
 <span class="go">17.958317927787</span>
 </pre></div>
 </div>
 <p>Apply transpose map with two sets of probing vectors:</p>
-</dd>
-<dt>import t3tools.corewise    &gt;&gt;&gt; import numpy as np</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+</div></blockquote>
+<dl>
+<dt>import t3tools.corewise</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.manifold</span> <span class="k">as</span> <span class="nn">t3m</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.probing</span> <span class="k">as</span> <span class="nn">t3p</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.common</span> <span class="k">as</span> <span class="nn">common</span>
