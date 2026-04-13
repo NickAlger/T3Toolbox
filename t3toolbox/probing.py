@@ -5,6 +5,8 @@
 import numpy as np
 import typing as typ
 
+from networkx.utils.random_sequence import weighted_choice
+
 import t3toolbox.base_variation_format
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.common as common
@@ -31,9 +33,9 @@ __all__ = [
     'absorb_weights_into_tangent',
     # Transpose of map from tangent vector to probes
     'compute_weighted_deta_tildes',
-    'compute_tau_tildes',
-    'compute_sigma_tildes',
-    'compute_dxi_tildes',
+    'compute_weighted_tau_tildes',
+    'compute_weighted_sigma_tildes',
+    'compute_weighted_dxi_tildes',
     'assemble_tucker_variations',
     'assemble_tt_variations',
     'probe_tangent_transpose',
@@ -1130,11 +1132,12 @@ def compute_weighted_deta_tildes(
     )
 
 
-def compute_tau_tildes(
-        deta_tildes,  # len=d+1, elm_shape=(...,ni)
+def compute_weighted_tau_tildes(
+        weighted_deta_tildes,  # len=d+1, elm_shape=(...,ni)
         left_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,ni,rL(i+d))
-        xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,ni)
-        mus, # len=d, elm_shape=(...,rLi)
+        weighted_xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,ni)
+        weighted_mus, # len=d, elm_shape=(...,rLi)
+        left_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rLi,)
         scan = common.ragged_scan,
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,rLi)
@@ -1147,32 +1150,46 @@ def compute_tau_tildes(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    def _func(tau_tilde, P_xi_deta_tilde_mu):
-        P, xi, deta_tilde, mu = P_xi_deta_tilde_mu
+    tau_tilde_weights = left_tt_weights
+
+    def _func(tau_tilde, x):
+        P, weighted_xi, weighted_deta_tilde, weighted_mu, ind = x[0], x[1], x[2], x[3], 4
+
+        if tau_tilde_weights is not None:
+            weight = x[ind]
+            weighted_tau_tilde = _apply_edge_weight(tau_tilde, weight)
+        else:
+            weighted_tau_tilde = tau_tilde
+
         tau_tilde_next_t1 = xnp.einsum(
             '...aj,...a->...j',
-            xnp.einsum('...i,iaj->...aj', tau_tilde, P),
-            xi
+            xnp.einsum('...i,iaj->...aj', weighted_tau_tilde, P),
+            weighted_xi
         )
         tau_tilde_next_t2 = xnp.einsum(
             '...aj,...a->...j',
-            xnp.einsum('...i,iaj->...aj', mu, P),
-            deta_tilde
+            xnp.einsum('...i,iaj->...aj', weighted_mu, P),
+            weighted_deta_tilde
         )
         tau_tilde_next = tau_tilde_next_t1 + tau_tilde_next_t2
-        return tau_tilde_next, [tau_tilde]
 
-    init = xnp.zeros(mus[0].shape[:-1] + (left_tt_cores[0].shape[0],))
-    xs = (left_tt_cores, xis, deta_tildes, mus)
-    last_tau_tilde, tau_tildes_tuple = scan(_func, init, xs)
-    return tau_tildes_tuple[0]
+        return tau_tilde_next, (weighted_tau_tilde,)
+
+    init = xnp.zeros(weighted_mus[0].shape[:-1] + (left_tt_cores[0].shape[0],))
+    xs = (left_tt_cores, weighted_xis, weighted_deta_tildes, weighted_mus)
+    xs = xs + (tau_tilde_weights,) if tau_tilde_weights is not None else xs
+
+    last_weighted_tau_tilde, (weighted_tau_tildes,) = scan(_func, init, xs)
+    return weighted_tau_tildes
 
 
-def compute_sigma_tildes(
-        deta_tildes,  # len=d, elm_shape=(...,ni)
+def compute_weighted_sigma_tildes(
+        weighted_deta_tildes,  # len=d, elm_shape=(...,ni)
         right_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rRi,ni,rR(i+d))
-        xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,ni)
-        nus, # len=d, elm_shape=(...,rR(i+1))
+        weighted_xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,ni)
+        weighted_nus, # len=d, elm_shape=(...,rR(i+1))
+        right_tt_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(rRi,)
+        scan=common.ragged_scan,
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,rR(i+1))
     '''Adjoint-var-leftward edge variables sigma_tilde.
@@ -1184,18 +1201,22 @@ def compute_sigma_tildes(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    return compute_tau_tildes(
-        deta_tildes[::-1], tt_reverse(right_tt_cores), xis[::-1], nus[::-1],
-        xnp=xnp,
+    rev_right_tt_weights = right_tt_weights[::-1] if right_tt_weights is not None else None
+
+    return compute_weighted_tau_tildes(
+        weighted_deta_tildes[::-1], tt_reverse(right_tt_cores), weighted_xis[::-1], weighted_nus[::-1],
+        left_tt_weights = rev_right_tt_weights,
+        scan=scan, xnp=xnp,
     )[::-1]
 
 
-def compute_dxi_tildes(
-        sigma_tildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rR(i+1))
-        tau_tildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rLi)
+def compute_weighted_dxi_tildes(
+        weighted_sigma_tildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rR(i+1))
+        weighted_tau_tildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rLi)
         outer_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
-        mus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rLi)
-        nus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rR(i+1))
+        weighted_mus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rLi)
+        weighted_nus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rR(i+1))
+        outer_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
         map = common.ragged_map,
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # dxi_tildes. len=d, elm_shape=(...,nOi)
@@ -1208,32 +1229,45 @@ def compute_dxi_tildes(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    def _func(O_mu_nu_st_tt):
-        O, mu, nu, st, tt = O_mu_nu_st_tt
+    dxi_tilde_weights = outer_tucker_weights
+
+    def _func(x):
+        O, weighted_mu, weighted_nu, weighted_st, weighted_tt, ind = x[0], x[1], x[2], x[3], x[4], 5
+
         dxi_tilde = (
                 xnp.einsum(
                     '...aj,...j->...a',
-                    xnp.einsum('...i,iaj->...aj',tt, O),
-                    nu
+                    xnp.einsum('...i,iaj->...aj',weighted_tt, O),
+                    weighted_nu
                 )
                 +
                 xnp.einsum(
                     '...aj,...j->...a',
-                    xnp.einsum('...i,iaj->...aj', mu, O),
-                    st
+                    xnp.einsum('...i,iaj->...aj', weighted_mu, O),
+                    weighted_st
                 )
         )
-        return [dxi_tilde]
 
-    dxi_tildes_tuple = map(_func, (outer_tt_cores, mus, nus, sigma_tildes, tau_tildes))
-    return dxi_tildes_tuple[0]
+        if dxi_tilde_weights is not None:
+            weight = x[ind]
+            weighted_dxi_tilde = _apply_edge_weight(dxi_tilde, weight)
+        else:
+            weighted_dxi_tilde = dxi_tilde
+
+        return (weighted_dxi_tilde,)
+
+    xs = (outer_tt_cores, weighted_mus, weighted_nus, weighted_sigma_tildes, weighted_tau_tildes)
+    xs = xs + (outer_tucker_weights,) if outer_tucker_weights is not None else xs
+
+    (weighted_dxi_tildes,) = map(_func, xs)
+    return weighted_dxi_tildes
 
 
 def assemble_tucker_variations(
-        ztildes: typ.Sequence[NDArray], # len=d, elm_shape=(...,Ni)
-        dxi_tildes: typ.Sequence[NDArray], #len=d, elm_shape=(...,nOi)
-        ww: typ.Sequence[NDArray],  # input vectors, len=d, elm_shape=(Ni,) or (...,Ni)
-        etas: typ.Sequence[NDArray],  # etas. len=d, elm_shape=(...,ni)
+        weighted_ztildes: typ.Sequence[NDArray], # len=d, elm_shape=(...,Ni)
+        weighted_dxi_tildes: typ.Sequence[NDArray], #len=d, elm_shape=(...,nOi)
+        weighted_ww: typ.Sequence[NDArray],  # input vectors, len=d, elm_shape=(Ni,) or (...,Ni)
+        weighted_etas: typ.Sequence[NDArray],  # etas. len=d, elm_shape=(...,ni)
         sum_over_probes: bool = False,
         map = common.ragged_map,
         xnp = np,
@@ -1247,33 +1281,33 @@ def assemble_tucker_variations(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    def _func(z_tilde_eta_w_dxi_tilde):
-        z_tilde, eta, w, dxi_tilde = z_tilde_eta_w_dxi_tilde
+    def _func(x):
+        weighted_z_tilde, weighted_eta, weighted_w, weighted_dxi_tilde = x
         if sum_over_probes:
             dU_tilde = (
-                    xnp.einsum('...o,...a->ao', z_tilde, eta)
+                    xnp.einsum('...o,...a->ao', weighted_z_tilde, weighted_eta)
                     +
-                    xnp.einsum('...o,...a->ao', w, dxi_tilde)
+                    xnp.einsum('...o,...a->ao', weighted_w, weighted_dxi_tilde)
             )
         else:
             dU_tilde = (
-                    xnp.einsum('...o,...a->...ao', z_tilde, eta)
+                    xnp.einsum('...o,...a->...ao', weighted_z_tilde, weighted_eta)
                     +
-                    xnp.einsum('...o,...a->...ao', w, dxi_tilde)
+                    xnp.einsum('...o,...a->...ao', weighted_w, weighted_dxi_tilde)
             )
         return [dU_tilde]
 
-    dU_tildes_tuple = map(_func, (ztildes, etas, ww, dxi_tildes))
+    dU_tildes_tuple = map(_func, (weighted_ztildes, weighted_etas, weighted_ww, weighted_dxi_tildes))
     return dU_tildes_tuple[0]
 
 
 def assemble_tt_variations(
-        sigma_tildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rR(i+1))
-        tau_tildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rLi)
-        deta_tildes,  # len=d+1, elm_shape=(...,ni)
-        xis: typ.Sequence[NDArray],  # len=d, elm_shape=(...,ni)
-        mus,  # len=d, elm_shape=(...,rLi)
-        nus,  # len=d, elm_shape=(...,rR(i+1))
+        weighted_sigma_tildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rR(i+1))
+        weighted_tau_tildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rLi)
+        weighted_deta_tildes,  # len=d+1, elm_shape=(...,ni)
+        weighted_xis: typ.Sequence[NDArray],  # len=d, elm_shape=(...,ni)
+        weighted_mus,  # len=d, elm_shape=(...,rLi)
+        weighted_nus,  # len=d, elm_shape=(...,rR(i+1))
         sum_over_probes: bool = False,
         map = common.ragged_map,
         xnp = np,
@@ -1287,51 +1321,52 @@ def assemble_tt_variations(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    def _func(xi_mu_nu_sigma_tilde_tau_tilde_deta_tilde):
-        xi, mu, nu, sigma_tilde, tau_tilde, deta_tilde = xi_mu_nu_sigma_tilde_tau_tilde_deta_tilde
+    def _func(x):
+        weighted_xi, weighted_mu, weighted_nu, weighted_sigma_tilde, weighted_tau_tilde, weighted_deta_tilde = x
         if sum_over_probes:
             dG_tilde = (
                     xnp.einsum(
                         '...ia,...j->iaj',
-                        xnp.einsum('...i,...a->...ia', mu, xi),
-                        sigma_tilde
+                        xnp.einsum('...i,...a->...ia', weighted_mu, weighted_xi),
+                        weighted_sigma_tilde
                     )
                     +
                     xnp.einsum(
                         '...ia,...j->iaj',
-                        xnp.einsum('...i,...a->...ia', tau_tilde, xi),
-                        nu
+                        xnp.einsum('...i,...a->...ia', weighted_tau_tilde, weighted_xi),
+                        weighted_nu
                     )
                     +
                     xnp.einsum(
                         '...ia,...j->iaj',
-                        xnp.einsum('...i,...a->...ia', mu, deta_tilde),
-                        nu
+                        xnp.einsum('...i,...a->...ia', weighted_mu, weighted_deta_tilde),
+                        weighted_nu
                     )
             )
         else:
             dG_tilde = (
                     xnp.einsum(
                         '...ia,...j->...iaj',
-                        xnp.einsum('...i,...a->...ia', mu, xi),
-                        sigma_tilde
+                        xnp.einsum('...i,...a->...ia', weighted_mu, weighted_xi),
+                        weighted_sigma_tilde
                     )
                     +
                     xnp.einsum(
                         '...ia,...j->...iaj',
-                        xnp.einsum('...i,...a->...ia', tau_tilde, xi),
-                        nu
+                        xnp.einsum('...i,...a->...ia', weighted_tau_tilde, weighted_xi),
+                        weighted_nu
                     )
                     +
                     xnp.einsum(
                         '...ia,...j->...iaj',
-                        xnp.einsum('...i,...a->...ia', mu, deta_tilde),
-                        nu
+                        xnp.einsum('...i,...a->...ia', weighted_mu, weighted_deta_tilde),
+                        weighted_nu
                     )
             )
         return [dG_tilde]
 
-    dG_tildes_tuple = map(_func, (xis, mus, nus, sigma_tildes, tau_tildes, deta_tildes))
+    xs = (weighted_xis, weighted_mus, weighted_nus, weighted_sigma_tildes, weighted_tau_tildes, weighted_deta_tildes)
+    dG_tildes_tuple = map(_func, xs)
     return dG_tildes_tuple[0]
 
 
@@ -1339,6 +1374,13 @@ def probe_tangent_transpose(
         ztildes: typ.Sequence[NDArray], # len=d, elm_shape=(...,Ni)
         ww: typ.Sequence[NDArray],  # input vectors, len=d, elm_shape=(...,Ni)
         base: t3toolbox.base_variation_format.T3Base, # tucker_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
+        edge_weights: typ.Tuple[
+            typ.Sequence[NDArray],  # shape_weights, len=d, elm_shape=(Ni,)
+            typ.Sequence[NDArray],  # up_tucker_weights, len=d, elm_shape=(nUi,)
+            typ.Sequence[NDArray],  # outer_tucker_weights, len=d, elm_shape=(nOi,)
+            typ.Sequence[NDArray],  # left_tt_weights, len=d+1, elm_shape=(rLi,)
+            typ.Sequence[NDArray],  # right_tt_weights, len=d+1, elm_shape=(rRi,)
+        ] = (None, None, None, None, None),
         sum_over_probes: bool = False,
         xnp = np,
 ) -> typ.Tuple[
@@ -1404,8 +1446,8 @@ def probe_tangent_transpose(
 
     Apply transpose map with two sets of probing vectors:
 
-import t3tools.corewise
     >>> import numpy as np
+    >>> import t3toolbox.corewise as cw
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.manifold as t3m
     >>> import t3toolbox.probing as t3p
@@ -1418,57 +1460,104 @@ import t3tools.corewise
     >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, ww, base)
     >>> v = t3m.tangent_randn(base)
     >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-    >>> print(t3toolbox.corewise.corewise_dot(z, apply_J(v)) - t3toolbox.corewise.corewise_dot(apply_Jt(z), v))
+    >>> print(cw.corewise_dot(z, apply_J(v)) - cw.corewise_dot(apply_Jt(z), v))
     7.105427357601002e-15
+
+    Using weights:
+
+    >>> import numpy as np
+    >>> import t3toolbox.corewise as cw
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.probing as t3p
+    >>> import t3toolbox.common as common
+    >>> import t3toolbox.orthogonalization as orth
+    >>> randn = np.random.randn
+    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+    >>> base, _ = orth.orthogonal_representations(p)
+    >>> NN = [U.shape[1] for U in base[0]]
+    >>> nnU = [U.shape[0] for U in base[0]]
+    >>> rrL = [L.shape[0] for L in base[1]]
+    >>> rrR = [R.shape[2] for R in base[2]]
+    >>> nnO = [O.shape[1] for O in base[3]]
+    >>> shape_weights = [randn(N) for N in NN]
+    >>> up_tucker_weights = [randn(nU) for nU in nnU]
+    >>> outer_tucker_weights = [randn(nO) for nO in nnO]
+    >>> left_tt_weights = [randn(rL) for rL in rrL]
+    >>> right_tt_weights = [randn(rR) for rR in rrR]
+    >>> edge_weights = (shape_weights, up_tucker_weights, outer_tucker_weights, left_tt_weights, right_tt_weights)
+    >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+    >>> apply_J = lambda v: t3p.probe_tangent(ww, v, base, edge_weights=edge_weights)
+    >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, ww, base, edge_weights=edge_weights)
+    >>> v = t3m.tangent_randn(base)
+    >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+    >>> print(cw.corewise_dot(z, apply_J(v)) - cw.corewise_dot(apply_Jt(z), v))
+
+
     '''
     num_cores = len(ztildes)
     assert(len(ww) == num_cores)
 
     (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores) = base
 
-    xis = compute_weighted_xis(
-        up_tucker_cores, ww, xnp=xnp,
+    (shape_weights,
+     up_tucker_weights, outer_tucker_weights,
+     left_tt_weights, right_tt_weights,
+     ) = edge_weights
+
+    weighted_ww = _apply_edge_weights(ww, shape_weights, xnp=xnp) if shape_weights is not None else ww
+
+    weighted_xis = compute_weighted_xis(
+        up_tucker_cores, weighted_ww,
+        up_tucker_weights=up_tucker_weights, xnp=xnp,
     )
 
-    mus = compute_weighted_mus(
-        left_tt_cores, xis, xnp=xnp,
+    weighted_mus = compute_weighted_mus(
+        left_tt_cores, weighted_xis,
+        left_tt_weights=left_tt_weights, xnp=xnp,
     )
 
-    nus = compute_weighted_nus(
-        right_tt_cores, xis, xnp=xnp,
+    weighted_nus = compute_weighted_nus(
+        right_tt_cores, weighted_xis,
+        right_tt_weights=right_tt_weights, xnp=xnp,
     )
 
-    etas = compute_weighted_etas(
-        outer_tt_cores, mus, nus, xnp=xnp,
+    weighted_etas = compute_weighted_etas(
+        outer_tt_cores, weighted_mus, weighted_nus,
+        outer_tucker_weights=outer_tucker_weights, xnp=xnp,
     )
 
     #
 
-    deta_tildes = compute_weighted_deta_tildes(
-        up_tucker_cores, ztildes, xnp=xnp,
+    weighted_deta_tildes = compute_weighted_deta_tildes(
+        up_tucker_cores, ztildes,
+        up_tucker_weights=up_tucker_weights, xnp=xnp,
     )
 
-    tau_tildes = compute_tau_tildes(
-        deta_tildes, left_tt_cores, xis, mus, xnp=xnp,
+    weighted_tau_tildes = compute_weighted_tau_tildes(
+        weighted_deta_tildes, left_tt_cores, weighted_xis, weighted_mus,
+        left_tt_weights=left_tt_weights, xnp=xnp,
     )
 
-    sigma_tildes = compute_sigma_tildes(
-        deta_tildes, right_tt_cores, xis, nus, xnp=xnp,
+    weighted_sigma_tildes = compute_weighted_sigma_tildes(
+        weighted_deta_tildes, right_tt_cores, weighted_xis, weighted_nus,
+        right_tt_weights=right_tt_weights, xnp=xnp,
     )
 
-    dxi_tildes = compute_dxi_tildes(
-        sigma_tildes, tau_tildes, outer_tt_cores, mus, nus, xnp=xnp,
+    weighted_dxi_tildes = compute_weighted_dxi_tildes(
+        weighted_sigma_tildes, weighted_tau_tildes, outer_tt_cores, weighted_mus, weighted_nus,
+        outer_tucker_weights=outer_tucker_weights, xnp=xnp,
     )
 
     #
 
     dU_tildes = assemble_tucker_variations(
-        ztildes, dxi_tildes, ww, etas,
+        ztildes, weighted_dxi_tildes, weighted_ww, weighted_etas,
         sum_over_probes=sum_over_probes, xnp=xnp,
     )
 
     dG_tildes = assemble_tt_variations(
-        sigma_tildes, tau_tildes, deta_tildes, xis, mus, nus,
+        weighted_sigma_tildes, weighted_tau_tildes, weighted_deta_tildes, weighted_xis, weighted_mus, weighted_nus,
         sum_over_probes=sum_over_probes, xnp=xnp,
     )
 
