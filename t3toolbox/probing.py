@@ -14,6 +14,7 @@ __all__ = [
     'probe_dense',
     # Probe a Tucker tensor train
     'probe_t3',
+    'absorb_weights_into_cores',
     'compute_xis',
     'compute_mus',
     'compute_nus',
@@ -168,9 +169,13 @@ def probe_dense(
 def probe_t3(
         x:  t3.TuckerTensorTrain, # structure=((N1,...,Nd),(n1,...,nd),(1,r1,...,r(d-1),1))
         ww: typ.Sequence[NDArray], # input vectors, len=d, elm_shape=(...,Ni)
-        shape_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(Ni,)
-        tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(ni,)
-        tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(ri,)
+        edge_weights: typ.Tuple[
+            typ.Sequence[NDArray],  # shape_weights, len=d, elm_shape=(Ni,)
+            typ.Sequence[NDArray],  # tucker_weights, len=d, elm_shape=(ni,)
+            typ.Sequence[NDArray],  # tt_weights, len=d+1, elm_shape=(ri,)
+        ] = (None, None, None),
+        map = common.ragged_map,
+        scan = common.ragged_scan,
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,Ni)
     '''Probe a Tucker tensor train.
@@ -218,6 +223,28 @@ def probe_t3(
     >>> zz2 = t3p.probe_dense(x_dense, ww)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
+
+    Using weights:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.probing as t3p
+    >>> randn = np.random.randn
+    >>> x0 = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+    >>> (tucker_cores0, tt_cores0) = x0
+    >>> shape_weights = [randn(10), randn(11), randn(12)]
+    >>> tucker_weights = [randn(5), randn(6), randn(4)]
+    >>> tt_weights = [randn(2), randn(3), randn(4), randn(2)]
+    >>> edge_weights = (shape_weights, tucker_weights, tt_weights)
+    >>> ww = [np.random.randn(10), np.random.randn(11), np.random.randn(12)]
+    >>> zz = t3p.probe_t3(x0, ww, edge_weights=edge_weights)
+
+    >>> x = t3p.absorb_weights_into_cores(x0, edge_weights)
+    >>> zz2 = t3p.probe_t3(x, ww)
+    >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
+
+
+
     '''
     shape = t3.get_structure(x)[0]
     assert(len(ww) == len(shape))
@@ -227,29 +254,34 @@ def probe_t3(
     for B, w in zip(tucker_cores, ww):
         assert(B.shape[1] == w.shape[-1])
 
-    ww = _apply_edge_weights(ww, shape_weights) if shape_weights is not None else ww
+    shape_weights, tucker_weights, tt_weights = edge_weights
+
+    ww = _apply_edge_weights(ww, shape_weights, map=map, xnp=xnp) if shape_weights is not None else ww
 
     xis = compute_xis(
         tucker_cores,
         ww,
-        shape_weights=shape_weights,
+        shape_weights=None,
         up_tucker_weights=tucker_weights,
+        map=map,
         xnp=xnp,
     )
 
     mus = compute_mus(
         tt_cores,
         xis,
-        up_tucker_weights=tucker_weights,
+        up_tucker_weights=None,
         left_tt_weights=tt_weights,
+        scan=scan,
         xnp=xnp,
     )
 
     nus = compute_nus(
         tt_cores,
         xis,
-        up_tucker_weights=tucker_weights,
+        up_tucker_weights=None,
         right_tt_weights=tt_weights,
+        scan=scan,
         xnp=xnp,
     )
 
@@ -258,8 +290,9 @@ def probe_t3(
         mus,
         nus,
         outer_tucker_weights=tucker_weights,
-        left_tt_weights=tt_weights,
-        right_tt_weights=tt_weights,
+        left_tt_weights=None,
+        right_tt_weights=None,
+        map=map,
         xnp=xnp,
     )
 
@@ -267,18 +300,45 @@ def probe_t3(
         tucker_cores,
         etas,
         shape_weights=shape_weights,
-        tucker_weights=tucker_weights,
+        tucker_weights=None,
+        map=map,
         xnp=xnp,
     )
 
     return zz
 
 
+def absorb_weights_into_cores(
+        x0: t3.TuckerTensorTrain,
+        weights: typ.Tuple[
+            typ.Sequence[NDArray], # shape_weights, len=d, elm_shape=(Ni,)
+            typ.Sequence[NDArray], # tucker_weights, len=d, elm_shape=(ni,)
+            typ.Sequence[NDArray], # tt_weights, len=d+1, elm_shape=(ri,)
+        ]
+) -> t3.TuckerTensorTrain:
+    tucker_cores0, tt_cores0 = x0
+    shape_weights, tucker_weights, tt_weights = weights
+
+    tucker_cores = tuple([
+        np.einsum('i,io,o->io', tw, B, sw)
+        for tw, B, sw in zip(tucker_weights, tucker_cores0, shape_weights)
+    ])
+
+    first_tt_cores = tuple([
+        np.einsum('i,iaj->iaj', lw, G)
+        for lw, G in zip(tt_weights[:-1], tt_cores0[:-1])
+    ])
+    last_tt_core = np.einsum('i,iaj,j->iaj', tt_weights[-2], tt_cores0[-1], tt_weights[-1])
+    tt_cores = first_tt_cores + (last_tt_core,)
+
+    return tucker_cores, tt_cores
+
+
 def _apply_edge_weight(edge_variable, edge_weight, xnp=np):
     return xnp.einsum('...i,i->...i', edge_variable, edge_weight)
 
 
-def _apply_edge_weights(edge_variables, edge_weights, xnp=np):
+def _apply_edge_weights(edge_variables, edge_weights, map=common.ragged_map, xnp=np):
     (weighted_edge_variables,) = map(
         lambda v_w: (_apply_edge_weight(v_w[0], v_w[1], xnp=xnp),),
         (edge_variables, edge_weights)
@@ -436,6 +496,7 @@ def compute_nus(
         xis, # len=d. elm_shape=(...,nUi)
         up_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nUi,)
         right_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rRi,)
+        scan = common.ragged_scan,
         xnp = np,
 ) -> typ.Sequence[NDArray]: # nus. len=d, elm_shape=(...,rR(i+1))
     '''Compute rightward edge variables associated with edges between adjacent TT-cores.
@@ -480,6 +541,7 @@ def compute_nus(
         rev_xis,
         up_tucker_weights=rev_up_tucker_weights,
         left_tt_weights=rev_right_tt_weights,
+        scan=scan,
         xnp=xnp,
     )
     nus = rev_nus[::-1]
@@ -612,7 +674,7 @@ def assemble_probes(
     def _func(x):
         eta, U = x[0], x[1]
 
-        ind = 0
+        ind = 2
         if eta_weights is not None:
             eta = _apply_edge_weight(eta, x[ind])
             ind += 1
@@ -1061,7 +1123,7 @@ def probe_tangent(
     (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores) = base
     (var_tucker_cores, var_tt_cores) = variation
 
-    ww = _apply_edge_weights(ww, shape_weights) if shape_weights is not None else ww
+    ww = _apply_edge_weights(ww, shape_weights, xnp=xnp) if shape_weights is not None else ww
 
     xis = compute_xis(
         up_tucker_cores,
