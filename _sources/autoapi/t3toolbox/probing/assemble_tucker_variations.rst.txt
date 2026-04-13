@@ -1,7 +1,7 @@
 t3toolbox.probing.assemble_tucker_variations
 ============================================
 
-.. py:function:: t3toolbox.probing.assemble_tucker_variations(ztildes: Sequence[NDArray], dxi_tildes: Sequence[NDArray], ww: Sequence[NDArray], etas: Sequence[NDArray], sum_over_probes: bool = False, map=common.ragged_map, xnp=np)
+.. py:function:: t3toolbox.probing.assemble_tucker_variations(weighted_ztildes: Sequence[NDArray], weighted_dxi_tildes: Sequence[NDArray], weighted_ww: Sequence[NDArray], weighted_etas: Sequence[NDArray], sum_over_probes: bool = False, map=common.ragged_map, xnp=np)
 
    Assemble Tucker core variations, delta_U_tilde.
    Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.

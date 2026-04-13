@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.probing.compute_sigma_tildes &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.probing.compute_weighted_dxi_tildes &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/probing/compute_sigma_tildes';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/probing/compute_weighted_dxi_tildes';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3toolbox.probing.compute_dxi_tildes" href="compute_dxi_tildes.html" />
-    <link rel="prev" title="t3toolbox.probing.compute_tau_tildes" href="compute_tau_tildes.html" />
+    <link rel="next" title="t3toolbox.probing.assemble_tucker_variations" href="assemble_tucker_variations.html" />
+    <link rel="prev" title="t3toolbox.probing.compute_weighted_sigma_tildes" href="compute_weighted_sigma_tildes.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -337,9 +337,9 @@
 <li class="toctree-l3"><a class="reference internal" href="probe_tangent.html">t3toolbox.probing.probe_tangent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="absorb_weights_into_tangent.html">t3toolbox.probing.absorb_weights_into_tangent</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_weighted_deta_tildes.html">t3toolbox.probing.compute_weighted_deta_tildes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_tau_tildes.html">t3toolbox.probing.compute_tau_tildes</a></li>
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.probing.compute_sigma_tildes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_dxi_tildes.html">t3toolbox.probing.compute_dxi_tildes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_weighted_tau_tildes.html">t3toolbox.probing.compute_weighted_tau_tildes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_weighted_sigma_tildes.html">t3toolbox.probing.compute_weighted_sigma_tildes</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.probing.compute_weighted_dxi_tildes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="assemble_tucker_variations.html">t3toolbox.probing.assemble_tucker_variations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="assemble_tt_variations.html">t3toolbox.probing.assemble_tt_variations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="probe_tangent_transpose.html">t3toolbox.probing.probe_tangent_transpose</a></li>
@@ -457,7 +457,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.probing</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.probing.compute_sigma_tildes</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.probing.compute_weighted_dxi_tildes</span></li>
   </ul>
 </nav>
 </div>
@@ -474,15 +474,15 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="t3toolbox-probing-compute-sigma-tildes">
-<h1>t3toolbox.probing.compute_sigma_tildes<a class="headerlink" href="#t3toolbox-probing-compute-sigma-tildes" title="Link to this heading">#</a></h1>
+  <section id="t3toolbox-probing-compute-weighted-dxi-tildes">
+<h1>t3toolbox.probing.compute_weighted_dxi_tildes<a class="headerlink" href="#t3toolbox-probing-compute-weighted-dxi-tildes" title="Link to this heading">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3toolbox.probing.compute_sigma_tildes">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.probing.</span></span><span class="sig-name descname"><span class="pre">compute_sigma_tildes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">deta_tildes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">right_tt_cores</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xis</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">nus</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xnp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.probing.compute_sigma_tildes" title="Link to this definition">#</a></dt>
-<dd><p>Adjoint-var-leftward edge variables sigma_tilde.
+<dt class="sig sig-object py" id="t3toolbox.probing.compute_weighted_dxi_tildes">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.probing.</span></span><span class="sig-name descname"><span class="pre">compute_weighted_dxi_tildes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">weighted_sigma_tildes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weighted_tau_tildes</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outer_tt_cores</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weighted_mus</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">weighted_nus</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">outer_tucker_weights</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">map</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">common.ragged_map</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">xnp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">NDArray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.probing.compute_weighted_dxi_tildes" title="Link to this definition">#</a></dt>
+<dd><p>Adjoint-var-downward edge variables dxi_tilde.
 Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.</p>
 <dl class="simple">
-<dt>See Section 5.2.4, particularly Formula (45), in:</dt><dd><p>Alger, N., Christierson, B., Chen, P., &amp; Ghattas, O. (2026).
+<dt>See Section 5.2.4, particularly Formula (46), in:</dt><dd><p>Alger, N., Christierson, B., Chen, P., &amp; Ghattas, O. (2026).
 “Tucker Tensor Train Taylor Series.”
 arXiv preprint arXiv:2603.21141.
 <a class="reference external" href="https://arxiv.org/abs/2603.21141">https://arxiv.org/abs/2603.21141</a></p>
@@ -503,20 +503,20 @@ arXiv preprint arXiv:2603.21141.
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="compute_tau_tildes.html"
+       href="compute_weighted_sigma_tildes.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.probing.compute_tau_tildes</p>
+        <p class="prev-next-title">t3toolbox.probing.compute_weighted_sigma_tildes</p>
       </div>
     </a>
     <a class="right-next"
-       href="compute_dxi_tildes.html"
+       href="assemble_tucker_variations.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.probing.compute_dxi_tildes</p>
+        <p class="prev-next-title">t3toolbox.probing.assemble_tucker_variations</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -539,14 +539,14 @@ arXiv preprint arXiv:2603.21141.
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.probing.compute_sigma_tildes"><code class="docutils literal notranslate"><span class="pre">t3toolbox.probing.compute_sigma_tildes()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.probing.compute_weighted_dxi_tildes"><code class="docutils literal notranslate"><span class="pre">t3toolbox.probing.compute_weighted_dxi_tildes()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/probing/compute_sigma_tildes.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/probing/compute_weighted_dxi_tildes.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

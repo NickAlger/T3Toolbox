@@ -1,7 +1,7 @@
-t3toolbox.probing.compute_tau_tildes
-====================================
+t3toolbox.probing.compute_weighted_tau_tildes
+=============================================
 
-.. py:function:: t3toolbox.probing.compute_tau_tildes(deta_tildes, left_tt_cores: Sequence[NDArray], xis: Sequence[NDArray], mus, scan=common.ragged_scan, xnp=np) -> Tuple[NDArray, Ellipsis]
+.. py:function:: t3toolbox.probing.compute_weighted_tau_tildes(weighted_deta_tildes, left_tt_cores: Sequence[NDArray], weighted_xis: Sequence[NDArray], weighted_mus, left_tt_weights: Sequence[NDArray] = None, scan=common.ragged_scan, xnp=np) -> Tuple[NDArray, Ellipsis]
 
    Adjoint-var-rightward edge variables tau_tilde.
    Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.

@@ -1,7 +1,7 @@
-t3toolbox.probing.compute_sigma_tildes
-======================================
+t3toolbox.probing.compute_weighted_sigma_tildes
+===============================================
 
-.. py:function:: t3toolbox.probing.compute_sigma_tildes(deta_tildes, right_tt_cores: Sequence[NDArray], xis: Sequence[NDArray], nus, xnp=np) -> Tuple[NDArray, Ellipsis]
+.. py:function:: t3toolbox.probing.compute_weighted_sigma_tildes(weighted_deta_tildes, right_tt_cores: Sequence[NDArray], weighted_xis: Sequence[NDArray], weighted_nus, right_tt_weights: Sequence[NDArray] = None, scan=common.ragged_scan, xnp=np) -> Tuple[NDArray, Ellipsis]
 
    Adjoint-var-leftward edge variables sigma_tilde.
    Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
