@@ -1,7 +1,7 @@
 t3toolbox.probing.probe_t3
 ==========================
 
-.. py:function:: t3toolbox.probing.probe_t3(x: t3toolbox.tucker_tensor_train.TuckerTensorTrain, ww: Sequence[NDArray], shape_weights: Sequence[NDArray] = None, tucker_weights: Sequence[NDArray] = None, tt_weights: Sequence[NDArray] = None, xnp=np) -> Tuple[NDArray, Ellipsis]
+.. py:function:: t3toolbox.probing.probe_t3(x: t3toolbox.tucker_tensor_train.TuckerTensorTrain, ww: Sequence[NDArray], edge_weights: Tuple[Sequence[NDArray], Sequence[NDArray], Sequence[NDArray]] = (None, None, None), map=common.ragged_map, scan=common.ragged_scan, xnp=np) -> Tuple[NDArray, Ellipsis]
 
    Probe a Tucker tensor train.
 
@@ -35,4 +35,23 @@ t3toolbox.probing.probe_t3
    >>> zz2 = t3p.probe_dense(x_dense, ww)
    >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
    [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
+
+   Using weights:
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.probing as t3p
+   >>> randn = np.random.randn
+   >>> x0 = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+   >>> (tucker_cores0, tt_cores0) = x0
+   >>> shape_weights = [randn(10), randn(11), randn(12)]
+   >>> tucker_weights = [randn(5), randn(6), randn(4)]
+   >>> tt_weights = [randn(2), randn(3), randn(4), randn(2)]
+   >>> edge_weights = (shape_weights, tucker_weights, tt_weights)
+   >>> ww = [np.random.randn(10), np.random.randn(11), np.random.randn(12)]
+   >>> zz = t3p.probe_t3(x0, ww, edge_weights=edge_weights)
+
+   >>> x = t3p.absorb_weights_into_cores(x0, edge_weights)
+   >>> zz2 = t3p.probe_t3(x, ww)
+   >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
 

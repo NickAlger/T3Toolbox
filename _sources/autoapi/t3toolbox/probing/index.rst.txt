@@ -12,6 +12,7 @@ Functions
 
    /autoapi/t3toolbox/probing/probe_dense
    /autoapi/t3toolbox/probing/probe_t3
+   /autoapi/t3toolbox/probing/absorb_weights_into_cores
    /autoapi/t3toolbox/probing/compute_xis
    /autoapi/t3toolbox/probing/compute_mus
    /autoapi/t3toolbox/probing/compute_nus
@@ -35,6 +36,7 @@ Functions
 
    t3toolbox.probing.probe_dense
    t3toolbox.probing.probe_t3
+   t3toolbox.probing.absorb_weights_into_cores
    t3toolbox.probing.compute_xis
    t3toolbox.probing.compute_mus
    t3toolbox.probing.compute_nus
