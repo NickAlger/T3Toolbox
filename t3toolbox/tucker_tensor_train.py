@@ -40,6 +40,7 @@ For corewise operations, see :mod:`t3toolbox.corewise`
 """
 import numpy as np
 import typing as typ
+from t3toolbox.common import *
 
 __all__ = [
     # Tucker tensor train
@@ -58,6 +59,8 @@ __all__ = [
     't3_corewise_randn',
     'compute_minimal_ranks',
     'are_t3_ranks_minimal',
+    'change_tucker_core_shapes',
+    'change_tt_core_shapes',
     'change_structure',
     't3_save',
     't3_load',
@@ -1084,10 +1087,73 @@ def are_t3_ranks_minimal(
     return (tucker_ranks == minimal_tucker_ranks) and (tt_ranks == minimal_tt_ranks)
 
 
+def change_tucker_core_shapes(
+        tucker_cores: typ.Sequence[NDArray],
+        new_shape: typ.Sequence[int], # len=d
+        new_tucker_ranks: typ.Sequence[int], # len=d
+        use_jax: bool = False,
+) -> typ.Tuple[NDArray,...]:
+    """Increase Tucker and/or TT ranks for TT cores using zero padding.
+    """
+    xnp, _, _ = get_backend(True, use_jax)
+
+    old_shape = [B.shape[1] for B in tucker_cores]
+    old_tucker_ranks = [B.shape[0] for B in tucker_cores]
+
+    num_cores = len(tucker_cores)
+
+    delta_shape         = [N_new - N_old for N_new, N_old in zip(new_shape, old_shape)]
+    delta_tucker_ranks  = [n_new - n_old for n_new, n_old in zip(new_tucker_ranks, old_tucker_ranks)]
+
+    new_tucker_cores = []
+    for ii in range(num_cores):
+        new_tucker_cores.append(xnp.pad(
+            tucker_cores[ii],
+            (
+                (0,delta_tucker_ranks[ii]),
+                (0,delta_shape[ii]),
+            ),
+        ))
+
+    return tuple(new_tucker_cores)
+
+
+def change_tt_core_shapes(
+        tt_cores: typ.Sequence[NDArray],
+        new_tucker_ranks: typ.Sequence[int], # len=d
+        new_tt_ranks: typ.Sequence[int], # len=d+1
+        use_jax: bool = False,
+) -> typ.Tuple[NDArray,...]:
+    """Increase Tucker and/or TT ranks for TT cores using zero padding.
+    """
+    xnp, _, _ = get_backend(True, use_jax)
+
+    old_tucker_ranks = [G.shape[1] for G in tt_cores]
+    old_tt_ranks = [G.shape[0] for G in tt_cores] + [tt_cores[-1].shape[2]]
+
+    num_cores = len(tt_cores)
+
+    delta_tucker_ranks  = [n_new - n_old for n_new, n_old in zip(new_tucker_ranks, old_tucker_ranks)]
+    delta_tt_ranks      = [r_new - r_old for r_new, r_old in zip(new_tt_ranks, old_tt_ranks)]
+
+    new_tt_cores = []
+    for ii in range(num_cores):
+        new_tt_cores.append(xnp.pad(
+            tt_cores[ii],
+            (
+                (0,delta_tt_ranks[ii]),
+                (0,delta_tucker_ranks[ii]),
+                (0,delta_tt_ranks[ii+1]),
+            ),
+        ))
+
+    return tuple(new_tt_cores)
+
+
 def change_structure(
         x:                  TuckerTensorTrain,
         new_structure:      T3Structure,
-        xnp = np,
+        use_jax: bool = False,
 ) -> TuckerTensorTrain:
     '''Increase Tucker tensor train ranks and/or shape via zero padding.
 
@@ -1112,39 +1178,10 @@ def change_structure(
     ((17, 18, 17), (8, 8, 8), (5, 5, 6, 7))
     '''
     new_shape, new_tucker_ranks, new_tt_ranks = new_structure
-
-    old_shape, old_tucker_ranks, old_tt_ranks = get_structure(x)
-    num_cores = len(old_shape)
-    assert(len(old_shape) == len(new_shape))
-    assert(len(old_tucker_ranks) == len(new_tucker_ranks))
-    assert(len(old_tt_ranks) == len(new_tt_ranks))
-
-    delta_shape         = [N_new - N_old for N_new, N_old in zip(new_shape, old_shape)]
-    delta_tucker_ranks  = [n_new - n_old for n_new, n_old in zip(new_tucker_ranks, old_tucker_ranks)]
-    delta_tt_ranks      = [r_new - r_old for r_new, r_old in zip(new_tt_ranks, old_tt_ranks)]
-
     tucker_cores, tt_cores = x
 
-    new_tucker_cores = []
-    for ii in range(num_cores):
-        new_tucker_cores.append(xnp.pad(
-            tucker_cores[ii],
-            (
-                (0,delta_tucker_ranks[ii]),
-                (0,delta_shape[ii]),
-            ),
-        ))
-
-    new_tt_cores = []
-    for ii in range(num_cores):
-        new_tt_cores.append(xnp.pad(
-            tt_cores[ii],
-            (
-                (0,delta_tt_ranks[ii]),
-                (0,delta_tucker_ranks[ii]),
-                (0,delta_tt_ranks[ii+1]),
-            ),
-        ))
+    new_tucker_cores = change_tucker_core_shapes(tucker_cores, new_shape, new_tucker_ranks, use_jax=use_jax)
+    new_tt_cores = change_tt_core_shapes(tt_cores, new_tucker_ranks, new_tt_ranks, use_jax=use_jax)
 
     return tuple(new_tucker_cores), tuple(new_tt_cores)
 

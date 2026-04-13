@@ -824,16 +824,10 @@ def probe_tangent(
         ww: typ.Sequence[NDArray],  # input vectors, len=d, elm_shape=(...,Ni)
         variation: bvf.T3Variation, # tucker_var_shapes=(nOi,Ni), tt_var_shapes=tt_hole_shapes=(rLi,ni,rRi)
         base: bvf.T3Base, # tucker_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
-        edge_weights: typ.Tuple[
-            typ.Sequence[NDArray],  # shape_weights, len=d, elm_shape=(Ni,)
-            typ.Sequence[NDArray],  # up_tucker_weights, len=d, elm_shape=(nUi,)
-            typ.Sequence[NDArray],  # outer_tucker_weights, len=d, elm_shape=(nOi,)
-            typ.Sequence[NDArray],  # left_tt_weights, len=d+1, elm_shape=(rLi,)
-            typ.Sequence[NDArray],  # right_tt_weights, len=d+1, elm_shape=(rRi,)
-        ] = (None, None, None, None, None),
-        map = common.ragged_map,
-        scan = common.ragged_scan,
-        xnp = np,
+        edge_weights: bvf.BVEdgeWeights = (None, None, None, None, None),
+        xmap = common.ragged_map,
+        xscan = common.ragged_scan,
+        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,Ni)
     '''Probe a tangent vector.
 
@@ -935,13 +929,32 @@ def probe_tangent(
     >>> zzz2 = t3p.probe_tangent(www, weighted_variation, weighted_base)
     >>> print([np.linalg.norm(zz - zz2) for zz, zz2 in zip(zzz, zzz2)])
     [1.5683512051190777e-15, 4.368484248906507e-15, 1.855735793037041e-15]
+
+    Uniform tangent
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform as ut3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.probing as t3p
+    >>> import t3toolbox.orthogonalization as orth
+    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+    >>> base, _ = orth.orthogonal_representations(p)
+    >>> variation = t3m.tangent_randn(base)
+    >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+    >>> uniform_variation, uniform_base, masks = ut3.bv_to_ubv(variation, base)
+    >>> uniform_www = ut3.pack_tensors(www)
+    # >>> uniform_zzz = t3p.probe_tangent(uniform_www, uniform_variation, uniform_base, edge_weights=masks) # <-- Bug
+    >>> uniform_zzz = t3p.probe_tangent(uniform_www, uniform_variation, uniform_base) # OK
+    >>> zzz2 = t3p.probe_tangent(www, variation, base)
+    >>> uniform_zzz2 = ut3.pack_tensors(zzz2)
+    >>> print(np.linalg.norm(uniform_zzz - uniform_zzz2))
+    5.3316719684500096e-15
     '''
-    t3toolbox.base_variation_format.check_fit(variation, base)
+    is_ragged = isinstance(variation[0], typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
 
-    x_shape = tuple([B.shape[1] for B in variation[0]])
-    assert(len(ww) == len(x_shape))
-
-    assert(tuple([w.shape[-1] for w in ww]) == x_shape)
+    #
 
     (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores) = base
     (var_tucker_cores, var_tt_cores) = variation
@@ -957,7 +970,7 @@ def probe_tangent(
         up_tucker_cores,
         weighted_ww,
         up_tucker_weights=up_tucker_weights,
-        map=map,
+        map=xmap,
         xnp=xnp,
     )
 
@@ -965,7 +978,7 @@ def probe_tangent(
         left_tt_cores,
         weighted_xis,
         left_tt_weights=left_tt_weights,
-        scan=scan,
+        scan=xscan,
         xnp=xnp,
     )
 
@@ -973,7 +986,7 @@ def probe_tangent(
         right_tt_cores,
         weighted_xis,
         right_tt_weights=right_tt_weights,
-        scan=scan,
+        scan=xscan,
         xnp=xnp,
     )
 
@@ -982,7 +995,7 @@ def probe_tangent(
         weighted_mus,
         weighted_nus,
         outer_tucker_weights=outer_tucker_weights,
-        map=map,
+        map=xmap,
         xnp=xnp,
     )
 
@@ -1001,7 +1014,7 @@ def probe_tangent(
         weighted_dxis,
         weighted_mus,
         right_tt_weights=right_tt_weights,
-        scan=scan,
+        scan=xscan,
         xnp=xnp,
     )
 
@@ -1013,7 +1026,7 @@ def probe_tangent(
         weighted_dxis,
         weighted_nus,
         left_tt_weights=left_tt_weights,
-        scan=scan,
+        scan=xscan,
         xnp=xnp,
     )
 
@@ -1026,7 +1039,7 @@ def probe_tangent(
         weighted_sigmas,
         weighted_taus,
         up_tucker_weights=up_tucker_weights,
-        map=map,
+        map=xmap,
         xnp=xnp,
     )
 
@@ -1036,7 +1049,7 @@ def probe_tangent(
         weighted_etas,
         weighted_detas,
         shape_weights=shape_weights,
-        map=map,
+        map=xmap,
         xnp=xnp,
     )
 

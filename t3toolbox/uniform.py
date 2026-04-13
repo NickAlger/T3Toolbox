@@ -7,6 +7,7 @@ import typing as typ
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.common as common
+import t3toolbox.base_variation_format as bvf
 from t3toolbox.common import *
 
 __all__ = [
@@ -14,6 +15,7 @@ __all__ = [
     'UniformEdgeWeights',
     'UniformT3Base',
     'UniformT3Variation',
+    'UniformBVEdgeWeights',
     #
     'check_ut3',
     'get_padded_structure',
@@ -21,8 +23,13 @@ __all__ = [
     'pack_tensors',
     'unpack',
     'apply_masks',
+    #
     't3_to_ut3',
     'ut3_to_t3',
+    #
+    'bv_to_ubv',
+    # 'ubv_to_bv',
+    #
     'ut3_to_dense',
     'are_ut3_ranks_minimal',
     'ut3_entry',
@@ -152,6 +159,31 @@ The variation components should fit in the "holes" of a UniformT3Variation.
 See Also
 --------
 t3toolbox.tucker_tensor_train.T3Variation
+UniformT3Base
+"""
+
+
+UniformBVEdgeWeights = typ.Tuple[
+    NDArray,  # shape_weights, shape=(d,Ni)
+    NDArray,  # up_tucker_weights, shape=(d,nUi,)
+    NDArray,  # outer_tucker_weights, shape=(d,nOi)
+    NDArray,  # left_tt_weights, len=d+1, shape=(d+1,rLi,)
+    NDArray,  # right_tt_weights, len=d+1, shape=(d+1,rRi)
+]
+"""Edge weights for base-variation format.
+
+*Components*
+    - shape_weights:        NDArray, shape=(d,Ni)
+    - up_tucker_weights:    NDArray, shape=(d,nUi)
+    - outer_tucker_weights: NDArray, shape=(d,nOi)
+    - left_tt_weights:      NDArray, shape=(d+1,rLi)
+    - right_tt_weights:     NDArray, shape=(d+1,rRi)
+
+See Also
+--------
+t3tools.tucker_tensor_train.EdgeWeights
+t3tools.base_variation_format.BVEdgeWeights
+UniformT3Variation
 UniformT3Base
 """
 
@@ -521,6 +553,79 @@ def ut3_to_t3(
 
     return tucker_cores, tt_cores
 
+
+def bv_to_ubv(
+        variation: bvf.T3Variation,
+        base: bvf.T3Base,
+        use_jax: bool = False,
+) -> typ.Tuple[
+    UniformT3Variation,
+    UniformT3Base,
+    UniformBVEdgeWeights, # masks
+]:
+    xnp, _, _ = get_backend(True, use_jax)
+
+    var_tucker_cores, var_tt_cores = variation
+    up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
+
+    NN = [U.shape[1] for U in up_tucker_cores]
+    nnU = [U.shape[0] for U in up_tucker_cores]
+    rrL = [L.shape[2] for L in left_tt_cores] # + [left_tt_cores[-1].shape[2]]
+    rrR = [R.shape[0] for R in right_tt_cores] # + [right_tt_cores[-1].shape[2]]
+    nnO = [O.shape[1] for O in outer_tt_cores]
+
+    d = len(var_tucker_cores)
+    N = max(NN)
+    nU = max(nnU)
+    nO = max(nnO)
+    r = max(rrL + rrR)
+
+    padded_shape = (N,) * d
+    padded_up_tucker_ranks = (nU,) * d
+    padded_outer_tucker_ranks = (nO,) * d
+    padded_tt_ranks = (r,) * (d + 1)
+
+    #
+
+    var_tucker_supercore = xnp.stack(
+        t3.change_tucker_core_shapes(var_tucker_cores, padded_shape, padded_outer_tucker_ranks)
+    )
+    var_tt_supercore = xnp.stack(
+        t3.change_tt_core_shapes(var_tt_cores, padded_up_tucker_ranks, padded_tt_ranks)
+    )
+
+    #
+
+    up_tucker_supercore = xnp.stack(
+        t3.change_tucker_core_shapes(up_tucker_cores, padded_shape, padded_up_tucker_ranks)
+    )
+    left_tt_supercore = xnp.stack(
+        t3.change_tt_core_shapes(left_tt_cores, padded_up_tucker_ranks, padded_tt_ranks)
+    )
+    right_tt_supercore = xnp.stack(
+        t3.change_tt_core_shapes(right_tt_cores, padded_up_tucker_ranks, padded_tt_ranks)
+    )
+    outer_tt_supercore = xnp.stack(
+        t3.change_tt_core_shapes(outer_tt_cores, padded_outer_tucker_ranks, padded_tt_ranks)
+    )
+
+    uniform_base = (var_tucker_supercore, var_tt_supercore)
+    uniform_variation = (up_tucker_supercore, left_tt_supercore, right_tt_supercore, outer_tt_supercore)
+
+    #
+
+    shape_masks         = pack_tensors([xnp.ones(Ni, dtype=bool) for Ni in NN])
+    up_tucker_masks     = pack_tensors([xnp.ones(nUi, dtype=bool) for nUi in nnU])
+    outer_tucker_masks  = pack_tensors([xnp.ones(nOi, dtype=bool) for nOi in nnO])
+    left_tt_masks       = pack_tensors([xnp.ones(rLi, dtype=bool) for rLi in rrL])
+    right_tt_masks      = pack_tensors([xnp.ones(rRi, dtype=bool) for rRi in rrR])
+
+    masks = (shape_masks, up_tucker_masks, outer_tucker_masks, left_tt_masks, right_tt_masks)
+
+    return uniform_base, uniform_variation, masks
+
+
+#
 
 def ut3_to_dense(
         cores: UniformTuckerTensorTrainCores,

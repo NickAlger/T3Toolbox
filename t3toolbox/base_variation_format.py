@@ -12,6 +12,7 @@ NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray,
 __all__ = [
     'T3Base',
     'T3Variation',
+    'BVEdgeWeights',
     'check_t3base',
     'check_t3variation',
     'hole_shapes',
@@ -25,10 +26,10 @@ __all__ = [
 ################################################################
 
 T3Base = typ.Tuple[
-    typ.Sequence[NDArray],  # base_tucker_cores. B_xo B_yo = I_xy    B.shape = (n, N)
-    typ.Sequence[NDArray],  # base_left_tt_cores. P_iax P_iay = I_xy, P.shape = (rL, n, rR)
-    typ.Sequence[NDArray],  # base_right_tt_cores. Q_xaj Q_yaj = I_xy  Q.shape = (rL, n, rR)
-    typ.Sequence[NDArray],  # base_outer_tt_cores. R_ixj R_iyj = I_xy  R.shape = (rL, n, rR)
+    typ.Sequence[NDArray],  # up_tucker_cores. B_xo B_yo   = I_xy, B.shape = (n, N)
+    typ.Sequence[NDArray],  # left_tt_cores.   P_iax P_iay = I_xy, P.shape = (rL, n, rR)
+    typ.Sequence[NDArray],  # right_tt_cores.  Q_xaj Q_yaj = I_xy  Q.shape = (rL, n, rR)
+    typ.Sequence[NDArray],  # outer_tt_cores.  R_ixj R_iyj = I_xy  R.shape = (rL, n, rR)
 ]
 """
 Tuple containing base cores for base-variation representation of TuckerTensorTrains
@@ -48,7 +49,7 @@ Often, one works with TuckerTensorTrains of the following forms::
 In each of these, there is a special "variation" core, indicated by parentheses (X), surrounded by base cores. 
 
 The components of T3Base are the "base cores":
-    - tucker_cores      = (U0, ..., Ud), elm_shape=(ni, Ni)
+    - up_tucker_cores   = (U0, ..., Ud), elm_shape=(ni, Ni)
     - left_tt_cores     = (L0, ..., Ld), elm_shape=(rLi, ni, rL(i+1))
     - right_tt_cores    = (R0, ..., Rd), elm_shape=(rRi, ni, rR(i+1))
     - outer_tt_cores    = (O0, ..., Od), elm_shape=(rLi, nOi, rR(i+1))
@@ -124,6 +125,28 @@ hole_shapes
 check_fit
 """
 
+BVEdgeWeights = typ.Tuple[
+    typ.Sequence[NDArray],  # shape_weights, len=d, elm_shape=(Ni,)
+    typ.Sequence[NDArray],  # up_tucker_weights, len=d, elm_shape=(nUi,)
+    typ.Sequence[NDArray],  # outer_tucker_weights, len=d, elm_shape=(nOi,)
+    typ.Sequence[NDArray],  # left_tt_weights, len=d+1, elm_shape=(rLi,)
+    typ.Sequence[NDArray],  # right_tt_weights, len=d+1, elm_shape=(rRi,)
+]
+"""Edge weights for base-variation format.
+
+*Components*
+    - shape_weights:        typ.Sequence[NDArray], len=d, elm_shape=(Ni,)
+    - up_tucker_weights:    typ.Sequence[NDArray], len=d, elm_shape=(nUi,)
+    - outer_tucker_weights: typ.Sequence[NDArray], len=d, elm_shape=(nOi,)
+    - left_tt_weights:      typ.Sequence[NDArray], len=d+1, elm_shape=(rLi,)
+    - right_tt_weights:     typ.Sequence[NDArray], len=d+1, elm_shape=(rRi,)
+    
+See Also
+--------
+t3tools.tucker_tensor_train.EdgeWeights
+T3Variation
+T3Base
+"""
 
 def check_t3base(
         base: T3Base,

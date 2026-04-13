@@ -34,13 +34,13 @@ __all__ = [
 ]
 
 probe_dense                     = ft.partial(t3p.probe_dense, xnp=jnp)
-probe_t3                        = ft.partial(t3p.probe_t3, xnp=jnp)
+probe_t3                        = ft.partial(t3p.probe_t3, use_jax=True)
 compute_weighted_xis            = ft.partial(t3p.compute_weighted_xis, xnp=jnp)
 compute_weighted_mus            = ft.partial(t3p.compute_weighted_mus, xnp=jnp)
 compute_weighted_nus            = ft.partial(t3p.compute_weighted_nus, xnp=jnp)
 compute_weighted_etas           = ft.partial(t3p.compute_weighted_etas, xnp=jnp)
 assemble_probes                 = ft.partial(t3p.assemble_weighted_zs, xnp=jnp)
-probe_tangent                   = ft.partial(t3p.probe_tangent, xnp=jnp)
+probe_tangent                   = ft.partial(t3p.probe_tangent, use_jax=True)
 compute_weighted_dxis           = ft.partial(t3p.compute_weighted_dxis, xnp=jnp)
 compute_weighted_sigmas         = ft.partial(t3p.compute_weighted_sigmas, xnp=jnp)
 compute_weighted_taus           = ft.partial(t3p.compute_weighted_taus, xnp=jnp)

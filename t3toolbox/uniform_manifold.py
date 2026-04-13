@@ -13,7 +13,6 @@ from t3toolbox.common import *
 
 
 __all__ = [
-    'tangent_to_uniform_tangent',
     'uniform_tangent_to_uniform_t3',
     # 'ut3_retract',
     # 'ut3_project_dense_tensor_onto_tangent_space',
@@ -24,18 +23,6 @@ __all__ = [
 ############################################################
 ########    Uniform Tucker Tensor Train Manifold    ########
 ############################################################
-
-def tangent_to_uniform_tangent(
-        variation: bvf.T3Variation,
-        base: bvf.T3Base,
-        use_jax: bool = False,
-) -> typ.Tuple[
-    ut3.UniformT3Base,
-    ut3.UniformT3Variation,
-]:
-    # uniform_variation
-    pass
-
 
 def uniform_tangent_to_uniform_t3(
         variations: ut3.UniformT3Variation,
