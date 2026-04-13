@@ -39,7 +39,7 @@ class TestProbing(unittest.TestCase):
                     u1 = np.random.randn(SHAPE[1])
                     u2 = np.random.randn(SHAPE[2])
 
-                    yy = T3P.probe_dense(T, (u0, u1, u2))
+                    yy = T3P.probe_dense((u0, u1, u2), T)
 
                     y0 = np.einsum('ijk,j,k', T, u1, u2)
                     y1 = np.einsum('ijk,i,k', T, u0, u2)
@@ -62,10 +62,10 @@ class TestProbing(unittest.TestCase):
                     u2, v2 = np.random.randn(SHAPE[2]), np.random.randn(SHAPE[2])
                     uuu = [np.vstack([u0, v0]), np.vstack([u1, v1]), np.vstack([u2, v2])]
 
-                    yyy = T3P.probe_dense(T, uuu)
+                    yyy = T3P.probe_dense(uuu, T)
 
-                    yy_u = t3p.probe_dense(T, (u0, u1, u2))
-                    yy_v = t3p.probe_dense(T, (v0, v1, v2))
+                    yy_u = t3p.probe_dense((u0, u1, u2), T)
+                    yy_v = t3p.probe_dense((v0, v1, v2), T)
 
                     self.check_relerr(yy_u[0], yyy[0][0, :])
                     self.check_relerr(yy_u[1], yyy[1][0, :])
@@ -90,10 +90,10 @@ class TestProbing(unittest.TestCase):
                           np.random.randn(SHAPE[1]),
                           np.random.randn(SHAPE[2]))
 
-                    zz = T3P.probe_t3(x, ww)
+                    zz = T3P.probe_t3(ww, x)
 
                     x_dense = t3.t3_to_dense(x)
-                    zz2 = t3p.probe_dense(x_dense, ww)
+                    zz2 = t3p.probe_dense(ww, x_dense)
 
                     for z, z2 in zip(zz, zz2):
                         self.check_relerr(z2, z)
@@ -114,9 +114,9 @@ class TestProbing(unittest.TestCase):
                            np.random.randn(NUM_PROBES, SHAPE[1]),
                            np.random.randn(NUM_PROBES, SHAPE[2]))
 
-                    zzz = T3P.probe_t3(x, www)
+                    zzz = T3P.probe_t3(www, x)
 
-                    zzz2 = t3p.probe_dense(t3.t3_to_dense(x), www)
+                    zzz2 = t3p.probe_dense(www, t3.t3_to_dense(x))
 
                     for z, z2 in zip(zzz, zzz2):
                         self.check_relerr(z2, z)
@@ -138,9 +138,9 @@ class TestProbing(unittest.TestCase):
                           np.random.randn(SHAPE[1]),
                           np.random.randn(SHAPE[2]))
 
-                    zz = T3P.probe_tangent(variation, ww, base)
+                    zz = T3P.probe_tangent(ww, variation, base)
 
-                    zz2 = t3p.probe_dense(t3m.tangent_to_dense(variation, base), ww)
+                    zz2 = t3p.probe_dense(ww, t3m.tangent_to_dense(variation, base))
 
                     for z, z2 in zip(zz, zz2):
                         self.check_relerr(z2, z)
@@ -163,9 +163,9 @@ class TestProbing(unittest.TestCase):
                            np.random.randn(NUM_PROBES, SHAPE[1]),
                            np.random.randn(NUM_PROBES, SHAPE[2]))
 
-                    zzz = T3P.probe_tangent(variation, www, base)  # Compute probes!
+                    zzz = T3P.probe_tangent(www, variation, base)  # Compute probes!
 
-                    zzz2 = t3p.probe_dense(t3m.tangent_to_dense(variation, base), www)
+                    zzz2 = t3p.probe_dense(www, t3m.tangent_to_dense(variation, base))
 
                     for zz, zz2 in zip(zzz, zzz2):
                         self.check_relerr(zz2, zz)
@@ -188,7 +188,7 @@ class TestProbing(unittest.TestCase):
 
                     v1 = t3m.tangent_randn(base)
 
-                    zz1 = T3P.probe_tangent(v1, ww, base)
+                    zz1 = T3P.probe_tangent(ww, v1, base)
 
                     zz2 = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
                     v2 = t3p.probe_tangent_transpose(zz2, ww, base)
@@ -213,7 +213,7 @@ class TestProbing(unittest.TestCase):
                            np.random.randn(NUM_PROBES, SHAPE[1]),
                            np.random.randn(NUM_PROBES, SHAPE[2]))
 
-                    apply_J = lambda v: t3p.probe_tangent(v, www, base)
+                    apply_J = lambda v: t3p.probe_tangent(www, v, base)
                     apply_Jt = lambda zz: T3P.probe_tangent_transpose(zz, www, base)
                     v = t3m.tangent_randn(base)
 

@@ -16,18 +16,18 @@ __all__ = [
     # Probe a Tucker tensor train
     'probe_t3',
     'absorb_weights_into_cores',
-    'compute_xis',
-    'compute_mus',
-    'compute_nus',
-    'compute_etas',
-    'assemble_probes',
+    'compute_weighted_xis',
+    'compute_weighted_mus',
+    'compute_weighted_nus',
+    'compute_weighted_etas',
+    'assemble_weighted_zs',
     # Probe a tangent vector
     'probe_tangent',
-    'compute_dxis',
-    'compute_sigmas',
-    'compute_taus',
-    'compute_detas',
-    'assemble_tangent_probes',
+    'compute_weighted_dxis',
+    'compute_weighted_sigmas',
+    'compute_weighted_taus',
+    'compute_weighted_detas',
+    'assemble_weighted_tangent_zs',
     'absorb_weights_into_tangent',
     # Transpose of map from tangent vector to probes
     'compute_deta_tildes',
@@ -42,143 +42,20 @@ __all__ = [
 NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
 
 
-###############################################
-##########    Probe dense tensor    ###########
-###############################################
-
-def probe_dense(
-        T:          NDArray,
-        vectors:    typ.Sequence[NDArray], # elm_shape=(...,Ni)
-        xnp = np,
-) -> typ.Tuple[NDArray]:
-    """Probe a dense tensor.
-
-    Parameters
-    ----------
-    T: NDArray
-        Tensor to be probed. shape=(N1,...,Nd)
-    vectors: typ.Sequence[NDArray]
-        Probing input vectors.
-        len=d.
-        elm_shape=(Ni,) or elm_shape=(num_probes, Ni)
-    xnp:
-        Linear algebra backend. Default: np (numpy)
-
-    Returns
-    -------
-    typ.Tuple[NDArray]
-        Probes.
-        len=d.
-        elm_shape=(Ni,) or elm_shape=(num_probes, Ni)
-
-    Examples
-    --------
-
-    Probe with one set of vectors:
-
-    >>> import numpy as np
-    >>> import t3toolbox.probing as t3p
-    >>> T = np.random.randn(10,11,12)
-    >>> u0 = np.random.randn(10)
-    >>> u1 = np.random.randn(11)
-    >>> u2 = np.random.randn(12)
-    >>> yy = t3p.probe_dense(T, (u0,u1,u2))
-    >>> y0 = np.einsum('ijk,j,k', T, u1, u2)
-    >>> y1 = np.einsum('ijk,i,k', T, u0, u2)
-    >>> y2 = np.einsum('ijk,i,j', T, u0, u1)
-    >>> print(np.linalg.norm(yy[0] - y0))
-    2.0928808318295785e-14
-    >>> print(np.linalg.norm(yy[1] - y1))
-    1.0841599276764049e-14
-    >>> print(np.linalg.norm(yy[2] - y2))
-    1.2970142174948615e-14
-
-    Probe with two sets of vectors:
-
-    >>> import numpy as np
-    >>> import t3toolbox.t3p as t3p
-    >>> T = np.random.randn(10,11,12)
-    >>> u0, v0 = np.random.randn(10), np.random.randn(10)
-    >>> u1, v1 = np.random.randn(11), np.random.randn(11)
-    >>> u2, v2 = np.random.randn(12), np.random.randn(12)
-    >>> uuu = [np.vstack([u0,v0]), np.vstack([u1,v1]), np.vstack([u2,v2])]
-    >>> yyy = t3p.probe_dense(T, uuu)
-    >>> yy_u = t3p.probe_dense(T, (u0,u1,u2))
-    >>> yy_v = t3p.probe_dense(T, (v0,v1,v2))
-    >>> print(np.linalg.norm(yy_u[0] - yyy[0][0,:]))
-    0.0
-    >>> print(np.linalg.norm(yy_u[1] - yyy[1][0,:]))
-    0.0
-    >>> print(np.linalg.norm(yy_u[2] - yyy[2][0,:]))
-    0.0
-    >>> print(np.linalg.norm(yy_v[0] - yyy[0][1,:]))
-    0.0
-    >>> print(np.linalg.norm(yy_v[1] - yyy[1][1,:]))
-    0.0
-    >>> print(np.linalg.norm(yy_v[2] - yyy[2][1,:]))
-    0.0
-    """
-    num_cores = len(T.shape)
-    assert(len(vectors) == num_cores)
-    if len(vectors[0].shape) == 1:
-        vectorized=False
-        for ii in range(num_cores):
-            assert (len(vectors[ii].shape) == 1)
-    elif len(vectors[0].shape) == 2:
-        vectorized=True
-        for ii in range(num_cores):
-            assert (len(vectors[ii].shape) == 2)
-    else:
-        raise RuntimeError(
-            'Wrong vectors[ii] shape in probe_dense. Should be vector or matrix.\n'
-            + 'vectors[0].shape=' + str(vectors[0].shape)
-        )
-
-    vectors = list(vectors)
-    if vectorized == False:
-        for ii in range(num_cores):
-            vectors[ii] = vectors[ii].reshape((1,-1))
-
-    vector_lengths = tuple([x.shape[1] for x in vectors])
-    assert(vector_lengths == T.shape)
-
-    probes = []
-    for ii in range(num_cores):
-        Ai = T
-        for jj in range(ii):
-            if jj == 0:
-                Ai = xnp.einsum('pi,i...->p...', vectors[jj], Ai)
-            else:
-                Ai = xnp.einsum('pi,pi...->p...', vectors[jj], Ai)
-
-        for jj in range(num_cores-1, ii, -1):
-            if ii==0 and jj==num_cores-1:
-                Ai = xnp.einsum('pi,...i->p...', vectors[jj], Ai)
-            else:
-                Ai = xnp.einsum('pi,p...i->p...', vectors[jj], Ai)
-        probes.append(Ai)
-
-    if not vectorized:
-        probes = [Ai.reshape(-1) for Ai in probes]
-
-    return tuple(probes)
-
-
 #####################################################
 ########    Probing a Tucker Tensor Train    ########
 #####################################################
 
 def probe_t3(
-        x:  t3.TuckerTensorTrain, # structure=((N1,...,Nd),(n1,...,nd),(1,r1,...,r(d-1),1))
-        ww: typ.Sequence[NDArray], # input vectors, len=d, elm_shape=(...,Ni)
-        edge_weights: typ.Tuple[
+        ww: typ.Sequence[NDArray],
+        x: t3.TuckerTensorTrain, edge_weights: typ.Tuple[
             typ.Sequence[NDArray],  # shape_weights, len=d, elm_shape=(Ni,)
             typ.Sequence[NDArray],  # tucker_weights, len=d, elm_shape=(ni,)
             typ.Sequence[NDArray],  # tt_weights, len=d+1, elm_shape=(ri,)
         ] = (None, None, None),
-        map = common.ragged_map,
-        scan = common.ragged_scan,
-        xnp = np,
+        map=common.ragged_map,
+        scan=common.ragged_scan,
+        xnp=np,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,Ni)
     '''Probe a Tucker tensor train.
 
@@ -220,9 +97,9 @@ def probe_t3(
     >>> import t3toolbox.probing as t3p
     >>> x = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-    >>> zz = t3p.probe_t3(x, ww)
+    >>> zz = t3p.probe_t3(ww, x)
     >>> x_dense = t3.t3_to_dense(x)
-    >>> zz2 = t3p.probe_dense(x_dense, ww)
+    >>> zz2 = t3p.probe_dense(ww, x_dense)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
 
@@ -239,9 +116,9 @@ def probe_t3(
     >>> tt_weights = [randn(2), randn(3), randn(4), randn(2)]
     >>> edge_weights = (shape_weights, tucker_weights, tt_weights)
     >>> ww = [np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12)]
-    >>> zz = t3p.probe_t3(x0, ww, edge_weights=edge_weights)
+    >>> zz = t3p.probe_t3(ww, x0,edge_weights=edge_weights)
     >>> x = t3p.absorb_weights_into_cores(x0, edge_weights)
-    >>> zz2 = t3p.probe_t3(x, ww)
+    >>> zz2 = t3p.probe_t3(ww, x)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [3.372228193172379e-14, 3.826148129405782e-14, 2.294115439089251e-14]
     '''
@@ -255,56 +132,53 @@ def probe_t3(
 
     shape_weights, tucker_weights, tt_weights = edge_weights
 
-    ww = _apply_edge_weights(ww, shape_weights, map=map, xnp=xnp) if shape_weights is not None else ww
+    left_tt_weights     = tt_weights[:-1]   if tt_weights is not None else None
+    right_tt_weights    = tt_weights[1:]    if tt_weights is not None else None
 
-    xis = compute_xis(
+    weighted_ww = _apply_edge_weights(ww, shape_weights, map=map, xnp=xnp) if shape_weights is not None else ww
+
+    weighted_xis = compute_weighted_xis(
         tucker_cores,
-        ww,
-        shape_weights=None,
+        weighted_ww,
         up_tucker_weights=tucker_weights,
         map=map,
         xnp=xnp,
     )
 
-    mus = compute_mus(
+    weighted_mus = compute_weighted_mus(
         tt_cores,
-        xis,
-        up_tucker_weights=None,
-        left_tt_weights=tt_weights,
+        weighted_xis,
+        left_tt_weights=left_tt_weights,
         scan=scan,
         xnp=xnp,
     )
 
-    nus = compute_nus(
+    weighted_nus = compute_weighted_nus(
         tt_cores,
-        xis,
-        up_tucker_weights=None,
-        right_tt_weights=tt_weights,
+        weighted_xis,
+        right_tt_weights=right_tt_weights,
         scan=scan,
         xnp=xnp,
     )
 
-    etas = compute_etas(
+    weighted_etas = compute_weighted_etas(
         tt_cores,
-        mus,
-        nus,
+        weighted_mus,
+        weighted_nus,
         outer_tucker_weights=tucker_weights,
-        left_tt_weights=None,
-        right_tt_weights=None,
         map=map,
         xnp=xnp,
     )
 
-    zz = assemble_probes(
+    weighted_zs = assemble_weighted_zs(
         tucker_cores,
-        etas,
+        weighted_etas,
         shape_weights=shape_weights,
-        tucker_weights=None,
         map=map,
         xnp=xnp,
     )
 
-    return zz
+    return weighted_zs
 
 
 def absorb_weights_into_cores(
@@ -345,14 +219,13 @@ def _apply_edge_weights(edge_variables, edge_weights, map=common.ragged_map, xnp
     return weighted_edge_variables
 
 
-def compute_xis(
+def compute_weighted_xis(
         up_tucker_cores: typ.Sequence[NDArray], # len=d. elm_shape=(nUi,Ni)
-        ww: typ.Sequence[NDArray], # len=d. elm_shape=(...,Ni)
-        shape_weights: typ.Sequence[NDArray] = None, # len=d, elm_shape=(Ni,)
+        weighted_ww: typ.Sequence[NDArray], # len=d. elm_shape=(...,Ni)
         up_tucker_weights: typ.Sequence[NDArray] = None, # len=d, elm_shape=(nUi,)
         map = common.ragged_map,
         xnp = np,
-) -> typ.Tuple[NDArray,...]: # xis. len=d, elm_shape=(...,nUi)
+) -> typ.Tuple[NDArray,...]: # weighted_xis. len=d, elm_shape=(...,nUi)
     '''Compute upward edge variables associated with edges between Tucker cores and adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -385,38 +258,32 @@ def compute_xis(
     compute_etas
     assemble_probes
     '''
-    w_weights     = shape_weights
-    xi_weights    = up_tucker_weights
+    xi_weights = up_tucker_weights
 
     def _func(x):
-        U, w = x[0], x[1]
+        U, weighted_w, ind = x[0], x[1], 2
 
-        ind = 2
-        if w_weights is not None:
-            w = _apply_edge_weight(w, x[ind])
-            ind += 1
-
-        xi = xnp.einsum('io,...o->...i', U, w)
+        xi = xnp.einsum('io,...o->...i', U, weighted_w)
 
         if xi_weights is not None:
-            xi = _apply_edge_weight(xi, x[ind])
-            ind += 1
+            weight = x[ind]
+            weighted_xi = _apply_edge_weight(xi, weight)
+        else:
+            weighted_xi = xi
 
-        return (xi,)
+        return (weighted_xi,)
 
-    xs = (up_tucker_cores, ww)
-    xs = xs + (w_weights,)    if w_weights  is not None else xs
-    xs = xs + (xi_weights,)   if xi_weights is not None else xs
+    xs = (up_tucker_cores, weighted_ww)
+    xs = xs + (xi_weights,) if xi_weights  is not None else xs
 
-    (xis,) = map(_func, xs)
-    return xis
+    (weighted_xis,) = map(_func, xs)
+    return weighted_xis
 
 
-def compute_mus(
+def compute_weighted_mus(
         left_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(rLi,nUi,rL(i+1))
-        xis: typ.Sequence[NDArray], # len=d. elm_shape=(...,nUi)
-        up_tucker_weights: typ.Sequence[NDArray] = None, # len=d, elm_shape=(nUi,)
-        left_tt_weights: typ.Sequence[NDArray] = None, # len=d+1, elm_shape=(rLi,)
+        weighted_xis: typ.Sequence[NDArray], # len=d. elm_shape=(...,nUi)
+        left_tt_weights: typ.Sequence[NDArray] = None, # len=d, elm_shape=(rLi,)
         scan = common.ragged_scan,
         xnp = np,
 ) -> typ.Sequence[NDArray]: # mus. len=d, elm_shape=(...,rLi)
@@ -452,49 +319,43 @@ def compute_mus(
     compute_etas
     assemble_probes
     '''
-    xi_weights = up_tucker_weights
-    mu_weights = left_tt_weights[:-1] if left_tt_weights is not None else None
+    mu_weights = left_tt_weights
 
     def _func(mu, x):
-        P, xi = x[0], x[1]
-
-        ind = 2
-        if xi_weights is not None:
-            xi = _apply_edge_weight(xi, x[ind])
-            ind += 1
+        P, weighted_xi, ind = x[0], x[1], 2
 
         if mu_weights is not None:
-            mu = _apply_edge_weight(mu, x[ind])
-            ind += 1
+            weight = x[ind]
+            weighted_mu = _apply_edge_weight(mu, weight)
+        else:
+            weighted_mu = mu
 
         mu_next = xnp.einsum(
             '...aj,...a->...j',
-            xnp.einsum('...i,iaj->...aj', mu, P),
-            xi,
+            xnp.einsum('...i,iaj->...aj', weighted_mu, P),
+            weighted_xi,
         )
-        return mu_next, (mu,)
+        return mu_next, (weighted_mu,)
 
     r0 = left_tt_cores[0].shape[0]
-    vectorization_shape = xis[0].shape[:-1]
+    vectorization_shape = weighted_xis[0].shape[:-1]
     init = xnp.ones(vectorization_shape + (r0,))
 
-    xs = (left_tt_cores, xis)
-    xs = xs + (xi_weights,) if xi_weights is not None else xs
+    xs = (left_tt_cores, weighted_xis)
     xs = xs + (mu_weights,) if mu_weights is not None else xs
 
-    last_mu, (mus,) = scan(_func, init, xs)
-    return mus
+    last_weighted_mu, (weighted_mus,) = scan(_func, init, xs)
+    return weighted_mus
 
 
 def tt_reverse(tt_cores):
     return tuple([G.swapaxes(0, 2) for G in tt_cores[::-1]])
 
 
-def compute_nus(
+def compute_weighted_nus(
         right_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(rRi,nUi,rR(i+1))
-        xis, # len=d. elm_shape=(...,nUi)
-        up_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nUi,)
-        right_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rRi,)
+        weighted_xis, # len=d. elm_shape=(...,nUi)
+        right_tt_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(rRi,)
         scan = common.ragged_scan,
         xnp = np,
 ) -> typ.Sequence[NDArray]: # nus. len=d, elm_shape=(...,rR(i+1))
@@ -531,32 +392,28 @@ def compute_nus(
     assemble_probes
     '''
     rev_tt_cores = tt_reverse(right_tt_cores)
-    rev_xis = xis[::-1]
-    rev_up_tucker_weights = None if up_tucker_weights   is None else up_tucker_weights[::-1]
-    rev_right_tt_weights  = None if right_tt_weights    is None else right_tt_weights[::-1]
+    rev_weighted_xis = weighted_xis[::-1]
+    rev_right_tt_weights  = None if right_tt_weights is None else right_tt_weights[::-1]
 
-    rev_nus = compute_mus(
+    rev_weighted_nus = compute_weighted_mus(
         rev_tt_cores,
-        rev_xis,
-        up_tucker_weights=rev_up_tucker_weights,
+        rev_weighted_xis,
         left_tt_weights=rev_right_tt_weights,
         scan=scan,
         xnp=xnp,
     )
-    nus = rev_nus[::-1]
-    return nus
+    weighted_nus = rev_weighted_nus[::-1]
+    return weighted_nus
 
 
-def compute_etas(
+def compute_weighted_etas(
         outer_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(rLi,nOi,rR(i+1))
-        mus, # len=d. elm_shape=(...,rLi)
-        nus, # len=d. elm_shape=(...,rR(i+1))
-        outer_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
-        left_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rLi,)
-        right_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rRi,)
+        weighted_mus, # len=d. elm_shape=(...,rLi)
+        weighted_nus, # len=d. elm_shape=(...,rR(i+1))
+        outer_tucker_weights: typ.Sequence[NDArray] = None, # len=d, elm_shape=(nOi)
         map = common.ragged_map,
         xnp = np,
-) -> typ.Sequence[NDArray]: # etas. len=d, elm_shape=(...,nOi)
+) -> typ.Sequence[NDArray]: # weighted_etas. len=d, elm_shape=(...,nOi)
     '''Compute downward edge variables associated with edges between Tucker cores and adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -591,51 +448,39 @@ def compute_etas(
     compute_nus
     assemble_probes
     '''
-    mu_weights    = left_tt_weights[:-1] if left_tt_weights     is not None else None
-    nu_weights    = right_tt_weights[1:] if right_tt_weights    is not None else None
-    eta_weights   = outer_tucker_weights
+    eta_weights = outer_tucker_weights
 
     def _func(x):
-        mu, G, nu = x[0], x[1], x[2]
-
-        ind = 3
-        if mu_weights is not None:
-            mu = _apply_edge_weight(mu, x[ind])
-            ind += 1
-
-        if nu_weights is not None:
-            nu = _apply_edge_weight(nu, x[ind])
-            ind += 1
+        weighted_mu, G, weighted_nu, ind = x[0], x[1], x[2], 3
 
         eta = xnp.einsum(
             '...aj,...j->...a',
-            xnp.einsum('...i,iaj->...aj', mu, G),
-            nu,
+            xnp.einsum('...i,iaj->...aj', weighted_mu, G),
+            weighted_nu,
         )
 
         if eta_weights is not None:
-            eta = _apply_edge_weight(eta, x[ind])
-            ind += 1
+            weight = x[ind]
+            weighted_eta = _apply_edge_weight(eta, weight)
+        else:
+            weighted_eta = eta
 
-        return (eta,)
+        return (weighted_eta,)
 
-    xs = (mus, outer_tt_cores, nus)
-    xs = xs + (mu_weights,)   if mu_weights     is not None else xs
-    xs = xs + (nu_weights,)   if nu_weights     is not None else xs
-    xs = xs + (eta_weights,)  if eta_weights    is not None else xs
+    xs = (weighted_mus, outer_tt_cores, weighted_nus)
+    xs = xs + (eta_weights,) if eta_weights is not None else xs
 
-    (etas,) = map(_func, xs)
-    return etas
+    (weighted_etas,) = map(_func, xs)
+    return weighted_etas
 
 
-def assemble_probes(
+def assemble_weighted_zs(
         tucker_cores: typ.Sequence[NDArray],  # len=d. elm_shape=(ni,Ni)
-        etas,  # len=d. elm_shape=(...,ni)
+        weighted_etas,  # len=d. elm_shape=(...,ni)
         shape_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(Ni,)
-        tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(ni,)
         map = common.ragged_map,
         xnp = np,
-) -> typ.Sequence[NDArray]: # zz. len=d, elm_shape=(...,Ni)
+) -> typ.Sequence[NDArray]: # weighted_zs. len=d, elm_shape=(...,Ni)
     '''Assemble probes from downward edge variables.
 
     See Section 5.2, particularly Figure 9 in:
@@ -667,41 +512,35 @@ def assemble_probes(
     compute_nus
     compute_etas
     '''
-    eta_weights   = tucker_weights
-    z_weights     = shape_weights
+    z_weights = shape_weights
 
     def _func(x):
-        eta, U = x[0], x[1]
+        weighted_eta, U, ind = x[0], x[1], 2
 
-        ind = 2
-        if eta_weights is not None:
-            eta = _apply_edge_weight(eta, x[ind])
-            ind += 1
-
-        z = xnp.einsum('...a,ao->...o', eta, U)
+        z = xnp.einsum('...a,ao->...o', weighted_eta, U)
 
         if z_weights is not None:
-            z = _apply_edge_weight(z, x[ind])
-            ind += 1
+            weight = x[ind]
+            weighted_z = _apply_edge_weight(z, weight)
+        else:
+            weighted_z = z
 
-        return (z,)
+        return (weighted_z,)
 
-    xs = (etas, tucker_cores)
-    xs = xs + (eta_weights,)  if eta_weights    is not None else xs
-    xs = xs + (z_weights,)    if z_weights      is not None else xs
+    xs = (weighted_etas, tucker_cores)
+    xs = xs + (z_weights,) if z_weights is not None else xs
 
-    (zz,) = map(_func, xs)
-    return zz
+    (weighted_zs,) = map(_func, xs)
+    return weighted_zs
 
 
 #####################################################
 ###########    Probing a tangent vector    ##########
 #####################################################
 
-def compute_dxis(
+def compute_weighted_dxis(
         var_tucker_cores: typ.Sequence[NDArray], # len=d. elm_shape=(nOi,Ni)
-        ww: typ.Sequence[NDArray], # len=d. elm_shape=(...,Ni)
-        shape_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(Ni,)
+        weighted_ww: typ.Sequence[NDArray], # len=d. elm_shape=(...,Ni)
         outer_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
         map=common.ragged_map,
         xnp = np,
@@ -726,23 +565,26 @@ def compute_dxis(
     assemble_tangent_probes
     probe_tangent
     '''
-    return compute_xis(var_tucker_cores, ww, shape_weights, outer_tucker_weights, map=map, xnp=xnp)
+    return compute_weighted_xis(
+        var_tucker_cores,
+        weighted_ww,
+        up_tucker_weights=outer_tucker_weights,
+        map=map,
+        xnp=xnp,
+    )
 
 
-def compute_sigmas(
+def compute_weighted_sigmas(
         var_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
         right_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rRi,nUi,rR(i+1))
         outer_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
-        xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,nUi),
-        dxis: typ.Sequence[NDArray], # len=d, elm_shape=(...,nOi)
-        mus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,nLi)
-        up_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nUi,)
-        outer_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
-        left_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rLi,)
+        weighted_xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,nUi),
+        weighted_dxis: typ.Sequence[NDArray], # len=d, elm_shape=(...,nOi)
+        weighted_mus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,nLi)
         right_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rRi,)
         scan = common.ragged_scan,
         xnp = np,
-) -> typ.Tuple[NDArray,...]: # sigmas. len=d, elm_shape=(...,rR(i+1))
+) -> typ.Tuple[NDArray,...]: # weighted_sigmas. len=d, elm_shape=(...,rR(i+1))
     '''Compute var-leftward edge variables sigma.
     Used for probing a tangent vector.
 
@@ -760,83 +602,58 @@ def compute_sigmas(
     assemble_tangent_probes
     probe_tangent
     '''
-    xi_weights    = up_tucker_weights
-    dxi_weights   = outer_tucker_weights
-    mu_weights    = left_tt_weights[:-1]    if left_tt_weights  is not None else None
-    # sigma_weights = right_tt_weights[:-1]   if right_tt_weights is not None else None  # Yes, [:-1]. init sigma is zero.
-    sigma_weights = right_tt_weights[1:] if right_tt_weights is not None else None
+    sigma_weights = right_tt_weights
 
-    def _func(sigma, x):
-        Q, O, dG, xi, dxi, mu = x[0], x[1], x[2], x[3], x[4], x[5]
-
-        ind = 6
-        if xi_weights is not None:
-            xi = _apply_edge_weight(xi, x[ind])
-            ind += 1
-
-        if dxi_weights is not None:
-            dxi = _apply_edge_weight(dxi, x[ind])
-            ind += 1
-
-        if mu_weights is not None:
-            mu = _apply_edge_weight(mu, x[ind])
-            ind += 1
-
-        # if sigma_weights is not None:
-        #     sigma = _apply_edge_weight(sigma, x[ind])
-        #     ind += 1
+    def _func(weighted_sigma, x):
+        Q, O, dG, weighted_xi, weighted_dxi, weighted_mu, ind = x[0], x[1], x[2], x[3], x[4], x[5], 6
 
         sigma_next_t1 = xnp.einsum(
             '...aj,...a->...j',
-            xnp.einsum('...i,iaj->...aj', sigma, Q),
-            xi
+            xnp.einsum('...i,iaj->...aj', weighted_sigma, Q),
+            weighted_xi
         )
         sigma_next_t2 = xnp.einsum(
             '...aj,...a->...j',
-            xnp.einsum('...i,iaj->...aj', mu, dG),
-            xi
+            xnp.einsum('...i,iaj->...aj', weighted_mu, dG),
+            weighted_xi
         )
         sigma_next_t3 = xnp.einsum(
             '...aj,...a->...j',
-            xnp.einsum('...i,iaj->...aj', mu, O),
-            dxi
+            xnp.einsum('...i,iaj->...aj', weighted_mu, O),
+            weighted_dxi
         )
         sigma_next = sigma_next_t1 + sigma_next_t2 + sigma_next_t3
 
         if sigma_weights is not None:
-            sigma_next = _apply_edge_weight(sigma_next, x[ind])
-            ind += 1
+            weight = x[ind]
+            weighted_sigma_next = _apply_edge_weight(sigma_next, weight)
+        else:
+            weighted_sigma_next = sigma_next
 
-        return sigma_next, (sigma,)
+        return weighted_sigma_next, (weighted_sigma,)
 
     rR0 = right_tt_cores[0].shape[0]
-    vectorization_shape = xis[0].shape[:-1]
+    vectorization_shape = weighted_xis[0].shape[:-1]
     init = xnp.zeros(vectorization_shape + (rR0,))
 
-    xs = (right_tt_cores, outer_tt_cores, var_tt_cores, xis, dxis, mus)
-    xs = xs + (xi_weights,)       if xi_weights     is not None else xs
-    xs = xs + (dxi_weights,)      if dxi_weights    is not None else xs
-    xs = xs + (mu_weights,)       if mu_weights     is not None else xs
+    xs = (right_tt_cores, outer_tt_cores, var_tt_cores, weighted_xis, weighted_dxis, weighted_mus)
     xs = xs + (sigma_weights,)    if sigma_weights  is not None else xs
 
-    last_sigma, (sigmas,) = scan(_func, init, xs)
-    return sigmas
+    last_weighted_sigma, (weighted_sigmas,) = scan(_func, init, xs)
+    return weighted_sigmas
 
 
-def compute_taus(
+def compute_weighted_taus(
         var_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
         left_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nUi,rL(i+1))
         outer_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
-        xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,nUi),
-        dxis: typ.Sequence[NDArray], # len=d, elm_shape=(...,nOi)
-        nus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,nR(i+1))
-        up_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nUi,)
-        outer_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
+        weighted_xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,nUi),
+        weighted_dxis: typ.Sequence[NDArray], # len=d, elm_shape=(...,nOi)
+        weighted_nus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,nR(i+1))
         left_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rLi,)
-        right_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rRi,)
         scan = common.ragged_scan,
         xnp = np,
-) -> typ.Tuple[NDArray,...]: # taus. len=d, elm_shape=(...,rL(i+1))
+) -> typ.Tuple[NDArray,...]: # weighted_taus. len=d, elm_shape=(...,rL(i+1))
     '''Compute var-rightward edge variables tau.
     Used for probing a tangent vector.
 
@@ -857,43 +674,35 @@ def compute_taus(
     rev_var_tt_cores    = tt_reverse(var_tt_cores)
     rev_left_tt_cores   = tt_reverse(left_tt_cores)
     rev_outer_tt_cores  = tt_reverse(outer_tt_cores)
-    rev_xis     = xis[::-1]
-    rev_dxis    = dxis[::-1]
-    rev_nus     = nus[::-1]
-    rev_up_tucker_weights     = None if up_tucker_weights       is None else up_tucker_weights[::-1]
-    rev_outer_tucker_weights  = None if outer_tucker_weights    is None else outer_tucker_weights[::-1]
-    rev_left_tt_weights       = None if left_tt_weights         is None else left_tt_weights[::-1]
-    rev_right_tt_weights      = None if right_tt_weights        is None else right_tt_weights[::-1]
+    rev_weighted_xis    = weighted_xis[::-1]
+    rev_weighted_dxis   = weighted_dxis[::-1]
+    rev_weighted_nus    = weighted_nus[::-1]
+    rev_left_tt_weights = None if left_tt_weights is None else left_tt_weights[::-1]
 
-    rev_taus = compute_sigmas(
+    rev_weighted_taus = compute_weighted_sigmas(
         rev_var_tt_cores,
         rev_left_tt_cores,
         rev_outer_tt_cores,
-        rev_xis,
-        rev_dxis,
-        rev_nus,
-        up_tucker_weights=rev_up_tucker_weights,
-        outer_tucker_weights=rev_outer_tucker_weights,
-        left_tt_weights=rev_right_tt_weights,
+        rev_weighted_xis,
+        rev_weighted_dxis,
+        rev_weighted_nus,
         right_tt_weights=rev_left_tt_weights,
         scan=scan,
         xnp=xnp
     )
-    taus = rev_taus[::-1]
-    return taus
+    weighted_taus = rev_weighted_taus[::-1]
+    return weighted_taus
 
 
-def compute_detas(
+def compute_weighted_detas(
         var_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
         left_tt_cores: typ.Sequence[NDArray],  # len=d, elm_shape=(rLi,nUi,rL(i+1))
         right_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rRi,nUi,rR(i+1))
-        mus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,nLi)
-        nus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,nRi)
-        sigmas: typ.Sequence[NDArray], # len=d, elm_shape=(...,rRi)
-        taus: typ.Sequence[NDArray], # len=d, elm_shape=(...,rL(i+1))
+        weighted_mus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,nLi)
+        weighted_nus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,nRi)
+        weighted_sigmas: typ.Sequence[NDArray], # len=d, elm_shape=(...,rRi)
+        weighted_taus: typ.Sequence[NDArray], # len=d, elm_shape=(...,rL(i+1))
         up_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nUi,)
-        left_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rLi,)
-        right_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rRi,)
         map = common.ragged_map,
         xnp = np,
 ) -> typ.Sequence[NDArray]: # detas. len=d, elm_shape=(...,nUi)
@@ -914,74 +723,52 @@ def compute_detas(
     assemble_tangent_probes
     probe_tangent
     '''
-    mu_weights    = left_tt_weights[:-1]    if left_tt_weights        is not None else None
-    tau_weights   = left_tt_weights[1:]     if left_tt_weights        is not None else None
-    nu_weights    = right_tt_weights[1:]    if right_tt_weights       is not None else None
-    sigma_weights = right_tt_weights[:-1]   if right_tt_weights       is not None else None
     deta_weights  = up_tucker_weights
 
     def _func(x):
-        P, Q, dG, mu, nu, sigma, tau = x[0], x[1], x[2], x[3], x[4], x[5], x[6]
+        (P, Q, dG, weighted_mu, weighted_nu,
+         weighted_sigma, weighted_tau, ind
+         ) = (x[0], x[1], x[2], x[3], x[4], x[5], x[6], 7)
 
-        ind = 7
-        if mu_weights is not None:
-            mu = _apply_edge_weight(mu, x[ind])
-            ind += 1
-
-        if tau_weights is not None:
-            tau = _apply_edge_weight(tau, x[ind])
-            ind += 1
-
-        if nu_weights is not None:
-            nu = _apply_edge_weight(nu, x[ind])
-            ind += 1
-
-        if sigma_weights is not None:
-            sigma = _apply_edge_weight(sigma, x[ind])
-            ind += 1
-
-        s1 = xnp.einsum(
+        deta_term1 = xnp.einsum(
             '...aj,...j->...a',
-            xnp.einsum('...i,iaj->...aj', sigma, Q),
-            nu,
+            xnp.einsum('...i,iaj->...aj', weighted_sigma, Q),
+            weighted_nu,
         )
-        s2 = xnp.einsum(
+        deta_term2 = xnp.einsum(
             '...aj,...j->...a',
-            xnp.einsum('...i,iaj->...aj', mu, dG),
-            nu,
+            xnp.einsum('...i,iaj->...aj', weighted_mu, dG),
+            weighted_nu,
         )
-        s3 = xnp.einsum(
+        deta_term3 = xnp.einsum(
             '...aj,...j->...a',
-            xnp.einsum('...i,iaj->...aj', mu, P),
-            tau,
+            xnp.einsum('...i,iaj->...aj', weighted_mu, P),
+            weighted_tau,
         )
-        deta = s1 + s2 + s3
+        deta = deta_term1 + deta_term2 + deta_term3
 
         if deta_weights is not None:
-            deta = _apply_edge_weight(deta, x[ind])
-            ind += 1
+            weight = x[ind]
+            weighted_deta = _apply_edge_weight(deta, weight)
+        else:
+            weighted_deta = deta
 
-        return (deta,)
+        return (weighted_deta,)
 
-    xs = (left_tt_cores, right_tt_cores, var_tt_cores, mus, nus, sigmas, taus)
-    xs = xs + (mu_weights,)       if mu_weights     is not None else xs
-    xs = xs + (tau_weights,)      if tau_weights    is not None else xs
-    xs = xs + (nu_weights,)       if nu_weights     is not None else xs
-    xs = xs + (sigma_weights,)    if sigma_weights  is not None else xs
+    xs = (left_tt_cores, right_tt_cores, var_tt_cores,
+          weighted_mus, weighted_nus, weighted_sigmas, weighted_taus)
     xs = xs + (deta_weights,)     if deta_weights   is not None else xs
 
     detas_tuple = map(_func, xs)
     return detas_tuple[0]
 
 
-def assemble_tangent_probes(
+def assemble_weighted_tangent_zs(
         tucker_cores: typ.Sequence[NDArray],  # len=d. elm_shape=(nUi,Ni)
         var_tucker_cores: typ.Sequence[NDArray], # len=d. elm_shape=(nOi,Ni)
-        etas: typ.Sequence[NDArray], # etas. len=d, elm_shape=(...,nUi)
-        detas: typ.Sequence[NDArray], # detas. len=d, elm_shape=(...,nUi)
+        weighted_etas: typ.Sequence[NDArray], # etas. len=d, elm_shape=(...,nUi)
+        weighted_detas: typ.Sequence[NDArray], # detas. len=d, elm_shape=(...,nUi)
         shape_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(Ni,)
-        up_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nUi,)
-        outer_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
         map = common.ragged_map,
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # probes. len=d, elm_shape=(...,Ni)
@@ -1001,44 +788,33 @@ def assemble_tangent_probes(
     compute_detas
     probe_tangent
     '''
-    eta_weights   = up_tucker_weights
-    deta_weights  = outer_tucker_weights
-    probe_weights = shape_weights
+    z_weights = shape_weights
 
     def _func(x):
-        B, dB, eta, deta = x[0], x[1], x[2], x[3]
+        B, dB, weighted_eta, weighted_deta, ind = x[0], x[1], x[2], x[3], 4
 
-        ind = 4
-        if eta_weights is not None:
-            eta = _apply_edge_weight(eta, x[ind])
-            ind += 1
+        z_term1 = xnp.einsum('ao,...a->...o', B, weighted_deta)
+        z_term2 = xnp.einsum('ao,...a->...o', dB, weighted_eta)
+        z = z_term1 + z_term2
 
-        if deta_weights is not None:
-            deta = _apply_edge_weight(deta, x[ind])
-            ind += 1
+        if z_weights is not None:
+            weight = x[ind]
+            weighted_z = _apply_edge_weight(z, weight)
+        else:
+            weighted_z = z
 
-        s1 = xnp.einsum('ao,...a->...o', B, deta)
-        s2 = xnp.einsum('ao,...a->...o', dB, eta)
-        probe = s1 + s2
+        return (weighted_z,)
 
-        if probe_weights is not None:
-            probe = _apply_edge_weight(probe, x[ind])
-            ind += 1
+    xs = (tucker_cores, var_tucker_cores, weighted_etas, weighted_detas)
+    xs = xs + (z_weights,) if z_weights  is not None else xs
 
-        return (probe,)
-
-    xs = (tucker_cores, var_tucker_cores, etas, detas)
-    xs = xs + (eta_weights,)      if eta_weights    is not None else xs
-    xs = xs + (deta_weights,)     if deta_weights   is not None else xs
-    xs = xs + (probe_weights,)    if probe_weights  is not None else xs
-
-    (probes,) = map(_func, xs)
-    return probes
+    (weighted_zs,) = map(_func, xs)
+    return weighted_zs
 
 
 def probe_tangent(
+        ww: typ.Sequence[NDArray],  # input vectors, len=d, elm_shape=(...,Ni)
         variation: bvf.T3Variation, # tucker_var_shapes=(nOi,Ni), tt_var_shapes=tt_hole_shapes=(rLi,ni,rRi)
-        ww: typ.Sequence[NDArray], # input vectors, len=d, elm_shape=(...,Ni)
         base: bvf.T3Base, # tucker_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
         edge_weights: typ.Tuple[
             typ.Sequence[NDArray],  # shape_weights, len=d, elm_shape=(Ni,)
@@ -1102,8 +878,8 @@ def probe_tangent(
     >>> base, _ = orth.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-    >>> zz = t3p.probe_tangent(variation, ww, base)
-    >>> zz2 = t3p.probe_dense(t3m.tangent_to_dense(variation, base), ww)
+    >>> zz = t3p.probe_tangent(ww, variation, base)
+    >>> zz2 = t3p.probe_dense(ww, t3m.tangent_to_dense(variation, base))
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [4.6257812371663175e-15, 3.628238740198284e-15, 5.6097341748343224e-15]
 
@@ -1118,10 +894,10 @@ def probe_tangent(
     >>> base, _ = orth.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
     >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-    >>> zzz = t3p.probe_tangent(variation, www, base) # Compute probes!
-    >>> zzz2 = t3p.probe_dense(t3m.tangent_to_dense(variation, base), www)
-    >>> print([np.linalg.norm(zz - zz2, axis=1) for zz, zz2 in zip(zzz, zzz2)])
-    [array([3.18560984e-15, 5.06339604e-15]), array([1.74264349e-15, 5.10008230e-15]), array([2.17576097e-15, 2.94156728e-15])]
+    >>> zzz = t3p.probe_tangent(www, variation, base) # Compute probes!
+    >>> zzz2 = t3p.probe_dense(www,t3m.tangent_to_dense(variation, base))
+    >>> print([np.linalg.norm(zz - zz2) for zz, zz2 in zip(zzz, zzz2)])
+    [3.863711710898517e-15, 5.474255194514171e-15, 5.930347504865667e-15]
 
     Example with weights
 
@@ -1136,9 +912,9 @@ def probe_tangent(
     >>> variation = t3m.tangent_randn(base)
     >>> NN = [U.shape[1] for U in base[0]]
     >>> nnU = [U.shape[0] for U in base[0]]
-    >>> rrL = [L.shape[0] for L in base[1]] + [base[1][-1].shape[2]]
-    >>> rrR = [R.shape[0] for R in base[2]] + [base[2][-1].shape[2]]
-    >>> nnO = [O.shape[1] for O in base[3]] + [base[3][-1].shape[2]]
+    >>> rrL = [L.shape[0] for L in base[1]]
+    >>> rrR = [R.shape[2] for R in base[2]]
+    >>> nnO = [O.shape[1] for O in base[3]]
     >>> shape_weights = [randn(N) for N in NN]
     >>> up_tucker_weights = [randn(nU) for nU in nnU]
     >>> outer_tucker_weights = [randn(nO) for nO in nnO]
@@ -1146,9 +922,9 @@ def probe_tangent(
     >>> right_tt_weights = [randn(rR) for rR in rrR]
     >>> edge_weights = (shape_weights, up_tucker_weights, outer_tucker_weights, left_tt_weights, right_tt_weights)
     >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-    >>> zzz = t3p.probe_tangent(variation, www, base, edge_weights=edge_weights)
+    >>> zzz = t3p.probe_tangent(www, variation, base, edge_weights=edge_weights)
     >>> weighted_variation, weighted_base = t3p.absorb_weights_into_tangent(variation, base, edge_weights)
-    >>> zzz2 = t3p.probe_tangent(weighted_variation, www, weighted_base)
+    >>> zzz2 = t3p.probe_tangent(www, weighted_variation, weighted_base)
     >>> print([np.linalg.norm(zz - zz2) for zz, zz2 in zip(zzz, zzz2)])
     [1.5683512051190777e-15, 4.368484248906507e-15, 1.855735793037041e-15]
     '''
@@ -1167,112 +943,96 @@ def probe_tangent(
      left_tt_weights, right_tt_weights,
      ) = edge_weights
 
-    ww = _apply_edge_weights(ww, shape_weights, xnp=xnp) if shape_weights is not None else ww
+    weighted_ww = _apply_edge_weights(ww, shape_weights, xnp=xnp) if shape_weights is not None else ww
 
-    xis = compute_xis(
+    weighted_xis = compute_weighted_xis(
         up_tucker_cores,
-        ww,
-        shape_weights=None,
+        weighted_ww,
         up_tucker_weights=up_tucker_weights,
         map=map,
         xnp=xnp,
     )
 
-    mus = compute_mus(
+    weighted_mus = compute_weighted_mus(
         left_tt_cores,
-        xis,
+        weighted_xis,
         left_tt_weights=left_tt_weights,
-        up_tucker_weights=None,
         scan=scan,
         xnp=xnp,
     )
 
-    nus = compute_nus(
+    weighted_nus = compute_weighted_nus(
         right_tt_cores,
-        xis,
+        weighted_xis,
         right_tt_weights=right_tt_weights,
-        up_tucker_weights=None,
         scan=scan,
         xnp=xnp,
     )
 
-    etas = compute_etas(
+    weighted_etas = compute_weighted_etas(
         outer_tt_cores,
-        mus,
-        nus,
+        weighted_mus,
+        weighted_nus,
         outer_tucker_weights=outer_tucker_weights,
-        left_tt_weights=None,
-        right_tt_weights=None,
         map=map,
         xnp=xnp,
     )
 
-    dxis = compute_dxis(
+    weighted_dxis = compute_weighted_dxis(
         var_tucker_cores,
-        ww,
-        shape_weights=None,
+        weighted_ww,
         outer_tucker_weights=outer_tucker_weights,
         xnp=xnp,
     )
 
-    sigmas = compute_sigmas(
+    weighted_sigmas = compute_weighted_sigmas(
         var_tt_cores,
         right_tt_cores,
         outer_tt_cores,
-        xis,
-        dxis,
-        mus,
-        # up_tucker_weights=None,
-        outer_tucker_weights=None,
-        # left_tt_weights=left_tt_weights,
+        weighted_xis,
+        weighted_dxis,
+        weighted_mus,
         right_tt_weights=right_tt_weights,
         scan=scan,
         xnp=xnp,
     )
 
-    taus = compute_taus(
+    weighted_taus = compute_weighted_taus(
         var_tt_cores,
         left_tt_cores,
         outer_tt_cores,
-        xis,
-        dxis,
-        nus,
-        # up_tucker_weights=None,
-        outer_tucker_weights=None,
+        weighted_xis,
+        weighted_dxis,
+        weighted_nus,
         left_tt_weights=left_tt_weights,
-        # right_tt_weights=right_tt_weights,
         scan=scan,
         xnp=xnp,
     )
 
-    detas = compute_detas(
+    weighted_detas = compute_weighted_detas(
         var_tt_cores,
         left_tt_cores,
         right_tt_cores,
-        mus,
-        nus,
-        sigmas,
-        taus,
+        weighted_mus,
+        weighted_nus,
+        weighted_sigmas,
+        weighted_taus,
         up_tucker_weights=up_tucker_weights,
-        left_tt_weights=None,
-        right_tt_weights=None,
         map=map,
         xnp=xnp,
     )
 
-    zz = assemble_tangent_probes(
+    weighted_zz = assemble_weighted_tangent_zs(
         up_tucker_cores,
         var_tucker_cores,
-        etas,
-        detas,
+        weighted_etas,
+        weighted_detas,
         shape_weights=shape_weights,
-        up_tucker_weights=None,
-        outer_tucker_weights=None,
         map=map,
         xnp=xnp,
     )
 
-    return zz
+    return weighted_zz
 
 
 def absorb_weights_into_tangent(
@@ -1282,8 +1042,8 @@ def absorb_weights_into_tangent(
             typ.Sequence[NDArray],  # shape_weights, len=d, elm_shape=(Ni,)
             typ.Sequence[NDArray],  # up_tucker_weights, len=d, elm_shape=(nUi,)
             typ.Sequence[NDArray],  # outer_tucker_weights, len=d, elm_shape=(nOi,)
-            typ.Sequence[NDArray],  # left_tt_weights, len=d+1, elm_shape=(rLi,)
-            typ.Sequence[NDArray],  # right_tt_weights, len=d+1, elm_shape=(rRi,)
+            typ.Sequence[NDArray],  # left_tt_weights, len=d, elm_shape=(rLi,)
+            typ.Sequence[NDArray],  # right_tt_weights, len=d, elm_shape=(rRi,)
         ] = (None, None, None, None),
 ) -> typ.Tuple[
     bvf.T3Variation, # weighted variation
@@ -1309,19 +1069,19 @@ def absorb_weights_into_tangent(
 
     left_tt_cores = tuple([
         np.einsum('i,iaj->iaj', lw, L)
-        for lw, L in zip(left_tt_weights[:-1], left_tt_cores0)
+        for lw, L in zip(left_tt_weights, left_tt_cores0)
     ])
 
     right_tt_cores = tuple([
         np.einsum('iaj,j->iaj', R, rw)
-        for rw, R in zip(right_tt_weights[1:], right_tt_cores0)
+        for rw, R in zip(right_tt_weights, right_tt_cores0)
     ])
 
     outer_tt_cores = tuple([
         np.einsum('i,iaj,j->iaj', lw, O, rw)
         for lw, rw, O in zip(
-            left_tt_weights[:-1],
-            right_tt_weights[1:],
+            left_tt_weights,
+            right_tt_weights,
             outer_tt_cores0,
         )
     ])
@@ -1329,8 +1089,8 @@ def absorb_weights_into_tangent(
     var_tt_cores = tuple([
         np.einsum('i,iaj,j->iaj', lw, H, rw)
         for lw, rw, H in zip(
-            left_tt_weights[:-1],
-            right_tt_weights[1:],
+            left_tt_weights,
+            right_tt_weights,
             var_tt_cores0,
         )
     ])
@@ -1630,7 +1390,7 @@ import t3tools.corewise    >>> import numpy as np
     >>> base, _ = orth.orthogonal_representations(p)
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> v1 = t3m.tangent_randn(base)
-    >>> zz1 = t3p.probe_tangent(v1, ww, base)
+    >>> zz1 = t3p.probe_tangent(ww, v1, base)
     >>> zz2 = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> v2 = t3p.probe_tangent_transpose(zz2, ww, base)
     >>> ipA = t3toolbox.corewise.corewise_dot(v1, v2)
@@ -1651,7 +1411,7 @@ import t3tools.corewise    >>> import numpy as np
     >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
     >>> base, _ = orth.orthogonal_representations(p)
     >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-    >>> apply_J = lambda v: t3p.probe_tangent(v, ww, base)
+    >>> apply_J = lambda v: t3p.probe_tangent(ww, v, base)
     >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, ww, base)
     >>> v = t3m.tangent_randn(base)
     >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
@@ -1663,19 +1423,19 @@ import t3tools.corewise    >>> import numpy as np
 
     (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores) = base
 
-    xis = compute_xis(
+    xis = compute_weighted_xis(
         tucker_cores, ww, xnp=xnp,
     )
 
-    mus = compute_mus(
+    mus = compute_weighted_mus(
         left_tt_cores, xis, xnp=xnp,
     )
 
-    nus = compute_nus(
+    nus = compute_weighted_nus(
         right_tt_cores, xis, xnp=xnp,
     )
 
-    etas = compute_etas(
+    etas = compute_weighted_etas(
         outer_tt_cores, mus, nus, xnp=xnp,
     )
 
@@ -1711,3 +1471,124 @@ import t3tools.corewise    >>> import numpy as np
 
     return dU_tildes, dG_tildes
 
+
+###############################################
+##########    Probe dense tensor    ###########
+###############################################
+
+def probe_dense(
+        vectors: typ.Sequence[NDArray],
+        T: NDArray,
+        xnp=np,
+) -> typ.Tuple[NDArray]:
+    """Probe a dense tensor.
+
+    Parameters
+    ----------
+    T: NDArray
+        Tensor to be probed. shape=(N1,...,Nd)
+    vectors: typ.Sequence[NDArray]
+        Probing input vectors.
+        len=d.
+        elm_shape=(Ni,) or elm_shape=(num_probes, Ni)
+    xnp:
+        Linear algebra backend. Default: np (numpy)
+
+    Returns
+    -------
+    typ.Tuple[NDArray]
+        Probes.
+        len=d.
+        elm_shape=(Ni,) or elm_shape=(num_probes, Ni)
+
+    Examples
+    --------
+
+    Probe with one set of vectors:
+
+    >>> import numpy as np
+    >>> import t3toolbox.probing as t3p
+    >>> T = np.random.randn(10,11,12)
+    >>> u0 = np.random.randn(10)
+    >>> u1 = np.random.randn(11)
+    >>> u2 = np.random.randn(12)
+    >>> yy = t3p.probe_dense((u0,u1,u2),T)
+    >>> y0 = np.einsum('ijk,j,k', T, u1, u2)
+    >>> y1 = np.einsum('ijk,i,k', T, u0, u2)
+    >>> y2 = np.einsum('ijk,i,j', T, u0, u1)
+    >>> print(np.linalg.norm(yy[0] - y0))
+    2.0928808318295785e-14
+    >>> print(np.linalg.norm(yy[1] - y1))
+    1.0841599276764049e-14
+    >>> print(np.linalg.norm(yy[2] - y2))
+    1.2970142174948615e-14
+
+    Probe with two sets of vectors:
+
+    >>> import numpy as np
+    >>> import t3toolbox.t3p as t3p
+    >>> T = np.random.randn(10,11,12)
+    >>> u0, v0 = np.random.randn(10), np.random.randn(10)
+    >>> u1, v1 = np.random.randn(11), np.random.randn(11)
+    >>> u2, v2 = np.random.randn(12), np.random.randn(12)
+    >>> uuu = [np.vstack([u0,v0]), np.vstack([u1,v1]), np.vstack([u2,v2])]
+    >>> yyy = t3p.probe_dense(uuu,T)
+    >>> yy_u = t3p.probe_dense((u0,u1,u2),T)
+    >>> yy_v = t3p.probe_dense((v0,v1,v2),T)
+    >>> print(np.linalg.norm(yy_u[0] - yyy[0][0,:]))
+    0.0
+    >>> print(np.linalg.norm(yy_u[1] - yyy[1][0,:]))
+    0.0
+    >>> print(np.linalg.norm(yy_u[2] - yyy[2][0,:]))
+    0.0
+    >>> print(np.linalg.norm(yy_v[0] - yyy[0][1,:]))
+    0.0
+    >>> print(np.linalg.norm(yy_v[1] - yyy[1][1,:]))
+    0.0
+    >>> print(np.linalg.norm(yy_v[2] - yyy[2][1,:]))
+    0.0
+    """
+    num_cores = len(T.shape)
+    assert(len(vectors) == num_cores)
+    if len(vectors[0].shape) == 1:
+        vectorized=False
+        for ii in range(num_cores):
+            assert (len(vectors[ii].shape) == 1)
+    elif len(vectors[0].shape) == 2:
+        vectorized=True
+        for ii in range(num_cores):
+            assert (len(vectors[ii].shape) == 2)
+    else:
+        raise RuntimeError(
+            'Wrong vectors[ii] shape in probe_dense. Should be vector or matrix.\n'
+            + 'vectors[0].shape=' + str(vectors[0].shape)
+        )
+
+    vectors = list(vectors)
+    if vectorized == False:
+        for ii in range(num_cores):
+            vectors[ii] = vectors[ii].reshape((1,-1))
+
+    vector_lengths = tuple([x.shape[1] for x in vectors])
+    assert(vector_lengths == T.shape)
+
+    probes = []
+    for ii in range(num_cores):
+        Ai = T
+        for jj in range(ii):
+            if jj == 0:
+                Ai = xnp.einsum('pi,i...->p...', vectors[jj], Ai)
+            else:
+                Ai = xnp.einsum('pi,pi...->p...', vectors[jj], Ai)
+
+        for jj in range(num_cores-1, ii, -1):
+            if ii==0 and jj==num_cores-1:
+                Ai = xnp.einsum('pi,...i->p...', vectors[jj], Ai)
+            else:
+                Ai = xnp.einsum('pi,p...i->p...', vectors[jj], Ai)
+        probes.append(Ai)
+
+    if not vectorized:
+        probes = [Ai.reshape(-1) for Ai in probes]
+
+    return tuple(probes)
