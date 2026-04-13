@@ -30,7 +30,7 @@ __all__ = [
     'assemble_weighted_tangent_zs',
     'absorb_weights_into_tangent',
     # Transpose of map from tangent vector to probes
-    'compute_deta_tildes',
+    'compute_weighted_deta_tildes',
     'compute_tau_tildes',
     'compute_sigma_tildes',
     'compute_dxi_tildes',
@@ -1105,9 +1105,10 @@ def absorb_weights_into_tangent(
 ###########    Transpose of tangent to probes map    ##########
 ###############################################################
 
-def compute_deta_tildes(
-        ztildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,Ni)
-        tucker_cores: typ.Sequence[NDArray], # len=d, elm_shape=(ni,Ni)
+def compute_weighted_deta_tildes(
+        up_tucker_cores: typ.Sequence[NDArray],  # len=d, elm_shape=(ni,Ni)
+        weighted_ztildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,Ni)
+        up_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nUi,)
         map = common.ragged_map,
         xnp = np,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,ni)
@@ -1120,13 +1121,13 @@ def compute_deta_tildes(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    def _func(U_zt):
-        U, zt = U_zt
-        deta_tilde = xnp.einsum('ao,...o->...a', U, zt)
-        return [deta_tilde]
-
-    deta_tildes_tuple = map(_func, (tucker_cores, ztildes))
-    return deta_tildes_tuple[0]
+    return compute_weighted_xis(
+        up_tucker_cores,
+        weighted_ztildes,
+        up_tucker_weights=up_tucker_weights,
+        map=map,
+        xnp=xnp,
+    )
 
 
 def compute_tau_tildes(
@@ -1380,7 +1381,8 @@ def probe_tangent_transpose(
 
     Apply transpose map with one set of probing vectors:
 
-import t3tools.corewise    >>> import numpy as np
+    >>> import numpy as np
+    >>> import t3toolbox.corewise as cw
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.manifold as t3m
     >>> import t3toolbox.probing as t3p
@@ -1393,16 +1395,17 @@ import t3tools.corewise    >>> import numpy as np
     >>> zz1 = t3p.probe_tangent(ww, v1, base)
     >>> zz2 = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> v2 = t3p.probe_tangent_transpose(zz2, ww, base)
-    >>> ipA = t3toolbox.corewise.corewise_dot(v1, v2)
+    >>> ipA = cw.corewise_dot(v1, v2)
     >>> print(ipA)
     17.958317927787
-import t3tools.corewise    >>> ipB = t3tools.corewise.corewise_dot(zz1, zz2)
+    >>> ipB = cw.corewise_dot(zz1, zz2)
     >>> print(ipB)
     17.958317927787
 
     Apply transpose map with two sets of probing vectors:
 
-import t3tools.corewise    >>> import numpy as np
+import t3tools.corewise
+    >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.manifold as t3m
     >>> import t3toolbox.probing as t3p
@@ -1421,10 +1424,10 @@ import t3tools.corewise    >>> import numpy as np
     num_cores = len(ztildes)
     assert(len(ww) == num_cores)
 
-    (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores) = base
+    (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores) = base
 
     xis = compute_weighted_xis(
-        tucker_cores, ww, xnp=xnp,
+        up_tucker_cores, ww, xnp=xnp,
     )
 
     mus = compute_weighted_mus(
@@ -1441,8 +1444,8 @@ import t3tools.corewise    >>> import numpy as np
 
     #
 
-    deta_tildes = compute_deta_tildes(
-        ztildes, tucker_cores, xnp=xnp,
+    deta_tildes = compute_weighted_deta_tildes(
+        up_tucker_cores, ztildes, xnp=xnp,
     )
 
     tau_tildes = compute_tau_tildes(
