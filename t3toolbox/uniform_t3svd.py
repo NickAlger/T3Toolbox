@@ -24,6 +24,7 @@ NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray,
 def ut3_svd(
         cores: ut3.UniformTuckerTensorTrainCores,
         masks: ut3.UniformTuckerTensorTrainMasks,
+        xnp = np,
 ) -> typ.Tuple[
     ut3.UniformTuckerTensorTrainCores,
     NDArray, # basis_singular_values, shape=(d, n)
