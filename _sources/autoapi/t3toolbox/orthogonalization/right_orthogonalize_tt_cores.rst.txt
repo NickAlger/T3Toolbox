@@ -1,4 +1,4 @@
 t3toolbox.orthogonalization.right_orthogonalize_tt_cores
 ========================================================
 
-.. py:function:: t3toolbox.orthogonalization.right_orthogonalize_tt_cores(tt_cores: t3toolbox.common.typ.Sequence[NDArray], use_jax: bool = False) -> t3toolbox.common.typ.Tuple[NDArray]
+.. py:function:: t3toolbox.orthogonalization.right_orthogonalize_tt_cores(tt_cores: t3toolbox.common.typ.Sequence[NDArray], return_variation_cores: bool = False, use_jax: bool = False)
