@@ -1,7 +1,7 @@
 t3toolbox.probing.probe_tangent
 ===============================
 
-.. py:function:: t3toolbox.probing.probe_tangent(ww: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], variation: t3toolbox.base_variation_format.T3Variation, base: t3toolbox.base_variation_format.T3Base, edge_weights: t3toolbox.base_variation_format.BVEdgeWeights = (None, None, None, None, None), xmap=common.ragged_map, xscan=common.ragged_scan, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
+.. py:function:: t3toolbox.probing.probe_tangent(ww: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], variation: t3toolbox.base_variation_format.T3Variation, base: t3toolbox.base_variation_format.T3Base, edge_weights: t3toolbox.base_variation_format.BVEdgeWeights = (None, None, None, None, None), use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
 
    Probe a tangent vector.
 
@@ -100,8 +100,7 @@ t3toolbox.probing.probe_tangent
    >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
    >>> uniform_variation, uniform_base, masks = ut3.bv_to_ubv(variation, base)
    >>> uniform_www = ut3.pack_tensors(www)
-   # >>> uniform_zzz = t3p.probe_tangent(uniform_www, uniform_variation, uniform_base, edge_weights=masks) # <-- Bug
-   >>> uniform_zzz = t3p.probe_tangent(uniform_www, uniform_variation, uniform_base) # OK
+   >>> uniform_zzz = t3p.probe_tangent(uniform_www, uniform_variation, uniform_base, edge_weights=masks)
    >>> zzz2 = t3p.probe_tangent(www, variation, base)
    >>> uniform_zzz2 = ut3.pack_tensors(zzz2)
    >>> print(np.linalg.norm(uniform_zzz - uniform_zzz2))

@@ -1,7 +1,7 @@
 t3toolbox.probing.probe_tangent_transpose
 =========================================
 
-.. py:function:: t3toolbox.probing.probe_tangent_transpose(ztildes: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], ww: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], base: t3toolbox.base_variation_format.T3Base, edge_weights: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]] = (None, None, None, None, None), sum_over_probes: bool = False, xnp=np) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]]
+.. py:function:: t3toolbox.probing.probe_tangent_transpose(ztildes: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], ww: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], base: t3toolbox.base_variation_format.T3Base, edge_weights: t3toolbox.base_variation_format.BVEdgeWeights = (None, None, None, None, None), sum_over_probes: bool = False, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]]
 
    Apply the transpose of the map from a T3Tangent to its probes. Apply to ztildes.
 
@@ -100,4 +100,34 @@ t3toolbox.probing.probe_tangent_transpose
    >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
    >>> print(cw.corewise_dot(z, apply_J(v)) - cw.corewise_dot(apply_Jt(z), v))
    -1.7763568394002505e-15
+
+   Probe uniform T3
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.uniform as ut3
+   >>> import t3toolbox.manifold as t3m
+   >>> import t3toolbox.probing as t3p
+   >>> import t3toolbox.orthogonalization as orth
+   >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+   >>> base, _ = orth.orthogonal_representations(p)
+   >>> variation = t3m.tangent_randn(base)
+   >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+   >>> uniform_variation, uniform_base, masks = ut3.bv_to_ubv(variation, base)
+   >>> uniform_www = ut3.pack_tensors(www)
+
+   >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+   >>> base, _ = orth.orthogonal_representations(p)
+   >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+   >>> apply_J = lambda v: t3p.probe_tangent(ww, v, base)
+   >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, ww, base)
+   >>> v = t3m.tangent_randn(base)
+   >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+   >>> print(cw.corewise_dot(z, apply_J(v)) - cw.corewise_dot(apply_Jt(z), v))
+
+   # >>> uniform_zzz = t3p.probe_tangent(uniform_www, uniform_variation, uniform_base, edge_weights=masks) # <-- Bug
+   >>> uniform_zzz = t3p.probe_tangent(uniform_www, uniform_variation, uniform_base) # OK
+   >>> zzz2 = t3p.probe_tangent(www, variation, base)
+   >>> uniform_zzz2 = ut3.pack_tensors(zzz2)
+   >>> print(np.linalg.norm(uniform_zzz - uniform_zzz2))
 
