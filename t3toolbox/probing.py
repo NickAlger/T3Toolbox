@@ -188,9 +188,9 @@ def _apply_edge_weights(edge_variables, edge_weights, use_jax: bool=False):
 
 
 def compute_xis(
-        up_tucker_cores: typ.Sequence[NDArray], # len=d. elm_shape=(nUi,Ni)
-        ww: typ.Sequence[NDArray], # len=d. elm_shape=(...,Ni)
-        up_tucker_weights: typ.Sequence[NDArray] = None, # len=d, elm_shape=(nUi,)
+        up_tucker_cores:    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(nUi,Ni)
+        ww:                 typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,Ni)
+        up_tucker_weights:  typ.Union[typ.Sequence[NDArray], NDArray] = None, # len=d, elm_shape=(nUi,)
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # weighted_xis. len=d, elm_shape=(...,nUi)
     '''Compute upward edge variables associated with edges between Tucker cores and adjacent TT-cores.
@@ -251,9 +251,9 @@ def compute_xis(
 
 
 def compute_mus(
-        left_tt_cores: typ.Sequence[NDArray], # len=d-1. elm_shape=(rLi,nUi,rL(i+1))
-        xis: typ.Sequence[NDArray], # len=d. elm_shape=(...,nUi)
-        left_tt_weights: typ.Sequence[NDArray] = None, # len=d, elm_shape=(rLi,)
+        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d-1. elm_shape=(rLi,nUi,rL(i+1))
+        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,nUi)
+        left_tt_weights:    typ.Union[typ.Sequence[NDArray], NDArray] = None, # len=d, elm_shape=(rLi,)
         use_jax: bool = False,
 ) -> typ.Sequence[NDArray]: # mus. len=d, elm_shape=(...,rLi)
     '''Compute leftward edge variables associated with edges between adjacent TT-cores.
@@ -323,9 +323,9 @@ def compute_mus(
 
 
 def compute_nus(
-        right_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(rRi,nUi,rR(i+1))
-        xis, # len=d. elm_shape=(...,nUi)
-        right_tt_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(rRi,)
+        right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(rRi,nUi,rR(i+1))
+        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,nUi)
+        right_tt_weights:   typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d, elm_shape=(rRi,)
         use_jax: bool = False,
 ) -> typ.Sequence[NDArray]: # nus. len=d, elm_shape=(...,rR(i+1))
     '''Compute rightward edge variables associated with edges between adjacent TT-cores.
@@ -375,10 +375,10 @@ def compute_nus(
 
 
 def compute_etas(
-        outer_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(rLi,nOi,rR(i+1))
-        mus, # len=d. elm_shape=(...,rLi)
-        nus, # len=d. elm_shape=(...,rR(i+1))
-        outer_tucker_weights: typ.Sequence[NDArray] = None, # len=d, elm_shape=(nOi)
+        outer_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(rLi,nOi,rR(i+1))
+        mus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,rLi)
+        nus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,rR(i+1))
+        outer_tucker_weights:   typ.Union[typ.Sequence[NDArray], NDArray] = None, # len=d, elm_shape=(nOi)
         use_jax: bool = False,
 ) -> typ.Sequence[NDArray]: # weighted_etas. len=d, elm_shape=(...,nOi)
     '''Compute downward edge variables associated with edges between Tucker cores and adjacent TT-cores.
@@ -448,9 +448,9 @@ def compute_etas(
 
 
 def assemble_zs(
-        tucker_cores: typ.Sequence[NDArray],  # len=d. elm_shape=(ni,Ni)
-        etas,  # len=d. elm_shape=(...,ni)
-        shape_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(Ni,)
+        tucker_cores:   typ.Union[typ.Sequence[NDArray], NDArray],  # len=d. elm_shape=(ni,Ni)
+        etas:           typ.Union[typ.Sequence[NDArray], NDArray],  # len=d. elm_shape=(...,ni)
+        shape_weights:  typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d, elm_shape=(Ni,)
         use_jax: bool = False,
 ) -> typ.Sequence[NDArray]: # weighted_zs. len=d, elm_shape=(...,Ni)
     '''Assemble probes from downward edge variables.
