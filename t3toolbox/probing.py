@@ -1516,40 +1516,29 @@ def probe_tangent_transpose(
     >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
     >>> base, _ = orth.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
-    >>> www = (np.random.randn(1,10), np.random.randn(1,11), np.random.randn(1,12))
+    >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
     >>> V, B, masks = ut3.bv_to_ubv(variation, base)
     >>> uniform_ww = ut3.pack_tensors(www)
     >>> apply_J = lambda v: t3p.probe_tangent(uniform_ww, v, B, edge_weights=masks)
     >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, uniform_ww, B, edge_weights=masks)
-    >>> z = (np.random.randn(1,10), np.random.randn(1,11), np.random.randn(1,12))
+    >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
     >>> Z = ut3.pack_tensors(z)
     >>> JV = apply_J(V)
     >>> JTZ = apply_Jt(Z)
     >>> print([x.shape for x in JTZ])
-    [(3, 1, 6, 12), (3, 1, 4, 6, 4)]
+    [(3, 2, 6, 12), (3, 2, 4, 6, 4)]
     >>> print([x.shape for x in V])
     [(3, 6, 12), (3, 4, 6, 4)]
     >>> print([x.shape for x in JV])
-    [(1, 12), (1, 12), (1, 12)]
+    [(2, 12), (2, 12), (2, 12)]
     >>> print([x.shape for x in Z])
-    [(1, 12), (1, 12), (1, 12)]
+    [(2, 12), (2, 12), (2, 12)]
+    >>> print(cw.corewise_dot([x[0,:] for x in Z], [x[0,:] for x in JV]) - cw.corewise_dot([x[:,0,:,:] for x in JTZ], V))
+    -2.842170943040401e-14
+    >>> print(cw.corewise_dot([x[1,:] for x in Z], [x[1,:] for x in JV]) - cw.corewise_dot([x[:,1,:,:] for x in JTZ], V))
+    8.881784197001252e-15
     >>> print(cw.corewise_dot(Z, JV) - cw.corewise_dot(JTZ, V))
-    -9.14606181679698
-    >>> print(cw.corewise_dot(Z, JV) - cw.corewise_dot([x[:,0,:,:] for x in JTZ], V))
-    8.881784197001252e-16
-
-    >>> JTZ0 = [x[:,0,:,:] for x in JTZ]
-    >>> JV0 = [x[0,:] for x in JV]
-    >>> print(cw.corewise_dot(Z, JV0) - cw.corewise_dot(JTZ0, V))
-
-    >>> print(cw.corewise_dot(Z, JV) - cw.corewise_dot(JTZ, V))
-
-    >>> JTZ0 = [[x[0] for x in y] for y in JTZ]
-    >>> cw.corewise_dot(JTZ0, V)
-    >>> cw.corewise_dot([[x[0] for x in y] for y in JTZ], V)
-    >>> print([[x.shape for x in y] for y in JTZ0])
-    >>> print([[x.shape for x in y] for y in V])
-    >>> print(cw.corewise_dot(Z, JV) - cw.corewise_dot(JTZ, V))
+    ERROR!
 
     '''
     is_ragged = isinstance(base[0], typ.Sequence)
