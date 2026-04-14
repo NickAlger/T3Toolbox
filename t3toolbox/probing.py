@@ -19,7 +19,6 @@ __all__ = [
     'probe_dense',
     # Probe a Tucker tensor train
     'probe_t3',
-    'absorb_weights_into_cores',
     'compute_xis',
     'compute_mus',
     'compute_nus',
@@ -32,7 +31,6 @@ __all__ = [
     'compute_taus',
     'compute_detas',
     'assemble_tangent_zs',
-    'absorb_weights_into_tangent',
     # Transpose of map from tangent vector to probes
     'compute_deta_tildes',
     'compute_tau_tildes',
@@ -114,7 +112,7 @@ def probe_t3(
     >>> edge_weights = (shape_weights, tucker_weights, tt_weights)
     >>> ww = [np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12)]
     >>> zz = t3p.probe_t3(ww, x0,edge_weights=edge_weights)
-    >>> x = t3p.absorb_weights_into_cores(x0, edge_weights)
+    >>> x = t3.absorb_edge_weights_into_cores(x0, edge_weights)
     >>> zz2 = t3p.probe_t3(ww, x)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [3.372228193172379e-14, 3.826148129405782e-14, 2.294115439089251e-14]
@@ -165,32 +163,6 @@ def probe_t3(
     )
 
     return zs
-
-
-def absorb_weights_into_cores(
-        x0: t3.TuckerTensorTrain,
-        weights: typ.Tuple[
-            typ.Sequence[NDArray], # shape_weights, len=d, elm_shape=(Ni,)
-            typ.Sequence[NDArray], # tucker_weights, len=d, elm_shape=(ni,)
-            typ.Sequence[NDArray], # tt_weights, len=d+1, elm_shape=(ri,)
-        ]
-) -> t3.TuckerTensorTrain:
-    tucker_cores0, tt_cores0 = x0
-    shape_weights, tucker_weights, tt_weights = weights
-
-    tucker_cores = tuple([
-        np.einsum('i,io,o->io', tw, B, sw)
-        for tw, B, sw in zip(tucker_weights, tucker_cores0, shape_weights)
-    ])
-
-    first_tt_cores = tuple([
-        np.einsum('i,iaj->iaj', lw, G)
-        for lw, G in zip(tt_weights[:-2], tt_cores0[:-1])
-    ])
-    last_tt_core = np.einsum('i,iaj,j->iaj', tt_weights[-2], tt_cores0[-1], tt_weights[-1])
-    tt_cores = first_tt_cores + (last_tt_core,)
-
-    return tucker_cores, tt_cores
 
 
 def _apply_edge_weight(edge_variable, edge_weight, xnp=np):
@@ -260,7 +232,7 @@ def compute_xis(
 
         if xi_weights is not None:
             weight = x[ind]
-            xi = _apply_edge_weight(unweighted_xi, weight)
+            xi = _apply_edge_weight(unweighted_xi, weight, xnp=xnp)
         else:
             xi = unweighted_xi
 
@@ -323,7 +295,7 @@ def compute_mus(
 
         if mu_weights is not None:
             weight = x[ind]
-            mu = _apply_edge_weight(unweighted_mu, weight)
+            mu = _apply_edge_weight(unweighted_mu, weight, xnp=xnp)
         else:
             mu = unweighted_mu
 
@@ -456,7 +428,7 @@ def compute_etas(
 
         if eta_weights is not None:
             weight = x[ind]
-            eta = _apply_edge_weight(unweighted_eta, weight)
+            eta = _apply_edge_weight(unweighted_eta, weight, xnp=xnp)
         else:
             eta = unweighted_eta
 
@@ -520,7 +492,7 @@ def assemble_zs(
 
         if z_weights is not None:
             weight = x[ind]
-            z = _apply_edge_weight(unweighted_z, weight)
+            z = _apply_edge_weight(unweighted_z, weight, xnp=xnp)
         else:
             z = unweighted_z
 
@@ -624,7 +596,7 @@ def compute_sigmas(
 
         if sigma_weights is not None:
             weight = x[ind]
-            sigma_next = _apply_edge_weight(unweighted_sigma_next, weight)
+            sigma_next = _apply_edge_weight(unweighted_sigma_next, weight, xnp=xnp)
         else:
             sigma_next = unweighted_sigma_next
 
@@ -743,7 +715,7 @@ def compute_detas(
 
         if deta_weights is not None:
             weight = x[ind]
-            deta = _apply_edge_weight(unweighted_deta, weight)
+            deta = _apply_edge_weight(unweighted_deta, weight, xnp=xnp)
         else:
             deta = unweighted_deta
 
@@ -796,7 +768,7 @@ def assemble_tangent_zs(
 
         if z_weights is not None:
             weight = x[ind]
-            z = _apply_edge_weight(unweighted_z, weight)
+            z = _apply_edge_weight(unweighted_z, weight, xnp=xnp)
         else:
             z = unweighted_z
 
@@ -912,7 +884,7 @@ def probe_tangent(
     >>> edge_weights = (shape_weights, up_tucker_weights, outer_tucker_weights, left_tt_weights, right_tt_weights)
     >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
     >>> zzz = t3p.probe_tangent(www, variation, base, edge_weights=edge_weights)
-    >>> weighted_variation, weighted_base = t3p.absorb_weights_into_tangent(variation, base, edge_weights)
+    >>> weighted_variation, weighted_base = t3m.absorb_weights_into_tangent_cores(variation, base, edge_weights)
     >>> zzz2 = t3p.probe_tangent(www, weighted_variation, weighted_base)
     >>> print([np.linalg.norm(zz - zz2) for zz, zz2 in zip(zzz, zzz2)])
     [1.5683512051190777e-15, 4.368484248906507e-15, 1.855735793037041e-15]
@@ -991,72 +963,6 @@ def probe_tangent(
     return zz
 
 
-def absorb_weights_into_tangent(
-        variation: bvf.T3Variation,
-        base: bvf.T3Base,
-        edge_weights: typ.Tuple[
-            typ.Sequence[NDArray],  # shape_weights, len=d, elm_shape=(Ni,)
-            typ.Sequence[NDArray],  # up_tucker_weights, len=d, elm_shape=(nUi,)
-            typ.Sequence[NDArray],  # outer_tucker_weights, len=d, elm_shape=(nOi,)
-            typ.Sequence[NDArray],  # left_tt_weights, len=d, elm_shape=(rLi,)
-            typ.Sequence[NDArray],  # right_tt_weights, len=d, elm_shape=(rRi,)
-        ] = (None, None, None, None),
-) -> typ.Tuple[
-    bvf.T3Variation, # weighted variation
-    bvf.T3Base, # weighted base
-]:
-    (shape_weights,
-     up_tucker_weights, outer_tucker_weights,
-     left_tt_weights, right_tt_weights,
-     ) = edge_weights
-
-    (up_tucker_cores0, left_tt_cores0, right_tt_cores0, outer_tt_cores0) = base
-    (var_tucker_cores0, var_tt_cores0) = variation
-
-    up_tucker_cores = tuple([
-        np.einsum('i,io,o->io', tw, U, sw)
-        for tw, U, sw in zip(up_tucker_weights, up_tucker_cores0, shape_weights)
-    ])
-
-    var_tucker_cores = [
-        np.einsum('i,io,o->io', tw, V, sw)
-        for tw, V, sw in zip(outer_tucker_weights, var_tucker_cores0, shape_weights)
-    ]
-
-    left_tt_cores = tuple([
-        np.einsum('i,iaj->iaj', lw, L)
-        for lw, L in zip(left_tt_weights, left_tt_cores0)
-    ])
-
-    right_tt_cores = tuple([
-        np.einsum('iaj,j->iaj', R, rw)
-        for rw, R in zip(right_tt_weights, right_tt_cores0)
-    ])
-
-    outer_tt_cores = tuple([
-        np.einsum('i,iaj,j->iaj', lw, O, rw)
-        for lw, rw, O in zip(
-            left_tt_weights,
-            right_tt_weights,
-            outer_tt_cores0,
-        )
-    ])
-
-    var_tt_cores = tuple([
-        np.einsum('i,iaj,j->iaj', lw, H, rw)
-        for lw, rw, H in zip(
-            left_tt_weights,
-            right_tt_weights,
-            var_tt_cores0,
-        )
-    ])
-
-    weighted_base = (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-    weighted_variation = (var_tucker_cores, var_tt_cores)
-
-    return weighted_variation, weighted_base
-
-
 ###############################################################
 ###########    Transpose of tangent to probes map    ##########
 ###############################################################
@@ -1111,7 +1017,7 @@ def compute_tau_tildes(
 
         if tau_tilde_weights is not None:
             weight = x[ind]
-            tau_tilde = _apply_edge_weight(unweighted_tau_tilde, weight)
+            tau_tilde = _apply_edge_weight(unweighted_tau_tilde, weight, xnp=xnp)
         else:
             tau_tilde = unweighted_tau_tilde
 
@@ -1206,7 +1112,7 @@ def compute_dxi_tildes(
 
         if dxi_tilde_weights is not None:
             weight = x[ind]
-            dxi_tilde = _apply_edge_weight(unweighted_dxi_tilde, weight)
+            dxi_tilde = _apply_edge_weight(unweighted_dxi_tilde, weight, xnp=xnp)
         else:
             dxi_tilde = unweighted_dxi_tilde
 
@@ -1559,7 +1465,7 @@ def probe_tangent_transpose(
 def probe_dense(
         vectors: typ.Sequence[NDArray],
         T: NDArray,
-        xnp=np,
+        use_jax: bool = False,
 ) -> typ.Tuple[NDArray]:
     """Probe a dense tensor.
 
@@ -1628,6 +1534,10 @@ def probe_dense(
     >>> print(np.linalg.norm(yy_v[2] - yyy[2][1,:]))
     0.0
     """
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
+
     num_cores = len(T.shape)
     assert(len(vectors) == num_cores)
     if len(vectors[0].shape) == 1:

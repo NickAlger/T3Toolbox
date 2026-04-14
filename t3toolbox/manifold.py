@@ -18,6 +18,7 @@ __all__ = [
     'tangent_to_t3',
     'tangent_zeros',
     'tangent_randn',
+    'absorb_weights_into_tangent_cores',
     # Projection and retraction
     'orthogonal_gauge_projection',
     'oblique_gauge_projection',
@@ -316,6 +317,64 @@ def tangent_zeros(
 
     zero_variation = (tucker_vars, tt_vars)
     return zero_variation
+
+
+def absorb_weights_into_tangent_cores(
+        variation: bvf.T3Variation,
+        base: bvf.T3Base,
+        edge_weights: bvf.BVEdgeWeights = (None, None, None, None),
+        use_jax: bool = False,
+) -> typ.Tuple[
+    bvf.T3Variation, # weighted variation
+    bvf.T3Base, # weighted base
+]:
+    is_ragged = isinstance(base[0], typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+
+    #
+
+    (shape_weights,
+     up_tucker_weights, outer_tucker_weights,
+     left_tt_weights, right_tt_weights,
+     ) = edge_weights
+
+    (up_tucker_cores0, left_tt_cores0, right_tt_cores0, outer_tt_cores0) = base
+    (var_tucker_cores0, var_tt_cores0) = variation
+
+    (up_tucker_cores,) = xmap(
+        lambda x: (xnp.einsum('i,io,o->io', x[0], x[1], x[2]),),
+        (up_tucker_weights, up_tucker_cores0, shape_weights)
+    )
+
+    (var_tucker_cores,) = xmap(
+        lambda x: (xnp.einsum('i,io,o->io', x[0], x[1], x[2]),),
+        (outer_tucker_weights, var_tucker_cores0, shape_weights)
+    )
+
+    (left_tt_cores,) = xmap(
+        lambda x: (xnp.einsum('i,iaj->iaj', x[0], x[1]),),
+        (left_tt_weights, left_tt_cores0)
+    )
+
+    (right_tt_cores,) = xmap(
+        lambda x: (xnp.einsum('iaj,j->iaj', x[0], x[1]),),
+        (right_tt_cores0, right_tt_weights)
+    )
+
+    (outer_tt_cores,) = xmap(
+        lambda x: (xnp.einsum('i,iaj,j->iaj', x[0], x[1], x[2]),),
+        (left_tt_weights, outer_tt_cores0, right_tt_weights)
+    )
+
+    (var_tt_cores,) = xmap(
+        lambda x: (xnp.einsum('i,iaj,j->iaj', x[0], x[1], x[2]),),
+        (left_tt_weights, var_tt_cores0, right_tt_weights)
+    )
+
+    weighted_base = (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+    weighted_variation = (var_tucker_cores, var_tt_cores)
+
+    return weighted_variation, weighted_base
 
 
 def tangent_randn(

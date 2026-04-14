@@ -55,6 +55,7 @@ __all__ = [
     'reverse_tt',
     'reverse_t3',
     'check_t3',
+    'absorb_edge_weights_into_cores',
     't3_zeros',
     't3_corewise_randn',
     'compute_minimal_ranks',
@@ -493,6 +494,55 @@ def reverse_t3(
     reversed_tt_cores = reverse_tt(tt_cores)
     reversed_x = (reversed_tucker_cores, reversed_tt_cores)
     return reversed_x
+
+
+def absorb_edge_weights_into_cores(
+        x0: TuckerTensorTrain, # Should also work for uniform. Maybe move this
+        weights: EdgeWeights,
+        use_jax: bool = False,
+) -> TuckerTensorTrain:
+    """Contract each edge weight into a neighboring core.
+
+    Tensor network diagram illustrating groupings::
+
+             ____     ____     ________
+            /    \   /    \   /        \
+        1---w---G0---w---G1---w---G2---w---1
+                |        |        |
+              / w      / w      / w
+              | |      | |      | |
+              | B0     | B1     | B2
+              | |      | |      | |
+              \ w      \ w      \ w
+                |        |        |
+
+    """
+    is_ragged = isinstance(x0[0], typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+
+    #
+
+    tucker_cores0, tt_cores0 = x0
+    shape_weights, tucker_weights, tt_weights = weights
+
+    (tucker_cores,) = xmap(
+        lambda tw_B_sw: (xnp.einsum('i,io,o->io', tw_B_sw[0], tw_B_sw[1], tw_B_sw[2]),),
+        (tucker_weights, tucker_cores0, shape_weights)
+    )
+
+    (first_tt_cores,) = xmap(
+        lambda lw_G: (xnp.einsum('i,iaj->iaj', lw_G[0], lw_G[1]),),
+        (tt_weights[:-2], tt_cores0[:-1])
+    )
+
+    Gf = xnp.einsum('i,iaj,j->iaj', tt_weights[-2], tt_cores0[-1], tt_weights[-1])
+
+    if is_ragged:
+        tt_cores = tuple(first_tt_cores) + (Gf,)
+    else:
+        tt_cores = xnp.concatenate([first_tt_cores, Gf.reshape((1,)+Gf.shape)], axis=0)
+
+    return tucker_cores, tt_cores
 
 
 def t3_zeros(

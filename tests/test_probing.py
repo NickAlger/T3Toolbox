@@ -10,12 +10,12 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.manifold as t3m
 import t3toolbox.probing as t3p
 
+
 try:
-    import t3toolbox.jax.probing as t3p_jax
     import jax
     jax.config.update("jax_enable_x64", True)
 except ImportError:
-    probing_jax = t3p
+    pass
 
 np.random.seed(0)
 tol = 1e-9
@@ -32,14 +32,14 @@ class TestProbing(unittest.TestCase):
         ]
 
         for SHAPE in shapes:
-            for T3P in [t3p, t3p_jax]:
-                with self.subTest(T3P=T3P, SHAPE=SHAPE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, SHAPE=SHAPE):
                     T = np.random.randn(*SHAPE)
                     u0 = np.random.randn(SHAPE[0])
                     u1 = np.random.randn(SHAPE[1])
                     u2 = np.random.randn(SHAPE[2])
 
-                    yy = T3P.probe_dense((u0, u1, u2), T)
+                    yy = t3p.probe_dense((u0, u1, u2), T)
 
                     y0 = np.einsum('ijk,j,k', T, u1, u2)
                     y1 = np.einsum('ijk,i,k', T, u0, u2)
@@ -54,15 +54,15 @@ class TestProbing(unittest.TestCase):
         ]
 
         for SHAPE in shapes:
-            for T3P in [t3p, t3p_jax]:
-                with self.subTest(T3P=T3P, SHAPE=SHAPE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, SHAPE=SHAPE):
                     T = np.random.randn(*SHAPE)
                     u0, v0 = np.random.randn(SHAPE[0]), np.random.randn(SHAPE[0])
                     u1, v1 = np.random.randn(SHAPE[1]), np.random.randn(SHAPE[1])
                     u2, v2 = np.random.randn(SHAPE[2]), np.random.randn(SHAPE[2])
                     uuu = [np.vstack([u0, v0]), np.vstack([u1, v1]), np.vstack([u2, v2])]
 
-                    yyy = T3P.probe_dense(uuu, T)
+                    yyy = t3p.probe_dense(uuu, T, use_jax=USE_JAX)
 
                     yy_u = t3p.probe_dense((u0, u1, u2), T)
                     yy_v = t3p.probe_dense((v0, v1, v2), T)
@@ -127,8 +127,8 @@ class TestProbing(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for T3P in [t3p, t3p_jax]:
-                with self.subTest(T3P=T3P, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
                     base, _ = orth.orthogonal_representations(p)
                     variation = t3m.tangent_randn(base)
@@ -138,7 +138,7 @@ class TestProbing(unittest.TestCase):
                           np.random.randn(SHAPE[1]),
                           np.random.randn(SHAPE[2]))
 
-                    zz = T3P.probe_tangent(ww, variation, base)
+                    zz = t3p.probe_tangent(ww, variation, base, use_jax=USE_JAX)
 
                     zz2 = t3p.probe_dense(ww, t3m.tangent_to_dense(variation, base))
 
@@ -152,8 +152,8 @@ class TestProbing(unittest.TestCase):
         NUM_PROBES = 2
 
         for STRUCTURE in structures:
-            for T3P in [t3p, t3p_jax]:
-                with self.subTest(T3P=T3P, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
                     base, _ = orth.orthogonal_representations(p)
                     variation = t3m.tangent_randn(base)
@@ -163,7 +163,7 @@ class TestProbing(unittest.TestCase):
                            np.random.randn(NUM_PROBES, SHAPE[1]),
                            np.random.randn(NUM_PROBES, SHAPE[2]))
 
-                    zzz = T3P.probe_tangent(www, variation, base)  # Compute probes!
+                    zzz = t3p.probe_tangent(www, variation, base, use_jax=USE_JAX)  # Compute probes!
 
                     zzz2 = t3p.probe_dense(www, t3m.tangent_to_dense(variation, base))
 
@@ -176,8 +176,8 @@ class TestProbing(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for T3P in [t3p, t3p_jax]:
-                with self.subTest(T3P=T3P, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
                     base, _ = orth.orthogonal_representations(p)
 
@@ -188,7 +188,7 @@ class TestProbing(unittest.TestCase):
 
                     v1 = t3m.tangent_randn(base)
 
-                    zz1 = T3P.probe_tangent(ww, v1, base)
+                    zz1 = t3p.probe_tangent(ww, v1, base, use_jax=USE_JAX)
 
                     zz2 = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
                     v2 = t3p.probe_tangent_transpose(zz2, ww, base)
@@ -203,8 +203,8 @@ class TestProbing(unittest.TestCase):
         NUM_PROBES = 2
 
         for STRUCTURE in structures:
-            for T3P in [t3p, t3p_jax]:
-                with self.subTest(T3P=T3P, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
                     base, _ = orth.orthogonal_representations(p)
 
@@ -214,7 +214,7 @@ class TestProbing(unittest.TestCase):
                            np.random.randn(NUM_PROBES, SHAPE[2]))
 
                     apply_J = lambda v: t3p.probe_tangent(www, v, base)
-                    apply_Jt = lambda zz: T3P.probe_tangent_transpose(zz, www, base)
+                    apply_Jt = lambda zz: t3p.probe_tangent_transpose(zz, www, base, use_jax=USE_JAX)
                     v = t3m.tangent_randn(base)
 
                     zzz = (np.random.randn(NUM_PROBES, SHAPE[0]),
