@@ -8,11 +8,10 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.t3svd as t3svd
 
 try:
-    import t3toolbox.jax.t3svd as t3svd_jax
     import jax
     jax.config.update("jax_enable_x64", True)
 except ImportError:
-    t3svd_jax = t3svd
+    pass
 
 np.random.seed(0)
 tol = 1e-9
@@ -31,11 +30,11 @@ class TestT3SVD(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for T3SVD in [t3svd, t3svd_jax]:
-                with self.subTest(T3SVD=T3SVD, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     x = t3.t3_corewise_randn(STRUCTURE)
 
-                    x2, ss_tucker, ss_tt = T3SVD.t3_svd(x)  # Compute T3-SVD
+                    x2, ss_tucker, ss_tt = t3svd.t3_svd(x, use_jax=USE_JAX)  # Compute T3-SVD
 
                     x_dense = t3.t3_to_dense(x)
                     x2_dense = t3.t3_to_dense(x2)
@@ -48,11 +47,11 @@ class TestT3SVD(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for T3SVD in [t3svd, t3svd_jax]:
-                with self.subTest(T3SVD=T3SVD, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     x = t3.t3_corewise_randn(STRUCTURE)
 
-                    x2, ss_tucker, ss_tt = T3SVD.t3_svd(x)  # Compute T3-SVD
+                    x2, ss_tucker, ss_tt = t3svd.t3_svd(x, use_jax=USE_JAX)  # Compute T3-SVD
 
                     self.assertLessEqual(
                         norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2)), tol * norm(t3.t3_to_dense(x))
@@ -104,12 +103,12 @@ class TestT3SVD(unittest.TestCase):
         ]
 
         for SHAPE in shapes:
-            for T3SVD in [t3svd, t3svd_jax]:
-                with self.subTest(T3SVD=T3SVD, SHAPE=SHAPE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, SHAPE=SHAPE):
                     N0, N1, N2 = SHAPE
                     x_dense = np.random.randn(N0, N1, N2)
 
-                    x2, ss_tucker, ss_tt = T3SVD.t3_svd_dense(x_dense)
+                    x2, ss_tucker, ss_tt = t3svd.t3_svd_dense(x_dense)
 
                     x2_dense = t3.t3_to_dense(x2)
                     self.assertLessEqual(norm(x_dense - x2_dense), tol * norm(x_dense))

@@ -34,6 +34,7 @@ def t3_svd(
         max_tucker_ranks:   typ.Sequence[int] = None, # len=d
         rtol: float = None,
         atol: float = None,
+        squash_tails_first: bool = True,
         use_jax: bool = False,
 ) -> typ.Tuple[
     t3.TuckerTensorTrain, # new_x
@@ -148,7 +149,7 @@ def t3_svd(
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.t3svd as t3svd
     >>> x = t3.t3_corewise_randn(((5,6,3), (4,4,3), (2,3,2,2)))
-    >>> x2, ss_tucker, ss_tt = t3svd.t3_svd(x) # Compute T3-SVD
+    >>> x2, ss_tucker, ss_tt = t3svd.t3_svd(x, squash_tails_first=False) # Compute T3-SVD
     >>> x_dense = t3.t3_to_dense(x, contract_ones=False)
     >>> x2_dense = t3.t3_to_dense(x2, contract_ones=False)
     >>> print(np.linalg.norm(x_dense - x2_dense)) # Tensor unchanged
@@ -172,7 +173,8 @@ def t3_svd(
     num_cores = len(tt_cores)
 
     # make leading and trailing TT-ranks equal to 1
-    x = t3.squash_tails(x, xnp=xnp)
+    if squash_tails_first:
+        x = t3.squash_tails(x, xnp=xnp) # This causes a problem for some reason
 
     # Orthogonalize Tucker matrices
     x = orth.up_orthogonalize_tucker_cores(x, use_jax=use_jax)
@@ -216,7 +218,7 @@ def tucker_svd_dense(
         max_ranks:  typ.Sequence[int] = None,  # len=d
         rtol: float = None,
         atol: float = None,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[
     typ.Tuple[
         typ.Tuple[NDArray,...], # Tucker bases, ith_elm_shape=(ni, Ni)
@@ -272,6 +274,8 @@ def tucker_svd_dense(
     >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-3
     0.002418671417862558
     '''
+    xnp, xmap, xscan = get_backend(False, use_jax)
+
     bases = []
     singular_values_of_matricizations = []
     C = T
@@ -302,7 +306,7 @@ def tt_svd_dense(
         max_ranks:  typ.Sequence[int] = None,  # len=d+1
         rtol: float = None,
         atol: float = None,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[
     typ.Tuple[NDArray,...], # tt_cores
     typ.Tuple[NDArray,...], # singular values of unfoldings
@@ -354,6 +358,8 @@ def tt_svd_dense(
     >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-3
     0.0023999063535883633
     '''
+    xnp, xmap, xscan = get_backend(False, use_jax)
+
     nn = T.shape
 
     X = T.reshape((1,) + T.shape)
@@ -375,7 +381,7 @@ def tt_svd_dense(
         X = ss.reshape((-1,1)) * Vt
     cores.append(X.reshape(X.shape + (1,)))
 
-    norm_T_vec = np.array([np.linalg.norm(T)])
+    norm_T_vec = xnp.array([xnp.linalg.norm(T)])
     singular_values_of_unfoldings = [norm_T_vec,] + singular_values_of_unfoldings + [norm_T_vec,]
 
     return tuple(cores), tuple(singular_values_of_unfoldings)
@@ -389,7 +395,7 @@ def t3_svd_dense(
         max_tt_ranks:  typ.Sequence[int] = None,  # len=d+1
         rtol: float = None,
         atol: float = None,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[
     t3.TuckerTensorTrain, # Approximation of T by Tucker tensor train
     typ.Tuple[NDArray,...], # Tucker singular values, len=d
@@ -449,9 +455,9 @@ def t3_svd_dense(
     0.0025147026955504846
     '''
     (tucker_cores, tucker_core), ss_tucker = tucker_svd_dense(
-        T, min_tucker_ranks, max_tucker_ranks, rtol, atol, xnp=xnp,
+        T, min_tucker_ranks, max_tucker_ranks, rtol, atol, use_jax=use_jax,
     )
     tt_cores, ss_tt = tt_svd_dense(
-        tucker_core, min_tt_ranks, max_tt_ranks, rtol, atol, xnp=xnp,
+        tucker_core, min_tt_ranks, max_tt_ranks, rtol, atol, use_jax=use_jax,
     )
     return (tucker_cores, tt_cores), ss_tucker, ss_tt
