@@ -5,8 +5,6 @@
 import numpy as np
 import typing as typ
 
-from networkx.utils.random_sequence import weighted_choice
-
 import t3toolbox.base_variation_format
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform as ut3

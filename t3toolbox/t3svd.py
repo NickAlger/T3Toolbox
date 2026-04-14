@@ -17,6 +17,8 @@ __all__ = [
     't3_svd_dense',
 ]
 
+from t3toolbox.common import get_backend
+
 NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
 
 
@@ -32,9 +34,7 @@ def t3_svd(
         max_tucker_ranks:   typ.Sequence[int] = None, # len=d
         rtol: float = None,
         atol: float = None,
-        map=common.ragged_map,
-        scan=common.ragged_scan,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[
     t3.TuckerTensorTrain, # new_x
     typ.Tuple[NDArray,...], # Tucker singular values, len=d
@@ -162,6 +162,11 @@ def t3_svd(
     [299.45433768 100.29574828]
     [299.45433768 100.29574828]
     '''
+    is_ragged = isinstance(x[0], typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+
+    #
+
     tucker_cores, tt_cores = x
 
     num_cores = len(tt_cores)
@@ -170,10 +175,10 @@ def t3_svd(
     x = t3.squash_tails(x, xnp=xnp)
 
     # Orthogonalize Tucker matrices
-    x = orth.up_orthogonalize_tucker_cores(x, map=map, xnp=np)
+    x = orth.up_orthogonalize_tucker_cores(x, use_jax=use_jax)
 
     # Right orthogonalize
-    x = x[0], orth.right_orthogonalize_tt_cores(x[1], scan=scan, xnp=xnp)
+    x = x[0], orth.right_orthogonalize_tt_cores(x[1], use_jax=use_jax)
 
     G0 = x[1][0]
     _, ss_first, _ = t3toolbox.linalg.right_svd_3tensor(G0, xnp=xnp)

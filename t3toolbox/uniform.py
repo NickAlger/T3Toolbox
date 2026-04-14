@@ -18,10 +18,11 @@ __all__ = [
     'UniformBVEdgeWeights',
     #
     'check_ut3',
-    'get_padded_structure',
+    'get_uniform_structure',
     'get_original_structure',
     'pack_tensors',
     'unpack',
+    'make_uniform_masks',
     'apply_masks',
     #
     't3_to_ut3',
@@ -83,6 +84,22 @@ Examples
 (3, 16, 6, 3)
 >>> print(ut3.original_structure(masks))
 ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
+"""
+
+
+UniformStructure = typ.Tuple[
+    int, # d, num_cores
+    int, # N, padded_index_size
+    int, # n, padded_tucker_rank
+    int, # r, padded_tt_rank
+]
+"""Tuple containing structure of a uniform Tucker tensor train.
+
+**Components**
+    - d: int, num_cores
+    - N: int, padded_index_size
+    - n: int, padded_tucker_rank
+    - r: int, padded_tt_rank
 """
 
 
@@ -246,14 +263,9 @@ def check_ut3(
         )
 
 
-def get_padded_structure(
+def get_uniform_structure(
         cores: UniformTuckerTensorTrainCores,
-) -> typ.Tuple[
-    int, # d, num_cores
-    int, # N, padded_index_size
-    int, # n, padded_tucker_rank
-    int, # r, padded_tt_rank
-]:
+) -> UniformStructure:
     """Get padded structure of uniform Tucker tensor train.
 
     Parameters
@@ -279,7 +291,7 @@ def get_padded_structure(
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
     >>> cores, masks = ut3.t3_to_ut3(x)
-    >>> print(ut3.get_padded_structure(cores))
+    >>> print(ut3.get_uniform_structure(cores))
     (3, 16, 6, 3)
     """
     tucker_supercore, tt_supercore = cores
@@ -311,7 +323,7 @@ def get_original_structure(
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
     >>> cores, masks = ut3.t3_to_ut3(x)
-    >>> print(ut3.get_padded_structure(cores))
+    >>> print(ut3.get_uniform_structure(cores))
     (3, 16, 6, 3)
     >>> print(ut3.get_original_structure(masks))
     ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
@@ -448,6 +460,34 @@ def unpack(
     return tuple(unpacked_edge_vectors)
 
 
+def make_uniform_masks(
+        structure: t3.T3Structure,
+        uniform_structure: UniformStructure,
+        use_jax: bool = False,
+) -> UniformEdgeWeights:
+    xnp, xmap, xscan = get_backend(False, use_jax)
+
+    shape, tucker_ranks, tt_ranks = structure
+    d, N, n, r = uniform_structure
+
+    shape_masks = xnp.stack([
+        xnp.concatenate([xnp.ones(Ni, dtype=bool), xnp.zeros(N-Ni, dtype=bool)])
+        for Ni in shape
+    ])
+
+    tucker_masks = xnp.stack([
+        xnp.concatenate([xnp.ones(ni, dtype=bool), xnp.zeros(n - ni, dtype=bool)])
+        for ni in tucker_ranks
+    ])
+
+    tt_masks = xnp.stack([
+        xnp.concatenate([xnp.ones(ri, dtype=bool), xnp.zeros(r - ri, dtype=bool)])
+        for ri in tt_ranks
+    ])
+
+    return shape_masks, tucker_masks, tt_masks
+
+
 def t3_to_ut3(
         x: t3.TuckerTensorTrain,
         xnp = np,
@@ -461,7 +501,7 @@ def t3_to_ut3(
     --------
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> import t3toolbox.uniform as ut3
     >>> x = t3.t3_corewise_randn(((14, 15, 16), (4, 6, 5), (3, 3, 2, 4)))
     >>> cores, masks = ut3.t3_to_ut3(x)  # Convert t3 -> ut3
     >>> x2 = ut3.ut3_to_t3(cores, masks)  # Convert ut3 -> t3
@@ -488,20 +528,9 @@ def t3_to_ut3(
     tucker_supercore = xnp.stack(padded_tucker_cores)
     tt_supercore = xnp.stack(padded_tt_cores)
 
-    shape_masks = xnp.stack([
-        xnp.concatenate([xnp.ones(Ni, dtype=bool), xnp.zeros(N-Ni, dtype=bool)])
-        for Ni in shape
-    ])
-
-    tucker_masks = xnp.stack([
-        xnp.concatenate([xnp.ones(ni, dtype=bool), xnp.zeros(n - ni, dtype=bool)])
-        for ni in tucker_ranks
-    ])
-
-    tt_masks = xnp.stack([
-        xnp.concatenate([xnp.ones(ri, dtype=bool), xnp.zeros(r - ri, dtype=bool)])
-        for ri in tt_ranks
-    ])
+    shape_masks, tucker_masks, tt_masks = make_uniform_masks(
+        (shape, tucker_ranks, tt_ranks), (d, N, n, r)
+    )
 
     return (tucker_supercore, tt_supercore), (shape_masks, tucker_masks, tt_masks)
 
@@ -520,7 +549,7 @@ def ut3_to_t3(
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
     >>> cores, masks = ut3.t3_to_ut3(x) # Convert t3 -> ut3
-    >>> print(ut3.get_padded_structure(cores))
+    >>> print(ut3.get_uniform_structure(cores))
     (3, 16, 6, 3)
     >>> print(ut3.get_original_structure(masks))
     ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
@@ -716,7 +745,7 @@ def ut3_entry(
 	>>> cores, masks = ut3.t3_to_ut3(x) # Convert to Uniform T3
 	>>> print(ut3.get_original_structure(masks)) # original (shape, tucker_ranks, tt_ranks):
 	((14, 15, 16), (4, 5, 3), (1, 4, 2, 1))
-	>>> print(ut3.get_padded_structure(cores)) # uniform shape and ranks, (d,N,n,r):
+	>>> print(ut3.get_uniform_structure(cores)) # uniform shape and ranks, (d,N,n,r):
 	(3, 16, 5, 4)
 	>>> x_312_uniform = ut3.ut3_entry(cores, index) # (3,1,2) entry from uniform T3:
 	>>> print(x_312_uniform)
@@ -740,7 +769,7 @@ def ut3_entry(
     """
     tucker_supercore, tt_supercore = cores
 
-    d, N, n, r = get_padded_structure(cores)
+    d, N, n, r = get_uniform_structure(cores)
 
     index = xnp.array(index)
 
@@ -808,7 +837,7 @@ def ut3_apply(
 	>>> cores, masks = ut3.t3_to_ut3(x) # Convert to Uniform T3
 	>>> print(ut3.get_original_structure(masks)) # original (shape, tucker_ranks, tt_ranks):
 	((14, 15, 16), (4, 5, 3), (1, 4, 2, 1))
-	>>> print(ut3.get_padded_structure(cores)) # uniform shape and ranks, (d,N,n,r):
+	>>> print(ut3.get_uniform_structure(cores)) # uniform shape and ranks, (d,N,n,r):
 	(3, 16, 5, 4)
 	>>> x_312_uniform = ut3.ut3_entry(cores, index) # (3,1,2) entry from uniform T3:
 	>>> print(x_312_uniform)
@@ -832,7 +861,7 @@ def ut3_apply(
     """
     tucker_supercore, tt_supercore = cores
 
-    d, N, n, r = get_padded_structure(cores)
+    d, N, n, r = get_uniform_structure(cores)
 
     def _func(mu_Na, x):
         w_Ni, B_xi, G_axb = x
@@ -903,14 +932,14 @@ def ut3_add(
     check_ut3(x_cores, x_masks)
     check_ut3(y_cores, y_masks)
 
-    d_x, N_x, n_x, r_x = get_padded_structure(x_cores)
-    d_y, N_y, n_y, r_y = get_padded_structure(y_cores)
+    d_x, N_x, n_x, r_x = get_uniform_structure(x_cores)
+    d_y, N_y, n_y, r_y = get_uniform_structure(y_cores)
     if N_x != N_y or d_x != d_y:
         raise RuntimeError(
             'Attempted to add UniformTuckerTensorTrains x+y with inconsistent shapes.\n'
             'Must have d_x=d_y and N_x=N_y:\n'
-            + '(d_x, N_x, n_x, r_x) = ' + str(get_padded_structure(x_cores)) + '\n'
-            + '(d_y, N_y, n_y, r_y) = ' + str(get_padded_structure(y_cores))
+            + '(d_x, N_x, n_x, r_x) = ' + str(get_uniform_structure(x_cores)) + '\n'
+            + '(d_y, N_y, n_y, r_y) = ' + str(get_uniform_structure(y_cores))
         )
 
     x_tucker_supercore, x_tt_supercore = x_cores

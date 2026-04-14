@@ -30,7 +30,7 @@ __all__ = [
 UniformTuckerTensorTrainCores   = ut3.UniformTuckerTensorTrainCores
 UniformTuckerTensorTrainMasks   = ut3.UniformEdgeWeights
 check_ut3                       = ut3.check_ut3
-get_padded_structure            = ut3.get_padded_structure
+get_padded_structure            = ut3.get_uniform_structure
 get_original_structure          = ut3.get_original_structure
 are_ut3_ranks_minimal           = ut3.are_ut3_ranks_minimal
 
