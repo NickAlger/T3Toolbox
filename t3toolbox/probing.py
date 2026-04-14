@@ -1512,37 +1512,50 @@ def probe_tangent_transpose(
     >>> import t3toolbox.manifold as t3m
     >>> import t3toolbox.probing as t3p
     >>> import t3toolbox.orthogonalization as orth
+    >>> import t3toolbox.corewise as cw
     >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
     >>> base, _ = orth.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
-    >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-    >>> uniform_variation, uniform_base, masks = ut3.bv_to_ubv(variation, base)
-    >>> uniform_www = ut3.pack_tensors(www)
+    >>> www = (np.random.randn(1,10), np.random.randn(1,11), np.random.randn(1,12))
+    >>> V, B, masks = ut3.bv_to_ubv(variation, base)
+    >>> uniform_ww = ut3.pack_tensors(www)
+    >>> apply_J = lambda v: t3p.probe_tangent(uniform_ww, v, B, edge_weights=masks)
+    >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, uniform_ww, B, edge_weights=masks)
+    >>> z = (np.random.randn(1,10), np.random.randn(1,11), np.random.randn(1,12))
+    >>> Z = ut3.pack_tensors(z)
+    >>> JV = apply_J(V)
+    >>> JTZ = apply_Jt(Z)
+    >>> print([x.shape for x in JTZ])
+    [(3, 1, 6, 12), (3, 1, 4, 6, 4)]
+    >>> print([x.shape for x in V])
+    [(3, 6, 12), (3, 4, 6, 4)]
+    >>> print([x.shape for x in JV])
+    [(1, 12), (1, 12), (1, 12)]
+    >>> print([x.shape for x in Z])
+    [(1, 12), (1, 12), (1, 12)]
+    >>> print(cw.corewise_dot(Z, JV) - cw.corewise_dot(JTZ, V))
+    -9.14606181679698
+    >>> print(cw.corewise_dot(Z, JV) - cw.corewise_dot([x[:,0,:,:] for x in JTZ], V))
+    8.881784197001252e-16
 
-    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
-    >>> base, _ = orth.orthogonal_representations(p)
-    >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-    >>> apply_J = lambda v: t3p.probe_tangent(ww, v, base)
-    >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, ww, base)
-    >>> v = t3m.tangent_randn(base)
-    >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-    >>> print(cw.corewise_dot(z, apply_J(v)) - cw.corewise_dot(apply_Jt(z), v))
+    >>> JTZ0 = [x[:,0,:,:] for x in JTZ]
+    >>> JV0 = [x[0,:] for x in JV]
+    >>> print(cw.corewise_dot(Z, JV0) - cw.corewise_dot(JTZ0, V))
 
-    # >>> uniform_zzz = t3p.probe_tangent(uniform_www, uniform_variation, uniform_base, edge_weights=masks) # <-- Bug
-    >>> uniform_zzz = t3p.probe_tangent(uniform_www, uniform_variation, uniform_base) # OK
-    >>> zzz2 = t3p.probe_tangent(www, variation, base)
-    >>> uniform_zzz2 = ut3.pack_tensors(zzz2)
-    >>> print(np.linalg.norm(uniform_zzz - uniform_zzz2))
+    >>> print(cw.corewise_dot(Z, JV) - cw.corewise_dot(JTZ, V))
 
+    >>> JTZ0 = [[x[0] for x in y] for y in JTZ]
+    >>> cw.corewise_dot(JTZ0, V)
+    >>> cw.corewise_dot([[x[0] for x in y] for y in JTZ], V)
+    >>> print([[x.shape for x in y] for y in JTZ0])
+    >>> print([[x.shape for x in y] for y in V])
+    >>> print(cw.corewise_dot(Z, JV) - cw.corewise_dot(JTZ, V))
 
     '''
     is_ragged = isinstance(base[0], typ.Sequence)
     xnp, xmap, xscan = get_backend(is_ragged, use_jax)
 
     #
-
-    num_cores = len(ztildes)
-    assert(len(ww) == num_cores)
 
     (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores) = base
 
@@ -1556,56 +1569,66 @@ def probe_tangent_transpose(
 
     weighted_xis = compute_weighted_xis(
         up_tucker_cores, weighted_ww,
-        up_tucker_weights=up_tucker_weights, xnp=xnp,
+        up_tucker_weights=up_tucker_weights,
+        map=xmap, xnp=xnp,
     )
 
     weighted_mus = compute_weighted_mus(
         left_tt_cores, weighted_xis,
-        left_tt_weights=left_tt_weights, xnp=xnp,
+        left_tt_weights=left_tt_weights,
+        scan=xscan, xnp=xnp,
     )
 
     weighted_nus = compute_weighted_nus(
         right_tt_cores, weighted_xis,
-        right_tt_weights=right_tt_weights, xnp=xnp,
+        right_tt_weights=right_tt_weights,
+        scan=xscan, xnp=xnp,
     )
 
     weighted_etas = compute_weighted_etas(
         outer_tt_cores, weighted_mus, weighted_nus,
-        outer_tucker_weights=outer_tucker_weights, xnp=xnp,
+        outer_tucker_weights=outer_tucker_weights,
+        map=xmap, xnp=xnp,
     )
 
     #
 
     weighted_deta_tildes = compute_weighted_deta_tildes(
         up_tucker_cores, weighted_ztildes,
-        up_tucker_weights=up_tucker_weights, xnp=xnp,
+        up_tucker_weights=up_tucker_weights,
+        map=xmap, xnp=xnp,
     )
 
     weighted_tau_tildes = compute_weighted_tau_tildes(
         weighted_deta_tildes, left_tt_cores, weighted_xis, weighted_mus,
-        left_tt_weights=left_tt_weights, xnp=xnp,
+        left_tt_weights=left_tt_weights,
+        scan=xscan, xnp=xnp,
     )
 
     weighted_sigma_tildes = compute_weighted_sigma_tildes(
         weighted_deta_tildes, right_tt_cores, weighted_xis, weighted_nus,
-        right_tt_weights=right_tt_weights, xnp=xnp,
+        right_tt_weights=right_tt_weights,
+        scan=xscan, xnp=xnp,
     )
 
     weighted_dxi_tildes = compute_weighted_dxi_tildes(
         weighted_sigma_tildes, weighted_tau_tildes, outer_tt_cores, weighted_mus, weighted_nus,
-        outer_tucker_weights=outer_tucker_weights, xnp=xnp,
+        outer_tucker_weights=outer_tucker_weights,
+        map=xmap, xnp=xnp,
     )
 
     #
 
     dU_tildes = assemble_tucker_variations(
         weighted_ztildes, weighted_dxi_tildes, weighted_ww, weighted_etas,
-        sum_over_probes=sum_over_probes, xnp=xnp,
+        sum_over_probes=sum_over_probes,
+        map=xmap, xnp=xnp,
     )
 
     dG_tildes = assemble_tt_variations(
         weighted_sigma_tildes, weighted_tau_tildes, weighted_deta_tildes, weighted_xis, weighted_mus, weighted_nus,
-        sum_over_probes=sum_over_probes, xnp=xnp,
+        sum_over_probes=sum_over_probes,
+        map=xmap, xnp=xnp,
     )
 
     return dU_tildes, dG_tildes
