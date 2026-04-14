@@ -48,7 +48,7 @@ def probe_t3(
         x:              typ.Union[t3.TuckerTensorTrain,     ut3.UniformTuckerTensorTrainCores],
         edge_weights:   typ.Union[t3.EdgeWeights,           ut3.UniformEdgeWeights] = (None, None, None),
         use_jax: bool = False,
-) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,Ni)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,Ni)
     '''Probe a Tucker tensor train.
 
     See Section 5.2, particularly Figure 9 in:
@@ -192,7 +192,7 @@ def compute_xis(
         ww:                 typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,Ni)
         up_tucker_weights:  typ.Union[typ.Sequence[NDArray], NDArray] = None, # len=d, elm_shape=(nUi,)
         use_jax: bool = False,
-) -> typ.Tuple[NDArray,...]: # weighted_xis. len=d, elm_shape=(...,nUi)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # weighted_xis. len=d, elm_shape=(...,nUi)
     '''Compute upward edge variables associated with edges between Tucker cores and adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -255,7 +255,7 @@ def compute_mus(
         xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,nUi)
         left_tt_weights:    typ.Union[typ.Sequence[NDArray], NDArray] = None, # len=d, elm_shape=(rLi,)
         use_jax: bool = False,
-) -> typ.Sequence[NDArray]: # mus. len=d, elm_shape=(...,rLi)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # mus. len=d, elm_shape=(...,rLi)
     '''Compute leftward edge variables associated with edges between adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -327,7 +327,7 @@ def compute_nus(
         xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,nUi)
         right_tt_weights:   typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d, elm_shape=(rRi,)
         use_jax: bool = False,
-) -> typ.Sequence[NDArray]: # nus. len=d, elm_shape=(...,rR(i+1))
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # nus. len=d, elm_shape=(...,rR(i+1))
     '''Compute rightward edge variables associated with edges between adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -380,7 +380,7 @@ def compute_etas(
         nus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,rR(i+1))
         outer_tucker_weights:   typ.Union[typ.Sequence[NDArray], NDArray] = None, # len=d, elm_shape=(nOi)
         use_jax: bool = False,
-) -> typ.Sequence[NDArray]: # weighted_etas. len=d, elm_shape=(...,nOi)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # weighted_etas. len=d, elm_shape=(...,nOi)
     '''Compute downward edge variables associated with edges between Tucker cores and adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -452,7 +452,7 @@ def assemble_zs(
         etas:           typ.Union[typ.Sequence[NDArray], NDArray],  # len=d. elm_shape=(...,ni)
         shape_weights:  typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d, elm_shape=(Ni,)
         use_jax: bool = False,
-) -> typ.Sequence[NDArray]: # weighted_zs. len=d, elm_shape=(...,Ni)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # weighted_zs. len=d, elm_shape=(...,Ni)
     '''Assemble probes from downward edge variables.
 
     See Section 5.2, particularly Figure 9 in:
@@ -517,7 +517,7 @@ def compute_dxis(
         ww:                     typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,Ni)
         outer_tucker_weights:   typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d, elm_shape=(nOi,)
         use_jax: bool = False,
-) -> typ.Tuple[NDArray,...]: # xis. len=d, elm_shape=(...,nOi)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # xis. len=d, elm_shape=(...,nOi)
     '''Compute var-upward edge variables dxi.
     Used for probing a tangent vector.
 
@@ -552,7 +552,7 @@ def compute_sigmas(
         mus:                typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,nLi)
         right_tt_weights:   typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d+1, elm_shape=(rRi,)
         use_jax: bool = False,
-) -> typ.Tuple[NDArray,...]: # weighted_sigmas. len=d, elm_shape=(...,rR(i+1))
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # weighted_sigmas. len=d, elm_shape=(...,rR(i+1))
     '''Compute var-leftward edge variables sigma.
     Used for probing a tangent vector.
 
@@ -625,7 +625,7 @@ def compute_taus(
         nus:                typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,nR(i+1))
         left_tt_weights:    typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d+1, elm_shape=(rLi,)
         use_jax: bool = False,
-) -> typ.Tuple[NDArray,...]: # weighted_taus. len=d, elm_shape=(...,rL(i+1))
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # weighted_taus. len=d, elm_shape=(...,rL(i+1))
     '''Compute var-rightward edge variables tau.
     Used for probing a tangent vector.
 
@@ -670,7 +670,7 @@ def compute_detas(
         taus:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rL(i+1))
         up_tucker_weights:  typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d, elm_shape=(nUi,)
         use_jax: bool = False,
-) -> typ.Sequence[NDArray]: # detas. len=d, elm_shape=(...,nUi)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # detas. len=d, elm_shape=(...,nUi)
     '''Compute var-downward edge variables deta.
     Used for probing a tangent vector.
 
@@ -750,7 +750,7 @@ def assemble_tangent_zs(
         detas:              typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi)
         shape_weights:      typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d, elm_shape=(Ni,)
         use_jax: bool = False,
-) -> typ.Tuple[NDArray,...]: # probes. len=d, elm_shape=(...,Ni)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # probes. len=d, elm_shape=(...,Ni)
     '''Assemble tangent vector probes from edge variables.
 
     See Section 5.2.3, particularly Formula (41), in:
@@ -802,7 +802,7 @@ def probe_tangent(
         base:       typ.Union[bvf.T3Base,               ut3.UniformT3Base], # tucker_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
         edge_weights: bvf.BVEdgeWeights = (None, None, None, None, None),
         use_jax: bool = False,
-) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,Ni)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,Ni)
     '''Probe a tangent vector.
 
     See Section 5.2.3 in:
@@ -983,11 +983,11 @@ def probe_tangent(
 ###############################################################
 
 def compute_deta_tildes(
-        up_tucker_cores: typ.Sequence[NDArray],  # len=d, elm_shape=(ni,Ni)
-        ztildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,Ni)
-        up_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nUi,)
+        up_tucker_cores:    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(ni,Ni)
+        ztildes:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,Ni)
+        up_tucker_weights:  typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d, elm_shape=(nUi,)
         use_jax: bool = False,
-) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,ni)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,ni)
     '''Adjoint-var-upward edge variables deta_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
 
@@ -1004,13 +1004,13 @@ def compute_deta_tildes(
 
 
 def compute_tau_tildes(
-        deta_tildes,  # len=d+1, elm_shape=(...,ni)
-        left_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,ni,rL(i+d))
-        xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,ni)
-        mus, # len=d, elm_shape=(...,rLi)
-        left_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rLi,)
+        deta_tildes:        typ.Union[typ.Sequence[NDArray], NDArray],  # len=d+1, elm_shape=(...,ni)
+        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,ni,rL(i+d))
+        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,ni)
+        mus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rLi)
+        left_tt_weights:    typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d+1, elm_shape=(rLi,)
         use_jax: bool = False,
-) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,rLi)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,rLi)
     '''Adjoint-var-rightward edge variables tau_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
 
@@ -1059,13 +1059,13 @@ def compute_tau_tildes(
 
 
 def compute_sigma_tildes(
-        deta_tildes,  # len=d, elm_shape=(...,ni)
-        right_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rRi,ni,rR(i+d))
-        xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,ni)
-        nus, # len=d, elm_shape=(...,rR(i+1))
-        right_tt_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(rRi,)
+        deta_tildes:        typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,ni)
+        right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rRi,ni,rR(i+d))
+        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,ni)
+        nus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rR(i+1))
+        right_tt_weights:   typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d, elm_shape=(rRi,)
         use_jax: bool = False,
-) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,rR(i+1))
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,rR(i+1))
     '''Adjoint-var-leftward edge variables sigma_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
 
@@ -1084,14 +1084,14 @@ def compute_sigma_tildes(
 
 
 def compute_dxi_tildes(
-        sigma_tildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rR(i+1))
-        tau_tildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rLi)
-        outer_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
-        mus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rLi)
-        nus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rR(i+1))
-        outer_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
+        sigma_tildes:           typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rR(i+1))
+        tau_tildes:             typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rLi)
+        outer_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
+        mus:                    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rLi)
+        nus:                    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rR(i+1))
+        outer_tucker_weights:   typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d, elm_shape=(nOi,)
         use_jax: bool = False,
-) -> typ.Tuple[NDArray,...]: # dxi_tildes. len=d, elm_shape=(...,nOi)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dxi_tildes. len=d, elm_shape=(...,nOi)
     '''Adjoint-var-downward edge variables dxi_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
 
@@ -1105,49 +1105,54 @@ def compute_dxi_tildes(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
-
     dxi_tilde_weights = outer_tucker_weights
-
-    def _func(x):
-        O, mu, nu, st, tt, ind = x[0], x[1], x[2], x[3], x[4], 5
-
-        unweighted_dxi_tilde = (
-                xnp.einsum(
-                    '...aj,...j->...a',
-                    xnp.einsum('...i,iaj->...aj',tt, O),
-                    nu
-                )
-                +
-                xnp.einsum(
-                    '...aj,...j->...a',
-                    xnp.einsum('...i,iaj->...aj', mu, O),
-                    st
-                )
+    if is_uniform:
+        term1 = xnp.einsum(
+            'd...aj,d...j->d...a',
+            xnp.einsum('d...i,diaj->d...aj', tau_tildes, outer_tt_cores),
+            nus
         )
+        term2 = xnp.einsum(
+            'd...aj,d...j->d...a',
+            xnp.einsum('d...i,diaj->d...aj', mus, outer_tt_cores),
+            sigma_tildes
+        )
+        unweighted_dxi_tildes = term1 + term2
+    else:
+        def _func(x):
+            O, mu, nu, st, tt = x
+            term1 = xnp.einsum(
+                '...aj,...j->...a',
+                xnp.einsum('...i,iaj->...aj',tt, O),
+                nu
+            )
+            term2 = xnp.einsum(
+                '...aj,...j->...a',
+                xnp.einsum('...i,iaj->...aj', mu, O),
+                st
+            )
+            unweighted_dxi_tilde = term1 + term2
+            return (unweighted_dxi_tilde,)
 
-        if dxi_tilde_weights is not None:
-            weight = x[ind]
-            dxi_tilde = _apply_edge_weight(unweighted_dxi_tilde, weight, xnp=xnp)
-        else:
-            dxi_tilde = unweighted_dxi_tilde
+        xs = (outer_tt_cores, mus, nus, sigma_tildes, tau_tildes)
+        (unweighted_dxi_tildes,) = xmap(_func, xs)
 
-        return (dxi_tilde,)
+    if dxi_tilde_weights is not None:
+        dxi_tildes = _apply_edge_weights(unweighted_dxi_tildes, dxi_tilde_weights, use_jax=use_jax)
+    else:
+        dxi_tildes = unweighted_dxi_tildes
 
-    xs = (outer_tt_cores, mus, nus, sigma_tildes, tau_tildes)
-    xs = xs + (outer_tucker_weights,) if outer_tucker_weights is not None else xs
-
-    (dxi_tildes,) = xmap(_func, xs)
     return dxi_tildes
 
 
 def assemble_tucker_variations(
-        ztildes: typ.Sequence[NDArray], # len=d, elm_shape=(...,Ni)
-        dxi_tildes: typ.Sequence[NDArray], #len=d, elm_shape=(...,nOi)
-        ww: typ.Sequence[NDArray],  # input vectors, len=d, elm_shape=(Ni,) or (...,Ni)
-        etas: typ.Sequence[NDArray],  # etas. len=d, elm_shape=(...,ni)
+        ztildes:    typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,Ni)
+        dxi_tildes: typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
+        ww:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,Ni)
+        etas:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,ni)
         sum_over_probes: bool = False,
         use_jax: bool = False,
-):
+) -> typ.Union[typ.Sequence[NDArray], NDArray]:
     '''Assemble Tucker core variations, delta_U_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
 
@@ -1161,37 +1166,51 @@ def assemble_tucker_variations(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
-
-    def _func(x):
-        z_tilde, eta, w, dxi_tilde = x
+    if is_uniform:
         if sum_over_probes:
-            dU_tilde = (
-                    xnp.einsum('...o,...a->ao', z_tilde, eta)
+            dU_tildes = (
+                    xnp.einsum('d...o,d...a->dao', ztildes, etas)
                     +
-                    xnp.einsum('...o,...a->ao', w, dxi_tilde)
+                    xnp.einsum('d...o,d...a->dao', ww, dxi_tildes)
             )
         else:
-            dU_tilde = (
-                    xnp.einsum('...o,...a->...ao', z_tilde, eta)
+            dU_tildes = (
+                    xnp.einsum('d...o,d...a->d...ao', ztildes, etas)
                     +
-                    xnp.einsum('...o,...a->...ao', w, dxi_tilde)
+                    xnp.einsum('d...o,d...a->d...ao', ww, dxi_tildes)
             )
-        return (dU_tilde,)
+    else:
+        def _func(x):
+            z_tilde, eta, w, dxi_tilde = x
+            if sum_over_probes:
+                dU_tilde = (
+                        xnp.einsum('...o,...a->ao', z_tilde, eta)
+                        +
+                        xnp.einsum('...o,...a->ao', w, dxi_tilde)
+                )
+            else:
+                dU_tilde = (
+                        xnp.einsum('...o,...a->...ao', z_tilde, eta)
+                        +
+                        xnp.einsum('...o,...a->...ao', w, dxi_tilde)
+                )
+            return (dU_tilde,)
 
-    (dU_tildes,) = xmap(_func, (ztildes, etas, ww, dxi_tildes))
+        (dU_tildes,) = xmap(_func, (ztildes, etas, ww, dxi_tildes))
+
     return dU_tildes
 
 
 def assemble_tt_variations(
-        sigma_tildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rR(i+1))
-        tau_tildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rLi)
-        deta_tildes,  # len=d+1, elm_shape=(...,ni)
-        xis: typ.Sequence[NDArray],  # len=d, elm_shape=(...,ni)
-        mus,  # len=d, elm_shape=(...,rLi)
-        nus,  # len=d, elm_shape=(...,rR(i+1))
+        sigma_tildes:   typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rR(i+1))
+        tau_tildes:     typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rLi)
+        deta_tildes:    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,ni)
+        xis:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,ni)
+        mus:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rLi)
+        nus:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rR(i+1))
         sum_over_probes: bool = False,
         use_jax: bool = False,
-) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,rLi,nOi,rRi)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,rLi,nOi,rRi)
     '''Assemble TT core variations, delta_G_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
 
@@ -1201,57 +1220,99 @@ def assemble_tt_variations(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    is_uniform = isinstance(xis, typ.Sequence)
+    is_uniform = not isinstance(xis, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
-
-    def _func(x):
-        xi, mu, nu, sigma_tilde, tau_tilde, deta_tilde = x
+    if is_uniform:
         if sum_over_probes:
-            dG_tilde = (
+            dG_tildes = (
                     xnp.einsum(
-                        '...ia,...j->iaj',
-                        xnp.einsum('...i,...a->...ia', mu, xi),
-                        sigma_tilde
+                        'd...ia,d...j->diaj',
+                        xnp.einsum('d...i,d...a->d...ia', mus, xis),
+                        sigma_tildes
                     )
                     +
                     xnp.einsum(
-                        '...ia,...j->iaj',
-                        xnp.einsum('...i,...a->...ia', tau_tilde, xi),
-                        nu
+                        'd...ia,d...j->diaj',
+                        xnp.einsum('d...i,d...a->d...ia', tau_tildes, xis),
+                        nus
                     )
                     +
                     xnp.einsum(
-                        '...ia,...j->iaj',
-                        xnp.einsum('...i,...a->...ia', mu, deta_tilde),
-                        nu
+                        'd...ia,d...j->diaj',
+                        xnp.einsum('d...i,d...a->d...ia', mus, deta_tildes),
+                        nus
                     )
             )
         else:
-            dG_tilde = (
+            dG_tildes = (
                     xnp.einsum(
-                        '...ia,...j->...iaj',
-                        xnp.einsum('...i,...a->...ia', mu, xi),
-                        sigma_tilde
+                        'd...ia,d...j->d...iaj',
+                        xnp.einsum('d...i,d...a->d...ia', mus, xis),
+                        sigma_tildes
                     )
                     +
                     xnp.einsum(
-                        '...ia,...j->...iaj',
-                        xnp.einsum('...i,...a->...ia', tau_tilde, xi),
-                        nu
+                        'd...ia,d...j->d...iaj',
+                        xnp.einsum('d...i,d...a->d...ia', tau_tildes, xis),
+                        nus
                     )
                     +
                     xnp.einsum(
-                        '...ia,...j->...iaj',
-                        xnp.einsum('...i,...a->...ia', mu, deta_tilde),
-                        nu
+                        'd...ia,d...j->d...iaj',
+                        xnp.einsum('d...i,d...a->d...ia', mus, deta_tildes),
+                        nus
                     )
             )
-        return (dG_tilde,)
+    else:
+        def _func(x):
+            xi, mu, nu, sigma_tilde, tau_tilde, deta_tilde = x
+            if sum_over_probes:
+                dG_tilde = (
+                        xnp.einsum(
+                            '...ia,...j->iaj',
+                            xnp.einsum('...i,...a->...ia', mu, xi),
+                            sigma_tilde
+                        )
+                        +
+                        xnp.einsum(
+                            '...ia,...j->iaj',
+                            xnp.einsum('...i,...a->...ia', tau_tilde, xi),
+                            nu
+                        )
+                        +
+                        xnp.einsum(
+                            '...ia,...j->iaj',
+                            xnp.einsum('...i,...a->...ia', mu, deta_tilde),
+                            nu
+                        )
+                )
+            else:
+                dG_tilde = (
+                        xnp.einsum(
+                            '...ia,...j->...iaj',
+                            xnp.einsum('...i,...a->...ia', mu, xi),
+                            sigma_tilde
+                        )
+                        +
+                        xnp.einsum(
+                            '...ia,...j->...iaj',
+                            xnp.einsum('...i,...a->...ia', tau_tilde, xi),
+                            nu
+                        )
+                        +
+                        xnp.einsum(
+                            '...ia,...j->...iaj',
+                            xnp.einsum('...i,...a->...ia', mu, deta_tilde),
+                            nu
+                        )
+                )
+            return (dG_tilde,)
 
-    xs = (xis, mus, nus, sigma_tildes, tau_tildes, deta_tildes)
-    (dG_tildes,) = xmap(_func, xs)
+        xs = (xis, mus, nus, sigma_tildes, tau_tildes, deta_tildes)
+        (dG_tildes,) = xmap(_func, xs)
+
     return dG_tildes
 
 
