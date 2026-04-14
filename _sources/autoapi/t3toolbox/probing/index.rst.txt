@@ -16,7 +16,7 @@ Functions
    /autoapi/t3toolbox/probing/compute_mus
    /autoapi/t3toolbox/probing/compute_nus
    /autoapi/t3toolbox/probing/compute_etas
-   /autoapi/t3toolbox/probing/assemble_weighted_zs
+   /autoapi/t3toolbox/probing/assemble_zs
    /autoapi/t3toolbox/probing/compute_dxis
    /autoapi/t3toolbox/probing/compute_sigmas
    /autoapi/t3toolbox/probing/compute_taus
@@ -41,7 +41,7 @@ Functions
    t3toolbox.probing.compute_mus
    t3toolbox.probing.compute_nus
    t3toolbox.probing.compute_etas
-   t3toolbox.probing.assemble_weighted_zs
+   t3toolbox.probing.assemble_zs
    t3toolbox.probing.compute_dxis
    t3toolbox.probing.compute_sigmas
    t3toolbox.probing.compute_taus

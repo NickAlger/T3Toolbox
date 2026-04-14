@@ -1,7 +1,7 @@
-t3toolbox.probing.assemble_weighted_zs
-======================================
+t3toolbox.probing.assemble_zs
+=============================
 
-.. py:function:: t3toolbox.probing.assemble_weighted_zs(tucker_cores: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], weighted_etas, shape_weights: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray] = None, map=common.ragged_map, xnp=np) -> t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]
+.. py:function:: t3toolbox.probing.assemble_zs(tucker_cores: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], etas, shape_weights: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray] = None, use_jax: bool = False) -> t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]
 
    Assemble probes from downward edge variables.
 
