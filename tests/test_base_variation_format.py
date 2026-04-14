@@ -23,19 +23,19 @@ class TestBaseVariationFormat(unittest.TestCase):
         for BVF in [bvf, bvf_jax]:
             with self.subTest(BVF=BVF):
                 tucker_cores = (np.ones((10, 14)), np.ones((11, 15)), np.ones((12, 16)))
-                left_tt_cores = (np.ones((5, 10, 2)), np.ones((2, 11, 3)), np.ones((3, 12, 2)))
-                right_tt_cores = (np.ones((3, 10, 4)), np.ones((4, 11, 5)), np.ones((5, 12, 4)))
+                left_tt_cores = (np.ones((5, 10, 2)), np.ones((2, 11, 3)), np.ones((3,12,4)))
+                right_tt_cores = (np.ones((1,10,4)), np.ones((4, 11, 5)), np.ones((5, 12, 4)))
                 outer_tt_cores = (np.ones((5, 9, 4)), np.ones((2, 8, 5)), np.ones((3, 7, 4)))
                 base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
 
-                shapes = BVF.hole_shapes(base)
+                shapes = BVF.base_hole_shapes(base)
 
                 var_tucker_shapes, var_tt_shapes = shapes
 
                 self.assertEqual(var_tucker_shapes, ((9, 14), (8, 15), (7, 16)))
                 self.assertEqual(var_tt_shapes, ((5, 10, 4), (2, 11, 5), (3, 12, 4)))
 
-                shapes_jax = bvf_jax.hole_shapes(base)
+                shapes_jax = bvf_jax.base_hole_shapes(base)
                 self.assertEqual(shapes, shapes_jax)
 
 
@@ -44,7 +44,7 @@ class TestBaseVariationFormat(unittest.TestCase):
             with self.subTest(BVF=BVF):
                 (U0, U1, U2) = (randn(10, 14), randn(11, 15), randn(12, 16))
                 (L0, L1, L2) = (randn(5, 10, 2), randn(2, 11, 3), randn(3, 12, 2))
-                (R0, R1, R2) = (randn(3, 10, 4), randn(4, 11, 5), randn(5, 12, 4))
+                (R0, R1, R2) = (randn(3,10,4), randn(4, 11, 5), randn(5, 12, 4))
                 (O0, O1, O2) = (randn(5, 9, 4), randn(2, 8, 5), randn(3, 7, 4))
                 base = ((U0, U1, U2), (L0, L1, L2), (R0, R1, R2), (O0, O1, O2))
                 (V0, V1, V2) = (randn(9, 14), randn(8, 15), randn(7, 16))

@@ -9,17 +9,11 @@ import t3toolbox.base_variation_format as bvf
 __all__ = [
     'T3Base',
     'T3Variation',
-    'check_t3base',
-    'check_t3variation',
-    'hole_shapes',
-    'check_fit',
+    'base_hole_shapes',
     'ith_bv_to_t3',
 ]
 
 T3Base              = bvf.T3Base
 T3Variation         = bvf.T3Variation
-check_t3base        = bvf.check_t3base
-check_t3variation   = bvf.check_t3variation
-hole_shapes         = bvf.hole_shapes
-check_fit           = bvf.check_fit
+base_hole_shapes         = bvf.base_hole_shapes
 ith_bv_to_t3        = bvf.ith_bv_to_t3

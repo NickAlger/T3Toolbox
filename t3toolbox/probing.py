@@ -293,7 +293,7 @@ def compute_weighted_xis(
 
 
 def compute_weighted_mus(
-        left_tt_cores: typ.Sequence[NDArray], # len=d. elm_shape=(rLi,nUi,rL(i+1))
+        left_tt_cores: typ.Sequence[NDArray], # len=d-1. elm_shape=(rLi,nUi,rL(i+1))
         weighted_xis: typ.Sequence[NDArray], # len=d. elm_shape=(...,nUi)
         left_tt_weights: typ.Sequence[NDArray] = None, # len=d, elm_shape=(rLi,)
         scan = common.ragged_scan,

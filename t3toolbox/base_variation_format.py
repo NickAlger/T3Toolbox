@@ -12,11 +12,11 @@ NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray,
 __all__ = [
     'T3Base',
     'T3Variation',
+    'BVStructure',
     'BVEdgeWeights',
-    'check_t3base',
-    'check_t3variation',
-    'hole_shapes',
-    'check_fit',
+    'get_base_structure',
+    'base_hole_shapes',
+    'variation_shapes',
     'ith_bv_to_t3',
 ]
 
@@ -26,10 +26,10 @@ __all__ = [
 ################################################################
 
 T3Base = typ.Tuple[
-    typ.Sequence[NDArray],  # up_tucker_cores. B_xo B_yo   = I_xy, B.shape = (n, N)
-    typ.Sequence[NDArray],  # left_tt_cores.   P_iax P_iay = I_xy, P.shape = (rL, n, rR)
-    typ.Sequence[NDArray],  # right_tt_cores.  Q_xaj Q_yaj = I_xy  Q.shape = (rL, n, rR)
-    typ.Sequence[NDArray],  # outer_tt_cores.  R_ixj R_iyj = I_xy  R.shape = (rL, n, rR)
+    typ.Sequence[NDArray],  # up_tucker_cores. len=d. B_xo B_yo   = I_xy, B.shape = (n, N)
+    typ.Sequence[NDArray],  # left_tt_cores.   len=d. P_iax P_iay = I_xy, P.shape = (rL, n, rR)
+    typ.Sequence[NDArray],  # right_tt_cores.  len=d. Q_xaj Q_yaj = I_xy  Q.shape = (rL, n, rR)
+    typ.Sequence[NDArray],  # outer_tt_cores.  len=d. R_ixj R_iyj = I_xy  R.shape = (rL, n, rR)
 ]
 """
 Tuple containing base cores for base-variation representation of TuckerTensorTrains
@@ -49,14 +49,41 @@ Often, one works with TuckerTensorTrains of the following forms::
 In each of these, there is a special "variation" core, indicated by parentheses (X), surrounded by base cores. 
 
 The components of T3Base are the "base cores":
-    - up_tucker_cores   = (U0, ..., Ud), elm_shape=(ni, Ni)
-    - left_tt_cores     = (L0, ..., Ld), elm_shape=(rLi, ni, rL(i+1))
-    - right_tt_cores    = (R0, ..., Rd), elm_shape=(rRi, ni, rR(i+1))
-    - outer_tt_cores    = (O0, ..., Od), elm_shape=(rLi, nOi, rR(i+1))
-
+    - up_tucker_cores   = (U0, ..., U(d-1)), elm_shape=(nUi, Ni)
+    - left_tt_cores     = (L0, ..., L(d-1)), elm_shape=(rLi, ni, rL(i+1))
+    - right_tt_cores    = (R0, ..., R(d-1)), elm_shape=(rRi, ni, rR(i+1))
+    - outer_tt_cores    = (O0, ..., O(d-1)), elm_shape=(rLi, nOi, rR(i+1))
+    
 The components of T3Variations are the "variation cores":
-    - tucker_variations = (V0, ..., Vd), elm_shape=(nOi, Ni)
-    - tt_variations     = (H0, ..., Hd), elm_shape=(rLi, ni, rRi)
+    - tucker_variations = (V0, ..., V(d-1)), elm_shape=(nOi, Ni)
+    - tt_variations     = (H0, ..., H(d-1)), elm_shape=(rLi, ni, rRi)
+
+Note that Ld and R0 are not used in these diagrams.
+
+The edge ranks are shown in the following diagrams::
+
+       rL0       rL1       rR2      rR(d-1)         rRd
+    1 ------ L0 ----- (H1) ----- ... ------ R(d-1) ------ 1
+             |         |                    |
+             | nU0     | nU1                | nU(d-1)
+             |         |                    |
+             U0        U1                   Ud
+             |         |                    |
+             | N0      | N1                 | N(d-1)
+             |         |                    |
+             
+and::
+
+       rL0       rL1       rR2      rR(d-1)         rRd
+    1 ------ L0 ------ O1 ------ ... ------ R(d-1) ------ 1
+             |         |                    |
+             | nU0     | nO1                | nU(d-1)
+             |         |                    |
+             U0       (V1)                   Ud
+             |         |                    |
+             | N0      | N1                 | N(d-1)
+             |         |                    |
+
 
 A tangent vector can be written as the sum of all of the tensor diagrams above. 
 In this case, the base cores are representations of the point where the 
@@ -64,10 +91,10 @@ tangent space attaches to the manifold, and the variation cores define the
 tangent vector with respect to the base cores. 
 
 Often, it is desirable for the base cores to be **orthogonal** as follows:
-    - tucker_cores       = (U0,...,Ud), orthogonal:       U_ia U_ja = delta_ij
-    - left_tt_cores     = (L0,...,Ld), left-orthogonal:  L_abi L_abj = delta_ij
-    - right_tt_cores    = (R0,...,Rd), right-orthogonal  R_ibc R_jbc = delta_ij
-    - outer_tt_cores    = (O0,...,Od), outer-orthogonal  O_aib O_ajb = delta_ij
+    - up_tucker_cores   = (U0,...,U(d-1)), orthogonal:       U_ia U_ja = delta_ij
+    - left_tt_cores     = (L0,...,L(d-1)), left-orthogonal:  L_abi L_abj = delta_ij
+    - right_tt_cores    = (R0,...,R(d-1)), right-orthogonal  R_ibc R_jbc = delta_ij
+    - outer_tt_cores    = (O0,...,O(d-1)), outer-orthogonal  O_aib O_ajb = delta_ij
 
 Often, it is desirable for the variations to satisfy the following **Gauge conditions**:
     - U_ia V_ja = 0    (all V)
@@ -80,29 +107,24 @@ to linear algebra operations with the N1 x ... x Nd tangent vectors represented 
 See Also
 --------
 T3Variation
-check_t3base
-hole_shapes
-check_fit
 orthogonal_representations
 oblique_gauge_projection
-
 
 Examples
 --------
 >>> import numpy as np
 >>> import t3toolbox.base_variation_format as bvf
 >>> tucker_cores = (np.ones((10, 14)), np.ones((11, 15)), np.ones((12, 16)))
->>> left_tt_cores = (np.ones((1, 10, 2)), np.ones((2, 11, 3)), np.ones((3, 12, 1)))
->>> right_tt_cores = (np.ones((1, 10, 4)), np.ones((4, 11, 5)), np.ones((5, 12, 1)))
+>>> left_tt_cores = (np.ones((1, 10, 2)), np.ones((2, 11, 3)), np.ones((3,12,5)))
+>>> right_tt_cores = (np.ones((2, 10, 4)), np.ones((4, 11, 5)), np.ones((5, 12, 1)))
 >>> outer_tt_cores = (np.ones((1, 9, 4)), np.ones((2, 8, 5)), np.ones((3, 7, 1)))
 >>> base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
->>> bvf.check_t3base(base) # Does nothing since base is internally consistent
->>> var_tucker_cores = (np.ones((9,14)), np.ones((8,15)), np.ones((7,16)))
->>> var_tt_cores = (np.ones((1,10,4)), np.ones((2,11,5)), np.ones((3,12,1)))
->>> variation = (var_tucker_cores, var_tt_cores)
->>> bvf.check_t3variation(variation) # Does nothing since variation is internally consistent
->>> bvf.check_fit(base, variation) # Does nothing since variation fits in base
+>>> print(bvf.get_base_structure(base))
+((14, 15, 16), (10, 11, 12), (9, 8, 7), (1, 2, 3, 5), (2, 4, 5, 1))
+>>> print(bvf.base_hole_shapes(base))
+(((9, 14), (8, 15), (7, 16)), ((1, 10, 2), (2, 11, 4), (3, 12, 5)))
 """
+
 
 T3Variation = typ.Tuple[
     typ.Sequence[NDArray],  # variation_tucker_cores.
@@ -112,8 +134,8 @@ T3Variation = typ.Tuple[
 Tuple containing variation cores for base-variation representation of TuckerTensorTrains.
 
 *Components*
-    - tucker_variations  = (V0, ..., Vd), elm_shape=(nOi, Ni)
-    - tt_variations     = (H0, ..., Hd), elm_shape=(rLi, ni, rRi)
+    - tucker_variations  = (V0, ..., V(d-1)), elm_shape=(nOi, Ni)
+    - tt_variations      = (H0, ..., H(d-1)), elm_shape=(rLi, ni, rRi)
 
 The variation components should fit in the "holes" of a T3Base.
 
@@ -123,14 +145,58 @@ T3Base
 check_t3variation
 hole_shapes
 check_fit
+
+Examples
+--------
+>>> import numpy as np
+>>> import t3toolbox.base_variation_format as bvf
+>>> tucker_cores = (np.ones((10, 14)), np.ones((11, 15)), np.ones((12, 16)))
+>>> left_tt_cores = (np.ones((1, 10, 2)), np.ones((2, 11, 3)), np.ones((3,12,5)))
+>>> right_tt_cores = (np.ones((2, 10, 4)), np.ones((4, 11, 5)), np.ones((5, 12, 1)))
+>>> outer_tt_cores = (np.ones((1, 9, 4)), np.ones((2, 8, 5)), np.ones((3, 7, 1)))
+>>> base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+>>> hole_shapes = bvf.base_hole_shapes(base)
+>>> print(hole_shapes)
+(((9, 14), (8, 15), (7, 16)), ((1, 10, 2), (2, 11, 4), (3, 12, 5)))
+>>> var_tucker_cores = [np.ones(s) for s in hole_shapes[0]]
+>>> var_tt_cores = [np.ones(s) for s in hole_shapes[1]]
+>>> variation = (var_tucker_cores, var_tt_cores) # variation that fits with base
+>>> print(bvf.variation_shapes(variation))
+(((9, 14), (8, 15), (7, 16)), ((1, 10, 2), (2, 11, 4), (3, 12, 5)))
 """
+
+
+BVStructure = typ.Tuple[
+    typ.Sequence[int], # shape. len=d
+    typ.Sequence[int], # up_tucker_ranks. len=d
+    typ.Sequence[int], # outer_tucker_ranks. len=d
+    typ.Sequence[int], # left_tt_ranks. len=d+1
+    typ.Sequence[int], # right_tt_ranks. len=d+1
+]
+"""Shape and rank structore of a base-variation T3 representation.
+
+*Components*
+    - shape:                typ.Sequence[int]. len=d
+    - up_tucker_ranks:      typ.Sequence[int]. len=d
+    - outer_tucker_ranks:   typ.Sequence[int]. len=d
+    - left_tt_ranks:        typ.Sequence[int]. len=d+1
+    - right_tt_ranks:       typ.Sequence[int]. len=d+1
+
+The variation components should fit in the "holes" of a T3Base.
+
+See Also
+--------
+T3Base
+T3Variation
+"""
+
 
 BVEdgeWeights = typ.Tuple[
     typ.Sequence[NDArray],  # shape_weights, len=d, elm_shape=(Ni,)
     typ.Sequence[NDArray],  # up_tucker_weights, len=d, elm_shape=(nUi,)
     typ.Sequence[NDArray],  # outer_tucker_weights, len=d, elm_shape=(nOi,)
-    typ.Sequence[NDArray],  # left_tt_weights, len=d+1, elm_shape=(rLi,)
-    typ.Sequence[NDArray],  # right_tt_weights, len=d+1, elm_shape=(rRi,)
+    typ.Sequence[NDArray],  # left_tt_weights, len=d, elm_shape=(rLi,)
+    typ.Sequence[NDArray],  # right_tt_weights, len=d, elm_shape=(rRi,)
 ]
 """Edge weights for base-variation format.
 
@@ -138,8 +204,12 @@ BVEdgeWeights = typ.Tuple[
     - shape_weights:        typ.Sequence[NDArray], len=d, elm_shape=(Ni,)
     - up_tucker_weights:    typ.Sequence[NDArray], len=d, elm_shape=(nUi,)
     - outer_tucker_weights: typ.Sequence[NDArray], len=d, elm_shape=(nOi,)
-    - left_tt_weights:      typ.Sequence[NDArray], len=d+1, elm_shape=(rLi,)
-    - right_tt_weights:     typ.Sequence[NDArray], len=d+1, elm_shape=(rRi,)
+    - left_tt_weights:      typ.Sequence[NDArray], len=d, elm_shape=(rLi,)
+    - right_tt_weights:     typ.Sequence[NDArray], len=d, elm_shape=(rRi,)
+    
+Note: there are no weights for:
+    - The edge between 1--R0
+    - The edge between Ld--1 
     
 See Also
 --------
@@ -148,191 +218,55 @@ T3Variation
 T3Base
 """
 
-def check_t3base(
+
+def get_base_structure(
         base: T3Base,
-) -> None:
-    '''Check that T3Base core shapes are internally consistent.
+) -> BVStructure:
+    """Get the edge structure of a base-variation representation of a Tucker tensor train from the base.
 
-    Contractions of the following forms must make sense::
+    See Also
+    --------
+    T3Base
 
-        1 -- L0 -- ( ) -- R2 -- R3 -- 1
-             |     |      |     |
-             U0    U1     U2    U3
-             |     |      |     |
-
-        1 -- L0 -- L1 -- O2 -- R3 -- 1
-             |     |     |     |
-             U0    U1    ( )   U3
-             |     |     |     |
-
-
-    Here:
-        - tucker_cores      = (U0, U1, U2, U3)
-        - left_tt_cores     = (L0, L1, L2, L3)
-        - right_tt_cores    = (R0, R1, R2, R3)
-        - outer_tt_cores    = (O0, O1, O2, O3)
-
-    Raises
-    ------
-    RuntimeError
-        - Error raised if any core shapes are inconsistent
-    '''
-    tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
-
-    num_cores = len(tucker_cores)
-    all_num_cores = [len(tucker_cores), len(left_tt_cores), len(right_tt_cores), len(outer_tt_cores)]
-    if all_num_cores != [num_cores]*4:
-        raise RuntimeError(
-            'Orthogonals have different numbers of cores. These should all be equal:\n'
-            + '[len(tucker_cores), len(left_tt_cores), len(right_tt_cores), len(outer_tt_cores)]=\n'
-            + str(all_num_cores)
-        )
-
-    # Check that tucker_cores are matrices
-    for ii, B in enumerate(tucker_cores):
-        if len(B.shape) != 2:
-            raise RuntimeError(
-                'tucker_core is not a matrix:\n'
-                + 'tucker_cores['+str(ii) + '].shape=' + str(B.shape)
-            )
-
-    # Check that outer_tt_cores are 3-tensors
-    for ii, G in enumerate(outer_tt_cores):
-        if len(G.shape) != 3:
-            raise RuntimeError(
-                'outer_tt_core is not a 3-tensor:\n'
-                + 'outer_tt_cores['+str(ii) + '].shape=' + str(G.shape)
-            )
-
-    # Check that left_tt_cores are 3-tensors
-    for ii, G in enumerate(left_tt_cores):
-        if len(G.shape) != 3:
-            raise RuntimeError(
-                'left_tt_core is not a 3-tensor:\n'
-                + 'left_tt_cores['+str(ii) + '].shape=' + str(G.shape)
-            )
-
-    # Check that right_tt_cores are 3-tensors
-    for ii, G in enumerate(right_tt_cores):
-        if len(G.shape) != 3:
-            raise RuntimeError(
-                'right_tt_core is not a 3-tensor:\n'
-                + 'right_tt_cores['+str(ii) + '].shape=' + str(G.shape)
-            )
-
-    # Check outer-left consistency
-    for ii in range(1, num_cores):
-        GO = outer_tt_cores[ii]
-        GL = left_tt_cores[ii-1]
-        if GO.shape[0] != GL.shape[2]:
-            raise RuntimeError(
-                'Inconsistency in outer_tt_core and left_tt_core shapes:\n'
-                + str(GO.shape[0]) + ' = GO.shape[0] != GL.shape[2] = ' + str(GL.shape[2]) + '\n'
-                + 'left_tt_cores[' + str(ii - 1) + '].shape=' + str(GL.shape) + '\n'
-                + 'outer_tt_cores['+str(ii)+'].shape=' + str(GO.shape)
-            )
-
-    # Check outer-right consistency
-    for ii in range(0, num_cores-1):
-        GO = outer_tt_cores[ii]
-        GR = right_tt_cores[ii+1]
-        if GO.shape[2] != GR.shape[0]:
-            raise RuntimeError(
-                'Inconsistency in outer_tt_core and right_tt_core shapes:\n'
-                + str(GO.shape[2]) + ' = GO.shape[2] != GR.shape[0] = ' + str(GR.shape[0]) + '\n'
-                + 'outer_tt_cores['+str(ii)+'].shape=' + str(GO.shape) + '\n'
-                + 'right_tt_cores['+str(ii+11)+'].shape=' + str(GR.shape)
-            )
-
-    # Check left-left consistency
-    for ii in range(1, num_cores):
-        GL1 = left_tt_cores[ii-1]
-        GL2 = left_tt_cores[ii]
-        if GL1.shape[2] != GL2.shape[0]:
-            raise RuntimeError(
-                'Inconsistency in left_tt_core shapes:\n'
-                + str(GL1.shape[2]) + ' = GL1.shape[2] != GL2.shape[0] = ' + str(GL2.shape[0]) + '\n'
-                + 'left_tt_cores['+str(ii-1)+'].shape=' + str(GL1.shape) + '\n'
-                + 'left_tt_cores['+str(ii)+'].shape=' + str(GL2.shape)
-            )
-
-    # Check outer-left consistency
-    for ii in range(0, num_cores-1):
-        G = left_tt_cores[ii]
-        B = tucker_cores[ii]
-        if G.shape[1] != B.shape[0]:
-            raise RuntimeError(
-                'Inconsistency in left_tt_core and tucker_core shapes:\n'
-                + str(G.shape[1]) + ' = G.shape[1] != B.shape[0] = ' + str(B.shape[0]) + '\n'
-                + 'left_tt_cores['+str(ii)+'].shape=' + str(G.shape) + '\n'
-                + 'tucker_cores['+str(ii)+'].shape=' + str(B.shape)
-            )
-
-    # Check right-right consistency
-    for ii in range(0, num_cores-1):
-        GR1 = right_tt_cores[ii]
-        GR2 = right_tt_cores[ii+1]
-        if GR1.shape[2] != GR2.shape[0]:
-            raise RuntimeError(
-                'Inconsistency in right_tt_core shapes:\n'
-                + str(GR1.shape[2]) + ' = GR1.shape[2] != GR2.shape[0] = ' + str(GR2.shape[0]) + '\n'
-                + 'right_tt_cores['+str(ii)+'].shape=' + str(GR1.shape) + '\n'
-                + 'right_tt_cores['+str(ii+11)+'].shape=' + str(GR2.shape)
-            )
-
-    # Check outer-left consistency
-    for ii in range(1, num_cores):
-        G = right_tt_cores[ii]
-        B = tucker_cores[ii]
-        if G.shape[1] != B.shape[0]:
-            raise RuntimeError(
-                'Inconsistency in right_tt_core and tucker_core shapes:\n'
-                + str(G.shape[1]) + ' = G.shape[1] != B.shape[0] = ' + str(B.shape[0]) + '\n'
-                + 'right_tt_cores['+str(ii)+'].shape=' + str(G.shape) + '\n'
-                + 'tucker_cores['+str(ii)+'].shape=' + str(B.shape)
-            )
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.base_variation_format as bvf
+    >>> tucker_cores = (np.ones((10, 14)), np.ones((11, 15)), np.ones((12, 16)))
+    >>> left_tt_cores = (np.ones((1, 10, 2)), np.ones((2, 11, 3)), np.ones((1,12,5)))
+    >>> right_tt_cores = (np.ones((2,10,4)), np.ones((4, 11, 5)), np.ones((5, 12, 1)))
+    >>> outer_tt_cores = (np.ones((1, 9, 4)), np.ones((2, 8, 5)), np.ones((3, 7, 1)))
+    >>> base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+    >>> print(bvf.get_base_structure(base))
+    ((14, 15, 16), (10, 11, 12), (9, 8, 7), (1, 2, 3), (4, 5, 1))
+    """
+    up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
+    NN = tuple([U.shape[1] for U in up_tucker_cores])
+    nnU = tuple([U.shape[0] for U in up_tucker_cores])
+    rrL = tuple([L.shape[0] for L in left_tt_cores]) + (left_tt_cores[-1].shape[2],)
+    rrR = tuple([R.shape[0] for R in right_tt_cores]) + (right_tt_cores[-1].shape[2],)
+    nnO = tuple([O.shape[1] for O in outer_tt_cores])
+    return (NN, nnU, nnO, rrL, rrR)
 
 
-def check_t3variation(
+def variation_shapes(
         variation: T3Variation,
-) -> None:
-    '''Check that T3Variation core shapes are appropriate.
-
-    Raises
-    ------
-    RuntimeError
-        - Error raised if any variation core shapes are inappropriate
-    '''
-    var_tucker_cores, var_tt_cores = variation
-
-    if len(var_tucker_cores) != len(var_tt_cores):
-        raise RuntimeError(
-            str(len(var_tucker_cores)) + ' = len(var_tucker_cores) != len(var_tt_cores) = ' + str(len(var_tt_cores))
-        )
-    num_cores = len(var_tucker_cores)
-
-    # Check that tucker_cores are matrices
-    for ii, B in enumerate(var_tucker_cores):
-        if len(B.shape) != 2:
-            raise RuntimeError(
-                'var_tucker_core is not a matrix:\n'
-                + 'var_tucker_cores['+str(ii) + '].shape=' + str(B.shape)
-            )
-
-    # Check that outer_tt_cores are 3-tensors
-    for ii, G in enumerate(var_tt_cores):
-        if len(G.shape) != 3:
-            raise RuntimeError(
-                'var_tt_core is not a 3-tensor:\n'
-                + 'var_tt_cores['+str(ii) + '].shape=' + str(G.shape)
-            )
+) -> typ.Tuple[
+    typ.Tuple[int,...], # tucker_var_shapes, len=d
+    typ.Tuple[int,...], # tt_var_shapes, len=d
+]:
+    """Get the shapes of the cores in a variation.
+    """
+    tucker_var_shapes = tuple([V.shape for V in variation[0]])
+    tt_var_shapes = tuple([H.shape for H in variation[1]])
+    return tucker_var_shapes, tt_var_shapes
 
 
-def hole_shapes(
+def base_hole_shapes(
         base: T3Base,
 ) -> typ.Tuple[
-    typ.Tuple[int,...], # variation_tucker_shapes. len=d. elm_len=2
-    typ.Tuple[int,...], # variation_tt_shapes. len=d. elm_len=3
+    typ.Tuple[typ.Tuple[int,...],...], # variation_tucker_shapes. len=d. elm_len=2
+    typ.Tuple[typ.Tuple[int,...],...], # variation_tt_shapes. len=d. elm_len=3
 ]:
     '''T3Variation core shapes that fit with given T3Base.
 
@@ -380,81 +314,18 @@ def hole_shapes(
     >>> right_tt_cores = (np.ones((1,10,4)), np.ones((4,11,5)), np.ones((5,12,1)))
     >>> outer_tt_cores = (np.ones((1,9,4)), np.ones((2,8,5)), np.ones((3,7,1)))
     >>> base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-    >>> (var_tucker_shapes, var_tt_shapes) = bvf.hole_shapes(base)
+    >>> (var_tucker_shapes, var_tt_shapes) = bvf.base_hole_shapes(base)
     >>> print(var_tucker_shapes)
     ((9, 14), (8, 15), (7, 16))
     >>> print(var_tt_shapes)
     ((1, 10, 4), (2, 11, 5), (3, 12, 1))
     '''
-    check_t3base(base)
-    tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
-    num_cores = len(tucker_cores)
+    NN, nnU, nnO, rrL, rrR = get_base_structure(base)
 
-    variation_tucker_shapes = []
-    for ii in range(num_cores):
-        n = outer_tt_cores[ii].shape[1]
-        N = tucker_cores[ii].shape[1]
-        variation_tucker_shapes.append((n,N))
+    var_tucker_shapes = tuple([(nO,N) for nO, N in zip(nnO,NN)])
+    var_tt_shapes = tuple([(rL, nU, rR) for rL, nU, rR in zip(rrL[:-1], nnU, rrR[1:])])
 
-    variation_tt_shapes = []
-    for ii in range(num_cores):
-        rL = left_tt_cores[ii].shape[0]
-        n = tucker_cores[ii].shape[0]
-        rR = right_tt_cores[ii].shape[2]
-        variation_tt_shapes.append((rL, n, rR))
-
-    return tuple(variation_tucker_shapes), tuple(variation_tt_shapes)
-
-
-def check_fit(
-        variation: T3Variation,
-        base: T3Base,
-) -> None:
-    '''Check that the variation cores fit into the corresponding holes of the base.
-
-    Parameters
-    ----------
-    variation: T3Variation
-        Variation cores
-    base: T3Base
-        Base cores
-
-    Raises
-    ------
-    RuntimeError
-        - Error raised if the base is internally inconsistent
-        - Error raised if the variation is internally incorrect
-        - Error raised if the base and variation do not fit with each other
-
-    See Also
-    --------
-    T3Base
-    T3Variation
-    check_t3base
-    check_t3variation
-    '''
-    check_t3base(base)
-    check_t3variation(variation)
-
-    var_tucker_cores, var_tt_cores = variation
-    var_tucker_shapes = tuple([B.shape for B in var_tucker_cores])
-    var_tt_shapes = tuple([G.shape for G in var_tt_cores])
-
-    hole_tucker_shapes, hole_tt_shapes = hole_shapes(base)
-
-    if var_tucker_shapes != hole_tucker_shapes:
-        raise RuntimeError(
-            'Variation Tucker core does do not fit into base:\n'
-            + 'var_tucker_shapes=' + str(var_tucker_shapes) + '\n'
-            + 'hole_tucker_shapes=' + str(hole_tucker_shapes) + '\n'
-        )
-
-    if var_tt_shapes != hole_tt_shapes:
-        raise RuntimeError(
-            'Variation TT core does do not fit into base:\n'
-            + 'var_tt_shapes=' + str(var_tt_shapes) + '\n'
-            + 'hole_tt_shapes=' + str(hole_tt_shapes) + '\n'
-        )
+    return var_tucker_shapes, var_tt_shapes
 
 
 def ith_bv_to_t3(
@@ -503,8 +374,8 @@ def ith_bv_to_t3(
     >>> import t3toolbox.base_variation_format as bvf
     >>> randn = np.random.randn # shorthand
     >>> (U0,U1,U2) = (randn(10, 14), randn(11, 15), randn(12, 16))
-    >>> (L0,L1,L2) = (randn(1, 10, 2), randn(2, 11, 3), randn(3, 12, 1))
-    >>> (R0,R1,R2) = (randn(1, 10, 4), randn(4, 11, 5), randn(5, 12, 1))
+    >>> (L0,L1,L2) = (randn(1, 10, 2), randn(2, 11, 3), randn(3,12,4))
+    >>> (R0,R1,R2) = (randn(2,10,4), randn(4, 11, 5), randn(5, 12, 1))
     >>> (O0,O1,O2) = (randn(1, 9, 4), randn(2, 8, 5), randn(3, 7, 1))
     >>> base = ((U0,U1,U2), (L0,L1,L2), (R0,R1,R2), (O0,O1,O2))
     >>> (V0,V1,V2) = (randn(9,14), randn(8,15), randn(7,16))
@@ -517,9 +388,6 @@ def ith_bv_to_t3(
     >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,O1,R2)))
     True
     '''
-    check_t3base(base)
-    check_t3variation(variation)
-
     tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
     tucker_vars, tt_vars = variation
 

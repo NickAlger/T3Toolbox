@@ -46,7 +46,7 @@ class TestManifold(unittest.TestCase):
 
                     p = t3.t3_corewise_randn(SHAPE)
                     base, _ = orth.orthogonal_representations(p)
-                    tucker_shapes, tt_shapes = bvf.hole_shapes(base)
+                    tucker_shapes, tt_shapes = bvf.base_hole_shapes(base)
                     num_tucker_entries = np.sum([np.prod(shape) for shape in tucker_shapes])
                     num_tt_entries = np.sum([np.prod(shape) for shape in tt_shapes])
                     num_core_entries = num_tucker_entries + num_tt_entries
@@ -127,7 +127,7 @@ class TestManifold(unittest.TestCase):
 
                     self.assertLessEqual(norm(t3m.tangent_to_dense(z, base)), tol)
 
-                    shapes = bvf.hole_shapes(base)
+                    shapes = bvf.base_hole_shapes(base)
                     tucker_z, tt_z = z
                     tucker_shapes, tt_shapes = shapes
 
@@ -151,7 +151,7 @@ class TestManifold(unittest.TestCase):
 
                     v = T3M.tangent_randn(base)  # Random tangent vector, gauged.
 
-                    shapes = bvf.hole_shapes(base)
+                    shapes = bvf.base_hole_shapes(base)
                     tucker_v, tt_v = v
                     tucker_shapes, tt_shapes = shapes
 
