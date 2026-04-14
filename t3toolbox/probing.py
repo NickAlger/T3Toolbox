@@ -12,8 +12,6 @@ import t3toolbox.base_variation_format as bvf
 from t3toolbox.common import *
 
 __all__ = [
-    # Probe a dense tensor
-    'probe_dense',
     # Probe a Tucker tensor train
     'probe_t3',
     'compute_xis',
@@ -36,6 +34,8 @@ __all__ = [
     'assemble_tucker_variations',
     'assemble_tt_variations',
     'probe_tangent_transpose',
+    # Probe a dense tensor
+    'probe_dense',
 ]
 
 
@@ -130,6 +130,11 @@ def probe_t3(
     >>> print(np.linalg.norm(uniform_zz - uniform_zz2))
     0.0
     '''
+    is_uniform = not isinstance(x[0], typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
+
+    #
+
     tucker_cores, tt_cores = x
 
     shape_weights, tucker_weights, tt_weights = edge_weights
@@ -167,13 +172,18 @@ def _apply_edge_weight(edge_variable, edge_weight, xnp=np):
 
 
 def _apply_edge_weights(edge_variables, edge_weights, use_jax: bool=False):
-    is_ragged = isinstance(edge_variables, typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+    is_uniform = not isinstance(edge_variables, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
-    (weighted_edge_variables,) = xmap(
-        lambda v_w: (_apply_edge_weight(v_w[0], v_w[1], xnp=xnp),),
-        (edge_variables, edge_weights)
-    )
+    if is_uniform:
+        weighted_edge_variables = xnp.einsum('d...i,di->d...i', edge_variables, edge_weights)
+
+    else:
+        (weighted_edge_variables,) = xmap(
+            lambda v_w: (_apply_edge_weight(v_w[0], v_w[1], xnp=xnp),),
+            (edge_variables, edge_weights)
+        )
+
     return weighted_edge_variables
 
 
@@ -215,30 +225,28 @@ def compute_xis(
     compute_etas
     assemble_probes
     '''
-    is_ragged = isinstance(up_tucker_cores, typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+    is_uniform = not isinstance(up_tucker_cores, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
-
     xi_weights = up_tucker_weights
 
-    def _func(x):
-        U, w, ind = x[0], x[1], 2
+    if is_uniform:
+        unweighted_xis = xnp.einsum('dio,d...o->d...i', up_tucker_cores, ww)
 
-        unweighted_xi = xnp.einsum('io,...o->...i', U, w)
+    else:
+        def _func(x):
+            U, w = x[0], x[1]
+            unweighted_xi = xnp.einsum('io,...o->...i', U, w)
+            return (unweighted_xi,)
 
-        if xi_weights is not None:
-            weight = x[ind]
-            xi = _apply_edge_weight(unweighted_xi, weight, xnp=xnp)
-        else:
-            xi = unweighted_xi
+        (unweighted_xis,) = xmap(_func, (up_tucker_cores, ww))
 
-        return (xi,)
+    if xi_weights is not None:
+        xis = _apply_edge_weights(unweighted_xis, xi_weights, use_jax=use_jax)
+    else:
+        xis = unweighted_xis
 
-    xs = (up_tucker_cores, ww)
-    xs = xs + (xi_weights,) if xi_weights  is not None else xs
-
-    (xis,) = xmap(_func, xs)
     return xis
 
 
@@ -280,8 +288,8 @@ def compute_mus(
     compute_etas
     assemble_probes
     '''
-    is_ragged = isinstance(xis, typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+    is_uniform = not isinstance(xis, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
 
@@ -407,34 +415,35 @@ def compute_etas(
     compute_nus
     assemble_probes
     '''
-    is_ragged = isinstance(mus, typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+    is_uniform = not isinstance(mus, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
-
     eta_weights = outer_tucker_weights
 
-    def _func(x):
-        mu, G, nu, ind = x[0], x[1], x[2], 3
-
-        unweighted_eta = xnp.einsum(
-            '...aj,...j->...a',
-            xnp.einsum('...i,iaj->...aj', mu, G),
-            nu,
+    if is_uniform:
+        unweighted_etas = xnp.einsum(
+            'd...aj,d...j->d...a',
+            xnp.einsum('d...i,diaj->d...aj', mus, outer_tt_cores),
+            nus,
         )
+    else:
+        def _func(x):
+            mu, G, nu = x
+            unweighted_eta = xnp.einsum(
+                '...aj,...j->...a',
+                xnp.einsum('...i,iaj->...aj', mu, G),
+                nu,
+            )
+            return (unweighted_eta,)
 
-        if eta_weights is not None:
-            weight = x[ind]
-            eta = _apply_edge_weight(unweighted_eta, weight, xnp=xnp)
-        else:
-            eta = unweighted_eta
+        (unweighted_etas,) = xmap(_func, (mus, outer_tt_cores, nus))
 
-        return (eta,)
+    if eta_weights is not None:
+        etas = _apply_edge_weights(unweighted_etas, eta_weights, use_jax=use_jax)
+    else:
+        etas = unweighted_etas
 
-    xs = (mus, outer_tt_cores, nus)
-    xs = xs + (eta_weights,) if eta_weights is not None else xs
-
-    (etas,) = xmap(_func, xs)
     return etas
 
 
@@ -475,30 +484,27 @@ def assemble_zs(
     compute_nus
     compute_etas
     '''
-    is_ragged = isinstance(etas, typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+    is_uniform = not isinstance(etas, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
-
     z_weights = shape_weights
 
-    def _func(x):
-        eta, U, ind = x[0], x[1], 2
+    if is_uniform:
+        unweighted_zs = xnp.einsum('d...a,dao->d...o', etas, tucker_cores)
+    else:
+        def _func(x):
+            eta, U = x
+            unweighted_z = xnp.einsum('...a,ao->...o', eta, U)
+            return (unweighted_z,)
 
-        unweighted_z = xnp.einsum('...a,ao->...o', eta, U)
+        (unweighted_zs,) = xmap(_func, (etas, tucker_cores))
 
-        if z_weights is not None:
-            weight = x[ind]
-            z = _apply_edge_weight(unweighted_z, weight, xnp=xnp)
-        else:
-            z = unweighted_z
+    if z_weights is not None:
+        zs = _apply_edge_weights(unweighted_zs, z_weights, use_jax=use_jax)
+    else:
+        zs = unweighted_zs
 
-        return (z,)
-
-    xs = (etas, tucker_cores)
-    xs = xs + (z_weights,) if z_weights is not None else xs
-
-    (zs,) = xmap(_func, xs)
     return zs
 
 
@@ -564,8 +570,8 @@ def compute_sigmas(
     assemble_tangent_probes
     probe_tangent
     '''
-    is_ragged = isinstance(xis, typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+    is_uniform = not isinstance(xis, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
 
@@ -682,8 +688,8 @@ def compute_detas(
     assemble_tangent_probes
     probe_tangent
     '''
-    is_ragged = isinstance(mus, typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+    is_uniform = not isinstance(mus, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
 
@@ -749,8 +755,8 @@ def assemble_tangent_zs(
     compute_detas
     probe_tangent
     '''
-    is_ragged = isinstance(etas, typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+    is_uniform = not isinstance(etas, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
 
@@ -1002,8 +1008,8 @@ def compute_tau_tildes(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    is_ragged = isinstance(xis, typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+    is_uniform = not isinstance(xis, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
 
@@ -1083,8 +1089,8 @@ def compute_dxi_tildes(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    is_ragged = isinstance(mus, typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+    is_uniform = not isinstance(mus, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
 
@@ -1139,8 +1145,8 @@ def assemble_tucker_variations(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    is_ragged = isinstance(ww, typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+    is_uniform = not isinstance(ww, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
 
@@ -1183,8 +1189,8 @@ def assemble_tt_variations(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    is_ragged = isinstance(xis, typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+    is_uniform = isinstance(xis, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
 
@@ -1531,7 +1537,7 @@ def probe_dense(
     >>> print(np.linalg.norm(yy_v[2] - yyy[2][1,:]))
     0.0
     """
-    xnp, _, _ = get_backend(False, use_jax)
+    xnp, _, _ = get_backend(True, use_jax)
 
     #
 

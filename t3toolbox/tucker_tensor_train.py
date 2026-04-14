@@ -449,11 +449,11 @@ def squash_tails(
 def reverse_tt(tt_cores):
     """Reverse a tensor train (no Tucker).
     """
-    is_ragged = isinstance(tt_cores, typ.Sequence)
-    if is_ragged:
-        return tuple([G.swapaxes(0, 2) for G in tt_cores[::-1]])
+    is_uniform = not isinstance(tt_cores, typ.Sequence)
+    if is_uniform:
+        return tt_cores[::-1, :, :, :].swapaxes(1, 3)
     else:
-        return tt_cores[::-1,:,:,:].swapaxes(1,3)
+        return tuple([G.swapaxes(0, 2) for G in tt_cores[::-1]])
 
 
 def reverse_t3(
@@ -526,8 +526,8 @@ def absorb_edge_weights_into_cores(
                 |        |        |
 
     """
-    is_ragged = isinstance(x0[0], typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+    is_uniform = not isinstance(x0[0], typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
 
@@ -546,10 +546,11 @@ def absorb_edge_weights_into_cores(
 
     Gf = xnp.einsum('i,iaj,j->iaj', tt_weights[-2], tt_cores0[-1], tt_weights[-1])
 
-    if is_ragged:
-        tt_cores = tuple(first_tt_cores) + (Gf,)
+    if is_uniform:
+        tt_cores = xnp.concatenate([first_tt_cores, Gf.reshape((1,) + Gf.shape)], axis=0)
     else:
-        tt_cores = xnp.concatenate([first_tt_cores, Gf.reshape((1,)+Gf.shape)], axis=0)
+        tt_cores = tuple(first_tt_cores) + (Gf,)
+
 
     return tucker_cores, tt_cores
 
@@ -1154,7 +1155,7 @@ def change_tucker_core_shapes(
 ) -> typ.Tuple[NDArray,...]:
     """Increase Tucker and/or TT ranks for TT cores using zero padding.
     """
-    xnp, _, _ = get_backend(True, use_jax)
+    xnp, _, _ = get_backend(False, use_jax)
 
     old_shape = [B.shape[1] for B in tucker_cores]
     old_tucker_ranks = [B.shape[0] for B in tucker_cores]
@@ -1185,7 +1186,7 @@ def change_tt_core_shapes(
 ) -> typ.Tuple[NDArray,...]:
     """Increase Tucker and/or TT ranks for TT cores using zero padding.
     """
-    xnp, _, _ = get_backend(True, use_jax)
+    xnp, _, _ = get_backend(False, use_jax)
 
     old_tucker_ranks = [G.shape[1] for G in tt_cores]
     old_tt_ranks = [G.shape[0] for G in tt_cores] + [tt_cores[-1].shape[2]]

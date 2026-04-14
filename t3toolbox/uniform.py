@@ -383,7 +383,7 @@ def apply_masks(
     0.0
 
     """
-    xnp, xmap, xscan = get_backend(False, use_jax)
+    xnp, xmap, xscan = get_backend(True, use_jax)
 
     shape_mask, tucker_mask, tt_mask = masks
     BB, GG = cores
@@ -419,7 +419,7 @@ def uniform_squash_tails(
     >>> print(np.linalg.norm(dense_ux - dense_ux2))
     0.0
     """
-    xnp, xmap, xscan = get_backend(False, use_jax)
+    xnp, xmap, xscan = get_backend(True, use_jax)
     tucker_supercore, tt_supercore = x
 
     _, r, n, _ = tt_supercore.shape
@@ -460,7 +460,7 @@ def pack_tensors(
     #
 
     if not unpacked_tensors:
-        return ()
+        return xnp.array(())
 
     k = len(unpacked_tensors[0].shape)
     packed_shape = [max([x.shape[ii] for x in unpacked_tensors]) for ii in range(k)]
@@ -675,7 +675,7 @@ def bv_to_ubv(
     UniformT3Base,
     UniformBVEdgeWeights, # masks
 ]:
-    xnp, _, _ = get_backend(True, use_jax)
+    xnp, _, _ = get_backend(False, use_jax)
 
     var_tucker_cores, var_tt_cores = variation
     up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base

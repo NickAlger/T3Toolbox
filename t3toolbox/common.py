@@ -189,19 +189,19 @@ if not has_jax:
 
 
 def get_backend(
-        is_ragged: bool,
+        is_uniform: bool,
         use_jax: bool,
 ):
-    if is_ragged:
-        xmap = ragged_map
-        xscan = ragged_scan
-    else:
+    if is_uniform:
         if use_jax:
             xmap = jax_map
             xscan = jax_scan
         else:
             xmap = numpy_map
             xscan = numpy_scan
+    else:
+        xmap = ragged_map
+        xscan = ragged_scan
 
     if use_jax:
         xnp = jnp

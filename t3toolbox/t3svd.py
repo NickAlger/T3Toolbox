@@ -161,8 +161,8 @@ def t3_svd(
     [299.45433768 100.29574828]
     [299.45433768 100.29574828]
     '''
-    is_ragged = isinstance(x[0], typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+    is_uniform = not isinstance(x[0], typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
 
@@ -277,7 +277,7 @@ def tucker_svd_dense(
     >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-3
     0.002418671417862558
     '''
-    xnp, xmap, xscan = get_backend(False, use_jax)
+    xnp, xmap, xscan = get_backend(True, use_jax)
 
     bases = []
     singular_values_of_matricizations = []
@@ -361,7 +361,7 @@ def tt_svd_dense(
     >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-3
     0.0023999063535883633
     '''
-    xnp, xmap, xscan = get_backend(False, use_jax)
+    xnp, xmap, xscan = get_backend(True, use_jax)
 
     nn = T.shape
 
@@ -531,7 +531,7 @@ def uniform_t3_svd(
     >>> print(ss_basis_from_ut4[1])
 
     """
-    xnp, xmap, xscan = get_backend(False, use_jax)
+    xnp, xmap, xscan = get_backend(True, use_jax)
 
     #
 
@@ -550,7 +550,7 @@ def uniform_t3_svd(
     # keep everything the same shape, for consistency with masks
     _, n2, _ = basis_supercore.shape
     basis_supercore = xnp.concatenate([basis_supercore, xnp.zeros((d, n-n2, N))], axis=1)
-    tt_supercore = xnp.concatenate([tt_supercore, xnp.zeros((d, r, n-n2, r))], axis=2)
+    tt_supercore    = xnp.concatenate([tt_supercore,    xnp.zeros((d, r, n-n2, r))], axis=2)
 
     _, ss_tt00, _ = xnp.linalg.svd(tt_supercore[0].reshape((r, n*r)), full_matrices=False)
     ss_tt0 = xnp.concatenate([ss_tt00, xnp.zeros(r-len(ss_tt00))], axis=0)

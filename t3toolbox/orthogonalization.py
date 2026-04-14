@@ -9,6 +9,7 @@ import t3toolbox.linalg
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.base_variation_format as bvf
 import t3toolbox.linalg as linalg
+import t3toolbox.uniform as ut3
 import t3toolbox.common as common
 from t3toolbox.common import *
 
@@ -640,67 +641,95 @@ def orthogonalize_relative_to_ith_tt_core(
 
 
 def up_orthogonalize_tucker_cores(
-        x: t3.TuckerTensorTrain,
+        x: typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrainCores],
         use_jax: bool = False,
 ) -> t3.TuckerTensorTrain:
     """Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
     """
-    is_ragged = isinstance(x[0], typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+    is_uniform = not isinstance(x[0], typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
 
-    def _up_func(up_func_args):
-        Bio, Gaib = up_func_args
-        Boi = Bio.T
+    if is_uniform:
+        B_d_i_o, G_d_a_i_b = x
+        B_d_o_i = B_d_i_o.swapaxes(1,2)
 
-        Uox, ssx, WTxi = xnp.linalg.svd(Boi, full_matrices=False)
-        Rxi = xnp.einsum('x,xi->xi', ssx, WTxi)
+        U_d_o_x, ss_d_x, WT_d_x_i = xnp.linalg.svd(B_d_o_i, full_matrices=False)
+        R_d_x_i = xnp.einsum('dx,dxi->dxi', ss_d_x, WT_d_x_i)
 
-        if not is_ragged:
-            N, n = Boi.shape
-            n2 = len(ssx)
-            Uox = xnp.concatenate([Uox, xnp.zeros((N, n-n2))], axis=1)
-            Rxi = xnp.concatenate([Rxi, xnp.zeros((n-n2, n))], axis=0)
+        # Make sure shape remains the same. Commented out because it' OK for shape to shange now
+        # d, N, n = B_d_o_i.shape
+        # n2 = ss_d_x.shape[1]
+        # U_d_o_x = xnp.concatenate([U_d_o_x, xnp.zeros((d, N, n-n2))], axis=1)
+        # R_d_x_i = xnp.concatenate([R_d_x_i, xnp.zeros((d, n-n2, n))], axis=0)
 
-        new_Gaxb = xnp.einsum('aib,xi->axb', Gaib, Rxi)
-        new_Uxo = Uox.T
-        return (new_Uxo, new_Gaxb)
+        new_G_d_a_x_b = xnp.einsum('daib,dxi->daxb', G_d_a_i_b, R_d_x_i)
+        new_U_d_x_o = U_d_o_x.swapaxes(1,2)
+        up_tucker_cores, new_tt_cores = new_U_d_x_o, new_G_d_a_x_b
 
-    xs = x
+    else:
+        def _up_func(up_func_args):
+            Bio, Gaib = up_func_args
+            Boi = Bio.T
 
-    up_tucker_cores, new_tt_cores = xmap(_up_func, xs)
+            Uox, ssx, WTxi = xnp.linalg.svd(Boi, full_matrices=False)
+            Rxi = xnp.einsum('x,xi->xi', ssx, WTxi)
+
+            new_Gaxb = xnp.einsum('aib,xi->axb', Gaib, Rxi)
+            new_Uxo = Uox.T
+            return (new_Uxo, new_Gaxb)
+
+        xs = x
+        up_tucker_cores, new_tt_cores = xmap(_up_func, xs)
+
     return (up_tucker_cores, new_tt_cores)
 
 
 def outer_orthogonalize_tt_cores(
-        x: t3.TuckerTensorTrain,
+        x: typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrainCores],
         use_jax: bool = False,
 ):
     """Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
     """
-    is_ragged = isinstance(x[0], typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+    is_uniform = not isinstance(x[0], typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
 
-    def _down_func(Uio_Haib):
-        Uio, Haib,  = Uio_Haib
+    if is_uniform:
+        U_d_i_o, H_d_a_i_b = x
 
-        rL, n, rR = Haib.shape
-        H_ab_i = Haib.swapaxes(1,2).reshape((rL*rR,n))
+        d, rL, n, rR = H_d_a_i_b.shape
+        H_d_ab_i = H_d_a_i_b.swapaxes(1,2).reshape((d,rL*rR,n))
 
-        O_ab_x, ssx, WTxi = xnp.linalg.svd(H_ab_i, full_matrices=False)
-        n2 = len(ssx)
-        Oaxb = O_ab_x.reshape((rL, rR, n2)).swapaxes(1,2)
+        O_d_ab_x, ss_d_x, WT_d_x_i = xnp.linalg.svd(H_d_ab_i, full_matrices=False)
+        n2 = ss_d_x.shape[1]
+        O_d_a_x_b = O_d_ab_x.reshape((d, rL, rR, n2)).swapaxes(1,2)
 
-        # Oaxb, ssx, WTxi = linalg.outer_svd_3tensor(Haib, xnp=xnp)
-        Cxi = ssx.reshape((-1, 1)) * WTxi
+        C_d_x_i = ss_d_x.reshape((1, -1, 1)) * WT_d_x_i
 
-        Vxo = np.einsum('xi,io->xo', Cxi, Uio)
-        return (Vxo, Oaxb)
+        V_d_x_o = np.einsum('dxi,dio->dxo', C_d_x_i, U_d_i_o)
+        tucker_variations, outer_tt_cores = V_d_x_o, O_d_a_x_b
 
-    tucker_variations, outer_tt_cores = xmap(_down_func, x)
+    else:
+        def _down_func(Uio_Haib):
+            Uio, Haib,  = Uio_Haib
+
+            rL, n, rR = Haib.shape
+            H_ab_i = Haib.swapaxes(1,2).reshape((rL*rR,n))
+
+            O_ab_x, ssx, WTxi = xnp.linalg.svd(H_ab_i, full_matrices=False)
+            n2 = len(ssx)
+            Oaxb = O_ab_x.reshape((rL, rR, n2)).swapaxes(1,2)
+
+            Cxi = ssx.reshape((-1, 1)) * WTxi
+
+            Vxo = np.einsum('xi,io->xo', Cxi, Uio)
+            return (Vxo, Oaxb)
+
+        tucker_variations, outer_tt_cores = xmap(_down_func, x)
+
     return tucker_variations, outer_tt_cores
 
 
@@ -711,8 +740,8 @@ def left_orthogonalize_tt_cores(
 ):
     """Left-orthogonalize a Tensor train (no Tucker).
     """
-    is_ragged = isinstance(tt_cores, typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+    is_uniform = not isinstance(tt_cores, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
 
@@ -739,12 +768,12 @@ def left_orthogonalize_tt_cores(
 
     # Dealing with the last core as a special case
     Lf = xnp.einsum('xb,bjc->xjc', Cf, tt_cores[-1])
-    if is_ragged:
+    if is_uniform:
+        left_tt_cores = xnp.concatenate([LL, Lf.reshape((1,) + Lf.shape)], axis=0)
+        var_tt_cores = xnp.concatenate([HH, Lf.reshape((1,) + Lf.shape)], axis=0)
+    else:
         left_tt_cores = tuple(LL) + (Lf,)
         var_tt_cores = tuple(HH) + (Lf,)
-    else:
-        left_tt_cores = xnp.concatenate([LL, Lf.reshape((1,)+Lf.shape)], axis=0)
-        var_tt_cores = xnp.concatenate([HH, Lf.reshape((1,)+Lf.shape)], axis=0)
 
     if return_variation_cores:
         return left_tt_cores, var_tt_cores
@@ -767,7 +796,7 @@ def right_orthogonalize_tt_cores(
 
 
 def orthogonal_representations(
-        x: t3.TuckerTensorTrain,
+        x: typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrainCores],
         already_left_orthogonal: bool = False,
         use_jax: bool = False,
 ) -> typ.Tuple[

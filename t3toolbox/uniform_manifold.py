@@ -37,7 +37,7 @@ def uniform_tangent_to_uniform_t3(
                          ([O1(dB x)       0]) ([0              0]) ([0              0]) ([0       ])
                          (                  ) ([O2(dB y)       0]) ([O3(dB z)       0]) ([O4(dB w)])
     '''
-    xnp, _, _ = get_backend(False, use_jax)
+    xnp, _, _ = get_backend(True, use_jax)
 
     #
 

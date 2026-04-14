@@ -328,10 +328,8 @@ def absorb_weights_into_tangent_cores(
     bvf.T3Variation, # weighted variation
     bvf.T3Base, # weighted base
 ]:
-    is_ragged = isinstance(base[0], typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
-
-    #
+    is_uniform = not isinstance(base[0], typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     (shape_weights,
      up_tucker_weights, outer_tucker_weights,
@@ -341,39 +339,54 @@ def absorb_weights_into_tangent_cores(
     (up_tucker_cores0, left_tt_cores0, right_tt_cores0, outer_tt_cores0) = base
     (var_tucker_cores0, var_tt_cores0) = variation
 
-    (up_tucker_cores,) = xmap(
-        lambda x: (xnp.einsum('i,io,o->io', x[0], x[1], x[2]),),
-        (up_tucker_weights, up_tucker_cores0, shape_weights)
-    )
+    if is_uniform:
+        up_tucker_cores = xnp.einsum(
+            'di,dio,do->dio', up_tucker_weights, up_tucker_cores0, shape_weights
+        )
+        var_tucker_cores = xnp.einsum(
+            'di,dio,do->dio', outer_tucker_weights, var_tucker_cores0, shape_weights
+        )
+        left_tt_cores = xnp.einsum(
+            'di,diaj->diaj', left_tt_weights, left_tt_cores0
+        )
+        right_tt_cores = xnp.einsum(
+            'diaj,dj->diaj', right_tt_cores0, right_tt_weights
+        )
+        outer_tt_cores = xnp.einsum(
+            'di,diaj,dj->diaj', left_tt_weights, outer_tt_cores0, right_tt_weights
+        )
+        var_tt_cores = xnp.einsum(
+            'di,diaj,dj->diaj', left_tt_weights, var_tt_cores0, right_tt_weights
+        )
 
-    (var_tucker_cores,) = xmap(
-        lambda x: (xnp.einsum('i,io,o->io', x[0], x[1], x[2]),),
-        (outer_tucker_weights, var_tucker_cores0, shape_weights)
-    )
-
-    (left_tt_cores,) = xmap(
-        lambda x: (xnp.einsum('i,iaj->iaj', x[0], x[1]),),
-        (left_tt_weights, left_tt_cores0)
-    )
-
-    (right_tt_cores,) = xmap(
-        lambda x: (xnp.einsum('iaj,j->iaj', x[0], x[1]),),
-        (right_tt_cores0, right_tt_weights)
-    )
-
-    (outer_tt_cores,) = xmap(
-        lambda x: (xnp.einsum('i,iaj,j->iaj', x[0], x[1], x[2]),),
-        (left_tt_weights, outer_tt_cores0, right_tt_weights)
-    )
-
-    (var_tt_cores,) = xmap(
-        lambda x: (xnp.einsum('i,iaj,j->iaj', x[0], x[1], x[2]),),
-        (left_tt_weights, var_tt_cores0, right_tt_weights)
-    )
+    else:
+        (up_tucker_cores,) = xmap(
+            lambda x: (xnp.einsum('i,io,o->io', x[0], x[1], x[2]),),
+            (up_tucker_weights, up_tucker_cores0, shape_weights)
+        )
+        (var_tucker_cores,) = xmap(
+            lambda x: (xnp.einsum('i,io,o->io', x[0], x[1], x[2]),),
+            (outer_tucker_weights, var_tucker_cores0, shape_weights)
+        )
+        (left_tt_cores,) = xmap(
+            lambda x: (xnp.einsum('i,iaj->iaj', x[0], x[1]),),
+            (left_tt_weights, left_tt_cores0)
+        )
+        (right_tt_cores,) = xmap(
+            lambda x: (xnp.einsum('iaj,j->iaj', x[0], x[1]),),
+            (right_tt_cores0, right_tt_weights)
+        )
+        (outer_tt_cores,) = xmap(
+            lambda x: (xnp.einsum('i,iaj,j->iaj', x[0], x[1], x[2]),),
+            (left_tt_weights, outer_tt_cores0, right_tt_weights)
+        )
+        (var_tt_cores,) = xmap(
+            lambda x: (xnp.einsum('i,iaj,j->iaj', x[0], x[1], x[2]),),
+            (left_tt_weights, var_tt_cores0, right_tt_weights)
+        )
 
     weighted_base = (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
     weighted_variation = (var_tucker_cores, var_tt_cores)
-
     return weighted_variation, weighted_base
 
 
