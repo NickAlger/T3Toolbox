@@ -449,11 +449,15 @@ def squash_tails(
 def reverse_tt(tt_cores):
     """Reverse a tensor train (no Tucker).
     """
-    return tuple([G.swapaxes(0, 2) for G in tt_cores[::-1]])
+    is_ragged = isinstance(tt_cores, typ.Sequence)
+    if is_ragged:
+        return tuple([G.swapaxes(0, 2) for G in tt_cores[::-1]])
+    else:
+        return tt_cores[::-1,:,:,:].swapaxes(1,3)
 
 
 def reverse_t3(
-        x: TuckerTensorTrain,
+        x: TuckerTensorTrain, # works for uniform too, consider moving
 ) -> NDArray:
     """Reverse Tucker tensor train.
 
@@ -489,8 +493,13 @@ def reverse_t3(
     1.859018050214056e-13
     """
     tucker_cores, tt_cores = x
+    is_ragged = isinstance(tucker_cores, typ.Sequence)
 
-    reversed_tucker_cores = tuple([B.copy() for B in tucker_cores[::-1]])
+    if is_ragged:
+        reversed_tucker_cores = tuple([B.copy() for B in tucker_cores[::-1]])
+    else:
+        reversed_tucker_cores = tucker_cores[::-1,:,:]
+
     reversed_tt_cores = reverse_tt(tt_cores)
     reversed_x = (reversed_tucker_cores, reversed_tt_cores)
     return reversed_x
