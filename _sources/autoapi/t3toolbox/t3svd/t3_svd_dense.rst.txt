@@ -1,7 +1,7 @@
 t3toolbox.t3svd.t3_svd_dense
 ============================
 
-.. py:function:: t3toolbox.t3svd.t3_svd_dense(T: NDArray, min_tucker_ranks: Sequence[int] = None, max_tucker_ranks: Sequence[int] = None, min_tt_ranks: Sequence[int] = None, max_tt_ranks: Sequence[int] = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> Tuple[t3toolbox.tucker_tensor_train.TuckerTensorTrain, Tuple[NDArray, Ellipsis], Tuple[NDArray, Ellipsis]]
+.. py:function:: t3toolbox.t3svd.t3_svd_dense(T: t3toolbox.common.NDArray, min_tucker_ranks: t3toolbox.common.typ.Sequence[int] = None, max_tucker_ranks: t3toolbox.common.typ.Sequence[int] = None, min_tt_ranks: t3toolbox.common.typ.Sequence[int] = None, max_tt_ranks: t3toolbox.common.typ.Sequence[int] = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.tucker_tensor_train.TuckerTensorTrain, t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]]
 
    Compute TuckerTensorTrain and edge singular values for dense tensor.
 

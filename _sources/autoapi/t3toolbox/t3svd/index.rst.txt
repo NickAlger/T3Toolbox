@@ -14,6 +14,7 @@ Functions
    /autoapi/t3toolbox/t3svd/tucker_svd_dense
    /autoapi/t3toolbox/t3svd/tt_svd_dense
    /autoapi/t3toolbox/t3svd/t3_svd_dense
+   /autoapi/t3toolbox/t3svd/uniform_t3_svd
 
 .. autoapisummary::
 
@@ -21,5 +22,6 @@ Functions
    t3toolbox.t3svd.tucker_svd_dense
    t3toolbox.t3svd.tt_svd_dense
    t3toolbox.t3svd.t3_svd_dense
+   t3toolbox.t3svd.uniform_t3_svd
 
 

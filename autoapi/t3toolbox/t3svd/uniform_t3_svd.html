@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.uniform_t3svd.ut3_svd &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.t3svd.uniform_t3_svd &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,12 +42,13 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/uniform_t3svd/ut3_svd';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/t3svd/uniform_t3_svd';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="prev" title="t3toolbox.uniform_t3svd" href="index.html" />
+    <link rel="next" title="t3toolbox.tucker_tensor_train" href="../tucker_tensor_train/index.html" />
+    <link rel="prev" title="t3toolbox.t3svd.t3_svd_dense" href="t3_svd_dense.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -346,11 +347,12 @@
 <li class="toctree-l3"><a class="reference internal" href="../probing/probe_dense.html">t3toolbox.probing.probe_dense</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../t3svd/index.html">t3toolbox.t3svd</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../t3svd/t3_svd.html">t3toolbox.t3svd.t3_svd</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../t3svd/tucker_svd_dense.html">t3toolbox.t3svd.tucker_svd_dense</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../t3svd/tt_svd_dense.html">t3toolbox.t3svd.tt_svd_dense</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../t3svd/t3_svd_dense.html">t3toolbox.t3svd.t3_svd_dense</a></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.t3svd</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="t3_svd.html">t3toolbox.t3svd.t3_svd</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tucker_svd_dense.html">t3toolbox.t3svd.tucker_svd_dense</a></li>
+<li class="toctree-l3"><a class="reference internal" href="tt_svd_dense.html">t3toolbox.t3svd.tt_svd_dense</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3_svd_dense.html">t3toolbox.t3svd.t3_svd_dense</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.t3svd.uniform_t3_svd</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../tucker_tensor_train/index.html">t3toolbox.tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -408,10 +410,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../uniform_orthogonalization/left_orthogonalize_utt.html">t3toolbox.uniform_orthogonalization.left_orthogonalize_utt</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.uniform_t3svd</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.uniform_t3svd.ut3_svd</a></li>
-</ul>
-</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../uniform_t3svd/index.html">t3toolbox.uniform_t3svd</a></li>
 </ul>
 </details></li>
 </ul>
@@ -461,9 +460,9 @@
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">t3toolbox</a></li>
     
     
-    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.uniform_t3svd</a></li>
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.t3svd</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.uniform_t3svd.ut3_svd</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.t3svd.uniform_t3_svd</span></li>
   </ul>
 </nav>
 </div>
@@ -480,23 +479,23 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="t3toolbox-uniform-t3svd-ut3-svd">
-<h1>t3toolbox.uniform_t3svd.ut3_svd<a class="headerlink" href="#t3toolbox-uniform-t3svd-ut3-svd" title="Link to this heading">#</a></h1>
+  <section id="t3toolbox-t3svd-uniform-t3-svd">
+<h1>t3toolbox.t3svd.uniform_t3_svd<a class="headerlink" href="#t3toolbox-t3svd-uniform-t3-svd" title="Link to this heading">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3toolbox.uniform_t3svd.ut3_svd">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.uniform_t3svd.</span></span><span class="sig-name descname"><span class="pre">ut3_svd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cores</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformTuckerTensorTrainCores" title="t3toolbox.uniform.UniformTuckerTensorTrainCores"><span class="pre">t3toolbox.uniform.UniformTuckerTensorTrainCores</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">masks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformEdgeWeights" title="t3toolbox.uniform.UniformEdgeWeights"><span class="pre">t3toolbox.uniform.UniformEdgeWeights</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">xnp</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">np</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformTuckerTensorTrainCores" title="t3toolbox.uniform.UniformTuckerTensorTrainCores"><span class="pre">t3toolbox.uniform.UniformTuckerTensorTrainCores</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">NDArray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">NDArray</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.uniform_t3svd.ut3_svd" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.t3svd.uniform_t3_svd">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.t3svd.</span></span><span class="sig-name descname"><span class="pre">uniform_t3_svd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cores</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformTuckerTensorTrainCores" title="t3toolbox.uniform.UniformTuckerTensorTrainCores"><span class="pre">t3toolbox.uniform.UniformTuckerTensorTrainCores</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">masks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformEdgeWeights" title="t3toolbox.uniform.UniformEdgeWeights"><span class="pre">t3toolbox.uniform.UniformEdgeWeights</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformTuckerTensorTrainCores" title="t3toolbox.uniform.UniformTuckerTensorTrainCores"><span class="pre">t3toolbox.uniform.UniformTuckerTensorTrainCores</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.NDArray</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.NDArray</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.t3svd.uniform_t3_svd" title="Link to this definition">#</a></dt>
 <dd><p>Compute T3-SVD of uniform Tucker tensor train.</p>
 <p>Only guaranteed to give correct results if ranks are minimal.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.uniform_tucker_tensor_train</span> <span class="k">as</span> <span class="nn">ut3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.uniform</span> <span class="k">as</span> <span class="nn">ut3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.t3svd</span> <span class="k">as</span> <span class="nn">t3svd</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">s0</span> <span class="o">=</span> <span class="p">((</span><span class="mi">11</span><span class="p">,</span><span class="mi">12</span><span class="p">,</span><span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span><span class="mi">7</span><span class="p">,</span><span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">2</span><span class="p">))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">s</span> <span class="o">=</span> <span class="p">(</span><span class="n">s0</span><span class="p">[</span><span class="mi">0</span><span class="p">],)</span> <span class="o">+</span> <span class="n">t3</span><span class="o">.</span><span class="n">compute_minimal_ranks</span><span class="p">(</span><span class="n">s0</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">cores</span><span class="p">,</span> <span class="n">masks</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">t3_to_ut3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">ux2</span><span class="p">,</span> <span class="n">ss_basis_from_ut3</span><span class="p">,</span> <span class="n">ss_tt_from_ut3</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">ut3_svd</span><span class="p">(</span><span class="n">cores</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span> <span class="c1"># Uniform T3-SVD</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ux2</span><span class="p">,</span> <span class="n">ss_basis_from_ut3</span><span class="p">,</span> <span class="n">ss_tt_from_ut3</span> <span class="o">=</span> <span class="n">t3svd</span><span class="o">.</span><span class="n">uniform_t3_svd</span><span class="p">(</span><span class="n">cores</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span> <span class="c1"># Uniform T3-SVD</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">ut3</span><span class="o">.</span><span class="n">ut3_to_dense</span><span class="p">(</span><span class="n">ux2</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span> <span class="o">-</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_to_dense</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span>
 <span class="go">3.782447238250888e-12</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">_</span><span class="p">,</span> <span class="n">ss_basis</span><span class="p">,</span> <span class="n">ss_tt</span> <span class="o">=</span> <span class="n">t3svd</span><span class="o">.</span><span class="n">t3_svd</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="c1"># Non-uniform T3-SVD</span>
@@ -514,12 +513,12 @@
 <p>Non-example with degenerate (unnecessairily large) ranks</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.uniform_tucker_tensor_train</span> <span class="k">as</span> <span class="nn">ut3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.uniform</span> <span class="k">as</span> <span class="nn">ut3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.t3svd</span> <span class="k">as</span> <span class="nn">t3svd</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">s</span> <span class="o">=</span> <span class="p">((</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">7</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">cores</span><span class="p">,</span> <span class="n">masks</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">t3_to_ut3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">ux2</span><span class="p">,</span> <span class="n">ss_basis_from_ut3</span><span class="p">,</span> <span class="n">ss_tt_from_ut3</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">ut3_svd</span><span class="p">(</span><span class="n">cores</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ux2</span><span class="p">,</span> <span class="n">ss_basis_from_ut3</span><span class="p">,</span> <span class="n">ss_tt_from_ut3</span> <span class="o">=</span> <span class="n">t3svd</span><span class="o">.</span><span class="n">uniform_t3_svd</span><span class="p">(</span><span class="n">cores</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">ut3</span><span class="o">.</span><span class="n">ut3_to_dense</span><span class="p">(</span><span class="n">ux2</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span> <span class="o">-</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_to_dense</span><span class="p">(</span><span class="n">x</span><span class="p">)))</span> <span class="c1"># OK</span>
 <span class="go">9.404253555983741e-13</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">_</span><span class="p">,</span> <span class="n">ss_basis</span><span class="p">,</span> <span class="n">ss_tt</span> <span class="o">=</span> <span class="n">t3svd</span><span class="o">.</span><span class="n">t3_svd</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="c1"># Non-uniform T3-SVD</span>
@@ -544,13 +543,22 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="index.html"
+       href="t3_svd_dense.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.uniform_t3svd</p>
+        <p class="prev-next-title">t3toolbox.t3svd.t3_svd_dense</p>
       </div>
+    </a>
+    <a class="right-next"
+       href="../tucker_tensor_train/index.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title">t3toolbox.tucker_tensor_train</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
     </a>
 </div>
                 </footer>
@@ -571,14 +579,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_t3svd.ut3_svd"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_t3svd.ut3_svd()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.t3svd.uniform_t3_svd"><code class="docutils literal notranslate"><span class="pre">t3toolbox.t3svd.uniform_t3_svd()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/uniform_t3svd/ut3_svd.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/t3svd/uniform_t3_svd.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>
