@@ -570,8 +570,8 @@ def bv_to_ubv(
 
     NN = [U.shape[1] for U in up_tucker_cores]
     nnU = [U.shape[0] for U in up_tucker_cores]
-    rrL = [L.shape[2] for L in left_tt_cores] # + [left_tt_cores[-1].shape[2]]
-    rrR = [R.shape[0] for R in right_tt_cores] # + [right_tt_cores[-1].shape[2]]
+    rrL = [L.shape[0] for L in left_tt_cores] + [left_tt_cores[-1].shape[2]]
+    rrR = [R.shape[0] for R in right_tt_cores] + [right_tt_cores[-1].shape[2]]
     nnO = [O.shape[1] for O in outer_tt_cores]
 
     d = len(var_tucker_cores)
@@ -617,8 +617,8 @@ def bv_to_ubv(
     shape_masks         = pack_tensors([xnp.ones(Ni, dtype=bool) for Ni in NN])
     up_tucker_masks     = pack_tensors([xnp.ones(nUi, dtype=bool) for nUi in nnU])
     outer_tucker_masks  = pack_tensors([xnp.ones(nOi, dtype=bool) for nOi in nnO])
-    left_tt_masks       = pack_tensors([xnp.ones(rLi, dtype=bool) for rLi in rrL])
-    right_tt_masks      = pack_tensors([xnp.ones(rRi, dtype=bool) for rRi in rrR])
+    left_tt_masks       = pack_tensors([xnp.ones(rLi, dtype=bool) for rLi in rrL[:-1]])
+    right_tt_masks      = pack_tensors([xnp.ones(rRi, dtype=bool) for rRi in rrR[1:]])
 
     masks = (shape_masks, up_tucker_masks, outer_tucker_masks, left_tt_masks, right_tt_masks)
 

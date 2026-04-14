@@ -825,8 +825,6 @@ def probe_tangent(
         variation: bvf.T3Variation, # tucker_var_shapes=(nOi,Ni), tt_var_shapes=tt_hole_shapes=(rLi,ni,rRi)
         base: bvf.T3Base, # tucker_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
         edge_weights: bvf.BVEdgeWeights = (None, None, None, None, None),
-        xmap = common.ragged_map,
-        xscan = common.ragged_scan,
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,Ni)
     '''Probe a tangent vector.
@@ -944,8 +942,7 @@ def probe_tangent(
     >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
     >>> uniform_variation, uniform_base, masks = ut3.bv_to_ubv(variation, base)
     >>> uniform_www = ut3.pack_tensors(www)
-    # >>> uniform_zzz = t3p.probe_tangent(uniform_www, uniform_variation, uniform_base, edge_weights=masks) # <-- Bug
-    >>> uniform_zzz = t3p.probe_tangent(uniform_www, uniform_variation, uniform_base) # OK
+    >>> uniform_zzz = t3p.probe_tangent(uniform_www, uniform_variation, uniform_base, edge_weights=masks)
     >>> zzz2 = t3p.probe_tangent(www, variation, base)
     >>> uniform_zzz2 = ut3.pack_tensors(zzz2)
     >>> print(np.linalg.norm(uniform_zzz - uniform_zzz2))
@@ -1393,15 +1390,9 @@ def probe_tangent_transpose(
         ztildes: typ.Sequence[NDArray], # len=d, elm_shape=(...,Ni)
         ww: typ.Sequence[NDArray],  # input vectors, len=d, elm_shape=(...,Ni)
         base: t3toolbox.base_variation_format.T3Base, # tucker_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
-        edge_weights: typ.Tuple[
-            typ.Sequence[NDArray],  # shape_weights, len=d, elm_shape=(Ni,)
-            typ.Sequence[NDArray],  # up_tucker_weights, len=d, elm_shape=(nUi,)
-            typ.Sequence[NDArray],  # outer_tucker_weights, len=d, elm_shape=(nOi,)
-            typ.Sequence[NDArray],  # left_tt_weights, len=d+1, elm_shape=(rLi,)
-            typ.Sequence[NDArray],  # right_tt_weights, len=d+1, elm_shape=(rRi,)
-        ] = (None, None, None, None, None),
+        edge_weights: bvf.BVEdgeWeights = (None, None, None, None, None),
         sum_over_probes: bool = False,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[
     typ.Tuple[NDArray,...], # dU_tildes. len=d, elm_shape=(...,nOi,Ni)
     typ.Tuple[NDArray,...], # dG_tildes. len=d, elm_shape=(...,rLi,ni,rRi)
@@ -1512,7 +1503,44 @@ def probe_tangent_transpose(
     >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
     >>> print(cw.corewise_dot(z, apply_J(v)) - cw.corewise_dot(apply_Jt(z), v))
     -1.7763568394002505e-15
+
+    Probe uniform T3
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform as ut3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.probing as t3p
+    >>> import t3toolbox.orthogonalization as orth
+    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+    >>> base, _ = orth.orthogonal_representations(p)
+    >>> variation = t3m.tangent_randn(base)
+    >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+    >>> uniform_variation, uniform_base, masks = ut3.bv_to_ubv(variation, base)
+    >>> uniform_www = ut3.pack_tensors(www)
+
+    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+    >>> base, _ = orth.orthogonal_representations(p)
+    >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+    >>> apply_J = lambda v: t3p.probe_tangent(ww, v, base)
+    >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, ww, base)
+    >>> v = t3m.tangent_randn(base)
+    >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+    >>> print(cw.corewise_dot(z, apply_J(v)) - cw.corewise_dot(apply_Jt(z), v))
+
+    # >>> uniform_zzz = t3p.probe_tangent(uniform_www, uniform_variation, uniform_base, edge_weights=masks) # <-- Bug
+    >>> uniform_zzz = t3p.probe_tangent(uniform_www, uniform_variation, uniform_base) # OK
+    >>> zzz2 = t3p.probe_tangent(www, variation, base)
+    >>> uniform_zzz2 = ut3.pack_tensors(zzz2)
+    >>> print(np.linalg.norm(uniform_zzz - uniform_zzz2))
+
+
     '''
+    is_ragged = isinstance(base[0], typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+
+    #
+
     num_cores = len(ztildes)
     assert(len(ww) == num_cores)
 
