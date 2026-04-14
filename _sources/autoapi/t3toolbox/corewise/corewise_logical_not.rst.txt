@@ -1,0 +1,15 @@
+t3toolbox.corewise.corewise_logical_not
+=======================================
+
+.. py:function:: t3toolbox.corewise.corewise_logical_not(X: NDArrayTree, xnp=np) -> NDArrayTree
+
+   Perform logical not operation on nested objects
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.corewise as cw
+   >>> X = (np.array([True, False, False]), (True, (), np.array([False, True, False])))
+   >>> print(cw.corewise_logical_not(X))
+   (array([False,  True,  True]), (False, (), array([ True, False,  True])))
+
