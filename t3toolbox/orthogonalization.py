@@ -22,7 +22,7 @@ __all__ = [
     'orthogonalize_relative_to_ith_tt_core',
     #
     'up_orthogonalize_tucker_cores',
-    'down_orthogonalize_tt_cores',
+    'outer_orthogonalize_tt_cores',
     'left_orthogonalize_tt_cores',
     'right_orthogonalize_tt_cores',
     'orthogonal_representations',
