@@ -31,8 +31,8 @@ t3toolbox.orthogonalization.orthogonal_representations
        - x_tt_cores        = (G0, G1, G2, G3)
    The "base cores" are:
        - tucker_cores       = (U0,U1, U2, U3), up orthogonal
-       - left_tt_cores     = (L0, L1, L2, L3), left orthogonal
-       - right_tt_cores    = (R0, R1, R2, R3), right orthogonal
+       - left_tt_cores     = (L0, L1, L2),     left orthogonal
+       - right_tt_cores    = (R1, R2, R3),     right orthogonal
        - outer_tt_cores    = (O0, O1, O2, O3), down orthogonal
    The "variation cores" are:
        - tucker_variations  = (V0, V1, V2, V3)
@@ -40,8 +40,8 @@ t3toolbox.orthogonalization.orthogonal_representations
 
    :param x: Input TuckerTensorTrain
              x = (x_tucker_cores, x_tt_cores)
-             x_tucker_cores = (B0, ..., Bd)
-             x_tt_cores = (G0, ..., Gd)
+             x_tucker_cores = (B0, ..., B(d-1))
+             x_tt_cores = (G0, ..., G(d-1))
    :type x: TuckerTensorTrain
    :param xnp: Linear algebra backend. Default: np (numpy)
 

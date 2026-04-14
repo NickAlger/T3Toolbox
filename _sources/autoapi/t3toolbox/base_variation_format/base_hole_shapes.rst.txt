@@ -1,7 +1,7 @@
-t3toolbox.base_variation_format.hole_shapes
-===========================================
+t3toolbox.base_variation_format.base_hole_shapes
+================================================
 
-.. py:function:: t3toolbox.base_variation_format.hole_shapes(base: T3Base) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.typ.Tuple[int, Ellipsis]]
+.. py:function:: t3toolbox.base_variation_format.base_hole_shapes(base: T3Base) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], Ellipsis], t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], Ellipsis]]
 
    T3Variation core shapes that fit with given T3Base.
 
@@ -40,7 +40,7 @@ t3toolbox.base_variation_format.hole_shapes
    >>> right_tt_cores = (np.ones((1,10,4)), np.ones((4,11,5)), np.ones((5,12,1)))
    >>> outer_tt_cores = (np.ones((1,9,4)), np.ones((2,8,5)), np.ones((3,7,1)))
    >>> base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-   >>> (var_tucker_shapes, var_tt_shapes) = bvf.hole_shapes(base)
+   >>> (var_tucker_shapes, var_tt_shapes) = bvf.base_hole_shapes(base)
    >>> print(var_tucker_shapes)
    ((9, 14), (8, 15), (7, 16))
    >>> print(var_tt_shapes)

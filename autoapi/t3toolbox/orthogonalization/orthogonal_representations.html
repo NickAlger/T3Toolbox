@@ -253,10 +253,9 @@
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">t3toolbox</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2 has-children"><a class="reference internal" href="../base_variation_format/index.html">t3toolbox.base_variation_format</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/check_t3base.html">t3toolbox.base_variation_format.check_t3base</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/check_t3variation.html">t3toolbox.base_variation_format.check_t3variation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/hole_shapes.html">t3toolbox.base_variation_format.hole_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/check_fit.html">t3toolbox.base_variation_format.check_fit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/get_base_structure.html">t3toolbox.base_variation_format.get_base_structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/variation_shapes.html">t3toolbox.base_variation_format.variation_shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/base_hole_shapes.html">t3toolbox.base_variation_format.base_hole_shapes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../base_variation_format/ith_bv_to_t3.html">t3toolbox.base_variation_format.ith_bv_to_t3</a></li>
 </ul>
 </details></li>
@@ -519,8 +518,8 @@
 </dd>
 <dt>The “base cores” are:</dt><dd><ul class="simple">
 <li><p>tucker_cores       = (U0,U1, U2, U3), up orthogonal</p></li>
-<li><p>left_tt_cores     = (L0, L1, L2, L3), left orthogonal</p></li>
-<li><p>right_tt_cores    = (R0, R1, R2, R3), right orthogonal</p></li>
+<li><p>left_tt_cores     = (L0, L1, L2),     left orthogonal</p></li>
+<li><p>right_tt_cores    = (R1, R2, R3),     right orthogonal</p></li>
 <li><p>outer_tt_cores    = (O0, O1, O2, O3), down orthogonal</p></li>
 </ul>
 </dd>
@@ -535,8 +534,8 @@
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>x</strong> (<a class="reference internal" href="../jax/tucker_tensor_train/index.html#t3toolbox.jax.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.jax.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – Input TuckerTensorTrain
 x = (x_tucker_cores, x_tt_cores)
-x_tucker_cores = (B0, …, Bd)
-x_tt_cores = (G0, …, Gd)</p></li>
+x_tucker_cores = (B0, …, B(d-1))
+x_tt_cores = (G0, …, G(d-1))</p></li>
 <li><p><strong>xnp</strong> – Linear algebra backend. Default: np (numpy)</p></li>
 </ul>
 </dd>

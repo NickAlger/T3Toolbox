@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.base_variation_format.check_t3base &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.base_variation_format.variation_shapes &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/base_variation_format/check_t3base';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/base_variation_format/variation_shapes';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3toolbox.base_variation_format.check_t3variation" href="check_t3variation.html" />
-    <link rel="prev" title="t3toolbox.base_variation_format" href="index.html" />
+    <link rel="next" title="t3toolbox.base_variation_format.base_hole_shapes" href="base_hole_shapes.html" />
+    <link rel="prev" title="t3toolbox.base_variation_format.get_base_structure" href="get_base_structure.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -253,10 +253,9 @@
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">t3toolbox</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.base_variation_format</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.base_variation_format.check_t3base</a></li>
-<li class="toctree-l3"><a class="reference internal" href="check_t3variation.html">t3toolbox.base_variation_format.check_t3variation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="hole_shapes.html">t3toolbox.base_variation_format.hole_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="check_fit.html">t3toolbox.base_variation_format.check_fit</a></li>
+<li class="toctree-l3"><a class="reference internal" href="get_base_structure.html">t3toolbox.base_variation_format.get_base_structure</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.base_variation_format.variation_shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="base_hole_shapes.html">t3toolbox.base_variation_format.base_hole_shapes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="ith_bv_to_t3.html">t3toolbox.base_variation_format.ith_bv_to_t3</a></li>
 </ul>
 </details></li>
@@ -467,7 +466,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.base_variation_format</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.base_variation_format.check_t3base</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.base_variation_format.variation_shapes</span></li>
   </ul>
 </nav>
 </div>
@@ -484,41 +483,12 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="t3toolbox-base-variation-format-check-t3base">
-<h1>t3toolbox.base_variation_format.check_t3base<a class="headerlink" href="#t3toolbox-base-variation-format-check-t3base" title="Link to this heading">#</a></h1>
+  <section id="t3toolbox-base-variation-format-variation-shapes">
+<h1>t3toolbox.base_variation_format.variation_shapes<a class="headerlink" href="#t3toolbox-base-variation-format-variation-shapes" title="Link to this heading">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3toolbox.base_variation_format.check_t3base">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.base_variation_format.</span></span><span class="sig-name descname"><span class="pre">check_t3base</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#t3toolbox.base_variation_format.T3Base" title="t3toolbox.base_variation_format.T3Base"><span class="pre">T3Base</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#t3toolbox.base_variation_format.check_t3base" title="Link to this definition">#</a></dt>
-<dd><p>Check that T3Base core shapes are internally consistent.</p>
-<p>Contractions of the following forms must make sense:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">1</span> <span class="o">--</span> <span class="n">L0</span> <span class="o">--</span> <span class="p">(</span> <span class="p">)</span> <span class="o">--</span> <span class="n">R2</span> <span class="o">--</span> <span class="n">R3</span> <span class="o">--</span> <span class="mi">1</span>
-     <span class="o">|</span>     <span class="o">|</span>      <span class="o">|</span>     <span class="o">|</span>
-     <span class="n">U0</span>    <span class="n">U1</span>     <span class="n">U2</span>    <span class="n">U3</span>
-     <span class="o">|</span>     <span class="o">|</span>      <span class="o">|</span>     <span class="o">|</span>
-
-<span class="mi">1</span> <span class="o">--</span> <span class="n">L0</span> <span class="o">--</span> <span class="n">L1</span> <span class="o">--</span> <span class="n">O2</span> <span class="o">--</span> <span class="n">R3</span> <span class="o">--</span> <span class="mi">1</span>
-     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
-     <span class="n">U0</span>    <span class="n">U1</span>    <span class="p">(</span> <span class="p">)</span>   <span class="n">U3</span>
-     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
-</pre></div>
-</div>
-<dl class="simple">
-<dt>Here:</dt><dd><ul class="simple">
-<li><p>tucker_cores      = (U0, U1, U2, U3)</p></li>
-<li><p>left_tt_cores     = (L0, L1, L2, L3)</p></li>
-<li><p>right_tt_cores    = (R0, R1, R2, R3)</p></li>
-<li><p>outer_tt_cores    = (O0, O1, O2, O3)</p></li>
-</ul>
-</dd>
-</dl>
-<dl class="field-list simple">
-<dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>RuntimeError</strong> – <ul class="simple">
-<li><p>Error raised if any core shapes are inconsistent</p></li>
-</ul>
-</p>
-</dd>
-</dl>
+<dt class="sig sig-object py" id="t3toolbox.base_variation_format.variation_shapes">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.base_variation_format.</span></span><span class="sig-name descname"><span class="pre">variation_shapes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#t3toolbox.base_variation_format.T3Variation" title="t3toolbox.base_variation_format.T3Variation"><span class="pre">T3Variation</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.base_variation_format.variation_shapes" title="Link to this definition">#</a></dt>
+<dd><p>Get the shapes of the cores in a variation.</p>
 </dd></dl>
 
 </section>
@@ -534,20 +504,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="index.html"
+       href="get_base_structure.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.base_variation_format</p>
+        <p class="prev-next-title">t3toolbox.base_variation_format.get_base_structure</p>
       </div>
     </a>
     <a class="right-next"
-       href="check_t3variation.html"
+       href="base_hole_shapes.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.base_variation_format.check_t3variation</p>
+        <p class="prev-next-title">t3toolbox.base_variation_format.base_hole_shapes</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -570,14 +540,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.base_variation_format.check_t3base"><code class="docutils literal notranslate"><span class="pre">t3toolbox.base_variation_format.check_t3base()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.base_variation_format.variation_shapes"><code class="docutils literal notranslate"><span class="pre">t3toolbox.base_variation_format.variation_shapes()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/base_variation_format/check_t3base.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/base_variation_format/variation_shapes.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

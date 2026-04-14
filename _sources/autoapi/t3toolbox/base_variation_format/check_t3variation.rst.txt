@@ -1,9 +1,0 @@
-t3toolbox.base_variation_format.check_t3variation
-=================================================
-
-.. py:function:: t3toolbox.base_variation_format.check_t3variation(variation: T3Variation) -> None
-
-   Check that T3Variation core shapes are appropriate.
-
-   :raises RuntimeError: - Error raised if any variation core shapes are inappropriate
-

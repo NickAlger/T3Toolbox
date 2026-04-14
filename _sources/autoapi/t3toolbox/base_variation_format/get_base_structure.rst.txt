@@ -1,0 +1,21 @@
+t3toolbox.base_variation_format.get_base_structure
+==================================================
+
+.. py:function:: t3toolbox.base_variation_format.get_base_structure(base: T3Base) -> BVStructure
+
+   Get the edge structure of a base-variation representation of a Tucker tensor train from the base.
+
+   .. seealso:: :py:obj:`T3Base`
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.base_variation_format as bvf
+   >>> tucker_cores = (np.ones((10, 14)), np.ones((11, 15)), np.ones((12, 16)))
+   >>> left_tt_cores = (np.ones((1, 10, 2)), np.ones((2, 11, 3)), np.ones((1,12,5)))
+   >>> right_tt_cores = (np.ones((2,10,4)), np.ones((4, 11, 5)), np.ones((5, 12, 1)))
+   >>> outer_tt_cores = (np.ones((1, 9, 4)), np.ones((2, 8, 5)), np.ones((3, 7, 1)))
+   >>> base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+   >>> print(bvf.get_base_structure(base))
+   ((14, 15, 16), (10, 11, 12), (9, 8, 7), (1, 2, 3), (4, 5, 1))
+
