@@ -1,0 +1,8 @@
+t3toolbox.orthogonalization.outer_orthogonalize_tt_cores
+========================================================
+
+.. py:function:: t3toolbox.orthogonalization.outer_orthogonalize_tt_cores(x: t3toolbox.tucker_tensor_train.TuckerTensorTrain, use_jax: bool = False)
+
+   Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
+
+
