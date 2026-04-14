@@ -381,6 +381,7 @@ def apply_masks(
     0.0024164186526434567
     >>> print(cw.corewise_relerr(ut3.apply_masks(uniform_x_svd, masks), uniform_x_svd))
     0.0
+
     """
     xnp, xmap, xscan = get_backend(False, use_jax)
 
