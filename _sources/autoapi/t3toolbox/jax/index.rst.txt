@@ -20,6 +20,5 @@ Submodules
    /autoapi/t3toolbox/jax/uniform/index
    /autoapi/t3toolbox/jax/uniform_manifold/index
    /autoapi/t3toolbox/jax/uniform_orthogonalization/index
-   /autoapi/t3toolbox/jax/uniform_t3svd/index
 
 

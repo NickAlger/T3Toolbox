@@ -1,6 +1,0 @@
-t3toolbox.uniform_t3svd
-=======================
-
-.. py:module:: t3toolbox.uniform_t3svd
-
-
