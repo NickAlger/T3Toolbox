@@ -15,6 +15,7 @@ try:
     jax_scan = jax.lax.scan
     jax_map = jax.lax.map
 except ImportError:
+    print('Unable to import Jax. Using numpy instead.')
     NDArray = np.ndarray
 
 

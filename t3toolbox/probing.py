@@ -810,9 +810,9 @@ def assemble_tangent_zs(
 
 
 def probe_tangent(
-        ww: typ.Sequence[NDArray],  # input vectors, len=d, elm_shape=(...,Ni)
-        variation: bvf.T3Variation, # tucker_var_shapes=(nOi,Ni), tt_var_shapes=tt_hole_shapes=(rLi,ni,rRi)
-        base: bvf.T3Base, # tucker_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
+        ww:         typ.Union[typ.Sequence[NDArray],    NDArray],  # input vectors, len=d, elm_shape=(...,Ni)
+        variation:  typ.Union[bvf.T3Variation,          NDArray], # tucker_var_shapes=(nOi,Ni), tt_var_shapes=tt_hole_shapes=(rLi,ni,rRi)
+        base:       typ.Union[bvf.T3Base,               ut3.UniformT3Base], # tucker_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
         edge_weights: bvf.BVEdgeWeights = (None, None, None, None, None),
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,Ni)
@@ -1065,8 +1065,7 @@ def compute_deta_tildes(
         up_tucker_cores: typ.Sequence[NDArray],  # len=d, elm_shape=(ni,Ni)
         ztildes: typ.Sequence[NDArray],  # len=d, elm_shape=(...,Ni)
         up_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nUi,)
-        map = common.ragged_map,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,ni)
     '''Adjoint-var-upward edge variables deta_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
@@ -1078,11 +1077,8 @@ def compute_deta_tildes(
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
     return compute_xis(
-        up_tucker_cores,
-        ztildes,
-        up_tucker_weights=up_tucker_weights,
-        map=map,
-        xnp=xnp,
+        up_tucker_cores, ztildes,
+        up_tucker_weights=up_tucker_weights, use_jax=use_jax,
     )
 
 
@@ -1092,8 +1088,7 @@ def compute_tau_tildes(
         xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,ni)
         mus, # len=d, elm_shape=(...,rLi)
         left_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rLi,)
-        scan = common.ragged_scan,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,rLi)
     '''Adjoint-var-rightward edge variables tau_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
@@ -1104,6 +1099,11 @@ def compute_tau_tildes(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
+    is_ragged = isinstance(xis, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+
+    #
+
     tau_tilde_weights = left_tt_weights
 
     def _func(unweighted_tau_tilde, x):
@@ -1133,7 +1133,7 @@ def compute_tau_tildes(
     xs = (left_tt_cores, xis, deta_tildes, mus)
     xs = xs + (tau_tilde_weights,) if tau_tilde_weights is not None else xs
 
-    last_tau_tilde, (tau_tildes,) = scan(_func, init, xs)
+    last_tau_tilde, (tau_tildes,) = xscan(_func, init, xs)
     return tau_tildes
 
 
@@ -1143,8 +1143,7 @@ def compute_sigma_tildes(
         xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,ni)
         nus, # len=d, elm_shape=(...,rR(i+1))
         right_tt_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(rRi,)
-        scan=common.ragged_scan,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,rR(i+1))
     '''Adjoint-var-leftward edge variables sigma_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
@@ -1159,8 +1158,7 @@ def compute_sigma_tildes(
 
     return compute_tau_tildes(
         deta_tildes[::-1], t3.reverse_tt(right_tt_cores), xis[::-1], nus[::-1],
-        left_tt_weights = rev_right_tt_weights,
-        scan=scan, xnp=xnp,
+        left_tt_weights = rev_right_tt_weights, use_jax=use_jax,
     )[::-1]
 
 
@@ -1171,8 +1169,7 @@ def compute_dxi_tildes(
         mus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rLi)
         nus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,rR(i+1))
         outer_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
-        map = common.ragged_map,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # dxi_tildes. len=d, elm_shape=(...,nOi)
     '''Adjoint-var-downward edge variables dxi_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
@@ -1183,6 +1180,11 @@ def compute_dxi_tildes(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
+    is_ragged = isinstance(mus, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+
+    #
+
     dxi_tilde_weights = outer_tucker_weights
 
     def _func(x):
@@ -1213,7 +1215,7 @@ def compute_dxi_tildes(
     xs = (outer_tt_cores, mus, nus, sigma_tildes, tau_tildes)
     xs = xs + (outer_tucker_weights,) if outer_tucker_weights is not None else xs
 
-    (dxi_tildes,) = map(_func, xs)
+    (dxi_tildes,) = xmap(_func, xs)
     return dxi_tildes
 
 
@@ -1223,8 +1225,7 @@ def assemble_tucker_variations(
         ww: typ.Sequence[NDArray],  # input vectors, len=d, elm_shape=(Ni,) or (...,Ni)
         etas: typ.Sequence[NDArray],  # etas. len=d, elm_shape=(...,ni)
         sum_over_probes: bool = False,
-        map = common.ragged_map,
-        xnp = np,
+        use_jax: bool = False,
 ):
     '''Assemble Tucker core variations, delta_U_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
@@ -1235,6 +1236,11 @@ def assemble_tucker_variations(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
+    is_ragged = isinstance(ww, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+
+    #
+
     def _func(x):
         z_tilde, eta, w, dxi_tilde = x
         if sum_over_probes:
@@ -1251,7 +1257,7 @@ def assemble_tucker_variations(
             )
         return (dU_tilde,)
 
-    (dU_tildes,) = map(_func, (ztildes, etas, ww, dxi_tildes))
+    (dU_tildes,) = xmap(_func, (ztildes, etas, ww, dxi_tildes))
     return dU_tildes
 
 
@@ -1263,8 +1269,7 @@ def assemble_tt_variations(
         mus,  # len=d, elm_shape=(...,rLi)
         nus,  # len=d, elm_shape=(...,rR(i+1))
         sum_over_probes: bool = False,
-        map = common.ragged_map,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # len=d, elm_shape=(...,rLi,nOi,rRi)
     '''Assemble TT core variations, delta_G_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
@@ -1275,6 +1280,11 @@ def assemble_tt_variations(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
+    is_ragged = isinstance(xis, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+
+    #
+
     def _func(x):
         xi, mu, nu, sigma_tilde, tau_tilde, deta_tilde = x
         if sum_over_probes:
@@ -1320,15 +1330,15 @@ def assemble_tt_variations(
         return (dG_tilde,)
 
     xs = (xis, mus, nus, sigma_tildes, tau_tildes, deta_tildes)
-    (dG_tildes,) = map(_func, xs)
+    (dG_tildes,) = xmap(_func, xs)
     return dG_tildes
 
 
 def probe_tangent_transpose(
-        ztildes: typ.Sequence[NDArray], # len=d, elm_shape=(...,Ni)
-        ww: typ.Sequence[NDArray],  # input vectors, len=d, elm_shape=(...,Ni)
-        base: t3toolbox.base_variation_format.T3Base, # tucker_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
-        edge_weights: bvf.BVEdgeWeights = (None, None, None, None, None),
+        ztildes:        typ.Union[typ.Sequence[NDArray],    NDArray], # len=d, elm_shape=(...,Ni) OR shape=(d,...,Ni)
+        ww:             typ.Union[typ.Sequence[NDArray],    NDArray], # input vectors, len=d, elm_shape=(...,Ni) OR shape=(d,...,Ni)
+        base:           typ.Union[bvf.T3Base,               ut3.UniformT3Base], # tucker_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
+        edge_weights:   typ.Union[bvf.BVEdgeWeights,        ut3.UniformEdgeWeights] = (None, None, None, None, None),
         sum_over_probes: bool = False,
         use_jax: bool = False,
 ) -> typ.Union[
@@ -1469,17 +1479,12 @@ def probe_tangent_transpose(
     >>> t0a = cw.corewise_dot([x[0,:] for x in Z], [x[0,:] for x in JV])
     >>> t0b = cw.corewise_dot([x[:,0,:,:] for x in JTZ], V)
     >>> print(t0a - t0b)
-    -2.842170943040401e-14
+    -7.105427357601002e-15
     >>> t1a = cw.corewise_dot([x[1,:] for x in Z], [x[1,:] for x in JV])
     >>> t1b = cw.corewise_dot([x[:,1,:,:] for x in JTZ], V)
     >>> print(t1a - t1b)
-    -2.842170943040401e-14
+    -5.329070518200751e-15
     '''
-    is_ragged = isinstance(base[0], typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
-
-    #
-
     (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores) = base
 
     (shape_weights,
@@ -1487,71 +1492,61 @@ def probe_tangent_transpose(
      left_tt_weights, right_tt_weights,
      ) = edge_weights
 
-    weighted_ztildes = _apply_edge_weights(ztildes, shape_weights, xnp=xnp) if shape_weights is not None else ztildes
-    weighted_ww = _apply_edge_weights(ww, shape_weights, xnp=xnp) if shape_weights is not None else ww
+    weighted_ztildes = _apply_edge_weights(ztildes, shape_weights, use_jax=use_jax) if shape_weights is not None else ztildes
+    weighted_ww = _apply_edge_weights(ww, shape_weights, use_jax=use_jax) if shape_weights is not None else ww
 
     xis = compute_xis(
         up_tucker_cores, weighted_ww,
-        up_tucker_weights=up_tucker_weights,
-        map=xmap, xnp=xnp,
+        up_tucker_weights=up_tucker_weights, use_jax=use_jax,
     )
 
     mus = compute_mus(
         left_tt_cores, xis,
-        left_tt_weights=left_tt_weights,
-        scan=xscan, xnp=xnp,
+        left_tt_weights=left_tt_weights, use_jax=use_jax,
     )
 
     nus = compute_nus(
         right_tt_cores, xis,
-        right_tt_weights=right_tt_weights,
-        scan=xscan, xnp=xnp,
+        right_tt_weights=right_tt_weights, use_jax=use_jax,
     )
 
     etas = compute_etas(
         outer_tt_cores, mus, nus,
-        outer_tucker_weights=outer_tucker_weights,
-        map=xmap, xnp=xnp,
+        outer_tucker_weights=outer_tucker_weights, use_jax=use_jax,
     )
 
     #
 
     deta_tildes = compute_deta_tildes(
         up_tucker_cores, weighted_ztildes,
-        up_tucker_weights=up_tucker_weights,
-        map=xmap, xnp=xnp,
+        up_tucker_weights=up_tucker_weights, use_jax=use_jax,
     )
 
     tau_tildes = compute_tau_tildes(
         deta_tildes, left_tt_cores, xis, mus,
-        left_tt_weights=left_tt_weights,
-        scan=xscan, xnp=xnp,
+        left_tt_weights=left_tt_weights, use_jax=use_jax,
     )
 
     sigma_tildes = compute_sigma_tildes(
         deta_tildes, right_tt_cores, xis, nus,
-        right_tt_weights=right_tt_weights,
-        scan=xscan, xnp=xnp,
+        right_tt_weights=right_tt_weights, use_jax=use_jax,
     )
 
     dxi_tildes = compute_dxi_tildes(
         sigma_tildes, tau_tildes, outer_tt_cores, mus, nus,
-        outer_tucker_weights=outer_tucker_weights,
-        map=xmap, xnp=xnp,
+        outer_tucker_weights=outer_tucker_weights, use_jax=use_jax,
     )
 
     #
 
     dU_tildes = assemble_tucker_variations(
         weighted_ztildes, dxi_tildes, weighted_ww, etas,
-        sum_over_probes=sum_over_probes,
-        map=xmap, xnp=xnp,
+        sum_over_probes=sum_over_probes, use_jax=use_jax,
     )
 
     dG_tildes = assemble_tt_variations(
         sigma_tildes, tau_tildes, deta_tildes, xis, mus, nus,
-        sum_over_probes=sum_over_probes,
-        map=xmap, xnp=xnp,
+        sum_over_probes=sum_over_probes, use_jax=use_jax,
     )
 
     return dU_tildes, dG_tildes
