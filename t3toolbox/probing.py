@@ -8,7 +8,6 @@ import typing as typ
 import t3toolbox.base_variation_format
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform as ut3
-import t3toolbox.common as common
 import t3toolbox.base_variation_format as bvf
 from t3toolbox.common import *
 
@@ -216,7 +215,7 @@ def compute_xis(
     compute_etas
     assemble_probes
     '''
-    is_ragged = isinstance(ww, typ.Sequence)
+    is_ragged = isinstance(up_tucker_cores, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_ragged, use_jax)
 
     #

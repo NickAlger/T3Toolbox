@@ -21,7 +21,7 @@ __all__ = [
 
 
 ###############################################
-#############    Dense T3-SVD    ##############
+################    T3-SVD    #################
 ###############################################
 
 def t3_svd(
@@ -209,6 +209,11 @@ def t3_svd(
 
     return x, tuple(all_ss_tucker), tuple(all_ss_tt)
 
+
+
+###############################################
+#############    Dense T3-SVD    ##############
+###############################################
 
 def tucker_svd_dense(
         T: NDArray, # shape=(N1, N2, .., Nd)
@@ -502,16 +507,18 @@ def uniform_t3_svd(
     >>> ut3.unpack(ss_basis_from_ut3, tucker_masks)[0] - ss_basis[0]
     array([ 1.13686838e-12, -2.27373675e-13, -1.13686838e-13])
 
-    Non-example with degenerate (unnecessairily large) ranks
+    Non-example with degenerate (unnecessairily large) ranks. Also using jax to test it
 
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform as ut3
     >>> import t3toolbox.t3svd as t3svd
+    >>> import jax
+    >>> jax.config.update("jax_enable_x64", True)
     >>> s = ((3,4,3), (4,6,7), (3,5,1,2))
     >>> x = t3.t3_corewise_randn(s)
     >>> cores, masks = ut3.t3_to_ut3(x)
-    >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = t3svd.uniform_t3_svd(cores, masks)
+    >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = t3svd.uniform_t3_svd(cores, masks, use_jax=True)
     >>> print(np.linalg.norm(ut3.ut3_to_dense(ux2, masks) - t3.t3_to_dense(x))) # OK
     9.404253555983741e-13
     >>> _, ss_basis, ss_tt = t3svd.t3_svd(x) # Non-uniform T3-SVD

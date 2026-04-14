@@ -66,6 +66,7 @@ def ragged_scan(
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.scan.html
 
     """
+    # print('RAGGED SCAN')
     scan_length = len(xs[0])
     carry = init
 
@@ -109,9 +110,11 @@ def numpy_scan(
 ]:
     """Similar to jax.lax.scan, except returns numpy arrays instead of jax arrays.
     """
+    # print('NUMPY SCAN(')
     xs_list = [list(x) for x in xs]
     carry, ys_list = ragged_scan(f, init, xs_list)
     ys = tuple([np.stack(y) for y in ys_list])
+    # print(')')
     return carry, ys
 
 
@@ -135,6 +138,7 @@ def ragged_map(
     typ.Tuple[NDArray, ...],  # len=map_length
     ...
 ]:  # len=num_outputs
+    # print('RAGGED MAP')
     map_length = len(xs[0])
 
     ys_list = []
@@ -171,9 +175,11 @@ def numpy_map(
     NDArray,  # shape[0]=map_length
     ...
 ]:  # len=num_outputs,
+    # print('NUMPY MAP(')
     xs_list = [list(x) for x in xs]
     ys_list = ragged_map(f, xs_list)
     ys = tuple([np.stack(y) for y in ys_list])
+    # print(')')
     return ys
 
 

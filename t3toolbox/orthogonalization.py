@@ -653,8 +653,14 @@ def up_orthogonalize_tucker_cores(
         Bio, Gaib = up_func_args
         Boi = Bio.T
 
-        Uox, ssx, WTxi = t3toolbox.linalg.truncated_svd(Boi, xnp=xnp)
+        Uox, ssx, WTxi = xnp.linalg.svd(Boi, full_matrices=False) #t3toolbox.linalg.truncated_svd(Boi, xnp=xnp)
         Rxi = xnp.einsum('x,xi->xi', ssx, WTxi)
+
+        if not is_ragged:
+            N, n = Boi.shape
+            n2 = len(ssx)
+            Uox = xnp.concatenate([Uox, xnp.zeros((N, n-n2))], axis=1)
+            Rxi = xnp.concatenate([Rxi, xnp.zeros((n-n2, n))], axis=0)
 
         new_Gaxb = xnp.einsum('aib,xi->axb', Gaib, Rxi)
         new_Uxo = Uox.T
@@ -682,7 +688,12 @@ def left_orthogonalize_tt_cores(
 
         Hxjc = xnp.einsum('xb,bjc->xjc', Cxb, Gbjc)
 
-        Lxjy, ssy, VTyc = linalg.left_svd_3tensor(Hxjc, xnp=xnp)
+        rL, n, rR = Hxjc.shape
+        H_xj_c = Hxjc.reshape((rL*n, rR))
+        L_xj_y, ssy, VTyc = xnp.linalg.svd(H_xj_c, full_matrices=False)
+        rR2 = len(ssy)
+        Lxjy = L_xj_y.reshape((rL,n,rR2))
+
         Cyc = ssy.reshape((-1, 1)) * VTyc
 
         return Cyc, (Lxjy,)
