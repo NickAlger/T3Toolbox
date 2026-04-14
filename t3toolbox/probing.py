@@ -513,9 +513,9 @@ def assemble_zs(
 #####################################################
 
 def compute_dxis(
-        var_tucker_cores: typ.Sequence[NDArray], # len=d. elm_shape=(nOi,Ni)
-        ww: typ.Sequence[NDArray], # len=d. elm_shape=(...,Ni)
-        outer_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nOi,)
+        var_tucker_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(nOi,Ni)
+        ww:                     typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,Ni)
+        outer_tucker_weights:   typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d, elm_shape=(nOi,)
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # xis. len=d, elm_shape=(...,nOi)
     '''Compute var-upward edge variables dxi.
@@ -544,13 +544,13 @@ def compute_dxis(
 
 
 def compute_sigmas(
-        var_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
-        right_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rRi,nUi,rR(i+1))
-        outer_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
-        xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,nUi),
-        dxis: typ.Sequence[NDArray], # len=d, elm_shape=(...,nOi)
-        mus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,nLi)
-        right_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rRi,)
+        var_tt_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
+        right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rRi,nUi,rR(i+1))
+        outer_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
+        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi),
+        dxis:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
+        mus:                typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,nLi)
+        right_tt_weights:   typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d+1, elm_shape=(rRi,)
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # weighted_sigmas. len=d, elm_shape=(...,rR(i+1))
     '''Compute var-leftward edge variables sigma.
@@ -617,13 +617,13 @@ def compute_sigmas(
 
 
 def compute_taus(
-        var_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
-        left_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nUi,rL(i+1))
-        outer_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
-        xis: typ.Sequence[NDArray], # len=d, elm_shape=(...,nUi),
-        dxis: typ.Sequence[NDArray], # len=d, elm_shape=(...,nOi)
-        nus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,nR(i+1))
-        left_tt_weights: typ.Sequence[NDArray] = None,  # len=d+1, elm_shape=(rLi,)
+        var_tt_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
+        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rL(i+1))
+        outer_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
+        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi),
+        dxis:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
+        nus:                typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,nR(i+1))
+        left_tt_weights:    typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d+1, elm_shape=(rLi,)
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # weighted_taus. len=d, elm_shape=(...,rL(i+1))
     '''Compute var-rightward edge variables tau.
@@ -661,14 +661,14 @@ def compute_taus(
 
 
 def compute_detas(
-        var_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
-        left_tt_cores: typ.Sequence[NDArray],  # len=d, elm_shape=(rLi,nUi,rL(i+1))
-        right_tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(rRi,nUi,rR(i+1))
-        mus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,nLi)
-        nus: typ.Sequence[NDArray],  # len=d, elm_shape=(...,nRi)
-        sigmas: typ.Sequence[NDArray], # len=d, elm_shape=(...,rRi)
-        taus: typ.Sequence[NDArray], # len=d, elm_shape=(...,rL(i+1))
-        up_tucker_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(nUi,)
+        var_tt_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
+        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(rLi,nUi,rL(i+1))
+        right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rRi,nUi,rR(i+1))
+        mus:                typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,nLi)
+        nus:                typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,nRi)
+        sigmas:             typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rRi)
+        taus:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rL(i+1))
+        up_tucker_weights:  typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d, elm_shape=(nUi,)
         use_jax: bool = False,
 ) -> typ.Sequence[NDArray]: # detas. len=d, elm_shape=(...,nUi)
     '''Compute var-downward edge variables deta.
@@ -692,51 +692,63 @@ def compute_detas(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
-
     deta_weights  = up_tucker_weights
 
-    def _func(x):
-        (P, Q, dG, mu, nu, sigma, tau, ind
-         ) = (x[0], x[1], x[2], x[3], x[4], x[5], x[6], 7)
-
-        deta_term1 = xnp.einsum(
-            '...aj,...j->...a',
-            xnp.einsum('...i,iaj->...aj', sigma, Q),
-            nu,
+    if is_uniform:
+        term1 = xnp.einsum(
+            'd...aj,d...j->d...a',
+            xnp.einsum('d...i,diaj->d...aj', sigmas, right_tt_cores),
+            nus,
         )
-        deta_term2 = xnp.einsum(
-            '...aj,...j->...a',
-            xnp.einsum('...i,iaj->...aj', mu, dG),
-            nu,
+        term2 = xnp.einsum(
+            'd...aj,d...j->d...a',
+            xnp.einsum('d...i,diaj->d...aj', mus, var_tt_cores),
+            nus,
         )
-        deta_term3 = xnp.einsum(
-            '...aj,...j->...a',
-            xnp.einsum('...i,iaj->...aj', mu, P),
-            tau,
+        term3 = xnp.einsum(
+            'd...aj,d...j->d...a',
+            xnp.einsum('d...i,diaj->d...aj', mus, left_tt_cores),
+            taus,
         )
-        unweighted_deta = deta_term1 + deta_term2 + deta_term3
+        unweighted_detas = term1 + term2 + term3
+    else:
+        def _func(x):
+            P, Q, dG, mu, nu, sigma, tau = x
+            term1 = xnp.einsum(
+                '...aj,...j->...a',
+                xnp.einsum('...i,iaj->...aj', sigma, Q),
+                nu,
+            )
+            term2 = xnp.einsum(
+                '...aj,...j->...a',
+                xnp.einsum('...i,iaj->...aj', mu, dG),
+                nu,
+            )
+            term3 = xnp.einsum(
+                '...aj,...j->...a',
+                xnp.einsum('...i,iaj->...aj', mu, P),
+                tau,
+            )
+            unweighted_deta = term1 + term2 + term3
+            return (unweighted_deta,)
 
-        if deta_weights is not None:
-            weight = x[ind]
-            deta = _apply_edge_weight(unweighted_deta, weight, xnp=xnp)
-        else:
-            deta = unweighted_deta
+        xs = (left_tt_cores, right_tt_cores, var_tt_cores, mus, nus, sigmas, taus)
+        (unweighted_detas,) = xmap(_func, xs)
 
-        return (deta,)
+    if deta_weights is not None:
+        detas = _apply_edge_weights(unweighted_detas, deta_weights, use_jax=use_jax)
+    else:
+        detas = unweighted_detas
 
-    xs = (left_tt_cores, right_tt_cores, var_tt_cores, mus, nus, sigmas, taus)
-    xs = xs + (deta_weights,)     if deta_weights   is not None else xs
-
-    detas_tuple = xmap(_func, xs)
-    return detas_tuple[0]
+    return detas
 
 
 def assemble_tangent_zs(
-        tucker_cores: typ.Sequence[NDArray],  # len=d. elm_shape=(nUi,Ni)
-        var_tucker_cores: typ.Sequence[NDArray], # len=d. elm_shape=(nOi,Ni)
-        etas: typ.Sequence[NDArray], # etas. len=d, elm_shape=(...,nUi)
-        detas: typ.Sequence[NDArray], # detas. len=d, elm_shape=(...,nUi)
-        shape_weights: typ.Sequence[NDArray] = None,  # len=d, elm_shape=(Ni,)
+        tucker_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(nUi,Ni)
+        var_tucker_cores:   typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(nOi,Ni)
+        etas:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi)
+        detas:              typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi)
+        shape_weights:      typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d, elm_shape=(Ni,)
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]: # probes. len=d, elm_shape=(...,Ni)
     '''Assemble tangent vector probes from edge variables.
@@ -759,28 +771,28 @@ def assemble_tangent_zs(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
-
     z_weights = shape_weights
 
-    def _func(x):
-        B, dB, eta, deta, ind = x[0], x[1], x[2], x[3], 4
+    if is_uniform:
+        term1 = xnp.einsum('dao,d...a->d...o', tucker_cores, detas)
+        term2 = xnp.einsum('dao,d...a->d...o', var_tucker_cores, etas)
+        unweighted_zs = term1 + term2
+    else:
+        def _func(x):
+            B, dB, eta, deta = x
+            term1 = xnp.einsum('ao,...a->...o', B, deta)
+            term2 = xnp.einsum('ao,...a->...o', dB, eta)
+            unweighted_z = term1 + term2
+            return (unweighted_z,)
 
-        z_term1 = xnp.einsum('ao,...a->...o', B, deta)
-        z_term2 = xnp.einsum('ao,...a->...o', dB, eta)
-        unweighted_z = z_term1 + z_term2
+        xs = (tucker_cores, var_tucker_cores, etas, detas)
+        (unweighted_zs,) = xmap(_func, xs)
 
-        if z_weights is not None:
-            weight = x[ind]
-            z = _apply_edge_weight(unweighted_z, weight, xnp=xnp)
-        else:
-            z = unweighted_z
+    if z_weights is not None:
+        zs = _apply_edge_weights(unweighted_zs, z_weights, use_jax=use_jax)
+    else:
+        zs = unweighted_zs
 
-        return (z,)
-
-    xs = (tucker_cores, var_tucker_cores, etas, detas)
-    xs = xs + (z_weights,) if z_weights  is not None else xs
-
-    (zs,) = xmap(_func, xs)
     return zs
 
 
