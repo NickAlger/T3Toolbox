@@ -26,6 +26,7 @@ Functions
    /autoapi/t3toolbox/uniform/get_uniform_structure
    /autoapi/t3toolbox/uniform/get_original_structure
    /autoapi/t3toolbox/uniform/apply_masks
+   /autoapi/t3toolbox/uniform/uniform_squash_tails
    /autoapi/t3toolbox/uniform/pack_tensors
    /autoapi/t3toolbox/uniform/unpack
    /autoapi/t3toolbox/uniform/make_uniform_masks
@@ -46,6 +47,7 @@ Functions
    t3toolbox.uniform.get_uniform_structure
    t3toolbox.uniform.get_original_structure
    t3toolbox.uniform.apply_masks
+   t3toolbox.uniform.uniform_squash_tails
    t3toolbox.uniform.pack_tensors
    t3toolbox.uniform.unpack
    t3toolbox.uniform.make_uniform_masks

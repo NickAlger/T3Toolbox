@@ -1,0 +1,22 @@
+t3toolbox.uniform.uniform_squash_tails
+======================================
+
+.. py:function:: t3toolbox.uniform.uniform_squash_tails(x: UniformTuckerTensorTrainCores, use_jax: bool = False) -> UniformTuckerTensorTrainCores
+
+   Squash tails of uniform Tucker tensor train.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.uniform as ut3
+   >>> import t3toolbox.t3svd as t3svd
+   >>> import t3toolbox.corewise as cw
+   >>> x = t3.t3_corewise_randn(((10,11,12), (5,6,4), (1,3,5,1)))
+   >>> uniform_x, masks = ut3.t3_to_ut3(x)
+   >>> uniform_x2 = ut3.uniform_squash_tails(uniform_x)
+   >>> dense_ux = ut3.ut3_to_dense(uniform_x, masks)
+   >>> dense_ux2 = ut3.ut3_to_dense(uniform_x2, masks)
+   >>> print(np.linalg.norm(dense_ux - dense_ux2))
+   0.0
+

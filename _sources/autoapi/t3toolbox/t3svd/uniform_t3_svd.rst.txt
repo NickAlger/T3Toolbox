@@ -1,7 +1,7 @@
 t3toolbox.t3svd.uniform_t3_svd
 ==============================
 
-.. py:function:: t3toolbox.t3svd.uniform_t3_svd(cores: t3toolbox.uniform.UniformTuckerTensorTrainCores, masks: t3toolbox.uniform.UniformEdgeWeights, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.uniform.UniformTuckerTensorTrainCores, t3toolbox.common.NDArray, t3toolbox.common.NDArray]
+.. py:function:: t3toolbox.t3svd.uniform_t3_svd(cores: t3toolbox.uniform.UniformTuckerTensorTrainCores, masks: t3toolbox.uniform.UniformEdgeWeights, squash_tails_first: bool = True, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.uniform.UniformTuckerTensorTrainCores, t3toolbox.common.NDArray, t3toolbox.common.NDArray]
 
    Compute T3-SVD of uniform Tucker tensor train.
 
@@ -42,7 +42,7 @@ t3toolbox.t3svd.uniform_t3_svd
    >>> s = ((3,4,3), (4,6,7), (3,5,1,2))
    >>> x = t3.t3_corewise_randn(s)
    >>> cores, masks = ut3.t3_to_ut3(x)
-   >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = t3svd.uniform_t3_svd(cores, masks, use_jax=True)
+   >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = t3svd.uniform_t3_svd(cores, masks, squash_tails_first=False, use_jax=True)
    >>> print(np.linalg.norm(ut3.ut3_to_dense(ux2, masks) - t3.t3_to_dense(x))) # OK
    9.404253555983741e-13
    >>> _, ss_basis, ss_tt = t3svd.t3_svd(x) # Non-uniform T3-SVD
@@ -50,4 +50,6 @@ t3toolbox.t3svd.uniform_t3_svd
    [913.44494453 127.532224    16.08102313]
    >>> print(ss_tt_from_ut3[1]) # Incorrect singular values:
    [417.45514528 401.58448034  72.5343983   22.41273808   0.        ]
+   >>> ux4, ss_basis_from_ut4, ss_tt_from_ut4 = t3svd.uniform_t3_svd(cores, masks, use_jax=True)
+   >>> print(ss_basis_from_ut4[1])
 

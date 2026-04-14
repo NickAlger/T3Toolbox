@@ -24,6 +24,8 @@ Functions
    /autoapi/t3toolbox/corewise/corewise_neg
    /autoapi/t3toolbox/corewise/corewise_dot
    /autoapi/t3toolbox/corewise/corewise_norm
+   /autoapi/t3toolbox/corewise/corewise_err
+   /autoapi/t3toolbox/corewise/corewise_relerr
 
 .. autoapisummary::
 
@@ -33,6 +35,8 @@ Functions
    t3toolbox.corewise.corewise_neg
    t3toolbox.corewise.corewise_dot
    t3toolbox.corewise.corewise_norm
+   t3toolbox.corewise.corewise_err
+   t3toolbox.corewise.corewise_relerr
 
 
 Module Contents
