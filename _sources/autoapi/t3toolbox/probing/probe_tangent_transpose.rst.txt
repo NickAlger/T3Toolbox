@@ -1,7 +1,7 @@
 t3toolbox.probing.probe_tangent_transpose
 =========================================
 
-.. py:function:: t3toolbox.probing.probe_tangent_transpose(ztildes: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], ww: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], base: t3toolbox.base_variation_format.T3Base, edge_weights: t3toolbox.base_variation_format.BVEdgeWeights = (None, None, None, None, None), sum_over_probes: bool = False, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]]
+.. py:function:: t3toolbox.probing.probe_tangent_transpose(ztildes: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], ww: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], base: t3toolbox.base_variation_format.T3Base, edge_weights: t3toolbox.base_variation_format.BVEdgeWeights = (None, None, None, None, None), sum_over_probes: bool = False, use_jax: bool = False) -> t3toolbox.common.typ.Union[t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray]]
 
    Apply the transpose of the map from a T3Tangent to its probes. Apply to ztildes.
 
@@ -124,18 +124,12 @@ t3toolbox.probing.probe_tangent_transpose
    >>> Z = ut3.pack_tensors(z)
    >>> JV = apply_J(V)
    >>> JTZ = apply_Jt(Z)
-   >>> print([x.shape for x in JTZ])
-   [(3, 2, 6, 12), (3, 2, 4, 6, 4)]
-   >>> print([x.shape for x in V])
-   [(3, 6, 12), (3, 4, 6, 4)]
-   >>> print([x.shape for x in JV])
-   [(2, 12), (2, 12), (2, 12)]
-   >>> print([x.shape for x in Z])
-   [(2, 12), (2, 12), (2, 12)]
-   >>> print(cw.corewise_dot([x[0,:] for x in Z], [x[0,:] for x in JV]) - cw.corewise_dot([x[:,0,:,:] for x in JTZ], V))
+   >>> t0a = cw.corewise_dot([x[0,:] for x in Z], [x[0,:] for x in JV])
+   >>> t0b = cw.corewise_dot([x[:,0,:,:] for x in JTZ], V)
+   >>> print(t0a - t0b)
    -2.842170943040401e-14
-   >>> print(cw.corewise_dot([x[1,:] for x in Z], [x[1,:] for x in JV]) - cw.corewise_dot([x[:,1,:,:] for x in JTZ], V))
-   8.881784197001252e-15
-   >>> print(cw.corewise_dot(Z, JV) - cw.corewise_dot(JTZ, V))
-   ERROR!
+   >>> t1a = cw.corewise_dot([x[1,:] for x in Z], [x[1,:] for x in JV])
+   >>> t1b = cw.corewise_dot([x[:,1,:,:] for x in JTZ], V)
+   >>> print(t1a - t1b)
+   -2.842170943040401e-14
 
