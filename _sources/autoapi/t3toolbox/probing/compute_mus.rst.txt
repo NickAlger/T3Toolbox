@@ -1,7 +1,7 @@
-t3toolbox.probing.compute_weighted_mus
-======================================
+t3toolbox.probing.compute_mus
+=============================
 
-.. py:function:: t3toolbox.probing.compute_weighted_mus(left_tt_cores: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], weighted_xis: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], left_tt_weights: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray] = None, scan=common.ragged_scan, xnp=np) -> t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]
+.. py:function:: t3toolbox.probing.compute_mus(left_tt_cores: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], weighted_xis: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], left_tt_weights: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray] = None, scan=common.ragged_scan, xnp=np) -> t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]
 
    Compute leftward edge variables associated with edges between adjacent TT-cores.
    Used for probing a Tucker tensor train.

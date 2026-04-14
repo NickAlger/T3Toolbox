@@ -79,19 +79,16 @@ t3toolbox.probing.probe_tangent_transpose
    >>> import t3toolbox.probing as t3p
    >>> import t3toolbox.common as common
    >>> import t3toolbox.orthogonalization as orth
+   >>> import t3toolbox.base_variation_format as bvf
    >>> randn = np.random.randn
    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
    >>> base, _ = orth.orthogonal_representations(p)
-   >>> NN = [U.shape[1] for U in base[0]]
-   >>> nnU = [U.shape[0] for U in base[0]]
-   >>> rrL = [L.shape[0] for L in base[1]]
-   >>> rrR = [R.shape[2] for R in base[2]]
-   >>> nnO = [O.shape[1] for O in base[3]]
+   >>> NN, nnU, nnO, rrL, rrR = bvf.get_base_structure(base)
    >>> shape_weights = [randn(N) for N in NN]
    >>> up_tucker_weights = [randn(nU) for nU in nnU]
    >>> outer_tucker_weights = [randn(nO) for nO in nnO]
-   >>> left_tt_weights = [randn(rL) for rL in rrL]
-   >>> right_tt_weights = [randn(rR) for rR in rrR]
+   >>> left_tt_weights = [randn(rL) for rL in rrL[:-1]]
+   >>> right_tt_weights = [randn(rR) for rR in rrR[1:]]
    >>> edge_weights = (shape_weights, up_tucker_weights, outer_tucker_weights, left_tt_weights, right_tt_weights)
    >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
    >>> apply_J = lambda v: t3p.probe_tangent(ww, v, base, edge_weights=edge_weights)
@@ -113,13 +110,11 @@ t3toolbox.probing.probe_tangent_transpose
    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
    >>> base, _ = orth.orthogonal_representations(p)
    >>> variation = t3m.tangent_randn(base)
-   # >>> www = (np.random.randn(10,), np.random.randn(11,), np.random.randn(12,))
    >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
    >>> V, B, masks = ut3.bv_to_ubv(variation, base)
    >>> uniform_ww = ut3.pack_tensors(www)
    >>> apply_J = lambda v: t3p.probe_tangent(uniform_ww, v, B, edge_weights=masks)
    >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, uniform_ww, B, edge_weights=masks)
-   # >>> z = (np.random.randn(10,), np.random.randn(11,), np.random.randn(12,))
    >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
    >>> Z = ut3.pack_tensors(z)
    >>> JV = apply_J(V)
