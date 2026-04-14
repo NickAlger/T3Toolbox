@@ -22,6 +22,7 @@ __all__ = [
     'orthogonalize_relative_to_ith_tt_core',
     #
     'up_orthogonalize_tucker_cores',
+    'down_orthogonalize_tt_cores',
     'left_orthogonalize_tt_cores',
     'right_orthogonalize_tt_cores',
     'orthogonal_representations',
@@ -672,6 +673,37 @@ def up_orthogonalize_tucker_cores(
     return (up_tucker_cores, new_tt_cores)
 
 
+def outer_orthogonalize_tt_cores(
+        x: t3.TuckerTensorTrain,
+        use_jax: bool = False,
+):
+    """Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
+    """
+    is_ragged = isinstance(x[0], typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+
+    #
+
+    def _down_func(Uio_Haib):
+        Uio, Haib,  = Uio_Haib
+
+        rL, n, rR = Haib.shape
+        H_ab_i = Haib.swapaxes(1,2).reshape((rL*rR,n))
+
+        O_ab_x, ssx, WTxi = xnp.linalg.svd(H_ab_i, full_matrices=False)
+        n2 = len(ssx)
+        Oaxb = O_ab_x.reshape((rL, rR, n2)).swapaxes(1,2)
+
+        # Oaxb, ssx, WTxi = linalg.outer_svd_3tensor(Haib, xnp=xnp)
+        Cxi = ssx.reshape((-1, 1)) * WTxi
+
+        Vxo = np.einsum('xi,io->xo', Cxi, Uio)
+        return (Vxo, Oaxb)
+
+    tucker_variations, outer_tt_cores = xmap(_down_func, x)
+    return tucker_variations, outer_tt_cores
+
+
 def left_orthogonalize_tt_cores(
         tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(ri,ni,r(i+1))
         return_variation_cores: bool = False,
@@ -878,15 +910,9 @@ def orthogonal_representations(
     )
 
     # Orthogonalize TT cores downward to get outer_tt_cores O and tucker_variations V
-    def _down_func(Uio_Haib):
-        Uio, Haib,  = Uio_Haib
-        Oaxb, ssx, WTxi = linalg.outer_svd_3tensor(Haib, xnp=xnp)
-        Cxi = ssx.reshape((-1, 1)) * WTxi
-
-        Vxo = np.einsum('xi,io->xo', Cxi, Uio)
-        return (Vxo, Oaxb)
-
-    tucker_variations, outer_tt_cores = xmap(_down_func, (up_tucker_cores, tt_variations))
+    tucker_variations, outer_tt_cores = outer_orthogonalize_tt_cores(
+        (up_tucker_cores, tt_variations), use_jax=use_jax,
+    )
 
     base = (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
     variation = (tucker_variations, tt_variations)
