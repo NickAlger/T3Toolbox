@@ -24,6 +24,7 @@ __all__ = [
     'unpack',
     'make_uniform_masks',
     'apply_masks',
+    'uniform_squash_tails',
     #
     't3_to_ut3',
     'ut3_to_t3',
@@ -351,19 +352,101 @@ def get_original_structure(
 def apply_masks(
         cores: UniformTuckerTensorTrainCores,
         masks: UniformEdgeWeights,
-        xnp = np,
+        use_jax: bool = False,
 ) -> UniformTuckerTensorTrainCores: # cores with masks applied
     """Apply masks to uniform Tucker tensor train cores to zero out superflous entries.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform as ut3
+    >>> import t3toolbox.t3svd as t3svd
+    >>> import t3toolbox.corewise as cw
+    >>> x = t3.t3_corewise_randn(((10,11,12), (5,6,4), (1,3,5,1)))
+    >>> uniform_x, masks = ut3.t3_to_ut3(x)
+    >>> uniform_x_svd, ss1, _ = t3svd.uniform_t3_svd(uniform_x, masks)
+    >>> dense_x = t3.t3_to_dense(x)
+    >>> print(np.linalg.norm(ut3.ut3_to_dense(uniform_x_svd, masks) - dense_x))
+    3.0208288525321468e-12
+    >>> x_svd, ss2, _ = t3svd.t3_svd(x)
+    >>> print(np.linalg.norm(t3.t3_to_dense(x_svd) - dense_x))
+    2.9361853188555994e-12
+    >>> x_svd_structure = t3.get_structure(x_svd)
+    >>> uniform_x_svd_structure = ut3.get_uniform_structure(uniform_x_svd)
+    >>> masks2 = ut3.make_uniform_masks(x_svd_structure, uniform_x_svd_structure)
+    >>> print(np.linalg.norm(ut3.ut3_to_dense(uniform_x_svd, masks2) - dense_x))
+    3.0208288525321468e-12
+    >>> print(cw.corewise_relerr(ut3.apply_masks(uniform_x_svd, masks2), uniform_x_svd))
+    0.0024164186526434567
+    >>> print(cw.corewise_relerr(ut3.apply_masks(uniform_x_svd, masks), uniform_x_svd))
+    0.0
     """
+    xnp, xmap, xscan = get_backend(False, use_jax)
+
     shape_mask, tucker_mask, tt_mask = masks
     BB, GG = cores
-    BB = xnp.einsum('dao,do->dao', BB, shape_mask)
-    BB = xnp.einsum('dao,da->dao', BB, tucker_mask)
-    GG = xnp.einsum('diaj,di->diaj', GG, tt_mask[:-1])
-    GG = xnp.einsum('diaj,da->diaj', GG, tucker_mask)
-    GG = xnp.einsum('diaj,dj->diaj', GG, tt_mask[1:])
+
+    BB_mask = xnp.einsum('da,do->dao', tucker_mask, shape_mask)
+    BB = BB * BB_mask
+
+    GG_mask = xnp.einsum('di,da,dj->diaj', tt_mask[:-1], tucker_mask, tt_mask[1:])
+    GG = GG * GG_mask
+
     masked_cores = (BB, GG)
     return masked_cores
+
+
+def uniform_squash_tails(
+        x: UniformTuckerTensorTrainCores,
+        use_jax: bool = False,
+) -> UniformTuckerTensorTrainCores:
+    """Squash tails of uniform Tucker tensor train.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform as ut3
+    >>> import t3toolbox.t3svd as t3svd
+    >>> import t3toolbox.corewise as cw
+    >>> x = t3.t3_corewise_randn(((10,11,12), (5,6,4), (1,3,5,1)))
+    >>> uniform_x, masks = ut3.t3_to_ut3(x)
+    >>> uniform_x2 = ut3.uniform_squash_tails(uniform_x)
+    >>> dense_ux = ut3.ut3_to_dense(uniform_x, masks)
+    >>> dense_ux2 = ut3.ut3_to_dense(uniform_x2, masks)
+    >>> print(np.linalg.norm(dense_ux - dense_ux2))
+    0.0
+    """
+    xnp, xmap, xscan = get_backend(False, use_jax)
+    tucker_supercore, tt_supercore = x
+
+    _, r, n, _ = tt_supercore.shape
+
+    G0 = tt_supercore[0]
+    new_G0 = xnp.concatenate([
+        xnp.sum(G0, axis=0).reshape((1,n,r)),
+        xnp.zeros((r-1,n,r))],
+        axis=0,
+    )
+
+    GG_mid = tt_supercore[1:-1]
+
+    Gf = tt_supercore[-1]
+    new_Gf = xnp.concatenate([
+        xnp.sum(Gf, axis=2).reshape((r,n,1)),
+        xnp.zeros((r,n,r-1))],
+        axis=2,
+    )
+
+    new_tt_supercore = xnp.concatenate([
+        new_G0.reshape((1,r,n,r)),
+        GG_mid,
+        new_Gf.reshape((1,r,n,r))],
+        axis=0,
+    )
+    return tucker_supercore, new_tt_supercore
+
 
 
 def pack_tensors(

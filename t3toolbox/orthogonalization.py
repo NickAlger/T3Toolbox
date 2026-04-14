@@ -886,11 +886,6 @@ def orthogonal_representations(
     >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', O0, O0) - np.eye(O0.shape[1]))) # O: outer orthogonal
     1.2300840868850519e-15
     '''
-    is_ragged = isinstance(x[0], typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
-
-    #
-
     if not already_left_orthogonal:
         # Orthogonalize Tucker cores upward to get up_tt_cores U
         up_tucker_cores, tt_cores = up_orthogonalize_tucker_cores(

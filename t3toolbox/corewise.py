@@ -13,6 +13,8 @@ __all__ = [
     'corewise_neg',
     'corewise_dot',
     'corewise_norm',
+    'corewise_err',
+    'corewise_relerr',
 ]
 
 NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
@@ -133,3 +135,14 @@ def corewise_norm(X, xnp=np):
     2.449489742783178
     '''
     return xnp.sqrt(corewise_dot(X, X))
+
+
+def corewise_err(X_true, X, xnp=np):
+    return corewise_norm(corewise_sub(X_true, X), xnp=xnp)
+
+
+def corewise_relerr(X_true, X, xnp=np):
+    return corewise_err(X_true, X) / corewise_norm(X_true)
+
+
+
