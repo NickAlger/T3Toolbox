@@ -109,25 +109,42 @@ t3toolbox.probing.probe_tangent_transpose
    >>> import t3toolbox.manifold as t3m
    >>> import t3toolbox.probing as t3p
    >>> import t3toolbox.orthogonalization as orth
+   >>> import t3toolbox.corewise as cw
    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
    >>> base, _ = orth.orthogonal_representations(p)
    >>> variation = t3m.tangent_randn(base)
-   >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-   >>> uniform_variation, uniform_base, masks = ut3.bv_to_ubv(variation, base)
-   >>> uniform_www = ut3.pack_tensors(www)
+   >>> www = (np.random.randn(1,10), np.random.randn(1,11), np.random.randn(1,12))
+   >>> V, B, masks = ut3.bv_to_ubv(variation, base)
+   >>> uniform_ww = ut3.pack_tensors(www)
+   >>> apply_J = lambda v: t3p.probe_tangent(uniform_ww, v, B, edge_weights=masks)
+   >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, uniform_ww, B, edge_weights=masks)
+   >>> z = (np.random.randn(1,10), np.random.randn(1,11), np.random.randn(1,12))
+   >>> Z = ut3.pack_tensors(z)
+   >>> JV = apply_J(V)
+   >>> JTZ = apply_Jt(Z)
+   >>> print([x.shape for x in JTZ])
+   [(3, 1, 6, 12), (3, 1, 4, 6, 4)]
+   >>> print([x.shape for x in V])
+   [(3, 6, 12), (3, 4, 6, 4)]
+   >>> print([x.shape for x in JV])
+   [(1, 12), (1, 12), (1, 12)]
+   >>> print([x.shape for x in Z])
+   [(1, 12), (1, 12), (1, 12)]
+   >>> print(cw.corewise_dot(Z, JV) - cw.corewise_dot(JTZ, V))
+   -9.14606181679698
+   >>> print(cw.corewise_dot(Z, JV) - cw.corewise_dot([x[:,0,:,:] for x in JTZ], V))
+   8.881784197001252e-16
 
-   >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
-   >>> base, _ = orth.orthogonal_representations(p)
-   >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-   >>> apply_J = lambda v: t3p.probe_tangent(ww, v, base)
-   >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, ww, base)
-   >>> v = t3m.tangent_randn(base)
-   >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-   >>> print(cw.corewise_dot(z, apply_J(v)) - cw.corewise_dot(apply_Jt(z), v))
+   >>> JTZ0 = [x[:,0,:,:] for x in JTZ]
+   >>> JV0 = [x[0,:] for x in JV]
+   >>> print(cw.corewise_dot(Z, JV0) - cw.corewise_dot(JTZ0, V))
 
-   # >>> uniform_zzz = t3p.probe_tangent(uniform_www, uniform_variation, uniform_base, edge_weights=masks) # <-- Bug
-   >>> uniform_zzz = t3p.probe_tangent(uniform_www, uniform_variation, uniform_base) # OK
-   >>> zzz2 = t3p.probe_tangent(www, variation, base)
-   >>> uniform_zzz2 = ut3.pack_tensors(zzz2)
-   >>> print(np.linalg.norm(uniform_zzz - uniform_zzz2))
+   >>> print(cw.corewise_dot(Z, JV) - cw.corewise_dot(JTZ, V))
+
+   >>> JTZ0 = [[x[0] for x in y] for y in JTZ]
+   >>> cw.corewise_dot(JTZ0, V)
+   >>> cw.corewise_dot([[x[0] for x in y] for y in JTZ], V)
+   >>> print([[x.shape for x in y] for y in JTZ0])
+   >>> print([[x.shape for x in y] for y in V])
+   >>> print(cw.corewise_dot(Z, JV) - cw.corewise_dot(JTZ, V))
 
