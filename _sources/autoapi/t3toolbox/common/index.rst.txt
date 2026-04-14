@@ -23,6 +23,7 @@ Functions
    /autoapi/t3toolbox/common/ragged_map
    /autoapi/t3toolbox/common/numpy_map
    /autoapi/t3toolbox/common/get_backend
+   /autoapi/t3toolbox/common/randn
 
 .. autoapisummary::
 
@@ -31,6 +32,7 @@ Functions
    t3toolbox.common.ragged_map
    t3toolbox.common.numpy_map
    t3toolbox.common.get_backend
+   t3toolbox.common.randn
 
 
 Module Contents

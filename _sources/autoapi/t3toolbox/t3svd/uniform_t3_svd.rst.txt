@@ -31,17 +31,21 @@ t3toolbox.t3svd.uniform_t3_svd
    >>> ut3.unpack(ss_basis_from_ut3, tucker_masks)[0] - ss_basis[0]
    array([ 1.13686838e-12, -2.27373675e-13, -1.13686838e-13])
 
-   Non-example with degenerate (unnecessairily large) ranks. Also using jax to test it
+   Uniform example with degenerate (unnecessairily large) ranks. Also using jax to test it
 
    >>> import numpy as np
    >>> import t3toolbox.tucker_tensor_train as t3
    >>> import t3toolbox.uniform as ut3
    >>> import t3toolbox.t3svd as t3svd
    >>> import jax
+   >>> import t3toolbox.corewise as cw
    >>> jax.config.update("jax_enable_x64", True)
-   >>> s = ((3,4,3), (4,6,7), (3,5,1,2))
-   >>> x = t3.t3_corewise_randn(s)
+   >>> structure = ((3,4,3), (4,6,7), (3,5,1,2))
+   >>> x = t3.t3_corewise_randn(structure)
    >>> cores, masks = ut3.t3_to_ut3(x)
+   >>> inv_masks = cw.corewise_logical_not(masks)
+   >>> junk = ut3.uniform_randn(ut3.get_uniform_structure(cores), masks=inv_masks)
+   >>> cores = cw.corewise_add(cores, junk) # Add random junk outside the masks
    >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = t3svd.uniform_t3_svd(cores, masks, squash_tails_first=False, use_jax=True)
    >>> print(np.linalg.norm(ut3.ut3_to_dense(ux2, masks) - t3.t3_to_dense(x))) # OK
    9.404253555983741e-13
