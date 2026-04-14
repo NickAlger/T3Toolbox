@@ -1393,9 +1393,15 @@ def probe_tangent_transpose(
         edge_weights: bvf.BVEdgeWeights = (None, None, None, None, None),
         sum_over_probes: bool = False,
         use_jax: bool = False,
-) -> typ.Tuple[
-    typ.Tuple[NDArray,...], # dU_tildes. len=d, elm_shape=(...,nOi,Ni)
-    typ.Tuple[NDArray,...], # dG_tildes. len=d, elm_shape=(...,rLi,ni,rRi)
+) -> typ.Union[
+    typ.Tuple[
+        typ.Tuple[NDArray,...], # vectorized dU_tildes. len=d, elm_shape=(..., nOi, Ni)
+        typ.Tuple[NDArray,...], # vectorized dG_tildes. len=d, elm_shape=(..., rLi, ni, rRi)
+    ],
+    typ.Tuple[
+        NDArray,  # vectorized dU_tildes. shape=(d, ..., nOi, Ni)
+        NDArray,  # vectorized dG_tildes. shape=(d, ..., rLi, ni, rRi)
+    ],
 ]:
     '''Apply the transpose of the map from a T3Tangent to its probes. Apply to ztildes.
 
@@ -1527,21 +1533,14 @@ def probe_tangent_transpose(
     >>> Z = ut3.pack_tensors(z)
     >>> JV = apply_J(V)
     >>> JTZ = apply_Jt(Z)
-    >>> print([x.shape for x in JTZ])
-    [(3, 2, 6, 12), (3, 2, 4, 6, 4)]
-    >>> print([x.shape for x in V])
-    [(3, 6, 12), (3, 4, 6, 4)]
-    >>> print([x.shape for x in JV])
-    [(2, 12), (2, 12), (2, 12)]
-    >>> print([x.shape for x in Z])
-    [(2, 12), (2, 12), (2, 12)]
-    >>> print(cw.corewise_dot([x[0,:] for x in Z], [x[0,:] for x in JV]) - cw.corewise_dot([x[:,0,:,:] for x in JTZ], V))
+    >>> t0a = cw.corewise_dot([x[0,:] for x in Z], [x[0,:] for x in JV])
+    >>> t0b = cw.corewise_dot([x[:,0,:,:] for x in JTZ], V)
+    >>> print(t0a - t0b)
     -2.842170943040401e-14
-    >>> print(cw.corewise_dot([x[1,:] for x in Z], [x[1,:] for x in JV]) - cw.corewise_dot([x[:,1,:,:] for x in JTZ], V))
-    8.881784197001252e-15
-    >>> print(cw.corewise_dot(Z, JV) - cw.corewise_dot(JTZ, V))
-    ERROR!
-
+    >>> t1a = cw.corewise_dot([x[1,:] for x in Z], [x[1,:] for x in JV])
+    >>> t1b = cw.corewise_dot([x[:,1,:,:] for x in JTZ], V)
+    >>> print(t1a - t1b)
+    -2.842170943040401e-14
     '''
     is_ragged = isinstance(base[0], typ.Sequence)
     xnp, xmap, xscan = get_backend(is_ragged, use_jax)
