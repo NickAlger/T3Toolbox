@@ -1,7 +1,7 @@
 t3toolbox.t3svd.t3_svd
 ======================
 
-.. py:function:: t3toolbox.t3svd.t3_svd(x: t3toolbox.tucker_tensor_train.TuckerTensorTrain, min_tt_ranks: Sequence[int] = None, min_tucker_ranks: Sequence[int] = None, max_tt_ranks: Sequence[int] = None, max_tucker_ranks: Sequence[int] = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> Tuple[t3toolbox.tucker_tensor_train.TuckerTensorTrain, Tuple[NDArray, Ellipsis], Tuple[NDArray, Ellipsis]]
+.. py:function:: t3toolbox.t3svd.t3_svd(x: t3toolbox.tucker_tensor_train.TuckerTensorTrain, min_tt_ranks: Sequence[int] = None, min_tucker_ranks: Sequence[int] = None, max_tt_ranks: Sequence[int] = None, max_tucker_ranks: Sequence[int] = None, rtol: float = None, atol: float = None, squash_tails_first: bool = True, use_jax: bool = False) -> Tuple[t3toolbox.tucker_tensor_train.TuckerTensorTrain, Tuple[NDArray, Ellipsis], Tuple[NDArray, Ellipsis]]
 
    Compute (truncated) T3-SVD of TuckerTensorTrain.
 
@@ -92,7 +92,7 @@ t3toolbox.t3svd.t3_svd
    >>> import t3toolbox.tucker_tensor_train as t3
    >>> import t3toolbox.t3svd as t3svd
    >>> x = t3.t3_corewise_randn(((5,6,3), (4,4,3), (2,3,2,2)))
-   >>> x2, ss_tucker, ss_tt = t3svd.t3_svd(x) # Compute T3-SVD
+   >>> x2, ss_tucker, ss_tt = t3svd.t3_svd(x, squash_tails_first=False) # Compute T3-SVD
    >>> x_dense = t3.t3_to_dense(x, contract_ones=False)
    >>> x2_dense = t3.t3_to_dense(x2, contract_ones=False)
    >>> print(np.linalg.norm(x_dense - x2_dense)) # Tensor unchanged
