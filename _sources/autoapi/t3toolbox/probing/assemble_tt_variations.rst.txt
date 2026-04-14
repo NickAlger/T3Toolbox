@@ -1,7 +1,7 @@
 t3toolbox.probing.assemble_tt_variations
 ========================================
 
-.. py:function:: t3toolbox.probing.assemble_tt_variations(sigma_tildes: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], tau_tildes: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], deta_tildes, xis: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], mus, nus, sum_over_probes: bool = False, map=common.ragged_map, xnp=np) -> t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
+.. py:function:: t3toolbox.probing.assemble_tt_variations(sigma_tildes: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], tau_tildes: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], deta_tildes, xis: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], mus, nus, sum_over_probes: bool = False, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
 
    Assemble TT core variations, delta_G_tilde.
    Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
