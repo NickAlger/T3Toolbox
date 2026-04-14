@@ -14,6 +14,7 @@ Functions
    /autoapi/t3toolbox/manifold/tangent_to_dense
    /autoapi/t3toolbox/manifold/tangent_to_t3
    /autoapi/t3toolbox/manifold/tangent_zeros
+   /autoapi/t3toolbox/manifold/absorb_weights_into_tangent_cores
    /autoapi/t3toolbox/manifold/tangent_randn
    /autoapi/t3toolbox/manifold/orthogonal_gauge_projection
    /autoapi/t3toolbox/manifold/oblique_gauge_projection
@@ -26,6 +27,7 @@ Functions
    t3toolbox.manifold.tangent_to_dense
    t3toolbox.manifold.tangent_to_t3
    t3toolbox.manifold.tangent_zeros
+   t3toolbox.manifold.absorb_weights_into_tangent_cores
    t3toolbox.manifold.tangent_randn
    t3toolbox.manifold.orthogonal_gauge_projection
    t3toolbox.manifold.oblique_gauge_projection

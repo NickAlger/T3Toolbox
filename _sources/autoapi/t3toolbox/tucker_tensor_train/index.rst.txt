@@ -64,6 +64,7 @@ Functions
    /autoapi/t3toolbox/tucker_tensor_train/squash_tails
    /autoapi/t3toolbox/tucker_tensor_train/reverse_tt
    /autoapi/t3toolbox/tucker_tensor_train/reverse_t3
+   /autoapi/t3toolbox/tucker_tensor_train/absorb_edge_weights_into_cores
    /autoapi/t3toolbox/tucker_tensor_train/t3_zeros
    /autoapi/t3toolbox/tucker_tensor_train/t3_corewise_randn
    /autoapi/t3toolbox/tucker_tensor_train/t3_save
@@ -90,6 +91,7 @@ Functions
    t3toolbox.tucker_tensor_train.squash_tails
    t3toolbox.tucker_tensor_train.reverse_tt
    t3toolbox.tucker_tensor_train.reverse_t3
+   t3toolbox.tucker_tensor_train.absorb_edge_weights_into_cores
    t3toolbox.tucker_tensor_train.t3_zeros
    t3toolbox.tucker_tensor_train.t3_corewise_randn
    t3toolbox.tucker_tensor_train.t3_save

@@ -1,6 +1,0 @@
-t3toolbox.jax.uniform_probing
-=============================
-
-.. py:module:: t3toolbox.jax.uniform_probing
-
-

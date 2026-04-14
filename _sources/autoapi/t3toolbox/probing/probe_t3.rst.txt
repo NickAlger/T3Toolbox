@@ -50,7 +50,7 @@ t3toolbox.probing.probe_t3
    >>> edge_weights = (shape_weights, tucker_weights, tt_weights)
    >>> ww = [np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12)]
    >>> zz = t3p.probe_t3(ww, x0,edge_weights=edge_weights)
-   >>> x = t3p.absorb_weights_into_cores(x0, edge_weights)
+   >>> x = t3.absorb_edge_weights_into_cores(x0, edge_weights)
    >>> zz2 = t3p.probe_t3(ww, x)
    >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
    [3.372228193172379e-14, 3.826148129405782e-14, 2.294115439089251e-14]

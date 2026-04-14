@@ -81,7 +81,7 @@ t3toolbox.probing.probe_tangent
    >>> edge_weights = (shape_weights, up_tucker_weights, outer_tucker_weights, left_tt_weights, right_tt_weights)
    >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
    >>> zzz = t3p.probe_tangent(www, variation, base, edge_weights=edge_weights)
-   >>> weighted_variation, weighted_base = t3p.absorb_weights_into_tangent(variation, base, edge_weights)
+   >>> weighted_variation, weighted_base = t3m.absorb_weights_into_tangent_cores(variation, base, edge_weights)
    >>> zzz2 = t3p.probe_tangent(www, weighted_variation, weighted_base)
    >>> print([np.linalg.norm(zz - zz2) for zz, zz2 in zip(zzz, zzz2)])
    [1.5683512051190777e-15, 4.368484248906507e-15, 1.855735793037041e-15]

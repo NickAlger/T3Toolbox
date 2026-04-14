@@ -11,7 +11,6 @@ Functions
    :hidden:
 
    /autoapi/t3toolbox/probing/probe_t3
-   /autoapi/t3toolbox/probing/absorb_weights_into_cores
    /autoapi/t3toolbox/probing/compute_xis
    /autoapi/t3toolbox/probing/compute_mus
    /autoapi/t3toolbox/probing/compute_nus
@@ -23,7 +22,6 @@ Functions
    /autoapi/t3toolbox/probing/compute_detas
    /autoapi/t3toolbox/probing/assemble_tangent_zs
    /autoapi/t3toolbox/probing/probe_tangent
-   /autoapi/t3toolbox/probing/absorb_weights_into_tangent
    /autoapi/t3toolbox/probing/compute_deta_tildes
    /autoapi/t3toolbox/probing/compute_tau_tildes
    /autoapi/t3toolbox/probing/compute_sigma_tildes
@@ -36,7 +34,6 @@ Functions
 .. autoapisummary::
 
    t3toolbox.probing.probe_t3
-   t3toolbox.probing.absorb_weights_into_cores
    t3toolbox.probing.compute_xis
    t3toolbox.probing.compute_mus
    t3toolbox.probing.compute_nus
@@ -48,7 +45,6 @@ Functions
    t3toolbox.probing.compute_detas
    t3toolbox.probing.assemble_tangent_zs
    t3toolbox.probing.probe_tangent
-   t3toolbox.probing.absorb_weights_into_tangent
    t3toolbox.probing.compute_deta_tildes
    t3toolbox.probing.compute_tau_tildes
    t3toolbox.probing.compute_sigma_tildes

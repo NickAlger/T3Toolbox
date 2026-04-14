@@ -15,13 +15,11 @@ Submodules
    /autoapi/t3toolbox/jax/linalg/index
    /autoapi/t3toolbox/jax/manifold/index
    /autoapi/t3toolbox/jax/orthogonalization/index
-   /autoapi/t3toolbox/jax/probing/index
    /autoapi/t3toolbox/jax/t3svd/index
    /autoapi/t3toolbox/jax/tucker_tensor_train/index
    /autoapi/t3toolbox/jax/uniform/index
    /autoapi/t3toolbox/jax/uniform_manifold/index
    /autoapi/t3toolbox/jax/uniform_orthogonalization/index
-   /autoapi/t3toolbox/jax/uniform_probing/index
    /autoapi/t3toolbox/jax/uniform_t3svd/index
 
 

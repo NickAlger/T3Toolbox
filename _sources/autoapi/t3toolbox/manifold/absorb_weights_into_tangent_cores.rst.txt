@@ -1,0 +1,4 @@
+t3toolbox.manifold.absorb_weights_into_tangent_cores
+====================================================
+
+.. py:function:: t3toolbox.manifold.absorb_weights_into_tangent_cores(variation: t3toolbox.base_variation_format.T3Variation, base: t3toolbox.base_variation_format.T3Base, edge_weights: t3toolbox.base_variation_format.BVEdgeWeights = (None, None, None, None), use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.base_variation_format.T3Variation, t3toolbox.base_variation_format.T3Base]
