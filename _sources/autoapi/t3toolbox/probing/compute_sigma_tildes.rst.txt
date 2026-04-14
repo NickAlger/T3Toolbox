@@ -1,7 +1,7 @@
 t3toolbox.probing.compute_sigma_tildes
 ======================================
 
-.. py:function:: t3toolbox.probing.compute_sigma_tildes(deta_tildes, right_tt_cores: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], xis: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], nus, right_tt_weights: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray] = None, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
+.. py:function:: t3toolbox.probing.compute_sigma_tildes(deta_tildes: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], right_tt_cores: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], xis: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], nus: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], right_tt_weights: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray] = None, use_jax: bool = False) -> t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray]
 
    Adjoint-var-leftward edge variables sigma_tilde.
    Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.

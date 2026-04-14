@@ -1,7 +1,7 @@
 t3toolbox.probing.assemble_zs
 =============================
 
-.. py:function:: t3toolbox.probing.assemble_zs(tucker_cores: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], etas: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], shape_weights: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray] = None, use_jax: bool = False) -> t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]
+.. py:function:: t3toolbox.probing.assemble_zs(tucker_cores: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], etas: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], shape_weights: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray] = None, use_jax: bool = False) -> t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray]
 
    Assemble probes from downward edge variables.
 

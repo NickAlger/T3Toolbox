@@ -1,7 +1,7 @@
 t3toolbox.probing.assemble_tucker_variations
 ============================================
 
-.. py:function:: t3toolbox.probing.assemble_tucker_variations(ztildes: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], dxi_tildes: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], ww: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], etas: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], sum_over_probes: bool = False, use_jax: bool = False)
+.. py:function:: t3toolbox.probing.assemble_tucker_variations(ztildes: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], dxi_tildes: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], ww: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], etas: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], sum_over_probes: bool = False, use_jax: bool = False) -> t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray]
 
    Assemble Tucker core variations, delta_U_tilde.
    Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
