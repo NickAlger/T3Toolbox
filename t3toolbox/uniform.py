@@ -25,6 +25,8 @@ __all__ = [
     'make_uniform_masks',
     'apply_masks',
     'uniform_squash_tails',
+    'uniform_randn',
+    'uniform_zeros',
     #
     't3_to_ut3',
     'ut3_to_t3',
@@ -479,13 +481,6 @@ def pack_tensors(
     return packed_tensors
 
 
-
-
-
-
-
-# shape = sfixed + (c,) + sragged
-
 def unpack(
         packed_edge_tensors: NDArray, # shape=(...,c,m) or (c,m). E.g., (num_vecs,d,N) or (d,N)
         submask: NDArray, # shape=(c,m). Typical use case: component of UniformTuckerTensorTrainMasks
@@ -569,6 +564,39 @@ def make_uniform_masks(
     ])
 
     return shape_masks, tucker_masks, tt_masks
+
+
+def uniform_randn(
+        structure: UniformStructure,
+        masks: UniformEdgeWeights = None,
+        use_jax: bool = True,
+) -> UniformTuckerTensorTrainCores:
+    """Makes a uniform Tucker tensor train with random cores.
+    """
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d, N, n, r = structure
+    tucker_supercore = randn(d,n,N, use_jax=use_jax)
+    tt_supercore = randn(d,r,n,r, use_jax=use_jax)
+
+    x = (tucker_supercore, tt_supercore)
+    x = apply_masks(x, masks) if masks is not None else x
+    return x
+
+
+def uniform_zeros(
+        structure: UniformStructure,
+        use_jax: bool = True,
+) -> UniformTuckerTensorTrainCores:
+    """Makes a uniform Tucker tensor train with cores filled with zeros.
+    """
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d, N, n, r = structure
+    tucker_supercore = xnp.zeros((d,n,N))
+    tt_supercore = xnp.zeros((d,r,n,r))
+    x = (tucker_supercore, tt_supercore)
+    return x
 
 
 def t3_to_ut3(

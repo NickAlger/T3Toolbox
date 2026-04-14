@@ -31,6 +31,8 @@ __all__ = [
     'jax_map',
     #
     'get_backend',
+    #
+    'randn',
 ]
 
 #
@@ -210,3 +212,9 @@ def get_backend(
 
     return xnp, xmap, xscan
 
+
+def randn(*args, use_jax: bool):
+    if use_jax:
+        return jnp.array(np.random.randn(*args)) # should convert this to pure jax
+    else:
+        return np.random.randn(*args)
