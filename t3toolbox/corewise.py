@@ -15,6 +15,7 @@ __all__ = [
     'corewise_norm',
     'corewise_err',
     'corewise_relerr',
+    'corewise_logical_not',
 ]
 
 NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
@@ -145,4 +146,22 @@ def corewise_relerr(X_true, X, xnp=np):
     return corewise_err(X_true, X) / corewise_norm(X_true)
 
 
+def corewise_logical_not(X: NDArrayTree, xnp=np) -> NDArrayTree:
+    '''Perform logical not operation on nested objects
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.corewise as cw
+    >>> X = (np.array([True, False, False]), (True, (), np.array([False, True, False])))
+    >>> print(cw.corewise_logical_not(X))
+    (array([False,  True,  True]), (False, (), array([ True, False,  True])))
+    '''
+    if isinstance(X, list) or isinstance(X, tuple):
+        if not X:
+            return ()
+        else:
+            return tuple([corewise_logical_not(x) for x in X])
+    else:
+        return xnp.logical_not(X)
 
