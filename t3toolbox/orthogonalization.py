@@ -653,7 +653,7 @@ def up_orthogonalize_tucker_cores(
         Bio, Gaib = up_func_args
         Boi = Bio.T
 
-        Uox, ssx, WTxi = xnp.linalg.svd(Boi, full_matrices=False) #t3toolbox.linalg.truncated_svd(Boi, xnp=xnp)
+        Uox, ssx, WTxi = xnp.linalg.svd(Boi, full_matrices=False)
         Rxi = xnp.einsum('x,xi->xi', ssx, WTxi)
 
         if not is_ragged:
@@ -674,8 +674,9 @@ def up_orthogonalize_tucker_cores(
 
 def left_orthogonalize_tt_cores(
         tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(ri,ni,r(i+1))
+        return_variation_cores: bool = False,
         use_jax: bool = False,
-) -> typ.Tuple[NDArray]:
+):
     """Left-orthogonalize a Tensor train (no Tucker).
     """
     is_ragged = isinstance(tt_cores, typ.Sequence)
@@ -696,30 +697,41 @@ def left_orthogonalize_tt_cores(
 
         Cyc = ssy.reshape((-1, 1)) * VTyc
 
-        return Cyc, (Lxjy,)
+        return Cyc, (Lxjy, Hxjc)
+
 
     init = xnp.eye(tt_cores[0].shape[0])
     xs = (tt_cores[:-1],)
 
-    Cf, (LL,) = xscan(_left_func, init, xs)
+    Cf, (LL, HH) = xscan(_left_func, init, xs)
 
     # Dealing with the last core as a special case
     Lf = xnp.einsum('xb,bjc->xjc', Cf, tt_cores[-1])
     if is_ragged:
         left_tt_cores = tuple(LL) + (Lf,)
+        var_tt_cores = tuple(HH) + (Lf,)
     else:
         left_tt_cores = xnp.concatenate([LL, Lf.reshape((1,)+Lf.shape)], axis=0)
+        var_tt_cores = xnp.concatenate([HH, Lf.reshape((1,)+Lf.shape)], axis=0)
 
-    return left_tt_cores
+    if return_variation_cores:
+        return left_tt_cores, var_tt_cores
+    else:
+        return left_tt_cores
 
 
 def right_orthogonalize_tt_cores(
         tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(ri,ni,r(i+1))
+        return_variation_cores: bool = False,
         use_jax: bool = False,
-) -> typ.Tuple[NDArray]:
-    return t3.reverse_tt(left_orthogonalize_tt_cores(
-        t3.reverse_tt(tt_cores), use_jax=use_jax,
-    ))
+):
+    result = left_orthogonalize_tt_cores(
+        t3.reverse_tt(tt_cores), return_variation_cores=return_variation_cores, use_jax=use_jax,
+    )
+    if return_variation_cores:
+        return t3.reverse_tt(result[0]), t3.reverse_tt(result[1])
+    else:
+        return t3.reverse_tt(result)
 
 
 def orthogonal_representations(
@@ -850,7 +862,8 @@ def orthogonal_representations(
     if not already_left_orthogonal:
         # Orthogonalize Tucker cores upward to get up_tt_cores U
         up_tucker_cores, tt_cores = up_orthogonalize_tucker_cores(
-            x, use_jax=use_jax)
+            x, use_jax=use_jax,
+        )
 
         # Sweep left-to-right, generating left orthogonal tt_cores L
         left_tt_cores = left_orthogonalize_tt_cores(
@@ -860,23 +873,9 @@ def orthogonal_representations(
         up_tucker_cores, left_tt_cores = x
 
     # Sweep right-to-left, generating tt_variations H, and right orthogonal tt_cores R
-    def _right_func(Ccx, Gbjc_tuple):
-        Gbjc = Gbjc_tuple[0]
-        Hbjx = xnp.einsum('bjc,cx->bjx', Gbjc, Ccx)
-
-        Wby, ssy, Ryjx = linalg.right_svd_3tensor(Hbjx, xnp=xnp)
-        Cby = Wby * ssy.reshape((1, -1))
-        return Cby, (Ryjx, Hbjx)
-
-    Cf = xnp.eye(left_tt_cores[-1].shape[2])
-
-    res = xscan(_right_func, Cf, (left_tt_cores[1:][::-1],))
-    C0, res1 = res
-    (RR_rev, HH_rev) = res1
-
-    R0 = xnp.einsum('bjc,cx->bjx', left_tt_cores[0], C0)
-    right_tt_cores = (R0,) + tuple(RR_rev[::-1])
-    tt_variations = (R0,) + tuple(HH_rev[::-1])
+    right_tt_cores, tt_variations = right_orthogonalize_tt_cores(
+        left_tt_cores, return_variation_cores=True, use_jax=use_jax,
+    )
 
     # Orthogonalize TT cores downward to get outer_tt_cores O and tucker_variations V
     def _down_func(Uio_Haib):
