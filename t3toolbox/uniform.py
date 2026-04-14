@@ -449,7 +449,6 @@ def uniform_squash_tails(
     return tucker_supercore, new_tt_supercore
 
 
-
 def pack_tensors(
         unpacked_tensors = typ.Sequence[NDArray], # len=d, ith_elm.shape=(m1i, ..., mki)
         use_jax: bool = False,
