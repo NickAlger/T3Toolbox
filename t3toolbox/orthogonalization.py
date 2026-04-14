@@ -10,6 +10,7 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.base_variation_format as bvf
 import t3toolbox.linalg as linalg
 import t3toolbox.common as common
+from t3toolbox.common import *
 
 __all__ = [
     'up_svd_ith_tucker_core',
@@ -639,13 +640,17 @@ def orthogonalize_relative_to_ith_tt_core(
 
 def up_orthogonalize_tucker_cores(
         x: t3.TuckerTensorTrain,
-        map = common.ragged_map,
-        xnp=np,
+        use_jax: bool = False,
 ) -> t3.TuckerTensorTrain:
     """Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
     """
-    def _up_func(Bio_Gaib):
-        Bio, Gaib = Bio_Gaib
+    is_ragged = isinstance(x[0], typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+
+    #
+
+    def _up_func(up_func_args):
+        Bio, Gaib = up_func_args
         Boi = Bio.T
 
         Uox, ssx, WTxi = t3toolbox.linalg.truncated_svd(Boi, xnp=xnp)
@@ -655,44 +660,61 @@ def up_orthogonalize_tucker_cores(
         new_Uxo = Uox.T
         return (new_Uxo, new_Gaxb)
 
-    up_tucker_cores, new_tt_cores = map(_up_func, x)
+    xs = x
+
+    up_tucker_cores, new_tt_cores = xmap(_up_func, xs)
     return (up_tucker_cores, new_tt_cores)
 
 
 def left_orthogonalize_tt_cores(
         tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(ri,ni,r(i+1))
-        scan = common.ragged_scan,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[NDArray]:
-    def _left_func(Cxb, Gbjc_tuple):
-        Gbjc = Gbjc_tuple[0]
+    """Left-orthogonalize a Tensor train (no Tucker).
+    """
+    is_ragged = isinstance(tt_cores, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+
+    #
+
+    def _left_func(Cxb, left_func_args):
+        Gbjc = left_func_args[0]
+
         Hxjc = xnp.einsum('xb,bjc->xjc', Cxb, Gbjc)
 
         Lxjy, ssy, VTyc = linalg.left_svd_3tensor(Hxjc, xnp=xnp)
-        Ryc = ssy.reshape((-1, 1)) * VTyc
-        return Ryc, (Lxjy,)
+        Cyc = ssy.reshape((-1, 1)) * VTyc
 
-    C0 = xnp.eye(tt_cores[0].shape[0])
-    Cf, (LL,) = scan(_left_func, C0, [tt_cores[:-1]])
+        return Cyc, (Lxjy,)
+
+    init = xnp.eye(tt_cores[0].shape[0])
+    xs = (tt_cores[:-1],)
+
+    Cf, (LL,) = xscan(_left_func, init, xs)
+
+    # Dealing with the last core as a special case
     Lf = xnp.einsum('xb,bjc->xjc', Cf, tt_cores[-1])
-    left_tt_cores = tuple(LL) + (Lf,)
+    if is_ragged:
+        left_tt_cores = tuple(LL) + (Lf,)
+    else:
+        left_tt_cores = xnp.concatenate([LL, Lf.reshape((1,)+Lf.shape)], axis=0)
+
     return left_tt_cores
 
 
 def right_orthogonalize_tt_cores(
         tt_cores: typ.Sequence[NDArray], # len=d, elm_shape=(ri,ni,r(i+1))
-        scan = common.ragged_scan,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[NDArray]:
-    return t3.reverse_tt(left_orthogonalize_tt_cores(t3.reverse_tt(tt_cores), scan=scan, xnp=xnp))
+    return t3.reverse_tt(left_orthogonalize_tt_cores(
+        t3.reverse_tt(tt_cores), use_jax=use_jax,
+    ))
 
 
 def orthogonal_representations(
         x: t3.TuckerTensorTrain,
         already_left_orthogonal: bool = False,
-        map = common.ragged_map,
-        scan = common.ragged_scan,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[
     bvf.T3Base, # orthogonal base
     bvf.T3Variation, # variations
@@ -809,12 +831,20 @@ def orthogonal_representations(
     >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', O0, O0) - np.eye(O0.shape[1]))) # O: outer orthogonal
     1.2300840868850519e-15
     '''
+    is_ragged = isinstance(x[0], typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_ragged, use_jax)
+
+    #
+
     if not already_left_orthogonal:
         # Orthogonalize Tucker cores upward to get up_tt_cores U
-        up_tucker_cores, tt_cores = up_orthogonalize_tucker_cores(x, map=map, xnp=np)
+        up_tucker_cores, tt_cores = up_orthogonalize_tucker_cores(
+            x, use_jax=use_jax)
 
         # Sweep left-to-right, generating left orthogonal tt_cores L
-        left_tt_cores = left_orthogonalize_tt_cores(tt_cores, scan=scan, xnp=np)
+        left_tt_cores = left_orthogonalize_tt_cores(
+            tt_cores, use_jax=use_jax,
+        )
     else:
         up_tucker_cores, left_tt_cores = x
 
@@ -829,7 +859,7 @@ def orthogonal_representations(
 
     Cf = xnp.eye(left_tt_cores[-1].shape[2])
 
-    res = scan(_right_func, Cf, (left_tt_cores[1:][::-1],))
+    res = xscan(_right_func, Cf, (left_tt_cores[1:][::-1],))
     C0, res1 = res
     (RR_rev, HH_rev) = res1
 
@@ -846,7 +876,7 @@ def orthogonal_representations(
         Vxo = np.einsum('xi,io->xo', Cxi, Uio)
         return (Vxo, Oaxb)
 
-    tucker_variations, outer_tt_cores = map(_down_func, (up_tucker_cores, tt_variations))
+    tucker_variations, outer_tt_cores = xmap(_down_func, (up_tucker_cores, tt_variations))
 
     base = (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
     variation = (tucker_variations, tt_variations)

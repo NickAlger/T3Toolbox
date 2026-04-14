@@ -24,5 +24,5 @@ up_svd_ith_tt_core                          = ft.partial(orth.up_svd_ith_tt_core
 down_svd_ith_tt_core                        = ft.partial(orth.down_svd_ith_tt_core, xnp=jnp)
 orthogonalize_relative_to_ith_tucker_core    = ft.partial(orth.orthogonalize_relative_to_ith_tucker_core, xnp=jnp)
 orthogonalize_relative_to_ith_tt_core       = ft.partial(orth.orthogonalize_relative_to_ith_tt_core, xnp=jnp)
-orthogonal_representations                  = ft.partial(orth.orthogonal_representations, xnp=jnp)
+orthogonal_representations                  = ft.partial(orth.orthogonal_representations, use_jax=True)
 
