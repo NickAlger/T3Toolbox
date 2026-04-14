@@ -383,11 +383,12 @@
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">t3toolbox.uniform</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="check_ut3.html">t3toolbox.uniform.check_ut3</a></li>
-<li class="toctree-l3"><a class="reference internal" href="get_padded_structure.html">t3toolbox.uniform.get_padded_structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="get_uniform_structure.html">t3toolbox.uniform.get_uniform_structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="get_original_structure.html">t3toolbox.uniform.get_original_structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="apply_masks.html">t3toolbox.uniform.apply_masks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="pack_tensors.html">t3toolbox.uniform.pack_tensors</a></li>
 <li class="toctree-l3"><a class="reference internal" href="unpack.html">t3toolbox.uniform.unpack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="make_uniform_masks.html">t3toolbox.uniform.make_uniform_masks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_to_ut3.html">t3toolbox.uniform.t3_to_ut3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="ut3_to_t3.html">t3toolbox.uniform.ut3_to_t3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="bv_to_ubv.html">t3toolbox.uniform.bv_to_ubv</a></li>
@@ -511,7 +512,7 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="check_ut3.html#t3toolbox.uniform.check_ut3" title="t3toolbox.uniform.check_ut3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_ut3</span></code></a>(→ None)</p></td>
 <td><p>Check internal shape consistency of UniformTuckerTensorTrain.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="get_padded_structure.html#t3toolbox.uniform.get_padded_structure" title="t3toolbox.uniform.get_padded_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_padded_structure</span></code></a>(→ t3toolbox.common.typ.Tuple[int, ...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="get_uniform_structure.html#t3toolbox.uniform.get_uniform_structure" title="t3toolbox.uniform.get_uniform_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_uniform_structure</span></code></a>(→ UniformStructure)</p></td>
 <td><p>Get padded structure of uniform Tucker tensor train.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="get_original_structure.html#t3toolbox.uniform.get_original_structure" title="t3toolbox.uniform.get_original_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_original_structure</span></code></a>(...)</p></td>
@@ -526,34 +527,37 @@
 <tr class="row-even"><td><p><a class="reference internal" href="unpack.html#t3toolbox.uniform.unpack" title="t3toolbox.uniform.unpack"><code class="xref py py-obj docutils literal notranslate"><span class="pre">unpack</span></code></a>(...)</p></td>
 <td><p>Get ragged (variable length) edge vectors from uniform edge vectors.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_to_ut3.html#t3toolbox.uniform.t3_to_ut3" title="t3toolbox.uniform.t3_to_ut3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_to_ut3</span></code></a>(...)</p></td>
-<td><p>Convert TuckerTensorTrain to UniformTuckerTensorTrain.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ut3_to_t3.html#t3toolbox.uniform.ut3_to_t3" title="t3toolbox.uniform.ut3_to_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_to_t3</span></code></a>(...)</p></td>
-<td><p>Convert UniformTuckerTensorTrain to TuckerTensorTrain.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="bv_to_ubv.html#t3toolbox.uniform.bv_to_ubv" title="t3toolbox.uniform.bv_to_ubv"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bv_to_ubv</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="make_uniform_masks.html#t3toolbox.uniform.make_uniform_masks" title="t3toolbox.uniform.make_uniform_masks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">make_uniform_masks</span></code></a>(→ UniformEdgeWeights)</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ut3_to_dense.html#t3toolbox.uniform.ut3_to_dense" title="t3toolbox.uniform.ut3_to_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_to_dense</span></code></a>(→ t3toolbox.common.NDArray)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_to_ut3.html#t3toolbox.uniform.t3_to_ut3" title="t3toolbox.uniform.t3_to_ut3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_to_ut3</span></code></a>(...)</p></td>
+<td><p>Convert TuckerTensorTrain to UniformTuckerTensorTrain.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="ut3_to_t3.html#t3toolbox.uniform.ut3_to_t3" title="t3toolbox.uniform.ut3_to_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_to_t3</span></code></a>(...)</p></td>
+<td><p>Convert UniformTuckerTensorTrain to TuckerTensorTrain.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="bv_to_ubv.html#t3toolbox.uniform.bv_to_ubv" title="t3toolbox.uniform.bv_to_ubv"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bv_to_ubv</span></code></a>(...)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="ut3_to_dense.html#t3toolbox.uniform.ut3_to_dense" title="t3toolbox.uniform.ut3_to_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_to_dense</span></code></a>(→ t3toolbox.common.NDArray)</p></td>
 <td><p>Construct dense tensor represented by uniform Tucker tensor train</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="are_ut3_ranks_minimal.html#t3toolbox.uniform.are_ut3_ranks_minimal" title="t3toolbox.uniform.are_ut3_ranks_minimal"><code class="xref py py-obj docutils literal notranslate"><span class="pre">are_ut3_ranks_minimal</span></code></a>(→ bool)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="are_ut3_ranks_minimal.html#t3toolbox.uniform.are_ut3_ranks_minimal" title="t3toolbox.uniform.are_ut3_ranks_minimal"><code class="xref py py-obj docutils literal notranslate"><span class="pre">are_ut3_ranks_minimal</span></code></a>(→ bool)</p></td>
 <td><p>Checks if the ranks of a uniform Tucker train are minimal.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ut3_entry.html#t3toolbox.uniform.ut3_entry" title="t3toolbox.uniform.ut3_entry"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_entry</span></code></a>(→ t3toolbox.common.NDArray)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="ut3_entry.html#t3toolbox.uniform.ut3_entry" title="t3toolbox.uniform.ut3_entry"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_entry</span></code></a>(→ t3toolbox.common.NDArray)</p></td>
 <td><p>Compute entry (entries) of a uniform Tucker tensor train.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="ut3_add.html#t3toolbox.uniform.ut3_add" title="t3toolbox.uniform.ut3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_add</span></code></a>(...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="ut3_add.html#t3toolbox.uniform.ut3_add" title="t3toolbox.uniform.ut3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_add</span></code></a>(...)</p></td>
 <td><p>Add two UniformTuckerTensorTrains, x,y -&gt; x+y.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ut3_scale.html#t3toolbox.uniform.ut3_scale" title="t3toolbox.uniform.ut3_scale"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_scale</span></code></a>(→ UniformTuckerTensorTrainCores)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="ut3_scale.html#t3toolbox.uniform.ut3_scale" title="t3toolbox.uniform.ut3_scale"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_scale</span></code></a>(→ UniformTuckerTensorTrainCores)</p></td>
 <td><p>Scale a uniform Tucker tensor train, s,x -&gt; s*x.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="ut3_neg.html#t3toolbox.uniform.ut3_neg" title="t3toolbox.uniform.ut3_neg"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_neg</span></code></a>(→ UniformTuckerTensorTrainCores)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="ut3_neg.html#t3toolbox.uniform.ut3_neg" title="t3toolbox.uniform.ut3_neg"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_neg</span></code></a>(→ UniformTuckerTensorTrainCores)</p></td>
 <td><p>Flip a uniform Tucker tensor train, x -&gt; -x.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ut3_sub.html#t3toolbox.uniform.ut3_sub" title="t3toolbox.uniform.ut3_sub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_sub</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="ut3_sub.html#t3toolbox.uniform.ut3_sub" title="t3toolbox.uniform.ut3_sub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_sub</span></code></a>(...)</p></td>
 <td><p>Subtract two UniformTuckerTensorTrains, x,y -&gt; x-y.</p></td>
 </tr>
 </tbody>

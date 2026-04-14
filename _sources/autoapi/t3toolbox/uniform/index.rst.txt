@@ -23,11 +23,12 @@ Functions
    :hidden:
 
    /autoapi/t3toolbox/uniform/check_ut3
-   /autoapi/t3toolbox/uniform/get_padded_structure
+   /autoapi/t3toolbox/uniform/get_uniform_structure
    /autoapi/t3toolbox/uniform/get_original_structure
    /autoapi/t3toolbox/uniform/apply_masks
    /autoapi/t3toolbox/uniform/pack_tensors
    /autoapi/t3toolbox/uniform/unpack
+   /autoapi/t3toolbox/uniform/make_uniform_masks
    /autoapi/t3toolbox/uniform/t3_to_ut3
    /autoapi/t3toolbox/uniform/ut3_to_t3
    /autoapi/t3toolbox/uniform/bv_to_ubv
@@ -42,11 +43,12 @@ Functions
 .. autoapisummary::
 
    t3toolbox.uniform.check_ut3
-   t3toolbox.uniform.get_padded_structure
+   t3toolbox.uniform.get_uniform_structure
    t3toolbox.uniform.get_original_structure
    t3toolbox.uniform.apply_masks
    t3toolbox.uniform.pack_tensors
    t3toolbox.uniform.unpack
+   t3toolbox.uniform.make_uniform_masks
    t3toolbox.uniform.t3_to_ut3
    t3toolbox.uniform.ut3_to_t3
    t3toolbox.uniform.bv_to_ubv
