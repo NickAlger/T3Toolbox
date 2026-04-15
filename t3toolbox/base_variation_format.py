@@ -15,8 +15,8 @@ __all__ = [
     'BVStructure',
     'BVEdgeWeights',
     'get_base_structure',
-    'base_hole_shapes',
-    'variation_shapes',
+    'get_base_hole_shapes',
+    'get_variation_shapes',
     'ith_bv_to_t3',
 ]
 
@@ -249,7 +249,7 @@ def get_base_structure(
     return (NN, nnU, nnO, rrL, rrR)
 
 
-def variation_shapes(
+def get_variation_shapes(
         variation: T3Variation,
 ) -> typ.Tuple[
     typ.Tuple[int,...], # tucker_var_shapes, len=d
@@ -262,7 +262,7 @@ def variation_shapes(
     return tucker_var_shapes, tt_var_shapes
 
 
-def base_hole_shapes(
+def get_base_hole_shapes(
         base: T3Base,
 ) -> typ.Tuple[
     typ.Tuple[typ.Tuple[int,...],...], # variation_tucker_shapes. len=d. elm_len=2
@@ -314,7 +314,7 @@ def base_hole_shapes(
     >>> right_tt_cores = (np.ones((1,10,4)), np.ones((4,11,5)), np.ones((5,12,1)))
     >>> outer_tt_cores = (np.ones((1,9,4)), np.ones((2,8,5)), np.ones((3,7,1)))
     >>> base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-    >>> (var_tucker_shapes, var_tt_shapes) = bvf.base_hole_shapes(base)
+    >>> (var_tucker_shapes, var_tt_shapes) = bvf.get_base_hole_shapes(base)
     >>> print(var_tucker_shapes)
     ((9, 14), (8, 15), (7, 16))
     >>> print(var_tt_shapes)

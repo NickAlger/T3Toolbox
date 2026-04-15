@@ -28,14 +28,14 @@ class TestBaseVariationFormat(unittest.TestCase):
                 outer_tt_cores = (np.ones((5, 9, 4)), np.ones((2, 8, 5)), np.ones((3, 7, 4)))
                 base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
 
-                shapes = BVF.base_hole_shapes(base)
+                shapes = BVF.get_base_hole_shapes(base)
 
                 var_tucker_shapes, var_tt_shapes = shapes
 
                 self.assertEqual(var_tucker_shapes, ((9, 14), (8, 15), (7, 16)))
                 self.assertEqual(var_tt_shapes, ((5, 10, 4), (2, 11, 5), (3, 12, 4)))
 
-                shapes_jax = bvf_jax.base_hole_shapes(base)
+                shapes_jax = bvf_jax.get_base_hole_shapes(base)
                 self.assertEqual(shapes, shapes_jax)
 
 

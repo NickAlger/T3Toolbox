@@ -15,5 +15,5 @@ __all__ = [
 
 T3Base              = bvf.T3Base
 T3Variation         = bvf.T3Variation
-base_hole_shapes         = bvf.base_hole_shapes
+base_hole_shapes         = bvf.get_base_hole_shapes
 ith_bv_to_t3        = bvf.ith_bv_to_t3

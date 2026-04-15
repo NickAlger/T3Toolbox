@@ -16,7 +16,10 @@ __all__ = [
     'UniformT3Base',
     'UniformT3Variation',
     'UniformBVEdgeWeights',
+    'UniformBVStructure',
     #
+    'get_uniform_base_structure',
+    'get_uniform_base_hole_shapes',
     'check_ut3',
     'get_uniform_structure',
     'get_original_structure',
@@ -24,6 +27,8 @@ __all__ = [
     'unpack',
     'make_uniform_masks',
     'apply_masks',
+    'apply_masks_to_base',
+    'apply_masks_to_variation',
     'uniform_squash_tails',
     'uniform_randn',
     'uniform_zeros',
@@ -187,8 +192,8 @@ UniformBVEdgeWeights = typ.Tuple[
     NDArray,  # shape_weights, shape=(d,Ni)
     NDArray,  # up_tucker_weights, shape=(d,nUi,)
     NDArray,  # outer_tucker_weights, shape=(d,nOi)
-    NDArray,  # left_tt_weights, len=d+1, shape=(d+1,rLi,)
-    NDArray,  # right_tt_weights, len=d+1, shape=(d+1,rRi)
+    NDArray,  # left_tt_weights, len=d, shape=(d+1,rLi,)
+    NDArray,  # right_tt_weights, len=d, shape=(d+1,rRi)
 ]
 """Edge weights for base-variation format.
 
@@ -196,8 +201,8 @@ UniformBVEdgeWeights = typ.Tuple[
     - shape_weights:        NDArray, shape=(d,Ni)
     - up_tucker_weights:    NDArray, shape=(d,nUi)
     - outer_tucker_weights: NDArray, shape=(d,nOi)
-    - left_tt_weights:      NDArray, shape=(d+1,rLi)
-    - right_tt_weights:     NDArray, shape=(d+1,rRi)
+    - left_tt_weights:      NDArray, shape=(d,rLi)
+    - right_tt_weights:     NDArray, shape=(d,rRi)
 
 See Also
 --------
@@ -207,6 +212,93 @@ UniformT3Variation
 UniformT3Base
 """
 
+
+UniformBVStructure = typ.Tuple[
+    int, # d
+    int, # N
+    int, # nU
+    int, # NO
+    int, # rL
+    int, # rR
+]
+"""Shape and rank structure of a uniform base-variation T3 representation.
+
+*Components*
+    - d: int, number of tensor indices
+    - N: size of external indices
+    - nU: up tucker rank
+    - nO: outer tucker rank
+    - rL: left TT rank
+    - rR: right TT rank
+
+See Also
+--------
+UniformT3Base
+UniformT3Variation
+"""
+
+
+def get_uniform_base_structure(
+        base: UniformT3Base,
+) -> UniformBVStructure:
+    """Get the structore of a uniform base.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.uniform as ut3
+    >>> d, N, nU, nO, rL, rR = 4, 10, 5, 4, 3, 2
+    >>> up_tucker_supercore = np.random.randn(d, nU, N)
+    >>> left_tt_supercore = np.random.randn(d, rL, nU, rL)
+    >>> right_tt_supercore = np.random.randn(d, rR, nU, rR)
+    >>> outer_tt_supercore = np.random.randn(d, rL, nO, rR)
+    >>> base = (up_tucker_supercore, left_tt_supercore, right_tt_supercore, outer_tt_supercore)
+    >>> print(ut3.get_uniform_base_structure(base))
+    (4, 10, 5, 4, 3, 2)
+    """
+    up_tucker_supercore, left_tt_supercore, right_tt_supercore, outer_tt_supercore = base
+    d, nU, N = up_tucker_supercore.shape
+    _, rL, _, _ = left_tt_supercore.shape
+    _, rR, _, _ = right_tt_supercore.shape
+    _, _, nO, _ = outer_tt_supercore.shape
+    return d, N, nU, nO, rL, rR
+
+
+def get_uniform_base_hole_shapes(
+        base: UniformT3Base,
+) -> typ.Tuple[
+    typ.Tuple[int, int, int], # (d, nO, N)
+    typ.Tuple[int, int, int, int], # (d, rL, nU, rR)
+]:
+    """Get the hole shapes for a uniform base.
+
+    Examples:
+    ---------
+    >>> import numpy as np
+    >>> import t3toolbox.uniform as ut3
+    >>> d, N, nU, nO, rL, rR = 6, 5, 4, 3, 2, 1
+    >>> up_tucker_supercore = np.random.randn(d, nU, N)
+    >>> left_tt_supercore = np.random.randn(d, rL, nU, rL)
+    >>> right_tt_supercore = np.random.randn(d, rR, nU, rR)
+    >>> outer_tt_supercore = np.random.randn(d, rL, nO, rR)
+    >>> base = (up_tucker_supercore, left_tt_supercore, right_tt_supercore, outer_tt_supercore)
+    >>> print(ut3.get_uniform_base_hole_shapes(base))
+    ((6, 3, 5), (6, 2, 4, 1))
+    """
+    d, N, nU, nO, rL, rR = get_uniform_base_structure(base)
+    return ((d, nO, N), (d, rL, nU, rR))
+
+
+def get_uniform_variation_shapes(
+        variation: UniformT3Variation,
+) -> typ.Tuple[
+    typ.Tuple[int, int, int], # (d, nO, N)
+    typ.Tuple[int, int, int, int], # (d, rL, nU, rR)
+]:
+    """Get the shapes of the cores in a uniform variation.
+    """
+    var_tucker_supercore, var_tt_supercore = variation
+    return var_tucker_supercore.shape, var_tt_supercore.shape
 
 #
 
@@ -356,7 +448,7 @@ def apply_masks(
         masks: UniformEdgeWeights,
         use_jax: bool = False,
 ) -> UniformTuckerTensorTrainCores: # cores with masks applied
-    """Apply masks to uniform Tucker tensor train cores to zero out superflous entries.
+    """Apply masks to uniform Tucker tensor train cores.
 
     Examples
     --------
@@ -398,6 +490,68 @@ def apply_masks(
 
     masked_cores = (BB, GG)
     return masked_cores
+
+
+def apply_masks_to_base(
+        base: UniformT3Base,
+        masks: UniformBVEdgeWeights,
+        use_jax: bool = False,
+) -> UniformT3Base:  # cores with masks applied
+    """Apply masks to uniform Tucker tensor train base.
+    """
+    xnp, xmap, xscan = get_backend(True, use_jax)
+
+    shape_mask, up_mask, outer_mask, left_mask, right_mask = masks
+    UU, LL, RR, OO = base
+
+    UU_mask = xnp.einsum('da,do->dao', up_mask, shape_mask)
+    UU = UU * UU_mask
+
+    d, N, nU, nO, rL, rR = get_uniform_base_structure(base)
+
+    left_mask_extended = xnp.concatenate([left_mask, xnp.ones((1,rL), dtype=bool)], axis=0) # len=d+1
+    LL_mask = xnp.einsum(
+        'di,da,dj->diaj', left_mask_extended[:-1], up_mask, left_mask_extended[1:],
+    )
+    LL = LL * LL_mask
+
+    right_mask_extended = xnp.concatenate([xnp.ones((1,rR), dtype=bool), right_mask], axis=0) # len=d+1
+    RR_mask = xnp.einsum(
+        'di,da,dj->diaj', right_mask_extended[:-1], up_mask, right_mask_extended[1:],
+    )
+    RR = RR * RR_mask
+
+    OO_mask = xnp.einsum(
+        'di,da,dj->diaj', left_mask, outer_mask, right_mask,
+    )
+    OO = OO * OO_mask
+
+    masked_base = (UU, LL, RR, OO)
+    return masked_base
+
+
+def apply_masks_to_variation(
+        variation: UniformT3Variation,
+        masks: UniformBVEdgeWeights,
+        use_jax: bool = False,
+) -> UniformT3Variation:  # cores with masks applied
+    """Apply masks to uniform Tucker tensor train variation.
+    """
+    xnp, xmap, xscan = get_backend(True, use_jax)
+
+    shape_mask, up_mask, outer_mask, left_mask, right_mask = masks
+    VV, HH = variation
+
+    VV_mask = xnp.einsum('da,do->dao', outer_mask, shape_mask)
+    VV = VV * VV_mask
+
+    HH_mask = xnp.einsum(
+        'di,da,dj->diaj', left_mask, up_mask, right_mask,
+    )
+    HH = HH * HH_mask
+
+    masked_variation = (VV, HH)
+    return masked_variation
 
 
 def uniform_squash_tails(
@@ -569,7 +723,7 @@ def make_uniform_masks(
 def uniform_randn(
         structure: UniformStructure,
         masks: UniformEdgeWeights = None,
-        use_jax: bool = True,
+        use_jax: bool = False,
 ) -> UniformTuckerTensorTrainCores:
     """Makes a uniform Tucker tensor train with random cores.
     """
@@ -586,7 +740,7 @@ def uniform_randn(
 
 def uniform_zeros(
         structure: UniformStructure,
-        use_jax: bool = True,
+        use_jax: bool = False,
 ) -> UniformTuckerTensorTrainCores:
     """Makes a uniform Tucker tensor train with cores filled with zeros.
     """
@@ -749,8 +903,8 @@ def bv_to_ubv(
         t3.change_tt_core_shapes(outer_tt_cores, padded_outer_tucker_ranks, padded_tt_ranks)
     )
 
-    uniform_base = (var_tucker_supercore, var_tt_supercore)
-    uniform_variation = (up_tucker_supercore, left_tt_supercore, right_tt_supercore, outer_tt_supercore)
+    uniform_variation = (var_tucker_supercore, var_tt_supercore)
+    uniform_base = (up_tucker_supercore, left_tt_supercore, right_tt_supercore, outer_tt_supercore)
 
     #
 
@@ -762,7 +916,7 @@ def bv_to_ubv(
 
     masks = (shape_masks, up_tucker_masks, outer_tucker_masks, left_tt_masks, right_tt_masks)
 
-    return uniform_base, uniform_variation, masks
+    return uniform_variation, uniform_base, masks
 
 
 #

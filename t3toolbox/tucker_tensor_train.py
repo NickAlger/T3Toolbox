@@ -530,27 +530,26 @@ def absorb_edge_weights_into_cores(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
-
     tucker_cores0, tt_cores0 = x0
     shape_weights, tucker_weights, tt_weights = weights
 
-    (tucker_cores,) = xmap(
-        lambda tw_B_sw: (xnp.einsum('i,io,o->io', tw_B_sw[0], tw_B_sw[1], tw_B_sw[2]),),
-        (tucker_weights, tucker_cores0, shape_weights)
-    )
-
-    (first_tt_cores,) = xmap(
-        lambda lw_G: (xnp.einsum('i,iaj->iaj', lw_G[0], lw_G[1]),),
-        (tt_weights[:-2], tt_cores0[:-1])
-    )
-
-    Gf = xnp.einsum('i,iaj,j->iaj', tt_weights[-2], tt_cores0[-1], tt_weights[-1])
-
     if is_uniform:
+        tucker_cores = xnp.einsum('di,dio,do->dio', tucker_weights, tucker_cores0, shape_weights)
+        first_tt_cores = xnp.einsum('di,diaj->diaj', tt_weights[:-2], tt_cores0[:-1])
+
+        Gf = xnp.einsum('i,iaj,j->iaj', tt_weights[-2], tt_cores0[-1], tt_weights[-1])
         tt_cores = xnp.concatenate([first_tt_cores, Gf.reshape((1,) + Gf.shape)], axis=0)
     else:
+        (tucker_cores,) = xmap(
+            lambda tw_B_sw: (xnp.einsum('i,io,o->io', tw_B_sw[0], tw_B_sw[1], tw_B_sw[2]),),
+            (tucker_weights, tucker_cores0, shape_weights)
+        )
+        (first_tt_cores,) = xmap(
+            lambda lw_G: (xnp.einsum('i,iaj->iaj', lw_G[0], lw_G[1]),),
+            (tt_weights[:-2], tt_cores0[:-1])
+        )
+        Gf = xnp.einsum('i,iaj,j->iaj', tt_weights[-2], tt_cores0[-1], tt_weights[-1])
         tt_cores = tuple(first_tt_cores) + (Gf,)
-
 
     return tucker_cores, tt_cores
 

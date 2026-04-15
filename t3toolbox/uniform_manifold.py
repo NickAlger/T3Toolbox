@@ -108,6 +108,7 @@ def uniform_tangent_to_uniform_t3(
 
     return tangent_tucker_cores, tangent_tt_cores
 
+
 if False:
     def ut3_attached_tangent_vector_to_ut3(
             variations: typ.Tuple[
@@ -287,32 +288,7 @@ if False:
 
 
 
-    def ut3_orthogonal_gauge_projection(
-            U: UniformT3Variations,
-            orthogonal_basis_cores,
-            left_orthogonal_tt_cores,
-    ) -> UniformT3Variations:
-        '''Makes variations left-perpendicular by orthogonally projecting away the parallel components.
-        Changes tangent vector.
-        dV_L -> (I - P_L P_L^T) dV_L
-        '''
-        basis_variations, tt_variations = U
 
-        first_gauged_tt_variations = jax.lax.map(
-            lambda P_dV: P_dV[1] - jnp.einsum('iaj,jk->iak', P_dV[0], jnp.einsum('iaj,iak->jk', P_dV[0], P_dV[1])),
-            (left_orthogonal_tt_cores[:-1], tt_variations[:-1]),
-        )
-        last_gauged_tt_variation = tt_variations[-1,:,:,:]
-        gauged_tt_variations = jnp.concatenate(
-            [first_gauged_tt_variations, last_gauged_tt_variation.reshape((1,) + last_gauged_tt_variation.shape)],
-            axis=0
-        )
-
-        gauged_basis_variations = jax.lax.map(
-            lambda B_dB: B_dB[1] - (B_dB[1] @ B_dB[0].T) @ B_dB[0], (orthogonal_basis_cores, basis_variations),
-        )
-
-        return gauged_basis_variations, gauged_tt_variations
 
 
 if False:
