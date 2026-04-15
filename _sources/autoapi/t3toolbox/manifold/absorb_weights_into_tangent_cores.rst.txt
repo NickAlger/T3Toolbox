@@ -1,4 +1,32 @@
 t3toolbox.manifold.absorb_weights_into_tangent_cores
 ====================================================
 
-.. py:function:: t3toolbox.manifold.absorb_weights_into_tangent_cores(variation: t3toolbox.base_variation_format.T3Variation, base: t3toolbox.base_variation_format.T3Base, edge_weights: t3toolbox.base_variation_format.BVEdgeWeights = (None, None, None, None), use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.base_variation_format.T3Variation, t3toolbox.base_variation_format.T3Base]
+.. py:function:: t3toolbox.manifold.absorb_weights_into_tangent_cores(variation: t3toolbox.common.typ.Union[t3toolbox.base_variation_format.T3Variation, t3toolbox.uniform.UniformT3Variation], base: t3toolbox.common.typ.Union[t3toolbox.base_variation_format.T3Base, t3toolbox.uniform.UniformT3Base], edge_weights: t3toolbox.common.typ.Union[t3toolbox.base_variation_format.BVEdgeWeights, t3toolbox.uniform.UniformEdgeWeights] = (None, None, None, None), use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Union[t3toolbox.base_variation_format.T3Variation, t3toolbox.uniform.UniformT3Variation], t3toolbox.common.typ.Union[t3toolbox.base_variation_format.T3Base, t3toolbox.uniform.UniformT3Base]]
+
+   Contract edge weights with neighboring cores in base-variation representation.
+
+   Tensor network diagrams illustrating groupings::
+
+            ____     ________     ____
+           /    \   /        \   /            1---w---L0---w---H1---w---R2---w---1
+               |        |        |
+             / w      / w      / w
+             | |      | |      | |
+             | U0     | U1     | U2
+             | |      | |      | |
+             \ w      \ w      \ w
+               |        |        |
+
+   and::
+
+            ____     ________     ____
+           /    \   /        \   /            1---w---L0---w---O1---w---R2---w---1
+               |        |        |
+             / w      / w      / w
+             | |      | |      | |
+             | U0     | V1     | U2
+             | |      | |      | |
+             \ w      \ w      \ w
+               |        |        |
+
+
