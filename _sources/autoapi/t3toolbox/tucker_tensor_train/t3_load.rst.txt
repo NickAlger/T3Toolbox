@@ -1,7 +1,7 @@
 t3toolbox.tucker_tensor_train.t3_load
 =====================================
 
-.. py:function:: t3toolbox.tucker_tensor_train.t3_load(file, xnp=np) -> TuckerTensorTrain
+.. py:function:: t3toolbox.tucker_tensor_train.t3_load(file, use_jax: bool = False) -> TuckerTensorTrain
 
    Load a Tucker tensor train from a file.
 

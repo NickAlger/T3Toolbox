@@ -1,7 +1,7 @@
 t3toolbox.tucker_tensor_train.t3_corewise_randn
 ===============================================
 
-.. py:function:: t3toolbox.tucker_tensor_train.t3_corewise_randn(s: T3Structure, randn: t3toolbox.common.typ.Callable[Ellipsis, NDArray] = np.random.randn) -> TuckerTensorTrain
+.. py:function:: t3toolbox.tucker_tensor_train.t3_corewise_randn(s: T3Structure, use_jax: bool = False) -> TuckerTensorTrain
 
    Construct a Tucker tensor train with random cores.
 

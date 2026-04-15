@@ -1,7 +1,7 @@
 t3toolbox.tucker_tensor_train.t3_inner_product_t3
 =================================================
 
-.. py:function:: t3toolbox.tucker_tensor_train.t3_inner_product_t3(x: TuckerTensorTrain, y: TuckerTensorTrain, xnp=np)
+.. py:function:: t3toolbox.tucker_tensor_train.t3_inner_product_t3(x: TuckerTensorTrain, y: TuckerTensorTrain, use_jax: bool = False)
 
    Compute Hilbert-Schmidt inner product of two Tucker tensor trains.
 

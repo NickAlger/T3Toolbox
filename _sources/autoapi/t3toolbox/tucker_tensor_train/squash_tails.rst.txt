@@ -1,7 +1,7 @@
 t3toolbox.tucker_tensor_train.squash_tails
 ==========================================
 
-.. py:function:: t3toolbox.tucker_tensor_train.squash_tails(x: TuckerTensorTrain, xnp=np) -> TuckerTensorTrain
+.. py:function:: t3toolbox.tucker_tensor_train.squash_tails(x: TuckerTensorTrain, use_jax: bool = False) -> TuckerTensorTrain
 
    Make leading and trailing TT ranks equal to 1 (r0=rd=1).
 

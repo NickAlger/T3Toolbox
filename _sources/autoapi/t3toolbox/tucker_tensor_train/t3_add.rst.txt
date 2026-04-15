@@ -1,7 +1,7 @@
 t3toolbox.tucker_tensor_train.t3_add
 ====================================
 
-.. py:function:: t3toolbox.tucker_tensor_train.t3_add(x: TuckerTensorTrain, y: TuckerTensorTrain, squash: bool = True, xnp=np) -> TuckerTensorTrain
+.. py:function:: t3toolbox.tucker_tensor_train.t3_add(x: TuckerTensorTrain, y: TuckerTensorTrain, squash: bool = True, use_jax: bool = False) -> TuckerTensorTrain
 
    Add two Tucker tensor trains, yielding a Tucker tensor train with summed ranks.
 
