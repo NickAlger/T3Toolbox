@@ -849,15 +849,18 @@ def project_t3_onto_tangent_space(
     >>> import t3toolbox.orthogonalization as orth
     >>> import t3toolbox.t3svd as t3svd
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (5,3,2,4)))
+    # >>> p = t3.t3_corewise_randn(((15,15,15), (5,5,5), (1,3,3,1)))
     >>> p, _, _ = t3svd.t3_svd(p)
     >>> base, dummy_var = orth.orthogonal_representations(p)
     >>> x = t3.t3_corewise_randn(((14,15,16), (7,4,8), (3,5,4,2)))
+    # >>> x = t3.t3_corewise_randn(((15,15,15), (5,5,5), (1,3,3,1)))
+    >>> x, _, _ = t3svd.t3_svd(x)
     >>> proj_x = t3m.project_t3_onto_tangent_space(x, base) # Project x onto tangent space
     >>> dense_proj_x = t3m.tangent_to_dense(proj_x, base)
-    >>> _, uniform_base, mask = ut3.bv_to_ubv(dummy_var, base)
+    >>> _, uniform_base, bv_mask = ut3.bv_to_ubv(dummy_var, base)
     >>> uniform_x, x_mask = ut3.t3_to_ut3(x)
     >>> uniform_proj_x = t3m.project_t3_onto_tangent_space(uniform_x, uniform_base) # Project x onto tangent space
-    >>> dense_uniform_proj_x = utm.uniform_tangent_to_dense(uniform_proj_x, uniform_base, x_mask)
+    >>> dense_uniform_proj_x = utm.uniform_tangent_to_dense(uniform_proj_x, uniform_base, bv_mask)
     >>> print(np.linalg.norm(dense_uniform_proj_x - dense_proj_x))
     """
     is_uniform = not isinstance(orthogonal_base[0], typ.Sequence)
@@ -868,48 +871,60 @@ def project_t3_onto_tangent_space(
     else:
         x = t3.squash_tails(x)
 
-    tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = orthogonal_base
+    up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = orthogonal_base
     other_tucker_cores, other_tt_cores = x
 
     if is_uniform:
+    # if False:
         other_tt_cores2 = xnp.einsum(
             'daib,dix->daxb',
             other_tt_cores,
-            xnp.einsum('diz,dxz->dix', other_tucker_cores, tucker_cores)
+            xnp.einsum('diz,dxz->dix', other_tucker_cores, up_tucker_cores)
         )
     else:
         def _func1(args):
-            G_other, B_other, B = args
-            G_other2 = xnp.einsum('aib,ix->axb', G_other, B_other @ B.T)
+            G_other, B_other, U = args
+            # G_other2 = xnp.einsum('aib,ix->axb', G_other, B_other @ U.T)
+            G_other2 = xnp.einsum(
+                'aib,ix->axb',
+                G_other,
+                xnp.einsum('iz,xz->ix', B_other, U)
+            )
             return (G_other2,)
 
-        (other_tt_cores2,) = xmap(_func1, (other_tt_cores, other_tucker_cores, tucker_cores))
+        (other_tt_cores2,) = xmap(_func1, (other_tt_cores, other_tucker_cores, up_tucker_cores))
 
-    zipper_left2right = tt_zipper_left_to_right(other_tt_cores2[:-1], left_tt_cores, use_jax=use_jax)
-    zipper_right2left = tt_zipper_right_to_left(other_tt_cores2[1:], right_tt_cores, use_jax=use_jax)
+    zipper_left2right = tt_zipper_left_to_right(other_tt_cores2[:-1], left_tt_cores[:-1], use_jax=use_jax)
+    zipper_right2left = tt_zipper_right_to_left(other_tt_cores2[1:], right_tt_cores[1:], use_jax=use_jax)
 
     if is_uniform:
-        ZL_ax, ZR_by, G_aib, B_io, R0_xjy, B0_jo = (
+    # if False:
+        ZL_ax, ZR_by, G_aib, B_io, O_xjy, U_jo = (
             zipper_left2right, zipper_right2left,
             other_tt_cores, other_tucker_cores,
-            outer_tt_cores, tucker_cores,
+            outer_tt_cores, up_tucker_cores,
         )
         X_xiy = xnp.einsum('dax,daib,dby->dxiy', ZL_ax, G_aib, ZR_by)
         dG_xjy = xnp.einsum(
             'dxiy,dij->dxjy',
             X_xiy,
-            xnp.einsum('dio,djo->dij', B_io, B0_jo)
+            xnp.einsum('dio,djo->dij', B_io, U_jo)
         )
-        M_ij = xnp.einsum('dxiy,dxjy->dij', X_xiy, R0_xjy)
+        M_ij = xnp.einsum('dxiy,dxjy->dij', X_xiy, O_xjy)
         dB_jo = xnp.einsum('dij,dio->djo', M_ij, B_io)
         ungauged_tt_variations = dG_xjy
         ungauged_tucker_variations = dB_jo
     else:
         def _func2(args):
-            ZL_ax, ZR_by, G_aib, B_io, R0_xjy, B0_jo = args
+            ZL_ax, ZR_by, G_aib, B_io, O_xjy, U_jo = args
             X_xiy = xnp.einsum('ax,aib,by->xiy', ZL_ax, G_aib, ZR_by)
-            dG_xjy = xnp.einsum('xiy,ij->xjy', X_xiy, B_io @ B0_jo.T)
-            M_ij = xnp.einsum('xiy,xjy->ij', X_xiy, R0_xjy)
+            # dG_xjy = xnp.einsum('xiy,ij->xjy', X_xiy, B_io @ U_jo.T)
+            dG_xjy = xnp.einsum(
+                'xiy,ij->xjy',
+                X_xiy,
+                xnp.einsum('io,jo->ij', B_io, U_jo)
+            )
+            M_ij = xnp.einsum('xiy,xjy->ij', X_xiy, O_xjy)
             dB_jo = xnp.einsum('ij,io->jo', M_ij, B_io)
             return dG_xjy, dB_jo
 
@@ -917,7 +932,7 @@ def project_t3_onto_tangent_space(
             _func2,
             (zipper_left2right, zipper_right2left,
              other_tt_cores, other_tucker_cores,
-             outer_tt_cores, tucker_cores)
+             outer_tt_cores, up_tucker_cores)
         )
 
     ungauged_u = (ungauged_tucker_variations, ungauged_tt_variations)

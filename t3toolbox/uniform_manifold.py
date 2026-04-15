@@ -58,7 +58,8 @@ def uniform_tangent_to_uniform_t3(
     >>> v = t3m.tangent_randn(base)
     >>> uniform_v, uniform_base, bv_mask = ut3.bv_to_ubv(v, base)
     >>> dense_v = t3m.tangent_to_dense(v, base)
-    >>> dense_uniform_v = utm.uniform_tangent_to_dense(uniform_v, uniform_base, bv_mask)
+    >>> x_ut3, masks_ut3 = utm.uniform_tangent_to_uniform_t3(uniform_v, uniform_base, bv_mask)
+    >>> dense_uniform_v = ut3.ut3_to_dense(x_ut3, masks_ut3)
     >>> print(np.linalg.norm(dense_v - dense_uniform_v))
     4.72221182491572e-14
     '''
@@ -142,8 +143,12 @@ def uniform_tangent_to_uniform_t3(
     )
 
     shape_mask, up_mask, outer_mask, left_mask, right_mask = bv_masks
-    tucker_mask = xnp.concatenate([up_mask, outer_mask])
-    tt_mask = xnp.concatenate([left_mask, right_mask])
+
+    left_mask_extended = xnp.concatenate([left_mask, xnp.ones((1,rL), dtype=bool)], axis=0) # len=d+1
+    right_mask_extended = xnp.concatenate([xnp.ones((1,rR), dtype=bool), right_mask], axis=0) # len=d+1
+
+    tucker_mask = xnp.concatenate([up_mask, outer_mask], axis=1)
+    tt_mask = xnp.concatenate([left_mask_extended, right_mask_extended], axis=1)
 
     return (tangent_tucker_cores, tangent_tt_cores), (shape_mask, tucker_mask, tt_mask)
 
@@ -151,7 +156,7 @@ def uniform_tangent_to_uniform_t3(
 def uniform_tangent_to_dense(
         variations: ut3.UniformT3Variation,
         base: ut3.UniformT3Base,
-        masks: ut3.UniformEdgeWeights,
+        masks: ut3.UniformBVEdgeWeights,
         include_shift: bool = False,
         use_jax: bool = False,
 ) -> NDArray:
