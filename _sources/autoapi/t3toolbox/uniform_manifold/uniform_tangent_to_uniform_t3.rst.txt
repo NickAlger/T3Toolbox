@@ -25,7 +25,8 @@ t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3
    >>> v = t3m.tangent_randn(base)
    >>> uniform_v, uniform_base, bv_mask = ut3.bv_to_ubv(v, base)
    >>> dense_v = t3m.tangent_to_dense(v, base)
-   >>> dense_uniform_v = utm.uniform_tangent_to_dense(uniform_v, uniform_base, bv_mask)
+   >>> x_ut3, masks_ut3 = utm.uniform_tangent_to_uniform_t3(uniform_v, uniform_base, bv_mask)
+   >>> dense_uniform_v = ut3.ut3_to_dense(x_ut3, masks_ut3)
    >>> print(np.linalg.norm(dense_v - dense_uniform_v))
    4.72221182491572e-14
 

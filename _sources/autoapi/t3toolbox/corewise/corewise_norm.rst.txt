@@ -9,9 +9,9 @@ t3toolbox.corewise.corewise_norm
 
    >>> import numpy as np
    >>> import t3toolbox.corewise as cw
-   >>> X = (np.ones(3), (1, (), np.ones(2)))
+   >>> X = (np.array([1,2,3]), (4, (), np.array([5,6])))
    >>> print(cw.corewise_norm(X))
-   2.449489742783178
-   >>> print(np.sqrt(3 + 1 + 2))
-   2.449489742783178
+   9.539392014169456
+   >>> print(np.sqrt(1**2 + 2**2 + 3**2 + 4**2 + 5**2 + 6**2))
+   9.539392014169456
 
