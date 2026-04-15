@@ -18,6 +18,9 @@ __all__ = [
     'get_base_hole_shapes',
     'get_variation_shapes',
     'ith_bv_to_t3',
+    'check_t3base',
+    'check_t3variation',
+    'check_t3base_variation_pair',
 ]
 
 
@@ -107,6 +110,7 @@ to linear algebra operations with the N1 x ... x Nd tangent vectors represented 
 See Also
 --------
 T3Variation
+check_t3_base
 orthogonal_representations
 oblique_gauge_projection
 
@@ -434,3 +438,163 @@ def ith_bv_to_t3(
 
     return (x_tucker_cores, x_tt_cores)
 
+
+def check_t3base(x: T3Base) -> None:
+    '''Check rank and shape consistency of Tucker tensor train base point (`T3Base`).
+
+    Parameters
+    ----------
+    x : T3Base
+
+    Raises
+    ------
+    ValueError
+        Error raised if the cores of the T3Base have inconsistent shapes.
+
+    See Also
+    --------
+    T3Base
+    T3Variation
+    '''
+    UU, LL, RR, OO = x
+
+    d = len(UU)
+    if not (len(LL) == d and len(RR) == d and len(OO) == d):
+        raise ValueError(
+            'Inconsistent T3Base.\n' 
+            + 'All core sequences must have length d=' + str(d) +'.\n'
+            + 'len(UU)=' + str(len(UU))
+            + ', len(LL)=' + str(len(LL))
+            + ', len(RR)=' + str(len(RR))
+            + ', len(OO)=' + str(len(OO))
+        )
+
+    for ii, U in enumerate(UU):
+        if len(U.shape) != 2:
+            raise ValueError(
+                'Inconsistent T3Base.\n'
+                + 'tucker_cores[' + str(ii) + '] is not a matrix. shape=' + str(U.shape)
+            )
+        
+    for name, CC in zip(["left_tt", "right_tt", "outer_tt"], [LL, RR, OO]):
+        for ii, C in enumerate(CC):
+            if len(C.shape) != 3:
+                raise ValueError(
+                    'Inconsistent T3Base.\n'
+                    + name + '_cores[' + str(ii) + '] is not a 3-tensor. '
+                    + 'shape=' + str(C.shape)
+                )
+
+    rLl = tuple([int(LL[0].shape[0])] + [int(L.shape[2]) for L in LL]) 
+    rLr = tuple([int(L.shape[0]) for L in LL] + [int(LL[-1].shape[2])])
+    if rLl != rLr:
+        raise ValueError(
+            'Inconsistent T3Base.\n'
+            + str(rLl) + ' = rL_left != rL_right = ' + str(rLr)
+        )
+    
+    rRl = tuple([int(RR[0].shape[0])] + [int(R.shape[2]) for R in RR]) 
+    rRr = tuple([int(R.shape[0]) for R in RR] + [int(RR[-1].shape[2])])
+    if rLl != rLr:
+        raise ValueError(
+            'Inconsistent T3Base.\n'
+            + str(rRl) + ' = rR_left != rR_right = ' + str(rRr)
+        )
+
+    for ii in range(d):
+        U, L, R, O = UU[ii], LL[ii], RR[ii], OO[ii]
+
+        if not (U.shape[0] == L.shape[1] == R.shape[1]):
+            raise ValueError(
+                'Inconsistent T3Base.\n'
+                + 'Tucker rank mismatch at index ' + str(ii)
+                + ': U.shape[0]=' + str(U.shape[0])
+                + ', L.shape[1]=' + str(L.shape[1])
+                + ', R.shape[1]=' + str(R.shape[1])
+            )
+        
+        if O.shape[0] != L.shape[0]:
+            raise ValueError(
+                'Inconsistent T3Base.\n'
+                + 'Outer core left rank mismatch at index' + str(ii)
+                + ': O.shape[0]=' + str(O.shape[0]) 
+                + '!= L.shape[0]=' + str(L.shape[0])
+            )
+        
+        if O.shape[2] != R.shape[2]:
+            raise ValueError(
+                'Inconsistent T3Base.\n'
+                + 'Outer core right rank mismatch at index' + str(ii)
+                + ': O.shape[2]=' + str(O.shape[2]) 
+                + '!= R.shape[2]=' + str(R.shape[2])
+            )
+    
+
+def check_t3variation(x: T3Variation) -> None:
+    '''Check rank and shape consistency of Tucker tensor train base point (`T3Base`).
+
+    Parameters
+    ----------
+    x : T3Base
+
+    Raises
+    ------
+    ValueError
+        Error raised if the cores of the T3Base have inconsistent shapes.
+
+    See Also
+    --------
+    T3Base
+    T3Variation
+    '''
+    VV, HH = x
+
+    d = len(VV)
+    if len(HH) != d:
+        raise ValueError(
+            'Inconsistent T3Variation.\n' 
+            + 'All core sequences must have length d=' + str(d) +'.\n'
+            + 'len(VV)=' + str(len(VV))
+            + ', len(HH)=' + str(len(HH))
+        )
+
+    for ii, V in enumerate(VV):
+        if len(V.shape) != 2:
+            raise ValueError(
+                'Inconsistent T3Variation.\n'
+                + 'tucker_cores[' + str(ii) + '] is not a matrix. shape=' + str(V.shape)
+            )
+        
+    for ii, H in enumerate(HH):
+        if len(H.shape) != 3:
+            raise ValueError(
+                'Inconsistent T3Variation.\n'
+                + 'tt_cores[' + str(ii) + '] is not a 3-tensor. '
+                + 'shape=' + str(H.shape)
+            )
+            
+
+def check_t3bv(x: T3Base, y: T3Variation) -> None:
+    """Check rank and shape consistency between T3Base and T3Variation.
+    
+    This ensures that the variation cores (V, H) have the correct dimensions
+     to interface with the base cores (U, L, R, O).
+    """
+    xVV, xHH = get_base_hole_shapes(x)
+    yVV, yHH = get_variation_shapes(y)
+
+    for ii, (xV, yV) in enumerate(zip(xVV, yVV)):
+        if xV != yV:
+            raise ValueError(
+                'Inconsistent T3Base - T3Variation pair.\n'
+                + str(ii) + '-th Tucker variation shape' + str(yV) 
+                + ' does not fit base hole ' + str(xV)
+            )
+        
+    for ii, (xH, yH) in enumerate(zip(xHH, yHH)):
+        if xH != yH:
+            raise ValueError(
+                'Inconsistent T3Base - T3Variation pair.\n'
+                + str(ii) + '-th tensor train variation shape' + str(yH) 
+                + ' does not fit base hole ' + str(xH)
+            )
