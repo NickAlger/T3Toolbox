@@ -335,9 +335,9 @@ def absorb_weights_into_tangent_cores(
 
              ____     ________     ____
             /    \   /        \   /    \
-        1---w---L0---w---H1---w---R2---w---1
+        1---wL--L0---wL--H1---wR--R2---wR--1
                 |        |        |
-              / w      / w      / w
+              / wU     / wU     / wU
               | |      | |      | |
               | U0     | U1     | U2
               | |      | |      | |
@@ -348,9 +348,9 @@ def absorb_weights_into_tangent_cores(
 
              ____     ________     ____
             /    \   /        \   /    \
-        1---w---L0---w---O1---w---R2---w---1
+        1---wL--L0---wL--O1---wR--R2---wR--1
                 |        |        |
-              / w      / w      / w
+              / wU     / wO     / wU
               | |      | |      | |
               | U0     | V1     | U2
               | |      | |      | |
