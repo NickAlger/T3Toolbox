@@ -107,9 +107,9 @@ Examples
 
 
 T3Structure = typ.Tuple[
-    typ.Sequence[int], # shape, len=d
+    typ.Sequence[int], # shape,        len=d
     typ.Sequence[int], # tucker_ranks, len=d
-    typ.Sequence[int], # tt_ranks, len=d+1
+    typ.Sequence[int], # tt_ranks,     len=d+1
 ]
 """
 Tuple containing the structure of a Tucker tensor train.
@@ -216,7 +216,7 @@ def check_t3(
 
     Raises
     ------
-    RuntimeError
+    ValueError
         Error raised if the cores of the Tucker tensor train have inconsistent shapes.
 
     See Also
@@ -248,7 +248,7 @@ def check_t3(
     >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
     >>> x = (tucker_cores, tt_cores)
     >>> t3.check_t3(x)
-    RuntimeError: Inconsistent TuckerTensorTrain.
+    ValueError: Inconsistent TuckerTensorTrain.
     2 = len(tucker_cores) != len(tt_cores) = 3
 
     (Bad) One of the TT-cores is not a 3-tensor:
@@ -259,7 +259,7 @@ def check_t3(
     >>> tt_cores = (np.ones((4,3)), np.ones((3,5,2)), np.ones((2,6,1))) # first TT-core is not a 3-tensor
     >>> x = (tucker_cores, tt_cores)
     >>> t3.check_t3(x)
-    RuntimeError: Inconsistent TuckerTensorTrain.
+    ValueError: Inconsistent TuckerTensorTrain.
     tt_cores[0] is not a 3-tensor. shape=(4, 3)
 
     (Bad) TT-core shapes inconsistent with each other:
@@ -270,7 +270,7 @@ def check_t3(
     >>> tt_cores = (np.ones((1,4,9)), np.ones((3,5,2)), np.ones((2,6,1))) # Inconsistent TT-core shapes
     >>> x = (tucker_cores, tt_cores)
     >>> t3.check_t3(x)
-    RuntimeError: Inconsistent TuckerTensorTrain.
+    ValueError: Inconsistent TuckerTensorTrain.
     (1, 3, 2, 1) = left_tt_ranks != right_tt_ranks = (1, 9, 2, 1)
 
     (Bad) Basis core is not a matrix:
@@ -281,7 +281,7 @@ def check_t3(
     >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1)))
     >>> x = (tucker_cores, tt_cores)
     >>> t3.check_t3(x)
-    RuntimeError: Inconsistent TuckerTensorTrain.
+    ValueError: Inconsistent TuckerTensorTrain.
     tucker_cores[1] is not a matrix. shape=(5, 15, 3)
 
     (Bad) Inconsistent shapes for tucker core and adjacent TT-core
@@ -292,19 +292,19 @@ def check_t3(
     >>> tt_cores = (np.ones((1,4,3)), np.ones((3,5,2)), np.ones((2,6,1))) # Last Tucker and TT-cores inconsistent
     >>> x = (tucker_cores, tt_cores)
     >>> t3.check_t3(x)
-    RuntimeError: Inconsistent TuckerTensorTrain.
+    ValueError: Inconsistent TuckerTensorTrain.
     9 = tucker_cores[2].shape[0] != tt_cores[2].shape[1] = 6
     '''
     tucker_cores, tt_cores = x
     if len(tucker_cores) != len(tt_cores):
-        raise RuntimeError(
+        raise ValueError(
             'Inconsistent TuckerTensorTrain.\n'
             + str(len(tucker_cores)) + ' = len(tucker_cores) != len(tt_cores) = ' + str(len(tt_cores))
         )
 
     for ii, G in enumerate(tt_cores):
         if len(G.shape) != 3:
-            raise RuntimeError(
+            raise ValueError(
                 'Inconsistent TuckerTensorTrain.\n'
                 + 'tt_cores[' + str(ii) + '] is not a 3-tensor. shape=' + str(G.shape)
             )
@@ -312,21 +312,21 @@ def check_t3(
     right_tt_ranks = tuple([int(tt_cores[0].shape[0])] + [int(G.shape[2]) for G in tt_cores])
     left_tt_ranks = tuple([int(G.shape[0]) for G in tt_cores] + [int(tt_cores[-1].shape[2])])
     if left_tt_ranks != right_tt_ranks:
-        raise RuntimeError(
+        raise ValueError(
             'Inconsistent TuckerTensorTrain.\n'
             + str(left_tt_ranks) + ' = left_tt_ranks != right_tt_ranks = ' + str(right_tt_ranks)
         )
 
     for ii, B in enumerate(tucker_cores):
         if len(B.shape) != 2:
-            raise RuntimeError(
+            raise ValueError(
                 'Inconsistent TuckerTensorTrain.\n'
                 + 'tucker_cores['+str(ii)+'] is not a matrix. shape='+str(B.shape)
             )
 
     for ii, (B, G) in enumerate(zip(tucker_cores, tt_cores)):
         if B.shape[0] != G.shape[1]:
-            raise RuntimeError(
+            raise ValueError(
                 'Inconsistent TuckerTensorTrain.\n'
                 + str(B.shape[0]) + ' = tucker_cores[' + str(ii) + '].shape[0]'
                 + ' != '
@@ -670,8 +670,10 @@ def t3_save(
 
     Raises
     ------
+    ValueError
+        Error raised if the Tucker tensor train is inconsistent
     RuntimeError
-        Error raised if the Tucker tensor train is inconsistent, or fails to save.
+        Error raised if the Tucker tensor train fails to save.
 
     See Also
     --------
@@ -729,7 +731,9 @@ def t3_load(
     Raises
     ------
     RuntimeError
-        Error raised if the Tucker tensor train fails to load, or is inconsistent.
+        Error raised if the Tucker tensor train fails to load.
+    ValueError
+        Error raised if the Tucker tensor train fails is inconsistent.
 
     See Also
     --------
@@ -805,7 +809,7 @@ def t3_apply(
 
     Raises
     ------
-    RuntimeError
+    ValueError
         Error raised if the provided vectors in vecs are inconsistent with each other or the Tucker tensor train x.
 
     See Also
@@ -878,15 +882,15 @@ def t3_apply(
     tucker_cores, tt_cores = x
     shape, tucker_ranks, tt_ranks = get_structure(x)
 
-    if len(vecs)  != len(shape):
-        raise RuntimeError(
+    if len(vecs) != len(shape):
+        raise ValueError(
             'Attempted to apply TuckerTensorTrain to wrong number of vectors.'
             + str(str(len(shape)) + ' = num_indices != len(vecs) = ' + str(len(vecs)))
         )
 
     vecs_dims = [len(v.shape) for v in vecs]
     if vecs_dims != [vecs_dims[0]]*len(vecs_dims):
-        raise RuntimeError(
+        raise ValueError(
             'Inconsistent array dimensions for vecs.'
             + '[len(v.shape) for v in vecs]=' + str([len(v.shape) for v in vecs])
         )
@@ -898,14 +902,14 @@ def t3_apply(
 
     num_applies = vecs[0].shape[0]
     if [v.shape[0] for v in vecs] != [num_applies] * len(vecs):
-        raise RuntimeError(
+        raise ValueError(
             'Inconsistent numbers of applies per index.'
             + '[v.shape[0] for v in vecs]=' + str([v.shape[0] for v in vecs])
         )
 
     vector_sizes = tuple([v.shape[1] for v in vecs])
     if vector_sizes != shape:
-        raise RuntimeError(
+        raise ValueError(
             'Input vector sizes to not match tensor shape.'
             + str(vector_sizes) + ' = vector_sizes != x_shape = ' + str(shape)
         )
@@ -952,7 +956,7 @@ def t3_entry(
 
     Raises
     ------
-    RuntimeError
+    ValueError
         Error raised if the provided indices in index are inconsistent with each other or the Tucker tensor train x.
 
     See Also
@@ -1033,8 +1037,8 @@ def t3_entry(
     tucker_cores, tt_cores = x
     shape, tucker_ranks, tt_ranks = get_structure(x)
 
-    if len(index)  != len(shape):
-        raise RuntimeError(
+    if len(index) != len(shape):
+        raise ValueError(
             'Wrong number of indices for TuckerTensorTrain.'
             + str(str(len(shape)) + ' = num tensor indices != num provided indices = ' + str(len(index)))
         )
@@ -1048,7 +1052,7 @@ def t3_entry(
 
     num_entries = len(index[0])
     if [len(ind) for ind in index] != [num_entries] * len(shape):
-        raise RuntimeError(
+        raise ValueError(
             'Inconsistent numbers of index entries across different dimensions. The following should be all the same:'
             + '[len(ind) for ind in index]=' + str([len(ind) for ind in index])
         )
@@ -1306,7 +1310,7 @@ def t3_add(
 
     Raises
     ------
-    RuntimeError
+    ValueError
         - Error raised if either of the TuckerTensorTrains are internally inconsistent
         - Error raised if the TuckerTensorTrains have different shapes.
 
@@ -1341,7 +1345,7 @@ def t3_add(
     x_shape = get_structure(x)[0]
     y_shape = get_structure(y)[0]
     if x_shape != y_shape:
-        raise RuntimeError(
+        raise ValueError(
             'Attempted to add TuckerTensorTrains x+y with inconsistent shapes.'
             + str(x_shape) + ' = x_shape != y_shape = ' + str(y_shape)
         )
@@ -1396,7 +1400,7 @@ def t3_scale(
 
     Raises
     ------
-    RuntimeError
+    ValueError
         - Error raised if the TuckerTensorTrains are internally inconsistent
 
     See Also
@@ -1453,7 +1457,7 @@ def t3_neg(
 
     Raises
     ------
-    RuntimeError
+    ValueError
         - Error raised if the TuckerTensorTrains is internally inconsistent
 
     See Also
@@ -1512,7 +1516,7 @@ def t3_sub(
 
     Raises
     ------
-    RuntimeError
+    ValueError
         - Error raised if either of the TuckerTensorTrains are internally inconsistent
         - Error raised if the TuckerTensorTrains have different shapes.
 
@@ -1572,7 +1576,7 @@ def t3_inner_product_t3(
 
     Raises
     ------
-    RuntimeError
+    ValueError
         - Error raised if either of the TuckerTensorTrains are internally inconsistent
         - Error raised if the TuckerTensorTrains have different shapes.
 
@@ -1619,7 +1623,7 @@ def t3_inner_product_t3(
     x_shape = get_structure(x)[0]
     y_shape = get_structure(y)[0]
     if x_shape != y_shape:
-        raise RuntimeError(
+        raise ValueError(
             'Attempted to dot TuckerTensorTrains (x,y)_HS with inconsistent shapes.'
             + str(x_shape) + ' = x_shape != y_shape = ' + str(y_shape)
         )
@@ -1674,7 +1678,7 @@ def t3_norm(
 
     Raises
     ------
-    RuntimeError
+    ValueError
         - Error raised if the TuckerTensorTrain is internally inconsistent
 
     See Also
