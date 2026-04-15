@@ -14,7 +14,6 @@ Submodules
    /autoapi/t3toolbox/common/index
    /autoapi/t3toolbox/corewise/index
    /autoapi/t3toolbox/jax/index
-   /autoapi/t3toolbox/linalg/index
    /autoapi/t3toolbox/manifold/index
    /autoapi/t3toolbox/orthogonalization/index
    /autoapi/t3toolbox/probing/index
@@ -23,5 +22,6 @@ Submodules
    /autoapi/t3toolbox/uniform/index
    /autoapi/t3toolbox/uniform_manifold/index
    /autoapi/t3toolbox/uniform_orthogonalization/index
+   /autoapi/t3toolbox/util_linalg/index
 
 

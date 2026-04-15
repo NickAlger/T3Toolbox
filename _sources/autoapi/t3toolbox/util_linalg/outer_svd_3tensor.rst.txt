@@ -1,7 +1,7 @@
-t3toolbox.linalg.outer_svd_3tensor
-==================================
+t3toolbox.util_linalg.outer_svd_3tensor
+=======================================
 
-.. py:function:: t3toolbox.linalg.outer_svd_3tensor(G0_i_a_j: NDArray, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, xnp=np) -> Tuple[NDArray, NDArray, NDArray]
+.. py:function:: t3toolbox.util_linalg.outer_svd_3tensor(G0_i_a_j: NDArray, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, xnp=np) -> Tuple[NDArray, NDArray, NDArray]
 
    Compute (truncated) singular value decomposition of 3-tensor outer unfolding.
 

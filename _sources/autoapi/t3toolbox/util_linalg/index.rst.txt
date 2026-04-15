@@ -1,0 +1,25 @@
+t3toolbox.util_linalg
+=====================
+
+.. py:module:: t3toolbox.util_linalg
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/util_linalg/truncated_svd
+   /autoapi/t3toolbox/util_linalg/left_svd_3tensor
+   /autoapi/t3toolbox/util_linalg/right_svd_3tensor
+   /autoapi/t3toolbox/util_linalg/outer_svd_3tensor
+
+.. autoapisummary::
+
+   t3toolbox.util_linalg.truncated_svd
+   t3toolbox.util_linalg.left_svd_3tensor
+   t3toolbox.util_linalg.right_svd_3tensor
+   t3toolbox.util_linalg.outer_svd_3tensor
+
+

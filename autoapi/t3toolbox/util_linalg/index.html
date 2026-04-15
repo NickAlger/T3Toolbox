@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.linalg &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.util_linalg &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/linalg/index';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/util_linalg/index';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3toolbox.linalg.truncated_svd" href="truncated_svd.html" />
-    <link rel="prev" title="t3toolbox.jax.uniform_orthogonalization" href="../jax/uniform_orthogonalization/index.html" />
+    <link rel="next" title="t3toolbox.util_linalg.truncated_svd" href="truncated_svd.html" />
+    <link rel="prev" title="t3toolbox.uniform_orthogonalization.left_orthogonalize_utt" href="../uniform_orthogonalization/left_orthogonalize_utt.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -293,13 +293,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../jax/uniform_orthogonalization/index.html">t3toolbox.jax.uniform_orthogonalization</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">t3toolbox.linalg</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="truncated_svd.html">t3toolbox.linalg.truncated_svd</a></li>
-<li class="toctree-l3"><a class="reference internal" href="left_svd_3tensor.html">t3toolbox.linalg.left_svd_3tensor</a></li>
-<li class="toctree-l3"><a class="reference internal" href="right_svd_3tensor.html">t3toolbox.linalg.right_svd_3tensor</a></li>
-<li class="toctree-l3"><a class="reference internal" href="outer_svd_3tensor.html">t3toolbox.linalg.outer_svd_3tensor</a></li>
-</ul>
-</details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../manifold/index.html">t3toolbox.manifold</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../manifold/manifold_dim.html">t3toolbox.manifold.manifold_dim</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../manifold/tangent_to_dense.html">t3toolbox.manifold.tangent_to_dense</a></li>
@@ -421,6 +414,13 @@
 <li class="toctree-l3"><a class="reference internal" href="../uniform_orthogonalization/left_orthogonalize_utt.html">t3toolbox.uniform_orthogonalization.left_orthogonalize_utt</a></li>
 </ul>
 </details></li>
+<li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">t3toolbox.util_linalg</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="truncated_svd.html">t3toolbox.util_linalg.truncated_svd</a></li>
+<li class="toctree-l3"><a class="reference internal" href="left_svd_3tensor.html">t3toolbox.util_linalg.left_svd_3tensor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="right_svd_3tensor.html">t3toolbox.util_linalg.right_svd_3tensor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="outer_svd_3tensor.html">t3toolbox.util_linalg.outer_svd_3tensor</a></li>
+</ul>
+</details></li>
 </ul>
 </details></li>
 </ul>
@@ -469,7 +469,7 @@
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">t3toolbox</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.linalg</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.util_linalg</span></li>
   </ul>
 </nav>
 </div>
@@ -486,24 +486,24 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="module-t3toolbox.linalg">
-<span id="t3toolbox-linalg"></span><h1>t3toolbox.linalg<a class="headerlink" href="#module-t3toolbox.linalg" title="Link to this heading">#</a></h1>
+  <section id="module-t3toolbox.util_linalg">
+<span id="t3toolbox-util-linalg"></span><h1>t3toolbox.util_linalg<a class="headerlink" href="#module-t3toolbox.util_linalg" title="Link to this heading">#</a></h1>
 <section id="functions">
 <h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">#</a></h2>
 <div class="toctree-wrapper compound">
 </div>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="truncated_svd.html#t3toolbox.linalg.truncated_svd" title="t3toolbox.linalg.truncated_svd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">truncated_svd</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="truncated_svd.html#t3toolbox.util_linalg.truncated_svd" title="t3toolbox.util_linalg.truncated_svd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">truncated_svd</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
 <td><p>Compute (truncated) singular value decomposition of matrix.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="left_svd_3tensor.html#t3toolbox.linalg.left_svd_3tensor" title="t3toolbox.linalg.left_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_3tensor</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="left_svd_3tensor.html#t3toolbox.util_linalg.left_svd_3tensor" title="t3toolbox.util_linalg.left_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_3tensor</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
 <td><p>Compute (truncated) singular value decomposition of 3-tensor left unfolding.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="right_svd_3tensor.html#t3toolbox.linalg.right_svd_3tensor" title="t3toolbox.linalg.right_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd_3tensor</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="right_svd_3tensor.html#t3toolbox.util_linalg.right_svd_3tensor" title="t3toolbox.util_linalg.right_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd_3tensor</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
 <td><p>Compute (truncated) singular value decomposition of 3-tensor right unfolding.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="outer_svd_3tensor.html#t3toolbox.linalg.outer_svd_3tensor" title="t3toolbox.linalg.outer_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">outer_svd_3tensor</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="outer_svd_3tensor.html#t3toolbox.util_linalg.outer_svd_3tensor" title="t3toolbox.util_linalg.outer_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">outer_svd_3tensor</span></code></a>(→ Tuple[NDArray, NDArray, NDArray])</p></td>
 <td><p>Compute (truncated) singular value decomposition of 3-tensor outer unfolding.</p></td>
 </tr>
 </tbody>
@@ -523,12 +523,12 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../jax/uniform_orthogonalization/index.html"
+       href="../uniform_orthogonalization/left_orthogonalize_utt.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.jax.uniform_orthogonalization</p>
+        <p class="prev-next-title">t3toolbox.uniform_orthogonalization.left_orthogonalize_utt</p>
       </div>
     </a>
     <a class="right-next"
@@ -536,7 +536,7 @@
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.linalg.truncated_svd</p>
+        <p class="prev-next-title">t3toolbox.util_linalg.truncated_svd</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -566,7 +566,7 @@
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/linalg/index.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/util_linalg/index.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>
