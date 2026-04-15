@@ -9,6 +9,7 @@ import t3toolbox.util_linalg
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.orthogonalization as orth
 import t3toolbox.uniform as ut3
+import t3toolbox.util_linalg as util_linalg
 from t3toolbox.common import *
 
 __all__ = [
@@ -181,7 +182,7 @@ def t3_svd(
     x = x[0], orth.right_orthogonalize_tt_cores(x[1], use_jax=use_jax)
 
     G0 = x[1][0]
-    _, ss_first, _ = t3toolbox.linalg.right_svd_3tensor(G0, xnp=xnp)
+    _, ss_first, _ = util_linalg.right_svd_3tensor(G0, xnp=xnp)
 
     # Sweep left to right computing SVDS
     all_ss_tucker = []
@@ -204,7 +205,7 @@ def t3_svd(
             )
         else:
             Gf = x[1][-1]
-            _, ss_tt, _ = t3toolbox.linalg.left_svd_3tensor(Gf, xnp=xnp)
+            _, ss_tt, _ = util_linalg.left_svd_3tensor(Gf, xnp=xnp)
         all_ss_tt.append(ss_tt)
 
     return x, tuple(all_ss_tucker), tuple(all_ss_tt)

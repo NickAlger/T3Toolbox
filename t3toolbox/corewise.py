@@ -5,6 +5,8 @@
 import typing as typ
 import numpy as np
 
+from t3toolbox.common import *
+
 __all__ = [
     'NDArrayTree',
     'corewise_add',
@@ -17,8 +19,6 @@ __all__ = [
     'corewise_relerr',
     'corewise_logical_not',
 ]
-
-NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
 
 
 ###############################################
@@ -102,7 +102,7 @@ def corewise_neg(X: NDArrayTree) -> NDArrayTree:
         return -X
 
 
-def corewise_dot(X: NDArrayTree, Y: NDArrayTree, xnp=np):
+def corewise_dot(X: NDArrayTree, Y: NDArrayTree, use_jax: bool=False):
     '''Dot product of nested objects, X,Y -> X.Y.
 
     Examples
@@ -114,6 +114,8 @@ def corewise_dot(X: NDArrayTree, Y: NDArrayTree, xnp=np):
     >>> print(cw.corewise_dot(X, Y))
     7.0
     '''
+    xnp, _, _ = get_backend(False, use_jax)
+
     if isinstance(X, list) or isinstance(X, tuple):
         assert(isinstance(Y, list) or isinstance(Y, tuple))
         assert(len(X) == len(Y))
@@ -122,7 +124,7 @@ def corewise_dot(X: NDArrayTree, Y: NDArrayTree, xnp=np):
         return xnp.sum(X * Y)
 
 
-def corewise_norm(X, xnp=np):
+def corewise_norm(X, use_jax: bool=False):
     '''Norm of nested objects, X -> ||X||
 
     Examples
@@ -135,18 +137,21 @@ def corewise_norm(X, xnp=np):
     >>> print(np.sqrt(3 + 1 + 2))
     2.449489742783178
     '''
+    xnp, _, _ = get_backend(False, use_jax)
     return xnp.sqrt(corewise_dot(X, X))
 
 
-def corewise_err(X_true, X, xnp=np):
+def corewise_err(X_true, X, use_jax: bool=False):
+    xnp, _, _ = get_backend(False, use_jax)
     return corewise_norm(corewise_sub(X_true, X), xnp=xnp)
 
 
-def corewise_relerr(X_true, X, xnp=np):
+def corewise_relerr(X_true, X, use_jax:bool = False):
+    xnp, _, _ = get_backend(False, use_jax)
     return corewise_err(X_true, X) / corewise_norm(X_true)
 
 
-def corewise_logical_not(X: NDArrayTree, xnp=np) -> NDArrayTree:
+def corewise_logical_not(X: NDArrayTree, use_jax: bool=False) -> NDArrayTree:
     '''Perform logical not operation on nested objects
 
     Examples
@@ -157,6 +162,8 @@ def corewise_logical_not(X: NDArrayTree, xnp=np) -> NDArrayTree:
     >>> print(cw.corewise_logical_not(X))
     (array([False,  True,  True]), (False, (), array([ True, False,  True])))
     '''
+    xnp, _, _ = get_backend(False, use_jax)
+
     if isinstance(X, list) or isinstance(X, tuple):
         if not X:
             return ()

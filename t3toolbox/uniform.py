@@ -755,6 +755,7 @@ def uniform_zeros(
 
 def t3_to_ut3(
         x: t3.TuckerTensorTrain,
+        squash_tails: bool = True,
         xnp = np,
 ) -> typ.Tuple[
     UniformTuckerTensorTrainCores,
@@ -775,6 +776,9 @@ def t3_to_ut3(
     >>> print(np.linalg.norm(dense_x - dense_x2))
     0.0
     """
+    if squash_tails:
+        x = t3.squash_tails(x)
+
     shape, tucker_ranks, tt_ranks = t3.get_structure(x)
 
     d = len(shape)

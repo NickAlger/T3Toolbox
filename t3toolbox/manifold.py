@@ -105,7 +105,7 @@ def tangent_to_dense(
         variation: bvf.T3Variation,
         base: bvf.T3Base,
         include_shift: bool = False, # False: V. True: P+V. P=base point, V=tangent vector. Must supply "rep"
-        xnp = np,
+        use_jax: bool=False,
 ) -> NDArray:
     """Convert Tangent vector to Tucker tensor train manifold into dense tensor.
 
@@ -136,6 +136,10 @@ def tangent_to_dense(
     >>> print(np.linalg.norm(p_plus_v_dense - p_plus_v_dense2))
     1.2677102046134292e-12
     """
+    is_uniform = not isinstance(variation[0], typ.Sequence)
+    xnp, _, _ = get_backend(is_uniform, use_jax)
+
+    #
     num_cores = len(variation[0])
     tucker_terms = [bvf.ith_bv_to_t3(ii, False, base, variation) for ii in range(num_cores)]
     tt_terms     = [bvf.ith_bv_to_t3(ii, True, base, variation) for ii in range(num_cores)]
@@ -158,7 +162,7 @@ def tangent_to_t3(
         variation: bvf.T3Variation,
         base: bvf.T3Base,
         include_shift: bool = False,  # False: v. True: p+v. p=base point, v=tangent vector
-        xnp = np,
+        use_jax: bool=False,
 ) -> t3.TuckerTensorTrain:
     '''Rank 2r Tucker tensor train representation of tangent vector.
 
@@ -220,6 +224,10 @@ def tangent_to_t3(
     >>> print(np.linalg.norm(p_plus_v_dense - p_plus_v_dense2))
     1.2102169224182523e-12
     '''
+    is_uniform = not isinstance(variation[0], typ.Sequence)
+    xnp, _, _ = get_backend(is_uniform, use_jax)
+
+    #
     tucker_vars, tt_vars = variation
     tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
 
@@ -279,7 +287,7 @@ def tangent_to_t3(
 
 def tangent_zeros(
         base: bvf.T3Base, # orthogonal base
-        xnp = np,
+        use_jax: bool=False,
 ) -> bvf.T3Variation:
     """Construct the zero vector in a Tucker tensor train tangent space.
 
@@ -311,6 +319,10 @@ def tangent_zeros(
     >>> print(np.linalg.norm(t3m.tangent_to_dense(z, base)))
     0.0
     """
+    is_uniform = not isinstance(base[0], typ.Sequence)
+    xnp, _, _ = get_backend(is_uniform, use_jax)
+
+    #
     var_tucker_shapes, var_tt_shapes = bvf.get_base_hole_shapes(base)
 
     tucker_vars = tuple([xnp.zeros(s) for s in var_tucker_shapes])
@@ -361,6 +373,7 @@ def absorb_weights_into_tangent_cores(
     is_uniform = not isinstance(base[0], typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
+    #
     (shape_weights,
      up_tucker_weights, outer_tucker_weights,
      left_tt_weights, right_tt_weights,
@@ -479,8 +492,8 @@ def tangent_randn(
 
     if is_uniform:
         var_tucker_shape, var_tt_shape = ut3.get_uniform_base_hole_shapes(base)
-        var_tucker_supercore = randn(*var_tucker_shape)
-        var_tt_supercore = randn(*var_tt_shape)
+        var_tucker_supercore = randn(*var_tucker_shape, use_jax=use_jax)
+        var_tt_supercore = randn(*var_tt_shape, use_jax=use_jax)
 
         variation = (var_tucker_supercore, var_tt_supercore)
         if masks is not None:
@@ -601,9 +614,6 @@ def orthogonal_gauge_projection(
         last_dV2 = tt_vars[-1]
         new_tt_variations = xnp.concatenate([first_dV2, last_dV2.reshape((1,)+last_dV2.shape)], axis=0)
 
-        print('tucker_cores.shape=', tucker_cores.shape)
-        print('tucker_vars.shape=', tucker_vars.shape)
-
         new_tucker_variations = tucker_vars - xnp.einsum(
             'dio,dij->djo',
             tucker_cores,
@@ -631,7 +641,7 @@ def orthogonal_gauge_projection(
 def oblique_gauge_projection(
         variation: bvf.T3Variation,
         orthogonal_base: bvf.T3Base,
-        xnp = np,
+        use_jax: bool = False,
 ) -> bvf.T3Variation:
     """Makes variations left-perpendicular while preserving tangent vector.
 
@@ -707,6 +717,10 @@ def oblique_gauge_projection(
     >>> print(np.abs(u_inner_v - u_inner_v_true)) # Now the error is numerical zero
     0.0
     """
+    is_uniform = not isinstance(variation[0], typ.Sequence)
+    xnp, _, _ = get_backend(is_uniform, use_jax)
+
+    #
     tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = orthogonal_base
     tucker_vars, tt_vars = variation
     num_cores = len(tucker_cores)
@@ -747,30 +761,43 @@ def oblique_gauge_projection(
 
 
 def tt_zipper_left_to_right(
-        coresA: typ.Sequence[NDArray],
-        coresB: typ.Sequence[NDArray],
-        xnp = np,
-) -> typ.Tuple[NDArray, ...]:  # zipper_matrices. len=num_cores+1
-    zipper_matrices = [xnp.array([[1.0]])]
-    for GA, GB in zip(coresA, coresB):
-        Z_prev = zipper_matrices[-1]
-        Z = xnp.einsum('ij,iak,jal->kl', Z_prev, GA, GB)
-        zipper_matrices.append(Z)
-    return tuple(zipper_matrices)
+        coresA: typ.Union[typ.Sequence[NDArray], NDArray],
+        coresB: typ.Union[typ.Sequence[NDArray], NDArray],
+        use_jax: bool = False,
+) -> typ.Union[typ.Tuple[NDArray, ...], NDArray]:  # zipper_matrices. len=d+1
+    is_uniform = not isinstance(coresA, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
+
+    #
+    def _func(Z, x):
+        GA, GB = x
+        Z_next = xnp.einsum('ij,iak,jal->kl', Z, GA, GB)
+        return Z_next, (Z,)
+
+    # Z0 = xnp.array([[1.0]])
+    Z0 = xnp.ones((coresA[0].shape[0], coresB[0].shape[0]))
+    Zf, (ZZ_first,) = xscan(_func, Z0, (coresA, coresB))
+
+    if is_uniform:
+        zipper_matrices = xnp.concatenate([ZZ_first, Zf.reshape((1,)+Zf.shape)], axis=0)
+    else:
+        zipper_matrices = tuple(ZZ_first) + (Zf,)
+
+    return zipper_matrices
 
 
 def tt_zipper_right_to_left(
-        coresA: typ.Sequence[NDArray],
-        coresB: typ.Sequence[NDArray],
-        xnp = np,
-) -> typ.Tuple[NDArray, ...]:  # zipper_matrices. len=num_cores+1
-    return tt_zipper_left_to_right(t3.reverse_tt(coresA), t3.reverse_tt(coresB), xnp=xnp)[::-1]
+        coresA: typ.Union[typ.Sequence[NDArray], NDArray],
+        coresB: typ.Union[typ.Sequence[NDArray], NDArray],
+        use_jax: bool = False,
+) -> typ.Union[typ.Sequence[NDArray], NDArray]:  # zipper_matrices. len=d+1
+    return tt_zipper_left_to_right(t3.reverse_tt(coresA), t3.reverse_tt(coresB), use_jax=use_jax)[::-1]
 
 
 def project_t3_onto_tangent_space(
-        x: t3.TuckerTensorTrain, # Tucker tensor train to be projected
-        orthogonal_base: bvf.T3Base, # Orthogonal representations of base point
-        xnp = np,
+        x:                  typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrainCores], # Tucker tensor train to be projected
+        orthogonal_base:    typ.Union[bvf.T3Base,           ut3.UniformT3Base], # Orthogonal representations of base point
+        use_jax: bool = False,
 ) -> bvf.T3Variation:
     """Projects TuckerTensorTrain onto tangent space to the manifold of fixed rank TuckerTensorTrains.
 
@@ -794,55 +821,104 @@ def project_t3_onto_tangent_space(
     oblique_gauge_projection
     orthogonal_gauge_projection
 
+    ADD UNIFORM EXAMPLE/TEST
+
     Examples
     --------
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.manifold as t3m
     >>> import t3toolbox.orthogonalization as orth
-    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (5,3,2,4)))
     >>> base, _ = orth.orthogonal_representations(p)
-    >>> x = t3.t3_corewise_randn(((14,15,16), (7,4,8), (2,5,4,2)))
+    >>> x = t3.t3_corewise_randn(((14,15,16), (7,4,8), (3,5,4,2)))
     >>> proj_x = t3m.project_t3_onto_tangent_space(x, base) # Project x onto tangent space
     >>> P = t3.t3_to_dense(p)
     >>> X = t3.t3_to_dense(x)
     >>> proj_X = t3m.tangent_to_dense(proj_x, base)
     >>> print(np.sum((X - proj_X) * (proj_X - P)) / np.sum(X)) # Check that x was projected orthogonally
     -2.7295025395842007e-13
+
+    Uniform example: DOESNT WORK YET
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.uniform as ut3
+    >>> import t3toolbox.uniform_manifold as utm
+    >>> import t3toolbox.orthogonalization as orth
+    >>> import t3toolbox.t3svd as t3svd
+    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (5,3,2,4)))
+    >>> p, _, _ = t3svd.t3_svd(p)
+    >>> base, dummy_var = orth.orthogonal_representations(p)
+    >>> x = t3.t3_corewise_randn(((14,15,16), (7,4,8), (3,5,4,2)))
+    >>> proj_x = t3m.project_t3_onto_tangent_space(x, base) # Project x onto tangent space
+    >>> dense_proj_x = t3m.tangent_to_dense(proj_x, base)
+    >>> _, uniform_base, mask = ut3.bv_to_ubv(dummy_var, base)
+    >>> uniform_x, x_mask = ut3.t3_to_ut3(x)
+    >>> uniform_proj_x = t3m.project_t3_onto_tangent_space(uniform_x, uniform_base) # Project x onto tangent space
+    >>> dense_uniform_proj_x = utm.uniform_tangent_to_dense(uniform_proj_x, uniform_base, x_mask)
+    >>> print(np.linalg.norm(dense_uniform_proj_x - dense_proj_x))
     """
+    is_uniform = not isinstance(orthogonal_base[0], typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
+
+    if is_uniform:
+        x = ut3.uniform_squash_tails(x)
+    else:
+        x = t3.squash_tails(x)
+
     tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = orthogonal_base
     other_tucker_cores, other_tt_cores = x
 
-    base_shape = tuple([B.shape[1] for B in tucker_cores])
-    other_shape = tuple([B.shape[1] for B in other_tucker_cores])
-    if base_shape != other_shape:
-        raise RuntimeError(
-            'Attempted to retract TuckerTensorTrain with wrong shape onto tangent space.\n'
-            + str(base_shape) + ' = base_shape != other_shape = ' + str(other_shape)
+    if is_uniform:
+        other_tt_cores2 = xnp.einsum(
+            'daib,dix->daxb',
+            other_tt_cores,
+            xnp.einsum('diz,dxz->dix', other_tucker_cores, tucker_cores)
         )
+    else:
+        def _func1(args):
+            G_other, B_other, B = args
+            G_other2 = xnp.einsum('aib,ix->axb', G_other, B_other @ B.T)
+            return (G_other2,)
 
-    other_tt_cores2 = []
-    for G_other, B_other, B in zip(other_tt_cores, other_tucker_cores, tucker_cores):
-        G_other2 = xnp.einsum('aib,ix->axb', G_other, B_other @ B.T)
-        other_tt_cores2.append(G_other2)
+        (other_tt_cores2,) = xmap(_func1, (other_tt_cores, other_tucker_cores, tucker_cores))
 
-    zipper_left2right = tt_zipper_left_to_right(other_tt_cores2[:-1], left_tt_cores)
-    zipper_right2left = tt_zipper_right_to_left(other_tt_cores2[1:], right_tt_cores)
+    zipper_left2right = tt_zipper_left_to_right(other_tt_cores2[:-1], left_tt_cores, use_jax=use_jax)
+    zipper_right2left = tt_zipper_right_to_left(other_tt_cores2[1:], right_tt_cores, use_jax=use_jax)
 
-    ungauged_tt_variations = []
-    ungauged_tucker_variations = []
-    for ZL_ax, ZR_by, G_aib, B_io, R0_xjy, B0_jo in zip(
+    if is_uniform:
+        ZL_ax, ZR_by, G_aib, B_io, R0_xjy, B0_jo = (
             zipper_left2right, zipper_right2left,
             other_tt_cores, other_tucker_cores,
             outer_tt_cores, tucker_cores,
-    ):
-        X_xiy = xnp.einsum('ax,aib,by->xiy', ZL_ax, G_aib, ZR_by)
-        dG_xjy = xnp.einsum('xiy,ij->xjy', X_xiy, B_io @ B0_jo.T)
-        M_ij = xnp.einsum('xiy,xjy->ij', X_xiy, R0_xjy)
-        dB_jo = xnp.einsum('ij,io->jo', M_ij, B_io)
+        )
+        X_xiy = xnp.einsum('dax,daib,dby->dxiy', ZL_ax, G_aib, ZR_by)
+        dG_xjy = xnp.einsum(
+            'dxiy,dij->dxjy',
+            X_xiy,
+            xnp.einsum('dio,djo->dij', B_io, B0_jo)
+        )
+        M_ij = xnp.einsum('dxiy,dxjy->dij', X_xiy, R0_xjy)
+        dB_jo = xnp.einsum('dij,dio->djo', M_ij, B_io)
+        ungauged_tt_variations = dG_xjy
+        ungauged_tucker_variations = dB_jo
+    else:
+        def _func2(args):
+            ZL_ax, ZR_by, G_aib, B_io, R0_xjy, B0_jo = args
+            X_xiy = xnp.einsum('ax,aib,by->xiy', ZL_ax, G_aib, ZR_by)
+            dG_xjy = xnp.einsum('xiy,ij->xjy', X_xiy, B_io @ B0_jo.T)
+            M_ij = xnp.einsum('xiy,xjy->ij', X_xiy, R0_xjy)
+            dB_jo = xnp.einsum('ij,io->jo', M_ij, B_io)
+            return dG_xjy, dB_jo
 
-        ungauged_tt_variations.append(dG_xjy)
-        ungauged_tucker_variations.append(dB_jo)
+        ungauged_tt_variations, ungauged_tucker_variations = xmap(
+            _func2,
+            (zipper_left2right, zipper_right2left,
+             other_tt_cores, other_tucker_cores,
+             outer_tt_cores, tucker_cores)
+        )
 
     ungauged_u = (ungauged_tucker_variations, ungauged_tt_variations)
     gauged_u = orthogonal_gauge_projection(ungauged_u, orthogonal_base)

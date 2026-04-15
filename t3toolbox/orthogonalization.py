@@ -798,6 +798,7 @@ def right_orthogonalize_tt_cores(
 def orthogonal_representations(
         x: typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrainCores],
         already_left_orthogonal: bool = False,
+        squash_tails: bool = True,
         use_jax: bool = False,
 ) -> typ.Tuple[
     bvf.T3Base, # orthogonal base
@@ -915,6 +916,14 @@ def orthogonal_representations(
     >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', O0, O0) - np.eye(O0.shape[1]))) # O: outer orthogonal
     1.2300840868850519e-15
     '''
+    is_uniform = not isinstance(x[0], typ.Sequence)
+
+    if squash_tails:
+        if is_uniform:
+            x = ut3.uniform_squash_tails(x)
+        else:
+            x = t3.squash_tails(x)
+
     if not already_left_orthogonal:
         # Orthogonalize Tucker cores upward to get up_tt_cores U
         up_tucker_cores, tt_cores = up_orthogonalize_tucker_cores(

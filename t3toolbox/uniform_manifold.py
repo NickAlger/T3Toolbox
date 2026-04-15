@@ -6,6 +6,7 @@ import numpy as np
 import typing as typ
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform as ut3
+import t3toolbox.t3svd as t3svd
 import t3toolbox.base_variation_format as bvf
 # from t3toolbox.common import jnp, NDArray, numpy_scan, jax_scan
 import t3toolbox.common as common
@@ -14,6 +15,7 @@ from t3toolbox.common import *
 
 __all__ = [
     'uniform_tangent_to_uniform_t3',
+    'uniform_tangent_to_dense',
     # 'ut3_retract',
     # 'ut3_project_dense_tensor_onto_tangent_space',
     # 'ut3_orthogonal_gauge_projection',
@@ -27,15 +29,38 @@ __all__ = [
 def uniform_tangent_to_uniform_t3(
         variations: ut3.UniformT3Variation,
         base: ut3.UniformT3Base,
+        bv_masks: ut3.UniformBVEdgeWeights,
         include_shift: bool = False,
         use_jax: bool = False,
-) -> ut3.UniformTuckerTensorTrainCores:
+) -> typ.Tuple[
+    ut3.UniformTuckerTensorTrainCores,
+    ut3.UniformEdgeWeights, # masks
+]:
     '''Rank 2r Tucker tensor train representation of tangent vector:
             u(x,y,z,w) = ([dG1(B x) L1(B x)]) ([R2(B y)        0]) ([R3(B z)        0]) ([R4(B w) ])
                          (                  ) ([dG2(B y) L2(B y)]) ([dG3(B z) L3(B z)]) ([dG4(B w)])
                          (         +        ) (         +        ) (        +         ) (    +     )
                          ([O1(dB x)       0]) ([0              0]) ([0              0]) ([0       ])
                          (                  ) ([O2(dB y)       0]) ([O3(dB z)       0]) ([O4(dB w)])
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.uniform as ut3
+    >>> import t3toolbox.uniform_manifold as utm
+    >>> import t3toolbox.orthogonalization as orth
+    >>> import t3toolbox.t3svd as t3svd
+    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (5,3,2,4)))
+    >>> p, _, _ = t3svd.t3_svd(p)
+    >>> base, dummy_var = orth.orthogonal_representations(p)
+    >>> v = t3m.tangent_randn(base)
+    >>> uniform_v, uniform_base, bv_mask = ut3.bv_to_ubv(v, base)
+    >>> dense_v = t3m.tangent_to_dense(v, base)
+    >>> dense_uniform_v = utm.uniform_tangent_to_dense(uniform_v, uniform_base, bv_mask)
+    >>> print(np.linalg.norm(dense_v - dense_uniform_v))
+    4.72221182491572e-14
     '''
     xnp, _, _ = get_backend(True, use_jax)
 
@@ -45,8 +70,10 @@ def uniform_tangent_to_uniform_t3(
 
     up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
 
-    d, n, N = tucker_variations.shape
-    r = tt_variations.shape[1]
+    d, N, nU, nO, rL, rR = ut3.get_uniform_base_structure(base)
+
+    # d, n, N = tucker_variations.shape
+    # r = tt_variations.shape[1]
 
     tangent_tucker_cores = xnp.concatenate([up_tucker_cores, tucker_variations], axis=1)
 
@@ -54,50 +81,58 @@ def uniform_tangent_to_uniform_t3(
     O = outer_tt_cores
     L = left_tt_cores
     R = right_tt_cores
-    Z = xnp.zeros((d, r, n, r))
+    # Z = xnp.zeros((d, r, n, r))
+    Z000 = xnp.zeros((d, rL, nU, rL))
+    Z001 = xnp.zeros((d, rL, nU, rR))
+    Z010 = xnp.zeros((d, rL, nO, rL))
+    Z011 = xnp.zeros((d, rL, nO, rR))
+    Z100 = xnp.zeros((d, rR, nU, rL))
+    Z101 = xnp.zeros((d, rR, nU, rR))
+    Z110 = xnp.zeros((d, rR, nO, rL))
+    Z111 = xnp.zeros((d, rR, nO, rR))
 
     first_tangent_tt_core = xnp.concatenate([
         xnp.concatenate([
-            xnp.concatenate([dG[:1], L[:1]], axis=3),
-            xnp.concatenate([Z[:1],  Z[:1]], axis=3),
+            xnp.concatenate([dG[:1],    L[:1]], axis=3),
+            xnp.concatenate([Z100[:1],  Z101[:1]], axis=3),
         ], axis=1),
         xnp.concatenate([
-            xnp.concatenate([O[:1], Z[:1]], axis=3),
-            xnp.concatenate([Z[:1], Z[:1]], axis=3),
+            xnp.concatenate([O[:1],     Z011[:1]], axis=3),
+            xnp.concatenate([Z110[:1],  Z111[:1]], axis=3),
         ], axis=1)
     ], axis=2)
 
     mid_tangent_tt_cores = xnp.concatenate([
         xnp.concatenate([
-            xnp.concatenate([R[1:-1], Z[1:-1]], axis=3),
-            xnp.concatenate([dG[1:-1], L[1:-1]], axis=3),
+            xnp.concatenate([R[1:-1],   Z001[1:-1]], axis=3),
+            xnp.concatenate([dG[1:-1],  L[1:-1]], axis=3),
         ], axis=1),
         xnp.concatenate([
-            xnp.concatenate([Z[1:-1], Z[1:-1]], axis=3),
-            xnp.concatenate([O[1:-1], Z[1:-1]], axis=3),
+            xnp.concatenate([Z010[1:-1],    Z011[1:-1]], axis=3),
+            xnp.concatenate([O[1:-1],       Z111[1:-1]], axis=3),
         ], axis=1)
     ], axis=2)
 
     if include_shift:
         last_tangent_tt_core = xnp.concatenate([
             xnp.concatenate([
-                xnp.concatenate([R[-1:],  Z[-1:]], axis=3),
-                xnp.concatenate([L[-1:] + dG[-1:], Z[-1:]], axis=3),
+                xnp.concatenate([R[-1:],            Z001[-1:]], axis=3),
+                xnp.concatenate([L[-1:] + dG[-1:],  Z101[-1:]], axis=3),
             ], axis=1),
             xnp.concatenate([
-                xnp.concatenate([Z[-1:], Z[-1:]], axis=3),
-                xnp.concatenate([O[-1:], Z[-1:]], axis=3),
+                xnp.concatenate([Z010[-1:], Z011[-1:]], axis=3),
+                xnp.concatenate([O[-1:],    Z111[-1:]], axis=3),
             ], axis=1)
         ], axis=2)
     else:
         last_tangent_tt_core = xnp.concatenate([
             xnp.concatenate([
-                xnp.concatenate([R[-1:],  Z[-1:]], axis=3),
-                xnp.concatenate([dG[-1:], Z[-1:]], axis=3),
+                xnp.concatenate([R[-1:],  Z001[-1:]], axis=3),
+                xnp.concatenate([dG[-1:], Z101[-1:]], axis=3),
             ], axis=1),
             xnp.concatenate([
-                xnp.concatenate([Z[-1:], Z[-1:]], axis=3),
-                xnp.concatenate([O[-1:], Z[-1:]], axis=3),
+                xnp.concatenate([Z010[-1:], Z011[-1:]], axis=3),
+                xnp.concatenate([O[-1:],    Z111[-1:]], axis=3),
             ], axis=1)
         ], axis=2)
 
@@ -106,7 +141,46 @@ def uniform_tangent_to_uniform_t3(
         axis=0
     )
 
-    return tangent_tucker_cores, tangent_tt_cores
+    shape_mask, up_mask, outer_mask, left_mask, right_mask = bv_masks
+    tucker_mask = xnp.concatenate([up_mask, outer_mask])
+    tt_mask = xnp.concatenate([left_mask, right_mask])
+
+    return (tangent_tucker_cores, tangent_tt_cores), (shape_mask, tucker_mask, tt_mask)
+
+
+def uniform_tangent_to_dense(
+        variations: ut3.UniformT3Variation,
+        base: ut3.UniformT3Base,
+        masks: ut3.UniformEdgeWeights,
+        include_shift: bool = False,
+        use_jax: bool = False,
+) -> NDArray:
+    """Convert uniform Tangent vector to dense tensor.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.uniform as ut3
+    >>> import t3toolbox.uniform_manifold as utm
+    >>> import t3toolbox.orthogonalization as orth
+    >>> import t3toolbox.t3svd as t3svd
+    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (5,3,2,4)))
+    >>> p, _, _ = t3svd.t3_svd(p)
+    >>> base, dummy_var = orth.orthogonal_representations(p)
+    >>> v = t3m.tangent_randn(base)
+    >>> uniform_v, uniform_base, bv_mask = ut3.bv_to_ubv(v, base)
+    >>> dense_v = t3m.tangent_to_dense(v, base)
+    >>> dense_uniform_v = utm.uniform_tangent_to_dense(uniform_v, uniform_base, bv_mask)
+    >>> print(np.linalg.norm(dense_v - dense_uniform_v))
+    4.72221182491572e-14
+    """
+    xnp, _, _ = get_backend(True, use_jax=use_jax)
+
+    x_ut3, masks_ut3 = uniform_tangent_to_uniform_t3(variations, base, masks, include_shift=include_shift, use_jax=use_jax)
+    x_dense = ut3.ut3_to_dense(x_ut3, masks_ut3)
+    return x_dense
 
 
 if False:
