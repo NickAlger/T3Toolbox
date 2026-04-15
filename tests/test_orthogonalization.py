@@ -8,11 +8,10 @@ import t3toolbox.orthogonalization as orth
 import t3toolbox.tucker_tensor_train as t3
 
 try:
-    import t3toolbox.jax.orthogonalization as orth_jax
     import jax
     jax.config.update("jax_enable_x64", True)
 except ImportError:
-    orth_jax = orth
+    pass
 
 np.random.seed(0)
 tol = 1e-9
@@ -29,13 +28,13 @@ class Orthogonalization(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for ORTH in [orth, orth_jax]:
-                with self.subTest(ORTH=ORTH, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     x = t3.t3_corewise_randn(STRUCTURE)
                     dense_x = t3.t3_to_dense(x)
                     for ind in range(len(STRUCTURE[0])):
 
-                        x2, ss = ORTH.up_svd_ith_tucker_core(ind, x)
+                        x2, ss = orth.up_svd_ith_tucker_core(ind, x, use_jax=USE_JAX)
 
                         dense_x2 = t3.t3_to_dense(x2)
                         self.check_relerr(dense_x, dense_x2)
@@ -56,13 +55,13 @@ class Orthogonalization(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for ORTH in [orth, orth_jax]:
-                with self.subTest(ORTH=ORTH, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     x = t3.t3_corewise_randn(STRUCTURE)
                     dense_x = t3.t3_to_dense(x)
                     for ind in range(len(STRUCTURE[0])-1):
 
-                        x2, ss = ORTH.left_svd_ith_tt_core(ind, x)
+                        x2, ss = orth.left_svd_ith_tt_core(ind, x, use_jax=USE_JAX)
 
                         dense_x2 = t3.t3_to_dense(x2)
                         self.check_relerr(dense_x, dense_x2)
@@ -83,13 +82,13 @@ class Orthogonalization(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for ORTH in [orth, orth_jax]:
-                with self.subTest(ORTH=ORTH, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     x = t3.t3_corewise_randn(STRUCTURE)
                     dense_x = t3.t3_to_dense(x)
                     for ind in range(len(STRUCTURE)-1,0,-1):
 
-                        x2, ss = ORTH.right_svd_ith_tt_core(ind, x)
+                        x2, ss = orth.right_svd_ith_tt_core(ind, x, use_jax=USE_JAX)
 
                         dense_x2 = t3.t3_to_dense(x2)
                         self.check_relerr(dense_x, dense_x2)
@@ -110,13 +109,13 @@ class Orthogonalization(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for ORTH in [orth, orth_jax]:
-                with self.subTest(ORTH=ORTH, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     x = t3.t3_corewise_randn(STRUCTURE)
                     dense_x = t3.t3_to_dense(x)
                     for ind in range(len(STRUCTURE[0])):
 
-                        x2, ss = ORTH.up_svd_ith_tt_core(ind, x)
+                        x2, ss = orth.up_svd_ith_tt_core(ind, x, use_jax=USE_JAX)
 
                         dense_x2 = t3.t3_to_dense(x2)
                         self.check_relerr(dense_x, dense_x2)
@@ -136,13 +135,13 @@ class Orthogonalization(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for ORTH in [orth, orth_jax]:
-                with self.subTest(ORTH=ORTH, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     x = t3.t3_corewise_randn(STRUCTURE)
                     dense_x = t3.t3_to_dense(x)
                     for ind in range(len(STRUCTURE[0])):
 
-                        x2, ss = ORTH.down_svd_ith_tt_core(ind, x)
+                        x2, ss = orth.down_svd_ith_tt_core(ind, x, use_jax=USE_JAX)
 
                         dense_x2 = t3.t3_to_dense(x2)
                         self.check_relerr(dense_x, dense_x2)
@@ -163,13 +162,13 @@ class Orthogonalization(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for ORTH in [orth, orth_jax]:
-                with self.subTest(ORTH=ORTH, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     x = t3.t3_corewise_randn(STRUCTURE)
                     dense_x = t3.t3_to_dense(x)
 
                     # ind=0
-                    x2 = ORTH.orthogonalize_relative_to_ith_tucker_core(0, x)
+                    x2 = orth.orthogonalize_relative_to_ith_tucker_core(0, x, use_jax=USE_JAX)
 
                     dense_x2 = t3.t3_to_dense(x2)
                     self.check_relerr(dense_x, dense_x2)
@@ -180,7 +179,7 @@ class Orthogonalization(unittest.TestCase):
                     self.check_relerr(I, np.einsum('axjkd,ayjkd->xy', X, X))
 
                     # ind=1
-                    x2 = ORTH.orthogonalize_relative_to_ith_tucker_core(1, x)
+                    x2 = orth.orthogonalize_relative_to_ith_tucker_core(1, x, use_jax=USE_JAX)
 
                     dense_x2 = t3.t3_to_dense(x2)
                     self.check_relerr(dense_x, dense_x2)
@@ -191,7 +190,7 @@ class Orthogonalization(unittest.TestCase):
                     self.check_relerr(I, np.einsum('aiykd,aiwkd->yw', X, X))
 
                     # ind=2
-                    x2 = ORTH.orthogonalize_relative_to_ith_tucker_core(2, x)
+                    x2 = orth.orthogonalize_relative_to_ith_tucker_core(2, x, use_jax=USE_JAX)
 
                     dense_x2 = t3.t3_to_dense(x2)
                     self.check_relerr(dense_x, dense_x2)
@@ -208,13 +207,13 @@ class Orthogonalization(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for ORTH in [orth, orth_jax]:
-                with self.subTest(ORTH=ORTH, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     x = t3.t3_corewise_randn(STRUCTURE)
                     dense_x = t3.t3_to_dense(x)
 
                     # ind=0
-                    x2 = ORTH.orthogonalize_relative_to_ith_tt_core(0, x)
+                    x2 = orth.orthogonalize_relative_to_ith_tt_core(0, x, use_jax=USE_JAX)
 
                     dense_x2 = t3.t3_to_dense(x2)
                     self.check_relerr(dense_x, dense_x2)
@@ -228,7 +227,7 @@ class Orthogonalization(unittest.TestCase):
                     self.check_relerr(I, np.einsum('ai,bi->ab', B0, B0))
 
                     # ind=1
-                    x2 = ORTH.orthogonalize_relative_to_ith_tt_core(1, x)
+                    x2 = orth.orthogonalize_relative_to_ith_tt_core(1, x, use_jax=USE_JAX)
 
                     dense_x2 = t3.t3_to_dense(x2)
                     self.check_relerr(dense_x, dense_x2)
@@ -246,7 +245,7 @@ class Orthogonalization(unittest.TestCase):
                     self.check_relerr(I, np.einsum('ckd,bkd->cb', X, X))
 
                     # ind=2
-                    x2 = ORTH.orthogonalize_relative_to_ith_tt_core(2, x)
+                    x2 = orth.orthogonalize_relative_to_ith_tt_core(2, x, use_jax=USE_JAX)
 
                     dense_x2 = t3.t3_to_dense(x2)
                     self.check_relerr(dense_x, dense_x2)
@@ -265,11 +264,11 @@ class Orthogonalization(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for ORTH in [orth, orth_jax]:
-                with self.subTest(ORTH=ORTH, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     x = t3.t3_corewise_randn(STRUCTURE)
 
-                    base, variation = ORTH.orthogonal_representations(x)  # Compute orthogonal representations
+                    base, variation = orth.orthogonal_representations(x, use_jax=USE_JAX)  # Compute orthogonal representations
 
                     tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
                     tucker_vars, tt_vars = variation

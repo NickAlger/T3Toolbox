@@ -40,21 +40,20 @@ class TestManifold(unittest.TestCase):
         ]
 
         for SHAPE in shapes:
-            for T3M in [t3m, t3m_jax]:
-                with self.subTest(T3M=T3M, SHAPE=SHAPE):
-                    mdim = T3M.manifold_dim(SHAPE)
+            with self.subTest(SHAPE=SHAPE):
+                mdim = t3m.manifold_dim(SHAPE)
 
-                    p = t3.t3_corewise_randn(SHAPE)
-                    base, _ = orth.orthogonal_representations(p)
-                    tucker_shapes, tt_shapes = bvf.get_base_hole_shapes(base)
-                    num_tucker_entries = np.sum([np.prod(shape) for shape in tucker_shapes])
-                    num_tt_entries = np.sum([np.prod(shape) for shape in tt_shapes])
-                    num_core_entries = num_tucker_entries + num_tt_entries
-                    vv = [t3m.tangent_randn(base, apply_gauge_projection=False) for _ in range(num_core_entries)]
-                    dense_vv = np.stack([t3m.tangent_to_dense(v, base) for v in vv])
-                    _, ss, _ = np.linalg.svd(dense_vv.reshape((num_core_entries, -1)), full_matrices=False)
-                    self.assertLessEqual(ss[mdim], tol * ss[0]) # first zero singular value
-                    self.assertGreaterEqual(ss[mdim-1], 1e8 * ss[mdim]) # last nonzero singular value
+                p = t3.t3_corewise_randn(SHAPE)
+                base, _ = orth.orthogonal_representations(p)
+                tucker_shapes, tt_shapes = bvf.get_base_hole_shapes(base)
+                num_tucker_entries = np.sum([np.prod(shape) for shape in tucker_shapes])
+                num_tt_entries = np.sum([np.prod(shape) for shape in tt_shapes])
+                num_core_entries = num_tucker_entries + num_tt_entries
+                vv = [t3m.tangent_randn(base, apply_gauge_projection=False) for _ in range(num_core_entries)]
+                dense_vv = np.stack([t3m.tangent_to_dense(v, base) for v in vv])
+                _, ss, _ = np.linalg.svd(dense_vv.reshape((num_core_entries, -1)), full_matrices=False)
+                self.assertLessEqual(ss[mdim], tol * ss[0]) # first zero singular value
+                self.assertGreaterEqual(ss[mdim-1], 1e8 * ss[mdim]) # last nonzero singular value
 
     def test_tangent_to_dense(self):
         structures = [
@@ -62,13 +61,13 @@ class TestManifold(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for T3M in [t3m, t3m_jax]:
-                with self.subTest(T3M=T3M, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
                     base, _ = orth.orthogonal_representations(p)
                     variation = t3m.tangent_randn(base)
 
-                    v_dense     = T3M.tangent_to_dense(variation, base)  # Convert tangent to dense
+                    v_dense     = t3m.tangent_to_dense(variation, base, use_jax=USE_JAX)  # Convert tangent to dense
 
                     ((U0, U1, U2), (L0, L1, L2), (R0, R1, R2), (O0, O1, O2)) = base
                     ((V0, V1, V2), (H0, H1, H2)) = variation
@@ -91,13 +90,13 @@ class TestManifold(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for T3M in [t3m, t3m_jax]:
-                with self.subTest(T3M=T3M, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
                     base, _ = orth.orthogonal_representations(p)
                     variation = t3m.tangent_randn(base)
 
-                    v_t3 = T3M.tangent_to_t3(variation, base)  # tangent vector only (attached at zero)
+                    v_t3 = t3m.tangent_to_t3(variation, base, use_jax=USE_JAX)  # tangent vector only (attached at zero)
 
                     v_dense = t3.t3_to_dense(v_t3)
                     v_dense_jax = t3.t3_to_dense(v_t3)
@@ -118,12 +117,12 @@ class TestManifold(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for T3M in [t3m, t3m_jax]:
-                with self.subTest(T3M=T3M, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
                     base, _ = orth.orthogonal_representations(p)
 
-                    z = T3M.tangent_zeros(base)
+                    z = t3m.tangent_zeros(base, use_jax=USE_JAX)
 
                     self.assertLessEqual(norm(t3m.tangent_to_dense(z, base)), tol)
 
@@ -144,12 +143,12 @@ class TestManifold(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for T3M in [t3m, t3m_jax]:
-                with self.subTest(T3M=T3M, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
                     base, vars0 = orth.orthogonal_representations(p)
 
-                    v = T3M.tangent_randn(base)  # Random tangent vector, gauged.
+                    v = t3m.tangent_randn(base, use_jax=USE_JAX)  # Random tangent vector, gauged.
 
                     shapes = bvf.get_base_hole_shapes(base)
                     tucker_v, tt_v = v
@@ -167,13 +166,13 @@ class TestManifold(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for T3M in [t3m, t3m_jax]:
-                with self.subTest(T3M=T3M, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
                     base, _ = orth.orthogonal_representations(p)
                     variation = t3m.tangent_randn(base)
 
-                    proj_variation = T3M.orthogonal_gauge_projection(variation, base)  # Make gauged via orthogonal projection
+                    proj_variation = t3m.orthogonal_gauge_projection(variation, base)  # Make gauged via orthogonal projection
 
                     (U0, U1, U2), (L0, L1, L2), _, _ = base
                     ((V0, V1, V2), (H0, H1, H2)) = proj_variation
@@ -204,13 +203,13 @@ class TestManifold(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for T3M in [t3m, t3m_jax]:
-                with self.subTest(T3M=T3M, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
                     base, _ = orth.orthogonal_representations(p)
                     variation = t3m.tangent_randn(base)
 
-                    proj_variation = T3M.oblique_gauge_projection(variation, base)  # Make gauged via oblique projection
+                    proj_variation = t3m.oblique_gauge_projection(variation, base, use_jax=USE_JAX)  # Make gauged via oblique projection
 
                     v_dense = t3m.tangent_to_dense(variation, base)
                     proj_v_dense = t3m.tangent_to_dense(proj_variation, base)
@@ -238,13 +237,13 @@ class TestManifold(unittest.TestCase):
         ]
 
         for STRUCTURE_P, STRUCTURE_X in zip(structures_p, structures_x):
-            for T3M in [t3m, t3m_jax]:
-                with self.subTest(T3M=T3M, STRUCTURE_P=STRUCTURE_P, STRUCTURE_X=STRUCTURE_X):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE_P=STRUCTURE_P, STRUCTURE_X=STRUCTURE_X):
                     p = t3.t3_corewise_randn(STRUCTURE_P)
                     base, _ = orth.orthogonal_representations(p)
                     x = t3.t3_corewise_randn(STRUCTURE_X)
 
-                    proj_x = T3M.project_t3_onto_tangent_space(x, base)  # Project x onto tangent space
+                    proj_x = t3m.project_t3_onto_tangent_space(x, base, use_jax=USE_JAX)  # Project x onto tangent space
 
                     P = t3.t3_to_dense(p)
                     X = t3.t3_to_dense(x)
@@ -258,13 +257,13 @@ class TestManifold(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for T3M in [t3m, t3m_jax]:
-                with self.subTest(T3M=T3M, STRUCTURE=STRUCTURE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
                     base, _ = orth.orthogonal_representations(p)
                     z = t3m.tangent_zeros(base)
 
-                    ret_v = T3M.retract(z, base)
+                    ret_v = t3m.retract(z, base)
 
                     ret_V = t3.t3_to_dense(ret_v)
                     P = t3.t3_to_dense(p)

@@ -638,7 +638,7 @@ def pack_tensors(
 def unpack(
         packed_edge_tensors: NDArray, # shape=(...,c,m) or (c,m). E.g., (num_vecs,d,N) or (d,N)
         submask: NDArray, # shape=(c,m). Typical use case: component of UniformTuckerTensorTrainMasks
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[
     NDArray, # shape=(...,mi) or (mi,). E.g., (num_vecs,Ni) or (Ni,)
     ...
@@ -683,6 +683,9 @@ def unpack(
     >>> print(ut3.unpack(ss_tt_from_ut3, masks[2])[1])
     [2627.79225375  441.12769204  328.73617961]
     """
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
     c = packed_edge_tensors.shape[-2]
     unpacked_edge_vectors = []
     for ii in range(c):
@@ -756,7 +759,7 @@ def uniform_zeros(
 def t3_to_ut3(
         x: t3.TuckerTensorTrain,
         squash_tails: bool = True,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[
     UniformTuckerTensorTrainCores,
     UniformEdgeWeights,
@@ -776,6 +779,9 @@ def t3_to_ut3(
     >>> print(np.linalg.norm(dense_x - dense_x2))
     0.0
     """
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
     if squash_tails:
         x = t3.squash_tails(x)
 
@@ -807,7 +813,7 @@ def t3_to_ut3(
 def ut3_to_t3(
         cores: UniformTuckerTensorTrainCores,
         masks: UniformEdgeWeights,
-        xnp = np,
+        use_jax: bool = False,
 ) -> t3.TuckerTensorTrain:
     '''Convert UniformTuckerTensorTrain to TuckerTensorTrain.
 
@@ -830,6 +836,9 @@ def ut3_to_t3(
     >>> print([np.linalg.norm(G - G2) for G, G2  in zip(x[1], x2[1])])
     [0.0, 0.0, 0.0]
     '''
+    xnp, _, _ = get_backend(True, use_jax)
+
+    #
     tucker_supercore, tt_supercore = cores
     shape_masks, tucker_masks, tt_masks = masks
 
@@ -928,7 +937,7 @@ def bv_to_ubv(
 def ut3_to_dense(
         cores: UniformTuckerTensorTrainCores,
         masks: UniformEdgeWeights,
-        xnp = np,
+        use_jax: bool = False,
 ) -> NDArray:
     """Construct dense tensor represented by uniform Tucker tensor train
 
@@ -957,7 +966,7 @@ def ut3_to_dense(
     0.0
     """
     check_ut3(cores, masks)
-    return t3.t3_to_dense(ut3_to_t3(cores, masks), xnp=xnp)
+    return t3.t3_to_dense(ut3_to_t3(cores, masks), use_jax=use_jax)
 
 
 def are_ut3_ranks_minimal(
@@ -992,8 +1001,7 @@ def are_ut3_ranks_minimal(
 def ut3_entry(
         cores: UniformTuckerTensorTrainCores,
         index: NDArray, # dtype=int. shape=(d,) or shape=(num_entries,d)
-        xnp = np,
-        scan = common.numpy_scan,
+        use_jax: bool = False,
 ) -> NDArray:
     """Compute entry (entries) of a uniform Tucker tensor train.
 
@@ -1036,6 +1044,9 @@ def ut3_entry(
     -6.127319174475165
 
     """
+    xnp, xmap, xscan = get_backend(True, use_jax)
+
+    #
     tucker_supercore, tt_supercore = cores
 
     d, N, n, r = get_uniform_structure(cores)
@@ -1059,7 +1070,7 @@ def ut3_entry(
 
     init = xnp.ones((num_entries, r))
     xs = (index, tucker_supercore, tt_supercore)
-    final_mu = scan(_func, init, xs, length=None)[0]
+    final_mu = xscan(_func, init, xs, length=None)[0]
     result = xnp.einsum('na->n', final_mu)
 
     if not vectorized:
@@ -1071,8 +1082,7 @@ def ut3_entry(
 def ut3_apply(
         cores: UniformTuckerTensorTrainCores,
         input_vectors: NDArray, # shape=(d,N) or shape=(...,d,N)
-        xnp = np,
-        scan = common.numpy_scan,
+        use_jax: bool = False,
 ) -> NDArray: # shape=(d,N) or (...,d,N)
     """Apply a uniform Tucker tensor train to vectors. WORK IN PROGRESS
 
@@ -1128,6 +1138,9 @@ def ut3_apply(
     -6.127319174475165
 
     """
+    xnp, _, xscan = get_backend(True, use_jax)
+
+    #
     tucker_supercore, tt_supercore = cores
 
     d, N, n, r = get_uniform_structure(cores)
@@ -1141,7 +1154,7 @@ def ut3_apply(
 
     init = xnp.ones((input_vectors.shape[:-2], r))
     xs = (input_vectors.moveaxis(-2,0), tucker_supercore, tt_supercore)
-    final_mu = scan(_func, init, xs, length=None)[0]
+    final_mu = xscan(_func, init, xs, length=None)[0]
     result = xnp.einsum('...a->...', final_mu)
 
     return result
@@ -1155,7 +1168,7 @@ def ut3_add(
         x_masks: UniformEdgeWeights,
         y_cores: UniformTuckerTensorTrainCores,
         y_masks: UniformEdgeWeights,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[
     UniformTuckerTensorTrainCores, # x+y cores
     UniformEdgeWeights, # x+y masks
@@ -1198,6 +1211,9 @@ def ut3_add(
     >>> print(np.linalg.norm(dense_x + dense_y - dense_x_plus_y))
     0.0
     """
+    xnp, _, _ = get_backend(True, use_jax)
+
+    #
     check_ut3(x_cores, x_masks)
     check_ut3(y_cores, y_masks)
 
@@ -1242,7 +1258,7 @@ def ut3_add(
 def ut3_scale(
         x_cores: UniformTuckerTensorTrainCores,
         s, # scalar
-        xnp = np,
+        use_jax: bool = False,
 ) -> UniformTuckerTensorTrainCores: # cores for z = s*x
     """Scale a uniform Tucker tensor train, s,x -> s*x.
 
@@ -1274,6 +1290,9 @@ def ut3_scale(
     >>> print(np.linalg.norm(s*dense_x - dense_sx))
     1.4502362601421634e-12
     """
+    xnp, _, _ = get_backend(True, use_jax)
+
+    #
     x_tucker_supercore, x_tt_supercore = x_cores
 
     first_x_tucker_supercore = x_tucker_supercore[:1,:,:]
@@ -1285,7 +1304,7 @@ def ut3_scale(
 
 def ut3_neg(
         x_cores: UniformTuckerTensorTrainCores,
-        xnp = np,
+        use_jax: bool = False,
 ) -> UniformTuckerTensorTrainCores: # cores for z = -x
     """Flip a uniform Tucker tensor train, x -> -x.
 
@@ -1312,7 +1331,7 @@ def ut3_neg(
     >>> print(np.linalg.norm(-dense_x - dense_neg_x))
     0.0
     """
-    return ut3_scale(x_cores, -1.0, xnp=xnp)
+    return ut3_scale(x_cores, -1.0, use_jax=use_jax)
 
 
 def ut3_sub(
@@ -1320,7 +1339,7 @@ def ut3_sub(
         x_masks: UniformEdgeWeights,
         y_cores: UniformTuckerTensorTrainCores,
         y_masks: UniformEdgeWeights,
-        xnp = np
+        use_jax: bool = False,
 ) -> typ.Tuple[
     UniformTuckerTensorTrainCores, # x-y cores
     UniformEdgeWeights, # x-y masks
@@ -1363,7 +1382,7 @@ def ut3_sub(
     >>> print(np.linalg.norm(dense_x - dense_y - dense_x_minus_y))
     0.0
     """
-    return ut3_add(x_cores, x_masks, ut3_neg(y_cores, xnp=xnp), y_masks, xnp=xnp)
+    return ut3_add(x_cores, x_masks, ut3_neg(y_cores, use_jax=use_jax), y_masks, use_jax=use_jax)
 
 
 

@@ -341,7 +341,7 @@ def check_t3(
 def t3_to_dense(
         x: TuckerTensorTrain,
         contract_ones: bool = True,
-        xnp = np,
+        use_jax: bool = False,
 ) -> NDArray:
     """Contract a Tucker tensor train to a dense tensor.
 
@@ -400,6 +400,9 @@ def t3_to_dense(
     >>> print(np.linalg.norm(x_dense - x_dense2) / np.linalg.norm(x_dense))
     1.1217675019342066e-15
     """
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
     tucker_cores, tt_cores = x
     big_tt_cores = [xnp.einsum('iaj,ab->ibj', G, U) for G, U in zip(tt_cores, tucker_cores)]
 
@@ -421,7 +424,7 @@ def t3_to_dense(
 
 def squash_tails(
         x: TuckerTensorTrain,
-        xnp = np,
+        use_jax: bool = False,
 ) -> TuckerTensorTrain:
     """Make leading and trailing TT ranks equal to 1 (r0=rd=1).
 
@@ -436,6 +439,9 @@ def squash_tails(
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2)))
     5.805155892491438e-12
     """
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
     G0 = x[1][0]
     G0 = xnp.tensordot(xnp.ones((1, G0.shape[0])), G0, axes=1)
 
@@ -556,7 +562,7 @@ def absorb_edge_weights_into_cores(
 
 def t3_zeros(
         structure:  T3Structure,
-        xnp = np,
+        use_jax: bool = False,
 ) -> TuckerTensorTrain:
     """Construct a Tucker tensor train of zeros.
 
@@ -589,6 +595,9 @@ def t3_zeros(
     >>> print(np.linalg.norm(t3.t3_to_dense(z)))
     0.0
     """
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
     shape, tucker_ranks, tt_ranks = structure
 
     tt_cores = tuple([xnp.zeros((tt_ranks[ii], tucker_ranks[ii], tt_ranks[ii+1])) for ii in range(len(tucker_ranks))])
@@ -599,7 +608,7 @@ def t3_zeros(
 
 def t3_corewise_randn(
         s: T3Structure,
-        randn: typ.Callable[...,NDArray] = np.random.randn,
+        use_jax: bool = False,
 ) -> TuckerTensorTrain:
     """Construct a Tucker tensor train with random cores.
 
@@ -632,10 +641,13 @@ def t3_corewise_randn(
     >>> structure = (shape, tucker_ranks, tt_ranks)
     >>> x = t3.t3_corewise_randn(structure) # TuckerTensorTrain with random cores
     """
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
     shape, tucker_ranks, tt_ranks = s
 
-    tt_cores = tuple([randn(tt_ranks[ii], tucker_ranks[ii], tt_ranks[ii+1]) for ii in range(len(tucker_ranks))])
-    tucker_cores = tuple([randn(n, N) for n, N  in zip(tucker_ranks, shape)])
+    tt_cores = tuple([randn(tt_ranks[ii], tucker_ranks[ii], tt_ranks[ii+1], use_jax=use_jax) for ii in range(len(tucker_ranks))])
+    tucker_cores = tuple([randn(n, N, use_jax=use_jax) for n, N  in zip(tucker_ranks, shape)])
     z = (tucker_cores, tt_cores)
     return z
 
@@ -695,7 +707,7 @@ def t3_save(
 
 def t3_load(
         file,
-        xnp = np,
+        use_jax: bool = False,
 ) -> TuckerTensorTrain:
     """Load a Tucker tensor train from a file.
 
@@ -740,6 +752,9 @@ def t3_load(
     >>> print([np.linalg.norm(G - G2) for G, G2 in zip(tt_cores, tt_cores2)])
     [0.0, 0.0, 0.0]
     """
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
     if isinstance(file, str):
         if not file.endswith('.npz'):
             file = file + '.npz'
@@ -769,7 +784,7 @@ def t3_load(
 def t3_apply(
         x: TuckerTensorTrain, # shape=(N0,...,N(d-1))
         vecs: typ.Sequence[NDArray], # len=d, elm_shape=(Ni,) or (num_applies, Ni)
-        xnp = np,
+        use_jax: bool = False,
 ) -> NDArray:
     '''Contract a Tucker tensor train with vectors in all indices.
 
@@ -857,6 +872,9 @@ def t3_apply(
     >>> print(dAuuu_diff) #ths same as dAuuu
     766.5390504030256
     '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
     tucker_cores, tt_cores = x
     shape, tucker_ranks, tt_ranks = get_structure(x)
 
@@ -909,7 +927,7 @@ def t3_apply(
 def t3_entry(
         x: TuckerTensorTrain, # shape=(N0,...,N(d-1))
         index: typ.Union[typ.Sequence[int], typ.Sequence[typ.Sequence[int]]], # len=d. one entry: typ.Sequence[int]. many entries: typ.Sequence[typ.Sequence[int]], elm_size=num_entries
-        xnp = np,
+        use_jax: bool = False,
 ) -> NDArray:
     '''Compute an entry (or multiple entries) of a Tucker tensor train.
 
@@ -1009,6 +1027,9 @@ def t3_entry(
     >>> print(df_diff)
     -7.418812309825662
     '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
     tucker_cores, tt_cores = x
     shape, tucker_ranks, tt_ranks = get_structure(x)
 
@@ -1253,7 +1274,7 @@ def t3_add(
         x: TuckerTensorTrain,
         y: TuckerTensorTrain,
         squash: bool = True,
-        xnp = np,
+        use_jax: bool = False,
 ) -> TuckerTensorTrain:
     """Add two Tucker tensor trains, yielding a Tucker tensor train with summed ranks.
 
@@ -1311,6 +1332,9 @@ def t3_add(
     >>> print(np.linalg.norm(t3.t3_to_dense(x) + t3.t3_to_dense(y) - t3.t3_to_dense(z)))
     6.524094086845177e-13
     """
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
     check_t3(x)
     check_t3(y)
 
@@ -1456,7 +1480,7 @@ def t3_sub(
         x: TuckerTensorTrain,
         y: TuckerTensorTrain,
         squash: bool = True,
-        xnp = np,
+        use_jax: bool = False,
 ) -> TuckerTensorTrain:
     """Subtract two Tucker tensor trains, yielding a Tucker tensor train with summed ranks.
 
@@ -1516,13 +1540,13 @@ def t3_sub(
     >>> print(np.linalg.norm(dense_x - dense_y - dense_x_minus_y))
     3.5875705233607603e-13
     """
-    return t3_add(x, t3_neg(y), squash=squash, xnp=xnp)
+    return t3_add(x, t3_neg(y), squash=squash, use_jax=use_jax)
 
 
 def t3_inner_product_t3(
         x: TuckerTensorTrain,
         y: TuckerTensorTrain,
-        xnp = np,
+        use_jax: bool = False,
 ):
     """Compute Hilbert-Schmidt inner product of two Tucker tensor trains.
 
@@ -1586,6 +1610,9 @@ def t3_inner_product_t3(
     >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
     1.3096723705530167e-10
     """
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
     check_t3(x)
     check_t3(y)
 
@@ -1597,8 +1624,8 @@ def t3_inner_product_t3(
             + str(x_shape) + ' = x_shape != y_shape = ' + str(y_shape)
         )
 
-    x = squash_tails(x, xnp=xnp)
-    y = squash_tails(y, xnp=xnp)
+    x = squash_tails(x, use_jax=use_jax)
+    y = squash_tails(y, use_jax=use_jax)
 
     tucker_cores_x, tt_cores_x = x
     tucker_cores_y, tt_cores_y = y
@@ -1623,7 +1650,7 @@ def t3_inner_product_t3(
 
 def t3_norm(
         x: TuckerTensorTrain,
-        xnp = np,
+        use_jax: bool = False,
 ):
     """Compute Hilbert-Schmidt (Frobenius) norm of a Tucker tensor train.
 
@@ -1665,7 +1692,10 @@ def t3_norm(
     >>> print(np.abs(norm_x - np.linalg.norm(t3.t3_to_dense(x))))
     1.3642420526593924e-12
     """
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
     check_t3(x)
-    return xnp.sqrt(t3_inner_product_t3(x, x, xnp=xnp))
+    return xnp.sqrt(t3_inner_product_t3(x, x, use_jax=use_jax))
 
 

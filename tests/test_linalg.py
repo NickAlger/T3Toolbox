@@ -6,11 +6,10 @@ import unittest
 
 import t3toolbox.util_linalg as linalg
 try:
-    import t3toolbox.jax.linalg as linalg_jax
     import jax
     jax.config.update("jax_enable_x64", True)
 except ImportError:
-    linalg_jax = linalg
+    pass
 
 np.random.seed(0)
 tol = 1e-9
@@ -22,7 +21,7 @@ class TestLinalgJax(unittest.TestCase):
         self.assertLessEqual(norm(xtrue - x), tol * norm(xtrue))
 
     def test_truncated_svd(self):
-        for LINALG in [linalg, linalg_jax]:
+        for USE_JAX in [True, False]:
             A = np.diag(np.random.randn(100))
 
             _, ss_big, _ = np.linalg.svd(A)
@@ -35,8 +34,8 @@ class TestLinalgJax(unittest.TestCase):
                     [None, None,        loose_atol, loose_atol, tight_atol],
                     [None, loose_rtol,  None,       tight_rtol, loose_rtol]
             ):
-                with self.subTest(LINALG=LINALG, SVD_ATOL=SVD_ATOL, SVD_RTOL=SVD_RTOL):
-                    U, ss, Vt = LINALG.truncated_svd(A, atol=SVD_ATOL, rtol=SVD_RTOL)
+                with self.subTest(USE_JAX=USE_JAX, SVD_ATOL=SVD_ATOL, SVD_RTOL=SVD_RTOL):
+                    U, ss, Vt = linalg.truncated_svd(A, atol=SVD_ATOL, rtol=SVD_RTOL, use_jax=USE_JAX)
 
                     SVD_ATOL = 0.0 if SVD_ATOL is None else SVD_ATOL
                     SVD_RTOL = 0.0 if SVD_RTOL is None else SVD_RTOL
@@ -57,11 +56,11 @@ class TestLinalgJax(unittest.TestCase):
         ]
 
         for SHAPE in shapes:
-            for LINALG in [linalg, linalg_jax]:
-                with self.subTest(LINALG=LINALG, SHAPE=SHAPE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, SHAPE=SHAPE):
                     G_i_a_j = np.random.randn(*SHAPE)
 
-                    U_i_a_x, ss_x, Vt_x_j = LINALG.left_svd_3tensor(G_i_a_j)
+                    U_i_a_x, ss_x, Vt_x_j = linalg.left_svd_3tensor(G_i_a_j, use_jax=USE_JAX)
 
                     G_i_a_j2 = np.einsum('iax,x,xj->iaj', U_i_a_x, ss_x, Vt_x_j)
                     self.assertLessEqual(norm(G_i_a_j - G_i_a_j2), tol * norm(G_i_a_j))
@@ -85,11 +84,11 @@ class TestLinalgJax(unittest.TestCase):
         ]
 
         for SHAPE in shapes:
-            for LINALG in [linalg, linalg_jax]:
-                with self.subTest(LINALG=LINALG, SHAPE=SHAPE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, SHAPE=SHAPE):
                     G_i_a_j = np.random.randn(*SHAPE)
 
-                    U_i_x, ss_x, Vt_x_a_j = LINALG.right_svd_3tensor(G_i_a_j)
+                    U_i_x, ss_x, Vt_x_a_j = linalg.right_svd_3tensor(G_i_a_j, use_jax=USE_JAX)
 
                     G_i_a_j2 = np.einsum('ix,x,xaj->iaj', U_i_x, ss_x, Vt_x_a_j)
                     self.assertLessEqual(norm(G_i_a_j - G_i_a_j2), tol * norm(G_i_a_j))
@@ -113,11 +112,11 @@ class TestLinalgJax(unittest.TestCase):
         ]
 
         for SHAPE in shapes:
-            for LINALG in [linalg, linalg_jax]:
-                with self.subTest(LINALG=LINALG, SHAPE=SHAPE):
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, SHAPE=SHAPE):
                     G_i_a_j = np.random.randn(*SHAPE)
 
-                    U_i_x_j,        ss_x,       Vt_x_a      = linalg.outer_svd_3tensor(G_i_a_j)
+                    U_i_x_j,        ss_x,       Vt_x_a      = linalg.outer_svd_3tensor(G_i_a_j, use_jax=USE_JAX)
 
                     G_i_a_j2 = np.einsum('ixj,x,xa->iaj', U_i_x_j, ss_x, Vt_x_a)
                     self.assertLessEqual(norm(G_i_a_j - G_i_a_j2), tol * norm(G_i_a_j))

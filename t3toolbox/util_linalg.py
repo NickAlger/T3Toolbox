@@ -5,7 +5,7 @@
 import typing as typ
 import numpy as np
 
-import t3toolbox
+from t3toolbox.common import *
 
 __all__ = [
     'truncated_svd',
@@ -27,7 +27,7 @@ def truncated_svd(
         max_rank: int = None,  # 1 <= min_rank <= max_rank <= minimum(ni*na, nj)
         rtol: float = None,  # removes singular values satisfying sigma < maximum(atol, rtol*sigma1)
         atol: float = None,  # removes singular values satisfying sigma < maximum(atol, rtol*sigma1)
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[
     NDArray, # U, shape=(N,k)
     NDArray, # ss, shape=(k,)
@@ -100,6 +100,9 @@ def truncated_svd(
     >>> print(err) # should be just less than atol=1e-2
     0.00882416786402483
     '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
     rtol1 = 0.0 if rtol is None else rtol
     atol1 = 0.0 if atol is None else atol
 
@@ -131,7 +134,7 @@ def left_svd_3tensor(
         max_rank: int = None, # 1 <= min_rank <= max_rank <= minimum(ni*na, nj)
         rtol: float = None, # removes singular values satisfying sigma < maximum(atol, rtol*sigma1)
         atol: float = None, # removes singular values satisfying sigma < maximum(atol, rtol*sigma1)
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[
     NDArray, # U_i_a_x, shape=(ni, na, nx)
     NDArray, # ss_x,    shape=(nx,)
@@ -201,7 +204,7 @@ def left_svd_3tensor(
     ni, na, nj = G0_i_a_j.shape
     G0_ia_j = G0_i_a_j.reshape((ni*na, nj))
 
-    U_ia_x, ss_x, Vt_x_j = truncated_svd(G0_ia_j, min_rank, max_rank, rtol, atol, xnp=xnp)
+    U_ia_x, ss_x, Vt_x_j = truncated_svd(G0_ia_j, min_rank, max_rank, rtol, atol, use_jax=use_jax)
 
     nx = len(ss_x)
     U_i_a_x = U_ia_x.reshape((ni, na, nx))
@@ -214,7 +217,7 @@ def right_svd_3tensor(
         max_rank: int = None, # 1 <= min_rank <= max_rank <= minimum(ni*na, nj)
         rtol: float = None, # removes singular values satisfying sigma < maximum(atol, rtol*sigma1)
         atol: float = None, # removes singular values satisfying sigma < maximum(atol, rtol*sigma1)
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[
     NDArray, # U_i_x,       shape=(ni, nx)
     NDArray, # ss_x,        shape=(nx,)
@@ -282,7 +285,7 @@ def right_svd_3tensor(
     1.9466202162000267e-15
     '''
     G0_j_a_i = G0_i_a_j.swapaxes(0, 2)
-    Vt_j_a_x, ss_x, U_x_i = left_svd_3tensor(G0_j_a_i, min_rank, max_rank, rtol, atol, xnp=xnp)
+    Vt_j_a_x, ss_x, U_x_i = left_svd_3tensor(G0_j_a_i, min_rank, max_rank, rtol, atol, use_jax=use_jax)
     Vt_x_a_j = Vt_j_a_x.swapaxes(0, 2)
     U_i_x = U_x_i.swapaxes(0,1)
     return U_i_x, ss_x, Vt_x_a_j
@@ -294,7 +297,7 @@ def outer_svd_3tensor(
         max_rank: int = None, # 1 <= min_rank <= max_rank <= minimum(ni*na, nj)
         rtol: float = None, # removes singular values satisfying sigma < maximum(atol, rtol*sigma1)
         atol: float = None, # removes singular values satisfying sigma < maximum(atol, rtol*sigma1)
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[
     NDArray, # U_i_x_j, shape=(ni, nx, nj),
     NDArray, # ss_x,    shape=(nx,)
@@ -364,7 +367,7 @@ def outer_svd_3tensor(
     1.8969691003092744e-15
     '''
     G0_i_j_a = G0_i_a_j.swapaxes(1, 2)
-    U_i_j_x, ss_x, Vt_x_a = left_svd_3tensor(G0_i_j_a, min_rank, max_rank, rtol, atol, xnp=xnp)
+    U_i_j_x, ss_x, Vt_x_a = left_svd_3tensor(G0_i_j_a, min_rank, max_rank, rtol, atol, use_jax=use_jax)
     U_i_x_j = U_i_j_x.swapaxes(1, 2)
     return U_i_x_j, ss_x, Vt_x_a
 

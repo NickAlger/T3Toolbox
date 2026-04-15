@@ -146,7 +146,7 @@ def tangent_to_dense(
     terms = tucker_terms + tt_terms
     V = t3.t3_to_dense(terms[0])
     for t in terms[1:]:
-        V = V + t3.t3_to_dense(t, xnp=xnp)
+        V = V + t3.t3_to_dense(t, use_jax=use_jax)
 
     if include_shift:
         tucker_cores, left_tt_cores, _, _ = base
@@ -943,7 +943,7 @@ def project_t3_onto_tangent_space(
 def retract(
         variation: bvf.T3Variation,
         base: bvf.T3Base,
-        xnp = np,
+        use_jax: bool = False,
 ) -> t3.TuckerTensorTrain: # retracted Tucker tensor train
     """Retract Tucker tensor train tangent vector to manifold.
 
@@ -992,12 +992,12 @@ def retract(
     tucker_cores, left_tt_cores, _, _ = base
     _, base_tucker_ranks, base_tt_ranks = t3.get_structure((tucker_cores, left_tt_cores))
 
-    x_t3 = tangent_to_t3(variation, base, include_shift=True, xnp=xnp)
+    x_t3 = tangent_to_t3(variation, base, include_shift=True, use_jax=use_jax)
     retracted_x_t3, _, _ = t3svd.t3_svd(
         x_t3,
         max_tt_ranks = base_tt_ranks,
         max_tucker_ranks = base_tucker_ranks,
-        xnp=xnp,
+        use_jax=use_jax,
     )
     return retracted_x_t3
 

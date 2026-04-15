@@ -43,7 +43,7 @@ def up_svd_ith_tucker_core(
         max_rank: int = None,
         rtol: float = None,
         atol: float = None,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[
     t3.TuckerTensorTrain, # new_x
     NDArray, # ss_x. singular values
@@ -102,12 +102,15 @@ def up_svd_ith_tucker_core(
     >>> print(np.linalg.norm(B @ B.T - np.eye(rank))) # Tucker core is orthogonal
     8.456498415401757e-16
     '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
     tucker_cores, tt_cores = x
     G_a_i_b = tt_cores[ii]
     U_i_o = tucker_cores[ii]
     U_o_i = U_i_o.T
 
-    U2_o_x, ss_x, Vt_x_i = t3toolbox.linalg.truncated_svd(U_o_i, min_rank, max_rank, rtol, atol, xnp=xnp)
+    U2_o_x, ss_x, Vt_x_i = linalg.truncated_svd(U_o_i, min_rank, max_rank, rtol, atol, use_jax=use_jax)
     R_x_i = xnp.einsum('x,xi->xi', ss_x, Vt_x_i)
     # U2_o_x, R_x_i = xnp.linalg.qr(U_o_i, mode='reduced')
 
@@ -132,7 +135,7 @@ def left_svd_ith_tt_core(
         max_rank: int = None,
         rtol: float = None,
         atol: float = None,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[
     t3.TuckerTensorTrain, # new_x
     NDArray, # singular values, shape=(r(i+1),)
@@ -191,12 +194,15 @@ def left_svd_ith_tt_core(
     >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', G, G) - np.eye(G.shape[2]))) # TT-core is left-orthogonal
         4.453244025338311e-16
     '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
     tucker_cores, tt_cores = x
 
     A0_a_i_b = tt_cores[ii]
     B0_b_j_c = tt_cores[ii+1]
 
-    A_a_i_x, ss_x, Vt_x_b = linalg.left_svd_3tensor(A0_a_i_b, min_rank, max_rank, rtol, atol, xnp=xnp)
+    A_a_i_x, ss_x, Vt_x_b = linalg.left_svd_3tensor(A0_a_i_b, min_rank, max_rank, rtol, atol, use_jax=use_jax)
     B_x_j_c = xnp.tensordot(ss_x.reshape((-1,1)) * Vt_x_b, B0_b_j_c, axes=1)
 
     new_tt_cores = list(tt_cores)
@@ -213,7 +219,7 @@ def right_svd_ith_tt_core(
         max_rank: int = None,
         rtol: float = None,
         atol: float = None,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[
     t3.TuckerTensorTrain, # new_x
     NDArray, # singular values, shape=(new_ri,)
@@ -272,12 +278,15 @@ def right_svd_ith_tt_core(
     >>> print(np.linalg.norm(np.einsum('iaj,kaj->ik', G, G) - np.eye(G.shape[0]))) # TT-core is right orthogonal
         4.207841813173725e-16
     '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
     tucker_cores, tt_cores = x
 
     A0_a_i_b = tt_cores[ii-1]
     B0_b_j_c = tt_cores[ii]
 
-    U_b_x, ss_x, B_x_j_c = linalg.right_svd_3tensor(B0_b_j_c, min_rank, max_rank, rtol, atol, xnp=xnp)
+    U_b_x, ss_x, B_x_j_c = linalg.right_svd_3tensor(B0_b_j_c, min_rank, max_rank, rtol, atol, use_jax=use_jax)
     A_a_i_x = xnp.tensordot(A0_a_i_b, U_b_x * ss_x.reshape((1,-1)), axes=1)
 
     new_tt_cores = list(tt_cores)
@@ -294,7 +303,7 @@ def up_svd_ith_tt_core(
         max_rank: int = None,
         rtol: float = None,
         atol: float = None,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[
     t3.TuckerTensorTrain, # new_x
     NDArray, # singular values, shape=(new_ni,)
@@ -347,12 +356,16 @@ def up_svd_ith_tt_core(
     >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Tensor unchanged
     1.002901486286745e-12
     '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
+
     tucker_cores, tt_cores = x
 
     G0_a_i_b = tt_cores[ii]
     Q0_i_o = tucker_cores[ii]
 
-    U_a_x_b, ss_x, Vt_x_i = linalg.outer_svd_3tensor(G0_a_i_b, min_rank, max_rank, rtol, atol, xnp=xnp)
+    U_a_x_b, ss_x, Vt_x_i = linalg.outer_svd_3tensor(G0_a_i_b, min_rank, max_rank, rtol, atol, use_jax=use_jax)
 
     G_a_x_b = xnp.einsum('axb,x->axb', U_a_x_b, ss_x)
     Q_x_o = xnp.tensordot(Vt_x_i, Q0_i_o, axes=1)
@@ -373,7 +386,7 @@ def down_svd_ith_tt_core(
         max_rank: int = None,
         rtol: float = None,
         atol: float = None,
-        xnp = np,
+        use_jax: bool = False,
 ) -> typ.Tuple[
     t3.TuckerTensorTrain, # new_x
     NDArray, # singular values, shape=(new_ni,)
@@ -432,12 +445,15 @@ def down_svd_ith_tt_core(
     >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1]))) # TT-core is outer orthogonal
     1.0643458053135608e-15
     '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
     tucker_cores, tt_cores = x
 
     G0_a_i_b = tt_cores[ii]
     Q0_i_o = tucker_cores[ii]
 
-    G_a_x_b, ss_x, Vt_x_i = linalg.outer_svd_3tensor(G0_a_i_b, min_rank, max_rank, rtol, atol, xnp=xnp)
+    G_a_x_b, ss_x, Vt_x_i = linalg.outer_svd_3tensor(G0_a_i_b, min_rank, max_rank, rtol, atol, use_jax=use_jax)
 
     Q_x_o = (ss_x.reshape((-1,1)) * Vt_x_i) @ Q0_i_o
 
@@ -457,7 +473,7 @@ def orthogonalize_relative_to_ith_tucker_core(
         max_rank: int = None,
         rtol: float = None,
         atol: float = None,
-        xnp = np,
+        use_jax: bool = False,
 ) -> t3.TuckerTensorTrain:
     '''Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker core.
 
@@ -526,20 +542,23 @@ def orthogonalize_relative_to_ith_tucker_core(
     >>> print(np.linalg.norm(np.einsum('axjkd,ayjkd->xy', X, X) - np.eye(B0.shape[0]))) # Complement of B1 is orthogonal
     2.3594586449868743e-15
     '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
     shape, tucker_ranks, tt_ranks = t3.get_structure(x)
 
     new_x = x
     for jj in range(ii):
-        new_x = down_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
-        new_x = up_svd_ith_tucker_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
-        new_x = left_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
+        new_x = down_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = up_svd_ith_tucker_core(jj, new_x, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = left_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
 
     for jj in range(len(shape)-1, ii, -1):
-        new_x = down_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
-        new_x = up_svd_ith_tucker_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
-        new_x = right_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
+        new_x = down_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = up_svd_ith_tucker_core(jj, new_x, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = right_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
 
-    new_x = down_svd_ith_tt_core(ii, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
+    new_x = down_svd_ith_tt_core(ii, new_x, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
     return new_x
 
 
@@ -550,7 +569,7 @@ def orthogonalize_relative_to_ith_tt_core(
         max_rank: int = None,
         rtol: float = None,
         atol: float = None,
-        xnp = np,
+        use_jax: bool = False,
 ) -> t3.TuckerTensorTrain:
     '''Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
 
@@ -623,20 +642,23 @@ def orthogonalize_relative_to_ith_tt_core(
     >>> print(np.linalg.norm(np.einsum('bijd,cijd->bc', XR, XR) - np.eye(G0.shape[2]))) # Right subtree is right orthogonal
     8.816596607002667e-16
     '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
     shape, tucker_ranks, tt_ranks = t3.get_structure(x)
 
     new_x = x
     for jj in range(ii):
-        new_x = down_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
-        new_x = up_svd_ith_tucker_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
-        new_x = left_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
+        new_x = down_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = up_svd_ith_tucker_core(jj, new_x, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = left_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
 
     for jj in range(len(shape)-1, ii, -1):
-        new_x = down_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
-        new_x = up_svd_ith_tucker_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
-        new_x = right_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
+        new_x = down_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = up_svd_ith_tucker_core(jj, new_x, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = right_svd_ith_tt_core(jj, new_x, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
 
-    new_x = up_svd_ith_tucker_core(ii, new_x, min_rank, max_rank, rtol, atol, xnp=xnp)[0]
+    new_x = up_svd_ith_tucker_core(ii, new_x, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
     return new_x
 
 

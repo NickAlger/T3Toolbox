@@ -143,7 +143,7 @@ def corewise_norm(X, use_jax: bool=False):
 
 def corewise_err(X_true, X, use_jax: bool=False):
     xnp, _, _ = get_backend(False, use_jax)
-    return corewise_norm(corewise_sub(X_true, X), xnp=xnp)
+    return corewise_norm(corewise_sub(X_true, X), use_jax=use_jax)
 
 
 def corewise_relerr(X_true, X, use_jax:bool = False):

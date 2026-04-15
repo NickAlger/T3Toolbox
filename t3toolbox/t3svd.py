@@ -5,11 +5,11 @@
 import numpy as np
 import typing as typ
 
-import t3toolbox.util_linalg
+
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.orthogonalization as orth
 import t3toolbox.uniform as ut3
-import t3toolbox.util_linalg as util_linalg
+import t3toolbox.util_linalg as linalg
 from t3toolbox.common import *
 
 __all__ = [
@@ -173,7 +173,7 @@ def t3_svd(
 
     # make leading and trailing TT-ranks equal to 1
     if squash_tails_first:
-        x = t3.squash_tails(x, xnp=xnp) # This causes a problem for some reason
+        x = t3.squash_tails(x, use_jax=use_jax) # This causes a problem for some reason
 
     # Orthogonalize Tucker matrices
     x = orth.up_orthogonalize_tucker_cores(x, use_jax=use_jax)
@@ -182,7 +182,7 @@ def t3_svd(
     x = x[0], orth.right_orthogonalize_tt_cores(x[1], use_jax=use_jax)
 
     G0 = x[1][0]
-    _, ss_first, _ = util_linalg.right_svd_3tensor(G0, xnp=xnp)
+    _, ss_first, _ = linalg.right_svd_3tensor(G0, use_jax=use_jax)
 
     # Sweep left to right computing SVDS
     all_ss_tucker = []
@@ -192,7 +192,7 @@ def t3_svd(
         max_rank = max_tucker_ranks[ii] if max_tucker_ranks is not None else None
         # SVD inbetween TT core and Tucker core
         x, ss_tucker = orth.up_svd_ith_tt_core(
-            ii, x, min_rank, max_rank, rtol, atol, xnp=xnp,
+            ii, x, min_rank, max_rank, rtol, atol, use_jax=use_jax,
         )
         all_ss_tucker.append(ss_tucker)
 
@@ -201,11 +201,11 @@ def t3_svd(
             max_rank = max_tt_ranks[ii+1] if max_tt_ranks is not None else None
             # SVD inbetween ith tt core and (i+1)th tt core
             x, ss_tt = orth.left_svd_ith_tt_core(
-                ii, x, min_rank, max_rank, rtol, atol, xnp=xnp,
+                ii, x, min_rank, max_rank, rtol, atol, use_jax=use_jax,
             )
         else:
             Gf = x[1][-1]
-            _, ss_tt, _ = util_linalg.left_svd_3tensor(Gf, xnp=xnp)
+            _, ss_tt, _ = linalg.left_svd_3tensor(Gf, use_jax=use_jax)
         all_ss_tt.append(ss_tt)
 
     return x, tuple(all_ss_tucker), tuple(all_ss_tt)
@@ -291,8 +291,8 @@ def tucker_svd_dense(
         max_rank = None if max_ranks is None else max_ranks[ii]
 
         C_swap_mat = C_swap.reshape((old_shape_swap[0], -1))
-        U, ss, Vt = t3toolbox.linalg.truncated_svd(
-            C_swap_mat, min_rank, max_rank, rtol, atol, xnp=xnp,
+        U, ss, Vt = linalg.truncated_svd(
+            C_swap_mat, min_rank, max_rank, rtol, atol, use_jax=use_jax,
         )
         rM_new = len(ss)
 
@@ -375,8 +375,8 @@ def tt_svd_dense(
         min_rank = None if min_ranks is None else min_ranks[ii+1]
         max_rank = None if max_ranks is None else max_ranks[ii+1]
 
-        U, ss, Vt = t3toolbox.linalg.truncated_svd(
-            X.reshape((rL * nn[ii], -1)), min_rank, max_rank, rtol, atol, xnp=xnp,
+        U, ss, Vt = linalg.truncated_svd(
+            X.reshape((rL * nn[ii], -1)), min_rank, max_rank, rtol, atol, use_jax=use_jax,
         )
         rR = len(ss)
 
