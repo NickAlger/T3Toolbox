@@ -499,7 +499,7 @@
 <td><p>Tuple containing variation cores for base-variation representation of TuckerTensorTrains.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.base_variation_format.BVStructure" title="t3toolbox.base_variation_format.BVStructure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">BVStructure</span></code></a></p></td>
-<td><p>Shape and rank structore of a base-variation T3 representation.</p></td>
+<td><p>Shape and rank structure of a base-variation T3 representation.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.base_variation_format.BVEdgeWeights" title="t3toolbox.base_variation_format.BVEdgeWeights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">BVEdgeWeights</span></code></a></p></td>
 <td><p>Edge weights for base-variation format.</p></td>
@@ -668,14 +668,14 @@ to linear algebra operations with the N1 x … x Nd tangent vectors represented 
 <dl class="py data">
 <dt class="sig sig-object py" id="t3toolbox.base_variation_format.BVStructure">
 <span class="sig-prename descclassname"><span class="pre">t3toolbox.base_variation_format.</span></span><span class="sig-name descname"><span class="pre">BVStructure</span></span><a class="headerlink" href="#t3toolbox.base_variation_format.BVStructure" title="Link to this definition">#</a></dt>
-<dd><p>Shape and rank structore of a base-variation T3 representation.</p>
+<dd><p>Shape and rank structure of a base-variation T3 representation.</p>
 <dl class="simple">
 <dt><em>Components</em></dt><dd><ul class="simple">
-<li><p>shape:                typ.Sequence[int]. len=d</p></li>
-<li><p>up_tucker_ranks:      typ.Sequence[int]. len=d</p></li>
-<li><p>outer_tucker_ranks:   typ.Sequence[int]. len=d</p></li>
-<li><p>left_tt_ranks:        typ.Sequence[int]. len=d+1</p></li>
-<li><p>right_tt_ranks:       typ.Sequence[int]. len=d+1</p></li>
+<li><p>shape:                typ.Sequence[int] = (N0,…,N(d-1)),   len=d</p></li>
+<li><p>up_tucker_ranks:      typ.Sequence[int] = (nU0,…,nU(d-1)), len=d</p></li>
+<li><p>outer_tucker_ranks:   typ.Sequence[int] = (nO0,…,nO(d-1)), len=d</p></li>
+<li><p>left_tt_ranks:        typ.Sequence[int] = (rL0,…,rLd),     len=d+1</p></li>
+<li><p>right_tt_ranks:       typ.Sequence[int] = (rR0,…,rRd),     len=d+1</p></li>
 </ul>
 </dd>
 </dl>
@@ -690,13 +690,35 @@ to linear algebra operations with the N1 x … x Nd tangent vectors represented 
 <dt class="sig sig-object py" id="t3toolbox.base_variation_format.BVEdgeWeights">
 <span class="sig-prename descclassname"><span class="pre">t3toolbox.base_variation_format.</span></span><span class="sig-name descname"><span class="pre">BVEdgeWeights</span></span><a class="headerlink" href="#t3toolbox.base_variation_format.BVEdgeWeights" title="Link to this definition">#</a></dt>
 <dd><p>Edge weights for base-variation format.</p>
+<p>Tensor network diagrams illustrating edge weights:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">1</span><span class="o">--</span><span class="n">wL0</span><span class="o">--</span><span class="n">L0</span><span class="o">--</span><span class="n">wL1</span><span class="o">--</span><span class="n">H1</span><span class="o">--</span><span class="n">wR2</span><span class="o">--</span><span class="n">R2</span><span class="o">--</span><span class="n">wR3</span><span class="o">--</span><span class="mi">1</span>
+        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
+        <span class="n">wU0</span>      <span class="n">wU1</span>      <span class="n">wU3</span>
+        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
+        <span class="n">U0</span>       <span class="n">U1</span>       <span class="n">U2</span>
+        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
+        <span class="n">wS1</span>      <span class="n">wS2</span>      <span class="n">wS3</span>
+        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
+</pre></div>
+</div>
+<p>and:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">1</span><span class="o">--</span><span class="n">wL0</span><span class="o">--</span><span class="n">L0</span><span class="o">--</span><span class="n">wL1</span><span class="o">--</span><span class="n">O1</span><span class="o">--</span><span class="n">wR2</span><span class="o">--</span><span class="n">R2</span><span class="o">--</span><span class="n">wR3</span><span class="o">--</span><span class="mi">1</span>
+        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
+        <span class="n">wU0</span>      <span class="n">wU1</span>      <span class="n">wU3</span>
+        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
+        <span class="n">U0</span>       <span class="n">V1</span>       <span class="n">U2</span>
+        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
+        <span class="n">wS1</span>      <span class="n">wS2</span>      <span class="n">wS3</span>
+        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
+</pre></div>
+</div>
 <dl class="simple">
 <dt><em>Components</em></dt><dd><ul class="simple">
-<li><p>shape_weights:        typ.Sequence[NDArray], len=d, elm_shape=(Ni,)</p></li>
-<li><p>up_tucker_weights:    typ.Sequence[NDArray], len=d, elm_shape=(nUi,)</p></li>
-<li><p>outer_tucker_weights: typ.Sequence[NDArray], len=d, elm_shape=(nOi,)</p></li>
-<li><p>left_tt_weights:      typ.Sequence[NDArray], len=d, elm_shape=(rLi,)</p></li>
-<li><p>right_tt_weights:     typ.Sequence[NDArray], len=d, elm_shape=(rRi,)</p></li>
+<li><p>shape_weights:        typ.Sequence[NDArray] = (wS0,…,wS(d-1)), len=d, elm_shape=(Ni,)</p></li>
+<li><p>up_tucker_weights:    typ.Sequence[NDArray] = (wU0,…,wU(d-1)), len=d, elm_shape=(nUi,)</p></li>
+<li><p>outer_tucker_weights: typ.Sequence[NDArray] = (wO0,…,wO(d-1)), len=d, elm_shape=(nOi,)</p></li>
+<li><p>left_tt_weights:      typ.Sequence[NDArray] = (wL0,…,wL(d-1)), len=d, elm_shape=(rLi,)</p></li>
+<li><p>right_tt_weights:     typ.Sequence[NDArray] = (wR1,…,wRd),     len=d, elm_shape=(rRi,)</p></li>
 </ul>
 </dd>
 <dt>Note: there are no weights for:</dt><dd><ul class="simple">
