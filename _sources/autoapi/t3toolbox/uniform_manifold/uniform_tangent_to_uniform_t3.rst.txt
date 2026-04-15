@@ -1,12 +1,31 @@
 t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3
 ========================================================
 
-.. py:function:: t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3(variations: t3toolbox.uniform.UniformT3Variation, base: t3toolbox.uniform.UniformT3Base, include_shift: bool = False, use_jax: bool = False) -> t3toolbox.uniform.UniformTuckerTensorTrainCores
+.. py:function:: t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3(variations: t3toolbox.uniform.UniformT3Variation, base: t3toolbox.uniform.UniformT3Base, bv_masks: t3toolbox.uniform.UniformBVEdgeWeights, include_shift: bool = False, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.uniform.UniformTuckerTensorTrainCores, t3toolbox.uniform.UniformEdgeWeights]
 
    Rank 2r Tucker tensor train representation of tangent vector:
-   u(x,y,z,w) = ([dG1(B x) L1(B x)]) ([R2(B y)        0]) ([R3(B z)        0]) ([R4(B w) ])
-                (                  ) ([dG2(B y) L2(B y)]) ([dG3(B z) L3(B z)]) ([dG4(B w)])
-                (         +        ) (         +        ) (        +         ) (    +     )
-                ([O1(dB x)       0]) ([0              0]) ([0              0]) ([0       ])
-                (                  ) ([O2(dB y)       0]) ([O3(dB z)       0]) ([O4(dB w)])
+           u(x,y,z,w) = ([dG1(B x) L1(B x)]) ([R2(B y)        0]) ([R3(B z)        0]) ([R4(B w) ])
+                        (                  ) ([dG2(B y) L2(B y)]) ([dG3(B z) L3(B z)]) ([dG4(B w)])
+                        (         +        ) (         +        ) (        +         ) (    +     )
+                        ([O1(dB x)       0]) ([0              0]) ([0              0]) ([0       ])
+                        (                  ) ([O2(dB y)       0]) ([O3(dB z)       0]) ([O4(dB w)])
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.manifold as t3m
+   >>> import t3toolbox.uniform as ut3
+   >>> import t3toolbox.uniform_manifold as utm
+   >>> import t3toolbox.orthogonalization as orth
+   >>> import t3toolbox.t3svd as t3svd
+   >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (5,3,2,4)))
+   >>> p, _, _ = t3svd.t3_svd(p)
+   >>> base, dummy_var = orth.orthogonal_representations(p)
+   >>> v = t3m.tangent_randn(base)
+   >>> uniform_v, uniform_base, bv_mask = ut3.bv_to_ubv(v, base)
+   >>> dense_v = t3m.tangent_to_dense(v, base)
+   >>> dense_uniform_v = utm.uniform_tangent_to_dense(uniform_v, uniform_base, bv_mask)
+   >>> print(np.linalg.norm(dense_v - dense_uniform_v))
+   4.72221182491572e-14
 

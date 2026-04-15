@@ -11,9 +11,11 @@ Functions
    :hidden:
 
    /autoapi/t3toolbox/uniform_manifold/uniform_tangent_to_uniform_t3
+   /autoapi/t3toolbox/uniform_manifold/uniform_tangent_to_dense
 
 .. autoapisummary::
 
    t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3
+   t3toolbox.uniform_manifold.uniform_tangent_to_dense
 
 

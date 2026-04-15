@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.jax &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.uniform_manifold.uniform_tangent_to_dense &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/jax/index';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/uniform_manifold/uniform_tangent_to_dense';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3toolbox.jax.base_variation_format" href="base_variation_format/index.html" />
-    <link rel="prev" title="t3toolbox.corewise.corewise_logical_not" href="../corewise/corewise_logical_not.html" />
+    <link rel="next" title="t3toolbox.uniform_orthogonalization" href="../uniform_orthogonalization/index.html" />
+    <link rel="prev" title="t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3" href="uniform_tangent_to_uniform_t3.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -280,19 +280,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_logical_not.html">t3toolbox.corewise.corewise_logical_not</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">t3toolbox.jax</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="base_variation_format/index.html">t3toolbox.jax.base_variation_format</a></li>
-<li class="toctree-l3"><a class="reference internal" href="corewise/index.html">t3toolbox.jax.corewise</a></li>
-<li class="toctree-l3"><a class="reference internal" href="linalg/index.html">t3toolbox.jax.linalg</a></li>
-<li class="toctree-l3"><a class="reference internal" href="manifold/index.html">t3toolbox.jax.manifold</a></li>
-<li class="toctree-l3"><a class="reference internal" href="orthogonalization/index.html">t3toolbox.jax.orthogonalization</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3svd/index.html">t3toolbox.jax.t3svd</a></li>
-<li class="toctree-l3"><a class="reference internal" href="tucker_tensor_train/index.html">t3toolbox.jax.tucker_tensor_train</a></li>
-<li class="toctree-l3"><a class="reference internal" href="uniform/index.html">t3toolbox.jax.uniform</a></li>
-<li class="toctree-l3"><a class="reference internal" href="uniform_manifold/index.html">t3toolbox.jax.uniform_manifold</a></li>
-<li class="toctree-l3"><a class="reference internal" href="uniform_orthogonalization/index.html">t3toolbox.jax.uniform_orthogonalization</a></li>
-</ul>
-</details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../manifold/index.html">t3toolbox.manifold</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../manifold/manifold_dim.html">t3toolbox.manifold.manifold_dim</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../manifold/tangent_to_dense.html">t3toolbox.manifold.tangent_to_dense</a></li>
@@ -406,8 +393,9 @@
 <li class="toctree-l3"><a class="reference internal" href="../uniform/ut3_sub.html">t3toolbox.uniform.ut3_sub</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../uniform_manifold/index.html">t3toolbox.uniform_manifold</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../uniform_manifold/uniform_tangent_to_uniform_t3.html">t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3</a></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.uniform_manifold</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="uniform_tangent_to_uniform_t3.html">t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.uniform_manifold.uniform_tangent_to_dense</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../uniform_orthogonalization/index.html">t3toolbox.uniform_orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -469,7 +457,10 @@
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">t3toolbox</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.jax</span></li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.uniform_manifold</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.uniform_manifold.uniform_tangent_to_dense</span></li>
   </ul>
 </nav>
 </div>
@@ -486,25 +477,33 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="module-t3toolbox.jax">
-<span id="t3toolbox-jax"></span><h1>t3toolbox.jax<a class="headerlink" href="#module-t3toolbox.jax" title="Link to this heading">#</a></h1>
-<section id="submodules">
-<h2>Submodules<a class="headerlink" href="#submodules" title="Link to this heading">#</a></h2>
-<div class="toctree-wrapper compound">
-<ul>
-<li class="toctree-l1"><a class="reference internal" href="base_variation_format/index.html">t3toolbox.jax.base_variation_format</a></li>
-<li class="toctree-l1"><a class="reference internal" href="corewise/index.html">t3toolbox.jax.corewise</a></li>
-<li class="toctree-l1"><a class="reference internal" href="linalg/index.html">t3toolbox.jax.linalg</a></li>
-<li class="toctree-l1"><a class="reference internal" href="manifold/index.html">t3toolbox.jax.manifold</a></li>
-<li class="toctree-l1"><a class="reference internal" href="orthogonalization/index.html">t3toolbox.jax.orthogonalization</a></li>
-<li class="toctree-l1"><a class="reference internal" href="t3svd/index.html">t3toolbox.jax.t3svd</a></li>
-<li class="toctree-l1"><a class="reference internal" href="tucker_tensor_train/index.html">t3toolbox.jax.tucker_tensor_train</a></li>
-<li class="toctree-l1"><a class="reference internal" href="uniform/index.html">t3toolbox.jax.uniform</a></li>
-<li class="toctree-l1"><a class="reference internal" href="uniform_manifold/index.html">t3toolbox.jax.uniform_manifold</a></li>
-<li class="toctree-l1"><a class="reference internal" href="uniform_orthogonalization/index.html">t3toolbox.jax.uniform_orthogonalization</a></li>
-</ul>
+  <section id="t3toolbox-uniform-manifold-uniform-tangent-to-dense">
+<h1>t3toolbox.uniform_manifold.uniform_tangent_to_dense<a class="headerlink" href="#t3toolbox-uniform-manifold-uniform-tangent-to-dense" title="Link to this heading">#</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="t3toolbox.uniform_manifold.uniform_tangent_to_dense">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.uniform_manifold.</span></span><span class="sig-name descname"><span class="pre">uniform_tangent_to_dense</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variations</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformT3Variation" title="t3toolbox.uniform.UniformT3Variation"><span class="pre">t3toolbox.uniform.UniformT3Variation</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformT3Base" title="t3toolbox.uniform.UniformT3Base"><span class="pre">t3toolbox.uniform.UniformT3Base</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">masks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformEdgeWeights" title="t3toolbox.uniform.UniformEdgeWeights"><span class="pre">t3toolbox.uniform.UniformEdgeWeights</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_shift</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.NDArray</span></span></span><a class="headerlink" href="#t3toolbox.uniform_manifold.uniform_tangent_to_dense" title="Link to this definition">#</a></dt>
+<dd><p>Convert uniform Tangent vector to dense tensor.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.manifold</span> <span class="k">as</span> <span class="nn">t3m</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.uniform</span> <span class="k">as</span> <span class="nn">ut3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.uniform_manifold</span> <span class="k">as</span> <span class="nn">utm</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.orthogonalization</span> <span class="k">as</span> <span class="nn">orth</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.t3svd</span> <span class="k">as</span> <span class="nn">t3svd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">4</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">t3svd</span><span class="o">.</span><span class="n">t3_svd</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">base</span><span class="p">,</span> <span class="n">dummy_var</span> <span class="o">=</span> <span class="n">orth</span><span class="o">.</span><span class="n">orthogonal_representations</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">v</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_randn</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">uniform_v</span><span class="p">,</span> <span class="n">uniform_base</span><span class="p">,</span> <span class="n">bv_mask</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">bv_to_ubv</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dense_v</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_to_dense</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dense_uniform_v</span> <span class="o">=</span> <span class="n">utm</span><span class="o">.</span><span class="n">uniform_tangent_to_dense</span><span class="p">(</span><span class="n">uniform_v</span><span class="p">,</span> <span class="n">uniform_base</span><span class="p">,</span> <span class="n">bv_mask</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">dense_v</span> <span class="o">-</span> <span class="n">dense_uniform_v</span><span class="p">))</span>
+<span class="go">4.72221182491572e-14</span>
+</pre></div>
 </div>
-</section>
+</dd></dl>
+
 </section>
 
 
@@ -518,20 +517,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../corewise/corewise_logical_not.html"
+       href="uniform_tangent_to_uniform_t3.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.corewise.corewise_logical_not</p>
+        <p class="prev-next-title">t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3</p>
       </div>
     </a>
     <a class="right-next"
-       href="base_variation_format/index.html"
+       href="../uniform_orthogonalization/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.jax.base_variation_format</p>
+        <p class="prev-next-title">t3toolbox.uniform_orthogonalization</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -554,14 +553,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#submodules">Submodules</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_manifold.uniform_tangent_to_dense"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_manifold.uniform_tangent_to_dense()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/jax/index.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/uniform_manifold/uniform_tangent_to_dense.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

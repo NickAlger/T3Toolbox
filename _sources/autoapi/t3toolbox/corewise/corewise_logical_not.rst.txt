@@ -1,7 +1,7 @@
 t3toolbox.corewise.corewise_logical_not
 =======================================
 
-.. py:function:: t3toolbox.corewise.corewise_logical_not(X: NDArrayTree, xnp=np) -> NDArrayTree
+.. py:function:: t3toolbox.corewise.corewise_logical_not(X: NDArrayTree, use_jax: bool = False) -> NDArrayTree
 
    Perform logical not operation on nested objects
 

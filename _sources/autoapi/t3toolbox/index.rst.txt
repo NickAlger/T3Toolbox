@@ -13,7 +13,6 @@ Submodules
    /autoapi/t3toolbox/base_variation_format/index
    /autoapi/t3toolbox/common/index
    /autoapi/t3toolbox/corewise/index
-   /autoapi/t3toolbox/jax/index
    /autoapi/t3toolbox/manifold/index
    /autoapi/t3toolbox/orthogonalization/index
    /autoapi/t3toolbox/probing/index

@@ -280,19 +280,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_logical_not.html">t3toolbox.corewise.corewise_logical_not</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../jax/index.html">t3toolbox.jax</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../jax/base_variation_format/index.html">t3toolbox.jax.base_variation_format</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/corewise/index.html">t3toolbox.jax.corewise</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/linalg/index.html">t3toolbox.jax.linalg</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/manifold/index.html">t3toolbox.jax.manifold</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/orthogonalization/index.html">t3toolbox.jax.orthogonalization</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/t3svd/index.html">t3toolbox.jax.t3svd</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/tucker_tensor_train/index.html">t3toolbox.jax.tucker_tensor_train</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/uniform/index.html">t3toolbox.jax.uniform</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/uniform_manifold/index.html">t3toolbox.jax.uniform_manifold</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/uniform_orthogonalization/index.html">t3toolbox.jax.uniform_orthogonalization</a></li>
-</ul>
-</details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../manifold/index.html">t3toolbox.manifold</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../manifold/manifold_dim.html">t3toolbox.manifold.manifold_dim</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../manifold/tangent_to_dense.html">t3toolbox.manifold.tangent_to_dense</a></li>
@@ -408,6 +395,7 @@
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../uniform_manifold/index.html">t3toolbox.uniform_manifold</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../uniform_manifold/uniform_tangent_to_uniform_t3.html">t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../uniform_manifold/uniform_tangent_to_dense.html">t3toolbox.uniform_manifold.uniform_tangent_to_dense</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../uniform_orthogonalization/index.html">t3toolbox.uniform_orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -493,7 +481,7 @@
 <h1>t3toolbox.uniform.uniform_squash_tails<a class="headerlink" href="#t3toolbox-uniform-uniform-squash-tails" title="Link to this heading">#</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="t3toolbox.uniform.uniform_squash_tails">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.uniform.</span></span><span class="sig-name descname"><span class="pre">uniform_squash_tails</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../jax/uniform/index.html#t3toolbox.jax.uniform.UniformTuckerTensorTrainCores" title="t3toolbox.jax.uniform.UniformTuckerTensorTrainCores"><span class="pre">UniformTuckerTensorTrainCores</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../jax/uniform/index.html#t3toolbox.jax.uniform.UniformTuckerTensorTrainCores" title="t3toolbox.jax.uniform.UniformTuckerTensorTrainCores"><span class="pre">UniformTuckerTensorTrainCores</span></a></span></span><a class="headerlink" href="#t3toolbox.uniform.uniform_squash_tails" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.uniform.</span></span><span class="sig-name descname"><span class="pre">uniform_squash_tails</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#t3toolbox.uniform.UniformTuckerTensorTrainCores" title="t3toolbox.uniform.UniformTuckerTensorTrainCores"><span class="pre">UniformTuckerTensorTrainCores</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="index.html#t3toolbox.uniform.UniformTuckerTensorTrainCores" title="t3toolbox.uniform.UniformTuckerTensorTrainCores"><span class="pre">UniformTuckerTensorTrainCores</span></a></span></span><a class="headerlink" href="#t3toolbox.uniform.uniform_squash_tails" title="Link to this definition">#</a></dt>
 <dd><p>Squash tails of uniform Tucker tensor train.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>

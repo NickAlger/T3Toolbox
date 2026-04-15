@@ -47,7 +47,7 @@
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3toolbox.uniform_orthogonalization" href="../uniform_orthogonalization/index.html" />
+    <link rel="next" title="t3toolbox.uniform_manifold.uniform_tangent_to_dense" href="uniform_tangent_to_dense.html" />
     <link rel="prev" title="t3toolbox.uniform_manifold" href="index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -280,19 +280,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_logical_not.html">t3toolbox.corewise.corewise_logical_not</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../jax/index.html">t3toolbox.jax</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../jax/base_variation_format/index.html">t3toolbox.jax.base_variation_format</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/corewise/index.html">t3toolbox.jax.corewise</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/linalg/index.html">t3toolbox.jax.linalg</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/manifold/index.html">t3toolbox.jax.manifold</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/orthogonalization/index.html">t3toolbox.jax.orthogonalization</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/t3svd/index.html">t3toolbox.jax.t3svd</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/tucker_tensor_train/index.html">t3toolbox.jax.tucker_tensor_train</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/uniform/index.html">t3toolbox.jax.uniform</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/uniform_manifold/index.html">t3toolbox.jax.uniform_manifold</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/uniform_orthogonalization/index.html">t3toolbox.jax.uniform_orthogonalization</a></li>
-</ul>
-</details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../manifold/index.html">t3toolbox.manifold</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../manifold/manifold_dim.html">t3toolbox.manifold.manifold_dim</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../manifold/tangent_to_dense.html">t3toolbox.manifold.tangent_to_dense</a></li>
@@ -408,6 +395,7 @@
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.uniform_manifold</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="uniform_tangent_to_dense.html">t3toolbox.uniform_manifold.uniform_tangent_to_dense</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../uniform_orthogonalization/index.html">t3toolbox.uniform_orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -493,15 +481,36 @@
 <h1>t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3<a class="headerlink" href="#t3toolbox-uniform-manifold-uniform-tangent-to-uniform-t3" title="Link to this heading">#</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.uniform_manifold.</span></span><span class="sig-name descname"><span class="pre">uniform_tangent_to_uniform_t3</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variations</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformT3Variation" title="t3toolbox.uniform.UniformT3Variation"><span class="pre">t3toolbox.uniform.UniformT3Variation</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformT3Base" title="t3toolbox.uniform.UniformT3Base"><span class="pre">t3toolbox.uniform.UniformT3Base</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_shift</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformTuckerTensorTrainCores" title="t3toolbox.uniform.UniformTuckerTensorTrainCores"><span class="pre">t3toolbox.uniform.UniformTuckerTensorTrainCores</span></a></span></span><a class="headerlink" href="#t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3" title="Link to this definition">#</a></dt>
-<dd><p>Rank 2r Tucker tensor train representation of tangent vector:
-u(x,y,z,w) = ([dG1(B x) L1(B x)]) ([R2(B y)        0]) ([R3(B z)        0]) ([R4(B w) ])</p>
-<blockquote>
-<div><p>(                  ) ([dG2(B y) L2(B y)]) ([dG3(B z) L3(B z)]) ([dG4(B w)])
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.uniform_manifold.</span></span><span class="sig-name descname"><span class="pre">uniform_tangent_to_uniform_t3</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variations</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformT3Variation" title="t3toolbox.uniform.UniformT3Variation"><span class="pre">t3toolbox.uniform.UniformT3Variation</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformT3Base" title="t3toolbox.uniform.UniformT3Base"><span class="pre">t3toolbox.uniform.UniformT3Base</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">bv_masks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformBVEdgeWeights" title="t3toolbox.uniform.UniformBVEdgeWeights"><span class="pre">t3toolbox.uniform.UniformBVEdgeWeights</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_shift</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformTuckerTensorTrainCores" title="t3toolbox.uniform.UniformTuckerTensorTrainCores"><span class="pre">t3toolbox.uniform.UniformTuckerTensorTrainCores</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../uniform/index.html#t3toolbox.uniform.UniformEdgeWeights" title="t3toolbox.uniform.UniformEdgeWeights"><span class="pre">t3toolbox.uniform.UniformEdgeWeights</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3" title="Link to this definition">#</a></dt>
+<dd><dl class="simple">
+<dt>Rank 2r Tucker tensor train representation of tangent vector:</dt><dd><dl class="simple">
+<dt>u(x,y,z,w) = ([dG1(B x) L1(B x)]) ([R2(B y)        0]) ([R3(B z)        0]) ([R4(B w) ])</dt><dd><p>(                  ) ([dG2(B y) L2(B y)]) ([dG3(B z) L3(B z)]) ([dG4(B w)])
 (         +        ) (         +        ) (        +         ) (    +     )
 ([O1(dB x)       0]) ([0              0]) ([0              0]) ([0       ])
 (                  ) ([O2(dB y)       0]) ([O3(dB z)       0]) ([O4(dB w)])</p>
-</div></blockquote>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.manifold</span> <span class="k">as</span> <span class="nn">t3m</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.uniform</span> <span class="k">as</span> <span class="nn">ut3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.uniform_manifold</span> <span class="k">as</span> <span class="nn">utm</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.orthogonalization</span> <span class="k">as</span> <span class="nn">orth</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.t3svd</span> <span class="k">as</span> <span class="nn">t3svd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">4</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">t3svd</span><span class="o">.</span><span class="n">t3_svd</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">base</span><span class="p">,</span> <span class="n">dummy_var</span> <span class="o">=</span> <span class="n">orth</span><span class="o">.</span><span class="n">orthogonal_representations</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">v</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_randn</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">uniform_v</span><span class="p">,</span> <span class="n">uniform_base</span><span class="p">,</span> <span class="n">bv_mask</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">bv_to_ubv</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dense_v</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_to_dense</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dense_uniform_v</span> <span class="o">=</span> <span class="n">utm</span><span class="o">.</span><span class="n">uniform_tangent_to_dense</span><span class="p">(</span><span class="n">uniform_v</span><span class="p">,</span> <span class="n">uniform_base</span><span class="p">,</span> <span class="n">bv_mask</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">dense_v</span> <span class="o">-</span> <span class="n">dense_uniform_v</span><span class="p">))</span>
+<span class="go">4.72221182491572e-14</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </section>
@@ -526,11 +535,11 @@ u(x,y,z,w) = ([dG1(B x) L1(B x)]) ([R2(B y)        0]) ([R3(B z)        0]) ([R4
       </div>
     </a>
     <a class="right-next"
-       href="../uniform_orthogonalization/index.html"
+       href="uniform_tangent_to_dense.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.uniform_orthogonalization</p>
+        <p class="prev-next-title">t3toolbox.uniform_manifold.uniform_tangent_to_dense</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

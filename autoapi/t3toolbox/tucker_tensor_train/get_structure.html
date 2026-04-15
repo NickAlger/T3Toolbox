@@ -280,19 +280,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_logical_not.html">t3toolbox.corewise.corewise_logical_not</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../jax/index.html">t3toolbox.jax</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../jax/base_variation_format/index.html">t3toolbox.jax.base_variation_format</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/corewise/index.html">t3toolbox.jax.corewise</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/linalg/index.html">t3toolbox.jax.linalg</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/manifold/index.html">t3toolbox.jax.manifold</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/orthogonalization/index.html">t3toolbox.jax.orthogonalization</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/t3svd/index.html">t3toolbox.jax.t3svd</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/tucker_tensor_train/index.html">t3toolbox.jax.tucker_tensor_train</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/uniform/index.html">t3toolbox.jax.uniform</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/uniform_manifold/index.html">t3toolbox.jax.uniform_manifold</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../jax/uniform_orthogonalization/index.html">t3toolbox.jax.uniform_orthogonalization</a></li>
-</ul>
-</details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../manifold/index.html">t3toolbox.manifold</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../manifold/manifold_dim.html">t3toolbox.manifold.manifold_dim</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../manifold/tangent_to_dense.html">t3toolbox.manifold.tangent_to_dense</a></li>
@@ -408,6 +395,7 @@
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../uniform_manifold/index.html">t3toolbox.uniform_manifold</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../uniform_manifold/uniform_tangent_to_uniform_t3.html">t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../uniform_manifold/uniform_tangent_to_dense.html">t3toolbox.uniform_manifold.uniform_tangent_to_dense</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../uniform_orthogonalization/index.html">t3toolbox.uniform_orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -493,17 +481,17 @@
 <h1>t3toolbox.tucker_tensor_train.get_structure<a class="headerlink" href="#t3toolbox-tucker-tensor-train-get-structure" title="Link to this heading">#</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.get_structure">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">get_structure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../jax/tucker_tensor_train/index.html#t3toolbox.jax.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.jax.tucker_tensor_train.TuckerTensorTrain"><span class="pre">TuckerTensorTrain</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../jax/tucker_tensor_train/index.html#t3toolbox.jax.tucker_tensor_train.T3Structure" title="t3toolbox.jax.tucker_tensor_train.T3Structure"><span class="pre">T3Structure</span></a></span></span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.get_structure" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">get_structure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><span class="pre">TuckerTensorTrain</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="index.html#t3toolbox.tucker_tensor_train.T3Structure" title="t3toolbox.tucker_tensor_train.T3Structure"><span class="pre">T3Structure</span></a></span></span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.get_structure" title="Link to this definition">#</a></dt>
 <dd><p>Get the structure of a Tucker tensor train.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>x</strong> (<a class="reference internal" href="../jax/tucker_tensor_train/index.html#t3toolbox.jax.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.jax.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – Tucker tensor train with shape (N0, …, N(d-1)), Tucker ranks (n0, …, n(d-1)), and TT-ranks (1, r1, …, r(d-1), 1)).</p>
+<dd class="field-odd"><p><strong>x</strong> (<a class="reference internal" href="index.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – Tucker tensor train with shape (N0, …, N(d-1)), Tucker ranks (n0, …, n(d-1)), and TT-ranks (1, r1, …, r(d-1), 1)).</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>((N1, …, Nd), (n1, …, nd), (1, r1, … r(d-1), 1)), the structure of the Tucker tensor train.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="../jax/tucker_tensor_train/index.html#t3toolbox.jax.tucker_tensor_train.T3Structure" title="t3toolbox.jax.tucker_tensor_train.T3Structure">T3Structure</a></p>
+<dd class="field-odd"><p><a class="reference internal" href="index.html#t3toolbox.tucker_tensor_train.T3Structure" title="t3toolbox.tucker_tensor_train.T3Structure">T3Structure</a></p>
 </dd>
 </dl>
 <div class="admonition seealso">

@@ -1,7 +1,7 @@
 t3toolbox.manifold.project_t3_onto_tangent_space
 ================================================
 
-.. py:function:: t3toolbox.manifold.project_t3_onto_tangent_space(x: t3toolbox.tucker_tensor_train.TuckerTensorTrain, orthogonal_base: t3toolbox.base_variation_format.T3Base, xnp=np) -> t3toolbox.base_variation_format.T3Variation
+.. py:function:: t3toolbox.manifold.project_t3_onto_tangent_space(x: t3toolbox.common.typ.Union[t3toolbox.tucker_tensor_train.TuckerTensorTrain, t3toolbox.uniform.UniformTuckerTensorTrainCores], orthogonal_base: t3toolbox.common.typ.Union[t3toolbox.base_variation_format.T3Base, t3toolbox.uniform.UniformT3Base], use_jax: bool = False) -> t3toolbox.base_variation_format.T3Variation
 
    Projects TuckerTensorTrain onto tangent space to the manifold of fixed rank TuckerTensorTrains.
 
@@ -14,7 +14,7 @@ t3toolbox.manifold.project_t3_onto_tangent_space
    :returns: Gauged variation representing the orthogonal projection of x onto the tangent space.
    :rtype: T3Variation
 
-   .. seealso:: :py:obj:`T3Base`, :py:obj:`oblique_gauge_projection`, :py:obj:`orthogonal_gauge_projection`
+   .. seealso:: :py:obj:`T3Base`, :py:obj:`oblique_gauge_projection`, :py:obj:`orthogonal_gauge_projection`, :py:obj:`ADD`
 
    .. rubric:: Examples
 
@@ -22,13 +22,34 @@ t3toolbox.manifold.project_t3_onto_tangent_space
    >>> import t3toolbox.tucker_tensor_train as t3
    >>> import t3toolbox.manifold as t3m
    >>> import t3toolbox.orthogonalization as orth
-   >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+   >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (5,3,2,4)))
    >>> base, _ = orth.orthogonal_representations(p)
-   >>> x = t3.t3_corewise_randn(((14,15,16), (7,4,8), (2,5,4,2)))
+   >>> x = t3.t3_corewise_randn(((14,15,16), (7,4,8), (3,5,4,2)))
    >>> proj_x = t3m.project_t3_onto_tangent_space(x, base) # Project x onto tangent space
    >>> P = t3.t3_to_dense(p)
    >>> X = t3.t3_to_dense(x)
    >>> proj_X = t3m.tangent_to_dense(proj_x, base)
    >>> print(np.sum((X - proj_X) * (proj_X - P)) / np.sum(X)) # Check that x was projected orthogonally
    -2.7295025395842007e-13
+
+   Uniform example: DOESNT WORK YET
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.manifold as t3m
+   >>> import t3toolbox.uniform as ut3
+   >>> import t3toolbox.uniform_manifold as utm
+   >>> import t3toolbox.orthogonalization as orth
+   >>> import t3toolbox.t3svd as t3svd
+   >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (5,3,2,4)))
+   >>> p, _, _ = t3svd.t3_svd(p)
+   >>> base, dummy_var = orth.orthogonal_representations(p)
+   >>> x = t3.t3_corewise_randn(((14,15,16), (7,4,8), (3,5,4,2)))
+   >>> proj_x = t3m.project_t3_onto_tangent_space(x, base) # Project x onto tangent space
+   >>> dense_proj_x = t3m.tangent_to_dense(proj_x, base)
+   >>> _, uniform_base, mask = ut3.bv_to_ubv(dummy_var, base)
+   >>> uniform_x, x_mask = ut3.t3_to_ut3(x)
+   >>> uniform_proj_x = t3m.project_t3_onto_tangent_space(uniform_x, uniform_base) # Project x onto tangent space
+   >>> dense_uniform_proj_x = utm.uniform_tangent_to_dense(uniform_proj_x, uniform_base, x_mask)
+   >>> print(np.linalg.norm(dense_uniform_proj_x - dense_proj_x))
 
