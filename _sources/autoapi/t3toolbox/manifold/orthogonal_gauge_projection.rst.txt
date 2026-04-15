@@ -1,7 +1,7 @@
 t3toolbox.manifold.orthogonal_gauge_projection
 ==============================================
 
-.. py:function:: t3toolbox.manifold.orthogonal_gauge_projection(variation: t3toolbox.base_variation_format.T3Variation, orthogonal_base: t3toolbox.base_variation_format.T3Base, xnp=np) -> t3toolbox.base_variation_format.T3Variation
+.. py:function:: t3toolbox.manifold.orthogonal_gauge_projection(variation: t3toolbox.common.typ.Union[t3toolbox.base_variation_format.T3Variation, t3toolbox.uniform.UniformT3Variation], orthogonal_base: t3toolbox.common.typ.Union[t3toolbox.base_variation_format.T3Base, t3toolbox.uniform.UniformT3Base], use_jax: bool = False) -> t3toolbox.common.typ.Union[t3toolbox.base_variation_format.T3Variation, t3toolbox.uniform.UniformT3Variation]
 
    Makes tangent variation gauged via orthogonal projection. Changes tangent vector.
 
@@ -33,7 +33,7 @@ t3toolbox.manifold.orthogonal_gauge_projection
    >>> import t3toolbox.corewise as cw
    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
    >>> base, _ = orth.orthogonal_representations(p)
-   >>> variation = t3m.tangent_randn(base)
+   >>> variation = t3m.tangent_randn(base, apply_gauge_projection=False)
    >>> proj_variation = t3m.orthogonal_gauge_projection(variation, base) # Make gauged via orthogonal projection
    >>> (U0,U1,U2), (L0,L1,L2), _, _ = base
    >>> ((V0,V1,V2), (H0,H1,H2)) = proj_variation
@@ -44,4 +44,28 @@ t3toolbox.manifold.orthogonal_gauge_projection
    >>> v_minus_p_dot_p = cw.corewise_dot(cw.corewise_sub(variation, proj_variation), proj_variation)
    >>> print(v_minus_p_dot_p) # Projection is orthogonal w.r.t. corewise dot
    -4.995303314442243e-18
+
+   Uniform example:
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.manifold as t3m
+   >>> import t3toolbox.common as common
+   >>> import t3toolbox.orthogonalization as orth
+   >>> import t3toolbox.corewise as cw
+   >>> import t3toolbox.uniform as ut3
+   >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
+   >>> base, dummy_var = orth.orthogonal_representations(p)
+   >>> _, uniform_base, masks = ut3.bv_to_ubv(dummy_var, base)
+   >>> uniform_var = t3m.tangent_randn(uniform_base, masks=masks, apply_gauge_projection=False)
+   >>> proj_var = t3m.orthogonal_gauge_projection(uniform_var, uniform_base)
+   >>> UU, LL, RR, OO = uniform_base
+   >>> proj_tucker_var, proj_tt_var = proj_var
+   >>> print(np.linalg.norm(np.einsum('dio,djo->dij', proj_tucker_var, UU)))
+   6.860678066865219e-15
+   >>> print(np.linalg.norm(np.einsum('diaj,diak->djk', proj_tt_var[:-1], LL[:-1]))) # first var tt cores are left-orthogonal to base
+   2.0607190172353126e-15
+   >>> ip = cw.corewise_dot(cw.corewise_sub(uniform_var, proj_var), proj_var)
+   >>> print(ip) # Projection is orthogonal w.r.t. corewise dot
+   4.496403249731884e-14
 

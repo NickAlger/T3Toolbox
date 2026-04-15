@@ -61,13 +61,21 @@ t3toolbox.probing.probe_t3
    >>> import t3toolbox.tucker_tensor_train as t3
    >>> import t3toolbox.probing as t3p
    >>> import t3toolbox.uniform as ut3
+   >>> import t3toolbox.corewise as cw
    >>> x = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
    >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
    >>> uniform_x, masks = ut3.t3_to_ut3(x)
+   >>> inv_masks = cw.corewise_logical_not(masks)
+   >>> junk = ut3.uniform_randn(ut3.get_uniform_structure(uniform_x), masks=inv_masks)
+   >>> uniform_x = cw.corewise_add(uniform_x, junk) # Add random junk outside the masks
    >>> uniform_ww = ut3.pack_tensors(ww)
    >>> uniform_zz = t3p.probe_t3(uniform_ww, uniform_x, edge_weights=masks)
    >>> zz = t3p.probe_t3(ww, x)
    >>> uniform_zz2 = ut3.pack_tensors(zz)
    >>> print(np.linalg.norm(uniform_zz - uniform_zz2))
+   0.0
+   >>> uniform_x_weighted = t3.absorb_edge_weights_into_cores(uniform_x, masks)
+   >>> uniform_zz3 = t3p.probe_t3(uniform_ww, uniform_x_weighted)
+   >>> print(np.linalg.norm(uniform_zz - uniform_zz3))
    0.0
 

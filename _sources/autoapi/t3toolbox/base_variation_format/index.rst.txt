@@ -22,15 +22,15 @@ Functions
    :hidden:
 
    /autoapi/t3toolbox/base_variation_format/get_base_structure
-   /autoapi/t3toolbox/base_variation_format/variation_shapes
-   /autoapi/t3toolbox/base_variation_format/base_hole_shapes
+   /autoapi/t3toolbox/base_variation_format/get_variation_shapes
+   /autoapi/t3toolbox/base_variation_format/get_base_hole_shapes
    /autoapi/t3toolbox/base_variation_format/ith_bv_to_t3
 
 .. autoapisummary::
 
    t3toolbox.base_variation_format.get_base_structure
-   t3toolbox.base_variation_format.variation_shapes
-   t3toolbox.base_variation_format.base_hole_shapes
+   t3toolbox.base_variation_format.get_variation_shapes
+   t3toolbox.base_variation_format.get_base_hole_shapes
    t3toolbox.base_variation_format.ith_bv_to_t3
 
 

@@ -1,0 +1,20 @@
+t3toolbox.uniform.get_uniform_base_structure
+============================================
+
+.. py:function:: t3toolbox.uniform.get_uniform_base_structure(base: UniformT3Base) -> UniformBVStructure
+
+   Get the structore of a uniform base.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.uniform as ut3
+   >>> d, N, nU, nO, rL, rR = 4, 10, 5, 4, 3, 2
+   >>> up_tucker_supercore = np.random.randn(d, nU, N)
+   >>> left_tt_supercore = np.random.randn(d, rL, nU, rL)
+   >>> right_tt_supercore = np.random.randn(d, rR, nU, rR)
+   >>> outer_tt_supercore = np.random.randn(d, rL, nO, rR)
+   >>> base = (up_tucker_supercore, left_tt_supercore, right_tt_supercore, outer_tt_supercore)
+   >>> print(ut3.get_uniform_base_structure(base))
+   (4, 10, 5, 4, 3, 2)
+

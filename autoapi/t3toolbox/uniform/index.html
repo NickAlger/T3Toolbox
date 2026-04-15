@@ -47,7 +47,7 @@
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3toolbox.uniform.check_ut3" href="check_ut3.html" />
+    <link rel="next" title="t3toolbox.uniform.get_uniform_base_structure" href="get_uniform_base_structure.html" />
     <link rel="prev" title="t3toolbox.tucker_tensor_train.t3_norm" href="../tucker_tensor_train/t3_norm.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -254,8 +254,8 @@
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">t3toolbox</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2 has-children"><a class="reference internal" href="../base_variation_format/index.html">t3toolbox.base_variation_format</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../base_variation_format/get_base_structure.html">t3toolbox.base_variation_format.get_base_structure</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/variation_shapes.html">t3toolbox.base_variation_format.variation_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/base_hole_shapes.html">t3toolbox.base_variation_format.base_hole_shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/get_variation_shapes.html">t3toolbox.base_variation_format.get_variation_shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/get_base_hole_shapes.html">t3toolbox.base_variation_format.get_base_hole_shapes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../base_variation_format/ith_bv_to_t3.html">t3toolbox.base_variation_format.ith_bv_to_t3</a></li>
 </ul>
 </details></li>
@@ -387,10 +387,14 @@
 </ul>
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">t3toolbox.uniform</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="get_uniform_base_structure.html">t3toolbox.uniform.get_uniform_base_structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="get_uniform_base_hole_shapes.html">t3toolbox.uniform.get_uniform_base_hole_shapes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="check_ut3.html">t3toolbox.uniform.check_ut3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="get_uniform_structure.html">t3toolbox.uniform.get_uniform_structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="get_original_structure.html">t3toolbox.uniform.get_original_structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="apply_masks.html">t3toolbox.uniform.apply_masks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="apply_masks_to_base.html">t3toolbox.uniform.apply_masks_to_base</a></li>
+<li class="toctree-l3"><a class="reference internal" href="apply_masks_to_variation.html">t3toolbox.uniform.apply_masks_to_variation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="uniform_squash_tails.html">t3toolbox.uniform.uniform_squash_tails</a></li>
 <li class="toctree-l3"><a class="reference internal" href="pack_tensors.html">t3toolbox.uniform.pack_tensors</a></li>
 <li class="toctree-l3"><a class="reference internal" href="unpack.html">t3toolbox.uniform.unpack</a></li>
@@ -503,6 +507,9 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.uniform.UniformBVEdgeWeights" title="t3toolbox.uniform.UniformBVEdgeWeights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformBVEdgeWeights</span></code></a></p></td>
 <td><p>Edge weights for base-variation format.</p></td>
 </tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.uniform.UniformBVStructure" title="t3toolbox.uniform.UniformBVStructure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformBVStructure</span></code></a></p></td>
+<td><p>Shape and rank structure of a uniform base-variation T3 representation.</p></td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -513,6 +520,12 @@
 </div>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="get_uniform_base_structure.html#t3toolbox.uniform.get_uniform_base_structure" title="t3toolbox.uniform.get_uniform_base_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_uniform_base_structure</span></code></a>(→ UniformBVStructure)</p></td>
+<td><p>Get the structore of a uniform base.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="get_uniform_base_hole_shapes.html#t3toolbox.uniform.get_uniform_base_hole_shapes" title="t3toolbox.uniform.get_uniform_base_hole_shapes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_uniform_base_hole_shapes</span></code></a>(...)</p></td>
+<td><p>Get the hole shapes for a uniform base.</p></td>
+</tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="check_ut3.html#t3toolbox.uniform.check_ut3" title="t3toolbox.uniform.check_ut3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_ut3</span></code></a>(→ None)</p></td>
 <td><p>Check internal shape consistency of UniformTuckerTensorTrain.</p></td>
 </tr>
@@ -523,7 +536,13 @@
 <td><p>Get original (unpadded) structure of a uniform Tucker tensor train.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="apply_masks.html#t3toolbox.uniform.apply_masks" title="t3toolbox.uniform.apply_masks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_masks</span></code></a>(→ UniformTuckerTensorTrainCores)</p></td>
-<td><p>Apply masks to uniform Tucker tensor train cores to zero out superflous entries.</p></td>
+<td><p>Apply masks to uniform Tucker tensor train cores.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="apply_masks_to_base.html#t3toolbox.uniform.apply_masks_to_base" title="t3toolbox.uniform.apply_masks_to_base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_masks_to_base</span></code></a>(→ UniformT3Base)</p></td>
+<td><p>Apply masks to uniform Tucker tensor train base.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="apply_masks_to_variation.html#t3toolbox.uniform.apply_masks_to_variation" title="t3toolbox.uniform.apply_masks_to_variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_masks_to_variation</span></code></a>(→ UniformT3Variation)</p></td>
+<td><p>Apply masks to uniform Tucker tensor train variation.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="uniform_squash_tails.html#t3toolbox.uniform.uniform_squash_tails" title="t3toolbox.uniform.uniform_squash_tails"><code class="xref py py-obj docutils literal notranslate"><span class="pre">uniform_squash_tails</span></code></a>(→ UniformTuckerTensorTrainCores)</p></td>
 <td><p>Squash tails of uniform Tucker tensor train.</p></td>
@@ -702,14 +721,35 @@ so that the ranks are uniform, then stacking the TT cores and Tucker cores into
 <li><p>shape_weights:        NDArray, shape=(d,Ni)</p></li>
 <li><p>up_tucker_weights:    NDArray, shape=(d,nUi)</p></li>
 <li><p>outer_tucker_weights: NDArray, shape=(d,nOi)</p></li>
-<li><p>left_tt_weights:      NDArray, shape=(d+1,rLi)</p></li>
-<li><p>right_tt_weights:     NDArray, shape=(d+1,rRi)</p></li>
+<li><p>left_tt_weights:      NDArray, shape=(d,rLi)</p></li>
+<li><p>right_tt_weights:     NDArray, shape=(d,rRi)</p></li>
 </ul>
 </dd>
 </dl>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
 <p><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3tools.tucker_tensor_train.EdgeWeights</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">t3tools.base_variation_format.BVEdgeWeights</span></code>, <a class="reference internal" href="#t3toolbox.uniform.UniformT3Variation" title="t3toolbox.uniform.UniformT3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformT3Variation</span></code></a>, <a class="reference internal" href="#t3toolbox.uniform.UniformT3Base" title="t3toolbox.uniform.UniformT3Base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformT3Base</span></code></a></p>
+</div>
+</dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3toolbox.uniform.UniformBVStructure">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.uniform.</span></span><span class="sig-name descname"><span class="pre">UniformBVStructure</span></span><a class="headerlink" href="#t3toolbox.uniform.UniformBVStructure" title="Link to this definition">#</a></dt>
+<dd><p>Shape and rank structure of a uniform base-variation T3 representation.</p>
+<dl class="simple">
+<dt><em>Components</em></dt><dd><ul class="simple">
+<li><p>d: int, number of tensor indices</p></li>
+<li><p>N: size of external indices</p></li>
+<li><p>nU: up tucker rank</p></li>
+<li><p>nO: outer tucker rank</p></li>
+<li><p>rL: left TT rank</p></li>
+<li><p>rR: right TT rank</p></li>
+</ul>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="#t3toolbox.uniform.UniformT3Base" title="t3toolbox.uniform.UniformT3Base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformT3Base</span></code></a>, <a class="reference internal" href="#t3toolbox.uniform.UniformT3Variation" title="t3toolbox.uniform.UniformT3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformT3Variation</span></code></a></p>
 </div>
 </dd></dl>
 
@@ -736,11 +776,11 @@ so that the ranks are uniform, then stacking the TT cores and Tucker cores into
       </div>
     </a>
     <a class="right-next"
-       href="check_ut3.html"
+       href="get_uniform_base_structure.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.uniform.check_ut3</p>
+        <p class="prev-next-title">t3toolbox.uniform.get_uniform_base_structure</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -771,6 +811,7 @@ so that the ranks are uniform, then stacking the TT cores and Tucker cores into
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform.UniformT3Base"><code class="docutils literal notranslate"><span class="pre">UniformT3Base</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform.UniformT3Variation"><code class="docutils literal notranslate"><span class="pre">UniformT3Variation</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform.UniformBVEdgeWeights"><code class="docutils literal notranslate"><span class="pre">UniformBVEdgeWeights</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform.UniformBVStructure"><code class="docutils literal notranslate"><span class="pre">UniformBVStructure</span></code></a></li>
 </ul>
 </li>
 </ul>

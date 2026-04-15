@@ -254,8 +254,8 @@
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">t3toolbox</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l2 has-children"><a class="reference internal" href="../base_variation_format/index.html">t3toolbox.base_variation_format</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../base_variation_format/get_base_structure.html">t3toolbox.base_variation_format.get_base_structure</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/variation_shapes.html">t3toolbox.base_variation_format.variation_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/base_hole_shapes.html">t3toolbox.base_variation_format.base_hole_shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/get_variation_shapes.html">t3toolbox.base_variation_format.get_variation_shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/get_base_hole_shapes.html">t3toolbox.base_variation_format.get_base_hole_shapes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../base_variation_format/ith_bv_to_t3.html">t3toolbox.base_variation_format.ith_bv_to_t3</a></li>
 </ul>
 </details></li>
@@ -387,10 +387,14 @@
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../uniform/index.html">t3toolbox.uniform</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../uniform/get_uniform_base_structure.html">t3toolbox.uniform.get_uniform_base_structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../uniform/get_uniform_base_hole_shapes.html">t3toolbox.uniform.get_uniform_base_hole_shapes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/check_ut3.html">t3toolbox.uniform.check_ut3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/get_uniform_structure.html">t3toolbox.uniform.get_uniform_structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/get_original_structure.html">t3toolbox.uniform.get_original_structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/apply_masks.html">t3toolbox.uniform.apply_masks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../uniform/apply_masks_to_base.html">t3toolbox.uniform.apply_masks_to_base</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../uniform/apply_masks_to_variation.html">t3toolbox.uniform.apply_masks_to_variation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/uniform_squash_tails.html">t3toolbox.uniform.uniform_squash_tails</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/pack_tensors.html">t3toolbox.uniform.pack_tensors</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform/unpack.html">t3toolbox.uniform.unpack</a></li>
@@ -592,7 +596,14 @@ shape=(N1,…,Nd)</p></li>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">variation</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_randn</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">www</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">10</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">11</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">12</span><span class="p">))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">uniform_variation</span><span class="p">,</span> <span class="n">uniform_base</span><span class="p">,</span> <span class="n">masks</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">bv_to_ubv</span><span class="p">(</span><span class="n">variation</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">uniform_www</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">pack_tensors</span><span class="p">(</span><span class="n">www</span><span class="p">)</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">inv_masks</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">corewise_logical_not</span><span class="p">(</span><span class="n">masks</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">junk</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">uniform_randn</span><span class="p">(</span><span class="n">ut3</span><span class="o">.</span><span class="n">get_uniform_structure</span><span class="p">(</span><span class="n">uniform_x</span><span class="p">),</span> <span class="n">masks</span><span class="o">=</span><span class="n">inv_masks</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">uniform_x</span> <span class="o">=</span> <span class="n">cw</span><span class="o">.</span><span class="n">corewise_add</span><span class="p">(</span><span class="n">uniform_x</span><span class="p">,</span> <span class="n">junk</span><span class="p">)</span> <span class="c1"># Add random junk outside the masks</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">uniform_www</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">pack_tensors</span><span class="p">(</span><span class="n">www</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">uniform_zzz</span> <span class="o">=</span> <span class="n">t3p</span><span class="o">.</span><span class="n">probe_tangent</span><span class="p">(</span><span class="n">uniform_www</span><span class="p">,</span> <span class="n">uniform_variation</span><span class="p">,</span> <span class="n">uniform_base</span><span class="p">,</span> <span class="n">edge_weights</span><span class="o">=</span><span class="n">masks</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">zzz2</span> <span class="o">=</span> <span class="n">t3p</span><span class="o">.</span><span class="n">probe_tangent</span><span class="p">(</span><span class="n">www</span><span class="p">,</span> <span class="n">variation</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">uniform_zzz2</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">pack_tensors</span><span class="p">(</span><span class="n">zzz2</span><span class="p">)</span>

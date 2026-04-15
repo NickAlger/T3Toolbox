@@ -14,6 +14,7 @@ Attributes
    t3toolbox.uniform.UniformT3Base
    t3toolbox.uniform.UniformT3Variation
    t3toolbox.uniform.UniformBVEdgeWeights
+   t3toolbox.uniform.UniformBVStructure
 
 
 Functions
@@ -22,10 +23,14 @@ Functions
 .. toctree::
    :hidden:
 
+   /autoapi/t3toolbox/uniform/get_uniform_base_structure
+   /autoapi/t3toolbox/uniform/get_uniform_base_hole_shapes
    /autoapi/t3toolbox/uniform/check_ut3
    /autoapi/t3toolbox/uniform/get_uniform_structure
    /autoapi/t3toolbox/uniform/get_original_structure
    /autoapi/t3toolbox/uniform/apply_masks
+   /autoapi/t3toolbox/uniform/apply_masks_to_base
+   /autoapi/t3toolbox/uniform/apply_masks_to_variation
    /autoapi/t3toolbox/uniform/uniform_squash_tails
    /autoapi/t3toolbox/uniform/pack_tensors
    /autoapi/t3toolbox/uniform/unpack
@@ -45,10 +50,14 @@ Functions
 
 .. autoapisummary::
 
+   t3toolbox.uniform.get_uniform_base_structure
+   t3toolbox.uniform.get_uniform_base_hole_shapes
    t3toolbox.uniform.check_ut3
    t3toolbox.uniform.get_uniform_structure
    t3toolbox.uniform.get_original_structure
    t3toolbox.uniform.apply_masks
+   t3toolbox.uniform.apply_masks_to_base
+   t3toolbox.uniform.apply_masks_to_variation
    t3toolbox.uniform.uniform_squash_tails
    t3toolbox.uniform.pack_tensors
    t3toolbox.uniform.unpack
@@ -169,8 +178,22 @@ Module Contents
        - shape_weights:        NDArray, shape=(d,Ni)
        - up_tucker_weights:    NDArray, shape=(d,nUi)
        - outer_tucker_weights: NDArray, shape=(d,nOi)
-       - left_tt_weights:      NDArray, shape=(d+1,rLi)
-       - right_tt_weights:     NDArray, shape=(d+1,rRi)
+       - left_tt_weights:      NDArray, shape=(d,rLi)
+       - right_tt_weights:     NDArray, shape=(d,rRi)
 
    .. seealso:: :py:obj:`t3tools.tucker_tensor_train.EdgeWeights`, :py:obj:`t3tools.base_variation_format.BVEdgeWeights`, :py:obj:`UniformT3Variation`, :py:obj:`UniformT3Base`
+
+.. py:data:: UniformBVStructure
+
+   Shape and rank structure of a uniform base-variation T3 representation.
+
+   *Components*
+       - d: int, number of tensor indices
+       - N: size of external indices
+       - nU: up tucker rank
+       - nO: outer tucker rank
+       - rL: left TT rank
+       - rR: right TT rank
+
+   .. seealso:: :py:obj:`UniformT3Base`, :py:obj:`UniformT3Variation`
 
