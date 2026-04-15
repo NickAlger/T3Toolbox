@@ -173,14 +173,14 @@ BVStructure = typ.Tuple[
     typ.Sequence[int], # left_tt_ranks. len=d+1
     typ.Sequence[int], # right_tt_ranks. len=d+1
 ]
-"""Shape and rank structore of a base-variation T3 representation.
+"""Shape and rank structure of a base-variation T3 representation.
 
 *Components*
-    - shape:                typ.Sequence[int]. len=d
-    - up_tucker_ranks:      typ.Sequence[int]. len=d
-    - outer_tucker_ranks:   typ.Sequence[int]. len=d
-    - left_tt_ranks:        typ.Sequence[int]. len=d+1
-    - right_tt_ranks:       typ.Sequence[int]. len=d+1
+    - shape:                typ.Sequence[int] = (N0,...,N(d-1)),   len=d
+    - up_tucker_ranks:      typ.Sequence[int] = (nU0,...,nU(d-1)), len=d
+    - outer_tucker_ranks:   typ.Sequence[int] = (nO0,...,nO(d-1)), len=d
+    - left_tt_ranks:        typ.Sequence[int] = (rL0,...,rLd),     len=d+1
+    - right_tt_ranks:       typ.Sequence[int] = (rR0,...,rRd),     len=d+1
 
 The variation components should fit in the "holes" of a T3Base.
 
@@ -200,12 +200,34 @@ BVEdgeWeights = typ.Tuple[
 ]
 """Edge weights for base-variation format.
 
+Tensor network diagrams illustrating edge weights::
+
+    1--wL0--L0--wL1--H1--wR2--R2--wR3--1
+            |        |        |
+            wU0      wU1      wU3
+            |        |        |
+            U0       U1       U2
+            |        |        |
+            wS1      wS2      wS3
+            |        |        |
+
+and::
+
+    1--wL0--L0--wL1--O1--wR2--R2--wR3--1
+            |        |        |
+            wU0      wU1      wU3
+            |        |        |
+            U0       V1       U2
+            |        |        |
+            wS1      wS2      wS3
+            |        |        |
+
 *Components*
-    - shape_weights:        typ.Sequence[NDArray], len=d, elm_shape=(Ni,)
-    - up_tucker_weights:    typ.Sequence[NDArray], len=d, elm_shape=(nUi,)
-    - outer_tucker_weights: typ.Sequence[NDArray], len=d, elm_shape=(nOi,)
-    - left_tt_weights:      typ.Sequence[NDArray], len=d, elm_shape=(rLi,)
-    - right_tt_weights:     typ.Sequence[NDArray], len=d, elm_shape=(rRi,)
+    - shape_weights:        typ.Sequence[NDArray] = (wS0,...,wS(d-1)), len=d, elm_shape=(Ni,)
+    - up_tucker_weights:    typ.Sequence[NDArray] = (wU0,...,wU(d-1)), len=d, elm_shape=(nUi,)
+    - outer_tucker_weights: typ.Sequence[NDArray] = (wO0,...,wO(d-1)), len=d, elm_shape=(nOi,)
+    - left_tt_weights:      typ.Sequence[NDArray] = (wL0,...,wL(d-1)), len=d, elm_shape=(rLi,)
+    - right_tt_weights:     typ.Sequence[NDArray] = (wR1,...,wRd),     len=d, elm_shape=(rRi,)
     
 Note: there are no weights for:
     - The edge between 1--R0
