@@ -24,9 +24,7 @@ Uniform Tucker tensor trains:
 
 * :doc:`/autoapi/t3toolbox/uniform/index`
 * :doc:`/autoapi/t3toolbox/uniform_orthogonalization/index`
-* :doc:`/autoapi/t3toolbox/uniform_t3svd/index`
 * :doc:`/autoapi/t3toolbox/uniform_manifold/index`
-* :doc:`/autoapi/t3toolbox/uniform_probing/index`
 
 Utilities:
 
