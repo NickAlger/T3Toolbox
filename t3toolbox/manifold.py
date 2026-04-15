@@ -321,14 +321,43 @@ def tangent_zeros(
 
 
 def absorb_weights_into_tangent_cores(
-        variation: bvf.T3Variation,
-        base: bvf.T3Base,
-        edge_weights: bvf.BVEdgeWeights = (None, None, None, None),
+        variation:      typ.Union[bvf.T3Variation,      ut3.UniformT3Variation],
+        base:           typ.Union[bvf.T3Base,           ut3.UniformT3Base],
+        edge_weights:   typ.Union[bvf.BVEdgeWeights,    ut3.UniformEdgeWeights] = (None, None, None, None),
         use_jax: bool = False,
 ) -> typ.Tuple[
-    bvf.T3Variation, # weighted variation
-    bvf.T3Base, # weighted base
+    typ.Union[bvf.T3Variation,      ut3.UniformT3Variation], # weighted variation
+    typ.Union[bvf.T3Base,           ut3.UniformT3Base], # weighted base
 ]:
+    """Contract edge weights with neighboring cores in base-variation representation.
+
+    Tensor network diagrams illustrating groupings::
+
+             ____     ________     ____
+            /    \   /        \   /    \
+        1---w---L0---w---H1---w---R2---w---1
+                |        |        |
+              / w      / w      / w
+              | |      | |      | |
+              | U0     | U1     | U2
+              | |      | |      | |
+              \ w      \ w      \ w
+                |        |        |
+
+    and::
+
+             ____     ________     ____
+            /    \   /        \   /    \
+        1---w---L0---w---O1---w---R2---w---1
+                |        |        |
+              / w      / w      / w
+              | |      | |      | |
+              | U0     | V1     | U2
+              | |      | |      | |
+              \ w      \ w      \ w
+                |        |        |
+
+    """
     is_uniform = not isinstance(base[0], typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -393,7 +422,7 @@ def absorb_weights_into_tangent_cores(
 
 def tangent_randn(
         base:   typ.Union[bvf.T3Base,               ut3.UniformT3Base], # orthogonal base
-        masks: typ.Union[ut3.UniformEdgeWeights,    ut3.UniformBVEdgeWeights] = (None, None, None),
+        masks:  typ.Union[ut3.UniformEdgeWeights,   ut3.UniformBVEdgeWeights] = (None, None, None),
         apply_gauge_projection: bool = True,
         randn: typ.Callable[..., NDArray] = np.random.randn,
         use_jax: bool = False,
@@ -458,7 +487,7 @@ def tangent_randn(
             variation = ut3.apply_masks_to_variation(variation, masks, use_jax=use_jax)
 
         if apply_gauge_projection:
-            pass # ASDF
+            variation = orthogonal_gauge_projection(variation, base, use_jax=use_jax)
     else:
         var_tucker_shapes, var_tt_shapes = bvf.get_base_hole_shapes(base)
 
