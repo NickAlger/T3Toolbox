@@ -15,7 +15,8 @@ t3toolbox.tucker_tensor_train.t3_load
    :returns: Tucker tensor train loaded from the file
    :rtype: TuckerTensorTrain
 
-   :raises RuntimeError: Error raised if the Tucker tensor train fails to load, or is inconsistent.
+   :raises RuntimeError: Error raised if the Tucker tensor train fails to load.
+   :raises ValueError: Error raised if the Tucker tensor train fails is inconsistent.
 
    .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`t3_save`, :py:obj:`check_t3`
 

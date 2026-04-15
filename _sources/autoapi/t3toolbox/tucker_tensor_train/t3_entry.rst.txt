@@ -19,7 +19,7 @@ t3toolbox.tucker_tensor_train.t3_entry
              Scalar if one entry, or NDArray with shape (num_entries,) if many entries.
    :rtype: scalar or NDArray
 
-   :raises RuntimeError: Error raised if the provided indices in index are inconsistent with each other or the Tucker tensor train x.
+   :raises ValueError: Error raised if the provided indices in index are inconsistent with each other or the Tucker tensor train x.
 
    .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`t3_shape`, :py:obj:`t3_apply`
 

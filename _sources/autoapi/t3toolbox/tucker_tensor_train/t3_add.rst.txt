@@ -28,7 +28,7 @@ t3toolbox.tucker_tensor_train.t3_add
                  or (r0+q0, r1+q1,...,r(d-1)+q(d-1),rd+qd)) if squash=False.
    :rtype: TuckerTensorTrain
 
-   :raises RuntimeError: - Error raised if either of the TuckerTensorTrains are internally inconsistent
+   :raises ValueError: - Error raised if either of the TuckerTensorTrains are internally inconsistent
        - Error raised if the TuckerTensorTrains have different shapes.
 
    .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`t3_scale`, :py:obj:`t3_sub`, :py:obj:`t3_neg`, :py:obj:`squash_tails`, :func:`~t3toolbox.corewise.corewise_add`

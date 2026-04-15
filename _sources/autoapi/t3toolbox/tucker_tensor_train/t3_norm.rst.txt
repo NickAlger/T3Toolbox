@@ -18,7 +18,7 @@ t3toolbox.tucker_tensor_train.t3_norm
    :returns: Hilbert-Schmidt (Frobenius) norm of Tucker tensor trains, ||x||_HS
    :rtype: scalar
 
-   :raises RuntimeError: - Error raised if the TuckerTensorTrain is internally inconsistent
+   :raises ValueError: - Error raised if the TuckerTensorTrain is internally inconsistent
 
    .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`t3_dot_t3`, :func:`t3toolbox.corewise.corewise_norm`
 

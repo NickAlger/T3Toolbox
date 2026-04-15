@@ -20,7 +20,7 @@ t3toolbox.tucker_tensor_train.t3_inner_product_t3
    :returns: Hilbert-Schmidt inner product of Tucker tensor trains, (x, y)_HS.
    :rtype: scalar
 
-   :raises RuntimeError: - Error raised if either of the TuckerTensorTrains are internally inconsistent
+   :raises ValueError: - Error raised if either of the TuckerTensorTrains are internally inconsistent
        - Error raised if the TuckerTensorTrains have different shapes.
 
    .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`t3_shape`, :py:obj:`t3_add`, :py:obj:`t3_scale`, :func:`~t3toolbox.corewise.corewise_dot`

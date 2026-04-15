@@ -15,7 +15,7 @@ t3toolbox.tucker_tensor_train.t3_apply
              scalar if vecs elements are vectors, NDArray with shape (num_applies,) if vecs elements are matrices.
    :rtype: NDArray or scalar
 
-   :raises RuntimeError: Error raised if the provided vectors in vecs are inconsistent with each other or the Tucker tensor train x.
+   :raises ValueError: Error raised if the provided vectors in vecs are inconsistent with each other or the Tucker tensor train x.
 
    .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`t3_shape`, :py:obj:`t3_entry`
 

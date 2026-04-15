@@ -13,7 +13,8 @@ t3toolbox.tucker_tensor_train.t3_save
    :param x: The Tucker tensor train to save
    :type x: TuckerTensorTrain
 
-   :raises RuntimeError: Error raised if the Tucker tensor train is inconsistent, or fails to save.
+   :raises ValueError: Error raised if the Tucker tensor train is inconsistent
+   :raises RuntimeError: Error raised if the Tucker tensor train fails to save.
 
    .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`t3_load`, :py:obj:`check_t3`
 

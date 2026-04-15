@@ -25,6 +25,8 @@ Functions
    /autoapi/t3toolbox/base_variation_format/get_variation_shapes
    /autoapi/t3toolbox/base_variation_format/get_base_hole_shapes
    /autoapi/t3toolbox/base_variation_format/ith_bv_to_t3
+   /autoapi/t3toolbox/base_variation_format/check_t3base
+   /autoapi/t3toolbox/base_variation_format/check_t3variation
 
 .. autoapisummary::
 
@@ -32,6 +34,8 @@ Functions
    t3toolbox.base_variation_format.get_variation_shapes
    t3toolbox.base_variation_format.get_base_hole_shapes
    t3toolbox.base_variation_format.ith_bv_to_t3
+   t3toolbox.base_variation_format.check_t3base
+   t3toolbox.base_variation_format.check_t3variation
 
 
 Module Contents
@@ -111,7 +115,7 @@ Module Contents
    (add, scale, dot product, etc) with the variations, and those operations faithfully correspond
    to linear algebra operations with the N1 x ... x Nd tangent vectors represented by the variations.
 
-   .. seealso:: :py:obj:`T3Variation`, :py:obj:`orthogonal_representations`, :py:obj:`oblique_gauge_projection`
+   .. seealso:: :py:obj:`T3Variation`, :py:obj:`check_t3_base`, :py:obj:`orthogonal_representations`, :py:obj:`oblique_gauge_projection`
 
    .. rubric:: Examples
 

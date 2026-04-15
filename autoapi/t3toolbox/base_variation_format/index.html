@@ -257,6 +257,8 @@
 <li class="toctree-l3"><a class="reference internal" href="get_variation_shapes.html">t3toolbox.base_variation_format.get_variation_shapes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="get_base_hole_shapes.html">t3toolbox.base_variation_format.get_base_hole_shapes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="ith_bv_to_t3.html">t3toolbox.base_variation_format.ith_bv_to_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="check_t3base.html">t3toolbox.base_variation_format.check_t3base</a></li>
+<li class="toctree-l3"><a class="reference internal" href="check_t3variation.html">t3toolbox.base_variation_format.check_t3variation</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../common/index.html">t3toolbox.common</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -514,6 +516,12 @@
 <tr class="row-even"><td><p><a class="reference internal" href="ith_bv_to_t3.html#t3toolbox.base_variation_format.ith_bv_to_t3" title="t3toolbox.base_variation_format.ith_bv_to_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ith_bv_to_t3</span></code></a>(...)</p></td>
 <td><p>Convert base-variation representation to TuckerTensorTrain.</p></td>
 </tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="check_t3base.html#t3toolbox.base_variation_format.check_t3base" title="t3toolbox.base_variation_format.check_t3base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3base</span></code></a>(→ None)</p></td>
+<td><p>Check rank and shape consistency of Tucker tensor train base point (<cite>T3Base</cite>).</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="check_t3variation.html#t3toolbox.base_variation_format.check_t3variation" title="t3toolbox.base_variation_format.check_t3variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3variation</span></code></a>(→ None)</p></td>
+<td><p>Check rank and shape consistency of Tucker tensor train base point (<cite>T3Base</cite>).</p></td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -599,7 +607,7 @@ tangent vector with respect to the base cores.</p>
 to linear algebra operations with the N1 x … x Nd tangent vectors represented by the variations.</p>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
-<p><a class="reference internal" href="#t3toolbox.base_variation_format.T3Variation" title="t3toolbox.base_variation_format.T3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Variation</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonal_representations</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">oblique_gauge_projection</span></code></p>
+<p><a class="reference internal" href="#t3toolbox.base_variation_format.T3Variation" title="t3toolbox.base_variation_format.T3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Variation</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3_base</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonal_representations</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">oblique_gauge_projection</span></code></p>
 </div>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
@@ -631,7 +639,7 @@ to linear algebra operations with the N1 x … x Nd tangent vectors represented 
 <p>The variation components should fit in the “holes” of a T3Base.</p>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
-<p><a class="reference internal" href="#t3toolbox.base_variation_format.T3Base" title="t3toolbox.base_variation_format.T3Base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Base</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3variation</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">hole_shapes</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">check_fit</span></code></p>
+<p><a class="reference internal" href="#t3toolbox.base_variation_format.T3Base" title="t3toolbox.base_variation_format.T3Base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Base</span></code></a>, <a class="reference internal" href="check_t3variation.html#t3toolbox.base_variation_format.check_t3variation" title="t3toolbox.base_variation_format.check_t3variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3variation</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">hole_shapes</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">check_fit</span></code></p>
 </div>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>

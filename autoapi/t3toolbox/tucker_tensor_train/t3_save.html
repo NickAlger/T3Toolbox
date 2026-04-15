@@ -257,6 +257,8 @@
 <li class="toctree-l3"><a class="reference internal" href="../base_variation_format/get_variation_shapes.html">t3toolbox.base_variation_format.get_variation_shapes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../base_variation_format/get_base_hole_shapes.html">t3toolbox.base_variation_format.get_base_hole_shapes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../base_variation_format/ith_bv_to_t3.html">t3toolbox.base_variation_format.ith_bv_to_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/check_t3base.html">t3toolbox.base_variation_format.check_t3base</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/check_t3variation.html">t3toolbox.base_variation_format.check_t3variation</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../common/index.html">t3toolbox.common</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -494,7 +496,10 @@ already there.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><p><strong>RuntimeError</strong> – Error raised if the Tucker tensor train is inconsistent, or fails to save.</p>
+<dd class="field-even"><ul class="simple">
+<li><p><strong>ValueError</strong> – Error raised if the Tucker tensor train is inconsistent</p></li>
+<li><p><strong>RuntimeError</strong> – Error raised if the Tucker tensor train fails to save.</p></li>
+</ul>
 </dd>
 </dl>
 <div class="admonition seealso">
