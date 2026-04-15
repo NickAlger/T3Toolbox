@@ -4,7 +4,7 @@
 import numpy as np
 import unittest
 
-import t3toolbox.linalg as linalg
+import t3toolbox.util_linalg as linalg
 try:
     import t3toolbox.jax.linalg as linalg_jax
     import jax

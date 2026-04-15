@@ -5,7 +5,7 @@
 import numpy as np
 import typing as typ
 
-import t3toolbox.linalg
+import t3toolbox.util_linalg
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.orthogonalization as orth
 import t3toolbox.uniform as ut3

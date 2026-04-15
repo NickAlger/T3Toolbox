@@ -5,10 +5,10 @@
 import numpy as np
 import typing as typ
 
-import t3toolbox.linalg
+import t3toolbox.util_linalg
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.base_variation_format as bvf
-import t3toolbox.linalg as linalg
+import t3toolbox.util_linalg as linalg
 import t3toolbox.uniform as ut3
 import t3toolbox.common as common
 from t3toolbox.common import *
