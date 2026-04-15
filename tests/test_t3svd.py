@@ -59,7 +59,7 @@ class TestT3SVD(unittest.TestCase):
 
                     (N0, N1, N2), (n0, n1, n2), (r0, r1, r2, r3) = t3.get_structure(x2)
 
-                    x2_dense = t3.t3_to_dense(x2, contract_ones=False)
+                    x2_dense = t3.t3_to_dense(x2, squash_tails=False)
 
                     ss_tt0 = np.linalg.svd(x2_dense.reshape((r0, N0 * N1 * N2 * r3)))[1]
                     ss_tt1 = np.linalg.svd(x2_dense.reshape((r0 * N0, N1 * N2 * r3)))[1]

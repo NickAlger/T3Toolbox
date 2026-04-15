@@ -663,7 +663,7 @@ def orthogonalize_relative_to_ith_tt_core(
 
 
 def up_orthogonalize_tucker_cores(
-        x: typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrainCores],
+        x: typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain],
         use_jax: bool = False,
 ) -> t3.TuckerTensorTrain:
     """Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
@@ -709,7 +709,7 @@ def up_orthogonalize_tucker_cores(
 
 
 def outer_orthogonalize_tt_cores(
-        x: typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrainCores],
+        x: typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain],
         use_jax: bool = False,
 ):
     """Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
@@ -818,7 +818,7 @@ def right_orthogonalize_tt_cores(
 
 
 def orthogonal_representations(
-        x: typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrainCores],
+        x: typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain],
         already_left_orthogonal: bool = False,
         squash_tails: bool = True,
         use_jax: bool = False,

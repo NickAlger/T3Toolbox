@@ -33,7 +33,7 @@ def uniform_tangent_to_uniform_t3(
         include_shift: bool = False,
         use_jax: bool = False,
 ) -> typ.Tuple[
-    ut3.UniformTuckerTensorTrainCores,
+    ut3.UniformTuckerTensorTrain,
     ut3.UniformEdgeWeights, # masks
 ]:
     '''Rank 2r Tucker tensor train representation of tangent vector:

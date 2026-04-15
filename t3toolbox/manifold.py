@@ -795,7 +795,7 @@ def tt_zipper_right_to_left(
 
 
 def project_t3_onto_tangent_space(
-        x:                  typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrainCores], # Tucker tensor train to be projected
+        x:                  typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain], # Tucker tensor train to be projected
         orthogonal_base:    typ.Union[bvf.T3Base,           ut3.UniformT3Base], # Orthogonal representations of base point
         use_jax: bool = False,
 ) -> bvf.T3Variation:

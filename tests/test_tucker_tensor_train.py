@@ -60,7 +60,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                     for contract_ones, true_shape in zip([True, False], [SHAPE, EXTENDED_SHAPE]):
                         with self.subTest(contract_ones=contract_ones, true_shape=true_shape):
 
-                            x_dense = t3.t3_to_dense(x, contract_ones=contract_ones, use_jax=USE_JAX)  # Convert TuckerTensorTrain to dense tensor
+                            x_dense = t3.t3_to_dense(x, squash_tails=contract_ones, use_jax=USE_JAX)  # Convert TuckerTensorTrain to dense tensor
 
                             ((B0, B1, B2), (G0, G1, G2)) = x
                             if contract_ones:

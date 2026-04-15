@@ -149,8 +149,8 @@ def t3_svd(
     >>> import t3toolbox.t3svd as t3svd
     >>> x = t3.t3_corewise_randn(((5,6,3), (4,4,3), (2,3,2,2)))
     >>> x2, ss_tucker, ss_tt = t3svd.t3_svd(x, squash_tails_first=False) # Compute T3-SVD
-    >>> x_dense = t3.t3_to_dense(x, contract_ones=False)
-    >>> x2_dense = t3.t3_to_dense(x2, contract_ones=False)
+    >>> x_dense = t3.t3_to_dense(x, squash_tails=False)
+    >>> x2_dense = t3.t3_to_dense(x2, squash_tails=False)
     >>> print(np.linalg.norm(x_dense - x2_dense)) # Tensor unchanged
     5.486408687260824e-13
     >>> ss_tt0 = np.linalg.svd(x_dense.reshape((2,5*6*3*2)))[1] # Singular values of leading unfolding
@@ -472,12 +472,12 @@ def t3_svd_dense(
 ###################################################
 
 def uniform_t3_svd(
-        cores: ut3.UniformTuckerTensorTrainCores,
+        cores: ut3.UniformTuckerTensorTrain,
         masks: ut3.UniformEdgeWeights,
         squash_tails_first: bool = True,
         use_jax: bool = False,
 ) -> typ.Tuple[
-    ut3.UniformTuckerTensorTrainCores,
+    ut3.UniformTuckerTensorTrain,
     NDArray, # basis_singular_values, shape=(d, n)
     NDArray, # tt_singular_values, shape=(d+1, r)
 ]:

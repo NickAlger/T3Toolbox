@@ -45,7 +45,7 @@ __all__ = [
 
 def probe_t3(
         ww:             typ.Union[typ.Sequence[NDArray],    NDArray],
-        x:              typ.Union[t3.TuckerTensorTrain,     ut3.UniformTuckerTensorTrainCores],
+        x:              typ.Union[t3.TuckerTensorTrain,     ut3.UniformTuckerTensorTrain],
         edge_weights:   typ.Union[t3.EdgeWeights,           ut3.UniformEdgeWeights] = (None, None, None),
         use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,Ni)

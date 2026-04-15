@@ -3,34 +3,77 @@
 # Github: https://github.com/NickAlger/TuckerTensorTrainTools
 # Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
 """
-This module contains type aliases and functions for basic operations with Tucker tensor trains (T3).
+This module contains type aliases and basic operations for Tucker tensor trains.
 
-Tensor network diagram for a Tucker tensor train::
+Tucker tensor trains:
+---------------------
 
-        r0        r1        r2       r(d-1)          rd
-    1 ------ G0 ------ G1 ------ ... ------ G(d-1) ------ 1
-             |         |                    |
-             | n0      | n1                 | nd
-             |         |                    |
-             B0        B1                   Bd
-             |         |                    |
-             | N0      | N1                 | Nd
-             |         |                    |
+* :py:type:`TuckerTensorTrain`
+    | The cores of a Tucker tensor train with varied ranks
+    | (tucker_cores, tt_cores)
 
-The components of a dth order Tucker tensor train are:
+* :py:type:`T3Structure`
+    | The structure of a Tucker tensor train.
+    | (shape, tucker_ranks, tt_ranks)
 
-- Basis cores: (B0, B1, ..., B(d-1)) with shapes (ni, Ni).
-- TT cores: (G0, G1, ..., G(d-1)) with shapes (ri, ni, r(i+1)).
+* :py:type:`EdgeWeights`
+    | Weights for edges of a Tucker tensor train
+    | (tucker_weights, tt_weights)
 
-The structure of a Tucker tensor train is defined by:
+* :py:type:`T3Base`
+    | Base cores for Tucker tensor trains in base-variation format
+    | (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
 
-- Tensor shape: (N0, N1, ..., N(d-1))
-- Tucker ranks: (n0, r1, ..., n(d-1))
-- TT ranks: (r0, r1, ..., rd)
+* :py:type:`T3Variation`
+    | Variation cores for Tucker tensor trains in base-variation format
+    | (tucker_variations, tt_variations)
 
-Typically, the first and last TT-ranks satisfy r0=rd=1, and "1" in the diagram
-is the number 1. However, it is allowed for these ranks to not be 1, in which case
-the "1"s in the diagram are vectors of ones.
+* :py:type:`BVStructure`
+    | The structure of a Tucker tensor train in base-variation format
+    | (shape, up_ranks, outer_ranks, left_ranks, right_ranks)
+
+* :py:type:`BVEdgeWeights`
+    | Weights for the edges of a Tucker tensor train in base-variation format
+    | (shape_weights, up_weights, outer_weights, left_weights, right_weights)
+
+Uniform Tucker tensor trains:
+-----------------------------
+
+* :py:type:`UniformTuckerTensorTrain`
+    | Supercores of a uniform Tucker tensor train with uniform ranks
+    | (tucker_supercore, tt_supercore)
+
+* :py:type:`UniformT3Structure`
+    | The structure of a uniform Tucker tensor train.
+    | (num indices d, index size N, tucker rank nU, TT rank r)
+
+* :py:type:`UniformEdgeWeights`
+    | Weights for the edges of a uniform Tucker tensor train
+    | (tucker_weights, tt_weights)
+
+* :py:type:`UniformT3Base`
+    | Base cores for Tucker tensor trains in base-variation format
+    | (up_tucker_supercore, left_tt_supercore, right_tt_supercore, outer_tt_supercore)
+
+* :py:type:`UniformT3Variation`
+    | Variation cores for Tucker tensor trains in base-variation format
+    | (tucker_variations_supercore, tt_variations_supercore)
+
+* :py:type:`BVStructure`
+    | The structure of a Tucker tensor train in base-variation format
+    | (num indices d, index size N, up rank nU, outer rank nO, left rank rL, right rank rR)
+
+* :py:type:`UniformBVEdgeWeights`
+    | Weights for the edges of a Tucker tensor train in base-variation format
+    | (shape_weights, up_weights, outer_weights, left_weights, right_weights)
+
+
+
+
+
+
+Other
+=====
 
 Operations here are defined with respect to the dense N0 x ... x N(d-1) tensors that
 are *represented* by the Tucker tensor train, even though these dense tensors
@@ -74,8 +117,6 @@ __all__ = [
     't3_norm',
 ]
 
-NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
-
 
 ###########################################
 ########    Tucker Tensor Train    ########
@@ -83,17 +124,51 @@ NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray,
 
 TuckerTensorTrain = typ.Tuple[
     typ.Sequence[NDArray], # tucker_cores, len=d, elm_shape=(ni, Ni)
-    typ.Sequence[NDArray], # tt_cores, len=d, elm_shape=(ri, ni, r(i+1))
+    typ.Sequence[NDArray], # tt_cores,     len=d, elm_shape=(ri, ni, r(i+1))
 ]
 """
-Tuple containing Tucker tensor train Tucker cores and TT cores.
+Tuple (tucker_cores, tt_cores) containing Tucker tensor train cores.
+The basic type for a Tucker tensor train with variable ranks.
+
+Tensor network diagram for a dth order Tucker tensor train::
+
+        r0        r1        r2       r(d-1)          rd
+    1 ------ G0 ------ G1 ------ ... ------ G(d-1) ------ 1
+             |         |                    |
+             | n0      | n1                 | nd
+             |         |                    |
+             B0        B1                   Bd
+             |         |                    |
+             | N0      | N1                 | Nd
+             |         |                    |
 
 Components:
+-----------
 
 - **tucker_cores** : *Sequence[NDArray]*
-    Basis matrices (B0, ..., B(d-1)), with shapes (ni, Ni) for i=1,...,d-1. len=d.
+    Tucker cores: (B0, ..., B(d-1)), len=d, elm_shape=(ni, Ni).
+    
 - **tt_cores** : *Sequence[NDArray]*
-    Tensor train 3-tensor cores (G0, ..., G(d-1)), with shapes (ri, ni, r(i+1)) for i=1,...,d-1. len=d.
+    Tensor train cores: (G0, ..., G(d-1)), len=d, elm_shape=(ri, ni, r(i+1)).
+
+Notes:
+------
+
+The structure of a Tucker tensor train is defined by:
+
+- Tensor shape: (N0, N1, ..., N(d-1))
+- Tucker ranks: (n0, r1, ..., n(d-1))
+- TT ranks: (r0, r1, ..., rd)
+
+Typically, the first and last TT-ranks satisfy r0=rd=1, and "1" in the diagram
+is the number 1. However, it is allowed for these ranks to not be 1, in which case
+the "1"s in the diagram are vectors of ones.
+
+
+.. seealso::
+:py:type:`T3Structure`
+:py:func:`get_structure`
+:py:func:`check_t3`
 
 Examples
 --------
@@ -112,16 +187,26 @@ T3Structure = typ.Tuple[
     typ.Sequence[int], # tt_ranks, len=d+1
 ]
 """
-Tuple containing the structure of a Tucker tensor train.
+Tuple (shape, tucker_ranks, tt_ranks) containing the structure of a Tucker tensor train.
 
 Components:
+-----------
 
 - **shape** : *Sequence[int]*
-    Shape of the represented tensor, (N0, ..., N(d-1)). len=d
+    Shape of the represented tensor: (N0, ..., N(d-1)), len=d.
+    
 - **tucker_ranks** : *Sequence[int]*
-    Tucker ranks, (n0, ..., n(d-1)). len=d
+    Tucker ranks: (n0, ..., n(d-1)), len=d.
+    
 - **tt_ranks** : *Sequence[int]*
-    TT-ranks, (1, r1, ..., r(d-1), 1). len=d+1.
+    TT-ranks: (1, r1, ..., r(d-1), 1), len=d+1.
+
+
+.. seealso::
+    :py:type:`T3Structure`
+    :py:func:`get_structure`
+    :py:func:`check_t3`
+
 
 Examples
 --------
@@ -138,6 +223,7 @@ Examples
 >>> print(tt_ranks)
 (1, 3, 2, 1)
 """
+
 
 EdgeWeights = typ.Tuple[
     typ.Sequence[NDArray],  # shape_weights, len=d, elm_shape=(Ni,)
@@ -168,20 +254,26 @@ def get_structure(
     Parameters
     ----------
     x : TuckerTensorTrain
-        Tucker tensor train with shape (N0, ..., N(d-1)), Tucker ranks (n0, ..., n(d-1)), and TT-ranks (1, r1, ..., r(d-1), 1)).
+        Tucker tensor train with:
+
+            shape=(N0, ..., N(d-1)),
+
+            tucker_ranks=(n0, ..., n(d-1)),
+
+            tt_ranks=(1, r1, ..., r(d-1), 1)).
 
     Returns
     -------
-    T3Structure
-        ((N1, ..., Nd), (n1, ..., nd), (1, r1, ... r(d-1), 1)), the structure of the Tucker tensor train.
+    structure: T3Structure
+        The structure of the Tucker tensor train:
+
+            ((N1, ..., Nd), (n1, ..., nd), (1, r1, ... r(d-1), 1))
 
     See Also
     --------
     TuckerTensorTrain
     T3Structure
-    t3_shape
-    t3_tucker_ranks
-    t3_tt_ranks
+    check_t3
 
     Examples
     --------
@@ -216,16 +308,13 @@ def check_t3(
 
     Raises
     ------
-    RuntimeError
+    ValueError
         Error raised if the cores of the Tucker tensor train have inconsistent shapes.
 
     See Also
     --------
     TuckerTensorTrain
     T3Structure
-    t3_shape
-    t3_tucker_ranks
-    t3_tt_ranks
     get_structure
 
     Examples
@@ -297,7 +386,7 @@ def check_t3(
     '''
     tucker_cores, tt_cores = x
     if len(tucker_cores) != len(tt_cores):
-        raise RuntimeError(
+        raise ValueError(
             'Inconsistent TuckerTensorTrain.\n'
             + str(len(tucker_cores)) + ' = len(tucker_cores) != len(tt_cores) = ' + str(len(tt_cores))
         )
@@ -340,7 +429,7 @@ def check_t3(
 
 def t3_to_dense(
         x: TuckerTensorTrain,
-        contract_ones: bool = True,
+        squash_tails: bool = True,
         use_jax: bool = False,
 ) -> NDArray:
     """Contract a Tucker tensor train to a dense tensor.
@@ -348,22 +437,25 @@ def t3_to_dense(
     Parameters
     ----------
     x : TuckerTensorTrain
-        Tucker tensor train with shape (N0, ..., N(d-1)).
-    contract_ones: bool
-        If true (default), contract with leading and training 1's, yielding shape=(N0,...,N(d-1)).
-        If false, do not contract with leading and trailing 1's, yielding shape=(r0,N0,...,N(d-1),rd).
-    xnp:
-        Linear algebra backend. Default: np (numpy).
+        Tucker tensor train which will be contracted to a dense tensor.
+
+    squash_tails: bool, defaults to True
+        Whether to contract the leading and trailing 1s with the first and last TT indices.
+
+    use_jax: bool, defaults to False
+        Whether to use Jax for linear algebra. Default: False (use numpy).
 
     Returns
     -------
-    NDArray
-        Dense tensor represented by x, which has shape (N0, ..., N(d-1)).
+    dense_x: NDArray
+        Dense tensor represented by x,
+        which has shape (N0, ..., N(d-1)) if squash_tails=True,
+        or (r0,N0,...,N(d-1),rd) if squash_tails=False.
 
     See Also
     --------
     TuckerTensorTrain
-    t3_shape
+    squash_tails
 
     Examples
     --------
@@ -392,7 +484,7 @@ def t3_to_dense(
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn(((14,15,16),(4,5,6),(2,3,4,2))) # make TuckerTensorTrain
-    >>> x_dense = t3.t3_to_dense(x, contract_ones=False) # Convert TuckerTensorTrain to dense tensor
+    >>> x_dense = t3.t3_to_dense(x, squash_tails=False) # Convert TuckerTensorTrain to dense tensor
     >>> print(x_dense.shape)
     (2, 14, 15, 16, 2)
     >>> ((B0,B1,B2), (G0,G1,G2)) = x
@@ -410,7 +502,7 @@ def t3_to_dense(
     for G in big_tt_cores[1:]:
         T = xnp.tensordot(T, G, axes=1)
 
-    if contract_ones:
+    if squash_tails:
         mu_L = xnp.ones(big_tt_cores[0].shape[0])
         mu_R = xnp.ones(big_tt_cores[-1].shape[2])
 
@@ -426,7 +518,25 @@ def squash_tails(
         x: TuckerTensorTrain,
         use_jax: bool = False,
 ) -> TuckerTensorTrain:
-    """Make leading and trailing TT ranks equal to 1 (r0=rd=1).
+    """Make leading and trailing TT ranks equal to 1 (r0=rd=1), without changing tensor being represented.
+
+    Parameters
+    ----------
+    x : TuckerTensorTrain
+        Tucker tensor train with tt_ranks=(r0,r1,...,r(d-1),rd).
+
+    use_jax: bool, defaults to False
+        Whether to use Jax for linear algebra. Default: False (use numpy).
+
+    Returns
+    -------
+    squashed_x: TuckerTensorTrain
+        Tucker tensor train with tt_ranks=(1,r1,...,r(d-1),1).
+
+    See Also:
+    ---------
+    TuckerTensorTrain
+    T3Structure
 
     Examples
     ________
@@ -452,8 +562,37 @@ def squash_tails(
     return x
 
 
-def reverse_tt(tt_cores):
+def reverse_tt(
+        tt_cores: typ.Union[typ.Sequence[NDArray], NDArray]
+) -> typ.Union[typ.Sequence[NDArray], NDArray]:
     """Reverse a tensor train (no Tucker).
+
+    Parameters
+    ----------
+    x : typ.Sequence[NDArray] or NDArray
+        Either: tensor train (no Tucker) with:
+
+            tucker_ranks=(n0,...,n(d-1)),
+
+            tt_ranks=(1,r1,...,r(d-1),1).
+
+        Or: uniform tensor train (no Tucker).
+
+
+    Returns
+    -------
+    reversed_x : typ.Sequence[NDArray] or NDArray
+        Either: tensor train (no Tucker) with index order reversed, and
+
+            tucker_ranks=(n(d-1),...,n0),
+
+            tt_ranks=(1,r(d-1),...,r1,1).
+
+        Or: uniform tensor train (no Tucker) with index order reversed, and same structure as x.
+
+    See Also
+    --------
+    reverse_t3
     """
     is_uniform = not isinstance(tt_cores, typ.Sequence)
     if is_uniform:
@@ -470,17 +609,29 @@ def reverse_t3(
     Parameters
     ----------
     x : TuckerTensorTrain
-        Tucker tensor train with shape=(N0, ..., N(d-1)), tucker_ranks=(n0,...,n(d-1)), tt_ranks=(1,r1,...,r(d-1),1).
+        Tucker tensor train with:
+
+            shape=(N0, ..., N(d-1)),
+
+            tucker_ranks=(n0,...,n(d-1)),
+
+            tt_ranks=(1,r1,...,r(d-1),1).
 
     Returns
     -------
     reversed_x : TuckerTensorTrain
-        Tucker tensor train with index order reversed. shape=(N(d-1), ..., N0), tucker_ranks=(n(d-1),...,n0), tt_ranks=(1,r(d-1),...,r1,1).
+        Tucker tensor train with index order reversed.
+
+            shape=(N(d-1), ..., N0),
+
+            tucker_ranks=(n(d-1),...,n0),
+
+            tt_ranks=(1,r(d-1),...,r1,1).
 
     See Also
     --------
     TuckerTensorTrain
-    get_structure
+    T3Structure
 
     Examples
     --------

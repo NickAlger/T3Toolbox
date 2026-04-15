@@ -6,12 +6,11 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.common as common
 import t3toolbox.base_variation_format as bvf
 from t3toolbox.common import *
 
 __all__ = [
-    'UniformTuckerTensorTrainCores',
+    'UniformTuckerTensorTrain',
     'UniformEdgeWeights',
     'UniformT3Base',
     'UniformT3Variation',
@@ -54,7 +53,7 @@ __all__ = [
 ########    Uniform Tucker Tensor Train    ########
 ###################################################
 
-UniformTuckerTensorTrainCores = typ.Tuple[
+UniformTuckerTensorTrain = typ.Tuple[
     NDArray, # tucker_supercore, shape=(d, n, N)
     NDArray, # tt_supercore, shape=(d, r, n, r)
 ]
@@ -189,11 +188,11 @@ UniformT3Base
 
 
 UniformBVEdgeWeights = typ.Tuple[
-    NDArray,  # shape_weights, shape=(d,Ni)
-    NDArray,  # up_tucker_weights, shape=(d,nUi,)
-    NDArray,  # outer_tucker_weights, shape=(d,nOi)
-    NDArray,  # left_tt_weights, len=d, shape=(d+1,rLi,)
-    NDArray,  # right_tt_weights, len=d, shape=(d+1,rRi)
+    NDArray,  # shape_weights,          shape=(d,Ni)
+    NDArray,  # up_tucker_weights,      shape=(d,nUi,)
+    NDArray,  # outer_tucker_weights,   shape=(d,nOi)
+    NDArray,  # left_tt_weights,        len=d, shape=(d+1,rLi,)
+    NDArray,  # right_tt_weights,       len=d, shape=(d+1,rRi)
 ]
 """Edge weights for base-variation format.
 
@@ -303,7 +302,7 @@ def get_uniform_variation_shapes(
 #
 
 def check_ut3(
-        cores: UniformTuckerTensorTrainCores,
+        cores: UniformTuckerTensorTrain,
         masks: UniformEdgeWeights,
 ) -> None:
     """Check internal shape consistency of UniformTuckerTensorTrain.
@@ -359,7 +358,7 @@ def check_ut3(
 
 
 def get_uniform_structure(
-        cores: UniformTuckerTensorTrainCores,
+        cores: UniformTuckerTensorTrain,
 ) -> UniformStructure:
     """Get padded structure of uniform Tucker tensor train.
 
@@ -444,10 +443,10 @@ def get_original_structure(
 
 
 def apply_masks(
-        cores: UniformTuckerTensorTrainCores,
+        cores: UniformTuckerTensorTrain,
         masks: UniformEdgeWeights,
         use_jax: bool = False,
-) -> UniformTuckerTensorTrainCores: # cores with masks applied
+) -> UniformTuckerTensorTrain: # cores with masks applied
     """Apply masks to uniform Tucker tensor train cores.
 
     Examples
@@ -555,9 +554,9 @@ def apply_masks_to_variation(
 
 
 def uniform_squash_tails(
-        x: UniformTuckerTensorTrainCores,
+        x: UniformTuckerTensorTrain,
         use_jax: bool = False,
-) -> UniformTuckerTensorTrainCores:
+) -> UniformTuckerTensorTrain:
     """Squash tails of uniform Tucker tensor train.
 
     Examples
@@ -727,7 +726,7 @@ def uniform_randn(
         structure: UniformStructure,
         masks: UniformEdgeWeights = None,
         use_jax: bool = False,
-) -> UniformTuckerTensorTrainCores:
+) -> UniformTuckerTensorTrain:
     """Makes a uniform Tucker tensor train with random cores.
     """
     xnp, _, _ = get_backend(True, use_jax)
@@ -744,7 +743,7 @@ def uniform_randn(
 def uniform_zeros(
         structure: UniformStructure,
         use_jax: bool = False,
-) -> UniformTuckerTensorTrainCores:
+) -> UniformTuckerTensorTrain:
     """Makes a uniform Tucker tensor train with cores filled with zeros.
     """
     xnp, _, _ = get_backend(True, use_jax)
@@ -761,7 +760,7 @@ def t3_to_ut3(
         squash_tails: bool = True,
         use_jax: bool = False,
 ) -> typ.Tuple[
-    UniformTuckerTensorTrainCores,
+    UniformTuckerTensorTrain,
     UniformEdgeWeights,
 ]:
     """Convert TuckerTensorTrain to UniformTuckerTensorTrain.
@@ -811,7 +810,7 @@ def t3_to_ut3(
 
 
 def ut3_to_t3(
-        cores: UniformTuckerTensorTrainCores,
+        cores: UniformTuckerTensorTrain,
         masks: UniformEdgeWeights,
         use_jax: bool = False,
 ) -> t3.TuckerTensorTrain:
@@ -935,7 +934,7 @@ def bv_to_ubv(
 #
 
 def ut3_to_dense(
-        cores: UniformTuckerTensorTrainCores,
+        cores: UniformTuckerTensorTrain,
         masks: UniformEdgeWeights,
         use_jax: bool = False,
 ) -> NDArray:
@@ -999,7 +998,7 @@ def are_ut3_ranks_minimal(
 
 
 def ut3_entry(
-        cores: UniformTuckerTensorTrainCores,
+        cores: UniformTuckerTensorTrain,
         index: NDArray, # dtype=int. shape=(d,) or shape=(num_entries,d)
         use_jax: bool = False,
 ) -> NDArray:
@@ -1080,7 +1079,7 @@ def ut3_entry(
 
 
 def ut3_apply(
-        cores: UniformTuckerTensorTrainCores,
+        cores: UniformTuckerTensorTrain,
         input_vectors: NDArray, # shape=(d,N) or shape=(...,d,N)
         use_jax: bool = False,
 ) -> NDArray: # shape=(d,N) or (...,d,N)
@@ -1164,13 +1163,13 @@ def ut3_apply(
 ###################################################
 
 def ut3_add(
-        x_cores: UniformTuckerTensorTrainCores,
+        x_cores: UniformTuckerTensorTrain,
         x_masks: UniformEdgeWeights,
-        y_cores: UniformTuckerTensorTrainCores,
+        y_cores: UniformTuckerTensorTrain,
         y_masks: UniformEdgeWeights,
         use_jax: bool = False,
 ) -> typ.Tuple[
-    UniformTuckerTensorTrainCores, # x+y cores
+    UniformTuckerTensorTrain, # x+y cores
     UniformEdgeWeights, # x+y masks
 ]: # z = x + y
     """Add two UniformTuckerTensorTrains, x,y -> x+y.
@@ -1256,10 +1255,10 @@ def ut3_add(
 
 
 def ut3_scale(
-        x_cores: UniformTuckerTensorTrainCores,
+        x_cores: UniformTuckerTensorTrain,
         s, # scalar
         use_jax: bool = False,
-) -> UniformTuckerTensorTrainCores: # cores for z = s*x
+) -> UniformTuckerTensorTrain: # cores for z = s*x
     """Scale a uniform Tucker tensor train, s,x -> s*x.
 
     Parameters
@@ -1303,9 +1302,9 @@ def ut3_scale(
 
 
 def ut3_neg(
-        x_cores: UniformTuckerTensorTrainCores,
+        x_cores: UniformTuckerTensorTrain,
         use_jax: bool = False,
-) -> UniformTuckerTensorTrainCores: # cores for z = -x
+) -> UniformTuckerTensorTrain: # cores for z = -x
     """Flip a uniform Tucker tensor train, x -> -x.
 
     Parameters
@@ -1335,13 +1334,13 @@ def ut3_neg(
 
 
 def ut3_sub(
-        x_cores: UniformTuckerTensorTrainCores,
+        x_cores: UniformTuckerTensorTrain,
         x_masks: UniformEdgeWeights,
-        y_cores: UniformTuckerTensorTrainCores,
+        y_cores: UniformTuckerTensorTrain,
         y_masks: UniformEdgeWeights,
         use_jax: bool = False,
 ) -> typ.Tuple[
-    UniformTuckerTensorTrainCores, # x-y cores
+    UniformTuckerTensorTrain, # x-y cores
     UniformEdgeWeights, # x-y masks
 ]: # z = x - y
     """Subtract two UniformTuckerTensorTrains, x,y -> x-y.
