@@ -168,7 +168,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
    .. py:method:: has_minimal_ranks() -> bool
 
 
-   .. py:method:: check()
+   .. py:method:: validate()
 
       Check internal consistency of the Tucker tensor train.
 
@@ -344,9 +344,11 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: __add__(other: TuckerTensorTrain, squash: bool = True, use_jax: bool = False) -> TuckerTensorTrain
+   .. py:method:: add(x: TuckerTensorTrain, y: TuckerTensorTrain, squash: bool = True, use_jax: bool = False) -> TuckerTensorTrain
+      :staticmethod:
 
-      Add this Tucker tensor train to another one, yielding a Tucker tensor train with summed ranks.
+
+      Add Tucker tensor trains x and y, yielding a Tucker tensor train x+y with summed ranks.
 
       Addition is defined with respect to the dense N0 x ... x N(d-1) tensors that
       are *represented* by the Tucker tensor trains, even though these dense tensors
@@ -381,7 +383,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> import t3toolbox.tucker_tensor_train as t3
       >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
       >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (1,5,6,1))
-      >>> z = x + y
+      >>> z = t3.TuckerTensorTrain.add(x, y)
       >>> print(z.structure)
       ((14, 15, 16), (7, 12, 8), (1, 8, 8, 1))
       >>> print(np.linalg.norm(x.to_dense() + y.to_dense() - z.to_dense()))
@@ -393,14 +395,36 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> import t3toolbox.tucker_tensor_train as t3
       >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), vectorization_shape=(2,3))
       >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (1,5,6,1), vectorization_shape=(2,3))
-      >>> z = x + y
+      >>> z = t3.TuckerTensorTrain.add(x, y)
       >>> print(z.structure)
       ((14, 15, 16), (7, 12, 8), (1, 8, 8, 1))
       >>> print(np.linalg.norm(x.to_dense() + y.to_dense() - z.to_dense()))
 
 
 
-   .. py:method:: __mul__(s) -> TuckerTensorTrain
+   .. py:method:: __add__(other: TuckerTensorTrain, squash: bool = True, use_jax: bool = False) -> TuckerTensorTrain
+
+      Add Tucker tensor trains x and y, yielding a Tucker tensor train x+y with summed ranks.
+
+      dunder version of :py:meth:`TuckerTensorTrain.add`.
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+      >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (1,5,6,1))
+      >>> z = x + y
+      >>> print(z.structure)
+      ((14, 15, 16), (7, 12, 8), (1, 8, 8, 1))
+      >>> print(np.linalg.norm(x.to_dense() + y.to_dense() - z.to_dense()))
+      6.524094086845177e-13
+
+
+
+   .. py:method:: mul(x: TuckerTensorTrain, s) -> TuckerTensorTrain
+      :staticmethod:
+
 
       Multipy a Tucker tensor train by a scaling factor.
 
@@ -421,6 +445,24 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       :raises ValueError: - Error raised if the TuckerTensorTrains are internally inconsistent
 
       .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`t3_add`, :py:obj:`t3_neg`, :py:obj:`t3_sub`, :func:`~t3toolbox.corewise.corewise_scale`
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+      >>> s = 3.2
+      >>> sx = t3.TuckerTensorTrain.mul(x, s)
+      >>> print(np.linalg.norm(s*x.to_dense() - sx.to_dense()))
+      1.6268482531988893e-13
+
+
+
+   .. py:method:: __mul__(s) -> TuckerTensorTrain
+
+      Multipy a Tucker tensor train by a scaling factor.
+
+      dunder version of :py:meth:`TuckerTensorTrain.mul`.
 
       .. rubric:: Examples
 
@@ -888,15 +930,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
    .. py:method:: right_orthogonalize_tt_cores(return_variation_cores: bool = False, use_jax: bool = False)
 
-      Right orthogonalize the TT cores, possibly returning variation cores as well
+      Right orthogonalize the TT cores, possibly returning variation cores as well.
 
-
-
-
-   .. py:method:: flatten()
-
-
-   .. py:method:: unflatten(aux_data, children)
-      :classmethod:
 
 

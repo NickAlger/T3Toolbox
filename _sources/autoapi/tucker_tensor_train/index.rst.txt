@@ -1,0 +1,39 @@
+tucker_tensor_train
+===================
+
+.. py:module:: tucker_tensor_train
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/tucker_tensor_train/to_dense
+   /autoapi/tucker_tensor_train/squash_tt_tails
+   /autoapi/tucker_tensor_train/reverse_tt
+   /autoapi/tucker_tensor_train/change_tucker_core_shapes
+   /autoapi/tucker_tensor_train/change_tt_core_shapes
+   /autoapi/tucker_tensor_train/t3_add
+   /autoapi/tucker_tensor_train/t3_mul
+   /autoapi/tucker_tensor_train/left_orthogonalize_tt_cores
+   /autoapi/tucker_tensor_train/right_orthogonalize_tt_cores
+   /autoapi/tucker_tensor_train/outer_orthogonalize_tt_cores
+   /autoapi/tucker_tensor_train/up_orthogonalize_tucker_cores
+
+.. autoapisummary::
+
+   tucker_tensor_train.to_dense
+   tucker_tensor_train.squash_tt_tails
+   tucker_tensor_train.reverse_tt
+   tucker_tensor_train.change_tucker_core_shapes
+   tucker_tensor_train.change_tt_core_shapes
+   tucker_tensor_train.t3_add
+   tucker_tensor_train.t3_mul
+   tucker_tensor_train.left_orthogonalize_tt_cores
+   tucker_tensor_train.right_orthogonalize_tt_cores
+   tucker_tensor_train.outer_orthogonalize_tt_cores
+   tucker_tensor_train.up_orthogonalize_tucker_cores
+
+

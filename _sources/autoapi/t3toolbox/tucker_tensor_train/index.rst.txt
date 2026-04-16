@@ -5,7 +5,7 @@ t3toolbox.tucker_tensor_train
 
 .. autoapi-nested-parse::
 
-   This module contains type aliases and basic operations for Tucker tensor trains.
+   This module contains type aliases and basic core for Tucker tensor trains.
 
    Tucker tensor trains:
    ---------------------
@@ -81,7 +81,7 @@ t3toolbox.tucker_tensor_train
    are *represented* by the Tucker tensor train, even though these dense tensors
    are not formed during computations.
 
-   For corewise operations, see :mod:`t3toolbox.corewise`
+   For corewise core, see :mod:`t3toolbox.corewise`
 
 
 
@@ -121,8 +121,6 @@ Functions
    /autoapi/t3toolbox/tucker_tensor_train/t3_apply
    /autoapi/t3toolbox/tucker_tensor_train/t3_entry
    /autoapi/t3toolbox/tucker_tensor_train/compute_minimal_ranks
-   /autoapi/t3toolbox/tucker_tensor_train/change_tucker_core_shapes
-   /autoapi/t3toolbox/tucker_tensor_train/change_tt_core_shapes
    /autoapi/t3toolbox/tucker_tensor_train/t3_inner_product_t3
    /autoapi/t3toolbox/tucker_tensor_train/t3_norm
 
@@ -137,8 +135,6 @@ Functions
    t3toolbox.tucker_tensor_train.t3_apply
    t3toolbox.tucker_tensor_train.t3_entry
    t3toolbox.tucker_tensor_train.compute_minimal_ranks
-   t3toolbox.tucker_tensor_train.change_tucker_core_shapes
-   t3toolbox.tucker_tensor_train.change_tt_core_shapes
    t3toolbox.tucker_tensor_train.t3_inner_product_t3
    t3toolbox.tucker_tensor_train.t3_norm
 
