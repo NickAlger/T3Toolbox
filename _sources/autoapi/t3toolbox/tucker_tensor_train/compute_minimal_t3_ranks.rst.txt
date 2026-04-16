@@ -1,7 +1,7 @@
-t3toolbox.tucker_tensor_train.compute_minimal_ranks
-===================================================
+t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks
+======================================================
 
-.. py:function:: t3toolbox.tucker_tensor_train.compute_minimal_ranks(shape: t3toolbox.common.typ.Sequence[int], tucker_ranks: t3toolbox.common.typ.Sequence[int], tt_ranks: t3toolbox.common.typ.Sequence[int]) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.typ.Tuple[int, Ellipsis]]
+.. py:function:: t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks(shape: t3toolbox.common.typ.Sequence[int], tucker_ranks: t3toolbox.common.typ.Sequence[int], tt_ranks: t3toolbox.common.typ.Sequence[int]) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.typ.Tuple[int, Ellipsis]]
 
    Find minimal ranks for a generic Tucker tensor train with a given structure.
 

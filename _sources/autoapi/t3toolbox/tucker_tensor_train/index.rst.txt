@@ -120,9 +120,7 @@ Functions
    /autoapi/t3toolbox/tucker_tensor_train/t3_load
    /autoapi/t3toolbox/tucker_tensor_train/t3_apply
    /autoapi/t3toolbox/tucker_tensor_train/t3_entry
-   /autoapi/t3toolbox/tucker_tensor_train/compute_minimal_ranks
-   /autoapi/t3toolbox/tucker_tensor_train/t3_inner_product_t3
-   /autoapi/t3toolbox/tucker_tensor_train/t3_norm
+   /autoapi/t3toolbox/tucker_tensor_train/compute_minimal_t3_ranks
 
 .. autoapisummary::
 
@@ -134,9 +132,7 @@ Functions
    t3toolbox.tucker_tensor_train.t3_load
    t3toolbox.tucker_tensor_train.t3_apply
    t3toolbox.tucker_tensor_train.t3_entry
-   t3toolbox.tucker_tensor_train.compute_minimal_ranks
-   t3toolbox.tucker_tensor_train.t3_inner_product_t3
-   t3toolbox.tucker_tensor_train.t3_norm
+   t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks
 
 
 Module Contents

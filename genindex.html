@@ -444,7 +444,7 @@
 </li>
         <li><a href="autoapi/t3toolbox/tucker_tensor_train/absorb_edge_weights_into_cores.html#t3toolbox.tucker_tensor_train.absorb_edge_weights_into_cores">t3toolbox.tucker_tensor_train.absorb_edge_weights_into_cores()</a>
 </li>
-        <li><a href="autoapi/t3toolbox/tucker_tensor_train/compute_minimal_ranks.html#t3toolbox.tucker_tensor_train.compute_minimal_ranks">t3toolbox.tucker_tensor_train.compute_minimal_ranks()</a>
+        <li><a href="autoapi/t3toolbox/tucker_tensor_train/compute_minimal_t3_ranks.html#t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks">t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks()</a>
 </li>
         <li><a href="autoapi/t3toolbox/tucker_tensor_train/reverse_tt.html#t3toolbox.tucker_tensor_train.reverse_tt">t3toolbox.tucker_tensor_train.reverse_tt()</a>
 </li>
@@ -454,11 +454,7 @@
 </li>
         <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_entry.html#t3toolbox.tucker_tensor_train.t3_entry">t3toolbox.tucker_tensor_train.t3_entry()</a>
 </li>
-        <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_inner_product_t3.html#t3toolbox.tucker_tensor_train.t3_inner_product_t3">t3toolbox.tucker_tensor_train.t3_inner_product_t3()</a>
-</li>
         <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_load.html#t3toolbox.tucker_tensor_train.t3_load">t3toolbox.tucker_tensor_train.t3_load()</a>
-</li>
-        <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_norm.html#t3toolbox.tucker_tensor_train.t3_norm">t3toolbox.tucker_tensor_train.t3_norm()</a>
 </li>
         <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_save.html#t3toolbox.tucker_tensor_train.t3_save">t3toolbox.tucker_tensor_train.t3_save()</a>
 </li>
@@ -530,7 +526,11 @@
 </li>
         <li><a href="autoapi/tucker_tensor_train/change_tucker_core_shapes.html#tucker_tensor_train.change_tucker_core_shapes">tucker_tensor_train.change_tucker_core_shapes()</a>
 </li>
+        <li><a href="autoapi/tucker_tensor_train/compute_minimal_ranks.html#tucker_tensor_train.compute_minimal_ranks">tucker_tensor_train.compute_minimal_ranks()</a>
+</li>
         <li><a href="autoapi/tucker_tensor_train/left_orthogonalize_tt_cores.html#tucker_tensor_train.left_orthogonalize_tt_cores">tucker_tensor_train.left_orthogonalize_tt_cores()</a>
+</li>
+        <li><a href="autoapi/tucker_tensor_train/left_svd_ith_tt_core.html#tucker_tensor_train.left_svd_ith_tt_core">tucker_tensor_train.left_svd_ith_tt_core()</a>
 </li>
         <li><a href="autoapi/tucker_tensor_train/outer_orthogonalize_tt_cores.html#tucker_tensor_train.outer_orthogonalize_tt_cores">tucker_tensor_train.outer_orthogonalize_tt_cores()</a>
 </li>
@@ -538,15 +538,21 @@
 </li>
         <li><a href="autoapi/tucker_tensor_train/right_orthogonalize_tt_cores.html#tucker_tensor_train.right_orthogonalize_tt_cores">tucker_tensor_train.right_orthogonalize_tt_cores()</a>
 </li>
+        <li><a href="autoapi/tucker_tensor_train/right_svd_ith_tt_core.html#tucker_tensor_train.right_svd_ith_tt_core">tucker_tensor_train.right_svd_ith_tt_core()</a>
+</li>
         <li><a href="autoapi/tucker_tensor_train/squash_tt_tails.html#tucker_tensor_train.squash_tt_tails">tucker_tensor_train.squash_tt_tails()</a>
 </li>
         <li><a href="autoapi/tucker_tensor_train/t3_add.html#tucker_tensor_train.t3_add">tucker_tensor_train.t3_add()</a>
 </li>
-        <li><a href="autoapi/tucker_tensor_train/t3_mul.html#tucker_tensor_train.t3_mul">tucker_tensor_train.t3_mul()</a>
+        <li><a href="autoapi/tucker_tensor_train/t3_inner_product_t3.html#tucker_tensor_train.t3_inner_product_t3">tucker_tensor_train.t3_inner_product_t3()</a>
+</li>
+        <li><a href="autoapi/tucker_tensor_train/t3_scale.html#tucker_tensor_train.t3_scale">tucker_tensor_train.t3_scale()</a>
 </li>
         <li><a href="autoapi/tucker_tensor_train/to_dense.html#tucker_tensor_train.to_dense">tucker_tensor_train.to_dense()</a>
 </li>
         <li><a href="autoapi/tucker_tensor_train/up_orthogonalize_tucker_cores.html#tucker_tensor_train.up_orthogonalize_tucker_cores">tucker_tensor_train.up_orthogonalize_tucker_cores()</a>
+</li>
+        <li><a href="autoapi/tucker_tensor_train/up_svd_ith_tucker_core.html#tucker_tensor_train.up_svd_ith_tucker_core">tucker_tensor_train.up_svd_ith_tucker_core()</a>
 </li>
       </ul></li>
   </ul></td>
@@ -603,7 +609,7 @@
 <h2 id="I">I</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.inner_product">inner_product() (t3toolbox.tucker_tensor_train.TuckerTensorTrain method)</a>
+      <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.inner_product">inner_product() (t3toolbox.tucker_tensor_train.TuckerTensorTrain static method)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
@@ -677,10 +683,6 @@
 </li>
       </ul></li>
   </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.mul">mul() (t3toolbox.tucker_tensor_train.TuckerTensorTrain static method)</a>
-</li>
-  </ul></td>
 </tr></table>
 
 <h2 id="N">N</h2>
@@ -688,9 +690,11 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="autoapi/t3toolbox/common/index.html#id1">NDArray (in module t3toolbox.common)</a>, <a href="autoapi/t3toolbox/common/index.html#t3toolbox.common.NDArray">[1]</a>
 </li>
+      <li><a href="autoapi/t3toolbox/corewise/index.html#t3toolbox.corewise.NDArrayTree">NDArrayTree (in module t3toolbox.corewise)</a>
+</li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="autoapi/t3toolbox/corewise/index.html#t3toolbox.corewise.NDArrayTree">NDArrayTree (in module t3toolbox.corewise)</a>
+      <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.neg">neg() (t3toolbox.tucker_tensor_train.TuckerTensorTrain static method)</a>
 </li>
       <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.norm">norm() (t3toolbox.tucker_tensor_train.TuckerTensorTrain method)</a>
 </li>
@@ -728,6 +732,8 @@
 <h2 id="S">S</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.scale">scale() (t3toolbox.tucker_tensor_train.TuckerTensorTrain static method)</a>
+</li>
       <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.shape">shape() (t3toolbox.tucker_tensor_train.TuckerTensorTrain method)</a>
 </li>
   </ul></td>
@@ -735,6 +741,8 @@
       <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.squash_tails">squash_tails() (t3toolbox.tucker_tensor_train.TuckerTensorTrain method)</a>
 </li>
       <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.structure">structure() (t3toolbox.tucker_tensor_train.TuckerTensorTrain method)</a>
+</li>
+      <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.sub">sub() (t3toolbox.tucker_tensor_train.TuckerTensorTrain static method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -1213,8 +1221,6 @@
         <li><a href="autoapi/t3toolbox/t3svd/t3_svd.html#t3toolbox.t3svd.t3_svd">built-in function</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     t3toolbox.t3svd.t3_svd_dense()
 
@@ -1222,6 +1228,8 @@
         <li><a href="autoapi/t3toolbox/t3svd/t3_svd_dense.html#t3toolbox.t3svd.t3_svd_dense">built-in function</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     t3toolbox.t3svd.tt_svd_dense()
 
@@ -1258,10 +1266,10 @@
 </li>
       </ul></li>
       <li>
-    t3toolbox.tucker_tensor_train.compute_minimal_ranks()
+    t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks()
 
       <ul>
-        <li><a href="autoapi/t3toolbox/tucker_tensor_train/compute_minimal_ranks.html#t3toolbox.tucker_tensor_train.compute_minimal_ranks">built-in function</a>
+        <li><a href="autoapi/t3toolbox/tucker_tensor_train/compute_minimal_t3_ranks.html#t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks">built-in function</a>
 </li>
       </ul></li>
       <li>
@@ -1293,24 +1301,10 @@
 </li>
       </ul></li>
       <li>
-    t3toolbox.tucker_tensor_train.t3_inner_product_t3()
-
-      <ul>
-        <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_inner_product_t3.html#t3toolbox.tucker_tensor_train.t3_inner_product_t3">built-in function</a>
-</li>
-      </ul></li>
-      <li>
     t3toolbox.tucker_tensor_train.t3_load()
 
       <ul>
         <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_load.html#t3toolbox.tucker_tensor_train.t3_load">built-in function</a>
-</li>
-      </ul></li>
-      <li>
-    t3toolbox.tucker_tensor_train.t3_norm()
-
-      <ul>
-        <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_norm.html#t3toolbox.tucker_tensor_train.t3_norm">built-in function</a>
 </li>
       </ul></li>
       <li>
@@ -1608,10 +1602,24 @@
 </li>
       </ul></li>
       <li>
+    tucker_tensor_train.compute_minimal_ranks()
+
+      <ul>
+        <li><a href="autoapi/tucker_tensor_train/compute_minimal_ranks.html#tucker_tensor_train.compute_minimal_ranks">built-in function</a>
+</li>
+      </ul></li>
+      <li>
     tucker_tensor_train.left_orthogonalize_tt_cores()
 
       <ul>
         <li><a href="autoapi/tucker_tensor_train/left_orthogonalize_tt_cores.html#tucker_tensor_train.left_orthogonalize_tt_cores">built-in function</a>
+</li>
+      </ul></li>
+      <li>
+    tucker_tensor_train.left_svd_ith_tt_core()
+
+      <ul>
+        <li><a href="autoapi/tucker_tensor_train/left_svd_ith_tt_core.html#tucker_tensor_train.left_svd_ith_tt_core">built-in function</a>
 </li>
       </ul></li>
       <li>
@@ -1636,6 +1644,13 @@
 </li>
       </ul></li>
       <li>
+    tucker_tensor_train.right_svd_ith_tt_core()
+
+      <ul>
+        <li><a href="autoapi/tucker_tensor_train/right_svd_ith_tt_core.html#tucker_tensor_train.right_svd_ith_tt_core">built-in function</a>
+</li>
+      </ul></li>
+      <li>
     tucker_tensor_train.squash_tt_tails()
 
       <ul>
@@ -1650,10 +1665,17 @@
 </li>
       </ul></li>
       <li>
-    tucker_tensor_train.t3_mul()
+    tucker_tensor_train.t3_inner_product_t3()
 
       <ul>
-        <li><a href="autoapi/tucker_tensor_train/t3_mul.html#tucker_tensor_train.t3_mul">built-in function</a>
+        <li><a href="autoapi/tucker_tensor_train/t3_inner_product_t3.html#tucker_tensor_train.t3_inner_product_t3">built-in function</a>
+</li>
+      </ul></li>
+      <li>
+    tucker_tensor_train.t3_scale()
+
+      <ul>
+        <li><a href="autoapi/tucker_tensor_train/t3_scale.html#tucker_tensor_train.t3_scale">built-in function</a>
 </li>
       </ul></li>
       <li>
@@ -1668,6 +1690,13 @@
 
       <ul>
         <li><a href="autoapi/tucker_tensor_train/up_orthogonalize_tucker_cores.html#tucker_tensor_train.up_orthogonalize_tucker_cores">built-in function</a>
+</li>
+      </ul></li>
+      <li>
+    tucker_tensor_train.up_svd_ith_tucker_core()
+
+      <ul>
+        <li><a href="autoapi/tucker_tensor_train/up_svd_ith_tucker_core.html#tucker_tensor_train.up_svd_ith_tucker_core">built-in function</a>
 </li>
       </ul></li>
   </ul></td>

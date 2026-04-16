@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>tucker_tensor_train.t3_mul &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>tucker_tensor_train.left_svd_ith_tt_core &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/tucker_tensor_train/t3_mul';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/tucker_tensor_train/left_svd_ith_tt_core';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="tucker_tensor_train.left_orthogonalize_tt_cores" href="left_orthogonalize_tt_cores.html" />
-    <link rel="prev" title="tucker_tensor_train.t3_add" href="t3_add.html" />
+    <link rel="next" title="tucker_tensor_train.right_svd_ith_tt_core" href="right_svd_ith_tt_core.html" />
+    <link rel="prev" title="tucker_tensor_train.up_svd_ith_tucker_core" href="up_svd_ith_tucker_core.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -346,9 +346,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../t3toolbox/tucker_tensor_train/t3_load.html">t3toolbox.tucker_tensor_train.t3_load</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../t3toolbox/tucker_tensor_train/t3_apply.html">t3toolbox.tucker_tensor_train.t3_apply</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../t3toolbox/tucker_tensor_train/t3_entry.html">t3toolbox.tucker_tensor_train.t3_entry</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../t3toolbox/tucker_tensor_train/compute_minimal_ranks.html">t3toolbox.tucker_tensor_train.compute_minimal_ranks</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../t3toolbox/tucker_tensor_train/t3_inner_product_t3.html">t3toolbox.tucker_tensor_train.t3_inner_product_t3</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../t3toolbox/tucker_tensor_train/t3_norm.html">t3toolbox.tucker_tensor_train.t3_norm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../t3toolbox/tucker_tensor_train/compute_minimal_t3_ranks.html">t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../t3toolbox/uniform/index.html">t3toolbox.uniform</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -403,11 +401,16 @@
 <li class="toctree-l2"><a class="reference internal" href="change_tucker_core_shapes.html">tucker_tensor_train.change_tucker_core_shapes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="change_tt_core_shapes.html">tucker_tensor_train.change_tt_core_shapes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="t3_add.html">tucker_tensor_train.t3_add</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">tucker_tensor_train.t3_mul</a></li>
+<li class="toctree-l2"><a class="reference internal" href="t3_scale.html">tucker_tensor_train.t3_scale</a></li>
+<li class="toctree-l2"><a class="reference internal" href="t3_inner_product_t3.html">tucker_tensor_train.t3_inner_product_t3</a></li>
 <li class="toctree-l2"><a class="reference internal" href="left_orthogonalize_tt_cores.html">tucker_tensor_train.left_orthogonalize_tt_cores</a></li>
 <li class="toctree-l2"><a class="reference internal" href="right_orthogonalize_tt_cores.html">tucker_tensor_train.right_orthogonalize_tt_cores</a></li>
 <li class="toctree-l2"><a class="reference internal" href="outer_orthogonalize_tt_cores.html">tucker_tensor_train.outer_orthogonalize_tt_cores</a></li>
 <li class="toctree-l2"><a class="reference internal" href="up_orthogonalize_tucker_cores.html">tucker_tensor_train.up_orthogonalize_tucker_cores</a></li>
+<li class="toctree-l2"><a class="reference internal" href="up_svd_ith_tucker_core.html">tucker_tensor_train.up_svd_ith_tucker_core</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">tucker_tensor_train.left_svd_ith_tt_core</a></li>
+<li class="toctree-l2"><a class="reference internal" href="right_svd_ith_tt_core.html">tucker_tensor_train.right_svd_ith_tt_core</a></li>
+<li class="toctree-l2"><a class="reference internal" href="compute_minimal_ranks.html">tucker_tensor_train.compute_minimal_ranks</a></li>
 </ul>
 </details></li>
 </ul>
@@ -456,7 +459,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">tucker_tensor_train</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">tucker_tensor_train.t3_mul</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">tucker_tensor_train.left_svd_ith_tt_core</span></li>
   </ul>
 </nav>
 </div>
@@ -473,12 +476,12 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="tucker-tensor-train-t3-mul">
-<h1>tucker_tensor_train.t3_mul<a class="headerlink" href="#tucker-tensor-train-t3-mul" title="Link to this heading">#</a></h1>
+  <section id="tucker-tensor-train-left-svd-ith-tt-core">
+<h1>tucker_tensor_train.left_svd_ith_tt_core<a class="headerlink" href="#tucker-tensor-train-left-svd-ith-tt-core" title="Link to this heading">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="tucker_tensor_train.t3_mul">
-<span class="sig-prename descclassname"><span class="pre">tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">t3_mul</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../t3toolbox/common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../t3toolbox/common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">s</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../t3toolbox/common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../t3toolbox/common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#tucker_tensor_train.t3_mul" title="Link to this definition">#</a></dt>
-<dd><p>Multipy a Tucker tensor train by a scaling factor.</p>
+<dt class="sig sig-object py" id="tucker_tensor_train.left_svd_ith_tt_core">
+<span class="sig-prename descclassname"><span class="pre">tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">left_svd_ith_tt_core</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../t3toolbox/common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../t3toolbox/common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ii</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_rank</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_rank</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atol</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../t3toolbox/common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../t3toolbox/common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../t3toolbox/common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#tucker_tensor_train.left_svd_ith_tt_core" title="Link to this definition">#</a></dt>
+<dd><p>Compute SVD of ith TT-core left unfolding and contract non-orthogonal factor into the TT-core to the right.</p>
 </dd></dl>
 
 </section>
@@ -494,20 +497,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="t3_add.html"
+       href="up_svd_ith_tucker_core.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">tucker_tensor_train.t3_add</p>
+        <p class="prev-next-title">tucker_tensor_train.up_svd_ith_tucker_core</p>
       </div>
     </a>
     <a class="right-next"
-       href="left_orthogonalize_tt_cores.html"
+       href="right_svd_ith_tt_core.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">tucker_tensor_train.left_orthogonalize_tt_cores</p>
+        <p class="prev-next-title">tucker_tensor_train.right_svd_ith_tt_core</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -530,14 +533,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tucker_tensor_train.t3_mul"><code class="docutils literal notranslate"><span class="pre">tucker_tensor_train.t3_mul()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tucker_tensor_train.left_svd_ith_tt_core"><code class="docutils literal notranslate"><span class="pre">tucker_tensor_train.left_svd_ith_tt_core()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../_sources/autoapi/tucker_tensor_train/t3_mul.rst.txt">
+    <a href="../../_sources/autoapi/tucker_tensor_train/left_svd_ith_tt_core.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

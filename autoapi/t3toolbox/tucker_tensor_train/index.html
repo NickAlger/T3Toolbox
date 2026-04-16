@@ -346,9 +346,7 @@
 <li class="toctree-l3"><a class="reference internal" href="t3_load.html">t3toolbox.tucker_tensor_train.t3_load</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_apply.html">t3toolbox.tucker_tensor_train.t3_apply</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_entry.html">t3toolbox.tucker_tensor_train.t3_entry</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_minimal_ranks.html">t3toolbox.tucker_tensor_train.compute_minimal_ranks</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_inner_product_t3.html">t3toolbox.tucker_tensor_train.t3_inner_product_t3</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_norm.html">t3toolbox.tucker_tensor_train.t3_norm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_minimal_t3_ranks.html">t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../uniform/index.html">t3toolbox.uniform</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -403,11 +401,16 @@
 <li class="toctree-l2"><a class="reference internal" href="../../tucker_tensor_train/change_tucker_core_shapes.html">tucker_tensor_train.change_tucker_core_shapes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../tucker_tensor_train/change_tt_core_shapes.html">tucker_tensor_train.change_tt_core_shapes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../tucker_tensor_train/t3_add.html">tucker_tensor_train.t3_add</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../tucker_tensor_train/t3_mul.html">tucker_tensor_train.t3_mul</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tucker_tensor_train/t3_scale.html">tucker_tensor_train.t3_scale</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tucker_tensor_train/t3_inner_product_t3.html">tucker_tensor_train.t3_inner_product_t3</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../tucker_tensor_train/left_orthogonalize_tt_cores.html">tucker_tensor_train.left_orthogonalize_tt_cores</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../tucker_tensor_train/right_orthogonalize_tt_cores.html">tucker_tensor_train.right_orthogonalize_tt_cores</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../tucker_tensor_train/outer_orthogonalize_tt_cores.html">tucker_tensor_train.outer_orthogonalize_tt_cores</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../tucker_tensor_train/up_orthogonalize_tucker_cores.html">tucker_tensor_train.up_orthogonalize_tucker_cores</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tucker_tensor_train/up_svd_ith_tucker_core.html">tucker_tensor_train.up_svd_ith_tucker_core</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tucker_tensor_train/left_svd_ith_tt_core.html">tucker_tensor_train.left_svd_ith_tt_core</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tucker_tensor_train/right_svd_ith_tt_core.html">tucker_tensor_train.right_svd_ith_tt_core</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../tucker_tensor_train/compute_minimal_ranks.html">tucker_tensor_train.compute_minimal_ranks</a></li>
 </ul>
 </details></li>
 </ul>
@@ -659,14 +662,8 @@ are not formed during computations.</p>
 <tr class="row-even"><td><p><a class="reference internal" href="t3_entry.html#t3toolbox.tucker_tensor_train.t3_entry" title="t3toolbox.tucker_tensor_train.t3_entry"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_entry</span></code></a>(→ t3toolbox.common.NDArray)</p></td>
 <td><p>Compute an entry (or multiple entries) of a Tucker tensor train.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="compute_minimal_ranks.html#t3toolbox.tucker_tensor_train.compute_minimal_ranks" title="t3toolbox.tucker_tensor_train.compute_minimal_ranks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_minimal_ranks</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="compute_minimal_t3_ranks.html#t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks" title="t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_minimal_t3_ranks</span></code></a>(...)</p></td>
 <td><p>Find minimal ranks for a generic Tucker tensor train with a given structure.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_inner_product_t3.html#t3toolbox.tucker_tensor_train.t3_inner_product_t3" title="t3toolbox.tucker_tensor_train.t3_inner_product_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_inner_product_t3</span></code></a>(x, y[, use_jax])</p></td>
-<td><p>Compute Hilbert-Schmidt inner product of two Tucker tensor trains.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_norm.html#t3toolbox.tucker_tensor_train.t3_norm" title="t3toolbox.tucker_tensor_train.t3_norm"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_norm</span></code></a>(x[, use_jax])</p></td>
-<td><p>Compute Hilbert-Schmidt (Frobenius) norm of a Tucker tensor train.</p></td>
 </tr>
 </tbody>
 </table>

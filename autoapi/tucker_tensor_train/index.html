@@ -346,9 +346,7 @@
 <li class="toctree-l3"><a class="reference internal" href="../t3toolbox/tucker_tensor_train/t3_load.html">t3toolbox.tucker_tensor_train.t3_load</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../t3toolbox/tucker_tensor_train/t3_apply.html">t3toolbox.tucker_tensor_train.t3_apply</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../t3toolbox/tucker_tensor_train/t3_entry.html">t3toolbox.tucker_tensor_train.t3_entry</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../t3toolbox/tucker_tensor_train/compute_minimal_ranks.html">t3toolbox.tucker_tensor_train.compute_minimal_ranks</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../t3toolbox/tucker_tensor_train/t3_inner_product_t3.html">t3toolbox.tucker_tensor_train.t3_inner_product_t3</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../t3toolbox/tucker_tensor_train/t3_norm.html">t3toolbox.tucker_tensor_train.t3_norm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../t3toolbox/tucker_tensor_train/compute_minimal_t3_ranks.html">t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../t3toolbox/uniform/index.html">t3toolbox.uniform</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -403,11 +401,16 @@
 <li class="toctree-l2"><a class="reference internal" href="change_tucker_core_shapes.html">tucker_tensor_train.change_tucker_core_shapes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="change_tt_core_shapes.html">tucker_tensor_train.change_tt_core_shapes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="t3_add.html">tucker_tensor_train.t3_add</a></li>
-<li class="toctree-l2"><a class="reference internal" href="t3_mul.html">tucker_tensor_train.t3_mul</a></li>
+<li class="toctree-l2"><a class="reference internal" href="t3_scale.html">tucker_tensor_train.t3_scale</a></li>
+<li class="toctree-l2"><a class="reference internal" href="t3_inner_product_t3.html">tucker_tensor_train.t3_inner_product_t3</a></li>
 <li class="toctree-l2"><a class="reference internal" href="left_orthogonalize_tt_cores.html">tucker_tensor_train.left_orthogonalize_tt_cores</a></li>
 <li class="toctree-l2"><a class="reference internal" href="right_orthogonalize_tt_cores.html">tucker_tensor_train.right_orthogonalize_tt_cores</a></li>
 <li class="toctree-l2"><a class="reference internal" href="outer_orthogonalize_tt_cores.html">tucker_tensor_train.outer_orthogonalize_tt_cores</a></li>
 <li class="toctree-l2"><a class="reference internal" href="up_orthogonalize_tucker_cores.html">tucker_tensor_train.up_orthogonalize_tucker_cores</a></li>
+<li class="toctree-l2"><a class="reference internal" href="up_svd_ith_tucker_core.html">tucker_tensor_train.up_svd_ith_tucker_core</a></li>
+<li class="toctree-l2"><a class="reference internal" href="left_svd_ith_tt_core.html">tucker_tensor_train.left_svd_ith_tt_core</a></li>
+<li class="toctree-l2"><a class="reference internal" href="right_svd_ith_tt_core.html">tucker_tensor_train.right_svd_ith_tt_core</a></li>
+<li class="toctree-l2"><a class="reference internal" href="compute_minimal_ranks.html">tucker_tensor_train.compute_minimal_ranks</a></li>
 </ul>
 </details></li>
 </ul>
@@ -496,20 +499,35 @@
 <tr class="row-even"><td><p><a class="reference internal" href="t3_add.html#tucker_tensor_train.t3_add" title="tucker_tensor_train.t3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_add</span></code></a>(...)</p></td>
 <td><p>Add Tucker tensor trains x and y, yielding a Tucker tensor train with summed ranks.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_mul.html#tucker_tensor_train.t3_mul" title="tucker_tensor_train.t3_mul"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_mul</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_scale.html#tucker_tensor_train.t3_scale" title="tucker_tensor_train.t3_scale"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_scale</span></code></a>(...)</p></td>
 <td><p>Multipy a Tucker tensor train by a scaling factor.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="left_orthogonalize_tt_cores.html#tucker_tensor_train.left_orthogonalize_tt_cores" title="tucker_tensor_train.left_orthogonalize_tt_cores"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_orthogonalize_tt_cores</span></code></a>(...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_inner_product_t3.html#tucker_tensor_train.t3_inner_product_t3" title="tucker_tensor_train.t3_inner_product_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_inner_product_t3</span></code></a>(x, y[, use_jax])</p></td>
+<td><p>Compute Hilbert-Schmidt inner product of two Tucker tensor trains.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="left_orthogonalize_tt_cores.html#tucker_tensor_train.left_orthogonalize_tt_cores" title="tucker_tensor_train.left_orthogonalize_tt_cores"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_orthogonalize_tt_cores</span></code></a>(...)</p></td>
 <td><p>Left-orthogonalize a Tensor train (no Tucker).</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="right_orthogonalize_tt_cores.html#tucker_tensor_train.right_orthogonalize_tt_cores" title="tucker_tensor_train.right_orthogonalize_tt_cores"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_orthogonalize_tt_cores</span></code></a>(...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="right_orthogonalize_tt_cores.html#tucker_tensor_train.right_orthogonalize_tt_cores" title="tucker_tensor_train.right_orthogonalize_tt_cores"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_orthogonalize_tt_cores</span></code></a>(...)</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="outer_orthogonalize_tt_cores.html#tucker_tensor_train.outer_orthogonalize_tt_cores" title="tucker_tensor_train.outer_orthogonalize_tt_cores"><code class="xref py py-obj docutils literal notranslate"><span class="pre">outer_orthogonalize_tt_cores</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="outer_orthogonalize_tt_cores.html#tucker_tensor_train.outer_orthogonalize_tt_cores" title="tucker_tensor_train.outer_orthogonalize_tt_cores"><code class="xref py py-obj docutils literal notranslate"><span class="pre">outer_orthogonalize_tt_cores</span></code></a>(...)</p></td>
 <td><p>Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="up_orthogonalize_tucker_cores.html#tucker_tensor_train.up_orthogonalize_tucker_cores" title="tucker_tensor_train.up_orthogonalize_tucker_cores"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_orthogonalize_tucker_cores</span></code></a>(...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="up_orthogonalize_tucker_cores.html#tucker_tensor_train.up_orthogonalize_tucker_cores" title="tucker_tensor_train.up_orthogonalize_tucker_cores"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_orthogonalize_tucker_cores</span></code></a>(...)</p></td>
 <td><p>Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="up_svd_ith_tucker_core.html#tucker_tensor_train.up_svd_ith_tucker_core" title="tucker_tensor_train.up_svd_ith_tucker_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_svd_ith_tucker_core</span></code></a>(...)</p></td>
+<td><p>Compute SVD of ith tucker core and contract non-orthogonal factor up into the TT-core above.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="left_svd_ith_tt_core.html#tucker_tensor_train.left_svd_ith_tt_core" title="tucker_tensor_train.left_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_ith_tt_core</span></code></a>(...)</p></td>
+<td><p>Compute SVD of ith TT-core left unfolding and contract non-orthogonal factor into the TT-core to the right.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="right_svd_ith_tt_core.html#tucker_tensor_train.right_svd_ith_tt_core" title="tucker_tensor_train.right_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd_ith_tt_core</span></code></a>(...)</p></td>
+<td><p>Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor into the TT-core to the left.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="compute_minimal_ranks.html#tucker_tensor_train.compute_minimal_ranks" title="tucker_tensor_train.compute_minimal_ranks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_minimal_ranks</span></code></a>(...)</p></td>
+<td><p>Find minimal ranks for a generic Tucker tensor train with a given structure.</p></td>
 </tr>
 </tbody>
 </table>

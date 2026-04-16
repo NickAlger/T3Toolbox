@@ -16,11 +16,16 @@ Functions
    /autoapi/tucker_tensor_train/change_tucker_core_shapes
    /autoapi/tucker_tensor_train/change_tt_core_shapes
    /autoapi/tucker_tensor_train/t3_add
-   /autoapi/tucker_tensor_train/t3_mul
+   /autoapi/tucker_tensor_train/t3_scale
+   /autoapi/tucker_tensor_train/t3_inner_product_t3
    /autoapi/tucker_tensor_train/left_orthogonalize_tt_cores
    /autoapi/tucker_tensor_train/right_orthogonalize_tt_cores
    /autoapi/tucker_tensor_train/outer_orthogonalize_tt_cores
    /autoapi/tucker_tensor_train/up_orthogonalize_tucker_cores
+   /autoapi/tucker_tensor_train/up_svd_ith_tucker_core
+   /autoapi/tucker_tensor_train/left_svd_ith_tt_core
+   /autoapi/tucker_tensor_train/right_svd_ith_tt_core
+   /autoapi/tucker_tensor_train/compute_minimal_ranks
 
 .. autoapisummary::
 
@@ -30,10 +35,15 @@ Functions
    tucker_tensor_train.change_tucker_core_shapes
    tucker_tensor_train.change_tt_core_shapes
    tucker_tensor_train.t3_add
-   tucker_tensor_train.t3_mul
+   tucker_tensor_train.t3_scale
+   tucker_tensor_train.t3_inner_product_t3
    tucker_tensor_train.left_orthogonalize_tt_cores
    tucker_tensor_train.right_orthogonalize_tt_cores
    tucker_tensor_train.outer_orthogonalize_tt_cores
    tucker_tensor_train.up_orthogonalize_tucker_cores
+   tucker_tensor_train.up_svd_ith_tucker_core
+   tucker_tensor_train.left_svd_ith_tt_core
+   tucker_tensor_train.right_svd_ith_tt_core
+   tucker_tensor_train.compute_minimal_ranks
 
 
