@@ -1,7 +1,7 @@
 t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3
 ========================================================
 
-.. py:function:: t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3(variations: t3toolbox.uniform.UniformT3Variation, base: t3toolbox.uniform.UniformT3Base, bv_masks: t3toolbox.uniform.UniformBVEdgeWeights, include_shift: bool = False, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.uniform.UniformTuckerTensorTrainCores, t3toolbox.uniform.UniformEdgeWeights]
+.. py:function:: t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3(variations: t3toolbox.uniform.UniformT3Variation, base: t3toolbox.uniform.UniformT3Base, bv_masks: t3toolbox.uniform.UniformBVEdgeWeights, include_shift: bool = False, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.uniform.UniformTuckerTensorTrain, t3toolbox.uniform.UniformEdgeWeights]
 
    Rank 2r Tucker tensor train representation of tangent vector:
            u(x,y,z,w) = ([dG1(B x) L1(B x)]) ([R2(B y)        0]) ([R3(B z)        0]) ([R4(B w) ])

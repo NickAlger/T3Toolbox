@@ -342,12 +342,8 @@
 </ul>
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.tucker_tensor_train</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="get_structure.html">t3toolbox.tucker_tensor_train.get_structure</a></li>
-<li class="toctree-l3"><a class="reference internal" href="check_t3.html">t3toolbox.tucker_tensor_train.check_t3</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_to_dense.html">t3toolbox.tucker_tensor_train.t3_to_dense</a></li>
-<li class="toctree-l3"><a class="reference internal" href="squash_tails.html">t3toolbox.tucker_tensor_train.squash_tails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="TuckerTensorTrain.html">t3toolbox.tucker_tensor_train.TuckerTensorTrain</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reverse_tt.html">t3toolbox.tucker_tensor_train.reverse_tt</a></li>
-<li class="toctree-l3"><a class="reference internal" href="reverse_t3.html">t3toolbox.tucker_tensor_train.reverse_t3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="absorb_edge_weights_into_cores.html">t3toolbox.tucker_tensor_train.absorb_edge_weights_into_cores</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_zeros.html">t3toolbox.tucker_tensor_train.t3_zeros</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_corewise_randn.html">t3toolbox.tucker_tensor_train.t3_corewise_randn</a></li>
@@ -356,14 +352,8 @@
 <li class="toctree-l3"><a class="reference internal" href="t3_apply.html">t3toolbox.tucker_tensor_train.t3_apply</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_entry.html">t3toolbox.tucker_tensor_train.t3_entry</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_minimal_ranks.html">t3toolbox.tucker_tensor_train.compute_minimal_ranks</a></li>
-<li class="toctree-l3"><a class="reference internal" href="are_t3_ranks_minimal.html">t3toolbox.tucker_tensor_train.are_t3_ranks_minimal</a></li>
 <li class="toctree-l3"><a class="reference internal" href="change_tucker_core_shapes.html">t3toolbox.tucker_tensor_train.change_tucker_core_shapes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="change_tt_core_shapes.html">t3toolbox.tucker_tensor_train.change_tt_core_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="change_structure.html">t3toolbox.tucker_tensor_train.change_structure</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_add.html">t3toolbox.tucker_tensor_train.t3_add</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_scale.html">t3toolbox.tucker_tensor_train.t3_scale</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_neg.html">t3toolbox.tucker_tensor_train.t3_neg</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_sub.html">t3toolbox.tucker_tensor_train.t3_sub</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_inner_product_t3.html">t3toolbox.tucker_tensor_train.t3_inner_product_t3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_norm.html">t3toolbox.tucker_tensor_train.t3_norm</a></li>
 </ul>
@@ -483,7 +473,7 @@
 <h1>t3toolbox.tucker_tensor_train.t3_save<a class="headerlink" href="#t3toolbox-tucker-tensor-train-t3-save" title="Link to this heading">#</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.t3_save">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">t3_save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><span class="pre">TuckerTensorTrain</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.t3_save" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">t3_save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><span class="pre">TuckerTensorTrain</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.t3_save" title="Link to this definition">#</a></dt>
 <dd><p>Save a Tucker tensor train to a file.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -492,7 +482,7 @@
 where the data will be saved. If file is a string or a Path, the
 <code class="docutils literal notranslate"><span class="pre">.npz</span></code> extension will be appended to the filename if it is not
 already there.</p></li>
-<li><p><strong>x</strong> (<a class="reference internal" href="index.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – The Tucker tensor train to save</p></li>
+<li><p><strong>x</strong> (<a class="reference internal" href="TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – The Tucker tensor train to save</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
@@ -504,17 +494,17 @@ already there.</p></li>
 </dl>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
-<p><a class="reference internal" href="index.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TuckerTensorTrain</span></code></a>, <a class="reference internal" href="t3_load.html#t3toolbox.tucker_tensor_train.t3_load" title="t3toolbox.tucker_tensor_train.t3_load"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_load</span></code></a>, <a class="reference internal" href="check_t3.html#t3toolbox.tucker_tensor_train.check_t3" title="t3toolbox.tucker_tensor_train.check_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3</span></code></a></p>
+<p><a class="reference internal" href="TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TuckerTensorTrain</span></code></a>, <a class="reference internal" href="t3_load.html#t3toolbox.tucker_tensor_train.t3_load" title="t3toolbox.tucker_tensor_train.t3_load"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_load</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3</span></code></p>
 </div>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">fname</span> <span class="o">=</span> <span class="s1">&#39;t3_file&#39;</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">t3</span><span class="o">.</span><span class="n">t3_save</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span> <span class="c1"># Save to file &#39;t3_file.npz&#39;</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x2</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_load</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span> <span class="c1"># Load from file</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_cores</span><span class="p">,</span> <span class="n">tt_cores</span> <span class="o">=</span> <span class="n">x</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_cores2</span><span class="p">,</span> <span class="n">tt_cores2</span> <span class="o">=</span> <span class="n">x2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_cores</span><span class="p">,</span> <span class="n">tt_cores</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">data</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_cores2</span><span class="p">,</span> <span class="n">tt_cores2</span> <span class="o">=</span> <span class="n">x2</span><span class="o">.</span><span class="n">data</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">B</span> <span class="o">-</span> <span class="n">B2</span><span class="p">)</span> <span class="k">for</span> <span class="n">B</span><span class="p">,</span> <span class="n">B2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">tucker_cores</span><span class="p">,</span> <span class="n">tucker_cores2</span><span class="p">)])</span>
 <span class="go">[0.0, 0.0, 0.0]</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">G</span> <span class="o">-</span> <span class="n">G2</span><span class="p">)</span> <span class="k">for</span> <span class="n">G</span><span class="p">,</span> <span class="n">G2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">tt_cores</span><span class="p">,</span> <span class="n">tt_cores2</span><span class="p">)])</span>

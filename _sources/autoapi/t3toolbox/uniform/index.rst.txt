@@ -9,7 +9,7 @@ Attributes
 
 .. autoapisummary::
 
-   t3toolbox.uniform.UniformTuckerTensorTrainCores
+   t3toolbox.uniform.UniformTuckerTensorTrain
    t3toolbox.uniform.UniformEdgeWeights
    t3toolbox.uniform.UniformT3Base
    t3toolbox.uniform.UniformT3Variation
@@ -79,7 +79,7 @@ Functions
 Module Contents
 ---------------
 
-.. py:data:: UniformTuckerTensorTrainCores
+.. py:data:: UniformTuckerTensorTrain
 
    Tuple containing supercores of a Uniform Tucker tensor train
 

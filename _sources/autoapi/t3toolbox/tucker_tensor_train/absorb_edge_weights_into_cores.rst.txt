@@ -1,7 +1,7 @@
 t3toolbox.tucker_tensor_train.absorb_edge_weights_into_cores
 ============================================================
 
-.. py:function:: t3toolbox.tucker_tensor_train.absorb_edge_weights_into_cores(x0: TuckerTensorTrain, weights: EdgeWeights, use_jax: bool = False) -> TuckerTensorTrain
+.. py:function:: t3toolbox.tucker_tensor_train.absorb_edge_weights_into_cores(x0, weights: EdgeWeights, use_jax: bool = False) -> TuckerTensorTrain
 
    Contract each edge weight into a neighboring core.
 

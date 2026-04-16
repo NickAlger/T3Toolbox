@@ -1,4 +1,4 @@
 t3toolbox.common.ragged_map
 ===========================
 
-.. py:function:: t3toolbox.common.ragged_map(f: Callable[[CarryType, Sequence[NDArray]], Tuple[CarryType, Sequence[NDArray]]], xs: Sequence[Union[Sequence[NDArray], NDArray]]) -> Tuple[Tuple[NDArray, Ellipsis], Ellipsis]
+.. py:function:: t3toolbox.common.ragged_map(f: Callable[[Sequence[NDArray]], Tuple[Sequence[NDArray]]], xs: Sequence[Union[Sequence[NDArray], NDArray]]) -> Tuple[Tuple[NDArray, Ellipsis], Ellipsis]

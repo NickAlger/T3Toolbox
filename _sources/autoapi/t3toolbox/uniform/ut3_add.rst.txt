@@ -1,7 +1,7 @@
 t3toolbox.uniform.ut3_add
 =========================
 
-.. py:function:: t3toolbox.uniform.ut3_add(x_cores: UniformTuckerTensorTrainCores, x_masks: UniformEdgeWeights, y_cores: UniformTuckerTensorTrainCores, y_masks: UniformEdgeWeights, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[UniformTuckerTensorTrainCores, UniformEdgeWeights]
+.. py:function:: t3toolbox.uniform.ut3_add(x_cores: UniformTuckerTensorTrain, x_masks: UniformEdgeWeights, y_cores: UniformTuckerTensorTrain, y_masks: UniformEdgeWeights, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[UniformTuckerTensorTrain, UniformEdgeWeights]
 
    Add two UniformTuckerTensorTrains, x,y -> x+y.
 

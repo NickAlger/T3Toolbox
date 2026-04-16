@@ -47,8 +47,8 @@
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3toolbox.tucker_tensor_train.reverse_t3" href="reverse_t3.html" />
-    <link rel="prev" title="t3toolbox.tucker_tensor_train.squash_tails" href="squash_tails.html" />
+    <link rel="next" title="t3toolbox.tucker_tensor_train.absorb_edge_weights_into_cores" href="absorb_edge_weights_into_cores.html" />
+    <link rel="prev" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain" href="TuckerTensorTrain.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -342,12 +342,8 @@
 </ul>
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.tucker_tensor_train</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="get_structure.html">t3toolbox.tucker_tensor_train.get_structure</a></li>
-<li class="toctree-l3"><a class="reference internal" href="check_t3.html">t3toolbox.tucker_tensor_train.check_t3</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_to_dense.html">t3toolbox.tucker_tensor_train.t3_to_dense</a></li>
-<li class="toctree-l3"><a class="reference internal" href="squash_tails.html">t3toolbox.tucker_tensor_train.squash_tails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="TuckerTensorTrain.html">t3toolbox.tucker_tensor_train.TuckerTensorTrain</a></li>
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.tucker_tensor_train.reverse_tt</a></li>
-<li class="toctree-l3"><a class="reference internal" href="reverse_t3.html">t3toolbox.tucker_tensor_train.reverse_t3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="absorb_edge_weights_into_cores.html">t3toolbox.tucker_tensor_train.absorb_edge_weights_into_cores</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_zeros.html">t3toolbox.tucker_tensor_train.t3_zeros</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_corewise_randn.html">t3toolbox.tucker_tensor_train.t3_corewise_randn</a></li>
@@ -356,14 +352,8 @@
 <li class="toctree-l3"><a class="reference internal" href="t3_apply.html">t3toolbox.tucker_tensor_train.t3_apply</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_entry.html">t3toolbox.tucker_tensor_train.t3_entry</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_minimal_ranks.html">t3toolbox.tucker_tensor_train.compute_minimal_ranks</a></li>
-<li class="toctree-l3"><a class="reference internal" href="are_t3_ranks_minimal.html">t3toolbox.tucker_tensor_train.are_t3_ranks_minimal</a></li>
 <li class="toctree-l3"><a class="reference internal" href="change_tucker_core_shapes.html">t3toolbox.tucker_tensor_train.change_tucker_core_shapes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="change_tt_core_shapes.html">t3toolbox.tucker_tensor_train.change_tt_core_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="change_structure.html">t3toolbox.tucker_tensor_train.change_structure</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_add.html">t3toolbox.tucker_tensor_train.t3_add</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_scale.html">t3toolbox.tucker_tensor_train.t3_scale</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_neg.html">t3toolbox.tucker_tensor_train.t3_neg</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_sub.html">t3toolbox.tucker_tensor_train.t3_sub</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_inner_product_t3.html">t3toolbox.tucker_tensor_train.t3_inner_product_t3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_norm.html">t3toolbox.tucker_tensor_train.t3_norm</a></li>
 </ul>
@@ -483,8 +473,36 @@
 <h1>t3toolbox.tucker_tensor_train.reverse_tt<a class="headerlink" href="#t3toolbox-tucker-tensor-train-reverse-tt" title="Link to this heading">#</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.reverse_tt">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">reverse_tt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tt_cores</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.reverse_tt" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">reverse_tt</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tt_cores</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.common.typ.Union</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Union</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.reverse_tt" title="Link to this definition">#</a></dt>
 <dd><p>Reverse a tensor train (no Tucker).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>typ.Sequence</em><em>[</em><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><em>NDArray</em></a><em>] or </em><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><em>NDArray</em></a>) – <p>Either: tensor train (no Tucker) with:</p>
+<blockquote>
+<div><p>tucker_ranks=(n0,…,n(d-1)),</p>
+<p>tt_ranks=(1,r1,…,r(d-1),1).</p>
+</div></blockquote>
+<p>Or: uniform tensor train (no Tucker).</p>
+</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><p><strong>reversed_x</strong> –</p>
+<p>Either: tensor train (no Tucker) with index order reversed, and</p>
+<blockquote>
+<div><p>tucker_ranks=(n(d-1),…,n0),</p>
+<p>tt_ranks=(1,r(d-1),…,r1,1).</p>
+</div></blockquote>
+<p>Or: uniform tensor train (no Tucker) with index order reversed, and same structure as x.</p>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>typ.Sequence[<a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray">NDArray</a>] or <a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray">NDArray</a></p>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><code class="xref py py-obj docutils literal notranslate"><span class="pre">reverse_t3</span></code></p>
+</div>
 </dd></dl>
 
 </section>
@@ -500,20 +518,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="squash_tails.html"
+       href="TuckerTensorTrain.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.tucker_tensor_train.squash_tails</p>
+        <p class="prev-next-title">t3toolbox.tucker_tensor_train.TuckerTensorTrain</p>
       </div>
     </a>
     <a class="right-next"
-       href="reverse_t3.html"
+       href="absorb_edge_weights_into_cores.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.tucker_tensor_train.reverse_t3</p>
+        <p class="prev-next-title">t3toolbox.tucker_tensor_train.absorb_edge_weights_into_cores</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

@@ -26,8 +26,8 @@ t3toolbox.tucker_tensor_train.t3_norm
 
    >>> import numpy as np
    >>> import t3toolbox.tucker_tensor_train as t3
-   >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
+   >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2))
    >>> norm_x = t3.t3_norm(x)
-   >>> print(np.abs(norm_x - np.linalg.norm(t3.t3_to_dense(x))))
+   >>> print(np.abs(norm_x - np.linalg.norm(x.to_dense())))
    1.3642420526593924e-12
 

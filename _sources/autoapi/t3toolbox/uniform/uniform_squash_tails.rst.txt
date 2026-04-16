@@ -1,7 +1,7 @@
 t3toolbox.uniform.uniform_squash_tails
 ======================================
 
-.. py:function:: t3toolbox.uniform.uniform_squash_tails(x: UniformTuckerTensorTrainCores, use_jax: bool = False) -> UniformTuckerTensorTrainCores
+.. py:function:: t3toolbox.uniform.uniform_squash_tails(x: UniformTuckerTensorTrain, use_jax: bool = False) -> UniformTuckerTensorTrain
 
    Squash tails of uniform Tucker tensor train.
 

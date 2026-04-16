@@ -1,7 +1,7 @@
 t3toolbox.uniform.get_uniform_structure
 =======================================
 
-.. py:function:: t3toolbox.uniform.get_uniform_structure(cores: UniformTuckerTensorTrainCores) -> UniformStructure
+.. py:function:: t3toolbox.uniform.get_uniform_structure(cores: UniformTuckerTensorTrain) -> UniformStructure
 
    Get padded structure of uniform Tucker tensor train.
 

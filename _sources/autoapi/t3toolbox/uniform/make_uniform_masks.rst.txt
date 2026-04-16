@@ -1,4 +1,4 @@
 t3toolbox.uniform.make_uniform_masks
 ====================================
 
-.. py:function:: t3toolbox.uniform.make_uniform_masks(structure: t3toolbox.tucker_tensor_train.T3Structure, uniform_structure: UniformStructure, use_jax: bool = False) -> UniformEdgeWeights
+.. py:function:: t3toolbox.uniform.make_uniform_masks(structure, uniform_structure: UniformStructure, use_jax: bool = False) -> UniformEdgeWeights

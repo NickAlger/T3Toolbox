@@ -1,7 +1,7 @@
 t3toolbox.probing.probe_t3
 ==========================
 
-.. py:function:: t3toolbox.probing.probe_t3(ww: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], x: t3toolbox.common.typ.Union[t3toolbox.tucker_tensor_train.TuckerTensorTrain, t3toolbox.uniform.UniformTuckerTensorTrainCores], edge_weights: t3toolbox.common.typ.Union[t3toolbox.tucker_tensor_train.EdgeWeights, t3toolbox.uniform.UniformEdgeWeights] = (None, None, None), use_jax: bool = False) -> t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray]
+.. py:function:: t3toolbox.probing.probe_t3(ww: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], x: t3toolbox.common.typ.Union[t3toolbox.tucker_tensor_train.TuckerTensorTrain, t3toolbox.uniform.UniformTuckerTensorTrain], edge_weights: t3toolbox.common.typ.Union[t3toolbox.tucker_tensor_train.EdgeWeights, t3toolbox.uniform.UniformEdgeWeights] = (None, None, None), use_jax: bool = False) -> t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray]
 
    Probe a Tucker tensor train.
 

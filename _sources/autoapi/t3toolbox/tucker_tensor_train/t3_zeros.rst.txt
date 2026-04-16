@@ -1,7 +1,7 @@
 t3toolbox.tucker_tensor_train.t3_zeros
 ======================================
 
-.. py:function:: t3toolbox.tucker_tensor_train.t3_zeros(structure: T3Structure, use_jax: bool = False) -> TuckerTensorTrain
+.. py:function:: t3toolbox.tucker_tensor_train.t3_zeros(shape: t3toolbox.common.typ.Tuple[int, Ellipsis], tucker_ranks: t3toolbox.common.typ.Tuple[int, Ellipsis], tt_ranks: t3toolbox.common.typ.Tuple[int, Ellipsis], vectorization_shape: t3toolbox.common.typ.Tuple[int, Ellipsis] = (), use_jax: bool = False) -> TuckerTensorTrain
 
    Construct a Tucker tensor train of zeros.
 
@@ -21,8 +21,8 @@ t3toolbox.tucker_tensor_train.t3_zeros
    >>> shape = (14, 15, 16)
    >>> tucker_ranks = (4, 5, 6)
    >>> tt_ranks = (1, 3, 2, 1)
-   >>> structure = (shape, tucker_ranks, tt_ranks)
-   >>> z = t3.t3_zeros(structure)
-   >>> print(np.linalg.norm(t3.t3_to_dense(z)))
+   >>> vs = (2,3)
+   >>> z = t3.t3_zeros(shape, tucker_ranks, tt_ranks, vectorization_shape=vs)
+   >>> print(np.linalg.norm(z.to_dense()))
    0.0
 

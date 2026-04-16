@@ -1,7 +1,7 @@
 t3toolbox.uniform.get_original_structure
 ========================================
 
-.. py:function:: t3toolbox.uniform.get_original_structure(masks: UniformEdgeWeights) -> t3toolbox.tucker_tensor_train.T3Structure
+.. py:function:: t3toolbox.uniform.get_original_structure(masks: UniformEdgeWeights)
 
    Get original (unpadded) structure of a uniform Tucker tensor train.
 
