@@ -27,6 +27,7 @@ Functions
    /autoapi/t3toolbox/base_variation_format/ith_bv_to_t3
    /autoapi/t3toolbox/base_variation_format/check_t3base
    /autoapi/t3toolbox/base_variation_format/check_t3variation
+   /autoapi/t3toolbox/base_variation_format/t3_orthogonal_representations
 
 .. autoapisummary::
 
@@ -36,6 +37,7 @@ Functions
    t3toolbox.base_variation_format.ith_bv_to_t3
    t3toolbox.base_variation_format.check_t3base
    t3toolbox.base_variation_format.check_t3variation
+   t3toolbox.base_variation_format.t3_orthogonal_representations
 
 
 Module Contents

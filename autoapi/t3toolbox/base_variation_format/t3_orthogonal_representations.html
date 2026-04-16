@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.orthogonalization.t3_orthogonal_representations &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.base_variation_format.t3_orthogonal_representations &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/orthogonalization/t3_orthogonal_representations';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/base_variation_format/t3_orthogonal_representations';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3toolbox.orthogonalization.up_orthogonalize_tucker_cores" href="up_orthogonalize_tucker_cores.html" />
-    <link rel="prev" title="t3toolbox.orthogonalization" href="index.html" />
+    <link rel="next" title="t3toolbox.common" href="../common/index.html" />
+    <link rel="prev" title="t3toolbox.base_variation_format.check_t3variation" href="check_t3variation.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -252,13 +252,14 @@
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">t3toolbox</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2 has-children"><a class="reference internal" href="../base_variation_format/index.html">t3toolbox.base_variation_format</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/get_base_structure.html">t3toolbox.base_variation_format.get_base_structure</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/get_variation_shapes.html">t3toolbox.base_variation_format.get_variation_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/get_base_hole_shapes.html">t3toolbox.base_variation_format.get_base_hole_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/ith_bv_to_t3.html">t3toolbox.base_variation_format.ith_bv_to_t3</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/check_t3base.html">t3toolbox.base_variation_format.check_t3base</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../base_variation_format/check_t3variation.html">t3toolbox.base_variation_format.check_t3variation</a></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.base_variation_format</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="get_base_structure.html">t3toolbox.base_variation_format.get_base_structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="get_variation_shapes.html">t3toolbox.base_variation_format.get_variation_shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="get_base_hole_shapes.html">t3toolbox.base_variation_format.get_base_hole_shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ith_bv_to_t3.html">t3toolbox.base_variation_format.ith_bv_to_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="check_t3base.html">t3toolbox.base_variation_format.check_t3base</a></li>
+<li class="toctree-l3"><a class="reference internal" href="check_t3variation.html">t3toolbox.base_variation_format.check_t3variation</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.base_variation_format.t3_orthogonal_representations</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../common/index.html">t3toolbox.common</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -295,13 +296,12 @@
 <li class="toctree-l3"><a class="reference internal" href="../manifold/retract.html">t3toolbox.manifold.retract</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.orthogonalization</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.orthogonalization.t3_orthogonal_representations</a></li>
-<li class="toctree-l3"><a class="reference internal" href="up_orthogonalize_tucker_cores.html">t3toolbox.orthogonalization.up_orthogonalize_tucker_cores</a></li>
-<li class="toctree-l3"><a class="reference internal" href="outer_orthogonalize_tt_cores.html">t3toolbox.orthogonalization.outer_orthogonalize_tt_cores</a></li>
-<li class="toctree-l3"><a class="reference internal" href="left_orthogonalize_tt_cores.html">t3toolbox.orthogonalization.left_orthogonalize_tt_cores</a></li>
-<li class="toctree-l3"><a class="reference internal" href="right_orthogonalize_tt_cores.html">t3toolbox.orthogonalization.right_orthogonalize_tt_cores</a></li>
-<li class="toctree-l3"><a class="reference internal" href="orthogonal_representations.html">t3toolbox.orthogonalization.orthogonal_representations</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../orthogonalization/index.html">t3toolbox.orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../orthogonalization/up_orthogonalize_tucker_cores.html">t3toolbox.orthogonalization.up_orthogonalize_tucker_cores</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../orthogonalization/outer_orthogonalize_tt_cores.html">t3toolbox.orthogonalization.outer_orthogonalize_tt_cores</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../orthogonalization/left_orthogonalize_tt_cores.html">t3toolbox.orthogonalization.left_orthogonalize_tt_cores</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../orthogonalization/right_orthogonalize_tt_cores.html">t3toolbox.orthogonalization.right_orthogonalize_tt_cores</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../orthogonalization/orthogonal_representations.html">t3toolbox.orthogonalization.orthogonal_representations</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../probing/index.html">t3toolbox.probing</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -444,9 +444,9 @@
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">t3toolbox</a></li>
     
     
-    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.orthogonalization</a></li>
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.base_variation_format</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.orthogonalization.t3_orthogonal_representations</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.base_variation_format.t3_orthogonal_representations</span></li>
   </ul>
 </nav>
 </div>
@@ -463,11 +463,11 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="t3toolbox-orthogonalization-t3-orthogonal-representations">
-<h1>t3toolbox.orthogonalization.t3_orthogonal_representations<a class="headerlink" href="#t3toolbox-orthogonalization-t3-orthogonal-representations" title="Link to this heading">#</a></h1>
+  <section id="t3toolbox-base-variation-format-t3-orthogonal-representations">
+<h1>t3toolbox.base_variation_format.t3_orthogonal_representations<a class="headerlink" href="#t3toolbox-base-variation-format-t3-orthogonal-representations" title="Link to this heading">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3toolbox.orthogonalization.t3_orthogonal_representations">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.orthogonalization.</span></span><span class="sig-name descname"><span class="pre">t3_orthogonal_representations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">already_left_orthogonal</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">squash_tails</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../base_variation_format/index.html#t3toolbox.base_variation_format.T3Base" title="t3toolbox.base_variation_format.T3Base"><span class="pre">t3toolbox.base_variation_format.T3Base</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../base_variation_format/index.html#t3toolbox.base_variation_format.T3Variation" title="t3toolbox.base_variation_format.T3Variation"><span class="pre">t3toolbox.base_variation_format.T3Variation</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.orthogonalization.t3_orthogonal_representations" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.base_variation_format.t3_orthogonal_representations">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.base_variation_format.</span></span><span class="sig-name descname"><span class="pre">t3_orthogonal_representations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">already_left_orthogonal</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">squash_tails</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="index.html#t3toolbox.base_variation_format.T3Base" title="t3toolbox.base_variation_format.T3Base"><span class="pre">T3Base</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="index.html#t3toolbox.base_variation_format.T3Variation" title="t3toolbox.base_variation_format.T3Variation"><span class="pre">T3Variation</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.base_variation_format.t3_orthogonal_representations" title="Link to this definition">#</a></dt>
 <dd><p>Construct base-variation representations of TuckerTensorTrain with orthogonal base.</p>
 <p>Input TuckerTensorTrain:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>          <span class="mi">1</span> <span class="o">--</span> <span class="n">G0</span> <span class="o">--</span> <span class="n">G1</span> <span class="o">--</span> <span class="n">G2</span> <span class="o">--</span> <span class="n">G3</span> <span class="o">--</span> <span class="mi">1</span>
@@ -530,9 +530,9 @@ x_tt_cores = (G0, …, G(d-1))</p></li>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.orthogonalization</span> <span class="k">as</span> <span class="nn">orth</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.base_variation_format</span> <span class="k">as</span> <span class="nn">bvf</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">base</span><span class="p">,</span> <span class="n">variation</span> <span class="o">=</span> <span class="n">orth</span><span class="o">.</span><span class="n">t3_orthogonal_representations</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="c1"># Compute orthogonal representations</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">base</span><span class="p">,</span> <span class="n">variation</span> <span class="o">=</span> <span class="n">bvf</span><span class="o">.</span><span class="n">t3_orthogonal_representations</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="c1"># Compute orthogonal representations</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_cores</span><span class="p">,</span> <span class="n">left_tt_cores</span><span class="p">,</span> <span class="n">right_tt_cores</span><span class="p">,</span> <span class="n">outer_tt_cores</span> <span class="o">=</span> <span class="n">base</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_vars</span><span class="p">,</span> <span class="n">tt_vars</span> <span class="o">=</span> <span class="n">variation</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">U0</span><span class="p">,</span><span class="n">U1</span><span class="p">,</span><span class="n">U2</span><span class="p">)</span> <span class="o">=</span> <span class="n">tucker_cores</span>
@@ -563,7 +563,7 @@ x_tt_cores = (G0, …, G(d-1))</p></li>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.orthogonalization</span> <span class="k">as</span> <span class="nn">orth</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">base</span><span class="p">,</span> <span class="n">variation</span> <span class="o">=</span> <span class="n">orth</span><span class="o">.</span><span class="n">t3_orthogonal_representations</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="c1"># Compute orthogonal representations</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">base</span><span class="p">,</span> <span class="n">variation</span> <span class="o">=</span> <span class="n">bvf</span><span class="o">.</span><span class="n">t3_orthogonal_representations</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="c1"># Compute orthogonal representations</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_cores</span><span class="p">,</span> <span class="n">left_tt_cores</span><span class="p">,</span> <span class="n">right_tt_cores</span><span class="p">,</span> <span class="n">outer_tt_cores</span> <span class="o">=</span> <span class="n">base</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_vars</span><span class="p">,</span> <span class="n">tt_vars</span> <span class="o">=</span> <span class="n">variation</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">U0</span><span class="p">,</span><span class="n">U1</span><span class="p">,</span><span class="n">U2</span><span class="p">)</span> <span class="o">=</span> <span class="n">tucker_cores</span>
@@ -603,20 +603,20 @@ x_tt_cores = (G0, …, G(d-1))</p></li>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="index.html"
+       href="check_t3variation.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.orthogonalization</p>
+        <p class="prev-next-title">t3toolbox.base_variation_format.check_t3variation</p>
       </div>
     </a>
     <a class="right-next"
-       href="up_orthogonalize_tucker_cores.html"
+       href="../common/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.orthogonalization.up_orthogonalize_tucker_cores</p>
+        <p class="prev-next-title">t3toolbox.common</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -639,14 +639,14 @@ x_tt_cores = (G0, …, G(d-1))</p></li>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.orthogonalization.t3_orthogonal_representations"><code class="docutils literal notranslate"><span class="pre">t3toolbox.orthogonalization.t3_orthogonal_representations()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.base_variation_format.t3_orthogonal_representations"><code class="docutils literal notranslate"><span class="pre">t3toolbox.base_variation_format.t3_orthogonal_representations()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/orthogonalization/t3_orthogonal_representations.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/base_variation_format/t3_orthogonal_representations.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>
