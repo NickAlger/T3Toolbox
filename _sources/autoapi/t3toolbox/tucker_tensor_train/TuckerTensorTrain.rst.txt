@@ -514,6 +514,23 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
+   .. py:method:: norm()
+
+      Computed the norm of this Tucker tensor train.
+      Curried version of :py:func:`t3toolbox.tucker_tensor_train.t3_norm`.
+
+
+
+   .. py:method:: inner_product(other)
+
+      Compute the inner product between this Tucker tensor train and another object.
+
+      Currently only implemented if the other object is also a TuckerTensorTrain.
+
+      Curried version of :py:func:`t3toolbox.tucker_tensor_train.t3_inner_product_t3`
+
+
+
    .. py:method:: flatten()
 
 
