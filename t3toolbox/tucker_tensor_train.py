@@ -3,7 +3,7 @@
 # Github: https://github.com/NickAlger/TuckerTensorTrainTools
 # Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
 """
-This module contains type aliases and basic operations for Tucker tensor trains.
+This module contains type aliases and basic core for Tucker tensor trains.
 
 Tucker tensor trains:
 ---------------------
@@ -79,14 +79,15 @@ Operations here are defined with respect to the dense N0 x ... x N(d-1) tensors 
 are *represented* by the Tucker tensor train, even though these dense tensors
 are not formed during computations.
 
-For corewise operations, see :mod:`t3toolbox.corewise`
+For corewise core, see :mod:`t3toolbox.corewise`
 """
 import numpy as np
 import typing as typ
 import functools as ft
 from dataclasses import dataclass
-import t3toolbox.util_linalg as linalg
 
+import t3toolbox.core.nonuniform.tucker_tensor_train as t3_core
+import t3toolbox.util_linalg as linalg
 from t3toolbox.common import *
 
 jax = None
@@ -254,7 +255,7 @@ class TuckerTensorTrain:
     tt_cores:       typ.Tuple[NDArray] # len=d, elm_shape=VS+(ri, ni, r(i+1))
 
     def __post_init__(self):
-        self.check()
+        self.validate()
 
     @ft.cached_property
     def data(self) -> typ.Tuple[typ.Tuple[NDArray], typ.Tuple[NDArray]]:
@@ -298,7 +299,7 @@ class TuckerTensorTrain:
     def has_minimal_ranks(self) -> bool:
         return (self.tucker_ranks, self.tt_ranks) == self.minimal_ranks
 
-    def check(self):
+    def validate(self):
         """Check internal consistency of the Tucker tensor train.
         """
         if len(self.tucker_cores) != len(self.tt_cores):
@@ -419,31 +420,8 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(x_dense - x_dense2) / np.linalg.norm(x_dense))
         1.3614138244072514e-15
         """
-        xnp, _, _ = get_backend(False, use_jax)
+        return t3_core.to_dense(self.data, squash_tails=squash_tails, use_jax=use_jax)
 
-        #
-        big_tt_cores = [xnp.einsum('...iaj,...ab->...ibj', G, U) for G, U in zip(self.tt_cores, self.tucker_cores)]
-
-        T = big_tt_cores[0]
-        for G in big_tt_cores[1:]:
-            vs = self.vectorization_shape
-            ts = T.shape[len(vs):-1]
-            cs = (T.shape[-1],)
-            T_a_b_c_xyz_r = T.reshape(vs + (xnp.prod(ts, dtype=int),) + cs)
-
-            ts2 = G.shape[-2:]
-            G_a_b_c_r_lm = G.reshape(vs + cs + (xnp.prod(ts2, dtype=int),))
-            T_a_b_c_xyzlm = T_a_b_c_xyz_r @ G_a_b_c_r_lm
-            T = T_a_b_c_xyzlm.reshape(vs + ts + ts2)
-
-        if squash_tails:
-            mu_L = xnp.ones(big_tt_cores[0].shape[-3])
-            mu_R = xnp.ones(big_tt_cores[-1].shape[-1])
-
-            T = xnp.tensordot(T, mu_R, axes=1)
-            T = xnp.tensordot(mu_L, T, axes=((0,), (len(self.vectorization_shape),)))
-
-        return T
 
     def squash_tails(
             self,
@@ -485,16 +463,7 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(x.to_dense() - x2.to_dense()))
         5.805155892491438e-12
         """
-        xnp, _, _ = get_backend(False, use_jax)
-
-        #
-        G0 = self.tt_cores[0]
-        G0 = xnp.einsum('az,...aib->...zib', xnp.ones((G0.shape[-3],1)), G0)
-
-        Gf = self.tt_cores[-1]
-        Gf = xnp.einsum('...aib,bz->...aiz', Gf, xnp.ones((Gf.shape[-1],1)))
-
-        return TuckerTensorTrain(tuple(self.tucker_cores), (G0,) + tuple(self.tt_cores[1:-1]) + (Gf,))
+        return TuckerTensorTrain(self.tucker_cores, t3_core.squash_tt_tails(self.tt_cores))
 
     def reverse(self) -> 'TuckerTensorTrain':
         """Reverse Tucker tensor train.
@@ -542,14 +511,8 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(x_dense - x_dense2))
         1.859018050214056e-13
         """
-        is_ragged = isinstance(self.tucker_cores, typ.Sequence)
-
-        if is_ragged:
-            reversed_tucker_cores = tuple([B.copy() for B in self.tucker_cores[::-1]])
-        else:
-            reversed_tucker_cores = self.tucker_cores[::-1,:,:]
-
-        reversed_tt_cores = tuple([G.swapaxes(-3, -1) for G in self.tt_cores[::-1]])
+        reversed_tucker_cores = tuple([B.copy() for B in self.tucker_cores[::-1]])
+        reversed_tt_cores = t3_core.reverse_tt(self.tt_cores)
         return TuckerTensorTrain(reversed_tucker_cores, reversed_tt_cores)
 
     def change_structure(
@@ -582,23 +545,19 @@ class TuckerTensorTrain:
         new_shape, new_tucker_ranks, new_tt_ranks = new_structure
         tucker_cores, tt_cores = self.data
 
-        new_tucker_cores = change_tucker_core_shapes(tucker_cores, new_shape, new_tucker_ranks, use_jax=use_jax)
-        new_tt_cores = change_tt_core_shapes(tt_cores, new_tucker_ranks, new_tt_ranks, use_jax=use_jax)
+        new_tucker_cores = t3_core.change_tucker_core_shapes(tucker_cores, new_shape, new_tucker_ranks, use_jax=use_jax)
+        new_tt_cores = t3_core.change_tt_core_shapes(tt_cores, new_tucker_ranks, new_tt_ranks, use_jax=use_jax)
 
         return TuckerTensorTrain(tuple(new_tucker_cores), tuple(new_tt_cores))
 
-
-    ###########################################################
-    ##################    Linear algebra    ###################
-    ###########################################################
-
-    def __add__(
-            self: 'TuckerTensorTrain',
-            other: 'TuckerTensorTrain',
+    @staticmethod
+    def add(
+            x: 'TuckerTensorTrain',
+            y: 'TuckerTensorTrain',
             squash: bool = True,
             use_jax: bool = False,
     ) -> 'TuckerTensorTrain':
-        """Add this Tucker tensor train to another one, yielding a Tucker tensor train with summed ranks.
+        """Add Tucker tensor trains x and y, yielding a Tucker tensor train x+y with summed ranks.
 
         Addition is defined with respect to the dense N0 x ... x N(d-1) tensors that
         are *represented* by the Tucker tensor trains, even though these dense tensors
@@ -649,7 +608,7 @@ class TuckerTensorTrain:
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (1,5,6,1))
-        >>> z = x + y
+        >>> z = t3.TuckerTensorTrain.add(x, y)
         >>> print(z.structure)
         ((14, 15, 16), (7, 12, 8), (1, 8, 8, 1))
         >>> print(np.linalg.norm(x.to_dense() + y.to_dense() - z.to_dense()))
@@ -661,65 +620,66 @@ class TuckerTensorTrain:
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), vectorization_shape=(2,3))
         >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (1,5,6,1), vectorization_shape=(2,3))
-        >>> z = x + y
+        >>> z = t3.TuckerTensorTrain.add(x, y)
         >>> print(z.structure)
         ((14, 15, 16), (7, 12, 8), (1, 8, 8, 1))
         >>> print(np.linalg.norm(x.to_dense() + y.to_dense() - z.to_dense()))
         """
-        xnp, _, _ = get_backend(False, use_jax)
-
-        if not isinstance(other, TuckerTensorTrain):
+        if not isinstance(x, TuckerTensorTrain) or not isinstance(y, TuckerTensorTrain):
             raise NotImplementedError(
                 'Can only add TuckerTensorTrain to another TuckerTensorTrain.'
             )
 
         #
 
-        if self.shape != other.shape:
+        if x.shape != y.shape:
             raise ValueError(
                 'Attempted to add TuckerTensorTrains x+y with inconsistent shapes.'
-                + str(self.shape) + ' = x.shape != y.shape = ' + str(other.shape)
+                + str(x.shape) + ' = x.shape != y.shape = ' + str(y.shape)
             )
 
-        vsx = self.vectorization_shape
-        vsy = other.vectorization_shape
-
-        # vs = (xnp.zeros(vsx) + xnp.zeros(vsy)).shape # attempt at broadcasting (doesn't work)
+        vsx = x.vectorization_shape
+        vsy = y.vectorization_shape
 
         if vsx != vsy:
             raise NotImplementedError(
                 'Cannot add TuckerTensorTrains with different vectorization shapes.\n'
-                + str(self.vectorization_shape)
+                + str(x.vectorization_shape)
                 + ' = x.vectorization_shape != y.vectorization_shape = '
-                + str(other.vectorization_shape)
+                + str(y.vectorization_shape)
             )
 
+        return TuckerTensorTrain(*t3_core.t3_add(x.data, y.data, squash=squash, use_jax=use_jax))
 
-        tucker_cores_x, tt_cores_x = self.data
-        tucker_cores_y, tt_cores_y = other.data
-        tucker_cores_z = [xnp.concatenate([Bx, By], axis=-2) for Bx, By in zip(tucker_cores_x, tucker_cores_y)]
 
-        tt_cores_z = []
-
-        for Gx, Gy in zip(tt_cores_x, tt_cores_y):
-            G000 = Gx
-            G001 = xnp.zeros(vsx + (Gx.shape[-3], Gx.shape[-2], Gy.shape[-1]))
-            G010 = xnp.zeros(vsx + (Gx.shape[-3], Gy.shape[-2], Gx.shape[-1]))
-            G011 = xnp.zeros(vsx + (Gx.shape[-3], Gy.shape[-2], Gy.shape[-1]))
-            G100 = xnp.zeros(vsx + (Gy.shape[-3], Gx.shape[-2], Gx.shape[-1]))
-            G101 = xnp.zeros(vsx + (Gy.shape[-3], Gx.shape[-2], Gy.shape[-1]))
-            G110 = xnp.zeros(vsx + (Gy.shape[-3], Gy.shape[-2], Gx.shape[-1]))
-            G111 = Gy
-            Gz = xnp.block([[[G000, G001], [G010, G011]], [[G100, G101], [G110, G111]]])
-            tt_cores_z.append(Gz)
-
-        z = TuckerTensorTrain(tuple(tucker_cores_z), tuple(tt_cores_z))
-        if squash:
-            z = z.squash_tails()
-        return z
-
-    def __mul__(
+    def __add__(
             self,
+            other: 'TuckerTensorTrain',
+            squash: bool = True,
+            use_jax: bool = False,
+    ) -> 'TuckerTensorTrain':
+        """Add Tucker tensor trains x and y, yielding a Tucker tensor train x+y with summed ranks.
+
+        dunder version of :py:meth:`TuckerTensorTrain.add`.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (1,5,6,1))
+        >>> z = x + y
+        >>> print(z.structure)
+        ((14, 15, 16), (7, 12, 8), (1, 8, 8, 1))
+        >>> print(np.linalg.norm(x.to_dense() + y.to_dense() - z.to_dense()))
+        6.524094086845177e-13
+        """
+        return TuckerTensorTrain.add(self, other, squash=squash, use_jax=use_jax)
+
+
+    @staticmethod
+    def mul(
+            x: 'TuckerTensorTrain',
             s,  # scalar
     ) -> 'TuckerTensorTrain':
         """Multipy a Tucker tensor train by a scaling factor.
@@ -761,18 +721,33 @@ class TuckerTensorTrain:
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> s = 3.2
+        >>> sx = t3.TuckerTensorTrain.mul(x, s)
+        >>> print(np.linalg.norm(s*x.to_dense() - sx.to_dense()))
+        1.6268482531988893e-13
+        """
+        return TuckerTensorTrain(*t3_core.t3_mul(x.data, s))
+
+
+    def __mul__(
+            self,
+            s,  # scalar
+    ) -> 'TuckerTensorTrain':
+        """Multipy a Tucker tensor train by a scaling factor.
+
+        dunder version of :py:meth:`TuckerTensorTrain.mul`.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> s = 3.2
         >>> sx = x * s
         >>> print(np.linalg.norm(s*x.to_dense() - sx.to_dense()))
         1.6268482531988893e-13
         """
-        tucker_cores, tt_cores = self.data
+        return TuckerTensorTrain.mul(self, s)
 
-        scaled_tucker_cores = [B.copy() for B in tucker_cores]
-        scaled_tucker_cores[-1] = s * scaled_tucker_cores[-1]
-
-        copied_tt_cores = [G.copy() for G in tt_cores]
-
-        return TuckerTensorTrain(tuple(scaled_tucker_cores), tuple(copied_tt_cores))
 
     def __neg__(
             self,
@@ -1532,25 +1507,7 @@ class TuckerTensorTrain:
     ) -> 'TuckerTensorTrain':
         """Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
         """
-        is_uniform = False
-        xnp, xmap, xscan = get_backend(is_uniform, use_jax)
-
-        #
-        def _up_func(up_func_args):
-            Bio, Gaib = up_func_args
-            Boi = Bio.T
-
-            Uox, ssx, WTxi = xnp.linalg.svd(Boi, full_matrices=False)
-            Rxi = xnp.einsum('x,xi->xi', ssx, WTxi)
-
-            new_Gaxb = xnp.einsum('aib,xi->axb', Gaib, Rxi)
-            new_Uxo = Uox.T
-            return (new_Uxo, new_Gaxb)
-
-        xs = self.data
-        up_tucker_cores, new_tt_cores = xmap(_up_func, xs)
-
-        return TuckerTensorTrain(up_tucker_cores, new_tt_cores)
+        return TuckerTensorTrain(*t3_core.up_orthogonalize_tucker_cores(self.data, use_jax=use_jax))
 
     def outer_orthogonalize_tt_cores(
             self,
@@ -1558,28 +1515,9 @@ class TuckerTensorTrain:
     ):
         """Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
         """
-        is_uniform = False
-        xnp, xmap, xscan = get_backend(is_uniform, use_jax)
-
-        #
-        def _down_func(Uio_Haib):
-            Uio, Haib, = Uio_Haib
-
-            rL, n, rR = Haib.shape
-            H_ab_i = Haib.swapaxes(1, 2).reshape((rL * rR, n))
-
-            O_ab_x, ssx, WTxi = xnp.linalg.svd(H_ab_i, full_matrices=False)
-            n2 = len(ssx)
-            Oaxb = O_ab_x.reshape((rL, rR, n2)).swapaxes(1, 2)
-
-            Cxi = ssx.reshape((-1, 1)) * WTxi
-
-            Vxo = np.einsum('xi,io->xo', Cxi, Uio)
-            return (Vxo, Oaxb)
-
-        tucker_variations, outer_tt_cores = xmap(_down_func, self.data)
-
-        return TuckerTensorTrain(tucker_variations, outer_tt_cores)
+        return TuckerTensorTrain(
+            *t3_core.outer_orthogonalize_tt_cores(self.data, use_jax=use_jax),
+        )
 
     def left_orthogonalize_tt_cores(
             self,
@@ -1588,39 +1526,36 @@ class TuckerTensorTrain:
     ):
         """Left orthogonalize the TT cores, possibly returning variation cores as well.
         """
-        result = left_orthogonalize_tt_cores(
-            self.tt_cores, return_variation_cores=return_variation_cores, use_jax=use_jax
+        result = t3_core.left_orthogonalize_tt_cores(
+            self.tt_cores, return_variation_cores=return_variation_cores, use_jax=use_jax,
         )
         if return_variation_cores:
             return TuckerTensorTrain(self.tucker_cores, result[0]), result[1]
         else:
-            return TuckerTensorTrain(self.tucker_cores, result)
+            return result
 
     def right_orthogonalize_tt_cores(
             self,
             return_variation_cores: bool = False,
             use_jax: bool = False,
     ):
-        """Right orthogonalize the TT cores, possibly returning variation cores as well
+        """Right orthogonalize the TT cores, possibly returning variation cores as well.
         """
-        result = right_orthogonalize_tt_cores(
-            self.tt_cores, return_variation_cores=return_variation_cores, use_jax=use_jax
+        result = t3_core.left_orthogonalize_tt_cores(
+            self.tt_cores, return_variation_cores=return_variation_cores, use_jax=use_jax,
         )
         if return_variation_cores:
             return TuckerTensorTrain(self.tucker_cores, result[0]), result[1]
         else:
-            return TuckerTensorTrain(self.tucker_cores, result)
-
-    def flatten(self):
-        return (self.data, None)
-
-    @classmethod
-    def unflatten(cls, aux_data, children):
-        return cls(*children)
+            return result
 
 
 if has_jax:
-    jax.tree_util.register_pytree_node(TuckerTensorTrain, TuckerTensorTrain.flatten, TuckerTensorTrain.unflatten)
+    jax.tree_util.register_pytree_node(
+        TuckerTensorTrain,
+        lambda x: (x.data, None),
+        lambda aux_data, children: TuckerTensorTrain(*children),
+    )
 
 
 
@@ -1690,64 +1625,7 @@ def reverse_tt(
         return tuple([G.swapaxes(0, 2) for G in tt_cores[::-1]])
 
 
-def left_orthogonalize_tt_cores(
-        tt_cores: typ.Sequence[NDArray],  # len=d, elm_shape=(ri,ni,r(i+1))
-        return_variation_cores: bool = False,
-        use_jax: bool = False,
-):
-    """Left-orthogonalize a Tensor train (no Tucker).
-    """
-    is_uniform = False
-    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
-    #
-    def _left_func(Cxb, left_func_args):
-        Gbjc = left_func_args[0]
-
-        Hxjc = xnp.einsum('xb,bjc->xjc', Cxb, Gbjc)
-
-        rL, n, rR = Hxjc.shape
-        H_xj_c = Hxjc.reshape((rL * n, rR))
-        L_xj_y, ssy, VTyc = xnp.linalg.svd(H_xj_c, full_matrices=False)
-        rR2 = len(ssy)
-        Lxjy = L_xj_y.reshape((rL, n, rR2))
-
-        Cyc = ssy.reshape((-1, 1)) * VTyc
-
-        return Cyc, (Lxjy, Hxjc)
-
-    init = xnp.eye(tt_cores[0].shape[0])
-    xs = (tt_cores[:-1],)
-
-    Cf, (LL, HH) = xscan(_left_func, init, xs)
-
-    # Dealing with the last core as a special case
-    Lf = xnp.einsum('xb,bjc->xjc', Cf, tt_cores[-1])
-    if is_uniform:
-        left_tt_cores = xnp.concatenate([LL, Lf.reshape((1,) + Lf.shape)], axis=0)
-        var_tt_cores = xnp.concatenate([HH, Lf.reshape((1,) + Lf.shape)], axis=0)
-    else:
-        left_tt_cores = tuple(LL) + (Lf,)
-        var_tt_cores = tuple(HH) + (Lf,)
-
-    if return_variation_cores:
-        return left_tt_cores, var_tt_cores
-    else:
-        return left_tt_cores
-
-
-def right_orthogonalize_tt_cores(
-        tt_cores: typ.Sequence[NDArray],  # len=d, elm_shape=(ri,ni,r(i+1))
-        return_variation_cores: bool = False,
-        use_jax: bool = False,
-):
-    result = left_orthogonalize_tt_cores(
-        reverse_tt(tt_cores), return_variation_cores=return_variation_cores, use_jax=use_jax,
-    )
-    if return_variation_cores:
-        return reverse_tt(result[0]), reverse_tt(result[1])
-    else:
-        return reverse_tt(result)
 
 
 def absorb_edge_weights_into_cores(
@@ -2404,68 +2282,6 @@ def compute_minimal_ranks(
 
     return tuple(new_tucker_ranks), tuple(new_tt_ranks)
 
-
-def change_tucker_core_shapes(
-        tucker_cores: typ.Sequence[NDArray],
-        new_shape: typ.Sequence[int], # len=d
-        new_tucker_ranks: typ.Sequence[int], # len=d
-        use_jax: bool = False,
-) -> typ.Tuple[NDArray,...]:
-    """Increase Tucker and/or TT ranks for TT cores using zero padding.
-    """
-    xnp, _, _ = get_backend(False, use_jax)
-
-    old_shape = [B.shape[1] for B in tucker_cores]
-    old_tucker_ranks = [B.shape[0] for B in tucker_cores]
-
-    num_cores = len(tucker_cores)
-
-    delta_shape         = [N_new - N_old for N_new, N_old in zip(new_shape, old_shape)]
-    delta_tucker_ranks  = [n_new - n_old for n_new, n_old in zip(new_tucker_ranks, old_tucker_ranks)]
-
-    new_tucker_cores = []
-    for ii in range(num_cores):
-        new_tucker_cores.append(xnp.pad(
-            tucker_cores[ii],
-            (
-                (0,delta_tucker_ranks[ii]),
-                (0,delta_shape[ii]),
-            ),
-        ))
-
-    return tuple(new_tucker_cores)
-
-
-def change_tt_core_shapes(
-        tt_cores: typ.Sequence[NDArray],
-        new_tucker_ranks: typ.Sequence[int], # len=d
-        new_tt_ranks: typ.Sequence[int], # len=d+1
-        use_jax: bool = False,
-) -> typ.Tuple[NDArray,...]:
-    """Increase Tucker and/or TT ranks for TT cores using zero padding.
-    """
-    xnp, _, _ = get_backend(False, use_jax)
-
-    old_tucker_ranks = [G.shape[1] for G in tt_cores]
-    old_tt_ranks = [G.shape[0] for G in tt_cores] + [tt_cores[-1].shape[2]]
-
-    num_cores = len(tt_cores)
-
-    delta_tucker_ranks  = [n_new - n_old for n_new, n_old in zip(new_tucker_ranks, old_tucker_ranks)]
-    delta_tt_ranks      = [r_new - r_old for r_new, r_old in zip(new_tt_ranks, old_tt_ranks)]
-
-    new_tt_cores = []
-    for ii in range(num_cores):
-        new_tt_cores.append(xnp.pad(
-            tt_cores[ii],
-            (
-                (0,delta_tt_ranks[ii]),
-                (0,delta_tucker_ranks[ii]),
-                (0,delta_tt_ranks[ii+1]),
-            ),
-        ))
-
-    return tuple(new_tt_cores)
 
 
 ###################################################################

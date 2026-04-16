@@ -41,7 +41,7 @@ __all__ = [
     'ut3_to_dense',
     'are_ut3_ranks_minimal',
     'ut3_entry',
-    # Linear algebra operations:
+    # Linear algebra core:
     'ut3_add',
     'ut3_scale',
     'ut3_neg',
@@ -1159,7 +1159,7 @@ def ut3_apply(
     return result
 
 ###################################################
-#########    Linear algebra operations    #########
+#########    Linear algebra core    #########
 ###################################################
 
 def ut3_add(

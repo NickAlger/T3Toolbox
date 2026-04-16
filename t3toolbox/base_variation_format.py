@@ -104,9 +104,9 @@ Often, it is desirable for the variations to satisfy the following **Gauge condi
     - U_ia V_ja = 0    (all V)
     - L_abi H_abj = 0  (all but the last H)
 
-If these conditions are satisfied, then one can do "dumb" corewise linear algebra operations
-(add, scale, dot product, etc) with the variations, and those operations faithfully correspond 
-to linear algebra operations with the N1 x ... x Nd tangent vectors represented by the variations. 
+If these conditions are satisfied, then one can do "dumb" corewise linear algebra core
+(add, scale, dot product, etc) with the variations, and those core faithfully correspond 
+to linear algebra core with the N1 x ... x Nd tangent vectors represented by the variations. 
 
 See Also
 --------
