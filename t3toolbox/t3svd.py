@@ -91,10 +91,10 @@ def t3_svd(
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.t3svd as t3svd
-    >>> x = t3.t3_corewise_randn(((5,6,3), (4,4,3), (1,3,2,1)))
+    >>> x = t3.t3_corewise_randn((5,6,3), (4,4,3), (1,3,2,1))
     >>> x2, ss_tucker, ss_tt = t3svd.t3_svd(x) # Compute T3-SVD
-    >>> x_dense = t3.t3_to_dense(x)
-    >>> x2_dense = t3.t3_to_dense(x2)
+    >>> x_dense = x.to_dense()
+    >>> x2_dense = x2.to_dense()
     >>> print(np.linalg.norm(x_dense - x2_dense)) # Tensor unchanged
     7.556835759880194e-13
     >>> ss_tt1 = np.linalg.svd(x_dense.reshape((5, 6*3)))[1] # Singular values of unfolding 1
@@ -119,14 +119,14 @@ def t3_svd(
     >>> G2 = np.random.randn(40,55,1)
     >>> tucker_cores_x = (B0, B1, B2)
     >>> tt_cores_x = (G0, G1, G2)
-    >>> x = (tucker_cores_x, tt_cores_x) # Tensor has spectral decay due to preconditioning
+    >>> x = t3.TuckerTensorTrain(tucker_cores_x, tt_cores_x) # Tensor has spectral decay due to preconditioning
     >>> x2, ss_tucker, ss_tt = t3svd.t3_svd(x, rtol=1e-2) # Truncate singular values to reduce rank
-    >>> print(t3.get_structure(x))
+    >>> print(x.structure)
     ((40, 50, 60), (35, 45, 55), (1, 30, 40, 1))
-    >>> print(t3.get_structure(x2))
+    >>> print(x2.structure)
     ((40, 50, 60), (6, 6, 5), (1, 6, 5, 1))
-    >>> x_dense = t3.t3_to_dense(x)
-    >>> x2_dense = t3.t3_to_dense(x2)
+    >>> x_dense = x.to_dense()
+    >>> x2_dense = x2.to_dense()
     >>> print(np.linalg.norm(x_dense - x2_dense)/np.linalg.norm(x_dense)) # Should be near rtol=1e-2
     0.013078458673911168
 
@@ -135,11 +135,11 @@ def t3_svd(
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.t3svd as t3svd
-    >>> x = t3.t3_corewise_randn(((14,15,16), (10,11,12), (1,8,9,1)))
+    >>> x = t3.t3_corewise_randn((14,15,16), (10,11,12), (1,8,9,1))
     >>> x2, ss_tucker, ss_tt = t3svd.t3_svd(x, max_tucker_ranks=(3,3,3), max_tt_ranks=(1,2,2,1)) # Truncate based on ranks
-    >>> print(t3.get_structure(x))
+    >>> print(x.structure)
         ((14, 15, 16), (10, 11, 12), (1, 8, 9, 1))
-    >>> print(t3.get_structure(x2))
+    >>> print(x2.structure)
         ((14, 15, 16), (3, 3, 2), (1, 2, 2, 1))
 
     Example where first and last ranks are not ones:
@@ -147,10 +147,10 @@ def t3_svd(
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.t3svd as t3svd
-    >>> x = t3.t3_corewise_randn(((5,6,3), (4,4,3), (2,3,2,2)))
+    >>> x = t3.t3_corewise_randn((5,6,3), (4,4,3), (2,3,2,2))
     >>> x2, ss_tucker, ss_tt = t3svd.t3_svd(x, squash_tails_first=False) # Compute T3-SVD
-    >>> x_dense = t3.t3_to_dense(x, squash_tails=False)
-    >>> x2_dense = t3.t3_to_dense(x2, squash_tails=False)
+    >>> x_dense = x.to_dense(squash_tails=False)
+    >>> x2_dense = x2.to_dense(squash_tails=False)
     >>> print(np.linalg.norm(x_dense - x2_dense)) # Tensor unchanged
     5.486408687260824e-13
     >>> ss_tt0 = np.linalg.svd(x_dense.reshape((2,5*6*3*2)))[1] # Singular values of leading unfolding
@@ -162,18 +162,22 @@ def t3_svd(
     [299.45433768 100.29574828]
     [299.45433768 100.29574828]
     '''
-    is_uniform = not isinstance(x[0], typ.Sequence)
+    is_uniform = False
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
-    #
-
-    tucker_cores, tt_cores = x
-
-    num_cores = len(tt_cores)
+    if x.vectorization_shape != ():
+        raise NotImplementedError(
+            'T3-SVD is not implemented for TuckerTensorTrains with vectorized cores. Must do one at a time.'
+        )
 
     # make leading and trailing TT-ranks equal to 1
     if squash_tails_first:
-        x = t3.squash_tails(x, use_jax=use_jax) # This causes a problem for some reason
+        x = x.squash_tails(use_jax=use_jax) #t3.squash_tails(x, use_jax=use_jax) # This causes a problem for some reason
+
+    x = x.data
+    tucker_cores, tt_cores = x
+
+    num_cores = len(tt_cores)
 
     # Orthogonalize Tucker matrices
     x = orth.up_orthogonalize_tucker_cores(x, use_jax=use_jax)
@@ -208,7 +212,7 @@ def t3_svd(
             _, ss_tt, _ = linalg.left_svd_3tensor(Gf, use_jax=use_jax)
         all_ss_tt.append(ss_tt)
 
-    return x, tuple(all_ss_tucker), tuple(all_ss_tt)
+    return t3.TuckerTensorTrain(*x), tuple(all_ss_tucker), tuple(all_ss_tt)
 
 
 

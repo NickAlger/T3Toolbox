@@ -397,7 +397,7 @@ def get_uniform_structure(
 
 def get_original_structure(
         masks: UniformEdgeWeights,
-) -> t3.T3Structure:
+): # -> t3.T3Structure:
     """Get original (unpadded) structure of a uniform Tucker tensor train.
 
     Parameters
@@ -695,7 +695,7 @@ def unpack(
 
 
 def make_uniform_masks(
-        structure: t3.T3Structure,
+        structure, #: t3.T3Structure,
         uniform_structure: UniformStructure,
         use_jax: bool = False,
 ) -> UniformEdgeWeights:

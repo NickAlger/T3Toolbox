@@ -11,15 +11,17 @@ try:
     import jax.numpy as jnp
     import jax
     has_jax = True
-    NDArray = typ.Union[np.ndarray, jnp.ndarray]
-    jax_scan = jax.lax.scan
-    jax_map = jax.lax.map
 except ImportError:
     print('Unable to import Jax. Using numpy instead.')
-    NDArray = np.ndarray
+
+NDArray = np.ndarray
+if has_jax:
+    NDArray = typ.Union[np.ndarray, jnp.ndarray]
 
 
 __all__ = [
+    'has_jax',
+    #
     'NDArray',
     #
     'ragged_scan',
@@ -122,11 +124,10 @@ def numpy_scan(
 
 def ragged_map(
         f: typ.Callable[
-            [CarryType,
-             typ.Sequence[NDArray],  # len=num_inputs
+            [
+                typ.Sequence[NDArray],  # len=num_inputs
              ],
             typ.Tuple[
-                CarryType,
                 typ.Sequence[NDArray],  # len=num_outputs
             ],
         ],
@@ -185,9 +186,11 @@ def numpy_map(
     return ys
 
 
-if not has_jax:
-    jax_scan = numpy_scan
-    jax_map = numpy_map
+jax_scan = numpy_scan
+jax_map = numpy_map
+if has_jax:
+    jax_scan = jax.lax.scan
+    jax_map = jax.lax.map
 
 
 def get_backend(
@@ -218,3 +221,4 @@ def randn(*args, use_jax: bool):
         return jnp.array(np.random.randn(*args)) # should convert this to pure jax
     else:
         return np.random.randn(*args)
+
