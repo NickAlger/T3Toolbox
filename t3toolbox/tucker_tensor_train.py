@@ -105,14 +105,9 @@ __all__ = [
     'absorb_edge_weights_into_cores',
     't3_zeros',
     't3_corewise_randn',
-    'compute_minimal_ranks',
-    'change_tucker_core_shapes',
-    'change_tt_core_shapes',
+    'compute_minimal_t3_ranks',
     't3_save',
     't3_load',
-    # Linear algebra
-    't3_inner_product_t3',
-    't3_norm',
 ]
 
 
@@ -292,7 +287,7 @@ class TuckerTensorTrain:
 
     @ft.cached_property
     def minimal_ranks(self) -> typ.Tuple[typ.Tuple[int,...], typ.Tuple[int,...]]:
-        minimal_tucker_ranks, minimal_tt_ranks = compute_minimal_ranks(*self.structure)
+        minimal_tucker_ranks, minimal_tt_ranks = compute_minimal_t3_ranks(*self.structure)
         return minimal_tucker_ranks, minimal_tt_ranks
 
     @ft.cached_property
@@ -550,6 +545,7 @@ class TuckerTensorTrain:
 
         return TuckerTensorTrain(tuple(new_tucker_cores), tuple(new_tt_cores))
 
+
     @staticmethod
     def add(
             x: 'TuckerTensorTrain',
@@ -651,7 +647,6 @@ class TuckerTensorTrain:
 
         return TuckerTensorTrain(*t3_core.t3_add(x.data, y.data, squash=squash, use_jax=use_jax))
 
-
     def __add__(
             self,
             other: 'TuckerTensorTrain',
@@ -676,9 +671,8 @@ class TuckerTensorTrain:
         """
         return TuckerTensorTrain.add(self, other, squash=squash, use_jax=use_jax)
 
-
     @staticmethod
-    def mul(
+    def scale(
             x: 'TuckerTensorTrain',
             s,  # scalar
     ) -> 'TuckerTensorTrain':
@@ -721,11 +715,11 @@ class TuckerTensorTrain:
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> s = 3.2
-        >>> sx = t3.TuckerTensorTrain.mul(x, s)
+        >>> sx = t3.TuckerTensorTrain.scale(x, s)
         >>> print(np.linalg.norm(s*x.to_dense() - sx.to_dense()))
         1.6268482531988893e-13
         """
-        return TuckerTensorTrain(*t3_core.t3_mul(x.data, s))
+        return TuckerTensorTrain(*t3_core.t3_scale(x.data, s))
 
 
     def __mul__(
@@ -746,11 +740,11 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(s*x.to_dense() - sx.to_dense()))
         1.6268482531988893e-13
         """
-        return TuckerTensorTrain.mul(self, s)
+        return TuckerTensorTrain.scale(self, s)
 
-
-    def __neg__(
-            self,
+    @staticmethod
+    def neg(
+            x,
     ) -> 'TuckerTensorTrain':
         """Scale a Tucker tensor train by -1.
 
@@ -788,19 +782,99 @@ class TuckerTensorTrain:
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-        >>> neg_x = -x
+        >>> neg_x = TuckerTensorTrain.neg(x)
         >>> print(np.linalg.norm(x.to_dense() + neg_x.to_dense()))
         0.0
         """
-        return self * (-1.0)
+        return TuckerTensorTrain.scale(x, -1.0)
+
+    def __neg__(
+            self,
+    ) -> 'TuckerTensorTrain':
+        """Scale a Tucker tensor train by -1.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> neg_x = t3.TuckerTensorTrain.neg(x)
+        >>> print(np.linalg.norm(x.to_dense() + neg_x.to_dense()))
+        0.0
+        """
+        return TuckerTensorTrain.neg(self)
+
+    @staticmethod
+    def sub(
+            x: 'TuckerTensorTrain',
+            y: 'TuckerTensorTrain',
+            squash: bool = True,
+            use_jax: bool = False,
+    ) -> 'TuckerTensorTrain':
+        """Subtract Tucker tensor trains, x - y, yielding a Tucker tensor train with summed ranks.
+
+        Subtraction is defined with respect to the dense N0 x ... x N(d-1) tensors that
+        are *represented* by the Tucker tensor trains, even though these dense tensors
+        are not formed during computations.
+
+        For corewise subtraction, see :func:`t3toolbox.corewise.corewise_sub`
+
+        Parameters
+        ----------
+        x: TuckerTensorTrain
+            First summand. structure=((N0,...,N(d-1)), (n1,...,nd), (r0, r1,...,rd))
+        y: TuckerTensorTrain
+            Second summand. structure=((N0,...,N(d-1)), (m1,...,md), (q0, q1,...,qd))
+        squash: bool
+            Squash the first and last TT cores so that r0=rd=1 in the result. Default: True.
+        xnp:
+            Linear algebra backend. Default: np (numpy)
+
+        Returns
+        -------
+        TuckerTensorTrain
+            Difference of Tucker tensor trains, x-y.
+                - shape=(N0,...,N(d-1),
+                - tucker_ranks=(n0+m0,...,n(d-1)+m(d-1),
+                - TT ranks=(1, r1+q1,...,r(d-1)+q(d-1),1)) if squash=True,
+                or (r0+q0, r1+q1,...,r(d-1)+q(d-1),rd+qd)) if squash=False.
+
+        Raises
+        ------
+        ValueError
+            - Error raised if either of the TuckerTensorTrains are internally inconsistent
+            - Error raised if the TuckerTensorTrains have different shapes.
+
+        See Also
+        --------
+        TuckerTensorTrain
+        t3_shape
+        t3_add
+        t3_scale
+        t3_neg
+        :func:`~t3toolbox.corewise.corewise_neg`
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (1,5,6,1))
+        >>> x_minus_y = t3.TuckerTensorTrain.sub(x, y)
+        >>> print(x_minus_y.structure)
+        ((14, 15, 16), (7, 12, 8), (2, 8, 8, 2))
+        >>> print(np.linalg.norm(x.to_dense() - y.to_dense() - x_minus_y.to_dense()))
+        3.5875705233607603e-13
+        """
+        return TuckerTensorTrain.add(x, -y, squash=squash, use_jax=use_jax)
 
     def __sub__(
-            self,
+            self: 'TuckerTensorTrain',
             other: 'TuckerTensorTrain',
             squash: bool = True,
             use_jax: bool = False,
     ) -> 'TuckerTensorTrain':
-        """Subtract two Tucker tensor trains, yielding a Tucker tensor train with summed ranks.
+        """Subtract Tucker tensor trains, x - y, yielding a Tucker tensor train with summed ranks.
 
         Subtraction is defined with respect to the dense N0 x ... x N(d-1) tensors that
         are *represented* by the Tucker tensor trains, even though these dense tensors
@@ -852,31 +926,137 @@ class TuckerTensorTrain:
         >>> x_minus_y = x - y
         >>> print(x_minus_y.structure)
         ((14, 15, 16), (7, 12, 8), (2, 8, 8, 2))
-        >>> dense_x = x.to_dense()
-        >>> dense_y = y.to_dense()
-        >>> dense_x_minus_y = x_minus_y.to_dense()
-        >>> print(np.linalg.norm(dense_x - dense_y - dense_x_minus_y))
+        >>> print(np.linalg.norm(x.to_dense() - y.to_dense() - x_minus_y.to_dense()))
         3.5875705233607603e-13
         """
-        return self.__add__(-other, squash=squash, use_jax=use_jax)
+        return TuckerTensorTrain.sub(self, other, squash=squash, use_jax=use_jax)
 
-    def norm(self):
-        """Computed the norm of this Tucker tensor train.
-        Curried version of :py:func:`t3toolbox.tucker_tensor_train.t3_norm`.
+    def norm(
+            self,
+            use_jax: bool = False,
+    ):
+        """Compute Hilbert-Schmidt (Frobenius) norm of a Tucker tensor train.
+
+        The Hilbert-Schmidt norm is defined with respect to the dense N0 x ... x N(d-1) tensor
+        that is *represented* by the Tucker tensor trains, even though this dense tensor
+        is not formed during computations.
+
+        For corewise norm, see :func:`t3toolbox.corewise.corewise_norm`
+
+        Parameters
+        ----------
+        x: TuckerTensorTrain
+            First Tucker tensor train. shape=(N0,...,N(d-1))
+        xnp:
+            Linear algebra backend. Default: np (numpy)
+
+        Returns
+        -------
+        scalar
+            Hilbert-Schmidt (Frobenius) norm of Tucker tensor trains, ||x||_HS
+
+        Raises
+        ------
+        ValueError
+            - Error raised if the TuckerTensorTrain is internally inconsistent
+
+        See Also
+        --------
+        TuckerTensorTrain
+        t3_dot_t3
+        :func:`t3toolbox.corewise.corewise_norm`
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2))
+        >>> norm_x = x.norm()
+        >>> print(np.abs(norm_x - np.linalg.norm(x.to_dense())))
+        1.3642420526593924e-12
         """
-        return t3_norm(self)
+        xnp, _, _ = get_backend(False, use_jax)
+        return xnp.sqrt(TuckerTensorTrain.inner_product(self, self, use_jax=use_jax))
 
-    def inner_product(self, other):
-        """Compute the inner product between this Tucker tensor train and another object.
+    @staticmethod
+    def inner_product(
+            x: 'TuckerTensorTrain',
+            y: 'TuckerTensorTrain',
+            use_jax: bool = False,
+    ):
+        """Compute Hilbert-Schmidt inner product of two Tucker tensor trains.
 
-        Currently only implemented if the other object is also a TuckerTensorTrain.
+        The Hilbert-Schmidt inner product is defined with respect to the dense N0 x ... x N(d-1)
+        tensors that are *represented* by the Tucker tensor trains, even though these dense tensors
+        are not formed during computations.
 
-        Curried version of :py:func:`t3toolbox.tucker_tensor_train.t3_inner_product_t3`
+        For corewise dot product, see :func:`t3toolbox.corewise.corewise_dot`
+
+        Parameters
+        ----------
+        x: TuckerTensorTrain
+            First Tucker tensor train. shape=(N0,...,N(d-1))
+        y: TuckerTensorTrain
+            Second Tucker tensor train. shape=(N0,...,N(d-1))
+        xnp:
+            Linear algebra backend. Default: np (numpy)
+
+        Returns
+        -------
+        scalar
+            Hilbert-Schmidt inner product of Tucker tensor trains, (x, y)_HS.
+
+        Raises
+        ------
+        ValueError
+            - Error raised if either of the TuckerTensorTrains are internally inconsistent
+            - Error raised if the TuckerTensorTrains have different shapes.
+
+        See Also
+        --------
+        TuckerTensorTrain
+        t3_shape
+        t3_add
+        t3_scale
+        :func:`~t3toolbox.corewise.corewise_dot`
+
+        Notes
+        -----
+        Algorithm contracts the TuckerTensorTrains in a zippering fashion from left to right.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (1,5,6,1))
+        >>> x_dot_y = t3.TuckerTensorTrain.inner_product(x, y)
+        >>> x_dot_y2 = np.sum(x.to_dense() * y.to_dense())
+        >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
+        8.731149137020111e-11
+
+        Example where leading and trailing TT-ranks are not 1:
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2))
+        >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (3,5,6,3))
+        >>> x_dot_y = t3.TuckerTensorTrain.inner_product(x, y)
+        >>> x_dot_y2 = np.sum(x.to_dense() * y.to_dense())
+        >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
+        1.3096723705530167e-10
         """
-        if not isinstance(other, TuckerTensorTrain):
-            raise RuntimeError(
-                'TuckerTensorTrain.inner_product() is only implemented with other TuckerTensorTrains.'
+        if x.vectorization_shape != () or y.vectorization_shape != ():
+            raise NotImplementedError(
+                'T3 inner product not implemented for vectorized TuckerTensorTrains.'
             )
+
+        if x.shape != y.shape:
+            raise ValueError(
+                'Attempted to dot TuckerTensorTrains (x,y)_HS with inconsistent shapes.'
+                + str(x.shape) + ' = x_shape != y_shape = ' + str(y.shape)
+            )
+        return t3_core.t3_inner_product_t3(x.data, y.data, use_jax=use_jax)
 
     ##########################################
     ########    Orthogonalization    #########
@@ -936,7 +1116,6 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.orthogonalization as orth
         >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> ind = 1
         >>> x2, ss = x.up_svd_ith_tucker_core(ind)
@@ -948,30 +1127,10 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(B @ B.T - np.eye(rank))) # Tucker core is orthogonal
         8.456498415401757e-16
         '''
-        xnp, _, _ = get_backend(False, use_jax)
-
-        #
-        tucker_cores, tt_cores = self.data
-        G_a_i_b = tt_cores[ii]
-        U_i_o = tucker_cores[ii]
-        U_o_i = U_i_o.T
-
-        U2_o_x, ss_x, Vt_x_i = linalg.truncated_svd(U_o_i, min_rank, max_rank, rtol, atol, use_jax=use_jax)
-        R_x_i = xnp.einsum('x,xi->xi', ss_x, Vt_x_i)
-        # U2_o_x, R_x_i = xnp.linalg.qr(U_o_i, mode='reduced')
-
-        G2_a_x_b = xnp.einsum('aib,xi->axb', G_a_i_b, R_x_i)
-        U2_x_o = U2_o_x.T
-
-        new_tt_cores = list(tt_cores)
-        new_tt_cores[ii] = G2_a_x_b
-
-        new_tucker_cores = list(tucker_cores)
-        new_tucker_cores[ii] = U2_x_o
-
-        new_x = TuckerTensorTrain(tuple(new_tucker_cores), tuple(new_tt_cores))
-
-        return new_x, ss_x
+        result = t3_core.up_svd_ith_tucker_core(
+            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
+        )
+        return TuckerTensorTrain(*result[0]), result[1]
 
     def left_svd_ith_tt_core(
             self,
@@ -1039,22 +1198,10 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', G, G) - np.eye(G.shape[2]))) # TT-core is left-orthogonal
             4.453244025338311e-16
         '''
-        xnp, _, _ = get_backend(False, use_jax)
-
-        #
-        tucker_cores, tt_cores = self.data
-
-        A0_a_i_b = tt_cores[ii]
-        B0_b_j_c = tt_cores[ii + 1]
-
-        A_a_i_x, ss_x, Vt_x_b = linalg.left_svd_3tensor(A0_a_i_b, min_rank, max_rank, rtol, atol, use_jax=use_jax)
-        B_x_j_c = xnp.tensordot(ss_x.reshape((-1, 1)) * Vt_x_b, B0_b_j_c, axes=1)
-
-        new_tt_cores = list(tt_cores)
-        new_tt_cores[ii] = A_a_i_x
-        new_tt_cores[ii + 1] = B_x_j_c
-
-        return TuckerTensorTrain(tuple(tucker_cores), tuple(new_tt_cores)), ss_x
+        result = t3_core.left_svd_ith_tt_core(
+            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
+        )
+        return TuckerTensorTrain(*result[0]), result[1]
 
     def right_svd_ith_tt_core(
             self,
@@ -1122,22 +1269,10 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(np.einsum('iaj,kaj->ik', G, G) - np.eye(G.shape[0]))) # TT-core is right orthogonal
         4.207841813173725e-16
         '''
-        xnp, _, _ = get_backend(False, use_jax)
-
-        #
-        tucker_cores, tt_cores = self.data
-
-        A0_a_i_b = tt_cores[ii - 1]
-        B0_b_j_c = tt_cores[ii]
-
-        U_b_x, ss_x, B_x_j_c = linalg.right_svd_3tensor(B0_b_j_c, min_rank, max_rank, rtol, atol, use_jax=use_jax)
-        A_a_i_x = xnp.tensordot(A0_a_i_b, U_b_x * ss_x.reshape((1, -1)), axes=1)
-
-        new_tt_cores = list(tt_cores)
-        new_tt_cores[ii - 1] = A_a_i_x
-        new_tt_cores[ii] = B_x_j_c
-
-        return TuckerTensorTrain(tuple(tucker_cores), tuple(new_tt_cores)), ss_x
+        result = t3_core.right_svd_ith_tt_core(
+            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
+        )
+        return TuckerTensorTrain(*result[0]), result[1]
 
     def up_svd_ith_tt_core(
             self,
@@ -1199,27 +1334,10 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
         1.002901486286745e-12
         '''
-        xnp, _, _ = get_backend(False, use_jax)
-
-        #
-
-        tucker_cores, tt_cores = self.data
-
-        G0_a_i_b = tt_cores[ii]
-        Q0_i_o = tucker_cores[ii]
-
-        U_a_x_b, ss_x, Vt_x_i = linalg.outer_svd_3tensor(G0_a_i_b, min_rank, max_rank, rtol, atol, use_jax=use_jax)
-
-        G_a_x_b = xnp.einsum('axb,x->axb', U_a_x_b, ss_x)
-        Q_x_o = xnp.tensordot(Vt_x_i, Q0_i_o, axes=1)
-
-        new_tt_cores = list(tt_cores)
-        new_tt_cores[ii] = G_a_x_b
-
-        new_tucker_cores = list(tucker_cores)
-        new_tucker_cores[ii] = Q_x_o
-
-        return TuckerTensorTrain(tuple(new_tucker_cores), tuple(new_tt_cores)), ss_x
+        result = t3_core.up_svd_ith_tt_core(
+            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
+        )
+        return TuckerTensorTrain(*result[0]), result[1]
 
     def down_svd_ith_tt_core(
             self,
@@ -1287,25 +1405,11 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1]))) # TT-core is outer orthogonal
         1.0643458053135608e-15
         '''
-        xnp, _, _ = get_backend(False, use_jax)
+        result = t3_core.down_svd_ith_tt_core(
+            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
+        )
+        return TuckerTensorTrain(*result[0]), result[1]
 
-        #
-        tucker_cores, tt_cores = self.data
-
-        G0_a_i_b = tt_cores[ii]
-        Q0_i_o = tucker_cores[ii]
-
-        G_a_x_b, ss_x, Vt_x_i = linalg.outer_svd_3tensor(G0_a_i_b, min_rank, max_rank, rtol, atol, use_jax=use_jax)
-
-        Q_x_o = (ss_x.reshape((-1, 1)) * Vt_x_i) @ Q0_i_o
-
-        new_tt_cores = list(tt_cores)
-        new_tt_cores[ii] = G_a_x_b
-
-        new_tucker_cores = list(tucker_cores)
-        new_tucker_cores[ii] = Q_x_o
-
-        return TuckerTensorTrain(tuple(new_tucker_cores), tuple(new_tt_cores)), ss_x
 
     def orthogonalize_relative_to_ith_tucker_core(
             self,
@@ -1383,24 +1487,10 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(np.einsum('axjkd,ayjkd->xy', X, X) - np.eye(B0.shape[0]))) # Complement of B1 is orthogonal
         2.3594586449868743e-15
         '''
-        xnp, _, _ = get_backend(False, use_jax)
+        return TuckerTensorTrain(*t3_core.orthogonalize_relative_to_ith_tucker_core(
+            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
+        ))
 
-        #
-        shape, tucker_ranks, tt_ranks = self.structure
-
-        new_x = self
-        for jj in range(ii):
-            new_x = new_x.down_svd_ith_tt_core(jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-            new_x = new_x.up_svd_ith_tucker_core(jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-            new_x = new_x.left_svd_ith_tt_core(jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-
-        for jj in range(len(shape) - 1, ii, -1):
-            new_x = new_x.down_svd_ith_tt_core(jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-            new_x = new_x.up_svd_ith_tucker_core(jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-            new_x = new_x.right_svd_ith_tt_core(jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-
-        new_x = new_x.down_svd_ith_tt_core(ii, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-        return new_x
 
     def orthogonalize_relative_to_ith_tt_core(
             self,
@@ -1482,24 +1572,9 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(np.einsum('bijd,cijd->bc', XR, XR) - np.eye(G0.shape[2]))) # Right subtree is right orthogonal
         8.816596607002667e-16
         '''
-        xnp, _, _ = get_backend(False, use_jax)
-
-        #
-        shape, tucker_ranks, tt_ranks = self.structure
-
-        new_x = self
-        for jj in range(ii):
-            new_x = new_x.down_svd_ith_tt_core(jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-            new_x = new_x.up_svd_ith_tucker_core(jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-            new_x = new_x.left_svd_ith_tt_core(jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-
-        for jj in range(len(shape) - 1, ii, -1):
-            new_x = new_x.down_svd_ith_tt_core(jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-            new_x = new_x.up_svd_ith_tucker_core(jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-            new_x = new_x.right_svd_ith_tt_core(jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-
-        new_x = new_x.up_svd_ith_tucker_core(ii, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-        return new_x
+        return TuckerTensorTrain(*t3_core.orthogonalize_relative_to_ith_tt_core(
+            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
+        ))
 
     def up_orthogonalize_tucker_cores(
             self,
@@ -2216,11 +2291,7 @@ def t3_entry(
     return result
 
 
-########################################################################
-########################    Rank adjustment    #########################
-########################################################################
-
-def compute_minimal_ranks(
+def compute_minimal_t3_ranks(
         shape:          typ.Sequence[int],
         tucker_ranks:   typ.Sequence[int],
         tt_ranks:       typ.Sequence[int],
@@ -2251,196 +2322,6 @@ def compute_minimal_ranks(
     >>> print(t3.compute_minimal_ranks((10,11,12,13), (14,15,16,17), (98,99,100,101,102)))
     ((10, 11, 12, 13), (1, 10, 100, 13, 1))
     '''
-    d = len(shape)
-    assert(len(tucker_ranks) == d)
-    assert(len(tt_ranks) == d+1)
-
-    new_tucker_ranks   = list(tucker_ranks)
-    new_tt_ranks       = list(tt_ranks)
-
-    for ii in range(d):
-        new_tucker_ranks[ii] = int(np.minimum(new_tucker_ranks[ii], shape[ii]))
-
-    new_tt_ranks[-1] = 1
-    for ii in range(d-1, 0, -1):
-        n   = new_tucker_ranks[ii]
-        rL  = new_tt_ranks[ii]
-        rR  = new_tt_ranks[ii+1]
-
-        new_tt_ranks[ii] = int(np.minimum(rL, n*rR))
-
-    new_tt_ranks[0] = 1
-    for ii in range(d):
-        n   = new_tucker_ranks[ii]
-        rL  = new_tt_ranks[ii]
-        rR  = new_tt_ranks[ii+1]
-
-        n = int(np.minimum(n, rL*rR))
-        rR =int(np.minimum(rR, rL*n))
-        new_tucker_ranks[ii] = n
-        new_tt_ranks[ii+1] = rR
-
-    return tuple(new_tucker_ranks), tuple(new_tt_ranks)
-
-
-
-###################################################################
-##################    Inner product and norm    ###################
-###################################################################
-
-def t3_inner_product_t3(
-        x: TuckerTensorTrain,
-        y: TuckerTensorTrain,
-        use_jax: bool = False,
-):
-    """Compute Hilbert-Schmidt inner product of two Tucker tensor trains.
-
-    The Hilbert-Schmidt inner product is defined with respect to the dense N0 x ... x N(d-1)
-    tensors that are *represented* by the Tucker tensor trains, even though these dense tensors
-    are not formed during computations.
-
-    For corewise dot product, see :func:`t3toolbox.corewise.corewise_dot`
-
-    Parameters
-    ----------
-    x: TuckerTensorTrain
-        First Tucker tensor train. shape=(N0,...,N(d-1))
-    y: TuckerTensorTrain
-        Second Tucker tensor train. shape=(N0,...,N(d-1))
-    xnp:
-        Linear algebra backend. Default: np (numpy)
-
-    Returns
-    -------
-    scalar
-        Hilbert-Schmidt inner product of Tucker tensor trains, (x, y)_HS.
-
-    Raises
-    ------
-    ValueError
-        - Error raised if either of the TuckerTensorTrains are internally inconsistent
-        - Error raised if the TuckerTensorTrains have different shapes.
-
-    See Also
-    --------
-    TuckerTensorTrain
-    t3_shape
-    t3_add
-    t3_scale
-    :func:`~t3toolbox.corewise.corewise_dot`
-
-    Notes
-    -----
-    Algorithm contracts the TuckerTensorTrains in a zippering fashion from left to right.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-    >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (1,5,6,1))
-    >>> x_dot_y = t3.t3_inner_product_t3(x, y)
-    >>> x_dot_y2 = np.sum(x.to_dense() * y.to_dense())
-    >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
-    8.731149137020111e-11
-
-    Example where leading and trailing TT-ranks are not 1:
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2))
-    >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (3,5,6,3))
-    >>> x_dot_y = t3.t3_inner_product_t3(x, y)
-    >>> x_dot_y2 = np.sum(x.to_dense() * y.to_dense())
-    >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
-    1.3096723705530167e-10
-    """
-    xnp, _, _ = get_backend(False, use_jax)
-
-    #
-
-    if x.vectorization_shape != () or y.vectorization_shape != ():
-        raise NotImplementedError(
-            'T3 inner product not implemented for vectorized TuckerTensorTrains.'
-        )
-
-    if x.shape != y.shape:
-        raise ValueError(
-            'Attempted to dot TuckerTensorTrains (x,y)_HS with inconsistent shapes.'
-            + str(x.shape) + ' = x_shape != y_shape = ' + str(y.shape)
-        )
-
-    x = x.squash_tails(use_jax=use_jax)
-    y = y.squash_tails(use_jax=use_jax)
-
-    tucker_cores_x, tt_cores_x = x.data
-    tucker_cores_y, tt_cores_y = y.data
-
-    r0_x = tt_cores_x[0].shape[0]
-    r0_y = tt_cores_y[0].shape[0]
-
-    M_sp = xnp.ones((r0_x, r0_y))
-    for Bx_ai, Gx_sat, By_bi, Gy_pbq in zip(tucker_cores_x, tt_cores_x, tucker_cores_y, tt_cores_y):
-        tmp_ab = xnp.einsum('ai,bi->ab', Bx_ai, By_bi)
-        tmp_sbt = xnp.einsum('sat,ab->sbt', Gx_sat, tmp_ab)
-        tmp_pbt = xnp.einsum('sp,sbt->pbt', M_sp, tmp_sbt)
-        tmp_tq = xnp.einsum('pbt,pbq->tq', tmp_pbt, Gy_pbq)
-        M_sp = tmp_tq
-
-    rd_x = tt_cores_x[-1].shape[2]
-    rd_y = tt_cores_y[-1].shape[2]
-
-    result = xnp.einsum('tq,t,q', M_sp, np.ones(rd_x), np.ones(rd_y))
-    return result
-
-
-def t3_norm(
-        x: TuckerTensorTrain,
-        use_jax: bool = False,
-):
-    """Compute Hilbert-Schmidt (Frobenius) norm of a Tucker tensor train.
-
-    The Hilbert-Schmidt norm is defined with respect to the dense N0 x ... x N(d-1) tensor
-    that is *represented* by the Tucker tensor trains, even though this dense tensor
-    is not formed during computations.
-
-    For corewise norm, see :func:`t3toolbox.corewise.corewise_norm`
-
-    Parameters
-    ----------
-    x: TuckerTensorTrain
-        First Tucker tensor train. shape=(N0,...,N(d-1))
-    xnp:
-        Linear algebra backend. Default: np (numpy)
-
-    Returns
-    -------
-    scalar
-        Hilbert-Schmidt (Frobenius) norm of Tucker tensor trains, ||x||_HS
-
-    Raises
-    ------
-    ValueError
-        - Error raised if the TuckerTensorTrain is internally inconsistent
-
-    See Also
-    --------
-    TuckerTensorTrain
-    t3_dot_t3
-    :func:`t3toolbox.corewise.corewise_norm`
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2))
-    >>> norm_x = t3.t3_norm(x)
-    >>> print(np.abs(norm_x - np.linalg.norm(x.to_dense())))
-    1.3642420526593924e-12
-    """
-    xnp, _, _ = get_backend(False, use_jax)
-
-    #
-    return xnp.sqrt(t3_inner_product_t3(x, x, use_jax=use_jax))
+    return t3_core.compute_minimal_ranks(shape, tucker_ranks, tt_ranks)
 
 

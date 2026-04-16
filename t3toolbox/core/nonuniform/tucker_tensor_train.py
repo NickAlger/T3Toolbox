@@ -1,6 +1,7 @@
 import numpy as np
 import typing as typ
 
+import t3toolbox.util_linalg as linalg
 from t3toolbox.common import *
 
 __all__ = [
@@ -10,11 +11,16 @@ __all__ = [
     'change_tucker_core_shapes',
     'change_tt_core_shapes',
     't3_add',
-    't3_mul',
+    't3_scale',
+    't3_inner_product_t3',
     'left_orthogonalize_tt_cores',
     'right_orthogonalize_tt_cores',
     'outer_orthogonalize_tt_cores',
     'up_orthogonalize_tucker_cores',
+    'compute_minimal_ranks',
+    'up_svd_ith_tucker_core',
+    'left_svd_ith_tt_core',
+    'right_svd_ith_tt_core',
 ]
 
 
@@ -55,7 +61,7 @@ def to_dense(
 
 
 def squash_tt_tails(
-        tt_cores: typ.Tuple[NDArray],
+        tt_cores: typ.Sequence[NDArray],
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray]:
     """Make leading and trailing TT ranks equal to 1 (r0=rd=1), without changing tensor being represented.
@@ -162,7 +168,6 @@ def t3_add(
 
     vsx = tucker_cores_x[0].shape[:-2] # vectorization shape for x
     vsy = tucker_cores_y[0].shape[:-2] # vectorization shape for y
-
     assert(vsx == vsy)
 
     tucker_cores_z = [xnp.concatenate([Bx, By], axis=-2) for Bx, By in zip(tucker_cores_x, tucker_cores_y)]
@@ -188,7 +193,7 @@ def t3_add(
     return z
 
 
-def t3_mul(
+def t3_scale(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],
         s,  # scalar
 ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]: # x*s
@@ -204,9 +209,45 @@ def t3_mul(
     return tuple(scaled_tucker_cores), tuple(copied_tt_cores)
 
 
+def t3_inner_product_t3(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],
+        y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],
+        use_jax: bool = False,
+):
+    """Compute Hilbert-Schmidt inner product of two Tucker tensor trains.
+    """
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
+    tucker_cores_x, tt_cores_x = x
+    tucker_cores_y, tt_cores_y = y
+
+    tt_cores_x = squash_tt_tails(tt_cores_x)
+    tt_cores_y = squash_tt_tails(tt_cores_y)
+
+    vsx = tucker_cores_x[0].shape[:-2] # vectorization shape for x
+    vsy = tucker_cores_y[0].shape[:-2] # vectorization shape for y
+    assert(vsx == vsy)
+
+    r0_x = tt_cores_x[0].shape[-3]
+    r0_y = tt_cores_y[0].shape[-3]
+
+    M_sp = xnp.ones((r0_x, r0_y))
+    for Bx_ai, Gx_sat, By_bi, Gy_pbq in zip(tucker_cores_x, tt_cores_x, tucker_cores_y, tt_cores_y):
+        tmp_ab = xnp.einsum('...ai,...bi->...ab', Bx_ai, By_bi)
+        tmp_sbt = xnp.einsum('...sat,...ab->...sbt', Gx_sat, tmp_ab)
+        tmp_pbt = xnp.einsum('...sp,...sbt->...pbt', M_sp, tmp_sbt)
+        tmp_tq = xnp.einsum('...pbt,...pbq->...tq', tmp_pbt, Gy_pbq)
+        M_sp = tmp_tq
+
+    rd_x = tt_cores_x[-1].shape[2]
+    rd_y = tt_cores_y[-1].shape[2]
+
+    result = xnp.einsum('tq,t,q', M_sp, np.ones(rd_x), np.ones(rd_y))
+    return result
 
 
-
+####
 
 
 def left_orthogonalize_tt_cores(
@@ -324,5 +365,287 @@ def up_orthogonalize_tucker_cores(
     up_tucker_cores, new_tt_cores = xmap(_up_func, x)
     return (up_tucker_cores, new_tt_cores)
 
+
+def up_svd_ith_tucker_core(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
+        ii: int,  # which base core to orthogonalize
+        min_rank: int = None,
+        max_rank: int = None,
+        rtol: float = None,
+        atol: float = None,
+        use_jax: bool = False,
+) -> typ.Tuple[
+    typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # new_x
+    NDArray,  # ss_x. singular values
+]:
+    '''Compute SVD of ith tucker core and contract non-orthogonal factor up into the TT-core above.
+    '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
+    tucker_cores, tt_cores = x
+
+    G_a_i_b = tt_cores[ii]
+    U_i_o = tucker_cores[ii]
+    U_o_i = U_i_o.T
+
+    U2_o_x, ss_x, Vt_x_i = linalg.truncated_svd(U_o_i, min_rank, max_rank, rtol, atol, use_jax=use_jax)
+    R_x_i = xnp.einsum('x,xi->xi', ss_x, Vt_x_i)
+    # U2_o_x, R_x_i = xnp.linalg.qr(U_o_i, mode='reduced')
+
+    G2_a_x_b = xnp.einsum('aib,xi->axb', G_a_i_b, R_x_i)
+    U2_x_o = U2_o_x.T
+
+    new_tt_cores = list(tt_cores)
+    new_tt_cores[ii] = G2_a_x_b
+
+    new_tucker_cores = list(tucker_cores)
+    new_tucker_cores[ii] = U2_x_o
+
+    new_x = (tuple(new_tucker_cores), tuple(new_tt_cores))
+
+    return new_x, ss_x
+
+
+def left_svd_ith_tt_core(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
+        ii: int,  # which tt core to orthogonalize
+        min_rank: int = None,
+        max_rank: int = None,
+        rtol: float = None,
+        atol: float = None,
+        use_jax: bool = False,
+) -> typ.Tuple[
+    typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # new_x
+    NDArray,  # singular values, shape=(r(i+1),)
+]:
+    '''Compute SVD of ith TT-core left unfolding and contract non-orthogonal factor into the TT-core to the right.
+    '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
+    tucker_cores, tt_cores = x
+
+    A0_a_i_b = tt_cores[ii]
+    B0_b_j_c = tt_cores[ii + 1]
+
+    A_a_i_x, ss_x, Vt_x_b = linalg.left_svd_3tensor(A0_a_i_b, min_rank, max_rank, rtol, atol, use_jax=use_jax)
+    B_x_j_c = xnp.tensordot(ss_x.reshape((-1, 1)) * Vt_x_b, B0_b_j_c, axes=1)
+
+    new_tt_cores = list(tt_cores)
+    new_tt_cores[ii] = A_a_i_x
+    new_tt_cores[ii + 1] = B_x_j_c
+
+    return (tuple(tucker_cores), tuple(new_tt_cores)), ss_x
+
+
+def right_svd_ith_tt_core(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
+        ii: int,  # which tt core to orthogonalize
+        min_rank: int = None,
+        max_rank: int = None,
+        rtol: float = None,
+        atol: float = None,
+        use_jax: bool = False,
+) -> typ.Tuple[
+    typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # new_x
+    NDArray,  # singular values, shape=(new_ri,)
+]:
+    '''Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor into the TT-core to the left.
+    '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
+    tucker_cores, tt_cores = x
+
+    A0_a_i_b = tt_cores[ii - 1]
+    B0_b_j_c = tt_cores[ii]
+
+    U_b_x, ss_x, B_x_j_c = linalg.right_svd_3tensor(B0_b_j_c, min_rank, max_rank, rtol, atol, use_jax=use_jax)
+    A_a_i_x = xnp.tensordot(A0_a_i_b, U_b_x * ss_x.reshape((1, -1)), axes=1)
+
+    new_tt_cores = list(tt_cores)
+    new_tt_cores[ii - 1] = A_a_i_x
+    new_tt_cores[ii] = B_x_j_c
+
+    return (tuple(tucker_cores), tuple(new_tt_cores)), ss_x
+
+
+def up_svd_ith_tt_core(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
+        ii: int,  # which tt core to orthogonalize
+        min_rank: int = None,
+        max_rank: int = None,
+        rtol: float = None,
+        atol: float = None,
+        use_jax: bool = False,
+) -> typ.Tuple[
+    typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # new_x
+    NDArray,  # singular values, shape=(new_ni,)
+]:
+    '''Compute SVD of ith TT-core outer unfolding and keep non-orthogonal factor with this core.
+    '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
+
+    tucker_cores, tt_cores = x
+
+    G0_a_i_b = tt_cores[ii]
+    Q0_i_o = tucker_cores[ii]
+
+    U_a_x_b, ss_x, Vt_x_i = linalg.outer_svd_3tensor(G0_a_i_b, min_rank, max_rank, rtol, atol, use_jax=use_jax)
+
+    G_a_x_b = xnp.einsum('axb,x->axb', U_a_x_b, ss_x)
+    Q_x_o = xnp.tensordot(Vt_x_i, Q0_i_o, axes=1)
+
+    new_tt_cores = list(tt_cores)
+    new_tt_cores[ii] = G_a_x_b
+
+    new_tucker_cores = list(tucker_cores)
+    new_tucker_cores[ii] = Q_x_o
+
+    return (tuple(new_tucker_cores), tuple(new_tt_cores)), ss_x
+
+
+def down_svd_ith_tt_core(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
+        ii: int,  # which tt core to orthogonalize
+        min_rank: int = None,
+        max_rank: int = None,
+        rtol: float = None,
+        atol: float = None,
+        use_jax: bool = False,
+) -> typ.Tuple[
+    typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # new_x
+    NDArray,  # singular values, shape=(new_ni,)
+]:
+    '''Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the tucker core below.
+    '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
+    tucker_cores, tt_cores = x
+
+    G0_a_i_b = tt_cores[ii]
+    Q0_i_o = tucker_cores[ii]
+
+    G_a_x_b, ss_x, Vt_x_i = linalg.outer_svd_3tensor(G0_a_i_b, min_rank, max_rank, rtol, atol, use_jax=use_jax)
+
+    Q_x_o = (ss_x.reshape((-1, 1)) * Vt_x_i) @ Q0_i_o
+
+    new_tt_cores = list(tt_cores)
+    new_tt_cores[ii] = G_a_x_b
+
+    new_tucker_cores = list(tucker_cores)
+    new_tucker_cores[ii] = Q_x_o
+
+    return (tuple(new_tucker_cores), tuple(new_tt_cores)), ss_x
+
+
+def orthogonalize_relative_to_ith_tucker_core(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
+        ii: int,
+        min_rank: int = None,
+        max_rank: int = None,
+        rtol: float = None,
+        atol: float = None,
+        use_jax: bool = False,
+) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:
+    '''Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker core.
+    '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
+    num_cores = len(x[0])
+
+    new_x = x
+    for jj in range(ii):
+        new_x = down_svd_ith_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = up_svd_ith_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = left_svd_ith_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+
+    for jj in range(num_cores - 1, ii, -1):
+        new_x = down_svd_ith_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = up_svd_ith_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = right_svd_ith_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+
+    new_x = down_svd_ith_tt_core(new_x, ii, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+    return new_x
+
+
+def orthogonalize_relative_to_ith_tt_core(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
+        ii: int,
+        min_rank: int = None,
+        max_rank: int = None,
+        rtol: float = None,
+        atol: float = None,
+        use_jax: bool = False,
+) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:
+    '''Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
+    '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
+    num_cores = len(x[0])
+
+    new_x = x
+    for jj in range(ii):
+        new_x = down_svd_ith_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = up_svd_ith_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = left_svd_ith_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+
+    for jj in range(num_cores - 1, ii, -1):
+        new_x = down_svd_ith_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = up_svd_ith_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = right_svd_ith_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+
+    new_x = up_svd_ith_tucker_core(new_x, ii, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+    return new_x
+
+
+#
+
+def compute_minimal_ranks(
+        shape:          typ.Sequence[int],
+        tucker_ranks:   typ.Sequence[int],
+        tt_ranks:       typ.Sequence[int],
+) -> typ.Tuple[
+    typ.Tuple[int,...], # new_tucker_ranks
+    typ.Tuple[int,...], # new_tt_ranks
+]:
+    '''Find minimal ranks for a generic Tucker tensor train with a given structure.
+    '''
+    d = len(shape)
+    assert(len(tucker_ranks) == d)
+    assert(len(tt_ranks) == d+1)
+
+    new_tucker_ranks   = list(tucker_ranks)
+    new_tt_ranks       = list(tt_ranks)
+
+    for ii in range(d):
+        new_tucker_ranks[ii] = int(np.minimum(new_tucker_ranks[ii], shape[ii]))
+
+    new_tt_ranks[-1] = 1
+    for ii in range(d-1, 0, -1):
+        n   = new_tucker_ranks[ii]
+        rL  = new_tt_ranks[ii]
+        rR  = new_tt_ranks[ii+1]
+
+        new_tt_ranks[ii] = int(np.minimum(rL, n*rR))
+
+    new_tt_ranks[0] = 1
+    for ii in range(d):
+        n   = new_tucker_ranks[ii]
+        rL  = new_tt_ranks[ii]
+        rR  = new_tt_ranks[ii+1]
+
+        n = int(np.minimum(n, rL*rR))
+        rR =int(np.minimum(rR, rL*n))
+        new_tucker_ranks[ii] = n
+        new_tt_ranks[ii+1] = rR
+
+    return tuple(new_tucker_ranks), tuple(new_tt_ranks)
 
 
