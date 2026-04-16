@@ -531,6 +531,340 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
+   .. py:method:: up_svd_ith_tucker_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[TuckerTensorTrain, t3toolbox.common.NDArray]
+
+      Compute SVD of ith tucker core and contract non-orthogonal factor up into the TT-core above.
+
+      :param ii: index of tucker core to SVD
+      :type ii: int
+      :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (r0,r1,...r(d-1),rd))
+      :type x: TuckerTensorTrain
+      :param min_rank: Minimum rank for truncation.
+      :type min_rank: int
+      :param min_rank: Maximum rank for truncation.
+      :type min_rank: int
+      :param rtol: Relative tolerance for truncation.
+      :type rtol: float
+      :param atol: Absolute tolerance for truncation.
+      :type atol: float
+      :param xnp: Linear algebra backend. Default: np (numpy)
+
+      :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor, but with ith tucker core orthogonal.
+                  new_tt_cores[ii].shape = (ri, new_ni, r(i+1))
+                  new_tucker_cores[ii].shape = (new_ni, Ni)
+                  new_tucker_cores[ii] @ new_tucker_cores[ii].T = identity matrix
+                * **ss_x** (*NDArray*) -- Singular values of prior ith tucker core. shape=(new_ni,).
+
+      .. seealso:: :py:obj:`truncated_svd`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`, :py:obj:`t3_svd`
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.orthogonalization as orth
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+      >>> ind = 1
+      >>> x2, ss = x.up_svd_ith_tucker_core(ind)
+      >>> print(np.linalg.norm(x.to_dense() - x.to_dense())) # Tensor unchanged
+      5.772851635866132e-13
+      >>> tucker_cores2, tt_cores2 = x2.data
+      >>> rank = len(ss)
+      >>> B = tucker_cores2[ind]
+      >>> print(np.linalg.norm(B @ B.T - np.eye(rank))) # Tucker core is orthogonal
+      8.456498415401757e-16
+
+
+
+   .. py:method:: left_svd_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[TuckerTensorTrain, t3toolbox.common.NDArray]
+
+      Compute SVD of ith TT-core left unfolding and contract non-orthogonal factor into the TT-core to the right.
+
+      :param ii: index of TT-core to SVD
+      :type ii: int
+      :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
+      :type x: TuckerTensorTrain
+      :param min_rank: Minimum rank for truncation.
+      :type min_rank: int
+      :param min_rank: Maximum rank for truncation.
+      :type min_rank: int
+      :param rtol: Relative tolerance for truncation.
+      :type rtol: float
+      :param atol: Absolute tolerance for truncation.
+      :type atol: float
+      :param xnp: Linear algebra backend. Default: np (numpy)
+
+      :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor, but with ith TT-core orthogonal.
+                  new_tt_cores[ii].shape = (ri, ni, new_r(i+1))
+                  new_tt_cores[ii+1].shape = (new_r(i+1), n(i+1), r(i+2))
+                  einsum('iaj,iak->jk', new_tt_cores[ii], new_tt_cores[ii]) = identity matrix
+                * **ss_x** (*NDArray*) -- Singular values of prior ith TT-core left unfolding. shape=(new_r(i+1),).
+
+      .. seealso:: :py:obj:`truncated_svd`, :py:obj:`left_svd_3tensor`, :py:obj:`up_svd_ith_tucker_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`, :py:obj:`t3_svd`
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.orthogonalization as orth
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+      >>> ind = 1
+      >>> x2, ss = x.left_svd_ith_tt_core(ind)
+      >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
+          5.186463661974644e-13
+      >>> tucker_cores2, tt_cores2 = x2.data
+      >>> G = tt_cores2[ind]
+      >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', G, G) - np.eye(G.shape[2]))) # TT-core is left-orthogonal
+          4.453244025338311e-16
+
+
+
+   .. py:method:: right_svd_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[TuckerTensorTrain, t3toolbox.common.NDArray]
+
+      Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor into the TT-core to the left.
+
+      :param ii: index of TT-core to SVD
+      :type ii: int
+      :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
+      :type x: TuckerTensorTrain
+      :param min_rank: Minimum rank for truncation.
+      :type min_rank: int
+      :param min_rank: Maximum rank for truncation.
+      :type min_rank: int
+      :param rtol: Relative tolerance for truncation.
+      :type rtol: float
+      :param atol: Absolute tolerance for truncation.
+      :type atol: float
+      :param xnp: Linear algebra backend. Default: np (numpy)
+
+      :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor, but with ith TT-core orthogonal.
+                  new_tt_cores[ii].shape = (new_ri, ni, r(i+1))
+                  new_tt_cores[ii-1].shape = (r(i-1), n(i-1), new_ri)
+                  einsum('iaj,kaj->ik', new_tt_cores[ii], new_tt_cores[ii]) = identity matrix
+                * **ss_x** (*NDArray*) -- Singular values of prior ith TT-core right unfolding. shape=(new_ri,).
+
+      .. seealso:: :py:obj:`truncated_svd`, :py:obj:`left_svd_3tensor`, :py:obj:`up_svd_ith_tucker_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`, :py:obj:`t3_svd`
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.orthogonalization as orth
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+      >>> ind = 1
+      >>> x2, ss = x.right_svd_ith_tt_core(ind)
+      >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
+      5.304678679078675e-13
+      >>> tucker_cores2, tt_cores2 = x2.data
+      >>> G = tt_cores2[ind]
+      >>> print(np.linalg.norm(np.einsum('iaj,kaj->ik', G, G) - np.eye(G.shape[0]))) # TT-core is right orthogonal
+      4.207841813173725e-16
+
+
+
+   .. py:method:: up_svd_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[TuckerTensorTrain, t3toolbox.common.NDArray]
+
+      Compute SVD of ith TT-core outer unfolding and keep non-orthogonal factor with this core.
+
+      :param ii: index of TT-core to SVD
+      :type ii: int
+      :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
+      :type x: TuckerTensorTrain
+      :param min_rank: Minimum rank for truncation.
+      :type min_rank: int
+      :param min_rank: Maximum rank for truncation.
+      :type min_rank: int
+      :param rtol: Relative tolerance for truncation.
+      :type rtol: float
+      :param atol: Absolute tolerance for truncation.
+      :type atol: float
+      :param xnp: Linear algebra backend. Default: np (numpy)
+
+      :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor.
+                  new_tt_cores[ii].shape = (ri, new_ni, r(i+1))
+                  new_tucker_cores[ii].shape = (new_ni, Ni)
+                * **ss_x** (*NDArray*) -- Singular values of prior ith TT-core outer unfolding. shape=(new_ri,).
+
+      .. seealso:: :py:obj:`truncated_svd`, :py:obj:`outer_svd_3tensor`, :py:obj:`up_svd_ith_tucker_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`, :py:obj:`t3_svd`
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.orthogonalization as orth
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+      >>> x2, ss = x.up_svd_ith_tt_core(1)
+      >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
+      1.002901486286745e-12
+
+
+
+   .. py:method:: down_svd_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[TuckerTensorTrain, t3toolbox.common.NDArray]
+
+      Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the tucker core below.
+
+      :param ii: index of TT-core to SVD
+      :type ii: int
+      :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
+      :type x: TuckerTensorTrain
+      :param min_rank: Minimum rank for truncation.
+      :type min_rank: int
+      :param min_rank: Maximum rank for truncation.
+      :type min_rank: int
+      :param rtol: Relative tolerance for truncation.
+      :type rtol: float
+      :param atol: Absolute tolerance for truncation.
+      :type atol: float
+      :param xnp: Linear algebra backend. Default: np (numpy)
+
+      :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor, but with ith TT-core outer orthogonal.
+                  new_tt_cores[ii].shape = (ri, new_ni, r(i+1))
+                  new_tucker_cores[ii].shape = (new_ni, Ni)
+                  einsum('iaj,ibj->ab', new_tt_cores[ii], new_tt_cores[ii]) = identity matrix
+                * **ss_x** (*NDArray*) -- Singular values of prior ith TT-core outer unfolding. shape=(new_ni,).
+
+      .. seealso:: :py:obj:`truncated_svd`, :py:obj:`outer_svd_3tensor`, :py:obj:`up_svd_ith_tucker_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`t3_svd`
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.orthogonalization as orth
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+      >>> ind = 1
+      >>> x2, ss = x.down_svd_ith_tt_core(ind)
+      >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
+      4.367311712704942e-12
+      >>> tucker_cores2, tt_cores2 = x2.data
+      >>> G = tt_cores2[ind]
+      >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1]))) # TT-core is outer orthogonal
+      1.0643458053135608e-15
+
+
+
+   .. py:method:: orthogonalize_relative_to_ith_tucker_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> TuckerTensorTrain
+
+      Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker core.
+
+      Orthogonal is done relative to the ith tucker core:
+          - ith tucker core is not orthogonalized
+          - All other tucker cores are orthogonalized.
+          - TT-cores to the left are left orthogonalized.
+          - TT-core directly above is outer orthogonalized.
+          - TT-cores to the right are right orthogonalized.
+
+      :param ii: index of tucker core that is not orthogonalized
+      :type ii: int
+      :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
+      :type x: TuckerTensorTrain
+      :param min_rank: Minimum rank for truncation.
+      :type min_rank: int
+      :param min_rank: Maximum rank for truncation.
+      :type min_rank: int
+      :param rtol: Relative tolerance for truncation.
+      :type rtol: float
+      :param atol: Absolute tolerance for truncation.
+      :type atol: float
+      :param xnp: Linear algebra backend. Default: np (numpy)
+
+      :returns: **new_x** -- New TuckerTensorTrain representing the same tensor, but orthogonalized relative to the ith tucker core.
+      :rtype: NDArray
+
+      .. seealso:: :py:obj:`up_svd_ith_tucker_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.orthogonalization as orth
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+      >>> x2 = x.orthogonalize_relative_to_ith_tucker_core(1)
+      >>> print(np.linalg.norm(x.to_dense(x) - x2.to_dense(x2))) # Tensor unchanged
+      8.800032152216517e-13
+      >>> ((B0, B1, B2), (G0, G1, G2)) = x2.data
+      >>> X = np.einsum('xi,axb,byc,czd,zk->iyk', B0, G0, G1, G2, B2) # Contraction of everything except B1
+      >>> print(np.linalg.norm(np.einsum('iyk,iwk->yw', X, X) - np.eye(B1.shape[0]))) # Complement of B1 is orthogonal
+      1.7116160385376214e-15
+
+      Example where first and last TT-ranks are not 1:
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.orthogonalization as orth
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2))
+      >>> x2 = x.orthogonalize_relative_to_ith_tucker_core(0)
+      >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
+      5.152424496985265e-12
+      >>> ((B0, B1, B2), (G0, G1, G2)) = x2.data
+      >>> X = np.einsum('yj,zk,axb,byc,czd->axjkd', B1, B2, G0, G1, G2) # Contraction of everything except B0
+      >>> print(np.linalg.norm(np.einsum('axjkd,ayjkd->xy', X, X) - np.eye(B0.shape[0]))) # Complement of B1 is orthogonal
+      2.3594586449868743e-15
+
+
+
+   .. py:method:: orthogonalize_relative_to_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> TuckerTensorTrain
+
+      Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
+
+      Orthogonal is done relative to the ith TT-core:
+          - All Tucker cores are orthogonalized.
+          - TT-cores to the left are left orthogonalized.
+          - ith TT-core is not orthogonalized.
+          - TT-cores to the right are right orthogonalized.
+
+      :param ii: index of TT-core that is not orthogonalized
+      :type ii: int
+      :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
+      :type x: TuckerTensorTrain
+      :param min_rank: Minimum rank for truncation.
+      :type min_rank: int
+      :param min_rank: Maximum rank for truncation.
+      :type min_rank: int
+      :param rtol: Relative tolerance for truncation.
+      :type rtol: float
+      :param atol: Absolute tolerance for truncation.
+      :type atol: float
+      :param xnp: Linear algebra backend. Default: np (numpy)
+
+      .. seealso:: :py:obj:`up_svd_ith_tucker_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`
+
+      :returns: **new_x** -- New TuckerTensorTrain representing the same tensor, but orthogonalized relative to the ith TT-core.
+      :rtype: NDArray
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.orthogonalization as orth
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+      >>> x2 = x.orthogonalize_relative_to_ith_tt_core(1)
+      >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
+      8.800032152216517e-13
+      >>> ((B0, B1, B2), (G0, G1, G2)) = x2.data
+      >>> XL = np.einsum('axb,xi -> aib', G0, B0) # Everything to the left of G1
+      >>> print(np.linalg.norm(np.einsum('aib,aic->bc', XL, XL) - np.eye(G1.shape[0]))) # Left subtree is left orthogonal
+      9.820411604510197e-16
+      >>> print(np.linalg.norm(np.einsum('xi,yi->xy', B1, B1) - np.eye(G1.shape[1]))) # Core below G1 is up orthogonal
+      2.1875310121178e-15
+      >>> XR = np.einsum('axb,xi->aib', G2, B2) # Everything to the right of G1
+      >>> print(np.linalg.norm(np.einsum('aib,cib->ac', XR, XR) - np.eye(G1.shape[2]))) # Right subtree is right orthogonal
+      1.180550381921849e-15
+
+      Example where first and last TT-ranks are not 1:
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.orthogonalization as orth
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2))
+      >>> x2 = x.orthogonalize_relative_to_ith_tt_core(0)
+      >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
+      5.4708999671349535e-12
+      >>> ((B0, B1, B2), (G0, G1, G2)) = x2.data
+      >>> XR = np.einsum('yi,zj,byc,czd->bijd', B1, B2, G1, G2) # Everything to the right of G0
+      >>> print(np.linalg.norm(np.einsum('bijd,cijd->bc', XR, XR) - np.eye(G0.shape[2]))) # Right subtree is right orthogonal
+      8.816596607002667e-16
+
+
+
    .. py:method:: flatten()
 
 
