@@ -92,7 +92,8 @@ import t3toolbox.core.tucker_tensor_train.ranks as ranks
 import t3toolbox.core.tucker_tensor_train.ragged.operations as ragged_operations
 import t3toolbox.core.tucker_tensor_train.ragged.orthogonalization as ragged_orthogonalization
 import t3toolbox.core.tucker_tensor_train.ragged.tensor_linalg as ragged_linalg
-import t3toolbox.core.tucker_tensor_train.uniform as uniform
+import t3toolbox.core.tucker_tensor_train.uniform.operations as uniform_operations
+
 import t3toolbox.util_linalg as linalg
 from t3toolbox.common import *
 
@@ -107,7 +108,6 @@ __all__ = [
     't3_apply',
     't3_get_entries',
     # 'squash_tails',
-    'reverse_tt',
     'absorb_edge_weights_into_cores',
     't3_zeros',
     't3_corewise_randn',
@@ -1366,49 +1366,6 @@ EdgeWeights = typ.Tuple[
 
 
 
-
-def reverse_tt(
-        tt_cores: typ.Union[typ.Sequence[NDArray], NDArray]
-) -> typ.Union[typ.Sequence[NDArray], NDArray]:
-    """Reverse a tensor train (no Tucker).
-
-    Parameters
-    ----------
-    x : typ.Sequence[NDArray] or NDArray
-        Either: tensor train (no Tucker) with:
-
-            tucker_ranks=(n0,...,n(d-1)),
-
-            tt_ranks=(1,r1,...,r(d-1),1).
-
-        Or: uniform tensor train (no Tucker).
-
-
-    Returns
-    -------
-    reversed_x : typ.Sequence[NDArray] or NDArray
-        Either: tensor train (no Tucker) with index order reversed, and
-
-            tucker_ranks=(n(d-1),...,n0),
-
-            tt_ranks=(1,r(d-1),...,r1,1).
-
-        Or: uniform tensor train (no Tucker) with index order reversed, and same structure as x.
-
-    See Also
-    --------
-    reverse_t3
-    """
-    is_uniform = not isinstance(tt_cores, typ.Sequence)
-    if is_uniform:
-        return tt_cores[::-1, :, :, :].swapaxes(1, 3)
-    else:
-        return tuple([G.swapaxes(0, 2) for G in tt_cores[::-1]])
-
-
-
-
-
 def absorb_edge_weights_into_cores(
         x0, # Tucker tensor train data. Should also work for uniform. Maybe move this
         weights: EdgeWeights,
@@ -1438,22 +1395,9 @@ def absorb_edge_weights_into_cores(
     shape_weights, tucker_weights, tt_weights = weights
 
     if is_uniform:
-        tucker_cores = xnp.einsum('di,dio,do->dio', tucker_weights, tucker_cores0, shape_weights)
-        first_tt_cores = xnp.einsum('di,diaj->diaj', tt_weights[:-2], tt_cores0[:-1])
-
-        Gf = xnp.einsum('i,iaj,j->iaj', tt_weights[-2], tt_cores0[-1], tt_weights[-1])
-        tt_cores = xnp.concatenate([first_tt_cores, Gf.reshape((1,) + Gf.shape)], axis=0)
+        return uniform_operations.absorb_edge_weights_into_ut3(x0, weights)
     else:
-        (tucker_cores,) = xmap(
-            lambda tw_B_sw: (xnp.einsum('i,io,o->io', tw_B_sw[0], tw_B_sw[1], tw_B_sw[2]),),
-            (tucker_weights, tucker_cores0, shape_weights)
-        )
-        (first_tt_cores,) = xmap(
-            lambda lw_G: (xnp.einsum('i,iaj->iaj', lw_G[0], lw_G[1]),),
-            (tt_weights[:-2], tt_cores0[:-1])
-        )
-        Gf = xnp.einsum('i,iaj,j->iaj', tt_weights[-2], tt_cores0[-1], tt_weights[-1])
-        tt_cores = tuple(first_tt_cores) + (Gf,)
+        return ragged_operations.absorb_edge_weights_into_t3(x0, weights)
 
     return tucker_cores, tt_cores
 
