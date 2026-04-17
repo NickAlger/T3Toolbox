@@ -4,3 +4,12 @@ t3toolbox.core.tucker_tensor_train.uniform
 .. py:module:: t3toolbox.core.tucker_tensor_train.uniform
 
 
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /autoapi/t3toolbox/core/tucker_tensor_train/uniform/operations/index
+
+

@@ -15,6 +15,7 @@ Functions
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/operations/reverse_tt
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/operations/change_tucker_core_shapes
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/operations/change_tt_core_shapes
+   /autoapi/t3toolbox/core/tucker_tensor_train/ragged/operations/absorb_edge_weights_into_t3
 
 .. autoapisummary::
 
@@ -23,5 +24,6 @@ Functions
    t3toolbox.core.tucker_tensor_train.ragged.operations.reverse_tt
    t3toolbox.core.tucker_tensor_train.ragged.operations.change_tucker_core_shapes
    t3toolbox.core.tucker_tensor_train.ragged.operations.change_tt_core_shapes
+   t3toolbox.core.tucker_tensor_train.ragged.operations.absorb_edge_weights_into_t3
 
 
