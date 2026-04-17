@@ -1,8 +1,0 @@
-tucker_tensor_train.t3_add
-==========================
-
-.. py:function:: tucker_tensor_train.t3_add(x: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], y: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], squash: bool = True, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray]]
-
-   Add Tucker tensor trains x and y, yielding a Tucker tensor train with summed ranks.
-
-

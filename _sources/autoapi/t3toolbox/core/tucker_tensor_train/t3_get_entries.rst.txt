@@ -1,0 +1,8 @@
+t3toolbox.core.tucker_tensor_train.t3_get_entries
+=================================================
+
+.. py:function:: t3toolbox.core.tucker_tensor_train.t3_get_entries(x: t3toolbox.common.typ.Union[t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray]], index: t3toolbox.common.NDArray, use_jax: bool = False) -> t3toolbox.common.NDArray
+
+   Compute entries of a Tucker tensor train.
+
+

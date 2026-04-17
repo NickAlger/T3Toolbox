@@ -1,0 +1,8 @@
+t3toolbox.core.ragged.tucker_tensor_train.t3_scale
+==================================================
+
+.. py:function:: t3toolbox.core.ragged.tucker_tensor_train.t3_scale(x: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], s) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]]
+
+   Multipy a Tucker tensor train by a scaling factor.
+
+
