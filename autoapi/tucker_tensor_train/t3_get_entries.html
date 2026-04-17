@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>tucker_tensor_train.change_tucker_core_shapes &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>tucker_tensor_train.t3_get_entries &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,12 @@
     <script src="../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/tucker_tensor_train/change_tucker_core_shapes';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/tucker_tensor_train/t3_get_entries';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="tucker_tensor_train.change_tt_core_shapes" href="change_tt_core_shapes.html" />
-    <link rel="prev" title="tucker_tensor_train.reverse_tt" href="reverse_tt.html" />
+    <link rel="prev" title="tucker_tensor_train.compute_minimal_ranks" href="compute_minimal_ranks.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -397,7 +396,7 @@
 <li class="toctree-l2"><a class="reference internal" href="to_dense.html">tucker_tensor_train.to_dense</a></li>
 <li class="toctree-l2"><a class="reference internal" href="squash_tt_tails.html">tucker_tensor_train.squash_tt_tails</a></li>
 <li class="toctree-l2"><a class="reference internal" href="reverse_tt.html">tucker_tensor_train.reverse_tt</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">tucker_tensor_train.change_tucker_core_shapes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="change_tucker_core_shapes.html">tucker_tensor_train.change_tucker_core_shapes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="change_tt_core_shapes.html">tucker_tensor_train.change_tt_core_shapes</a></li>
 <li class="toctree-l2"><a class="reference internal" href="t3_add.html">tucker_tensor_train.t3_add</a></li>
 <li class="toctree-l2"><a class="reference internal" href="t3_scale.html">tucker_tensor_train.t3_scale</a></li>
@@ -410,7 +409,7 @@
 <li class="toctree-l2"><a class="reference internal" href="left_svd_ith_tt_core.html">tucker_tensor_train.left_svd_ith_tt_core</a></li>
 <li class="toctree-l2"><a class="reference internal" href="right_svd_ith_tt_core.html">tucker_tensor_train.right_svd_ith_tt_core</a></li>
 <li class="toctree-l2"><a class="reference internal" href="compute_minimal_ranks.html">tucker_tensor_train.compute_minimal_ranks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="t3_get_entries.html">tucker_tensor_train.t3_get_entries</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">tucker_tensor_train.t3_get_entries</a></li>
 </ul>
 </details></li>
 </ul>
@@ -459,7 +458,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">tucker_tensor_train</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">tucker_tensor_train.change_tucker_core_shapes</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">tucker_tensor_train.t3_get_entries</span></li>
   </ul>
 </nav>
 </div>
@@ -476,12 +475,12 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="tucker-tensor-train-change-tucker-core-shapes">
-<h1>tucker_tensor_train.change_tucker_core_shapes<a class="headerlink" href="#tucker-tensor-train-change-tucker-core-shapes" title="Link to this heading">#</a></h1>
+  <section id="tucker-tensor-train-t3-get-entries">
+<h1>tucker_tensor_train.t3_get_entries<a class="headerlink" href="#tucker-tensor-train-t3-get-entries" title="Link to this heading">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="tucker_tensor_train.change_tucker_core_shapes">
-<span class="sig-prename descclassname"><span class="pre">tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">change_tucker_core_shapes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tucker_cores</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../t3toolbox/common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_shape</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_tucker_ranks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../t3toolbox/common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#tucker_tensor_train.change_tucker_core_shapes" title="Link to this definition">#</a></dt>
-<dd><p>Increase Tucker and/or TT ranks for TT cores using zero padding.</p>
+<dt class="sig sig-object py" id="tucker_tensor_train.t3_get_entries">
+<span class="sig-prename descclassname"><span class="pre">tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">t3_get_entries</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../t3toolbox/common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../t3toolbox/common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../t3toolbox/common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../t3toolbox/common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a></span></span><a class="headerlink" href="#tucker_tensor_train.t3_get_entries" title="Link to this definition">#</a></dt>
+<dd><p>Compute entries of a Tucker tensor train.</p>
 </dd></dl>
 
 </section>
@@ -497,22 +496,13 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="reverse_tt.html"
+       href="compute_minimal_ranks.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">tucker_tensor_train.reverse_tt</p>
+        <p class="prev-next-title">tucker_tensor_train.compute_minimal_ranks</p>
       </div>
-    </a>
-    <a class="right-next"
-       href="change_tt_core_shapes.html"
-       title="next page">
-      <div class="prev-next-info">
-        <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">tucker_tensor_train.change_tt_core_shapes</p>
-      </div>
-      <i class="fa-solid fa-angle-right"></i>
     </a>
 </div>
                 </footer>
@@ -533,14 +523,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tucker_tensor_train.change_tucker_core_shapes"><code class="docutils literal notranslate"><span class="pre">tucker_tensor_train.change_tucker_core_shapes()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tucker_tensor_train.t3_get_entries"><code class="docutils literal notranslate"><span class="pre">tucker_tensor_train.t3_get_entries()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../_sources/autoapi/tucker_tensor_train/change_tucker_core_shapes.rst.txt">
+    <a href="../../_sources/autoapi/tucker_tensor_train/t3_get_entries.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

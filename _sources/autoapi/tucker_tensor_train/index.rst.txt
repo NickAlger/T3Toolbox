@@ -26,6 +26,7 @@ Functions
    /autoapi/tucker_tensor_train/left_svd_ith_tt_core
    /autoapi/tucker_tensor_train/right_svd_ith_tt_core
    /autoapi/tucker_tensor_train/compute_minimal_ranks
+   /autoapi/tucker_tensor_train/t3_get_entries
 
 .. autoapisummary::
 
@@ -45,5 +46,6 @@ Functions
    tucker_tensor_train.left_svd_ith_tt_core
    tucker_tensor_train.right_svd_ith_tt_core
    tucker_tensor_train.compute_minimal_ranks
+   tucker_tensor_train.t3_get_entries
 
 

@@ -13,6 +13,8 @@ Attributes
    t3toolbox.common.has_jax
    t3toolbox.common.NDArray
    t3toolbox.common.NDArray
+   t3toolbox.common.is_ndarray
+   t3toolbox.common.is_ndarray
    t3toolbox.common.jax_scan
    t3toolbox.common.jax_map
    t3toolbox.common.jax_scan
@@ -55,6 +57,10 @@ Module Contents
 .. py:data:: NDArray
 
 .. py:data:: NDArray
+
+.. py:data:: is_ndarray
+
+.. py:data:: is_ndarray
 
 .. py:data:: jax_scan
 
