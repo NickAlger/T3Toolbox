@@ -21,6 +21,7 @@ __all__ = [
     'up_svd_ith_tucker_core',
     'left_svd_ith_tt_core',
     'right_svd_ith_tt_core',
+    't3_get_entries',
 ]
 
 
@@ -604,7 +605,6 @@ def orthogonalize_relative_to_ith_tt_core(
     new_x = up_svd_ith_tucker_core(new_x, ii, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
     return new_x
 
-
 #
 
 def compute_minimal_ranks(
@@ -648,4 +648,37 @@ def compute_minimal_ranks(
 
     return tuple(new_tucker_ranks), tuple(new_tt_ranks)
 
+#
 
+def t3_get_entries(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
+        index: NDArray, # dtype=int, shape=(d,)+vsi
+        use_jax: bool = False,
+) -> NDArray:
+    '''Compute entries of a Tucker tensor train.
+    '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
+    tucker_cores, tt_cores = x
+    num_cores = len(x[0])
+    vsx = x[0][0].shape[:-2]
+
+    vsi = index.shape[1:]
+
+    mu_Na = xnp.ones(vsi+(tt_cores[0].shape[-3],))
+    for ind, B_xi, G_axb in zip(index, tucker_cores, tt_cores):
+        # C_Nxb = xnp.einsum('...a,axb->...xb', mu_Na, G_axb)
+
+        v_xN = B_xi[:, ind] # selected Tucker basis vectors
+        v_Nx = xnp.moveaxis(v_xN, -1, 0).copy()
+
+        g_aNb = xnp.einsum('axb,...x->...ab', G_axb, v_Nx)
+
+        mu_Nb = xnp.einsum('...a,...ab->...b', mu_Na, g_aNb)
+
+        mu_Na = mu_Nb
+
+    result = xnp.einsum('...a->...', mu_Na)
+
+    return result

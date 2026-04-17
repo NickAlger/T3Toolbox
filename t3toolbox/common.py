@@ -19,10 +19,16 @@ if has_jax:
     NDArray = typ.Union[np.ndarray, jnp.ndarray]
 
 
+is_ndarray = lambda x: isinstance(x, np.ndarray)
+if has_jax:
+    is_ndarray = lambda x: (isinstance(x, np.ndarray) or isinstance(x, jnp.ndarray))
+
+
 __all__ = [
     'has_jax',
     #
     'NDArray',
+    'is_ndarray',
     #
     'ragged_scan',
     'numpy_scan',
