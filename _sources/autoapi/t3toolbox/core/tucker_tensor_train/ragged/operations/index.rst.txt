@@ -1,0 +1,27 @@
+t3toolbox.core.tucker_tensor_train.ragged.operations
+====================================================
+
+.. py:module:: t3toolbox.core.tucker_tensor_train.ragged.operations
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/core/tucker_tensor_train/ragged/operations/to_dense
+   /autoapi/t3toolbox/core/tucker_tensor_train/ragged/operations/squash_tt_tails
+   /autoapi/t3toolbox/core/tucker_tensor_train/ragged/operations/reverse_tt
+   /autoapi/t3toolbox/core/tucker_tensor_train/ragged/operations/change_tucker_core_shapes
+   /autoapi/t3toolbox/core/tucker_tensor_train/ragged/operations/change_tt_core_shapes
+
+.. autoapisummary::
+
+   t3toolbox.core.tucker_tensor_train.ragged.operations.to_dense
+   t3toolbox.core.tucker_tensor_train.ragged.operations.squash_tt_tails
+   t3toolbox.core.tucker_tensor_train.ragged.operations.reverse_tt
+   t3toolbox.core.tucker_tensor_train.ragged.operations.change_tucker_core_shapes
+   t3toolbox.core.tucker_tensor_train.ragged.operations.change_tt_core_shapes
+
+

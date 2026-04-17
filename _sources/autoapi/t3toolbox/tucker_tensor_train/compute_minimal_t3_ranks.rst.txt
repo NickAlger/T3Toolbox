@@ -23,6 +23,6 @@ t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks
    .. rubric:: Examples
 
    >>> import t3toolbox.tucker_tensor_train as t3
-   >>> print(t3.compute_minimal_ranks((10,11,12,13), (14,15,16,17), (98,99,100,101,102)))
+   >>> print(t3.compute_minimal_t3_ranks((10,11,12,13), (14,15,16,17), (98,99,100,101,102)))
    ((10, 11, 12, 13), (1, 10, 100, 13, 1))
 

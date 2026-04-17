@@ -1,8 +1,0 @@
-t3toolbox.core.ragged.tucker_tensor_train.up_orthogonalize_tucker_cores
-=======================================================================
-
-.. py:function:: t3toolbox.core.ragged.tucker_tensor_train.up_orthogonalize_tucker_cores(x: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]]
-
-   Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
-
-

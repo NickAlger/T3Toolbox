@@ -1,6 +1,0 @@
-t3toolbox.core.uniform
-======================
-
-.. py:module:: t3toolbox.core.uniform
-
-

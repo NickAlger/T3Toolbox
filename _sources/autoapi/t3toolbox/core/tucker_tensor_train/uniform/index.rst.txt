@@ -1,0 +1,6 @@
+t3toolbox.core.tucker_tensor_train.uniform
+==========================================
+
+.. py:module:: t3toolbox.core.tucker_tensor_train.uniform
+
+

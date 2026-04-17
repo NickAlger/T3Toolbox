@@ -4,18 +4,16 @@ t3toolbox.core.tucker_tensor_train
 .. py:module:: t3toolbox.core.tucker_tensor_train
 
 
-Functions
----------
+Submodules
+----------
 
 .. toctree::
-   :hidden:
+   :maxdepth: 1
 
-   /autoapi/t3toolbox/core/tucker_tensor_train/compute_minimal_ranks
-   /autoapi/t3toolbox/core/tucker_tensor_train/t3_get_entries
-
-.. autoapisummary::
-
-   t3toolbox.core.tucker_tensor_train.compute_minimal_ranks
-   t3toolbox.core.tucker_tensor_train.t3_get_entries
+   /autoapi/t3toolbox/core/tucker_tensor_train/apply/index
+   /autoapi/t3toolbox/core/tucker_tensor_train/entries/index
+   /autoapi/t3toolbox/core/tucker_tensor_train/ragged/index
+   /autoapi/t3toolbox/core/tucker_tensor_train/ranks/index
+   /autoapi/t3toolbox/core/tucker_tensor_train/uniform/index
 
 

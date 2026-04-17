@@ -272,16 +272,14 @@
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../core/index.html">t3toolbox.core</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../core/ragged/index.html">t3toolbox.core.ragged</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="../core/ragged/tucker_tensor_train/index.html">t3toolbox.core.ragged.tucker_tensor_train</a></li>
-</ul>
-</details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../core/tucker_tensor_train/index.html">t3toolbox.core.tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/compute_minimal_ranks.html">t3toolbox.core.tucker_tensor_train.compute_minimal_ranks</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/t3_get_entries.html">t3toolbox.core.tucker_tensor_train.t3_get_entries</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/apply/index.html">t3toolbox.core.tucker_tensor_train.apply</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/entries/index.html">t3toolbox.core.tucker_tensor_train.entries</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/ragged/index.html">t3toolbox.core.tucker_tensor_train.ragged</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/ranks/index.html">t3toolbox.core.tucker_tensor_train.ranks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/uniform/index.html">t3toolbox.core.tucker_tensor_train.uniform</a></li>
 </ul>
 </details></li>
-<li class="toctree-l3"><a class="reference internal" href="../core/uniform/index.html">t3toolbox.core.uniform</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../corewise/index.html">t3toolbox.corewise</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -500,7 +498,7 @@ the numerical values within the cores.</p>
 </dl>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">t3</span><span class="o">.</span><span class="n">compute_minimal_ranks</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span><span class="mi">11</span><span class="p">,</span><span class="mi">12</span><span class="p">,</span><span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">,</span><span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">98</span><span class="p">,</span><span class="mi">99</span><span class="p">,</span><span class="mi">100</span><span class="p">,</span><span class="mi">101</span><span class="p">,</span><span class="mi">102</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">t3</span><span class="o">.</span><span class="n">compute_minimal_t3_ranks</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span><span class="mi">11</span><span class="p">,</span><span class="mi">12</span><span class="p">,</span><span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">,</span><span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">98</span><span class="p">,</span><span class="mi">99</span><span class="p">,</span><span class="mi">100</span><span class="p">,</span><span class="mi">101</span><span class="p">,</span><span class="mi">102</span><span class="p">)))</span>
 <span class="go">((10, 11, 12, 13), (1, 10, 100, 13, 1))</span>
 </pre></div>
 </div>

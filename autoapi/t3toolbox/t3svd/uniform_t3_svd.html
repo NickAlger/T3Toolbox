@@ -272,16 +272,14 @@
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../core/index.html">t3toolbox.core</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../core/ragged/index.html">t3toolbox.core.ragged</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="../core/ragged/tucker_tensor_train/index.html">t3toolbox.core.ragged.tucker_tensor_train</a></li>
-</ul>
-</details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../core/tucker_tensor_train/index.html">t3toolbox.core.tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/compute_minimal_ranks.html">t3toolbox.core.tucker_tensor_train.compute_minimal_ranks</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/t3_get_entries.html">t3toolbox.core.tucker_tensor_train.t3_get_entries</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/apply/index.html">t3toolbox.core.tucker_tensor_train.apply</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/entries/index.html">t3toolbox.core.tucker_tensor_train.entries</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/ragged/index.html">t3toolbox.core.tucker_tensor_train.ragged</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/ranks/index.html">t3toolbox.core.tucker_tensor_train.ranks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/uniform/index.html">t3toolbox.core.tucker_tensor_train.uniform</a></li>
 </ul>
 </details></li>
-<li class="toctree-l3"><a class="reference internal" href="../core/uniform/index.html">t3toolbox.core.uniform</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../corewise/index.html">t3toolbox.corewise</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -485,7 +483,7 @@
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.uniform</span> <span class="k">as</span> <span class="nn">ut3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.t3svd</span> <span class="k">as</span> <span class="nn">t3svd</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">s0</span> <span class="o">=</span> <span class="p">((</span><span class="mi">11</span><span class="p">,</span><span class="mi">12</span><span class="p">,</span><span class="mi">13</span><span class="p">),</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span><span class="mi">7</span><span class="p">,</span><span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">2</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">s</span> <span class="o">=</span> <span class="p">(</span><span class="n">s0</span><span class="p">[</span><span class="mi">0</span><span class="p">],)</span> <span class="o">+</span> <span class="n">t3</span><span class="o">.</span><span class="n">compute_minimal_ranks</span><span class="p">(</span><span class="n">s0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">s</span> <span class="o">=</span> <span class="p">(</span><span class="n">s0</span><span class="p">[</span><span class="mi">0</span><span class="p">],)</span> <span class="o">+</span> <span class="n">t3</span><span class="o">.</span><span class="n">compute_minimal_t3_ranks</span><span class="p">(</span><span class="n">s0</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">cores</span><span class="p">,</span> <span class="n">masks</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">t3_to_ut3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">ux2</span><span class="p">,</span> <span class="n">ss_basis_from_ut3</span><span class="p">,</span> <span class="n">ss_tt_from_ut3</span> <span class="o">=</span> <span class="n">t3svd</span><span class="o">.</span><span class="n">uniform_t3_svd</span><span class="p">(</span><span class="n">cores</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span> <span class="c1"># Uniform T3-SVD</span>

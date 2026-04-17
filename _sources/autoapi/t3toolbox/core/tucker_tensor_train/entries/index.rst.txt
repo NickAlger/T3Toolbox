@@ -1,0 +1,19 @@
+t3toolbox.core.tucker_tensor_train.entries
+==========================================
+
+.. py:module:: t3toolbox.core.tucker_tensor_train.entries
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/core/tucker_tensor_train/entries/t3_get_entries
+
+.. autoapisummary::
+
+   t3toolbox.core.tucker_tensor_train.entries.t3_get_entries
+
+
