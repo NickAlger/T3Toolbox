@@ -1857,7 +1857,7 @@ def t3_get_entries(
     ----------
     x: TuckerTensorTrain
         Tucker tensor train. shape=(N0,...,N(d-1))
-    index: NDArray, dtype=int
+    index: NDArray or convertible to NDArray, dtype=int
         Indices of desired entries. shape=(d,)+vsi
         len(index)=d. If many entries: elm_size=num_entries
     xnp:

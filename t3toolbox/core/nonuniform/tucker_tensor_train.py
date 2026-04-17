@@ -648,7 +648,6 @@ def compute_minimal_ranks(
 
     return tuple(new_tucker_ranks), tuple(new_tt_ranks)
 
-#
 
 def t3_get_entries(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
@@ -666,19 +665,22 @@ def t3_get_entries(
 
     vsi = index.shape[1:]
 
-    mu_Na = xnp.ones(vsi+(tt_cores[0].shape[-3],))
-    for ind, B_xi, G_axb in zip(index, tucker_cores, tt_cores):
-        # C_Nxb = xnp.einsum('...a,axb->...xb', mu_Na, G_axb)
+    NX = np.prod(vsx, dtype=int) # yes, np. We want this computed statically
+    NI = np.prod(vsi, dtype=int)
 
-        v_xN = B_xi[:, ind] # selected Tucker basis vectors
-        v_Nx = xnp.moveaxis(v_xN, -1, 0).copy()
+    mu_IXa = xnp.ones((NI, NX)+(tt_cores[0].shape[-3],))
+    for ind, B_Xpo, G_Xapb in zip(index, tucker_cores, tt_cores):
+        N = B_Xpo.shape[-1]
+        rL = G_Xapb.shape[-3]
+        n = G_Xapb.shape[-2]
+        rR = G_Xapb.shape[-1]
 
-        g_aNb = xnp.einsum('axb,...x->...ab', G_axb, v_Nx)
+        B_Xpo = B_Xpo.reshape((NX, n, N))
+        G_Xapb = G_Xapb.reshape((NX, rL, n, rR))
 
-        mu_Nb = xnp.einsum('...a,...ab->...b', mu_Na, g_aNb)
+        v_XpI = B_Xpo[:,:,ind]
+        mu_IXb = xnp.einsum('...Xa,Xapb,Xp...->...Xb', mu_IXa, G_Xapb, v_XpI)
+        mu_IXa = mu_IXb
 
-        mu_Na = mu_Nb
-
-    result = xnp.einsum('...a->...', mu_Na)
-
+    result = xnp.einsum('...Xa->...X', mu_IXa).reshape(vsi + vsx)
     return result
