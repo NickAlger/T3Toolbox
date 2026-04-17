@@ -650,13 +650,17 @@ def compute_minimal_ranks(
 
 
 def t3_get_entries(
-        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
+        x: typ.Union[
+            typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
+            typ.Tuple[NDArray, NDArray], # (tucker_supercore, tt_supercore)
+        ],
         index: NDArray, # dtype=int, shape=(d,)+vsi
         use_jax: bool = False,
 ) -> NDArray:
     '''Compute entries of a Tucker tensor train.
     '''
-    xnp, _, _ = get_backend(False, use_jax)
+    is_uniform = is_ndarray(x[0])
+    xnp, _, xscan = get_backend(is_uniform, use_jax)
 
     #
     tucker_cores, tt_cores = x
@@ -668,8 +672,8 @@ def t3_get_entries(
     NX = np.prod(vsx, dtype=int) # yes, np. We want this computed statically
     NI = np.prod(vsi, dtype=int)
 
-    mu_IXa = xnp.ones((NI, NX)+(tt_cores[0].shape[-3],))
-    for ind, B_Xpo, G_Xapb in zip(index, tucker_cores, tt_cores):
+    def _func(mu_IXa, ind_B_G):
+        ind, B_Xpo, G_Xapb = ind_B_G
         N = B_Xpo.shape[-1]
         rL = G_Xapb.shape[-3]
         n = G_Xapb.shape[-2]
@@ -680,7 +684,13 @@ def t3_get_entries(
 
         v_XpI = B_Xpo[:,:,ind]
         mu_IXb = xnp.einsum('...Xa,Xapb,Xp...->...Xb', mu_IXa, G_Xapb, v_XpI)
-        mu_IXa = mu_IXb
+        return mu_IXb, (0,)
 
-    result = xnp.einsum('...Xa->...X', mu_IXa).reshape(vsi + vsx)
+
+    mu_IXa = xnp.ones((NI, NX)+(tt_cores[0].shape[-3],))
+    ind_B_G = (index, tucker_cores, tt_cores)
+    mu_IXz, _ = xscan(_func, mu_IXa, ind_B_G)
+
+    result = xnp.einsum('...Xa->...X', mu_IXz).reshape(vsi + vsx)
     return result
+

@@ -1845,7 +1845,7 @@ def t3_apply(
 
 def t3_get_entries(
         x: TuckerTensorTrain, # shape=(N0,...,N(d-1))
-        index: typ.Union[typ.Sequence[int], typ.Sequence[typ.Sequence[int]]], # len=d. one entry: typ.Sequence[int]. many entries: typ.Sequence[typ.Sequence[int]], elm_size=num_entries
+        index: NDArray, # or convertible to NDArray. dtype=int
         use_jax: bool = False,
 ) -> NDArray:
     '''Compute an entry (or multiple entries) of a Tucker tensor train.
@@ -1905,6 +1905,18 @@ def t3_get_entries(
     >>> print(np.linalg.norm(entries - entries2))
     1.7763568394002505e-15
 
+    Vectorize over entries AND T3s
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), vectorization_shape=(2,3))
+    >>> index = [[9,8], [4,10], [7,13]] # get entries (9,4,7) and (8,10,13)
+    >>> entries = t3.t3_get_entries(x, index)
+    >>> x_dense = x.to_dense(x)
+    >>> entries2 = np.array([x_dense[:,:, 9,4,7], x_dense[:,:, 8,10,13]])
+    >>> print(np.linalg.norm(entries - entries2))
+    9.22170384909466e-15
+
     Example using jax jit compiling:
 
 	>>> import numpy as np
@@ -1944,11 +1956,6 @@ def t3_get_entries(
     -7.418812309825662
     '''
     xnp, _, _ = get_backend(False, use_jax)
-
-    if x.vectorization_shape != ():
-        raise NotImplementedError(
-            't3_get_entries with vectorized TuckerTensorTrain is not implemented yet. Can only vectorize over input vectors.'
-        )
 
     index = xnp.array(index)
 
