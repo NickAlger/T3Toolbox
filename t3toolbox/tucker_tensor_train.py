@@ -86,8 +86,13 @@ import typing as typ
 import functools as ft
 from dataclasses import dataclass
 
-import t3toolbox.core.tucker_tensor_train as t3_core
-import t3toolbox.core.ragged.tucker_tensor_train as rt3_core
+import t3toolbox.core.tucker_tensor_train.apply as apply
+import t3toolbox.core.tucker_tensor_train.entries as entries
+import t3toolbox.core.tucker_tensor_train.ranks as ranks
+import t3toolbox.core.tucker_tensor_train.ragged.operations as ragged_operations
+import t3toolbox.core.tucker_tensor_train.ragged.orthogonalization as ragged_orthogonalization
+import t3toolbox.core.tucker_tensor_train.ragged.tensor_linalg as ragged_linalg
+import t3toolbox.core.tucker_tensor_train.uniform as uniform
 import t3toolbox.util_linalg as linalg
 from t3toolbox.common import *
 
@@ -416,7 +421,9 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(x_dense - x_dense2) / np.linalg.norm(x_dense))
         1.3614138244072514e-15
         """
-        return rt3_core.to_dense(self.data, squash_tails=squash_tails, use_jax=use_jax)
+        return ragged_operations.to_dense(
+            self.data, squash_tails=squash_tails, use_jax=use_jax,
+        )
 
 
     def squash_tails(
@@ -459,7 +466,7 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(x.to_dense() - x2.to_dense()))
         5.805155892491438e-12
         """
-        return TuckerTensorTrain(self.tucker_cores, rt3_core.squash_tt_tails(self.tt_cores))
+        return TuckerTensorTrain(self.tucker_cores, ragged_operations.squash_tt_tails(self.tt_cores))
 
     def reverse(self) -> 'TuckerTensorTrain':
         """Reverse Tucker tensor train.
@@ -508,7 +515,7 @@ class TuckerTensorTrain:
         1.859018050214056e-13
         """
         reversed_tucker_cores = tuple([B.copy() for B in self.tucker_cores[::-1]])
-        reversed_tt_cores = rt3_core.reverse_tt(self.tt_cores)
+        reversed_tt_cores = ragged_operations.reverse_tt(self.tt_cores)
         return TuckerTensorTrain(reversed_tucker_cores, reversed_tt_cores)
 
     def change_structure(
@@ -541,8 +548,8 @@ class TuckerTensorTrain:
         new_shape, new_tucker_ranks, new_tt_ranks = new_structure
         tucker_cores, tt_cores = self.data
 
-        new_tucker_cores = rt3_core.change_tucker_core_shapes(tucker_cores, new_shape, new_tucker_ranks, use_jax=use_jax)
-        new_tt_cores = rt3_core.change_tt_core_shapes(tt_cores, new_tucker_ranks, new_tt_ranks, use_jax=use_jax)
+        new_tucker_cores = ragged_operations.change_tucker_core_shapes(tucker_cores, new_shape, new_tucker_ranks, use_jax=use_jax)
+        new_tt_cores = ragged_operations.change_tt_core_shapes(tt_cores, new_tucker_ranks, new_tt_ranks, use_jax=use_jax)
 
         return TuckerTensorTrain(tuple(new_tucker_cores), tuple(new_tt_cores))
 
@@ -629,7 +636,7 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(s*x.to_dense() - sx.to_dense()))
         1.6268482531988893e-13
         """
-        return TuckerTensorTrain(*rt3_core.t3_scale(self.data, s))
+        return TuckerTensorTrain(*ragged_linalg.t3_scale(self.data, s))
 
     def __neg__(
             self,
@@ -755,7 +762,7 @@ class TuckerTensorTrain:
         1.3642420526593924e-12
         """
         xnp, _, _ = get_backend(False, use_jax)
-        return xnp.sqrt(TuckerTensorTrain.inner_product(self, self, use_jax=use_jax))
+        return xnp.sqrt(t3_inner_product(self, self, use_jax=use_jax))
 
     ##########################################
     ########    Orthogonalization    #########
@@ -826,7 +833,7 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(B @ B.T - np.eye(rank))) # Tucker core is orthogonal
         8.456498415401757e-16
         '''
-        result = rt3_core.up_svd_ith_tucker_core(
+        result = ragged_orthogonalization.up_svd_ith_tucker_core(
             self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
         )
         return TuckerTensorTrain(*result[0]), result[1]
@@ -897,7 +904,7 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', G, G) - np.eye(G.shape[2]))) # TT-core is left-orthogonal
             4.453244025338311e-16
         '''
-        result = rt3_core.left_svd_ith_tt_core(
+        result = ragged_orthogonalization.left_svd_ith_tt_core(
             self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
         )
         return TuckerTensorTrain(*result[0]), result[1]
@@ -968,7 +975,7 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(np.einsum('iaj,kaj->ik', G, G) - np.eye(G.shape[0]))) # TT-core is right orthogonal
         4.207841813173725e-16
         '''
-        result = rt3_core.right_svd_ith_tt_core(
+        result = ragged_orthogonalization.right_svd_ith_tt_core(
             self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
         )
         return TuckerTensorTrain(*result[0]), result[1]
@@ -1033,7 +1040,7 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
         1.002901486286745e-12
         '''
-        result = rt3_core.up_svd_ith_tt_core(
+        result = ragged_orthogonalization.up_svd_ith_tt_core(
             self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
         )
         return TuckerTensorTrain(*result[0]), result[1]
@@ -1104,7 +1111,7 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1]))) # TT-core is outer orthogonal
         1.0643458053135608e-15
         '''
-        result = rt3_core.down_svd_ith_tt_core(
+        result = ragged_orthogonalization.down_svd_ith_tt_core(
             self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
         )
         return TuckerTensorTrain(*result[0]), result[1]
@@ -1186,7 +1193,7 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(np.einsum('axjkd,ayjkd->xy', X, X) - np.eye(B0.shape[0]))) # Complement of B1 is orthogonal
         2.3594586449868743e-15
         '''
-        return TuckerTensorTrain(*rt3_core.orthogonalize_relative_to_ith_tucker_core(
+        return TuckerTensorTrain(*ragged_orthogonalization.orthogonalize_relative_to_ith_tucker_core(
             self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
         ))
 
@@ -1271,7 +1278,7 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(np.einsum('bijd,cijd->bc', XR, XR) - np.eye(G0.shape[2]))) # Right subtree is right orthogonal
         8.816596607002667e-16
         '''
-        return TuckerTensorTrain(*rt3_core.orthogonalize_relative_to_ith_tt_core(
+        return TuckerTensorTrain(*ragged_orthogonalization.orthogonalize_relative_to_ith_tt_core(
             self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
         ))
 
@@ -1281,7 +1288,7 @@ class TuckerTensorTrain:
     ) -> 'TuckerTensorTrain':
         """Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
         """
-        return TuckerTensorTrain(*rt3_core.up_orthogonalize_tucker_cores(self.data, use_jax=use_jax))
+        return TuckerTensorTrain(*ragged_orthogonalization.up_orthogonalize_tucker_cores(self.data, use_jax=use_jax))
 
     def outer_orthogonalize_tt_cores(
             self,
@@ -1290,7 +1297,7 @@ class TuckerTensorTrain:
         """Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
         """
         return TuckerTensorTrain(
-            *rt3_core.outer_orthogonalize_tt_cores(self.data, use_jax=use_jax),
+            *ragged_orthogonalization.outer_orthogonalize_tt_cores(self.data, use_jax=use_jax),
         )
 
     def left_orthogonalize_tt_cores(
@@ -1300,7 +1307,7 @@ class TuckerTensorTrain:
     ):
         """Left orthogonalize the TT cores, possibly returning variation cores as well.
         """
-        result = rt3_core.left_orthogonalize_tt_cores(
+        result = ragged_orthogonalization.left_orthogonalize_tt_cores(
             self.tt_cores, return_variation_cores=return_variation_cores, use_jax=use_jax,
         )
         if return_variation_cores:
@@ -1315,7 +1322,7 @@ class TuckerTensorTrain:
     ):
         """Right orthogonalize the TT cores, possibly returning variation cores as well.
         """
-        result = rt3_core.left_orthogonalize_tt_cores(
+        result = ragged_orthogonalization.left_orthogonalize_tt_cores(
             self.tt_cores, return_variation_cores=return_variation_cores, use_jax=use_jax,
         )
         if return_variation_cores:
@@ -1830,13 +1837,7 @@ def t3_apply(
             + str(vector_sizes) + ' = vector_sizes != x_shape = ' + str(shape)
         )
 
-    mu_na = xnp.ones((num_applies, tt_cores[0].shape[0]))
-    for V_ni, B_xi, G_axb in zip(vecs, tucker_cores, tt_cores):
-        v_nx = xnp.einsum('ni,xi->nx', V_ni, B_xi)
-        g_anb = xnp.einsum('axb,nx->anb', G_axb, v_nx)
-        mu_nb = xnp.einsum('na,anb->nb', mu_na, g_anb)
-        mu_na = mu_nb
-    result = xnp.einsum('na->n', mu_na)
+    result = apply.t3_apply(x.data, vecs, use_jax=use_jax)
 
     if not vectorized:
         result = result[0]
@@ -1966,7 +1967,7 @@ def t3_get_entries(
             + str(x.d) + ' = num tensor indices != num provided indices = ' + str(index.shape[0])
         )
 
-    return t3_core.t3_get_entries(x.data, index, use_jax=use_jax)
+    return entries.t3_get_entries(x.data, index, use_jax=use_jax)
 
 
 def compute_minimal_t3_ranks(
@@ -1997,10 +1998,10 @@ def compute_minimal_t3_ranks(
     Examples
     --------
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> print(t3.compute_minimal_ranks((10,11,12,13), (14,15,16,17), (98,99,100,101,102)))
+    >>> print(t3.compute_minimal_t3_ranks((10,11,12,13), (14,15,16,17), (98,99,100,101,102)))
     ((10, 11, 12, 13), (1, 10, 100, 13, 1))
     '''
-    return t3_core.compute_minimal_ranks(shape, tucker_ranks, tt_ranks)
+    return ranks.compute_minimal_t3_ranks(shape, tucker_ranks, tt_ranks)
 
 
 ###########################################################
@@ -2127,7 +2128,7 @@ def t3_add(
                 + str(y.vectorization_shape)
             )
 
-        return TuckerTensorTrain(*t3_core.t3_add(x.data, y.data, squash=squash, use_jax=use_jax))
+        return TuckerTensorTrain(*ragged_linalg.t3_add(x.data, y.data, squash=squash, use_jax=use_jax))
 
     elif is_ndarray(x) and isinstance(y, TuckerTensorTrain):
         vsy = y.vectorization_shape
@@ -2337,7 +2338,7 @@ def t3_inner_product(
                 + str(y.vectorization_shape)
             )
 
-        return t3_core.t3_inner_product_t3(x.data, y.data, use_jax=use_jax)
+        return ragged_linalg.t3_inner_product_t3(x.data, y.data, use_jax=use_jax)
 
     elif is_ndarray(x) and isinstance(y, TuckerTensorTrain): # Could be done better with zippering
         vsy = y.vectorization_shape
