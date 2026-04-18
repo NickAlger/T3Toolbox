@@ -116,6 +116,7 @@ __all__ = [
     't3_load',
     't3_to_vector',
     't3_from_vector',
+    't3_core_shapes',
 ]
 
 
@@ -1799,6 +1800,34 @@ def t3_from_vector(
     return TuckerTensorTrain(*ragged_operations.t3_from_vector(
         x_flat, shape, tucker_ranks, tt_ranks, vectorization_shape=vectorization_shape,
     ))
+
+
+def t3_core_shapes(
+        shape: typ.Sequence[int],
+        tucker_ranks: typ.Sequence[int],
+        tt_ranks: typ.Sequence[int],
+        vectorization_shape: typ.Sequence[int] = (),
+) -> typ.Tuple[
+    typ.Tuple[int,...], # tucker_core_shapes
+    typ.Tuple[int,...], # tt_core_shapes
+]:
+    """Compute the tucker and TT core shapes for a Tucker tensor train.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.corewise as cw
+    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,4,5), vectorization_shape=(9,))
+    >>> print(t3.t3_core_shapes(x.shape, x.tucker_ranks, x.tt_ranks, vectorization_shape=x.vectorization_shape))
+    (((9, 4, 14), (9, 5, 15), (9, 6, 16)), ((9, 1, 4, 3), (9, 3, 5, 4), (9, 4, 6, 5)))
+    >>> print(x.core_shapes)
+    (((9, 4, 14), (9, 5, 15), (9, 6, 16)), ((9, 1, 4, 3), (9, 3, 5, 4), (9, 4, 6, 5)))
+    """
+    return ragged_operations.t3_core_shapes(
+        shape, tucker_ranks, tt_ranks, vectorization_shape,
+    )
+
 
 ###############################################################################
 ########    Scalar valued multilinear function applies and entries    #########
