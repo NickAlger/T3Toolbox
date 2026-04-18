@@ -10,6 +10,11 @@ __all__ = [
     'change_tucker_core_shapes',
     'change_tt_core_shapes',
     'absorb_edge_weights_into_t3',
+    't3_unstack',
+    't3_core_shapes',
+    't3_to_vector',
+    't3_from_vector',
+    't3_sum_stack',
 ]
 
 
@@ -184,6 +189,123 @@ def absorb_edge_weights_into_t3(
     return tucker_cores, tt_cores
 
 
+
+def t3_unstack(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
+): # returns an array-like structure of nested tuples containing Tucker tensor trains
+    """Given multiple stacked T3s, this unstacks them
+    into an array-like structure of nested tuples with the same "shape" as the stacking shape.
+    """
+    tucker_cores, tt_cores = x
+    vectorization_shape = tucker_cores[0].shape[:-2]
+
+    if not vectorization_shape:
+        return x
+
+    n = tucker_cores[0].shape[0]
+    unstacked_x = []
+    for ii in range(n):
+        BB = tuple([B[ii] for B in tucker_cores])
+        GG = tuple([G[ii] for G in tt_cores])
+        xi = (BB, GG)
+        unstacked_x.append(t3_unstack(xi))
+
+    return tuple(unstacked_x)
+
+
+def t3_sum_stack(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
+        use_jax: bool=False,
+) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (summed_tucker_cores, summed_tt_cores)
+    """If this object contains multiple stacked T3s, this sums them.
+    """
+    xnp, _, _ = get_backend(False, use_jax=use_jax)
+    tucker_cores, tt_cores = x
+    vsv = tucker_cores[0].shape[:-2]
+    N_vsv = np.prod(vsv, dtype=int)
+
+    summed_tucker_cores = []
+    for B in tucker_cores:
+        B_sum = xnp.sum(B.reshape((N_vsv,) + B.shape[-2:]), axis=0)
+        summed_tucker_cores.append(B_sum)
+
+    summed_tt_cores = []
+    for G in tt_cores:
+        G_sum = xnp.sum(G.reshape((N_vsv,) + G.shape[-3:]), axis=0)
+        summed_tt_cores.append(G_sum)
+
+    return tuple(summed_tucker_cores), tuple(summed_tt_cores)
+
+
+def t3_core_shapes(
+        shape: typ.Sequence[int],
+        tucker_ranks: typ.Sequence[int],
+        tt_ranks: typ.Sequence[int],
+        vectorization_shape: typ.Sequence[int] = (),
+) -> typ.Tuple[
+    typ.Tuple[int,...], # tucker_core_shapes
+    typ.Tuple[int,...], # tt_core_shapes
+]:
+    """Determines the shapes of the T3 cores based on the ranks.
+    """
+    vs = tuple(vectorization_shape)
+    tucker_core_shapes = []
+    for n, N in zip(tucker_ranks, shape):
+        tucker_core_shapes.append(vs+(n,N))
+
+    tt_core_shapes = []
+    for rL, n, rR in zip(tt_ranks[:-1], tucker_ranks, tt_ranks[1:]):
+        tt_core_shapes.append(vs+(rL,n,rR))
+
+    return tuple(tucker_core_shapes), tuple(tt_core_shapes)
+
+
+def t3_to_vector(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
+        use_jax: bool=False,
+) -> NDArray: # shape=(x_size,)
+    """Converts T3 to a 1D vector containing all of the core entries.
+    """
+    xnp, _, _ = get_backend(False, use_jax)
+
+    x_flats = []
+    for B in x[0]:
+        x_flats.append(B.reshape(-1))
+    for G in x[1]:
+        x_flats.append(G.reshape(-1))
+
+    return xnp.concatenate(x_flats)
+
+
+def t3_from_vector(
+        x_flat: NDArray,
+        shape: typ.Sequence[int],
+        tucker_ranks: typ.Sequence[int],
+        tt_ranks: typ.Sequence[int],
+        vectorization_shape: typ.Sequence[int] = (),
+):
+    """Constructs a T3 from a 1D vector containing the core entries
+    """
+    tucker_core_shapes, tt_core_shapes = t3_core_shapes(
+        shape, tucker_ranks, tt_ranks, vectorization_shape=vectorization_shape,
+    )
+
+    start = 0
+    tucker_cores = []
+    for B_shape in tucker_core_shapes:
+        stop = start + np.prod(B_shape, dtype=int)
+        B = x_flat[start:stop].copy().reshape(B_shape)
+        tucker_cores.append(B)
+        start = stop
+
+    tt_cores = []
+    for G_shape in tt_core_shapes:
+        stop = start + np.prod(G_shape, dtype=int)
+        B = x_flat[start:stop].copy().reshape(G_shape)
+        tt_cores.append(B)
+        start = stop
+
+    return tuple(tucker_cores), tuple(tt_cores)
 
 
 

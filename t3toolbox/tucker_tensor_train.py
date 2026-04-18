@@ -114,6 +114,8 @@ __all__ = [
     'compute_minimal_t3_ranks',
     't3_save',
     't3_load',
+    't3_to_vector',
+    't3_from_vector',
 ]
 
 
@@ -290,6 +292,20 @@ class TuckerTensorTrain:
     @ft.cached_property
     def structure(self) -> typ.Tuple[typ.Tuple[int,...], typ.Tuple[int,...], typ.Tuple[int,...]]:
         return self.shape, self.tucker_ranks, self.tt_ranks
+
+    @ft.cached_property
+    def core_shapes(self) -> typ.Tuple[
+        typ.Tuple[typ.Tuple[int,...],...], # tucker core shapes
+        typ.Tuple[typ.Tuple[int,...],...], # tt core shapes
+    ]:
+        return (
+            tuple([B.shape for B in self.tucker_cores]),
+            tuple([G.shape for G in self.tt_cores]),
+        )
+
+    @ft.cached_property
+    def size(self) -> int:
+        return sum([x.size for x in self.tucker_cores]) + sum([x.size for x in self.tt_cores])
 
     @ft.cached_property
     def minimal_ranks(self) -> typ.Tuple[typ.Tuple[int,...], typ.Tuple[int,...]]:
@@ -762,7 +778,8 @@ class TuckerTensorTrain:
         1.3642420526593924e-12
         """
         xnp, _, _ = get_backend(False, use_jax)
-        return xnp.sqrt(t3_inner_product(self, self, use_jax=use_jax))
+        norm_sq = t3_inner_product(self, self, use_jax=use_jax)
+        return xnp.sqrt(xnp.abs(norm_sq))
 
     ##########################################
     ########    Orthogonalization    #########
@@ -1399,22 +1416,8 @@ class TuckerTensorTrain:
         >>> print(cw.corewise_norm(cw.corewise_sub(x_sum.data, x_sum2.data)))
         0.0
         """
-        xnp, _, _ = get_backend(False, use_jax=use_jax)
-        tucker_cores, tt_cores = self.data
-        vsv = self.vectorization_shape
-        N_vsv = np.prod(vsv, dtype=int)
+        return TuckerTensorTrain(*ragged_operations.t3_sum_stack(self.data))
 
-        summed_tucker_cores = []
-        for B in tucker_cores:
-            B_sum = xnp.sum(B.reshape((N_vsv,) + B.shape[-2:]), axis=0)
-            summed_tucker_cores.append(B_sum)
-
-        summed_tt_cores = []
-        for G in tt_cores:
-            G_sum = xnp.sum(G.reshape((N_vsv,) + G.shape[-3:]), axis=0)
-            summed_tt_cores.append(G_sum)
-
-        return TuckerTensorTrain(tuple(summed_tucker_cores), tuple(summed_tt_cores))
 
     def unstack(self): # returns an array-like structure of nested tuples containing TuckerTensorTrains
         """If this object contains multiple stacked T3s, this unstacks them
@@ -1434,19 +1437,12 @@ class TuckerTensorTrain:
         >>> print((x13 - unstacked_x[1][3]).norm())
         0.0
         """
-        tucker_cores, tt_cores = self.data
-        if not self.vectorization_shape:
-            return self
+        def _dfs(xx):
+            if is_ndarray(xx[0][0]):
+                return TuckerTensorTrain(*xx)
+            return tuple([_dfs(x) for x in xx])
 
-        n = tucker_cores[0].shape[0]
-        unstacked_x = []
-        for ii in range(n):
-            BB = tuple([B[ii] for B in tucker_cores])
-            GG = tuple([G[ii] for G in tt_cores])
-            unstacked_x.append(TuckerTensorTrain(BB, GG).unstack())
-
-        return tuple(unstacked_x)
-
+        return _dfs(ragged_operations.t3_unstack(self.data))
 
 
 if has_jax:
@@ -1760,6 +1756,49 @@ def t3_load(
 
     return TuckerTensorTrain(tuple(tucker_cores), tuple(tt_cores))
 
+
+def t3_to_vector(
+        x: TuckerTensorTrain,
+) -> NDArray:
+    """Converts a TuckerTensorTrain into a 1D vector containing the core entries.
+
+    Examples:
+    ---------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.corewise as cw
+    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,4,5), vectorization_shape=(2,3))
+    >>> x_flat = t3.t3_to_vector(x)
+    >>> x2 = t3.t3_from_vector(x_flat, x.shape, x.tucker_ranks, x.tt_ranks, vectorization_shape=x.vectorization_shape)
+    >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
+    0.0
+    """
+    return ragged_operations.t3_to_vector(x.data)
+
+
+def t3_from_vector(
+        x_flat: NDArray,
+        shape: typ.Sequence[int],
+        tucker_ranks: typ.Sequence[int],
+        tt_ranks: typ.Sequence[int],
+        vectorization_shape: typ.Sequence[int] = (),
+) -> TuckerTensorTrain:
+    """Constructs a TuckerTensorTrain from a 1D vector containing the core entries.
+
+    Examples:
+    ---------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.corewise as cw
+    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,4,5), vectorization_shape=(2,3))
+    >>> x_flat = t3.t3_to_vector(x)
+    >>> x2 = t3.t3_from_vector(x_flat, x.shape, x.tucker_ranks, x.tt_ranks, vectorization_shape=x.vectorization_shape)
+    >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
+    0.0
+    """
+    return TuckerTensorTrain(*ragged_operations.t3_from_vector(
+        x_flat, shape, tucker_ranks, tt_ranks, vectorization_shape=vectorization_shape,
+    ))
 
 ###############################################################################
 ########    Scalar valued multilinear function applies and entries    #########

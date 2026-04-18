@@ -138,7 +138,8 @@ def corewise_norm(X, use_jax: bool=False):
     9.539392014169456
     '''
     xnp, _, _ = get_backend(False, use_jax)
-    return xnp.sqrt(corewise_dot(X, X))
+    norm_sq = corewise_dot(X, X)
+    return xnp.sqrt(xnp.abs(norm_sq))
 
 
 def corewise_err(X_true, X, use_jax: bool=False):

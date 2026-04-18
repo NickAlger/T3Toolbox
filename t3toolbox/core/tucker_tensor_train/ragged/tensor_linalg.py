@@ -101,6 +101,6 @@ def t3_inner_product_t3(
     rd_x = tt_cores_x[-1].shape[2]
     rd_y = tt_cores_y[-1].shape[2]
 
-    result = xnp.einsum('tq,t,q', M_sp, np.ones(rd_x), np.ones(rd_y))
+    result = xnp.einsum('...tq,t,q', M_sp, np.ones(rd_x), np.ones(rd_y))
     return result
 
