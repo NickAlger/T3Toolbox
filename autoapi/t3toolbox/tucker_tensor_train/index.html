@@ -353,6 +353,8 @@
 <li class="toctree-l3"><a class="reference internal" href="t3_corewise_randn.html">t3toolbox.tucker_tensor_train.t3_corewise_randn</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_save.html">t3toolbox.tucker_tensor_train.t3_save</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_load.html">t3toolbox.tucker_tensor_train.t3_load</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3_to_vector.html">t3toolbox.tucker_tensor_train.t3_to_vector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3_from_vector.html">t3toolbox.tucker_tensor_train.t3_from_vector</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_apply.html">t3toolbox.tucker_tensor_train.t3_apply</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_get_entries.html">t3toolbox.tucker_tensor_train.t3_get_entries</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_minimal_t3_ranks.html">t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks</a></li>
@@ -648,6 +650,12 @@ are not formed during computations.</p>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="t3_load.html#t3toolbox.tucker_tensor_train.t3_load" title="t3toolbox.tucker_tensor_train.t3_load"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_load</span></code></a>(→ TuckerTensorTrain)</p></td>
 <td><p>Load a Tucker tensor train from a file.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_to_vector.html#t3toolbox.tucker_tensor_train.t3_to_vector" title="t3toolbox.tucker_tensor_train.t3_to_vector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_to_vector</span></code></a>(→ t3toolbox.common.NDArray)</p></td>
+<td><p>Converts a TuckerTensorTrain into a 1D vector containing the core entries.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_from_vector.html#t3toolbox.tucker_tensor_train.t3_from_vector" title="t3toolbox.tucker_tensor_train.t3_from_vector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_from_vector</span></code></a>() → TuckerTensorTrain)</p></td>
+<td><p>Constructs a TuckerTensorTrain from a 1D vector containing the core entries.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="t3_apply.html#t3toolbox.tucker_tensor_train.t3_apply" title="t3toolbox.tucker_tensor_train.t3_apply"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_apply</span></code></a>(→ t3toolbox.common.NDArray)</p></td>
 <td><p>Contract a Tucker tensor train with vectors in all indices.</p></td>

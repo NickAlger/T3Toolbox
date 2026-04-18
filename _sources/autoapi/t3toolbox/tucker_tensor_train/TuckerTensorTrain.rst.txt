@@ -162,6 +162,12 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
    .. py:method:: structure() -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.typ.Tuple[int, Ellipsis]]
 
 
+   .. py:method:: core_shapes() -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], Ellipsis], t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], Ellipsis]]
+
+
+   .. py:method:: size() -> int
+
+
    .. py:method:: minimal_ranks() -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.typ.Tuple[int, Ellipsis]]
 
 

@@ -1,0 +1,18 @@
+t3toolbox.tucker_tensor_train.t3_from_vector
+============================================
+
+.. py:function:: t3toolbox.tucker_tensor_train.t3_from_vector(x_flat: t3toolbox.common.NDArray, shape: t3toolbox.common.typ.Sequence[int], tucker_ranks: t3toolbox.common.typ.Sequence[int], tt_ranks: t3toolbox.common.typ.Sequence[int], vectorization_shape: t3toolbox.common.typ.Sequence[int] = ()) -> TuckerTensorTrain
+
+   Constructs a TuckerTensorTrain from a 1D vector containing the core entries.
+
+   Examples:
+   ---------
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.corewise as cw
+   >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,4,5), vectorization_shape=(2,3))
+   >>> x_flat = t3.t3_to_vector(x)
+   >>> x2 = t3.t3_from_vector(x_flat, x.shape, x.tucker_ranks, x.tt_ranks, vectorization_shape=x.vectorization_shape)
+   >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
+   0.0
+
