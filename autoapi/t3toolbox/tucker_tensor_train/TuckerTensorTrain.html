@@ -1481,7 +1481,7 @@ einsum(‘iaj,ibj-&gt;ab’, new_tt_cores[ii], new_tt_cores[ii]) = identity matr
 <dl class="py method">
 <dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum_stack">
 <span class="sig-name descname"><span class="pre">sum_stack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><span class="pre">TuckerTensorTrain</span></a></span></span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum_stack" title="Link to this definition">#</a></dt>
-<dd><p>If this object contains multiple stacked T3s of the same structure, this sums them.</p>
+<dd><p>If this object contains multiple stacked T3s, this sums them.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
@@ -1495,6 +1495,29 @@ einsum(‘iaj,ibj-&gt;ab’, new_tt_cores[ii], new_tt_cores[ii]) = identity matr
 <span class="go">0.0</span>
 </pre></div>
 </div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.unstack">
+<span class="sig-name descname"><span class="pre">unstack</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.unstack" title="Link to this definition">#</a></dt>
+<dd><p>If this object contains multiple stacked T3s, this unstacks them
+into an array-like structure of nested tuples with the same “shape” as self.vectorization_shape.</p>
+<section id="examples">
+<h3>Examples:<a class="headerlink" href="#examples" title="Link to this heading">#</a></h3>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="n">vectorization_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">unstacked_x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">unstack</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">unstacked_x</span><span class="p">])</span>
+<span class="go">[5, 5, 5]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker13</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">B</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">]</span> <span class="k">for</span> <span class="n">B</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">tucker_cores</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tt13</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">G</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">]</span> <span class="k">for</span> <span class="n">G</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">tt_cores</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x13</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="p">(</span><span class="n">tucker13</span><span class="p">,</span> <span class="n">tt13</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">((</span><span class="n">x13</span> <span class="o">-</span> <span class="n">unstacked_x</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">3</span><span class="p">])</span><span class="o">.</span><span class="n">norm</span><span class="p">())</span>
+<span class="go">0.0</span>
+</pre></div>
+</div>
+</section>
 </dd></dl>
 
 </section>
@@ -1587,6 +1610,7 @@ einsum(‘iaj,ibj-&gt;ab’, new_tt_cores[ii], new_tt_cores[ii]) = identity matr
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.get_entries"><code class="docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.get_entries()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3_apply"><code class="docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3_apply()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum_stack"><code class="docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum_stack()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.unstack"><code class="docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.unstack()</span></code></a></li>
 </ul>
 </li>
 </ul>
