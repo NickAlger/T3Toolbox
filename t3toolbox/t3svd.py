@@ -165,7 +165,7 @@ def t3_svd(
     is_uniform = False
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
-    if x.vectorization_shape != ():
+    if x.stack_shape != ():
         raise NotImplementedError(
             'T3-SVD is not implemented for TuckerTensorTrains with vectorized cores. Must do one at a time.'
         )
