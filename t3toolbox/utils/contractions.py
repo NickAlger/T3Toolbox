@@ -9,8 +9,8 @@ from t3toolbox.common import *
 
 __all__ = [
     'Na_Maib_Ni_to_NMb',
-    'Na_Maib_No_Mio_to_NMb',
-    'Na_Maib_Ni_to_NMb',
+    'MNa_Maib_No_Mio_to_MNb',
+    'MNa_Maib_MiN_to_MNb',
 ]
 
 NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
@@ -157,8 +157,8 @@ def Na_Maib_Ni_to_NMb(
     return NMb
 
 
-def Na_Maib_No_Mio_to_NMb(
-        Na: NDArray,
+def MNa_Maib_No_Mio_to_MNb(
+        MNa: NDArray,
         Maib: NDArray,
         No: NDArray,
         Mio: NDArray,
@@ -172,8 +172,8 @@ def Na_Maib_No_Mio_to_NMb(
     Cases supported:
         - a,aib,o,io->b
         - Na,aib,No,io->Nb
-        - a,Maib,o,Mio->Mb
-        - Na,Maib,No,Mio->NMb
+        - Ma,Maib,o,Mio->Mb
+        - MNa,Maib,No,Mio->MNb
 
     N and M may be grouped indices. E.g., for N=xyz, M=uv we have
         xyza,uvaib,xyzo,uvio->xyzuvb
@@ -186,76 +186,76 @@ def Na_Maib_No_Mio_to_NMb(
     Vectorize over both N and M:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import Na_Maib_No_Mio_to_NMb
-    >>> xyz_a = np.random.randn(2,3,4, 10)
+    >>> from t3toolbox.utils.contractions import MNa_Maib_No_Mio_to_MNb
+    >>> uv_xyz_a = np.random.randn(5,6, 2,3,4, 10)
     >>> uv_aib = np.random.randn(5,6, 10,11,12)
     >>> xyz_o = np.random.randn(2,3,4, 13)
     >>> uv_io = np.random.randn(5,6, 11,13)
-    >>> NMb = Na_Maib_No_Mio_to_NMb(xyz_a, uv_aib, xyz_o, uv_io)
-    >>> NMb_true = np.einsum('xyza,uvaib,xyzo,uvio->xyzuvb', xyz_a, uv_aib, xyz_o, uv_io)
-    >>> print(NMb.shape == NMb_true.shape)
+    >>> MNb = MNa_Maib_No_Mio_to_MNb(uv_xyz_a, uv_aib, xyz_o, uv_io)
+    >>> MNb_true = np.einsum('uvxyza,uvaib,xyzo,uvio->uvxyzb', uv_xyz_a, uv_aib, xyz_o, uv_io)
+    >>> print(MNb.shape == MNb_true.shape)
     True
-    >>> print(np.linalg.norm(NMb - NMb_true))
+    >>> print(np.linalg.norm(MNb - MNb_true))
     1.4784891826885966e-12
 
     Vectorize over N only
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import Na_Maib_No_Mio_to_NMb
+    >>> from t3toolbox.utils.contractions import MNa_Maib_No_Mio_to_MNb
     >>> xyz_a = np.random.randn(2,3,4, 10)
     >>> aib = np.random.randn(10,11,12)
     >>> xyz_o = np.random.randn(2,3,4, 13)
     >>> io = np.random.randn(11,13)
-    >>> Nb = Na_Maib_No_Mio_to_NMb(xyz_a, aib, xyz_o, io)
-    >>> Nb_true = np.einsum('xyza,aib,xyzo,io->xyzb', xyz_a, aib, xyz_o, io)
-    >>> print(Nb.shape == Nb_true.shape)
+    >>> MNb = MNa_Maib_No_Mio_to_MNb(xyz_a, aib, xyz_o, io)
+    >>> MNb_true = np.einsum('xyza,aib,xyzo,io->xyzb', xyz_a, aib, xyz_o, io)
+    >>> print(MNb.shape == MNb_true.shape)
     True
-    >>> print(np.linalg.norm(Nb - Nb_true))
+    >>> print(np.linalg.norm(MNb - MNb_true))
     4.083260418474411e-13
 
     Vectorize over both M only:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import Na_Maib_No_Mio_to_NMb
-    >>> a = np.random.randn(10)
-    >>> uva_ib = np.random.randn(5,6, 10,11,12)
+    >>> from t3toolbox.utils.contractions import MNa_Maib_No_Mio_to_MNb
+    >>> uv_a = np.random.randn(5,6, 10)
+    >>> uv_aib = np.random.randn(5,6, 10,11,12)
     >>> o = np.random.randn(13)
     >>> uv_io = np.random.randn(5,6, 11,13)
-    >>> Mb = Na_Maib_No_Mio_to_NMb(a, uva_ib, o, uv_io)
-    >>> Mb_true = np.einsum('a,uvaib,o,uvio->uvb', a, uva_ib, o, uv_io)
-    >>> print(Mb.shape == Mb_true.shape)
+    >>> MNb = MNa_Maib_No_Mio_to_MNb(uv_a, uv_aib, o, uv_io)
+    >>> MNb_true = np.einsum('uva,uvaib,o,uvio->uvb', uv_a, uv_aib, o, uv_io)
+    >>> print(MNb.shape == MNb_true.shape)
     True
-    >>> print(np.linalg.norm(Mb - Mb_true))
+    >>> print(np.linalg.norm(MNb - MNb_true))
     2.859552860272838e-13
 
     No vectorization:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import Na_Maib_No_Mio_to_NMb
+    >>> from t3toolbox.utils.contractions import MNa_Maib_No_Mio_to_MNb
     >>> a = np.random.randn(10)
     >>> aib = np.random.randn(10,11,12)
     >>> o = np.random.randn(13)
     >>> io = np.random.randn(11,13)
-    >>> b = Na_Maib_No_Mio_to_NMb(a, aib, o, io)
-    >>> b_true = np.einsum('a,aib,o,io->b', a, aib, o, io)
-    >>> print(b.shape == b_true.shape)
+    >>> MNb = MNa_Maib_No_Mio_to_MNb(a, aib, o, io)
+    >>> MNb_true = np.einsum('a,aib,o,io->b', a, aib, o, io)
+    >>> print(MNb.shape == MNb_true.shape)
     True
-    >>> print(np.linalg.norm(b - b_true))
+    >>> print(np.linalg.norm(MNb - MNb_true))
     3.638551654418504e-14
     """
     xnp, _, _ = get_backend(True, use_jax)
 
     shape_string = (
-        'Na.shape='     + str(Na.shape)     + '\n' +
+        'MNa.shape='     + str(MNa.shape)     + '\n' +
         'Maib.shape='   + str(Maib.shape)   + '\n' +
         'No.shape='     + str(No.shape)     + '\n' +
         'Mio.shape='    + str(Mio.shape)
 
     )
 
-    if len(Na.shape) < 1:
+    if len(MNa.shape) < 1:
         raise RuntimeError(
-            'Na must have nonempty shape.\n' + shape_string
+            'MNa must have nonempty shape.\n' + shape_string
         )
 
     if len(Maib.shape) < 3:
@@ -273,14 +273,14 @@ def Na_Maib_No_Mio_to_NMb(
             'No must have nonempty shape.\n' + shape_string
         )
 
-    N_shape = Na.shape[:-1]
+    N_shape = No.shape[:-1]
     M_shape = Maib.shape[:-3]
     M2_shape = Mio.shape[:-2]
-    N2_shape = No.shape[:-1]
+    a_shape = (Maib.shape[-3],)
 
-    if N_shape != N2_shape:
+    if MNa.shape != M_shape + N_shape + a_shape:
         raise RuntimeError(
-            'Vectorization indices N must be the same on Na and No.\n' + shape_string
+            'MNa.shape != M_shape + N_shape + a_shape.\n' + shape_string
         )
 
     if M_shape != M2_shape:
@@ -288,31 +288,33 @@ def Na_Maib_No_Mio_to_NMb(
             'Vectorization indices M must be the same on Maib and Mio.\n' + shape_string
         )
 
-    a_shape = Na.shape[-1:]
     aib_shape = Maib.shape[-3:]
     io_shape = Mio.shape[-2:]
     b_shape = Maib.shape[-1:]
     o_shape = No.shape[-1:]
 
-    Na      = Na.reshape((-1,)      + a_shape)
-    Maib    = Maib.reshape((-1,)    + aib_shape)
-    No      = No.reshape((-1,)      + o_shape)
-    Mio     = Mio.reshape((-1,)      + io_shape)
+    size_M = np.prod(M_shape, dtype=int)
+    size_N = np.prod(N_shape, dtype=int)
+
+    MNa     = MNa.reshape((size_M,) + (size_N,)      + a_shape)
+    Maib    = Maib.reshape((size_M,) + aib_shape)
+    No      = No.reshape((size_N,) + o_shape)
+    Mio     = Mio.reshape((size_M,) + io_shape)
 
     path = [
         'einsum_path',
-        (0, 1),  # Na, Maib, No, Mio -> No, Mio, NMib
-        (0, 1),  # No, Mio  NMib -> NMib, NMi
-        (0, 1)  # NMib, NMi -> Nmb
-    ]  # contract(contract(No, Mio), contract(Na, Maib))
+        (0, 1),
+        (0, 1),
+        (0, 1)
+    ]
 
     if use_jax:
-        NMb = xnp.einsum('Na,Maib,No,Mio->NMb', Na, Maib, No, Mio) # let the compiler figure out the best path
+        MNb = xnp.einsum('MNa,Maib,No,Mio->MNb', MNa, Maib, No, Mio) # let the compiler figure out the best path
     else:
-        NMb = xnp.einsum('Na,Maib,No,Mio->NMb', Na, Maib, No, Mio, optimize=path)
+        MNb = xnp.einsum('MNa,Maib,No,Mio->MNb', MNa, Maib, No, Mio, optimize=path)
 
-    NMb = NMb.reshape(N_shape + M_shape + b_shape)
-    return NMb
+    MNb = MNb.reshape(M_shape + N_shape + b_shape)
+    return MNb
 
 
 def MNa_Maib_MiN_to_MNb(

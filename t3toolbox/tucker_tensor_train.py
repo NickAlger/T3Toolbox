@@ -1705,6 +1705,17 @@ def t3_apply(
     >>> print(np.linalg.norm(result - result2))
     3.1271953680324864e-12
 
+    Apply to tensor sets of vectors and tensor sets of T3s (supervectorized)
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), vectorization_shape=(2,3))
+    >>> vecs = [np.random.randn(4, 14), np.random.randn(4, 15), np.random.randn(4, 16)]
+    >>> result = t3.t3_apply(x, vecs)
+    >>> result2 = np.einsum('uvijk,xi,xj,xk->uvx', x.to_dense(), vecs[0], vecs[1], vecs[2])
+    >>> print(np.linalg.norm(result - result2))
+    3.1271953680324864e-12
+
     First and last TT-ranks are not ones:
 
     >>> import numpy as np
@@ -1744,47 +1755,13 @@ def t3_apply(
     tucker_cores, tt_cores = x.data
     shape, tucker_ranks, tt_ranks = x.structure
 
-    if x.vectorization_shape != ():
-        raise NotImplementedError(
-            'Apply with vectorized TuckerTensorTrain is not implemented yet. Can only vectorize over input vectors.'
-        )
-
     if len(vecs) != len(shape):
         raise ValueError(
             'Attempted to apply TuckerTensorTrain to wrong number of vectors.'
             + str(str(len(shape)) + ' = num_indices != len(vecs) = ' + str(len(vecs)))
         )
 
-    vecs_dims = [len(v.shape) for v in vecs]
-    if vecs_dims != [vecs_dims[0]]*len(vecs_dims):
-        raise ValueError(
-            'Inconsistent array dimensions for vecs.'
-            + '[len(v.shape) for v in vecs]=' + str([len(v.shape) for v in vecs])
-        )
-
-    vectorized = True
-    if vecs_dims[0] == 1:
-        vectorized = False
-        vecs = [v.reshape((1,-1)) for v in vecs]
-
-    num_applies = vecs[0].shape[0]
-    if [v.shape[0] for v in vecs] != [num_applies] * len(vecs):
-        raise ValueError(
-            'Inconsistent numbers of applies per index.'
-            + '[v.shape[0] for v in vecs]=' + str([v.shape[0] for v in vecs])
-        )
-
-    vector_sizes = tuple([v.shape[1] for v in vecs])
-    if vector_sizes != shape:
-        raise ValueError(
-            'Input vector sizes to not match tensor shape.'
-            + str(vector_sizes) + ' = vector_sizes != x_shape = ' + str(shape)
-        )
-
     result = apply.t3_apply(x.data, vecs, use_jax=use_jax)
-
-    if not vectorized:
-        result = result[0]
 
     return result
 
