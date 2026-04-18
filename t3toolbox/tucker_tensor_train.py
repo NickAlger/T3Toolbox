@@ -1330,6 +1330,57 @@ class TuckerTensorTrain:
         else:
             return result
 
+    #### Entries, apply, probes ####
+
+    def get_entries(
+            self,
+            index: NDArray,  # or convertible to NDArray. dtype=int
+            use_jax: bool = False,
+    ) -> NDArray:
+        '''Compute an entry (or multiple entries) of a Tucker tensor train.
+
+        See Also:
+        ---------
+        t3_apply
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> index = [[9,8], [4,10], [7,13]] # get entries (9,4,7) and (8,10,13)
+        >>> entries = x.get_entries(index)
+        >>> x_dense = x.to_dense(x)
+        >>> entries2 = np.array([x_dense[9, 4, 7], x_dense[8, 10, 13]])
+        >>> print(np.linalg.norm(entries - entries2))
+        1.7763568394002505e-15
+        '''
+        return t3_get_entries(self, index, use_jax=use_jax)
+
+    def t3_apply(
+            self,
+            vecs: typ.Sequence[NDArray], # len=d, elm_shape=(Ni,) or (num_applies, Ni)
+            use_jax: bool = False,
+    ) -> NDArray:
+        '''Contract a Tucker tensor train with vectors in all indices.
+
+        See Also
+        --------
+        t3_get_entries
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
+        >>> result = x.t3_apply(vecs)
+        >>> result2 = np.einsum('ijk,ni,nj,nk->n', x.to_dense(), vecs[0], vecs[1], vecs[2])
+        >>> print(np.linalg.norm(result - result2))
+        3.1271953680324864e-12
+        '''
+        return t3_apply(self, vecs, use_jax=use_jax)
+
 
 if has_jax:
     jax.tree_util.register_pytree_node(
