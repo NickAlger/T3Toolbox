@@ -1,7 +1,7 @@
 import numpy as np
 import typing as typ
 
-import t3toolbox.util_linalg as linalg
+import t3toolbox.utils.contractions as contractions
 from t3toolbox.common import *
 
 __all__ = [
@@ -16,7 +16,7 @@ def t3_get_entries(
         ],
         index: NDArray, # dtype=int, shape=(d,)+vsi
         use_jax: bool = False,
-) -> NDArray:
+) -> NDArray: # shape=vsx+vsi
     '''Compute entries of a Tucker tensor train.
     '''
     is_uniform = is_ndarray(x[0])
@@ -24,32 +24,24 @@ def t3_get_entries(
 
     #
     tucker_cores, tt_cores = x
-    num_cores = len(x[0])
     vsx = x[0][0].shape[:-2]
 
     vsi = index.shape[1:]
 
-    NX = np.prod(vsx, dtype=int) # yes, np. We want this computed statically
-    NI = np.prod(vsi, dtype=int)
-
-    def _func(mu_IXa, ind_B_G):
+    def _func(mu_XIa, ind_B_G):
         ind, B_Xpo, G_Xapb = ind_B_G
-        N = B_Xpo.shape[-1]
-        rL = G_Xapb.shape[-3]
-        n = G_Xapb.shape[-2]
-        rR = G_Xapb.shape[-1]
+        xi_XpI = B_Xpo[..., ind]
 
-        B_Xpo = B_Xpo.reshape((NX, n, N))
-        G_Xapb = G_Xapb.reshape((NX, rL, n, rR))
+        mu_XIb = contractions.MNa_Maib_MiN_to_MNb(
+            mu_XIa, G_Xapb, xi_XpI, use_jax=use_jax,
+        )
 
-        v_XpI = B_Xpo[:,:,ind]
-        mu_IXb = xnp.einsum('...Xa,Xapb,Xp...->...Xb', mu_IXa, G_Xapb, v_XpI)
-        return mu_IXb, (0,)
+        return mu_XIb, (0,)
 
-    mu_IXa = xnp.ones((NI, NX)+(tt_cores[0].shape[-3],))
+    mu_XIa = xnp.ones(vsx + vsi + (tt_cores[0].shape[-3],))
     ind_B_G = (index, tucker_cores, tt_cores)
-    mu_IXz, _ = xscan(_func, mu_IXa, ind_B_G)
+    mu_XIz, _ = xscan(_func, mu_XIa, ind_B_G)
 
-    result = xnp.einsum('...Xa->...X', mu_IXz).reshape(vsi + vsx)
+    result = xnp.sum(mu_XIz, axis=-1)
     return result
 
