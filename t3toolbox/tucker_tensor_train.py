@@ -1381,6 +1381,41 @@ class TuckerTensorTrain:
         '''
         return t3_apply(self, vecs, use_jax=use_jax)
 
+    #### Vectorization / stacking ####
+
+    def sum_stack(self, use_jax: bool=False) -> 'TuckerTensorTrain':
+        """If this object contains multiple stacked T3s of the same structure, this sums them.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.corewise as cw
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), vectorization_shape=(2,3))
+        >>> x_sum = x.sum_stack()
+        >>> tucker_sum = tuple([np.sum(B, axis=(0,1)) for B in x.tucker_cores])
+        >>> tt_sum = tuple([np.sum(G, axis=(0,1)) for G in x.tt_cores])
+        >>> x_sum2 = t3.TuckerTensorTrain(tucker_sum, tt_sum)
+        >>> print(cw.corewise_norm(cw.corewise_sub(x_sum.data, x_sum2.data)))
+        0.0
+        """
+        xnp, _, _ = get_backend(False, use_jax=use_jax)
+        tucker_cores, tt_cores = self.data
+        vsv = self.vectorization_shape
+        N_vsv = np.prod(vsv, dtype=int)
+
+        summed_tucker_cores = []
+        for B in tucker_cores:
+            B_sum = xnp.sum(B.reshape((N_vsv,) + B.shape[-2:]), axis=0)
+            summed_tucker_cores.append(B_sum)
+
+        summed_tt_cores = []
+        for G in tt_cores:
+            G_sum = xnp.sum(G.reshape((N_vsv,) + G.shape[-3:]), axis=0)
+            summed_tt_cores.append(G_sum)
+
+        return TuckerTensorTrain(tuple(summed_tucker_cores), tuple(summed_tt_cores))
+
 
 if has_jax:
     jax.tree_util.register_pytree_node(
