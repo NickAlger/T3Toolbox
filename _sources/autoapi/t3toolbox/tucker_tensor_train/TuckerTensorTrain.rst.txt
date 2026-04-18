@@ -28,8 +28,8 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
    d: int
        Number of indices of the tensor
 
-   vectorization_shape: typ.Tuple[int, ...]
-       The vectorization shape, VS. Non-empty if this object stores many different Tucker tensor trains with the same structure.
+   stack_shape: typ.Tuple[int, ...]
+       The stack shape, VS. Non-empty if this object stores many different Tucker tensor trains with the same structure.
        Shape of the leading parts of tucker_cores[ii].shape and tt_cores[ii].shape.
 
    shape: typ.Tuple[int,...]
@@ -68,10 +68,10 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
    the "1"s in the diagram are vectors of ones.
 
 
-   Many Tucker tensor trains with the same structure may be stored in this object for vectorization.
+   Many stacked Tucker tensor trains with the same structure may be stored in this object for vectorization.
    In this case,
-       - tucker_cores[ii].shape = vectorization_shape + (ni,Ni)
-       - tt_cores[ii].shape = vectorization_shape + (ri, ni, r(i+1))
+       - tucker_cores[ii].shape = stack_shape + (ni,Ni)
+       - tt_cores[ii].shape = stack_shape + (ri, ni, r(i+1))
 
    .. seealso::
 
@@ -92,9 +92,9 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
    >>> print(x.tt_ranks)
    (1, 3, 2, 1)
    >>> print(x.structure)
-   ((14, 15, 16), (4, 5, 6), (1, 3, 2, 1))
+   ((14, 15, 16), (4, 5, 6), (1, 3, 2, 1), ())
 
-   Example with vectorization:
+   Example with stacking:
 
    >>> import numpy as np
    >>> import t3toolbox.tucker_tensor_train as t3
@@ -102,9 +102,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
    >>> tt_cores = [np.ones((6,7, 1,4,3)), np.ones((6,7, 3,5,2)), np.ones((6,7, 2,6,1))]
    >>> x = t3.TuckerTensorTrain(tucker_cores, tt_cores) # TuckerTensorTrain, cores filled with ones
    >>> print(x.structure)
-   ((14, 15, 16), (4, 5, 6), (1, 3, 2, 1))
-   >>> print(x.vectorization_shape)
-   (6, 7)
+   ((14, 15, 16), (4, 5, 6), (1, 3, 2, 1), (6, 7))
 
    Minimal ranks
 
@@ -147,7 +145,11 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
    .. py:method:: is_empty() -> bool
 
 
-   .. py:method:: vectorization_shape() -> t3toolbox.common.typ.Tuple[int, Ellipsis]
+   .. py:method:: stack_shape() -> t3toolbox.common.typ.Tuple[int, Ellipsis]
+
+      If this object contains multiple stacked T3s with the same structure, this is the shape of the stack.
+
+
 
 
    .. py:method:: shape() -> t3toolbox.common.typ.Tuple[int, Ellipsis]
@@ -159,7 +161,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
    .. py:method:: tt_ranks() -> t3toolbox.common.typ.Tuple[int, Ellipsis]
 
 
-   .. py:method:: structure() -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.typ.Tuple[int, Ellipsis]]
+   .. py:method:: structure() -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.typ.Tuple[int, Ellipsis]]
 
 
    .. py:method:: core_shapes() -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], Ellipsis], t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], Ellipsis]]
@@ -227,7 +229,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> print(np.linalg.norm(x_dense - x_dense2) / np.linalg.norm(x_dense))
       1.1217675019342066e-15
 
-      Example with vectorization
+      Example with stacking
 
       >>> import numpy as np
       >>> import t3toolbox.tucker_tensor_train as t3
@@ -312,10 +314,10 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> tt_cores = (randn(2,3, 1,4,2), randn(2,3, 2,5,3), randn(2,3, 3,6,4))
       >>> x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
       >>> print(x.structure)
-      ((10, 11, 12), (4, 5, 6), (1, 2, 3, 4))
+      ((10, 11, 12), (4, 5, 6), (1, 2, 3, 4), (2,3))
       >>> reversed_x = x.reverse()
       >>> print(reversed_x.structure)
-      ((12, 11, 10), (6, 5, 4), (4, 3, 2, 1))
+      ((12, 11, 10), (6, 5, 4), (4, 3, 2, 1), (2,3))
       >>> x_dense = x.to_dense()
       >>> reversed_x_dense = reversed_x.to_dense()
       >>> x_dense2 = reversed_x_dense.transpose([0,1, 4,3,2])
@@ -336,7 +338,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> new_structure = ((17,18,17), (8,8,8), (1,5,6,1))
       >>> padded_x = x.change_structure(new_structure)
       >>> print(padded_x.structure)
-      ((17, 18, 17), (8, 8, 8), (1, 5, 6, 1))
+      ((17, 18, 17), (8, 8, 8), (1, 5, 6, 1), ())
 
       Example where first and last ranks are nonzero:
 
@@ -346,7 +348,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> new_structure = ((17,18,17), (8,8,8), (5,5,6,7))
       >>> padded_x = x.change_structure(new_structure)
       >>> print(padded_x.structure)
-      ((17, 18, 17), (8, 8, 8), (5, 5, 6, 7))
+      ((17, 18, 17), (8, 8, 8), (5, 5, 6, 7), ())
 
 
 
@@ -364,7 +366,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (1,5,6,1))
       >>> z = x + y
       >>> print(z.structure)
-      ((14, 15, 16), (7, 12, 8), (1, 8, 8, 1))
+      ((14, 15, 16), (7, 12, 8), (1, 8, 8, 1), ())
       >>> print(np.linalg.norm(x.to_dense() + y.to_dense() - z.to_dense()))
       6.524094086845177e-13
 
@@ -471,7 +473,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (1,5,6,1))
       >>> x_minus_y = x - y
       >>> print(x_minus_y.structure)
-      ((14, 15, 16), (7, 12, 8), (2, 8, 8, 2))
+      ((14, 15, 16), (7, 12, 8), (2, 8, 8, 2), ())
       >>> print(np.linalg.norm(x.to_dense() - y.to_dense() - x_minus_y.to_dense()))
       3.5875705233607603e-13
 
@@ -920,7 +922,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> import numpy as np
       >>> import t3toolbox.tucker_tensor_train as t3
       >>> import t3toolbox.corewise as cw
-      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), vectorization_shape=(2,3))
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
       >>> x_sum = x.sum_stack()
       >>> tucker_sum = tuple([np.sum(B, axis=(0,1)) for B in x.tucker_cores])
       >>> tt_sum = tuple([np.sum(G, axis=(0,1)) for G in x.tt_cores])
@@ -933,13 +935,13 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
    .. py:method:: unstack()
 
       If this object contains multiple stacked T3s, this unstacks them
-      into an array-like structure of nested tuples with the same "shape" as self.vectorization_shape.
+      into an array-like structure of nested tuples with the same "shape" as self.stack_shape.
 
-      Examples:
-      ---------
+      .. rubric:: Examples
+
       >>> import numpy as np
       >>> import t3toolbox.tucker_tensor_train as t3
-      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), vectorization_shape=(3,5))
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(3,5))
       >>> unstacked_x = x.unstack()
       >>> print([len(s) for s in unstacked_x])
       [5, 5, 5]

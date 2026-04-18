@@ -505,7 +505,7 @@
 </dd>
 <dt>d: int</dt><dd><p>Number of indices of the tensor</p>
 </dd>
-<dt>vectorization_shape: typ.Tuple[int, …]</dt><dd><p>The vectorization shape, VS. Non-empty if this object stores many different Tucker tensor trains with the same structure.
+<dt>stack_shape: typ.Tuple[int, …]</dt><dd><p>The stack shape, VS. Non-empty if this object stores many different Tucker tensor trains with the same structure.
 Shape of the leading parts of tucker_cores[ii].shape and tt_cores[ii].shape.</p>
 </dd>
 <dt>shape: typ.Tuple[int,…]</dt><dd><p>Tensor shape: (N0, N1, …, N(d-1))</p>
@@ -536,12 +536,12 @@ Tucker tensor trains may be made to have minimal ranks using T3-SVD.</p>
 <p>Typically, the first and last TT-ranks satisfy r0=rd=1, and “1” in the diagram
 is the number 1. However, it is allowed for these ranks to not be 1, in which case
 the “1”s in the diagram are vectors of ones.</p>
-<p>Many Tucker tensor trains with the same structure may be stored in this object for vectorization.
+<p>Many stacked Tucker tensor trains with the same structure may be stored in this object for vectorization.
 In this case,</p>
 <blockquote>
 <div><ul class="simple">
-<li><p>tucker_cores[ii].shape = vectorization_shape + (ni,Ni)</p></li>
-<li><p>tt_cores[ii].shape = vectorization_shape + (ri, ni, r(i+1))</p></li>
+<li><p>tucker_cores[ii].shape = stack_shape + (ni,Ni)</p></li>
+<li><p>tt_cores[ii].shape = stack_shape + (ri, ni, r(i+1))</p></li>
 </ul>
 </div></blockquote>
 <p class="rubric">Examples</p>
@@ -559,19 +559,17 @@ In this case,</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">tt_ranks</span><span class="p">)</span>
 <span class="go">(1, 3, 2, 1)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">structure</span><span class="p">)</span>
-<span class="go">((14, 15, 16), (4, 5, 6), (1, 3, 2, 1))</span>
+<span class="go">((14, 15, 16), (4, 5, 6), (1, 3, 2, 1), ())</span>
 </pre></div>
 </div>
-<p>Example with vectorization:</p>
+<p>Example with stacking:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">6</span><span class="p">,</span><span class="mi">7</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span><span class="mi">14</span><span class="p">)),</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">6</span><span class="p">,</span><span class="mi">7</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span><span class="mi">15</span><span class="p">)),</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">6</span><span class="p">,</span><span class="mi">7</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span><span class="mi">16</span><span class="p">))]</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">tt_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">6</span><span class="p">,</span><span class="mi">7</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">3</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">6</span><span class="p">,</span><span class="mi">7</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">2</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">6</span><span class="p">,</span><span class="mi">7</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">1</span><span class="p">))]</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="p">(</span><span class="n">tucker_cores</span><span class="p">,</span> <span class="n">tt_cores</span><span class="p">)</span> <span class="c1"># TuckerTensorTrain, cores filled with ones</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">structure</span><span class="p">)</span>
-<span class="go">((14, 15, 16), (4, 5, 6), (1, 3, 2, 1))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">vectorization_shape</span><span class="p">)</span>
-<span class="go">(6, 7)</span>
+<span class="go">((14, 15, 16), (4, 5, 6), (1, 3, 2, 1), (6, 7))</span>
 </pre></div>
 </div>
 <p>Minimal ranks</p>
@@ -625,9 +623,10 @@ In this case,</p>
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.vectorization_shape">
-<span class="sig-name descname"><span class="pre">vectorization_shape</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.vectorization_shape" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
+<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.stack_shape">
+<span class="sig-name descname"><span class="pre">stack_shape</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.stack_shape" title="Link to this definition">#</a></dt>
+<dd><p>If this object contains multiple stacked T3s with the same structure, this is the shape of the stack.</p>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.shape">
@@ -646,7 +645,7 @@ In this case,</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.structure">
-<span class="sig-name descname"><span class="pre">structure</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.structure" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">structure</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.structure" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
@@ -726,7 +725,7 @@ or (r0,N0,…,N(d-1),rd) if squash_tails=False.</p>
 <span class="go">1.1217675019342066e-15</span>
 </pre></div>
 </div>
-<p>Example with vectorization</p>
+<p>Example with stacking</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">randn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span>
@@ -820,10 +819,10 @@ or (r0,N0,…,N(d-1),rd) if squash_tails=False.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">3</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">4</span><span class="p">))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="p">(</span><span class="n">tucker_cores</span><span class="p">,</span> <span class="n">tt_cores</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">structure</span><span class="p">)</span>
-<span class="go">((10, 11, 12), (4, 5, 6), (1, 2, 3, 4))</span>
+<span class="go">((10, 11, 12), (4, 5, 6), (1, 2, 3, 4), (2,3))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">reversed_x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">reverse</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">reversed_x</span><span class="o">.</span><span class="n">structure</span><span class="p">)</span>
-<span class="go">((12, 11, 10), (6, 5, 4), (4, 3, 2, 1))</span>
+<span class="go">((12, 11, 10), (6, 5, 4), (4, 3, 2, 1), (2,3))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x_dense</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">reversed_x_dense</span> <span class="o">=</span> <span class="n">reversed_x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x_dense2</span> <span class="o">=</span> <span class="n">reversed_x_dense</span><span class="o">.</span><span class="n">transpose</span><span class="p">([</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">])</span>
@@ -844,7 +843,7 @@ or (r0,N0,…,N(d-1),rd) if squash_tails=False.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">new_structure</span> <span class="o">=</span> <span class="p">((</span><span class="mi">17</span><span class="p">,</span><span class="mi">18</span><span class="p">,</span><span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span><span class="mi">8</span><span class="p">,</span><span class="mi">8</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">padded_x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">change_structure</span><span class="p">(</span><span class="n">new_structure</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">padded_x</span><span class="o">.</span><span class="n">structure</span><span class="p">)</span>
-<span class="go">((17, 18, 17), (8, 8, 8), (1, 5, 6, 1))</span>
+<span class="go">((17, 18, 17), (8, 8, 8), (1, 5, 6, 1), ())</span>
 </pre></div>
 </div>
 <p>Example where first and last ranks are nonzero:</p>
@@ -854,7 +853,7 @@ or (r0,N0,…,N(d-1),rd) if squash_tails=False.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">new_structure</span> <span class="o">=</span> <span class="p">((</span><span class="mi">17</span><span class="p">,</span><span class="mi">18</span><span class="p">,</span><span class="mi">17</span><span class="p">),</span> <span class="p">(</span><span class="mi">8</span><span class="p">,</span><span class="mi">8</span><span class="p">,</span><span class="mi">8</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">7</span><span class="p">))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">padded_x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">change_structure</span><span class="p">(</span><span class="n">new_structure</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">padded_x</span><span class="o">.</span><span class="n">structure</span><span class="p">)</span>
-<span class="go">((17, 18, 17), (8, 8, 8), (5, 5, 6, 7))</span>
+<span class="go">((17, 18, 17), (8, 8, 8), (5, 5, 6, 7), ())</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -871,7 +870,7 @@ or (r0,N0,…,N(d-1),rd) if squash_tails=False.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">y</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">7</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">z</span> <span class="o">=</span> <span class="n">x</span> <span class="o">+</span> <span class="n">y</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">z</span><span class="o">.</span><span class="n">structure</span><span class="p">)</span>
-<span class="go">((14, 15, 16), (7, 12, 8), (1, 8, 8, 1))</span>
+<span class="go">((14, 15, 16), (7, 12, 8), (1, 8, 8, 1), ())</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">+</span> <span class="n">y</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">-</span> <span class="n">z</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()))</span>
 <span class="go">6.524094086845177e-13</span>
 </pre></div>
@@ -1000,7 +999,7 @@ are not formed during computations.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">y</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">7</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x_minus_y</span> <span class="o">=</span> <span class="n">x</span> <span class="o">-</span> <span class="n">y</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x_minus_y</span><span class="o">.</span><span class="n">structure</span><span class="p">)</span>
-<span class="go">((14, 15, 16), (7, 12, 8), (2, 8, 8, 2))</span>
+<span class="go">((14, 15, 16), (7, 12, 8), (2, 8, 8, 2), ())</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">-</span> <span class="n">y</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">-</span> <span class="n">x_minus_y</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()))</span>
 <span class="go">3.5875705233607603e-13</span>
 </pre></div>
@@ -1499,7 +1498,7 @@ einsum(‘iaj,ibj-&gt;ab’, new_tt_cores[ii], new_tt_cores[ii]) = identity matr
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.corewise</span> <span class="k">as</span> <span class="nn">cw</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="n">vectorization_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="n">stack_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x_sum</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">sum_stack</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_sum</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span> <span class="k">for</span> <span class="n">B</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">tucker_cores</span><span class="p">])</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">tt_sum</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span> <span class="k">for</span> <span class="n">G</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">tt_cores</span><span class="p">])</span>
@@ -1514,12 +1513,11 @@ einsum(‘iaj,ibj-&gt;ab’, new_tt_cores[ii], new_tt_cores[ii]) = identity matr
 <dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.unstack">
 <span class="sig-name descname"><span class="pre">unstack</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.unstack" title="Link to this definition">#</a></dt>
 <dd><p>If this object contains multiple stacked T3s, this unstacks them
-into an array-like structure of nested tuples with the same “shape” as self.vectorization_shape.</p>
-<section id="examples">
-<h3>Examples:<a class="headerlink" href="#examples" title="Link to this heading">#</a></h3>
+into an array-like structure of nested tuples with the same “shape” as self.stack_shape.</p>
+<p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="n">vectorization_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="n">stack_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">unstacked_x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">unstack</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">([</span><span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">unstacked_x</span><span class="p">])</span>
 <span class="go">[5, 5, 5]</span>
@@ -1530,7 +1528,6 @@ into an array-like structure of nested tuples with the same “shape” as self.
 <span class="go">0.0</span>
 </pre></div>
 </div>
-</section>
 </dd></dl>
 
 </section>
@@ -1592,7 +1589,7 @@ into an array-like structure of nested tuples with the same “shape” as self.
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.data"><code class="docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.data()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.d"><code class="docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.d()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_empty"><code class="docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_empty()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.vectorization_shape"><code class="docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.vectorization_shape()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.stack_shape"><code class="docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.stack_shape()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.shape"><code class="docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.shape()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.tucker_ranks"><code class="docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.tucker_ranks()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.tt_ranks"><code class="docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.tt_ranks()</span></code></a></li>

@@ -51,7 +51,7 @@ t3toolbox.tucker_tensor_train.t3_get_entries
 
    >>> import numpy as np
    >>> import t3toolbox.tucker_tensor_train as t3
-   >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2), vectorization_shape=(2,3))
+   >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2), stack_shape=(2,3))
    >>> index = [[9,0], [4,0], [7,0]] # get entries (9,4,7) and (0,0,0)
    >>> entries = t3.t3_get_entries(x, index)
    >>> x_dense = x.to_dense(x)
