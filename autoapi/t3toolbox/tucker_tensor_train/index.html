@@ -355,6 +355,7 @@
 <li class="toctree-l3"><a class="reference internal" href="t3_load.html">t3toolbox.tucker_tensor_train.t3_load</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_to_vector.html">t3toolbox.tucker_tensor_train.t3_to_vector</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_from_vector.html">t3toolbox.tucker_tensor_train.t3_from_vector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3_core_shapes.html">t3toolbox.tucker_tensor_train.t3_core_shapes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_apply.html">t3toolbox.tucker_tensor_train.t3_apply</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_get_entries.html">t3toolbox.tucker_tensor_train.t3_get_entries</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_minimal_t3_ranks.html">t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks</a></li>
@@ -657,13 +658,16 @@ are not formed during computations.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="t3_from_vector.html#t3toolbox.tucker_tensor_train.t3_from_vector" title="t3toolbox.tucker_tensor_train.t3_from_vector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_from_vector</span></code></a>() → TuckerTensorTrain)</p></td>
 <td><p>Constructs a TuckerTensorTrain from a 1D vector containing the core entries.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_apply.html#t3toolbox.tucker_tensor_train.t3_apply" title="t3toolbox.tucker_tensor_train.t3_apply"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_apply</span></code></a>(→ t3toolbox.common.NDArray)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_core_shapes.html#t3toolbox.tucker_tensor_train.t3_core_shapes" title="t3toolbox.tucker_tensor_train.t3_core_shapes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_core_shapes</span></code></a>(...)</p></td>
+<td><p>Compute the tucker and TT core shapes for a Tucker tensor train.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_apply.html#t3toolbox.tucker_tensor_train.t3_apply" title="t3toolbox.tucker_tensor_train.t3_apply"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_apply</span></code></a>(→ t3toolbox.common.NDArray)</p></td>
 <td><p>Contract a Tucker tensor train with vectors in all indices.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_get_entries.html#t3toolbox.tucker_tensor_train.t3_get_entries" title="t3toolbox.tucker_tensor_train.t3_get_entries"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_get_entries</span></code></a>(→ t3toolbox.common.NDArray)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_get_entries.html#t3toolbox.tucker_tensor_train.t3_get_entries" title="t3toolbox.tucker_tensor_train.t3_get_entries"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_get_entries</span></code></a>(→ t3toolbox.common.NDArray)</p></td>
 <td><p>Compute an entry (or multiple entries) of a Tucker tensor train.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="compute_minimal_t3_ranks.html#t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks" title="t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_minimal_t3_ranks</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="compute_minimal_t3_ranks.html#t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks" title="t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_minimal_t3_ranks</span></code></a>(...)</p></td>
 <td><p>Find minimal ranks for a generic Tucker tensor train with a given structure.</p></td>
 </tr>
 </tbody>

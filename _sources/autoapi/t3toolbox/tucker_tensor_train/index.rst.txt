@@ -119,6 +119,7 @@ Functions
    /autoapi/t3toolbox/tucker_tensor_train/t3_load
    /autoapi/t3toolbox/tucker_tensor_train/t3_to_vector
    /autoapi/t3toolbox/tucker_tensor_train/t3_from_vector
+   /autoapi/t3toolbox/tucker_tensor_train/t3_core_shapes
    /autoapi/t3toolbox/tucker_tensor_train/t3_apply
    /autoapi/t3toolbox/tucker_tensor_train/t3_get_entries
    /autoapi/t3toolbox/tucker_tensor_train/compute_minimal_t3_ranks
@@ -132,6 +133,7 @@ Functions
    t3toolbox.tucker_tensor_train.t3_load
    t3toolbox.tucker_tensor_train.t3_to_vector
    t3toolbox.tucker_tensor_train.t3_from_vector
+   t3toolbox.tucker_tensor_train.t3_core_shapes
    t3toolbox.tucker_tensor_train.t3_apply
    t3toolbox.tucker_tensor_train.t3_get_entries
    t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks
