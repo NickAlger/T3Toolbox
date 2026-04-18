@@ -182,3 +182,11 @@ def absorb_edge_weights_into_t3(
     tt_cores = tuple(first_tt_cores) + (Gf,)
 
     return tucker_cores, tt_cores
+
+
+
+
+
+
+
+

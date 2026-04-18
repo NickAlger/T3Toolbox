@@ -1384,7 +1384,7 @@ class TuckerTensorTrain:
     #### Vectorization / stacking ####
 
     def sum_stack(self, use_jax: bool=False) -> 'TuckerTensorTrain':
-        """If this object contains multiple stacked T3s of the same structure, this sums them.
+        """If this object contains multiple stacked T3s, this sums them.
 
         Examples
         --------
@@ -1415,6 +1415,38 @@ class TuckerTensorTrain:
             summed_tt_cores.append(G_sum)
 
         return TuckerTensorTrain(tuple(summed_tucker_cores), tuple(summed_tt_cores))
+
+    def unstack(self): # returns an array-like structure of nested tuples containing TuckerTensorTrains
+        """If this object contains multiple stacked T3s, this unstacks them
+        into an array-like structure of nested tuples with the same "shape" as self.vectorization_shape.
+
+        Examples:
+        ---------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), vectorization_shape=(3,5))
+        >>> unstacked_x = x.unstack()
+        >>> print([len(s) for s in unstacked_x])
+        [5, 5, 5]
+        >>> tucker13 = tuple([B[1,3] for B in x.tucker_cores])
+        >>> tt13 = tuple([G[1,3] for G in x.tt_cores])
+        >>> x13 = t3.TuckerTensorTrain(tucker13, tt13)
+        >>> print((x13 - unstacked_x[1][3]).norm())
+        0.0
+        """
+        tucker_cores, tt_cores = self.data
+        if not self.vectorization_shape:
+            return self
+
+        n = tucker_cores[0].shape[0]
+        unstacked_x = []
+        for ii in range(n):
+            BB = tuple([B[ii] for B in tucker_cores])
+            GG = tuple([G[ii] for G in tt_cores])
+            unstacked_x.append(TuckerTensorTrain(BB, GG).unstack())
+
+        return tuple(unstacked_x)
+
 
 
 if has_jax:
