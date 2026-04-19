@@ -189,6 +189,34 @@ class WeightedTuckerTensorTrain:
     def __sub__(self, other, squash: bool=True, use_jax: bool=False):
         return wt3_sub(self, other, squash=squash, use_jax=use_jax)
 
+    def norm(
+            self,
+            use_orthogonalization: bool = True,
+            use_jax: bool = False,
+    ):
+        """Computes the Hilbert-Schmidt norm of the weighted Tucker tensor train.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.weighted_tucker_tensor_train as wt3
+        >>> randn = np.random.randn
+        >>> x0 = t3.t3_corewise_randn((6,7,8), (5,6,7), (2,3,3,1), stack_shape=(4,))
+        >>> x_tucker_vectors = tuple([randn(4, 5), randn(4, 6), randn(4, 7)])
+        >>> x_tt_vectors = tuple([randn(4, 2), randn(4, 3), randn(4, 3), randn(4, 1)])
+        >>> x_weights = wt3.EdgeVectors(x_tucker_vectors, x_tt_vectors)
+        >>> x = wt3.WeightedTuckerTensorTrain(x0, x_weights)
+        >>> print(x.norm())
+        [ 31.94684693   0.68957189 100.53306804  35.34732966]
+        >>> x_dense = x.contract_edge_weights_into_cores().to_dense()
+        >>> print(np.array([np.linalg.norm(x_dense[ii]) for ii in range(4)]))
+        [ 31.94684693   0.68957189 100.53306804  35.34732966]
+        """
+        return self.contract_edge_weights_into_cores(use_jax=use_jax).norm(
+            use_orthogonalization=use_orthogonalization, use_jax=use_jax
+        )
+
 
 if has_jax:
     jax.tree_util.register_pytree_node(
