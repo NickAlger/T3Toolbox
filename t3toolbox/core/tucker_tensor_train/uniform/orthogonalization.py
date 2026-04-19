@@ -27,9 +27,9 @@ def up_orthogonalize_uniform_tucker_cores(
     B_d_o_i = B_d_i_o.swapaxes(1,2)
 
     U_d_o_x, ss_d_x, WT_d_x_i = xnp.linalg.svd(B_d_o_i, full_matrices=False)
-    R_d_x_i = xnp.einsum('...dx,...dxi->...dxi', ss_d_x, WT_d_x_i)
+    R_d_x_i = xnp.einsum('...x,...xi->...xi', ss_d_x, WT_d_x_i)
 
-    new_G_d_a_x_b = xnp.einsum('...daib,...dxi->...daxb', G_d_a_i_b, R_d_x_i)
+    new_G_d_a_x_b = xnp.einsum('...aib,...xi->...axb', G_d_a_i_b, R_d_x_i)
     new_U_d_x_o = U_d_o_x.swapaxes(1,2)
     up_tucker_cores, new_tt_cores = new_U_d_x_o, new_G_d_a_x_b
 
@@ -57,7 +57,7 @@ def down_orthogonalize_uniform_tt_cores(
 
     C_d_x_i = ss_d_x.reshape((1, -1, 1)) * WT_d_x_i
 
-    V_d_x_o = np.einsum('...dxi,...dio->...dxo', C_d_x_i, U_d_i_o)
+    V_d_x_o = np.einsum('...xi,...io->...xo', C_d_x_i, U_d_i_o)
     tucker_variations, outer_tt_cores = V_d_x_o, O_d_a_x_b
 
     return tucker_variations, outer_tt_cores

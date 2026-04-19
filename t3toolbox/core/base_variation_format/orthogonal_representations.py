@@ -16,9 +16,6 @@ __all__ = [
     'orthogonal_representations',
 ]
 
-from t3toolbox.core.tucker_tensor_train.ragged.orthogonalization import up_orthogonalize_tucker_cores
-
-
 def orthogonal_representations(
         x: typ.Union[
             typ.Tuple[
