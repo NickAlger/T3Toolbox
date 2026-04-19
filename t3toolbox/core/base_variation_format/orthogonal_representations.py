@@ -5,11 +5,18 @@
 import numpy as np
 import typing as typ
 
+import t3toolbox.core.tucker_tensor_train.ragged.operations as ragged_operations
+import t3toolbox.core.tucker_tensor_train.uniform.operations as uniform_operations
+import t3toolbox.core.tucker_tensor_train.orthogonalization as orth
+import t3toolbox.core.tucker_tensor_train.ragged.orthogonalization as ragged_orth
+import t3toolbox.core.tucker_tensor_train.uniform.orthogonalization as uniform_orth
 from t3toolbox.common import *
 
 __all__ = [
     'orthogonal_representations',
 ]
+
+from t3toolbox.core.tucker_tensor_train.ragged.orthogonalization import up_orthogonalize_tucker_cores
 
 
 def orthogonal_representations(
@@ -24,11 +31,33 @@ def orthogonal_representations(
             ], # uniform
         ],
         already_left_orthogonal: bool = False,
-        squash_tails: bool = True,
+        squash: bool = True,
         use_jax: bool = False,
-) -> typ.Tuple[
-    bvf.T3Base, # orthogonal base
-    bvf.T3Variation, # variations
+) -> typ.Union[
+    typ.Tuple[
+        typ.Tuple[
+            typ.Tuple[NDArray,...], # up_tucker_cores
+            typ.Tuple[NDArray,...], # left_tt_cores
+            typ.Tuple[NDArray,...], # right_tucker_cores
+            typ.Tuple[NDArray,...], # down_tucker_cores
+        ],
+        typ.Tuple[
+            typ.Tuple[NDArray,...], # tucker_variations
+            typ.Tuple[NDArray,...], # tt_variations
+        ],
+    ], # ragged
+    typ.Tuple[
+        typ.Tuple[
+            NDArray,  # up_tucker_supercore
+            NDArray,  # left_tt_supercore
+            NDArray,  # right_tucker_supercore
+            NDArray,  # down_tucker_supercore
+        ],
+        typ.Tuple[
+            NDArray,  # tucker_variations_supercore
+            NDArray,  # tt_variations_supercore
+        ],
+    ],  # uniform
 ]:
     '''Construct base-variation representations of TuckerTensorTrain with orthogonal base.
 
@@ -142,13 +171,19 @@ def orthogonal_representations(
     >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', O0, O0) - np.eye(O0.shape[1]))) # O: outer orthogonal
     1.2300840868850519e-15
     '''
-    is_uniform = not isinstance(x[0], typ.Sequence)
+    is_uniform = is_ndarray(x[0])
 
-    if squash_tails:
-        if is_uniform:
-            x = ut3.uniform_squash_tails(x)
-        else:
-            x = t3.squash_tails(x)
+    if is_uniform:
+        squash_tails = lambda tk, tt: (tk, ragged_operations.squash_tt_tails(tt))
+        up_orthogonalize_tucker_cores = uniform_orth.up_orthogonalize_uniform_tucker_cores
+        down_orthogonalize_tt_cores = uniform_orth.down_orthogonalize_uniform_tt_cores
+    else:
+        squash_tails = lambda tk, tt: (tk, uniform_operations.squash_utt_tails(tt))
+        up_orthogonalize_tucker_cores = ragged_orth.up_orthogonalize_tucker_cores
+        down_orthogonalize_tt_cores = ragged_orth.down_orthogonalize_tt_cores
+
+    if squash:
+        x = squash_tails(x)
 
     if not already_left_orthogonal:
         # Orthogonalize Tucker cores upward to get up_tt_cores U
@@ -157,19 +192,19 @@ def orthogonal_representations(
         )
 
         # Sweep left-to-right, generating left orthogonal tt_cores L
-        left_tt_cores = left_orthogonalize_tt_cores(
+        left_tt_cores = orth.left_orthogonalize_tt_cores(
             tt_cores, use_jax=use_jax,
         )
     else:
         up_tucker_cores, left_tt_cores = x
 
     # Sweep right-to-left, generating tt_variations H, and right orthogonal tt_cores R
-    right_tt_cores, tt_variations = right_orthogonalize_tt_cores(
+    right_tt_cores, tt_variations = orth.right_orthogonalize_tt_cores(
         left_tt_cores, return_variation_cores=True, use_jax=use_jax,
     )
 
     # Orthogonalize TT cores downward to get outer_tt_cores O and tucker_variations V
-    tucker_variations, outer_tt_cores = outer_orthogonalize_tt_cores(
+    tucker_variations, outer_tt_cores = down_orthogonalize_tt_cores(
         (up_tucker_cores, tt_variations), use_jax=use_jax,
     )
 

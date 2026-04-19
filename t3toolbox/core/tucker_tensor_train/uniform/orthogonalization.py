@@ -9,7 +9,7 @@ from t3toolbox.common import *
 
 __all__ = [
     'up_orthogonalize_uniform_tucker_cores',
-    'outer_orthogonalize_uniform_tt_cores',
+    'down_orthogonalize_uniform_tt_cores',
 ]
 
 
@@ -36,7 +36,7 @@ def up_orthogonalize_uniform_tucker_cores(
     return (up_tucker_cores, new_tt_cores)
 
 
-def outer_orthogonalize_uniform_tt_cores(
+def down_orthogonalize_uniform_tt_cores(
         x: typ.Tuple[NDArray, NDArray], # (tucker_supercore, tt_supercore)
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray, NDArray]: # (tucker_variation_supercore, outer_tt_supercore)

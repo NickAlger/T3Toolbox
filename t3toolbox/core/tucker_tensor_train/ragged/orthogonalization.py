@@ -5,7 +5,7 @@ import t3toolbox.util_linalg as linalg
 from t3toolbox.common import *
 
 __all__ = [
-    'outer_orthogonalize_tt_cores',
+    'down_orthogonalize_tt_cores',
     'up_orthogonalize_tucker_cores',
     'up_svd_ith_tucker_core',
     'left_svd_ith_tt_core',
@@ -13,7 +13,7 @@ __all__ = [
 ]
 
 
-def outer_orthogonalize_tt_cores(
+def down_orthogonalize_tt_cores(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
         use_jax: bool = False,
 ) -> typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]]: # (tucker_variations, outer_tt_cores)
