@@ -5,19 +5,7 @@ contractions.MNa_Maib_No_Mio_to_MNb
 
    Computes vectorized einsum a,aib,o,io->b, with vectorization over a and i, or aib and io, or both.
 
-   N denotes the vectorization index over a and i
-   M denotes the vectorization index over aib and io
-
-   Cases supported:
-       - a,aib,o,io->b
-       - Na,aib,No,io->Nb
-       - Ma,Maib,o,Mio->Mb
-       - MNa,Maib,No,Mio->MNb
-
-   N and M may be grouped indices. E.g., for N=xyz, M=uv we have
-       xyza,uvaib,xyzo,uvio->xyzuvb
-
-   Seems impossible to make this work for all cases without checking shapes manually.
+   N and M are the vectorization indices, which may be groups of indices.
 
    .. rubric:: Examples
 

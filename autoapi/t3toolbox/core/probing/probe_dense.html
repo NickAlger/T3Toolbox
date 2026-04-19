@@ -401,6 +401,12 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../contractions/Na_Maib_Ni_to_NMb.html">contractions.Na_Maib_Ni_to_NMb</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../contractions/MNa_Maib_No_Mio_to_MNb.html">contractions.MNa_Maib_No_Mio_to_MNb</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../contractions/MNa_Maib_MiN_to_MNb.html">contractions.MNa_Maib_MiN_to_MNb</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../contractions/Mio_No_to_MNi.html">contractions.Mio_No_to_MNi</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../contractions/dMio_No_to_dMNi.html">contractions.dMio_No_to_dMNi</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../contractions/MNa_Maib_MNb_to_MNi.html">contractions.MNa_Maib_MNb_to_MNi</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../contractions/dMNa_dMaib_dMNb_to_dMNi.html">contractions.dMNa_dMaib_dMNb_to_dMNi</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../contractions/Ni_Mio_to_MNo.html">contractions.Ni_Mio_to_MNo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../contractions/dNi_dMio_to_dMNo.html">contractions.dNi_dMio_to_dMNo</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../orthogonal_representations/index.html">orthogonal_representations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -485,17 +491,17 @@
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>T</strong> (<a class="reference internal" href="../../common/index.html#id1" title="t3toolbox.common.NDArray"><em>NDArray</em></a>) – Tensor to be probed. shape=(N1,…,Nd)</p></li>
+<li><p><strong>T</strong> (<a class="reference internal" href="../../common/index.html#id1" title="t3toolbox.common.NDArray"><em>NDArray</em></a>) – Tensor to be probed. shape=Z+(N1,…,Nd)</p></li>
 <li><p><strong>vectors</strong> (<em>typ.Sequence</em><em>[</em><a class="reference internal" href="../../common/index.html#id1" title="t3toolbox.common.NDArray"><em>NDArray</em></a><em>]</em>) – Probing input vectors.
 len=d.
-elm_shape=(Ni,) or elm_shape=(num_probes, Ni)</p></li>
+elm_shape=K+(Ni,)</p></li>
 <li><p><strong>xnp</strong> – Linear algebra backend. Default: np (numpy)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p>Probes.
 len=d.
-elm_shape=(Ni,) or elm_shape=(num_probes, Ni)</p>
+elm_shape=(Ni,) or elm_shape=Z+K+(Ni,)</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>typ.Tuple[<a class="reference internal" href="../../common/index.html#id1" title="t3toolbox.common.NDArray">NDArray</a>]</p>
@@ -521,7 +527,45 @@ elm_shape=(Ni,) or elm_shape=(num_probes, Ni)</p>
 <span class="go">1.2970142174948615e-14</span>
 </pre></div>
 </div>
-<p>Probe with two sets of vectors:</p>
+<p>Vectorize over probing vectors</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.core.probing</span> <span class="k">as</span> <span class="nn">t3p</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">T</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">11</span><span class="p">,</span><span class="mi">12</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">u0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">u1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span> <span class="mi">11</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">u2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span> <span class="mi">12</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">yy</span> <span class="o">=</span> <span class="n">t3p</span><span class="o">.</span><span class="n">probe_dense</span><span class="p">((</span><span class="n">u0</span><span class="p">,</span><span class="n">u1</span><span class="p">,</span><span class="n">u2</span><span class="p">),</span><span class="n">T</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ijk,uvj,uvk-&gt;uvi&#39;</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">u1</span><span class="p">,</span> <span class="n">u2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ijk,uvi,uvk-&gt;uvj&#39;</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">u0</span><span class="p">,</span> <span class="n">u2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ijk,uvi,uvj-&gt;uvk&#39;</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">u0</span><span class="p">,</span> <span class="n">u1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">yy</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">y0</span><span class="p">))</span>
+<span class="go">2.0928808318295785e-14</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">yy</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">y1</span><span class="p">))</span>
+<span class="go">1.0841599276764049e-14</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">yy</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">y2</span><span class="p">))</span>
+<span class="go">1.2970142174948615e-14</span>
+</pre></div>
+</div>
+<p>Vectorize over probing vectors and big tensor</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.core.probing</span> <span class="k">as</span> <span class="nn">t3p</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">T</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span><span class="mi">11</span><span class="p">,</span><span class="mi">12</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">u0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">u1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span> <span class="mi">11</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">u2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span> <span class="mi">12</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">yy</span> <span class="o">=</span> <span class="n">t3p</span><span class="o">.</span><span class="n">probe_dense</span><span class="p">((</span><span class="n">u0</span><span class="p">,</span><span class="n">u1</span><span class="p">,</span><span class="n">u2</span><span class="p">),</span><span class="n">T</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y0</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;xyzijk,uvj,uvk-&gt;xyzuvi&#39;</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">u1</span><span class="p">,</span> <span class="n">u2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;xyzijk,uvi,uvk-&gt;xyzuvj&#39;</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">u0</span><span class="p">,</span> <span class="n">u2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;xyzijk,uvi,uvj-&gt;xyzuvk&#39;</span><span class="p">,</span> <span class="n">T</span><span class="p">,</span> <span class="n">u0</span><span class="p">,</span> <span class="n">u1</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">yy</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">y0</span><span class="p">))</span>
+<span class="go">2.0928808318295785e-14</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">yy</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">y1</span><span class="p">))</span>
+<span class="go">1.0841599276764049e-14</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">yy</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">y2</span><span class="p">))</span>
+<span class="go">1.2970142174948615e-14</span>
+</pre></div>
+</div>
+<p>#</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.t3p</span> <span class="k">as</span> <span class="nn">t3p</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">T</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">11</span><span class="p">,</span><span class="mi">12</span><span class="p">)</span>

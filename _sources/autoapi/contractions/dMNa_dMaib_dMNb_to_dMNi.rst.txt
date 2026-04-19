@@ -1,0 +1,67 @@
+contractions.dMNa_dMaib_dMNb_to_dMNi
+====================================
+
+.. py:function:: contractions.dMNa_dMaib_dMNb_to_dMNi(dMNa: NDArray, dMaib: NDArray, dMNb: NDArray, use_jax: bool = False) -> NDArray
+
+   Computes contraction MNa,dMaib,MNb->dMNi.
+
+   N and M may be individual indices, groups of indices, or nonexistent.
+
+   .. rubric:: Examples
+
+   Vectorize over both N and M:
+
+   >>> import numpy as np
+   >>> from t3toolbox.utils.contractions import dMNa_dMaib_dMNb_to_dMNi
+   >>> dMNa = np.random.randn(8, 2,3, 4,5,6, 10)
+   >>> dMaib = np.random.randn(8, 2,3, 10,11,12)
+   >>> dMNb = np.random.randn(8, 2,3, 4,5,6, 12)
+   >>> result = dMNa_dMaib_dMNb_to_dMNi(dMNa, dMaib, dMNb)
+   >>> result2 = np.einsum('duvxyza,duvaib,duvxyzb->duvxyzi', dMNa, dMaib, dMNb)
+   >>> print(result.shape == result2.shape)
+   True
+   >>> print(np.linalg.norm(result - result2))
+   0.0
+
+   Vectorize over N only
+
+   >>> import numpy as np
+   >>> from t3toolbox.utils.contractions import dMNa_dMaib_dMNb_to_dMNi
+   >>> dMNa = np.random.randn(8, 4,5,6, 10)
+   >>> dMaib = np.random.randn(8, 10,11,12)
+   >>> dMNb = np.random.randn(8, 4,5,6, 12)
+   >>> result = dMNa_dMaib_dMNb_to_dMNi(dMNa, dMaib, dMNb)
+   >>> result2 = np.einsum('dxyza,daib,dxyzb->dxyzi', dMNa, dMaib, dMNb)
+   >>> print(result.shape == result2.shape)
+   True
+   >>> print(np.linalg.norm(result - result2))
+   0.0
+
+   Vectorize over both M only:
+
+   >>> import numpy as np
+   >>> from t3toolbox.utils.contractions import dMNa_dMaib_dMNb_to_dMNi
+   >>> dMNa = np.random.randn(8, 2,3, 10)
+   >>> dMaib = np.random.randn(8, 2,3, 10,11,12)
+   >>> dMNb = np.random.randn(8, 2,3, 12)
+   >>> result = dMNa_dMaib_dMNb_to_dMNi(dMNa, dMaib, dMNb)
+   >>> result2 = np.einsum('duva,duvaib,duvb->duvi', dMNa, dMaib, dMNb)
+   >>> print(result.shape == result2.shape)
+   True
+   >>> print(np.linalg.norm(result - result2))
+   0.0
+
+   No vectorization:
+
+   >>> import numpy as np
+   >>> from t3toolbox.utils.contractions import dMNa_dMaib_dMNb_to_dMNi
+   >>> dMNa = np.random.randn(8, 10)
+   >>> dMaib = np.random.randn(8, 10,11,12)
+   >>> dMNb = np.random.randn(8, 12)
+   >>> result = dMNa_dMaib_dMNb_to_dMNi(dMNa, dMaib, dMNb)
+   >>> result2 = np.einsum('da,daib,db->di', dMNa, dMaib, dMNb)
+   >>> print(result.shape == result2.shape)
+   True
+   >>> print(np.linalg.norm(result - result2))
+   0.0
+
