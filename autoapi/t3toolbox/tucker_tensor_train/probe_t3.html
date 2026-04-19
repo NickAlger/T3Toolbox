@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.manifold.tangent_to_t3 &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.tucker_tensor_train.probe_t3 &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/manifold/tangent_to_t3';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/tucker_tensor_train/probe_t3';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3toolbox.manifold.tangent_zeros" href="tangent_zeros.html" />
-    <link rel="prev" title="t3toolbox.manifold.tangent_to_dense" href="tangent_to_dense.html" />
+    <link rel="next" title="t3toolbox.uniform" href="../uniform/index.html" />
+    <link rel="prev" title="t3toolbox.tucker_tensor_train.t3_get_entries" href="t3_get_entries.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -319,17 +319,17 @@
 <li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_logical_not.html">t3toolbox.corewise.corewise_logical_not</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.manifold</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="manifold_dim.html">t3toolbox.manifold.manifold_dim</a></li>
-<li class="toctree-l3"><a class="reference internal" href="tangent_to_dense.html">t3toolbox.manifold.tangent_to_dense</a></li>
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.manifold.tangent_to_t3</a></li>
-<li class="toctree-l3"><a class="reference internal" href="tangent_zeros.html">t3toolbox.manifold.tangent_zeros</a></li>
-<li class="toctree-l3"><a class="reference internal" href="absorb_weights_into_tangent_cores.html">t3toolbox.manifold.absorb_weights_into_tangent_cores</a></li>
-<li class="toctree-l3"><a class="reference internal" href="tangent_randn.html">t3toolbox.manifold.tangent_randn</a></li>
-<li class="toctree-l3"><a class="reference internal" href="orthogonal_gauge_projection.html">t3toolbox.manifold.orthogonal_gauge_projection</a></li>
-<li class="toctree-l3"><a class="reference internal" href="oblique_gauge_projection.html">t3toolbox.manifold.oblique_gauge_projection</a></li>
-<li class="toctree-l3"><a class="reference internal" href="project_t3_onto_tangent_space.html">t3toolbox.manifold.project_t3_onto_tangent_space</a></li>
-<li class="toctree-l3"><a class="reference internal" href="retract.html">t3toolbox.manifold.retract</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../manifold/index.html">t3toolbox.manifold</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../manifold/manifold_dim.html">t3toolbox.manifold.manifold_dim</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../manifold/tangent_to_dense.html">t3toolbox.manifold.tangent_to_dense</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../manifold/tangent_to_t3.html">t3toolbox.manifold.tangent_to_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../manifold/tangent_zeros.html">t3toolbox.manifold.tangent_zeros</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../manifold/absorb_weights_into_tangent_cores.html">t3toolbox.manifold.absorb_weights_into_tangent_cores</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../manifold/tangent_randn.html">t3toolbox.manifold.tangent_randn</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../manifold/orthogonal_gauge_projection.html">t3toolbox.manifold.orthogonal_gauge_projection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../manifold/oblique_gauge_projection.html">t3toolbox.manifold.oblique_gauge_projection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../manifold/project_t3_onto_tangent_space.html">t3toolbox.manifold.project_t3_onto_tangent_space</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../manifold/retract.html">t3toolbox.manifold.retract</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../orthogonalization/index.html">t3toolbox.orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -337,20 +337,20 @@
 <li class="toctree-l3"><a class="reference internal" href="../orthogonalization/right_orthogonalize_tt_cores.html">t3toolbox.orthogonalization.right_orthogonalize_tt_cores</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../tucker_tensor_train/index.html">t3toolbox.tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.html">t3toolbox.tucker_tensor_train.TuckerTensorTrain</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/absorb_edge_weights_into_cores.html">t3toolbox.tucker_tensor_train.absorb_edge_weights_into_cores</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/t3_zeros.html">t3toolbox.tucker_tensor_train.t3_zeros</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/t3_corewise_randn.html">t3toolbox.tucker_tensor_train.t3_corewise_randn</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/t3_save.html">t3toolbox.tucker_tensor_train.t3_save</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/t3_load.html">t3toolbox.tucker_tensor_train.t3_load</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/t3_to_vector.html">t3toolbox.tucker_tensor_train.t3_to_vector</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/t3_from_vector.html">t3toolbox.tucker_tensor_train.t3_from_vector</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/t3_core_shapes.html">t3toolbox.tucker_tensor_train.t3_core_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/compute_minimal_t3_ranks.html">t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/t3_apply.html">t3toolbox.tucker_tensor_train.t3_apply</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/t3_get_entries.html">t3toolbox.tucker_tensor_train.t3_get_entries</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/probe_t3.html">t3toolbox.tucker_tensor_train.probe_t3</a></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.tucker_tensor_train</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="TuckerTensorTrain.html">t3toolbox.tucker_tensor_train.TuckerTensorTrain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="absorb_edge_weights_into_cores.html">t3toolbox.tucker_tensor_train.absorb_edge_weights_into_cores</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3_zeros.html">t3toolbox.tucker_tensor_train.t3_zeros</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3_corewise_randn.html">t3toolbox.tucker_tensor_train.t3_corewise_randn</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3_save.html">t3toolbox.tucker_tensor_train.t3_save</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3_load.html">t3toolbox.tucker_tensor_train.t3_load</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3_to_vector.html">t3toolbox.tucker_tensor_train.t3_to_vector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3_from_vector.html">t3toolbox.tucker_tensor_train.t3_from_vector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3_core_shapes.html">t3toolbox.tucker_tensor_train.t3_core_shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="compute_minimal_t3_ranks.html">t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3_apply.html">t3toolbox.tucker_tensor_train.t3_apply</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3_get_entries.html">t3toolbox.tucker_tensor_train.t3_get_entries</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.tucker_tensor_train.probe_t3</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../uniform/index.html">t3toolbox.uniform</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -461,9 +461,9 @@
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">t3toolbox</a></li>
     
     
-    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.manifold</a></li>
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.tucker_tensor_train</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.manifold.tangent_to_t3</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.tucker_tensor_train.probe_t3</span></li>
   </ul>
 </nav>
 </div>
@@ -480,66 +480,49 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="t3toolbox-manifold-tangent-to-t3">
-<h1>t3toolbox.manifold.tangent_to_t3<a class="headerlink" href="#t3toolbox-manifold-tangent-to-t3" title="Link to this heading">#</a></h1>
+  <section id="t3toolbox-tucker-tensor-train-probe-t3">
+<h1>t3toolbox.tucker_tensor_train.probe_t3<a class="headerlink" href="#t3toolbox-tucker-tensor-train-probe-t3" title="Link to this heading">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3toolbox.manifold.tangent_to_t3">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.manifold.</span></span><span class="sig-name descname"><span class="pre">tangent_to_t3</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../base_variation_format/index.html#t3toolbox.base_variation_format.T3Variation" title="t3toolbox.base_variation_format.T3Variation"><span class="pre">t3toolbox.base_variation_format.T3Variation</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../base_variation_format/index.html#t3toolbox.base_variation_format.T3Base" title="t3toolbox.base_variation_format.T3Base"><span class="pre">t3toolbox.base_variation_format.T3Base</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">include_shift</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain</span></a></span></span><a class="headerlink" href="#t3toolbox.manifold.tangent_to_t3" title="Link to this definition">#</a></dt>
-<dd><p>Rank 2r Tucker tensor train representation of tangent vector.</p>
-<p>Without shift, we use the formula:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">v</span><span class="p">(</span><span class="n">x</span><span class="p">,</span><span class="n">y</span><span class="p">,</span><span class="n">z</span><span class="p">,</span><span class="n">w</span><span class="p">)</span> <span class="o">=</span> <span class="p">([</span><span class="n">dU1</span><span class="p">(</span><span class="n">B</span> <span class="n">x</span><span class="p">)</span> <span class="n">L1</span><span class="p">(</span><span class="n">B</span> <span class="n">x</span><span class="p">)])</span> <span class="p">([</span><span class="n">R2</span><span class="p">(</span><span class="n">B</span> <span class="n">y</span><span class="p">)</span>        <span class="mi">0</span><span class="p">])</span> <span class="p">([</span><span class="n">R3</span><span class="p">(</span><span class="n">B</span> <span class="n">z</span><span class="p">)</span>        <span class="mi">0</span><span class="p">])</span> <span class="p">([</span><span class="n">R4</span><span class="p">(</span><span class="n">B</span> <span class="n">w</span><span class="p">)</span> <span class="p">])</span>
-             <span class="p">(</span>                  <span class="p">)</span> <span class="p">([</span><span class="n">dU2</span><span class="p">(</span><span class="n">B</span> <span class="n">y</span><span class="p">)</span> <span class="n">L2</span><span class="p">(</span><span class="n">B</span> <span class="n">y</span><span class="p">)])</span> <span class="p">([</span><span class="n">dU3</span><span class="p">(</span><span class="n">B</span> <span class="n">z</span><span class="p">)</span> <span class="n">L3</span><span class="p">(</span><span class="n">B</span> <span class="n">z</span><span class="p">)])</span> <span class="p">([</span><span class="n">dU4</span><span class="p">(</span><span class="n">B</span> <span class="n">w</span><span class="p">)])</span>
-             <span class="p">(</span>         <span class="o">+</span>        <span class="p">)</span> <span class="p">(</span>         <span class="o">+</span>        <span class="p">)</span> <span class="p">(</span>        <span class="o">+</span>         <span class="p">)</span> <span class="p">(</span>    <span class="o">+</span>     <span class="p">)</span>
-             <span class="p">([</span><span class="n">O1</span><span class="p">(</span><span class="n">dB</span> <span class="n">x</span><span class="p">)</span>       <span class="mi">0</span><span class="p">])</span> <span class="p">([</span><span class="mi">0</span>              <span class="mi">0</span><span class="p">])</span> <span class="p">([</span><span class="mi">0</span>              <span class="mi">0</span><span class="p">])</span> <span class="p">([</span><span class="mi">0</span>       <span class="p">])</span>
-             <span class="p">(</span>                  <span class="p">)</span> <span class="p">([</span><span class="n">O2</span><span class="p">(</span><span class="n">dB</span> <span class="n">y</span><span class="p">)</span>       <span class="mi">0</span><span class="p">])</span> <span class="p">([</span><span class="n">O3</span><span class="p">(</span><span class="n">dB</span> <span class="n">z</span><span class="p">)</span>       <span class="mi">0</span><span class="p">])</span> <span class="p">([</span><span class="n">O4</span><span class="p">(</span><span class="n">dB</span> <span class="n">w</span><span class="p">)])</span>
-</pre></div>
-</div>
-<p>With shift is same as unshifted, except last core modified as follows:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="p">[</span><span class="n">R4</span><span class="p">(</span><span class="n">B</span> <span class="n">w</span><span class="p">)</span> <span class="p">]</span>                  <span class="p">[</span><span class="n">R4</span><span class="p">(</span><span class="n">B</span> <span class="n">w</span><span class="p">)</span>           <span class="p">]</span>
-<span class="p">[</span><span class="n">dU4</span><span class="p">(</span><span class="n">B</span> <span class="n">w</span><span class="p">)]</span>                  <span class="p">[</span><span class="n">L4</span><span class="p">(</span><span class="n">B</span> <span class="n">w</span><span class="p">)</span> <span class="o">+</span> <span class="n">dU4</span><span class="p">(</span><span class="n">B</span> <span class="n">w</span><span class="p">)]</span>
-    <span class="o">+</span>             <span class="o">-&gt;</span>            <span class="o">+</span>
-<span class="p">[</span><span class="mi">0</span>       <span class="p">]</span>                  <span class="p">[</span><span class="mi">0</span>                 <span class="p">]</span>
-<span class="p">[</span><span class="n">O4</span><span class="p">(</span><span class="n">dB</span> <span class="n">w</span><span class="p">)]</span>                  <span class="p">[</span><span class="n">O4</span><span class="p">(</span><span class="n">dB</span> <span class="n">w</span><span class="p">)</span>          <span class="p">]</span>
-</pre></div>
-</div>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>variation</strong> (<a class="reference internal" href="../base_variation_format/index.html#t3toolbox.base_variation_format.T3Variation" title="t3toolbox.base_variation_format.T3Variation"><em>T3Variation</em></a><em>,</em>) – Variation representing the tangent vector</p></li>
-<li><p><strong>base</strong> (<a class="reference internal" href="../base_variation_format/index.html#t3toolbox.base_variation_format.T3Base" title="t3toolbox.base_variation_format.T3Base"><em>T3Base</em></a><em>,</em>) – Representation of the base point at which the tangent space attaches to the manifold.</p></li>
-<li><p><strong>include_shift</strong> (<em>bool</em>) – If False, return tangent vector v only. If True, shift tangent vector so it is attached at the base point, p+v.</p></li>
-<li><p><strong>xnp</strong> – Linear algebra backend. Default: np (numpy)</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Tucker tensor train representation of tangent vector, which has doubled ranks</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain">TuckerTensorTrain</a></p>
-</dd>
-</dl>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Base</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Variation</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">TuckerTensorTrain</span></code></p>
-</div>
+<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.probe_t3">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">probe_t3</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ww</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><span class="pre">TuckerTensorTrain</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.probe_t3" title="Link to this definition">#</a></dt>
+<dd><p>Probe a TuckerTensorTrain.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.manifold</span> <span class="k">as</span> <span class="nn">t3m</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.orthogonalization</span> <span class="k">as</span> <span class="nn">orth</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">base</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">orth</span><span class="o">.</span><span class="n">orthogonal_representations</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">variation</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_randn</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">v_t3</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_to_t3</span><span class="p">(</span><span class="n">variation</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span> <span class="c1"># tangent vector only (attached at zero)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">v_dense</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_to_dense</span><span class="p">(</span><span class="n">v_t3</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">v_dense2</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_to_dense</span><span class="p">(</span><span class="n">variation</span><span class="p">,</span> <span class="n">base</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">v_dense</span> <span class="o">-</span> <span class="n">v_dense2</span><span class="p">))</span>
-<span class="go">2.678565538404836e-15</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">p_plus_v_t3</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">tangent_to_t3</span><span class="p">(</span><span class="n">variation</span><span class="p">,</span> <span class="n">base</span><span class="p">,</span> <span class="n">include_shift</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="c1"># shifted tangent vector (include attachment at base point)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">p_plus_v_dense</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_to_dense</span><span class="p">(</span><span class="n">p_plus_v_t3</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">p_plus_v_dense2</span> <span class="o">=</span> <span class="n">v_dense2</span> <span class="o">+</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_to_dense</span><span class="p">(</span><span class="n">p</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">p_plus_v_dense</span> <span class="o">-</span> <span class="n">p_plus_v_dense2</span><span class="p">))</span>
-<span class="go">1.2102169224182523e-12</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.core.probing</span> <span class="k">as</span> <span class="nn">probing</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span><span class="mi">11</span><span class="p">,</span><span class="mi">12</span><span class="p">),(</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">4</span><span class="p">),(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">2</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ww</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">11</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">12</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">zz</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">probe_t3</span><span class="p">(</span><span class="n">ww</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x_dense</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">zz2</span> <span class="o">=</span> <span class="n">probing</span><span class="o">.</span><span class="n">probe_dense</span><span class="p">(</span><span class="n">ww</span><span class="p">,</span> <span class="n">x_dense</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">z</span> <span class="o">-</span> <span class="n">z2</span><span class="p">)</span> <span class="k">for</span> <span class="n">z</span><span class="p">,</span> <span class="n">z2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">zz</span><span class="p">,</span> <span class="n">zz2</span><span class="p">)])</span>
+<span class="go">[1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]</span>
+</pre></div>
+</div>
+<p>Vectorize over probes:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.core.probing</span> <span class="k">as</span> <span class="nn">probing</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span><span class="mi">11</span><span class="p">,</span><span class="mi">12</span><span class="p">),(</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">4</span><span class="p">),(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">2</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ww</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span> <span class="mi">11</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span> <span class="mi">12</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">zz</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">probe_t3</span><span class="p">(</span><span class="n">ww</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x_dense</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">zz2</span> <span class="o">=</span> <span class="n">probing</span><span class="o">.</span><span class="n">probe_dense</span><span class="p">(</span><span class="n">ww</span><span class="p">,</span> <span class="n">x_dense</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">z</span> <span class="o">-</span> <span class="n">z2</span><span class="p">)</span> <span class="k">for</span> <span class="n">z</span><span class="p">,</span> <span class="n">z2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">zz</span><span class="p">,</span> <span class="n">zz2</span><span class="p">)])</span>
+<span class="go">[2.9290244450205316e-12, 2.0347746956505754e-12, 1.7784156096697445e-12]</span>
+</pre></div>
+</div>
+<p>Vectorize over probes and T3s:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.core.probing</span> <span class="k">as</span> <span class="nn">probing</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span><span class="mi">11</span><span class="p">,</span><span class="mi">12</span><span class="p">),(</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">4</span><span class="p">),(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span> <span class="n">stack_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ww</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span> <span class="mi">10</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span> <span class="mi">11</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span> <span class="mi">12</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">zz</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">probe_t3</span><span class="p">(</span><span class="n">ww</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x_dense</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">zz2</span> <span class="o">=</span> <span class="n">probing</span><span class="o">.</span><span class="n">probe_dense</span><span class="p">(</span><span class="n">ww</span><span class="p">,</span> <span class="n">x_dense</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">z</span> <span class="o">-</span> <span class="n">z2</span><span class="p">)</span> <span class="k">for</span> <span class="n">z</span><span class="p">,</span> <span class="n">z2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">zz</span><span class="p">,</span> <span class="n">zz2</span><span class="p">)])</span>
+<span class="go">[1.4471391818397927e-11, 1.0485601346346092e-11, 1.437623640611662e-11]</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -557,20 +540,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="tangent_to_dense.html"
+       href="t3_get_entries.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.manifold.tangent_to_dense</p>
+        <p class="prev-next-title">t3toolbox.tucker_tensor_train.t3_get_entries</p>
       </div>
     </a>
     <a class="right-next"
-       href="tangent_zeros.html"
+       href="../uniform/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.manifold.tangent_zeros</p>
+        <p class="prev-next-title">t3toolbox.uniform</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -593,14 +576,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.manifold.tangent_to_t3"><code class="docutils literal notranslate"><span class="pre">t3toolbox.manifold.tangent_to_t3()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.probe_t3"><code class="docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.probe_t3()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/manifold/tangent_to_t3.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/tucker_tensor_train/probe_t3.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>
