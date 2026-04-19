@@ -127,10 +127,6 @@ __all__ = [
 ########    Tucker Tensor Train    ########
 ###########################################
 
-# TuckerTensorTrain = typ.Tuple[
-#     typ.Sequence[NDArray], # tucker_cores, len=d, elm_shape=(ni, Ni)
-#     typ.Sequence[NDArray], # tt_cores,     len=d, elm_shape=(ri, ni, r(i+1))
-# ]
 
 @dataclass(frozen=True)
 class TuckerTensorTrain:
@@ -259,9 +255,6 @@ class TuckerTensorTrain:
     tucker_cores:   typ.Tuple[NDArray] # len=d, elm_shape=VS+(ni, Ni)
     tt_cores:       typ.Tuple[NDArray] # len=d, elm_shape=VS+(ri, ni, r(i+1))
 
-    def __post_init__(self):
-        self.validate()
-
     @ft.cached_property
     def data(self) -> typ.Tuple[typ.Tuple[NDArray], typ.Tuple[NDArray]]:
         return tuple(self.tucker_cores), tuple(self.tt_cores)
@@ -377,6 +370,13 @@ class TuckerTensorTrain:
                 + str(tt_stack_shapes) + ' = tucker_stack_shapes'
             )
 
+    def __post_init__(self):
+        self.validate()
+
+    ############################################
+    ##########    Basic operations    ##########
+    ############################################
+
     def to_dense(
             self,
             squash_tails: bool = True,
@@ -449,7 +449,6 @@ class TuckerTensorTrain:
         return ragged_operations.to_dense(
             self.data, squash_tails=squash_tails, use_jax=use_jax,
         )
-
 
     def squash_tails(
             self,
@@ -576,6 +575,55 @@ class TuckerTensorTrain:
         new_tt_cores = ragged_operations.change_tt_core_shapes(tt_cores, new_tucker_ranks, new_tt_ranks, use_jax=use_jax)
 
         return TuckerTensorTrain(tuple(new_tucker_cores), tuple(new_tt_cores))
+
+    #### Vectorization / stacking ####
+
+    def sum_stack(self, use_jax: bool=False) -> 'TuckerTensorTrain':
+        """If this object contains multiple stacked T3s, this sums them.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.corewise as cw
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+        >>> x_sum = x.sum_stack()
+        >>> tucker_sum = tuple([np.sum(B, axis=(0,1)) for B in x.tucker_cores])
+        >>> tt_sum = tuple([np.sum(G, axis=(0,1)) for G in x.tt_cores])
+        >>> x_sum2 = t3.TuckerTensorTrain(tucker_sum, tt_sum)
+        >>> print(cw.corewise_norm(cw.corewise_sub(x_sum.data, x_sum2.data)))
+        0.0
+        """
+        return TuckerTensorTrain(*ragged_operations.t3_sum_stack(self.data))
+
+    def unstack(self): # returns an array-like structure of nested tuples containing TuckerTensorTrains
+        """If this object contains multiple stacked T3s, this unstacks them
+        into an array-like structure of nested tuples with the same "shape" as self.stack_shape.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(3,5))
+        >>> unstacked_x = x.unstack()
+        >>> print([len(s) for s in unstacked_x])
+        [5, 5, 5]
+        >>> tucker13 = tuple([B[1,3] for B in x.tucker_cores])
+        >>> tt13 = tuple([G[1,3] for G in x.tt_cores])
+        >>> x13 = t3.TuckerTensorTrain(tucker13, tt13)
+        >>> print((x13 - unstacked_x[1][3]).norm())
+        0.0
+        """
+        def _dfs(xx):
+            if is_ndarray(xx[0][0]):
+                return TuckerTensorTrain(*xx)
+            return tuple([_dfs(x) for x in xx])
+
+        return _dfs(ragged_operations.t3_unstack(self.data))
+
+    ##########################################
+    ##########    Linear Algebra    ##########
+    ##########################################
 
     def __add__(
             self,
@@ -1163,7 +1211,6 @@ class TuckerTensorTrain:
         )
         return TuckerTensorTrain(*result[0]), result[1]
 
-
     def orthogonalize_relative_to_ith_tucker_core(
             self,
             ii: int,
@@ -1489,7 +1536,9 @@ class TuckerTensorTrain:
         else:
             return TuckerTensorTrain(self.tucker_cores, result)
 
-    #### Entries, apply, probes ####
+    #######################################################
+    ##########    Entries, Apply, and Probing    ##########
+    #######################################################
 
     def get_entries(
             self,
@@ -1539,51 +1588,6 @@ class TuckerTensorTrain:
         3.1271953680324864e-12
         '''
         return t3_apply(self, vecs, use_jax=use_jax)
-
-    #### Vectorization / stacking ####
-
-    def sum_stack(self, use_jax: bool=False) -> 'TuckerTensorTrain':
-        """If this object contains multiple stacked T3s, this sums them.
-
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.corewise as cw
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
-        >>> x_sum = x.sum_stack()
-        >>> tucker_sum = tuple([np.sum(B, axis=(0,1)) for B in x.tucker_cores])
-        >>> tt_sum = tuple([np.sum(G, axis=(0,1)) for G in x.tt_cores])
-        >>> x_sum2 = t3.TuckerTensorTrain(tucker_sum, tt_sum)
-        >>> print(cw.corewise_norm(cw.corewise_sub(x_sum.data, x_sum2.data)))
-        0.0
-        """
-        return TuckerTensorTrain(*ragged_operations.t3_sum_stack(self.data))
-
-    def unstack(self): # returns an array-like structure of nested tuples containing TuckerTensorTrains
-        """If this object contains multiple stacked T3s, this unstacks them
-        into an array-like structure of nested tuples with the same "shape" as self.stack_shape.
-
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(3,5))
-        >>> unstacked_x = x.unstack()
-        >>> print([len(s) for s in unstacked_x])
-        [5, 5, 5]
-        >>> tucker13 = tuple([B[1,3] for B in x.tucker_cores])
-        >>> tt13 = tuple([G[1,3] for G in x.tt_cores])
-        >>> x13 = t3.TuckerTensorTrain(tucker13, tt13)
-        >>> print((x13 - unstacked_x[1][3]).norm())
-        0.0
-        """
-        def _dfs(xx):
-            if is_ndarray(xx[0][0]):
-                return TuckerTensorTrain(*xx)
-            return tuple([_dfs(x) for x in xx])
-
-        return _dfs(ragged_operations.t3_unstack(self.data))
 
 
 if has_jax:
