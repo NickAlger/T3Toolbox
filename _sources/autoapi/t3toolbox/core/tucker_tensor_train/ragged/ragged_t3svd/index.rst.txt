@@ -10,10 +10,10 @@ Functions
 .. toctree::
    :hidden:
 
-   /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3svd/t3_svd
+   /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3svd/t3svd
 
 .. autoapisummary::
 
-   t3toolbox.core.tucker_tensor_train.ragged.ragged_t3svd.t3_svd
+   t3toolbox.core.tucker_tensor_train.ragged.ragged_t3svd.t3svd
 
 
