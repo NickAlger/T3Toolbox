@@ -9,6 +9,8 @@ import t3toolbox.base_variation_format
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform as ut3
 import t3toolbox.base_variation_format as bvf
+import t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations as ragged_ops
+import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as uniform_ops
 from t3toolbox.common import *
 
 __all__ = [
@@ -45,7 +47,10 @@ __all__ = [
 
 def probe_t3(
         ww:             typ.Union[typ.Sequence[NDArray],    NDArray],
-        x:              typ.Union[t3.TuckerTensorTrain,     ut3.UniformTuckerTensorTrain],
+        x:              typ.Union[
+            typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # ragged, (tucker_cores, tt_cores)
+            typ.Tuple[NDArray, NDArray],  # uniform. (tucker_supercore, tt_supercore)
+        ],
         edge_weights:   typ.Union[t3.EdgeWeights,           ut3.UniformEdgeWeights] = (None, None, None),
         use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,Ni)
@@ -86,11 +91,11 @@ def probe_t3(
     --------
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.probing as t3p
-    >>> x = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+    >>> import t3toolbox.core.probing as t3p
+    >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2)).data
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> zz = t3p.probe_t3(ww, x)
-    >>> x_dense = t3.t3_to_dense(x)
+    >>> x_dense = t3.TuckerTensorTrain(*x).to_dense()
     >>> zz2 = t3p.probe_dense(ww, x_dense)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
@@ -99,9 +104,9 @@ def probe_t3(
 
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.probing as t3p
+    >>> import t3toolbox.core.probing as t3p
     >>> randn = np.random.randn
-    >>> x0 = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+    >>> x0 = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
     >>> (tucker_cores0, tt_cores0) = x0
     >>> shape_weights = [randn(10), randn(11), randn(12)]
     >>> tucker_weights = [randn(5), randn(6), randn(4)]
@@ -118,10 +123,10 @@ def probe_t3(
 
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.probing as t3p
+    >>> import t3toolbox.core.probing as t3p
     >>> import t3toolbox.uniform as ut3
     >>> import t3toolbox.corewise as cw
-    >>> x = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+    >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
     >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
     >>> uniform_x, masks = ut3.t3_to_ut3(x)
     >>> inv_masks = cw.corewise_logical_not(masks)
@@ -138,7 +143,7 @@ def probe_t3(
     >>> print(np.linalg.norm(uniform_zz - uniform_zz3))
     0.0
     '''
-    is_uniform = not isinstance(x[0], typ.Sequence)
+    is_uniform = is_ndarray(x[0])
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
@@ -209,31 +214,8 @@ def compute_xis(
         "Tucker Tensor Train Taylor Series."
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
-
-    Parameters
-    ----------
-    up_tucker_cores: typ.Sequence[NDArray]
-        Tucker cores for Tucker tensor train.
-        len=d. elm_shape=(nUi,Ni)
-    ww: typ.Sequence[NDArray]
-        input vectors to probe with. len=d, elm_shape=(...,Ni)
-    xnp:
-        Linear algebra backend. Default: np (numpy)
-
-    Returns
-    -------
-    typ.Tuple[NDArray,...]
-        upward edge variables xi. len=d, elm_shape=(...,nUi)
-
-    See Also
-    --------
-    probe_t3
-    compute_mus
-    compute_nus
-    compute_etas
-    assemble_probes
     '''
-    is_uniform = not isinstance(up_tucker_cores, typ.Sequence)
+    is_uniform = is_ndarray(up_tucker_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
@@ -272,29 +254,6 @@ def compute_mus(
         "Tucker Tensor Train Taylor Series."
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
-
-    Parameters
-    ----------
-    left_tt_cores: typ.Sequence[NDArray]
-        Left TT-cores for Tucker tensor train.
-        len=d. elm_shape=(rLi,nUi,rL(i+1))
-    xis: typ.Sequence[NDArray]
-        upward edge variables xi. len=d. elm_shape=(...,nUi)
-    xnp:
-        Linear algebra backend. Default: np (numpy)
-
-    Returns
-    -------
-    typ.Tuple[NDArray,...]
-        leftward edge variables mu. len=d, elm_shape=(...,rLi)
-
-    See Also
-    --------
-    probe_t3
-    compute_xis
-    compute_nus
-    compute_etas
-    assemble_probes
     '''
     is_uniform = not isinstance(xis, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
@@ -344,31 +303,14 @@ def compute_nus(
         "Tucker Tensor Train Taylor Series."
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
-
-    Parameters
-    ----------
-    right_tt_cores: typ.Sequence[NDArray]
-        Right TT-cores for Tucker tensor train.
-        len=d. elm_shape=(rRi,nUi,rR(i+1))
-    xis: typ.Sequence[NDArray]
-        upward edge variables xi. len=d. elm_shape=(...,nUi)
-    xnp:
-        Linear algebra backend. Default: np (numpy)
-
-    Returns
-    -------
-    typ.Tuple[NDArray,...]
-        rightward edge variables nu. len=d, elm_shape=(...,rR(i+1))
-
-    See Also
-    --------
-    probe_t3
-    compute_xis
-    compute_mus
-    compute_etas
-    assemble_probes
     '''
-    rev_tt_cores = t3.reverse_tt(right_tt_cores)
+    is_uniform = is_ndarray(right_tt_cores)
+    if is_uniform:
+        reverse = uniform_ops.reverse_utt
+    else:
+        reverse = ragged_ops.reverse_tt
+
+    rev_tt_cores = reverse(right_tt_cores)
     rev_xis = xis[::-1]
     rev_right_tt_weights  = None if right_tt_weights is None else right_tt_weights[::-1]
 
@@ -397,33 +339,8 @@ def compute_etas(
         "Tucker Tensor Train Taylor Series."
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
-
-    Parameters
-    ----------
-    outer_tt_cores: typ.Sequence[NDArray]
-        Outer TT-cores for Tucker tensor train.
-        len=d. elm_shape=(ri,ni,r(i+1))
-    mus: typ.Sequence[NDArray]
-        leftward edge variables mu. len=d. elm_shape=(num_probes,ri)
-    nus: typ.Sequence[NDArray]
-        rightward edge variables mu. len=d. elm_shape=(num_probes,r(i+1))
-    xnp:
-        Linear algebra backend. Default: np (numpy)
-
-    Returns
-    -------
-    typ.Tuple[NDArray,...]
-        downward edge variables eta. len=d+1, elm_shape=(num_probes,ni)
-
-    See Also
-    --------
-    probe_t3
-    compute_xis
-    compute_xis
-    compute_nus
-    assemble_probes
     '''
-    is_uniform = not isinstance(mus, typ.Sequence)
+    is_uniform = is_ndarray(outer_tt_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
@@ -468,31 +385,8 @@ def assemble_zs(
         "Tucker Tensor Train Taylor Series."
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
-
-    Parameters
-    ----------
-    tucker_cores: typ.Sequence[NDArray]
-        Tucker cores for Tucker tensor train.
-        len=d. elm_shape=(ni,Ni)
-    etas: typ.Sequence[NDArray]
-        downward edge variables eta. len=d. elm_shape=(...,ni)
-    xnp:
-        Linear algebra backend. Default: np (numpy)
-
-    Returns
-    -------
-    typ.Tuple[NDArray,...]
-        probes z. len=d, elm_shape=(...,Ni)
-
-    See Also
-    --------
-    probe_t3
-    compute_xis
-    compute_mus
-    compute_nus
-    compute_etas
     '''
-    is_uniform = not isinstance(etas, typ.Sequence)
+    is_uniform = is_ndarray(tucker_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
@@ -856,9 +750,9 @@ def probe_tangent(
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.probing as t3p
+    >>> import t3toolbox.core.probing as t3p
     >>> import t3toolbox.orthogonalization as orth
-    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+    >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
     >>> base, _ = orth.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
@@ -872,9 +766,9 @@ def probe_tangent(
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.probing as t3p
+    >>> import t3toolbox.core.probing as t3p
     >>> import t3toolbox.orthogonalization as orth
-    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+    >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
     >>> base, _ = orth.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
     >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
@@ -888,10 +782,10 @@ def probe_tangent(
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.probing as t3p
+    >>> import t3toolbox.core.probing as t3p
     >>> import t3toolbox.orthogonalization as orth
     >>> randn = np.random.randn
-    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,5,4)))
+    >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,5,4))
     >>> base, _ = orth.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
     >>> NN = [U.shape[1] for U in base[0]]
@@ -918,9 +812,9 @@ def probe_tangent(
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform as ut3
     >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.probing as t3p
+    >>> import t3toolbox.core.probing as t3p
     >>> import t3toolbox.orthogonalization as orth
-    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+    >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
     >>> base, _ = orth.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
     >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
@@ -1386,10 +1280,10 @@ def probe_tangent_transpose(
     >>> import t3toolbox.corewise as cw
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.probing as t3p
+    >>> import t3toolbox.core.probing as t3p
     >>> import t3toolbox.common as common
     >>> import t3toolbox.orthogonalization as orth
-    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+    >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
     >>> base, _ = orth.orthogonal_representations(p)
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> v1 = t3m.tangent_randn(base)
@@ -1409,10 +1303,10 @@ def probe_tangent_transpose(
     >>> import t3toolbox.corewise as cw
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.probing as t3p
+    >>> import t3toolbox.core.probing as t3p
     >>> import t3toolbox.common as common
     >>> import t3toolbox.orthogonalization as orth
-    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+    >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
     >>> base, _ = orth.orthogonal_representations(p)
     >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
     >>> apply_J = lambda v: t3p.probe_tangent(ww, v, base)
@@ -1428,12 +1322,12 @@ def probe_tangent_transpose(
     >>> import t3toolbox.corewise as cw
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.probing as t3p
+    >>> import t3toolbox.core.probing as t3p
     >>> import t3toolbox.common as common
     >>> import t3toolbox.orthogonalization as orth
     >>> import t3toolbox.base_variation_format as bvf
     >>> randn = np.random.randn
-    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+    >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
     >>> base, _ = orth.orthogonal_representations(p)
     >>> NN, nnU, nnO, rrL, rrR = bvf.get_base_structure(base)
     >>> shape_weights = [randn(N) for N in NN]
@@ -1456,10 +1350,10 @@ def probe_tangent_transpose(
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform as ut3
     >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.probing as t3p
+    >>> import t3toolbox.core.probing as t3p
     >>> import t3toolbox.orthogonalization as orth
     >>> import t3toolbox.corewise as cw
-    >>> p = t3.t3_corewise_randn(((10,11,12),(5,6,4),(2,3,4,2)))
+    >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
     >>> base, _ = orth.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)
     >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
@@ -1582,7 +1476,7 @@ def probe_dense(
     Probe with one set of vectors:
 
     >>> import numpy as np
-    >>> import t3toolbox.probing as t3p
+    >>> import t3toolbox.core.probing as t3p
     >>> T = np.random.randn(10,11,12)
     >>> u0 = np.random.randn(10)
     >>> u1 = np.random.randn(11)
