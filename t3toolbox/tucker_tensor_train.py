@@ -86,6 +86,7 @@ import typing as typ
 import functools as ft
 from dataclasses import dataclass
 
+import t3toolbox.core.probing as probing
 import t3toolbox.core.tucker_tensor_train.t3_apply as apply
 import t3toolbox.core.tucker_tensor_train.t3_entries as entries
 import t3toolbox.core.tucker_tensor_train.t3_ranks as ranks
@@ -110,6 +111,7 @@ __all__ = [
     'EdgeWeights',
     't3_apply',
     't3_get_entries',
+    'probe_t3',
     # 'squash_tails',
     'absorb_edge_weights_into_cores',
     't3_zeros',
@@ -1589,6 +1591,29 @@ class TuckerTensorTrain:
         '''
         return t3_apply(self, vecs, use_jax=use_jax)
 
+    def probe(
+            self,
+            ww: typ.Sequence[NDArray], # len=d, elm_shape=W+(Ni,)
+            use_jax: bool=False,
+    ) -> typ.Sequence[NDArray]: # zz, len=d, elm_shape=X+W+(Ni,)
+        """Probe a TuckerTensorTrain.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.core.probing as probing
+        >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
+        >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> zz = x.probe(ww)
+        >>> x_dense = x.to_dense()
+        >>> zz2 = probing.probe_dense(ww, x_dense)
+        >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
+        [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
+        """
+        return probing.probe_t3(ww, self.data, use_jax=use_jax)
+
+
 
 if has_jax:
     jax.tree_util.register_pytree_node(
@@ -1983,13 +2008,47 @@ def t3_core_shapes(
     )
 
 
-###############################################################################
-########    Scalar valued multilinear function applies and entries    #########
-###############################################################################
+def compute_minimal_t3_ranks(
+        shape:          typ.Sequence[int],
+        tucker_ranks:   typ.Sequence[int],
+        tt_ranks:       typ.Sequence[int],
+) -> typ.Tuple[
+    typ.Tuple[int,...], # new_tucker_ranks
+    typ.Tuple[int,...], # new_tt_ranks
+]:
+    '''Find minimal ranks for a generic Tucker tensor train with a given structure.
+
+    Minimal ranks satisfy:
+        - Left TT core unfoldings are full rank: r(i+1) <= (ri*ni)
+        - Right TT core unfoldings are full rank: ri <= (ni*r(i+1))
+        - Outer TT core unfoldings are full rank: ni <= (ri*r(i+1))
+        - Basis matrices have full row rank: ni <= Ni
+
+    In this function, minimal ranks are defined with respect to a
+    generic Tucker tensor train of the given form based on its structure.
+    We do not account for possible additional rank deficiency due to
+    the numerical values within the cores.
+
+    Minimal ranks always exist and are unique.
+        - Minimal TT ranks are equal to the ranks of (N*...*Ni) x (N(i+1)*...*N(d-1)) matrix unfoldings.
+        - Minimal Tucker ranks are equal to the ranks of Ni x (N1*...*N(i-1)*N(i+1)*...*N(d-1)) matricizations.
+
+    Examples
+    --------
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> print(t3.compute_minimal_t3_ranks((10,11,12,13), (14,15,16,17), (98,99,100,101,102)))
+    ((10, 11, 12, 13), (1, 10, 100, 13, 1))
+    '''
+    return ranks.compute_minimal_t3_ranks(shape, tucker_ranks, tt_ranks)
+
+
+###########################################################################
+########    Scalar valued M.L.F. applies, entries, and probing    #########
+###########################################################################
 
 def t3_apply(
         x: TuckerTensorTrain, # shape=(N0,...,N(d-1))
-        vecs: typ.Sequence[NDArray], # len=d, elm_shape=(Ni,) or (num_applies, Ni)
+        vecs: typ.Sequence[NDArray], # len=d, elm_shape=V+(Ni,)
         use_jax: bool = False,
 ) -> NDArray:
     '''Contract a Tucker tensor train with vectors in all indices.
@@ -2231,38 +2290,53 @@ def t3_get_entries(
     return entries.t3_get_entries(x.data, index, use_jax=use_jax)
 
 
-def compute_minimal_t3_ranks(
-        shape:          typ.Sequence[int],
-        tucker_ranks:   typ.Sequence[int],
-        tt_ranks:       typ.Sequence[int],
-) -> typ.Tuple[
-    typ.Tuple[int,...], # new_tucker_ranks
-    typ.Tuple[int,...], # new_tt_ranks
-]:
-    '''Find minimal ranks for a generic Tucker tensor train with a given structure.
-
-    Minimal ranks satisfy:
-        - Left TT core unfoldings are full rank: r(i+1) <= (ri*ni)
-        - Right TT core unfoldings are full rank: ri <= (ni*r(i+1))
-        - Outer TT core unfoldings are full rank: ni <= (ri*r(i+1))
-        - Basis matrices have full row rank: ni <= Ni
-
-    In this function, minimal ranks are defined with respect to a
-    generic Tucker tensor train of the given form based on its structure.
-    We do not account for possible additional rank deficiency due to
-    the numerical values within the cores.
-
-    Minimal ranks always exist and are unique.
-        - Minimal TT ranks are equal to the ranks of (N*...*Ni) x (N(i+1)*...*N(d-1)) matrix unfoldings.
-        - Minimal Tucker ranks are equal to the ranks of Ni x (N1*...*N(i-1)*N(i+1)*...*N(d-1)) matricizations.
+def probe_t3(
+        ww: typ.Sequence[NDArray], # len=d, elm_shape=W+(Ni,)
+        x: TuckerTensorTrain, # x.stack_shape=X
+        use_jax: bool=False,
+) -> typ.Sequence[NDArray]: # zz, len=d, elm_shape=X+W+(Ni,)
+    """Probe a TuckerTensorTrain.
 
     Examples
     --------
+    >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> print(t3.compute_minimal_t3_ranks((10,11,12,13), (14,15,16,17), (98,99,100,101,102)))
-    ((10, 11, 12, 13), (1, 10, 100, 13, 1))
-    '''
-    return ranks.compute_minimal_t3_ranks(shape, tucker_ranks, tt_ranks)
+    >>> import t3toolbox.core.probing as probing
+    >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
+    >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+    >>> zz = t3.probe_t3(ww, x)
+    >>> x_dense = x.to_dense()
+    >>> zz2 = probing.probe_dense(ww, x_dense)
+    >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
+    [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
+
+    Vectorize over probes:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.core.probing as probing
+    >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
+    >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
+    >>> zz = t3.probe_t3(ww, x)
+    >>> x_dense = x.to_dense()
+    >>> zz2 = probing.probe_dense(ww, x_dense)
+    >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
+    [2.9290244450205316e-12, 2.0347746956505754e-12, 1.7784156096697445e-12]
+
+    Vectorize over probes and T3s:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.core.probing as probing
+    >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2), stack_shape=(4,5))
+    >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
+    >>> zz = t3.probe_t3(ww, x)
+    >>> x_dense = x.to_dense()
+    >>> zz2 = probing.probe_dense(ww, x_dense)
+    >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
+    [1.4471391818397927e-11, 1.0485601346346092e-11, 1.437623640611662e-11]
+    """
+    return probing.probe_t3(ww, x.data, use_jax=use_jax)
 
 
 ###########################################################
