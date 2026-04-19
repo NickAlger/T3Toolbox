@@ -15,7 +15,7 @@ __all__ = [
     'dMio_No_to_dMNi',
     'MNa_Maib_MNb_to_MNi',
     'dMNa_dMaib_dMNb_to_dMNi',
-    'Ni_Mio_to_MNo',
+    'MNi_Mio_to_MNo',
     'dNi_dMio_to_dMNo',
 ]
 
@@ -783,8 +783,8 @@ def dMNa_dMaib_dMNb_to_dMNi(
     return dMNi
 
 
-def Ni_Mio_to_MNo(
-        Ni: NDArray,
+def MNi_Mio_to_MNo(
+        MNi: NDArray,
         Mio: NDArray,
         use_jax: bool = False,
 ) -> NDArray:
@@ -798,10 +798,10 @@ def Ni_Mio_to_MNo(
     Vectorize over both N and M:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import Ni_Mio_to_MNo
+    >>> from t3toolbox.utils.contractions import MNi_Mio_to_MNo
     >>> Ni = np.random.randn(2,3,4, 10)
     >>> Mio = np.random.randn(5,6, 10,13)
-    >>> result = Ni_Mio_to_MNo(Ni, Mio)
+    >>> result = MNi_Mio_to_MNo(Ni, Mio)
     >>> result2 = np.einsum('xyzi,uvio->uvxyzo', Ni, Mio)
     >>> print(result.shape == result2.shape)
     True
@@ -811,10 +811,10 @@ def Ni_Mio_to_MNo(
     Vectorize over N only
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import Ni_Mio_to_MNo
+    >>> from t3toolbox.utils.contractions import MNi_Mio_to_MNo
     >>> Ni = np.random.randn(2,3,4, 10)
     >>> Mio = np.random.randn(10,13)
-    >>> result = Ni_Mio_to_MNo(Ni, Mio)
+    >>> result = MNi_Mio_to_MNo(Ni, Mio)
     >>> result2 = np.einsum('xyzi,io->xyzo', Ni, Mio)
     >>> print(result.shape == result2.shape)
     True
@@ -824,10 +824,10 @@ def Ni_Mio_to_MNo(
     Vectorize over both M only:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import Ni_Mio_to_MNo
+    >>> from t3toolbox.utils.contractions import MNi_Mio_to_MNo
     >>> Ni = np.random.randn(10)
     >>> Mio = np.random.randn(5,6, 10,13)
-    >>> result = Ni_Mio_to_MNo(Ni, Mio)
+    >>> result = MNi_Mio_to_MNo(Ni, Mio)
     >>> result2 = np.einsum('i,uvio->uvo', Ni, Mio)
     >>> print(result.shape == result2.shape)
     True
@@ -837,10 +837,10 @@ def Ni_Mio_to_MNo(
     No vectorization:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import Ni_Mio_to_MNo
+    >>> from t3toolbox.utils.contractions import MNi_Mio_to_MNo
     >>> Ni = np.random.randn(10)
     >>> Mio = np.random.randn(10,13)
-    >>> result = Ni_Mio_to_MNo(Ni, Mio)
+    >>> result = MNi_Mio_to_MNo(Ni, Mio)
     >>> result2 = np.einsum('i,io->o', Ni, Mio)
     >>> print(result.shape == result2.shape)
     True
@@ -852,15 +852,15 @@ def Ni_Mio_to_MNo(
     M_shape = Mio.shape[:-2]
     i_shape = (Mio.shape[-2],)
     o_shape = (Mio.shape[-1],)
-    N_shape = Ni.shape[:-1]
+    N_shape = MNi.shape[len(M_shape):-1]
 
     size_N = np.prod(N_shape, dtype=int) # yes, np. We want this done statically. dtype: () -> int 1
     size_M = np.prod(M_shape, dtype=int)
 
     Mio = Mio.reshape((size_M,) + i_shape + o_shape)
-    Ni  = Ni.reshape((size_N,) + i_shape)
+    MNi = MNi.reshape((size_M,) + (size_N,) + i_shape)
 
-    MNo = xnp.einsum('Ni,Mio->MNo', Ni, Mio)
+    MNo = xnp.einsum('MNi,Mio->MNo', MNi, Mio)
 
     MNo = MNo.reshape(M_shape + N_shape + o_shape)
     return MNo

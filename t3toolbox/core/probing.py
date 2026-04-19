@@ -112,8 +112,20 @@ def probe_t3(
     >>> x_dense = t3.TuckerTensorTrain(*x).to_dense()
     >>> zz2 = t3p.probe_dense(ww, x_dense)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
+    [2.9290244450205316e-12, 2.0347746956505754e-12, 1.7784156096697445e-12]
 
+    Vectorize over probes and T3s:
 
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.core.probing as t3p
+    >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2), stack_shape=(4,5)).data
+    >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
+    >>> zz = t3p.probe_t3(ww, x)
+    >>> x_dense = t3.TuckerTensorTrain(*x).to_dense()
+    >>> zz2 = t3p.probe_dense(ww, x_dense)
+    >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
+    [1.4471391818397927e-11, 1.0485601346346092e-11, 1.437623640611662e-11]
 
     Using weights:
 
@@ -293,8 +305,7 @@ def compute_mus(
 
         return unweighted_mu_next, (mu,)
 
-    r0 = left_tt_cores[0].shape[0]
-    # vectorization_shape = xis[0].shape[:-1]
+    r0 = left_tt_cores[0].shape[-3]
     init = xnp.ones(T + K + (r0,))
 
     xs = (left_tt_cores, xis)
@@ -405,7 +416,7 @@ def assemble_zs(
     else:
         def _func(x):
             eta, U = x
-            unweighted_z = contractions.Ni_Mio_to_MNo(eta, U)
+            unweighted_z = contractions.MNi_Mio_to_MNo(eta, U)
             return (unweighted_z,)
 
         (unweighted_zs,) = xmap(_func, (etas, tucker_cores))
@@ -1537,32 +1548,6 @@ def probe_dense(
     1.0841599276764049e-14
     >>> print(np.linalg.norm(yy[2] - y2))
     1.2970142174948615e-14
-
-
-    #
-
-    >>> import numpy as np
-    >>> import t3toolbox.t3p as t3p
-    >>> T = np.random.randn(10,11,12)
-    >>> u0, v0 = np.random.randn(10), np.random.randn(10)
-    >>> u1, v1 = np.random.randn(11), np.random.randn(11)
-    >>> u2, v2 = np.random.randn(12), np.random.randn(12)
-    >>> uuu = [np.vstack([u0,v0]), np.vstack([u1,v1]), np.vstack([u2,v2])]
-    >>> yyy = t3p.probe_dense(uuu,T)
-    >>> yy_u = t3p.probe_dense((u0,u1,u2),T)
-    >>> yy_v = t3p.probe_dense((v0,v1,v2),T)
-    >>> print(np.linalg.norm(yy_u[0] - yyy[0][0,:]))
-    0.0
-    >>> print(np.linalg.norm(yy_u[1] - yyy[1][0,:]))
-    0.0
-    >>> print(np.linalg.norm(yy_u[2] - yyy[2][0,:]))
-    0.0
-    >>> print(np.linalg.norm(yy_v[0] - yyy[0][1,:]))
-    0.0
-    >>> print(np.linalg.norm(yy_v[1] - yyy[1][1,:]))
-    0.0
-    >>> print(np.linalg.norm(yy_v[2] - yyy[2][1,:]))
-    0.0
     """
     xnp, _, _ = get_backend(True, use_jax)
 
