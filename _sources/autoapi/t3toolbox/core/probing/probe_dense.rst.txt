@@ -77,28 +77,3 @@ t3toolbox.core.probing.probe_dense
    >>> print(np.linalg.norm(yy[2] - y2))
    1.2970142174948615e-14
 
-   #
-
-   >>> import numpy as np
-   >>> import t3toolbox.t3p as t3p
-   >>> T = np.random.randn(10,11,12)
-   >>> u0, v0 = np.random.randn(10), np.random.randn(10)
-   >>> u1, v1 = np.random.randn(11), np.random.randn(11)
-   >>> u2, v2 = np.random.randn(12), np.random.randn(12)
-   >>> uuu = [np.vstack([u0,v0]), np.vstack([u1,v1]), np.vstack([u2,v2])]
-   >>> yyy = t3p.probe_dense(uuu,T)
-   >>> yy_u = t3p.probe_dense((u0,u1,u2),T)
-   >>> yy_v = t3p.probe_dense((v0,v1,v2),T)
-   >>> print(np.linalg.norm(yy_u[0] - yyy[0][0,:]))
-   0.0
-   >>> print(np.linalg.norm(yy_u[1] - yyy[1][0,:]))
-   0.0
-   >>> print(np.linalg.norm(yy_u[2] - yyy[2][0,:]))
-   0.0
-   >>> print(np.linalg.norm(yy_v[0] - yyy[0][1,:]))
-   0.0
-   >>> print(np.linalg.norm(yy_v[1] - yyy[1][1,:]))
-   0.0
-   >>> print(np.linalg.norm(yy_v[2] - yyy[2][1,:]))
-   0.0
-

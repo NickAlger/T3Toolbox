@@ -17,7 +17,7 @@ Functions
    /autoapi/contractions/dMio_No_to_dMNi
    /autoapi/contractions/MNa_Maib_MNb_to_MNi
    /autoapi/contractions/dMNa_dMaib_dMNb_to_dMNi
-   /autoapi/contractions/Ni_Mio_to_MNo
+   /autoapi/contractions/MNi_Mio_to_MNo
    /autoapi/contractions/dNi_dMio_to_dMNo
 
 .. autoapisummary::
@@ -29,7 +29,7 @@ Functions
    contractions.dMio_No_to_dMNi
    contractions.MNa_Maib_MNb_to_MNi
    contractions.dMNa_dMaib_dMNb_to_dMNi
-   contractions.Ni_Mio_to_MNo
+   contractions.MNi_Mio_to_MNo
    contractions.dNi_dMio_to_dMNo
 
 
