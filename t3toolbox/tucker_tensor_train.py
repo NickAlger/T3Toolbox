@@ -106,14 +106,10 @@ if has_jax:
     import jax
 
 __all__ = [
-    # Tucker tensor train
     'TuckerTensorTrain',
-    'EdgeVectors',
     't3_apply',
     't3_get_entries',
     'probe_t3',
-    # 'squash_tails',
-    'contract_edge_vectors_into_t3',
     't3_zeros',
     't3_corewise_randn',
     'compute_minimal_t3_ranks',
@@ -1614,104 +1610,6 @@ class TuckerTensorTrain:
         return probing.probe_t3(ww, self.data, use_jax=use_jax)
 
 
-@dataclass(frozen=True)
-class EdgeVectors:
-    """Vectors that "live" on edges in a T3 tensor network.
-
-    Attributes:
-    -----------
-    shape_vectors: typ.Sequence[NDArray]
-        Vectors on externally facing edges. len=d, elm_shape=stack_shape+(Ni,)
-    tucker_vectors: typ.Sequence[NDArray]
-        Vectors on edges between Tucker cores and TT cores. len=d, elm_shape=stack_shape+(ni,)
-    tt_vectors: typ.Sequence[NDArray]
-        Vectors on edges between adjacent TT cores. len=d+1, elm_shape=stack_shape+(ri,)
-    """
-    shape_vectors:  typ.Tuple[NDArray,...] # len=d,   elm_shape=stack_shape+(Ni,)
-    tucker_vectors: typ.Tuple[NDArray,...] # len=d,   elm_shape=stack_shape+(ni,)
-    tt_vectors:     typ.Tuple[NDArray,...] # len=d+1, elm_shape=stack_shape+(ri,)
-
-    @ft.cached_property
-    def data(self) -> typ.Tuple[
-        typ.Tuple[NDArray, ...], # shape_vectors
-        typ.Tuple[NDArray, ...], # tucker_vectors
-        typ.Tuple[NDArray, ...], # tt_vectors
-    ]:
-        return self.shape_vectors, self.tucker_vectors, self.tt_vectors
-
-    @ft.cached_property
-    def d(self) -> int:
-        return len(self.tucker_vectors)
-
-    @ft.cached_property
-    def shape(self) -> typ.Tuple[int,...]:
-        return tuple([sw.shape[-1] for sw in self.shape_vectors])
-
-    @ft.cached_property
-    def tucker_ranks(self) -> typ.Tuple[int,...]:
-        return tuple([tkw.shape[-1] for tkw in self.tucker_vectors])
-
-    @ft.cached_property
-    def tt_ranks(self) -> typ.Tuple[int,...]:
-        return tuple([ttw.shape[-1] for ttw in self.tt_vectors])
-
-    @ft.cached_property
-    def stack_shape(self) -> typ.Tuple[int,...]:
-        return self.tucker_vectors[0].shape[:-1]
-
-    @ft.cached_property
-    def structure(self) -> typ.Tuple[
-        typ.Tuple[int, ...], # shape
-        typ.Tuple[int, ...], # tucker_ranks
-        typ.Tuple[int, ...], # tt_ranks
-        typ.Tuple[int, ...], # stack_shape
-    ]:
-        return self.shape, self.tucker_ranks, self.tt_ranks, self.stack_shape
-
-    def validate(self):
-        assert(len(self.shape_vectors) == self.d)
-        assert(len(self.tucker_vectors) == self.d)
-        assert(len(self.tt_vectors) == self.d + 1)
-
-        for sw, N in zip(self.shape_vectors, self.shape):
-            assert(sw.shape == self.stack_shape + (N,))
-
-        for tkw, n in zip(self.tucker_vectors, self.tucker_ranks):
-            assert(tkw.shape == self.stack_shape + (n,))
-
-        for ttw, r in zip(self.tt_vectors, self.tt_ranks):
-            assert(ttw.shape == self.stack_shape + (r,))
-
-    def __post_init__(self):
-        self.validate()
-
-    def reverse(self) -> 'EdgeVectors':
-        """Reverse edge vector ordering.
-
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> randn = np.random.randn
-        >>> shape_vectors = tuple([randn(9,10, 6), randn(9,10, 7), randn(9,10, 8)])
-        >>> tucker_vectors = tuple([randn(9,10, 5), randn(9,10, 6), randn(9,10, 7)])
-        >>> tt_vectors = tuple([randn(9,10, 1), randn(9,10, 2), randn(9,10, 3), randn(9,10, 4)])
-        >>> ev = t3.EdgeVectors(shape_vectors, tucker_vectors, tt_vectors)
-        >>> print(ev.structure)
-        ((6, 7, 8), (5, 6, 7), (1, 2, 3, 4), (9, 10))
-        >>> print(ev.reverse().structure)
-        ((8, 7, 6), (7, 6, 5), (4, 3, 2, 1), (9, 10))
-        """
-        return EdgeVectors(*ragged_operations.reverse_edge_vectors(self.data))
-
-    def contract_into_t3(
-            self,
-            x: TuckerTensorTrain,
-            use_jax: bool = False,
-    ) -> TuckerTensorTrain:
-        return contract_edge_vectors_into_t3(x, self, use_jax=use_jax)
-
-
 if has_jax:
     jax.tree_util.register_pytree_node(
         TuckerTensorTrain,
@@ -1719,11 +1617,6 @@ if has_jax:
         lambda aux_data, children: TuckerTensorTrain(*children),
     )
 
-    jax.tree_util.register_pytree_node(
-        EdgeVectors,
-        lambda x: (x.data, None),
-        lambda aux_data, children: EdgeVectors(*children),
-    )
 
 ####
 
@@ -1753,71 +1646,6 @@ def t3_stack(
 
     stacked_tucker_cores, stacked_tt_cores = ragged_operations.t3_stack(xx_data, use_jax=use_jax)
     return TuckerTensorTrain(stacked_tucker_cores, stacked_tt_cores)
-
-
-def contract_edge_vectors_into_t3(
-        x, # Tucker tensor train data.
-        edge_vectors: EdgeVectors, # must have same structure as x
-        use_jax: bool = False,
-) -> TuckerTensorTrain:
-    """Contract each edge vector into a neighboring core.
-
-    Tensor network diagram illustrating groupings::
-
-             ____     ____     ________
-            /    \   /    \   /        \
-        1---w---G0---w---G1---w---G2---w---1
-                |        |        |
-              / w      / w      / w
-              | |      | |      | |
-              | B0     | B1     | B2
-              | |      | |      | |
-              \ w      \ w      \ w
-                |        |        |
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> randn = np.random.randn
-    >>> x = t3.t3_corewise_randn((6,7,8), (5,6,7), (2,3,3,1), stack_shape=(4,))
-    >>> shape_vectors = tuple([randn(4, 6), randn(4, 7), randn(4, 8)])
-    >>> tucker_vectors = tuple([randn(4, 5), randn(4, 6), randn(4, 7)])
-    >>> tt_vectors = tuple([randn(4, 2), randn(4, 3), randn(4, 3), randn(4, 1)])
-    >>> ev = t3.EdgeVectors(shape_vectors, tucker_vectors, tt_vectors)
-    >>> print(ev.structure)
-    ((12, 13, 14), (4, 5, 6), (2, 3, 4, 3), (2, 1))
-    >>> x_ev = ev.contract_into_t3(x)
-    >>> dense_x_ev = x_ev.to_dense()
-    >>> all_vars = x.tucker_cores + x.tt_cores + shape_vectors + tucker_vectors + tt_vectors
-    >>> einsum_str = 'qix,qjy,qkz,qaib,qbjc,qckd,qx,qy,qz,qi,qj,qk,qa,qb,qc,qd->qxyz'
-    >>> dense_x_ev2 = np.einsum(einsum_str, *all_vars)
-    >>> print(np.linalg.norm(dense_x_ev - dense_x_ev2))
-    4.7254283984394845e-12
-    """
-    if x.structure != edge_vectors.structure:
-        raise RuntimeError(
-            'TuckerTensorTrain can only absorb EdgeVectors with the same structure.\n' +
-            'x.structure = ' + str(x.structure) + '\n'
-            'edge_vectors.structure = ' + str(edge_vectors.structure)
-        )
-    return TuckerTensorTrain(*ragged_operations.contract_edge_vectors_into_t3(
-        x.data, edge_vectors.data, use_jax=use_jax,
-    ))
-
-    # is_uniform = not isinstance(x0[0], typ.Sequence)
-    # xnp, xmap, xscan = get_backend(is_uniform, use_jax)
-    #
-    # #
-    # tucker_cores0, tt_cores0 = x0
-    # shape_weights, tucker_weights, tt_weights = weights
-    #
-    # if is_uniform:
-    #     return uniform_operations.absorb_edge_weights_into_ut3(x0, weights)
-    # else:
-    #     return ragged_operations.absorb_edge_weights_into_t3(x0, weights)
-    #
-    # return tucker_cores, tt_cores
 
 
 def t3_zeros(
