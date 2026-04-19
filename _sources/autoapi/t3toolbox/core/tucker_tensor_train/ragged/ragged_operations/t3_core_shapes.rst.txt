@@ -1,8 +1,0 @@
-t3toolbox.core.tucker_tensor_train.ragged.ragged_operations.t3_core_shapes
-==========================================================================
-
-.. py:function:: t3toolbox.core.tucker_tensor_train.ragged.ragged_operations.t3_core_shapes(shape: t3toolbox.common.typ.Sequence[int], tucker_ranks: t3toolbox.common.typ.Sequence[int], tt_ranks: t3toolbox.common.typ.Sequence[int], stack_shape: t3toolbox.common.typ.Sequence[int] = ()) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.typ.Tuple[int, Ellipsis]]
-
-   Determines the shapes of the T3 cores based on the ranks.
-
-

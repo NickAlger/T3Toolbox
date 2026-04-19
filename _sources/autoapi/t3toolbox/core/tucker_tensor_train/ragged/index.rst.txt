@@ -10,8 +10,8 @@ Submodules
 .. toctree::
    :maxdepth: 1
 
-   /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_operations/index
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_orthogonalization/index
+   /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3_operations/index
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3svd/index
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_tensor_linalg/index
 

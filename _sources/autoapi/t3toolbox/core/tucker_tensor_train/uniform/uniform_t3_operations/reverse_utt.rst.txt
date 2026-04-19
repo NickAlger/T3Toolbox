@@ -1,0 +1,8 @@
+t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations.reverse_utt
+============================================================================
+
+.. py:function:: t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations.reverse_utt(tt_cores: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray]) -> t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray]
+
+   Reverse a uniform tensor train (no Tucker).
+
+

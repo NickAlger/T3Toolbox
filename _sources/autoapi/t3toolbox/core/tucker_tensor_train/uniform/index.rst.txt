@@ -10,8 +10,8 @@ Submodules
 .. toctree::
    :maxdepth: 1
 
-   /autoapi/t3toolbox/core/tucker_tensor_train/uniform/uniform_operations/index
    /autoapi/t3toolbox/core/tucker_tensor_train/uniform/uniform_orthogonalization/index
+   /autoapi/t3toolbox/core/tucker_tensor_train/uniform/uniform_t3_operations/index
    /autoapi/t3toolbox/core/tucker_tensor_train/uniform/uniform_t3svd/index
 
 

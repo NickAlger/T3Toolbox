@@ -1,8 +1,0 @@
-t3toolbox.core.tucker_tensor_train.ragged.ragged_operations.t3_sum_stack
-========================================================================
-
-.. py:function:: t3toolbox.core.tucker_tensor_train.ragged.ragged_operations.t3_sum_stack(x: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]]
-
-   If this object contains multiple stacked T3s, this sums them.
-
-
