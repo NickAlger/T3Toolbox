@@ -1,7 +1,7 @@
 t3toolbox.core.tucker_tensor_train.ragged.operations.t3_from_vector
 ===================================================================
 
-.. py:function:: t3toolbox.core.tucker_tensor_train.ragged.operations.t3_from_vector(x_flat: t3toolbox.common.NDArray, shape: t3toolbox.common.typ.Sequence[int], tucker_ranks: t3toolbox.common.typ.Sequence[int], tt_ranks: t3toolbox.common.typ.Sequence[int], vectorization_shape: t3toolbox.common.typ.Sequence[int] = ())
+.. py:function:: t3toolbox.core.tucker_tensor_train.ragged.operations.t3_from_vector(x_flat: t3toolbox.common.NDArray, shape: t3toolbox.common.typ.Sequence[int], tucker_ranks: t3toolbox.common.typ.Sequence[int], tt_ranks: t3toolbox.common.typ.Sequence[int], stack_shape: t3toolbox.common.typ.Sequence[int] = ())
 
    Constructs a T3 from a 1D vector containing the core entries
 

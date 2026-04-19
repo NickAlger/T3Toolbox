@@ -1,8 +1,0 @@
-t3toolbox.orthogonalization.up_orthogonalize_tucker_cores
-=========================================================
-
-.. py:function:: t3toolbox.orthogonalization.up_orthogonalize_tucker_cores(x: t3toolbox.common.typ.Union[t3toolbox.tucker_tensor_train.TuckerTensorTrain, t3toolbox.uniform.UniformTuckerTensorTrain], use_jax: bool = False) -> t3toolbox.tucker_tensor_train.TuckerTensorTrain
-
-   Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
-
-

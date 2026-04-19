@@ -10,18 +10,12 @@ Functions
 .. toctree::
    :hidden:
 
-   /autoapi/t3toolbox/orthogonalization/up_orthogonalize_tucker_cores
-   /autoapi/t3toolbox/orthogonalization/outer_orthogonalize_tt_cores
    /autoapi/t3toolbox/orthogonalization/left_orthogonalize_tt_cores
    /autoapi/t3toolbox/orthogonalization/right_orthogonalize_tt_cores
-   /autoapi/t3toolbox/orthogonalization/orthogonal_representations
 
 .. autoapisummary::
 
-   t3toolbox.orthogonalization.up_orthogonalize_tucker_cores
-   t3toolbox.orthogonalization.outer_orthogonalize_tt_cores
    t3toolbox.orthogonalization.left_orthogonalize_tt_cores
    t3toolbox.orthogonalization.right_orthogonalize_tt_cores
-   t3toolbox.orthogonalization.orthogonal_representations
 
 

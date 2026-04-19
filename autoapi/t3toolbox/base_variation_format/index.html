@@ -275,6 +275,7 @@
 <li class="toctree-l3 has-children"><a class="reference internal" href="../core/tucker_tensor_train/index.html">t3toolbox.core.tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/apply/index.html">t3toolbox.core.tucker_tensor_train.apply</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/entries/index.html">t3toolbox.core.tucker_tensor_train.entries</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/orthogonalization/index.html">t3toolbox.core.tucker_tensor_train.orthogonalization</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/ragged/index.html">t3toolbox.core.tucker_tensor_train.ragged</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/ranks/index.html">t3toolbox.core.tucker_tensor_train.ranks</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/uniform/index.html">t3toolbox.core.tucker_tensor_train.uniform</a></li>
@@ -308,11 +309,8 @@
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../orthogonalization/index.html">t3toolbox.orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../orthogonalization/up_orthogonalize_tucker_cores.html">t3toolbox.orthogonalization.up_orthogonalize_tucker_cores</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../orthogonalization/outer_orthogonalize_tt_cores.html">t3toolbox.orthogonalization.outer_orthogonalize_tt_cores</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../orthogonalization/left_orthogonalize_tt_cores.html">t3toolbox.orthogonalization.left_orthogonalize_tt_cores</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../orthogonalization/right_orthogonalize_tt_cores.html">t3toolbox.orthogonalization.right_orthogonalize_tt_cores</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../orthogonalization/orthogonal_representations.html">t3toolbox.orthogonalization.orthogonal_representations</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../probing/index.html">t3toolbox.probing</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -410,6 +408,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../../contractions/Na_Maib_Ni_to_NMb.html">contractions.Na_Maib_Ni_to_NMb</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../contractions/MNa_Maib_No_Mio_to_MNb.html">contractions.MNa_Maib_No_Mio_to_MNb</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../contractions/MNa_Maib_MiN_to_MNb.html">contractions.MNa_Maib_MiN_to_MNb</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../orthogonal_representations/index.html">orthogonal_representations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../orthogonal_representations/orthogonal_representations.html">orthogonal_representations.orthogonal_representations</a></li>
 </ul>
 </details></li>
 </ul>
@@ -609,7 +611,7 @@ tangent vector with respect to the base cores.</p>
 to linear algebra core with the N1 x … x Nd tangent vectors represented by the variations.</p>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
-<p><a class="reference internal" href="#t3toolbox.base_variation_format.T3Variation" title="t3toolbox.base_variation_format.T3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Variation</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3_base</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonal_representations</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">oblique_gauge_projection</span></code></p>
+<p><a class="reference internal" href="#t3toolbox.base_variation_format.T3Variation" title="t3toolbox.base_variation_format.T3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Variation</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3_base</span></code>, <a class="reference internal" href="../../orthogonal_representations/index.html#module-orthogonal_representations" title="orthogonal_representations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonal_representations</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">oblique_gauge_projection</span></code></p>
 </div>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>

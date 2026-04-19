@@ -12,6 +12,7 @@ Submodules
 
    /autoapi/t3toolbox/core/tucker_tensor_train/apply/index
    /autoapi/t3toolbox/core/tucker_tensor_train/entries/index
+   /autoapi/t3toolbox/core/tucker_tensor_train/orthogonalization/index
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/index
    /autoapi/t3toolbox/core/tucker_tensor_train/ranks/index
    /autoapi/t3toolbox/core/tucker_tensor_train/uniform/index

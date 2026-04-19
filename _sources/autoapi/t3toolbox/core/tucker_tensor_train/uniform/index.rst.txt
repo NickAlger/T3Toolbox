@@ -11,5 +11,6 @@ Submodules
    :maxdepth: 1
 
    /autoapi/t3toolbox/core/tucker_tensor_train/uniform/operations/index
+   /autoapi/t3toolbox/core/tucker_tensor_train/uniform/orthogonalization/index
 
 

@@ -47,7 +47,7 @@
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3toolbox.orthogonalization.up_orthogonalize_tucker_cores" href="up_orthogonalize_tucker_cores.html" />
+    <link rel="next" title="t3toolbox.orthogonalization.left_orthogonalize_tt_cores" href="left_orthogonalize_tt_cores.html" />
     <link rel="prev" title="t3toolbox.manifold.retract" href="../manifold/retract.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -275,6 +275,7 @@
 <li class="toctree-l3 has-children"><a class="reference internal" href="../core/tucker_tensor_train/index.html">t3toolbox.core.tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/apply/index.html">t3toolbox.core.tucker_tensor_train.apply</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/entries/index.html">t3toolbox.core.tucker_tensor_train.entries</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/orthogonalization/index.html">t3toolbox.core.tucker_tensor_train.orthogonalization</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/ragged/index.html">t3toolbox.core.tucker_tensor_train.ragged</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/ranks/index.html">t3toolbox.core.tucker_tensor_train.ranks</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/uniform/index.html">t3toolbox.core.tucker_tensor_train.uniform</a></li>
@@ -308,11 +309,8 @@
 </ul>
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">t3toolbox.orthogonalization</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="up_orthogonalize_tucker_cores.html">t3toolbox.orthogonalization.up_orthogonalize_tucker_cores</a></li>
-<li class="toctree-l3"><a class="reference internal" href="outer_orthogonalize_tt_cores.html">t3toolbox.orthogonalization.outer_orthogonalize_tt_cores</a></li>
 <li class="toctree-l3"><a class="reference internal" href="left_orthogonalize_tt_cores.html">t3toolbox.orthogonalization.left_orthogonalize_tt_cores</a></li>
 <li class="toctree-l3"><a class="reference internal" href="right_orthogonalize_tt_cores.html">t3toolbox.orthogonalization.right_orthogonalize_tt_cores</a></li>
-<li class="toctree-l3"><a class="reference internal" href="orthogonal_representations.html">t3toolbox.orthogonalization.orthogonal_representations</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../probing/index.html">t3toolbox.probing</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -412,6 +410,10 @@
 <li class="toctree-l2"><a class="reference internal" href="../../contractions/MNa_Maib_MiN_to_MNb.html">contractions.MNa_Maib_MiN_to_MNb</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../orthogonal_representations/index.html">orthogonal_representations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../orthogonal_representations/orthogonal_representations.html">orthogonal_representations.orthogonal_representations</a></li>
+</ul>
+</details></li>
 </ul>
 </div>
 </nav></div>
@@ -483,20 +485,11 @@
 </div>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="up_orthogonalize_tucker_cores.html#t3toolbox.orthogonalization.up_orthogonalize_tucker_cores" title="t3toolbox.orthogonalization.up_orthogonalize_tucker_cores"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_orthogonalize_tucker_cores</span></code></a>(...)</p></td>
-<td><p>Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="outer_orthogonalize_tt_cores.html#t3toolbox.orthogonalization.outer_orthogonalize_tt_cores" title="t3toolbox.orthogonalization.outer_orthogonalize_tt_cores"><code class="xref py py-obj docutils literal notranslate"><span class="pre">outer_orthogonalize_tt_cores</span></code></a>(x[, use_jax])</p></td>
-<td><p>Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.</p></td>
-</tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="left_orthogonalize_tt_cores.html#t3toolbox.orthogonalization.left_orthogonalize_tt_cores" title="t3toolbox.orthogonalization.left_orthogonalize_tt_cores"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_orthogonalize_tt_cores</span></code></a>(tt_cores[, ...])</p></td>
 <td><p>Left-orthogonalize a Tensor train (no Tucker).</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="right_orthogonalize_tt_cores.html#t3toolbox.orthogonalization.right_orthogonalize_tt_cores" title="t3toolbox.orthogonalization.right_orthogonalize_tt_cores"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_orthogonalize_tt_cores</span></code></a>(tt_cores[, ...])</p></td>
 <td><p></p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="orthogonal_representations.html#t3toolbox.orthogonalization.orthogonal_representations" title="t3toolbox.orthogonalization.orthogonal_representations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonal_representations</span></code></a>(...)</p></td>
-<td><p>Construct base-variation representations of TuckerTensorTrain with orthogonal base.</p></td>
 </tr>
 </tbody>
 </table>
@@ -524,11 +517,11 @@
       </div>
     </a>
     <a class="right-next"
-       href="up_orthogonalize_tucker_cores.html"
+       href="left_orthogonalize_tt_cores.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.orthogonalization.up_orthogonalize_tucker_cores</p>
+        <p class="prev-next-title">t3toolbox.orthogonalization.left_orthogonalize_tt_cores</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
