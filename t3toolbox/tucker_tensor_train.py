@@ -93,6 +93,7 @@ import t3toolbox.core.tucker_tensor_train.dense_t3svd as dense_t3svd
 import t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations as ragged_operations
 import t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization as ragged_orthogonalization
 import t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg as ragged_linalg
+import t3toolbox.core.tucker_tensor_train.ragged.ragged_t3svd as ragged_t3svd
 import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as uniform_operations
 
 import t3toolbox.util_linalg as linalg
@@ -543,7 +544,9 @@ class TuckerTensorTrain:
 
     def change_structure(
             self,
-            new_structure: typ.Tuple[typ.Sequence[int], typ.Sequence[int]],
+            new_shape: typ.Sequence[int], # len=d
+            new_tucker_ranks: typ.Sequence[int], # len=d
+            new_tt_ranks: typ.Sequence[int], # len=d+1
             use_jax: bool = False,
     ) -> 'TuckerTensorTrain':
         '''Increase Tucker tensor train ranks and/or shape via zero padding.
@@ -553,8 +556,7 @@ class TuckerTensorTrain:
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (1,3,2,1))
-        >>> new_structure = ((17,18,17), (8,8,8), (1,5,6,1))
-        >>> padded_x = x.change_structure(new_structure)
+        >>> padded_x = x.change_structure((17,18,17), (8,8,8), (1,5,6,1))
         >>> print(padded_x.structure)
         ((17, 18, 17), (8, 8, 8), (1, 5, 6, 1), ())
 
@@ -563,12 +565,10 @@ class TuckerTensorTrain:
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (3,3,2,4))
-        >>> new_structure = ((17,18,17), (8,8,8), (5,5,6,7))
-        >>> padded_x = x.change_structure(new_structure)
+        >>> padded_x = x.change_structure((17,18,17), (8,8,8), (5,5,6,7))
         >>> print(padded_x.structure)
         ((17, 18, 17), (8, 8, 8), (5, 5, 6, 7), ())
         '''
-        new_shape, new_tucker_ranks, new_tt_ranks = new_structure
         tucker_cores, tt_cores = self.data
 
         new_tucker_cores = ragged_operations.change_tucker_core_shapes(tucker_cores, new_shape, new_tucker_ranks, use_jax=use_jax)
@@ -2499,7 +2499,10 @@ def t3_inner_product(
             + 'type(y) = ' + str(type(y))
         )
 
-####
+
+##############################################################
+########################    T3-SVD    ########################
+##############################################################
 
 def t3svd_dense(
         T: NDArray, # shape=(N1, N2, .., Nd)
@@ -2577,3 +2580,146 @@ def t3svd_dense(
     )
     return TuckerTensorTrain(*result[0]), result[1], result[2]
 
+
+def t3_svd(
+        x: TuckerTensorTrain,
+        min_tt_ranks:       typ.Sequence[int] = None, # len=d+1
+        min_tucker_ranks:   typ.Sequence[int] = None,  # len=d
+        max_tt_ranks:       typ.Sequence[int] = None, # len=d+1
+        max_tucker_ranks:   typ.Sequence[int] = None, # len=d
+        rtol: float = None,
+        atol: float = None,
+        squash_tails_first: bool = True,
+        use_jax: bool = False,
+) -> typ.Tuple[
+    TuckerTensorTrain, # new_x
+    typ.Tuple[NDArray,...], # Tucker singular values, len=d
+    typ.Tuple[NDArray,...], # TT singular values, len=d+1
+]:
+    '''Compute (truncated) T3-SVD of TuckerTensorTrain.
+
+    Parameters
+    ----------
+    x: TuckerTensorTrain
+        The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
+    min_tucker_ranks: typ.Sequence[int]
+        Minimum Tucker ranks for truncation.
+    min_tt_ranks: typ.Sequence[int]
+        Minimum TT-ranks for truncation.
+    max_tucker_ranks: typ.Sequence[int]
+        Maximum Tucker ranks for truncation.
+    max_tt_ranks: typ.Sequence[int]
+        Maximum TT-ranks for truncation.
+    rtol: float
+        Relative tolerance for truncation.
+    atol: float
+        Absolute tolerance for truncation.
+    xnp:
+        Linear algebra backend. Default: np (numpy)
+
+    Returns
+    -------
+    NDArray
+        New TuckerTensorTrain representing the same tensor (or a truncated version), but with modified cores
+    typ.Tuple[NDArray,...]
+        Singular values associated with edges between Tucker cores and TT-cores
+    typ.Tuple[NDArray,...]
+        Singular values associated with edges between adjacent TT-cores
+
+    See Also
+    --------
+    left_svd_3tensor
+    right_svd_3tensor
+    outer_svd_3tensor
+    up_svd_ith_tucker_core
+    left_svd_ith_tt_core
+    right_svd_ith_tt_core
+    up_svd_ith_tt_core
+    down_svd_ith_tt_core
+    truncated_svd
+
+    Examples
+    --------
+
+    T3-SVD with no truncation:
+    (ranks may decrease to minimal values, but no approximation error)
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> x = t3.t3_corewise_randn((5,6,3), (4,4,3), (1,3,2,1))
+    >>> x2, ss_tucker, ss_tt = t3.t3_svd(x) # Compute T3-SVD
+    >>> x_dense = x.to_dense()
+    >>> x2_dense = x2.to_dense()
+    >>> print(np.linalg.norm(x_dense - x2_dense)) # Tensor unchanged
+    7.556835759880194e-13
+    >>> ss_tt1 = np.linalg.svd(x_dense.reshape((5, 6*3)))[1] # Singular values of unfolding 1
+    >>> print(ss_tt1); print(ss_tt[1])
+    [1.75326490e+02 3.41363029e+01 9.31164204e+00 1.33610061e-14 4.11601708e-15]
+    [175.32648969  34.13630287   9.31164204]
+    >>> ss_tucker2 = np.linalg.svd(x_dense.transpose([2,0,1]).reshape((3,5*6)))[1] # Singular values of matricization 2
+    >>> print(ss_tucker2); print(ss_tucker[2])
+    [1.71350937e+02 5.12857505e+01 1.36927051e-14]
+    [171.35093708  51.28575045]
+
+    T3-SVD with truncation based on relative tolerance:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> B0 = np.random.randn(35,40) @ np.diag(1.0 / np.arange(1, 41)**2) # preconditioned indices
+    >>> B1 = np.random.randn(45,50) @ np.diag(1.0 / np.arange(1, 51)**2)
+    >>> B2 = np.random.randn(55,60) @ np.diag(1.0 / np.arange(1, 61)**2)
+    >>> G0 = np.random.randn(1,35,30)
+    >>> G1 = np.random.randn(30,45,40)
+    >>> G2 = np.random.randn(40,55,1)
+    >>> tucker_cores_x = (B0, B1, B2)
+    >>> tt_cores_x = (G0, G1, G2)
+    >>> x = t3.TuckerTensorTrain(tucker_cores_x, tt_cores_x) # Tensor has spectral decay due to preconditioning
+    >>> x2, ss_tucker, ss_tt = t3.t3_svd(x, rtol=1e-2) # Truncate singular values to reduce rank
+    >>> print(x.structure)
+    ((40, 50, 60), (35, 45, 55), (1, 30, 40, 1), ())
+    >>> print(x2.structure)
+    ((40, 50, 60), (6, 6, 5), (1, 6, 5, 1), ())
+    >>> x_dense = x.to_dense()
+    >>> x2_dense = x2.to_dense()
+    >>> print(np.linalg.norm(x_dense - x2_dense)/np.linalg.norm(x_dense)) # Should be near rtol=1e-2
+    0.01919726997372989
+
+    T3-SVD with truncation based on absolute tolerance:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> x = t3.t3_corewise_randn((14,15,16), (10,11,12), (1,8,9,1))
+    >>> x2, ss_tucker, ss_tt = t3.t3_svd(x, max_tucker_ranks=(3,3,3), max_tt_ranks=(1,2,2,1)) # Truncate based on ranks
+    >>> print(x.structure)
+    ((14, 15, 16), (10, 11, 12), (1, 8, 9, 1), ())
+    >>> print(x2.structure)
+    ((14, 15, 16), (3, 3, 2), (1, 2, 2, 1), ())
+
+    Example where first and last ranks are not ones:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> x = t3.t3_corewise_randn((5,6,3), (4,4,3), (2,3,2,2))
+    >>> x2, ss_tucker, ss_tt = t3.t3_svd(x, squash_tails_first=False) # Compute T3-SVD
+    >>> x_dense = x.to_dense(squash_tails=False)
+    >>> x2_dense = x2.to_dense(squash_tails=False)
+    >>> print(np.linalg.norm(x_dense - x2_dense)) # Tensor unchanged
+    5.486408687260824e-13
+    >>> ss_tt0 = np.linalg.svd(x_dense.reshape((2,5*6*3*2)))[1] # Singular values of leading unfolding
+    >>> print(ss_tt0); print(ss_tt[0])
+    [303.0474449   88.85034392]
+    [303.0474449   88.85034392]
+    >>> ss_tt3 = np.linalg.svd(x_dense.reshape((2*5*6*3,2)))[1] # Singular values of trailing unfolding
+    >>> print(ss_tt3); print(ss_tt[3])
+    [299.45433768 100.29574828]
+    [299.45433768 100.29574828]
+    '''
+    result = ragged_t3svd.t3svd(
+        x.data,
+        min_tt_ranks=min_tt_ranks, min_tucker_ranks=min_tucker_ranks,
+        max_tt_ranks=max_tt_ranks, max_tucker_ranks=max_tucker_ranks,
+        rtol=rtol, atol=atol,
+        squash_tails_first=squash_tails_first,
+        use_jax=use_jax,
+    )
+    return TuckerTensorTrain(*result[0]), result[1], result[2]

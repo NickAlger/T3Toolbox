@@ -74,9 +74,9 @@ def right_orthogonalize_tt_cores(
     typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]], # right_tt_cores, var_tt_cores
 ]:
     if is_ndarray(tt_cores):
-        reverse = ragged_operations.reverse_tt
-    else:
         reverse = uniform_operations.reverse_utt
+    else:
+        reverse = ragged_operations.reverse_tt
 
     result = left_orthogonalize_tt_cores(
         reverse(tt_cores), return_variation_cores=return_variation_cores, use_jax=use_jax,
