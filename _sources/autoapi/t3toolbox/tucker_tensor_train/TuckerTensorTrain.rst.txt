@@ -875,7 +875,6 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
       >>> import numpy as np
       >>> import t3toolbox.tucker_tensor_train as t3
-      >>> import t3toolbox.orthogonalization as orth
       >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
       >>> x_orth = x.up_orthogonalize_tucker_cores()
       >>> print((x - x_orth).norm())
@@ -884,6 +883,23 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> B = x_orth.data[0][ind]
       >>> print(np.linalg.norm(B @ B.T - np.eye(B.shape[0])))
       1.2059032102772812e-15
+
+      Stacked:
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.orthogonalization as orth
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+      >>> x_orth = x.up_orthogonalize_tucker_cores()
+      >>> print((x - x_orth).norm())
+      [[2.27267321e-12 1.92787570e-12 1.60830015e-12]
+       [9.54262022e-13 1.45211899e-12 3.27867574e-12]]
+      >>> ind = 1
+      >>> B = x_orth.data[0][ind]
+      >>> BtB = np.einsum('abio,abjo->abij',B,B)
+      >>> errs = [[np.linalg.norm(BtB[ii,jj] - np.eye(BtB.shape[-1])) for jj in range(3)] for ii in range(2)]
+      >>> print(np.linalg.norm(errs))
+      4.118375471407983e-15
 
 
 
@@ -895,7 +911,6 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
       >>> import numpy as np
       >>> import t3toolbox.tucker_tensor_train as t3
-      >>> import t3toolbox.orthogonalization as orth
       >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
       >>> x_orth = x.down_orthogonalize_tt_cores()
       >>> print((x - x_orth).norm())
@@ -904,6 +919,20 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> G = x_orth.data[1][ind]
       >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab',G,G)-np.eye(G.shape[1])))
       1.9491561709929213e-15
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+      >>> x_orth = x.down_orthogonalize_tt_cores()
+      >>> print((x - x_orth).norm())
+      [[1.65714673e-12 1.52503536e-12 2.94647811e-12]
+       [1.56839190e-12 2.61963262e-12 8.78269349e-12]]
+      >>> ind = 1
+      >>> G = x_orth.data[1][ind]
+      >>> GdG = np.einsum('xyaib,xyajb->xyij',G,G)
+      >>> errs = [[np.linalg.norm(GdG[ii,jj] - np.eye(GdG.shape[-1])) for jj in range(3)] for ii in range(2)]
+      >>> print(np.linalg.norm(errs))
+      4.0492695830155885e-15
 
 
 
