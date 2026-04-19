@@ -12,7 +12,6 @@ from dataclasses import dataclass
 
 
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations as ragged_t3_operations
 import t3toolbox.core.weighted_tucker_tensor_train.ragged.ragged_wt3_operations as ragged_wt3_operations
 
 
@@ -402,7 +401,7 @@ def wt3_apply(
         vecs: typ.Sequence[NDArray], # len=d, elm_shape=V+(Ni,)
         use_jax: bool = False,
 ) -> NDArray:
-    '''Contract a Tucker tensor train with vectors in all indices.
+    '''Contract a weighted Tucker tensor train with vectors in all indices.
 
     Examples
     --------
@@ -433,7 +432,7 @@ def wt3_get_entries(
         index: NDArray, # or convertible to NDArray. dtype=int
         use_jax: bool = False,
 ) -> NDArray:
-    '''Compute an entry (or multiple entries) of a Tucker tensor train.
+    '''Compute an entry (or multiple entries) of a weighted Tucker tensor train.
 
     Examples
     --------
@@ -459,7 +458,6 @@ def wt3_get_entries(
     )
 
 
-
 def probe_wt3(
         ww: typ.Sequence[NDArray], # len=d, elm_shape=W+(Ni,)
         x: WeightedTuckerTensorTrain, # x.stack_shape=X
@@ -472,38 +470,15 @@ def probe_wt3(
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.core.probing as probing
-    >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
-    >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-    >>> zz = t3.probe_t3(ww, x)
-    >>> x_dense = x.to_dense()
-    >>> zz2 = probing.probe_dense(ww, x_dense)
-    >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
-    [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
-
-    Vectorize over probes:
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.core.probing as probing
-    >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
-    >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
-    >>> zz = t3.probe_t3(ww, x)
-    >>> x_dense = x.to_dense()
-    >>> zz2 = probing.probe_dense(ww, x_dense)
-    >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
-    [2.9290244450205316e-12, 2.0347746956505754e-12, 1.7784156096697445e-12]
-
-    Vectorize over probes and T3s:
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.core.probing as probing
     >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2), stack_shape=(4,5))
     >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
     >>> zz = t3.probe_t3(ww, x)
     >>> x_dense = x.to_dense()
     >>> zz2 = probing.probe_dense(ww, x_dense)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
-    [1.4471391818397927e-11, 1.0485601346346092e-11, 1.437623640611662e-11]
+    [2.1390090849943483e-11, 1.414818698659898e-11, 1.504028179746035e-11]
     """
-    return probing.probe_t3(ww, x.data, use_jax=use_jax)
+    return t3.probe_t3(ww, x.contract_edge_weights_into_cores(use_jax=use_jax), use_jax=use_jax)
+
+
+
