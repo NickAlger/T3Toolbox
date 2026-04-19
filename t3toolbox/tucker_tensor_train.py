@@ -86,13 +86,13 @@ import typing as typ
 import functools as ft
 from dataclasses import dataclass
 
-import t3toolbox.core.tucker_tensor_train.apply as apply
-import t3toolbox.core.tucker_tensor_train.entries as entries
-import t3toolbox.core.tucker_tensor_train.ranks as ranks
-import t3toolbox.core.tucker_tensor_train.ragged.ragged_operations as ragged_operations
+import t3toolbox.core.tucker_tensor_train.t3_apply as apply
+import t3toolbox.core.tucker_tensor_train.t3_entries as entries
+import t3toolbox.core.tucker_tensor_train.t3_ranks as ranks
+import t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations as ragged_operations
 import t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization as ragged_orthogonalization
 import t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg as ragged_linalg
-import t3toolbox.core.tucker_tensor_train.uniform.uniform_operations as uniform_operations
+import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as uniform_operations
 
 import t3toolbox.util_linalg as linalg
 from t3toolbox.common import *

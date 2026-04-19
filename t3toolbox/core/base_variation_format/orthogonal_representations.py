@@ -5,8 +5,8 @@
 import numpy as np
 import typing as typ
 
-import t3toolbox.core.tucker_tensor_train.ragged.ragged_operations as ragged_operations
-import t3toolbox.core.tucker_tensor_train.uniform.uniform_operations as uniform_operations
+import t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations as ragged_operations
+import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as uniform_operations
 import t3toolbox.core.tucker_tensor_train.orthogonalization as orth
 import t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization as ragged_orth
 import t3toolbox.core.tucker_tensor_train.uniform.uniform_orthogonalization as uniform_orth
