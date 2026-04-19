@@ -53,11 +53,11 @@ def down_orthogonalize_tt_cores(
     def _down_func(Uio_Haib):
         Uio, Haib, = Uio_Haib
 
-        rL, n, rR = Haib.shape
+        rL, n, rR = Haib.shape[-3:]
         H_ab_i = Haib.swapaxes(-2, -1).reshape(stack_shape + (rL * rR, n))
 
         O_ab_x, ssx, WTxi = xnp.linalg.svd(H_ab_i, full_matrices=False)
-        n2 = len(ssx)
+        n2 = ssx.shape[-1]
         Oaxb = O_ab_x.reshape(stack_shape + (rL, rR, n2)).swapaxes(-2, -1)
 
         Cxi = ssx.reshape(stack_shape + (-1, 1)) * WTxi
