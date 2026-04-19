@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.core.tucker_tensor_train.ragged.orthogonalization.up_orthogonalize_tucker_cores &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.core.tucker_tensor_train.uniform.operations.uniform_squash_tt_tails &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/core/tucker_tensor_train/ragged/orthogonalization/up_orthogonalize_tucker_cores';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/core/tucker_tensor_train/uniform/operations/uniform_squash_tt_tails';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../../../search.html" />
-    <link rel="next" title="t3toolbox.core.tucker_tensor_train.ragged.orthogonalization.up_svd_ith_tucker_core" href="up_svd_ith_tucker_core.html" />
-    <link rel="prev" title="t3toolbox.core.tucker_tensor_train.ragged.orthogonalization.down_orthogonalize_tt_cores" href="down_orthogonalize_tt_cores.html" />
+    <link rel="next" title="t3toolbox.core.tucker_tensor_train.uniform.orthogonalization" href="../orthogonalization/index.html" />
+    <link rel="prev" title="t3toolbox.core.tucker_tensor_train.uniform.operations.absorb_edge_weights_into_ut3" href="absorb_edge_weights_into_ut3.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -276,9 +276,9 @@
 <li class="toctree-l4"><a class="reference internal" href="../../apply/index.html">t3toolbox.core.tucker_tensor_train.apply</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../entries/index.html">t3toolbox.core.tucker_tensor_train.entries</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../orthogonalization/index.html">t3toolbox.core.tucker_tensor_train.orthogonalization</a></li>
-<li class="toctree-l4 current active"><a class="reference internal" href="../index.html">t3toolbox.core.tucker_tensor_train.ragged</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../../ragged/index.html">t3toolbox.core.tucker_tensor_train.ragged</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../../ranks/index.html">t3toolbox.core.tucker_tensor_train.ranks</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../../uniform/index.html">t3toolbox.core.tucker_tensor_train.uniform</a></li>
+<li class="toctree-l4 current active"><a class="reference internal" href="../index.html">t3toolbox.core.tucker_tensor_train.uniform</a></li>
 </ul>
 </details></li>
 </ul>
@@ -467,12 +467,12 @@
     <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">t3toolbox.core.tucker_tensor_train</a></li>
     
     
-    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">t3toolbox.core.tucker_tensor_train.ragged</a></li>
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">t3toolbox.core.tucker_tensor_train.uniform</a></li>
     
     
-    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.core.tucker_tensor_train.ragged.orthogonalization</a></li>
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.core.tucker_tensor_train.uniform.operations</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.core.tucker_tensor_train.ragged.orthogonalization.up_orthogonalize_tucker_cores</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.core.tucker_tensor_train.uniform.operations.uniform_squash_tt_tails</span></li>
   </ul>
 </nav>
 </div>
@@ -489,12 +489,27 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="t3toolbox-core-tucker-tensor-train-ragged-orthogonalization-up-orthogonalize-tucker-cores">
-<h1>t3toolbox.core.tucker_tensor_train.ragged.orthogonalization.up_orthogonalize_tucker_cores<a class="headerlink" href="#t3toolbox-core-tucker-tensor-train-ragged-orthogonalization-up-orthogonalize-tucker-cores" title="Link to this heading">#</a></h1>
+  <section id="t3toolbox-core-tucker-tensor-train-uniform-operations-uniform-squash-tt-tails">
+<h1>t3toolbox.core.tucker_tensor_train.uniform.operations.uniform_squash_tt_tails<a class="headerlink" href="#t3toolbox-core-tucker-tensor-train-uniform-operations-uniform-squash-tt-tails" title="Link to this heading">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3toolbox.core.tucker_tensor_train.ragged.orthogonalization.up_orthogonalize_tucker_cores">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.core.tucker_tensor_train.ragged.orthogonalization.</span></span><span class="sig-name descname"><span class="pre">up_orthogonalize_tucker_cores</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.core.tucker_tensor_train.ragged.orthogonalization.up_orthogonalize_tucker_cores" title="Link to this definition">#</a></dt>
-<dd><p>Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.</p>
+<dt class="sig sig-object py" id="t3toolbox.core.tucker_tensor_train.uniform.operations.uniform_squash_tt_tails">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.core.tucker_tensor_train.uniform.operations.</span></span><span class="sig-name descname"><span class="pre">uniform_squash_tt_tails</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tt_supercore</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a></span></span><a class="headerlink" href="#t3toolbox.core.tucker_tensor_train.uniform.operations.uniform_squash_tt_tails" title="Link to this definition">#</a></dt>
+<dd><p>Squash tails of uniform tensor train.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.core.tucker_tensor_train.uniform.operations</span> <span class="k">as</span> <span class="nn">uniform_operations</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tt_supercore</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">5</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">new_tt_supercore</span> <span class="o">=</span> <span class="n">uniform_operations</span><span class="o">.</span><span class="n">uniform_squash_tt_tails</span><span class="p">(</span><span class="n">tt_supercore</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">tt_supercore</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">3</span><span class="p">)</span> <span class="o">-</span> <span class="n">new_tt_supercore</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,:,</span> <span class="mi">0</span><span class="p">,:,:]))</span>
+<span class="go">0.0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">new_tt_supercore</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,:,</span> <span class="mi">1</span><span class="p">:,:,:]))</span>
+<span class="go">0.0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">tt_supercore</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">new_tt_supercore</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,:,</span> <span class="p">:,:,</span><span class="mi">0</span><span class="p">]))</span>
+<span class="go">0.0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">new_tt_supercore</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,:,</span> <span class="p">:,:,</span><span class="mi">1</span><span class="p">:]))</span>
+<span class="go">0.0</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </section>
@@ -510,20 +525,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="down_orthogonalize_tt_cores.html"
+       href="absorb_edge_weights_into_ut3.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.core.tucker_tensor_train.ragged.orthogonalization.down_orthogonalize_tt_cores</p>
+        <p class="prev-next-title">t3toolbox.core.tucker_tensor_train.uniform.operations.absorb_edge_weights_into_ut3</p>
       </div>
     </a>
     <a class="right-next"
-       href="up_svd_ith_tucker_core.html"
+       href="../orthogonalization/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.core.tucker_tensor_train.ragged.orthogonalization.up_svd_ith_tucker_core</p>
+        <p class="prev-next-title">t3toolbox.core.tucker_tensor_train.uniform.orthogonalization</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -546,14 +561,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.core.tucker_tensor_train.ragged.orthogonalization.up_orthogonalize_tucker_cores"><code class="docutils literal notranslate"><span class="pre">t3toolbox.core.tucker_tensor_train.ragged.orthogonalization.up_orthogonalize_tucker_cores()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.core.tucker_tensor_train.uniform.operations.uniform_squash_tt_tails"><code class="docutils literal notranslate"><span class="pre">t3toolbox.core.tucker_tensor_train.uniform.operations.uniform_squash_tt_tails()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../../../../_sources/autoapi/t3toolbox/core/tucker_tensor_train/ragged/orthogonalization/up_orthogonalize_tucker_cores.rst.txt">
+    <a href="../../../../../../_sources/autoapi/t3toolbox/core/tucker_tensor_train/uniform/operations/uniform_squash_tt_tails.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>
