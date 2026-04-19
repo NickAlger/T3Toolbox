@@ -16,7 +16,6 @@ Submodules
    /autoapi/t3toolbox/corewise/index
    /autoapi/t3toolbox/manifold/index
    /autoapi/t3toolbox/orthogonalization/index
-   /autoapi/t3toolbox/probing/index
    /autoapi/t3toolbox/tucker_tensor_train/index
    /autoapi/t3toolbox/uniform/index
    /autoapi/t3toolbox/uniform_manifold/index

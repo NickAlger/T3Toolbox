@@ -1,0 +1,14 @@
+t3toolbox.core.probing.compute_deta_tildes
+==========================================
+
+.. py:function:: t3toolbox.core.probing.compute_deta_tildes(up_tucker_cores: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], ztildes: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], up_tucker_weights: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray] = None, use_jax: bool = False) -> t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray]
+
+   Adjoint-var-upward edge variables deta_tilde.
+   Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
+
+   See Section 5.2.4, particularly Formula (43), in:
+       Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+       "Tucker Tensor Train Taylor Series."
+       arXiv preprint arXiv:2603.21141.
+       `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+

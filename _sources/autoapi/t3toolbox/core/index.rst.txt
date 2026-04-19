@@ -10,6 +10,7 @@ Submodules
 .. toctree::
    :maxdepth: 1
 
+   /autoapi/t3toolbox/core/probing/index
    /autoapi/t3toolbox/core/tucker_tensor_train/index
 
 
