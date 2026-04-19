@@ -170,6 +170,13 @@ class WeightedTuckerTensorTrain:
             self.x0.data, self.edge_weights.data, use_jax=use_jax,
         ))
 
+    def squash_tails(self) -> 'WeightedTuckerTensorTrain':
+        result = ragged_operations.wt3_squash_tails(self.data)
+        return WeightedTuckerTensorTrain(
+            t3.TuckerTensorTrain(*result[0]),
+            EdgeVectors(*result[1]),
+        )
+
 
 
 if has_jax:
@@ -235,11 +242,7 @@ def wt3_add(
     C = WeightedTuckerTensorTrain(C0, c_weights)
 
     if squash:
-        result = ragged_operations.wt3_squash_tails(C.data)
-        C = WeightedTuckerTensorTrain(
-            t3.TuckerTensorTrain(*result[0]),
-            EdgeVectors(*result[1]),
-        )
+        C = C.squash_tails()
 
     return C
 
