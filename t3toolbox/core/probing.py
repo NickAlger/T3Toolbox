@@ -38,65 +38,6 @@ __all__ = [
 ]
 
 
-EdgeWeightsTuple = typ.Tuple[
-    typ.Sequence[NDArray],  # shape_weights, len=d, elm_shape=(Ni,)
-    typ.Sequence[NDArray],  # tucker_weights, len=d, elm_shape=(ni,)
-    typ.Sequence[NDArray],  # tt_weights, len=d+1, elm_shape=(ri,)
-]
-
-T3BaseTuple = typ.Tuple[
-    typ.Sequence[NDArray],  # up_tucker_cores. len=d. B_xo B_yo   = I_xy, B.shape = (n, N)
-    typ.Sequence[NDArray],  # left_tt_cores.   len=d. P_iax P_iay = I_xy, P.shape = (rL, n, rR)
-    typ.Sequence[NDArray],  # right_tt_cores.  len=d. Q_xaj Q_yaj = I_xy  Q.shape = (rL, n, rR)
-    typ.Sequence[NDArray],  # outer_tt_cores.  len=d. R_ixj R_iyj = I_xy  R.shape = (rL, n, rR)
-]
-
-T3VariationTuple = typ.Tuple[
-    typ.Sequence[NDArray],  # variation_tucker_cores.
-    typ.Sequence[NDArray],  # variation_tt_cores.
-]
-
-BVEdgeWeightsTuple = typ.Tuple[
-    typ.Sequence[NDArray],  # shape_weights, len=d, elm_shape=(Ni,)
-    typ.Sequence[NDArray],  # up_tucker_weights, len=d, elm_shape=(nUi,)
-    typ.Sequence[NDArray],  # outer_tucker_weights, len=d, elm_shape=(nOi,)
-    typ.Sequence[NDArray],  # left_tt_weights, len=d, elm_shape=(rLi,)
-    typ.Sequence[NDArray],  # right_tt_weights, len=d, elm_shape=(rRi,)
-]
-
-UniformTuckerTensorTrainTuple = typ.Tuple[
-    NDArray, # tucker_supercore, shape=(d, n, N)
-    NDArray, # tt_supercore, shape=(d, r, n, r)
-]
-
-UniformEdgeWeightsTuple = typ.Tuple[
-    NDArray,  # shape_masks, shape=(d,N)
-    NDArray,  # tucker_masks, shape=(d, n)
-    NDArray,  # tt_masks, shape=(d+1, r)
-]
-
-UniformT3BaseTuple = typ.Tuple[
-    NDArray,  # up_tucker_supercore. shape=(d, n, N),      up orthogonal elements
-    NDArray,  # left_tt_supercore.   shape=(d, rL, n, rR), left orthogonal elements
-    NDArray,  # right_tt_supercore.  shape=(d, rL, n, rR), right orthogonal elements
-    NDArray,  # outer_tt_supercores. shape=(d, rL, n, rR), outer orthogonal elements
-]
-
-UniformT3VariationTuple = typ.Tuple[
-    NDArray,  # var_tucker_supercore.
-    NDArray,  # var_tt_supercore.
-]
-
-UniformBVEdgeWeightsTuple = typ.Tuple[
-    NDArray,  # shape_weights,          shape=(d,Ni)
-    NDArray,  # up_tucker_weights,      shape=(d,nUi,)
-    NDArray,  # outer_tucker_weights,   shape=(d,nOi)
-    NDArray,  # left_tt_weights,        len=d, shape=(d+1,rLi,)
-    NDArray,  # right_tt_weights,       len=d, shape=(d+1,rRi)
-]
-
-
-
 #####################################################
 ########    Probing a Tucker Tensor Train    ########
 #####################################################
@@ -107,7 +48,18 @@ def probe_t3(
             typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # ragged, (tucker_cores, tt_cores)
             typ.Tuple[NDArray, NDArray],  # uniform. (tucker_supercore, tt_supercore)
         ],
-        edge_weights:   typ.Union[EdgeWeightsTuple, UniformEdgeWeightsTuple] = (None, None, None),
+        edge_weights:   typ.Union[
+            typ.Tuple[
+                typ.Sequence[NDArray],  # shape_weights,    len=d, elm_shape=(Ni,)
+                typ.Sequence[NDArray],  # tucker_weights,   len=d, elm_shape=(ni,)
+                typ.Sequence[NDArray],  # tt_weights,       len=d+1, elm_shape=(ri,)
+            ],
+            typ.Tuple[
+                NDArray,  # uniform_shape_weights,    shape=(d,N)
+                NDArray,  # uniform_tucker_weights,   shape=(d, n)
+                NDArray,  # uniform_tt_weights,       shape=(d+1, r)
+            ],
+        ] = (None, None, None),
         use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,Ni)
     '''Probe a Tucker tensor train.
@@ -780,9 +732,46 @@ def assemble_tangent_zs(
 
 def probe_tangent(
         ww:         typ.Union[typ.Sequence[NDArray],    NDArray],  # input vectors, len=d, elm_shape=(...,Ni)
-        variation:  typ.Union[T3VariationTuple,          NDArray], # tucker_var_shapes=(nOi,Ni), tt_var_shapes=tt_hole_shapes=(rLi,ni,rRi)
-        base:       typ.Union[T3BaseTuple,               UniformT3BaseTuple], # tucker_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
-        edge_weights: BVEdgeWeightsTuple = (None, None, None, None, None),
+        variation:  typ.Union[
+            typ.Tuple[
+                typ.Sequence[NDArray],  # variation_tucker_cores.
+                typ.Sequence[NDArray],  # variation_tt_cores.
+            ],
+            typ.Tuple[
+                NDArray,  # var_tucker_supercore.
+                NDArray,  # var_tt_supercore.
+            ],
+        ], # tucker_var_shapes=(nOi,Ni), tt_var_shapes=tt_hole_shapes=(rLi,ni,rRi)
+        base:       typ.Union[
+            typ.Tuple[
+                typ.Sequence[NDArray],  # up_tucker_cores. len=d. B_xo B_yo   = I_xy, B.shape = (n, N)
+                typ.Sequence[NDArray],  # left_tt_cores.   len=d. P_iax P_iay = I_xy, P.shape = (rL, n, rR)
+                typ.Sequence[NDArray],  # right_tt_cores.  len=d. Q_xaj Q_yaj = I_xy  Q.shape = (rL, n, rR)
+                typ.Sequence[NDArray],  # outer_tt_cores.  len=d. R_ixj R_iyj = I_xy  R.shape = (rL, n, rR)
+            ],
+            typ.Tuple[
+                NDArray,  # up_tucker_supercore. shape=(d, n, N),      up orthogonal elements
+                NDArray,  # left_tt_supercore.   shape=(d, rL, n, rR), left orthogonal elements
+                NDArray,  # right_tt_supercore.  shape=(d, rL, n, rR), right orthogonal elements
+                NDArray,  # outer_tt_supercores. shape=(d, rL, n, rR), outer orthogonal elements
+            ],
+        ], # tucker_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
+        edge_weights: typ.Union[
+            typ.Tuple[
+                typ.Sequence[NDArray],  # shape_weights,        len=d, elm_shape=(Ni,)
+                typ.Sequence[NDArray],  # up_tucker_weights,    len=d, elm_shape=(nUi,)
+                typ.Sequence[NDArray],  # outer_tucker_weights, len=d, elm_shape=(nOi,)
+                typ.Sequence[NDArray],  # left_tt_weights,      len=d, elm_shape=(rLi,)
+                typ.Sequence[NDArray],  # right_tt_weights,     len=d, elm_shape=(rRi,)
+            ],
+            typ.Tuple[
+                NDArray,  # shape_weights,          shape=(d,Ni)
+                NDArray,  # up_tucker_weights,      shape=(d,nUi,)
+                NDArray,  # outer_tucker_weights,   shape=(d,nOi)
+                NDArray,  # left_tt_weights,        len=d, shape=(d+1,rLi,)
+                NDArray,  # right_tt_weights,       len=d, shape=(d+1,rRi)
+            ],
+        ] = (None, None, None, None, None),
         use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,Ni)
     '''Probe a tangent vector.
@@ -1312,8 +1301,36 @@ def assemble_tt_variations(
 def probe_tangent_transpose(
         ztildes:        typ.Union[typ.Sequence[NDArray],    NDArray], # len=d, elm_shape=(...,Ni) OR shape=(d,...,Ni)
         ww:             typ.Union[typ.Sequence[NDArray],    NDArray], # input vectors, len=d, elm_shape=(...,Ni) OR shape=(d,...,Ni)
-        base:           typ.Union[T3BaseTuple,               UniformT3BaseTuple], # tucker_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
-        edge_weights:   typ.Union[BVEdgeWeightsTuple,        UniformEdgeWeightsTuple] = (None, None, None, None, None),
+        base:           typ.Union[
+            typ.Tuple[
+                typ.Sequence[NDArray],  # up_tucker_cores. len=d. B_xo B_yo   = I_xy, B.shape = (n, N)
+                typ.Sequence[NDArray],  # left_tt_cores.   len=d. P_iax P_iay = I_xy, P.shape = (rL, n, rR)
+                typ.Sequence[NDArray],  # right_tt_cores.  len=d. Q_xaj Q_yaj = I_xy  Q.shape = (rL, n, rR)
+                typ.Sequence[NDArray],  # outer_tt_cores.  len=d. R_ixj R_iyj = I_xy  R.shape = (rL, n, rR)
+            ],
+            typ.Tuple[
+                NDArray,  # up_tucker_supercore. shape=(d, n, N),      up orthogonal elements
+                NDArray,  # left_tt_supercore.   shape=(d, rL, n, rR), left orthogonal elements
+                NDArray,  # right_tt_supercore.  shape=(d, rL, n, rR), right orthogonal elements
+                NDArray,  # outer_tt_supercores. shape=(d, rL, n, rR), outer orthogonal elements
+            ],
+        ], # tucker_hole_shapes=(nOi,Ni), tt_hole_shapes=(rLi,ni,rRi)
+        edge_weights:   typ.Union[
+            typ.Tuple[
+                typ.Sequence[NDArray],  # shape_weights,        len=d, elm_shape=(Ni,)
+                typ.Sequence[NDArray],  # up_tucker_weights,    len=d, elm_shape=(nUi,)
+                typ.Sequence[NDArray],  # outer_tucker_weights, len=d, elm_shape=(nOi,)
+                typ.Sequence[NDArray],  # left_tt_weights,      len=d, elm_shape=(rLi,)
+                typ.Sequence[NDArray],  # right_tt_weights,     len=d, elm_shape=(rRi,)
+            ],
+            typ.Tuple[
+                NDArray,  # shape_weights,          shape=(d,Ni)
+                NDArray,  # up_tucker_weights,      shape=(d,nUi,)
+                NDArray,  # outer_tucker_weights,   shape=(d,nOi)
+                NDArray,  # left_tt_weights,        len=d, shape=(d+1,rLi,)
+                NDArray,  # right_tt_weights,       len=d, shape=(d+1,rRi)
+            ],
+        ] = (None, None, None, None, None),
         sum_over_probes: bool = False,
         use_jax: bool = False,
 ) -> typ.Union[
