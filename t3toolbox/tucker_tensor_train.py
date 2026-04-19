@@ -89,6 +89,7 @@ from dataclasses import dataclass
 import t3toolbox.core.tucker_tensor_train.t3_apply as apply
 import t3toolbox.core.tucker_tensor_train.t3_entries as entries
 import t3toolbox.core.tucker_tensor_train.t3_ranks as ranks
+import t3toolbox.core.tucker_tensor_train.dense_t3svd as dense_t3svd
 import t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations as ragged_operations
 import t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization as ragged_orthogonalization
 import t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg as ragged_linalg
@@ -2498,4 +2499,81 @@ def t3_inner_product(
             + 'type(y) = ' + str(type(y))
         )
 
+####
+
+def t3svd_dense(
+        T: NDArray, # shape=(N1, N2, .., Nd)
+        min_tucker_ranks:  typ.Sequence[int] = None, # len=d
+        max_tucker_ranks:  typ.Sequence[int] = None,  # len=d
+        min_tt_ranks:  typ.Sequence[int] = None, # len=d+1
+        max_tt_ranks:  typ.Sequence[int] = None,  # len=d+1
+        rtol: float = None,
+        atol: float = None,
+        use_jax: bool = False,
+) -> typ.Tuple[
+    TuckerTensorTrain, # Approximation of T by Tucker tensor train
+    typ.Tuple[NDArray,...], # Tucker singular values, len=d
+    typ.Tuple[NDArray,...], # TT singular values, len=d+1
+]:
+    '''Compute TuckerTensorTrain and edge singular values for dense tensor.
+
+    Parameters
+    ----------
+    T: NDArray
+        The dense tensor. shape=(N1, ..., Nd)
+    min_tucker_ranks: typ.Sequence[int]
+        Minimum Tucker ranks for truncation. len=d. e.g., (3,3,3)
+    max_tucker_ranks: typ.Sequence[int]
+        Maximum Tucker ranks for truncation. len=d. e.g., (5,5,5)
+    min_tt_ranks: typ.Sequence[int]
+        Minimum TT-ranks for truncation. len=d+1. e.g., (1,3,3,3,1)
+    max_tt_ranks: typ.Sequence[int]
+        Maximum TT-ranks for truncation. len=d+1. e.g., (1,5,5,5,1)
+    rtol: float
+        Relative tolerance for truncation.
+    atol: float
+        Absolute tolerance for truncation.
+    xnp:
+        Linear algebra backend. Default: np (numpy)
+
+    Returns
+    -------
+    TuckerTensorTrain
+        Tucker tensor train approxiamtion of T
+    typ.Tuple[NDArray,...]
+        Singular values of matricizations. len=d. elm_shape=(ni,)
+    typ.Tuple[NDArray,...]
+        Singular values of unfoldings. len=d+1. elm_shape=(ri,)
+
+    See Also
+    --------
+    truncated_svd
+    tucker_svd_dense
+    tt_svd_dense
+    t3_svd
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> T0 = np.random.randn(40, 50, 60)
+    >>> c0 = 1.0 / np.arange(1, 41)**2
+    >>> c1 = 1.0 / np.arange(1, 51)**2
+    >>> c2 = 1.0 / np.arange(1, 61)**2
+    >>> T = np.einsum('ijk,i,j,k->ijk', T0, c0, c1, c2) # Preconditioned random tensor
+    >>> x, ss_tucker, ss_tt = t3.t3svd_dense(T, rtol=1e-3) # Truncate T3-SVD to reduce rank
+    >>> print(x.structure)
+    ((40, 50, 60), (11, 10, 12), (1, 11, 12, 1), ())
+    >>> T2 = x.to_dense()
+    >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-3
+    0.002920893302364434
+    '''
+    result = dense_t3svd.t3svd_dense(
+        T,
+        min_tucker_ranks=min_tucker_ranks, max_tucker_ranks=max_tucker_ranks,
+        min_tt_ranks=min_tt_ranks, max_tt_ranks=max_tt_ranks,
+        rtol=rtol, atol=atol,
+        use_jax=use_jax,
+    )
+    return TuckerTensorTrain(*result[0]), result[1], result[2]
 
