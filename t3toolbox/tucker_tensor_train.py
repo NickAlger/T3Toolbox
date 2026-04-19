@@ -1560,7 +1560,6 @@ class TuckerTensorTrain:
         """
         return TuckerTensorTrain(*ragged_operations.t3_sum_stack(self.data))
 
-
     def unstack(self): # returns an array-like structure of nested tuples containing TuckerTensorTrains
         """If this object contains multiple stacked T3s, this unstacks them
         into an array-like structure of nested tuples with the same "shape" as self.stack_shape.
@@ -1620,6 +1619,31 @@ EdgeWeights = typ.Tuple[
 #     tt_weights:     typ.Sequence[NDArray] # len=d+1, elm_shape=stack_shape+(ri,)
 
 
+def t3_stack(
+        xx, # array-like structure of nested tuples containing TuckerTensorTrains
+        use_jax: bool = False,
+) -> typ.Tuple[typ.Tuple[NDArray], typ.Tuple[NDArray]]:  # (stacked_tucker_cores, stacked_tt_cores)
+    """Stacks an array-like structure of TuckerTensorTrains into one stacked TuckerTensorTrain.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.corewise as cw
+    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(3,5))
+    >>> xx = x.unstack()
+    >>> x2 = t3.t3_stack(xx)
+    >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
+    0.0
+    """
+    def _data(xs):
+        if isinstance(xs, TuckerTensorTrain):
+            return xs.data
+        return tuple([_data(x) for x in xs])
+    xx_data = _data(xx)
+
+    stacked_tucker_cores, stacked_tt_cores = ragged_operations.t3_stack(xx_data, use_jax=use_jax)
+    return TuckerTensorTrain(stacked_tucker_cores, stacked_tt_cores)
 
 
 def absorb_edge_weights_into_cores(

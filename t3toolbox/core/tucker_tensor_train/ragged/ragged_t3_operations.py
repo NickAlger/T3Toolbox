@@ -189,6 +189,36 @@ def absorb_edge_weights_into_t3(
     return tucker_cores, tt_cores
 
 
+def t3_stack(
+        xx, # array-like structure of nested tuples containing Tucker tensor trains
+        use_jax: bool = False,
+) -> typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]]:  # (stacked_tucker_cores, stacked_tt_cores)
+    xnp,_,_ = get_backend(False, use_jax)
+
+    if is_ndarray(xx[0][0]):
+        return xx
+
+    xx = [t3_stack(x, use_jax=use_jax) for x in xx]
+    x0 = xx[0]
+    tucker_cores0, _ = x0
+    num_cores = len(tucker_cores0)
+    BBB = []
+    GGG = []
+    for ii in range(num_cores):
+        BBi = []
+        GGi = []
+        for x in xx:
+            Bi = x[0][ii]
+            Gi = x[1][ii]
+            BBi.append(Bi)
+            GGi.append(Gi)
+        BBi = xnp.stack(BBi)
+        GGi = xnp.stack(GGi)
+        BBB.append(BBi)
+        GGG.append(GGi)
+
+    return tuple(BBB), tuple(GGG)
+
 
 def t3_unstack(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
