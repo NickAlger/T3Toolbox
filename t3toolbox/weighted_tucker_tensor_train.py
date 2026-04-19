@@ -12,7 +12,9 @@ from dataclasses import dataclass
 
 
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations as ragged_operations
+import t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations as ragged_t3_operations
+import t3toolbox.core.weighted_tucker_tensor_train.ragged.ragged_wt3_operations as ragged_wt3_operations
+
 
 from t3toolbox.common import *
 
@@ -22,7 +24,10 @@ if has_jax:
 
 __all__ = [
     'EdgeVectors',
-    'contract_edge_vectors_into_t3',
+    'WeightedTuckerTensorTrain',
+    'wt3_add',
+    'wt3_sub',
+    'wt3_inner_product',
 ]
 
 
@@ -96,7 +101,7 @@ class EdgeVectors:
         >>> print(ev_rev.tucker_ranks, ev_rev.tt_ranks)
         (7, 6, 5) (4, 3, 2, 1)
         """
-        return EdgeVectors(*ragged_operations.reverse_edge_vectors(self.data))
+        return EdgeVectors(*ragged_wt3_operations.reverse_edge_vectors(self.data))
 
 
 
@@ -166,12 +171,12 @@ class WeightedTuckerTensorTrain:
         >>> print(np.linalg.norm(dense_x - dense_x2))
         4.7254283984394845e-12
         """
-        return t3.TuckerTensorTrain(*ragged_operations.contract_edge_vectors_into_t3(
+        return t3.TuckerTensorTrain(*ragged_wt3_operations.contract_edge_vectors_into_t3(
             self.x0.data, self.edge_weights.data, use_jax=use_jax,
         ))
 
     def squash_tails(self) -> 'WeightedTuckerTensorTrain':
-        result = ragged_operations.wt3_squash_tails(self.data)
+        result = ragged_wt3_operations.wt3_squash_tails(self.data)
         return WeightedTuckerTensorTrain(
             t3.TuckerTensorTrain(*result[0]),
             EdgeVectors(*result[1]),
@@ -238,7 +243,7 @@ def concatenate_edge_vectors(
 ) -> EdgeVectors:
     """Concatenates edge vectors. Vectorized over stacking dimensions.
     """
-    return EdgeVectors(*ragged_operations.concatenate_edge_vectors(evA.data, evB.data))
+    return EdgeVectors(*ragged_wt3_operations.concatenate_edge_vectors(evA.data, evB.data))
 
 
 def wt3_add(
