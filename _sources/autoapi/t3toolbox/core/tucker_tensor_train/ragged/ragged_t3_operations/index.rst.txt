@@ -21,6 +21,8 @@ Functions
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3_operations/t3_core_shapes
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3_operations/t3_to_vector
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3_operations/t3_from_vector
+   /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3_operations/t3_corewise_randn
+   /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3_operations/t3_zeros
 
 .. autoapisummary::
 
@@ -35,5 +37,7 @@ Functions
    t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_core_shapes
    t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_to_vector
    t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_from_vector
+   t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_corewise_randn
+   t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_zeros
 
 
