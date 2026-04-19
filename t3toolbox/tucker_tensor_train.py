@@ -805,6 +805,8 @@ class TuckerTensorTrain:
     ]:
         '''Compute SVD of ith tucker core and contract non-orthogonal factor up into the TT-core above.
 
+        Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
+
         Parameters
         ----------
         ii: int
@@ -874,6 +876,8 @@ class TuckerTensorTrain:
         NDArray,  # singular values, shape=(r(i+1),)
     ]:
         '''Compute SVD of ith TT-core left unfolding and contract non-orthogonal factor into the TT-core to the right.
+
+        Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
         Parameters
         ----------
@@ -946,6 +950,8 @@ class TuckerTensorTrain:
     ]:
         '''Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor into the TT-core to the left.
 
+        Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
+
         Parameters
         ----------
         ii: int
@@ -1017,6 +1023,8 @@ class TuckerTensorTrain:
     ]:
         '''Compute SVD of ith TT-core outer unfolding and keep non-orthogonal factor with this core.
 
+        Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
+
         Parameters
         ----------
         ii: int
@@ -1081,6 +1089,8 @@ class TuckerTensorTrain:
         NDArray,  # singular values, shape=(new_ni,)
     ]:
         '''Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the tucker core below.
+
+        Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
         Parameters
         ----------
@@ -1150,6 +1160,8 @@ class TuckerTensorTrain:
             use_jax: bool = False,
     ) -> 'TuckerTensorTrain':
         '''Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker core.
+
+        Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
         Orthogonal is done relative to the ith tucker core:
             - ith tucker core is not orthogonalized
@@ -1231,6 +1243,8 @@ class TuckerTensorTrain:
             use_jax: bool = False,
     ) -> 'TuckerTensorTrain':
         '''Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
+
+        Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
         Orthogonal is done relative to the ith TT-core:
             - All Tucker cores are orthogonalized.
