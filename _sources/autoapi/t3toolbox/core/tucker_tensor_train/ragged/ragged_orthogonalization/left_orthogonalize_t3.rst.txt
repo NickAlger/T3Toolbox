@@ -1,0 +1,8 @@
+t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.left_orthogonalize_t3
+========================================================================================
+
+.. py:function:: t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.left_orthogonalize_t3(x: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]]
+
+   Left orthogonalize T3.
+
+

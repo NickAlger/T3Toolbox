@@ -10,6 +10,8 @@ Functions
 .. toctree::
    :hidden:
 
+   /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_orthogonalization/left_orthogonalize_t3
+   /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_orthogonalization/right_orthogonalize_t3
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_orthogonalization/down_orthogonalize_tt_cores
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_orthogonalization/up_orthogonalize_tucker_cores
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_orthogonalization/up_svd_ith_tucker_core
@@ -18,6 +20,8 @@ Functions
 
 .. autoapisummary::
 
+   t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.left_orthogonalize_t3
+   t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.right_orthogonalize_t3
    t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.down_orthogonalize_tt_cores
    t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.up_orthogonalize_tucker_cores
    t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.up_svd_ith_tucker_core

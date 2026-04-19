@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg.t3_inner_product_t3 &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.right_orthogonalize_t3 &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_tensor_linalg/t3_inner_product_t3';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_orthogonalization/right_orthogonalize_t3';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../../../search.html" />
-    <link rel="next" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg.t3_norm" href="t3_norm.html" />
-    <link rel="prev" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg.t3_scale" href="t3_scale.html" />
+    <link rel="next" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.down_orthogonalize_tt_cores" href="down_orthogonalize_tt_cores.html" />
+    <link rel="prev" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.left_orthogonalize_t3" href="left_orthogonalize_t3.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -463,9 +463,9 @@
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">t3toolbox.core.tucker_tensor_train.ragged</a></li>
     
     
-    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg</a></li>
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg.t3_inner_product_t3</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.right_orthogonalize_t3</span></li>
   </ul>
 </nav>
 </div>
@@ -482,12 +482,12 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="t3toolbox-core-tucker-tensor-train-ragged-ragged-tensor-linalg-t3-inner-product-t3">
-<h1>t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg.t3_inner_product_t3<a class="headerlink" href="#t3toolbox-core-tucker-tensor-train-ragged-ragged-tensor-linalg-t3-inner-product-t3" title="Link to this heading">#</a></h1>
+  <section id="t3toolbox-core-tucker-tensor-train-ragged-ragged-orthogonalization-right-orthogonalize-t3">
+<h1>t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.right_orthogonalize_t3<a class="headerlink" href="#t3toolbox-core-tucker-tensor-train-ragged-ragged-orthogonalization-right-orthogonalize-t3" title="Link to this heading">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg.t3_inner_product_t3">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg.</span></span><span class="sig-name descname"><span class="pre">t3_inner_product_t3</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_orthogonalization</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg.t3_inner_product_t3" title="Link to this definition">#</a></dt>
-<dd><p>Compute Hilbert-Schmidt inner product of two Tucker tensor trains.</p>
+<dt class="sig sig-object py" id="t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.right_orthogonalize_t3">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.</span></span><span class="sig-name descname"><span class="pre">right_orthogonalize_t3</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.right_orthogonalize_t3" title="Link to this definition">#</a></dt>
+<dd><p>Left orthogonalize T3.</p>
 </dd></dl>
 
 </section>
@@ -503,20 +503,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="t3_scale.html"
+       href="left_orthogonalize_t3.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg.t3_scale</p>
+        <p class="prev-next-title">t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.left_orthogonalize_t3</p>
       </div>
     </a>
     <a class="right-next"
-       href="t3_norm.html"
+       href="down_orthogonalize_tt_cores.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg.t3_norm</p>
+        <p class="prev-next-title">t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.down_orthogonalize_tt_cores</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -539,14 +539,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg.t3_inner_product_t3"><code class="docutils literal notranslate"><span class="pre">t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg.t3_inner_product_t3()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.right_orthogonalize_t3"><code class="docutils literal notranslate"><span class="pre">t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.right_orthogonalize_t3()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../../../../_sources/autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_tensor_linalg/t3_inner_product_t3.rst.txt">
+    <a href="../../../../../../_sources/autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_orthogonalization/right_orthogonalize_t3.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

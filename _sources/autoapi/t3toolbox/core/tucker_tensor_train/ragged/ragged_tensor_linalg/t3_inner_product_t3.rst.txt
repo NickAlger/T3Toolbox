@@ -1,7 +1,7 @@
 t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg.t3_inner_product_t3
 ==================================================================================
 
-.. py:function:: t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg.t3_inner_product_t3(x: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], y: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], use_jax: bool = False)
+.. py:function:: t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg.t3_inner_product_t3(x: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], y: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], use_orthogonalization: bool = True, use_jax: bool = False)
 
    Compute Hilbert-Schmidt inner product of two Tucker tensor trains.
 

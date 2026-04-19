@@ -477,7 +477,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: norm(use_jax: bool = False)
+   .. py:method:: norm(use_orthogonalization: bool = True, use_jax: bool = False)
 
       Compute Hilbert-Schmidt (Frobenius) norm of a Tucker tensor train.
 
@@ -503,9 +503,20 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> import numpy as np
       >>> import t3toolbox.tucker_tensor_train as t3
       >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2))
-      >>> norm_x = x.norm()
-      >>> print(np.abs(norm_x - np.linalg.norm(x.to_dense())))
-      1.3642420526593924e-12
+      >>> print(x.norm() - np.linalg.norm(x.to_dense()))
+      9.094947017729282e-13
+
+      Stacked:
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2), stack_shape=(2,3))
+      >>> norms_x = x.norm(use_orthogonalization=True)
+      >>> x_dense = x.to_dense()
+      >>> norms_x_dense = np.sqrt(np.sum(x_dense**2, axis=(-3,-2,-1)))
+      >>> print(norms_x - norms_x_dense)
+      [[-1.36424205e-12 -2.50111043e-12  1.36424205e-12]
+       [ 1.59161573e-12  4.09272616e-12  2.72848411e-12]]
 
 
 
@@ -860,6 +871,19 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
       Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
 
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.orthogonalization as orth
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+      >>> x_orth = x.up_orthogonalize_tucker_cores()
+      >>> print((x - x_orth).norm())
+      4.420285752780219e-12
+      >>> ind = 1
+      >>> B = x_orth.data[0][ind]
+      >>> print(np.linalg.norm(B @ B.T - np.eye(B.shape[0])))
+      1.2059032102772812e-15
 
 
 
@@ -867,6 +891,19 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
       Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
 
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.orthogonalization as orth
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+      >>> x_orth = x.down_orthogonalize_tt_cores()
+      >>> print((x - x_orth).norm())
+      1.927414448489825e-12
+      >>> ind = 1
+      >>> G = x_orth.data[1][ind]
+      >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab',G,G)-np.eye(G.shape[1])))
+      1.9491561709929213e-15
 
 
 
@@ -874,6 +911,17 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
       Left orthogonalize the TT cores, possibly returning variation cores as well.
 
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.orthogonalization as orth
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+      >>> x_orth = x.left_orthogonalize_tt_cores()
+      >>> print((x - x_orth).norm())
+      2.9839379127106095e-12
+      >>> ind = 1
+      >>> G = x_orth.data[1][ind]
+      >>> print(np.linalg.norm(np.einsum('iaj,iak->jk',G,G)-np.eye(G.shape[2])))
+      1.3526950544911367e-16
 
 
 
