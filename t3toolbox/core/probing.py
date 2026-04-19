@@ -5,7 +5,6 @@
 import numpy as np
 import typing as typ
 
-import t3toolbox.base_variation_format
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform as ut3
 import t3toolbox.base_variation_format as bvf
@@ -47,8 +46,8 @@ __all__ = [
 #####################################################
 
 def probe_t3(
-        ww:             typ.Union[typ.Sequence[NDArray],    NDArray],
-        x:              typ.Union[
+        ww: typ.Union[typ.Sequence[NDArray],    NDArray],
+        x:  typ.Union[
             typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # ragged, (tucker_cores, tt_cores)
             typ.Tuple[NDArray, NDArray],  # uniform. (tucker_supercore, tt_supercore)
         ],

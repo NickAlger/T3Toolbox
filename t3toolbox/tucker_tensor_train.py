@@ -1724,6 +1724,9 @@ def t3_zeros(
     >>> print(np.linalg.norm(z.to_dense()))
     0.0
     """
+    return TuckerTensorTrain(*ragged_operations.t3_zeros(
+        shape, tucker_ranks, tt_ranks, stack_shape, use_jax=use_jax,
+    ))
     xnp, _, _ = get_backend(False, use_jax)
 
     #
@@ -1778,25 +1781,9 @@ def t3_corewise_randn(
     >>> print(x.tt_cores[0][0,0,0,0,0]) # should be random N(0,1)
     -0.10778923886039414
     """
-    xnp, _, _ = get_backend(False, use_jax)
-
-    #
-    d = len(tucker_ranks)
-    vs = stack_shape
-
-    tt_cores = []
-    for ii in range(d):
-        shape_G = vs + (tt_ranks[ii], tucker_ranks[ii], tt_ranks[ii+1])
-        G = randn(*shape_G, use_jax=use_jax)
-        tt_cores.append(G)
-
-    tucker_cores = []
-    for ii in range(d):
-        shape_B = vs + (tucker_ranks[ii], shape[ii])
-        B = randn(*shape_B, use_jax=use_jax)
-        tucker_cores.append(B)
-
-    return TuckerTensorTrain(tuple(tucker_cores), tuple(tt_cores))
+    return TuckerTensorTrain(*ragged_operations.t3_corewise_randn(
+        shape, tucker_ranks, tt_ranks, stack_shape, use_jax=use_jax,
+    ))
 
 
 def t3_save(
