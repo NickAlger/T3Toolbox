@@ -1685,6 +1685,25 @@ class EdgeVectors:
     def __post_init__(self):
         self.validate()
 
+    def reverse(self) -> 'EdgeVectors':
+        """Reverse edge vector ordering.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> randn = np.random.randn
+        >>> shape_vectors = tuple([randn(9,10, 6), randn(9,10, 7), randn(9,10, 8)])
+        >>> tucker_vectors = tuple([randn(9,10, 5), randn(9,10, 6), randn(9,10, 7)])
+        >>> tt_vectors = tuple([randn(9,10, 1), randn(9,10, 2), randn(9,10, 3), randn(9,10, 4)])
+        >>> ev = t3.EdgeVectors(shape_vectors, tucker_vectors, tt_vectors)
+        >>> print(ev.structure)
+        ((6, 7, 8), (5, 6, 7), (1, 2, 3, 4), (9, 10))
+        >>> print(ev.reverse().structure)
+        ((8, 7, 6), (7, 6, 5), (4, 3, 2, 1), (9, 10))
+        """
+        return EdgeVectors(*ragged_operations.reverse_edge_vectors(self.data))
+
     def contract_into_t3(
             self,
             x: TuckerTensorTrain,

@@ -10,6 +10,7 @@ __all__ = [
     'change_tucker_core_shapes',
     'change_tt_core_shapes',
     'contract_edge_vectors_into_t3',
+    'reverse_edge_vectors',
     't3_unstack',
     't3_core_shapes',
     't3_to_vector',
@@ -190,6 +191,20 @@ def contract_edge_vectors_into_t3(
     tt_cores.append(Gf)
 
     return tuple(tucker_cores), tuple(tt_cores)
+
+
+def reverse_edge_vectors(
+        edge_vectors: typ.Tuple[
+            typ.Sequence[NDArray],  # shape_weights, len=d, elm_shape=stack_shape+(Ni,)
+            typ.Sequence[NDArray],  # tucker_weights, len=d, elm_shape=stack_shape+(ni,)
+            typ.Sequence[NDArray],  # tt_weights, len=d+1, elm_shape=stack_shape+(ri,)
+        ],
+) -> typ.Tuple[
+    typ.Sequence[NDArray],  # reversed_shape_weights,
+    typ.Sequence[NDArray],  # reversed_tucker_weights,
+    typ.Sequence[NDArray],  # reversed_tt_weights,
+]:
+    return edge_vectors[0][::-1], edge_vectors[1][::-1], edge_vectors[2][::-1]
 
 
 def t3_stack(
