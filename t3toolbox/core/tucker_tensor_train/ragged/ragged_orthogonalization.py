@@ -2,15 +2,40 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.util_linalg as linalg
+import t3toolbox.core.tucker_tensor_train.orthogonalization as orth
 from t3toolbox.common import *
 
 __all__ = [
+    'left_orthogonalize_t3',
+    'right_orthogonalize_t3',
     'down_orthogonalize_tt_cores',
     'up_orthogonalize_tucker_cores',
     'up_svd_ith_tucker_core',
     'left_svd_ith_tt_core',
     'right_svd_ith_tt_core',
 ]
+
+
+def left_orthogonalize_t3(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
+        use_jax: bool = False,
+) -> typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]]: # (tucker_variations, outer_tt_cores)
+    """Left orthogonalize T3.
+    """
+    up_tucker_cores, tt_cores = up_orthogonalize_tucker_cores(x, use_jax=use_jax)
+    left_tt_cores = orth.left_orthogonalize_tt_cores(tt_cores, use_jax=use_jax)
+    return (up_tucker_cores, left_tt_cores)
+
+
+def right_orthogonalize_t3(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
+        use_jax: bool = False,
+) -> typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]]: # (tucker_variations, outer_tt_cores)
+    """Left orthogonalize T3.
+    """
+    up_tucker_cores, tt_cores = up_orthogonalize_tucker_cores(x, use_jax=use_jax)
+    right_tt_cores = orth.right_orthogonalize_tt_cores(tt_cores, use_jax=use_jax)
+    return (up_tucker_cores, right_tt_cores)
 
 
 def down_orthogonalize_tt_cores(
@@ -23,17 +48,19 @@ def down_orthogonalize_tt_cores(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
+    stack_shape = x[0][0].shape[:-2]
+
     def _down_func(Uio_Haib):
         Uio, Haib, = Uio_Haib
 
         rL, n, rR = Haib.shape
-        H_ab_i = Haib.swapaxes(1, 2).reshape((rL * rR, n))
+        H_ab_i = Haib.swapaxes(-2, -1).reshape(stack_shape + (rL * rR, n))
 
         O_ab_x, ssx, WTxi = xnp.linalg.svd(H_ab_i, full_matrices=False)
         n2 = len(ssx)
-        Oaxb = O_ab_x.reshape((rL, rR, n2)).swapaxes(1, 2)
+        Oaxb = O_ab_x.reshape(stack_shape + (rL, rR, n2)).swapaxes(-2, -1)
 
-        Cxi = ssx.reshape((-1, 1)) * WTxi
+        Cxi = ssx.reshape(stack_shape + (-1, 1)) * WTxi
 
         Vxo = np.einsum('...xi,...io->...xo', Cxi, Uio)
         return (Vxo, Oaxb)
@@ -54,13 +81,13 @@ def up_orthogonalize_tucker_cores(
     #
     def _up_func(up_func_args):
         Bio, Gaib = up_func_args
-        Boi = Bio.T
+        Boi = Bio.swapaxes(-1,-2)
 
         Uox, ssx, WTxi = xnp.linalg.svd(Boi, full_matrices=False)
         Rxi = xnp.einsum('...x,...xi->...xi', ssx, WTxi)
 
         new_Gaxb = xnp.einsum('...aib,...xi->...axb', Gaib, Rxi)
-        new_Uxo = Uox.T
+        new_Uxo = Uox.swapaxes(-1,-2)
         return (new_Uxo, new_Gaxb)
 
     up_tucker_cores, new_tt_cores = xmap(_up_func, x)

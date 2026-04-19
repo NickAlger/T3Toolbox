@@ -90,6 +90,7 @@ import t3toolbox.core.tucker_tensor_train.t3_apply as apply
 import t3toolbox.core.tucker_tensor_train.t3_entries as entries
 import t3toolbox.core.tucker_tensor_train.t3_ranks as ranks
 import t3toolbox.core.tucker_tensor_train.dense_t3svd as dense_t3svd
+import t3toolbox.core.tucker_tensor_train.orthogonalization as orth
 import t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations as ragged_operations
 import t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization as ragged_orthogonalization
 import t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg as ragged_linalg
@@ -742,6 +743,7 @@ class TuckerTensorTrain:
 
     def norm(
             self,
+            use_orthogonalization: bool = True, # for numerical stability
             use_jax: bool = False,
     ):
         """Compute Hilbert-Schmidt (Frobenius) norm of a Tucker tensor train.
@@ -780,13 +782,24 @@ class TuckerTensorTrain:
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2))
-        >>> norm_x = x.norm()
-        >>> print(np.abs(norm_x - np.linalg.norm(x.to_dense())))
-        1.3642420526593924e-12
+        >>> print(x.norm() - np.linalg.norm(x.to_dense()))
+        9.094947017729282e-13
+
+        Stacked:
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2), stack_shape=(2,3))
+        >>> norms_x = x.norm(use_orthogonalization=True)
+        >>> x_dense = x.to_dense()
+        >>> norms_x_dense = np.sqrt(np.sum(x_dense**2, axis=(-3,-2,-1)))
+        >>> print(norms_x - norms_x_dense)
+        [[-1.36424205e-12 -2.50111043e-12  1.36424205e-12]
+         [ 1.59161573e-12  4.09272616e-12  2.72848411e-12]]
         """
-        xnp, _, _ = get_backend(False, use_jax)
-        norm_sq = t3_inner_product(self, self, use_jax=use_jax)
-        return xnp.sqrt(xnp.abs(norm_sq))
+        return ragged_linalg.t3_norm(
+            self.data, use_orthogonalization=use_orthogonalization, use_jax=use_jax,
+        )
 
     ##########################################
     ########    Orthogonalization    #########
@@ -1325,6 +1338,20 @@ class TuckerTensorTrain:
             use_jax: bool = False,
     ) -> 'TuckerTensorTrain':
         """Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.orthogonalization as orth
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> x_orth = x.up_orthogonalize_tucker_cores()
+        >>> print((x - x_orth).norm())
+        4.420285752780219e-12
+        >>> ind = 1
+        >>> B = x_orth.data[0][ind]
+        >>> print(np.linalg.norm(B @ B.T - np.eye(B.shape[0])))
+        1.2059032102772812e-15
         """
         return TuckerTensorTrain(*ragged_orthogonalization.up_orthogonalize_tucker_cores(self.data, use_jax=use_jax))
 
@@ -1333,6 +1360,20 @@ class TuckerTensorTrain:
             use_jax: bool = False,
     ):
         """Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.orthogonalization as orth
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> x_orth = x.down_orthogonalize_tt_cores()
+        >>> print((x - x_orth).norm())
+        1.927414448489825e-12
+        >>> ind = 1
+        >>> G = x_orth.data[1][ind]
+        >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab',G,G)-np.eye(G.shape[1])))
+        1.9491561709929213e-15
         """
         return TuckerTensorTrain(
             *ragged_orthogonalization.down_orthogonalize_tt_cores(self.data, use_jax=use_jax),
@@ -1344,14 +1385,26 @@ class TuckerTensorTrain:
             use_jax: bool = False,
     ):
         """Left orthogonalize the TT cores, possibly returning variation cores as well.
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.orthogonalization as orth
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> x_orth = x.left_orthogonalize_tt_cores()
+        >>> print((x - x_orth).norm())
+        2.9839379127106095e-12
+        >>> ind = 1
+        >>> G = x_orth.data[1][ind]
+        >>> print(np.linalg.norm(np.einsum('iaj,iak->jk',G,G)-np.eye(G.shape[2])))
+        1.3526950544911367e-16
         """
-        result = ragged_orthogonalization.left_orthogonalize_tt_cores(
+        result = orth.left_orthogonalize_tt_cores(
             self.tt_cores, return_variation_cores=return_variation_cores, use_jax=use_jax,
         )
         if return_variation_cores:
             return TuckerTensorTrain(self.tucker_cores, result[0]), result[1]
         else:
-            return result
+            return TuckerTensorTrain(self.tucker_cores, result)
 
     def right_orthogonalize_tt_cores(
             self,
@@ -2358,6 +2411,7 @@ def t3_sub(
 def t3_inner_product(
         x: typ.Union[TuckerTensorTrain, NDArray],
         y: typ.Union[TuckerTensorTrain, NDArray],
+        use_orthogonalization: bool = True, # for numerical stability
         use_jax: bool = False,
 ):
     """Compute Hilbert-Schmidt inner product of two Tucker tensor trains.
@@ -2422,6 +2476,17 @@ def t3_inner_product(
     >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
     1.3096723705530167e-10
 
+    (T3, T3) using stacking:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2), stack_shape=(2,3))
+    >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (3,5,6,3), stack_shape=(2,3))
+    >>> x_dot_y = t3.t3_inner_product(x, y)
+    >>> x_dot_y2 = np.sum(x.to_dense() * y.to_dense(), axis=(2,3,4))
+    >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
+    2.7761383858792984e-09
+
     Inner product of T3 with dense:
 
     >>> import numpy as np
@@ -2463,7 +2528,9 @@ def t3_inner_product(
                 + str(y.stack_shape)
             )
 
-        return ragged_linalg.t3_inner_product_t3(x.data, y.data, use_jax=use_jax)
+        return ragged_linalg.t3_inner_product_t3(
+            x.data, y.data, use_orthogonalization=use_orthogonalization, use_jax=use_jax,
+        )
 
     elif is_ndarray(x) and isinstance(y, TuckerTensorTrain): # Could be done better with zippering
         vsy = y.stack_shape

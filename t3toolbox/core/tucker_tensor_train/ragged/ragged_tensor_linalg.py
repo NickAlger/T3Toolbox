@@ -2,12 +2,14 @@ import numpy as np
 import typing as typ
 
 from t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations import squash_tt_tails
+import t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization as ragged_orth
 from t3toolbox.common import *
 
 __all__ = [
     't3_add',
     't3_scale',
     't3_inner_product_t3',
+    't3_norm',
 ]
 
 
@@ -70,6 +72,7 @@ def t3_scale(
 def t3_inner_product_t3(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],
         y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],
+        use_orthogonalization: bool = True, # for numerical stability
         use_jax: bool = False,
 ):
     """Compute Hilbert-Schmidt inner product of two Tucker tensor trains.
@@ -77,11 +80,15 @@ def t3_inner_product_t3(
     xnp, _, _ = get_backend(False, use_jax)
 
     #
+    x = (x[0], squash_tt_tails(x[1], use_jax=use_jax))
+    y = (y[0], squash_tt_tails(y[1], use_jax=use_jax))
+
+    if use_orthogonalization:
+        x = ragged_orth.left_orthogonalize_t3(x, use_jax=use_jax)
+        y = ragged_orth.left_orthogonalize_t3(y, use_jax=use_jax)
+
     tucker_cores_x, tt_cores_x = x
     tucker_cores_y, tt_cores_y = y
-
-    tt_cores_x = squash_tt_tails(tt_cores_x)
-    tt_cores_y = squash_tt_tails(tt_cores_y)
 
     vsx = tucker_cores_x[0].shape[:-2] # vectorization shape for x
     vsy = tucker_cores_y[0].shape[:-2] # vectorization shape for y
@@ -89,8 +96,9 @@ def t3_inner_product_t3(
 
     r0_x = tt_cores_x[0].shape[-3]
     r0_y = tt_cores_y[0].shape[-3]
+    stack_shape = x[0][0].shape[:-2]
 
-    M_sp = xnp.ones((r0_x, r0_y))
+    M_sp = xnp.ones(stack_shape + (r0_x, r0_y))
     for Bx_ai, Gx_sat, By_bi, Gy_pbq in zip(tucker_cores_x, tt_cores_x, tucker_cores_y, tt_cores_y):
         tmp_ab = xnp.einsum('...ai,...bi->...ab', Bx_ai, By_bi)
         tmp_sbt = xnp.einsum('...sat,...ab->...sbt', Gx_sat, tmp_ab)
@@ -98,9 +106,28 @@ def t3_inner_product_t3(
         tmp_tq = xnp.einsum('...pbt,...pbq->...tq', tmp_pbt, Gy_pbq)
         M_sp = tmp_tq
 
-    rd_x = tt_cores_x[-1].shape[2]
-    rd_y = tt_cores_y[-1].shape[2]
+    rd_x = tt_cores_x[-1].shape[-1]
+    rd_y = tt_cores_y[-1].shape[-1]
 
     result = xnp.einsum('...tq,t,q', M_sp, np.ones(rd_x), np.ones(rd_y))
     return result
+
+
+def t3_norm(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],
+        use_orthogonalization: bool = True, # for numerical stability
+        use_jax: bool = False,
+):
+    """Compute Hilbert-Schmidt norm of a Tucker tensor train.
+    """
+    xnp, _, _ = get_backend(False, use_jax)
+    x = (x[0], squash_tt_tails(x[1], use_jax=use_jax))
+    if use_orthogonalization:
+        x = ragged_orth.left_orthogonalize_t3(x, use_jax=use_jax)
+        Gf = x[1][-1].sum(axis=-1)
+        norm_sq = (Gf*Gf).sum(axis=(-2,-1)) # Don't sum over stacked axes
+    else:
+        norm_sq = t3_inner_product_t3(x, x, use_jax=use_jax)
+
+    return xnp.sqrt(xnp.abs(norm_sq))
 

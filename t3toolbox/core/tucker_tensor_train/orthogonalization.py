@@ -35,18 +35,21 @@ def left_orthogonalize_tt_cores(
 
         Hxjc = xnp.einsum('...xb,...bjc->...xjc', Cxb, Gbjc)
 
-        rL, n, rR = Hxjc.shape
-        H_xj_c = Hxjc.reshape((rL * n, rR))
+        rL, n, rR = Hxjc.shape[-3:]
+        H_xj_c = Hxjc.reshape(stack_shape + (rL * n, rR))
         L_xj_y, ssy, VTyc = xnp.linalg.svd(H_xj_c, full_matrices=False)
         rR2 = ssy.shape[-1]
-        Lxjy = L_xj_y.reshape((rL, n, rR2))
+        Lxjy = L_xj_y.reshape(stack_shape + (rL, n, rR2))
 
-        Cyc = ssy.reshape((-1, 1)) * VTyc
+        Cyc = ssy.reshape(stack_shape + (-1, 1)) * VTyc
 
         return Cyc, (Lxjy, Hxjc)
 
-    init0 = xnp.eye(tt_cores[0].shape[0])
-    init = xnp.tile(init0, stack_shape+(1,)*len(init0.shape))
+    rL0 = tt_cores[0].shape[-3]
+
+    init = xnp.broadcast_to(xnp.eye(rL0), stack_shape+(rL0,rL0))
+    # init0 = xnp.eye(rL0)
+    # init = xnp.tile(init0, stack_shape+(1,)*len(init0.shape))
     xs = (tt_cores[:-1],)
 
     Cf, (LL, HH) = xscan(_left_func, init, xs)
@@ -85,3 +88,5 @@ def right_orthogonalize_tt_cores(
         return reverse(result[0]), reverse(result[1])
     else:
         return reverse(result)
+
+
