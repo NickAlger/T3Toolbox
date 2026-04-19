@@ -89,10 +89,10 @@ from dataclasses import dataclass
 import t3toolbox.core.tucker_tensor_train.apply as apply
 import t3toolbox.core.tucker_tensor_train.entries as entries
 import t3toolbox.core.tucker_tensor_train.ranks as ranks
-import t3toolbox.core.tucker_tensor_train.ragged.operations as ragged_operations
-import t3toolbox.core.tucker_tensor_train.ragged.orthogonalization as ragged_orthogonalization
-import t3toolbox.core.tucker_tensor_train.ragged.tensor_linalg as ragged_linalg
-import t3toolbox.core.tucker_tensor_train.uniform.operations as uniform_operations
+import t3toolbox.core.tucker_tensor_train.ragged.ragged_operations as ragged_operations
+import t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization as ragged_orthogonalization
+import t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg as ragged_linalg
+import t3toolbox.core.tucker_tensor_train.uniform.uniform_operations as uniform_operations
 
 import t3toolbox.util_linalg as linalg
 from t3toolbox.common import *
@@ -1021,7 +1021,7 @@ class TuckerTensorTrain:
         'TuckerTensorTrain',  # new_x
         NDArray,  # singular values, shape=(new_ni,)
     ]:
-        '''Compute SVD of ith TT-core outer unfolding and keep non-orthogonal factor with this core.
+        '''Compute SVD of ith TT-core down unfolding and keep non-orthogonal factor with this core.
 
         Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
@@ -1049,7 +1049,7 @@ class TuckerTensorTrain:
             new_tt_cores[ii].shape = (ri, new_ni, r(i+1))
             new_tucker_cores[ii].shape = (new_ni, Ni)
         ss_x: NDArray
-            Singular values of prior ith TT-core outer unfolding. shape=(new_ri,).
+            Singular values of prior ith TT-core down unfolding. shape=(new_ri,).
 
         See Also
         --------
@@ -1112,12 +1112,12 @@ class TuckerTensorTrain:
         Returns
         -------
         new_x: NDArray
-            New TuckerTensorTrain representing the same tensor, but with ith TT-core outer orthogonal.
+            New TuckerTensorTrain representing the same tensor, but with ith TT-core down orthogonal.
             new_tt_cores[ii].shape = (ri, new_ni, r(i+1))
             new_tucker_cores[ii].shape = (new_ni, Ni)
             einsum('iaj,ibj->ab', new_tt_cores[ii], new_tt_cores[ii]) = identity matrix
         ss_x: NDArray
-            Singular values of prior ith TT-core outer unfolding. shape=(new_ni,).
+            Singular values of prior ith TT-core down unfolding. shape=(new_ni,).
 
         See Also
         --------
@@ -1141,7 +1141,7 @@ class TuckerTensorTrain:
         4.367311712704942e-12
         >>> tucker_cores2, tt_cores2 = x2.data
         >>> G = tt_cores2[ind]
-        >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1]))) # TT-core is outer orthogonal
+        >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1]))) # TT-core is down orthogonal
         1.0643458053135608e-15
         '''
         result = ragged_orthogonalization.down_svd_ith_tt_core(
@@ -1327,14 +1327,14 @@ class TuckerTensorTrain:
         """
         return TuckerTensorTrain(*ragged_orthogonalization.up_orthogonalize_tucker_cores(self.data, use_jax=use_jax))
 
-    def outer_orthogonalize_tt_cores(
+    def down_orthogonalize_tt_cores(
             self,
             use_jax: bool = False,
     ):
         """Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
         """
         return TuckerTensorTrain(
-            *ragged_orthogonalization.outer_orthogonalize_tt_cores(self.data, use_jax=use_jax),
+            *ragged_orthogonalization.down_orthogonalize_tt_cores(self.data, use_jax=use_jax),
         )
 
     def left_orthogonalize_tt_cores(

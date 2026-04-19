@@ -1,7 +1,7 @@
 import numpy as np
 import typing as typ
 
-from t3toolbox.core.tucker_tensor_train.ragged.operations import squash_tt_tails
+from t3toolbox.core.tucker_tensor_train.ragged.ragged_operations import squash_tt_tails
 from t3toolbox.common import *
 
 __all__ = [

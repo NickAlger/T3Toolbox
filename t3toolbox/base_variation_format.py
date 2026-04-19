@@ -745,7 +745,7 @@ def t3_orthogonal_representations(
 
     # Orthogonalize TT cores downward to get outer_tt_cores O and tucker_variations V
     x = t3.TuckerTensorTrain(up_tucker_cores, tt_variations)
-    x = x.outer_orthogonalize_tt_cores(use_jax=use_jax)
+    x = x.down_orthogonalize_tt_cores(use_jax=use_jax)
     tucker_variations, outer_tt_cores = x.data
 
     base = (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)

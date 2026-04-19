@@ -5,11 +5,11 @@
 import numpy as np
 import typing as typ
 
-import t3toolbox.core.tucker_tensor_train.ragged.operations as ragged_operations
-import t3toolbox.core.tucker_tensor_train.uniform.operations as uniform_operations
+import t3toolbox.core.tucker_tensor_train.ragged.ragged_operations as ragged_operations
+import t3toolbox.core.tucker_tensor_train.uniform.uniform_operations as uniform_operations
 import t3toolbox.core.tucker_tensor_train.orthogonalization as orth
-import t3toolbox.core.tucker_tensor_train.ragged.orthogonalization as ragged_orth
-import t3toolbox.core.tucker_tensor_train.uniform.orthogonalization as uniform_orth
+import t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization as ragged_orth
+import t3toolbox.core.tucker_tensor_train.uniform.uniform_orthogonalization as uniform_orth
 from t3toolbox.common import *
 
 __all__ = [

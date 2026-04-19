@@ -1,8 +1,8 @@
 import numpy as np
 import typing as typ
 
-import t3toolbox.core.tucker_tensor_train.ragged.operations as ragged_operations
-import t3toolbox.core.tucker_tensor_train.uniform.operations as uniform_operations
+import t3toolbox.core.tucker_tensor_train.ragged.ragged_operations as ragged_operations
+import t3toolbox.core.tucker_tensor_train.uniform.uniform_operations as uniform_operations
 from t3toolbox.common import *
 
 __all__ = [
