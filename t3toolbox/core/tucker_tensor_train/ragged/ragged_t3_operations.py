@@ -170,25 +170,26 @@ def contract_edge_vectors_into_t3(
                 |        |        |
 
     """
-    is_uniform = not isinstance(x0[0], typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
+    xnp, xmap, xscan = get_backend(False, use_jax)
 
     #
     tucker_cores0, tt_cores0 = x0
     shape_weights, tucker_weights, tt_weights = edge_vectors
 
-    (tucker_cores,) = xmap(
-        lambda tw_B_sw: (xnp.einsum('...i,...io,...o->...io', tw_B_sw[0], tw_B_sw[1], tw_B_sw[2]),),
-        (tucker_weights, tucker_cores0, shape_weights)
-    )
-    (first_tt_cores,) = xmap(
-        lambda lw_G: (xnp.einsum('...i,...iaj->...iaj', lw_G[0], lw_G[1]),),
-        (tt_weights[:-2], tt_cores0[:-1])
-    )
-    Gf = xnp.einsum('...i,...iaj,...j->...iaj', tt_weights[-2], tt_cores0[-1], tt_weights[-1])
-    tt_cores = tuple(first_tt_cores) + (Gf,)
+    tucker_cores = []
+    for tw, B, sw in zip(tucker_weights, tucker_cores0, shape_weights):
+        wB = xnp.einsum('...i,...io,...o->...io', tw, B, sw)
+        tucker_cores.append(wB)
 
-    return tucker_cores, tt_cores
+    tt_cores = []
+    for lw, G in zip(tt_weights[:-2], tt_cores0[:-1]):
+        wG = xnp.einsum('...i,...iaj->...iaj', lw, G)
+        tt_cores.append(wG)
+
+    Gf = xnp.einsum('...i,...iaj,...j->...iaj', tt_weights[-2], tt_cores0[-1], tt_weights[-1])
+    tt_cores.append(Gf)
+
+    return tuple(tucker_cores), tuple(tt_cores)
 
 
 def t3_stack(

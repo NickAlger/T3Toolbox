@@ -108,12 +108,12 @@ if has_jax:
 __all__ = [
     # Tucker tensor train
     'TuckerTensorTrain',
-    'EdgeWeights',
+    'EdgeVectors',
     't3_apply',
     't3_get_entries',
     'probe_t3',
     # 'squash_tails',
-    'absorb_edge_weights_into_cores',
+    'contract_edge_vectors_into_t3',
     't3_zeros',
     't3_corewise_randn',
     'compute_minimal_t3_ranks',
@@ -1637,7 +1637,7 @@ class EdgeVectors:
         typ.Tuple[NDArray, ...], # tucker_vectors
         typ.Tuple[NDArray, ...], # tt_vectors
     ]:
-        return self.shape_vectors, self.tt_vectors, self.tucker_vectors
+        return self.shape_vectors, self.tucker_vectors, self.tt_vectors
 
     @ft.cached_property
     def d(self) -> int:
@@ -1756,6 +1756,25 @@ def contract_edge_vectors_into_t3(
               \ w      \ w      \ w
                 |        |        |
 
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> randn = np.random.randn
+    >>> x = t3.t3_corewise_randn((6,7,8), (5,6,7), (2,3,3,1), stack_shape=(4,))
+    >>> shape_vectors = tuple([randn(4, 6), randn(4, 7), randn(4, 8)])
+    >>> tucker_vectors = tuple([randn(4, 5), randn(4, 6), randn(4, 7)])
+    >>> tt_vectors = tuple([randn(4, 2), randn(4, 3), randn(4, 3), randn(4, 1)])
+    >>> ev = t3.EdgeVectors(shape_vectors, tucker_vectors, tt_vectors)
+    >>> print(ev.structure)
+    ((12, 13, 14), (4, 5, 6), (2, 3, 4, 3), (2, 1))
+    >>> x_ev = ev.contract_into_t3(x)
+    >>> dense_x_ev = x_ev.to_dense()
+    >>> all_vars = x.tucker_cores + x.tt_cores + shape_vectors + tucker_vectors + tt_vectors
+    >>> einsum_str = 'qix,qjy,qkz,qaib,qbjc,qckd,qx,qy,qz,qi,qj,qk,qa,qb,qc,qd->qxyz'
+    >>> dense_x_ev2 = np.einsum(einsum_str, *all_vars)
+    >>> print(np.linalg.norm(dense_x_ev - dense_x_ev2))
+    4.7254283984394845e-12
     """
     if x.structure != edge_vectors.structure:
         raise RuntimeError(
@@ -1764,7 +1783,7 @@ def contract_edge_vectors_into_t3(
             'edge_vectors.structure = ' + str(edge_vectors.structure)
         )
     return TuckerTensorTrain(*ragged_operations.contract_edge_vectors_into_t3(
-        x, edge_vectors.data, use_jax=use_jax,
+        x.data, edge_vectors.data, use_jax=use_jax,
     ))
 
     # is_uniform = not isinstance(x0[0], typ.Sequence)
