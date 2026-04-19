@@ -21,5 +21,6 @@ Submodules
    /autoapi/t3toolbox/uniform_manifold/index
    /autoapi/t3toolbox/uniform_orthogonalization/index
    /autoapi/t3toolbox/util_linalg/index
+   /autoapi/t3toolbox/weighted_tucker_tensor_train/index
 
 

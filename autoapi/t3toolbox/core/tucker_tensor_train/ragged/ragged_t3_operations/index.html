@@ -339,8 +339,6 @@
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../../../tucker_tensor_train/index.html">t3toolbox.tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../../tucker_tensor_train/TuckerTensorTrain.html">t3toolbox.tucker_tensor_train.TuckerTensorTrain</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../../tucker_tensor_train/EdgeVectors.html">t3toolbox.tucker_tensor_train.EdgeVectors</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../../tucker_tensor_train/contract_edge_vectors_into_t3.html">t3toolbox.tucker_tensor_train.contract_edge_vectors_into_t3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../tucker_tensor_train/t3_zeros.html">t3toolbox.tucker_tensor_train.t3_zeros</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../tucker_tensor_train/t3_corewise_randn.html">t3toolbox.tucker_tensor_train.t3_corewise_randn</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../tucker_tensor_train/t3_save.html">t3toolbox.tucker_tensor_train.t3_save</a></li>
@@ -395,6 +393,10 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../../util_linalg/left_svd_3tensor.html">t3toolbox.util_linalg.left_svd_3tensor</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../util_linalg/right_svd_3tensor.html">t3toolbox.util_linalg.right_svd_3tensor</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../util_linalg/outer_svd_3tensor.html">t3toolbox.util_linalg.outer_svd_3tensor</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../../../weighted_tucker_tensor_train/index.html">t3toolbox.weighted_tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../weighted_tucker_tensor_train/EdgeVectors.html">t3toolbox.weighted_tucker_tensor_train.EdgeVectors</a></li>
 </ul>
 </details></li>
 </ul>
@@ -516,25 +518,28 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="reverse_edge_vectors.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.reverse_edge_vectors" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.reverse_edge_vectors"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reverse_edge_vectors</span></code></a>(...)</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_unstack.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_unstack" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_unstack"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_unstack</span></code></a>(x)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="concatenate_edge_vectors.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.concatenate_edge_vectors" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.concatenate_edge_vectors"><code class="xref py py-obj docutils literal notranslate"><span class="pre">concatenate_edge_vectors</span></code></a>(...)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_unstack.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_unstack" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_unstack"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_unstack</span></code></a>(x)</p></td>
 <td><p>Given multiple stacked T3s, this unstacks them</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_sum_stack.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_sum_stack" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_sum_stack"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_sum_stack</span></code></a>(...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_sum_stack.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_sum_stack" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_sum_stack"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_sum_stack</span></code></a>(...)</p></td>
 <td><p>If this object contains multiple stacked T3s, this sums them.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_core_shapes.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_core_shapes" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_core_shapes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_core_shapes</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_core_shapes.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_core_shapes" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_core_shapes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_core_shapes</span></code></a>(...)</p></td>
 <td><p>Determines the shapes of the T3 cores based on the ranks.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_to_vector.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_to_vector" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_to_vector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_to_vector</span></code></a>(→ t3toolbox.common.NDArray)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_to_vector.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_to_vector" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_to_vector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_to_vector</span></code></a>(→ t3toolbox.common.NDArray)</p></td>
 <td><p>Converts T3 to a 1D vector containing all of the core entries.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_from_vector.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_from_vector" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_from_vector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_from_vector</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_from_vector.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_from_vector" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_from_vector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_from_vector</span></code></a>(...)</p></td>
 <td><p>Constructs a T3 from a 1D vector containing the core entries</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_corewise_randn.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_corewise_randn" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_corewise_randn"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_corewise_randn</span></code></a>(, use_jax, ...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_corewise_randn.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_corewise_randn" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_corewise_randn"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_corewise_randn</span></code></a>(, use_jax, ...)</p></td>
 <td><p>Construct a Tucker tensor train with random cores.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_zeros.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_zeros" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_zeros"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_zeros</span></code></a>(, use_jax, ...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_zeros.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_zeros" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_zeros"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_zeros</span></code></a>(, use_jax, ...)</p></td>
 <td><p>Construct a Tucker tensor train of zeros.</p></td>
 </tr>
 </tbody>

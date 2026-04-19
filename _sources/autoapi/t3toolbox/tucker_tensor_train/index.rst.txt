@@ -92,12 +92,10 @@ Classes
    :hidden:
 
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain
-   /autoapi/t3toolbox/tucker_tensor_train/EdgeVectors
 
 .. autoapisummary::
 
    t3toolbox.tucker_tensor_train.TuckerTensorTrain
-   t3toolbox.tucker_tensor_train.EdgeVectors
 
 
 Functions
@@ -106,7 +104,6 @@ Functions
 .. toctree::
    :hidden:
 
-   /autoapi/t3toolbox/tucker_tensor_train/contract_edge_vectors_into_t3
    /autoapi/t3toolbox/tucker_tensor_train/t3_zeros
    /autoapi/t3toolbox/tucker_tensor_train/t3_corewise_randn
    /autoapi/t3toolbox/tucker_tensor_train/t3_save
@@ -121,7 +118,6 @@ Functions
 
 .. autoapisummary::
 
-   t3toolbox.tucker_tensor_train.contract_edge_vectors_into_t3
    t3toolbox.tucker_tensor_train.t3_zeros
    t3toolbox.tucker_tensor_train.t3_corewise_randn
    t3toolbox.tucker_tensor_train.t3_save

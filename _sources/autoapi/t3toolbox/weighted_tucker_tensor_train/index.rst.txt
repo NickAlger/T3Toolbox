@@ -1,0 +1,24 @@
+t3toolbox.weighted_tucker_tensor_train
+======================================
+
+.. py:module:: t3toolbox.weighted_tucker_tensor_train
+
+.. autoapi-nested-parse::
+
+   Edge vectors.
+
+
+
+Classes
+-------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/weighted_tucker_tensor_train/EdgeVectors
+
+.. autoapisummary::
+
+   t3toolbox.weighted_tucker_tensor_train.EdgeVectors
+
+
