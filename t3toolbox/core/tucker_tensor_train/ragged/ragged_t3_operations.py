@@ -9,7 +9,7 @@ __all__ = [
     'reverse_tt',
     'change_tucker_core_shapes',
     'change_tt_core_shapes',
-    'absorb_edge_weights_into_t3',
+    'contract_edge_vectors_into_t3',
     't3_unstack',
     't3_core_shapes',
     't3_to_vector',
@@ -145,12 +145,12 @@ def change_tt_core_shapes(
     return tuple(new_tt_cores)
 
 
-def absorb_edge_weights_into_t3(
+def contract_edge_vectors_into_t3(
         x0: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
-        weights: typ.Tuple[
-            typ.Sequence[NDArray],  # shape_weights, len=d, elm_shape=(Ni,)
-            typ.Sequence[NDArray],  # tucker_weights, len=d, elm_shape=(ni,)
-            typ.Sequence[NDArray],  # tt_weights, len=d+1, elm_shape=(ri,)
+        edge_vectors: typ.Tuple[
+            typ.Sequence[NDArray],  # shape_weights, len=d, elm_shape=stack_shape+(Ni,)
+            typ.Sequence[NDArray],  # tucker_weights, len=d, elm_shape=stack_shape+(ni,)
+            typ.Sequence[NDArray],  # tt_weights, len=d+1, elm_shape=stack_shape+(ri,)
         ],
         use_jax: bool = False,
 ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:
@@ -175,17 +175,17 @@ def absorb_edge_weights_into_t3(
 
     #
     tucker_cores0, tt_cores0 = x0
-    shape_weights, tucker_weights, tt_weights = weights
+    shape_weights, tucker_weights, tt_weights = edge_vectors
 
     (tucker_cores,) = xmap(
-        lambda tw_B_sw: (xnp.einsum('i,io,o->io', tw_B_sw[0], tw_B_sw[1], tw_B_sw[2]),),
+        lambda tw_B_sw: (xnp.einsum('...i,...io,...o->...io', tw_B_sw[0], tw_B_sw[1], tw_B_sw[2]),),
         (tucker_weights, tucker_cores0, shape_weights)
     )
     (first_tt_cores,) = xmap(
-        lambda lw_G: (xnp.einsum('i,iaj->iaj', lw_G[0], lw_G[1]),),
+        lambda lw_G: (xnp.einsum('...i,...iaj->...iaj', lw_G[0], lw_G[1]),),
         (tt_weights[:-2], tt_cores0[:-1])
     )
-    Gf = xnp.einsum('i,iaj,j->iaj', tt_weights[-2], tt_cores0[-1], tt_weights[-1])
+    Gf = xnp.einsum('...i,...iaj,...j->...iaj', tt_weights[-2], tt_cores0[-1], tt_weights[-1])
     tt_cores = tuple(first_tt_cores) + (Gf,)
 
     return tucker_cores, tt_cores

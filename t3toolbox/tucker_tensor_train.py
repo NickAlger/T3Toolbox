@@ -254,11 +254,11 @@ class TuckerTensorTrain:
     >>> print(x2.has_minimal_ranks)
     True
     """
-    tucker_cores:   typ.Tuple[NDArray] # len=d, elm_shape=VS+(ni, Ni)
-    tt_cores:       typ.Tuple[NDArray] # len=d, elm_shape=VS+(ri, ni, r(i+1))
+    tucker_cores:   typ.Tuple[NDArray,...] # len=d, elm_shape=VS+(ni, Ni)
+    tt_cores:       typ.Tuple[NDArray,...] # len=d, elm_shape=VS+(ri, ni, r(i+1))
 
     @ft.cached_property
-    def data(self) -> typ.Tuple[typ.Tuple[NDArray], typ.Tuple[NDArray]]:
+    def data(self) -> typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]]:
         return tuple(self.tucker_cores), tuple(self.tt_cores)
 
     @ft.cached_property
@@ -1614,6 +1614,84 @@ class TuckerTensorTrain:
         return probing.probe_t3(ww, self.data, use_jax=use_jax)
 
 
+@dataclass(frozen=True)
+class EdgeVectors:
+    """Vectors that "live" on edges in a T3 tensor network.
+
+    Attributes:
+    -----------
+    shape_vectors: typ.Sequence[NDArray]
+        Vectors on externally facing edges. len=d, elm_shape=stack_shape+(Ni,)
+    tucker_vectors: typ.Sequence[NDArray]
+        Vectors on edges between Tucker cores and TT cores. len=d, elm_shape=stack_shape+(ni,)
+    tt_vectors: typ.Sequence[NDArray]
+        Vectors on edges between adjacent TT cores. len=d+1, elm_shape=stack_shape+(ri,)
+    """
+    shape_vectors:  typ.Tuple[NDArray,...] # len=d,   elm_shape=stack_shape+(Ni,)
+    tucker_vectors: typ.Tuple[NDArray,...] # len=d,   elm_shape=stack_shape+(ni,)
+    tt_vectors:     typ.Tuple[NDArray,...] # len=d+1, elm_shape=stack_shape+(ri,)
+
+    @ft.cached_property
+    def data(self) -> typ.Tuple[
+        typ.Tuple[NDArray, ...], # shape_vectors
+        typ.Tuple[NDArray, ...], # tucker_vectors
+        typ.Tuple[NDArray, ...], # tt_vectors
+    ]:
+        return self.shape_vectors, self.tt_vectors, self.tucker_vectors
+
+    @ft.cached_property
+    def d(self) -> int:
+        return len(self.tucker_vectors)
+
+    @ft.cached_property
+    def shape(self) -> typ.Tuple[int,...]:
+        return tuple([sw.shape[-1] for sw in self.shape_vectors])
+
+    @ft.cached_property
+    def tucker_ranks(self) -> typ.Tuple[int,...]:
+        return tuple([tkw.shape[-1] for tkw in self.tucker_vectors])
+
+    @ft.cached_property
+    def tt_ranks(self) -> typ.Tuple[int,...]:
+        return tuple([ttw.shape[-1] for ttw in self.tt_vectors])
+
+    @ft.cached_property
+    def stack_shape(self) -> typ.Tuple[int,...]:
+        return self.tucker_vectors[0].shape[:-1]
+
+    @ft.cached_property
+    def structure(self) -> typ.Tuple[
+        typ.Tuple[int, ...], # shape
+        typ.Tuple[int, ...], # tucker_ranks
+        typ.Tuple[int, ...], # tt_ranks
+        typ.Tuple[int, ...], # stack_shape
+    ]:
+        return self.shape, self.tucker_ranks, self.tt_ranks, self.stack_shape
+
+    def validate(self):
+        assert(len(self.shape_vectors) == self.d)
+        assert(len(self.tucker_vectors) == self.d)
+        assert(len(self.tt_vectors) == self.d + 1)
+
+        for sw, N in zip(self.shape_vectors, self.shape):
+            assert(sw.shape == self.stack_shape + (N,))
+
+        for tkw, n in zip(self.tucker_vectors, self.tucker_ranks):
+            assert(tkw.shape == self.stack_shape + (n,))
+
+        for ttw, r in zip(self.tt_vectors, self.tt_ranks):
+            assert(ttw.shape == self.stack_shape + (r,))
+
+    def __post_init__(self):
+        self.validate()
+
+    def contract_into_t3(
+            self,
+            x: TuckerTensorTrain,
+            use_jax: bool = False,
+    ) -> TuckerTensorTrain:
+        return contract_edge_vectors_into_t3(x, self, use_jax=use_jax)
+
 
 if has_jax:
     jax.tree_util.register_pytree_node(
@@ -1622,30 +1700,13 @@ if has_jax:
         lambda aux_data, children: TuckerTensorTrain(*children),
     )
 
+    jax.tree_util.register_pytree_node(
+        EdgeVectors,
+        lambda x: (x.data, None),
+        lambda aux_data, children: EdgeVectors(*children),
+    )
 
-
-EdgeWeights = typ.Tuple[
-    typ.Sequence[NDArray],  # shape_weights, len=d, elm_shape=(Ni,)
-    typ.Sequence[NDArray],  # tucker_weights, len=d, elm_shape=(ni,)
-    typ.Sequence[NDArray],  # tt_weights, len=d+1, elm_shape=(ri,)
-]
-
-# @dataclass(frozen=True)
-# class EdgeWeights:
-#     """Weighting vectors for the edges of a Tucker tensor train.
-#
-#     Attributes:
-#     -----------
-#     shape_weights: Tuple[int]
-#         Weights for externally facing edges. len=d, elm_shape=stack_shape+(Ni,)
-#     tucker_weights: Sequence[int]
-#         Weights for edges between Tucker cores and TT cores. len=d, elm_shape=stack_shape+(ni,)
-#     tt_weights: Sequence[int]
-#         Weights for edges between adjacent TT cores. len=d+1, elm_shape=stack_shape+(ri,)
-#     """
-#     shape_weights:  typ.Sequence[NDArray] # len=d,   elm_shape=stack_shape+(Ni,)
-#     tucker_weights: typ.Sequence[NDArray] # len=d,   elm_shape=stack_shape+(ni,)
-#     tt_weights:     typ.Sequence[NDArray] # len=d+1, elm_shape=stack_shape+(ri,)
+####
 
 
 def t3_stack(
@@ -1675,12 +1736,12 @@ def t3_stack(
     return TuckerTensorTrain(stacked_tucker_cores, stacked_tt_cores)
 
 
-def absorb_edge_weights_into_cores(
-        x0, # Tucker tensor train data. Should also work for uniform. Maybe move this
-        weights: EdgeWeights,
+def contract_edge_vectors_into_t3(
+        x, # Tucker tensor train data.
+        edge_vectors: EdgeVectors, # must have same structure as x
         use_jax: bool = False,
 ) -> TuckerTensorTrain:
-    """Contract each edge weight into a neighboring core.
+    """Contract each edge vector into a neighboring core.
 
     Tensor network diagram illustrating groupings::
 
@@ -1696,19 +1757,29 @@ def absorb_edge_weights_into_cores(
                 |        |        |
 
     """
-    is_uniform = not isinstance(x0[0], typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
+    if x.structure != edge_vectors.structure:
+        raise RuntimeError(
+            'TuckerTensorTrain can only absorb EdgeVectors with the same structure.\n' +
+            'x.structure = ' + str(x.structure) + '\n'
+            'edge_vectors.structure = ' + str(edge_vectors.structure)
+        )
+    return TuckerTensorTrain(*ragged_operations.contract_edge_vectors_into_t3(
+        x, edge_vectors.data, use_jax=use_jax,
+    ))
 
+    # is_uniform = not isinstance(x0[0], typ.Sequence)
+    # xnp, xmap, xscan = get_backend(is_uniform, use_jax)
     #
-    tucker_cores0, tt_cores0 = x0
-    shape_weights, tucker_weights, tt_weights = weights
-
-    if is_uniform:
-        return uniform_operations.absorb_edge_weights_into_ut3(x0, weights)
-    else:
-        return ragged_operations.absorb_edge_weights_into_t3(x0, weights)
-
-    return tucker_cores, tt_cores
+    # #
+    # tucker_cores0, tt_cores0 = x0
+    # shape_weights, tucker_weights, tt_weights = weights
+    #
+    # if is_uniform:
+    #     return uniform_operations.absorb_edge_weights_into_ut3(x0, weights)
+    # else:
+    #     return ragged_operations.absorb_edge_weights_into_t3(x0, weights)
+    #
+    # return tucker_cores, tt_cores
 
 
 def t3_zeros(
