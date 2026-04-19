@@ -1,0 +1,58 @@
+t3toolbox.tucker_tensor_train.EdgeVectors
+=========================================
+
+.. py:class:: t3toolbox.tucker_tensor_train.EdgeVectors
+
+   Vectors that "live" on edges in a T3 tensor network.
+
+   Attributes:
+   -----------
+   shape_vectors: typ.Sequence[NDArray]
+       Vectors on externally facing edges. len=d, elm_shape=stack_shape+(Ni,)
+   tucker_vectors: typ.Sequence[NDArray]
+       Vectors on edges between Tucker cores and TT cores. len=d, elm_shape=stack_shape+(ni,)
+   tt_vectors: typ.Sequence[NDArray]
+       Vectors on edges between adjacent TT cores. len=d+1, elm_shape=stack_shape+(ri,)
+
+
+   .. py:attribute:: shape_vectors
+      :type:  t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
+
+
+   .. py:attribute:: tucker_vectors
+      :type:  t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
+
+
+   .. py:attribute:: tt_vectors
+      :type:  t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
+
+
+   .. py:method:: data() -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]]
+
+
+   .. py:method:: d() -> int
+
+
+   .. py:method:: shape() -> t3toolbox.common.typ.Tuple[int, Ellipsis]
+
+
+   .. py:method:: tucker_ranks() -> t3toolbox.common.typ.Tuple[int, Ellipsis]
+
+
+   .. py:method:: tt_ranks() -> t3toolbox.common.typ.Tuple[int, Ellipsis]
+
+
+   .. py:method:: stack_shape() -> t3toolbox.common.typ.Tuple[int, Ellipsis]
+
+
+   .. py:method:: structure() -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.typ.Tuple[int, Ellipsis]]
+
+
+   .. py:method:: validate()
+
+
+   .. py:method:: __post_init__()
+
+
+   .. py:method:: contract_into_t3(x: TuckerTensorTrain, use_jax: bool = False) -> TuckerTensorTrain
+
