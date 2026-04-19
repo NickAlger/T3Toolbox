@@ -1,0 +1,20 @@
+t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.contract_edge_vectors_into_t3
+============================================================================================
+
+.. py:function:: t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.contract_edge_vectors_into_t3(x0: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], edge_vectors: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]]
+
+   Contract each edge weight into a neighboring core.
+
+   Tensor network diagram illustrating groupings::
+
+            ____     ____     ________
+           /    \   /    \   /                1---w---G0---w---G1---w---G2---w---1
+               |        |        |
+             / w      / w      / w
+             | |      | |      | |
+             | B0     | B1     | B2
+             | |      | |      | |
+             \ w      \ w      \ w
+               |        |        |
+
+

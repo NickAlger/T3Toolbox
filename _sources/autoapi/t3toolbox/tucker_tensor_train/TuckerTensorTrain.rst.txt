@@ -126,14 +126,14 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
    .. py:attribute:: tucker_cores
-      :type:  t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray]
+      :type:  t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
 
 
    .. py:attribute:: tt_cores
-      :type:  t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray]
+      :type:  t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
 
 
-   .. py:method:: data() -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray]]
+   .. py:method:: data() -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]]
 
 
    .. py:method:: d() -> int
