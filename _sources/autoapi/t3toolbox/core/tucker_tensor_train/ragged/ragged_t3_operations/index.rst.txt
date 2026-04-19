@@ -16,6 +16,7 @@ Functions
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3_operations/change_tucker_core_shapes
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3_operations/change_tt_core_shapes
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3_operations/contract_edge_vectors_into_t3
+   /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3_operations/reverse_edge_vectors
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3_operations/t3_unstack
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3_operations/t3_sum_stack
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3_operations/t3_core_shapes
@@ -32,6 +33,7 @@ Functions
    t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.change_tucker_core_shapes
    t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.change_tt_core_shapes
    t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.contract_edge_vectors_into_t3
+   t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.reverse_edge_vectors
    t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_unstack
    t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_sum_stack
    t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_core_shapes

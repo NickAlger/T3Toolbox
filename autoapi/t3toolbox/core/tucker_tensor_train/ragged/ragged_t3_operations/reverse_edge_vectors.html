@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.reverse_edge_vectors &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3_operations/index';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3_operations/reverse_edge_vectors';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../../../search.html" />
-    <link rel="next" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.to_dense" href="to_dense.html" />
-    <link rel="prev" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.right_svd_ith_tt_core" href="../ragged_orthogonalization/right_svd_ith_tt_core.html" />
+    <link rel="next" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_unstack" href="t3_unstack.html" />
+    <link rel="prev" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.contract_edge_vectors_into_t3" href="contract_edge_vectors_into_t3.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -470,7 +470,10 @@
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">t3toolbox.core.tucker_tensor_train.ragged</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations</span></li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.reverse_edge_vectors</span></li>
   </ul>
 </nav>
 </div>
@@ -487,60 +490,13 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="module-t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations">
-<span id="t3toolbox-core-tucker-tensor-train-ragged-ragged-t3-operations"></span><h1>t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations<a class="headerlink" href="#module-t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations" title="Link to this heading">#</a></h1>
-<section id="functions">
-<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">#</a></h2>
-<div class="toctree-wrapper compound">
-</div>
-<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="to_dense.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.to_dense" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.to_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_dense</span></code></a>(→ t3toolbox.common.NDArray)</p></td>
-<td><p>Fully contract a Tucker tensor train to create a dense tensor.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="squash_tt_tails.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.squash_tt_tails" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.squash_tt_tails"><code class="xref py py-obj docutils literal notranslate"><span class="pre">squash_tt_tails</span></code></a>(...)</p></td>
-<td><p>Make leading and trailing TT ranks equal to 1 (r0=rd=1), without changing tensor being represented.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="reverse_tt.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.reverse_tt" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.reverse_tt"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reverse_tt</span></code></a>(...)</p></td>
-<td><p>Reverse a tensor train (no Tucker).</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="change_tucker_core_shapes.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.change_tucker_core_shapes" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.change_tucker_core_shapes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">change_tucker_core_shapes</span></code></a>(...)</p></td>
-<td><p>Increase Tucker and/or TT ranks for TT cores using zero padding.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="change_tt_core_shapes.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.change_tt_core_shapes" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.change_tt_core_shapes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">change_tt_core_shapes</span></code></a>(...)</p></td>
-<td><p>Increase Tucker and/or TT ranks for TT cores using zero padding.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="contract_edge_vectors_into_t3.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.contract_edge_vectors_into_t3" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.contract_edge_vectors_into_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">contract_edge_vectors_into_t3</span></code></a>(...)</p></td>
-<td><p>Contract each edge weight into a neighboring core.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="reverse_edge_vectors.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.reverse_edge_vectors" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.reverse_edge_vectors"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reverse_edge_vectors</span></code></a>(...)</p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_unstack.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_unstack" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_unstack"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_unstack</span></code></a>(x)</p></td>
-<td><p>Given multiple stacked T3s, this unstacks them</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_sum_stack.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_sum_stack" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_sum_stack"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_sum_stack</span></code></a>(...)</p></td>
-<td><p>If this object contains multiple stacked T3s, this sums them.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_core_shapes.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_core_shapes" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_core_shapes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_core_shapes</span></code></a>(...)</p></td>
-<td><p>Determines the shapes of the T3 cores based on the ranks.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_to_vector.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_to_vector" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_to_vector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_to_vector</span></code></a>(→ t3toolbox.common.NDArray)</p></td>
-<td><p>Converts T3 to a 1D vector containing all of the core entries.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_from_vector.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_from_vector" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_from_vector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_from_vector</span></code></a>(...)</p></td>
-<td><p>Constructs a T3 from a 1D vector containing the core entries</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_corewise_randn.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_corewise_randn" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_corewise_randn"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_corewise_randn</span></code></a>(, use_jax, ...)</p></td>
-<td><p>Construct a Tucker tensor train with random cores.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_zeros.html#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_zeros" title="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_zeros"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_zeros</span></code></a>(, use_jax, ...)</p></td>
-<td><p>Construct a Tucker tensor train of zeros.</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
+  <section id="t3toolbox-core-tucker-tensor-train-ragged-ragged-t3-operations-reverse-edge-vectors">
+<h1>t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.reverse_edge_vectors<a class="headerlink" href="#t3toolbox-core-tucker-tensor-train-ragged-ragged-t3-operations-reverse-edge-vectors" title="Link to this heading">#</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.reverse_edge_vectors">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.</span></span><span class="sig-name descname"><span class="pre">reverse_edge_vectors</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">edge_vectors</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.reverse_edge_vectors" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
 </section>
 
 
@@ -554,20 +510,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../ragged_orthogonalization/right_svd_ith_tt_core.html"
+       href="contract_edge_vectors_into_t3.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.right_svd_ith_tt_core</p>
+        <p class="prev-next-title">t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.contract_edge_vectors_into_t3</p>
       </div>
     </a>
     <a class="right-next"
-       href="to_dense.html"
+       href="t3_unstack.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.to_dense</p>
+        <p class="prev-next-title">t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_unstack</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -590,14 +546,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#functions">Functions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.reverse_edge_vectors"><code class="docutils literal notranslate"><span class="pre">t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.reverse_edge_vectors()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../../../../_sources/autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3_operations/index.rst.txt">
+    <a href="../../../../../../_sources/autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3_operations/reverse_edge_vectors.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>
