@@ -274,6 +274,7 @@
 <li class="toctree-l2 has-children"><a class="reference internal" href="t3toolbox/core/index.html">t3toolbox.core</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3 has-children"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/index.html">t3toolbox.core.tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/apply/index.html">t3toolbox.core.tucker_tensor_train.apply</a></li>
+<li class="toctree-l4"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/dense_t3svd/index.html">t3toolbox.core.tucker_tensor_train.dense_t3svd</a></li>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/entries/index.html">t3toolbox.core.tucker_tensor_train.entries</a></li>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/orthogonalization/index.html">t3toolbox.core.tucker_tensor_train.orthogonalization</a></li>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/ragged/index.html">t3toolbox.core.tucker_tensor_train.ragged</a></li>
@@ -334,14 +335,6 @@
 <li class="toctree-l3"><a class="reference internal" href="t3toolbox/probing/assemble_tt_variations.html">t3toolbox.probing.assemble_tt_variations</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3toolbox/probing/probe_tangent_transpose.html">t3toolbox.probing.probe_tangent_transpose</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3toolbox/probing/probe_dense.html">t3toolbox.probing.probe_dense</a></li>
-</ul>
-</details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="t3toolbox/t3svd/index.html">t3toolbox.t3svd</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="t3toolbox/t3svd/t3_svd.html">t3toolbox.t3svd.t3_svd</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3toolbox/t3svd/tucker_svd_dense.html">t3toolbox.t3svd.tucker_svd_dense</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3toolbox/t3svd/tt_svd_dense.html">t3toolbox.t3svd.tt_svd_dense</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3toolbox/t3svd/t3_svd_dense.html">t3toolbox.t3svd.t3_svd_dense</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3toolbox/t3svd/uniform_t3_svd.html">t3toolbox.t3svd.uniform_t3_svd</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="t3toolbox/tucker_tensor_train/index.html">t3toolbox.tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -482,18 +475,21 @@
 <li class="toctree-l2"><a class="reference internal" href="t3toolbox/core/index.html">t3toolbox.core</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/index.html">t3toolbox.core.tucker_tensor_train</a><ul>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/apply/index.html">t3toolbox.core.tucker_tensor_train.apply</a></li>
+<li class="toctree-l4"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/dense_t3svd/index.html">t3toolbox.core.tucker_tensor_train.dense_t3svd</a></li>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/entries/index.html">t3toolbox.core.tucker_tensor_train.entries</a></li>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/orthogonalization/index.html">t3toolbox.core.tucker_tensor_train.orthogonalization</a></li>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/ragged/index.html">t3toolbox.core.tucker_tensor_train.ragged</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/ragged/operations/index.html">t3toolbox.core.tucker_tensor_train.ragged.operations</a></li>
-<li class="toctree-l5"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/ragged/orthogonalization/index.html">t3toolbox.core.tucker_tensor_train.ragged.orthogonalization</a></li>
-<li class="toctree-l5"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/ragged/tensor_linalg/index.html">t3toolbox.core.tucker_tensor_train.ragged.tensor_linalg</a></li>
+<li class="toctree-l5"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/ragged/ragged_operations/index.html">t3toolbox.core.tucker_tensor_train.ragged.ragged_operations</a></li>
+<li class="toctree-l5"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/ragged/ragged_orthogonalization/index.html">t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization</a></li>
+<li class="toctree-l5"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/ragged/ragged_t3svd/index.html">t3toolbox.core.tucker_tensor_train.ragged.ragged_t3svd</a></li>
+<li class="toctree-l5"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/ragged/ragged_tensor_linalg/index.html">t3toolbox.core.tucker_tensor_train.ragged.ragged_tensor_linalg</a></li>
 </ul>
 </li>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/ranks/index.html">t3toolbox.core.tucker_tensor_train.ranks</a></li>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/uniform/index.html">t3toolbox.core.tucker_tensor_train.uniform</a><ul>
-<li class="toctree-l5"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/uniform/operations/index.html">t3toolbox.core.tucker_tensor_train.uniform.operations</a></li>
-<li class="toctree-l5"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/uniform/orthogonalization/index.html">t3toolbox.core.tucker_tensor_train.uniform.orthogonalization</a></li>
+<li class="toctree-l5"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/uniform/uniform_operations/index.html">t3toolbox.core.tucker_tensor_train.uniform.uniform_operations</a></li>
+<li class="toctree-l5"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/uniform/uniform_orthogonalization/index.html">t3toolbox.core.tucker_tensor_train.uniform.uniform_orthogonalization</a></li>
+<li class="toctree-l5"><a class="reference internal" href="t3toolbox/core/tucker_tensor_train/uniform/uniform_t3svd/index.html">t3toolbox.core.tucker_tensor_train.uniform.uniform_t3svd</a></li>
 </ul>
 </li>
 </ul>
@@ -504,7 +500,6 @@
 <li class="toctree-l2"><a class="reference internal" href="t3toolbox/manifold/index.html">t3toolbox.manifold</a></li>
 <li class="toctree-l2"><a class="reference internal" href="t3toolbox/orthogonalization/index.html">t3toolbox.orthogonalization</a></li>
 <li class="toctree-l2"><a class="reference internal" href="t3toolbox/probing/index.html">t3toolbox.probing</a></li>
-<li class="toctree-l2"><a class="reference internal" href="t3toolbox/t3svd/index.html">t3toolbox.t3svd</a></li>
 <li class="toctree-l2"><a class="reference internal" href="t3toolbox/tucker_tensor_train/index.html">t3toolbox.tucker_tensor_train</a><ul>
 </ul>
 </li>

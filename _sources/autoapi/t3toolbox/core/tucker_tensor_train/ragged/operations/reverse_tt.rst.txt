@@ -1,8 +1,0 @@
-t3toolbox.core.tucker_tensor_train.ragged.operations.reverse_tt
-===============================================================
-
-.. py:function:: t3toolbox.core.tucker_tensor_train.ragged.operations.reverse_tt(tt_cores: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]) -> t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
-
-   Reverse a tensor train (no Tucker).
-
-

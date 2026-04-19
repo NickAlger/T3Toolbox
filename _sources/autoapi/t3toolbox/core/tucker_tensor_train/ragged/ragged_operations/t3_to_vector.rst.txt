@@ -1,0 +1,8 @@
+t3toolbox.core.tucker_tensor_train.ragged.ragged_operations.t3_to_vector
+========================================================================
+
+.. py:function:: t3toolbox.core.tucker_tensor_train.ragged.ragged_operations.t3_to_vector(x: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], use_jax: bool = False) -> t3toolbox.common.NDArray
+
+   Converts T3 to a 1D vector containing all of the core entries.
+
+

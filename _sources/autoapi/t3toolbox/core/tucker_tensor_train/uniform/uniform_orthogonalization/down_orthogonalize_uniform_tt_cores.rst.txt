@@ -1,0 +1,8 @@
+t3toolbox.core.tucker_tensor_train.uniform.uniform_orthogonalization.down_orthogonalize_uniform_tt_cores
+========================================================================================================
+
+.. py:function:: t3toolbox.core.tucker_tensor_train.uniform.uniform_orthogonalization.down_orthogonalize_uniform_tt_cores(x: t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray], use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray]
+
+   Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
+
+

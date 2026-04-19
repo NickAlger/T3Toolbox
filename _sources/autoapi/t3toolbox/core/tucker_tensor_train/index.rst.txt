@@ -11,6 +11,7 @@ Submodules
    :maxdepth: 1
 
    /autoapi/t3toolbox/core/tucker_tensor_train/apply/index
+   /autoapi/t3toolbox/core/tucker_tensor_train/dense_t3svd/index
    /autoapi/t3toolbox/core/tucker_tensor_train/entries/index
    /autoapi/t3toolbox/core/tucker_tensor_train/orthogonalization/index
    /autoapi/t3toolbox/core/tucker_tensor_train/ragged/index

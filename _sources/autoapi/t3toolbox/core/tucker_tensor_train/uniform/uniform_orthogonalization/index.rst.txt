@@ -1,0 +1,21 @@
+t3toolbox.core.tucker_tensor_train.uniform.uniform_orthogonalization
+====================================================================
+
+.. py:module:: t3toolbox.core.tucker_tensor_train.uniform.uniform_orthogonalization
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/core/tucker_tensor_train/uniform/uniform_orthogonalization/up_orthogonalize_uniform_tucker_cores
+   /autoapi/t3toolbox/core/tucker_tensor_train/uniform/uniform_orthogonalization/down_orthogonalize_uniform_tt_cores
+
+.. autoapisummary::
+
+   t3toolbox.core.tucker_tensor_train.uniform.uniform_orthogonalization.up_orthogonalize_uniform_tucker_cores
+   t3toolbox.core.tucker_tensor_train.uniform.uniform_orthogonalization.down_orthogonalize_uniform_tt_cores
+
+

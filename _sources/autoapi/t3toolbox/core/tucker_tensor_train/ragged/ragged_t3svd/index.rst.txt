@@ -1,0 +1,19 @@
+t3toolbox.core.tucker_tensor_train.ragged.ragged_t3svd
+======================================================
+
+.. py:module:: t3toolbox.core.tucker_tensor_train.ragged.ragged_t3svd
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/core/tucker_tensor_train/ragged/ragged_t3svd/t3_svd
+
+.. autoapisummary::
+
+   t3toolbox.core.tucker_tensor_train.ragged.ragged_t3svd.t3_svd
+
+

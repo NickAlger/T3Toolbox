@@ -648,7 +648,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
    .. py:method:: up_svd_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[TuckerTensorTrain, t3toolbox.common.NDArray]
 
-      Compute SVD of ith TT-core outer unfolding and keep non-orthogonal factor with this core.
+      Compute SVD of ith TT-core down unfolding and keep non-orthogonal factor with this core.
 
       Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
@@ -669,7 +669,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor.
                   new_tt_cores[ii].shape = (ri, new_ni, r(i+1))
                   new_tucker_cores[ii].shape = (new_ni, Ni)
-                * **ss_x** (*NDArray*) -- Singular values of prior ith TT-core outer unfolding. shape=(new_ri,).
+                * **ss_x** (*NDArray*) -- Singular values of prior ith TT-core down unfolding. shape=(new_ri,).
 
       .. seealso:: :py:obj:`truncated_svd`, :py:obj:`outer_svd_3tensor`, :py:obj:`up_svd_ith_tucker_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`, :py:obj:`t3_svd`
 
@@ -705,11 +705,11 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       :type atol: float
       :param xnp: Linear algebra backend. Default: np (numpy)
 
-      :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor, but with ith TT-core outer orthogonal.
+      :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor, but with ith TT-core down orthogonal.
                   new_tt_cores[ii].shape = (ri, new_ni, r(i+1))
                   new_tucker_cores[ii].shape = (new_ni, Ni)
                   einsum('iaj,ibj->ab', new_tt_cores[ii], new_tt_cores[ii]) = identity matrix
-                * **ss_x** (*NDArray*) -- Singular values of prior ith TT-core outer unfolding. shape=(new_ni,).
+                * **ss_x** (*NDArray*) -- Singular values of prior ith TT-core down unfolding. shape=(new_ni,).
 
       .. seealso:: :py:obj:`truncated_svd`, :py:obj:`outer_svd_3tensor`, :py:obj:`up_svd_ith_tucker_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`t3_svd`
 
@@ -725,7 +725,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       4.367311712704942e-12
       >>> tucker_cores2, tt_cores2 = x2.data
       >>> G = tt_cores2[ind]
-      >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1]))) # TT-core is outer orthogonal
+      >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1]))) # TT-core is down orthogonal
       1.0643458053135608e-15
 
 
@@ -865,7 +865,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: outer_orthogonalize_tt_cores(use_jax: bool = False)
+   .. py:method:: down_orthogonalize_tt_cores(use_jax: bool = False)
 
       Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
 

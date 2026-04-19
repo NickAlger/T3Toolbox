@@ -1,0 +1,23 @@
+t3toolbox.core.tucker_tensor_train.uniform.uniform_operations
+=============================================================
+
+.. py:module:: t3toolbox.core.tucker_tensor_train.uniform.uniform_operations
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/core/tucker_tensor_train/uniform/uniform_operations/reverse_utt
+   /autoapi/t3toolbox/core/tucker_tensor_train/uniform/uniform_operations/absorb_edge_weights_into_ut3
+   /autoapi/t3toolbox/core/tucker_tensor_train/uniform/uniform_operations/uniform_squash_tt_tails
+
+.. autoapisummary::
+
+   t3toolbox.core.tucker_tensor_train.uniform.uniform_operations.reverse_utt
+   t3toolbox.core.tucker_tensor_train.uniform.uniform_operations.absorb_edge_weights_into_ut3
+   t3toolbox.core.tucker_tensor_train.uniform.uniform_operations.uniform_squash_tt_tails
+
+
