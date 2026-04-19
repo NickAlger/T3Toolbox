@@ -16,9 +16,28 @@ Classes
    :hidden:
 
    /autoapi/t3toolbox/weighted_tucker_tensor_train/EdgeVectors
+   /autoapi/t3toolbox/weighted_tucker_tensor_train/WeightedTuckerTensorTrain
 
 .. autoapisummary::
 
    t3toolbox.weighted_tucker_tensor_train.EdgeVectors
+   t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/weighted_tucker_tensor_train/wt3_add
+   /autoapi/t3toolbox/weighted_tucker_tensor_train/wt3_sub
+   /autoapi/t3toolbox/weighted_tucker_tensor_train/wt3_inner_product
+
+.. autoapisummary::
+
+   t3toolbox.weighted_tucker_tensor_train.wt3_add
+   t3toolbox.weighted_tucker_tensor_train.wt3_sub
+   t3toolbox.weighted_tucker_tensor_train.wt3_inner_product
 
 

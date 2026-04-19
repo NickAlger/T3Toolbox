@@ -1,0 +1,96 @@
+t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain
+================================================================
+
+.. py:class:: t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain
+
+   .. py:attribute:: x0
+      :type:  t3toolbox.tucker_tensor_train.TuckerTensorTrain
+
+
+   .. py:attribute:: edge_weights
+      :type:  EdgeVectors
+
+
+   .. py:method:: data()
+
+
+   .. py:method:: validate()
+
+
+   .. py:method:: __post_init__()
+
+
+   .. py:method:: contract_edge_weights_into_cores(use_jax: bool = False) -> t3toolbox.tucker_tensor_train.TuckerTensorTrain
+
+      Contract each edge vector into a neighboring core.
+
+      Tensor network diagram illustrating groupings::
+
+               ____     ____     ________
+              /    \   /    \   /                    1---w---G0---w---G1---w---G2---w---1
+                  |        |        |
+                / w      / w      / w
+                | |      | |      | |
+                \ B0     \ B1     \ B2
+                  |        |        |
+                  w        w        w
+                  |        |        |
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.weighted_tucker_tensor_train as wt3
+      >>> randn = np.random.randn
+      >>> x0 = t3.t3_corewise_randn((6,7,8), (5,6,7), (2,3,3,1), stack_shape=(4,))
+      >>> tucker_vectors = tuple([randn(4, 5), randn(4, 6), randn(4, 7)])
+      >>> tt_vectors = tuple([randn(4, 2), randn(4, 3), randn(4, 3), randn(4, 1)])
+      >>> weights = wt3.EdgeVectors(tucker_vectors, tt_vectors)
+      >>> x0_w = wt3.WeightedTuckerTensorTrain(x0, weights)
+      >>> x = x0_w.contract_edge_weights_into_cores()
+      >>> dense_x = x.to_dense()
+      >>> all_x_vars = x0.tucker_cores + x0.tt_cores + tucker_vectors + tt_vectors
+      >>> einsum_str = 'qix,qjy,qkz,qaib,qbjc,qckd,qi,qj,qk,qa,qb,qc,qd->qxyz'
+      >>> dense_x2 = np.einsum(einsum_str, *all_x_vars)
+      >>> print(np.linalg.norm(dense_x - dense_x2))
+      4.7254283984394845e-12
+
+
+
+   .. py:method:: squash_tails() -> WeightedTuckerTensorTrain
+
+
+   .. py:method:: __neg__() -> WeightedTuckerTensorTrain
+
+
+   .. py:method:: __mul__(other) -> WeightedTuckerTensorTrain
+
+
+   .. py:method:: __add__(other, squash: bool = True, use_jax: bool = False)
+
+
+   .. py:method:: __sub__(other, squash: bool = True, use_jax: bool = False)
+
+
+   .. py:method:: norm(use_orthogonalization: bool = True, use_jax: bool = False)
+
+      Computes the Hilbert-Schmidt norm of the weighted Tucker tensor train.
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.weighted_tucker_tensor_train as wt3
+      >>> randn = np.random.randn
+      >>> x0 = t3.t3_corewise_randn((6,7,8), (5,6,7), (2,3,3,1), stack_shape=(4,))
+      >>> x_tucker_vectors = tuple([randn(4, 5), randn(4, 6), randn(4, 7)])
+      >>> x_tt_vectors = tuple([randn(4, 2), randn(4, 3), randn(4, 3), randn(4, 1)])
+      >>> x_weights = wt3.EdgeVectors(x_tucker_vectors, x_tt_vectors)
+      >>> x = wt3.WeightedTuckerTensorTrain(x0, x_weights)
+      >>> print(x.norm())
+      [ 31.94684693   0.68957189 100.53306804  35.34732966]
+      >>> x_dense = x.contract_edge_weights_into_cores().to_dense()
+      >>> print(np.array([np.linalg.norm(x_dense[ii]) for ii in range(4)]))
+      [ 31.94684693   0.68957189 100.53306804  35.34732966]
+
+

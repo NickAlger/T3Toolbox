@@ -12,5 +12,6 @@ Submodules
 
    /autoapi/t3toolbox/core/probing/index
    /autoapi/t3toolbox/core/tucker_tensor_train/index
+   /autoapi/t3toolbox/core/weighted_tucker_tensor_train/index
 
 

@@ -305,6 +305,10 @@
 <li class="toctree-l4"><a class="reference internal" href="../core/tucker_tensor_train/uniform/index.html">t3toolbox.core.tucker_tensor_train.uniform</a></li>
 </ul>
 </details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../core/weighted_tucker_tensor_train/index.html">t3toolbox.core.weighted_tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../core/weighted_tucker_tensor_train/ragged/index.html">t3toolbox.core.weighted_tucker_tensor_train.ragged</a></li>
+</ul>
+</details></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../corewise/index.html">t3toolbox.corewise</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -397,6 +401,10 @@
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">t3toolbox.weighted_tucker_tensor_train</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="EdgeVectors.html">t3toolbox.weighted_tucker_tensor_train.EdgeVectors</a></li>
+<li class="toctree-l3"><a class="reference internal" href="WeightedTuckerTensorTrain.html">t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="wt3_add.html">t3toolbox.weighted_tucker_tensor_train.wt3_add</a></li>
+<li class="toctree-l3"><a class="reference internal" href="wt3_sub.html">t3toolbox.weighted_tucker_tensor_train.wt3_sub</a></li>
+<li class="toctree-l3"><a class="reference internal" href="wt3_inner_product.html">t3toolbox.weighted_tucker_tensor_train.wt3_inner_product</a></li>
 </ul>
 </details></li>
 </ul>
@@ -492,6 +500,28 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="EdgeVectors.html#t3toolbox.weighted_tucker_tensor_train.EdgeVectors" title="t3toolbox.weighted_tucker_tensor_train.EdgeVectors"><code class="xref py py-obj docutils literal notranslate"><span class="pre">EdgeVectors</span></code></a></p></td>
 <td><p>Vectors that &quot;live&quot; on edges in a T3 tensor network.</p></td>
 </tr>
+<tr class="row-even"><td><p><a class="reference internal" href="WeightedTuckerTensorTrain.html#t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain" title="t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain"><code class="xref py py-obj docutils literal notranslate"><span class="pre">WeightedTuckerTensorTrain</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">#</a></h2>
+<div class="toctree-wrapper compound">
+</div>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="wt3_add.html#t3toolbox.weighted_tucker_tensor_train.wt3_add" title="t3toolbox.weighted_tucker_tensor_train.wt3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">wt3_add</span></code></a>(→ WeightedTuckerTensorTrain)</p></td>
+<td><p>Add two weighted Tucker tensor trains.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="wt3_sub.html#t3toolbox.weighted_tucker_tensor_train.wt3_sub" title="t3toolbox.weighted_tucker_tensor_train.wt3_sub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">wt3_sub</span></code></a>(→ WeightedTuckerTensorTrain)</p></td>
+<td><p>Subtract two weighted Tucker tensor trains, A-B.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="wt3_inner_product.html#t3toolbox.weighted_tucker_tensor_train.wt3_inner_product" title="t3toolbox.weighted_tucker_tensor_train.wt3_inner_product"><code class="xref py py-obj docutils literal notranslate"><span class="pre">wt3_inner_product</span></code></a>(A, B[, use_orthogonalization, use_jax])</p></td>
+<td><p>Computes the Hilbert-Schmidt inner product between two Tucker tensor trains.</p></td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -546,6 +576,7 @@
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#classes">Classes</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#functions">Functions</a></li>
 </ul>
   </nav></div>
 

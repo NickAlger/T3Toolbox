@@ -1,0 +1,15 @@
+t3toolbox.core.weighted_tucker_tensor_train
+===========================================
+
+.. py:module:: t3toolbox.core.weighted_tucker_tensor_train
+
+
+Submodules
+----------
+
+.. toctree::
+   :maxdepth: 1
+
+   /autoapi/t3toolbox/core/weighted_tucker_tensor_train/ragged/index
+
+

@@ -1,4 +1,0 @@
-t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.concatenate_edge_vectors
-=======================================================================================
-
-.. py:function:: t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.concatenate_edge_vectors(edge_vectors_A: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], edge_vectors_B: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]]
