@@ -11,13 +11,13 @@ Functions
    :hidden:
 
    /autoapi/t3toolbox/core/tucker_tensor_train/dense_t3svd/tucker_svd_dense
-   /autoapi/t3toolbox/core/tucker_tensor_train/dense_t3svd/tt_svd_dense
-   /autoapi/t3toolbox/core/tucker_tensor_train/dense_t3svd/t3_svd_dense
+   /autoapi/t3toolbox/core/tucker_tensor_train/dense_t3svd/ttsvd_dense
+   /autoapi/t3toolbox/core/tucker_tensor_train/dense_t3svd/t3svd_dense
 
 .. autoapisummary::
 
    t3toolbox.core.tucker_tensor_train.dense_t3svd.tucker_svd_dense
-   t3toolbox.core.tucker_tensor_train.dense_t3svd.tt_svd_dense
-   t3toolbox.core.tucker_tensor_train.dense_t3svd.t3_svd_dense
+   t3toolbox.core.tucker_tensor_train.dense_t3svd.ttsvd_dense
+   t3toolbox.core.tucker_tensor_train.dense_t3svd.t3svd_dense
 
 
