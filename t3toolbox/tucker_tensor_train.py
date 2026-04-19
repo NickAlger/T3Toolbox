@@ -2171,7 +2171,7 @@ def t3_get_entries(
     >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2), stack_shape=(2,3))
     >>> index = [[9,0], [4,0], [7,0]] # get entries (9,4,7) and (0,0,0)
     >>> entries = t3.t3_get_entries(x, index)
-    >>> x_dense = x.to_dense(x)
+    >>> x_dense = x.to_dense()
     >>> entries2 = np.moveaxis(np.array([x_dense[:,:, 9,4,7], x_dense[:,:, 0,0,0]]), 0,2)
     >>> print(np.linalg.norm(entries - entries2))
     9.22170384909466e-15
