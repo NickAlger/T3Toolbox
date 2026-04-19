@@ -515,6 +515,8 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
       Compute SVD of ith tucker core and contract non-orthogonal factor up into the TT-core above.
 
+      Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
+
       :param ii: index of tucker core to SVD
       :type ii: int
       :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (r0,r1,...r(d-1),rd))
@@ -557,6 +559,8 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
    .. py:method:: left_svd_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[TuckerTensorTrain, t3toolbox.common.NDArray]
 
       Compute SVD of ith TT-core left unfolding and contract non-orthogonal factor into the TT-core to the right.
+
+      Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
       :param ii: index of TT-core to SVD
       :type ii: int
@@ -601,6 +605,8 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
       Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor into the TT-core to the left.
 
+      Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
+
       :param ii: index of TT-core to SVD
       :type ii: int
       :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
@@ -644,6 +650,8 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
       Compute SVD of ith TT-core outer unfolding and keep non-orthogonal factor with this core.
 
+      Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
+
       :param ii: index of TT-core to SVD
       :type ii: int
       :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
@@ -680,6 +688,8 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
    .. py:method:: down_svd_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[TuckerTensorTrain, t3toolbox.common.NDArray]
 
       Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the tucker core below.
+
+      Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
       :param ii: index of TT-core to SVD
       :type ii: int
@@ -723,6 +733,8 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
    .. py:method:: orthogonalize_relative_to_ith_tucker_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> TuckerTensorTrain
 
       Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker core.
+
+      Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
       Orthogonal is done relative to the ith tucker core:
           - ith tucker core is not orthogonalized
@@ -783,6 +795,8 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
    .. py:method:: orthogonalize_relative_to_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> TuckerTensorTrain
 
       Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
+
+      Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
       Orthogonal is done relative to the ith TT-core:
           - All Tucker cores are orthogonalized.
