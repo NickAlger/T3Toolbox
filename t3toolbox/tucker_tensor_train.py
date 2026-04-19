@@ -1345,7 +1345,7 @@ class TuckerTensorTrain:
     ):
         """Right orthogonalize the TT cores, possibly returning variation cores as well.
         """
-        result = ragged_orthogonalization.left_orthogonalize_tt_cores(
+        result = ragged_orthogonalization.right_orthogonalize_tt_cores(
             self.tt_cores, return_variation_cores=return_variation_cores, use_jax=use_jax,
         )
         if return_variation_cores:
@@ -1473,15 +1473,15 @@ EdgeWeights = typ.Tuple[
 #     Attributes:
 #     -----------
 #     shape_weights: Tuple[int]
-#         Weights for externally facing edges. len=d, elm_shape=(Ni,)
+#         Weights for externally facing edges. len=d, elm_shape=stack_shape+(Ni,)
 #     tucker_weights: Sequence[int]
-#         Weights for edges between Tucker cores and TT cores. len=d, elm_shape=(ni,)
+#         Weights for edges between Tucker cores and TT cores. len=d, elm_shape=stack_shape+(ni,)
 #     tt_weights: Sequence[int]
-#         Weights for edges between adjacent TT cores. len=d+1, elm_shape=(ri,)
+#         Weights for edges between adjacent TT cores. len=d+1, elm_shape=stack_shape+(ri,)
 #     """
-#     shape_weights:  typ.Sequence[NDArray] # len=d,   elm_shape=(Ni,)
-#     tucker_weights: typ.Sequence[NDArray] # len=d,   elm_shape=(ni,)
-#     tt_weights:     typ.Sequence[NDArray] # len=d+1, elm_shape=(ri,)
+#     shape_weights:  typ.Sequence[NDArray] # len=d,   elm_shape=stack_shape+(Ni,)
+#     tucker_weights: typ.Sequence[NDArray] # len=d,   elm_shape=stack_shape+(ni,)
+#     tt_weights:     typ.Sequence[NDArray] # len=d+1, elm_shape=stack_shape+(ri,)
 
 
 

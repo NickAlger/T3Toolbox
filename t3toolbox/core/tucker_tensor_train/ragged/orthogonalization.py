@@ -5,76 +5,12 @@ import t3toolbox.util_linalg as linalg
 from t3toolbox.common import *
 
 __all__ = [
-    'left_orthogonalize_tt_cores',
-    'right_orthogonalize_tt_cores',
     'outer_orthogonalize_tt_cores',
     'up_orthogonalize_tucker_cores',
     'up_svd_ith_tucker_core',
     'left_svd_ith_tt_core',
     'right_svd_ith_tt_core',
 ]
-
-
-def left_orthogonalize_tt_cores(
-        tt_cores: typ.Sequence[NDArray],  # len=d, elm_shape=(ri,ni,r(i+1))
-        return_variation_cores: bool = False,
-        use_jax: bool = False,
-) -> typ.Union[
-    typ.Tuple[NDArray,...], # left_tt_cores
-    typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]], # left_tt_cores, var_tt_cores
-]:
-    """Left-orthogonalize a Tensor train (no Tucker).
-    """
-    is_uniform = False
-    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
-
-    #
-    def _left_func(Cxb, left_func_args):
-        Gbjc = left_func_args[0]
-
-        Hxjc = xnp.einsum('xb,bjc->xjc', Cxb, Gbjc)
-
-        rL, n, rR = Hxjc.shape
-        H_xj_c = Hxjc.reshape((rL * n, rR))
-        L_xj_y, ssy, VTyc = xnp.linalg.svd(H_xj_c, full_matrices=False)
-        rR2 = len(ssy)
-        Lxjy = L_xj_y.reshape((rL, n, rR2))
-
-        Cyc = ssy.reshape((-1, 1)) * VTyc
-
-        return Cyc, (Lxjy, Hxjc)
-
-    init = xnp.eye(tt_cores[0].shape[0])
-    xs = (tt_cores[:-1],)
-
-    Cf, (LL, HH) = xscan(_left_func, init, xs)
-
-    # Dealing with the last core as a special case
-    Lf = xnp.einsum('xb,bjc->xjc', Cf, tt_cores[-1])
-    left_tt_cores = tuple(LL) + (Lf,)
-    var_tt_cores = tuple(HH) + (Lf,)
-
-    if return_variation_cores:
-        return left_tt_cores, var_tt_cores
-    else:
-        return left_tt_cores
-
-
-def right_orthogonalize_tt_cores(
-        tt_cores: typ.Sequence[NDArray],  # len=d, elm_shape=(ri,ni,r(i+1))
-        return_variation_cores: bool = False,
-        use_jax: bool = False,
-) -> typ.Union[
-    typ.Tuple[NDArray,...], # right_tt_cores
-    typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]], # right_tt_cores, var_tt_cores
-]:
-    result = left_orthogonalize_tt_cores(
-        reverse_tt(tt_cores), return_variation_cores=return_variation_cores, use_jax=use_jax,
-    )
-    if return_variation_cores:
-        return reverse_tt(result[0]), reverse_tt(result[1])
-    else:
-        return reverse_tt(result)
 
 
 def outer_orthogonalize_tt_cores(

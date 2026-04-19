@@ -29,7 +29,7 @@ def to_dense(
 
     #
     tucker_cores, tt_cores = x
-    vs = tucker_cores[0].shape[:-2] # vectorization_shape
+    vs = tucker_cores[0].shape[:-2] # stack_shape
 
     big_tt_cores = [xnp.einsum('...iaj,...ab->...ibj', G, U) for G, U in zip(tt_cores, tucker_cores)]
 
@@ -197,9 +197,9 @@ def t3_unstack(
     into an array-like structure of nested tuples with the same "shape" as the stacking shape.
     """
     tucker_cores, tt_cores = x
-    vectorization_shape = tucker_cores[0].shape[:-2]
+    stack_shape = tucker_cores[0].shape[:-2]
 
-    if not vectorization_shape:
+    if not stack_shape:
         return x
 
     n = tucker_cores[0].shape[0]
@@ -241,14 +241,14 @@ def t3_core_shapes(
         shape: typ.Sequence[int],
         tucker_ranks: typ.Sequence[int],
         tt_ranks: typ.Sequence[int],
-        vectorization_shape: typ.Sequence[int] = (),
+        stack_shape: typ.Sequence[int] = (),
 ) -> typ.Tuple[
     typ.Tuple[int,...], # tucker_core_shapes
     typ.Tuple[int,...], # tt_core_shapes
 ]:
     """Determines the shapes of the T3 cores based on the ranks.
     """
-    vs = tuple(vectorization_shape)
+    vs = tuple(stack_shape)
     tucker_core_shapes = []
     for n, N in zip(tucker_ranks, shape):
         tucker_core_shapes.append(vs+(n,N))
@@ -282,12 +282,12 @@ def t3_from_vector(
         shape: typ.Sequence[int],
         tucker_ranks: typ.Sequence[int],
         tt_ranks: typ.Sequence[int],
-        vectorization_shape: typ.Sequence[int] = (),
+        stack_shape: typ.Sequence[int] = (),
 ):
     """Constructs a T3 from a 1D vector containing the core entries
     """
     tucker_core_shapes, tt_core_shapes = t3_core_shapes(
-        shape, tucker_ranks, tt_ranks, vectorization_shape=vectorization_shape,
+        shape, tucker_ranks, tt_ranks, stack_shape=stack_shape,
     )
 
     start = 0
@@ -306,6 +306,7 @@ def t3_from_vector(
         start = stop
 
     return tuple(tucker_cores), tuple(tt_cores)
+
 
 
 
