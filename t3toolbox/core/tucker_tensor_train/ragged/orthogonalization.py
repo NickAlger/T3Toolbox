@@ -35,7 +35,7 @@ def down_orthogonalize_tt_cores(
 
         Cxi = ssx.reshape((-1, 1)) * WTxi
 
-        Vxo = np.einsum('xi,io->xo', Cxi, Uio)
+        Vxo = np.einsum('...xi,...io->...xo', Cxi, Uio)
         return (Vxo, Oaxb)
 
     tucker_variations, outer_tt_cores = xmap(_down_func, x)
@@ -57,9 +57,9 @@ def up_orthogonalize_tucker_cores(
         Boi = Bio.T
 
         Uox, ssx, WTxi = xnp.linalg.svd(Boi, full_matrices=False)
-        Rxi = xnp.einsum('x,xi->xi', ssx, WTxi)
+        Rxi = xnp.einsum('...x,...xi->...xi', ssx, WTxi)
 
-        new_Gaxb = xnp.einsum('aib,xi->axb', Gaib, Rxi)
+        new_Gaxb = xnp.einsum('...aib,...xi->...axb', Gaib, Rxi)
         new_Uxo = Uox.T
         return (new_Uxo, new_Gaxb)
 
@@ -86,15 +86,22 @@ def up_svd_ith_tucker_core(
     #
     tucker_cores, tt_cores = x
 
+    if len(tucker_cores[0].shape) > 2:
+        raise RuntimeError(
+            'Cannot use up_svd_ith_tucker_core for stacked Tucker tensor train.\n' +
+            'Different elements of the stack could end out having different shapes.\n' +
+            'First unstack, then call up_svd_ith_tucker_core for each unstacked Tucker tensor train.'
+        )
+
     G_a_i_b = tt_cores[ii]
     U_i_o = tucker_cores[ii]
     U_o_i = U_i_o.T
 
     U2_o_x, ss_x, Vt_x_i = linalg.truncated_svd(U_o_i, min_rank, max_rank, rtol, atol, use_jax=use_jax)
-    R_x_i = xnp.einsum('x,xi->xi', ss_x, Vt_x_i)
+    R_x_i = xnp.einsum('...x,...xi->...xi', ss_x, Vt_x_i)
     # U2_o_x, R_x_i = xnp.linalg.qr(U_o_i, mode='reduced')
 
-    G2_a_x_b = xnp.einsum('aib,xi->axb', G_a_i_b, R_x_i)
+    G2_a_x_b = xnp.einsum('...aib,...xi->...axb', G_a_i_b, R_x_i)
     U2_x_o = U2_o_x.T
 
     new_tt_cores = list(tt_cores)
@@ -126,6 +133,13 @@ def left_svd_ith_tt_core(
 
     #
     tucker_cores, tt_cores = x
+
+    if len(tucker_cores[0].shape) > 2:
+        raise RuntimeError(
+            'Cannot use left_svd_ith_tt_core for stacked Tucker tensor train.\n' +
+            'Different elements of the stack could end out having different shapes.\n' +
+            'First unstack, then call left_svd_ith_tt_core for each unstacked Tucker tensor train.'
+        )
 
     A0_a_i_b = tt_cores[ii]
     B0_b_j_c = tt_cores[ii + 1]
@@ -159,6 +173,13 @@ def right_svd_ith_tt_core(
     #
     tucker_cores, tt_cores = x
 
+    if len(tucker_cores[0].shape) > 2:
+        raise RuntimeError(
+            'Cannot use right_svd_ith_tt_core for stacked Tucker tensor train.\n' +
+            'Different elements of the stack could end out having different shapes.\n' +
+            'First unstack, then call right_svd_ith_tt_core for each unstacked Tucker tensor train.'
+        )
+
     A0_a_i_b = tt_cores[ii - 1]
     B0_b_j_c = tt_cores[ii]
 
@@ -191,6 +212,13 @@ def up_svd_ith_tt_core(
     #
 
     tucker_cores, tt_cores = x
+
+    if len(tucker_cores[0].shape) > 2:
+        raise RuntimeError(
+            'Cannot use up_svd_ith_tt_core for stacked Tucker tensor train.\n' +
+            'Different elements of the stack could end out having different shapes.\n' +
+            'First unstack, then call up_svd_ith_tt_core for each unstacked Tucker tensor train.'
+        )
 
     G0_a_i_b = tt_cores[ii]
     Q0_i_o = tucker_cores[ii]
@@ -228,6 +256,13 @@ def down_svd_ith_tt_core(
     #
     tucker_cores, tt_cores = x
 
+    if len(tucker_cores[0].shape) > 2:
+        raise RuntimeError(
+            'Cannot use down_svd_ith_tt_core for stacked Tucker tensor train.\n' +
+            'Different elements of the stack could end out having different shapes.\n' +
+            'First unstack, then call down_svd_ith_tt_core for each unstacked Tucker tensor train.'
+        )
+
     G0_a_i_b = tt_cores[ii]
     Q0_i_o = tucker_cores[ii]
 
@@ -258,6 +293,13 @@ def orthogonalize_relative_to_ith_tucker_core(
     xnp, _, _ = get_backend(False, use_jax)
 
     #
+    if len(x[0][0].shape) > 2:
+        raise RuntimeError(
+            'Cannot use orthogonalize_relative_to_ith_tucker_core for stacked Tucker tensor train.\n' +
+            'Different elements of the stack could end out having different shapes.\n' +
+            'First unstack, then call orthogonalize_relative_to_ith_tucker_core for each unstacked Tucker tensor train.'
+        )
+
     num_cores = len(x[0])
 
     new_x = x
@@ -289,6 +331,13 @@ def orthogonalize_relative_to_ith_tt_core(
     xnp, _, _ = get_backend(False, use_jax)
 
     #
+    if len(x[0][0].shape) > 2:
+        raise RuntimeError(
+            'Cannot use orthogonalize_relative_to_ith_tt_core for stacked Tucker tensor train.\n' +
+            'Different elements of the stack could end out having different shapes.\n' +
+            'First unstack, then call orthogonalize_relative_to_ith_tt_core for each unstacked Tucker tensor train.'
+        )
+
     num_cores = len(x[0])
 
     new_x = x
