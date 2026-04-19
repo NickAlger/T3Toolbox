@@ -11,6 +11,12 @@ __all__ = [
     'Na_Maib_Ni_to_NMb',
     'MNa_Maib_No_Mio_to_MNb',
     'MNa_Maib_MiN_to_MNb',
+    'Mio_No_to_MNi',
+    'dMio_No_to_dMNi',
+    'MNa_Maib_MNb_to_MNi',
+    'dMNa_dMaib_dMNb_to_dMNi',
+    'Ni_Mio_to_MNo',
+    'dNi_dMio_to_dMNo',
 ]
 
 NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
@@ -28,19 +34,7 @@ def Na_Maib_Ni_to_NMb(
 ) -> NDArray:
     """Computes vectorized einsum a,aib,i->b, with vectorization over a and i, or aib, or both.
 
-    N denotes the vectorization index over a and i
-    M denotes the vectorization index over aib
-
-    Cases supported:
-        - a,aib,i->b
-        - Na,aib,Ni->Nb
-        - a,Maib,i->Mb
-        - Na,Maib,Ni->NMb
-
-    N and M may be grouped indices. E.g., for N=xyz, M=uv we have
-        xyza,uvaib,xyzi->xyzuvb
-
-    Seems impossible to make this work for all cases without checking shapes manually.
+    N and M are the vectorization indices, which may be groups of indices.
 
     Examples
     --------
@@ -103,35 +97,8 @@ def Na_Maib_Ni_to_NMb(
     """
     xnp, _, _ = get_backend(True, use_jax)
 
-    shape_string = (
-        'Na.shape=' + str(Na.shape) + '\n' +
-        'Maib.shape=' + str(Maib.shape) + '\n' +
-        'Ni.shape=' + str(Ni.shape)
-    )
-
-    if len(Na.shape) < 1:
-        raise RuntimeError(
-            'Na must have nonempty shape.\n' + shape_string
-        )
-
-    if len(Maib.shape) < 3:
-        raise RuntimeError(
-            'Maib must have at least 3 indices.\n' + shape_string
-        )
-
-    if len(Ni.shape) < 1:
-        raise RuntimeError(
-            'Ni must have nonempty shape.\n' + shape_string
-        )
-
     N_shape = Na.shape[:-1]
     M_shape = Maib.shape[:-3]
-    N2_shape = Ni.shape[:-1]
-
-    if N_shape != N2_shape:
-        raise RuntimeError(
-            'Vectorization indices N must be the same on Na and Ni.\n' + shape_string
-        )
 
     a_shape = Na.shape[-1:]
     aib_shape = Maib.shape[-3:]
@@ -166,19 +133,7 @@ def MNa_Maib_No_Mio_to_MNb(
 ) -> NDArray:
     """Computes vectorized einsum a,aib,o,io->b, with vectorization over a and i, or aib and io, or both.
 
-    N denotes the vectorization index over a and i
-    M denotes the vectorization index over aib and io
-
-    Cases supported:
-        - a,aib,o,io->b
-        - Na,aib,No,io->Nb
-        - Ma,Maib,o,Mio->Mb
-        - MNa,Maib,No,Mio->MNb
-
-    N and M may be grouped indices. E.g., for N=xyz, M=uv we have
-        xyza,uvaib,xyzo,uvio->xyzuvb
-
-    Seems impossible to make this work for all cases without checking shapes manually.
+    N and M are the vectorization indices, which may be groups of indices.
 
     Examples
     --------
@@ -245,48 +200,9 @@ def MNa_Maib_No_Mio_to_MNb(
     """
     xnp, _, _ = get_backend(True, use_jax)
 
-    shape_string = (
-        'MNa.shape='     + str(MNa.shape)     + '\n' +
-        'Maib.shape='   + str(Maib.shape)   + '\n' +
-        'No.shape='     + str(No.shape)     + '\n' +
-        'Mio.shape='    + str(Mio.shape)
-
-    )
-
-    if len(MNa.shape) < 1:
-        raise RuntimeError(
-            'MNa must have nonempty shape.\n' + shape_string
-        )
-
-    if len(Maib.shape) < 3:
-        raise RuntimeError(
-            'Maib must have at least 3 indices.\n' + shape_string
-        )
-
-    if len(Mio.shape) < 2:
-        raise RuntimeError(
-            'Mio must have at least 2 indices.\n' + shape_string
-        )
-
-    if len(No.shape) < 1:
-        raise RuntimeError(
-            'No must have nonempty shape.\n' + shape_string
-        )
-
     N_shape = No.shape[:-1]
     M_shape = Maib.shape[:-3]
-    M2_shape = Mio.shape[:-2]
     a_shape = (Maib.shape[-3],)
-
-    if MNa.shape != M_shape + N_shape + a_shape:
-        raise RuntimeError(
-            'MNa.shape != M_shape + N_shape + a_shape.\n' + shape_string
-        )
-
-    if M_shape != M2_shape:
-        raise RuntimeError(
-            'Vectorization indices M must be the same on Maib and Mio.\n' + shape_string
-        )
 
     aib_shape = Maib.shape[-3:]
     io_shape = Mio.shape[-2:]
@@ -325,19 +241,7 @@ def MNa_Maib_MiN_to_MNb(
 ) -> NDArray:
     """Computes vectorized einsum a,aib,i->b, with vectorization over a and i, or aib and i, or both.
 
-    N denotes the vectorization index over a, aib, and i
-    M denotes the vectorization index over aib and i
-
-    Cases supported:
-        - a,aib,ni->b
-        - Na,aib,Ni->Nb
-        - Ma,Maib,Mi->Mb
-        - MNa,Maib,MiN->MNb
-
-    N and M may be grouped indices. E.g., for N=xyz, M=uv we have
-        xyza,uvaib,xyziuv->xyzuvb
-
-    Seems impossible to make this work for all cases without checking shapes manually.
+    N and M are the vectorization indices, which may be groups of indices.
 
     Examples
     --------
@@ -400,36 +304,9 @@ def MNa_Maib_MiN_to_MNb(
     """
     xnp, _, _ = get_backend(True, use_jax)
 
-    shape_string = (
-        'MNa.shape=' + str(MNa.shape) + '\n' +
-        'Maib.shape=' + str(Maib.shape) + '\n' +
-        'MiN.shape=' + str(MiN.shape)
-    )
-
-    if len(MNa.shape) < 1:
-        raise RuntimeError(
-            'MNa must have nonempty shape.\n' + shape_string
-        )
-
-    if len(Maib.shape) < 3:
-        raise RuntimeError(
-            'Maib must have at least 3 indices.\n' + shape_string
-        )
-
-    if len(MiN.shape) < 1:
-        raise RuntimeError(
-            'MiN must have nonempty shape.\n' + shape_string
-        )
-
     M_shape = Maib.shape[:-3]
     i_shape = (Maib.shape[-2],)
     N_shape = MNa.shape[len(M_shape):-1]
-
-
-    if MiN.shape != M_shape + i_shape + N_shape:
-        raise RuntimeError(
-            'Vectorization indices M and N must be consistent in Na, Maib and MiN.\n' + shape_string
-        )
 
     a_shape = MNa.shape[-1:]
     aib_shape = Maib.shape[-3:]
@@ -455,3 +332,619 @@ def MNa_Maib_MiN_to_MNb(
 
     MNb = MNb.reshape(M_shape + N_shape + b_shape)
     return MNb
+
+
+def MNa_Maib_MNi_to_MNb(
+        MNa: NDArray,
+        Maib: NDArray,
+        MNi: NDArray,
+        use_jax: bool = False,
+) -> NDArray:
+    """Computes vectorized einsum a,aib,i->b, with vectorization over a and i, or aib and i, or both.
+
+    N and M are the vectorization indices, which may be groups of indices.
+
+    Examples
+    --------
+
+    Vectorize over both N and M:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import MNa_Maib_MNi_to_MNb
+    >>> uv_xyz_a = np.random.randn(5,6,  2,3,4, 10)
+    >>> uv_aib = np.random.randn(5,6, 10,11,12)
+    >>> uv_xyz_i = np.random.randn(5,6, 2,3,4, 11)
+    >>> MNb = MNa_Maib_MNi_to_MNb(uv_xyz_a, uv_aib, uv_xyz_i)
+    >>> MNb_true = np.einsum('uvxyza,uvaib,uvxyzi->uvxyzb', uv_xyz_a, uv_aib, uv_xyz_i)
+    >>> print(MNb.shape == MNb_true.shape)
+    True
+    >>> print(np.linalg.norm(MNb - MNb_true))
+    3.7987073746093894e-13
+
+    Vectorize over N only
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import MNa_Maib_MNi_to_MNb
+    >>> xyz_a = np.random.randn(2,3,4, 10)
+    >>> aib = np.random.randn(10,11,12)
+    >>> xyz_i = np.random.randn(2,3,4, 11)
+    >>> MNb = MNa_Maib_MNi_to_MNb(xyz_a, aib, xyz_i)
+    >>> MNb_true = np.einsum('xyza,aib,xyzi->xyzb', xyz_a, aib, xyz_i)
+    >>> print(MNb.shape == MNb_true.shape)
+    True
+    >>> print(np.linalg.norm(MNb - MNb_true))
+    6.195833601977675e-14
+
+    Vectorize over both M only:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import MNa_Maib_MiN_to_MNb
+    >>> uv_a = np.random.randn(5,6, 10)
+    >>> uv_aib = np.random.randn(5,6, 10,11,12)
+    >>> uv_i = np.random.randn(5,6, 11)
+    >>> MNb = MNa_Maib_MiN_to_MNb(uv_a, uv_aib, uv_i)
+    >>> MNb_true = np.einsum('uva,uvaib,uvi->uvb', uv_a, uv_aib, uv_i)
+    >>> print(MNb.shape == MNb_true.shape)
+    True
+    >>> print(np.linalg.norm(MNb - MNb_true))
+    7.699394299441565e-14
+
+    No vectorization:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import MNa_Maib_MiN_to_MNb
+    >>> a = np.random.randn(10)
+    >>> aib = np.random.randn(10,11,12)
+    >>> i = np.random.randn(11)
+    >>> MNb = MNa_Maib_MiN_to_MNb(a, aib, i)
+    >>> MNb_true = np.einsum('a,aib,i->b', a, aib, i)
+    >>> print(MNb.shape == MNb_true.shape)
+    True
+    >>> print(np.linalg.norm(MNb - MNb_true))
+    9.090279413851974e-15
+    """
+    xnp, _, _ = get_backend(True, use_jax)
+
+    M_shape = Maib.shape[:-3]
+    i_shape = (Maib.shape[-2],)
+    N_shape = MNa.shape[len(M_shape):-1]
+
+    a_shape = MNa.shape[-1:]
+    aib_shape = Maib.shape[-3:]
+    b_shape = Maib.shape[-1:]
+
+    size_N = np.prod(N_shape, dtype=int) # yes, np. We want this done statically. dtype: () -> int 1
+    size_M = np.prod(M_shape, dtype=int)
+
+    MNa     = MNa.reshape((size_M,) + (size_N,) + a_shape)
+    Maib    = Maib.reshape((size_M,) + aib_shape)
+    MNi     = MNi.reshape((size_M,) + (size_N,) + i_shape)
+
+    path = [
+        'einsum_path',
+        (0,1),
+        (0,1),
+    ]
+
+    if use_jax:
+        MNb = xnp.einsum('MNa,Maib,MNi->MNb', MNa, Maib, MNi)
+    else:
+        MNb = xnp.einsum('MNa,Maib,MNi->MNb', MNa, Maib, MNi, optimize=path)
+
+    MNb = MNb.reshape(M_shape + N_shape + b_shape)
+    return MNb
+
+
+def Mio_No_to_MNi(
+        Mio: NDArray,
+        No: NDArray,
+        use_jax: bool = False,
+) -> NDArray:
+    """Computes vectorized einsum io,o->i, with vectorization over io, o, or both
+
+    N and M are the vectorization indices, which may be groups of indices.
+
+    Examples
+    --------
+
+    Vectorize over both N and M:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import Mio_No_to_MNi
+    >>> Mio = np.random.randn(5,6, 10,13)
+    >>> No = np.random.randn(2,3,4, 13)
+    >>> result = Mio_No_to_MNi(Mio, No)
+    >>> result2 = np.einsum('uvio,xyzo->uvxyzi', Mio, No)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+
+    Vectorize over N only
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import Mio_No_to_MNi
+    >>> Mio = np.random.randn(10,13)
+    >>> No = np.random.randn(2,3,4, 13)
+    >>> result = Mio_No_to_MNi(Mio, No)
+    >>> result2 = np.einsum('io,xyzo->xyzi', Mio, No)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+
+    Vectorize over both M only:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import Mio_No_to_MNi
+    >>> Mio = np.random.randn(5,6, 10,13)
+    >>> No = np.random.randn(13)
+    >>> result = Mio_No_to_MNi(Mio, No)
+    >>> result2 = np.einsum('uvio,o->uvi', Mio, No)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+
+    No vectorization:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import Mio_No_to_MNi
+    >>> Mio = np.random.randn(10,13)
+    >>> No = np.random.randn(13)
+    >>> result = Mio_No_to_MNi(Mio, No)
+    >>> result2 = np.einsum('io,o->i', Mio, No)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+    """
+    xnp, _, _ = get_backend(True, use_jax)
+
+    M_shape = Mio.shape[:-2]
+    i_shape = (Mio.shape[-2],)
+    o_shape = (Mio.shape[-1],)
+    N_shape = No.shape[:-1]
+
+    size_N = np.prod(N_shape, dtype=int) # yes, np. We want this done statically. dtype: () -> int 1
+    size_M = np.prod(M_shape, dtype=int)
+
+    Mio = Mio.reshape((size_M,) + i_shape + o_shape)
+    No  = No.reshape((size_N,) + o_shape)
+
+    MNi = xnp.einsum('Mio,No->MNi', Mio, No)
+
+    MNi = MNi.reshape(M_shape + N_shape + i_shape)
+    return MNi
+
+
+def dMio_No_to_dMNi(
+        dMio: NDArray,
+        No: NDArray,
+        use_jax: bool = False,
+) -> NDArray:
+    """Computes contraction dMio,No->dMNi.
+
+    N and M may be individual indices, groups of indices, or nonexistent.
+
+    Examples
+    --------
+
+    Vectorize over both N and M:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import dMio_No_to_dMNi
+    >>> dMio = np.random.randn(8, 5,6, 10,13)
+    >>> No = np.random.randn(2,3,4, 13)
+    >>> result = dMio_No_to_dMNi(dMio, No)
+    >>> result2 = np.einsum('duvio,xyzo->duvxyzi', dMio, No)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+
+    Vectorize over N only
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import dMio_No_to_dMNi
+    >>> dMio = np.random.randn(8, 10,13)
+    >>> No = np.random.randn(2,3,4, 13)
+    >>> result = dMio_No_to_dMNi(dMio, No)
+    >>> result2 = np.einsum('dio,xyzo->dxyzi', dMio, No)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+
+    Vectorize over both M only:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import dMio_No_to_dMNi
+    >>> dMio = np.random.randn(8, 5,6, 10,13)
+    >>> No = np.random.randn(13)
+    >>> result = dMio_No_to_dMNi(dMio, No)
+    >>> result2 = np.einsum('duvio,o->duvi', dMio, No)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+
+    No vectorization:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import dMio_No_to_dMNi
+    >>> dMio = np.random.randn(8, 10,13)
+    >>> No = np.random.randn(13)
+    >>> result = dMio_No_to_dMNi(dMio, No)
+    >>> result2 = np.einsum('dio,o->di', dMio, No)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+    """
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dMio.shape[0],)
+    M_shape = dMio.shape[1:-2]
+    i_shape = (dMio.shape[-2],)
+    o_shape = (dMio.shape[-1],)
+    N_shape = No.shape[:-1]
+
+    size_N = np.prod(N_shape, dtype=int) # yes, np. We want this done statically. dtype: () -> int 1
+    size_M = np.prod(M_shape, dtype=int)
+
+    dMio = dMio.reshape(d_shape + (size_M,) + i_shape + o_shape)
+    No  = No.reshape((size_N,) + o_shape)
+
+    dMNi = xnp.einsum('dMio,No->dMNi', dMio, No)
+
+    dMNi = dMNi.reshape(d_shape + M_shape + N_shape + i_shape)
+    return dMNi
+
+
+def MNa_Maib_MNb_to_MNi(
+        MNa: NDArray,
+        Maib: NDArray,
+        MNb: NDArray,
+        use_jax: bool = False,
+) -> NDArray:
+    """Computes contraction MNa,Maib,MNb->MNi.
+
+    N and M may be individual indices, groups of indices, or nonexistent.
+
+    Examples
+    --------
+
+    Vectorize over both N and M:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import MNa_Maib_MNb_to_MNi
+    >>> MNa = np.random.randn(2,3, 4,5,6, 10)
+    >>> Maib = np.random.randn(2,3, 10,11,12)
+    >>> MNb = np.random.randn(2,3, 4,5,6, 12)
+    >>> result = MNa_Maib_MNb_to_MNi(MNa, Maib, MNb)
+    >>> result2 = np.einsum('uvxyza,uvaib,uvxyzb->uvxyzi', MNa, Maib, MNb)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+
+    Vectorize over N only
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import MNa_Maib_MNb_to_MNi
+    >>> MNa = np.random.randn(4,5,6, 10)
+    >>> Maib = np.random.randn(10,11,12)
+    >>> MNb = np.random.randn(4,5,6, 12)
+    >>> result = MNa_Maib_MNb_to_MNi(MNa, Maib, MNb)
+    >>> result2 = np.einsum('xyza,aib,xyzb->xyzi', MNa, Maib, MNb)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+
+    Vectorize over both M only:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import MNa_Maib_MNb_to_MNi
+    >>> MNa = np.random.randn(2,3, 10)
+    >>> Maib = np.random.randn(2,3, 10,11,12)
+    >>> MNb = np.random.randn(2,3, 12)
+    >>> result = MNa_Maib_MNb_to_MNi(MNa, Maib, MNb)
+    >>> result2 = np.einsum('uva,uvaib,uvb->uvi', MNa, Maib, MNb)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+
+    No vectorization:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import MNa_Maib_MNb_to_MNi
+    >>> MNa = np.random.randn(10)
+    >>> Maib = np.random.randn(10,11,12)
+    >>> MNb = np.random.randn(12)
+    >>> result = MNa_Maib_MNb_to_MNi(MNa, Maib, MNb)
+    >>> result2 = np.einsum('a,aib,b->i', MNa, Maib, MNb)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+    """
+    xnp, _, _ = get_backend(True, use_jax)
+
+    M_shape = Maib.shape[:-3]
+    a_shape = (Maib.shape[-3],)
+    i_shape = (Maib.shape[-2],)
+    b_shape = (Maib.shape[-1],)
+    N_shape = MNa.shape[len(M_shape):-1]
+
+    size_N = np.prod(N_shape, dtype=int) # yes, np. We want this done statically. dtype: () -> int 1
+    size_M = np.prod(M_shape, dtype=int)
+
+    MNa     = MNa.reshape((size_M,) + (size_N,) + a_shape)
+    Maib    = Maib.reshape((size_M,) + a_shape + i_shape + b_shape)
+    MNb     = MNb.reshape((size_M,) + (size_N,) + b_shape)
+
+    MNi = xnp.einsum('MNa,Maib,MNb->MNi', MNa, Maib, MNb)
+
+    MNi = MNi.reshape(M_shape + N_shape + i_shape)
+    return MNi
+
+
+def dMNa_dMaib_dMNb_to_dMNi(
+        dMNa: NDArray,
+        dMaib: NDArray,
+        dMNb: NDArray,
+        use_jax: bool = False,
+) -> NDArray:
+    """Computes contraction MNa,dMaib,MNb->dMNi.
+
+    N and M may be individual indices, groups of indices, or nonexistent.
+
+    Examples
+    --------
+
+    Vectorize over both N and M:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import dMNa_dMaib_dMNb_to_dMNi
+    >>> dMNa = np.random.randn(8, 2,3, 4,5,6, 10)
+    >>> dMaib = np.random.randn(8, 2,3, 10,11,12)
+    >>> dMNb = np.random.randn(8, 2,3, 4,5,6, 12)
+    >>> result = dMNa_dMaib_dMNb_to_dMNi(dMNa, dMaib, dMNb)
+    >>> result2 = np.einsum('duvxyza,duvaib,duvxyzb->duvxyzi', dMNa, dMaib, dMNb)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+
+    Vectorize over N only
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import dMNa_dMaib_dMNb_to_dMNi
+    >>> dMNa = np.random.randn(8, 4,5,6, 10)
+    >>> dMaib = np.random.randn(8, 10,11,12)
+    >>> dMNb = np.random.randn(8, 4,5,6, 12)
+    >>> result = dMNa_dMaib_dMNb_to_dMNi(dMNa, dMaib, dMNb)
+    >>> result2 = np.einsum('dxyza,daib,dxyzb->dxyzi', dMNa, dMaib, dMNb)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+
+    Vectorize over both M only:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import dMNa_dMaib_dMNb_to_dMNi
+    >>> dMNa = np.random.randn(8, 2,3, 10)
+    >>> dMaib = np.random.randn(8, 2,3, 10,11,12)
+    >>> dMNb = np.random.randn(8, 2,3, 12)
+    >>> result = dMNa_dMaib_dMNb_to_dMNi(dMNa, dMaib, dMNb)
+    >>> result2 = np.einsum('duva,duvaib,duvb->duvi', dMNa, dMaib, dMNb)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+
+    No vectorization:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import dMNa_dMaib_dMNb_to_dMNi
+    >>> dMNa = np.random.randn(8, 10)
+    >>> dMaib = np.random.randn(8, 10,11,12)
+    >>> dMNb = np.random.randn(8, 12)
+    >>> result = dMNa_dMaib_dMNb_to_dMNi(dMNa, dMaib, dMNb)
+    >>> result2 = np.einsum('da,daib,db->di', dMNa, dMaib, dMNb)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+    """
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dMaib.shape[0],)
+    M_shape = dMaib.shape[1:-3]
+    a_shape = (dMaib.shape[-3],)
+    i_shape = (dMaib.shape[-2],)
+    b_shape = (dMaib.shape[-1],)
+    N_shape = dMNa.shape[1+len(M_shape):-1]
+
+    size_N = np.prod(N_shape, dtype=int) # yes, np. We want this done statically. dtype: () -> int 1
+    size_M = np.prod(M_shape, dtype=int)
+
+    dMNa    = dMNa.reshape(d_shape + (size_M,) + (size_N,) + a_shape)
+    dMaib   = dMaib.reshape(d_shape + (size_M,) + a_shape + i_shape + b_shape)
+    dMNb    = dMNb.reshape(d_shape + (size_M,) + (size_N,) + b_shape)
+
+    dMNi = xnp.einsum('dMNa,dMaib,dMNb->dMNi', dMNa, dMaib, dMNb)
+
+    dMNi = dMNi.reshape(d_shape + M_shape + N_shape + i_shape)
+    return dMNi
+
+
+def Ni_Mio_to_MNo(
+        Ni: NDArray,
+        Mio: NDArray,
+        use_jax: bool = False,
+) -> NDArray:
+    """Computes contraction i,io->o.
+
+    N and M may be individual indices, groups of indices, or nonexistent.
+
+    Examples
+    --------
+
+    Vectorize over both N and M:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import Ni_Mio_to_MNo
+    >>> Ni = np.random.randn(2,3,4, 10)
+    >>> Mio = np.random.randn(5,6, 10,13)
+    >>> result = Ni_Mio_to_MNo(Ni, Mio)
+    >>> result2 = np.einsum('xyzi,uvio->uvxyzo', Ni, Mio)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+
+    Vectorize over N only
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import Ni_Mio_to_MNo
+    >>> Ni = np.random.randn(2,3,4, 10)
+    >>> Mio = np.random.randn(10,13)
+    >>> result = Ni_Mio_to_MNo(Ni, Mio)
+    >>> result2 = np.einsum('xyzi,io->xyzo', Ni, Mio)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+
+    Vectorize over both M only:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import Ni_Mio_to_MNo
+    >>> Ni = np.random.randn(10)
+    >>> Mio = np.random.randn(5,6, 10,13)
+    >>> result = Ni_Mio_to_MNo(Ni, Mio)
+    >>> result2 = np.einsum('i,uvio->uvo', Ni, Mio)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+
+    No vectorization:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import Ni_Mio_to_MNo
+    >>> Ni = np.random.randn(10)
+    >>> Mio = np.random.randn(10,13)
+    >>> result = Ni_Mio_to_MNo(Ni, Mio)
+    >>> result2 = np.einsum('i,io->o', Ni, Mio)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+    """
+    xnp, _, _ = get_backend(True, use_jax)
+
+    M_shape = Mio.shape[:-2]
+    i_shape = (Mio.shape[-2],)
+    o_shape = (Mio.shape[-1],)
+    N_shape = Ni.shape[:-1]
+
+    size_N = np.prod(N_shape, dtype=int) # yes, np. We want this done statically. dtype: () -> int 1
+    size_M = np.prod(M_shape, dtype=int)
+
+    Mio = Mio.reshape((size_M,) + i_shape + o_shape)
+    Ni  = Ni.reshape((size_N,) + i_shape)
+
+    MNo = xnp.einsum('Ni,Mio->MNo', Ni, Mio)
+
+    MNo = MNo.reshape(M_shape + N_shape + o_shape)
+    return MNo
+
+
+def dNi_dMio_to_dMNo(
+        dNi: NDArray,
+        dMio: NDArray,
+        use_jax: bool = False,
+) -> NDArray:
+    """Computes named contraction.
+
+    N and M may be individual indices, groups of indices, or nonexistent.
+
+    Examples
+    --------
+
+    Vectorize over both N and M:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import dNi_dMio_to_dMNo
+    >>> dNi = np.random.randn(8, 2,3,4, 10)
+    >>> dMio = np.random.randn(8, 5,6, 10,13)
+    >>> result = dNi_dMio_to_dMNo(dNi, dMio)
+    >>> result2 = np.einsum('dxyzi,duvio->duvxyzo', dNi, dMio)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+
+    Vectorize over N only
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import dNi_dMio_to_dMNo
+    >>> dNi = np.random.randn(8, 2,3,4, 10)
+    >>> dMio = np.random.randn(8, 10,13)
+    >>> result = dNi_dMio_to_dMNo(dNi, dMio)
+    >>> result2 = np.einsum('dxyzi,dio->dxyzo', dNi, dMio)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+
+    Vectorize over both M only:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import dNi_dMio_to_dMNo
+    >>> dNi = np.random.randn(8, 10)
+    >>> dMio = np.random.randn(8, 5,6, 10,13)
+    >>> result = dNi_dMio_to_dMNo(dNi, dMio)
+    >>> result2 = np.einsum('di,duvio->duvo', dNi, dMio)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+
+    No vectorization:
+
+    >>> import numpy as np
+    >>> from t3toolbox.utils.contractions import dNi_dMio_to_dMNo
+    >>> dNi = np.random.randn(8, 10)
+    >>> dMio = np.random.randn(8, 10,13)
+    >>> result = dNi_dMio_to_dMNo(dNi, dMio)
+    >>> result2 = np.einsum('di,dio->do', dNi, dMio)
+    >>> print(result.shape == result2.shape)
+    True
+    >>> print(np.linalg.norm(result - result2))
+    0.0
+    """
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dMio.shape[0],)
+    M_shape = dMio.shape[1:-2]
+    i_shape = (dMio.shape[-2],)
+    o_shape = (dMio.shape[-1],)
+    N_shape = dNi.shape[1:-1]
+
+    size_N = np.prod(N_shape, dtype=int) # yes, np. We want this done statically. dtype: () -> int 1
+    size_M = np.prod(M_shape, dtype=int)
+
+    dMio = dMio.reshape(d_shape + (size_M,) + i_shape + o_shape)
+    dNi  = dNi.reshape(d_shape + (size_N,) + i_shape)
+
+    dMNo = xnp.einsum('dNi,dMio->dMNo', dNi, dMio)
+
+    dMNo = dMNo.reshape(d_shape + M_shape + N_shape + o_shape)
+    return dMNo

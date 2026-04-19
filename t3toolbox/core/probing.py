@@ -9,6 +9,7 @@ import t3toolbox.base_variation_format
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform as ut3
 import t3toolbox.base_variation_format as bvf
+import t3toolbox.utils.contractions as contractions
 import t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations as ragged_ops
 import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as uniform_ops
 from t3toolbox.common import *
@@ -99,6 +100,20 @@ def probe_t3(
     >>> zz2 = t3p.probe_dense(ww, x_dense)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
+
+    Vectorize over probes:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.core.probing as t3p
+    >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2)).data
+    >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
+    >>> zz = t3p.probe_t3(ww, x)
+    >>> x_dense = t3.TuckerTensorTrain(*x).to_dense()
+    >>> zz2 = t3p.probe_dense(ww, x_dense)
+    >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
+
+
 
     Using weights:
 
@@ -201,8 +216,8 @@ def _apply_edge_weights(edge_variables, edge_weights, use_jax: bool=False):
 
 
 def compute_xis(
-        up_tucker_cores:    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(nUi,Ni)
-        ww:                 typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,Ni)
+        up_tucker_cores:    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+(nUi,Ni)
+        ww:                 typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=K+(Ni,)
         up_tucker_weights:  typ.Union[typ.Sequence[NDArray], NDArray] = None, # len=d, elm_shape=(nUi,)
         use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # weighted_xis. len=d, elm_shape=(...,nUi)
@@ -222,12 +237,13 @@ def compute_xis(
     xi_weights = up_tucker_weights
 
     if is_uniform:
-        unweighted_xis = xnp.einsum('dio,d...o->d...i', up_tucker_cores, ww)
+        unweighted_xis = contractions.dMio_No_to_dMNi(up_tucker_cores, ww)
+        # unweighted_xis = xnp.einsum('dio,d...o->d...i', up_tucker_cores, ww)
 
     else:
         def _func(x):
-            U, w = x[0], x[1]
-            unweighted_xi = xnp.einsum('io,...o->...i', U, w)
+            U, w = x
+            unweighted_xi = contractions.Mio_No_to_MNi(U, w)
             return (unweighted_xi,)
 
         (unweighted_xis,) = xmap(_func, (up_tucker_cores, ww))
@@ -241,11 +257,11 @@ def compute_xis(
 
 
 def compute_mus(
-        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d-1. elm_shape=(rLi,nUi,rL(i+1))
-        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,nUi)
+        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d-1. elm_shape=T+(rLi,nUi,rL(i+1))
+        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+K+(nUi,)
         left_tt_weights:    typ.Union[typ.Sequence[NDArray], NDArray] = None, # len=d, elm_shape=(rLi,)
         use_jax: bool = False,
-) -> typ.Union[typ.Sequence[NDArray], NDArray]: # mus. len=d, elm_shape=(...,rLi)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # mus. len=d, elm_shape=T+K+(rLi,)
     '''Compute leftward edge variables associated with edges between adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -259,6 +275,8 @@ def compute_mus(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
+    T = left_tt_cores[0].shape[:-3]
+    K = xis[0].shape[len(T):-1]
 
     mu_weights = left_tt_weights
 
@@ -271,16 +289,13 @@ def compute_mus(
         else:
             mu = unweighted_mu
 
-        unweighted_mu_next = xnp.einsum(
-            '...aj,...a->...j',
-            xnp.einsum('...i,iaj->...aj', mu, P),
-            xi,
-        )
+        unweighted_mu_next = contractions.MNa_Maib_MNi_to_MNb(mu, P, xi)
+
         return unweighted_mu_next, (mu,)
 
     r0 = left_tt_cores[0].shape[0]
-    vectorization_shape = xis[0].shape[:-1]
-    init = xnp.ones(vectorization_shape + (r0,))
+    # vectorization_shape = xis[0].shape[:-1]
+    init = xnp.ones(T + K + (r0,))
 
     xs = (left_tt_cores, xis)
     xs = xs + (mu_weights,) if mu_weights is not None else xs
@@ -290,11 +305,11 @@ def compute_mus(
 
 
 def compute_nus(
-        right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(rRi,nUi,rR(i+1))
-        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,nUi)
+        right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+(rRi,nUi,rR(i+1))
+        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+K+(nUi,)
         right_tt_weights:   typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d, elm_shape=(rRi,)
         use_jax: bool = False,
-) -> typ.Union[typ.Sequence[NDArray], NDArray]: # nus. len=d, elm_shape=(...,rR(i+1))
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # nus. len=d, elm_shape=T+K+(rR(i+1),)
     '''Compute rightward edge variables associated with edges between adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -325,12 +340,12 @@ def compute_nus(
 
 
 def compute_etas(
-        outer_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(rLi,nOi,rR(i+1))
-        mus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,rLi)
+        outer_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+(rLi,nOi,rR(i+1))
+        mus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+K+(rLi,)
         nus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,rR(i+1))
         outer_tucker_weights:   typ.Union[typ.Sequence[NDArray], NDArray] = None, # len=d, elm_shape=(nOi)
         use_jax: bool = False,
-) -> typ.Union[typ.Sequence[NDArray], NDArray]: # weighted_etas. len=d, elm_shape=(...,nOi)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # weighted_etas. len=d, elm_shape=T+K+(nOi,)
     '''Compute downward edge variables associated with edges between Tucker cores and adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -347,19 +362,11 @@ def compute_etas(
     eta_weights = outer_tucker_weights
 
     if is_uniform:
-        unweighted_etas = xnp.einsum(
-            'd...aj,d...j->d...a',
-            xnp.einsum('d...i,diaj->d...aj', mus, outer_tt_cores),
-            nus,
-        )
+        unweighted_etas = contractions.dMNa_dMaib_dMNb_to_dMNi(mus, outer_tt_cores, nus)
     else:
         def _func(x):
             mu, G, nu = x
-            unweighted_eta = xnp.einsum(
-                '...aj,...j->...a',
-                xnp.einsum('...i,iaj->...aj', mu, G),
-                nu,
-            )
+            unweighted_eta = contractions.MNa_Maib_MNb_to_MNi(mu, G, nu)
             return (unweighted_eta,)
 
         (unweighted_etas,) = xmap(_func, (mus, outer_tt_cores, nus))
@@ -373,11 +380,11 @@ def compute_etas(
 
 
 def assemble_zs(
-        tucker_cores:   typ.Union[typ.Sequence[NDArray], NDArray],  # len=d. elm_shape=(ni,Ni)
-        etas:           typ.Union[typ.Sequence[NDArray], NDArray],  # len=d. elm_shape=(...,ni)
-        shape_weights:  typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d, elm_shape=(Ni,)
+        tucker_cores:   typ.Union[typ.Sequence[NDArray], NDArray],  # len=d. elm_shape=T+(ni,Ni)
+        etas:           typ.Union[typ.Sequence[NDArray], NDArray],  # len=d. elm_shape=T+K+(ni,)
+        shape_weights:  typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d, elm_shape=T+V+(Ni,)
         use_jax: bool = False,
-) -> typ.Union[typ.Sequence[NDArray], NDArray]: # weighted_zs. len=d, elm_shape=(...,Ni)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # weighted_zs. len=d, elm_shape=T+K+(Ni,)
     '''Assemble probes from downward edge variables.
 
     See Section 5.2, particularly Figure 9 in:
@@ -393,11 +400,12 @@ def assemble_zs(
     z_weights = shape_weights
 
     if is_uniform:
-        unweighted_zs = xnp.einsum('d...a,dao->d...o', etas, tucker_cores)
+        unweighted_zs = contractions.dNi_dMio_to_dMNo(etas, tucker_cores)
+        # unweighted_zs = xnp.einsum('d...a,dao->d...o', etas, tucker_cores)
     else:
         def _func(x):
             eta, U = x
-            unweighted_z = xnp.einsum('...a,ao->...o', eta, U)
+            unweighted_z = contractions.Ni_Mio_to_MNo(eta, U)
             return (unweighted_z,)
 
         (unweighted_zs,) = xmap(_func, (etas, tucker_cores))
@@ -1455,11 +1463,11 @@ def probe_dense(
     Parameters
     ----------
     T: NDArray
-        Tensor to be probed. shape=(N1,...,Nd)
+        Tensor to be probed. shape=Z+(N1,...,Nd)
     vectors: typ.Sequence[NDArray]
         Probing input vectors.
         len=d.
-        elm_shape=(Ni,) or elm_shape=(num_probes, Ni)
+        elm_shape=K+(Ni,)
     xnp:
         Linear algebra backend. Default: np (numpy)
 
@@ -1468,7 +1476,7 @@ def probe_dense(
     typ.Tuple[NDArray]
         Probes.
         len=d.
-        elm_shape=(Ni,) or elm_shape=(num_probes, Ni)
+        elm_shape=(Ni,) or elm_shape=Z+K+(Ni,)
 
     Examples
     --------
@@ -1492,7 +1500,46 @@ def probe_dense(
     >>> print(np.linalg.norm(yy[2] - y2))
     1.2970142174948615e-14
 
-    Probe with two sets of vectors:
+    Vectorize over probing vectors
+
+    >>> import numpy as np
+    >>> import t3toolbox.core.probing as t3p
+    >>> T = np.random.randn(10,11,12)
+    >>> u0 = np.random.randn(2,3, 10)
+    >>> u1 = np.random.randn(2,3, 11)
+    >>> u2 = np.random.randn(2,3, 12)
+    >>> yy = t3p.probe_dense((u0,u1,u2),T)
+    >>> y0 = np.einsum('ijk,uvj,uvk->uvi', T, u1, u2)
+    >>> y1 = np.einsum('ijk,uvi,uvk->uvj', T, u0, u2)
+    >>> y2 = np.einsum('ijk,uvi,uvj->uvk', T, u0, u1)
+    >>> print(np.linalg.norm(yy[0] - y0))
+    2.0928808318295785e-14
+    >>> print(np.linalg.norm(yy[1] - y1))
+    1.0841599276764049e-14
+    >>> print(np.linalg.norm(yy[2] - y2))
+    1.2970142174948615e-14
+
+    Vectorize over probing vectors and big tensor
+
+    >>> import numpy as np
+    >>> import t3toolbox.core.probing as t3p
+    >>> T = np.random.randn(4,5,6, 10,11,12)
+    >>> u0 = np.random.randn(2,3, 10)
+    >>> u1 = np.random.randn(2,3, 11)
+    >>> u2 = np.random.randn(2,3, 12)
+    >>> yy = t3p.probe_dense((u0,u1,u2),T)
+    >>> y0 = np.einsum('xyzijk,uvj,uvk->xyzuvi', T, u1, u2)
+    >>> y1 = np.einsum('xyzijk,uvi,uvk->xyzuvj', T, u0, u2)
+    >>> y2 = np.einsum('xyzijk,uvi,uvj->xyzuvk', T, u0, u1)
+    >>> print(np.linalg.norm(yy[0] - y0))
+    2.0928808318295785e-14
+    >>> print(np.linalg.norm(yy[1] - y1))
+    1.0841599276764049e-14
+    >>> print(np.linalg.norm(yy[2] - y2))
+    1.2970142174948615e-14
+
+
+    #
 
     >>> import numpy as np
     >>> import t3toolbox.t3p as t3p
@@ -1520,48 +1567,46 @@ def probe_dense(
     xnp, _, _ = get_backend(True, use_jax)
 
     #
+    d = len(vectors)
+    Z = T.shape[:-d]
+    shape = T.shape[-d:]
+    K = vectors[0].shape[:-1]
 
-    num_cores = len(T.shape)
-    assert(len(vectors) == num_cores)
-    if len(vectors[0].shape) == 1:
-        vectorized=False
-        for ii in range(num_cores):
-            assert (len(vectors[ii].shape) == 1)
-    elif len(vectors[0].shape) == 2:
-        vectorized=True
-        for ii in range(num_cores):
-            assert (len(vectors[ii].shape) == 2)
-    else:
-        raise RuntimeError(
-            'Wrong vectors[ii] shape in probe_dense. Should be vector or matrix.\n'
-            + 'vectors[0].shape=' + str(vectors[0].shape)
-        )
+    for ii, v in enumerate(vectors):
+        assert(v.shape[:-1] == K)
+        assert(v.shape[-1] == shape[ii])
 
-    vectors = list(vectors)
-    if vectorized == False:
-        for ii in range(num_cores):
-            vectors[ii] = vectors[ii].reshape((1,-1))
+    # We are going to construct an einsum string from letters.
+    # A dense 2x2x..x2 tensor exhausting these letters would have 4e15 entries
+    letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
-    vector_lengths = tuple([x.shape[1] for x in vectors])
-    assert(vector_lengths == T.shape)
+    Z_letters       = letters[:len(Z)]
+    shape_letters   = letters[len(Z):len(Z)+len(shape)]
+    K_letters       = letters[len(Z)+len(shape):len(Z)+len(shape)+len(K)]
 
-    probes = []
-    for ii in range(num_cores):
-        Ai = T
-        for jj in range(ii):
-            if jj == 0:
-                Ai = xnp.einsum('pi,i...->p...', vectors[jj], Ai)
-            else:
-                Ai = xnp.einsum('pi,pi...->p...', vectors[jj], Ai)
+    vv_letters = []
+    for ii in range(d):
+        vv_letters.append(K_letters + shape_letters[ii])
 
-        for jj in range(num_cores-1, ii, -1):
-            if ii==0 and jj==num_cores-1:
-                Ai = xnp.einsum('pi,...i->p...', vectors[jj], Ai)
-            else:
-                Ai = xnp.einsum('pi,p...i->p...', vectors[jj], Ai)
-        probes.append(Ai)
+    T_letters = Z_letters + shape_letters
 
-    if not vectorized:
-        probes = [Ai.reshape(-1) for Ai in probes]
+    zz = []
+    for ii in range(d):
+        str = T_letters
+        for jj in range(ii): # front to back, add weighted slices
+            str += ',' + vv_letters[jj]
 
-    return tuple(probes)
+        for jj in range(d-1,ii,-1): # back to front, contract with each slice
+            str += ',' + vv_letters[jj]
+
+        str += '->'
+
+        str += Z_letters + K_letters + shape_letters[ii]
+
+        vvi = tuple(vectors[:ii] + vectors[ii+1:][::-1])
+
+        z = xnp.einsum(str, T, *vvi)
+        zz.append(z)
+
+    return tuple(zz)
+

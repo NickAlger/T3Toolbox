@@ -7,6 +7,7 @@ import typing as typ
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.base_variation_format as bvf
+import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as uniform_ops
 from t3toolbox.common import *
 
 __all__ = [
@@ -782,7 +783,7 @@ def t3_to_ut3(
 
     #
     if squash_tails:
-        x = t3.squash_tails(x)
+        x = (x[0], uniform_ops.uniform_squash_tt_tails(x[1]))
 
     shape, tucker_ranks, tt_ranks = t3.get_structure(x)
 
