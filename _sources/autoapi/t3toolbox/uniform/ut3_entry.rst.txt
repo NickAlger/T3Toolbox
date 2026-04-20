@@ -24,7 +24,7 @@ t3toolbox.uniform.ut3_entry
    ((14, 15, 16), (4, 5, 3), (1, 4, 2, 1))
    >>> print(ut3.get_uniform_structure(cores)) # uniform shape and ranks, (d,N,n,r):
    (3, 16, 5, 4)
-   >>> x_312_uniform = ut3.ut3_entry(cores, index) # (3,1,2) entry from uniform T3:
+   >>> x_312_uniform = ut3.ut3_get_entries(cores, index) # (3,1,2) entry from uniform T3:
    >>> print(x_312_uniform)
    -1.4931654579929197
 
@@ -39,7 +39,7 @@ t3toolbox.uniform.ut3_entry
    >>> print(x_312)
    -6.127319174475167
    >>> cores, masks = ut3.t3_to_ut3(x)
-   >>> x_312_uniform = ut3.ut3_entry(cores, index)
+   >>> x_312_uniform = ut3.ut3_get_entries(cores, index)
    >>> print(x_312_uniform)
    -6.127319174475165
 
