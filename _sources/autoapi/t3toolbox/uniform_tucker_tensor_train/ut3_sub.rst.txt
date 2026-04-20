@@ -23,9 +23,9 @@ t3toolbox.uniform_tucker_tensor_train.ut3_sub
    >>> import numpy as np
    >>> import t3toolbox.tucker_tensor_train as t3
    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-   >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2))
+   >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
    >>> ux = ut3.t3_to_ut3(x)
-   >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1))
+   >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1), stack_shape=(2,3))
    >>> uy = ut3.t3_to_ut3(y)
    >>> ux_minus_uy = ut3.ut3_sub(ux, uy)
    >>> print(np.linalg.norm(x.to_dense() - y.to_dense() - ux_minus_uy.to_dense()))
