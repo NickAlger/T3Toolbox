@@ -87,7 +87,7 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
       >>> d, N, n, r = 3, 6, 5, 4
       >>> stack_shape = (2,)
       >>> tucker_supercore = np.ones((d,)+stack_shape+(n,N))
-      >>> tt_supercore = np.ones((d+1,)+stack_shape+(r,n,r))
+      >>> tt_supercore = np.ones((d,)+stack_shape+(r,n,r))
       >>> shape_mask = np.ones((d,)+stack_shape+(N,), dtype=bool)
       >>> tucker_edge_mask = np.ones((d,)+stack_shape+(n,), dtype=bool)
       >>> tt_edge_mask = np.ones((d+1,)+stack_shape+(r,), dtype=bool)
@@ -116,7 +116,7 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
       >>> d, N, n, r = 3, 6, 5, 4
       >>> stack_shape = (2,)
       >>> tucker_supercore = np.ones((d,)+stack_shape+(n,N))
-      >>> tt_supercore = np.ones((d+1,)+stack_shape+(r,n,r))
+      >>> tt_supercore = np.ones((d,)+stack_shape+(r,n,r))
       >>> shape_mask = np.ones((d,)+stack_shape+(N,), dtype=bool)
       >>> tucker_edge_mask = np.ones((d,)+stack_shape+(n,), dtype=bool)
       >>> tt_edge_mask = np.ones((d+1,)+stack_shape+(r,), dtype=bool)
@@ -145,7 +145,7 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
       >>> d, N, n, r = 3, 6, 5, 4
       >>> stack_shape = (2,)
       >>> tucker_supercore = np.ones((d,)+stack_shape+(n,N))
-      >>> tt_supercore = np.ones((d+1,)+stack_shape+(r,n,r))
+      >>> tt_supercore = np.ones((d,)+stack_shape+(r,n,r))
       >>> shape_mask = np.ones((d,)+stack_shape+(N,), dtype=bool)
       >>> tucker_edge_mask = np.ones((d,)+stack_shape+(n,), dtype=bool)
       >>> tt_edge_mask = np.ones((d+1,)+stack_shape+(r,), dtype=bool)
