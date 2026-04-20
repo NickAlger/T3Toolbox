@@ -1,8 +1,0 @@
-t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.change_tt_core_shapes
-====================================================================================
-
-.. py:function:: t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.change_tt_core_shapes(tt_cores: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], new_tucker_ranks: t3toolbox.common.typ.Sequence[int], new_tt_ranks: t3toolbox.common.typ.Sequence[int], use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
-
-   Increase Tucker and/or TT ranks for TT cores using zero padding.
-
-

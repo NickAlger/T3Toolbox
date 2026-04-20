@@ -1,0 +1,25 @@
+uniform_tensor_linalg
+=====================
+
+.. py:module:: uniform_tensor_linalg
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/uniform_tensor_linalg/ut3_add
+   /autoapi/uniform_tensor_linalg/scale_last_slice
+   /autoapi/uniform_tensor_linalg/ut3_inner_product
+   /autoapi/uniform_tensor_linalg/ut3_norm
+
+.. autoapisummary::
+
+   uniform_tensor_linalg.ut3_add
+   uniform_tensor_linalg.scale_last_slice
+   uniform_tensor_linalg.ut3_inner_product
+   uniform_tensor_linalg.ut3_norm
+
+

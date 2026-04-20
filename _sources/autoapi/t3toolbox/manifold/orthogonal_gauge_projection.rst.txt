@@ -37,9 +37,9 @@ t3toolbox.manifold.orthogonal_gauge_projection
    >>> proj_variation = t3m.orthogonal_gauge_projection(variation, base) # Make gauged via orthogonal projection
    >>> (U0,U1,U2), (L0,L1,L2), _, _ = base
    >>> ((V0,V1,V2), (H0,H1,H2)) = proj_variation
-   >>> print(np.linalg.norm(V1 @ U1.T)) # Gauge condition for tucker core 1
+   >>> print(np.linalg.norm(V1 @ U1.T)) # Gauge condition for tucker backend 1
    3.512073125137391e-15
-   >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', H1, L1))) # Gauge condition for TT-core 1
+   >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', H1, L1))) # Gauge condition for TT-backend 1
    1.5807940730805242e-15
    >>> v_minus_p_dot_p = cw.corewise_dot(cw.corewise_sub(variation, proj_variation), proj_variation)
    >>> print(v_minus_p_dot_p) # Projection is orthogonal w.r.t. corewise dot

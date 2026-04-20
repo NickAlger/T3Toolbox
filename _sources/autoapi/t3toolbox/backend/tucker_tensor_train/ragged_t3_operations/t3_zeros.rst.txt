@@ -1,0 +1,8 @@
+t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.t3_zeros
+===================================================================
+
+.. py:function:: t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.t3_zeros(shape: t3toolbox.common.typ.Tuple[int, Ellipsis], tucker_ranks: t3toolbox.common.typ.Tuple[int, Ellipsis], tt_ranks: t3toolbox.common.typ.Tuple[int, Ellipsis], stack_shape: t3toolbox.common.typ.Tuple[int, Ellipsis] = (), use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]]
+
+   Construct a Tucker tensor train of zeros.
+
+

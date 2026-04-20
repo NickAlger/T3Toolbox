@@ -1,0 +1,130 @@
+t3toolbox.backend.probing.probe_tangent_transpose
+=================================================
+
+.. py:function:: t3toolbox.backend.probing.probe_tangent_transpose(ztildes: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], ww: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], base: t3toolbox.common.typ.Union[t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray]], edge_weights: t3toolbox.common.typ.Union[t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray]] = (None, None, None, None, None), sum_over_probes: bool = False, use_jax: bool = False) -> t3toolbox.common.typ.Union[t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray]]
+
+   Apply the transpose of the map from a T3Tangent to its probes. Apply to ztildes.
+
+   See Section 5.2.4 in:
+       Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+       "Tucker Tensor Train Taylor Series."
+       arXiv preprint arXiv:2603.21141.
+       `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+
+   :param ztildes: Probe residuals to apply the map to
+                   len=d, elm_shape=(Ni,) or (num_probes,Ni)
+   :type ztildes: typ.Sequence[NDArray]
+   :param base: Orthogonal base for point where the tangent space attaches to the manifold.
+                shape=(N1,...,Nd)
+   :type base: t3m.T3Base,
+   :param sum_over_probes: Sum results over all probe residuals, rather than returning results for each probe residual
+   :type sum_over_probes: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
+
+   :returns: Tangent vector resulting from applying transpose map to ztildes
+   :rtype: t3m.T3Tangent
+
+   .. seealso:: :py:obj:`probe_t3`, :py:obj:`tangent_probes`
+
+   .. rubric:: Examples
+
+   Apply transpose map with one set of probing vectors:
+
+   >>> import numpy as np
+   >>> import t3toolbox.corewise as cw
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.manifold as t3m
+   >>> import t3toolbox.backend.probing as t3p
+   >>> import t3toolbox.common as common
+   >>> import t3toolbox.orthogonalization as orth
+   >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
+   >>> base, _ = orth.orthogonal_representations(p)
+   >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+   >>> v1 = t3m.tangent_randn(base)
+   >>> zz1 = t3p.probe_tangent(ww, v1, base)
+   >>> zz2 = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+   >>> v2 = t3p.probe_tangent_transpose(zz2, ww, base)
+   >>> ipA = cw.corewise_dot(v1, v2)
+   >>> print(ipA)
+   17.958317927787
+   >>> ipB = cw.corewise_dot(zz1, zz2)
+   >>> print(ipB)
+   17.958317927787
+
+   Apply transpose map with two sets of probing vectors:
+
+   >>> import numpy as np
+   >>> import t3toolbox.corewise as cw
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.manifold as t3m
+   >>> import t3toolbox.backend.probing as t3p
+   >>> import t3toolbox.common as common
+   >>> import t3toolbox.orthogonalization as orth
+   >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
+   >>> base, _ = orth.orthogonal_representations(p)
+   >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+   >>> apply_J = lambda v: t3p.probe_tangent(ww, v, base)
+   >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, ww, base)
+   >>> v = t3m.tangent_randn(base)
+   >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+   >>> print(cw.corewise_dot(z, apply_J(v)) - cw.corewise_dot(apply_Jt(z), v))
+   7.105427357601002e-15
+
+   Using weights:
+
+   >>> import numpy as np
+   >>> import t3toolbox.corewise as cw
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.manifold as t3m
+   >>> import t3toolbox.backend.probing as t3p
+   >>> import t3toolbox.common as common
+   >>> import t3toolbox.orthogonalization as orth
+   >>> import t3toolbox.base_variation_format as bvf
+   >>> randn = np.random.randn
+   >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
+   >>> base, _ = orth.orthogonal_representations(p)
+   >>> NN, nnU, nnO, rrL, rrR = bvf.get_base_structure(base)
+   >>> shape_weights = [randn(N) for N in NN]
+   >>> up_tucker_weights = [randn(nU) for nU in nnU]
+   >>> outer_tucker_weights = [randn(nO) for nO in nnO]
+   >>> left_tt_weights = [randn(rL) for rL in rrL[:-1]]
+   >>> right_tt_weights = [randn(rR) for rR in rrR[1:]]
+   >>> edge_weights = (shape_weights, up_tucker_weights, outer_tucker_weights, left_tt_weights, right_tt_weights)
+   >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+   >>> apply_J = lambda v: t3p.probe_tangent(ww, v, base, edge_weights=edge_weights)
+   >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, ww, base, edge_weights=edge_weights)
+   >>> v = t3m.tangent_randn(base)
+   >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+   >>> print(cw.corewise_dot(z, apply_J(v)) - cw.corewise_dot(apply_Jt(z), v))
+   -1.7763568394002505e-15
+
+   Probe uniform T3
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.uniform as ut3
+   >>> import t3toolbox.manifold as t3m
+   >>> import t3toolbox.backend.probing as t3p
+   >>> import t3toolbox.orthogonalization as orth
+   >>> import t3toolbox.corewise as cw
+   >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
+   >>> base, _ = orth.orthogonal_representations(p)
+   >>> variation = t3m.tangent_randn(base)
+   >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+   >>> V, B, masks = ut3.bv_to_ubv(variation, base)
+   >>> uniform_ww = ut3.pack_tensors(www)
+   >>> apply_J = lambda v: t3p.probe_tangent(uniform_ww, v, B, edge_weights=masks)
+   >>> apply_Jt = lambda z: t3p.probe_tangent_transpose(z, uniform_ww, B, edge_weights=masks)
+   >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+   >>> Z = ut3.pack_tensors(z)
+   >>> JV = apply_J(V)
+   >>> JTZ = apply_Jt(Z)
+   >>> t0a = cw.corewise_dot([x[0,:] for x in Z], [x[0,:] for x in JV])
+   >>> t0b = cw.corewise_dot([x[:,0,:,:] for x in JTZ], V)
+   >>> print(t0a - t0b)
+   -7.105427357601002e-15
+   >>> t1a = cw.corewise_dot([x[1,:] for x in Z], [x[1,:] for x in JV])
+   >>> t1b = cw.corewise_dot([x[:,1,:,:] for x in JTZ], V)
+   >>> print(t1a - t1b)
+   -5.329070518200751e-15
+

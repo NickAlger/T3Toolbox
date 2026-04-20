@@ -1,0 +1,8 @@
+t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.squash_tt_tails
+==========================================================================
+
+.. py:function:: t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.squash_tt_tails(tt_cores: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray]
+
+   Make leading and trailing TT ranks equal to 1 (r0=rd=1), without changing tensor being represented.
+
+

@@ -1,0 +1,8 @@
+uniform_orthogonalization.up_orthogonalize_uniform_tucker_cores
+===============================================================
+
+.. py:function:: uniform_orthogonalization.up_orthogonalize_uniform_tucker_cores(tucker_supercore: t3toolbox.common.NDArray, tt_supercore: t3toolbox.common.NDArray, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray]
+
+   Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
+
+

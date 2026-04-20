@@ -1,8 +1,0 @@
-t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.up_svd_ith_tucker_core
-=========================================================================================
-
-.. py:function:: t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization.up_svd_ith_tucker_core(x: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], t3toolbox.common.NDArray]
-
-   Compute SVD of ith tucker core and contract non-orthogonal factor up into the TT-core above.
-
-

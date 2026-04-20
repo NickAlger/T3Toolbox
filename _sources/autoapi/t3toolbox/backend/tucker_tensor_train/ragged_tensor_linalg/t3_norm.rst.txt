@@ -1,0 +1,8 @@
+t3toolbox.backend.tucker_tensor_train.ragged_tensor_linalg.t3_norm
+==================================================================
+
+.. py:function:: t3toolbox.backend.tucker_tensor_train.ragged_tensor_linalg.t3_norm(x: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], use_orthogonalization: bool = True, use_jax: bool = False)
+
+   Compute Hilbert-Schmidt norm of a Tucker tensor train.
+
+

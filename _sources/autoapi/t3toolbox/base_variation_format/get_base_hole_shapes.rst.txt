@@ -3,7 +3,7 @@ t3toolbox.base_variation_format.get_base_hole_shapes
 
 .. py:function:: t3toolbox.base_variation_format.get_base_hole_shapes(base: T3Base) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], Ellipsis], t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], Ellipsis]]
 
-   T3Variation core shapes that fit with given T3Base.
+   T3Variation backend shapes that fit with given T3Base.
 
    Shapes of the "holes" in the following tensor diagrams::
 
@@ -26,8 +26,8 @@ t3toolbox.base_variation_format.get_base_hole_shapes
    :param base: Base cores
    :type base: T3Base
 
-   :returns: * *typ.Tuple[int,...]* -- Variation Tucker core shapes. len=d. elm_len=2
-             * *typ.Tuple[int,...]* -- Variation TT core shapes. len=d. elm_len=3
+   :returns: * *typ.Tuple[int,...]* -- Variation Tucker backend shapes. len=d. elm_len=2
+             * *typ.Tuple[int,...]* -- Variation TT backend shapes. len=d. elm_len=3
 
    :raises RuntimeError: - Error raised if any base_core shapes are inconsistent
 

@@ -1,8 +1,0 @@
-t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_corewise_randn
-================================================================================
-
-.. py:function:: t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.t3_corewise_randn(shape: t3toolbox.common.typ.Tuple[int, Ellipsis], tucker_ranks: t3toolbox.common.typ.Tuple[int, Ellipsis], tt_ranks: t3toolbox.common.typ.Tuple[int, Ellipsis], stack_shape: t3toolbox.common.typ.Tuple[int, Ellipsis] = (), use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]]
-
-   Construct a Tucker tensor train with random cores.
-
-

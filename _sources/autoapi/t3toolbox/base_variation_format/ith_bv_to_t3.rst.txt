@@ -19,9 +19,9 @@ t3toolbox.base_variation_format.ith_bv_to_t3
             U0    U1    V2    U3
             |     |     |     |
 
-   :param replacement_ind: Index of core to replace. 0 <= replacement_ind < num_cores
+   :param replacement_ind: Index of backend to replace. 0 <= replacement_ind < num_cores
    :type replacement_ind: int
-   :param replace_tt: Indicates whether to replace a TT-core (True) or a Tucker core (False)
+   :param replace_tt: Indicates whether to replace a TT-backend (True) or a Tucker backend (False)
    :type replace_tt: bool
    :param base: Base cores
    :type base: T3Base
@@ -45,10 +45,10 @@ t3toolbox.base_variation_format.ith_bv_to_t3
    >>> (V0,V1,V2) = (randn(9,14), randn(8,15), randn(7,16))
    >>> (H0,H1,H2) = (randn(1,10,4), randn(2,11,5), randn(3,12,1))
    >>> variation = ((V0,V1,V2), (H0,H1,H2))
-   >>> ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_bv_to_t3(1, True, base, variation) # replace index-1 TT-core
+   >>> ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_bv_to_t3(1, True, base, variation) # replace index-1 TT-backend
    >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,U1,U2), (L0,H1,R2)))
    True
-   >>> ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_bv_to_t3(1, False, base, variation) # replace index-1 tucker core
+   >>> ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_bv_to_t3(1, False, base, variation) # replace index-1 tucker backend
    >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,O1,R2)))
    True
 

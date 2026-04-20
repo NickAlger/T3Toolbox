@@ -1,0 +1,19 @@
+t3toolbox.backend.tucker_tensor_train.t3_ranks
+==============================================
+
+.. py:module:: t3toolbox.backend.tucker_tensor_train.t3_ranks
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/backend/tucker_tensor_train/t3_ranks/compute_minimal_t3_ranks
+
+.. autoapisummary::
+
+   t3toolbox.backend.tucker_tensor_train.t3_ranks.compute_minimal_t3_ranks
+
+

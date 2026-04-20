@@ -1,0 +1,14 @@
+t3toolbox.backend.probing.compute_sigma_tildes
+==============================================
+
+.. py:function:: t3toolbox.backend.probing.compute_sigma_tildes(deta_tildes: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], right_tt_cores: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], xis: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], nus: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], right_tt_weights: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray] = None, use_jax: bool = False) -> t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray]
+
+   Adjoint-var-leftward edge variables sigma_tilde.
+   Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
+
+   See Section 5.2.4, particularly Formula (45), in:
+       Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+       "Tucker Tensor Train Taylor Series."
+       arXiv preprint arXiv:2603.21141.
+       `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+

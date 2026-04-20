@@ -13,7 +13,7 @@ t3toolbox.manifold.tangent_to_t3
                     ([O1(dB x)       0]) ([0              0]) ([0              0]) ([0       ])
                     (                  ) ([O2(dB y)       0]) ([O3(dB z)       0]) ([O4(dB w)])
 
-   With shift is same as unshifted, except last core modified as follows::
+   With shift is same as unshifted, except last backend modified as follows::
 
        [R4(B w) ]                  [R4(B w)           ]
        [dU4(B w)]                  [L4(B w) + dU4(B w)]

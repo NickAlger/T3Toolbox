@@ -1,0 +1,41 @@
+t3toolbox.backend.tucker_tensor_train.ragged_t3_operations
+==========================================================
+
+.. py:module:: t3toolbox.backend.tucker_tensor_train.ragged_t3_operations
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/backend/tucker_tensor_train/ragged_t3_operations/to_dense
+   /autoapi/t3toolbox/backend/tucker_tensor_train/ragged_t3_operations/squash_tt_tails
+   /autoapi/t3toolbox/backend/tucker_tensor_train/ragged_t3_operations/reverse_tt
+   /autoapi/t3toolbox/backend/tucker_tensor_train/ragged_t3_operations/change_tucker_core_shapes
+   /autoapi/t3toolbox/backend/tucker_tensor_train/ragged_t3_operations/change_tt_core_shapes
+   /autoapi/t3toolbox/backend/tucker_tensor_train/ragged_t3_operations/t3_unstack
+   /autoapi/t3toolbox/backend/tucker_tensor_train/ragged_t3_operations/t3_sum_stack
+   /autoapi/t3toolbox/backend/tucker_tensor_train/ragged_t3_operations/t3_core_shapes
+   /autoapi/t3toolbox/backend/tucker_tensor_train/ragged_t3_operations/t3_to_vector
+   /autoapi/t3toolbox/backend/tucker_tensor_train/ragged_t3_operations/t3_from_vector
+   /autoapi/t3toolbox/backend/tucker_tensor_train/ragged_t3_operations/t3_corewise_randn
+   /autoapi/t3toolbox/backend/tucker_tensor_train/ragged_t3_operations/t3_zeros
+
+.. autoapisummary::
+
+   t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.to_dense
+   t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.squash_tt_tails
+   t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.reverse_tt
+   t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.change_tucker_core_shapes
+   t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.change_tt_core_shapes
+   t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.t3_unstack
+   t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.t3_sum_stack
+   t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.t3_core_shapes
+   t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.t3_to_vector
+   t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.t3_from_vector
+   t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.t3_corewise_randn
+   t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.t3_zeros
+
+

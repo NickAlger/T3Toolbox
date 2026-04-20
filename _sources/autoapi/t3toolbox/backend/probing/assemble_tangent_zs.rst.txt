@@ -1,0 +1,15 @@
+t3toolbox.backend.probing.assemble_tangent_zs
+=============================================
+
+.. py:function:: t3toolbox.backend.probing.assemble_tangent_zs(tucker_cores: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], var_tucker_cores: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], etas: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], detas: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray], shape_weights: t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray] = None, use_jax: bool = False) -> t3toolbox.common.typ.Union[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.NDArray]
+
+   Assemble tangent vector probes from edge variables.
+
+   See Section 5.2.3, particularly Formula (41), in:
+       Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+       "Tucker Tensor Train Taylor Series."
+       arXiv preprint arXiv:2603.21141.
+       `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+
+   .. seealso:: :py:obj:`compute_dxis`, :py:obj:`compute_sigmas`, :py:obj:`compute_taus`, :py:obj:`compute_detas`, :py:obj:`probe_tangent`
+

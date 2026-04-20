@@ -5,7 +5,7 @@ t3toolbox.tucker_tensor_train
 
 .. autoapi-nested-parse::
 
-   This module contains type aliases and basic core for Tucker tensor trains.
+   This module contains type aliases and basic backend for Tucker tensor trains.
 
    Tucker tensor trains:
    ---------------------
@@ -81,7 +81,7 @@ t3toolbox.tucker_tensor_train
    are *represented* by the Tucker tensor train, even though these dense tensors
    are not formed during computations.
 
-   For corewise core, see :mod:`t3toolbox.corewise`
+   For corewise backend, see :mod:`t3toolbox.corewise`
 
 
 

@@ -1,8 +1,0 @@
-t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.to_dense
-=======================================================================
-
-.. py:function:: t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations.to_dense(x: t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]], squash_tails: bool = True, use_jax: bool = False) -> t3toolbox.common.NDArray
-
-   Fully contract a Tucker tensor train to create a dense tensor.
-
-

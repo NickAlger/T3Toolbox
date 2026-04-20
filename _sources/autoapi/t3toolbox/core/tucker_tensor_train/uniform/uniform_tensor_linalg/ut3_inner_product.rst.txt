@@ -1,8 +1,0 @@
-t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_inner_product
-==================================================================================
-
-.. py:function:: t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_inner_product(x: t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray], y: t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray], use_orthogonalization: bool = True, use_jax: bool = False)
-
-   Compute the Hilbert-Schmidt inner product between two uniform Tucker tensor trains.
-
-

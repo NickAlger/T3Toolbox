@@ -8,6 +8,10 @@ This page contains auto-generated API reference documentation [#f1]_.
 
    /autoapi/t3toolbox/index
    /autoapi/contractions/index
+   /autoapi/uniform_t3svd/index
+   /autoapi/uniform_t3_operations/index
+   /autoapi/uniform_tensor_linalg/index
+   /autoapi/uniform_orthogonalization/index
    /autoapi/orthogonal_representations/index
 
 .. [#f1] Created with `sphinx-autoapi <https://github.com/readthedocs/sphinx-autoapi>`_

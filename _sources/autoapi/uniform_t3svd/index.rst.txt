@@ -1,0 +1,19 @@
+uniform_t3svd
+=============
+
+.. py:module:: uniform_t3svd
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/uniform_t3svd/uniform_t3_svd
+
+.. autoapisummary::
+
+   uniform_t3svd.uniform_t3_svd
+
+

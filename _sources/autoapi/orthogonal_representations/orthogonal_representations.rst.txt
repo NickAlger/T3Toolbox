@@ -12,14 +12,14 @@ orthogonal_representations.orthogonal_representations
                       B0    B1    B2    B3
                       |     |     |     |
 
-   Base-variation representation with non-orthogonal TT-core H1::
+   Base-variation representation with non-orthogonal TT-backend H1::
 
                  1 -- L0 -- H1 -- R2 -- R3 -- 1
        X    =         |     |     |     |
                       U0    U1    U2    U3
                       |     |     |     |
 
-   Base-variation representation with non-orthogonal tucker core V2::
+   Base-variation representation with non-orthogonal tucker backend V2::
 
                  1 -- L0 -- L1 -- O2 -- R3 -- 1
        X    =         |     |     |     |
@@ -63,10 +63,10 @@ orthogonal_representations.orthogonal_representations
    >>> (O0,O1,O2) = outer_tt_cores
    >>> (V0,V1,V2) = tucker_vars
    >>> (H0,H1,H2) = tt_vars
-   >>> x2 = ((U0,U1,U2), (L0,H1,R2)) # representation with TT-core variation in index 1
+   >>> x2 = ((U0,U1,U2), (L0,H1,R2)) # representation with TT-backend variation in index 1
    >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Still represents origional tensor
    4.978421562425667e-12
-   >>> x3 = ((U0,V1,U2), (L0,O1,R2)) # representation with tucker core variation in index 1
+   >>> x3 = ((U0,V1,U2), (L0,O1,R2)) # representation with tucker backend variation in index 1
    >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x3))) # Still represents origional tensor
    5.4355175448533146e-12
    >>> print(np.linalg.norm(U1 @ U1.T - np.eye(U1.shape[0]))) # U: orthogonal
@@ -93,10 +93,10 @@ orthogonal_representations.orthogonal_representations
    >>> (O0,O1,O2) = outer_tt_cores
    >>> (V0,V1,V2) = tucker_vars
    >>> (H0,H1,H2) = tt_vars
-   >>> x2 = ((U0,U1,U2), (L0,H1,R2)) # representation with TT-core variation in index 1
+   >>> x2 = ((U0,U1,U2), (L0,H1,R2)) # representation with TT-backend variation in index 1
    >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Still represents origional tensor
    2.5341562994067855e-12
-   >>> x3 = ((V0,U1,U2), (O0,R1,R2)) # representation with tucker core variation in index 0
+   >>> x3 = ((V0,U1,U2), (O0,R1,R2)) # representation with tucker backend variation in index 0
    >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x3))) # Still represents origional tensor
    2.9206090606788446e-12
    >>> print(np.linalg.norm(U0 @ U0.T - np.eye(U0.shape[0]))) # U: orthogonal

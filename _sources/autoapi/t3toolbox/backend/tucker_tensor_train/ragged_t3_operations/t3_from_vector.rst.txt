@@ -1,0 +1,8 @@
+t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.t3_from_vector
+=========================================================================
+
+.. py:function:: t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.t3_from_vector(x_flat: t3toolbox.common.NDArray, shape: t3toolbox.common.typ.Sequence[int], tucker_ranks: t3toolbox.common.typ.Sequence[int], tt_ranks: t3toolbox.common.typ.Sequence[int], stack_shape: t3toolbox.common.typ.Sequence[int] = ()) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]]
+
+   Constructs a T3 from a 1D vector containing the backend entries
+
+
