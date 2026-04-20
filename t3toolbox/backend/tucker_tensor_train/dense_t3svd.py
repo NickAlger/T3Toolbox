@@ -24,7 +24,7 @@ def tucker_svd_dense(
 ) -> typ.Tuple[
     typ.Tuple[
         typ.Tuple[NDArray,...], # Tucker bases, ith_elm_shape=(ni, Ni)
-        NDArray, # Tucker core, shape=(n1,n2,...,nd)
+        NDArray, # Tucker backend, shape=(n1,n2,...,nd)
     ],
     typ.Tuple[NDArray,...], # singular values of matricizations
 ]:
@@ -69,10 +69,10 @@ def tucker_svd_dense(
     >>> c1 = 1.0 / np.arange(1, 51)**2
     >>> c2 = 1.0 / np.arange(1, 61)**2
     >>> T = np.einsum('ijk,i,j,k->ijk', T0, c0, c1, c2) # Preconditioned random tensor
-    >>> (bases, core), ss = t3svd.tucker_svd_dense(T, rtol=1e-3) # Truncate Tucker SVD to reduce rank
-    >>> print(core.shape)
+    >>> (bases, backend), ss = t3svd.tucker_svd_dense(T, rtol=1e-3) # Truncate Tucker SVD to reduce rank
+    >>> print(backend.shape)
     (9, 9, 9)
-    >>> T2 = np.einsum('abc, ai,bj,ck->ijk', core, bases[0], bases[1], bases[2])
+    >>> T2 = np.einsum('abc, ai,bj,ck->ijk', backend, bases[0], bases[1], bases[2])
     >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-3
     0.002418671417862558
     '''

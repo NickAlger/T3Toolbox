@@ -306,11 +306,11 @@ class Orthogonalization(unittest.TestCase):
                         self.check_relerr(np.eye(U.shape[0]), U @ U.T)
 
                     # left orthogonality
-                    for L in [L0, L1]: # Last core need not be left orthogonal
+                    for L in [L0, L1]: # Last backend need not be left orthogonal
                         self.check_relerr(np.eye(L.shape[2]), np.einsum('iaj,iak->jk', L, L))
 
                     # right orthogonality
-                    for R in [R1, R2]: # First core need not be right orthogonal
+                    for R in [R1, R2]: # First backend need not be right orthogonal
                         self.check_relerr(np.eye(R.shape[0]), np.einsum('iaj,kaj->ik', R, R))
 
                     # outer orthogonality

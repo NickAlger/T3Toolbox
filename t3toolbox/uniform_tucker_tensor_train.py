@@ -8,14 +8,14 @@ import functools as ft
 from dataclasses import dataclass
 
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.core.tucker_tensor_train.t3_entries as entries
-import t3toolbox.core.tucker_tensor_train.t3_apply as apply
-import t3toolbox.core.probing as probing
-import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as uniform_ops
-import t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg as utla
-import t3toolbox.core.tucker_tensor_train.uniform.uniform_orthogonalization as uniform_orthogonalization
-import t3toolbox.core.tucker_tensor_train.orthogonalization as orth
-import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3svd as ut3svd
+import t3toolbox.backend.tucker_tensor_train.t3_entries as entries
+import t3toolbox.backend.tucker_tensor_train.t3_apply as apply
+import t3toolbox.backend.probing as probing
+import t3toolbox.backend.uniform_tucker_tensor_train.uniform_t3_operations as uniform_ops
+import t3toolbox.backend.uniform_tucker_tensor_train.uniform_tensor_linalg as utla
+import t3toolbox.backend.uniform_tucker_tensor_train.uniform_orthogonalization as uniform_orthogonalization
+import t3toolbox.backend.tucker_tensor_train.orthogonalization as orth
+import t3toolbox.backend.uniform_tucker_tensor_train.uniform_t3svd as ut3svd
 from t3toolbox.common import *
 
 jax = None
@@ -33,7 +33,7 @@ __all__ = [
     #
     'ut3_get_entries',
     'ut3_apply',
-    # Linear algebra core:
+    # Linear algebra backend:
     'ut3_add',
     'ut3_sub',
 ]
@@ -47,7 +47,7 @@ class UniformTuckerTensorTrain:
     so that the ranks are uniform, then stacking the TT cores and Tucker cores into
     "supercores", which have one more dimension.
 
-    Original core shapes are tracked with boolean mask arrays associated with the edges.
+    Original backend shapes are tracked with boolean mask arrays associated with the edges.
     """
     tucker_supercore:   NDArray  #             shape=(d,)   + stack_shape + (n,N)
     tt_supercore:       NDArray  #             shape=(d+1,) + stack_shape + (r,n,r)
@@ -1112,7 +1112,7 @@ def uniform_t3_svd(
     Using stacking:
 
     >>> import numpy as np
-    >>> from t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations import make_uniform_masks
+    >>> from t3toolbox.backend.tucker_tensor_train.uniform.uniform_t3_operations import make_uniform_masks
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> shape, tucker_ranks, tt_ranks, stack_shape = (11,12,13), (6,7,5), (1,3,6,2), (2,)

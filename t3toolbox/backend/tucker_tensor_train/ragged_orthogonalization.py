@@ -2,7 +2,7 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.util_linalg as linalg
-import t3toolbox.core.tucker_tensor_train.orthogonalization as orth
+import t3toolbox.backend.tucker_tensor_train.orthogonalization as orth
 from t3toolbox.common import *
 
 __all__ = [
@@ -96,7 +96,7 @@ def up_orthogonalize_tucker_cores(
 
 def up_svd_ith_tucker_core(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
-        ii: int,  # which base core to orthogonalize
+        ii: int,  # which base backend to orthogonalize
         min_rank: int = None,
         max_rank: int = None,
         rtol: float = None,
@@ -106,7 +106,7 @@ def up_svd_ith_tucker_core(
     typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # new_x
     NDArray,  # ss_x. singular values
 ]:
-    '''Compute SVD of ith tucker core and contract non-orthogonal factor up into the TT-core above.
+    '''Compute SVD of ith tucker backend and contract non-orthogonal factor up into the TT-backend above.
     '''
     xnp, _, _ = get_backend(False, use_jax)
 
@@ -144,7 +144,7 @@ def up_svd_ith_tucker_core(
 
 def left_svd_ith_tt_core(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
-        ii: int,  # which tt core to orthogonalize
+        ii: int,  # which tt backend to orthogonalize
         min_rank: int = None,
         max_rank: int = None,
         rtol: float = None,
@@ -154,7 +154,7 @@ def left_svd_ith_tt_core(
     typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # new_x
     NDArray,  # singular values, shape=(r(i+1),)
 ]:
-    '''Compute SVD of ith TT-core left unfolding and contract non-orthogonal factor into the TT-core to the right.
+    '''Compute SVD of ith TT-backend left unfolding and contract non-orthogonal factor into the TT-backend to the right.
     '''
     xnp, _, _ = get_backend(False, use_jax)
 
@@ -183,7 +183,7 @@ def left_svd_ith_tt_core(
 
 def right_svd_ith_tt_core(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
-        ii: int,  # which tt core to orthogonalize
+        ii: int,  # which tt backend to orthogonalize
         min_rank: int = None,
         max_rank: int = None,
         rtol: float = None,
@@ -193,7 +193,7 @@ def right_svd_ith_tt_core(
     typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # new_x
     NDArray,  # singular values, shape=(new_ri,)
 ]:
-    '''Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor into the TT-core to the left.
+    '''Compute SVD of ith TT-backend right unfolding and contract non-orthogonal factor into the TT-backend to the left.
     '''
     xnp, _, _ = get_backend(False, use_jax)
 
@@ -222,7 +222,7 @@ def right_svd_ith_tt_core(
 
 def up_svd_ith_tt_core(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
-        ii: int,  # which tt core to orthogonalize
+        ii: int,  # which tt backend to orthogonalize
         min_rank: int = None,
         max_rank: int = None,
         rtol: float = None,
@@ -232,7 +232,7 @@ def up_svd_ith_tt_core(
     typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # new_x
     NDArray,  # singular values, shape=(new_ni,)
 ]:
-    '''Compute SVD of ith TT-core outer unfolding and keep non-orthogonal factor with this core.
+    '''Compute SVD of ith TT-backend outer unfolding and keep non-orthogonal factor with this backend.
     '''
     xnp, _, _ = get_backend(False, use_jax)
 
@@ -266,7 +266,7 @@ def up_svd_ith_tt_core(
 
 def down_svd_ith_tt_core(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
-        ii: int,  # which tt core to orthogonalize
+        ii: int,  # which tt backend to orthogonalize
         min_rank: int = None,
         max_rank: int = None,
         rtol: float = None,
@@ -276,7 +276,7 @@ def down_svd_ith_tt_core(
     typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # new_x
     NDArray,  # singular values, shape=(new_ni,)
 ]:
-    '''Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the tucker core below.
+    '''Compute SVD of ith TT-backend right unfolding and contract non-orthogonal factor down into the tucker backend below.
     '''
     xnp, _, _ = get_backend(False, use_jax)
 
@@ -315,7 +315,7 @@ def orthogonalize_relative_to_ith_tucker_core(
         atol: float = None,
         use_jax: bool = False,
 ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:
-    '''Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker core.
+    '''Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker backend.
     '''
     xnp, _, _ = get_backend(False, use_jax)
 
@@ -353,7 +353,7 @@ def orthogonalize_relative_to_ith_tt_core(
         atol: float = None,
         use_jax: bool = False,
 ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:
-    '''Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
+    '''Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-backend.
     '''
     xnp, _, _ = get_backend(False, use_jax)
 

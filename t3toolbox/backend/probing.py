@@ -6,8 +6,8 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.utils.contractions as contractions
-import t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations as ragged_ops
-import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as uniform_ops
+import t3toolbox.backend.tucker_tensor_train.ragged.ragged_t3_operations as ragged_ops
+import t3toolbox.backend.tucker_tensor_train.uniform.uniform_t3_operations as uniform_ops
 from t3toolbox.common import *
 
 __all__ = [
@@ -99,7 +99,7 @@ def probe_t3(
     --------
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.core.probing as t3p
+    >>> import t3toolbox.backend.probing as t3p
     >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2)).data
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> zz = t3p.probe_t3(ww, x)
@@ -112,7 +112,7 @@ def probe_t3(
 
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.core.probing as t3p
+    >>> import t3toolbox.backend.probing as t3p
     >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2)).data
     >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
     >>> zz = t3p.probe_t3(ww, x)
@@ -125,7 +125,7 @@ def probe_t3(
 
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.core.probing as t3p
+    >>> import t3toolbox.backend.probing as t3p
     >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2), stack_shape=(4,5)).data
     >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
     >>> zz = t3p.probe_t3(ww, x)
@@ -138,7 +138,7 @@ def probe_t3(
 
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.core.probing as t3p
+    >>> import t3toolbox.backend.probing as t3p
     >>> randn = np.random.randn
     >>> x0 = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
     >>> (tucker_cores0, tt_cores0) = x0
@@ -157,7 +157,7 @@ def probe_t3(
 
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.core.probing as t3p
+    >>> import t3toolbox.backend.probing as t3p
     >>> import t3toolbox.uniform as ut3
     >>> import t3toolbox.corewise as cw
     >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
@@ -816,7 +816,7 @@ def probe_tangent(
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.core.probing as t3p
+    >>> import t3toolbox.backend.probing as t3p
     >>> import t3toolbox.orthogonalization as orth
     >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
     >>> base, _ = orth.orthogonal_representations(p)
@@ -832,7 +832,7 @@ def probe_tangent(
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.core.probing as t3p
+    >>> import t3toolbox.backend.probing as t3p
     >>> import t3toolbox.orthogonalization as orth
     >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
     >>> base, _ = orth.orthogonal_representations(p)
@@ -848,7 +848,7 @@ def probe_tangent(
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.core.probing as t3p
+    >>> import t3toolbox.backend.probing as t3p
     >>> import t3toolbox.orthogonalization as orth
     >>> randn = np.random.randn
     >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,5,4))
@@ -878,7 +878,7 @@ def probe_tangent(
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform as ut3
     >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.core.probing as t3p
+    >>> import t3toolbox.backend.probing as t3p
     >>> import t3toolbox.orthogonalization as orth
     >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
     >>> base, _ = orth.orthogonal_representations(p)
@@ -1132,7 +1132,7 @@ def assemble_tucker_variations(
         sum_over_probes: bool = False,
         use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]:
-    '''Assemble Tucker core variations, delta_U_tilde.
+    '''Assemble Tucker backend variations, delta_U_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
 
     See Section 5.2.4, particularly Formula (47), in:
@@ -1190,7 +1190,7 @@ def assemble_tt_variations(
         sum_over_probes: bool = False,
         use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,rLi,nOi,rRi)
-    '''Assemble TT core variations, delta_G_tilde.
+    '''Assemble TT backend variations, delta_G_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
 
     See Section 5.2.4, particularly Formula (48), in:
@@ -1380,7 +1380,7 @@ def probe_tangent_transpose(
     >>> import t3toolbox.corewise as cw
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.core.probing as t3p
+    >>> import t3toolbox.backend.probing as t3p
     >>> import t3toolbox.common as common
     >>> import t3toolbox.orthogonalization as orth
     >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
@@ -1403,7 +1403,7 @@ def probe_tangent_transpose(
     >>> import t3toolbox.corewise as cw
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.core.probing as t3p
+    >>> import t3toolbox.backend.probing as t3p
     >>> import t3toolbox.common as common
     >>> import t3toolbox.orthogonalization as orth
     >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
@@ -1422,7 +1422,7 @@ def probe_tangent_transpose(
     >>> import t3toolbox.corewise as cw
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.core.probing as t3p
+    >>> import t3toolbox.backend.probing as t3p
     >>> import t3toolbox.common as common
     >>> import t3toolbox.orthogonalization as orth
     >>> import t3toolbox.base_variation_format as bvf
@@ -1450,7 +1450,7 @@ def probe_tangent_transpose(
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform as ut3
     >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.core.probing as t3p
+    >>> import t3toolbox.backend.probing as t3p
     >>> import t3toolbox.orthogonalization as orth
     >>> import t3toolbox.corewise as cw
     >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
@@ -1576,7 +1576,7 @@ def probe_dense(
     Probe with one set of vectors:
 
     >>> import numpy as np
-    >>> import t3toolbox.core.probing as t3p
+    >>> import t3toolbox.backend.probing as t3p
     >>> T = np.random.randn(10,11,12)
     >>> u0 = np.random.randn(10)
     >>> u1 = np.random.randn(11)
@@ -1595,7 +1595,7 @@ def probe_dense(
     Vectorize over probing vectors
 
     >>> import numpy as np
-    >>> import t3toolbox.core.probing as t3p
+    >>> import t3toolbox.backend.probing as t3p
     >>> T = np.random.randn(10,11,12)
     >>> u0 = np.random.randn(2,3, 10)
     >>> u1 = np.random.randn(2,3, 11)
@@ -1614,7 +1614,7 @@ def probe_dense(
     Vectorize over probing vectors and big tensor
 
     >>> import numpy as np
-    >>> import t3toolbox.core.probing as t3p
+    >>> import t3toolbox.backend.probing as t3p
     >>> T = np.random.randn(4,5,6, 10,11,12)
     >>> u0 = np.random.randn(2,3, 10)
     >>> u1 = np.random.randn(2,3, 11)

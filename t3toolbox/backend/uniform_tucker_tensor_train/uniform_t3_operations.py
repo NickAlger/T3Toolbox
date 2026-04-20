@@ -4,7 +4,7 @@ import typing as typ
 from IPython.utils.tokenutil import token_at_cursor
 
 import t3toolbox.util_linalg as linalg
-import t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations as t3_ops
+import t3toolbox.backend.tucker_tensor_train.ragged.ragged_t3_operations as t3_ops
 from t3toolbox.common import *
 
 __all__ = [
@@ -31,7 +31,7 @@ def uniform_squash_tt_tails(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3toolbox.core.tucker_tensor_train.uniform.operations as uniform_operations
+    >>> import t3toolbox.backend.tucker_tensor_train.uniform.operations as uniform_operations
     >>> tt_supercore = np.random.randn(4, 2,3, 5,6,5)
     >>> new_tt_supercore = uniform_operations.uniform_squash_tt_tails(tt_supercore)
     >>> print(np.linalg.norm(np.sum(tt_supercore[0], axis=-3) - new_tt_supercore[0, :,:, 0,:,:]))
@@ -246,7 +246,7 @@ def pack_vectors(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as ut3_ops
+    >>> import t3toolbox.backend.tucker_tensor_train.uniform.uniform_t3_operations as ut3_ops
     >>> vv = [np.random.randn(2,3, 6), np.random.randn(2,3, 4), np.random.randn(2,3, 5)]
     >>> packed_vv = ut3_ops.pack_vectors(vv)
     >>> print(packed_vv.shape)
@@ -287,7 +287,7 @@ def unpack_vectors(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as ut3_ops
+    >>> import t3toolbox.backend.tucker_tensor_train.uniform.uniform_t3_operations as ut3_ops
     >>> vv = [np.random.randn(2,3, 6), np.random.randn(2,3, 4), np.random.randn(2,3, 5)]
     >>> packed_vv = ut3_ops.pack_vectors(vv)
     >>> vv2 = ut3_ops.unpack_vectors(packed_vv, [v.shape[-1] for v in vv])

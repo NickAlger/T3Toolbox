@@ -23,7 +23,7 @@ def contract_edge_vectors_into_t3(
         ],
         use_jax: bool = False,
 ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:
-    """Contract each edge weight into a neighboring core.
+    """Contract each edge weight into a neighboring backend.
     """
     xnp, xmap, xscan = get_backend(False, use_jax)
 

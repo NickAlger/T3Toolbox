@@ -1,8 +1,8 @@
 import numpy as np
 import typing as typ
 
-import t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations as ragged_operations
-import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as uniform_operations
+import t3toolbox.backend.tucker_tensor_train.ragged.ragged_t3_operations as ragged_operations
+import t3toolbox.backend.tucker_tensor_train.uniform.uniform_t3_operations as uniform_operations
 from t3toolbox.common import *
 
 __all__ = [
@@ -52,7 +52,7 @@ def left_orthogonalize_tt_cores(
 
     Cf, (LL, HH) = xscan(_left_func, init, xs)
 
-    # Dealing with the last core as a special case
+    # Dealing with the last backend as a special case
     Lf = xnp.einsum('...xb,...bjc->...xjc', Cf, tt_cores[-1])
     if is_uniform:
         left_tt_cores = xnp.concatenate([LL, Lf.reshape((1,)+Lf.shape)])

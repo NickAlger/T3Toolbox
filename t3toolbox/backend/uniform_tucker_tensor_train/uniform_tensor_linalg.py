@@ -1,9 +1,9 @@
 import numpy as np
 import typing as typ
 
-import t3toolbox.core.tucker_tensor_train.orthogonalization as orth
-import t3toolbox.core.tucker_tensor_train.uniform.uniform_orthogonalization as uniform_orth
-import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as ut3_ops
+import t3toolbox.backend.tucker_tensor_train.orthogonalization as orth
+import t3toolbox.backend.tucker_tensor_train.uniform.uniform_orthogonalization as uniform_orth
+import t3toolbox.backend.tucker_tensor_train.uniform.uniform_t3_operations as ut3_ops
 from t3toolbox.common import *
 
 __all__ = [
@@ -88,7 +88,7 @@ def scale_last_slice(
     Examples
     --------
     >>> import numpy as np
-    >>> import t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg as utla
+    >>> import t3toolbox.backend.tucker_tensor_train.uniform.uniform_tensor_linalg as utla
     >>> x = np.random.randn(3,4,5)
     >>> s = 3.2
     >>> x_s = utla.scale_last_slice(x, s)

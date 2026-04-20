@@ -29,7 +29,7 @@ __all__ = [
 
 
 ####################################################################
-##################    Tangent vectors core  ##################
+##################    Tangent vectors backend  ##################
 ####################################################################
 
 def manifold_dim(
@@ -174,7 +174,7 @@ def tangent_to_t3(
                      ([O1(dB x)       0]) ([0              0]) ([0              0]) ([0       ])
                      (                  ) ([O2(dB y)       0]) ([O3(dB z)       0]) ([O4(dB w)])
 
-    With shift is same as unshifted, except last core modified as follows::
+    With shift is same as unshifted, except last backend modified as follows::
 
         [R4(B w) ]                  [R4(B w)           ]
         [dU4(B w)]                  [L4(B w) + dU4(B w)]
@@ -566,9 +566,9 @@ def orthogonal_gauge_projection(
     >>> proj_variation = t3m.orthogonal_gauge_projection(variation, base) # Make gauged via orthogonal projection
     >>> (U0,U1,U2), (L0,L1,L2), _, _ = base
     >>> ((V0,V1,V2), (H0,H1,H2)) = proj_variation
-    >>> print(np.linalg.norm(V1 @ U1.T)) # Gauge condition for tucker core 1
+    >>> print(np.linalg.norm(V1 @ U1.T)) # Gauge condition for tucker backend 1
     3.512073125137391e-15
-    >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', H1, L1))) # Gauge condition for TT-core 1
+    >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', H1, L1))) # Gauge condition for TT-backend 1
     1.5807940730805242e-15
     >>> v_minus_p_dot_p = cw.corewise_dot(cw.corewise_sub(variation, proj_variation), proj_variation)
     >>> print(v_minus_p_dot_p) # Projection is orthogonal w.r.t. corewise dot
@@ -687,9 +687,9 @@ def oblique_gauge_projection(
     3.4398319441148304e-15
     >>> (U0,U1,U2), (L0,L1,L2), _, _ = base
     >>> ((V0,V1,V2), (H0,H1,H2)) = proj_variation
-    >>> print(np.linalg.norm(V1 @ U1.T)) # Gauge condition for Tucker core 1
+    >>> print(np.linalg.norm(V1 @ U1.T)) # Gauge condition for Tucker backend 1
     2.931519226677228e-15
-    >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', H1, L1))) # Gauge condition for TT-core 1
+    >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', H1, L1))) # Gauge condition for TT-backend 1
     6.99005312491287e-16
 
     With minimal ranks, orthogonal bases, and gauged variations, the corewise dot product faithfully represents

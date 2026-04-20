@@ -7,9 +7,9 @@ import typing as typ
 
 
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.core.tucker_tensor_train.orthogonalization as orth
-import t3toolbox.core.tucker_tensor_train.uniform.uniform_orthogonalization as uniform_orth
-import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as ut3_ops
+import t3toolbox.backend.tucker_tensor_train.orthogonalization as orth
+import t3toolbox.backend.tucker_tensor_train.uniform.uniform_orthogonalization as uniform_orth
+import t3toolbox.backend.tucker_tensor_train.uniform.uniform_t3_operations as ut3_ops
 # import t3toolbox.OLD_uniform as ut3
 import t3toolbox.util_linalg as linalg
 from t3toolbox.common import *

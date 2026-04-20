@@ -50,7 +50,7 @@ Often, one works with TuckerTensorTrains of the following forms::
        (V0)  U1   U2            U0  (V1)  U2            U0   U1  (V2)
         |    |    |             |    |    |             |    |    |
 
-In each of these, there is a special "variation" core, indicated by parentheses (X), surrounded by base cores. 
+In each of these, there is a special "variation" backend, indicated by parentheses (X), surrounded by base cores. 
 
 The components of T3Base are the "base cores":
     - up_tucker_cores   = (U0, ..., U(d-1)), elm_shape=(nUi, Ni)
@@ -104,9 +104,9 @@ Often, it is desirable for the variations to satisfy the following **Gauge condi
     - U_ia V_ja = 0    (all V)
     - L_abi H_abj = 0  (all but the last H)
 
-If these conditions are satisfied, then one can do "dumb" corewise linear algebra core
-(add, scale, dot product, etc) with the variations, and those core faithfully correspond 
-to linear algebra core with the N1 x ... x Nd tangent vectors represented by the variations. 
+If these conditions are satisfied, then one can do "dumb" corewise linear algebra backend
+(add, scale, dot product, etc) with the variations, and those backend faithfully correspond 
+to linear algebra backend with the N1 x ... x Nd tangent vectors represented by the variations. 
 
 See Also
 --------
@@ -295,7 +295,7 @@ def get_base_hole_shapes(
     typ.Tuple[typ.Tuple[int,...],...], # variation_tucker_shapes. len=d. elm_len=2
     typ.Tuple[typ.Tuple[int,...],...], # variation_tt_shapes. len=d. elm_len=3
 ]:
-    '''T3Variation core shapes that fit with given T3Base.
+    '''T3Variation backend shapes that fit with given T3Base.
 
     Shapes of the "holes" in the following tensor diagrams::
 
@@ -323,9 +323,9 @@ def get_base_hole_shapes(
     Returns
     -------
     typ.Tuple[int,...]
-        Variation Tucker core shapes. len=d. elm_len=2
+        Variation Tucker backend shapes. len=d. elm_len=2
     typ.Tuple[int,...]
-        Variation TT core shapes. len=d. elm_len=3
+        Variation TT backend shapes. len=d. elm_len=3
 
     Raises
     ------
@@ -357,7 +357,7 @@ def get_base_hole_shapes(
 
 def ith_bv_to_t3(
         replacement_ind: int,
-        replace_tt: bool, # If True, replace TT-core. If False, replace tucker_core.
+        replace_tt: bool, # If True, replace TT-backend. If False, replace tucker_core.
         base: T3Base,
         variation: T3Variation,
 ) -> t3.TuckerTensorTrain:
@@ -380,9 +380,9 @@ def ith_bv_to_t3(
     Parameters
     ----------
     replacement_ind: int
-        Index of core to replace. 0 <= replacement_ind < num_cores
+        Index of backend to replace. 0 <= replacement_ind < num_cores
     replace_tt: bool
-        Indicates whether to replace a TT-core (True) or a Tucker core (False)
+        Indicates whether to replace a TT-backend (True) or a Tucker backend (False)
     base: T3Base
         Base cores
     variation: T3Variation
@@ -408,10 +408,10 @@ def ith_bv_to_t3(
     >>> (V0,V1,V2) = (randn(9,14), randn(8,15), randn(7,16))
     >>> (H0,H1,H2) = (randn(1,10,4), randn(2,11,5), randn(3,12,1))
     >>> variation = ((V0,V1,V2), (H0,H1,H2))
-    >>> ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_bv_to_t3(1, True, base, variation) # replace index-1 TT-core
+    >>> ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_bv_to_t3(1, True, base, variation) # replace index-1 TT-backend
     >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,U1,U2), (L0,H1,R2)))
     True
-    >>> ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_bv_to_t3(1, False, base, variation) # replace index-1 tucker core
+    >>> ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_bv_to_t3(1, False, base, variation) # replace index-1 tucker backend
     >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,O1,R2)))
     True
     '''
@@ -463,7 +463,7 @@ def check_t3base(x: T3Base) -> None:
     if not (len(LL) == d and len(RR) == d and len(OO) == d):
         raise ValueError(
             'Inconsistent T3Base.\n' 
-            + 'All core sequences must have length d=' + str(d) +'.\n'
+            + 'All backend sequences must have length d=' + str(d) +'.\n'
             + 'len(UU)=' + str(len(UU))
             + ', len(LL)=' + str(len(LL))
             + ', len(RR)=' + str(len(RR))
@@ -517,7 +517,7 @@ def check_t3base(x: T3Base) -> None:
         if O.shape[0] != L.shape[0]:
             raise ValueError(
                 'Inconsistent T3Base.\n'
-                + 'Outer core left rank mismatch at index' + str(ii)
+                + 'Outer backend left rank mismatch at index' + str(ii)
                 + ': O.shape[0]=' + str(O.shape[0]) 
                 + '!= L.shape[0]=' + str(L.shape[0])
             )
@@ -525,7 +525,7 @@ def check_t3base(x: T3Base) -> None:
         if O.shape[2] != R.shape[2]:
             raise ValueError(
                 'Inconsistent T3Base.\n'
-                + 'Outer core right rank mismatch at index' + str(ii)
+                + 'Outer backend right rank mismatch at index' + str(ii)
                 + ': O.shape[2]=' + str(O.shape[2]) 
                 + '!= R.shape[2]=' + str(R.shape[2])
             )
@@ -554,7 +554,7 @@ def check_t3variation(x: T3Variation) -> None:
     if len(HH) != d:
         raise ValueError(
             'Inconsistent T3Variation.\n' 
-            + 'All core sequences must have length d=' + str(d) +'.\n'
+            + 'All backend sequences must have length d=' + str(d) +'.\n'
             + 'len(VV)=' + str(len(VV))
             + ', len(HH)=' + str(len(HH))
         )
@@ -621,14 +621,14 @@ def t3_orthogonal_representations(
                        B0    B1    B2    B3
                        |     |     |     |
 
-    Base-variation representation with non-orthogonal TT-core H1::
+    Base-variation representation with non-orthogonal TT-backend H1::
 
                   1 -- L0 -- H1 -- R2 -- R3 -- 1
         X    =         |     |     |     |
                        U0    U1    U2    U3
                        |     |     |     |
 
-    Base-variation representation with non-orthogonal tucker core V2::
+    Base-variation representation with non-orthogonal tucker backend V2::
 
                   1 -- L0 -- L1 -- O2 -- R3 -- 1
         X    =         |     |     |     |
@@ -679,10 +679,10 @@ def t3_orthogonal_representations(
     >>> (O0,O1,O2) = outer_tt_cores
     >>> (V0,V1,V2) = tucker_vars
     >>> (H0,H1,H2) = tt_vars
-    >>> x2 = t3.TuckerTensorTrain((U0,U1,U2), (L0,H1,R2)) # representation with TT-core variation in index 1
+    >>> x2 = t3.TuckerTensorTrain((U0,U1,U2), (L0,H1,R2)) # representation with TT-backend variation in index 1
     >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Still represents origional tensor
     4.978421562425667e-12
-    >>> x3 = t3.TuckerTensorTrain((U0,V1,U2), (L0,O1,R2)) # representation with tucker core variation in index 1
+    >>> x3 = t3.TuckerTensorTrain((U0,V1,U2), (L0,O1,R2)) # representation with tucker backend variation in index 1
     >>> print(np.linalg.norm(x.to_dense() - x3.to_dense())) # Still represents origional tensor
     5.4355175448533146e-12
     >>> print(np.linalg.norm(U1 @ U1.T - np.eye(U1.shape[0]))) # U: orthogonal
@@ -710,10 +710,10 @@ def t3_orthogonal_representations(
     >>> (O0,O1,O2) = outer_tt_cores
     >>> (V0,V1,V2) = tucker_vars
     >>> (H0,H1,H2) = tt_vars
-    >>> x2 = TuckerTensorTrain((U0,U1,U2), (L0,H1,R2)) # representation with TT-core variation in index 1
+    >>> x2 = TuckerTensorTrain((U0,U1,U2), (L0,H1,R2)) # representation with TT-backend variation in index 1
     >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Still represents origional tensor
     2.5341562994067855e-12
-    >>> x3 = TuckerTensorTrain((V0,U1,U2), (O0,R1,R2)) # representation with tucker core variation in index 0
+    >>> x3 = TuckerTensorTrain((V0,U1,U2), (O0,R1,R2)) # representation with tucker backend variation in index 0
     >>> print(np.linalg.norm(x.to_dense() - x3.to_dense())) # Still represents origional tensor
     2.9206090606788446e-12
     >>> print(np.linalg.norm(U0 @ U0.T - np.eye(U0.shape[0]))) # U: orthogonal

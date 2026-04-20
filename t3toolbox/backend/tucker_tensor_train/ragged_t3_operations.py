@@ -251,7 +251,7 @@ def t3_to_vector(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
         use_jax: bool=False,
 ) -> NDArray: # shape=(x_size,)
-    """Converts T3 to a 1D vector containing all of the core entries.
+    """Converts T3 to a 1D vector containing all of the backend entries.
     """
     xnp, _, _ = get_backend(False, use_jax)
 
@@ -271,7 +271,7 @@ def t3_from_vector(
         tt_ranks: typ.Sequence[int],
         stack_shape: typ.Sequence[int] = (),
 ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]: # (tucker_cores, tt_cores)
-    """Constructs a T3 from a 1D vector containing the core entries
+    """Constructs a T3 from a 1D vector containing the backend entries
     """
     tucker_core_shapes, tt_core_shapes = t3_core_shapes(
         shape, tucker_ranks, tt_ranks, stack_shape=stack_shape,

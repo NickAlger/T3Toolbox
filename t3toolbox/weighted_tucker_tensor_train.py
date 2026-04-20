@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.core.weighted_tucker_tensor_train.ragged.ragged_wt3_operations as ragged_wt3_operations
+import t3toolbox.backend.weighted_tucker_tensor_train.ragged_wt3_operations as ragged_wt3_operations
 
 
 from t3toolbox.common import *
@@ -175,7 +175,7 @@ class WeightedTuckerTensorTrain:
             self,
             use_jax: bool = False,
     ) -> t3.TuckerTensorTrain:
-        """Contract each edge vector into a neighboring core.
+        """Contract each edge vector into a neighboring backend.
 
         Tensor network diagram illustrating groupings::
 
@@ -509,7 +509,7 @@ def probe_wt3(
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.weighted_tucker_tensor_train as wt3
-    >>> import t3toolbox.core.probing as probing
+    >>> import t3toolbox.backend.probing as probing
     >>> randn = np.random.randn
     >>> x0 = t3.t3_corewise_randn((16,17,18), (5,6,7), (2,3,3,1), stack_shape=(4,))
     >>> tucker_vectors = tuple([randn(4, 5), randn(4, 6), randn(4, 7)])

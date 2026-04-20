@@ -5,9 +5,9 @@
 import numpy as np
 import typing as typ
 
-import t3toolbox.core.tucker_tensor_train.ragged.ragged_t3_operations as ragged_ops
-import t3toolbox.core.tucker_tensor_train.ragged.ragged_orthogonalization as ragged_orth
-import t3toolbox.core.tucker_tensor_train.orthogonalization as orth
+import t3toolbox.backend.tucker_tensor_train.ragged.ragged_t3_operations as ragged_ops
+import t3toolbox.backend.tucker_tensor_train.ragged.ragged_orthogonalization as ragged_orth
+import t3toolbox.backend.tucker_tensor_train.orthogonalization as orth
 import t3toolbox.util_linalg as linalg
 from t3toolbox.common import *
 
@@ -69,7 +69,7 @@ def t3svd(
     for ii in range(num_cores):
         min_rank = min_tucker_ranks[ii] if min_tucker_ranks is not None else None
         max_rank = max_tucker_ranks[ii] if max_tucker_ranks is not None else None
-        # SVD inbetween TT core and Tucker core
+        # SVD inbetween TT backend and Tucker backend
         x, ss_tucker = ragged_orth.up_svd_ith_tt_core(
             x, ii, min_rank, max_rank, rtol, atol, use_jax=use_jax,
         )
@@ -78,7 +78,7 @@ def t3svd(
         if ii < num_cores-1:
             min_rank = min_tt_ranks[ii+1] if min_tt_ranks is not None else None
             max_rank = max_tt_ranks[ii+1] if max_tt_ranks is not None else None
-            # SVD inbetween ith tt core and (i+1)th tt core
+            # SVD inbetween ith tt backend and (i+1)th tt backend
             x, ss_tt = ragged_orth.left_svd_ith_tt_core(
                 x, ii, min_rank, max_rank, rtol, atol, use_jax=use_jax,
             )

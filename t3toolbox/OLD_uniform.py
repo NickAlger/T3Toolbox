@@ -7,7 +7,7 @@ import typing as typ
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.base_variation_format as bvf
-import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as uniform_ops
+import t3toolbox.backend.tucker_tensor_train.uniform.uniform_t3_operations as uniform_ops
 from t3toolbox.common import *
 
 __all__ = [
@@ -42,7 +42,7 @@ __all__ = [
     'ut3_to_dense',
     'are_ut3_ranks_minimal',
     'ut3_entry',
-    # Linear algebra core:
+    # Linear algebra backend:
     'ut3_add',
     'ut3_scale',
     'ut3_neg',
@@ -1120,7 +1120,7 @@ def ut3_apply(
     return result
 
 ###################################################
-#########    Linear algebra core    #########
+#########    Linear algebra backend    #########
 ###################################################
 
 def ut3_add(
