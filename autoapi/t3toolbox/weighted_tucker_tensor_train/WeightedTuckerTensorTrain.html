@@ -496,7 +496,48 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">t3toolbox.weighted_tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">WeightedTuckerTensorTrain</span></span><a class="headerlink" href="#t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain" title="Link to this definition">#</a></dt>
-<dd><dl class="py attribute">
+<dd><p>Class for Tucker tensor trains with weights on internal edges.</p>
+<p>Tensor network diagrams illustrating weights:</p>
+<dl>
+<dt>1–t0–G0–t1–G1– … –G(d-1)–td–1</dt><dd><div class="line-block">
+<div class="line">|          |</div>
+</div>
+<p>s0      s1         s(d-1)
+|       |          |
+B0      B1         B(d-1)
+|       |          |</p>
+</dd>
+<dt>Most functions is performed by:</dt><dd><ol class="arabic simple">
+<li><p>absorb weights into cores, yielding an (unweighted) TuckerTensorTrain</p></li>
+<li><p>apply the operation to the TuckerTensorTrain</p></li>
+</ol>
+</dd>
+<dt>Addition, subtraction are performed by:</dt><dd><ol class="arabic simple">
+<li><p>Add TuckerTensorTrain component</p></li>
+<li><p>Concatenate weights</p></li>
+</ol>
+</dd>
+</dl>
+<p>Scaling and negation are performed by scaling the TuckerTensorTrain component only.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.weighted_tucker_tensor_train</span> <span class="k">as</span> <span class="nn">wt3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">randn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x0</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">6</span><span class="p">,</span><span class="mi">7</span><span class="p">,</span><span class="mi">8</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">7</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="n">stack_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">4</span><span class="p">,))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_vectors</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">7</span><span class="p">)])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tt_vectors</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">([</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">)])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">weights</span> <span class="o">=</span> <span class="n">wt3</span><span class="o">.</span><span class="n">EdgeVectors</span><span class="p">(</span><span class="n">tucker_vectors</span><span class="p">,</span> <span class="n">tt_vectors</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">wt3</span><span class="o">.</span><span class="n">WeightedTuckerTensorTrain</span><span class="p">(</span><span class="n">x0</span><span class="p">,</span> <span class="n">weights</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dense_x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">all_x_vars</span> <span class="o">=</span> <span class="n">x0</span><span class="o">.</span><span class="n">tucker_cores</span> <span class="o">+</span> <span class="n">x0</span><span class="o">.</span><span class="n">tt_cores</span> <span class="o">+</span> <span class="n">tucker_vectors</span> <span class="o">+</span> <span class="n">tt_vectors</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">einsum_str</span> <span class="o">=</span> <span class="s1">&#39;qix,qjy,qkz,qaib,qbjc,qckd,qi,qj,qk,qa,qb,qc,qd-&gt;qxyz&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dense_x2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="n">einsum_str</span><span class="p">,</span> <span class="o">*</span><span class="n">all_x_vars</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">dense_x</span> <span class="o">-</span> <span class="n">dense_x2</span><span class="p">))</span>
+<span class="go">2.0706421599518804e-12</span>
+</pre></div>
+</div>
+<dl class="py attribute">
 <dt class="sig sig-object py" id="t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain.x0">
 <span class="sig-name descname"><span class="pre">x0</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain</span></a></span><a class="headerlink" href="#t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain.x0" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
