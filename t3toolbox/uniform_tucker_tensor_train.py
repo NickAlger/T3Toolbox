@@ -1092,49 +1092,59 @@ def uniform_t3_svd(
     >>> x = t3.t3_corewise_randn(shape, tucker_ranks, tt_ranks)
     >>> ux = ut3.t3_to_ut3(x)
     >>> min_masks = make_uniform_masks(shape, min_tucker_ranks, min_tt_ranks, ux.stack_shape, ux.N, ux.n, ux.r)
-    >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = ut3.uniform_t3_svd((ux.tucker_supercore, ux.tt_supercore), min_masks) # Uniform T3-SVD
+    >>> ux2, ss_tucker_from_ut3, ss_tt_from_ut3 = ut3.uniform_t3_svd((ux.tucker_supercore, ux.tt_supercore), min_masks) # Uniform T3-SVD
     >>> print(np.linalg.norm(ux2.to_dense() - x.to_dense()))
     1.2664289217892565e-11
     >>> print(ux2.structure)
     ((11, 12, 13), array([3, 7, 5]), array([1, 3, 5, 1]), ())
-
-    >>> _, ss_basis, ss_tt = t3svd.t3_svd(x) # Non-uniform T3-SVD
+    >>> _, ss_tucker, ss_tt = t3.t3_svd(x) # Non-uniform T3-SVD
     >>> print(ss_tt[1])
-    [980.86624688 624.1067954  159.88424271]
+    [2271.96541132 2004.56681783  471.59876959]
     >>> print(ss_tt_from_ut3[1])
-    [980.86624688 624.1067954  159.88424271   0.           0.        ]
-    >>> _, tucker_masks, tt_masks = rank_truncation_masks
-    >>> print(ut3.unpack(ss_tt_from_ut3, tt_masks)[1])
-    [980.86624688 624.1067954  159.88424271]
-    >>> ut3.unpack(ss_basis_from_ut3, tucker_masks)[0] - ss_basis[0]
-    array([ 1.13686838e-12, -2.27373675e-13, -1.13686838e-13])
+    [2271.96541132 2004.56681783  471.59876959    0.            0.            0.        ]
+    >>> print(ss_tucker[0])
+    [2271.96541132 2004.56681783  471.59876959]
+    >>> print(ss_tucker_from_ut3[0])
+    [2271.96541132 2004.56681783  471.59876959    0.            0.            0.            0.        ]
 
-    Uniform example with degenerate (unnecessairily large) ranks. Also using jax to test it
+    Using stacking:
 
     >>> import numpy as np
+    >>> from t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations import make_uniform_masks
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.uniform as ut3
-    >>> import t3toolbox.t3svd as t3svd
-    >>> import jax
-    >>> import t3toolbox.corewise as cw
-    >>> jax.config.update("jax_enable_x64", True)
-    >>> structure = ((3,4,3), (4,6,7), (3,5,1,2))
-    >>> x = t3.t3_corewise_randn(structure)
-    >>> cores, masks = ut3.t3_to_ut3(x)
-    >>> inv_masks = cw.corewise_logical_not(rank_truncation_masks)
-    >>> junk = ut3.uniform_randn(ut3.get_uniform_structure(cores), masks=inv_masks)
-    >>> cores = cw.corewise_add(cores, junk) # Add random junk outside the masks
-    >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = t3svd.uniform_t3_svd(cores, rank_truncation_masks, squash_tails_first=False, use_jax=True)
-    >>> print(np.linalg.norm(ut3.ut3_to_dense(ux2, rank_truncation_masks) - t3.t3_to_dense(x))) # OK
-    9.404253555983741e-13
-    >>> _, ss_basis, ss_tt = t3svd.t3_svd(x) # Non-uniform T3-SVD
-    >>> print(ss_tt[1])
-    [913.44494453 127.532224    16.08102313]
-    >>> print(ss_tt_from_ut3[1]) # Incorrect singular values:
-    [417.45514528 401.58448034  72.5343983   22.41273808   0.        ]
-    >>> ux4, ss_basis_from_ut4, ss_tt_from_ut4 = t3svd.uniform_t3_svd(cores, rank_truncation_masks, use_jax=True)
-    >>> print(ss_basis_from_ut4[1])
-
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> shape, tucker_ranks, tt_ranks, stack_shape = (11,12,13), (6,7,5), (1,3,6,2), (2,)
+    >>> min_tucker_ranks, min_tt_ranks = t3.compute_minimal_t3_ranks(shape, tucker_ranks, tt_ranks)
+    >>> x = t3.t3_corewise_randn(shape, tucker_ranks, tt_ranks, stack_shape=stack_shape)
+    >>> ux = ut3.t3_to_ut3(x)
+    >>> min_masks = make_uniform_masks(shape, min_tucker_ranks, min_tt_ranks, ux.stack_shape, ux.N, ux.n, ux.r)
+    >>> ux2, ss_tucker_from_ut3, ss_tt_from_ut3 = ut3.uniform_t3_svd((ux.tucker_supercore, ux.tt_supercore), min_masks) # Uniform T3-SVD
+    >>> print(np.linalg.norm(ux2.to_dense() - x.to_dense()))
+    2.193805472670695e-11
+    >>> print(ux2.tucker_ranks)
+    [[3 3]
+     [7 7]
+     [5 5]]
+    >>> print(ux2.tt_ranks)
+    [[1 1]
+     [3 3]
+     [5 5]
+     [1 1]]
+    >>> xx = x.unstack()
+    >>> _, ss_tucker_a, ss_tt_a = t3.t3_svd(xx[0]) # Non-uniform T3-SVD of first T3 in stack
+    >>> _, ss_tucker_b, ss_tt_b = t3.t3_svd(xx[1]) # Second T3 in stack
+    >>> print(str(ss_tt_a[1]) + '\n' + str(ss_tt_b[1]))
+    [3522.08053706  986.93239042  360.30264481]
+    [4185.51756339 2423.23109837 1564.5114264 ]
+    >>> print(ss_tt_from_ut3[1])
+    [[3522.08053706  986.93239042  360.30264481    0.            0.            0.        ]
+     [4185.51756339 2423.23109837 1564.5114264     0.            0.            0.        ]]
+    >>> print(str(ss_tucker_a[0]) + '\n' + str(ss_tucker_b[0]))
+    [3522.08053706  986.93239042  360.30264481]
+    [4185.51756339 2423.23109837 1564.5114264 ]
+    >>> print(ss_tucker_from_ut3[0])
+    [[3522.08053706  986.93239042  360.30264481    0.            0.            0.            0.        ]
+     [4185.51756339 2423.23109837 1564.5114264     0.            0.            0.            0.        ]]
     """
     new_cores, tucker_singular_values, tt_singular_values  = ut3svd.uniform_t3_svd(cores, rank_truncation_masks, use_jax=use_jax)
     return UniformTuckerTensorTrain(*(new_cores + rank_truncation_masks)), tucker_singular_values, tt_singular_values
