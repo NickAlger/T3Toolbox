@@ -144,7 +144,7 @@ def ut3_inner_product(
     x_tt = xnp.einsum('d...io,d...aib->d...aob', x_tucker_supercore, x_tt_supercore)
     y_tt = xnp.einsum('d...io,d...aib->d...aob', y_tucker_supercore, y_tt_supercore)
 
-    def _push_left(M, Gx_Gy):
+    def _push(M, Gx_Gy):
         Gx, Gy = Gx_Gy
         M2 = xnp.einsum('...ab,...aoc,...bod->...cd', M, Gx, Gy)
         return M2, (0,)
@@ -154,7 +154,7 @@ def ut3_inner_product(
     r_y = y_tt_supercore.shape[-1]
 
     M = xnp.ones(stack_shape + (r_x,r_y))
-    Mf, _ = xscan(_push_left, M, (x_tt, y_tt))
+    Mf, _ = xscan(_push, M, (x_tt, y_tt))
     return xnp.einsum('...ab->...', Mf)
 
 
