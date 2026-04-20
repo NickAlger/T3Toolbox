@@ -158,9 +158,6 @@ def t3_to_ut3(
         tt_cores, padded_tucker_ranks, padded_tt_ranks, use_jax=use_jax,
     )
 
-    print('[x.shape for x in padded_tucker_cores]', [x.shape for x in padded_tucker_cores])
-    print('[x.shape for x in padded_tt_cores]', [x.shape for x in padded_tt_cores])
-
     tucker_supercore = xnp.stack(padded_tucker_cores)
     tt_supercore = xnp.stack(padded_tt_cores)
 
@@ -201,8 +198,6 @@ def ut3_to_t3(
     #
     tucker_supercore, tt_supercore, shape_masks, tucker_masks, tt_masks = x
     stack_shape = tucker_supercore[0].shape[:-2]
-
-    print('tucker_supercore[0].shape=', tucker_supercore[0].shape)
 
     if not stack_shape: # not stacked
         shape_inds  = [xnp.argwhere(em).reshape(-1) for em in list(shape_masks)]

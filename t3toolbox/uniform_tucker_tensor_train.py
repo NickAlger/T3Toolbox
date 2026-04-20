@@ -191,9 +191,6 @@ class UniformTuckerTensorTrain:
         assert(is_boolean_ndarray(self.tucker_edge_mask))
         assert(is_boolean_ndarray(self.tt_edge_mask))
 
-        print('self.tt_supercore.shape=', self.tt_supercore.shape)
-        print('(self.d+1,)+self.stack_shape+(self.r, self.n, self.r)', (self.d+1,)+self.stack_shape+(self.r, self.n, self.r))
-
         assert(self.tucker_supercore.shape == (self.d,)+self.stack_shape+(self.n, self.N))
         assert(self.tt_supercore.shape == (self.d,)+self.stack_shape+(self.r, self.n, self.r))
         assert(self.shape_mask.shape == (self.d,)+self.stack_shape+(self.N,))
@@ -204,7 +201,29 @@ class UniformTuckerTensorTrain:
         self.validate()
 
     def to_dense(self, use_jax: bool = False) -> NDArray:
-        return ut3_to_t3(self).to_dense(use_jax=use_jax)
+        """Convert uniform Tucker tensor train to dense array.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> x = t3.t3_corewise_randn((14, 15, 16), (4, 6, 5), (3, 3, 2, 4), stack_shape=(2,3))
+        >>> uniform_x = ut3.t3_to_ut3(x)  # Convert t3 -> ut3
+        >>> x_dense = x.to_dense()
+        >>> x_dense2 = uniform_x.to_dense()
+        >>> print(np.linalg.norm(x_dense - x_dense2))
+        3.2298106396012192e-12
+        """
+        xnp, _, _ = get_backend(True, use_jax)
+
+        all_t3s = ut3_to_t3(self, use_jax=use_jax)
+        def _func(x):
+            if isinstance(x, t3.TuckerTensorTrain):
+                return x.to_dense(use_jax=use_jax)
+            return xnp.array([_func(xi) for xi in x])
+
+        return _func(all_t3s)
 
     def reverse(self) -> 'UniformTuckerTensorTrain':
         """Reversed a UniformTuckerTensorTrain.
@@ -366,8 +385,8 @@ def ut3_to_t3(
     else:
         def _func(x):
             if is_ndarray(x[0][0]):
-                return t3.TuckerTensorTrain(x)
-            return tuple([t3.TuckerTensorTrain(*xi) for xi in x])
+                return t3.TuckerTensorTrain(*x)
+            return tuple([_func(xi) for xi in x])
 
         return _func(result)
 
