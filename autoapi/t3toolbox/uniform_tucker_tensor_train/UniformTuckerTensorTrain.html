@@ -676,7 +676,20 @@ so that the ranks are uniform, then stacking the TT cores and Tucker cores into
 <dl class="py method">
 <dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.to_dense">
 <span class="sig-name descname"><span class="pre">to_dense</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a></span></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.to_dense" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>Convert uniform Tucker tensor train to dense array.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.uniform_tucker_tensor_train</span> <span class="k">as</span> <span class="nn">ut3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">stack_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">uniform_x</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">t3_to_ut3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>  <span class="c1"># Convert t3 -&gt; ut3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x_dense</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x_dense2</span> <span class="o">=</span> <span class="n">uniform_x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x_dense</span> <span class="o">-</span> <span class="n">x_dense2</span><span class="p">))</span>
+<span class="go">3.2298106396012192e-12</span>
+</pre></div>
+</div>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.reverse">

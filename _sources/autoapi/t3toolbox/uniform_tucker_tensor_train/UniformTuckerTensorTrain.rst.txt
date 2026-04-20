@@ -172,6 +172,21 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
 
    .. py:method:: to_dense(use_jax: bool = False) -> t3toolbox.common.NDArray
 
+      Convert uniform Tucker tensor train to dense array.
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+      >>> x = t3.t3_corewise_randn((14, 15, 16), (4, 6, 5), (3, 3, 2, 4), stack_shape=(2,3))
+      >>> uniform_x = ut3.t3_to_ut3(x)  # Convert t3 -> ut3
+      >>> x_dense = x.to_dense()
+      >>> x_dense2 = uniform_x.to_dense()
+      >>> print(np.linalg.norm(x_dense - x_dense2))
+      3.2298106396012192e-12
+
+
 
    .. py:method:: reverse() -> UniformTuckerTensorTrain
 
