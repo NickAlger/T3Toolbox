@@ -256,9 +256,7 @@ def compute_xis(
     xi_weights = up_tucker_weights
 
     if is_uniform:
-        unweighted_xis = contractions.dMio_No_to_dMNi(up_tucker_cores, ww)
-        # unweighted_xis = xnp.einsum('dio,d...o->d...i', up_tucker_cores, ww)
-
+        unweighted_xis = contractions.dMio_dNo_to_dMNi(up_tucker_cores, ww)
     else:
         def _func(x):
             U, w = x
@@ -418,8 +416,7 @@ def assemble_zs(
     z_weights = shape_weights
 
     if is_uniform:
-        unweighted_zs = contractions.dNi_dMio_to_dMNo(etas, tucker_cores)
-        # unweighted_zs = xnp.einsum('d...a,dao->d...o', etas, tucker_cores)
+        unweighted_zs = contractions.dMNi_dMio_to_dMNo(etas, tucker_cores)
     else:
         def _func(x):
             eta, U = x

@@ -19,7 +19,7 @@ def reverse_utt(
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]:
     """Reverse a uniform tensor train (no Tucker).
     """
-    return tt_cores[::-1, :, :, :].swapaxes(1, 3)
+    return tt_cores[::-1].swapaxes(-3, -1)
 
 
 def uniform_squash_tt_tails(
@@ -76,7 +76,7 @@ def make_uniform_masks(
         r: int,
         use_jax: bool = False,
 ) -> typ.Tuple[
-    NDArray, # shape_mask, dtype=bool, shape=(d,)+stack_shape+(N,)
+    NDArray, # shape_mask, dtype=bool, shape=(d,N)
     NDArray, # tucker_edge_masks, dtype=bool, shape=(d,)+stack_shape+(n,)
     NDArray, # tt_edge_masks, dtype=bool, shape=(d,)+stack_shape+(r,)
 ]:
@@ -85,8 +85,8 @@ def make_uniform_masks(
 
     shape_masks = xnp.stack([
         xnp.concatenate([
-            xnp.ones(stack_shape+(Ni,), dtype=bool),
-            xnp.zeros(stack_shape+(N-Ni,), dtype=bool),
+            xnp.ones((Ni,), dtype=bool),
+            xnp.zeros((N-Ni,), dtype=bool),
         ], axis=-1,
         )
         for Ni in shape
@@ -221,7 +221,7 @@ def ut3_to_t3(
         xi = (
             tucker_supercore[:, ii],
             tt_supercore[:, ii],
-            shape_masks[:, ii],
+            shape_masks,
             tucker_masks[:, ii],
             tt_masks[:, ii],
         )
@@ -234,3 +234,70 @@ def ut3_to_t3(
         all_T3s = t3_ops.t3_stack(all_T3s, use_jax=use_jax)
 
     return all_T3s
+
+
+def pack_vectors(
+        unpacked_vectors = typ.Sequence[NDArray], # len=d, ith_elm.shape=stack_shape+(Ni,)
+        N: int = None,
+        use_jax: bool = False,
+) -> NDArray: # packed_vectors, shape=(d,)+stack_shape+(N,), where N=max(N0,...,N(d-1))
+    """Use zero-padding to pack several vectors with ragged shapes into one tensor with an extra dimension.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as ut3_ops
+    >>> vv = [np.random.randn(2,3, 6), np.random.randn(2,3, 4), np.random.randn(2,3, 5)]
+    >>> packed_vv = ut3_ops.pack_vectors(vv)
+    >>> print(packed_vv.shape)
+    (3, 2, 3, 6)
+    >>> print(np.linalg.norm(vv[1] - packed_vv[1,:,:,:4]))
+    0.0
+    >>> print(np.linalg.norm(packed_vv[1,:,:,4:]))
+    0.0
+    """
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
+    if not unpacked_vectors:
+        return xnp.array(())
+
+    stack_shape = unpacked_vectors[0].shape[:-1]
+
+    if N is None:
+        N = max([v.shape[-1] for v in unpacked_vectors])
+
+    padded_vectors_list = []
+    for v in unpacked_vectors:
+        pad = ((0,0),)*len(stack_shape) + ((0, N - v.shape[-1]),)
+
+        padded_v = xnp.pad(v, pad)
+        padded_vectors_list.append(padded_v)
+
+    packed_vectors = xnp.stack(padded_vectors_list)
+    return packed_vectors
+
+
+def unpack_vectors(
+        packed_vectors: NDArray, # shape=(d,)+stack_shape+Ni
+        unpacking_shape: typ.Sequence[int], # (N0,...,N(d-1))
+) -> typ.Sequence[NDArray]:
+    """Unpacks stacked vectors of size N,...,N into tuple of vectors of size N0,...,N(d-1).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as ut3_ops
+    >>> vv = [np.random.randn(2,3, 6), np.random.randn(2,3, 4), np.random.randn(2,3, 5)]
+    >>> packed_vv = ut3_ops.pack_vectors(vv)
+    >>> vv2 = ut3_ops.unpack_vectors(packed_vv, [v.shape[-1] for v in vv])
+    >>> for v, v2 in zip(vv, vv2): print(np.linalg.norm(v - v2))
+    0.0
+    0.0
+    0.0
+    """
+    return tuple([
+        packed_vectors[ii, ..., :unpacking_shape[ii]]
+        for ii in range(len(unpacking_shape))
+    ])
+

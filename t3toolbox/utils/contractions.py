@@ -12,11 +12,11 @@ __all__ = [
     'MNa_Maib_No_Mio_to_MNb',
     'MNa_Maib_MiN_to_MNb',
     'Mio_No_to_MNi',
-    'dMio_No_to_dMNi',
+    'dMio_dNo_to_dMNi',
     'MNa_Maib_MNb_to_MNi',
     'dMNa_dMaib_dMNb_to_dMNi',
     'MNi_Mio_to_MNo',
-    'dNi_dMio_to_dMNo',
+    'dMNi_dMio_to_dMNo',
 ]
 
 NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
@@ -518,12 +518,12 @@ def Mio_No_to_MNi(
     return MNi
 
 
-def dMio_No_to_dMNi(
+def dMio_dNo_to_dMNi(
         dMio: NDArray,
-        No: NDArray,
+        dNo: NDArray,
         use_jax: bool = False,
 ) -> NDArray:
-    """Computes contraction dMio,No->dMNi.
+    """Computes contraction dMio,dNo->dMNi.
 
     N and M may be individual indices, groups of indices, or nonexistent.
 
@@ -533,11 +533,11 @@ def dMio_No_to_dMNi(
     Vectorize over both N and M:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dMio_No_to_dMNi
+    >>> from t3toolbox.utils.contractions import dMio_dNo_to_dMNi
     >>> dMio = np.random.randn(8, 5,6, 10,13)
-    >>> No = np.random.randn(2,3,4, 13)
-    >>> result = dMio_No_to_dMNi(dMio, No)
-    >>> result2 = np.einsum('duvio,xyzo->duvxyzi', dMio, No)
+    >>> dNo = np.random.randn(8, 2,3,4, 13)
+    >>> result = dMio_dNo_to_dMNi(dMio, dNo)
+    >>> result2 = np.einsum('duvio,dxyzo->duvxyzi', dMio, dNo)
     >>> print(result.shape == result2.shape)
     True
     >>> print(np.linalg.norm(result - result2))
@@ -546,11 +546,11 @@ def dMio_No_to_dMNi(
     Vectorize over N only
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dMio_No_to_dMNi
+    >>> from t3toolbox.utils.contractions import dMio_dNo_to_dMNi
     >>> dMio = np.random.randn(8, 10,13)
-    >>> No = np.random.randn(2,3,4, 13)
-    >>> result = dMio_No_to_dMNi(dMio, No)
-    >>> result2 = np.einsum('dio,xyzo->dxyzi', dMio, No)
+    >>> dNo = np.random.randn(8, 2,3,4, 13)
+    >>> result = dMio_dNo_to_dMNi(dMio, dNo)
+    >>> result2 = np.einsum('dio,dxyzo->dxyzi', dMio, dNo)
     >>> print(result.shape == result2.shape)
     True
     >>> print(np.linalg.norm(result - result2))
@@ -559,11 +559,11 @@ def dMio_No_to_dMNi(
     Vectorize over both M only:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dMio_No_to_dMNi
+    >>> from t3toolbox.utils.contractions import dMio_dNo_to_dMNi
     >>> dMio = np.random.randn(8, 5,6, 10,13)
-    >>> No = np.random.randn(13)
-    >>> result = dMio_No_to_dMNi(dMio, No)
-    >>> result2 = np.einsum('duvio,o->duvi', dMio, No)
+    >>> dNo = np.random.randn(8, 13)
+    >>> result = dMio_dNo_to_dMNi(dMio, dNo)
+    >>> result2 = np.einsum('duvio,do->duvi', dMio, dNo)
     >>> print(result.shape == result2.shape)
     True
     >>> print(np.linalg.norm(result - result2))
@@ -572,11 +572,11 @@ def dMio_No_to_dMNi(
     No vectorization:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dMio_No_to_dMNi
+    >>> from t3toolbox.utils.contractions import dMio_dNo_to_dMNi
     >>> dMio = np.random.randn(8, 10,13)
-    >>> No = np.random.randn(13)
-    >>> result = dMio_No_to_dMNi(dMio, No)
-    >>> result2 = np.einsum('dio,o->di', dMio, No)
+    >>> dNo = np.random.randn(8, 13)
+    >>> result = dMio_dNo_to_dMNi(dMio, dNo)
+    >>> result2 = np.einsum('dio,do->di', dMio, dNo)
     >>> print(result.shape == result2.shape)
     True
     >>> print(np.linalg.norm(result - result2))
@@ -588,15 +588,15 @@ def dMio_No_to_dMNi(
     M_shape = dMio.shape[1:-2]
     i_shape = (dMio.shape[-2],)
     o_shape = (dMio.shape[-1],)
-    N_shape = No.shape[:-1]
+    N_shape = dNo.shape[1:-1]
 
     size_N = np.prod(N_shape, dtype=int) # yes, np. We want this done statically. dtype: () -> int 1
     size_M = np.prod(M_shape, dtype=int)
 
     dMio = dMio.reshape(d_shape + (size_M,) + i_shape + o_shape)
-    No  = No.reshape((size_N,) + o_shape)
+    dNo  = dNo.reshape(d_shape + (size_N,) + o_shape)
 
-    dMNi = xnp.einsum('dMio,No->dMNi', dMio, No)
+    dMNi = xnp.einsum('dMio,dNo->dMNi', dMio, dNo)
 
     dMNi = dMNi.reshape(d_shape + M_shape + N_shape + i_shape)
     return dMNi
@@ -866,8 +866,8 @@ def MNi_Mio_to_MNo(
     return MNo
 
 
-def dNi_dMio_to_dMNo(
-        dNi: NDArray,
+def dMNi_dMio_to_dMNo(
+        dMNi: NDArray,
         dMio: NDArray,
         use_jax: bool = False,
 ) -> NDArray:
@@ -881,11 +881,11 @@ def dNi_dMio_to_dMNo(
     Vectorize over both N and M:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dNi_dMio_to_dMNo
-    >>> dNi = np.random.randn(8, 2,3,4, 10)
+    >>> from t3toolbox.utils.contractions import dMNi_dMio_to_dMNo
+    >>> dMNi = np.random.randn(8, 5,6, 2,3,4, 10)
     >>> dMio = np.random.randn(8, 5,6, 10,13)
-    >>> result = dNi_dMio_to_dMNo(dNi, dMio)
-    >>> result2 = np.einsum('dxyzi,duvio->duvxyzo', dNi, dMio)
+    >>> result = dMNi_dMio_to_dMNo(dMNi, dMio)
+    >>> result2 = np.einsum('duvxyzi,duvio->duvxyzo', dMNi, dMio)
     >>> print(result.shape == result2.shape)
     True
     >>> print(np.linalg.norm(result - result2))
@@ -894,11 +894,11 @@ def dNi_dMio_to_dMNo(
     Vectorize over N only
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dNi_dMio_to_dMNo
-    >>> dNi = np.random.randn(8, 2,3,4, 10)
+    >>> from t3toolbox.utils.contractions import dMNi_dMio_to_dMNo
+    >>> dMNi = np.random.randn(8, 2,3,4, 10)
     >>> dMio = np.random.randn(8, 10,13)
-    >>> result = dNi_dMio_to_dMNo(dNi, dMio)
-    >>> result2 = np.einsum('dxyzi,dio->dxyzo', dNi, dMio)
+    >>> result = dMNi_dMio_to_dMNo(dMNi, dMio)
+    >>> result2 = np.einsum('dxyzi,dio->dxyzo', dMNi, dMio)
     >>> print(result.shape == result2.shape)
     True
     >>> print(np.linalg.norm(result - result2))
@@ -907,11 +907,11 @@ def dNi_dMio_to_dMNo(
     Vectorize over both M only:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dNi_dMio_to_dMNo
-    >>> dNi = np.random.randn(8, 10)
+    >>> from t3toolbox.utils.contractions import dMNi_dMio_to_dMNo
+    >>> dMNi = np.random.randn(8, 5,6, 10)
     >>> dMio = np.random.randn(8, 5,6, 10,13)
-    >>> result = dNi_dMio_to_dMNo(dNi, dMio)
-    >>> result2 = np.einsum('di,duvio->duvo', dNi, dMio)
+    >>> result = dMNi_dMio_to_dMNo(dMNi, dMio)
+    >>> result2 = np.einsum('duvi,duvio->duvo', dMNi, dMio)
     >>> print(result.shape == result2.shape)
     True
     >>> print(np.linalg.norm(result - result2))
@@ -920,11 +920,11 @@ def dNi_dMio_to_dMNo(
     No vectorization:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dNi_dMio_to_dMNo
-    >>> dNi = np.random.randn(8, 10)
+    >>> from t3toolbox.utils.contractions import dMNi_dMio_to_dMNo
+    >>> dMNi = np.random.randn(8, 10)
     >>> dMio = np.random.randn(8, 10,13)
-    >>> result = dNi_dMio_to_dMNo(dNi, dMio)
-    >>> result2 = np.einsum('di,dio->do', dNi, dMio)
+    >>> result = dMNi_dMio_to_dMNo(dMNi, dMio)
+    >>> result2 = np.einsum('di,dio->do', dMNi, dMio)
     >>> print(result.shape == result2.shape)
     True
     >>> print(np.linalg.norm(result - result2))
@@ -936,15 +936,15 @@ def dNi_dMio_to_dMNo(
     M_shape = dMio.shape[1:-2]
     i_shape = (dMio.shape[-2],)
     o_shape = (dMio.shape[-1],)
-    N_shape = dNi.shape[1:-1]
+    N_shape = dMNi.shape[1+len(M_shape):-1]
 
     size_N = np.prod(N_shape, dtype=int) # yes, np. We want this done statically. dtype: () -> int 1
     size_M = np.prod(M_shape, dtype=int)
 
     dMio = dMio.reshape(d_shape + (size_M,) + i_shape + o_shape)
-    dNi  = dNi.reshape(d_shape + (size_N,) + i_shape)
+    dMNi  = dMNi.reshape(d_shape + (size_M,) + (size_N,) + i_shape)
 
-    dMNo = xnp.einsum('dNi,dMio->dMNo', dNi, dMio)
+    dMNo = xnp.einsum('dMNi,dMio->dMNo', dMNi, dMio)
 
     dMNo = dMNo.reshape(d_shape + M_shape + N_shape + o_shape)
     return dMNo
