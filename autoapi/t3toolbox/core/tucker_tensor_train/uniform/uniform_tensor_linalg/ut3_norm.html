@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_norm &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/core/tucker_tensor_train/uniform/uniform_tensor_linalg/index';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/core/tucker_tensor_train/uniform/uniform_tensor_linalg/ut3_norm';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../../../search.html" />
-    <link rel="next" title="t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_add" href="ut3_add.html" />
-    <link rel="prev" title="t3toolbox.core.tucker_tensor_train.uniform.uniform_t3svd.uniform_t3_svd" href="../uniform_t3svd/uniform_t3_svd.html" />
+    <link rel="next" title="t3toolbox.core.weighted_tucker_tensor_train" href="../../../weighted_tucker_tensor_train/index.html" />
+    <link rel="prev" title="t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_inner_product" href="ut3_inner_product.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -492,7 +492,10 @@
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">t3toolbox.core.tucker_tensor_train.uniform</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg</span></li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_norm</span></li>
   </ul>
 </nav>
 </div>
@@ -509,30 +512,14 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="module-t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg">
-<span id="t3toolbox-core-tucker-tensor-train-uniform-uniform-tensor-linalg"></span><h1>t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg<a class="headerlink" href="#module-t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg" title="Link to this heading">#</a></h1>
-<section id="functions">
-<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">#</a></h2>
-<div class="toctree-wrapper compound">
-</div>
-<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="ut3_add.html#t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_add" title="t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_add</span></code></a>(...)</p></td>
-<td><p>Add two UniformTuckerTensorTrains, x,y -&gt; x+y.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="scale_last_slice.html#t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.scale_last_slice" title="t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.scale_last_slice"><code class="xref py py-obj docutils literal notranslate"><span class="pre">scale_last_slice</span></code></a>(→ t3toolbox.common.NDArray)</p></td>
-<td><p>Apply scaling to only the last slice of an array.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="ut3_inner_product.html#t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_inner_product" title="t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_inner_product"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_inner_product</span></code></a>(x, y[, use_orthogonalization, use_jax])</p></td>
-<td><p>Compute the Hilbert-Schmidt inner product between two uniform Tucker tensor trains.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ut3_norm.html#t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_norm" title="t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_norm"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_norm</span></code></a>(x[, use_orthogonalization, use_jax])</p></td>
-<td><p>Compute the Hilbert-Schmidt norm of a uniform Tucker tensor train.</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
+  <section id="t3toolbox-core-tucker-tensor-train-uniform-uniform-tensor-linalg-ut3-norm">
+<h1>t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_norm<a class="headerlink" href="#t3toolbox-core-tucker-tensor-train-uniform-uniform-tensor-linalg-ut3-norm" title="Link to this heading">#</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_norm">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.</span></span><span class="sig-name descname"><span class="pre">ut3_norm</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../../../../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_orthogonalization</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_norm" title="Link to this definition">#</a></dt>
+<dd><p>Compute the Hilbert-Schmidt norm of a uniform Tucker tensor train.</p>
+</dd></dl>
+
 </section>
 
 
@@ -546,20 +533,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../uniform_t3svd/uniform_t3_svd.html"
+       href="ut3_inner_product.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.core.tucker_tensor_train.uniform.uniform_t3svd.uniform_t3_svd</p>
+        <p class="prev-next-title">t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_inner_product</p>
       </div>
     </a>
     <a class="right-next"
-       href="ut3_add.html"
+       href="../../../weighted_tucker_tensor_train/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_add</p>
+        <p class="prev-next-title">t3toolbox.core.weighted_tucker_tensor_train</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -582,14 +569,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#functions">Functions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_norm"><code class="docutils literal notranslate"><span class="pre">t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_norm()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../../../../_sources/autoapi/t3toolbox/core/tucker_tensor_train/uniform/uniform_tensor_linalg/index.rst.txt">
+    <a href="../../../../../../_sources/autoapi/t3toolbox/core/tucker_tensor_train/uniform/uniform_tensor_linalg/ut3_norm.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

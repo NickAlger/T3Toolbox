@@ -454,3 +454,21 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
       2.4167107000621777e-15
 
 
+
+   .. py:method:: norm(use_orthogonalization: bool = True, use_jax: bool = False)
+
+      Compute the Hilbert-Schmidt norm of this uniform Tucker tensor train.
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
+      >>> ux = ut3.t3_to_ut3(x)
+      >>> norm_ux = ux.norm()
+      >>> norm_ux2 = np.einsum('...xyz->...', x.to_dense()**2)
+      >>> print(np.linalg.norm(norm_ux - norm_ux2) / np.linalg.norm(norm_ux))
+      1.4526456430189309e-15
+
+
