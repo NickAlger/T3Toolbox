@@ -106,6 +106,45 @@ class EdgeVectors:
 
 @dataclass
 class WeightedTuckerTensorTrain:
+    """Class for Tucker tensor trains with weights on internal edges.
+
+    Tensor network diagrams illustrating weights::
+
+    1--t0--G0--t1--G1-- ... --G(d-1)--td--1
+           |       |          |
+           s0      s1         s(d-1)
+           |       |          |
+           B0      B1         B(d-1)
+           |       |          |
+
+    Most functions is performed by:
+        1) absorb weights into cores, yielding an (unweighted) TuckerTensorTrain
+        2) apply the operation to the TuckerTensorTrain
+
+    Addition, subtraction are performed by:
+        1) Add TuckerTensorTrain component
+        2) Concatenate weights
+
+    Scaling and negation are performed by scaling the TuckerTensorTrain component only.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.weighted_tucker_tensor_train as wt3
+    >>> randn = np.random.randn
+    >>> x0 = t3.t3_corewise_randn((6,7,8), (5,6,7), (2,3,3,1), stack_shape=(4,))
+    >>> tucker_vectors = tuple([randn(4, 5), randn(4, 6), randn(4, 7)])
+    >>> tt_vectors = tuple([randn(4, 2), randn(4, 3), randn(4, 3), randn(4, 1)])
+    >>> weights = wt3.EdgeVectors(tucker_vectors, tt_vectors)
+    >>> x = wt3.WeightedTuckerTensorTrain(x0, weights)
+    >>> dense_x = x.to_dense()
+    >>> all_x_vars = x0.tucker_cores + x0.tt_cores + tucker_vectors + tt_vectors
+    >>> einsum_str = 'qix,qjy,qkz,qaib,qbjc,qckd,qi,qj,qk,qa,qb,qc,qd->qxyz'
+    >>> dense_x2 = np.einsum(einsum_str, *all_x_vars)
+    >>> print(np.linalg.norm(dense_x - dense_x2))
+    2.0706421599518804e-12
+    """
     x0:             t3.TuckerTensorTrain
     edge_weights:   EdgeVectors
 
