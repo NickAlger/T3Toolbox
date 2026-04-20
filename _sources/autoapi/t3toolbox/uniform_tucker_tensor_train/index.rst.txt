@@ -26,11 +26,13 @@ Functions
    /autoapi/t3toolbox/uniform_tucker_tensor_train/t3_to_ut3
    /autoapi/t3toolbox/uniform_tucker_tensor_train/ut3_to_t3
    /autoapi/t3toolbox/uniform_tucker_tensor_train/ut3_get_entries
+   /autoapi/t3toolbox/uniform_tucker_tensor_train/ut3_apply
 
 .. autoapisummary::
 
    t3toolbox.uniform_tucker_tensor_train.t3_to_ut3
    t3toolbox.uniform_tucker_tensor_train.ut3_to_t3
    t3toolbox.uniform_tucker_tensor_train.ut3_get_entries
+   t3toolbox.uniform_tucker_tensor_train.ut3_apply
 
 
