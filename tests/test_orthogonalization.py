@@ -4,7 +4,7 @@
 import numpy as np
 import unittest
 
-import t3toolbox.orthogonalization as orth
+import t3toolbox.OLD_orthogonalization as orth
 import t3toolbox.tucker_tensor_train as t3
 
 try:

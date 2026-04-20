@@ -53,7 +53,7 @@ def uniform_tangent_to_uniform_t3(
     >>> import t3toolbox.orthogonalization as orth
     >>> import t3toolbox.t3svd as t3svd
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (5,3,2,4)))
-    >>> p, _, _ = t3svd.t3_svd(p)
+    >>> p, _, _ = t3svd.t3svd(p)
     >>> base, dummy_var = orth.orthogonal_representations(p)
     >>> v = t3m.tangent_randn(base)
     >>> uniform_v, uniform_base, bv_mask = ut3.bv_to_ubv(v, base)
@@ -172,7 +172,7 @@ def uniform_tangent_to_dense(
     >>> import t3toolbox.orthogonalization as orth
     >>> import t3toolbox.t3svd as t3svd
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (5,3,2,4)))
-    >>> p, _, _ = t3svd.t3_svd(p)
+    >>> p, _, _ = t3svd.t3svd(p)
     >>> base, dummy_var = orth.orthogonal_representations(p)
     >>> v = t3m.tangent_randn(base)
     >>> uniform_v, uniform_base, bv_mask = ut3.bv_to_ubv(v, base)

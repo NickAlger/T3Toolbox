@@ -1,9 +1,13 @@
+# Authors: Nick Alger and Blake Christierson
+# Copyright: MIT License (2026)
+# Github: https://github.com/NickAlger/TuckerTensorTrainTools
+# Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
 import numpy as np
 import typing as typ
 
-import t3toolbox.util_linalg as linalg
+import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.tucker_tensor_train.orthogonalization as orth
-from t3toolbox.common import *
+from t3toolbox.backend.common import *
 
 __all__ = [
     'left_orthogonalize_t3',

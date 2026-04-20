@@ -463,7 +463,7 @@ def apply_masks(
     >>> dense_x = t3.t3_to_dense(x)
     >>> print(np.linalg.norm(ut3.ut3_to_dense(uniform_x_svd, masks) - dense_x))
     3.0208288525321468e-12
-    >>> x_svd, ss2, _ = t3svd.t3_svd(x)
+    >>> x_svd, ss2, _ = t3svd.t3svd(x)
     >>> print(np.linalg.norm(t3.t3_to_dense(x_svd) - dense_x))
     2.9361853188555994e-12
     >>> x_svd_structure = t3.get_structure(x_svd)
@@ -673,7 +673,7 @@ def unpack(
     >>> s0 = ((11,12,13), (6,7,5), (1,3,6,2))
     >>> s = (s0[0],) + t3.compute_minimal_t3_ranks(s0)
     >>> x = t3.t3_corewise_randn(s)
-    >>> _, _, ss_tt = t3svd.t3_svd(x)
+    >>> _, _, ss_tt = t3svd.t3svd(x)
     >>> print(ss_tt[1])
     [2627.79225375  441.12769204  328.73617961]
     >>> cores, masks = ut3.t3_to_ut3(x)
@@ -1024,7 +1024,7 @@ def ut3_entry(
 	((14, 15, 16), (4, 5, 3), (1, 4, 2, 1))
 	>>> print(ut3.get_uniform_structure(cores)) # uniform shape and ranks, (d,N,n,r):
 	(3, 16, 5, 4)
-	>>> x_312_uniform = ut3.ut3_get_entries(cores, index) # (3,1,2) entry from uniform T3:
+	>>> x_312_uniform = ut3.ut3_entries(cores, index) # (3,1,2) entry from uniform T3:
 	>>> print(x_312_uniform)
 	-1.4931654579929197
 
@@ -1039,7 +1039,7 @@ def ut3_entry(
     >>> print(x_312)
     -6.127319174475167
     >>> cores, masks = ut3.t3_to_ut3(x)
-    >>> x_312_uniform = ut3.ut3_get_entries(cores, index)
+    >>> x_312_uniform = ut3.ut3_entries(cores, index)
     >>> print(x_312_uniform)
     -6.127319174475165
 

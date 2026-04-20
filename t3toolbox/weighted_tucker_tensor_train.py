@@ -10,12 +10,9 @@ import typing as typ
 import functools as ft
 from dataclasses import dataclass
 
-
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.backend.weighted_tucker_tensor_train.ragged_wt3_operations as ragged_wt3_operations
-
-
-from t3toolbox.common import *
+from t3toolbox.backend.common import *
 
 jax = None
 if has_jax:
@@ -24,9 +21,15 @@ if has_jax:
 __all__ = [
     'EdgeVectors',
     'WeightedTuckerTensorTrain',
+    'concatenate_edge_vectors',
+    #
     'wt3_add',
     'wt3_sub',
     'wt3_inner_product',
+    #
+    'wt3_apply',
+    'wt3_entries',
+    'wt3_probe',
 ]
 
 
@@ -289,8 +292,6 @@ class WeightedTuckerTensorTrain:
         return self.contract_edge_weights_into_cores(use_jax=use_jax).to_dense(use_jax=use_jax)
 
 
-
-
 if has_jax:
     jax.tree_util.register_pytree_node(
         EdgeVectors,
@@ -466,7 +467,7 @@ def wt3_apply(
 
 
 
-def wt3_get_entries(
+def wt3_entries(
         x: WeightedTuckerTensorTrain, # shape=(N0,...,N(d-1))
         index: NDArray, # or convertible to NDArray. dtype=int
         use_jax: bool = False,
@@ -485,19 +486,19 @@ def wt3_get_entries(
     >>> weights = wt3.EdgeVectors(tucker_vectors, tt_vectors)
     >>> x = wt3.WeightedTuckerTensorTrain(x0, weights)
     >>> index = [[9,0], [4,0], [7,0]] # get entries (9,4,7) and (0,0,0)
-    >>> entries = wt3.wt3_get_entries(x, index)
+    >>> entries = wt3.wt3_entries(x, index)
     >>> x_dense = x.to_dense()
     >>> entries2 = np.moveaxis(np.array([x_dense[:, 9,4,7], x_dense[:, 0,0,0]]), 0,1)
     >>> print(np.linalg.norm(entries - entries2))
     2.8718552890331766e-14
     '''
-    return t3.t3_get_entries(
+    return t3.t3_entries(
         x.contract_edge_weights_into_cores(use_jax=use_jax), index,
         use_jax=use_jax,
     )
 
 
-def probe_wt3(
+def wt3_probe(
         ww: typ.Sequence[NDArray], # len=d, elm_shape=W+(Ni,)
         x: WeightedTuckerTensorTrain, # x.stack_shape=X
         use_jax: bool=False,
@@ -517,13 +518,13 @@ def probe_wt3(
     >>> weights = wt3.EdgeVectors(tucker_vectors, tt_vectors)
     >>> x = wt3.WeightedTuckerTensorTrain(x0, weights)
     >>> ww = (np.random.randn(2,3, 16), np.random.randn(2,3, 17), np.random.randn(2,3, 18))
-    >>> zz = wt3.probe_wt3(ww, x)
+    >>> zz = wt3.wt3_probe(ww, x)
     >>> x_dense = x.to_dense()
     >>> zz2 = probing.probe_dense(ww, x_dense)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [8.629565831373193e-12, 3.713823926468943e-12, 1.2786236870880314e-11]
     """
-    return t3.probe_t3(ww, x.contract_edge_weights_into_cores(use_jax=use_jax), use_jax=use_jax)
+    return t3.t3_probe(ww, x.contract_edge_weights_into_cores(use_jax=use_jax), use_jax=use_jax)
 
 
 

@@ -87,17 +87,17 @@ import functools as ft
 from dataclasses import dataclass
 
 import t3toolbox.backend.probing as probing
-import t3toolbox.backend.tucker_tensor_train.t3_apply as apply
-import t3toolbox.backend.tucker_tensor_train.t3_entries as entries
-import t3toolbox.backend.tucker_tensor_train.t3_ranks as ranks
+import t3toolbox.backend.apply as apply
+import t3toolbox.backend.entries as entries
+import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.tucker_tensor_train.dense_t3svd as dense_t3svd
-import t3toolbox.backend.tucker_tensor_train.orthogonalization as orth
+import t3toolbox.backend.orthogonalization as orth
 import t3toolbox.backend.tucker_tensor_train.ragged_t3_operations as ragged_operations
 import t3toolbox.backend.tucker_tensor_train.ragged_orthogonalization as ragged_orthogonalization
 import t3toolbox.backend.tucker_tensor_train.ragged_tensor_linalg as ragged_linalg
 import t3toolbox.backend.tucker_tensor_train.ragged_t3svd as ragged_t3svd
 
-from t3toolbox.common import *
+from t3toolbox.backend.common import *
 
 jax = None
 if has_jax:
@@ -105,17 +105,29 @@ if has_jax:
 
 __all__ = [
     'TuckerTensorTrain',
-    't3_apply',
-    't3_get_entries',
-    'probe_t3',
-    't3_zeros',
-    't3_corewise_randn',
+    #
+    't3_stack',
+    't3_core_shapes',
     'compute_minimal_t3_ranks',
+    #
     't3_save',
     't3_load',
     't3_to_vector',
     't3_from_vector',
-    't3_core_shapes',
+    #
+    't3_zeros',
+    't3_corewise_randn',
+    #
+    't3_apply',
+    't3_entries',
+    't3_probe',
+    #
+    't3_add',
+    't3_sub',
+    't3_inner_product',
+    #
+    't3svd',
+    't3svd_dense',
 ]
 
 
@@ -244,7 +256,7 @@ class TuckerTensorTrain:
     >>> x = t3.t3_corewise_randn((13,14,15,16), (4,5,6,7), (1,99,9,7,1))
     >>> print(x.has_minimal_ranks)
     False
-    >>> x2 = t3svd.t3_svd(x)[0]
+    >>> x2 = t3svd.t3svd(x)[0]
     >>> print(x2.has_minimal_ranks)
     True
     """
@@ -1559,7 +1571,7 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(entries - entries2))
         1.7763568394002505e-15
         '''
-        return t3_get_entries(self, index, use_jax=use_jax)
+        return t3_entries(self, index, use_jax=use_jax)
 
     def t3_apply(
             self,
@@ -1644,6 +1656,69 @@ def t3_stack(
 
     stacked_tucker_cores, stacked_tt_cores = ragged_operations.t3_stack(xx_data, use_jax=use_jax)
     return TuckerTensorTrain(stacked_tucker_cores, stacked_tt_cores)
+
+
+def t3_core_shapes(
+        shape: typ.Sequence[int],
+        tucker_ranks: typ.Sequence[int],
+        tt_ranks: typ.Sequence[int],
+        stack_shape: typ.Sequence[int] = (),
+) -> typ.Tuple[
+    typ.Tuple[int,...], # tucker_core_shapes
+    typ.Tuple[int,...], # tt_core_shapes
+]:
+    """Compute the tucker and TT backend shapes for a Tucker tensor train.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.corewise as cw
+    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,4,5), stack_shape=(9,))
+    >>> print(t3.t3_core_shapes(x.shape, x.tucker_ranks, x.tt_ranks, stack_shape=x.stack_shape))
+    (((9, 4, 14), (9, 5, 15), (9, 6, 16)), ((9, 1, 4, 3), (9, 3, 5, 4), (9, 4, 6, 5)))
+    >>> print(x.core_shapes)
+    (((9, 4, 14), (9, 5, 15), (9, 6, 16)), ((9, 1, 4, 3), (9, 3, 5, 4), (9, 4, 6, 5)))
+    """
+    return ragged_operations.t3_core_shapes(
+        shape, tucker_ranks, tt_ranks, stack_shape,
+    )
+
+
+def compute_minimal_t3_ranks(
+        shape:          typ.Sequence[int],
+        tucker_ranks:   typ.Sequence[int],
+        tt_ranks:       typ.Sequence[int],
+) -> typ.Tuple[
+    typ.Tuple[int,...], # new_tucker_ranks
+    typ.Tuple[int,...], # new_tt_ranks
+]:
+    '''Find minimal ranks for a generic Tucker tensor train with a given structure.
+
+    Minimal ranks satisfy:
+        - Left TT backend unfoldings are full rank: r(i+1) <= (ri*ni)
+        - Right TT backend unfoldings are full rank: ri <= (ni*r(i+1))
+        - Outer TT backend unfoldings are full rank: ni <= (ri*r(i+1))
+        - Basis matrices have full row rank: ni <= Ni
+
+    In this function, minimal ranks are defined with respect to a
+    generic Tucker tensor train of the given form based on its structure.
+    We do not account for possible additional rank deficiency due to
+    the numerical values within the cores.
+
+    Minimal ranks always exist and are unique.
+        - Minimal TT ranks are equal to the ranks of (N*...*Ni) x (N(i+1)*...*N(d-1)) matrix unfoldings.
+        - Minimal Tucker ranks are equal to the ranks of Ni x (N1*...*N(i-1)*N(i+1)*...*N(d-1)) matricizations.
+
+    Examples
+    --------
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> print(t3.compute_minimal_t3_ranks((10,11,12,13), (14,15,16,17), (98,99,100,101,102)))
+    ((10, 11, 12, 13), (1, 10, 100, 13, 1))
+    '''
+    return ranks.compute_minimal_t3_ranks(shape, tucker_ranks, tt_ranks)
+
+#
 
 
 def t3_zeros(
@@ -1916,67 +1991,6 @@ def t3_from_vector(
     ))
 
 
-def t3_core_shapes(
-        shape: typ.Sequence[int],
-        tucker_ranks: typ.Sequence[int],
-        tt_ranks: typ.Sequence[int],
-        stack_shape: typ.Sequence[int] = (),
-) -> typ.Tuple[
-    typ.Tuple[int,...], # tucker_core_shapes
-    typ.Tuple[int,...], # tt_core_shapes
-]:
-    """Compute the tucker and TT backend shapes for a Tucker tensor train.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.corewise as cw
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,4,5), stack_shape=(9,))
-    >>> print(t3.t3_core_shapes(x.shape, x.tucker_ranks, x.tt_ranks, stack_shape=x.stack_shape))
-    (((9, 4, 14), (9, 5, 15), (9, 6, 16)), ((9, 1, 4, 3), (9, 3, 5, 4), (9, 4, 6, 5)))
-    >>> print(x.core_shapes)
-    (((9, 4, 14), (9, 5, 15), (9, 6, 16)), ((9, 1, 4, 3), (9, 3, 5, 4), (9, 4, 6, 5)))
-    """
-    return ragged_operations.t3_core_shapes(
-        shape, tucker_ranks, tt_ranks, stack_shape,
-    )
-
-
-def compute_minimal_t3_ranks(
-        shape:          typ.Sequence[int],
-        tucker_ranks:   typ.Sequence[int],
-        tt_ranks:       typ.Sequence[int],
-) -> typ.Tuple[
-    typ.Tuple[int,...], # new_tucker_ranks
-    typ.Tuple[int,...], # new_tt_ranks
-]:
-    '''Find minimal ranks for a generic Tucker tensor train with a given structure.
-
-    Minimal ranks satisfy:
-        - Left TT backend unfoldings are full rank: r(i+1) <= (ri*ni)
-        - Right TT backend unfoldings are full rank: ri <= (ni*r(i+1))
-        - Outer TT backend unfoldings are full rank: ni <= (ri*r(i+1))
-        - Basis matrices have full row rank: ni <= Ni
-
-    In this function, minimal ranks are defined with respect to a
-    generic Tucker tensor train of the given form based on its structure.
-    We do not account for possible additional rank deficiency due to
-    the numerical values within the cores.
-
-    Minimal ranks always exist and are unique.
-        - Minimal TT ranks are equal to the ranks of (N*...*Ni) x (N(i+1)*...*N(d-1)) matrix unfoldings.
-        - Minimal Tucker ranks are equal to the ranks of Ni x (N1*...*N(i-1)*N(i+1)*...*N(d-1)) matricizations.
-
-    Examples
-    --------
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> print(t3.compute_minimal_t3_ranks((10,11,12,13), (14,15,16,17), (98,99,100,101,102)))
-    ((10, 11, 12, 13), (1, 10, 100, 13, 1))
-    '''
-    return ranks.compute_minimal_t3_ranks(shape, tucker_ranks, tt_ranks)
-
-
 ###########################################################################
 ########    Scalar valued M.L.F. applies, entries, and probing    #########
 ###########################################################################
@@ -2100,7 +2114,7 @@ def t3_apply(
     return result
 
 
-def t3_get_entries(
+def t3_entries(
         x: TuckerTensorTrain, # shape=(N0,...,N(d-1))
         index: NDArray, # or convertible to NDArray. dtype=int
         use_jax: bool = False,
@@ -2145,7 +2159,7 @@ def t3_get_entries(
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
     >>> index = [9, 4, 7] # get entry (9,4,7)
-    >>> result = t3.t3_get_entries(x, index)
+    >>> result = t3.t3_entries(x, index)
     >>> result2 = x.to_dense()[9, 4, 7]
     >>> print(np.abs(result - result2))
     1.3322676295501878e-15
@@ -2156,7 +2170,7 @@ def t3_get_entries(
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
     >>> index = [[9,8], [4,10], [7,13]] # get entries (9,4,7) and (8,10,13)
-    >>> entries = t3.t3_get_entries(x, index)
+    >>> entries = t3.t3_entries(x, index)
     >>> x_dense = x.to_dense(x)
     >>> entries2 = np.array([x_dense[9, 4, 7], x_dense[8, 10, 13]])
     >>> print(np.linalg.norm(entries - entries2))
@@ -2168,7 +2182,7 @@ def t3_get_entries(
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2), stack_shape=(2,3))
     >>> index = [[9,0], [4,0], [7,0]] # get entries (9,4,7) and (0,0,0)
-    >>> entries = t3.t3_get_entries(x, index)
+    >>> entries = t3.t3_entries(x, index)
     >>> x_dense = x.to_dense()
     >>> entries2 = np.moveaxis(np.array([x_dense[:,:, 9,4,7], x_dense[:,:, 0,0,0]]), 0,2)
     >>> print(np.linalg.norm(entries - entries2))
@@ -2179,7 +2193,7 @@ def t3_get_entries(
 	>>> import numpy as np
     >>> import jax
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> get_entry_123 = lambda x: t3.t3_get_entries(x, (1,2,3), use_jax=True)
+    >>> get_entry_123 = lambda x: t3.t3_entries(x, (1,2,3), use_jax=True)
     >>> A = t3.t3_corewise_randn((10,10,10),(5,5,5),(1,4,4,1)) # random 10x10x10 Tucker tensor train
     >>> a123 = get_entry_123(A)
     >>> print(a123)
@@ -2197,7 +2211,7 @@ def t3_get_entries(
     >>> import t3toolbox.common as common
     >>> import t3toolbox.corewise as cw
     >>> jax.config.update("jax_enable_x64", True) # enable double precision for finite difference
-    >>> get_entry_123 = lambda x: t3.t3_get_entries(x, (1,2,3), use_jax=True)
+    >>> get_entry_123 = lambda x: t3.t3_entries(x, (1,2,3), use_jax=True)
     >>> A0 = t3.t3_corewise_randn((10,10,10),(5,5,5),(1,4,4,1)) # random 10x10x10 Tucker tensor train
     >>> f0 = get_entry_123(A0)
     >>> G0 = jax.grad(get_entry_123)(A0) # gradient using automatic differentiation
@@ -2225,7 +2239,7 @@ def t3_get_entries(
     return entries.t3_get_entries(x.data, index, use_jax=use_jax)
 
 
-def probe_t3(
+def t3_probe(
         ww: typ.Sequence[NDArray], # len=d, elm_shape=W+(Ni,)
         x: TuckerTensorTrain, # x.stack_shape=X
         use_jax: bool=False,
@@ -2239,7 +2253,7 @@ def probe_t3(
     >>> import t3toolbox.backend.probing as probing
     >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-    >>> zz = t3.probe_t3(ww, x)
+    >>> zz = t3.t3_probe(ww, x)
     >>> x_dense = x.to_dense()
     >>> zz2 = probing.probe_dense(ww, x_dense)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
@@ -2252,7 +2266,7 @@ def probe_t3(
     >>> import t3toolbox.backend.probing as probing
     >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
     >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
-    >>> zz = t3.probe_t3(ww, x)
+    >>> zz = t3.t3_probe(ww, x)
     >>> x_dense = x.to_dense()
     >>> zz2 = probing.probe_dense(ww, x_dense)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
@@ -2265,7 +2279,7 @@ def probe_t3(
     >>> import t3toolbox.backend.probing as probing
     >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2), stack_shape=(4,5))
     >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
-    >>> zz = t3.probe_t3(ww, x)
+    >>> zz = t3.t3_probe(ww, x)
     >>> x_dense = x.to_dense()
     >>> zz2 = probing.probe_dense(ww, x_dense)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
@@ -2740,7 +2754,7 @@ def t3svd_dense(
     return TuckerTensorTrain(*result[0]), result[1], result[2]
 
 
-def t3_svd(
+def t3svd(
         x: TuckerTensorTrain,
         min_tt_ranks:       typ.Sequence[int] = None, # len=d+1
         min_tucker_ranks:   typ.Sequence[int] = None,  # len=d
@@ -2806,7 +2820,7 @@ def t3_svd(
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn((5,6,3), (4,4,3), (1,3,2,1))
-    >>> x2, ss_tucker, ss_tt = t3.t3_svd(x) # Compute T3-SVD
+    >>> x2, ss_tucker, ss_tt = t3.t3svd(x) # Compute T3-SVD
     >>> x_dense = x.to_dense()
     >>> x2_dense = x2.to_dense()
     >>> print(np.linalg.norm(x_dense - x2_dense)) # Tensor unchanged
@@ -2833,7 +2847,7 @@ def t3_svd(
     >>> tucker_cores_x = (B0, B1, B2)
     >>> tt_cores_x = (G0, G1, G2)
     >>> x = t3.TuckerTensorTrain(tucker_cores_x, tt_cores_x) # Tensor has spectral decay due to preconditioning
-    >>> x2, ss_tucker, ss_tt = t3.t3_svd(x, rtol=1e-2) # Truncate singular values to reduce rank
+    >>> x2, ss_tucker, ss_tt = t3.t3svd(x, rtol=1e-2) # Truncate singular values to reduce rank
     >>> print(x.uniform_structure)
     ((40, 50, 60), (35, 45, 55), (1, 30, 40, 1), ())
     >>> print(x2.uniform_structure)
@@ -2848,7 +2862,7 @@ def t3_svd(
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn((14,15,16), (10,11,12), (1,8,9,1))
-    >>> x2, ss_tucker, ss_tt = t3.t3_svd(x, max_tucker_ranks=(3,3,3), max_tt_ranks=(1,2,2,1)) # Truncate based on ranks
+    >>> x2, ss_tucker, ss_tt = t3.t3svd(x, max_tucker_ranks=(3,3,3), max_tt_ranks=(1,2,2,1)) # Truncate based on ranks
     >>> print(x.uniform_structure)
     ((14, 15, 16), (10, 11, 12), (1, 8, 9, 1), ())
     >>> print(x2.uniform_structure)
@@ -2859,7 +2873,7 @@ def t3_svd(
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn((5,6,3), (4,4,3), (2,3,2,2))
-    >>> x2, ss_tucker, ss_tt = t3.t3_svd(x, squash_tails_first=False) # Compute T3-SVD
+    >>> x2, ss_tucker, ss_tt = t3.t3svd(x, squash_tails_first=False) # Compute T3-SVD
     >>> x_dense = x.to_dense(squash_tails=False)
     >>> x2_dense = x2.to_dense(squash_tails=False)
     >>> print(np.linalg.norm(x_dense - x2_dense)) # Tensor unchanged
@@ -2882,5 +2896,4 @@ def t3_svd(
         use_jax=use_jax,
     )
     return TuckerTensorTrain(*result[0]), result[1], result[2]
-
 

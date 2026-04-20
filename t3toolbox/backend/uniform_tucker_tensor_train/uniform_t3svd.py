@@ -5,14 +5,10 @@
 import numpy as np
 import typing as typ
 
-
-import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.backend.tucker_tensor_train.orthogonalization as orth
-import t3toolbox.backend.tucker_tensor_train.uniform.uniform_orthogonalization as uniform_orth
-import t3toolbox.backend.tucker_tensor_train.uniform.uniform_t3_operations as ut3_ops
-# import t3toolbox.OLD_uniform as ut3
-import t3toolbox.util_linalg as linalg
-from t3toolbox.common import *
+import t3toolbox.backend.uniform_tucker_tensor_train.uniform_orthogonalization as uniform_orth
+import t3toolbox.backend.uniform_tucker_tensor_train.uniform_t3_operations as ut3_ops
+from t3toolbox.backend.common import *
 
 __all__ = [
     'uniform_t3_svd',

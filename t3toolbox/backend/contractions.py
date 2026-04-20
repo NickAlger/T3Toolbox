@@ -5,7 +5,7 @@
 import typing as typ
 import numpy as np
 
-from t3toolbox.common import *
+from t3toolbox.backend.common import *
 
 __all__ = [
     'Na_Maib_Ni_to_NMb',
@@ -19,12 +19,6 @@ __all__ = [
     'dMNi_dMio_to_dMNo',
 ]
 
-NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
-
-
-#############################################
-########    Special contractions    #########
-#############################################
 
 def Na_Maib_Ni_to_NMb(
         Na: NDArray,

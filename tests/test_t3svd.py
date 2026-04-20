@@ -34,7 +34,7 @@ class TestT3SVD(unittest.TestCase):
                 with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     x = t3.t3_corewise_randn(STRUCTURE)
 
-                    x2, ss_tucker, ss_tt = t3svd.t3_svd(x, use_jax=USE_JAX)  # Compute T3-SVD
+                    x2, ss_tucker, ss_tt = t3svd.t3svd(x, use_jax=USE_JAX)  # Compute T3-SVD
 
                     x_dense = t3.t3_to_dense(x)
                     x2_dense = t3.t3_to_dense(x2)
@@ -51,7 +51,7 @@ class TestT3SVD(unittest.TestCase):
                 with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     x = t3.t3_corewise_randn(STRUCTURE)
 
-                    x2, ss_tucker, ss_tt = t3svd.t3_svd(x, use_jax=USE_JAX)  # Compute T3-SVD
+                    x2, ss_tucker, ss_tt = t3svd.t3svd(x, use_jax=USE_JAX)  # Compute T3-SVD
 
                     self.assertLessEqual(
                         norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2)), tol * norm(t3.t3_to_dense(x))

@@ -5,7 +5,7 @@
 import numpy as np
 import typing as typ
 
-from t3toolbox.common import *
+from t3toolbox.backend.common import *
 
 __all__ = [
     'contract_edge_vectors_into_t3',

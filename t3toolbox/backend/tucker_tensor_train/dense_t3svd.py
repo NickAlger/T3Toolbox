@@ -5,8 +5,8 @@
 import numpy as np
 import typing as typ
 
-import t3toolbox.util_linalg as linalg
-from t3toolbox.common import *
+import t3toolbox.backend.linalg as linalg
+from t3toolbox.backend.common import *
 
 __all__ = [
     'tucker_svd_dense',

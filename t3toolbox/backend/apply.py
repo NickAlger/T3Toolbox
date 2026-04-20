@@ -1,8 +1,12 @@
+# Authors: Nick Alger and Blake Christierson
+# Copyright: MIT License (2026)
+# Github: https://github.com/NickAlger/TuckerTensorTrainTools
+# Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
 import numpy as np
 import typing as typ
 
-import t3toolbox.utils.contractions as contractions
-from t3toolbox.common import *
+import t3toolbox.backend.contractions as contractions
+from t3toolbox.backend.common import *
 
 __all__ = [
     't3_apply',
@@ -45,26 +49,3 @@ def t3_apply(
     result = xnp.sum(mu_XVz, axis=-1)
     return result
 
-    #
-
-    # vecs_dims = [len(v.shape) for v in vecs]
-    #
-    # vectorized = True
-    # if vecs_dims[0] == 1:
-    #     vectorized = False
-    #     vecs = [v.reshape((1,-1)) for v in vecs]
-    #
-    # num_applies = vecs[0].shape[0]
-    #
-    # mu_na = xnp.ones((num_applies, tt_cores[0].shape[0]))
-    # for V_ni, B_xi, G_axb in zip(vecs, tucker_cores, tt_cores):
-    #     v_nx = xnp.einsum('ni,xi->nx', V_ni, B_xi)
-    #     g_anb = xnp.einsum('axb,nx->anb', G_axb, v_nx)
-    #     mu_nb = xnp.einsum('na,anb->nb', mu_na, g_anb)
-    #     mu_na = mu_nb
-    # result = xnp.einsum('na->n', mu_na)
-    #
-    # if not vectorized:
-    #     result = result[0]
-    #
-    # return result

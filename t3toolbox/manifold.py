@@ -6,7 +6,7 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.orthogonalization as orth
+import t3toolbox.OLD_orthogonalization as orth
 import t3toolbox.t3svd as t3svd
 import t3toolbox.base_variation_format as bvf
 import t3toolbox.OLD_uniform as ut3
@@ -850,11 +850,11 @@ def project_t3_onto_tangent_space(
     >>> import t3toolbox.t3svd as t3svd
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (5,3,2,4)))
     # >>> p = t3.t3_corewise_randn(((15,15,15), (5,5,5), (1,3,3,1)))
-    >>> p, _, _ = t3svd.t3_svd(p)
+    >>> p, _, _ = t3svd.t3svd(p)
     >>> base, dummy_var = orth.orthogonal_representations(p)
     >>> x = t3.t3_corewise_randn(((14,15,16), (7,4,8), (3,5,4,2)))
     # >>> x = t3.t3_corewise_randn(((15,15,15), (5,5,5), (1,3,3,1)))
-    >>> x, _, _ = t3svd.t3_svd(x)
+    >>> x, _, _ = t3svd.t3svd(x)
     >>> proj_x = t3m.project_t3_onto_tangent_space(x, base) # Project x onto tangent space
     >>> dense_proj_x = t3m.tangent_to_dense(proj_x, base)
     >>> _, uniform_base, bv_mask = ut3.bv_to_ubv(dummy_var, base)
@@ -993,7 +993,7 @@ def retract(
     _, base_tucker_ranks, base_tt_ranks = t3.get_structure((tucker_cores, left_tt_cores))
 
     x_t3 = tangent_to_t3(variation, base, include_shift=True, use_jax=use_jax)
-    retracted_x_t3, _, _ = t3svd.t3_svd(
+    retracted_x_t3, _, _ = t3svd.t3svd(
         x_t3,
         max_tt_ranks = base_tt_ranks,
         max_tucker_ranks = base_tucker_ranks,

@@ -5,7 +5,7 @@ import numpy as np
 import unittest
 
 import t3toolbox.corewise as cw
-import t3toolbox.orthogonalization as orth
+import t3toolbox.OLD_orthogonalization as orth
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.manifold as t3m
 import t3toolbox.probing as t3p
@@ -90,7 +90,7 @@ class TestProbing(unittest.TestCase):
                           np.random.randn(SHAPE[1]),
                           np.random.randn(SHAPE[2]))
 
-                    zz = t3p.probe_t3(ww, x, use_jax=USE_JAX)
+                    zz = t3p.t3_probe(ww, x, use_jax=USE_JAX)
 
                     x_dense = t3.t3_to_dense(x)
                     zz2 = t3p.probe_dense(ww, x_dense)
@@ -114,7 +114,7 @@ class TestProbing(unittest.TestCase):
                            np.random.randn(NUM_PROBES, SHAPE[1]),
                            np.random.randn(NUM_PROBES, SHAPE[2]))
 
-                    zzz = t3p.probe_t3(www, x, use_jax=USE_JAX)
+                    zzz = t3p.t3_probe(www, x, use_jax=USE_JAX)
 
                     zzz2 = t3p.probe_dense(www, t3.t3_to_dense(x))
 

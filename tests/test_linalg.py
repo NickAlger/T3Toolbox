@@ -4,7 +4,7 @@
 import numpy as np
 import unittest
 
-import t3toolbox.util_linalg as linalg
+import t3toolbox.linalg as linalg
 try:
     import jax
     jax.config.update("jax_enable_x64", True)

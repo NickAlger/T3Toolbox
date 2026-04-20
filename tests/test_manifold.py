@@ -6,7 +6,7 @@ import unittest
 
 import t3toolbox.base_variation_format as bvf
 import t3toolbox.corewise
-import t3toolbox.orthogonalization as orth
+import t3toolbox.OLD_orthogonalization as orth
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.manifold as t3m
 

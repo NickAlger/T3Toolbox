@@ -8,7 +8,7 @@ import typing as typ
 import t3toolbox.utils.contractions as contractions
 import t3toolbox.backend.tucker_tensor_train.ragged.ragged_t3_operations as ragged_ops
 import t3toolbox.backend.tucker_tensor_train.uniform.uniform_t3_operations as uniform_ops
-from t3toolbox.common import *
+from t3toolbox.backend.common import *
 
 __all__ = [
     # Probe a Tucker tensor train
@@ -102,7 +102,7 @@ def probe_t3(
     >>> import t3toolbox.backend.probing as t3p
     >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2)).data
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-    >>> zz = t3p.probe_t3(ww, x)
+    >>> zz = t3p.t3_probe(ww, x)
     >>> x_dense = t3.TuckerTensorTrain(*x).to_dense()
     >>> zz2 = t3p.probe_dense(ww, x_dense)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
@@ -115,7 +115,7 @@ def probe_t3(
     >>> import t3toolbox.backend.probing as t3p
     >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2)).data
     >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
-    >>> zz = t3p.probe_t3(ww, x)
+    >>> zz = t3p.t3_probe(ww, x)
     >>> x_dense = t3.TuckerTensorTrain(*x).to_dense()
     >>> zz2 = t3p.probe_dense(ww, x_dense)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
@@ -128,7 +128,7 @@ def probe_t3(
     >>> import t3toolbox.backend.probing as t3p
     >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2), stack_shape=(4,5)).data
     >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
-    >>> zz = t3p.probe_t3(ww, x)
+    >>> zz = t3p.t3_probe(ww, x)
     >>> x_dense = t3.TuckerTensorTrain(*x).to_dense()
     >>> zz2 = t3p.probe_dense(ww, x_dense)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
@@ -147,9 +147,9 @@ def probe_t3(
     >>> tt_weights = [randn(2), randn(3), randn(4), randn(2)]
     >>> edge_weights = (shape_weights, tucker_weights, tt_weights)
     >>> ww = [np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12)]
-    >>> zz = t3p.probe_t3(ww, x0,edge_weights=edge_weights)
+    >>> zz = t3p.t3_probe(ww, x0,edge_weights=edge_weights)
     >>> x = t3.absorb_edge_weights_into_cores(x0, edge_weights)
-    >>> zz2 = t3p.probe_t3(ww, x)
+    >>> zz2 = t3p.t3_probe(ww, x)
     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
     [3.372228193172379e-14, 3.826148129405782e-14, 2.294115439089251e-14]
 
@@ -167,13 +167,13 @@ def probe_t3(
     >>> junk = ut3.uniform_randn(ut3.get_uniform_structure(uniform_x), masks=inv_masks)
     >>> uniform_x = cw.corewise_add(uniform_x, junk) # Add random junk outside the masks
     >>> uniform_ww = ut3.pack_tensors(ww)
-    >>> uniform_zz = t3p.probe_t3(uniform_ww, uniform_x, edge_weights=masks)
-    >>> zz = t3p.probe_t3(ww, x)
+    >>> uniform_zz = t3p.t3_probe(uniform_ww, uniform_x, edge_weights=masks)
+    >>> zz = t3p.t3_probe(ww, x)
     >>> uniform_zz2 = ut3.pack_tensors(zz)
     >>> print(np.linalg.norm(uniform_zz - uniform_zz2))
     0.0
     >>> uniform_x_weighted = t3.absorb_edge_weights_into_cores(uniform_x, masks)
-    >>> uniform_zz3 = t3p.probe_t3(uniform_ww, uniform_x_weighted)
+    >>> uniform_zz3 = t3p.t3_probe(uniform_ww, uniform_x_weighted)
     >>> print(np.linalg.norm(uniform_zz - uniform_zz3))
     0.0
     '''
