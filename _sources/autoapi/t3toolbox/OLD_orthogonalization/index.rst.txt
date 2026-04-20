@@ -1,0 +1,21 @@
+t3toolbox.OLD_orthogonalization
+===============================
+
+.. py:module:: t3toolbox.OLD_orthogonalization
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/OLD_orthogonalization/left_orthogonalize_tt_cores
+   /autoapi/t3toolbox/OLD_orthogonalization/right_orthogonalize_tt_cores
+
+.. autoapisummary::
+
+   t3toolbox.OLD_orthogonalization.left_orthogonalize_tt_cores
+   t3toolbox.OLD_orthogonalization.right_orthogonalize_tt_cores
+
+

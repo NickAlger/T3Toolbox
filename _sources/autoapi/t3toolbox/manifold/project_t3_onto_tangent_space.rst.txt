@@ -1,7 +1,7 @@
 t3toolbox.manifold.project_t3_onto_tangent_space
 ================================================
 
-.. py:function:: t3toolbox.manifold.project_t3_onto_tangent_space(x: t3toolbox.common.typ.Union[t3toolbox.tucker_tensor_train.TuckerTensorTrain, t3toolbox.OLD_uniform.UniformTuckerTensorTrain], orthogonal_base: t3toolbox.common.typ.Union[t3toolbox.base_variation_format.T3Base, t3toolbox.OLD_uniform.UniformT3Base], use_jax: bool = False) -> t3toolbox.base_variation_format.T3Variation
+.. py:function:: t3toolbox.manifold.project_t3_onto_tangent_space(x: Union[t3toolbox.tucker_tensor_train.TuckerTensorTrain, t3toolbox.OLD_uniform.UniformTuckerTensorTrain], orthogonal_base: Union[t3toolbox.base_variation_format.T3Base, t3toolbox.OLD_uniform.UniformT3Base], use_jax: bool = False) -> t3toolbox.base_variation_format.T3Variation
 
    Projects TuckerTensorTrain onto tangent space to the manifold of fixed rank TuckerTensorTrains.
 
@@ -43,11 +43,11 @@ t3toolbox.manifold.project_t3_onto_tangent_space
    >>> import t3toolbox.t3svd as t3svd
    >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (5,3,2,4)))
    # >>> p = t3.t3_corewise_randn(((15,15,15), (5,5,5), (1,3,3,1)))
-   >>> p, _, _ = t3svd.t3_svd(p)
+   >>> p, _, _ = t3svd.t3svd(p)
    >>> base, dummy_var = orth.orthogonal_representations(p)
    >>> x = t3.t3_corewise_randn(((14,15,16), (7,4,8), (3,5,4,2)))
    # >>> x = t3.t3_corewise_randn(((15,15,15), (5,5,5), (1,3,3,1)))
-   >>> x, _, _ = t3svd.t3_svd(x)
+   >>> x, _, _ = t3svd.t3svd(x)
    >>> proj_x = t3m.project_t3_onto_tangent_space(x, base) # Project x onto tangent space
    >>> dense_proj_x = t3m.tangent_to_dense(proj_x, base)
    >>> _, uniform_base, bv_mask = ut3.bv_to_ubv(dummy_var, base)

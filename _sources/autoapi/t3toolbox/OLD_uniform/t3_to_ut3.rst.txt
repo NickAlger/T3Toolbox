@@ -1,7 +1,7 @@
 t3toolbox.OLD_uniform.t3_to_ut3
 ===============================
 
-.. py:function:: t3toolbox.OLD_uniform.t3_to_ut3(x: t3toolbox.tucker_tensor_train.TuckerTensorTrain, squash_tails: bool = True, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[UniformTuckerTensorTrain, UniformEdgeWeights]
+.. py:function:: t3toolbox.OLD_uniform.t3_to_ut3(x: t3toolbox.tucker_tensor_train.TuckerTensorTrain, squash_tails: bool = True, use_jax: bool = False) -> Tuple[UniformTuckerTensorTrain, UniformEdgeWeights]
 
    Convert TuckerTensorTrain to UniformTuckerTensorTrain.
 

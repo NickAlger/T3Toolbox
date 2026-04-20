@@ -1,0 +1,67 @@
+t3toolbox.backend.contractions.MNa_Maib_MiN_to_MNb
+==================================================
+
+.. py:function:: t3toolbox.backend.contractions.MNa_Maib_MiN_to_MNb(MNa: t3toolbox.backend.common.NDArray, Maib: t3toolbox.backend.common.NDArray, MiN: t3toolbox.backend.common.NDArray, use_jax: bool = False) -> t3toolbox.backend.common.NDArray
+
+   Computes vectorized einsum a,aib,i->b, with vectorization over a and i, or aib and i, or both.
+
+   N and M are the vectorization indices, which may be groups of indices.
+
+   .. rubric:: Examples
+
+   Vectorize over both N and M:
+
+   >>> import numpy as np
+   >>> from t3toolbox.utils.contractions import MNa_Maib_MiN_to_MNb
+   >>> uv_xyz_a = np.random.randn(5,6,  2,3,4, 10)
+   >>> uv_aib = np.random.randn(5,6, 10,11,12)
+   >>> uv_i_xyz = np.random.randn(5,6, 11, 2,3,4)
+   >>> MNb = MNa_Maib_MiN_to_MNb(uv_xyz_a, uv_aib, uv_i_xyz)
+   >>> MNb_true = np.einsum('uvxyza,uvaib,uvixyz->uvxyzb', uv_xyz_a, uv_aib, uv_i_xyz)
+   >>> print(MNb.shape == MNb_true.shape)
+   True
+   >>> print(np.linalg.norm(MNb - MNb_true))
+   4.0539884184333385e-13
+
+   Vectorize over N only
+
+   >>> import numpy as np
+   >>> from t3toolbox.utils.contractions import MNa_Maib_MiN_to_MNb
+   >>> xyz_a = np.random.randn(2,3,4, 10)
+   >>> aib = np.random.randn(10,11,12)
+   >>> i_xyz = np.random.randn(11, 2,3,4)
+   >>> MNb = MNa_Maib_MiN_to_MNb(xyz_a, aib, i_xyz)
+   >>> MNb_true = np.einsum('xyza,aib,ixyz->xyzb', xyz_a, aib, i_xyz)
+   >>> print(MNb.shape == MNb_true.shape)
+   True
+   >>> print(np.linalg.norm(MNb - MNb_true))
+   7.867752051442911e-14
+
+   Vectorize over both M only:
+
+   >>> import numpy as np
+   >>> from t3toolbox.utils.contractions import MNa_Maib_MiN_to_MNb
+   >>> uv_a = np.random.randn(5,6, 10)
+   >>> uv_aib = np.random.randn(5,6, 10,11,12)
+   >>> uv_i = np.random.randn(5,6, 11)
+   >>> MNb = MNa_Maib_MiN_to_MNb(uv_a, uv_aib, uv_i)
+   >>> MNb_true = np.einsum('uva,uvaib,uvi->uvb', uv_a, uv_aib, uv_i)
+   >>> print(MNb.shape == MNb_true.shape)
+   True
+   >>> print(np.linalg.norm(MNb - MNb_true))
+   6.647117027933763e-14
+
+   No vectorization:
+
+   >>> import numpy as np
+   >>> from t3toolbox.utils.contractions import MNa_Maib_MiN_to_MNb
+   >>> a = np.random.randn(10)
+   >>> aib = np.random.randn(10,11,12)
+   >>> i = np.random.randn(11)
+   >>> MNb = MNa_Maib_MiN_to_MNb(a, aib, i)
+   >>> MNb_true = np.einsum('a,aib,i->b', a, aib, i)
+   >>> print(MNb.shape == MNb_true.shape)
+   True
+   >>> print(np.linalg.norm(MNb - MNb_true))
+   8.510422543011842e-15
+

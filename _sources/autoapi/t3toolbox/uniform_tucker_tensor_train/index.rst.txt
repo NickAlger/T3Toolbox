@@ -34,19 +34,25 @@ Functions
 
    /autoapi/t3toolbox/uniform_tucker_tensor_train/t3_to_ut3
    /autoapi/t3toolbox/uniform_tucker_tensor_train/ut3_to_t3
-   /autoapi/t3toolbox/uniform_tucker_tensor_train/ut3_get_entries
+   /autoapi/t3toolbox/uniform_tucker_tensor_train/ut3_entries
    /autoapi/t3toolbox/uniform_tucker_tensor_train/ut3_apply
+   /autoapi/t3toolbox/uniform_tucker_tensor_train/ut3_probe
    /autoapi/t3toolbox/uniform_tucker_tensor_train/ut3_add
    /autoapi/t3toolbox/uniform_tucker_tensor_train/ut3_sub
+   /autoapi/t3toolbox/uniform_tucker_tensor_train/ut3_inner_product
+   /autoapi/t3toolbox/uniform_tucker_tensor_train/ut3svd
 
 .. autoapisummary::
 
    t3toolbox.uniform_tucker_tensor_train.t3_to_ut3
    t3toolbox.uniform_tucker_tensor_train.ut3_to_t3
-   t3toolbox.uniform_tucker_tensor_train.ut3_get_entries
+   t3toolbox.uniform_tucker_tensor_train.ut3_entries
    t3toolbox.uniform_tucker_tensor_train.ut3_apply
+   t3toolbox.uniform_tucker_tensor_train.ut3_probe
    t3toolbox.uniform_tucker_tensor_train.ut3_add
    t3toolbox.uniform_tucker_tensor_train.ut3_sub
+   t3toolbox.uniform_tucker_tensor_train.ut3_inner_product
+   t3toolbox.uniform_tucker_tensor_train.ut3svd
 
 
 Module Contents

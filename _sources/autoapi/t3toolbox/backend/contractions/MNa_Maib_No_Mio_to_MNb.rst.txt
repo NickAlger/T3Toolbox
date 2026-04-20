@@ -1,0 +1,71 @@
+t3toolbox.backend.contractions.MNa_Maib_No_Mio_to_MNb
+=====================================================
+
+.. py:function:: t3toolbox.backend.contractions.MNa_Maib_No_Mio_to_MNb(MNa: t3toolbox.backend.common.NDArray, Maib: t3toolbox.backend.common.NDArray, No: t3toolbox.backend.common.NDArray, Mio: t3toolbox.backend.common.NDArray, use_jax: bool = False) -> t3toolbox.backend.common.NDArray
+
+   Computes vectorized einsum a,aib,o,io->b, with vectorization over a and i, or aib and io, or both.
+
+   N and M are the vectorization indices, which may be groups of indices.
+
+   .. rubric:: Examples
+
+   Vectorize over both N and M:
+
+   >>> import numpy as np
+   >>> from t3toolbox.utils.contractions import MNa_Maib_No_Mio_to_MNb
+   >>> uv_xyz_a = np.random.randn(5,6, 2,3,4, 10)
+   >>> uv_aib = np.random.randn(5,6, 10,11,12)
+   >>> xyz_o = np.random.randn(2,3,4, 13)
+   >>> uv_io = np.random.randn(5,6, 11,13)
+   >>> MNb = MNa_Maib_No_Mio_to_MNb(uv_xyz_a, uv_aib, xyz_o, uv_io)
+   >>> MNb_true = np.einsum('uvxyza,uvaib,xyzo,uvio->uvxyzb', uv_xyz_a, uv_aib, xyz_o, uv_io)
+   >>> print(MNb.shape == MNb_true.shape)
+   True
+   >>> print(np.linalg.norm(MNb - MNb_true))
+   1.4784891826885966e-12
+
+   Vectorize over N only
+
+   >>> import numpy as np
+   >>> from t3toolbox.utils.contractions import MNa_Maib_No_Mio_to_MNb
+   >>> xyz_a = np.random.randn(2,3,4, 10)
+   >>> aib = np.random.randn(10,11,12)
+   >>> xyz_o = np.random.randn(2,3,4, 13)
+   >>> io = np.random.randn(11,13)
+   >>> MNb = MNa_Maib_No_Mio_to_MNb(xyz_a, aib, xyz_o, io)
+   >>> MNb_true = np.einsum('xyza,aib,xyzo,io->xyzb', xyz_a, aib, xyz_o, io)
+   >>> print(MNb.shape == MNb_true.shape)
+   True
+   >>> print(np.linalg.norm(MNb - MNb_true))
+   4.083260418474411e-13
+
+   Vectorize over both M only:
+
+   >>> import numpy as np
+   >>> from t3toolbox.utils.contractions import MNa_Maib_No_Mio_to_MNb
+   >>> uv_a = np.random.randn(5,6, 10)
+   >>> uv_aib = np.random.randn(5,6, 10,11,12)
+   >>> o = np.random.randn(13)
+   >>> uv_io = np.random.randn(5,6, 11,13)
+   >>> MNb = MNa_Maib_No_Mio_to_MNb(uv_a, uv_aib, o, uv_io)
+   >>> MNb_true = np.einsum('uva,uvaib,o,uvio->uvb', uv_a, uv_aib, o, uv_io)
+   >>> print(MNb.shape == MNb_true.shape)
+   True
+   >>> print(np.linalg.norm(MNb - MNb_true))
+   2.859552860272838e-13
+
+   No vectorization:
+
+   >>> import numpy as np
+   >>> from t3toolbox.utils.contractions import MNa_Maib_No_Mio_to_MNb
+   >>> a = np.random.randn(10)
+   >>> aib = np.random.randn(10,11,12)
+   >>> o = np.random.randn(13)
+   >>> io = np.random.randn(11,13)
+   >>> MNb = MNa_Maib_No_Mio_to_MNb(a, aib, o, io)
+   >>> MNb_true = np.einsum('a,aib,o,io->b', a, aib, o, io)
+   >>> print(MNb.shape == MNb_true.shape)
+   True
+   >>> print(np.linalg.norm(MNb - MNb_true))
+   3.638551654418504e-14
+

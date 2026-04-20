@@ -13,26 +13,26 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
 
 
    .. py:attribute:: tucker_supercore
-      :type:  t3toolbox.common.NDArray
+      :type:  t3toolbox.backend.common.NDArray
 
 
    .. py:attribute:: tt_supercore
-      :type:  t3toolbox.common.NDArray
+      :type:  t3toolbox.backend.common.NDArray
 
 
    .. py:attribute:: shape_mask
-      :type:  t3toolbox.common.NDArray
+      :type:  t3toolbox.backend.common.NDArray
 
 
    .. py:attribute:: tucker_edge_mask
-      :type:  t3toolbox.common.NDArray
+      :type:  t3toolbox.backend.common.NDArray
 
 
    .. py:attribute:: tt_edge_mask
-      :type:  t3toolbox.common.NDArray
+      :type:  t3toolbox.backend.common.NDArray
 
 
-   .. py:method:: data() -> t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray]
+   .. py:method:: data() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]
 
 
    .. py:method:: d() -> int
@@ -63,20 +63,20 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
 
 
 
-   .. py:method:: stack_shape() -> t3toolbox.common.typ.Tuple[int, Ellipsis]
+   .. py:method:: stack_shape() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
       If this contains many stacked uniform Tucker tensor trains, this is the stacking shape.
 
 
 
 
-   .. py:method:: uniform_structure() -> t3toolbox.common.typ.Tuple[int, int, int, int, t3toolbox.common.typ.Tuple[int, Ellipsis]]
+   .. py:method:: uniform_structure() -> t3toolbox.backend.common.typ.Tuple[int, int, int, int, t3toolbox.backend.common.typ.Tuple[int, Ellipsis]]
 
       d, N, n, r, stack_shape
 
 
 
-   .. py:method:: shape() -> t3toolbox.common.typ.Tuple[int, Ellipsis]
+   .. py:method:: shape() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
       Get the original shapes, not including portions of the tensors that are unmasked.
 
@@ -103,7 +103,7 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
 
 
 
-   .. py:method:: tucker_ranks() -> t3toolbox.common.NDArray
+   .. py:method:: tucker_ranks() -> t3toolbox.backend.common.NDArray
 
       Get the original tucker ranks, not including components of the edges that are unmasked.
 
@@ -132,7 +132,7 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
 
 
 
-   .. py:method:: tt_ranks() -> t3toolbox.common.NDArray
+   .. py:method:: tt_ranks() -> t3toolbox.backend.common.NDArray
 
       Get the original tucker ranks, not including components of the edges that are unmasked.
 
@@ -162,7 +162,7 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
 
 
 
-   .. py:method:: structure() -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray]
+   .. py:method:: structure() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]
 
       Structure of the original tensor.
 
@@ -196,7 +196,7 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
    .. py:method:: __post_init__()
 
 
-   .. py:method:: to_dense(use_jax: bool = False) -> t3toolbox.common.NDArray
+   .. py:method:: to_dense(use_jax: bool = False) -> t3toolbox.backend.common.NDArray
 
       Convert uniform Tucker tensor train to dense array.
 
@@ -249,7 +249,7 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
 
 
 
-   .. py:method:: apply_masks_to_cores(use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray]
+   .. py:method:: apply_masks_to_cores(use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]
 
       Applies masking to supercores, replacing unmasked regions with zeros.
 
@@ -267,7 +267,7 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
       >>> dense_x = t3.t3_to_dense(x)
       >>> print(np.linalg.norm(ut3.ut3_to_dense(uniform_x_svd, masks) - dense_x))
       3.0208288525321468e-12
-      >>> x_svd, ss2, _ = t3svd.t3_svd(x)
+      >>> x_svd, ss2, _ = t3svd.t3svd(x)
       >>> print(np.linalg.norm(t3.t3_to_dense(x_svd) - dense_x))
       2.9361853188555994e-12
       >>> x_svd_structure = t3.get_structure(x_svd)

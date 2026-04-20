@@ -1,0 +1,87 @@
+t3toolbox.tucker_tensor_train.t3_add
+====================================
+
+.. py:function:: t3toolbox.tucker_tensor_train.t3_add(x: TuckerTensorTrain, y: TuckerTensorTrain, squash: bool = True, use_jax: bool = False) -> TuckerTensorTrain
+
+   Add Tucker tensor trains x and y, yielding a Tucker tensor train x+y with summed ranks.
+
+   Addition is defined with respect to the dense N0 x ... x N(d-1) tensors that
+   are *represented* by the Tucker tensor trains, even though these dense tensors
+   are not formed during computations.
+
+   For corewise addition, see :func:`t3toolbox.corewise.corewise_add`
+
+   T3 + T3 = T3
+   T3 + dense = dense
+   dense + T3 = dense
+   dense + dense = dense
+
+   :param other: The other Tucker tensor train to add to this one.
+                 structure=((N0,...,N(d-1)), (m0,...,m(d-1)), (q0, q1,...,qd))
+   :type other: TuckerTensorTrain
+   :param squash: Squash the first and last TT cores so that r0=rd=1 in the result. Default: True.
+   :type squash: bool
+   :param xnp: Linear algebra backend. Default: np (numpy)
+
+   :returns:
+
+             Sum of Tucker tensor trains, x+y.
+                 | shape=(N0,...,N(d-1),
+                 | tucker_ranks=(n0+m0,...,n(d-1)+m(d-1),
+                 | TT ranks=(1, r1+q1,...,r(d-1)+q(d-1),1)) if squash=True,
+                 | or (r0+q0, r1+q1,...,r(d-1)+q(d-1),rd+qd)) if squash=False.
+   :rtype: TuckerTensorTrain
+
+   :raises ValueError: - Error raised if either of the TuckerTensorTrains are internally inconsistent
+       - Error raised if the TuckerTensorTrains have different shapes.
+
+   .. seealso:: :py:obj:`TuckerTensorTrain`, :py:obj:`__scale__`, :py:obj:`__sub__`, :py:obj:`__neg__`, :py:obj:`squash_tails`, :func:`~t3toolbox.corewise.corewise_add`
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+   >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (1,5,6,1))
+   >>> z = t3.t3_add(x, y)
+   >>> print(z.uniform_structure)
+   ((14, 15, 16), (7, 12, 8), (1, 8, 8, 1), ())
+   >>> print(np.linalg.norm(x.to_dense() + y.to_dense() - z.to_dense()))
+   6.524094086845177e-13
+
+   With vectorized TuckerTensorTrains
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+   >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (1,5,6,1), stack_shape=(2,3))
+   >>> z = t3.t3_add(x, y)
+   >>> print(z.uniform_structure)
+   ((14, 15, 16), (7, 12, 8), (1, 8, 8, 1), (2, 3))
+   >>> print(np.linalg.norm(x.to_dense() + y.to_dense() - z.to_dense()))
+
+   Adding dense + T3
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> x = np.random.randn(14,15,16)
+   >>> y = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+   >>> z = t3.t3_add(x, y)
+   >>> print(type(z))
+   <class 'numpy.ndarray'>
+   >>> print(np.linalg.norm(x + y.to_dense() - z))
+
+   Adding dense + T3 with stacking
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> s = (14,15,16)
+   >>> vs = (2,3)
+   >>> x = np.random.randn(2,3, 14,15,16)
+   >>> y = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+   >>> z = t3.t3_add(x, y)
+   >>> print(type(z))
+   <class 'numpy.ndarray'>
+   >>> print(np.linalg.norm(x + y.to_dense() - z))
+   0.0
+

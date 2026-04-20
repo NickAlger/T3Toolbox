@@ -1,7 +1,7 @@
 uniform_tensor_linalg.scale_last_slice
 ======================================
 
-.. py:function:: uniform_tensor_linalg.scale_last_slice(x: t3toolbox.common.NDArray, s, use_jax: bool = False) -> t3toolbox.common.NDArray
+.. py:function:: uniform_tensor_linalg.scale_last_slice(x: t3toolbox.backend.common.NDArray, s, use_jax: bool = False) -> t3toolbox.backend.common.NDArray
 
    Apply scaling to only the last slice of an array.
 

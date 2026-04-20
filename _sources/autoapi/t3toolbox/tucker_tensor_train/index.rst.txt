@@ -104,30 +104,42 @@ Functions
 .. toctree::
    :hidden:
 
+   /autoapi/t3toolbox/tucker_tensor_train/t3_stack
+   /autoapi/t3toolbox/tucker_tensor_train/t3_core_shapes
+   /autoapi/t3toolbox/tucker_tensor_train/compute_minimal_t3_ranks
    /autoapi/t3toolbox/tucker_tensor_train/t3_zeros
    /autoapi/t3toolbox/tucker_tensor_train/t3_corewise_randn
    /autoapi/t3toolbox/tucker_tensor_train/t3_save
    /autoapi/t3toolbox/tucker_tensor_train/t3_load
    /autoapi/t3toolbox/tucker_tensor_train/t3_to_vector
    /autoapi/t3toolbox/tucker_tensor_train/t3_from_vector
-   /autoapi/t3toolbox/tucker_tensor_train/t3_core_shapes
-   /autoapi/t3toolbox/tucker_tensor_train/compute_minimal_t3_ranks
    /autoapi/t3toolbox/tucker_tensor_train/t3_apply
-   /autoapi/t3toolbox/tucker_tensor_train/t3_get_entries
-   /autoapi/t3toolbox/tucker_tensor_train/probe_t3
+   /autoapi/t3toolbox/tucker_tensor_train/t3_entries
+   /autoapi/t3toolbox/tucker_tensor_train/t3_probe
+   /autoapi/t3toolbox/tucker_tensor_train/t3_add
+   /autoapi/t3toolbox/tucker_tensor_train/t3_sub
+   /autoapi/t3toolbox/tucker_tensor_train/t3_inner_product
+   /autoapi/t3toolbox/tucker_tensor_train/t3svd_dense
+   /autoapi/t3toolbox/tucker_tensor_train/t3svd
 
 .. autoapisummary::
 
+   t3toolbox.tucker_tensor_train.t3_stack
+   t3toolbox.tucker_tensor_train.t3_core_shapes
+   t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks
    t3toolbox.tucker_tensor_train.t3_zeros
    t3toolbox.tucker_tensor_train.t3_corewise_randn
    t3toolbox.tucker_tensor_train.t3_save
    t3toolbox.tucker_tensor_train.t3_load
    t3toolbox.tucker_tensor_train.t3_to_vector
    t3toolbox.tucker_tensor_train.t3_from_vector
-   t3toolbox.tucker_tensor_train.t3_core_shapes
-   t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks
    t3toolbox.tucker_tensor_train.t3_apply
-   t3toolbox.tucker_tensor_train.t3_get_entries
-   t3toolbox.tucker_tensor_train.probe_t3
+   t3toolbox.tucker_tensor_train.t3_entries
+   t3toolbox.tucker_tensor_train.t3_probe
+   t3toolbox.tucker_tensor_train.t3_add
+   t3toolbox.tucker_tensor_train.t3_sub
+   t3toolbox.tucker_tensor_train.t3_inner_product
+   t3toolbox.tucker_tensor_train.t3svd_dense
+   t3toolbox.tucker_tensor_train.t3svd
 
 

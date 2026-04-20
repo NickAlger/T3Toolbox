@@ -120,20 +120,20 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
    >>> x = t3.t3_corewise_randn((13,14,15,16), (4,5,6,7), (1,99,9,7,1))
    >>> print(x.has_minimal_ranks)
    False
-   >>> x2 = t3svd.t3_svd(x)[0]
+   >>> x2 = t3svd.t3svd(x)[0]
    >>> print(x2.has_minimal_ranks)
    True
 
 
    .. py:attribute:: tucker_cores
-      :type:  t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
+      :type:  t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]
 
 
    .. py:attribute:: tt_cores
-      :type:  t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
+      :type:  t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]
 
 
-   .. py:method:: data() -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]]
+   .. py:method:: data() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]]
 
 
    .. py:method:: d() -> int
@@ -142,32 +142,32 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
    .. py:method:: is_empty() -> bool
 
 
-   .. py:method:: stack_shape() -> t3toolbox.common.typ.Tuple[int, Ellipsis]
+   .. py:method:: stack_shape() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
       If this object contains multiple stacked T3s with the same structure, this is the shape of the stack.
 
 
 
 
-   .. py:method:: shape() -> t3toolbox.common.typ.Tuple[int, Ellipsis]
+   .. py:method:: shape() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
 
-   .. py:method:: tucker_ranks() -> t3toolbox.common.typ.Tuple[int, Ellipsis]
+   .. py:method:: tucker_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
 
-   .. py:method:: tt_ranks() -> t3toolbox.common.typ.Tuple[int, Ellipsis]
+   .. py:method:: tt_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
 
-   .. py:method:: structure() -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.typ.Tuple[int, Ellipsis]]
+   .. py:method:: structure() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.typ.Tuple[int, Ellipsis]]
 
 
-   .. py:method:: core_shapes() -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], Ellipsis], t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], Ellipsis]]
+   .. py:method:: core_shapes() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], Ellipsis]]
 
 
    .. py:method:: size() -> int
 
 
-   .. py:method:: minimal_ranks() -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, Ellipsis], t3toolbox.common.typ.Tuple[int, Ellipsis]]
+   .. py:method:: minimal_ranks() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.typ.Tuple[int, Ellipsis]]
 
 
    .. py:method:: has_minimal_ranks() -> bool
@@ -183,7 +183,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
    .. py:method:: __post_init__()
 
 
-   .. py:method:: to_dense(squash_tails: bool = True, use_jax: bool = False) -> t3toolbox.common.NDArray
+   .. py:method:: to_dense(squash_tails: bool = True, use_jax: bool = False) -> t3toolbox.backend.common.NDArray
 
       Contract a Tucker tensor train to a dense tensor.
 
@@ -326,7 +326,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: change_structure(new_shape: t3toolbox.common.typ.Sequence[int], new_tucker_ranks: t3toolbox.common.typ.Sequence[int], new_tt_ranks: t3toolbox.common.typ.Sequence[int], use_jax: bool = False) -> TuckerTensorTrain
+   .. py:method:: change_structure(new_shape: t3toolbox.backend.common.typ.Sequence[int], new_tucker_ranks: t3toolbox.backend.common.typ.Sequence[int], new_tt_ranks: t3toolbox.backend.common.typ.Sequence[int], use_jax: bool = False) -> TuckerTensorTrain
 
       Increase Tucker tensor train ranks and/or shape via zero padding.
 
@@ -560,7 +560,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: up_svd_ith_tucker_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[TuckerTensorTrain, t3toolbox.common.NDArray]
+   .. py:method:: up_svd_ith_tucker_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[TuckerTensorTrain, t3toolbox.backend.common.NDArray]
 
       Compute SVD of ith tucker backend and contract non-orthogonal factor up into the TT-backend above.
 
@@ -605,7 +605,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: left_svd_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[TuckerTensorTrain, t3toolbox.common.NDArray]
+   .. py:method:: left_svd_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[TuckerTensorTrain, t3toolbox.backend.common.NDArray]
 
       Compute SVD of ith TT-backend left unfolding and contract non-orthogonal factor into the TT-backend to the right.
 
@@ -650,7 +650,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: right_svd_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[TuckerTensorTrain, t3toolbox.common.NDArray]
+   .. py:method:: right_svd_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[TuckerTensorTrain, t3toolbox.backend.common.NDArray]
 
       Compute SVD of ith TT-backend right unfolding and contract non-orthogonal factor into the TT-backend to the left.
 
@@ -695,7 +695,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: up_svd_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[TuckerTensorTrain, t3toolbox.common.NDArray]
+   .. py:method:: up_svd_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[TuckerTensorTrain, t3toolbox.backend.common.NDArray]
 
       Compute SVD of ith TT-backend down unfolding and keep non-orthogonal factor with this backend.
 
@@ -734,7 +734,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: down_svd_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[TuckerTensorTrain, t3toolbox.common.NDArray]
+   .. py:method:: down_svd_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[TuckerTensorTrain, t3toolbox.backend.common.NDArray]
 
       Compute SVD of ith TT-backend right unfolding and contract non-orthogonal factor down into the tucker backend below.
 
@@ -1040,7 +1040,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: get_entries(index: t3toolbox.common.NDArray, use_jax: bool = False) -> t3toolbox.common.NDArray
+   .. py:method:: get_entries(index: t3toolbox.backend.common.NDArray, use_jax: bool = False) -> t3toolbox.backend.common.NDArray
 
       Compute an entry (or multiple entries) of a Tucker tensor train.
 
@@ -1062,7 +1062,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: t3_apply(vecs: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], use_jax: bool = False) -> t3toolbox.common.NDArray
+   .. py:method:: t3_apply(vecs: t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], use_jax: bool = False) -> t3toolbox.backend.common.NDArray
 
       Contract a Tucker tensor train with vectors in all indices.
 
@@ -1081,7 +1081,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: probe(ww: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], use_jax: bool = False) -> t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray]
+   .. py:method:: probe(ww: t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], use_jax: bool = False) -> t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]
 
       Probe a TuckerTensorTrain.
 

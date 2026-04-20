@@ -1,7 +1,7 @@
 t3toolbox.manifold.orthogonal_gauge_projection
 ==============================================
 
-.. py:function:: t3toolbox.manifold.orthogonal_gauge_projection(variation: t3toolbox.common.typ.Union[t3toolbox.base_variation_format.T3Variation, t3toolbox.OLD_uniform.UniformT3Variation], orthogonal_base: t3toolbox.common.typ.Union[t3toolbox.base_variation_format.T3Base, t3toolbox.OLD_uniform.UniformT3Base], use_jax: bool = False) -> t3toolbox.common.typ.Union[t3toolbox.base_variation_format.T3Variation, t3toolbox.OLD_uniform.UniformT3Variation]
+.. py:function:: t3toolbox.manifold.orthogonal_gauge_projection(variation: Union[t3toolbox.base_variation_format.T3Variation, t3toolbox.OLD_uniform.UniformT3Variation], orthogonal_base: Union[t3toolbox.base_variation_format.T3Base, t3toolbox.OLD_uniform.UniformT3Base], use_jax: bool = False) -> Union[t3toolbox.base_variation_format.T3Variation, t3toolbox.OLD_uniform.UniformT3Variation]
 
    Makes tangent variation gauged via orthogonal projection. Changes tangent vector.
 

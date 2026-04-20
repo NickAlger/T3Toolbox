@@ -1,7 +1,7 @@
 t3toolbox.OLD_uniform.unpack
 ============================
 
-.. py:function:: t3toolbox.OLD_uniform.unpack(packed_edge_tensors: t3toolbox.common.NDArray, submask: t3toolbox.common.NDArray, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
+.. py:function:: t3toolbox.OLD_uniform.unpack(packed_edge_tensors: NDArray, submask: NDArray, use_jax: bool = False) -> Tuple[NDArray, Ellipsis]
 
    Get ragged (variable length) edge vectors from uniform edge vectors.
 
@@ -33,7 +33,7 @@ t3toolbox.OLD_uniform.unpack
    >>> s0 = ((11,12,13), (6,7,5), (1,3,6,2))
    >>> s = (s0[0],) + t3.compute_minimal_t3_ranks(s0)
    >>> x = t3.t3_corewise_randn(s)
-   >>> _, _, ss_tt = t3svd.t3_svd(x)
+   >>> _, _, ss_tt = t3svd.t3svd(x)
    >>> print(ss_tt[1])
    [2627.79225375  441.12769204  328.73617961]
    >>> cores, masks = ut3.t3_to_ut3(x)

@@ -1,4 +1,0 @@
-t3toolbox.common.randn
-======================
-
-.. py:function:: t3toolbox.common.randn(*args, use_jax: bool)

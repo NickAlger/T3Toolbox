@@ -1,7 +1,7 @@
 t3toolbox.tucker_tensor_train.t3_corewise_randn
 ===============================================
 
-.. py:function:: t3toolbox.tucker_tensor_train.t3_corewise_randn(shape: t3toolbox.common.typ.Tuple[int, Ellipsis], tucker_ranks: t3toolbox.common.typ.Tuple[int, Ellipsis], tt_ranks: t3toolbox.common.typ.Tuple[int, Ellipsis], stack_shape: t3toolbox.common.typ.Tuple[int, Ellipsis] = (), use_jax: bool = False) -> TuckerTensorTrain
+.. py:function:: t3toolbox.tucker_tensor_train.t3_corewise_randn(shape: t3toolbox.backend.common.typ.Tuple[int, Ellipsis], tucker_ranks: t3toolbox.backend.common.typ.Tuple[int, Ellipsis], tt_ranks: t3toolbox.backend.common.typ.Tuple[int, Ellipsis], stack_shape: t3toolbox.backend.common.typ.Tuple[int, Ellipsis] = (), use_jax: bool = False) -> TuckerTensorTrain
 
    Construct a Tucker tensor train with random cores.
 

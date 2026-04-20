@@ -16,26 +16,26 @@ t3toolbox.weighted_tucker_tensor_train.EdgeVectors
 
 
    .. py:attribute:: tucker_edge_vectors
-      :type:  t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
+      :type:  t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]
 
 
    .. py:attribute:: tt_vectors
-      :type:  t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]
+      :type:  t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]
 
 
-   .. py:method:: data() -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis], t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, Ellipsis]]
+   .. py:method:: data() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]]
 
 
    .. py:method:: d() -> int
 
 
-   .. py:method:: tucker_ranks() -> t3toolbox.common.typ.Tuple[int, Ellipsis]
+   .. py:method:: tucker_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
 
-   .. py:method:: tt_ranks() -> t3toolbox.common.typ.Tuple[int, Ellipsis]
+   .. py:method:: tt_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
 
-   .. py:method:: stack_shape() -> t3toolbox.common.typ.Tuple[int, Ellipsis]
+   .. py:method:: stack_shape() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
 
    .. py:method:: validate()

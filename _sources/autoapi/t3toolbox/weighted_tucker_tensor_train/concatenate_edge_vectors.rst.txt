@@ -1,0 +1,8 @@
+t3toolbox.weighted_tucker_tensor_train.concatenate_edge_vectors
+===============================================================
+
+.. py:function:: t3toolbox.weighted_tucker_tensor_train.concatenate_edge_vectors(evA: EdgeVectors, evB: EdgeVectors) -> EdgeVectors
+
+   Concatenates edge vectors. Vectorized over stacking dimensions.
+
+

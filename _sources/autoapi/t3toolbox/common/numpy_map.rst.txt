@@ -1,4 +1,0 @@
-t3toolbox.common.numpy_map
-==========================
-
-.. py:function:: t3toolbox.common.numpy_map(f: Callable[[CarryType, Sequence[NDArray]], Tuple[CarryType, Sequence[NDArray]]], xs: Sequence[Union[Sequence[NDArray], NDArray]]) -> Tuple[NDArray, Ellipsis]

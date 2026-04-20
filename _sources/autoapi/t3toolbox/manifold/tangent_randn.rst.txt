@@ -1,7 +1,7 @@
 t3toolbox.manifold.tangent_randn
 ================================
 
-.. py:function:: t3toolbox.manifold.tangent_randn(base: t3toolbox.common.typ.Union[t3toolbox.base_variation_format.T3Base, t3toolbox.OLD_uniform.UniformT3Base], masks: t3toolbox.common.typ.Union[t3toolbox.OLD_uniform.UniformEdgeWeights, t3toolbox.OLD_uniform.UniformBVEdgeWeights] = (None, None, None), apply_gauge_projection: bool = True, randn: t3toolbox.common.typ.Callable[Ellipsis, t3toolbox.common.NDArray] = np.random.randn, use_jax: bool = False) -> t3toolbox.common.typ.Union[t3toolbox.base_variation_format.T3Variation, t3toolbox.OLD_uniform.UniformT3Variation]
+.. py:function:: t3toolbox.manifold.tangent_randn(base: Union[t3toolbox.base_variation_format.T3Base, t3toolbox.OLD_uniform.UniformT3Base], masks: Union[t3toolbox.OLD_uniform.UniformEdgeWeights, t3toolbox.OLD_uniform.UniformBVEdgeWeights] = (None, None, None), apply_gauge_projection: bool = True, randn: Callable[Ellipsis, NDArray] = np.random.randn, use_jax: bool = False) -> Union[t3toolbox.base_variation_format.T3Variation, t3toolbox.OLD_uniform.UniformT3Variation]
 
    Draw a random T3Variation.
 

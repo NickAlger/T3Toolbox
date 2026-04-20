@@ -1,7 +1,7 @@
 t3toolbox.OLD_uniform.get_uniform_base_hole_shapes
 ==================================================
 
-.. py:function:: t3toolbox.OLD_uniform.get_uniform_base_hole_shapes(base: UniformT3Base) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, int, int], t3toolbox.common.typ.Tuple[int, int, int, int]]
+.. py:function:: t3toolbox.OLD_uniform.get_uniform_base_hole_shapes(base: UniformT3Base) -> Tuple[Tuple[int, int, int], Tuple[int, int, int, int]]
 
    Get the hole shapes for a uniform base.
 

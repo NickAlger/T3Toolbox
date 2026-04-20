@@ -1,8 +1,0 @@
-t3toolbox.orthogonalization.left_orthogonalize_tt_cores
-=======================================================
-
-.. py:function:: t3toolbox.orthogonalization.left_orthogonalize_tt_cores(tt_cores: t3toolbox.common.typ.Sequence[t3toolbox.common.NDArray], return_variation_cores: bool = False, use_jax: bool = False)
-
-   Left-orthogonalize a Tensor train (no Tucker).
-
-

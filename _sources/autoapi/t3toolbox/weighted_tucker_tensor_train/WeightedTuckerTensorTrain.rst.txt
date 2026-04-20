@@ -142,7 +142,7 @@ t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain
 
 
 
-   .. py:method:: to_dense(use_jax: bool = False) -> t3toolbox.common.NDArray
+   .. py:method:: to_dense(use_jax: bool = False) -> t3toolbox.backend.common.NDArray
 
       Convert the weighted Tucker tensor train to a dense array.
 

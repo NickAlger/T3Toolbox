@@ -1,0 +1,35 @@
+t3toolbox.backend.contractions
+==============================
+
+.. py:module:: t3toolbox.backend.contractions
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/backend/contractions/Na_Maib_Ni_to_NMb
+   /autoapi/t3toolbox/backend/contractions/MNa_Maib_No_Mio_to_MNb
+   /autoapi/t3toolbox/backend/contractions/MNa_Maib_MiN_to_MNb
+   /autoapi/t3toolbox/backend/contractions/Mio_No_to_MNi
+   /autoapi/t3toolbox/backend/contractions/dMio_dNo_to_dMNi
+   /autoapi/t3toolbox/backend/contractions/MNa_Maib_MNb_to_MNi
+   /autoapi/t3toolbox/backend/contractions/dMNa_dMaib_dMNb_to_dMNi
+   /autoapi/t3toolbox/backend/contractions/MNi_Mio_to_MNo
+   /autoapi/t3toolbox/backend/contractions/dMNi_dMio_to_dMNo
+
+.. autoapisummary::
+
+   t3toolbox.backend.contractions.Na_Maib_Ni_to_NMb
+   t3toolbox.backend.contractions.MNa_Maib_No_Mio_to_MNb
+   t3toolbox.backend.contractions.MNa_Maib_MiN_to_MNb
+   t3toolbox.backend.contractions.Mio_No_to_MNi
+   t3toolbox.backend.contractions.dMio_dNo_to_dMNi
+   t3toolbox.backend.contractions.MNa_Maib_MNb_to_MNi
+   t3toolbox.backend.contractions.dMNa_dMaib_dMNb_to_dMNi
+   t3toolbox.backend.contractions.MNi_Mio_to_MNo
+   t3toolbox.backend.contractions.dMNi_dMio_to_dMNo
+
+

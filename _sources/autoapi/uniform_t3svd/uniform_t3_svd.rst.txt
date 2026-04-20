@@ -1,7 +1,7 @@
 uniform_t3svd.uniform_t3_svd
 ============================
 
-.. py:function:: uniform_t3svd.uniform_t3_svd(cores: t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray], rank_truncation_masks: t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray] = (None, None, None), squash_tails_first: bool = True, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray], t3toolbox.common.NDArray, t3toolbox.common.NDArray]
+.. py:function:: uniform_t3svd.uniform_t3_svd(cores: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray], rank_truncation_masks: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray] = (None, None, None), squash_tails_first: bool = True, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray], t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]
 
    Compute T3-SVD of uniform Tucker tensor train.
 

@@ -11,13 +11,9 @@ Submodules
    :maxdepth: 1
 
    /autoapi/t3toolbox/backend/tucker_tensor_train/dense_t3svd/index
-   /autoapi/t3toolbox/backend/tucker_tensor_train/orthogonalization/index
    /autoapi/t3toolbox/backend/tucker_tensor_train/ragged_orthogonalization/index
    /autoapi/t3toolbox/backend/tucker_tensor_train/ragged_t3_operations/index
    /autoapi/t3toolbox/backend/tucker_tensor_train/ragged_t3svd/index
    /autoapi/t3toolbox/backend/tucker_tensor_train/ragged_tensor_linalg/index
-   /autoapi/t3toolbox/backend/tucker_tensor_train/t3_apply/index
-   /autoapi/t3toolbox/backend/tucker_tensor_train/t3_entries/index
-   /autoapi/t3toolbox/backend/tucker_tensor_train/t3_ranks/index
 
 

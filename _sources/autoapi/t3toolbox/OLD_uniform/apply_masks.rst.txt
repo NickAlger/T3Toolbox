@@ -18,7 +18,7 @@ t3toolbox.OLD_uniform.apply_masks
    >>> dense_x = t3.t3_to_dense(x)
    >>> print(np.linalg.norm(ut3.ut3_to_dense(uniform_x_svd, masks) - dense_x))
    3.0208288525321468e-12
-   >>> x_svd, ss2, _ = t3svd.t3_svd(x)
+   >>> x_svd, ss2, _ = t3svd.t3svd(x)
    >>> print(np.linalg.norm(t3.t3_to_dense(x_svd) - dense_x))
    2.9361853188555994e-12
    >>> x_svd_structure = t3.get_structure(x_svd)

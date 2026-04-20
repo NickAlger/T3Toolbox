@@ -1,0 +1,4 @@
+t3toolbox.backend.common.is_boolean_ndarray
+===========================================
+
+.. py:function:: t3toolbox.backend.common.is_boolean_ndarray(x)

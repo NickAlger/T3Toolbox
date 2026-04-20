@@ -1,7 +1,7 @@
 t3toolbox.uniform_tucker_tensor_train.ut3_apply
 ===============================================
 
-.. py:function:: t3toolbox.uniform_tucker_tensor_train.ut3_apply(x: UniformTuckerTensorTrain, input_vectors: t3toolbox.common.NDArray, use_jax: bool = False) -> t3toolbox.common.NDArray
+.. py:function:: t3toolbox.uniform_tucker_tensor_train.ut3_apply(x: UniformTuckerTensorTrain, input_vectors: t3toolbox.backend.common.NDArray, use_jax: bool = False) -> t3toolbox.backend.common.NDArray
 
    Apply a uniform Tucker tensor train to vectors. WORK IN PROGRESS
 

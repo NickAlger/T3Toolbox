@@ -48,7 +48,7 @@
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
     <link rel="next" title="t3toolbox.backend.weighted_tucker_tensor_train.ragged_wt3_operations" href="ragged_wt3_operations/index.html" />
-    <link rel="prev" title="t3toolbox.backend.tucker_tensor_train.t3_ranks.compute_minimal_t3_ranks" href="../tucker_tensor_train/t3_ranks/compute_minimal_t3_ranks.html" />
+    <link rel="prev" title="t3toolbox.backend.tucker_tensor_train.ragged_tensor_linalg.t3_norm" href="../tucker_tensor_train/ragged_tensor_linalg/t3_norm.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -252,6 +252,11 @@
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../../index.html">t3toolbox</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../OLD_orthogonalization/index.html">t3toolbox.OLD_orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../OLD_orthogonalization/left_orthogonalize_tt_cores.html">t3toolbox.OLD_orthogonalization.left_orthogonalize_tt_cores</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../OLD_orthogonalization/right_orthogonalize_tt_cores.html">t3toolbox.OLD_orthogonalization.right_orthogonalize_tt_cores</a></li>
+</ul>
+</details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../OLD_uniform/index.html">t3toolbox.OLD_uniform</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../OLD_uniform/get_uniform_base_structure.html">t3toolbox.OLD_uniform.get_uniform_base_structure</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../OLD_uniform/get_uniform_base_hole_shapes.html">t3toolbox.OLD_uniform.get_uniform_base_hole_shapes</a></li>
@@ -279,7 +284,54 @@
 <li class="toctree-l3"><a class="reference internal" href="../../OLD_uniform/ut3_sub.html">t3toolbox.OLD_uniform.ut3_sub</a></li>
 </ul>
 </details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../../OLD_uniform_orthogonalization/index.html">t3toolbox.OLD_uniform_orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../OLD_uniform_orthogonalization/left_orthogonalize_utt.html">t3toolbox.OLD_uniform_orthogonalization.left_orthogonalize_utt</a></li>
+</ul>
+</details></li>
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="../index.html">t3toolbox.backend</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3 has-children"><a class="reference internal" href="../apply/index.html">t3toolbox.backend.apply</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../apply/t3_apply.html">t3toolbox.backend.apply.t3_apply</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../common/index.html">t3toolbox.backend.common</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../common/is_boolean_ndarray.html">t3toolbox.backend.common.is_boolean_ndarray</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../common/is_boolean_ndarray.html">t3toolbox.backend.common.is_boolean_ndarray</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../common/ragged_scan.html">t3toolbox.backend.common.ragged_scan</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../common/numpy_scan.html">t3toolbox.backend.common.numpy_scan</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../common/ragged_map.html">t3toolbox.backend.common.ragged_map</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../common/numpy_map.html">t3toolbox.backend.common.numpy_map</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../common/get_backend.html">t3toolbox.backend.common.get_backend</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../common/randn.html">t3toolbox.backend.common.randn</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../contractions/index.html">t3toolbox.backend.contractions</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../contractions/Na_Maib_Ni_to_NMb.html">t3toolbox.backend.contractions.Na_Maib_Ni_to_NMb</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../contractions/MNa_Maib_No_Mio_to_MNb.html">t3toolbox.backend.contractions.MNa_Maib_No_Mio_to_MNb</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../contractions/MNa_Maib_MiN_to_MNb.html">t3toolbox.backend.contractions.MNa_Maib_MiN_to_MNb</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../contractions/Mio_No_to_MNi.html">t3toolbox.backend.contractions.Mio_No_to_MNi</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../contractions/dMio_dNo_to_dMNi.html">t3toolbox.backend.contractions.dMio_dNo_to_dMNi</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../contractions/MNa_Maib_MNb_to_MNi.html">t3toolbox.backend.contractions.MNa_Maib_MNb_to_MNi</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../contractions/dMNa_dMaib_dMNb_to_dMNi.html">t3toolbox.backend.contractions.dMNa_dMaib_dMNb_to_dMNi</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../contractions/MNi_Mio_to_MNo.html">t3toolbox.backend.contractions.MNi_Mio_to_MNo</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../contractions/dMNi_dMio_to_dMNo.html">t3toolbox.backend.contractions.dMNi_dMio_to_dMNo</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../entries/index.html">t3toolbox.backend.entries</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../entries/t3_get_entries.html">t3toolbox.backend.entries.t3_get_entries</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../linalg/index.html">t3toolbox.backend.linalg</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../linalg/truncated_svd.html">t3toolbox.backend.linalg.truncated_svd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../linalg/left_svd_3tensor.html">t3toolbox.backend.linalg.left_svd_3tensor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../linalg/right_svd_3tensor.html">t3toolbox.backend.linalg.right_svd_3tensor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../linalg/outer_svd_3tensor.html">t3toolbox.backend.linalg.outer_svd_3tensor</a></li>
+</ul>
+</details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../orthogonalization/index.html">t3toolbox.backend.orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../orthogonalization/left_orthogonalize_tt_cores.html">t3toolbox.backend.orthogonalization.left_orthogonalize_tt_cores</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../orthogonalization/right_orthogonalize_tt_cores.html">t3toolbox.backend.orthogonalization.right_orthogonalize_tt_cores</a></li>
+</ul>
+</details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../probing/index.html">t3toolbox.backend.probing</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l4"><a class="reference internal" href="../probing/probe_t3.html">t3toolbox.backend.probing.probe_t3</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../probing/compute_xis.html">t3toolbox.backend.probing.compute_xis</a></li>
@@ -303,16 +355,16 @@
 <li class="toctree-l4"><a class="reference internal" href="../probing/probe_dense.html">t3toolbox.backend.probing.probe_dense</a></li>
 </ul>
 </details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../ranks/index.html">t3toolbox.backend.ranks</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../ranks/compute_minimal_t3_ranks.html">t3toolbox.backend.ranks.compute_minimal_t3_ranks</a></li>
+</ul>
+</details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../tucker_tensor_train/index.html">t3toolbox.backend.tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/dense_t3svd/index.html">t3toolbox.backend.tucker_tensor_train.dense_t3svd</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/orthogonalization/index.html">t3toolbox.backend.tucker_tensor_train.orthogonalization</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/ragged_orthogonalization/index.html">t3toolbox.backend.tucker_tensor_train.ragged_orthogonalization</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/ragged_t3_operations/index.html">t3toolbox.backend.tucker_tensor_train.ragged_t3_operations</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/ragged_t3svd/index.html">t3toolbox.backend.tucker_tensor_train.ragged_t3svd</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/ragged_tensor_linalg/index.html">t3toolbox.backend.tucker_tensor_train.ragged_tensor_linalg</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/t3_apply/index.html">t3toolbox.backend.tucker_tensor_train.t3_apply</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/t3_entries/index.html">t3toolbox.backend.tucker_tensor_train.t3_entries</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/t3_ranks/index.html">t3toolbox.backend.tucker_tensor_train.t3_ranks</a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 current active has-children"><a class="current reference internal" href="#">t3toolbox.backend.weighted_tucker_tensor_train</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -329,17 +381,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../base_variation_format/check_t3base.html">t3toolbox.base_variation_format.check_t3base</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../base_variation_format/check_t3variation.html">t3toolbox.base_variation_format.check_t3variation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../base_variation_format/t3_orthogonal_representations.html">t3toolbox.base_variation_format.t3_orthogonal_representations</a></li>
-</ul>
-</details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../../common/index.html">t3toolbox.common</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../common/is_boolean_ndarray.html">t3toolbox.common.is_boolean_ndarray</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../common/is_boolean_ndarray.html">t3toolbox.common.is_boolean_ndarray</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../common/ragged_scan.html">t3toolbox.common.ragged_scan</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../common/numpy_scan.html">t3toolbox.common.numpy_scan</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../common/ragged_map.html">t3toolbox.common.ragged_map</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../common/numpy_map.html">t3toolbox.common.numpy_map</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../common/get_backend.html">t3toolbox.common.get_backend</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../common/randn.html">t3toolbox.common.randn</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../corewise/index.html">t3toolbox.corewise</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -367,24 +408,25 @@
 <li class="toctree-l3"><a class="reference internal" href="../../manifold/retract.html">t3toolbox.manifold.retract</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../../orthogonalization/index.html">t3toolbox.orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../orthogonalization/left_orthogonalize_tt_cores.html">t3toolbox.orthogonalization.left_orthogonalize_tt_cores</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../orthogonalization/right_orthogonalize_tt_cores.html">t3toolbox.orthogonalization.right_orthogonalize_tt_cores</a></li>
-</ul>
-</details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../tucker_tensor_train/index.html">t3toolbox.tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/TuckerTensorTrain.html">t3toolbox.tucker_tensor_train.TuckerTensorTrain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_stack.html">t3toolbox.tucker_tensor_train.t3_stack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_core_shapes.html">t3toolbox.tucker_tensor_train.t3_core_shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/compute_minimal_t3_ranks.html">t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_zeros.html">t3toolbox.tucker_tensor_train.t3_zeros</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_corewise_randn.html">t3toolbox.tucker_tensor_train.t3_corewise_randn</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_save.html">t3toolbox.tucker_tensor_train.t3_save</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_load.html">t3toolbox.tucker_tensor_train.t3_load</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_to_vector.html">t3toolbox.tucker_tensor_train.t3_to_vector</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_from_vector.html">t3toolbox.tucker_tensor_train.t3_from_vector</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_core_shapes.html">t3toolbox.tucker_tensor_train.t3_core_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/compute_minimal_t3_ranks.html">t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_apply.html">t3toolbox.tucker_tensor_train.t3_apply</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_get_entries.html">t3toolbox.tucker_tensor_train.t3_get_entries</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/probe_t3.html">t3toolbox.tucker_tensor_train.probe_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_entries.html">t3toolbox.tucker_tensor_train.t3_entries</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_probe.html">t3toolbox.tucker_tensor_train.t3_probe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_add.html">t3toolbox.tucker_tensor_train.t3_add</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_sub.html">t3toolbox.tucker_tensor_train.t3_sub</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_inner_product.html">t3toolbox.tucker_tensor_train.t3_inner_product</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3svd_dense.html">t3toolbox.tucker_tensor_train.t3svd_dense</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3svd.html">t3toolbox.tucker_tensor_train.t3svd</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../uniform_manifold/index.html">t3toolbox.uniform_manifold</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -392,47 +434,31 @@
 <li class="toctree-l3"><a class="reference internal" href="../../uniform_manifold/uniform_tangent_to_dense.html">t3toolbox.uniform_manifold.uniform_tangent_to_dense</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../../uniform_orthogonalization/index.html">t3toolbox.uniform_orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../uniform_orthogonalization/left_orthogonalize_utt.html">t3toolbox.uniform_orthogonalization.left_orthogonalize_utt</a></li>
-</ul>
-</details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../uniform_tucker_tensor_train/index.html">t3toolbox.uniform_tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../uniform_tucker_tensor_train/UniformTuckerTensorTrain.html">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../uniform_tucker_tensor_train/t3_to_ut3.html">t3toolbox.uniform_tucker_tensor_train.t3_to_ut3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../uniform_tucker_tensor_train/ut3_to_t3.html">t3toolbox.uniform_tucker_tensor_train.ut3_to_t3</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../uniform_tucker_tensor_train/ut3_get_entries.html">t3toolbox.uniform_tucker_tensor_train.ut3_get_entries</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../uniform_tucker_tensor_train/ut3_entries.html">t3toolbox.uniform_tucker_tensor_train.ut3_entries</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../uniform_tucker_tensor_train/ut3_apply.html">t3toolbox.uniform_tucker_tensor_train.ut3_apply</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../uniform_tucker_tensor_train/ut3_probe.html">t3toolbox.uniform_tucker_tensor_train.ut3_probe</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../uniform_tucker_tensor_train/ut3_add.html">t3toolbox.uniform_tucker_tensor_train.ut3_add</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../uniform_tucker_tensor_train/ut3_sub.html">t3toolbox.uniform_tucker_tensor_train.ut3_sub</a></li>
-</ul>
-</details></li>
-<li class="toctree-l2 has-children"><a class="reference internal" href="../../util_linalg/index.html">t3toolbox.util_linalg</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../util_linalg/truncated_svd.html">t3toolbox.util_linalg.truncated_svd</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../util_linalg/left_svd_3tensor.html">t3toolbox.util_linalg.left_svd_3tensor</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../util_linalg/right_svd_3tensor.html">t3toolbox.util_linalg.right_svd_3tensor</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../util_linalg/outer_svd_3tensor.html">t3toolbox.util_linalg.outer_svd_3tensor</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../uniform_tucker_tensor_train/ut3_inner_product.html">t3toolbox.uniform_tucker_tensor_train.ut3_inner_product</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../uniform_tucker_tensor_train/ut3svd.html">t3toolbox.uniform_tucker_tensor_train.ut3svd</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../weighted_tucker_tensor_train/index.html">t3toolbox.weighted_tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../weighted_tucker_tensor_train/EdgeVectors.html">t3toolbox.weighted_tucker_tensor_train.EdgeVectors</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../weighted_tucker_tensor_train/WeightedTuckerTensorTrain.html">t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../weighted_tucker_tensor_train/concatenate_edge_vectors.html">t3toolbox.weighted_tucker_tensor_train.concatenate_edge_vectors</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../weighted_tucker_tensor_train/wt3_add.html">t3toolbox.weighted_tucker_tensor_train.wt3_add</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../weighted_tucker_tensor_train/wt3_sub.html">t3toolbox.weighted_tucker_tensor_train.wt3_sub</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../weighted_tucker_tensor_train/wt3_inner_product.html">t3toolbox.weighted_tucker_tensor_train.wt3_inner_product</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../weighted_tucker_tensor_train/wt3_apply.html">t3toolbox.weighted_tucker_tensor_train.wt3_apply</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../weighted_tucker_tensor_train/wt3_entries.html">t3toolbox.weighted_tucker_tensor_train.wt3_entries</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../weighted_tucker_tensor_train/wt3_probe.html">t3toolbox.weighted_tucker_tensor_train.wt3_probe</a></li>
 </ul>
 </details></li>
-</ul>
-</details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../../contractions/index.html">contractions</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../../contractions/Na_Maib_Ni_to_NMb.html">contractions.Na_Maib_Ni_to_NMb</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../contractions/MNa_Maib_No_Mio_to_MNb.html">contractions.MNa_Maib_No_Mio_to_MNb</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../contractions/MNa_Maib_MiN_to_MNb.html">contractions.MNa_Maib_MiN_to_MNb</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../contractions/Mio_No_to_MNi.html">contractions.Mio_No_to_MNi</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../contractions/dMio_dNo_to_dMNi.html">contractions.dMio_dNo_to_dMNi</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../contractions/MNa_Maib_MNb_to_MNi.html">contractions.MNa_Maib_MNb_to_MNi</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../contractions/dMNa_dMaib_dMNb_to_dMNi.html">contractions.dMNa_dMaib_dMNb_to_dMNi</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../contractions/MNi_Mio_to_MNo.html">contractions.MNi_Mio_to_MNo</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../contractions/dMNi_dMio_to_dMNo.html">contractions.dMNi_dMio_to_dMNo</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../uniform_t3svd/index.html">uniform_t3svd</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -549,12 +575,12 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../tucker_tensor_train/t3_ranks/compute_minimal_t3_ranks.html"
+       href="../tucker_tensor_train/ragged_tensor_linalg/t3_norm.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.backend.tucker_tensor_train.t3_ranks.compute_minimal_t3_ranks</p>
+        <p class="prev-next-title">t3toolbox.backend.tucker_tensor_train.ragged_tensor_linalg.t3_norm</p>
       </div>
     </a>
     <a class="right-next"

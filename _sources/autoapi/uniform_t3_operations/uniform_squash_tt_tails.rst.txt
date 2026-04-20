@@ -1,7 +1,7 @@
 uniform_t3_operations.uniform_squash_tt_tails
 =============================================
 
-.. py:function:: uniform_t3_operations.uniform_squash_tt_tails(tt_supercore: t3toolbox.common.NDArray, use_jax: bool = False) -> t3toolbox.common.NDArray
+.. py:function:: uniform_t3_operations.uniform_squash_tt_tails(tt_supercore: t3toolbox.backend.common.NDArray, use_jax: bool = False) -> t3toolbox.backend.common.NDArray
 
    Squash tails of uniform tensor train.
 

@@ -30,14 +30,22 @@ Functions
 .. toctree::
    :hidden:
 
+   /autoapi/t3toolbox/weighted_tucker_tensor_train/concatenate_edge_vectors
    /autoapi/t3toolbox/weighted_tucker_tensor_train/wt3_add
    /autoapi/t3toolbox/weighted_tucker_tensor_train/wt3_sub
    /autoapi/t3toolbox/weighted_tucker_tensor_train/wt3_inner_product
+   /autoapi/t3toolbox/weighted_tucker_tensor_train/wt3_apply
+   /autoapi/t3toolbox/weighted_tucker_tensor_train/wt3_entries
+   /autoapi/t3toolbox/weighted_tucker_tensor_train/wt3_probe
 
 .. autoapisummary::
 
+   t3toolbox.weighted_tucker_tensor_train.concatenate_edge_vectors
    t3toolbox.weighted_tucker_tensor_train.wt3_add
    t3toolbox.weighted_tucker_tensor_train.wt3_sub
    t3toolbox.weighted_tucker_tensor_train.wt3_inner_product
+   t3toolbox.weighted_tucker_tensor_train.wt3_apply
+   t3toolbox.weighted_tucker_tensor_train.wt3_entries
+   t3toolbox.weighted_tucker_tensor_train.wt3_probe
 
 

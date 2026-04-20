@@ -1,0 +1,74 @@
+t3toolbox.backend.common
+========================
+
+.. py:module:: t3toolbox.backend.common
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   t3toolbox.backend.common.has_jax
+   t3toolbox.backend.common.has_jax
+   t3toolbox.backend.common.NDArray
+   t3toolbox.backend.common.NDArray
+   t3toolbox.backend.common.is_ndarray
+   t3toolbox.backend.common.is_ndarray
+   t3toolbox.backend.common.jax_scan
+   t3toolbox.backend.common.jax_map
+   t3toolbox.backend.common.jax_scan
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/backend/common/is_boolean_ndarray
+   /autoapi/t3toolbox/backend/common/is_boolean_ndarray
+   /autoapi/t3toolbox/backend/common/ragged_scan
+   /autoapi/t3toolbox/backend/common/numpy_scan
+   /autoapi/t3toolbox/backend/common/ragged_map
+   /autoapi/t3toolbox/backend/common/numpy_map
+   /autoapi/t3toolbox/backend/common/get_backend
+   /autoapi/t3toolbox/backend/common/randn
+
+.. autoapisummary::
+
+   t3toolbox.backend.common.is_boolean_ndarray
+   t3toolbox.backend.common.is_boolean_ndarray
+   t3toolbox.backend.common.ragged_scan
+   t3toolbox.backend.common.numpy_scan
+   t3toolbox.backend.common.ragged_map
+   t3toolbox.backend.common.numpy_map
+   t3toolbox.backend.common.get_backend
+   t3toolbox.backend.common.randn
+
+
+Module Contents
+---------------
+
+.. py:data:: has_jax
+   :value: False
+
+
+.. py:data:: has_jax
+   :value: True
+
+
+.. py:data:: NDArray
+
+.. py:data:: NDArray
+
+.. py:data:: is_ndarray
+
+.. py:data:: is_ndarray
+
+.. py:data:: jax_scan
+
+.. py:data:: jax_map
+
+.. py:data:: jax_scan
+
