@@ -1059,6 +1059,9 @@ def ut3_inner_product(
         x.data, y.data, use_orthogonalization=use_orthogonalization, use_jax=use_jax,
     )
 
+make_uniform_masks = uniform_ops.make_uniform_masks
+
+
 def uniform_t3_svd(
         cores: typ.Tuple[
             NDArray, # tucker_supercore
@@ -1084,14 +1087,13 @@ def uniform_t3_svd(
     Examples
     --------
     >>> import numpy as np
-    >>> from t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations import make_uniform_masks
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> shape, tucker_ranks, tt_ranks = (11,12,13), (6,7,5), (1,3,6,2)
     >>> min_tucker_ranks, min_tt_ranks = t3.compute_minimal_t3_ranks(shape, tucker_ranks, tt_ranks)
     >>> x = t3.t3_corewise_randn(shape, tucker_ranks, tt_ranks)
     >>> ux = ut3.t3_to_ut3(x)
-    >>> min_masks = make_uniform_masks(shape, min_tucker_ranks, min_tt_ranks, ux.stack_shape, ux.N, ux.n, ux.r)
+    >>> min_masks = ut3.make_uniform_masks(shape, min_tucker_ranks, min_tt_ranks, ux.stack_shape, ux.N, ux.n, ux.r)
     >>> ux2, ss_tucker_from_ut3, ss_tt_from_ut3 = ut3.uniform_t3_svd((ux.tucker_supercore, ux.tt_supercore), min_masks) # Uniform T3-SVD
     >>> print(np.linalg.norm(ux2.to_dense() - x.to_dense()))
     1.2664289217892565e-11
@@ -1117,7 +1119,7 @@ def uniform_t3_svd(
     >>> min_tucker_ranks, min_tt_ranks = t3.compute_minimal_t3_ranks(shape, tucker_ranks, tt_ranks)
     >>> x = t3.t3_corewise_randn(shape, tucker_ranks, tt_ranks, stack_shape=stack_shape)
     >>> ux = ut3.t3_to_ut3(x)
-    >>> min_masks = make_uniform_masks(shape, min_tucker_ranks, min_tt_ranks, ux.stack_shape, ux.N, ux.n, ux.r)
+    >>> min_masks = ut3.make_uniform_masks(shape, min_tucker_ranks, min_tt_ranks, ux.stack_shape, ux.N, ux.n, ux.r)
     >>> ux2, ss_tucker_from_ut3, ss_tt_from_ut3 = ut3.uniform_t3_svd((ux.tucker_supercore, ux.tt_supercore), min_masks) # Uniform T3-SVD
     >>> print(np.linalg.norm(ux2.to_dense() - x.to_dense()))
     2.193805472670695e-11
@@ -1145,6 +1147,33 @@ def uniform_t3_svd(
     >>> print(ss_tucker_from_ut3[0])
     [[3522.08053706  986.93239042  360.30264481    0.            0.            0.            0.        ]
      [4185.51756339 2423.23109837 1564.5114264     0.            0.            0.            0.        ]]
+
+    Rank truncation, incurring error:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> B0 = np.random.randn(35,40) @ np.diag(1.0 / np.arange(1, 41)**2) # preconditioned indices
+    >>> B1 = np.random.randn(45,50) @ np.diag(1.0 / np.arange(1, 51)**2)
+    >>> B2 = np.random.randn(55,60) @ np.diag(1.0 / np.arange(1, 61)**2)
+    >>> G0 = np.random.randn(1,35,30)
+    >>> G1 = np.random.randn(30,45,40)
+    >>> G2 = np.random.randn(40,55,1)
+    >>> tucker_cores_x = (B0, B1, B2)
+    >>> tt_cores_x = (G0, G1, G2)
+    >>> x = t3.TuckerTensorTrain(tucker_cores_x, tt_cores_x) # Tensor has spectral decay due to preconditioning
+    >>> ux = ut3.t3_to_ut3(x)
+    >>> tucker_ranks, tt_ranks = t3.compute_minimal_t3_ranks(x.shape, (15,15,15), (10,10,10,10))
+    >>> print(tucker_ranks, tt_ranks)
+    (10, 15, 10) (1, 10, 10, 1)
+    >>> masks = ut3.make_uniform_masks(ux.shape, tucker_ranks, tt_ranks, ux.stack_shape, ux.N, ux.n, ux.r)
+    >>> ux2, ss_tucker_from_ut3, ss_tt_from_ut3 = ut3.uniform_t3_svd((ux.tucker_supercore, ux.tt_supercore), masks)
+    >>> x_dense = x.to_dense()
+    >>> print(np.linalg.norm(ux2.to_dense() - x_dense) / np.linalg.norm(x_dense))
+    0.0033845263631186308
+    >>> x2, _, _ = t3.t3_svd(x, max_tucker_ranks=tucker_ranks, max_tt_ranks=tt_ranks)
+    >>> print(np.linalg.norm(x_dense - x2.to_dense()) / np.linalg.norm(x_dense))
+    0.0033845263631186308
     """
     new_cores, tucker_singular_values, tt_singular_values  = ut3svd.uniform_t3_svd(cores, rank_truncation_masks, use_jax=use_jax)
     return UniformTuckerTensorTrain(*(new_cores + rank_truncation_masks)), tucker_singular_values, tt_singular_values
