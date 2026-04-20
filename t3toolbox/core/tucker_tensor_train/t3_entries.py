@@ -14,7 +14,7 @@ def t3_get_entries(
             typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
             typ.Tuple[NDArray, NDArray], # (tucker_supercore, tt_supercore)
         ],
-        index: NDArray, # dtype=int, shape=(d,)+vsi
+        index: NDArray, # dtype=int, shape=(d,)+vsi. (or convertible to int array of this shape)
         use_jax: bool = False,
 ) -> NDArray: # shape=vsx+vsi
     '''Compute entries of a Tucker tensor train.
@@ -25,6 +25,7 @@ def t3_get_entries(
     #
     tucker_cores, tt_cores = x
     vsx = x[0][0].shape[:-2]
+    index = xnp.array(index)
 
     vsi = index.shape[1:]
 

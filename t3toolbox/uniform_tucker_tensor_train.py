@@ -8,6 +8,7 @@ import functools as ft
 from dataclasses import dataclass
 
 import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.core.tucker_tensor_train.t3_entries as entries
 import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as uniform_ops
 from t3toolbox.common import *
 
@@ -391,4 +392,67 @@ def ut3_to_t3(
         return _func(result)
 
 
+def ut3_get_entries(
+        x: UniformTuckerTensorTrain,
+        index: NDArray, # dtype=int. shape=(d,) or shape=(num_entries,d)
+        use_jax: bool = False,
+) -> NDArray:
+    """Compute entry (entries) of a uniform Tucker tensor train.
+
+    If index is outside the tensor, the result is undefined.
+    In this case, the function may either return a meaningless number,
+    or raise an error.
+
+    Examples
+    --------
+	>>> import numpy as np
+	>>> import t3toolbox.tucker_tensor_train as t3
+	>>> import t3toolbox.uniform_tucker_tensor_train as ut3
+	>>> x = t3.t3_corewise_randn((14,15,16), (4,5,3), (1,4,2,1)) # T3
+	>>> index = (3,1,2)
+	>>> x_312 = t3.t3_get_entries(x, index)
+	>>> print(x_312) # (3,1,2) entry from T3:
+	58.91320690249439
+	>>> uniform_x = ut3.t3_to_ut3(x) # Convert to Uniform T3
+	>>> x_312_uniform = ut3.ut3_get_entries(uniform_x, index) # (3,1,2) entry from uniform T3:
+	>>> print(x_312_uniform)
+	58.91320690249439
+
+    Multiple entries:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,3), (1,4,2,1))
+    >>> index = ((3,9), (1,8), (2,7))
+    >>> x_312_987 = t3.t3_get_entries(x, index)
+    >>> print(x_312_987)
+    [-13.31445318 -16.95641076]
+    >>> uniform_x = ut3.t3_to_ut3(x)
+    >>> x_312_987_uniform = ut3.ut3_get_entries(uniform_x, index)
+    >>> print(x_312_987_uniform)
+    [-13.31445318 -16.95641076]
+
+    Multiple entries, multiple T3s:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,3), (1,4,2,1), stack_shape=(3,))
+    >>> index = ((3,9), (1,8), (2,7))
+    >>> x_312_987 = t3.t3_get_entries(x, index)
+    >>> print(x_312_987)
+    [[ 13.37754112 -14.2301319 ]
+     [ 10.34271727   9.07781055]
+     [ -3.47189513 -21.14557063]]
+    >>> uniform_x = ut3.t3_to_ut3(x)
+    >>> x_312_987_uniform = ut3.ut3_get_entries(uniform_x, index)
+    >>> print(x_312_987_uniform)
+    [[ 13.37754112 -14.2301319 ]
+     [ 10.34271727   9.07781055]
+     [ -3.47189513 -21.14557063]]
+
+    """
+    masked_x = x.apply_masks_to_cores()
+    return entries.t3_get_entries(masked_x, index, use_jax=use_jax)
 
