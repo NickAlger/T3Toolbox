@@ -120,7 +120,7 @@ def ut3_inner_product(
         use_orthogonalization: bool = True,
         use_jax: bool = False,
 ):
-    """Compute the inner product between two uniform Tucker tensor trains.
+    """Compute the Hilbert-Schmidt inner product between two uniform Tucker tensor trains.
     """
     xnp, xmap, xscan = get_backend(True, use_jax)
 
@@ -146,9 +146,6 @@ def ut3_inner_product(
 
     def _push_left(M, Gx_Gy):
         Gx, Gy = Gx_Gy
-        print('M.shape=', M.shape)
-        print('Gx.shape=', Gx.shape)
-        print('Gy.shape=', Gy.shape)
         M2 = xnp.einsum('...ab,...aoc,...bod->...cd', M, Gx, Gy)
         return M2, (0,)
 
@@ -161,6 +158,36 @@ def ut3_inner_product(
     return xnp.einsum('...ab->...', Mf)
 
 
+def ut3_norm(
+        x: typ.Tuple[
+            NDArray, # x_tucker_supercore
+            NDArray, # x_tt_supercore
+            NDArray, # x_shape_mask
+            NDArray, # x_tucker_edge_mask
+            NDArray, # x_tt_edge_mask
+        ],
+        use_orthogonalization: bool = True,
+        use_jax: bool = False,
+):
+    """Compute the Hilbert-Schmidt norm of a uniform Tucker tensor train.
+    """
+    xnp, xmap, xscan = get_backend(True, use_jax)
+
+    x_tucker_supercore, x_tt_supercore = ut3_ops.apply_masks_to_cores(x, use_jax=use_jax)
+
+    x_tt_supercore = ut3_ops.uniform_squash_tt_tails(x_tt_supercore, use_jax=use_jax)
+
+    if use_orthogonalization:
+        x_tucker_supercore, x_tt_supercore = uniform_orth.up_orthogonalize_uniform_tucker_cores(
+            x_tucker_supercore, x_tt_supercore, use_jax=use_jax,
+        )
+        x_tt_supercore = orth.left_orthogonalize_tt_cores(x_tt_supercore, use_jax=use_jax)
+
+        Gf = x_tt_supercore[-1]
+        return xnp.einsum('...aib,...aib', Gf, Gf)
+
+    else:
+        return ut3_inner_product(x, x, use_orthogonalization=False, use_jax=use_jax)
 
 
 

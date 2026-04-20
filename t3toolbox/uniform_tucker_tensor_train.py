@@ -586,6 +586,29 @@ class UniformTuckerTensorTrain:
                 self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask,
             )
 
+    def norm(
+            self,
+            use_orthogonalization: bool = True,
+            use_jax: bool = False,
+    ):
+        """Compute the Hilbert-Schmidt norm of this uniform Tucker tensor train.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
+        >>> ux = ut3.t3_to_ut3(x)
+        >>> norm_ux = ux.norm()
+        >>> norm_ux2 = np.einsum('...xyz->...', x.to_dense()**2)
+        >>> print(np.linalg.norm(norm_ux - norm_ux2) / np.linalg.norm(norm_ux))
+        1.4526456430189309e-15
+        """
+        return utla.ut3_norm(
+            self.data, use_orthogonalization=use_orthogonalization, use_jax=use_jax,
+        )
+
 
 
 if has_jax:
@@ -992,7 +1015,7 @@ def ut3_inner_product(
     >>> ux = ut3.t3_to_ut3(x)
     >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1), stack_shape=(2,3))
     >>> uy = ut3.t3_to_ut3(y)
-    >>> ux_dot_uy = ut3.ut3_inner_product(ux, uy, use_orthogonalization=True)
+    >>> ux_dot_uy = ut3.ut3_inner_product(ux, uy)
     >>> ux_dot_uy2 = np.einsum('...xyz,...xyz->...', x.to_dense(), y.to_dense())
     >>> print(np.linalg.norm(ux_dot_uy - ux_dot_uy2) / np.linalg.norm(ux_dot_uy))
     7.667494312151743e-15
@@ -1000,5 +1023,4 @@ def ut3_inner_product(
     return utla.ut3_inner_product(
         x.data, y.data, use_orthogonalization=use_orthogonalization, use_jax=use_jax,
     )
-
 
