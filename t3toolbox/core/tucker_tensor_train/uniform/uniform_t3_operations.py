@@ -301,3 +301,32 @@ def unpack_vectors(
         for ii in range(len(unpacking_shape))
     ])
 
+
+def apply_masks_to_cores(
+        x: typ.Tuple[
+            NDArray,  # tucker_supercore
+            NDArray,  # tt_supercore
+            NDArray,  # shape_mask
+            NDArray,  # tucker_edge_mask
+            NDArray,  # tt_edge_mask
+        ],
+        use_jax: bool = False,
+) -> typ.Tuple[
+    NDArray, # masked_tucker_supercore
+    NDArray, # masked_tt_supercore
+]:
+    """Applies masking to supercores, replacing unmasked regions with zeros.
+    """
+    xnp,_,_ = get_backend(True, use_jax)
+
+    tucker_supercore, tt_supercore, shape_mask, tucker_edge_mask, tt_edge_mask = x
+
+    masked_tucker_supercore = xnp.einsum(
+        'd...nN,d...n,dN->d...nN',
+        tucker_supercore, tucker_edge_mask, shape_mask,
+    )
+    masked_tt_supercore = xnp.einsum(
+        'd...lnr,d...l,d...n,d...r->d...lnr',
+        tt_supercore, tt_edge_mask[:-1], tucker_edge_mask, tt_edge_mask[1:],
+    )
+    return masked_tucker_supercore, masked_tt_supercore

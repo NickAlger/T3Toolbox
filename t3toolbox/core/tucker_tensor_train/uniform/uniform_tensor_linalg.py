@@ -1,12 +1,15 @@
 import numpy as np
 import typing as typ
 
+import t3toolbox.core.tucker_tensor_train.orthogonalization as orth
+import t3toolbox.core.tucker_tensor_train.uniform.uniform_orthogonalization as uniform_orth
+import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as ut3_ops
 from t3toolbox.common import *
 
 __all__ = [
     'ut3_add',
     'scale_last_slice',
-    'ut3_inner_product_t3',
+    'ut3_inner_product',
     'ut3_norm',
 ]
 
@@ -96,4 +99,71 @@ def scale_last_slice(
     """
     xnp, _, _ = get_backend(True, use_jax)
     return xnp.concatenate([x[:-1], s*x[-1:]], axis=0)
+
+
+
+def ut3_inner_product(
+        x: typ.Tuple[
+            NDArray, # x_tucker_supercore
+            NDArray, # x_tt_supercore
+            NDArray, # x_shape_mask
+            NDArray, # x_tucker_edge_mask
+            NDArray, # x_tt_edge_mask
+        ],
+        y: typ.Tuple[
+            NDArray, # x_tucker_supercore
+            NDArray, # x_tt_supercore
+            NDArray, # x_shape_mask
+            NDArray, # x_tucker_edge_mask
+            NDArray, # x_tt_edge_mask
+        ],
+        use_orthogonalization: bool = True,
+        use_jax: bool = False,
+):
+    """Compute the inner product between two uniform Tucker tensor trains.
+    """
+    xnp, xmap, xscan = get_backend(True, use_jax)
+
+    x_tucker_supercore, x_tt_supercore = ut3_ops.apply_masks_to_cores(x, use_jax=use_jax)
+    y_tucker_supercore, y_tt_supercore = ut3_ops.apply_masks_to_cores(y, use_jax=use_jax)
+
+    x_tt_supercore = ut3_ops.uniform_squash_tt_tails(x_tt_supercore, use_jax=use_jax)
+    y_tt_supercore = ut3_ops.uniform_squash_tt_tails(y_tt_supercore, use_jax=use_jax)
+
+    if use_orthogonalization:
+        x_tucker_supercore, x_tt_supercore = uniform_orth.up_orthogonalize_uniform_tucker_cores(
+            x_tucker_supercore, x_tt_supercore, use_jax=use_jax,
+        )
+        x_tt_supercore = orth.left_orthogonalize_tt_cores(x_tt_supercore, use_jax=use_jax)
+
+        y_tucker_supercore, y_tt_supercore = uniform_orth.up_orthogonalize_uniform_tucker_cores(
+            y_tucker_supercore, y_tt_supercore, use_jax=use_jax,
+        )
+        y_tt_supercore = orth.left_orthogonalize_tt_cores(y_tt_supercore, use_jax=use_jax)
+
+    x_tt = xnp.einsum('d...io,d...aib->d...aob', x_tucker_supercore, x_tt_supercore)
+    y_tt = xnp.einsum('d...io,d...aib->d...aob', y_tucker_supercore, y_tt_supercore)
+
+    def _push_left(M, Gx_Gy):
+        Gx, Gy = Gx_Gy
+        print('M.shape=', M.shape)
+        print('Gx.shape=', Gx.shape)
+        print('Gy.shape=', Gy.shape)
+        M2 = xnp.einsum('...ab,...aoc,...bod->...cd', M, Gx, Gy)
+        return M2, (0,)
+
+    stack_shape = x_tucker_supercore.shape[1:-2]
+    r_x = x_tt_supercore.shape[-1]
+    r_y = y_tt_supercore.shape[-1]
+
+    M = xnp.ones(stack_shape + (r_x,r_y))
+    Mf, _ = xscan(_push_left, M, (x_tt, y_tt))
+    return xnp.einsum('...ab->...', Mf)
+
+
+
+
+
+
+
 

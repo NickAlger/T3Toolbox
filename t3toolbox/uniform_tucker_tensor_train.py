@@ -300,17 +300,19 @@ class UniformTuckerTensorTrain:
         >>> print(cw.corewise_relerr(ut3.apply_masks(uniform_x_svd, masks), uniform_x_svd))
         0.0
         """
-        xnp,_,_ = get_backend(True, use_jax)
+        return uniform_ops.apply_masks_to_cores(self.data)
 
-        masked_tucker_supercore = xnp.einsum(
-            'd...nN,d...n,dN->d...nN',
-            self.tucker_supercore, self.tucker_edge_mask, self.shape_mask,
-        )
-        masked_tt_supercore = xnp.einsum(
-            'd...lnr,d...l,d...n,d...r->d...lnr',
-            self.tt_supercore, self.tt_edge_mask[:-1], self.tucker_edge_mask, self.tt_edge_mask[1:],
-        )
-        return masked_tucker_supercore, masked_tt_supercore
+        # xnp,_,_ = get_backend(True, use_jax)
+        #
+        # masked_tucker_supercore = xnp.einsum(
+        #     'd...nN,d...n,dN->d...nN',
+        #     self.tucker_supercore, self.tucker_edge_mask, self.shape_mask,
+        # )
+        # masked_tt_supercore = xnp.einsum(
+        #     'd...lnr,d...l,d...n,d...r->d...lnr',
+        #     self.tt_supercore, self.tt_edge_mask[:-1], self.tucker_edge_mask, self.tt_edge_mask[1:],
+        # )
+        # return masked_tucker_supercore, masked_tt_supercore
 
     def __mul__(
             self,
@@ -971,4 +973,32 @@ def ut3_sub(
     1.7975763647128273e-12
     """
     return ut3_add(x, -y, squash=squash, use_jax=use_jax)
+
+
+def ut3_inner_product(
+        x: UniformTuckerTensorTrain,
+        y: UniformTuckerTensorTrain,
+        use_orthogonalization: bool = True,
+        use_jax: bool = False,
+):
+    """Compute the Hilbert-Schmidt inner product of two uniform Tucker tensor trains.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
+    >>> ux = ut3.t3_to_ut3(x)
+    >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1), stack_shape=(2,3))
+    >>> uy = ut3.t3_to_ut3(y)
+    >>> ux_dot_uy = ut3.ut3_inner_product(ux, uy, use_orthogonalization=True)
+    >>> ux_dot_uy2 = np.einsum('...xyz,...xyz->...', x.to_dense(), y.to_dense())
+    >>> print(np.linalg.norm(ux_dot_uy - ux_dot_uy2) / np.linalg.norm(ux_dot_uy))
+    7.667494312151743e-15
+    """
+    return utla.ut3_inner_product(
+        x.data, y.data, use_orthogonalization=use_orthogonalization, use_jax=use_jax,
+    )
+
 
