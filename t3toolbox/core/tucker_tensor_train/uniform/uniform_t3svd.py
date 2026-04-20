@@ -24,20 +24,20 @@ def uniform_t3_svd(
             NDArray, # tucker_supercore
             NDArray, # tt_supercore
         ],
-        masks: typ.Tuple[
+        rank_truncation_masks: typ.Tuple[
             NDArray, # shape_mask
             NDArray, # tucker_edge_mask
             NDArray, # tt_edge_mask
-        ], # Can be used to truncate rank. Do not have to be the original masks
+        ] = (None, None, None), # Can be used to truncate rank. Do not have to be the original masks
         squash_tails_first: bool = True,
         use_jax: bool = False,
 ) -> typ.Tuple[
     typ.Tuple[
         NDArray,  # tucker_supercore
         NDArray,  # tt_supercore
-        NDArray,  # shape_mask
-        NDArray,  # tucker_edge_mask
-        NDArray,  # tt_edge_mask
+        NDArray,  # min_shape_mask
+        NDArray,  # min_tucker_edge_mask
+        NDArray,  # min_tt_edge_mask
     ], # new_x
     NDArray, # basis_singular_values, shape=(d, n)
     NDArray, # tt_singular_values, shape=(d+1, r)
@@ -56,15 +56,15 @@ def uniform_t3_svd(
     >>> s = (s0[0],) + t3.compute_minimal_t3_ranks(s0)
     >>> x = t3.t3_corewise_randn(s)
     >>> cores, masks = ut3.t3_to_ut3(x)
-    >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = t3svd.uniform_t3_svd(cores, masks) # Uniform T3-SVD
-    >>> print(np.linalg.norm(ut3.ut3_to_dense(ux2, masks) - t3.t3_to_dense(x)))
+    >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = t3svd.uniform_t3_svd(cores, rank_truncation_masks) # Uniform T3-SVD
+    >>> print(np.linalg.norm(ut3.ut3_to_dense(ux2, rank_truncation_masks) - t3.t3_to_dense(x)))
     3.782447238250888e-12
     >>> _, ss_basis, ss_tt = t3svd.t3_svd(x) # Non-uniform T3-SVD
     >>> print(ss_tt[1])
     [980.86624688 624.1067954  159.88424271]
     >>> print(ss_tt_from_ut3[1])
     [980.86624688 624.1067954  159.88424271   0.           0.        ]
-    >>> _, tucker_masks, tt_masks = masks
+    >>> _, tucker_masks, tt_masks = rank_truncation_masks
     >>> print(ut3.unpack(ss_tt_from_ut3, tt_masks)[1])
     [980.86624688 624.1067954  159.88424271]
     >>> ut3.unpack(ss_basis_from_ut3, tucker_masks)[0] - ss_basis[0]
@@ -82,26 +82,30 @@ def uniform_t3_svd(
     >>> structure = ((3,4,3), (4,6,7), (3,5,1,2))
     >>> x = t3.t3_corewise_randn(structure)
     >>> cores, masks = ut3.t3_to_ut3(x)
-    >>> inv_masks = cw.corewise_logical_not(masks)
+    >>> inv_masks = cw.corewise_logical_not(rank_truncation_masks)
     >>> junk = ut3.uniform_randn(ut3.get_uniform_structure(cores), masks=inv_masks)
     >>> cores = cw.corewise_add(cores, junk) # Add random junk outside the masks
-    >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = t3svd.uniform_t3_svd(cores, masks, squash_tails_first=False, use_jax=True)
-    >>> print(np.linalg.norm(ut3.ut3_to_dense(ux2, masks) - t3.t3_to_dense(x))) # OK
+    >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = t3svd.uniform_t3_svd(cores, rank_truncation_masks, squash_tails_first=False, use_jax=True)
+    >>> print(np.linalg.norm(ut3.ut3_to_dense(ux2, rank_truncation_masks) - t3.t3_to_dense(x))) # OK
     9.404253555983741e-13
     >>> _, ss_basis, ss_tt = t3svd.t3_svd(x) # Non-uniform T3-SVD
     >>> print(ss_tt[1])
     [913.44494453 127.532224    16.08102313]
     >>> print(ss_tt_from_ut3[1]) # Incorrect singular values:
     [417.45514528 401.58448034  72.5343983   22.41273808   0.        ]
-    >>> ux4, ss_basis_from_ut4, ss_tt_from_ut4 = t3svd.uniform_t3_svd(cores, masks, use_jax=True)
+    >>> ux4, ss_basis_from_ut4, ss_tt_from_ut4 = t3svd.uniform_t3_svd(cores, rank_truncation_masks, use_jax=True)
     >>> print(ss_basis_from_ut4[1])
 
     """
     xnp, xmap, xscan = get_backend(True, use_jax)
 
+    # Make masks which have minimal rank
+
+    # min_masks = make_uniform_masks(shape, min_tucker_ranks, min_tt_ranks, ux.stack_shape, ux.N, ux.n, ux.r)
+
     #
     basis_supercore, tt_supercore = cores
-    shape_mask, basis_masks, tt_masks = masks
+    shape_mask, basis_masks, tt_masks = rank_truncation_masks
 
     if squash_tails_first:
         tt_supercore = ut3_ops.uniform_squash_tt_tails(tt_supercore, use_jax=use_jax)

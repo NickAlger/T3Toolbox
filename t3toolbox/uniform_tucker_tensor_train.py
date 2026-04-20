@@ -15,6 +15,7 @@ import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as unifo
 import t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg as utla
 import t3toolbox.core.tucker_tensor_train.uniform.uniform_orthogonalization as uniform_orthogonalization
 import t3toolbox.core.tucker_tensor_train.orthogonalization as orth
+import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3svd as ut3svd
 from t3toolbox.common import *
 
 jax = None
@@ -92,12 +93,12 @@ class UniformTuckerTensorTrain:
         return self.tucker_supercore.shape[1:-2]
 
     @ft.cached_property
-    def structure(self) -> typ.Tuple[int, int, int, int, typ.Tuple[int,...]]:
+    def uniform_structure(self) -> typ.Tuple[int, int, int, int, typ.Tuple[int,...]]:
         """d, N, n, r, stack_shape"""
         return self.d, self.N, self.n, self.r, self.stack_shape
 
     @ft.cached_property
-    def shape(self) -> NDArray: # dtype=int, shape=(d,)+stack_shape
+    def shape(self) -> typ.Tuple[int,...]: # dtype=int, len=d
         """Get the original shapes, not including portions of the tensors that are unmasked.
 
         Examples
@@ -119,9 +120,10 @@ class UniformTuckerTensorTrain:
         >>> shape_mask[2, 0] = False # third index, first component.  N2=6-1=5
         >>> x = ut3.UniformTuckerTensorTrain(tucker_supercore, tt_supercore, shape_mask, tucker_edge_mask, tt_edge_mask)
         >>> print(x.shape)
-        [3 4 5]
+        (3, 4, 5)
         """
-        return self.shape_mask.sum(axis=-1)
+        shape_ndarray = self.shape_mask.sum(axis=-1)
+        return tuple([int(x) for x in shape_ndarray])
 
     @ft.cached_property
     def tucker_ranks(self) -> NDArray: # dtype=int, shape=(d,)+stack_shape
@@ -181,6 +183,39 @@ class UniformTuckerTensorTrain:
          [4 4]]
         """
         return self.tt_edge_mask.sum(axis=-1)
+
+    @ft.cached_property
+    def structure(self) -> typ.Tuple[
+        typ.Tuple[int,...], # shape
+        NDArray, # tucker_ranks
+        NDArray, # tt_ranks
+        NDArray, # stack_shape
+    ]:
+        '''Structure of the original tensor.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> x = t3.t3_corewise_randn((14,15,16), (5,6,7), (2,3,4,3), stack_shape=(2,))
+        >>> ux = ut3.t3_to_ut3(x)
+        >>> shape, tucker_ranks, tt_ranks, stack_shape = ux.structure
+        >>> print(shape)
+        (14, 15, 16)
+        >>> print(tucker_ranks)
+        [[5 5]
+         [6 6]
+         [7 7]]
+        >>> print(tt_ranks)
+        [[1 1]
+         [3 3]
+         [4 4]
+         [1 1]]
+        >>> print(stack_shape)
+        (2,)
+        '''
+        return self.shape, self.tucker_ranks, self.tt_ranks, self.stack_shape
 
     def validate(self):
         assert(is_boolean_ndarray(self.shape_mask))
@@ -661,7 +696,7 @@ def ut3_to_t3(
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (1,3,2,1), stack_shape=(2,))
     >>> uniform_x = ut3.t3_to_ut3(x) # Convert t3 -> ut3
-    >>> print(uniform_x.structure)
+    >>> print(uniform_x.uniform_structure)
     (3, 16, 6, 3, (2,))
     >>> print(uniform_x.shape)
     [[14 14]
@@ -677,11 +712,11 @@ def ut3_to_t3(
      [2 2]
      [1 1]]
     >>> all_x2 = ut3.ut3_to_t3(uniform_x) # Convert ut3 -> t3 without stacking
-    >>> for x2i in all_x2: print(x2i.structure)
+    >>> for x2i in all_x2: print(x2i.uniform_structure)
     ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1), ())
     ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1), ())
     >>> stacked_x2 = ut3.ut3_to_t3(uniform_x, stack_t3s=True) # with stacking
-    >>> print(stacked_x2.structure)
+    >>> print(stacked_x2.uniform_structure)
     ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1), (2,))
     >>> for B, B2 in zip(stacked_x2.tucker_cores, x.tucker_cores): print(np.linalg.norm(B - B2))
     0.0
@@ -1023,4 +1058,84 @@ def ut3_inner_product(
     return utla.ut3_inner_product(
         x.data, y.data, use_orthogonalization=use_orthogonalization, use_jax=use_jax,
     )
+
+def uniform_t3_svd(
+        cores: typ.Tuple[
+            NDArray, # tucker_supercore
+            NDArray, # tt_supercore
+        ],
+        rank_truncation_masks: typ.Tuple[
+            NDArray, # shape_mask
+            NDArray, # tucker_edge_mask
+            NDArray, # tt_edge_mask
+        ], # Can be used to truncate rank. Do not have to be the original masks
+        squash_tails_first: bool = True,
+        use_jax: bool = False,
+) -> typ.Tuple[
+    UniformTuckerTensorTrain, # new_x
+    NDArray, # basis_singular_values, shape=(d, n)
+    NDArray, # tt_singular_values, shape=(d+1, r)
+]:
+    """Compute T3-SVD of uniform Tucker tensor train.
+
+    Masks are used for rank truncation. If the provided mask does not have minimal ranks,
+    this function will create minimal rank masks from it and use those.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations import make_uniform_masks
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> shape, tucker_ranks, tt_ranks = (11,12,13), (6,7,5), (1,3,6,2)
+    >>> min_tucker_ranks, min_tt_ranks = t3.compute_minimal_t3_ranks(shape, tucker_ranks, tt_ranks)
+    >>> x = t3.t3_corewise_randn(shape, tucker_ranks, tt_ranks)
+    >>> ux = ut3.t3_to_ut3(x)
+    >>> min_masks = make_uniform_masks(shape, min_tucker_ranks, min_tt_ranks, ux.stack_shape, ux.N, ux.n, ux.r)
+    >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = ut3.uniform_t3_svd((ux.tucker_supercore, ux.tt_supercore), min_masks) # Uniform T3-SVD
+    >>> print(np.linalg.norm(ux2.to_dense() - x.to_dense()))
+    1.2664289217892565e-11
+    >>> print(ux2.structure)
+    ((11, 12, 13), array([3, 7, 5]), array([1, 3, 5, 1]), ())
+
+    >>> _, ss_basis, ss_tt = t3svd.t3_svd(x) # Non-uniform T3-SVD
+    >>> print(ss_tt[1])
+    [980.86624688 624.1067954  159.88424271]
+    >>> print(ss_tt_from_ut3[1])
+    [980.86624688 624.1067954  159.88424271   0.           0.        ]
+    >>> _, tucker_masks, tt_masks = rank_truncation_masks
+    >>> print(ut3.unpack(ss_tt_from_ut3, tt_masks)[1])
+    [980.86624688 624.1067954  159.88424271]
+    >>> ut3.unpack(ss_basis_from_ut3, tucker_masks)[0] - ss_basis[0]
+    array([ 1.13686838e-12, -2.27373675e-13, -1.13686838e-13])
+
+    Uniform example with degenerate (unnecessairily large) ranks. Also using jax to test it
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform as ut3
+    >>> import t3toolbox.t3svd as t3svd
+    >>> import jax
+    >>> import t3toolbox.corewise as cw
+    >>> jax.config.update("jax_enable_x64", True)
+    >>> structure = ((3,4,3), (4,6,7), (3,5,1,2))
+    >>> x = t3.t3_corewise_randn(structure)
+    >>> cores, masks = ut3.t3_to_ut3(x)
+    >>> inv_masks = cw.corewise_logical_not(rank_truncation_masks)
+    >>> junk = ut3.uniform_randn(ut3.get_uniform_structure(cores), masks=inv_masks)
+    >>> cores = cw.corewise_add(cores, junk) # Add random junk outside the masks
+    >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = t3svd.uniform_t3_svd(cores, rank_truncation_masks, squash_tails_first=False, use_jax=True)
+    >>> print(np.linalg.norm(ut3.ut3_to_dense(ux2, rank_truncation_masks) - t3.t3_to_dense(x))) # OK
+    9.404253555983741e-13
+    >>> _, ss_basis, ss_tt = t3svd.t3_svd(x) # Non-uniform T3-SVD
+    >>> print(ss_tt[1])
+    [913.44494453 127.532224    16.08102313]
+    >>> print(ss_tt_from_ut3[1]) # Incorrect singular values:
+    [417.45514528 401.58448034  72.5343983   22.41273808   0.        ]
+    >>> ux4, ss_basis_from_ut4, ss_tt_from_ut4 = t3svd.uniform_t3_svd(cores, rank_truncation_masks, use_jax=True)
+    >>> print(ss_basis_from_ut4[1])
+
+    """
+    new_cores, tucker_singular_values, tt_singular_values  = ut3svd.uniform_t3_svd(cores, rank_truncation_masks, use_jax=use_jax)
+    return UniformTuckerTensorTrain(*(new_cores + rank_truncation_masks)), tucker_singular_values, tt_singular_values
 

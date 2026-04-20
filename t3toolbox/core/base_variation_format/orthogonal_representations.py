@@ -208,3 +208,4 @@ def orthogonal_representations(
     base = (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
     variation = (tucker_variations, tt_variations)
     return base, variation
+

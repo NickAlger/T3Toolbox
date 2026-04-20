@@ -217,7 +217,7 @@ class TuckerTensorTrain:
     (4, 5, 6)
     >>> print(x.tt_ranks)
     (1, 3, 2, 1)
-    >>> print(x.structure)
+    >>> print(x.uniform_structure)
     ((14, 15, 16), (4, 5, 6), (1, 3, 2, 1), ())
 
     Example with stacking:
@@ -227,7 +227,7 @@ class TuckerTensorTrain:
     >>> tucker_cores = [np.ones((6,7, 4,14)),np.ones((6,7, 5,15)),np.ones((6,7, 6,16))]
     >>> tt_cores = [np.ones((6,7, 1,4,3)), np.ones((6,7, 3,5,2)), np.ones((6,7, 2,6,1))]
     >>> x = t3.TuckerTensorTrain(tucker_cores, tt_cores) # TuckerTensorTrain, cores filled with ones
-    >>> print(x.structure)
+    >>> print(x.uniform_structure)
     ((14, 15, 16), (4, 5, 6), (1, 3, 2, 1), (6, 7))
 
     Minimal ranks
@@ -525,10 +525,10 @@ class TuckerTensorTrain:
         >>> tucker_cores = (randn(2,3, 4,10), randn(2,3, 5,11), randn(2,3, 6,12))
         >>> tt_cores = (randn(2,3, 1,4,2), randn(2,3, 2,5,3), randn(2,3, 3,6,4))
         >>> x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
-        >>> print(x.structure)
+        >>> print(x.uniform_structure)
         ((10, 11, 12), (4, 5, 6), (1, 2, 3, 4), (2,3))
         >>> reversed_x = x.reverse()
-        >>> print(reversed_x.structure)
+        >>> print(reversed_x.uniform_structure)
         ((12, 11, 10), (6, 5, 4), (4, 3, 2, 1), (2,3))
         >>> x_dense = x.to_dense()
         >>> reversed_x_dense = reversed_x.to_dense()
@@ -555,7 +555,7 @@ class TuckerTensorTrain:
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (1,3,2,1))
         >>> padded_x = x.change_structure((17,18,17), (8,8,8), (1,5,6,1))
-        >>> print(padded_x.structure)
+        >>> print(padded_x.uniform_structure)
         ((17, 18, 17), (8, 8, 8), (1, 5, 6, 1), ())
 
         Example where first and last ranks are nonzero:
@@ -564,7 +564,7 @@ class TuckerTensorTrain:
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (3,3,2,4))
         >>> padded_x = x.change_structure((17,18,17), (8,8,8), (5,5,6,7))
-        >>> print(padded_x.structure)
+        >>> print(padded_x.uniform_structure)
         ((17, 18, 17), (8, 8, 8), (5, 5, 6, 7), ())
         '''
         tucker_cores, tt_cores = self.data
@@ -640,7 +640,7 @@ class TuckerTensorTrain:
         >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (1,5,6,1))
         >>> z = x + y
-        >>> print(z.structure)
+        >>> print(z.uniform_structure)
         ((14, 15, 16), (7, 12, 8), (1, 8, 8, 1), ())
         >>> print(np.linalg.norm(x.to_dense() + y.to_dense() - z.to_dense()))
         6.524094086845177e-13
@@ -780,7 +780,7 @@ class TuckerTensorTrain:
         >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (1,5,6,1))
         >>> x_minus_y = x - y
-        >>> print(x_minus_y.structure)
+        >>> print(x_minus_y.uniform_structure)
         ((14, 15, 16), (7, 12, 8), (2, 8, 8, 2), ())
         >>> print(np.linalg.norm(x.to_dense() - y.to_dense() - x_minus_y.to_dense()))
         3.5875705233607603e-13
@@ -1736,7 +1736,7 @@ def t3_corewise_randn(
     >>> tt_ranks = (1, 3, 2, 1)
     >>> stack_shape = (2,3)
     >>> x = t3.t3_corewise_randn(shape, tucker_ranks, tt_ranks, stack_shape=stack_shape) # TuckerTensorTrain with random cores
-    >>> x.structure == (shape, tucker_ranks, tt_ranks, stack_shape)
+    >>> x.uniform_structure == (shape, tucker_ranks, tt_ranks, stack_shape)
     True
     >>> print(x.tucker_cores[0][0,0,0,0]) # should be random N(0,1)
     0.0331003310807162
@@ -2342,7 +2342,7 @@ def t3_add(
     >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
     >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (1,5,6,1))
     >>> z = t3.t3_add(x, y)
-    >>> print(z.structure)
+    >>> print(z.uniform_structure)
     ((14, 15, 16), (7, 12, 8), (1, 8, 8, 1), ())
     >>> print(np.linalg.norm(x.to_dense() + y.to_dense() - z.to_dense()))
     6.524094086845177e-13
@@ -2354,7 +2354,7 @@ def t3_add(
     >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
     >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (1,5,6,1), stack_shape=(2,3))
     >>> z = t3.t3_add(x, y)
-    >>> print(z.structure)
+    >>> print(z.uniform_structure)
     ((14, 15, 16), (7, 12, 8), (1, 8, 8, 1), (2, 3))
     >>> print(np.linalg.norm(x.to_dense() + y.to_dense() - z.to_dense()))
 
@@ -2494,7 +2494,7 @@ def t3_sub(
     >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
     >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (1,5,6,1))
     >>> x_minus_y = t3.t3_sub(x, y)
-    >>> print(x_minus_y.structure)
+    >>> print(x_minus_y.uniform_structure)
     ((14, 15, 16), (7, 12, 8), (2, 8, 8, 2), ())
     >>> print(np.linalg.norm(x.to_dense() - y.to_dense() - x_minus_y.to_dense()))
     3.5875705233607603e-13
@@ -2726,7 +2726,7 @@ def t3svd_dense(
     >>> c2 = 1.0 / np.arange(1, 61)**2
     >>> T = np.einsum('ijk,i,j,k->ijk', T0, c0, c1, c2) # Preconditioned random tensor
     >>> x, ss_tucker, ss_tt = t3.t3svd_dense(T, rtol=1e-3) # Truncate T3-SVD to reduce rank
-    >>> print(x.structure)
+    >>> print(x.uniform_structure)
     ((40, 50, 60), (11, 10, 12), (1, 11, 12, 1), ())
     >>> T2 = x.to_dense()
     >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-3
@@ -2836,9 +2836,9 @@ def t3_svd(
     >>> tt_cores_x = (G0, G1, G2)
     >>> x = t3.TuckerTensorTrain(tucker_cores_x, tt_cores_x) # Tensor has spectral decay due to preconditioning
     >>> x2, ss_tucker, ss_tt = t3.t3_svd(x, rtol=1e-2) # Truncate singular values to reduce rank
-    >>> print(x.structure)
+    >>> print(x.uniform_structure)
     ((40, 50, 60), (35, 45, 55), (1, 30, 40, 1), ())
-    >>> print(x2.structure)
+    >>> print(x2.uniform_structure)
     ((40, 50, 60), (6, 6, 5), (1, 6, 5, 1), ())
     >>> x_dense = x.to_dense()
     >>> x2_dense = x2.to_dense()
@@ -2851,9 +2851,9 @@ def t3_svd(
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.t3_corewise_randn((14,15,16), (10,11,12), (1,8,9,1))
     >>> x2, ss_tucker, ss_tt = t3.t3_svd(x, max_tucker_ranks=(3,3,3), max_tt_ranks=(1,2,2,1)) # Truncate based on ranks
-    >>> print(x.structure)
+    >>> print(x.uniform_structure)
     ((14, 15, 16), (10, 11, 12), (1, 8, 9, 1), ())
-    >>> print(x2.structure)
+    >>> print(x2.uniform_structure)
     ((14, 15, 16), (3, 3, 2), (1, 2, 2, 1), ())
 
     Example where first and last ranks are not ones:
@@ -2884,3 +2884,5 @@ def t3_svd(
         use_jax=use_jax,
     )
     return TuckerTensorTrain(*result[0]), result[1], result[2]
+
+
