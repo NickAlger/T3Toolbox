@@ -104,7 +104,7 @@ class EdgeVectors:
 
 
 
-@dataclass
+@dataclass(frozen=True)
 class WeightedTuckerTensorTrain:
     """Class for Tucker tensor trains with weights on internal edges.
 

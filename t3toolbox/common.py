@@ -18,10 +18,27 @@ NDArray = np.ndarray
 if has_jax:
     NDArray = typ.Union[np.ndarray, jnp.ndarray]
 
-
 is_ndarray = lambda x: isinstance(x, np.ndarray)
 if has_jax:
     is_ndarray = lambda x: (isinstance(x, np.ndarray) or isinstance(x, jnp.ndarray))
+
+
+def is_boolean_ndarray(x):
+    if isinstance(x, np.ndarray):
+        return np.issubdtype(x.dtype, np.bool_)
+    else:
+        return False
+
+if has_jax:
+    def is_boolean_ndarray(x):
+        if isinstance(x, jnp.ndarray):
+            return jnp.issubdtype(x.dtype, jnp.bool_)
+        elif isinstance(x, np.ndarray):
+            return np.issubdtype(x.dtype, np.bool_)
+        else:
+            return False
+
+
 
 
 __all__ = [
@@ -29,6 +46,7 @@ __all__ = [
     #
     'NDArray',
     'is_ndarray',
+    'is_boolean_ndarray',
     #
     'ragged_scan',
     'numpy_scan',
