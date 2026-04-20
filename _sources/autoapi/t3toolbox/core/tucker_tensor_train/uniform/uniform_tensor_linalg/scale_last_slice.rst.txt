@@ -1,0 +1,19 @@
+t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.scale_last_slice
+=================================================================================
+
+.. py:function:: t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.scale_last_slice(x: t3toolbox.common.NDArray, s, use_jax: bool = False) -> t3toolbox.common.NDArray
+
+   Apply scaling to only the last slice of an array.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg as utla
+   >>> x = np.random.randn(3,4,5)
+   >>> s = 3.2
+   >>> x_s = utla.scale_last_slice(x, s)
+   >>> print(np.linalg.norm(x[:-1] - x_s[:-1]))
+   0.0
+   >>> print(np.linalg.norm(s*x[-1] - x_s[-1]))
+   0.0
+

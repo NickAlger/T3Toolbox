@@ -27,6 +27,8 @@ Functions
    /autoapi/t3toolbox/uniform_tucker_tensor_train/ut3_to_t3
    /autoapi/t3toolbox/uniform_tucker_tensor_train/ut3_get_entries
    /autoapi/t3toolbox/uniform_tucker_tensor_train/ut3_apply
+   /autoapi/t3toolbox/uniform_tucker_tensor_train/ut3_add
+   /autoapi/t3toolbox/uniform_tucker_tensor_train/ut3_sub
 
 .. autoapisummary::
 
@@ -34,5 +36,7 @@ Functions
    t3toolbox.uniform_tucker_tensor_train.ut3_to_t3
    t3toolbox.uniform_tucker_tensor_train.ut3_get_entries
    t3toolbox.uniform_tucker_tensor_train.ut3_apply
+   t3toolbox.uniform_tucker_tensor_train.ut3_add
+   t3toolbox.uniform_tucker_tensor_train.ut3_sub
 
 

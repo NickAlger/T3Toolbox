@@ -1,0 +1,21 @@
+t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg
+================================================================
+
+.. py:module:: t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/core/tucker_tensor_train/uniform/uniform_tensor_linalg/ut3_add
+   /autoapi/t3toolbox/core/tucker_tensor_train/uniform/uniform_tensor_linalg/scale_last_slice
+
+.. autoapisummary::
+
+   t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.ut3_add
+   t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg.scale_last_slice
+
+
