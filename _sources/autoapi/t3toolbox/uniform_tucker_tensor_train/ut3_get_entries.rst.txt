@@ -58,27 +58,27 @@ t3toolbox.uniform_tucker_tensor_train.ut3_get_entries
     [ 10.34271727   9.07781055]
     [ -3.47189513 -21.14557063]]
 
-   # Gradient of entry getting function
-
-   >>> import numpy as np
-   >>> import jax
-   >>> import jax.numpy as jnp
-       >>> import t3toolbox.tucker_tensor_train as t3
-       >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-       >>> import t3toolbox.corewise as cw
-       >>> jax.config.update("jax_enable_x64", True)
-       >>> index = (3,1,2)
-       >>> get_312 = lambda z: t3.t3_get_entries(z, index, use_jax=True)
-       >>> x = t3.t3_corewise_randn((14,15,16), (4,5,3), (1,4,2,1)) # T3
-       >>> g = jax.grad(get_312)(x)
-   >>> get_312_uniform = lambda z: ut3.ut3_get_entries(z, index, use_jax=True)
-   >>> uniform_x = ut3.t3_to_ut3(x)
-   >>> uniform_g = jax.grad(get_312_uniform)(uniform_x)
-   >>> uniform_g2 = ut3.t3_to_ut3(g)
-   >>> cw.corewise_norm(cw.corewise_sub(uniform_g.data[:2], uniform_g2.data[:2]))
-   1.418902271738168e-15
-   >>> for m, m2 in zip(uniform_g.data[2:], uniform_g2.data[2:]): print(np.all(m == m2))
-   True
-   True
-   True
+   # Gradient of entry getting function (Not supported)
+   #
+   # >>> import numpy as np
+   # >>> import jax
+   # >>> import jax.numpy as jnp
+       # >>> import t3toolbox.tucker_tensor_train as t3
+       # >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+       # >>> import t3toolbox.corewise as cw
+       # >>> jax.config.update("jax_enable_x64", True)
+       # >>> index = (3,1,2)
+       # >>> get_312 = lambda z: t3.t3_get_entries(z, index, use_jax=True)
+       # >>> x = t3.t3_corewise_randn((14,15,16), (4,5,3), (1,4,2,1)) # T3
+       # >>> g = jax.grad(get_312)(x)
+   # >>> get_312_uniform = lambda z: ut3.ut3_get_entries(z, index, use_jax=True)
+   # >>> uniform_x = ut3.t3_to_ut3(x)
+   # >>> uniform_g = jax.grad(get_312_uniform)(uniform_x)
+   # >>> uniform_g2 = ut3.t3_to_ut3(g)
+   # >>> cw.corewise_norm(cw.corewise_sub(uniform_g.data[:2], uniform_g2.data[:2]))
+   # 1.418902271738168e-15
+   # >>> for m, m2 in zip(uniform_g.data[2:], uniform_g2.data[2:]): print(np.all(m == m2))
+   # True
+   # True
+   # True
 

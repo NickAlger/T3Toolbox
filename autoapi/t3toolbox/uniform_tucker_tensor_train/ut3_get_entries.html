@@ -424,11 +424,11 @@
 <li class="toctree-l2"><a class="reference internal" href="../../contractions/MNa_Maib_No_Mio_to_MNb.html">contractions.MNa_Maib_No_Mio_to_MNb</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../contractions/MNa_Maib_MiN_to_MNb.html">contractions.MNa_Maib_MiN_to_MNb</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../contractions/Mio_No_to_MNi.html">contractions.Mio_No_to_MNi</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../contractions/dMio_No_to_dMNi.html">contractions.dMio_No_to_dMNi</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../contractions/dMio_dNo_to_dMNi.html">contractions.dMio_dNo_to_dMNi</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../contractions/MNa_Maib_MNb_to_MNi.html">contractions.MNa_Maib_MNb_to_MNi</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../contractions/dMNa_dMaib_dMNb_to_dMNi.html">contractions.dMNa_dMaib_dMNb_to_dMNi</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../contractions/MNi_Mio_to_MNo.html">contractions.MNi_Mio_to_MNo</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../contractions/dNi_dMio_to_dMNo.html">contractions.dNi_dMio_to_dMNo</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../contractions/dMNi_dMio_to_dMNo.html">contractions.dMNi_dMio_to_dMNo</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../orthogonal_representations/index.html">orthogonal_representations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -559,30 +559,31 @@ or raise an error.</p>
 <span class="go"> [ -3.47189513 -21.14557063]]</span>
 </pre></div>
 </div>
-<p># Gradient of entry getting function</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">jax</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">jax.numpy</span> <span class="k">as</span> <span class="nn">jnp</span>
-<span class="go">    &gt;&gt;&gt; import t3toolbox.tucker_tensor_train as t3</span>
-<span class="go">    &gt;&gt;&gt; import t3toolbox.uniform_tucker_tensor_train as ut3</span>
-<span class="go">    &gt;&gt;&gt; import t3toolbox.corewise as cw</span>
-<span class="go">    &gt;&gt;&gt; jax.config.update(&quot;jax_enable_x64&quot;, True)</span>
-<span class="go">    &gt;&gt;&gt; index = (3,1,2)</span>
-<span class="go">    &gt;&gt;&gt; get_312 = lambda z: t3.t3_get_entries(z, index, use_jax=True)</span>
-<span class="go">    &gt;&gt;&gt; x = t3.t3_corewise_randn((14,15,16), (4,5,3), (1,4,2,1)) # T3</span>
-<span class="go">    &gt;&gt;&gt; g = jax.grad(get_312)(x)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">get_312_uniform</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">z</span><span class="p">:</span> <span class="n">ut3</span><span class="o">.</span><span class="n">ut3_get_entries</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">index</span><span class="p">,</span> <span class="n">use_jax</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">uniform_x</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">t3_to_ut3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">uniform_g</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">grad</span><span class="p">(</span><span class="n">get_312_uniform</span><span class="p">)(</span><span class="n">uniform_x</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">uniform_g2</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">t3_to_ut3</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">cw</span><span class="o">.</span><span class="n">corewise_norm</span><span class="p">(</span><span class="n">cw</span><span class="o">.</span><span class="n">corewise_sub</span><span class="p">(</span><span class="n">uniform_g</span><span class="o">.</span><span class="n">data</span><span class="p">[:</span><span class="mi">2</span><span class="p">],</span> <span class="n">uniform_g2</span><span class="o">.</span><span class="n">data</span><span class="p">[:</span><span class="mi">2</span><span class="p">]))</span>
-<span class="go">1.418902271738168e-15</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">m</span><span class="p">,</span> <span class="n">m2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">uniform_g</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">2</span><span class="p">:],</span> <span class="n">uniform_g2</span><span class="o">.</span><span class="n">data</span><span class="p">[</span><span class="mi">2</span><span class="p">:]):</span> <span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">all</span><span class="p">(</span><span class="n">m</span> <span class="o">==</span> <span class="n">m2</span><span class="p">))</span>
-<span class="go">True</span>
-<span class="go">True</span>
-<span class="go">True</span>
-</pre></div>
-</div>
+<p># Gradient of entry getting function (Not supported)
+#
+# &gt;&gt;&gt; import numpy as np
+# &gt;&gt;&gt; import jax
+# &gt;&gt;&gt; import jax.numpy as jnp</p>
+<blockquote>
+<div><p># &gt;&gt;&gt; import t3toolbox.tucker_tensor_train as t3
+# &gt;&gt;&gt; import t3toolbox.uniform_tucker_tensor_train as ut3
+# &gt;&gt;&gt; import t3toolbox.corewise as cw
+# &gt;&gt;&gt; jax.config.update(“jax_enable_x64”, True)
+# &gt;&gt;&gt; index = (3,1,2)
+# &gt;&gt;&gt; get_312 = lambda z: t3.t3_get_entries(z, index, use_jax=True)
+# &gt;&gt;&gt; x = t3.t3_corewise_randn((14,15,16), (4,5,3), (1,4,2,1)) # T3
+# &gt;&gt;&gt; g = jax.grad(get_312)(x)</p>
+</div></blockquote>
+<p># &gt;&gt;&gt; get_312_uniform = lambda z: ut3.ut3_get_entries(z, index, use_jax=True)
+# &gt;&gt;&gt; uniform_x = ut3.t3_to_ut3(x)
+# &gt;&gt;&gt; uniform_g = jax.grad(get_312_uniform)(uniform_x)
+# &gt;&gt;&gt; uniform_g2 = ut3.t3_to_ut3(g)
+# &gt;&gt;&gt; cw.corewise_norm(cw.corewise_sub(uniform_g.data[:2], uniform_g2.data[:2]))
+# 1.418902271738168e-15
+# &gt;&gt;&gt; for m, m2 in zip(uniform_g.data[2:], uniform_g2.data[2:]): print(np.all(m == m2))
+# True
+# True
+# True</p>
 </dd></dl>
 
 </section>

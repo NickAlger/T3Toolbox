@@ -88,20 +88,18 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
       >>> stack_shape = (2,)
       >>> tucker_supercore = np.ones((d,)+stack_shape+(n,N))
       >>> tt_supercore = np.ones((d,)+stack_shape+(r,n,r))
-      >>> shape_mask = np.ones((d,)+stack_shape+(N,), dtype=bool)
+      >>> shape_mask = np.ones((d,N), dtype=bool)
       >>> tucker_edge_mask = np.ones((d,)+stack_shape+(n,), dtype=bool)
       >>> tt_edge_mask = np.ones((d+1,)+stack_shape+(r,), dtype=bool)
-      >>> shape_mask[0, 1, 0] = False # first index,  second T3, first component
-      >>> shape_mask[0, 1, 1] = False # first index,  second T3, second component
-      >>> shape_mask[0, 1, 2] = False # first index,  second T3, third component.  N0=6-3=3
-      >>> shape_mask[1, 1, 0] = False # second index, second T3, first component
-      >>> shape_mask[1, 1, 1] = False # second index, second T3, second component. N1=6-2=4
-      >>> shape_mask[2, 1, 0] = False # third index,  second T3, first component.  N2=6-1=5
+      >>> shape_mask[0, 0] = False # first index, first component
+      >>> shape_mask[0, 1] = False # first index, second component
+      >>> shape_mask[0, 2] = False # first index, third component.  N0=6-3=3
+      >>> shape_mask[1, 0] = False # second index, first component
+      >>> shape_mask[1, 1] = False # second index, second component. N1=6-2=4
+      >>> shape_mask[2, 0] = False # third index, first component.  N2=6-1=5
       >>> x = ut3.UniformTuckerTensorTrain(tucker_supercore, tt_supercore, shape_mask, tucker_edge_mask, tt_edge_mask)
       >>> print(x.shape)
-      [[6 3]
-       [6 4]
-       [6 5]]
+      [3 4 5]
 
 
 
@@ -117,7 +115,7 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
       >>> stack_shape = (2,)
       >>> tucker_supercore = np.ones((d,)+stack_shape+(n,N))
       >>> tt_supercore = np.ones((d,)+stack_shape+(r,n,r))
-      >>> shape_mask = np.ones((d,)+stack_shape+(N,), dtype=bool)
+      >>> shape_mask = np.ones((d,N), dtype=bool)
       >>> tucker_edge_mask = np.ones((d,)+stack_shape+(n,), dtype=bool)
       >>> tt_edge_mask = np.ones((d+1,)+stack_shape+(r,), dtype=bool)
       >>> tucker_edge_mask[0, 1, 0] = False # first edge,  second T3, first component
@@ -146,7 +144,7 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
       >>> stack_shape = (2,)
       >>> tucker_supercore = np.ones((d,)+stack_shape+(n,N))
       >>> tt_supercore = np.ones((d,)+stack_shape+(r,n,r))
-      >>> shape_mask = np.ones((d,)+stack_shape+(N,), dtype=bool)
+      >>> shape_mask = np.ones((d,N), dtype=bool)
       >>> tucker_edge_mask = np.ones((d,)+stack_shape+(n,), dtype=bool)
       >>> tt_edge_mask = np.ones((d+1,)+stack_shape+(r,), dtype=bool)
       >>> tt_edge_mask[0, 1, 0] = False # first edge,  second T3, first component
@@ -202,11 +200,12 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
 
       .. rubric:: Examples
 
+      EXAMPLE WORK IN PROGRESS
       >>> import numpy as np
       >>> import t3toolbox.uniform_tucker_tensor_train as ut3
       >>> tucker_supercore = np.random.randn(4, 2,3, 6,7)
       >>> tt_supercore = np.random.randn(4, 2,3, 5,6,5)
-      >>> x = UniformTuckerTensorTrain(tucker_supercore, tt_supercore)
+      >>> x = ut3.UniformTuckerTensorTrain(tucker_supercore, tt_supercore)
       >>> squashed_x = x.squash_tails()
       >>> print(np.linalg.norm(x.to_dense() - squashed_x.to_dense()))
 
@@ -228,6 +227,7 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
 
       .. rubric:: Examples
 
+      EXAMPLE WORK IN PROGRESS
       >>> import numpy as np
       >>> import t3toolbox.tucker_tensor_train as t3
       >>> import t3toolbox.uniform_tucker_tensor_train as ut3

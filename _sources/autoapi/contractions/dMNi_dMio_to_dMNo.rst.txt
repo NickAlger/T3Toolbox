@@ -1,0 +1,63 @@
+contractions.dMNi_dMio_to_dMNo
+==============================
+
+.. py:function:: contractions.dMNi_dMio_to_dMNo(dMNi: NDArray, dMio: NDArray, use_jax: bool = False) -> NDArray
+
+   Computes named contraction.
+
+   N and M may be individual indices, groups of indices, or nonexistent.
+
+   .. rubric:: Examples
+
+   Vectorize over both N and M:
+
+   >>> import numpy as np
+   >>> from t3toolbox.utils.contractions import dMNi_dMio_to_dMNo
+   >>> dMNi = np.random.randn(8, 5,6, 2,3,4, 10)
+   >>> dMio = np.random.randn(8, 5,6, 10,13)
+   >>> result = dMNi_dMio_to_dMNo(dMNi, dMio)
+   >>> result2 = np.einsum('duvxyzi,duvio->duvxyzo', dMNi, dMio)
+   >>> print(result.shape == result2.shape)
+   True
+   >>> print(np.linalg.norm(result - result2))
+   0.0
+
+   Vectorize over N only
+
+   >>> import numpy as np
+   >>> from t3toolbox.utils.contractions import dMNi_dMio_to_dMNo
+   >>> dMNi = np.random.randn(8, 2,3,4, 10)
+   >>> dMio = np.random.randn(8, 10,13)
+   >>> result = dMNi_dMio_to_dMNo(dMNi, dMio)
+   >>> result2 = np.einsum('dxyzi,dio->dxyzo', dMNi, dMio)
+   >>> print(result.shape == result2.shape)
+   True
+   >>> print(np.linalg.norm(result - result2))
+   0.0
+
+   Vectorize over both M only:
+
+   >>> import numpy as np
+   >>> from t3toolbox.utils.contractions import dMNi_dMio_to_dMNo
+   >>> dMNi = np.random.randn(8, 5,6, 10)
+   >>> dMio = np.random.randn(8, 5,6, 10,13)
+   >>> result = dMNi_dMio_to_dMNo(dMNi, dMio)
+   >>> result2 = np.einsum('duvi,duvio->duvo', dMNi, dMio)
+   >>> print(result.shape == result2.shape)
+   True
+   >>> print(np.linalg.norm(result - result2))
+   0.0
+
+   No vectorization:
+
+   >>> import numpy as np
+   >>> from t3toolbox.utils.contractions import dMNi_dMio_to_dMNo
+   >>> dMNi = np.random.randn(8, 10)
+   >>> dMio = np.random.randn(8, 10,13)
+   >>> result = dMNi_dMio_to_dMNo(dMNi, dMio)
+   >>> result2 = np.einsum('di,dio->do', dMNi, dMio)
+   >>> print(result.shape == result2.shape)
+   True
+   >>> print(np.linalg.norm(result - result2))
+   0.0
+

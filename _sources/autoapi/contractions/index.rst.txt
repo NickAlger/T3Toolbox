@@ -14,11 +14,11 @@ Functions
    /autoapi/contractions/MNa_Maib_No_Mio_to_MNb
    /autoapi/contractions/MNa_Maib_MiN_to_MNb
    /autoapi/contractions/Mio_No_to_MNi
-   /autoapi/contractions/dMio_No_to_dMNi
+   /autoapi/contractions/dMio_dNo_to_dMNi
    /autoapi/contractions/MNa_Maib_MNb_to_MNi
    /autoapi/contractions/dMNa_dMaib_dMNb_to_dMNi
    /autoapi/contractions/MNi_Mio_to_MNo
-   /autoapi/contractions/dNi_dMio_to_dMNo
+   /autoapi/contractions/dMNi_dMio_to_dMNo
 
 .. autoapisummary::
 
@@ -26,10 +26,10 @@ Functions
    contractions.MNa_Maib_No_Mio_to_MNb
    contractions.MNa_Maib_MiN_to_MNb
    contractions.Mio_No_to_MNi
-   contractions.dMio_No_to_dMNi
+   contractions.dMio_dNo_to_dMNi
    contractions.MNa_Maib_MNb_to_MNi
    contractions.dMNa_dMaib_dMNb_to_dMNi
    contractions.MNi_Mio_to_MNo
-   contractions.dNi_dMio_to_dMNo
+   contractions.dMNi_dMio_to_dMNo
 
 
