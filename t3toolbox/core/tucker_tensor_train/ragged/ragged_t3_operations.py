@@ -91,23 +91,24 @@ def change_tucker_core_shapes(
     """
     xnp, _, _ = get_backend(False, use_jax)
 
-    old_shape = [B.shape[1] for B in tucker_cores]
-    old_tucker_ranks = [B.shape[0] for B in tucker_cores]
+    old_shape = [B.shape[-1] for B in tucker_cores]
+    old_tucker_ranks = [B.shape[-2] for B in tucker_cores]
 
     num_cores = len(tucker_cores)
+    stack_shape = tucker_cores[0].shape[:-2]
 
     delta_shape         = [N_new - N_old for N_new, N_old in zip(new_shape, old_shape)]
     delta_tucker_ranks  = [n_new - n_old for n_new, n_old in zip(new_tucker_ranks, old_tucker_ranks)]
 
     new_tucker_cores = []
     for ii in range(num_cores):
-        new_tucker_cores.append(xnp.pad(
-            tucker_cores[ii],
-            (
-                (0,delta_tucker_ranks[ii]),
-                (0,delta_shape[ii]),
-            ),
-        ))
+        stack_pad = ((0,0),)*len(stack_shape)
+        pad = stack_pad + (
+            (0,delta_tucker_ranks[ii]),
+            (0,delta_shape[ii]),
+        )
+        new_B = xnp.pad(tucker_cores[ii], pad)
+        new_tucker_cores.append(new_B)
 
     return tuple(new_tucker_cores)
 
@@ -122,24 +123,25 @@ def change_tt_core_shapes(
     """
     xnp, _, _ = get_backend(False, use_jax)
 
-    old_tucker_ranks = [G.shape[1] for G in tt_cores]
-    old_tt_ranks = [G.shape[0] for G in tt_cores] + [tt_cores[-1].shape[2]]
+    old_tucker_ranks = [G.shape[-2] for G in tt_cores]
+    old_tt_ranks = [G.shape[-3] for G in tt_cores] + [tt_cores[-1].shape[-1]]
 
     num_cores = len(tt_cores)
+    stack_shape = tt_cores[0].shape[:-3]
 
     delta_tucker_ranks  = [n_new - n_old for n_new, n_old in zip(new_tucker_ranks, old_tucker_ranks)]
     delta_tt_ranks      = [r_new - r_old for r_new, r_old in zip(new_tt_ranks, old_tt_ranks)]
 
     new_tt_cores = []
     for ii in range(num_cores):
-        new_tt_cores.append(xnp.pad(
-            tt_cores[ii],
-            (
-                (0,delta_tt_ranks[ii]),
-                (0,delta_tucker_ranks[ii]),
-                (0,delta_tt_ranks[ii+1]),
-            ),
-        ))
+        stack_pad = ((0,0),)*len(stack_shape)
+        pad = stack_pad + (
+            (0,delta_tt_ranks[ii]),
+            (0,delta_tucker_ranks[ii]),
+            (0,delta_tt_ranks[ii+1]),
+        )
+        new_G = xnp.pad(tt_cores[ii], pad)
+        new_tt_cores.append(new_G)
 
     return tuple(new_tt_cores)
 
