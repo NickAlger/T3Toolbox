@@ -26,7 +26,7 @@ t3toolbox.tucker_tensor_train.t3_corewise_randn
    >>> tt_ranks = (1, 3, 2, 1)
    >>> stack_shape = (2,3)
    >>> x = t3.t3_corewise_randn(shape, tucker_ranks, tt_ranks, stack_shape=stack_shape) # TuckerTensorTrain with random cores
-   >>> x.structure == (shape, tucker_ranks, tt_ranks, stack_shape)
+   >>> x.uniform_structure == (shape, tucker_ranks, tt_ranks, stack_shape)
    True
    >>> print(x.tucker_cores[0][0,0,0,0]) # should be random N(0,1)
    0.0331003310807162

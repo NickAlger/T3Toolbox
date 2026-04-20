@@ -1,7 +1,7 @@
 t3toolbox.core.tucker_tensor_train.uniform.uniform_t3svd.uniform_t3_svd
 =======================================================================
 
-.. py:function:: t3toolbox.core.tucker_tensor_train.uniform.uniform_t3svd.uniform_t3_svd(cores: t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray], masks: t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray], squash_tails_first: bool = True, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray], t3toolbox.common.NDArray, t3toolbox.common.NDArray]
+.. py:function:: t3toolbox.core.tucker_tensor_train.uniform.uniform_t3svd.uniform_t3_svd(cores: t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray], rank_truncation_masks: t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray] = (None, None, None), squash_tails_first: bool = True, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray, t3toolbox.common.NDArray], t3toolbox.common.NDArray, t3toolbox.common.NDArray]
 
    Compute T3-SVD of uniform Tucker tensor train.
 
@@ -17,15 +17,15 @@ t3toolbox.core.tucker_tensor_train.uniform.uniform_t3svd.uniform_t3_svd
    >>> s = (s0[0],) + t3.compute_minimal_t3_ranks(s0)
    >>> x = t3.t3_corewise_randn(s)
    >>> cores, masks = ut3.t3_to_ut3(x)
-   >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = t3svd.uniform_t3_svd(cores, masks) # Uniform T3-SVD
-   >>> print(np.linalg.norm(ut3.ut3_to_dense(ux2, masks) - t3.t3_to_dense(x)))
+   >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = t3svd.uniform_t3_svd(cores, rank_truncation_masks) # Uniform T3-SVD
+   >>> print(np.linalg.norm(ut3.ut3_to_dense(ux2, rank_truncation_masks) - t3.t3_to_dense(x)))
    3.782447238250888e-12
    >>> _, ss_basis, ss_tt = t3svd.t3_svd(x) # Non-uniform T3-SVD
    >>> print(ss_tt[1])
    [980.86624688 624.1067954  159.88424271]
    >>> print(ss_tt_from_ut3[1])
    [980.86624688 624.1067954  159.88424271   0.           0.        ]
-   >>> _, tucker_masks, tt_masks = masks
+   >>> _, tucker_masks, tt_masks = rank_truncation_masks
    >>> print(ut3.unpack(ss_tt_from_ut3, tt_masks)[1])
    [980.86624688 624.1067954  159.88424271]
    >>> ut3.unpack(ss_basis_from_ut3, tucker_masks)[0] - ss_basis[0]
@@ -43,17 +43,17 @@ t3toolbox.core.tucker_tensor_train.uniform.uniform_t3svd.uniform_t3_svd
    >>> structure = ((3,4,3), (4,6,7), (3,5,1,2))
    >>> x = t3.t3_corewise_randn(structure)
    >>> cores, masks = ut3.t3_to_ut3(x)
-   >>> inv_masks = cw.corewise_logical_not(masks)
+   >>> inv_masks = cw.corewise_logical_not(rank_truncation_masks)
    >>> junk = ut3.uniform_randn(ut3.get_uniform_structure(cores), masks=inv_masks)
    >>> cores = cw.corewise_add(cores, junk) # Add random junk outside the masks
-   >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = t3svd.uniform_t3_svd(cores, masks, squash_tails_first=False, use_jax=True)
-   >>> print(np.linalg.norm(ut3.ut3_to_dense(ux2, masks) - t3.t3_to_dense(x))) # OK
+   >>> ux2, ss_basis_from_ut3, ss_tt_from_ut3 = t3svd.uniform_t3_svd(cores, rank_truncation_masks, squash_tails_first=False, use_jax=True)
+   >>> print(np.linalg.norm(ut3.ut3_to_dense(ux2, rank_truncation_masks) - t3.t3_to_dense(x))) # OK
    9.404253555983741e-13
    >>> _, ss_basis, ss_tt = t3svd.t3_svd(x) # Non-uniform T3-SVD
    >>> print(ss_tt[1])
    [913.44494453 127.532224    16.08102313]
    >>> print(ss_tt_from_ut3[1]) # Incorrect singular values:
    [417.45514528 401.58448034  72.5343983   22.41273808   0.        ]
-   >>> ux4, ss_basis_from_ut4, ss_tt_from_ut4 = t3svd.uniform_t3_svd(cores, masks, use_jax=True)
+   >>> ux4, ss_basis_from_ut4, ss_tt_from_ut4 = t3svd.uniform_t3_svd(cores, rank_truncation_masks, use_jax=True)
    >>> print(ss_basis_from_ut4[1])
 
