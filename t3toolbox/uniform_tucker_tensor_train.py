@@ -13,6 +13,8 @@ import t3toolbox.core.tucker_tensor_train.t3_apply as apply
 import t3toolbox.core.probing as probing
 import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as uniform_ops
 import t3toolbox.core.tucker_tensor_train.uniform.uniform_tensor_linalg as utla
+import t3toolbox.core.tucker_tensor_train.uniform.uniform_orthogonalization as uniform_orthogonalization
+import t3toolbox.core.tucker_tensor_train.orthogonalization as orth
 from t3toolbox.common import *
 
 jax = None
@@ -410,6 +412,191 @@ class UniformTuckerTensorTrain:
         """
         return ut3_add(self, other, squash=squash, use_jax=use_jax)
 
+    def up_orthogonalize_tucker_cores(
+            self,
+            use_jax: bool = False,
+    ) -> 'UniformTuckerTensorTrain':
+        """Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> ux = ut3.t3_to_ut3(x)
+        >>> ux_orth = ux.up_orthogonalize_tucker_cores()
+        >>> print(np.linalg.norm(ux.to_dense() - ux_orth.to_dense()))
+        5.322185194708616e-12
+        >>> ind = 1
+        >>> B = ux_orth.data[0][ind]
+        >>> print(np.linalg.norm(B @ B.T - np.eye(B.shape[0])))
+        1.6933204261400423e-15
+
+        Stacked:
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+        >>> ux = ut3.t3_to_ut3(x)
+        >>> ux_orth = ux.up_orthogonalize_tucker_cores()
+        >>> print(np.linalg.norm(ux.to_dense() - ux_orth.to_dense()))
+        5.306364476742805e-12
+        >>> ind = 1
+        >>> B = ux_orth.data[0][ind]
+        >>> BtB = np.einsum('...abio,...abjo->...abij',B,B)
+        >>> print(np.linalg.norm(BtB - np.eye(BtB.shape[-1])))
+        4.2779520202910704e-15
+        """
+        new_tucker_cores, new_tt_cores = uniform_orthogonalization.up_orthogonalize_uniform_tucker_cores(
+            *self.apply_masks_to_cores(use_jax=use_jax), use_jax=use_jax,
+        )
+        return UniformTuckerTensorTrain(
+            new_tucker_cores, new_tt_cores,
+            self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask,
+        )
+
+    def down_orthogonalize_tt_cores(
+            self,
+            use_jax: bool = False,
+    ) -> 'UniformTuckerTensorTrain':
+        """Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+        >>> ux = ut3.t3_to_ut3(x)
+        >>> ux_orth = ux.down_orthogonalize_tt_cores()
+        >>> print(np.linalg.norm(ux.to_dense() - ux_orth.to_dense()))
+        4.767839174513546e-12
+        >>> ind = 1
+        >>> G = ux_orth.data[1][ind]
+        >>> print(np.linalg.norm(np.einsum('...iaj,...ibj->...ab',G,G)-np.eye(G.shape[-2])))
+        3.907103432830381e-15
+        """
+        new_tucker_cores, new_tt_cores = uniform_orthogonalization.down_orthogonalize_uniform_tt_cores(
+            *self.apply_masks_to_cores(use_jax=use_jax), use_jax=use_jax,
+        )
+        return UniformTuckerTensorTrain(
+            new_tucker_cores, new_tt_cores,
+            self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask,
+        )
+
+    def left_orthogonalize_tt_cores(
+            self,
+            return_variation_cores: bool = False,
+            use_jax: bool = False,
+    ):
+        """Left orthogonalize the TT cores, possibly returning variation cores as well.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> ux = ut3.t3_to_ut3(x)
+        >>> ux_orth = ux.left_orthogonalize_tt_cores()
+        >>> print(np.linalg.norm(ux.to_dense() - ux_orth.to_dense()))
+        1.4070101740254461e-12
+        >>> ind = 1
+        >>> G = ux_orth.data[1][ind]
+        >>> print(np.linalg.norm(np.einsum('iaj,iak->jk',G,G)-np.eye(G.shape[2])))
+        1.707889450699257e-16
+
+        Stacked:
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+        >>> ux = ut3.t3_to_ut3(x)
+        >>> ux_orth = ux.left_orthogonalize_tt_cores()
+        >>> print(np.linalg.norm(ux.to_dense() - ux_orth.to_dense()))
+        3.0778175131798327e-12
+        >>> ind = 1
+        >>> G = ux_orth.data[1][ind]
+        >>> print(np.linalg.norm(np.einsum('...iaj,...iak->...jk',G,G)-np.eye(G.shape[2]))) # broadcast I
+        1.1988396145496563e-15
+        """
+        result = orth.left_orthogonalize_tt_cores(
+            self.apply_masks_to_cores(use_jax=use_jax)[1],
+            return_variation_cores=return_variation_cores, use_jax=use_jax,
+        )
+        if return_variation_cores:
+            return (
+                UniformTuckerTensorTrain(
+                    self.tucker_supercore, result[0],
+                    self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask,
+                ),
+                result[1],
+            )
+        else:
+            return UniformTuckerTensorTrain(
+                self.tucker_supercore, result,
+                self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask,
+            )
+
+    def right_orthogonalize_tt_cores(
+            self,
+            return_variation_cores: bool = False,
+            use_jax: bool = False,
+    ):
+        """Right orthogonalize the TT cores, possibly returning variation cores as well.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> ux = ut3.t3_to_ut3(x)
+        >>> ux_orth = ux.right_orthogonalize_tt_cores()
+        >>> print(np.linalg.norm(ux.to_dense() - ux_orth.to_dense()))
+        7.049913893369159e-13
+        >>> ind = 1
+        >>> G = ux_orth.data[1][ind]
+        >>> print(np.linalg.norm(np.einsum('iaj,kaj->ik',G,G)-np.eye(G.shape[-3])))
+        5.60978567249119e-16
+
+        Stacked:
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+        >>> ux = ut3.t3_to_ut3(x)
+        >>> ux_orth = ux.right_orthogonalize_tt_cores()
+        >>> print(np.linalg.norm(ux.to_dense() - ux_orth.to_dense()))
+        3.0648554023984285e-12
+        >>> ind = 1
+        >>> G = ux_orth.data[1][ind]
+        >>> print(np.linalg.norm(np.einsum('...iaj,...kaj->...ik',G,G)-np.eye(G.shape[-3]))) # broadcast I
+        2.4167107000621777e-15
+        """
+        result = orth.right_orthogonalize_tt_cores(
+            self.apply_masks_to_cores(use_jax=use_jax)[1],
+            return_variation_cores=return_variation_cores, use_jax=use_jax,
+        )
+        if return_variation_cores:
+            return (
+                UniformTuckerTensorTrain(
+                    self.tucker_supercore, result[0],
+                    self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask,
+                ),
+                result[1],
+            )
+        else:
+            return UniformTuckerTensorTrain(
+                self.tucker_supercore, result,
+                self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask,
+            )
+
+
 
 if has_jax:
     jax.tree_util.register_pytree_node(
@@ -715,9 +902,9 @@ def ut3_add(
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2))
+    >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
     >>> ux = ut3.t3_to_ut3(x)
-    >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1))
+    >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1), stack_shape=(2,3))
     >>> uy = ut3.t3_to_ut3(y)
     >>> ux_plus_uy = ut3.ut3_add(ux, uy) # add x+y
     >>> print(np.linalg.norm(x.to_dense() + y.to_dense() - ux_plus_uy.to_dense()))
@@ -729,7 +916,7 @@ def ut3_add(
             str(x.d) + ' = x.d != y.d = ' + str(y.d)
         )
 
-    if (x.shape != y.shape).all():
+    if (x.shape != y.shape).any():
         raise RuntimeError(
             'Attempted to add UniformTuckerTensorTrains x+y with inconsistent shapes.\n' +
             str(x.shape) + ' = x.shape != y.shape = ' + str(y.shape)
@@ -739,6 +926,12 @@ def ut3_add(
         raise RuntimeError(
             'Attempted to add UniformTuckerTensorTrains x+y with inconsistent N.\n' +
             str(x.N) + ' = x.N != y.N = ' + str(y.N)
+        )
+
+    if x.stack_shape != y.stack_shape:
+        raise RuntimeError(
+            'Attempted to add UniformTuckerTensorTrains x+y with inconsistent stack_shapes.\n' +
+            str(x.stack_shape) + ' = x.stack_shape != y.stack_shape = ' + str(y.stack_shape)
         )
 
     x_plus_y = UniformTuckerTensorTrain(*utla.ut3_add(x.data, y.data, use_jax=use_jax))
@@ -781,9 +974,9 @@ def ut3_sub(
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2))
+    >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
     >>> ux = ut3.t3_to_ut3(x)
-    >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1))
+    >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1), stack_shape=(2,3))
     >>> uy = ut3.t3_to_ut3(y)
     >>> ux_minus_uy = ut3.ut3_sub(ux, uy)
     >>> print(np.linalg.norm(x.to_dense() - y.to_dense() - ux_minus_uy.to_dense()))

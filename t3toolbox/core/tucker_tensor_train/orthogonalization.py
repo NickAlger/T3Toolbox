@@ -24,7 +24,7 @@ def left_orthogonalize_tt_cores(
 ]:
     """Left-orthogonalize a Tensor train (no Tucker).
     """
-    is_uniform = False
+    is_uniform = is_ndarray(tt_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
@@ -48,16 +48,18 @@ def left_orthogonalize_tt_cores(
     rL0 = tt_cores[0].shape[-3]
 
     init = xnp.broadcast_to(xnp.eye(rL0), stack_shape+(rL0,rL0))
-    # init0 = xnp.eye(rL0)
-    # init = xnp.tile(init0, stack_shape+(1,)*len(init0.shape))
     xs = (tt_cores[:-1],)
 
     Cf, (LL, HH) = xscan(_left_func, init, xs)
 
     # Dealing with the last core as a special case
     Lf = xnp.einsum('...xb,...bjc->...xjc', Cf, tt_cores[-1])
-    left_tt_cores = tuple(LL) + (Lf,)
-    var_tt_cores = tuple(HH) + (Lf,)
+    if is_uniform:
+        left_tt_cores = xnp.concatenate([LL, Lf.reshape((1,)+Lf.shape)])
+        var_tt_cores  = xnp.concatenate([HH, Lf.reshape((1,) + Lf.shape)])
+    else:
+        left_tt_cores = tuple(LL) + (Lf,)
+        var_tt_cores = tuple(HH) + (Lf,)
 
     if return_variation_cores:
         return left_tt_cores, var_tt_cores
