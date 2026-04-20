@@ -42,6 +42,14 @@ __all__ = [
 
 @dataclass(frozen=True)
 class UniformTuckerTensorTrain:
+    """Uniform Tucker tensor train.
+
+    Uniform Tucker tensor trains are created by padding a Tucker tensor train
+    so that the ranks are uniform, then stacking the TT cores and Tucker cores into
+    "supercores", which have one more dimension.
+
+    Original core shapes are tracked with boolean mask arrays associated with the edges.
+    """
     tucker_supercore:   NDArray  #             shape=(d,)   + stack_shape + (n,N)
     tt_supercore:       NDArray  #             shape=(d+1,) + stack_shape + (r,n,r)
     shape_mask:         NDArray  # dtype=bool, shape=(d,)   + stack_shape + (N,)
@@ -49,28 +57,50 @@ class UniformTuckerTensorTrain:
     tt_edge_mask:       NDArray  # dtype=bool, shape=(d+1,) + stack_shape + (r,)
 
     @ft.cached_property
+    def data(self) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray, NDArray]:
+        return (
+            self.tucker_supercore, self.tt_supercore,
+            self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask,
+        )
+
+    @ft.cached_property
     def d(self) -> int:
+        """Number of indices of the tensor.
+        """
         return self.tucker_supercore.shape[0]
 
     @ft.cached_property
     def n(self) -> int:
+        """Padded Tucker rank. n >= max(n0,...,n(d-1)), where ni are the original (unpadded) Tucker ranks.
+        """
         return self.tucker_supercore.shape[-2]
 
     @ft.cached_property
     def N(self) -> int:
+        """Padded index dimension. N >= max(N0,...,N(d-1)), where Ni are the original (unpadded) shapes.
+        """
         return self.tucker_supercore.shape[-1]
 
     @ft.cached_property
     def r(self) -> int:
+        """Padded TT rank. r >= max(r0,...,rd), where ri are the original (unpadded) TT ranks.
+        """
         return self.tt_supercore.shape[-1]
 
     @ft.cached_property
     def stack_shape(self) -> typ.Tuple[int,...]:
+        """If this contains many stacked uniform Tucker tensor trains, this is the stacking shape.
+        """
         return self.tucker_supercore.shape[1:-2]
 
     @ft.cached_property
+    def structure(self) -> typ.Tuple[int, int, int, int, typ.Tuple[int,...]]:
+        """d, N, n, r, stack_shape"""
+        return self.d, self.N, self.n, self.r, self.stack_shape
+
+    @ft.cached_property
     def shape(self) -> NDArray: # dtype=int, shape=(d,)+stack_shape
-        """Get the original shapes, not including portions of the tensors that are ignored by masking.
+        """Get the original shapes, not including portions of the tensors that are unmasked.
 
         Examples
         --------
@@ -99,7 +129,7 @@ class UniformTuckerTensorTrain:
 
     @ft.cached_property
     def tucker_ranks(self) -> NDArray: # dtype=int, shape=(d,)+stack_shape
-        """Get the original tucker ranks, not including components of the edges that are ignored by masking.
+        """Get the original tucker ranks, not including components of the edges that are unmasked.
 
         Examples
         --------
@@ -128,7 +158,7 @@ class UniformTuckerTensorTrain:
 
     @ft.cached_property
     def tt_ranks(self) -> NDArray: # dtype=int, shape=(d+1,)+stack_shape
-        """Get the original tucker ranks, not including components of the edges that are ignored by masking.
+        """Get the original tucker ranks, not including components of the edges that are unmasked.
 
         Examples
         --------
@@ -169,4 +199,94 @@ class UniformTuckerTensorTrain:
 
     def __post_init__(self):
         self.validate()
+
+    def to_dense(self, use_jax: bool = False) -> NDArray:
+        return ut3_to_t3(self).to_dense(use_jax=use_jax)
+
+
+    def reverse(self) -> 'UniformTuckerTensorTrain':
+        """Reversed a UniformTuckerTensorTrain.
+        """
+        return UniformTuckerTensorTrain(
+            self.tucker_supercore[::-1],
+            uniform_ops.reverse_utt(self.tt_supercore),
+            self.shape_mask[::-1],
+            self.tucker_edge_mask[::-1],
+            self.tt_edge_mask[::-1],
+        )
+
+    def squash_tails(self) -> 'UniformTuckerTensorTrain':
+        """Make the first index of the first TT supercore
+        and the last index of the last TT-supercore equal to 1 by summing.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> tucker_supercore = np.random.randn(4, 2,3, 6,7)
+        >>> tt_supercore = np.random.randn(4, 2,3, 5,6,5)
+        >>> x = UniformTuckerTensorTrain(tucker_supercore, tt_supercore)
+        >>> squashed_x = x.squash_tails()
+        >>> print(np.linalg.norm(x.to_dense() - squashed_x.to_dense()))
+
+        >>> new_tt_supercore = uniform_operations.uniform_squash_tt_tails(tt_supercore)
+        >>> print(np.linalg.norm(np.sum(tt_supercore[0], axis=-3) - new_tt_supercore[0, :,:, 0,:,:]))
+        0.0
+        >>> print(np.linalg.norm(new_tt_supercore[0, :,:, 1:,:,:]))
+        0.0
+        >>> print(np.linalg.norm(np.sum(tt_supercore[-1], axis=-1) - new_tt_supercore[-1, :,:, :,:,0]))
+        0.0
+        >>> print(np.linalg.norm(new_tt_supercore[-1, :,:, :,:,1:]))
+        0.0
+        """
+        new_tt_supercore = uniform_ops.uniform_squash_tt_tails(self.tt_supercore)
+        return UniformTuckerTensorTrain(self.tucker_supercore, new_tt_supercore)
+
+    def apply_masks_to_cores(self, use_jax: bool = False) -> typ.Tuple[
+        NDArray, # masked_tucker_supercore
+        NDArray, # masked_tt_supercore
+    ]:
+        """Applies masking to supercores, replacing unmasked regions with zeros.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> import t3toolbox.t3svd as t3svd
+        >>> import t3toolbox.corewise as cw
+        >>> x = t3.t3_corewise_randn(((10,11,12), (5,6,4), (1,3,5,1)))
+        >>> uniform_x, masks = ut3.t3_to_ut3(x)
+        >>> uniform_x_svd, ss1, _ = t3svd.uniform_t3_svd(uniform_x, masks)
+        >>> dense_x = t3.t3_to_dense(x)
+        >>> print(np.linalg.norm(ut3.ut3_to_dense(uniform_x_svd, masks) - dense_x))
+        3.0208288525321468e-12
+        >>> x_svd, ss2, _ = t3svd.t3_svd(x)
+        >>> print(np.linalg.norm(t3.t3_to_dense(x_svd) - dense_x))
+        2.9361853188555994e-12
+        >>> x_svd_structure = t3.get_structure(x_svd)
+        >>> uniform_x_svd_structure = ut3.get_uniform_structure(uniform_x_svd)
+        >>> masks2 = ut3.make_uniform_masks(x_svd_structure, uniform_x_svd_structure)
+        >>> print(np.linalg.norm(ut3.ut3_to_dense(uniform_x_svd, masks2) - dense_x))
+        3.0208288525321468e-12
+        >>> print(cw.corewise_relerr(ut3.apply_masks(uniform_x_svd, masks2), uniform_x_svd))
+        0.0024164186526434567
+        >>> print(cw.corewise_relerr(ut3.apply_masks(uniform_x_svd, masks), uniform_x_svd))
+        0.0
+        """
+        xnp,_,_ = get_backend(True, use_jax)
+
+        masked_tucker_supercore = xnp.einsum(
+            'd...nN,d...n,d...N->d...nN',
+            self.tucker_supercore, self.tucker_edge_mask, self.shape_mask,
+        )
+        masked_tt_supercore = xnp.einsum(
+            'd...lnr,d...l,d...n,d...r->d...lnr',
+            self.tt_supercore, self.tt_edge_mask[:-1], self.tucker_edge_mask, self.tt_edge_mask[1:],
+        )
+        return masked_tucker_supercore, masked_tt_supercore
+
+
+
+
 
