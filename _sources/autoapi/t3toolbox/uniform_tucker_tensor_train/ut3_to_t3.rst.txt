@@ -10,17 +10,36 @@ t3toolbox.uniform_tucker_tensor_train.ut3_to_t3
    >>> import numpy as np
    >>> import t3toolbox.tucker_tensor_train as t3
    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-   >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
-   >>> cores, masks = ut3.t3_to_ut3(x) # Convert t3 -> ut3
-   >>> print(ut3.get_uniform_structure(cores))
-   (3, 16, 6, 3)
-   >>> print(ut3.get_original_structure(masks))
-   ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
-   >>> x2 = ut3.ut3_to_t3(cores, masks) # Convert ut3 -> t3
-   >>> print(t3.get_structure(x2))
-   ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
-   >>> print([np.linalg.norm(B - B2) for B, B2  in zip(x[0], x2[0])])
-   [0.0, 0.0, 0.0]
-   >>> print([np.linalg.norm(G - G2) for G, G2  in zip(x[1], x2[1])])
-   [0.0, 0.0, 0.0]
+   >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (1,3,2,1), stack_shape=(2,))
+   >>> uniform_x = ut3.t3_to_ut3(x) # Convert t3 -> ut3
+   >>> print(uniform_x.structure)
+   (3, 16, 6, 3, (2,))
+   >>> print(uniform_x.shape)
+   [[14 14]
+    [15 15]
+    [16 16]]
+   >>> print(uniform_x.tucker_ranks)
+   [[4 4]
+    [6 6]
+    [5 5]]
+   >>> print(uniform_x.tt_ranks)
+   [[1 1]
+    [3 3]
+    [2 2]
+    [1 1]]
+   >>> all_x2 = ut3.ut3_to_t3(uniform_x) # Convert ut3 -> t3 without stacking
+   >>> for x2i in all_x2: print(x2i.structure)
+   ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1), ())
+   ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1), ())
+   >>> stacked_x2 = ut3.ut3_to_t3(uniform_x, stack_t3s=True) # with stacking
+   >>> print(stacked_x2.structure)
+   ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1), (2,))
+   >>> for B, B2 in zip(stacked_x2.tucker_cores, x.tucker_cores): print(np.linalg.norm(B - B2))
+   0.0
+   0.0
+   0.0
+   >>> for G, G2 in zip(stacked_x2.tt_cores, x.tt_cores): print(np.linalg.norm(G - G2))
+   0.0
+   0.0
+   0.0
 
