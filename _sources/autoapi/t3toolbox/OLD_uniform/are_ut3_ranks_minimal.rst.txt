@@ -1,0 +1,25 @@
+t3toolbox.OLD_uniform.are_ut3_ranks_minimal
+===========================================
+
+.. py:function:: t3toolbox.OLD_uniform.are_ut3_ranks_minimal(masks: UniformEdgeWeights) -> bool
+
+   Checks if the ranks of a uniform Tucker train are minimal.
+
+   .. rubric:: Example
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+   >>> x = t3.t3_corewise_randn(((13,14,15,16), (4,5,6,7), (1,4,9,7,1)))
+   >>> cores, masks = ut3.t3_to_ut3(x)
+   >>> print(ut3.are_ut3_ranks_minimal(masks))
+   True
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+   >>> x = t3.t3_corewise_randn(((13,14,15,16), (4,5,6,7), (1,99,9,7,1)))
+   >>> cores, masks = ut3.t3_to_ut3(x)
+   >>> print(ut3.are_ut3_ranks_minimal(masks))
+   False
+

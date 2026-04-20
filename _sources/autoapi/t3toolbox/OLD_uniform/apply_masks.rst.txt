@@ -1,0 +1,33 @@
+t3toolbox.OLD_uniform.apply_masks
+=================================
+
+.. py:function:: t3toolbox.OLD_uniform.apply_masks(cores: UniformTuckerTensorTrain, masks: UniformEdgeWeights, use_jax: bool = False) -> UniformTuckerTensorTrain
+
+   Apply masks to uniform Tucker tensor train cores.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.uniform as ut3
+   >>> import t3toolbox.t3svd as t3svd
+   >>> import t3toolbox.corewise as cw
+   >>> x = t3.t3_corewise_randn(((10,11,12), (5,6,4), (1,3,5,1)))
+   >>> uniform_x, masks = ut3.t3_to_ut3(x)
+   >>> uniform_x_svd, ss1, _ = t3svd.uniform_t3_svd(uniform_x, masks)
+   >>> dense_x = t3.t3_to_dense(x)
+   >>> print(np.linalg.norm(ut3.ut3_to_dense(uniform_x_svd, masks) - dense_x))
+   3.0208288525321468e-12
+   >>> x_svd, ss2, _ = t3svd.t3_svd(x)
+   >>> print(np.linalg.norm(t3.t3_to_dense(x_svd) - dense_x))
+   2.9361853188555994e-12
+   >>> x_svd_structure = t3.get_structure(x_svd)
+   >>> uniform_x_svd_structure = ut3.get_uniform_structure(uniform_x_svd)
+   >>> masks2 = ut3.make_uniform_masks(x_svd_structure, uniform_x_svd_structure)
+   >>> print(np.linalg.norm(ut3.ut3_to_dense(uniform_x_svd, masks2) - dense_x))
+   3.0208288525321468e-12
+   >>> print(cw.corewise_relerr(ut3.apply_masks(uniform_x_svd, masks2), uniform_x_svd))
+   0.0024164186526434567
+   >>> print(cw.corewise_relerr(ut3.apply_masks(uniform_x_svd, masks), uniform_x_svd))
+   0.0
+

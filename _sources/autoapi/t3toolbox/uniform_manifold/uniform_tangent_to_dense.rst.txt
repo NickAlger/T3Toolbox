@@ -1,7 +1,7 @@
 t3toolbox.uniform_manifold.uniform_tangent_to_dense
 ===================================================
 
-.. py:function:: t3toolbox.uniform_manifold.uniform_tangent_to_dense(variations: t3toolbox.uniform.UniformT3Variation, base: t3toolbox.uniform.UniformT3Base, masks: t3toolbox.uniform.UniformBVEdgeWeights, include_shift: bool = False, use_jax: bool = False) -> t3toolbox.common.NDArray
+.. py:function:: t3toolbox.uniform_manifold.uniform_tangent_to_dense(variations: t3toolbox.OLD_uniform.UniformT3Variation, base: t3toolbox.OLD_uniform.UniformT3Base, masks: t3toolbox.OLD_uniform.UniformBVEdgeWeights, include_shift: bool = False, use_jax: bool = False) -> t3toolbox.common.NDArray
 
    Convert uniform Tangent vector to dense tensor.
 

@@ -1,8 +1,0 @@
-t3toolbox.uniform.uniform_zeros
-===============================
-
-.. py:function:: t3toolbox.uniform.uniform_zeros(structure: UniformStructure, use_jax: bool = False) -> UniformTuckerTensorTrain
-
-   Makes a uniform Tucker tensor train with cores filled with zeros.
-
-

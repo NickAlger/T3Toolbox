@@ -1,8 +1,0 @@
-t3toolbox.uniform.apply_masks_to_base
-=====================================
-
-.. py:function:: t3toolbox.uniform.apply_masks_to_base(base: UniformT3Base, masks: UniformBVEdgeWeights, use_jax: bool = False) -> UniformT3Base
-
-   Apply masks to uniform Tucker tensor train base.
-
-

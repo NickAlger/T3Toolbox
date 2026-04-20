@@ -1,8 +1,0 @@
-t3toolbox.uniform.pack_tensors
-==============================
-
-.. py:function:: t3toolbox.uniform.pack_tensors(unpacked_tensors=typ.Sequence[NDArray], use_jax: bool = False) -> t3toolbox.common.NDArray
-
-   Use zero-padding to pack several tensors with ragged shapes into one tensor with an extra dimension.
-
-

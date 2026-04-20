@@ -1,4 +1,0 @@
-t3toolbox.uniform.bv_to_ubv
-===========================
-
-.. py:function:: t3toolbox.uniform.bv_to_ubv(variation: t3toolbox.base_variation_format.T3Variation, base: t3toolbox.base_variation_format.T3Base, use_jax: bool = False) -> t3toolbox.common.typ.Tuple[UniformT3Variation, UniformT3Base, UniformBVEdgeWeights]

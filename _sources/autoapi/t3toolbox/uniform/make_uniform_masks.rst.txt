@@ -1,4 +1,0 @@
-t3toolbox.uniform.make_uniform_masks
-====================================
-
-.. py:function:: t3toolbox.uniform.make_uniform_masks(structure, uniform_structure: UniformStructure, use_jax: bool = False) -> UniformEdgeWeights

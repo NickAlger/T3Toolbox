@@ -1,0 +1,20 @@
+t3toolbox.OLD_uniform.get_uniform_base_hole_shapes
+==================================================
+
+.. py:function:: t3toolbox.OLD_uniform.get_uniform_base_hole_shapes(base: UniformT3Base) -> t3toolbox.common.typ.Tuple[t3toolbox.common.typ.Tuple[int, int, int], t3toolbox.common.typ.Tuple[int, int, int, int]]
+
+   Get the hole shapes for a uniform base.
+
+   Examples:
+   ---------
+   >>> import numpy as np
+   >>> import t3toolbox.uniform as ut3
+   >>> d, N, nU, nO, rL, rR = 6, 5, 4, 3, 2, 1
+   >>> up_tucker_supercore = np.random.randn(d, nU, N)
+   >>> left_tt_supercore = np.random.randn(d, rL, nU, rL)
+   >>> right_tt_supercore = np.random.randn(d, rR, nU, rR)
+   >>> outer_tt_supercore = np.random.randn(d, rL, nO, rR)
+   >>> base = (up_tucker_supercore, left_tt_supercore, right_tt_supercore, outer_tt_supercore)
+   >>> print(ut3.get_uniform_base_hole_shapes(base))
+   ((6, 3, 5), (6, 2, 4, 1))
+

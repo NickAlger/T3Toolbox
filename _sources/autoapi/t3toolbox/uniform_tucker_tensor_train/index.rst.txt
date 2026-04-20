@@ -4,6 +4,15 @@ t3toolbox.uniform_tucker_tensor_train
 .. py:module:: t3toolbox.uniform_tucker_tensor_train
 
 
+Attributes
+----------
+
+.. autoapisummary::
+
+   t3toolbox.uniform_tucker_tensor_train.pack_vectors
+   t3toolbox.uniform_tucker_tensor_train.unpack_vectors
+
+
 Classes
 -------
 
@@ -39,4 +48,11 @@ Functions
    t3toolbox.uniform_tucker_tensor_train.ut3_add
    t3toolbox.uniform_tucker_tensor_train.ut3_sub
 
+
+Module Contents
+---------------
+
+.. py:data:: pack_vectors
+
+.. py:data:: unpack_vectors
 
