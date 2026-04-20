@@ -9,8 +9,13 @@ from dataclasses import dataclass
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.core.tucker_tensor_train.t3_entries as entries
+import t3toolbox.core.tucker_tensor_train.t3_apply as apply
 import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as uniform_ops
 from t3toolbox.common import *
+
+jax = None
+if has_jax:
+    import jax
 
 __all__ = [
     'UniformTuckerTensorTrain',
@@ -309,6 +314,13 @@ class UniformTuckerTensorTrain:
         return masked_tucker_supercore, masked_tt_supercore
 
 
+if has_jax:
+    jax.tree_util.register_pytree_node(
+        UniformTuckerTensorTrain,
+        lambda x: (x.data[:2], x.data[2:]), # treat masks statically
+        lambda aux_data, children: UniformTuckerTensorTrain(*(children+aux_data)),
+    )
+
 
 def t3_to_ut3(
         x: t3.TuckerTensorTrain,
@@ -452,7 +464,92 @@ def ut3_get_entries(
      [ 10.34271727   9.07781055]
      [ -3.47189513 -21.14557063]]
 
+    # Gradient of entry getting function
+
+    >>> import numpy as np
+    >>> import jax
+    >>> import jax.numpy as jnp
+	>>> import t3toolbox.tucker_tensor_train as t3
+	>>> import t3toolbox.uniform_tucker_tensor_train as ut3
+	>>> import t3toolbox.corewise as cw
+	>>> jax.config.update("jax_enable_x64", True)
+	>>> index = (3,1,2)
+	>>> get_312 = lambda z: t3.t3_get_entries(z, index, use_jax=True)
+	>>> x = t3.t3_corewise_randn((14,15,16), (4,5,3), (1,4,2,1)) # T3
+	>>> g = jax.grad(get_312)(x)
+    >>> get_312_uniform = lambda z: ut3.ut3_get_entries(z, index, use_jax=True)
+    >>> uniform_x = ut3.t3_to_ut3(x)
+    >>> uniform_g = jax.grad(get_312_uniform)(uniform_x)
+    >>> uniform_g2 = ut3.t3_to_ut3(g)
+    >>> cw.corewise_norm(cw.corewise_sub(uniform_g.data[:2], uniform_g2.data[:2]))
+    1.418902271738168e-15
+    >>> for m, m2 in zip(uniform_g.data[2:], uniform_g2.data[2:]): print(np.all(m == m2))
+    True
+    True
+    True
     """
-    masked_x = x.apply_masks_to_cores()
+    masked_x = x.apply_masks_to_cores(use_jax=use_jax) # re-mask every time so that mask affects derivatives. It is relatively cheap.
     return entries.t3_get_entries(masked_x, index, use_jax=use_jax)
 
+
+#### APPLY DOESN'T WORK YET
+def ut3_apply(
+        x: UniformTuckerTensorTrain,
+        input_vectors: NDArray, # shape=(d,N) or shape=(...,d,N)
+        use_jax: bool = False,
+) -> NDArray: # shape=(d,N) or (...,d,N)
+    """Apply a uniform Tucker tensor train to vectors. WORK IN PROGRESS
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform as ut3
+    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+    >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
+    >>> result = t3.t3_apply(x, vecs)
+    >>> uniform_x = ut3.t3_to_ut3(x)
+    >>> uvecs =
+    >>> print(np.linalg.norm(result - result2))
+
+	>>> import numpy as np
+	>>> import t3toolbox.uniform_tucker_tensor_train as ut3
+	>>> d = 3
+	>>> N = 11
+	>>> n = 7
+	>>> r = 4
+	>>> tucker_supercore = np.random.randn(d,n,N)
+	>>> tt_supercore = np.random.randn(d,r,n,r)
+	>>> cores = (tucker_supercore, basis_supercore)
+	>>> ww = np.random.randn(d, N)
+	>>> result = ut3.ut3_apply(cores, ww)
+	>>> result2 = xnp.einsum('di,dxi,da', ww, tucker_supercore, tt_supercore)
+	>>> x_312 = t3.t3_entry(x, index)
+	>>> print(x_312) # (3,1,2) entry from T3:
+	-1.4931654579929192
+	>>> cores, masks = ut3.t3_to_ut3(x) # Convert to Uniform T3
+	>>> print(ut3.get_original_structure(masks)) # original (shape, tucker_ranks, tt_ranks):
+	((14, 15, 16), (4, 5, 3), (1, 4, 2, 1))
+	>>> print(ut3.get_uniform_structure(cores)) # uniform shape and ranks, (d,N,n,r):
+	(3, 16, 5, 4)
+	>>> x_312_uniform = ut3.ut3_get_entries(cores, index) # (3,1,2) entry from uniform T3:
+	>>> print(x_312_uniform)
+	-1.4931654579929197
+
+    Multiple entries:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,3), (1,4,2,1)))
+    >>> index = ((3,10), (1,9), (2,8))
+    >>> x_312 = t3.t3_entry(x, index)
+    >>> print(x_312)
+    -6.127319174475167
+    >>> cores, masks = ut3.t3_to_ut3(x)
+    >>> x_312_uniform = ut3.ut3_get_entries(cores, index)
+    >>> print(x_312_uniform)
+    -6.127319174475165
+    """
+    masked_x = x.apply_masks_to_cores() # re-mask every time so that mask affects derivatives. It is relatively cheap.
+    return apply.t3_apply(masked_x, input_vectors, use_jax=use_jax)
