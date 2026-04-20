@@ -502,7 +502,12 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">t3toolbox.uniform_tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">UniformTuckerTensorTrain</span></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain" title="Link to this definition">#</a></dt>
-<dd><dl class="py attribute">
+<dd><p>Uniform Tucker tensor train.</p>
+<p>Uniform Tucker tensor trains are created by padding a Tucker tensor train
+so that the ranks are uniform, then stacking the TT cores and Tucker cores into
+“supercores”, which have one more dimension.</p>
+<p>Original core shapes are tracked with boolean mask arrays associated with the edges.</p>
+<dl class="py attribute">
 <dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.tucker_supercore">
 <span class="sig-name descname"><span class="pre">tucker_supercore</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.tucker_supercore" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
@@ -528,34 +533,50 @@
 <dd></dd></dl>
 
 <dl class="py method">
+<dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.data">
+<span class="sig-name descname"><span class="pre">data</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.data" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
 <dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.d">
 <span class="sig-name descname"><span class="pre">d</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.d" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>Number of indices of the tensor.</p>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.n">
 <span class="sig-name descname"><span class="pre">n</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.n" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>Padded Tucker rank. n &gt;= max(n0,…,n(d-1)), where ni are the original (unpadded) Tucker ranks.</p>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.N">
 <span class="sig-name descname"><span class="pre">N</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.N" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>Padded index dimension. N &gt;= max(N0,…,N(d-1)), where Ni are the original (unpadded) shapes.</p>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.r">
 <span class="sig-name descname"><span class="pre">r</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">int</span></span></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.r" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>Padded TT rank. r &gt;= max(r0,…,rd), where ri are the original (unpadded) TT ranks.</p>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.stack_shape">
 <span class="sig-name descname"><span class="pre">stack_shape</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.stack_shape" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
+<dd><p>If this contains many stacked uniform Tucker tensor trains, this is the stacking shape.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.structure">
+<span class="sig-name descname"><span class="pre">structure</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.structure" title="Link to this definition">#</a></dt>
+<dd><p>d, N, n, r, stack_shape</p>
+</dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.shape">
 <span class="sig-name descname"><span class="pre">shape</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a></span></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.shape" title="Link to this definition">#</a></dt>
-<dd><p>Get the original shapes, not including portions of the tensors that are ignored by masking.</p>
+<dd><p>Get the original shapes, not including portions of the tensors that are unmasked.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.uniform_tucker_tensor_train</span> <span class="k">as</span> <span class="nn">ut3</span>
@@ -584,7 +605,7 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.tucker_ranks">
 <span class="sig-name descname"><span class="pre">tucker_ranks</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a></span></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.tucker_ranks" title="Link to this definition">#</a></dt>
-<dd><p>Get the original tucker ranks, not including components of the edges that are ignored by masking.</p>
+<dd><p>Get the original tucker ranks, not including components of the edges that are unmasked.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.uniform_tucker_tensor_train</span> <span class="k">as</span> <span class="nn">ut3</span>
@@ -613,7 +634,7 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.tt_ranks">
 <span class="sig-name descname"><span class="pre">tt_ranks</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a></span></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.tt_ranks" title="Link to this definition">#</a></dt>
-<dd><p>Get the original tucker ranks, not including components of the edges that are ignored by masking.</p>
+<dd><p>Get the original tucker ranks, not including components of the edges that are unmasked.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.uniform_tucker_tensor_train</span> <span class="k">as</span> <span class="nn">ut3</span>
@@ -649,6 +670,77 @@
 <dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.__post_init__">
 <span class="sig-name descname"><span class="pre">__post_init__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.__post_init__" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.to_dense">
+<span class="sig-name descname"><span class="pre">to_dense</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a></span></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.to_dense" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.reverse">
+<span class="sig-name descname"><span class="pre">reverse</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain" title="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain"><span class="pre">UniformTuckerTensorTrain</span></a></span></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.reverse" title="Link to this definition">#</a></dt>
+<dd><p>Reversed a UniformTuckerTensorTrain.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.squash_tails">
+<span class="sig-name descname"><span class="pre">squash_tails</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain" title="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain"><span class="pre">UniformTuckerTensorTrain</span></a></span></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.squash_tails" title="Link to this definition">#</a></dt>
+<dd><p>Make the first index of the first TT supercore
+and the last index of the last TT-supercore equal to 1 by summing.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.uniform_tucker_tensor_train</span> <span class="k">as</span> <span class="nn">ut3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_supercore</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span><span class="mi">7</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tt_supercore</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">5</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">UniformTuckerTensorTrain</span><span class="p">(</span><span class="n">tucker_supercore</span><span class="p">,</span> <span class="n">tt_supercore</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">squashed_x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">squash_tails</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">-</span> <span class="n">squashed_x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()))</span>
+</pre></div>
+</div>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">new_tt_supercore</span> <span class="o">=</span> <span class="n">uniform_operations</span><span class="o">.</span><span class="n">uniform_squash_tt_tails</span><span class="p">(</span><span class="n">tt_supercore</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">tt_supercore</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">3</span><span class="p">)</span> <span class="o">-</span> <span class="n">new_tt_supercore</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,:,</span> <span class="mi">0</span><span class="p">,:,:]))</span>
+<span class="go">0.0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">new_tt_supercore</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,:,</span> <span class="mi">1</span><span class="p">:,:,:]))</span>
+<span class="go">0.0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">tt_supercore</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span> <span class="o">-</span> <span class="n">new_tt_supercore</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,:,</span> <span class="p">:,:,</span><span class="mi">0</span><span class="p">]))</span>
+<span class="go">0.0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">new_tt_supercore</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">:,:,</span> <span class="p">:,:,</span><span class="mi">1</span><span class="p">:]))</span>
+<span class="go">0.0</span>
+</pre></div>
+</div>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.apply_masks_to_cores">
+<span class="sig-name descname"><span class="pre">apply_masks_to_cores</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.common.NDArray"><span class="pre">t3toolbox.common.NDArray</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.apply_masks_to_cores" title="Link to this definition">#</a></dt>
+<dd><p>Applies masking to supercores, replacing unmasked regions with zeros.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.uniform_tucker_tensor_train</span> <span class="k">as</span> <span class="nn">ut3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.t3svd</span> <span class="k">as</span> <span class="nn">t3svd</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.corewise</span> <span class="k">as</span> <span class="nn">cw</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">(((</span><span class="mi">10</span><span class="p">,</span><span class="mi">11</span><span class="p">,</span><span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">4</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">uniform_x</span><span class="p">,</span> <span class="n">masks</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">t3_to_ut3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">uniform_x_svd</span><span class="p">,</span> <span class="n">ss1</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">t3svd</span><span class="o">.</span><span class="n">uniform_t3_svd</span><span class="p">(</span><span class="n">uniform_x</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dense_x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_to_dense</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">ut3</span><span class="o">.</span><span class="n">ut3_to_dense</span><span class="p">(</span><span class="n">uniform_x_svd</span><span class="p">,</span> <span class="n">masks</span><span class="p">)</span> <span class="o">-</span> <span class="n">dense_x</span><span class="p">))</span>
+<span class="go">3.0208288525321468e-12</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x_svd</span><span class="p">,</span> <span class="n">ss2</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">t3svd</span><span class="o">.</span><span class="n">t3_svd</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">t3</span><span class="o">.</span><span class="n">t3_to_dense</span><span class="p">(</span><span class="n">x_svd</span><span class="p">)</span> <span class="o">-</span> <span class="n">dense_x</span><span class="p">))</span>
+<span class="go">2.9361853188555994e-12</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x_svd_structure</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">get_structure</span><span class="p">(</span><span class="n">x_svd</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">uniform_x_svd_structure</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">get_uniform_structure</span><span class="p">(</span><span class="n">uniform_x_svd</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">masks2</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">make_uniform_masks</span><span class="p">(</span><span class="n">x_svd_structure</span><span class="p">,</span> <span class="n">uniform_x_svd_structure</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">ut3</span><span class="o">.</span><span class="n">ut3_to_dense</span><span class="p">(</span><span class="n">uniform_x_svd</span><span class="p">,</span> <span class="n">masks2</span><span class="p">)</span> <span class="o">-</span> <span class="n">dense_x</span><span class="p">))</span>
+<span class="go">3.0208288525321468e-12</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">cw</span><span class="o">.</span><span class="n">corewise_relerr</span><span class="p">(</span><span class="n">ut3</span><span class="o">.</span><span class="n">apply_masks</span><span class="p">(</span><span class="n">uniform_x_svd</span><span class="p">,</span> <span class="n">masks2</span><span class="p">),</span> <span class="n">uniform_x_svd</span><span class="p">))</span>
+<span class="go">0.0024164186526434567</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">cw</span><span class="o">.</span><span class="n">corewise_relerr</span><span class="p">(</span><span class="n">ut3</span><span class="o">.</span><span class="n">apply_masks</span><span class="p">(</span><span class="n">uniform_x_svd</span><span class="p">,</span> <span class="n">masks</span><span class="p">),</span> <span class="n">uniform_x_svd</span><span class="p">))</span>
+<span class="go">0.0</span>
+</pre></div>
+</div>
+</dd></dl>
 
 </dd></dl>
 
@@ -707,16 +799,22 @@
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.shape_mask"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.shape_mask</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.tucker_edge_mask"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.tucker_edge_mask</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.tt_edge_mask"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.tt_edge_mask</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.data"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.data()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.d"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.d()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.n"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.n()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.N"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.N()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.r"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.r()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.stack_shape"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.stack_shape()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.structure"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.structure()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.shape"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.shape()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.tucker_ranks"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.tucker_ranks()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.tt_ranks"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.tt_ranks()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.validate"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.validate()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.__post_init__"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.__post_init__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.to_dense"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.to_dense()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.reverse"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.reverse()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.squash_tails"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.squash_tails()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.apply_masks_to_cores"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.apply_masks_to_cores()</span></code></a></li>
 </ul>
 </li>
 </ul>
