@@ -5,7 +5,7 @@ import numpy as np
 import unittest
 
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.uniform as ut3
+import t3toolbox.OLD_uniform as ut3
 
 try:
     import jax

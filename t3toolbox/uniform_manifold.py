@@ -5,7 +5,7 @@
 import numpy as np
 import typing as typ
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.uniform as ut3
+import t3toolbox.OLD_uniform as ut3
 import t3toolbox.t3svd as t3svd
 import t3toolbox.base_variation_format as bvf
 # from t3toolbox.common import jnp, NDArray, numpy_scan, jax_scan

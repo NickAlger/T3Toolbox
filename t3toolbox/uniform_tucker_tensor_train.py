@@ -24,28 +24,16 @@ if has_jax:
 __all__ = [
     'UniformTuckerTensorTrain',
     #
-    'check_ut3',
-    'get_uniform_structure',
-    'get_original_structure',
-    'pack_tensors',
-    'unpack',
-    'make_uniform_masks',
-    'apply_masks',
-    'uniform_squash_tails',
-    'uniform_randn',
-    'uniform_zeros',
+    'pack_vectors',
+    'unpack_vectors',
     #
     't3_to_ut3',
     'ut3_to_t3',
     #
-    'ut3_to_dense',
-    'are_ut3_ranks_minimal',
     'ut3_get_entries',
     'ut3_apply',
     # Linear algebra core:
     'ut3_add',
-    'ut3_scale',
-    'ut3_neg',
     'ut3_sub',
 ]
 

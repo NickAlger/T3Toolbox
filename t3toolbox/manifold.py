@@ -9,7 +9,7 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.orthogonalization as orth
 import t3toolbox.t3svd as t3svd
 import t3toolbox.base_variation_format as bvf
-import t3toolbox.uniform as ut3
+import t3toolbox.OLD_uniform as ut3
 from t3toolbox.common import *
 
 __all__ = [

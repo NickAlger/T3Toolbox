@@ -7,8 +7,10 @@ import typing as typ
 
 
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.orthogonalization as orth
-import t3toolbox.uniform as ut3
+import t3toolbox.core.tucker_tensor_train.orthogonalization as orth
+import t3toolbox.core.tucker_tensor_train.uniform.uniform_orthogonalization as uniform_orth
+import t3toolbox.core.tucker_tensor_train.uniform.uniform_t3_operations as ut3_ops
+# import t3toolbox.OLD_uniform as ut3
 import t3toolbox.util_linalg as linalg
 from t3toolbox.common import *
 
@@ -18,12 +20,25 @@ __all__ = [
 
 
 def uniform_t3_svd(
-        cores: ut3.UniformTuckerTensorTrain,
-        masks: ut3.UniformEdgeWeights,
+        cores: typ.Tuple[
+            NDArray, # tucker_supercore
+            NDArray, # tt_supercore
+        ],
+        masks: typ.Tuple[
+            NDArray, # shape_mask
+            NDArray, # tucker_edge_mask
+            NDArray, # tt_edge_mask
+        ], # Can be used to truncate rank. Do not have to be the original masks
         squash_tails_first: bool = True,
         use_jax: bool = False,
 ) -> typ.Tuple[
-    ut3.UniformTuckerTensorTrain,
+    typ.Tuple[
+        NDArray,  # tucker_supercore
+        NDArray,  # tt_supercore
+        NDArray,  # shape_mask
+        NDArray,  # tucker_edge_mask
+        NDArray,  # tt_edge_mask
+    ], # new_x
     NDArray, # basis_singular_values, shape=(d, n)
     NDArray, # tt_singular_values, shape=(d+1, r)
 ]:
@@ -85,25 +100,38 @@ def uniform_t3_svd(
     xnp, xmap, xscan = get_backend(True, use_jax)
 
     #
-
-    if squash_tails_first:
-        cores = ut3.uniform_squash_tails(cores)
-
     basis_supercore, tt_supercore = cores
     shape_mask, basis_masks, tt_masks = masks
 
-    d, n, N = basis_supercore.shape
-    r = tt_supercore.shape[1]
+    if squash_tails_first:
+        tt_supercore = ut3_ops.uniform_squash_tt_tails(tt_supercore, use_jax=use_jax)
 
-    basis_supercore, tt_supercore = orth.up_orthogonalize_tucker_cores((basis_supercore, tt_supercore), use_jax=use_jax)
+
+    d = basis_supercore.shape[0]
+    stack_shape = basis_supercore.shape[1:-2]
+    n, N = basis_supercore.shape[-2:]
+    r = tt_supercore.shape[-1]
+
+    basis_supercore, tt_supercore = uniform_orth.up_orthogonalize_uniform_tucker_cores(
+        basis_supercore, tt_supercore, use_jax=use_jax,
+    )
     tt_supercore = orth.right_orthogonalize_tt_cores(tt_supercore, use_jax=use_jax)
 
     # keep everything the same shape, for consistency with masks
     _, n2, _ = basis_supercore.shape
-    basis_supercore = xnp.concatenate([basis_supercore, xnp.zeros((d, n-n2, N))], axis=1)
-    tt_supercore    = xnp.concatenate([tt_supercore,    xnp.zeros((d, r, n-n2, r))], axis=2)
+    basis_supercore = xnp.concatenate([
+        basis_supercore, xnp.zeros(stack_shape+(d,)+stack_shape+(n-n2, N))
+    ], axis=-2
+    )
+    tt_supercore    = xnp.concatenate([
+        tt_supercore,    xnp.zeros(stack_shape+(d,)+stack_shape+(r, n-n2, r))
+    ], axis=-2
+    )
 
-    _, ss_tt00, _ = xnp.linalg.svd(tt_supercore[0].reshape((r, n*r)), full_matrices=False)
+    _, ss_tt00, _ = xnp.linalg.svd(
+        tt_supercore[0].reshape(stack_shape+(r, n*r)),
+        full_matrices=False,
+    )
     ss_tt0 = xnp.concatenate([ss_tt00, xnp.zeros(r-len(ss_tt00))], axis=0)
 
     ss_tt0 = ss_tt0 * tt_masks[0]
