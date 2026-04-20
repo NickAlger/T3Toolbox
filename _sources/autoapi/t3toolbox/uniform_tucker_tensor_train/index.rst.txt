@@ -1,0 +1,19 @@
+t3toolbox.uniform_tucker_tensor_train
+=====================================
+
+.. py:module:: t3toolbox.uniform_tucker_tensor_train
+
+
+Classes
+-------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/uniform_tucker_tensor_train/UniformTuckerTensorTrain
+
+.. autoapisummary::
+
+   t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
+
+
