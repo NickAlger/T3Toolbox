@@ -13,16 +13,8 @@ from t3toolbox.backend.common import *
 
 __all__ = [
     'T3Basis',
-    'T3Variation',
-    'BVStructure',
-    'BVEdgeWeights',
-    'get_base_structure',
-    'get_base_hole_shapes',
-    'get_variation_shapes',
-    'ith_bv_to_t3',
-    'check_t3base',
-    'check_t3variation',
-    'check_t3base_variation_pair',
+    'T3Coordinates',
+    'ith_bc_to_t3',
     't3_orthogonal_representations',
 ]
 
