@@ -29,61 +29,98 @@ class UT3Basis:
     Examples
     --------
     >>> import numpy as np
-    >>> import t3toolbox.basis_coordinates_format as bcf
-    >>> ss = (2,3)
-    >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
-    >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
-    >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-    >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-    >>> basis = bcf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-    >>> print(basis.structure)
-    ((14, 15, 16), (10, 11, 12), (1, 2, 3, 5), (2, 4, 5, 1), (9, 8, 7), (2, 3))
-    >>> print(basis.coordinate_shapes)
-    (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
+    >>> import t3toolbox.uniform_basis_coordinates_format as ubcf
+    >>> stack_shape = (2,)
+    >>> d, N, nU, nD, rL, rR = 3, 12, 7, 8, 5, 4
+    >>> up_cores = np.random.randn(*((d,) + stack_shape + (nU, N)))
+    >>> down_cores = np.random.randn(*((d,) + stack_shape + (rL, nD, rR)))
+    >>> left_cores = np.random.randn(*((d,) + stack_shape + (rL, nU, rL)))
+    >>> right_cores = np.random.randn(*((d,) + stack_shape + (rR, nU, rR)))
+    >>> shape_mask = np.random.choice([True, False], (d,N))
+    >>> up_mask = np.random.choice([True, False], (d,)+stack_shape+(nU,))
+    >>> down_mask = np.random.choice([True, False], (d,)+stack_shape+(nD,))
+    >>> left_mask = np.random.choice([True, False], (d+1,)+stack_shape+(rL,))
+    >>> right_mask = np.random.choice([True, False], (d+1,)+stack_shape+(rR,))
+    >>> basis = ubcf.UT3Basis(up_cores, down_cores, left_cores, right_cores, shape_mask, up_mask, down_mask, left_mask, right_mask)
     """
-    up_tucker_cores:    NDArray  # B_dxo B_dyo   = I_dxy, shape = (d,)+stack_shape+(nU, N)
-    left_tt_cores:      NDArray  # P_diax P_diay = I_dxy, shape = (d,)+stack_shape+(rL, nU, rL)
-    right_tt_cores:     NDArray  # Q_dxaj Q_dyaj = I_dxy  shape = (d,)+stack_shape+(rR, nU, rR)
-    down_tt_cores:      NDArray  # R_dixj R_diyj = I_dxy  shape = (d,)+stack_shape+(rL, nD, rR)
+    up_tucker_supercore:    NDArray  # B_dxo B_dyo   = I_dxy, shape = (d,)+stack_shape+(nU, N)
+    down_tt_supercore:      NDArray  # R_dixj R_diyj = I_dxy  shape = (d,)+stack_shape+(rL, nD, rR)
+    left_tt_supercore:      NDArray  # P_diax P_diay = I_dxy, shape = (d,)+stack_shape+(rL, nU, rL)
+    right_tt_supercore:     NDArray  # Q_dxaj Q_dyaj = I_dxy  shape = (d,)+stack_shape+(rR, nU, rR)
 
     shape_mask: NDArray # dtype=bool, (d,N)
 
     up_mask:    NDArray # dtype=bool, shape=(d,)+stack_shape+nU
-    left_mask:  NDArray # dtype=bool, shape=(d,)+stack_shape+rL
-    right_mask: NDArray # dtype=bool, shape=(d,)+stack_shape+rR
     down_mask:  NDArray # dtype=bool, shape=(d,)+stack_shape+nD
+    left_mask:  NDArray # dtype=bool, shape=(d+1,)+stack_shape+rL
+    right_mask: NDArray # dtype=bool, shape=(d+1,)+stack_shape+rR
+
+    @ft.cached_property
+    def data(self) -> typ.Tuple[
+        NDArray, # up_tucker_supercore
+        NDArray, # down_tt_supercore
+        NDArray, # left_tt_supercore
+        NDArray, # right_tt_supercore
+        NDArray, # shape_mask
+        NDArray, # up_mask
+        NDArray, # down_mask
+        NDArray, # left_mask
+        NDArray, # right_mask
+    ]:
+        return (
+            self.up_tucker_supercore, self.down_tt_supercore, self.left_tt_supercore, self.right_tt_supercore,
+            self.shape_mask,
+            self.up_mask, self.down_mask, self.left_mask, self.right_mask,
+        )
 
     @ft.cached_property
     def d(self) -> int:
-        return self.up_tucker_cores.shape[0]
+        return self.up_tucker_supercore.shape[0]
 
     @ft.cached_property
     def N(self) -> int:
-        return self.up_tucker_cores.shape[-1]
+        return self.up_tucker_supercore.shape[-1]
 
     @ft.cached_property
     def nU(self) -> int:
-        return self.up_tucker_cores.shape[-1]
+        return self.up_tucker_supercore.shape[-2]
 
     @ft.cached_property
     def nD(self) -> int:
-        return self.down_tt_cores.shape[-2]
+        return self.down_tt_supercore.shape[-2]
 
     @ft.cached_property
     def rL(self) -> int:
-        return self.left_tt_cores.shape[-1]
+        return self.left_tt_supercore.shape[-1]
 
     @ft.cached_property
     def rR(self) -> int:
-        return self.right_tt_cores.shape[-1]
+        return self.right_tt_supercore.shape[-1]
 
     @ft.cached_property
     def stack_shape(self) -> typ.Tuple[int,...]:
-        return self.up_tucker_cores.shape[1:-2]
+        return self.up_tucker_supercore.shape[1:-2]
 
     @ft.cached_property
-    def uniform_structure(self) -> typ.Tuple[int, int, int, int, int, int, typ.Tuple[int,...]]:
+    def uniform_structure(self) -> typ.Tuple[
+        int, # d
+        int, # N
+        int, # nU
+        int, # nD
+        int, # rL
+        int, # rR
+        typ.Tuple[int,...], # stack_shape
+    ]:
         return self.d, self.N, self.nU, self.nD, self.rL, self.rR, self.stack_shape
+
+    @ft.cached_property
+    def uniform_coordinate_shapes(self) -> typ.Tuple[
+        typ.Tuple[int,...], # uniform_tucker_coords_shape = (d, nD, N)
+        typ.Tuple[int,...], # uniform_tt_coords_shape = (d, rL, nU, rR)
+    ]: # does not include stack_shape
+        uniform_tucker_coords_shape = (self.d, self.nD, self.N)
+        uniform_tt_coords_shape = (self.d, self.rL, self.nU, self.rR)
+        return uniform_tucker_coords_shape, uniform_tt_coords_shape
 
     @ft.cached_property
     def shape(self) -> typ.Tuple[int,...]:
@@ -109,18 +146,16 @@ class UT3Basis:
     def structure(self) -> typ.Tuple[
         typ.Tuple[int, ...], # shape
         NDArray, # up_ranks
+        NDArray,  # down_tt_ranks
         NDArray, # left_ranks
         NDArray, # right_ranks
-        NDArray, # down_tt_ranks
         typ.Tuple[int,...], # stack_shape
     ]:
         return (
-            self.shape, self.up_ranks,
-            self.left_ranks, self.right_ranks, self.down_ranks,
+            self.shape, self.up_ranks, self.down_ranks,
+            self.left_ranks, self.right_ranks,
             self.stack_shape,
         )
-
-    #### WORK IN PROGRESS BELOW HERE
 
     @ft.cached_property
     def coordinate_shapes(
@@ -145,6 +180,7 @@ class UT3Basis:
 
         Examples
         --------
+        #### EXAMPLE IS WORK IN PROGRESS
         >>> import numpy as np
         >>> import t3toolbox.basis_coordinates_format as bcf
         >>> ss = (2,3) # not included in coordinate_shapes.
@@ -163,144 +199,68 @@ class UT3Basis:
 
         return tucker_coord_shapes, tt_coord_shapes
 
-    @ft.cached_property
-    def data(self) -> typ.Tuple[
-        typ.Tuple[NDArray,...], # up_tucker_cores
-        typ.Tuple[NDArray,...], # left_tt_cores
-        typ.Tuple[NDArray,...], # right_tt_cores
-        typ.Tuple[NDArray,...], # down_tt_cores
-    ]:
-        return self.up_tucker_cores, self.left_tt_cores, self.right_tt_cores, self.down_tt_cores
-
     def validate(self) -> None:
-        '''Check rank and shape consistency of Tucker tensor train basis (`T3Basis`).
+        '''Check rank and shape consistency of uniform Tucker tensor train basis (`UT3Basis`).
 
         Parameters
         ----------
-        x : T3Basis
+        x : UT3Basis
 
         Raises
         ------
         ValueError
-            Error raised if the cores of the T3Basis have inconsistent shapes.
+            Error raised if the cores of the UT3Basis have inconsistent shapes.
 
         See Also
         --------
-        T3Basis
-        T3Coordinates
+        UT3Basis
+        UT3Coordinates
         '''
-        UU, LL, RR, OO = self.data
+        UU_good = self.up_tucker_supercore.shape  == (self.d,) + self.stack_shape + (self.nU, self.N)
+        DD_good = self.down_tt_supercore.shape    == (self.d,) + self.stack_shape + (self.rL, self.nD, self.rR)
+        LL_good = self.left_tt_supercore.shape    == (self.d,) + self.stack_shape + (self.rL, self.nU, self.rL)
+        RR_good = self.right_tt_supercore.shape   == (self.d,) + self.stack_shape + (self.rR, self.nU, self.rR)
 
-        d = len(UU)
-        if not (len(LL) == d and len(RR) == d and len(OO) == d):
+        SM_good = self.shape_mask.shape           == (self.d, self.N)
+
+        UM_good = self.up_mask.shape              == (self.d,) + self.stack_shape + (self.nU,)
+        DM_good = self.down_mask.shape            == (self.d,) + self.stack_shape + (self.nD,)
+        LM_good = self.left_mask.shape            == (self.d+1,) + self.stack_shape + (self.rL,)
+        RM_good = self.right_mask.shape           == (self.d+1,) + self.stack_shape + (self.rR,)
+
+        bad_str = lambda x: ' <-- Bad' if not x else ''
+
+        shapes_string = ''
+        shapes_string += 'up_tucker_supercore.shape = ' + str(self.up_tucker_supercore.shape)   + ' =? (d,) + stack_shape + (nU, N)' + bad_str(UU_good) + '\n'
+        shapes_string += 'down_tt_supercore.shape   = ' + str(self.down_tt_supercore.shape)     + ' =? (d,) + stack_shape + (rL, nD, rR)' + bad_str(DD_good) + '\n'
+        shapes_string += 'left_tt_supercore.shape   = ' + str(self.left_tt_supercore.shape)     + ' =? (d,) + stack_shape + (rL, nU, rL)' + bad_str(LL_good) + '\n'
+        shapes_string += 'right_tt_supercore.shape  = ' + str(self.right_tt_supercore.shape)    + ' =? (d,) + stack_shape + (rR, nU, rR)' + bad_str(RR_good) + '\n'
+
+        shapes_string += 'shape_mask.shape          = ' + str(self.shape_mask.shape)            + ' =? (d, N)' + bad_str(SM_good) + '\n'
+
+        shapes_string += 'up_mask.shape             = ' + str(self.up_mask.shape)               + ' =? (d,) + stack_shape + (nU,)' + bad_str(UM_good) + '\n'
+        shapes_string += 'down_mask.shape           = ' + str(self.down_mask.shape)             + ' =? (d,) + stack_shape + (nD,)' + bad_str(DM_good) + '\n'
+        shapes_string += 'left_mask.shape           = ' + str(self.left_mask.shape)             + ' =? (d+1,) + stack_shape + (rL,)' + bad_str(LM_good) + '\n'
+        shapes_string += 'right_mask.shape          = ' + str(self.right_mask.shape)            + ' =? (d+1,) + stack_shape + (rR,)' + bad_str(RM_good)
+
+        if not (UU_good and DD_good and LL_good and RR_good and SM_good and UM_good and DM_good and LM_good and RM_good):
             raise ValueError(
-                'Inconsistent T3Basis.\n'
-                + 'All backend sequences must have length d=' + str(d) + '.\n'
-                + 'len(UU)=' + str(len(UU))
-                + ', len(LL)=' + str(len(LL))
-                + ', len(RR)=' + str(len(RR))
-                + ', len(OO)=' + str(len(OO))
+                'Inconsistent shapes for T3Basis.\n'
+                + shapes_string
             )
-
-        for ii, U in enumerate(UU):
-            if len(U.shape) < 2:
-                raise ValueError(
-                    'Inconsistent T3Basis.\n'
-                    + 'tucker_cores[' + str(ii) + '] is not a (stacked) matrix. shape=' + str(U.shape)
-                )
-
-        for name, CC in zip(["left_tt", "right_tt", "outer_tt"], [LL, RR, OO]):
-            for ii, C in enumerate(CC):
-                if len(C.shape) < 3:
-                    raise ValueError(
-                        'Inconsistent T3Basis.\n'
-                        + name + '_cores[' + str(ii) + '] is not a (stacked) 3-tensor. '
-                        + 'shape=' + str(C.shape)
-                    )
-
-        up_stack_shapes     = tuple([B.shape[:-2] for B in self.up_tucker_cores])
-        left_stack_shapes   = tuple([G.shape[:-3] for G in self.left_tt_cores])
-        right_stack_shapes  = tuple([G.shape[:-3] for G in self.right_tt_cores])
-        down_stack_shapes   = tuple([G.shape[:-3] for G in self.down_tt_cores])
-
-        if not (
-                up_stack_shapes
-                == left_stack_shapes
-                == right_stack_shapes
-                == down_stack_shapes
-                == (self.stack_shape,)*self.d
-        ):
-            raise ValueError(
-                'Inconsistent T3Basis.\n'
-                + str(up_stack_shapes) + ' = up_stack_shapes.\n'
-                + str(left_stack_shapes) + ' = left_stack_shapes.\n'
-                + str(right_stack_shapes) + ' = right_stack_shapes.\n'
-                + str(down_stack_shapes) + ' = down_stack_shapes.'
-            )
-
-        if right_stack_shapes != (self.stack_shape,) * self.d:
-            raise ValueError(
-                'Inconsistent T3Basis.\n'
-                + str(left_stack_shapes) + ' = up_stack_shapes. \n'
-                + '(stack_shape,) * d = ' + str((self.stack_shape,) * self.d)
-            )
-
-        rLl = tuple([int(LL[0].shape[-3])] + [int(L.shape[-1]) for L in LL])
-        rLr = tuple([int(L.shape[-3]) for L in LL] + [int(LL[-1].shape[-1])])
-        if rLl != rLr:
-            raise ValueError(
-                'Inconsistent T3Basis.\n'
-                + str(rLl) + ' = rL_left != rL_right = ' + str(rLr)
-            )
-
-        rRl = tuple([int(RR[0].shape[-3])] + [int(R.shape[-1]) for R in RR])
-        rRr = tuple([int(R.shape[-3]) for R in RR] + [int(RR[-1].shape[-1])])
-        if rLl != rLr:
-            raise ValueError(
-                'Inconsistent T3Basis.\n'
-                + str(rRl) + ' = rR_left != rR_right = ' + str(rRr)
-            )
-
-        for ii in range(d):
-            U, L, R, O = UU[ii], LL[ii], RR[ii], OO[ii]
-
-            if not (U.shape[-2] == L.shape[-2] == R.shape[-2]):
-                raise ValueError(
-                    'Inconsistent T3Basis.\n'
-                    + 'Tucker rank mismatch at index ' + str(ii)
-                    + ': U.shape[-2]=' + str(U.shape[0])
-                    + ', L.shape[-2]=' + str(L.shape[1])
-                    + ', R.shape[-2]=' + str(R.shape[1])
-                )
-
-            if O.shape[-3] != L.shape[-3]:
-                raise ValueError(
-                    'Inconsistent T3Basis.\n'
-                    + 'Outer backend left rank mismatch at index' + str(ii)
-                    + ': O.shape[-3]=' + str(O.shape[-3])
-                    + '!= L.shape[-3]=' + str(L.shape[-3])
-                )
-
-            if O.shape[-1] != R.shape[-1]:
-                raise ValueError(
-                    'Inconsistent T3Base.\n'
-                    + 'Outer backend right rank mismatch at index' + str(ii)
-                    + ': O.shape[-1]=' + str(O.shape[-1])
-                    + '!= R.shape[-1]=' + str(R.shape[-1])
-                )
 
     def __post_init__(self):
         self.validate()
 
 
 @dataclass(frozen=True)
-class T3Coordinates:
+class UT3Coordinates:
     """
     Tuple containing coordinate cores for basis-coordinate representations of TuckerTensorTrains.
 
     *Components*
-        - tucker_coordinates    = (V0, ..., V(d-1)), elm_shape=(nOi, Ni)
-        - tt_coordinates        = (H0, ..., H(d-1)), elm_shape=(rLi, ni, rRi)
+        - tucker_coordinates    = (V0, ..., V(d-1)), elm_shape=(nDi, Ni)
+        - tt_coordinates        = (H0, ..., H(d-1)), elm_shape=(rLi, nUi, rRi)
 
     The coordinates should fit in the "holes" of a T3Basis.
 
@@ -326,8 +286,8 @@ class T3Coordinates:
     >>> print(coords.structure) # same as base, except first right tt rank and last left tt rank, which are None
     ((14, 15, 16), (9, 8, 7), (1, 2, 3, None), (None, 4, 5, 1), (10, 11, 12), (2, 3))
     """
-    tucker_coordinates: typ.Tuple[NDArray,...]  # len=d, elm_shape=(nDi, Ni)
-    tt_coordinates:     typ.Tuple[NDArray,...]  # len=d, elm_shape=(rLi, nUi, rRi)
+    tucker_coordinates: NDArray  # shape=(d,) + stack_shape + (nDi,Ni)
+    tt_coordinates:     NDArray  # shape=(d,) + stack_shape + (rLi,nUi, rRi)
 
     @ft.cached_property
     def d(self) -> int:
@@ -461,7 +421,7 @@ class T3Coordinates:
         self.validate()
 
 
-def check_basis_coordinates_pair(base: T3Basis, coords: T3Coordinates) -> None:
+def check_basis_coordinates_pair(base: UT3Basis, coords: T3Coordinates) -> None:
     """Check rank and shape consistency between T3Basis and T3Coordinates.
 
     This ensures that the variation cores (V, H) have the correct dimensions
@@ -508,10 +468,10 @@ def check_basis_coordinates_pair(base: T3Basis, coords: T3Coordinates) -> None:
             )
 
 
-def bc_to_t3(
+def ubc_to_ut3(
         ii: int, # index of coordinate
         use_tt_coord: bool, # If True, use TT coordinate. If False, use Tucker coordinate
-        basis: T3Basis,
+        basis: UT3Basis,
         coords: T3Coordinates,
 ) -> t3.TuckerTensorTrain:
     '''Convert basis-coordinates representation to TuckerTensorTrain.
@@ -570,13 +530,13 @@ def bc_to_t3(
     return t3.TuckerTensorTrain(*bcf_ops.bc_to_t3(ii, use_tt_coord, basis.data, coords.data))
 
 
-def t3_orthogonal_representations(
+def ut3_orthogonal_representations(
         x: t3.TuckerTensorTrain,
         already_left_orthogonal: bool = False,
         squash: bool = True,
         use_jax: bool = False,
 ) -> typ.Tuple[
-    T3Basis,  # orthogonal base
+    UT3Basis,  # orthogonal base
     T3Coordinates,  # variations
 ]:
     '''Construct base-variation representations of TuckerTensorTrain with orthogonal base.

@@ -31,7 +31,7 @@ class T3Basis:
             U0   U1   U2            U0   U1   U2            U0   U1   U2
             |    |    |             |    |    |             |    |    |
 
-        1---O0---R1---R2---1    1---L0---O1---R2---1    1---L0---L1---O2---1
+        1---D0---R1---R2---1    1---L0---D1---R2---1    1---L0---L1---D2---1
             |    |    |             |    |    |             |    |    |
            (V0)  U1   U2            U0  (V1)  U2            U0   U1  (V2)
             |    |    |             |    |    |             |    |    |
@@ -40,9 +40,9 @@ class T3Basis:
 
     The components of T3Basis are the "basis cores":
         - up_tucker_cores   = (U0, ..., U(d-1)), elm_shape=(nUi, Ni)
+        - down_tt_cores     = (D0, ..., D(d-1)), elm_shape=(rLi, nDi, rR(i+1))
         - left_tt_cores     = (L0, ..., L(d-1)), elm_shape=(rLi, ni, rL(i+1))
         - right_tt_cores    = (R0, ..., R(d-1)), elm_shape=(rRi, ni, rR(i+1))
-        - outer_tt_cores    = (O0, ..., O(d-1)), elm_shape=(rLi, nDi, rR(i+1))
 
     The components of T3Coordinates are the "variation cores":
         - tucker_variations = (V0, ..., V(d-1)), elm_shape=(nDi, Ni)
@@ -65,7 +65,7 @@ class T3Basis:
     and::
 
            rL0       rL1       rR2      rR(d-1)         rRd
-        1 ------ L0 ------ O1 ------ ... ------ R(d-1) ------ 1
+        1 ------ L0 ------ D1 ------ ... ------ R(d-1) ------ 1
                  |         |                    |
                  | nU0     | nO1                | nU(d-1)
                  |         |                    |
@@ -82,9 +82,9 @@ class T3Basis:
 
     Often, it is desirable for the base cores to be **orthogonal** as follows:
         - up_tucker_cores   = (U0,...,U(d-1)), orthogonal:       U_ia U_ja = delta_ij
+        - down_tt_cores     = (O0,...,O(d-1)), outer-orthogonal  O_aib O_ajb = delta_ij
         - left_tt_cores     = (L0,...,L(d-1)), left-orthogonal:  L_abi L_abj = delta_ij
         - right_tt_cores    = (R0,...,R(d-1)), right-orthogonal  R_ibc R_jbc = delta_ij
-        - outer_tt_cores    = (O0,...,O(d-1)), outer-orthogonal  O_aib O_ajb = delta_ij
 
     Often, it is desirable for the variations to satisfy the following **Gauge conditions**:
         - U_ia V_ja = 0    (all V)
@@ -106,20 +106,20 @@ class T3Basis:
     >>> import numpy as np
     >>> import t3toolbox.basis_coordinates_format as bcf
     >>> ss = (2,3)
-    >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+    >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+    >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
     >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
     >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-    >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-    >>> basis = bcf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+    >>> basis = bcf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
     >>> print(basis.structure)
     ((14, 15, 16), (10, 11, 12), (1, 2, 3, 5), (2, 4, 5, 1), (9, 8, 7), (2, 3))
     >>> print(basis.coordinate_shapes)
     (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
     """
     up_tucker_cores:    typ.Tuple[NDArray,...]  # len=d. B_xo B_yo   = I_xy, Bi.shape = stack_shape+(nUi, Ni)
+    down_tt_cores:      typ.Tuple[NDArray,...]  # len=d. R_ixj R_iyj = I_xy  Ri.shape = stack_shape+(rLi, nDi, rR(i+1))
     left_tt_cores:      typ.Tuple[NDArray,...]  # len=d. P_iax P_iay = I_xy, Pi.shape = stack_shape+(rLi, nUi, rL(i+1))
     right_tt_cores:     typ.Tuple[NDArray,...]  # len=d. Q_xaj Q_yaj = I_xy  Qi.shape = stack_shape+(rRi, nUi, rR(i+1))
-    down_tt_cores:      typ.Tuple[NDArray,...]  # len=d. R_ixj R_iyj = I_xy  Ri.shape = stack_shape+(rLi, nDi, rR(i+1))
 
     @ft.cached_property
     def d(self) -> int:
@@ -153,14 +153,15 @@ class T3Basis:
     def structure(self) -> typ.Tuple[
         typ.Tuple[int, ...], # shape
         typ.Tuple[int, ...], # up_tucker_ranks
+        typ.Tuple[int, ...], # down_ranks
         typ.Tuple[int, ...], # left_ranks
         typ.Tuple[int, ...], # right_ranks
-        typ.Tuple[int, ...], # down_ranks
         typ.Tuple[int, ...], # stack_shape
     ]:
         return (
-            self.shape, self.up_ranks,
-            self.left_ranks, self.right_ranks, self.down_ranks,
+            self.shape,
+            self.up_ranks, self.down_ranks,
+            self.left_ranks, self.right_ranks,
             self.stack_shape,
         )
 
@@ -190,11 +191,11 @@ class T3Basis:
         >>> import numpy as np
         >>> import t3toolbox.basis_coordinates_format as bcf
         >>> ss = (2,3) # not included in coordinate_shapes.
-        >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+        >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+        >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
         >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
         >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-        >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-        >>> basis = bcf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+        >>> basis = bcf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
         >>> print(basis.coordinate_shapes)
         (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
         '''
@@ -208,11 +209,11 @@ class T3Basis:
     @ft.cached_property
     def data(self) -> typ.Tuple[
         typ.Tuple[NDArray,...], # up_tucker_cores
+        typ.Tuple[NDArray, ...],  # down_tt_cores
         typ.Tuple[NDArray,...], # left_tt_cores
         typ.Tuple[NDArray,...], # right_tt_cores
-        typ.Tuple[NDArray,...], # down_tt_cores
     ]:
-        return self.up_tucker_cores, self.left_tt_cores, self.right_tt_cores, self.down_tt_cores
+        return self.up_tucker_cores, self.down_tt_cores, self.left_tt_cores, self.right_tt_cores
 
     def validate(self) -> None:
         '''Check rank and shape consistency of Tucker tensor train basis (`T3Basis`).
@@ -231,17 +232,18 @@ class T3Basis:
         T3Basis
         T3Coordinates
         '''
-        UU, LL, RR, OO = self.data
+        UU, DD, LL, RR = self.data
 
         d = len(UU)
-        if not (len(LL) == d and len(RR) == d and len(OO) == d):
+        if not (len(LL) == d and len(RR) == d and len(DD) == d):
             raise ValueError(
                 'Inconsistent T3Basis.\n'
                 + 'All backend sequences must have length d=' + str(d) + '.\n'
                 + 'len(UU)=' + str(len(UU))
+                + ', len(DD)=' + str(len(DD))
                 + ', len(LL)=' + str(len(LL))
                 + ', len(RR)=' + str(len(RR))
-                + ', len(OO)=' + str(len(OO))
+
             )
 
         for ii, U in enumerate(UU):
@@ -251,7 +253,7 @@ class T3Basis:
                     + 'tucker_cores[' + str(ii) + '] is not a (stacked) matrix. shape=' + str(U.shape)
                 )
 
-        for name, CC in zip(["left_tt", "right_tt", "outer_tt"], [LL, RR, OO]):
+        for name, CC in zip(["left_tt", "right_tt", "outer_tt"], [LL, RR, DD]):
             for ii, C in enumerate(CC):
                 if len(C.shape) < 3:
                     raise ValueError(
@@ -267,24 +269,17 @@ class T3Basis:
 
         if not (
                 up_stack_shapes
+                == down_stack_shapes
                 == left_stack_shapes
                 == right_stack_shapes
-                == down_stack_shapes
                 == (self.stack_shape,)*self.d
         ):
             raise ValueError(
                 'Inconsistent T3Basis.\n'
                 + str(up_stack_shapes) + ' = up_stack_shapes.\n'
+                + str(down_stack_shapes) + ' = down_stack_shapes.\n'
                 + str(left_stack_shapes) + ' = left_stack_shapes.\n'
-                + str(right_stack_shapes) + ' = right_stack_shapes.\n'
-                + str(down_stack_shapes) + ' = down_stack_shapes.'
-            )
-
-        if right_stack_shapes != (self.stack_shape,) * self.d:
-            raise ValueError(
-                'Inconsistent T3Basis.\n'
-                + str(left_stack_shapes) + ' = up_stack_shapes. \n'
-                + '(stack_shape,) * d = ' + str((self.stack_shape,) * self.d)
+                + str(right_stack_shapes) + ' = right_stack_shapes.'
             )
 
         rLl = tuple([int(LL[0].shape[-3])] + [int(L.shape[-1]) for L in LL])
@@ -304,7 +299,7 @@ class T3Basis:
             )
 
         for ii in range(d):
-            U, L, R, O = UU[ii], LL[ii], RR[ii], OO[ii]
+            U, L, R, D = UU[ii], LL[ii], RR[ii], DD[ii]
 
             if not (U.shape[-2] == L.shape[-2] == R.shape[-2]):
                 raise ValueError(
@@ -315,19 +310,19 @@ class T3Basis:
                     + ', R.shape[-2]=' + str(R.shape[1])
                 )
 
-            if O.shape[-3] != L.shape[-3]:
+            if D.shape[-3] != L.shape[-3]:
                 raise ValueError(
                     'Inconsistent T3Basis.\n'
-                    + 'Outer backend left rank mismatch at index' + str(ii)
-                    + ': O.shape[-3]=' + str(O.shape[-3])
+                    + 'Down TT core left rank mismatch at index' + str(ii)
+                    + ': D.shape[-3]=' + str(D.shape[-3])
                     + '!= L.shape[-3]=' + str(L.shape[-3])
                 )
 
-            if O.shape[-1] != R.shape[-1]:
+            if D.shape[-1] != R.shape[-1]:
                 raise ValueError(
                     'Inconsistent T3Base.\n'
-                    + 'Outer backend right rank mismatch at index' + str(ii)
-                    + ': O.shape[-1]=' + str(O.shape[-1])
+                    + 'Down TT core right rank mismatch at index' + str(ii)
+                    + ': D.shape[-1]=' + str(D.shape[-1])
                     + '!= R.shape[-1]=' + str(R.shape[-1])
                 )
 
@@ -355,11 +350,11 @@ class T3Coordinates:
     >>> import numpy as np
     >>> import t3toolbox.basis_coordinates_format as bcf
     >>> ss = (2,3) # stack shape
-    >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+    >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
     >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
     >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-    >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-    >>> base = bcf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+    >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
+    >>> base = bcf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
     >>> print(base.structure)
     ((14, 15, 16), (10, 11, 12), (1, 2, 3, 5), (2, 4, 5, 1), (9, 8, 7), (2, 3))
     >>> tucker_coords = tuple([np.ones(ss + B_shape) for B_shape in base.coordinate_shapes[0]])
@@ -380,11 +375,11 @@ class T3Coordinates:
         return tuple([U.shape[-1] for U in self.tucker_coordinates])
 
     @ft.cached_property
-    def up_tucker_ranks(self) -> typ.Tuple[int,...]:
+    def up_ranks(self) -> typ.Tuple[int,...]:
         return tuple([U.shape[-2] for U in self.tucker_coordinates])
 
     @ft.cached_property
-    def down_tucker_ranks(self) -> typ.Tuple[int,...]:
+    def down_ranks(self) -> typ.Tuple[int,...]:
         return tuple([G.shape[-2] for G in self.tt_coordinates])
 
     @ft.cached_property
@@ -402,15 +397,16 @@ class T3Coordinates:
     @ft.cached_property
     def structure(self) -> typ.Tuple[
         typ.Tuple[int, ...], # shape
-        typ.Tuple[int, ...], # up_tucker_ranks
+        typ.Tuple[int, ...], # up_ranks
+        typ.Tuple[int, ...], # down_ranks
         typ.Tuple[int, ...], # left_ranks
         typ.Tuple[int, ...], # right_ranks
-        typ.Tuple[int, ...], # down_ranks
         typ.Tuple[int, ...], # stack_shape
     ]:
         return (
-            self.shape, self.up_tucker_ranks,
-            self.left_ranks, self.right_ranks, self.down_tucker_ranks,
+            self.shape,
+            self.up_ranks, self.down_ranks,
+            self.left_ranks, self.right_ranks,
             self.stack_shape,
         )
 
@@ -514,11 +510,11 @@ def check_basis_coordinates_pair(base: T3Basis, coords: T3Coordinates) -> None:
     >>> import numpy as np
     >>> import t3toolbox.basis_coordinates_format as bcf
     >>> ss = (2,3) # stack shape
-    >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+    >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
     >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
     >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-    >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-    >>> base = bcf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+    >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
+    >>> base = bcf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
     >>> tucker_coords = tuple([np.ones(ss + B_shape) for B_shape in base.coordinate_shapes[0]])
     >>> tt_coords = tuple([np.ones(ss + G_shape) for G_shape in base.coordinate_shapes[1]])
     >>> coords = bcf.T3Coordinates(tucker_coords, tt_coords)
@@ -567,7 +563,7 @@ def bc_to_t3(
 
     If replacement_ind=2, replace_tt=False::
 
-        1 -- L0 -- L1 -- O2 -- R3 -- 1
+        1 -- L0 -- L1 -- D2 -- R3 -- 1
              |     |     |     |
              U0    U1   (V2)   U3
              |     |     |     |
@@ -596,8 +592,8 @@ def bc_to_t3(
     >>> (U0,U1,U2) = (randn(10, 14), randn(11, 15), randn(12, 16))
     >>> (L0,L1,L2) = (randn(1, 10, 2), randn(2, 11, 3), randn(3,12,4))
     >>> (R0,R1,R2) = (randn(2,10,4), randn(4, 11, 5), randn(5, 12, 1))
-    >>> (O0,O1,O2) = (randn(1, 9, 4), randn(2, 8, 5), randn(3, 7, 1))
-    >>> base = bcf.T3Basis((U0,U1,U2), (L0,L1,L2), (R0,R1,R2), (O0,O1,O2))
+    >>> (D0,D1,D2) = (randn(1, 9, 4), randn(2, 8, 5), randn(3, 7, 1))
+    >>> base = bcf.T3Basis((U0,U1,U2), (D0,D1,D2), (L0,L1,L2), (R0,R1,R2))
     >>> (V0,V1,V2) = (randn(9,14), randn(8,15), randn(7,16))
     >>> (H0,H1,H2) = (randn(1,10,4), randn(2,11,5), randn(3,12,1))
     >>> coords = bcf.T3Coordinates((V0,V1,V2), (H0,H1,H2))
@@ -605,7 +601,7 @@ def bc_to_t3(
     >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,U1,U2), (L0,H1,R2)))
     True
     >>> ((B0, B1, B2), (G0, G1, G2)) = bcf.bc_to_t3(1, False, base, coords).data # replace index-1 tucker backend
-    >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,O1,R2)))
+    >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,D1,R2)))
     True
     '''
     check_basis_coordinates_pair(basis, coords)
@@ -639,19 +635,19 @@ def t3_orthogonal_representations(
 
     Base-variation representation with non-orthogonal tucker backend V2::
 
-                  1 -- L0 -- L1 -- O2 -- R3 -- 1
+                  1 -- L0 -- L1 -- D2 -- R3 -- 1
         X    =         |     |     |     |
                        U0    U1    V2    U3
                        |     |     |     |
 
     The input tensor train x is defined by:
-        - x_tucker_cores     = (B0, B1, B2, B3)
+        - x_tucker_cores    = (B0, B1, B2, B3)
         - x_tt_cores        = (G0, G1, G2, G3)
     The "base cores" are:
-        - tucker_cores       = (U0,U1, U2, U3), up orthogonal
+        - tucker_cores      = (U0,U1, U2, U3), up orthogonal
+        - down_tt_cores     = (O0, O1, O2, O3), down orthogonal
         - left_tt_cores     = (L0, L1, L2),     left orthogonal
         - right_tt_cores    = (R1, R2, R3),     right orthogonal
-        - outer_tt_cores    = (O0, O1, O2, O3), down orthogonal
     The "variation cores" are:
         - tucker_variations  = (V0, V1, V2, V3)
         - tt_variations     = (H0, H1, H2, H3)
@@ -680,18 +676,18 @@ def t3_orthogonal_representations(
     >>> import t3toolbox.basis_coordinates_format as bcf
     >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (3,3,2,1), stack_shape=(2,3))
     >>> base, coords = bcf.t3_orthogonal_representations(x) # Compute orthogonal representations
-    >>> up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base.data
+    >>> up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base.data
     >>> tucker_coords, tt_coords = coords.data
     >>> (U0,U1,U2) = up_tucker_cores
+    >>> (D0,D1,D2) = down_tt_cores
     >>> (L0,L1,L2) = left_tt_cores
     >>> (R0,R1,R2) = right_tt_cores
-    >>> (O0,O1,O2) = outer_tt_cores
     >>> (V0,V1,V2) = tucker_coords
     >>> (H0,H1,H2) = tt_coords
     >>> x2 = t3.TuckerTensorTrain((U0,U1,U2), (L0,H1,R2)) # representation with TT-backend variation in index 1
     >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Still represents origional tensor
     4.978421562425667e-12
-    >>> x3 = t3.TuckerTensorTrain((U0,V1,U2), (L0,O1,R2)) # representation with tucker backend variation in index 1
+    >>> x3 = t3.TuckerTensorTrain((U0,V1,U2), (L0,D1,R2)) # representation with tucker backend variation in index 1
     >>> print(np.linalg.norm(x.to_dense() - x3.to_dense())) # Still represents origional tensor
     5.4355175448533146e-12
     >>> print(np.linalg.norm(np.einsum('...io,...jo', U1, U1) - np.eye(U1.shape[-2]))) # U: orthogonal
@@ -700,7 +696,7 @@ def t3_orthogonal_representations(
     9.733823879665448e-16
     >>> print(np.linalg.norm(np.einsum('...iaj,...kaj', R1, R1) - np.eye(R1.shape[-3]))) # R: right orthogonal
     8.027553546330097e-16
-    >>> print(np.linalg.norm(np.einsum('...iaj,...ibj', O1, O1) - np.eye(O1.shape[-2]))) # O: outer orthogonal
+    >>> print(np.linalg.norm(np.einsum('...iaj,...ibj', D1, D1) - np.eye(D1.shape[-2]))) # O: outer orthogonal
     1.3870474292323159e-15
     '''
     result = bcf_ops.orthogonal_representations(
