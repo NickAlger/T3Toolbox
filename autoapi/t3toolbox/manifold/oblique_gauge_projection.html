@@ -375,10 +375,6 @@
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../basis_coordinates_format/index.html">t3toolbox.basis_coordinates_format</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../basis_coordinates_format/T3Basis.html">t3toolbox.basis_coordinates_format.T3Basis</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../basis_coordinates_format/get_base_structure.html">t3toolbox.basis_coordinates_format.get_base_structure</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../basis_coordinates_format/get_variation_shapes.html">t3toolbox.basis_coordinates_format.get_variation_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../basis_coordinates_format/get_base_hole_shapes.html">t3toolbox.basis_coordinates_format.get_base_hole_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../basis_coordinates_format/ith_bv_to_t3.html">t3toolbox.basis_coordinates_format.ith_bv_to_t3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../basis_coordinates_format/t3_orthogonal_representations.html">t3toolbox.basis_coordinates_format.t3_orthogonal_representations</a></li>
 </ul>
 </details></li>
@@ -555,7 +551,7 @@
 <h1>t3toolbox.manifold.oblique_gauge_projection<a class="headerlink" href="#t3toolbox-manifold-oblique-gauge-projection" title="Link to this heading">#</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="t3toolbox.manifold.oblique_gauge_projection">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.manifold.</span></span><span class="sig-name descname"><span class="pre">oblique_gauge_projection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../basis_coordinates_format/index.html#t3toolbox.basis_coordinates_format.T3Variation" title="t3toolbox.basis_coordinates_format.T3Variation"><span class="pre">t3toolbox.basis_coordinates_format.T3Variation</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">orthogonal_base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.basis_coordinates_format.T3Base</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../basis_coordinates_format/index.html#t3toolbox.basis_coordinates_format.T3Variation" title="t3toolbox.basis_coordinates_format.T3Variation"><span class="pre">t3toolbox.basis_coordinates_format.T3Variation</span></a></span></span><a class="headerlink" href="#t3toolbox.manifold.oblique_gauge_projection" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.manifold.</span></span><span class="sig-name descname"><span class="pre">oblique_gauge_projection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">variation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.basis_coordinates_format.T3Variation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">orthogonal_base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.basis_coordinates_format.T3Base</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.basis_coordinates_format.T3Variation</span></span></span><a class="headerlink" href="#t3toolbox.manifold.oblique_gauge_projection" title="Link to this definition">#</a></dt>
 <dd><p>Makes variations left-perpendicular while preserving tangent vector.</p>
 <dl class="simple">
 <dt>Straightforward generalization of the method from:</dt><dd><p>Holtz, Sebastian, Thorsten Rohwedder, and Reinhold Schneider.
@@ -565,7 +561,7 @@
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>variation</strong> (<a class="reference internal" href="../basis_coordinates_format/index.html#t3toolbox.basis_coordinates_format.T3Variation" title="t3toolbox.basis_coordinates_format.T3Variation"><em>T3Variation</em></a><em>,</em>) – The variation that we wish to make gauged</p></li>
+<li><p><strong>variation</strong> (<em>T3Variation</em><em>,</em>) – The variation that we wish to make gauged</p></li>
 <li><p><strong>orthogonal_base</strong> (<em>T3Base</em><em>,</em>) – Orthogonal representations of the base point on the manifold.
 If non-orthogonal, this method doesn’t work properly.</p></li>
 <li><p><strong>xnp</strong> – Linear algebra backend. Default: np (numpy)</p></li>
@@ -576,7 +572,7 @@ If non-orthogonal, this method doesn’t work properly.</p></li>
 Represents the same tangent vector as the original variation.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="../basis_coordinates_format/index.html#t3toolbox.basis_coordinates_format.T3Variation" title="t3toolbox.basis_coordinates_format.T3Variation">T3Variation</a></p>
+<dd class="field-odd"><p>T3Variation</p>
 </dd>
 </dl>
 <div class="admonition seealso">

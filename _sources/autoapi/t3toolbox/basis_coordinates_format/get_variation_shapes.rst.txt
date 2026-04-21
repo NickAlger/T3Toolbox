@@ -1,8 +1,0 @@
-t3toolbox.basis_coordinates_format.get_variation_shapes
-=======================================================
-
-.. py:function:: t3toolbox.basis_coordinates_format.get_variation_shapes(variation: T3Variation) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.typ.Tuple[int, Ellipsis]]
-
-   Get the shapes of the cores in a variation.
-
-

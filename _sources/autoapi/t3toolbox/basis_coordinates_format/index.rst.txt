@@ -4,16 +4,6 @@ t3toolbox.basis_coordinates_format
 .. py:module:: t3toolbox.basis_coordinates_format
 
 
-Attributes
-----------
-
-.. autoapisummary::
-
-   t3toolbox.basis_coordinates_format.T3Variation
-   t3toolbox.basis_coordinates_format.BVStructure
-   t3toolbox.basis_coordinates_format.BVEdgeWeights
-
-
 Classes
 -------
 
@@ -33,105 +23,10 @@ Functions
 .. toctree::
    :hidden:
 
-   /autoapi/t3toolbox/basis_coordinates_format/get_base_structure
-   /autoapi/t3toolbox/basis_coordinates_format/get_variation_shapes
-   /autoapi/t3toolbox/basis_coordinates_format/get_base_hole_shapes
-   /autoapi/t3toolbox/basis_coordinates_format/ith_bv_to_t3
    /autoapi/t3toolbox/basis_coordinates_format/t3_orthogonal_representations
 
 .. autoapisummary::
 
-   t3toolbox.basis_coordinates_format.get_base_structure
-   t3toolbox.basis_coordinates_format.get_variation_shapes
-   t3toolbox.basis_coordinates_format.get_base_hole_shapes
-   t3toolbox.basis_coordinates_format.ith_bv_to_t3
    t3toolbox.basis_coordinates_format.t3_orthogonal_representations
 
-
-Module Contents
----------------
-
-.. py:data:: T3Variation
-
-   Tuple containing variation cores for base-variation representation of TuckerTensorTrains.
-
-   *Components*
-       - tucker_variations  = (V0, ..., V(d-1)), elm_shape=(nOi, Ni)
-       - tt_variations      = (H0, ..., H(d-1)), elm_shape=(rLi, ni, rRi)
-
-   The variation components should fit in the "holes" of a T3Base.
-
-   .. seealso:: :py:obj:`T3Base`, :py:obj:`check_t3variation`, :py:obj:`hole_shapes`, :py:obj:`check_fit`
-
-   .. rubric:: Examples
-
-   >>> import numpy as np
-   >>> import t3toolbox.base_variation_format as bvf
-   >>> tucker_cores = (np.ones((10, 14)), np.ones((11, 15)), np.ones((12, 16)))
-   >>> left_tt_cores = (np.ones((1, 10, 2)), np.ones((2, 11, 3)), np.ones((3,12,5)))
-   >>> right_tt_cores = (np.ones((2, 10, 4)), np.ones((4, 11, 5)), np.ones((5, 12, 1)))
-   >>> outer_tt_cores = (np.ones((1, 9, 4)), np.ones((2, 8, 5)), np.ones((3, 7, 1)))
-   >>> base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-   >>> hole_shapes = bvf.base_hole_shapes(base)
-   >>> print(hole_shapes)
-   (((9, 14), (8, 15), (7, 16)), ((1, 10, 2), (2, 11, 4), (3, 12, 5)))
-   >>> var_tucker_cores = [np.ones(s) for s in hole_shapes[0]]
-   >>> var_tt_cores = [np.ones(s) for s in hole_shapes[1]]
-   >>> variation = (var_tucker_cores, var_tt_cores) # variation that fits with base
-   >>> print(bvf.variation_shapes(variation))
-   (((9, 14), (8, 15), (7, 16)), ((1, 10, 2), (2, 11, 4), (3, 12, 5)))
-
-.. py:data:: BVStructure
-
-   Shape and rank structure of a base-variation T3 representation.
-
-   *Components*
-       - shape:                typ.Sequence[int] = (N0,...,N(d-1)),   len=d
-       - up_tucker_ranks:      typ.Sequence[int] = (nU0,...,nU(d-1)), len=d
-       - outer_tucker_ranks:   typ.Sequence[int] = (nO0,...,nO(d-1)), len=d
-       - left_tt_ranks:        typ.Sequence[int] = (rL0,...,rLd),     len=d+1
-       - right_tt_ranks:       typ.Sequence[int] = (rR0,...,rRd),     len=d+1
-
-   The variation components should fit in the "holes" of a T3Base.
-
-   .. seealso:: :py:obj:`T3Base`, :py:obj:`T3Variation`
-
-.. py:data:: BVEdgeWeights
-
-   Edge weights for base-variation format.
-
-   Tensor network diagrams illustrating edge weights::
-
-       1--wL0--L0--wL1--H1--wR2--R2--wR3--1
-               |        |        |
-               wU0      wU1      wU3
-               |        |        |
-               U0       U1       U2
-               |        |        |
-               wS1      wS2      wS3
-               |        |        |
-
-   and::
-
-       1--wL0--L0--wL1--O1--wR2--R2--wR3--1
-               |        |        |
-               wU0      wU1      wU3
-               |        |        |
-               U0       V1       U2
-               |        |        |
-               wS1      wS2      wS3
-               |        |        |
-
-   *Components*
-       - shape_weights:        typ.Sequence[NDArray] = (wS0,...,wS(d-1)), len=d, elm_shape=(Ni,)
-       - up_tucker_weights:    typ.Sequence[NDArray] = (wU0,...,wU(d-1)), len=d, elm_shape=(nUi,)
-       - outer_tucker_weights: typ.Sequence[NDArray] = (wO0,...,wO(d-1)), len=d, elm_shape=(nOi,)
-       - left_tt_weights:      typ.Sequence[NDArray] = (wL0,...,wL(d-1)), len=d, elm_shape=(rLi,)
-       - right_tt_weights:     typ.Sequence[NDArray] = (wR1,...,wRd),     len=d, elm_shape=(rRi,)
-
-   Note: there are no weights for:
-       - The edge between 1--R0
-       - The edge between Ld--1
-
-   .. seealso:: :py:obj:`t3tools.tucker_tensor_train.EdgeWeights`, :py:obj:`T3Variation`, :py:obj:`T3Base`
 

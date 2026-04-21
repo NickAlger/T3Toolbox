@@ -375,10 +375,6 @@
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">t3toolbox.basis_coordinates_format</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="T3Basis.html">t3toolbox.basis_coordinates_format.T3Basis</a></li>
-<li class="toctree-l3"><a class="reference internal" href="get_base_structure.html">t3toolbox.basis_coordinates_format.get_base_structure</a></li>
-<li class="toctree-l3"><a class="reference internal" href="get_variation_shapes.html">t3toolbox.basis_coordinates_format.get_variation_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="get_base_hole_shapes.html">t3toolbox.basis_coordinates_format.get_base_hole_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="ith_bv_to_t3.html">t3toolbox.basis_coordinates_format.ith_bv_to_t3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_orthogonal_representations.html">t3toolbox.basis_coordinates_format.t3_orthogonal_representations</a></li>
 </ul>
 </details></li>
@@ -550,23 +546,6 @@
                   
   <section id="module-t3toolbox.basis_coordinates_format">
 <span id="t3toolbox-basis-coordinates-format"></span><h1>t3toolbox.basis_coordinates_format<a class="headerlink" href="#module-t3toolbox.basis_coordinates_format" title="Link to this heading">#</a></h1>
-<section id="attributes">
-<h2>Attributes<a class="headerlink" href="#attributes" title="Link to this heading">#</a></h2>
-<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.basis_coordinates_format.T3Variation" title="t3toolbox.basis_coordinates_format.T3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Variation</span></code></a></p></td>
-<td><p>Tuple containing variation cores for base-variation representation of TuckerTensorTrains.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.basis_coordinates_format.BVStructure" title="t3toolbox.basis_coordinates_format.BVStructure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">BVStructure</span></code></a></p></td>
-<td><p>Shape and rank structure of a base-variation T3 representation.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.basis_coordinates_format.BVEdgeWeights" title="t3toolbox.basis_coordinates_format.BVEdgeWeights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">BVEdgeWeights</span></code></a></p></td>
-<td><p>Edge weights for base-variation format.</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
 <section id="classes">
 <h2>Classes<a class="headerlink" href="#classes" title="Link to this heading">#</a></h2>
 <div class="toctree-wrapper compound">
@@ -586,131 +565,12 @@
 </div>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="get_base_structure.html#t3toolbox.basis_coordinates_format.get_base_structure" title="t3toolbox.basis_coordinates_format.get_base_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_base_structure</span></code></a>(→ BVStructure)</p></td>
-<td><p>Get the edge structure of a base-variation representation of a Tucker tensor train from the base.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="get_variation_shapes.html#t3toolbox.basis_coordinates_format.get_variation_shapes" title="t3toolbox.basis_coordinates_format.get_variation_shapes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_variation_shapes</span></code></a>(...)</p></td>
-<td><p>Get the shapes of the cores in a variation.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="get_base_hole_shapes.html#t3toolbox.basis_coordinates_format.get_base_hole_shapes" title="t3toolbox.basis_coordinates_format.get_base_hole_shapes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_base_hole_shapes</span></code></a>(...)</p></td>
-<td><p>T3Variation backend shapes that fit with given T3Base.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ith_bv_to_t3.html#t3toolbox.basis_coordinates_format.ith_bv_to_t3" title="t3toolbox.basis_coordinates_format.ith_bv_to_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ith_bv_to_t3</span></code></a>(...)</p></td>
-<td><p>Convert base-variation representation to TuckerTensorTrain.</p></td>
-</tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="t3_orthogonal_representations.html#t3toolbox.basis_coordinates_format.t3_orthogonal_representations" title="t3toolbox.basis_coordinates_format.t3_orthogonal_representations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_orthogonal_representations</span></code></a>(...)</p></td>
 <td><p>Construct base-variation representations of TuckerTensorTrain with orthogonal base.</p></td>
 </tr>
 </tbody>
 </table>
 </div>
-</section>
-<section id="module-contents">
-<h2>Module Contents<a class="headerlink" href="#module-contents" title="Link to this heading">#</a></h2>
-<dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.basis_coordinates_format.T3Variation">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.basis_coordinates_format.</span></span><span class="sig-name descname"><span class="pre">T3Variation</span></span><a class="headerlink" href="#t3toolbox.basis_coordinates_format.T3Variation" title="Link to this definition">#</a></dt>
-<dd><p>Tuple containing variation cores for base-variation representation of TuckerTensorTrains.</p>
-<dl class="simple">
-<dt><em>Components</em></dt><dd><ul class="simple">
-<li><p>tucker_variations  = (V0, …, V(d-1)), elm_shape=(nOi, Ni)</p></li>
-<li><p>tt_variations      = (H0, …, H(d-1)), elm_shape=(rLi, ni, rRi)</p></li>
-</ul>
-</dd>
-</dl>
-<p>The variation components should fit in the “holes” of a T3Base.</p>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Base</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3variation</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">hole_shapes</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">check_fit</span></code></p>
-</div>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.base_variation_format</span> <span class="k">as</span> <span class="nn">bvf</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span> <span class="mi">14</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">11</span><span class="p">,</span> <span class="mi">15</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">12</span><span class="p">,</span> <span class="mi">16</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">left_tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">3</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span><span class="mi">12</span><span class="p">,</span><span class="mi">5</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">right_tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">4</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">5</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">5</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">outer_tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">4</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">base</span> <span class="o">=</span> <span class="p">(</span><span class="n">tucker_cores</span><span class="p">,</span> <span class="n">left_tt_cores</span><span class="p">,</span> <span class="n">right_tt_cores</span><span class="p">,</span> <span class="n">outer_tt_cores</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">hole_shapes</span> <span class="o">=</span> <span class="n">bvf</span><span class="o">.</span><span class="n">base_hole_shapes</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">hole_shapes</span><span class="p">)</span>
-<span class="go">(((9, 14), (8, 15), (7, 16)), ((1, 10, 2), (2, 11, 4), (3, 12, 5)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">var_tucker_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">hole_shapes</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">var_tt_cores</span> <span class="o">=</span> <span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">hole_shapes</span><span class="p">[</span><span class="mi">1</span><span class="p">]]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">variation</span> <span class="o">=</span> <span class="p">(</span><span class="n">var_tucker_cores</span><span class="p">,</span> <span class="n">var_tt_cores</span><span class="p">)</span> <span class="c1"># variation that fits with base</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">bvf</span><span class="o">.</span><span class="n">variation_shapes</span><span class="p">(</span><span class="n">variation</span><span class="p">))</span>
-<span class="go">(((9, 14), (8, 15), (7, 16)), ((1, 10, 2), (2, 11, 4), (3, 12, 5)))</span>
-</pre></div>
-</div>
-</dd></dl>
-
-<dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.basis_coordinates_format.BVStructure">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.basis_coordinates_format.</span></span><span class="sig-name descname"><span class="pre">BVStructure</span></span><a class="headerlink" href="#t3toolbox.basis_coordinates_format.BVStructure" title="Link to this definition">#</a></dt>
-<dd><p>Shape and rank structure of a base-variation T3 representation.</p>
-<dl class="simple">
-<dt><em>Components</em></dt><dd><ul class="simple">
-<li><p>shape:                typ.Sequence[int] = (N0,…,N(d-1)),   len=d</p></li>
-<li><p>up_tucker_ranks:      typ.Sequence[int] = (nU0,…,nU(d-1)), len=d</p></li>
-<li><p>outer_tucker_ranks:   typ.Sequence[int] = (nO0,…,nO(d-1)), len=d</p></li>
-<li><p>left_tt_ranks:        typ.Sequence[int] = (rL0,…,rLd),     len=d+1</p></li>
-<li><p>right_tt_ranks:       typ.Sequence[int] = (rR0,…,rRd),     len=d+1</p></li>
-</ul>
-</dd>
-</dl>
-<p>The variation components should fit in the “holes” of a T3Base.</p>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Base</span></code>, <a class="reference internal" href="#t3toolbox.basis_coordinates_format.T3Variation" title="t3toolbox.basis_coordinates_format.T3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Variation</span></code></a></p>
-</div>
-</dd></dl>
-
-<dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.basis_coordinates_format.BVEdgeWeights">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.basis_coordinates_format.</span></span><span class="sig-name descname"><span class="pre">BVEdgeWeights</span></span><a class="headerlink" href="#t3toolbox.basis_coordinates_format.BVEdgeWeights" title="Link to this definition">#</a></dt>
-<dd><p>Edge weights for base-variation format.</p>
-<p>Tensor network diagrams illustrating edge weights:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">1</span><span class="o">--</span><span class="n">wL0</span><span class="o">--</span><span class="n">L0</span><span class="o">--</span><span class="n">wL1</span><span class="o">--</span><span class="n">H1</span><span class="o">--</span><span class="n">wR2</span><span class="o">--</span><span class="n">R2</span><span class="o">--</span><span class="n">wR3</span><span class="o">--</span><span class="mi">1</span>
-        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
-        <span class="n">wU0</span>      <span class="n">wU1</span>      <span class="n">wU3</span>
-        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
-        <span class="n">U0</span>       <span class="n">U1</span>       <span class="n">U2</span>
-        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
-        <span class="n">wS1</span>      <span class="n">wS2</span>      <span class="n">wS3</span>
-        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
-</pre></div>
-</div>
-<p>and:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">1</span><span class="o">--</span><span class="n">wL0</span><span class="o">--</span><span class="n">L0</span><span class="o">--</span><span class="n">wL1</span><span class="o">--</span><span class="n">O1</span><span class="o">--</span><span class="n">wR2</span><span class="o">--</span><span class="n">R2</span><span class="o">--</span><span class="n">wR3</span><span class="o">--</span><span class="mi">1</span>
-        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
-        <span class="n">wU0</span>      <span class="n">wU1</span>      <span class="n">wU3</span>
-        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
-        <span class="n">U0</span>       <span class="n">V1</span>       <span class="n">U2</span>
-        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
-        <span class="n">wS1</span>      <span class="n">wS2</span>      <span class="n">wS3</span>
-        <span class="o">|</span>        <span class="o">|</span>        <span class="o">|</span>
-</pre></div>
-</div>
-<dl class="simple">
-<dt><em>Components</em></dt><dd><ul class="simple">
-<li><p>shape_weights:        typ.Sequence[NDArray] = (wS0,…,wS(d-1)), len=d, elm_shape=(Ni,)</p></li>
-<li><p>up_tucker_weights:    typ.Sequence[NDArray] = (wU0,…,wU(d-1)), len=d, elm_shape=(nUi,)</p></li>
-<li><p>outer_tucker_weights: typ.Sequence[NDArray] = (wO0,…,wO(d-1)), len=d, elm_shape=(nOi,)</p></li>
-<li><p>left_tt_weights:      typ.Sequence[NDArray] = (wL0,…,wL(d-1)), len=d, elm_shape=(rLi,)</p></li>
-<li><p>right_tt_weights:     typ.Sequence[NDArray] = (wR1,…,wRd),     len=d, elm_shape=(rRi,)</p></li>
-</ul>
-</dd>
-<dt>Note: there are no weights for:</dt><dd><ul class="simple">
-<li><p>The edge between 1–R0</p></li>
-<li><p>The edge between Ld–1</p></li>
-</ul>
-</dd>
-</dl>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3tools.tucker_tensor_train.EdgeWeights</span></code>, <a class="reference internal" href="#t3toolbox.basis_coordinates_format.T3Variation" title="t3toolbox.basis_coordinates_format.T3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Variation</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Base</span></code></p>
-</div>
-</dd></dl>
-
 </section>
 </section>
 
@@ -761,15 +621,8 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#attributes">Attributes</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#classes">Classes</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#functions">Functions</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-contents">Module Contents</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_coordinates_format.T3Variation"><code class="docutils literal notranslate"><span class="pre">T3Variation</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_coordinates_format.BVStructure"><code class="docutils literal notranslate"><span class="pre">BVStructure</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_coordinates_format.BVEdgeWeights"><code class="docutils literal notranslate"><span class="pre">BVEdgeWeights</span></code></a></li>
-</ul>
-</li>
 </ul>
   </nav></div>
 
