@@ -79,7 +79,7 @@ t3toolbox.backend.probing.probe_tangent_transpose
    >>> import t3toolbox.backend.probing as t3p
    >>> import t3toolbox.common as common
    >>> import t3toolbox.orthogonalization as orth
-   >>> import t3toolbox.base_variation_format as bvf
+   >>> import t3toolbox.basis_coordinates_format as bvf
    >>> randn = np.random.randn
    >>> p = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
    >>> base, _ = orth.orthogonal_representations(p)

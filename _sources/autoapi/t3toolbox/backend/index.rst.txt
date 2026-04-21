@@ -15,6 +15,7 @@ Submodules
    /autoapi/t3toolbox/backend/contractions/index
    /autoapi/t3toolbox/backend/entries/index
    /autoapi/t3toolbox/backend/linalg/index
+   /autoapi/t3toolbox/backend/orthogonal_representations/index
    /autoapi/t3toolbox/backend/orthogonalization/index
    /autoapi/t3toolbox/backend/probing/index
    /autoapi/t3toolbox/backend/ranks/index

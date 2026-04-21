@@ -181,7 +181,7 @@ Module Contents
        - left_tt_weights:      NDArray, shape=(d,rLi)
        - right_tt_weights:     NDArray, shape=(d,rRi)
 
-   .. seealso:: :py:obj:`t3tools.tucker_tensor_train.EdgeWeights`, :py:obj:`t3tools.base_variation_format.BVEdgeWeights`, :py:obj:`UniformT3Variation`, :py:obj:`UniformT3Base`
+   .. seealso:: :py:obj:`t3tools.tucker_tensor_train.EdgeWeights`, :py:obj:`t3tools.basis_coordinates_format.BVEdgeWeights`, :py:obj:`UniformT3Variation`, :py:obj:`UniformT3Base`
 
 .. py:data:: UniformBVStructure
 
