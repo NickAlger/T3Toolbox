@@ -8,14 +8,14 @@ import functools as ft
 from dataclasses import dataclass
 
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.backend.orthogonal_representations as orth_reps
+import t3toolbox.backend.bcf_operations as bcf_ops
 from t3toolbox.backend.common import *
 
 
 __all__ = [
     'T3Basis',
     'T3Coordinates',
-    'ith_bc_to_t3',
+    'bc_to_t3',
     't3_orthogonal_representations',
 ]
 
@@ -550,10 +550,10 @@ def check_basis_coordinates_pair(base: T3Basis, coords: T3Coordinates) -> None:
             )
 
 
-def ith_bc_to_t3(
+def bc_to_t3(
         ii: int, # index of coordinate
-        replace_tt: bool, # If True, use TT coordinate. If False, use Tucker coordinate
-        base: T3Basis,
+        use_tt_coord: bool, # If True, use TT coordinate. If False, use Tucker coordinate
+        basis: T3Basis,
         coords: T3Coordinates,
 ) -> t3.TuckerTensorTrain:
     '''Convert basis-coordinates representation to TuckerTensorTrain.
@@ -601,38 +601,15 @@ def ith_bc_to_t3(
     >>> (V0,V1,V2) = (randn(9,14), randn(8,15), randn(7,16))
     >>> (H0,H1,H2) = (randn(1,10,4), randn(2,11,5), randn(3,12,1))
     >>> coords = bcf.T3Coordinates((V0,V1,V2), (H0,H1,H2))
-    >>> ((B0, B1, B2), (G0, G1, G2)) = bcf.ith_bc_to_t3(1, True, base, coords).data # replace index-1 TT-backend
+    >>> ((B0, B1, B2), (G0, G1, G2)) = bcf.bc_to_t3(1, True, base, coords).data # replace index-1 TT-backend
     >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,U1,U2), (L0,H1,R2)))
     True
-    >>> ((B0, B1, B2), (G0, G1, G2)) = bcf.ith_bc_to_t3(1, False, base, coords).data # replace index-1 tucker backend
+    >>> ((B0, B1, B2), (G0, G1, G2)) = bcf.bc_to_t3(1, False, base, coords).data # replace index-1 tucker backend
     >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,O1,R2)))
     True
     '''
-    check_basis_coordinates_pair(base, coords)
-
-    up_tucker_cores, left_tt_cores, right_tt_cores, down_tt_cores = base.data
-    tucker_coords, tt_coords = coords.data
-
-    if replace_tt:
-        x_tucker_cores = up_tucker_cores
-        x_tt_cores = (
-                tuple(left_tt_cores[:ii]) +
-                (tt_coords[ii],) +
-                tuple(right_tt_cores[ii+1:])
-        )
-    else:
-        x_tucker_cores = (
-            tuple(up_tucker_cores[:ii]) +
-            (tucker_coords[ii],) +
-            tuple(up_tucker_cores[ii+1:])
-        )
-        x_tt_cores = (
-                tuple(left_tt_cores[:ii]) +
-                (down_tt_cores[ii],) +
-                tuple(right_tt_cores[ii+1:])
-        )
-
-    return t3.TuckerTensorTrain(x_tucker_cores, x_tt_cores)
+    check_basis_coordinates_pair(basis, coords)
+    return t3.TuckerTensorTrain(*bcf_ops.bc_to_t3(ii, use_tt_coord, basis.data, coords.data))
 
 
 def t3_orthogonal_representations(
@@ -726,7 +703,7 @@ def t3_orthogonal_representations(
     >>> print(np.linalg.norm(np.einsum('...iaj,...ibj', O1, O1) - np.eye(O1.shape[-2]))) # O: outer orthogonal
     1.3870474292323159e-15
     '''
-    result = orth_reps.orthogonal_representations(
+    result = bcf_ops.orthogonal_representations(
         x.data, already_left_orthogonal=already_left_orthogonal, squash=squash, use_jax=use_jax,
     )
     return T3Basis(*result[0]), T3Coordinates(*result[1])
