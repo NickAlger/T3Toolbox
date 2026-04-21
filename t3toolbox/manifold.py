@@ -55,7 +55,7 @@ def manifold_dim(
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.base_variation_format as bvf
+    >>> import t3toolbox.basis_coordinates_format as bvf
     >>> import t3toolbox.orthogonalization as orth
     >>> s = ((5,6,3), (5,3,2), (2,2,4,1))
     >>> mdim = t3m.manifold_dim(s)
@@ -115,7 +115,7 @@ def tangent_to_dense(
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.manifold as t3m
     >>> import t3toolbox.orthogonalization as orth
-    >>> import t3toolbox.base_variation_format as bvf
+    >>> import t3toolbox.basis_coordinates_format as bvf
     >>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (2,3,2,2)))
     >>> base, _ = orth.orthogonal_representations(p)
     >>> variation = t3m.tangent_randn(base)

@@ -207,7 +207,7 @@ UniformBVEdgeWeights = typ.Tuple[
 See Also
 --------
 t3tools.tucker_tensor_train.EdgeWeights
-t3tools.base_variation_format.BVEdgeWeights
+t3tools.basis_coordinates_format.BVEdgeWeights
 UniformT3Variation
 UniformT3Base
 """

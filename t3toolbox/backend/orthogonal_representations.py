@@ -7,7 +7,7 @@ import typing as typ
 
 import t3toolbox.backend.tucker_tensor_train.ragged_t3_operations as ragged_operations
 import t3toolbox.backend.uniform_tucker_tensor_train.uniform_t3_operations as uniform_operations
-import t3toolbox.backend.tucker_tensor_train.orthogonalization as orth
+import t3toolbox.backend.orthogonalization as orth
 import t3toolbox.backend.tucker_tensor_train.ragged_orthogonalization as ragged_orth
 import t3toolbox.backend.uniform_tucker_tensor_train.uniform_orthogonalization as uniform_orth
 from t3toolbox.backend.common import *
@@ -112,9 +112,9 @@ def orthogonal_representations(
     --------
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.orthogonalization as orth
-    >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
-    >>> base, variation = orth.orthogonal_representations(x) # Compute orthogonal representations
+    >>> import t3toolbox.basis_coordinates_format as bcf
+    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+    >>> base, variation = bcf.orthogonal_representations(x) # Compute orthogonal representations
     >>> tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
     >>> tucker_vars, tt_vars = variation
     >>> (U0,U1,U2) = tucker_cores
@@ -124,10 +124,10 @@ def orthogonal_representations(
     >>> (V0,V1,V2) = tucker_vars
     >>> (H0,H1,H2) = tt_vars
     >>> x2 = ((U0,U1,U2), (L0,H1,R2)) # representation with TT-backend variation in index 1
-    >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x2))) # Still represents origional tensor
+    >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Still represents origional tensor
     4.978421562425667e-12
     >>> x3 = ((U0,V1,U2), (L0,O1,R2)) # representation with tucker backend variation in index 1
-    >>> print(np.linalg.norm(t3.t3_to_dense(x) - t3.t3_to_dense(x3))) # Still represents origional tensor
+    >>> print(np.linalg.norm(x.to_dense() - x3.to_dense())) # Still represents origional tensor
     5.4355175448533146e-12
     >>> print(np.linalg.norm(U1 @ U1.T - np.eye(U1.shape[0]))) # U: orthogonal
     1.1915111872574236e-15
@@ -171,16 +171,16 @@ def orthogonal_representations(
     is_uniform = is_ndarray(x[0])
 
     if is_uniform:
-        squash_tails = lambda tk, tt: (tk, ragged_operations.squash_tt_tails(tt))
+        squash_tails = lambda tk, tt: (tk, uniform_operations.uniform_squash_tt_tails(tt))
         up_orthogonalize_tucker_cores = uniform_orth.up_orthogonalize_uniform_tucker_cores
         down_orthogonalize_tt_cores = uniform_orth.down_orthogonalize_uniform_tt_cores
     else:
-        squash_tails = lambda tk, tt: (tk, uniform_operations.squash_utt_tails(tt))
+        squash_tails = lambda tk, tt: (tk, ragged_operations.squash_tt_tails(tt))
         up_orthogonalize_tucker_cores = ragged_orth.up_orthogonalize_tucker_cores
         down_orthogonalize_tt_cores = ragged_orth.down_orthogonalize_tt_cores
 
     if squash:
-        x = squash_tails(x)
+        x = squash_tails(*x)
 
     if not already_left_orthogonal:
         # Orthogonalize Tucker cores upward to get up_tt_cores U

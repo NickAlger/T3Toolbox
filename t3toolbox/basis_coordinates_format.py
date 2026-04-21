@@ -8,6 +8,7 @@ import functools as ft
 from dataclasses import dataclass
 
 import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.backend.orthogonal_representations as orth_reps
 from t3toolbox.backend.common import *
 
 
@@ -634,13 +635,10 @@ def ith_bc_to_t3(
     return t3.TuckerTensorTrain(x_tucker_cores, x_tt_cores)
 
 
-
-####
-
 def t3_orthogonal_representations(
         x: t3.TuckerTensorTrain,
         already_left_orthogonal: bool = False,
-        squash_tails: bool = True,
+        squash: bool = True,
         use_jax: bool = False,
 ) -> typ.Tuple[
     T3Basis,  # orthogonal base
@@ -702,86 +700,33 @@ def t3_orthogonal_representations(
     --------
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.base_variation_format as bvf
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-    >>> base, variation = bvf.t3_orthogonal_representations(x) # Compute orthogonal representations
-    >>> tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
-    >>> tucker_vars, tt_vars = variation
-    >>> (U0,U1,U2) = tucker_cores
+    >>> import t3toolbox.basis_coordinates_format as bcf
+    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (3,3,2,1), stack_shape=(2,3))
+    >>> base, coords = bcf.t3_orthogonal_representations(x) # Compute orthogonal representations
+    >>> up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base.data
+    >>> tucker_coords, tt_coords = coords.data
+    >>> (U0,U1,U2) = up_tucker_cores
     >>> (L0,L1,L2) = left_tt_cores
     >>> (R0,R1,R2) = right_tt_cores
     >>> (O0,O1,O2) = outer_tt_cores
-    >>> (V0,V1,V2) = tucker_vars
-    >>> (H0,H1,H2) = tt_vars
+    >>> (V0,V1,V2) = tucker_coords
+    >>> (H0,H1,H2) = tt_coords
     >>> x2 = t3.TuckerTensorTrain((U0,U1,U2), (L0,H1,R2)) # representation with TT-backend variation in index 1
     >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Still represents origional tensor
     4.978421562425667e-12
     >>> x3 = t3.TuckerTensorTrain((U0,V1,U2), (L0,O1,R2)) # representation with tucker backend variation in index 1
     >>> print(np.linalg.norm(x.to_dense() - x3.to_dense())) # Still represents origional tensor
     5.4355175448533146e-12
-    >>> print(np.linalg.norm(U1 @ U1.T - np.eye(U1.shape[0]))) # U: orthogonal
+    >>> print(np.linalg.norm(np.einsum('...io,...jo', U1, U1) - np.eye(U1.shape[-2]))) # U: orthogonal
     1.1915111872574236e-15
-    >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', L1, L1) - np.eye(L1.shape[2]))) # L: left orthogonal
+    >>> print(np.linalg.norm(np.einsum('...iaj,...iak', L1, L1) - np.eye(L1.shape[-1]))) # L: left orthogonal
     9.733823879665448e-16
-    >>> print(np.linalg.norm(np.einsum('iaj,kaj->ik', R1, R1) - np.eye(R1.shape[0]))) # R: right orthogonal
+    >>> print(np.linalg.norm(np.einsum('...iaj,...kaj', R1, R1) - np.eye(R1.shape[-3]))) # R: right orthogonal
     8.027553546330097e-16
-    >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', O1, O1) - np.eye(O1.shape[1]))) # O: outer orthogonal
+    >>> print(np.linalg.norm(np.einsum('...iaj,...ibj', O1, O1) - np.eye(O1.shape[-2]))) # O: outer orthogonal
     1.3870474292323159e-15
-
-    Example where r0 and rd are not 1:
-
-    >>> import numpy as np
-    >>> from t3toolbox.tucker_tensor_train import TuckerTensorTrain
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.orthogonalization as orth
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2))
-    >>> base, variation = bvf.t3_orthogonal_representations(x) # Compute orthogonal representations
-    >>> tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
-    >>> tucker_vars, tt_vars = variation
-    >>> (U0,U1,U2) = tucker_cores
-    >>> (L0,L1,L2) = left_tt_cores
-    >>> (R0,R1,R2) = right_tt_cores
-    >>> (O0,O1,O2) = outer_tt_cores
-    >>> (V0,V1,V2) = tucker_vars
-    >>> (H0,H1,H2) = tt_vars
-    >>> x2 = TuckerTensorTrain((U0,U1,U2), (L0,H1,R2)) # representation with TT-backend variation in index 1
-    >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Still represents origional tensor
-    2.5341562994067855e-12
-    >>> x3 = TuckerTensorTrain((V0,U1,U2), (O0,R1,R2)) # representation with tucker backend variation in index 0
-    >>> print(np.linalg.norm(x.to_dense() - x3.to_dense())) # Still represents origional tensor
-    2.9206090606788446e-12
-    >>> print(np.linalg.norm(U0 @ U0.T - np.eye(U0.shape[0]))) # U: orthogonal
-    1.675264510304594e-15
-    >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', L0, L0) - np.eye(L0.shape[2]))) # L: left orthogonal
-    9.046146325204653e-16
-    >>> print(np.linalg.norm(np.einsum('iaj,kaj->ik', R2, R2) - np.eye(R2.shape[0]))) # R: right orthogonal
-    1.1775693440128312e-16
-    >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', O0, O0) - np.eye(O0.shape[1]))) # O: outer orthogonal
-    1.2300840868850519e-15
     '''
-    if squash_tails:
-        x = x.squash_tails(use_jax=use_jax)
-
-    if not already_left_orthogonal:
-        # Orthogonalize Tucker cores upward to get up_tt_cores U
-        x = x.up_orthogonalize_tucker_cores(use_jax=use_jax)
-        up_tucker_cores = x.tucker_cores
-
-        # Sweep left-to-right, generating left orthogonal tt_cores L
-        x = x.left_orthogonalize_tt_cores(use_jax=use_jax)
-        left_tt_cores = x.tt_cores
-    else:
-        up_tucker_cores, left_tt_cores = x.data
-
-    # Sweep right-to-left, generating tt_variations H, and right orthogonal tt_cores R
-    x, tt_variations = x.right_orthogonalize_tt_cores(return_variation_cores=True, use_jax=use_jax)
-    right_tt_cores = x.tt_cores
-
-    # Orthogonalize TT cores downward to get outer_tt_cores O and tucker_variations V
-    x = t3.TuckerTensorTrain(up_tucker_cores, tt_variations)
-    x = x.down_orthogonalize_tt_cores(use_jax=use_jax)
-    tucker_variations, outer_tt_cores = x.data
-
-    base = (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-    variation = (tucker_variations, tt_variations)
-    return base, variation
+    result = orth_reps.orthogonal_representations(
+        x.data, already_left_orthogonal=already_left_orthogonal, squash=squash, use_jax=use_jax,
+    )
+    return T3Basis(*result[0]), T3Coordinates(*result[1])
