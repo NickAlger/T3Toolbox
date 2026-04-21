@@ -18,11 +18,11 @@ t3toolbox.basis_coordinates_format.T3Coordinates
    >>> import numpy as np
    >>> import t3toolbox.basis_coordinates_format as bcf
    >>> ss = (2,3) # stack shape
-   >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+   >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
    >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
    >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-   >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-   >>> base = bcf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+   >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
+   >>> base = bcf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
    >>> print(base.structure)
    ((14, 15, 16), (10, 11, 12), (1, 2, 3, 5), (2, 4, 5, 1), (9, 8, 7), (2, 3))
    >>> tucker_coords = tuple([np.ones(ss + B_shape) for B_shape in base.coordinate_shapes[0]])
@@ -46,10 +46,10 @@ t3toolbox.basis_coordinates_format.T3Coordinates
    .. py:method:: shape() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
 
-   .. py:method:: up_tucker_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
+   .. py:method:: up_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
 
-   .. py:method:: down_tucker_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
+   .. py:method:: down_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
 
    .. py:method:: left_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]

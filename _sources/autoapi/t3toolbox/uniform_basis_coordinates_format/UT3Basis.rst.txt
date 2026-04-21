@@ -10,32 +10,34 @@ t3toolbox.uniform_basis_coordinates_format.UT3Basis
    .. rubric:: Examples
 
    >>> import numpy as np
-   >>> import t3toolbox.basis_coordinates_format as bcf
-   >>> ss = (2,3)
-   >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
-   >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
-   >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-   >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-   >>> basis = bcf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-   >>> print(basis.structure)
-   ((14, 15, 16), (10, 11, 12), (1, 2, 3, 5), (2, 4, 5, 1), (9, 8, 7), (2, 3))
-   >>> print(basis.coordinate_shapes)
-   (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
+   >>> import t3toolbox.uniform_basis_coordinates_format as ubcf
+   >>> stack_shape = (2,)
+   >>> d, N, nU, nD, rL, rR = 3, 12, 7, 8, 5, 4
+   >>> up_cores = np.random.randn(*((d,) + stack_shape + (nU, N)))
+   >>> down_cores = np.random.randn(*((d,) + stack_shape + (rL, nD, rR)))
+   >>> left_cores = np.random.randn(*((d,) + stack_shape + (rL, nU, rL)))
+   >>> right_cores = np.random.randn(*((d,) + stack_shape + (rR, nU, rR)))
+   >>> shape_mask = np.random.choice([True, False], (d,N))
+   >>> up_mask = np.random.choice([True, False], (d,)+stack_shape+(nU,))
+   >>> down_mask = np.random.choice([True, False], (d,)+stack_shape+(nD,))
+   >>> left_mask = np.random.choice([True, False], (d+1,)+stack_shape+(rL,))
+   >>> right_mask = np.random.choice([True, False], (d+1,)+stack_shape+(rR,))
+   >>> basis = ubcf.UT3Basis(up_cores, down_cores, left_cores, right_cores, shape_mask, up_mask, down_mask, left_mask, right_mask)
 
 
-   .. py:attribute:: up_tucker_cores
+   .. py:attribute:: up_tucker_supercore
       :type:  t3toolbox.backend.common.NDArray
 
 
-   .. py:attribute:: left_tt_cores
+   .. py:attribute:: down_tt_supercore
       :type:  t3toolbox.backend.common.NDArray
 
 
-   .. py:attribute:: right_tt_cores
+   .. py:attribute:: left_tt_supercore
       :type:  t3toolbox.backend.common.NDArray
 
 
-   .. py:attribute:: down_tt_cores
+   .. py:attribute:: right_tt_supercore
       :type:  t3toolbox.backend.common.NDArray
 
 
@@ -47,6 +49,10 @@ t3toolbox.uniform_basis_coordinates_format.UT3Basis
       :type:  t3toolbox.backend.common.NDArray
 
 
+   .. py:attribute:: down_mask
+      :type:  t3toolbox.backend.common.NDArray
+
+
    .. py:attribute:: left_mask
       :type:  t3toolbox.backend.common.NDArray
 
@@ -55,8 +61,7 @@ t3toolbox.uniform_basis_coordinates_format.UT3Basis
       :type:  t3toolbox.backend.common.NDArray
 
 
-   .. py:attribute:: down_mask
-      :type:  t3toolbox.backend.common.NDArray
+   .. py:method:: data() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]
 
 
    .. py:method:: d() -> int
@@ -81,6 +86,9 @@ t3toolbox.uniform_basis_coordinates_format.UT3Basis
 
 
    .. py:method:: uniform_structure() -> t3toolbox.backend.common.typ.Tuple[int, int, int, int, int, int, t3toolbox.backend.common.typ.Tuple[int, Ellipsis]]
+
+
+   .. py:method:: uniform_coordinate_shapes() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.typ.Tuple[int, Ellipsis]]
 
 
    .. py:method:: shape() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
@@ -119,6 +127,7 @@ t3toolbox.uniform_basis_coordinates_format.UT3Basis
 
       .. rubric:: Examples
 
+      #### EXAMPLE IS WORK IN PROGRESS
       >>> import numpy as np
       >>> import t3toolbox.basis_coordinates_format as bcf
       >>> ss = (2,3) # not included in coordinate_shapes.
@@ -132,19 +141,16 @@ t3toolbox.uniform_basis_coordinates_format.UT3Basis
 
 
 
-   .. py:method:: data() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]]
-
-
    .. py:method:: validate() -> None
 
-      Check rank and shape consistency of Tucker tensor train basis (`T3Basis`).
+      Check rank and shape consistency of uniform Tucker tensor train basis (`UT3Basis`).
 
       :param x:
-      :type x: T3Basis
+      :type x: UT3Basis
 
-      :raises ValueError: Error raised if the cores of the T3Basis have inconsistent shapes.
+      :raises ValueError: Error raised if the cores of the UT3Basis have inconsistent shapes.
 
-      .. seealso:: :py:obj:`T3Basis`, :py:obj:`T3Coordinates`
+      .. seealso:: :py:obj:`UT3Basis`, :py:obj:`UT3Coordinates`
 
 
 

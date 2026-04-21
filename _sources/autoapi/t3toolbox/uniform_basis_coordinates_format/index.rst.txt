@@ -11,9 +11,26 @@ Classes
    :hidden:
 
    /autoapi/t3toolbox/uniform_basis_coordinates_format/UT3Basis
+   /autoapi/t3toolbox/uniform_basis_coordinates_format/UT3Coordinates
 
 .. autoapisummary::
 
    t3toolbox.uniform_basis_coordinates_format.UT3Basis
+   t3toolbox.uniform_basis_coordinates_format.UT3Coordinates
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/uniform_basis_coordinates_format/ubc_to_ut3
+   /autoapi/t3toolbox/uniform_basis_coordinates_format/ut3_orthogonal_representations
+
+.. autoapisummary::
+
+   t3toolbox.uniform_basis_coordinates_format.ubc_to_ut3
+   t3toolbox.uniform_basis_coordinates_format.ut3_orthogonal_representations
 
 

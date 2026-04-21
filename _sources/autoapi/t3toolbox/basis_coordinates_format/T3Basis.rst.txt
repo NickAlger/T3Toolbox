@@ -12,7 +12,7 @@ t3toolbox.basis_coordinates_format.T3Basis
            U0   U1   U2            U0   U1   U2            U0   U1   U2
            |    |    |             |    |    |             |    |    |
 
-       1---O0---R1---R2---1    1---L0---O1---R2---1    1---L0---L1---O2---1
+       1---D0---R1---R2---1    1---L0---D1---R2---1    1---L0---L1---D2---1
            |    |    |             |    |    |             |    |    |
           (V0)  U1   U2            U0  (V1)  U2            U0   U1  (V2)
            |    |    |             |    |    |             |    |    |
@@ -21,9 +21,9 @@ t3toolbox.basis_coordinates_format.T3Basis
 
    The components of T3Basis are the "basis cores":
        - up_tucker_cores   = (U0, ..., U(d-1)), elm_shape=(nUi, Ni)
+       - down_tt_cores     = (D0, ..., D(d-1)), elm_shape=(rLi, nDi, rR(i+1))
        - left_tt_cores     = (L0, ..., L(d-1)), elm_shape=(rLi, ni, rL(i+1))
        - right_tt_cores    = (R0, ..., R(d-1)), elm_shape=(rRi, ni, rR(i+1))
-       - outer_tt_cores    = (O0, ..., O(d-1)), elm_shape=(rLi, nDi, rR(i+1))
 
    The components of T3Coordinates are the "variation cores":
        - tucker_variations = (V0, ..., V(d-1)), elm_shape=(nDi, Ni)
@@ -46,7 +46,7 @@ t3toolbox.basis_coordinates_format.T3Basis
    and::
 
           rL0       rL1       rR2      rR(d-1)         rRd
-       1 ------ L0 ------ O1 ------ ... ------ R(d-1) ------ 1
+       1 ------ L0 ------ D1 ------ ... ------ R(d-1) ------ 1
                 |         |                    |
                 | nU0     | nO1                | nU(d-1)
                 |         |                    |
@@ -63,9 +63,9 @@ t3toolbox.basis_coordinates_format.T3Basis
 
    Often, it is desirable for the base cores to be **orthogonal** as follows:
        - up_tucker_cores   = (U0,...,U(d-1)), orthogonal:       U_ia U_ja = delta_ij
+       - down_tt_cores     = (O0,...,O(d-1)), outer-orthogonal  O_aib O_ajb = delta_ij
        - left_tt_cores     = (L0,...,L(d-1)), left-orthogonal:  L_abi L_abj = delta_ij
        - right_tt_cores    = (R0,...,R(d-1)), right-orthogonal  R_ibc R_jbc = delta_ij
-       - outer_tt_cores    = (O0,...,O(d-1)), outer-orthogonal  O_aib O_ajb = delta_ij
 
    Often, it is desirable for the variations to satisfy the following **Gauge conditions**:
        - U_ia V_ja = 0    (all V)
@@ -82,11 +82,11 @@ t3toolbox.basis_coordinates_format.T3Basis
    >>> import numpy as np
    >>> import t3toolbox.basis_coordinates_format as bcf
    >>> ss = (2,3)
-   >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+   >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+   >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
    >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
    >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-   >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-   >>> basis = bcf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+   >>> basis = bcf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
    >>> print(basis.structure)
    ((14, 15, 16), (10, 11, 12), (1, 2, 3, 5), (2, 4, 5, 1), (9, 8, 7), (2, 3))
    >>> print(basis.coordinate_shapes)
@@ -97,15 +97,15 @@ t3toolbox.basis_coordinates_format.T3Basis
       :type:  t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]
 
 
+   .. py:attribute:: down_tt_cores
+      :type:  t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]
+
+
    .. py:attribute:: left_tt_cores
       :type:  t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]
 
 
    .. py:attribute:: right_tt_cores
-      :type:  t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]
-
-
-   .. py:attribute:: down_tt_cores
       :type:  t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]
 
 
@@ -154,11 +154,11 @@ t3toolbox.basis_coordinates_format.T3Basis
       >>> import numpy as np
       >>> import t3toolbox.basis_coordinates_format as bcf
       >>> ss = (2,3) # not included in coordinate_shapes.
-      >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+      >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+      >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
       >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
       >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-      >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-      >>> basis = bcf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+      >>> basis = bcf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
       >>> print(basis.coordinate_shapes)
       (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
 

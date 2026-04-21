@@ -435,6 +435,9 @@
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">t3toolbox.uniform_basis_coordinates_format</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="UT3Basis.html">t3toolbox.uniform_basis_coordinates_format.UT3Basis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="UT3Coordinates.html">t3toolbox.uniform_basis_coordinates_format.UT3Coordinates</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ubc_to_ut3.html">t3toolbox.uniform_basis_coordinates_format.ubc_to_ut3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ut3_orthogonal_representations.html">t3toolbox.uniform_basis_coordinates_format.ut3_orthogonal_representations</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../uniform_manifold/index.html">t3toolbox.uniform_manifold</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -473,16 +476,16 @@
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_t3svd/uniform_t3_svd.html">uniform_t3svd.uniform_t3_svd</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../uniform_t3_operations/index.html">uniform_t3_operations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../uniform_t3_operations/reverse_utt.html">uniform_t3_operations.reverse_utt</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../uniform_t3_operations/uniform_squash_tt_tails.html">uniform_t3_operations.uniform_squash_tt_tails</a></li>
-</ul>
-</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../uniform_tensor_linalg/index.html">uniform_tensor_linalg</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_tensor_linalg/ut3_add.html">uniform_tensor_linalg.ut3_add</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_tensor_linalg/scale_last_slice.html">uniform_tensor_linalg.scale_last_slice</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_tensor_linalg/ut3_inner_product.html">uniform_tensor_linalg.ut3_inner_product</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_tensor_linalg/ut3_norm.html">uniform_tensor_linalg.ut3_norm</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../uniform_t3_operations/index.html">uniform_t3_operations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../uniform_t3_operations/reverse_utt.html">uniform_t3_operations.reverse_utt</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../uniform_t3_operations/uniform_squash_tt_tails.html">uniform_t3_operations.uniform_squash_tt_tails</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../uniform_orthogonalization/index.html">uniform_orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -564,6 +567,25 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="UT3Basis.html#t3toolbox.uniform_basis_coordinates_format.UT3Basis" title="t3toolbox.uniform_basis_coordinates_format.UT3Basis"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UT3Basis</span></code></a></p></td>
 <td><p>Basis for basis-coordinates representation of uniform Tucker tensor trains</p></td>
 </tr>
+<tr class="row-even"><td><p><a class="reference internal" href="UT3Coordinates.html#t3toolbox.uniform_basis_coordinates_format.UT3Coordinates" title="t3toolbox.uniform_basis_coordinates_format.UT3Coordinates"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UT3Coordinates</span></code></a></p></td>
+<td><p>Tuple containing coordinate cores for basis-coordinate representations of TuckerTensorTrains.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">#</a></h2>
+<div class="toctree-wrapper compound">
+</div>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="ubc_to_ut3.html#t3toolbox.uniform_basis_coordinates_format.ubc_to_ut3" title="t3toolbox.uniform_basis_coordinates_format.ubc_to_ut3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ubc_to_ut3</span></code></a>(...)</p></td>
+<td><p>Convert basis-coordinates representation to TuckerTensorTrain.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="ut3_orthogonal_representations.html#t3toolbox.uniform_basis_coordinates_format.ut3_orthogonal_representations" title="t3toolbox.uniform_basis_coordinates_format.ut3_orthogonal_representations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_orthogonal_representations</span></code></a>(...)</p></td>
+<td><p>Construct base-variation representations of TuckerTensorTrain with orthogonal base.</p></td>
+</tr>
 </tbody>
 </table>
 </div>
@@ -618,6 +640,7 @@
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#classes">Classes</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#functions">Functions</a></li>
 </ul>
   </nav></div>
 
