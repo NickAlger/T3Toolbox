@@ -111,7 +111,7 @@ class T3Basis:
     Examples
     --------
     >>> import numpy as np
-    >>> import t3toolbox.basis_coordinate_format as bcf
+    >>> import t3toolbox.basis_coordinates_format as bcf
     >>> ss = (2,3)
     >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
     >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
@@ -172,15 +172,6 @@ class T3Basis:
         )
 
     @ft.cached_property
-    def data(self) -> typ.Tuple[
-        typ.Tuple[NDArray,...], # up_tucker_cores
-        typ.Tuple[NDArray,...], # left_tt_cores
-        typ.Tuple[NDArray,...], # right_tt_cores
-        typ.Tuple[NDArray,...], # down_tt_cores
-    ]:
-        return self.up_tucker_cores, self.left_tt_cores, self.right_tt_cores, self.down_tt_cores
-
-    @ft.cached_property
     def coordinate_shapes(
             self,
     ) -> typ.Tuple[
@@ -204,7 +195,7 @@ class T3Basis:
         Examples
         --------
         >>> import numpy as np
-        >>> import t3toolbox.basis_coordinate_format as bcf
+        >>> import t3toolbox.basis_coordinates_format as bcf
         >>> ss = (2,3) # not included in coordinate_shapes.
         >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
         >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
@@ -220,6 +211,15 @@ class T3Basis:
             in zip(self.left_tt_ranks[:-1], self.up_tucker_ranks, self.right_tt_ranks[1:])])
 
         return tucker_coord_shapes, tt_coord_shapes
+
+    @ft.cached_property
+    def data(self) -> typ.Tuple[
+        typ.Tuple[NDArray,...], # up_tucker_cores
+        typ.Tuple[NDArray,...], # left_tt_cores
+        typ.Tuple[NDArray,...], # right_tt_cores
+        typ.Tuple[NDArray,...], # down_tt_cores
+    ]:
+        return self.up_tucker_cores, self.left_tt_cores, self.right_tt_cores, self.down_tt_cores
 
     def validate(self) -> None:
         '''Check rank and shape consistency of Tucker tensor train basis (`T3Basis`).
@@ -272,7 +272,13 @@ class T3Basis:
         right_stack_shapes  = tuple([G.shape[:-3] for G in self.right_tt_cores])
         down_stack_shapes   = tuple([G.shape[:-3] for G in self.down_tt_cores])
 
-        if not (up_stack_shapes == left_stack_shapes == right_stack_shapes == down_stack_shapes):
+        if not (
+                up_stack_shapes
+                == left_stack_shapes
+                == right_stack_shapes
+                == down_stack_shapes
+                == (self.stack_shape,)*self.d
+        ):
             raise ValueError(
                 'Inconsistent T3Basis.\n'
                 + str(up_stack_shapes) + ' = up_stack_shapes.\n'
@@ -335,6 +341,305 @@ class T3Basis:
     def __post_init__(self):
         self.validate()
 
+
+@dataclass(frozen=True)
+class T3Coordinates:
+    """
+    Tuple containing coordinate cores for basis-coordinate representations of TuckerTensorTrains.
+
+    *Components*
+        - tucker_coordinates    = (V0, ..., V(d-1)), elm_shape=(nOi, Ni)
+        - tt_coordinates        = (H0, ..., H(d-1)), elm_shape=(rLi, ni, rRi)
+
+    The coordinates should fit in the "holes" of a T3Basis.
+
+    See Also
+    --------
+    T3Basis
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.basis_coordinates_format as bcf
+    >>> ss = (2,3) # stack shape
+    >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+    >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
+    >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
+    >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
+    >>> base = bcf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+    >>> print(base.structure)
+    ((14, 15, 16), (10, 11, 12), (1, 2, 3, 5), (2, 4, 5, 1), (9, 8, 7), (2, 3))
+    >>> tucker_coords = tuple([np.ones(ss + B_shape) for B_shape in base.coordinate_shapes[0]])
+    >>> tt_coords = tuple([np.ones(ss + G_shape) for G_shape in base.coordinate_shapes[1]])
+    >>> coords = bcf.T3Coordinates(tucker_coords, tt_coords) # variation that fits with base
+    >>> print(coords.structure) # same as base, except first right tt rank and last left tt rank, which are None
+    ((14, 15, 16), (9, 8, 7), (1, 2, 3, None), (None, 4, 5, 1), (10, 11, 12), (2, 3))
+    """
+    tucker_coordinates: typ.Tuple[NDArray,...]  # len=d, elm_shape=(nDi, Ni)
+    tt_coordinates:     typ.Tuple[NDArray,...]  # len=d, elm_shape=(rLi, nUi, rRi)
+
+    @ft.cached_property
+    def d(self) -> int:
+        return len(self.tucker_coordinates)
+
+    @ft.cached_property
+    def shape(self) -> typ.Tuple[int,...]:
+        return tuple([U.shape[-1] for U in self.tucker_coordinates])
+
+    @ft.cached_property
+    def up_tucker_ranks(self) -> typ.Tuple[int,...]:
+        return tuple([U.shape[-2] for U in self.tucker_coordinates])
+
+    @ft.cached_property
+    def down_tucker_ranks(self) -> typ.Tuple[int,...]:
+        return tuple([G.shape[-2] for G in self.tt_coordinates])
+
+    @ft.cached_property
+    def left_tt_ranks(self) -> typ.Tuple[int,...]:
+        return tuple([G.shape[-3] for G in self.tt_coordinates]) + (None,)
+
+    @ft.cached_property
+    def right_tt_ranks(self) -> typ.Tuple[int, ...]:
+        return (None,) + tuple([G.shape[-1] for G in self.tt_coordinates])
+
+    @ft.cached_property
+    def stack_shape(self) -> typ.Tuple[int,...]:
+        return self.tucker_coordinates[0].shape[:-2]
+
+    @ft.cached_property
+    def structure(self) -> typ.Tuple[
+        typ.Tuple[int, ...], # shape
+        typ.Tuple[int, ...], # up_tucker_ranks
+        typ.Tuple[int, ...], # left_tt_ranks
+        typ.Tuple[int, ...], # right_tt_ranks
+        typ.Tuple[int, ...], # down_tt_ranks
+        typ.Tuple[int, ...], # stack_shape
+    ]:
+        return (
+            self.shape, self.up_tucker_ranks,
+            self.left_tt_ranks, self.right_tt_ranks, self.down_tucker_ranks,
+            self.stack_shape,
+        )
+
+    @ft.cached_property
+    def coordinate_shapes(
+            self,
+    ) -> typ.Tuple[
+        typ.Tuple[typ.Tuple[int, ...], ...],  # tucker_coord_shapes. len=d. elm_len=2
+        typ.Tuple[typ.Tuple[int, ...], ...],  # tt_coord_shapes. len=d. elm_len=3
+    ]:
+        '''T3Coordinates shapes that fit with this T3Basis.
+
+        Shapes of the "holes" in the following tensor diagrams::
+
+            1 -- L0 -- ( ) -- R2 -- R3 -- 1
+                 |      |      |      |
+                 U0     U1     U2     U3
+                 |      |      |      |
+
+            1 -- L0 -- L1 -- O2 -- R3 -- 1
+                 |     |     |     |
+                 U0    U1    ( )   U3
+                 |     |     |     |
+        '''
+        tucker_coord_shapes = tuple([B.shape[-2:] for B in self.tucker_coordinates])
+        tt_coord_shapes = tuple([G.shape[-3:] for G in self.tt_coordinates])
+        return tucker_coord_shapes, tt_coord_shapes
+
+    @ft.cached_property
+    def data(self) -> typ.Tuple[
+        typ.Tuple[NDArray,...], # tucker_coordinates
+        typ.Tuple[NDArray,...], # tt_coordinates
+    ]:
+        return self.tucker_coordinates, self.tt_coordinates
+
+    def validate(self) -> None:
+        '''Check rank and shape consistency of Tucker tensor train coordinates (`T3Coordinates`).
+
+        Parameters
+        ----------
+        self : T3Coordinates
+
+        Raises
+        ------
+        ValueError
+            Error raised if the cores of the T3Coordinates have inconsistent shapes.
+
+        See Also
+        --------
+        T3Basis
+        T3Coordinates
+        '''
+        VV, HH = self.data
+
+        d = len(VV)
+        if len(HH) != d:
+            raise ValueError(
+                'Inconsistent T3Coordinates.\n'
+                + 'All backend sequences must have length d=' + str(d) + '.\n'
+                + 'len(VV)=' + str(len(VV))
+                + ', len(HH)=' + str(len(HH))
+            )
+
+        for ii, V in enumerate(VV):
+            if len(V.shape) < 2:
+                raise ValueError(
+                    'Inconsistent T3Coordinates.\n'
+                    + 'tucker_cores[' + str(ii) + '] is not a (stacked) matrix. shape=' + str(V.shape)
+                )
+
+        for ii, H in enumerate(HH):
+            if len(H.shape) < 3:
+                raise ValueError(
+                    'Inconsistent T3Coordinates.\n'
+                    + 'tt_cores[' + str(ii) + '] is not a (stacked) 3-tensor. '
+                    + 'shape=' + str(H.shape)
+                )
+
+        tucker_stack_shapes = tuple([B.shape[:-2] for B in self.tucker_coordinates])
+        tt_stack_shapes = tuple([G.shape[:-3] for G in self.tt_coordinates])
+
+        if not (tucker_stack_shapes == tt_stack_shapes == (self.stack_shape,)*self.d):
+            raise ValueError(
+                'Inconsistent T3Basis.\n'
+                + str(tucker_stack_shapes) + ' = tucker_stack_shapes.\n'
+                + str(tt_stack_shapes) + ' = tt_stack_shapes.\n'
+            )
+
+    def __post_init__(self):
+        self.validate()
+
+
+def check_basis_coordinates_pair(base: T3Basis, coords: T3Coordinates) -> None:
+    """Check rank and shape consistency between T3Basis and T3Coordinates.
+
+    This ensures that the variation cores (V, H) have the correct dimensions
+     to interface with the base cores (U, L, R, O).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.basis_coordinates_format as bcf
+    >>> ss = (2,3) # stack shape
+    >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+    >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
+    >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
+    >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
+    >>> base = bcf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+    >>> tucker_coords = tuple([np.ones(ss + B_shape) for B_shape in base.coordinate_shapes[0]])
+    >>> tt_coords = tuple([np.ones(ss + G_shape) for G_shape in base.coordinate_shapes[1]])
+    >>> coords = bcf.T3Coordinates(tucker_coords, tt_coords)
+    >>> bcf.check_basis_coordinates_pair(base, coords) # does nothing since these are consistent
+    """
+    if base.stack_shape != coords.stack_shape:
+        raise ValueError(
+            'Inconsistent (T3Basis, T3Coordinates) pair.\n'
+            + str(base.stack_shape) + ' = base.stack_shape != coords.stack_shape = ' + str(coords.stack_shape)
+        )
+
+    xVV, xHH = base.coordinate_shapes
+    yVV, yHH = coords.coordinate_shapes
+
+    for ii, (xV, yV) in enumerate(zip(xVV, yVV)):
+        if xV != yV:
+            raise ValueError(
+                'Inconsistent T3Base - T3Variation pair.\n'
+                + str(ii) + '-th Tucker variation shape' + str(yV)
+                + ' does not fit base hole ' + str(xV)
+            )
+
+    for ii, (xH, yH) in enumerate(zip(xHH, yHH)):
+        if xH != yH:
+            raise ValueError(
+                'Inconsistent T3Base - T3Variation pair.\n'
+                + str(ii) + '-th tensor train variation shape' + str(yH)
+                + ' does not fit base hole ' + str(xH)
+            )
+
+
+def ith_bc_to_t3(
+        ii: int, # index of coordinate
+        replace_tt: bool, # If True, use TT coordinate. If False, use Tucker coordinate
+        base: T3Basis,
+        coords: T3Coordinates,
+) -> t3.TuckerTensorTrain:
+    '''Convert basis-coordinates representation to TuckerTensorTrain.
+
+    If replacement_ind=1, replace_tt=True::
+
+        1 -- L0 --(H1)-- R2 -- R3 -- 1
+             |     |     |     |
+             U0    U1    U2    U3
+             |     |     |     |
+
+    If replacement_ind=2, replace_tt=False::
+
+        1 -- L0 -- L1 -- O2 -- R3 -- 1
+             |     |     |     |
+             U0    U1   (V2)   U3
+             |     |     |     |
+
+    Parameters
+    ----------
+    ii: int
+        Index of coordinate. 0 <= replacement_ind < num_cores
+    replace_tt: bool
+        Indicates whether to use TT coordinate (True) or a Tucker coordinate (False)
+    base: T3Basis
+        Basis cores
+    coords: T3Coordinates
+        Coordinate cores
+
+    Raises
+    ------
+    RuntimeError
+        - Error raised if the basis and coordinates do not fit with each other
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.basis_coordinates_format as bcf
+    >>> randn = np.random.randn # shorthand
+    >>> (U0,U1,U2) = (randn(10, 14), randn(11, 15), randn(12, 16))
+    >>> (L0,L1,L2) = (randn(1, 10, 2), randn(2, 11, 3), randn(3,12,4))
+    >>> (R0,R1,R2) = (randn(2,10,4), randn(4, 11, 5), randn(5, 12, 1))
+    >>> (O0,O1,O2) = (randn(1, 9, 4), randn(2, 8, 5), randn(3, 7, 1))
+    >>> base = bcf.T3Basis((U0,U1,U2), (L0,L1,L2), (R0,R1,R2), (O0,O1,O2))
+    >>> (V0,V1,V2) = (randn(9,14), randn(8,15), randn(7,16))
+    >>> (H0,H1,H2) = (randn(1,10,4), randn(2,11,5), randn(3,12,1))
+    >>> coords = bcf.T3Coordinates((V0,V1,V2), (H0,H1,H2))
+    >>> ((B0, B1, B2), (G0, G1, G2)) = bcf.ith_bc_to_t3(1, True, base, coords).data # replace index-1 TT-backend
+    >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,U1,U2), (L0,H1,R2)))
+    True
+    >>> ((B0, B1, B2), (G0, G1, G2)) = bcf.ith_bc_to_t3(1, False, base, coords).data # replace index-1 tucker backend
+    >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,O1,R2)))
+    True
+    '''
+    check_basis_coordinates_pair(base, coords)
+
+    up_tucker_cores, left_tt_cores, right_tt_cores, down_tt_cores = base.data
+    tucker_coords, tt_coords = coords.data
+
+    if replace_tt:
+        x_tucker_cores = up_tucker_cores
+        x_tt_cores = (
+                tuple(left_tt_cores[:ii]) +
+                (tt_coords[ii],) +
+                tuple(right_tt_cores[ii+1:])
+        )
+    else:
+        x_tucker_cores = (
+            tuple(up_tucker_cores[:ii]) +
+            (tucker_coords[ii],) +
+            tuple(up_tucker_cores[ii+1:])
+        )
+        x_tt_cores = (
+                tuple(left_tt_cores[:ii]) +
+                (down_tt_cores[ii],) +
+                tuple(right_tt_cores[ii+1:])
+        )
+
+    return t3.TuckerTensorTrain(x_tucker_cores, x_tt_cores)
 
 
 ################################################################
@@ -755,74 +1060,6 @@ def ith_bv_to_t3(
 
     
 
-def check_t3variation(x: T3Variation) -> None:
-    '''Check rank and shape consistency of Tucker tensor train base point (`T3Base`).
-
-    Parameters
-    ----------
-    x : T3Base
-
-    Raises
-    ------
-    ValueError
-        Error raised if the cores of the T3Base have inconsistent shapes.
-
-    See Also
-    --------
-    T3Base
-    T3Variation
-    '''
-    VV, HH = x
-
-    d = len(VV)
-    if len(HH) != d:
-        raise ValueError(
-            'Inconsistent T3Variation.\n' 
-            + 'All backend sequences must have length d=' + str(d) +'.\n'
-            + 'len(VV)=' + str(len(VV))
-            + ', len(HH)=' + str(len(HH))
-        )
-
-    for ii, V in enumerate(VV):
-        if len(V.shape) != 2:
-            raise ValueError(
-                'Inconsistent T3Variation.\n'
-                + 'tucker_cores[' + str(ii) + '] is not a matrix. shape=' + str(V.shape)
-            )
-        
-    for ii, H in enumerate(HH):
-        if len(H.shape) != 3:
-            raise ValueError(
-                'Inconsistent T3Variation.\n'
-                + 'tt_cores[' + str(ii) + '] is not a 3-tensor. '
-                + 'shape=' + str(H.shape)
-            )
-            
-
-def check_t3bv(x: T3Base, y: T3Variation) -> None:
-    """Check rank and shape consistency between T3Base and T3Variation.
-    
-    This ensures that the variation cores (V, H) have the correct dimensions
-     to interface with the base cores (U, L, R, O).
-    """
-    xVV, xHH = get_base_hole_shapes(x)
-    yVV, yHH = get_variation_shapes(y)
-
-    for ii, (xV, yV) in enumerate(zip(xVV, yVV)):
-        if xV != yV:
-            raise ValueError(
-                'Inconsistent T3Base - T3Variation pair.\n'
-                + str(ii) + '-th Tucker variation shape' + str(yV) 
-                + ' does not fit base hole ' + str(xV)
-            )
-        
-    for ii, (xH, yH) in enumerate(zip(xHH, yHH)):
-        if xH != yH:
-            raise ValueError(
-                'Inconsistent T3Base - T3Variation pair.\n'
-                + str(ii) + '-th tensor train variation shape' + str(yH) 
-                + ' does not fit base hole ' + str(xH)
-            )
 
 
 ####
