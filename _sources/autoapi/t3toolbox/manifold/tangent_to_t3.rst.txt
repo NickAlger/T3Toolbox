@@ -21,6 +21,8 @@ t3toolbox.manifold.tangent_to_t3
        [0       ]                  [0                 ]
        [O4(dB w)]                  [O4(dB w)          ]
 
+   NOTE: can modify other cores with their shifts instead, if desired
+
    :param variation: Variation representing the tangent vector
    :type variation: T3Variation,
    :param base: Representation of the base point at which the tangent space attaches to the manifold.

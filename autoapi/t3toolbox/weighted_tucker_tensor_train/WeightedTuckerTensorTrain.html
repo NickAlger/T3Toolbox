@@ -476,16 +476,16 @@
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_t3svd/uniform_t3_svd.html">uniform_t3svd.uniform_t3_svd</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../uniform_t3_operations/index.html">uniform_t3_operations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../uniform_t3_operations/reverse_utt.html">uniform_t3_operations.reverse_utt</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../uniform_t3_operations/uniform_squash_tt_tails.html">uniform_t3_operations.uniform_squash_tt_tails</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../uniform_tensor_linalg/index.html">uniform_tensor_linalg</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_tensor_linalg/ut3_add.html">uniform_tensor_linalg.ut3_add</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_tensor_linalg/scale_last_slice.html">uniform_tensor_linalg.scale_last_slice</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_tensor_linalg/ut3_inner_product.html">uniform_tensor_linalg.ut3_inner_product</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_tensor_linalg/ut3_norm.html">uniform_tensor_linalg.ut3_norm</a></li>
-</ul>
-</details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../uniform_t3_operations/index.html">uniform_t3_operations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../uniform_t3_operations/reverse_utt.html">uniform_t3_operations.reverse_utt</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../uniform_t3_operations/uniform_squash_tt_tails.html">uniform_t3_operations.uniform_squash_tt_tails</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../uniform_orthogonalization/index.html">uniform_orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -633,7 +633,7 @@ B0      B1         B(d-1)
 <dl class="py method">
 <dt class="sig sig-object py" id="t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain.contract_edge_weights_into_cores">
 <span class="sig-name descname"><span class="pre">contract_edge_weights_into_cores</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain</span></a></span></span><a class="headerlink" href="#t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain.contract_edge_weights_into_cores" title="Link to this definition">#</a></dt>
-<dd><p>Contract each edge vector into a neighboring backend.</p>
+<dd><p>Contract each edge vector into a neighboring core.</p>
 <p>Tensor network diagram illustrating groupings:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span> <span class="n">____</span>     <span class="n">____</span>     <span class="n">________</span>
 <span class="o">/</span>    \   <span class="o">/</span>    \   <span class="o">/</span>                    <span class="mi">1</span><span class="o">---</span><span class="n">w</span><span class="o">---</span><span class="n">G0</span><span class="o">---</span><span class="n">w</span><span class="o">---</span><span class="n">G1</span><span class="o">---</span><span class="n">w</span><span class="o">---</span><span class="n">G2</span><span class="o">---</span><span class="n">w</span><span class="o">---</span><span class="mi">1</span>

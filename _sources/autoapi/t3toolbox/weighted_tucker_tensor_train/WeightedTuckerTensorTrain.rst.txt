@@ -62,7 +62,7 @@ t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain
 
    .. py:method:: contract_edge_weights_into_cores(use_jax: bool = False) -> t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
-      Contract each edge vector into a neighboring backend.
+      Contract each edge vector into a neighboring core.
 
       Tensor network diagram illustrating groupings::
 

@@ -9,7 +9,7 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
    so that the ranks are uniform, then stacking the TT cores and Tucker cores into
    "supercores", which have one more dimension.
 
-   Original backend shapes are tracked with boolean mask arrays associated with the edges.
+   Original core shapes are tracked with boolean mask arrays associated with the edges.
 
 
    .. py:attribute:: tucker_supercore

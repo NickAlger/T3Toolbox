@@ -562,11 +562,11 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
    .. py:method:: up_svd_ith_tucker_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[TuckerTensorTrain, t3toolbox.backend.common.NDArray]
 
-      Compute SVD of ith tucker backend and contract non-orthogonal factor up into the TT-backend above.
+      Compute SVD of ith tucker core and contract non-orthogonal factor up into the TT-core above.
 
       Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
-      :param ii: index of tucker backend to SVD
+      :param ii: index of tucker core to SVD
       :type ii: int
       :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (r0,r1,...r(d-1),rd))
       :type x: TuckerTensorTrain
@@ -580,11 +580,11 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       :type atol: float
       :param xnp: Linear algebra backend. Default: np (numpy)
 
-      :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor, but with ith tucker backend orthogonal.
+      :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor, but with ith tucker core orthogonal.
                   new_tt_cores[ii].shape = (ri, new_ni, r(i+1))
                   new_tucker_cores[ii].shape = (new_ni, Ni)
                   new_tucker_cores[ii] @ new_tucker_cores[ii].T = identity matrix
-                * **ss_x** (*NDArray*) -- Singular values of prior ith tucker backend. shape=(new_ni,).
+                * **ss_x** (*NDArray*) -- Singular values of prior ith tucker core. shape=(new_ni,).
 
       .. seealso:: :py:obj:`truncated_svd`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`, :py:obj:`t3_svd`
 
@@ -600,18 +600,18 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> tucker_cores2, tt_cores2 = x2.data
       >>> rank = len(ss)
       >>> B = tucker_cores2[ind]
-      >>> print(np.linalg.norm(B @ B.T - np.eye(rank))) # Tucker backend is orthogonal
+      >>> print(np.linalg.norm(B @ B.T - np.eye(rank))) # Tucker core is orthogonal
       8.456498415401757e-16
 
 
 
    .. py:method:: left_svd_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[TuckerTensorTrain, t3toolbox.backend.common.NDArray]
 
-      Compute SVD of ith TT-backend left unfolding and contract non-orthogonal factor into the TT-backend to the right.
+      Compute SVD of ith TT-core left unfolding and contract non-orthogonal factor into the TT-core to the right.
 
       Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
-      :param ii: index of TT-backend to SVD
+      :param ii: index of TT-core to SVD
       :type ii: int
       :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
       :type x: TuckerTensorTrain
@@ -625,11 +625,11 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       :type atol: float
       :param xnp: Linear algebra backend. Default: np (numpy)
 
-      :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor, but with ith TT-backend orthogonal.
+      :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor, but with ith TT-core orthogonal.
                   new_tt_cores[ii].shape = (ri, ni, new_r(i+1))
                   new_tt_cores[ii+1].shape = (new_r(i+1), n(i+1), r(i+2))
                   einsum('iaj,iak->jk', new_tt_cores[ii], new_tt_cores[ii]) = identity matrix
-                * **ss_x** (*NDArray*) -- Singular values of prior ith TT-backend left unfolding. shape=(new_r(i+1),).
+                * **ss_x** (*NDArray*) -- Singular values of prior ith TT-core left unfolding. shape=(new_r(i+1),).
 
       .. seealso:: :py:obj:`truncated_svd`, :py:obj:`left_svd_3tensor`, :py:obj:`up_svd_ith_tucker_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`, :py:obj:`t3_svd`
 
@@ -645,18 +645,18 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
           5.186463661974644e-13
       >>> tucker_cores2, tt_cores2 = x2.data
       >>> G = tt_cores2[ind]
-      >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', G, G) - np.eye(G.shape[2]))) # TT-backend is left-orthogonal
+      >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', G, G) - np.eye(G.shape[2]))) # TT-core is left-orthogonal
           4.453244025338311e-16
 
 
 
    .. py:method:: right_svd_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[TuckerTensorTrain, t3toolbox.backend.common.NDArray]
 
-      Compute SVD of ith TT-backend right unfolding and contract non-orthogonal factor into the TT-backend to the left.
+      Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor into the TT-core to the left.
 
       Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
-      :param ii: index of TT-backend to SVD
+      :param ii: index of TT-core to SVD
       :type ii: int
       :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
       :type x: TuckerTensorTrain
@@ -668,13 +668,13 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       :type rtol: float
       :param atol: Absolute tolerance for truncation.
       :type atol: float
-      :param xnp: Linear algebra backend. Default: np (numpy)
+      :param xnp: Linear algebra core. Default: np (numpy)
 
-      :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor, but with ith TT-backend orthogonal.
+      :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor, but with ith TT-core orthogonal.
                   new_tt_cores[ii].shape = (new_ri, ni, r(i+1))
                   new_tt_cores[ii-1].shape = (r(i-1), n(i-1), new_ri)
                   einsum('iaj,kaj->ik', new_tt_cores[ii], new_tt_cores[ii]) = identity matrix
-                * **ss_x** (*NDArray*) -- Singular values of prior ith TT-backend right unfolding. shape=(new_ri,).
+                * **ss_x** (*NDArray*) -- Singular values of prior ith TT-core right unfolding. shape=(new_ri,).
 
       .. seealso:: :py:obj:`truncated_svd`, :py:obj:`left_svd_3tensor`, :py:obj:`up_svd_ith_tucker_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`, :py:obj:`t3_svd`
 
@@ -690,18 +690,18 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       5.304678679078675e-13
       >>> tucker_cores2, tt_cores2 = x2.data
       >>> G = tt_cores2[ind]
-      >>> print(np.linalg.norm(np.einsum('iaj,kaj->ik', G, G) - np.eye(G.shape[0]))) # TT-backend is right orthogonal
+      >>> print(np.linalg.norm(np.einsum('iaj,kaj->ik', G, G) - np.eye(G.shape[0]))) # TT-core is right orthogonal
       4.207841813173725e-16
 
 
 
    .. py:method:: up_svd_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[TuckerTensorTrain, t3toolbox.backend.common.NDArray]
 
-      Compute SVD of ith TT-backend down unfolding and keep non-orthogonal factor with this backend.
+      Compute SVD of ith TT-core down unfolding and keep non-orthogonal factor with this core.
 
       Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
-      :param ii: index of TT-backend to SVD
+      :param ii: index of TT-core to SVD
       :type ii: int
       :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
       :type x: TuckerTensorTrain
@@ -718,7 +718,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor.
                   new_tt_cores[ii].shape = (ri, new_ni, r(i+1))
                   new_tucker_cores[ii].shape = (new_ni, Ni)
-                * **ss_x** (*NDArray*) -- Singular values of prior ith TT-backend down unfolding. shape=(new_ri,).
+                * **ss_x** (*NDArray*) -- Singular values of prior ith TT-core down unfolding. shape=(new_ri,).
 
       .. seealso:: :py:obj:`truncated_svd`, :py:obj:`outer_svd_3tensor`, :py:obj:`up_svd_ith_tucker_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`, :py:obj:`t3_svd`
 
@@ -736,11 +736,11 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
    .. py:method:: down_svd_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[TuckerTensorTrain, t3toolbox.backend.common.NDArray]
 
-      Compute SVD of ith TT-backend right unfolding and contract non-orthogonal factor down into the tucker backend below.
+      Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the tucker core below.
 
       Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
-      :param ii: index of TT-backend to SVD
+      :param ii: index of TT-core to SVD
       :type ii: int
       :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
       :type x: TuckerTensorTrain
@@ -754,11 +754,11 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       :type atol: float
       :param xnp: Linear algebra backend. Default: np (numpy)
 
-      :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor, but with ith TT-backend down orthogonal.
+      :returns: * **new_x** (*NDArray*) -- New TuckerTensorTrain representing the same tensor, but with ith TT-core down orthogonal.
                   new_tt_cores[ii].shape = (ri, new_ni, r(i+1))
                   new_tucker_cores[ii].shape = (new_ni, Ni)
                   einsum('iaj,ibj->ab', new_tt_cores[ii], new_tt_cores[ii]) = identity matrix
-                * **ss_x** (*NDArray*) -- Singular values of prior ith TT-backend down unfolding. shape=(new_ni,).
+                * **ss_x** (*NDArray*) -- Singular values of prior ith TT-core down unfolding. shape=(new_ni,).
 
       .. seealso:: :py:obj:`truncated_svd`, :py:obj:`outer_svd_3tensor`, :py:obj:`up_svd_ith_tucker_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`t3_svd`
 
@@ -774,25 +774,25 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       4.367311712704942e-12
       >>> tucker_cores2, tt_cores2 = x2.data
       >>> G = tt_cores2[ind]
-      >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1]))) # TT-backend is down orthogonal
+      >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1]))) # TT-core is down orthogonal
       1.0643458053135608e-15
 
 
 
    .. py:method:: orthogonalize_relative_to_ith_tucker_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> TuckerTensorTrain
 
-      Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker backend.
+      Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker core.
 
       Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
-      Orthogonal is done relative to the ith tucker backend:
-          - ith tucker backend is not orthogonalized
+      Orthogonal is done relative to the ith tucker core:
+          - ith tucker core is not orthogonalized
           - All other tucker cores are orthogonalized.
           - TT-cores to the left are left orthogonalized.
-          - TT-backend directly above is outer orthogonalized.
+          - TT-core directly above is outer orthogonalized.
           - TT-cores to the right are right orthogonalized.
 
-      :param ii: index of tucker backend that is not orthogonalized
+      :param ii: index of tucker core that is not orthogonalized
       :type ii: int
       :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
       :type x: TuckerTensorTrain
@@ -806,7 +806,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       :type atol: float
       :param xnp: Linear algebra backend. Default: np (numpy)
 
-      :returns: **new_x** -- New TuckerTensorTrain representing the same tensor, but orthogonalized relative to the ith tucker backend.
+      :returns: **new_x** -- New TuckerTensorTrain representing the same tensor, but orthogonalized relative to the ith tucker core.
       :rtype: NDArray
 
       .. seealso:: :py:obj:`up_svd_ith_tucker_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`
@@ -843,17 +843,17 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
    .. py:method:: orthogonalize_relative_to_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> TuckerTensorTrain
 
-      Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-backend.
+      Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
 
       Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
-      Orthogonal is done relative to the ith TT-backend:
+      Orthogonal is done relative to the ith TT-core:
           - All Tucker cores are orthogonalized.
           - TT-cores to the left are left orthogonalized.
-          - ith TT-backend is not orthogonalized.
+          - ith TT-core is not orthogonalized.
           - TT-cores to the right are right orthogonalized.
 
-      :param ii: index of TT-backend that is not orthogonalized
+      :param ii: index of TT-core that is not orthogonalized
       :type ii: int
       :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
       :type x: TuckerTensorTrain
@@ -869,7 +869,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
       .. seealso:: :py:obj:`up_svd_ith_tucker_core`, :py:obj:`left_svd_ith_tt_core`, :py:obj:`right_svd_ith_tt_core`, :py:obj:`up_svd_ith_tt_core`, :py:obj:`down_svd_ith_tt_core`
 
-      :returns: **new_x** -- New TuckerTensorTrain representing the same tensor, but orthogonalized relative to the ith TT-backend.
+      :returns: **new_x** -- New TuckerTensorTrain representing the same tensor, but orthogonalized relative to the ith TT-core.
       :rtype: NDArray
 
       .. rubric:: Examples

@@ -476,16 +476,16 @@
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_t3svd/uniform_t3_svd.html">uniform_t3svd.uniform_t3_svd</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../uniform_t3_operations/index.html">uniform_t3_operations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../uniform_t3_operations/reverse_utt.html">uniform_t3_operations.reverse_utt</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../uniform_t3_operations/uniform_squash_tt_tails.html">uniform_t3_operations.uniform_squash_tt_tails</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../uniform_tensor_linalg/index.html">uniform_tensor_linalg</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_tensor_linalg/ut3_add.html">uniform_tensor_linalg.ut3_add</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_tensor_linalg/scale_last_slice.html">uniform_tensor_linalg.scale_last_slice</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_tensor_linalg/ut3_inner_product.html">uniform_tensor_linalg.ut3_inner_product</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_tensor_linalg/ut3_norm.html">uniform_tensor_linalg.ut3_norm</a></li>
-</ul>
-</details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../uniform_t3_operations/index.html">uniform_t3_operations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../uniform_t3_operations/reverse_utt.html">uniform_t3_operations.reverse_utt</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../uniform_t3_operations/uniform_squash_tt_tails.html">uniform_t3_operations.uniform_squash_tt_tails</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../uniform_orthogonalization/index.html">uniform_orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -711,7 +711,7 @@ are not formed during computations.</p>
 <td><p>Stacks an array-like structure of TuckerTensorTrains into one stacked TuckerTensorTrain.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="t3_core_shapes.html#t3toolbox.tucker_tensor_train.t3_core_shapes" title="t3toolbox.tucker_tensor_train.t3_core_shapes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_core_shapes</span></code></a>(...)</p></td>
-<td><p>Compute the tucker and TT backend shapes for a Tucker tensor train.</p></td>
+<td><p>Compute the tucker and TT core shapes for a Tucker tensor train.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="compute_minimal_t3_ranks.html#t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks" title="t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_minimal_t3_ranks</span></code></a>(...)</p></td>
 <td><p>Find minimal ranks for a generic Tucker tensor train with a given structure.</p></td>
@@ -729,10 +729,10 @@ are not formed during computations.</p>
 <td><p>Load a Tucker tensor train from a file.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="t3_to_vector.html#t3toolbox.tucker_tensor_train.t3_to_vector" title="t3toolbox.tucker_tensor_train.t3_to_vector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_to_vector</span></code></a>(→ t3toolbox.backend.common.NDArray)</p></td>
-<td><p>Converts a TuckerTensorTrain into a 1D vector containing the backend entries.</p></td>
+<td><p>Converts a TuckerTensorTrain into a 1D vector containing the core entries.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="t3_from_vector.html#t3toolbox.tucker_tensor_train.t3_from_vector" title="t3toolbox.tucker_tensor_train.t3_from_vector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_from_vector</span></code></a>() → TuckerTensorTrain)</p></td>
-<td><p>Constructs a TuckerTensorTrain from a 1D vector containing the backend entries.</p></td>
+<td><p>Constructs a TuckerTensorTrain from a 1D vector containing the core entries.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="t3_apply.html#t3toolbox.tucker_tensor_train.t3_apply" title="t3toolbox.tucker_tensor_train.t3_apply"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_apply</span></code></a>(→ t3toolbox.backend.common.NDArray)</p></td>
 <td><p>Contract a Tucker tensor train with vectors in all indices.</p></td>

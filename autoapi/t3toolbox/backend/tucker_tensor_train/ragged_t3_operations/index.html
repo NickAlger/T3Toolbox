@@ -476,16 +476,16 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../../uniform_t3svd/uniform_t3_svd.html">uniform_t3svd.uniform_t3_svd</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../uniform_t3_operations/index.html">uniform_t3_operations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../uniform_t3_operations/reverse_utt.html">uniform_t3_operations.reverse_utt</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../uniform_t3_operations/uniform_squash_tt_tails.html">uniform_t3_operations.uniform_squash_tt_tails</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../../uniform_tensor_linalg/index.html">uniform_tensor_linalg</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../../uniform_tensor_linalg/ut3_add.html">uniform_tensor_linalg.ut3_add</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../uniform_tensor_linalg/scale_last_slice.html">uniform_tensor_linalg.scale_last_slice</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../uniform_tensor_linalg/ut3_inner_product.html">uniform_tensor_linalg.ut3_inner_product</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../uniform_tensor_linalg/ut3_norm.html">uniform_tensor_linalg.ut3_norm</a></li>
-</ul>
-</details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../uniform_t3_operations/index.html">uniform_t3_operations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../../../uniform_t3_operations/reverse_utt.html">uniform_t3_operations.reverse_utt</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../uniform_t3_operations/uniform_squash_tt_tails.html">uniform_t3_operations.uniform_squash_tt_tails</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../../uniform_orthogonalization/index.html">uniform_orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -595,10 +595,10 @@
 <td><p>Determines the shapes of the T3 cores based on the ranks.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="t3_to_vector.html#t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.t3_to_vector" title="t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.t3_to_vector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_to_vector</span></code></a>(→ t3toolbox.backend.common.NDArray)</p></td>
-<td><p>Converts T3 to a 1D vector containing all of the backend entries.</p></td>
+<td><p>Converts T3 to a 1D vector containing all of the core entries.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="t3_from_vector.html#t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.t3_from_vector" title="t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.t3_from_vector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_from_vector</span></code></a>(...)</p></td>
-<td><p>Constructs a T3 from a 1D vector containing the backend entries</p></td>
+<td><p>Constructs a T3 from a 1D vector containing the core entries</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="t3_corewise_randn.html#t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.t3_corewise_randn" title="t3toolbox.backend.tucker_tensor_train.ragged_t3_operations.t3_corewise_randn"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_corewise_randn</span></code></a>(, use_jax, ...)</p></td>
 <td><p>Construct a Tucker tensor train with random cores.</p></td>

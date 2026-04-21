@@ -71,9 +71,9 @@ t3toolbox.basis_coordinates_format.T3Basis
        - U_ia V_ja = 0    (all V)
        - L_abi H_abj = 0  (all but the last H)
 
-   If these conditions are satisfied, then one can do "dumb" corewise linear algebra backend
-   (add, scale, dot product, etc) with the variations, and those backend faithfully correspond
-   to linear algebra backend with the N1 x ... x Nd tangent vectors represented by the variations.
+   If these conditions are satisfied, then one can do "dumb" corewise linear algebra
+   (add, scale, dot product, etc) with the variations, and those core faithfully correspond
+   to linear algebra with the N1 x ... x Nd tangent vectors represented by the variations.
 
    .. seealso:: :py:obj:`T3Coordinates`, :py:obj:`check_t3_base`, :py:obj:`orthogonal_representations`, :py:obj:`oblique_gauge_projection`
 

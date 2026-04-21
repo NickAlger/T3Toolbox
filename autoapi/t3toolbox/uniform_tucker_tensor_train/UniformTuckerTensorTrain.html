@@ -476,16 +476,16 @@
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_t3svd/uniform_t3_svd.html">uniform_t3svd.uniform_t3_svd</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../uniform_t3_operations/index.html">uniform_t3_operations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../uniform_t3_operations/reverse_utt.html">uniform_t3_operations.reverse_utt</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../uniform_t3_operations/uniform_squash_tt_tails.html">uniform_t3_operations.uniform_squash_tt_tails</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../uniform_tensor_linalg/index.html">uniform_tensor_linalg</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_tensor_linalg/ut3_add.html">uniform_tensor_linalg.ut3_add</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_tensor_linalg/scale_last_slice.html">uniform_tensor_linalg.scale_last_slice</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_tensor_linalg/ut3_inner_product.html">uniform_tensor_linalg.ut3_inner_product</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../uniform_tensor_linalg/ut3_norm.html">uniform_tensor_linalg.ut3_norm</a></li>
-</ul>
-</details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../uniform_t3_operations/index.html">uniform_t3_operations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../uniform_t3_operations/reverse_utt.html">uniform_t3_operations.reverse_utt</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../uniform_t3_operations/uniform_squash_tt_tails.html">uniform_t3_operations.uniform_squash_tt_tails</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../uniform_orthogonalization/index.html">uniform_orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -568,7 +568,7 @@
 <p>Uniform Tucker tensor trains are created by padding a Tucker tensor train
 so that the ranks are uniform, then stacking the TT cores and Tucker cores into
 “supercores”, which have one more dimension.</p>
-<p>Original backend shapes are tracked with boolean mask arrays associated with the edges.</p>
+<p>Original core shapes are tracked with boolean mask arrays associated with the edges.</p>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.tucker_supercore">
 <span class="sig-name descname"><span class="pre">tucker_supercore</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="../backend/common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.tucker_supercore" title="Link to this definition">#</a></dt>

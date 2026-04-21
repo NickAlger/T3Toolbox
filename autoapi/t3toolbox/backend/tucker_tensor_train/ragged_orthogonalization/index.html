@@ -476,16 +476,16 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../../uniform_t3svd/uniform_t3_svd.html">uniform_t3svd.uniform_t3_svd</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../uniform_t3_operations/index.html">uniform_t3_operations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../uniform_t3_operations/reverse_utt.html">uniform_t3_operations.reverse_utt</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../uniform_t3_operations/uniform_squash_tt_tails.html">uniform_t3_operations.uniform_squash_tt_tails</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../../uniform_tensor_linalg/index.html">uniform_tensor_linalg</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../../uniform_tensor_linalg/ut3_add.html">uniform_tensor_linalg.ut3_add</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../uniform_tensor_linalg/scale_last_slice.html">uniform_tensor_linalg.scale_last_slice</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../uniform_tensor_linalg/ut3_inner_product.html">uniform_tensor_linalg.ut3_inner_product</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../uniform_tensor_linalg/ut3_norm.html">uniform_tensor_linalg.ut3_norm</a></li>
-</ul>
-</details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../../../uniform_t3_operations/index.html">uniform_t3_operations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../../../uniform_t3_operations/reverse_utt.html">uniform_t3_operations.reverse_utt</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../../uniform_t3_operations/uniform_squash_tt_tails.html">uniform_t3_operations.uniform_squash_tt_tails</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../../uniform_orthogonalization/index.html">uniform_orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -583,13 +583,13 @@
 <td><p>Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="up_svd_ith_tucker_core.html#t3toolbox.backend.tucker_tensor_train.ragged_orthogonalization.up_svd_ith_tucker_core" title="t3toolbox.backend.tucker_tensor_train.ragged_orthogonalization.up_svd_ith_tucker_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_svd_ith_tucker_core</span></code></a>(...)</p></td>
-<td><p>Compute SVD of ith tucker backend and contract non-orthogonal factor up into the TT-backend above.</p></td>
+<td><p>Compute SVD of ith tucker core and contract non-orthogonal factor up into the TT-core above.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="left_svd_ith_tt_core.html#t3toolbox.backend.tucker_tensor_train.ragged_orthogonalization.left_svd_ith_tt_core" title="t3toolbox.backend.tucker_tensor_train.ragged_orthogonalization.left_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_ith_tt_core</span></code></a>(...)</p></td>
-<td><p>Compute SVD of ith TT-backend left unfolding and contract non-orthogonal factor into the TT-backend to the right.</p></td>
+<td><p>Compute SVD of ith TT-core left unfolding and contract non-orthogonal factor into the TT-core to the right.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="right_svd_ith_tt_core.html#t3toolbox.backend.tucker_tensor_train.ragged_orthogonalization.right_svd_ith_tt_core" title="t3toolbox.backend.tucker_tensor_train.ragged_orthogonalization.right_svd_ith_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd_ith_tt_core</span></code></a>(...)</p></td>
-<td><p>Compute SVD of ith TT-backend right unfolding and contract non-orthogonal factor into the TT-backend to the left.</p></td>
+<td><p>Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor into the TT-core to the left.</p></td>
 </tr>
 </tbody>
 </table>

@@ -3,7 +3,7 @@ t3toolbox.tucker_tensor_train.t3_to_vector
 
 .. py:function:: t3toolbox.tucker_tensor_train.t3_to_vector(x: TuckerTensorTrain) -> t3toolbox.backend.common.NDArray
 
-   Converts a TuckerTensorTrain into a 1D vector containing the backend entries.
+   Converts a TuckerTensorTrain into a 1D vector containing the core entries.
 
    .. rubric:: Examples
 

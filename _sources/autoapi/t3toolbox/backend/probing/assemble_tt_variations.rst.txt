@@ -3,7 +3,7 @@ t3toolbox.backend.probing.assemble_tt_variations
 
 .. py:function:: t3toolbox.backend.probing.assemble_tt_variations(sigma_tildes: t3toolbox.backend.common.typ.Union[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.NDArray], tau_tildes: t3toolbox.backend.common.typ.Union[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.NDArray], deta_tildes: t3toolbox.backend.common.typ.Union[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.NDArray], xis: t3toolbox.backend.common.typ.Union[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.NDArray], mus: t3toolbox.backend.common.typ.Union[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.NDArray], nus: t3toolbox.backend.common.typ.Union[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.NDArray], sum_over_probes: bool = False, use_jax: bool = False) -> t3toolbox.backend.common.typ.Union[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.NDArray]
 
-   Assemble TT backend variations, delta_G_tilde.
+   Assemble TT core variations, delta_G_tilde.
    Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
 
    See Section 5.2.4, particularly Formula (48), in:
