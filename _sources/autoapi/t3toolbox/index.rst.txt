@@ -18,6 +18,7 @@ Submodules
    /autoapi/t3toolbox/corewise/index
    /autoapi/t3toolbox/manifold/index
    /autoapi/t3toolbox/tucker_tensor_train/index
+   /autoapi/t3toolbox/uniform_basis_coordinates_format/index
    /autoapi/t3toolbox/uniform_manifold/index
    /autoapi/t3toolbox/uniform_tucker_tensor_train/index
    /autoapi/t3toolbox/weighted_tucker_tensor_train/index

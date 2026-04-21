@@ -6,8 +6,8 @@ t3toolbox.basis_coordinates_format.T3Coordinates
    Tuple containing coordinate cores for basis-coordinate representations of TuckerTensorTrains.
 
    *Components*
-       - tucker_coordinates    = (V0, ..., V(d-1)), elm_shape=(nOi, Ni)
-       - tt_coordinates        = (H0, ..., H(d-1)), elm_shape=(rLi, ni, rRi)
+       - tucker_coordinates    = (V0, ..., V(d-1)), elm_shape=(nDi, Ni)
+       - tt_coordinates        = (H0, ..., H(d-1)), elm_shape=(rLi, nUi, rRi)
 
    The coordinates should fit in the "holes" of a T3Basis.
 
@@ -52,10 +52,10 @@ t3toolbox.basis_coordinates_format.T3Coordinates
    .. py:method:: down_tucker_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
 
-   .. py:method:: left_tt_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
+   .. py:method:: left_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
 
-   .. py:method:: right_tt_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
+   .. py:method:: right_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
 
    .. py:method:: stack_shape() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]

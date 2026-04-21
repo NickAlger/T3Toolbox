@@ -1,0 +1,19 @@
+t3toolbox.uniform_basis_coordinates_format
+==========================================
+
+.. py:module:: t3toolbox.uniform_basis_coordinates_format
+
+
+Classes
+-------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/uniform_basis_coordinates_format/UT3Basis
+
+.. autoapisummary::
+
+   t3toolbox.uniform_basis_coordinates_format.UT3Basis
+
+

@@ -433,6 +433,10 @@
 <li class="toctree-l3"><a class="reference internal" href="../tucker_tensor_train/t3svd.html">t3toolbox.tucker_tensor_train.t3svd</a></li>
 </ul>
 </details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../uniform_basis_coordinates_format/index.html">t3toolbox.uniform_basis_coordinates_format</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../uniform_basis_coordinates_format/UT3Basis.html">t3toolbox.uniform_basis_coordinates_format.UT3Basis</a></li>
+</ul>
+</details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../uniform_manifold/index.html">t3toolbox.uniform_manifold</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../uniform_manifold/uniform_tangent_to_uniform_t3.html">t3toolbox.uniform_manifold.uniform_tangent_to_uniform_t3</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../uniform_manifold/uniform_tangent_to_dense.html">t3toolbox.uniform_manifold.uniform_tangent_to_dense</a></li>
@@ -560,8 +564,8 @@
 <dd><p>Tuple containing coordinate cores for basis-coordinate representations of TuckerTensorTrains.</p>
 <dl class="simple">
 <dt><em>Components</em></dt><dd><ul class="simple">
-<li><p>tucker_coordinates    = (V0, …, V(d-1)), elm_shape=(nOi, Ni)</p></li>
-<li><p>tt_coordinates        = (H0, …, H(d-1)), elm_shape=(rLi, ni, rRi)</p></li>
+<li><p>tucker_coordinates    = (V0, …, V(d-1)), elm_shape=(nDi, Ni)</p></li>
+<li><p>tt_coordinates        = (H0, …, H(d-1)), elm_shape=(rLi, nUi, rRi)</p></li>
 </ul>
 </dd>
 </dl>
@@ -619,13 +623,13 @@
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="t3toolbox.basis_coordinates_format.T3Coordinates.left_tt_ranks">
-<span class="sig-name descname"><span class="pre">left_tt_ranks</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.basis_coordinates_format.T3Coordinates.left_tt_ranks" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.basis_coordinates_format.T3Coordinates.left_ranks">
+<span class="sig-name descname"><span class="pre">left_ranks</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.basis_coordinates_format.T3Coordinates.left_ranks" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="t3toolbox.basis_coordinates_format.T3Coordinates.right_tt_ranks">
-<span class="sig-name descname"><span class="pre">right_tt_ranks</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.basis_coordinates_format.T3Coordinates.right_tt_ranks" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.basis_coordinates_format.T3Coordinates.right_ranks">
+<span class="sig-name descname"><span class="pre">right_ranks</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.basis_coordinates_format.T3Coordinates.right_ranks" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py method">
@@ -742,8 +746,8 @@
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_coordinates_format.T3Coordinates.shape"><code class="docutils literal notranslate"><span class="pre">t3toolbox.basis_coordinates_format.T3Coordinates.shape()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_coordinates_format.T3Coordinates.up_tucker_ranks"><code class="docutils literal notranslate"><span class="pre">t3toolbox.basis_coordinates_format.T3Coordinates.up_tucker_ranks()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_coordinates_format.T3Coordinates.down_tucker_ranks"><code class="docutils literal notranslate"><span class="pre">t3toolbox.basis_coordinates_format.T3Coordinates.down_tucker_ranks()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_coordinates_format.T3Coordinates.left_tt_ranks"><code class="docutils literal notranslate"><span class="pre">t3toolbox.basis_coordinates_format.T3Coordinates.left_tt_ranks()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_coordinates_format.T3Coordinates.right_tt_ranks"><code class="docutils literal notranslate"><span class="pre">t3toolbox.basis_coordinates_format.T3Coordinates.right_tt_ranks()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_coordinates_format.T3Coordinates.left_ranks"><code class="docutils literal notranslate"><span class="pre">t3toolbox.basis_coordinates_format.T3Coordinates.left_ranks()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_coordinates_format.T3Coordinates.right_ranks"><code class="docutils literal notranslate"><span class="pre">t3toolbox.basis_coordinates_format.T3Coordinates.right_ranks()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_coordinates_format.T3Coordinates.stack_shape"><code class="docutils literal notranslate"><span class="pre">t3toolbox.basis_coordinates_format.T3Coordinates.stack_shape()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_coordinates_format.T3Coordinates.structure"><code class="docutils literal notranslate"><span class="pre">t3toolbox.basis_coordinates_format.T3Coordinates.structure()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_coordinates_format.T3Coordinates.coordinate_shapes"><code class="docutils literal notranslate"><span class="pre">t3toolbox.basis_coordinates_format.T3Coordinates.coordinate_shapes()</span></code></a></li>

@@ -17,17 +17,17 @@ t3toolbox.basis_coordinates_format.T3Basis
           (V0)  U1   U2            U0  (V1)  U2            U0   U1  (V2)
            |    |    |             |    |    |             |    |    |
 
-   In each of these, there is a special "coordinate" core, indicated by parentheses (X), surrounded by basis cores.
+   In each of these, there is a special "coordinate" core, indicated by parentheses (X), surrounded by "basis" cores.
 
    The components of T3Basis are the "basis cores":
        - up_tucker_cores   = (U0, ..., U(d-1)), elm_shape=(nUi, Ni)
        - left_tt_cores     = (L0, ..., L(d-1)), elm_shape=(rLi, ni, rL(i+1))
        - right_tt_cores    = (R0, ..., R(d-1)), elm_shape=(rRi, ni, rR(i+1))
-       - outer_tt_cores    = (O0, ..., O(d-1)), elm_shape=(rLi, nOi, rR(i+1))
+       - outer_tt_cores    = (O0, ..., O(d-1)), elm_shape=(rLi, nDi, rR(i+1))
 
    The components of T3Coordinates are the "variation cores":
-       - tucker_variations = (V0, ..., V(d-1)), elm_shape=(nOi, Ni)
-       - tt_variations     = (H0, ..., H(d-1)), elm_shape=(rLi, ni, rRi)
+       - tucker_variations = (V0, ..., V(d-1)), elm_shape=(nDi, Ni)
+       - tt_variations     = (H0, ..., H(d-1)), elm_shape=(rLi, nUi, rRi)
 
    Note that Ld and R0 are not used in these diagrams.
 
@@ -56,7 +56,7 @@ t3toolbox.basis_coordinates_format.T3Basis
                 |         |                    |
 
 
-   A tangent vector can be written as the sum of all of the tensor diagrams above.
+   A tangent vector can be written as the sum of all the tensor diagrams above.
    In this case, the basis cores are representations of the point where the
    tangent space attaches to the manifold, and the coordinate cores define the
    tangent vector with respect to the basis.
@@ -115,16 +115,16 @@ t3toolbox.basis_coordinates_format.T3Basis
    .. py:method:: shape() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
 
-   .. py:method:: up_tucker_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
+   .. py:method:: up_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
 
-   .. py:method:: down_tucker_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
+   .. py:method:: down_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
 
-   .. py:method:: left_tt_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
+   .. py:method:: left_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
 
-   .. py:method:: right_tt_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
+   .. py:method:: right_ranks() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
 
    .. py:method:: stack_shape() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
