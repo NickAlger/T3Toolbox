@@ -4,7 +4,7 @@
 import numpy as np
 import unittest
 
-import t3toolbox.base_variation_format as bvf
+import t3toolbox.basis_coordinate_format as bvf
 
 try:
     import jax

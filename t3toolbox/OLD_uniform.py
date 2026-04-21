@@ -6,7 +6,7 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.base_variation_format as bvf
+import t3toolbox.basis_coordinate_format as bvf
 import t3toolbox.backend.tucker_tensor_train.uniform.uniform_t3_operations as uniform_ops
 from t3toolbox.common import *
 

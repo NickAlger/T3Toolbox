@@ -2,15 +2,17 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/TuckerTensorTrainTools
 # Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
+import numpy as np
 import typing as typ
+import functools as ft
+from dataclasses import dataclass
 
 import t3toolbox.tucker_tensor_train as t3
-from t3toolbox.common import *
+from t3toolbox.backend.common import *
 
-NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
 
 __all__ = [
-    'T3Base',
+    'T3Basis',
     'T3Variation',
     'BVStructure',
     'BVEdgeWeights',
@@ -23,6 +25,252 @@ __all__ = [
     'check_t3base_variation_pair',
     't3_orthogonal_representations',
 ]
+
+
+@dataclass(frozen=True)
+class T3Basis:
+    """Basis for basis-coordinates representation of TuckerTensorTrains
+
+    Often, one works with TuckerTensorTrains of the following forms::
+
+        1--(H0)--R1---R2---1    1---L0--(H1)--R2---1    1---L0---L1--(H2)--1
+            |    |    |             |    |    |             |    |    |
+            U0   U1   U2            U0   U1   U2            U0   U1   U2
+            |    |    |             |    |    |             |    |    |
+
+        1---O0---R1---R2---1    1---L0---O1---R2---1    1---L0---L1---O2---1
+            |    |    |             |    |    |             |    |    |
+           (V0)  U1   U2            U0  (V1)  U2            U0   U1  (V2)
+            |    |    |             |    |    |             |    |    |
+
+    In each of these, there is a special "coordinate" core, indicated by parentheses (X), surrounded by basis cores.
+
+    The components of T3Basis are the "basis cores":
+        - up_tucker_cores   = (U0, ..., U(d-1)), elm_shape=(nUi, Ni)
+        - left_tt_cores     = (L0, ..., L(d-1)), elm_shape=(rLi, ni, rL(i+1))
+        - right_tt_cores    = (R0, ..., R(d-1)), elm_shape=(rRi, ni, rR(i+1))
+        - outer_tt_cores    = (O0, ..., O(d-1)), elm_shape=(rLi, nOi, rR(i+1))
+
+    The components of T3Coordinates are the "variation cores":
+        - tucker_variations = (V0, ..., V(d-1)), elm_shape=(nOi, Ni)
+        - tt_variations     = (H0, ..., H(d-1)), elm_shape=(rLi, ni, rRi)
+
+    Note that Ld and R0 are not used in these diagrams.
+
+    The edge ranks are shown in the following diagrams::
+
+           rL0       rL1       rR2      rR(d-1)         rRd
+        1 ------ L0 ----- (H1) ----- ... ------ R(d-1) ------ 1
+                 |         |                    |
+                 | nU0     | nU1                | nU(d-1)
+                 |         |                    |
+                 U0        U1                   Ud
+                 |         |                    |
+                 | N0      | N1                 | N(d-1)
+                 |         |                    |
+
+    and::
+
+           rL0       rL1       rR2      rR(d-1)         rRd
+        1 ------ L0 ------ O1 ------ ... ------ R(d-1) ------ 1
+                 |         |                    |
+                 | nU0     | nO1                | nU(d-1)
+                 |         |                    |
+                 U0       (V1)                   Ud
+                 |         |                    |
+                 | N0      | N1                 | N(d-1)
+                 |         |                    |
+
+
+    A tangent vector can be written as the sum of all of the tensor diagrams above.
+    In this case, the basis cores are representations of the point where the
+    tangent space attaches to the manifold, and the coordinate cores define the
+    tangent vector with respect to the basis.
+
+    Often, it is desirable for the base cores to be **orthogonal** as follows:
+        - up_tucker_cores   = (U0,...,U(d-1)), orthogonal:       U_ia U_ja = delta_ij
+        - left_tt_cores     = (L0,...,L(d-1)), left-orthogonal:  L_abi L_abj = delta_ij
+        - right_tt_cores    = (R0,...,R(d-1)), right-orthogonal  R_ibc R_jbc = delta_ij
+        - outer_tt_cores    = (O0,...,O(d-1)), outer-orthogonal  O_aib O_ajb = delta_ij
+
+    Often, it is desirable for the variations to satisfy the following **Gauge conditions**:
+        - U_ia V_ja = 0    (all V)
+        - L_abi H_abj = 0  (all but the last H)
+
+    If these conditions are satisfied, then one can do "dumb" corewise linear algebra backend
+    (add, scale, dot product, etc) with the variations, and those backend faithfully correspond
+    to linear algebra backend with the N1 x ... x Nd tangent vectors represented by the variations.
+
+    See Also
+    --------
+    T3Coordinates
+    check_t3_base
+    orthogonal_representations
+    oblique_gauge_projection
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.base_variation_format as bvf
+    >>> tucker_cores = (np.ones((10, 14)), np.ones((11, 15)), np.ones((12, 16)))
+    >>> left_tt_cores = (np.ones((1, 10, 2)), np.ones((2, 11, 3)), np.ones((3,12,5)))
+    >>> right_tt_cores = (np.ones((2, 10, 4)), np.ones((4, 11, 5)), np.ones((5, 12, 1)))
+    >>> outer_tt_cores = (np.ones((1, 9, 4)), np.ones((2, 8, 5)), np.ones((3, 7, 1)))
+    >>> base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+    >>> print(bvf.get_base_structure(base))
+    ((14, 15, 16), (10, 11, 12), (9, 8, 7), (1, 2, 3, 5), (2, 4, 5, 1))
+    >>> print(bvf.base_hole_shapes(base))
+    (((9, 14), (8, 15), (7, 16)), ((1, 10, 2), (2, 11, 4), (3, 12, 5)))
+    """
+
+    up_tucker_cores:    typ.Tuple[NDArray,...]  # len=d. B_xo B_yo   = I_xy, B.shape = stack_shape+(n, N)
+    left_tt_cores:      typ.Tuple[NDArray,...]  # len=d. P_iax P_iay = I_xy, P.shape = stack_shape+(rL, n, rR)
+    right_tt_cores:     typ.Tuple[NDArray,...]  # len=d. Q_xaj Q_yaj = I_xy  Q.shape = stack_shape+(rL, n, rR)
+    down_tt_cores:      typ.Tuple[NDArray,...]  # len=d. R_ixj R_iyj = I_xy  R.shape = stack_shape+(rL, n, rR)
+
+    @ft.cached_property
+    def d(self) -> int:
+        return len(self.up_tucker_cores)
+
+    @ft.cached_property
+    def shape(self) -> typ.Tuple[int,...]:
+        return tuple([U.shape[-1] for U in self.up_tucker_cores])
+
+    @ft.cached_property
+    def up_tucker_ranks(self) -> typ.Tuple[int,...]:
+        return tuple([U.shape[-2] for U in self.up_tucker_cores])
+
+    @ft.cached_property
+    def down_tucker_ranks(self) -> typ.Tuple[int,...]:
+        return tuple([G.shape[-2] for G in self.down_tt_cores])
+
+    @ft.cached_property
+    def left_tt_ranks(self) -> typ.Tuple[int,...]:
+        return tuple([G.shape[-3] for G in self.left_tt_cores]) + (self.left_tt_cores[-1].shape[-1],)
+
+    @ft.cached_property
+    def right_tt_ranks(self) -> typ.Tuple[int, ...]:
+        return tuple([G.shape[-3] for G in self.right_tt_cores]) + (self.right_tt_cores[-1].shape[-1],)
+
+    @ft.cached_property
+    def stack_shape(self) -> typ.Tuple[int,...]:
+        return self.up_tucker_cores[0].shape[:-2]
+
+    @ft.cached_property
+    def structure(self) -> typ.Tuple[
+        typ.Tuple[int, ...], # shape
+        typ.Tuple[int, ...], # up_tucker_ranks
+        typ.Tuple[int, ...], # left_tt_ranks
+        typ.Tuple[int, ...], # right_tt_ranks
+        typ.Tuple[int, ...], # down_tt_ranks
+        typ.Tuple[int, ...], # stack_shape
+    ]:
+        return (
+            self.shape, self.up_tucker_ranks,
+            self.left_tt_ranks, self.right_tt_ranks, self.down_tucker_ranks,
+            self.stack_shape,
+        )
+
+    @ft.cached_property
+    def data(self) -> typ.Tuple[
+        typ.Tuple[NDArray,...], # up_tucker_cores
+        typ.Tuple[NDArray,...], # left_tt_cores
+        typ.Tuple[NDArray,...], # right_tt_cores
+        typ.Tuple[NDArray,...], # down_tt_cores
+    ]:
+        return self.up_tucker_cores, self.left_tt_cores, self.right_tt_cores, self.down_tt_cores
+
+    def validate(self) -> None:
+        '''Check rank and shape consistency of Tucker tensor train basis (`T3Basis`).
+
+        Parameters
+        ----------
+        x : T3Basis
+
+        Raises
+        ------
+        ValueError
+            Error raised if the cores of the T3Basis have inconsistent shapes.
+
+        See Also
+        --------
+        T3Basis
+        T3Coordinates
+        '''
+        UU, LL, RR, OO = self.data
+
+        d = len(UU)
+        if not (len(LL) == d and len(RR) == d and len(OO) == d):
+            raise ValueError(
+                'Inconsistent T3Basis.\n'
+                + 'All backend sequences must have length d=' + str(d) + '.\n'
+                + 'len(UU)=' + str(len(UU))
+                + ', len(LL)=' + str(len(LL))
+                + ', len(RR)=' + str(len(RR))
+                + ', len(OO)=' + str(len(OO))
+            )
+
+        for ii, U in enumerate(UU):
+            if len(U.shape) < 2:
+                raise ValueError(
+                    'Inconsistent T3Basis.\n'
+                    + 'tucker_cores[' + str(ii) + '] is not a (stacked) matrix. shape=' + str(U.shape)
+                )
+
+        for name, CC in zip(["left_tt", "right_tt", "outer_tt"], [LL, RR, OO]):
+            for ii, C in enumerate(CC):
+                if len(C.shape) < 3:
+                    raise ValueError(
+                        'Inconsistent T3Basis.\n'
+                        + name + '_cores[' + str(ii) + '] is not a (stacked) 3-tensor. '
+                        + 'shape=' + str(C.shape)
+                    )
+
+        rLl = tuple([int(LL[0].shape[-3])] + [int(L.shape[-1]) for L in LL])
+        rLr = tuple([int(L.shape[-3]) for L in LL] + [int(LL[-1].shape[-1])])
+        if rLl != rLr:
+            raise ValueError(
+                'Inconsistent T3Basis.\n'
+                + str(rLl) + ' = rL_left != rL_right = ' + str(rLr)
+            )
+
+        rRl = tuple([int(RR[0].shape[-3])] + [int(R.shape[-1]) for R in RR])
+        rRr = tuple([int(R.shape[-3]) for R in RR] + [int(RR[-1].shape[-1])])
+        if rLl != rLr:
+            raise ValueError(
+                'Inconsistent T3Basis.\n'
+                + str(rRl) + ' = rR_left != rR_right = ' + str(rRr)
+            )
+
+        for ii in range(d):
+            U, L, R, O = UU[ii], LL[ii], RR[ii], OO[ii]
+
+            if not (U.shape[-2] == L.shape[-2] == R.shape[-2]):
+                raise ValueError(
+                    'Inconsistent T3Basis.\n'
+                    + 'Tucker rank mismatch at index ' + str(ii)
+                    + ': U.shape[-2]=' + str(U.shape[0])
+                    + ', L.shape[-2]=' + str(L.shape[1])
+                    + ', R.shape[-2]=' + str(R.shape[1])
+                )
+
+            if O.shape[-3] != L.shape[-3]:
+                raise ValueError(
+                    'Inconsistent T3Basis.\n'
+                    + 'Outer backend left rank mismatch at index' + str(ii)
+                    + ': O.shape[-3]=' + str(O.shape[-3])
+                    + '!= L.shape[-3]=' + str(L.shape[-3])
+                )
+
+            if O.shape[-1] != R.shape[-1]:
+                raise ValueError(
+                    'Inconsistent T3Base.\n'
+                    + 'Outer backend right rank mismatch at index' + str(ii)
+                    + ': O.shape[-1]=' + str(O.shape[-1])
+                    + '!= R.shape[-1]=' + str(R.shape[-1])
+                )
+
+
 
 
 ################################################################
@@ -440,95 +688,7 @@ def ith_bv_to_t3(
     return (x_tucker_cores, x_tt_cores)
 
 
-def check_t3base(x: T3Base) -> None:
-    '''Check rank and shape consistency of Tucker tensor train base point (`T3Base`).
 
-    Parameters
-    ----------
-    x : T3Base
-
-    Raises
-    ------
-    ValueError
-        Error raised if the cores of the T3Base have inconsistent shapes.
-
-    See Also
-    --------
-    T3Base
-    T3Variation
-    '''
-    UU, LL, RR, OO = x
-
-    d = len(UU)
-    if not (len(LL) == d and len(RR) == d and len(OO) == d):
-        raise ValueError(
-            'Inconsistent T3Base.\n' 
-            + 'All backend sequences must have length d=' + str(d) +'.\n'
-            + 'len(UU)=' + str(len(UU))
-            + ', len(LL)=' + str(len(LL))
-            + ', len(RR)=' + str(len(RR))
-            + ', len(OO)=' + str(len(OO))
-        )
-
-    for ii, U in enumerate(UU):
-        if len(U.shape) != 2:
-            raise ValueError(
-                'Inconsistent T3Base.\n'
-                + 'tucker_cores[' + str(ii) + '] is not a matrix. shape=' + str(U.shape)
-            )
-        
-    for name, CC in zip(["left_tt", "right_tt", "outer_tt"], [LL, RR, OO]):
-        for ii, C in enumerate(CC):
-            if len(C.shape) != 3:
-                raise ValueError(
-                    'Inconsistent T3Base.\n'
-                    + name + '_cores[' + str(ii) + '] is not a 3-tensor. '
-                    + 'shape=' + str(C.shape)
-                )
-
-    rLl = tuple([int(LL[0].shape[0])] + [int(L.shape[2]) for L in LL]) 
-    rLr = tuple([int(L.shape[0]) for L in LL] + [int(LL[-1].shape[2])])
-    if rLl != rLr:
-        raise ValueError(
-            'Inconsistent T3Base.\n'
-            + str(rLl) + ' = rL_left != rL_right = ' + str(rLr)
-        )
-    
-    rRl = tuple([int(RR[0].shape[0])] + [int(R.shape[2]) for R in RR]) 
-    rRr = tuple([int(R.shape[0]) for R in RR] + [int(RR[-1].shape[2])])
-    if rLl != rLr:
-        raise ValueError(
-            'Inconsistent T3Base.\n'
-            + str(rRl) + ' = rR_left != rR_right = ' + str(rRr)
-        )
-
-    for ii in range(d):
-        U, L, R, O = UU[ii], LL[ii], RR[ii], OO[ii]
-
-        if not (U.shape[0] == L.shape[1] == R.shape[1]):
-            raise ValueError(
-                'Inconsistent T3Base.\n'
-                + 'Tucker rank mismatch at index ' + str(ii)
-                + ': U.shape[0]=' + str(U.shape[0])
-                + ', L.shape[1]=' + str(L.shape[1])
-                + ', R.shape[1]=' + str(R.shape[1])
-            )
-        
-        if O.shape[0] != L.shape[0]:
-            raise ValueError(
-                'Inconsistent T3Base.\n'
-                + 'Outer backend left rank mismatch at index' + str(ii)
-                + ': O.shape[0]=' + str(O.shape[0]) 
-                + '!= L.shape[0]=' + str(L.shape[0])
-            )
-        
-        if O.shape[2] != R.shape[2]:
-            raise ValueError(
-                'Inconsistent T3Base.\n'
-                + 'Outer backend right rank mismatch at index' + str(ii)
-                + ': O.shape[2]=' + str(O.shape[2]) 
-                + '!= R.shape[2]=' + str(R.shape[2])
-            )
     
 
 def check_t3variation(x: T3Variation) -> None:
