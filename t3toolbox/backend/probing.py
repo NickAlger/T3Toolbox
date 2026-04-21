@@ -5,9 +5,9 @@
 import numpy as np
 import typing as typ
 
-import t3toolbox.utils.contractions as contractions
-import t3toolbox.backend.tucker_tensor_train.ragged.ragged_t3_operations as ragged_ops
-import t3toolbox.backend.tucker_tensor_train.uniform.uniform_t3_operations as uniform_ops
+import t3toolbox.backend.contractions as contractions
+import t3toolbox.backend.tucker_tensor_train.ragged_t3_operations as ragged_ops
+import t3toolbox.backend.uniform_tucker_tensor_train.uniform_t3_operations as uniform_ops
 from t3toolbox.backend.common import *
 
 __all__ = [

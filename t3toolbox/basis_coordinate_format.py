@@ -111,18 +111,18 @@ class T3Basis:
     Examples
     --------
     >>> import numpy as np
-    >>> import t3toolbox.base_variation_format as bvf
-    >>> tucker_cores = (np.ones((10, 14)), np.ones((11, 15)), np.ones((12, 16)))
-    >>> left_tt_cores = (np.ones((1, 10, 2)), np.ones((2, 11, 3)), np.ones((3,12,5)))
-    >>> right_tt_cores = (np.ones((2, 10, 4)), np.ones((4, 11, 5)), np.ones((5, 12, 1)))
-    >>> outer_tt_cores = (np.ones((1, 9, 4)), np.ones((2, 8, 5)), np.ones((3, 7, 1)))
-    >>> base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-    >>> print(bvf.get_base_structure(base))
-    ((14, 15, 16), (10, 11, 12), (9, 8, 7), (1, 2, 3, 5), (2, 4, 5, 1))
-    >>> print(bvf.base_hole_shapes(base))
-    (((9, 14), (8, 15), (7, 16)), ((1, 10, 2), (2, 11, 4), (3, 12, 5)))
+    >>> import t3toolbox.basis_coordinate_format as bcf
+    >>> ss = (2,3)
+    >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+    >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
+    >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
+    >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
+    >>> basis = bcf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+    >>> print(basis.structure)
+    ((14, 15, 16), (10, 11, 12), (1, 2, 3, 5), (2, 4, 5, 1), (9, 8, 7), (2, 3))
+    >>> print(basis.coordinate_shapes)
+    (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
     """
-
     up_tucker_cores:    typ.Tuple[NDArray,...]  # len=d. B_xo B_yo   = I_xy, B.shape = stack_shape+(n, N)
     left_tt_cores:      typ.Tuple[NDArray,...]  # len=d. P_iax P_iay = I_xy, P.shape = stack_shape+(rL, n, rR)
     right_tt_cores:     typ.Tuple[NDArray,...]  # len=d. Q_xaj Q_yaj = I_xy  Q.shape = stack_shape+(rL, n, rR)
@@ -180,6 +180,7 @@ class T3Basis:
     ]:
         return self.up_tucker_cores, self.left_tt_cores, self.right_tt_cores, self.down_tt_cores
 
+    @ft.cached_property
     def coordinate_shapes(
             self,
     ) -> typ.Tuple[
@@ -200,27 +201,18 @@ class T3Basis:
                  U0    U1    ( )   U3
                  |     |     |     |
 
-        Returns
-        -------
-        typ.Tuple[int,...]
-            Tucker coordinate shapes. len=d. elm_len=2
-        typ.Tuple[int,...]
-            TT coordinate shapes. len=d. elm_len=3
-
         Examples
         --------
         >>> import numpy as np
-        >>> import t3toolbox.base_variation_format as bvf
-        >>> tucker_cores = (np.ones((10,14)), np.ones((11,15)), np.ones((12,16)))
-        >>> left_tt_cores = (np.ones((1,10,2)), np.ones((2,11,3)), np.ones((3,12,1)))
-        >>> right_tt_cores = (np.ones((1,10,4)), np.ones((4,11,5)), np.ones((5,12,1)))
-        >>> outer_tt_cores = (np.ones((1,9,4)), np.ones((2,8,5)), np.ones((3,7,1)))
-        >>> base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-        >>> (var_tucker_shapes, var_tt_shapes) = bvf.get_base_hole_shapes(base)
-        >>> print(var_tucker_shapes)
-        ((9, 14), (8, 15), (7, 16))
-        >>> print(var_tt_shapes)
-        ((1, 10, 4), (2, 11, 5), (3, 12, 1))
+        >>> import t3toolbox.basis_coordinate_format as bcf
+        >>> ss = (2,3) # not included in coordinate_shapes.
+        >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+        >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
+        >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
+        >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
+        >>> basis = bcf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+        >>> print(basis.coordinate_shapes)
+        (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
         '''
         tucker_coord_shapes = tuple([(nD, N) for nD, N in zip(self.down_tucker_ranks, self.shape)])
         tt_coord_shapes = tuple([

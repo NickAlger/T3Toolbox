@@ -6,7 +6,7 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.backend.linalg as linalg
-import t3toolbox.backend.tucker_tensor_train.orthogonalization as orth
+import t3toolbox.backend.orthogonalization as orth
 from t3toolbox.backend.common import *
 
 __all__ = [
