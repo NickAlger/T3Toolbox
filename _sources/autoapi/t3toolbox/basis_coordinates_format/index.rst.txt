@@ -25,12 +25,12 @@ Functions
 .. toctree::
    :hidden:
 
-   /autoapi/t3toolbox/basis_coordinates_format/ith_bc_to_t3
+   /autoapi/t3toolbox/basis_coordinates_format/bc_to_t3
    /autoapi/t3toolbox/basis_coordinates_format/t3_orthogonal_representations
 
 .. autoapisummary::
 
-   t3toolbox.basis_coordinates_format.ith_bc_to_t3
+   t3toolbox.basis_coordinates_format.bc_to_t3
    t3toolbox.basis_coordinates_format.t3_orthogonal_representations
 
 

@@ -1,7 +1,7 @@
-t3toolbox.basis_coordinates_format.ith_bc_to_t3
-===============================================
+t3toolbox.basis_coordinates_format.bc_to_t3
+===========================================
 
-.. py:function:: t3toolbox.basis_coordinates_format.ith_bc_to_t3(ii: int, replace_tt: bool, base: T3Basis, coords: T3Coordinates) -> t3toolbox.tucker_tensor_train.TuckerTensorTrain
+.. py:function:: t3toolbox.basis_coordinates_format.bc_to_t3(ii: int, use_tt_coord: bool, basis: T3Basis, coords: T3Coordinates) -> t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
    Convert basis-coordinates representation to TuckerTensorTrain.
 
@@ -43,10 +43,10 @@ t3toolbox.basis_coordinates_format.ith_bc_to_t3
    >>> (V0,V1,V2) = (randn(9,14), randn(8,15), randn(7,16))
    >>> (H0,H1,H2) = (randn(1,10,4), randn(2,11,5), randn(3,12,1))
    >>> coords = bcf.T3Coordinates((V0,V1,V2), (H0,H1,H2))
-   >>> ((B0, B1, B2), (G0, G1, G2)) = bcf.ith_bc_to_t3(1, True, base, coords).data # replace index-1 TT-backend
+   >>> ((B0, B1, B2), (G0, G1, G2)) = bcf.bc_to_t3(1, True, base, coords).data # replace index-1 TT-backend
    >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,U1,U2), (L0,H1,R2)))
    True
-   >>> ((B0, B1, B2), (G0, G1, G2)) = bcf.ith_bc_to_t3(1, False, base, coords).data # replace index-1 tucker backend
+   >>> ((B0, B1, B2), (G0, G1, G2)) = bcf.bc_to_t3(1, False, base, coords).data # replace index-1 tucker backend
    >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,O1,R2)))
    True
 
