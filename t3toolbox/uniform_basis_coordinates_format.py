@@ -13,93 +13,18 @@ from t3toolbox.backend.common import *
 
 
 __all__ = [
-    'T3Basis',
-    'T3Coordinates',
-    'bc_to_t3',
-    't3_orthogonal_representations',
+    'UT3Basis',
+    'UT3Coordinates',
+    'ubc_to_ut3',
+    'ut3_orthogonal_representations',
 ]
 
 
 @dataclass(frozen=True)
-class T3Basis:
-    """Basis for basis-coordinates representation of TuckerTensorTrains
+class UT3Basis:
+    """Basis for basis-coordinates representation of uniform Tucker tensor trains
 
-    Often, one works with TuckerTensorTrains of the following forms::
-
-        1--(H0)--R1---R2---1    1---L0--(H1)--R2---1    1---L0---L1--(H2)--1
-            |    |    |             |    |    |             |    |    |
-            U0   U1   U2            U0   U1   U2            U0   U1   U2
-            |    |    |             |    |    |             |    |    |
-
-        1---O0---R1---R2---1    1---L0---O1---R2---1    1---L0---L1---O2---1
-            |    |    |             |    |    |             |    |    |
-           (V0)  U1   U2            U0  (V1)  U2            U0   U1  (V2)
-            |    |    |             |    |    |             |    |    |
-
-    In each of these, there is a special "coordinate" core, indicated by parentheses (X), surrounded by "basis" cores.
-
-    The components of T3Basis are the "basis cores":
-        - up_tucker_cores   = (U0, ..., U(d-1)), elm_shape=(nUi, Ni)
-        - left_tt_cores     = (L0, ..., L(d-1)), elm_shape=(rLi, ni, rL(i+1))
-        - right_tt_cores    = (R0, ..., R(d-1)), elm_shape=(rRi, ni, rR(i+1))
-        - outer_tt_cores    = (O0, ..., O(d-1)), elm_shape=(rLi, nDi, rR(i+1))
-
-    The components of T3Coordinates are the "variation cores":
-        - tucker_variations = (V0, ..., V(d-1)), elm_shape=(nDi, Ni)
-        - tt_variations     = (H0, ..., H(d-1)), elm_shape=(rLi, nUi, rRi)
-
-    Note that Ld and R0 are not used in these diagrams.
-
-    The edge ranks are shown in the following diagrams::
-
-           rL0       rL1       rR2      rR(d-1)         rRd
-        1 ------ L0 ----- (H1) ----- ... ------ R(d-1) ------ 1
-                 |         |                    |
-                 | nU0     | nU1                | nU(d-1)
-                 |         |                    |
-                 U0        U1                   Ud
-                 |         |                    |
-                 | N0      | N1                 | N(d-1)
-                 |         |                    |
-
-    and::
-
-           rL0       rL1       rR2      rR(d-1)         rRd
-        1 ------ L0 ------ O1 ------ ... ------ R(d-1) ------ 1
-                 |         |                    |
-                 | nU0     | nO1                | nU(d-1)
-                 |         |                    |
-                 U0       (V1)                   Ud
-                 |         |                    |
-                 | N0      | N1                 | N(d-1)
-                 |         |                    |
-
-
-    A tangent vector can be written as the sum of all the tensor diagrams above.
-    In this case, the basis cores are representations of the point where the
-    tangent space attaches to the manifold, and the coordinate cores define the
-    tangent vector with respect to the basis.
-
-    Often, it is desirable for the base cores to be **orthogonal** as follows:
-        - up_tucker_cores   = (U0,...,U(d-1)), orthogonal:       U_ia U_ja = delta_ij
-        - left_tt_cores     = (L0,...,L(d-1)), left-orthogonal:  L_abi L_abj = delta_ij
-        - right_tt_cores    = (R0,...,R(d-1)), right-orthogonal  R_ibc R_jbc = delta_ij
-        - outer_tt_cores    = (O0,...,O(d-1)), outer-orthogonal  O_aib O_ajb = delta_ij
-
-    Often, it is desirable for the variations to satisfy the following **Gauge conditions**:
-        - U_ia V_ja = 0    (all V)
-        - L_abi H_abj = 0  (all but the last H)
-
-    If these conditions are satisfied, then one can do "dumb" corewise linear algebra backend
-    (add, scale, dot product, etc) with the variations, and those backend faithfully correspond
-    to linear algebra backend with the N1 x ... x Nd tangent vectors represented by the variations.
-
-    See Also
-    --------
-    T3Coordinates
-    check_t3_base
-    orthogonal_representations
-    oblique_gauge_projection
+    Uniform version of T3Basis
 
     Examples
     --------
@@ -116,53 +41,86 @@ class T3Basis:
     >>> print(basis.coordinate_shapes)
     (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
     """
-    up_tucker_cores:    typ.Tuple[NDArray,...]  # len=d. B_xo B_yo   = I_xy, Bi.shape = stack_shape+(nUi, Ni)
-    left_tt_cores:      typ.Tuple[NDArray,...]  # len=d. P_iax P_iay = I_xy, Pi.shape = stack_shape+(rLi, nUi, rL(i+1))
-    right_tt_cores:     typ.Tuple[NDArray,...]  # len=d. Q_xaj Q_yaj = I_xy  Qi.shape = stack_shape+(rRi, nUi, rR(i+1))
-    down_tt_cores:      typ.Tuple[NDArray,...]  # len=d. R_ixj R_iyj = I_xy  Ri.shape = stack_shape+(rLi, nDi, rR(i+1))
+    up_tucker_cores:    NDArray  # B_dxo B_dyo   = I_dxy, shape = (d,)+stack_shape+(nU, N)
+    left_tt_cores:      NDArray  # P_diax P_diay = I_dxy, shape = (d,)+stack_shape+(rL, nU, rL)
+    right_tt_cores:     NDArray  # Q_dxaj Q_dyaj = I_dxy  shape = (d,)+stack_shape+(rR, nU, rR)
+    down_tt_cores:      NDArray  # R_dixj R_diyj = I_dxy  shape = (d,)+stack_shape+(rL, nD, rR)
+
+    shape_mask: NDArray # dtype=bool, (d,N)
+
+    up_mask:    NDArray # dtype=bool, shape=(d,)+stack_shape+nU
+    left_mask:  NDArray # dtype=bool, shape=(d,)+stack_shape+rL
+    right_mask: NDArray # dtype=bool, shape=(d,)+stack_shape+rR
+    down_mask:  NDArray # dtype=bool, shape=(d,)+stack_shape+nD
 
     @ft.cached_property
     def d(self) -> int:
-        return len(self.up_tucker_cores)
+        return self.up_tucker_cores.shape[0]
 
     @ft.cached_property
-    def shape(self) -> typ.Tuple[int,...]:
-        return tuple([U.shape[-1] for U in self.up_tucker_cores])
+    def N(self) -> int:
+        return self.up_tucker_cores.shape[-1]
 
     @ft.cached_property
-    def up_ranks(self) -> typ.Tuple[int,...]:
-        return tuple([U.shape[-2] for U in self.up_tucker_cores])
+    def nU(self) -> int:
+        return self.up_tucker_cores.shape[-1]
 
     @ft.cached_property
-    def down_ranks(self) -> typ.Tuple[int,...]:
-        return tuple([G.shape[-2] for G in self.down_tt_cores])
+    def nD(self) -> int:
+        return self.down_tt_cores.shape[-2]
 
     @ft.cached_property
-    def left_ranks(self) -> typ.Tuple[int,...]:
-        return tuple([G.shape[-3] for G in self.left_tt_cores]) + (self.left_tt_cores[-1].shape[-1],)
+    def rL(self) -> int:
+        return self.left_tt_cores.shape[-1]
 
     @ft.cached_property
-    def right_ranks(self) -> typ.Tuple[int, ...]:
-        return tuple([G.shape[-3] for G in self.right_tt_cores]) + (self.right_tt_cores[-1].shape[-1],)
+    def rR(self) -> int:
+        return self.right_tt_cores.shape[-1]
 
     @ft.cached_property
     def stack_shape(self) -> typ.Tuple[int,...]:
-        return self.up_tucker_cores[0].shape[:-2]
+        return self.up_tucker_cores.shape[1:-2]
+
+    @ft.cached_property
+    def uniform_structure(self) -> typ.Tuple[int, int, int, int, int, int, typ.Tuple[int,...]]:
+        return self.d, self.N, self.nU, self.nD, self.rL, self.rR, self.stack_shape
+
+    @ft.cached_property
+    def shape(self) -> typ.Tuple[int,...]:
+        return tuple(list(self.shape_mask.sum(axis=-1)))
+
+    @ft.cached_property
+    def up_ranks(self) -> NDArray:
+        return self.up_mask.sum(axis=-1)
+
+    @ft.cached_property
+    def down_ranks(self) -> NDArray:
+        return self.down_mask.sum(axis=-1)
+
+    @ft.cached_property
+    def left_ranks(self) -> NDArray:
+        return self.left_mask.sum(axis=-1)
+
+    @ft.cached_property
+    def right_ranks(self) -> NDArray:
+        return self.right_mask.sum(axis=-1)
 
     @ft.cached_property
     def structure(self) -> typ.Tuple[
         typ.Tuple[int, ...], # shape
-        typ.Tuple[int, ...], # up_tucker_ranks
-        typ.Tuple[int, ...], # left_ranks
-        typ.Tuple[int, ...], # right_ranks
-        typ.Tuple[int, ...], # down_ranks
-        typ.Tuple[int, ...], # stack_shape
+        NDArray, # up_ranks
+        NDArray, # left_ranks
+        NDArray, # right_ranks
+        NDArray, # down_tt_ranks
+        typ.Tuple[int,...], # stack_shape
     ]:
         return (
             self.shape, self.up_ranks,
             self.left_ranks, self.right_ranks, self.down_ranks,
             self.stack_shape,
         )
+
+    #### WORK IN PROGRESS BELOW HERE
 
     @ft.cached_property
     def coordinate_shapes(
@@ -341,8 +299,8 @@ class T3Coordinates:
     Tuple containing coordinate cores for basis-coordinate representations of TuckerTensorTrains.
 
     *Components*
-        - tucker_coordinates    = (V0, ..., V(d-1)), elm_shape=(nDi, Ni)
-        - tt_coordinates        = (H0, ..., H(d-1)), elm_shape=(rLi, nUi, rRi)
+        - tucker_coordinates    = (V0, ..., V(d-1)), elm_shape=(nOi, Ni)
+        - tt_coordinates        = (H0, ..., H(d-1)), elm_shape=(rLi, ni, rRi)
 
     The coordinates should fit in the "holes" of a T3Basis.
 
@@ -380,11 +338,11 @@ class T3Coordinates:
         return tuple([U.shape[-1] for U in self.tucker_coordinates])
 
     @ft.cached_property
-    def up_tucker_ranks(self) -> typ.Tuple[int,...]:
+    def up_ranks(self) -> typ.Tuple[int,...]:
         return tuple([U.shape[-2] for U in self.tucker_coordinates])
 
     @ft.cached_property
-    def down_tucker_ranks(self) -> typ.Tuple[int,...]:
+    def down_ranks(self) -> typ.Tuple[int,...]:
         return tuple([G.shape[-2] for G in self.tt_coordinates])
 
     @ft.cached_property
@@ -402,15 +360,15 @@ class T3Coordinates:
     @ft.cached_property
     def structure(self) -> typ.Tuple[
         typ.Tuple[int, ...], # shape
-        typ.Tuple[int, ...], # up_tucker_ranks
+        typ.Tuple[int, ...], # up_ranks
         typ.Tuple[int, ...], # left_ranks
         typ.Tuple[int, ...], # right_ranks
-        typ.Tuple[int, ...], # down_ranks
+        typ.Tuple[int, ...], # down_tt_ranks
         typ.Tuple[int, ...], # stack_shape
     ]:
         return (
-            self.shape, self.up_tucker_ranks,
-            self.left_ranks, self.right_ranks, self.down_tucker_ranks,
+            self.shape, self.up_ranks,
+            self.left_ranks, self.right_ranks, self.down_ranks,
             self.stack_shape,
         )
 
