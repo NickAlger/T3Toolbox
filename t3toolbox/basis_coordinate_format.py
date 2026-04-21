@@ -180,6 +180,55 @@ class T3Basis:
     ]:
         return self.up_tucker_cores, self.left_tt_cores, self.right_tt_cores, self.down_tt_cores
 
+    def coordinate_shapes(
+            self,
+    ) -> typ.Tuple[
+        typ.Tuple[typ.Tuple[int, ...], ...],  # tucker_coord_shapes. len=d. elm_len=2
+        typ.Tuple[typ.Tuple[int, ...], ...],  # tt_coord_shapes. len=d. elm_len=3
+    ]:
+        '''T3Coordinates shapes that fit with this T3Basis.
+
+        Shapes of the "holes" in the following tensor diagrams::
+
+            1 -- L0 -- ( ) -- R2 -- R3 -- 1
+                 |      |      |      |
+                 U0     U1     U2     U3
+                 |      |      |      |
+
+            1 -- L0 -- L1 -- O2 -- R3 -- 1
+                 |     |     |     |
+                 U0    U1    ( )   U3
+                 |     |     |     |
+
+        Returns
+        -------
+        typ.Tuple[int,...]
+            Tucker coordinate shapes. len=d. elm_len=2
+        typ.Tuple[int,...]
+            TT coordinate shapes. len=d. elm_len=3
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.base_variation_format as bvf
+        >>> tucker_cores = (np.ones((10,14)), np.ones((11,15)), np.ones((12,16)))
+        >>> left_tt_cores = (np.ones((1,10,2)), np.ones((2,11,3)), np.ones((3,12,1)))
+        >>> right_tt_cores = (np.ones((1,10,4)), np.ones((4,11,5)), np.ones((5,12,1)))
+        >>> outer_tt_cores = (np.ones((1,9,4)), np.ones((2,8,5)), np.ones((3,7,1)))
+        >>> base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+        >>> (var_tucker_shapes, var_tt_shapes) = bvf.get_base_hole_shapes(base)
+        >>> print(var_tucker_shapes)
+        ((9, 14), (8, 15), (7, 16))
+        >>> print(var_tt_shapes)
+        ((1, 10, 4), (2, 11, 5), (3, 12, 1))
+        '''
+        tucker_coord_shapes = tuple([(nD, N) for nD, N in zip(self.down_tucker_ranks, self.shape)])
+        tt_coord_shapes = tuple([
+            (rL, nU, rR) for rL, nU, rR
+            in zip(self.left_tt_ranks[:-1], self.up_tucker_ranks, self.right_tt_ranks[1:])])
+
+        return tucker_coord_shapes, tt_coord_shapes
+
     def validate(self) -> None:
         '''Check rank and shape consistency of Tucker tensor train basis (`T3Basis`).
 
@@ -226,6 +275,27 @@ class T3Basis:
                         + 'shape=' + str(C.shape)
                     )
 
+        up_stack_shapes     = tuple([B.shape[:-2] for B in self.up_tucker_cores])
+        left_stack_shapes   = tuple([G.shape[:-3] for G in self.left_tt_cores])
+        right_stack_shapes  = tuple([G.shape[:-3] for G in self.right_tt_cores])
+        down_stack_shapes   = tuple([G.shape[:-3] for G in self.down_tt_cores])
+
+        if not (up_stack_shapes == left_stack_shapes == right_stack_shapes == down_stack_shapes):
+            raise ValueError(
+                'Inconsistent T3Basis.\n'
+                + str(up_stack_shapes) + ' = up_stack_shapes.\n'
+                + str(left_stack_shapes) + ' = left_stack_shapes.\n'
+                + str(right_stack_shapes) + ' = right_stack_shapes.\n'
+                + str(down_stack_shapes) + ' = down_stack_shapes.'
+            )
+
+        if right_stack_shapes != (self.stack_shape,) * self.d:
+            raise ValueError(
+                'Inconsistent T3Basis.\n'
+                + str(left_stack_shapes) + ' = up_stack_shapes. \n'
+                + '(stack_shape,) * d = ' + str((self.stack_shape,) * self.d)
+            )
+
         rLl = tuple([int(LL[0].shape[-3])] + [int(L.shape[-1]) for L in LL])
         rLr = tuple([int(L.shape[-3]) for L in LL] + [int(LL[-1].shape[-1])])
         if rLl != rLr:
@@ -270,6 +340,8 @@ class T3Basis:
                     + '!= R.shape[-1]=' + str(R.shape[-1])
                 )
 
+    def __post_init__(self):
+        self.validate()
 
 
 
