@@ -14,8 +14,6 @@ __all__ = [
     'outer_svd_3tensor',
 ]
 
-NDArray = typ.TypeVar('NDArray') # Generic stand-in for np.ndarray, jnp.ndarray, or other array backend
-
 
 ######################################
 ########    Truncated SVD    #########

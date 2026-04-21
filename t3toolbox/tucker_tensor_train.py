@@ -305,8 +305,8 @@ class TuckerTensorTrain:
 
     @ft.cached_property
     def core_shapes(self) -> typ.Tuple[
-        typ.Tuple[typ.Tuple[int,...],...], # tucker backend shapes
-        typ.Tuple[typ.Tuple[int,...],...], # tt backend shapes
+        typ.Tuple[typ.Tuple[int,...],...], # tucker core shapes
+        typ.Tuple[typ.Tuple[int,...],...], # tt core shapes
     ]:
         return (
             tuple([B.shape for B in self.tucker_cores]),
@@ -863,7 +863,7 @@ class TuckerTensorTrain:
 
     def up_svd_ith_tucker_core(
             self,
-            ii: int,  # which base backend to orthogonalize
+            ii: int,  # which base core to orthogonalize
             min_rank: int = None,
             max_rank: int = None,
             rtol: float = None,
@@ -873,14 +873,14 @@ class TuckerTensorTrain:
         'TuckerTensorTrain',  # new_x
         NDArray,  # ss_x. singular values
     ]:
-        '''Compute SVD of ith tucker backend and contract non-orthogonal factor up into the TT-backend above.
+        '''Compute SVD of ith tucker core and contract non-orthogonal factor up into the TT-core above.
 
         Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
         Parameters
         ----------
         ii: int
-            index of tucker backend to SVD
+            index of tucker core to SVD
         x: TuckerTensorTrain
             The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (r0,r1,...r(d-1),rd))
         min_rank: int
@@ -897,12 +897,12 @@ class TuckerTensorTrain:
         Returns
         -------
         new_x: NDArray
-            New TuckerTensorTrain representing the same tensor, but with ith tucker backend orthogonal.
+            New TuckerTensorTrain representing the same tensor, but with ith tucker core orthogonal.
             new_tt_cores[ii].shape = (ri, new_ni, r(i+1))
             new_tucker_cores[ii].shape = (new_ni, Ni)
             new_tucker_cores[ii] @ new_tucker_cores[ii].T = identity matrix
         ss_x: NDArray
-            Singular values of prior ith tucker backend. shape=(new_ni,).
+            Singular values of prior ith tucker core. shape=(new_ni,).
 
         See Also
         --------
@@ -925,7 +925,7 @@ class TuckerTensorTrain:
         >>> tucker_cores2, tt_cores2 = x2.data
         >>> rank = len(ss)
         >>> B = tucker_cores2[ind]
-        >>> print(np.linalg.norm(B @ B.T - np.eye(rank))) # Tucker backend is orthogonal
+        >>> print(np.linalg.norm(B @ B.T - np.eye(rank))) # Tucker core is orthogonal
         8.456498415401757e-16
         '''
         result = ragged_orthogonalization.up_svd_ith_tucker_core(
@@ -935,7 +935,7 @@ class TuckerTensorTrain:
 
     def left_svd_ith_tt_core(
             self,
-            ii: int,  # which tt backend to orthogonalize
+            ii: int,  # which tt core to orthogonalize
             min_rank: int = None,
             max_rank: int = None,
             rtol: float = None,
@@ -945,14 +945,14 @@ class TuckerTensorTrain:
         'TuckerTensorTrain',  # new_x
         NDArray,  # singular values, shape=(r(i+1),)
     ]:
-        '''Compute SVD of ith TT-backend left unfolding and contract non-orthogonal factor into the TT-backend to the right.
+        '''Compute SVD of ith TT-core left unfolding and contract non-orthogonal factor into the TT-core to the right.
 
         Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
         Parameters
         ----------
         ii: int
-            index of TT-backend to SVD
+            index of TT-core to SVD
         x: TuckerTensorTrain
             The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
         min_rank: int
@@ -969,12 +969,12 @@ class TuckerTensorTrain:
         Returns
         -------
         new_x: NDArray
-            New TuckerTensorTrain representing the same tensor, but with ith TT-backend orthogonal.
+            New TuckerTensorTrain representing the same tensor, but with ith TT-core orthogonal.
             new_tt_cores[ii].shape = (ri, ni, new_r(i+1))
             new_tt_cores[ii+1].shape = (new_r(i+1), n(i+1), r(i+2))
             einsum('iaj,iak->jk', new_tt_cores[ii], new_tt_cores[ii]) = identity matrix
         ss_x: NDArray
-            Singular values of prior ith TT-backend left unfolding. shape=(new_r(i+1),).
+            Singular values of prior ith TT-core left unfolding. shape=(new_r(i+1),).
 
         See Also
         --------
@@ -998,7 +998,7 @@ class TuckerTensorTrain:
             5.186463661974644e-13
         >>> tucker_cores2, tt_cores2 = x2.data
         >>> G = tt_cores2[ind]
-        >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', G, G) - np.eye(G.shape[2]))) # TT-backend is left-orthogonal
+        >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', G, G) - np.eye(G.shape[2]))) # TT-core is left-orthogonal
             4.453244025338311e-16
         '''
         result = ragged_orthogonalization.left_svd_ith_tt_core(
@@ -1008,7 +1008,7 @@ class TuckerTensorTrain:
 
     def right_svd_ith_tt_core(
             self,
-            ii: int,  # which tt backend to orthogonalize
+            ii: int,  # which tt core to orthogonalize
             min_rank: int = None,
             max_rank: int = None,
             rtol: float = None,
@@ -1018,14 +1018,14 @@ class TuckerTensorTrain:
         'TuckerTensorTrain',  # new_x
         NDArray,  # singular values, shape=(new_ri,)
     ]:
-        '''Compute SVD of ith TT-backend right unfolding and contract non-orthogonal factor into the TT-backend to the left.
+        '''Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor into the TT-core to the left.
 
         Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
         Parameters
         ----------
         ii: int
-            index of TT-backend to SVD
+            index of TT-core to SVD
         x: TuckerTensorTrain
             The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
         min_rank: int
@@ -1037,17 +1037,17 @@ class TuckerTensorTrain:
         atol: float
             Absolute tolerance for truncation.
         xnp:
-            Linear algebra backend. Default: np (numpy)
+            Linear algebra core. Default: np (numpy)
 
         Returns
         -------
         new_x: NDArray
-            New TuckerTensorTrain representing the same tensor, but with ith TT-backend orthogonal.
+            New TuckerTensorTrain representing the same tensor, but with ith TT-core orthogonal.
             new_tt_cores[ii].shape = (new_ri, ni, r(i+1))
             new_tt_cores[ii-1].shape = (r(i-1), n(i-1), new_ri)
             einsum('iaj,kaj->ik', new_tt_cores[ii], new_tt_cores[ii]) = identity matrix
         ss_x: NDArray
-            Singular values of prior ith TT-backend right unfolding. shape=(new_ri,).
+            Singular values of prior ith TT-core right unfolding. shape=(new_ri,).
 
         See Also
         --------
@@ -1071,7 +1071,7 @@ class TuckerTensorTrain:
         5.304678679078675e-13
         >>> tucker_cores2, tt_cores2 = x2.data
         >>> G = tt_cores2[ind]
-        >>> print(np.linalg.norm(np.einsum('iaj,kaj->ik', G, G) - np.eye(G.shape[0]))) # TT-backend is right orthogonal
+        >>> print(np.linalg.norm(np.einsum('iaj,kaj->ik', G, G) - np.eye(G.shape[0]))) # TT-core is right orthogonal
         4.207841813173725e-16
         '''
         result = ragged_orthogonalization.right_svd_ith_tt_core(
@@ -1081,7 +1081,7 @@ class TuckerTensorTrain:
 
     def up_svd_ith_tt_core(
             self,
-            ii: int,  # which tt backend to orthogonalize
+            ii: int,  # which tt core to orthogonalize
             min_rank: int = None,
             max_rank: int = None,
             rtol: float = None,
@@ -1091,14 +1091,14 @@ class TuckerTensorTrain:
         'TuckerTensorTrain',  # new_x
         NDArray,  # singular values, shape=(new_ni,)
     ]:
-        '''Compute SVD of ith TT-backend down unfolding and keep non-orthogonal factor with this backend.
+        '''Compute SVD of ith TT-core down unfolding and keep non-orthogonal factor with this core.
 
         Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
         Parameters
         ----------
         ii: int
-            index of TT-backend to SVD
+            index of TT-core to SVD
         x: TuckerTensorTrain
             The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
         min_rank: int
@@ -1119,7 +1119,7 @@ class TuckerTensorTrain:
             new_tt_cores[ii].shape = (ri, new_ni, r(i+1))
             new_tucker_cores[ii].shape = (new_ni, Ni)
         ss_x: NDArray
-            Singular values of prior ith TT-backend down unfolding. shape=(new_ri,).
+            Singular values of prior ith TT-core down unfolding. shape=(new_ri,).
 
         See Also
         --------
@@ -1148,7 +1148,7 @@ class TuckerTensorTrain:
 
     def down_svd_ith_tt_core(
             self,
-            ii: int,  # which tt backend to orthogonalize
+            ii: int,  # which tt core to orthogonalize
             min_rank: int = None,
             max_rank: int = None,
             rtol: float = None,
@@ -1158,14 +1158,14 @@ class TuckerTensorTrain:
         'TuckerTensorTrain',  # new_x
         NDArray,  # singular values, shape=(new_ni,)
     ]:
-        '''Compute SVD of ith TT-backend right unfolding and contract non-orthogonal factor down into the tucker backend below.
+        '''Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the tucker core below.
 
         Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
         Parameters
         ----------
         ii: int
-            index of TT-backend to SVD
+            index of TT-core to SVD
         x: TuckerTensorTrain
             The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
         min_rank: int
@@ -1182,12 +1182,12 @@ class TuckerTensorTrain:
         Returns
         -------
         new_x: NDArray
-            New TuckerTensorTrain representing the same tensor, but with ith TT-backend down orthogonal.
+            New TuckerTensorTrain representing the same tensor, but with ith TT-core down orthogonal.
             new_tt_cores[ii].shape = (ri, new_ni, r(i+1))
             new_tucker_cores[ii].shape = (new_ni, Ni)
             einsum('iaj,ibj->ab', new_tt_cores[ii], new_tt_cores[ii]) = identity matrix
         ss_x: NDArray
-            Singular values of prior ith TT-backend down unfolding. shape=(new_ni,).
+            Singular values of prior ith TT-core down unfolding. shape=(new_ni,).
 
         See Also
         --------
@@ -1211,7 +1211,7 @@ class TuckerTensorTrain:
         4.367311712704942e-12
         >>> tucker_cores2, tt_cores2 = x2.data
         >>> G = tt_cores2[ind]
-        >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1]))) # TT-backend is down orthogonal
+        >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1]))) # TT-core is down orthogonal
         1.0643458053135608e-15
         '''
         result = ragged_orthogonalization.down_svd_ith_tt_core(
@@ -1228,21 +1228,21 @@ class TuckerTensorTrain:
             atol: float = None,
             use_jax: bool = False,
     ) -> 'TuckerTensorTrain':
-        '''Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker backend.
+        '''Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker core.
 
         Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
-        Orthogonal is done relative to the ith tucker backend:
-            - ith tucker backend is not orthogonalized
+        Orthogonal is done relative to the ith tucker core:
+            - ith tucker core is not orthogonalized
             - All other tucker cores are orthogonalized.
             - TT-cores to the left are left orthogonalized.
-            - TT-backend directly above is outer orthogonalized.
+            - TT-core directly above is outer orthogonalized.
             - TT-cores to the right are right orthogonalized.
 
         Parameters
         ----------
         ii: int
-            index of tucker backend that is not orthogonalized
+            index of tucker core that is not orthogonalized
         x: TuckerTensorTrain
             The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
         min_rank: int
@@ -1259,7 +1259,7 @@ class TuckerTensorTrain:
         Returns
         -------
         new_x: NDArray
-            New TuckerTensorTrain representing the same tensor, but orthogonalized relative to the ith tucker backend.
+            New TuckerTensorTrain representing the same tensor, but orthogonalized relative to the ith tucker core.
 
         See Also
         --------
@@ -1310,20 +1310,20 @@ class TuckerTensorTrain:
             atol: float = None,
             use_jax: bool = False,
     ) -> 'TuckerTensorTrain':
-        '''Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-backend.
+        '''Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
 
         Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
 
-        Orthogonal is done relative to the ith TT-backend:
+        Orthogonal is done relative to the ith TT-core:
             - All Tucker cores are orthogonalized.
             - TT-cores to the left are left orthogonalized.
-            - ith TT-backend is not orthogonalized.
+            - ith TT-core is not orthogonalized.
             - TT-cores to the right are right orthogonalized.
 
         Parameters
         ----------
         ii: int
-            index of TT-backend that is not orthogonalized
+            index of TT-core that is not orthogonalized
         x: TuckerTensorTrain
             The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
         min_rank: int
@@ -1348,7 +1348,7 @@ class TuckerTensorTrain:
         Returns
         -------
         new_x: NDArray
-            New TuckerTensorTrain representing the same tensor, but orthogonalized relative to the ith TT-backend.
+            New TuckerTensorTrain representing the same tensor, but orthogonalized relative to the ith TT-core.
 
         Examples
         --------
@@ -1667,7 +1667,7 @@ def t3_core_shapes(
     typ.Tuple[int,...], # tucker_core_shapes
     typ.Tuple[int,...], # tt_core_shapes
 ]:
-    """Compute the tucker and TT backend shapes for a Tucker tensor train.
+    """Compute the tucker and TT core shapes for a Tucker tensor train.
 
     Examples
     --------
@@ -1696,9 +1696,9 @@ def compute_minimal_t3_ranks(
     '''Find minimal ranks for a generic Tucker tensor train with a given structure.
 
     Minimal ranks satisfy:
-        - Left TT backend unfoldings are full rank: r(i+1) <= (ri*ni)
-        - Right TT backend unfoldings are full rank: ri <= (ni*r(i+1))
-        - Outer TT backend unfoldings are full rank: ni <= (ri*r(i+1))
+        - Left TT core unfoldings are full rank: r(i+1) <= (ri*ni)
+        - Right TT core unfoldings are full rank: ri <= (ni*r(i+1))
+        - Outer TT core unfoldings are full rank: ni <= (ri*r(i+1))
         - Basis matrices have full row rank: ni <= Ni
 
     In this function, minimal ranks are defined with respect to a
@@ -1950,7 +1950,7 @@ def t3_load(
 def t3_to_vector(
         x: TuckerTensorTrain,
 ) -> NDArray:
-    """Converts a TuckerTensorTrain into a 1D vector containing the backend entries.
+    """Converts a TuckerTensorTrain into a 1D vector containing the core entries.
 
     Examples
     --------
@@ -1973,7 +1973,7 @@ def t3_from_vector(
         tt_ranks: typ.Sequence[int],
         stack_shape: typ.Sequence[int] = (),
 ) -> TuckerTensorTrain:
-    """Constructs a TuckerTensorTrain from a 1D vector containing the backend entries.
+    """Constructs a TuckerTensorTrain from a 1D vector containing the core entries.
 
     Examples
     --------

@@ -56,7 +56,7 @@ def left_orthogonalize_tt_cores(
 
     Cf, (LL, HH) = xscan(_left_func, init, xs)
 
-    # Dealing with the last backend as a special case
+    # Dealing with the last core as a special case
     Lf = xnp.einsum('...xb,...bjc->...xjc', Cf, tt_cores[-1])
     if is_uniform:
         left_tt_cores = xnp.concatenate([LL, Lf.reshape((1,)+Lf.shape)])

@@ -178,7 +178,7 @@ class WeightedTuckerTensorTrain:
             self,
             use_jax: bool = False,
     ) -> t3.TuckerTensorTrain:
-        """Contract each edge vector into a neighboring backend.
+        """Contract each edge vector into a neighboring core.
 
         Tensor network diagram illustrating groupings::
 

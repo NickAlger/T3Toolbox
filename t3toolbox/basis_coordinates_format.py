@@ -90,9 +90,9 @@ class T3Basis:
         - U_ia V_ja = 0    (all V)
         - L_abi H_abj = 0  (all but the last H)
 
-    If these conditions are satisfied, then one can do "dumb" corewise linear algebra backend
-    (add, scale, dot product, etc) with the variations, and those backend faithfully correspond
-    to linear algebra backend with the N1 x ... x Nd tangent vectors represented by the variations.
+    If these conditions are satisfied, then one can do "dumb" corewise linear algebra
+    (add, scale, dot product, etc) with the variations, and those core faithfully correspond
+    to linear algebra with the N1 x ... x Nd tangent vectors represented by the variations.
 
     See Also
     --------
@@ -238,7 +238,7 @@ class T3Basis:
         if not (len(LL) == d and len(RR) == d and len(DD) == d):
             raise ValueError(
                 'Inconsistent T3Basis.\n'
-                + 'All backend sequences must have length d=' + str(d) + '.\n'
+                + 'All core sequences must have length d=' + str(d) + '.\n'
                 + 'len(UU)=' + str(len(UU))
                 + ', len(DD)=' + str(len(DD))
                 + ', len(LL)=' + str(len(LL))
@@ -465,7 +465,7 @@ class T3Coordinates:
         if len(HH) != d:
             raise ValueError(
                 'Inconsistent T3Coordinates.\n'
-                + 'All backend sequences must have length d=' + str(d) + '.\n'
+                + 'All core sequences must have length d=' + str(d) + '.\n'
                 + 'len(VV)=' + str(len(VV))
                 + ', len(HH)=' + str(len(HH))
             )
@@ -547,8 +547,10 @@ def check_basis_coordinates_pair(base: T3Basis, coords: T3Coordinates) -> None:
 
 
 def bc_to_t3(
-        ii: int, # index of coordinate
-        use_tt_coord: bool, # If True, use TT coordinate. If False, use Tucker coordinate
+        index: typ.Tuple[
+            bool, # TT core (true) or Tucker core (False)
+            int, # number of the non-orthogonal core, 1...d-1
+        ],
         basis: T3Basis,
         coords: T3Coordinates,
 ) -> t3.TuckerTensorTrain:
@@ -597,10 +599,10 @@ def bc_to_t3(
     >>> (V0,V1,V2) = (randn(9,14), randn(8,15), randn(7,16))
     >>> (H0,H1,H2) = (randn(1,10,4), randn(2,11,5), randn(3,12,1))
     >>> coords = bcf.T3Coordinates((V0,V1,V2), (H0,H1,H2))
-    >>> ((B0, B1, B2), (G0, G1, G2)) = bcf.bc_to_t3(1, True, base, coords).data # replace index-1 TT-backend
+    >>> ((B0, B1, B2), (G0, G1, G2)) = bcf.bc_to_t3(1, True, base, coords).data # replace index-1 TT-core
     >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,U1,U2), (L0,H1,R2)))
     True
-    >>> ((B0, B1, B2), (G0, G1, G2)) = bcf.bc_to_t3(1, False, base, coords).data # replace index-1 tucker backend
+    >>> ((B0, B1, B2), (G0, G1, G2)) = bcf.bc_to_t3(1, False, base, coords).data # replace index-1 tucker core
     >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,D1,R2)))
     True
     '''
@@ -626,14 +628,14 @@ def t3_orthogonal_representations(
                        B0    B1    B2    B3
                        |     |     |     |
 
-    Base-variation representation with non-orthogonal TT-backend H1::
+    Base-variation representation with non-orthogonal TT-core H1::
 
                   1 -- L0 -- H1 -- R2 -- R3 -- 1
         X    =         |     |     |     |
                        U0    U1    U2    U3
                        |     |     |     |
 
-    Base-variation representation with non-orthogonal tucker backend V2::
+    Base-variation representation with non-orthogonal tucker core V2::
 
                   1 -- L0 -- L1 -- D2 -- R3 -- 1
         X    =         |     |     |     |
@@ -684,10 +686,10 @@ def t3_orthogonal_representations(
     >>> (R0,R1,R2) = right_tt_cores
     >>> (V0,V1,V2) = tucker_coords
     >>> (H0,H1,H2) = tt_coords
-    >>> x2 = t3.TuckerTensorTrain((U0,U1,U2), (L0,H1,R2)) # representation with TT-backend variation in index 1
+    >>> x2 = t3.TuckerTensorTrain((U0,U1,U2), (L0,H1,R2)) # representation with TT-core variation in index 1
     >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Still represents origional tensor
     4.978421562425667e-12
-    >>> x3 = t3.TuckerTensorTrain((U0,V1,U2), (L0,D1,R2)) # representation with tucker backend variation in index 1
+    >>> x3 = t3.TuckerTensorTrain((U0,V1,U2), (L0,D1,R2)) # representation with tucker core variation in index 1
     >>> print(np.linalg.norm(x.to_dense() - x3.to_dense())) # Still represents origional tensor
     5.4355175448533146e-12
     >>> print(np.linalg.norm(np.einsum('...io,...jo', U1, U1) - np.eye(U1.shape[-2]))) # U: orthogonal

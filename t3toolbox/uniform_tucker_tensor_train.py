@@ -51,7 +51,7 @@ class UniformTuckerTensorTrain:
     so that the ranks are uniform, then stacking the TT cores and Tucker cores into
     "supercores", which have one more dimension.
 
-    Original backend shapes are tracked with boolean mask arrays associated with the edges.
+    Original core shapes are tracked with boolean mask arrays associated with the edges.
     """
     tucker_supercore:   NDArray  #             shape=(d,)   + stack_shape + (n,N)
     tt_supercore:       NDArray  #             shape=(d+1,) + stack_shape + (r,n,r)

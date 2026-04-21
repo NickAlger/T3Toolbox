@@ -182,6 +182,8 @@ def tangent_to_t3(
         [0       ]                  [0                 ]
         [O4(dB w)]                  [O4(dB w)          ]
 
+    NOTE: can modify other cores with their shifts instead, if desired
+
     Parameters
     ----------
     variation: T3Variation,

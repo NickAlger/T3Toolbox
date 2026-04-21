@@ -1132,7 +1132,7 @@ def assemble_tucker_variations(
         sum_over_probes: bool = False,
         use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]:
-    '''Assemble Tucker backend variations, delta_U_tilde.
+    '''Assemble Tucker core variations, delta_U_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
 
     See Section 5.2.4, particularly Formula (47), in:
@@ -1190,7 +1190,7 @@ def assemble_tt_variations(
         sum_over_probes: bool = False,
         use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,rLi,nOi,rRi)
-    '''Assemble TT backend variations, delta_G_tilde.
+    '''Assemble TT core variations, delta_G_tilde.
     Used for computing transpose of mapping from a Tucker tensor train tangent vector to its actions.
 
     See Section 5.2.4, particularly Formula (48), in:
