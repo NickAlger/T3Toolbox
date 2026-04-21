@@ -1,7 +1,7 @@
-t3toolbox.base_variation_format.check_t3variation
-=================================================
+t3toolbox.basis_coordinate_format.check_t3variation
+===================================================
 
-.. py:function:: t3toolbox.base_variation_format.check_t3variation(x: T3Variation) -> None
+.. py:function:: t3toolbox.basis_coordinate_format.check_t3variation(x: T3Variation) -> None
 
    Check rank and shape consistency of Tucker tensor train base point (`T3Base`).
 

@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.base_variation_format &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.basis_coordinate_format &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,12 +42,12 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/base_variation_format/index';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/basis_coordinate_format/index';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3toolbox.base_variation_format.get_base_structure" href="get_base_structure.html" />
+    <link rel="next" title="t3toolbox.basis_coordinate_format.T3Basis" href="T3Basis.html" />
     <link rel="prev" title="t3toolbox.backend.weighted_tucker_tensor_train.ragged_wt3_operations.wt3_squash_tails" href="../backend/weighted_tucker_tensor_train/ragged_wt3_operations/wt3_squash_tails.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -373,14 +373,14 @@
 </details></li>
 </ul>
 </details></li>
-<li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">t3toolbox.base_variation_format</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="get_base_structure.html">t3toolbox.base_variation_format.get_base_structure</a></li>
-<li class="toctree-l3"><a class="reference internal" href="get_variation_shapes.html">t3toolbox.base_variation_format.get_variation_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="get_base_hole_shapes.html">t3toolbox.base_variation_format.get_base_hole_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="ith_bv_to_t3.html">t3toolbox.base_variation_format.ith_bv_to_t3</a></li>
-<li class="toctree-l3"><a class="reference internal" href="check_t3base.html">t3toolbox.base_variation_format.check_t3base</a></li>
-<li class="toctree-l3"><a class="reference internal" href="check_t3variation.html">t3toolbox.base_variation_format.check_t3variation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_orthogonal_representations.html">t3toolbox.base_variation_format.t3_orthogonal_representations</a></li>
+<li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">t3toolbox.basis_coordinate_format</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="T3Basis.html">t3toolbox.basis_coordinate_format.T3Basis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="get_base_structure.html">t3toolbox.basis_coordinate_format.get_base_structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="get_variation_shapes.html">t3toolbox.basis_coordinate_format.get_variation_shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="get_base_hole_shapes.html">t3toolbox.basis_coordinate_format.get_base_hole_shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ith_bv_to_t3.html">t3toolbox.basis_coordinate_format.ith_bv_to_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="check_t3variation.html">t3toolbox.basis_coordinate_format.check_t3variation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3_orthogonal_representations.html">t3toolbox.basis_coordinate_format.t3_orthogonal_representations</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../corewise/index.html">t3toolbox.corewise</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -532,7 +532,7 @@
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">t3toolbox</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.base_variation_format</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.basis_coordinate_format</span></li>
   </ul>
 </nav>
 </div>
@@ -549,23 +549,33 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="module-t3toolbox.base_variation_format">
-<span id="t3toolbox-base-variation-format"></span><h1>t3toolbox.base_variation_format<a class="headerlink" href="#module-t3toolbox.base_variation_format" title="Link to this heading">#</a></h1>
+  <section id="module-t3toolbox.basis_coordinate_format">
+<span id="t3toolbox-basis-coordinate-format"></span><h1>t3toolbox.basis_coordinate_format<a class="headerlink" href="#module-t3toolbox.basis_coordinate_format" title="Link to this heading">#</a></h1>
 <section id="attributes">
 <h2>Attributes<a class="headerlink" href="#attributes" title="Link to this heading">#</a></h2>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.base_variation_format.T3Base" title="t3toolbox.base_variation_format.T3Base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Base</span></code></a></p></td>
-<td><p>Tuple containing base cores for base-variation representation of TuckerTensorTrains</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.base_variation_format.T3Variation" title="t3toolbox.base_variation_format.T3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Variation</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.basis_coordinate_format.T3Variation" title="t3toolbox.basis_coordinate_format.T3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Variation</span></code></a></p></td>
 <td><p>Tuple containing variation cores for base-variation representation of TuckerTensorTrains.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.base_variation_format.BVStructure" title="t3toolbox.base_variation_format.BVStructure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">BVStructure</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.basis_coordinate_format.BVStructure" title="t3toolbox.basis_coordinate_format.BVStructure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">BVStructure</span></code></a></p></td>
 <td><p>Shape and rank structure of a base-variation T3 representation.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.base_variation_format.BVEdgeWeights" title="t3toolbox.base_variation_format.BVEdgeWeights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">BVEdgeWeights</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.basis_coordinate_format.BVEdgeWeights" title="t3toolbox.basis_coordinate_format.BVEdgeWeights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">BVEdgeWeights</span></code></a></p></td>
 <td><p>Edge weights for base-variation format.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+<section id="classes">
+<h2>Classes<a class="headerlink" href="#classes" title="Link to this heading">#</a></h2>
+<div class="toctree-wrapper compound">
+</div>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="T3Basis.html#t3toolbox.basis_coordinate_format.T3Basis" title="t3toolbox.basis_coordinate_format.T3Basis"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Basis</span></code></a></p></td>
+<td><p>Basis for basis-coordinates representation of TuckerTensorTrains</p></td>
 </tr>
 </tbody>
 </table>
@@ -577,25 +587,22 @@
 </div>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="get_base_structure.html#t3toolbox.base_variation_format.get_base_structure" title="t3toolbox.base_variation_format.get_base_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_base_structure</span></code></a>(→ BVStructure)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="get_base_structure.html#t3toolbox.basis_coordinate_format.get_base_structure" title="t3toolbox.basis_coordinate_format.get_base_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_base_structure</span></code></a>(→ BVStructure)</p></td>
 <td><p>Get the edge structure of a base-variation representation of a Tucker tensor train from the base.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="get_variation_shapes.html#t3toolbox.base_variation_format.get_variation_shapes" title="t3toolbox.base_variation_format.get_variation_shapes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_variation_shapes</span></code></a>(→ Tuple[Tuple[int, Ellipsis], ...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="get_variation_shapes.html#t3toolbox.basis_coordinate_format.get_variation_shapes" title="t3toolbox.basis_coordinate_format.get_variation_shapes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_variation_shapes</span></code></a>(...)</p></td>
 <td><p>Get the shapes of the cores in a variation.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="get_base_hole_shapes.html#t3toolbox.base_variation_format.get_base_hole_shapes" title="t3toolbox.base_variation_format.get_base_hole_shapes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_base_hole_shapes</span></code></a>(→ Tuple[Tuple[Tuple[int, ...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="get_base_hole_shapes.html#t3toolbox.basis_coordinate_format.get_base_hole_shapes" title="t3toolbox.basis_coordinate_format.get_base_hole_shapes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_base_hole_shapes</span></code></a>(...)</p></td>
 <td><p>T3Variation backend shapes that fit with given T3Base.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="ith_bv_to_t3.html#t3toolbox.base_variation_format.ith_bv_to_t3" title="t3toolbox.base_variation_format.ith_bv_to_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ith_bv_to_t3</span></code></a>(...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="ith_bv_to_t3.html#t3toolbox.basis_coordinate_format.ith_bv_to_t3" title="t3toolbox.basis_coordinate_format.ith_bv_to_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ith_bv_to_t3</span></code></a>(...)</p></td>
 <td><p>Convert base-variation representation to TuckerTensorTrain.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="check_t3base.html#t3toolbox.base_variation_format.check_t3base" title="t3toolbox.base_variation_format.check_t3base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3base</span></code></a>(→ None)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="check_t3variation.html#t3toolbox.basis_coordinate_format.check_t3variation" title="t3toolbox.basis_coordinate_format.check_t3variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3variation</span></code></a>(→ None)</p></td>
 <td><p>Check rank and shape consistency of Tucker tensor train base point (<cite>T3Base</cite>).</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="check_t3variation.html#t3toolbox.base_variation_format.check_t3variation" title="t3toolbox.base_variation_format.check_t3variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3variation</span></code></a>(→ None)</p></td>
-<td><p>Check rank and shape consistency of Tucker tensor train base point (<cite>T3Base</cite>).</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_orthogonal_representations.html#t3toolbox.base_variation_format.t3_orthogonal_representations" title="t3toolbox.base_variation_format.t3_orthogonal_representations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_orthogonal_representations</span></code></a>(→ Tuple[T3Base, T3Variation])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_orthogonal_representations.html#t3toolbox.basis_coordinate_format.t3_orthogonal_representations" title="t3toolbox.basis_coordinate_format.t3_orthogonal_representations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_orthogonal_representations</span></code></a>(...)</p></td>
 <td><p>Construct base-variation representations of TuckerTensorTrain with orthogonal base.</p></td>
 </tr>
 </tbody>
@@ -605,105 +612,8 @@
 <section id="module-contents">
 <h2>Module Contents<a class="headerlink" href="#module-contents" title="Link to this heading">#</a></h2>
 <dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.base_variation_format.T3Base">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.base_variation_format.</span></span><span class="sig-name descname"><span class="pre">T3Base</span></span><a class="headerlink" href="#t3toolbox.base_variation_format.T3Base" title="Link to this definition">#</a></dt>
-<dd><p>Tuple containing base cores for base-variation representation of TuckerTensorTrains</p>
-<p>Often, one works with TuckerTensorTrains of the following forms:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">1</span><span class="o">--</span><span class="p">(</span><span class="n">H0</span><span class="p">)</span><span class="o">--</span><span class="n">R1</span><span class="o">---</span><span class="n">R2</span><span class="o">---</span><span class="mi">1</span>    <span class="mi">1</span><span class="o">---</span><span class="n">L0</span><span class="o">--</span><span class="p">(</span><span class="n">H1</span><span class="p">)</span><span class="o">--</span><span class="n">R2</span><span class="o">---</span><span class="mi">1</span>    <span class="mi">1</span><span class="o">---</span><span class="n">L0</span><span class="o">---</span><span class="n">L1</span><span class="o">--</span><span class="p">(</span><span class="n">H2</span><span class="p">)</span><span class="o">--</span><span class="mi">1</span>
-    <span class="o">|</span>    <span class="o">|</span>    <span class="o">|</span>             <span class="o">|</span>    <span class="o">|</span>    <span class="o">|</span>             <span class="o">|</span>    <span class="o">|</span>    <span class="o">|</span>
-    <span class="n">U0</span>   <span class="n">U1</span>   <span class="n">U2</span>            <span class="n">U0</span>   <span class="n">U1</span>   <span class="n">U2</span>            <span class="n">U0</span>   <span class="n">U1</span>   <span class="n">U2</span>
-    <span class="o">|</span>    <span class="o">|</span>    <span class="o">|</span>             <span class="o">|</span>    <span class="o">|</span>    <span class="o">|</span>             <span class="o">|</span>    <span class="o">|</span>    <span class="o">|</span>
-
-<span class="mi">1</span><span class="o">---</span><span class="n">O0</span><span class="o">---</span><span class="n">R1</span><span class="o">---</span><span class="n">R2</span><span class="o">---</span><span class="mi">1</span>    <span class="mi">1</span><span class="o">---</span><span class="n">L0</span><span class="o">---</span><span class="n">O1</span><span class="o">---</span><span class="n">R2</span><span class="o">---</span><span class="mi">1</span>    <span class="mi">1</span><span class="o">---</span><span class="n">L0</span><span class="o">---</span><span class="n">L1</span><span class="o">---</span><span class="n">O2</span><span class="o">---</span><span class="mi">1</span>
-    <span class="o">|</span>    <span class="o">|</span>    <span class="o">|</span>             <span class="o">|</span>    <span class="o">|</span>    <span class="o">|</span>             <span class="o">|</span>    <span class="o">|</span>    <span class="o">|</span>
-   <span class="p">(</span><span class="n">V0</span><span class="p">)</span>  <span class="n">U1</span>   <span class="n">U2</span>            <span class="n">U0</span>  <span class="p">(</span><span class="n">V1</span><span class="p">)</span>  <span class="n">U2</span>            <span class="n">U0</span>   <span class="n">U1</span>  <span class="p">(</span><span class="n">V2</span><span class="p">)</span>
-    <span class="o">|</span>    <span class="o">|</span>    <span class="o">|</span>             <span class="o">|</span>    <span class="o">|</span>    <span class="o">|</span>             <span class="o">|</span>    <span class="o">|</span>    <span class="o">|</span>
-</pre></div>
-</div>
-<p>In each of these, there is a special “variation” backend, indicated by parentheses (X), surrounded by base cores.</p>
-<dl class="simple">
-<dt>The components of T3Base are the “base cores”:</dt><dd><ul class="simple">
-<li><p>up_tucker_cores   = (U0, …, U(d-1)), elm_shape=(nUi, Ni)</p></li>
-<li><p>left_tt_cores     = (L0, …, L(d-1)), elm_shape=(rLi, ni, rL(i+1))</p></li>
-<li><p>right_tt_cores    = (R0, …, R(d-1)), elm_shape=(rRi, ni, rR(i+1))</p></li>
-<li><p>outer_tt_cores    = (O0, …, O(d-1)), elm_shape=(rLi, nOi, rR(i+1))</p></li>
-</ul>
-</dd>
-<dt>The components of T3Variations are the “variation cores”:</dt><dd><ul class="simple">
-<li><p>tucker_variations = (V0, …, V(d-1)), elm_shape=(nOi, Ni)</p></li>
-<li><p>tt_variations     = (H0, …, H(d-1)), elm_shape=(rLi, ni, rRi)</p></li>
-</ul>
-</dd>
-</dl>
-<p>Note that Ld and R0 are not used in these diagrams.</p>
-<p>The edge ranks are shown in the following diagrams:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>   <span class="n">rL0</span>       <span class="n">rL1</span>       <span class="n">rR2</span>      <span class="n">rR</span><span class="p">(</span><span class="n">d</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>         <span class="n">rRd</span>
-<span class="mi">1</span> <span class="o">------</span> <span class="n">L0</span> <span class="o">-----</span> <span class="p">(</span><span class="n">H1</span><span class="p">)</span> <span class="o">-----</span> <span class="o">...</span> <span class="o">------</span> <span class="n">R</span><span class="p">(</span><span class="n">d</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">------</span> <span class="mi">1</span>
-         <span class="o">|</span>         <span class="o">|</span>                    <span class="o">|</span>
-         <span class="o">|</span> <span class="n">nU0</span>     <span class="o">|</span> <span class="n">nU1</span>                <span class="o">|</span> <span class="n">nU</span><span class="p">(</span><span class="n">d</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-         <span class="o">|</span>         <span class="o">|</span>                    <span class="o">|</span>
-         <span class="n">U0</span>        <span class="n">U1</span>                   <span class="n">Ud</span>
-         <span class="o">|</span>         <span class="o">|</span>                    <span class="o">|</span>
-         <span class="o">|</span> <span class="n">N0</span>      <span class="o">|</span> <span class="n">N1</span>                 <span class="o">|</span> <span class="n">N</span><span class="p">(</span><span class="n">d</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-         <span class="o">|</span>         <span class="o">|</span>                    <span class="o">|</span>
-</pre></div>
-</div>
-<p>and:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>   <span class="n">rL0</span>       <span class="n">rL1</span>       <span class="n">rR2</span>      <span class="n">rR</span><span class="p">(</span><span class="n">d</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>         <span class="n">rRd</span>
-<span class="mi">1</span> <span class="o">------</span> <span class="n">L0</span> <span class="o">------</span> <span class="n">O1</span> <span class="o">------</span> <span class="o">...</span> <span class="o">------</span> <span class="n">R</span><span class="p">(</span><span class="n">d</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">------</span> <span class="mi">1</span>
-         <span class="o">|</span>         <span class="o">|</span>                    <span class="o">|</span>
-         <span class="o">|</span> <span class="n">nU0</span>     <span class="o">|</span> <span class="n">nO1</span>                <span class="o">|</span> <span class="n">nU</span><span class="p">(</span><span class="n">d</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-         <span class="o">|</span>         <span class="o">|</span>                    <span class="o">|</span>
-         <span class="n">U0</span>       <span class="p">(</span><span class="n">V1</span><span class="p">)</span>                   <span class="n">Ud</span>
-         <span class="o">|</span>         <span class="o">|</span>                    <span class="o">|</span>
-         <span class="o">|</span> <span class="n">N0</span>      <span class="o">|</span> <span class="n">N1</span>                 <span class="o">|</span> <span class="n">N</span><span class="p">(</span><span class="n">d</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-         <span class="o">|</span>         <span class="o">|</span>                    <span class="o">|</span>
-</pre></div>
-</div>
-<p>A tangent vector can be written as the sum of all of the tensor diagrams above.
-In this case, the base cores are representations of the point where the
-tangent space attaches to the manifold, and the variation cores define the
-tangent vector with respect to the base cores.</p>
-<dl class="simple">
-<dt>Often, it is desirable for the base cores to be <strong>orthogonal</strong> as follows:</dt><dd><ul class="simple">
-<li><p>up_tucker_cores   = (U0,…,U(d-1)), orthogonal:       U_ia U_ja = delta_ij</p></li>
-<li><p>left_tt_cores     = (L0,…,L(d-1)), left-orthogonal:  L_abi L_abj = delta_ij</p></li>
-<li><p>right_tt_cores    = (R0,…,R(d-1)), right-orthogonal  R_ibc R_jbc = delta_ij</p></li>
-<li><p>outer_tt_cores    = (O0,…,O(d-1)), outer-orthogonal  O_aib O_ajb = delta_ij</p></li>
-</ul>
-</dd>
-<dt>Often, it is desirable for the variations to satisfy the following <strong>Gauge conditions</strong>:</dt><dd><ul class="simple">
-<li><p>U_ia V_ja = 0    (all V)</p></li>
-<li><p>L_abi H_abj = 0  (all but the last H)</p></li>
-</ul>
-</dd>
-</dl>
-<p>If these conditions are satisfied, then one can do “dumb” corewise linear algebra backend
-(add, scale, dot product, etc) with the variations, and those backend faithfully correspond
-to linear algebra backend with the N1 x … x Nd tangent vectors represented by the variations.</p>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p><a class="reference internal" href="#t3toolbox.base_variation_format.T3Variation" title="t3toolbox.base_variation_format.T3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Variation</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3_base</span></code>, <a class="reference internal" href="../../orthogonal_representations/index.html#module-orthogonal_representations" title="orthogonal_representations"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonal_representations</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">oblique_gauge_projection</span></code></p>
-</div>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.base_variation_format</span> <span class="k">as</span> <span class="nn">bvf</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span> <span class="mi">14</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">11</span><span class="p">,</span> <span class="mi">15</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">12</span><span class="p">,</span> <span class="mi">16</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">left_tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">3</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span><span class="mi">12</span><span class="p">,</span><span class="mi">5</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">right_tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">4</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">5</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">5</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">outer_tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">4</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">base</span> <span class="o">=</span> <span class="p">(</span><span class="n">tucker_cores</span><span class="p">,</span> <span class="n">left_tt_cores</span><span class="p">,</span> <span class="n">right_tt_cores</span><span class="p">,</span> <span class="n">outer_tt_cores</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">bvf</span><span class="o">.</span><span class="n">get_base_structure</span><span class="p">(</span><span class="n">base</span><span class="p">))</span>
-<span class="go">((14, 15, 16), (10, 11, 12), (9, 8, 7), (1, 2, 3, 5), (2, 4, 5, 1))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">bvf</span><span class="o">.</span><span class="n">base_hole_shapes</span><span class="p">(</span><span class="n">base</span><span class="p">))</span>
-<span class="go">(((9, 14), (8, 15), (7, 16)), ((1, 10, 2), (2, 11, 4), (3, 12, 5)))</span>
-</pre></div>
-</div>
-</dd></dl>
-
-<dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.base_variation_format.T3Variation">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.base_variation_format.</span></span><span class="sig-name descname"><span class="pre">T3Variation</span></span><a class="headerlink" href="#t3toolbox.base_variation_format.T3Variation" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.basis_coordinate_format.T3Variation">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.basis_coordinate_format.</span></span><span class="sig-name descname"><span class="pre">T3Variation</span></span><a class="headerlink" href="#t3toolbox.basis_coordinate_format.T3Variation" title="Link to this definition">#</a></dt>
 <dd><p>Tuple containing variation cores for base-variation representation of TuckerTensorTrains.</p>
 <dl class="simple">
 <dt><em>Components</em></dt><dd><ul class="simple">
@@ -715,7 +625,7 @@ to linear algebra backend with the N1 x … x Nd tangent vectors represented by 
 <p>The variation components should fit in the “holes” of a T3Base.</p>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
-<p><a class="reference internal" href="#t3toolbox.base_variation_format.T3Base" title="t3toolbox.base_variation_format.T3Base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Base</span></code></a>, <a class="reference internal" href="check_t3variation.html#t3toolbox.base_variation_format.check_t3variation" title="t3toolbox.base_variation_format.check_t3variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3variation</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">hole_shapes</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">check_fit</span></code></p>
+<p><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Base</span></code>, <a class="reference internal" href="check_t3variation.html#t3toolbox.basis_coordinate_format.check_t3variation" title="t3toolbox.basis_coordinate_format.check_t3variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_t3variation</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">hole_shapes</span></code>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">check_fit</span></code></p>
 </div>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
@@ -738,8 +648,8 @@ to linear algebra backend with the N1 x … x Nd tangent vectors represented by 
 </dd></dl>
 
 <dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.base_variation_format.BVStructure">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.base_variation_format.</span></span><span class="sig-name descname"><span class="pre">BVStructure</span></span><a class="headerlink" href="#t3toolbox.base_variation_format.BVStructure" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.basis_coordinate_format.BVStructure">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.basis_coordinate_format.</span></span><span class="sig-name descname"><span class="pre">BVStructure</span></span><a class="headerlink" href="#t3toolbox.basis_coordinate_format.BVStructure" title="Link to this definition">#</a></dt>
 <dd><p>Shape and rank structure of a base-variation T3 representation.</p>
 <dl class="simple">
 <dt><em>Components</em></dt><dd><ul class="simple">
@@ -754,13 +664,13 @@ to linear algebra backend with the N1 x … x Nd tangent vectors represented by 
 <p>The variation components should fit in the “holes” of a T3Base.</p>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
-<p><a class="reference internal" href="#t3toolbox.base_variation_format.T3Base" title="t3toolbox.base_variation_format.T3Base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Base</span></code></a>, <a class="reference internal" href="#t3toolbox.base_variation_format.T3Variation" title="t3toolbox.base_variation_format.T3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Variation</span></code></a></p>
+<p><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Base</span></code>, <a class="reference internal" href="#t3toolbox.basis_coordinate_format.T3Variation" title="t3toolbox.basis_coordinate_format.T3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Variation</span></code></a></p>
 </div>
 </dd></dl>
 
 <dl class="py data">
-<dt class="sig sig-object py" id="t3toolbox.base_variation_format.BVEdgeWeights">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.base_variation_format.</span></span><span class="sig-name descname"><span class="pre">BVEdgeWeights</span></span><a class="headerlink" href="#t3toolbox.base_variation_format.BVEdgeWeights" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.basis_coordinate_format.BVEdgeWeights">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.basis_coordinate_format.</span></span><span class="sig-name descname"><span class="pre">BVEdgeWeights</span></span><a class="headerlink" href="#t3toolbox.basis_coordinate_format.BVEdgeWeights" title="Link to this definition">#</a></dt>
 <dd><p>Edge weights for base-variation format.</p>
 <p>Tensor network diagrams illustrating edge weights:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">1</span><span class="o">--</span><span class="n">wL0</span><span class="o">--</span><span class="n">L0</span><span class="o">--</span><span class="n">wL1</span><span class="o">--</span><span class="n">H1</span><span class="o">--</span><span class="n">wR2</span><span class="o">--</span><span class="n">R2</span><span class="o">--</span><span class="n">wR3</span><span class="o">--</span><span class="mi">1</span>
@@ -801,7 +711,7 @@ to linear algebra backend with the N1 x … x Nd tangent vectors represented by 
 </dl>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
-<p><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3tools.tucker_tensor_train.EdgeWeights</span></code>, <a class="reference internal" href="#t3toolbox.base_variation_format.T3Variation" title="t3toolbox.base_variation_format.T3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Variation</span></code></a>, <a class="reference internal" href="#t3toolbox.base_variation_format.T3Base" title="t3toolbox.base_variation_format.T3Base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Base</span></code></a></p>
+<p><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3tools.tucker_tensor_train.EdgeWeights</span></code>, <a class="reference internal" href="#t3toolbox.basis_coordinate_format.T3Variation" title="t3toolbox.basis_coordinate_format.T3Variation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Variation</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Base</span></code></p>
 </div>
 </dd></dl>
 
@@ -828,11 +738,11 @@ to linear algebra backend with the N1 x … x Nd tangent vectors represented by 
       </div>
     </a>
     <a class="right-next"
-       href="get_base_structure.html"
+       href="T3Basis.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.base_variation_format.get_base_structure</p>
+        <p class="prev-next-title">t3toolbox.basis_coordinate_format.T3Basis</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -856,12 +766,12 @@ to linear algebra backend with the N1 x … x Nd tangent vectors represented by 
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#attributes">Attributes</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#classes">Classes</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#functions">Functions</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#module-contents">Module Contents</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.base_variation_format.T3Base"><code class="docutils literal notranslate"><span class="pre">T3Base</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.base_variation_format.T3Variation"><code class="docutils literal notranslate"><span class="pre">T3Variation</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.base_variation_format.BVStructure"><code class="docutils literal notranslate"><span class="pre">BVStructure</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.base_variation_format.BVEdgeWeights"><code class="docutils literal notranslate"><span class="pre">BVEdgeWeights</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_coordinate_format.T3Variation"><code class="docutils literal notranslate"><span class="pre">T3Variation</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_coordinate_format.BVStructure"><code class="docutils literal notranslate"><span class="pre">BVStructure</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_coordinate_format.BVEdgeWeights"><code class="docutils literal notranslate"><span class="pre">BVEdgeWeights</span></code></a></li>
 </ul>
 </li>
 </ul>
@@ -870,7 +780,7 @@ to linear algebra backend with the N1 x … x Nd tangent vectors represented by 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/base_variation_format/index.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/basis_coordinate_format/index.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

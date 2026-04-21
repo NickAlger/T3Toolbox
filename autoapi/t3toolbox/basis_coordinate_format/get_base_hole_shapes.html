@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.base_variation_format.get_base_structure &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.basis_coordinate_format.get_base_hole_shapes &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/base_variation_format/get_base_structure';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/basis_coordinate_format/get_base_hole_shapes';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3toolbox.base_variation_format.get_variation_shapes" href="get_variation_shapes.html" />
-    <link rel="prev" title="t3toolbox.base_variation_format" href="index.html" />
+    <link rel="next" title="t3toolbox.basis_coordinate_format.ith_bv_to_t3" href="ith_bv_to_t3.html" />
+    <link rel="prev" title="t3toolbox.basis_coordinate_format.get_variation_shapes" href="get_variation_shapes.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -373,14 +373,14 @@
 </details></li>
 </ul>
 </details></li>
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.base_variation_format</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.base_variation_format.get_base_structure</a></li>
-<li class="toctree-l3"><a class="reference internal" href="get_variation_shapes.html">t3toolbox.base_variation_format.get_variation_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="get_base_hole_shapes.html">t3toolbox.base_variation_format.get_base_hole_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="ith_bv_to_t3.html">t3toolbox.base_variation_format.ith_bv_to_t3</a></li>
-<li class="toctree-l3"><a class="reference internal" href="check_t3base.html">t3toolbox.base_variation_format.check_t3base</a></li>
-<li class="toctree-l3"><a class="reference internal" href="check_t3variation.html">t3toolbox.base_variation_format.check_t3variation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_orthogonal_representations.html">t3toolbox.base_variation_format.t3_orthogonal_representations</a></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.basis_coordinate_format</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="T3Basis.html">t3toolbox.basis_coordinate_format.T3Basis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="get_base_structure.html">t3toolbox.basis_coordinate_format.get_base_structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="get_variation_shapes.html">t3toolbox.basis_coordinate_format.get_variation_shapes</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.basis_coordinate_format.get_base_hole_shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ith_bv_to_t3.html">t3toolbox.basis_coordinate_format.ith_bv_to_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="check_t3variation.html">t3toolbox.basis_coordinate_format.check_t3variation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3_orthogonal_representations.html">t3toolbox.basis_coordinate_format.t3_orthogonal_representations</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../corewise/index.html">t3toolbox.corewise</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -533,9 +533,9 @@
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">t3toolbox</a></li>
     
     
-    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.base_variation_format</a></li>
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.basis_coordinate_format</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.base_variation_format.get_base_structure</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.basis_coordinate_format.get_base_hole_shapes</span></li>
   </ul>
 </nav>
 </div>
@@ -552,26 +552,64 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="t3toolbox-base-variation-format-get-base-structure">
-<h1>t3toolbox.base_variation_format.get_base_structure<a class="headerlink" href="#t3toolbox-base-variation-format-get-base-structure" title="Link to this heading">#</a></h1>
+  <section id="t3toolbox-basis-coordinate-format-get-base-hole-shapes">
+<h1>t3toolbox.basis_coordinate_format.get_base_hole_shapes<a class="headerlink" href="#t3toolbox-basis-coordinate-format-get-base-hole-shapes" title="Link to this heading">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3toolbox.base_variation_format.get_base_structure">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.base_variation_format.</span></span><span class="sig-name descname"><span class="pre">get_base_structure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#t3toolbox.base_variation_format.T3Base" title="t3toolbox.base_variation_format.T3Base"><span class="pre">T3Base</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="index.html#t3toolbox.base_variation_format.BVStructure" title="t3toolbox.base_variation_format.BVStructure"><span class="pre">BVStructure</span></a></span></span><a class="headerlink" href="#t3toolbox.base_variation_format.get_base_structure" title="Link to this definition">#</a></dt>
-<dd><p>Get the edge structure of a base-variation representation of a Tucker tensor train from the base.</p>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p><a class="reference internal" href="index.html#t3toolbox.base_variation_format.T3Base" title="t3toolbox.base_variation_format.T3Base"><code class="xref py py-obj docutils literal notranslate"><span class="pre">T3Base</span></code></a></p>
+<dt class="sig sig-object py" id="t3toolbox.basis_coordinate_format.get_base_hole_shapes">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.basis_coordinate_format.</span></span><span class="sig-name descname"><span class="pre">get_base_hole_shapes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">T3Base</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.basis_coordinate_format.get_base_hole_shapes" title="Link to this definition">#</a></dt>
+<dd><p>T3Variation backend shapes that fit with given T3Base.</p>
+<p>Shapes of the “holes” in the following tensor diagrams:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">1</span> <span class="o">--</span> <span class="n">L0</span> <span class="o">--</span> <span class="p">(</span> <span class="p">)</span> <span class="o">--</span> <span class="n">R2</span> <span class="o">--</span> <span class="n">R3</span> <span class="o">--</span> <span class="mi">1</span>
+     <span class="o">|</span>      <span class="o">|</span>      <span class="o">|</span>      <span class="o">|</span>
+     <span class="n">U0</span>     <span class="n">U1</span>     <span class="n">U2</span>     <span class="n">U3</span>
+     <span class="o">|</span>      <span class="o">|</span>      <span class="o">|</span>      <span class="o">|</span>
+
+<span class="mi">1</span> <span class="o">--</span> <span class="n">L0</span> <span class="o">--</span> <span class="n">L1</span> <span class="o">--</span> <span class="n">O2</span> <span class="o">--</span> <span class="n">R3</span> <span class="o">--</span> <span class="mi">1</span>
+     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
+     <span class="n">U0</span>    <span class="n">U1</span>    <span class="p">(</span> <span class="p">)</span>   <span class="n">U3</span>
+     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
+</pre></div>
 </div>
+<dl class="simple">
+<dt>Here:</dt><dd><ul class="simple">
+<li><p>tucker_cores      = (U0, U1, U2, U3)</p></li>
+<li><p>left_tt_cores     = (L0, L1, L2, L3)</p></li>
+<li><p>right_tt_cores    = (R0, R1, R2, R3)</p></li>
+<li><p>outer_tt_cores    = (O0, O1, O2, O3)</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>base</strong> (<em>T3Base</em>) – Base cores</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><em>typ.Tuple[int,…]</em> – Variation Tucker backend shapes. len=d. elm_len=2</p></li>
+<li><p><em>typ.Tuple[int,…]</em> – Variation TT backend shapes. len=d. elm_len=3</p></li>
+</ul>
+</p>
+</dd>
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>RuntimeError</strong> – <ul class="simple">
+<li><p>Error raised if any base_core shapes are inconsistent</p></li>
+</ul>
+</p>
+</dd>
+</dl>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.base_variation_format</span> <span class="k">as</span> <span class="nn">bvf</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span> <span class="mi">14</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">11</span><span class="p">,</span> <span class="mi">15</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">12</span><span class="p">,</span> <span class="mi">16</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">left_tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">3</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="mi">12</span><span class="p">,</span><span class="mi">5</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">right_tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="mi">4</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">5</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">5</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">outer_tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">4</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span><span class="mi">14</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">11</span><span class="p">,</span><span class="mi">15</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">12</span><span class="p">,</span><span class="mi">16</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">left_tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="mi">2</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span><span class="mi">11</span><span class="p">,</span><span class="mi">3</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span><span class="mi">12</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">right_tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="mi">4</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span><span class="mi">11</span><span class="p">,</span><span class="mi">5</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">5</span><span class="p">,</span><span class="mi">12</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">outer_tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="mi">9</span><span class="p">,</span><span class="mi">4</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span><span class="mi">8</span><span class="p">,</span><span class="mi">5</span><span class="p">)),</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">3</span><span class="p">,</span><span class="mi">7</span><span class="p">,</span><span class="mi">1</span><span class="p">)))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">base</span> <span class="o">=</span> <span class="p">(</span><span class="n">tucker_cores</span><span class="p">,</span> <span class="n">left_tt_cores</span><span class="p">,</span> <span class="n">right_tt_cores</span><span class="p">,</span> <span class="n">outer_tt_cores</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">bvf</span><span class="o">.</span><span class="n">get_base_structure</span><span class="p">(</span><span class="n">base</span><span class="p">))</span>
-<span class="go">((14, 15, 16), (10, 11, 12), (9, 8, 7), (1, 2, 3), (4, 5, 1))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">var_tucker_shapes</span><span class="p">,</span> <span class="n">var_tt_shapes</span><span class="p">)</span> <span class="o">=</span> <span class="n">bvf</span><span class="o">.</span><span class="n">get_base_hole_shapes</span><span class="p">(</span><span class="n">base</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">var_tucker_shapes</span><span class="p">)</span>
+<span class="go">((9, 14), (8, 15), (7, 16))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">var_tt_shapes</span><span class="p">)</span>
+<span class="go">((1, 10, 4), (2, 11, 5), (3, 12, 1))</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -589,20 +627,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="index.html"
+       href="get_variation_shapes.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.base_variation_format</p>
+        <p class="prev-next-title">t3toolbox.basis_coordinate_format.get_variation_shapes</p>
       </div>
     </a>
     <a class="right-next"
-       href="get_variation_shapes.html"
+       href="ith_bv_to_t3.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.base_variation_format.get_variation_shapes</p>
+        <p class="prev-next-title">t3toolbox.basis_coordinate_format.ith_bv_to_t3</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -625,14 +663,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.base_variation_format.get_base_structure"><code class="docutils literal notranslate"><span class="pre">t3toolbox.base_variation_format.get_base_structure()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_coordinate_format.get_base_hole_shapes"><code class="docutils literal notranslate"><span class="pre">t3toolbox.basis_coordinate_format.get_base_hole_shapes()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/base_variation_format/get_base_structure.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/basis_coordinate_format/get_base_hole_shapes.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

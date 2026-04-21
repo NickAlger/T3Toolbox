@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.base_variation_format.ith_bv_to_t3 &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.basis_coordinate_format.t3_orthogonal_representations &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/base_variation_format/ith_bv_to_t3';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/basis_coordinate_format/t3_orthogonal_representations';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3toolbox.base_variation_format.check_t3base" href="check_t3base.html" />
-    <link rel="prev" title="t3toolbox.base_variation_format.get_base_hole_shapes" href="get_base_hole_shapes.html" />
+    <link rel="next" title="t3toolbox.corewise" href="../corewise/index.html" />
+    <link rel="prev" title="t3toolbox.basis_coordinate_format.check_t3variation" href="check_t3variation.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -373,14 +373,14 @@
 </details></li>
 </ul>
 </details></li>
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.base_variation_format</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3"><a class="reference internal" href="get_base_structure.html">t3toolbox.base_variation_format.get_base_structure</a></li>
-<li class="toctree-l3"><a class="reference internal" href="get_variation_shapes.html">t3toolbox.base_variation_format.get_variation_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="get_base_hole_shapes.html">t3toolbox.base_variation_format.get_base_hole_shapes</a></li>
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.base_variation_format.ith_bv_to_t3</a></li>
-<li class="toctree-l3"><a class="reference internal" href="check_t3base.html">t3toolbox.base_variation_format.check_t3base</a></li>
-<li class="toctree-l3"><a class="reference internal" href="check_t3variation.html">t3toolbox.base_variation_format.check_t3variation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_orthogonal_representations.html">t3toolbox.base_variation_format.t3_orthogonal_representations</a></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.basis_coordinate_format</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="T3Basis.html">t3toolbox.basis_coordinate_format.T3Basis</a></li>
+<li class="toctree-l3"><a class="reference internal" href="get_base_structure.html">t3toolbox.basis_coordinate_format.get_base_structure</a></li>
+<li class="toctree-l3"><a class="reference internal" href="get_variation_shapes.html">t3toolbox.basis_coordinate_format.get_variation_shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="get_base_hole_shapes.html">t3toolbox.basis_coordinate_format.get_base_hole_shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ith_bv_to_t3.html">t3toolbox.basis_coordinate_format.ith_bv_to_t3</a></li>
+<li class="toctree-l3"><a class="reference internal" href="check_t3variation.html">t3toolbox.basis_coordinate_format.check_t3variation</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.basis_coordinate_format.t3_orthogonal_representations</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../corewise/index.html">t3toolbox.corewise</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -533,9 +533,9 @@
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">t3toolbox</a></li>
     
     
-    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.base_variation_format</a></li>
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.basis_coordinate_format</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.base_variation_format.ith_bv_to_t3</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.basis_coordinate_format.t3_orthogonal_representations</span></li>
   </ul>
 </nav>
 </div>
@@ -552,62 +552,129 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="t3toolbox-base-variation-format-ith-bv-to-t3">
-<h1>t3toolbox.base_variation_format.ith_bv_to_t3<a class="headerlink" href="#t3toolbox-base-variation-format-ith-bv-to-t3" title="Link to this heading">#</a></h1>
+  <section id="t3toolbox-basis-coordinate-format-t3-orthogonal-representations">
+<h1>t3toolbox.basis_coordinate_format.t3_orthogonal_representations<a class="headerlink" href="#t3toolbox-basis-coordinate-format-t3-orthogonal-representations" title="Link to this heading">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3toolbox.base_variation_format.ith_bv_to_t3">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.base_variation_format.</span></span><span class="sig-name descname"><span class="pre">ith_bv_to_t3</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">replacement_ind</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">replace_tt</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#t3toolbox.base_variation_format.T3Base" title="t3toolbox.base_variation_format.T3Base"><span class="pre">T3Base</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">variation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="index.html#t3toolbox.base_variation_format.T3Variation" title="t3toolbox.base_variation_format.T3Variation"><span class="pre">T3Variation</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain</span></a></span></span><a class="headerlink" href="#t3toolbox.base_variation_format.ith_bv_to_t3" title="Link to this definition">#</a></dt>
-<dd><p>Convert base-variation representation to TuckerTensorTrain.</p>
-<p>If replacement_ind=1, replace_tt=True:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">1</span> <span class="o">--</span> <span class="n">L0</span> <span class="o">--</span> <span class="n">H1</span> <span class="o">--</span> <span class="n">R2</span> <span class="o">--</span> <span class="n">R3</span> <span class="o">--</span> <span class="mi">1</span>
-     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
-     <span class="n">U0</span>    <span class="n">U1</span>    <span class="n">U2</span>    <span class="n">U3</span>
-     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
+<dt class="sig sig-object py" id="t3toolbox.basis_coordinate_format.t3_orthogonal_representations">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.basis_coordinate_format.</span></span><span class="sig-name descname"><span class="pre">t3_orthogonal_representations</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">already_left_orthogonal</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">squash_tails</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">T3Base</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="index.html#t3toolbox.basis_coordinate_format.T3Variation" title="t3toolbox.basis_coordinate_format.T3Variation"><span class="pre">T3Variation</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.basis_coordinate_format.t3_orthogonal_representations" title="Link to this definition">#</a></dt>
+<dd><p>Construct base-variation representations of TuckerTensorTrain with orthogonal base.</p>
+<p>Input TuckerTensorTrain:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>          <span class="mi">1</span> <span class="o">--</span> <span class="n">G0</span> <span class="o">--</span> <span class="n">G1</span> <span class="o">--</span> <span class="n">G2</span> <span class="o">--</span> <span class="n">G3</span> <span class="o">--</span> <span class="mi">1</span>
+<span class="n">X</span>    <span class="o">=</span>         <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
+               <span class="n">B0</span>    <span class="n">B1</span>    <span class="n">B2</span>    <span class="n">B3</span>
+               <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
 </pre></div>
 </div>
-<p>If replacement_ind=2, replace_tt=False:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">1</span> <span class="o">--</span> <span class="n">L0</span> <span class="o">--</span> <span class="n">L1</span> <span class="o">--</span> <span class="n">O2</span> <span class="o">--</span> <span class="n">R3</span> <span class="o">--</span> <span class="mi">1</span>
-     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
-     <span class="n">U0</span>    <span class="n">U1</span>    <span class="n">V2</span>    <span class="n">U3</span>
-     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
+<p>Base-variation representation with non-orthogonal TT-backend H1:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>          <span class="mi">1</span> <span class="o">--</span> <span class="n">L0</span> <span class="o">--</span> <span class="n">H1</span> <span class="o">--</span> <span class="n">R2</span> <span class="o">--</span> <span class="n">R3</span> <span class="o">--</span> <span class="mi">1</span>
+<span class="n">X</span>    <span class="o">=</span>         <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
+               <span class="n">U0</span>    <span class="n">U1</span>    <span class="n">U2</span>    <span class="n">U3</span>
+               <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
 </pre></div>
 </div>
+<p>Base-variation representation with non-orthogonal tucker backend V2:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>          <span class="mi">1</span> <span class="o">--</span> <span class="n">L0</span> <span class="o">--</span> <span class="n">L1</span> <span class="o">--</span> <span class="n">O2</span> <span class="o">--</span> <span class="n">R3</span> <span class="o">--</span> <span class="mi">1</span>
+<span class="n">X</span>    <span class="o">=</span>         <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
+               <span class="n">U0</span>    <span class="n">U1</span>    <span class="n">V2</span>    <span class="n">U3</span>
+               <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
+</pre></div>
+</div>
+<dl class="simple">
+<dt>The input tensor train x is defined by:</dt><dd><ul class="simple">
+<li><p>x_tucker_cores     = (B0, B1, B2, B3)</p></li>
+<li><p>x_tt_cores        = (G0, G1, G2, G3)</p></li>
+</ul>
+</dd>
+<dt>The “base cores” are:</dt><dd><ul class="simple">
+<li><p>tucker_cores       = (U0,U1, U2, U3), up orthogonal</p></li>
+<li><p>left_tt_cores     = (L0, L1, L2),     left orthogonal</p></li>
+<li><p>right_tt_cores    = (R1, R2, R3),     right orthogonal</p></li>
+<li><p>outer_tt_cores    = (O0, O1, O2, O3), down orthogonal</p></li>
+</ul>
+</dd>
+<dt>The “variation cores” are:</dt><dd><ul class="simple">
+<li><p>tucker_variations  = (V0, V1, V2, V3)</p></li>
+<li><p>tt_variations     = (H0, H1, H2, H3)</p></li>
+</ul>
+</dd>
+</dl>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>replacement_ind</strong> (<em>int</em>) – Index of backend to replace. 0 &lt;= replacement_ind &lt; num_cores</p></li>
-<li><p><strong>replace_tt</strong> (<em>bool</em>) – Indicates whether to replace a TT-backend (True) or a Tucker backend (False)</p></li>
-<li><p><strong>base</strong> (<a class="reference internal" href="index.html#t3toolbox.base_variation_format.T3Base" title="t3toolbox.base_variation_format.T3Base"><em>T3Base</em></a>) – Base cores</p></li>
-<li><p><strong>variation</strong> (<a class="reference internal" href="index.html#t3toolbox.base_variation_format.T3Variation" title="t3toolbox.base_variation_format.T3Variation"><em>T3Variation</em></a>) – Variation cores</p></li>
+<li><p><strong>x</strong> (<a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – Input TuckerTensorTrain
+x = (x_tucker_cores, x_tt_cores)
+x_tucker_cores = (B0, …, B(d-1))
+x_tt_cores = (G0, …, G(d-1))</p></li>
+<li><p><strong>xnp</strong> – Linear algebra backend. Default: np (numpy)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><p><strong>RuntimeError</strong> – <ul class="simple">
-<li><p>Error raised if the base is internally inconsistent</p></li>
-<li><p>Error raised if the variation is internally incorrect</p></li>
-<li><p>Error raised if the base and variation do not fit with each other</p></li>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><em>T3Base</em> – Orthogonal base for base-variation representations of x.</p></li>
+<li><p><em>T3Variation</em> – Variation for base-variation representaions of x.</p></li>
 </ul>
 </p>
 </dd>
 </dl>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.base_variation_format</span> <span class="k">as</span> <span class="nn">bvf</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">randn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span> <span class="c1"># shorthand</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">U0</span><span class="p">,</span><span class="n">U1</span><span class="p">,</span><span class="n">U2</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">14</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="mi">15</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">16</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">L0</span><span class="p">,</span><span class="n">L1</span><span class="p">,</span><span class="n">L2</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">12</span><span class="p">,</span><span class="mi">4</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">R0</span><span class="p">,</span><span class="n">R1</span><span class="p">,</span><span class="n">R2</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="mi">4</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">O0</span><span class="p">,</span><span class="n">O1</span><span class="p">,</span><span class="n">O2</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">base</span> <span class="o">=</span> <span class="p">((</span><span class="n">U0</span><span class="p">,</span><span class="n">U1</span><span class="p">,</span><span class="n">U2</span><span class="p">),</span> <span class="p">(</span><span class="n">L0</span><span class="p">,</span><span class="n">L1</span><span class="p">,</span><span class="n">L2</span><span class="p">),</span> <span class="p">(</span><span class="n">R0</span><span class="p">,</span><span class="n">R1</span><span class="p">,</span><span class="n">R2</span><span class="p">),</span> <span class="p">(</span><span class="n">O0</span><span class="p">,</span><span class="n">O1</span><span class="p">,</span><span class="n">O2</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">V0</span><span class="p">,</span><span class="n">V1</span><span class="p">,</span><span class="n">V2</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="n">randn</span><span class="p">(</span><span class="mi">9</span><span class="p">,</span><span class="mi">14</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span><span class="mi">15</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span><span class="mi">16</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">H0</span><span class="p">,</span><span class="n">H1</span><span class="p">,</span><span class="n">H2</span><span class="p">)</span> <span class="o">=</span> <span class="p">(</span><span class="n">randn</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="mi">4</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">11</span><span class="p">,</span><span class="mi">5</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">12</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">variation</span> <span class="o">=</span> <span class="p">((</span><span class="n">V0</span><span class="p">,</span><span class="n">V1</span><span class="p">,</span><span class="n">V2</span><span class="p">),</span> <span class="p">(</span><span class="n">H0</span><span class="p">,</span><span class="n">H1</span><span class="p">,</span><span class="n">H2</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="p">((</span><span class="n">B0</span><span class="p">,</span> <span class="n">B1</span><span class="p">,</span> <span class="n">B2</span><span class="p">),</span> <span class="p">(</span><span class="n">G0</span><span class="p">,</span> <span class="n">G1</span><span class="p">,</span> <span class="n">G2</span><span class="p">))</span> <span class="o">=</span> <span class="n">bvf</span><span class="o">.</span><span class="n">ith_bv_to_t3</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span> <span class="n">base</span><span class="p">,</span> <span class="n">variation</span><span class="p">)</span> <span class="c1"># replace index-1 TT-backend</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(((</span><span class="n">B0</span><span class="p">,</span><span class="n">B1</span><span class="p">,</span><span class="n">B2</span><span class="p">),</span> <span class="p">(</span><span class="n">G0</span><span class="p">,</span><span class="n">G1</span><span class="p">,</span><span class="n">G2</span><span class="p">))</span> <span class="o">==</span> <span class="p">((</span><span class="n">U0</span><span class="p">,</span><span class="n">U1</span><span class="p">,</span><span class="n">U2</span><span class="p">),</span> <span class="p">(</span><span class="n">L0</span><span class="p">,</span><span class="n">H1</span><span class="p">,</span><span class="n">R2</span><span class="p">)))</span>
-<span class="go">True</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="p">((</span><span class="n">B0</span><span class="p">,</span> <span class="n">B1</span><span class="p">,</span> <span class="n">B2</span><span class="p">),</span> <span class="p">(</span><span class="n">G0</span><span class="p">,</span> <span class="n">G1</span><span class="p">,</span> <span class="n">G2</span><span class="p">))</span> <span class="o">=</span> <span class="n">bvf</span><span class="o">.</span><span class="n">ith_bv_to_t3</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">base</span><span class="p">,</span> <span class="n">variation</span><span class="p">)</span> <span class="c1"># replace index-1 tucker backend</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(((</span><span class="n">B0</span><span class="p">,</span><span class="n">B1</span><span class="p">,</span><span class="n">B2</span><span class="p">),</span> <span class="p">(</span><span class="n">G0</span><span class="p">,</span><span class="n">G1</span><span class="p">,</span><span class="n">G2</span><span class="p">))</span> <span class="o">==</span> <span class="p">((</span><span class="n">U0</span><span class="p">,</span><span class="n">V1</span><span class="p">,</span><span class="n">U2</span><span class="p">),</span> <span class="p">(</span><span class="n">L0</span><span class="p">,</span><span class="n">O1</span><span class="p">,</span><span class="n">R2</span><span class="p">)))</span>
-<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">base</span><span class="p">,</span> <span class="n">variation</span> <span class="o">=</span> <span class="n">bvf</span><span class="o">.</span><span class="n">t3_orthogonal_representations</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="c1"># Compute orthogonal representations</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_cores</span><span class="p">,</span> <span class="n">left_tt_cores</span><span class="p">,</span> <span class="n">right_tt_cores</span><span class="p">,</span> <span class="n">outer_tt_cores</span> <span class="o">=</span> <span class="n">base</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_vars</span><span class="p">,</span> <span class="n">tt_vars</span> <span class="o">=</span> <span class="n">variation</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">U0</span><span class="p">,</span><span class="n">U1</span><span class="p">,</span><span class="n">U2</span><span class="p">)</span> <span class="o">=</span> <span class="n">tucker_cores</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">L0</span><span class="p">,</span><span class="n">L1</span><span class="p">,</span><span class="n">L2</span><span class="p">)</span> <span class="o">=</span> <span class="n">left_tt_cores</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">R0</span><span class="p">,</span><span class="n">R1</span><span class="p">,</span><span class="n">R2</span><span class="p">)</span> <span class="o">=</span> <span class="n">right_tt_cores</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">O0</span><span class="p">,</span><span class="n">O1</span><span class="p">,</span><span class="n">O2</span><span class="p">)</span> <span class="o">=</span> <span class="n">outer_tt_cores</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">V0</span><span class="p">,</span><span class="n">V1</span><span class="p">,</span><span class="n">V2</span><span class="p">)</span> <span class="o">=</span> <span class="n">tucker_vars</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">H0</span><span class="p">,</span><span class="n">H1</span><span class="p">,</span><span class="n">H2</span><span class="p">)</span> <span class="o">=</span> <span class="n">tt_vars</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x2</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="p">((</span><span class="n">U0</span><span class="p">,</span><span class="n">U1</span><span class="p">,</span><span class="n">U2</span><span class="p">),</span> <span class="p">(</span><span class="n">L0</span><span class="p">,</span><span class="n">H1</span><span class="p">,</span><span class="n">R2</span><span class="p">))</span> <span class="c1"># representation with TT-backend variation in index 1</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">-</span> <span class="n">x2</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()))</span> <span class="c1"># Still represents origional tensor</span>
+<span class="go">4.978421562425667e-12</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x3</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="p">((</span><span class="n">U0</span><span class="p">,</span><span class="n">V1</span><span class="p">,</span><span class="n">U2</span><span class="p">),</span> <span class="p">(</span><span class="n">L0</span><span class="p">,</span><span class="n">O1</span><span class="p">,</span><span class="n">R2</span><span class="p">))</span> <span class="c1"># representation with tucker backend variation in index 1</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">-</span> <span class="n">x3</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()))</span> <span class="c1"># Still represents origional tensor</span>
+<span class="go">5.4355175448533146e-12</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">U1</span> <span class="o">@</span> <span class="n">U1</span><span class="o">.</span><span class="n">T</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">U1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])))</span> <span class="c1"># U: orthogonal</span>
+<span class="go">1.1915111872574236e-15</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;iaj,iak-&gt;jk&#39;</span><span class="p">,</span> <span class="n">L1</span><span class="p">,</span> <span class="n">L1</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">L1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">])))</span> <span class="c1"># L: left orthogonal</span>
+<span class="go">9.733823879665448e-16</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;iaj,kaj-&gt;ik&#39;</span><span class="p">,</span> <span class="n">R1</span><span class="p">,</span> <span class="n">R1</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">R1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])))</span> <span class="c1"># R: right orthogonal</span>
+<span class="go">8.027553546330097e-16</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;iaj,ibj-&gt;ab&#39;</span><span class="p">,</span> <span class="n">O1</span><span class="p">,</span> <span class="n">O1</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">O1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])))</span> <span class="c1"># O: outer orthogonal</span>
+<span class="go">1.3870474292323159e-15</span>
+</pre></div>
+</div>
+<p>Example where r0 and rd are not 1:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="kn">import</span> <span class="n">TuckerTensorTrain</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.orthogonalization</span> <span class="k">as</span> <span class="nn">orth</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">base</span><span class="p">,</span> <span class="n">variation</span> <span class="o">=</span> <span class="n">bvf</span><span class="o">.</span><span class="n">t3_orthogonal_representations</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="c1"># Compute orthogonal representations</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_cores</span><span class="p">,</span> <span class="n">left_tt_cores</span><span class="p">,</span> <span class="n">right_tt_cores</span><span class="p">,</span> <span class="n">outer_tt_cores</span> <span class="o">=</span> <span class="n">base</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_vars</span><span class="p">,</span> <span class="n">tt_vars</span> <span class="o">=</span> <span class="n">variation</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">U0</span><span class="p">,</span><span class="n">U1</span><span class="p">,</span><span class="n">U2</span><span class="p">)</span> <span class="o">=</span> <span class="n">tucker_cores</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">L0</span><span class="p">,</span><span class="n">L1</span><span class="p">,</span><span class="n">L2</span><span class="p">)</span> <span class="o">=</span> <span class="n">left_tt_cores</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">R0</span><span class="p">,</span><span class="n">R1</span><span class="p">,</span><span class="n">R2</span><span class="p">)</span> <span class="o">=</span> <span class="n">right_tt_cores</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">O0</span><span class="p">,</span><span class="n">O1</span><span class="p">,</span><span class="n">O2</span><span class="p">)</span> <span class="o">=</span> <span class="n">outer_tt_cores</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">V0</span><span class="p">,</span><span class="n">V1</span><span class="p">,</span><span class="n">V2</span><span class="p">)</span> <span class="o">=</span> <span class="n">tucker_vars</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">H0</span><span class="p">,</span><span class="n">H1</span><span class="p">,</span><span class="n">H2</span><span class="p">)</span> <span class="o">=</span> <span class="n">tt_vars</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x2</span> <span class="o">=</span> <span class="n">TuckerTensorTrain</span><span class="p">((</span><span class="n">U0</span><span class="p">,</span><span class="n">U1</span><span class="p">,</span><span class="n">U2</span><span class="p">),</span> <span class="p">(</span><span class="n">L0</span><span class="p">,</span><span class="n">H1</span><span class="p">,</span><span class="n">R2</span><span class="p">))</span> <span class="c1"># representation with TT-backend variation in index 1</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">-</span> <span class="n">x2</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()))</span> <span class="c1"># Still represents origional tensor</span>
+<span class="go">2.5341562994067855e-12</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x3</span> <span class="o">=</span> <span class="n">TuckerTensorTrain</span><span class="p">((</span><span class="n">V0</span><span class="p">,</span><span class="n">U1</span><span class="p">,</span><span class="n">U2</span><span class="p">),</span> <span class="p">(</span><span class="n">O0</span><span class="p">,</span><span class="n">R1</span><span class="p">,</span><span class="n">R2</span><span class="p">))</span> <span class="c1"># representation with tucker backend variation in index 0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">-</span> <span class="n">x3</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()))</span> <span class="c1"># Still represents origional tensor</span>
+<span class="go">2.9206090606788446e-12</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">U0</span> <span class="o">@</span> <span class="n">U0</span><span class="o">.</span><span class="n">T</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">U0</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])))</span> <span class="c1"># U: orthogonal</span>
+<span class="go">1.675264510304594e-15</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;iaj,iak-&gt;jk&#39;</span><span class="p">,</span> <span class="n">L0</span><span class="p">,</span> <span class="n">L0</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">L0</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">2</span><span class="p">])))</span> <span class="c1"># L: left orthogonal</span>
+<span class="go">9.046146325204653e-16</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;iaj,kaj-&gt;ik&#39;</span><span class="p">,</span> <span class="n">R2</span><span class="p">,</span> <span class="n">R2</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">R2</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])))</span> <span class="c1"># R: right orthogonal</span>
+<span class="go">1.1775693440128312e-16</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;iaj,ibj-&gt;ab&#39;</span><span class="p">,</span> <span class="n">O0</span><span class="p">,</span> <span class="n">O0</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">O0</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">])))</span> <span class="c1"># O: outer orthogonal</span>
+<span class="go">1.2300840868850519e-15</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -625,20 +692,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="get_base_hole_shapes.html"
+       href="check_t3variation.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.base_variation_format.get_base_hole_shapes</p>
+        <p class="prev-next-title">t3toolbox.basis_coordinate_format.check_t3variation</p>
       </div>
     </a>
     <a class="right-next"
-       href="check_t3base.html"
+       href="../corewise/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.base_variation_format.check_t3base</p>
+        <p class="prev-next-title">t3toolbox.corewise</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -661,14 +728,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.base_variation_format.ith_bv_to_t3"><code class="docutils literal notranslate"><span class="pre">t3toolbox.base_variation_format.ith_bv_to_t3()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_coordinate_format.t3_orthogonal_representations"><code class="docutils literal notranslate"><span class="pre">t3toolbox.basis_coordinate_format.t3_orthogonal_representations()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/base_variation_format/ith_bv_to_t3.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/basis_coordinate_format/t3_orthogonal_representations.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

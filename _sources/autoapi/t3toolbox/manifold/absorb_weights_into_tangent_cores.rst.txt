@@ -1,7 +1,7 @@
 t3toolbox.manifold.absorb_weights_into_tangent_cores
 ====================================================
 
-.. py:function:: t3toolbox.manifold.absorb_weights_into_tangent_cores(variation: Union[t3toolbox.base_variation_format.T3Variation, t3toolbox.OLD_uniform.UniformT3Variation], base: Union[t3toolbox.base_variation_format.T3Base, t3toolbox.OLD_uniform.UniformT3Base], edge_weights: Union[t3toolbox.base_variation_format.BVEdgeWeights, t3toolbox.OLD_uniform.UniformEdgeWeights] = (None, None, None, None), use_jax: bool = False) -> Tuple[Union[t3toolbox.base_variation_format.T3Variation, t3toolbox.OLD_uniform.UniformT3Variation], Union[t3toolbox.base_variation_format.T3Base, t3toolbox.OLD_uniform.UniformT3Base]]
+.. py:function:: t3toolbox.manifold.absorb_weights_into_tangent_cores(variation: Union[t3toolbox.basis_coordinate_format.T3Variation, t3toolbox.OLD_uniform.UniformT3Variation], base: Union[t3toolbox.basis_coordinate_format.T3Base, t3toolbox.OLD_uniform.UniformT3Base], edge_weights: Union[t3toolbox.basis_coordinate_format.BVEdgeWeights, t3toolbox.OLD_uniform.UniformEdgeWeights] = (None, None, None, None), use_jax: bool = False) -> Tuple[Union[t3toolbox.basis_coordinate_format.T3Variation, t3toolbox.OLD_uniform.UniformT3Variation], Union[t3toolbox.basis_coordinate_format.T3Base, t3toolbox.OLD_uniform.UniformT3Base]]
 
    Contract edge weights with neighboring cores in base-variation representation.
 

@@ -1,7 +1,7 @@
 t3toolbox.manifold.project_t3_onto_tangent_space
 ================================================
 
-.. py:function:: t3toolbox.manifold.project_t3_onto_tangent_space(x: Union[t3toolbox.tucker_tensor_train.TuckerTensorTrain, t3toolbox.OLD_uniform.UniformTuckerTensorTrain], orthogonal_base: Union[t3toolbox.base_variation_format.T3Base, t3toolbox.OLD_uniform.UniformT3Base], use_jax: bool = False) -> t3toolbox.base_variation_format.T3Variation
+.. py:function:: t3toolbox.manifold.project_t3_onto_tangent_space(x: Union[t3toolbox.tucker_tensor_train.TuckerTensorTrain, t3toolbox.OLD_uniform.UniformTuckerTensorTrain], orthogonal_base: Union[t3toolbox.basis_coordinate_format.T3Base, t3toolbox.OLD_uniform.UniformT3Base], use_jax: bool = False) -> t3toolbox.basis_coordinate_format.T3Variation
 
    Projects TuckerTensorTrain onto tangent space to the manifold of fixed rank TuckerTensorTrains.
 
