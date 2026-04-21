@@ -1,7 +1,7 @@
-t3toolbox.basis_coordinate_format.t3_orthogonal_representations
-===============================================================
+t3toolbox.basis_coordinates_format.t3_orthogonal_representations
+================================================================
 
-.. py:function:: t3toolbox.basis_coordinate_format.t3_orthogonal_representations(x: t3toolbox.tucker_tensor_train.TuckerTensorTrain, already_left_orthogonal: bool = False, squash_tails: bool = True, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[T3Base, T3Variation]
+.. py:function:: t3toolbox.basis_coordinates_format.t3_orthogonal_representations(x: t3toolbox.tucker_tensor_train.TuckerTensorTrain, already_left_orthogonal: bool = False, squash_tails: bool = True, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[T3Base, T3Variation]
 
    Construct base-variation representations of TuckerTensorTrain with orthogonal base.
 

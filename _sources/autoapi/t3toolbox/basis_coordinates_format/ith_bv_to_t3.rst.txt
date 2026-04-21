@@ -1,7 +1,7 @@
-t3toolbox.basis_coordinate_format.ith_bv_to_t3
-==============================================
+t3toolbox.basis_coordinates_format.ith_bv_to_t3
+===============================================
 
-.. py:function:: t3toolbox.basis_coordinate_format.ith_bv_to_t3(replacement_ind: int, replace_tt: bool, base: T3Base, variation: T3Variation) -> t3toolbox.tucker_tensor_train.TuckerTensorTrain
+.. py:function:: t3toolbox.basis_coordinates_format.ith_bv_to_t3(replacement_ind: int, replace_tt: bool, base: T3Base, variation: T3Variation) -> t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
    Convert base-variation representation to TuckerTensorTrain.
 

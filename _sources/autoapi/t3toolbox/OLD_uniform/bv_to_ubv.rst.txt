@@ -1,4 +1,4 @@
 t3toolbox.OLD_uniform.bv_to_ubv
 ===============================
 
-.. py:function:: t3toolbox.OLD_uniform.bv_to_ubv(variation: t3toolbox.basis_coordinate_format.T3Variation, base: t3toolbox.basis_coordinate_format.T3Base, use_jax: bool = False) -> Tuple[UniformT3Variation, UniformT3Base, UniformBVEdgeWeights]
+.. py:function:: t3toolbox.OLD_uniform.bv_to_ubv(variation: t3toolbox.basis_coordinates_format.T3Variation, base: t3toolbox.basis_coordinates_format.T3Base, use_jax: bool = False) -> Tuple[UniformT3Variation, UniformT3Base, UniformBVEdgeWeights]

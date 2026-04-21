@@ -1,7 +1,7 @@
-t3toolbox.basis_coordinate_format.T3Basis
-=========================================
+t3toolbox.basis_coordinates_format.T3Basis
+==========================================
 
-.. py:class:: t3toolbox.basis_coordinate_format.T3Basis
+.. py:class:: t3toolbox.basis_coordinates_format.T3Basis
 
    Basis for basis-coordinates representation of TuckerTensorTrains
 
@@ -80,7 +80,7 @@ t3toolbox.basis_coordinate_format.T3Basis
    .. rubric:: Examples
 
    >>> import numpy as np
-   >>> import t3toolbox.basis_coordinate_format as bcf
+   >>> import t3toolbox.basis_coordinates_format as bcf
    >>> ss = (2,3)
    >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
    >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
@@ -133,9 +133,6 @@ t3toolbox.basis_coordinate_format.T3Basis
    .. py:method:: structure() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.typ.Tuple[int, Ellipsis]]
 
 
-   .. py:method:: data() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]]
-
-
    .. py:method:: coordinate_shapes() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], Ellipsis]]
 
       T3Coordinates shapes that fit with this T3Basis.
@@ -155,7 +152,7 @@ t3toolbox.basis_coordinate_format.T3Basis
       .. rubric:: Examples
 
       >>> import numpy as np
-      >>> import t3toolbox.basis_coordinate_format as bcf
+      >>> import t3toolbox.basis_coordinates_format as bcf
       >>> ss = (2,3) # not included in coordinate_shapes.
       >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
       >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
@@ -165,6 +162,9 @@ t3toolbox.basis_coordinate_format.T3Basis
       >>> print(basis.coordinate_shapes)
       (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
 
+
+
+   .. py:method:: data() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]]
 
 
    .. py:method:: validate() -> None

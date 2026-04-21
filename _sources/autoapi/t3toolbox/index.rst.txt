@@ -14,7 +14,7 @@ Submodules
    /autoapi/t3toolbox/OLD_uniform/index
    /autoapi/t3toolbox/OLD_uniform_orthogonalization/index
    /autoapi/t3toolbox/backend/index
-   /autoapi/t3toolbox/basis_coordinate_format/index
+   /autoapi/t3toolbox/basis_coordinates_format/index
    /autoapi/t3toolbox/corewise/index
    /autoapi/t3toolbox/manifold/index
    /autoapi/t3toolbox/tucker_tensor_train/index

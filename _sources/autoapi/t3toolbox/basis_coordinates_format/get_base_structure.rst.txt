@@ -1,7 +1,7 @@
-t3toolbox.basis_coordinate_format.get_base_structure
-====================================================
+t3toolbox.basis_coordinates_format.get_base_structure
+=====================================================
 
-.. py:function:: t3toolbox.basis_coordinate_format.get_base_structure(base: T3Base) -> BVStructure
+.. py:function:: t3toolbox.basis_coordinates_format.get_base_structure(base: T3Base) -> BVStructure
 
    Get the edge structure of a base-variation representation of a Tucker tensor train from the base.
 

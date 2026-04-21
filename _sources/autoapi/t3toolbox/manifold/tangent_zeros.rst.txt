@@ -1,7 +1,7 @@
 t3toolbox.manifold.tangent_zeros
 ================================
 
-.. py:function:: t3toolbox.manifold.tangent_zeros(base: t3toolbox.basis_coordinate_format.T3Base, use_jax: bool = False) -> t3toolbox.basis_coordinate_format.T3Variation
+.. py:function:: t3toolbox.manifold.tangent_zeros(base: t3toolbox.basis_coordinates_format.T3Base, use_jax: bool = False) -> t3toolbox.basis_coordinates_format.T3Variation
 
    Construct the zero vector in a Tucker tensor train tangent space.
 

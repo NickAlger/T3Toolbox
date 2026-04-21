@@ -1,7 +1,7 @@
 t3toolbox.manifold.oblique_gauge_projection
 ===========================================
 
-.. py:function:: t3toolbox.manifold.oblique_gauge_projection(variation: t3toolbox.basis_coordinate_format.T3Variation, orthogonal_base: t3toolbox.basis_coordinate_format.T3Base, use_jax: bool = False) -> t3toolbox.basis_coordinate_format.T3Variation
+.. py:function:: t3toolbox.manifold.oblique_gauge_projection(variation: t3toolbox.basis_coordinates_format.T3Variation, orthogonal_base: t3toolbox.basis_coordinates_format.T3Base, use_jax: bool = False) -> t3toolbox.basis_coordinates_format.T3Variation
 
    Makes variations left-perpendicular while preserving tangent vector.
 

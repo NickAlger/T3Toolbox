@@ -1,7 +1,7 @@
-t3toolbox.basis_coordinate_format
-=================================
+t3toolbox.basis_coordinates_format
+==================================
 
-.. py:module:: t3toolbox.basis_coordinate_format
+.. py:module:: t3toolbox.basis_coordinates_format
 
 
 Attributes
@@ -9,9 +9,9 @@ Attributes
 
 .. autoapisummary::
 
-   t3toolbox.basis_coordinate_format.T3Variation
-   t3toolbox.basis_coordinate_format.BVStructure
-   t3toolbox.basis_coordinate_format.BVEdgeWeights
+   t3toolbox.basis_coordinates_format.T3Variation
+   t3toolbox.basis_coordinates_format.BVStructure
+   t3toolbox.basis_coordinates_format.BVEdgeWeights
 
 
 Classes
@@ -20,11 +20,11 @@ Classes
 .. toctree::
    :hidden:
 
-   /autoapi/t3toolbox/basis_coordinate_format/T3Basis
+   /autoapi/t3toolbox/basis_coordinates_format/T3Basis
 
 .. autoapisummary::
 
-   t3toolbox.basis_coordinate_format.T3Basis
+   t3toolbox.basis_coordinates_format.T3Basis
 
 
 Functions
@@ -33,21 +33,19 @@ Functions
 .. toctree::
    :hidden:
 
-   /autoapi/t3toolbox/basis_coordinate_format/get_base_structure
-   /autoapi/t3toolbox/basis_coordinate_format/get_variation_shapes
-   /autoapi/t3toolbox/basis_coordinate_format/get_base_hole_shapes
-   /autoapi/t3toolbox/basis_coordinate_format/ith_bv_to_t3
-   /autoapi/t3toolbox/basis_coordinate_format/check_t3variation
-   /autoapi/t3toolbox/basis_coordinate_format/t3_orthogonal_representations
+   /autoapi/t3toolbox/basis_coordinates_format/get_base_structure
+   /autoapi/t3toolbox/basis_coordinates_format/get_variation_shapes
+   /autoapi/t3toolbox/basis_coordinates_format/get_base_hole_shapes
+   /autoapi/t3toolbox/basis_coordinates_format/ith_bv_to_t3
+   /autoapi/t3toolbox/basis_coordinates_format/t3_orthogonal_representations
 
 .. autoapisummary::
 
-   t3toolbox.basis_coordinate_format.get_base_structure
-   t3toolbox.basis_coordinate_format.get_variation_shapes
-   t3toolbox.basis_coordinate_format.get_base_hole_shapes
-   t3toolbox.basis_coordinate_format.ith_bv_to_t3
-   t3toolbox.basis_coordinate_format.check_t3variation
-   t3toolbox.basis_coordinate_format.t3_orthogonal_representations
+   t3toolbox.basis_coordinates_format.get_base_structure
+   t3toolbox.basis_coordinates_format.get_variation_shapes
+   t3toolbox.basis_coordinates_format.get_base_hole_shapes
+   t3toolbox.basis_coordinates_format.ith_bv_to_t3
+   t3toolbox.basis_coordinates_format.t3_orthogonal_representations
 
 
 Module Contents
