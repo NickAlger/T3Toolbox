@@ -135,6 +135,42 @@ t3toolbox.basis_coordinate_format.T3Basis
    .. py:method:: data() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]]
 
 
+   .. py:method:: coordinate_shapes() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], Ellipsis]]
+
+      T3Coordinates shapes that fit with this T3Basis.
+
+      Shapes of the "holes" in the following tensor diagrams::
+
+          1 -- L0 -- ( ) -- R2 -- R3 -- 1
+               |      |      |      |
+               U0     U1     U2     U3
+               |      |      |      |
+
+          1 -- L0 -- L1 -- O2 -- R3 -- 1
+               |     |     |     |
+               U0    U1    ( )   U3
+               |     |     |     |
+
+      :returns: * *typ.Tuple[int,...]* -- Tucker coordinate shapes. len=d. elm_len=2
+                * *typ.Tuple[int,...]* -- TT coordinate shapes. len=d. elm_len=3
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.base_variation_format as bvf
+      >>> tucker_cores = (np.ones((10,14)), np.ones((11,15)), np.ones((12,16)))
+      >>> left_tt_cores = (np.ones((1,10,2)), np.ones((2,11,3)), np.ones((3,12,1)))
+      >>> right_tt_cores = (np.ones((1,10,4)), np.ones((4,11,5)), np.ones((5,12,1)))
+      >>> outer_tt_cores = (np.ones((1,9,4)), np.ones((2,8,5)), np.ones((3,7,1)))
+      >>> base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+      >>> (var_tucker_shapes, var_tt_shapes) = bvf.get_base_hole_shapes(base)
+      >>> print(var_tucker_shapes)
+      ((9, 14), (8, 15), (7, 16))
+      >>> print(var_tt_shapes)
+      ((1, 10, 4), (2, 11, 5), (3, 12, 1))
+
+
+
    .. py:method:: validate() -> None
 
       Check rank and shape consistency of Tucker tensor train basis (`T3Basis`).
@@ -146,4 +182,7 @@ t3toolbox.basis_coordinate_format.T3Basis
 
       .. seealso:: :py:obj:`T3Basis`, :py:obj:`T3Coordinates`
 
+
+
+   .. py:method:: __post_init__()
 
