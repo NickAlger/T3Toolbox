@@ -6,8 +6,8 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.backend.contractions as contractions
-import t3toolbox.backend.tucker_tensor_train.ragged_t3_operations as ragged_ops
-import t3toolbox.backend.uniform_tucker_tensor_train.uniform_t3_operations as uniform_ops
+import t3toolbox.backend.tucker_tensor_train.t3_operations as ragged_ops
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_operations as uniform_ops
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -155,14 +155,14 @@ def probe_t3(
 
     For uniform T3:
 
-    >>> import numpy as np
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.backend.probing as t3p
     >>> import t3toolbox.uniform as ut3
     >>> import t3toolbox.corewise as cw
     >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
     >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-    >>> uniform_x, masks = ut3.t3_to_ut3(x)
+    >>> uniform_x, masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
     >>> inv_masks = cw.corewise_logical_not(masks)
     >>> junk = ut3.uniform_randn(ut3.get_uniform_structure(uniform_x), masks=inv_masks)
     >>> uniform_x = cw.corewise_add(uniform_x, junk) # Add random junk outside the masks

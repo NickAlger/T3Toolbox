@@ -7,8 +7,9 @@ import typing as typ
 import functools as ft
 from dataclasses import dataclass
 
+import t3toolbox.backend.basis_variations_format.bv_conversions
 import t3toolbox.uniform_tucker_tensor_train as ut3
-import t3toolbox.backend.bvf_conversions as bvf_ops
+import t3toolbox.backend.ubv_conversions as bvf_ops
 import t3toolbox.backend.orthogonal_representations as orth_reps
 import t3toolbox.backend.uniform_basis_variations_format.ubv_masking as masking
 from t3toolbox.backend.common import *
@@ -501,7 +502,7 @@ def ubv_to_ut3(
 
     Examples
     --------
-    >>> import numpy as np
+import t3toolbox.backend.basis_variations_format.bv_conversions    >>> import numpy as np
     >>> import t3toolbox.basis_variations_format as bcf
     >>> randn = np.random.randn # shorthand
     >>> (U0,U1,U2) = (randn(10, 14), randn(11, 15), randn(12, 16))
@@ -512,15 +513,15 @@ def ubv_to_ut3(
     >>> (V0,V1,V2) = (randn(9,14), randn(8,15), randn(7,16))
     >>> (H0,H1,H2) = (randn(1,10,4), randn(2,11,5), randn(3,12,1))
     >>> variations = bcf.T3Variations((V0,V1,V2), (H0,H1,H2))
-    >>> ((B0, B1, B2), (G0, G1, G2)) = bcf.bv_to_t3(1, True, base, variations).data # replace index-1 TT-backend
+    >>> ((B0, B1, B2), (G0, G1, G2)) = t3toolbox.backend.basis_variations_format.bv_conversions.bv_to_t3(1, True, base, variations).data # replace index-1 TT-backend
     >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,U1,U2), (L0,H1,R2)))
     True
-    >>> ((B0, B1, B2), (G0, G1, G2)) = bcf.bv_to_t3(1, False, base, variations).data # replace index-1 tucker backend
+import t3toolbox.backend.basis_variations_format.bv_conversions    >>> ((B0, B1, B2), (G0, G1, G2)) = t3toolbox.backend.basis_variations_format.bv_conversions.bv_to_t3(1, False, base, variations).data # replace index-1 tucker backend
     >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,O1,R2)))
     True
     '''
     check_basis_variations_pair(basis, variations)
-    return t3.TuckerTensorTrain(*bvf_ops.bv_to_t3(ii, use_tt_variation, basis.data, variations.data))
+    return t3.TuckerTensorTrain(*t3toolbox.backend.basis_variations_format.bv_conversions.bv_to_t3(ii, use_tt_variation, basis.data, variations.data))
 
 
 def ut3_orthogonal_representations(

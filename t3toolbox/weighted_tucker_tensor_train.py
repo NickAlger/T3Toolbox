@@ -11,7 +11,7 @@ import functools as ft
 from dataclasses import dataclass
 
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.backend.weighted_tucker_tensor_train.ragged_wt3_operations as ragged_wt3_operations
+import t3toolbox.backend.weighted_tucker_tensor_train.wt3_operations as ragged_wt3_operations
 from t3toolbox.backend.common import *
 
 jax = None

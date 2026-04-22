@@ -381,11 +381,11 @@ def get_uniform_structure(
 
     Examples
     --------
-    >>> import numpy as np
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
-    >>> cores, masks = ut3.t3_to_ut3(x)
+    >>> cores, masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
     >>> print(ut3.get_uniform_structure(cores))
     (3, 16, 6, 3)
     """
@@ -413,11 +413,11 @@ def get_original_structure(
 
     Examples
     --------
-    >>> import numpy as np
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
-    >>> cores, masks = ut3.t3_to_ut3(x)
+    >>> cores, masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
     >>> print(ut3.get_uniform_structure(cores))
     (3, 16, 6, 3)
     >>> print(ut3.get_original_structure(masks))
@@ -452,13 +452,13 @@ def apply_masks(
 
     Examples
     --------
-    >>> import numpy as np
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform as ut3
     >>> import t3toolbox.t3svd as t3svd
     >>> import t3toolbox.corewise as cw
     >>> x = t3.t3_corewise_randn(((10,11,12), (5,6,4), (1,3,5,1)))
-    >>> uniform_x, masks = ut3.t3_to_ut3(x)
+    >>> uniform_x, masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
     >>> uniform_x_svd, ss1, _ = t3svd.uniform_t3_svd(uniform_x, masks)
     >>> dense_x = t3.t3_to_dense(x)
     >>> print(np.linalg.norm(ut3.ut3_to_dense(uniform_x_svd, masks) - dense_x))
@@ -466,9 +466,9 @@ def apply_masks(
     >>> x_svd, ss2, _ = t3svd.t3svd(x)
     >>> print(np.linalg.norm(t3.t3_to_dense(x_svd) - dense_x))
     2.9361853188555994e-12
-    >>> x_svd_structure = t3.get_structure(x_svd)
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_masking    >>> x_svd_structure = t3.get_structure(x_svd)
     >>> uniform_x_svd_structure = ut3.get_uniform_structure(uniform_x_svd)
-    >>> masks2 = ut3.make_uniform_masks(x_svd_structure, uniform_x_svd_structure)
+    >>> masks2 = t3toolbox.backend.uniform_tucker_tensor_train.ut3_masking.make_uniform_masks(x_svd_structure, uniform_x_svd_structure)
     >>> print(np.linalg.norm(ut3.ut3_to_dense(uniform_x_svd, masks2) - dense_x))
     3.0208288525321468e-12
     >>> print(cw.corewise_relerr(ut3.apply_masks(uniform_x_svd, masks2), uniform_x_svd))
@@ -562,13 +562,13 @@ def uniform_squash_tails(
 
     Examples
     --------
-    >>> import numpy as np
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform as ut3
     >>> import t3toolbox.t3svd as t3svd
     >>> import t3toolbox.corewise as cw
     >>> x = t3.t3_corewise_randn(((10,11,12), (5,6,4), (1,3,5,1)))
-    >>> uniform_x, masks = ut3.t3_to_ut3(x)
+    >>> uniform_x, masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
     >>> uniform_x2 = ut3.uniform_squash_tails(uniform_x)
     >>> dense_ux = ut3.ut3_to_dense(uniform_x, masks)
     >>> dense_ux2 = ut3.ut3_to_dense(uniform_x2, masks)
@@ -676,7 +676,7 @@ def unpack(
     >>> _, _, ss_tt = t3svd.t3svd(x)
     >>> print(ss_tt[1])
     [2627.79225375  441.12769204  328.73617961]
-    >>> cores, masks = ut3.t3_to_ut3(x)
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> cores, masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
     >>> _, _, ss_tt_from_ut3 = ut3.ut3_svd(cores, masks)
     >>> print(ss_tt_from_ut3[1])
     [2627.79225375  441.12769204  328.73617961    0.            0.        ]
@@ -768,12 +768,12 @@ def t3_to_ut3(
 
     Examples
     --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform as ut3
     >>> x = t3.t3_corewise_randn(((14, 15, 16), (4, 6, 5), (3, 3, 2, 4)))
-    >>> cores, masks = ut3.t3_to_ut3(x)  # Convert t3 -> ut3
-    >>> x2 = ut3.ut3_to_t3(cores, masks)  # Convert ut3 -> t3
+    >>> cores, masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)  # Convert t3 -> ut3
+    >>> x2 = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.ut3_to_t3(cores, masks)  # Convert ut3 -> t3
     >>> dense_x = t3.t3_to_dense(x)
     >>> dense_x2 = t3.t3_to_dense(x2)
     >>> print(np.linalg.norm(dense_x - dense_x2))
@@ -819,16 +819,16 @@ def ut3_to_t3(
 
     Examples
     --------
-    >>> import numpy as np
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (1,3,2,1)))
-    >>> cores, masks = ut3.t3_to_ut3(x) # Convert t3 -> ut3
+    >>> cores, masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x) # Convert t3 -> ut3
     >>> print(ut3.get_uniform_structure(cores))
     (3, 16, 6, 3)
     >>> print(ut3.get_original_structure(masks))
     ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
-    >>> x2 = ut3.ut3_to_t3(cores, masks) # Convert ut3 -> t3
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> x2 = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.ut3_to_t3(cores, masks) # Convert ut3 -> t3
     >>> print(t3.get_structure(x2))
     ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1))
     >>> print([np.linalg.norm(B - B2) for B, B2  in zip(x[0], x2[0])])
@@ -955,11 +955,11 @@ def ut3_to_dense(
 
     Examples
     --------
-    >>> import numpy as np
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (2,3,2,2)))
-    >>> cores, masks = ut3.t3_to_ut3(x)
+    >>> cores, masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
     >>> x_dense = t3.t3_to_dense(x)
     >>> x_dense2 = ut3.ut3_to_dense(cores, masks)
     >>> print(np.linalg.norm(x_dense - x_dense2))
@@ -976,19 +976,19 @@ def are_ut3_ranks_minimal(
 
     Example
     -------
-    >>> import numpy as np
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn(((13,14,15,16), (4,5,6,7), (1,4,9,7,1)))
-    >>> cores, masks = ut3.t3_to_ut3(x)
+    >>> cores, masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
     >>> print(ut3.are_ut3_ranks_minimal(masks))
     True
 
-    >>> import numpy as np
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn(((13,14,15,16), (4,5,6,7), (1,99,9,7,1)))
-    >>> cores, masks = ut3.t3_to_ut3(x)
+    >>> cores, masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
     >>> print(ut3.are_ut3_ranks_minimal(masks))
     False
     """
@@ -1019,7 +1019,7 @@ def ut3_entry(
 	>>> x_312 = t3.t3_entry(x, index)
 	>>> print(x_312) # (3,1,2) entry from T3:
 	-1.4931654579929192
-	>>> cores, masks = ut3.t3_to_ut3(x) # Convert to Uniform T3
+	>>>import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions cores, masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x) # Convert to Uniform T3
 	>>> print(ut3.get_original_structure(masks)) # original (shape, tucker_ranks, tt_ranks):
 	((14, 15, 16), (4, 5, 3), (1, 4, 2, 1))
 	>>> print(ut3.get_uniform_structure(cores)) # uniform shape and ranks, (d,N,n,r):
@@ -1038,7 +1038,7 @@ def ut3_entry(
     >>> x_312 = t3.t3_entry(x, index)
     >>> print(x_312)
     -6.127319174475167
-    >>> cores, masks = ut3.t3_to_ut3(x)
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> cores, masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
     >>> x_312_uniform = ut3.ut3_entries(cores, index)
     >>> print(x_312_uniform)
     -6.127319174475165
@@ -1088,13 +1088,13 @@ def ut3_apply(
 
     Examples
     --------
-    >>> import numpy as np
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform as ut3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1)))
     >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
     >>> result = t3.t3_apply(x, vecs)
-    >>> cores, masks = ut3.t3_to_ut3(x)
+    >>> cores, masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
     >>> uvecs =
     >>> print(np.linalg.norm(result - result2))
     """
@@ -1157,13 +1157,13 @@ def ut3_add(
 
     Examples
     --------
-    >>> import numpy as np
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (2,3,2,2)))
-    >>> x_cores, x_masks = ut3.t3_to_ut3(x)
+    >>> x_cores, x_masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
     >>> y = t3.t3_corewise_randn(((14,15,16), (6,7,8), (3,5,6,1)))
-    >>> y_cores, y_masks = ut3.t3_to_ut3(y)
+    >>> y_cores, y_masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(y)
     >>> x_plus_y_cores, x_plus_y_masks = ut3.ut3_add(x_cores, x_masks, y_cores, y_masks) # add x+y
     >>> dense_x = t3.t3_to_dense(x)
     >>> dense_y = t3.t3_to_dense(y)
@@ -1238,11 +1238,11 @@ def ut3_scale(
 
     Examples
     --------
-    >>> import numpy as np
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (2,3,2,2)))
-    >>> cores, masks = ut3.t3_to_ut3(x)
+    >>> cores, masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
     >>> s = 3.5
     >>> sx_cores = ut3.ut3_scale(cores, s) # scale x
     >>> dense_x = t3.t3_to_dense(x)
@@ -1280,11 +1280,11 @@ def ut3_neg(
 
     Examples
     --------
-    >>> import numpy as np
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (2,3,2,2)))
-    >>> cores, masks = ut3.t3_to_ut3(x)
+    >>> cores, masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
     >>> neg_cores = ut3.ut3_neg(cores) # flip x
     >>> dense_x = t3.t3_to_dense(x)
     >>> dense_neg_x = ut3.ut3_to_dense(neg_cores, masks)
@@ -1328,13 +1328,13 @@ def ut3_sub(
 
     Examples
     --------
-    >>> import numpy as np
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn(((14,15,16), (4,6,5), (2,3,2,2)))
-    >>> x_cores, x_masks = ut3.t3_to_ut3(x)
+    >>> x_cores, x_masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
     >>> y = t3.t3_corewise_randn(((14,15,16), (6,7,8), (3,5,6,1)))
-    >>> y_cores, y_masks = ut3.t3_to_ut3(y)
+    >>> y_cores, y_masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(y)
     >>> x_minus_y_cores, x_minus_y_masks = ut3.ut3_sub(x_cores, x_masks, y_cores, y_masks) # add x+y
     >>> dense_x = t3.t3_to_dense(x)
     >>> dense_y = t3.t3_to_dense(y)

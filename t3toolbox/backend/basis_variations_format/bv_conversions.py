@@ -5,12 +5,14 @@
 import numpy as np
 import typing as typ
 
-
 from t3toolbox.backend.common import *
 
 __all__ = [
-    'bv_to_t3',
+
 ]
+
+from t3toolbox.backend.common import NDArray, is_ndarray, get_backend
+
 
 def bv_to_t3(
         index: typ.Tuple[
@@ -31,14 +33,14 @@ def bv_to_t3(
                 NDArray,  # right_tucker_supercore
             ], # uniform
         ],
-        coords: typ.Union[
+        variations: typ.Union[
             typ.Tuple[
-                typ.Tuple[NDArray, ...],  # tucker_variation
-                typ.Tuple[NDArray, ...],  # tt_variation
+                typ.Tuple[NDArray, ...],  # tucker_variations
+                typ.Tuple[NDArray, ...],  # tt_variations
             ], # ragged
             typ.Tuple[
-                NDArray,  # tucker_coords_supercore
-                NDArray,  # tt_coords_supercore
+                NDArray,  # tucker_variations_supercore
+                NDArray,  # tt_variations_supercore
             ], # uniform
         ],
         use_jax: bool = False,
@@ -55,7 +57,7 @@ def bv_to_t3(
     '''Convert ith basis-variation representation to TuckerTensorTrain.
     '''
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
-    tucker_coords, tt_coords = coords
+    tucker_variations, tt_variations = variations
 
     is_uniform = is_ndarray(up_tucker_cores)
     xnp, _, _ = get_backend(True, use_jax)
@@ -66,7 +68,7 @@ def bv_to_t3(
         x_tucker_cores = up_tucker_cores
 
         LL = left_tt_cores[:ii]
-        H = tt_coords[ii]
+        H = tt_variations[ii]
         RR = right_tt_cores[ii+1:]
         if is_uniform:
             x_tt_cores = xnp.concatenate([LL, H.reshape((1,)+H.shape), RR])
@@ -74,7 +76,7 @@ def bv_to_t3(
             x_tt_cores = tuple(LL) + (H,) + tuple(RR)
     else:
         left_UU = up_tucker_cores[:ii]
-        V = tucker_coords[ii]
+        V = tucker_variations[ii]
         right_UU = up_tucker_cores[ii+1:]
         if is_uniform:
             x_tucker_cores = xnp.concatenate([left_UU, V.reshape((1,)+V.shape), right_UU])
@@ -90,7 +92,3 @@ def bv_to_t3(
             x_tt_cores = tuple(LL) + (D,) + tuple(RR)
 
     return x_tucker_cores, x_tt_cores
-
-
-def ubv_to_bv():
-

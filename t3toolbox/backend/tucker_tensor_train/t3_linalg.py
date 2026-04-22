@@ -5,8 +5,8 @@
 import numpy as np
 import typing as typ
 
-from t3toolbox.backend.tucker_tensor_train.ragged_t3_operations import squash_tt_tails
-import t3toolbox.backend.tucker_tensor_train.ragged_orthogonalization as ragged_orth
+from t3toolbox.backend.tucker_tensor_train.t3_operations import squash_tt_tails
+import t3toolbox.backend.tucker_tensor_train.t3_orthogonalization as ragged_orth
 from t3toolbox.backend.common import *
 
 __all__ = [

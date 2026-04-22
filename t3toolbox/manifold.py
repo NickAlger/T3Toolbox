@@ -856,11 +856,11 @@ def project_t3_onto_tangent_space(
     >>> base, dummy_var = orth.orthogonal_representations(p)
     >>> x = t3.t3_corewise_randn(((14,15,16), (7,4,8), (3,5,4,2)))
     # >>> x = t3.t3_corewise_randn(((15,15,15), (5,5,5), (1,3,3,1)))
-    >>> x, _, _ = t3svd.t3svd(x)
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> x, _, _ = t3svd.t3svd(x)
     >>> proj_x = t3m.project_t3_onto_tangent_space(x, base) # Project x onto tangent space
     >>> dense_proj_x = t3m.tangent_to_dense(proj_x, base)
     >>> _, uniform_base, bv_mask = ut3.bv_to_ubv(dummy_var, base)
-    >>> uniform_x, x_mask = ut3.t3_to_ut3(x)
+    >>> uniform_x, x_mask = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
     >>> uniform_proj_x = t3m.project_t3_onto_tangent_space(uniform_x, uniform_base) # Project x onto tangent space
     >>> dense_uniform_proj_x = utm.uniform_tangent_to_dense(uniform_proj_x, uniform_base, bv_mask)
     >>> print(np.linalg.norm(dense_uniform_proj_x - dense_proj_x))

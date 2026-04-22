@@ -92,10 +92,10 @@ import t3toolbox.backend.entries as entries
 import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.tucker_tensor_train.dense_t3svd as dense_t3svd
 import t3toolbox.backend.orthogonalization as orth
-import t3toolbox.backend.tucker_tensor_train.ragged_t3_operations as ragged_operations
-import t3toolbox.backend.tucker_tensor_train.ragged_orthogonalization as ragged_orthogonalization
-import t3toolbox.backend.tucker_tensor_train.ragged_tensor_linalg as ragged_linalg
-import t3toolbox.backend.tucker_tensor_train.ragged_t3svd as ragged_t3svd
+import t3toolbox.backend.tucker_tensor_train.t3_operations as ragged_operations
+import t3toolbox.backend.tucker_tensor_train.t3_orthogonalization as ragged_orthogonalization
+import t3toolbox.backend.tucker_tensor_train.t3_linalg as ragged_linalg
+import t3toolbox.backend.tucker_tensor_train.t3_svd as ragged_t3svd
 
 from t3toolbox.backend.common import *
 

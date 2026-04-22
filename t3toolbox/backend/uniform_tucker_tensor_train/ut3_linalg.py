@@ -5,9 +5,10 @@
 import numpy as np
 import typing as typ
 
-import t3toolbox.backend.tucker_tensor_train.orthogonalization as orth
-import t3toolbox.backend.uniform_tucker_tensor_train.uniform_orthogonalization as uniform_orth
-import t3toolbox.backend.uniform_tucker_tensor_train.uniform_t3_operations as ut3_ops
+import t3toolbox.backend.orthogonalization as orth
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_orthogonalization as uniform_orth
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_operations as ut3_ops
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_masking
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -128,8 +129,8 @@ def ut3_inner_product(
     """
     xnp, xmap, xscan = get_backend(True, use_jax)
 
-    x_tucker_supercore, x_tt_supercore = ut3_ops.apply_masks_to_cores(x, use_jax=use_jax)
-    y_tucker_supercore, y_tt_supercore = ut3_ops.apply_masks_to_cores(y, use_jax=use_jax)
+    x_tucker_supercore, x_tt_supercore = t3toolbox.backend.uniform_tucker_tensor_train.ut3_masking.apply_masks_to_cores(x, use_jax=use_jax)
+    y_tucker_supercore, y_tt_supercore = t3toolbox.backend.uniform_tucker_tensor_train.ut3_masking.apply_masks_to_cores(y, use_jax=use_jax)
 
     x_tt_supercore = ut3_ops.uniform_squash_tt_tails(x_tt_supercore, use_jax=use_jax)
     y_tt_supercore = ut3_ops.uniform_squash_tt_tails(y_tt_supercore, use_jax=use_jax)
@@ -177,7 +178,7 @@ def ut3_norm(
     """
     xnp, xmap, xscan = get_backend(True, use_jax)
 
-    x_tucker_supercore, x_tt_supercore = ut3_ops.apply_masks_to_cores(x, use_jax=use_jax)
+    x_tucker_supercore, x_tt_supercore = t3toolbox.backend.uniform_tucker_tensor_train.ut3_masking.apply_masks_to_cores(x, use_jax=use_jax)
 
     x_tt_supercore = ut3_ops.uniform_squash_tt_tails(x_tt_supercore, use_jax=use_jax)
 
