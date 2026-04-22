@@ -119,6 +119,10 @@ def t3_to_ut3(
             typ.Tuple[NDArray,...], # tt_cores
             typ.Tuple[NDArray,...], # tucker_cores
         ],
+        d: int = None,
+        N: int = None,
+        n: int = None,
+        r: int = None,
         squash_tails: bool = True,
         use_jax: bool = False,
 ) -> typ.Tuple[
@@ -143,10 +147,10 @@ def t3_to_ut3(
     tt_ranks = tuple([G.shape[-3] for G in tt_cores]) + (tt_cores[-1].shape[-1],)
     stack_shape = tucker_cores[0].shape[:-2]
 
-    d = len(shape)
-    N = max(shape)
-    n = max(tucker_ranks)
-    r = max(tt_ranks)
+    d = len(shape) if d is None else d
+    N = max(shape) if N is None else N
+    n = max(tucker_ranks) if n is None else n
+    r = max(tt_ranks) if r is None else r
 
     padded_shape = (N,)*d
     padded_tucker_ranks = (n,)*d

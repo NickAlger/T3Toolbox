@@ -7,7 +7,7 @@ import typing as typ
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.OLD_uniform as ut3
 import t3toolbox.t3svd as t3svd
-import t3toolbox.basis_coordinates_format as bvf
+import t3toolbox.basis_variations_format as bvf
 # from t3toolbox.common import jnp, NDArray, numpy_scan, jax_scan
 import t3toolbox.common as common
 from t3toolbox.common import *

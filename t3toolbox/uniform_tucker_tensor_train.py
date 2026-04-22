@@ -656,6 +656,8 @@ unpack_vectors = uniform_ops.unpack_vectors
 
 def t3_to_ut3(
         x: t3.TuckerTensorTrain,
+        d: int = None, N: int = None, n: int = None, r: int = None,
+        squash_tails: bool = True,
         use_jax: bool = False,
 ) -> UniformTuckerTensorTrain:
     """Convert TuckerTensorTrain to UniformTuckerTensorTrain.
@@ -673,7 +675,9 @@ def t3_to_ut3(
     >>> print(np.linalg.norm(dense_x - dense_x2))
     2.695489335865025e-12
     """
-    return UniformTuckerTensorTrain(*uniform_ops.t3_to_ut3(x.data, use_jax=use_jax))
+    return UniformTuckerTensorTrain(*uniform_ops.t3_to_ut3(
+        x.data, d=d, N=N, n=n, r=r, squash_tails=squash_tails, use_jax=use_jax
+    ))
 
 
 def ut3_to_t3(
