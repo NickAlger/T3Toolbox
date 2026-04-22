@@ -1,0 +1,8 @@
+t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.left_orthogonalize_t3
+================================================================================
+
+.. py:function:: t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.left_orthogonalize_t3(x: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]], use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]]
+
+   Left orthogonalize T3.
+
+

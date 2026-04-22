@@ -1,8 +1,0 @@
-t3toolbox.backend.weighted_tucker_tensor_train.ragged_wt3_operations.contract_edge_vectors_into_t3
-==================================================================================================
-
-.. py:function:: t3toolbox.backend.weighted_tucker_tensor_train.ragged_wt3_operations.contract_edge_vectors_into_t3(x0: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]], edge_vectors: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]], use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]]
-
-   Contract each edge weight into a neighboring backend.
-
-

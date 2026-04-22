@@ -1,7 +1,7 @@
 t3toolbox.manifold.tangent_to_t3
 ================================
 
-.. py:function:: t3toolbox.manifold.tangent_to_t3(variation: t3toolbox.basis_coordinates_format.T3Variation, base: t3toolbox.basis_coordinates_format.T3Base, include_shift: bool = False, use_jax: bool = False) -> t3toolbox.tucker_tensor_train.TuckerTensorTrain
+.. py:function:: t3toolbox.manifold.tangent_to_t3(variation: t3toolbox.basis_variations_format.T3Variation, base: t3toolbox.basis_variations_format.T3Base, include_shift: bool = False, use_jax: bool = False) -> t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
    Rank 2r Tucker tensor train representation of tangent vector.
 

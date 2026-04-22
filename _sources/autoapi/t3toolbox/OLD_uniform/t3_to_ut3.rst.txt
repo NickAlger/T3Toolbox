@@ -5,16 +5,17 @@ t3toolbox.OLD_uniform.t3_to_ut3
 
    Convert TuckerTensorTrain to UniformTuckerTensorTrain.
 
-   .. rubric:: Examples
+       Examples
+       --------
+   import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
+   import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import t3toolbox.tucker_tensor_train as t3
+       >>> import t3toolbox.uniform as ut3
+       >>> x = t3.t3_corewise_randn(((14, 15, 16), (4, 6, 5), (3, 3, 2, 4)))
+       >>> cores, masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)  # Convert t3 -> ut3
+       >>> x2 = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.ut3_to_t3(cores, masks)  # Convert ut3 -> t3
+       >>> dense_x = t3.t3_to_dense(x)
+       >>> dense_x2 = t3.t3_to_dense(x2)
+       >>> print(np.linalg.norm(dense_x - dense_x2))
+       0.0
 
-   >>> import numpy as np
-   >>> import t3toolbox.tucker_tensor_train as t3
-   >>> import t3toolbox.uniform as ut3
-   >>> x = t3.t3_corewise_randn(((14, 15, 16), (4, 6, 5), (3, 3, 2, 4)))
-   >>> cores, masks = ut3.t3_to_ut3(x)  # Convert t3 -> ut3
-   >>> x2 = ut3.ut3_to_t3(cores, masks)  # Convert ut3 -> t3
-   >>> dense_x = t3.t3_to_dense(x)
-   >>> dense_x2 = t3.t3_to_dense(x2)
-   >>> print(np.linalg.norm(dense_x - dense_x2))
-   0.0
 

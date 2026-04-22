@@ -1,0 +1,8 @@
+ut3_linalg.ut3_norm
+===================
+
+.. py:function:: ut3_linalg.ut3_norm(x: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray], use_orthogonalization: bool = True, use_jax: bool = False)
+
+   Compute the Hilbert-Schmidt norm of a uniform Tucker tensor train.
+
+

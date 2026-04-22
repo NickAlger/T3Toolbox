@@ -1,0 +1,8 @@
+t3toolbox.backend.tucker_tensor_train.t3_linalg.t3_inner_product_t3
+===================================================================
+
+.. py:function:: t3toolbox.backend.tucker_tensor_train.t3_linalg.t3_inner_product_t3(x: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]], y: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]], use_orthogonalization: bool = True, use_jax: bool = False)
+
+   Compute Hilbert-Schmidt inner product of two Tucker tensor trains.
+
+

@@ -1,0 +1,4 @@
+ubv_masking.apply_variations_masks
+==================================
+
+.. py:function:: ubv_masking.apply_variations_masks(tucker_variations_supercore: t3toolbox.backend.common.NDArray, tt_variations_supercore: t3toolbox.backend.common.NDArray, shape_mask: t3toolbox.backend.common.NDArray, up_mask: t3toolbox.backend.common.NDArray, down_mask: t3toolbox.backend.common.NDArray, variations_left_mask: t3toolbox.backend.common.NDArray, variations_right_mask: t3toolbox.backend.common.NDArray) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]

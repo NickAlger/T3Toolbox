@@ -1,0 +1,8 @@
+t3toolbox.backend.weighted_tucker_tensor_train.wt3_operations.wt3_squash_tails
+==============================================================================
+
+.. py:function:: t3toolbox.backend.weighted_tucker_tensor_train.wt3_operations.wt3_squash_tails(x, use_jax: bool = False)
+
+   Reduce the first and last dimensions of the first and last tt cores to 1.
+
+

@@ -1,0 +1,4 @@
+ubv_masking.apply_basis_masks
+=============================
+
+.. py:function:: ubv_masking.apply_basis_masks(up_tucker_supercore: t3toolbox.backend.common.NDArray, down_tt_supercore: t3toolbox.backend.common.NDArray, left_tt_supercore: t3toolbox.backend.common.NDArray, right_tt_supercore: t3toolbox.backend.common.NDArray, shape_mask: t3toolbox.backend.common.NDArray, up_mask: t3toolbox.backend.common.NDArray, down_mask: t3toolbox.backend.common.NDArray, basis_left_mask: t3toolbox.backend.common.NDArray, basis_right_mask: t3toolbox.backend.common.NDArray) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]

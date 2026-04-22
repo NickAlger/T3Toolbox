@@ -5,103 +5,117 @@ t3toolbox.backend.probing.probe_t3
 
    Probe a Tucker tensor train.
 
-   See Section 5.2, particularly Figure 9 in:
-       Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
-       "Tucker Tensor Train Taylor Series."
-       arXiv preprint arXiv:2603.21141.
-       `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
+       See Section 5.2, particularly Figure 9 in:
+           Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+           "Tucker Tensor Train Taylor Series."
+           arXiv preprint arXiv:2603.21141.
+           `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
 
-   :param x: Tucker tensor train to probe.
-             structure=((N1,...,Nd),(n1,...,nd),(1,r1,...,r(d-1),1))
-   :type x: t3.TuckerTensorTrain
-   :param ww: input vectors to probe with. len=d, elm_shape=(...,Ni)
-   :type ww: typ.Sequence[NDArray]
-   :param xnp: Linear algebra backend. Default: np (numpy)
+       Parameters
+       ----------
+       x: t3.TuckerTensorTrain
+           Tucker tensor train to probe.
+           structure=((N1,...,Nd),(n1,...,nd),(1,r1,...,r(d-1),1))
+       ww: typ.Sequence[NDArray]
+           input vectors to probe with. len=d, elm_shape=(...,Ni)
+       xnp:
+           Linear algebra backend. Default: np (numpy)
 
-   :returns: Probes, zz. len=d, elm_shape=(...,Ni)
-   :rtype: typ.Tuple[NDArray,...]
+       Returns
+       -------
+       typ.Tuple[NDArray,...]
+           Probes, zz. len=d, elm_shape=(...,Ni)
 
-   .. seealso:: :py:obj:`probe_tangent`, :py:obj:`probe_tangent_transpose`, :py:obj:`compute_xis`, :py:obj:`compute_mus`, :py:obj:`compute_nus`, :py:obj:`compute_etas`, :py:obj:`assemble_probes`
+       See Also
+       --------
+       probe_tangent
+       probe_tangent_transpose
+       compute_xis
+       compute_mus
+       compute_nus
+       compute_etas
+       assemble_probes
 
-   .. rubric:: Examples
+       Examples
+       --------
+       >>> import numpy as np
+       >>> import t3toolbox.tucker_tensor_train as t3
+       >>> import t3toolbox.backend.probing as t3p
+       >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2)).data
+       >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+       >>> zz = t3p.t3_probe(ww, x)
+       >>> x_dense = t3.TuckerTensorTrain(*x).to_dense()
+       >>> zz2 = t3p.probe_dense(ww, x_dense)
+       >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
+       [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
 
-   >>> import numpy as np
-   >>> import t3toolbox.tucker_tensor_train as t3
-   >>> import t3toolbox.backend.probing as t3p
-   >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2)).data
-   >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-   >>> zz = t3p.t3_probe(ww, x)
-   >>> x_dense = t3.TuckerTensorTrain(*x).to_dense()
-   >>> zz2 = t3p.probe_dense(ww, x_dense)
-   >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
-   [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
+       Vectorize over probes:
 
-   Vectorize over probes:
+       >>> import numpy as np
+       >>> import t3toolbox.tucker_tensor_train as t3
+       >>> import t3toolbox.backend.probing as t3p
+       >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2)).data
+       >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
+       >>> zz = t3p.t3_probe(ww, x)
+       >>> x_dense = t3.TuckerTensorTrain(*x).to_dense()
+       >>> zz2 = t3p.probe_dense(ww, x_dense)
+       >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
+       [2.9290244450205316e-12, 2.0347746956505754e-12, 1.7784156096697445e-12]
 
-   >>> import numpy as np
-   >>> import t3toolbox.tucker_tensor_train as t3
-   >>> import t3toolbox.backend.probing as t3p
-   >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2)).data
-   >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
-   >>> zz = t3p.t3_probe(ww, x)
-   >>> x_dense = t3.TuckerTensorTrain(*x).to_dense()
-   >>> zz2 = t3p.probe_dense(ww, x_dense)
-   >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
-   [2.9290244450205316e-12, 2.0347746956505754e-12, 1.7784156096697445e-12]
+       Vectorize over probes and T3s:
 
-   Vectorize over probes and T3s:
+       >>> import numpy as np
+       >>> import t3toolbox.tucker_tensor_train as t3
+       >>> import t3toolbox.backend.probing as t3p
+       >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2), stack_shape=(4,5)).data
+       >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
+       >>> zz = t3p.t3_probe(ww, x)
+       >>> x_dense = t3.TuckerTensorTrain(*x).to_dense()
+       >>> zz2 = t3p.probe_dense(ww, x_dense)
+       >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
+       [1.4471391818397927e-11, 1.0485601346346092e-11, 1.437623640611662e-11]
 
-   >>> import numpy as np
-   >>> import t3toolbox.tucker_tensor_train as t3
-   >>> import t3toolbox.backend.probing as t3p
-   >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2), stack_shape=(4,5)).data
-   >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
-   >>> zz = t3p.t3_probe(ww, x)
-   >>> x_dense = t3.TuckerTensorTrain(*x).to_dense()
-   >>> zz2 = t3p.probe_dense(ww, x_dense)
-   >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
-   [1.4471391818397927e-11, 1.0485601346346092e-11, 1.437623640611662e-11]
+       Using weights:
 
-   Using weights:
+       >>> import numpy as np
+       >>> import t3toolbox.tucker_tensor_train as t3
+       >>> import t3toolbox.backend.probing as t3p
+       >>> randn = np.random.randn
+       >>> x0 = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
+       >>> (tucker_cores0, tt_cores0) = x0
+       >>> shape_weights = [randn(10), randn(11), randn(12)]
+       >>> tucker_weights = [randn(5), randn(6), randn(4)]
+       >>> tt_weights = [randn(2), randn(3), randn(4), randn(2)]
+       >>> edge_weights = (shape_weights, tucker_weights, tt_weights)
+       >>> ww = [np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12)]
+       >>> zz = t3p.t3_probe(ww, x0,edge_weights=edge_weights)
+       >>> x = t3.absorb_edge_weights_into_cores(x0, edge_weights)
+       >>> zz2 = t3p.t3_probe(ww, x)
+       >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
+       [3.372228193172379e-14, 3.826148129405782e-14, 2.294115439089251e-14]
 
-   >>> import numpy as np
-   >>> import t3toolbox.tucker_tensor_train as t3
-   >>> import t3toolbox.backend.probing as t3p
-   >>> randn = np.random.randn
-   >>> x0 = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
-   >>> (tucker_cores0, tt_cores0) = x0
-   >>> shape_weights = [randn(10), randn(11), randn(12)]
-   >>> tucker_weights = [randn(5), randn(6), randn(4)]
-   >>> tt_weights = [randn(2), randn(3), randn(4), randn(2)]
-   >>> edge_weights = (shape_weights, tucker_weights, tt_weights)
-   >>> ww = [np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12)]
-   >>> zz = t3p.t3_probe(ww, x0,edge_weights=edge_weights)
-   >>> x = t3.absorb_edge_weights_into_cores(x0, edge_weights)
-   >>> zz2 = t3p.t3_probe(ww, x)
-   >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
-   [3.372228193172379e-14, 3.826148129405782e-14, 2.294115439089251e-14]
+       For uniform T3:
 
-   For uniform T3:
+   import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
+       >>> import t3toolbox.tucker_tensor_train as t3
+       >>> import t3toolbox.backend.probing as t3p
+       >>> import t3toolbox.uniform as ut3
+       >>> import t3toolbox.corewise as cw
+       >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
+       >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+       >>> uniform_x, masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
+       >>> inv_masks = cw.corewise_logical_not(masks)
+       >>> junk = ut3.uniform_randn(ut3.get_uniform_structure(uniform_x), masks=inv_masks)
+       >>> uniform_x = cw.corewise_add(uniform_x, junk) # Add random junk outside the masks
+       >>> uniform_ww = ut3.pack_tensors(ww)
+       >>> uniform_zz = t3p.t3_probe(uniform_ww, uniform_x, edge_weights=masks)
+       >>> zz = t3p.t3_probe(ww, x)
+       >>> uniform_zz2 = ut3.pack_tensors(zz)
+       >>> print(np.linalg.norm(uniform_zz - uniform_zz2))
+       0.0
+       >>> uniform_x_weighted = t3.absorb_edge_weights_into_cores(uniform_x, masks)
+       >>> uniform_zz3 = t3p.t3_probe(uniform_ww, uniform_x_weighted)
+       >>> print(np.linalg.norm(uniform_zz - uniform_zz3))
+       0.0
 
-   >>> import numpy as np
-   >>> import t3toolbox.tucker_tensor_train as t3
-   >>> import t3toolbox.backend.probing as t3p
-   >>> import t3toolbox.uniform as ut3
-   >>> import t3toolbox.corewise as cw
-   >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
-   >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-   >>> uniform_x, masks = ut3.t3_to_ut3(x)
-   >>> inv_masks = cw.corewise_logical_not(masks)
-   >>> junk = ut3.uniform_randn(ut3.get_uniform_structure(uniform_x), masks=inv_masks)
-   >>> uniform_x = cw.corewise_add(uniform_x, junk) # Add random junk outside the masks
-   >>> uniform_ww = ut3.pack_tensors(ww)
-   >>> uniform_zz = t3p.t3_probe(uniform_ww, uniform_x, edge_weights=masks)
-   >>> zz = t3p.t3_probe(ww, x)
-   >>> uniform_zz2 = ut3.pack_tensors(zz)
-   >>> print(np.linalg.norm(uniform_zz - uniform_zz2))
-   0.0
-   >>> uniform_x_weighted = t3.absorb_edge_weights_into_cores(uniform_x, masks)
-   >>> uniform_zz3 = t3p.t3_probe(uniform_ww, uniform_x_weighted)
-   >>> print(np.linalg.norm(uniform_zz - uniform_zz3))
-   0.0
 

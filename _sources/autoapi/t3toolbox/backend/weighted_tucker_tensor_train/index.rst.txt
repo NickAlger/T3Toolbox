@@ -10,6 +10,6 @@ Submodules
 .. toctree::
    :maxdepth: 1
 
-   /autoapi/t3toolbox/backend/weighted_tucker_tensor_train/ragged_wt3_operations/index
+   /autoapi/t3toolbox/backend/weighted_tucker_tensor_train/wt3_operations/index
 
 

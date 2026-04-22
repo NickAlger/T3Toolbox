@@ -1,0 +1,36 @@
+t3toolbox.basis_variations_format
+=================================
+
+.. py:module:: t3toolbox.basis_variations_format
+
+
+Classes
+-------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/basis_variations_format/T3Basis
+   /autoapi/t3toolbox/basis_variations_format/T3Variations
+
+.. autoapisummary::
+
+   t3toolbox.basis_variations_format.T3Basis
+   t3toolbox.basis_variations_format.T3Variations
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/basis_variations_format/bv_to_t3
+   /autoapi/t3toolbox/basis_variations_format/t3_orthogonal_representations
+
+.. autoapisummary::
+
+   t3toolbox.basis_variations_format.bv_to_t3
+   t3toolbox.basis_variations_format.t3_orthogonal_representations
+
+

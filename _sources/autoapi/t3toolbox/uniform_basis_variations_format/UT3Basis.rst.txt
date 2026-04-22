@@ -1,0 +1,168 @@
+t3toolbox.uniform_basis_variations_format.UT3Basis
+==================================================
+
+.. py:class:: t3toolbox.uniform_basis_variations_format.UT3Basis
+
+   Basis for basis-variations representation of uniform Tucker tensor trains
+
+   Uniform version of T3Basis
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.uniform_basis_variations_format as ubcf
+   >>> stack_shape = (2,)
+   >>> d, N, nU, nD, rL, rR = 3, 12, 7, 8, 5, 4
+   >>> up_cores = np.random.randn(*((d,) + stack_shape + (nU, N)))
+   >>> down_cores = np.random.randn(*((d,) + stack_shape + (rL, nD, rR)))
+   >>> left_cores = np.random.randn(*((d,) + stack_shape + (rL, nU, rL)))
+   >>> right_cores = np.random.randn(*((d,) + stack_shape + (rR, nU, rR)))
+   >>> shape_mask = np.random.choice([True, False], (d,N))
+   >>> up_mask = np.random.choice([True, False], (d,)+stack_shape+(nU,))
+   >>> down_mask = np.random.choice([True, False], (d,)+stack_shape+(nD,))
+   >>> left_mask = np.random.choice([True, False], (d+1,)+stack_shape+(rL,))
+   >>> right_mask = np.random.choice([True, False], (d+1,)+stack_shape+(rR,))
+   >>> basis = ubcf.UT3Basis(up_cores, down_cores, left_cores, right_cores, shape_mask, up_mask, down_mask, basis_left_mask, basis_right_mask)
+
+
+   .. py:attribute:: up_tucker_supercore
+      :type:  t3toolbox.backend.common.NDArray
+
+
+   .. py:attribute:: down_tt_supercore
+      :type:  t3toolbox.backend.common.NDArray
+
+
+   .. py:attribute:: left_tt_supercore
+      :type:  t3toolbox.backend.common.NDArray
+
+
+   .. py:attribute:: right_tt_supercore
+      :type:  t3toolbox.backend.common.NDArray
+
+
+   .. py:attribute:: shape_mask
+      :type:  t3toolbox.backend.common.NDArray
+
+
+   .. py:attribute:: up_mask
+      :type:  t3toolbox.backend.common.NDArray
+
+
+   .. py:attribute:: down_mask
+      :type:  t3toolbox.backend.common.NDArray
+
+
+   .. py:attribute:: basis_left_mask
+      :type:  t3toolbox.backend.common.NDArray
+
+
+   .. py:attribute:: basis_right_mask
+      :type:  t3toolbox.backend.common.NDArray
+
+
+   .. py:method:: data() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]
+
+
+   .. py:method:: d() -> int
+
+
+   .. py:method:: N() -> int
+
+
+   .. py:method:: nU() -> int
+
+
+   .. py:method:: nD() -> int
+
+
+   .. py:method:: rL() -> int
+
+
+   .. py:method:: rR() -> int
+
+
+   .. py:method:: stack_shape() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
+
+
+   .. py:method:: uniform_structure() -> t3toolbox.backend.common.typ.Tuple[int, int, int, int, int, int, t3toolbox.backend.common.typ.Tuple[int, Ellipsis]]
+
+
+   .. py:method:: uniform_variation_shapes() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.typ.Tuple[int, Ellipsis]]
+
+
+   .. py:method:: shape() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
+
+
+   .. py:method:: up_ranks() -> t3toolbox.backend.common.NDArray
+
+
+   .. py:method:: down_ranks() -> t3toolbox.backend.common.NDArray
+
+
+   .. py:method:: left_ranks() -> t3toolbox.backend.common.NDArray
+
+
+   .. py:method:: right_ranks() -> t3toolbox.backend.common.NDArray
+
+
+   .. py:method:: structure() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.typ.Tuple[int, Ellipsis]]
+
+
+   .. py:method:: variation_shapes() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], Ellipsis]]
+
+      T3Variations shapes that fit with this T3Basis.
+
+      Shapes of the "holes" in the following tensor diagrams::
+
+          1 -- L0 -- ( ) -- R2 -- R3 -- 1
+               |      |      |      |
+               U0     U1     U2     U3
+               |      |      |      |
+
+          1 -- L0 -- L1 -- O2 -- R3 -- 1
+               |     |     |     |
+               U0    U1    ( )   U3
+               |     |     |     |
+
+      .. rubric:: Examples
+
+      #### EXAMPLE IS WORK IN PROGRESS
+      >>> import numpy as np
+      >>> import t3toolbox.basis_variations_format as bcf
+      >>> ss = (2,3) # not included in variation_shapes.
+      >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+      >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
+      >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
+      >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
+      >>> basis = bcf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+      >>> print(basis.variation_shapes)
+      (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
+
+
+
+   .. py:method:: apply_masks() -> UT3Basis
+
+      Apply masks to the basis supercores, zeroing out unmasked entries.
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+
+
+
+   .. py:method:: validate() -> None
+
+      Check rank and shape consistency of uniform Tucker tensor train basis (`UT3Basis`).
+
+      :param x:
+      :type x: UT3Basis
+
+      :raises ValueError: Error raised if the cores of the UT3Basis have inconsistent shapes.
+
+      .. seealso:: :py:obj:`UT3Basis`, :py:obj:`UT3Variations`
+
+
+
+   .. py:method:: __post_init__()
+

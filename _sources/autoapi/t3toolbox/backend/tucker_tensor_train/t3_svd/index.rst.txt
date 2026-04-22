@@ -1,0 +1,19 @@
+t3toolbox.backend.tucker_tensor_train.t3_svd
+============================================
+
+.. py:module:: t3toolbox.backend.tucker_tensor_train.t3_svd
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/backend/tucker_tensor_train/t3_svd/t3svd
+
+.. autoapisummary::
+
+   t3toolbox.backend.tucker_tensor_train.t3_svd.t3svd
+
+

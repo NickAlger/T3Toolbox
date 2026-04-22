@@ -1,0 +1,21 @@
+ut3_orthogonalization
+=====================
+
+.. py:module:: ut3_orthogonalization
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/ut3_orthogonalization/up_orthogonalize_uniform_tucker_cores
+   /autoapi/ut3_orthogonalization/down_orthogonalize_uniform_tt_cores
+
+.. autoapisummary::
+
+   ut3_orthogonalization.up_orthogonalize_uniform_tucker_cores
+   ut3_orthogonalization.down_orthogonalize_uniform_tt_cores
+
+

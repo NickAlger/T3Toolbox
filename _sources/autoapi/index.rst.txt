@@ -6,10 +6,15 @@ This page contains auto-generated API reference documentation [#f1]_.
 .. toctree::
    :titlesonly:
 
+   /autoapi/ut3_svd/index
    /autoapi/t3toolbox/index
-   /autoapi/uniform_t3svd/index
-   /autoapi/uniform_t3_operations/index
-   /autoapi/uniform_tensor_linalg/index
-   /autoapi/uniform_orthogonalization/index
+   /autoapi/ut3_linalg/index
+   /autoapi/ubv_masking/index
+   /autoapi/ut3_masking/index
+   /autoapi/ut3_operations/index
+   /autoapi/bv_conversions/index
+   /autoapi/ubv_conversions/index
+   /autoapi/ut3_conversions/index
+   /autoapi/ut3_orthogonalization/index
 
 .. [#f1] Created with `sphinx-autoapi <https://github.com/readthedocs/sphinx-autoapi>`_

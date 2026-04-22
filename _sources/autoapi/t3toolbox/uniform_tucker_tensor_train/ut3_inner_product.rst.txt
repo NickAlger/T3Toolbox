@@ -5,17 +5,18 @@ t3toolbox.uniform_tucker_tensor_train.ut3_inner_product
 
    Compute the Hilbert-Schmidt inner product of two uniform Tucker tensor trains.
 
-   .. rubric:: Examples
+       Examples
+       --------
+   import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
+       >>> import t3toolbox.tucker_tensor_train as t3
+       >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+       >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
+       >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
+       >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1), stack_shape=(2,3))
+       >>> uy = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(y)
+       >>> ux_dot_uy = ut3.ut3_inner_product(ux, uy)
+       >>> ux_dot_uy2 = np.einsum('...xyz,...xyz->...', x.to_dense(), y.to_dense())
+       >>> print(np.linalg.norm(ux_dot_uy - ux_dot_uy2) / np.linalg.norm(ux_dot_uy))
+       7.667494312151743e-15
 
-   >>> import numpy as np
-   >>> import t3toolbox.tucker_tensor_train as t3
-   >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-   >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
-   >>> ux = ut3.t3_to_ut3(x)
-   >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1), stack_shape=(2,3))
-   >>> uy = ut3.t3_to_ut3(y)
-   >>> ux_dot_uy = ut3.ut3_inner_product(ux, uy)
-   >>> ux_dot_uy2 = np.einsum('...xyz,...xyz->...', x.to_dense(), y.to_dense())
-   >>> print(np.linalg.norm(ux_dot_uy - ux_dot_uy2) / np.linalg.norm(ux_dot_uy))
-   7.667494312151743e-15
 

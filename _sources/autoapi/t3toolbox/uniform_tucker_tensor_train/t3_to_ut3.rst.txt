@@ -1,20 +1,21 @@
 t3toolbox.uniform_tucker_tensor_train.t3_to_ut3
 ===============================================
 
-.. py:function:: t3toolbox.uniform_tucker_tensor_train.t3_to_ut3(x: t3toolbox.tucker_tensor_train.TuckerTensorTrain, use_jax: bool = False) -> UniformTuckerTensorTrain
+.. py:function:: t3toolbox.uniform_tucker_tensor_train.t3_to_ut3(x: t3toolbox.tucker_tensor_train.TuckerTensorTrain, d: int = None, N: int = None, n: int = None, r: int = None, squash_tails: bool = True, use_jax: bool = False) -> UniformTuckerTensorTrain
 
    Convert TuckerTensorTrain to UniformTuckerTensorTrain.
 
-   .. rubric:: Examples
+       Examples
+       --------
+   import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
+   import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import t3toolbox.tucker_tensor_train as t3
+       >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+       >>> x = t3.t3_corewise_randn((14, 15, 16), (4, 6, 5), (3, 3, 2, 4), stack_shape=(2,3))
+       >>> uniform_x = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)  # Convert t3 -> ut3
+       >>> x2 = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.ut3_to_t3(uniform_x, stack_output=True)  # Convert ut3 -> t3
+       >>> dense_x = x.to_dense()
+       >>> dense_x2 = x2.to_dense()
+       >>> print(np.linalg.norm(dense_x - dense_x2))
+       2.695489335865025e-12
 
-   >>> import numpy as np
-   >>> import t3toolbox.tucker_tensor_train as t3
-   >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-   >>> x = t3.t3_corewise_randn((14, 15, 16), (4, 6, 5), (3, 3, 2, 4), stack_shape=(2,3))
-   >>> uniform_x = ut3.t3_to_ut3(x)  # Convert t3 -> ut3
-   >>> x2 = ut3.ut3_to_t3(uniform_x, stack_t3s=True)  # Convert ut3 -> t3
-   >>> dense_x = x.to_dense()
-   >>> dense_x2 = x2.to_dense()
-   >>> print(np.linalg.norm(dense_x - dense_x2))
-   2.695489335865025e-12
 

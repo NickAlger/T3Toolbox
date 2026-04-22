@@ -1,0 +1,25 @@
+ut3_linalg
+==========
+
+.. py:module:: ut3_linalg
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/ut3_linalg/ut3_add
+   /autoapi/ut3_linalg/scale_last_slice
+   /autoapi/ut3_linalg/ut3_inner_product
+   /autoapi/ut3_linalg/ut3_norm
+
+.. autoapisummary::
+
+   ut3_linalg.ut3_add
+   ut3_linalg.scale_last_slice
+   ut3_linalg.ut3_inner_product
+   ut3_linalg.ut3_norm
+
+

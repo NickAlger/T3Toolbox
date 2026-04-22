@@ -1,7 +1,7 @@
 t3toolbox.manifold.retract
 ==========================
 
-.. py:function:: t3toolbox.manifold.retract(variation: t3toolbox.basis_coordinates_format.T3Variation, base: t3toolbox.basis_coordinates_format.T3Base, use_jax: bool = False) -> t3toolbox.tucker_tensor_train.TuckerTensorTrain
+.. py:function:: t3toolbox.manifold.retract(variation: t3toolbox.basis_variations_format.T3Variation, base: t3toolbox.basis_variations_format.T3Base, use_jax: bool = False) -> t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
    Retract Tucker tensor train tangent vector to manifold.
 

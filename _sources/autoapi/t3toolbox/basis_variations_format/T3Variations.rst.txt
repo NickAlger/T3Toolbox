@@ -1,0 +1,87 @@
+t3toolbox.basis_variations_format.T3Variations
+==============================================
+
+.. py:class:: t3toolbox.basis_variations_format.T3Variations
+
+   Tuple containing variation cores for basis-variation representations of TuckerTensorTrains.
+
+   *Components*
+       - tucker_variations    = (V0, ..., V(d-1)), elm_shape=(nDi, Ni)
+       - tt_variations        = (H0, ..., H(d-1)), elm_shape=(rLi, nUi, rRi)
+
+   The variations should fit in the "holes" of a T3Basis.
+
+   .. seealso:: :py:obj:`T3Basis`
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.basis_variations_format as bvf
+   >>> ss = (2,3) # stack shape
+   >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+   >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
+   >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
+   >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
+   >>> base = bvf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+   >>> print(base.variation_shapes)
+   (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
+   >>> tucker_variations = tuple([np.ones(ss + B_shape) for B_shape in base.variation_shapes[0]])
+   >>> tt_variations = tuple([np.ones(ss + G_shape) for G_shape in base.variation_shapes[1]])
+   >>> variations = bvf.T3Variations(tucker_variations, tt_variations) # variation that fits with base
+   >>> print(variations.variation_shapes) # same as base, except first right tt rank and last left tt rank, which are None
+   (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
+
+
+   .. py:attribute:: tucker_variations
+      :type:  t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]
+
+
+   .. py:attribute:: tt_variations
+      :type:  t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]
+
+
+   .. py:method:: d() -> int
+
+
+   .. py:method:: shape() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
+
+
+   .. py:method:: stack_shape() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
+
+
+   .. py:method:: variation_shapes() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], Ellipsis]]
+
+      T3Variations shapes that fit with this T3Basis.
+
+      Shapes of the "holes" in the following tensor diagrams::
+
+          1 -- L0 -- ( ) -- R2 -- R3 -- 1
+               |      |      |      |
+               U0     U1     U2     U3
+               |      |      |      |
+
+          1 -- L0 -- L1 -- O2 -- R3 -- 1
+               |     |     |     |
+               U0    U1    ( )   U3
+               |     |     |     |
+
+
+
+   .. py:method:: data() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]]
+
+
+   .. py:method:: validate() -> None
+
+      Check rank and shape consistency of Tucker tensor train variations (`T3Variations`).
+
+      :param self:
+      :type self: T3Variations
+
+      :raises ValueError: Error raised if the cores of the T3Variations have inconsistent shapes.
+
+      .. seealso:: :py:obj:`T3Basis`, :py:obj:`T3Variations`
+
+
+
+   .. py:method:: __post_init__()
+

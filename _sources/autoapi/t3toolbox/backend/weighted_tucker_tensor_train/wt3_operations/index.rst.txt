@@ -1,0 +1,25 @@
+t3toolbox.backend.weighted_tucker_tensor_train.wt3_operations
+=============================================================
+
+.. py:module:: t3toolbox.backend.weighted_tucker_tensor_train.wt3_operations
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/backend/weighted_tucker_tensor_train/wt3_operations/contract_edge_vectors_into_t3
+   /autoapi/t3toolbox/backend/weighted_tucker_tensor_train/wt3_operations/reverse_edge_vectors
+   /autoapi/t3toolbox/backend/weighted_tucker_tensor_train/wt3_operations/concatenate_edge_vectors
+   /autoapi/t3toolbox/backend/weighted_tucker_tensor_train/wt3_operations/wt3_squash_tails
+
+.. autoapisummary::
+
+   t3toolbox.backend.weighted_tucker_tensor_train.wt3_operations.contract_edge_vectors_into_t3
+   t3toolbox.backend.weighted_tucker_tensor_train.wt3_operations.reverse_edge_vectors
+   t3toolbox.backend.weighted_tucker_tensor_train.wt3_operations.concatenate_edge_vectors
+   t3toolbox.backend.weighted_tucker_tensor_train.wt3_operations.wt3_squash_tails
+
+
