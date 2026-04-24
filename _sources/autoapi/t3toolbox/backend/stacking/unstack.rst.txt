@@ -1,8 +1,101 @@
 t3toolbox.backend.stacking.unstack
 ==================================
 
-.. py:function:: t3toolbox.backend.stacking.unstack(x: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]])
+.. py:function:: t3toolbox.backend.stacking.unstack(S, axes)
 
-   Given multiple stacked T3s, this unstacks them
-   into an array-like structure of nested tuples with the same "shape" as the stacking shape.
+   Unstack nested sequence of arrays along specificed array axes.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.stacking as stacking
+   >>> A = np.random.randn(4, 2,3, 5,6)
+   >>> B = np.random.randn(7, 2,3, 8)
+   >>> C = np.random.randn(9, 2,3)
+   >>> S = ((A, B), C)
+   >>> T = stacking.unstack(S, axes=(1,2))
+   >>> ii, jj = 1, 2
+   >>> ((Aij, Bij), Cij) = T[ii][jj]
+   >>> print(np.linalg.norm(Aij - A[:,ii,jj,:,:]))
+   0.0
+   >>> print(np.linalg.norm(Bij - B[:,ii,jj,:]))
+   0.0
+   >>> print(np.linalg.norm(Cij - C[:,ii,jj]))
+   0.0
+
+   Stack then unstack:
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.stacking as stacking
+   >>> import t3toolbox.corewise as cw
+   >>> randn = np.random.randn
+   >>> a00, a01, a10, a11 = randn(3,2), randn(3,2), randn(3,2), randn(3,2)
+   >>> b00, b01, b10, b11 = randn(4,5), randn(4,5), randn(4,5), randn(4,5)
+   >>> c00, c01, c10, c11 = randn(7), randn(7), randn(7), randn(7)
+   >>> T00 = (a00, (b00, c00))
+   >>> T01 = (a01, (b01, c01))
+   >>> T10 = (a10, (b10, c10))
+   >>> T11 = (a11, (b11, c11))
+   >>> T = ((T00, T01), (T10, T11))
+   >>> S = stacking.stack(T, axes=(0,2))
+   >>> T2 = stacking.unstack(S, axes=(0,2))
+   >>> print(cw.corewise_norm(cw.corewise_sub(T, T2)))
+   0.0
+
+   Unstack then stack:
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.stacking as stacking
+   >>> A = np.random.randn(4, 2,3, 5,6)
+   >>> B = np.random.randn(7, 2,3, 8)
+   >>> C = np.random.randn(9, 2,3)
+   >>> S = ((A, B), C)
+   >>> T = stacking.unstack(S, axes=(1,2))
+   >>> ii, jj = 1, 2
+   >>> ((Aij, Bij), Cij) = T[0][0]
+
+   >>> S2 = stacking.stack(T, axes=(1,2))
+   >>> ((A2, B2), C2) = S2
+   >>> print(np.linalg.norm(A - A2))
+
+   >>> print(np.linalg.norm(B - B2))
+
+   >>> print(np.linalg.norm(C - C2))
+
+   When there are no axes to unstack:
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.stacking as stacking
+   >>> A = np.random.randn(4, 5, 6)
+   >>> B = np.random.randn(7, 8)
+   >>> C = np.random.randn(9)
+   >>> S = ((A, B), C)
+   >>> T = stacking.unstack(S, axes=())
+   >>> ((A2, B2), C2) = T
+   >>> print(np.linalg.norm(A2 - A))
+   0.0
+   >>> print(np.linalg.norm(B2 - B))
+   0.0
+   >>> print(np.linalg.norm(C2 - C))
+   0.0
+
+   When the tree is a single object:
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.stacking as stacking
+   >>> A = np.random.randn(4, 2,3, 5,6)
+   >>> T = stacking.unstack(A, axes=(1,2))
+   >>> ii, jj = 1, 2
+   >>> Aij = T[ii][jj]
+   >>> print(np.linalg.norm(Aij - A[:, ii, jj, :]))
+   0.0
+
+   When the tree is a single object and there are no objects to unstack
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.stacking as stacking
+   >>> A = np.random.randn(4, 5,6)
+   >>> T = stacking.unstack(A, axes=())
+   >>> print(np.linalg.norm(A - T))
+   0.0
 
