@@ -1,0 +1,8 @@
+t3toolbox.backend.stacking.unstack
+==================================
+
+.. py:function:: t3toolbox.backend.stacking.unstack(x: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]])
+
+   Given multiple stacked T3s, this unstacks them
+   into an array-like structure of nested tuples with the same "shape" as the stacking shape.
+

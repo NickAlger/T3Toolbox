@@ -1,0 +1,8 @@
+t3toolbox.backend.stacking.sum_stack
+====================================
+
+.. py:function:: t3toolbox.backend.stacking.sum_stack(x: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]], use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]]
+
+   If this object contains multiple stacked T3s, this sums them.
+
+

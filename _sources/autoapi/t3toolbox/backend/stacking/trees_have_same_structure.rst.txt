@@ -1,0 +1,60 @@
+t3toolbox.backend.stacking.trees_have_same_structure
+====================================================
+
+.. py:function:: t3toolbox.backend.stacking.trees_have_same_structure(tree1, tree2)
+
+   Checks if two trees (nested sequences) have the same structure.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.stacking as stacking
+   >>> T = ((1, (2,3)),4,(5,6,7))
+   >>> LS = ((None, (None, None)), None, (None, None, None))
+   >>> stacking.trees_have_same_structure(T, LS)
+   True
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.stacking as stacking
+   >>> T = ((1, (2,3)),4,(5,6,7))
+   >>> LS = ((None, (None)), None, (None, None, None))
+   >>> stacking.trees_have_same_structure(T, LS)
+   False
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.stacking as stacking
+   >>> T = ((1, (2,3)),4,(5,6,7), ())
+   >>> LS = ((None, (None)), None, (None, None, None))
+   >>> stacking.trees_have_same_structure(T, LS)
+   False
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.stacking as stacking
+   >>> T1 = ((1, (2,3)),4,(5,6,7))
+   >>> T2 = ((8, (9,10)),11,(12,13,14))
+   >>> T = (T1, T2)
+   >>> LS = ((None, (None, None)), None, (None, None, None))
+   >>> stacking.trees_have_same_structure(T, LS)
+   False
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.stacking as stacking
+   >>> T = ()
+   >>> LS = ()
+   >>> stacking.trees_have_same_structure(T, LS)
+   True
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.stacking as stacking
+   >>> T = (1,2,3)
+   >>> LS = (4,5,6)
+   >>> stacking.trees_have_same_structure(T, LS)
+   True
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.stacking as stacking
+   >>> T = (1,2,3)
+   >>> LS = (4,5,6,7)
+   >>> stacking.trees_have_same_structure(T, LS)
+   False
+

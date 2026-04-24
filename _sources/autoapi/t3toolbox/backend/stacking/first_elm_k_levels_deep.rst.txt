@@ -1,0 +1,12 @@
+t3toolbox.backend.stacking.first_elm_k_levels_deep
+==================================================
+
+.. py:function:: t3toolbox.backend.stacking.first_elm_k_levels_deep(xx, k)
+
+   Returns first element k levels deep in nested sequence.
+
+   first_elm_k_levels_deep(xx, 0) = xx
+   first_elm_k_levels_deep(xx, 1) = xx[0]
+   first_elm_k_levels_deep(xx, 2) = xx[0][0]
+   ...
+

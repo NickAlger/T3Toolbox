@@ -1,0 +1,21 @@
+t3toolbox.backend.stacking.apply_func_to_leaf_subtrees
+======================================================
+
+.. py:function:: t3toolbox.backend.stacking.apply_func_to_leaf_subtrees(tree, func: t3toolbox.backend.common.typ.Callable, leaf_structure)
+
+   Apply a function to all "leafs" in a tree.
+   A "leaf" is, itself, a subtree with the structure given in leaft_structure.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.stacking as stacking
+   >>> func = lambda x: (x[0] - x[1][0], x[0] + x[1][1]) # (a,(b,c)) -> (a-b, a+c)
+   >>> LS = (None, (None, None))
+   >>> T1 = (1, (2, 3))
+   >>> T2 = (4, (5, 6))
+   >>> T3 = (7, (8, 9))
+   >>> T = ((T1, T2), ((T3,),))
+   >>> print(stacking.apply_func_to_leaf_subtrees(T, func, LS))
+   (((-1, 4), (-1, 10)), (((-1, 16),),))
+

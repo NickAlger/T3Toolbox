@@ -19,6 +19,7 @@ Submodules
    /autoapi/t3toolbox/backend/orthogonalization/index
    /autoapi/t3toolbox/backend/probing/index
    /autoapi/t3toolbox/backend/ranks/index
+   /autoapi/t3toolbox/backend/stacking/index
    /autoapi/t3toolbox/backend/tucker_tensor_train/index
    /autoapi/t3toolbox/backend/weighted_tucker_tensor_train/index
 
