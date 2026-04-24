@@ -145,20 +145,20 @@ def stack(
     >>> import numpy as np
     >>> import t3toolbox.backend.stacking as stacking
     >>> randn = np.random.randn
-    >>> a00, a01, a10, a11 = randn(3,2), randn(3,2), randn(3,2), randn(3,2)
-    >>> b00, b01, b10, b11 = randn(4,5,6), randn(4,5,6), randn(4,5,6), randn(4,5,6)
-    >>> c00, c01, c10, c11 = randn(7), randn(7), randn(7), randn(7)
+    >>> a00, a01, a10, a11 = randn(3,2,1), randn(3,2,1), randn(3,2,1), randn(3,2,1)
+    >>> b00, b01, b10, b11 = randn(4,5,6,9), randn(4,5,6,9), randn(4,5,6,9), randn(4,5,6,9)
+    >>> c00, c01, c10, c11 = randn(7,8), randn(7,8), randn(7,8), randn(7,8)
     >>> T00 = (a00, (b00, c00))
     >>> T01 = (a01, (b01, c01))
     >>> T10 = (a10, (b10, c10))
     >>> T11 = (a11, (b11, c11))
     >>> T = ((T00, T01), (T10, T11))
-    >>> (a, (b, c)) = stacking.stack(T, axes=(0,2))
-    >>> np.linalg.norm(a - np.array([[a00, a01], [a10, a11]]).swapaxes(1,2))
+    >>> (a, (b, c)) = stacking.stack(T, axes=(1,2))
+    >>> np.linalg.norm(a - np.moveaxis(np.array([[a00, a01], [a10, a11]]), 2, 0))
     0.0
-    >>> np.linalg.norm(b - np.array([[b00, b01], [b10, b11]]).swapaxes(1,2))
+    >>> np.linalg.norm(b - np.moveaxis(np.array([[b00, b01], [b10, b11]]), 2, 0))
     0.0
-    >>> np.linalg.norm(c - np.array([[c00, c01], [c10, c11]]).swapaxes(1,2))
+    >>> np.linalg.norm(c - np.moveaxis(np.array([[c00, c01], [c10, c11]]), 2, 0))
     0.0
 
     Stacking when there is only one, non-nested, object
@@ -224,8 +224,7 @@ def stack(
             stacked = xnp.array(collect(T, 0))
 
             # Move axes from the front (0, 1, ...) to their target positions
-            for ii, target in enumerate(axes):
-                stacked = xnp.moveaxis(stacked, ii, target)
+            stacked = xnp.moveaxis(stacked, source=xnp.arange(len(axes)), destination=axes)
 
             # Ensure the final array is in contiguous memory order
             return xnp.ascontiguousarray(stacked)
@@ -292,16 +291,14 @@ def unstack(
     >>> S = ((A, B), C)
     >>> T = stacking.unstack(S, axes=(1,2))
     >>> ii, jj = 1, 2
-    >>> ((Aij, Bij), Cij) = T[0][0]
-
     >>> S2 = stacking.stack(T, axes=(1,2))
     >>> ((A2, B2), C2) = S2
     >>> print(np.linalg.norm(A - A2))
-
+    0.0
     >>> print(np.linalg.norm(B - B2))
-
+    0.0
     >>> print(np.linalg.norm(C - C2))
-
+    0.0
 
     When there are no axes to unstack:
 
