@@ -52,15 +52,14 @@ t3toolbox.backend.stacking.unstack
    >>> S = ((A, B), C)
    >>> T = stacking.unstack(S, axes=(1,2))
    >>> ii, jj = 1, 2
-   >>> ((Aij, Bij), Cij) = T[0][0]
-
    >>> S2 = stacking.stack(T, axes=(1,2))
    >>> ((A2, B2), C2) = S2
    >>> print(np.linalg.norm(A - A2))
-
+   0.0
    >>> print(np.linalg.norm(B - B2))
-
+   0.0
    >>> print(np.linalg.norm(C - C2))
+   0.0
 
    When there are no axes to unstack:
 
