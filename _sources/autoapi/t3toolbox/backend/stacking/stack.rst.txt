@@ -1,4 +1,55 @@
 t3toolbox.backend.stacking.stack
 ================================
 
-.. py:function:: t3toolbox.backend.stacking.stack(xx, leaf_structure: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Union[t3toolbox.backend.common.typ.Tuple, None], Ellipsis], stacking_axis: int = 0, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]]
+.. py:function:: t3toolbox.backend.stacking.stack(xx, leaf_structure: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Union[t3toolbox.backend.common.typ.Tuple, None], Ellipsis], stacking_axis: int = 0, use_jax: bool = False)
+
+   Stack array-like nested tree structure.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.stacking as stacking
+   >>> randn = np.random.randn
+   >>> a00, a01, a10, a11 = randn(3), randn(3), randn(3), randn(3)
+   >>> b00, b01, b10, b11 = randn(4,5), randn(4,5), randn(4,5), randn(4,5)
+   >>> c00, c01, c10, c11 = randn(), randn(), randn(), randn()
+   >>> T00 = (a00, (b00, c00))
+   >>> T01 = (a01, (b01, c01))
+   >>> T10 = (a10, (b10, c10))
+   >>> T11 = (a11, (b11, c11))
+   >>> T = ((T00, T01), (T10, T11))
+   >>> LS = (None, (None, None))
+   >>> (a, (b, c)) = stacking.stack(T, LS)
+   >>> np.linalg.norm(a - np.array([[a00, a01], [a10, a11]]))
+   0.0
+   >>> np.linalg.norm(b - np.array([[b00, b01], [b10, b11]]))
+   0.0
+   >>> np.linalg.norm(c - np.array([[c00, c01], [c10, c11]]))
+   0.0
+
+   Stacking when there is only one, non-nested, object
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.stacking as stacking
+   >>> randn = np.random.randn
+   >>> a, b, c = randn(3), randn(4,5), randn()
+   >>> T = (a, (b, c))
+   >>> LS = (None, (None, None))
+   >>> (a2, (b2, c2)) = stacking.stack(T, LS)
+   >>> print(np.linalg.norm(a - a2))
+   0.0
+   >>> print(np.linalg.norm(b - b2))
+   0.0
+   >>> print(np.linalg.norm(c - c2))
+   0.0
+
+   Stack nothing
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.stacking as stacking
+   >>> randn = np.random.randn
+   >>> T = ()
+   >>> LS = ()
+   >>> print(stacking.stack(T, LS))
+   ()
+
