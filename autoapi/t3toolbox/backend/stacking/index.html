@@ -47,7 +47,7 @@
     <link rel="icon" href="../../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="t3toolbox.backend.stacking.first_elm_k_levels_deep" href="first_elm_k_levels_deep.html" />
+    <link rel="next" title="t3toolbox.backend.stacking.trees_have_same_structure" href="trees_have_same_structure.html" />
     <link rel="prev" title="t3toolbox.backend.ranks.compute_minimal_t3_ranks" href="../ranks/compute_minimal_t3_ranks.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -370,10 +370,10 @@
 </ul>
 </details></li>
 <li class="toctree-l3 current active has-children"><a class="current reference internal" href="#">t3toolbox.backend.stacking</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="first_elm_k_levels_deep.html">t3toolbox.backend.stacking.first_elm_k_levels_deep</a></li>
 <li class="toctree-l4"><a class="reference internal" href="trees_have_same_structure.html">t3toolbox.backend.stacking.trees_have_same_structure</a></li>
 <li class="toctree-l4"><a class="reference internal" href="apply_func_to_leaf_subtrees.html">t3toolbox.backend.stacking.apply_func_to_leaf_subtrees</a></li>
 <li class="toctree-l4"><a class="reference internal" href="stack_arrays_at_lowest_level_of_trees.html">t3toolbox.backend.stacking.stack_arrays_at_lowest_level_of_trees</a></li>
+<li class="toctree-l4"><a class="reference internal" href="stack.html">t3toolbox.backend.stacking.stack</a></li>
 <li class="toctree-l4"><a class="reference internal" href="unstack.html">t3toolbox.backend.stacking.unstack</a></li>
 <li class="toctree-l4"><a class="reference internal" href="sum_stack.html">t3toolbox.backend.stacking.sum_stack</a></li>
 </ul>
@@ -588,17 +588,17 @@
 </div>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="first_elm_k_levels_deep.html#t3toolbox.backend.stacking.first_elm_k_levels_deep" title="t3toolbox.backend.stacking.first_elm_k_levels_deep"><code class="xref py py-obj docutils literal notranslate"><span class="pre">first_elm_k_levels_deep</span></code></a>(xx, k)</p></td>
-<td><p>Returns first element k levels deep in nested sequence.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="trees_have_same_structure.html#t3toolbox.backend.stacking.trees_have_same_structure" title="t3toolbox.backend.stacking.trees_have_same_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trees_have_same_structure</span></code></a>(tree1, tree2)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="trees_have_same_structure.html#t3toolbox.backend.stacking.trees_have_same_structure" title="t3toolbox.backend.stacking.trees_have_same_structure"><code class="xref py py-obj docutils literal notranslate"><span class="pre">trees_have_same_structure</span></code></a>(tree1, tree2)</p></td>
 <td><p>Checks if two trees (nested sequences) have the same structure.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="apply_func_to_leaf_subtrees.html#t3toolbox.backend.stacking.apply_func_to_leaf_subtrees" title="t3toolbox.backend.stacking.apply_func_to_leaf_subtrees"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_func_to_leaf_subtrees</span></code></a>(tree, func, leaf_structure)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="apply_func_to_leaf_subtrees.html#t3toolbox.backend.stacking.apply_func_to_leaf_subtrees" title="t3toolbox.backend.stacking.apply_func_to_leaf_subtrees"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_func_to_leaf_subtrees</span></code></a>(tree, func, leaf_structure)</p></td>
 <td><p>Apply a function to all &quot;leafs&quot; in a tree.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="stack_arrays_at_lowest_level_of_trees.html#t3toolbox.backend.stacking.stack_arrays_at_lowest_level_of_trees" title="t3toolbox.backend.stacking.stack_arrays_at_lowest_level_of_trees"><code class="xref py py-obj docutils literal notranslate"><span class="pre">stack_arrays_at_lowest_level_of_trees</span></code></a>(sequence_of_trees)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="stack_arrays_at_lowest_level_of_trees.html#t3toolbox.backend.stacking.stack_arrays_at_lowest_level_of_trees" title="t3toolbox.backend.stacking.stack_arrays_at_lowest_level_of_trees"><code class="xref py py-obj docutils literal notranslate"><span class="pre">stack_arrays_at_lowest_level_of_trees</span></code></a>(sequence_of_trees)</p></td>
 <td><p>Given a sequence of trees which have the same structure, with NDArrays at the leafs,</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="stack.html#t3toolbox.backend.stacking.stack" title="t3toolbox.backend.stacking.stack"><code class="xref py py-obj docutils literal notranslate"><span class="pre">stack</span></code></a>(...)</p></td>
+<td><p></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="unstack.html#t3toolbox.backend.stacking.unstack" title="t3toolbox.backend.stacking.unstack"><code class="xref py py-obj docutils literal notranslate"><span class="pre">unstack</span></code></a>(x)</p></td>
 <td><p>Given multiple stacked T3s, this unstacks them</p></td>
@@ -632,11 +632,11 @@
       </div>
     </a>
     <a class="right-next"
-       href="first_elm_k_levels_deep.html"
+       href="trees_have_same_structure.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.backend.stacking.first_elm_k_levels_deep</p>
+        <p class="prev-next-title">t3toolbox.backend.stacking.trees_have_same_structure</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

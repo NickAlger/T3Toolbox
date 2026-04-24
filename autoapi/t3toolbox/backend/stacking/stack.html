@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.backend.stacking.first_elm_k_levels_deep &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.backend.stacking.stack &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/backend/stacking/first_elm_k_levels_deep';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/backend/stacking/stack';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="t3toolbox.backend.stacking.trees_have_same_structure" href="trees_have_same_structure.html" />
-    <link rel="prev" title="t3toolbox.backend.stacking" href="index.html" />
+    <link rel="next" title="t3toolbox.backend.stacking.unstack" href="unstack.html" />
+    <link rel="prev" title="t3toolbox.backend.stacking.stack_arrays_at_lowest_level_of_trees" href="stack_arrays_at_lowest_level_of_trees.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -370,10 +370,10 @@
 </ul>
 </details></li>
 <li class="toctree-l3 current active has-children"><a class="reference internal" href="index.html">t3toolbox.backend.stacking</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l4 current active"><a class="current reference internal" href="#">t3toolbox.backend.stacking.first_elm_k_levels_deep</a></li>
 <li class="toctree-l4"><a class="reference internal" href="trees_have_same_structure.html">t3toolbox.backend.stacking.trees_have_same_structure</a></li>
 <li class="toctree-l4"><a class="reference internal" href="apply_func_to_leaf_subtrees.html">t3toolbox.backend.stacking.apply_func_to_leaf_subtrees</a></li>
 <li class="toctree-l4"><a class="reference internal" href="stack_arrays_at_lowest_level_of_trees.html">t3toolbox.backend.stacking.stack_arrays_at_lowest_level_of_trees</a></li>
+<li class="toctree-l4 current active"><a class="current reference internal" href="#">t3toolbox.backend.stacking.stack</a></li>
 <li class="toctree-l4"><a class="reference internal" href="unstack.html">t3toolbox.backend.stacking.unstack</a></li>
 <li class="toctree-l4"><a class="reference internal" href="sum_stack.html">t3toolbox.backend.stacking.sum_stack</a></li>
 </ul>
@@ -566,7 +566,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.backend.stacking</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.backend.stacking.first_elm_k_levels_deep</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.backend.stacking.stack</span></li>
   </ul>
 </nav>
 </div>
@@ -583,17 +583,12 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="t3toolbox-backend-stacking-first-elm-k-levels-deep">
-<h1>t3toolbox.backend.stacking.first_elm_k_levels_deep<a class="headerlink" href="#t3toolbox-backend-stacking-first-elm-k-levels-deep" title="Link to this heading">#</a></h1>
+  <section id="t3toolbox-backend-stacking-stack">
+<h1>t3toolbox.backend.stacking.stack<a class="headerlink" href="#t3toolbox-backend-stacking-stack" title="Link to this heading">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3toolbox.backend.stacking.first_elm_k_levels_deep">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.backend.stacking.</span></span><span class="sig-name descname"><span class="pre">first_elm_k_levels_deep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.backend.stacking.first_elm_k_levels_deep" title="Link to this definition">#</a></dt>
-<dd><p>Returns first element k levels deep in nested sequence.</p>
-<p>first_elm_k_levels_deep(xx, 0) = xx
-first_elm_k_levels_deep(xx, 1) = xx[0]
-first_elm_k_levels_deep(xx, 2) = xx[0][0]
-…</p>
-</dd></dl>
+<dt class="sig sig-object py" id="t3toolbox.backend.stacking.stack">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.backend.stacking.</span></span><span class="sig-name descname"><span class="pre">stack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">leaf_structure</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.backend.common.typ.Union</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">None</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stacking_axis</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.backend.stacking.stack" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
 
 </section>
 
@@ -608,20 +603,20 @@ first_elm_k_levels_deep(xx, 2) = xx[0][0]
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="index.html"
+       href="stack_arrays_at_lowest_level_of_trees.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.backend.stacking</p>
+        <p class="prev-next-title">t3toolbox.backend.stacking.stack_arrays_at_lowest_level_of_trees</p>
       </div>
     </a>
     <a class="right-next"
-       href="trees_have_same_structure.html"
+       href="unstack.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.backend.stacking.trees_have_same_structure</p>
+        <p class="prev-next-title">t3toolbox.backend.stacking.unstack</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -644,14 +639,14 @@ first_elm_k_levels_deep(xx, 2) = xx[0][0]
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.backend.stacking.first_elm_k_levels_deep"><code class="docutils literal notranslate"><span class="pre">t3toolbox.backend.stacking.first_elm_k_levels_deep()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.backend.stacking.stack"><code class="docutils literal notranslate"><span class="pre">t3toolbox.backend.stacking.stack()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../../_sources/autoapi/t3toolbox/backend/stacking/first_elm_k_levels_deep.rst.txt">
+    <a href="../../../../_sources/autoapi/t3toolbox/backend/stacking/stack.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

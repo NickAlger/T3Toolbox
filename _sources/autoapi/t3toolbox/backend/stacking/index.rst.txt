@@ -10,19 +10,19 @@ Functions
 .. toctree::
    :hidden:
 
-   /autoapi/t3toolbox/backend/stacking/first_elm_k_levels_deep
    /autoapi/t3toolbox/backend/stacking/trees_have_same_structure
    /autoapi/t3toolbox/backend/stacking/apply_func_to_leaf_subtrees
    /autoapi/t3toolbox/backend/stacking/stack_arrays_at_lowest_level_of_trees
+   /autoapi/t3toolbox/backend/stacking/stack
    /autoapi/t3toolbox/backend/stacking/unstack
    /autoapi/t3toolbox/backend/stacking/sum_stack
 
 .. autoapisummary::
 
-   t3toolbox.backend.stacking.first_elm_k_levels_deep
    t3toolbox.backend.stacking.trees_have_same_structure
    t3toolbox.backend.stacking.apply_func_to_leaf_subtrees
    t3toolbox.backend.stacking.stack_arrays_at_lowest_level_of_trees
+   t3toolbox.backend.stacking.stack
    t3toolbox.backend.stacking.unstack
    t3toolbox.backend.stacking.sum_stack
 
