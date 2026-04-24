@@ -224,13 +224,13 @@ def stack(
             stacked = xnp.array(collect(T, 0))
 
             # Move axes from the front (0, 1, ...) to their target positions
-            for i, target in enumerate(axes):
-                stacked = xnp.moveaxis(stacked, i, target)
+            for ii, target in enumerate(axes):
+                stacked = xnp.moveaxis(stacked, ii, target)
 
             # Ensure the final array is in contiguous memory order
             return xnp.ascontiguousarray(stacked)
 
-        if isinstance(template_node, (list, tuple)):
+        if isinstance(template_node, typ.Sequence):
             return tuple(reconstruct(template_node[i], path_to_leaf + [i])
                          for i in range(len(template_node)))
         return template_node
@@ -353,10 +353,12 @@ def unstack(
     norm_axes = [ax if ax >= 0 else ax + ndim for ax in axes]
     stack_shape = [full_shape[ax] for ax in norm_axes]
 
+    print('norm_axes=', norm_axes)
+    print('stack_shape=', stack_shape)
+
     def slice_leaves(obj, current_indices):
         if is_ndarray(obj):
             idx = [slice(None)] * obj.ndim
-            # Use the normalized axes for mapping indices
             for ax, val in zip(norm_axes, current_indices):
                 idx[ax] = val
             return obj[tuple(idx)]
@@ -367,7 +369,7 @@ def unstack(
     def build_tree(dim_idx, current_indices):
         if dim_idx == len(axes):
             return slice_leaves(S, current_indices)
-        return tuple(build_tree(dim_idx + 1, current_indices + [i]) for i in range(stack_shape[dim_idx]))
+        return tuple(build_tree(dim_idx + 1, current_indices + [ii]) for ii in range(stack_shape[dim_idx]))
 
     return build_tree(0, [])
 
