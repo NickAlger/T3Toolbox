@@ -11,36 +11,36 @@ __all__ = [
     'trees_have_same_structure',
     'apply_func_to_leaf_subtrees',
     'stack_arrays_at_lowest_level_of_trees',
-    'first_elm_k_levels_deep',
+    # 'first_elm_k_levels_deep',
     'stack',
     'unstack',
     'sum_stack',
 ]
 
 
-def first_elm_k_levels_deep(xx, k):
-    """Returns first element k levels deep in nested sequence.
-
-    first_elm_k_levels_deep(xx, 0) = xx
-    first_elm_k_levels_deep(xx, 1) = xx[0]
-    first_elm_k_levels_deep(xx, 2) = xx[0][0]
-    ...
-    """
-    if k < 0:
-        raise ValueError(str(k) + ' = k < 0.')
-    elif k == 0:
-        return xx
-    else:
-        return first_elm_k_levels_deep(xx[0], k-1)
-
-
-def stack_leaf_sequence(LL, use_jax: bool = False,):
-    xnp, _, _ = get_backend(False, use_jax)
-
-    if is_ndarray(LL[0]):
-        return xnp.stack(LL)
-    else:
-        pass
+# def first_elm_k_levels_deep(xx, k):
+#     """Returns first element k levels deep in nested sequence.
+#
+#     first_elm_k_levels_deep(xx, 0) = xx
+#     first_elm_k_levels_deep(xx, 1) = xx[0]
+#     first_elm_k_levels_deep(xx, 2) = xx[0][0]
+#     ...
+#     """
+#     if k < 0:
+#         raise ValueError(str(k) + ' = k < 0.')
+#     elif k == 0:
+#         return xx
+#     else:
+#         return first_elm_k_levels_deep(xx[0], k-1)
+#
+#
+# def stack_leaf_sequence(LL, use_jax: bool = False,):
+#     xnp, _, _ = get_backend(False, use_jax)
+#
+#     if is_ndarray(LL[0]):
+#         return xnp.stack(LL)
+#     else:
+#         pass
 
 
 def trees_have_same_structure(
@@ -181,9 +181,10 @@ def stack_arrays_at_lowest_level_of_trees(
 
 
 
-def stack_ragged(
+def stack(
         xx, # array-like structure of nested tuples containing arrays
-        leaf_structure: typ.Tuple[typ.Union[typ.Tuple, None],...], # tree structure of a leaf
+        leaf_structure: typ.Tuple[typ.Union[typ.Tuple, None],...], # tree structure of a leaf subtree
+        stacking_axis: int = 0,
         use_jax: bool = False,
 ) -> typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]]:  # (stacked_tucker_cores, stacked_tt_cores)
     xnp,_,_ = get_backend(False, use_jax)
