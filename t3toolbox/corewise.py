@@ -5,7 +5,7 @@
 import typing as typ
 import numpy as np
 
-from t3toolbox.common import *
+from t3toolbox.backend.common import *
 
 __all__ = [
     'NDArrayTree',

@@ -10,37 +10,10 @@ from t3toolbox.backend.common import *
 __all__ = [
     'trees_have_same_structure',
     'apply_func_to_leaf_subtrees',
-    'stack_arrays_at_lowest_level_of_trees',
-    # 'first_elm_k_levels_deep',
     'stack',
     'unstack',
     'sum_stack',
 ]
-
-
-# def first_elm_k_levels_deep(xx, k):
-#     """Returns first element k levels deep in nested sequence.
-#
-#     first_elm_k_levels_deep(xx, 0) = xx
-#     first_elm_k_levels_deep(xx, 1) = xx[0]
-#     first_elm_k_levels_deep(xx, 2) = xx[0][0]
-#     ...
-#     """
-#     if k < 0:
-#         raise ValueError(str(k) + ' = k < 0.')
-#     elif k == 0:
-#         return xx
-#     else:
-#         return first_elm_k_levels_deep(xx[0], k-1)
-#
-#
-# def stack_leaf_sequence(LL, use_jax: bool = False,):
-#     xnp, _, _ = get_backend(False, use_jax)
-#
-#     if is_ndarray(LL[0]):
-#         return xnp.stack(LL)
-#     else:
-#         pass
 
 
 def trees_have_same_structure(
@@ -139,52 +112,9 @@ def apply_func_to_leaf_subtrees(
         return tuple([apply_func_to_leaf_subtrees(x, func, leaf_structure) for x in tree])
 
 
-def stack_arrays_at_lowest_level_of_trees(
-        sequence_of_trees,
-        axis: int = 0,
-        use_jax: bool = False,
-):
-    """Given a sequence of trees which have the same structure, with NDArrays at the leafs,
-    construct the tree which has the same structure, but has leafs given by stacking the
-    leafs of the input trees.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.backend.stacking as stacking
-    >>> T1 = (np.array([1,2,3]),   (np.array([[4,5],   [6,7]]),   np.array(8)))
-    >>> T2 = (np.array([9,10,11]), (np.array([[12,13], [14,15]]), np.array(16)))
-    >>> (a, (b, c)) = stacking.stack_arrays_at_lowest_level_of_trees((T1, T2))
-    >>> print(a)
-    [[ 1  2  3]
-     [ 9 10 11]]
-    >>> print(b[0,:,:])
-    [[4 5]
-     [6 7]]
-    >>> print(b[1,:,:])
-    [[12 13]
-     [14 15]]
-    >>> print(c)
-    [ 8 16]
-    """
-    xnp, _, _ = get_backend(False, use_jax)
-
-    if not isinstance(sequence_of_trees[0], typ.Sequence):
-        return xnp.stack(sequence_of_trees, axis=axis)
-    else:
-        N = len(sequence_of_trees[0])
-        sequence_of_subtrees = [[x[ii] for x in sequence_of_trees] for ii in range(N)]
-        return tuple([
-            stack_arrays_at_lowest_level_of_trees(x, axis=axis, use_jax=use_jax)
-            for x in sequence_of_subtrees
-        ])
-
-
-
 def stack(
-        xx, # array-like structure of nested tuples containing arrays
-        leaf_structure: typ.Tuple[typ.Union[typ.Tuple, None],...], # tree structure of a leaf subtree
-        stacking_axis: int = 0,
+        T,
+        axes,
         use_jax: bool = False,
 ):
     """Stack array-like nested tree structure.
@@ -202,13 +132,33 @@ def stack(
     >>> T10 = (a10, (b10, c10))
     >>> T11 = (a11, (b11, c11))
     >>> T = ((T00, T01), (T10, T11))
-    >>> LS = (None, (None, None))
-    >>> (a, (b, c)) = stacking.stack(T, LS)
+    >>> (a, (b, c)) = stacking.stack(T, axes=(0,1))
     >>> np.linalg.norm(a - np.array([[a00, a01], [a10, a11]]))
     0.0
     >>> np.linalg.norm(b - np.array([[b00, b01], [b10, b11]]))
     0.0
     >>> np.linalg.norm(c - np.array([[c00, c01], [c10, c11]]))
+    0.0
+
+    Stacking along different axes
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.stacking as stacking
+    >>> randn = np.random.randn
+    >>> a00, a01, a10, a11 = randn(3,2), randn(3,2), randn(3,2), randn(3,2)
+    >>> b00, b01, b10, b11 = randn(4,5,6), randn(4,5,6), randn(4,5,6), randn(4,5,6)
+    >>> c00, c01, c10, c11 = randn(7), randn(7), randn(7), randn(7)
+    >>> T00 = (a00, (b00, c00))
+    >>> T01 = (a01, (b01, c01))
+    >>> T10 = (a10, (b10, c10))
+    >>> T11 = (a11, (b11, c11))
+    >>> T = ((T00, T01), (T10, T11))
+    >>> (a, (b, c)) = stacking.stack(T, axes=(0,2))
+    >>> np.linalg.norm(a - np.array([[a00, a01], [a10, a11]]).swapaxes(1,2))
+    0.0
+    >>> np.linalg.norm(b - np.array([[b00, b01], [b10, b11]]).swapaxes(1,2))
+    0.0
+    >>> np.linalg.norm(c - np.array([[c00, c01], [c10, c11]]).swapaxes(1,2))
     0.0
 
     Stacking when there is only one, non-nested, object
@@ -218,13 +168,23 @@ def stack(
     >>> randn = np.random.randn
     >>> a, b, c = randn(3), randn(4,5), randn()
     >>> T = (a, (b, c))
-    >>> LS = (None, (None, None))
-    >>> (a2, (b2, c2)) = stacking.stack(T, LS)
+    >>> (a2, (b2, c2)) = stacking.stack(T, ())
     >>> print(np.linalg.norm(a - a2))
     0.0
     >>> print(np.linalg.norm(b - b2))
     0.0
     >>> print(np.linalg.norm(c - c2))
+    0.0
+
+    Stack non-nested single array
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.stacking as stacking
+    >>> randn = np.random.randn
+    >>> T = randn(3)
+    >>> LS = None
+    >>> T2 = stacking.stack(T, ())
+    >>> print(np.linalg.norm(T - T2))
     0.0
 
     Stack nothing
@@ -234,41 +194,183 @@ def stack(
     >>> randn = np.random.randn
     >>> T = ()
     >>> LS = ()
-    >>> print(stacking.stack(T, LS))
+    >>> print(stacking.stack(T, ()))
     ()
     """
-    xnp,_,_ = get_backend(False, use_jax)
+    xnp, _, _ = get_backend(False, use_jax)
 
-    if trees_have_same_structure(xx, leaf_structure):
-        return xx
-    else:
-        stacked_subtrees = tuple([stack(x, leaf_structure, stacking_axis=stacking_axis, use_jax=use_jax) for x in xx])
-        return stack_arrays_at_lowest_level_of_trees(
-            stacked_subtrees, axis=stacking_axis, use_jax=use_jax,
-        )
+    # 1. Drill down to find the 'template' of the original structure
+    def get_template(obj, depth):
+        if depth == 0: return obj
+        return get_template(obj[0], depth - 1)
+
+    num_stacking_levels = len(axes)
+    template = get_template(T, num_stacking_levels)
+
+    # 2. Recursive function to rebuild the structure
+    def reconstruct(template_node, path_to_leaf):
+        if not isinstance(template_node, typ.Sequence):
+            # Collect the sliced pieces from across the 'unstacked' tree
+            def collect(current_tree, current_depth):
+                if current_depth == num_stacking_levels:
+                    # Navigate the original tree structure to find this specific leaf
+                    node = current_tree
+                    for step in path_to_leaf:
+                        node = node[step]
+                    return node
+                return [collect(branch, current_depth + 1) for branch in current_tree]
+
+            # xnp.array() nests the lists, putting stacking axes at the front
+            stacked = xnp.array(collect(T, 0))
+
+            # Move axes from the front (0, 1, ...) to their target positions
+            for i, target in enumerate(axes):
+                stacked = xnp.moveaxis(stacked, i, target)
+
+            # Ensure the final array is in contiguous memory order
+            return xnp.ascontiguousarray(stacked)
+
+        if isinstance(template_node, (list, tuple)):
+            return tuple(reconstruct(template_node[i], path_to_leaf + [i])
+                         for i in range(len(template_node)))
+        return template_node
+
+    return reconstruct(template, [])
+
 
 
 def unstack(
-        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
-): # returns an array-like structure of nested tuples containing Tucker tensor trains
-    """Given multiple stacked T3s, this unstacks them
-    into an array-like structure of nested tuples with the same "shape" as the stacking shape.
+        S,
+        axes,
+):
+    """Unstack nested sequence of arrays along specificed array axes.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.backend.stacking as stacking
+    >>> A = np.random.randn(4, 2,3, 5,6)
+    >>> B = np.random.randn(7, 2,3, 8)
+    >>> C = np.random.randn(9, 2,3)
+    >>> S = ((A, B), C)
+    >>> T = stacking.unstack(S, axes=(1,2))
+    >>> ii, jj = 1, 2
+    >>> ((Aij, Bij), Cij) = T[ii][jj]
+    >>> print(np.linalg.norm(Aij - A[:,ii,jj,:,:]))
+    0.0
+    >>> print(np.linalg.norm(Bij - B[:,ii,jj,:]))
+    0.0
+    >>> print(np.linalg.norm(Cij - C[:,ii,jj]))
+    0.0
+
+    Stack then unstack:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.stacking as stacking
+    >>> import t3toolbox.corewise as cw
+    >>> randn = np.random.randn
+    >>> a00, a01, a10, a11 = randn(3,2), randn(3,2), randn(3,2), randn(3,2)
+    >>> b00, b01, b10, b11 = randn(4,5), randn(4,5), randn(4,5), randn(4,5)
+    >>> c00, c01, c10, c11 = randn(7), randn(7), randn(7), randn(7)
+    >>> T00 = (a00, (b00, c00))
+    >>> T01 = (a01, (b01, c01))
+    >>> T10 = (a10, (b10, c10))
+    >>> T11 = (a11, (b11, c11))
+    >>> T = ((T00, T01), (T10, T11))
+    >>> S = stacking.stack(T, axes=(0,2))
+    >>> T2 = stacking.unstack(S, axes=(0,2))
+    >>> print(cw.corewise_norm(cw.corewise_sub(T, T2)))
+    0.0
+
+    Unstack then stack:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.stacking as stacking
+    >>> A = np.random.randn(4, 2,3, 5,6)
+    >>> B = np.random.randn(7, 2,3, 8)
+    >>> C = np.random.randn(9, 2,3)
+    >>> S = ((A, B), C)
+    >>> T = stacking.unstack(S, axes=(1,2))
+    >>> ii, jj = 1, 2
+    >>> ((Aij, Bij), Cij) = T[0][0]
+
+    >>> S2 = stacking.stack(T, axes=(1,2))
+    >>> ((A2, B2), C2) = S2
+    >>> print(np.linalg.norm(A - A2))
+
+    >>> print(np.linalg.norm(B - B2))
+
+    >>> print(np.linalg.norm(C - C2))
+
+
+    When there are no axes to unstack:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.stacking as stacking
+    >>> A = np.random.randn(4, 5, 6)
+    >>> B = np.random.randn(7, 8)
+    >>> C = np.random.randn(9)
+    >>> S = ((A, B), C)
+    >>> T = stacking.unstack(S, axes=())
+    >>> ((A2, B2), C2) = T
+    >>> print(np.linalg.norm(A2 - A))
+    0.0
+    >>> print(np.linalg.norm(B2 - B))
+    0.0
+    >>> print(np.linalg.norm(C2 - C))
+    0.0
+
+    When the tree is a single object:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.stacking as stacking
+    >>> A = np.random.randn(4, 2,3, 5,6)
+    >>> T = stacking.unstack(A, axes=(1,2))
+    >>> ii, jj = 1, 2
+    >>> Aij = T[ii][jj]
+    >>> print(np.linalg.norm(Aij - A[:, ii, jj, :]))
+    0.0
+
+    When the tree is a single object and there are no objects to unstack
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.stacking as stacking
+    >>> A = np.random.randn(4, 5,6)
+    >>> T = stacking.unstack(A, axes=())
+    >>> print(np.linalg.norm(A - T))
+    0.0
     """
-    tucker_cores, tt_cores = x
-    stack_shape = tucker_cores[0].shape[:-2]
+    def get_stack_info(x):
+        if is_ndarray(x):
+            return x.shape, x.ndim
+        for item in x:
+            res = get_stack_info(item)
+            if res: return res
 
-    if not stack_shape:
-        return x
+    full_shape, ndim = get_stack_info(S)
 
-    n = tucker_cores[0].shape[0]
-    unstacked_x = []
-    for ii in range(n):
-        BB = tuple([B[ii] for B in tucker_cores])
-        GG = tuple([G[ii] for G in tt_cores])
-        xi = (BB, GG)
-        unstacked_x.append(t3_unstack(xi))
+    # Normalize axes: convert negative integers to positive equivalents
+    norm_axes = [ax if ax >= 0 else ax + ndim for ax in axes]
+    stack_shape = [full_shape[ax] for ax in norm_axes]
 
-    return tuple(unstacked_x)
+    def slice_leaves(obj, current_indices):
+        if is_ndarray(obj):
+            idx = [slice(None)] * obj.ndim
+            # Use the normalized axes for mapping indices
+            for ax, val in zip(norm_axes, current_indices):
+                idx[ax] = val
+            return obj[tuple(idx)]
+        if isinstance(obj, (list, tuple)):
+            return tuple(slice_leaves(item, current_indices) for item in obj)
+        return obj
+
+    def build_tree(dim_idx, current_indices):
+        if dim_idx == len(axes):
+            return slice_leaves(S, current_indices)
+        return tuple(build_tree(dim_idx + 1, current_indices + [i]) for i in range(stack_shape[dim_idx]))
+
+    return build_tree(0, [])
+
 
 
 def sum_stack(
