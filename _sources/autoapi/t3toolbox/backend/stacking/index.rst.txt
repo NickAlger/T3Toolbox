@@ -10,6 +10,8 @@ Functions
 .. toctree::
    :hidden:
 
+   /autoapi/t3toolbox/backend/stacking/tree_depth
+   /autoapi/t3toolbox/backend/stacking/get_first_leaf
    /autoapi/t3toolbox/backend/stacking/trees_have_same_structure
    /autoapi/t3toolbox/backend/stacking/apply_func_to_leaf_subtrees
    /autoapi/t3toolbox/backend/stacking/stack
@@ -18,6 +20,8 @@ Functions
 
 .. autoapisummary::
 
+   t3toolbox.backend.stacking.tree_depth
+   t3toolbox.backend.stacking.get_first_leaf
    t3toolbox.backend.stacking.trees_have_same_structure
    t3toolbox.backend.stacking.apply_func_to_leaf_subtrees
    t3toolbox.backend.stacking.stack

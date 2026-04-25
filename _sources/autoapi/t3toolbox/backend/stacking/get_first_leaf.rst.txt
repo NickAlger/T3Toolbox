@@ -1,0 +1,4 @@
+t3toolbox.backend.stacking.get_first_leaf
+=========================================
+
+.. py:function:: t3toolbox.backend.stacking.get_first_leaf(xx)
