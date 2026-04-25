@@ -5,6 +5,7 @@
 import numpy as np
 import typing as typ
 
+import t3toolbox.backend.stacking as stacking
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -156,29 +157,10 @@ def t3_stack(
 ) -> typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]]:  # (stacked_tucker_cores, stacked_tt_cores)
     xnp,_,_ = get_backend(False, use_jax)
 
-    if is_ndarray(xx[0][0]):
-        return xx
-
-    xx = [t3_stack(x, use_jax=use_jax) for x in xx]
-    x0 = xx[0]
-    tucker_cores0, _ = x0
-    num_cores = len(tucker_cores0)
-    BBB = []
-    GGG = []
-    for ii in range(num_cores):
-        BBi = []
-        GGi = []
-        for x in xx:
-            Bi = x[0][ii]
-            Gi = x[1][ii]
-            BBi.append(Bi)
-            GGi.append(Gi)
-        BBi = xnp.stack(BBi)
-        GGi = xnp.stack(GGi)
-        BBB.append(BBi)
-        GGG.append(GGi)
-
-    return tuple(BBB), tuple(GGG)
+    num_stacking_axes = stacking.tree_depth(xx) - 2
+    stacking_axes = tuple(range(num_stacking_axes))
+    stacked_xx = stacking.stack(xx, stacking_axes, use_jax=use_jax)
+    return stacked_xx
 
 
 def t3_unstack(

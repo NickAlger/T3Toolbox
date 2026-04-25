@@ -8,12 +8,24 @@ import typing as typ
 from t3toolbox.backend.common import *
 
 __all__ = [
+    'tree_depth',
+    'get_first_leaf',
     'trees_have_same_structure',
     'apply_func_to_leaf_subtrees',
     'stack',
     'unstack',
     'sum_stack',
 ]
+
+def tree_depth(t):
+    if not isinstance(t, typ.Sequence):
+        return 0
+    return tree_depth(t[0])+1
+
+def get_first_leaf(xx):
+    if not isinstance(xx, typ.Sequence):
+        return xx
+    return get_first_leaf(xx[0])
 
 
 def trees_have_same_structure(
