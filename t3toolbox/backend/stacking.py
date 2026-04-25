@@ -362,9 +362,6 @@ def unstack(
     norm_axes = [ax if ax >= 0 else ax + ndim for ax in axes]
     stack_shape = [full_shape[ax] for ax in norm_axes]
 
-    print('norm_axes=', norm_axes)
-    print('stack_shape=', stack_shape)
-
     def slice_leaves(obj, current_indices):
         if is_ndarray(obj):
             idx = [slice(None)] * obj.ndim

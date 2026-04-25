@@ -169,21 +169,10 @@ def t3_unstack(
     """Given multiple stacked T3s, this unstacks them
     into an array-like structure of nested tuples with the same "shape" as the stacking shape.
     """
-    tucker_cores, tt_cores = x
-    stack_shape = tucker_cores[0].shape[:-2]
-
-    if not stack_shape:
-        return x
-
-    n = tucker_cores[0].shape[0]
-    unstacked_x = []
-    for ii in range(n):
-        BB = tuple([B[ii] for B in tucker_cores])
-        GG = tuple([G[ii] for G in tt_cores])
-        xi = (BB, GG)
-        unstacked_x.append(t3_unstack(xi))
-
-    return tuple(unstacked_x)
+    num_stacking_axes = len(stacking.get_first_leaf(x).shape) - 2 # shape=stacking_shape + (ni,Ni)
+    stacking_axes = tuple(range(num_stacking_axes))
+    x_unstacked = stacking.unstack(x, stacking_axes)
+    return x_unstacked
 
 
 def t3_sum_stack(
