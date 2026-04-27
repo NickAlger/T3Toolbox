@@ -10,12 +10,12 @@ Functions
 .. toctree::
    :hidden:
 
-   /autoapi/bv_operations/t3b_unstack
+   /autoapi/bv_operations/t3b_or_t3v_unstack
    /autoapi/bv_operations/t3b_stack
 
 .. autoapisummary::
 
-   bv_operations.t3b_unstack
+   bv_operations.t3b_or_t3v_unstack
    bv_operations.t3b_stack
 
 
