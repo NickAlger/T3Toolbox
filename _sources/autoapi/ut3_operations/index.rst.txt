@@ -12,10 +12,14 @@ Functions
 
    /autoapi/ut3_operations/reverse_utt
    /autoapi/ut3_operations/uniform_squash_tt_tails
+   /autoapi/ut3_operations/ut3_unstack
+   /autoapi/ut3_operations/ut3_stack
 
 .. autoapisummary::
 
    ut3_operations.reverse_utt
    ut3_operations.uniform_squash_tt_tails
+   ut3_operations.ut3_unstack
+   ut3_operations.ut3_stack
 
 

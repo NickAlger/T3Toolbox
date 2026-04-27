@@ -469,7 +469,7 @@
 </li>
         <li><a href="autoapi/t3toolbox/backend/stacking/stack.html#t3toolbox.backend.stacking.stack">t3toolbox.backend.stacking.stack()</a>
 </li>
-        <li><a href="autoapi/t3toolbox/backend/stacking/sum_stack.html#t3toolbox.backend.stacking.sum_stack">t3toolbox.backend.stacking.sum_stack()</a>
+        <li><a href="autoapi/t3toolbox/backend/stacking/sum_leafs_along_axes.html#t3toolbox.backend.stacking.sum_leafs_along_axes">t3toolbox.backend.stacking.sum_leafs_along_axes()</a>
 </li>
         <li><a href="autoapi/t3toolbox/backend/stacking/tree_depth.html#t3toolbox.backend.stacking.tree_depth">t3toolbox.backend.stacking.tree_depth()</a>
 </li>
@@ -504,8 +504,6 @@
         <li><a href="autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_corewise_randn.html#t3toolbox.backend.tucker_tensor_train.t3_operations.t3_corewise_randn">t3toolbox.backend.tucker_tensor_train.t3_operations.t3_corewise_randn()</a>
 </li>
         <li><a href="autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_from_vector.html#t3toolbox.backend.tucker_tensor_train.t3_operations.t3_from_vector">t3toolbox.backend.tucker_tensor_train.t3_operations.t3_from_vector()</a>
-</li>
-        <li><a href="autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_sum_stack.html#t3toolbox.backend.tucker_tensor_train.t3_operations.t3_sum_stack">t3toolbox.backend.tucker_tensor_train.t3_operations.t3_sum_stack()</a>
 </li>
         <li><a href="autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_to_vector.html#t3toolbox.backend.tucker_tensor_train.t3_operations.t3_to_vector">t3toolbox.backend.tucker_tensor_train.t3_operations.t3_to_vector()</a>
 </li>
@@ -728,6 +726,10 @@
         <li><a href="autoapi/ut3_operations/reverse_utt.html#ut3_operations.reverse_utt">ut3_operations.reverse_utt()</a>
 </li>
         <li><a href="autoapi/ut3_operations/uniform_squash_tt_tails.html#ut3_operations.uniform_squash_tt_tails">ut3_operations.uniform_squash_tt_tails()</a>
+</li>
+        <li><a href="autoapi/ut3_operations/ut3_stack.html#ut3_operations.ut3_stack">ut3_operations.ut3_stack()</a>
+</li>
+        <li><a href="autoapi/ut3_operations/ut3_unstack.html#ut3_operations.ut3_unstack">ut3_operations.ut3_unstack()</a>
 </li>
         <li><a href="autoapi/ut3_orthogonalization/down_orthogonalize_uniform_tt_cores.html#ut3_orthogonalization.down_orthogonalize_uniform_tt_cores">ut3_orthogonalization.down_orthogonalize_uniform_tt_cores()</a>
 </li>
@@ -1156,8 +1158,6 @@
         <li><a href="autoapi/t3toolbox/uniform_tucker_tensor_train/UniformTuckerTensorTrain.html#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.structure">(t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain method)</a>
 </li>
       </ul></li>
-      <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum_stack">sum_stack() (t3toolbox.tucker_tensor_train.TuckerTensorTrain method)</a>
-</li>
   </ul></td>
 </tr></table>
 
@@ -1594,10 +1594,10 @@
 </li>
       </ul></li>
       <li>
-    t3toolbox.backend.stacking.sum_stack()
+    t3toolbox.backend.stacking.sum_leafs_along_axes()
 
       <ul>
-        <li><a href="autoapi/t3toolbox/backend/stacking/sum_stack.html#t3toolbox.backend.stacking.sum_stack">built-in function</a>
+        <li><a href="autoapi/t3toolbox/backend/stacking/sum_leafs_along_axes.html#t3toolbox.backend.stacking.sum_leafs_along_axes">built-in function</a>
 </li>
       </ul></li>
       <li>
@@ -1745,13 +1745,6 @@
 
       <ul>
         <li><a href="autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_from_vector.html#t3toolbox.backend.tucker_tensor_train.t3_operations.t3_from_vector">built-in function</a>
-</li>
-      </ul></li>
-      <li>
-    t3toolbox.backend.tucker_tensor_train.t3_operations.t3_sum_stack()
-
-      <ul>
-        <li><a href="autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_sum_stack.html#t3toolbox.backend.tucker_tensor_train.t3_operations.t3_sum_stack">built-in function</a>
 </li>
       </ul></li>
       <li>
@@ -1915,10 +1908,10 @@
         <li><a href="autoapi/t3toolbox/basis_variations_format/t3_orthogonal_representations.html#t3toolbox.basis_variations_format.t3_orthogonal_representations">built-in function</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="autoapi/t3toolbox/basis_variations_format/T3Basis.html#t3toolbox.basis_variations_format.T3Basis">t3toolbox.basis_variations_format.T3Basis (built-in class)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="autoapi/t3toolbox/basis_variations_format/T3Variations.html#t3toolbox.basis_variations_format.T3Variations">t3toolbox.basis_variations_format.T3Variations (built-in class)</a>
 </li>
       <li>
@@ -2693,7 +2686,11 @@
       <li><a href="autoapi/t3toolbox/uniform_tucker_tensor_train/index.html#t3toolbox.uniform_tucker_tensor_train.unpack_vectors">unpack_vectors (in module t3toolbox.uniform_tucker_tensor_train)</a>
 </li>
       <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.unstack">unstack() (t3toolbox.tucker_tensor_train.TuckerTensorTrain method)</a>
+
+      <ul>
+        <li><a href="autoapi/t3toolbox/uniform_tucker_tensor_train/UniformTuckerTensorTrain.html#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.unstack">(t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain method)</a>
 </li>
+      </ul></li>
       <li><a href="autoapi/t3toolbox/uniform_basis_variations_format/UT3Basis.html#t3toolbox.uniform_basis_variations_format.UT3Basis.up_mask">up_mask (t3toolbox.uniform_basis_variations_format.UT3Basis attribute)</a>
 </li>
       <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.up_orthogonalize_tucker_cores">up_orthogonalize_tucker_cores() (t3toolbox.tucker_tensor_train.TuckerTensorTrain method)</a>
@@ -2800,6 +2797,20 @@
 
       <ul>
         <li><a href="autoapi/ut3_operations/uniform_squash_tt_tails.html#ut3_operations.uniform_squash_tt_tails">built-in function</a>
+</li>
+      </ul></li>
+      <li>
+    ut3_operations.ut3_stack()
+
+      <ul>
+        <li><a href="autoapi/ut3_operations/ut3_stack.html#ut3_operations.ut3_stack">built-in function</a>
+</li>
+      </ul></li>
+      <li>
+    ut3_operations.ut3_unstack()
+
+      <ul>
+        <li><a href="autoapi/ut3_operations/ut3_unstack.html#ut3_operations.ut3_unstack">built-in function</a>
 </li>
       </ul></li>
       <li>

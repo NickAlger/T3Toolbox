@@ -1,0 +1,8 @@
+ut3_operations.ut3_unstack
+==========================
+
+.. py:function:: ut3_operations.ut3_unstack(x: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray])
+
+   Unstacks this uniform Tucker tensor train into an array-like tree
+   of nested Tuples containing uniform Tucker tensor trains as leaf nodes.
+

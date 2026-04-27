@@ -16,7 +16,6 @@ Functions
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/change_tucker_core_shapes
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/change_tt_core_shapes
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_unstack
-   /autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_sum_stack
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_core_shapes
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_to_vector
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_from_vector
@@ -31,7 +30,6 @@ Functions
    t3toolbox.backend.tucker_tensor_train.t3_operations.change_tucker_core_shapes
    t3toolbox.backend.tucker_tensor_train.t3_operations.change_tt_core_shapes
    t3toolbox.backend.tucker_tensor_train.t3_operations.t3_unstack
-   t3toolbox.backend.tucker_tensor_train.t3_operations.t3_sum_stack
    t3toolbox.backend.tucker_tensor_train.t3_operations.t3_core_shapes
    t3toolbox.backend.tucker_tensor_train.t3_operations.t3_to_vector
    t3toolbox.backend.tucker_tensor_train.t3_operations.t3_from_vector

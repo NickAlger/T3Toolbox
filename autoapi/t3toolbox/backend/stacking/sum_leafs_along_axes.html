@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.backend.stacking.sum_stack &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.backend.stacking.sum_leafs_along_axes &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,7 +42,7 @@
     <script src="../../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/backend/stacking/sum_stack';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/backend/stacking/sum_leafs_along_axes';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../../genindex.html" />
@@ -376,7 +376,7 @@
 <li class="toctree-l4"><a class="reference internal" href="apply_func_to_leaf_subtrees.html">t3toolbox.backend.stacking.apply_func_to_leaf_subtrees</a></li>
 <li class="toctree-l4"><a class="reference internal" href="stack.html">t3toolbox.backend.stacking.stack</a></li>
 <li class="toctree-l4"><a class="reference internal" href="unstack.html">t3toolbox.backend.stacking.unstack</a></li>
-<li class="toctree-l4 current active"><a class="current reference internal" href="#">t3toolbox.backend.stacking.sum_stack</a></li>
+<li class="toctree-l4 current active"><a class="current reference internal" href="#">t3toolbox.backend.stacking.sum_leafs_along_axes</a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../tucker_tensor_train/index.html">t3toolbox.backend.tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -505,6 +505,8 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../ut3_operations/index.html">ut3_operations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../ut3_operations/reverse_utt.html">ut3_operations.reverse_utt</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../ut3_operations/uniform_squash_tt_tails.html">ut3_operations.uniform_squash_tt_tails</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../ut3_operations/ut3_unstack.html">ut3_operations.ut3_unstack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../ut3_operations/ut3_stack.html">ut3_operations.ut3_stack</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../bv_conversions/index.html">bv_conversions</a></li>
@@ -567,7 +569,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.backend.stacking</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.backend.stacking.sum_stack</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.backend.stacking.sum_leafs_along_axes</span></li>
   </ul>
 </nav>
 </div>
@@ -584,12 +586,29 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="t3toolbox-backend-stacking-sum-stack">
-<h1>t3toolbox.backend.stacking.sum_stack<a class="headerlink" href="#t3toolbox-backend-stacking-sum-stack" title="Link to this heading">#</a></h1>
+  <section id="t3toolbox-backend-stacking-sum-leafs-along-axes">
+<h1>t3toolbox.backend.stacking.sum_leafs_along_axes<a class="headerlink" href="#t3toolbox-backend-stacking-sum-leafs-along-axes" title="Link to this heading">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3toolbox.backend.stacking.sum_stack">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.backend.stacking.</span></span><span class="sig-name descname"><span class="pre">sum_stack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.backend.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.backend.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.backend.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.backend.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.backend.stacking.sum_stack" title="Link to this definition">#</a></dt>
-<dd><p>If this object contains multiple stacked T3s, this sums them.</p>
+<dt class="sig sig-object py" id="t3toolbox.backend.stacking.sum_leafs_along_axes">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.backend.stacking.</span></span><span class="sig-name descname"><span class="pre">sum_leafs_along_axes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">S</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axes</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.backend.stacking.sum_leafs_along_axes" title="Link to this definition">#</a></dt>
+<dd><p>Sum leafs of a tree of NDArrays along specified axes.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.backend.stacking</span> <span class="k">as</span> <span class="nn">stacking</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">A</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">B</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">9</span><span class="p">,</span><span class="mi">8</span><span class="p">,</span><span class="mi">7</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">5</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">C</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">6</span><span class="p">,</span><span class="mi">7</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">9</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">S</span> <span class="o">=</span> <span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="p">(</span><span class="n">B</span><span class="p">,</span><span class="n">C</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">T</span> <span class="o">=</span> <span class="n">stacking</span><span class="o">.</span><span class="n">sum_leafs_along_axes</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">A2</span><span class="p">,</span> <span class="p">(</span><span class="n">B2</span><span class="p">,</span> <span class="n">C2</span><span class="p">))</span> <span class="o">=</span> <span class="n">T</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span> <span class="o">-</span> <span class="n">A2</span><span class="p">))</span>
+<span class="go">0.0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span> <span class="o">-</span> <span class="n">B2</span><span class="p">))</span>
+<span class="go">0.0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">C</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span> <span class="o">-</span> <span class="n">C2</span><span class="p">))</span>
+<span class="go">0.0</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </section>
@@ -641,14 +660,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.backend.stacking.sum_stack"><code class="docutils literal notranslate"><span class="pre">t3toolbox.backend.stacking.sum_stack()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.backend.stacking.sum_leafs_along_axes"><code class="docutils literal notranslate"><span class="pre">t3toolbox.backend.stacking.sum_leafs_along_axes()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../../_sources/autoapi/t3toolbox/backend/stacking/sum_stack.rst.txt">
+    <a href="../../../../_sources/autoapi/t3toolbox/backend/stacking/sum_leafs_along_axes.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

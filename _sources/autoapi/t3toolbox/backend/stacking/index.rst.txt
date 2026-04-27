@@ -16,7 +16,7 @@ Functions
    /autoapi/t3toolbox/backend/stacking/apply_func_to_leaf_subtrees
    /autoapi/t3toolbox/backend/stacking/stack
    /autoapi/t3toolbox/backend/stacking/unstack
-   /autoapi/t3toolbox/backend/stacking/sum_stack
+   /autoapi/t3toolbox/backend/stacking/sum_leafs_along_axes
 
 .. autoapisummary::
 
@@ -26,6 +26,6 @@ Functions
    t3toolbox.backend.stacking.apply_func_to_leaf_subtrees
    t3toolbox.backend.stacking.stack
    t3toolbox.backend.stacking.unstack
-   t3toolbox.backend.stacking.sum_stack
+   t3toolbox.backend.stacking.sum_leafs_along_axes
 
 

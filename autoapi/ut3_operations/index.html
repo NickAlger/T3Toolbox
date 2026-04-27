@@ -376,7 +376,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../t3toolbox/backend/stacking/apply_func_to_leaf_subtrees.html">t3toolbox.backend.stacking.apply_func_to_leaf_subtrees</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../t3toolbox/backend/stacking/stack.html">t3toolbox.backend.stacking.stack</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../t3toolbox/backend/stacking/unstack.html">t3toolbox.backend.stacking.unstack</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../t3toolbox/backend/stacking/sum_stack.html">t3toolbox.backend.stacking.sum_stack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../t3toolbox/backend/stacking/sum_leafs_along_axes.html">t3toolbox.backend.stacking.sum_leafs_along_axes</a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../t3toolbox/backend/tucker_tensor_train/index.html">t3toolbox.backend.tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -505,6 +505,8 @@
 <li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">ut3_operations</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="reverse_utt.html">ut3_operations.reverse_utt</a></li>
 <li class="toctree-l2"><a class="reference internal" href="uniform_squash_tt_tails.html">ut3_operations.uniform_squash_tt_tails</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ut3_unstack.html">ut3_operations.ut3_unstack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ut3_stack.html">ut3_operations.ut3_stack</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../bv_conversions/index.html">bv_conversions</a></li>
@@ -588,6 +590,12 @@
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="uniform_squash_tt_tails.html#ut3_operations.uniform_squash_tt_tails" title="ut3_operations.uniform_squash_tt_tails"><code class="xref py py-obj docutils literal notranslate"><span class="pre">uniform_squash_tt_tails</span></code></a>(→ t3toolbox.backend.common.NDArray)</p></td>
 <td><p>Squash tails of uniform tensor train.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="ut3_unstack.html#ut3_operations.ut3_unstack" title="ut3_operations.ut3_unstack"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_unstack</span></code></a>(x)</p></td>
+<td><p>Unstacks this uniform Tucker tensor train into an array-like tree</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="ut3_stack.html#ut3_operations.ut3_stack" title="ut3_operations.ut3_stack"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ut3_stack</span></code></a>(...)</p></td>
+<td><p>Stacks array-like nested tree of uniform Tucker tensor trains into one uniform Tucker tensor train.</p></td>
 </tr>
 </tbody>
 </table>

@@ -201,18 +201,18 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
 
       Convert uniform Tucker tensor train to dense array.
 
-              Examples
-              --------
-      import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> import numpy as np
-              >>> import t3toolbox.tucker_tensor_train as t3
-              >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-              >>> x = t3.t3_corewise_randn((14, 15, 16), (4, 6, 5), (3, 3, 2, 4), stack_shape=(2,3))
-              >>> uniform_x = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)  # Convert t3 -> ut3
-              >>> x_dense = x.to_dense()
-              >>> x_dense2 = uniform_x.to_dense()
-              >>> print(np.linalg.norm(x_dense - x_dense2))
-              3.2298106396012192e-12
+      .. rubric:: Examples
 
+      >>> import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+      >>> x = t3.t3_corewise_randn((14, 15, 16), (4, 6, 5), (3, 3, 2, 4), stack_shape=(2,3))
+      >>> uniform_x = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)  # Convert t3 -> ut3
+      >>> x_dense = x.to_dense()
+      >>> x_dense2 = uniform_x.to_dense()
+      >>> print(np.linalg.norm(x_dense - x_dense2))
+      3.2298106396012192e-12
 
 
 
@@ -346,18 +346,17 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
 
       Subtract two UniformTuckerTensorTrains, x,y -> x-y.
 
-              Examples
-              --------
-      import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> import numpy as np
-              >>> import t3toolbox.tucker_tensor_train as t3
-              >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-              >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2))
-              >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-              >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1))
-              >>> uy = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(y)
-              >>> print(np.linalg.norm(x.to_dense() + y.to_dense() - (ux - uy).to_dense()))
-              2.7487527725050217e-12
+      .. rubric:: Examples
 
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2))
+      >>> ux = ut3.t3_to_ut3(x)
+      >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1))
+      >>> uy = ut3.t3_to_ut3(y)
+      >>> print(np.linalg.norm(x.to_dense() - y.to_dense() - (ux - uy).to_dense()))
+      2.7487527725050217e-12
 
 
 
@@ -499,17 +498,39 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
 
       Compute the Hilbert-Schmidt norm of this uniform Tucker tensor train.
 
-              Examples
-              --------
-      import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> import numpy as np
-              >>> import t3toolbox.tucker_tensor_train as t3
-              >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-              >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
-              >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-              >>> norm_ux = ux.norm()
-              >>> norm_ux2 = np.einsum('...xyz->...', x.to_dense()**2)
-              >>> print(np.linalg.norm(norm_ux - norm_ux2) / np.linalg.norm(norm_ux))
-              1.4526456430189309e-15
+      .. rubric:: Examples
 
+      >>> import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
+      >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
+      >>> norm_ux = ux.norm()
+      >>> norm_ux2 = np.einsum('...xyz->...', x.to_dense()**2)
+      >>> print(np.linalg.norm(norm_ux - norm_ux2) / np.linalg.norm(norm_ux))
+      1.4526456430189309e-15
+
+
+
+   .. py:method:: unstack()
+
+      Unstacks this UniformTuckerTensorTrain into an array-like tree
+      of nested Tuples containing UniformTuckerTensorTrains as leaf nodes.
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
+      >>> xx = x.unstack()
+      >>> ux = ut3.t3_to_ut3(x)
+      >>> uxx = ux.unstack()
+      >>> ii, jj = 1, 2
+      >>> uxx_ij = uxx[ii][jj]
+      >>> uxx_ij2 = ut3.t3_to_ut3(xx[ii][jj])
+      >>> print((uxx_ij - uxx_ij2).norm())
+      8.474583009920297e-24
 
 

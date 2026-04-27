@@ -376,7 +376,7 @@
 <li class="toctree-l4"><a class="reference internal" href="apply_func_to_leaf_subtrees.html">t3toolbox.backend.stacking.apply_func_to_leaf_subtrees</a></li>
 <li class="toctree-l4"><a class="reference internal" href="stack.html">t3toolbox.backend.stacking.stack</a></li>
 <li class="toctree-l4"><a class="reference internal" href="unstack.html">t3toolbox.backend.stacking.unstack</a></li>
-<li class="toctree-l4"><a class="reference internal" href="sum_stack.html">t3toolbox.backend.stacking.sum_stack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="sum_leafs_along_axes.html">t3toolbox.backend.stacking.sum_leafs_along_axes</a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../tucker_tensor_train/index.html">t3toolbox.backend.tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -505,6 +505,8 @@
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../../ut3_operations/index.html">ut3_operations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../ut3_operations/reverse_utt.html">ut3_operations.reverse_utt</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../ut3_operations/uniform_squash_tt_tails.html">ut3_operations.uniform_squash_tt_tails</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../ut3_operations/ut3_unstack.html">ut3_operations.ut3_unstack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../ut3_operations/ut3_stack.html">ut3_operations.ut3_stack</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1"><a class="reference internal" href="../../../bv_conversions/index.html">bv_conversions</a></li>
@@ -607,8 +609,8 @@
 <tr class="row-even"><td><p><a class="reference internal" href="unstack.html#t3toolbox.backend.stacking.unstack" title="t3toolbox.backend.stacking.unstack"><code class="xref py py-obj docutils literal notranslate"><span class="pre">unstack</span></code></a>(S, axes)</p></td>
 <td><p>Unstack nested sequence of arrays along specificed array axes.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="sum_stack.html#t3toolbox.backend.stacking.sum_stack" title="t3toolbox.backend.stacking.sum_stack"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sum_stack</span></code></a>(...)</p></td>
-<td><p>If this object contains multiple stacked T3s, this sums them.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="sum_leafs_along_axes.html#t3toolbox.backend.stacking.sum_leafs_along_axes" title="t3toolbox.backend.stacking.sum_leafs_along_axes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sum_leafs_along_axes</span></code></a>(S, axes)</p></td>
+<td><p>Sum leafs of a tree of NDArrays along specified axes.</p></td>
 </tr>
 </tbody>
 </table>
