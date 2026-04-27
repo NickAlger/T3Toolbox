@@ -175,28 +175,14 @@ def t3_unstack(
     return x_unstacked
 
 
-def t3_sum_stack(
-        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
-        use_jax: bool=False,
-) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (summed_tucker_cores, summed_tt_cores)
-    """If this object contains multiple stacked T3s, this sums them.
-    """
-    xnp, _, _ = get_backend(False, use_jax=use_jax)
-    tucker_cores, tt_cores = x
-    vsv = tucker_cores[0].shape[:-2]
-    N_vsv = np.prod(vsv, dtype=int)
-
-    summed_tucker_cores = []
-    for B in tucker_cores:
-        B_sum = xnp.sum(B.reshape((N_vsv,) + B.shape[-2:]), axis=0)
-        summed_tucker_cores.append(B_sum)
-
-    summed_tt_cores = []
-    for G in tt_cores:
-        G_sum = xnp.sum(G.reshape((N_vsv,) + G.shape[-3:]), axis=0)
-        summed_tt_cores.append(G_sum)
-
-    return tuple(summed_tucker_cores), tuple(summed_tt_cores)
+# def t3_sum_stack(
+#         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
+# ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (summed_tucker_cores, summed_tt_cores)
+#     """If this object contains multiple stacked T3s, this sums them.
+#     """
+#     num_stacking_axes = len(x[0][0].shape) - 2
+#     axes = tuple(range(num_stacking_axes))
+#     return stacking.sum_leafs_along_axes(x, axes=axes)
 
 
 def t3_core_shapes(

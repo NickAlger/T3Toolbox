@@ -5,11 +5,15 @@
 import numpy as np
 import typing as typ
 
+import t3toolbox.backend.stacking as stacking
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_masking as ut3_masking
 from t3toolbox.backend.common import *
 
 __all__ = [
     'reverse_utt',
     'uniform_squash_tt_tails',
+    'ut3_unstack',
+    'ut3_stack',
 ]
 
 
@@ -129,5 +133,82 @@ def unpack_vectors(
         packed_vectors[ii, ..., :unpacking_shape[ii]]
         for ii in range(len(unpacking_shape))
     ])
+
+
+def ut3_unstack(
+        x: typ.Tuple[
+            NDArray,  # tucker_supercore
+            NDArray,  # tt_supercore
+            NDArray,  # shape_mask
+            NDArray,  # tucker_edge_mask
+            NDArray,  # tt_edge_mask
+        ],
+):
+    """Unstacks this uniform Tucker tensor train into an array-like tree
+    of nested Tuples containing uniform Tucker tensor trains as leaf nodes.
+    """
+    (tucker_supercore, tt_supercore, shape_mask, tucker_edge_mask, tt_edge_mask) = x
+    stack_shape = tucker_supercore.shape[1:-2]
+
+    stacked = (tucker_supercore, tt_supercore, tucker_edge_mask, tt_edge_mask) # no shape_mask
+    axes = tuple(range(1, 1+len(stack_shape)))
+
+    unstacked = stacking.unstack(stacked, axes=axes)
+
+    def _func(x):
+        if is_ndarray(x[0]):
+            tk, tt, mtk, mtt = x
+            return (tk, tt, shape_mask, mtk, mtt)
+
+        return tuple(_func(xi) for xi in x)
+
+    return _func(unstacked)
+
+
+def ut3_stack(
+        xx,
+        use_jax: bool = False,
+) -> typ.Tuple[
+    NDArray,  # tucker_supercore
+    NDArray,  # tt_supercore
+    NDArray,  # shape_mask
+    NDArray,  # tucker_edge_mask
+    NDArray,  # tt_edge_mask
+]:
+    """Stacks array-like nested tree of uniform Tucker tensor trains into one uniform Tucker tensor train.
+    """
+    tk0 = stacking.get_first_leaf(xx)
+    stack_shape = tk0.shape[1:-2]
+    axes = tuple(range(1, 1 + len(stack_shape)))
+
+    return stacking.stack(xx, axes, use_jax=use_jax)
+
+
+
+# def ut3_sum_stack(
+#     x: typ.Tuple[
+#         NDArray,  # tucker_supercore
+#         NDArray,  # tt_supercore
+#         NDArray,  # shape_mask
+#         NDArray,  # tucker_edge_mask
+#         NDArray,  # tt_edge_mask
+#     ],
+#         use_jax: bool = False,
+# ) -> typ.Tuple[
+#     NDArray,  # summed_tucker_supercore
+#     NDArray,  # summed_tt_supercore
+#     NDArray,  # summed_shape_mask
+#     NDArray,  # summed_tucker_edge_mask
+#     NDArray,  # summed_tt_edge_mask
+# ]:
+#     x = ut3_masking.apply_masks_to_cores(x, use_jax=use_jax)
+#     tk, tt, sm, tkm, ttm = x
+#     stack_shape = tk.shape[1:-2]
+#     axes = tuple(range(1, 1 + len(stack_shape)))
+#
+#     summed_tk = tk.sum(axis=axes)
+#     summed_tt = tt.sum(axis=axes)
+#
+#
 
 

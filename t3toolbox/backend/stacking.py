@@ -14,7 +14,7 @@ __all__ = [
     'apply_func_to_leaf_subtrees',
     'stack',
     'unstack',
-    'sum_stack',
+    'sum_leafs_along_axes',
 ]
 
 def tree_depth(t):
@@ -381,26 +381,33 @@ def unstack(
 
 
 
-def sum_stack(
-        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
-        use_jax: bool=False,
-) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (summed_tucker_cores, summed_tt_cores)
-    """If this object contains multiple stacked T3s, this sums them.
+def sum_leafs_along_axes(
+        S,
+        axes,
+):
+    """Sum leafs of a tree of NDArrays along specified axes.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.backend.stacking as stacking
+    >>> A = np.ones((1,2,3,4))
+    >>> B = np.ones((9,8,7,6,5))
+    >>> C = np.ones((6,7,6,9))
+    >>> S = (A, (B,C))
+    >>> T = stacking.sum_leafs_along_axes(S, (1,3))
+    >>> (A2, (B2, C2)) = T
+    >>> print(np.linalg.norm(np.sum(A, axis=(1,3)) - A2))
+    0.0
+    >>> print(np.linalg.norm(np.sum(B, axis=(1,3)) - B2))
+    0.0
+    >>> print(np.linalg.norm(np.sum(C, axis=(1,3)) - C2))
+    0.0
     """
-    xnp, _, _ = get_backend(False, use_jax=use_jax)
-    tucker_cores, tt_cores = x
-    vsv = tucker_cores[0].shape[:-2]
-    N_vsv = np.prod(vsv, dtype=int)
+    if is_ndarray(S):
+        return S.sum(axis=axes)
 
-    summed_tucker_cores = []
-    for B in tucker_cores:
-        B_sum = xnp.sum(B.reshape((N_vsv,) + B.shape[-2:]), axis=0)
-        summed_tucker_cores.append(B_sum)
+    return tuple(sum_leafs_along_axes(s, axes) for s in S)
 
-    summed_tt_cores = []
-    for G in tt_cores:
-        G_sum = xnp.sum(G.reshape((N_vsv,) + G.shape[-3:]), axis=0)
-        summed_tt_cores.append(G_sum)
 
-    return tuple(summed_tucker_cores), tuple(summed_tt_cores)
 

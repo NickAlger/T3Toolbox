@@ -586,23 +586,23 @@ class TuckerTensorTrain:
 
     #### Vectorization / stacking ####
 
-    def sum_stack(self, use_jax: bool=False) -> 'TuckerTensorTrain':
-        """If this object contains multiple stacked T3s, this sums them.
-
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.corewise as cw
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
-        >>> x_sum = x.sum_stack()
-        >>> tucker_sum = tuple([np.sum(B, axis=(0,1)) for B in x.tucker_cores])
-        >>> tt_sum = tuple([np.sum(G, axis=(0,1)) for G in x.tt_cores])
-        >>> x_sum2 = t3.TuckerTensorTrain(tucker_sum, tt_sum)
-        >>> print(cw.corewise_norm(cw.corewise_sub(x_sum.data, x_sum2.data)))
-        0.0
-        """
-        return TuckerTensorTrain(*ragged_operations.t3_sum_stack(self.data))
+    # def sum_stack(self, use_jax: bool=False) -> 'TuckerTensorTrain':
+    #     """If this object contains multiple stacked T3s, this sums them.
+    #
+    #     Examples
+    #     --------
+    #     >>> import numpy as np
+    #     >>> import t3toolbox.tucker_tensor_train as t3
+    #     >>> import t3toolbox.corewise as cw
+    #     >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+    #     >>> x_sum = x.sum_stack()
+    #     >>> tucker_sum = tuple([np.sum(B, axis=(0,1)) for B in x.tucker_cores])
+    #     >>> tt_sum = tuple([np.sum(G, axis=(0,1)) for G in x.tt_cores])
+    #     >>> x_sum2 = t3.TuckerTensorTrain(tucker_sum, tt_sum)
+    #     >>> print(cw.corewise_norm(cw.corewise_sub(x_sum.data, x_sum2.data)))
+    #     0.0
+    #     """
+    #     return TuckerTensorTrain(*ragged_operations.t3_sum_stack(self.data))
 
     def unstack(self): # returns an array-like structure of nested tuples containing TuckerTensorTrains
         """If this object contains multiple stacked T3s, this unstacks them

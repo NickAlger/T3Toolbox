@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions
 import t3toolbox.backend.uniform_tucker_tensor_train.ut3_masking
+import t3toolbox.backend.stacking as stacking
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.backend.entries as entries
 import t3toolbox.backend.apply as apply
@@ -242,7 +243,8 @@ import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> 
 
         Examples
         --------
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> import numpy as np
+        >>> import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions
+        >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> import t3toolbox.uniform_tucker_tensor_train as ut3
         >>> x = t3.t3_corewise_randn((14, 15, 16), (4, 6, 5), (3, 3, 2, 4), stack_shape=(2,3))
@@ -419,17 +421,17 @@ import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> 
 
         Examples
         --------
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> import numpy as np
+        >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> import t3toolbox.uniform_tucker_tensor_train as ut3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2))
-        >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
+        >>> ux = ut3.t3_to_ut3(x)
         >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1))
-        >>> uy = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(y)
-        >>> print(np.linalg.norm(x.to_dense() + y.to_dense() - (ux - uy).to_dense()))
+        >>> uy = ut3.t3_to_ut3(y)
+        >>> print(np.linalg.norm(x.to_dense() - y.to_dense() - (ux - uy).to_dense()))
         2.7487527725050217e-12
         """
-        return ut3_add(self, other, squash=squash, use_jax=use_jax)
+        return ut3_add(self, -other, squash=squash, use_jax=use_jax)
 
     def up_orthogonalize_tucker_cores(
             self,
@@ -624,7 +626,8 @@ import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> 
 
         Examples
         --------
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> import numpy as np
+        >>> import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions
+        >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> import t3toolbox.uniform_tucker_tensor_train as ut3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
@@ -637,6 +640,66 @@ import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> 
         return utla.ut3_norm(
             self.data, use_orthogonalization=use_orthogonalization, use_jax=use_jax,
         )
+
+    def unstack(self):
+        """Unstacks this UniformTuckerTensorTrain into an array-like tree
+        of nested Tuples containing UniformTuckerTensorTrains as leaf nodes.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
+        >>> xx = x.unstack()
+        >>> ux = ut3.t3_to_ut3(x)
+        >>> uxx = ux.unstack()
+        >>> ii, jj = 1, 2
+        >>> uxx_ij = uxx[ii][jj]
+        >>> uxx_ij2 = ut3.t3_to_ut3(xx[ii][jj])
+        >>> print((uxx_ij - uxx_ij2).norm())
+        8.474583009920297e-24
+        """
+        return stacking.apply_func_to_leaf_subtrees(
+            uniform_ops.ut3_unstack(self.data),
+            lambda x: UniformTuckerTensorTrain(*x),
+            (None, None, None, None, None),
+        )
+
+    # def sum_stack(self) -> 'UniformTuckerTensorTrain':
+    #     """Sums stacked UniformTuckerTensorTrains.
+    #     """
+
+
+def ut3_stack(
+        uxx,
+        use_jax: bool = False,
+) -> UniformTuckerTensorTrain:
+    """Stacks array-like nested tree of uniform Tucker tensor trains into one uniform Tucker tensor train.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
+    >>> xx = x.unstack()
+    >>> ux = ut3.t3_to_ut3(x)
+    >>> uxx = ux.unstack()
+    >>> ux2 = ut3.ut3_stack(uxx)
+    >>> print((ux - ux).norm())
+    [[1.50814985e-24 8.88010523e-25 1.56365971e-23]
+     [1.70736407e-23 1.65540771e-23 5.54533416e-24]]
+    """
+    uxx_tuples = stacking.apply_func_to_leaf_subtrees(
+        uxx, lambda x: x.data, None
+    )
+
+    return stacking.apply_func_to_leaf_subtrees(
+        uniform_ops.ut3_stack(uxx_tuples, use_jax=use_jax),
+        lambda x: UniformTuckerTensorTrain(*x),
+        (None, None, None, None, None),
+    )
 
 
 if has_jax:
@@ -935,7 +998,7 @@ import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> impo
             str(x.d) + ' = x.d != y.d = ' + str(y.d)
         )
 
-    if (x.shape != y.shape).any():
+    if any(tuple(sx != sy for sx, sy in zip(x.shape, y.shape))):
         raise RuntimeError(
             'Attempted to add UniformTuckerTensorTrains x+y with inconsistent shapes.\n' +
             str(x.shape) + ' = x.shape != y.shape = ' + str(y.shape)
@@ -947,7 +1010,7 @@ import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> impo
             str(x.N) + ' = x.N != y.N = ' + str(y.N)
         )
 
-    if x.stack_shape != y.stack_shape:
+    if any(tuple(sx != sy for sx, sy in zip(x.stack_shape, y.stack_shape))):
         raise RuntimeError(
             'Attempted to add UniformTuckerTensorTrains x+y with inconsistent stack_shapes.\n' +
             str(x.stack_shape) + ' = x.stack_shape != y.stack_shape = ' + str(y.stack_shape)
