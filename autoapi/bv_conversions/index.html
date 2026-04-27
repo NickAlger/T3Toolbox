@@ -47,8 +47,8 @@
     <link rel="icon" href="../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="ubv_conversions" href="../ubv_conversions/index.html" />
-    <link rel="prev" title="ut3_operations.ut3_stack" href="../ut3_operations/ut3_stack.html" />
+    <link rel="next" title="bv_conversions.bv_to_t3" href="bv_to_t3.html" />
+    <link rel="prev" title="bv_operations.t3b_stack" href="../bv_operations/t3b_stack.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -492,14 +492,23 @@
 <li class="toctree-l2"><a class="reference internal" href="../ut3_linalg/ut3_norm.html">ut3_linalg.ut3_norm</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../ut3_masking/index.html">ut3_masking</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../ut3_masking/make_uniform_masks.html">ut3_masking.make_uniform_masks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../ut3_masking/apply_masks_to_cores.html">ut3_masking.apply_masks_to_cores</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../ubv_masking/index.html">ubv_masking</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../ubv_masking/apply_basis_masks.html">ubv_masking.apply_basis_masks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ubv_masking/apply_variations_masks.html">ubv_masking.apply_variations_masks</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../ut3_masking/index.html">ut3_masking</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../ut3_masking/make_uniform_masks.html">ut3_masking.make_uniform_masks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../ut3_masking/apply_masks_to_cores.html">ut3_masking.apply_masks_to_cores</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../bv_operations/index.html">bv_operations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../bv_operations/t3b_unstack.html">bv_operations.t3b_unstack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../bv_operations/t3b_stack.html">bv_operations.t3b_stack</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">bv_conversions</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="bv_to_t3.html">bv_conversions.bv_to_t3</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../ut3_operations/index.html">ut3_operations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -509,9 +518,8 @@
 <li class="toctree-l2"><a class="reference internal" href="../ut3_operations/ut3_stack.html">ut3_operations.ut3_stack</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">bv_conversions</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../ubv_conversions/index.html">ubv_conversions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../ut3_conversions/index.html">ut3_conversions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../ubv_conversions/index.html">ubv_conversions</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../ut3_orthogonalization/index.html">ut3_orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../ut3_orthogonalization/up_orthogonalize_uniform_tucker_cores.html">ut3_orthogonalization.up_orthogonalize_uniform_tucker_cores</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../ut3_orthogonalization/down_orthogonalize_uniform_tt_cores.html">ut3_orthogonalization.down_orthogonalize_uniform_tt_cores</a></li>
@@ -579,6 +587,19 @@
                   
   <section id="module-bv_conversions">
 <span id="bv-conversions"></span><h1>bv_conversions<a class="headerlink" href="#module-bv_conversions" title="Link to this heading">#</a></h1>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">#</a></h2>
+<div class="toctree-wrapper compound">
+</div>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="bv_to_t3.html#bv_conversions.bv_to_t3" title="bv_conversions.bv_to_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bv_to_t3</span></code></a>(...)</p></td>
+<td><p>Convert ith basis-variation representation to TuckerTensorTrain.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
 </section>
 
 
@@ -592,20 +613,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../ut3_operations/ut3_stack.html"
+       href="../bv_operations/t3b_stack.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">ut3_operations.ut3_stack</p>
+        <p class="prev-next-title">bv_operations.t3b_stack</p>
       </div>
     </a>
     <a class="right-next"
-       href="../ubv_conversions/index.html"
+       href="bv_to_t3.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">ubv_conversions</p>
+        <p class="prev-next-title">bv_conversions.bv_to_t3</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -619,6 +640,18 @@
                 <dialog id="pst-secondary-sidebar-modal"></dialog>
                 <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
 
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#functions">Functions</a></li>
+</ul>
+  </nav></div>
 
   <div class="sidebar-secondary-item">
 

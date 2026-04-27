@@ -182,3 +182,32 @@ t3toolbox.basis_variations_format.T3Basis
 
    .. py:method:: __post_init__()
 
+
+   .. py:method:: unstack()
+
+      Unstack into an array-like tree.
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.basis_variations_format as bvf
+      >>> import t3toolbox.corewise as cw
+      >>> randnstar = lambda x: np.random.randn(*x)
+      >>> ss = (2,3) # not included in variation_shapes.
+      >>> up_tucker_cores = (randnstar(ss+(10, 14)), randnstar(ss+(11, 15)), randnstar(ss+(12, 16)))
+      >>> down_tt_cores = (randnstar(ss+(1, 9, 4)), randnstar(ss+(2, 8, 5)),randnstar(ss+(3, 7, 1)))
+      >>> left_tt_cores = (randnstar(ss+(1, 10, 2)), randnstar(ss+(2, 11, 3)), randnstar(ss+(3,12,5)))
+      >>> right_tt_cores = (randnstar(ss+(2, 10, 4)), randnstar(ss+(4, 11, 5)), randnstar(ss+(5, 12, 1)))
+      >>> basis = bvf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+      >>> S = basis.unstack()
+      >>> ii, jj = 1, 2
+      >>> Sij = S[ii][jj]
+      >>> utk_ij = tuple(x[ii,jj,:,:] for x in up_tucker_cores)
+      >>> dtt_ij = tuple(x[ii,jj,:,:,:] for x in down_tt_cores)
+      >>> ltt_ij = tuple(x[ii,jj,:,:,:] for x in left_tt_cores)
+      >>> rtt_ij = tuple(x[ii,jj,:,:,:] for x in right_tt_cores)
+      >>> basis_ij = bvf.T3Basis(utk_ij, dtt_ij, ltt_ij, rtt_ij)
+      >>> print(cw.corewise_norm(cw.corewise_sub(basis_ij.data, Sij.data)))
+      0.0
+
+

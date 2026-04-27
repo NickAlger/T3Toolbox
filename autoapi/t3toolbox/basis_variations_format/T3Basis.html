@@ -492,14 +492,23 @@
 <li class="toctree-l2"><a class="reference internal" href="../../ut3_linalg/ut3_norm.html">ut3_linalg.ut3_norm</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../ut3_masking/index.html">ut3_masking</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../ut3_masking/make_uniform_masks.html">ut3_masking.make_uniform_masks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../ut3_masking/apply_masks_to_cores.html">ut3_masking.apply_masks_to_cores</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../ubv_masking/index.html">ubv_masking</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../ubv_masking/apply_basis_masks.html">ubv_masking.apply_basis_masks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../ubv_masking/apply_variations_masks.html">ubv_masking.apply_variations_masks</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="../../ut3_masking/index.html">ut3_masking</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../ut3_masking/make_uniform_masks.html">ut3_masking.make_uniform_masks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../ut3_masking/apply_masks_to_cores.html">ut3_masking.apply_masks_to_cores</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../bv_operations/index.html">bv_operations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../bv_operations/t3b_unstack.html">bv_operations.t3b_unstack</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../bv_operations/t3b_stack.html">bv_operations.t3b_stack</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../bv_conversions/index.html">bv_conversions</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../bv_conversions/bv_to_t3.html">bv_conversions.bv_to_t3</a></li>
 </ul>
 </details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../ut3_operations/index.html">ut3_operations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -509,9 +518,8 @@
 <li class="toctree-l2"><a class="reference internal" href="../../ut3_operations/ut3_stack.html">ut3_operations.ut3_stack</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1"><a class="reference internal" href="../../bv_conversions/index.html">bv_conversions</a></li>
-<li class="toctree-l1"><a class="reference internal" href="../../ubv_conversions/index.html">ubv_conversions</a></li>
 <li class="toctree-l1"><a class="reference internal" href="../../ut3_conversions/index.html">ut3_conversions</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../ubv_conversions/index.html">ubv_conversions</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="../../ut3_orthogonalization/index.html">ut3_orthogonalization</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../ut3_orthogonalization/up_orthogonalize_uniform_tucker_cores.html">ut3_orthogonalization.up_orthogonalize_uniform_tucker_cores</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../ut3_orthogonalization/down_orthogonalize_uniform_tt_cores.html">ut3_orthogonalization.down_orthogonalize_uniform_tt_cores</a></li>
@@ -800,6 +808,35 @@ to linear algebra with the N1 x … x Nd tangent vectors represented by the vari
 <span class="sig-name descname"><span class="pre">__post_init__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.basis_variations_format.T3Basis.__post_init__" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="t3toolbox.basis_variations_format.T3Basis.unstack">
+<span class="sig-name descname"><span class="pre">unstack</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.basis_variations_format.T3Basis.unstack" title="Link to this definition">#</a></dt>
+<dd><p>Unstack into an array-like tree.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.basis_variations_format</span> <span class="k">as</span> <span class="nn">bvf</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.corewise</span> <span class="k">as</span> <span class="nn">cw</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">randnstar</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="o">*</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ss</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">)</span> <span class="c1"># not included in variation_shapes.</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">up_tucker_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">randnstar</span><span class="p">(</span><span class="n">ss</span><span class="o">+</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">14</span><span class="p">)),</span> <span class="n">randnstar</span><span class="p">(</span><span class="n">ss</span><span class="o">+</span><span class="p">(</span><span class="mi">11</span><span class="p">,</span> <span class="mi">15</span><span class="p">)),</span> <span class="n">randnstar</span><span class="p">(</span><span class="n">ss</span><span class="o">+</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">16</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">down_tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">randnstar</span><span class="p">(</span><span class="n">ss</span><span class="o">+</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">9</span><span class="p">,</span> <span class="mi">4</span><span class="p">)),</span> <span class="n">randnstar</span><span class="p">(</span><span class="n">ss</span><span class="o">+</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">5</span><span class="p">)),</span><span class="n">randnstar</span><span class="p">(</span><span class="n">ss</span><span class="o">+</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">left_tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">randnstar</span><span class="p">(</span><span class="n">ss</span><span class="o">+</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span> <span class="n">randnstar</span><span class="p">(</span><span class="n">ss</span><span class="o">+</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">3</span><span class="p">)),</span> <span class="n">randnstar</span><span class="p">(</span><span class="n">ss</span><span class="o">+</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">12</span><span class="p">,</span><span class="mi">5</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">right_tt_cores</span> <span class="o">=</span> <span class="p">(</span><span class="n">randnstar</span><span class="p">(</span><span class="n">ss</span><span class="o">+</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">4</span><span class="p">)),</span> <span class="n">randnstar</span><span class="p">(</span><span class="n">ss</span><span class="o">+</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">5</span><span class="p">)),</span> <span class="n">randnstar</span><span class="p">(</span><span class="n">ss</span><span class="o">+</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">basis</span> <span class="o">=</span> <span class="n">bvf</span><span class="o">.</span><span class="n">T3Basis</span><span class="p">(</span><span class="n">up_tucker_cores</span><span class="p">,</span> <span class="n">down_tt_cores</span><span class="p">,</span> <span class="n">left_tt_cores</span><span class="p">,</span> <span class="n">right_tt_cores</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">S</span> <span class="o">=</span> <span class="n">basis</span><span class="o">.</span><span class="n">unstack</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ii</span><span class="p">,</span> <span class="n">jj</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">Sij</span> <span class="o">=</span> <span class="n">S</span><span class="p">[</span><span class="n">ii</span><span class="p">][</span><span class="n">jj</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">utk_ij</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span><span class="n">jj</span><span class="p">,:,:]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">up_tucker_cores</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dtt_ij</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span><span class="n">jj</span><span class="p">,:,:,:]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">down_tt_cores</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ltt_ij</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span><span class="n">jj</span><span class="p">,:,:,:]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">left_tt_cores</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">rtt_ij</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">ii</span><span class="p">,</span><span class="n">jj</span><span class="p">,:,:,:]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">right_tt_cores</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">basis_ij</span> <span class="o">=</span> <span class="n">bvf</span><span class="o">.</span><span class="n">T3Basis</span><span class="p">(</span><span class="n">utk_ij</span><span class="p">,</span> <span class="n">dtt_ij</span><span class="p">,</span> <span class="n">ltt_ij</span><span class="p">,</span> <span class="n">rtt_ij</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">cw</span><span class="o">.</span><span class="n">corewise_norm</span><span class="p">(</span><span class="n">cw</span><span class="o">.</span><span class="n">corewise_sub</span><span class="p">(</span><span class="n">basis_ij</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">Sij</span><span class="o">.</span><span class="n">data</span><span class="p">)))</span>
+<span class="go">0.0</span>
+</pre></div>
+</div>
+</dd></dl>
+
 </dd></dl>
 
 </section>
@@ -868,6 +905,7 @@ to linear algebra with the N1 x … x Nd tangent vectors represented by the vari
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_variations_format.T3Basis.data"><code class="docutils literal notranslate"><span class="pre">t3toolbox.basis_variations_format.T3Basis.data()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_variations_format.T3Basis.validate"><code class="docutils literal notranslate"><span class="pre">t3toolbox.basis_variations_format.T3Basis.validate()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_variations_format.T3Basis.__post_init__"><code class="docutils literal notranslate"><span class="pre">t3toolbox.basis_variations_format.T3Basis.__post_init__()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.basis_variations_format.T3Basis.unstack"><code class="docutils literal notranslate"><span class="pre">t3toolbox.basis_variations_format.T3Basis.unstack()</span></code></a></li>
 </ul>
 </li>
 </ul>

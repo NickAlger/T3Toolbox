@@ -1,0 +1,8 @@
+bv_operations.t3b_unstack
+=========================
+
+.. py:function:: bv_operations.t3b_unstack(x: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]])
+
+   Unstack stacked T3Basis into an array-like tree.
+
+
