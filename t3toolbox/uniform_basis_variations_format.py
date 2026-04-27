@@ -9,7 +9,6 @@ from dataclasses import dataclass
 
 import t3toolbox.backend.basis_variations_format.bv_conversions
 import t3toolbox.uniform_tucker_tensor_train as ut3
-import t3toolbox.backend.ubv_conversions as bvf_ops
 import t3toolbox.backend.orthogonal_representations as orth_reps
 import t3toolbox.backend.uniform_basis_variations_format.ubv_masking as masking
 from t3toolbox.backend.common import *
@@ -615,7 +614,7 @@ def ut3_orthogonal_representations(
     >>> print(np.linalg.norm(np.einsum('...iaj,...ibj', O1, O1) - np.eye(O1.shape[-2]))) # O: outer orthogonal
     1.3870474292323159e-15
     '''
-    result = bvf_ops.orthogonal_representations(
+    result = orth_reps.orthogonal_representations(
         x.data, already_left_orthogonal=already_left_orthogonal, squash=squash, use_jax=use_jax,
     )
     return T3Basis(*result[0]), T3Variations(*result[1])

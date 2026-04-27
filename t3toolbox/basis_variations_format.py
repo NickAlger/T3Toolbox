@@ -557,7 +557,7 @@ def bv_to_t3(
 
     Examples
     --------
-import t3toolbox.backend.basis_variations_format.bv_conversions    >>> import numpy as np
+    >>> import numpy as np
     >>> import t3toolbox.basis_variations_format as bvf
     >>> randn = np.random.randn # shorthand
     >>> (U0,U1,U2) = (randn(10, 14), randn(11, 15), randn(12, 16))
@@ -568,10 +568,10 @@ import t3toolbox.backend.basis_variations_format.bv_conversions    >>> import nu
     >>> (V0,V1,V2) = (randn(9,14), randn(8,15), randn(7,16))
     >>> (H0,H1,H2) = (randn(1,10,4), randn(2,11,5), randn(3,12,1))
     >>> variations = bvf.T3Variations((V0,V1,V2), (H0,H1,H2))
-    >>> ((B0, B1, B2), (G0, G1, G2)) = t3toolbox.backend.basis_variations_format.bv_conversions.bv_to_t3((True, 1), base, variations).data # replace index-1 TT-core
+    >>> ((B0, B1, B2), (G0, G1, G2)) = bvf.bv_to_t3((True, 1), base, variations).data # replace index-1 TT-core
     >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,U1,U2), (L0,H1,R2)))
     True
-import t3toolbox.backend.basis_variations_format.bv_conversions    >>> ((B0, B1, B2), (G0, G1, G2)) = t3toolbox.backend.basis_variations_format.bv_conversions.bv_to_t3((False, 1), base, variations).data # replace index-1 tucker core
+    >>> ((B0, B1, B2), (G0, G1, G2)) = bvf.bv_to_t3((False, 1), base, variations).data # replace index-1 tucker core
     >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,D1,R2)))
     True
     '''
