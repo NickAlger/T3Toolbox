@@ -47,7 +47,7 @@
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3toolbox.tucker_tensor_train.t3_stack" href="t3_stack.html" />
+    <link rel="next" title="t3toolbox.tucker_tensor_train.t3_core_shapes" href="t3_core_shapes.html" />
     <link rel="prev" title="t3toolbox.tucker_tensor_train" href="index.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -379,6 +379,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../backend/stacking/sum_leafs_along_axes.html">t3toolbox.backend.stacking.sum_leafs_along_axes</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../backend/stacking/basic_ragged_unstack.html">t3toolbox.backend.stacking.basic_ragged_unstack</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../backend/stacking/basic_ragged_stack.html">t3toolbox.backend.stacking.basic_ragged_stack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../backend/stacking/tree_zip.html">t3toolbox.backend.stacking.tree_zip</a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../backend/tucker_tensor_train/index.html">t3toolbox.backend.tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -429,7 +430,6 @@
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.tucker_tensor_train</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.tucker_tensor_train.TuckerTensorTrain</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_stack.html">t3toolbox.tucker_tensor_train.t3_stack</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_core_shapes.html">t3toolbox.tucker_tensor_train.t3_core_shapes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_minimal_t3_ranks.html">t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_zeros.html">t3toolbox.tucker_tensor_train.t3_zeros</a></li>
@@ -1768,6 +1768,23 @@ einsum(‘iaj,ibj-&gt;ab’, new_tt_cores[ii], new_tt_cores[ii]) = identity matr
 </div>
 </dd></dl>
 
+<dl class="py method">
+<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.stack">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-name descname"><span class="pre">stack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><span class="pre">TuckerTensorTrain</span></a></span></span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.stack" title="Link to this definition">#</a></dt>
+<dd><p>Stacks an array-like structure of TuckerTensorTrains into one stacked TuckerTensorTrain.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.corewise</span> <span class="k">as</span> <span class="nn">cw</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="n">stack_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">xx</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">unstack</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x2</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">xx</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">cw</span><span class="o">.</span><span class="n">corewise_norm</span><span class="p">(</span><span class="n">cw</span><span class="o">.</span><span class="n">corewise_sub</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">x2</span><span class="o">.</span><span class="n">data</span><span class="p">)))</span>
+<span class="go">0.0</span>
+</pre></div>
+</div>
+</dd></dl>
+
 </section>
 </dd></dl>
 
@@ -1793,11 +1810,11 @@ einsum(‘iaj,ibj-&gt;ab’, new_tt_cores[ii], new_tt_cores[ii]) = identity matr
       </div>
     </a>
     <a class="right-next"
-       href="t3_stack.html"
+       href="t3_core_shapes.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.tucker_tensor_train.t3_stack</p>
+        <p class="prev-next-title">t3toolbox.tucker_tensor_train.t3_core_shapes</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -1861,6 +1878,7 @@ einsum(‘iaj,ibj-&gt;ab’, new_tt_cores[ii], new_tt_cores[ii]) = identity matr
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.get_entries"><code class="docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.get_entries()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3_apply"><code class="docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3_apply()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe"><code class="docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.stack"><code class="docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.stack()</span></code></a></li>
 </ul>
 </li>
 </ul>

@@ -379,6 +379,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../backend/stacking/sum_leafs_along_axes.html">t3toolbox.backend.stacking.sum_leafs_along_axes</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../backend/stacking/basic_ragged_unstack.html">t3toolbox.backend.stacking.basic_ragged_unstack</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../backend/stacking/basic_ragged_stack.html">t3toolbox.backend.stacking.basic_ragged_stack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../backend/stacking/tree_zip.html">t3toolbox.backend.stacking.tree_zip</a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../backend/tucker_tensor_train/index.html">t3toolbox.backend.tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -429,7 +430,6 @@
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">t3toolbox.tucker_tensor_train</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="TuckerTensorTrain.html">t3toolbox.tucker_tensor_train.TuckerTensorTrain</a></li>
-<li class="toctree-l3"><a class="reference internal" href="t3_stack.html">t3toolbox.tucker_tensor_train.t3_stack</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_core_shapes.html">t3toolbox.tucker_tensor_train.t3_core_shapes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="compute_minimal_t3_ranks.html">t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_zeros.html">t3toolbox.tucker_tensor_train.t3_zeros</a></li>
@@ -737,55 +737,52 @@ are not formed during computations.</p>
 </div>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_stack.html#t3toolbox.tucker_tensor_train.t3_stack" title="t3toolbox.tucker_tensor_train.t3_stack"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_stack</span></code></a>(...)</p></td>
-<td><p>Stacks an array-like structure of TuckerTensorTrains into one stacked TuckerTensorTrain.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_core_shapes.html#t3toolbox.tucker_tensor_train.t3_core_shapes" title="t3toolbox.tucker_tensor_train.t3_core_shapes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_core_shapes</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_core_shapes.html#t3toolbox.tucker_tensor_train.t3_core_shapes" title="t3toolbox.tucker_tensor_train.t3_core_shapes"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_core_shapes</span></code></a>(...)</p></td>
 <td><p>Compute the tucker and TT core shapes for a Tucker tensor train.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="compute_minimal_t3_ranks.html#t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks" title="t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_minimal_t3_ranks</span></code></a>(...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="compute_minimal_t3_ranks.html#t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks" title="t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks"><code class="xref py py-obj docutils literal notranslate"><span class="pre">compute_minimal_t3_ranks</span></code></a>(...)</p></td>
 <td><p>Find minimal ranks for a generic Tucker tensor train with a given structure.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_zeros.html#t3toolbox.tucker_tensor_train.t3_zeros" title="t3toolbox.tucker_tensor_train.t3_zeros"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_zeros</span></code></a>(, use_jax)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_zeros.html#t3toolbox.tucker_tensor_train.t3_zeros" title="t3toolbox.tucker_tensor_train.t3_zeros"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_zeros</span></code></a>(, use_jax)</p></td>
 <td><p>Construct a Tucker tensor train of zeros.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_corewise_randn.html#t3toolbox.tucker_tensor_train.t3_corewise_randn" title="t3toolbox.tucker_tensor_train.t3_corewise_randn"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_corewise_randn</span></code></a>(, use_jax)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_corewise_randn.html#t3toolbox.tucker_tensor_train.t3_corewise_randn" title="t3toolbox.tucker_tensor_train.t3_corewise_randn"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_corewise_randn</span></code></a>(, use_jax)</p></td>
 <td><p>Construct a Tucker tensor train with random cores.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_save.html#t3toolbox.tucker_tensor_train.t3_save" title="t3toolbox.tucker_tensor_train.t3_save"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_save</span></code></a>(→ None)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_save.html#t3toolbox.tucker_tensor_train.t3_save" title="t3toolbox.tucker_tensor_train.t3_save"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_save</span></code></a>(→ None)</p></td>
 <td><p>Save a Tucker tensor train to a file.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_load.html#t3toolbox.tucker_tensor_train.t3_load" title="t3toolbox.tucker_tensor_train.t3_load"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_load</span></code></a>(→ TuckerTensorTrain)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_load.html#t3toolbox.tucker_tensor_train.t3_load" title="t3toolbox.tucker_tensor_train.t3_load"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_load</span></code></a>(→ TuckerTensorTrain)</p></td>
 <td><p>Load a Tucker tensor train from a file.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_to_vector.html#t3toolbox.tucker_tensor_train.t3_to_vector" title="t3toolbox.tucker_tensor_train.t3_to_vector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_to_vector</span></code></a>(→ t3toolbox.backend.common.NDArray)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_to_vector.html#t3toolbox.tucker_tensor_train.t3_to_vector" title="t3toolbox.tucker_tensor_train.t3_to_vector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_to_vector</span></code></a>(→ t3toolbox.backend.common.NDArray)</p></td>
 <td><p>Converts a TuckerTensorTrain into a 1D vector containing the core entries.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_from_vector.html#t3toolbox.tucker_tensor_train.t3_from_vector" title="t3toolbox.tucker_tensor_train.t3_from_vector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_from_vector</span></code></a>() → TuckerTensorTrain)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_from_vector.html#t3toolbox.tucker_tensor_train.t3_from_vector" title="t3toolbox.tucker_tensor_train.t3_from_vector"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_from_vector</span></code></a>() → TuckerTensorTrain)</p></td>
 <td><p>Constructs a TuckerTensorTrain from a 1D vector containing the core entries.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_apply.html#t3toolbox.tucker_tensor_train.t3_apply" title="t3toolbox.tucker_tensor_train.t3_apply"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_apply</span></code></a>(→ t3toolbox.backend.common.NDArray)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_apply.html#t3toolbox.tucker_tensor_train.t3_apply" title="t3toolbox.tucker_tensor_train.t3_apply"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_apply</span></code></a>(→ t3toolbox.backend.common.NDArray)</p></td>
 <td><p>Contract a Tucker tensor train with vectors in all indices.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_entries.html#t3toolbox.tucker_tensor_train.t3_entries" title="t3toolbox.tucker_tensor_train.t3_entries"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_entries</span></code></a>(→ t3toolbox.backend.common.NDArray)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_entries.html#t3toolbox.tucker_tensor_train.t3_entries" title="t3toolbox.tucker_tensor_train.t3_entries"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_entries</span></code></a>(→ t3toolbox.backend.common.NDArray)</p></td>
 <td><p>Compute an entry (or multiple entries) of a Tucker tensor train.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_probe.html#t3toolbox.tucker_tensor_train.t3_probe" title="t3toolbox.tucker_tensor_train.t3_probe"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_probe</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_probe.html#t3toolbox.tucker_tensor_train.t3_probe" title="t3toolbox.tucker_tensor_train.t3_probe"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_probe</span></code></a>(...)</p></td>
 <td><p>Probe a TuckerTensorTrain.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_add.html#t3toolbox.tucker_tensor_train.t3_add" title="t3toolbox.tucker_tensor_train.t3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_add</span></code></a>(→ TuckerTensorTrain)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_add.html#t3toolbox.tucker_tensor_train.t3_add" title="t3toolbox.tucker_tensor_train.t3_add"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_add</span></code></a>(→ TuckerTensorTrain)</p></td>
 <td><p>Add Tucker tensor trains x and y, yielding a Tucker tensor train x+y with summed ranks.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3_sub.html#t3toolbox.tucker_tensor_train.t3_sub" title="t3toolbox.tucker_tensor_train.t3_sub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_sub</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3_sub.html#t3toolbox.tucker_tensor_train.t3_sub" title="t3toolbox.tucker_tensor_train.t3_sub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_sub</span></code></a>(...)</p></td>
 <td><p>Subtract Tucker tensor trains, x - y, yielding a Tucker tensor train with summed ranks.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3_inner_product.html#t3toolbox.tucker_tensor_train.t3_inner_product" title="t3toolbox.tucker_tensor_train.t3_inner_product"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_inner_product</span></code></a>(x, y[, use_orthogonalization, use_jax])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="t3_inner_product.html#t3toolbox.tucker_tensor_train.t3_inner_product" title="t3toolbox.tucker_tensor_train.t3_inner_product"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3_inner_product</span></code></a>(x, y[, use_orthogonalization, use_jax])</p></td>
 <td><p>Compute Hilbert-Schmidt inner product of two Tucker tensor trains.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="t3svd_dense.html#t3toolbox.tucker_tensor_train.t3svd_dense" title="t3toolbox.tucker_tensor_train.t3svd_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3svd_dense</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="t3svd_dense.html#t3toolbox.tucker_tensor_train.t3svd_dense" title="t3toolbox.tucker_tensor_train.t3svd_dense"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3svd_dense</span></code></a>(...)</p></td>
 <td><p>Compute TuckerTensorTrain and edge singular values for dense tensor.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="t3svd.html#t3toolbox.tucker_tensor_train.t3svd" title="t3toolbox.tucker_tensor_train.t3svd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3svd</span></code></a>(...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="t3svd.html#t3toolbox.tucker_tensor_train.t3svd" title="t3toolbox.tucker_tensor_train.t3svd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3svd</span></code></a>(...)</p></td>
 <td><p>Compute (truncated) T3-SVD of TuckerTensorTrain.</p></td>
 </tr>
 </tbody>

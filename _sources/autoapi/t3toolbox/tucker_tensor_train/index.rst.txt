@@ -104,7 +104,6 @@ Functions
 .. toctree::
    :hidden:
 
-   /autoapi/t3toolbox/tucker_tensor_train/t3_stack
    /autoapi/t3toolbox/tucker_tensor_train/t3_core_shapes
    /autoapi/t3toolbox/tucker_tensor_train/compute_minimal_t3_ranks
    /autoapi/t3toolbox/tucker_tensor_train/t3_zeros
@@ -124,7 +123,6 @@ Functions
 
 .. autoapisummary::
 
-   t3toolbox.tucker_tensor_train.t3_stack
    t3toolbox.tucker_tensor_train.t3_core_shapes
    t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks
    t3toolbox.tucker_tensor_train.t3_zeros

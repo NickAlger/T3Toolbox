@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.backend.stacking.stack &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.backend.stacking.tree_zip &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/backend/stacking/stack';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/backend/stacking/tree_zip';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="t3toolbox.backend.stacking.unstack" href="unstack.html" />
-    <link rel="prev" title="t3toolbox.backend.stacking.apply_func_to_leaf_subtrees" href="apply_func_to_leaf_subtrees.html" />
+    <link rel="next" title="t3toolbox.backend.tucker_tensor_train" href="../tucker_tensor_train/index.html" />
+    <link rel="prev" title="t3toolbox.backend.stacking.basic_ragged_stack" href="basic_ragged_stack.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -374,12 +374,12 @@
 <li class="toctree-l4"><a class="reference internal" href="get_first_leaf.html">t3toolbox.backend.stacking.get_first_leaf</a></li>
 <li class="toctree-l4"><a class="reference internal" href="trees_have_same_structure.html">t3toolbox.backend.stacking.trees_have_same_structure</a></li>
 <li class="toctree-l4"><a class="reference internal" href="apply_func_to_leaf_subtrees.html">t3toolbox.backend.stacking.apply_func_to_leaf_subtrees</a></li>
-<li class="toctree-l4 current active"><a class="current reference internal" href="#">t3toolbox.backend.stacking.stack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="stack.html">t3toolbox.backend.stacking.stack</a></li>
 <li class="toctree-l4"><a class="reference internal" href="unstack.html">t3toolbox.backend.stacking.unstack</a></li>
 <li class="toctree-l4"><a class="reference internal" href="sum_leafs_along_axes.html">t3toolbox.backend.stacking.sum_leafs_along_axes</a></li>
 <li class="toctree-l4"><a class="reference internal" href="basic_ragged_unstack.html">t3toolbox.backend.stacking.basic_ragged_unstack</a></li>
 <li class="toctree-l4"><a class="reference internal" href="basic_ragged_stack.html">t3toolbox.backend.stacking.basic_ragged_stack</a></li>
-<li class="toctree-l4"><a class="reference internal" href="tree_zip.html">t3toolbox.backend.stacking.tree_zip</a></li>
+<li class="toctree-l4 current active"><a class="current reference internal" href="#">t3toolbox.backend.stacking.tree_zip</a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../tucker_tensor_train/index.html">t3toolbox.backend.tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -575,7 +575,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.backend.stacking</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.backend.stacking.stack</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.backend.stacking.tree_zip</span></li>
   </ul>
 </nav>
 </div>
@@ -592,88 +592,18 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="t3toolbox-backend-stacking-stack">
-<h1>t3toolbox.backend.stacking.stack<a class="headerlink" href="#t3toolbox-backend-stacking-stack" title="Link to this heading">#</a></h1>
+  <section id="t3toolbox-backend-stacking-tree-zip">
+<h1>t3toolbox.backend.stacking.tree_zip<a class="headerlink" href="#t3toolbox-backend-stacking-tree-zip" title="Link to this heading">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3toolbox.backend.stacking.stack">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.backend.stacking.</span></span><span class="sig-name descname"><span class="pre">stack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">T</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.backend.stacking.stack" title="Link to this definition">#</a></dt>
-<dd><p>Stack array-like nested tree structure.</p>
+<dt class="sig sig-object py" id="t3toolbox.backend.stacking.tree_zip">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.backend.stacking.</span></span><span class="sig-name descname"><span class="pre">tree_zip</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">T1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">T2</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.backend.stacking.tree_zip" title="Link to this definition">#</a></dt>
+<dd><p>Zips two trees with the same structure.</p>
 <p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.backend.stacking</span> <span class="k">as</span> <span class="nn">stacking</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">randn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">a00</span><span class="p">,</span> <span class="n">a01</span><span class="p">,</span> <span class="n">a10</span><span class="p">,</span> <span class="n">a11</span> <span class="o">=</span> <span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">b00</span><span class="p">,</span> <span class="n">b01</span><span class="p">,</span> <span class="n">b10</span><span class="p">,</span> <span class="n">b11</span> <span class="o">=</span> <span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">c00</span><span class="p">,</span> <span class="n">c01</span><span class="p">,</span> <span class="n">c10</span><span class="p">,</span> <span class="n">c11</span> <span class="o">=</span> <span class="n">randn</span><span class="p">(),</span> <span class="n">randn</span><span class="p">(),</span> <span class="n">randn</span><span class="p">(),</span> <span class="n">randn</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">T00</span> <span class="o">=</span> <span class="p">(</span><span class="n">a00</span><span class="p">,</span> <span class="p">(</span><span class="n">b00</span><span class="p">,</span> <span class="n">c00</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">T01</span> <span class="o">=</span> <span class="p">(</span><span class="n">a01</span><span class="p">,</span> <span class="p">(</span><span class="n">b01</span><span class="p">,</span> <span class="n">c01</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">T10</span> <span class="o">=</span> <span class="p">(</span><span class="n">a10</span><span class="p">,</span> <span class="p">(</span><span class="n">b10</span><span class="p">,</span> <span class="n">c10</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">T11</span> <span class="o">=</span> <span class="p">(</span><span class="n">a11</span><span class="p">,</span> <span class="p">(</span><span class="n">b11</span><span class="p">,</span> <span class="n">c11</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">T</span> <span class="o">=</span> <span class="p">((</span><span class="n">T00</span><span class="p">,</span> <span class="n">T01</span><span class="p">),</span> <span class="p">(</span><span class="n">T10</span><span class="p">,</span> <span class="n">T11</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">))</span> <span class="o">=</span> <span class="n">stacking</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">a</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">a00</span><span class="p">,</span> <span class="n">a01</span><span class="p">],</span> <span class="p">[</span><span class="n">a10</span><span class="p">,</span> <span class="n">a11</span><span class="p">]]))</span>
-<span class="go">0.0</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">b</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">b00</span><span class="p">,</span> <span class="n">b01</span><span class="p">],</span> <span class="p">[</span><span class="n">b10</span><span class="p">,</span> <span class="n">b11</span><span class="p">]]))</span>
-<span class="go">0.0</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">c</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">c00</span><span class="p">,</span> <span class="n">c01</span><span class="p">],</span> <span class="p">[</span><span class="n">c10</span><span class="p">,</span> <span class="n">c11</span><span class="p">]]))</span>
-<span class="go">0.0</span>
-</pre></div>
-</div>
-<p>Stacking along different axes</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.backend.stacking</span> <span class="k">as</span> <span class="nn">stacking</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">randn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">a00</span><span class="p">,</span> <span class="n">a01</span><span class="p">,</span> <span class="n">a10</span><span class="p">,</span> <span class="n">a11</span> <span class="o">=</span> <span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">b00</span><span class="p">,</span> <span class="n">b01</span><span class="p">,</span> <span class="n">b10</span><span class="p">,</span> <span class="n">b11</span> <span class="o">=</span> <span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">9</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">9</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">9</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">9</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">c00</span><span class="p">,</span> <span class="n">c01</span><span class="p">,</span> <span class="n">c10</span><span class="p">,</span> <span class="n">c11</span> <span class="o">=</span> <span class="n">randn</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span><span class="mi">8</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span><span class="mi">8</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span><span class="mi">8</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span><span class="mi">8</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">T00</span> <span class="o">=</span> <span class="p">(</span><span class="n">a00</span><span class="p">,</span> <span class="p">(</span><span class="n">b00</span><span class="p">,</span> <span class="n">c00</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">T01</span> <span class="o">=</span> <span class="p">(</span><span class="n">a01</span><span class="p">,</span> <span class="p">(</span><span class="n">b01</span><span class="p">,</span> <span class="n">c01</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">T10</span> <span class="o">=</span> <span class="p">(</span><span class="n">a10</span><span class="p">,</span> <span class="p">(</span><span class="n">b10</span><span class="p">,</span> <span class="n">c10</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">T11</span> <span class="o">=</span> <span class="p">(</span><span class="n">a11</span><span class="p">,</span> <span class="p">(</span><span class="n">b11</span><span class="p">,</span> <span class="n">c11</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">T</span> <span class="o">=</span> <span class="p">((</span><span class="n">T00</span><span class="p">,</span> <span class="n">T01</span><span class="p">),</span> <span class="p">(</span><span class="n">T10</span><span class="p">,</span> <span class="n">T11</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">))</span> <span class="o">=</span> <span class="n">stacking</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">axes</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">a</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">moveaxis</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">a00</span><span class="p">,</span> <span class="n">a01</span><span class="p">],</span> <span class="p">[</span><span class="n">a10</span><span class="p">,</span> <span class="n">a11</span><span class="p">]]),</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
-<span class="go">0.0</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">b</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">moveaxis</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">b00</span><span class="p">,</span> <span class="n">b01</span><span class="p">],</span> <span class="p">[</span><span class="n">b10</span><span class="p">,</span> <span class="n">b11</span><span class="p">]]),</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
-<span class="go">0.0</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">c</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">moveaxis</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([[</span><span class="n">c00</span><span class="p">,</span> <span class="n">c01</span><span class="p">],</span> <span class="p">[</span><span class="n">c10</span><span class="p">,</span> <span class="n">c11</span><span class="p">]]),</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
-<span class="go">0.0</span>
-</pre></div>
-</div>
-<p>Stacking when there is only one, non-nested, object</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.backend.stacking</span> <span class="k">as</span> <span class="nn">stacking</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">randn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">a</span><span class="p">,</span> <span class="n">b</span><span class="p">,</span> <span class="n">c</span> <span class="o">=</span> <span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="n">randn</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">),</span> <span class="n">randn</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">T</span> <span class="o">=</span> <span class="p">(</span><span class="n">a</span><span class="p">,</span> <span class="p">(</span><span class="n">b</span><span class="p">,</span> <span class="n">c</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="p">(</span><span class="n">a2</span><span class="p">,</span> <span class="p">(</span><span class="n">b2</span><span class="p">,</span> <span class="n">c2</span><span class="p">))</span> <span class="o">=</span> <span class="n">stacking</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="p">())</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">a</span> <span class="o">-</span> <span class="n">a2</span><span class="p">))</span>
-<span class="go">0.0</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">b</span> <span class="o">-</span> <span class="n">b2</span><span class="p">))</span>
-<span class="go">0.0</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">c</span> <span class="o">-</span> <span class="n">c2</span><span class="p">))</span>
-<span class="go">0.0</span>
-</pre></div>
-</div>
-<p>Stack non-nested single array</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.backend.stacking</span> <span class="k">as</span> <span class="nn">stacking</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">randn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">T</span> <span class="o">=</span> <span class="n">randn</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">LS</span> <span class="o">=</span> <span class="kc">None</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">T2</span> <span class="o">=</span> <span class="n">stacking</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="p">())</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">T</span> <span class="o">-</span> <span class="n">T2</span><span class="p">))</span>
-<span class="go">0.0</span>
-</pre></div>
-</div>
-<p>Stack nothing</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.backend.stacking</span> <span class="k">as</span> <span class="nn">stacking</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">randn</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">T</span> <span class="o">=</span> <span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">LS</span> <span class="o">=</span> <span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">stacking</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="p">()))</span>
-<span class="go">()</span>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.backend.stacking</span> <span class="k">as</span> <span class="nn">stacking</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">T1</span> <span class="o">=</span> <span class="p">(</span><span class="mi">1</span><span class="p">,(</span><span class="mi">2</span><span class="p">,(</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">)),((</span><span class="mi">6</span><span class="p">,</span><span class="mi">7</span><span class="p">),</span><span class="mi">8</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">T2</span> <span class="o">=</span> <span class="p">(</span><span class="s1">&#39;a&#39;</span><span class="p">,(</span><span class="s1">&#39;b&#39;</span><span class="p">,(</span><span class="s1">&#39;c&#39;</span><span class="p">,</span><span class="s1">&#39;d&#39;</span><span class="p">,</span><span class="s1">&#39;e&#39;</span><span class="p">)),((</span><span class="s1">&#39;f&#39;</span><span class="p">,</span><span class="s1">&#39;g&#39;</span><span class="p">),</span><span class="s1">&#39;h&#39;</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">stacking</span><span class="o">.</span><span class="n">tree_zip</span><span class="p">(</span><span class="n">T1</span><span class="p">,</span> <span class="n">T2</span><span class="p">))</span>
+<span class="go">((1, &#39;a&#39;), ((2, &#39;b&#39;), ((3, &#39;c&#39;), (4, &#39;d&#39;), (5, &#39;e&#39;))), (((6, &#39;f&#39;), (7, &#39;g&#39;)), (8, &#39;h&#39;)))</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -691,20 +621,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="apply_func_to_leaf_subtrees.html"
+       href="basic_ragged_stack.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.backend.stacking.apply_func_to_leaf_subtrees</p>
+        <p class="prev-next-title">t3toolbox.backend.stacking.basic_ragged_stack</p>
       </div>
     </a>
     <a class="right-next"
-       href="unstack.html"
+       href="../tucker_tensor_train/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.backend.stacking.unstack</p>
+        <p class="prev-next-title">t3toolbox.backend.tucker_tensor_train</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -727,14 +657,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.backend.stacking.stack"><code class="docutils literal notranslate"><span class="pre">t3toolbox.backend.stacking.stack()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.backend.stacking.tree_zip"><code class="docutils literal notranslate"><span class="pre">t3toolbox.backend.stacking.tree_zip()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../../_sources/autoapi/t3toolbox/backend/stacking/stack.rst.txt">
+    <a href="../../../../_sources/autoapi/t3toolbox/backend/stacking/tree_zip.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

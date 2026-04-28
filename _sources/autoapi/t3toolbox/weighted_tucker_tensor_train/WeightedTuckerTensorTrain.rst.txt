@@ -165,3 +165,55 @@ t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain
       2.8199489101171104e-12
 
 
+
+   .. py:method:: unstack()
+
+      Unstack into an array-like tree.
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.weighted_tucker_tensor_train as wt3
+      >>> import t3toolbox.corewise as cw
+      >>> randn = np.random.randn
+      >>> x0 = t3.t3_corewise_randn((6,7,8), (5,6,7), (2,3,3,1), stack_shape=(4,1))
+      >>> tucker_vectors = tuple([randn(4,1, 5), randn(4,1, 6), randn(4,1, 7)])
+      >>> tt_vectors = tuple([randn(4,1, 2), randn(4,1, 3), randn(4,1, 3), randn(4,1, 1)])
+      >>> weights = wt3.EdgeVectors(tucker_vectors, tt_vectors)
+      >>> x = wt3.WeightedTuckerTensorTrain(x0, weights)
+      >>> xx = x.unstack()
+      >>> ii, jj = 1, 0
+      >>> x_ij = xx[ii][jj]
+      >>> x0_ij = x0.unstack()[ii][jj]
+      >>> w_ij = weights.unstack()[ii][jj]
+      >>> x_ij2 = wt3.WeightedTuckerTensorTrain(x0_ij, w_ij)
+      >>> print(cw.corewise_norm(cw.corewise_sub(x_ij.data, x_ij2.data)))
+      0.0
+
+
+
+   .. py:method:: stack(xx, use_jax: bool = False)
+      :staticmethod:
+
+
+      Stack array-like tree of WeightedTuckerTrain into a single WeightedTuckerTrain.
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.weighted_tucker_tensor_train as wt3
+      >>> import t3toolbox.corewise as cw
+      >>> randn = np.random.randn
+      >>> x0 = t3.t3_corewise_randn((6,7,8), (5,6,7), (2,3,3,1), stack_shape=(4,1))
+      >>> tucker_vectors = tuple([randn(4,1, 5), randn(4,1, 6), randn(4,1, 7)])
+      >>> tt_vectors = tuple([randn(4,1, 2), randn(4,1, 3), randn(4,1, 3), randn(4,1, 1)])
+      >>> weights = wt3.EdgeVectors(tucker_vectors, tt_vectors)
+      >>> x = wt3.WeightedTuckerTensorTrain(x0, weights)
+      >>> xx = x.unstack()
+      >>> x2 = wt3.WeightedTuckerTensorTrain.stack(xx)
+      >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
+      0.0
+
+

@@ -1080,3 +1080,22 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
 
 
+
+   .. py:method:: stack(xx, use_jax: bool = False) -> TuckerTensorTrain
+      :staticmethod:
+
+
+      Stacks an array-like structure of TuckerTensorTrains into one stacked TuckerTensorTrain.
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.corewise as cw
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(3,5))
+      >>> xx = x.unstack()
+      >>> x2 = t3.TuckerTensorTrain.stack(xx)
+      >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
+      0.0
+
+
