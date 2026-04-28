@@ -379,6 +379,8 @@
 <li class="toctree-l4"><a class="reference internal" href="sum_leafs_along_axes.html">t3toolbox.backend.stacking.sum_leafs_along_axes</a></li>
 <li class="toctree-l4"><a class="reference internal" href="basic_ragged_unstack.html">t3toolbox.backend.stacking.basic_ragged_unstack</a></li>
 <li class="toctree-l4"><a class="reference internal" href="basic_ragged_stack.html">t3toolbox.backend.stacking.basic_ragged_stack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="basic_uniform_unstack.html">t3toolbox.backend.stacking.basic_uniform_unstack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="basic_uniform_stack.html">t3toolbox.backend.stacking.basic_uniform_stack</a></li>
 <li class="toctree-l4"><a class="reference internal" href="tree_zip.html">t3toolbox.backend.stacking.tree_zip</a></li>
 </ul>
 </details></li>
@@ -451,8 +453,6 @@
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../uniform_basis_variations_format/index.html">t3toolbox.uniform_basis_variations_format</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../uniform_basis_variations_format/UT3Basis.html">t3toolbox.uniform_basis_variations_format.UT3Basis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../uniform_basis_variations_format/UT3Variations.html">t3toolbox.uniform_basis_variations_format.UT3Variations</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../uniform_basis_variations_format/ubv_to_ut3.html">t3toolbox.uniform_basis_variations_format.ubv_to_ut3</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../uniform_basis_variations_format/ut3_orthogonal_representations.html">t3toolbox.uniform_basis_variations_format.ut3_orthogonal_representations</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../../uniform_manifold/index.html">t3toolbox.uniform_manifold</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -623,6 +623,12 @@
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="basic_ragged_stack.html#t3toolbox.backend.stacking.basic_ragged_stack" title="t3toolbox.backend.stacking.basic_ragged_stack"><code class="xref py py-obj docutils literal notranslate"><span class="pre">basic_ragged_stack</span></code></a>(...)</p></td>
 <td><p>Stack array-like tree of ragged array tuples into single ragged array tuple.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="basic_uniform_unstack.html#t3toolbox.backend.stacking.basic_uniform_unstack" title="t3toolbox.backend.stacking.basic_uniform_unstack"><code class="xref py py-obj docutils literal notranslate"><span class="pre">basic_uniform_unstack</span></code></a>(x, first_leaf_num_nonstacking_axes)</p></td>
+<td><p>Unstack stacked uniform array tuple into array-like tree</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="basic_uniform_stack.html#t3toolbox.backend.stacking.basic_uniform_stack" title="t3toolbox.backend.stacking.basic_uniform_stack"><code class="xref py py-obj docutils literal notranslate"><span class="pre">basic_uniform_stack</span></code></a>(...)</p></td>
+<td><p>Stack array-like tree of uniform array tuples into single ragged array tuple.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="tree_zip.html#t3toolbox.backend.stacking.tree_zip" title="t3toolbox.backend.stacking.tree_zip"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tree_zip</span></code></a>(T1, T2)</p></td>
 <td><p>Zips two trees with the same structure.</p></td>

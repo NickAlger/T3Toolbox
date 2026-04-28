@@ -19,6 +19,8 @@ Functions
    /autoapi/t3toolbox/backend/stacking/sum_leafs_along_axes
    /autoapi/t3toolbox/backend/stacking/basic_ragged_unstack
    /autoapi/t3toolbox/backend/stacking/basic_ragged_stack
+   /autoapi/t3toolbox/backend/stacking/basic_uniform_unstack
+   /autoapi/t3toolbox/backend/stacking/basic_uniform_stack
    /autoapi/t3toolbox/backend/stacking/tree_zip
 
 .. autoapisummary::
@@ -32,6 +34,8 @@ Functions
    t3toolbox.backend.stacking.sum_leafs_along_axes
    t3toolbox.backend.stacking.basic_ragged_unstack
    t3toolbox.backend.stacking.basic_ragged_stack
+   t3toolbox.backend.stacking.basic_uniform_unstack
+   t3toolbox.backend.stacking.basic_uniform_stack
    t3toolbox.backend.stacking.tree_zip
 
 

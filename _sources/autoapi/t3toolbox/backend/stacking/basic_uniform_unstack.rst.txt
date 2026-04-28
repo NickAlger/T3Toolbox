@@ -1,0 +1,8 @@
+t3toolbox.backend.stacking.basic_uniform_unstack
+================================================
+
+.. py:function:: t3toolbox.backend.stacking.basic_uniform_unstack(x: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], first_leaf_num_nonstacking_axes: int)
+
+   Unstack stacked uniform array tuple into array-like tree
+
+
