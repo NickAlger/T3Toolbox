@@ -461,7 +461,7 @@ def basic_uniform_unstack(
 
 
 def basic_uniform_stack(
-        xx, # Array-like tree of bases
+        xx, # Array-like tree to be stacked
         use_jax: bool = False,
 ) -> typ.Tuple[
     NDArray,
@@ -472,7 +472,7 @@ def basic_uniform_stack(
     xnp,_,_ = get_backend(False, use_jax)
 
     num_stacking_axes = tree_depth(xx) - 1
-    stacking_axes = tuple(range(num_stacking_axes))
+    stacking_axes = tuple(range(1, 1+num_stacking_axes))
     return stack(xx, axes=stacking_axes)
 
 

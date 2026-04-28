@@ -271,9 +271,8 @@ class UT3Basis:
         self.validate()
 
 
-    def unstack(self): # returns an array-like structure of nested tuples containing TuckerTensorTrains
-        """If this object contains multiple stacked T3s, this unstacks them
-        into an array-like structure of nested tuples with the same "shape" as self.stack_shape.
+    def unstack(self):
+        """Unstacks stacked UT3Basis into into array-like tree of unstacked UT3Basis.
 
         Examples
         --------
@@ -295,24 +294,62 @@ class UT3Basis:
         >>> BB = B.unstack()
         >>> ii, jj = 1, 2
         >>> B_ij = BB[ii][jj]
-        >>> cores_ij = tuple(z[:,ii,jj] for z in zip(uc, dc, lc, rc))
-        >>> masks_ij = tuple(z[:,ii,jj] for z in zip(um, dm, lm, rm))
+        >>> cores_ij = tuple(c[:,ii,jj] for c in (uc, dc, lc, rc))
+        >>> masks_ij = tuple(m[:,ii,jj] for m in (um, dm, lm, rm))
         >>> B_ij2 = ubcf.UT3Basis(*(cores_ij + (sm,) + masks_ij))
-        >>> print(cw.corewise_norm(cw.corewise_sub(B_ij.data,B_ij2.data)))
+        >>> print(cw.corewise_norm(cw.corewise_sub(B_ij.data[:4], B_ij2.data[:4])))
         0.0
+        >>> print([np.all(x == x2) for x, x2 in zip(B_ij.data[4:], B_ij2.data[4:])])
+        [True, True, True, True, True]
         """
+        stacked_data = self.data[:4] + self.data[5:] # no shape_mask
+        unstacked_data = stacking.basic_uniform_unstack(stacked_data, 3)
         return stacking.apply_func_to_leaf_subtrees(
-            stacking.basic_uniform_unstack(self.data, 3),
-            lambda x: UT3Basis(*x),
-            self.data, # leaf_structure
+            unstacked_data,
+            lambda x: UT3Basis(*(x[:4] + (self.shape_mask,) + x[4:])),
+            (None,)*8, # leaf_structure
         )
 
-        # def _dfs(xx):
-        #     if is_ndarray(xx[0]):
-        #         return UT3Basis(*xx)
-        #     return tuple([_dfs(x) for x in xx])
-        #
-        # return _dfs(ragged_operations.t3_unstack(self.data))
+
+    @staticmethod
+    def stack(
+            xx, # Array-like tree of UT3Basis
+            use_jax: bool = False,
+    ):
+        """Stack array-like tree of UT3Basis into a single UT3Basis.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.uniform_basis_variations_format as ubcf
+        >>> import t3toolbox.corewise as cw
+        >>> stack_shape = (2,3)
+        >>> d, N, nU, nD, rL, rR = 3, 12, 7, 8, 5, 4
+        >>> uc = np.random.randn(*((d,) + stack_shape + (nU, N)))
+        >>> dc = np.random.randn(*((d,) + stack_shape + (rL, nD, rR)))
+        >>> lc = np.random.randn(*((d,) + stack_shape + (rL, nU, rL)))
+        >>> rc = np.random.randn(*((d,) + stack_shape + (rR, nU, rR)))
+        >>> sm = np.random.choice([True, False], (d,N))
+        >>> um = np.random.choice([True, False], (d,)+stack_shape+(nU,))
+        >>> dm = np.random.choice([True, False], (d,)+stack_shape+(nD,))
+        >>> lm = np.random.choice([True, False], (d+1,)+stack_shape+(rL,))
+        >>> rm = np.random.choice([True, False], (d+1,)+stack_shape+(rR,))
+        >>> B = ubcf.UT3Basis(uc, dc, lc, rc, sm, um, dm, lm, rm)
+        >>> BB = B.unstack()
+        >>> B2 = ubcf.UT3Basis.stack(BB)
+        >>> print(cw.corewise_norm(cw.corewise_sub(B.data[:4], B2.data[:4])))
+        0.0
+        >>> print([np.all(x == x2) for x, x2 in zip(B.data[4:], B2.data[4:])])
+        [True, True, True, True, True]
+        """
+        stacked_data = stacking.apply_func_to_leaf_subtrees(
+            xx,
+            lambda x: x.data[:4] + x.data[5:],
+            None,  # leaf_structure
+        )
+        sm = stacking.get_first_leaf(xx).shape_mask
+        unstacked_data = stacking.basic_uniform_stack(stacked_data, use_jax=use_jax)
+        return UT3Basis(*(unstacked_data[:4] + (sm,) + unstacked_data[4:]))
 
 
 @dataclass(frozen=True)
