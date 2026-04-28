@@ -9,13 +9,13 @@ This page contains auto-generated API reference documentation [#f1]_.
    /autoapi/ut3_svd/index
    /autoapi/t3toolbox/index
    /autoapi/ut3_linalg/index
-   /autoapi/ut3_masking/index
    /autoapi/ubv_masking/index
+   /autoapi/ut3_masking/index
    /autoapi/bv_operations/index
-   /autoapi/bv_conversions/index
    /autoapi/ut3_operations/index
-   /autoapi/ut3_conversions/index
+   /autoapi/bv_conversions/index
    /autoapi/ubv_conversions/index
+   /autoapi/ut3_conversions/index
    /autoapi/ut3_orthogonalization/index
 
 .. [#f1] Created with `sphinx-autoapi <https://github.com/readthedocs/sphinx-autoapi>`_

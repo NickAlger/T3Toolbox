@@ -169,8 +169,7 @@ t3toolbox.uniform_basis_variations_format.UT3Basis
 
    .. py:method:: unstack()
 
-      If this object contains multiple stacked T3s, this unstacks them
-      into an array-like structure of nested tuples with the same "shape" as self.stack_shape.
+      Unstacks stacked UT3Basis into into array-like tree of unstacked UT3Basis.
 
       .. rubric:: Examples
 
@@ -192,10 +191,44 @@ t3toolbox.uniform_basis_variations_format.UT3Basis
       >>> BB = B.unstack()
       >>> ii, jj = 1, 2
       >>> B_ij = BB[ii][jj]
-      >>> cores_ij = tuple(z[:,ii,jj] for z in zip(uc, dc, lc, rc))
-      >>> masks_ij = tuple(z[:,ii,jj] for z in zip(um, dm, lm, rm))
+      >>> cores_ij = tuple(c[:,ii,jj] for c in (uc, dc, lc, rc))
+      >>> masks_ij = tuple(m[:,ii,jj] for m in (um, dm, lm, rm))
       >>> B_ij2 = ubcf.UT3Basis(*(cores_ij + (sm,) + masks_ij))
-      >>> print(cw.corewise_norm(cw.corewise_sub(B_ij.data,B_ij2.data)))
+      >>> print(cw.corewise_norm(cw.corewise_sub(B_ij.data[:4], B_ij2.data[:4])))
       0.0
+      >>> print([np.all(x == x2) for x, x2 in zip(B_ij.data[4:], B_ij2.data[4:])])
+      [True, True, True, True, True]
+
+
+
+   .. py:method:: stack(xx, use_jax: bool = False)
+      :staticmethod:
+
+
+      Stack array-like tree of UT3Basis into a single UT3Basis.
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.uniform_basis_variations_format as ubcf
+      >>> import t3toolbox.corewise as cw
+      >>> stack_shape = (2,3)
+      >>> d, N, nU, nD, rL, rR = 3, 12, 7, 8, 5, 4
+      >>> uc = np.random.randn(*((d,) + stack_shape + (nU, N)))
+      >>> dc = np.random.randn(*((d,) + stack_shape + (rL, nD, rR)))
+      >>> lc = np.random.randn(*((d,) + stack_shape + (rL, nU, rL)))
+      >>> rc = np.random.randn(*((d,) + stack_shape + (rR, nU, rR)))
+      >>> sm = np.random.choice([True, False], (d,N))
+      >>> um = np.random.choice([True, False], (d,)+stack_shape+(nU,))
+      >>> dm = np.random.choice([True, False], (d,)+stack_shape+(nD,))
+      >>> lm = np.random.choice([True, False], (d+1,)+stack_shape+(rL,))
+      >>> rm = np.random.choice([True, False], (d+1,)+stack_shape+(rR,))
+      >>> B = ubcf.UT3Basis(uc, dc, lc, rc, sm, um, dm, lm, rm)
+      >>> BB = B.unstack()
+      >>> B2 = ubcf.UT3Basis.stack(BB)
+      >>> print(cw.corewise_norm(cw.corewise_sub(B.data[:4], B2.data[:4])))
+      0.0
+      >>> print([np.all(x == x2) for x, x2 in zip(B.data[4:], B2.data[4:])])
+      [True, True, True, True, True]
 
 
