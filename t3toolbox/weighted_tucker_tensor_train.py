@@ -11,6 +11,7 @@ import functools as ft
 from dataclasses import dataclass
 
 import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.weighted_tucker_tensor_train.wt3_operations as ragged_wt3_operations
 from t3toolbox.backend.common import *
 
@@ -105,6 +106,64 @@ class EdgeVectors:
         """
         return EdgeVectors(*ragged_wt3_operations.reverse_edge_vectors(self.data))
 
+    def unstack(self):
+        """Unstack into an array-like tree.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.weighted_tucker_tensor_train as wt3
+        >>> import t3toolbox.corewise as cw
+        >>> randn = np.random.randn
+        >>> tucker_vectors = tuple([randn(9,10, 5), randn(9,10, 6), randn(9,10, 7)])
+        >>> tt_vectors = tuple([randn(9,10, 1), randn(9,10, 2), randn(9,10, 3), randn(9,10, 4)])
+        >>> ev = wt3.EdgeVectors(tucker_vectors, tt_vectors)
+        >>> evv = ev.unstack()
+        >>> ii, jj = 1, 2
+        >>> ev_ij = evv[ii][jj]
+        >>> tkv_ij = tuple(x[ii,jj,:] for x in tucker_vectors)
+        >>> ttv_ij = tuple(x[ii,jj,:] for x in tt_vectors)
+        >>> ev_ij2 = wt3.EdgeVectors(tkv_ij, ttv_ij)
+        >>> print(cw.corewise_norm(cw.corewise_sub(ev_ij2.data, ev_ij.data)))
+        0.0
+        """
+        result_tuple = stacking.basic_ragged_unstack(self.data, 1)
+        return stacking.apply_func_to_leaf_subtrees(
+            result_tuple,
+            lambda x: EdgeVectors(*x),
+            self.data, # leaf_structure
+        )
+
+    @staticmethod
+    def stack(
+            xx, # Array-like tree of T3Basis
+            use_jax: bool = False,
+    ):
+        """Stack array-like tree of T3Basis into a single T3Basis.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.weighted_tucker_tensor_train as wt3
+        >>> import t3toolbox.corewise as cw
+        >>> randn = np.random.randn
+        >>> tucker_vectors = tuple([randn(9,10, 5), randn(9,10, 6), randn(9,10, 7)])
+        >>> tt_vectors = tuple([randn(9,10, 1), randn(9,10, 2), randn(9,10, 3), randn(9,10, 4)])
+        >>> ev = wt3.EdgeVectors(tucker_vectors, tt_vectors)
+        >>> evv = ev.unstack()
+        >>> ev2 = wt3.EdgeVectors.stack(evv)
+        >>> print(cw.corewise_norm(cw.corewise_sub(ev.data, ev2.data)))
+        0.0
+        """
+        xx_tuples = stacking.apply_func_to_leaf_subtrees(
+            xx,
+            lambda x: x.data,
+            None,  # leaf_structure
+        )
+        result = stacking.basic_ragged_stack(xx_tuples, use_jax=use_jax)
+        return EdgeVectors(*result)
 
 
 @dataclass(frozen=True)

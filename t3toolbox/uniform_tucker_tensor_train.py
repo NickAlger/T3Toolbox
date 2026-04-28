@@ -666,40 +666,36 @@ import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> 
             (None, None, None, None, None),
         )
 
-    # def sum_stack(self) -> 'UniformTuckerTensorTrain':
-    #     """Sums stacked UniformTuckerTensorTrains.
-    #     """
+    @staticmethod
+    def stack(
+            uxx,
+            use_jax: bool = False,
+    ) -> 'UniformTuckerTensorTrain':
+        """Stacks array-like nested tree of uniform Tucker tensor trains into one uniform Tucker tensor train.
 
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
+        >>> xx = x.unstack()
+        >>> ux = ut3.t3_to_ut3(x)
+        >>> uxx = ux.unstack()
+        >>> ux2 = ut3.UniformTuckerTensorTrain.stack(uxx)
+        >>> print((ux - ux).norm())
+        [[1.50814985e-24 8.88010523e-25 1.56365971e-23]
+         [1.70736407e-23 1.65540771e-23 5.54533416e-24]]
+        """
+        uxx_tuples = stacking.apply_func_to_leaf_subtrees(
+            uxx, lambda x: x.data, None
+        )
 
-def ut3_stack(
-        uxx,
-        use_jax: bool = False,
-) -> UniformTuckerTensorTrain:
-    """Stacks array-like nested tree of uniform Tucker tensor trains into one uniform Tucker tensor train.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
-    >>> xx = x.unstack()
-    >>> ux = ut3.t3_to_ut3(x)
-    >>> uxx = ux.unstack()
-    >>> ux2 = ut3.ut3_stack(uxx)
-    >>> print((ux - ux).norm())
-    [[1.50814985e-24 8.88010523e-25 1.56365971e-23]
-     [1.70736407e-23 1.65540771e-23 5.54533416e-24]]
-    """
-    uxx_tuples = stacking.apply_func_to_leaf_subtrees(
-        uxx, lambda x: x.data, None
-    )
-
-    return stacking.apply_func_to_leaf_subtrees(
-        uniform_ops.ut3_stack(uxx_tuples, use_jax=use_jax),
-        lambda x: UniformTuckerTensorTrain(*x),
-        (None, None, None, None, None),
-    )
+        return stacking.apply_func_to_leaf_subtrees(
+            uniform_ops.ut3_stack(uxx_tuples, use_jax=use_jax),
+            lambda x: UniformTuckerTensorTrain(*x),
+            (None, None, None, None, None),
+        )
 
 
 if has_jax:

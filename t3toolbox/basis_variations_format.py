@@ -9,7 +9,6 @@ from dataclasses import dataclass
 
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.basis_variations_format.bv_conversions
-import t3toolbox.backend.basis_variations_format.bv_operations as bv_ops
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.backend.orthogonal_representations as orth_reps
 from t3toolbox.backend.common import *
@@ -359,41 +358,42 @@ class T3Basis:
         0.0
         """
         return stacking.apply_func_to_leaf_subtrees(
-            bv_ops.t3b_or_t3v_unstack(self.data),
+            stacking.basic_ragged_unstack(self.data, 2),
             lambda x: T3Basis(*x),
             self.data, # leaf_structure
         )
 
+    @staticmethod
+    def stack(
+            xx, # Array-like tree of T3Basis
+            use_jax: bool = False,
+    ):
+        """Stack array-like tree of T3Basis into a single T3Basis.
 
-def t3b_stack(
-        xx, # Array-like tree of T3Basis
-):
-    """Stack array-like tree of T3Basis into a single T3Basis.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.basis_variations_format as bvf
-    >>> import t3toolbox.corewise as cw
-    >>> randnstar = lambda x: np.random.randn(*x)
-    >>> ss = (2,3) # not included in variation_shapes.
-    >>> up_tucker_cores = (randnstar(ss+(10, 14)), randnstar(ss+(11, 15)), randnstar(ss+(12, 16)))
-    >>> down_tt_cores = (randnstar(ss+(1, 9, 4)), randnstar(ss+(2, 8, 5)),randnstar(ss+(3, 7, 1)))
-    >>> left_tt_cores = (randnstar(ss+(1, 10, 2)), randnstar(ss+(2, 11, 3)), randnstar(ss+(3,12,5)))
-    >>> right_tt_cores = (randnstar(ss+(2, 10, 4)), randnstar(ss+(4, 11, 5)), randnstar(ss+(5, 12, 1)))
-    >>> x = bvf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
-    >>> xx = x.unstack()
-    >>> x2 = bvf.t3b_stack(xx)
-    >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
-    0.0
-    """
-    xx_tuples = stacking.apply_func_to_leaf_subtrees(
-        xx,
-        lambda x: x.data,
-        None,  # leaf_structure
-    )
-    result = bv_ops.t3b_stack(xx_tuples)
-    return T3Basis(*result)
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.basis_variations_format as bvf
+        >>> import t3toolbox.corewise as cw
+        >>> randnstar = lambda x: np.random.randn(*x)
+        >>> ss = (2,3) # not included in variation_shapes.
+        >>> up_tucker_cores = (randnstar(ss+(10, 14)), randnstar(ss+(11, 15)), randnstar(ss+(12, 16)))
+        >>> down_tt_cores = (randnstar(ss+(1, 9, 4)), randnstar(ss+(2, 8, 5)),randnstar(ss+(3, 7, 1)))
+        >>> left_tt_cores = (randnstar(ss+(1, 10, 2)), randnstar(ss+(2, 11, 3)), randnstar(ss+(3,12,5)))
+        >>> right_tt_cores = (randnstar(ss+(2, 10, 4)), randnstar(ss+(4, 11, 5)), randnstar(ss+(5, 12, 1)))
+        >>> x = bvf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+        >>> xx = x.unstack()
+        >>> x2 = bvf.T3Basis.stack(xx)
+        >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
+        0.0
+        """
+        xx_tuples = stacking.apply_func_to_leaf_subtrees(
+            xx,
+            lambda x: x.data,
+            None,  # leaf_structure
+        )
+        result = stacking.basic_ragged_stack(xx_tuples, use_jax=use_jax)
+        return T3Basis(*result)
 
 
 
@@ -404,8 +404,8 @@ class T3Variations:
     Tuple containing variation cores for basis-variation representations of TuckerTensorTrains.
 
     *Components*
-        - tucker_variations    = (V0, ..., V(d-1)), elm_shape=(nDi, Ni)
-        - tt_variations        = (H0, ..., H(d-1)), elm_shape=(rLi, nUi, rRi)
+        - tucker_variations    = (V0, ..., V(d-1)), elm_shape=stack_shape+(nDi, Ni)
+        - tt_variations        = (H0, ..., H(d-1)), elm_shape=stack_shape+(rLi, nUi, rRi)
 
     The variations should fit in the "holes" of a T3Basis.
 
@@ -431,8 +431,8 @@ class T3Variations:
     >>> print(variations.variation_shapes) # same as base, except first right tt rank and last left tt rank, which are None
     (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
     """
-    tucker_variations: typ.Tuple[NDArray,...]  # len=d, elm_shape=(nDi, Ni)
-    tt_variations:     typ.Tuple[NDArray,...]  # len=d, elm_shape=(rLi, nUi, rRi)
+    tucker_variations: typ.Tuple[NDArray,...]  # len=d, elm_shape=stack_shape+(nDi, Ni)
+    tt_variations:     typ.Tuple[NDArray,...]  # len=d, elm_shape=stack_shape+(rLi, nUi, rRi)
 
     @ft.cached_property
     def d(self) -> int:
@@ -542,15 +542,11 @@ class T3Variations:
         >>> import numpy as np
         >>> import t3toolbox.basis_variations_format as bvf
         >>> import t3toolbox.corewise as cw
-        >>> randnstar = lambda x: np.random.randn(*x)
+        >>> rnd = lambda x: np.random.randn(*x)
         >>> ss = (2,3) # not included in variation_shapes.
-        >>> up_tucker_cores = (randnstar(ss+(10, 14)), randnstar(ss+(11, 15)), randnstar(ss+(12, 16)))
-        >>> down_tt_cores = (randnstar(ss+(1, 9, 4)), randnstar(ss+(2, 8, 5)),randnstar(ss+(3, 7, 1)))
-        >>> left_tt_cores = (randnstar(ss+(1, 10, 2)), randnstar(ss+(2, 11, 3)), randnstar(ss+(3,12,5)))
-        >>> right_tt_cores = (randnstar(ss+(2, 10, 4)), randnstar(ss+(4, 11, 5)), randnstar(ss+(5, 12, 1)))
-        >>> basis = bvf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
-        >>> tucker_variations = tuple([np.ones(ss + B_shape) for B_shape in basis.variation_shapes[0]])
-        >>> tt_variations = tuple([np.ones(ss + G_shape) for G_shape in basis.variation_shapes[1]])
+        >>> NN, nnU, nnD, rrL, rrR = (10,11,12), (8,7,8), (6,7,8), (2,3,4,3), (5,4,6,1)
+        >>> tucker_variations = tuple(rnd(ss+(n,N)) for n, N in zip(nnD, NN))
+        >>> tt_variations = tuple(rnd(ss+(rL, n, rR)) for rL, n, rR in zip(rrL[:-1],nnU,rrR[1:]))
         >>> V = bvf.T3Variations(tucker_variations, tt_variations)
         >>> VV = V.unstack()
         >>> ii, jj = 1, 2
@@ -562,10 +558,41 @@ class T3Variations:
         0.0
         """
         return stacking.apply_func_to_leaf_subtrees(
-            bv_ops.t3b_or_t3v_unstack(self.data),
+            stacking.basic_ragged_unstack(self.data, 2),
             lambda x: T3Variations(*x),
             self.data, # leaf_structure
         )
+
+    @staticmethod
+    def stack(
+            xx, # Array-like tree of T3Variations
+            use_jax: bool = False,
+    ):
+        """Stack array-like tree of T3Variations into a single T3Variation.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.basis_variations_format as bvf
+        >>> import t3toolbox.corewise as cw
+        >>> rnd = lambda x: np.random.randn(*x)
+        >>> ss = (2,3) # not included in variation_shapes.
+        >>> NN, nnU, nnD, rrL, rrR = (10,11,12), (8,7,8), (6,7,8), (2,3,4,3), (5,4,6,1)
+        >>> tucker_variations = tuple(rnd(ss+(n,N)) for n, N in zip(nnD, NN))
+        >>> tt_variations = tuple(rnd(ss+(rL, n, rR)) for rL, n, rR in zip(rrL[:-1],nnU,rrR[1:]))
+        >>> V = bvf.T3Variations(tucker_variations, tt_variations)
+        >>> VV = V.unstack()
+        >>> V2 = bvf.T3Variations.stack(VV)
+        >>> print(cw.corewise_norm(cw.corewise_sub(V.data, V2.data)))
+        0.0
+        """
+        xx_tuples = stacking.apply_func_to_leaf_subtrees(
+            xx,
+            lambda x: x.data,
+            None,  # leaf_structure
+        )
+        result = stacking.basic_ragged_stack(xx_tuples, use_jax=use_jax)
+        return T3Variations(*result)
 
 
 def check_bv_pair(base: T3Basis, variations: T3Variations) -> None:

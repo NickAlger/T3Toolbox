@@ -15,7 +15,10 @@ __all__ = [
     'stack',
     'unstack',
     'sum_leafs_along_axes',
+    'basic_ragged_unstack',
+    'basic_ragged_stack',
 ]
+
 
 def tree_depth(t):
     if not isinstance(t, typ.Sequence):
@@ -410,4 +413,31 @@ def sum_leafs_along_axes(
     return tuple(sum_leafs_along_axes(s, axes) for s in S)
 
 
+def basic_ragged_unstack(
+        x: typ.Tuple[
+            typ.Tuple[NDArray, ...],
+            ...,
+        ],
+        first_leaf_num_nonstacking_axes: int,
+):
+    """Unstack stacked ragged array tuple into array-like tree
+    """
+    num_stacking_axes = len(x[0][0].shape) - first_leaf_num_nonstacking_axes
+    axes = tuple(range(num_stacking_axes))
+    return unstack(x, axes=axes)
 
+
+def basic_ragged_stack(
+        xx, # Array-like tree of bases
+        use_jax: bool = False,
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],
+    ...,
+]:
+    """Stack array-like tree of ragged array tuples into single ragged array tuple.
+    """
+    xnp,_,_ = get_backend(False, use_jax)
+
+    num_stacking_axes = tree_depth(xx) - 2
+    stacking_axes = tuple(range(num_stacking_axes))
+    return stack(xx, axes=stacking_axes)
