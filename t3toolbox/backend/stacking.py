@@ -17,6 +17,8 @@ __all__ = [
     'sum_leafs_along_axes',
     'basic_ragged_unstack',
     'basic_ragged_stack',
+    'basic_uniform_unstack',
+    'basic_uniform_stack',
     'tree_zip',
 ]
 
@@ -442,6 +444,37 @@ def basic_ragged_stack(
     num_stacking_axes = tree_depth(xx) - 2
     stacking_axes = tuple(range(num_stacking_axes))
     return stack(xx, axes=stacking_axes)
+
+
+def basic_uniform_unstack(
+        x: typ.Tuple[
+            NDArray,
+            ...,
+        ],
+        first_leaf_num_nonstacking_axes: int,
+):
+    """Unstack stacked uniform array tuple into array-like tree
+    """
+    num_stacking_axes = len(x[0].shape) - first_leaf_num_nonstacking_axes
+    axes = tuple(range(1, 1+num_stacking_axes))
+    return unstack(x, axes=axes)
+
+
+def basic_uniform_stack(
+        xx, # Array-like tree of bases
+        use_jax: bool = False,
+) -> typ.Tuple[
+    NDArray,
+    ...,
+]:
+    """Stack array-like tree of uniform array tuples into single ragged array tuple.
+    """
+    xnp,_,_ = get_backend(False, use_jax)
+
+    num_stacking_axes = tree_depth(xx) - 1
+    stacking_axes = tuple(range(num_stacking_axes))
+    return stack(xx, axes=stacking_axes)
+
 
 
 def tree_zip(T1, T2):

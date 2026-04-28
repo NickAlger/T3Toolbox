@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import t3toolbox.backend.basis_variations_format.bv_conversions
 import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.backend.orthogonal_representations as orth_reps
+import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.uniform_basis_variations_format.ubv_masking as masking
 from t3toolbox.backend.common import *
 
@@ -270,6 +271,50 @@ class UT3Basis:
         self.validate()
 
 
+    def unstack(self): # returns an array-like structure of nested tuples containing TuckerTensorTrains
+        """If this object contains multiple stacked T3s, this unstacks them
+        into an array-like structure of nested tuples with the same "shape" as self.stack_shape.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.uniform_basis_variations_format as ubcf
+        >>> import t3toolbox.corewise as cw
+        >>> stack_shape = (2,3)
+        >>> d, N, nU, nD, rL, rR = 3, 12, 7, 8, 5, 4
+        >>> uc = np.random.randn(*((d,) + stack_shape + (nU, N)))
+        >>> dc = np.random.randn(*((d,) + stack_shape + (rL, nD, rR)))
+        >>> lc = np.random.randn(*((d,) + stack_shape + (rL, nU, rL)))
+        >>> rc = np.random.randn(*((d,) + stack_shape + (rR, nU, rR)))
+        >>> sm = np.random.choice([True, False], (d,N))
+        >>> um = np.random.choice([True, False], (d,)+stack_shape+(nU,))
+        >>> dm = np.random.choice([True, False], (d,)+stack_shape+(nD,))
+        >>> lm = np.random.choice([True, False], (d+1,)+stack_shape+(rL,))
+        >>> rm = np.random.choice([True, False], (d+1,)+stack_shape+(rR,))
+        >>> B = ubcf.UT3Basis(uc, dc, lc, rc, sm, um, dm, lm, rm)
+        >>> BB = B.unstack()
+        >>> ii, jj = 1, 2
+        >>> B_ij = BB[ii][jj]
+        >>> cores_ij = tuple(z[:,ii,jj] for z in zip(uc, dc, lc, rc))
+        >>> masks_ij = tuple(z[:,ii,jj] for z in zip(um, dm, lm, rm))
+        >>> B_ij2 = ubcf.UT3Basis(*(cores_ij + (sm,) + masks_ij))
+        >>> print(cw.corewise_norm(cw.corewise_sub(B_ij.data,B_ij2.data)))
+        0.0
+        """
+        return stacking.apply_func_to_leaf_subtrees(
+            stacking.basic_uniform_unstack(self.data, 3),
+            lambda x: UT3Basis(*x),
+            self.data, # leaf_structure
+        )
+
+        # def _dfs(xx):
+        #     if is_ndarray(xx[0]):
+        #         return UT3Basis(*xx)
+        #     return tuple([_dfs(x) for x in xx])
+        #
+        # return _dfs(ragged_operations.t3_unstack(self.data))
+
+
 @dataclass(frozen=True)
 class UT3Variations:
     """
@@ -414,207 +459,209 @@ class UT3Variations:
         self.validate()
 
 
-def check_ubv_pair(base: UT3Basis, variations: UT3Variations) -> None:
-    """Check rank and shape consistency between T3Basis and T3Variations.
+if False:
 
-    This ensures that the variation cores (V, H) have the correct dimensions
-     to interface with the base cores (U, L, R, O).
+    def check_ubv_pair(base: UT3Basis, variations: UT3Variations) -> None:
+        """Check rank and shape consistency between T3Basis and T3Variations.
 
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.basis_variations_format as bcf
-    >>> ss = (2,3) # stack shape
-    >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
-    >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
-    >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-    >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-    >>> base = bcf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-    >>> tucker_variations = tuple([np.ones(ss + B_shape) for B_shape in base.variation_shapes[0]])
-    >>> tt_variations = tuple([np.ones(ss + G_shape) for G_shape in base.variation_shapes[1]])
-    >>> variations = bcf.T3Variations(tucker_variations, tt_variations)
-    >>> bcf.check_bv_pair(base, variations) # does nothing since these are consistent
-    """
-    if base.stack_shape != variations.stack_shape:
-        raise ValueError(
-            'Inconsistent (T3Basis, T3Variations) pair.\n'
-            + str(base.stack_shape) + ' = base.stack_shape != variations.stack_shape = ' + str(variations.stack_shape)
+        This ensures that the variation cores (V, H) have the correct dimensions
+         to interface with the base cores (U, L, R, O).
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.basis_variations_format as bcf
+        >>> ss = (2,3) # stack shape
+        >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+        >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
+        >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
+        >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
+        >>> base = bcf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+        >>> tucker_variations = tuple([np.ones(ss + B_shape) for B_shape in base.variation_shapes[0]])
+        >>> tt_variations = tuple([np.ones(ss + G_shape) for G_shape in base.variation_shapes[1]])
+        >>> variations = bcf.T3Variations(tucker_variations, tt_variations)
+        >>> bcf.check_bv_pair(base, variations) # does nothing since these are consistent
+        """
+        if base.stack_shape != variations.stack_shape:
+            raise ValueError(
+                'Inconsistent (T3Basis, T3Variations) pair.\n'
+                + str(base.stack_shape) + ' = base.stack_shape != variations.stack_shape = ' + str(variations.stack_shape)
+            )
+
+        xVV, xHH = base.variation_shapes
+        yVV, yHH = variations.variation_shapes
+
+        for ii, (xV, yV) in enumerate(zip(xVV, yVV)):
+            if xV != yV:
+                raise ValueError(
+                    'Inconsistent T3Base - T3Variation pair.\n'
+                    + str(ii) + '-th Tucker variation shape' + str(yV)
+                    + ' does not fit base hole ' + str(xV)
+                )
+
+        for ii, (xH, yH) in enumerate(zip(xHH, yHH)):
+            if xH != yH:
+                raise ValueError(
+                    'Inconsistent T3Base - T3Variation pair.\n'
+                    + str(ii) + '-th tensor train variation shape' + str(yH)
+                    + ' does not fit base hole ' + str(xH)
+                )
+
+
+    def ubv_to_ut3(
+            ii: int, # index of variation
+            use_tt_variation: bool, # If True, use TT variation. If False, use Tucker variation
+            basis: UT3Basis,
+            variations: UT3Variations,
+    ) -> ut3.UniformTuckerTensorTrain:
+        '''Convert basis-variations representation to TuckerTensorTrain.
+
+        If replacement_ind=1, replace_tt=True::
+
+            1 -- L0 --(H1)-- R2 -- R3 -- 1
+                 |     |     |     |
+                 U0    U1    U2    U3
+                 |     |     |     |
+
+        If replacement_ind=2, replace_tt=False::
+
+            1 -- L0 -- L1 -- O2 -- R3 -- 1
+                 |     |     |     |
+                 U0    U1   (V2)   U3
+                 |     |     |     |
+
+        Parameters
+        ----------
+        ii: int
+            Index of variation. 0 <= replacement_ind < num_cores
+        replace_tt: bool
+            Indicates whether to use TT variation (True) or a Tucker variation (False)
+        base: T3Basis
+            Basis cores
+        variations: T3Variations
+            Variation cores
+
+        Raises
+        ------
+        RuntimeError
+            - Error raised if the basis and variations do not fit with each other
+
+        Examples
+        --------
+    import t3toolbox.backend.basis_variations_format.bv_conversions    >>> import numpy as np
+        >>> import t3toolbox.basis_variations_format as bcf
+        >>> randn = np.random.randn # shorthand
+        >>> (U0,U1,U2) = (randn(10, 14), randn(11, 15), randn(12, 16))
+        >>> (L0,L1,L2) = (randn(1, 10, 2), randn(2, 11, 3), randn(3,12,4))
+        >>> (R0,R1,R2) = (randn(2,10,4), randn(4, 11, 5), randn(5, 12, 1))
+        >>> (O0,O1,O2) = (randn(1, 9, 4), randn(2, 8, 5), randn(3, 7, 1))
+        >>> base = bcf.T3Basis((U0,U1,U2), (L0,L1,L2), (R0,R1,R2), (O0,O1,O2))
+        >>> (V0,V1,V2) = (randn(9,14), randn(8,15), randn(7,16))
+        >>> (H0,H1,H2) = (randn(1,10,4), randn(2,11,5), randn(3,12,1))
+        >>> variations = bcf.T3Variations((V0,V1,V2), (H0,H1,H2))
+        >>> ((B0, B1, B2), (G0, G1, G2)) = t3toolbox.backend.basis_variations_format.bv_conversions.bv_to_t3(1, True, base, variations).data # replace index-1 TT-backend
+        >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,U1,U2), (L0,H1,R2)))
+        True
+    import t3toolbox.backend.basis_variations_format.bv_conversions    >>> ((B0, B1, B2), (G0, G1, G2)) = t3toolbox.backend.basis_variations_format.bv_conversions.bv_to_t3(1, False, base, variations).data # replace index-1 tucker backend
+        >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,O1,R2)))
+        True
+        '''
+        check_basis_variations_pair(basis, variations)
+        return t3.TuckerTensorTrain(*t3toolbox.backend.basis_variations_format.bv_conversions.bv_to_t3(ii, use_tt_variation, basis.data, variations.data))
+
+
+    def ut3_orthogonal_representations(
+            x: t3.TuckerTensorTrain,
+            already_left_orthogonal: bool = False,
+            squash: bool = True,
+            use_jax: bool = False,
+    ) -> typ.Tuple[
+        UT3Basis,  # orthogonal base
+        T3Variations,  # variations
+    ]:
+        '''Construct base-variation representations of TuckerTensorTrain with orthogonal base.
+
+        Input TuckerTensorTrain::
+
+                      1 -- G0 -- G1 -- G2 -- G3 -- 1
+            X    =         |     |     |     |
+                           B0    B1    B2    B3
+                           |     |     |     |
+
+        Base-variation representation with non-orthogonal TT-backend H1::
+
+                      1 -- L0 -- H1 -- R2 -- R3 -- 1
+            X    =         |     |     |     |
+                           U0    U1    U2    U3
+                           |     |     |     |
+
+        Base-variation representation with non-orthogonal tucker backend V2::
+
+                      1 -- L0 -- L1 -- O2 -- R3 -- 1
+            X    =         |     |     |     |
+                           U0    U1    V2    U3
+                           |     |     |     |
+
+        The input tensor train x is defined by:
+            - x_tucker_cores     = (B0, B1, B2, B3)
+            - x_tt_cores        = (G0, G1, G2, G3)
+        The "base cores" are:
+            - tucker_cores       = (U0,U1, U2, U3), up orthogonal
+            - left_tt_cores     = (L0, L1, L2),     left orthogonal
+            - right_tt_cores    = (R1, R2, R3),     right orthogonal
+            - outer_tt_cores    = (O0, O1, O2, O3), down orthogonal
+        The "variation cores" are:
+            - tucker_variations  = (V0, V1, V2, V3)
+            - tt_variations     = (H0, H1, H2, H3)
+
+        Parameters
+        ----------
+        x: TuckerTensorTrain
+            Input TuckerTensorTrain
+            x = (x_tucker_cores, x_tt_cores)
+            x_tucker_cores = (B0, ..., B(d-1))
+            x_tt_cores = (G0, ..., G(d-1))
+        xnp:
+            Linear algebra backend. Default: np (numpy)
+
+        Returns
+        -------
+        T3Base
+            Orthogonal base for base-variation representations of x.
+        T3Variation
+            Variation for base-variation representaions of x.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.basis_variations_format as bcf
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (3,3,2,1), stack_shape=(2,3))
+        >>> base, variations = bcf.t3_orthogonal_representations(x) # Compute orthogonal representations
+        >>> up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base.data
+        >>> tucker_variations, tt_variations = variations.data
+        >>> (U0,U1,U2) = up_tucker_cores
+        >>> (L0,L1,L2) = left_tt_cores
+        >>> (R0,R1,R2) = right_tt_cores
+        >>> (O0,O1,O2) = outer_tt_cores
+        >>> (V0,V1,V2) = tucker_variations
+        >>> (H0,H1,H2) = tt_variations
+        >>> x2 = t3.TuckerTensorTrain((U0,U1,U2), (L0,H1,R2)) # representation with TT-backend variation in index 1
+        >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Still represents origional tensor
+        4.978421562425667e-12
+        >>> x3 = t3.TuckerTensorTrain((U0,V1,U2), (L0,O1,R2)) # representation with tucker backend variation in index 1
+        >>> print(np.linalg.norm(x.to_dense() - x3.to_dense())) # Still represents origional tensor
+        5.4355175448533146e-12
+        >>> print(np.linalg.norm(np.einsum('...io,...jo', U1, U1) - np.eye(U1.shape[-2]))) # U: orthogonal
+        1.1915111872574236e-15
+        >>> print(np.linalg.norm(np.einsum('...iaj,...iak', L1, L1) - np.eye(L1.shape[-1]))) # L: left orthogonal
+        9.733823879665448e-16
+        >>> print(np.linalg.norm(np.einsum('...iaj,...kaj', R1, R1) - np.eye(R1.shape[-3]))) # R: right orthogonal
+        8.027553546330097e-16
+        >>> print(np.linalg.norm(np.einsum('...iaj,...ibj', O1, O1) - np.eye(O1.shape[-2]))) # O: outer orthogonal
+        1.3870474292323159e-15
+        '''
+        result = orth_reps.orthogonal_representations(
+            x.data, already_left_orthogonal=already_left_orthogonal, squash=squash, use_jax=use_jax,
         )
-
-    xVV, xHH = base.variation_shapes
-    yVV, yHH = variations.variation_shapes
-
-    for ii, (xV, yV) in enumerate(zip(xVV, yVV)):
-        if xV != yV:
-            raise ValueError(
-                'Inconsistent T3Base - T3Variation pair.\n'
-                + str(ii) + '-th Tucker variation shape' + str(yV)
-                + ' does not fit base hole ' + str(xV)
-            )
-
-    for ii, (xH, yH) in enumerate(zip(xHH, yHH)):
-        if xH != yH:
-            raise ValueError(
-                'Inconsistent T3Base - T3Variation pair.\n'
-                + str(ii) + '-th tensor train variation shape' + str(yH)
-                + ' does not fit base hole ' + str(xH)
-            )
-
-
-def ubv_to_ut3(
-        ii: int, # index of variation
-        use_tt_variation: bool, # If True, use TT variation. If False, use Tucker variation
-        basis: UT3Basis,
-        variations: UT3Variations,
-) -> ut3.UniformTuckerTensorTrain:
-    '''Convert basis-variations representation to TuckerTensorTrain.
-
-    If replacement_ind=1, replace_tt=True::
-
-        1 -- L0 --(H1)-- R2 -- R3 -- 1
-             |     |     |     |
-             U0    U1    U2    U3
-             |     |     |     |
-
-    If replacement_ind=2, replace_tt=False::
-
-        1 -- L0 -- L1 -- O2 -- R3 -- 1
-             |     |     |     |
-             U0    U1   (V2)   U3
-             |     |     |     |
-
-    Parameters
-    ----------
-    ii: int
-        Index of variation. 0 <= replacement_ind < num_cores
-    replace_tt: bool
-        Indicates whether to use TT variation (True) or a Tucker variation (False)
-    base: T3Basis
-        Basis cores
-    variations: T3Variations
-        Variation cores
-
-    Raises
-    ------
-    RuntimeError
-        - Error raised if the basis and variations do not fit with each other
-
-    Examples
-    --------
-import t3toolbox.backend.basis_variations_format.bv_conversions    >>> import numpy as np
-    >>> import t3toolbox.basis_variations_format as bcf
-    >>> randn = np.random.randn # shorthand
-    >>> (U0,U1,U2) = (randn(10, 14), randn(11, 15), randn(12, 16))
-    >>> (L0,L1,L2) = (randn(1, 10, 2), randn(2, 11, 3), randn(3,12,4))
-    >>> (R0,R1,R2) = (randn(2,10,4), randn(4, 11, 5), randn(5, 12, 1))
-    >>> (O0,O1,O2) = (randn(1, 9, 4), randn(2, 8, 5), randn(3, 7, 1))
-    >>> base = bcf.T3Basis((U0,U1,U2), (L0,L1,L2), (R0,R1,R2), (O0,O1,O2))
-    >>> (V0,V1,V2) = (randn(9,14), randn(8,15), randn(7,16))
-    >>> (H0,H1,H2) = (randn(1,10,4), randn(2,11,5), randn(3,12,1))
-    >>> variations = bcf.T3Variations((V0,V1,V2), (H0,H1,H2))
-    >>> ((B0, B1, B2), (G0, G1, G2)) = t3toolbox.backend.basis_variations_format.bv_conversions.bv_to_t3(1, True, base, variations).data # replace index-1 TT-backend
-    >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,U1,U2), (L0,H1,R2)))
-    True
-import t3toolbox.backend.basis_variations_format.bv_conversions    >>> ((B0, B1, B2), (G0, G1, G2)) = t3toolbox.backend.basis_variations_format.bv_conversions.bv_to_t3(1, False, base, variations).data # replace index-1 tucker backend
-    >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,O1,R2)))
-    True
-    '''
-    check_basis_variations_pair(basis, variations)
-    return t3.TuckerTensorTrain(*t3toolbox.backend.basis_variations_format.bv_conversions.bv_to_t3(ii, use_tt_variation, basis.data, variations.data))
-
-
-def ut3_orthogonal_representations(
-        x: t3.TuckerTensorTrain,
-        already_left_orthogonal: bool = False,
-        squash: bool = True,
-        use_jax: bool = False,
-) -> typ.Tuple[
-    UT3Basis,  # orthogonal base
-    T3Variations,  # variations
-]:
-    '''Construct base-variation representations of TuckerTensorTrain with orthogonal base.
-
-    Input TuckerTensorTrain::
-
-                  1 -- G0 -- G1 -- G2 -- G3 -- 1
-        X    =         |     |     |     |
-                       B0    B1    B2    B3
-                       |     |     |     |
-
-    Base-variation representation with non-orthogonal TT-backend H1::
-
-                  1 -- L0 -- H1 -- R2 -- R3 -- 1
-        X    =         |     |     |     |
-                       U0    U1    U2    U3
-                       |     |     |     |
-
-    Base-variation representation with non-orthogonal tucker backend V2::
-
-                  1 -- L0 -- L1 -- O2 -- R3 -- 1
-        X    =         |     |     |     |
-                       U0    U1    V2    U3
-                       |     |     |     |
-
-    The input tensor train x is defined by:
-        - x_tucker_cores     = (B0, B1, B2, B3)
-        - x_tt_cores        = (G0, G1, G2, G3)
-    The "base cores" are:
-        - tucker_cores       = (U0,U1, U2, U3), up orthogonal
-        - left_tt_cores     = (L0, L1, L2),     left orthogonal
-        - right_tt_cores    = (R1, R2, R3),     right orthogonal
-        - outer_tt_cores    = (O0, O1, O2, O3), down orthogonal
-    The "variation cores" are:
-        - tucker_variations  = (V0, V1, V2, V3)
-        - tt_variations     = (H0, H1, H2, H3)
-
-    Parameters
-    ----------
-    x: TuckerTensorTrain
-        Input TuckerTensorTrain
-        x = (x_tucker_cores, x_tt_cores)
-        x_tucker_cores = (B0, ..., B(d-1))
-        x_tt_cores = (G0, ..., G(d-1))
-    xnp:
-        Linear algebra backend. Default: np (numpy)
-
-    Returns
-    -------
-    T3Base
-        Orthogonal base for base-variation representations of x.
-    T3Variation
-        Variation for base-variation representaions of x.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.basis_variations_format as bcf
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (3,3,2,1), stack_shape=(2,3))
-    >>> base, variations = bcf.t3_orthogonal_representations(x) # Compute orthogonal representations
-    >>> up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base.data
-    >>> tucker_variations, tt_variations = variations.data
-    >>> (U0,U1,U2) = up_tucker_cores
-    >>> (L0,L1,L2) = left_tt_cores
-    >>> (R0,R1,R2) = right_tt_cores
-    >>> (O0,O1,O2) = outer_tt_cores
-    >>> (V0,V1,V2) = tucker_variations
-    >>> (H0,H1,H2) = tt_variations
-    >>> x2 = t3.TuckerTensorTrain((U0,U1,U2), (L0,H1,R2)) # representation with TT-backend variation in index 1
-    >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Still represents origional tensor
-    4.978421562425667e-12
-    >>> x3 = t3.TuckerTensorTrain((U0,V1,U2), (L0,O1,R2)) # representation with tucker backend variation in index 1
-    >>> print(np.linalg.norm(x.to_dense() - x3.to_dense())) # Still represents origional tensor
-    5.4355175448533146e-12
-    >>> print(np.linalg.norm(np.einsum('...io,...jo', U1, U1) - np.eye(U1.shape[-2]))) # U: orthogonal
-    1.1915111872574236e-15
-    >>> print(np.linalg.norm(np.einsum('...iaj,...iak', L1, L1) - np.eye(L1.shape[-1]))) # L: left orthogonal
-    9.733823879665448e-16
-    >>> print(np.linalg.norm(np.einsum('...iaj,...kaj', R1, R1) - np.eye(R1.shape[-3]))) # R: right orthogonal
-    8.027553546330097e-16
-    >>> print(np.linalg.norm(np.einsum('...iaj,...ibj', O1, O1) - np.eye(O1.shape[-2]))) # O: outer orthogonal
-    1.3870474292323159e-15
-    '''
-    result = orth_reps.orthogonal_representations(
-        x.data, already_left_orthogonal=already_left_orthogonal, squash=squash, use_jax=use_jax,
-    )
-    return T3Basis(*result[0]), T3Variations(*result[1])
+        return T3Basis(*result[0]), T3Variations(*result[1])

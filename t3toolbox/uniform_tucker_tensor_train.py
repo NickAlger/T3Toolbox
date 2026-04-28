@@ -875,7 +875,7 @@ import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> impo
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
     >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
-    >>> result = t3.t3_apply(x, vecs)
+    >>> result = t3.apply(x, vecs)
     >>> uniform_x = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
     >>> uvecs = ut3.pack_vectors(vecs)
     >>> result2 = ut3.ut3_apply(uniform_x, uvecs)
@@ -889,7 +889,7 @@ import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> impo
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
     >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
-    >>> result = t3.t3_apply(x, vecs)
+    >>> result = t3.apply(x, vecs)
     >>> uniform_x = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
     >>> uvecs = ut3.pack_vectors(vecs)
     >>> result2 = ut3.ut3_apply(uniform_x, uvecs)
