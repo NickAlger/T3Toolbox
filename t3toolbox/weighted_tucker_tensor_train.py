@@ -350,6 +350,76 @@ class WeightedTuckerTensorTrain:
         """
         return self.contract_edge_weights_into_cores(use_jax=use_jax).to_dense(use_jax=use_jax)
 
+    def unstack(self):
+        """Unstack into an array-like tree.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.weighted_tucker_tensor_train as wt3
+        >>> import t3toolbox.corewise as cw
+        >>> randn = np.random.randn
+        >>> x0 = t3.t3_corewise_randn((6,7,8), (5,6,7), (2,3,3,1), stack_shape=(4,1))
+        >>> tucker_vectors = tuple([randn(4,1, 5), randn(4,1, 6), randn(4,1, 7)])
+        >>> tt_vectors = tuple([randn(4,1, 2), randn(4,1, 3), randn(4,1, 3), randn(4,1, 1)])
+        >>> weights = wt3.EdgeVectors(tucker_vectors, tt_vectors)
+        >>> x = wt3.WeightedTuckerTensorTrain(x0, weights)
+        >>> xx = x.unstack()
+        >>> ii, jj = 1, 0
+        >>> x_ij = xx[ii][jj]
+        >>> x0_ij = x0.unstack()[ii][jj]
+        >>> w_ij = weights.unstack()[ii][jj]
+        >>> x_ij2 = wt3.WeightedTuckerTensorTrain(x0_ij, w_ij)
+        >>> print(cw.corewise_norm(cw.corewise_sub(x_ij.data, x_ij2.data)))
+        0.0
+        """
+        xx0 = self.x0.unstack()
+        ee = self.edge_weights.unstack()
+        result_tuples = stacking.tree_zip(xx0, ee)
+        return stacking.apply_func_to_leaf_subtrees(
+            result_tuples,
+            lambda x: WeightedTuckerTensorTrain(*x),
+            (None, None), # leaf_structure
+        )
+
+    @staticmethod
+    def stack(
+            xx, # Array-like tree of WeightedTuckerTrain
+            use_jax: bool = False,
+    ):
+        """Stack array-like tree of WeightedTuckerTrain into a single WeightedTuckerTrain.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.weighted_tucker_tensor_train as wt3
+        >>> import t3toolbox.corewise as cw
+        >>> randn = np.random.randn
+        >>> x0 = t3.t3_corewise_randn((6,7,8), (5,6,7), (2,3,3,1), stack_shape=(4,1))
+        >>> tucker_vectors = tuple([randn(4,1, 5), randn(4,1, 6), randn(4,1, 7)])
+        >>> tt_vectors = tuple([randn(4,1, 2), randn(4,1, 3), randn(4,1, 3), randn(4,1, 1)])
+        >>> weights = wt3.EdgeVectors(tucker_vectors, tt_vectors)
+        >>> x = wt3.WeightedTuckerTensorTrain(x0, weights)
+        >>> xx = x.unstack()
+        >>> x2 = wt3.WeightedTuckerTensorTrain.stack(xx)
+        >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
+        0.0
+        """
+        def _unzip(x):
+            if isinstance(x, WeightedTuckerTensorTrain):
+                return (x.x0, x.edge_weights)
+
+            uzt = tuple(_unzip(xi) for xi in x)
+            return tuple(u[0] for u in uzt), tuple(u[1] for u in uzt)
+
+        x0_tree, edge_weights_tree = _unzip(xx)
+        stacked_x0 = t3.TuckerTensorTrain.stack(x0_tree, use_jax=use_jax)
+        stacked_ewt = EdgeVectors.stack(edge_weights_tree, use_jax=use_jax)
+
+        return WeightedTuckerTensorTrain(stacked_x0, stacked_ewt)
+
 
 if has_jax:
     jax.tree_util.register_pytree_node(

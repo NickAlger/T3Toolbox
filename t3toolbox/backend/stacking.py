@@ -17,6 +17,7 @@ __all__ = [
     'sum_leafs_along_axes',
     'basic_ragged_unstack',
     'basic_ragged_stack',
+    'tree_zip',
 ]
 
 
@@ -441,3 +442,23 @@ def basic_ragged_stack(
     num_stacking_axes = tree_depth(xx) - 2
     stacking_axes = tuple(range(num_stacking_axes))
     return stack(xx, axes=stacking_axes)
+
+
+def tree_zip(T1, T2):
+    """Zips two trees with the same structure.
+
+    Examples
+    --------
+    >>> import t3toolbox.backend.stacking as stacking
+    >>> T1 = (1,(2,(3,4,5)),((6,7),8))
+    >>> T2 = ('a',('b',('c','d','e')),(('f','g'),'h'))
+    >>> print(stacking.tree_zip(T1, T2))
+    ((1, 'a'), ((2, 'b'), ((3, 'c'), (4, 'd'), (5, 'e'))), (((6, 'f'), (7, 'g')), (8, 'h')))
+    """
+    if not isinstance(T1, typ.Sequence):
+        return (T1, T2)
+
+    else:
+        return tuple(tree_zip(t1, t2) for t1, t2 in zip(T1, T2))
+
+
