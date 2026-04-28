@@ -17,6 +17,8 @@ Functions
    /autoapi/t3toolbox/backend/stacking/stack
    /autoapi/t3toolbox/backend/stacking/unstack
    /autoapi/t3toolbox/backend/stacking/sum_leafs_along_axes
+   /autoapi/t3toolbox/backend/stacking/basic_ragged_unstack
+   /autoapi/t3toolbox/backend/stacking/basic_ragged_stack
 
 .. autoapisummary::
 
@@ -27,5 +29,7 @@ Functions
    t3toolbox.backend.stacking.stack
    t3toolbox.backend.stacking.unstack
    t3toolbox.backend.stacking.sum_leafs_along_axes
+   t3toolbox.backend.stacking.basic_ragged_unstack
+   t3toolbox.backend.stacking.basic_ragged_stack
 
 

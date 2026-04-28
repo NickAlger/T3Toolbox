@@ -1,0 +1,8 @@
+t3toolbox.backend.stacking.basic_ragged_stack
+=============================================
+
+.. py:function:: t3toolbox.backend.stacking.basic_ragged_stack(xx, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], Ellipsis]
+
+   Stack array-like tree of ragged array tuples into single ragged array tuple.
+
+

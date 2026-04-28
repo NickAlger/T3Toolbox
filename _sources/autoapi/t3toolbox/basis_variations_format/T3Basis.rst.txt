@@ -211,3 +211,28 @@ t3toolbox.basis_variations_format.T3Basis
       0.0
 
 
+
+   .. py:method:: stack(xx, use_jax: bool = False)
+      :staticmethod:
+
+
+      Stack array-like tree of T3Basis into a single T3Basis.
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.basis_variations_format as bvf
+      >>> import t3toolbox.corewise as cw
+      >>> randnstar = lambda x: np.random.randn(*x)
+      >>> ss = (2,3) # not included in variation_shapes.
+      >>> up_tucker_cores = (randnstar(ss+(10, 14)), randnstar(ss+(11, 15)), randnstar(ss+(12, 16)))
+      >>> down_tt_cores = (randnstar(ss+(1, 9, 4)), randnstar(ss+(2, 8, 5)),randnstar(ss+(3, 7, 1)))
+      >>> left_tt_cores = (randnstar(ss+(1, 10, 2)), randnstar(ss+(2, 11, 3)), randnstar(ss+(3,12,5)))
+      >>> right_tt_cores = (randnstar(ss+(2, 10, 4)), randnstar(ss+(4, 11, 5)), randnstar(ss+(5, 12, 1)))
+      >>> x = bvf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+      >>> xx = x.unstack()
+      >>> x2 = bvf.T3Basis.stack(xx)
+      >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
+      0.0
+
+

@@ -534,3 +534,25 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
       8.474583009920297e-24
 
 
+
+   .. py:method:: stack(uxx, use_jax: bool = False) -> UniformTuckerTensorTrain
+      :staticmethod:
+
+
+      Stacks array-like nested tree of uniform Tucker tensor trains into one uniform Tucker tensor train.
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+      >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
+      >>> xx = x.unstack()
+      >>> ux = ut3.t3_to_ut3(x)
+      >>> uxx = ux.unstack()
+      >>> ux2 = ut3.UniformTuckerTensorTrain.stack(uxx)
+      >>> print((ux - ux).norm())
+      [[1.50814985e-24 8.88010523e-25 1.56365971e-23]
+       [1.70736407e-23 1.65540771e-23 5.54533416e-24]]
+
+
