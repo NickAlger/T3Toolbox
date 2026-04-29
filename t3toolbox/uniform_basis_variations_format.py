@@ -180,20 +180,6 @@ class UT3Basis:
                  |     |     |     |
                  U0    U1    ( )   U3
                  |     |     |     |
-
-        Examples
-        --------
-        #### EXAMPLE IS WORK IN PROGRESS
-        >>> import numpy as np
-        >>> import t3toolbox.basis_variations_format as bcf
-        >>> ss = (2,3) # not included in variation_shapes.
-        >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
-        >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
-        >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-        >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-        >>> basis = bcf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-        >>> print(basis.variation_shapes)
-        (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
         '''
         tucker_variation_shapes = tuple([(nD, N) for nD, N in zip(self.down_ranks, self.shape)])
         tt_variation_shapes = tuple([
@@ -204,11 +190,6 @@ class UT3Basis:
 
     def apply_masks(self) -> 'UT3Basis':
         """Apply masks to the basis supercores, zeroing out unmasked entries.
-
-        Examples
-        --------
-        >>> import numpy as np
-
         """
         up_sc, down_sc, left_sc, right_sc = masking.apply_basis_masks(*self.data)
         return UT3Basis(
@@ -263,13 +244,12 @@ class UT3Basis:
 
         if not (UU_good and DD_good and LL_good and RR_good and SM_good and UM_good and DM_good and LM_good and RM_good):
             raise ValueError(
-                'Inconsistent shapes for T3Basis.\n'
+                'Inconsistent shapes for UT3Basis.\n'
                 + shapes_string
             )
 
     def __post_init__(self):
         self.validate()
-
 
     def unstack(self):
         """Unstacks stacked UT3Basis into into array-like tree of unstacked UT3Basis.
@@ -309,7 +289,6 @@ class UT3Basis:
             lambda x: UT3Basis(*(x[:4] + (self.shape_mask,) + x[4:])),
             (None,)*8, # leaf_structure
         )
-
 
     @staticmethod
     def stack(
@@ -365,25 +344,27 @@ class UT3Variations:
 
     See Also
     --------
-    T3Basis
+    UT3Basis
 
     Examples
     --------
     >>> import numpy as np
-    >>> import t3toolbox.basis_variations_format as bvf
-    >>> ss = (2,3) # stack shape
-    >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
-    >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
-    >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-    >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-    >>> base = bvf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-    >>> print(base.structure)
-    ((14, 15, 16), (10, 11, 12), (1, 2, 3, 5), (2, 4, 5, 1), (9, 8, 7), (2, 3))
-    >>> tucker_variations = tuple([np.ones(ss + B_shape) for B_shape in base.variation_shapes[0]])
-    >>> tt_variations = tuple([np.ones(ss + G_shape) for G_shape in base.variation_shapes[1]])
-    >>> variations = bvf.T3Variations(tucker_variations, tt_variations) # variation that fits with base
-    >>> print(variations.structure) # same as base, except first right tt rank and last left tt rank, which are None
-    ((14, 15, 16), (9, 8, 7), (1, 2, 3, None), (None, 4, 5, 1), (10, 11, 12), (2, 3))
+    >>> import t3toolbox.uniform_basis_variations_format as ubcf
+    >>> import t3toolbox.corewise as cw
+    >>> stack_shape = (2,3)
+    >>> d, N, nU, nD, rL, rR = 3, 12, 7, 8, 5, 4
+    >>> tkv = np.random.randn(*((d,) + stack_shape + (nD, N)))
+    >>> ttv = np.random.randn(*((d,) + stack_shape + (rL, nU, rR)))
+    >>> sm = np.random.choice([True, False], (d,N))
+    >>> um = np.random.choice([True, False], (d,)+stack_shape+(nU,))
+    >>> dm = np.random.choice([True, False], (d,)+stack_shape+(nD,))
+    >>> lm = np.random.choice([True, False], (d,)+stack_shape+(rL,))
+    >>> rm = np.random.choice([True, False], (d,)+stack_shape+(rR,))
+    >>> V = ubcf.UT3Variations(tkv, ttv, sm, um, dm, lm, rm)
+    >>> print(V.uniform_structure)
+    (3, 12, 7, 8, 5, 4, (2, 3))
+    >>> print(V.uniform_variation_shapes)
+    ((3, 8, 12), (3, 5, 7, 4))
     """
     tucker_variations: NDArray  # shape=(d,) + stack_shape + (nD,N)
     tt_variations:     NDArray  # shape=(d,) + stack_shape + (rL,nU, rR)
@@ -397,15 +378,87 @@ class UT3Variations:
 
     @ft.cached_property
     def d(self) -> int:
-        return len(self.tucker_variations)
+        return self.tucker_variations.shape[0]
 
     @ft.cached_property
-    def shape(self) -> typ.Tuple[int,...]:
-        return tuple([U.shape[-1] for U in self.tucker_variations])
+    def N(self) -> int:
+        return self.tucker_variations.shape[-1]
+
+    @ft.cached_property
+    def nU(self) -> int:
+        return self.tt_variations.shape[-2]
+
+    @ft.cached_property
+    def nD(self) -> int:
+        return self.tucker_variations.shape[-2]
+
+    @ft.cached_property
+    def rL(self) -> int:
+        return self.tt_variations.shape[-3]
+
+    @ft.cached_property
+    def rR(self) -> int:
+        return self.tt_variations.shape[-1]
 
     @ft.cached_property
     def stack_shape(self) -> typ.Tuple[int,...]:
-        return self.tucker_variations[0].shape[:-2]
+        return self.tucker_variations.shape[1:-2]
+
+    @ft.cached_property
+    def uniform_structure(self) -> typ.Tuple[
+        int, # d
+        int, # N
+        int, # nU
+        int, # nD
+        int, # rL
+        int, # rR
+        typ.Tuple[int,...], # stack_shape
+    ]:
+        return self.d, self.N, self.nU, self.nD, self.rL, self.rR, self.stack_shape
+
+    @ft.cached_property
+    def uniform_variation_shapes(self) -> typ.Tuple[
+        typ.Tuple[int,...], # uniform_tucker_variations_shape = (d, nD, N)
+        typ.Tuple[int,...], # uniform_tt_variations_shape = (d, rL, nU, rR)
+    ]: # does not include stack_shape
+        uniform_tucker_variations_shape = (self.d, self.nD, self.N)
+        uniform_tt_variations_shape = (self.d, self.rL, self.nU, self.rR)
+        return uniform_tucker_variations_shape, uniform_tt_variations_shape
+
+    @ft.cached_property
+    def shape(self) -> typ.Tuple[int,...]:
+        return tuple(list(self.shape_mask.sum(axis=-1)))
+
+    @ft.cached_property
+    def up_ranks(self) -> NDArray:
+        return self.variations_up_mask.sum(axis=-1)
+
+    @ft.cached_property
+    def down_ranks(self) -> NDArray:
+        return self.variations_down_mask.sum(axis=-1)
+
+    @ft.cached_property
+    def variation_left_ranks(self) -> NDArray:
+        return self.variations_left_mask.sum(axis=-1)
+
+    @ft.cached_property
+    def variation_right_ranks(self) -> NDArray:
+        return self.variations_right_mask.sum(axis=-1)
+
+    @ft.cached_property
+    def structure(self) -> typ.Tuple[
+        typ.Tuple[int, ...], # shape
+        NDArray, # up_ranks
+        NDArray, # down_tt_ranks
+        NDArray, # variations_left_ranks
+        NDArray, # variations_right_ranks
+        typ.Tuple[int,...], # stack_shape
+    ]:
+        return (
+            self.shape, self.up_ranks, self.down_ranks,
+            self.variation_left_ranks, self.variation_right_ranks,
+            self.stack_shape,
+        )
 
     @ft.cached_property
     def variation_shapes(
@@ -414,7 +467,7 @@ class UT3Variations:
         typ.Tuple[typ.Tuple[int, ...], ...],  # tucker_variation_shapes. len=d. elm_len=2
         typ.Tuple[typ.Tuple[int, ...], ...],  # tt_variation_shapes. len=d. elm_len=3
     ]:
-        '''T3Variations shapes that fit with this T3Basis.
+        '''T3Variations shapes.
 
         Shapes of the "holes" in the following tensor diagrams::
 
@@ -428,72 +481,163 @@ class UT3Variations:
                  U0    U1    ( )   U3
                  |     |     |     |
         '''
-        tucker_variation_shapes = tuple([B.shape[-2:] for B in self.tucker_variations])
-        tt_variation_shapes = tuple([G.shape[-3:] for G in self.tt_variations])
+        tucker_variation_shapes = tuple([(nD, N) for nD, N in zip(self.down_ranks, self.shape)])
+        tt_variation_shapes = tuple([
+            (rL, nU, rR) for rL, nU, rR
+            in zip(self.variation_left_ranks, self.up_ranks, self.variation_right_ranks)])
+
         return tucker_variation_shapes, tt_variation_shapes
+
 
     @ft.cached_property
     def data(self) -> typ.Tuple[
-        typ.Tuple[NDArray,...], # tucker_variations
-        typ.Tuple[NDArray,...], # tt_variations
+        NDArray, # tucker_variations
+        NDArray, # tt_variations
+        NDArray, # shape_mask
+        NDArray, # variations_up_mask
+        NDArray, # variations_down_mask
+        NDArray, # variations_left_mask
+        NDArray, # variations_right_mask
     ]:
-        return self.tucker_variations, self.tt_variations
+        return (
+            self.tucker_variations, self.tt_variations, self.shape_mask,
+            self.variations_up_mask, self.variations_down_mask,
+            self.variations_left_mask, self.variations_right_mask,
+        )
+
+    def apply_masks(self) -> 'UT3Variations':
+        """Apply masks to the variation supercores, zeroing out unmasked entries.
+        """
+        masked_tk_supercore, masked_tt_supercore = masking.apply_variations_masks(*self.data)
+        return UT3Variations(
+            masked_tk_supercore, masked_tt_supercore,
+            self.shape_mask, self.variations_up_mask, self.variations_down_mask,
+            self.variations_left_mask, self.variations_right_mask,
+        )
 
     def validate(self) -> None:
-        '''Check rank and shape consistency of Tucker tensor train variations (`T3Variations`).
+        '''Check rank and shape consistency of uniform Tucker tensor train basis (`UT3Basis`).
 
         Parameters
         ----------
-        self : T3Variations
+        x : UT3Basis
 
         Raises
         ------
         ValueError
-            Error raised if the cores of the T3Variations have inconsistent shapes.
+            Error raised if the cores of the UT3Basis have inconsistent shapes.
 
         See Also
         --------
-        T3Basis
-        T3Variations
+        UT3Basis
+        UT3Variations
         '''
-        VV, HH = self.data
+        TK_good = self.tucker_variations.shape  == (self.d,) + self.stack_shape + (self.nD, self.N)
+        TT_good = self.tt_variations.shape      == (self.d,) + self.stack_shape + (self.rL, self.nU, self.rR)
 
-        d = len(VV)
-        if len(HH) != d:
+        SM_good = self.shape_mask.shape         == (self.d, self.N)
+
+        UM_good = self.variations_up_mask.shape     == (self.d,) + self.stack_shape + (self.nU,)
+        DM_good = self.variations_down_mask.shape   == (self.d,) + self.stack_shape + (self.nD,)
+        LM_good = self.variations_left_mask.shape   == (self.d,) + self.stack_shape + (self.rL,)
+        RM_good = self.variations_right_mask.shape  == (self.d,) + self.stack_shape + (self.rR,)
+
+        bad_str = lambda x: ' <-- Bad' if not x else ''
+
+        shapes_string = ''
+        shapes_string += 'tucker_variations.shape     = '  + str(self.tucker_variations.shape)      + ' =? (d,) + stack_shape + (nD, N)'        + bad_str(TK_good) + '\n'
+        shapes_string += 'tt_variations.shape         = '  + str(self.tt_variations.shape)          + ' =? (d,) + stack_shape + (rL, nU, rL)'   + bad_str(TT_good) + '\n'
+
+        shapes_string += 'shape_mask.shape            = ' + str(self.shape_mask.shape)              + ' =? (d, N)' + bad_str(SM_good) + '\n'
+
+        shapes_string += 'variations_up_mask.shape    = ' + str(self.variations_up_mask.shape)      + ' =? (d,) + stack_shape + (nU,)' + bad_str(UM_good) + '\n'
+        shapes_string += 'variations_down_mask.shape  = ' + str(self.variations_down_mask.shape)    + ' =? (d,) + stack_shape + (nD,)' + bad_str(DM_good) + '\n'
+        shapes_string += 'variations_left_mask.shape  = ' + str(self.variations_left_mask.shape)    + ' =? (d,) + stack_shape + (rL,)' + bad_str(LM_good) + '\n'
+        shapes_string += 'variations_right_mask.shape = ' + str(self.variations_right_mask.shape)   + ' =? (d,) + stack_shape + (rR,)' + bad_str(RM_good)
+
+        if not (TK_good and TT_good and SM_good and UM_good and DM_good and LM_good and RM_good):
             raise ValueError(
-                'Inconsistent T3Variations.\n'
-                + 'All backend sequences must have length d=' + str(d) + '.\n'
-                + 'len(VV)=' + str(len(VV))
-                + ', len(HH)=' + str(len(HH))
-            )
-
-        for ii, V in enumerate(VV):
-            if len(V.shape) < 2:
-                raise ValueError(
-                    'Inconsistent T3Variations.\n'
-                    + 'tucker_cores[' + str(ii) + '] is not a (stacked) matrix. shape=' + str(V.shape)
-                )
-
-        for ii, H in enumerate(HH):
-            if len(H.shape) < 3:
-                raise ValueError(
-                    'Inconsistent T3Variations.\n'
-                    + 'tt_cores[' + str(ii) + '] is not a (stacked) 3-tensor. '
-                    + 'shape=' + str(H.shape)
-                )
-
-        tucker_stack_shapes = tuple([B.shape[:-2] for B in self.tucker_variations])
-        tt_stack_shapes = tuple([G.shape[:-3] for G in self.tt_variations])
-
-        if not (tucker_stack_shapes == tt_stack_shapes == (self.stack_shape,)*self.d):
-            raise ValueError(
-                'Inconsistent T3Basis.\n'
-                + str(tucker_stack_shapes) + ' = tucker_stack_shapes.\n'
-                + str(tt_stack_shapes) + ' = tt_stack_shapes.\n'
+                'Inconsistent shapes for UT3Variations.\n'
+                + shapes_string
             )
 
     def __post_init__(self):
         self.validate()
+
+    def unstack(self):
+        """Unstacks stacked UT3Basis into into array-like tree of unstacked UT3Basis.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.uniform_basis_variations_format as ubcf
+        >>> import t3toolbox.corewise as cw
+        >>> stack_shape = (2,3)
+        >>> d, N, nU, nD, rL, rR = 3, 12, 7, 8, 5, 4
+        >>> tkv = np.random.randn(*((d,) + stack_shape + (nD, N)))
+        >>> ttv = np.random.randn(*((d,) + stack_shape + (rL, nU, rR)))
+        >>> sm = np.random.choice([True, False], (d,N))
+        >>> um = np.random.choice([True, False], (d,)+stack_shape+(nU,))
+        >>> dm = np.random.choice([True, False], (d,)+stack_shape+(nD,))
+        >>> lm = np.random.choice([True, False], (d,)+stack_shape+(rL,))
+        >>> rm = np.random.choice([True, False], (d,)+stack_shape+(rR,))
+        >>> V = ubcf.UT3Variations(tkv, ttv, sm, um, dm, lm, rm)
+        >>> VV = V.unstack()
+        >>> ii, jj = 1, 2
+        >>> V_ij = VV[ii][jj]
+        >>> V_ij2 = ubcf.UT3Variations(tkv[:,ii,jj], ttv[:,ii,jj], sm, um[:,ii,jj], dm[:,ii,jj], lm[:,ii,jj], rm[:,ii,jj])
+        >>> print(cw.corewise_norm(cw.corewise_sub(V_ij.data[:2], V_ij2.data[:2])))
+        0.0
+        >>> print([np.all(x == x2) for x, x2 in zip(V_ij.data[2:], V_ij2.data[2:])])
+        [True, True, True, True, True]
+        """
+        stacked_data = self.data[:2] + self.data[3:] # no shape_mask
+        unstacked_data = stacking.basic_uniform_unstack(stacked_data, 3)
+        return stacking.apply_func_to_leaf_subtrees(
+            unstacked_data,
+            lambda x: UT3Variations(*(x[:2] + (self.shape_mask,) + x[2:])),
+            (None,)*6, # leaf_structure
+        )
+
+    @staticmethod
+    def stack(
+            xx, # Array-like tree of UT3Basis
+            use_jax: bool = False,
+    ):
+        """Stack array-like tree of UT3Basis into a single UT3Basis.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.uniform_basis_variations_format as ubcf
+        >>> import t3toolbox.corewise as cw
+        >>> stack_shape = (2,3)
+        >>> d, N, nU, nD, rL, rR = 3, 12, 7, 8, 5, 4
+        >>> uc = np.random.randn(*((d,) + stack_shape + (nU, N)))
+        >>> dc = np.random.randn(*((d,) + stack_shape + (rL, nD, rR)))
+        >>> lc = np.random.randn(*((d,) + stack_shape + (rL, nU, rL)))
+        >>> rc = np.random.randn(*((d,) + stack_shape + (rR, nU, rR)))
+        >>> sm = np.random.choice([True, False], (d,N))
+        >>> um = np.random.choice([True, False], (d,)+stack_shape+(nU,))
+        >>> dm = np.random.choice([True, False], (d,)+stack_shape+(nD,))
+        >>> lm = np.random.choice([True, False], (d+1,)+stack_shape+(rL,))
+        >>> rm = np.random.choice([True, False], (d+1,)+stack_shape+(rR,))
+        >>> B = ubcf.UT3Basis(uc, dc, lc, rc, sm, um, dm, lm, rm)
+        >>> BB = B.unstack()
+        >>> B2 = ubcf.UT3Basis.stack(BB)
+        >>> print(cw.corewise_norm(cw.corewise_sub(B.data[:4], B2.data[:4])))
+        0.0
+        >>> print([np.all(x == x2) for x, x2 in zip(B.data[4:], B2.data[4:])])
+        [True, True, True, True, True]
+        """
+        stacked_data = stacking.apply_func_to_leaf_subtrees(
+            xx,
+            lambda x: x.data[:4] + x.data[5:],
+            None,  # leaf_structure
+        )
+        sm = stacking.get_first_leaf(xx).shape_mask
+        unstacked_data = stacking.basic_uniform_stack(stacked_data, use_jax=use_jax)
+        return UT3Basis(*(unstacked_data[:4] + (sm,) + unstacked_data[4:]))
 
 
 if False:
