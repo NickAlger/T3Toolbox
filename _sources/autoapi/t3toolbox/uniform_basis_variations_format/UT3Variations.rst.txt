@@ -107,24 +107,6 @@ t3toolbox.uniform_basis_variations_format.UT3Variations
    .. py:method:: structure() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.typ.Tuple[int, Ellipsis]]
 
 
-   .. py:method:: variation_shapes() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], Ellipsis]]
-
-      T3Variations shapes.
-
-      Shapes of the "holes" in the following tensor diagrams::
-
-          1 -- L0 -- ( ) -- R2 -- R3 -- 1
-               |      |      |      |
-               U0     U1     U2     U3
-               |      |      |      |
-
-          1 -- L0 -- L1 -- O2 -- R3 -- 1
-               |     |     |     |
-               U0    U1    ( )   U3
-               |     |     |     |
-
-
-
    .. py:method:: data() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]
 
 
@@ -139,12 +121,9 @@ t3toolbox.uniform_basis_variations_format.UT3Variations
 
       Check rank and shape consistency of uniform Tucker tensor train basis (`UT3Basis`).
 
-      :param x:
-      :type x: UT3Basis
-
       :raises ValueError: Error raised if the cores of the UT3Basis have inconsistent shapes.
 
-      .. seealso:: :py:obj:`UT3Basis`, :py:obj:`UT3Variations`
+      .. seealso:: :py:obj:`UT3Basis`
 
 
 
@@ -194,21 +173,19 @@ t3toolbox.uniform_basis_variations_format.UT3Variations
       >>> import t3toolbox.corewise as cw
       >>> stack_shape = (2,3)
       >>> d, N, nU, nD, rL, rR = 3, 12, 7, 8, 5, 4
-      >>> uc = np.random.randn(*((d,) + stack_shape + (nU, N)))
-      >>> dc = np.random.randn(*((d,) + stack_shape + (rL, nD, rR)))
-      >>> lc = np.random.randn(*((d,) + stack_shape + (rL, nU, rL)))
-      >>> rc = np.random.randn(*((d,) + stack_shape + (rR, nU, rR)))
+      >>> tkv = np.random.randn(*((d,) + stack_shape + (nD, N)))
+      >>> ttv = np.random.randn(*((d,) + stack_shape + (rL, nU, rR)))
       >>> sm = np.random.choice([True, False], (d,N))
       >>> um = np.random.choice([True, False], (d,)+stack_shape+(nU,))
       >>> dm = np.random.choice([True, False], (d,)+stack_shape+(nD,))
-      >>> lm = np.random.choice([True, False], (d+1,)+stack_shape+(rL,))
-      >>> rm = np.random.choice([True, False], (d+1,)+stack_shape+(rR,))
-      >>> B = ubcf.UT3Basis(uc, dc, lc, rc, sm, um, dm, lm, rm)
-      >>> BB = B.unstack()
-      >>> B2 = ubcf.UT3Basis.stack(BB)
-      >>> print(cw.corewise_norm(cw.corewise_sub(B.data[:4], B2.data[:4])))
+      >>> lm = np.random.choice([True, False], (d,)+stack_shape+(rL,))
+      >>> rm = np.random.choice([True, False], (d,)+stack_shape+(rR,))
+      >>> V = ubcf.UT3Variations(tkv, ttv, sm, um, dm, lm, rm)
+      >>> VV = V.unstack()
+      >>> V2 = ubcf.UT3Variations.stack(VV)
+      >>> print(cw.corewise_norm(cw.corewise_sub(V.data[:2], V2.data[:2])))
       0.0
-      >>> print([np.all(x == x2) for x, x2 in zip(B.data[4:], B2.data[4:])])
+      >>> print([np.all(x == x2) for x, x2 in zip(V.data[2:], V2.data[2:])])
       [True, True, True, True, True]
 
 

@@ -453,6 +453,7 @@
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.uniform_basis_variations_format</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.uniform_basis_variations_format.UT3Basis</a></li>
 <li class="toctree-l3"><a class="reference internal" href="UT3Variations.html">t3toolbox.uniform_basis_variations_format.UT3Variations</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ubv_to_ut3.html">t3toolbox.uniform_basis_variations_format.ubv_to_ut3</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../uniform_manifold/index.html">t3toolbox.uniform_manifold</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -739,24 +740,6 @@
 <dd></dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="t3toolbox.uniform_basis_variations_format.UT3Basis.variation_shapes">
-<span class="sig-name descname"><span class="pre">variation_shapes</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.uniform_basis_variations_format.UT3Basis.variation_shapes" title="Link to this definition">#</a></dt>
-<dd><p>T3Variations shapes that fit with this T3Basis.</p>
-<p>Shapes of the “holes” in the following tensor diagrams:</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="mi">1</span> <span class="o">--</span> <span class="n">L0</span> <span class="o">--</span> <span class="p">(</span> <span class="p">)</span> <span class="o">--</span> <span class="n">R2</span> <span class="o">--</span> <span class="n">R3</span> <span class="o">--</span> <span class="mi">1</span>
-     <span class="o">|</span>      <span class="o">|</span>      <span class="o">|</span>      <span class="o">|</span>
-     <span class="n">U0</span>     <span class="n">U1</span>     <span class="n">U2</span>     <span class="n">U3</span>
-     <span class="o">|</span>      <span class="o">|</span>      <span class="o">|</span>      <span class="o">|</span>
-
-<span class="mi">1</span> <span class="o">--</span> <span class="n">L0</span> <span class="o">--</span> <span class="n">L1</span> <span class="o">--</span> <span class="n">O2</span> <span class="o">--</span> <span class="n">R3</span> <span class="o">--</span> <span class="mi">1</span>
-     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
-     <span class="n">U0</span>    <span class="n">U1</span>    <span class="p">(</span> <span class="p">)</span>   <span class="n">U3</span>
-     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
-</pre></div>
-</div>
-</dd></dl>
-
-<dl class="py method">
 <dt class="sig sig-object py" id="t3toolbox.uniform_basis_variations_format.UT3Basis.apply_masks">
 <span class="sig-name descname"><span class="pre">apply_masks</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#t3toolbox.uniform_basis_variations_format.UT3Basis" title="t3toolbox.uniform_basis_variations_format.UT3Basis"><span class="pre">UT3Basis</span></a></span></span><a class="headerlink" href="#t3toolbox.uniform_basis_variations_format.UT3Basis.apply_masks" title="Link to this definition">#</a></dt>
 <dd><p>Apply masks to the basis supercores, zeroing out unmasked entries.</p>
@@ -926,7 +909,6 @@
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_basis_variations_format.UT3Basis.left_ranks"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_basis_variations_format.UT3Basis.left_ranks()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_basis_variations_format.UT3Basis.right_ranks"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_basis_variations_format.UT3Basis.right_ranks()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_basis_variations_format.UT3Basis.structure"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_basis_variations_format.UT3Basis.structure()</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_basis_variations_format.UT3Basis.variation_shapes"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_basis_variations_format.UT3Basis.variation_shapes()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_basis_variations_format.UT3Basis.apply_masks"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_basis_variations_format.UT3Basis.apply_masks()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_basis_variations_format.UT3Basis.validate"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_basis_variations_format.UT3Basis.validate()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.uniform_basis_variations_format.UT3Basis.__post_init__"><code class="docutils literal notranslate"><span class="pre">t3toolbox.uniform_basis_variations_format.UT3Basis.__post_init__()</span></code></a></li>

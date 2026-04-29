@@ -109,24 +109,6 @@ t3toolbox.uniform_basis_variations_format.UT3Basis
    .. py:method:: structure() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.typ.Tuple[int, Ellipsis]]
 
 
-   .. py:method:: variation_shapes() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], Ellipsis]]
-
-      T3Variations shapes that fit with this T3Basis.
-
-      Shapes of the "holes" in the following tensor diagrams::
-
-          1 -- L0 -- ( ) -- R2 -- R3 -- 1
-               |      |      |      |
-               U0     U1     U2     U3
-               |      |      |      |
-
-          1 -- L0 -- L1 -- O2 -- R3 -- 1
-               |     |     |     |
-               U0    U1    ( )   U3
-               |     |     |     |
-
-
-
    .. py:method:: apply_masks() -> UT3Basis
 
       Apply masks to the basis supercores, zeroing out unmasked entries.

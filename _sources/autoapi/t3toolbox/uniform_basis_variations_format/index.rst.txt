@@ -19,3 +19,16 @@ Classes
    t3toolbox.uniform_basis_variations_format.UT3Variations
 
 
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/uniform_basis_variations_format/ubv_to_ut3
+
+.. autoapisummary::
+
+   t3toolbox.uniform_basis_variations_format.ubv_to_ut3
+
+
