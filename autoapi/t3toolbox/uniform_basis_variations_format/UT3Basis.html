@@ -754,28 +754,12 @@
      <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>     <span class="o">|</span>
 </pre></div>
 </div>
-<p class="rubric">Examples</p>
-<p>#### EXAMPLE IS WORK IN PROGRESS
-&gt;&gt;&gt; import numpy as np
-&gt;&gt;&gt; import t3toolbox.basis_variations_format as bcf
-&gt;&gt;&gt; ss = (2,3) # not included in variation_shapes.
-&gt;&gt;&gt; tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
-&gt;&gt;&gt; left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
-&gt;&gt;&gt; right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-&gt;&gt;&gt; outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-&gt;&gt;&gt; basis = bcf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-&gt;&gt;&gt; print(basis.variation_shapes)
-(((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="t3toolbox.uniform_basis_variations_format.UT3Basis.apply_masks">
 <span class="sig-name descname"><span class="pre">apply_masks</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="#t3toolbox.uniform_basis_variations_format.UT3Basis" title="t3toolbox.uniform_basis_variations_format.UT3Basis"><span class="pre">UT3Basis</span></a></span></span><a class="headerlink" href="#t3toolbox.uniform_basis_variations_format.UT3Basis.apply_masks" title="Link to this definition">#</a></dt>
 <dd><p>Apply masks to the basis supercores, zeroing out unmasked entries.</p>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-</pre></div>
-</div>
 </dd></dl>
 
 <dl class="py method">

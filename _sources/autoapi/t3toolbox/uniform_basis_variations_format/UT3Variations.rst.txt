@@ -11,25 +11,27 @@ t3toolbox.uniform_basis_variations_format.UT3Variations
 
    The variations should fit in the "holes" of a T3Basis.
 
-   .. seealso:: :py:obj:`T3Basis`
+   .. seealso:: :py:obj:`UT3Basis`
 
    .. rubric:: Examples
 
    >>> import numpy as np
-   >>> import t3toolbox.basis_variations_format as bvf
-   >>> ss = (2,3) # stack shape
-   >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
-   >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
-   >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-   >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-   >>> base = bvf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-   >>> print(base.structure)
-   ((14, 15, 16), (10, 11, 12), (1, 2, 3, 5), (2, 4, 5, 1), (9, 8, 7), (2, 3))
-   >>> tucker_variations = tuple([np.ones(ss + B_shape) for B_shape in base.variation_shapes[0]])
-   >>> tt_variations = tuple([np.ones(ss + G_shape) for G_shape in base.variation_shapes[1]])
-   >>> variations = bvf.T3Variations(tucker_variations, tt_variations) # variation that fits with base
-   >>> print(variations.structure) # same as base, except first right tt rank and last left tt rank, which are None
-   ((14, 15, 16), (9, 8, 7), (1, 2, 3, None), (None, 4, 5, 1), (10, 11, 12), (2, 3))
+   >>> import t3toolbox.uniform_basis_variations_format as ubcf
+   >>> import t3toolbox.corewise as cw
+   >>> stack_shape = (2,3)
+   >>> d, N, nU, nD, rL, rR = 3, 12, 7, 8, 5, 4
+   >>> tkv = np.random.randn(*((d,) + stack_shape + (nD, N)))
+   >>> ttv = np.random.randn(*((d,) + stack_shape + (rL, nU, rR)))
+   >>> sm = np.random.choice([True, False], (d,N))
+   >>> um = np.random.choice([True, False], (d,)+stack_shape+(nU,))
+   >>> dm = np.random.choice([True, False], (d,)+stack_shape+(nD,))
+   >>> lm = np.random.choice([True, False], (d,)+stack_shape+(rL,))
+   >>> rm = np.random.choice([True, False], (d,)+stack_shape+(rR,))
+   >>> V = ubcf.UT3Variations(tkv, ttv, sm, um, dm, lm, rm)
+   >>> print(V.uniform_structure)
+   (3, 12, 7, 8, 5, 4, (2, 3))
+   >>> print(V.uniform_variation_shapes)
+   ((3, 8, 12), (3, 5, 7, 4))
 
 
    .. py:attribute:: tucker_variations
@@ -63,15 +65,51 @@ t3toolbox.uniform_basis_variations_format.UT3Variations
    .. py:method:: d() -> int
 
 
-   .. py:method:: shape() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
+   .. py:method:: N() -> int
+
+
+   .. py:method:: nU() -> int
+
+
+   .. py:method:: nD() -> int
+
+
+   .. py:method:: rL() -> int
+
+
+   .. py:method:: rR() -> int
 
 
    .. py:method:: stack_shape() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
 
 
+   .. py:method:: uniform_structure() -> t3toolbox.backend.common.typ.Tuple[int, int, int, int, int, int, t3toolbox.backend.common.typ.Tuple[int, Ellipsis]]
+
+
+   .. py:method:: uniform_variation_shapes() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.typ.Tuple[int, Ellipsis]]
+
+
+   .. py:method:: shape() -> t3toolbox.backend.common.typ.Tuple[int, Ellipsis]
+
+
+   .. py:method:: up_ranks() -> t3toolbox.backend.common.NDArray
+
+
+   .. py:method:: down_ranks() -> t3toolbox.backend.common.NDArray
+
+
+   .. py:method:: variation_left_ranks() -> t3toolbox.backend.common.NDArray
+
+
+   .. py:method:: variation_right_ranks() -> t3toolbox.backend.common.NDArray
+
+
+   .. py:method:: structure() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.typ.Tuple[int, Ellipsis]]
+
+
    .. py:method:: variation_shapes() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], Ellipsis]]
 
-      T3Variations shapes that fit with this T3Basis.
+      T3Variations shapes.
 
       Shapes of the "holes" in the following tensor diagrams::
 
@@ -87,21 +125,90 @@ t3toolbox.uniform_basis_variations_format.UT3Variations
 
 
 
-   .. py:method:: data() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]]
+   .. py:method:: data() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]
+
+
+   .. py:method:: apply_masks() -> UT3Variations
+
+      Apply masks to the variation supercores, zeroing out unmasked entries.
+
+
 
 
    .. py:method:: validate() -> None
 
-      Check rank and shape consistency of Tucker tensor train variations (`T3Variations`).
+      Check rank and shape consistency of uniform Tucker tensor train basis (`UT3Basis`).
 
-      :param self:
-      :type self: T3Variations
+      :param x:
+      :type x: UT3Basis
 
-      :raises ValueError: Error raised if the cores of the T3Variations have inconsistent shapes.
+      :raises ValueError: Error raised if the cores of the UT3Basis have inconsistent shapes.
 
-      .. seealso:: :py:obj:`T3Basis`, :py:obj:`T3Variations`
+      .. seealso:: :py:obj:`UT3Basis`, :py:obj:`UT3Variations`
 
 
 
    .. py:method:: __post_init__()
+
+
+   .. py:method:: unstack()
+
+      Unstacks stacked UT3Basis into into array-like tree of unstacked UT3Basis.
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.uniform_basis_variations_format as ubcf
+      >>> import t3toolbox.corewise as cw
+      >>> stack_shape = (2,3)
+      >>> d, N, nU, nD, rL, rR = 3, 12, 7, 8, 5, 4
+      >>> tkv = np.random.randn(*((d,) + stack_shape + (nD, N)))
+      >>> ttv = np.random.randn(*((d,) + stack_shape + (rL, nU, rR)))
+      >>> sm = np.random.choice([True, False], (d,N))
+      >>> um = np.random.choice([True, False], (d,)+stack_shape+(nU,))
+      >>> dm = np.random.choice([True, False], (d,)+stack_shape+(nD,))
+      >>> lm = np.random.choice([True, False], (d,)+stack_shape+(rL,))
+      >>> rm = np.random.choice([True, False], (d,)+stack_shape+(rR,))
+      >>> V = ubcf.UT3Variations(tkv, ttv, sm, um, dm, lm, rm)
+      >>> VV = V.unstack()
+      >>> ii, jj = 1, 2
+      >>> V_ij = VV[ii][jj]
+      >>> V_ij2 = ubcf.UT3Variations(tkv[:,ii,jj], ttv[:,ii,jj], sm, um[:,ii,jj], dm[:,ii,jj], lm[:,ii,jj], rm[:,ii,jj])
+      >>> print(cw.corewise_norm(cw.corewise_sub(V_ij.data[:2], V_ij2.data[:2])))
+      0.0
+      >>> print([np.all(x == x2) for x, x2 in zip(V_ij.data[2:], V_ij2.data[2:])])
+      [True, True, True, True, True]
+
+
+
+   .. py:method:: stack(xx, use_jax: bool = False)
+      :staticmethod:
+
+
+      Stack array-like tree of UT3Basis into a single UT3Basis.
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.uniform_basis_variations_format as ubcf
+      >>> import t3toolbox.corewise as cw
+      >>> stack_shape = (2,3)
+      >>> d, N, nU, nD, rL, rR = 3, 12, 7, 8, 5, 4
+      >>> uc = np.random.randn(*((d,) + stack_shape + (nU, N)))
+      >>> dc = np.random.randn(*((d,) + stack_shape + (rL, nD, rR)))
+      >>> lc = np.random.randn(*((d,) + stack_shape + (rL, nU, rL)))
+      >>> rc = np.random.randn(*((d,) + stack_shape + (rR, nU, rR)))
+      >>> sm = np.random.choice([True, False], (d,N))
+      >>> um = np.random.choice([True, False], (d,)+stack_shape+(nU,))
+      >>> dm = np.random.choice([True, False], (d,)+stack_shape+(nD,))
+      >>> lm = np.random.choice([True, False], (d+1,)+stack_shape+(rL,))
+      >>> rm = np.random.choice([True, False], (d+1,)+stack_shape+(rR,))
+      >>> B = ubcf.UT3Basis(uc, dc, lc, rc, sm, um, dm, lm, rm)
+      >>> BB = B.unstack()
+      >>> B2 = ubcf.UT3Basis.stack(BB)
+      >>> print(cw.corewise_norm(cw.corewise_sub(B.data[:4], B2.data[:4])))
+      0.0
+      >>> print([np.all(x == x2) for x, x2 in zip(B.data[4:], B2.data[4:])])
+      [True, True, True, True, True]
+
 

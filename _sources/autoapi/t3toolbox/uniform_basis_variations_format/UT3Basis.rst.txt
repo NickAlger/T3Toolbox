@@ -125,29 +125,12 @@ t3toolbox.uniform_basis_variations_format.UT3Basis
                U0    U1    ( )   U3
                |     |     |     |
 
-      .. rubric:: Examples
-
-      #### EXAMPLE IS WORK IN PROGRESS
-      >>> import numpy as np
-      >>> import t3toolbox.basis_variations_format as bcf
-      >>> ss = (2,3) # not included in variation_shapes.
-      >>> tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
-      >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
-      >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-      >>> outer_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-      >>> basis = bcf.T3Basis(tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-      >>> print(basis.variation_shapes)
-      (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
-
 
 
    .. py:method:: apply_masks() -> UT3Basis
 
       Apply masks to the basis supercores, zeroing out unmasked entries.
 
-      .. rubric:: Examples
-
-      >>> import numpy as np
 
 
 
