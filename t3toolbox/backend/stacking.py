@@ -4,6 +4,8 @@
 # Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
 import numpy as np
 import typing as typ
+# from dataclasses import dataclass
+# import functools as ft
 
 from t3toolbox.backend.common import *
 
@@ -32,7 +34,6 @@ def get_first_leaf(xx):
     if not isinstance(xx, typ.Sequence):
         return xx
     return get_first_leaf(xx[0])
-
 
 def trees_have_same_structure(
         tree1, # array-like structure of nested tuples

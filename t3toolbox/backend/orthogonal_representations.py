@@ -7,6 +7,7 @@ import typing as typ
 
 import t3toolbox.backend.tucker_tensor_train.t3_operations as ragged_operations
 import t3toolbox.backend.uniform_tucker_tensor_train.ut3_operations as uniform_operations
+import t3toolbox.backend.uniform_tucker_tensor_train.ut3_masking as uniform_masking
 import t3toolbox.backend.orthogonalization as orth
 import t3toolbox.backend.tucker_tensor_train.t3_orthogonalization as ragged_orth
 import t3toolbox.backend.uniform_tucker_tensor_train.ut3_orthogonalization as uniform_orth
@@ -63,8 +64,8 @@ def orthogonal_representations(
 
     if is_uniform:
         squash_tails = lambda tk, tt: (tk, uniform_operations.uniform_squash_tt_tails(tt))
-        up_orthogonalize_tucker_cores = uniform_orth.up_orthogonalize_uniform_tucker_cores
-        down_orthogonalize_tt_cores = uniform_orth.down_orthogonalize_uniform_tt_cores
+        up_orthogonalize_tucker_cores = lambda x, **kwargs: uniform_orth.up_orthogonalize_uniform_tucker_cores(*x, **kwargs)
+        down_orthogonalize_tt_cores = lambda x, **kwargs: uniform_orth.down_orthogonalize_uniform_tt_cores(*x, **kwargs)
     else:
         squash_tails = lambda tk, tt: (tk, ragged_operations.squash_tt_tails(tt))
         up_orthogonalize_tucker_cores = ragged_orth.up_orthogonalize_tucker_cores
