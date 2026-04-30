@@ -10,11 +10,13 @@ Functions
 .. toctree::
    :hidden:
 
+   /autoapi/ubv_masking/make_basis_masks
    /autoapi/ubv_masking/apply_basis_masks
    /autoapi/ubv_masking/apply_variations_masks
 
 .. autoapisummary::
 
+   ubv_masking.make_basis_masks
    ubv_masking.apply_basis_masks
    ubv_masking.apply_variations_masks
 

@@ -1,0 +1,4 @@
+ubv_masking.make_basis_masks
+============================
+
+.. py:function:: ubv_masking.make_basis_masks(shape: t3toolbox.backend.common.typ.Tuple[int, Ellipsis], up_ranks: t3toolbox.backend.common.NDArray, down_ranks: t3toolbox.backend.common.NDArray, left_ranks, right_ranks, N: int, nU: int, nD: int, rL: int, rR: int, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]
