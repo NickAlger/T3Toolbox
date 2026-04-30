@@ -1,0 +1,8 @@
+t3toolbox.backend.ranks.compute_orthogonal_representation_ranks
+===============================================================
+
+.. py:function:: t3toolbox.backend.ranks.compute_orthogonal_representation_ranks(shape: t3toolbox.backend.common.typ.Sequence[int], tucker_ranks: t3toolbox.backend.common.typ.Union[t3toolbox.backend.common.typ.Sequence[int], t3toolbox.backend.common.NDArray], tt_ranks: t3toolbox.backend.common.typ.Union[t3toolbox.backend.common.typ.Sequence[int], t3toolbox.backend.common.NDArray], use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Union[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Union[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Union[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Union[t3toolbox.backend.common.typ.Tuple[int, Ellipsis], t3toolbox.backend.common.NDArray]]
+
+   Find ranks that would be produced by sweeping orthogonalization, except without actually doing it.
+
+

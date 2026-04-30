@@ -11,9 +11,11 @@ Functions
    :hidden:
 
    /autoapi/t3toolbox/backend/ranks/compute_minimal_ranks
+   /autoapi/t3toolbox/backend/ranks/compute_orthogonal_representation_ranks
 
 .. autoapisummary::
 
    t3toolbox.backend.ranks.compute_minimal_ranks
+   t3toolbox.backend.ranks.compute_orthogonal_representation_ranks
 
 
