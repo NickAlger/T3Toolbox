@@ -8,25 +8,62 @@ import typing as typ
 from t3toolbox.backend.common import *
 
 __all__ = [
+    'make_basis_masks',
     'apply_basis_masks',
     'apply_variations_masks',
 ]
 
 
 def make_basis_masks(
-        up_ranks: NDArray,      # dtype=int, shape=(d,)+stack_shape
+        shape: typ.Tuple[int, ...], # len=d
+        up_ranks:   NDArray,    # dtype=int, shape=(d,)+stack_shape
         down_ranks: NDArray,    # dtype=int, shape=(d,)+stack_shape
         left_ranks,             # dtype=int, shape=(d+1,)+stack_shape
         right_ranks,            # dtype=int, shape=(d+1,)+stack_shape
-        n: int,
-        r: int,
+        N: int,
+        nU: int,
+        nD: int,
+        rL: int,
+        rR: int,
+        use_jax: bool = False,
 ) -> typ.Tuple[
+    NDArray, # shape_mask, dtype=bool, shape=(d,N)
     NDArray, # up_mask, dtype=bool, shape=(d,)+stack_shape+(n,)
     NDArray, # down_mask, dtype=bool, shape=(d,)+stack_shape+(n,)
     NDArray, # left_mask, dtype=bool, shape=(d+1,)+stack_shape+(r,)
     NDArray, # right_mask, dtype=bool, shape=(d+1,)+stack_shape+(r,)
 ]:
-    pass
+    xnp, _, _ = get_backend(True, use_jax)
+
+    shape_masks = xnp.stack([
+        xnp.concatenate([
+            xnp.ones((Ni,), dtype=bool),
+            xnp.zeros((N - Ni,), dtype=bool),
+        ], axis=-1,
+        )
+        for Ni in shape
+    ])
+
+    def _func1(kk, K):
+        if np.array(kk).shape == ():
+            mask = xnp.concatenate([
+                xnp.ones((kk,), dtype=bool),
+                xnp.zeros((K - kk,), dtype=bool)
+            ])
+            return mask
+        return [_func1(ki, K) for ki in list(kk)]
+
+    up_masks = [_func1(nnUi, nU) for nnUi in list(up_ranks)]
+    down_masks = [_func1(nnDi, nD) for nnDi in list(down_ranks)]
+    left_masks = [_func1(rrLi, rL) for rrLi in list(left_ranks)]
+    right_masks = [_func1(rrRi, rR) for rrRi in list(right_ranks)]
+
+    up_masks    = xnp.stack(up_masks)
+    down_masks  = xnp.stack(down_masks)
+    left_masks  = xnp.stack(left_masks)
+    right_masks = xnp.stack(right_masks)
+
+    return shape_masks, up_masks, down_masks, left_masks, right_masks
 
 
 def apply_basis_masks(

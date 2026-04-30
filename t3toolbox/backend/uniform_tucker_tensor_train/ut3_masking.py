@@ -17,7 +17,7 @@ from t3toolbox.backend.common import *
 
 
 def make_uniform_masks(
-        shape:          typ.Tuple[int,...],
+        shape:          typ.Tuple[int,...], # len=d
         tucker_ranks:   NDArray, # dtype=int, shape=(d,)+stack_shape
         tt_ranks:       NDArray, # dtype=int, shape=(d+1,)+stack_shape
         N: int,

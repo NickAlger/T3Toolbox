@@ -777,11 +777,20 @@ def ut3_orthogonal_representations(
         (utk, utt), already_left_orthogonal=already_left_orthogonal, squash=squash, use_jax=use_jax,
     )
 
-    # up_ranks, down_ranks, left_ranks, right_ranks = ranks.compute_orthogonal_representation_ranks(
-    #     x.shape, x.tucker_ranks, x.tt_ranks, use_jax=use_jax,
-    # )
+    up_ranks, down_ranks, left_ranks, right_ranks = ranks.compute_orthogonal_representation_ranks(
+        x.shape, x.tucker_ranks, x.tt_ranks, use_jax=use_jax,
+    )
 
-    return UT3Basis(uc, dc, lc, rc, sm, tkm, tkm, ttm, ttm), UT3Variations(tkv, ttv, sm, tkm, tkm, ttm[:-1], ttm[1:])
+    nU = uc.shape[-2]
+    nD = dc.shape[-2]
+    rL = lc.shape[-1]
+    rR = rc.shape[-1]
+
+    sm, um, dm, lm, rm = masking.make_basis_masks(
+        x.shape, up_ranks, down_ranks, left_ranks, right_ranks, x.N, nU, nD, rL, rR,
+    )
+
+    return UT3Basis(uc, dc, lc, rc, sm, um, dm, lm, rm), UT3Variations(tkv, ttv, sm, um, dm, lm[:-1], rm[1:])
 
 
 if False:
