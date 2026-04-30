@@ -743,21 +743,21 @@ def ut3_orthogonal_representations(
 
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.basis_variations_format as bcf
+    >>> import t3toolbox.basis_variations_format as bvf
     >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (3,3,2,1), stack_shape=(2,3))
-    >>> base, variations = bcf.t3_orthogonal_representations(x) # Compute orthogonal representations
-    >>> up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base.data
+    >>> base, variations = bvf.t3_orthogonal_representations(x) # Compute orthogonal representations
+    >>> up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base.data
     >>> tucker_variations, tt_variations = variations.data
     >>> (U0,U1,U2) = up_tucker_cores
+    >>> (D0,D1,D2) = down_tt_cores
     >>> (L0,L1,L2) = left_tt_cores
     >>> (R0,R1,R2) = right_tt_cores
-    >>> (O0,O1,O2) = outer_tt_cores
     >>> (V0,V1,V2) = tucker_variations
     >>> (H0,H1,H2) = tt_variations
-    >>> x2 = t3.TuckerTensorTrain((U0,U1,U2), (L0,H1,R2)) # representation with TT-backend variation in index 1
+    >>> x2 = t3.TuckerTensorTrain((U0,U1,U2), (L0,H1,R2)) # representation with TT-core variation in index 1
     >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Still represents origional tensor
     4.978421562425667e-12
-    >>> x3 = t3.TuckerTensorTrain((U0,V1,U2), (L0,O1,R2)) # representation with tucker backend variation in index 1
+    >>> x3 = t3.TuckerTensorTrain((U0,V1,U2), (L0,D1,R2)) # representation with tucker core variation in index 1
     >>> print(np.linalg.norm(x.to_dense() - x3.to_dense())) # Still represents origional tensor
     5.4355175448533146e-12
     >>> print(np.linalg.norm(np.einsum('...io,...jo', U1, U1) - np.eye(U1.shape[-2]))) # U: orthogonal
@@ -766,11 +766,12 @@ def ut3_orthogonal_representations(
     9.733823879665448e-16
     >>> print(np.linalg.norm(np.einsum('...iaj,...kaj', R1, R1) - np.eye(R1.shape[-3]))) # R: right orthogonal
     8.027553546330097e-16
-    >>> print(np.linalg.norm(np.einsum('...iaj,...ibj', O1, O1) - np.eye(O1.shape[-2]))) # O: outer orthogonal
+    >>> print(np.linalg.norm(np.einsum('...iaj,...ibj', D1, D1) - np.eye(D1.shape[-2]))) # O: outer orthogonal
     1.3870474292323159e-15
     '''
     # _, _, sm, tkm, ttm = x.data
     # utk, utt = x.apply_masks_to_cores(use_jax=use_jax)
+    x = x.apply_masks()
     utk, utt, sm, tkm, ttm = x.data
 
     (uc, dc, lc, rc), (tkv, ttv) = orth_reps.orthogonal_representations(
