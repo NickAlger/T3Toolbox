@@ -9,11 +9,11 @@ import t3toolbox.backend.contractions as contractions
 from t3toolbox.backend.common import *
 
 __all__ = [
-    't3_get_entries',
+    'get_tucker_tensor_train_entries',
 ]
 
 
-def t3_get_entries(
+def get_tucker_tensor_train_entries(
         x: typ.Union[
             typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
             typ.Tuple[NDArray, NDArray], # (tucker_supercore, tt_supercore)

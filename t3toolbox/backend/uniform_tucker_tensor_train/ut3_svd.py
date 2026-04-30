@@ -85,6 +85,7 @@ def uniform_t3_svd(
         Y = carry # shape=(r, r)
         B, G, basis_mask, tt_mask = x
 
+        # print('0. Y.shape=', Y.shape)
         # print('1. B.shape=', B.shape)
         # print('2. G.shape=', G.shape)
 
@@ -160,7 +161,7 @@ def uniform_t3_svd(
 
     Y0 = xnp.eye(r)
     if stack_shape:
-        Y0 = xnp.tensordot(xnp.ones(len(stack_shape)), Y0, axes=[(), ()])
+        Y0 = xnp.tensordot(xnp.ones(stack_shape), Y0, axes=[(), ()])
 
     # print('Y0.shape=', Y0.shape)
     # print('basis_supercore.shape=', basis_supercore.shape)

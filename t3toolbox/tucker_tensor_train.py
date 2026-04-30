@@ -2218,7 +2218,7 @@ def t3_entries(
             + str(x.d) + ' = num tensor indices != num provided indices = ' + str(index.shape[0])
         )
 
-    return entries.t3_get_entries(x.data, index, use_jax=use_jax)
+    return entries.get_tucker_tensor_train_entries(x.data, index, use_jax=use_jax)
 
 
 def t3_probe(
