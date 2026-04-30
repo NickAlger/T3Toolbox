@@ -45,15 +45,27 @@ def t3_to_ut3(
 
     tucker_cores, tt_cores = x
 
-    shape = tuple([B.shape[-1] for B in tucker_cores])
-    tucker_ranks = tuple([B.shape[-2] for B in tucker_cores])
-    tt_ranks = tuple([G.shape[-3] for G in tt_cores]) + (tt_cores[-1].shape[-1],)
     stack_shape = tucker_cores[0].shape[:-2]
+
+    shape = tuple([B.shape[-1] for B in tucker_cores])
+    tucker_ranks = xnp.stack([
+        xnp.tensordot(xnp.ones(stack_shape, dtype=int), B.shape[-2], axes=[(), ()])
+        for B in tucker_cores
+    ])
+    tt_ranks = xnp.stack(
+        [
+            xnp.tensordot(xnp.ones(stack_shape, dtype=int), G.shape[-3], axes=[(), ()])
+            for G in tt_cores
+        ] +
+        [
+            xnp.tensordot(xnp.ones(stack_shape, dtype=int), tt_cores[-1].shape[-1], axes=[(), ()])
+        ]
+    )
 
     d = len(shape) if d is None else d
     N = max(shape) if N is None else N
-    n = max(tucker_ranks) if n is None else n
-    r = max(tt_ranks) if r is None else r
+    n = xnp.max(tucker_ranks) if n is None else n
+    r = xnp.max(tt_ranks) if r is None else r
 
     padded_shape = (N,)*d
     padded_tucker_ranks = (n,)*d
@@ -70,7 +82,7 @@ def t3_to_ut3(
     tt_supercore = xnp.stack(padded_tt_cores)
 
     shape_masks, tucker_masks, tt_masks = make_uniform_masks(
-        shape, tucker_ranks, tt_ranks, stack_shape, N, n, r,
+        shape, tucker_ranks, tt_ranks, N, n, r,
     )
 
     return tucker_supercore, tt_supercore, shape_masks, tucker_masks, tt_masks

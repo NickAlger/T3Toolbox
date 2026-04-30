@@ -18,9 +18,8 @@ from t3toolbox.backend.common import *
 
 def make_uniform_masks(
         shape:          typ.Tuple[int,...],
-        tucker_ranks:   typ.Tuple[int,...],
-        tt_ranks:       typ.Tuple[int,...],
-        stack_shape:    typ.Tuple[int,...],
+        tucker_ranks:   NDArray, # dtype=int, shape=(d,)+stack_shape
+        tt_ranks:       NDArray, # dtype=int, shape=(d+1,)+stack_shape
         N: int,
         n: int,
         r: int,
@@ -32,7 +31,6 @@ def make_uniform_masks(
 ]:
     xnp, xmap, xscan = get_backend(False, use_jax)
 
-
     shape_masks = xnp.stack([
         xnp.concatenate([
             xnp.ones((Ni,), dtype=bool),
@@ -42,23 +40,20 @@ def make_uniform_masks(
         for Ni in shape
     ])
 
-    tucker_masks = xnp.stack([
-        xnp.concatenate([
-            xnp.ones(stack_shape+(ni,), dtype=bool),
-            xnp.zeros(stack_shape+(n-ni,), dtype=bool)
-        ], axis=-1,
-        )
-        for ni in tucker_ranks
-    ])
+    def _func1(kk, K):
+        if np.array(kk).shape == ():
+            mask = xnp.concatenate([
+                xnp.ones((kk,), dtype=bool),
+                xnp.zeros((K - kk,), dtype=bool)
+            ])
+            return mask
+        return [_func1(ki, K) for ki in list(kk)]
 
-    tt_masks = xnp.stack([
-        xnp.concatenate([
-            xnp.ones(stack_shape+(ri,), dtype=bool),
-            xnp.zeros(stack_shape+(r-ri,), dtype=bool)
-        ], axis=-1,
-        )
-        for ri in tt_ranks
-    ])
+    tucker_masks    = [_func1(nni, n) for nni in list(tucker_ranks)]
+    tt_masks        = [_func1(rri, r) for rri in list(tt_ranks)]
+
+    tucker_masks = xnp.stack(tucker_masks)
+    tt_masks = xnp.stack(tt_masks)
 
     return shape_masks, tucker_masks, tt_masks
 

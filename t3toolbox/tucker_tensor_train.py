@@ -251,11 +251,10 @@ class TuckerTensorTrain:
 
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.t3svd as t3svd
     >>> x = t3.t3_corewise_randn((13,14,15,16), (4,5,6,7), (1,99,9,7,1))
     >>> print(x.has_minimal_ranks)
     False
-    >>> x2 = t3svd.t3svd(x)[0]
+    >>> x2 = t3.t3svd(x)[0]
     >>> print(x2.has_minimal_ranks)
     True
     """
@@ -318,7 +317,9 @@ class TuckerTensorTrain:
 
     @ft.cached_property
     def minimal_ranks(self) -> typ.Tuple[typ.Tuple[int,...], typ.Tuple[int,...]]:
-        minimal_tucker_ranks, minimal_tt_ranks = compute_minimal_t3_ranks(*self.structure)
+        minimal_tucker_ranks, minimal_tt_ranks = compute_minimal_t3_ranks(
+            self.shape, self.tucker_ranks, self.tt_ranks,
+        )
         return minimal_tucker_ranks, minimal_tt_ranks
 
     @ft.cached_property
@@ -584,24 +585,6 @@ class TuckerTensorTrain:
         return TuckerTensorTrain(tuple(new_tucker_cores), tuple(new_tt_cores))
 
     #### Vectorization / stacking ####
-
-    # def sum_stack(self, use_jax: bool=False) -> 'TuckerTensorTrain':
-    #     """If this object contains multiple stacked T3s, this sums them.
-    #
-    #     Examples
-    #     --------
-    #     >>> import numpy as np
-    #     >>> import t3toolbox.tucker_tensor_train as t3
-    #     >>> import t3toolbox.corewise as cw
-    #     >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
-    #     >>> x_sum = x.sum_stack()
-    #     >>> tucker_sum = tuple([np.sum(B, axis=(0,1)) for B in x.tucker_cores])
-    #     >>> tt_sum = tuple([np.sum(G, axis=(0,1)) for G in x.tt_cores])
-    #     >>> x_sum2 = t3.TuckerTensorTrain(tucker_sum, tt_sum)
-    #     >>> print(cw.corewise_norm(cw.corewise_sub(x_sum.data, x_sum2.data)))
-    #     0.0
-    #     """
-    #     return TuckerTensorTrain(*ragged_operations.t3_sum_stack(self.data))
 
     def unstack(self): # returns an array-like structure of nested tuples containing TuckerTensorTrains
         """If this object contains multiple stacked T3s, this unstacks them
@@ -1715,7 +1698,7 @@ def compute_minimal_t3_ranks(
     >>> print(t3.compute_minimal_t3_ranks((10,11,12,13), (14,15,16,17), (98,99,100,101,102)))
     ((10, 11, 12, 13), (1, 10, 100, 13, 1))
     '''
-    return ranks.compute_minimal_t3_ranks(shape, tucker_ranks, tt_ranks)
+    return ranks.compute_minimal_ranks(shape, tucker_ranks, tt_ranks)
 
 #
 
