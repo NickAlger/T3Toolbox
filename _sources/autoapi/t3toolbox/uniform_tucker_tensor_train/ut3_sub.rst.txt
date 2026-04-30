@@ -5,37 +5,29 @@ t3toolbox.uniform_tucker_tensor_train.ut3_sub
 
    Subtract two UniformTuckerTensorTrains, x,y -> x-y.
 
-       Parameters
-       ----------
-       x_cores: UniformTuckerTensorTrainCores
-           First summand cores
-       x_masks: UniformTuckerTensorTrainMasks
-           First summand masks
-       y_cores: UniformTuckerTensorTrainCores
-           Second summand cores
-       y_masks: UniformTuckerTensorTrainMasks
-           Second summand masks
-       xnp:
-           Linear algebra backend. Default: np (numpy)
+   :param x_cores: First summand cores
+   :type x_cores: UniformTuckerTensorTrainCores
+   :param x_masks: First summand masks
+   :type x_masks: UniformTuckerTensorTrainMasks
+   :param y_cores: Second summand cores
+   :type y_cores: UniformTuckerTensorTrainCores
+   :param y_masks: Second summand masks
+   :type y_masks: UniformTuckerTensorTrainMasks
+   :param xnp: Linear algebra backend. Default: np (numpy)
 
-       Returns
-       -------
-       UniformTuckerTensorTrainCores
-           Cores for sum, x+y
-       UniformTuckerTensorTrainMasks
-           Cores for sum x+y
+   :returns: * *UniformTuckerTensorTrainCores* -- Cores for sum, x+y
+             * *UniformTuckerTensorTrainMasks* -- Cores for sum x+y
 
-       Examples
-       --------
-   import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
-       >>> import t3toolbox.tucker_tensor_train as t3
-       >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-       >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
-       >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-       >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1), stack_shape=(2,3))
-       >>> uy = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(y)
-       >>> ux_minus_uy = ut3.ut3_sub(ux, uy)
-       >>> print(np.linalg.norm(x.to_dense() - y.to_dense() - ux_minus_uy.to_dense()))
-       1.7975763647128273e-12
+   .. rubric:: Examples
 
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+   >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
+   >>> ux = ut3.t3_to_ut3(x)
+   >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1), stack_shape=(2,3))
+   >>> uy = ut3.t3_to_ut3(y)
+   >>> ux_minus_uy = ut3.ut3_sub(ux, uy)
+   >>> print(np.linalg.norm(x.to_dense() - y.to_dense() - ux_minus_uy.to_dense()))
+   1.7975763647128273e-12
 

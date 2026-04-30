@@ -10,10 +10,10 @@ Functions
 .. toctree::
    :hidden:
 
-   /autoapi/t3toolbox/backend/entries/t3_get_entries
+   /autoapi/t3toolbox/backend/entries/get_tucker_tensor_train_entries
 
 .. autoapisummary::
 
-   t3toolbox.backend.entries.t3_get_entries
+   t3toolbox.backend.entries.get_tucker_tensor_train_entries
 
 

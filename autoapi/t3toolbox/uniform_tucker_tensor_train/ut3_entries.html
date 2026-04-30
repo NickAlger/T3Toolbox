@@ -323,7 +323,7 @@
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../backend/entries/index.html">t3toolbox.backend.entries</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="../backend/entries/t3_get_entries.html">t3toolbox.backend.entries.t3_get_entries</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../backend/entries/get_tucker_tensor_train_entries.html">t3toolbox.backend.entries.get_tucker_tensor_train_entries</a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../backend/linalg/index.html">t3toolbox.backend.linalg</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -597,10 +597,10 @@
 <dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.ut3_entries">
 <span class="sig-prename descclassname"><span class="pre">t3toolbox.uniform_tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">ut3_entries</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="UniformTuckerTensorTrain.html#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain" title="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain"><span class="pre">UniformTuckerTensorTrain</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../backend/common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../backend/common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a></span></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.ut3_entries" title="Link to this definition">#</a></dt>
 <dd><p>Compute entry (entries) of a uniform Tucker tensor train.</p>
-<blockquote>
-<div><p>If index is outside the tensor, the result is undefined.
+<p>If index is outside the tensor, the result is undefined.
 In this case, the function may either return a meaningless number,
 or raise an error.</p>
+<p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.uniform_tucker_tensor_train</span> <span class="k">as</span> <span class="nn">ut3</span>
@@ -609,7 +609,7 @@ or raise an error.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x_312</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_entries</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x_312</span><span class="p">)</span> <span class="c1"># (3,1,2) entry from T3:</span>
 <span class="go">58.91320690249439</span>
-<span class="go">&gt;&gt;&gt;import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions uniform_x = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x) # Convert to Uniform T3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">uniform_x</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">t3_to_ut3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="c1"># Convert to Uniform T3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x_312_uniform</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">ut3_entries</span><span class="p">(</span><span class="n">uniform_x</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span> <span class="c1"># (3,1,2) entry from uniform T3:</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x_312_uniform</span><span class="p">)</span>
 <span class="go">58.91320690249439</span>
@@ -624,11 +624,8 @@ or raise an error.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x_312_987</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_entries</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x_312_987</span><span class="p">)</span>
 <span class="go">[-13.31445318 -16.95641076]</span>
-</pre></div>
-</div>
-</div></blockquote>
-<dl>
-<dt>import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    &gt;&gt;&gt; uniform_x = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x_312_987_uniform</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">ut3_entries</span><span class="p">(</span><span class="n">uniform_x</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">uniform_x</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">t3_to_ut3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x_312_987_uniform</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">ut3_entries</span><span class="p">(</span><span class="n">uniform_x</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x_312_987_uniform</span><span class="p">)</span>
 <span class="go">[-13.31445318 -16.95641076]</span>
 </pre></div>
@@ -644,18 +641,14 @@ or raise an error.</p>
 <span class="go">[[ 13.37754112 -14.2301319 ]</span>
 <span class="go"> [ 10.34271727   9.07781055]</span>
 <span class="go"> [ -3.47189513 -21.14557063]]</span>
-</pre></div>
-</div>
-</dd>
-<dt>import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    &gt;&gt;&gt; uniform_x = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x_312_987_uniform</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">ut3_entries</span><span class="p">(</span><span class="n">uniform_x</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">uniform_x</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">t3_to_ut3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x_312_987_uniform</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">ut3_entries</span><span class="p">(</span><span class="n">uniform_x</span><span class="p">,</span> <span class="n">index</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x_312_987_uniform</span><span class="p">)</span>
 <span class="go">[[ 13.37754112 -14.2301319 ]</span>
 <span class="go"> [ 10.34271727   9.07781055]</span>
 <span class="go"> [ -3.47189513 -21.14557063]]</span>
 </pre></div>
 </div>
-</dd>
-</dl>
 </dd></dl>
 
 </section>

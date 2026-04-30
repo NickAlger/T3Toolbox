@@ -323,7 +323,7 @@
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../backend/entries/index.html">t3toolbox.backend.entries</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="../backend/entries/t3_get_entries.html">t3toolbox.backend.entries.t3_get_entries</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../backend/entries/get_tucker_tensor_train_entries.html">t3toolbox.backend.entries.get_tucker_tensor_train_entries</a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../backend/linalg/index.html">t3toolbox.backend.linalg</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -597,40 +597,37 @@
 <dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.ut3_add">
 <span class="sig-prename descclassname"><span class="pre">t3toolbox.uniform_tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">ut3_add</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="UniformTuckerTensorTrain.html#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain" title="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain"><span class="pre">UniformTuckerTensorTrain</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="UniformTuckerTensorTrain.html#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain" title="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain"><span class="pre">UniformTuckerTensorTrain</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">squash</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="UniformTuckerTensorTrain.html#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain" title="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain"><span class="pre">UniformTuckerTensorTrain</span></a></span></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.ut3_add" title="Link to this definition">#</a></dt>
 <dd><p>Add two UniformTuckerTensorTrains, x,y -&gt; x+y.</p>
-<blockquote>
-<div><dl class="simple">
-<dt>x_cores: UniformTuckerTensorTrainCores</dt><dd><p>First summand cores</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>x_cores</strong> (<em>UniformTuckerTensorTrainCores</em>) – First summand cores</p></li>
+<li><p><strong>x_masks</strong> (<em>UniformTuckerTensorTrainMasks</em>) – First summand masks</p></li>
+<li><p><strong>y_cores</strong> (<em>UniformTuckerTensorTrainCores</em>) – Second summand cores</p></li>
+<li><p><strong>y_masks</strong> (<em>UniformTuckerTensorTrainMasks</em>) – Second summand masks</p></li>
+<li><p><strong>xnp</strong> – Linear algebra backend. Default: np (numpy)</p></li>
+</ul>
 </dd>
-<dt>x_masks: UniformTuckerTensorTrainMasks</dt><dd><p>First summand masks</p>
-</dd>
-<dt>y_cores: UniformTuckerTensorTrainCores</dt><dd><p>Second summand cores</p>
-</dd>
-<dt>y_masks: UniformTuckerTensorTrainMasks</dt><dd><p>Second summand masks</p>
-</dd>
-<dt>xnp:</dt><dd><p>Linear algebra backend. Default: np (numpy)</p>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><em>UniformTuckerTensorTrainCores</em> – Cores for sum, x+y</p></li>
+<li><p><em>UniformTuckerTensorTrainMasks</em> – Cores for sum x+y</p></li>
+</ul>
+</p>
 </dd>
 </dl>
-<dl class="simple">
-<dt>UniformTuckerTensorTrainCores</dt><dd><p>Cores for sum, x+y</p>
-</dd>
-<dt>UniformTuckerTensorTrainMasks</dt><dd><p>Cores for sum x+y</p>
-</dd>
-</dl>
-</div></blockquote>
-<dl>
-<dt>import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    &gt;&gt;&gt; import numpy as np</dt><dd><div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.uniform_tucker_tensor_train</span> <span class="k">as</span> <span class="nn">ut3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span> <span class="n">stack_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">ux</span> <span class="o">=</span> <span class="n">t3toolbox</span><span class="o">.</span><span class="n">backend</span><span class="o">.</span><span class="n">uniform_tucker_tensor_train</span><span class="o">.</span><span class="n">ut3_conversions</span><span class="o">.</span><span class="n">t3_to_ut3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ux</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">t3_to_ut3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">y</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">6</span><span class="p">,</span><span class="mi">7</span><span class="p">,</span><span class="mi">8</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="n">stack_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">uy</span> <span class="o">=</span> <span class="n">t3toolbox</span><span class="o">.</span><span class="n">backend</span><span class="o">.</span><span class="n">uniform_tucker_tensor_train</span><span class="o">.</span><span class="n">ut3_conversions</span><span class="o">.</span><span class="n">t3_to_ut3</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">uy</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">t3_to_ut3</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">ux_plus_uy</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">ut3_add</span><span class="p">(</span><span class="n">ux</span><span class="p">,</span> <span class="n">uy</span><span class="p">)</span> <span class="c1"># add x+y</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">+</span> <span class="n">y</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">-</span> <span class="n">ux_plus_uy</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()))</span>
 <span class="go">3.250578545971108e-12</span>
 </pre></div>
 </div>
-</dd>
-</dl>
 </dd></dl>
 
 </section>

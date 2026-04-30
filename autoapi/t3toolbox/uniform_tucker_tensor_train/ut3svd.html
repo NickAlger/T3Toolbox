@@ -323,7 +323,7 @@
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../backend/entries/index.html">t3toolbox.backend.entries</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="../backend/entries/t3_get_entries.html">t3toolbox.backend.entries.t3_get_entries</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../backend/entries/get_tucker_tensor_train_entries.html">t3toolbox.backend.entries.get_tucker_tensor_train_entries</a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../backend/linalg/index.html">t3toolbox.backend.linalg</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -597,9 +597,9 @@
 <dt class="sig sig-object py" id="t3toolbox.uniform_tucker_tensor_train.ut3svd">
 <span class="sig-prename descclassname"><span class="pre">t3toolbox.uniform_tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">ut3svd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="UniformTuckerTensorTrain.html#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain" title="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain"><span class="pre">UniformTuckerTensorTrain</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_tucker_ranks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../backend/common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_tt_ranks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference internal" href="../backend/common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_jax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="UniformTuckerTensorTrain.html#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain" title="t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain"><span class="pre">UniformTuckerTensorTrain</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../backend/common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../backend/common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.uniform_tucker_tensor_train.ut3svd" title="Link to this definition">#</a></dt>
 <dd><p>Compute T3-SVD of uniform Tucker tensor train.</p>
-<blockquote>
-<div><p>Masks are used for rank truncation. If the provided mask does not have minimal ranks,
+<p>Masks are used for rank truncation. If the provided mask does not have minimal ranks,
 this function will create minimal rank masks from it and use those.</p>
+<p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.uniform_tucker_tensor_train</span> <span class="k">as</span> <span class="nn">ut3</span>
@@ -634,40 +634,35 @@ this function will create minimal rank masks from it and use those.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">ux2</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">-</span> <span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()))</span>
 <span class="go">2.193805472670695e-11</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ux2</span><span class="o">.</span><span class="n">tucker_ranks</span><span class="p">)</span>
-<span class="go">[[3 3]</span>
-<span class="go"> [7 7]</span>
-<span class="go"> [5 5]]</span>
+<span class="go">[[[3 3 3]</span>
+<span class="go">  [3 3 3]]</span>
+<span class="go"> [[7 7 7]</span>
+<span class="go">  [7 7 7]]</span>
+<span class="go"> [[5 5 5]</span>
+<span class="go">  [5 5 5]]]</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ux2</span><span class="o">.</span><span class="n">tt_ranks</span><span class="p">)</span>
-<span class="go">[[1 1]</span>
-<span class="go"> [3 3]</span>
-<span class="go"> [5 5]</span>
-<span class="go"> [1 1]]</span>
+<span class="go">[[[1 1 1]</span>
+<span class="go">  [1 1 1]]</span>
+<span class="go"> [[3 3 3]</span>
+<span class="go">  [3 3 3]]</span>
+<span class="go"> [[5 5 5]</span>
+<span class="go">  [5 5 5]]</span>
+<span class="go"> [[1 1 1]</span>
+<span class="go">  [1 1 1]]]</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">xx</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">unstack</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">_</span><span class="p">,</span> <span class="n">ss_tucker_a</span><span class="p">,</span> <span class="n">ss_tt_a</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3svd</span><span class="p">(</span><span class="n">xx</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="c1"># Non-uniform T3-SVD of first T3 in stack</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">_</span><span class="p">,</span> <span class="n">ss_tucker_b</span><span class="p">,</span> <span class="n">ss_tt_b</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3svd</span><span class="p">(</span><span class="n">xx</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="c1"># Second T3 in stack</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ss_tt_a</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">+</span> <span class="s1">&#39;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">core_ind</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ii</span><span class="p">,</span> <span class="n">jj</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span><span class="mi">2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">_</span><span class="p">,</span> <span class="n">ss_tucker_ij</span><span class="p">,</span> <span class="n">ss_tt_ij</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3svd</span><span class="p">(</span><span class="n">xx</span><span class="p">[</span><span class="n">ii</span><span class="p">][</span><span class="n">jj</span><span class="p">])</span> <span class="c1"># Non-uniform T3-SVD of first T3 in stack</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ss_tt_ij</span><span class="p">[</span><span class="n">core_ind</span><span class="p">])</span>
+<span class="go">[1890.73292474 1059.89413829  692.19080418]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ss_tt_from_ut3</span><span class="p">[</span><span class="n">core_ind</span><span class="p">,</span><span class="n">ii</span><span class="p">,</span><span class="n">jj</span><span class="p">])</span>
+<span class="go">[1890.73292474 1059.89413829  692.19080418    0.            0.            0.        ]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ss_tucker_ij</span><span class="p">[</span><span class="n">core_ind</span><span class="p">])</span>
+<span class="go">[1910.0130585  1383.05608517  677.78562322  583.52327916  328.88105484  188.63539256  127.79479047]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">ss_tucker_from_ut3</span><span class="p">[</span><span class="n">core_ind</span><span class="p">,</span><span class="n">ii</span><span class="p">,</span><span class="n">jj</span><span class="p">])</span>
+<span class="go">[1910.0130585  1383.05608517  677.78562322  583.52327916  328.88105484  188.63539256  127.79479047]</span>
 </pre></div>
 </div>
-</div></blockquote>
-<dl>
-<dt>‘ + str(ss_tt_b[1]))</dt><dd><p>[3522.08053706  986.93239042  360.30264481]
-[4185.51756339 2423.23109837 1564.5114264 ]
-&gt;&gt;&gt; print(ss_tt_from_ut3[1])
-[[3522.08053706  986.93239042  360.30264481    0.            0.            0.        ]</p>
-<blockquote>
-<div><p>[4185.51756339 2423.23109837 1564.5114264     0.            0.            0.        ]]</p>
-</div></blockquote>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">ss_tucker_a</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="s1">&#39;</span>
-</pre></div>
-</div>
-</dd>
-<dt>‘ + str(ss_tucker_b[0]))</dt><dd><p>[3522.08053706  986.93239042  360.30264481]
-[4185.51756339 2423.23109837 1564.5114264 ]
-&gt;&gt;&gt; print(ss_tucker_from_ut3[0])
-[[3522.08053706  986.93239042  360.30264481    0.            0.            0.            0.        ]</p>
-<blockquote>
-<div><p>[4185.51756339 2423.23109837 1564.5114264     0.            0.            0.            0.        ]]</p>
-</div></blockquote>
 <p>Rank truncation, incurring error:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
@@ -682,21 +677,17 @@ this function will create minimal rank masks from it and use those.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">tt_cores_x</span> <span class="o">=</span> <span class="p">(</span><span class="n">G0</span><span class="p">,</span> <span class="n">G1</span><span class="p">,</span> <span class="n">G2</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="p">(</span><span class="n">tucker_cores_x</span><span class="p">,</span> <span class="n">tt_cores_x</span><span class="p">)</span> <span class="c1"># Tensor has spectral decay due to preconditioning</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">ux</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">t3_to_ut3</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_ranks</span><span class="p">,</span> <span class="n">tt_ranks</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">compute_minimal_t3_ranks</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">15</span><span class="p">),</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">,</span><span class="mi">10</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">tucker_ranks</span><span class="p">,</span> <span class="n">tt_ranks</span><span class="p">)</span>
-<span class="go">(10, 15, 10) (1, 10, 10, 1)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">masks</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">make_uniform_masks</span><span class="p">(</span><span class="n">ux</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">tucker_ranks</span><span class="p">,</span> <span class="n">tt_ranks</span><span class="p">,</span> <span class="n">ux</span><span class="o">.</span><span class="n">N</span><span class="p">,</span> <span class="n">ux</span><span class="o">.</span><span class="n">n</span><span class="p">,</span> <span class="n">ux</span><span class="o">.</span><span class="n">r</span><span class="p">,</span> <span class="n">stack_shape</span><span class="o">=</span><span class="n">ux</span><span class="o">.</span><span class="n">stack_shape</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">ux2</span><span class="p">,</span> <span class="n">ss_tucker_from_ut3</span><span class="p">,</span> <span class="n">ss_tt_from_ut3</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">ut3svd</span><span class="p">((</span><span class="n">ux</span><span class="o">.</span><span class="n">tucker_supercore</span><span class="p">,</span> <span class="n">ux</span><span class="o">.</span><span class="n">tt_supercore</span><span class="p">),</span> <span class="n">masks</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">max_tkr</span> <span class="o">=</span> <span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">15</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">max_ttr</span> <span class="o">=</span> <span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">10</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ux2</span><span class="p">,</span> <span class="n">ss_tucker_from_ut3</span><span class="p">,</span> <span class="n">ss_tt_from_ut3</span> <span class="o">=</span> <span class="n">ut3</span><span class="o">.</span><span class="n">ut3svd</span><span class="p">(</span><span class="n">ux</span><span class="p">,</span> <span class="n">max_tucker_ranks</span><span class="o">=</span><span class="n">max_tkr</span><span class="p">,</span> <span class="n">max_tt_ranks</span><span class="o">=</span><span class="n">max_ttr</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x_dense</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">ux2</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">-</span> <span class="n">x_dense</span><span class="p">)</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x_dense</span><span class="p">))</span>
 <span class="go">0.0033845263631186308</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x2</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3svd</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">max_tucker_ranks</span><span class="o">=</span><span class="n">tucker_ranks</span><span class="p">,</span> <span class="n">max_tt_ranks</span><span class="o">=</span><span class="n">tt_ranks</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x2</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3svd</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">max_tucker_ranks</span><span class="o">=</span><span class="n">max_tkr</span><span class="p">,</span> <span class="n">max_tt_ranks</span><span class="o">=</span><span class="n">max_ttr</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x_dense</span> <span class="o">-</span> <span class="n">x2</span><span class="o">.</span><span class="n">to_dense</span><span class="p">())</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x_dense</span><span class="p">))</span>
 <span class="go">0.0033845263631186308</span>
 </pre></div>
 </div>
-</dd>
-</dl>
 </dd></dl>
 
 </section>
