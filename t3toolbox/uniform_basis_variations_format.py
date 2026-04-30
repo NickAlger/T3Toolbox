@@ -13,6 +13,7 @@ import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.basis_variations_format as bvf
 import t3toolbox.backend.orthogonal_representations as orth_reps
 import t3toolbox.backend.stacking as stacking
+import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.uniform_basis_variations_format.ubv_masking as masking
 from t3toolbox.backend.common import *
 
@@ -643,7 +644,7 @@ def ut3basis_to_t3basis(
 ) -> bvf.T3Basis:
     """Convert UT3Basis to array-like tree of T3Basis.
     """
-    # x = x.apply_masks()
+    x = x.apply_masks()
 
     result = ubv_conversions.ut3basis_to_t3basis(x.data, use_jax=use_jax)
 
@@ -769,14 +770,16 @@ def ut3_orthogonal_representations(
     >>> print(np.linalg.norm(np.einsum('...iaj,...ibj', D1, D1) - np.eye(D1.shape[-2]))) # O: outer orthogonal
     1.3870474292323159e-15
     '''
-    # _, _, sm, tkm, ttm = x.data
-    # utk, utt = x.apply_masks_to_cores(use_jax=use_jax)
     x = x.apply_masks()
     utk, utt, sm, tkm, ttm = x.data
 
     (uc, dc, lc, rc), (tkv, ttv) = orth_reps.orthogonal_representations(
         (utk, utt), already_left_orthogonal=already_left_orthogonal, squash=squash, use_jax=use_jax,
     )
+
+    # up_ranks, down_ranks, left_ranks, right_ranks = ranks.compute_orthogonal_representation_ranks(
+    #     x.shape, x.tucker_ranks, x.tt_ranks, use_jax=use_jax,
+    # )
 
     return UT3Basis(uc, dc, lc, rc, sm, tkm, tkm, ttm, ttm), UT3Variations(tkv, ttv, sm, tkm, tkm, ttm[:-1], ttm[1:])
 

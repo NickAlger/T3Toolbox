@@ -13,6 +13,22 @@ __all__ = [
 ]
 
 
+def make_basis_masks(
+        up_ranks: NDArray,      # dtype=int, shape=(d,)+stack_shape
+        down_ranks: NDArray,    # dtype=int, shape=(d,)+stack_shape
+        left_ranks,             # dtype=int, shape=(d+1,)+stack_shape
+        right_ranks,            # dtype=int, shape=(d+1,)+stack_shape
+        n: int,
+        r: int,
+) -> typ.Tuple[
+    NDArray, # up_mask, dtype=bool, shape=(d,)+stack_shape+(n,)
+    NDArray, # down_mask, dtype=bool, shape=(d,)+stack_shape+(n,)
+    NDArray, # left_mask, dtype=bool, shape=(d+1,)+stack_shape+(r,)
+    NDArray, # right_mask, dtype=bool, shape=(d+1,)+stack_shape+(r,)
+]:
+    pass
+
+
 def apply_basis_masks(
         up_tucker_supercore:    NDArray,  # B_dxo B_dyo   = I_dxy, shape = (d,)+stack_shape+(nU, N)
         down_tt_supercore:      NDArray,  # R_dixj R_diyj = I_dxy  shape = (d,)+stack_shape+(rL, nD, rR)
