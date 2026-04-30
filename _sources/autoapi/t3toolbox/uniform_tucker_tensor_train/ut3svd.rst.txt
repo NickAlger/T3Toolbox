@@ -10,15 +10,15 @@ t3toolbox.uniform_tucker_tensor_train.ut3svd
 
        Examples
        --------
-   import t3toolbox.backend.uniform_tucker_tensor_train.ut3_masking    >>> import numpy as np
-   import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import t3toolbox.tucker_tensor_train as t3
+       >>> import numpy as np
+       >>> import t3toolbox.tucker_tensor_train as t3
        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
        >>> shape, tucker_ranks, tt_ranks = (11,12,13), (6,7,5), (1,3,6,2)
        >>> min_tucker_ranks, min_tt_ranks = t3.compute_minimal_t3_ranks(shape, tucker_ranks, tt_ranks)
        >>> x = t3.t3_corewise_randn(shape, tucker_ranks, tt_ranks)
-       >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-       >>> min_masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_masking.make_uniform_masks(shape, min_tucker_ranks, min_tt_ranks, ux.stack_shape, ux.N, ux.n, ux.r)
-       >>> ux2, ss_tucker_from_ut3, ss_tt_from_ut3 = ut3.uniform_t3_svd((ux.tucker_supercore, ux.tt_supercore), min_masks) # Uniform T3-SVD
+       >>> ux = ut3.t3_to_ut3(x)
+       >>> min_masks = ut3.make_uniform_masks(shape, min_tucker_ranks, min_tt_ranks, ux.stack_shape, ux.N, ux.n, ux.r)
+       >>> ux2, ss_tucker_from_ut3, ss_tt_from_ut3 = ut3.ut3svd((ux.tucker_supercore, ux.tt_supercore), min_masks) # Uniform T3-SVD
        >>> print(np.linalg.norm(ux2.to_dense() - x.to_dense()))
        1.2664289217892565e-11
        >>> print(ux2.structure)
@@ -35,16 +35,15 @@ t3toolbox.uniform_tucker_tensor_train.ut3svd
 
        Using stacking:
 
-   import t3toolbox.backend.uniform_tucker_tensor_train.ut3_masking    >>> import numpy as np
-   import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> from t3toolbox.backend.tucker_tensor_train.uniform.uniform_t3_operations import make_uniform_masks
+       >>> import numpy as np
        >>> import t3toolbox.tucker_tensor_train as t3
        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
        >>> shape, tucker_ranks, tt_ranks, stack_shape = (11,12,13), (6,7,5), (1,3,6,2), (2,)
        >>> min_tucker_ranks, min_tt_ranks = t3.compute_minimal_t3_ranks(shape, tucker_ranks, tt_ranks)
        >>> x = t3.t3_corewise_randn(shape, tucker_ranks, tt_ranks, stack_shape=stack_shape)
-       >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-       >>> min_masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_masking.make_uniform_masks(shape, min_tucker_ranks, min_tt_ranks, ux.stack_shape, ux.N, ux.n, ux.r)
-       >>> ux2, ss_tucker_from_ut3, ss_tt_from_ut3 = ut3.uniform_t3_svd((ux.tucker_supercore, ux.tt_supercore), min_masks) # Uniform T3-SVD
+       >>> ux = ut3.t3_to_ut3(x)
+       >>> min_masks = ut3.make_uniform_masks(shape, min_tucker_ranks, min_tt_ranks, ux.stack_shape, ux.N, ux.n, ux.r)
+       >>> ux2, ss_tucker_from_ut3, ss_tt_from_ut3 = ut3.ut3svd((ux.tucker_supercore, ux.tt_supercore), min_masks) # Uniform T3-SVD
        >>> print(np.linalg.norm(ux2.to_dense() - x.to_dense()))
        2.193805472670695e-11
        >>> print(ux2.tucker_ranks)
@@ -76,7 +75,7 @@ t3toolbox.uniform_tucker_tensor_train.ut3svd
 
        Rank truncation, incurring error:
 
-   import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> import numpy as np
+       >>> import numpy as np
        >>> import t3toolbox.tucker_tensor_train as t3
        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
        >>> B0 = np.random.randn(35,40) @ np.diag(1.0 / np.arange(1, 41)**2) # preconditioned indices
@@ -88,12 +87,12 @@ t3toolbox.uniform_tucker_tensor_train.ut3svd
        >>> tucker_cores_x = (B0, B1, B2)
        >>> tt_cores_x = (G0, G1, G2)
        >>> x = t3.TuckerTensorTrain(tucker_cores_x, tt_cores_x) # Tensor has spectral decay due to preconditioning
-       >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
+       >>> ux = ut3.t3_to_ut3(x)
        >>> tucker_ranks, tt_ranks = t3.compute_minimal_t3_ranks(x.shape, (15,15,15), (10,10,10,10))
        >>> print(tucker_ranks, tt_ranks)
        (10, 15, 10) (1, 10, 10, 1)
-   import t3toolbox.backend.uniform_tucker_tensor_train.ut3_masking    >>> masks = t3toolbox.backend.uniform_tucker_tensor_train.ut3_masking.make_uniform_masks(ux.shape, tucker_ranks, tt_ranks, ux.stack_shape, ux.N, ux.n, ux.r)
-       >>> ux2, ss_tucker_from_ut3, ss_tt_from_ut3 = ut3.uniform_t3_svd((ux.tucker_supercore, ux.tt_supercore), masks)
+       >>> masks = ut3.make_uniform_masks(ux.shape, tucker_ranks, tt_ranks, ux.stack_shape, ux.N, ux.n, ux.r)
+       >>> ux2, ss_tucker_from_ut3, ss_tt_from_ut3 = ut3.ut3svd((ux.tucker_supercore, ux.tt_supercore), masks)
        >>> x_dense = x.to_dense()
        >>> print(np.linalg.norm(ux2.to_dense() - x_dense) / np.linalg.norm(x_dense))
        0.0033845263631186308
