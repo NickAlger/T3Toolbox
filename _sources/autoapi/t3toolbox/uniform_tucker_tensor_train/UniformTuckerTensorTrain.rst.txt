@@ -35,6 +35,12 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
    .. py:method:: data() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]
 
 
+   .. py:method:: supercores() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]
+
+
+   .. py:method:: masks() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]
+
+
    .. py:method:: d() -> int
 
       Number of indices of the tensor.
@@ -251,13 +257,12 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
 
 
 
-   .. py:method:: apply_masks_to_cores(use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]
+   .. py:method:: apply_masks(use_jax: bool = False) -> UniformTuckerTensorTrain
 
       Applies masking to supercores, replacing unmasked regions with zeros.
 
       .. rubric:: Examples
 
-      EXAMPLE WORK IN PROGRESS
       >>> import numpy as np
       >>> import t3toolbox.tucker_tensor_train as t3
       >>> import t3toolbox.uniform_tucker_tensor_train as ut3
@@ -265,20 +270,20 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
       >>> x = t3.t3_corewise_randn((10,11,12), (5,6,4), (1,3,5,1))
       >>> ux = ut3.t3_to_ut3(x)
       >>> ux_svd, ss1, _ = ut3.ut3svd(ux)
-      >>> dense_x = t3.t3_to_dense(x)
-      >>> print(np.linalg.norm(ut3.ut3_to_dense(uniform_x_svd, masks) - dense_x))
+      >>> x_dense = x.to_dense()
+      >>> ux_dense = ux.to_dense()
+      >>> print(np.linalg.norm(ux_dense - x_dense))
       3.0208288525321468e-12
-      >>> x_svd, ss2, _ = t3svd.t3svd(x)
-      >>> print(np.linalg.norm(t3.t3_to_dense(x_svd) - dense_x))
+      >>> x_svd, ss2, _ = t3.t3svd(x)
+      >>> print(np.linalg.norm(x_svd.to_dense() - x_dense))
       2.9361853188555994e-12
-      >>> x_svd_structure = t3.get_structure(x_svd)
-      >>> uniform_x_svd_structure = ut3.get_uniform_structure(uniform_x_svd)
-      >>> masks2 = t3toolbox.backend.uniform_tucker_tensor_train.ut3_masking.make_uniform_masks(x_svd_structure, uniform_x_svd_structure)
-      >>> print(np.linalg.norm(ut3.ut3_to_dense(uniform_x_svd, masks2) - dense_x))
+      >>> print(np.linalg.norm(ux_svd.to_dense() - x_dense))
       3.0208288525321468e-12
-      >>> print(cw.corewise_relerr(ut3.apply_masks(uniform_x_svd, masks2), uniform_x_svd))
+      >>> masks2 = ut3.make_uniform_masks(x_svd.shape, x_svd.tucker_ranks, x_svd.tt_ranks, ux_svd.N, ux_svd.n, ux_svd.r)
+      >>> ux2 = ut3.UniformTuckerTensorTrain(*(ux_svd.supercores + masks2))
+      >>> print(cw.corewise_relerr(ux2.apply_masks().supercores, ux_svd.supercores))
       0.0024164186526434567
-      >>> print(cw.corewise_relerr(ut3.apply_masks(uniform_x_svd, masks), uniform_x_svd))
+      >>> print(cw.corewise_relerr(ux_svd.apply_masks().supercores, ux_svd.supercores))
       0.0
 
 

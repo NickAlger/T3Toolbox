@@ -10,10 +10,10 @@ Functions
 .. toctree::
    :hidden:
 
-   /autoapi/t3toolbox/backend/ranks/compute_minimal_t3_ranks
+   /autoapi/t3toolbox/backend/ranks/compute_minimal_ranks
 
 .. autoapisummary::
 
-   t3toolbox.backend.ranks.compute_minimal_t3_ranks
+   t3toolbox.backend.ranks.compute_minimal_ranks
 
 

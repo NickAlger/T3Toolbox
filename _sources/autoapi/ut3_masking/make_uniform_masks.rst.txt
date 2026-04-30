@@ -1,4 +1,4 @@
 ut3_masking.make_uniform_masks
 ==============================
 
-.. py:function:: ut3_masking.make_uniform_masks(shape: t3toolbox.backend.common.typ.Tuple[int, Ellipsis], tucker_ranks: t3toolbox.backend.common.typ.Tuple[int, Ellipsis], tt_ranks: t3toolbox.backend.common.typ.Tuple[int, Ellipsis], stack_shape: t3toolbox.backend.common.typ.Tuple[int, Ellipsis], N: int, n: int, r: int, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]
+.. py:function:: ut3_masking.make_uniform_masks(shape: t3toolbox.backend.common.typ.Tuple[int, Ellipsis], tucker_ranks: t3toolbox.backend.common.NDArray, tt_ranks: t3toolbox.backend.common.NDArray, N: int, n: int, r: int, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]
