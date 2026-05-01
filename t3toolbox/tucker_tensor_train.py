@@ -3,74 +3,7 @@
 # Github: https://github.com/NickAlger/TuckerTensorTrainTools
 # Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
 """
-This module contains type aliases and basic backend for Tucker tensor trains.
-
-Tucker tensor trains:
----------------------
-
-* :py:type:`TuckerTensorTrain`
-    | The cores of a Tucker tensor train with varied ranks
-    | (tucker_cores, tt_cores)
-
-* :py:type:`T3Structure`
-    | The structure of a Tucker tensor train.
-    | (shape, tucker_ranks, tt_ranks)
-
-* :py:type:`EdgeWeights`
-    | Weights for edges of a Tucker tensor train
-    | (tucker_weights, tt_weights)
-
-* :py:type:`T3Base`
-    | Base cores for Tucker tensor trains in base-variation format
-    | (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-
-* :py:type:`T3Variation`
-    | Variation cores for Tucker tensor trains in base-variation format
-    | (tucker_variations, tt_variations)
-
-* :py:type:`BVStructure`
-    | The structure of a Tucker tensor train in base-variation format
-    | (shape, up_ranks, outer_ranks, left_ranks, right_ranks)
-
-* :py:type:`BVEdgeWeights`
-    | Weights for the edges of a Tucker tensor train in base-variation format
-    | (shape_weights, up_weights, outer_weights, left_weights, right_weights)
-
-Uniform Tucker tensor trains:
------------------------------
-
-* :py:type:`UniformTuckerTensorTrain`
-    | Supercores of a uniform Tucker tensor train with uniform ranks
-    | (tucker_supercore, tt_supercore)
-
-* :py:type:`UniformT3Structure`
-    | The structure of a uniform Tucker tensor train.
-    | (num indices d, index size N, tucker rank nU, TT rank r)
-
-* :py:type:`UniformEdgeWeights`
-    | Weights for the edges of a uniform Tucker tensor train
-    | (tucker_weights, tt_weights)
-
-* :py:type:`UniformT3Base`
-    | Base cores for Tucker tensor trains in base-variation format
-    | (up_tucker_supercore, left_tt_supercore, right_tt_supercore, outer_tt_supercore)
-
-* :py:type:`UniformT3Variation`
-    | Variation cores for Tucker tensor trains in base-variation format
-    | (tucker_variations_supercore, tt_variations_supercore)
-
-* :py:type:`BVStructure`
-    | The structure of a Tucker tensor train in base-variation format
-    | (num indices d, index size N, up rank nU, outer rank nO, left rank rL, right rank rR)
-
-* :py:type:`UniformBVEdgeWeights`
-    | Weights for the edges of a Tucker tensor train in base-variation format
-    | (shape_weights, up_weights, outer_weights, left_weights, right_weights)
-
-
-
-
-
+Basic Tucker tensor trains with non-uniform (ragged) shape and ranks.
 
 Other
 =====
@@ -307,8 +240,8 @@ class TuckerTensorTrain:
         typ.Tuple[typ.Tuple[int,...],...], # tt core shapes
     ]:
         return (
-            tuple([B.shape for B in self.tucker_cores]),
-            tuple([G.shape for G in self.tt_cores]),
+            tuple([B.shape[len(self.stack_shape):] for B in self.tucker_cores]),
+            tuple([G.shape[len(self.stack_shape):] for G in self.tt_cores]),
         )
 
     @ft.cached_property
@@ -498,7 +431,7 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(x.to_dense() - x2.to_dense()))
         5.805155892491438e-12
         """
-        return TuckerTensorTrain(self.tucker_cores, ragged_operations.squash_tt_tails(self.tt_cores))
+        return TuckerTensorTrain(self.tucker_cores, ragged_operations.squash_tt_tails(self.tt_cores, use_jax=use_jax))
 
     def reverse(self) -> 'TuckerTensorTrain':
         """Reverse Tucker tensor train.

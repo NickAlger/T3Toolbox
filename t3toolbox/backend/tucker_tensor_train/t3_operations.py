@@ -4,6 +4,7 @@
 # Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
 import numpy as np
 import typing as typ
+import math
 
 import t3toolbox.backend.stacking as stacking
 from t3toolbox.backend.common import *
@@ -43,10 +44,10 @@ def to_dense(
     for G in big_tt_cores[1:]:
         ts = T.shape[len(vs):-1]
         cs = (T.shape[-1],)
-        T_a_b_c_xyz_r = T.reshape(vs + (xnp.prod(ts, dtype=int),) + cs)
+        T_a_b_c_xyz_r = T.reshape(vs + (math.prod(ts),) + cs)
 
         ts2 = G.shape[-2:]
-        G_a_b_c_r_lm = G.reshape(vs + cs + (xnp.prod(ts2, dtype=int),))
+        G_a_b_c_r_lm = G.reshape(vs + cs + (math.prod(ts2),))
         T_a_b_c_xyzlm = T_a_b_c_xyz_r @ G_a_b_c_r_lm
         T = T_a_b_c_xyzlm.reshape(vs + ts + ts2)
 

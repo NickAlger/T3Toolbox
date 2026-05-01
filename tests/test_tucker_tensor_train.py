@@ -6,89 +6,235 @@ import unittest
 import os
 
 import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.corewise as cw
 
 try:
     import jax
+    import jax.numpy as jnp
     jax.config.update("jax_enable_x64", True)
 except ImportError:
-    pass
+    jnp = np
 
 np.random.seed(0)
 tol = 1e-9
 norm = np.linalg.norm
 randn = np.random.randn
 
+
+def structure_to_cores(STRUCTURE):
+    shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
+
+    tucker_cores = tuple(
+        np.random.randn(*(stack_shape + (n, N)))
+        for n, N in zip(tucker_ranks, shape)
+    )
+    tt_cores = tuple(
+        np.random.randn(*(stack_shape + (rL, n, rR)))
+        for rL, n, rR in zip(tt_ranks[:-1], tucker_ranks, tt_ranks[1:])
+    )
+    return tucker_cores, tt_cores
+
 class TestTuckerTensorTrain(unittest.TestCase):
     def check_relerr(self, xtrue, x):
         self.assertLessEqual(norm(xtrue - x), tol * norm(xtrue))
 
-    def test_get_structure(self):
-        tucker_cores = (np.ones((4, 14)), np.ones((5, 15)), np.ones((6, 16)))
-        tt_cores = (np.ones((2, 4, 3)), np.ones((3, 5, 7)), np.ones((7, 6, 5)))
-        x = (tucker_cores, tt_cores)
+    def test_t3_validate(self):
+        tucker_cores = [np.ones((2,3, 4,14)), np.ones((2,3, 5,15)), np.ones((2,3, 6,16))]
+        tt_cores = [np.ones((2,3, 5,4,3)), np.ones((2,3, 3,5,2)), np.ones((2,3, 2,6,3))]
+        x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # Good. Don't raise error
 
-        shape, tucker_ranks, tt_ranks = t3.get_structure(x)
+        with self.assertRaises(ValueError):
+            tucker_cores = [np.ones((2,3, 4,14)), np.ones((2,3, 5,15))]
+            tt_cores = [np.ones((2,3, 5,4,3)), np.ones((2,3, 3, 5,2)), np.ones((2,3, 2,6,3))]
+            x = t3.TuckerTensorTrain(tucker_cores, tt_cores) # Too few Tucker cores
 
-        self.assertEqual((14, 15, 16), shape)
-        self.assertEqual((4, 5, 6), tucker_ranks)
-        self.assertEqual((2,3,7,5), tt_ranks)
+        with self.assertRaises(ValueError):
+            tucker_cores = [np.ones((2,3, 4,14)), np.ones((2,3, 5,15)), np.ones((2,3, 6,16))]
+            tt_cores = [np.ones((2,3, 5,4,3)), np.ones((2,3, 3,5,2))]
+            x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # Too few TT-cores
+
+        with self.assertRaises(ValueError):
+            tucker_cores = [np.ones((2,3, 14)), np.ones((2,3, 5,15)), np.ones((2,3, 6,16))]
+            tt_cores = [np.ones((2,3, 5,4,3)), np.ones((2,3, 3,5,2)), np.ones((2,3, 2,6,3))]
+            x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # Tucker core is not a matrix
+
+        with self.assertRaises(ValueError):
+            tucker_cores = [np.ones((2,3, 4,14)), np.ones((2,3, 5,15)), np.ones((2,3, 6,16))]
+            tt_cores = [np.ones((2,3, 5,4,3)), np.ones((2,3, 3,5,2,1)), np.ones((2,3, 2,6,3))]
+            x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # TT-cores is not a 3-tensor
+
+        with self.assertRaises(ValueError):
+            tucker_cores = [np.ones((2,3, 4,14)), np.ones((2,3, 5,15)), np.ones((2,3, 6,16))]
+            tt_cores = [np.ones((2,3, 5,4,6)), np.ones((2,3, 3,5,2)), np.ones((2,3, 2,6,3))]
+            x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # TT-ranks inconsistent with each other
+
+        with self.assertRaises(ValueError):
+            tucker_cores = [np.ones((2,3, 6,14)), np.ones((2,3, 5,15)), np.ones((2,3, 6,16))]
+            tt_cores = [np.ones((2,3, 5,4,3)), np.ones((2,3, 3,5,2)), np.ones((2,3, 2,6,3))]
+            x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # TT and Tucker cores have inconsistent Tucker ranks
+
+        with self.assertRaises(ValueError):
+            tucker_cores = [np.ones((2,1, 4,14)), np.ones((2,3, 5,15)), np.ones((2,3, 6,16))]
+            tt_cores = [np.ones((2,3, 5,4,3)), np.ones((2,3, 3,5,2)), np.ones((2,3, 2,6,3))]
+            x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # Inconsistent stack shapes
+
+    def test_structural_properties(self):
+        #   (shape,             tucker_ranks,   tt_ranks,           stack_shape)
+        all_structures = [
+            ((14, 15, 16),      (4, 5, 6),      (4, 5, 3, 2),       (2, 3)),
+            ((14, 15, 16),      (4, 5, 6),      (1 ,2, 3, 1),       (2, 3)),
+            ((14, 15, 16),      (4, 25, 6),     (4, 5, 3, 2),       (2, 3)),
+            ((14,),             (4,),           (4, 5),             (2, 3)),
+            ((14, 15),          (4, 5),         (4, 5, 3),          (2, 3)),
+            ((14, 15, 16, 17),  (4, 5, 6, 7),   (4, 5, 3, 2, 1),    (2, 3)),
+            ((14, 15, 16),      (4, 5, 6),      (4, 5, 3, 2),       ()),
+        ]
+        for STRUCTURE in all_structures:
+            with self.subTest(STRUCTURE=STRUCTURE):
+                shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
+                tucker_cores, tt_cores = structure_to_cores(STRUCTURE)
+                x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # random TuckerTensorTrain
+
+                self.assertEqual((tucker_cores, tt_cores), x.data)
+                self.assertEqual(len(shape),    x.d)
+                self.assertEqual(len(shape)==0, x.is_empty)
+                self.assertEqual(stack_shape,   x.stack_shape)
+                self.assertEqual(shape,         x.shape)
+                self.assertEqual(tucker_ranks,  x.tucker_ranks)
+                self.assertEqual(tt_ranks,      x.tt_ranks)
+                self.assertEqual(STRUCTURE,     x.structure)
+                self.assertEqual(
+                    (
+                        tuple((n, N) for n, N in zip(tucker_ranks, shape)),
+                        tuple((rL, n, rR) for rL, n, rR in zip(tt_ranks[:-1], tucker_ranks, tt_ranks[1:])),
+                    ),
+                    x.core_shapes,
+                )
+                self.assertEqual(
+                    sum(x.size for x in tucker_cores) + sum(x.size for x in tt_cores),
+                    x.size,
+                )
+
+    def test_minimal_ranks(self):
+        structures = [
+            ((14, 15, 16),      (4, 6, 5),      (1, 4, 5, 1),       (2, 3)), # minimal
+            ((14, 15, 16),      (5, 6, 5),      (1, 4, 5, 1),       (2, 3)), # tt rank too small vs tucker rank
+            ((14, 15, 16),      (4, 6, 5),      (1, 40, 5, 1),      (2, 3)), # tt rank too big
+            ((14, 15, 16),      (4, 60, 5),     (1, 4, 5, 1),       (2, 3)), # tucker rank too big
+            ((14, 15, 16),      (4, 6, 5),      (2, 4, 5, 1),       (2, 3)), # not squashed
+            ((14, 15, 16),      (4, 6, 5),      (1, 4, 5, 1),       ()), # minimal, no stacking.
+        ]
+        minimal_structures = [
+            ((14, 15, 16),      (4, 6, 5),      (1, 4, 5, 1),       (2, 3)), # do nothing
+            ((14, 15, 16),      (4, 6, 5),      (1, 4, 5, 1),       (2, 3)), # decrease tucker rank
+            ((14, 15, 16),      (4, 6, 5),      (1, 4, 5, 1),       (2, 3)), # decrease tt-rank
+            ((14, 15, 16),      (4, 15, 5),     (1, 4, 5, 1),       (2, 3)), # decrease tucker rank
+            ((14, 15, 16),      (4, 6, 5),      (1, 4, 5, 1),       (2, 3)), # squash
+            ((14, 15, 16),      (4, 6, 5),      (1, 4, 5, 1),       ()), # do nothing
+        ]
+
+        for STRUCTURE, MIN_STRUCTURE in zip(structures, minimal_structures):
+            with self.subTest(STRUCTURE=STRUCTURE):
+                shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
+                tucker_cores, tt_cores = structure_to_cores(STRUCTURE)
+                x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # random TuckerTensorTrain
+
+                is_minimal = True
+                for n, N in zip(tucker_ranks, shape):
+                    is_minimal = is_minimal and n <= N
+
+                for rL, n, rR in zip(tt_ranks[:-1], tucker_ranks, tt_ranks[1:]):
+                    is_minimal = is_minimal and rL <= n * rR
+                    is_minimal = is_minimal and n <= rL * rR
+                    is_minimal = is_minimal and rR <= rL * n
+
+                is_minimal = is_minimal and tt_ranks[0] == 1
+                is_minimal = is_minimal and tt_ranks[-1] == 1
+
+                self.assertEqual(is_minimal,            x.has_minimal_ranks)
+                self.assertEqual(MIN_STRUCTURE[1:3],    x.minimal_ranks)
+
+    def test_to_dense(self):
+        structures = [
+            ((8, 9, 7), (3, 4, 5), (2, 3, 7, 5), (2, 3)),
+            ((8, 9, 7), (3, 4, 5), (2, 3, 7, 5), ()), # no stacking
+            ((8, 9, 7), (3, 4, 5), (1, 3, 7, 1), (2,3)), # no tails to squash
+        ]
+
+        for STRUCTURE in structures:
+            for SQUASH_TAILS in [True, False]:
+                for USE_JAX in [True, False]:
+                    with self.subTest(STRUCTURE=STRUCTURE, SQUASH_TAILS=SQUASH_TAILS, USE_JAX=USE_JAX):
+                        shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
+                        tucker_cores, tt_cores = structure_to_cores(STRUCTURE)
+                        x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # random TuckerTensorTrain
+
+                        x_dense = x.to_dense(squash_tails=SQUASH_TAILS, use_jax=USE_JAX)
+
+                        ((B0, B1, B2), (G0, G1, G2)) = tucker_cores, tt_cores
+                        ss = 'LMNOP'[:len(stack_shape)]
+                        if SQUASH_TAILS:
+                            x_dense2 = np.einsum(
+                                ss+'xi,' + ss+'yj,' + ss+'zk,' + ss+'axb,' + ss+'byc,' + ss+'czd' +
+                                '->' +
+                                ss+'ijk',
+                                B0, B1, B2, G0, G1, G2,
+                            )
+                        else:
+                            x_dense2 = np.einsum(
+                                ss+'xi,' + ss+'yj,' + ss+'zk,' + ss+'axb,' + ss+'byc,' + ss+'czd' +
+                                '->' +
+                                ss+'aijkd',
+                                B0, B1, B2, G0, G1, G2,
+                            )
+
+                        self.assertEqual(x_dense.shape, x_dense2.shape)
+                        self.check_relerr(x_dense,      x_dense2)
 
     def test_squash_tails(self):
-        for USE_JAX in [True, False]:
-            with self.subTest(USE_JAX=USE_JAX):
-                x = t3.t3_corewise_randn(((11, 12, 13), (6, 7, 8), (9, 3, 4, 8)))
-
-                x2 = t3.squash_tails(x, use_jax=USE_JAX)
-
-                self.assertEqual(((11, 12, 13), (6, 7, 8), (1, 3, 4, 1)), t3.get_structure(x2))
-                x_dense = t3.t3_to_dense(x)
-                x2_dense = t3.t3_to_dense(x2)
-                self.check_relerr(x_dense, x2_dense)
-
-    def test_t3_to_dense1(self):
         structures = [
-            ((14, 15, 16), (4, 5, 6), (2, 3, 7, 5)),
+            ((8, 9, 7), (3, 4, 5), (2, 3, 7, 5), (2, 3)),
+            ((8, 9, 7), (3, 4, 5), (2, 3, 7, 5), ()), # no stacking
+            ((8, 9, 7), (3, 4, 5), (1, 3, 7, 1), (2,3)), # no tails to squash
         ]
 
         for STRUCTURE in structures:
             for USE_JAX in [True, False]:
-                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
-                    x = t3.t3_corewise_randn(STRUCTURE)  # make TuckerTensorTrain
+                with self.subTest(STRUCTURE=STRUCTURE, USE_JAX=USE_JAX):
+                    shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
+                    tucker_cores, tt_cores = structure_to_cores(STRUCTURE)
+                    x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # random TuckerTensorTrain
 
-                    SHAPE, TUCKER_RANKS, TT_RANKS = STRUCTURE
-                    EXTENDED_SHAPE = (TT_RANKS[0],) + SHAPE + (TT_RANKS[-1],)
-                    for contract_ones, true_shape in zip([True, False], [SHAPE, EXTENDED_SHAPE]):
-                        with self.subTest(contract_ones=contract_ones, true_shape=true_shape):
+                    x2 = x.squash_tails(use_jax=USE_JAX)
 
-                            x_dense = t3.t3_to_dense(x, squash_tails=contract_ones, use_jax=USE_JAX)  # Convert TuckerTensorTrain to dense tensor
+                    squashed_tt_ranks = (1,) + tt_ranks[1:-1] + (1,)
+                    squashed_structure = (shape, tucker_ranks, squashed_tt_ranks, stack_shape)
 
-                            ((B0, B1, B2), (G0, G1, G2)) = x
-                            if contract_ones:
-                                x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->ijk', B0, B1, B2, G0, G1, G2)
-                            else:
-                                x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->aijkd', B0, B1, B2, G0, G1, G2)
-                            self.assertEqual(true_shape, x_dense.shape)
-                            self.check_relerr(x_dense, x_dense2)
+                    self.assertEqual(squashed_structure, x2.structure)
+                    self.check_relerr(x.to_dense(), x2.to_dense())
 
-
-    def test_t3_reverse(self):
-        structures = [
-            ((14, 15, 16), (4, 5, 6), (2, 3, 2, 1)),
+    def test_reverse(self):
+        all_structures = [
+            ((14,),             (4,),           (4, 5),             (2, 3)),
+            ((14, 15),          (4, 5),         (4, 5, 3),          (2, 3)),
+            ((14, 15, 16, 17),  (4, 5, 6, 7),   (4, 5, 3, 2, 1),    (2, 3)),
+            ((14, 15, 16),      (4, 5, 6),      (4, 5, 3, 2),       ()),
         ]
 
-        for STRUCTURE in structures:
+        for STRUCTURE in all_structures:
             with self.subTest(STRUCTURE=STRUCTURE):
-                x = t3.t3_corewise_randn(STRUCTURE)  # Make TuckerTensorTrain
+                shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
+                tucker_cores, tt_cores = structure_to_cores(STRUCTURE)
+                x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # random TuckerTensorTrain
 
-                reversed_x = t3.reverse_t3(x)
+                reversed_x = x.reverse()
 
-                self.assertEqual(
-                    (STRUCTURE[0][::-1], STRUCTURE[1][::-1], STRUCTURE[2][::-1]),
-                    t3.get_structure(reversed_x)
-                )
-                x_dense = t3.t3_to_dense(x)
-                reversed_x_dense = t3.t3_to_dense(reversed_x)
-                x_dense2 = reversed_x_dense.transpose(list(range(len(STRUCTURE[0])))[::-1])
+                reversed_structure = (shape[::-1], tucker_ranks[::-1], tt_ranks[::-1], stack_shape)
+                self.assertEqual(reversed_structure, x.structure)
+
+                x_dense = x.to_dense()
+                reversed_x_dense = reversed_x.to_dense()
+                x_dense2 = reversed_x_dense.transpose(list(range(len(shape)))[::-1])
                 self.check_relerr(x_dense, x_dense2)
 
     def test_t3_zeros(self):
