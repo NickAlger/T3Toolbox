@@ -592,135 +592,13 @@
                   
   <section id="module-t3toolbox.tucker_tensor_train">
 <span id="t3toolbox-tucker-tensor-train"></span><h1>t3toolbox.tucker_tensor_train<a class="headerlink" href="#module-t3toolbox.tucker_tensor_train" title="Link to this heading">#</a></h1>
-<p>This module contains type aliases and basic backend for Tucker tensor trains.</p>
-<section id="tucker-tensor-trains">
-<h2>Tucker tensor trains:<a class="headerlink" href="#tucker-tensor-trains" title="Link to this heading">#</a></h2>
-<ul>
-<li><dl>
-<dt><a class="reference internal" href="TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><code class="xref py py-type docutils literal notranslate"><span class="pre">TuckerTensorTrain</span></code></a></dt><dd><div class="line-block">
-<div class="line">The cores of a Tucker tensor train with varied ranks</div>
-<div class="line">(tucker_cores, tt_cores)</div>
-</div>
-</dd>
-</dl>
-</li>
-<li><dl>
-<dt><code class="xref py py-type docutils literal notranslate"><span class="pre">T3Structure</span></code></dt><dd><div class="line-block">
-<div class="line">The structure of a Tucker tensor train.</div>
-<div class="line">(shape, tucker_ranks, tt_ranks)</div>
-</div>
-</dd>
-</dl>
-</li>
-<li><dl>
-<dt><code class="xref py py-type docutils literal notranslate"><span class="pre">EdgeWeights</span></code></dt><dd><div class="line-block">
-<div class="line">Weights for edges of a Tucker tensor train</div>
-<div class="line">(tucker_weights, tt_weights)</div>
-</div>
-</dd>
-</dl>
-</li>
-<li><dl>
-<dt><code class="xref py py-type docutils literal notranslate"><span class="pre">T3Base</span></code></dt><dd><div class="line-block">
-<div class="line">Base cores for Tucker tensor trains in base-variation format</div>
-<div class="line">(up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)</div>
-</div>
-</dd>
-</dl>
-</li>
-<li><dl>
-<dt><code class="xref py py-type docutils literal notranslate"><span class="pre">T3Variation</span></code></dt><dd><div class="line-block">
-<div class="line">Variation cores for Tucker tensor trains in base-variation format</div>
-<div class="line">(tucker_variations, tt_variations)</div>
-</div>
-</dd>
-</dl>
-</li>
-<li><dl>
-<dt><code class="xref py py-type docutils literal notranslate"><span class="pre">BVStructure</span></code></dt><dd><div class="line-block">
-<div class="line">The structure of a Tucker tensor train in base-variation format</div>
-<div class="line">(shape, up_ranks, outer_ranks, left_ranks, right_ranks)</div>
-</div>
-</dd>
-</dl>
-</li>
-<li><dl>
-<dt><code class="xref py py-type docutils literal notranslate"><span class="pre">BVEdgeWeights</span></code></dt><dd><div class="line-block">
-<div class="line">Weights for the edges of a Tucker tensor train in base-variation format</div>
-<div class="line">(shape_weights, up_weights, outer_weights, left_weights, right_weights)</div>
-</div>
-</dd>
-</dl>
-</li>
-</ul>
-</section>
-<section id="uniform-tucker-tensor-trains">
-<h2>Uniform Tucker tensor trains:<a class="headerlink" href="#uniform-tucker-tensor-trains" title="Link to this heading">#</a></h2>
-<ul>
-<li><dl>
-<dt><code class="xref py py-type docutils literal notranslate"><span class="pre">UniformTuckerTensorTrain</span></code></dt><dd><div class="line-block">
-<div class="line">Supercores of a uniform Tucker tensor train with uniform ranks</div>
-<div class="line">(tucker_supercore, tt_supercore)</div>
-</div>
-</dd>
-</dl>
-</li>
-<li><dl>
-<dt><code class="xref py py-type docutils literal notranslate"><span class="pre">UniformT3Structure</span></code></dt><dd><div class="line-block">
-<div class="line">The structure of a uniform Tucker tensor train.</div>
-<div class="line">(num indices d, index size N, tucker rank nU, TT rank r)</div>
-</div>
-</dd>
-</dl>
-</li>
-<li><dl>
-<dt><code class="xref py py-type docutils literal notranslate"><span class="pre">UniformEdgeWeights</span></code></dt><dd><div class="line-block">
-<div class="line">Weights for the edges of a uniform Tucker tensor train</div>
-<div class="line">(tucker_weights, tt_weights)</div>
-</div>
-</dd>
-</dl>
-</li>
-<li><dl>
-<dt><code class="xref py py-type docutils literal notranslate"><span class="pre">UniformT3Base</span></code></dt><dd><div class="line-block">
-<div class="line">Base cores for Tucker tensor trains in base-variation format</div>
-<div class="line">(up_tucker_supercore, left_tt_supercore, right_tt_supercore, outer_tt_supercore)</div>
-</div>
-</dd>
-</dl>
-</li>
-<li><dl>
-<dt><code class="xref py py-type docutils literal notranslate"><span class="pre">UniformT3Variation</span></code></dt><dd><div class="line-block">
-<div class="line">Variation cores for Tucker tensor trains in base-variation format</div>
-<div class="line">(tucker_variations_supercore, tt_variations_supercore)</div>
-</div>
-</dd>
-</dl>
-</li>
-<li><dl>
-<dt><code class="xref py py-type docutils literal notranslate"><span class="pre">BVStructure</span></code></dt><dd><div class="line-block">
-<div class="line">The structure of a Tucker tensor train in base-variation format</div>
-<div class="line">(num indices d, index size N, up rank nU, outer rank nO, left rank rL, right rank rR)</div>
-</div>
-</dd>
-</dl>
-</li>
-<li><dl>
-<dt><code class="xref py py-type docutils literal notranslate"><span class="pre">UniformBVEdgeWeights</span></code></dt><dd><div class="line-block">
-<div class="line">Weights for the edges of a Tucker tensor train in base-variation format</div>
-<div class="line">(shape_weights, up_weights, outer_weights, left_weights, right_weights)</div>
-</div>
-</dd>
-</dl>
-</li>
-</ul>
+<p>Basic Tucker tensor trains with non-uniform (ragged) shape and ranks.</p>
 <section id="other">
-<h3>Other<a class="headerlink" href="#other" title="Link to this heading">#</a></h3>
+<h2>Other<a class="headerlink" href="#other" title="Link to this heading">#</a></h2>
 <p>Operations here are defined with respect to the dense N0 x … x N(d-1) tensors that
 are <em>represented</em> by the Tucker tensor train, even though these dense tensors
 are not formed during computations.</p>
 <p>For corewise backend, see <a class="reference internal" href="../corewise/index.html#module-t3toolbox.corewise" title="t3toolbox.corewise"><code class="xref py py-mod docutils literal notranslate"><span class="pre">t3toolbox.corewise</span></code></a></p>
-</section>
 </section>
 <section id="classes">
 <h2>Classes<a class="headerlink" href="#classes" title="Link to this heading">#</a></h2>
@@ -842,11 +720,7 @@ are not formed during computations.</p>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tucker-tensor-trains">Tucker tensor trains:</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#uniform-tucker-tensor-trains">Uniform Tucker tensor trains:</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#other">Other</a></li>
-</ul>
-</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#other">Other</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#classes">Classes</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#functions">Functions</a></li>
 </ul>
