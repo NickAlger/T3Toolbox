@@ -41,42 +41,47 @@ class TestTuckerTensorTrain(unittest.TestCase):
     def test_t3_validate(self):
         tucker_cores = [np.ones((2,3, 4,14)), np.ones((2,3, 5,15)), np.ones((2,3, 6,16))]
         tt_cores = [np.ones((2,3, 5,4,3)), np.ones((2,3, 3,5,2)), np.ones((2,3, 2,6,3))]
-        x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # Good. Don't raise error
+        t3.TuckerTensorTrain(tucker_cores, tt_cores)  # Good. Don't raise error
 
         with self.assertRaises(ValueError):
             tucker_cores = [np.ones((2,3, 4,14)), np.ones((2,3, 5,15))]
             tt_cores = [np.ones((2,3, 5,4,3)), np.ones((2,3, 3, 5,2)), np.ones((2,3, 2,6,3))]
-            x = t3.TuckerTensorTrain(tucker_cores, tt_cores) # Too few Tucker cores
+            t3.TuckerTensorTrain(tucker_cores, tt_cores) # Different number of Tucker and TT cores
+
+        with self.assertRaises(ValueError):
+            tucker_cores = ()
+            tt_cores = ()
+            t3.TuckerTensorTrain(tucker_cores, tt_cores) # Empty TuckerTensorTrain not supported
 
         with self.assertRaises(ValueError):
             tucker_cores = [np.ones((2,3, 4,14)), np.ones((2,3, 5,15)), np.ones((2,3, 6,16))]
             tt_cores = [np.ones((2,3, 5,4,3)), np.ones((2,3, 3,5,2))]
-            x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # Too few TT-cores
+            t3.TuckerTensorTrain(tucker_cores, tt_cores)  # Too few TT-cores
 
         with self.assertRaises(ValueError):
             tucker_cores = [np.ones((2,3, 14)), np.ones((2,3, 5,15)), np.ones((2,3, 6,16))]
             tt_cores = [np.ones((2,3, 5,4,3)), np.ones((2,3, 3,5,2)), np.ones((2,3, 2,6,3))]
-            x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # Tucker core is not a matrix
+            x =t3.TuckerTensorTrain(tucker_cores, tt_cores)  # Tucker core is not a matrix
 
         with self.assertRaises(ValueError):
             tucker_cores = [np.ones((2,3, 4,14)), np.ones((2,3, 5,15)), np.ones((2,3, 6,16))]
             tt_cores = [np.ones((2,3, 5,4,3)), np.ones((2,3, 3,5,2,1)), np.ones((2,3, 2,6,3))]
-            x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # TT-cores is not a 3-tensor
+            t3.TuckerTensorTrain(tucker_cores, tt_cores)  # TT-cores is not a 3-tensor
 
         with self.assertRaises(ValueError):
             tucker_cores = [np.ones((2,3, 4,14)), np.ones((2,3, 5,15)), np.ones((2,3, 6,16))]
             tt_cores = [np.ones((2,3, 5,4,6)), np.ones((2,3, 3,5,2)), np.ones((2,3, 2,6,3))]
-            x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # TT-ranks inconsistent with each other
+            t3.TuckerTensorTrain(tucker_cores, tt_cores)  # TT-ranks inconsistent with each other
 
         with self.assertRaises(ValueError):
             tucker_cores = [np.ones((2,3, 6,14)), np.ones((2,3, 5,15)), np.ones((2,3, 6,16))]
             tt_cores = [np.ones((2,3, 5,4,3)), np.ones((2,3, 3,5,2)), np.ones((2,3, 2,6,3))]
-            x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # TT and Tucker cores have inconsistent Tucker ranks
+            t3.TuckerTensorTrain(tucker_cores, tt_cores)  # TT and Tucker cores have inconsistent Tucker ranks
 
         with self.assertRaises(ValueError):
             tucker_cores = [np.ones((2,1, 4,14)), np.ones((2,3, 5,15)), np.ones((2,3, 6,16))]
             tt_cores = [np.ones((2,3, 5,4,3)), np.ones((2,3, 3,5,2)), np.ones((2,3, 2,6,3))]
-            x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # Inconsistent stack shapes
+            t3.TuckerTensorTrain(tucker_cores, tt_cores)  # Inconsistent stack shapes
 
     def test_structural_properties(self):
         #   (shape,             tucker_ranks,   tt_ranks,           stack_shape)
@@ -84,6 +89,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
             ((14, 15, 16),      (4, 5, 6),      (4, 5, 3, 2),       (2, 3)),
             ((14, 15, 16),      (4, 5, 6),      (1 ,2, 3, 1),       (2, 3)),
             ((14, 15, 16),      (4, 25, 6),     (4, 5, 3, 2),       (2, 3)),
+            ((),                (),             (4,),               (2, 3)), # empty edge of size 4
             ((14,),             (4,),           (4, 5),             (2, 3)),
             ((14, 15),          (4, 5),         (4, 5, 3),          (2, 3)),
             ((14, 15, 16, 17),  (4, 5, 6, 7),   (4, 5, 3, 2, 1),    (2, 3)),
@@ -93,6 +99,10 @@ class TestTuckerTensorTrain(unittest.TestCase):
             with self.subTest(STRUCTURE=STRUCTURE):
                 shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
                 tucker_cores, tt_cores = structure_to_cores(STRUCTURE)
+
+                print([x.shape for x in tucker_cores])
+                print([x.shape for x in tt_cores])
+
                 x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # random TuckerTensorTrain
 
                 self.assertEqual((tucker_cores, tt_cores), x.data)
@@ -190,6 +200,62 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                         self.assertEqual(x_dense.shape, x_dense2.shape)
                         self.check_relerr(x_dense,      x_dense2)
+
+    def test_segment(self):
+        tk = (randn(4,14), randn(5,15), randn(6,16), randn(7,17), randn(8,18), randn(9,19))
+        tt = (randn(2,4,3), randn(3,5,2), randn(2,6,2), randn(2,7,3), (randn(3,8,4)), (randn(4,9,1)))
+        x = t3.TuckerTensorTrain(tk[:3], tt[:3])
+        y = t3.TuckerTensorTrain(tk[3:4], tt[3:4])
+        z = t3.TuckerTensorTrain(tk[4:], tt[4:])
+
+        xyz = t3.TuckerTensorTrain(tk, tt)
+
+        x2 = xyz.segment(0,3)
+        self.assertLessEqual(cw.corewise_relerr(x.data, x2.data), tol * cw.corewise_norm(x.data))
+
+        x3 = xyz.segment(None,3)
+        self.assertLessEqual(cw.corewise_relerr(x.data, x3.data), tol * cw.corewise_norm(x.data))
+
+        #
+
+        y2 = xyz.segment(3, 4)
+        self.assertLessEqual(cw.corewise_relerr(y.data, y2.data), tol * cw.corewise_norm(y.data))
+
+        y3 = xyz.segment(3, -2)
+        self.assertLessEqual(cw.corewise_relerr(y.data, y3.data), tol * cw.corewise_norm(y.data))
+
+        y4 = xyz.segment(-3, 4)
+        self.assertLessEqual(cw.corewise_relerr(y.data, y4.data), tol * cw.corewise_norm(y.data))
+
+        y5 = xyz.segment(-3, -2)
+        self.assertLessEqual(cw.corewise_relerr(y.data, y5.data), tol * cw.corewise_norm(y.data))
+
+        #
+
+        z2 = xyz.segment(4, 6)
+        self.assertLessEqual(cw.corewise_relerr(z.data, z2.data), tol * cw.corewise_norm(z.data))
+
+        z3 = xyz.segment(4, None)
+        self.assertLessEqual(cw.corewise_relerr(z.data, z3.data), tol * cw.corewise_norm(z.data))
+
+
+    def test_concatenate(self):
+        tk = (randn(4,14), randn(5,15), randn(6,16), randn(7,17), randn(8,18), randn(9,19))
+        tt = (randn(2,4,3), randn(3,5,2), randn(2,6,2), randn(2,7,3), (randn(3,8,4)), (randn(4,9,1)))
+        x = t3.TuckerTensorTrain(tk[:3], tt[:3])
+        y = t3.TuckerTensorTrain(tk[3:4], tt[3:4])
+        z = t3.TuckerTensorTrain(tk[4:], tt[4:])
+
+        x2 = t3.TuckerTensorTrain.concatenate([x])
+        self.assertLessEqual(cw.corewise_relerr(x.data, x2.data), tol * cw.corewise_norm(x.data))
+
+        xy = t3.TuckerTensorTrain(tk[:4], tt[:4])
+        xy2 = t3.TuckerTensorTrain.concatenate([x, y])
+        self.assertLessEqual(cw.corewise_relerr(xy.data, xy2.data), tol * cw.corewise_norm(xy.data))
+
+        xyz = t3.TuckerTensorTrain(tk, tt)
+        xyz2 = t3.TuckerTensorTrain.concatenate([x, y, z])
+        self.assertLessEqual(cw.corewise_relerr(xyz.data, xyz2.data), tol * cw.corewise_norm(xyz.data))
 
     def test_squash_tails(self):
         structures = [

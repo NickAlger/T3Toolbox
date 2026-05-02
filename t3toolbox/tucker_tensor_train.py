@@ -268,6 +268,12 @@ class TuckerTensorTrain:
                 + str(len(self.tucker_cores)) + ' = len(tucker_cores) != len(tt_cores) = ' + str(len(self.tt_cores))
             )
 
+        if len(self.tucker_cores) < 1:
+            raise ValueError(
+                'Empty TuckerTensorTrain not supported.\n'
+                + str(len(self.tucker_cores)) + ' = len(tucker_cores)'
+            )
+
         for ii, G in enumerate(self.tt_cores):
             if len(G.shape) < 3:
                 raise ValueError(
@@ -390,6 +396,89 @@ class TuckerTensorTrain:
         return ragged_operations.to_dense(
             self.data, squash_tails=squash_tails, use_jax=use_jax,
         )
+
+    def segment(self, start: int, stop: int) -> 'TuckerTensorTrain':
+        """Extract contiguous segment of TuckerTensorTrain. Requires stop > start.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> randn = np.random.randn
+        >>> tucker_cores = (randn(4,14), randn(5,15), randn(6,16), randn(7,17))
+        >>> tt_cores = (randn(2,4,3), randn(3,5,2), randn(2,6,2), randn(2,7,4))
+        >>> x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
+        >>> x01 = x.segment(1,3)
+        >>> print(x01.core_shapes)
+        (((5, 15), (6, 16)), ((3, 5, 2), (2, 6, 2)))
+        """
+        if start is None:
+            start = 0
+
+        if stop is None:
+            stop = self.d
+
+        if start < 0:
+            start = self.d + start
+
+        if stop < 0:
+            stop = self.d + stop
+
+        if stop <= start:
+            raise ValueError(
+                "Attempted to extract segment with length < 1.\n"
+                + str(start) + ' = start >= stop = ' + str(stop)
+            )
+
+        return TuckerTensorTrain(
+            self.tucker_cores[start:stop],
+            self.tt_cores[start:stop],
+        )
+
+    @staticmethod
+    def concatenate(
+            xx: typ.Sequence['TuckerTensorTrain'],
+    ) -> 'TuckerTensorTrain':
+        """Concatenates TuckerTensorTrains.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> randn = np.random.randn
+        >>> tk = (randn(4,14), randn(5,15), randn(6,16), randn(7,17), randn(8,18), randn(9,19))
+        >>> tt = (randn(2,4,3), randn(3,5,2), randn(2,6,2), randn(2,7,3), (randn(3,8,4)), (randn(4,9,1)))
+        >>> x = t3.TuckerTensorTrain(tk[:3], tt[:3])
+        >>> y = t3.TuckerTensorTrain(tk[3:4], tt[3:4])
+        >>> z = t3.TuckerTensorTrain(tk[4:], tt[4:])
+        >>> xyz = t3.TuckerTensorTrain.concatenate([x, y, z])
+        >>> xyz2 = t3.TuckerTensorTrain(tk, tt)
+        >>> print((xyz-xyz2).norm() / xyz.norm())
+        1.959150523916366e-15
+        """
+        if len(xx) < 1:
+            raise ValueError(
+                'Empty TuckerTensorTrain not supported.\n'
+                + str(len(xx)) + ' = len(xx)'
+            )
+        elif len(xx) == 1:
+            return xx[0]
+        elif len(xx) == 2:
+            x, y = xx[0], xx[1]
+            if x.tt_ranks[-1] != y.tt_ranks[0]:
+                raise ValueError(
+                    'First and last TT-ranks inconsistent for concatenation.\n'
+                    + str(x.tt_ranks[-1]) + ' = x.tt_ranks[-1] != y.tt_ranks[0] = ' + str(y.tt_ranks[0])
+                )
+
+            return TuckerTensorTrain(
+                x.tucker_cores + y.tucker_cores,
+                x.tt_cores + y.tt_cores
+            )
+        else:
+            return TuckerTensorTrain.concatenate(
+                [TuckerTensorTrain.concatenate(xx[:2])] + xx[2:]
+            )
 
     def squash_tails(
             self,
