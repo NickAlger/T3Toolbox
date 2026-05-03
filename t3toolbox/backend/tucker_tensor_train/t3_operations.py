@@ -246,14 +246,14 @@ def t3_from_vector(
     start = 0
     tucker_cores = []
     for B_shape in tucker_core_shapes:
-        stop = start + np.prod(B_shape, dtype=int)
+        stop = start + math.prod(B_shape)
         B = x_flat[start:stop].copy().reshape(B_shape)
         tucker_cores.append(B)
         start = stop
 
     tt_cores = []
     for G_shape in tt_core_shapes:
-        stop = start + np.prod(G_shape, dtype=int)
+        stop = start + math.prod(G_shape)
         B = x_flat[start:stop].copy().reshape(G_shape)
         tt_cores.append(B)
         start = stop

@@ -638,17 +638,43 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                     # Unclear how to check that the entries are indeed random...
 
+    def test_to_vector_and_from_vector(self):
+        structures = [
+            ((14,), (4,), (4, 5), (2, 3)),
+            ((14, 15), (4, 5), (4, 5, 4), (2, 3)),
+            ((14, 15, 16, 17), (4, 5, 6, 7), (4, 5, 4, 3, 2), (2, 3)),
+            ((14, 15, 16), (4, 5, 6), (4, 5, 4, 3), ()),
+        ]
 
+        for STRUCTURE in structures:
+            with self.subTest(STRUCTURE=STRUCTURE):
+                shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
+                x = t3.TuckerTensorTrain.corewise_randn(
+                    shape, tucker_ranks, tt_ranks, stack_shape=stack_shape,
+                )
+
+                x_flat = x.to_vector()
+                self.assertEqual(1, len(x_flat.shape))
+
+                x2 = t3.TuckerTensorTrain.from_vector(x_flat, x.shape, x.tucker_ranks, x.tt_ranks, stack_shape=x.stack_shape)
+
+                self.assertLessEqual(
+                    cw.corewise_norm(cw.corewise_sub(x.data, x2.data)),
+                    tol * cw.corewise_norm(x.data)
+                )
 
     def test_t3_save_and_t3_load(self):
         structures = [
-            ((14, 15, 16), (4, 5, 6), (2, 3, 2, 1)),
+            ((14,), (4,), (4, 5), (2, 3)),
+            ((14, 15), (4, 5), (4, 5, 4), (2, 3)),
+            ((14, 15, 16, 17), (4, 5, 6, 7), (4, 5, 4, 3, 2), (2, 3)),
+            ((14, 15, 16), (4, 5, 6), (4, 5, 4, 3), ()),
         ]
 
         for STRUCTURE in structures:
             for USE_JAX in [True, False]:
                 with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
-                    x = t3.t3_corewise_randn(STRUCTURE, use_jax=USE_JAX)
+                    x = t3.TuckerTensorTrain.corewise_randn(*STRUCTURE, use_jax=USE_JAX)
 
                     fname0 = 't3_saveload_test_file'
                     fname = fname0 + '.npz'
@@ -662,19 +688,22 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         if not success:
                             raise RuntimeError('No available filenames to save to.')
 
-                    t3.t3_save(fname, x)  # Save to file
-                    x2 = t3.t3_load(fname, use_jax=USE_JAX)  # Load from file
+                    x.save(fname)  # Save to file
+                    x2 = t3.TuckerTensorTrain.load(fname, use_jax=USE_JAX)  # Load from file
 
                     os.remove(fname)
 
-                    tucker_cores, tt_cores = x
-                    tucker_cores2, tt_cores2 = x2
+                    tucker_cores, tt_cores = x.data
+                    tucker_cores2, tt_cores2 = x2.data
 
                     for B, B2 in zip(tucker_cores, tucker_cores2):
                         self.check_relerr(B, B2)
 
                     for G, G2 in zip(tt_cores, tt_cores2):
                         self.check_relerr(G, G2)
+
+
+
 
     def test_t3_apply1(self):
         structures = [
@@ -684,7 +713,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         for STRUCTURE in structures:
             for USE_JAX in [True, False]:
                 with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
-                    x = t3.t3_corewise_randn(STRUCTURE)
+                    x = t3.TuckerTensorTrain.corewise_randn(STRUCTURE)
 
                     SHAPE = STRUCTURE[0]
                     vecs = [np.random.randn(SHAPE[0]),

@@ -832,7 +832,134 @@ class TuckerTensorTrain:
         ))
 
 
+    ##########################################################
+    ##########    Saving to and loading from file   ##########
+    ##########################################################
 
+    def save(
+            self,
+            file,
+    ) -> None:
+        """Save a Tucker tensor train to a file.
+
+        Parameters
+        ----------
+        file:  str or file
+            Either the filename (string) or an open file (file-like object)
+            where the data will be saved. If file is a string or a Path, the
+            ``.npz`` extension will be appended to the filename if it is not
+            already there.
+        x: TuckerTensorTrain
+            The Tucker tensor train to save
+
+        Raises
+        ------
+        ValueError
+            Error raised if the Tucker tensor train is inconsistent
+        RuntimeError
+            Error raised if the Tucker tensor train fails to save.
+
+        See Also
+        --------
+        TuckerTensorTrain
+        t3_load
+        check_t3
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> fname = 't3_file'
+        >>> t3.t3_save(fname, x) # Save to file 't3_file.npz'
+        >>> x2 = t3.t3_load(fname) # Load from file
+        >>> tucker_cores, tt_cores = x.data
+        >>> tucker_cores2, tt_cores2 = x2.data
+        >>> print([np.linalg.norm(B - B2) for B, B2 in zip(tucker_cores, tucker_cores2)])
+        [0.0, 0.0, 0.0]
+        >>> print([np.linalg.norm(G - G2) for G, G2 in zip(tt_cores, tt_cores2)])
+        [0.0, 0.0, 0.0]
+        """
+        tucker_cores, tt_cores = self.data
+        cores_dict = {'tucker_cores_' + str(ii): tucker_cores[ii] for ii in range(len(tucker_cores))}
+        cores_dict.update({'tt_cores_' + str(ii): tt_cores[ii] for ii in range(len(tt_cores))})
+
+        try:
+            np.savez(file, **cores_dict)
+        except RuntimeError:
+            print('Failed to save TuckerTensorTrain to file')
+
+    @staticmethod
+    def load(
+            file,
+            use_jax: bool = False,
+    ) -> 'TuckerTensorTrain':
+        """Load a Tucker tensor train from a file.
+
+        Parameters
+        ----------
+        file:  str or file
+            Either the filename (string) or an open file (file-like object)
+            where the data will be saved. If file is a string or a Path, the
+            ``.npz`` extension will be appended to the filename if it is not
+            already there.
+        xnp:
+            Linear algebra backend. Default: np (numpy)
+
+        Returns
+        -------
+        TuckerTensorTrain
+            Tucker tensor train loaded from the file
+
+        Raises
+        ------
+        RuntimeError
+            Error raised if the Tucker tensor train fails to load.
+        ValueError
+            Error raised if the Tucker tensor train fails is inconsistent.
+
+        See Also
+        --------
+        TuckerTensorTrain
+        t3_save
+        check_t3
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> fname = 't3_file'
+        >>> t3.t3_save(fname, x) # Save to file 't3_file.npz'
+        >>> x2 = t3.t3_load(fname) # Load from file
+        >>> tucker_cores, tt_cores = x.data
+        >>> tucker_cores2, tt_cores2 = x2.data
+        >>> print([np.linalg.norm(B - B2) for B, B2 in zip(tucker_cores, tucker_cores2)])
+        [0.0, 0.0, 0.0]
+        >>> print([np.linalg.norm(G - G2) for G, G2 in zip(tt_cores, tt_cores2)])
+        [0.0, 0.0, 0.0]
+        """
+        xnp, _, _ = get_backend(False, use_jax)
+
+        #
+        if isinstance(file, str):
+            if not file.endswith('.npz'):
+                file = file + '.npz'
+
+        try:
+            d = np.load(file)
+        except RuntimeError:
+            print('Failed to load TuckerTensorTrain from file')
+
+        assert (len(d.files) % 2 == 0)
+        num_cores = len(d.files) // 2
+        tucker_cores = [d['tucker_cores_' + str(ii)] for ii in range(num_cores)]
+        tt_cores = [d['tt_cores_' + str(ii)] for ii in range(num_cores)]
+
+        tucker_cores = [xnp.array(B) for B in tucker_cores]  # in case we are using jax or some other linalg backend
+        tt_cores = [xnp.array(G) for G in tt_cores]
+
+        return TuckerTensorTrain(tuple(tucker_cores), tuple(tt_cores))
 
     ##########################################
     ##########    Linear Algebra    ##########
@@ -1898,132 +2025,6 @@ def compute_minimal_t3_ranks(
     return ranks.compute_minimal_ranks(shape, tucker_ranks, tt_ranks)
 
 #
-
-def t3_save(
-        file,
-        x: TuckerTensorTrain,
-) -> None:
-    """Save a Tucker tensor train to a file.
-
-    Parameters
-    ----------
-    file:  str or file
-        Either the filename (string) or an open file (file-like object)
-        where the data will be saved. If file is a string or a Path, the
-        ``.npz`` extension will be appended to the filename if it is not
-        already there.
-    x: TuckerTensorTrain
-        The Tucker tensor train to save
-
-    Raises
-    ------
-    ValueError
-        Error raised if the Tucker tensor train is inconsistent
-    RuntimeError
-        Error raised if the Tucker tensor train fails to save.
-
-    See Also
-    --------
-    TuckerTensorTrain
-    t3_load
-    check_t3
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-    >>> fname = 't3_file'
-    >>> t3.t3_save(fname, x) # Save to file 't3_file.npz'
-    >>> x2 = t3.t3_load(fname) # Load from file
-    >>> tucker_cores, tt_cores = x.data
-    >>> tucker_cores2, tt_cores2 = x2.data
-    >>> print([np.linalg.norm(B - B2) for B, B2 in zip(tucker_cores, tucker_cores2)])
-    [0.0, 0.0, 0.0]
-    >>> print([np.linalg.norm(G - G2) for G, G2 in zip(tt_cores, tt_cores2)])
-    [0.0, 0.0, 0.0]
-    """
-    tucker_cores, tt_cores = x.data
-    cores_dict = {'tucker_cores_'+str(ii): tucker_cores[ii] for ii in range(len(tucker_cores))}
-    cores_dict.update({'tt_cores_'+str(ii): tt_cores[ii] for ii in range(len(tt_cores))})
-
-    try:
-        np.savez(file, **cores_dict)
-    except RuntimeError:
-        print('Failed to save TuckerTensorTrain to file')
-
-
-def t3_load(
-        file,
-        use_jax: bool = False,
-) -> TuckerTensorTrain:
-    """Load a Tucker tensor train from a file.
-
-    Parameters
-    ----------
-    file:  str or file
-        Either the filename (string) or an open file (file-like object)
-        where the data will be saved. If file is a string or a Path, the
-        ``.npz`` extension will be appended to the filename if it is not
-        already there.
-    xnp:
-        Linear algebra backend. Default: np (numpy)
-
-    Returns
-    -------
-    TuckerTensorTrain
-        Tucker tensor train loaded from the file
-
-    Raises
-    ------
-    RuntimeError
-        Error raised if the Tucker tensor train fails to load.
-    ValueError
-        Error raised if the Tucker tensor train fails is inconsistent.
-
-    See Also
-    --------
-    TuckerTensorTrain
-    t3_save
-    check_t3
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-    >>> fname = 't3_file'
-    >>> t3.t3_save(fname, x) # Save to file 't3_file.npz'
-    >>> x2 = t3.t3_load(fname) # Load from file
-    >>> tucker_cores, tt_cores = x.data
-    >>> tucker_cores2, tt_cores2 = x2.data
-    >>> print([np.linalg.norm(B - B2) for B, B2 in zip(tucker_cores, tucker_cores2)])
-    [0.0, 0.0, 0.0]
-    >>> print([np.linalg.norm(G - G2) for G, G2 in zip(tt_cores, tt_cores2)])
-    [0.0, 0.0, 0.0]
-    """
-    xnp, _, _ = get_backend(False, use_jax)
-
-    #
-    if isinstance(file, str):
-        if not file.endswith('.npz'):
-            file = file + '.npz'
-
-    try:
-        d = np.load(file)
-    except RuntimeError:
-        print('Failed to load TuckerTensorTrain from file')
-
-    assert (len(d.files) % 2 == 0)
-    num_cores = len(d.files) // 2
-    tucker_cores = [d['tucker_cores_' + str(ii)] for ii in range(num_cores)]
-    tt_cores = [d['tt_cores_' + str(ii)] for ii in range(num_cores)]
-
-    tucker_cores = [xnp.array(B) for B in tucker_cores] # in case we are using jax or some other linalg backend
-    tt_cores = [xnp.array(G) for G in tt_cores]
-
-    return TuckerTensorTrain(tuple(tucker_cores), tuple(tt_cores))
-
 
 
 ###########################################################################
