@@ -6,6 +6,7 @@ import numpy as np
 import typing as typ
 import math
 
+import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.stacking as stacking
 from t3toolbox.backend.common import *
 
@@ -84,7 +85,7 @@ def reverse_tt(
 ) -> typ.Tuple[NDArray,...]:
     """Reverse a tensor train (no Tucker).
     """
-    return tuple([G.swapaxes(-3, -1) for G in tt_cores[::-1]])
+    return tuple(G.swapaxes(-3, -1) for G in tt_cores[::-1])
 
 
 def change_tucker_core_shapes(
@@ -93,7 +94,7 @@ def change_tucker_core_shapes(
         new_tucker_ranks: typ.Sequence[int], # len=d
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]:
-    """Increase Tucker and/or TT ranks for TT cores using zero padding.
+    """Increase/decrease Tucker and/or TT ranks for TT cores using zero padding/truncation.
     """
     xnp, _, _ = get_backend(False, use_jax)
 
@@ -113,7 +114,8 @@ def change_tucker_core_shapes(
             (0,delta_tucker_ranks[ii]),
             (0,delta_shape[ii]),
         )
-        new_B = xnp.pad(tucker_cores[ii], pad)
+        # new_B = xnp.pad(tucker_cores[ii], pad)
+        new_B = linalg.pad_or_truncate(tucker_cores[ii], pad)
         new_tucker_cores.append(new_B)
 
     return tuple(new_tucker_cores)
@@ -125,7 +127,7 @@ def change_tt_core_shapes(
         new_tt_ranks: typ.Sequence[int], # len=d+1
         use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]:
-    """Increase Tucker and/or TT ranks for TT cores using zero padding.
+    """Increase/decrease Tucker and/or TT ranks for TT cores using zero padding/truncation.
     """
     xnp, _, _ = get_backend(False, use_jax)
 
@@ -146,7 +148,8 @@ def change_tt_core_shapes(
             (0,delta_tucker_ranks[ii]),
             (0,delta_tt_ranks[ii+1]),
         )
-        new_G = xnp.pad(tt_cores[ii], pad)
+        # new_G = xnp.pad(tt_cores[ii], pad)
+        new_G = linalg.pad_or_truncate(tt_cores[ii], pad)
         new_tt_cores.append(new_G)
 
     return tuple(new_tt_cores)

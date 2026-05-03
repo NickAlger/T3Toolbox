@@ -296,12 +296,166 @@ class TestTuckerTensorTrain(unittest.TestCase):
                 reversed_x = x.reverse()
 
                 reversed_structure = (shape[::-1], tucker_ranks[::-1], tt_ranks[::-1], stack_shape)
-                self.assertEqual(reversed_structure, x.structure)
+                self.assertEqual(reversed_structure, reversed_x.structure)
 
                 x_dense = x.to_dense()
                 reversed_x_dense = reversed_x.to_dense()
-                x_dense2 = reversed_x_dense.transpose(list(range(len(shape)))[::-1])
+
+                nss = len(stack_shape)
+                transpose_inds = tuple(range(nss)) + tuple(range(nss, nss+len(shape)))[::-1]
+
+                x_dense2 = reversed_x_dense.transpose(transpose_inds)
                 self.check_relerr(x_dense, x_dense2)
+
+    def test_resize_cores(self):
+        structures = [
+            ((14,),             (4,),           (4, 5),             (2, 3)),
+            ((14, 15),          (4, 5),         (4, 5, 4),          (2, 3)),
+            ((14, 15, 16, 17),  (4, 5, 6, 7),   (4, 5, 4, 3, 2),    (2, 3)),
+            ((14, 15, 16),      (4, 5, 6),      (4, 5, 4, 3),       ()),
+        ]
+
+        for STRUCTURE in structures:
+            for USE_JAX in [True, False]:
+                shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
+                tucker_cores, tt_cores = structure_to_cores(STRUCTURE)
+                x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
+                dense_x = x.to_dense()
+
+                with self.subTest(STRUCTURE=STRUCTURE, USE_JAX=USE_JAX, OP='DO_NOTHING'):
+                    x2 = x.resize_cores(shape, tucker_ranks, tt_ranks, use_jax=USE_JAX)
+                    self.check_relerr(dense_x, x2.to_dense())
+
+                with self.subTest(STRUCTURE=STRUCTURE, USE_JAX=USE_JAX, OP='INCREASE_SHAPE'):
+                    new_shape = tuple(s + 3 for s in shape)
+                    x2 = x.resize_cores(new_shape, tucker_ranks, tt_ranks, use_jax=USE_JAX)
+                    self.assertEqual(new_shape, x2.shape)
+                    self.assertEqual(tucker_ranks, x2.tucker_ranks)
+                    self.assertEqual(tt_ranks, x2.tt_ranks)
+                    self.assertEqual(stack_shape, x2.stack_shape)
+
+                    dense_x2 = x2.to_dense()
+
+                    pad = [(0,0) for _ in range(len(stack_shape))]
+                    pad = pad + [(0, ns - s) for ns, s in zip(new_shape, shape)]
+                    padded_dense_x = np.pad(dense_x, pad)
+                    self.check_relerr(padded_dense_x, dense_x2)
+
+                with self.subTest(STRUCTURE=STRUCTURE, USE_JAX=USE_JAX, OP='INCREASE_TUCKER_RANKS'):
+                    new_tucker_ranks = tuple(r + 3 for r in tucker_ranks)
+                    x2 = x.resize_cores(shape, new_tucker_ranks, tt_ranks, use_jax=USE_JAX)
+                    self.assertEqual(shape, x2.shape)
+                    self.assertEqual(new_tucker_ranks, x2.tucker_ranks)
+                    self.assertEqual(tt_ranks, x2.tt_ranks)
+                    self.assertEqual(stack_shape, x2.stack_shape)
+
+                    dense_x2 = x2.to_dense()
+                    self.check_relerr(dense_x, dense_x2)
+
+                with self.subTest(STRUCTURE=STRUCTURE, USE_JAX=USE_JAX, OP='INCREASE_TT_RANKS'):
+                    new_tt_ranks = tuple(n + 3 for n in tt_ranks)
+                    x2 = x.resize_cores(shape, tucker_ranks, new_tt_ranks, use_jax=USE_JAX)
+                    self.assertEqual(shape, x2.shape)
+                    self.assertEqual(tucker_ranks, x2.tucker_ranks)
+                    self.assertEqual(new_tt_ranks, x2.tt_ranks)
+                    self.assertEqual(stack_shape, x2.stack_shape)
+
+                    dense_x2 = x2.to_dense()
+                    self.check_relerr(dense_x, dense_x2)
+
+                with self.subTest(STRUCTURE=STRUCTURE, USE_JAX=USE_JAX, OP='TRUNCATE_SHAPE'):
+                    new_shape = tuple(s - 1 for s in shape)
+                    x2 = x.resize_cores(new_shape, tucker_ranks, tt_ranks, use_jax=USE_JAX)
+                    self.assertEqual(new_shape, x2.shape)
+                    self.assertEqual(tucker_ranks, x2.tucker_ranks)
+                    self.assertEqual(tt_ranks, x2.tt_ranks)
+                    self.assertEqual(stack_shape, x2.stack_shape)
+
+                    for B, B2, N in zip(x.tucker_cores, x2.tucker_cores, new_shape):
+                        B = np.moveaxis(np.moveaxis(B, -1,0)[:N], 0, -1)
+                        self.check_relerr(B, B2)
+
+                with self.subTest(STRUCTURE=STRUCTURE, USE_JAX=USE_JAX, OP='TRUNCATE_TUCKER_RANKS'):
+                    new_tucker_ranks = tuple(n - 1 for n in tucker_ranks)
+                    x2 = x.resize_cores(shape, new_tucker_ranks, tt_ranks, use_jax=USE_JAX)
+                    self.assertEqual(shape, x2.shape)
+                    self.assertEqual(new_tucker_ranks, x2.tucker_ranks)
+                    self.assertEqual(tt_ranks, x2.tt_ranks)
+                    self.assertEqual(stack_shape, x2.stack_shape)
+
+                    for B, B2, n in zip(x.tucker_cores, x2.tucker_cores, new_tucker_ranks):
+                        B = np.moveaxis(np.moveaxis(B, -2,0)[:n], 0, -2)
+                        self.check_relerr(B, B2)
+
+                    for G, G2, n in zip(x.tt_cores, x2.tt_cores, new_tucker_ranks):
+                        G = np.moveaxis(np.moveaxis(G, -2,0)[:n], 0, -2)
+                        self.check_relerr(G, G2)
+
+                with self.subTest(STRUCTURE=STRUCTURE, USE_JAX=USE_JAX, OP='TRUNCATE_TT_RANKS'):
+                    new_tt_ranks = tuple(r - 1 for r in tt_ranks)
+                    x2 = x.resize_cores(shape, tucker_ranks, new_tt_ranks, use_jax=USE_JAX)
+                    self.assertEqual(shape, x2.shape)
+                    self.assertEqual(tucker_ranks, x2.tucker_ranks)
+                    self.assertEqual(new_tt_ranks, x2.tt_ranks)
+                    self.assertEqual(stack_shape, x2.stack_shape)
+
+                    for G, G2, rL, rR in zip(x.tt_cores, x2.tt_cores, new_tt_ranks[:-1], new_tt_ranks[1:]):
+                        G = np.moveaxis(np.moveaxis(G, (-3,-1), (0,1))[:rL,:rR], (0,1), (-3,-1))
+                        self.check_relerr(G, G2)
+
+        with self.subTest(OP='GENERIC_RESIZE'):
+            shape = (14, 15, 16, 17)
+            tucker_ranks = (4, 5, 6, 7)
+            tt_ranks = (4, 5, 4, 3, 2)
+            stack_shape = (2, 3)
+            delta_shape = (2, -3, 0, 1)
+            delta_tucker_ranks = (1,0,-4,-1)
+            delta_tt_ranks = (3, -3, 3, -3, 0)
+            new_shape = tuple(s+ds for s, ds in zip(shape, delta_shape))
+            new_tucker_ranks = tuple(n + dn for n, dn in zip(tucker_ranks, delta_tucker_ranks))
+            new_tt_ranks = tuple(r + dr for r, dr in zip(tt_ranks, delta_tt_ranks))
+
+            tucker_cores, tt_cores = structure_to_cores((shape, tucker_ranks, tt_ranks, stack_shape))
+            x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
+
+            x2 = x.resize_cores(new_shape, new_tucker_ranks, new_tt_ranks)
+            self.assertEqual(new_shape, x2.shape)
+            self.assertEqual(new_tucker_ranks, x2.tucker_ranks)
+            self.assertEqual(new_tt_ranks, x2.tt_ranks)
+            self.assertEqual(stack_shape, x2.stack_shape)
+
+            for B, B2, N, n, N2, n2 in zip(
+                    x.tucker_cores, x2.tucker_cores,
+                    shape, tucker_ranks,
+                    new_shape, new_tucker_ranks,
+            ):
+                N_small = min(N, N2)
+                n_small = min(n, n2)
+                self.check_relerr(B[:,:,:n_small,:N_small], B2[:,:,:n_small,:N_small])
+                self.assertLessEqual(np.linalg.norm(B2[:, :, n_small:, :]), tol)
+                self.assertLessEqual(np.linalg.norm(B2[:, :, :, N_small:]), tol)
+
+            for G, G2, rL, n, rR, rL2, n2, rR2 in zip(
+                    x.tt_cores, x2.tt_cores,
+                    tt_ranks[:-1], tucker_ranks, tt_ranks[1:],
+                    new_tt_ranks[:-1], new_tucker_ranks, new_tt_ranks[1:],
+            ):
+                rL_small = min(rL, rL2)
+                n_small = min(n, n2)
+                rR_small = min(rR, rR2)
+                self.check_relerr(G[:,:, :rL_small,:n_small,:rR_small], G2[:,:, :rL_small,:n_small,:rR_small])
+                self.assertLessEqual(np.linalg.norm(G2[:,:, rL_small:,:,:]), tol)
+                self.assertLessEqual(np.linalg.norm(G2[:,:, :,n_small:,:]), tol)
+                self.assertLessEqual(np.linalg.norm(G2[:,:, :,:,rR_small:]), tol)
+
+
+
+
+
+
+
+
+
 
     def test_t3_zeros(self):
         structures = [

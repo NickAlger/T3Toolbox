@@ -572,21 +572,21 @@ class TuckerTensorTrain:
         reversed_tt_cores = ragged_operations.reverse_tt(self.tt_cores)
         return TuckerTensorTrain(reversed_tucker_cores, reversed_tt_cores)
 
-    def change_structure(
+    def resize_cores(
             self,
             new_shape: typ.Sequence[int], # len=d
             new_tucker_ranks: typ.Sequence[int], # len=d
             new_tt_ranks: typ.Sequence[int], # len=d+1
             use_jax: bool = False,
     ) -> 'TuckerTensorTrain':
-        '''Increase Tucker tensor train ranks and/or shape via zero padding.
+        '''Change cores shapes via zero padding to make cores bigger or truncation to make cores smaller.
 
         Examples
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (1,3,2,1))
-        >>> padded_x = x.change_structure((17,18,17), (8,8,8), (1,5,6,1))
+        >>> padded_x = x.resize_cores((17,18,17), (8,8,8), (1,5,6,1))
         >>> print(padded_x.uniform_structure)
         ((17, 18, 17), (8, 8, 8), (1, 5, 6, 1), ())
 
@@ -595,7 +595,7 @@ class TuckerTensorTrain:
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (3,3,2,4))
-        >>> padded_x = x.change_structure((17,18,17), (8,8,8), (5,5,6,7))
+        >>> padded_x = x.resize_cores((17,18,17), (8,8,8), (5,5,6,7))
         >>> print(padded_x.uniform_structure)
         ((17, 18, 17), (8, 8, 8), (5, 5, 6, 7), ())
         '''

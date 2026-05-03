@@ -8,11 +8,40 @@ import numpy as np
 from t3toolbox.backend.common import *
 
 __all__ = [
+    'pad_or_truncate',
     'truncated_svd',
     'left_svd_3tensor',
     'right_svd_3tensor',
     'outer_svd_3tensor',
 ]
+
+
+def pad_or_truncate(
+        array,
+        pad_width,
+        mode='constant',
+        use_jax: bool = False,
+        **kwargs
+):
+    xnp, _, _ = get_backend(False, use_jax)
+
+    ndim = array.ndim
+
+    slices = []
+    pad = []
+
+    for ii in range(ndim):
+        before, after = pad_width[ii]
+
+        start = max(0, -before)
+        end = array.shape[ii] - max(0, -after)
+        slices.append(slice(start, max(start, end)))
+
+        pad.append((max(0, before), max(0, after)))
+
+    sliced_A = array[tuple(slices)]
+
+    return xnp.pad(sliced_A, pad, mode=mode, **kwargs)
 
 
 ######################################
