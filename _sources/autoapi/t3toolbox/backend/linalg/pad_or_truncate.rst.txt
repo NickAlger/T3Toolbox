@@ -1,0 +1,4 @@
+t3toolbox.backend.linalg.pad_or_truncate
+========================================
+
+.. py:function:: t3toolbox.backend.linalg.pad_or_truncate(array, pad_width, mode='constant', use_jax: bool = False, **kwargs)

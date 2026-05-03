@@ -47,7 +47,7 @@
     <link rel="icon" href="../../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="t3toolbox.backend.linalg.truncated_svd" href="truncated_svd.html" />
+    <link rel="next" title="t3toolbox.backend.linalg.pad_or_truncate" href="pad_or_truncate.html" />
     <link rel="prev" title="t3toolbox.backend.entries.get_tucker_tensor_train_entries" href="../entries/get_tucker_tensor_train_entries.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -327,6 +327,7 @@
 </ul>
 </details></li>
 <li class="toctree-l3 current active has-children"><a class="current reference internal" href="#">t3toolbox.backend.linalg</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="pad_or_truncate.html">t3toolbox.backend.linalg.pad_or_truncate</a></li>
 <li class="toctree-l4"><a class="reference internal" href="truncated_svd.html">t3toolbox.backend.linalg.truncated_svd</a></li>
 <li class="toctree-l4"><a class="reference internal" href="left_svd_3tensor.html">t3toolbox.backend.linalg.left_svd_3tensor</a></li>
 <li class="toctree-l4"><a class="reference internal" href="right_svd_3tensor.html">t3toolbox.backend.linalg.right_svd_3tensor</a></li>
@@ -601,16 +602,19 @@
 </div>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="truncated_svd.html#t3toolbox.backend.linalg.truncated_svd" title="t3toolbox.backend.linalg.truncated_svd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">truncated_svd</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="pad_or_truncate.html#t3toolbox.backend.linalg.pad_or_truncate" title="t3toolbox.backend.linalg.pad_or_truncate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pad_or_truncate</span></code></a>(array, pad_width[, mode, use_jax])</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="truncated_svd.html#t3toolbox.backend.linalg.truncated_svd" title="t3toolbox.backend.linalg.truncated_svd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">truncated_svd</span></code></a>(...)</p></td>
 <td><p>Compute (truncated) singular value decomposition of matrix.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="left_svd_3tensor.html#t3toolbox.backend.linalg.left_svd_3tensor" title="t3toolbox.backend.linalg.left_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_3tensor</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="left_svd_3tensor.html#t3toolbox.backend.linalg.left_svd_3tensor" title="t3toolbox.backend.linalg.left_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_3tensor</span></code></a>(...)</p></td>
 <td><p>Compute (truncated) singular value decomposition of 3-tensor left unfolding.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="right_svd_3tensor.html#t3toolbox.backend.linalg.right_svd_3tensor" title="t3toolbox.backend.linalg.right_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd_3tensor</span></code></a>(...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="right_svd_3tensor.html#t3toolbox.backend.linalg.right_svd_3tensor" title="t3toolbox.backend.linalg.right_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd_3tensor</span></code></a>(...)</p></td>
 <td><p>Compute (truncated) singular value decomposition of 3-tensor right unfolding.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="outer_svd_3tensor.html#t3toolbox.backend.linalg.outer_svd_3tensor" title="t3toolbox.backend.linalg.outer_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">outer_svd_3tensor</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="outer_svd_3tensor.html#t3toolbox.backend.linalg.outer_svd_3tensor" title="t3toolbox.backend.linalg.outer_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">outer_svd_3tensor</span></code></a>(...)</p></td>
 <td><p>Compute (truncated) singular value decomposition of 3-tensor outer unfolding.</p></td>
 </tr>
 </tbody>
@@ -639,11 +643,11 @@
       </div>
     </a>
     <a class="right-next"
-       href="truncated_svd.html"
+       href="pad_or_truncate.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.backend.linalg.truncated_svd</p>
+        <p class="prev-next-title">t3toolbox.backend.linalg.pad_or_truncate</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

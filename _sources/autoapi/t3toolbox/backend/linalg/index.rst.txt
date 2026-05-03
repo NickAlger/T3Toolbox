@@ -10,6 +10,7 @@ Functions
 .. toctree::
    :hidden:
 
+   /autoapi/t3toolbox/backend/linalg/pad_or_truncate
    /autoapi/t3toolbox/backend/linalg/truncated_svd
    /autoapi/t3toolbox/backend/linalg/left_svd_3tensor
    /autoapi/t3toolbox/backend/linalg/right_svd_3tensor
@@ -17,6 +18,7 @@ Functions
 
 .. autoapisummary::
 
+   t3toolbox.backend.linalg.pad_or_truncate
    t3toolbox.backend.linalg.truncated_svd
    t3toolbox.backend.linalg.left_svd_3tensor
    t3toolbox.backend.linalg.right_svd_3tensor

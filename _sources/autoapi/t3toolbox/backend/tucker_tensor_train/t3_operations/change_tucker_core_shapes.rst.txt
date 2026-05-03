@@ -3,6 +3,6 @@ t3toolbox.backend.tucker_tensor_train.t3_operations.change_tucker_core_shapes
 
 .. py:function:: t3toolbox.backend.tucker_tensor_train.t3_operations.change_tucker_core_shapes(tucker_cores: t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], new_shape: t3toolbox.backend.common.typ.Sequence[int], new_tucker_ranks: t3toolbox.backend.common.typ.Sequence[int], use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]
 
-   Increase Tucker and/or TT ranks for TT cores using zero padding.
+   Increase/decrease Tucker and/or TT ranks for TT cores using zero padding/truncation.
 
 
