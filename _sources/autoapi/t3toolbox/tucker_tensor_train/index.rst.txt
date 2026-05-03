@@ -39,12 +39,8 @@ Functions
 
    /autoapi/t3toolbox/tucker_tensor_train/t3_core_shapes
    /autoapi/t3toolbox/tucker_tensor_train/compute_minimal_t3_ranks
-   /autoapi/t3toolbox/tucker_tensor_train/t3_zeros
-   /autoapi/t3toolbox/tucker_tensor_train/t3_corewise_randn
    /autoapi/t3toolbox/tucker_tensor_train/t3_save
    /autoapi/t3toolbox/tucker_tensor_train/t3_load
-   /autoapi/t3toolbox/tucker_tensor_train/t3_to_vector
-   /autoapi/t3toolbox/tucker_tensor_train/t3_from_vector
    /autoapi/t3toolbox/tucker_tensor_train/t3_apply
    /autoapi/t3toolbox/tucker_tensor_train/t3_entries
    /autoapi/t3toolbox/tucker_tensor_train/t3_probe
@@ -58,12 +54,8 @@ Functions
 
    t3toolbox.tucker_tensor_train.t3_core_shapes
    t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks
-   t3toolbox.tucker_tensor_train.t3_zeros
-   t3toolbox.tucker_tensor_train.t3_corewise_randn
    t3toolbox.tucker_tensor_train.t3_save
    t3toolbox.tucker_tensor_train.t3_load
-   t3toolbox.tucker_tensor_train.t3_to_vector
-   t3toolbox.tucker_tensor_train.t3_from_vector
    t3toolbox.tucker_tensor_train.t3_apply
    t3toolbox.tucker_tensor_train.t3_entries
    t3toolbox.tucker_tensor_train.t3_probe

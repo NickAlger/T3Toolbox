@@ -1,0 +1,8 @@
+t3toolbox.backend.tucker_tensor_train.t3_operations.t3_ones
+===========================================================
+
+.. py:function:: t3toolbox.backend.tucker_tensor_train.t3_operations.t3_ones(shape: t3toolbox.backend.common.typ.Tuple[int, Ellipsis], stack_shape: t3toolbox.backend.common.typ.Tuple[int, Ellipsis] = (), use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]]
+
+   Construct the rank-1 Tucker tensor train representing a tensor full of ones.
+
+

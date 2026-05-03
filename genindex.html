@@ -273,6 +273,7 @@
  | <a href="#C"><strong>C</strong></a>
  | <a href="#D"><strong>D</strong></a>
  | <a href="#E"><strong>E</strong></a>
+ | <a href="#F"><strong>F</strong></a>
  | <a href="#G"><strong>G</strong></a>
  | <a href="#H"><strong>H</strong></a>
  | <a href="#I"><strong>I</strong></a>
@@ -288,6 +289,7 @@
  | <a href="#U"><strong>U</strong></a>
  | <a href="#V"><strong>V</strong></a>
  | <a href="#X"><strong>X</strong></a>
+ | <a href="#Z"><strong>Z</strong></a>
  
 </div>
 <h2 id="_">_</h2>
@@ -525,6 +527,8 @@
 </li>
         <li><a href="autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_from_vector.html#t3toolbox.backend.tucker_tensor_train.t3_operations.t3_from_vector">t3toolbox.backend.tucker_tensor_train.t3_operations.t3_from_vector()</a>
 </li>
+        <li><a href="autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_ones.html#t3toolbox.backend.tucker_tensor_train.t3_operations.t3_ones">t3toolbox.backend.tucker_tensor_train.t3_operations.t3_ones()</a>
+</li>
         <li><a href="autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_to_vector.html#t3toolbox.backend.tucker_tensor_train.t3_operations.t3_to_vector">t3toolbox.backend.tucker_tensor_train.t3_operations.t3_to_vector()</a>
 </li>
         <li><a href="autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_unstack.html#t3toolbox.backend.tucker_tensor_train.t3_operations.t3_unstack">t3toolbox.backend.tucker_tensor_train.t3_operations.t3_unstack()</a>
@@ -661,11 +665,7 @@
 </li>
         <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_core_shapes.html#t3toolbox.tucker_tensor_train.t3_core_shapes">t3toolbox.tucker_tensor_train.t3_core_shapes()</a>
 </li>
-        <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_corewise_randn.html#t3toolbox.tucker_tensor_train.t3_corewise_randn">t3toolbox.tucker_tensor_train.t3_corewise_randn()</a>
-</li>
         <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_entries.html#t3toolbox.tucker_tensor_train.t3_entries">t3toolbox.tucker_tensor_train.t3_entries()</a>
-</li>
-        <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_from_vector.html#t3toolbox.tucker_tensor_train.t3_from_vector">t3toolbox.tucker_tensor_train.t3_from_vector()</a>
 </li>
         <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_inner_product.html#t3toolbox.tucker_tensor_train.t3_inner_product">t3toolbox.tucker_tensor_train.t3_inner_product()</a>
 </li>
@@ -676,10 +676,6 @@
         <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_save.html#t3toolbox.tucker_tensor_train.t3_save">t3toolbox.tucker_tensor_train.t3_save()</a>
 </li>
         <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_sub.html#t3toolbox.tucker_tensor_train.t3_sub">t3toolbox.tucker_tensor_train.t3_sub()</a>
-</li>
-        <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_to_vector.html#t3toolbox.tucker_tensor_train.t3_to_vector">t3toolbox.tucker_tensor_train.t3_to_vector()</a>
-</li>
-        <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_zeros.html#t3toolbox.tucker_tensor_train.t3_zeros">t3toolbox.tucker_tensor_train.t3_zeros()</a>
 </li>
         <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3svd.html#t3toolbox.tucker_tensor_train.t3svd">t3toolbox.tucker_tensor_train.t3svd()</a>
 </li>
@@ -789,11 +785,13 @@
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.concatenate">concatenate() (t3toolbox.tucker_tensor_train.TuckerTensorTrain static method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="autoapi/t3toolbox/weighted_tucker_tensor_train/WeightedTuckerTensorTrain.html#t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain.contract_edge_weights_into_cores">contract_edge_weights_into_cores() (t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.core_shapes">core_shapes() (t3toolbox.tucker_tensor_train.TuckerTensorTrain method)</a>
+</li>
+      <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.corewise_randn">corewise_randn() (t3toolbox.tucker_tensor_train.TuckerTensorTrain static method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -866,6 +864,14 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="autoapi/t3toolbox/weighted_tucker_tensor_train/WeightedTuckerTensorTrain.html#t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain.edge_weights">edge_weights (t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="F">F</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.from_vector">from_vector() (t3toolbox.tucker_tensor_train.TuckerTensorTrain static method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -1082,10 +1088,12 @@
 <h2 id="O">O</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.orthogonalize_relative_to_ith_tt_core">orthogonalize_relative_to_ith_tt_core() (t3toolbox.tucker_tensor_train.TuckerTensorTrain method)</a>
+      <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.ones">ones() (t3toolbox.tucker_tensor_train.TuckerTensorTrain static method)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.orthogonalize_relative_to_ith_tt_core">orthogonalize_relative_to_ith_tt_core() (t3toolbox.tucker_tensor_train.TuckerTensorTrain method)</a>
+</li>
       <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.orthogonalize_relative_to_ith_tucker_core">orthogonalize_relative_to_ith_tucker_core() (t3toolbox.tucker_tensor_train.TuckerTensorTrain method)</a>
 </li>
   </ul></td>
@@ -1879,6 +1887,13 @@
 </li>
       </ul></li>
       <li>
+    t3toolbox.backend.tucker_tensor_train.t3_operations.t3_ones()
+
+      <ul>
+        <li><a href="autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_ones.html#t3toolbox.backend.tucker_tensor_train.t3_operations.t3_ones">built-in function</a>
+</li>
+      </ul></li>
+      <li>
     t3toolbox.backend.tucker_tensor_train.t3_operations.t3_to_vector()
 
       <ul>
@@ -2004,6 +2019,8 @@
         <li><a href="autoapi/t3toolbox/backend/weighted_tucker_tensor_train/wt3_operations/contract_edge_vectors_into_t3.html#t3toolbox.backend.weighted_tucker_tensor_train.wt3_operations.contract_edge_vectors_into_t3">built-in function</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     t3toolbox.backend.weighted_tucker_tensor_train.wt3_operations.reverse_edge_vectors()
 
@@ -2018,8 +2035,6 @@
         <li><a href="autoapi/t3toolbox/backend/weighted_tucker_tensor_train/wt3_operations/wt3_squash_tails.html#t3toolbox.backend.weighted_tucker_tensor_train.wt3_operations.wt3_squash_tails">built-in function</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     t3toolbox.basis_variations_format
 
@@ -2438,24 +2453,10 @@
 </li>
       </ul></li>
       <li>
-    t3toolbox.tucker_tensor_train.t3_corewise_randn()
-
-      <ul>
-        <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_corewise_randn.html#t3toolbox.tucker_tensor_train.t3_corewise_randn">built-in function</a>
-</li>
-      </ul></li>
-      <li>
     t3toolbox.tucker_tensor_train.t3_entries()
 
       <ul>
         <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_entries.html#t3toolbox.tucker_tensor_train.t3_entries">built-in function</a>
-</li>
-      </ul></li>
-      <li>
-    t3toolbox.tucker_tensor_train.t3_from_vector()
-
-      <ul>
-        <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_from_vector.html#t3toolbox.tucker_tensor_train.t3_from_vector">built-in function</a>
 </li>
       </ul></li>
       <li>
@@ -2491,20 +2492,6 @@
 
       <ul>
         <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_sub.html#t3toolbox.tucker_tensor_train.t3_sub">built-in function</a>
-</li>
-      </ul></li>
-      <li>
-    t3toolbox.tucker_tensor_train.t3_to_vector()
-
-      <ul>
-        <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_to_vector.html#t3toolbox.tucker_tensor_train.t3_to_vector">built-in function</a>
-</li>
-      </ul></li>
-      <li>
-    t3toolbox.tucker_tensor_train.t3_zeros()
-
-      <ul>
-        <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_zeros.html#t3toolbox.tucker_tensor_train.t3_zeros">built-in function</a>
 </li>
       </ul></li>
       <li>
@@ -2709,6 +2696,8 @@
         <li><a href="autoapi/t3toolbox/weighted_tucker_tensor_train/WeightedTuckerTensorTrain.html#t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain.to_dense">(t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain method)</a>
 </li>
       </ul></li>
+      <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.to_vector">to_vector() (t3toolbox.tucker_tensor_train.TuckerTensorTrain method)</a>
+</li>
       <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.tt_cores">tt_cores (t3toolbox.tucker_tensor_train.TuckerTensorTrain attribute)</a>
 </li>
       <li><a href="autoapi/t3toolbox/uniform_tucker_tensor_train/UniformTuckerTensorTrain.html#t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.tt_edge_mask">tt_edge_mask (t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain attribute)</a>
@@ -3050,6 +3039,14 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="autoapi/t3toolbox/weighted_tucker_tensor_train/WeightedTuckerTensorTrain.html#t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain.x0">x0 (t3toolbox.weighted_tucker_tensor_train.WeightedTuckerTensorTrain attribute)</a>
+</li>
+  </ul></td>
+</tr></table>
+
+<h2 id="Z">Z</h2>
+<table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.zeros">zeros() (t3toolbox.tucker_tensor_train.TuckerTensorTrain static method)</a>
 </li>
   </ul></td>
 </tr></table>
