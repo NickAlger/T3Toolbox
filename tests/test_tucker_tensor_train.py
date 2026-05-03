@@ -548,35 +548,97 @@ class TestTuckerTensorTrain(unittest.TestCase):
                     self.assertEqual(STACK_SHAPE, x.stack_shape)
                     self.check_relerr(np.array(xx_dense), x.to_dense())
 
-
-
-
-
-
-    def test_t3_zeros(self):
+    def test_zeros(self):
         structures = [
-            ((14, 15, 16), (4, 5, 6), (2, 3, 2, 1)),
+            ((14,), (4,), (4, 5), (2, 3)),
+            ((14, 15), (4, 5), (4, 5, 4), (2, 3)),
+            ((14, 15, 16, 17), (4, 5, 6, 7), (4, 5, 4, 3, 2), (2, 3)),
+            ((14, 15, 16), (4, 5, 6), (4, 5, 4, 3), ()),
         ]
 
         for STRUCTURE in structures:
             for USE_JAX in [True, False]:
-                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
-                    z = t3.t3_zeros(STRUCTURE, use_jax=USE_JAX)
+                shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
+                for TUCKER_RANKS in [tucker_ranks, None]:
+                    for TT_RANKS in [tt_ranks, None]:
+                        with self.subTest(STRUCTURE=STRUCTURE, USE_JAX=USE_JAX, TUCKER_RANKS=TUCKER_RANKS, TT_RANKS=TT_RANKS):
+                            if TUCKER_RANKS is None and TT_RANKS is None:
+                                x = t3.TuckerTensorTrain.zeros(
+                                    shape, stack_shape=stack_shape, use_jax=USE_JAX,
+                                )
+                                self.assertEqual((1,)*len(shape), x.tucker_ranks)
+                                self.assertEqual((1,)*(len(shape)+1), x.tt_ranks)
+                            elif TUCKER_RANKS is None:
+                                x = t3.TuckerTensorTrain.zeros(
+                                    shape, tt_ranks=tt_ranks, stack_shape=stack_shape,
+                                    use_jax=USE_JAX,
+                                )
+                                self.assertEqual((1,)*len(shape), x.tucker_ranks)
+                                self.assertEqual(tt_ranks, x.tt_ranks)
+                            elif TT_RANKS is None:
+                                x = t3.TuckerTensorTrain.zeros(
+                                    shape, tucker_ranks=tucker_ranks, stack_shape=stack_shape,
+                                    use_jax=USE_JAX,
+                                )
+                                self.assertEqual(tucker_ranks, x.tucker_ranks)
+                                self.assertEqual((1,)*(len(shape)+1), x.tt_ranks)
+                            else:
+                                x = t3.TuckerTensorTrain.zeros(
+                                    shape, tucker_ranks=tucker_ranks, tt_ranks=tt_ranks, stack_shape=stack_shape,
+                                    use_jax=USE_JAX,
+                                )
+                                self.assertEqual(tucker_ranks, x.tucker_ranks)
+                                self.assertEqual(tt_ranks, x.tt_ranks)
 
-                    self.assertEqual(STRUCTURE, t3.get_structure(z))
-                    dense_z = t3.t3_to_dense(z)
-                    self.assertLessEqual(norm(dense_z), tol)
+                            self.assertEqual(shape, x.shape)
+                            self.assertEqual(stack_shape, x.stack_shape)
+                            self.assertLessEqual(np.linalg.norm(x.to_dense()), tol)
 
-    def test_t3_corewise_randn(self):
+    def test_ones(self):
+        shapes = [
+            (14,),
+            (14, 15),
+            (14, 15, 16),
+            (14, 15, 16, 17),
+        ]
+        stack_shapes = [(), (1,), (2,), (1,1), (1,3), (2,3), (2,1)]
+
+        for SHAPE in shapes:
+            for STACK_SHAPE in stack_shapes:
+                for USE_JAX in [True, False]:
+                    with self.subTest(SHAPE=SHAPE, STACK_SHAPE=STACK_SHAPE):
+                        x = t3.TuckerTensorTrain.ones(SHAPE, stack_shape=STACK_SHAPE, use_jax=USE_JAX)
+
+                        self.assertEqual(SHAPE, x.shape)
+                        self.assertEqual((1,)*len(SHAPE), x.tucker_ranks)
+                        self.assertEqual((1,)*(len(SHAPE)+1), x.tt_ranks)
+                        self.assertEqual(STACK_SHAPE, x.stack_shape)
+                        self.check_relerr(np.ones(STACK_SHAPE+SHAPE), x.to_dense())
+
+    def test_corewise_randn(self):
         structures = [
-            ((14, 15, 16), (4, 5, 6), (2, 3, 2, 1)),
+            ((14,), (4,), (4, 5), (2, 3)),
+            ((14, 15), (4, 5), (4, 5, 4), (2, 3)),
+            ((14, 15, 16, 17), (4, 5, 6, 7), (4, 5, 4, 3, 2), (2, 3)),
+            ((14, 15, 16), (4, 5, 6), (4, 5, 4, 3), ()),
         ]
 
         for STRUCTURE in structures:
             for USE_JAX in [True, False]:
-                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
-                    x = t3.t3_corewise_randn(STRUCTURE, use_jax=USE_JAX)  # TuckerTensorTrain with random cores
-                    self.assertEqual(STRUCTURE, t3.get_structure(x))
+                with self.subTest(STRUCTURE=STRUCTURE, USE_JAX=USE_JAX):
+                    shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
+                    x = t3.TuckerTensorTrain.corewise_randn(
+                        shape, tucker_ranks, tt_ranks, stack_shape=stack_shape, use_jax=USE_JAX,
+                    )
+
+                    self.assertEqual(shape, x.shape)
+                    self.assertEqual(tucker_ranks, x.tucker_ranks)
+                    self.assertEqual(tt_ranks, x.tt_ranks)
+                    self.assertEqual(stack_shape, x.stack_shape)
+
+                    # Unclear how to check that the entries are indeed random...
+
+
 
     def test_t3_save_and_t3_load(self):
         structures = [

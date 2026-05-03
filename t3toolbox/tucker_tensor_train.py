@@ -660,6 +660,180 @@ class TuckerTensorTrain:
         stacked_tucker_cores, stacked_tt_cores = ragged_operations.t3_stack(xx_data, use_jax=use_jax)
         return TuckerTensorTrain(stacked_tucker_cores, stacked_tt_cores)
 
+    ############################################################################
+    ##########    Constructing specific types of TuckerTensorTrain    ##########
+    ############################################################################
+
+    @staticmethod
+    def zeros(
+            shape: typ.Tuple[int, ...],
+            tucker_ranks: typ.Tuple[int, ...] = None,
+            tt_ranks: typ.Tuple[int, ...] = None,
+            stack_shape: typ.Tuple[int, ...] = (),
+            use_jax: bool = False,
+    ) -> 'TuckerTensorTrain':
+        """Construct a Tucker tensor train of zeros.
+
+        Parameters
+        ----------
+        structure:  T3Structure
+            Tucker tensor train structure, (shape, tucker_ranks, tt_ranks)=((N0,...,N(d-1)), (n0,...,n(d-1)), (1,r1,...,r(d-1),1))).
+        xnp:
+            Linear algebra backend. Default: np (numpy)
+
+        Returns
+        -------
+        NDArray
+            Dense tensor represented by x, which has shape (N0, ..., N(d-1))
+
+        See Also
+        --------
+        TuckerTensorTrain
+        T3Structure
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> shape = (14, 15, 16)
+        >>> tucker_ranks = (4, 5, 6)
+        >>> tt_ranks = (1, 3, 2, 1)
+        >>> stack_shape = (2,3)
+        >>> z = t3.TuckerTensorTrain.zeros(shape, tucker_ranks, tt_ranks, stack_shape)
+        >>> print(np.linalg.norm(z.to_dense()))
+        0.0
+        """
+        tucker_ranks = (1,)*len(shape) if tucker_ranks is None else tucker_ranks
+        tt_ranks = (1,)*(len(shape)+1) if tt_ranks is None else tt_ranks
+        return TuckerTensorTrain(*ragged_operations.t3_zeros(
+            shape, tucker_ranks, tt_ranks, stack_shape, use_jax=use_jax,
+        ))
+
+    @staticmethod
+    def ones(
+            shape: typ.Tuple[int, ...],
+            stack_shape: typ.Tuple[int, ...] = (),
+            use_jax: bool = False,
+    ) -> 'TuckerTensorTrain':
+        """Construct the rank-1 Tucker tensor train which represents the dense tensor filled with ones.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> shape = (14, 15, 16)
+        >>> stack_shape = (2,3)
+        >>> x = t3.TuckerTensorTrain.ones(shape, stack_shape=stack_shape)
+        >>> print(np.linalg.norm(x.to_dense() - np.ones(stack_shape+shape)))
+        0.0
+        >>> print(x.tucker_ranks)
+        (1, 1, 1)
+        >>> print(x.tt_ranks)
+        (1, 1, 1, 1)
+        """
+        return TuckerTensorTrain(*ragged_operations.t3_ones(
+            shape, stack_shape, use_jax=use_jax,
+        ))
+
+    @staticmethod
+    def corewise_randn(
+            shape: typ.Tuple[int, ...],
+            tucker_ranks: typ.Tuple[int, ...],
+            tt_ranks: typ.Tuple[int, ...],
+            stack_shape: typ.Tuple[int, ...] = (),
+            use_jax: bool = False,
+    ) -> 'TuckerTensorTrain':
+        """Construct a Tucker tensor train with random cores.
+
+        Parameters
+        ----------
+        structure:  T3Structure
+            Tucker tensor train structure
+            (shape, tucker_ranks, tt_ranks)=((N0,...,N(d-1)), (n0,...,n(d-1)), (1,r1,...,r(d-1),1))).
+        randn: typ.Callable[[..., NDArray]
+            Function for creating random arrays. Arguments are a sequence of ints defining the shape of the array.
+            Default: np.random.randn (numpy)
+
+        Returns
+        -------
+        NDArray
+            Dense tensor represented by x, which has shape (N0, ..., N(d-1))
+
+        See Also
+        --------
+        TuckerTensorTrain
+        T3Structure
+
+        Examples
+        --------
+        >>> from t3toolbox import *
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> shape = (14, 15, 16)
+        >>> tucker_ranks = (4, 5, 6)
+        >>> tt_ranks = (1, 3, 2, 1)
+        >>> stack_shape = (2,3)
+        >>> x = t3.t3_corewise_randn(shape, tucker_ranks, tt_ranks, stack_shape=stack_shape) # TuckerTensorTrain with random cores
+        >>> x.uniform_structure == (shape, tucker_ranks, tt_ranks, stack_shape)
+        True
+        >>> print(x.tucker_cores[0][0,0,0,0]) # should be random N(0,1)
+        0.0331003310807162
+        >>> print(x.tt_cores[0][0,0,0,0,0]) # should be random N(0,1)
+        -0.10778923886039414
+        """
+        return TuckerTensorTrain(*ragged_operations.t3_corewise_randn(
+            shape, tucker_ranks, tt_ranks, stack_shape, use_jax=use_jax,
+        ))
+
+    #############################################################
+    ##########    Converting data to/from 1D vector    ##########
+    #############################################################
+
+    def to_vector(
+            self,
+    ) -> NDArray:
+        """Converts a TuckerTensorTrain into a 1D vector containing the core entries.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.corewise as cw
+        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (1,3,4,5), stack_shape=(2,3))
+        >>> x_flat = x.to_vector()
+        >>> x2 = t3.TuckerTensorTrain.from_vector(x_flat, x.shape, x.tucker_ranks, x.tt_ranks, stack_shape=x.stack_shape)
+        >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
+        0.0
+        """
+        return ragged_operations.t3_to_vector(self.data)
+
+    @staticmethod
+    def from_vector(
+            x_flat: NDArray,
+            shape: typ.Sequence[int],
+            tucker_ranks: typ.Sequence[int],
+            tt_ranks: typ.Sequence[int],
+            stack_shape: typ.Sequence[int] = (),
+    ) -> 'TuckerTensorTrain':
+        """Constructs a TuckerTensorTrain from a 1D vector containing the core entries.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.corewise as cw
+        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (1,3,4,5), stack_shape=(2,3))
+        >>> x_flat = x.to_vector()
+        >>> x2 = t3.TuckerTensorTrain.from_vector(x_flat, x.shape, x.tucker_ranks, x.tt_ranks, stack_shape=x.stack_shape)
+        >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
+        0.0
+        """
+        return TuckerTensorTrain(*ragged_operations.t3_from_vector(
+            x_flat, shape, tucker_ranks, tt_ranks, stack_shape=stack_shape,
+        ))
+
+
+
+
     ##########################################
     ##########    Linear Algebra    ##########
     ##########################################
@@ -1725,107 +1899,6 @@ def compute_minimal_t3_ranks(
 
 #
 
-
-def t3_zeros(
-        shape:                  typ.Tuple[int,...],
-        tucker_ranks:           typ.Tuple[int,...],
-        tt_ranks:               typ.Tuple[int,...],
-        stack_shape:    typ.Tuple[int,...] = (),
-        use_jax: bool = False,
-) -> TuckerTensorTrain:
-    """Construct a Tucker tensor train of zeros.
-
-    Parameters
-    ----------
-    structure:  T3Structure
-        Tucker tensor train structure, (shape, tucker_ranks, tt_ranks)=((N0,...,N(d-1)), (n0,...,n(d-1)), (1,r1,...,r(d-1),1))).
-    xnp:
-        Linear algebra backend. Default: np (numpy)
-
-    Returns
-    -------
-    NDArray
-        Dense tensor represented by x, which has shape (N0, ..., N(d-1))
-
-    See Also
-    --------
-    TuckerTensorTrain
-    T3Structure
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> shape = (14, 15, 16)
-    >>> tucker_ranks = (4, 5, 6)
-    >>> tt_ranks = (1, 3, 2, 1)
-    >>> vs = (2,3)
-    >>> z = t3.t3_zeros(shape, tucker_ranks, tt_ranks, stack_shape=vs)
-    >>> print(np.linalg.norm(z.to_dense()))
-    0.0
-    """
-    return TuckerTensorTrain(*ragged_operations.t3_zeros(
-        shape, tucker_ranks, tt_ranks, stack_shape, use_jax=use_jax,
-    ))
-    xnp, _, _ = get_backend(False, use_jax)
-
-    #
-    vs = stack_shape
-
-    tt_cores = tuple([xnp.zeros(vs+(tt_ranks[ii], tucker_ranks[ii], tt_ranks[ii+1])) for ii in range(len(tucker_ranks))])
-    tucker_cores = tuple([xnp.zeros(vs+(n, N)) for n, N  in zip(tucker_ranks, shape)])
-    return TuckerTensorTrain(tucker_cores, tt_cores)
-
-
-def t3_corewise_randn(
-        shape:                  typ.Tuple[int, ...],
-        tucker_ranks:           typ.Tuple[int, ...],
-        tt_ranks:               typ.Tuple[int, ...],
-        stack_shape:    typ.Tuple[int, ...] = (),
-        use_jax: bool = False,
-) -> TuckerTensorTrain:
-    """Construct a Tucker tensor train with random cores.
-
-    Parameters
-    ----------
-    structure:  T3Structure
-        Tucker tensor train structure
-        (shape, tucker_ranks, tt_ranks)=((N0,...,N(d-1)), (n0,...,n(d-1)), (1,r1,...,r(d-1),1))).
-    randn: typ.Callable[[..., NDArray]
-        Function for creating random arrays. Arguments are a sequence of ints defining the shape of the array.
-        Default: np.random.randn (numpy)
-
-    Returns
-    -------
-    NDArray
-        Dense tensor represented by x, which has shape (N0, ..., N(d-1))
-
-    See Also
-    --------
-    TuckerTensorTrain
-    T3Structure
-
-    Examples
-    --------
-    >>> from t3toolbox import *
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> shape = (14, 15, 16)
-    >>> tucker_ranks = (4, 5, 6)
-    >>> tt_ranks = (1, 3, 2, 1)
-    >>> stack_shape = (2,3)
-    >>> x = t3.t3_corewise_randn(shape, tucker_ranks, tt_ranks, stack_shape=stack_shape) # TuckerTensorTrain with random cores
-    >>> x.uniform_structure == (shape, tucker_ranks, tt_ranks, stack_shape)
-    True
-    >>> print(x.tucker_cores[0][0,0,0,0]) # should be random N(0,1)
-    0.0331003310807162
-    >>> print(x.tt_cores[0][0,0,0,0,0]) # should be random N(0,1)
-    -0.10778923886039414
-    """
-    return TuckerTensorTrain(*ragged_operations.t3_corewise_randn(
-        shape, tucker_ranks, tt_ranks, stack_shape, use_jax=use_jax,
-    ))
-
-
 def t3_save(
         file,
         x: TuckerTensorTrain,
@@ -1951,49 +2024,6 @@ def t3_load(
 
     return TuckerTensorTrain(tuple(tucker_cores), tuple(tt_cores))
 
-
-def t3_to_vector(
-        x: TuckerTensorTrain,
-) -> NDArray:
-    """Converts a TuckerTensorTrain into a 1D vector containing the core entries.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.corewise as cw
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,4,5), stack_shape=(2,3))
-    >>> x_flat = t3.t3_to_vector(x)
-    >>> x2 = t3.t3_from_vector(x_flat, x.shape, x.tucker_ranks, x.tt_ranks, stack_shape=x.stack_shape)
-    >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
-    0.0
-    """
-    return ragged_operations.t3_to_vector(x.data)
-
-
-def t3_from_vector(
-        x_flat: NDArray,
-        shape: typ.Sequence[int],
-        tucker_ranks: typ.Sequence[int],
-        tt_ranks: typ.Sequence[int],
-        stack_shape: typ.Sequence[int] = (),
-) -> TuckerTensorTrain:
-    """Constructs a TuckerTensorTrain from a 1D vector containing the core entries.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.corewise as cw
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,4,5), stack_shape=(2,3))
-    >>> x_flat = t3.t3_to_vector(x)
-    >>> x2 = t3.t3_from_vector(x_flat, x.shape, x.tucker_ranks, x.tt_ranks, stack_shape=x.stack_shape)
-    >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
-    0.0
-    """
-    return TuckerTensorTrain(*ragged_operations.t3_from_vector(
-        x_flat, shape, tucker_ranks, tt_ranks, stack_shape=stack_shape,
-    ))
 
 
 ###########################################################################

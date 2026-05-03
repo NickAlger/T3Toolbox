@@ -23,6 +23,7 @@ __all__ = [
     't3_sum_stack',
     't3_zeros',
     't3_corewise_randn',
+    't3_ones',
 ]
 
 
@@ -306,6 +307,23 @@ def t3_zeros(
 
     tt_cores = tuple([xnp.zeros(vs+(tt_ranks[ii], tucker_ranks[ii], tt_ranks[ii+1])) for ii in range(len(tucker_ranks))])
     tucker_cores = tuple([xnp.zeros(vs+(n, N)) for n, N  in zip(tucker_ranks, shape)])
+    return tucker_cores, tt_cores
+
+
+def t3_ones(
+        shape:                  typ.Tuple[int,...],
+        stack_shape:    typ.Tuple[int,...] = (),
+        use_jax: bool = False,
+) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]: # (tucker_cores, tt_cores)
+    """Construct the rank-1 Tucker tensor train representing a tensor full of ones.
+    """
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
+    vs = stack_shape
+
+    tt_cores = tuple([xnp.ones(vs+(1, 1, 1)) for ii in range(len(shape))])
+    tucker_cores = tuple([xnp.ones(vs+(1, N)) for N  in shape])
     return tucker_cores, tt_cores
 
 
