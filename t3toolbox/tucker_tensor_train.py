@@ -633,6 +633,33 @@ class TuckerTensorTrain:
 
         return _dfs(ragged_operations.t3_unstack(self.data))
 
+    @staticmethod
+    def stack(
+            xx, # array-like structure of nested tuples containing TuckerTensorTrains
+            use_jax: bool = False,
+    ) -> 'TuckerTensorTrain':  # (stacked_tucker_cores, stacked_tt_cores)
+        """Stacks an array-like structure of TuckerTensorTrains into one stacked TuckerTensorTrain.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.corewise as cw
+        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(3,5))
+        >>> xx = x.unstack()
+        >>> x2 = t3.TuckerTensorTrain.stack(xx)
+        >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
+        0.0
+        """
+        def _data(xs):
+            if isinstance(xs, TuckerTensorTrain):
+                return xs.data
+            return tuple([_data(x) for x in xs])
+        xx_data = _data(xx)
+
+        stacked_tucker_cores, stacked_tt_cores = ragged_operations.t3_stack(xx_data, use_jax=use_jax)
+        return TuckerTensorTrain(stacked_tucker_cores, stacked_tt_cores)
+
     ##########################################
     ##########    Linear Algebra    ##########
     ##########################################
@@ -1623,32 +1650,6 @@ class TuckerTensorTrain:
         """
         return probing.probe_t3(ww, self.data, use_jax=use_jax)
 
-    @staticmethod
-    def stack(
-            xx, # array-like structure of nested tuples containing TuckerTensorTrains
-            use_jax: bool = False,
-    ) -> 'TuckerTensorTrain':  # (stacked_tucker_cores, stacked_tt_cores)
-        """Stacks an array-like structure of TuckerTensorTrains into one stacked TuckerTensorTrain.
-
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.corewise as cw
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(3,5))
-        >>> xx = x.unstack()
-        >>> x2 = t3.TuckerTensorTrain.stack(xx)
-        >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
-        0.0
-        """
-        def _data(xs):
-            if isinstance(xs, TuckerTensorTrain):
-                return xs.data
-            return tuple([_data(x) for x in xs])
-        xx_data = _data(xx)
-
-        stacked_tucker_cores, stacked_tt_cores = ragged_operations.t3_stack(xx_data, use_jax=use_jax)
-        return TuckerTensorTrain(stacked_tucker_cores, stacked_tt_cores)
 
 
 if has_jax:

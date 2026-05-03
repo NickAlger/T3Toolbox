@@ -4,6 +4,7 @@
 import numpy as np
 import unittest
 import os
+import itertools
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.corewise as cw
@@ -33,6 +34,7 @@ def structure_to_cores(STRUCTURE):
         for rL, n, rR in zip(tt_ranks[:-1], tucker_ranks, tt_ranks[1:])
     )
     return tucker_cores, tt_cores
+
 
 class TestTuckerTensorTrain(unittest.TestCase):
     def check_relerr(self, xtrue, x):
@@ -448,9 +450,103 @@ class TestTuckerTensorTrain(unittest.TestCase):
                 self.assertLessEqual(np.linalg.norm(G2[:,:, :,n_small:,:]), tol)
                 self.assertLessEqual(np.linalg.norm(G2[:,:, :,:,rR_small:]), tol)
 
+    def test_unstack(self):
+        base_structures = [
+            ((14,),             (4,),           (4, 5)),
+            ((14, 15),          (4, 5),         (4, 5, 4)),
+            ((14, 15, 16, 17),  (4, 5, 6, 7),   (4, 5, 4, 3, 2)),
+        ]
+        stack_shapes = [(), (1,), (2,), (1,1), (1,3), (2,3), (2,1)]
 
+        for BASE_STRUCTURE in base_structures:
+            for STACK_SHAPE in stack_shapes:
+                with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    shape, tucker_ranks, tt_ranks = BASE_STRUCTURE
+                    structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                    tucker_cores, tt_cores = structure_to_cores(structure)
+                    x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
+                    dense_x = x.to_dense()
 
+                    xx = x.unstack()
 
+                    if len(STACK_SHAPE) == 0:
+                        self.assertTrue(isinstance(xx, t3.TuckerTensorTrain))
+                        self.assertEqual(shape, xx.shape)
+                        self.assertEqual(tucker_ranks, xx.tucker_ranks)
+                        self.assertEqual(tt_ranks, xx.tt_ranks)
+                        self.assertEqual((), x.stack_shape)
+                        self.check_relerr(dense_x, xx.to_dense())
+
+                    elif len(STACK_SHAPE) == 1:
+                        self.assertEqual(STACK_SHAPE[0], len(xx))
+                        for ii in range(STACK_SHAPE[0]):
+                            self.assertTrue(isinstance(xx[ii], t3.TuckerTensorTrain))
+                            self.assertEqual(shape, xx[ii].shape)
+                            self.assertEqual(tucker_ranks, xx[ii].tucker_ranks)
+                            self.assertEqual(tt_ranks, xx[ii].tt_ranks)
+                            self.assertEqual((), xx[ii].stack_shape)
+                            self.check_relerr(dense_x[ii], xx[ii].to_dense())
+
+                    elif len(STACK_SHAPE) == 2:
+                        self.assertEqual(STACK_SHAPE[0], len(xx))
+                        for ii in range(STACK_SHAPE[0]):
+                            self.assertEqual(STACK_SHAPE[1], len(xx[ii]))
+                            for jj in range(STACK_SHAPE[1]):
+                                self.assertTrue(isinstance(xx[ii][jj], t3.TuckerTensorTrain))
+                                self.assertEqual(shape, xx[ii][jj].shape)
+                                self.assertEqual(tucker_ranks, xx[ii][jj].tucker_ranks)
+                                self.assertEqual(tt_ranks, xx[ii][jj].tt_ranks)
+                                self.assertEqual((), xx[ii][jj].stack_shape)
+                                self.check_relerr(dense_x[ii,jj], xx[ii][jj].to_dense())
+
+    def test_stack(self):
+        base_structures = [
+            ((14,),             (4,),           (4, 5)),
+            ((14, 15),          (4, 5),         (4, 5, 4)),
+            ((14, 15, 16, 17),  (4, 5, 6, 7),   (4, 5, 4, 3, 2)),
+        ]
+        stack_shapes = [(), (1,), (2,), (1,1), (1,3), (2,3), (2,1)]
+
+        for BASE_STRUCTURE in base_structures:
+            for STACK_SHAPE in stack_shapes:
+                with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    shape, tucker_ranks, tt_ranks = BASE_STRUCTURE
+                    structure = BASE_STRUCTURE + ((),)
+
+                    if len(STACK_SHAPE) == 0:
+                        tucker_cores, tt_cores = structure_to_cores(structure)
+                        xx = t3.TuckerTensorTrain(tucker_cores, tt_cores)
+                        xx_dense = xx.to_dense()
+
+                    if len(STACK_SHAPE) == 1:
+                        xx = []
+                        xx_dense = []
+                        for ii in range(STACK_SHAPE[0]):
+                            tucker_cores, tt_cores = structure_to_cores(structure)
+                            xi = t3.TuckerTensorTrain(tucker_cores, tt_cores)
+                            xx.append(xi)
+                            xx_dense.append(xi.to_dense())
+
+                    if len(STACK_SHAPE) == 2:
+                        xx = []
+                        xx_dense = []
+                        for ii in range(STACK_SHAPE[0]):
+                            xxi = []
+                            xxi_dense = []
+                            for jj in range(STACK_SHAPE[1]):
+                                tucker_cores, tt_cores = structure_to_cores(structure)
+                                xi = t3.TuckerTensorTrain(tucker_cores, tt_cores)
+                                xxi.append(xi)
+                                xxi_dense.append(xi.to_dense())
+                            xx.append(xxi)
+                            xx_dense.append(xxi_dense)
+
+                    x = t3.TuckerTensorTrain.stack(xx)
+                    self.assertEqual(shape, x.shape)
+                    self.assertEqual(tucker_ranks, x.tucker_ranks)
+                    self.assertEqual(tt_ranks, x.tt_ranks)
+                    self.assertEqual(STACK_SHAPE, x.stack_shape)
+                    self.check_relerr(np.array(xx_dense), x.to_dense())
 
 
 
