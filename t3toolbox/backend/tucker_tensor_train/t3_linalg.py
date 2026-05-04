@@ -76,10 +76,10 @@ def t3_inner_product_t3(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],
         y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],
         use_orthogonalization: bool = True, # for numerical stability
-        use_jax: bool = False,
 ):
     """Compute Hilbert-Schmidt inner product of two Tucker tensor trains.
     """
+    use_jax = any([is_jax_ndarray(c) for c in x[0] + x[1] + y[0] + y[1]])
     xnp, _, _ = get_backend(False, use_jax)
 
     #

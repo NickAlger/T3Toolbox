@@ -24,7 +24,7 @@ norm = np.linalg.norm
 randn = np.random.randn
 
 
-def structure_to_cores(STRUCTURE):
+def _structure_to_cores(STRUCTURE):
     shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
 
     tucker_cores = tuple(
@@ -36,6 +36,12 @@ def structure_to_cores(STRUCTURE):
         for rL, n, rR in zip(tt_ranks[:-1], tucker_ranks, tt_ranks[1:])
     )
     return tucker_cores, tt_cores
+
+
+def _td(z):
+    if isinstance(z, t3.TuckerTensorTrain):
+        return z.to_dense()
+    return z
 
 
 class TestTuckerTensorTrain(unittest.TestCase):
@@ -102,7 +108,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         for STRUCTURE in all_structures:
             with self.subTest(STRUCTURE=STRUCTURE):
                 shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
-                tucker_cores, tt_cores = structure_to_cores(STRUCTURE)
+                tucker_cores, tt_cores = _structure_to_cores(STRUCTURE)
 
                 print([x.shape for x in tucker_cores])
                 print([x.shape for x in tt_cores])
@@ -150,7 +156,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         for STRUCTURE, MIN_STRUCTURE in zip(structures, minimal_structures):
             with self.subTest(STRUCTURE=STRUCTURE):
                 shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
-                tucker_cores, tt_cores = structure_to_cores(STRUCTURE)
+                tucker_cores, tt_cores = _structure_to_cores(STRUCTURE)
                 x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # random TuckerTensorTrain
 
                 is_minimal = True
@@ -180,7 +186,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                 for USE_JAX in [True, False]:
                     with self.subTest(STRUCTURE=STRUCTURE, SQUASH_TAILS=SQUASH_TAILS, USE_JAX=USE_JAX):
                         shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
-                        tucker_cores, tt_cores = structure_to_cores(STRUCTURE)
+                        tucker_cores, tt_cores = _structure_to_cores(STRUCTURE)
                         x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # random TuckerTensorTrain
 
                         x_dense = x.to_dense(squash_tails=SQUASH_TAILS, use_jax=USE_JAX)
@@ -272,7 +278,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
             for USE_JAX in [True, False]:
                 with self.subTest(STRUCTURE=STRUCTURE, USE_JAX=USE_JAX):
                     shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
-                    tucker_cores, tt_cores = structure_to_cores(STRUCTURE)
+                    tucker_cores, tt_cores = _structure_to_cores(STRUCTURE)
                     x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # random TuckerTensorTrain
 
                     x2 = x.squash_tails(use_jax=USE_JAX)
@@ -294,7 +300,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         for STRUCTURE in all_structures:
             with self.subTest(STRUCTURE=STRUCTURE):
                 shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
-                tucker_cores, tt_cores = structure_to_cores(STRUCTURE)
+                tucker_cores, tt_cores = _structure_to_cores(STRUCTURE)
                 x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # random TuckerTensorTrain
 
                 reversed_x = x.reverse()
@@ -431,7 +437,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
             new_tucker_ranks = tuple(n + dn for n, dn in zip(tucker_ranks, delta_tucker_ranks))
             new_tt_ranks = tuple(r + dr for r, dr in zip(tt_ranks, delta_tt_ranks))
 
-            tucker_cores, tt_cores = structure_to_cores((shape, tucker_ranks, tt_ranks, stack_shape))
+            tucker_cores, tt_cores = _structure_to_cores((shape, tucker_ranks, tt_ranks, stack_shape))
             x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
 
             x2 = x.resize_cores(new_shape, new_tucker_ranks, new_tt_ranks)
@@ -543,7 +549,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                 with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
                     shape, tucker_ranks, tt_ranks = BASE_STRUCTURE
                     structure = BASE_STRUCTURE + (STACK_SHAPE,)
-                    tucker_cores, tt_cores = structure_to_cores(structure)
+                    tucker_cores, tt_cores = _structure_to_cores(structure)
                     x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
                     dense_x = x.to_dense()
 
@@ -594,7 +600,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                     structure = BASE_STRUCTURE + ((),)
 
                     if len(STACK_SHAPE) == 0:
-                        tucker_cores, tt_cores = structure_to_cores(structure)
+                        tucker_cores, tt_cores = _structure_to_cores(structure)
                         xx = t3.TuckerTensorTrain(tucker_cores, tt_cores)
                         xx_dense = xx.to_dense()
 
@@ -602,7 +608,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         xx = []
                         xx_dense = []
                         for ii in range(STACK_SHAPE[0]):
-                            tucker_cores, tt_cores = structure_to_cores(structure)
+                            tucker_cores, tt_cores = _structure_to_cores(structure)
                             xi = t3.TuckerTensorTrain(tucker_cores, tt_cores)
                             xx.append(xi)
                             xx_dense.append(xi.to_dense())
@@ -614,7 +620,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                             xxi = []
                             xxi_dense = []
                             for jj in range(STACK_SHAPE[1]):
-                                tucker_cores, tt_cores = structure_to_cores(structure)
+                                tucker_cores, tt_cores = _structure_to_cores(structure)
                                 xi = t3.TuckerTensorTrain(tucker_cores, tt_cores)
                                 xxi.append(xi)
                                 xxi_dense.append(xi.to_dense())
@@ -856,12 +862,6 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                 raise ValueError
 
 
-                            def _td(z):
-                                if isinstance(z, t3.TuckerTensorTrain):
-                                    return z.to_dense()
-                                return z
-
-
                             if OP == 'PLUS':
                                 x_op_y = x + y
                                 self.check_relerr(_td(x) + _td(y), _td(x_op_y))
@@ -895,6 +895,64 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                 else:
                                     raise ValueError
 
+    def test_inner_product(self):
+        structures = [
+            ((14,), (4,), (4, 5), (2, 3)),
+            ((14, 15), (4, 5), (4, 5, 4), (2, 3)),
+            ((14, 15, 16, 17), (4, 5, 6, 7), (4, 5, 4, 3, 2), (2, 3)),
+            ((14, 15, 16), (4, 5, 6), (4, 5, 4, 3), ()),
+        ]
+
+        other_ranks = [
+            ((3,), (2, 6)),
+            ((4, 2), (4, 1, 3)),
+            ((1, 2, 3, 4), (1, 3, 2, 1, 2)),
+            ((5, 5, 5), (2, 2, 2, 2)),
+        ]
+
+        for STRUCTURE, OTHER_RANKS in zip(structures, other_ranks):
+            for USE_ORTHOGONALIZATION in [True, False]:
+                for X_IS_JAX in [True, False]:
+                    shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
+                    x = t3.TuckerTensorTrain.corewise_randn(*STRUCTURE, use_jax=X_IS_JAX)
+                    for OTHER_TYPE in [
+                        'NUMPY_DENSE', 'JAX_DENSE',
+                        'NUMPY_T3', 'JAX_T3',
+                    ]:
+                        with self.subTest(
+                                X_IS_JAX=X_IS_JAX, USE_ORTHOGONALIZATION=USE_ORTHOGONALIZATION,
+                                STRUCTURE=STRUCTURE, OTHER_RANKS=OTHER_RANKS, OTHER_TYPE=OTHER_TYPE,
+                        ):
+                            if OTHER_TYPE == 'NUMPY_DENSE':
+                                y = np.random.randn(*(x.stack_shape + x.shape))
+
+                            elif OTHER_TYPE == 'JAX_DENSE':
+                                y = jnp.array(np.random.randn(*(x.stack_shape + x.shape)))
+
+                            elif OTHER_TYPE == 'NUMPY_T3':
+                                y_structure = STRUCTURE[:1] + OTHER_RANKS + STRUCTURE[3:]
+                                y = t3.TuckerTensorTrain.corewise_randn(*y_structure, use_jax=False)
+
+                            elif OTHER_TYPE == 'JAX_T3':
+                                y_structure = STRUCTURE[:1] + OTHER_RANKS + STRUCTURE[3:]
+                                y = t3.TuckerTensorTrain.corewise_randn(*y_structure, use_jax=True)
+
+                            else:
+                                print('OTHER_TYPE=', OTHER_TYPE)
+                                raise ValueError
+
+                            sum_axes = tuple(range(len(stack_shape), len(stack_shape + shape)))
+                            x_dot_y_true = np.sum(_td(x) * _td(y), axis=sum_axes)
+
+                            x_dot_y = t3.TuckerTensorTrain.inner_product(
+                                x, y, use_orthogonalization=USE_ORTHOGONALIZATION
+                            )
+                            self.check_relerr(x_dot_y_true, x_dot_y)
+
+                            y_dot_x = t3.TuckerTensorTrain.inner_product(
+                                y, x, use_orthogonalization=USE_ORTHOGONALIZATION
+                            )
+                            self.check_relerr(x_dot_y_true, y_dot_x)
 
 #####
 
