@@ -23,6 +23,14 @@ if has_jax:
     is_ndarray = lambda x: (isinstance(x, np.ndarray) or isinstance(x, jnp.ndarray))
 
 
+is_jax_ndarray = lambda x: False
+if has_jax:
+    is_jax_ndarray = lambda x: isinstance(x, jnp.ndarray)
+
+
+is_numpy_ndarray = lambda x: isinstance(x, np.ndarray)
+
+
 def is_boolean_ndarray(x):
     if isinstance(x, np.ndarray):
         return np.issubdtype(x.dtype, np.bool_)
@@ -39,14 +47,14 @@ if has_jax:
             return False
 
 
-
-
 __all__ = [
     'has_jax',
     #
     'NDArray',
     'is_ndarray',
     'is_boolean_ndarray',
+    'is_jax_ndarray',
+    'is_numpy_ndarray',
     #
     'ragged_scan',
     'numpy_scan',

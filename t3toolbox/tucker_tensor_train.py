@@ -42,14 +42,6 @@ __all__ = [
     't3_core_shapes',
     'compute_minimal_t3_ranks',
     #
-    't3_save',
-    't3_load',
-    't3_to_vector',
-    't3_from_vector',
-    #
-    't3_zeros',
-    't3_corewise_randn',
-    #
     't3_apply',
     't3_entries',
     't3_probe',
@@ -832,9 +824,9 @@ class TuckerTensorTrain:
         ))
 
 
-    ##########################################################
-    ##########    Saving to and loading from file   ##########
-    ##########################################################
+    ###############################################################
+    ##########    Saving to file and loading from file   ##########
+    ###############################################################
 
     def save(
             self,
@@ -1003,13 +995,13 @@ class TuckerTensorTrain:
 
     def __mul__(
             self,
-            s,  # scalar
-    ) -> 'TuckerTensorTrain':
-        """Multipy a Tucker tensor train by a scaling factor.
+            other,  # scalar
+            use_jax: bool = None, # None: automatically decide based on input types
+    ):
+        """Pointwise multiplication of a Tucker tensor train.
 
         Scaling is defined with respect to the dense N0 x ... x N(d-1) tensor that
-        is *represented* by the Tucker tensor trains, even though this dense tensor
-        is not formed during computations.
+        is *represented* by the Tucker tensor trains.
 
         For corewise scaling, see :func:`t3toolbox.corewise.corewise_scale`
 
@@ -1042,13 +1034,46 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
         >>> s = 3.2
         >>> sx = x * s
         >>> print(np.linalg.norm(s*x.to_dense() - sx.to_dense()))
         1.6268482531988893e-13
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+        >>> y = np.random.randn(*(x.stack_shape + x.shape))
+        >>> xy = x * y
+        >>> print(np.linalg.norm(x.to_dense()*y - xy))
+        0.0
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+        >>> y = t3.TuckerTensorTrain.corewise_randn((14,15,16), (2,3,4), (3,2,3,2), stack_shape=(2,3))
+        >>> xy = x * y
+        >>> print(np.linalg.norm(x.to_dense()*y.to_dense() - xy.to_dense()))
+        8.556292929330887e-11
+        >>> print(xy.tucker_ranks) # ranks get multiplied!
+        (8, 15, 24)
+        >>> print(xy.tt_ranks)
+        (1, 6, 6, 1)
         """
-        return TuckerTensorTrain(*ragged_linalg.t3_scale(self.data, s))
+        if is_ndarray(other):
+            if other.shape == ():
+                return TuckerTensorTrain(*ragged_linalg.t3_scale(self.data, other))
+            else:
+                assert(other.shape == self.stack_shape + self.shape)
+                return self.to_dense() * other
+
+        elif isinstance(other, TuckerTensorTrain):
+            assert(self.shape == other.shape)
+            assert(self.stack_shape == other.stack_shape)
+            return TuckerTensorTrain(*ragged_linalg.t3_mult(self.data, other.data))
+
+        else: # assume scalar
+            return TuckerTensorTrain(*ragged_linalg.t3_scale(self.data, other))
 
     def __neg__(
             self,

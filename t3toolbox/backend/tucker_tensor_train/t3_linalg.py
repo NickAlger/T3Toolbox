@@ -14,6 +14,7 @@ __all__ = [
     't3_scale',
     't3_inner_product_t3',
     't3_norm',
+    't3_mult',
 ]
 
 
@@ -66,7 +67,7 @@ def t3_scale(
     tucker_cores, tt_cores = x
 
     scaled_tucker_cores = [B.copy() for B in tucker_cores]
-    scaled_tucker_cores[-1] = s * scaled_tucker_cores[-1]
+    scaled_tucker_cores[-1] = scaled_tucker_cores[-1] * s
 
     copied_tt_cores = [G.copy() for G in tt_cores]
 
@@ -134,4 +135,42 @@ def t3_norm(
         norm_sq = t3_inner_product_t3(x, x, use_jax=use_jax)
 
     return xnp.sqrt(xnp.abs(norm_sq))
+
+
+def t3_mult(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_x, tt_cores_x)
+        y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_y, tt_cores_y)
+) -> typ.Tuple[typ.Tuple[NDArray], typ.Tuple[NDArray]]: # (x_times_y_tucker_cores, x_times_y_tt_cores)
+    """Pointwise multiply Tucker tensor trains x and y, yielding a Tucker tensor train with multiplied ranks.
+    """
+    use_jax = (is_jax_ndarray(x) or is_jax_ndarray(y))
+    xnp, xmap, _ = get_backend(False, use_jax)
+
+    #
+    tucker_cores_x, tt_cores_x = x
+    tucker_cores_y, tt_cores_y = y
+
+    vsx = tucker_cores_x[0].shape[:-2] # vectorization shape for x
+    vsy = tucker_cores_y[0].shape[:-2] # vectorization shape for y
+    assert(vsx == vsy)
+
+    tucker_cores_xy = []
+    for Bx, By in zip(tucker_cores_x, tucker_cores_y):
+        nx, Nx = Bx.shape[-2:]
+        ny, Ny = By.shape[-2:]
+        Bxy0 = xnp.einsum('...io,...jo->...ijo', Bx, By)
+        Bxy = Bxy0.reshape(vsx + (nx*ny, Nx))
+        tucker_cores_xy.append(Bxy)
+    tucker_cores_xy = tuple(tucker_cores_xy)
+
+    tt_cores_xy = []
+    for Gx, Gy in zip(tt_cores_x, tt_cores_y):
+        rLx, nx, rRx = Gx.shape[-3:]
+        rLy, ny, rRy = Gy.shape[-3:]
+        Gxy0 = xnp.einsum('...aib,...ujv->...auijbv', Gx, Gy)
+        Gxy = Gxy0.reshape(vsx + (rLx*rLy, nx*ny, rRx*rRy))
+        tt_cores_xy.append(Gxy)
+    tt_cores_xy = tuple(tt_cores_xy)
+
+    return tucker_cores_xy, tt_cores_xy
 

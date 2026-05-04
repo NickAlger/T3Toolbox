@@ -8,6 +8,8 @@ import itertools
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.corewise as cw
+from t3toolbox.backend.common import *
+from t3toolbox.backend.tucker_tensor_train.t3_operations import squash_tt_tails
 
 try:
     import jax
@@ -702,8 +704,71 @@ class TestTuckerTensorTrain(unittest.TestCase):
                     for G, G2 in zip(tt_cores, tt_cores2):
                         self.check_relerr(G, G2)
 
+    def test_dunder_mul(self):
+        structures = [
+            ((14,), (4,), (4, 5), (2, 3)),
+            ((14, 15), (4, 5), (4, 5, 4), (2, 3)),
+            ((14, 15, 16, 17), (4, 5, 6, 7), (4, 5, 4, 3, 2), (2, 3)),
+            ((14, 15, 16), (4, 5, 6), (4, 5, 4, 3), ()),
+        ]
+
+        other_ranks = [
+            ((3,), (2, 6)),
+            ((4, 2), (4, 1, 3)),
+            ((1, 2, 3, 4), (1, 3, 2, 1, 2)),
+            ((5, 5, 5), (2, 2, 2, 2)),
+        ]
+
+        for STRUCTURE in structures:
+            for USE_JAX in [True, False]:
+                x = t3.TuckerTensorTrain.corewise_randn(*STRUCTURE, use_jax=USE_JAX)
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE, OP='T3_TIMES_SCALAR'):
+                    s = 3.2
+
+                    sx = x * s
+
+                    self.assertIsInstance(sx, t3.TuckerTensorTrain)
+                    self.check_relerr(s*x.to_dense(), sx.to_dense())
+
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE, OP='T3_TIMES_ARRAYSCALAR'):
+                    s = np.array(3.2)
+
+                    sx = x * s
+
+                    self.assertIsInstance(sx, t3.TuckerTensorTrain)
+                    self.check_relerr(s * x.to_dense(), sx.to_dense())
+
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE, OP='T3_TIMES_DENSE'):
+                    y = np.random.randn(*(x.stack_shape + x.shape))
+
+                    xy = x * y
+
+                    self.assertTrue(is_ndarray(xy))
+                    self.check_relerr(x.to_dense()*y, xy)
+
+        for STRUCTURE, OTHER_RANKS in zip(structures, other_ranks):
+            for USE_JAX in [True, False]:
+                x = t3.TuckerTensorTrain.corewise_randn(*STRUCTURE, use_jax=USE_JAX)
+                for SQUASH in [True, False]:
+                    with self.subTest(
+                            USE_JAX=USE_JAX, STRUCTURE=STRUCTURE, OTHER_RANKS=OTHER_RANKS,
+                            SQUASH=SQUASH, OP='T3_TIMES_T3',
+                    ):
+                        y_structure = STRUCTURE[:1] + OTHER_RANKS + STRUCTURE[3:]
+                        y = t3.TuckerTensorTrain.corewise_randn(*y_structure)
+
+                        xy = x * y
+
+                        self.assertIsInstance(xy, t3.TuckerTensorTrain)
+                        self.check_relerr(x.to_dense()*y.to_dense(), xy.to_dense())
+
+                        prod_tucker_ranks   = tuple(nx*ny for nx, ny in zip(STRUCTURE[1], OTHER_RANKS[0]))
+                        prod_tt_ranks       = tuple(rx*ry for rx, ry in zip(STRUCTURE[2], OTHER_RANKS[1]))
+                        self.assertEqual(prod_tucker_ranks, xy.tucker_ranks)
+                        self.assertEqual(prod_tt_ranks, xy.tt_ranks)
 
 
+#####
 
     def test_t3_apply1(self):
         structures = [
