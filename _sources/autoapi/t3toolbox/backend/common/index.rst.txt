@@ -15,6 +15,9 @@ Attributes
    t3toolbox.backend.common.NDArray
    t3toolbox.backend.common.is_ndarray
    t3toolbox.backend.common.is_ndarray
+   t3toolbox.backend.common.is_jax_ndarray
+   t3toolbox.backend.common.is_jax_ndarray
+   t3toolbox.backend.common.is_numpy_ndarray
    t3toolbox.backend.common.jax_scan
    t3toolbox.backend.common.jax_map
    t3toolbox.backend.common.jax_scan
@@ -65,6 +68,12 @@ Module Contents
 .. py:data:: is_ndarray
 
 .. py:data:: is_ndarray
+
+.. py:data:: is_jax_ndarray
+
+.. py:data:: is_jax_ndarray
+
+.. py:data:: is_numpy_ndarray
 
 .. py:data:: jax_scan
 
