@@ -15,6 +15,7 @@ Functions
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_linalg/t3_inner_product_t3
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_linalg/t3_norm
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_linalg/t3_mult
+   /autoapi/t3toolbox/backend/tucker_tensor_train/t3_linalg/t3_plus_scalar
 
 .. autoapisummary::
 
@@ -23,5 +24,6 @@ Functions
    t3toolbox.backend.tucker_tensor_train.t3_linalg.t3_inner_product_t3
    t3toolbox.backend.tucker_tensor_train.t3_linalg.t3_norm
    t3toolbox.backend.tucker_tensor_train.t3_linalg.t3_mult
+   t3toolbox.backend.tucker_tensor_train.t3_linalg.t3_plus_scalar
 
 

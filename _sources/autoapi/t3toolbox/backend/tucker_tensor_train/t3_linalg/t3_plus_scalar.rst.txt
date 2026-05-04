@@ -1,0 +1,4 @@
+t3toolbox.backend.tucker_tensor_train.t3_linalg.t3_plus_scalar
+==============================================================
+
+.. py:function:: t3toolbox.backend.tucker_tensor_train.t3_linalg.t3_plus_scalar(x: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]], s) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]]

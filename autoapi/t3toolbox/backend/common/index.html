@@ -439,7 +439,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_apply.html">t3toolbox.tucker_tensor_train.t3_apply</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_entries.html">t3toolbox.tucker_tensor_train.t3_entries</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_probe.html">t3toolbox.tucker_tensor_train.t3_probe</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_add.html">t3toolbox.tucker_tensor_train.t3_add</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_sub.html">t3toolbox.tucker_tensor_train.t3_sub</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_inner_product.html">t3toolbox.tucker_tensor_train.t3_inner_product</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3svd_dense.html">t3toolbox.tucker_tensor_train.t3svd_dense</a></li>
@@ -621,13 +620,22 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.backend.common.is_numpy_ndarray" title="t3toolbox.backend.common.is_numpy_ndarray"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_numpy_ndarray</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#id4" title="t3toolbox.backend.common.jax_scan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jax_scan</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#id4" title="t3toolbox.backend.common.to_jax"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_jax</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="#t3toolbox.backend.common.jax_map" title="t3toolbox.backend.common.jax_map"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jax_map</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="#id4" title="t3toolbox.backend.common.to_jax"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_jax</span></code></a></p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="#id4" title="t3toolbox.backend.common.jax_scan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jax_scan</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.backend.common.to_numpy" title="t3toolbox.backend.common.to_numpy"><code class="xref py py-obj docutils literal notranslate"><span class="pre">to_numpy</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#id5" title="t3toolbox.backend.common.jax_scan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jax_scan</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#t3toolbox.backend.common.jax_map" title="t3toolbox.backend.common.jax_map"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jax_map</span></code></a></p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#id5" title="t3toolbox.backend.common.jax_scan"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jax_scan</span></code></a></p></td>
 <td><p></p></td>
 </tr>
 </tbody>
@@ -716,6 +724,21 @@
 <dd></dd></dl>
 
 <dl class="py data">
+<dt class="sig sig-object py" id="t3toolbox.backend.common.to_jax">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.backend.common.</span></span><span class="sig-name descname"><span class="pre">to_jax</span></span><a class="headerlink" href="#t3toolbox.backend.common.to_jax" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="id4">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.backend.common.</span></span><span class="sig-name descname"><span class="pre">to_jax</span></span><a class="headerlink" href="#id4" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
+<dt class="sig sig-object py" id="t3toolbox.backend.common.to_numpy">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.backend.common.</span></span><span class="sig-name descname"><span class="pre">to_numpy</span></span><a class="headerlink" href="#t3toolbox.backend.common.to_numpy" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py data">
 <dt class="sig sig-object py" id="t3toolbox.backend.common.jax_scan">
 <span class="sig-prename descclassname"><span class="pre">t3toolbox.backend.common.</span></span><span class="sig-name descname"><span class="pre">jax_scan</span></span><a class="headerlink" href="#t3toolbox.backend.common.jax_scan" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
@@ -726,8 +749,8 @@
 <dd></dd></dl>
 
 <dl class="py data">
-<dt class="sig sig-object py" id="id4">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.backend.common.</span></span><span class="sig-name descname"><span class="pre">jax_scan</span></span><a class="headerlink" href="#id4" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="id5">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.backend.common.</span></span><span class="sig-name descname"><span class="pre">jax_scan</span></span><a class="headerlink" href="#id5" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 </section>
@@ -792,9 +815,12 @@
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.backend.common.is_jax_ndarray"><code class="docutils literal notranslate"><span class="pre">is_jax_ndarray</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id3"><code class="docutils literal notranslate"><span class="pre">is_jax_ndarray</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.backend.common.is_numpy_ndarray"><code class="docutils literal notranslate"><span class="pre">is_numpy_ndarray</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.backend.common.to_jax"><code class="docutils literal notranslate"><span class="pre">to_jax</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id4"><code class="docutils literal notranslate"><span class="pre">to_jax</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.backend.common.to_numpy"><code class="docutils literal notranslate"><span class="pre">to_numpy</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.backend.common.jax_scan"><code class="docutils literal notranslate"><span class="pre">jax_scan</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.backend.common.jax_map"><code class="docutils literal notranslate"><span class="pre">jax_map</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id4"><code class="docutils literal notranslate"><span class="pre">jax_scan</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#id5"><code class="docutils literal notranslate"><span class="pre">jax_scan</span></code></a></li>
 </ul>
 </li>
 </ul>

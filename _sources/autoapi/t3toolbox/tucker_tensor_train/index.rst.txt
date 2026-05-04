@@ -42,7 +42,6 @@ Functions
    /autoapi/t3toolbox/tucker_tensor_train/t3_apply
    /autoapi/t3toolbox/tucker_tensor_train/t3_entries
    /autoapi/t3toolbox/tucker_tensor_train/t3_probe
-   /autoapi/t3toolbox/tucker_tensor_train/t3_add
    /autoapi/t3toolbox/tucker_tensor_train/t3_sub
    /autoapi/t3toolbox/tucker_tensor_train/t3_inner_product
    /autoapi/t3toolbox/tucker_tensor_train/t3svd_dense
@@ -55,7 +54,6 @@ Functions
    t3toolbox.tucker_tensor_train.t3_apply
    t3toolbox.tucker_tensor_train.t3_entries
    t3toolbox.tucker_tensor_train.t3_probe
-   t3toolbox.tucker_tensor_train.t3_add
    t3toolbox.tucker_tensor_train.t3_sub
    t3toolbox.tucker_tensor_train.t3_inner_product
    t3toolbox.tucker_tensor_train.t3svd_dense

@@ -1,7 +1,7 @@
 t3toolbox.backend.tucker_tensor_train.t3_linalg.t3_add
 ======================================================
 
-.. py:function:: t3toolbox.backend.tucker_tensor_train.t3_linalg.t3_add(x: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]], y: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]], squash: bool = True, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray]]
+.. py:function:: t3toolbox.backend.tucker_tensor_train.t3_linalg.t3_add(x: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]], y: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]]) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray]]
 
    Add Tucker tensor trains x and y, yielding a Tucker tensor train with summed ranks.
 

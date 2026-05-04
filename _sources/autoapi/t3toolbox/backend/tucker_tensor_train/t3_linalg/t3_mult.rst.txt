@@ -5,4 +5,6 @@ t3toolbox.backend.tucker_tensor_train.t3_linalg.t3_mult
 
    Pointwise multiply Tucker tensor trains x and y, yielding a Tucker tensor train with multiplied ranks.
 
+   This is the conventional "dumb" algorithm which does not do intermediate rank truncation.
+   Ideally, we should also implement the newer "TTM" algorithm at some point.
 
