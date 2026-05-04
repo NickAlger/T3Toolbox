@@ -7,6 +7,7 @@ import typing as typ
 
 from t3toolbox.backend.tucker_tensor_train.t3_operations import squash_tt_tails
 import t3toolbox.backend.tucker_tensor_train.t3_orthogonalization as ragged_orth
+import t3toolbox.backend.tucker_tensor_train.t3_operations as t3_ops
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -15,19 +16,20 @@ __all__ = [
     't3_inner_product_t3',
     't3_norm',
     't3_mult',
+    't3_plus_scalar',
 ]
 
 
 def t3_add(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_x, tt_cores_x)
         y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_y, tt_cores_y)
-        squash: bool = True,
-        use_jax: bool = False,
 ) -> typ.Tuple[typ.Tuple[NDArray], typ.Tuple[NDArray]]: # (x_plus_y_tucker_cores, x_plus_y_tt_cores)
     """Add Tucker tensor trains x and y, yielding a Tucker tensor train with summed ranks.
     """
-    xnp, _, _ = get_backend(False, use_jax)
+    use_jax = (is_jax_ndarray(x) or is_jax_ndarray(y))
+    xnp, xmap, _ = get_backend(False, use_jax)
 
+    #
     tucker_cores_x, tt_cores_x = x
     tucker_cores_y, tt_cores_y = y
 
@@ -51,11 +53,7 @@ def t3_add(
         Gz = xnp.block([[[G000, G001], [G010, G011]], [[G100, G101], [G110, G111]]])
         tt_cores_z.append(Gz)
 
-    if squash:
-        z = (tuple(tucker_cores_z), squash_tt_tails(tt_cores_z))
-    else:
-        z = (tuple(tucker_cores_z), tuple(tt_cores_z))
-    return z
+    return tuple(tucker_cores_z), tuple(tt_cores_z)
 
 
 def t3_scale(
@@ -142,6 +140,9 @@ def t3_mult(
         y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_y, tt_cores_y)
 ) -> typ.Tuple[typ.Tuple[NDArray], typ.Tuple[NDArray]]: # (x_times_y_tucker_cores, x_times_y_tt_cores)
     """Pointwise multiply Tucker tensor trains x and y, yielding a Tucker tensor train with multiplied ranks.
+
+    This is the conventional "dumb" algorithm which does not do intermediate rank truncation.
+    Ideally, we should also implement the newer "TTM" algorithm at some point.
     """
     use_jax = (is_jax_ndarray(x) or is_jax_ndarray(y))
     xnp, xmap, _ = get_backend(False, use_jax)
@@ -173,4 +174,26 @@ def t3_mult(
     tt_cores_xy = tuple(tt_cores_xy)
 
     return tucker_cores_xy, tt_cores_xy
+
+
+def t3_plus_scalar(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],
+        s,
+) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:
+    use_jax = is_jax_ndarray(x)
+
+    x_shape = tuple(B.shape[-1] for B in x[0])
+    x_stack_shape = x[0][0].shape[:-2]
+
+    y0 = t3_ops.t3_ones(x_shape, x_stack_shape, use_jax=use_jax)
+    y = t3_scale(y0, s)
+    xs = t3_add(x, y)
+    return xs
+
+
+
+
+
+
+
 

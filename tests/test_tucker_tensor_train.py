@@ -322,24 +322,26 @@ class TestTuckerTensorTrain(unittest.TestCase):
         for STRUCTURE in structures:
             for USE_JAX in [True, False]:
                 shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
-                tucker_cores, tt_cores = structure_to_cores(STRUCTURE)
-                x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
+                x = t3.TuckerTensorTrain.corewise_randn(*STRUCTURE, use_jax=USE_JAX)
                 dense_x = x.to_dense()
 
                 with self.subTest(STRUCTURE=STRUCTURE, USE_JAX=USE_JAX, OP='DO_NOTHING'):
-                    x2 = x.resize_cores(shape, tucker_ranks, tt_ranks, use_jax=USE_JAX)
+
+                    x2 = x.resize_cores(shape, tucker_ranks, tt_ranks)
+
                     self.check_relerr(dense_x, x2.to_dense())
 
                 with self.subTest(STRUCTURE=STRUCTURE, USE_JAX=USE_JAX, OP='INCREASE_SHAPE'):
                     new_shape = tuple(s + 3 for s in shape)
-                    x2 = x.resize_cores(new_shape, tucker_ranks, tt_ranks, use_jax=USE_JAX)
+
+                    x2 = x.resize_cores(new_shape, tucker_ranks, tt_ranks)
+
                     self.assertEqual(new_shape, x2.shape)
                     self.assertEqual(tucker_ranks, x2.tucker_ranks)
                     self.assertEqual(tt_ranks, x2.tt_ranks)
                     self.assertEqual(stack_shape, x2.stack_shape)
 
                     dense_x2 = x2.to_dense()
-
                     pad = [(0,0) for _ in range(len(stack_shape))]
                     pad = pad + [(0, ns - s) for ns, s in zip(new_shape, shape)]
                     padded_dense_x = np.pad(dense_x, pad)
@@ -347,7 +349,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                 with self.subTest(STRUCTURE=STRUCTURE, USE_JAX=USE_JAX, OP='INCREASE_TUCKER_RANKS'):
                     new_tucker_ranks = tuple(r + 3 for r in tucker_ranks)
-                    x2 = x.resize_cores(shape, new_tucker_ranks, tt_ranks, use_jax=USE_JAX)
+
+                    x2 = x.resize_cores(shape, new_tucker_ranks, tt_ranks)
+
                     self.assertEqual(shape, x2.shape)
                     self.assertEqual(new_tucker_ranks, x2.tucker_ranks)
                     self.assertEqual(tt_ranks, x2.tt_ranks)
@@ -358,7 +362,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                 with self.subTest(STRUCTURE=STRUCTURE, USE_JAX=USE_JAX, OP='INCREASE_TT_RANKS'):
                     new_tt_ranks = tuple(n + 3 for n in tt_ranks)
-                    x2 = x.resize_cores(shape, tucker_ranks, new_tt_ranks, use_jax=USE_JAX)
+
+                    x2 = x.resize_cores(shape, tucker_ranks, new_tt_ranks)
+
                     self.assertEqual(shape, x2.shape)
                     self.assertEqual(tucker_ranks, x2.tucker_ranks)
                     self.assertEqual(new_tt_ranks, x2.tt_ranks)
@@ -369,7 +375,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                 with self.subTest(STRUCTURE=STRUCTURE, USE_JAX=USE_JAX, OP='TRUNCATE_SHAPE'):
                     new_shape = tuple(s - 1 for s in shape)
-                    x2 = x.resize_cores(new_shape, tucker_ranks, tt_ranks, use_jax=USE_JAX)
+
+                    x2 = x.resize_cores(new_shape, tucker_ranks, tt_ranks)
+
                     self.assertEqual(new_shape, x2.shape)
                     self.assertEqual(tucker_ranks, x2.tucker_ranks)
                     self.assertEqual(tt_ranks, x2.tt_ranks)
@@ -381,7 +389,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                 with self.subTest(STRUCTURE=STRUCTURE, USE_JAX=USE_JAX, OP='TRUNCATE_TUCKER_RANKS'):
                     new_tucker_ranks = tuple(n - 1 for n in tucker_ranks)
-                    x2 = x.resize_cores(shape, new_tucker_ranks, tt_ranks, use_jax=USE_JAX)
+
+                    x2 = x.resize_cores(shape, new_tucker_ranks, tt_ranks)
+
                     self.assertEqual(shape, x2.shape)
                     self.assertEqual(new_tucker_ranks, x2.tucker_ranks)
                     self.assertEqual(tt_ranks, x2.tt_ranks)
@@ -397,7 +407,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                 with self.subTest(STRUCTURE=STRUCTURE, USE_JAX=USE_JAX, OP='TRUNCATE_TT_RANKS'):
                     new_tt_ranks = tuple(r - 1 for r in tt_ranks)
-                    x2 = x.resize_cores(shape, tucker_ranks, new_tt_ranks, use_jax=USE_JAX)
+
+                    x2 = x.resize_cores(shape, tucker_ranks, new_tt_ranks)
+
                     self.assertEqual(shape, x2.shape)
                     self.assertEqual(tucker_ranks, x2.tucker_ranks)
                     self.assertEqual(new_tt_ranks, x2.tt_ranks)
@@ -423,6 +435,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
             x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
 
             x2 = x.resize_cores(new_shape, new_tucker_ranks, new_tt_ranks)
+
             self.assertEqual(new_shape, x2.shape)
             self.assertEqual(new_tucker_ranks, x2.tucker_ranks)
             self.assertEqual(new_tt_ranks, x2.tt_ranks)
@@ -451,6 +464,71 @@ class TestTuckerTensorTrain(unittest.TestCase):
                 self.assertLessEqual(np.linalg.norm(G2[:,:, rL_small:,:,:]), tol)
                 self.assertLessEqual(np.linalg.norm(G2[:,:, :,n_small:,:]), tol)
                 self.assertLessEqual(np.linalg.norm(G2[:,:, :,:,rR_small:]), tol)
+
+    def test_to_jax(self):
+        structures = [
+            ((14,),             (4,),           (4, 5),             (2, 3)),
+            ((14, 15),          (4, 5),         (4, 5, 4),          (2, 3)),
+            ((14, 15, 16, 17),  (4, 5, 6, 7),   (4, 5, 4, 3, 2),    (2, 3)),
+            ((14, 15, 16),      (4, 5, 6),      (4, 5, 4, 3),       ()),
+        ]
+
+        for STRUCTURE in structures:
+            with self.subTest(STRUCTURE=STRUCTURE):
+                x = t3.TuckerTensorTrain.corewise_randn(*STRUCTURE, use_jax=False)
+                x_jax = x.to_jax()
+
+                self.assertLessEqual(
+                    cw.corewise_norm(cw.corewise_sub(x.data, x_jax.data)),
+                    tol * cw.corewise_norm(x.data)
+                )
+
+                if has_jax:
+                    for B in x_jax.tucker_cores:
+                        self.assertTrue(is_jax_ndarray(B))
+                    for G in x_jax.tt_cores:
+                        self.assertTrue(is_jax_ndarray(G))
+
+    def test_to_numpy(self):
+        structures = [
+            ((14,), (4,), (4, 5), (2, 3)),
+            ((14, 15), (4, 5), (4, 5, 4), (2, 3)),
+            ((14, 15, 16, 17), (4, 5, 6, 7), (4, 5, 4, 3, 2), (2, 3)),
+            ((14, 15, 16), (4, 5, 6), (4, 5, 4, 3), ()),
+        ]
+
+        for STRUCTURE in structures:
+            with self.subTest(STRUCTURE=STRUCTURE):
+                x = t3.TuckerTensorTrain.corewise_randn(*STRUCTURE, use_jax=True)
+                x_numpy = x.to_numpy()
+
+                self.assertLessEqual(
+                    cw.corewise_norm(cw.corewise_sub(x.data, x_numpy.data)),
+                    tol * cw.corewise_norm(x.data)
+                )
+
+                for B in x_numpy.tucker_cores:
+                    self.assertTrue(is_numpy_ndarray(B))
+                for G in x_numpy.tt_cores:
+                    self.assertTrue(is_numpy_ndarray(G))
+
+    def test_copy(self):
+        structures = [
+            ((14,), (4,), (4, 5), (2, 3)),
+            ((14, 15), (4, 5), (4, 5, 4), (2, 3)),
+            ((14, 15, 16, 17), (4, 5, 6, 7), (4, 5, 4, 3, 2), (2, 3)),
+            ((14, 15, 16), (4, 5, 6), (4, 5, 4, 3), ()),
+        ]
+
+        for STRUCTURE in structures:
+            with self.subTest(STRUCTURE=STRUCTURE):
+                x = t3.TuckerTensorTrain.corewise_randn(*STRUCTURE)
+                x2 = x.copy()
+
+                self.assertLessEqual(
+                    cw.corewise_norm(cw.corewise_sub(x.data, x2.data)),
+                    tol * cw.corewise_norm(x.data)
+                )
 
     def test_unstack(self):
         base_structures = [
@@ -720,9 +798,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
         ]
 
         for STRUCTURE in structures:
-            for USE_JAX in [True, False]:
-                x = t3.TuckerTensorTrain.corewise_randn(*STRUCTURE, use_jax=USE_JAX)
-                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE, OP='T3_TIMES_SCALAR'):
+            for X_IS_JAX in [True, False]:
+                x = t3.TuckerTensorTrain.corewise_randn(*STRUCTURE, use_jax=X_IS_JAX)
+                with self.subTest(X_IS_JAX=X_IS_JAX, STRUCTURE=STRUCTURE, OP='T3_TIMES_SCALAR'):
                     s = 3.2
 
                     sx = x * s
@@ -730,7 +808,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                     self.assertIsInstance(sx, t3.TuckerTensorTrain)
                     self.check_relerr(s*x.to_dense(), sx.to_dense())
 
-                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE, OP='T3_TIMES_ARRAYSCALAR'):
+                with self.subTest(X_IS_JAX=X_IS_JAX, STRUCTURE=STRUCTURE, OP='T3_TIMES_NUMPYSCALAR'):
                     s = np.array(3.2)
 
                     sx = x * s
@@ -738,7 +816,15 @@ class TestTuckerTensorTrain(unittest.TestCase):
                     self.assertIsInstance(sx, t3.TuckerTensorTrain)
                     self.check_relerr(s * x.to_dense(), sx.to_dense())
 
-                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE, OP='T3_TIMES_DENSE'):
+                with self.subTest(X_IS_JAX=X_IS_JAX, STRUCTURE=STRUCTURE, OP='T3_TIMES_JAXSCALAR'):
+                    s = jnp.array(3.2)
+
+                    sx = x * s
+
+                    self.assertIsInstance(sx, t3.TuckerTensorTrain)
+                    self.check_relerr(s * x.to_dense(), sx.to_dense())
+
+                with self.subTest(X_IS_JAX=X_IS_JAX, STRUCTURE=STRUCTURE, OP='T3_TIMES_NUMPYDENSE'):
                     y = np.random.randn(*(x.stack_shape + x.shape))
 
                     xy = x * y
@@ -746,17 +832,24 @@ class TestTuckerTensorTrain(unittest.TestCase):
                     self.assertTrue(is_ndarray(xy))
                     self.check_relerr(x.to_dense()*y, xy)
 
-        for STRUCTURE, OTHER_RANKS in zip(structures, other_ranks):
-            for USE_JAX in [True, False]:
-                x = t3.TuckerTensorTrain.corewise_randn(*STRUCTURE, use_jax=USE_JAX)
-                for SQUASH in [True, False]:
-                    with self.subTest(
-                            USE_JAX=USE_JAX, STRUCTURE=STRUCTURE, OTHER_RANKS=OTHER_RANKS,
-                            SQUASH=SQUASH, OP='T3_TIMES_T3',
-                    ):
-                        y_structure = STRUCTURE[:1] + OTHER_RANKS + STRUCTURE[3:]
-                        y = t3.TuckerTensorTrain.corewise_randn(*y_structure)
+                with self.subTest(X_IS_JAX=X_IS_JAX, STRUCTURE=STRUCTURE, OP='T3_TIMES_JAXDENSE'):
+                    y = jnp.array(np.random.randn(*(x.stack_shape + x.shape)))
 
+                    xy = x * y
+
+                    self.assertTrue(is_ndarray(xy))
+                    self.check_relerr(x.to_dense()*y, xy)
+
+        for STRUCTURE, OTHER_RANKS in zip(structures, other_ranks):
+            for X_IS_JAX in [True, False]:
+                for Y_IS_JAX in [True, False]:
+                    x = t3.TuckerTensorTrain.corewise_randn(*STRUCTURE, use_jax=X_IS_JAX)
+                    y_structure = STRUCTURE[:1] + OTHER_RANKS + STRUCTURE[3:]
+                    y = t3.TuckerTensorTrain.corewise_randn(*y_structure, use_jax=Y_IS_JAX)
+                    with self.subTest(
+                            USE_JAX=X_IS_JAX, Y_IS_JAX=Y_IS_JAX, STRUCTURE=STRUCTURE,
+                            OTHER_RANKS=OTHER_RANKS, OP='T3_TIMES_T3',
+                    ):
                         xy = x * y
 
                         self.assertIsInstance(xy, t3.TuckerTensorTrain)
@@ -766,6 +859,119 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         prod_tt_ranks       = tuple(rx*ry for rx, ry in zip(STRUCTURE[2], OTHER_RANKS[1]))
                         self.assertEqual(prod_tucker_ranks, xy.tucker_ranks)
                         self.assertEqual(prod_tt_ranks, xy.tt_ranks)
+
+    def test_dunder_neg(self):
+        structures = [
+            ((14,), (4,), (4, 5), (2, 3)),
+            ((14, 15), (4, 5), (4, 5, 4), (2, 3)),
+            ((14, 15, 16, 17), (4, 5, 6, 7), (4, 5, 4, 3, 2), (2, 3)),
+            ((14, 15, 16), (4, 5, 6), (4, 5, 4, 3), ()),
+        ]
+
+        for STRUCTURE in structures:
+            for USE_JAX in [True, False]:
+                with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
+                    x = t3.TuckerTensorTrain.corewise_randn(*STRUCTURE, use_jax=USE_JAX)
+
+                    neg_x = -x
+
+                    self.assertIsInstance(neg_x, t3.TuckerTensorTrain)
+                    self.check_relerr(-x.to_dense(), neg_x.to_dense())
+
+    def test_dunder_add_sub_mul(self):
+        structures = [
+            ((14,), (4,), (4, 5), (2, 3)),
+            ((14, 15), (4, 5), (4, 5, 4), (2, 3)),
+            ((14, 15, 16, 17), (4, 5, 6, 7), (4, 5, 4, 3, 2), (2, 3)),
+            ((14, 15, 16), (4, 5, 6), (4, 5, 4, 3), ()),
+        ]
+
+        other_ranks = [
+            ((3,), (2, 6)),
+            ((4, 2), (4, 1, 3)),
+            ((1, 2, 3, 4), (1, 3, 2, 1, 2)),
+            ((5, 5, 5), (2, 2, 2, 2)),
+        ]
+
+        for STRUCTURE, OTHER_RANKS in zip(structures, other_ranks):
+            for X_IS_JAX in [True, False]:
+                for OP in ['PLUS', 'MINUS', 'MUL']:
+                    x = t3.TuckerTensorTrain.corewise_randn(*STRUCTURE, use_jax=X_IS_JAX)
+                    for OTHER_TYPE in [
+                        'SCALAR', 'NUMPY_SCALAR', 'JAX_SCALAR',
+                        'NUMPY_DENSE', 'JAX_DENSE',
+                        'NUMPY_T3', 'JAX_T3',
+                    ]:
+                        with self.subTest(
+                                X_IS_JAX=X_IS_JAX,
+                                STRUCTURE=STRUCTURE, OTHER_RANKS=OTHER_RANKS,
+                                OP=OP, OTHER_TYPE=OTHER_TYPE):
+                            if OTHER_TYPE == 'SCALAR':
+                                y = 3.2
+
+                            elif OTHER_TYPE == 'NUMPY_SCALAR':
+                                y = np.array(3.2)
+
+                            elif OTHER_TYPE == 'JAX_SCALAR':
+                                y = jnp.array(3.2)
+
+                            elif OTHER_TYPE == 'NUMPY_DENSE':
+                                y = np.random.randn(*(x.stack_shape + x.shape))
+
+                            elif OTHER_TYPE == 'JAX_DENSE':
+                                y = jnp.array(np.random.randn(*(x.stack_shape + x.shape)))
+
+                            elif OTHER_TYPE == 'NUMPY_T3':
+                                y_structure = STRUCTURE[:1] + OTHER_RANKS + STRUCTURE[3:]
+                                y = t3.TuckerTensorTrain.corewise_randn(*y_structure, use_jax=False)
+
+                            elif OTHER_TYPE == 'JAX_T3':
+                                y_structure = STRUCTURE[:1] + OTHER_RANKS + STRUCTURE[3:]
+                                y = t3.TuckerTensorTrain.corewise_randn(*y_structure, use_jax=True)
+
+                            else:
+                                print('OTHER_TYPE=', OTHER_TYPE)
+                                raise ValueError
+
+
+                            def _td(z):
+                                if isinstance(z, t3.TuckerTensorTrain):
+                                    return z.to_dense()
+                                return z
+
+
+                            if OP == 'PLUS':
+                                x_op_y = x + y
+                                self.check_relerr(_td(x) + _td(y), _td(x_op_y))
+
+                            elif OP == 'MINUS':
+                                x_op_y = x - y
+                                self.check_relerr(_td(x) - _td(y), _td(x_op_y))
+
+                            elif OP == 'MUL':
+                                x_op_y = x * y
+                                self.check_relerr(_td(x) * _td(y), _td(x_op_y))
+
+                            else:
+                                print('OP=', OP)
+                                raise ValueError
+
+
+                            if OTHER_TYPE == 'NUMPY_T3' or OTHER_TYPE == 'JAX_T3':
+                                if OP == 'PLUS' or OP == 'MINUS':
+                                    sum_tucker_ranks = tuple(nx + ny for nx, ny in zip(STRUCTURE[1], OTHER_RANKS[0]))
+                                    sum_tt_ranks = tuple(rx + ry for rx, ry in zip(STRUCTURE[2], OTHER_RANKS[1]))
+                                    self.assertEqual(sum_tucker_ranks, x_op_y.tucker_ranks)
+                                    self.assertEqual(sum_tt_ranks, x_op_y.tt_ranks)
+
+                                elif OP == 'MUL':
+                                    prod_tucker_ranks = tuple(nx * ny for nx, ny in zip(STRUCTURE[1], OTHER_RANKS[0]))
+                                    prod_tt_ranks = tuple(rx * ry for rx, ry in zip(STRUCTURE[2], OTHER_RANKS[1]))
+                                    self.assertEqual(prod_tucker_ranks, x_op_y.tucker_ranks)
+                                    self.assertEqual(prod_tt_ranks, x_op_y.tt_ranks)
+
+                                else:
+                                    raise ValueError
 
 
 #####

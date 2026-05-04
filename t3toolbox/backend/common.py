@@ -46,6 +46,12 @@ if has_jax:
         else:
             return False
 
+to_jax = lambda x: np.array(x)
+if has_jax:
+    to_jax = lambda x: jnp.array(x)
+
+to_numpy = lambda x: np.array(x)
+
 
 __all__ = [
     'has_jax',
@@ -55,6 +61,8 @@ __all__ = [
     'is_boolean_ndarray',
     'is_jax_ndarray',
     'is_numpy_ndarray',
+    'to_jax',
+    'to_numpy',
     #
     'ragged_scan',
     'numpy_scan',

@@ -93,12 +93,13 @@ def change_tucker_core_shapes(
         tucker_cores: typ.Sequence[NDArray],
         new_shape: typ.Sequence[int], # len=d
         new_tucker_ranks: typ.Sequence[int], # len=d
-        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]:
     """Increase/decrease Tucker and/or TT ranks for TT cores using zero padding/truncation.
     """
-    xnp, _, _ = get_backend(False, use_jax)
+    use_jax = is_jax_ndarray(tucker_cores[0])
+    xnp, xmap, _ = get_backend(False, use_jax)
 
+    #
     old_shape = [B.shape[-1] for B in tucker_cores]
     old_tucker_ranks = [B.shape[-2] for B in tucker_cores]
 
@@ -126,12 +127,13 @@ def change_tt_core_shapes(
         tt_cores: typ.Sequence[NDArray],
         new_tucker_ranks: typ.Sequence[int], # len=d
         new_tt_ranks: typ.Sequence[int], # len=d+1
-        use_jax: bool = False,
 ) -> typ.Tuple[NDArray,...]:
     """Increase/decrease Tucker and/or TT ranks for TT cores using zero padding/truncation.
     """
-    xnp, _, _ = get_backend(False, use_jax)
+    use_jax = is_jax_ndarray(tt_cores[0])
+    xnp, xmap, _ = get_backend(False, use_jax)
 
+    #
     old_tucker_ranks = [G.shape[-2] for G in tt_cores]
     old_tt_ranks = [G.shape[-3] for G in tt_cores] + [tt_cores[-1].shape[-1]]
 
