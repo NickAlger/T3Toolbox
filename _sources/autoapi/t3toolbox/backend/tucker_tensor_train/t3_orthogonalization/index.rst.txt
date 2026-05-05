@@ -14,7 +14,7 @@ Functions
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_orthogonalization/right_orthogonalize_t3
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_orthogonalization/down_orthogonalize_tt_cores
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_orthogonalization/up_orthogonalize_tucker_cores
-   /autoapi/t3toolbox/backend/tucker_tensor_train/t3_orthogonalization/up_svd_tucker_core
+   /autoapi/t3toolbox/backend/tucker_tensor_train/t3_orthogonalization/down_svd_tucker_core
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_orthogonalization/left_svd_tt_core
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_orthogonalization/right_svd_tt_core
 
@@ -24,7 +24,7 @@ Functions
    t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.right_orthogonalize_t3
    t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.down_orthogonalize_tt_cores
    t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.up_orthogonalize_tucker_cores
-   t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.up_svd_tucker_core
+   t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.down_svd_tucker_core
    t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.left_svd_tt_core
    t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.right_svd_tt_core
 
