@@ -954,6 +954,33 @@ class TestTuckerTensorTrain(unittest.TestCase):
                             )
                             self.check_relerr(x_dot_y_true, y_dot_x)
 
+
+    def test_norm(self):
+        structures = [
+            ((14,), (4,), (4, 5), (2, 3)),
+            ((14, 15), (4, 5), (4, 5, 4), (2, 3)),
+            ((14, 15, 16, 17), (4, 5, 6, 7), (4, 5, 4, 3, 2), (2, 3)),
+            ((14, 15, 16), (4, 5, 6), (4, 5, 4, 3), ()),
+        ]
+
+        for STRUCTURE in structures:
+            for USE_ORTHOGONALIZATION in [True, False]:
+                for X_IS_JAX in [True, False]:
+                    shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
+                    x = t3.TuckerTensorTrain.corewise_randn(*STRUCTURE, use_jax=X_IS_JAX)
+                    with self.subTest(
+                            X_IS_JAX=X_IS_JAX, USE_ORTHOGONALIZATION=USE_ORTHOGONALIZATION,
+                            STRUCTURE=STRUCTURE,
+                    ):
+                        sum_axes = tuple(range(len(stack_shape), len(stack_shape + shape)))
+                        x_dense = x.to_dense()
+                        norm_x_true = np.sqrt(np.sum(x_dense**2, axis=sum_axes))
+
+                        norm_x = x.norm(use_orthogonalization=USE_ORTHOGONALIZATION)
+
+                        self.check_relerr(norm_x_true, norm_x)
+
+
 #####
 
     def test_t3_apply1(self):

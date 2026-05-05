@@ -119,18 +119,20 @@ def t3_inner_product_t3(
 def t3_norm(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],
         use_orthogonalization: bool = True, # for numerical stability
-        use_jax: bool = False,
 ):
     """Compute Hilbert-Schmidt norm of a Tucker tensor train.
     """
+    use_jax = any([is_jax_ndarray(B) for B in x[0]] + [is_jax_ndarray(G) for G in x[1]])
     xnp, _, _ = get_backend(False, use_jax)
-    x = (x[0], squash_tt_tails(x[1], use_jax=use_jax))
+
+    #
+    x = (x[0], squash_tt_tails(x[1]))
     if use_orthogonalization:
-        x = ragged_orth.left_orthogonalize_t3(x, use_jax=use_jax)
+        x = ragged_orth.left_orthogonalize_t3(x)
         Gf = x[1][-1].sum(axis=-1)
         norm_sq = (Gf*Gf).sum(axis=(-2,-1)) # Don't sum over stacked axes
     else:
-        norm_sq = t3_inner_product_t3(x, x, use_jax=use_jax)
+        norm_sq = t3_inner_product_t3(x, x)
 
     return xnp.sqrt(xnp.abs(norm_sq))
 

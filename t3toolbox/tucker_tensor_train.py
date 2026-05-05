@@ -1354,7 +1354,6 @@ class TuckerTensorTrain:
     def norm(
             self,
             use_orthogonalization: bool = True, # for numerical stability
-            use_jax: bool = False,
     ):
         """Compute Hilbert-Schmidt (Frobenius) norm of a Tucker tensor train.
 
@@ -1408,7 +1407,7 @@ class TuckerTensorTrain:
          [ 1.59161573e-12  4.09272616e-12  2.72848411e-12]]
         """
         return ragged_linalg.t3_norm(
-            self.data, use_orthogonalization=use_orthogonalization, use_jax=use_jax,
+            self.data, use_orthogonalization=use_orthogonalization,
         )
 
     ##########################################
