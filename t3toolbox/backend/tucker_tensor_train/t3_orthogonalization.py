@@ -148,22 +148,23 @@ def left_svd_tt_core(
     #
     tucker_cores, tt_cores = x
 
-    if len(tucker_cores[0].shape) > 2:
-        raise RuntimeError(
-            'Cannot use left_svd_ith_tt_core for stacked Tucker tensor train.\n' +
-            'Different elements of the stack could end out having different shapes.\n' +
-            'First unstack, then call left_svd_ith_tt_core for each unstacked Tucker tensor train.'
+    A0_a_i_b = tt_cores[ii]
+
+    if ii < len(x[0]) - 1:
+        B0_b_j_c = tt_cores[ii + 1]
+
+        A_a_i_x, B_x_j_c, ss_x = linalg.left_svd_pair(
+            A0_a_i_b, B0_b_j_c, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
         )
 
-    A0_a_i_b = tt_cores[ii]
-    B0_b_j_c = tt_cores[ii + 1]
-
-    A_a_i_x, ss_x, Vt_x_b = linalg.left_svd(A0_a_i_b, min_rank, max_rank, rtol, atol, use_jax=use_jax)
-    B_x_j_c = xnp.tensordot(ss_x.reshape((-1, 1)) * Vt_x_b, B0_b_j_c, axes=1)
-
-    new_tt_cores = list(tt_cores)
-    new_tt_cores[ii] = A_a_i_x
-    new_tt_cores[ii + 1] = B_x_j_c
+        new_tt_cores = list(tt_cores)
+        new_tt_cores[ii] = A_a_i_x
+        new_tt_cores[ii + 1] = B_x_j_c
+    else:
+        _, ss_x, _ = linalg.left_svd(
+            A0_a_i_b, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
+        )
+        new_tt_cores = tt_cores
 
     return (tuple(tucker_cores), tuple(new_tt_cores)), ss_x
 

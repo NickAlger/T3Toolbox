@@ -954,7 +954,6 @@ class TestTuckerTensorTrain(unittest.TestCase):
                             )
                             self.check_relerr(x_dot_y_true, y_dot_x)
 
-
     def test_norm(self):
         structures = [
             ((14,), (4,), (4, 5), (2, 3)),
@@ -979,6 +978,93 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         norm_x = x.norm(use_orthogonalization=USE_ORTHOGONALIZATION)
 
                         self.check_relerr(norm_x_true, norm_x)
+
+    def test_directional_svds(self):
+        base_structures = [
+            ((14,), (4,), (4, 5)),
+            ((14, 15), (4, 5), (4, 5, 4)),
+            ((14, 15, 16, 17), (4, 5, 6, 7), (4, 5, 4, 3, 2)),
+            ((14, 15, 16), (4, 5, 6), (4, 5, 4, 3)),
+        ]
+        stack_shapes = [
+            (),
+            (1,),
+            (1,2),
+            (1,2,3)
+        ]
+
+        # for OP in ['DOWN_TUCKER', 'LEFT_TT', 'RIGHT_TT', 'UP_TT', 'DOWN_TT']:
+        for OP in ['DOWN_TUCKER', 'LEFT_TT']:
+            for BASE_STRUCTURE in base_structures:
+                for X_IS_JAX in [True, False]:
+                    for STACK_SHAPE in stack_shapes:
+                        structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                        shape, tucker_ranks, tt_ranks, stack_shape = structure
+                        for MIN_RANK, MAX_RANK in zip(
+                            [None, 2,    4,    None, None, 2],
+                            [None, None, None, 1,    3,    4],
+                        ):
+                            for X_TYPE in ['RANDN', 'ONES']:
+                                for CORE_IND in range(len(shape)):
+                                    with self.subTest(
+                                            OP=OP, BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                            X_IS_JAX=X_IS_JAX, MIN_RANK=MIN_RANK, MAX_RANK=MAX_RANK,
+                                            CORE_IND=CORE_IND,
+                                    ):
+                                        if X_TYPE == 'RANDN':
+                                            x = t3.TuckerTensorTrain.corewise_randn(*structure, use_jax=X_IS_JAX)
+                                        else:
+                                            x = t3.TuckerTensorTrain.ones(
+                                                shape, stack_shape=STACK_SHAPE, use_jax=X_IS_JAX,
+                                            )
+                                            x.resize_cores(shape, tucker_ranks, tt_ranks)
+
+                                        if OP == 'DOWN_TUCKER':
+                                            x2, ss = x.down_svd_tucker_core(CORE_IND, MIN_RANK, MAX_RANK)
+                                            B = x2.tucker_cores[CORE_IND]
+                                            self.check_relerr(
+                                                np.eye(B.shape[-2]),
+                                                np.einsum('...io,...jo', B, B)
+                                            )
+                                        elif OP == 'LEFT_TT':
+                                            x2, ss = x.left_svd_tt_core(CORE_IND, MIN_RANK, MAX_RANK)
+                                            if CORE_IND < len(shape) - 1:
+                                                G = x2.tt_cores[CORE_IND]
+                                                self.check_relerr(
+                                                    np.eye(G.shape[-1]),
+                                                    np.einsum('...iaj,...iak', G, G)
+                                                )
+                                        elif OP == 'RIGHT_TT':
+                                            x2, ss = x.right_svd_tt_core(CORE_IND, MIN_RANK, MAX_RANK)
+                                            if CORE_IND > 1:
+                                                G = x2.tt_cores[CORE_IND]
+                                                self.check_relerr(
+                                                    np.eye(G.shape[-3]),
+                                                    np.einsum('...iaj,...kaj', G, G)
+                                                )
+                                        elif OP == 'UP_TT':
+                                            x2, ss = x.down_svd_tt_core(CORE_IND, MIN_RANK, MAX_RANK)
+                                            G = x2.tt_cores[CORE_IND]
+                                            self.check_relerr(
+                                                np.eye(G.shape[-2]),
+                                                np.einsum('...iaj,...ibj', G, G)
+                                            )
+                                        elif OP == 'DOWN_TT':
+                                            x2, ss = x.down_svd_tt_core(CORE_IND, MIN_RANK, MAX_RANK)
+                                        else:
+                                            raise ValueError
+
+                                        if MAX_RANK is None:
+                                            self.check_relerr(x2.to_dense(), x.to_dense())
+
+
+
+
+
+
+
+
+
 
 
 #####

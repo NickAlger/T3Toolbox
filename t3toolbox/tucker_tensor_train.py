@@ -1483,14 +1483,13 @@ class TuckerTensorTrain:
         )
         return TuckerTensorTrain(*result[0]), result[1]
 
-    def left_svd_ith_tt_core(
+    def left_svd_tt_core(
             self,
             ii: int,  # which tt core to orthogonalize
             min_rank: int = None,
             max_rank: int = None,
             rtol: float = None,
             atol: float = None,
-            use_jax: bool = False,
     ) -> typ.Tuple[
         'TuckerTensorTrain',  # new_x
         NDArray,  # singular values, shape=(r(i+1),)
@@ -1552,18 +1551,17 @@ class TuckerTensorTrain:
             4.453244025338311e-16
         '''
         result = ragged_orthogonalization.left_svd_tt_core(
-            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
+            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
         )
         return TuckerTensorTrain(*result[0]), result[1]
 
-    def right_svd_ith_tt_core(
+    def right_svd_tt_core(
             self,
             ii: int,  # which tt core to orthogonalize
             min_rank: int = None,
             max_rank: int = None,
             rtol: float = None,
             atol: float = None,
-            use_jax: bool = False,
     ) -> typ.Tuple[
         'TuckerTensorTrain',  # new_x
         NDArray,  # singular values, shape=(new_ri,)
@@ -1625,18 +1623,17 @@ class TuckerTensorTrain:
         4.207841813173725e-16
         '''
         result = ragged_orthogonalization.right_svd_tt_core(
-            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
+            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
         )
         return TuckerTensorTrain(*result[0]), result[1]
 
-    def up_svd_ith_tt_core(
+    def down_svd_tt_core(
             self,
             ii: int,  # which tt core to orthogonalize
             min_rank: int = None,
             max_rank: int = None,
             rtol: float = None,
             atol: float = None,
-            use_jax: bool = False,
     ) -> typ.Tuple[
         'TuckerTensorTrain',  # new_x
         NDArray,  # singular values, shape=(new_ni,)
@@ -1687,23 +1684,22 @@ class TuckerTensorTrain:
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> import t3toolbox.orthogonalization as orth
         >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-        >>> x2, ss = x.up_svd_tt_core(1)
+        >>> x2, ss = x.down_svd_tt_core(1)
         >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
         1.002901486286745e-12
         '''
         result = ragged_orthogonalization.up_svd_tt_core(
-            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
+            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
         )
         return TuckerTensorTrain(*result[0]), result[1]
 
-    def down_svd_ith_tt_core(
+    def up_svd_tt_core(
             self,
             ii: int,  # which tt core to orthogonalize
             min_rank: int = None,
             max_rank: int = None,
             rtol: float = None,
             atol: float = None,
-            use_jax: bool = False,
     ) -> typ.Tuple[
         'TuckerTensorTrain',  # new_x
         NDArray,  # singular values, shape=(new_ni,)
@@ -1756,7 +1752,7 @@ class TuckerTensorTrain:
         >>> import t3toolbox.orthogonalization as orth
         >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> ind = 1
-        >>> x2, ss = x.down_svd_tt_core(ind)
+        >>> x2, ss = x.up_svd_tt_core(ind)
         >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
         4.367311712704942e-12
         >>> tucker_cores2, tt_cores2 = x2.data
@@ -1765,9 +1761,11 @@ class TuckerTensorTrain:
         1.0643458053135608e-15
         '''
         result = ragged_orthogonalization.down_svd_tt_core(
-            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
+            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
         )
         return TuckerTensorTrain(*result[0]), result[1]
+
+    ####
 
     def orthogonalize_relative_to_ith_tucker_core(
             self,
