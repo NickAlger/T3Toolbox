@@ -1414,21 +1414,18 @@ class TuckerTensorTrain:
     ########    Orthogonalization    #########
     ##########################################
 
-    def up_svd_ith_tucker_core(
+    def down_svd_tucker_core(
             self,
-            ii: int,  # which base core to orthogonalize
+            ii: int,  # which Tucker core to orthogonalize
             min_rank: int = None,
             max_rank: int = None,
             rtol: float = None,
             atol: float = None,
-            use_jax: bool = False,
     ) -> typ.Tuple[
         'TuckerTensorTrain',  # new_x
         NDArray,  # ss_x. singular values
     ]:
-        '''Compute SVD of ith tucker core and contract non-orthogonal factor up into the TT-core above.
-
-        Stacking not supported: the truncated ranks vary based on this T3's numerical properties.
+        '''Compute SVD of ith tucker core and contract non-orthogonal factor into the TT-core above.
 
         Parameters
         ----------
@@ -1470,19 +1467,19 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> ind = 1
-        >>> x2, ss = x.up_svd_tucker_core(ind)
+        >>> x2, ss = x.down_svd_tucker_core(ind)
         >>> print(np.linalg.norm(x.to_dense() - x.to_dense())) # Tensor unchanged
-        5.772851635866132e-13
+        0.0
         >>> tucker_cores2, tt_cores2 = x2.data
         >>> rank = len(ss)
         >>> B = tucker_cores2[ind]
         >>> print(np.linalg.norm(B @ B.T - np.eye(rank))) # Tucker core is orthogonal
         8.456498415401757e-16
         '''
-        result = ragged_orthogonalization.up_svd_tucker_core(
-            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
+        result = ragged_orthogonalization.down_svd_tucker_core(
+            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
         )
         return TuckerTensorTrain(*result[0]), result[1]
 

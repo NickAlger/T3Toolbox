@@ -14,7 +14,7 @@ __all__ = [
     'right_orthogonalize_t3',
     'down_orthogonalize_tt_cores',
     'up_orthogonalize_tucker_cores',
-    'up_svd_tucker_core',
+    'down_svd_tucker_core',
     'left_svd_tt_core',
     'right_svd_tt_core',
 ]
@@ -98,42 +98,31 @@ def up_orthogonalize_tucker_cores(
     return (up_tucker_cores, new_tt_cores)
 
 
-def up_svd_tucker_core(
+def down_svd_tucker_core(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
         ii: int,  # which base backend to orthogonalize
         min_rank: int = None,
         max_rank: int = None,
         rtol: float = None,
         atol: float = None,
-        use_jax: bool = False,
 ) -> typ.Tuple[
     typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # new_x
     NDArray,  # ss_x. singular values
 ]:
     '''Compute SVD of ith tucker core and contract non-orthogonal factor up into the TT-core above.
     '''
-    xnp, _, _ = get_backend(False, use_jax)
-
-    #
     tucker_cores, tt_cores = x
 
     G_a_i_b = tt_cores[ii]
     U_i_o = tucker_cores[ii]
-    U_o_i = U_i_o.T
 
-    U2_o_x, ss_x, Vt_x_i = linalg.truncated_svd(U_o_i, min_rank, max_rank, rtol, atol, use_jax=use_jax)
-
-    R_x_i = xnp.einsum('...x,...xi->...xi', ss_x, Vt_x_i)
-    # U2_o_x, R_x_i = xnp.linalg.qr(U_o_i, mode='reduced')
-
-    G2_a_x_b = xnp.einsum('...aib,...xi->...axb', G_a_i_b, R_x_i)
-    U2_x_o = U2_o_x.T
+    new_G, new_B, ss_x = linalg.down_svd_pair(G_a_i_b, U_i_o, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol)
 
     new_tt_cores = list(tt_cores)
-    new_tt_cores[ii] = G2_a_x_b
+    new_tt_cores[ii] = new_G
 
     new_tucker_cores = list(tucker_cores)
-    new_tucker_cores[ii] = U2_x_o
+    new_tucker_cores[ii] = new_B
 
     new_x = (tuple(new_tucker_cores), tuple(new_tt_cores))
 
@@ -330,12 +319,12 @@ def orthogonalize_relative_to_tucker_core(
     new_x = x
     for jj in range(ii):
         new_x = down_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-        new_x = up_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = down_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
         new_x = left_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
 
     for jj in range(num_cores - 1, ii, -1):
         new_x = down_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-        new_x = up_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = down_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
         new_x = right_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
 
     new_x = down_svd_tt_core(new_x, ii, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
@@ -368,15 +357,15 @@ def orthogonalize_relative_to_tt_core(
     new_x = x
     for jj in range(ii):
         new_x = down_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-        new_x = up_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = down_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
         new_x = left_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
 
     for jj in range(num_cores - 1, ii, -1):
         new_x = down_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-        new_x = up_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = down_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
         new_x = right_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
 
-    new_x = up_svd_tucker_core(new_x, ii, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+    new_x = down_svd_tucker_core(new_x, ii, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
     return new_x
 
 
