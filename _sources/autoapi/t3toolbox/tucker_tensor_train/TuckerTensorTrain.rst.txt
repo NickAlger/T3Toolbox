@@ -886,7 +886,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: norm(use_orthogonalization: bool = True, use_jax: bool = False)
+   .. py:method:: norm(use_orthogonalization: bool = True)
 
       Compute Hilbert-Schmidt (Frobenius) norm of a Tucker tensor train.
 
