@@ -963,7 +963,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> import t3toolbox.tucker_tensor_train as t3
       >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
       >>> ind = 1
-      >>> x2, ss = x.up_svd_ith_tucker_core(ind)
+      >>> x2, ss = x.up_svd_tucker_core(ind)
       >>> print(np.linalg.norm(x.to_dense() - x.to_dense())) # Tensor unchanged
       5.772851635866132e-13
       >>> tucker_cores2, tt_cores2 = x2.data
@@ -1009,7 +1009,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> import t3toolbox.orthogonalization as orth
       >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
       >>> ind = 1
-      >>> x2, ss = x.left_svd_ith_tt_core(ind)
+      >>> x2, ss = x.left_svd_tt_core(ind)
       >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
           5.186463661974644e-13
       >>> tucker_cores2, tt_cores2 = x2.data
@@ -1054,7 +1054,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> import t3toolbox.orthogonalization as orth
       >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
       >>> ind = 1
-      >>> x2, ss = x.right_svd_ith_tt_core(ind)
+      >>> x2, ss = x.right_svd_tt_core(ind)
       >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
       5.304678679078675e-13
       >>> tucker_cores2, tt_cores2 = x2.data
@@ -1097,7 +1097,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> import t3toolbox.tucker_tensor_train as t3
       >>> import t3toolbox.orthogonalization as orth
       >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-      >>> x2, ss = x.up_svd_ith_tt_core(1)
+      >>> x2, ss = x.up_svd_tt_core(1)
       >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
       1.002901486286745e-12
 
@@ -1138,7 +1138,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> import t3toolbox.orthogonalization as orth
       >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
       >>> ind = 1
-      >>> x2, ss = x.down_svd_ith_tt_core(ind)
+      >>> x2, ss = x.down_svd_tt_core(ind)
       >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
       4.367311712704942e-12
       >>> tucker_cores2, tt_cores2 = x2.data
@@ -1186,7 +1186,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> import t3toolbox.tucker_tensor_train as t3
       >>> import t3toolbox.orthogonalization as orth
       >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-      >>> x2 = x.orthogonalize_relative_to_ith_tucker_core(1)
+      >>> x2 = x.orthogonalize_relative_to_tucker_core(1)
       >>> print(np.linalg.norm(x.to_dense(x) - x2.to_dense(x2))) # Tensor unchanged
       8.800032152216517e-13
       >>> ((B0, B1, B2), (G0, G1, G2)) = x2.data
@@ -1200,7 +1200,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> import t3toolbox.tucker_tensor_train as t3
       >>> import t3toolbox.orthogonalization as orth
       >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2))
-      >>> x2 = x.orthogonalize_relative_to_ith_tucker_core(0)
+      >>> x2 = x.orthogonalize_relative_to_tucker_core(0)
       >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
       5.152424496985265e-12
       >>> ((B0, B1, B2), (G0, G1, G2)) = x2.data
@@ -1247,7 +1247,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> import t3toolbox.tucker_tensor_train as t3
       >>> import t3toolbox.orthogonalization as orth
       >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-      >>> x2 = x.orthogonalize_relative_to_ith_tt_core(1)
+      >>> x2 = x.orthogonalize_relative_to_tt_core(1)
       >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
       8.800032152216517e-13
       >>> ((B0, B1, B2), (G0, G1, G2)) = x2.data
@@ -1266,7 +1266,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> import t3toolbox.tucker_tensor_train as t3
       >>> import t3toolbox.orthogonalization as orth
       >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2))
-      >>> x2 = x.orthogonalize_relative_to_ith_tt_core(0)
+      >>> x2 = x.orthogonalize_relative_to_tt_core(0)
       >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
       5.4708999671349535e-12
       >>> ((B0, B1, B2), (G0, G1, G2)) = x2.data

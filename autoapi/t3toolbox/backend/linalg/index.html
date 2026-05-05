@@ -329,9 +329,13 @@
 <li class="toctree-l3 current active has-children"><a class="current reference internal" href="#">t3toolbox.backend.linalg</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l4"><a class="reference internal" href="pad_or_truncate.html">t3toolbox.backend.linalg.pad_or_truncate</a></li>
 <li class="toctree-l4"><a class="reference internal" href="truncated_svd.html">t3toolbox.backend.linalg.truncated_svd</a></li>
-<li class="toctree-l4"><a class="reference internal" href="left_svd_3tensor.html">t3toolbox.backend.linalg.left_svd_3tensor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="right_svd_3tensor.html">t3toolbox.backend.linalg.right_svd_3tensor</a></li>
-<li class="toctree-l4"><a class="reference internal" href="outer_svd_3tensor.html">t3toolbox.backend.linalg.outer_svd_3tensor</a></li>
+<li class="toctree-l4"><a class="reference internal" href="left_svd.html">t3toolbox.backend.linalg.left_svd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="right_svd.html">t3toolbox.backend.linalg.right_svd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="up_svd.html">t3toolbox.backend.linalg.up_svd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="left_svd_pair.html">t3toolbox.backend.linalg.left_svd_pair</a></li>
+<li class="toctree-l4"><a class="reference internal" href="right_svd_pair.html">t3toolbox.backend.linalg.right_svd_pair</a></li>
+<li class="toctree-l4"><a class="reference internal" href="up_svd_pair.html">t3toolbox.backend.linalg.up_svd_pair</a></li>
+<li class="toctree-l4"><a class="reference internal" href="down_svd_pair.html">t3toolbox.backend.linalg.down_svd_pair</a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../orthogonal_representations/index.html">t3toolbox.backend.orthogonal_representations</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -597,16 +601,28 @@
 <td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="truncated_svd.html#t3toolbox.backend.linalg.truncated_svd" title="t3toolbox.backend.linalg.truncated_svd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">truncated_svd</span></code></a>(...)</p></td>
-<td><p>Compute (truncated) singular value decomposition of matrix.</p></td>
+<td><p>Compute (truncated) singular value decomposition of matrix A.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="left_svd_3tensor.html#t3toolbox.backend.linalg.left_svd_3tensor" title="t3toolbox.backend.linalg.left_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_3tensor</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="left_svd.html#t3toolbox.backend.linalg.left_svd" title="t3toolbox.backend.linalg.left_svd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd</span></code></a>(...)</p></td>
 <td><p>Compute (truncated) singular value decomposition of 3-tensor left unfolding.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="right_svd_3tensor.html#t3toolbox.backend.linalg.right_svd_3tensor" title="t3toolbox.backend.linalg.right_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd_3tensor</span></code></a>(...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="right_svd.html#t3toolbox.backend.linalg.right_svd" title="t3toolbox.backend.linalg.right_svd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd</span></code></a>(...)</p></td>
 <td><p>Compute (truncated) singular value decomposition of 3-tensor right unfolding.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="outer_svd_3tensor.html#t3toolbox.backend.linalg.outer_svd_3tensor" title="t3toolbox.backend.linalg.outer_svd_3tensor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">outer_svd_3tensor</span></code></a>(...)</p></td>
-<td><p>Compute (truncated) singular value decomposition of 3-tensor outer unfolding.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="up_svd.html#t3toolbox.backend.linalg.up_svd" title="t3toolbox.backend.linalg.up_svd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_svd</span></code></a>(...)</p></td>
+<td><p>Compute (truncated) singular value decomposition of 3-tensor up unfolding.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="left_svd_pair.html#t3toolbox.backend.linalg.left_svd_pair" title="t3toolbox.backend.linalg.left_svd_pair"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_pair</span></code></a>(...)</p></td>
+<td><p>Compute (truncated) singular value decomposition of G0, pushing non-orthogonal remainder onto G1.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="right_svd_pair.html#t3toolbox.backend.linalg.right_svd_pair" title="t3toolbox.backend.linalg.right_svd_pair"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd_pair</span></code></a>(...)</p></td>
+<td><p>Compute (truncated) singular value decomposition of G1, pushing non-orthogonal remainder onto G0.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="up_svd_pair.html#t3toolbox.backend.linalg.up_svd_pair" title="t3toolbox.backend.linalg.up_svd_pair"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_svd_pair</span></code></a>(...)</p></td>
+<td><p>Compute (truncated) singular value decomposition of G, pushing non-orthogonal remainder onto B.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="down_svd_pair.html#t3toolbox.backend.linalg.down_svd_pair" title="t3toolbox.backend.linalg.down_svd_pair"><code class="xref py py-obj docutils literal notranslate"><span class="pre">down_svd_pair</span></code></a>(...)</p></td>
+<td><p>Compute (truncated) singular value decomposition of B, pushing non-orthogonal remainder onto G.</p></td>
 </tr>
 </tbody>
 </table>

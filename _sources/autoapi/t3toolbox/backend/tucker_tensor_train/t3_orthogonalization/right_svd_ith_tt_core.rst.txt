@@ -1,8 +1,0 @@
-t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.right_svd_ith_tt_core
-================================================================================
-
-.. py:function:: t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.right_svd_ith_tt_core(x: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]], ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]], t3toolbox.backend.common.NDArray]
-
-   Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor into the TT-core to the left.
-
-

@@ -1,0 +1,8 @@
+t3toolbox.backend.linalg.down_svd_pair
+======================================
+
+.. py:function:: t3toolbox.backend.linalg.down_svd_pair(G_i_a_j: t3toolbox.backend.common.NDArray, B_a_o: t3toolbox.backend.common.NDArray, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]
+
+   Compute (truncated) singular value decomposition of B, pushing non-orthogonal remainder onto G.
+
+

@@ -1,64 +1,95 @@
 t3toolbox.backend.linalg.truncated_svd
 ======================================
 
-.. py:function:: t3toolbox.backend.linalg.truncated_svd(A: t3toolbox.backend.common.NDArray, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]
+.. py:function:: t3toolbox.backend.linalg.truncated_svd(A: t3toolbox.backend.common.NDArray, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray, t3toolbox.backend.common.NDArray]
 
-   Compute (truncated) singular value decomposition of matrix.
+   Compute (truncated) singular value decomposition of matrix A.
 
    A = U @ diag(ss) @ Vt
    Equality may be approximate if truncation is used.
 
-   :param A: Matrix. shape=(N, M)
+   :param A: Matrix. shape=(..., N, M)
    :type A: NDArray
    :param min_rank: Minimum rank for truncation. Should have 1 <= min_rank <= max_rank <= minimum(N, M).
    :type min_rank: int
    :param min_rank: Maximum rank for truncation. Should have 1 <= min_rank <= max_rank <= minimum(N, M).
    :type min_rank: int
    :param rtol: Relative tolerance for truncation. Remove singular values satisfying sigma < maximum(atol, rtol*sigma1).
+                Cannot be used for stacked A (len(A.shape) > 2).
    :type rtol: float
    :param atol: Absolute tolerance for truncation. Remove singular values satisfying sigma < maximum(atol, rtol*sigma1).
+                Cannot be used for stacked A (len(A.shape) > 2).
    :type atol: float
-   :param xnp: Linear algebra backend. Default: np (numpy)
 
-   :returns: * **U** (*NDArray*) -- Left singular vectors. shape=(N, k).
+   :returns: * **U** (*NDArray*) -- Left singular vectors. shape=(..., N, r).
                U.T @ U = identity matrix
-             * **ss** (*NDArray*) -- Singular values. Non-negative. shape=(k,).
-             * **Vt** (*NDArray*) -- Right singular vectors. shape=(k, M)
+             * **ss** (*NDArray*) -- Singular values. Non-negative. shape=(..., r).
+             * **Vt** (*NDArray*) -- Right singular vectors. shape=(..., r, M)
                Vt @ Vt.T = identity matrix
 
    .. rubric:: Examples
 
    >>> import numpy as np
-   >>> import t3toolbox.dense as dense
-   >>> A = np.random.randn(55,70)
-   >>> U, ss, Vt = dense.truncated_svd(A)
-   >>> A2 = np.einsum('ix,x,xj->ij', U, ss, Vt)
+   >>> import t3toolbox.backend.linalg as linalg
+   >>> A = np.random.randn(2,3,4, 55,70)
+   >>> U, ss, Vt = linalg.truncated_svd(A)
+   >>> A2 = np.einsum('...ix,...x,...xj->...ij', U, ss, Vt)
    >>> print(np.linalg.norm(A - A2))
    1.0428742517412705e-13
-   >>> rank = len(ss)
-   >>> print(np.linalg.norm(U.T @ U - np.eye(rank)))
+   >>> print(np.linalg.norm(np.einsum('...ij,...ik->...jk', U, U) - np.eye(U.shape[-1])))
    1.1907994177245428e-14
-   >>> print(np.linalg.norm(Vt @ Vt.T - np.eye(rank)))
+   >>> print(np.linalg.norm(np.einsum('...ij,...kj->...ik', Vt, Vt) - np.eye(Vt.shape[-2])))
    1.1027751835566194e-14
+   >>> print(np.all(ss >= 0.0))
+   True
+
+   Using max_rank:
 
    >>> import numpy as np
-   >>> import t3toolbox.dense as dense
-   >>> A = np.random.randn(55, 70) @ np.diag(1.0 / np.arange(1,71)**2) # Create matrix with spectral decay
-   >>> U, ss, Vt = dense.truncated_svd(A, rtol=1e-2) # Truncated SVD with relative tolerance 1e-2
+   >>> import t3toolbox.backend.linalg as linalg
+   >>> A = np.random.randn(2,3,4, 55,70)
+   >>> U, ss, Vt = linalg.truncated_svd(A, max_rank=5)
+   >>> A2 = np.einsum('...ix,...x,...xj->...ij', U, ss, Vt)
+   >>> truncated_rank = ss.shape[-1]
+   >>> print(truncated_rank)
+   5
+
+   Using rtol:
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.linalg as linalg
+   >>> A = np.array([[1.0 / (ii + jj) for jj in range(1, 70)] for ii in range(1, 55)]) # Hilbert matrix
+   >>> U, ss, Vt = linalg.truncated_svd(A, rtol=1e-2) # Truncated SVD with relative tolerance 1e-2
    >>> A2 = np.einsum('ix,x,xj->ij', U, ss, Vt)
-   >>> truncated_rank = len(ss)
+   >>> truncated_rank = ss.shape[-1]
+   >>> print(truncated_rank)
+   3
+   >>> print(np.linalg.norm(A - A2, 2) / np.linalg.norm(A, 2)) # should be just less than rtol=1e-2
+   0.008954100371711833
+
+   Using atol:
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.linalg as linalg
+   >>> A = np.array([[1.0 / (ii + jj) for jj in range(1, 70)] for ii in range(1, 55)]) # Hilbert matrix
+   >>> U, ss, Vt = linalg.truncated_svd(A, atol=1e-2) # Truncated SVD with absolute tolerance 1e-2
+   >>> A2 = np.einsum('ix,x,xj->ij', U, ss, Vt)
+   >>> truncated_rank = ss.shape[-1]
+   >>> print(truncated_rank)
+   4
+   >>> print(np.linalg.norm(A - A2, 2))  # Check error in induced 2-norm
+   0.002528973452232782
+
+   Using rtol and min_rank:
+
+   >>> import numpy as np
+   >>> import t3toolbox.backend.linalg as linalg
+   >>> A = np.array([[1.0 / (ii + jj) for jj in range(1, 70)] for ii in range(1, 55)]) # Hilbert matrix
+   >>> U, ss, Vt = linalg.truncated_svd(A, rtol=1e-2, min_rank=10)
+   >>> A2 = np.einsum('ix,x,xj->ij', U, ss, Vt)
+   >>> truncated_rank = ss.shape[-1]
    >>> print(truncated_rank)
    10
-   >>> relerr_num = np.linalg.norm(A - A2, 2) # Check error in induced 2-norm
-   >>> relerr_den = np.linalg.norm(A, 2)
-   >>> print(relerr_num / relerr_den) # should be just less than rtol=1e-2
-   0.008530627920514714
-   >>> U, ss, Vt = dense.truncated_svd(A, atol=1e-2) # Truncated SVD with absolute tolerance 1e-2
-   >>> A2 = np.einsum('ix,x,xj->ij', U, ss, Vt)
-   >>> truncated_rank = len(ss)
-   >>> print(truncated_rank)
-   24
-   >>> err = np.linalg.norm(A - A2, 2)  # Check error in induced 2-norm
-   >>> print(err) # should be just less than atol=1e-2
-   0.00882416786402483
+   >>> print(np.linalg.norm(A - A2, 2) / np.linalg.norm(A, 2)) # should be just less than rtol=1e-2
+   10
 
