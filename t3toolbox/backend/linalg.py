@@ -224,7 +224,6 @@ def right_svd(
         max_rank: int = None, # 1 <= min_rank <= max_rank <= minimum(ni*na, nj)
         rtol: float = None, # removes singular values satisfying sigma < maximum(atol, rtol*sigma1)
         atol: float = None, # removes singular values satisfying sigma < maximum(atol, rtol*sigma1)
-        use_jax: bool = False,
 ) -> typ.Tuple[
     NDArray, # U_i_x,       shape=(ni, nx)
     NDArray, # ss_x,        shape=(nx,)
@@ -235,7 +234,7 @@ def right_svd(
     Last two indices of the tensor are grouped for the SVD.
     '''
     G0_j_a_i = G0_i_a_j.swapaxes(-3, -1)
-    Vt_j_a_x, ss_x, U_x_i = left_svd(G0_j_a_i, min_rank, max_rank, rtol, atol, use_jax=use_jax)
+    Vt_j_a_x, ss_x, U_x_i = left_svd(G0_j_a_i, min_rank, max_rank, rtol, atol)
     Vt_x_a_j = Vt_j_a_x.swapaxes(-1, -3)
     U_i_x = U_x_i.swapaxes(-2,-1)
     return U_i_x, ss_x, Vt_x_a_j
@@ -247,7 +246,6 @@ def up_svd(
         max_rank: int = None, # 1 <= min_rank <= max_rank <= minimum(ni*na, nj)
         rtol: float = None, # removes singular values satisfying sigma < maximum(atol, rtol*sigma1)
         atol: float = None, # removes singular values satisfying sigma < maximum(atol, rtol*sigma1)
-        use_jax: bool = False,
 ) -> typ.Tuple[
     NDArray, # U_i_x_j, shape=(ni, nx, nj),
     NDArray, # ss_x,    shape=(nx,)
@@ -259,7 +257,7 @@ def up_svd(
     Middle index forms columns.
     '''
     G0_i_j_a = G0_i_a_j.swapaxes(-2, -1)
-    U_i_j_x, ss_x, Vt_x_a = left_svd(G0_i_j_a, min_rank, max_rank, rtol, atol, use_jax=use_jax)
+    U_i_j_x, ss_x, Vt_x_a = left_svd(G0_i_j_a, min_rank, max_rank, rtol, atol)
     U_i_x_j = U_i_j_x.swapaxes(-1, -2)
     return U_i_x_j, ss_x, Vt_x_a
 

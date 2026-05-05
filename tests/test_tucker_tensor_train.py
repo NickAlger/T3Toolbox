@@ -994,7 +994,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         ]
 
         # for OP in ['DOWN_TUCKER', 'LEFT_TT', 'RIGHT_TT', 'UP_TT', 'DOWN_TT']:
-        for OP in ['DOWN_TUCKER', 'LEFT_TT']:
+        for OP in ['DOWN_TUCKER', 'LEFT_TT', 'RIGHT_TT']:
             for BASE_STRUCTURE in base_structures:
                 for X_IS_JAX in [True, False]:
                     for STACK_SHAPE in stack_shapes:

@@ -136,16 +136,12 @@ def left_svd_tt_core(
         max_rank: int = None,
         rtol: float = None,
         atol: float = None,
-        use_jax: bool = False,
 ) -> typ.Tuple[
     typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # new_x
     NDArray,  # singular values, shape=(r(i+1),)
 ]:
     '''Compute SVD of ith TT-core left unfolding and contract non-orthogonal factor into the TT-core to the right.
     '''
-    xnp, _, _ = get_backend(False, use_jax)
-
-    #
     tucker_cores, tt_cores = x
 
     A0_a_i_b = tt_cores[ii]
@@ -176,34 +172,38 @@ def right_svd_tt_core(
         max_rank: int = None,
         rtol: float = None,
         atol: float = None,
-        use_jax: bool = False,
 ) -> typ.Tuple[
     typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # new_x
     NDArray,  # singular values, shape=(new_ri,)
 ]:
     '''Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor into the TT-core to the left.
     '''
-    xnp, _, _ = get_backend(False, use_jax)
-
-    #
     tucker_cores, tt_cores = x
 
-    if len(tucker_cores[0].shape) > 2:
-        raise RuntimeError(
-            'Cannot use right_svd_ith_tt_core for stacked Tucker tensor train.\n' +
-            'Different elements of the stack could end out having different shapes.\n' +
-            'First unstack, then call right_svd_ith_tt_core for each unstacked Tucker tensor train.'
-        )
+    # if len(tucker_cores[0].shape) > 2:
+    #     raise RuntimeError(
+    #         'Cannot use right_svd_ith_tt_core for stacked Tucker tensor train.\n' +
+    #         'Different elements of the stack could end out having different shapes.\n' +
+    #         'First unstack, then call right_svd_ith_tt_core for each unstacked Tucker tensor train.'
+    #     )
 
-    A0_a_i_b = tt_cores[ii - 1]
     B0_b_j_c = tt_cores[ii]
 
-    U_b_x, ss_x, B_x_j_c = linalg.right_svd(B0_b_j_c, min_rank, max_rank, rtol, atol, use_jax=use_jax)
-    A_a_i_x = xnp.tensordot(A0_a_i_b, U_b_x * ss_x.reshape((1, -1)), axes=1)
+    if ii > 1:
+        A0_a_i_b = tt_cores[ii - 1]
 
-    new_tt_cores = list(tt_cores)
-    new_tt_cores[ii - 1] = A_a_i_x
-    new_tt_cores[ii] = B_x_j_c
+        A_a_i_x, B_x_j_c, ss_x = linalg.right_svd_pair(
+            A0_a_i_b, B0_b_j_c, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
+        )
+
+        new_tt_cores = list(tt_cores)
+        new_tt_cores[ii-1] = A_a_i_x
+        new_tt_cores[ii] = B_x_j_c
+    else:
+        _, ss_x, _ = linalg.right_svd(
+            B0_b_j_c, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
+        )
+        new_tt_cores = tt_cores
 
     return (tuple(tucker_cores), tuple(new_tt_cores)), ss_x
 
