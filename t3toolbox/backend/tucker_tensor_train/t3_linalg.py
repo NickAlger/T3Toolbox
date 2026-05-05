@@ -83,12 +83,12 @@ def t3_inner_product_t3(
     xnp, _, _ = get_backend(False, use_jax)
 
     #
-    x = (x[0], squash_tt_tails(x[1], use_jax=use_jax))
-    y = (y[0], squash_tt_tails(y[1], use_jax=use_jax))
+    x = (x[0], squash_tt_tails(x[1]))
+    y = (y[0], squash_tt_tails(y[1]))
 
     if use_orthogonalization:
-        x = ragged_orth.left_orthogonalize_t3(x, use_jax=use_jax)
-        y = ragged_orth.left_orthogonalize_t3(y, use_jax=use_jax)
+        x = ragged_orth.left_orthogonalize_t3(x)
+        y = ragged_orth.left_orthogonalize_t3(y)
 
     tucker_cores_x, tt_cores_x = x
     tucker_cores_y, tt_cores_y = y

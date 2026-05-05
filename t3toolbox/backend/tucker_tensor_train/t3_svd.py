@@ -61,7 +61,7 @@ def t3svd(
     x = (x[0], orth.right_orthogonalize_tt_cores(x[1], use_jax=use_jax))
 
     G0 = x[1][0]
-    _, ss_first, _ = linalg.right_svd_3tensor(G0, use_jax=use_jax)
+    _, ss_first, _ = linalg.right_svd(G0, use_jax=use_jax)
 
     # Sweep left to right computing SVDS
     all_ss_tucker = []
@@ -70,7 +70,7 @@ def t3svd(
         min_rank = min_tucker_ranks[ii] if min_tucker_ranks is not None else None
         max_rank = max_tucker_ranks[ii] if max_tucker_ranks is not None else None
         # SVD inbetween TT core and Tucker core
-        x, ss_tucker = ragged_orth.up_svd_ith_tt_core(
+        x, ss_tucker = ragged_orth.up_svd_tt_core(
             x, ii, min_rank, max_rank, rtol, atol, use_jax=use_jax,
         )
         all_ss_tucker.append(ss_tucker)
@@ -79,12 +79,12 @@ def t3svd(
             min_rank = min_tt_ranks[ii+1] if min_tt_ranks is not None else None
             max_rank = max_tt_ranks[ii+1] if max_tt_ranks is not None else None
             # SVD inbetween ith tt core and (i+1)th tt core
-            x, ss_tt = ragged_orth.left_svd_ith_tt_core(
+            x, ss_tt = ragged_orth.left_svd_tt_core(
                 x, ii, min_rank, max_rank, rtol, atol, use_jax=use_jax,
             )
         else:
             Gf = x[1][-1]
-            _, ss_tt, _ = linalg.left_svd_3tensor(Gf, use_jax=use_jax)
+            _, ss_tt, _ = linalg.left_svd(Gf, use_jax=use_jax)
         all_ss_tt.append(ss_tt)
 
     return x, tuple(all_ss_tucker), tuple(all_ss_tt)

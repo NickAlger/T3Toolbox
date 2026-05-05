@@ -65,10 +65,10 @@ def to_dense(
 
 def squash_tt_tails(
         tt_cores: typ.Sequence[NDArray],
-        use_jax: bool = False,
 ) -> typ.Tuple[NDArray]:
     """Make leading and trailing TT ranks equal to 1 (r0=rd=1), without changing tensor being represented.
     """
+    use_jax = any([is_jax_ndarray(G) for G in tt_cores])
     xnp, _, _ = get_backend(False, use_jax)
 
     #

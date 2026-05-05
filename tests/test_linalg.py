@@ -60,7 +60,7 @@ class TestLinalgJax(unittest.TestCase):
                 with self.subTest(USE_JAX=USE_JAX, SHAPE=SHAPE):
                     G_i_a_j = np.random.randn(*SHAPE)
 
-                    U_i_a_x, ss_x, Vt_x_j = linalg.left_svd_3tensor(G_i_a_j, use_jax=USE_JAX)
+                    U_i_a_x, ss_x, Vt_x_j = linalg.left_svd(G_i_a_j, use_jax=USE_JAX)
 
                     G_i_a_j2 = np.einsum('iax,x,xj->iaj', U_i_a_x, ss_x, Vt_x_j)
                     self.assertLessEqual(norm(G_i_a_j - G_i_a_j2), tol * norm(G_i_a_j))
@@ -88,7 +88,7 @@ class TestLinalgJax(unittest.TestCase):
                 with self.subTest(USE_JAX=USE_JAX, SHAPE=SHAPE):
                     G_i_a_j = np.random.randn(*SHAPE)
 
-                    U_i_x, ss_x, Vt_x_a_j = linalg.right_svd_3tensor(G_i_a_j, use_jax=USE_JAX)
+                    U_i_x, ss_x, Vt_x_a_j = linalg.right_svd(G_i_a_j, use_jax=USE_JAX)
 
                     G_i_a_j2 = np.einsum('ix,x,xaj->iaj', U_i_x, ss_x, Vt_x_a_j)
                     self.assertLessEqual(norm(G_i_a_j - G_i_a_j2), tol * norm(G_i_a_j))
@@ -116,7 +116,7 @@ class TestLinalgJax(unittest.TestCase):
                 with self.subTest(USE_JAX=USE_JAX, SHAPE=SHAPE):
                     G_i_a_j = np.random.randn(*SHAPE)
 
-                    U_i_x_j,        ss_x,       Vt_x_a      = linalg.outer_svd_3tensor(G_i_a_j, use_jax=USE_JAX)
+                    U_i_x_j,        ss_x,       Vt_x_a      = linalg.up_svd(G_i_a_j, use_jax=USE_JAX)
 
                     G_i_a_j2 = np.einsum('ixj,x,xa->iaj', U_i_x_j, ss_x, Vt_x_a)
                     self.assertLessEqual(norm(G_i_a_j - G_i_a_j2), tol * norm(G_i_a_j))
