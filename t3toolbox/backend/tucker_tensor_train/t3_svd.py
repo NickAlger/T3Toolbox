@@ -66,7 +66,7 @@ def t3svd(
         min_rank = min_tucker_ranks[ii] if min_tucker_ranks is not None else None
         max_rank = max_tucker_ranks[ii] if max_tucker_ranks is not None else None
         # SVD inbetween TT core and Tucker core
-        x, ss_tucker = ragged_orth.up_svd_tt_core(
+        x, ss_tucker = ragged_orth.down_svd_tt_core(
             x, ii, min_rank, max_rank, rtol, atol,
         )
         all_ss_tucker.append(ss_tucker)
