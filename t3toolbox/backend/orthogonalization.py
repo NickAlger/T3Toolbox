@@ -59,44 +59,6 @@ def left_orthogonalize_tt_cores(
     else:
         return left_tt_cores
 
-    # stack_shape = tt_cores[0].shape[:-3]
-    #
-    # def _left_func(Cxb, left_func_args):
-    #     Gbjc = left_func_args[0]
-    #
-    #     Hxjc = xnp.einsum('...xb,...bjc->...xjc', Cxb, Gbjc)
-    #
-    #     rL, n, rR = Hxjc.shape[-3:]
-    #     H_xj_c = Hxjc.reshape(stack_shape + (rL * n, rR))
-    #     L_xj_y, ssy, VTyc = xnp.linalg.svd(H_xj_c, full_matrices=False)
-    #     rR2 = ssy.shape[-1]
-    #     Lxjy = L_xj_y.reshape(stack_shape + (rL, n, rR2))
-    #
-    #     Cyc = ssy.reshape(stack_shape + (-1, 1)) * VTyc
-    #
-    #     return Cyc, (Lxjy, Hxjc)
-    #
-    # rL0 = tt_cores[0].shape[-3]
-    #
-    # init = xnp.broadcast_to(xnp.eye(rL0), stack_shape+(rL0,rL0))
-    # xs = (tt_cores[:-1],)
-    #
-    # Cf, (LL, HH) = xscan(_left_func, init, xs)
-    #
-    # # Dealing with the last core as a special case
-    # Lf = xnp.einsum('...xb,...bjc->...xjc', Cf, tt_cores[-1])
-    # if is_uniform:
-    #     left_tt_cores = xnp.concatenate([LL, Lf.reshape((1,)+Lf.shape)])
-    #     var_tt_cores  = xnp.concatenate([HH, Lf.reshape((1,) + Lf.shape)])
-    # else:
-    #     left_tt_cores = tuple(LL) + (Lf,)
-    #     var_tt_cores = tuple(HH) + (Lf,)
-    #
-    # if return_variation_cores:
-    #     return left_tt_cores, var_tt_cores
-    # else:
-    #     return left_tt_cores
-
 
 def right_orthogonalize_tt_cores(
         tt_cores: typ.Union[

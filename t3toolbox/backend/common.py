@@ -73,6 +73,9 @@ __all__ = [
     'jax_map',
     #
     'get_backend',
+    'xcat',
+    'xappend',
+    'xprepend',
     #
     'randn',
 ]
@@ -254,6 +257,72 @@ def get_backend(
         xnp = np
 
     return xnp, xmap, xscan
+
+
+def xcat(
+        x: typ.Union[NDArray, typ.Sequence],
+        y: typ.Union[NDArray, typ.Sequence],
+) -> typ.Union[NDArray, typ.Tuple]:
+    """Concatenate arrays or sequences.
+    """
+    if is_ndarray(x):
+        assert(is_ndarray(y))
+        if is_jax_ndarray(x) or is_jax_ndarray(y):
+            return jnp.concatenate([x, y], axis=0)
+        else:
+            return np.concatenate([x, y], axis=0)
+
+    assert(isinstance(x, typ.Sequence) and isinstance(y, typ.Sequence))
+
+    if len(x) == 0:
+        return y
+    elif len(y) == 0:
+        return x
+    else:
+        return tuple(x) + tuple(y)
+
+
+def xappend(
+        S: typ.Union[NDArray, typ.Sequence],
+        x,
+) -> typ.Union[NDArray, typ.Tuple]:
+    """Append slice to array or element to sequence
+    """
+    if is_ndarray(S):
+        assert(is_ndarray(x))
+        if is_jax_ndarray(S) or is_jax_ndarray(x):
+            return jnp.concatenate([S, x.reshape((1,)+x.shape)], axis=0)
+        else:
+            return np.concatenate([S, x.reshape((1,)+x.shape)], axis=0)
+
+    assert(isinstance(S, typ.Sequence))
+
+    if len(S) == 0:
+        return (x,)
+    else:
+        return tuple(S) + (x,)
+
+
+def xprepend(
+        x,
+        S: typ.Union[NDArray, typ.Sequence],
+) -> typ.Union[NDArray, typ.Tuple]:
+    """Prepend slice to array or element to sequence
+    """
+    if is_ndarray(S):
+        assert(is_ndarray(x))
+        if is_jax_ndarray(S) or is_jax_ndarray(x):
+            return jnp.concatenate([x.reshape((1,)+x.shape), S], axis=0)
+        else:
+            return np.concatenate([x.reshape((1,)+x.shape), S], axis=0)
+
+    assert(isinstance(S, typ.Sequence))
+
+    if len(S) == 0:
+        return (x,)
+    else:
+        return (x,) + tuple(S)
+
 
 
 def randn(*args, use_jax: bool):

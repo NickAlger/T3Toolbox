@@ -1581,7 +1581,6 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                 np.einsum('...io,...jo->...ij', B, B)
                             )
 
-
     def test_up_orthogonalize_tt_cores(self):
         base_structures = [
             ((8,),              (4,),           (4, 5)),
@@ -1649,7 +1648,6 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                 np.eye(G.shape[-1]),
                                 np.einsum('...aib,...aic->...bc', G, G)
                             )
-
 
     def test_right_orthogonalize_tt_cores(self):
         base_structures = [

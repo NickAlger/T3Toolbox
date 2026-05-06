@@ -292,30 +292,32 @@ def up_svd_tt_core(
 
 
 def orthogonalize_relative_to_tucker_core(
-        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
         ii: int,
 ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:
     '''Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker core.
     '''
-    # use_jax = any([is_jax_ndarray(c) for c in tuple(x[0]) + tuple(x[1])])
-    # is_uniform = is_ndarray(x[0])
-    # xnp, xmap, xscan = get_backend(is_uniform, use_jax)
+    tucker_cores, tt_cores = x
 
-    num_cores = len(x[0])
+    left_tk = tucker_cores[:ii+1]
+    left_tt = tt_cores[:ii+1]
+    if len(left_tk) > 0:
+        left_tk, left_tt = down_orthogonalize_tucker_cores((left_tk, left_tt))
+        left_tt = orth.left_orthogonalize_tt_cores(left_tt)
 
-    new_x = x
-    for jj in range(ii):
-        # new_x = up_svd_tt_core(new_x, jj)[0]
-        new_x = down_svd_tucker_core(new_x, jj)[0]
-        new_x = left_svd_tt_core(new_x, jj)[0]
+    right_tk = xprepend(left_tk[ii], tucker_cores[ii+1:])
+    right_tt = xprepend(left_tt[ii], tt_cores[ii+1:])
+    if len(right_tk) > 0:
+        right_tk, right_tt = down_orthogonalize_tucker_cores((right_tk, right_tt))
+        right_tt = orth.right_orthogonalize_tt_cores(right_tt)
 
-    for jj in range(num_cores - 1, ii, -1):
-        # new_x = up_svd_tt_core(new_x, jj)[0]
-        new_x = down_svd_tucker_core(new_x, jj)[0]
-        new_x = right_svd_tt_core(new_x, jj)[0]
+    B = right_tk[0]
+    G = right_tt[0]
+    new_G, new_B, _ = linalg.up_svd_pair(G, B)
 
-    new_x = up_svd_tt_core(new_x, ii)[0]
-    return new_x
+    new_tk = xcat(left_tk[:ii], xprepend(new_B, right_tk[1:]))
+    new_tt = xcat(left_tt[:ii], xprepend(new_G, right_tt[1:]))
+    return new_tk, new_tt
 
 
 def orthogonalize_relative_to_tt_core(
