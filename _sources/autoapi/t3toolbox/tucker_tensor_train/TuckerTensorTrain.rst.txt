@@ -1107,7 +1107,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: orthogonalize_relative_to_ith_tucker_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> TuckerTensorTrain
+   .. py:method:: orthogonalize_relative_to_tucker_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None) -> TuckerTensorTrain
 
       Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker core.
 
@@ -1169,7 +1169,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: orthogonalize_relative_to_ith_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None, use_jax: bool = False) -> TuckerTensorTrain
+   .. py:method:: orthogonalize_relative_to_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None) -> TuckerTensorTrain
 
       Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
 
