@@ -849,17 +849,38 @@ class TuckerTensorTrain:
             tt_cores: typ.Sequence[NDArray], # elm_shape=stack_shape+(ri, N, r(i+1))
     ) -> 'TuckerTensorTrain':
         """Convert tensor train into Tucker tensor train by using identity matrices for Tucker bases.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> randn = np.random.randn
+        >>> tt_cores = [randn(4,14,5), randn(5,15,3), randn(3,16,2)]
+        >>> x = t3.TuckerTensorTrain.from_tensor_train(tt_cores)
+        >>> x_dense = x.to_dense()
+        >>> x_dense2 = np.einsum('...aib,...bjc,...ckd->...ijk', *tt_cores)
+        >>> print(np.linalg.norm(x_dense - x_dense2))
+        1.8303194206478734e-13
         """
-        use_jax = any(is_jax_ndarray(G) for G in tt_cores)
-        xnp, _, _ = get_backend(False, use_jax)
+        return TuckerTensorTrain(*ragged_operations.from_tensor_train(tt_cores))
 
-        shape = tuple(G.shape[-2] for G in tt_cores)
-        stack_shape = tt_cores[0].shape[:-3]
+    def to_tensor_train(
+            self,
+    ) -> typ.Tuple[NDArray,...]: # tt_cores
+        """Convert TuckerTensorTrain to tensor train by contracting Tucker bases with TT cores.
 
-        tucker_cores = tuple(
-            xnp.tensordot(xnp.ones(stack_shape), xnp.eye(N), axes=[(), ()]) for N in shape
-        )
-        return TuckerTensorTrain(tucker_cores, tuple(tt_cores))
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (5,6,7), (2,3,4,1), (2,3))
+        >>> big_tt_cores = x.to_tensor_train()
+        >>> x_dense = np.einsum('...aib,...bjc,...ckd->...ijk', *big_tt_cores)
+        >>> x_dense2 = x.to_dense()
+        >>> print(np.linalg.norm(x_dense - x_dense2))
+        2.337172789566996e-12
+        """
+        return ragged_operations.to_tensor_train(self.data)
 
     #############################################################
     ##########    Converting data to/from 1D vector    ##########

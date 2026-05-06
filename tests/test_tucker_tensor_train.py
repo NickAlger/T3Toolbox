@@ -870,6 +870,37 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                         self.check_relerr(x_dense2, x_dense)
 
+    def test_to_tensor_train(self):
+        structures = [
+            ((14,), (4,), (4, 5), (2, 3)),
+            ((14, 15), (4, 5), (4, 5, 4), (2, 3)),
+            ((14, 15, 16), (4, 5, 6), (4, 5, 4, 3), (2,3)),
+            ((14, 15, 16, 17), (4, 5, 6, 7), (4, 5, 4, 3, 2), (2, 3)),
+            ((14, 15, 16), (4, 5, 6), (4, 5, 4, 3), ()),
+        ]
+
+        for STRUCTURE in structures:
+            for USE_JAX in [True, False]:
+                with self.subTest(STRUCTURE=STRUCTURE, USE_JAX=USE_JAX):
+                    shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
+                    x = t3.TuckerTensorTrain.randn(
+                        shape, tucker_ranks, tt_ranks, stack_shape=stack_shape, use_jax=USE_JAX,
+                    )
+                    big_tt_cores = x.to_tensor_train()
+
+                    if len(shape) == 1:
+                        x_dense = np.einsum('...aib->...i', *big_tt_cores)
+                    elif len(shape) == 2:
+                        x_dense = np.einsum('...aib,...bjc->...ij', *big_tt_cores)
+                    elif len(shape) == 3:
+                        x_dense = np.einsum('...aib,...bjc,...ckd->...ijk', *big_tt_cores)
+                    elif len(shape) == 4:
+                        x_dense = np.einsum('...aib,...bjc,...ckd,...dle->...ijkl', *big_tt_cores)
+                    else:
+                        raise ValueError
+
+                    x_dense2 = x.to_dense()
+                    self.check_relerr(x_dense2, x_dense)
 
 
 

@@ -24,6 +24,7 @@ __all__ = [
     't3_corewise_randn',
     't3_ones',
     'from_canonical',
+    'from_tensor_train',
 ]
 
 
@@ -385,5 +386,42 @@ def from_canonical(
     tt_cores = tuple(G for _ in range(len(shape)))
     tucker_cores = tuple(factors)
     return tucker_cores, tt_cores
+
+
+def from_tensor_train(
+        tt_cores: typ.Sequence[NDArray], # elm_shape=stack_shape+(ri, N, r(i+1))
+) -> typ.Tuple[
+    typ.Tuple[NDArray,...], # tucker_cores
+    typ.Tuple[NDArray,...], # tt_cores
+]:
+    """Convert tensor train into Tucker tensor train by using identity matrices for Tucker bases.
+    """
+    use_jax = any(is_jax_ndarray(G) for G in tt_cores)
+    xnp, _, _ = get_backend(False, use_jax)
+
+    shape = tuple(G.shape[-2] for G in tt_cores)
+    stack_shape = tt_cores[0].shape[:-3]
+
+    tucker_cores = tuple(
+        xnp.tensordot(xnp.ones(stack_shape), xnp.eye(N), axes=[(), ()]) for N in shape
+    )
+    return tucker_cores, tuple(tt_cores)
+
+
+def to_tensor_train(
+        x: typ.Tuple[
+            typ.Tuple[NDArray,...], # tucker_cores
+            typ.Tuple[NDArray,...], # tt_cores
+        ],
+) -> typ.Tuple[NDArray,...]: # tt_cores
+    """Convert TuckerTensorTrain to tensor train by contracting Tucker bases with TT cores.
+    """
+    use_jax = any([is_jax_ndarray(c) for c in x[0]]) or any([is_jax_ndarray(c) for c in x[1]])
+    xnp, _, _ = get_backend(False, use_jax)
+
+    return tuple(
+        xnp.einsum('...aib,...io->...aob', G, B)
+        for G, B in zip(x[1], x[0])
+        )
 
 
