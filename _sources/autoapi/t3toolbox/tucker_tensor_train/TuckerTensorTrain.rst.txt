@@ -182,7 +182,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
    .. py:method:: __post_init__()
 
 
-   .. py:method:: to_dense(squash_tails: bool = True, use_jax: bool = False) -> t3toolbox.backend.common.NDArray
+   .. py:method:: to_dense(squash_tails: bool = True) -> t3toolbox.backend.common.NDArray
 
       Contract a Tucker tensor train to a dense tensor.
 
@@ -285,7 +285,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: squash(use_jax: bool = False) -> TuckerTensorTrain
+   .. py:method:: squash() -> TuckerTensorTrain
 
       Make leading and trailing TT ranks equal to 1 (r0=rd=1), without changing tensor being represented.
 
