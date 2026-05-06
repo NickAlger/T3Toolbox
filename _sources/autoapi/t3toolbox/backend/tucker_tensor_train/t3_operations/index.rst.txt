@@ -22,6 +22,7 @@ Functions
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_corewise_randn
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_zeros
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_ones
+   /autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/from_canonical
 
 .. autoapisummary::
 
@@ -37,5 +38,6 @@ Functions
    t3toolbox.backend.tucker_tensor_train.t3_operations.t3_corewise_randn
    t3toolbox.backend.tucker_tensor_train.t3_operations.t3_zeros
    t3toolbox.backend.tucker_tensor_train.t3_operations.t3_ones
+   t3toolbox.backend.tucker_tensor_train.t3_operations.from_canonical
 
 

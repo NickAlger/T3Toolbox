@@ -242,7 +242,7 @@ t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain
       >>> tucker_supercore = np.random.randn(4, 2,3, 6,7)
       >>> tt_supercore = np.random.randn(4, 2,3, 5,6,5)
       >>> x = ut3.UniformTuckerTensorTrain(tucker_supercore, tt_supercore)
-      >>> squashed_x = x.squash_tails()
+      >>> squashed_x = x.squash()
       >>> print(np.linalg.norm(x.to_dense() - squashed_x.to_dense()))
 
       >>> new_tt_supercore = uniform_operations.uniform_squash_tt_tails(tt_supercore)

@@ -842,7 +842,7 @@ and the last index of the last TT-supercore equal to 1 by summing.</p>
 &gt;&gt;&gt; tucker_supercore = np.random.randn(4, 2,3, 6,7)
 &gt;&gt;&gt; tt_supercore = np.random.randn(4, 2,3, 5,6,5)
 &gt;&gt;&gt; x = ut3.UniformTuckerTensorTrain(tucker_supercore, tt_supercore)
-&gt;&gt;&gt; squashed_x = x.squash_tails()
+&gt;&gt;&gt; squashed_x = x.squash()
 &gt;&gt;&gt; print(np.linalg.norm(x.to_dense() - squashed_x.to_dense()))</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">new_tt_supercore</span> <span class="o">=</span> <span class="n">uniform_operations</span><span class="o">.</span><span class="n">uniform_squash_tt_tails</span><span class="p">(</span><span class="n">tt_supercore</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">tt_supercore</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">3</span><span class="p">)</span> <span class="o">-</span> <span class="n">new_tt_supercore</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="p">:,:,</span> <span class="mi">0</span><span class="p">,:,:]))</span>
