@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.tucker_tensor_train.t3_core_shapes &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.tucker_tensor_train.get_core_shapes &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,12 +42,12 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/tucker_tensor_train/t3_core_shapes';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/tucker_tensor_train/get_core_shapes';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks" href="compute_minimal_t3_ranks.html" />
+    <link rel="next" title="t3toolbox.tucker_tensor_train.get_minimal_ranks" href="get_minimal_ranks.html" />
     <link rel="prev" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain" href="TuckerTensorTrain.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -441,8 +441,8 @@
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">t3toolbox.tucker_tensor_train</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l3"><a class="reference internal" href="TuckerTensorTrain.html">t3toolbox.tucker_tensor_train.TuckerTensorTrain</a></li>
-<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.tucker_tensor_train.t3_core_shapes</a></li>
-<li class="toctree-l3"><a class="reference internal" href="compute_minimal_t3_ranks.html">t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">t3toolbox.tucker_tensor_train.get_core_shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="get_minimal_ranks.html">t3toolbox.tucker_tensor_train.get_minimal_ranks</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_apply.html">t3toolbox.tucker_tensor_train.t3_apply</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_entries.html">t3toolbox.tucker_tensor_train.t3_entries</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3_probe.html">t3toolbox.tucker_tensor_train.t3_probe</a></li>
@@ -575,7 +575,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.tucker_tensor_train</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.tucker_tensor_train.t3_core_shapes</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.tucker_tensor_train.get_core_shapes</span></li>
   </ul>
 </nav>
 </div>
@@ -592,18 +592,18 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="t3toolbox-tucker-tensor-train-t3-core-shapes">
-<h1>t3toolbox.tucker_tensor_train.t3_core_shapes<a class="headerlink" href="#t3toolbox-tucker-tensor-train-t3-core-shapes" title="Link to this heading">#</a></h1>
+  <section id="t3toolbox-tucker-tensor-train-get-core-shapes">
+<h1>t3toolbox.tucker_tensor_train.get_core_shapes<a class="headerlink" href="#t3toolbox-tucker-tensor-train-get-core-shapes" title="Link to this heading">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.t3_core_shapes">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">t3_core_shapes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">shape</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.backend.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tucker_ranks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.backend.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tt_ranks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.backend.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stack_shape</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.backend.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">()</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.t3_core_shapes" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.get_core_shapes">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.</span></span><span class="sig-name descname"><span class="pre">get_core_shapes</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">shape</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.backend.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tucker_ranks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.backend.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tt_ranks</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.backend.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stack_shape</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.backend.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">]</span></span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">()</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">int</span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.get_core_shapes" title="Link to this definition">#</a></dt>
 <dd><p>Compute the tucker and TT core shapes for a Tucker tensor train.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.corewise</span> <span class="k">as</span> <span class="nn">cw</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">t3_corewise_randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">),</span> <span class="n">stack_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">9</span><span class="p">,))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">t3</span><span class="o">.</span><span class="n">t3_core_shapes</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">tucker_ranks</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">tt_ranks</span><span class="p">,</span> <span class="n">stack_shape</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">stack_shape</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">t3</span><span class="o">.</span><span class="n">get_core_shapes</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">tucker_ranks</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">tt_ranks</span><span class="p">,</span> <span class="n">stack_shape</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">stack_shape</span><span class="p">))</span>
 <span class="go">(((9, 4, 14), (9, 5, 15), (9, 6, 16)), ((9, 1, 4, 3), (9, 3, 5, 4), (9, 4, 6, 5)))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">core_shapes</span><span class="p">)</span>
 <span class="go">(((9, 4, 14), (9, 5, 15), (9, 6, 16)), ((9, 1, 4, 3), (9, 3, 5, 4), (9, 4, 6, 5)))</span>
@@ -633,11 +633,11 @@
       </div>
     </a>
     <a class="right-next"
-       href="compute_minimal_t3_ranks.html"
+       href="get_minimal_ranks.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks</p>
+        <p class="prev-next-title">t3toolbox.tucker_tensor_train.get_minimal_ranks</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -660,14 +660,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.t3_core_shapes"><code class="docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.t3_core_shapes()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.get_core_shapes"><code class="docutils literal notranslate"><span class="pre">t3toolbox.tucker_tensor_train.get_core_shapes()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/tucker_tensor_train/t3_core_shapes.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/tucker_tensor_train/get_core_shapes.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

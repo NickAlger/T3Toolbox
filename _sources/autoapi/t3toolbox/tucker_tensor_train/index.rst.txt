@@ -37,8 +37,8 @@ Functions
 .. toctree::
    :hidden:
 
-   /autoapi/t3toolbox/tucker_tensor_train/t3_core_shapes
-   /autoapi/t3toolbox/tucker_tensor_train/compute_minimal_t3_ranks
+   /autoapi/t3toolbox/tucker_tensor_train/get_core_shapes
+   /autoapi/t3toolbox/tucker_tensor_train/get_minimal_ranks
    /autoapi/t3toolbox/tucker_tensor_train/t3_apply
    /autoapi/t3toolbox/tucker_tensor_train/t3_entries
    /autoapi/t3toolbox/tucker_tensor_train/t3_probe
@@ -47,8 +47,8 @@ Functions
 
 .. autoapisummary::
 
-   t3toolbox.tucker_tensor_train.t3_core_shapes
-   t3toolbox.tucker_tensor_train.compute_minimal_t3_ranks
+   t3toolbox.tucker_tensor_train.get_core_shapes
+   t3toolbox.tucker_tensor_train.get_minimal_ranks
    t3toolbox.tucker_tensor_train.t3_apply
    t3toolbox.tucker_tensor_train.t3_entries
    t3toolbox.tucker_tensor_train.t3_probe
