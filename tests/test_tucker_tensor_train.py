@@ -802,6 +802,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                 RANK=RANK, USE_JAX=USE_JAX
                         ):
                             FF = [np.random.randn(*(STACK_SHAPE+(RANK, N))) for N in SHAPE]
+                            if USE_JAX:
+                                FF = [jnp.array(F) for F in FF]
+
                             x = t3.TuckerTensorTrain.from_canonical(FF)
                             x_dense = x.to_dense()
 
@@ -820,6 +823,53 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                             self.assertEqual((RANK,)*len(SHAPE), x.tucker_ranks)
                             self.assertEqual((RANK,)*(len(SHAPE)+1), x.tt_ranks)
+
+    def test_from_tensor_train(self):
+        tt_structures = [
+            ((14,),             (4, 5)),
+            ((14, 15),          (4, 5, 4)),
+            ((14, 15, 16),      (4, 5, 4, 3)),
+            ((14, 15, 16, 17),  (4, 5, 4, 3, 2)),
+        ]
+        stack_shapes = [
+            (),
+            (2,3),
+        ]
+
+        for TT_STRUCTURE in tt_structures:
+            for STACK_SHAPE in stack_shapes:
+                for USE_JAX in [True, False]:
+                    with self.subTest(
+                            TT_STRUCTURE=TT_STRUCTURE, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX
+                    ):
+                        shape, tt_ranks = TT_STRUCTURE
+                        tt_cores = tuple(
+                            np.random.randn(*(STACK_SHAPE + (rL, n, rR)))
+                            for rL, n, rR in zip(tt_ranks[:-1], shape, tt_ranks[1:])
+                        )
+                        if USE_JAX:
+                            tt_cores = tuple(jnp.array(G) for G in tt_cores)
+
+                        x = t3.TuckerTensorTrain.from_tensor_train(tt_cores)
+
+                        self.assertEqual(tt_ranks, x.tt_ranks)
+                        self.assertEqual(shape, x.tucker_ranks)
+                        self.assertEqual(shape, x.shape)
+
+                        x_dense = x.to_dense()
+                        if len(shape) == 1:
+                            x_dense2 = np.einsum('...aib->...i', *tt_cores)
+                        elif len(shape) == 2:
+                            x_dense2 = np.einsum('...aib,...bjc->...ij', *tt_cores)
+                        elif len(shape) == 3:
+                            x_dense2 = np.einsum('...aib,...bjc,...ckd->...ijk', *tt_cores)
+                        elif len(shape) == 4:
+                            x_dense2 = np.einsum('...aib,...bjc,...ckd,...dle->...ijkl', *tt_cores)
+                        else:
+                            raise ValueError
+
+                        self.check_relerr(x_dense2, x_dense)
+
 
 
 

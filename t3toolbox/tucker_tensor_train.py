@@ -844,6 +844,22 @@ class TuckerTensorTrain:
 
         return TuckerTensorTrain(*ragged_operations.from_canonical(factors))
 
+    @staticmethod
+    def from_tensor_train(
+            tt_cores: typ.Sequence[NDArray], # elm_shape=stack_shape+(ri, N, r(i+1))
+    ) -> 'TuckerTensorTrain':
+        """Convert tensor train into Tucker tensor train by using identity matrices for Tucker bases.
+        """
+        use_jax = any(is_jax_ndarray(G) for G in tt_cores)
+        xnp, _, _ = get_backend(False, use_jax)
+
+        shape = tuple(G.shape[-2] for G in tt_cores)
+        stack_shape = tt_cores[0].shape[:-3]
+
+        tucker_cores = tuple(
+            xnp.tensordot(xnp.ones(stack_shape), xnp.eye(N), axes=[(), ()]) for N in shape
+        )
+        return TuckerTensorTrain(tucker_cores, tuple(tt_cores))
 
     #############################################################
     ##########    Converting data to/from 1D vector    ##########
