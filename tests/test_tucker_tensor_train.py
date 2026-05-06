@@ -204,8 +204,10 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
                         tucker_cores, tt_cores = _structure_to_cores(STRUCTURE)
                         x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # random TuckerTensorTrain
+                        if USE_JAX:
+                            x = x.to_jax()
 
-                        x_dense = x.to_dense(squash_tails=SQUASH_TAILS, use_jax=USE_JAX)
+                        x_dense = x.to_dense(squash_tails=SQUASH_TAILS)
 
                         ((B0, B1, B2), (G0, G1, G2)) = tucker_cores, tt_cores
                         ss = 'LMNOP'[:len(stack_shape)]
@@ -296,8 +298,10 @@ class TestTuckerTensorTrain(unittest.TestCase):
                     shape, tucker_ranks, tt_ranks, stack_shape = STRUCTURE
                     tucker_cores, tt_cores = _structure_to_cores(STRUCTURE)
                     x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # random TuckerTensorTrain
+                    if USE_JAX:
+                        x = x.to_jax()
 
-                    x2 = x.squash(use_jax=USE_JAX)
+                    x2 = x.squash()
 
                     squashed_tt_ranks = (1,) + tt_ranks[1:-1] + (1,)
                     squashed_structure = (shape, tucker_ranks, squashed_tt_ranks, stack_shape)
@@ -901,8 +905,6 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                     x_dense2 = x.to_dense()
                     self.check_relerr(x_dense2, x_dense)
-
-
 
     def test_to_vector_and_from_vector(self):
         structures = [

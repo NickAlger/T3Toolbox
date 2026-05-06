@@ -31,10 +31,10 @@ __all__ = [
 def to_dense(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tt_cores, tucker_cores)
         squash_tails: bool = True,
-        use_jax: bool = False,
 ) -> NDArray:
     """Fully contract a Tucker tensor train to create a dense tensor.
     """
+    use_jax = any([is_jax_ndarray(c) for c in x[0]]) or any([is_jax_ndarray(c) for c in x[1]])
     xnp, _, _ = get_backend(False, use_jax)
 
     #

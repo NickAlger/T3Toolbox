@@ -315,7 +315,6 @@ class TuckerTensorTrain:
     def to_dense(
             self,
             squash_tails: bool = True,
-            use_jax: bool = False,
     ) -> NDArray:
         """Contract a Tucker tensor train to a dense tensor.
 
@@ -382,7 +381,7 @@ class TuckerTensorTrain:
         1.3614138244072514e-15
         """
         return ragged_operations.to_dense(
-            self.data, squash_tails=squash_tails, use_jax=use_jax,
+            self.data, squash_tails=squash_tails,
         )
 
     def segment(self, start: int, stop: int) -> 'TuckerTensorTrain':
@@ -470,7 +469,6 @@ class TuckerTensorTrain:
 
     def squash(
             self,
-            use_jax: bool = False,
     ) -> 'TuckerTensorTrain':
         """Make leading and trailing TT ranks equal to 1 (r0=rd=1), without changing tensor being represented.
 
@@ -508,7 +506,7 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(x.to_dense() - x2.to_dense()))
         5.805155892491438e-12
         """
-        return TuckerTensorTrain(self.tucker_cores, ragged_operations.squash_tt_tails(self.tt_cores, use_jax=use_jax))
+        return TuckerTensorTrain(self.tucker_cores, ragged_operations.squash_tt_tails(self.tt_cores))
 
     def reverse(self) -> 'TuckerTensorTrain':
         """Reverse Tucker tensor train.
