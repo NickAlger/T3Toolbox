@@ -1,0 +1,8 @@
+t3toolbox.backend.common.xappend
+================================
+
+.. py:function:: t3toolbox.backend.common.xappend(S: Union[NDArray, Sequence], x) -> Union[NDArray, Tuple]
+
+   Append slice to array or element to sequence
+
+

@@ -1,0 +1,8 @@
+t3toolbox.backend.common.xcat
+=============================
+
+.. py:function:: t3toolbox.backend.common.xcat(x: Union[NDArray, Sequence], y: Union[NDArray, Sequence]) -> Union[NDArray, Tuple]
+
+   Concatenate arrays or sequences.
+
+

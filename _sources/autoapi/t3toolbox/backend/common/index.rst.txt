@@ -39,6 +39,9 @@ Functions
    /autoapi/t3toolbox/backend/common/ragged_map
    /autoapi/t3toolbox/backend/common/numpy_map
    /autoapi/t3toolbox/backend/common/get_backend
+   /autoapi/t3toolbox/backend/common/xcat
+   /autoapi/t3toolbox/backend/common/xappend
+   /autoapi/t3toolbox/backend/common/xprepend
    /autoapi/t3toolbox/backend/common/randn
 
 .. autoapisummary::
@@ -50,6 +53,9 @@ Functions
    t3toolbox.backend.common.ragged_map
    t3toolbox.backend.common.numpy_map
    t3toolbox.backend.common.get_backend
+   t3toolbox.backend.common.xcat
+   t3toolbox.backend.common.xappend
+   t3toolbox.backend.common.xprepend
    t3toolbox.backend.common.randn
 
 
