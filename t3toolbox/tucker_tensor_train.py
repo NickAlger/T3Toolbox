@@ -1701,14 +1701,13 @@ class TuckerTensorTrain:
 
     ####
 
-    def orthogonalize_relative_to_ith_tucker_core(
+    def orthogonalize_relative_to_tucker_core(
             self,
             ii: int,
             min_rank: int = None,
             max_rank: int = None,
             rtol: float = None,
             atol: float = None,
-            use_jax: bool = False,
     ) -> 'TuckerTensorTrain':
         '''Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker core.
 
@@ -1780,17 +1779,16 @@ class TuckerTensorTrain:
         2.3594586449868743e-15
         '''
         return TuckerTensorTrain(*ragged_orthogonalization.orthogonalize_relative_to_tucker_core(
-            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
+            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
         ))
 
-    def orthogonalize_relative_to_ith_tt_core(
+    def orthogonalize_relative_to_tt_core(
             self,
             ii: int,
             min_rank: int = None,
             max_rank: int = None,
             rtol: float = None,
             atol: float = None,
-            use_jax: bool = False,
     ) -> 'TuckerTensorTrain':
         '''Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
 
@@ -1866,7 +1864,7 @@ class TuckerTensorTrain:
         8.816596607002667e-16
         '''
         return TuckerTensorTrain(*ragged_orthogonalization.orthogonalize_relative_to_tt_core(
-            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol, use_jax=use_jax,
+            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
         ))
 
     def up_orthogonalize_tucker_cores(

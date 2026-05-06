@@ -273,17 +273,7 @@ def up_svd_tt_core(
 ]:
     '''Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the tucker core below.
     '''
-    # xnp, _, _ = get_backend(False, use_jax)
-
-    #
     tucker_cores, tt_cores = x
-
-    # if len(tucker_cores[0].shape) > 2:
-    #     raise RuntimeError(
-    #         'Cannot use down_svd_ith_tt_core for stacked Tucker tensor train.\n' +
-    #         'Different elements of the stack could end out having different shapes.\n' +
-    #         'First unstack, then call down_svd_ith_tt_core for each unstacked Tucker tensor train.'
-    #     )
 
     G0_a_i_b = tt_cores[ii]
     Q0_i_o = tucker_cores[ii]
@@ -292,17 +282,11 @@ def up_svd_tt_core(
         G0_a_i_b, Q0_i_o, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
     )
 
-    # G_a_x_b, ss_x, Vt_x_i = linalg.up_svd(G0_a_i_b, min_rank, max_rank, rtol, atol)
-
-    # Q_x_o = (ss_x.reshape((-1, 1)) * Vt_x_i) @ Q0_i_o
-
     new_tt_cores = list(tt_cores)
     new_tt_cores[ii] = new_G
-    # new_tt_cores[ii] = G_a_x_b
 
     new_tucker_cores = list(tucker_cores)
     new_tucker_cores[ii] = new_B
-    # new_tucker_cores[ii] = Q_x_o
 
     return (tuple(new_tucker_cores), tuple(new_tt_cores)), ss_x
 
@@ -314,34 +298,23 @@ def orthogonalize_relative_to_tucker_core(
         max_rank: int = None,
         rtol: float = None,
         atol: float = None,
-        use_jax: bool = False,
 ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:
     '''Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker core.
     '''
-    xnp, _, _ = get_backend(False, use_jax)
-
-    #
-    if len(x[0][0].shape) > 2:
-        raise RuntimeError(
-            'Cannot use orthogonalize_relative_to_ith_tucker_core for stacked Tucker tensor train.\n' +
-            'Different elements of the stack could end out having different shapes.\n' +
-            'First unstack, then call orthogonalize_relative_to_ith_tucker_core for each unstacked Tucker tensor train.'
-        )
-
     num_cores = len(x[0])
 
     new_x = x
     for jj in range(ii):
-        new_x = up_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-        new_x = down_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-        new_x = left_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = up_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
+        new_x = down_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
+        new_x = left_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
 
     for jj in range(num_cores - 1, ii, -1):
-        new_x = up_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-        new_x = down_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-        new_x = right_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = up_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
+        new_x = down_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
+        new_x = right_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
 
-    new_x = up_svd_tt_core(new_x, ii, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+    new_x = up_svd_tt_core(new_x, ii, min_rank, max_rank, rtol, atol)[0]
     return new_x
 
 
@@ -352,34 +325,23 @@ def orthogonalize_relative_to_tt_core(
         max_rank: int = None,
         rtol: float = None,
         atol: float = None,
-        use_jax: bool = False,
 ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:
     '''Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
     '''
-    xnp, _, _ = get_backend(False, use_jax)
-
-    #
-    if len(x[0][0].shape) > 2:
-        raise RuntimeError(
-            'Cannot use orthogonalize_relative_to_ith_tt_core for stacked Tucker tensor train.\n' +
-            'Different elements of the stack could end out having different shapes.\n' +
-            'First unstack, then call orthogonalize_relative_to_ith_tt_core for each unstacked Tucker tensor train.'
-        )
-
     num_cores = len(x[0])
 
     new_x = x
     for jj in range(ii):
-        new_x = up_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-        new_x = down_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-        new_x = left_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = up_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
+        new_x = down_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
+        new_x = left_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
 
     for jj in range(num_cores - 1, ii, -1):
-        new_x = up_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-        new_x = down_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
-        new_x = right_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+        new_x = up_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
+        new_x = down_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
+        new_x = right_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
 
-    new_x = down_svd_tucker_core(new_x, ii, min_rank, max_rank, rtol, atol, use_jax=use_jax)[0]
+    new_x = down_svd_tucker_core(new_x, ii, min_rank, max_rank, rtol, atol)[0]
     return new_x
 
 

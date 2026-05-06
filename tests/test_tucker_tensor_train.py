@@ -995,6 +995,8 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                         self.check_relerr(norm_x_true, norm_x)
 
+    ####
+
     def test_down_svd_tucker_core(self):
         base_structures = [
             ((8,),              (4,),           (4, 5)),
@@ -1004,9 +1006,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         ]
         stack_shapes = [
             (),
-            (1,),
-            (1,2),
-            (1,2,3)
+            (2,3)
         ]
 
         for BASE_STRUCTURE in base_structures:
@@ -1113,9 +1113,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         ]
         stack_shapes = [
             (),
-            (1,),
-            (1,2),
-            (1,2,3)
+            (2,3)
         ]
 
         for BASE_STRUCTURE in base_structures:
@@ -1219,6 +1217,66 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                                 np.einsum('...iaj,...iak ->...jk', G2, G2)
                                             )
 
+    def test_right_svd_tt_core(self):
+        base_structures = [
+            ((8,),              (4,),           (4, 5)),
+            ((8, 9),            (4, 5),         (4, 5, 4)),
+            ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
+            ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
+        ]
+        stack_shapes = [
+            (),
+            (2,3)
+        ]
+
+        for BASE_STRUCTURE in base_structures:
+            for X_IS_JAX in [True, False]:
+                for STACK_SHAPE in stack_shapes:
+                    structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                    shape, tucker_ranks, tt_ranks, stack_shape = structure
+                    for MIN_RANK, MAX_RANK in zip(
+                        [None, 2,    None, 2],
+                        [None, None, 2,    3],
+                    ):
+                        for X_TYPE in ['RANDN', 'ONES']:
+                            if X_TYPE == 'RANDN':
+                                x = t3.TuckerTensorTrain.corewise_randn(*structure, use_jax=X_IS_JAX)
+                            else:
+                                x = t3.TuckerTensorTrain.ones(
+                                    shape, stack_shape=STACK_SHAPE, use_jax=X_IS_JAX,
+                                )
+                                x = x.resize_cores(shape, tucker_ranks, tt_ranks)
+
+                            for CORE_IND in range(len(shape)):
+                                with self.subTest(
+                                        BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                        X_IS_JAX=X_IS_JAX, MIN_RANK=MIN_RANK, MAX_RANK=MAX_RANK,
+                                        CORE_IND=CORE_IND,
+                                ):
+                                    x2, ss = x.right_svd_tt_core(CORE_IND, MIN_RANK, MAX_RANK)
+                                    r = ss.shape[-1]
+                                    self.assertEqual(r, x2.tt_ranks[CORE_IND])
+
+                                    if MAX_RANK is not None:
+                                        self.assertLessEqual(r, MAX_RANK)
+                                    else:
+                                        self.check_relerr(x2.to_dense(), x.to_dense())
+
+                                    if MIN_RANK is not None:
+                                        self.assertGreaterEqual(r, MIN_RANK)
+
+                                    G = x.tt_cores[CORE_IND]
+                                    A = G.reshape(stack_shape+(G.shape[-3], G.shape[-2]*G.shape[-1]))
+                                    _, ss2, _ = np.linalg.svd(A, full_matrices=False)
+                                    self.check_relerr(ss2[..., :r], ss)
+
+                                    if CORE_IND > 1:
+                                        G2 = x2.tt_cores[CORE_IND]
+                                        self.check_relerr(
+                                            np.eye(G2.shape[-3]),
+                                            np.einsum('...iaj,...kaj->...ik', G2, G2)
+                                        )
+
     def test_right_svd_tucker_core_tols(self):
         structures = [
             ((10,),             (7,),           (6, 7)),
@@ -1281,9 +1339,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         ]
         stack_shapes = [
             (),
-            (1,),
-            (1,2),
-            (1,2,3)
+            (2,3)
         ]
 
         for BASE_STRUCTURE in base_structures:
@@ -1387,7 +1443,77 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                             np.einsum('...aib,...ajb->...ij', G2, G2)
                                         )
 
+    def test_orthogonalize_relative_to_ith_tucker_core(self):
+        base_structures = [
+            ((8,),              (4,),           (4, 5)),
+            ((8, 9),            (4, 5),         (4, 5, 4)),
+            ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
+            ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
+        ]
+        stack_shapes = [
+            (),
+            (2,3)
+        ]
 
+        for BASE_STRUCTURE in base_structures:
+            for X_IS_JAX in [True, False]:
+                for STACK_SHAPE in stack_shapes:
+                    structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                    shape, tucker_ranks, tt_ranks, stack_shape = structure
+                    for MIN_RANK, MAX_RANK in zip(
+                        [None, 2,    None, 2],
+                        [None, None, 2,    3],
+                    ):
+                        for X_TYPE in ['RANDN', 'ONES']:
+                            if X_TYPE == 'RANDN':
+                                x = t3.TuckerTensorTrain.corewise_randn(*structure, use_jax=X_IS_JAX)
+                            else:
+                                x = t3.TuckerTensorTrain.ones(
+                                    shape, stack_shape=STACK_SHAPE, use_jax=X_IS_JAX,
+                                )
+                                x = x.resize_cores(shape, tucker_ranks, tt_ranks)
+
+                            for CORE_IND in range(len(shape)):
+                                with self.subTest(
+                                        BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                        X_IS_JAX=X_IS_JAX, MIN_RANK=MIN_RANK, MAX_RANK=MAX_RANK,
+                                        CORE_IND=CORE_IND,
+                                ):
+                                    dense_x = x.to_dense()
+
+                                    x2 = x.orthogonalize_relative_to_tucker_core(
+                                        CORE_IND, min_rank=MIN_RANK, max_rank=MAX_RANK,
+                                    )
+
+                                    dense_x2 = x2.to_dense()
+                                    self.check_relerr(dense_x, dense_x2)
+
+                                    for ii, B in enumerate(x2.tucker_cores):
+                                        if ii == CORE_IND:
+                                            pass
+
+                                        self.check_relerr(
+                                            np.eye(B.shape[-2]),
+                                            np.einsum('...io,...jo->...ij', B, B)
+                                        )
+
+                                    for G in x2.tt_cores[:CORE_IND]:
+                                        self.check_relerr(
+                                            np.eye(G.shape[-1]),
+                                            np.einsum('...aib,...aic->...bc', G, G)
+                                        )
+
+                                    Gm = x2.tt_cores[CORE_IND]
+                                    self.check_relerr(
+                                        np.eye(Gm.shape[-2]),
+                                        np.einsum('...aib,...ajb->...ij', Gm, Gm)
+                                    )
+
+                                    for G in x2.tt_cores[CORE_IND+1:]:
+                                        self.check_relerr(
+                                            np.eye(G.shape[-3]),
+                                            np.einsum('...aib,...cib->...ac', G, G)
+                                        )
 
 
 
