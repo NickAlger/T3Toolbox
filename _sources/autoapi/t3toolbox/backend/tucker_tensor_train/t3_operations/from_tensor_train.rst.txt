@@ -1,0 +1,8 @@
+t3toolbox.backend.tucker_tensor_train.t3_operations.from_tensor_train
+=====================================================================
+
+.. py:function:: t3toolbox.backend.tucker_tensor_train.t3_operations.from_tensor_train(tt_cores: t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]]
+
+   Convert tensor train into Tucker tensor train by using identity matrices for Tucker bases.
+
+

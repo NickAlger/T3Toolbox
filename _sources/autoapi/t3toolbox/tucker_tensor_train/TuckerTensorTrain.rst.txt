@@ -573,6 +573,34 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
       Convert tensor train into Tucker tensor train by using identity matrices for Tucker bases.
 
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> randn = np.random.randn
+      >>> tt_cores = [randn(4,14,5), randn(5,15,3), randn(3,16,2)]
+      >>> x = t3.TuckerTensorTrain.from_tensor_train(tt_cores)
+      >>> x_dense = x.to_dense()
+      >>> x_dense2 = np.einsum('...aib,...bjc,...ckd->...ijk', *tt_cores)
+      >>> print(np.linalg.norm(x_dense - x_dense2))
+      1.8303194206478734e-13
+
+
+
+   .. py:method:: to_tensor_train() -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]
+
+      Convert TuckerTensorTrain to tensor train by contracting Tucker bases with TT cores.
+
+      .. rubric:: Examples
+
+      >>> import numpy as np
+      >>> import t3toolbox.tucker_tensor_train as t3
+      >>> x = t3.TuckerTensorTrain.randn((14,15,16), (5,6,7), (2,3,4,1), (2,3))
+      >>> big_tt_cores = x.to_tensor_train()
+      >>> x_dense = np.einsum('...aib,...bjc,...ckd->...ijk', *big_tt_cores)
+      >>> x_dense2 = x.to_dense()
+      >>> print(np.linalg.norm(x_dense - x_dense2))
+      2.337172789566996e-12
 
 
 

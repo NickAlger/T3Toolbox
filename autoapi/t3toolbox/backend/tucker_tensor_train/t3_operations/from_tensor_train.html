@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.backend.tucker_tensor_train.t3_orthogonalization &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.backend.tucker_tensor_train.t3_operations.from_tensor_train &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/backend/tucker_tensor_train/t3_orthogonalization/index';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/from_tensor_train';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../../search.html" />
-    <link rel="next" title="t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.left_orthogonalize_t3" href="left_orthogonalize_t3.html" />
-    <link rel="prev" title="t3toolbox.backend.tucker_tensor_train.t3_operations.from_tensor_train" href="../t3_operations/from_tensor_train.html" />
+    <link rel="next" title="t3toolbox.backend.tucker_tensor_train.t3_orthogonalization" href="../t3_orthogonalization/index.html" />
+    <link rel="prev" title="t3toolbox.backend.tucker_tensor_train.t3_operations.from_canonical" href="from_canonical.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -396,8 +396,8 @@
 <li class="toctree-l3 current active has-children"><a class="reference internal" href="../index.html">t3toolbox.backend.tucker_tensor_train</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l4"><a class="reference internal" href="../dense_t3svd/index.html">t3toolbox.backend.tucker_tensor_train.dense_t3svd</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../t3_linalg/index.html">t3toolbox.backend.tucker_tensor_train.t3_linalg</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../t3_operations/index.html">t3toolbox.backend.tucker_tensor_train.t3_operations</a></li>
-<li class="toctree-l4 current active"><a class="current reference internal" href="#">t3toolbox.backend.tucker_tensor_train.t3_orthogonalization</a></li>
+<li class="toctree-l4 current active"><a class="reference internal" href="index.html">t3toolbox.backend.tucker_tensor_train.t3_operations</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../t3_orthogonalization/index.html">t3toolbox.backend.tucker_tensor_train.t3_orthogonalization</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../t3_svd/index.html">t3toolbox.backend.tucker_tensor_train.t3_svd</a></li>
 </ul>
 </details></li>
@@ -578,7 +578,10 @@
     
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">t3toolbox.backend.tucker_tensor_train</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.backend.tucker_tensor_train.t3_orthogonalization</span></li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.backend.tucker_tensor_train.t3_operations</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.backend.tucker_tensor_train.t3_operations.from_tensor_train</span></li>
   </ul>
 </nav>
 </div>
@@ -595,39 +598,14 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="module-t3toolbox.backend.tucker_tensor_train.t3_orthogonalization">
-<span id="t3toolbox-backend-tucker-tensor-train-t3-orthogonalization"></span><h1>t3toolbox.backend.tucker_tensor_train.t3_orthogonalization<a class="headerlink" href="#module-t3toolbox.backend.tucker_tensor_train.t3_orthogonalization" title="Link to this heading">#</a></h1>
-<section id="functions">
-<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">#</a></h2>
-<div class="toctree-wrapper compound">
-</div>
-<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="left_orthogonalize_t3.html#t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.left_orthogonalize_t3" title="t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.left_orthogonalize_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_orthogonalize_t3</span></code></a>(...)</p></td>
-<td><p>Left orthogonalize T3.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="right_orthogonalize_t3.html#t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.right_orthogonalize_t3" title="t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.right_orthogonalize_t3"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_orthogonalize_t3</span></code></a>(...)</p></td>
-<td><p>Left orthogonalize T3.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="up_orthogonalize_tt_cores.html#t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.up_orthogonalize_tt_cores" title="t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.up_orthogonalize_tt_cores"><code class="xref py py-obj docutils literal notranslate"><span class="pre">up_orthogonalize_tt_cores</span></code></a>(...)</p></td>
-<td><p>Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="down_orthogonalize_tucker_cores.html#t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.down_orthogonalize_tucker_cores" title="t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.down_orthogonalize_tucker_cores"><code class="xref py py-obj docutils literal notranslate"><span class="pre">down_orthogonalize_tucker_cores</span></code></a>(...)</p></td>
-<td><p>Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="down_svd_tucker_core.html#t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.down_svd_tucker_core" title="t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.down_svd_tucker_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">down_svd_tucker_core</span></code></a>(...)</p></td>
-<td><p>Compute SVD of ith tucker core and contract non-orthogonal factor up into the TT-core above.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="left_svd_tt_core.html#t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.left_svd_tt_core" title="t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.left_svd_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">left_svd_tt_core</span></code></a>(...)</p></td>
-<td><p>Compute SVD of ith TT-core left unfolding and contract non-orthogonal factor into the TT-core to the right.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="right_svd_tt_core.html#t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.right_svd_tt_core" title="t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.right_svd_tt_core"><code class="xref py py-obj docutils literal notranslate"><span class="pre">right_svd_tt_core</span></code></a>(...)</p></td>
-<td><p>Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor into the TT-core to the left.</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-</section>
+  <section id="t3toolbox-backend-tucker-tensor-train-t3-operations-from-tensor-train">
+<h1>t3toolbox.backend.tucker_tensor_train.t3_operations.from_tensor_train<a class="headerlink" href="#t3toolbox-backend-tucker-tensor-train-t3-operations-from-tensor-train" title="Link to this heading">#</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="t3toolbox.backend.tucker_tensor_train.t3_operations.from_tensor_train">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.backend.tucker_tensor_train.t3_operations.</span></span><span class="sig-name descname"><span class="pre">from_tensor_train</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tt_cores</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.backend.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../../common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">Ellipsis</span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="headerlink" href="#t3toolbox.backend.tucker_tensor_train.t3_operations.from_tensor_train" title="Link to this definition">#</a></dt>
+<dd><p>Convert tensor train into Tucker tensor train by using identity matrices for Tucker bases.</p>
+</dd></dl>
+
 </section>
 
 
@@ -641,20 +619,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="../t3_operations/from_tensor_train.html"
+       href="from_canonical.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.backend.tucker_tensor_train.t3_operations.from_tensor_train</p>
+        <p class="prev-next-title">t3toolbox.backend.tucker_tensor_train.t3_operations.from_canonical</p>
       </div>
     </a>
     <a class="right-next"
-       href="left_orthogonalize_t3.html"
+       href="../t3_orthogonalization/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.left_orthogonalize_t3</p>
+        <p class="prev-next-title">t3toolbox.backend.tucker_tensor_train.t3_orthogonalization</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -677,14 +655,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#functions">Functions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.backend.tucker_tensor_train.t3_operations.from_tensor_train"><code class="docutils literal notranslate"><span class="pre">t3toolbox.backend.tucker_tensor_train.t3_operations.from_tensor_train()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../../../_sources/autoapi/t3toolbox/backend/tucker_tensor_train/t3_orthogonalization/index.rst.txt">
+    <a href="../../../../../_sources/autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/from_tensor_train.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>
