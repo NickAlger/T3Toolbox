@@ -1,7 +1,7 @@
 t3toolbox.tucker_tensor_train.t3_entries
 ========================================
 
-.. py:function:: t3toolbox.tucker_tensor_train.t3_entries(x: TuckerTensorTrain, index: t3toolbox.backend.common.NDArray, use_jax: bool = False) -> t3toolbox.backend.common.NDArray
+.. py:function:: t3toolbox.tucker_tensor_train.t3_entries(x: TuckerTensorTrain, index: t3toolbox.backend.common.NDArray) -> t3toolbox.backend.common.NDArray
 
    Compute an entry (or multiple entries) of a Tucker tensor train.
 
@@ -10,12 +10,12 @@ t3toolbox.tucker_tensor_train.t3_entries
 
    :param x: Tucker tensor train. shape=(N0,...,N(d-1))
    :type x: TuckerTensorTrain
-   :param index: Indices of desired entries. shape=(d,)+vsi
+   :param index: Indices of desired entries. shape=(d,)+index_stack_shape
                  len(index)=d. If many entries: elm_size=num_entries
    :type index: NDArray or convertible to NDArray, dtype=int
    :param xnp: Linear algebra backend. Default: np (numpy)
 
-   :returns: Desired entries.shape=(vsi,)
+   :returns: Desired entries.shape=(index_stack_shape,)
    :rtype: scalar or NDArray
 
    :raises ValueError: Error raised if the provided indices in index are inconsistent with each other or the Tucker tensor train x.
