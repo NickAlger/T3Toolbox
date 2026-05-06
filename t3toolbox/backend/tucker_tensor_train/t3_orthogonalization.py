@@ -326,21 +326,22 @@ def orthogonalize_relative_to_tt_core(
 ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:
     '''Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
     '''
-    num_cores = len(x[0])
+    tucker_cores, tt_cores = down_orthogonalize_tucker_cores(x)
 
-    new_x = x
-    for jj in range(ii):
-        # new_x = up_svd_tt_core(new_x, jj)[0]
-        new_x = down_svd_tucker_core(new_x, jj)[0]
-        new_x = left_svd_tt_core(new_x, jj)[0]
+    left_tk = tucker_cores[:ii+1]
+    left_tt = tt_cores[:ii+1]
+    if len(left_tk) > 0:
+        left_tt = orth.left_orthogonalize_tt_cores(left_tt)
 
-    for jj in range(num_cores - 1, ii, -1):
-        # new_x = up_svd_tt_core(new_x, jj)[0]
-        new_x = down_svd_tucker_core(new_x, jj)[0]
-        new_x = right_svd_tt_core(new_x, jj)[0]
+    right_tk = xprepend(left_tk[ii], tucker_cores[ii+1:])
+    right_tt = xprepend(left_tt[ii], tt_cores[ii+1:])
+    if len(right_tk) > 0:
+        right_tt = orth.right_orthogonalize_tt_cores(right_tt)
 
-    new_x = down_svd_tucker_core(new_x, ii)[0]
-    return new_x
+    new_tk = xcat(left_tk[:ii], right_tk)
+    new_tt = xcat(left_tt[:ii], right_tt)
+    return new_tk, new_tt
+
 
 
 
