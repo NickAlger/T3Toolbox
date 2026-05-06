@@ -19,14 +19,16 @@ def get_tucker_tensor_train_entries(
             typ.Tuple[NDArray, NDArray], # (tucker_supercore, tt_supercore)
         ],
         index: NDArray, # dtype=int, shape=(d,)+vsi. (or convertible to int array of this shape)
-        use_jax: bool = False,
 ) -> NDArray: # shape=vsx+vsi
     '''Compute entries of a Tucker tensor train.
     '''
+    use_jax = any([is_jax_ndarray(c) for c in x[0]]) or any([is_jax_ndarray(c) for c in x[1]])
     is_uniform = is_ndarray(x[0])
     xnp, _, xscan = get_backend(is_uniform, use_jax)
 
     #
+    index = xnp.array(index)
+
     tucker_cores, tt_cores = x
     vsx = x[0][0].shape[:-2]
     index = xnp.array(index)

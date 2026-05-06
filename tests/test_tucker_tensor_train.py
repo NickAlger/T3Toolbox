@@ -208,6 +208,8 @@ class TestTuckerTensorTrain(unittest.TestCase):
                             x = x.to_jax()
 
                         x_dense = x.to_dense(squash_tails=SQUASH_TAILS)
+                        if has_jax:
+                            self.assertEqual(USE_JAX, is_jax_ndarray(x_dense))
 
                         ((B0, B1, B2), (G0, G1, G2)) = tucker_cores, tt_cores
                         ss = 'LMNOP'[:len(stack_shape)]
@@ -1843,6 +1845,63 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                 np.eye(G.shape[-3]),
                                 np.einsum('...aib,...cib->...ac', G, G)
                             )
+
+    def test_entries(self):
+        base_structures = [
+            ((8,),              (4,),           (4, 5)),
+            ((8, 9),            (4, 5),         (4, 5, 4)),
+            ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
+            ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
+        ]
+        stack_shapes = [
+            (),
+            (2, 3),
+        ]
+        index_stack_shapes = [
+            (),
+            (5,),
+            (2,3),
+        ]
+
+        for BASE_STRUCTURE in base_structures:
+            shape, tucker_ranks, tt_ranks = BASE_STRUCTURE
+            for STACK_SHAPE in stack_shapes:
+                for INDEX_STACK_SHAPE in index_stack_shapes:
+                    for USE_JAX in [True, False]:
+                        with self.subTest(
+                                BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                INDEX_STACK_SHAPE=INDEX_STACK_SHAPE, USE_JAX=USE_JAX
+                        ):
+                            x = t3.TuckerTensorTrain.randn(*(BASE_STRUCTURE + (STACK_SHAPE,)))
+                            if USE_JAX:
+                                x = x.to_jax()
+
+                            index = np.array([np.random.choice(N, size=INDEX_STACK_SHAPE) for N in shape])
+
+                            entries = x.entries(index)
+                            self.assertEqual(STACK_SHAPE + INDEX_STACK_SHAPE, entries.shape)
+
+                            def _get_entries_dense(a, ind, ss, iss):
+                                if len(ss) == 0 and len(iss) == 0:
+                                    return a[tuple(ind)]
+                                elif len(ss) == 0:
+                                    return np.array([
+                                        _get_entries_dense(a, ind[:,ii], ss, iss[1:])
+                                        for ii in range(iss[0])
+                                    ])
+                                else:
+                                    return np.array([
+                                        _get_entries_dense(a[ii], ind, ss[1:], iss)
+                                        for ii in range(ss[0])
+                                    ])
+
+                            x_dense = x.to_dense()
+                            entries2 = _get_entries_dense(x_dense, index, STACK_SHAPE, INDEX_STACK_SHAPE)
+
+                            self.check_relerr(entries2, entries)
+
+
+
 
 
 #####

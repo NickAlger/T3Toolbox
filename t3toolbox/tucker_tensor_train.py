@@ -619,7 +619,9 @@ class TuckerTensorTrain:
             tuple(G.copy() for G in self.tt_cores)
         )
 
-    #### Vectorization / stacking ####
+    ####################################################
+    ##########    Vectorization / stacking    ##########
+    ####################################################
 
     def unstack(self): # returns an array-like structure of nested tuples containing TuckerTensorTrains
         """If this object contains multiple stacked T3s, this unstacks them
@@ -796,6 +798,10 @@ class TuckerTensorTrain:
         return TuckerTensorTrain(*ragged_operations.t3_corewise_randn(
             shape, tucker_ranks, tt_ranks, stack_shape, use_jax=use_jax,
         ))
+
+    ###################################################################################
+    ##########    Coverting TuckerTensorTrain to/from other tensor formats   ##########
+    ###################################################################################
 
     @staticmethod
     def from_canonical(
@@ -2069,7 +2075,6 @@ class TuckerTensorTrain:
     def entries(
             self,
             index: NDArray,  # or convertible to NDArray. dtype=int
-            use_jax: bool = False,
     ) -> NDArray:
         '''Compute an entry (or multiple entries) of a Tucker tensor train.
 
@@ -2081,7 +2086,7 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> index = [[9,8], [4,10], [7,13]] # get entries (9,4,7) and (8,10,13)
         >>> entries = x.entries(index)
         >>> x_dense = x.to_dense(x)
@@ -2089,7 +2094,7 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(entries - entries2))
         1.7763568394002505e-15
         '''
-        return t3_entries(self, index, use_jax=use_jax)
+        return t3_entries(self, index)
 
     def apply(
             self,
@@ -2339,7 +2344,6 @@ def t3_apply(
 def t3_entries(
         x: TuckerTensorTrain, # shape=(N0,...,N(d-1))
         index: NDArray, # or convertible to NDArray. dtype=int
-        use_jax: bool = False,
 ) -> NDArray:
     '''Compute an entry (or multiple entries) of a Tucker tensor train.
 
@@ -2351,7 +2355,7 @@ def t3_entries(
     x: TuckerTensorTrain
         Tucker tensor train. shape=(N0,...,N(d-1))
     index: NDArray or convertible to NDArray, dtype=int
-        Indices of desired entries. shape=(d,)+vsi
+        Indices of desired entries. shape=(d,)+index_stack_shape
         len(index)=d. If many entries: elm_size=num_entries
     xnp:
         Linear algebra backend. Default: np (numpy)
@@ -2359,7 +2363,7 @@ def t3_entries(
     Returns
     -------
     scalar or NDArray
-        Desired entries.shape=(vsi,)
+        Desired entries.shape=(index_stack_shape,)
 
     Raises
     ------
@@ -2448,17 +2452,13 @@ def t3_entries(
     >>> print(df_diff)
     -7.418812309825662
     '''
-    xnp, _, _ = get_backend(False, use_jax)
-
-    index = xnp.array(index)
-
-    if index.shape[0] != x.d:
+    if len(index) != x.d:
         raise ValueError(
             'Wrong number of indices for Tucker tensor train.\n'
             + str(x.d) + ' = num tensor indices != num provided indices = ' + str(index.shape[0])
         )
 
-    return entries.get_tucker_tensor_train_entries(x.data, index, use_jax=use_jax)
+    return entries.get_tucker_tensor_train_entries(x.data, index)
 
 
 def t3_probe(
