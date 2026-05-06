@@ -51,7 +51,7 @@ def t3svd(
         x = (x[0], ragged_ops.squash_tt_tails(x[1]))
 
     # Orthogonalize Tucker matrices
-    x = ragged_orth.up_orthogonalize_tucker_cores(x)
+    x = ragged_orth.down_orthogonalize_tucker_cores(x)
 
     # Right orthogonalize
     x = (x[0], orth.right_orthogonalize_tt_cores(x[1]))

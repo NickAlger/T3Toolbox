@@ -450,7 +450,7 @@ import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> 
         >>> import t3toolbox.uniform_tucker_tensor_train as ut3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-        >>> ux_orth = ux.up_orthogonalize_tucker_cores()
+        >>> ux_orth = ux.down_orthogonalize_tucker_cores()
         >>> print(np.linalg.norm(ux.to_dense() - ux_orth.to_dense()))
         5.322185194708616e-12
         >>> ind = 1
@@ -465,7 +465,7 @@ import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> 
         >>> import t3toolbox.uniform_tucker_tensor_train as ut3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
         >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-        >>> ux_orth = ux.up_orthogonalize_tucker_cores()
+        >>> ux_orth = ux.down_orthogonalize_tucker_cores()
         >>> print(np.linalg.norm(ux.to_dense() - ux_orth.to_dense()))
         5.306364476742805e-12
         >>> ind = 1
@@ -495,7 +495,7 @@ import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> 
         >>> import t3toolbox.uniform_tucker_tensor_train as ut3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
         >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-        >>> ux_orth = ux.down_orthogonalize_tt_cores()
+        >>> ux_orth = ux.up_orthogonalize_tt_cores()
         >>> print(np.linalg.norm(ux.to_dense() - ux_orth.to_dense()))
         4.767839174513546e-12
         >>> ind = 1

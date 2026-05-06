@@ -12,8 +12,8 @@ from t3toolbox.backend.common import *
 __all__ = [
     'left_orthogonalize_t3',
     'right_orthogonalize_t3',
-    'down_orthogonalize_tt_cores',
-    'up_orthogonalize_tucker_cores',
+    'up_orthogonalize_tt_cores',
+    'down_orthogonalize_tucker_cores',
     'down_svd_tucker_core',
     'left_svd_tt_core',
     'right_svd_tt_core',
@@ -26,7 +26,7 @@ def left_orthogonalize_t3(
 ) -> typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]]: # (tucker_variations, outer_tt_cores)
     """Left orthogonalize T3.
     """
-    up_tucker_cores, tt_cores = up_orthogonalize_tucker_cores(x)
+    up_tucker_cores, tt_cores = down_orthogonalize_tucker_cores(x)
     left_tt_cores = orth.left_orthogonalize_tt_cores(tt_cores)
     return (up_tucker_cores, left_tt_cores)
 
@@ -37,24 +37,24 @@ def right_orthogonalize_t3(
 ) -> typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]]: # (tucker_variations, outer_tt_cores)
     """Left orthogonalize T3.
     """
-    up_tucker_cores, tt_cores = up_orthogonalize_tucker_cores(x)
+    up_tucker_cores, tt_cores = down_orthogonalize_tucker_cores(x)
     right_tt_cores = orth.right_orthogonalize_tt_cores(tt_cores)
     return (up_tucker_cores, right_tt_cores)
 
 
-def down_orthogonalize_tt_cores(
+def up_orthogonalize_tt_cores(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
-        use_jax: bool = False,
 ) -> typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]]: # (tucker_variations, outer_tt_cores)
     """Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
     """
+    use_jax = any([is_jax_ndarray(c) for c in tuple(x[0]) + tuple(x[1])])
     is_uniform = False
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
     stack_shape = x[0][0].shape[:-2]
 
-    def _down_func(Uio_Haib):
+    def _func(Uio_Haib):
         Uio, Haib, = Uio_Haib
 
         rL, n, rR = Haib.shape[-3:]
@@ -69,11 +69,11 @@ def down_orthogonalize_tt_cores(
         Vxo = np.einsum('...xi,...io->...xo', Cxi, Uio)
         return (Vxo, Oaxb)
 
-    tucker_variations, outer_tt_cores = xmap(_down_func, x)
+    tucker_variations, outer_tt_cores = xmap(_func, x)
     return (tucker_variations, outer_tt_cores)
 
 
-def up_orthogonalize_tucker_cores(
+def down_orthogonalize_tucker_cores(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
 ) -> typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]]: # (up_tucker_cores, new_tt_cores)
     """Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
@@ -83,7 +83,7 @@ def up_orthogonalize_tucker_cores(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
-    def _up_func(up_func_args):
+    def _func(up_func_args):
         Bio, Gaib = up_func_args
         Boi = Bio.swapaxes(-1,-2)
 
@@ -94,7 +94,7 @@ def up_orthogonalize_tucker_cores(
         new_Uxo = Uox.swapaxes(-1,-2)
         return (new_Uxo, new_Gaxb)
 
-    up_tucker_cores, new_tt_cores = xmap(_up_func, x)
+    up_tucker_cores, new_tt_cores = xmap(_func, x)
     return (up_tucker_cores, new_tt_cores)
 
 
@@ -294,37 +294,33 @@ def up_svd_tt_core(
 def orthogonalize_relative_to_tucker_core(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
         ii: int,
-        min_rank: int = None,
-        max_rank: int = None,
-        rtol: float = None,
-        atol: float = None,
 ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:
     '''Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker core.
     '''
+    # use_jax = any([is_jax_ndarray(c) for c in tuple(x[0]) + tuple(x[1])])
+    # is_uniform = is_ndarray(x[0])
+    # xnp, xmap, xscan = get_backend(is_uniform, use_jax)
+
     num_cores = len(x[0])
 
     new_x = x
     for jj in range(ii):
-        new_x = up_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
-        new_x = down_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
-        new_x = left_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
+        # new_x = up_svd_tt_core(new_x, jj)[0]
+        new_x = down_svd_tucker_core(new_x, jj)[0]
+        new_x = left_svd_tt_core(new_x, jj)[0]
 
     for jj in range(num_cores - 1, ii, -1):
-        new_x = up_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
-        new_x = down_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
-        new_x = right_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
+        # new_x = up_svd_tt_core(new_x, jj)[0]
+        new_x = down_svd_tucker_core(new_x, jj)[0]
+        new_x = right_svd_tt_core(new_x, jj)[0]
 
-    new_x = up_svd_tt_core(new_x, ii, min_rank, max_rank, rtol, atol)[0]
+    new_x = up_svd_tt_core(new_x, ii)[0]
     return new_x
 
 
 def orthogonalize_relative_to_tt_core(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
         ii: int,
-        min_rank: int = None,
-        max_rank: int = None,
-        rtol: float = None,
-        atol: float = None,
 ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:
     '''Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
     '''
@@ -332,16 +328,16 @@ def orthogonalize_relative_to_tt_core(
 
     new_x = x
     for jj in range(ii):
-        new_x = up_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
-        new_x = down_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
-        new_x = left_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
+        # new_x = up_svd_tt_core(new_x, jj)[0]
+        new_x = down_svd_tucker_core(new_x, jj)[0]
+        new_x = left_svd_tt_core(new_x, jj)[0]
 
     for jj in range(num_cores - 1, ii, -1):
-        new_x = up_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
-        new_x = down_svd_tucker_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
-        new_x = right_svd_tt_core(new_x, jj, min_rank, max_rank, rtol, atol)[0]
+        # new_x = up_svd_tt_core(new_x, jj)[0]
+        new_x = down_svd_tucker_core(new_x, jj)[0]
+        new_x = right_svd_tt_core(new_x, jj)[0]
 
-    new_x = down_svd_tucker_core(new_x, ii, min_rank, max_rank, rtol, atol)[0]
+    new_x = down_svd_tucker_core(new_x, ii)[0]
     return new_x
 
 

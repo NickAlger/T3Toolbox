@@ -68,8 +68,8 @@ def orthogonal_representations(
         down_orthogonalize_tt_cores = lambda x, **kwargs: uniform_orth.down_orthogonalize_uniform_tt_cores(*x, **kwargs)
     else:
         squash_tails = lambda tk, tt: (tk, ragged_operations.squash_tt_tails(tt))
-        up_orthogonalize_tucker_cores = ragged_orth.up_orthogonalize_tucker_cores
-        down_orthogonalize_tt_cores = ragged_orth.down_orthogonalize_tt_cores
+        up_orthogonalize_tucker_cores = ragged_orth.down_orthogonalize_tucker_cores
+        down_orthogonalize_tt_cores = ragged_orth.up_orthogonalize_tt_cores
 
     if squash:
         x = squash_tails(*x)

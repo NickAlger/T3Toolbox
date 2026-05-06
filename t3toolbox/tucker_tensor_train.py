@@ -1704,10 +1704,6 @@ class TuckerTensorTrain:
     def orthogonalize_relative_to_tucker_core(
             self,
             ii: int,
-            min_rank: int = None,
-            max_rank: int = None,
-            rtol: float = None,
-            atol: float = None,
     ) -> 'TuckerTensorTrain':
         '''Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker core.
 
@@ -1726,16 +1722,6 @@ class TuckerTensorTrain:
             index of tucker core that is not orthogonalized
         x: TuckerTensorTrain
             The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
-        min_rank: int
-            Minimum rank for truncation.
-        min_rank: int
-            Maximum rank for truncation.
-        rtol: float
-            Relative tolerance for truncation.
-        atol: float
-            Absolute tolerance for truncation.
-        xnp:
-            Linear algebra backend. Default: np (numpy)
 
         Returns
         -------
@@ -1779,16 +1765,12 @@ class TuckerTensorTrain:
         2.3594586449868743e-15
         '''
         return TuckerTensorTrain(*ragged_orthogonalization.orthogonalize_relative_to_tucker_core(
-            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
+            self.data, ii,
         ))
 
     def orthogonalize_relative_to_tt_core(
             self,
             ii: int,
-            min_rank: int = None,
-            max_rank: int = None,
-            rtol: float = None,
-            atol: float = None,
     ) -> 'TuckerTensorTrain':
         '''Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
 
@@ -1864,12 +1846,11 @@ class TuckerTensorTrain:
         8.816596607002667e-16
         '''
         return TuckerTensorTrain(*ragged_orthogonalization.orthogonalize_relative_to_tt_core(
-            self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
+            self.data, ii,
         ))
 
-    def up_orthogonalize_tucker_cores(
+    def down_orthogonalize_tucker_cores(
             self,
-            use_jax: bool = False,
     ) -> 'TuckerTensorTrain':
         """Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
 
@@ -1878,7 +1859,7 @@ class TuckerTensorTrain:
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-        >>> x_orth = x.up_orthogonalize_tucker_cores()
+        >>> x_orth = x.down_orthogonalize_tucker_cores()
         >>> print((x - x_orth).norm())
         4.420285752780219e-12
         >>> ind = 1
@@ -1892,7 +1873,7 @@ class TuckerTensorTrain:
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> import t3toolbox.orthogonalization as orth
         >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
-        >>> x_orth = x.up_orthogonalize_tucker_cores()
+        >>> x_orth = x.down_orthogonalize_tucker_cores()
         >>> print((x - x_orth).norm())
         [[2.27267321e-12 1.92787570e-12 1.60830015e-12]
          [9.54262022e-13 1.45211899e-12 3.27867574e-12]]
@@ -1903,11 +1884,10 @@ class TuckerTensorTrain:
         >>> print(np.linalg.norm(errs))
         4.118375471407983e-15
         """
-        return TuckerTensorTrain(*ragged_orthogonalization.up_orthogonalize_tucker_cores(self.data, use_jax=use_jax))
+        return TuckerTensorTrain(*ragged_orthogonalization.down_orthogonalize_tucker_cores(self.data))
 
-    def down_orthogonalize_tt_cores(
+    def up_orthogonalize_tt_cores(
             self,
-            use_jax: bool = False,
     ):
         """Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
 
@@ -1916,7 +1896,7 @@ class TuckerTensorTrain:
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-        >>> x_orth = x.down_orthogonalize_tt_cores()
+        >>> x_orth = x.up_orthogonalize_tt_cores()
         >>> print((x - x_orth).norm())
         1.927414448489825e-12
         >>> ind = 1
@@ -1927,7 +1907,7 @@ class TuckerTensorTrain:
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
-        >>> x_orth = x.down_orthogonalize_tt_cores()
+        >>> x_orth = x.up_orthogonalize_tt_cores()
         >>> print((x - x_orth).norm())
         [[1.65714673e-12 1.52503536e-12 2.94647811e-12]
          [1.56839190e-12 2.61963262e-12 8.78269349e-12]]
@@ -1939,13 +1919,12 @@ class TuckerTensorTrain:
         4.0492695830155885e-15
         """
         return TuckerTensorTrain(
-            *ragged_orthogonalization.down_orthogonalize_tt_cores(self.data, use_jax=use_jax),
+            *ragged_orthogonalization.up_orthogonalize_tt_cores(self.data),
         )
 
     def left_orthogonalize_tt_cores(
             self,
             return_variation_cores: bool = False,
-            use_jax: bool = False,
     ):
         """Left orthogonalize the TT cores, possibly returning variation cores as well.
 
@@ -1975,7 +1954,7 @@ class TuckerTensorTrain:
         9.02970295614302e-16
         """
         result = orth.left_orthogonalize_tt_cores(
-            self.tt_cores, return_variation_cores=return_variation_cores, use_jax=use_jax,
+            self.tt_cores, return_variation_cores=return_variation_cores,
         )
         if return_variation_cores:
             return TuckerTensorTrain(self.tucker_cores, result[0]), result[1]
@@ -1985,7 +1964,6 @@ class TuckerTensorTrain:
     def right_orthogonalize_tt_cores(
             self,
             return_variation_cores: bool = False,
-            use_jax: bool = False,
     ):
         """Right orthogonalize the TT cores, possibly returning variation cores as well.
 
@@ -2017,7 +1995,7 @@ class TuckerTensorTrain:
         1.3585381944466237e-15
         """
         result = orth.right_orthogonalize_tt_cores(
-            self.tt_cores, return_variation_cores=return_variation_cores, use_jax=use_jax,
+            self.tt_cores, return_variation_cores=return_variation_cores,
         )
         if return_variation_cores:
             return TuckerTensorTrain(self.tucker_cores, result[0]), result[1]
