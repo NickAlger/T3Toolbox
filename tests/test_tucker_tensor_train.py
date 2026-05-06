@@ -43,6 +43,22 @@ def _td(z):
         return z.to_dense()
     return z
 
+def _random_preconditioned_t3(shape, tucker_ranks, tt_ranks):
+    x = t3.TuckerTensorTrain.corewise_randn(shape, tucker_ranks, tt_ranks)
+    cc_s = tuple(1.0 / (1.0 + np.arange(s))**2 for s in shape)
+    cc_tk = tuple(np.ones(n) for n in tucker_ranks)
+    cc_tt = tuple(1.0 / (1.0 + np.arange(r))**2 for r in tt_ranks)
+    tucker_cores2 = tuple(
+        np.einsum('io,o->io', B / np.linalg.norm(B), c) for B, c in zip(x.tucker_cores, cc_s)
+    )
+    tt_cores2 = tuple(
+        np.einsum('aib,a,i,b->aib', G / np.linalg.norm(G), cl, cm, cr) for G, cl, cm, cr in zip(
+            x.tt_cores, cc_tt[:-1], cc_tk, cc_tt[1:],
+        )
+    )
+    x = t3.TuckerTensorTrain(tucker_cores2, tt_cores2)  # random preconditioned T3
+    return x
+
 
 class TestTuckerTensorTrain(unittest.TestCase):
     def check_relerr(self, xtrue, x):
@@ -1049,22 +1065,13 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
         for STRUCTURE in structures:
             shape, tucker_ranks, tt_ranks = STRUCTURE
-
             for X_IS_JAX in [True, False]:
-                x = t3.TuckerTensorTrain.corewise_randn(shape, tucker_ranks, tt_ranks)
-                cc = [1.0 / np.exp(-np.arange(s)) for s in shape]
-                tucker_cores2 = tuple(
-                    np.einsum('io,o->io', B, c) for B, c in zip(x.tucker_cores, cc)
-                )
-                x = t3.TuckerTensorTrain(tucker_cores2, x.tt_cores)
+                x = _random_preconditioned_t3(shape, tucker_ranks, tt_ranks)
                 if X_IS_JAX:
-                    x = t3.TuckerTensorTrain(
-                        tuple(jnp.array(B) for B in x.tucker_cores),
-                        tuple(jnp.array(G) for G in x.tt_cores),
-                    )
+                    x = x.to_jax()
 
-                for RTOL in [5e-1, 5e-2, 5e-3]:
-                    for ATOL in [1e0, 1e-1, 1e-2, 1e-3]:
+                for RTOL in [5e-1, 5e-2, 5e-3, 5e-4]:
+                    for ATOL in [5e-1, 5e-2, 5e-3, 5e-4]:
                         for MIN_RANK in [1,2,3,4,5,6,7]:
                             for MAX_RANK in [1,2,3,4,5,6,7]:
                                 for CORE_IND in range(len(shape)):
@@ -1078,6 +1085,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                             CORE_IND, min_rank=MIN_RANK, max_rank=MAX_RANK, rtol=RTOL, atol=ATOL,
                                         )
                                         r = ss.shape[-1]
+                                        self.assertEqual(r, x2.tucker_ranks[CORE_IND])
 
                                         B = x.tucker_cores[CORE_IND]
                                         _, ss_big, _ = np.linalg.svd(B, full_matrices=False)
@@ -1089,6 +1097,12 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                         r_true = np.maximum(np.minimum(K, MIN_RANK), np.minimum(r0, MAX_RANK))
                                         self.assertEqual(r_true, r)
                                         self.check_relerr(ss_big[:r], ss)
+
+                                        B2 = x2.tucker_cores[CORE_IND]
+                                        self.check_relerr(
+                                            np.eye(B2.shape[-2]),
+                                            np.einsum('...io,...jo->...ij', B2, B2)
+                                        )
 
     def test_left_svd_tt_core(self):
         base_structures = [
@@ -1152,6 +1166,60 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                             np.einsum('...iaj,...iak ->...jk', G2, G2)
                                         )
 
+    def test_left_svd_tucker_core_tols(self):
+        structures = [
+            ((10,),             (7,),           (6, 7)),
+            ((10, 11),          (7, 8),         (6, 7, 8)),
+            ((10, 11, 12),      (7, 8, 9),      (6, 7, 8, 7)),
+            ((10, 11, 12, 13),  (7, 8, 9, 8),   (6, 7, 8, 7, 6)),
+        ]
+
+        for STRUCTURE in structures:
+            shape, tucker_ranks, tt_ranks = STRUCTURE
+            for X_IS_JAX in [True, False]:
+                x = _random_preconditioned_t3(shape, tucker_ranks, tt_ranks)
+                if X_IS_JAX:
+                    x = x.to_jax()
+
+                for RTOL in [5e-1, 5e-2, 5e-3, 5e-4]:
+                    for ATOL in [5e-1, 5e-2, 5e-3, 5e-4]:
+                        for MIN_RANK in [1,2,3,4,5,6,7]:
+                            for MAX_RANK in [1,2,3,4,5,6,7]:
+                                for CORE_IND in range(len(shape)):
+                                    with self.subTest(
+                                            STRUCTURE=STRUCTURE, X_IS_JAX=X_IS_JAX,
+                                            RTOL=RTOL, ATOL=ATOL,
+                                            MIN_RANK=MIN_RANK, MAX_RANK=MAX_RANK,
+                                            CORE_IND=CORE_IND,
+                                    ):
+                                        x2, ss = x.left_svd_tt_core(
+                                            CORE_IND, min_rank=MIN_RANK, max_rank=MAX_RANK, rtol=RTOL, atol=ATOL,
+                                        )
+                                        r = ss.shape[-1]
+                                        self.assertEqual(r, x2.tt_ranks[CORE_IND+1])
+
+                                        G = x.tt_cores[CORE_IND]
+                                        _, ss_big, _ = np.linalg.svd(
+                                            G.reshape((G.shape[0]*G.shape[1], G.shape[2])),
+                                            full_matrices=False
+                                        )
+                                        r0 = np.sum(ss_big >= np.maximum(ss_big[0] * RTOL, ATOL))
+                                        K = len(ss_big)
+
+                                        # print('r=', r, ', K=', K, ', MIN_RANK=', MIN_RANK, ', MAX_RANK=', MAX_RANK)
+
+                                        r_true = np.maximum(np.minimum(K, MIN_RANK), np.minimum(r0, MAX_RANK))
+                                        self.assertEqual(r_true, r)
+                                        self.check_relerr(ss_big[:r], ss)
+
+                                        if CORE_IND < len(shape) - 1:
+                                            G2 = x2.tt_cores[CORE_IND]
+                                            self.check_relerr(
+                                                np.eye(G2.shape[-1]),
+                                                np.einsum('...iaj,...iak ->...jk', G2, G2)
+                                            )
+
+
     def test_right_svd_tt_core(self):
         base_structures = [
             ((8,),              (4,),           (4, 5)),
@@ -1214,6 +1282,59 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                             np.einsum('...iaj,...kaj->...ik', G2, G2)
                                         )
 
+
+    def test_right_svd_tucker_core_tols(self):
+        structures = [
+            ((10,),             (7,),           (6, 7)),
+            ((10, 11),          (7, 8),         (6, 7, 8)),
+            ((10, 11, 12),      (7, 8, 9),      (6, 7, 8, 7)),
+            ((10, 11, 12, 13),  (7, 8, 9, 8),   (6, 7, 8, 7, 6)),
+        ]
+
+        for STRUCTURE in structures:
+            shape, tucker_ranks, tt_ranks = STRUCTURE
+            for X_IS_JAX in [True, False]:
+                x = _random_preconditioned_t3(shape, tucker_ranks, tt_ranks)
+                if X_IS_JAX:
+                    x = x.to_jax()
+
+                for RTOL in [5e-1, 5e-2, 5e-3, 5e-4]:
+                    for ATOL in [5e-1, 5e-2, 5e-3, 5e-4]:
+                        for MIN_RANK in [1,2,3,4,5,6,7]:
+                            for MAX_RANK in [1,2,3,4,5,6,7]:
+                                for CORE_IND in range(len(shape)):
+                                    with self.subTest(
+                                            STRUCTURE=STRUCTURE, X_IS_JAX=X_IS_JAX,
+                                            RTOL=RTOL, ATOL=ATOL,
+                                            MIN_RANK=MIN_RANK, MAX_RANK=MAX_RANK,
+                                            CORE_IND=CORE_IND,
+                                    ):
+                                        x2, ss = x.right_svd_tt_core(
+                                            CORE_IND, min_rank=MIN_RANK, max_rank=MAX_RANK, rtol=RTOL, atol=ATOL,
+                                        )
+                                        r = ss.shape[-1]
+                                        self.assertEqual(r, x2.tt_ranks[CORE_IND])
+
+                                        G = x.tt_cores[CORE_IND]
+                                        _, ss_big, _ = np.linalg.svd(
+                                            G.reshape((G.shape[0], G.shape[1]*G.shape[2])),
+                                            full_matrices=False
+                                        )
+                                        r0 = np.sum(ss_big >= np.maximum(ss_big[0] * RTOL, ATOL))
+                                        K = len(ss_big)
+
+                                        # print('r=', r, ', K=', K, ', MIN_RANK=', MIN_RANK, ', MAX_RANK=', MAX_RANK)
+
+                                        r_true = np.maximum(np.minimum(K, MIN_RANK), np.minimum(r0, MAX_RANK))
+                                        self.assertEqual(r_true, r)
+                                        self.check_relerr(ss_big[:r], ss)
+
+                                        if CORE_IND > 1:
+                                            G2 = x2.tt_cores[CORE_IND]
+                                            self.check_relerr(
+                                                np.eye(G2.shape[-3]),
+                                                np.einsum('...iaj,...kaj->...ik', G2, G2)
+                                            )
 
 
     def test_directional_svds(self):
