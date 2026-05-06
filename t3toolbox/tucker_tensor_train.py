@@ -2717,7 +2717,6 @@ def t3svd_dense(
         max_tt_ranks:  typ.Sequence[int] = None,  # len=d+1
         rtol: float = None,
         atol: float = None,
-        use_jax: bool = False,
 ) -> typ.Tuple[
     TuckerTensorTrain, # Approximation of T by Tucker tensor train
     typ.Tuple[NDArray,...], # Tucker singular values, len=d
@@ -2781,7 +2780,6 @@ def t3svd_dense(
         min_tucker_ranks=min_tucker_ranks, max_tucker_ranks=max_tucker_ranks,
         min_tt_ranks=min_tt_ranks, max_tt_ranks=max_tt_ranks,
         rtol=rtol, atol=atol,
-        use_jax=use_jax,
     )
     return TuckerTensorTrain(*result[0]), result[1], result[2]
 
@@ -2795,7 +2793,6 @@ def t3svd(
         rtol: float = None,
         atol: float = None,
         squash_tails_first: bool = True,
-        use_jax: bool = False,
 ) -> typ.Tuple[
     TuckerTensorTrain, # new_x
     typ.Tuple[NDArray,...], # Tucker singular values, len=d
@@ -2925,7 +2922,6 @@ def t3svd(
         max_tt_ranks=max_tt_ranks, max_tucker_ranks=max_tucker_ranks,
         rtol=rtol, atol=atol,
         squash_tails_first=squash_tails_first,
-        use_jax=use_jax,
     )
     return TuckerTensorTrain(*result[0]), result[1], result[2]
 

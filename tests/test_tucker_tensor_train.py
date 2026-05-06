@@ -1039,6 +1039,48 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                         np.einsum('...io,...jo->...ij', B2, B2)
                                     )
 
+    def test_down_svd_tucker_core_tols(self):
+        shapes = [
+            (10,),
+            (10, 11),
+            (10, 11, 12),
+            (10, 11, 12, 13),
+        ]
+
+        for SHAPE in shapes:
+            X = np.zeros(SHAPE)
+            for ind in itertools.product(*tuple(tuple(range(s)) for s in SHAPE)):
+                X[ind] = 1.0 / np.sum(1.0 + np.array(ind)) # Hilbert tensor
+            for X_IS_JAX in [True, False]:
+                if X_IS_JAX:
+                    X = jnp.array(X)
+                    x, _, _ = t3.t3svd_dense(X, rtol=1e-8) # convert dense to T3 via tight tolerance T3SVD
+                    for RTOL in [1e0, 1e-1, 1e-2, 1e-3]:
+                        for ATOL in [1e0, 1e-1, 1e-2, 1e-3]:
+                            for MIN_RANK in [1,2,3,4,5,6,7]:
+                                for MAX_RANK in [1,2,3,4,5,6,7]:
+                                    for CORE_IND in range(len(SHAPE)):
+                                        with self.subTest(
+                                                SHAPE=SHAPE, X_IS_JAX=X_IS_JAX,
+                                                RTOL=RTOL, ATOL=ATOL,
+                                                MIN_RANK=MIN_RANK, MAX_RANK=MAX_RANK,
+                                                CORE_IND=CORE_IND,
+                                        ):
+                                            x2, ss = x.down_svd_tucker_core(
+                                                CORE_IND, min_rank=MIN_RANK, max_rank=MAX_RANK, rtol=RTOL, atol=ATOL,
+                                            )
+                                            r = ss.shape[-1]
+
+                                            B = x.tucker_cores[CORE_IND]
+                                            _, ss_big, _ = np.linalg.svd(B, full_matrices=False)
+                                            r0 = np.sum(ss_big >= np.maximum(ss_big[0] * RTOL, ATOL))
+                                            K = len(ss_big)
+
+                                            r_true = np.maximum(np.minimum(K, MIN_RANK), np.minimum(r0, MAX_RANK))
+                                            self.assertEqual(r_true, r)
+                                            self.check_relerr(ss_big[:r], ss)
+
+
     def test_left_svd_tt_core(self):
         base_structures = [
             ((8,),              (4,),           (4, 5)),

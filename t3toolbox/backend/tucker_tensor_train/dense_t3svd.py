@@ -20,7 +20,6 @@ def tucker_svd_dense(
         max_ranks:  typ.Sequence[int] = None,  # len=d
         rtol: float = None,
         atol: float = None,
-        use_jax: bool = False,
 ) -> typ.Tuple[
     typ.Tuple[
         typ.Tuple[NDArray,...], # Tucker bases, ith_elm_shape=(ni, Ni)
@@ -76,8 +75,6 @@ def tucker_svd_dense(
     >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-3
     0.002418671417862558
     '''
-    xnp, xmap, xscan = get_backend(True, use_jax)
-
     bases = []
     singular_values_of_matricizations = []
     C = T
@@ -90,7 +87,7 @@ def tucker_svd_dense(
 
         C_swap_mat = C_swap.reshape((old_shape_swap[0], -1))
         U, ss, Vt = linalg.truncated_svd(
-            C_swap_mat, min_rank, max_rank, rtol, atol, use_jax=use_jax,
+            C_swap_mat, min_rank, max_rank, rtol, atol,
         )
         rM_new = len(ss)
 
@@ -174,7 +171,7 @@ def ttsvd_dense(
         max_rank = None if max_ranks is None else max_ranks[ii+1]
 
         U, ss, Vt = linalg.truncated_svd(
-            X.reshape((rL * nn[ii], -1)), min_rank, max_rank, rtol, atol, use_jax=use_jax,
+            X.reshape((rL * nn[ii], -1)), min_rank, max_rank, rtol, atol,
         )
         rR = len(ss)
 
@@ -197,7 +194,6 @@ def t3svd_dense(
         max_tt_ranks:  typ.Sequence[int] = None,  # len=d+1
         rtol: float = None,
         atol: float = None,
-        use_jax: bool = False,
 ) -> typ.Tuple[
     typ.Tuple[
         typ.Tuple[NDArray,...], # tucker_cores
@@ -209,10 +205,10 @@ def t3svd_dense(
     '''Compute TuckerTensorTrain and edge singular values for dense tensor.
     '''
     (tucker_cores, tucker_core), ss_tucker = tucker_svd_dense(
-        T, min_tucker_ranks, max_tucker_ranks, rtol, atol, use_jax=use_jax,
+        T, min_tucker_ranks, max_tucker_ranks, rtol, atol,
     )
     tt_cores, ss_tt = ttsvd_dense(
-        tucker_core, min_tt_ranks, max_tt_ranks, rtol, atol, use_jax=use_jax,
+        tucker_core, min_tt_ranks, max_tt_ranks, rtol, atol,
     )
     return (tucker_cores, tt_cores), ss_tucker, ss_tt
 

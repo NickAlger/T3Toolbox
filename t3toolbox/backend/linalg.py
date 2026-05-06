@@ -178,8 +178,8 @@ def truncated_svd(
             )
         rtol1 = 0.0 if rtol is None else rtol
         atol1 = 0.0 if atol is None else atol
-        tol = max(ss0[0] * rtol1, atol1)
-        K = xnp.sum(ss0 >= tol)
+        tol = xnp.maximum(ss0[0] * rtol1, atol1)
+        K = int(xnp.sum(ss0 >= tol))
 
     max_rank = K if max_rank is None else min(K, max_rank)
     min_rank = 1 if min_rank is None else max(1, min_rank)
