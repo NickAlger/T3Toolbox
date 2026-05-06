@@ -979,12 +979,198 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                         self.check_relerr(norm_x_true, norm_x)
 
+    def test_down_svd_tucker_core(self):
+        base_structures = [
+            ((8,),              (4,),           (4, 5)),
+            ((8, 9),            (4, 5),         (4, 5, 4)),
+            ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
+            ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
+        ]
+        stack_shapes = [
+            (),
+            (1,),
+            (1,2),
+            (1,2,3)
+        ]
+
+        for BASE_STRUCTURE in base_structures:
+            for X_IS_JAX in [True, False]:
+                for STACK_SHAPE in stack_shapes:
+                    structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                    shape, tucker_ranks, tt_ranks, stack_shape = structure
+                    for MIN_RANK, MAX_RANK in zip(
+                        [None, 2,    None, 2],
+                        [None, None, 2,    3],
+                    ):
+                        for X_TYPE in ['RANDN', 'ONES']:
+                            if X_TYPE == 'RANDN':
+                                x = t3.TuckerTensorTrain.corewise_randn(*structure, use_jax=X_IS_JAX)
+                            else:
+                                x = t3.TuckerTensorTrain.ones(
+                                    shape, stack_shape=STACK_SHAPE, use_jax=X_IS_JAX,
+                                )
+                                x = x.resize_cores(shape, tucker_ranks, tt_ranks)
+
+                            for CORE_IND in range(len(shape)):
+                                with self.subTest(
+                                        BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                        X_IS_JAX=X_IS_JAX, MIN_RANK=MIN_RANK, MAX_RANK=MAX_RANK,
+                                        CORE_IND=CORE_IND,
+                                ):
+                                    x2, ss = x.down_svd_tucker_core(CORE_IND, MIN_RANK, MAX_RANK)
+                                    r = ss.shape[-1]
+                                    self.assertEqual(r, x2.tucker_ranks[CORE_IND])
+
+                                    if MAX_RANK is not None:
+                                        self.assertLessEqual(r, MAX_RANK)
+                                    else:
+                                        self.check_relerr(x2.to_dense(), x.to_dense())
+
+                                    if MIN_RANK is not None:
+                                        self.assertGreaterEqual(r, MIN_RANK)
+
+                                    B = x.tucker_cores[CORE_IND]
+                                    _, ss2, _ = np.linalg.svd(B, full_matrices=False)
+                                    self.check_relerr(ss2[..., :r], ss)
+
+                                    B2 = x2.tucker_cores[CORE_IND]
+                                    self.check_relerr(
+                                        np.eye(B2.shape[-2]),
+                                        np.einsum('...io,...jo->...ij', B2, B2)
+                                    )
+
+    def test_left_svd_tt_core(self):
+        base_structures = [
+            ((8,),              (4,),           (4, 5)),
+            ((8, 9),            (4, 5),         (4, 5, 4)),
+            ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
+            ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
+        ]
+        stack_shapes = [
+            (),
+            (1,),
+            (1,2),
+            (1,2,3)
+        ]
+
+        for BASE_STRUCTURE in base_structures:
+            for X_IS_JAX in [True, False]:
+                for STACK_SHAPE in stack_shapes:
+                    structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                    shape, tucker_ranks, tt_ranks, stack_shape = structure
+                    for MIN_RANK, MAX_RANK in zip(
+                        [None, 2,    None, 2],
+                        [None, None, 2,    3],
+                    ):
+                        for X_TYPE in ['RANDN', 'ONES']:
+                            if X_TYPE == 'RANDN':
+                                x = t3.TuckerTensorTrain.corewise_randn(*structure, use_jax=X_IS_JAX)
+                            else:
+                                x = t3.TuckerTensorTrain.ones(
+                                    shape, stack_shape=STACK_SHAPE, use_jax=X_IS_JAX,
+                                )
+                                x = x.resize_cores(shape, tucker_ranks, tt_ranks)
+
+                            for CORE_IND in range(len(shape)):
+                                with self.subTest(
+                                        BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                        X_IS_JAX=X_IS_JAX, MIN_RANK=MIN_RANK, MAX_RANK=MAX_RANK,
+                                        CORE_IND=CORE_IND,
+                                ):
+                                    x2, ss = x.left_svd_tt_core(CORE_IND, MIN_RANK, MAX_RANK)
+                                    r = ss.shape[-1]
+                                    self.assertEqual(r, x2.tt_ranks[CORE_IND+1])
+
+                                    if MAX_RANK is not None:
+                                        self.assertLessEqual(r, MAX_RANK)
+                                    else:
+                                        self.check_relerr(x2.to_dense(), x.to_dense())
+
+                                    if MIN_RANK is not None:
+                                        self.assertGreaterEqual(r, MIN_RANK)
+
+                                    G = x.tt_cores[CORE_IND]
+                                    A = G.reshape(stack_shape+(G.shape[-3]*G.shape[-2], G.shape[-1]))
+                                    _, ss2, _ = np.linalg.svd(A, full_matrices=False)
+                                    self.check_relerr(ss2[..., :r], ss)
+
+                                    if CORE_IND < len(shape) - 1:
+                                        G2 = x2.tt_cores[CORE_IND]
+                                        self.check_relerr(
+                                            np.eye(G2.shape[-1]),
+                                            np.einsum('...iaj,...iak ->...jk', G2, G2)
+                                        )
+
+    def test_right_svd_tt_core(self):
+        base_structures = [
+            ((8,),              (4,),           (4, 5)),
+            ((8, 9),            (4, 5),         (4, 5, 4)),
+            ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
+            ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
+        ]
+        stack_shapes = [
+            (),
+            (1,),
+            (1,2),
+            (1,2,3)
+        ]
+
+        for BASE_STRUCTURE in base_structures:
+            for X_IS_JAX in [True, False]:
+                for STACK_SHAPE in stack_shapes:
+                    structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                    shape, tucker_ranks, tt_ranks, stack_shape = structure
+                    for MIN_RANK, MAX_RANK in zip(
+                        [None, 2,    None, 2],
+                        [None, None, 2,    3],
+                    ):
+                        for X_TYPE in ['RANDN', 'ONES']:
+                            if X_TYPE == 'RANDN':
+                                x = t3.TuckerTensorTrain.corewise_randn(*structure, use_jax=X_IS_JAX)
+                            else:
+                                x = t3.TuckerTensorTrain.ones(
+                                    shape, stack_shape=STACK_SHAPE, use_jax=X_IS_JAX,
+                                )
+                                x = x.resize_cores(shape, tucker_ranks, tt_ranks)
+
+                            for CORE_IND in range(len(shape)):
+                                with self.subTest(
+                                        BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                        X_IS_JAX=X_IS_JAX, MIN_RANK=MIN_RANK, MAX_RANK=MAX_RANK,
+                                        CORE_IND=CORE_IND,
+                                ):
+                                    x2, ss = x.right_svd_tt_core(CORE_IND, MIN_RANK, MAX_RANK)
+                                    r = ss.shape[-1]
+                                    self.assertEqual(r, x2.tt_ranks[CORE_IND])
+
+                                    if MAX_RANK is not None:
+                                        self.assertLessEqual(r, MAX_RANK)
+                                    else:
+                                        self.check_relerr(x2.to_dense(), x.to_dense())
+
+                                    if MIN_RANK is not None:
+                                        self.assertGreaterEqual(r, MIN_RANK)
+
+                                    G = x.tt_cores[CORE_IND]
+                                    A = G.reshape(stack_shape+(G.shape[-3], G.shape[-2]*G.shape[-1]))
+                                    _, ss2, _ = np.linalg.svd(A, full_matrices=False)
+                                    self.check_relerr(ss2[..., :r], ss)
+
+                                    if CORE_IND > 1:
+                                        G2 = x2.tt_cores[CORE_IND]
+                                        self.check_relerr(
+                                            np.eye(G2.shape[-3]),
+                                            np.einsum('...iaj,...kaj->...ik', G2, G2)
+                                        )
+
+
+
     def test_directional_svds(self):
         base_structures = [
-            ((14,), (4,), (4, 5)),
-            ((14, 15), (4, 5), (4, 5, 4)),
-            ((14, 15, 16, 17), (4, 5, 6, 7), (4, 5, 4, 3, 2)),
-            ((14, 15, 16), (4, 5, 6), (4, 5, 4, 3)),
+            ((8,),              (4,),           (4, 5)),
+            ((8, 9),            (4, 5),         (4, 5, 4)),
+            ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
+            ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
         ]
         stack_shapes = [
             (),
@@ -1001,61 +1187,126 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         structure = BASE_STRUCTURE + (STACK_SHAPE,)
                         shape, tucker_ranks, tt_ranks, stack_shape = structure
                         for MIN_RANK, MAX_RANK in zip(
-                            [None, 2,    4,    None, None, 2],
-                            [None, None, None, 1,    3,    4],
+                            [None, 2,    None, 2],
+                            [None, None, 2,    3],
                         ):
                             for X_TYPE in ['RANDN', 'ONES']:
+                                if X_TYPE == 'RANDN':
+                                    x = t3.TuckerTensorTrain.corewise_randn(*structure, use_jax=X_IS_JAX)
+                                else:
+                                    x = t3.TuckerTensorTrain.ones(
+                                        shape, stack_shape=STACK_SHAPE, use_jax=X_IS_JAX,
+                                    )
+                                    x = x.resize_cores(shape, tucker_ranks, tt_ranks)
+
                                 for CORE_IND in range(len(shape)):
                                     with self.subTest(
                                             OP=OP, BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                                             X_IS_JAX=X_IS_JAX, MIN_RANK=MIN_RANK, MAX_RANK=MAX_RANK,
                                             CORE_IND=CORE_IND,
                                     ):
-                                        if X_TYPE == 'RANDN':
-                                            x = t3.TuckerTensorTrain.corewise_randn(*structure, use_jax=X_IS_JAX)
-                                        else:
-                                            x = t3.TuckerTensorTrain.ones(
-                                                shape, stack_shape=STACK_SHAPE, use_jax=X_IS_JAX,
-                                            )
-                                            x.resize_cores(shape, tucker_ranks, tt_ranks)
-
                                         if OP == 'DOWN_TUCKER':
                                             x2, ss = x.down_svd_tucker_core(CORE_IND, MIN_RANK, MAX_RANK)
-                                            B = x2.tucker_cores[CORE_IND]
+                                            r = ss.shape[-1]
+                                            self.assertEqual(r, x2.tucker_ranks[CORE_IND])
+
+                                            if MAX_RANK is not None:
+                                                self.assertLessEqual(r, MAX_RANK)
+                                            else:
+                                                self.check_relerr(x2.to_dense(), x.to_dense())
+
+                                            if MIN_RANK is not None:
+                                                self.assertGreaterEqual(r, MIN_RANK)
+
+                                            B = x.tucker_cores[CORE_IND]
+                                            _, ss2, _ = np.linalg.svd(B, full_matrices=False)
+                                            self.check_relerr(ss2[..., :r], ss)
+
+                                            B2 = x2.tucker_cores[CORE_IND]
                                             self.check_relerr(
-                                                np.eye(B.shape[-2]),
-                                                np.einsum('...io,...jo', B, B)
+                                                np.eye(B2.shape[-2]),
+                                                np.einsum('...io,...jo', B2, B2)
                                             )
+
                                         elif OP == 'LEFT_TT':
                                             x2, ss = x.left_svd_tt_core(CORE_IND, MIN_RANK, MAX_RANK)
+                                            r = ss.shape[-1]
+                                            self.assertEqual(r, x2.tt_ranks[CORE_IND+1])
+
+                                            if MAX_RANK is not None:
+                                                self.assertLessEqual(r, MAX_RANK)
+                                            else:
+                                                self.check_relerr(x2.to_dense(), x.to_dense())
+
+                                            if MIN_RANK is not None:
+                                                self.assertGreaterEqual(r, MIN_RANK)
+
+                                            G = x.tt_cores[CORE_IND]
+                                            A = G.reshape(stack_shape+(G.shape[-3]*G.shape[-2], G.shape[-1]))
+                                            _, ss2, _ = np.linalg.svd(A, full_matrices=False)
+                                            self.check_relerr(ss2[..., :r], ss)
+
                                             if CORE_IND < len(shape) - 1:
-                                                G = x2.tt_cores[CORE_IND]
+                                                G2 = x2.tt_cores[CORE_IND]
                                                 self.check_relerr(
-                                                    np.eye(G.shape[-1]),
-                                                    np.einsum('...iaj,...iak', G, G)
+                                                    np.eye(G2.shape[-1]),
+                                                    np.einsum('...iaj,...iak', G2, G2)
                                                 )
+
                                         elif OP == 'RIGHT_TT':
                                             x2, ss = x.right_svd_tt_core(CORE_IND, MIN_RANK, MAX_RANK)
+                                            r = ss.shape[-1]
+                                            self.assertEqual(r, x2.tt_ranks[CORE_IND])
+
+                                            if MAX_RANK is not None:
+                                                self.assertLessEqual(r, MAX_RANK)
+                                            else:
+                                                self.check_relerr(x2.to_dense(), x.to_dense())
+
+                                            if MIN_RANK is not None:
+                                                self.assertGreaterEqual(r, MIN_RANK)
+
+                                            G = x.tt_cores[CORE_IND]
+                                            A = G.reshape(stack_shape+(G.shape[-3], G.shape[-2]*G.shape[-1]))
+                                            _, ss2, _ = np.linalg.svd(A, full_matrices=False)
+                                            self.check_relerr(ss2[..., :r], ss)
+
                                             if CORE_IND > 1:
-                                                G = x2.tt_cores[CORE_IND]
+                                                G2 = x2.tt_cores[CORE_IND]
                                                 self.check_relerr(
                                                     np.eye(G.shape[-3]),
-                                                    np.einsum('...iaj,...kaj', G, G)
+                                                    np.einsum('...iaj,...kaj', G2, G2)
                                                 )
+
                                         elif OP == 'UP_TT':
                                             x2, ss = x.down_svd_tt_core(CORE_IND, MIN_RANK, MAX_RANK)
+                                            self.check_relerr(x2.to_dense(), x.to_dense()) if MAX_RANK is None else None
+
                                             G = x2.tt_cores[CORE_IND]
+                                            A = G.swapaxes(-1, -2)
+                                            A = A.reshape((A.shape[-3]*A.shape[-2] * A.shape[-1]))
+                                            _, ss2, _ = np.linalg.svd(A, full_matrices=False)
+                                            self.check_relerr(ss2, ss)
+
                                             self.check_relerr(
                                                 np.eye(G.shape[-2]),
                                                 np.einsum('...iaj,...ibj', G, G)
                                             )
+
                                         elif OP == 'DOWN_TT':
                                             x2, ss = x.down_svd_tt_core(CORE_IND, MIN_RANK, MAX_RANK)
+                                            self.check_relerr(x2.to_dense(), x.to_dense()) if MAX_RANK is None else None
+
+                                            G = x2.tt_cores[CORE_IND]
+                                            A = G.swapaxes(-1, -2)
+                                            A = A.reshape((A.shape[-3] * A.shape[-2] * A.shape[-1]))
+                                            _, ss2, _ = np.linalg.svd(A, full_matrices=False)
+                                            self.check_relerr(ss2, ss)
+
                                         else:
                                             raise ValueError
 
-                                        if MAX_RANK is None:
-                                            self.check_relerr(x2.to_dense(), x.to_dense())
+
 
 
 

@@ -297,16 +297,16 @@ class TuckerTensorTrain:
                     + 'tt_cores[' + str(ii) + '].shape[-2] = ' + str(G.shape[-2])
                 )
 
-        desired_stack_shapes = tuple([self.stack_shape for _ in range(self.d)])
-        tt_stack_shapes = tuple([G.shape[:-3] for G in self.tt_cores])
-        tucker_stack_shapes = tuple([B.shape[:-2] for B in self.tucker_cores])
+        desired_stack_shapes = tuple(self.stack_shape for _ in range(self.d))
+        tt_stack_shapes = tuple(G.shape[:-3] for G in self.tt_cores)
+        tucker_stack_shapes = tuple(B.shape[:-2] for B in self.tucker_cores)
         if ((tt_stack_shapes) != (desired_stack_shapes)
                 or (tucker_stack_shapes != desired_stack_shapes)):
             raise ValueError(
                 'Inconsistent TuckerTensorTrain.\n'
                 + str(tt_stack_shapes) + ' = tt_stack_shapes'
                 + '\n'
-                + str(tt_stack_shapes) + ' = tucker_stack_shapes'
+                + str(tucker_stack_shapes) + ' = tucker_stack_shapes'
             )
 
     def __post_init__(self):

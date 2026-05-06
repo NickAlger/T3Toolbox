@@ -116,7 +116,9 @@ def down_svd_tucker_core(
     G_a_i_b = tt_cores[ii]
     U_i_o = tucker_cores[ii]
 
-    new_G, new_B, ss_x = linalg.down_svd_pair(G_a_i_b, U_i_o, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol)
+    new_G, new_B, ss_x = linalg.down_svd_pair(
+        G_a_i_b, U_i_o, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
+    )
 
     new_tt_cores = list(tt_cores)
     new_tt_cores[ii] = new_G
@@ -142,9 +144,15 @@ def left_svd_tt_core(
 ]:
     '''Compute SVD of ith TT-core left unfolding and contract non-orthogonal factor into the TT-core to the right.
     '''
+    use_jax = any([is_jax_ndarray(c) for c in tuple(x[0]) + tuple(x[1])])
+    is_uniform = False
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
+
+    #
     tucker_cores, tt_cores = x
 
     A0_a_i_b = tt_cores[ii]
+    new_tt_cores = list(tt_cores)
 
     if ii < len(x[0]) - 1:
         B0_b_j_c = tt_cores[ii + 1]
@@ -153,14 +161,14 @@ def left_svd_tt_core(
             A0_a_i_b, B0_b_j_c, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
         )
 
-        new_tt_cores = list(tt_cores)
         new_tt_cores[ii] = A_a_i_x
         new_tt_cores[ii + 1] = B_x_j_c
     else:
-        _, ss_x, _ = linalg.left_svd(
+        U_i_a_x, ss_x, Vt_x_b = linalg.left_svd(
             A0_a_i_b, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
         )
-        new_tt_cores = tt_cores
+        A_a_i_x = xnp.einsum('...iax,...x,...xb->...iax', U_i_a_x, ss_x, Vt_x_b) # sum over 'b' index
+        new_tt_cores[ii] = A_a_i_x
 
     return (tuple(tucker_cores), tuple(new_tt_cores)), ss_x
 
@@ -178,32 +186,32 @@ def right_svd_tt_core(
 ]:
     '''Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor into the TT-core to the left.
     '''
+    use_jax = any([is_jax_ndarray(c) for c in tuple(x[0]) + tuple(x[1])])
+    is_uniform = False
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
+
+    #
     tucker_cores, tt_cores = x
 
-    # if len(tucker_cores[0].shape) > 2:
-    #     raise RuntimeError(
-    #         'Cannot use right_svd_ith_tt_core for stacked Tucker tensor train.\n' +
-    #         'Different elements of the stack could end out having different shapes.\n' +
-    #         'First unstack, then call right_svd_ith_tt_core for each unstacked Tucker tensor train.'
-    #     )
-
     B0_b_j_c = tt_cores[ii]
+    new_tt_cores = list(tt_cores)
 
-    if ii > 1:
+    if ii > 0:
         A0_a_i_b = tt_cores[ii - 1]
 
         A_a_i_x, B_x_j_c, ss_x = linalg.right_svd_pair(
             A0_a_i_b, B0_b_j_c, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
         )
 
-        new_tt_cores = list(tt_cores)
         new_tt_cores[ii-1] = A_a_i_x
         new_tt_cores[ii] = B_x_j_c
     else:
-        _, ss_x, _ = linalg.right_svd(
+        U_a_x, ss_x, Vt_x_j_c = linalg.right_svd(
             B0_b_j_c, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
         )
-        new_tt_cores = tt_cores
+        B_x_j_c = xnp.einsum('...ax,...x,...xjc->...xjc', U_a_x, ss_x, Vt_x_j_c) # sum over 'a' index
+
+        new_tt_cores[ii] = new_tt_cores[ii] = B_x_j_c
 
     return (tuple(tucker_cores), tuple(new_tt_cores)), ss_x
 
@@ -240,7 +248,7 @@ def up_svd_tt_core(
 
     U_a_x_b, ss_x, Vt_x_i = linalg.up_svd(G0_a_i_b, min_rank, max_rank, rtol, atol, use_jax=use_jax)
 
-    G_a_x_b = xnp.einsum('axb,x->axb', U_a_x_b, ss_x)
+    G_a_x_b = xnp.einsum('...axb,...x->...axb', U_a_x_b, ss_x)
     Q_x_o = xnp.tensordot(Vt_x_i, Q0_i_o, axes=1)
 
     new_tt_cores = list(tt_cores)
