@@ -1107,7 +1107,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: orthogonalize_relative_to_tucker_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None) -> TuckerTensorTrain
+   .. py:method:: orthogonalize_relative_to_tucker_core(ii: int) -> TuckerTensorTrain
 
       Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker core.
 
@@ -1124,15 +1124,6 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       :type ii: int
       :param x: The Tucker tensor train. structure=((N1,...,Nd), (n1,...,nd), (1,r1,...r(d-1),1))
       :type x: TuckerTensorTrain
-      :param min_rank: Minimum rank for truncation.
-      :type min_rank: int
-      :param min_rank: Maximum rank for truncation.
-      :type min_rank: int
-      :param rtol: Relative tolerance for truncation.
-      :type rtol: float
-      :param atol: Absolute tolerance for truncation.
-      :type atol: float
-      :param xnp: Linear algebra backend. Default: np (numpy)
 
       :returns: **new_x** -- New TuckerTensorTrain representing the same tensor, but orthogonalized relative to the ith tucker core.
       :rtype: NDArray
@@ -1169,7 +1160,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: orthogonalize_relative_to_tt_core(ii: int, min_rank: int = None, max_rank: int = None, rtol: float = None, atol: float = None) -> TuckerTensorTrain
+   .. py:method:: orthogonalize_relative_to_tt_core(ii: int) -> TuckerTensorTrain
 
       Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
 
@@ -1235,7 +1226,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: up_orthogonalize_tucker_cores(use_jax: bool = False) -> TuckerTensorTrain
+   .. py:method:: down_orthogonalize_tucker_cores() -> TuckerTensorTrain
 
       Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
 
@@ -1244,7 +1235,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> import numpy as np
       >>> import t3toolbox.tucker_tensor_train as t3
       >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-      >>> x_orth = x.up_orthogonalize_tucker_cores()
+      >>> x_orth = x.down_orthogonalize_tucker_cores()
       >>> print((x - x_orth).norm())
       4.420285752780219e-12
       >>> ind = 1
@@ -1258,7 +1249,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> import t3toolbox.tucker_tensor_train as t3
       >>> import t3toolbox.orthogonalization as orth
       >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
-      >>> x_orth = x.up_orthogonalize_tucker_cores()
+      >>> x_orth = x.down_orthogonalize_tucker_cores()
       >>> print((x - x_orth).norm())
       [[2.27267321e-12 1.92787570e-12 1.60830015e-12]
        [9.54262022e-13 1.45211899e-12 3.27867574e-12]]
@@ -1271,7 +1262,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: down_orthogonalize_tt_cores(use_jax: bool = False)
+   .. py:method:: up_orthogonalize_tt_cores()
 
       Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
 
@@ -1280,7 +1271,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> import numpy as np
       >>> import t3toolbox.tucker_tensor_train as t3
       >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-      >>> x_orth = x.down_orthogonalize_tt_cores()
+      >>> x_orth = x.up_orthogonalize_tt_cores()
       >>> print((x - x_orth).norm())
       1.927414448489825e-12
       >>> ind = 1
@@ -1291,7 +1282,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> import numpy as np
       >>> import t3toolbox.tucker_tensor_train as t3
       >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
-      >>> x_orth = x.down_orthogonalize_tt_cores()
+      >>> x_orth = x.up_orthogonalize_tt_cores()
       >>> print((x - x_orth).norm())
       [[1.65714673e-12 1.52503536e-12 2.94647811e-12]
        [1.56839190e-12 2.61963262e-12 8.78269349e-12]]
@@ -1304,7 +1295,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: left_orthogonalize_tt_cores(return_variation_cores: bool = False, use_jax: bool = False)
+   .. py:method:: left_orthogonalize_tt_cores(return_variation_cores: bool = False)
 
       Left orthogonalize the TT cores, possibly returning variation cores as well.
 
@@ -1335,7 +1326,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: right_orthogonalize_tt_cores(return_variation_cores: bool = False, use_jax: bool = False)
+   .. py:method:: right_orthogonalize_tt_cores(return_variation_cores: bool = False)
 
       Right orthogonalize the TT cores, possibly returning variation cores as well.
 

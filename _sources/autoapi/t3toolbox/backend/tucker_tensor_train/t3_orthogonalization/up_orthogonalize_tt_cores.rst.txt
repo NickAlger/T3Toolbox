@@ -1,0 +1,8 @@
+t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.up_orthogonalize_tt_cores
+====================================================================================
+
+.. py:function:: t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.up_orthogonalize_tt_cores(x: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray], t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]]) -> t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]]
+
+   Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
+
+
