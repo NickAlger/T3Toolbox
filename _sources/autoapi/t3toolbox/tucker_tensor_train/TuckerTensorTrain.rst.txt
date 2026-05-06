@@ -567,6 +567,15 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
+   .. py:method:: from_tensor_train(tt_cores: t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]) -> TuckerTensorTrain
+      :staticmethod:
+
+
+      Convert tensor train into Tucker tensor train by using identity matrices for Tucker bases.
+
+
+
+
    .. py:method:: to_vector() -> t3toolbox.backend.common.NDArray
 
       Converts a TuckerTensorTrain into a 1D vector containing the core entries.
