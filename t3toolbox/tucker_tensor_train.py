@@ -46,10 +46,6 @@ __all__ = [
     't3_entries',
     't3_probe',
     #
-    't3_add',
-    't3_sub',
-    't3_inner_product',
-    #
     't3svd',
     't3svd_dense',
 ]
@@ -472,7 +468,7 @@ class TuckerTensorTrain:
                 [TuckerTensorTrain.concatenate(xx[:2])] + xx[2:]
             )
 
-    def squash_tails(
+    def squash(
             self,
             use_jax: bool = False,
     ) -> 'TuckerTensorTrain':
@@ -506,7 +502,7 @@ class TuckerTensorTrain:
         >>> x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
         >>> print(x.tt_ranks)
         (2, 3, 2, 5)
-        >>> x2 = x.squash_tails()
+        >>> x2 = x.squash()
         >>> print(x2.tt_ranks)
         (1, 3, 2, 1)
         >>> print(np.linalg.norm(x.to_dense() - x2.to_dense()))
@@ -564,7 +560,7 @@ class TuckerTensorTrain:
         reversed_tt_cores = ragged_operations.reverse_tt(self.tt_cores)
         return TuckerTensorTrain(reversed_tucker_cores, reversed_tt_cores)
 
-    def resize_cores(
+    def resize(
             self,
             new_shape: typ.Sequence[int], # len=d
             new_tucker_ranks: typ.Sequence[int], # len=d
@@ -576,8 +572,8 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,6,5), (1,3,2,1))
-        >>> padded_x = x.resize_cores((17,18,17), (8,8,8), (1,5,6,1))
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,6,5), (1,3,2,1))
+        >>> padded_x = x.resize((17,18,17), (8,8,8), (1,5,6,1))
         >>> print(padded_x.structure)
         ((17, 18, 17), (8, 8, 8), (1, 5, 6, 1), ())
 
@@ -585,8 +581,8 @@ class TuckerTensorTrain:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,6,5), (3,3,2,4))
-        >>> padded_x = x.resize_cores((17,18,17), (8,8,8), (5,5,6,7))
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,6,5), (3,3,2,4))
+        >>> padded_x = x.resize((17,18,17), (8,8,8), (5,5,6,7))
         >>> print(padded_x.structure)
         ((17, 18, 17), (8, 8, 8), (5, 5, 6, 7), ())
         '''
@@ -612,6 +608,10 @@ class TuckerTensorTrain:
             tuple(to_numpy(B) for B in self.tucker_cores),
             tuple(to_numpy(G) for G in self.tt_cores)
         )
+
+    @ft.cached_property
+    def contains_jax(self) -> bool:
+        return any([is_jax_ndarray(B) for B in self.tucker_cores] + [is_jax_ndarray(G) for G in self.tt_cores])
 
     def copy(self):
         """Copy TuckerTensorTrain.
@@ -751,7 +751,7 @@ class TuckerTensorTrain:
         ))
 
     @staticmethod
-    def corewise_randn(
+    def randn(
             shape: typ.Tuple[int, ...],
             tucker_ranks: typ.Tuple[int, ...],
             tt_ranks: typ.Tuple[int, ...],
@@ -799,6 +799,52 @@ class TuckerTensorTrain:
             shape, tucker_ranks, tt_ranks, stack_shape, use_jax=use_jax,
         ))
 
+    @staticmethod
+    def from_canonical(
+            factors: typ.Sequence[NDArray], # elm_shape = stack_shape + (canonical_rank, Ni)
+    ) -> 'TuckerTensorTrain':
+        """Constructs TuckerTensorTrain from Canonical decomposition.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> rank = 3
+        >>> shape = (5,6,7)
+        >>> stack_shape = (2,3)
+        >>> FF = [np.random.randn(*(stack_shape+(rank, N))) for N in shape]
+        >>> x = t3.TuckerTensorTrain.from_canonical(FF)
+        >>> x_dense = x.to_dense()
+        >>> x_dense2 = np.einsum('abri,abrj,abrk->abijk', FF[0], FF[1], FF[2])
+        >>> print(np.linalg.norm(x_dense - x_dense2))
+        0.0
+        >>> print(x.tucker_ranks)
+        (3, 3, 3)
+        >>> print(x.tt_ranks)
+        (3, 3, 3, 3)
+        """
+        shape           = tuple(F.shape[-1] for F in factors)
+        canonical_ranks = tuple(F.shape[-2] for F in factors)
+        stack_shapes    = tuple(F.shape[:-2] for F in factors)
+
+        n = canonical_ranks[0]
+        ss = stack_shapes[0]
+
+        if canonical_ranks != (n,)*len(shape):
+            raise ValueError(
+                'Inconsistent ranks in Canonical decomposition.\n'
+                + 'canonical_ranks = ' + str(canonical_ranks)
+            )
+
+        if stack_shapes != (ss,)*len(shape):
+            raise ValueError(
+                'Inconsistent stack_shapes in Canonical decomposition.\n'
+                + 'stack_shapes = ' + str(stack_shapes)
+            )
+
+        return TuckerTensorTrain(*ragged_operations.from_canonical(factors))
+
+
     #############################################################
     ##########    Converting data to/from 1D vector    ##########
     #############################################################
@@ -813,7 +859,7 @@ class TuckerTensorTrain:
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> import t3toolbox.corewise as cw
-        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (1,3,4,5), stack_shape=(2,3))
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,4,5), stack_shape=(2,3))
         >>> x_flat = x.to_vector()
         >>> x2 = t3.TuckerTensorTrain.from_vector(x_flat, x.shape, x.tucker_ranks, x.tt_ranks, stack_shape=x.stack_shape)
         >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
@@ -836,7 +882,7 @@ class TuckerTensorTrain:
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> import t3toolbox.corewise as cw
-        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (1,3,4,5), stack_shape=(2,3))
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,4,5), stack_shape=(2,3))
         >>> x_flat = x.to_vector()
         >>> x2 = t3.TuckerTensorTrain.from_vector(x_flat, x.shape, x.tucker_ranks, x.tt_ranks, stack_shape=x.stack_shape)
         >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
@@ -999,8 +1045,8 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-        >>> y = t3.TuckerTensorTrain.corewise_randn((14,15,16), (3,7,2), (1,5,6,1))
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> y = t3.TuckerTensorTrain.randn((14,15,16), (3,7,2), (1,5,6,1))
         >>> z = x + y
         >>> print(np.linalg.norm(x.to_dense() + y.to_dense() - z.to_dense()))
         6.524094086845177e-13
@@ -1011,7 +1057,7 @@ class TuckerTensorTrain:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> y = np.random.randn(14,15,16)
         >>> z = x + y
         >>> print(np.linalg.norm(x.to_dense() + y - z))
@@ -1023,7 +1069,7 @@ class TuckerTensorTrain:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> s = 3.5
         >>> z = x + s
         >>> print(np.linalg.norm(x.to_dense() + s - z.to_dense()))
@@ -1101,7 +1147,7 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
         >>> s = 3.2
         >>> sx = x * s
         >>> print(np.linalg.norm(s*x.to_dense() - sx.to_dense()))
@@ -1109,7 +1155,7 @@ class TuckerTensorTrain:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
         >>> y = np.random.randn(*(x.stack_shape + x.shape))
         >>> xy = x * y
         >>> print(np.linalg.norm(x.to_dense()*y - xy))
@@ -1117,8 +1163,8 @@ class TuckerTensorTrain:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
-        >>> y = t3.TuckerTensorTrain.corewise_randn((14,15,16), (2,3,4), (3,2,3,2), stack_shape=(2,3))
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+        >>> y = t3.TuckerTensorTrain.randn((14,15,16), (2,3,4), (3,2,3,2), stack_shape=(2,3))
         >>> xy = x * y
         >>> print(np.linalg.norm(x.to_dense()*y.to_dense() - xy.to_dense()))
         8.556292929330887e-11
@@ -1151,7 +1197,7 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
         >>> neg_x = -x
         >>> print(np.linalg.norm(x.to_dense() + neg_x.to_dense()))
         0.0
@@ -1172,8 +1218,8 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-        >>> y = t3.TuckerTensorTrain.corewise_randn((14,15,16), (3,7,2), (1,5,6,1))
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> y = t3.TuckerTensorTrain.randn((14,15,16), (3,7,2), (1,5,6,1))
         >>> z = x - y
         >>> print(np.linalg.norm(x.to_dense() - y.to_dense() - z.to_dense()))
         0.0
@@ -1184,7 +1230,7 @@ class TuckerTensorTrain:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> y = np.random.randn(14,15,16)
         >>> z = x - y
         >>> print(np.linalg.norm(x.to_dense() - y - z))
@@ -1196,7 +1242,7 @@ class TuckerTensorTrain:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> s = 3.5
         >>> z = x - s
         >>> print(np.linalg.norm(x.to_dense() - s - z.to_dense()))
@@ -1206,10 +1252,9 @@ class TuckerTensorTrain:
         """
         return self + (-other)
 
-    @staticmethod
-    def inner_product(
-            x,
-            y,
+    def inner(
+            self,
+            other,
             use_orthogonalization: bool = True,  # for numerical stability
     ):
         """Compute Hilbert-Schmidt inner product of two Tucker tensor trains.
@@ -1255,9 +1300,9 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (2,3,2,2))
-        >>> y = t3.TuckerTensorTrain.corewise_randn((14,15,16), (3,7,2), (3,5,6,3))
-        >>> x_dot_y = t3.TuckerTensorTrain.inner_product(x, y)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,2))
+        >>> y = t3.TuckerTensorTrain.randn((14,15,16), (3,7,2), (3,5,6,3))
+        >>> x_dot_y = x.inner(y)
         >>> x_dot_y2 = np.sum(x.to_dense() * y.to_dense())
         >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
         1.3096723705530167e-10
@@ -1266,9 +1311,9 @@ class TuckerTensorTrain:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (2,3,2,2), stack_shape=(2,3))
-        >>> y = t3.TuckerTensorTrain.corewise_randn((14,15,16), (3,7,2), (3,5,6,3), stack_shape=(2,3))
-        >>> x_dot_y = t3.TuckerTensorTrain.inner_product(x, y)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,2), stack_shape=(2,3))
+        >>> y = t3.TuckerTensorTrain.randn((14,15,16), (3,7,2), (3,5,6,3), stack_shape=(2,3))
+        >>> x_dot_y = x.inner(y)
         >>> x_dot_y2 = np.sum(x.to_dense() * y.to_dense(), axis=(2,3,4))
         >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
         2.7761383858792984e-09
@@ -1277,10 +1322,10 @@ class TuckerTensorTrain:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = np.random.randn(14,15,16)
-        >>> y = t3.TuckerTensorTrain.corewise_randn((14,15,16), (3,7,2), (3,5,6,3))
-        >>> x_dot_y = t3.TuckerTensorTrain.inner_product(x, y)
-        >>> x_dot_y2 = np.sum(x * y.to_dense())
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (3,7,2), (3,5,6,3))
+        >>> y = np.random.randn(14,15,16)
+        >>> x_dot_y = x.inner(y)
+        >>> x_dot_y2 = np.sum(x.to_dense() * y)
         >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
         0.0
 
@@ -1288,68 +1333,48 @@ class TuckerTensorTrain:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = np.random.randn(2,3, 14,15,16)
-        >>> y = t3.TuckerTensorTrain.corewise_randn((14,15,16), (3,7,2), (3,5,6,3), stack_shape=(2,3))
-        >>> x_dot_y = t3.TuckerTensorTrain.inner_product(x, y)
-        >>> x_dot_y2 = np.einsum('ijxyz,ijxyz->ij', x, y.to_dense())
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (3,7,2), (3,5,6,3), stack_shape=(2,3))
+        >>> y = np.random.randn(2,3, 14,15,16)
+        >>> x_dot_y = x.inner(y)
+        >>> x_dot_y2 = np.einsum('ijxyz,ijxyz->ij', x.to_dense(), y)
         >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
         1.2014283869232628e-11
         """
-        # If anything has jax in it, we use jax.
-        use_jax = False
-        if is_ndarray(x):
-            use_jax = use_jax or is_jax_ndarray(x)
-        else:
-            use_jax = use_jax or any([is_jax_ndarray(c) for c in x.tucker_cores + x.tt_cores])
-
-        if is_ndarray(y):
-            use_jax = use_jax or is_jax_ndarray(y)
-        else:
-            use_jax = use_jax or any([is_jax_ndarray(c) for c in y.tucker_cores + y.tt_cores])
-
-        xnp, _, _ = get_backend(False, use_jax)
-
-        #
-        if isinstance(x, TuckerTensorTrain) and isinstance(y, TuckerTensorTrain):
-            if x.shape != y.shape:
+        if isinstance(other, TuckerTensorTrain):
+            if self.shape != other.shape:
                 raise ValueError(
                     'Attempted to take inner product of TuckerTensorTrains (x,y) with inconsistent shapes.'
-                    + str(x.shape) + ' = x.shape != y.shape = ' + str(y.shape)
+                    + str(self.shape) + ' = x.shape != y.shape = ' + str(other.shape)
                 )
 
-            if x.stack_shape != y.stack_shape:
+            if self.stack_shape != other.stack_shape:
                 raise NotImplementedError(
                     'Cannot take inner product of TuckerTensorTrains with different stack shapes.\n'
-                    + str(x.stack_shape)
+                    + str(self.stack_shape)
                     + ' = x.stack_shape != y.stack_shape = '
-                    + str(y.stack_shape)
+                    + str(other.stack_shape)
                 )
 
             return ragged_linalg.t3_inner_product_t3(
-                x.data, y.data, use_orthogonalization=use_orthogonalization,
+                self.data, other.data, use_orthogonalization=use_orthogonalization,
             )
 
-        elif is_ndarray(x) and isinstance(y, TuckerTensorTrain):  # Could be done better with zippering
-            if x.shape != y.stack_shape + y.shape:
+        elif is_ndarray(other):
+            if self.stack_shape + self.shape != other.shape:
                 raise ValueError(
                     'Attempted to take inner product of array x with TuckerTensorTrain y with inconsistent shapes.'
-                    + str(x.shape) + ' = x.shape != y.stack_shape + y.shape = ' + str(y.stack_shape + y.shape)
+                    + str(self.stack_shape + self.shape) + ' = self.stack_shape + self.shape != other.shape = ' + str(other.shape)
                 )
-            contraction_inds = tuple(range(len(y.stack_shape), len(x.shape)))
+            contraction_inds = tuple(range(len(self.stack_shape), len(other.shape)))
             contraction_inds = contraction_inds if contraction_inds else None
 
-            return xnp.sum(x * y.to_dense(), axis=contraction_inds)
-
-        elif isinstance(x, TuckerTensorTrain) and is_ndarray(y):
-            return TuckerTensorTrain.inner_product(y, x)
+            return (self.to_dense() * other).sum(axis=tuple(contraction_inds))
 
         else:
             raise NotImplementedError(
-                'T3 inner product only implemented for (x, y) in: {(T3, T3), (T3, dense), (dense, T3)}.\n'
-                + 'type(x) = ' + str(type(x)) + '\n'
-                + 'type(y) = ' + str(type(y))
+                'T3 inner product only implemented for other in: {T3, dense}.\n'
+                + 'type(other) = ' + str(type(other))
             )
-
 
     def norm(
             self,
@@ -1467,7 +1492,7 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> ind = 1
         >>> x2, ss = x.down_svd_tucker_core(ind)
         >>> print(np.linalg.norm(x.to_dense() - x.to_dense())) # Tensor unchanged
@@ -2006,7 +2031,7 @@ class TuckerTensorTrain:
     ##########    Entries, Apply, and Probing    ##########
     #######################################################
 
-    def get_entries(
+    def entries(
             self,
             index: NDArray,  # or convertible to NDArray. dtype=int
             use_jax: bool = False,
@@ -2023,7 +2048,7 @@ class TuckerTensorTrain:
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> index = [[9,8], [4,10], [7,13]] # get entries (9,4,7) and (8,10,13)
-        >>> entries = x.get_entries(index)
+        >>> entries = x.entries(index)
         >>> x_dense = x.to_dense(x)
         >>> entries2 = np.array([x_dense[9, 4, 7], x_dense[8, 10, 13]])
         >>> print(np.linalg.norm(entries - entries2))
@@ -2449,170 +2474,6 @@ def t3_probe(
     """
     return probing.probe_t3(ww, x.data, use_jax=use_jax)
 
-
-###########################################################
-##################    Linear algebra    ###################
-###########################################################
-
-
-
-# def t3_inner_product(
-#         x: typ.Union[TuckerTensorTrain, NDArray],
-#         y: typ.Union[TuckerTensorTrain, NDArray],
-#         use_orthogonalization: bool = True, # for numerical stability
-#         use_jax: bool = False,
-# ):
-#     """Compute Hilbert-Schmidt inner product of two Tucker tensor trains.
-#
-#     The Hilbert-Schmidt inner product is defined with respect to the dense N0 x ... x N(d-1)
-#     tensors that are *represented* by the Tucker tensor trains, even though these dense tensors
-#     are not formed during computations.
-#
-#     For corewise dot product, see :func:`t3toolbox.corewise.corewise_dot`
-#
-#     Parameters
-#     ----------
-#     x: TuckerTensorTrain
-#         First Tucker tensor train. shape=(N0,...,N(d-1))
-#     y: TuckerTensorTrain
-#         Second Tucker tensor train. shape=(N0,...,N(d-1))
-#     xnp:
-#         Linear algebra backend. Default: np (numpy)
-#
-#     Returns
-#     -------
-#     scalar
-#         Hilbert-Schmidt inner product of Tucker tensor trains, (x, y)_HS.
-#
-#     Raises
-#     ------
-#     ValueError
-#         - Error raised if either of the TuckerTensorTrains are internally inconsistent
-#         - Error raised if the TuckerTensorTrains have different shapes.
-#
-#     See Also
-#     --------
-#     TuckerTensorTrain
-#     t3_shape
-#     t3_add
-#     t3_scale
-#     :func:`~t3toolbox.corewise.corewise_dot`
-#
-#     Notes
-#     -----
-#     Algorithm contracts the TuckerTensorTrains in a zippering fashion from left to right.
-#
-#     Examples
-#     --------
-#     >>> import numpy as np
-#     >>> import t3toolbox.tucker_tensor_train as t3
-#     >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-#     >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (1,5,6,1))
-#     >>> x_dot_y = t3.t3_inner_product(x, y)
-#     >>> x_dot_y2 = np.sum(x.to_dense() * y.to_dense())
-#     >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
-#     8.731149137020111e-11
-#
-#     Example where leading and trailing TT-ranks are not 1:
-#
-#     >>> import numpy as np
-#     >>> import t3toolbox.tucker_tensor_train as t3
-#     >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2))
-#     >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (3,5,6,3))
-#     >>> x_dot_y = t3.t3_inner_product(x, y)
-#     >>> x_dot_y2 = np.sum(x.to_dense() * y.to_dense())
-#     >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
-#     1.3096723705530167e-10
-#
-#     (T3, T3) using stacking:
-#
-#     >>> import numpy as np
-#     >>> import t3toolbox.tucker_tensor_train as t3
-#     >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2), stack_shape=(2,3))
-#     >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (3,5,6,3), stack_shape=(2,3))
-#     >>> x_dot_y = t3.t3_inner_product(x, y)
-#     >>> x_dot_y2 = np.sum(x.to_dense() * y.to_dense(), axis=(2,3,4))
-#     >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
-#     2.7761383858792984e-09
-#
-#     Inner product of T3 with dense:
-#
-#     >>> import numpy as np
-#     >>> import t3toolbox.tucker_tensor_train as t3
-#     >>> x = np.random.randn(14,15,16)
-#     >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (3,5,6,3))
-#     >>> x_dot_y = t3.t3_inner_product(x, y)
-#     >>> x_dot_y2 = np.sum(x * y.to_dense())
-#     >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
-#     0.0
-#
-#     Inner product of T3 with dense including stacking:
-#
-#     >>> import numpy as np
-#     >>> import t3toolbox.tucker_tensor_train as t3
-#     >>> x = np.random.randn(2,3, 14,15,16)
-#     >>> y = t3.t3_corewise_randn((14,15,16), (3,7,2), (3,5,6,3), stack_shape=(2,3))
-#     >>> x_dot_y = t3.t3_inner_product(x, y)
-#     >>> x_dot_y2 = np.einsum('ijxyz,ijxyz->ij', x, y.to_dense())
-#     >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
-#     1.2014283869232628e-11
-#     """
-#     xnp, _, _ = get_backend(False, use_jax)
-#
-#     if isinstance(x, TuckerTensorTrain) and isinstance(y, TuckerTensorTrain):
-#         if x.shape != y.shape:
-#             raise ValueError(
-#                 'Attempted to take inner product of TuckerTensorTrains (x,y) with inconsistent shapes.'
-#                 + str(x.shape) + ' = x.shape != y.shape = ' + str(y.shape)
-#             )
-#
-#         vsx = x.stack_shape
-#         vsy = y.stack_shape
-#         if vsx != vsy:
-#             raise NotImplementedError(
-#                 'Cannot take inner product of TuckerTensorTrains with different stack shapes.\n'
-#                 + str(x.stack_shape)
-#                 + ' = x.stack_shape != y.stack_shape = '
-#                 + str(y.stack_shape)
-#             )
-#
-#         return ragged_linalg.t3_inner_product_t3(
-#             x.data, y.data, use_orthogonalization=use_orthogonalization, use_jax=use_jax,
-#         )
-#
-#     elif is_ndarray(x) and isinstance(y, TuckerTensorTrain): # Could be done better with zippering
-#         vsy = y.stack_shape
-#         if x.shape != vsy + y.shape:
-#             raise ValueError(
-#                 'Attempted to take inner product of array x with TuckerTensorTrain y with inconsistent shapes.'
-#                 + str(x.shape) + ' = x.shape != y.stack_shape + y.shape = ' + str(vsy + y.shape)
-#             )
-#         contraction_inds = tuple(range(len(vsy), len(x.shape)))
-#         contraction_inds = contraction_inds if contraction_inds else None
-#
-#         return xnp.sum(x * y.to_dense(), axis=contraction_inds)
-#
-#     elif isinstance(x, TuckerTensorTrain) and is_ndarray(y): # Could be done better with zippering
-#         vsx = x.stack_shape
-#         if vsx + x.shape != y.shape:
-#             raise ValueError(
-#                 'Attempted to take inner product of TuckerTensorTrain x with array y with inconsistent shapes.'
-#                 + str(vsx + x.shape) + ' = x.stack_shape + x.shape != y.shape = ' + str(y.shape)
-#             )
-#         contraction_inds = tuple(range(len(vsx), len(y.shape)))
-#         contraction_inds = contraction_inds if contraction_inds else None
-#
-#         return xnp.sum(x.to_dense() * y, axis=contraction_inds)
-#
-#     elif is_ndarray(x) and is_ndarray(y):
-#         return (x * y).sum()
-#
-#     else:
-#         raise NotImplementedError(
-#             't3_add only implements x+y for T3+T3, T3+dense, dense+T3, dense+dense.\n'
-#             + 'type(x) = ' + str(type(x)) + '\n'
-#             + 'type(y) = ' + str(type(y))
-#         )
 
 
 ##############################################################

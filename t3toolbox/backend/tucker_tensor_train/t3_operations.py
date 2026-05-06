@@ -20,10 +20,10 @@ __all__ = [
     't3_core_shapes',
     't3_to_vector',
     't3_from_vector',
-    't3_sum_stack',
     't3_zeros',
     't3_corewise_randn',
     't3_ones',
+    'from_canonical',
 ]
 
 
@@ -361,5 +361,29 @@ def wt3_squash_tails(
     w = (tucker_weights, tt_weights)
     return (x0, w)
 
+
+def from_canonical(
+        factors: typ.Sequence[NDArray], # elm_shape = stack_shape + (canonical_rank, Ni)
+) -> typ.Tuple[
+    typ.Tuple[NDArray,...], # tucker_cores
+    typ.Tuple[NDArray,...], # tt_cores
+]:
+    """Constructs Tucker tensor train from Canonical decomposition.
+    """
+    use_jax = any([is_jax_ndarray(F) for F in factors])
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
+    shape = tuple(F.shape[-1] for F in factors)
+    n = factors[0].shape[-2] # canonical_rank
+    ss = factors[0].shape[:-2] # stack_shape
+
+    I = xnp.eye(n)
+    I3 = xnp.einsum('ij,jk,ki->ijk', I, I, I) # 3D tensor with ones on the superdiagonal and zeros elsewhere
+    G = xnp.tensordot(xnp.ones(ss), I3, axes=[(),()])
+
+    tt_cores = tuple(G for _ in range(len(shape)))
+    tucker_cores = tuple(factors)
+    return tucker_cores, tt_cores
 
 
