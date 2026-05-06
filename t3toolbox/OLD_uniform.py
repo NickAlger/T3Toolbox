@@ -671,7 +671,7 @@ def unpack(
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> import t3toolbox.t3svd as t3svd
     >>> s0 = ((11,12,13), (6,7,5), (1,3,6,2))
-    >>> s = (s0[0],) + t3.compute_minimal_t3_ranks(s0)
+    >>> s = (s0[0],) + t3.get_minimal_ranks(s0)
     >>> x = t3.t3_corewise_randn(s)
     >>> _, _, ss_tt = t3svd.t3svd(x)
     >>> print(ss_tt[1])

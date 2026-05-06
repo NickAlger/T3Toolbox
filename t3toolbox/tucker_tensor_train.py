@@ -39,8 +39,8 @@ if has_jax:
 __all__ = [
     'TuckerTensorTrain',
     #
-    't3_core_shapes',
-    'compute_minimal_t3_ranks',
+    'get_core_shapes',
+    'get_minimal_ranks',
     #
     't3_apply',
     't3_entries',
@@ -238,7 +238,7 @@ class TuckerTensorTrain:
 
     @ft.cached_property
     def minimal_ranks(self) -> typ.Tuple[typ.Tuple[int,...], typ.Tuple[int,...]]:
-        minimal_tucker_ranks, minimal_tt_ranks = compute_minimal_t3_ranks(
+        minimal_tucker_ranks, minimal_tt_ranks = get_minimal_ranks(
             self.shape, self.tucker_ranks, self.tt_ranks,
         )
         return minimal_tucker_ranks, minimal_tt_ranks
@@ -2155,7 +2155,7 @@ if has_jax:
 ####
 
 
-def t3_core_shapes(
+def get_core_shapes(
         shape: typ.Sequence[int],
         tucker_ranks: typ.Sequence[int],
         tt_ranks: typ.Sequence[int],
@@ -2172,7 +2172,7 @@ def t3_core_shapes(
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.corewise as cw
     >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,4,5), stack_shape=(9,))
-    >>> print(t3.t3_core_shapes(x.shape, x.tucker_ranks, x.tt_ranks, stack_shape=x.stack_shape))
+    >>> print(t3.get_core_shapes(x.shape, x.tucker_ranks, x.tt_ranks, stack_shape=x.stack_shape))
     (((9, 4, 14), (9, 5, 15), (9, 6, 16)), ((9, 1, 4, 3), (9, 3, 5, 4), (9, 4, 6, 5)))
     >>> print(x.core_shapes)
     (((9, 4, 14), (9, 5, 15), (9, 6, 16)), ((9, 1, 4, 3), (9, 3, 5, 4), (9, 4, 6, 5)))
@@ -2182,7 +2182,7 @@ def t3_core_shapes(
     )
 
 
-def compute_minimal_t3_ranks(
+def get_minimal_ranks(
         shape:          typ.Sequence[int],
         tucker_ranks:   typ.Sequence[int],
         tt_ranks:       typ.Sequence[int],
@@ -2210,7 +2210,7 @@ def compute_minimal_t3_ranks(
     Examples
     --------
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> print(t3.compute_minimal_t3_ranks((10,11,12,13), (14,15,16,17), (98,99,100,101,102)))
+    >>> print(t3.get_minimal_ranks((10,11,12,13), (14,15,16,17), (98,99,100,101,102)))
     ((10, 11, 12, 13), (1, 10, 100, 13, 1))
     '''
     return ranks.compute_minimal_ranks(shape, tucker_ranks, tt_ranks)

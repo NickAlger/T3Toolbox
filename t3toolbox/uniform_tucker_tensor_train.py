@@ -1133,7 +1133,7 @@ def ut3svd(
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> shape, tucker_ranks, tt_ranks = (11,12,13), (6,7,5), (1,3,6,2)
-    >>> min_tucker_ranks, min_tt_ranks = t3.compute_minimal_t3_ranks(shape, tucker_ranks, tt_ranks)
+    >>> min_tucker_ranks, min_tt_ranks = t3.get_minimal_ranks(shape, tucker_ranks, tt_ranks)
     >>> x = t3.t3_corewise_randn(shape, tucker_ranks, tt_ranks)
     >>> ux = ut3.t3_to_ut3(x)
     >>> ux2, ss_tucker_from_ut3, ss_tt_from_ut3 = ut3.ut3svd(ux) # Uniform T3-SVD
@@ -1240,7 +1240,7 @@ def ut3svd(
     assert(max_tucker_ranks.shape[1:] == x.stack_shape)
     assert(max_tt_ranks.shape[1:] == x.stack_shape)
 
-    new_tucker_ranks, new_tt_ranks = t3.compute_minimal_t3_ranks(x.shape, max_tucker_ranks, max_tt_ranks)
+    new_tucker_ranks, new_tt_ranks = t3.get_minimal_ranks(x.shape, max_tucker_ranks, max_tt_ranks)
 
     new_masks = make_uniform_masks(
         x.shape, new_tucker_ranks, new_tt_ranks, x.N, x.n, x.r,
