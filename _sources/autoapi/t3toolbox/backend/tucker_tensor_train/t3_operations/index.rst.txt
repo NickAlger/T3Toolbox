@@ -22,8 +22,9 @@ Functions
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_corewise_randn
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_zeros
    /autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_ones
-   /autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/from_canonical
-   /autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/from_tensor_train
+   /autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_from_canonical
+   /autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_from_tensor_train
+   /autoapi/t3toolbox/backend/tucker_tensor_train/t3_operations/t3_sum
 
 .. autoapisummary::
 
@@ -39,7 +40,8 @@ Functions
    t3toolbox.backend.tucker_tensor_train.t3_operations.t3_corewise_randn
    t3toolbox.backend.tucker_tensor_train.t3_operations.t3_zeros
    t3toolbox.backend.tucker_tensor_train.t3_operations.t3_ones
-   t3toolbox.backend.tucker_tensor_train.t3_operations.from_canonical
-   t3toolbox.backend.tucker_tensor_train.t3_operations.from_tensor_train
+   t3toolbox.backend.tucker_tensor_train.t3_operations.t3_from_canonical
+   t3toolbox.backend.tucker_tensor_train.t3_operations.t3_from_tensor_train
+   t3toolbox.backend.tucker_tensor_train.t3_operations.t3_sum
 
 

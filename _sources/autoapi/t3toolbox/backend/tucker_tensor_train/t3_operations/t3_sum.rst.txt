@@ -1,0 +1,8 @@
+t3toolbox.backend.tucker_tensor_train.t3_operations.t3_sum
+==========================================================
+
+.. py:function:: t3toolbox.backend.tucker_tensor_train.t3_operations.t3_sum(x: t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis], t3toolbox.backend.common.typ.Tuple[t3toolbox.backend.common.NDArray, Ellipsis]], axis=None)
+
+   Sum over axes of TuckerTensorTrain.
+
+
