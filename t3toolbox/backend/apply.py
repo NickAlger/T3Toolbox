@@ -21,10 +21,10 @@ def t3_apply(
             typ.Sequence[NDArray],  # len=d, elm_shape=vsv+(Ni,), ragged
             NDArray, # shape=(d,) + vsv +(Ni,), uniform (NOT IMPLEMENTED YET)
         ],
-        use_jax: bool = False,
 ) -> NDArray:
     '''Contract a Tucker tensor train with vectors in all indices.
     '''
+    use_jax = any([is_jax_ndarray(c) for c in list(x[0]) + list(x[1]) + list(vecs)])
     xnp, _, xscan = get_backend(False, use_jax)
 
     #

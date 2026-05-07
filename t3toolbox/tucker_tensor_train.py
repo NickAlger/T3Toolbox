@@ -2228,28 +2228,102 @@ class TuckerTensorTrain:
         return entries.get_tucker_tensor_train_entries(self.data, index)
 
     def apply(
-            self,
-            vecs: typ.Sequence[NDArray], # len=d, elm_shape=(Ni,) or (num_applies, Ni)
+            self, # shape=(N0,...,N(d-1))
+            vecs: typ.Sequence[NDArray],  # len=d, elm_shape=vecs_stack_shape+(Ni,)
             use_jax: bool = False,
     ) -> NDArray:
         '''Contract a Tucker tensor train with vectors in all indices.
 
+        Parameters
+        ----------
+        x: TuckerTensorTrain
+            Tucker tensor train. shape=(N0,...,N(d-1))
+        vecs: typ.Sequence[NDArray]
+            Vectors to contract with indices of x. len=d, elm_shape=stack_shape+(Ni,)
+        xnp:
+            Linear algebra backend. Default: np (numpy)
+
+        Returns
+        -------
+        NDArray or scalar
+            Result of contracting x with the vectors in all indices.
+            scalar if vecs elements are vectors, NDArray with shape (num_applies,) if vecs elements are matrices.
+
+        Raises
+        ------
+        ValueError
+            Error raised if the provided vectors in vecs are inconsistent with each other or the Tucker tensor train x.
+
         See Also
         --------
-        t3_get_entries
+        TuckerTensorTrain
+        t3_shape
+        t3_entry
 
         Examples
         --------
+
+        Apply to one set of vectors:
+
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,1))
+        >>> vecs = [np.random.randn(14), np.random.randn(15), np.random.randn(16)]
+        >>> result = x.apply(vecs) # <-- contract x with vecs in all indices
+        >>> result2 = np.einsum('ijk,i,j,k', x.to_dense(), vecs[0], vecs[1], vecs[2])
+        >>> print(np.abs(result - result2))
+        5.229594535194337e-12
+
+        Apply to multiple sets of vectors (vectorized):
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,1))
         >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
         >>> result = x.apply(vecs)
         >>> result2 = np.einsum('ijk,ni,nj,nk->n', x.to_dense(), vecs[0], vecs[1], vecs[2])
         >>> print(np.linalg.norm(result - result2))
         3.1271953680324864e-12
+
+        Apply to tensor sets of vectors and tensor sets of T3s (supervectorized)
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,1), stack_shape=(2,3))
+        >>> vecs = [np.random.randn(4, 14), np.random.randn(4, 15), np.random.randn(4, 16)]
+        >>> result = x.apply(vecs)
+        >>> result2 = np.einsum('uvijk,xi,xj,xk->uvx', x.to_dense(), vecs[0], vecs[1], vecs[2])
+        >>> print(np.linalg.norm(result - result2))
+        3.1271953680324864e-12
+
+        Example using jax automatic differentiation:
+
+    	>>> import numpy as np
+        >>> import jax
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> jax.config.update("jax_enable_x64", True)
+        >>> A = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1)).to_jax() # random 10x10x10 Tucker tensor train
+        >>> apply_A_sym = lambda u: A.apply((u,u,u), use_jax=True) # symmetric apply function
+        >>> u0 = np.random.randn(10)
+        >>> Auuu0 = apply_A_sym(u0)
+        >>> g0 = jax.grad(apply_A_sym)(u0) # gradient using automatic differentiation
+        >>> du = np.random.randn(10)
+        >>> dAuuu = np.dot(g0, du) # derivative in direction du
+        >>> print(dAuuu)
+        766.5390335764645
+        >>> s = 1e-7
+        >>> u1 = u0 + s*du
+        >>> Auuu1 = apply_A_sym(u1)
+        >>> dAuuu_diff = (Auuu1 - Auuu0) / s # finite difference approximation
+        >>> print(dAuuu_diff) #ths same as dAuuu
+        766.5390504030256
         '''
-        return t3_apply(self, vecs, use_jax=use_jax)
+        if len(vecs) != len(self.shape):
+            raise ValueError(
+                'Attempted to apply TuckerTensorTrain to wrong number of vectors.'
+                + str(str(len(self.shape)) + ' = num_indices != len(vecs) = ' + str(len(vecs)))
+            )
+        return apply.t3_apply(self.data, vecs)
 
     def probe(
             self,
@@ -2357,125 +2431,6 @@ def get_minimal_ranks(
 ###########################################################################
 ########    Scalar valued M.L.F. applies, entries, and probing    #########
 ###########################################################################
-
-def t3_apply(
-        x: TuckerTensorTrain, # shape=(N0,...,N(d-1))
-        vecs: typ.Sequence[NDArray], # len=d, elm_shape=V+(Ni,)
-        use_jax: bool = False,
-) -> NDArray:
-    '''Contract a Tucker tensor train with vectors in all indices.
-
-    Parameters
-    ----------
-    x: TuckerTensorTrain
-        Tucker tensor train. shape=(N0,...,N(d-1))
-    vecs: typ.Sequence[NDArray]
-        Vectors to contract with indices of x. len=d, elm_shape=stack_shape+(Ni,)
-    xnp:
-        Linear algebra backend. Default: np (numpy)
-
-    Returns
-    -------
-    NDArray or scalar
-        Result of contracting x with the vectors in all indices.
-        scalar if vecs elements are vectors, NDArray with shape (num_applies,) if vecs elements are matrices.
-
-    Raises
-    ------
-    ValueError
-        Error raised if the provided vectors in vecs are inconsistent with each other or the Tucker tensor train x.
-
-    See Also
-    --------
-    TuckerTensorTrain
-    t3_shape
-    t3_entry
-
-    Examples
-    --------
-
-    Apply to one set of vectors:
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-    >>> vecs = [np.random.randn(14), np.random.randn(15), np.random.randn(16)]
-    >>> result = t3.apply(x, vecs) # <-- contract x with vecs in all indices
-    >>> result2 = np.einsum('ijk,i,j,k', x.to_dense(), vecs[0], vecs[1], vecs[2])
-    >>> print(np.abs(result - result2))
-    5.229594535194337e-12
-
-    Apply to multiple sets of vectors (vectorized):
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-    >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
-    >>> result = t3.apply(x, vecs)
-    >>> result2 = np.einsum('ijk,ni,nj,nk->n', x.to_dense(), vecs[0], vecs[1], vecs[2])
-    >>> print(np.linalg.norm(result - result2))
-    3.1271953680324864e-12
-
-    Apply to tensor sets of vectors and tensor sets of T3s (supervectorized)
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
-    >>> vecs = [np.random.randn(4, 14), np.random.randn(4, 15), np.random.randn(4, 16)]
-    >>> result = t3.apply(x, vecs)
-    >>> result2 = np.einsum('uvijk,xi,xj,xk->uvx', x.to_dense(), vecs[0], vecs[1], vecs[2])
-    >>> print(np.linalg.norm(result - result2))
-    3.1271953680324864e-12
-
-    First and last TT-ranks are not ones:
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,4))
-    >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
-    >>> result = t3.apply(x, vecs)
-    >>> result2 = np.einsum('ijk,ni,nj,nk->n', x.to_dense(), vecs[0], vecs[1], vecs[2])
-    >>> print(np.linalg.norm(result - result2))
-    6.481396196459234e-12
-
-    Example using jax automatic differentiation:
-
-	>>> import numpy as np
-    >>> import jax
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> jax.config.update("jax_enable_x64", True)
-    >>> A = t3.t3_corewise_randn((10,10,10),(5,5,5),(1,4,4,1)) # random 10x10x10 Tucker tensor train
-    >>> apply_A_sym = lambda u: t3.apply(A, (u,u,u), use_jax=True) # symmetric apply function
-    >>> u0 = np.random.randn(10)
-    >>> Auuu0 = apply_A_sym(u0)
-    >>> g0 = jax.grad(apply_A_sym)(u0) # gradient using automatic differentiation
-    >>> du = np.random.randn(10)
-    >>> dAuuu = np.dot(g0, du) # derivative in direction du
-    >>> print(dAuuu)
-    766.5390335764645
-    >>> s = 1e-7
-    >>> u1 = u0 + s*du
-    >>> Auuu1 = apply_A_sym(u1)
-    >>> dAuuu_diff = (Auuu1 - Auuu0) / s # finite difference approximation
-    >>> print(dAuuu_diff) #ths same as dAuuu
-    766.5390504030256
-    '''
-    xnp, _, _ = get_backend(False, use_jax)
-
-    #
-    tucker_cores, tt_cores = x.data
-    shape, _, _, _ = x.structure
-
-    if len(vecs) != len(shape):
-        raise ValueError(
-            'Attempted to apply TuckerTensorTrain to wrong number of vectors.'
-            + str(str(len(shape)) + ' = num_indices != len(vecs) = ' + str(len(vecs)))
-        )
-
-    result = apply.t3_apply(x.data, vecs, use_jax=use_jax)
-
-    return result
-
 
 def t3_probe(
         ww: typ.Sequence[NDArray], # len=d, elm_shape=W+(Ni,)
