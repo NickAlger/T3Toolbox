@@ -1958,7 +1958,72 @@ class TestTuckerTensorTrain(unittest.TestCase):
                             self.check_relerr(entries2, entries)
 
 
+    def test_apply(self):
+        base_structures = [
+            ((8,),              (4,),           (4, 5)),
+            ((8, 9),            (4, 5),         (4, 5, 4)),
+            ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
+            ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
+        ]
+        stack_shapes = [
+            (),
+            (2, 3),
+        ]
+        vecs_stack_shapes = [
+            (),
+            (5,),
+            (2,3),
+        ]
 
+        for BASE_STRUCTURE in base_structures:
+            shape, tucker_ranks, tt_ranks = BASE_STRUCTURE
+            for STACK_SHAPE in stack_shapes:
+                for VECS_STACK_SHAPE in vecs_stack_shapes:
+                    for USE_JAX in [True, False]:
+                        with self.subTest(
+                                BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                INDEX_STACK_SHAPE=USE_JAX, USE_JAX=USE_JAX
+                        ):
+                            x = t3.TuckerTensorTrain.randn(*(BASE_STRUCTURE + (STACK_SHAPE,)))
+                            if USE_JAX:
+                                x = x.to_jax()
+
+                            vecs = [np.random.randn(*(VECS_STACK_SHAPE + (N,))) for N in shape]
+
+                            result = x.apply(vecs)
+                            self.assertEqual(STACK_SHAPE + VECS_STACK_SHAPE, result.shape)
+
+                            def _apply_dense(a, vecs, ss, vss):
+                                if len(ss) == 0 and len(vss) == 0:
+                                    if len(a.shape) == 1:
+                                        return np.einsum('i,i', a, *vecs)
+                                    elif len(a.shape) == 2:
+                                        return np.einsum('ij,i,j', a, *vecs)
+                                    elif len(a.shape) == 3:
+                                        return np.einsum('ijk,i,j,k', a, *vecs)
+                                    elif len(a.shape) == 4:
+                                        return np.einsum('ijkl,i,j,k,l', a, *vecs)
+                                    else:
+                                        raise ValueError
+                                elif len(ss) == 0:
+                                    subvecs = [
+                                        [vecs[jj][ii] for jj in range(len(vecs))]
+                                        for ii in range(len(vecs[0]))
+                                    ]
+                                    return np.array([
+                                        _apply_dense(a, subvecs[ii], ss, vss[1:])
+                                        for ii in range(vss[0])
+                                    ])
+                                else:
+                                    return np.array([
+                                        _apply_dense(a[ii], vecs, ss[1:], vss)
+                                        for ii in range(ss[0])
+                                    ])
+
+                            x_dense = x.to_dense()
+                            result2 = _apply_dense(x_dense, vecs, STACK_SHAPE, VECS_STACK_SHAPE)
+
+                            self.check_relerr(result2, result)
 
 
 #####
