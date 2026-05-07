@@ -861,7 +861,7 @@ def ut3_entries(
      [ -3.47189513 -21.14557063]]
     """
     masked_x = x.apply_masks(use_jax=use_jax) # re-mask every time so that mask affects derivatives. It is relatively cheap.
-    return entries.get_tucker_tensor_train_entries(masked_x.supercores, index, use_jax=use_jax)
+    return entries.tucker_tensor_train_entries(masked_x.supercores, index, use_jax=use_jax)
 
 
 def ut3_apply(
@@ -878,7 +878,7 @@ def ut3_apply(
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
     >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
-    >>> result = t3.t3_apply(x, vecs)
+    >>> result = t3.tucker_tensor_train_apply(x, vecs)
     >>> uniform_x = ut3.t3_to_ut3(x)
     >>> uvecs = ut3.pack_vectors(vecs)
     >>> result2 = ut3.ut3_apply(uniform_x, uvecs)
@@ -892,7 +892,7 @@ def ut3_apply(
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
     >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
-    >>> result = t3.t3_apply(x, vecs)
+    >>> result = t3.tucker_tensor_train_apply(x, vecs)
     >>> uniform_x = ut3.t3_to_ut3(x)
     >>> uvecs = ut3.pack_vectors(vecs)
     >>> result2 = ut3.ut3_apply(uniform_x, uvecs)
@@ -900,7 +900,7 @@ def ut3_apply(
     0.0
     """
     masked_x = x.apply_masks() # re-mask every time so that mask affects derivatives. It is relatively cheap.
-    return apply.t3_apply(masked_x.supercores, input_vectors, use_jax=use_jax)
+    return apply.tucker_tensor_train_apply(masked_x.supercores, input_vectors, use_jax=use_jax)
 
 
 def ut3_probe(

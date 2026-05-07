@@ -60,7 +60,6 @@ def probe_t3(
                 NDArray,  # uniform_tt_weights,       shape=(d+1, r)
             ],
         ] = (None, None, None),
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,Ni)
     '''Probe a Tucker tensor train.
 
@@ -177,11 +176,6 @@ import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> impo
     >>> print(np.linalg.norm(uniform_zz - uniform_zz3))
     0.0
     '''
-    is_uniform = is_ndarray(x[0])
-    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
-
-    #
-
     tucker_cores, tt_cores = x
 
     shape_weights, tucker_weights, tt_weights = edge_weights
@@ -189,26 +183,26 @@ import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions    >>> impo
     left_tt_weights     = tt_weights[:-1]   if tt_weights is not None else None
     right_tt_weights    = tt_weights[1:]    if tt_weights is not None else None
 
-    weighted_ww = _apply_edge_weights(ww, shape_weights, use_jax=use_jax) if shape_weights is not None else ww
+    weighted_ww = _apply_edge_weights(ww, shape_weights) if shape_weights is not None else ww
 
     xis = compute_xis(
-        tucker_cores, weighted_ww, up_tucker_weights=tucker_weights, use_jax=use_jax,
+        tucker_cores, weighted_ww, up_tucker_weights=tucker_weights,
     )
 
     mus = compute_mus(
-        tt_cores, xis, left_tt_weights=left_tt_weights, use_jax=use_jax,
+        tt_cores, xis, left_tt_weights=left_tt_weights,
     )
 
     nus = compute_nus(
-        tt_cores, xis, right_tt_weights=right_tt_weights, use_jax=use_jax,
+        tt_cores, xis, right_tt_weights=right_tt_weights,
     )
 
     etas = compute_etas(
-        tt_cores, mus, nus, outer_tucker_weights=tucker_weights, use_jax=use_jax,
+        tt_cores, mus, nus, outer_tucker_weights=tucker_weights,
     )
 
     zs = assemble_zs(
-        tucker_cores, etas, shape_weights=shape_weights, use_jax=use_jax,
+        tucker_cores, etas, shape_weights=shape_weights,
     )
 
     return zs
@@ -218,7 +212,8 @@ def _apply_edge_weight(edge_variable, edge_weight, xnp=np):
     return xnp.einsum('...i,i->...i', edge_variable, edge_weight)
 
 
-def _apply_edge_weights(edge_variables, edge_weights, use_jax: bool=False):
+def _apply_edge_weights(edge_variables, edge_weights):
+    use_jax = tree_contains_jax((edge_variables, edge_weights))
     is_uniform = not isinstance(edge_variables, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -238,7 +233,6 @@ def compute_xis(
         up_tucker_cores:    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+(nUi,Ni)
         ww:                 typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=K+(Ni,)
         up_tucker_weights:  typ.Union[typ.Sequence[NDArray], NDArray] = None, # len=d, elm_shape=(nUi,)
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # weighted_xis. len=d, elm_shape=(...,nUi)
     '''Compute upward edge variables associated with edges between Tucker cores and adjacent TT-cores.
     Used for probing a Tucker tensor train.
@@ -249,6 +243,7 @@ def compute_xis(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
+    use_jax = tree_contains_jax((up_tucker_cores, ww, up_tucker_weights))
     is_uniform = is_ndarray(up_tucker_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -266,7 +261,7 @@ def compute_xis(
         (unweighted_xis,) = xmap(_func, (up_tucker_cores, ww))
 
     if xi_weights is not None:
-        xis = _apply_edge_weights(unweighted_xis, xi_weights, use_jax=use_jax)
+        xis = _apply_edge_weights(unweighted_xis, xi_weights)
     else:
         xis = unweighted_xis
 
@@ -277,7 +272,6 @@ def compute_mus(
         left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d-1. elm_shape=T+(rLi,nUi,rL(i+1))
         xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+K+(nUi,)
         left_tt_weights:    typ.Union[typ.Sequence[NDArray], NDArray] = None, # len=d, elm_shape=(rLi,)
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # mus. len=d, elm_shape=T+K+(rLi,)
     '''Compute leftward edge variables associated with edges between adjacent TT-cores.
     Used for probing a Tucker tensor train.
@@ -288,6 +282,7 @@ def compute_mus(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
+    use_jax = tree_contains_jax((left_tt_cores, xis, left_tt_weights))
     is_uniform = not isinstance(xis, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -324,7 +319,6 @@ def compute_nus(
         right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+(rRi,nUi,rR(i+1))
         xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+K+(nUi,)
         right_tt_weights:   typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d, elm_shape=(rRi,)
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # nus. len=d, elm_shape=T+K+(rR(i+1),)
     '''Compute rightward edge variables associated with edges between adjacent TT-cores.
     Used for probing a Tucker tensor train.
@@ -349,7 +343,6 @@ def compute_nus(
         rev_tt_cores,
         rev_xis,
         left_tt_weights=rev_right_tt_weights,
-        use_jax=use_jax
     )
     nus = rev_nus[::-1]
     return nus
@@ -360,7 +353,6 @@ def compute_etas(
         mus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+K+(rLi,)
         nus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,rR(i+1))
         outer_tucker_weights:   typ.Union[typ.Sequence[NDArray], NDArray] = None, # len=d, elm_shape=(nOi)
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # weighted_etas. len=d, elm_shape=T+K+(nOi,)
     '''Compute downward edge variables associated with edges between Tucker cores and adjacent TT-cores.
     Used for probing a Tucker tensor train.
@@ -371,6 +363,7 @@ def compute_etas(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
+    use_jax = tree_contains_jax((outer_tt_cores, mus, nus, outer_tucker_weights))
     is_uniform = is_ndarray(outer_tt_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -388,7 +381,7 @@ def compute_etas(
         (unweighted_etas,) = xmap(_func, (mus, outer_tt_cores, nus))
 
     if eta_weights is not None:
-        etas = _apply_edge_weights(unweighted_etas, eta_weights, use_jax=use_jax)
+        etas = _apply_edge_weights(unweighted_etas, eta_weights)
     else:
         etas = unweighted_etas
 
@@ -399,7 +392,6 @@ def assemble_zs(
         tucker_cores:   typ.Union[typ.Sequence[NDArray], NDArray],  # len=d. elm_shape=T+(ni,Ni)
         etas:           typ.Union[typ.Sequence[NDArray], NDArray],  # len=d. elm_shape=T+K+(ni,)
         shape_weights:  typ.Union[typ.Sequence[NDArray], NDArray] = None,  # len=d, elm_shape=T+V+(Ni,)
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # weighted_zs. len=d, elm_shape=T+K+(Ni,)
     '''Assemble probes from downward edge variables.
 
@@ -409,6 +401,7 @@ def assemble_zs(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
+    use_jax = tree_contains_jax((tucker_cores, etas, shape_weights))
     is_uniform = is_ndarray(tucker_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -426,7 +419,7 @@ def assemble_zs(
         (unweighted_zs,) = xmap(_func, (etas, tucker_cores))
 
     if z_weights is not None:
-        zs = _apply_edge_weights(unweighted_zs, z_weights, use_jax=use_jax)
+        zs = _apply_edge_weights(unweighted_zs, z_weights)
     else:
         zs = unweighted_zs
 

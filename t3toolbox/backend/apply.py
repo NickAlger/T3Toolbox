@@ -9,10 +9,10 @@ import t3toolbox.backend.contractions as contractions
 from t3toolbox.backend.common import *
 
 __all__ = [
-    't3_apply',
+    'tucker_tensor_train_apply',
 ]
 
-def t3_apply(
+def tucker_tensor_train_apply(
         x: typ.Union[
             typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
             typ.Tuple[NDArray, NDArray], # (tucker_supercore, tt_supercore)
@@ -24,7 +24,7 @@ def t3_apply(
 ) -> NDArray:
     '''Contract a Tucker tensor train with vectors in all indices.
     '''
-    use_jax = any([is_jax_ndarray(c) for c in list(x[0]) + list(x[1]) + list(vecs)])
+    use_jax = tree_contains_jax((x, vecs))
     xnp, _, xscan = get_backend(False, use_jax)
 
     #

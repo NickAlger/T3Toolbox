@@ -9,11 +9,11 @@ import t3toolbox.backend.contractions as contractions
 from t3toolbox.backend.common import *
 
 __all__ = [
-    'get_tucker_tensor_train_entries',
+    'tucker_tensor_train_entries',
 ]
 
 
-def get_tucker_tensor_train_entries(
+def tucker_tensor_train_entries(
         x: typ.Union[
             typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
             typ.Tuple[NDArray, NDArray], # (tucker_supercore, tt_supercore)
@@ -22,7 +22,7 @@ def get_tucker_tensor_train_entries(
 ) -> NDArray: # shape=vsx+vsi
     '''Compute entries of a Tucker tensor train.
     '''
-    use_jax = any([is_jax_ndarray(c) for c in x[0]]) or any([is_jax_ndarray(c) for c in x[1]])
+    use_jax = tree_contains_jax((x, index))
     is_uniform = is_ndarray(x[0])
     xnp, _, xscan = get_backend(is_uniform, use_jax)
 

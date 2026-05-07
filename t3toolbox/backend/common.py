@@ -76,6 +76,7 @@ __all__ = [
     'xcat',
     'xappend',
     'xprepend',
+    'tree_contains_jax',
     #
     'randn',
 ]
@@ -332,3 +333,7 @@ def randn(*args, use_jax: bool):
         return np.random.randn(*args)
 
 
+def tree_contains_jax(T):
+    if isinstance(T, typ.Sequence):
+        return any([tree_contains_jax(t) for t in T])
+    return is_jax_ndarray(T)

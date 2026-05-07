@@ -2158,29 +2158,24 @@ class TuckerTensorTrain:
         >>> print(np.abs(result - result2))
         1.3322676295501878e-15
 
-        Compute multiple entries (vectorized):
+        With stacked index and stacked T3s
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
-        >>> index = [[9,8], [4,10], [7,13]] # get entries (9,4,7) and (8,10,13)
+        >>> choice = np.random.choice
+        >>> stack_shape = (2,3)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,2), stack_shape)
+        >>> istack_shape = (4,5,1)
+        >>> index = [choice(14, size=istack_shape), choice(15, size=istack_shape), choice(16, size=istack_shape)]
         >>> entries = x.entries(index)
-        >>> x_dense = x.to_dense(x)
-        >>> entries2 = np.array([x_dense[9, 4, 7], x_dense[8, 10, 13]])
-        >>> print(np.linalg.norm(entries - entries2))
-        1.7763568394002505e-15
-
-        Vectorize over entries AND T3s
-
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,2), stack_shape=(2,3))
-        >>> index = [[9,0], [4,0], [7,0]] # get entries (9,4,7) and (0,0,0)
-        >>> entries = x.entries(index)
-        >>> x_dense = x.to_dense()
-        >>> entries2 = np.moveaxis(np.array([x_dense[:,:, 9,4,7], x_dense[:,:, 0,0,0]]), 0,2)
-        >>> print(np.linalg.norm(entries - entries2))
-        9.22170384909466e-15
+        >>> ii, jj = 1, 2
+        >>> ll, mm, nn =  3, 2, 0
+        >>> entry_ij_lmn = entries[ii,jj, ll,mm,nn]
+        >>> x_ij_dense = x.to_dense()[ii,jj]
+        >>> index_lmk = (index[0][ll,mm,nn], index[1][ll,mm,nn], index[2][ll,mm,nn])
+        >>> entry_ij_lmn_true = x_ij_dense[index_lmk]
+        >>> print(np.abs(entry_ij_lmn - entry_ij_lmn_true))
+        0.0
 
         Example using jax jit compiling:
 
@@ -2205,10 +2200,10 @@ class TuckerTensorTrain:
         >>> import t3toolbox.corewise as cw
         >>> jax.config.update("jax_enable_x64", True) # enable double precision for finite difference
         >>> get_entry_123 = lambda x: x.entries((1,2,3))
-        >>> A0 = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1)).to_jax() # random 10x10x10 Tucker tensor train
+        >>> A0 = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1), use_jax=True) # random 10x10x10 Tucker tensor train
         >>> f0 = get_entry_123(A0)
         >>> G0 = jax.grad(get_entry_123)(A0) # gradient using automatic differentiation
-        >>> dA = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1)).to_jax()
+        >>> dA = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1), use_jax=True)
         >>> df = cw.corewise_dot(dA.data, G0.data) # sensitivity in direction dA
         >>> print(df)
         -7.418801772515241
@@ -2225,12 +2220,11 @@ class TuckerTensorTrain:
                 + str(self.d) + ' = num tensor indices != num provided indices = ' + str(index.shape[0])
             )
 
-        return entries.get_tucker_tensor_train_entries(self.data, index)
+        return entries.tucker_tensor_train_entries(self.data, index)
 
     def apply(
             self, # shape=(N0,...,N(d-1))
             vecs: typ.Sequence[NDArray],  # len=d, elm_shape=vecs_stack_shape+(Ni,)
-            use_jax: bool = False,
     ) -> NDArray:
         '''Contract a Tucker tensor train with vectors in all indices.
 
@@ -2274,27 +2268,24 @@ class TuckerTensorTrain:
         >>> print(np.abs(result - result2))
         5.229594535194337e-12
 
-        Apply to multiple sets of vectors (vectorized):
+        Apply to stacked vectors and stacked T3s (vectorized)
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,1))
-        >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
+        >>> randn = np.random.randn
+        >>> stack_shape = (2,3)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,1), stack_shape)
+        >>> vstack_shape = (4,5,1)
+        >>> vecs = [randn(*(vstack_shape+(14,))), randn(*(vstack_shape+(15,))), randn(*(vstack_shape+(16,)))]
         >>> result = x.apply(vecs)
-        >>> result2 = np.einsum('ijk,ni,nj,nk->n', x.to_dense(), vecs[0], vecs[1], vecs[2])
-        >>> print(np.linalg.norm(result - result2))
-        3.1271953680324864e-12
-
-        Apply to tensor sets of vectors and tensor sets of T3s (supervectorized)
-
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,1), stack_shape=(2,3))
-        >>> vecs = [np.random.randn(4, 14), np.random.randn(4, 15), np.random.randn(4, 16)]
-        >>> result = x.apply(vecs)
-        >>> result2 = np.einsum('uvijk,xi,xj,xk->uvx', x.to_dense(), vecs[0], vecs[1], vecs[2])
-        >>> print(np.linalg.norm(result - result2))
-        3.1271953680324864e-12
+        >>> ii, jj = 1, 2
+        >>> ll, mm, nn =  3, 2, 0
+        >>> result_ij_lmn = result[ii,jj, ll,mm,nn]
+        >>> x_ij_dense = x.to_dense()[ii,jj]
+        >>> vecs_lmn = [vecs[0][ll,mm,nn], vecs[1][ll,mm,nn], vecs[2][ll,mm,nn]]
+        >>> result_ij_lmn_true = np.einsum('abc,a,b,c', x_ij_dense, *vecs_lmn)
+        >>> print(np.abs(result_ij_lmn - result_ij_lmn_true))
+        6.252776074688882e-13
 
         Example using jax automatic differentiation:
 
@@ -2323,13 +2314,34 @@ class TuckerTensorTrain:
                 'Attempted to apply TuckerTensorTrain to wrong number of vectors.'
                 + str(str(len(self.shape)) + ' = num_indices != len(vecs) = ' + str(len(vecs)))
             )
-        return apply.t3_apply(self.data, vecs)
+        return apply.tucker_tensor_train_apply(self.data, vecs)
 
-    def probe(
+    # def probe(
+    #         self,
+    #         ww: typ.Sequence[NDArray], # len=d, elm_shape=W+(Ni,)
+    #         use_jax: bool=False,
+    # ) -> typ.Sequence[NDArray]: # zz, len=d, elm_shape=X+W+(Ni,)
+    #     """Probe a TuckerTensorTrain.
+    #
+    #     Examples
+    #     --------
+    #     >>> import numpy as np
+    #     >>> import t3toolbox.tucker_tensor_train as t3
+    #     >>> import t3toolbox.backend.probing as probing
+    #     >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
+    #     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+    #     >>> zz = x.probe(ww)
+    #     >>> x_dense = x.to_dense()
+    #     >>> zz2 = probing.probe_dense(ww, x_dense)
+    #     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
+    #     [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
+    #     """
+    #     return probing.probe_t3(ww, self.data, use_jax=use_jax)
+
+    def t3_probe(
             self,
-            ww: typ.Sequence[NDArray], # len=d, elm_shape=W+(Ni,)
-            use_jax: bool=False,
-    ) -> typ.Sequence[NDArray]: # zz, len=d, elm_shape=X+W+(Ni,)
+            ww: typ.Sequence[NDArray],  # len=d, elm_shape=W+(Ni,)
+    ) -> typ.Sequence[NDArray]:  # zz, len=d, elm_shape=X+W+(Ni,)
         """Probe a TuckerTensorTrain.
 
         Examples
@@ -2339,13 +2351,39 @@ class TuckerTensorTrain:
         >>> import t3toolbox.backend.probing as probing
         >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-        >>> zz = x.probe(ww)
+        >>> zz = t3.t3_probe(ww, x)
         >>> x_dense = x.to_dense()
         >>> zz2 = probing.probe_dense(ww, x_dense)
         >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
         [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
+
+        Vectorize over probes:
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.backend.probing as probing
+        >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
+        >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
+        >>> zz = t3.t3_probe(ww, x)
+        >>> x_dense = x.to_dense()
+        >>> zz2 = probing.probe_dense(ww, x_dense)
+        >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
+        [2.9290244450205316e-12, 2.0347746956505754e-12, 1.7784156096697445e-12]
+
+        Vectorize over probes and T3s:
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.backend.probing as probing
+        >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2), stack_shape=(4,5))
+        >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
+        >>> zz = t3.t3_probe(ww, x)
+        >>> x_dense = x.to_dense()
+        >>> zz2 = probing.probe_dense(ww, x_dense)
+        >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
+        [1.4471391818397927e-11, 1.0485601346346092e-11, 1.437623640611662e-11]
         """
-        return probing.probe_t3(ww, self.data, use_jax=use_jax)
+        return probing.probe_t3(ww, self.data)
 
 
 
@@ -2432,53 +2470,53 @@ def get_minimal_ranks(
 ########    Scalar valued M.L.F. applies, entries, and probing    #########
 ###########################################################################
 
-def t3_probe(
-        ww: typ.Sequence[NDArray], # len=d, elm_shape=W+(Ni,)
-        x: TuckerTensorTrain, # x.stack_shape=X
-        use_jax: bool=False,
-) -> typ.Sequence[NDArray]: # zz, len=d, elm_shape=X+W+(Ni,)
-    """Probe a TuckerTensorTrain.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.backend.probing as probing
-    >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
-    >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-    >>> zz = t3.t3_probe(ww, x)
-    >>> x_dense = x.to_dense()
-    >>> zz2 = probing.probe_dense(ww, x_dense)
-    >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
-    [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
-
-    Vectorize over probes:
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.backend.probing as probing
-    >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
-    >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
-    >>> zz = t3.t3_probe(ww, x)
-    >>> x_dense = x.to_dense()
-    >>> zz2 = probing.probe_dense(ww, x_dense)
-    >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
-    [2.9290244450205316e-12, 2.0347746956505754e-12, 1.7784156096697445e-12]
-
-    Vectorize over probes and T3s:
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.backend.probing as probing
-    >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2), stack_shape=(4,5))
-    >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
-    >>> zz = t3.t3_probe(ww, x)
-    >>> x_dense = x.to_dense()
-    >>> zz2 = probing.probe_dense(ww, x_dense)
-    >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
-    [1.4471391818397927e-11, 1.0485601346346092e-11, 1.437623640611662e-11]
-    """
-    return probing.probe_t3(ww, x.data, use_jax=use_jax)
+# def t3_probe(
+#         ww: typ.Sequence[NDArray], # len=d, elm_shape=W+(Ni,)
+#         x: TuckerTensorTrain, # x.stack_shape=X
+#         use_jax: bool=False,
+# ) -> typ.Sequence[NDArray]: # zz, len=d, elm_shape=X+W+(Ni,)
+#     """Probe a TuckerTensorTrain.
+#
+#     Examples
+#     --------
+#     >>> import numpy as np
+#     >>> import t3toolbox.tucker_tensor_train as t3
+#     >>> import t3toolbox.backend.probing as probing
+#     >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
+#     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+#     >>> zz = t3.t3_probe(ww, x)
+#     >>> x_dense = x.to_dense()
+#     >>> zz2 = probing.probe_dense(ww, x_dense)
+#     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
+#     [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
+#
+#     Vectorize over probes:
+#
+#     >>> import numpy as np
+#     >>> import t3toolbox.tucker_tensor_train as t3
+#     >>> import t3toolbox.backend.probing as probing
+#     >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
+#     >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
+#     >>> zz = t3.t3_probe(ww, x)
+#     >>> x_dense = x.to_dense()
+#     >>> zz2 = probing.probe_dense(ww, x_dense)
+#     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
+#     [2.9290244450205316e-12, 2.0347746956505754e-12, 1.7784156096697445e-12]
+#
+#     Vectorize over probes and T3s:
+#
+#     >>> import numpy as np
+#     >>> import t3toolbox.tucker_tensor_train as t3
+#     >>> import t3toolbox.backend.probing as probing
+#     >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2), stack_shape=(4,5))
+#     >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
+#     >>> zz = t3.t3_probe(ww, x)
+#     >>> x_dense = x.to_dense()
+#     >>> zz2 = probing.probe_dense(ww, x_dense)
+#     >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
+#     [1.4471391818397927e-11, 1.0485601346346092e-11, 1.437623640611662e-11]
+#     """
+#     return probing.probe_t3(ww, x.data, use_jax=use_jax)
 
 
 

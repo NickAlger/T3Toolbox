@@ -24,7 +24,6 @@ def Na_Maib_Ni_to_NMb(
         Na: NDArray,
         Maib: NDArray,
         Ni: NDArray,
-        use_jax: bool = False,
 ) -> NDArray:
     """Computes vectorized einsum a,aib,i->b, with vectorization over a and i, or aib, or both.
 
@@ -36,7 +35,7 @@ def Na_Maib_Ni_to_NMb(
     Vectorize over both N and M:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import Na_Maib_Ni_to_NMb
+    >>> from t3toolbox.backend.contractions import Na_Maib_Ni_to_NMb
     >>> xyz_a = np.random.randn(2,3,4, 10)
     >>> uv_aib = np.random.randn(5,6, 10,11,12)
     >>> xyz_i = np.random.randn(2,3,4, 11)
@@ -50,7 +49,7 @@ def Na_Maib_Ni_to_NMb(
     Vectorize over N only
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import Na_Maib_Ni_to_NMb
+    >>> from t3toolbox.backend.contractions import Na_Maib_Ni_to_NMb
     >>> xyz_a = np.random.randn(2,3,4, 10)
     >>> aib = np.random.randn(10,11,12)
     >>> xyz_i = np.random.randn(2,3,4, 11)
@@ -64,7 +63,7 @@ def Na_Maib_Ni_to_NMb(
     Vectorize over both M only:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import Na_Maib_Ni_to_NMb
+    >>> from t3toolbox.backend.contractions import Na_Maib_Ni_to_NMb
     >>> a = np.random.randn(10)
     >>> uv_aib = np.random.randn(5,6, 10,11,12)
     >>> i = np.random.randn(11)
@@ -78,7 +77,7 @@ def Na_Maib_Ni_to_NMb(
     No vectorization:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import Na_Maib_Ni_to_NMb
+    >>> from t3toolbox.backend.contractions import Na_Maib_Ni_to_NMb
     >>> a = np.random.randn(10)
     >>> aib = np.random.randn(10,11,12)
     >>> i = np.random.randn(11)
@@ -89,6 +88,7 @@ def Na_Maib_Ni_to_NMb(
     >>> print(np.linalg.norm(b - b_true))
     6.108244889215317e-15
     """
+    use_jax = tree_contains_jax((Na, Maib, Ni))
     xnp, _, _ = get_backend(True, use_jax)
 
     N_shape = Na.shape[:-1]
@@ -123,7 +123,6 @@ def MNa_Maib_No_Mio_to_MNb(
         Maib: NDArray,
         No: NDArray,
         Mio: NDArray,
-        use_jax: bool = False,
 ) -> NDArray:
     """Computes vectorized einsum a,aib,o,io->b, with vectorization over a and i, or aib and io, or both.
 
@@ -135,7 +134,7 @@ def MNa_Maib_No_Mio_to_MNb(
     Vectorize over both N and M:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNa_Maib_No_Mio_to_MNb
+    >>> from t3toolbox.backend.contractions import MNa_Maib_No_Mio_to_MNb
     >>> uv_xyz_a = np.random.randn(5,6, 2,3,4, 10)
     >>> uv_aib = np.random.randn(5,6, 10,11,12)
     >>> xyz_o = np.random.randn(2,3,4, 13)
@@ -150,7 +149,7 @@ def MNa_Maib_No_Mio_to_MNb(
     Vectorize over N only
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNa_Maib_No_Mio_to_MNb
+    >>> from t3toolbox.backend.contractions import MNa_Maib_No_Mio_to_MNb
     >>> xyz_a = np.random.randn(2,3,4, 10)
     >>> aib = np.random.randn(10,11,12)
     >>> xyz_o = np.random.randn(2,3,4, 13)
@@ -165,7 +164,7 @@ def MNa_Maib_No_Mio_to_MNb(
     Vectorize over both M only:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNa_Maib_No_Mio_to_MNb
+    >>> from t3toolbox.backend.contractions import MNa_Maib_No_Mio_to_MNb
     >>> uv_a = np.random.randn(5,6, 10)
     >>> uv_aib = np.random.randn(5,6, 10,11,12)
     >>> o = np.random.randn(13)
@@ -180,7 +179,7 @@ def MNa_Maib_No_Mio_to_MNb(
     No vectorization:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNa_Maib_No_Mio_to_MNb
+    >>> from t3toolbox.backend.contractions import MNa_Maib_No_Mio_to_MNb
     >>> a = np.random.randn(10)
     >>> aib = np.random.randn(10,11,12)
     >>> o = np.random.randn(13)
@@ -192,6 +191,7 @@ def MNa_Maib_No_Mio_to_MNb(
     >>> print(np.linalg.norm(MNb - MNb_true))
     3.638551654418504e-14
     """
+    use_jax = tree_contains_jax((MNa, Maib, No, Mio))
     xnp, _, _ = get_backend(True, use_jax)
 
     N_shape = No.shape[:-1]
@@ -231,7 +231,6 @@ def MNa_Maib_MiN_to_MNb(
         MNa: NDArray,
         Maib: NDArray,
         MiN: NDArray,
-        use_jax: bool = False,
 ) -> NDArray:
     """Computes vectorized einsum a,aib,i->b, with vectorization over a and i, or aib and i, or both.
 
@@ -243,7 +242,7 @@ def MNa_Maib_MiN_to_MNb(
     Vectorize over both N and M:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNa_Maib_MiN_to_MNb
+    >>> from t3toolbox.backend.contractions import MNa_Maib_MiN_to_MNb
     >>> uv_xyz_a = np.random.randn(5,6,  2,3,4, 10)
     >>> uv_aib = np.random.randn(5,6, 10,11,12)
     >>> uv_i_xyz = np.random.randn(5,6, 11, 2,3,4)
@@ -257,7 +256,7 @@ def MNa_Maib_MiN_to_MNb(
     Vectorize over N only
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNa_Maib_MiN_to_MNb
+    >>> from t3toolbox.backend.contractions import MNa_Maib_MiN_to_MNb
     >>> xyz_a = np.random.randn(2,3,4, 10)
     >>> aib = np.random.randn(10,11,12)
     >>> i_xyz = np.random.randn(11, 2,3,4)
@@ -271,7 +270,7 @@ def MNa_Maib_MiN_to_MNb(
     Vectorize over both M only:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNa_Maib_MiN_to_MNb
+    >>> from t3toolbox.backend.contractions import MNa_Maib_MiN_to_MNb
     >>> uv_a = np.random.randn(5,6, 10)
     >>> uv_aib = np.random.randn(5,6, 10,11,12)
     >>> uv_i = np.random.randn(5,6, 11)
@@ -285,7 +284,7 @@ def MNa_Maib_MiN_to_MNb(
     No vectorization:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNa_Maib_MiN_to_MNb
+    >>> from t3toolbox.backend.contractions import MNa_Maib_MiN_to_MNb
     >>> a = np.random.randn(10)
     >>> aib = np.random.randn(10,11,12)
     >>> i = np.random.randn(11)
@@ -296,6 +295,7 @@ def MNa_Maib_MiN_to_MNb(
     >>> print(np.linalg.norm(MNb - MNb_true))
     8.510422543011842e-15
     """
+    use_jax = tree_contains_jax((MNa, Maib, MiN))
     xnp, _, _ = get_backend(True, use_jax)
 
     M_shape = Maib.shape[:-3]
@@ -332,7 +332,6 @@ def MNa_Maib_MNi_to_MNb(
         MNa: NDArray,
         Maib: NDArray,
         MNi: NDArray,
-        use_jax: bool = False,
 ) -> NDArray:
     """Computes vectorized einsum a,aib,i->b, with vectorization over a and i, or aib and i, or both.
 
@@ -344,7 +343,7 @@ def MNa_Maib_MNi_to_MNb(
     Vectorize over both N and M:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNa_Maib_MNi_to_MNb
+    >>> from t3toolbox.backend.contractions import MNa_Maib_MNi_to_MNb
     >>> uv_xyz_a = np.random.randn(5,6,  2,3,4, 10)
     >>> uv_aib = np.random.randn(5,6, 10,11,12)
     >>> uv_xyz_i = np.random.randn(5,6, 2,3,4, 11)
@@ -358,7 +357,7 @@ def MNa_Maib_MNi_to_MNb(
     Vectorize over N only
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNa_Maib_MNi_to_MNb
+    >>> from t3toolbox.backend.contractions import MNa_Maib_MNi_to_MNb
     >>> xyz_a = np.random.randn(2,3,4, 10)
     >>> aib = np.random.randn(10,11,12)
     >>> xyz_i = np.random.randn(2,3,4, 11)
@@ -372,7 +371,7 @@ def MNa_Maib_MNi_to_MNb(
     Vectorize over both M only:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNa_Maib_MiN_to_MNb
+    >>> from t3toolbox.backend.contractions import MNa_Maib_MiN_to_MNb
     >>> uv_a = np.random.randn(5,6, 10)
     >>> uv_aib = np.random.randn(5,6, 10,11,12)
     >>> uv_i = np.random.randn(5,6, 11)
@@ -386,7 +385,7 @@ def MNa_Maib_MNi_to_MNb(
     No vectorization:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNa_Maib_MiN_to_MNb
+    >>> from t3toolbox.backend.contractions import MNa_Maib_MiN_to_MNb
     >>> a = np.random.randn(10)
     >>> aib = np.random.randn(10,11,12)
     >>> i = np.random.randn(11)
@@ -397,6 +396,7 @@ def MNa_Maib_MNi_to_MNb(
     >>> print(np.linalg.norm(MNb - MNb_true))
     9.090279413851974e-15
     """
+    use_jax = tree_contains_jax((MNa, Maib, MNi))
     xnp, _, _ = get_backend(True, use_jax)
 
     M_shape = Maib.shape[:-3]
@@ -432,7 +432,6 @@ def MNa_Maib_MNi_to_MNb(
 def Mio_No_to_MNi(
         Mio: NDArray,
         No: NDArray,
-        use_jax: bool = False,
 ) -> NDArray:
     """Computes vectorized einsum io,o->i, with vectorization over io, o, or both
 
@@ -444,7 +443,7 @@ def Mio_No_to_MNi(
     Vectorize over both N and M:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import Mio_No_to_MNi
+    >>> from t3toolbox.backend.contractions import Mio_No_to_MNi
     >>> Mio = np.random.randn(5,6, 10,13)
     >>> No = np.random.randn(2,3,4, 13)
     >>> result = Mio_No_to_MNi(Mio, No)
@@ -457,7 +456,7 @@ def Mio_No_to_MNi(
     Vectorize over N only
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import Mio_No_to_MNi
+    >>> from t3toolbox.backend.contractions import Mio_No_to_MNi
     >>> Mio = np.random.randn(10,13)
     >>> No = np.random.randn(2,3,4, 13)
     >>> result = Mio_No_to_MNi(Mio, No)
@@ -470,7 +469,7 @@ def Mio_No_to_MNi(
     Vectorize over both M only:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import Mio_No_to_MNi
+    >>> from t3toolbox.backend.contractions import Mio_No_to_MNi
     >>> Mio = np.random.randn(5,6, 10,13)
     >>> No = np.random.randn(13)
     >>> result = Mio_No_to_MNi(Mio, No)
@@ -483,7 +482,7 @@ def Mio_No_to_MNi(
     No vectorization:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import Mio_No_to_MNi
+    >>> from t3toolbox.backend.contractions import Mio_No_to_MNi
     >>> Mio = np.random.randn(10,13)
     >>> No = np.random.randn(13)
     >>> result = Mio_No_to_MNi(Mio, No)
@@ -493,6 +492,7 @@ def Mio_No_to_MNi(
     >>> print(np.linalg.norm(result - result2))
     0.0
     """
+    use_jax = tree_contains_jax((Mio, No))
     xnp, _, _ = get_backend(True, use_jax)
 
     M_shape = Mio.shape[:-2]
@@ -527,7 +527,7 @@ def dMio_dNo_to_dMNi(
     Vectorize over both N and M:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dMio_dNo_to_dMNi
+    >>> from t3toolbox.backend.contractions import dMio_dNo_to_dMNi
     >>> dMio = np.random.randn(8, 5,6, 10,13)
     >>> dNo = np.random.randn(8, 2,3,4, 13)
     >>> result = dMio_dNo_to_dMNi(dMio, dNo)
@@ -540,7 +540,7 @@ def dMio_dNo_to_dMNi(
     Vectorize over N only
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dMio_dNo_to_dMNi
+    >>> from t3toolbox.backend.contractions import dMio_dNo_to_dMNi
     >>> dMio = np.random.randn(8, 10,13)
     >>> dNo = np.random.randn(8, 2,3,4, 13)
     >>> result = dMio_dNo_to_dMNi(dMio, dNo)
@@ -553,7 +553,7 @@ def dMio_dNo_to_dMNi(
     Vectorize over both M only:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dMio_dNo_to_dMNi
+    >>> from t3toolbox.backend.contractions import dMio_dNo_to_dMNi
     >>> dMio = np.random.randn(8, 5,6, 10,13)
     >>> dNo = np.random.randn(8, 13)
     >>> result = dMio_dNo_to_dMNi(dMio, dNo)
@@ -566,7 +566,7 @@ def dMio_dNo_to_dMNi(
     No vectorization:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dMio_dNo_to_dMNi
+    >>> from t3toolbox.backend.contractions import dMio_dNo_to_dMNi
     >>> dMio = np.random.randn(8, 10,13)
     >>> dNo = np.random.randn(8, 13)
     >>> result = dMio_dNo_to_dMNi(dMio, dNo)
@@ -600,7 +600,6 @@ def MNa_Maib_MNb_to_MNi(
         MNa: NDArray,
         Maib: NDArray,
         MNb: NDArray,
-        use_jax: bool = False,
 ) -> NDArray:
     """Computes contraction MNa,Maib,MNb->MNi.
 
@@ -612,7 +611,7 @@ def MNa_Maib_MNb_to_MNi(
     Vectorize over both N and M:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNa_Maib_MNb_to_MNi
+    >>> from t3toolbox.backend.contractions import MNa_Maib_MNb_to_MNi
     >>> MNa = np.random.randn(2,3, 4,5,6, 10)
     >>> Maib = np.random.randn(2,3, 10,11,12)
     >>> MNb = np.random.randn(2,3, 4,5,6, 12)
@@ -626,7 +625,7 @@ def MNa_Maib_MNb_to_MNi(
     Vectorize over N only
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNa_Maib_MNb_to_MNi
+    >>> from t3toolbox.backend.contractions import MNa_Maib_MNb_to_MNi
     >>> MNa = np.random.randn(4,5,6, 10)
     >>> Maib = np.random.randn(10,11,12)
     >>> MNb = np.random.randn(4,5,6, 12)
@@ -640,7 +639,7 @@ def MNa_Maib_MNb_to_MNi(
     Vectorize over both M only:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNa_Maib_MNb_to_MNi
+    >>> from t3toolbox.backend.contractions import MNa_Maib_MNb_to_MNi
     >>> MNa = np.random.randn(2,3, 10)
     >>> Maib = np.random.randn(2,3, 10,11,12)
     >>> MNb = np.random.randn(2,3, 12)
@@ -654,7 +653,7 @@ def MNa_Maib_MNb_to_MNi(
     No vectorization:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNa_Maib_MNb_to_MNi
+    >>> from t3toolbox.backend.contractions import MNa_Maib_MNb_to_MNi
     >>> MNa = np.random.randn(10)
     >>> Maib = np.random.randn(10,11,12)
     >>> MNb = np.random.randn(12)
@@ -665,6 +664,7 @@ def MNa_Maib_MNb_to_MNi(
     >>> print(np.linalg.norm(result - result2))
     0.0
     """
+    use_jax = tree_contains_jax((MNa, Maib, MNb))
     xnp, _, _ = get_backend(True, use_jax)
 
     M_shape = Maib.shape[:-3]
@@ -690,7 +690,6 @@ def dMNa_dMaib_dMNb_to_dMNi(
         dMNa: NDArray,
         dMaib: NDArray,
         dMNb: NDArray,
-        use_jax: bool = False,
 ) -> NDArray:
     """Computes contraction MNa,dMaib,MNb->dMNi.
 
@@ -702,7 +701,7 @@ def dMNa_dMaib_dMNb_to_dMNi(
     Vectorize over both N and M:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dMNa_dMaib_dMNb_to_dMNi
+    >>> from t3toolbox.backend.contractions import dMNa_dMaib_dMNb_to_dMNi
     >>> dMNa = np.random.randn(8, 2,3, 4,5,6, 10)
     >>> dMaib = np.random.randn(8, 2,3, 10,11,12)
     >>> dMNb = np.random.randn(8, 2,3, 4,5,6, 12)
@@ -716,7 +715,7 @@ def dMNa_dMaib_dMNb_to_dMNi(
     Vectorize over N only
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dMNa_dMaib_dMNb_to_dMNi
+    >>> from t3toolbox.backend.contractions import dMNa_dMaib_dMNb_to_dMNi
     >>> dMNa = np.random.randn(8, 4,5,6, 10)
     >>> dMaib = np.random.randn(8, 10,11,12)
     >>> dMNb = np.random.randn(8, 4,5,6, 12)
@@ -730,7 +729,7 @@ def dMNa_dMaib_dMNb_to_dMNi(
     Vectorize over both M only:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dMNa_dMaib_dMNb_to_dMNi
+    >>> from t3toolbox.backend.contractions import dMNa_dMaib_dMNb_to_dMNi
     >>> dMNa = np.random.randn(8, 2,3, 10)
     >>> dMaib = np.random.randn(8, 2,3, 10,11,12)
     >>> dMNb = np.random.randn(8, 2,3, 12)
@@ -744,7 +743,7 @@ def dMNa_dMaib_dMNb_to_dMNi(
     No vectorization:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dMNa_dMaib_dMNb_to_dMNi
+    >>> from t3toolbox.backend.contractions import dMNa_dMaib_dMNb_to_dMNi
     >>> dMNa = np.random.randn(8, 10)
     >>> dMaib = np.random.randn(8, 10,11,12)
     >>> dMNb = np.random.randn(8, 12)
@@ -755,6 +754,7 @@ def dMNa_dMaib_dMNb_to_dMNi(
     >>> print(np.linalg.norm(result - result2))
     0.0
     """
+    use_jax = tree_contains_jax((dMNa, dMaib, dMNb))
     xnp, _, _ = get_backend(True, use_jax)
 
     d_shape = (dMaib.shape[0],)
@@ -780,7 +780,6 @@ def dMNa_dMaib_dMNb_to_dMNi(
 def MNi_Mio_to_MNo(
         MNi: NDArray,
         Mio: NDArray,
-        use_jax: bool = False,
 ) -> NDArray:
     """Computes contraction i,io->o.
 
@@ -792,7 +791,7 @@ def MNi_Mio_to_MNo(
     Vectorize over both N and M:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNi_Mio_to_MNo
+    >>> from t3toolbox.backend.contractions import MNi_Mio_to_MNo
     >>> Ni = np.random.randn(2,3,4, 10)
     >>> Mio = np.random.randn(5,6, 10,13)
     >>> result = MNi_Mio_to_MNo(Ni, Mio)
@@ -805,7 +804,7 @@ def MNi_Mio_to_MNo(
     Vectorize over N only
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNi_Mio_to_MNo
+    >>> from t3toolbox.backend.contractions import MNi_Mio_to_MNo
     >>> Ni = np.random.randn(2,3,4, 10)
     >>> Mio = np.random.randn(10,13)
     >>> result = MNi_Mio_to_MNo(Ni, Mio)
@@ -818,7 +817,7 @@ def MNi_Mio_to_MNo(
     Vectorize over both M only:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNi_Mio_to_MNo
+    >>> from t3toolbox.backend.contractions import MNi_Mio_to_MNo
     >>> Ni = np.random.randn(10)
     >>> Mio = np.random.randn(5,6, 10,13)
     >>> result = MNi_Mio_to_MNo(Ni, Mio)
@@ -831,7 +830,7 @@ def MNi_Mio_to_MNo(
     No vectorization:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import MNi_Mio_to_MNo
+    >>> from t3toolbox.backend.contractions import MNi_Mio_to_MNo
     >>> Ni = np.random.randn(10)
     >>> Mio = np.random.randn(10,13)
     >>> result = MNi_Mio_to_MNo(Ni, Mio)
@@ -841,6 +840,7 @@ def MNi_Mio_to_MNo(
     >>> print(np.linalg.norm(result - result2))
     0.0
     """
+    use_jax = tree_contains_jax((MNi, Mio))
     xnp, _, _ = get_backend(True, use_jax)
 
     M_shape = Mio.shape[:-2]
@@ -863,7 +863,6 @@ def MNi_Mio_to_MNo(
 def dMNi_dMio_to_dMNo(
         dMNi: NDArray,
         dMio: NDArray,
-        use_jax: bool = False,
 ) -> NDArray:
     """Computes named contraction.
 
@@ -875,7 +874,7 @@ def dMNi_dMio_to_dMNo(
     Vectorize over both N and M:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dMNi_dMio_to_dMNo
+    >>> from t3toolbox.backend.contractions import dMNi_dMio_to_dMNo
     >>> dMNi = np.random.randn(8, 5,6, 2,3,4, 10)
     >>> dMio = np.random.randn(8, 5,6, 10,13)
     >>> result = dMNi_dMio_to_dMNo(dMNi, dMio)
@@ -888,7 +887,7 @@ def dMNi_dMio_to_dMNo(
     Vectorize over N only
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dMNi_dMio_to_dMNo
+    >>> from t3toolbox.backend.contractions import dMNi_dMio_to_dMNo
     >>> dMNi = np.random.randn(8, 2,3,4, 10)
     >>> dMio = np.random.randn(8, 10,13)
     >>> result = dMNi_dMio_to_dMNo(dMNi, dMio)
@@ -901,7 +900,7 @@ def dMNi_dMio_to_dMNo(
     Vectorize over both M only:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dMNi_dMio_to_dMNo
+    >>> from t3toolbox.backend.contractions import dMNi_dMio_to_dMNo
     >>> dMNi = np.random.randn(8, 5,6, 10)
     >>> dMio = np.random.randn(8, 5,6, 10,13)
     >>> result = dMNi_dMio_to_dMNo(dMNi, dMio)
@@ -914,7 +913,7 @@ def dMNi_dMio_to_dMNo(
     No vectorization:
 
     >>> import numpy as np
-    >>> from t3toolbox.utils.contractions import dMNi_dMio_to_dMNo
+    >>> from t3toolbox.backend.contractions import dMNi_dMio_to_dMNo
     >>> dMNi = np.random.randn(8, 10)
     >>> dMio = np.random.randn(8, 10,13)
     >>> result = dMNi_dMio_to_dMNo(dMNi, dMio)
@@ -924,6 +923,7 @@ def dMNi_dMio_to_dMNo(
     >>> print(np.linalg.norm(result - result2))
     0.0
     """
+    use_jax = tree_contains_jax((dMNi, dMio))
     xnp, _, _ = get_backend(True, use_jax)
 
     d_shape = (dMio.shape[0],)
