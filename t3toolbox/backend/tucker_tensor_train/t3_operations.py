@@ -23,8 +23,9 @@ __all__ = [
     't3_zeros',
     't3_corewise_randn',
     't3_ones',
-    'from_canonical',
-    'from_tensor_train',
+    't3_from_canonical',
+    't3_from_tensor_train',
+    't3_sum',
 ]
 
 
@@ -363,7 +364,7 @@ def wt3_squash_tails(
     return (x0, w)
 
 
-def from_canonical(
+def t3_from_canonical(
         factors: typ.Sequence[NDArray], # elm_shape = stack_shape + (canonical_rank, Ni)
 ) -> typ.Tuple[
     typ.Tuple[NDArray,...], # tucker_cores
@@ -388,7 +389,7 @@ def from_canonical(
     return tucker_cores, tt_cores
 
 
-def from_tensor_train(
+def t3_from_tensor_train(
         tt_cores: typ.Sequence[NDArray], # elm_shape=stack_shape+(ri, N, r(i+1))
 ) -> typ.Tuple[
     typ.Tuple[NDArray,...], # tucker_cores
@@ -408,7 +409,7 @@ def from_tensor_train(
     return tucker_cores, tuple(tt_cores)
 
 
-def to_tensor_train(
+def t3_to_tensor_train(
         x: typ.Tuple[
             typ.Tuple[NDArray,...], # tucker_cores
             typ.Tuple[NDArray,...], # tt_cores
@@ -425,3 +426,57 @@ def to_tensor_train(
         )
 
 
+def t3_sum(
+        x: typ.Tuple[
+            typ.Tuple[NDArray,...], # tucker_cores
+            typ.Tuple[NDArray,...], # tt_cores
+        ],
+        axis=None,
+):
+    """Sum over axes of TuckerTensorTrain.
+    """
+    tucker_cores, tt_cores = x
+    d = len(tucker_cores)
+
+    use_jax = any([is_jax_ndarray(c) for c in tucker_cores]) or any([is_jax_ndarray(c) for c in tt_cores])
+    xnp, _, _ = get_backend(False, use_jax)
+
+    if axis is None:
+        axis = list(range(d))
+    elif not isinstance(axis, typ.Sequence):
+        axis = [axis]
+    else:
+        axis = list(axis)
+
+    for ii, ax in enumerate(axis):
+        if ax < 0:
+            ax = d + ax
+            axis[ii] = ax
+        assert(0 <= ax)
+        assert(ax < d)
+
+    axis = sorted(list(set(axis))) # remove duplicates
+
+    S = (tuple(tucker_cores), tuple(tt_cores))
+    while len(axis) > 0:
+        ax = axis[-1]
+        axis = axis[:-1]
+
+        B, G = S[0][ax], S[1][ax]
+
+        M = xnp.einsum('...aib,...io->...ab', G, B)
+
+        if len(S[0]) == 1:
+            S = M.sum(axis=(-2,-1))
+        else:
+            left_tucker,    right_tucker    = list(S[0][:ax]), list(S[0][ax+1:])
+            left_tt,        right_tt        = list(S[1][:ax]), list(S[1][ax+1:])
+
+            if ax == 0:
+                right_tt[0] = xnp.einsum('...ab,...bic->...aic', M, right_tt[0])
+            else:
+                left_tt[-1] = xnp.einsum('...aib,...bc->...aic', left_tt[-1], M)
+
+            S = (tuple(left_tucker + right_tucker), tuple(left_tt + right_tt))
+
+    return S

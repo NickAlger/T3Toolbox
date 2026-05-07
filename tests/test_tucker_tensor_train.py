@@ -1158,6 +1158,63 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                         self.check_relerr(norm_x_true, norm_x)
 
+    def test_sum(self):
+        base_structures = [
+            ((8,),              (4,),           (4, 5)),
+            ((8, 9),            (4, 5),         (4, 5, 4)),
+            ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
+            ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
+        ]
+        stack_shapes = [
+            (),
+            (2,3)
+        ]
+
+        for BASE_STRUCTURE in base_structures:
+            for STACK_SHAPE in stack_shapes:
+                structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                shape, tucker_ranks, tt_ranks, stack_shape = structure
+                x = t3.TuckerTensorTrain.randn(*structure)
+                for X_IS_JAX in [True, False]:
+                    x = x.to_jax() if X_IS_JAX else x
+                    with self.subTest(
+                            BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                            X_IS_JAX=X_IS_JAX, AXES=None,
+                    ):
+                        S = x.sum()
+                        dense_x = x.to_dense()
+                        non_stack_axes = tuple(ii + len(STACK_SHAPE) for ii in range(len(shape)))
+                        S2 = dense_x.sum(axis=non_stack_axes)
+                        self.check_relerr(S2, S)
+
+                    for ax in range(len(shape)):
+                        with self.subTest(
+                                BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                X_IS_JAX=X_IS_JAX, AXES=ax,
+                        ):
+                            S = x.sum(axis=ax)
+                            S_dense = S.to_dense() if isinstance(S, t3.TuckerTensorTrain) else S
+
+                            dense_x = x.to_dense()
+                            shifted_axis = ax + len(x.stack_shape)
+                            S2_dense = dense_x.sum(axis=shifted_axis)
+                            self.check_relerr(S2_dense, S_dense)
+
+                    all_axes = tuple(range(len(shape)))
+                    for num_ax in range(len(all_axes)+1):
+                        for axes in itertools.combinations(all_axes, num_ax):
+                            with self.subTest(
+                                    BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                    X_IS_JAX=X_IS_JAX, AXES=axes,
+                            ):
+                                S = x.sum(axis=axes)
+                                S_dense = S.to_dense() if isinstance(S, t3.TuckerTensorTrain) else S
+
+                                dense_x = x.to_dense()
+                                shifted_axes = tuple(ii + len(x.stack_shape) for ii in axes)
+                                S2_dense = dense_x.sum(axis=shifted_axes)
+                                self.check_relerr(S2_dense, S_dense)
+
     ####
 
     def test_down_svd_tucker_core(self):

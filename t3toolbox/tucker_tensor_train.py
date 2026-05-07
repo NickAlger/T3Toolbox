@@ -817,7 +817,7 @@ class TuckerTensorTrain:
         >>> shape = (5,6,7)
         >>> stack_shape = (2,3)
         >>> FF = [np.random.randn(*(stack_shape+(rank, N))) for N in shape]
-        >>> x = t3.TuckerTensorTrain.from_canonical(FF)
+        >>> x = t3.TuckerTensorTrain.t3_from_canonical(FF)
         >>> x_dense = x.to_dense()
         >>> x_dense2 = np.einsum('abri,abrj,abrk->abijk', FF[0], FF[1], FF[2])
         >>> print(np.linalg.norm(x_dense - x_dense2))
@@ -846,7 +846,7 @@ class TuckerTensorTrain:
                 + 'stack_shapes = ' + str(stack_shapes)
             )
 
-        return TuckerTensorTrain(*ragged_operations.from_canonical(factors))
+        return TuckerTensorTrain(*ragged_operations.t3_from_canonical(factors))
 
     @staticmethod
     def from_tensor_train(
@@ -860,13 +860,13 @@ class TuckerTensorTrain:
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> randn = np.random.randn
         >>> tt_cores = [randn(4,14,5), randn(5,15,3), randn(3,16,2)]
-        >>> x = t3.TuckerTensorTrain.from_tensor_train(tt_cores)
+        >>> x = t3.TuckerTensorTrain.t3_from_tensor_train(tt_cores)
         >>> x_dense = x.to_dense()
         >>> x_dense2 = np.einsum('...aib,...bjc,...ckd->...ijk', *tt_cores)
         >>> print(np.linalg.norm(x_dense - x_dense2))
         1.8303194206478734e-13
         """
-        return TuckerTensorTrain(*ragged_operations.from_tensor_train(tt_cores))
+        return TuckerTensorTrain(*ragged_operations.t3_from_tensor_train(tt_cores))
 
     def to_tensor_train(
             self,
@@ -878,13 +878,13 @@ class TuckerTensorTrain:
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.TuckerTensorTrain.randn((14,15,16), (5,6,7), (2,3,4,1), (2,3))
-        >>> big_tt_cores = x.to_tensor_train()
+        >>> big_tt_cores = x.t3_to_tensor_train()
         >>> x_dense = np.einsum('...aib,...bjc,...ckd->...ijk', *big_tt_cores)
         >>> x_dense2 = x.to_dense()
         >>> print(np.linalg.norm(x_dense - x_dense2))
         2.337172789566996e-12
         """
-        return ragged_operations.to_tensor_train(self.data)
+        return ragged_operations.t3_to_tensor_train(self.data)
 
     #############################################################
     ##########    Converting data to/from 1D vector    ##########
@@ -1475,6 +1475,69 @@ class TuckerTensorTrain:
         return ragged_linalg.t3_norm(
             self.data, use_orthogonalization=use_orthogonalization,
         )
+
+    def sum(
+            self,
+            axis=None,
+    ):
+        """Sum over axes of TuckerTensorTrain.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.TuckerTensorTrain.randn((10,11,12,13), (7,8,9,10), (2,3,4,3,1), (2,3))
+        >>> S = x.sum()
+        >>> dense_x = x.to_dense()
+        >>> non_stack_axes = (2,3,4,5)
+        >>> print(np.linalg.norm(S - dense_x.sum(axis=non_stack_axes)))
+        1.4038073554965914e-10
+        >>> print(type(S))
+        <class 'numpy.ndarray'>
+        >>> print(S.shape)
+        (2, 3)
+
+        Axis is a tuple of ints:
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.TuckerTensorTrain.randn((10,11,12,13), (7,8,9,10), (2,3,4,3,1), (2,3))
+        >>> axis = (1,3)
+        >>> S = x.sum(axis=axis)
+        >>> dense_x = x.to_dense()
+        >>> shifted_axis = tuple(ii + len(x.stack_shape) for ii in axis)
+        >>> print(np.linalg.norm(S.to_dense() - dense_x.sum(axis=shifted_axis)))
+        8.457133031493982e-11
+        >>> print(type(S))
+        <class 't3toolbox.tucker_tensor_train.TuckerTensorTrain'>
+        >>> print(S.shape)
+        (10, 12)
+        >>> print(S.stack_shape)
+        (2, 3)
+
+        Axis is int:
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.TuckerTensorTrain.randn((10,11,12,13), (7,8,9,10), (2,3,4,3,1), (2,3))
+        >>> axis = 1
+        >>> S = x.sum(axis=axis)
+        >>> dense_x = x.to_dense()
+        >>> shifted_axis = axis + len(x.stack_shape)
+        >>> print(np.linalg.norm(S.to_dense() - dense_x.sum(axis=shifted_axis)))
+        4.906645592301091e-11
+        >>> print(type(S))
+        <class 't3toolbox.tucker_tensor_train.TuckerTensorTrain'>
+        >>> print(S.shape)
+        (10, 12, 13)
+        >>> print(S.stack_shape)
+        (2, 3)
+        """
+        result = ragged_operations.t3_sum(self.data, axis=axis)
+        if isinstance(result, typ.Sequence):
+            result = TuckerTensorTrain(*result)
+        return result
+
 
     ##########################################
     ########    Orthogonalization    #########
@@ -2141,6 +2204,11 @@ class TuckerTensorTrain:
         [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
         """
         return probing.probe_t3(ww, self.data, use_jax=use_jax)
+
+
+
+
+
 
 
 
