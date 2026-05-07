@@ -1,7 +1,7 @@
 t3toolbox.backend.contractions.MNa_Maib_MNb_to_MNi
 ==================================================
 
-.. py:function:: t3toolbox.backend.contractions.MNa_Maib_MNb_to_MNi(MNa: t3toolbox.backend.common.NDArray, Maib: t3toolbox.backend.common.NDArray, MNb: t3toolbox.backend.common.NDArray, use_jax: bool = False) -> t3toolbox.backend.common.NDArray
+.. py:function:: t3toolbox.backend.contractions.MNa_Maib_MNb_to_MNi(MNa: t3toolbox.backend.common.NDArray, Maib: t3toolbox.backend.common.NDArray, MNb: t3toolbox.backend.common.NDArray) -> t3toolbox.backend.common.NDArray
 
    Computes contraction MNa,Maib,MNb->MNi.
 
@@ -12,7 +12,7 @@ t3toolbox.backend.contractions.MNa_Maib_MNb_to_MNi
    Vectorize over both N and M:
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import MNa_Maib_MNb_to_MNi
+   >>> from t3toolbox.backend.contractions import MNa_Maib_MNb_to_MNi
    >>> MNa = np.random.randn(2,3, 4,5,6, 10)
    >>> Maib = np.random.randn(2,3, 10,11,12)
    >>> MNb = np.random.randn(2,3, 4,5,6, 12)
@@ -26,7 +26,7 @@ t3toolbox.backend.contractions.MNa_Maib_MNb_to_MNi
    Vectorize over N only
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import MNa_Maib_MNb_to_MNi
+   >>> from t3toolbox.backend.contractions import MNa_Maib_MNb_to_MNi
    >>> MNa = np.random.randn(4,5,6, 10)
    >>> Maib = np.random.randn(10,11,12)
    >>> MNb = np.random.randn(4,5,6, 12)
@@ -40,7 +40,7 @@ t3toolbox.backend.contractions.MNa_Maib_MNb_to_MNi
    Vectorize over both M only:
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import MNa_Maib_MNb_to_MNi
+   >>> from t3toolbox.backend.contractions import MNa_Maib_MNb_to_MNi
    >>> MNa = np.random.randn(2,3, 10)
    >>> Maib = np.random.randn(2,3, 10,11,12)
    >>> MNb = np.random.randn(2,3, 12)
@@ -54,7 +54,7 @@ t3toolbox.backend.contractions.MNa_Maib_MNb_to_MNi
    No vectorization:
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import MNa_Maib_MNb_to_MNi
+   >>> from t3toolbox.backend.contractions import MNa_Maib_MNb_to_MNi
    >>> MNa = np.random.randn(10)
    >>> Maib = np.random.randn(10,11,12)
    >>> MNb = np.random.randn(12)

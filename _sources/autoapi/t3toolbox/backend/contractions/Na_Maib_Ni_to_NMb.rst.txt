@@ -1,7 +1,7 @@
 t3toolbox.backend.contractions.Na_Maib_Ni_to_NMb
 ================================================
 
-.. py:function:: t3toolbox.backend.contractions.Na_Maib_Ni_to_NMb(Na: t3toolbox.backend.common.NDArray, Maib: t3toolbox.backend.common.NDArray, Ni: t3toolbox.backend.common.NDArray, use_jax: bool = False) -> t3toolbox.backend.common.NDArray
+.. py:function:: t3toolbox.backend.contractions.Na_Maib_Ni_to_NMb(Na: t3toolbox.backend.common.NDArray, Maib: t3toolbox.backend.common.NDArray, Ni: t3toolbox.backend.common.NDArray) -> t3toolbox.backend.common.NDArray
 
    Computes vectorized einsum a,aib,i->b, with vectorization over a and i, or aib, or both.
 
@@ -12,7 +12,7 @@ t3toolbox.backend.contractions.Na_Maib_Ni_to_NMb
    Vectorize over both N and M:
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import Na_Maib_Ni_to_NMb
+   >>> from t3toolbox.backend.contractions import Na_Maib_Ni_to_NMb
    >>> xyz_a = np.random.randn(2,3,4, 10)
    >>> uv_aib = np.random.randn(5,6, 10,11,12)
    >>> xyz_i = np.random.randn(2,3,4, 11)
@@ -26,7 +26,7 @@ t3toolbox.backend.contractions.Na_Maib_Ni_to_NMb
    Vectorize over N only
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import Na_Maib_Ni_to_NMb
+   >>> from t3toolbox.backend.contractions import Na_Maib_Ni_to_NMb
    >>> xyz_a = np.random.randn(2,3,4, 10)
    >>> aib = np.random.randn(10,11,12)
    >>> xyz_i = np.random.randn(2,3,4, 11)
@@ -40,7 +40,7 @@ t3toolbox.backend.contractions.Na_Maib_Ni_to_NMb
    Vectorize over both M only:
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import Na_Maib_Ni_to_NMb
+   >>> from t3toolbox.backend.contractions import Na_Maib_Ni_to_NMb
    >>> a = np.random.randn(10)
    >>> uv_aib = np.random.randn(5,6, 10,11,12)
    >>> i = np.random.randn(11)
@@ -54,7 +54,7 @@ t3toolbox.backend.contractions.Na_Maib_Ni_to_NMb
    No vectorization:
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import Na_Maib_Ni_to_NMb
+   >>> from t3toolbox.backend.contractions import Na_Maib_Ni_to_NMb
    >>> a = np.random.randn(10)
    >>> aib = np.random.randn(10,11,12)
    >>> i = np.random.randn(11)

@@ -1,7 +1,7 @@
 t3toolbox.backend.contractions.MNi_Mio_to_MNo
 =============================================
 
-.. py:function:: t3toolbox.backend.contractions.MNi_Mio_to_MNo(MNi: t3toolbox.backend.common.NDArray, Mio: t3toolbox.backend.common.NDArray, use_jax: bool = False) -> t3toolbox.backend.common.NDArray
+.. py:function:: t3toolbox.backend.contractions.MNi_Mio_to_MNo(MNi: t3toolbox.backend.common.NDArray, Mio: t3toolbox.backend.common.NDArray) -> t3toolbox.backend.common.NDArray
 
    Computes contraction i,io->o.
 
@@ -12,7 +12,7 @@ t3toolbox.backend.contractions.MNi_Mio_to_MNo
    Vectorize over both N and M:
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import MNi_Mio_to_MNo
+   >>> from t3toolbox.backend.contractions import MNi_Mio_to_MNo
    >>> Ni = np.random.randn(2,3,4, 10)
    >>> Mio = np.random.randn(5,6, 10,13)
    >>> result = MNi_Mio_to_MNo(Ni, Mio)
@@ -25,7 +25,7 @@ t3toolbox.backend.contractions.MNi_Mio_to_MNo
    Vectorize over N only
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import MNi_Mio_to_MNo
+   >>> from t3toolbox.backend.contractions import MNi_Mio_to_MNo
    >>> Ni = np.random.randn(2,3,4, 10)
    >>> Mio = np.random.randn(10,13)
    >>> result = MNi_Mio_to_MNo(Ni, Mio)
@@ -38,7 +38,7 @@ t3toolbox.backend.contractions.MNi_Mio_to_MNo
    Vectorize over both M only:
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import MNi_Mio_to_MNo
+   >>> from t3toolbox.backend.contractions import MNi_Mio_to_MNo
    >>> Ni = np.random.randn(10)
    >>> Mio = np.random.randn(5,6, 10,13)
    >>> result = MNi_Mio_to_MNo(Ni, Mio)
@@ -51,7 +51,7 @@ t3toolbox.backend.contractions.MNi_Mio_to_MNo
    No vectorization:
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import MNi_Mio_to_MNo
+   >>> from t3toolbox.backend.contractions import MNi_Mio_to_MNo
    >>> Ni = np.random.randn(10)
    >>> Mio = np.random.randn(10,13)
    >>> result = MNi_Mio_to_MNo(Ni, Mio)

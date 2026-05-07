@@ -378,7 +378,7 @@
       <ul>
         <li><a href="autoapi/bv_conversions/bv_to_t3.html#bv_conversions.bv_to_t3">bv_conversions.bv_to_t3()</a>
 </li>
-        <li><a href="autoapi/t3toolbox/backend/apply/t3_apply.html#t3toolbox.backend.apply.t3_apply">t3toolbox.backend.apply.t3_apply()</a>
+        <li><a href="autoapi/t3toolbox/backend/apply/tucker_tensor_train_apply.html#t3toolbox.backend.apply.tucker_tensor_train_apply">t3toolbox.backend.apply.tucker_tensor_train_apply()</a>
 </li>
         <li><a href="autoapi/t3toolbox/backend/common/get_backend.html#t3toolbox.backend.common.get_backend">t3toolbox.backend.common.get_backend()</a>
 </li>
@@ -393,6 +393,8 @@
         <li><a href="autoapi/t3toolbox/backend/common/ragged_scan.html#t3toolbox.backend.common.ragged_scan">t3toolbox.backend.common.ragged_scan()</a>
 </li>
         <li><a href="autoapi/t3toolbox/backend/common/randn.html#t3toolbox.backend.common.randn">t3toolbox.backend.common.randn()</a>
+</li>
+        <li><a href="autoapi/t3toolbox/backend/common/tree_contains_jax.html#t3toolbox.backend.common.tree_contains_jax">t3toolbox.backend.common.tree_contains_jax()</a>
 </li>
         <li><a href="autoapi/t3toolbox/backend/common/xappend.html#t3toolbox.backend.common.xappend">t3toolbox.backend.common.xappend()</a>
 </li>
@@ -418,7 +420,7 @@
 </li>
         <li><a href="autoapi/t3toolbox/backend/contractions/Na_Maib_Ni_to_NMb.html#t3toolbox.backend.contractions.Na_Maib_Ni_to_NMb">t3toolbox.backend.contractions.Na_Maib_Ni_to_NMb()</a>
 </li>
-        <li><a href="autoapi/t3toolbox/backend/entries/get_tucker_tensor_train_entries.html#t3toolbox.backend.entries.get_tucker_tensor_train_entries">t3toolbox.backend.entries.get_tucker_tensor_train_entries()</a>
+        <li><a href="autoapi/t3toolbox/backend/entries/tucker_tensor_train_entries.html#t3toolbox.backend.entries.tucker_tensor_train_entries">t3toolbox.backend.entries.tucker_tensor_train_entries()</a>
 </li>
         <li><a href="autoapi/t3toolbox/backend/linalg/down_svd_pair.html#t3toolbox.backend.linalg.down_svd_pair">t3toolbox.backend.linalg.down_svd_pair()</a>
 </li>
@@ -683,8 +685,6 @@
         <li><a href="autoapi/t3toolbox/tucker_tensor_train/get_core_shapes.html#t3toolbox.tucker_tensor_train.get_core_shapes">t3toolbox.tucker_tensor_train.get_core_shapes()</a>
 </li>
         <li><a href="autoapi/t3toolbox/tucker_tensor_train/get_minimal_ranks.html#t3toolbox.tucker_tensor_train.get_minimal_ranks">t3toolbox.tucker_tensor_train.get_minimal_ranks()</a>
-</li>
-        <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_probe.html#t3toolbox.tucker_tensor_train.t3_probe">t3toolbox.tucker_tensor_train.t3_probe()</a>
 </li>
         <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3svd.html#t3toolbox.tucker_tensor_train.t3svd">t3toolbox.tucker_tensor_train.t3svd()</a>
 </li>
@@ -1124,10 +1124,6 @@
       <li><a href="autoapi/t3toolbox/uniform_tucker_tensor_train/index.html#t3toolbox.uniform_tucker_tensor_train.pack_vectors">pack_vectors (in module t3toolbox.uniform_tucker_tensor_train)</a>
 </li>
   </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe">probe() (t3toolbox.tucker_tensor_train.TuckerTensorTrain method)</a>
-</li>
-  </ul></td>
 </tr></table>
 
 <h2 id="R">R</h2>
@@ -1281,6 +1277,8 @@
 <h2 id="T">T</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3_probe">t3_probe() (t3toolbox.tucker_tensor_train.TuckerTensorTrain method)</a>
+</li>
       <li>
     t3toolbox
 
@@ -1303,10 +1301,10 @@
 </li>
       </ul></li>
       <li>
-    t3toolbox.backend.apply.t3_apply()
+    t3toolbox.backend.apply.tucker_tensor_train_apply()
 
       <ul>
-        <li><a href="autoapi/t3toolbox/backend/apply/t3_apply.html#t3toolbox.backend.apply.t3_apply">built-in function</a>
+        <li><a href="autoapi/t3toolbox/backend/apply/tucker_tensor_train_apply.html#t3toolbox.backend.apply.tucker_tensor_train_apply">built-in function</a>
 </li>
       </ul></li>
       <li>
@@ -1363,6 +1361,13 @@
 
       <ul>
         <li><a href="autoapi/t3toolbox/backend/common/randn.html#t3toolbox.backend.common.randn">built-in function</a>
+</li>
+      </ul></li>
+      <li>
+    t3toolbox.backend.common.tree_contains_jax()
+
+      <ul>
+        <li><a href="autoapi/t3toolbox/backend/common/tree_contains_jax.html#t3toolbox.backend.common.tree_contains_jax">built-in function</a>
 </li>
       </ul></li>
       <li>
@@ -1464,10 +1469,10 @@
 </li>
       </ul></li>
       <li>
-    t3toolbox.backend.entries.get_tucker_tensor_train_entries()
+    t3toolbox.backend.entries.tucker_tensor_train_entries()
 
       <ul>
-        <li><a href="autoapi/t3toolbox/backend/entries/get_tucker_tensor_train_entries.html#t3toolbox.backend.entries.get_tucker_tensor_train_entries">built-in function</a>
+        <li><a href="autoapi/t3toolbox/backend/entries/tucker_tensor_train_entries.html#t3toolbox.backend.entries.tucker_tensor_train_entries">built-in function</a>
 </li>
       </ul></li>
       <li>
@@ -2058,6 +2063,8 @@
         <li><a href="autoapi/t3toolbox/backend/tucker_tensor_train/t3_orthogonalization/left_orthogonalize_t3.html#t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.left_orthogonalize_t3">built-in function</a>
 </li>
       </ul></li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.left_svd_tt_core()
 
@@ -2065,8 +2072,6 @@
         <li><a href="autoapi/t3toolbox/backend/tucker_tensor_train/t3_orthogonalization/left_svd_tt_core.html#t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.left_svd_tt_core">built-in function</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li>
     t3toolbox.backend.tucker_tensor_train.t3_orthogonalization.right_orthogonalize_t3()
 
@@ -2545,13 +2550,6 @@
 
       <ul>
         <li><a href="autoapi/t3toolbox/tucker_tensor_train/get_minimal_ranks.html#t3toolbox.tucker_tensor_train.get_minimal_ranks">built-in function</a>
-</li>
-      </ul></li>
-      <li>
-    t3toolbox.tucker_tensor_train.t3_probe()
-
-      <ul>
-        <li><a href="autoapi/t3toolbox/tucker_tensor_train/t3_probe.html#t3toolbox.tucker_tensor_train.t3_probe">built-in function</a>
 </li>
       </ul></li>
       <li>

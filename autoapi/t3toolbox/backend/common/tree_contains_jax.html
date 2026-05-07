@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>t3toolbox.backend.apply.t3_apply &#8212; T3Toolbox 0.1 Documentation</title>
+    <title>t3toolbox.backend.common.tree_contains_jax &#8212; T3Toolbox 0.1 Documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/backend/apply/t3_apply';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/backend/common/tree_contains_jax';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="t3toolbox.backend.common" href="../common/index.html" />
-    <link rel="prev" title="t3toolbox.backend.apply" href="index.html" />
+    <link rel="next" title="t3toolbox.backend.contractions" href="../contractions/index.html" />
+    <link rel="prev" title="t3toolbox.backend.common.randn" href="randn.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -295,22 +295,23 @@
 </ul>
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="../index.html">t3toolbox.backend</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3 current active has-children"><a class="reference internal" href="index.html">t3toolbox.backend.apply</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l4 current active"><a class="current reference internal" href="#">t3toolbox.backend.apply.t3_apply</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../apply/index.html">t3toolbox.backend.apply</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../apply/tucker_tensor_train_apply.html">t3toolbox.backend.apply.tucker_tensor_train_apply</a></li>
 </ul>
 </details></li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../common/index.html">t3toolbox.backend.common</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="../common/is_boolean_ndarray.html">t3toolbox.backend.common.is_boolean_ndarray</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../common/is_boolean_ndarray.html">t3toolbox.backend.common.is_boolean_ndarray</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../common/ragged_scan.html">t3toolbox.backend.common.ragged_scan</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../common/numpy_scan.html">t3toolbox.backend.common.numpy_scan</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../common/ragged_map.html">t3toolbox.backend.common.ragged_map</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../common/numpy_map.html">t3toolbox.backend.common.numpy_map</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../common/get_backend.html">t3toolbox.backend.common.get_backend</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../common/xcat.html">t3toolbox.backend.common.xcat</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../common/xappend.html">t3toolbox.backend.common.xappend</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../common/xprepend.html">t3toolbox.backend.common.xprepend</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../common/randn.html">t3toolbox.backend.common.randn</a></li>
+<li class="toctree-l3 current active has-children"><a class="reference internal" href="index.html">t3toolbox.backend.common</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l4"><a class="reference internal" href="is_boolean_ndarray.html">t3toolbox.backend.common.is_boolean_ndarray</a></li>
+<li class="toctree-l4"><a class="reference internal" href="is_boolean_ndarray.html">t3toolbox.backend.common.is_boolean_ndarray</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ragged_scan.html">t3toolbox.backend.common.ragged_scan</a></li>
+<li class="toctree-l4"><a class="reference internal" href="numpy_scan.html">t3toolbox.backend.common.numpy_scan</a></li>
+<li class="toctree-l4"><a class="reference internal" href="ragged_map.html">t3toolbox.backend.common.ragged_map</a></li>
+<li class="toctree-l4"><a class="reference internal" href="numpy_map.html">t3toolbox.backend.common.numpy_map</a></li>
+<li class="toctree-l4"><a class="reference internal" href="get_backend.html">t3toolbox.backend.common.get_backend</a></li>
+<li class="toctree-l4"><a class="reference internal" href="xcat.html">t3toolbox.backend.common.xcat</a></li>
+<li class="toctree-l4"><a class="reference internal" href="xappend.html">t3toolbox.backend.common.xappend</a></li>
+<li class="toctree-l4"><a class="reference internal" href="xprepend.html">t3toolbox.backend.common.xprepend</a></li>
+<li class="toctree-l4"><a class="reference internal" href="randn.html">t3toolbox.backend.common.randn</a></li>
+<li class="toctree-l4 current active"><a class="current reference internal" href="#">t3toolbox.backend.common.tree_contains_jax</a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../contractions/index.html">t3toolbox.backend.contractions</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -326,7 +327,7 @@
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../entries/index.html">t3toolbox.backend.entries</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="../entries/get_tucker_tensor_train_entries.html">t3toolbox.backend.entries.get_tucker_tensor_train_entries</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../entries/tucker_tensor_train_entries.html">t3toolbox.backend.entries.tucker_tensor_train_entries</a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../linalg/index.html">t3toolbox.backend.linalg</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -443,7 +444,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/TuckerTensorTrain.html">t3toolbox.tucker_tensor_train.TuckerTensorTrain</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/get_core_shapes.html">t3toolbox.tucker_tensor_train.get_core_shapes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/get_minimal_ranks.html">t3toolbox.tucker_tensor_train.get_minimal_ranks</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_probe.html">t3toolbox.tucker_tensor_train.t3_probe</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3svd_dense.html">t3toolbox.tucker_tensor_train.t3svd_dense</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3svd.html">t3toolbox.tucker_tensor_train.t3svd</a></li>
 </ul>
@@ -574,9 +574,9 @@
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">t3toolbox.backend</a></li>
     
     
-    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.backend.apply</a></li>
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">t3toolbox.backend.common</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.backend.apply.t3_apply</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">t3toolbox.backend.common.tree_contains_jax</span></li>
   </ul>
 </nav>
 </div>
@@ -593,13 +593,12 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="t3toolbox-backend-apply-t3-apply">
-<h1>t3toolbox.backend.apply.t3_apply<a class="headerlink" href="#t3toolbox-backend-apply-t3-apply" title="Link to this heading">#</a></h1>
+  <section id="t3toolbox-backend-common-tree-contains-jax">
+<h1>t3toolbox.backend.common.tree_contains_jax<a class="headerlink" href="#t3toolbox-backend-common-tree-contains-jax" title="Link to this heading">#</a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="t3toolbox.backend.apply.t3_apply">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.backend.apply.</span></span><span class="sig-name descname"><span class="pre">t3_apply</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.backend.common.typ.Union</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.backend.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.backend.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><span class="pre">t3toolbox.backend.common.typ.Tuple</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">vecs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">t3toolbox.backend.common.typ.Union</span><span class="p"><span class="pre">[</span></span><span class="pre">t3toolbox.backend.common.typ.Sequence</span><span class="p"><span class="pre">[</span></span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference internal" href="../common/index.html#id1" title="t3toolbox.backend.common.NDArray"><span class="pre">t3toolbox.backend.common.NDArray</span></a></span></span><a class="headerlink" href="#t3toolbox.backend.apply.t3_apply" title="Link to this definition">#</a></dt>
-<dd><p>Contract a Tucker tensor train with vectors in all indices.</p>
-</dd></dl>
+<dt class="sig sig-object py" id="t3toolbox.backend.common.tree_contains_jax">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.backend.common.</span></span><span class="sig-name descname"><span class="pre">tree_contains_jax</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">T</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.backend.common.tree_contains_jax" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
 
 </section>
 
@@ -614,20 +613,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="index.html"
+       href="randn.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">t3toolbox.backend.apply</p>
+        <p class="prev-next-title">t3toolbox.backend.common.randn</p>
       </div>
     </a>
     <a class="right-next"
-       href="../common/index.html"
+       href="../contractions/index.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.backend.common</p>
+        <p class="prev-next-title">t3toolbox.backend.contractions</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -650,14 +649,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.backend.apply.t3_apply"><code class="docutils literal notranslate"><span class="pre">t3toolbox.backend.apply.t3_apply()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.backend.common.tree_contains_jax"><code class="docutils literal notranslate"><span class="pre">t3toolbox.backend.common.tree_contains_jax()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../../_sources/autoapi/t3toolbox/backend/apply/t3_apply.rst.txt">
+    <a href="../../../../_sources/autoapi/t3toolbox/backend/common/tree_contains_jax.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

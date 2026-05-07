@@ -47,7 +47,7 @@
     <link rel="icon" href="../../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../../genindex.html" />
     <link rel="search" title="Search" href="../../../../search.html" />
-    <link rel="next" title="t3toolbox.backend.entries.get_tucker_tensor_train_entries" href="get_tucker_tensor_train_entries.html" />
+    <link rel="next" title="t3toolbox.backend.entries.tucker_tensor_train_entries" href="tucker_tensor_train_entries.html" />
     <link rel="prev" title="t3toolbox.backend.contractions.dMNi_dMio_to_dMNo" href="../contractions/dMNi_dMio_to_dMNo.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -296,7 +296,7 @@
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="../index.html">t3toolbox.backend</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
 <li class="toctree-l3 has-children"><a class="reference internal" href="../apply/index.html">t3toolbox.backend.apply</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="../apply/t3_apply.html">t3toolbox.backend.apply.t3_apply</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../apply/tucker_tensor_train_apply.html">t3toolbox.backend.apply.tucker_tensor_train_apply</a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../common/index.html">t3toolbox.backend.common</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -311,6 +311,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../common/xappend.html">t3toolbox.backend.common.xappend</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../common/xprepend.html">t3toolbox.backend.common.xprepend</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../common/randn.html">t3toolbox.backend.common.randn</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../common/tree_contains_jax.html">t3toolbox.backend.common.tree_contains_jax</a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../contractions/index.html">t3toolbox.backend.contractions</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -326,7 +327,7 @@
 </ul>
 </details></li>
 <li class="toctree-l3 current active has-children"><a class="current reference internal" href="#">t3toolbox.backend.entries</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="get_tucker_tensor_train_entries.html">t3toolbox.backend.entries.get_tucker_tensor_train_entries</a></li>
+<li class="toctree-l4"><a class="reference internal" href="tucker_tensor_train_entries.html">t3toolbox.backend.entries.tucker_tensor_train_entries</a></li>
 </ul>
 </details></li>
 <li class="toctree-l3 has-children"><a class="reference internal" href="../linalg/index.html">t3toolbox.backend.linalg</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -443,7 +444,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/TuckerTensorTrain.html">t3toolbox.tucker_tensor_train.TuckerTensorTrain</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/get_core_shapes.html">t3toolbox.tucker_tensor_train.get_core_shapes</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/get_minimal_ranks.html">t3toolbox.tucker_tensor_train.get_minimal_ranks</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3_probe.html">t3toolbox.tucker_tensor_train.t3_probe</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3svd_dense.html">t3toolbox.tucker_tensor_train.t3svd_dense</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../tucker_tensor_train/t3svd.html">t3toolbox.tucker_tensor_train.t3svd</a></li>
 </ul>
@@ -598,7 +598,7 @@
 </div>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="get_tucker_tensor_train_entries.html#t3toolbox.backend.entries.get_tucker_tensor_train_entries" title="t3toolbox.backend.entries.get_tucker_tensor_train_entries"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_tucker_tensor_train_entries</span></code></a>(...)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="tucker_tensor_train_entries.html#t3toolbox.backend.entries.tucker_tensor_train_entries" title="t3toolbox.backend.entries.tucker_tensor_train_entries"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tucker_tensor_train_entries</span></code></a>(...)</p></td>
 <td><p>Compute entries of a Tucker tensor train.</p></td>
 </tr>
 </tbody>
@@ -627,11 +627,11 @@
       </div>
     </a>
     <a class="right-next"
-       href="get_tucker_tensor_train_entries.html"
+       href="tucker_tensor_train_entries.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">t3toolbox.backend.entries.get_tucker_tensor_train_entries</p>
+        <p class="prev-next-title">t3toolbox.backend.entries.tucker_tensor_train_entries</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

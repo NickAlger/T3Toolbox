@@ -1,7 +1,7 @@
 t3toolbox.backend.contractions.dMNi_dMio_to_dMNo
 ================================================
 
-.. py:function:: t3toolbox.backend.contractions.dMNi_dMio_to_dMNo(dMNi: t3toolbox.backend.common.NDArray, dMio: t3toolbox.backend.common.NDArray, use_jax: bool = False) -> t3toolbox.backend.common.NDArray
+.. py:function:: t3toolbox.backend.contractions.dMNi_dMio_to_dMNo(dMNi: t3toolbox.backend.common.NDArray, dMio: t3toolbox.backend.common.NDArray) -> t3toolbox.backend.common.NDArray
 
    Computes named contraction.
 
@@ -12,7 +12,7 @@ t3toolbox.backend.contractions.dMNi_dMio_to_dMNo
    Vectorize over both N and M:
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import dMNi_dMio_to_dMNo
+   >>> from t3toolbox.backend.contractions import dMNi_dMio_to_dMNo
    >>> dMNi = np.random.randn(8, 5,6, 2,3,4, 10)
    >>> dMio = np.random.randn(8, 5,6, 10,13)
    >>> result = dMNi_dMio_to_dMNo(dMNi, dMio)
@@ -25,7 +25,7 @@ t3toolbox.backend.contractions.dMNi_dMio_to_dMNo
    Vectorize over N only
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import dMNi_dMio_to_dMNo
+   >>> from t3toolbox.backend.contractions import dMNi_dMio_to_dMNo
    >>> dMNi = np.random.randn(8, 2,3,4, 10)
    >>> dMio = np.random.randn(8, 10,13)
    >>> result = dMNi_dMio_to_dMNo(dMNi, dMio)
@@ -38,7 +38,7 @@ t3toolbox.backend.contractions.dMNi_dMio_to_dMNo
    Vectorize over both M only:
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import dMNi_dMio_to_dMNo
+   >>> from t3toolbox.backend.contractions import dMNi_dMio_to_dMNo
    >>> dMNi = np.random.randn(8, 5,6, 10)
    >>> dMio = np.random.randn(8, 5,6, 10,13)
    >>> result = dMNi_dMio_to_dMNo(dMNi, dMio)
@@ -51,7 +51,7 @@ t3toolbox.backend.contractions.dMNi_dMio_to_dMNo
    No vectorization:
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import dMNi_dMio_to_dMNo
+   >>> from t3toolbox.backend.contractions import dMNi_dMio_to_dMNo
    >>> dMNi = np.random.randn(8, 10)
    >>> dMio = np.random.randn(8, 10,13)
    >>> result = dMNi_dMio_to_dMNo(dMNi, dMio)

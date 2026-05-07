@@ -1,7 +1,7 @@
 t3toolbox.backend.contractions.MNa_Maib_No_Mio_to_MNb
 =====================================================
 
-.. py:function:: t3toolbox.backend.contractions.MNa_Maib_No_Mio_to_MNb(MNa: t3toolbox.backend.common.NDArray, Maib: t3toolbox.backend.common.NDArray, No: t3toolbox.backend.common.NDArray, Mio: t3toolbox.backend.common.NDArray, use_jax: bool = False) -> t3toolbox.backend.common.NDArray
+.. py:function:: t3toolbox.backend.contractions.MNa_Maib_No_Mio_to_MNb(MNa: t3toolbox.backend.common.NDArray, Maib: t3toolbox.backend.common.NDArray, No: t3toolbox.backend.common.NDArray, Mio: t3toolbox.backend.common.NDArray) -> t3toolbox.backend.common.NDArray
 
    Computes vectorized einsum a,aib,o,io->b, with vectorization over a and i, or aib and io, or both.
 
@@ -12,7 +12,7 @@ t3toolbox.backend.contractions.MNa_Maib_No_Mio_to_MNb
    Vectorize over both N and M:
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import MNa_Maib_No_Mio_to_MNb
+   >>> from t3toolbox.backend.contractions import MNa_Maib_No_Mio_to_MNb
    >>> uv_xyz_a = np.random.randn(5,6, 2,3,4, 10)
    >>> uv_aib = np.random.randn(5,6, 10,11,12)
    >>> xyz_o = np.random.randn(2,3,4, 13)
@@ -27,7 +27,7 @@ t3toolbox.backend.contractions.MNa_Maib_No_Mio_to_MNb
    Vectorize over N only
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import MNa_Maib_No_Mio_to_MNb
+   >>> from t3toolbox.backend.contractions import MNa_Maib_No_Mio_to_MNb
    >>> xyz_a = np.random.randn(2,3,4, 10)
    >>> aib = np.random.randn(10,11,12)
    >>> xyz_o = np.random.randn(2,3,4, 13)
@@ -42,7 +42,7 @@ t3toolbox.backend.contractions.MNa_Maib_No_Mio_to_MNb
    Vectorize over both M only:
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import MNa_Maib_No_Mio_to_MNb
+   >>> from t3toolbox.backend.contractions import MNa_Maib_No_Mio_to_MNb
    >>> uv_a = np.random.randn(5,6, 10)
    >>> uv_aib = np.random.randn(5,6, 10,11,12)
    >>> o = np.random.randn(13)
@@ -57,7 +57,7 @@ t3toolbox.backend.contractions.MNa_Maib_No_Mio_to_MNb
    No vectorization:
 
    >>> import numpy as np
-   >>> from t3toolbox.utils.contractions import MNa_Maib_No_Mio_to_MNb
+   >>> from t3toolbox.backend.contractions import MNa_Maib_No_Mio_to_MNb
    >>> a = np.random.randn(10)
    >>> aib = np.random.randn(10,11,12)
    >>> o = np.random.randn(13)

@@ -43,6 +43,7 @@ Functions
    /autoapi/t3toolbox/backend/common/xappend
    /autoapi/t3toolbox/backend/common/xprepend
    /autoapi/t3toolbox/backend/common/randn
+   /autoapi/t3toolbox/backend/common/tree_contains_jax
 
 .. autoapisummary::
 
@@ -57,6 +58,7 @@ Functions
    t3toolbox.backend.common.xappend
    t3toolbox.backend.common.xprepend
    t3toolbox.backend.common.randn
+   t3toolbox.backend.common.tree_contains_jax
 
 
 Module Contents
