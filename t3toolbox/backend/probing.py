@@ -251,11 +251,11 @@ def compute_xis(
     xi_weights = up_tucker_weights
 
     if is_uniform:
-        unweighted_xis = contractions.dMio_dNo_to_dMNi(up_tucker_cores, ww)
+        unweighted_xis = contractions.dGio_dFo_to_dGFi(up_tucker_cores, ww)
     else:
         def _func(x):
             U, w = x
-            unweighted_xi = contractions.Mio_No_to_MNi(U, w)
+            unweighted_xi = contractions.Gio_Fo_to_GFi(U, w)
             return (unweighted_xi,)
 
         (unweighted_xis,) = xmap(_func, (up_tucker_cores, ww))
@@ -301,7 +301,7 @@ def compute_mus(
         else:
             mu = unweighted_mu
 
-        unweighted_mu_next = contractions.MNa_Maib_MNi_to_MNb(mu, P, xi)
+        unweighted_mu_next = contractions.GFa_Gaib_GFi_to_GFb(mu, P, xi)
 
         return unweighted_mu_next, (mu,)
 
@@ -371,11 +371,11 @@ def compute_etas(
     eta_weights = outer_tucker_weights
 
     if is_uniform:
-        unweighted_etas = contractions.dMNa_dMaib_dMNb_to_dMNi(mus, outer_tt_cores, nus)
+        unweighted_etas = contractions.dGFa_dGaib_dGFb_to_dGFi(mus, outer_tt_cores, nus)
     else:
         def _func(x):
             mu, G, nu = x
-            unweighted_eta = contractions.MNa_Maib_MNb_to_MNi(mu, G, nu)
+            unweighted_eta = contractions.GFa_Gaib_GFb_to_GFi(mu, G, nu)
             return (unweighted_eta,)
 
         (unweighted_etas,) = xmap(_func, (mus, outer_tt_cores, nus))
@@ -409,11 +409,11 @@ def assemble_zs(
     z_weights = shape_weights
 
     if is_uniform:
-        unweighted_zs = contractions.dMNi_dMio_to_dMNo(etas, tucker_cores)
+        unweighted_zs = contractions.dGFi_dGio_to_dGFo(etas, tucker_cores)
     else:
         def _func(x):
             eta, U = x
-            unweighted_z = contractions.MNi_Mio_to_MNo(eta, U)
+            unweighted_z = contractions.GFi_Gio_to_GFo(eta, U)
             return (unweighted_z,)
 
         (unweighted_zs,) = xmap(_func, (etas, tucker_cores))
