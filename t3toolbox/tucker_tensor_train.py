@@ -2141,12 +2141,25 @@ class TuckerTensorTrain:
     ) -> NDArray:
         '''Compute an entry (or multiple entries) of a Tucker tensor train.
 
-        See Also:
-        ---------
-        t3_apply
+        This is the entry of the N0 x ... x N(d-1) tensor *represented* by the
+        Tucker tensor train, even though this dense tensor is never formed.
 
         Examples
         --------
+
+        Compute one entry:
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> index = [9, 4, 7] # get entry (9,4,7)
+        >>> result = x.entries(index)
+        >>> result2 = x.to_dense()[9, 4, 7]
+        >>> print(np.abs(result - result2))
+        1.3322676295501878e-15
+
+        Compute multiple entries (vectorized):
+
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
@@ -2156,8 +2169,63 @@ class TuckerTensorTrain:
         >>> entries2 = np.array([x_dense[9, 4, 7], x_dense[8, 10, 13]])
         >>> print(np.linalg.norm(entries - entries2))
         1.7763568394002505e-15
+
+        Vectorize over entries AND T3s
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,2), stack_shape=(2,3))
+        >>> index = [[9,0], [4,0], [7,0]] # get entries (9,4,7) and (0,0,0)
+        >>> entries = x.entries(index)
+        >>> x_dense = x.to_dense()
+        >>> entries2 = np.moveaxis(np.array([x_dense[:,:, 9,4,7], x_dense[:,:, 0,0,0]]), 0,2)
+        >>> print(np.linalg.norm(entries - entries2))
+        9.22170384909466e-15
+
+        Example using jax jit compiling:
+
+    	>>> import numpy as np
+        >>> import jax
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> get_entry_123 = lambda x: x.entries((1,2,3))
+        >>> A = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1)).to_jax() # random 10x10x10 Tucker tensor train
+        >>> a123 = get_entry_123(A)
+        >>> print(a123)
+        -1.3764521
+        >>> get_entry_123_jit = jax.jit(get_entry_123) # jit compile
+        >>> a123_jit = get_entry_123_jit(A)
+        >>> print(a123_jit)
+        -1.3764523
+
+        Example using jax automatic differentiation
+
+        >>> import numpy as np
+        >>> import jax
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.corewise as cw
+        >>> jax.config.update("jax_enable_x64", True) # enable double precision for finite difference
+        >>> get_entry_123 = lambda x: x.entries((1,2,3))
+        >>> A0 = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1)).to_jax() # random 10x10x10 Tucker tensor train
+        >>> f0 = get_entry_123(A0)
+        >>> G0 = jax.grad(get_entry_123)(A0) # gradient using automatic differentiation
+        >>> dA = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1)).to_jax()
+        >>> df = cw.corewise_dot(dA.data, G0.data) # sensitivity in direction dA
+        >>> print(df)
+        -7.418801772515241
+        >>> s = 1e-7
+        >>> A1 = cw.corewise_add(A0.data, cw.corewise_scale(dA.data, s)) # A1 = A0 + s*dA
+        >>> f1 = get_entry_123(t3.TuckerTensorTrain(*A1))
+        >>> df_diff = (f1 - f0) / s # finite difference
+        >>> print(df_diff)
+        -7.418812309825662
         '''
-        return t3_entries(self, index)
+        if len(index) != self.d:
+            raise ValueError(
+                'Wrong number of indices for Tucker tensor train.\n'
+                + str(self.d) + ' = num tensor indices != num provided indices = ' + str(index.shape[0])
+            )
+
+        return entries.get_tucker_tensor_train_entries(self.data, index)
 
     def apply(
             self,
@@ -2407,126 +2475,6 @@ def t3_apply(
     result = apply.t3_apply(x.data, vecs, use_jax=use_jax)
 
     return result
-
-
-def t3_entries(
-        x: TuckerTensorTrain, # shape=(N0,...,N(d-1))
-        index: NDArray, # or convertible to NDArray. dtype=int
-) -> NDArray:
-    '''Compute an entry (or multiple entries) of a Tucker tensor train.
-
-    This is the entry of the N0 x ... x N(d-1) tensor *represented* by the
-    Tucker tensor train, even though this dense tensor is never formed.
-
-    Parameters
-    ----------
-    x: TuckerTensorTrain
-        Tucker tensor train. shape=(N0,...,N(d-1))
-    index: NDArray or convertible to NDArray, dtype=int
-        Indices of desired entries. shape=(d,)+index_stack_shape
-        len(index)=d. If many entries: elm_size=num_entries
-    xnp:
-        Linear algebra backend. Default: np (numpy)
-
-    Returns
-    -------
-    scalar or NDArray
-        Desired entries.shape=(index_stack_shape,)
-
-    Raises
-    ------
-    ValueError
-        Error raised if the provided indices in index are inconsistent with each other or the Tucker tensor train x.
-
-    See Also
-    --------
-    TuckerTensorTrain
-    t3_shape
-    t3_apply
-
-    Examples
-    --------
-
-    Compute one entry:
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-    >>> index = [9, 4, 7] # get entry (9,4,7)
-    >>> result = t3.t3_entries(x, index)
-    >>> result2 = x.to_dense()[9, 4, 7]
-    >>> print(np.abs(result - result2))
-    1.3322676295501878e-15
-
-    Compute multiple entries (vectorized):
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-    >>> index = [[9,8], [4,10], [7,13]] # get entries (9,4,7) and (8,10,13)
-    >>> entries = t3.t3_entries(x, index)
-    >>> x_dense = x.to_dense(x)
-    >>> entries2 = np.array([x_dense[9, 4, 7], x_dense[8, 10, 13]])
-    >>> print(np.linalg.norm(entries - entries2))
-    1.7763568394002505e-15
-
-    Vectorize over entries AND T3s
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2), stack_shape=(2,3))
-    >>> index = [[9,0], [4,0], [7,0]] # get entries (9,4,7) and (0,0,0)
-    >>> entries = t3.t3_entries(x, index)
-    >>> x_dense = x.to_dense()
-    >>> entries2 = np.moveaxis(np.array([x_dense[:,:, 9,4,7], x_dense[:,:, 0,0,0]]), 0,2)
-    >>> print(np.linalg.norm(entries - entries2))
-    9.22170384909466e-15
-
-    Example using jax jit compiling:
-
-	>>> import numpy as np
-    >>> import jax
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> get_entry_123 = lambda x: t3.t3_entries(x, (1,2,3), use_jax=True)
-    >>> A = t3.t3_corewise_randn((10,10,10),(5,5,5),(1,4,4,1)) # random 10x10x10 Tucker tensor train
-    >>> a123 = get_entry_123(A)
-    >>> print(a123)
-    -1.3764521
-    >>> get_entry_123_jit = jax.jit(get_entry_123) # jit compile
-    >>> a123_jit = get_entry_123_jit(A)
-    >>> print(a123_jit)
-    -1.3764523
-
-    Example using jax automatic differentiation
-
-    >>> import numpy as np
-    >>> import jax
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.common as common
-    >>> import t3toolbox.corewise as cw
-    >>> jax.config.update("jax_enable_x64", True) # enable double precision for finite difference
-    >>> get_entry_123 = lambda x: t3.t3_entries(x, (1,2,3), use_jax=True)
-    >>> A0 = t3.t3_corewise_randn((10,10,10),(5,5,5),(1,4,4,1)) # random 10x10x10 Tucker tensor train
-    >>> f0 = get_entry_123(A0)
-    >>> G0 = jax.grad(get_entry_123)(A0) # gradient using automatic differentiation
-    >>> dA = t3.t3_corewise_randn((10,10,10),(5,5,5),(1,4,4,1))
-    >>> df = cw.corewise_dot(dA.data, G0.data) # sensitivity in direction dA
-    >>> print(df)
-    -7.418801772515241
-    >>> s = 1e-7
-    >>> A1 = cw.corewise_add(A0.data, cw.corewise_scale(dA.data, s)) # A1 = A0 + s*dA
-    >>> f1 = get_entry_123(t3.TuckerTensorTrain(*A1))
-    >>> df_diff = (f1 - f0) / s # finite difference
-    >>> print(df_diff)
-    -7.418812309825662
-    '''
-    if len(index) != x.d:
-        raise ValueError(
-            'Wrong number of indices for Tucker tensor train.\n'
-            + str(x.d) + ' = num tensor indices != num provided indices = ' + str(index.shape[0])
-        )
-
-    return entries.get_tucker_tensor_train_entries(x.data, index)
 
 
 def t3_probe(
