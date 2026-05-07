@@ -10,26 +10,28 @@ Functions
 .. toctree::
    :hidden:
 
-   /autoapi/t3toolbox/backend/contractions/Na_Maib_Ni_to_NMb
-   /autoapi/t3toolbox/backend/contractions/MNa_Maib_No_Mio_to_MNb
-   /autoapi/t3toolbox/backend/contractions/MNa_Maib_MiN_to_MNb
-   /autoapi/t3toolbox/backend/contractions/Mio_No_to_MNi
-   /autoapi/t3toolbox/backend/contractions/dMio_dNo_to_dMNi
-   /autoapi/t3toolbox/backend/contractions/MNa_Maib_MNb_to_MNi
-   /autoapi/t3toolbox/backend/contractions/dMNa_dMaib_dMNb_to_dMNi
-   /autoapi/t3toolbox/backend/contractions/MNi_Mio_to_MNo
-   /autoapi/t3toolbox/backend/contractions/dMNi_dMio_to_dMNo
+   /autoapi/t3toolbox/backend/contractions/Fa_Gaib_Fi_to_FGb
+   /autoapi/t3toolbox/backend/contractions/GFa_Gaib_Fo_Gio_to_GFb
+   /autoapi/t3toolbox/backend/contractions/GFa_Gaib_GiF_to_GFb
+   /autoapi/t3toolbox/backend/contractions/GFa_Gaib_GFi_to_GFb
+   /autoapi/t3toolbox/backend/contractions/Gio_Fo_to_GFi
+   /autoapi/t3toolbox/backend/contractions/dGio_dFo_to_dGFi
+   /autoapi/t3toolbox/backend/contractions/GFa_Gaib_GFb_to_GFi
+   /autoapi/t3toolbox/backend/contractions/dGFa_dGaib_dGFb_to_dGFi
+   /autoapi/t3toolbox/backend/contractions/GFi_Gio_to_GFo
+   /autoapi/t3toolbox/backend/contractions/dGFi_dGio_to_dGFo
 
 .. autoapisummary::
 
-   t3toolbox.backend.contractions.Na_Maib_Ni_to_NMb
-   t3toolbox.backend.contractions.MNa_Maib_No_Mio_to_MNb
-   t3toolbox.backend.contractions.MNa_Maib_MiN_to_MNb
-   t3toolbox.backend.contractions.Mio_No_to_MNi
-   t3toolbox.backend.contractions.dMio_dNo_to_dMNi
-   t3toolbox.backend.contractions.MNa_Maib_MNb_to_MNi
-   t3toolbox.backend.contractions.dMNa_dMaib_dMNb_to_dMNi
-   t3toolbox.backend.contractions.MNi_Mio_to_MNo
-   t3toolbox.backend.contractions.dMNi_dMio_to_dMNo
+   t3toolbox.backend.contractions.Fa_Gaib_Fi_to_FGb
+   t3toolbox.backend.contractions.GFa_Gaib_Fo_Gio_to_GFb
+   t3toolbox.backend.contractions.GFa_Gaib_GiF_to_GFb
+   t3toolbox.backend.contractions.GFa_Gaib_GFi_to_GFb
+   t3toolbox.backend.contractions.Gio_Fo_to_GFi
+   t3toolbox.backend.contractions.dGio_dFo_to_dGFi
+   t3toolbox.backend.contractions.GFa_Gaib_GFb_to_GFi
+   t3toolbox.backend.contractions.dGFa_dGaib_dGFb_to_dGFi
+   t3toolbox.backend.contractions.GFi_Gio_to_GFo
+   t3toolbox.backend.contractions.dGFi_dGio_to_dGFo
 
 

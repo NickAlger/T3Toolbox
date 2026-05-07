@@ -1,0 +1,8 @@
+t3toolbox.backend.contractions.GFi_Gio_to_GFo
+=============================================
+
+.. py:function:: t3toolbox.backend.contractions.GFi_Gio_to_GFo(GFi: t3toolbox.backend.common.NDArray, Gio: t3toolbox.backend.common.NDArray) -> t3toolbox.backend.common.NDArray
+
+   Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+
