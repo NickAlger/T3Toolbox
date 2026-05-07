@@ -2025,6 +2025,77 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                             self.check_relerr(result2, result)
 
+    def test_probe(self):
+        base_structures = [
+            ((8,),              (4,),           (4, 5)),
+            ((8, 9),            (4, 5),         (4, 5, 4)),
+            ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
+            ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
+        ]
+        stack_shapes = [
+            (),
+            (2, 3),
+        ]
+        vecs_stack_shapes = [
+            (),
+            (5,),
+            (2,3),
+        ]
+
+        for BASE_STRUCTURE in base_structures:
+            shape, tucker_ranks, tt_ranks = BASE_STRUCTURE
+            for STACK_SHAPE in stack_shapes:
+                for VECS_STACK_SHAPE in vecs_stack_shapes:
+                    for USE_JAX in [True, False]:
+                        with self.subTest(
+                                BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                INDEX_STACK_SHAPE=USE_JAX, USE_JAX=USE_JAX
+                        ):
+                            x = t3.TuckerTensorTrain.randn(*(BASE_STRUCTURE + (STACK_SHAPE,)))
+                            if USE_JAX:
+                                x = x.to_jax()
+
+                            vecs = [np.random.randn(*(VECS_STACK_SHAPE + (N,))) for N in shape]
+
+                            result = x.probe(vecs)
+
+                            stack_inds      = list(itertools.product(*[tuple(range(s)) for s in STACK_SHAPE]))
+                            vecs_stack_inds = list(itertools.product(*[tuple(range(s)) for s in VECS_STACK_SHAPE]))
+
+                            x_dense = x.to_dense()
+                            for ind in stack_inds:
+                                X = x_dense[ind]
+                                for vind in vecs_stack_inds:
+                                    zz = [z[ind+vind] for z in result]
+                                    vv = [v[vind] for v in vecs]
+                                    if len(shape) == 1:
+                                        zz_true = [
+                                            np.einsum('i->i', X)
+                                        ]
+                                    elif len(shape) == 2:
+                                        zz_true = [
+                                            np.einsum('ij,j->i', X, vv[1]),
+                                            np.einsum('ij,i->j', X, vv[0]),
+                                        ]
+                                    elif len(shape) == 3:
+                                        zz_true = [
+                                            np.einsum('ijk,j,k->i', X, vv[1], vv[2]),
+                                            np.einsum('ijk,i,k->j', X, vv[0], vv[2]),
+                                            np.einsum('ijk,i,j->k', X, vv[0], vv[1]),
+                                        ]
+                                    elif len(shape) == 4:
+                                        zz_true = [
+                                            np.einsum('ijkl,j,k,l->i', X, vv[1], vv[2], vv[3]),
+                                            np.einsum('ijkl,i,k,l->j', X, vv[0], vv[2], vv[3]),
+                                            np.einsum('ijkl,i,j,l->k', X, vv[0], vv[1], vv[3]),
+                                            np.einsum('ijkl,i,j,k->l', X, vv[0], vv[1], vv[2]),
+                                        ]
+                                    else:
+                                        raise ValueError('shape=' + str(shape))
+
+                                    for z, zt in zip(zz, zz_true):
+                                        self.check_relerr(zt, z)
+
 
 #####
 
