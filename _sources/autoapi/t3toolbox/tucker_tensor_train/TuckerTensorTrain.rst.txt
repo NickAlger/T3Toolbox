@@ -1632,7 +1632,7 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
 
 
 
-   .. py:method:: t3_probe(ww: t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]) -> t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]
+   .. py:method:: probe(ww: t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]) -> t3toolbox.backend.common.typ.Sequence[t3toolbox.backend.common.NDArray]
 
       Probe a TuckerTensorTrain.
 
@@ -1641,38 +1641,44 @@ t3toolbox.tucker_tensor_train.TuckerTensorTrain
       >>> import numpy as np
       >>> import t3toolbox.tucker_tensor_train as t3
       >>> import t3toolbox.backend.probing as probing
-      >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
+      >>> x = t3.TuckerTensorTrain.randn((10,11,12),(5,6,4),(2,3,4,2))
       >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-      >>> zz = t3.t3_probe(ww, x)
+      >>> zz = x.probe(ww)
       >>> x_dense = x.to_dense()
-      >>> zz2 = probing.probe_dense(ww, x_dense)
-      >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
-      [1.0259410400851746e-12, 1.0909087370186656e-12, 3.620283224238675e-13]
+      >>> zz0_true = np.einsum('abc,b,c', x_dense, ww[1], ww[2])
+      >>> zz1_true = np.einsum('abc,a,c', x_dense, ww[0], ww[2])
+      >>> zz2_true = np.einsum('abc,a,b', x_dense, ww[0], ww[1])
+      >>> print(np.linalg.norm(zz[0] - zz0_true))
+      1.5071547731580326e-12
+      >>> print(np.linalg.norm(zz[1] - zz1_true))
+      4.945327672021522e-13
+      >>> print(np.linalg.norm(zz[2] - zz2_true))
+      1.8042504599894852e-12
 
-      Vectorize over probes:
+      Probe with stacked vectors and stacked T3s
 
       >>> import numpy as np
       >>> import t3toolbox.tucker_tensor_train as t3
-      >>> import t3toolbox.backend.probing as probing
-      >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2))
-      >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
-      >>> zz = t3.t3_probe(ww, x)
-      >>> x_dense = x.to_dense()
-      >>> zz2 = probing.probe_dense(ww, x_dense)
-      >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
-      [2.9290244450205316e-12, 2.0347746956505754e-12, 1.7784156096697445e-12]
-
-      Vectorize over probes and T3s:
-
-      >>> import numpy as np
-      >>> import t3toolbox.tucker_tensor_train as t3
-      >>> import t3toolbox.backend.probing as probing
-      >>> x = t3.t3_corewise_randn((10,11,12),(5,6,4),(2,3,4,2), stack_shape=(4,5))
-      >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
-      >>> zz = t3.t3_probe(ww, x)
-      >>> x_dense = x.to_dense()
-      >>> zz2 = probing.probe_dense(ww, x_dense)
-      >>> print([np.linalg.norm(z - z2) for z, z2 in zip(zz, zz2)])
-      [1.4471391818397927e-11, 1.0485601346346092e-11, 1.437623640611662e-11]
+      >>> randn = np.random.randn
+      >>> stack_shape = (2,3)
+      >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,1), stack_shape)
+      >>> vstack_shape = (4,5,1)
+      >>> ww = [randn(*(vstack_shape+(14,))), randn(*(vstack_shape+(15,))), randn(*(vstack_shape+(16,)))]
+      >>> result = x.probe(ww)
+      >>> ii, jj = 1, 2
+      >>> ll, mm, nn =  3, 2, 0
+      >>> result_ij_lmn_0 = result[0][ii,jj, ll,mm,nn]
+      >>> result_ij_lmn_1 = result[1][ii,jj, ll,mm,nn]
+      >>> result_ij_lmn_2 = result[2][ii,jj, ll,mm,nn]
+      >>> x_ij_dense = x.to_dense()[ii,jj]
+      >>> result_ij_lmn_0_true = np.einsum('abc,b,c', x_ij_dense, ww[1][ll,mm,nn], ww[2][ll,mm,nn])
+      >>> result_ij_lmn_1_true = np.einsum('abc,a,c', x_ij_dense, ww[0][ll,mm,nn], ww[2][ll,mm,nn])
+      >>> result_ij_lmn_2_true = np.einsum('abc,a,b', x_ij_dense, ww[0][ll,mm,nn], ww[1][ll,mm,nn])
+      >>> print(np.linalg.norm(result_ij_lmn_0 - result_ij_lmn_0_true))
+      1.7836179565776773e-12
+      >>> print(np.linalg.norm(result_ij_lmn_1 - result_ij_lmn_1_true))
+      1.0522031983404444e-12
+      >>> print(np.linalg.norm(result_ij_lmn_2 - result_ij_lmn_2_true))
+      1.3936060000339696e-12
 
 
