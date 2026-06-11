@@ -129,10 +129,22 @@ Treat everything else as copied-in-and-not-yet-working until checked.
     Verified `probe_tangent` vs `probe_dense` and the adjoint identity `<z, Jv> = <Jᵀz, v>`
     (numpy/jax/stacked). `probe_tangent`/`probe_tangent_transpose` take `base = (U, P, Q, O)`, which
     is `T3Basis.data = (U, O, P, Q)` reordered.
+  - **Slice A.5 (DONE)** — double-stacking. Tangent + transpose probing now work in all four
+    stacking cases (no stack / probe stack F / T3 stack G / both) via the custom **G/F contractions**
+    in `contractions.py` (G = T3 `stack_shape`, F = probe batch; output ordered G then F). Raw `...`
+    einsums only carried F and broke on a stacked T3; the forward path reuses existing contractions,
+    the transpose adds `GFo_Gio_to_GFi` (deta_tilde; G *batched*, not compute_xis' outer form) and
+    the `sum_over_probes` contractions `GFo_GFa_to_Gao`/`Fo_GFa_to_Gao`/`GFi_GFa_GFj_to_Giaj` (sum F,
+    keep G; take `n_probe`). Verified: forward vs dense, adjoint identity (sum + non-sum), np+jax.
+    Also: `contractions.py` now uses `math.prod` (was `np.prod(..., dtype=int)`).
   - **Slice B (TODO)** — `T3Tangent` wrappers in `manifold.py` for the bare Jacobian `𝒥` (probe) and
     its transpose `𝒥ᵀ`, doing the `(U,O,P,Q)→(U,P,Q,O)` reorder. Wrappers do **not** apply the gauge
-    projector `Π` (caller composes the Riemannian `J = 𝒥∘Π` when wanted). Plus real tests in
-    `tests/` (dense reference + adjoint identity, subTest over structures × stack_shapes × np/jax).
+    projector `Π` (caller composes the Riemannian `J = 𝒥∘Π` when wanted). Mirror
+    `TuckerTensorTrain.probe` (thin wrapper → backend). Design wrinkle: the transpose's
+    `sum_over_probes=True` gives variations shaped `G+var` that wrap as a `T3Tangent` at the same
+    basis; `=False` carries an extra probe axis `F` that won't match the basis `stack_shape`. Plus
+    real tests in `tests/` (dense reference + adjoint identity, subTest over structures ×
+    stack_shapes × np/jax).
 - **Deferred / broken**: the uniform layer (`ut3_*`, `ubv_*`, `uniform_*`) — many modules don't even
   import; every `is_uniform` branch in the tangent code was dropped/stubbed. The weighted layer
   (parked `absorb_weights`). `OLD_*.py` files are still tracked.
