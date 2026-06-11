@@ -223,11 +223,23 @@ Treat everything else as copied-in-and-not-yet-working until checked.
       projector `Π`. Transpose: `sum_over_probes=True` → `V=()`;
       `=False` → `V=F` stacked (wraps with no reorder, since slice-3 made the output `F+G = V+G`).
       `probe()` rejects a `V`-stacked input (needs 3-block contractions).
-    - **Slice 5+ (deferred)** — `to_dense`/`to_t3`/`retract`/`project` on `V`-stacked inputs need the
-      backend `ss = base_core.shape[:-2]` constructions in `tangent_operations.py` to use the full
-      `V+G` stack; probing an already-`V`-stacked tangent (forward `J` on a batch of tangents) needs
-      3-block contractions (or map-over-`V`); flipping `apply`/`entries` to `F+G` for whole-library
-      consistency.
+    - **Slice 5 (NEXT — reviewed; it's THREE independent pieces, do as separate slices in this order):**
+      - **5a — heavy tangent ops on `V`-stacked** (`to_dense`/`to_t3`/`retract`; highest value: it's
+        what you do with the transpose's non-sum output). VERIFIED breakage: the *concatenate*-based
+        builders **`bv_to_t3`** (→ `to_dense`) and **`tangent_to_t3`** (→ `to_t3`→`retract`) derive the
+        stack from the *base* core (`G`) and build `zeros`/concat at `G`, but variation cores are
+        `V+G`, so `concatenate` errors on ndim. Fix: derive the full stack from the *variation* cores
+        (`V+G`) and broadcast the base cores (`G`) up to `V+G` before concatenating (+ zeros at `V+G`).
+        The `...`-einsum ops (**gauge projections** and **`project_t3_onto_tangent_space`**) already
+        broadcast base over `V` and WORK as-is. `retract` follows once `to_t3` is fixed (`t3svd` is
+        stack-agnostic). Open: verify/support `project` on a *batch* of input `x` (`V`-stacked).
+      - **5b — flip `apply`/`entries` to `F+G`** (independent of V-stacking; the lone `G+F` holdout =
+        `TuckerTensorTrain.apply`/`entries` + their 2 contractions `GFa_Gaib_Fo_Gio_to_GFb` /
+        `GFa_Gaib_GiF_to_GFb`). Changes their public output stacking + tests/doctests. Quick.
+      - **5c — forward-probe a `V`-stacked tangent** (`J` on a *batch* of tangents; currently rejected
+        by the guard in `T3Tangent.probe`). Needs a 2nd private batch block (`V` on the variation,
+        alongside `F` probes / `G` base). DECISION: do **map-over-`V`** first (vmap/loop the 2-block
+        probe — correct, removes the guard, unvectorized); defer 3-block contractions until a perf need.
 - **Deferred / broken**: the uniform layer (`ut3_*`, `ubv_*`, `uniform_*`) — many modules don't even
   import; every `is_uniform` branch in the tangent code was dropped/stubbed. The weighted layer
   (parked `absorb_weights`). `OLD_*.py` files are still tracked.
