@@ -1,7 +1,7 @@
 corewise_stack_dot
 ==================
 
-.. py:function:: t3toolbox.corewise.corewise_stack_dot(X, Y, n_stack, use_jax = False)
+.. py:function:: t3toolbox.corewise.corewise_stack_dot(X, Y, n_stack)
 
    Like corewise_dot, but vectorized over the leading ``n_stack`` (stack) axes.
 

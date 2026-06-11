@@ -1,4 +1,4 @@
 corewise_relerr
 ===============
 
-.. py:function:: t3toolbox.corewise.corewise_relerr(X_true, X, use_jax = False)
+.. py:function:: t3toolbox.corewise.corewise_relerr(X_true, X)

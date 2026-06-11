@@ -1,7 +1,7 @@
 corewise_sum
 ============
 
-.. py:function:: t3toolbox.corewise.corewise_sum(X, axis=None, use_jax = False)
+.. py:function:: t3toolbox.corewise.corewise_sum(X, axis=None)
 
    Sum each array in a nested object along the given axis or axes, X -> sum(X, axis).
 
