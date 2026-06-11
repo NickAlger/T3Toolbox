@@ -226,6 +226,64 @@ class TestBasisVariationsFormat(unittest.TestCase):
                             self._equal_cores(x.tucker_cores, U[:ii] + (V[ii],) + U[ii + 1:])
                             self._equal_cores(x.tt_cores, L[:ii] + (D[ii],) + R[ii + 1:])
 
+    # ----------------------------------------------------------------------
+    # Reconstruction / orthogonality tier: t3_orthogonal_representations
+    # ----------------------------------------------------------------------
+
+    t3_structures = [
+        #  (shape,             tucker_ranks,   tt_ranks)
+        ((14,),                (4,),           (1, 1)),
+        ((14, 15),             (4, 5),         (1, 3, 1)),
+        ((14, 15, 16),         (4, 5, 6),      (1, 3, 2, 1)),
+        ((14, 15, 16, 17),     (4, 5, 6, 5),   (1, 3, 4, 2, 1)),
+    ]
+
+    def check_relerr(self, xtrue, x):
+        xtrue, x = np.asarray(xtrue), np.asarray(x)
+        self.assertLessEqual(norm(xtrue - x), tol * norm(xtrue))
+
+    def _assert_orthonormal(self, gram, n):
+        # gram has shape stack_shape + (n, n); each stacked block must be the identity
+        self.assertLessEqual(norm(np.asarray(gram) - np.eye(n)), tol)
+
+    def test_orthogonal_representations_reconstruction(self):
+        # Replacing any single hole with its matching variation reconstructs the original tensor.
+        for T3_STRUCTURE in self.t3_structures:
+            for STACK_SHAPE in self.stack_shapes:
+                x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
+                for USE_JAX in [False, True]:
+                    x = x.to_jax() if USE_JAX else x
+                    with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
+                        base, variations = bvf.t3_orthogonal_representations(x)
+                        x_dense = x.to_dense()
+                        for ii in range(x.d):
+                            self.check_relerr(x_dense, bvf.bv_to_t3((True, ii), base, variations).to_dense())
+                            self.check_relerr(x_dense, bvf.bv_to_t3((False, ii), base, variations).to_dense())
+
+    def test_orthogonal_representations_base_orthogonality(self):
+        # U: up-orthogonal (all i); D: outer-orthogonal (all i);
+        # L: left-orthogonal (i=0..d-2); R: right-orthogonal (i=1..d-1).
+        for T3_STRUCTURE in self.t3_structures:
+            for STACK_SHAPE in self.stack_shapes:
+                x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
+                for USE_JAX in [False, True]:
+                    x = x.to_jax() if USE_JAX else x
+                    with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
+                        base, _ = bvf.t3_orthogonal_representations(x)
+                        U = [np.asarray(c) for c in base.up_tucker_cores]
+                        D = [np.asarray(c) for c in base.down_tt_cores]
+                        L = [np.asarray(c) for c in base.left_tt_cores]
+                        R = [np.asarray(c) for c in base.right_tt_cores]
+                        d = x.d
+
+                        for ii in range(d):
+                            self._assert_orthonormal(np.einsum('...io,...jo->...ij', U[ii], U[ii]), U[ii].shape[-2])
+                            self._assert_orthonormal(np.einsum('...iaj,...ibj->...ab', D[ii], D[ii]), D[ii].shape[-2])
+                        for ii in range(d - 1):
+                            self._assert_orthonormal(np.einsum('...iaj,...iak->...jk', L[ii], L[ii]), L[ii].shape[-1])
+                        for ii in range(1, d):
+                            self._assert_orthonormal(np.einsum('...iaj,...kaj->...ik', R[ii], R[ii]), R[ii].shape[-3])
+
 
 if __name__ == "__main__":
     unittest.main()
