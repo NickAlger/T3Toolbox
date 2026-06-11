@@ -2,15 +2,14 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+from __future__ import annotations
+
 import numpy as np
 import typing as typ
 
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.OLD_orthogonalization as orth
-import t3toolbox.t3svd as t3svd
 import t3toolbox.basis_variations_format as bvf
-import t3toolbox.OLD_uniform as ut3
-from t3toolbox.common import *
+from t3toolbox.backend.common import *
 
 __all__ = [
     # Tangent vectors
@@ -33,7 +32,7 @@ __all__ = [
 ####################################################################
 
 def manifold_dim(
-        s = t3.T3Structure,
+        s,
 ) -> int:
     """Get the dimension of the fixed rank T3 manifold with a given structure.
 
