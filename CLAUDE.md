@@ -55,20 +55,15 @@ implements a numbered equation/algorithm, cite it in the docstring.
    (`stack`/`unstack`, `tree_zip`, `apply_func_to_leaf_subtrees`).
 3. the uniform supercore (the separate, deferred representation).
 
-**The custom-contraction toolkit (`backend/contractions.py`)** — when **two** independent batch
-blocks live on *different subsets* of operands, a single `'...'` can't express it (right-aligned
-broadcasting would force the two blocks to align). The canonical case is probing: the **core/base
-stack `G`** (on the cores) and the **probe stack `F`** (on the probe vectors only). So probing is
-built on named grouped-block contractions — `inputs_to_output` with a capital letter per grouped
-block (e.g. `FGa_Gaib_FGi_to_FGb`): each block is reshaped to one flat axis (`math.prod(shape)`, = 1
-when empty, so no-stack / one-stack / both-stack collapse to the same code), einsum'd with the
-capitals, then reshaped back. **Stacking-axis convention (library-wide, base-inner): the core/base
-stack `G` is innermost (adjacent to the indices); extra stacks — probe `F`, tangent `V` — are
-outermost** (`F+G`, `V+G`, `F+V+G`). Why: the `'...'`-broadcast ops (`to_dense`, gauge, linalg)
-replicate a base over the extra axes for free only when `G` is innermost; the custom contractions
-are flops-neutral to order, so they follow the same convention for one consistent layout (no
-boundary-transpose copies). (`apply`/`entries` were the last `G+F` holdout — flipped to `F+G` in
-slice 5b, so the whole library is now base-inner.)
+**Two batch machineries** (full detail + the *why* are in the doc above): (1) **one** broadcastable
+prefix → a leading `'...'` einsum, which rides `stack_shape` for free; (2) **two** independent blocks
+on *different* operand subsets (canonical case: core/base stack `G` on the cores vs probe stack `F` on
+`ww` only — a single `'...'` can't express it) → the named grouped-block contractions in
+`backend/contractions.py` (`FGa_Gaib_FGi_to_FGb` etc.; each capital block reshaped to one flat axis,
+= 1 when empty). **Convention (library-wide, base-inner): core stack `G` innermost, extra stacks
+`F`/`V` outermost** (`F+G`, `V+G`, `F+V+G`) — because `'...'`-broadcast replicates a base over the
+extras for free only when `G` is innermost. (`apply`/`entries` were the last `G+F` holdout — flipped
+in 5b; the whole library is now base-inner.)
 
 **Two gotchas:**
 - **Canonical core-tuple orderings (frontend takes precedence).** `TuckerTensorTrain.data =
@@ -185,127 +180,31 @@ complete — verify by running it.** Worked through and verified so far: `tucker
 `basis_variations_format.py`, `manifold.py`, and the backend functions those three rely on.
 Treat everything else as copied-in-and-not-yet-working until checked.
 
-- **Solid / tested**: `TuckerTensorTrain` + its backend; `basis_variations_format`; `manifold`
-  (`T3Tangent` — full ragged port: linalg with the same-basis guard, gauge projections,
-  `to_dense`/`to_t3`/`zeros`/`randn`/`project`/`retract`, stacking, checkers).
+- **Solid / tested** — *numerical correctness in numpy*; jax **dispatch** (that jax is actually
+  invoked, no hidden numpy) is covered separately by `tests/test_dispatch.py`, **not** a duplicate
+  numerical sweep. So "tested" means the numbers are right and the backend dispatches — it does **not**
+  guarantee every path; two latent bugs (a `t3svd` test bound, a hidden `np.einsum`) surfaced this way.
+  Covered: `TuckerTensorTrain` + its backend; `basis_variations_format`; `manifold` (`T3Tangent` — full
+  ragged port: linalg with the same-basis guard, gauge projections,
+  `to_dense`/`to_t3`/`zeros`/`randn`/`project`/`retract`, two-axis stacking, probing, checkers).
   Tests: `tests/test_tucker_tensor_train.py`, `test_basis_variations_format.py`, `test_manifold.py`,
-  `backend/test_contractions.py`.
-- **In progress — probing (current focus)**: `docs/probing_section6_notes.md` maps the paper
-  (Section 6, the Riemannian Jacobian) to the code.
-  - **Slice A (DONE)** — `backend/probing.py` backend: removed all edge-weighting (weights are
-    absorbed into cores up front, then probe unweighted); harmonized `use_jax` to the house pattern
-    so the tangent path runs; kept every `is_uniform` branch; updated paper refs + doctests.
-    Verified `probe_tangent` vs `probe_dense` and the adjoint identity `<z, Jv> = <Jᵀz, v>`
-    (numpy/jax/stacked). `probe_tangent`/`probe_tangent_transpose` take `base = T3Basis.data`
-    (`(U, O, P, Q)`) directly (the old `(U,P,Q,O)` order was reordered to match the frontend).
-  - **Slice A.5 (DONE)** — double-stacking. Tangent + transpose probing now work in all four
-    stacking cases (no stack / probe stack F / T3 stack G / both) via the custom **G/F contractions**
-    in `contractions.py` (G = T3 `stack_shape`, F = probe batch; output ordered G then F). Raw `...`
-    einsums only carried F and broke on a stacked T3; the forward path reuses existing contractions,
-    the transpose adds `GFo_Gio_to_GFi` (deta_tilde; G *batched*, not compute_xis' outer form) and
-    the `sum_over_probes` contractions `GFo_GFa_to_Gao`/`Fo_GFa_to_Gao`/`GFi_GFa_GFj_to_Giaj` (sum F,
-    keep G; take `n_probe`). Verified: forward vs dense, adjoint identity (sum + non-sum), np+jax.
-    Also: `contractions.py` now uses `math.prod` (was `np.prod(..., dtype=int)`).
-  - **V-stacking rework (in progress)** — generalizing so a `T3Variations` may carry an extra
-    **tangent stack `V`** (a batch of tangent vectors sharing one base) beyond the basis's base stack
-    `G`. Three stacking axes total: `G` = base/core stack (on the cores), `V` = tangent stack (on
-    variations only), `F` = probe stack (on `ww` only); in the transpose `V = F`. **Convention
-    (decided): base-stack INNERMOST, extra stacks OUTERMOST, everywhere** — i.e. order by how
-    core-bound each axis is. Variation cores = `V + G + core`; full probe ordering = `F + V + G`
-    (probe_t3 = `F + G`). Rationale: the bulk of tangent ops combine a base (stack `G`) with a
-    variation via raw `...` einsums, and right-aligned broadcasting replicates the base over the
-    outer extras only when `G` is innermost; probing's custom contractions are flops-neutral to
-    order, so flip them to match (one convention ⇒ no boundary-transpose copies). The `G`/`V` split
-    is **recoverable from the (basis, variations) pairing** (`G = basis.stack_shape` is the trailing
-    suffix of `variations.stack_shape`) — so **no stored field**; `T3Variations` keeps one
-    `stack_shape`. Beware: stacked arrays blow up fast — keep stack dims 1–2, core dims small in
-    tests. Slices:
-    - **Slice 1 (DONE)** — `check_bv_pair`: equality → "`base.stack_shape` is the trailing suffix of
-      `variations.stack_shape`". `+test_check_bv_pair_stacking`.
-    - **Slice 2 (DONE)** — `T3Tangent`: three properties `base_stack_shape`(`G`) /
-      `tangent_stack_shape`(`V`) / `stack_shape`(`V+G`); stack-aware `inner`/`norm` (return a `V+G`
-      array, one value per stacked tangent) via new `corewise.corewise_stack_dot`; `zeros`/`randn`
-      gain a `V` param (gauge already broadcasts the base over `V`); `add`/`sub`/`inner` require
-      matching stacks.
-    - **Slice 3 (DONE)** — flipped the whole probe pipeline to base-inner `F+...+G`: the 11 probing
-      contractions in `contractions.py` (`GF`→`FG`), `probe_*`/`probe_dense`, order-agnostic scan
-      inits. `apply`/`entries` use a DISJOINT contraction set; flipped to `F+G` later in slice 5b.
-      Values/tests order-invariant.
-    - **Slice 4 (DONE)** — `T3Tangent.probe` (`𝒥`, instance method → probes `F+G`) +
-      `T3Tangent.probe_transpose` (`𝒥ᵀ`, staticmethod taking a basis → a `T3Tangent`), passing
-      `basis.data` straight through (probing's `base` order now matches `T3Basis.data`), **no** gauge
-      projector `Π`. Transpose: `sum_over_probes=True` → `V=()`;
-      `=False` → `V=F` stacked (wraps with no reorder, since slice-3 made the output `F+G = V+G`).
-      `probe()` rejects a `V`-stacked input (needs 3-block contractions).
-    - **Slice 5 (THREE independent pieces; do as separate slices in this order):**
-      - **5a (DONE) — heavy tangent ops on `V`-stacked** (`to_dense`/`to_t3`/`retract`/`project`). The
-        semantic model (agreed with Nick): a `V+G`-stacked tangent is a batch of tangent vectors, one
-        per `(v, g)` pair; the base point is ONE object per `g`, **shared/replicated across `V`**.
-        Densifying = densify each pair, stacked `V+G+(N…)`; broadcasting a base core (`G`) against a
-        variation (`V+G`) IS the faithful vectorization of that sharing (base-inner ⇒ `G` is the
-        trailing suffix of `V+G`, so the broadcast is unambiguous). Two code paths, fixed differently
-        on purpose:
-        - **`to_dense` (backend `t3_operations`) made broadcast-stack-aware** (compute the common
-          `np.broadcast_shapes` of all core stacks, `broadcast_to` each core up, then contract). It was
-          the lone *reshape*-based primitive that hard-assumed one shared `vs`; the `...`-einsum ops
-          (gauge, `project_t3_onto_tangent_space`) already broadcast base-`G`/variation-`V+G` tuples, so
-          heterogeneous-but-broadcastable backend tuples are already first-class — `to_dense` just joins
-          them. **`bv_to_t3` left as a thin selector (NOT broadcast there).**
-        - **`tangent_to_t3` (builder) DOES materialize base→`V+G`** (derive `ss` from a variation core;
-          `broadcast_to` every base core before the concats/zeros). Intrinsic, not a workaround: its
-          output is a validated `TuckerTensorTrain`, and `validate()` requires a uniform stack — a
-          doubled-rank core `[U_i ; V_i]` is one array, so `U` (`G`) must be lifted to `V+G`. The
-          asymmetry with `to_dense` is principled (bare-array output vs class instance). `retract`
-          follows (`t3svd` stack-agnostic). **`project` already worked unchanged** on a `V`-stacked `x`.
-        Tests: `test_tangent_stacked_heavy_ops` + `test_project_tangent_stacked` (compare every `(v,g)`
-        slice to the unstacked reference; np+jax). (5a tests slice cores by hand because they predate
-        the two-axis stack/unstack below.)
-      - **Two-axis stack/unstack (DONE, separate slice — found in a `V`-stack audit of `manifold.py`
-        + `basis_variations_format.py`).** The audit found three single-stack assumptions: (i)
-        `T3Tangent.unstack` *crashed* on a `V`-stack (zipped a `G`-deep basis tree with a `V+G`-deep
-        variations tree); (ii) `T3Tangent.stack` was *silently wrong* (over-stacked the basis to
-        `V+G`); (iii) frontend `bvf.bv_to_t3` *crashes* on a `V`-stack (wraps a mixed-stack term in
-        `TuckerTensorTrain`, which `validate()` rejects — same broadcast-on-wrap issue as
-        `tangent_to_t3`; **fixed in the `bv_to_t3` slice below**). Everything else (`+ - * inner norm`, gauge,
-        `is_gauged`, `project`, `probe_transpose`) already handles `V+G` via corewise/`…`-broadcast.
-        Resolution (decided with Nick): the monolithic `stack`/`unstack` can't faithfully invert two
-        stacks (the `V`/`G` split isn't recoverable from a bare tree), so **replaced them with two
-        explicit pairs**, each peeling ONE named stack (so `stack_X` cleanly inverts `unstack_X`):
-        - `unstack_tangents`/`stack_tangents` (peel the tangent stack `V`): a `V`-tree of tangents
-          that **share the base** (`stack_tangents` reuses it, **guard: same `T3Basis` object** —
-          structural identity, as in `inner`/`+`). "For each vector within the basis."
-        - `unstack_basis`/`stack_basis` (peel the base stack `G`): a `G`-tree of single-base-point
-          tangents at **distinct** bases (`stack_basis` places `G` *innermost* → `V+G`; needs
-          interior-axis stacking, which the component `T3Variations.stack` can't do — hence it's a
-          real op, not user-assembled). "For each basis."
-        Pattern: backend functionals in `tangent_operations.py` (`unstack_tangent_stack`/
-        `stack_tangent_stack`/`unstack_base_stack`/`stack_base_stack`, built on `stacking.unstack/
-        stack(axes=…)`) do the array/tree work; the `T3Tangent` methods are thin wrappers doing the
-        compatibility checks + (un)wrapping. `T3Basis`/`T3Variations` keep their single plain
-        `stack`/`unstack`. Tests: `test_unstack_stack_tangents`/`_basis` (round-trip + per-slice dense,
-        incl. multi-axis stacks) + `test_stack_tangents_guard`.
-      - **`bv_to_t3` V-stack fix (DONE, separate slice — audit finding (iii)).** Extracted the 5a
-        `to_dense` broadcast block into a reusable backend helper `broadcast_t3_to_common_stack`
-        (`t3_operations.py`): `np.broadcast_shapes` of all core stacks, `broadcast_to` each core up.
-        `to_dense` now calls it (behavior unchanged). Frontend `bvf.bv_to_t3` calls it on the
-        mixed-stack term (base `G` + one variation `V+G`) before wrapping in `TuckerTensorTrain`, so
-        the term is a valid uniform `V+G`-stack T3. Backend `bv_conversions.bv_to_t3` stays a thin
-        selector (returns the mixed-stack tuple, consumed by broadcast-aware `to_dense`). Test:
-        `test_bv_to_t3_tangent_stacked` (every `(v,g)` slice == unstacked term; np+jax).
-      - **5b (DONE) — flipped `apply`/`entries` to `F+G`** (the last `G+F` holdout; whole library now
-        base-inner). `apply` calls a new `FGa_Gaib_Fo_Gio_to_FGb` (the FG twin of the GF apply
-        contraction); `entries` builds its `xi` as `FGi` (a `moveaxis`) and **reuses the existing
-        `FGa_Gaib_FGi_to_FGb`**. The old GF contractions (`GFa_Gaib_Fo_Gio_to_GFb` /
-        `GFa_Gaib_GiF_to_GFb`) are kept (still tested + toolkit; now unused by apply/entries). Public
-        output stacking flipped `G+F`→`F+G` (vec/index stack outer, T3 stack inner): updated the two
-        frontend docstrings + their stacked doctests' indexing (`[ii,jj, ll,mm,nn]`→`[ll,mm,nn, ii,jj]`)
-        and `test_apply`/`test_entries` (assert `F+G`; reorder the dense reference via `moveaxis`).
-        `+test_FGa_Gaib_Fo_Gio_to_FGb`. (Only consumer of the old order was the deferred/broken uniform
-        layer, already broken.)
-      - **5c — forward-probe a `V`-stacked tangent** (`J` on a *batch* of tangents; currently rejected
-        by the guard in `T3Tangent.probe`). Needs a 2nd private batch block (`V` on the variation,
-        alongside `F` probes / `G` base). DECISION: do **map-over-`V`** first (vmap/loop the 2-block
-        probe — correct, removes the guard, unvectorized); defer 3-block contractions until a perf need.
+  `test_dispatch.py`, `backend/test_contractions.py` (suite ~45s).
+- **Probing + V-stacking (`backend/probing.py`, `manifold.py`)** — done through **slice 5b**; the
+  blow-by-blow is in git history, and `docs/probing_section6_notes.md` maps Section 6 of the paper
+  (the Riemannian Jacobian) to the code. Delivered: forward/transpose probe
+  (`T3Tangent.probe`/`probe_transpose` — bare `J^(s)`/`(J^(s))ᵀ`, no gauge `Π`); the whole pipeline
+  flipped to base-inner `F+(V)+G`; V-stacked heavy ops (`to_dense`/`to_t3`/`retract`/`project` on a
+  batch of tangents sharing one base); two-axis `T3Tangent.unstack_tangents`/`_basis` + `stack_*`;
+  `bv_to_t3` broadcast-on-wrap (`broadcast_t3_to_common_stack`); `apply`/`entries` flipped to `F+G`;
+  jax pytree registration (`T3Tangent` basis-as-aux). **The whole batch/stack design lives in
+  [`docs/batching_and_stacking.md`](docs/batching_and_stacking.md) — read it before touching anything
+  with stack axes.**
+  - **Only remaining piece — 5c: forward-probe a `V`-stacked tangent.** `T3Tangent.probe` rejects a
+    `V`-stacked input (the guard `tangent_stack_shape != ()`), because probing a *batch* of tangents
+    needs a 2nd private batch block (`V` on the variation, alongside `F` probes / `G` base) — i.e. a
+    3-block contraction. DECISION: **map-over-`V`** first (loop on numpy / `jax.vmap` over the variation
+    leaves with the basis fixed as aux — the pytree work makes this clean), removing the guard; defer
+    true 3-block contractions until a perf need.
 - **Deferred / broken**: the uniform layer (`ut3_*`, `ubv_*`, `uniform_*`) — many modules don't even
   import; every `is_uniform` branch in the tangent code was dropped/stubbed. The weighted layer
   (parked `absorb_weights`). `OLD_*.py` files are still tracked.
