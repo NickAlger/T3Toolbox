@@ -10,8 +10,9 @@ TuckerTensorTrain.apply
    :param vecs: Vectors to contract with indices of ``self``. ``len=d``, ``elm_shape=vec_stack_shape+(Ni,)``
    :type vecs: Sequence[NDArray]
 
-   :returns: Result of contracting ``self`` with the vectors in all indices.
-             Scalar if ``vecs`` elements are vectors, ``NDArray`` with shape ``vec_stack_shape`` if ``vecs`` elements are matrices.
+   :returns: Result of contracting ``self`` with the vectors in all indices. Scalar if ``vecs``
+             elements are vectors; ``NDArray`` with ``shape=vec_stack_shape+t3_stack_shape`` (base-inner:
+             vec stack outer, T3 stack inner) if ``vecs`` elements are matrices and/or the T3 is stacked.
    :rtype: NDArray or scalar
 
    :raises ValueError: Error raised if the provided vectors in ``vecs`` are inconsistent with each other or the Tucker tensor train.
@@ -41,9 +42,9 @@ TuckerTensorTrain.apply
    >>> vec_stack_shape = (4,5,1)
    >>> vecs = [randn(*(vec_stack_shape+(14,))), randn(*(vec_stack_shape+(15,))), randn(*(vec_stack_shape+(16,)))]
    >>> result = x.apply(vecs)
-   >>> ii, jj = 1, 2 # T3 stack index
-   >>> ll, mm, nn =  3, 2, 0 # Vectors stack index
-   >>> result_ij_lmn = result[ii,jj, ll,mm,nn]
+   >>> ii, jj = 1, 2 # T3 stack index (inner)
+   >>> ll, mm, nn =  3, 2, 0 # vectors stack index (outer)
+   >>> result_ij_lmn = result[ll,mm,nn, ii,jj]   # base-inner: vec stack outer, T3 stack inner
    >>> x_ij_dense = x.to_dense()[ii,jj]
    >>> vecs_lmn = [vecs[0][ll,mm,nn], vecs[1][ll,mm,nn], vecs[2][ll,mm,nn]]
    >>> result_ij_lmn_true = np.einsum('abc,a,b,c', x_ij_dense, *vecs_lmn)

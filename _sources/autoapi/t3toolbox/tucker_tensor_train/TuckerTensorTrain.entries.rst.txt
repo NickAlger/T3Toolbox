@@ -14,7 +14,8 @@ TuckerTensorTrain.entries
                  ``shape=(d,)+idx_stack_shape``
    :type index: NDArray
 
-   :returns: Array of selected entry or multiple entries with ``shape=idx_stack_shape``
+   :returns: Array of selected entries with ``shape=idx_stack_shape+t3_stack_shape`` (base-inner: the
+             index stack is outer, the T3 stack inner). A scalar for an unstacked T3 and a single index.
    :rtype: :py:class:`.NDArray`
 
    :raises ValueError: If ``len(index)`` is not equal to Tucker tensor train dimension
@@ -44,9 +45,9 @@ TuckerTensorTrain.entries
    >>> idx_stack_shape = (4,5,1)
    >>> index = [choice(14, size=idx_stack_shape), choice(15, size=idx_stack_shape), choice(16, size=idx_stack_shape)]
    >>> entries = x.entries(index)
-   >>> ii, jj = 1, 2
-   >>> ll, mm, nn =  3, 2, 0
-   >>> entry_ij_lmn = entries[ii,jj, ll,mm,nn]
+   >>> ii, jj = 1, 2          # T3 stack index (inner)
+   >>> ll, mm, nn =  3, 2, 0  # index stack (outer)
+   >>> entry_ij_lmn = entries[ll,mm,nn, ii,jj]   # base-inner: idx stack outer, T3 stack inner
    >>> x_ij_dense = x.to_dense()[ii,jj]
    >>> index_lmk = (index[0][ll,mm,nn], index[1][ll,mm,nn], index[2][ll,mm,nn])
    >>> entry_ij_lmn_true = x_ij_dense[index_lmk]
