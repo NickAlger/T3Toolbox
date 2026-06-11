@@ -6,25 +6,24 @@ from __future__ import annotations
 
 import numpy as np
 import typing as typ
+import functools as ft
+from dataclasses import dataclass
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.basis_variations_format as bvf
+import t3toolbox.corewise as cw
+import t3toolbox.backend.stacking as stacking
+import t3toolbox.backend.tangent_operations as tangent_operations
 from t3toolbox.backend.common import *
 
 __all__ = [
-    # Tangent vectors
+    'T3Tangent',
     'manifold_dim',
-    'tangent_to_dense',
-    'tangent_to_t3',
-    'tangent_zeros',
-    'tangent_randn',
-    'absorb_weights_into_tangent_cores',
-    # Projection and retraction
-    'orthogonal_gauge_projection',
-    'oblique_gauge_projection',
-    'project_t3_onto_tangent_space',
-    'retract',
 ]
+
+# NOTE: the module-level tangent_* / *_gauge_projection / project_t3_onto_tangent_space /
+# retract functions below are the pre-refactor implementations, pending port into T3Tangent
+# methods + backend/tangent_operations.py (with stacking). They are not part of the public API.
 
 
 ####################################################################
@@ -77,7 +76,7 @@ def manifold_dim(
     1.1933078683104488e-14
     """
     shape = s[0]
-    min_tucker_ranks, min_tt_ranks = t3.compute_minimal_ranks(s)
+    min_tucker_ranks, min_tt_ranks = t3.TuckerTensorTrain.get_minimal_ranks(s[0], s[1], s[2])
 
     num_cores = len(shape)
     assert(len(min_tucker_ranks) == num_cores)
@@ -98,6 +97,196 @@ def manifold_dim(
         manifold_dim += (N - n) * n
 
     return manifold_dim
+
+
+@dataclass(frozen=True)
+class T3Tangent:
+    """Tangent vector to the manifold of fixed-rank Tucker tensor trains.
+
+    A ``T3Tangent`` bundles a :py:class:`~t3toolbox.basis_variations_format.T3Basis` (the frame at
+    the base point where the tangent space is attached) with a
+    :py:class:`~t3toolbox.basis_variations_format.T3Variations` (the tangent direction in that
+    frame). Bundling them makes "which tangent space" a checkable property: linear algebra between
+    two tangent vectors is only defined when they live in the same tangent space, which here means
+    they hold the **same** ``T3Basis`` object (identity, not merely numerically-equal cores).
+
+    Validity caveats (NOT enforced):
+        - :py:meth:`inner` and :py:meth:`norm` (and faithful corewise linear algebra) equal the
+          Hilbert-Schmidt values only when the basis is **orthogonal** and the variations are
+          **gauged**. These are not checked at construction. Use :py:meth:`is_orthogonal` and
+          :py:meth:`is_gauged` to check, and see each operation's docstring for the failure mode.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.basis_variations_format as bvf
+    >>> import t3toolbox.manifold as t3m
+    >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
+    >>> base, variations = bvf.t3_orthogonal_representations(x)
+    >>> v = t3m.T3Tangent(base, variations)
+    >>> print(v.shape, v.stack_shape)
+    (10, 11, 12) ()
+    >>> print(v.is_orthogonal())   # base from t3_orthogonal_representations is orthogonal
+    True
+    >>> print(v.is_gauged())       # ...but those variations are not gauged
+    False
+    >>> w = 2.0 * v - v            # linear algebra stays in the same tangent space
+    >>> print(np.linalg.norm(w.to_dense() - v.to_dense()))   # (2v - v) == v
+    0.0
+    """
+    basis:      bvf.T3Basis
+    variations: bvf.T3Variations
+
+    def __post_init__(self):
+        bvf.check_bv_pair(self.basis, self.variations)
+
+    @ft.cached_property
+    def d(self) -> int:
+        return self.basis.d
+
+    @ft.cached_property
+    def shape(self) -> typ.Tuple[int, ...]:
+        return self.basis.shape
+
+    @ft.cached_property
+    def stack_shape(self) -> typ.Tuple[int, ...]:
+        return self.basis.stack_shape
+
+    @ft.cached_property
+    def structure(self):
+        return self.basis.structure
+
+    @ft.cached_property
+    def data(self) -> typ.Tuple[bvf.T3Basis, bvf.T3Variations]:
+        return self.basis, self.variations
+
+    ############################################
+    ##########    Conversions    ###############
+    ############################################
+
+    def to_dense(
+            self,
+            include_shift:  bool = False,  # False: tangent vector v. True: base point + v.
+            use_jax:        bool = False,
+    ) -> NDArray:  # shape=stack_shape+(N0,...,N(d-1))
+        """Form the dense tensor represented by this tangent vector.
+
+        The tangent vector is the sum of the 2d single-core-replacement terms (one per Tucker hole
+        and one per TT hole). With ``include_shift=True``, the base point is added (base point + v).
+        """
+        return tangent_operations.tangent_to_dense(
+            self.basis.data, self.variations.data, include_shift=include_shift, use_jax=use_jax,
+        )
+
+    @staticmethod
+    def zeros(
+            basis:      bvf.T3Basis,
+            use_jax:    bool = False,
+    ) -> 'T3Tangent':
+        """Zero tangent vector at a given basis."""
+        xnp, _, _ = get_backend(False, use_jax)
+
+        ss = basis.stack_shape
+        tucker_hole_shapes, tt_hole_shapes = basis.variation_shapes
+        tucker_variations = tuple(xnp.zeros(ss + s) for s in tucker_hole_shapes)
+        tt_variations = tuple(xnp.zeros(ss + s) for s in tt_hole_shapes)
+        return T3Tangent(basis, bvf.T3Variations(tucker_variations, tt_variations))
+
+    ############################################
+    ##########    Linear algebra    ############
+    ############################################
+
+    def _check_same_tangent_space(self, other: 'T3Tangent') -> None:
+        if self.basis is not other.basis:
+            raise ValueError(
+                'Tangent vectors are in different tangent spaces.\n'
+                'Linear algebra between tangent vectors requires the *same* T3Basis object '
+                '(object identity, not merely numerically-equal cores).'
+            )
+
+    def __add__(self, other: 'T3Tangent') -> 'T3Tangent':
+        """Add tangent vectors. Requires both to share the same T3Basis object."""
+        self._check_same_tangent_space(other)
+        return T3Tangent(self.basis, bvf.T3Variations(*cw.corewise_add(self.variations.data, other.variations.data)))
+
+    def __sub__(self, other: 'T3Tangent') -> 'T3Tangent':
+        """Subtract tangent vectors. Requires both to share the same T3Basis object."""
+        self._check_same_tangent_space(other)
+        return T3Tangent(self.basis, bvf.T3Variations(*cw.corewise_sub(self.variations.data, other.variations.data)))
+
+    def __mul__(self, scalar) -> 'T3Tangent':
+        """Scale a tangent vector by a scalar."""
+        return T3Tangent(self.basis, bvf.T3Variations(*cw.corewise_scale(self.variations.data, scalar)))
+
+    __rmul__ = __mul__
+
+    def __neg__(self) -> 'T3Tangent':
+        return self * (-1.0)
+
+    def inner(self, other: 'T3Tangent', use_jax: bool = False):
+        """Inner product of two tangent vectors (corewise dot of the variations).
+
+        .. warning::
+            This equals the Hilbert-Schmidt inner product of the represented tangent vectors only
+            when the basis is orthogonal and BOTH variations are gauged (see :py:meth:`is_gauged`).
+            Otherwise it is merely the corewise dot of the variation cores. Requires the same
+            T3Basis object.
+        """
+        self._check_same_tangent_space(other)
+        return cw.corewise_dot(self.variations.data, other.variations.data, use_jax=use_jax)
+
+    def norm(self, use_jax: bool = False):
+        """Norm of the tangent vector (corewise norm of the variations).
+
+        .. warning::
+            This equals the Hilbert-Schmidt norm only when the basis is orthogonal and the
+            variations are gauged (see :py:meth:`is_gauged`).
+        """
+        return cw.corewise_norm(self.variations.data, use_jax=use_jax)
+
+    ############################################
+    ##########    Validity checkers    #########
+    ############################################
+
+    def is_orthogonal(self, atol: float = 1e-9) -> bool:
+        """True if this tangent's basis is orthogonal. See :py:meth:`T3Basis.is_orthogonal`."""
+        return self.basis.is_orthogonal(atol=atol)
+
+    def is_gauged(self, atol: float = 1e-9) -> bool:
+        """True if the variations are gauged with respect to the basis.
+
+        Gauge conditions (needed for :py:meth:`inner`/:py:meth:`norm` to equal the Hilbert-Schmidt
+        values; not enforced at construction):
+            - ``einsum('...ia,...ja->...ij', U_i, V_i) = 0`` for all i (Tucker variations ⟂ U).
+            - ``einsum('...abi,...abj->...ij', L_i, H_i) = 0`` for i = 0..d-2 (TT variations ⟂ L).
+        """
+        resid = 0.0
+        for U, V in zip(self.basis.up_tucker_cores, self.variations.tucker_variations):
+            g = np.einsum('...ia,...ja->...ij', np.asarray(U), np.asarray(V))
+            resid = max(resid, float(np.max(np.abs(g))))
+        for L, H in zip(self.basis.left_tt_cores[:-1], self.variations.tt_variations[:-1]):
+            g = np.einsum('...abi,...abj->...ij', np.asarray(L), np.asarray(H))
+            resid = max(resid, float(np.max(np.abs(g))))
+        return resid <= atol
+
+    ############################################
+    ##########    Stacking    ##################
+    ############################################
+
+    def unstack(self):
+        """Unstack into an array-like tree of T3Tangents (tree shape = stack_shape)."""
+        basis_tree = self.basis.unstack()
+        variations_tree = self.variations.unstack()
+        paired = stacking.tree_zip(basis_tree, variations_tree)
+        return stacking.apply_func_to_leaf_subtrees(paired, lambda bv: T3Tangent(*bv), (None, None))
+
+    @staticmethod
+    def stack(xx) -> 'T3Tangent':
+        """Stack an array-like tree of T3Tangents into one stacked T3Tangent."""
+        basis_tree = stacking.apply_func_to_leaf_subtrees(xx, lambda t: t.basis, None)
+        variations_tree = stacking.apply_func_to_leaf_subtrees(xx, lambda t: t.variations, None)
+        return T3Tangent(bvf.T3Basis.stack(basis_tree), bvf.T3Variations.stack(variations_tree))
 
 
 def tangent_to_dense(
@@ -331,107 +520,6 @@ def tangent_zeros(
 
     zero_variation = (tucker_vars, tt_vars)
     return zero_variation
-
-
-def absorb_weights_into_tangent_cores(
-        variation:      typ.Union[bvf.T3Variation,      ut3.UniformT3Variation],
-        base:           typ.Union[bvf.T3Base,           ut3.UniformT3Base],
-        edge_weights:   typ.Union[bvf.BVEdgeWeights,    ut3.UniformEdgeWeights] = (None, None, None, None),
-        use_jax: bool = False,
-) -> typ.Tuple[
-    typ.Union[bvf.T3Variation,      ut3.UniformT3Variation], # weighted variation
-    typ.Union[bvf.T3Base,           ut3.UniformT3Base], # weighted base
-]:
-    """Contract edge weights with neighboring cores in base-variation representation.
-
-    Tensor network diagrams illustrating groupings::
-
-             ____     ________     ____
-            /    \   /        \   /    \
-        1---wL--L0---wL--H1---wR--R2---wR--1
-                |        |        |
-              / wU     / wU     / wU
-              | |      | |      | |
-              | U0     | U1     | U2
-              | |      | |      | |
-              \ w      \ w      \ w
-                |        |        |
-
-    and::
-
-             ____     ________     ____
-            /    \   /        \   /    \
-        1---wL--L0---wL--O1---wR--R2---wR--1
-                |        |        |
-              / wU     / wO     / wU
-              | |      | |      | |
-              | U0     | V1     | U2
-              | |      | |      | |
-              \ w      \ w      \ w
-                |        |        |
-
-    """
-    is_uniform = not isinstance(base[0], typ.Sequence)
-    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
-
-    #
-    (shape_weights,
-     up_tucker_weights, outer_tucker_weights,
-     left_tt_weights, right_tt_weights,
-     ) = edge_weights
-
-    (up_tucker_cores0, left_tt_cores0, right_tt_cores0, outer_tt_cores0) = base
-    (var_tucker_cores0, var_tt_cores0) = variation
-
-    if is_uniform:
-        up_tucker_cores = xnp.einsum(
-            'di,dio,do->dio', up_tucker_weights, up_tucker_cores0, shape_weights
-        )
-        var_tucker_cores = xnp.einsum(
-            'di,dio,do->dio', outer_tucker_weights, var_tucker_cores0, shape_weights
-        )
-        left_tt_cores = xnp.einsum(
-            'di,diaj->diaj', left_tt_weights, left_tt_cores0
-        )
-        right_tt_cores = xnp.einsum(
-            'diaj,dj->diaj', right_tt_cores0, right_tt_weights
-        )
-        outer_tt_cores = xnp.einsum(
-            'di,diaj,dj->diaj', left_tt_weights, outer_tt_cores0, right_tt_weights
-        )
-        var_tt_cores = xnp.einsum(
-            'di,diaj,dj->diaj', left_tt_weights, var_tt_cores0, right_tt_weights
-        )
-
-    else:
-        (up_tucker_cores,) = xmap(
-            lambda x: (xnp.einsum('i,io,o->io', x[0], x[1], x[2]),),
-            (up_tucker_weights, up_tucker_cores0, shape_weights)
-        )
-        (var_tucker_cores,) = xmap(
-            lambda x: (xnp.einsum('i,io,o->io', x[0], x[1], x[2]),),
-            (outer_tucker_weights, var_tucker_cores0, shape_weights)
-        )
-        (left_tt_cores,) = xmap(
-            lambda x: (xnp.einsum('i,iaj->iaj', x[0], x[1]),),
-            (left_tt_weights, left_tt_cores0)
-        )
-        (right_tt_cores,) = xmap(
-            lambda x: (xnp.einsum('iaj,j->iaj', x[0], x[1]),),
-            (right_tt_cores0, right_tt_weights)
-        )
-        (outer_tt_cores,) = xmap(
-            lambda x: (xnp.einsum('i,iaj,j->iaj', x[0], x[1], x[2]),),
-            (left_tt_weights, outer_tt_cores0, right_tt_weights)
-        )
-        (var_tt_cores,) = xmap(
-            lambda x: (xnp.einsum('i,iaj,j->iaj', x[0], x[1], x[2]),),
-            (left_tt_weights, var_tt_cores0, right_tt_weights)
-        )
-
-    weighted_base = (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-    weighted_variation = (var_tucker_cores, var_tt_cores)
-    return weighted_variation, weighted_base
 
 
 def tangent_randn(

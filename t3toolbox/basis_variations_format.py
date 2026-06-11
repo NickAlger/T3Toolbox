@@ -217,6 +217,49 @@ class T3Basis:
     ]:
         return self.up_tucker_cores, self.down_tt_cores, self.left_tt_cores, self.right_tt_cores
 
+    def is_orthogonal(self, atol: float = 1e-9) -> bool:
+        '''True if the basis cores are orthogonal in their respective senses.
+
+        Checks (each stacked block; max absolute deviation from identity <= atol):
+            - up_tucker U_i (all i):    ``einsum('...io,...jo->...ij', U, U) = I``
+            - down/outer D_i (all i):   ``einsum('...iaj,...ibj->...ab', D, D) = I``
+            - left L_i (i = 0..d-2):    ``einsum('...iaj,...iak->...jk', L, L) = I``
+            - right R_i (i = 1..d-1):   ``einsum('...iaj,...kaj->...ik', R, R) = I``
+
+        The last left core and the first right core are the (non-orthogonal) boundary remainders
+        and are not checked. This is a non-enforcing convenience checker; ``T3Basis`` does not
+        require orthogonality at construction.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.basis_variations_format as bvf
+        >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
+        >>> base, _ = bvf.t3_orthogonal_representations(x)
+        >>> print(base.is_orthogonal())
+        True
+        '''
+        UU, DD, LL, RR = self.data
+        d = self.d
+
+        def _dev(gram, n):
+            return float(np.max(np.abs(np.asarray(gram) - np.eye(n))))
+
+        resid = 0.0
+        for ii in range(d):
+            U = np.asarray(UU[ii])
+            D = np.asarray(DD[ii])
+            resid = max(resid, _dev(np.einsum('...io,...jo->...ij', U, U), U.shape[-2]))
+            resid = max(resid, _dev(np.einsum('...iaj,...ibj->...ab', D, D), D.shape[-2]))
+        for ii in range(d - 1):
+            L = np.asarray(LL[ii])
+            resid = max(resid, _dev(np.einsum('...iaj,...iak->...jk', L, L), L.shape[-1]))
+        for ii in range(1, d):
+            R = np.asarray(RR[ii])
+            resid = max(resid, _dev(np.einsum('...iaj,...kaj->...ik', R, R), R.shape[-3]))
+        return resid <= atol
+
     def validate(self) -> None:
         '''Check rank and shape consistency of Tucker tensor train basis (`T3Basis`).
 

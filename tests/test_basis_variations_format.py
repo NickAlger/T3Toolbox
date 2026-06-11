@@ -284,6 +284,21 @@ class TestBasisVariationsFormat(unittest.TestCase):
                         for ii in range(1, d):
                             self._assert_orthonormal(np.einsum('...iaj,...kaj->...ik', R[ii], R[ii]), R[ii].shape[-3])
 
+    def test_t3basis_is_orthogonal(self):
+        # bases from t3_orthogonal_representations are orthogonal
+        for T3_STRUCTURE in [((10, 11, 12), (3, 4, 3), (1, 2, 2, 1)),
+                             ((9, 10, 11, 12), (2, 3, 3, 2), (1, 2, 3, 2, 1))]:
+            for STACK_SHAPE in [(), (2,)]:
+                with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
+                    base, _ = bvf.t3_orthogonal_representations(x)
+                    self.assertTrue(base.is_orthogonal())
+
+        # a generic (non-orthogonal) basis is not orthogonal
+        structure = ((14, 15, 16), (4, 5, 6), (3, 4, 5), (1, 2, 3, 1), (1, 3, 2, 1), ())
+        base2, _ = _random_basis_variations(structure)
+        self.assertFalse(base2.is_orthogonal())
+
 
 if __name__ == "__main__":
     unittest.main()
