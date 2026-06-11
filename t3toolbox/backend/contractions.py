@@ -19,6 +19,10 @@ __all__ = [
     'dGFa_dGaib_dGFb_to_dGFi',
     'GFi_Gio_to_GFo',
     'dGFi_dGio_to_dGFo',
+    'GFo_Gio_to_GFi',
+    'GFo_GFa_to_Gao',
+    'Fo_GFa_to_Gao',
+    'GFi_GFa_GFj_to_Giaj',
 ]
 
 
@@ -346,4 +350,129 @@ def dGFi_dGio_to_dGFo(
 
     dGFo = dGFo.reshape(d_shape + G_shape + F_shape + o_shape)
     return dGFo
+
+
+def GFo_Gio_to_GFi(
+        GFo: NDArray,
+        Gio: NDArray,
+) -> NDArray:
+    """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Unlike Gio_Fo_to_GFi (which forms an outer product over the two stacks), here G is a *shared*
+    batch on both operands: Gio carries the T3 stack G only, GFo carries G and the probe stack F.
+    """
+    use_jax = tree_contains_jax((GFo, Gio))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    G_shape = Gio.shape[:-2]
+    i_shape = (Gio.shape[-2],)
+    o_shape = (Gio.shape[-1],)
+    F_shape = GFo.shape[len(G_shape):-1]
+
+    size_F = math.prod(F_shape)
+    size_G = math.prod(G_shape)
+
+    Gio = Gio.reshape((size_G,) + i_shape + o_shape)
+    GFo = GFo.reshape((size_G,) + (size_F,) + o_shape)
+
+    GFi = xnp.einsum('GFo,Gio->GFi', GFo, Gio)
+
+    GFi = GFi.reshape(G_shape + F_shape + i_shape)
+    return GFi
+
+
+def GFo_GFa_to_Gao(
+        GFo: NDArray,
+        GFa: NDArray,
+        n_probe: int,
+) -> NDArray:
+    """Computes named contraction, summing over the probe stack F (kept on both operands, dropped
+    from the output). Capital letters indicate grouped indices, which may be empty. n_probe is the
+    number of trailing (probe-stack) batch axes to sum over.
+    """
+    use_jax = tree_contains_jax((GFo, GFa))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    prefix = GFo.shape[:-1]
+    n_G = len(prefix) - n_probe
+    G_shape = prefix[:n_G]
+    F_shape = prefix[n_G:]
+    o_shape = (GFo.shape[-1],)
+    a_shape = (GFa.shape[-1],)
+
+    size_G = math.prod(G_shape)
+    size_F = math.prod(F_shape)
+
+    GFo = GFo.reshape((size_G,) + (size_F,) + o_shape)
+    GFa = GFa.reshape((size_G,) + (size_F,) + a_shape)
+
+    Gao = xnp.einsum('GFo,GFa->Gao', GFo, GFa)
+
+    Gao = Gao.reshape(G_shape + a_shape + o_shape)
+    return Gao
+
+
+def Fo_GFa_to_Gao(
+        Fo: NDArray,
+        GFa: NDArray,
+) -> NDArray:
+    """Computes named contraction, summing over the probe stack F (with Fo broadcast over the T3
+    stack G). Capital letters indicate grouped indices, which may be empty.
+    """
+    use_jax = tree_contains_jax((Fo, GFa))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    F_shape = Fo.shape[:-1]
+    o_shape = (Fo.shape[-1],)
+    a_shape = (GFa.shape[-1],)
+    G_shape = GFa.shape[:len(GFa.shape) - 1 - len(F_shape)]
+
+    size_G = math.prod(G_shape)
+    size_F = math.prod(F_shape)
+
+    Fo = Fo.reshape((size_F,) + o_shape)
+    GFa = GFa.reshape((size_G,) + (size_F,) + a_shape)
+
+    Gao = xnp.einsum('Fo,GFa->Gao', Fo, GFa)
+
+    Gao = Gao.reshape(G_shape + a_shape + o_shape)
+    return Gao
+
+
+def GFi_GFa_GFj_to_Giaj(
+        GFi: NDArray,
+        GFa: NDArray,
+        GFj: NDArray,
+        n_probe: int,
+) -> NDArray:
+    """Computes named contraction, summing over the probe stack F (kept on all operands, dropped from
+    the output). Capital letters indicate grouped indices, which may be empty. n_probe is the number
+    of trailing (probe-stack) batch axes to sum over.
+    """
+    use_jax = tree_contains_jax((GFi, GFa, GFj))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    prefix = GFi.shape[:-1]
+    n_G = len(prefix) - n_probe
+    G_shape = prefix[:n_G]
+    F_shape = prefix[n_G:]
+    i_shape = (GFi.shape[-1],)
+    a_shape = (GFa.shape[-1],)
+    j_shape = (GFj.shape[-1],)
+
+    size_G = math.prod(G_shape)
+    size_F = math.prod(F_shape)
+
+    GFi = GFi.reshape((size_G,) + (size_F,) + i_shape)
+    GFa = GFa.reshape((size_G,) + (size_F,) + a_shape)
+    GFj = GFj.reshape((size_G,) + (size_F,) + j_shape)
+
+    path = ['einsum_path', (0, 1), (0, 1)]
+    if use_jax:
+        Giaj = xnp.einsum('GFi,GFa,GFj->Giaj', GFi, GFa, GFj)
+    else:
+        Giaj = xnp.einsum('GFi,GFa,GFj->Giaj', GFi, GFa, GFj, optimize=path)
+
+    Giaj = Giaj.reshape(G_shape + i_shape + a_shape + j_shape)
+    return Giaj
 
