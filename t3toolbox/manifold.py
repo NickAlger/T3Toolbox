@@ -249,6 +249,16 @@ class T3Tangent:
     ##########    Validity checkers    #########
     ############################################
 
+    @ft.cached_property
+    def has_minimal_ranks(self) -> bool:
+        """True if this tangent's basis has minimal ranks. See :py:attr:`T3Basis.has_minimal_ranks`.
+
+        .. note::
+            Some tangent-space operations are only correct when the basis has minimal ranks (which
+            exactly is TBD; flagged for later). Not enforced at construction.
+        """
+        return self.basis.has_minimal_ranks
+
     def is_orthogonal(self, atol: float = 1e-9) -> bool:
         """True if this tangent's basis is orthogonal. See :py:meth:`T3Basis.is_orthogonal`."""
         return self.basis.is_orthogonal(atol=atol)

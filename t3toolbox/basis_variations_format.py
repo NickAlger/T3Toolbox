@@ -260,6 +260,44 @@ class T3Basis:
             resid = max(resid, _dev(np.einsum('...iaj,...kaj->...ik', R, R), R.shape[-3]))
         return resid <= atol
 
+    @ft.cached_property
+    def has_minimal_ranks(self) -> bool:
+        '''True if the basis has minimal ranks.
+
+        Minimal-rank basis means:
+            - ``left_ranks == right_ranks``,
+            - ``up_ranks == down_ranks``, and
+            - those ranks (tucker_ranks=up_ranks, tt_ranks=left_ranks) are minimal for a regular
+              Tucker tensor train of this shape (see :py:meth:`TuckerTensorTrain.get_minimal_ranks`).
+
+        .. note::
+            Some tangent-space operations are only correct when the basis has minimal ranks;
+            exactly which is still to be determined (flagged for later consideration). This is a
+            non-enforcing checker; ``T3Basis`` does not require minimal ranks at construction.
+
+        Examples
+        --------
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.basis_variations_format as bvf
+        >>> x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))  # minimal ranks
+        >>> base, _ = bvf.t3_orthogonal_representations(x)
+        >>> print(base.has_minimal_ranks)
+        True
+        >>> x2 = t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (1, 3, 2, 1))  # Tucker rank 4 > 1*3
+        >>> base2, _ = bvf.t3_orthogonal_representations(x2)
+        >>> print(base2.has_minimal_ranks)
+        False
+        '''
+        if tuple(self.left_ranks) != tuple(self.right_ranks):
+            return False
+        if tuple(self.up_ranks) != tuple(self.down_ranks):
+            return False
+        min_tucker_ranks, min_tt_ranks = t3.TuckerTensorTrain.get_minimal_ranks(
+            self.shape, self.up_ranks, self.left_ranks,
+        )
+        return (tuple(map(int, min_tucker_ranks)) == tuple(map(int, self.up_ranks))
+                and tuple(map(int, min_tt_ranks)) == tuple(map(int, self.left_ranks)))
+
     def validate(self) -> None:
         '''Check rank and shape consistency of Tucker tensor train basis (`T3Basis`).
 

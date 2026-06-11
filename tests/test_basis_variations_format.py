@@ -299,6 +299,24 @@ class TestBasisVariationsFormat(unittest.TestCase):
         base2, _ = _random_basis_variations(structure)
         self.assertFalse(base2.is_orthogonal())
 
+    def test_t3basis_has_minimal_ranks(self):
+        # minimal-rank x -> minimal-rank base
+        for STACK_SHAPE in [(), (2,), (2, 3)]:
+            x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=STACK_SHAPE)
+            self.assertTrue(x.has_minimal_ranks)
+            base, _ = bvf.t3_orthogonal_representations(x)
+            self.assertTrue(base.has_minimal_ranks)
+
+        # non-minimal Tucker rank (4 > rL*rR = 1*3) -> up_ranks != down_ranks -> not minimal
+        x2 = t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (1, 3, 2, 1))
+        base2, _ = bvf.t3_orthogonal_representations(x2)
+        self.assertFalse(base2.has_minimal_ranks)
+
+        # hand-built basis with left_ranks != right_ranks and up_ranks != down_ranks -> not minimal
+        structure = ((14, 15, 16), (4, 5, 6), (3, 4, 5), (1, 2, 3, 1), (1, 3, 2, 1), ())
+        base3, _ = _random_basis_variations(structure)
+        self.assertFalse(base3.has_minimal_ranks)
+
 
 if __name__ == "__main__":
     unittest.main()
