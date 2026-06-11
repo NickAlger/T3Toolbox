@@ -64,9 +64,13 @@ are flops-neutral to order, so they follow the same convention for one consisten
 boundary-transpose copies). (`apply`/`entries` are the lone holdout still on `G+F`.)
 
 **Two gotchas:**
-- **Core-tuple orderings differ.** `T3Basis.data = (up, down, left, right) = (U, O, P, Q)`, but the
-  probing/tangent backend wants `base = (up, left, right, outer) = (U, P, Q, O)` — reorder
-  `(U,O,P,Q) → (U,P,Q,O)` at the boundary (manifold.py / the probe wrappers do this).
+- **Canonical core-tuple orderings (frontend takes precedence).** `TuckerTensorTrain.data =
+  (tucker_cores, tt_cores)`; `T3Basis.data = (up, down, left, right) = (U, O, P, Q)` (the `O`/down core
+  is called **`down_tt_cores`**, not "outer"); `T3Variations.data = (tucker_variations, tt_variations)`;
+  `(basis, variations)` pairs are basis-first. All verified backends (`tangent_operations`,
+  `bv_conversions`, `orthogonal_representations`, **and now `probing`**) take these tuples in this
+  exact order — pass `.data` straight through, no reorder. (Only the parked `bv_operations.py`
+  `absorb_weights` still uses the old `(up, left, right, outer)` probing order.)
 - **`corewise_dot`/`corewise_norm` collapse EVERY axis** (stacks included) to a scalar. To keep the
   stack (vectorized linalg), use `corewise.corewise_stack_dot(X, Y, n_stack)`.
 
@@ -163,8 +167,8 @@ Treat everything else as copied-in-and-not-yet-working until checked.
     absorbed into cores up front, then probe unweighted); harmonized `use_jax` to the house pattern
     so the tangent path runs; kept every `is_uniform` branch; updated paper refs + doctests.
     Verified `probe_tangent` vs `probe_dense` and the adjoint identity `<z, Jv> = <Jᵀz, v>`
-    (numpy/jax/stacked). `probe_tangent`/`probe_tangent_transpose` take `base = (U, P, Q, O)`, which
-    is `T3Basis.data = (U, O, P, Q)` reordered.
+    (numpy/jax/stacked). `probe_tangent`/`probe_tangent_transpose` take `base = T3Basis.data`
+    (`(U, O, P, Q)`) directly (the old `(U,P,Q,O)` order was reordered to match the frontend).
   - **Slice A.5 (DONE)** — double-stacking. Tangent + transpose probing now work in all four
     stacking cases (no stack / probe stack F / T3 stack G / both) via the custom **G/F contractions**
     in `contractions.py` (G = T3 `stack_shape`, F = probe batch; output ordered G then F). Raw `...`
@@ -200,8 +204,9 @@ Treat everything else as copied-in-and-not-yet-working until checked.
       `TuckerTensorTrain.apply`/`entries` is a separable follow-up; toolkit names self-document order).
       Values/tests order-invariant.
     - **Slice 4 (DONE)** — `T3Tangent.probe` (`𝒥`, instance method → probes `F+G`) +
-      `T3Tangent.probe_transpose` (`𝒥ᵀ`, staticmethod taking a basis → a `T3Tangent`), `(U,O,P,Q)→
-      (U,P,Q,O)` reorder, **no** gauge projector `Π`. Transpose: `sum_over_probes=True` → `V=()`;
+      `T3Tangent.probe_transpose` (`𝒥ᵀ`, staticmethod taking a basis → a `T3Tangent`), passing
+      `basis.data` straight through (probing's `base` order now matches `T3Basis.data`), **no** gauge
+      projector `Π`. Transpose: `sum_over_probes=True` → `V=()`;
       `=False` → `V=F` stacked (wraps with no reorder, since slice-3 made the output `F+G = V+G`).
       `probe()` rejects a `V`-stacked input (needs 3-block contractions).
     - **Slice 5+ (deferred)** — `to_dense`/`to_t3`/`retract`/`project` on `V`-stacked inputs need the

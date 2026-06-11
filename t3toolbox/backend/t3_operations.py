@@ -30,7 +30,7 @@ __all__ = [
 
 
 def to_dense(
-        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tt_cores, tucker_cores)
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
         squash_tails: bool = True,
 ) -> NDArray:
     """Fully contract a Tucker tensor train to create a dense tensor.

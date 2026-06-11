@@ -470,9 +470,8 @@ class T3Tangent:
                 'probe() does not support a tangent-stacked T3Tangent (tangent_stack_shape != ()).\n'
                 'Probing a batch of tangent vectors needs 3-block contractions (not yet implemented).'
             )
-        up, down, left, right = self.basis.data
-        probe_base = (up, left, right, down)  # probing wants base = (U, P, Q, O)
-        return probing.probe_tangent(ww, self.variations.data, probe_base, use_jax=use_jax)
+        # probing's base order is exactly T3Basis.data = (up, down, left, right) -- no reorder
+        return probing.probe_tangent(ww, self.variations.data, self.basis.data, use_jax=use_jax)
 
     @staticmethod
     def probe_transpose(
@@ -521,10 +520,9 @@ class T3Tangent:
         >>> print(JTz_batch.tangent_stack_shape, JTz_batch.base_stack_shape)
         (2,) ()
         """
-        up, down, left, right = basis.data
-        probe_base = (up, left, right, down)  # probing wants base = (U, P, Q, O)
+        # probing's base order is exactly T3Basis.data = (up, down, left, right) -- no reorder
         dU_tildes, dG_tildes = probing.probe_tangent_transpose(
-            ztildes, ww, probe_base, sum_over_probes=sum_over_probes, use_jax=use_jax,
+            ztildes, ww, basis.data, sum_over_probes=sum_over_probes, use_jax=use_jax,
         )
         return T3Tangent(basis, bvf.T3Variations(dU_tildes, dG_tildes))
 

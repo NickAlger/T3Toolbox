@@ -223,7 +223,7 @@ def compute_nus(
 
 
 def compute_etas(
-        outer_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+(rLi,nOi,rR(i+1))
+        down_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+(rLi,nOi,rR(i+1))
         mus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+K+(rLi,)
         nus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,rR(i+1))
         use_jax: bool = False,
@@ -237,18 +237,18 @@ def compute_etas(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    use_jax = use_jax or tree_contains_jax((outer_tt_cores, mus, nus))
-    is_uniform = is_ndarray(outer_tt_cores)
+    use_jax = use_jax or tree_contains_jax((down_tt_cores, mus, nus))
+    is_uniform = is_ndarray(down_tt_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        etas = contractions.dFGa_dGaib_dFGb_to_dFGi(mus, outer_tt_cores, nus)
+        etas = contractions.dFGa_dGaib_dFGb_to_dFGi(mus, down_tt_cores, nus)
     else:
         def _func(x):
             mu, G, nu = x
             return (contractions.FGa_Gaib_FGb_to_FGi(mu, G, nu),)
 
-        (etas,) = xmap(_func, (mus, outer_tt_cores, nus))
+        (etas,) = xmap(_func, (mus, down_tt_cores, nus))
 
     return etas
 
@@ -317,7 +317,7 @@ def compute_dxis(
 def compute_sigmas(
         var_tt_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
         right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rRi,nUi,rR(i+1))
-        outer_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
+        down_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
         xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi),
         dxis:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
         mus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rLi)
@@ -340,7 +340,7 @@ def compute_sigmas(
     assemble_tangent_zs
     probe_tangent
     '''
-    use_jax = use_jax or tree_contains_jax((var_tt_cores, right_tt_cores, outer_tt_cores, xis, dxis, mus))
+    use_jax = use_jax or tree_contains_jax((var_tt_cores, right_tt_cores, down_tt_cores, xis, dxis, mus))
     is_uniform = not isinstance(xis, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -356,14 +356,14 @@ def compute_sigmas(
     rR0 = right_tt_cores[0].shape[-3]
     init = xnp.zeros(xis[0].shape[:-1] + (rR0,))
 
-    last_sigma, (sigmas,) = xscan(_func, init, (right_tt_cores, outer_tt_cores, var_tt_cores, xis, dxis, mus))
+    last_sigma, (sigmas,) = xscan(_func, init, (right_tt_cores, down_tt_cores, var_tt_cores, xis, dxis, mus))
     return sigmas
 
 
 def compute_taus(
         var_tt_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
         left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rL(i+1))
-        outer_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
+        down_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
         xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi),
         dxis:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
         nus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rR(i+1))
@@ -390,7 +390,7 @@ def compute_taus(
     reverse = uniform_ops.reverse_utt if is_uniform else ragged_ops.reverse_tt
 
     rev_taus = compute_sigmas(
-        reverse(var_tt_cores), reverse(left_tt_cores), reverse(outer_tt_cores),
+        reverse(var_tt_cores), reverse(left_tt_cores), reverse(down_tt_cores),
         xis[::-1], dxis[::-1], nus[::-1],
         use_jax=use_jax,
     )
@@ -517,17 +517,17 @@ def probe_tangent(
         base:       typ.Union[
             typ.Tuple[
                 typ.Sequence[NDArray],  # up_tucker_cores. len=d. U_xo U_yo   = I_xy, U.shape = (nU, N)
+                typ.Sequence[NDArray],  # down_tt_cores.   len=d. O_ixj O_iyj = I_xy  O.shape = (rL, nO, rR)
                 typ.Sequence[NDArray],  # left_tt_cores.   len=d. P_iax P_iay = I_xy, P.shape = (rL, nU, rR)
                 typ.Sequence[NDArray],  # right_tt_cores.  len=d. Q_xaj Q_yaj = I_xy  Q.shape = (rL, nU, rR)
-                typ.Sequence[NDArray],  # outer_tt_cores.  len=d. O_ixj O_iyj = I_xy  O.shape = (rL, nO, rR)
             ],
             typ.Tuple[
                 NDArray,  # up_tucker_supercore. shape=(d, nU, N),      up orthogonal elements
+                NDArray,  # down_tt_supercore.   shape=(d, rL, nO, rR), down orthogonal elements
                 NDArray,  # left_tt_supercore.   shape=(d, rL, nU, rR), left orthogonal elements
                 NDArray,  # right_tt_supercore.  shape=(d, rL, nU, rR), right orthogonal elements
-                NDArray,  # outer_tt_supercore.  shape=(d, rL, nO, rR), outer orthogonal elements
             ],
-        ], # NOTE: base order is (up, left, right, outer) = (U, P, Q, O)
+        ], # base order = T3Basis.data = (up, down, left, right) = (U, O, P, Q)
         use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,Ni)
     '''Probe a tangent vector. Applies the (single-sample) least-squares Jacobian J^(s).
@@ -549,9 +549,9 @@ def probe_tangent(
         input vectors to probe with. len=d, elm_shape=(...,Ni)
     variation: bvf.T3Variations.data
         Tangent direction, as a (tucker_variations, tt_variations) data tuple.
-    base: (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-        Orthogonal base for the point where the tangent space attaches to the manifold.
-        NOTE the ordering: (U, P, Q, O), which is T3Basis.data = (U, O, P, Q) reordered.
+    base: (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+        Orthogonal base for the point where the tangent space attaches to the manifold. This is
+        exactly ``T3Basis.data`` order (U, O, P, Q) -- pass ``basis.data`` directly, no reorder.
 
     Returns
     -------
@@ -580,8 +580,7 @@ def probe_tangent(
     >>> import t3toolbox.backend.probing as t3p
     >>> x = t3.TuckerTensorTrain.randn((10,11,12),(5,6,4),(1,2,3,1))
     >>> base, variations = bvf.t3_orthogonal_representations(x)
-    >>> U, O, P, Q = base.data
-    >>> probe_base = (U, P, Q, O)            # probing wants (up, left, right, outer)
+    >>> probe_base = base.data  # probing's base order == T3Basis.data, no reorder
     >>> v = t3m.T3Tangent(base, variations)
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> zz = t3p.probe_tangent(ww, variations.data, probe_base)
@@ -598,8 +597,7 @@ def probe_tangent(
     >>> import t3toolbox.backend.probing as t3p
     >>> x = t3.TuckerTensorTrain.randn((10,11,12),(5,6,4),(1,2,3,1))
     >>> base, variations = bvf.t3_orthogonal_representations(x)
-    >>> U, O, P, Q = base.data
-    >>> probe_base = (U, P, Q, O)
+    >>> probe_base = base.data
     >>> v = t3m.T3Tangent(base, variations)
     >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
     >>> zzz = t3p.probe_tangent(www, variations.data, probe_base)
@@ -607,7 +605,7 @@ def probe_tangent(
     >>> print([float(np.linalg.norm(zz - zz2)) for zz, zz2 in zip(zzz, zzz2)])
     [9.92987985605743e-12, 6.7500961542780035e-12, 4.080198471837904e-12]
     '''
-    (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores) = base
+    (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores) = base
     (var_tucker_cores, var_tt_cores) = variation
 
     xis = compute_xis(up_tucker_cores, ww, use_jax=use_jax)
@@ -616,16 +614,16 @@ def probe_tangent(
 
     nus = compute_nus(right_tt_cores, xis, use_jax=use_jax)
 
-    etas = compute_etas(outer_tt_cores, mus, nus, use_jax=use_jax)
+    etas = compute_etas(down_tt_cores, mus, nus, use_jax=use_jax)
 
     dxis = compute_dxis(var_tucker_cores, ww, use_jax=use_jax)
 
     sigmas = compute_sigmas(
-        var_tt_cores, right_tt_cores, outer_tt_cores, xis, dxis, mus, use_jax=use_jax,
+        var_tt_cores, right_tt_cores, down_tt_cores, xis, dxis, mus, use_jax=use_jax,
     )
 
     taus = compute_taus(
-        var_tt_cores, left_tt_cores, outer_tt_cores, xis, dxis, nus, use_jax=use_jax,
+        var_tt_cores, left_tt_cores, down_tt_cores, xis, dxis, nus, use_jax=use_jax,
     )
 
     detas = compute_detas(
@@ -737,7 +735,7 @@ def compute_sigma_tildes(
 def compute_dxi_tildes(
         sigma_tildes:           typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rR(i+1))
         tau_tildes:             typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rLi)
-        outer_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
+        down_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
         mus:                    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rLi)
         nus:                    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rR(i+1))
         use_jax: bool = False,
@@ -751,19 +749,19 @@ def compute_dxi_tildes(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    use_jax = use_jax or tree_contains_jax((sigma_tildes, tau_tildes, outer_tt_cores, mus, nus))
+    use_jax = use_jax or tree_contains_jax((sigma_tildes, tau_tildes, down_tt_cores, mus, nus))
     is_uniform = not isinstance(mus, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
         term1 = xnp.einsum(
             'd...aj,d...j->d...a',
-            xnp.einsum('d...i,diaj->d...aj', tau_tildes, outer_tt_cores),
+            xnp.einsum('d...i,diaj->d...aj', tau_tildes, down_tt_cores),
             nus,
         )
         term2 = xnp.einsum(
             'd...aj,d...j->d...a',
-            xnp.einsum('d...i,diaj->d...aj', mus, outer_tt_cores),
+            xnp.einsum('d...i,diaj->d...aj', mus, down_tt_cores),
             sigma_tildes,
         )
         dxi_tildes = term1 + term2
@@ -774,7 +772,7 @@ def compute_dxi_tildes(
             term2 = contractions.FGa_Gaib_FGb_to_FGi(mu, O, st)
             return (term1 + term2,)
 
-        xs = (outer_tt_cores, mus, nus, sigma_tildes, tau_tildes)
+        xs = (down_tt_cores, mus, nus, sigma_tildes, tau_tildes)
         (dxi_tildes,) = xmap(_func, xs)
 
     return dxi_tildes
@@ -949,17 +947,17 @@ def probe_tangent_transpose(
         base:           typ.Union[
             typ.Tuple[
                 typ.Sequence[NDArray],  # up_tucker_cores. len=d. U_xo U_yo   = I_xy, U.shape = (nU, N)
+                typ.Sequence[NDArray],  # down_tt_cores.   len=d. O_ixj O_iyj = I_xy  O.shape = (rL, nO, rR)
                 typ.Sequence[NDArray],  # left_tt_cores.   len=d. P_iax P_iay = I_xy, P.shape = (rL, nU, rR)
                 typ.Sequence[NDArray],  # right_tt_cores.  len=d. Q_xaj Q_yaj = I_xy  Q.shape = (rL, nU, rR)
-                typ.Sequence[NDArray],  # outer_tt_cores.  len=d. O_ixj O_iyj = I_xy  O.shape = (rL, nO, rR)
             ],
             typ.Tuple[
                 NDArray,  # up_tucker_supercore. shape=(d, nU, N),      up orthogonal elements
+                NDArray,  # down_tt_supercore.   shape=(d, rL, nO, rR), down orthogonal elements
                 NDArray,  # left_tt_supercore.   shape=(d, rL, nU, rR), left orthogonal elements
                 NDArray,  # right_tt_supercore.  shape=(d, rL, nU, rR), right orthogonal elements
-                NDArray,  # outer_tt_supercore.  shape=(d, rL, nO, rR), outer orthogonal elements
             ],
-        ], # NOTE: base order is (up, left, right, outer) = (U, P, Q, O)
+        ], # base order = T3Basis.data = (up, down, left, right) = (U, O, P, Q)
         sum_over_probes: bool = False,
         use_jax: bool = False,
 ) -> typ.Union[
@@ -992,9 +990,9 @@ def probe_tangent_transpose(
         Probe residuals to apply the transpose map to. len=d, elm_shape=(...,Ni)
     ww: typ.Sequence[NDArray]
         input vectors that defined the (forward) probe map. len=d, elm_shape=(...,Ni)
-    base: (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
-        Orthogonal base for the point where the tangent space attaches to the manifold.
-        NOTE the ordering: (U, P, Q, O), which is T3Basis.data = (U, O, P, Q) reordered.
+    base: (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+        Orthogonal base for the point where the tangent space attaches to the manifold. This is
+        exactly ``T3Basis.data`` order (U, O, P, Q) -- pass ``basis.data`` directly, no reorder.
     sum_over_probes: bool
         Sum results over all probe residuals, rather than returning results for each probe residual.
 
@@ -1021,8 +1019,7 @@ def probe_tangent_transpose(
     >>> import t3toolbox.backend.probing as t3p
     >>> x = t3.TuckerTensorTrain.randn((10,11,12),(5,6,4),(1,2,3,1))
     >>> base, _ = bvf.t3_orthogonal_representations(x)
-    >>> U, O, P, Q = base.data
-    >>> probe_base = (U, P, Q, O)
+    >>> probe_base = base.data
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> v = t3m.T3Tangent.randn(base)
     >>> z = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
@@ -1041,8 +1038,7 @@ def probe_tangent_transpose(
     >>> import t3toolbox.backend.probing as t3p
     >>> x = t3.TuckerTensorTrain.randn((10,11,12),(5,6,4),(1,2,3,1))
     >>> base, _ = bvf.t3_orthogonal_representations(x)
-    >>> U, O, P, Q = base.data
-    >>> probe_base = (U, P, Q, O)
+    >>> probe_base = base.data
     >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
     >>> v = t3m.T3Tangent.randn(base)
     >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
@@ -1051,7 +1047,7 @@ def probe_tangent_transpose(
     >>> print(float(abs(cw.corewise_dot(z, Jv) - cw.corewise_dot(JTz, v.variations.data))))
     1.7763568394002505e-15
     '''
-    (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores) = base
+    (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores) = base
 
     xis = compute_xis(up_tucker_cores, ww, use_jax=use_jax)
 
@@ -1059,7 +1055,7 @@ def probe_tangent_transpose(
 
     nus = compute_nus(right_tt_cores, xis, use_jax=use_jax)
 
-    etas = compute_etas(outer_tt_cores, mus, nus, use_jax=use_jax)
+    etas = compute_etas(down_tt_cores, mus, nus, use_jax=use_jax)
 
     #
 
@@ -1069,7 +1065,7 @@ def probe_tangent_transpose(
 
     sigma_tildes = compute_sigma_tildes(deta_tildes, right_tt_cores, xis, nus, use_jax=use_jax)
 
-    dxi_tildes = compute_dxi_tildes(sigma_tildes, tau_tildes, outer_tt_cores, mus, nus, use_jax=use_jax)
+    dxi_tildes = compute_dxi_tildes(sigma_tildes, tau_tildes, down_tt_cores, mus, nus, use_jax=use_jax)
 
     #
 
