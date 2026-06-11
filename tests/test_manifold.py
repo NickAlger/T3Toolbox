@@ -275,6 +275,38 @@ class TestManifold(unittest.TestCase):
                     self.assertEqual(tuple(base.up_ranks), r.tucker_ranks)
                     self.assertEqual(tuple(base.left_ranks), r.tt_ranks)
 
+    def test_project(self):
+        # project(x, base) is the orthogonal projection of x onto the tangent space T_P M.
+        for STR_P, STR_X in [
+            (((6, 7, 5), (2, 2, 2), (1, 2, 2, 1)), ((6, 7, 5), (3, 4, 3), (1, 2, 2, 1))),
+            (((9, 10, 11, 12), (2, 3, 3, 2), (1, 2, 3, 2, 1)), ((9, 10, 11, 12), (3, 3, 4, 2), (1, 2, 2, 2, 1))),
+        ]:
+            for STACK_SHAPE in [(), (2,)]:
+                for USE_JAX in [False, True]:
+                    with self.subTest(STR_P=STR_P, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
+                        p = t3.TuckerTensorTrain.randn(*STR_P, stack_shape=STACK_SHAPE)
+                        x = t3.TuckerTensorTrain.randn(*STR_X, stack_shape=STACK_SHAPE)
+                        if USE_JAX:
+                            p, x = p.to_jax(), x.to_jax()
+                        base, _ = bvf.t3_orthogonal_representations(p)
+
+                        proj = t3m.T3Tangent.project(x, base, use_jax=USE_JAX)
+                        self.assertTrue(proj.is_gauged())
+
+                        # idempotency: projecting a tangent vector (its unshifted embedding) recovers it
+                        v = t3m.T3Tangent.randn(base, apply_gauge_projection=False, use_jax=USE_JAX)
+                        proj_v = t3m.T3Tangent.project(v.to_t3(use_jax=USE_JAX), base, use_jax=USE_JAX)
+                        self.check_relerr(v.to_dense(), proj_v.to_dense())
+
+                        # orthogonality: the residual x - proj_x is perpendicular to the tangent space
+                        residual = np.asarray(x.to_dense()) - np.asarray(proj.to_dense())
+                        tensor_axes = tuple(range(len(STACK_SHAPE), residual.ndim))
+                        for _ in range(3):
+                            w_dense = np.asarray(
+                                t3m.T3Tangent.randn(base, apply_gauge_projection=False, use_jax=USE_JAX).to_dense())
+                            ip = norm(np.sum(residual * w_dense, axis=tensor_axes))
+                            self.assertLessEqual(float(ip), tol * norm(residual) * norm(w_dense))
+
 
 if __name__ == "__main__":
     unittest.main()

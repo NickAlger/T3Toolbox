@@ -16,6 +16,9 @@ __all__ = [
     'tangent_to_t3',
     'orthogonal_gauge_projection',
     'oblique_gauge_projection',
+    'tt_zipper_left_to_right',
+    'tt_zipper_right_to_left',
+    'project_t3_onto_tangent_space',
 ]
 
 
@@ -250,3 +253,101 @@ def tangent_to_t3(
     x_tt_cores.append(G)
 
     return tuple(x_tucker_cores), tuple(x_tt_cores)
+
+
+def tt_zipper_left_to_right(
+        coresA:     typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(rAi, ni, rA(i+1))
+        coresB:     typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(rBi, ni, rB(i+1))
+        use_jax:    bool = False,
+) -> typ.Tuple[NDArray, ...]:  # zipper matrices, len=d+1, elm_shape=stack_shape+(rAi, rBi)
+    """Accumulate left-to-right the partial contractions of two TT chains sharing tensor indices.
+
+    Returns d+1 matrices Z_i; Z_0 is the (left-boundary) ones matrix and Z_(i+1) contracts Z_i with
+    cores A_i, B_i. Stack-aware.
+    """
+    use_jax = use_jax or tree_contains_jax((coresA, coresB))
+    xnp, _, xscan = get_backend(False, use_jax)
+
+    def _func(Z, GA_GB):
+        GA, GB = GA_GB
+        Z_next = xnp.einsum('...ij,...iak,...jal->...kl', Z, GA, GB)
+        return Z_next, (Z,)
+
+    ss = coresA[0].shape[:-3]
+    Z0 = xnp.ones(ss + (coresA[0].shape[-3], coresB[0].shape[-3]))
+    Zf, (ZZ_first,) = xscan(_func, Z0, (coresA, coresB))
+    return tuple(ZZ_first) + (Zf,)
+
+
+def tt_zipper_right_to_left(
+        coresA:     typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(rAi, ni, rA(i+1))
+        coresB:     typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(rBi, ni, rB(i+1))
+        use_jax:    bool = False,
+) -> typ.Tuple[NDArray, ...]:  # zipper matrices, len=d+1, elm_shape=stack_shape+(rA(i+1), rB(i+1))
+    """As :py:func:`tt_zipper_left_to_right`, accumulating right-to-left."""
+    rev = tt_zipper_left_to_right(
+        ragged_operations.reverse_tt(coresA), ragged_operations.reverse_tt(coresB), use_jax=use_jax,
+    )
+    return rev[::-1]
+
+
+def project_t3_onto_tangent_space(
+        basis:      typ.Tuple[
+            typ.Sequence[NDArray],  # up_tucker_cores
+            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # left_tt_cores
+            typ.Sequence[NDArray],  # right_tt_cores
+        ],
+        x:          typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_cores
+            typ.Sequence[NDArray],  # tt_cores
+        ],
+        use_jax:    bool = False,
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # gauged tucker_variations
+    typ.Tuple[NDArray, ...],  # gauged tt_variations
+]:
+    """Orthogonal projection of a Tucker tensor train onto the tangent space at an orthogonal base.
+
+    Returns gauged variations representing the orthogonal projection of ``x - (base point)`` onto
+    the tangent space. The base must be an orthogonal, minimal-rank representation. Stack-aware.
+    Ragged path only (uniform deferred).
+    """
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
+    outer_tt_cores = down_tt_cores
+
+    other_tucker_cores, other_tt_cores = x
+    other_tt_cores = ragged_operations.squash_tt_tails(other_tt_cores)
+
+    use_jax = use_jax or tree_contains_jax((basis, x))
+    xnp, xmap, _ = get_backend(False, use_jax)
+
+    # Re-express the other T3's TT cores in the base's up-Tucker basis.
+    def _func1(args):
+        G_other, B_other, U = args
+        BU = xnp.einsum('...iz,...xz->...ix', B_other, U)
+        G_other2 = xnp.einsum('...aib,...ix->...axb', G_other, BU)
+        return (G_other2,)
+
+    (other_tt_cores2,) = xmap(_func1, (other_tt_cores, other_tucker_cores, up_tucker_cores))
+
+    zipper_left2right = tt_zipper_left_to_right(other_tt_cores2[:-1], left_tt_cores[:-1], use_jax=use_jax)
+    zipper_right2left = tt_zipper_right_to_left(other_tt_cores2[1:], right_tt_cores[1:], use_jax=use_jax)
+
+    def _func2(args):
+        ZL, ZR, G, B, O, U = args
+        env = xnp.einsum('...ax,...aib,...by->...xiy', ZL, G, ZR)
+        BU = xnp.einsum('...io,...jo->...ij', B, U)
+        dG = xnp.einsum('...xiy,...ij->...xjy', env, BU)
+        M = xnp.einsum('...xiy,...xjy->...ij', env, O)
+        dB = xnp.einsum('...ij,...io->...jo', M, B)
+        return dG, dB
+
+    ungauged_tt_variations, ungauged_tucker_variations = xmap(
+        _func2,
+        (zipper_left2right, zipper_right2left, other_tt_cores, other_tucker_cores, outer_tt_cores, up_tucker_cores),
+    )
+
+    return orthogonal_gauge_projection(
+        basis, (ungauged_tucker_variations, ungauged_tt_variations), use_jax=use_jax,
+    )
