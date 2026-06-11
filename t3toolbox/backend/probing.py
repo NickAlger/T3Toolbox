@@ -348,15 +348,16 @@ def compute_sigmas(
 
     def _func(sigma, x):
         Q, O, dG, xi, dxi, mu = x
-        t1 = xnp.einsum('...aj,...a->...j', xnp.einsum('...i,iaj->...aj', sigma, Q), xi)
-        t2 = xnp.einsum('...aj,...a->...j', xnp.einsum('...i,iaj->...aj', mu, dG), xi)
-        t3 = xnp.einsum('...aj,...a->...j', xnp.einsum('...i,iaj->...aj', mu, O), dxi)
+        t1 = contractions.GFa_Gaib_GFi_to_GFb(sigma, Q, xi)
+        t2 = contractions.GFa_Gaib_GFi_to_GFb(mu, dG, xi)
+        t3 = contractions.GFa_Gaib_GFi_to_GFb(mu, O, dxi)
         sigma_next = t1 + t2 + t3
         return sigma_next, (sigma,)
 
-    rR0 = right_tt_cores[0].shape[0]
-    vectorization_shape = xis[0].shape[:-1]
-    init = xnp.zeros(vectorization_shape + (rR0,))
+    T = right_tt_cores[0].shape[:-3]    # T3 stack
+    K = xis[0].shape[len(T):-1]         # probe stack
+    rR0 = right_tt_cores[0].shape[-3]
+    init = xnp.zeros(T + K + (rR0,))
 
     last_sigma, (sigmas,) = xscan(_func, init, (right_tt_cores, outer_tt_cores, var_tt_cores, xis, dxis, mus))
     return sigmas
@@ -450,21 +451,9 @@ def compute_detas(
     else:
         def _func(x):
             P, Q, dG, mu, nu, sigma, tau = x
-            term1 = xnp.einsum(
-                '...aj,...j->...a',
-                xnp.einsum('...i,iaj->...aj', sigma, Q),
-                nu,
-            )
-            term2 = xnp.einsum(
-                '...aj,...j->...a',
-                xnp.einsum('...i,iaj->...aj', mu, dG),
-                nu,
-            )
-            term3 = xnp.einsum(
-                '...aj,...j->...a',
-                xnp.einsum('...i,iaj->...aj', mu, P),
-                tau,
-            )
+            term1 = contractions.GFa_Gaib_GFb_to_GFi(sigma, Q, nu)
+            term2 = contractions.GFa_Gaib_GFb_to_GFi(mu, dG, nu)
+            term3 = contractions.GFa_Gaib_GFb_to_GFi(mu, P, tau)
             return (term1 + term2 + term3,)
 
         xs = (left_tt_cores, right_tt_cores, var_tt_cores, mus, nus, sigmas, taus)
@@ -507,8 +496,8 @@ def assemble_tangent_zs(
     else:
         def _func(x):
             B, dB, eta, deta = x
-            term1 = xnp.einsum('ao,...a->...o', B, deta)
-            term2 = xnp.einsum('ao,...a->...o', dB, eta)
+            term1 = contractions.GFi_Gio_to_GFo(deta, B)
+            term2 = contractions.GFi_Gio_to_GFo(eta, dB)
             return (term1 + term2,)
 
         (zs,) = xmap(_func, (tucker_cores, var_tucker_cores, etas, detas))
