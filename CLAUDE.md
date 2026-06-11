@@ -153,18 +153,26 @@ Treat everything else as copied-in-and-not-yet-working until checked.
     tests. Slices:
     - **Slice 1 (DONE)** — `check_bv_pair`: equality → "`base.stack_shape` is the trailing suffix of
       `variations.stack_shape`". `+test_check_bv_pair_stacking`.
-    - **Slice 2 (TODO)** — `T3Tangent`: three properties `base_stack_shape`(`G`) /
-      `tangent_stack_shape`(`V`) / `stack_shape`(`V+G`); stack-aware `inner`/`norm` (sum core content,
-      keep the full `V+G` stack → array; `corewise_dot` currently collapses everything); `zeros`/`randn`
-      gain a `V` param; `add`/`sub` require matching `V`.
-    - **Slice 3 (TODO)** — flip the whole probe pipeline to base-inner `F+...+G`: `contractions.py`,
-      `probe_t3`/`probe_tangent`/`probe_dense`/transpose. Values/tests unaffected (order-invariant).
-    - **Slice 4 (TODO)** — `T3Tangent.probe` (`𝒥`) + transpose (`𝒥ᵀ`) wrappers (the old "Slice B"),
-      `(U,O,P,Q)→(U,P,Q,O)` reorder, **no** gauge projector `Π`. Transpose returns a `T3Tangent`:
-      `sum_over_probes=True` → `V=()`; `=False` → `V=F` stacked. No reorder needed once Slice 3 lands.
+    - **Slice 2 (DONE)** — `T3Tangent`: three properties `base_stack_shape`(`G`) /
+      `tangent_stack_shape`(`V`) / `stack_shape`(`V+G`); stack-aware `inner`/`norm` (return a `V+G`
+      array, one value per stacked tangent) via new `corewise.corewise_stack_dot`; `zeros`/`randn`
+      gain a `V` param (gauge already broadcasts the base over `V`); `add`/`sub`/`inner` require
+      matching stacks.
+    - **Slice 3 (DONE)** — flipped the whole probe pipeline to base-inner `F+...+G`: the 11 probing
+      contractions in `contractions.py` (`GF`→`FG`), `probe_*`/`probe_dense`, order-agnostic scan
+      inits. `apply`/`entries` use a DISJOINT contraction set and were left `G+F` (flipping
+      `TuckerTensorTrain.apply`/`entries` is a separable follow-up; toolkit names self-document order).
+      Values/tests order-invariant.
+    - **Slice 4 (DONE)** — `T3Tangent.probe` (`𝒥`, instance method → probes `F+G`) +
+      `T3Tangent.probe_transpose` (`𝒥ᵀ`, staticmethod taking a basis → a `T3Tangent`), `(U,O,P,Q)→
+      (U,P,Q,O)` reorder, **no** gauge projector `Π`. Transpose: `sum_over_probes=True` → `V=()`;
+      `=False` → `V=F` stacked (wraps with no reorder, since slice-3 made the output `F+G = V+G`).
+      `probe()` rejects a `V`-stacked input (needs 3-block contractions).
     - **Slice 5+ (deferred)** — `to_dense`/`to_t3`/`retract`/`project` on `V`-stacked inputs need the
       backend `ss = base_core.shape[:-2]` constructions in `tangent_operations.py` to use the full
-      `V+G` stack; probing an already-`V`-stacked tangent needs 3-block contractions (or map-over-`V`).
+      `V+G` stack; probing an already-`V`-stacked tangent (forward `J` on a batch of tangents) needs
+      3-block contractions (or map-over-`V`); flipping `apply`/`entries` to `F+G` for whole-library
+      consistency.
 - **Deferred / broken**: the uniform layer (`ut3_*`, `ubv_*`, `uniform_*`) — many modules don't even
   import; every `is_uniform` branch in the tangent code was dropped/stubbed. The weighted layer
   (parked `absorb_weights`). `OLD_*.py` files are still tracked.
