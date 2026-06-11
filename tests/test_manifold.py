@@ -8,6 +8,7 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.basis_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.corewise as cw
+import t3toolbox.backend.probing as t3p
 
 try:
     import jax
@@ -252,6 +253,50 @@ class TestManifold(unittest.TestCase):
                         ref[idx] = float(cw.corewise_dot(ud, wd))
                     self.assertLessEqual(norm(ip - ref), tol * max(1.0, norm(ref)))
                     self.assertLessEqual(norm(np.asarray(u.norm()) - np.sqrt(np.abs(np.asarray(u.inner(u))))), tol)
+
+    def test_tangent_probe(self):
+        # forward J^(s): v.probe(ww) == probe_dense(ww, v.to_dense()); probes are stacked F + G + (N,)
+        STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
+        for BASE_STACK in [(), (2,)]:
+            for PROBE_STACK in [(), (2,)]:
+                for USE_JAX in [False, True]:
+                    with self.subTest(BASE_STACK=BASE_STACK, PROBE_STACK=PROBE_STACK, USE_JAX=USE_JAX):
+                        rnd = (lambda *s: jnp.array(np.random.randn(*s))) if USE_JAX else np.random.randn
+                        v = _random_tangent(STRUCT, stack_shape=BASE_STACK, use_jax=USE_JAX)
+                        ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
+                        zz = v.probe(ww, use_jax=USE_JAX)
+                        zz2 = t3p.probe_dense(ww, v.to_dense(use_jax=USE_JAX), use_jax=USE_JAX)
+                        self.assertEqual(PROBE_STACK + BASE_STACK + (STRUCT[0][0],), tuple(np.asarray(zz[0]).shape))
+                        for a, b in zip(zz, zz2):
+                            self.check_relerr(b, a)
+
+    def test_tangent_probe_transpose(self):
+        # adjoint identity <z, J v> = <J^T z, v> (sum over probes); non-sum gives a V-stacked tangent
+        STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
+        for BASE_STACK in [(), (2,)]:
+            for PROBE_STACK in [(), (2,)]:
+                for USE_JAX in [False, True]:
+                    with self.subTest(BASE_STACK=BASE_STACK, PROBE_STACK=PROBE_STACK, USE_JAX=USE_JAX):
+                        rnd = (lambda *s: jnp.array(np.random.randn(*s))) if USE_JAX else np.random.randn
+                        x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=BASE_STACK)
+                        if USE_JAX:
+                            x = x.to_jax()
+                        base, _ = bvf.t3_orthogonal_representations(x)
+                        v = t3m.T3Tangent.randn(base, use_jax=USE_JAX)
+                        ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
+                        z = tuple(rnd(*(PROBE_STACK + BASE_STACK + (N,))) for N in STRUCT[0])  # F + G + (N,)
+
+                        Jv = v.probe(ww, use_jax=USE_JAX)
+                        JTz = t3m.T3Tangent.probe_transpose(z, ww, base, sum_over_probes=True, use_jax=USE_JAX)
+                        # <z, Jv> sums over F, G, N; <J^T z, v> = sum over G of JTz.inner(v) (which keeps G)
+                        lhs = float(np.sum([np.sum(np.asarray(a) * np.asarray(b)) for a, b in zip(z, Jv)]))
+                        rhs = float(np.sum(np.asarray(JTz.inner(v, use_jax=USE_JAX))))
+                        self.assertLessEqual(abs(lhs - rhs), tol * max(1.0, abs(lhs)))
+
+                        # without summing, the result is a tangent-stacked T3Tangent (V = probe stack)
+                        JTz_batch = t3m.T3Tangent.probe_transpose(z, ww, base, use_jax=USE_JAX)
+                        self.assertEqual(PROBE_STACK, JTz_batch.tangent_stack_shape)
+                        self.assertEqual(BASE_STACK, JTz_batch.base_stack_shape)
 
     def test_randn(self):
         base, _ = bvf.t3_orthogonal_representations(

@@ -14,6 +14,7 @@ import t3toolbox.basis_variations_format as bvf
 import t3toolbox.corewise as cw
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.tangent_operations as tangent_operations
+import t3toolbox.backend.probing as probing
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -417,6 +418,115 @@ class T3Tangent:
             self.basis.data, self.variations.data, use_jax=use_jax,
         )
         return T3Tangent(self.basis, bvf.T3Variations(*new_variations))
+
+    ############################################
+    ##########    Probing    ###################
+    ############################################
+
+    def probe(
+            self,
+            ww:         typ.Sequence[NDArray],  # probing vectors, len=d, elm_shape=F+(Ni,)
+            use_jax:    bool = False,
+    ) -> typ.Sequence[NDArray]:                 # probes, len=d, elm_shape=F+G+(Ni,)
+        """Probe this tangent vector: apply the single-sample least-squares Jacobian J^(s).
+
+        Contracts the tangent vector with the probing vectors ``ww`` in all-but-one index, for each
+        index -- the tangent analogue of :py:meth:`.TuckerTensorTrain.probe`. The probes are stacked
+        ``F + G`` (probe stack ``F`` from ``ww`` outermost, base stack ``G`` innermost).
+
+        This is the bare ``J^(s)`` (no gauge projector ``Pi``); for the Riemannian ``J = J^(s) o Pi``
+        compose a gauge projection (e.g. :py:meth:`orthogonal_gauge_projection`) yourself.
+
+        Requires ``tangent_stack_shape == ()`` (probing a *batch* of tangents needs 3-block
+        contractions, not yet implemented).
+
+        See Section 6.2.2 (Algorithms 6-7) of Alger et al. (2026), "Tucker Tensor Train Taylor
+        Series" (arXiv:2603.21141).
+
+        See Also
+        --------
+        probe_transpose
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.basis_variations_format as bvf
+        >>> import t3toolbox.manifold as t3m
+        >>> import t3toolbox.backend.probing as t3p
+        >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+        >>> base, variations = bvf.t3_orthogonal_representations(x)
+        >>> v = t3m.T3Tangent(base, variations)
+        >>> ww = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
+        >>> zz = v.probe(ww)
+        >>> print(zz[0].shape)             # F + G + (N0,) = (2,) + () + (10,)
+        (2, 10)
+        >>> zz2 = t3p.probe_dense(ww, v.to_dense())   # dense reference
+        >>> print([float(np.linalg.norm(a - b)) for a, b in zip(zz, zz2)])
+        [1.9485689247039e-12, 4.4498813137605194e-12, 3.528192267475046e-12]
+        """
+        if self.tangent_stack_shape != ():
+            raise ValueError(
+                'probe() does not support a tangent-stacked T3Tangent (tangent_stack_shape != ()).\n'
+                'Probing a batch of tangent vectors needs 3-block contractions (not yet implemented).'
+            )
+        up, down, left, right = self.basis.data
+        probe_base = (up, left, right, down)  # probing wants base = (U, P, Q, O)
+        return probing.probe_tangent(ww, self.variations.data, probe_base, use_jax=use_jax)
+
+    @staticmethod
+    def probe_transpose(
+            ztildes:            typ.Sequence[NDArray],  # probe residuals, len=d, elm_shape=F+G+(Ni,)
+            ww:                 typ.Sequence[NDArray],  # probing vectors, len=d, elm_shape=F+(Ni,)
+            basis:              bvf.T3Basis,
+            sum_over_probes:    bool = False,
+            use_jax:            bool = False,
+    ) -> 'T3Tangent':
+        """Apply the transpose ``(J^(s))^T`` of the probe map to residuals; returns a T3Tangent at ``basis``.
+
+        The adjoint of :py:meth:`probe`. With ``sum_over_probes=False`` (default) the result is a
+        *batch* of tangents -- a T3Tangent whose tangent stack ``V`` is the probe stack ``F`` (one
+        tangent per probe residual; the ``F + G`` output is already in canonical ``V + G`` order, so
+        no reorder is needed). With ``sum_over_probes=True`` the probe stack is summed and the result
+        is a single tangent (``V = ()``) at ``basis`` -- the usual Gauss-Newton ``J^T r``.
+
+        Bare ``(J^(s))^T`` (no gauge projector). See Section 6.2.3 (Algorithm 8) of Alger et al. (2026).
+
+        See Also
+        --------
+        probe
+
+        Examples
+        --------
+        Adjoint identity ``<z, J v> = <J^T z, v>`` (sum over probes):
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.basis_variations_format as bvf
+        >>> import t3toolbox.manifold as t3m
+        >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+        >>> base, _ = bvf.t3_orthogonal_representations(x)
+        >>> v = t3m.T3Tangent.randn(base)
+        >>> ww = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
+        >>> z = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
+        >>> Jv = v.probe(ww)
+        >>> JTz = t3m.T3Tangent.probe_transpose(z, ww, base, sum_over_probes=True)
+        >>> lhs = float(np.sum([np.sum(a * b) for a, b in zip(z, Jv)]))
+        >>> print(bool(abs(lhs - float(JTz.inner(v))) < 1e-9))
+        True
+
+        Without summing, the result is a tangent-stacked T3Tangent (V = the probe stack):
+
+        >>> JTz_batch = t3m.T3Tangent.probe_transpose(z, ww, base)  # sum_over_probes=False
+        >>> print(JTz_batch.tangent_stack_shape, JTz_batch.base_stack_shape)
+        (2,) ()
+        """
+        up, down, left, right = basis.data
+        probe_base = (up, left, right, down)  # probing wants base = (U, P, Q, O)
+        dU_tildes, dG_tildes = probing.probe_tangent_transpose(
+            ztildes, ww, probe_base, sum_over_probes=sum_over_probes, use_jax=use_jax,
+        )
+        return T3Tangent(basis, bvf.T3Variations(dU_tildes, dG_tildes))
 
     ############################################
     ##########    Stacking    ##################
