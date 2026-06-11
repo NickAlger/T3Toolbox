@@ -23,8 +23,8 @@ __all__ = [
 ]
 
 
-@dataclass(frozen=True)
-class T3Basis:
+@dataclass(frozen=True, eq=False)  # eq=False -> identity __hash__/__eq__, so a T3Basis can be
+class T3Basis:                     # jax aux_data (it holds arrays; value hash/eq is impossible).
     """Basis for basis-variations representation of TuckerTensorTrains
 
     Often, one works with TuckerTensorTrains of the following forms::
@@ -925,3 +925,19 @@ def t3_orthogonal_representations(
         x.data, already_left_orthogonal=already_left_orthogonal, squash=squash,
     )
     return T3Basis(*result[0]), T3Variations(*result[1])
+
+
+if has_jax:
+    import jax
+
+    # Register as jax pytrees so they can be jit/vmap/grad-ed. Leaves = the cores (x.data); no aux.
+    jax.tree_util.register_pytree_node(
+        T3Basis,
+        lambda x: (x.data, None),
+        lambda aux_data, children: T3Basis(*children),
+    )
+    jax.tree_util.register_pytree_node(
+        T3Variations,
+        lambda x: (x.data, None),
+        lambda aux_data, children: T3Variations(*children),
+    )

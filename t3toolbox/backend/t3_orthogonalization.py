@@ -64,7 +64,7 @@ def up_orthogonalize_tt_cores(
 
         Cxi = ssx.reshape(stack_shape + (-1, 1)) * WTxi
 
-        Vxo = np.einsum('...xi,...io->...xo', Cxi, Uio)
+        Vxo = xnp.einsum('...xi,...io->...xo', Cxi, Uio)
         return (Vxo, Oaxb)
 
     tucker_variations, outer_tt_cores = xmap(_func, x)

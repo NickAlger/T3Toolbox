@@ -616,3 +616,20 @@ def _flatten_tangents(tree) -> typ.List['T3Tangent']:
         out.extend(_flatten_tangents(sub))
     return out
 
+
+if has_jax:
+    import jax
+
+    # Register T3Tangent as a jax pytree with the BASIS as aux_data: the fixed frame is static, only
+    # the variations (the moving tangent vector) are differentiable leaves -- matching the manifold
+    # picture and what one optimizes/vmaps. Because aux_data preserves object identity through
+    # flatten/unflatten, the same-tangent-space guard (`self.basis is other.basis`) keeps working
+    # under jit (two tangents built from the same T3Basis object stay identical). The basis is then a
+    # jit compile-time constant: hold the basis object stable to keep cache hits (a new base point
+    # recompiles). To differentiate w.r.t. the basis, use the backend functions on the raw cores.
+    jax.tree_util.register_pytree_node(
+        T3Tangent,
+        lambda x: ((x.variations,), x.basis),
+        lambda basis, children: T3Tangent(basis, children[0]),
+    )
+
