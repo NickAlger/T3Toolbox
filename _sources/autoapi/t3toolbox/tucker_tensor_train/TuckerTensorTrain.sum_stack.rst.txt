@@ -1,0 +1,60 @@
+TuckerTensorTrain.sum_stack
+===========================
+
+.. py:method:: t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum_stack(axis=None)
+
+   Sum the tensors represented by a stacked TuckerTensorTrain over one or more stack axes.
+
+   This is the genuine *tensor* sum: the result represents the sum of the dense tensors over
+   the chosen stack axes,
+       ``result.to_dense() = self.to_dense().sum(axis=stack axes)``.
+   The summed-over stack axes are removed; any remaining stack axes are kept.
+   For a corewise sum of the core arrays instead, see :py:meth:`.sum_stack_corewise`.
+
+   .. warning::
+       Ranks grow. Summing over stack axes whose sizes multiply to ``S`` multiplies every
+       Tucker and TT rank by ``S`` (this is the ``S``-fold generalization of
+       :py:meth:`__add__`, which is the ``S=2`` case). Follow with :py:meth:`t3svd` to
+       truncate the ranks if needed.
+
+   :param axis: Stack axis or axes to sum over, indexed within ``stack_shape``.
+                Default (``axis=None``): sum over all stack axes (the result is unstacked).
+   :type axis: int or Sequence[int], optional
+
+   :returns: Tucker tensor train representing the sum over the chosen stack axes.
+             Its ``stack_shape`` consists of the un-summed stack axes.
+   :rtype: TuckerTensorTrain
+
+   .. seealso:: :py:meth:`.TuckerTensorTrain.sum`, :py:meth:`.TuckerTensorTrain.sum_stack_corewise`, :py:meth:`.TuckerTensorTrain.__add__`, :py:meth:`.TuckerTensorTrain.t3svd`
+
+   .. rubric:: Examples
+
+   Sum over all stack axes (the result is unstacked):
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> x = t3.TuckerTensorTrain.randn((4,5,6), (2,3,2), (1,2,2,1), stack_shape=(3,))
+   >>> y = x.sum_stack()
+   >>> print(y.stack_shape)
+   ()
+   >>> print(np.linalg.norm(y.to_dense() - x.to_dense().sum(axis=0)))
+   1.3344301227427602e-14
+
+   Ranks grow by the summed stack size (here ``S=3``):
+
+   >>> print(x.tucker_ranks, '->', y.tucker_ranks)
+   (2, 3, 2) -> (6, 9, 6)
+   >>> print(x.tt_ranks, '->', y.tt_ranks)
+   (1, 2, 2, 1) -> (1, 6, 6, 1)
+
+   Sum over one of several stack axes (the rest are kept):
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> x = t3.TuckerTensorTrain.randn((4,5,6), (2,3,2), (1,2,2,1), stack_shape=(2,3))
+   >>> y = x.sum_stack(axis=0)
+   >>> print(y.stack_shape)
+   (3,)
+   >>> print(np.linalg.norm(y.to_dense() - x.to_dense().sum(axis=0)))
+   1.7956338470588144e-14
+

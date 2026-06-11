@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>TuckerTensorTrain.to_numpy &#8212; T3Toolbox 0.1 documentation</title>
+    <title>TuckerTensorTrain.sum_stack &#8212; T3Toolbox 0.1 documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.to_numpy';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.sum_stack';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="TuckerTensorTrain.copy" href="TuckerTensorTrain.copy.html" />
-    <link rel="prev" title="TuckerTensorTrain.to_jax" href="TuckerTensorTrain.to_jax.html" />
+    <link rel="next" title="TuckerTensorTrain.sum_stack_corewise" href="TuckerTensorTrain.sum_stack_corewise.html" />
+    <link rel="prev" title="TuckerTensorTrain.sum" href="TuckerTensorTrain.sum.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -294,7 +294,7 @@
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.reverse.html">TuckerTensorTrain.reverse</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.resize.html">TuckerTensorTrain.resize</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.to_jax.html">TuckerTensorTrain.to_jax</a></li>
-<li class="toctree-l4 current active"><a class="current reference internal" href="#">TuckerTensorTrain.to_numpy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.to_numpy.html">TuckerTensorTrain.to_numpy</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.copy.html">TuckerTensorTrain.copy</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.unstack.html">TuckerTensorTrain.unstack</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.stack.html">TuckerTensorTrain.stack</a></li>
@@ -315,7 +315,7 @@
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.inner.html">TuckerTensorTrain.inner</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.norm.html">TuckerTensorTrain.norm</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.sum.html">TuckerTensorTrain.sum</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.sum_stack.html">TuckerTensorTrain.sum_stack</a></li>
+<li class="toctree-l4 current active"><a class="current reference internal" href="#">TuckerTensorTrain.sum_stack</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.sum_stack_corewise.html">TuckerTensorTrain.sum_stack_corewise</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.down_svd_tucker_core.html">TuckerTensorTrain.down_svd_tucker_core</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.left_svd_tt_core.html">TuckerTensorTrain.left_svd_tt_core</a></li>
@@ -390,7 +390,7 @@
     
     <li class="breadcrumb-item"><a href="TuckerTensorTrain.html" class="nav-link">TuckerTensorTrain</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">TuckerTensorTrain.to_numpy</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">TuckerTensorTrain.sum_stack</span></li>
   </ul>
 </nav>
 </div>
@@ -407,26 +407,73 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="tuckertensortrain-to-numpy">
-<h1>TuckerTensorTrain.to_numpy<a class="headerlink" href="#tuckertensortrain-to-numpy" title="Link to this heading">#</a></h1>
+  <section id="tuckertensortrain-sum-stack">
+<h1>TuckerTensorTrain.sum_stack<a class="headerlink" href="#tuckertensortrain-sum-stack" title="Link to this heading">#</a></h1>
 <dl class="py method">
-<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.to_numpy">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.</span></span><span class="sig-name descname"><span class="pre">to_numpy</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.to_numpy" title="Link to this definition">#</a></dt>
-<dd><p>Convert arrays defining TuckerTensorTrain into Numpy arrays.</p>
+<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum_stack">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.</span></span><span class="sig-name descname"><span class="pre">sum_stack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">axis</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum_stack" title="Link to this definition">#</a></dt>
+<dd><p>Sum the tensors represented by a stacked TuckerTensorTrain over one or more stack axes.</p>
+<p>This is the genuine <em>tensor</em> sum: the result represents the sum of the dense tensors over
+the chosen stack axes,</p>
+<blockquote>
+<div><p><code class="docutils literal notranslate"><span class="pre">result.to_dense()</span> <span class="pre">=</span> <span class="pre">self.to_dense().sum(axis=stack</span> <span class="pre">axes)</span></code>.</p>
+</div></blockquote>
+<p>The summed-over stack axes are removed; any remaining stack axes are kept.
+For a corewise sum of the core arrays instead, see <a class="reference internal" href="TuckerTensorTrain.sum_stack_corewise.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum_stack_corewise" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum_stack_corewise"><code class="xref py py-meth docutils literal notranslate"><span class="pre">sum_stack_corewise()</span></code></a>.</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Ranks grow. Summing over stack axes whose sizes multiply to <code class="docutils literal notranslate"><span class="pre">S</span></code> multiplies every
+Tucker and TT rank by <code class="docutils literal notranslate"><span class="pre">S</span></code> (this is the <code class="docutils literal notranslate"><span class="pre">S</span></code>-fold generalization of
+<a class="reference internal" href="TuckerTensorTrain.__add__.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.__add__" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.__add__"><code class="xref py py-meth docutils literal notranslate"><span class="pre">__add__()</span></code></a>, which is the <code class="docutils literal notranslate"><span class="pre">S=2</span></code> case). Follow with <a class="reference internal" href="TuckerTensorTrain.t3svd.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd"><code class="xref py py-meth docutils literal notranslate"><span class="pre">t3svd()</span></code></a> to
+truncate the ranks if needed.</p>
+</div>
 <dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p><ul class="simple">
-<li><p><em>TuckerTensorTrain</em> – Tucker tensor train where <code class="docutils literal notranslate"><span class="pre">tucker_cores</span></code> and <code class="docutils literal notranslate"><span class="pre">tt_cores</span></code> are numpy arrays.</p></li>
-<li><p><em>See Also</em></p></li>
-<li><p><em>———</em></p></li>
-<li><p><a class="reference internal" href="TuckerTensorTrain.to_jax.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.to_jax" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.to_jax"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.to_jax()</span></code></a></p></li>
-</ul>
-</p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>axis</strong> (<em>int</em><em> or </em><em>Sequence</em><em>[</em><em>int</em><em>]</em><em>, </em><em>optional</em>) – Stack axis or axes to sum over, indexed within <code class="docutils literal notranslate"><span class="pre">stack_shape</span></code>.
+Default (<code class="docutils literal notranslate"><span class="pre">axis=None</span></code>): sum over all stack axes (the result is unstacked).</p>
 </dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference internal" href="TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a></p>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Tucker tensor train representing the sum over the chosen stack axes.
+Its <code class="docutils literal notranslate"><span class="pre">stack_shape</span></code> consists of the un-summed stack axes.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a></p>
 </dd>
 </dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="TuckerTensorTrain.sum.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.sum()</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.sum_stack_corewise.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum_stack_corewise" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum_stack_corewise"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.sum_stack_corewise()</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.__add__.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.__add__" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.__add__"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.__add__()</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.t3svd.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.t3svd()</span></code></a></p>
+</div>
+<p class="rubric">Examples</p>
+<p>Sum over all stack axes (the result is unstacked):</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="n">stack_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">sum_stack</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">stack_shape</span><span class="p">)</span>
+<span class="go">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">-</span> <span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)))</span>
+<span class="go">1.3344301227427602e-14</span>
+</pre></div>
+</div>
+<p>Ranks grow by the summed stack size (here <code class="docutils literal notranslate"><span class="pre">S=3</span></code>):</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">tucker_ranks</span><span class="p">,</span> <span class="s1">&#39;-&gt;&#39;</span><span class="p">,</span> <span class="n">y</span><span class="o">.</span><span class="n">tucker_ranks</span><span class="p">)</span>
+<span class="go">(2, 3, 2) -&gt; (6, 9, 6)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">tt_ranks</span><span class="p">,</span> <span class="s1">&#39;-&gt;&#39;</span><span class="p">,</span> <span class="n">y</span><span class="o">.</span><span class="n">tt_ranks</span><span class="p">)</span>
+<span class="go">(1, 2, 2, 1) -&gt; (1, 6, 6, 1)</span>
+</pre></div>
+</div>
+<p>Sum over one of several stack axes (the rest are kept):</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="n">stack_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">y</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">sum_stack</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">stack_shape</span><span class="p">)</span>
+<span class="go">(3,)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">y</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">-</span> <span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)))</span>
+<span class="go">1.7956338470588144e-14</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </section>
@@ -442,20 +489,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="TuckerTensorTrain.to_jax.html"
+       href="TuckerTensorTrain.sum.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">TuckerTensorTrain.to_jax</p>
+        <p class="prev-next-title">TuckerTensorTrain.sum</p>
       </div>
     </a>
     <a class="right-next"
-       href="TuckerTensorTrain.copy.html"
+       href="TuckerTensorTrain.sum_stack_corewise.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">TuckerTensorTrain.copy</p>
+        <p class="prev-next-title">TuckerTensorTrain.sum_stack_corewise</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -478,14 +525,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.to_numpy"><code class="docutils literal notranslate"><span class="pre">to_numpy()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum_stack"><code class="docutils literal notranslate"><span class="pre">sum_stack()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.to_numpy.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.sum_stack.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

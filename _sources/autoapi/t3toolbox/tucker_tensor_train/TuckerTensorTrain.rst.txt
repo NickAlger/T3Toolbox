@@ -36,6 +36,8 @@ TuckerTensorTrain
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.inner
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.norm
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.sum
+   /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.sum_stack
+   /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.sum_stack_corewise
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.down_svd_tucker_core
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.left_svd_tt_core
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.right_svd_tt_core
@@ -664,6 +666,8 @@ Methods
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.inner
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.norm
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum
+   t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum_stack
+   t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum_stack_corewise
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.down_svd_tucker_core
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.left_svd_tt_core
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.right_svd_tt_core

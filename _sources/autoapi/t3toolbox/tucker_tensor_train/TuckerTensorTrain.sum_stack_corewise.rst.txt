@@ -1,0 +1,39 @@
+TuckerTensorTrain.sum_stack_corewise
+====================================
+
+.. py:method:: t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum_stack_corewise(axis=None)
+
+   Sum the *core arrays* of a stacked TuckerTensorTrain over one or more stack axes.
+
+   This is a corewise sum: the Tucker and TT core arrays are summed directly along the chosen
+   stack axes (see :py:func:`t3toolbox.corewise.corewise_sum`). Because a Tucker tensor train
+   is multilinear in its cores, this is generally **not** the tensor sum of the represented
+   tensors (for that, use :py:meth:`.sum_stack`). It is useful when the cores carry an additive
+   structure of their own (e.g. stacked tangent-vector variations), and it leaves ranks unchanged.
+
+   :param axis: Stack axis or axes to sum over, indexed within ``stack_shape``.
+                Default (``axis=None``): sum over all stack axes (the result is unstacked).
+   :type axis: int or Sequence[int], optional
+
+   :returns: Tucker tensor train whose cores are the corewise sums over the chosen stack axes.
+             Tucker and TT ranks are unchanged; its ``stack_shape`` consists of the un-summed stack axes.
+   :rtype: TuckerTensorTrain
+
+   .. seealso:: :py:meth:`.TuckerTensorTrain.sum_stack`, :py:func:`t3toolbox.corewise.corewise_sum`
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.corewise as cw
+   >>> x = t3.TuckerTensorTrain.randn((4,5,6), (2,3,2), (1,2,2,1), stack_shape=(2,3))
+   >>> y = x.sum_stack_corewise(axis=0)
+   >>> print(y.stack_shape)
+   (3,)
+   >>> print(y.ranks) # ranks are unchanged
+   ((2, 3, 2), (1, 2, 2, 1))
+   >>> tucker_cores2 = tuple(B.sum(axis=0) for B in x.tucker_cores)
+   >>> tt_cores2 = tuple(G.sum(axis=0) for G in x.tt_cores)
+   >>> print(cw.corewise_norm(cw.corewise_sub((tucker_cores2, tt_cores2), y.data)))
+   0.0
+
