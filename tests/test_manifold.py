@@ -166,6 +166,65 @@ class TestManifold(unittest.TestCase):
                             leaf = leaf[k]
                         self.check_relerr(np.asarray(v.to_dense())[idx], leaf.to_dense())
 
+    def test_orthogonal_gauge_projection(self):
+        for T3_STRUCTURE in self.t3_structures:
+            for STACK_SHAPE in [(), (2,)]:
+                for USE_JAX in [False, True]:
+                    with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
+                        x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
+                        if USE_JAX:
+                            x = x.to_jax()
+                        base, _ = bvf.t3_orthogonal_representations(x)
+                        u = t3m.T3Tangent.randn(base, apply_gauge_projection=False, use_jax=USE_JAX)
+                        ug = u.orthogonal_gauge_projection(use_jax=USE_JAX)
+
+                        self.assertTrue(ug.is_gauged())
+                        # orthogonal projection: the removed component is perpendicular to the projection
+                        residual_dot_proj = cw.corewise_dot(
+                            cw.corewise_sub(u.variations.data, ug.variations.data), ug.variations.data, use_jax=USE_JAX)
+                        self.assertLessEqual(abs(float(residual_dot_proj)), tol * max(1.0, float(ug.inner(ug))))
+
+    def test_oblique_gauge_projection(self):
+        for T3_STRUCTURE in self.t3_structures:
+            for STACK_SHAPE in [(), (2,)]:
+                for USE_JAX in [False, True]:
+                    with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
+                        x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
+                        if USE_JAX:
+                            x = x.to_jax()
+                        base, _ = bvf.t3_orthogonal_representations(x)
+                        u = t3m.T3Tangent.randn(base, apply_gauge_projection=False, use_jax=USE_JAX)
+                        uo = u.oblique_gauge_projection(use_jax=USE_JAX)
+
+                        self.assertTrue(uo.is_gauged())
+                        self.check_relerr(u.to_dense(), uo.to_dense())  # preserves the tangent vector
+
+    def test_inner_norm_faithfulness(self):
+        # orthogonal + minimal-rank base + gauged variations => corewise inner/norm == Hilbert-Schmidt
+        for STACK_SHAPE in [(), (2,), (2, 3)]:
+            for USE_JAX in [False, True]:
+                with self.subTest(STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
+                    x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=STACK_SHAPE)
+                    if USE_JAX:
+                        x = x.to_jax()
+                    base, _ = bvf.t3_orthogonal_representations(x)
+                    self.assertTrue(base.is_orthogonal() and base.has_minimal_ranks)
+
+                    u = t3m.T3Tangent.randn(base, use_jax=USE_JAX)  # gauged by default
+                    w = t3m.T3Tangent.randn(base, use_jax=USE_JAX)
+
+                    hs_inner = float(np.sum(np.asarray(u.to_dense()) * np.asarray(w.to_dense())))
+                    self.assertLessEqual(abs(float(u.inner(w)) - hs_inner), tol * max(1.0, abs(hs_inner)))
+                    hs_norm = float(norm(np.asarray(u.to_dense())))
+                    self.assertLessEqual(abs(float(u.norm()) - hs_norm), tol * max(1.0, hs_norm))
+
+    def test_randn(self):
+        base, _ = bvf.t3_orthogonal_representations(
+            t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1)))
+        self.assertTrue(t3m.T3Tangent.randn(base).is_gauged())                                   # gauged by default
+        self.assertFalse(t3m.T3Tangent.randn(base, apply_gauge_projection=False).is_gauged())    # ungauged on request
+        self.assertEqual(base.stack_shape, t3m.T3Tangent.randn(base).stack_shape)                # construction validates fit
+
 
 if __name__ == "__main__":
     unittest.main()

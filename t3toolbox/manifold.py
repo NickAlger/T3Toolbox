@@ -193,6 +193,29 @@ class T3Tangent:
         tt_variations = tuple(xnp.zeros(ss + s) for s in tt_hole_shapes)
         return T3Tangent(basis, bvf.T3Variations(tucker_variations, tt_variations))
 
+    @staticmethod
+    def randn(
+            basis:                  bvf.T3Basis,
+            apply_gauge_projection: bool = True,
+            use_jax:                bool = False,
+    ) -> 'T3Tangent':
+        """Random tangent vector at a given basis.
+
+        With ``apply_gauge_projection=True`` (default) the variations are gauged (via orthogonal
+        projection); for an orthogonal, minimal-rank basis this makes the tangent vector a standard
+        Gaussian on the tangent space. With ``apply_gauge_projection=False`` the variations are raw
+        i.i.d. N(0, 1) cores (ungauged).
+        """
+        ss = basis.stack_shape
+        tucker_hole_shapes, tt_hole_shapes = basis.variation_shapes
+        tucker_variations = tuple(randn(*(ss + s), use_jax=use_jax) for s in tucker_hole_shapes)
+        tt_variations = tuple(randn(*(ss + s), use_jax=use_jax) for s in tt_hole_shapes)
+
+        v = T3Tangent(basis, bvf.T3Variations(tucker_variations, tt_variations))
+        if apply_gauge_projection:
+            v = v.orthogonal_gauge_projection(use_jax=use_jax)
+        return v
+
     ############################################
     ##########    Linear algebra    ############
     ############################################
@@ -279,6 +302,35 @@ class T3Tangent:
             g = np.einsum('...abi,...abj->...ij', np.asarray(L), np.asarray(H))
             resid = max(resid, float(np.max(np.abs(g))))
         return resid <= atol
+
+    ############################################
+    ##########    Gauge projections    #########
+    ############################################
+
+    def orthogonal_gauge_projection(self, use_jax: bool = False) -> 'T3Tangent':
+        """Gauge the variations via orthogonal projection (changes the tangent vector).
+
+        Returns a tangent vector at the same basis whose variations satisfy the gauge conditions.
+        Because it is an orthogonal projection of the variations, it represents a DIFFERENT tangent
+        vector than ``self``. For the gauge-preserving variant see :py:meth:`oblique_gauge_projection`.
+        """
+        new_variations = tangent_operations.orthogonal_gauge_projection(
+            self.basis.data, self.variations.data, use_jax=use_jax,
+        )
+        return T3Tangent(self.basis, bvf.T3Variations(*new_variations))
+
+    def oblique_gauge_projection(self, use_jax: bool = False) -> 'T3Tangent':
+        """Gauge the variations while preserving the represented tangent vector.
+
+        Returns a tangent vector at the same basis representing the SAME vector as ``self`` but with
+        gauged variations. When the basis is orthogonal with minimal ranks, corewise linear algebra
+        on the gauged variations then faithfully matches the Hilbert-Schmidt operations, so
+        :py:meth:`inner` / :py:meth:`norm` give the true HS values.
+        """
+        new_variations = tangent_operations.oblique_gauge_projection(
+            self.basis.data, self.variations.data, use_jax=use_jax,
+        )
+        return T3Tangent(self.basis, bvf.T3Variations(*new_variations))
 
     ############################################
     ##########    Stacking    ##################
