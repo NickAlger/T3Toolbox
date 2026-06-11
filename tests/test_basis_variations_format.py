@@ -170,11 +170,29 @@ class TestBasisVariationsFormat(unittest.TestCase):
         with self.assertRaises(ValueError):
             bvf.check_bv_pair(base, bvf.T3Variations(V, badH))
 
-        # stack shape mismatch
-        stacked_structure = ((14, 15, 16), (4, 5, 6), (3, 4, 5), (1, 2, 3, 1), (1, 3, 2, 1), (2,))
-        _, stacked_variations = _random_basis_variations(stacked_structure)
-        with self.assertRaises(ValueError):
-            bvf.check_bv_pair(base, stacked_variations)
+    def test_check_bv_pair_stacking(self):
+        # A variation may carry extra OUTER tangent-stack axes V; consistency requires the base
+        # stack G to be the trailing (inner) part of the variation stack (variation stack = V + G).
+        def variations_with_stack(base, full_stack):
+            VV_shapes, HH_shapes = base.variation_shapes
+            VV = tuple(randn(*(full_stack + s)) for s in VV_shapes)
+            HH = tuple(randn(*(full_stack + s)) for s in HH_shapes)
+            return bvf.T3Variations(VV, HH)
+
+        STRUCT = ((14, 15, 16), (4, 5, 6), (3, 4, 5), (1, 2, 3, 1), (1, 3, 2, 1))
+
+        # base stack G is a suffix of the variation stack -> consistent (incl. extra tangent stack V)
+        for BASE_STACK, TANGENT_STACK in [((), ()), ((), (4,)), ((2,), ()), ((2,), (4,)), ((2, 3), (4,))]:
+            with self.subTest(case="ok", BASE_STACK=BASE_STACK, TANGENT_STACK=TANGENT_STACK):
+                base, _ = _random_basis_variations(STRUCT + (BASE_STACK,))
+                bvf.check_bv_pair(base, variations_with_stack(base, TANGENT_STACK + BASE_STACK))
+
+        # base stack G is NOT a suffix of the variation stack -> raises
+        for BASE_STACK, VAR_STACK in [((2,), (3,)), ((2,), ()), ((2, 3), (2,)), ((2, 3), (4, 2))]:
+            with self.subTest(case="bad", BASE_STACK=BASE_STACK, VAR_STACK=VAR_STACK):
+                base, _ = _random_basis_variations(STRUCT + (BASE_STACK,))
+                with self.assertRaises(ValueError):
+                    bvf.check_bv_pair(base, variations_with_stack(base, VAR_STACK))
 
     def test_stack_unstack(self):
         for BASE_STRUCTURE in self.base_structures:

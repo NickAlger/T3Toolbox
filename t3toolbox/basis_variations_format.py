@@ -690,14 +690,20 @@ class T3Variations:
 def check_bv_pair(base: T3Basis, variations: T3Variations) -> None:
     """Check rank and shape consistency between T3Basis and T3Variations.
 
-    This ensures that the variation cores (V, H) have the correct dimensions
-     to interface with the base cores (U, L, R, O).
+    This ensures that the variation cores (V, H) have the correct dimensions to interface with the
+    base cores (U, L, R, O), and that their stacks are compatible.
+
+    Stacking: a variation may carry extra *outer* tangent-stack axes -- a batch of tangent vectors
+    sharing the same base point -- so its ``stack_shape`` is ``tangent_stack_shape + base_stack_shape``
+    (extra axes outermost, base stack innermost). Consistency requires ``base.stack_shape`` to be the
+    trailing (inner) part of ``variations.stack_shape``; ``tangent_stack_shape`` may be empty, which
+    is the common case.
 
     Examples
     --------
     >>> import numpy as np
     >>> import t3toolbox.basis_variations_format as bvf
-    >>> ss = (2,3) # stack shape
+    >>> ss = (2,3) # base stack shape
     >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
     >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
     >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
@@ -707,11 +713,26 @@ def check_bv_pair(base: T3Basis, variations: T3Variations) -> None:
     >>> tt_variations = tuple([np.ones(ss + G_shape) for G_shape in base.variation_shapes[1]])
     >>> variations = bvf.T3Variations(tucker_variations, tt_variations)
     >>> bvf.check_bv_pair(base, variations) # does nothing since these are consistent
+
+    A variation may also carry extra outer tangent-stack axes (here ``tangent_stack_shape = (4,)``,
+    so the variation stack is ``(4,) + (2,3) = (4, 2, 3)``):
+
+    >>> vss = (4,) + ss # tangent_stack_shape + base_stack_shape
+    >>> tucker_variations = tuple([np.ones(vss + B_shape) for B_shape in base.variation_shapes[0]])
+    >>> tt_variations = tuple([np.ones(vss + G_shape) for G_shape in base.variation_shapes[1]])
+    >>> v_stacked = bvf.T3Variations(tucker_variations, tt_variations)
+    >>> bvf.check_bv_pair(base, v_stacked) # also consistent: base stack is the suffix of the variation stack
     """
-    if base.stack_shape != variations.stack_shape:
+    base_stack = base.stack_shape
+    var_stack = variations.stack_shape
+    # The base stack must be the trailing (inner) part of the variation stack; the variation may
+    # carry extra *outer* tangent-stack axes (variation stack = tangent_stack_shape + base_stack_shape).
+    if var_stack[len(var_stack) - len(base_stack):] != base_stack:
         raise ValueError(
             'Inconsistent (T3Basis, T3Variations) pair.\n'
-            + str(base.stack_shape) + ' = base.stack_shape != variations.stack_shape = ' + str(variations.stack_shape)
+            'The base stack_shape must be the trailing (inner) part of the variation stack_shape.\n'
+            + str(base_stack) + ' = base.stack_shape is not a suffix of '
+            + str(var_stack) + ' = variations.stack_shape'
         )
 
     xVV, xHH = base.variation_shapes
