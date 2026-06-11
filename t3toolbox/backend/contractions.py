@@ -12,17 +12,17 @@ __all__ = [
     'Fa_Gaib_Fi_to_FGb',
     'GFa_Gaib_Fo_Gio_to_GFb',
     'GFa_Gaib_GiF_to_GFb',
-    'GFa_Gaib_GFi_to_GFb',
-    'Gio_Fo_to_GFi',
-    'dGio_dFo_to_dGFi',
-    'GFa_Gaib_GFb_to_GFi',
-    'dGFa_dGaib_dGFb_to_dGFi',
-    'GFi_Gio_to_GFo',
-    'dGFi_dGio_to_dGFo',
-    'GFo_Gio_to_GFi',
-    'GFo_GFa_to_Gao',
-    'Fo_GFa_to_Gao',
-    'GFi_GFa_GFj_to_Giaj',
+    'FGa_Gaib_FGi_to_FGb',
+    'Gio_Fo_to_FGi',
+    'dGio_dFo_to_dFGi',
+    'FGa_Gaib_FGb_to_FGi',
+    'dFGa_dGaib_dFGb_to_dFGi',
+    'FGi_Gio_to_FGo',
+    'dFGi_dGio_to_dFGo',
+    'FGo_Gio_to_FGi',
+    'FGo_FGa_to_Gao',
+    'Fo_FGa_to_Gao',
+    'FGi_FGa_FGj_to_Giaj',
 ]
 
 
@@ -147,30 +147,32 @@ def GFa_Gaib_GiF_to_GFb(
     return GFb
 
 
-def GFa_Gaib_GFi_to_GFb(
-        GFa: NDArray,
+def FGa_Gaib_FGi_to_FGb(
+        FGa: NDArray,
         Gaib: NDArray,
-        GFi: NDArray,
+        FGi: NDArray,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Base-inner convention: F (probe/extra stack) outermost, G (core stack) innermost.
     """
-    use_jax = tree_contains_jax((GFa, Gaib, GFi))
+    use_jax = tree_contains_jax((FGa, Gaib, FGi))
     xnp, _, _ = get_backend(True, use_jax)
 
     G_shape = Gaib.shape[:-3]
     i_shape = (Gaib.shape[-2],)
-    F_shape = GFa.shape[len(G_shape):-1]
+    F_shape = FGa.shape[:-(len(G_shape) + 1)]
 
-    a_shape = GFa.shape[-1:]
+    a_shape = FGa.shape[-1:]
     aib_shape = Gaib.shape[-3:]
     b_shape = Gaib.shape[-1:]
 
     size_F = math.prod(F_shape)
     size_G = math.prod(G_shape)
 
-    GFa     = GFa.reshape((size_G,) + (size_F,) + a_shape)
+    FGa     = FGa.reshape((size_F,) + (size_G,) + a_shape)
     Gaib    = Gaib.reshape((size_G,) + aib_shape)
-    GFi     = GFi.reshape((size_G,) + (size_F,) + i_shape)
+    FGi     = FGi.reshape((size_F,) + (size_G,) + i_shape)
 
     path = [
         'einsum_path',
@@ -179,19 +181,21 @@ def GFa_Gaib_GFi_to_GFb(
     ]
 
     if use_jax:
-        GFb = xnp.einsum('GFa,Gaib,GFi->GFb', GFa, Gaib, GFi)
+        FGb = xnp.einsum('FGa,Gaib,FGi->FGb', FGa, Gaib, FGi)
     else:
-        GFb = xnp.einsum('GFa,Gaib,GFi->GFb', GFa, Gaib, GFi, optimize=path)
+        FGb = xnp.einsum('FGa,Gaib,FGi->FGb', FGa, Gaib, FGi, optimize=path)
 
-    GFb = GFb.reshape(G_shape + F_shape + b_shape)
-    return GFb
+    FGb = FGb.reshape(F_shape + G_shape + b_shape)
+    return FGb
 
 
-def Gio_Fo_to_GFi(
+def Gio_Fo_to_FGi(
         Gio: NDArray,
         Fo: NDArray,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Base-inner convention: F (probe/extra stack) outermost, G (core stack) innermost.
     """
     use_jax = tree_contains_jax((Gio, Fo))
     xnp, _, _ = get_backend(True, use_jax)
@@ -207,18 +211,20 @@ def Gio_Fo_to_GFi(
     Gio = Gio.reshape((size_G,) + i_shape + o_shape)
     Fo  = Fo.reshape((size_F,) + o_shape)
 
-    GFi = xnp.einsum('Gio,Fo->GFi', Gio, Fo)
+    FGi = xnp.einsum('Gio,Fo->FGi', Gio, Fo)
 
-    GFi = GFi.reshape(G_shape + F_shape + i_shape)
-    return GFi
+    FGi = FGi.reshape(F_shape + G_shape + i_shape)
+    return FGi
 
 
-def dGio_dFo_to_dGFi(
+def dGio_dFo_to_dFGi(
         dGio: NDArray,
         dFo: NDArray,
         use_jax: bool = False,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Base-inner convention: F (probe/extra stack) outermost, G (core stack) innermost.
     """
     xnp, _, _ = get_backend(True, use_jax)
 
@@ -234,49 +240,53 @@ def dGio_dFo_to_dGFi(
     dGio = dGio.reshape(d_shape + (size_G,) + i_shape + o_shape)
     dFo  = dFo.reshape(d_shape + (size_F,) + o_shape)
 
-    dGFi = xnp.einsum('dGio,dFo->dGFi', dGio, dFo)
+    dFGi = xnp.einsum('dGio,dFo->dFGi', dGio, dFo)
 
-    dGFi = dGFi.reshape(d_shape + G_shape + F_shape + i_shape)
-    return dGFi
+    dFGi = dFGi.reshape(d_shape + F_shape + G_shape + i_shape)
+    return dFGi
 
 
-def GFa_Gaib_GFb_to_GFi(
-        GFa: NDArray,
+def FGa_Gaib_FGb_to_FGi(
+        FGa: NDArray,
         Gaib: NDArray,
-        GFb: NDArray,
+        FGb: NDArray,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Base-inner convention: F (probe/extra stack) outermost, G (core stack) innermost.
     """
-    use_jax = tree_contains_jax((GFa, Gaib, GFb))
+    use_jax = tree_contains_jax((FGa, Gaib, FGb))
     xnp, _, _ = get_backend(True, use_jax)
 
     G_shape = Gaib.shape[:-3]
     a_shape = (Gaib.shape[-3],)
     i_shape = (Gaib.shape[-2],)
     b_shape = (Gaib.shape[-1],)
-    F_shape = GFa.shape[len(G_shape):-1]
+    F_shape = FGa.shape[:-(len(G_shape) + 1)]
 
     size_F = math.prod(F_shape)
     size_G = math.prod(G_shape)
 
-    GFa     = GFa.reshape((size_G,) + (size_F,) + a_shape)
+    FGa     = FGa.reshape((size_F,) + (size_G,) + a_shape)
     Gaib    = Gaib.reshape((size_G,) + a_shape + i_shape + b_shape)
-    GFb     = GFb.reshape((size_G,) + (size_F,) + b_shape)
+    FGb     = FGb.reshape((size_F,) + (size_G,) + b_shape)
 
-    GFi = xnp.einsum('GFa,Gaib,GFb->GFi', GFa, Gaib, GFb)
+    FGi = xnp.einsum('FGa,Gaib,FGb->FGi', FGa, Gaib, FGb)
 
-    GFi = GFi.reshape(G_shape + F_shape + i_shape)
-    return GFi
+    FGi = FGi.reshape(F_shape + G_shape + i_shape)
+    return FGi
 
 
-def dGFa_dGaib_dGFb_to_dGFi(
-        dGFa: NDArray,
+def dFGa_dGaib_dFGb_to_dFGi(
+        dFGa: NDArray,
         dGaib: NDArray,
-        dGFb: NDArray,
+        dFGb: NDArray,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Base-inner convention: F (probe/extra stack) outermost, G (core stack) innermost.
     """
-    use_jax = tree_contains_jax((dGFa, dGaib, dGFb))
+    use_jax = tree_contains_jax((dFGa, dGaib, dFGb))
     xnp, _, _ = get_backend(True, use_jax)
 
     d_shape = (dGaib.shape[0],)
@@ -284,194 +294,197 @@ def dGFa_dGaib_dGFb_to_dGFi(
     a_shape = (dGaib.shape[-3],)
     i_shape = (dGaib.shape[-2],)
     b_shape = (dGaib.shape[-1],)
-    F_shape = dGFa.shape[1+len(G_shape):-1]
+    F_shape = dFGa.shape[1:-(len(G_shape) + 1)]
 
     size_F = math.prod(F_shape)
     size_G = math.prod(G_shape)
 
-    dGFa    = dGFa.reshape(d_shape + (size_G,) + (size_F,) + a_shape)
+    dFGa    = dFGa.reshape(d_shape + (size_F,) + (size_G,) + a_shape)
     dGaib   = dGaib.reshape(d_shape + (size_G,) + a_shape + i_shape + b_shape)
-    dGFb    = dGFb.reshape(d_shape + (size_G,) + (size_F,) + b_shape)
+    dFGb    = dFGb.reshape(d_shape + (size_F,) + (size_G,) + b_shape)
 
-    dGFi = xnp.einsum('dGFa,dGaib,dGFb->dGFi', dGFa, dGaib, dGFb)
+    dFGi = xnp.einsum('dFGa,dGaib,dFGb->dFGi', dFGa, dGaib, dFGb)
 
-    dGFi = dGFi.reshape(d_shape + G_shape + F_shape + i_shape)
-    return dGFi
+    dFGi = dFGi.reshape(d_shape + F_shape + G_shape + i_shape)
+    return dFGi
 
 
-def GFi_Gio_to_GFo(
-        GFi: NDArray,
+def FGi_Gio_to_FGo(
+        FGi: NDArray,
         Gio: NDArray,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Base-inner convention: F (probe/extra stack) outermost, G (core stack) innermost.
     """
-    use_jax = tree_contains_jax((GFi, Gio))
+    use_jax = tree_contains_jax((FGi, Gio))
     xnp, _, _ = get_backend(True, use_jax)
 
     G_shape = Gio.shape[:-2]
     i_shape = (Gio.shape[-2],)
     o_shape = (Gio.shape[-1],)
-    F_shape = GFi.shape[len(G_shape):-1]
+    F_shape = FGi.shape[:-(len(G_shape) + 1)]
 
     size_F = math.prod(F_shape)
     size_G = math.prod(G_shape)
 
     Gio = Gio.reshape((size_G,) + i_shape + o_shape)
-    GFi = GFi.reshape((size_G,) + (size_F,) + i_shape)
+    FGi = FGi.reshape((size_F,) + (size_G,) + i_shape)
 
-    GFo = xnp.einsum('GFi,Gio->GFo', GFi, Gio)
+    FGo = xnp.einsum('FGi,Gio->FGo', FGi, Gio)
 
-    GFo = GFo.reshape(G_shape + F_shape + o_shape)
-    return GFo
+    FGo = FGo.reshape(F_shape + G_shape + o_shape)
+    return FGo
 
 
-def dGFi_dGio_to_dGFo(
-        dGFi: NDArray,
+def dFGi_dGio_to_dFGo(
+        dFGi: NDArray,
         dGio: NDArray,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Base-inner convention: F (probe/extra stack) outermost, G (core stack) innermost.
     """
-    use_jax = tree_contains_jax((dGFi, dGio))
+    use_jax = tree_contains_jax((dFGi, dGio))
     xnp, _, _ = get_backend(True, use_jax)
 
     d_shape = (dGio.shape[0],)
     G_shape = dGio.shape[1:-2]
     i_shape = (dGio.shape[-2],)
     o_shape = (dGio.shape[-1],)
-    F_shape = dGFi.shape[1+len(G_shape):-1]
+    F_shape = dFGi.shape[1:-(len(G_shape) + 1)]
 
     size_F = math.prod(F_shape)
     size_G = math.prod(G_shape)
 
     dGio = dGio.reshape(d_shape + (size_G,) + i_shape + o_shape)
-    dGFi  = dGFi.reshape(d_shape + (size_G,) + (size_F,) + i_shape)
+    dFGi  = dFGi.reshape(d_shape + (size_F,) + (size_G,) + i_shape)
 
-    dGFo = xnp.einsum('dGFi,dGio->dGFo', dGFi, dGio)
+    dFGo = xnp.einsum('dFGi,dGio->dFGo', dFGi, dGio)
 
-    dGFo = dGFo.reshape(d_shape + G_shape + F_shape + o_shape)
-    return dGFo
+    dFGo = dFGo.reshape(d_shape + F_shape + G_shape + o_shape)
+    return dFGo
 
 
-def GFo_Gio_to_GFi(
-        GFo: NDArray,
+def FGo_Gio_to_FGi(
+        FGo: NDArray,
         Gio: NDArray,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
-    Unlike Gio_Fo_to_GFi (which forms an outer product over the two stacks), here G is a *shared*
-    batch on both operands: Gio carries the T3 stack G only, GFo carries G and the probe stack F.
+    Unlike Gio_Fo_to_FGi (which forms an outer product over the two stacks), here G is a *shared*
+    batch on both operands: Gio carries the T3 stack G only, FGo carries the probe stack F and G.
+    Base-inner convention: F outermost, G innermost.
     """
-    use_jax = tree_contains_jax((GFo, Gio))
+    use_jax = tree_contains_jax((FGo, Gio))
     xnp, _, _ = get_backend(True, use_jax)
 
     G_shape = Gio.shape[:-2]
     i_shape = (Gio.shape[-2],)
     o_shape = (Gio.shape[-1],)
-    F_shape = GFo.shape[len(G_shape):-1]
+    F_shape = FGo.shape[:-(len(G_shape) + 1)]
 
     size_F = math.prod(F_shape)
     size_G = math.prod(G_shape)
 
     Gio = Gio.reshape((size_G,) + i_shape + o_shape)
-    GFo = GFo.reshape((size_G,) + (size_F,) + o_shape)
+    FGo = FGo.reshape((size_F,) + (size_G,) + o_shape)
 
-    GFi = xnp.einsum('GFo,Gio->GFi', GFo, Gio)
+    FGi = xnp.einsum('FGo,Gio->FGi', FGo, Gio)
 
-    GFi = GFi.reshape(G_shape + F_shape + i_shape)
-    return GFi
+    FGi = FGi.reshape(F_shape + G_shape + i_shape)
+    return FGi
 
 
-def GFo_GFa_to_Gao(
-        GFo: NDArray,
-        GFa: NDArray,
+def FGo_FGa_to_Gao(
+        FGo: NDArray,
+        FGa: NDArray,
         n_probe: int,
 ) -> NDArray:
     """Computes named contraction, summing over the probe stack F (kept on both operands, dropped
     from the output). Capital letters indicate grouped indices, which may be empty. n_probe is the
-    number of trailing (probe-stack) batch axes to sum over.
+    number of leading (probe-stack) batch axes to sum over (base-inner: F outermost, G innermost).
     """
-    use_jax = tree_contains_jax((GFo, GFa))
+    use_jax = tree_contains_jax((FGo, FGa))
     xnp, _, _ = get_backend(True, use_jax)
 
-    prefix = GFo.shape[:-1]
-    n_G = len(prefix) - n_probe
-    G_shape = prefix[:n_G]
-    F_shape = prefix[n_G:]
-    o_shape = (GFo.shape[-1],)
-    a_shape = (GFa.shape[-1],)
+    prefix = FGo.shape[:-1]
+    F_shape = prefix[:n_probe]
+    G_shape = prefix[n_probe:]
+    o_shape = (FGo.shape[-1],)
+    a_shape = (FGa.shape[-1],)
 
     size_G = math.prod(G_shape)
     size_F = math.prod(F_shape)
 
-    GFo = GFo.reshape((size_G,) + (size_F,) + o_shape)
-    GFa = GFa.reshape((size_G,) + (size_F,) + a_shape)
+    FGo = FGo.reshape((size_F,) + (size_G,) + o_shape)
+    FGa = FGa.reshape((size_F,) + (size_G,) + a_shape)
 
-    Gao = xnp.einsum('GFo,GFa->Gao', GFo, GFa)
+    Gao = xnp.einsum('FGo,FGa->Gao', FGo, FGa)
 
     Gao = Gao.reshape(G_shape + a_shape + o_shape)
     return Gao
 
 
-def Fo_GFa_to_Gao(
+def Fo_FGa_to_Gao(
         Fo: NDArray,
-        GFa: NDArray,
+        FGa: NDArray,
 ) -> NDArray:
     """Computes named contraction, summing over the probe stack F (with Fo broadcast over the T3
-    stack G). Capital letters indicate grouped indices, which may be empty.
+    stack G). Capital letters indicate grouped indices, which may be empty (base-inner: F outer, G inner).
     """
-    use_jax = tree_contains_jax((Fo, GFa))
+    use_jax = tree_contains_jax((Fo, FGa))
     xnp, _, _ = get_backend(True, use_jax)
 
     F_shape = Fo.shape[:-1]
     o_shape = (Fo.shape[-1],)
-    a_shape = (GFa.shape[-1],)
-    G_shape = GFa.shape[:len(GFa.shape) - 1 - len(F_shape)]
+    a_shape = (FGa.shape[-1],)
+    G_shape = FGa.shape[len(F_shape):-1]
 
     size_G = math.prod(G_shape)
     size_F = math.prod(F_shape)
 
     Fo = Fo.reshape((size_F,) + o_shape)
-    GFa = GFa.reshape((size_G,) + (size_F,) + a_shape)
+    FGa = FGa.reshape((size_F,) + (size_G,) + a_shape)
 
-    Gao = xnp.einsum('Fo,GFa->Gao', Fo, GFa)
+    Gao = xnp.einsum('Fo,FGa->Gao', Fo, FGa)
 
     Gao = Gao.reshape(G_shape + a_shape + o_shape)
     return Gao
 
 
-def GFi_GFa_GFj_to_Giaj(
-        GFi: NDArray,
-        GFa: NDArray,
-        GFj: NDArray,
+def FGi_FGa_FGj_to_Giaj(
+        FGi: NDArray,
+        FGa: NDArray,
+        FGj: NDArray,
         n_probe: int,
 ) -> NDArray:
     """Computes named contraction, summing over the probe stack F (kept on all operands, dropped from
     the output). Capital letters indicate grouped indices, which may be empty. n_probe is the number
-    of trailing (probe-stack) batch axes to sum over.
+    of leading (probe-stack) batch axes to sum over (base-inner: F outermost, G innermost).
     """
-    use_jax = tree_contains_jax((GFi, GFa, GFj))
+    use_jax = tree_contains_jax((FGi, FGa, FGj))
     xnp, _, _ = get_backend(True, use_jax)
 
-    prefix = GFi.shape[:-1]
-    n_G = len(prefix) - n_probe
-    G_shape = prefix[:n_G]
-    F_shape = prefix[n_G:]
-    i_shape = (GFi.shape[-1],)
-    a_shape = (GFa.shape[-1],)
-    j_shape = (GFj.shape[-1],)
+    prefix = FGi.shape[:-1]
+    F_shape = prefix[:n_probe]
+    G_shape = prefix[n_probe:]
+    i_shape = (FGi.shape[-1],)
+    a_shape = (FGa.shape[-1],)
+    j_shape = (FGj.shape[-1],)
 
     size_G = math.prod(G_shape)
     size_F = math.prod(F_shape)
 
-    GFi = GFi.reshape((size_G,) + (size_F,) + i_shape)
-    GFa = GFa.reshape((size_G,) + (size_F,) + a_shape)
-    GFj = GFj.reshape((size_G,) + (size_F,) + j_shape)
+    FGi = FGi.reshape((size_F,) + (size_G,) + i_shape)
+    FGa = FGa.reshape((size_F,) + (size_G,) + a_shape)
+    FGj = FGj.reshape((size_F,) + (size_G,) + j_shape)
 
     path = ['einsum_path', (0, 1), (0, 1)]
     if use_jax:
-        Giaj = xnp.einsum('GFi,GFa,GFj->Giaj', GFi, GFa, GFj)
+        Giaj = xnp.einsum('FGi,FGa,FGj->Giaj', FGi, FGa, FGj)
     else:
-        Giaj = xnp.einsum('GFi,GFa,GFj->Giaj', GFi, GFa, GFj, optimize=path)
+        Giaj = xnp.einsum('FGi,FGa,FGj->Giaj', FGi, FGa, FGj, optimize=path)
 
     Giaj = Giaj.reshape(G_shape + i_shape + a_shape + j_shape)
     return Giaj

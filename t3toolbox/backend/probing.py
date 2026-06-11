@@ -159,11 +159,11 @@ def compute_xis(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        xis = contractions.dGio_dFo_to_dGFi(up_tucker_cores, ww)
+        xis = contractions.dGio_dFo_to_dFGi(up_tucker_cores, ww)
     else:
         def _func(x):
             U, w = x
-            return (contractions.Gio_Fo_to_GFi(U, w),)
+            return (contractions.Gio_Fo_to_FGi(U, w),)
 
         (xis,) = xmap(_func, (up_tucker_cores, ww))
 
@@ -188,16 +188,14 @@ def compute_mus(
     is_uniform = not isinstance(xis, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
-    T = left_tt_cores[0].shape[:-3]
-    K = xis[0].shape[len(T):-1]
-
     def _func(mu, x):
         P, xi = x[0], x[1]
-        mu_next = contractions.GFa_Gaib_GFi_to_GFb(mu, P, xi)
+        mu_next = contractions.FGa_Gaib_FGi_to_FGb(mu, P, xi)
         return mu_next, (mu,)
 
+    # carry has the same leading stack as the edge variables (order-agnostic), plus the left bond
     r0 = left_tt_cores[0].shape[-3]
-    init = xnp.ones(T + K + (r0,))
+    init = xnp.ones(xis[0].shape[:-1] + (r0,))
 
     last_mu, (mus,) = xscan(_func, init, (left_tt_cores, xis))
     return mus
@@ -244,11 +242,11 @@ def compute_etas(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        etas = contractions.dGFa_dGaib_dGFb_to_dGFi(mus, outer_tt_cores, nus)
+        etas = contractions.dFGa_dGaib_dFGb_to_dFGi(mus, outer_tt_cores, nus)
     else:
         def _func(x):
             mu, G, nu = x
-            return (contractions.GFa_Gaib_GFb_to_GFi(mu, G, nu),)
+            return (contractions.FGa_Gaib_FGb_to_FGi(mu, G, nu),)
 
         (etas,) = xmap(_func, (mus, outer_tt_cores, nus))
 
@@ -273,11 +271,11 @@ def assemble_zs(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        zs = contractions.dGFi_dGio_to_dGFo(etas, tucker_cores)
+        zs = contractions.dFGi_dGio_to_dFGo(etas, tucker_cores)
     else:
         def _func(x):
             eta, U = x
-            return (contractions.GFi_Gio_to_GFo(eta, U),)
+            return (contractions.FGi_Gio_to_FGo(eta, U),)
 
         (zs,) = xmap(_func, (etas, tucker_cores))
 
@@ -348,16 +346,15 @@ def compute_sigmas(
 
     def _func(sigma, x):
         Q, O, dG, xi, dxi, mu = x
-        t1 = contractions.GFa_Gaib_GFi_to_GFb(sigma, Q, xi)
-        t2 = contractions.GFa_Gaib_GFi_to_GFb(mu, dG, xi)
-        t3 = contractions.GFa_Gaib_GFi_to_GFb(mu, O, dxi)
+        t1 = contractions.FGa_Gaib_FGi_to_FGb(sigma, Q, xi)
+        t2 = contractions.FGa_Gaib_FGi_to_FGb(mu, dG, xi)
+        t3 = contractions.FGa_Gaib_FGi_to_FGb(mu, O, dxi)
         sigma_next = t1 + t2 + t3
         return sigma_next, (sigma,)
 
-    T = right_tt_cores[0].shape[:-3]    # T3 stack
-    K = xis[0].shape[len(T):-1]         # probe stack
+    # carry has the same leading stack as the edge variables (order-agnostic), plus the right bond
     rR0 = right_tt_cores[0].shape[-3]
-    init = xnp.zeros(T + K + (rR0,))
+    init = xnp.zeros(xis[0].shape[:-1] + (rR0,))
 
     last_sigma, (sigmas,) = xscan(_func, init, (right_tt_cores, outer_tt_cores, var_tt_cores, xis, dxis, mus))
     return sigmas
@@ -451,9 +448,9 @@ def compute_detas(
     else:
         def _func(x):
             P, Q, dG, mu, nu, sigma, tau = x
-            term1 = contractions.GFa_Gaib_GFb_to_GFi(sigma, Q, nu)
-            term2 = contractions.GFa_Gaib_GFb_to_GFi(mu, dG, nu)
-            term3 = contractions.GFa_Gaib_GFb_to_GFi(mu, P, tau)
+            term1 = contractions.FGa_Gaib_FGb_to_FGi(sigma, Q, nu)
+            term2 = contractions.FGa_Gaib_FGb_to_FGi(mu, dG, nu)
+            term3 = contractions.FGa_Gaib_FGb_to_FGi(mu, P, tau)
             return (term1 + term2 + term3,)
 
         xs = (left_tt_cores, right_tt_cores, var_tt_cores, mus, nus, sigmas, taus)
@@ -496,8 +493,8 @@ def assemble_tangent_zs(
     else:
         def _func(x):
             B, dB, eta, deta = x
-            term1 = contractions.GFi_Gio_to_GFo(deta, B)
-            term2 = contractions.GFi_Gio_to_GFo(eta, dB)
+            term1 = contractions.FGi_Gio_to_FGo(deta, B)
+            term2 = contractions.FGi_Gio_to_FGo(eta, dB)
             return (term1 + term2,)
 
         (zs,) = xmap(_func, (tucker_cores, var_tucker_cores, etas, detas))
@@ -667,13 +664,13 @@ def compute_deta_tildes(
     if is_uniform:
         # ztildes carry no separate T3 stack G in the uniform layer, so the outer-product form
         # (same as compute_xis) coincides with the G-batched contraction.
-        deta_tildes = contractions.dGio_dFo_to_dGFi(up_tucker_cores, ztildes)
+        deta_tildes = contractions.dGio_dFo_to_dFGi(up_tucker_cores, ztildes)
     else:
         def _func(x):
             U, zt = x
             # G (T3 stack) is shared between the core U and the residual zt; F is the probe stack on
             # zt. This is NOT compute_xis (which forms an outer product over the two stacks).
-            return (contractions.GFo_Gio_to_GFi(zt, U),)
+            return (contractions.FGo_Gio_to_FGi(zt, U),)
 
         (deta_tildes,) = xmap(_func, (up_tucker_cores, ztildes))
 
@@ -702,8 +699,8 @@ def compute_tau_tildes(
 
     def _func(tau_tilde, x):
         P, xi, deta_tilde, mu = x
-        t1 = contractions.GFa_Gaib_GFi_to_GFb(tau_tilde, P, xi)
-        t2 = contractions.GFa_Gaib_GFi_to_GFb(mu, P, deta_tilde)
+        t1 = contractions.FGa_Gaib_FGi_to_FGb(tau_tilde, P, xi)
+        t2 = contractions.FGa_Gaib_FGi_to_FGb(mu, P, deta_tilde)
         tau_tilde_next = t1 + t2
         return tau_tilde_next, (tau_tilde,)
 
@@ -773,8 +770,8 @@ def compute_dxi_tildes(
     else:
         def _func(x):
             O, mu, nu, st, tt = x
-            term1 = contractions.GFa_Gaib_GFb_to_GFi(tt, O, nu)
-            term2 = contractions.GFa_Gaib_GFb_to_GFi(mu, O, st)
+            term1 = contractions.FGa_Gaib_FGb_to_FGi(tt, O, nu)
+            term2 = contractions.FGa_Gaib_FGb_to_FGi(mu, O, st)
             return (term1 + term2,)
 
         xs = (outer_tt_cores, mus, nus, sigma_tildes, tau_tildes)
@@ -824,9 +821,9 @@ def assemble_tucker_variations(
             if sum_over_probes:
                 # sum over the probe stack F, keep the T3 stack G (raw '->ao' would sum both)
                 dU_tilde = (
-                        contractions.GFo_GFa_to_Gao(z_tilde, eta, n_probe)
+                        contractions.FGo_FGa_to_Gao(z_tilde, eta, n_probe)
                         +
-                        contractions.Fo_GFa_to_Gao(w, dxi_tilde)
+                        contractions.Fo_FGa_to_Gao(w, dxi_tilde)
                 )
             else:
                 dU_tilde = (
@@ -912,11 +909,11 @@ def assemble_tt_variations(
             if sum_over_probes:
                 # sum over the probe stack F, keep the T3 stack G (raw '->iaj' would sum both)
                 dG_tilde = (
-                        contractions.GFi_GFa_GFj_to_Giaj(mu, xi, sigma_tilde, n_probe)
+                        contractions.FGi_FGa_FGj_to_Giaj(mu, xi, sigma_tilde, n_probe)
                         +
-                        contractions.GFi_GFa_GFj_to_Giaj(tau_tilde, xi, nu, n_probe)
+                        contractions.FGi_FGa_FGj_to_Giaj(tau_tilde, xi, nu, n_probe)
                         +
-                        contractions.GFi_GFa_GFj_to_Giaj(mu, deta_tilde, nu, n_probe)
+                        contractions.FGi_FGa_FGj_to_Giaj(mu, deta_tilde, nu, n_probe)
                 )
             else:
                 dG_tilde = (
@@ -1170,9 +1167,9 @@ def probe_dense(
     >>> u1 = np.random.randn(2,3, 11)
     >>> u2 = np.random.randn(2,3, 12)
     >>> yy = t3p.probe_dense((u0,u1,u2),T)
-    >>> y0 = np.einsum('xyzijk,uvj,uvk->xyzuvi', T, u1, u2)
-    >>> y1 = np.einsum('xyzijk,uvi,uvk->xyzuvj', T, u0, u2)
-    >>> y2 = np.einsum('xyzijk,uvi,uvj->xyzuvk', T, u0, u1)
+    >>> y0 = np.einsum('xyzijk,uvj,uvk->uvxyzi', T, u1, u2)
+    >>> y1 = np.einsum('xyzijk,uvi,uvk->uvxyzj', T, u0, u2)
+    >>> y2 = np.einsum('xyzijk,uvi,uvj->uvxyzk', T, u0, u1)
     >>> print(float(np.linalg.norm(yy[0] - y0)))
     2.4890154384764807e-13
     >>> print(float(np.linalg.norm(yy[1] - y1)))
@@ -1217,7 +1214,7 @@ def probe_dense(
 
         str += '->'
 
-        str += Z_letters + K_letters + shape_letters[ii]
+        str += K_letters + Z_letters + shape_letters[ii]
 
         vvi = tuple(vectors[:ii] + vectors[ii+1:][::-1])
 
