@@ -121,14 +121,18 @@ Treat everything else as copied-in-and-not-yet-working until checked.
   `to_dense`/`to_t3`/`zeros`/`randn`/`project`/`retract`, stacking, checkers).
   Tests: `tests/test_tucker_tensor_train.py`, `test_basis_variations_format.py`, `test_manifold.py`,
   `backend/test_contractions.py`.
-- **In progress — `backend/probing.py` (current focus)**: the math matches the paper (Section 6, see
-  `docs/probing_section6_notes.md`), but the tangent path does **not** run yet. `probe_tangent` /
-  `probe_tangent_transpose` and their helpers thread `use_jax=` into `compute_xis/mus/nus/etas` and
-  `_apply_edge_weights`, which were refactored to *infer* `use_jax` from the array tree and no longer
-  accept the kwarg (`probe_t3` path works; tangent path raises `TypeError` on the first call).
-  Doctests reference stale APIs (`orth.orthogonal_representations`, `t3m.tangent_randn`, etc.).
-  House convention to harmonize to (see `tangent_operations.py`): `use_jax = use_jax or
-  tree_contains_jax((...))` inside each function.
+- **In progress — probing (current focus)**: `docs/probing_section6_notes.md` maps the paper
+  (Section 6, the Riemannian Jacobian) to the code.
+  - **Slice A (DONE)** — `backend/probing.py` backend: removed all edge-weighting (weights are
+    absorbed into cores up front, then probe unweighted); harmonized `use_jax` to the house pattern
+    so the tangent path runs; kept every `is_uniform` branch; updated paper refs + doctests.
+    Verified `probe_tangent` vs `probe_dense` and the adjoint identity `<z, Jv> = <Jᵀz, v>`
+    (numpy/jax/stacked). `probe_tangent`/`probe_tangent_transpose` take `base = (U, P, Q, O)`, which
+    is `T3Basis.data = (U, O, P, Q)` reordered.
+  - **Slice B (TODO)** — `T3Tangent` wrappers in `manifold.py` for the bare Jacobian `𝒥` (probe) and
+    its transpose `𝒥ᵀ`, doing the `(U,O,P,Q)→(U,P,Q,O)` reorder. Wrappers do **not** apply the gauge
+    projector `Π` (caller composes the Riemannian `J = 𝒥∘Π` when wanted). Plus real tests in
+    `tests/` (dense reference + adjoint identity, subTest over structures × stack_shapes × np/jax).
 - **Deferred / broken**: the uniform layer (`ut3_*`, `ubv_*`, `uniform_*`) — many modules don't even
   import; every `is_uniform` branch in the tangent code was dropped/stubbed. The weighted layer
   (parked `absorb_weights`). `OLD_*.py` files are still tracked.
