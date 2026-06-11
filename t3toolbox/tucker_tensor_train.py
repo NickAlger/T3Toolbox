@@ -3323,11 +3323,12 @@ class TuckerTensorTrain:
         >>> vstack_shape = (4,5,1)
         >>> ww = [randn(*(vstack_shape+(14,))), randn(*(vstack_shape+(15,))), randn(*(vstack_shape+(16,)))]
         >>> result = x.probe(ww)
-        >>> ii, jj = 1, 2
-        >>> ll, mm, nn =  3, 2, 0
-        >>> result_ij_lmn_0 = result[0][ii,jj, ll,mm,nn]
-        >>> result_ij_lmn_1 = result[1][ii,jj, ll,mm,nn]
-        >>> result_ij_lmn_2 = result[2][ii,jj, ll,mm,nn]
+        >>> ii, jj = 1, 2          # T3 (base) stack index
+        >>> ll, mm, nn =  3, 2, 0  # vector (probe) stack index
+        >>> # probes are stacked F + G (vector stack outer, T3 stack inner)
+        >>> result_ij_lmn_0 = result[0][ll,mm,nn, ii,jj]
+        >>> result_ij_lmn_1 = result[1][ll,mm,nn, ii,jj]
+        >>> result_ij_lmn_2 = result[2][ll,mm,nn, ii,jj]
         >>> x_ij_dense = x.to_dense()[ii,jj]
         >>> result_ij_lmn_0_true = np.einsum('abc,b,c', x_ij_dense, ww[1][ll,mm,nn], ww[2][ll,mm,nn])
         >>> result_ij_lmn_1_true = np.einsum('abc,a,c', x_ij_dense, ww[0][ll,mm,nn], ww[2][ll,mm,nn])

@@ -1330,6 +1330,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
             (2,3)
         ]
 
+
         for BASE_STRUCTURE in base_structures:
             for X_IS_JAX in [True, False]:
                 for STACK_SHAPE in stack_shapes:
@@ -2175,7 +2176,8 @@ class TestTuckerTensorTrain(unittest.TestCase):
                             for ind in stack_inds:
                                 X = x_dense[ind]
                                 for vind in vecs_stack_inds:
-                                    zz = [z[ind+vind] for z in result]
+                                    # probes are stacked F + G (vec stack outer, T3 stack inner)
+                                    zz = [z[vind+ind] for z in result]
                                     vv = [v[vind] for v in vecs]
                                     if len(shape) == 1:
                                         zz_true = [
