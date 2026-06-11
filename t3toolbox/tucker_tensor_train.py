@@ -3555,7 +3555,7 @@ class TuckerTensorTrain:
 
         Notes
         -----
-        See Algorithm 3 in Appendix A of [1]_.
+        See the dense T3-SVD (Algorithm 9) in Appendix A of [1]_.
 
         References
         ----------

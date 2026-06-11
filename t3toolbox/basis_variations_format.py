@@ -96,6 +96,10 @@ class T3Basis:
     (add, scale, dot product, etc) with the variations, and those core faithfully correspond
     to linear algebra with the N1 x ... x Nd tangent vectors represented by the variations.
 
+    The orthogonal representations (45)-(46) and gauge conditions (48)-(49) are defined in Appendix
+    A.3 of Alger, Christierson, Chen & Ghattas (2026), "Tucker Tensor Train Taylor Series"
+    (arXiv:2603.21141).
+
     See Also
     --------
     T3Variations
@@ -230,6 +234,9 @@ class T3Basis:
         and are not checked. This is a non-enforcing convenience checker; ``T3Basis`` does not
         require orthogonality at construction.
 
+        Orthogonal cores (left/right/outer/Tucker) are defined in Appendix A.1 of Alger et al.
+        (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
+
         Examples
         --------
         >>> import numpy as np
@@ -274,6 +281,10 @@ class T3Basis:
             Some tangent-space operations are only correct when the basis has minimal ranks;
             exactly which is still to be determined (flagged for later consideration). This is a
             non-enforcing checker; ``T3Basis`` does not require minimal ranks at construction.
+
+        Minimal (non-degenerate) ranks and their connection to matricizations and matrix unfoldings
+        are discussed in Appendix A.2 of Alger et al. (2026), "Tucker Tensor Train Taylor Series"
+        (arXiv:2603.21141).
 
         Examples
         --------
@@ -747,6 +758,9 @@ def bv_to_t3(
              U0    U1   (V2)   U3
              |     |     |     |
 
+    These are the single-core variation terms summed in equation (47), Appendix A.3, of Alger et al.
+    (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
+
     Parameters
     ----------
     ii: int
@@ -830,6 +844,12 @@ def t3_orthogonal_representations(
     The "variation cores" are:
         - tucker_variations  = (V0, V1, V2, V3)
         - tt_variations     = (H0, H1, H2, H3)
+
+    Implements the sweeping orthogonalization (Algorithm 11), producing the representations
+    (45)-(46), in Appendix A.3 of Alger et al. (2026), "Tucker Tensor Train Taylor Series"
+    (arXiv:2603.21141). NOTE: the left/right orthogonalization sweep order here differs from
+    Algorithm 11 (left-then-right vs the paper's right-then-left); the resulting orthogonal
+    representations are equivalent.
 
     Parameters
     ----------

@@ -82,6 +82,9 @@ def orthogonal_gauge_projection(
     Changes the represented tangent vector. The result satisfies, for an orthogonal basis,
     ``U_i V_i^T = 0`` (all i) and ``einsum('...abi,...abj->...ij', L_i, H_i) = 0`` (i = 0..d-2).
     Stack-aware. Ragged path only (uniform deferred).
+
+    Gauge conditions (48)-(49), Appendix A.3, of Alger et al. (2026), "Tucker Tensor Train
+    Taylor Series" (arXiv:2603.21141).
     """
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
     tucker_variations, tt_variations = variations
@@ -127,6 +130,9 @@ def oblique_gauge_projection(
     The Tucker perturbation is made perpendicular to U (compensating through the down/outer cores),
     then the TT variations are made left-perpendicular (compensating through the right cores).
     Stack-aware. Ragged path only (uniform deferred).
+
+    Enforces the gauge conditions (48)-(49), Appendix A.3, of Alger et al. (2026), "Tucker Tensor
+    Train Taylor Series" (arXiv:2603.21141).
     """
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
     tucker_variations, tt_variations = variations
@@ -184,6 +190,9 @@ def tangent_to_t3(
     The Tucker cores become ``[U_i; V_i]`` (stacked along the Tucker-rank axis); the TT cores form
     the standard block-bidiagonal embedding. With ``include_shift=True`` the base point is folded
     into the last TT core so the result represents ``base point + v``. Stack-aware.
+
+    Equations (50)-(53) and Figure 20, Appendix A.3.1, of Alger et al. (2026),
+    "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
     """
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
     tucker_variations, tt_variations = variations

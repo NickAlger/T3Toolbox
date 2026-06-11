@@ -27,6 +27,9 @@ def manifold_dim(
 ) -> int:
     """Get the dimension of the fixed rank T3 manifold with a given structure.
 
+    The fixed-rank Tucker tensor train manifold M_{n,r} is described in Appendix A.3 of Alger et al.
+    (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
+
     Examples
     --------
     >>> import numpy as np
@@ -100,6 +103,9 @@ class T3Tangent:
           **gauged**. These are not checked at construction. Use :py:meth:`is_orthogonal` and
           :py:meth:`is_gauged` to check, and see each operation's docstring for the failure mode.
 
+    A tangent vector is the sum of 2d single-core variation terms -- equation (47), Appendix A.3, of
+    Alger, Christierson, Chen & Ghattas (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
+
     Examples
     --------
     >>> import numpy as np
@@ -172,6 +178,9 @@ class T3Tangent:
 
         The Tucker and TT ranks are (roughly) doubled. With ``include_shift=True`` the result
         represents ``base point + v`` (the standard shifted embedding used by :py:meth:`retract`).
+
+        This is the doubled-rank representation of Appendix A.3.1 (equations (50)-(53) and Figure 20)
+        in Alger et al. (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
         """
         cores = tangent_operations.tangent_to_t3(
             self.basis.data, self.variations.data, include_shift=include_shift, use_jax=use_jax,
@@ -186,6 +195,9 @@ class T3Tangent:
 
         Forms the shifted doubled-rank embedding (base point + v) and truncates it back to the base
         ranks via T3-SVD, yielding a point on the manifold of the base point's ranks.
+
+        The truncation is the implicit T3-SVD (Algorithm 10) of Alger et al. (2026),
+        "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
         """
         shifted = self.to_t3(include_shift=True, use_jax=use_jax)
         retracted_x, _, _ = shifted.t3svd(
@@ -283,6 +295,9 @@ class T3Tangent:
             when the basis is orthogonal and BOTH variations are gauged (see :py:meth:`is_gauged`).
             Otherwise it is merely the corewise dot of the variation cores. Requires the same
             T3Basis object.
+
+        The gauged identity ``<v, v'>_HS = sum_i <dU_i, dU_i'> + sum_i <dG_i, dG_i'>`` is given in
+        Appendix A.3 of Alger et al. (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
         """
         self._check_same_tangent_space(other)
         return cw.corewise_dot(self.variations.data, other.variations.data, use_jax=use_jax)
@@ -321,6 +336,9 @@ class T3Tangent:
         values; not enforced at construction):
             - ``einsum('...ia,...ja->...ij', U_i, V_i) = 0`` for all i (Tucker variations ⟂ U).
             - ``einsum('...abi,...abj->...ij', L_i, H_i) = 0`` for i = 0..d-2 (TT variations ⟂ L).
+
+        These are the gauge conditions (48)-(49), Appendix A.3, of Alger et al. (2026),
+        "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
         """
         resid = 0.0
         for U, V in zip(self.basis.up_tucker_cores, self.variations.tucker_variations):

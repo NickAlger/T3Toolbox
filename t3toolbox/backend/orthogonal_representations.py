@@ -58,6 +58,11 @@ def orthogonal_representations(
     ],  # uniform
 ]:
     '''Construct base-variation representations of TuckerTensorTrain with orthogonal base.
+
+    Sweeping orthogonalization (Algorithm 11) producing the representations (45)-(46), Appendix A.3,
+    of Alger et al. (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141). NOTE: the
+    left/right sweep order here differs from Algorithm 11 (left-then-right vs the paper's
+    right-then-left); the resulting orthogonal representations are equivalent.
     '''
     is_uniform = is_ndarray(x[0])
 

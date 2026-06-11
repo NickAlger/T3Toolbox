@@ -33,6 +33,9 @@ def t3svd(
     typ.Tuple[NDArray,...], # TT singular values, len=d+1
 ]:
     '''Compute (truncated) T3-SVD of TuckerTensorTrain.
+
+    Implicit T3-SVD (Algorithm 10), Appendix A.2, of Alger et al. (2026), "Tucker Tensor Train
+    Taylor Series" (arXiv:2603.21141).
     '''
     num_cores = len(x[0])
 
