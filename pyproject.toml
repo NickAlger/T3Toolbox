@@ -31,9 +31,9 @@ classifiers = [
 jax = ["jax"]
 
 [project.urls]
-Homepage = "https://github.com/NickAlger/TuckerTensorTrainTools"
-Documentation = "https://github.com/NickAlger/TuckerTensorTrainTools/docs/_build/html/index.html"
-Repository = "https://github.com/NickAlger/TuckerTensorTrainTools"
-"Bug Tracker" = "https://github.com/NickAlger/TuckerTensorTrainTools/issues"
-Changelog = "https://github.com/NickAlger/TuckerTensorTrainTools/blob/master/CHANGELOG.md"
+Homepage = "https://github.com/NickAlger/T3Toolbox"
+Documentation = "https://nickalger.github.io/T3Toolbox/"
+Repository = "https://github.com/NickAlger/T3Toolbox"
+"Bug Tracker" = "https://github.com/NickAlger/T3Toolbox/issues"
+Changelog = "https://github.com/NickAlger/T3Toolbox/blob/main/CHANGELOG.md"
 

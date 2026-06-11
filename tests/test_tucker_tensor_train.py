@@ -1,6 +1,6 @@
 # Authors: Nick Alger and Blake Christierson
 # Copyright: MIT License (2026)
-# https://github.com/NickAlger/TuckerTensorTrainTools
+# https://github.com/NickAlger/T3Toolbox
 import numpy as np
 import unittest
 import os
