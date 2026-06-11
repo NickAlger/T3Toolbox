@@ -244,8 +244,32 @@ Treat everything else as copied-in-and-not-yet-working until checked.
           asymmetry with `to_dense` is principled (bare-array output vs class instance). `retract`
           follows (`t3svd` stack-agnostic). **`project` already worked unchanged** on a `V`-stacked `x`.
         Tests: `test_tangent_stacked_heavy_ops` + `test_project_tangent_stacked` (compare every `(v,g)`
-        slice to the unstacked reference; np+jax). NB `T3Tangent.unstack`/`stack` do NOT yet support a
-        `V`-stack (assume basis & variations share one stack) — out of 5a scope; tests slice cores by hand.
+        slice to the unstacked reference; np+jax). (5a tests slice cores by hand because they predate
+        the two-axis stack/unstack below.)
+      - **Two-axis stack/unstack (DONE, separate slice — found in a `V`-stack audit of `manifold.py`
+        + `basis_variations_format.py`).** The audit found three single-stack assumptions: (i)
+        `T3Tangent.unstack` *crashed* on a `V`-stack (zipped a `G`-deep basis tree with a `V+G`-deep
+        variations tree); (ii) `T3Tangent.stack` was *silently wrong* (over-stacked the basis to
+        `V+G`); (iii) frontend `bvf.bv_to_t3` *crashes* on a `V`-stack (wraps a mixed-stack term in
+        `TuckerTensorTrain`, which `validate()` rejects — same broadcast-on-wrap issue as
+        `tangent_to_t3`; **STILL PENDING**, its own slice). Everything else (`+ - * inner norm`, gauge,
+        `is_gauged`, `project`, `probe_transpose`) already handles `V+G` via corewise/`…`-broadcast.
+        Resolution (decided with Nick): the monolithic `stack`/`unstack` can't faithfully invert two
+        stacks (the `V`/`G` split isn't recoverable from a bare tree), so **replaced them with two
+        explicit pairs**, each peeling ONE named stack (so `stack_X` cleanly inverts `unstack_X`):
+        - `unstack_tangents`/`stack_tangents` (peel the tangent stack `V`): a `V`-tree of tangents
+          that **share the base** (`stack_tangents` reuses it, **guard: same `T3Basis` object** —
+          structural identity, as in `inner`/`+`). "For each vector within the basis."
+        - `unstack_basis`/`stack_basis` (peel the base stack `G`): a `G`-tree of single-base-point
+          tangents at **distinct** bases (`stack_basis` places `G` *innermost* → `V+G`; needs
+          interior-axis stacking, which the component `T3Variations.stack` can't do — hence it's a
+          real op, not user-assembled). "For each basis."
+        Pattern: backend functionals in `tangent_operations.py` (`unstack_tangent_stack`/
+        `stack_tangent_stack`/`unstack_base_stack`/`stack_base_stack`, built on `stacking.unstack/
+        stack(axes=…)`) do the array/tree work; the `T3Tangent` methods are thin wrappers doing the
+        compatibility checks + (un)wrapping. `T3Basis`/`T3Variations` keep their single plain
+        `stack`/`unstack`. Tests: `test_unstack_stack_tangents`/`_basis` (round-trip + per-slice dense,
+        incl. multi-axis stacks) + `test_stack_tangents_guard`.
       - **5b — flip `apply`/`entries` to `F+G`** (independent of V-stacking; the lone `G+F` holdout =
         `TuckerTensorTrain.apply`/`entries` + their 2 contractions `GFa_Gaib_Fo_Gio_to_GFb` /
         `GFa_Gaib_GiF_to_GFb`). Changes their public output stacking + tests/doctests. Quick.

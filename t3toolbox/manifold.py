@@ -525,17 +525,94 @@ class T3Tangent:
     ##########    Stacking    ##################
     ############################################
 
-    def unstack(self):
-        """Unstack into an array-like tree of T3Tangents (tree shape = stack_shape)."""
-        basis_tree = self.basis.unstack()
-        variations_tree = self.variations.unstack()
-        paired = stacking.tree_zip(basis_tree, variations_tree)
+    def unstack_tangents(self):
+        """Unstack over the tangent stack ``V``: a ``V``-shaped tree of tangents sharing this base.
+
+        Decomposes the batch of tangent *directions* ("for each vector within the basis"). Each leaf
+        is a :py:class:`T3Tangent` with ``tangent_stack_shape == ()`` and ``base_stack_shape`` equal
+        to this tangent's -- and, because the base point is shared across ``V``, every leaf holds the
+        **same** :py:class:`T3Basis` object, so the leaves live in one tangent space (linear algebra
+        between them is defined). Inverse of :py:meth:`stack_tangents`.
+        """
+        variations_tree = tangent_operations.unstack_tangent_stack(self.basis.data, self.variations.data)
+        leaf_structure = ((None,) * self.d, (None,) * self.d)  # a single T3Variations.data
+        return stacking.apply_func_to_leaf_subtrees(
+            variations_tree,
+            lambda vd: T3Tangent(self.basis, bvf.T3Variations(*vd)),  # SAME basis object (shared)
+            leaf_structure,
+        )
+
+    def unstack_basis(self):
+        """Unstack over the base stack ``G``: a ``G``-shaped tree of single-base-point tangents.
+
+        Decomposes over base *points* ("for each basis"). Each leaf is a :py:class:`T3Tangent` with
+        ``base_stack_shape == ()`` and ``tangent_stack_shape`` equal to this tangent's; the leaves
+        sit at **different** base points (different tangent spaces, so they are not mutually
+        linear-algebra compatible). Inverse of :py:meth:`stack_basis`.
+        """
+        basis_tree, variations_tree = tangent_operations.unstack_base_stack(
+            self.basis.data, self.variations.data,
+        )
+        basis_objs = stacking.apply_func_to_leaf_subtrees(
+            basis_tree, lambda bd: bvf.T3Basis(*bd), ((None,) * self.d,) * 4,
+        )
+        variations_objs = stacking.apply_func_to_leaf_subtrees(
+            variations_tree, lambda vd: bvf.T3Variations(*vd), ((None,) * self.d, (None,) * self.d),
+        )
+        paired = stacking.tree_zip(basis_objs, variations_objs)
         return stacking.apply_func_to_leaf_subtrees(paired, lambda bv: T3Tangent(*bv), (None, None))
 
     @staticmethod
-    def stack(xx) -> 'T3Tangent':
-        """Stack an array-like tree of T3Tangents into one stacked T3Tangent."""
-        basis_tree = stacking.apply_func_to_leaf_subtrees(xx, lambda t: t.basis, None)
-        variations_tree = stacking.apply_func_to_leaf_subtrees(xx, lambda t: t.variations, None)
-        return T3Tangent(bvf.T3Basis.stack(basis_tree), bvf.T3Variations.stack(variations_tree))
+    def stack_tangents(tree) -> 'T3Tangent':
+        """Stack a ``V``-shaped tree of tangents (sharing one base) into a tangent-stacked T3Tangent.
+
+        Inverse of :py:meth:`unstack_tangents`. Requires every leaf to hold the **same**
+        :py:class:`T3Basis` object (object identity, as in :py:meth:`inner` / :py:meth:`__add__`):
+        the tangents being stacked must live in the same tangent space. The shared base is reused and
+        the variations are stacked over the new outer tangent stack ``V``.
+        """
+        leaves = _flatten_tangents(tree)
+        base = leaves[0].basis
+        for t in leaves[1:]:
+            if t.basis is not base:
+                raise ValueError(
+                    'stack_tangents requires every tangent to share the same T3Basis object (object '
+                    'identity, not merely numerically-equal cores) -- they must live in the same '
+                    'tangent space. To stack tangents at *different* base points, use stack_basis.'
+                )
+        variations_tree = stacking.apply_func_to_leaf_subtrees(tree, lambda t: t.variations.data, None)
+        variations_data = tangent_operations.stack_tangent_stack(variations_tree)
+        return T3Tangent(base, bvf.T3Variations(*variations_data))
+
+    @staticmethod
+    def stack_basis(tree) -> 'T3Tangent':
+        """Stack a ``G``-shaped tree of single-base-point tangents into a base-stacked T3Tangent.
+
+        Inverse of :py:meth:`unstack_basis`. The leaves sit at **different** base points (distinct
+        bases), so no shared-base identity is required; they must share the same structure and the
+        same tangent stack ``V``. The bases are stacked over the base stack ``G``, which is placed
+        innermost so the variation stack becomes ``V + G``.
+        """
+        leaves = _flatten_tangents(tree)
+        v0 = leaves[0]
+        for t in leaves[1:]:
+            if t.structure != v0.structure or t.tangent_stack_shape != v0.tangent_stack_shape:
+                raise ValueError(
+                    'stack_basis requires all tangents to share the same structure and tangent '
+                    'stack V (only the base point may differ across the base stack G).'
+                )
+        basis_tree = stacking.apply_func_to_leaf_subtrees(tree, lambda t: t.basis.data, None)
+        variations_tree = stacking.apply_func_to_leaf_subtrees(tree, lambda t: t.variations.data, None)
+        basis_data, variations_data = tangent_operations.stack_base_stack(basis_tree, variations_tree)
+        return T3Tangent(bvf.T3Basis(*basis_data), bvf.T3Variations(*variations_data))
+
+
+def _flatten_tangents(tree) -> typ.List['T3Tangent']:
+    """Flatten an array-like tree of T3Tangents (nested tuples) into a flat list of leaves."""
+    if isinstance(tree, T3Tangent):
+        return [tree]
+    out = []
+    for sub in tree:
+        out.extend(_flatten_tangents(sub))
+    return out
 

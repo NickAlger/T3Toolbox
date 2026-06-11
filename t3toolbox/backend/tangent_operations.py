@@ -9,6 +9,7 @@ import numpy as np
 
 import t3toolbox.backend.bv_conversions as bv_conversions
 import t3toolbox.backend.t3_operations as ragged_operations
+import t3toolbox.backend.stacking as stacking
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -19,6 +20,10 @@ __all__ = [
     'tt_zipper_left_to_right',
     'tt_zipper_right_to_left',
     'project_t3_onto_tangent_space',
+    'unstack_tangent_stack',
+    'stack_tangent_stack',
+    'unstack_base_stack',
+    'stack_base_stack',
 ]
 
 
@@ -364,3 +369,72 @@ def project_t3_onto_tangent_space(
     return orthogonal_gauge_projection(
         basis, (ungauged_tucker_variations, ungauged_tt_variations),
     )
+
+
+def _tangent_stack_split(
+        basis,       # (UU, DD, LL, RR), each core stack = G
+        variations,  # (VV, HH), each core stack = V + G
+) -> typ.Tuple[int, int]:  # (|V|, |G|)
+    """Recover the tangent-stack / base-stack split from a (basis, variations) data pair.
+
+    The base cores carry only the base stack G; the variation cores carry the full stack V + G (the
+    extra tangent stack V outermost). So |G| comes from a base core and |V| is the remainder.
+    """
+    n_base = len(basis[0][0].shape) - 2       # |G|   (up core: stack + (nU, N))
+    n_full = len(variations[0][0].shape) - 2  # |V+G| (tucker variation: stack + (nD, N))
+    return n_full - n_base, n_base
+
+
+def unstack_tangent_stack(
+        basis,       # (UU, DD, LL, RR), each core stack = G
+        variations,  # (VV, HH), each core stack = V + G
+):  # -> array-like tree (shape V) of variations-data tuples (each stack = G)
+    """Peel the tangent stack V off the variations, returning a V-shaped tree of variation-data.
+
+    The base point is shared across V, so the base cores are untouched (the caller pairs the same
+    base with every leaf). Inverse of :py:func:`stack_tangent_stack`.
+    """
+    n_tangent, _ = _tangent_stack_split(basis, variations)
+    return stacking.unstack(variations, axes=tuple(range(n_tangent)))
+
+
+def stack_tangent_stack(
+        variations_tree,  # array-like tree (shape V) of variations-data tuples (each stack = G)
+):  # -> variations-data tuple (stack = V + G)
+    """Stack a V-shaped tree of variation-data over the tangent stack V (outermost).
+
+    Inverse of :py:func:`unstack_tangent_stack`.
+    """
+    return stacking.basic_ragged_stack(variations_tree)
+
+
+def unstack_base_stack(
+        basis,       # (UU, DD, LL, RR), each core stack = G
+        variations,  # (VV, HH), each core stack = V + G
+):  # -> (basis_tree, variations_tree), both shape G
+    """Peel the base stack G off both the basis and the variations, returning two G-shaped trees.
+
+    Each basis leaf has stack () (a single base point); each variation leaf has stack V. The base
+    stack is the *inner* part of the variation stack (V + G), so it is peeled from the interior
+    axes of the variation cores. Inverse of :py:func:`stack_base_stack`.
+    """
+    n_tangent, n_base = _tangent_stack_split(basis, variations)
+    basis_tree = stacking.unstack(basis, axes=tuple(range(n_base)))
+    variations_tree = stacking.unstack(variations, axes=tuple(range(n_tangent, n_tangent + n_base)))
+    return basis_tree, variations_tree
+
+
+def stack_base_stack(
+        basis_tree,       # array-like tree (shape G) of basis-data tuples (each stack = ())
+        variations_tree,  # array-like tree (shape G) of variations-data tuples (each stack = V)
+):  # -> (basis-data (stack = G), variations-data (stack = V + G))
+    """Stack a G-shaped tree of basis-data and variations-data over the base stack G.
+
+    The base stack is placed *innermost* (the variation stack becomes V + G), matching the
+    base-inner convention. Inverse of :py:func:`unstack_base_stack`.
+    """
+    basis = stacking.basic_ragged_stack(basis_tree)                      # G at leading -> stack = G
+    n_base = stacking.tree_depth(basis_tree) - 2                         # |G| (basis-data has 2 inner levels)
+    n_tangent = len(stacking.get_first_leaf(variations_tree).shape) - 2  # |V| (a tucker variation leaf)
+    variations = stacking.stack(variations_tree, axes=tuple(range(n_tangent, n_tangent + n_base)))
+    return basis, variations

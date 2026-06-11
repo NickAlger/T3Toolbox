@@ -67,6 +67,13 @@ def _slice_tangent(base, var, idx, n_base):
     return t3m.T3Tangent(_slice_basis(base, g_idx), vslice)
 
 
+def _tree_get(tree, idx):
+    """Navigate an array-like tree by a multi-index (idx=() returns the depth-0 tree itself)."""
+    for k in idx:
+        tree = tree[k]
+    return tree
+
+
 class TestManifold(unittest.TestCase):
     t3_structures = [
         #  (shape,            tucker_ranks,   tt_ranks)
@@ -178,21 +185,76 @@ class TestManifold(unittest.TestCase):
         # the zero tangent is trivially gauged (all variation cores are zero)
         self.assertTrue(t3m.T3Tangent.zeros(base).is_gauged())
 
-    def test_stack_unstack(self):
-        for T3_STRUCTURE in self.t3_structures:
-            for STACK_SHAPE in [(2,), (2, 3)]:
-                for USE_JAX in [False, True]:
-                    with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
-                        v = _random_tangent(T3_STRUCTURE, stack_shape=STACK_SHAPE, use_jax=USE_JAX)
-                        v2 = t3m.T3Tangent.stack(v.unstack())
-                        err = cw.corewise_norm(cw.corewise_sub(v.variations.data, v2.variations.data))
-                        self.assertLessEqual(float(err), tol)
-                        # a leaf of the unstacked tangent matches its dense slice
-                        leaf = v.unstack()
-                        idx = tuple(0 for _ in STACK_SHAPE)
-                        for k in idx:
-                            leaf = leaf[k]
-                        self.check_relerr(np.asarray(v.to_dense())[idx], leaf.to_dense())
+    # ``stack_shapes`` for the two-axis stacking tests: (base_stack G, tangent_stack V) pairs.
+    bv_stack_shapes = [((), (3,)), ((2,), (3,)), ((2,), ()), ((2,), (2, 2)), ((2, 3), (2,))]
+
+    def _random_v_stacked(self, struct, base_stack, V, use_jax):
+        x = t3.TuckerTensorTrain.randn(*struct, stack_shape=base_stack)
+        if use_jax:
+            x = x.to_jax()
+        base, _ = bvf.t3_orthogonal_representations(x)
+        return t3m.T3Tangent.randn(base, stack_shape=V, apply_gauge_projection=False)
+
+    def test_unstack_stack_tangents(self):
+        # unstack_tangents peels the tangent stack V -> a V-shaped tree of tangents that SHARE the
+        # base (same T3Basis object, one tangent space). stack_tangents inverts it.
+        STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
+        for BASE_STACK, V in self.bv_stack_shapes:
+            for USE_JAX in [False, True]:
+                with self.subTest(BASE_STACK=BASE_STACK, V=V, USE_JAX=USE_JAX):
+                    v = self._random_v_stacked(STRUCT, BASE_STACK, V, USE_JAX)
+                    dense = np.asarray(v.to_dense())  # V + G + (N...)
+                    tree = v.unstack_tangents()
+
+                    for vidx in np.ndindex(*V):
+                        leaf = _tree_get(tree, vidx)
+                        self.assertIs(leaf.basis, v.basis)  # shared base object
+                        self.assertEqual((), leaf.tangent_stack_shape)
+                        self.assertEqual(BASE_STACK, leaf.base_stack_shape)
+                        self.check_relerr(dense[vidx], leaf.to_dense())  # slice the leading V axes
+
+                    rt = t3m.T3Tangent.stack_tangents(tree)  # round-trip
+                    self.assertIs(rt.basis, v.basis)
+                    self.assertEqual(V, rt.tangent_stack_shape)
+                    self.check_relerr(dense, rt.to_dense())
+
+    def test_unstack_stack_basis(self):
+        # unstack_basis peels the base stack G -> a G-shaped tree of single-base-point tangents (each
+        # at a DIFFERENT base point, still carrying its V batch). stack_basis inverts it.
+        STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
+        for BASE_STACK, V in self.bv_stack_shapes:
+            for USE_JAX in [False, True]:
+                with self.subTest(BASE_STACK=BASE_STACK, V=V, USE_JAX=USE_JAX):
+                    v = self._random_v_stacked(STRUCT, BASE_STACK, V, USE_JAX)
+                    dense = np.asarray(v.to_dense())  # V + G + (N...)
+                    nV = len(V)
+                    tree = v.unstack_basis()
+
+                    for gidx in np.ndindex(*BASE_STACK):
+                        leaf = _tree_get(tree, gidx)
+                        self.assertEqual((), leaf.base_stack_shape)
+                        self.assertEqual(V, leaf.tangent_stack_shape)
+                        ref = dense[(slice(None),) * nV + gidx]  # slice the interior G axes
+                        self.check_relerr(ref, leaf.to_dense())
+
+                    rt = t3m.T3Tangent.stack_basis(tree)  # round-trip
+                    self.assertEqual(BASE_STACK, rt.base_stack_shape)
+                    self.assertEqual(V, rt.tangent_stack_shape)
+                    self.check_relerr(dense, rt.to_dense())
+
+    def test_stack_tangents_guard(self):
+        # stack_tangents requires a shared T3Basis object (same tangent space); different base
+        # objects (even with numerically equal cores) raise.
+        x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
+        base_a, _ = bvf.t3_orthogonal_representations(x)
+        base_b, _ = bvf.t3_orthogonal_representations(x)  # equal cores, different object
+        ta = t3m.T3Tangent.randn(base_a, apply_gauge_projection=False)
+        tb = t3m.T3Tangent.randn(base_b, apply_gauge_projection=False)
+        ta2 = t3m.T3Tangent.randn(base_a, apply_gauge_projection=False)
+
+        t3m.T3Tangent.stack_tangents([ta, ta2])  # same basis object: OK
+        with self.assertRaises(ValueError):
+            t3m.T3Tangent.stack_tangents([ta, tb])
 
     def test_orthogonal_gauge_projection(self):
         for T3_STRUCTURE in self.t3_structures:
