@@ -8,7 +8,7 @@ import functools as ft
 from dataclasses import dataclass
 
 import t3toolbox.backend.stacking as stacking
-import t3toolbox.backend.basis_variations_format.bv_conversions
+import t3toolbox.backend.bv_conversions as bv_conversions
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.backend.orthogonal_representations as orth_reps
 from t3toolbox.backend.common import *
@@ -294,7 +294,7 @@ class T3Basis:
 
         rRl = tuple([int(RR[0].shape[-3])] + [int(R.shape[-1]) for R in RR])
         rRr = tuple([int(R.shape[-3]) for R in RR] + [int(RR[-1].shape[-1])])
-        if rLl != rLr:
+        if rRl != rRr:
             raise ValueError(
                 'Inconsistent T3Basis.\n'
                 + str(rRl) + ' = rR_left != rR_right = ' + str(rRr)
@@ -392,7 +392,7 @@ class T3Basis:
             lambda x: x.data,
             None,  # leaf_structure
         )
-        result = stacking.basic_ragged_stack(xx_tuples, use_jax=use_jax)
+        result = stacking.basic_ragged_stack(xx_tuples)
         return T3Basis(*result)
 
 
@@ -591,7 +591,7 @@ class T3Variations:
             lambda x: x.data,
             None,  # leaf_structure
         )
-        result = stacking.basic_ragged_stack(xx_tuples, use_jax=use_jax)
+        result = stacking.basic_ragged_stack(xx_tuples)
         return T3Variations(*result)
 
 
@@ -703,7 +703,7 @@ def bv_to_t3(
     True
     '''
     check_bv_pair(basis, variations)
-    return t3.TuckerTensorTrain(*t3toolbox.backend.basis_variations_format.bv_conversions.bv_to_t3(index, basis.data, variations.data))
+    return t3.TuckerTensorTrain(*bv_conversions.bv_to_t3(index, basis.data, variations.data))
 
 
 def t3_orthogonal_representations(

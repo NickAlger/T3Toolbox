@@ -5,12 +5,11 @@
 import numpy as np
 import typing as typ
 
-import t3toolbox.backend.tucker_tensor_train.t3_operations as ragged_operations
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_operations as uniform_operations
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_masking as uniform_masking
+import t3toolbox.backend.t3_operations as ragged_operations
+import t3toolbox.backend.ut3_operations as uniform_operations
 import t3toolbox.backend.orthogonalization as orth
-import t3toolbox.backend.tucker_tensor_train.t3_orthogonalization as ragged_orth
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_orthogonalization as uniform_orth
+import t3toolbox.backend.t3_orthogonalization as ragged_orth
+import t3toolbox.backend.ut3_orthogonalization as uniform_orth
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -76,25 +75,21 @@ def orthogonal_representations(
 
     if not already_left_orthogonal:
         # Orthogonalize Tucker cores upward to get up_tt_cores U
-        up_tucker_cores, tt_cores = up_orthogonalize_tucker_cores(
-            x, use_jax=use_jax,
-        )
+        up_tucker_cores, tt_cores = up_orthogonalize_tucker_cores(x)
 
         # Sweep left-to-right, generating left orthogonal tt_cores L
-        left_tt_cores = orth.left_orthogonalize_tt_cores(
-            tt_cores, use_jax=use_jax,
-        )
+        left_tt_cores = orth.left_orthogonalize_tt_cores(tt_cores)
     else:
         up_tucker_cores, left_tt_cores = x
 
     # Sweep right-to-left, generating tt_variations H, and right orthogonal tt_cores R
     right_tt_cores, tt_variations = orth.right_orthogonalize_tt_cores(
-        left_tt_cores, return_variation_cores=True, use_jax=use_jax,
+        left_tt_cores, return_variation_cores=True,
     )
 
     # Orthogonalize TT cores downward to get outer_tt_cores O and tucker_variations V
     tucker_variations, down_tt_cores = down_orthogonalize_tt_cores(
-        (up_tucker_cores, tt_variations), use_jax=use_jax,
+        (up_tucker_cores, tt_variations),
     )
 
     base = (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
