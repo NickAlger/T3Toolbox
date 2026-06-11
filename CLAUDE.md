@@ -107,11 +107,28 @@ The dividing line is **structural vs numerical**:
 
 ## Current state
 
+**This is a conversion-in-progress, and most of it does not run yet.** A large fraction of the files
+were copied in (or only partially edited) from the authors' prior research projects: expect stale
+APIs, half-applied refactors, broken imports, and doctests whose "outputs" were captured from an
+earlier draft. We are working through the codebase **file-by-file**, making each module actually run
+and pass tests before moving on. **Do not assume a module works just because it exists and looks
+complete — verify by running it.** Worked through and verified so far: `tucker_tensor_train.py`,
+`basis_variations_format.py`, `manifold.py`, and the backend functions those three rely on.
+Treat everything else as copied-in-and-not-yet-working until checked.
+
 - **Solid / tested**: `TuckerTensorTrain` + its backend; `basis_variations_format`; `manifold`
   (`T3Tangent` — full ragged port: linalg with the same-basis guard, gauge projections,
   `to_dense`/`to_t3`/`zeros`/`randn`/`project`/`retract`, stacking, checkers).
   Tests: `tests/test_tucker_tensor_train.py`, `test_basis_variations_format.py`, `test_manifold.py`,
   `backend/test_contractions.py`.
+- **In progress — `backend/probing.py` (current focus)**: the math matches the paper (Section 6, see
+  `docs/probing_section6_notes.md`), but the tangent path does **not** run yet. `probe_tangent` /
+  `probe_tangent_transpose` and their helpers thread `use_jax=` into `compute_xis/mus/nus/etas` and
+  `_apply_edge_weights`, which were refactored to *infer* `use_jax` from the array tree and no longer
+  accept the kwarg (`probe_t3` path works; tangent path raises `TypeError` on the first call).
+  Doctests reference stale APIs (`orth.orthogonal_representations`, `t3m.tangent_randn`, etc.).
+  House convention to harmonize to (see `tangent_operations.py`): `use_jax = use_jax or
+  tree_contains_jax((...))` inside each function.
 - **Deferred / broken**: the uniform layer (`ut3_*`, `ubv_*`, `uniform_*`) — many modules don't even
   import; every `is_uniform` branch in the tangent code was dropped/stubbed. The weighted layer
   (parked `absorb_weights`). `OLD_*.py` files are still tracked.
