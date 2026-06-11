@@ -34,7 +34,6 @@ def tangent_to_dense(
             typ.Sequence[NDArray],  # tt_variations
         ],
         include_shift:  bool = False,  # False: tangent vector v. True: base point + v.
-        use_jax:        bool = False,
 ) -> NDArray:  # dense tangent vector. shape=stack_shape+(N0,...,N(d-1))
     """Form the dense tensor represented by a basis-variations tangent vector.
 
@@ -47,8 +46,8 @@ def tangent_to_dense(
 
     num_cores = len(tucker_variations)
 
-    terms = [bv_conversions.bv_to_t3((False, ii), basis, variations, use_jax=use_jax) for ii in range(num_cores)]
-    terms += [bv_conversions.bv_to_t3((True, ii), basis, variations, use_jax=use_jax) for ii in range(num_cores)]
+    terms = [bv_conversions.bv_to_t3((False, ii), basis, variations) for ii in range(num_cores)]
+    terms += [bv_conversions.bv_to_t3((True, ii), basis, variations) for ii in range(num_cores)]
 
     V = ragged_operations.to_dense(terms[0])
     for term in terms[1:]:
@@ -72,7 +71,6 @@ def orthogonal_gauge_projection(
             typ.Sequence[NDArray],  # tucker_variations
             typ.Sequence[NDArray],  # tt_variations
         ],
-        use_jax:    bool = False,
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # gauged_tucker_variations
     typ.Tuple[NDArray, ...],  # gauged_tt_variations
@@ -89,7 +87,7 @@ def orthogonal_gauge_projection(
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
     tucker_variations, tt_variations = variations
 
-    use_jax = use_jax or tree_contains_jax((basis, variations))
+    use_jax = tree_contains_jax((basis, variations))
     xnp, _, _ = get_backend(False, use_jax)
 
     # TT variations: remove the component parallel to the left cores (all but the last)
@@ -119,7 +117,6 @@ def oblique_gauge_projection(
             typ.Sequence[NDArray],  # tucker_variations
             typ.Sequence[NDArray],  # tt_variations
         ],
-        use_jax:    bool = False,
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # gauged_tucker_variations
     typ.Tuple[NDArray, ...],  # gauged_tt_variations
@@ -137,7 +134,7 @@ def oblique_gauge_projection(
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
     tucker_variations, tt_variations = variations
 
-    use_jax = use_jax or tree_contains_jax((basis, variations))
+    use_jax = tree_contains_jax((basis, variations))
     xnp, _, _ = get_backend(False, use_jax)
 
     num_cores = len(tucker_variations)
@@ -180,7 +177,6 @@ def tangent_to_t3(
             typ.Sequence[NDArray],  # tt_variations
         ],
         include_shift:  bool = False,  # False: tangent vector v. True: base point + v.
-        use_jax:        bool = False,
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # tucker_cores (doubled Tucker ranks)
     typ.Tuple[NDArray, ...],  # tt_cores     (doubled TT ranks)
@@ -197,7 +193,7 @@ def tangent_to_t3(
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
     tucker_variations, tt_variations = variations
 
-    use_jax = use_jax or tree_contains_jax((basis, variations))
+    use_jax = tree_contains_jax((basis, variations))
     xnp, _, _ = get_backend(False, use_jax)
 
     ss = up_tucker_cores[0].shape[:-2]  # stack_shape
@@ -267,14 +263,13 @@ def tangent_to_t3(
 def tt_zipper_left_to_right(
         coresA:     typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(rAi, ni, rA(i+1))
         coresB:     typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(rBi, ni, rB(i+1))
-        use_jax:    bool = False,
 ) -> typ.Tuple[NDArray, ...]:  # zipper matrices, len=d+1, elm_shape=stack_shape+(rAi, rBi)
     """Accumulate left-to-right the partial contractions of two TT chains sharing tensor indices.
 
     Returns d+1 matrices Z_i; Z_0 is the (left-boundary) ones matrix and Z_(i+1) contracts Z_i with
     cores A_i, B_i. Stack-aware.
     """
-    use_jax = use_jax or tree_contains_jax((coresA, coresB))
+    use_jax = tree_contains_jax((coresA, coresB))
     xnp, _, xscan = get_backend(False, use_jax)
 
     def _func(Z, GA_GB):
@@ -291,11 +286,10 @@ def tt_zipper_left_to_right(
 def tt_zipper_right_to_left(
         coresA:     typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(rAi, ni, rA(i+1))
         coresB:     typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(rBi, ni, rB(i+1))
-        use_jax:    bool = False,
 ) -> typ.Tuple[NDArray, ...]:  # zipper matrices, len=d+1, elm_shape=stack_shape+(rA(i+1), rB(i+1))
     """As :py:func:`tt_zipper_left_to_right`, accumulating right-to-left."""
     rev = tt_zipper_left_to_right(
-        ragged_operations.reverse_tt(coresA), ragged_operations.reverse_tt(coresB), use_jax=use_jax,
+        ragged_operations.reverse_tt(coresA), ragged_operations.reverse_tt(coresB),
     )
     return rev[::-1]
 
@@ -311,7 +305,6 @@ def project_t3_onto_tangent_space(
             typ.Sequence[NDArray],  # tucker_cores
             typ.Sequence[NDArray],  # tt_cores
         ],
-        use_jax:    bool = False,
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # gauged tucker_variations
     typ.Tuple[NDArray, ...],  # gauged tt_variations
@@ -328,7 +321,7 @@ def project_t3_onto_tangent_space(
     other_tucker_cores, other_tt_cores = x
     other_tt_cores = ragged_operations.squash_tt_tails(other_tt_cores)
 
-    use_jax = use_jax or tree_contains_jax((basis, x))
+    use_jax = tree_contains_jax((basis, x))
     xnp, xmap, _ = get_backend(False, use_jax)
 
     # Re-express the other T3's TT cores in the base's up-Tucker basis.
@@ -340,8 +333,8 @@ def project_t3_onto_tangent_space(
 
     (other_tt_cores2,) = xmap(_func1, (other_tt_cores, other_tucker_cores, up_tucker_cores))
 
-    zipper_left2right = tt_zipper_left_to_right(other_tt_cores2[:-1], left_tt_cores[:-1], use_jax=use_jax)
-    zipper_right2left = tt_zipper_right_to_left(other_tt_cores2[1:], right_tt_cores[1:], use_jax=use_jax)
+    zipper_left2right = tt_zipper_left_to_right(other_tt_cores2[:-1], left_tt_cores[:-1])
+    zipper_right2left = tt_zipper_right_to_left(other_tt_cores2[1:], right_tt_cores[1:])
 
     def _func2(args):
         ZL, ZR, G, B, O, U = args
@@ -358,5 +351,5 @@ def project_t3_onto_tangent_space(
     )
 
     return orthogonal_gauge_projection(
-        basis, (ungauged_tucker_variations, ungauged_tt_variations), use_jax=use_jax,
+        basis, (ungauged_tucker_variations, ungauged_tt_variations),
     )

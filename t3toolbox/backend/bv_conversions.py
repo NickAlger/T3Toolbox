@@ -43,7 +43,6 @@ def bv_to_t3(
                 NDArray,  # tt_variations_supercore
             ], # uniform
         ],
-        use_jax: bool = False,
 ) -> typ.Union[
     typ.Tuple[
         typ.Tuple[NDArray,...], # tucker_cores
@@ -60,7 +59,7 @@ def bv_to_t3(
     tucker_variations, tt_variations = variations
 
     is_uniform = is_ndarray(up_tucker_cores)
-    xnp, _, _ = get_backend(True, use_jax)
+    xnp, _, _ = get_backend(True, tree_contains_jax((basis, variations)))
 
     use_tt_coord, ii = index
 

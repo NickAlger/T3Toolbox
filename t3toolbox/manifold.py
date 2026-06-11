@@ -175,7 +175,6 @@ class T3Tangent:
     def to_dense(
             self,
             include_shift:  bool = False,  # False: tangent vector v. True: base point + v.
-            use_jax:        bool = False,
     ) -> NDArray:  # shape=stack_shape+(N0,...,N(d-1))
         """Form the dense tensor represented by this tangent vector.
 
@@ -183,13 +182,12 @@ class T3Tangent:
         and one per TT hole). With ``include_shift=True``, the base point is added (base point + v).
         """
         return tangent_operations.tangent_to_dense(
-            self.basis.data, self.variations.data, include_shift=include_shift, use_jax=use_jax,
+            self.basis.data, self.variations.data, include_shift=include_shift,
         )
 
     def to_t3(
             self,
             include_shift:  bool = False,  # False: tangent vector v. True: base point + v.
-            use_jax:        bool = False,
     ) -> t3.TuckerTensorTrain:  # doubled-rank Tucker tensor train
         """Doubled-rank :py:class:`TuckerTensorTrain` representation of this tangent vector.
 
@@ -200,13 +198,12 @@ class T3Tangent:
         in Alger et al. (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
         """
         cores = tangent_operations.tangent_to_t3(
-            self.basis.data, self.variations.data, include_shift=include_shift, use_jax=use_jax,
+            self.basis.data, self.variations.data, include_shift=include_shift,
         )
         return t3.TuckerTensorTrain(*cores)
 
     def retract(
             self,
-            use_jax: bool = False,
     ) -> t3.TuckerTensorTrain:  # retracted Tucker tensor train (on the manifold)
         """Retract the tangent vector to the fixed-rank manifold.
 
@@ -216,7 +213,7 @@ class T3Tangent:
         The truncation is the implicit T3-SVD (Algorithm 10) of Alger et al. (2026),
         "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
         """
-        shifted = self.to_t3(include_shift=True, use_jax=use_jax)
+        shifted = self.to_t3(include_shift=True)
         retracted_x, _, _ = shifted.t3svd(
             max_tucker_ranks=self.basis.up_ranks, max_tt_ranks=self.basis.left_ranks,
         )
@@ -226,14 +223,13 @@ class T3Tangent:
     def zeros(
             basis:          bvf.T3Basis,
             stack_shape:    typ.Tuple[int, ...] = (),  # extra tangent stack V (a batch of tangents)
-            use_jax:        bool = False,
     ) -> 'T3Tangent':
-        """Zero tangent vector at a given basis.
+        """Zero tangent vector at a given basis (numpy/jax matching the basis).
 
         ``stack_shape`` is the extra *outer* tangent stack ``V`` (a batch of tangents sharing this
         base); the variation cores are stacked as ``V + G + (core,)``. Default ``V=()``.
         """
-        xnp, _, _ = get_backend(False, use_jax)
+        xnp, _, _ = get_backend(False, tree_contains_jax(basis.data))
 
         full_stack = stack_shape + basis.stack_shape  # V + G
         tucker_hole_shapes, tt_hole_shapes = basis.variation_shapes
@@ -246,9 +242,8 @@ class T3Tangent:
             basis:                  bvf.T3Basis,
             stack_shape:            typ.Tuple[int, ...] = (),  # extra tangent stack V (a batch of tangents)
             apply_gauge_projection: bool = True,
-            use_jax:                bool = False,
     ) -> 'T3Tangent':
-        """Random tangent vector at a given basis.
+        """Random tangent vector at a given basis (numpy/jax matching the basis).
 
         ``stack_shape`` is the extra *outer* tangent stack ``V`` (a batch of tangents sharing this
         base); the variation cores are stacked as ``V + G + (core,)``. Default ``V=()``.
@@ -258,6 +253,7 @@ class T3Tangent:
         Gaussian on the tangent space. With ``apply_gauge_projection=False`` the variations are raw
         i.i.d. N(0, 1) cores (ungauged).
         """
+        use_jax = tree_contains_jax(basis.data)  # match the basis's array type
         full_stack = stack_shape + basis.stack_shape  # V + G
         tucker_hole_shapes, tt_hole_shapes = basis.variation_shapes
         tucker_variations = tuple(randn(*(full_stack + s), use_jax=use_jax) for s in tucker_hole_shapes)
@@ -265,21 +261,20 @@ class T3Tangent:
 
         v = T3Tangent(basis, bvf.T3Variations(tucker_variations, tt_variations))
         if apply_gauge_projection:
-            v = v.orthogonal_gauge_projection(use_jax=use_jax)
+            v = v.orthogonal_gauge_projection()
         return v
 
     @staticmethod
     def project(
             x:          t3.TuckerTensorTrain,
             basis:      bvf.T3Basis,
-            use_jax:    bool = False,
     ) -> 'T3Tangent':
         """Orthogonal projection of a TuckerTensorTrain onto the tangent space at ``basis``.
 
         Returns the (gauged) tangent vector representing the orthogonal projection of
         ``x - (base point)`` onto the tangent space. Requires an orthogonal, minimal-rank ``basis``.
         """
-        variations = tangent_operations.project_t3_onto_tangent_space(basis.data, x.data, use_jax=use_jax)
+        variations = tangent_operations.project_t3_onto_tangent_space(basis.data, x.data)
         return T3Tangent(basis, bvf.T3Variations(*variations))
 
     ############################################
@@ -394,7 +389,7 @@ class T3Tangent:
     ##########    Gauge projections    #########
     ############################################
 
-    def orthogonal_gauge_projection(self, use_jax: bool = False) -> 'T3Tangent':
+    def orthogonal_gauge_projection(self) -> 'T3Tangent':
         """Gauge the variations via orthogonal projection (changes the tangent vector).
 
         Returns a tangent vector at the same basis whose variations satisfy the gauge conditions.
@@ -402,11 +397,11 @@ class T3Tangent:
         vector than ``self``. For the gauge-preserving variant see :py:meth:`oblique_gauge_projection`.
         """
         new_variations = tangent_operations.orthogonal_gauge_projection(
-            self.basis.data, self.variations.data, use_jax=use_jax,
+            self.basis.data, self.variations.data,
         )
         return T3Tangent(self.basis, bvf.T3Variations(*new_variations))
 
-    def oblique_gauge_projection(self, use_jax: bool = False) -> 'T3Tangent':
+    def oblique_gauge_projection(self) -> 'T3Tangent':
         """Gauge the variations while preserving the represented tangent vector.
 
         Returns a tangent vector at the same basis representing the SAME vector as ``self`` but with
@@ -415,7 +410,7 @@ class T3Tangent:
         :py:meth:`inner` / :py:meth:`norm` give the true HS values.
         """
         new_variations = tangent_operations.oblique_gauge_projection(
-            self.basis.data, self.variations.data, use_jax=use_jax,
+            self.basis.data, self.variations.data,
         )
         return T3Tangent(self.basis, bvf.T3Variations(*new_variations))
 

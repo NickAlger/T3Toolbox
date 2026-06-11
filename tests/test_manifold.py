@@ -22,8 +22,9 @@ tol = 1e-9
 norm = np.linalg.norm
 
 
-def _random_variations(base, use_jax=False):
-    """A random T3Variations fitting the holes of ``base`` (ungauged)."""
+def _random_variations(base):
+    """A random T3Variations fitting the holes of ``base`` (ungauged); matches the basis array type."""
+    use_jax = bool(cw.tree_contains_jax(base.data))
     rnd = (lambda *s: jnp.array(np.random.randn(*s))) if use_jax else (lambda *s: np.random.randn(*s))
     ss = base.stack_shape
     tucker_hole_shapes, tt_hole_shapes = base.variation_shapes
@@ -37,7 +38,7 @@ def _random_tangent(t3_structure, stack_shape=(), use_jax=False):
     if use_jax:
         x = x.to_jax()
     base, _ = bvf.t3_orthogonal_representations(x)
-    return t3m.T3Tangent(base, _random_variations(base, use_jax=use_jax))
+    return t3m.T3Tangent(base, _random_variations(base))
 
 
 class TestManifold(unittest.TestCase):
@@ -108,8 +109,8 @@ class TestManifold(unittest.TestCase):
                         if USE_JAX:
                             x = x.to_jax()
                         base, _ = bvf.t3_orthogonal_representations(x)
-                        v1 = t3m.T3Tangent(base, _random_variations(base, use_jax=USE_JAX))
-                        v2 = t3m.T3Tangent(base, _random_variations(base, use_jax=USE_JAX))
+                        v1 = t3m.T3Tangent(base, _random_variations(base))
+                        v2 = t3m.T3Tangent(base, _random_variations(base))
 
                         self.check_relerr(v1.to_dense() + v2.to_dense(), (v1 + v2).to_dense())
                         self.check_relerr(v1.to_dense() - v2.to_dense(), (v1 - v2).to_dense())
@@ -176,8 +177,8 @@ class TestManifold(unittest.TestCase):
                         if USE_JAX:
                             x = x.to_jax()
                         base, _ = bvf.t3_orthogonal_representations(x)
-                        u = t3m.T3Tangent.randn(base, apply_gauge_projection=False, use_jax=USE_JAX)
-                        ug = u.orthogonal_gauge_projection(use_jax=USE_JAX)
+                        u = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+                        ug = u.orthogonal_gauge_projection()
 
                         self.assertTrue(ug.is_gauged())
                         # orthogonal projection: the removed component is perpendicular to the projection
@@ -195,8 +196,8 @@ class TestManifold(unittest.TestCase):
                         if USE_JAX:
                             x = x.to_jax()
                         base, _ = bvf.t3_orthogonal_representations(x)
-                        u = t3m.T3Tangent.randn(base, apply_gauge_projection=False, use_jax=USE_JAX)
-                        uo = u.oblique_gauge_projection(use_jax=USE_JAX)
+                        u = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+                        uo = u.oblique_gauge_projection()
 
                         self.assertTrue(uo.is_gauged())
                         self.check_relerr(u.to_dense(), uo.to_dense())  # preserves the tangent vector
@@ -213,8 +214,8 @@ class TestManifold(unittest.TestCase):
                     base, _ = bvf.t3_orthogonal_representations(x)
                     self.assertTrue(base.is_orthogonal() and base.has_minimal_ranks)
 
-                    u = t3m.T3Tangent.randn(base, use_jax=USE_JAX)  # gauged by default
-                    w = t3m.T3Tangent.randn(base, use_jax=USE_JAX)
+                    u = t3m.T3Tangent.randn(base)  # gauged by default
+                    w = t3m.T3Tangent.randn(base)
 
                     ud, wd = np.asarray(u.to_dense()), np.asarray(w.to_dense())
                     tensor_axes = tuple(range(len(STACK_SHAPE), ud.ndim))  # the (N0..Nd) axes; keep stack
@@ -233,8 +234,8 @@ class TestManifold(unittest.TestCase):
                     if USE_JAX:
                         x = x.to_jax()
                     base, _ = bvf.t3_orthogonal_representations(x)
-                    u = t3m.T3Tangent.randn(base, stack_shape=V, apply_gauge_projection=False, use_jax=USE_JAX)
-                    w = t3m.T3Tangent.randn(base, stack_shape=V, apply_gauge_projection=False, use_jax=USE_JAX)
+                    u = t3m.T3Tangent.randn(base, stack_shape=V, apply_gauge_projection=False)
+                    w = t3m.T3Tangent.randn(base, stack_shape=V, apply_gauge_projection=False)
 
                     self.assertEqual(V, u.tangent_stack_shape)
                     self.assertEqual(BASE_STACK, u.base_stack_shape)
@@ -265,7 +266,7 @@ class TestManifold(unittest.TestCase):
                         v = _random_tangent(STRUCT, stack_shape=BASE_STACK, use_jax=USE_JAX)
                         ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
                         zz = v.probe(ww)  # numpy/jax inferred from inputs (jax when USE_JAX)
-                        zz2 = t3p.probe_dense(ww, v.to_dense(use_jax=USE_JAX))
+                        zz2 = t3p.probe_dense(ww, v.to_dense())
                         self.assertEqual(PROBE_STACK + BASE_STACK + (STRUCT[0][0],), tuple(np.asarray(zz[0]).shape))
                         for a, b in zip(zz, zz2):
                             self.check_relerr(b, a)
@@ -282,7 +283,7 @@ class TestManifold(unittest.TestCase):
                         if USE_JAX:
                             x = x.to_jax()
                         base, _ = bvf.t3_orthogonal_representations(x)
-                        v = t3m.T3Tangent.randn(base, use_jax=USE_JAX)
+                        v = t3m.T3Tangent.randn(base)
                         ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
                         z = tuple(rnd(*(PROBE_STACK + BASE_STACK + (N,))) for N in STRUCT[0])  # F + G + (N,)
 
@@ -314,7 +315,7 @@ class TestManifold(unittest.TestCase):
                         if USE_JAX:
                             x = x.to_jax()
                         base, _ = bvf.t3_orthogonal_representations(x)
-                        v = t3m.T3Tangent.randn(base, apply_gauge_projection=False, use_jax=USE_JAX)
+                        v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
                         base_point = t3.TuckerTensorTrain(base.up_tucker_cores, base.left_tt_cores).to_dense()
 
                         self.check_relerr(v.to_dense(), v.to_t3().to_dense())
@@ -333,14 +334,14 @@ class TestManifold(unittest.TestCase):
                         base, _ = bvf.t3_orthogonal_representations(x)
                         base_point = t3.TuckerTensorTrain(base.up_tucker_cores, base.left_tt_cores).to_dense()
 
-                        self.check_relerr(base_point, t3m.T3Tangent.zeros(base).retract(use_jax=USE_JAX).to_dense())
+                        self.check_relerr(base_point, t3m.T3Tangent.zeros(base).retract().to_dense())
 
-                        v = t3m.T3Tangent.randn(base, apply_gauge_projection=False, use_jax=USE_JAX)
+                        v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
                         if STACK_SHAPE == ():  # compare against a from-dense T3-SVD of (base point + v)
                             shifted_dense = np.asarray(base_point) + np.asarray(v.to_dense())
                             ref, _, _ = t3.TuckerTensorTrain.t3svd_dense(
                                 shifted_dense, max_tucker_ranks=tuple(base.up_ranks), max_tt_ranks=tuple(base.left_ranks))
-                            self.check_relerr(ref.to_dense(), v.retract(use_jax=USE_JAX).to_dense())
+                            self.check_relerr(ref.to_dense(), v.retract().to_dense())
 
         # Rank preservation holds on a minimal-rank base.
         for STACK_SHAPE in [(), (2,)]:
@@ -351,7 +352,7 @@ class TestManifold(unittest.TestCase):
                         x = x.to_jax()
                     base, _ = bvf.t3_orthogonal_representations(x)
                     self.assertTrue(base.has_minimal_ranks)
-                    r = t3m.T3Tangent.randn(base, apply_gauge_projection=False, use_jax=USE_JAX).retract(use_jax=USE_JAX)
+                    r = t3m.T3Tangent.randn(base, apply_gauge_projection=False).retract()
                     self.assertEqual(tuple(base.up_ranks), r.tucker_ranks)
                     self.assertEqual(tuple(base.left_ranks), r.tt_ranks)
 
@@ -370,12 +371,12 @@ class TestManifold(unittest.TestCase):
                             p, x = p.to_jax(), x.to_jax()
                         base, _ = bvf.t3_orthogonal_representations(p)
 
-                        proj = t3m.T3Tangent.project(x, base, use_jax=USE_JAX)
+                        proj = t3m.T3Tangent.project(x, base)
                         self.assertTrue(proj.is_gauged())
 
                         # idempotency: projecting a tangent vector (its unshifted embedding) recovers it
-                        v = t3m.T3Tangent.randn(base, apply_gauge_projection=False, use_jax=USE_JAX)
-                        proj_v = t3m.T3Tangent.project(v.to_t3(use_jax=USE_JAX), base, use_jax=USE_JAX)
+                        v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+                        proj_v = t3m.T3Tangent.project(v.to_t3(), base)
                         self.check_relerr(v.to_dense(), proj_v.to_dense())
 
                         # orthogonality: the residual x - proj_x is perpendicular to the tangent space
@@ -383,7 +384,7 @@ class TestManifold(unittest.TestCase):
                         tensor_axes = tuple(range(len(STACK_SHAPE), residual.ndim))
                         for _ in range(3):
                             w_dense = np.asarray(
-                                t3m.T3Tangent.randn(base, apply_gauge_projection=False, use_jax=USE_JAX).to_dense())
+                                t3m.T3Tangent.randn(base, apply_gauge_projection=False).to_dense())
                             ip = norm(np.sum(residual * w_dense, axis=tensor_axes))
                             self.assertLessEqual(float(ip), tol * norm(residual) * norm(w_dense))
 
