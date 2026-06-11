@@ -225,6 +225,56 @@ class TestManifold(unittest.TestCase):
         self.assertFalse(t3m.T3Tangent.randn(base, apply_gauge_projection=False).is_gauged())    # ungauged on request
         self.assertEqual(base.stack_shape, t3m.T3Tangent.randn(base).stack_shape)                # construction validates fit
 
+    def test_to_t3(self):
+        for T3_STRUCTURE in self.t3_structures:
+            for STACK_SHAPE in [(), (2,)]:
+                for USE_JAX in [False, True]:
+                    with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
+                        x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
+                        if USE_JAX:
+                            x = x.to_jax()
+                        base, _ = bvf.t3_orthogonal_representations(x)
+                        v = t3m.T3Tangent.randn(base, apply_gauge_projection=False, use_jax=USE_JAX)
+                        base_point = t3.TuckerTensorTrain(base.up_tucker_cores, base.left_tt_cores).to_dense()
+
+                        self.check_relerr(v.to_dense(), v.to_t3().to_dense())
+                        self.check_relerr(np.asarray(base_point) + np.asarray(v.to_dense()),
+                                          v.to_t3(include_shift=True).to_dense())
+
+    def test_retract(self):
+        # Dense correctness: retract(0) == base point; retract(v) == best rank-(base) T3-SVD of (base point + v).
+        for T3_STRUCTURE in [((10, 11), (3, 4), (1, 2, 1)), ((9, 10, 11, 12), (2, 3, 3, 2), (1, 2, 3, 2, 1))]:
+            for STACK_SHAPE in [(), (2,)]:
+                for USE_JAX in [False, True]:
+                    with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
+                        x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
+                        if USE_JAX:
+                            x = x.to_jax()
+                        base, _ = bvf.t3_orthogonal_representations(x)
+                        base_point = t3.TuckerTensorTrain(base.up_tucker_cores, base.left_tt_cores).to_dense()
+
+                        self.check_relerr(base_point, t3m.T3Tangent.zeros(base).retract(use_jax=USE_JAX).to_dense())
+
+                        v = t3m.T3Tangent.randn(base, apply_gauge_projection=False, use_jax=USE_JAX)
+                        if STACK_SHAPE == ():  # compare against a from-dense T3-SVD of (base point + v)
+                            shifted_dense = np.asarray(base_point) + np.asarray(v.to_dense())
+                            ref, _, _ = t3.TuckerTensorTrain.t3svd_dense(
+                                shifted_dense, max_tucker_ranks=tuple(base.up_ranks), max_tt_ranks=tuple(base.left_ranks))
+                            self.check_relerr(ref.to_dense(), v.retract(use_jax=USE_JAX).to_dense())
+
+        # Rank preservation holds on a minimal-rank base.
+        for STACK_SHAPE in [(), (2,)]:
+            for USE_JAX in [False, True]:
+                with self.subTest(rank_preservation=True, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
+                    x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=STACK_SHAPE)
+                    if USE_JAX:
+                        x = x.to_jax()
+                    base, _ = bvf.t3_orthogonal_representations(x)
+                    self.assertTrue(base.has_minimal_ranks)
+                    r = t3m.T3Tangent.randn(base, apply_gauge_projection=False, use_jax=USE_JAX).retract(use_jax=USE_JAX)
+                    self.assertEqual(tuple(base.up_ranks), r.tucker_ranks)
+                    self.assertEqual(tuple(base.left_ranks), r.tt_ranks)
+
 
 if __name__ == "__main__":
     unittest.main()

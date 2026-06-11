@@ -13,6 +13,7 @@ from t3toolbox.backend.common import *
 
 __all__ = [
     'tangent_to_dense',
+    'tangent_to_t3',
     'orthogonal_gauge_projection',
     'oblique_gauge_projection',
 ]
@@ -156,3 +157,96 @@ def oblique_gauge_projection(
         tt_vars[ii + 1] = tt_vars[ii + 1] + xnp.einsum('...jk,...kbl->...jbl', X, R)
 
     return tuple(tucker_vars), tuple(tt_vars)
+
+
+def tangent_to_t3(
+        basis:      typ.Tuple[
+            typ.Sequence[NDArray],  # up_tucker_cores
+            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # left_tt_cores
+            typ.Sequence[NDArray],  # right_tt_cores
+        ],
+        variations: typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_variations
+            typ.Sequence[NDArray],  # tt_variations
+        ],
+        include_shift:  bool = False,  # False: tangent vector v. True: base point + v.
+        use_jax:        bool = False,
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # tucker_cores (doubled Tucker ranks)
+    typ.Tuple[NDArray, ...],  # tt_cores     (doubled TT ranks)
+]:
+    """Doubled-rank Tucker tensor train representing a basis-variations tangent vector.
+
+    The Tucker cores become ``[U_i; V_i]`` (stacked along the Tucker-rank axis); the TT cores form
+    the standard block-bidiagonal embedding. With ``include_shift=True`` the base point is folded
+    into the last TT core so the result represents ``base point + v``. Stack-aware.
+    """
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
+    tucker_variations, tt_variations = variations
+
+    use_jax = use_jax or tree_contains_jax((basis, variations))
+    xnp, _, _ = get_backend(False, use_jax)
+
+    ss = up_tucker_cores[0].shape[:-2]  # stack_shape
+    num_cores = len(up_tucker_cores)
+
+    # Tucker cores: [U_i ; V_i] stacked along the Tucker-rank axis.
+    x_tucker_cores = [xnp.concatenate([U, V], axis=-2) for U, V in zip(up_tucker_cores, tucker_variations)]
+
+    if num_cores == 1:
+        H = tt_variations[0]
+        O = down_tt_cores[0]
+        if include_shift:
+            H = left_tt_cores[0] + H
+        G = xnp.concatenate([H, O], axis=-2)
+        return (x_tucker_cores[0],), (G,)
+
+    x_tt_cores = []
+
+    # First TT core.
+    dU = tt_variations[0]
+    O = down_tt_cores[0]
+    L = left_tt_cores[0]
+    Z = xnp.zeros(ss + (O.shape[-3], O.shape[-2], L.shape[-1]))
+    G_top = xnp.concatenate([dU, L], axis=-1)
+    G_bot = xnp.concatenate([O, Z], axis=-1)
+    G = xnp.concatenate([G_top, G_bot], axis=-2)
+    x_tt_cores.append(G)
+
+    # Middle TT cores.
+    for ii in range(1, num_cores - 1):
+        L = left_tt_cores[ii]
+        R = right_tt_cores[ii]
+        O = down_tt_cores[ii]
+        dU = tt_variations[ii]
+        Z001 = xnp.zeros(ss + (R.shape[-3], dU.shape[-2], L.shape[-1]))
+        Z100 = xnp.zeros(ss + (R.shape[-3], O.shape[-2], R.shape[-1]))
+        Z101 = xnp.zeros(ss + (R.shape[-3], O.shape[-2], L.shape[-1]))
+        Z111 = xnp.zeros(ss + (L.shape[-3], O.shape[-2], L.shape[-1]))
+        G_top = xnp.concatenate([
+            xnp.concatenate([R, Z001], axis=-1),
+            xnp.concatenate([dU, L], axis=-1),
+        ], axis=-3)
+        G_bot = xnp.concatenate([
+            xnp.concatenate([Z100, Z101], axis=-1),
+            xnp.concatenate([O, Z111], axis=-1),
+        ], axis=-3)
+        G = xnp.concatenate([G_top, G_bot], axis=-2)
+        x_tt_cores.append(G)
+
+    # Last TT core.
+    dU = tt_variations[-1]
+    R = right_tt_cores[-1]
+    O = down_tt_cores[-1]
+    Z = xnp.zeros(ss + (R.shape[-3], O.shape[-2], R.shape[-1]))
+    if include_shift:
+        Lf = left_tt_cores[-1]
+        G_top = xnp.concatenate([R, Lf + dU], axis=-3)
+    else:
+        G_top = xnp.concatenate([R, dU], axis=-3)
+    G_bot = xnp.concatenate([Z, O], axis=-3)
+    G = xnp.concatenate([G_top, G_bot], axis=-2)
+    x_tt_cores.append(G)
+
+    return tuple(x_tucker_cores), tuple(x_tt_cores)

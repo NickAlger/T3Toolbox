@@ -179,6 +179,36 @@ class T3Tangent:
             self.basis.data, self.variations.data, include_shift=include_shift, use_jax=use_jax,
         )
 
+    def to_t3(
+            self,
+            include_shift:  bool = False,  # False: tangent vector v. True: base point + v.
+            use_jax:        bool = False,
+    ) -> t3.TuckerTensorTrain:  # doubled-rank Tucker tensor train
+        """Doubled-rank :py:class:`TuckerTensorTrain` representation of this tangent vector.
+
+        The Tucker and TT ranks are (roughly) doubled. With ``include_shift=True`` the result
+        represents ``base point + v`` (the standard shifted embedding used by :py:meth:`retract`).
+        """
+        cores = tangent_operations.tangent_to_t3(
+            self.basis.data, self.variations.data, include_shift=include_shift, use_jax=use_jax,
+        )
+        return t3.TuckerTensorTrain(*cores)
+
+    def retract(
+            self,
+            use_jax: bool = False,
+    ) -> t3.TuckerTensorTrain:  # retracted Tucker tensor train (on the manifold)
+        """Retract the tangent vector to the fixed-rank manifold.
+
+        Forms the shifted doubled-rank embedding (base point + v) and truncates it back to the base
+        ranks via T3-SVD, yielding a point on the manifold of the base point's ranks.
+        """
+        shifted = self.to_t3(include_shift=True, use_jax=use_jax)
+        retracted_x, _, _ = shifted.t3svd(
+            max_tucker_ranks=self.basis.up_ranks, max_tt_ranks=self.basis.left_ranks,
+        )
+        return retracted_x
+
     @staticmethod
     def zeros(
             basis:      bvf.T3Basis,
