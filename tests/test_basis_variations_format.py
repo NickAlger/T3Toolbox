@@ -54,6 +54,19 @@ def _good_basis_cores():
     return U, D, L, R
 
 
+def _slice_basis(base, idx):
+    """The unstacked T3Basis at stack index ``idx`` (idx=() returns the whole base)."""
+    s = lambda C: np.asarray(C)[idx]
+    up, down, left, right = base.data
+    return bvf.T3Basis(tuple(map(s, up)), tuple(map(s, down)), tuple(map(s, left)), tuple(map(s, right)))
+
+
+def _slice_variations(var, idx):
+    """The unstacked T3Variations at stack index ``idx``."""
+    s = lambda C: np.asarray(C)[idx]
+    return bvf.T3Variations(tuple(map(s, var.tucker_variations)), tuple(map(s, var.tt_variations)))
+
+
 class TestBasisVariationsFormat(unittest.TestCase):
     base_structures = [
         #  (shape,             up_ranks,      down_ranks,    left_ranks,        right_ranks)
@@ -243,6 +256,35 @@ class TestBasisVariationsFormat(unittest.TestCase):
                             x = bvf.bv_to_t3((False, ii), base, variations)
                             self._equal_cores(x.tucker_cores, U[:ii] + (V[ii],) + U[ii + 1:])
                             self._equal_cores(x.tt_cores, L[:ii] + (D[ii],) + R[ii + 1:])
+
+    def test_bv_to_t3_tangent_stacked(self):
+        # A V-stacked variation (tangent stack V over base stack G): bv_to_t3 must broadcast the
+        # G-stacked base cores up to V+G so the term is a valid uniform-stack TuckerTensorTrain whose
+        # every (v, g) slice equals the corresponding unstacked term (base shared across V).
+        for BASE_STRUCTURE in self.base_structures:
+            shape = BASE_STRUCTURE[0]
+            d = len(shape)
+            for BASE_G, V in [((), (2,)), ((2,), (2,))]:
+                for USE_JAX in [False, True]:
+                    with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, BASE_G=BASE_G, V=V, USE_JAX=USE_JAX):
+                        base, _ = _random_basis_variations(BASE_STRUCTURE + (BASE_G,), use_jax=USE_JAX)
+                        rnd = (lambda *s: jnp.array(np.random.randn(*s))) if USE_JAX else (lambda *s: np.random.randn(*s))
+                        VG = V + BASE_G
+                        tuck_shapes, tt_shapes = base.variation_shapes
+                        var = bvf.T3Variations(
+                            tuple(rnd(*(VG + s)) for s in tuck_shapes),
+                            tuple(rnd(*(VG + s)) for s in tt_shapes),
+                        )
+                        for ii in range(d):
+                            for use_tt in (True, False):
+                                term = bvf.bv_to_t3((use_tt, ii), base, var)
+                                self.assertEqual(VG, term.stack_shape)  # valid uniform-stack T3
+                                term_dense = np.asarray(term.to_dense())
+                                for idx in np.ndindex(*VG):
+                                    g_idx = idx[len(idx) - len(BASE_G):] if BASE_G else ()
+                                    ref = bvf.bv_to_t3((use_tt, ii), _slice_basis(base, g_idx),
+                                                       _slice_variations(var, idx))
+                                    self.check_relerr(np.asarray(ref.to_dense()), term_dense[idx])
 
     # ----------------------------------------------------------------------
     # Reconstruction / orthogonality tier: t3_orthogonal_representations

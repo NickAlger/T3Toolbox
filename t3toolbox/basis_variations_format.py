@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.bv_conversions as bv_conversions
+import t3toolbox.backend.t3_operations as t3_operations
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.backend.orthogonal_representations as orth_reps
 from t3toolbox.backend.common import *
@@ -817,7 +818,13 @@ def bv_to_t3(
     True
     '''
     check_bv_pair(basis, variations)
-    return t3.TuckerTensorTrain(*bv_conversions.bv_to_t3(index, basis.data, variations.data))
+    # The term mixes a V+G-stacked variation core with G-stacked base cores (when the variation
+    # carries an extra tangent stack V); broadcast all cores to the common V+G stack so the result is
+    # a valid (uniform-stack) TuckerTensorTrain. A no-op when there is no tangent stack (V=()).
+    cores = t3_operations.broadcast_t3_to_common_stack(
+        *bv_conversions.bv_to_t3(index, basis.data, variations.data)
+    )
+    return t3.TuckerTensorTrain(*cores)
 
 
 def t3_orthogonal_representations(

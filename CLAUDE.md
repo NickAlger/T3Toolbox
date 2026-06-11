@@ -252,7 +252,7 @@ Treat everything else as copied-in-and-not-yet-working until checked.
         variations tree); (ii) `T3Tangent.stack` was *silently wrong* (over-stacked the basis to
         `V+G`); (iii) frontend `bvf.bv_to_t3` *crashes* on a `V`-stack (wraps a mixed-stack term in
         `TuckerTensorTrain`, which `validate()` rejects — same broadcast-on-wrap issue as
-        `tangent_to_t3`; **STILL PENDING**, its own slice). Everything else (`+ - * inner norm`, gauge,
+        `tangent_to_t3`; **fixed in the `bv_to_t3` slice below**). Everything else (`+ - * inner norm`, gauge,
         `is_gauged`, `project`, `probe_transpose`) already handles `V+G` via corewise/`…`-broadcast.
         Resolution (decided with Nick): the monolithic `stack`/`unstack` can't faithfully invert two
         stacks (the `V`/`G` split isn't recoverable from a bare tree), so **replaced them with two
@@ -270,6 +270,14 @@ Treat everything else as copied-in-and-not-yet-working until checked.
         compatibility checks + (un)wrapping. `T3Basis`/`T3Variations` keep their single plain
         `stack`/`unstack`. Tests: `test_unstack_stack_tangents`/`_basis` (round-trip + per-slice dense,
         incl. multi-axis stacks) + `test_stack_tangents_guard`.
+      - **`bv_to_t3` V-stack fix (DONE, separate slice — audit finding (iii)).** Extracted the 5a
+        `to_dense` broadcast block into a reusable backend helper `broadcast_t3_to_common_stack`
+        (`t3_operations.py`): `np.broadcast_shapes` of all core stacks, `broadcast_to` each core up.
+        `to_dense` now calls it (behavior unchanged). Frontend `bvf.bv_to_t3` calls it on the
+        mixed-stack term (base `G` + one variation `V+G`) before wrapping in `TuckerTensorTrain`, so
+        the term is a valid uniform `V+G`-stack T3. Backend `bv_conversions.bv_to_t3` stays a thin
+        selector (returns the mixed-stack tuple, consumed by broadcast-aware `to_dense`). Test:
+        `test_bv_to_t3_tangent_stacked` (every `(v,g)` slice == unstacked term; np+jax).
       - **5b — flip `apply`/`entries` to `F+G`** (independent of V-stacking; the lone `G+F` holdout =
         `TuckerTensorTrain.apply`/`entries` + their 2 contractions `GFa_Gaib_Fo_Gio_to_GFb` /
         `GFa_Gaib_GiF_to_GFb`). Changes their public output stacking + tests/doctests. Quick.
