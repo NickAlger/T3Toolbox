@@ -13,6 +13,7 @@ __all__ = [
     'corewise_sub',
     'corewise_scale',
     'corewise_neg',
+    'corewise_sum',
     'corewise_dot',
     'corewise_norm',
     'corewise_err',
@@ -100,6 +101,27 @@ def corewise_neg(X: NDArrayTree) -> NDArrayTree:
         return tuple([corewise_neg(x) for x in X])
     else:
         return -X
+
+
+def corewise_sum(X: NDArrayTree, axis=None, use_jax: bool=False) -> NDArrayTree:
+    '''Sum each array in a nested object along the given axis or axes, X -> sum(X, axis).
+
+    The same axis or axes are summed in every leaf array, leaving the tree structure intact.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.corewise as cw
+    >>> X = (np.ones((2,3)), (np.ones((2,4)),))
+    >>> print(cw.corewise_sum(X, axis=0))
+    (array([2., 2., 2.]), (array([2., 2., 2., 2.]),))
+    '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    if isinstance(X, list) or isinstance(X, tuple):
+        return tuple([corewise_sum(x, axis=axis, use_jax=use_jax) for x in X])
+    else:
+        return xnp.sum(X, axis=axis)
 
 
 def corewise_dot(X: NDArrayTree, Y: NDArrayTree, use_jax: bool=False):

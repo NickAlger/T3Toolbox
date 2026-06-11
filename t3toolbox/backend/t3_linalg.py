@@ -4,6 +4,7 @@
 # Documentation: https://nickalger.github.io/TuckerTensorTrainTools/index.html
 import numpy as np
 import typing as typ
+import math
 
 from t3toolbox.backend.t3_operations import squash_tt_tails
 import t3toolbox.backend.t3_orthogonalization as ragged_orth
@@ -12,6 +13,7 @@ from t3toolbox.backend.common import *
 
 __all__ = [
     't3_add',
+    't3_sum_stack',
     't3_scale',
     't3_inner_product_t3',
     't3_norm',
@@ -54,6 +56,78 @@ def t3_add(
         tt_cores_z.append(Gz)
 
     return tuple(tucker_cores_z), tuple(tt_cores_z)
+
+
+def t3_sum_stack(
+        x:          typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
+        axis        = None, # stack axis, or sequence of stack axes, to sum over. None: sum over all stack axes
+        use_jax:    bool = False,
+) -> typ.Tuple[
+    typ.Tuple[NDArray,...], # summed_tucker_cores
+    typ.Tuple[NDArray,...], # summed_tt_cores
+]: # (summed_tucker_cores, summed_tt_cores)
+    """Sum the dense tensors represented by a stacked Tucker tensor train over stack axes.
+
+    This is the genuine tensor sum (summing the represented dense tensors), NOT a corewise sum
+    of the core arrays. The summed-over stack axes are removed; any remaining stack axes are kept.
+
+    Ranks grow: summing over stack axes whose sizes multiply to S multiplies every Tucker and TT
+    rank by S. This is the S-fold generalization of t3_add (which is the S=2 case): the stack is
+    folded into the Tucker ranks (by merging) and into the TT ranks (block-diagonally), then the
+    leading and trailing TT tails are squashed, which performs the sum.
+    """
+    tucker_cores, tt_cores = x
+
+    use_jax = use_jax or tree_contains_jax(x)
+    xnp, _, _ = get_backend(False, use_jax)
+
+    #
+    stack_shape = tucker_cores[0].shape[:-2]
+    m = len(stack_shape)
+
+    if axis is None:
+        summed_axes = list(range(m))
+    elif not isinstance(axis, typ.Sequence):
+        summed_axes = [axis]
+    else:
+        summed_axes = list(axis)
+
+    summed_axes = sorted(set((ax + m) if ax < 0 else ax for ax in summed_axes))
+    for ax in summed_axes:
+        assert(0 <= ax < m)
+
+    if len(summed_axes) == 0: # nothing to sum over
+        return tuple(B.copy() for B in tucker_cores), tuple(G.copy() for G in tt_cores)
+
+    kept_axes = [k for k in range(m) if k not in summed_axes]
+    KS = tuple(stack_shape[k] for k in kept_axes) # kept stack shape
+    S = math.prod([stack_shape[a] for a in summed_axes]) # total size of summed stack axes
+
+    I_ss = xnp.eye(S)
+
+    def _gather_summed_axes(core): # core -> KS + (S,) + core_own_axes
+        own_axes = list(range(m, core.ndim))
+        core = xnp.transpose(core, kept_axes + summed_axes + own_axes)
+        own_shape = core.shape[len(kept_axes) + len(summed_axes):]
+        return core.reshape(KS + (S,) + own_shape)
+
+    summed_tucker_cores = []
+    for B in tucker_cores:
+        B_KSsio = _gather_summed_axes(B) # KS + (S, ni, Ni)
+        ni, Ni = B_KSsio.shape[-2:]
+        B_new = B_KSsio.reshape(KS + (S * ni, Ni)) # merge S into Tucker rank
+        summed_tucker_cores.append(B_new)
+
+    summed_tt_cores = []
+    for G in tt_cores:
+        G_KSsaib = _gather_summed_axes(G) # KS + (S, rLi, ni, rRi)
+        rLi, ni, rRi = G_KSsaib.shape[-3:]
+        G_block = xnp.einsum('...saib,sx,sy,sz->...xayizb', G_KSsaib, I_ss, I_ss, I_ss) # block diagonal in s
+        G_new = G_block.reshape(KS + (S * rLi, S * ni, S * rRi))
+        summed_tt_cores.append(G_new)
+
+    summed_tt_cores = squash_tt_tails(tuple(summed_tt_cores)) # ones-contraction at the tails performs the sum
+    return tuple(summed_tucker_cores), summed_tt_cores
 
 
 def t3_scale(

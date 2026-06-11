@@ -1216,6 +1216,106 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                 S2_dense = dense_x.sum(axis=shifted_axes)
                                 self.check_relerr(S2_dense, S_dense)
 
+    def test_sum_stack(self):
+        base_structures = [
+            ((8,),              (3,),           (1, 2)),
+            ((5, 6),            (2, 3),         (1, 2, 1)),
+            ((4, 5, 6),         (2, 3, 2),      (1, 2, 2, 1)),
+            ((4, 5, 6),         (2, 2, 2),      (2, 2, 2, 2)),  # nontrivial leading/trailing TT ranks
+        ]
+        stack_shapes = [
+            (2,),
+            (3,),
+            (2, 3),
+            (2, 1, 2),
+        ]
+
+        for BASE_STRUCTURE in base_structures:
+            shape, tucker_ranks, tt_ranks = BASE_STRUCTURE
+            for STACK_SHAPE in stack_shapes:
+                x = t3.TuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks, STACK_SHAPE)
+                m = len(STACK_SHAPE)
+                for X_IS_JAX in [True, False]:
+                    x = x.to_jax() if X_IS_JAX else x
+
+                    all_axes = tuple(range(m))
+                    axis_options = [None, 0]
+                    for num_ax in range(1, m + 1):
+                        axis_options += list(itertools.combinations(all_axes, num_ax))
+
+                    for AXIS in axis_options:
+                        with self.subTest(
+                                BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                X_IS_JAX=X_IS_JAX, AXIS=AXIS,
+                        ):
+                            y = x.sum_stack(axis=AXIS)
+
+                            if AXIS is None:
+                                summed = all_axes
+                            elif isinstance(AXIS, int):
+                                summed = (AXIS,)
+                            else:
+                                summed = tuple(AXIS)
+                            kept = tuple(STACK_SHAPE[i] for i in range(m) if i not in summed)
+                            S = int(np.prod([STACK_SHAPE[i] for i in summed]))
+
+                            dense_x = _td(x)
+                            y_dense_true = dense_x.sum(axis=summed)
+                            self.check_relerr(y_dense_true, _td(y))
+
+                            self.assertEqual(kept, y.stack_shape)
+                            self.assertEqual(tuple(S * n for n in tucker_ranks), y.tucker_ranks)
+                            expected_tt_ranks = (1,) + tuple(S * r for r in tt_ranks[1:-1]) + (1,)
+                            self.assertEqual(expected_tt_ranks, y.tt_ranks)
+
+    def test_sum_stack_corewise(self):
+        base_structures = [
+            ((8,),              (3,),           (1, 2)),
+            ((5, 6),            (2, 3),         (1, 2, 1)),
+            ((4, 5, 6),         (2, 3, 2),      (1, 2, 2, 1)),
+        ]
+        stack_shapes = [
+            (2,),
+            (2, 3),
+            (2, 1, 2),
+        ]
+
+        for BASE_STRUCTURE in base_structures:
+            shape, tucker_ranks, tt_ranks = BASE_STRUCTURE
+            for STACK_SHAPE in stack_shapes:
+                x = t3.TuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks, STACK_SHAPE)
+                m = len(STACK_SHAPE)
+                for X_IS_JAX in [True, False]:
+                    x = x.to_jax() if X_IS_JAX else x
+
+                    all_axes = tuple(range(m))
+                    axis_options = [None, 0]
+                    for num_ax in range(1, m + 1):
+                        axis_options += list(itertools.combinations(all_axes, num_ax))
+
+                    for AXIS in axis_options:
+                        with self.subTest(
+                                BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                X_IS_JAX=X_IS_JAX, AXIS=AXIS,
+                        ):
+                            y = x.sum_stack_corewise(axis=AXIS)
+
+                            if AXIS is None:
+                                summed = all_axes
+                            elif isinstance(AXIS, int):
+                                summed = (AXIS,)
+                            else:
+                                summed = tuple(AXIS)
+                            kept = tuple(STACK_SHAPE[i] for i in range(m) if i not in summed)
+
+                            self.assertEqual(kept, y.stack_shape)
+                            self.assertEqual((tucker_ranks, tt_ranks), y.ranks)  # ranks unchanged
+
+                            tucker_cores2 = tuple(B.sum(axis=summed) for B in x.tucker_cores)
+                            tt_cores2 = tuple(G.sum(axis=summed) for G in x.tt_cores)
+                            err = cw.corewise_norm(cw.corewise_sub((tucker_cores2, tt_cores2), y.data))
+                            self.assertLessEqual(float(err), tol)
+
     ####
 
     def test_down_svd_tucker_core(self):
