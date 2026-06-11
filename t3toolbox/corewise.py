@@ -79,7 +79,7 @@ def corewise_scale(X: NDArrayTree, s) -> NDArrayTree:
     >>> import t3toolbox.corewise as cw
     >>> X = (np.ones(3), (1, (), np.ones(2)))
     >>> print(cw.corewise_scale(X, 1.5))
-    (array([-1., -1., -1.]), (-2, (), array([2., 2.])))
+    (array([1.5, 1.5, 1.5]), (1.5, (), array([1.5, 1.5])))
     '''
     if isinstance(X, list) or isinstance(X, tuple):
         return tuple([corewise_scale(x, s) for x in X])
@@ -104,7 +104,7 @@ def corewise_neg(X: NDArrayTree) -> NDArrayTree:
         return -X
 
 
-def corewise_sum(X: NDArrayTree, axis=None, use_jax: bool=False) -> NDArrayTree:
+def corewise_sum(X: NDArrayTree, axis=None) -> NDArrayTree:
     '''Sum each array in a nested object along the given axis or axes, X -> sum(X, axis).
 
     The same axis or axes are summed in every leaf array, leaving the tree structure intact.
@@ -117,15 +117,16 @@ def corewise_sum(X: NDArrayTree, axis=None, use_jax: bool=False) -> NDArrayTree:
     >>> print(cw.corewise_sum(X, axis=0))
     (array([2., 2., 2.]), (array([2., 2., 2., 2.]),))
     '''
+    use_jax = tree_contains_jax(X)
     xnp, _, _ = get_backend(False, use_jax)
 
     if isinstance(X, list) or isinstance(X, tuple):
-        return tuple([corewise_sum(x, axis=axis, use_jax=use_jax) for x in X])
+        return tuple([corewise_sum(x, axis=axis) for x in X])
     else:
         return xnp.sum(X, axis=axis)
 
 
-def corewise_dot(X: NDArrayTree, Y: NDArrayTree, use_jax: bool=False):
+def corewise_dot(X: NDArrayTree, Y: NDArrayTree):
     '''Dot product of nested objects, X,Y -> X.Y.
 
     Examples
@@ -137,6 +138,7 @@ def corewise_dot(X: NDArrayTree, Y: NDArrayTree, use_jax: bool=False):
     >>> print(cw.corewise_dot(X, Y))
     7.0
     '''
+    use_jax = tree_contains_jax((X, Y))
     xnp, _, _ = get_backend(False, use_jax)
 
     if isinstance(X, list) or isinstance(X, tuple):
@@ -147,7 +149,7 @@ def corewise_dot(X: NDArrayTree, Y: NDArrayTree, use_jax: bool=False):
         return xnp.sum(X * Y)
 
 
-def corewise_stack_dot(X: NDArrayTree, Y: NDArrayTree, n_stack: int, use_jax: bool=False):
+def corewise_stack_dot(X: NDArrayTree, Y: NDArrayTree, n_stack: int):
     '''Like corewise_dot, but vectorized over the leading ``n_stack`` (stack) axes.
 
     Each leaf is contracted over its trailing (non-stack) axes only, keeping the leading ``n_stack``
@@ -163,12 +165,13 @@ def corewise_stack_dot(X: NDArrayTree, Y: NDArrayTree, n_stack: int, use_jax: bo
     >>> print(cw.corewise_stack_dot(X, Y, 1))       # per-stack-slice: 2*3 + 4*5 = 26
     [26. 26.]
     '''
+    use_jax = tree_contains_jax((X, Y))
     xnp, _, _ = get_backend(False, use_jax)
 
     if isinstance(X, list) or isinstance(X, tuple):
         assert(isinstance(Y, list) or isinstance(Y, tuple))
         assert(len(X) == len(Y))
-        terms = [corewise_stack_dot(x, y, n_stack, use_jax=use_jax) for x, y in zip(X, Y)]
+        terms = [corewise_stack_dot(x, y, n_stack) for x, y in zip(X, Y)]
         out = terms[0]
         for term in terms[1:]:
             out = out + term
@@ -177,7 +180,7 @@ def corewise_stack_dot(X: NDArrayTree, Y: NDArrayTree, n_stack: int, use_jax: bo
         return xnp.sum(X * Y, axis=tuple(range(n_stack, xnp.ndim(X))))
 
 
-def corewise_norm(X, use_jax: bool=False):
+def corewise_norm(X):
     '''Norm of nested objects, X -> ||X||
 
     Examples
@@ -190,22 +193,21 @@ def corewise_norm(X, use_jax: bool=False):
     >>> print(np.sqrt(1**2 + 2**2 + 3**2 + 4**2 + 5**2 + 6**2))
     9.539392014169456
     '''
+    use_jax = tree_contains_jax(X)
     xnp, _, _ = get_backend(False, use_jax)
     norm_sq = corewise_dot(X, X)
     return xnp.sqrt(xnp.abs(norm_sq))
 
 
-def corewise_err(X_true, X, use_jax: bool=False):
-    xnp, _, _ = get_backend(False, use_jax)
-    return corewise_norm(corewise_sub(X_true, X), use_jax=use_jax)
+def corewise_err(X_true, X):
+    return corewise_norm(corewise_sub(X_true, X))
 
 
-def corewise_relerr(X_true, X, use_jax:bool = False):
-    xnp, _, _ = get_backend(False, use_jax)
+def corewise_relerr(X_true, X):
     return corewise_err(X_true, X) / corewise_norm(X_true)
 
 
-def corewise_logical_not(X: NDArrayTree, use_jax: bool=False) -> NDArrayTree:
+def corewise_logical_not(X: NDArrayTree) -> NDArrayTree:
     '''Perform logical not operation on nested objects
 
     Examples
@@ -216,6 +218,7 @@ def corewise_logical_not(X: NDArrayTree, use_jax: bool=False) -> NDArrayTree:
     >>> print(cw.corewise_logical_not(X))
     (array([False,  True,  True]), (False, (), array([ True, False,  True])))
     '''
+    use_jax = tree_contains_jax(X)
     xnp, _, _ = get_backend(False, use_jax)
 
     if isinstance(X, list) or isinstance(X, tuple):

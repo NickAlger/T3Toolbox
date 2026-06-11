@@ -182,8 +182,8 @@ class TestManifold(unittest.TestCase):
                         self.assertTrue(ug.is_gauged())
                         # orthogonal projection: the removed component is perpendicular to the projection
                         residual_dot_proj = cw.corewise_dot(
-                            cw.corewise_sub(u.variations.data, ug.variations.data), ug.variations.data, use_jax=USE_JAX)
-                        scale = float(cw.corewise_dot(ug.variations.data, ug.variations.data, use_jax=USE_JAX))
+                            cw.corewise_sub(u.variations.data, ug.variations.data), ug.variations.data)
+                        scale = float(cw.corewise_dot(ug.variations.data, ug.variations.data))
                         self.assertLessEqual(abs(float(residual_dot_proj)), tol * max(1.0, scale))
 
     def test_oblique_gauge_projection(self):
@@ -290,7 +290,7 @@ class TestManifold(unittest.TestCase):
                         JTz = t3m.T3Tangent.probe_transpose(z, ww, base, sum_over_probes=True)
                         # <z, Jv> sums over F, G, N; <J^T z, v> = sum over G of JTz.inner(v) (which keeps G)
                         lhs = float(np.sum([np.sum(np.asarray(a) * np.asarray(b)) for a, b in zip(z, Jv)]))
-                        rhs = float(np.sum(np.asarray(JTz.inner(v, use_jax=USE_JAX))))
+                        rhs = float(np.sum(np.asarray(JTz.inner(v))))
                         self.assertLessEqual(abs(lhs - rhs), tol * max(1.0, abs(lhs)))
 
                         # without summing, the result is a tangent-stacked T3Tangent (V = probe stack)

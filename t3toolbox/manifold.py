@@ -319,7 +319,7 @@ class T3Tangent:
     def __neg__(self) -> 'T3Tangent':
         return self * (-1.0)
 
-    def inner(self, other: 'T3Tangent', use_jax: bool = False):
+    def inner(self, other: 'T3Tangent'):
         """Inner product of two tangent vectors (corewise dot of the variations).
 
         Vectorized over the stack: returns an array of shape :py:attr:`stack_shape` (``V + G``), one
@@ -336,10 +336,10 @@ class T3Tangent:
         """
         self._check_same_tangent_space(other)
         return cw.corewise_stack_dot(
-            self.variations.data, other.variations.data, len(self.stack_shape), use_jax=use_jax,
+            self.variations.data, other.variations.data, len(self.stack_shape),
         )
 
-    def norm(self, use_jax: bool = False):
+    def norm(self):
         """Norm of the tangent vector (corewise norm of the variations).
 
         Vectorized over the stack: returns an array of shape :py:attr:`stack_shape` (``V + G``), one
@@ -349,8 +349,8 @@ class T3Tangent:
             This equals the Hilbert-Schmidt norm only when the basis is orthogonal and the
             variations are gauged (see :py:meth:`is_gauged`).
         """
-        xnp, _, _ = get_backend(False, use_jax)
-        return xnp.sqrt(xnp.abs(self.inner(self, use_jax=use_jax)))
+        xnp, _, _ = get_backend(False, tree_contains_jax(self.variations.data))
+        return xnp.sqrt(xnp.abs(self.inner(self)))
 
     ############################################
     ##########    Validity checkers    #########
