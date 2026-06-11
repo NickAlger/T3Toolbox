@@ -426,7 +426,6 @@ class T3Tangent:
     def probe(
             self,
             ww:         typ.Sequence[NDArray],  # probing vectors, len=d, elm_shape=F+(Ni,)
-            use_jax:    bool = False,
     ) -> typ.Sequence[NDArray]:                 # probes, len=d, elm_shape=F+G+(Ni,)
         """Probe this tangent vector: apply the single-sample least-squares Jacobian J^(s).
 
@@ -470,8 +469,9 @@ class T3Tangent:
                 'probe() does not support a tangent-stacked T3Tangent (tangent_stack_shape != ()).\n'
                 'Probing a batch of tangent vectors needs 3-block contractions (not yet implemented).'
             )
-        # probing's base order is exactly T3Basis.data = (up, down, left, right) -- no reorder
-        return probing.probe_tangent(ww, self.variations.data, self.basis.data, use_jax=use_jax)
+        # probing's base order is exactly T3Basis.data = (up, down, left, right) -- no reorder.
+        # numpy/jax dispatch is inferred from the input array types inside probing.
+        return probing.probe_tangent(ww, self.variations.data, self.basis.data)
 
     @staticmethod
     def probe_transpose(
@@ -479,7 +479,6 @@ class T3Tangent:
             ww:                 typ.Sequence[NDArray],  # probing vectors, len=d, elm_shape=F+(Ni,)
             basis:              bvf.T3Basis,
             sum_over_probes:    bool = False,
-            use_jax:            bool = False,
     ) -> 'T3Tangent':
         """Apply the transpose ``(J^(s))^T`` of the probe map to residuals; returns a T3Tangent at ``basis``.
 
@@ -520,9 +519,10 @@ class T3Tangent:
         >>> print(JTz_batch.tangent_stack_shape, JTz_batch.base_stack_shape)
         (2,) ()
         """
-        # probing's base order is exactly T3Basis.data = (up, down, left, right) -- no reorder
+        # probing's base order is exactly T3Basis.data = (up, down, left, right) -- no reorder.
+        # numpy/jax dispatch is inferred from the input array types inside probing.
         dU_tildes, dG_tildes = probing.probe_tangent_transpose(
-            ztildes, ww, basis.data, sum_over_probes=sum_over_probes, use_jax=use_jax,
+            ztildes, ww, basis.data, sum_over_probes=sum_over_probes,
         )
         return T3Tangent(basis, bvf.T3Variations(dU_tildes, dG_tildes))
 

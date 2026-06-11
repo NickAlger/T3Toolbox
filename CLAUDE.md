@@ -77,6 +77,15 @@ boundary-transpose copies). (`apply`/`entries` are the lone holdout still on `G+
 **Backend dispatch**: `xnp, xmap, xscan = get_backend(is_uniform, use_jax)` (`backend/common.py`).
 `xnp` = numpy or jax.numpy; `xmap`/`xscan` = ragged loops / numpy / `jax.lax`.
 
+**numpy-vs-jax dispatch convention (goal): infer it from the input array types at the lowest level —
+do NOT thread `use_jax` params around.** Each function computes `use_jax = tree_contains_jax((its
+inputs))` and the jax-ness propagates through the computed intermediates (so a delegating function
+needn't infer at all — its callees do, from the arrays passed down). `backend/probing.py` is the
+**reference**: no `use_jax` parameters anywhere; pure delegates (`probe_t3`, `probe_tangent`,
+`probe_tangent_transpose`) just call their callees. The rest of the backend + the frontends still
+thread `use_jax` (the older `use_jax = use_jax or tree_contains_jax(...)` pattern) — migrate toward
+the probing approach when you touch them. Extremely tiny helpers may keep a flag if it's cleaner.
+
 ## Code style (deliberate and nonstandard — do NOT normalize)
 
 - Shape/structure comments are **trailing comments on the same line** as each array argument and

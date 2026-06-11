@@ -264,8 +264,8 @@ class TestManifold(unittest.TestCase):
                         rnd = (lambda *s: jnp.array(np.random.randn(*s))) if USE_JAX else np.random.randn
                         v = _random_tangent(STRUCT, stack_shape=BASE_STACK, use_jax=USE_JAX)
                         ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
-                        zz = v.probe(ww, use_jax=USE_JAX)
-                        zz2 = t3p.probe_dense(ww, v.to_dense(use_jax=USE_JAX), use_jax=USE_JAX)
+                        zz = v.probe(ww)  # numpy/jax inferred from inputs (jax when USE_JAX)
+                        zz2 = t3p.probe_dense(ww, v.to_dense(use_jax=USE_JAX))
                         self.assertEqual(PROBE_STACK + BASE_STACK + (STRUCT[0][0],), tuple(np.asarray(zz[0]).shape))
                         for a, b in zip(zz, zz2):
                             self.check_relerr(b, a)
@@ -286,15 +286,15 @@ class TestManifold(unittest.TestCase):
                         ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
                         z = tuple(rnd(*(PROBE_STACK + BASE_STACK + (N,))) for N in STRUCT[0])  # F + G + (N,)
 
-                        Jv = v.probe(ww, use_jax=USE_JAX)
-                        JTz = t3m.T3Tangent.probe_transpose(z, ww, base, sum_over_probes=True, use_jax=USE_JAX)
+                        Jv = v.probe(ww)  # numpy/jax inferred from inputs (jax when USE_JAX)
+                        JTz = t3m.T3Tangent.probe_transpose(z, ww, base, sum_over_probes=True)
                         # <z, Jv> sums over F, G, N; <J^T z, v> = sum over G of JTz.inner(v) (which keeps G)
                         lhs = float(np.sum([np.sum(np.asarray(a) * np.asarray(b)) for a, b in zip(z, Jv)]))
                         rhs = float(np.sum(np.asarray(JTz.inner(v, use_jax=USE_JAX))))
                         self.assertLessEqual(abs(lhs - rhs), tol * max(1.0, abs(lhs)))
 
                         # without summing, the result is a tangent-stacked T3Tangent (V = probe stack)
-                        JTz_batch = t3m.T3Tangent.probe_transpose(z, ww, base, use_jax=USE_JAX)
+                        JTz_batch = t3m.T3Tangent.probe_transpose(z, ww, base)
                         self.assertEqual(PROBE_STACK, JTz_batch.tangent_stack_shape)
                         self.assertEqual(BASE_STACK, JTz_batch.base_stack_shape)
 

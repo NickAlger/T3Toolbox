@@ -53,7 +53,6 @@ def probe_t3(
             typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # ragged, (tucker_cores, tt_cores)
             typ.Tuple[NDArray, NDArray],  # uniform, (tucker_supercore, tt_supercore)
         ],
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,Ni)
     '''Probe a Tucker tensor train.
 
@@ -127,15 +126,15 @@ def probe_t3(
     '''
     tucker_cores, tt_cores = x
 
-    xis = compute_xis(tucker_cores, ww, use_jax=use_jax)
+    xis = compute_xis(tucker_cores, ww)
 
-    mus = compute_mus(tt_cores, xis, use_jax=use_jax)
+    mus = compute_mus(tt_cores, xis)
 
-    nus = compute_nus(tt_cores, xis, use_jax=use_jax)
+    nus = compute_nus(tt_cores, xis)
 
-    etas = compute_etas(tt_cores, mus, nus, use_jax=use_jax)
+    etas = compute_etas(tt_cores, mus, nus)
 
-    zs = assemble_zs(tucker_cores, etas, use_jax=use_jax)
+    zs = assemble_zs(tucker_cores, etas)
 
     return zs
 
@@ -143,7 +142,6 @@ def probe_t3(
 def compute_xis(
         up_tucker_cores:    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+(nUi,Ni)
         ww:                 typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=K+(Ni,)
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # xis. len=d, elm_shape=(...,nUi)
     '''Compute upward edge variables associated with edges between Tucker cores and adjacent TT-cores.
     Used for probing a Tucker tensor train.
@@ -154,7 +152,7 @@ def compute_xis(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    use_jax = use_jax or tree_contains_jax((up_tucker_cores, ww))
+    use_jax = tree_contains_jax((up_tucker_cores, ww))
     is_uniform = is_ndarray(up_tucker_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -173,7 +171,6 @@ def compute_xis(
 def compute_mus(
         left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d-1. elm_shape=T+(rLi,nUi,rL(i+1))
         xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+K+(nUi,)
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # mus. len=d, elm_shape=T+K+(rLi,)
     '''Compute leftward edge variables associated with edges between adjacent TT-cores.
     Used for probing a Tucker tensor train.
@@ -184,7 +181,7 @@ def compute_mus(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    use_jax = use_jax or tree_contains_jax((left_tt_cores, xis))
+    use_jax = tree_contains_jax((left_tt_cores, xis))
     is_uniform = not isinstance(xis, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -204,7 +201,6 @@ def compute_mus(
 def compute_nus(
         right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+(rRi,nUi,rR(i+1))
         xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+K+(nUi,)
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # nus. len=d, elm_shape=T+K+(rR(i+1),)
     '''Compute rightward edge variables associated with edges between adjacent TT-cores.
     Used for probing a Tucker tensor train.
@@ -218,7 +214,7 @@ def compute_nus(
     is_uniform = is_ndarray(right_tt_cores)
     reverse = uniform_ops.reverse_utt if is_uniform else ragged_ops.reverse_tt
 
-    rev_nus = compute_mus(reverse(right_tt_cores), xis[::-1], use_jax=use_jax)
+    rev_nus = compute_mus(reverse(right_tt_cores), xis[::-1])
     return rev_nus[::-1]
 
 
@@ -226,7 +222,6 @@ def compute_etas(
         down_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+(rLi,nOi,rR(i+1))
         mus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+K+(rLi,)
         nus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,rR(i+1))
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # etas. len=d, elm_shape=T+K+(nOi,)
     '''Compute downward edge variables associated with edges between Tucker cores and adjacent TT-cores.
     Used for probing a Tucker tensor train.
@@ -237,7 +232,7 @@ def compute_etas(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    use_jax = use_jax or tree_contains_jax((down_tt_cores, mus, nus))
+    use_jax = tree_contains_jax((down_tt_cores, mus, nus))
     is_uniform = is_ndarray(down_tt_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -256,7 +251,6 @@ def compute_etas(
 def assemble_zs(
         tucker_cores:   typ.Union[typ.Sequence[NDArray], NDArray],  # len=d. elm_shape=T+(ni,Ni)
         etas:           typ.Union[typ.Sequence[NDArray], NDArray],  # len=d. elm_shape=T+K+(ni,)
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # zs. len=d, elm_shape=T+K+(Ni,)
     '''Assemble probes from downward edge variables.
 
@@ -266,7 +260,7 @@ def assemble_zs(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    use_jax = use_jax or tree_contains_jax((tucker_cores, etas))
+    use_jax = tree_contains_jax((tucker_cores, etas))
     is_uniform = is_ndarray(tucker_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -289,7 +283,6 @@ def assemble_zs(
 def compute_dxis(
         var_tucker_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(nOi,Ni)
         ww:                     typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,Ni)
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dxis. len=d, elm_shape=(...,nOi)
     '''Compute var-upward edge variables dxi.
     Used for probing a tangent vector.
@@ -311,7 +304,7 @@ def compute_dxis(
     assemble_tangent_zs
     probe_tangent
     '''
-    return compute_xis(var_tucker_cores, ww, use_jax=use_jax)
+    return compute_xis(var_tucker_cores, ww)
 
 
 def compute_sigmas(
@@ -321,7 +314,6 @@ def compute_sigmas(
         xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi),
         dxis:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
         mus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rLi)
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # sigmas. len=d, elm_shape=(...,rR(i+1))
     '''Compute var-leftward edge variables sigma.
     Used for probing a tangent vector.
@@ -340,7 +332,7 @@ def compute_sigmas(
     assemble_tangent_zs
     probe_tangent
     '''
-    use_jax = use_jax or tree_contains_jax((var_tt_cores, right_tt_cores, down_tt_cores, xis, dxis, mus))
+    use_jax = tree_contains_jax((var_tt_cores, right_tt_cores, down_tt_cores, xis, dxis, mus))
     is_uniform = not isinstance(xis, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -367,7 +359,6 @@ def compute_taus(
         xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi),
         dxis:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
         nus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rR(i+1))
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # taus. len=d, elm_shape=(...,rL(i+1))
     '''Compute var-rightward edge variables tau.
     Used for probing a tangent vector.
@@ -392,7 +383,6 @@ def compute_taus(
     rev_taus = compute_sigmas(
         reverse(var_tt_cores), reverse(left_tt_cores), reverse(down_tt_cores),
         xis[::-1], dxis[::-1], nus[::-1],
-        use_jax=use_jax,
     )
     return rev_taus[::-1]
 
@@ -405,7 +395,6 @@ def compute_detas(
         nus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rR(i+1))
         sigmas:             typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rR(i+1))
         taus:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rL(i+1))
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # detas. len=d, elm_shape=(...,nUi)
     '''Compute var-downward edge variables deta.
     Used for probing a tangent vector.
@@ -424,7 +413,7 @@ def compute_detas(
     assemble_tangent_zs
     probe_tangent
     '''
-    use_jax = use_jax or tree_contains_jax((var_tt_cores, left_tt_cores, right_tt_cores, mus, nus, sigmas, taus))
+    use_jax = tree_contains_jax((var_tt_cores, left_tt_cores, right_tt_cores, mus, nus, sigmas, taus))
     is_uniform = not isinstance(mus, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -464,7 +453,6 @@ def assemble_tangent_zs(
         var_tucker_cores:   typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(nOi,Ni)
         etas:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
         detas:              typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi)
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # zs. len=d, elm_shape=(...,Ni)
     '''Assemble tangent vector probes from edge variables.
 
@@ -482,7 +470,7 @@ def assemble_tangent_zs(
     compute_detas
     probe_tangent
     '''
-    use_jax = use_jax or tree_contains_jax((tucker_cores, var_tucker_cores, etas, detas))
+    use_jax = tree_contains_jax((tucker_cores, var_tucker_cores, etas, detas))
     is_uniform = not isinstance(etas, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -528,7 +516,6 @@ def probe_tangent(
                 NDArray,  # right_tt_supercore.  shape=(d, rL, nU, rR), right orthogonal elements
             ],
         ], # base order = T3Basis.data = (up, down, left, right) = (U, O, P, Q)
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,Ni)
     '''Probe a tangent vector. Applies the (single-sample) least-squares Jacobian J^(s).
 
@@ -608,30 +595,30 @@ def probe_tangent(
     (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores) = base
     (var_tucker_cores, var_tt_cores) = variation
 
-    xis = compute_xis(up_tucker_cores, ww, use_jax=use_jax)
+    xis = compute_xis(up_tucker_cores, ww)
 
-    mus = compute_mus(left_tt_cores, xis, use_jax=use_jax)
+    mus = compute_mus(left_tt_cores, xis)
 
-    nus = compute_nus(right_tt_cores, xis, use_jax=use_jax)
+    nus = compute_nus(right_tt_cores, xis)
 
-    etas = compute_etas(down_tt_cores, mus, nus, use_jax=use_jax)
+    etas = compute_etas(down_tt_cores, mus, nus)
 
-    dxis = compute_dxis(var_tucker_cores, ww, use_jax=use_jax)
+    dxis = compute_dxis(var_tucker_cores, ww)
 
     sigmas = compute_sigmas(
-        var_tt_cores, right_tt_cores, down_tt_cores, xis, dxis, mus, use_jax=use_jax,
+        var_tt_cores, right_tt_cores, down_tt_cores, xis, dxis, mus,
     )
 
     taus = compute_taus(
-        var_tt_cores, left_tt_cores, down_tt_cores, xis, dxis, nus, use_jax=use_jax,
+        var_tt_cores, left_tt_cores, down_tt_cores, xis, dxis, nus,
     )
 
     detas = compute_detas(
-        var_tt_cores, left_tt_cores, right_tt_cores, mus, nus, sigmas, taus, use_jax=use_jax,
+        var_tt_cores, left_tt_cores, right_tt_cores, mus, nus, sigmas, taus,
     )
 
     zz = assemble_tangent_zs(
-        up_tucker_cores, var_tucker_cores, etas, detas, use_jax=use_jax,
+        up_tucker_cores, var_tucker_cores, etas, detas,
     )
 
     return zz
@@ -644,7 +631,6 @@ def probe_tangent(
 def compute_deta_tildes(
         up_tucker_cores:    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(nUi,Ni)
         ztildes:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,Ni)
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,nUi)
     '''Adjoint-var-upward edge variables deta_tilde.
     Used for computing the transpose of the map from a tangent vector to its probes.
@@ -655,7 +641,7 @@ def compute_deta_tildes(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    use_jax = use_jax or tree_contains_jax((up_tucker_cores, ztildes))
+    use_jax = tree_contains_jax((up_tucker_cores, ztildes))
     is_uniform = is_ndarray(up_tucker_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -680,7 +666,6 @@ def compute_tau_tildes(
         left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rL(i+1))
         xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi)
         mus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rLi)
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,rLi)
     '''Adjoint-var-rightward edge variables tau_tilde.
     Used for computing the transpose of the map from a tangent vector to its probes.
@@ -691,7 +676,7 @@ def compute_tau_tildes(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    use_jax = use_jax or tree_contains_jax((deta_tildes, left_tt_cores, xis, mus))
+    use_jax = tree_contains_jax((deta_tildes, left_tt_cores, xis, mus))
     is_uniform = not isinstance(xis, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -713,7 +698,6 @@ def compute_sigma_tildes(
         right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rRi,nUi,rR(i+1))
         xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi)
         nus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rR(i+1))
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,rR(i+1))
     '''Adjoint-var-leftward edge variables sigma_tilde.
     Used for computing the transpose of the map from a tangent vector to its probes.
@@ -728,7 +712,7 @@ def compute_sigma_tildes(
     reverse = uniform_ops.reverse_utt if is_uniform else ragged_ops.reverse_tt
 
     return compute_tau_tildes(
-        deta_tildes[::-1], reverse(right_tt_cores), xis[::-1], nus[::-1], use_jax=use_jax,
+        deta_tildes[::-1], reverse(right_tt_cores), xis[::-1], nus[::-1],
     )[::-1]
 
 
@@ -738,7 +722,6 @@ def compute_dxi_tildes(
         down_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
         mus:                    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rLi)
         nus:                    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rR(i+1))
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dxi_tildes. len=d, elm_shape=(...,nOi)
     '''Adjoint-var-downward edge variables dxi_tilde.
     Used for computing the transpose of the map from a tangent vector to its probes.
@@ -749,7 +732,7 @@ def compute_dxi_tildes(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    use_jax = use_jax or tree_contains_jax((sigma_tildes, tau_tildes, down_tt_cores, mus, nus))
+    use_jax = tree_contains_jax((sigma_tildes, tau_tildes, down_tt_cores, mus, nus))
     is_uniform = not isinstance(mus, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -785,7 +768,6 @@ def assemble_tucker_variations(
         etas:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
         sum_over_probes: bool = False,
         n_probe: int = 0,  # number of trailing probe-stack axes; only used when sum_over_probes
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dU_tildes. len=d, elm_shape=(...,nOi,Ni)
     '''Assemble Tucker core variations, delta_U_tilde.
     Used for computing the transpose of the map from a tangent vector to its probes.
@@ -796,7 +778,7 @@ def assemble_tucker_variations(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    use_jax = use_jax or tree_contains_jax((ztildes, dxi_tildes, ww, etas))
+    use_jax = tree_contains_jax((ztildes, dxi_tildes, ww, etas))
     is_uniform = not isinstance(ww, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -845,7 +827,6 @@ def assemble_tt_variations(
         nus:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rR(i+1))
         sum_over_probes: bool = False,
         n_probe: int = 0,  # number of trailing probe-stack axes; only used when sum_over_probes
-        use_jax: bool = False,
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dG_tildes. len=d, elm_shape=(...,rLi,nUi,rRi)
     '''Assemble TT core variations, delta_G_tilde.
     Used for computing the transpose of the map from a tangent vector to its probes.
@@ -856,7 +837,7 @@ def assemble_tt_variations(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    use_jax = use_jax or tree_contains_jax((sigma_tildes, tau_tildes, deta_tildes, xis, mus, nus))
+    use_jax = tree_contains_jax((sigma_tildes, tau_tildes, deta_tildes, xis, mus, nus))
     is_uniform = not isinstance(xis, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -959,7 +940,6 @@ def probe_tangent_transpose(
             ],
         ], # base order = T3Basis.data = (up, down, left, right) = (U, O, P, Q)
         sum_over_probes: bool = False,
-        use_jax: bool = False,
 ) -> typ.Union[
     typ.Tuple[
         typ.Tuple[NDArray,...], # dU_tildes. len=d, elm_shape=(...,nOi,Ni)
@@ -1049,23 +1029,23 @@ def probe_tangent_transpose(
     '''
     (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores) = base
 
-    xis = compute_xis(up_tucker_cores, ww, use_jax=use_jax)
+    xis = compute_xis(up_tucker_cores, ww)
 
-    mus = compute_mus(left_tt_cores, xis, use_jax=use_jax)
+    mus = compute_mus(left_tt_cores, xis)
 
-    nus = compute_nus(right_tt_cores, xis, use_jax=use_jax)
+    nus = compute_nus(right_tt_cores, xis)
 
-    etas = compute_etas(down_tt_cores, mus, nus, use_jax=use_jax)
+    etas = compute_etas(down_tt_cores, mus, nus)
 
     #
 
-    deta_tildes = compute_deta_tildes(up_tucker_cores, ztildes, use_jax=use_jax)
+    deta_tildes = compute_deta_tildes(up_tucker_cores, ztildes)
 
-    tau_tildes = compute_tau_tildes(deta_tildes, left_tt_cores, xis, mus, use_jax=use_jax)
+    tau_tildes = compute_tau_tildes(deta_tildes, left_tt_cores, xis, mus)
 
-    sigma_tildes = compute_sigma_tildes(deta_tildes, right_tt_cores, xis, nus, use_jax=use_jax)
+    sigma_tildes = compute_sigma_tildes(deta_tildes, right_tt_cores, xis, nus)
 
-    dxi_tildes = compute_dxi_tildes(sigma_tildes, tau_tildes, down_tt_cores, mus, nus, use_jax=use_jax)
+    dxi_tildes = compute_dxi_tildes(sigma_tildes, tau_tildes, down_tt_cores, mus, nus)
 
     #
 
@@ -1075,12 +1055,12 @@ def probe_tangent_transpose(
 
     dU_tildes = assemble_tucker_variations(
         ztildes, dxi_tildes, ww, etas,
-        sum_over_probes=sum_over_probes, n_probe=n_probe, use_jax=use_jax,
+        sum_over_probes=sum_over_probes, n_probe=n_probe,
     )
 
     dG_tildes = assemble_tt_variations(
         sigma_tildes, tau_tildes, deta_tildes, xis, mus, nus,
-        sum_over_probes=sum_over_probes, n_probe=n_probe, use_jax=use_jax,
+        sum_over_probes=sum_over_probes, n_probe=n_probe,
     )
 
     return dU_tildes, dG_tildes
@@ -1093,7 +1073,6 @@ def probe_tangent_transpose(
 def probe_dense(
         vectors: typ.Sequence[NDArray],
         T: NDArray,
-        use_jax: bool = False,
 ) -> typ.Tuple[NDArray]:
     """Probe a dense tensor.
 
@@ -1173,6 +1152,7 @@ def probe_dense(
     >>> print(float(np.linalg.norm(yy[2] - y2)))
     0.0
     """
+    use_jax = tree_contains_jax((vectors, T))
     xnp, _, _ = get_backend(True, use_jax)
 
     #
