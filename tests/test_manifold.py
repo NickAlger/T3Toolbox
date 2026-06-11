@@ -10,22 +10,14 @@ import t3toolbox.manifold as t3m
 import t3toolbox.corewise as cw
 import t3toolbox.backend.probing as t3p
 
-try:
-    import jax
-    import jax.numpy as jnp
-    jax.config.update("jax_enable_x64", True)
-except ImportError:
-    jnp = np
-
 np.random.seed(0)
 tol = 1e-9
 norm = np.linalg.norm
 
 
 def _random_variations(base):
-    """A random T3Variations fitting the holes of ``base`` (ungauged); matches the basis array type."""
-    use_jax = bool(cw.tree_contains_jax(base.data))
-    rnd = (lambda *s: jnp.array(np.random.randn(*s))) if use_jax else (lambda *s: np.random.randn(*s))
+    """A random T3Variations fitting the holes of ``base`` (ungauged)."""
+    rnd = lambda *s: np.random.randn(*s)
     ss = base.stack_shape
     tucker_hole_shapes, tt_hole_shapes = base.variation_shapes
     V = tuple(rnd(*(ss + s)) for s in tucker_hole_shapes)
@@ -33,10 +25,8 @@ def _random_variations(base):
     return bvf.T3Variations(V, H)
 
 
-def _random_tangent(t3_structure, stack_shape=(), use_jax=False):
+def _random_tangent(t3_structure, stack_shape=()):
     x = t3.TuckerTensorTrain.randn(*t3_structure, stack_shape=stack_shape)
-    if use_jax:
-        x = x.to_jax()
     base, _ = bvf.t3_orthogonal_representations(x)
     return t3m.T3Tangent(base, _random_variations(base))
 
@@ -112,44 +102,38 @@ class TestManifold(unittest.TestCase):
     def test_to_dense_matches_explicit_sum(self):
         # Independent check of to_dense for d=3: the explicit 6-term (3 Tucker + 3 TT) sum.
         for STACK_SHAPE in [(), (2,)]:
-            for USE_JAX in [False, True]:
-                with self.subTest(STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
-                    x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1), stack_shape=STACK_SHAPE)
-                    if USE_JAX:
-                        x = x.to_jax()
-                    base, var = bvf.t3_orthogonal_representations(x)
-                    v = t3m.T3Tangent(base, var)
+            with self.subTest(STACK_SHAPE=STACK_SHAPE):
+                x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1), stack_shape=STACK_SHAPE)
+                base, var = bvf.t3_orthogonal_representations(x)
+                v = t3m.T3Tangent(base, var)
 
-                    U0, U1, U2 = (np.asarray(c) for c in base.up_tucker_cores)
-                    D0, D1, D2 = (np.asarray(c) for c in base.down_tt_cores)
-                    L0, L1, L2 = (np.asarray(c) for c in base.left_tt_cores)
-                    R0, R1, R2 = (np.asarray(c) for c in base.right_tt_cores)
-                    V0, V1, V2 = (np.asarray(c) for c in var.tucker_variations)
-                    H0, H1, H2 = (np.asarray(c) for c in var.tt_variations)
+                U0, U1, U2 = (np.asarray(c) for c in base.up_tucker_cores)
+                D0, D1, D2 = (np.asarray(c) for c in base.down_tt_cores)
+                L0, L1, L2 = (np.asarray(c) for c in base.left_tt_cores)
+                R0, R1, R2 = (np.asarray(c) for c in base.right_tt_cores)
+                V0, V1, V2 = (np.asarray(c) for c in var.tucker_variations)
+                H0, H1, H2 = (np.asarray(c) for c in var.tt_variations)
 
-                    f = lambda B0, B1, B2, G0, G1, G2: np.einsum(
-                        '...ai,...bj,...ck,...xay,...ybz,...zcw->...ijk', B0, B1, B2, G0, G1, G2)
-                    manual = (f(U0, U1, U2, H0, R1, R2) + f(U0, U1, U2, L0, H1, R2) + f(U0, U1, U2, L0, L1, H2)
-                              + f(V0, U1, U2, D0, R1, R2) + f(U0, V1, U2, L0, D1, R2) + f(U0, U1, V2, L0, L1, D2))
-                    self.check_relerr(manual, v.to_dense())
+                f = lambda B0, B1, B2, G0, G1, G2: np.einsum(
+                    '...ai,...bj,...ck,...xay,...ybz,...zcw->...ijk', B0, B1, B2, G0, G1, G2)
+                manual = (f(U0, U1, U2, H0, R1, R2) + f(U0, U1, U2, L0, H1, R2) + f(U0, U1, U2, L0, L1, H2)
+                          + f(V0, U1, U2, D0, R1, R2) + f(U0, V1, U2, L0, D1, R2) + f(U0, U1, V2, L0, L1, D2))
+                self.check_relerr(manual, v.to_dense())
 
     def test_linalg(self):
         for T3_STRUCTURE in self.t3_structures:
             for STACK_SHAPE in self.stack_shapes:
-                for USE_JAX in [False, True]:
-                    with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
-                        x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
-                        if USE_JAX:
-                            x = x.to_jax()
-                        base, _ = bvf.t3_orthogonal_representations(x)
-                        v1 = t3m.T3Tangent(base, _random_variations(base))
-                        v2 = t3m.T3Tangent(base, _random_variations(base))
+                with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
+                    base, _ = bvf.t3_orthogonal_representations(x)
+                    v1 = t3m.T3Tangent(base, _random_variations(base))
+                    v2 = t3m.T3Tangent(base, _random_variations(base))
 
-                        self.check_relerr(v1.to_dense() + v2.to_dense(), (v1 + v2).to_dense())
-                        self.check_relerr(v1.to_dense() - v2.to_dense(), (v1 - v2).to_dense())
-                        self.check_relerr(2.5 * np.asarray(v1.to_dense()), (2.5 * v1).to_dense())
-                        self.check_relerr(-np.asarray(v1.to_dense()), (-v1).to_dense())
-                        self.assertLessEqual(norm(np.asarray(t3m.T3Tangent.zeros(base).to_dense())), tol)
+                    self.check_relerr(v1.to_dense() + v2.to_dense(), (v1 + v2).to_dense())
+                    self.check_relerr(v1.to_dense() - v2.to_dense(), (v1 - v2).to_dense())
+                    self.check_relerr(2.5 * np.asarray(v1.to_dense()), (2.5 * v1).to_dense())
+                    self.check_relerr(-np.asarray(v1.to_dense()), (-v1).to_dense())
+                    self.assertLessEqual(norm(np.asarray(t3m.T3Tangent.zeros(base).to_dense())), tol)
 
     def test_same_tangent_space_guard(self):
         x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
@@ -188,10 +172,8 @@ class TestManifold(unittest.TestCase):
     # ``stack_shapes`` for the two-axis stacking tests: (base_stack G, tangent_stack V) pairs.
     bv_stack_shapes = [((), (3,)), ((2,), (3,)), ((2,), ()), ((2,), (2, 2)), ((2, 3), (2,))]
 
-    def _random_v_stacked(self, struct, base_stack, V, use_jax):
+    def _random_v_stacked(self, struct, base_stack, V):
         x = t3.TuckerTensorTrain.randn(*struct, stack_shape=base_stack)
-        if use_jax:
-            x = x.to_jax()
         base, _ = bvf.t3_orthogonal_representations(x)
         return t3m.T3Tangent.randn(base, stack_shape=V, apply_gauge_projection=False)
 
@@ -200,47 +182,45 @@ class TestManifold(unittest.TestCase):
         # base (same T3Basis object, one tangent space). stack_tangents inverts it.
         STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         for BASE_STACK, V in self.bv_stack_shapes:
-            for USE_JAX in [False, True]:
-                with self.subTest(BASE_STACK=BASE_STACK, V=V, USE_JAX=USE_JAX):
-                    v = self._random_v_stacked(STRUCT, BASE_STACK, V, USE_JAX)
-                    dense = np.asarray(v.to_dense())  # V + G + (N...)
-                    tree = v.unstack_tangents()
+            with self.subTest(BASE_STACK=BASE_STACK, V=V):
+                v = self._random_v_stacked(STRUCT, BASE_STACK, V)
+                dense = np.asarray(v.to_dense())  # V + G + (N...)
+                tree = v.unstack_tangents()
 
-                    for vidx in np.ndindex(*V):
-                        leaf = _tree_get(tree, vidx)
-                        self.assertIs(leaf.basis, v.basis)  # shared base object
-                        self.assertEqual((), leaf.tangent_stack_shape)
-                        self.assertEqual(BASE_STACK, leaf.base_stack_shape)
-                        self.check_relerr(dense[vidx], leaf.to_dense())  # slice the leading V axes
+                for vidx in np.ndindex(*V):
+                    leaf = _tree_get(tree, vidx)
+                    self.assertIs(leaf.basis, v.basis)  # shared base object
+                    self.assertEqual((), leaf.tangent_stack_shape)
+                    self.assertEqual(BASE_STACK, leaf.base_stack_shape)
+                    self.check_relerr(dense[vidx], leaf.to_dense())  # slice the leading V axes
 
-                    rt = t3m.T3Tangent.stack_tangents(tree)  # round-trip
-                    self.assertIs(rt.basis, v.basis)
-                    self.assertEqual(V, rt.tangent_stack_shape)
-                    self.check_relerr(dense, rt.to_dense())
+                rt = t3m.T3Tangent.stack_tangents(tree)  # round-trip
+                self.assertIs(rt.basis, v.basis)
+                self.assertEqual(V, rt.tangent_stack_shape)
+                self.check_relerr(dense, rt.to_dense())
 
     def test_unstack_stack_basis(self):
         # unstack_basis peels the base stack G -> a G-shaped tree of single-base-point tangents (each
         # at a DIFFERENT base point, still carrying its V batch). stack_basis inverts it.
         STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         for BASE_STACK, V in self.bv_stack_shapes:
-            for USE_JAX in [False, True]:
-                with self.subTest(BASE_STACK=BASE_STACK, V=V, USE_JAX=USE_JAX):
-                    v = self._random_v_stacked(STRUCT, BASE_STACK, V, USE_JAX)
-                    dense = np.asarray(v.to_dense())  # V + G + (N...)
-                    nV = len(V)
-                    tree = v.unstack_basis()
+            with self.subTest(BASE_STACK=BASE_STACK, V=V):
+                v = self._random_v_stacked(STRUCT, BASE_STACK, V)
+                dense = np.asarray(v.to_dense())  # V + G + (N...)
+                nV = len(V)
+                tree = v.unstack_basis()
 
-                    for gidx in np.ndindex(*BASE_STACK):
-                        leaf = _tree_get(tree, gidx)
-                        self.assertEqual((), leaf.base_stack_shape)
-                        self.assertEqual(V, leaf.tangent_stack_shape)
-                        ref = dense[(slice(None),) * nV + gidx]  # slice the interior G axes
-                        self.check_relerr(ref, leaf.to_dense())
+                for gidx in np.ndindex(*BASE_STACK):
+                    leaf = _tree_get(tree, gidx)
+                    self.assertEqual((), leaf.base_stack_shape)
+                    self.assertEqual(V, leaf.tangent_stack_shape)
+                    ref = dense[(slice(None),) * nV + gidx]  # slice the interior G axes
+                    self.check_relerr(ref, leaf.to_dense())
 
-                    rt = t3m.T3Tangent.stack_basis(tree)  # round-trip
-                    self.assertEqual(BASE_STACK, rt.base_stack_shape)
-                    self.assertEqual(V, rt.tangent_stack_shape)
-                    self.check_relerr(dense, rt.to_dense())
+                rt = t3m.T3Tangent.stack_basis(tree)  # round-trip
+                self.assertEqual(BASE_STACK, rt.base_stack_shape)
+                self.assertEqual(V, rt.tangent_stack_shape)
+                self.check_relerr(dense, rt.to_dense())
 
     def test_stack_tangents_guard(self):
         # stack_tangents requires a shared T3Basis object (same tangent space); different base
@@ -259,133 +239,117 @@ class TestManifold(unittest.TestCase):
     def test_orthogonal_gauge_projection(self):
         for T3_STRUCTURE in self.t3_structures:
             for STACK_SHAPE in [(), (2,)]:
-                for USE_JAX in [False, True]:
-                    with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
-                        x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
-                        if USE_JAX:
-                            x = x.to_jax()
-                        base, _ = bvf.t3_orthogonal_representations(x)
-                        u = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
-                        ug = u.orthogonal_gauge_projection()
+                with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
+                    base, _ = bvf.t3_orthogonal_representations(x)
+                    u = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+                    ug = u.orthogonal_gauge_projection()
 
-                        self.assertTrue(ug.is_gauged())
-                        # orthogonal projection: the removed component is perpendicular to the projection
-                        residual_dot_proj = cw.corewise_dot(
-                            cw.corewise_sub(u.variations.data, ug.variations.data), ug.variations.data)
-                        scale = float(cw.corewise_dot(ug.variations.data, ug.variations.data))
-                        self.assertLessEqual(abs(float(residual_dot_proj)), tol * max(1.0, scale))
+                    self.assertTrue(ug.is_gauged())
+                    # orthogonal projection: the removed component is perpendicular to the projection
+                    residual_dot_proj = cw.corewise_dot(
+                        cw.corewise_sub(u.variations.data, ug.variations.data), ug.variations.data)
+                    scale = float(cw.corewise_dot(ug.variations.data, ug.variations.data))
+                    self.assertLessEqual(abs(float(residual_dot_proj)), tol * max(1.0, scale))
 
     def test_oblique_gauge_projection(self):
         for T3_STRUCTURE in self.t3_structures:
             for STACK_SHAPE in [(), (2,)]:
-                for USE_JAX in [False, True]:
-                    with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
-                        x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
-                        if USE_JAX:
-                            x = x.to_jax()
-                        base, _ = bvf.t3_orthogonal_representations(x)
-                        u = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
-                        uo = u.oblique_gauge_projection()
+                with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
+                    base, _ = bvf.t3_orthogonal_representations(x)
+                    u = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+                    uo = u.oblique_gauge_projection()
 
-                        self.assertTrue(uo.is_gauged())
-                        self.check_relerr(u.to_dense(), uo.to_dense())  # preserves the tangent vector
+                    self.assertTrue(uo.is_gauged())
+                    self.check_relerr(u.to_dense(), uo.to_dense())  # preserves the tangent vector
 
     def test_inner_norm_faithfulness(self):
         # orthogonal + minimal-rank base + gauged variations => corewise inner/norm == Hilbert-Schmidt.
         # inner/norm vectorize over the stack, returning a STACK_SHAPE-shaped array (one value/slice).
         for STACK_SHAPE in [(), (2,), (2, 3)]:
-            for USE_JAX in [False, True]:
-                with self.subTest(STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
-                    x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=STACK_SHAPE)
-                    if USE_JAX:
-                        x = x.to_jax()
-                    base, _ = bvf.t3_orthogonal_representations(x)
-                    self.assertTrue(base.is_orthogonal() and base.has_minimal_ranks)
+            with self.subTest(STACK_SHAPE=STACK_SHAPE):
+                x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=STACK_SHAPE)
+                base, _ = bvf.t3_orthogonal_representations(x)
+                self.assertTrue(base.is_orthogonal() and base.has_minimal_ranks)
 
-                    u = t3m.T3Tangent.randn(base)  # gauged by default
-                    w = t3m.T3Tangent.randn(base)
+                u = t3m.T3Tangent.randn(base)  # gauged by default
+                w = t3m.T3Tangent.randn(base)
 
-                    ud, wd = np.asarray(u.to_dense()), np.asarray(w.to_dense())
-                    tensor_axes = tuple(range(len(STACK_SHAPE), ud.ndim))  # the (N0..Nd) axes; keep stack
-                    hs_inner = np.sum(ud * wd, axis=tensor_axes)  # shape = STACK_SHAPE
-                    hs_norm = np.sqrt(np.sum(ud * ud, axis=tensor_axes))
-                    self.assertLessEqual(norm(np.asarray(u.inner(w)) - hs_inner), tol * max(1.0, norm(hs_inner)))
-                    self.assertLessEqual(norm(np.asarray(u.norm()) - hs_norm), tol * max(1.0, norm(hs_norm)))
+                ud, wd = np.asarray(u.to_dense()), np.asarray(w.to_dense())
+                tensor_axes = tuple(range(len(STACK_SHAPE), ud.ndim))  # the (N0..Nd) axes; keep stack
+                hs_inner = np.sum(ud * wd, axis=tensor_axes)  # shape = STACK_SHAPE
+                hs_norm = np.sqrt(np.sum(ud * ud, axis=tensor_axes))
+                self.assertLessEqual(norm(np.asarray(u.inner(w)) - hs_inner), tol * max(1.0, norm(hs_inner)))
+                self.assertLessEqual(norm(np.asarray(u.norm()) - hs_norm), tol * max(1.0, norm(hs_norm)))
 
     def test_inner_norm_tangent_stacked(self):
         # A T3Tangent may carry an extra OUTER tangent stack V (a batch of tangents sharing one base);
         # inner/norm vectorize over the full V + G stack.
         for BASE_STACK, V in [((), (3,)), ((2,), (3,)), ((2,), ())]:
-            for USE_JAX in [False, True]:
-                with self.subTest(BASE_STACK=BASE_STACK, V=V, USE_JAX=USE_JAX):
-                    x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=BASE_STACK)
-                    if USE_JAX:
-                        x = x.to_jax()
-                    base, _ = bvf.t3_orthogonal_representations(x)
-                    u = t3m.T3Tangent.randn(base, stack_shape=V, apply_gauge_projection=False)
-                    w = t3m.T3Tangent.randn(base, stack_shape=V, apply_gauge_projection=False)
+            with self.subTest(BASE_STACK=BASE_STACK, V=V):
+                x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=BASE_STACK)
+                base, _ = bvf.t3_orthogonal_representations(x)
+                u = t3m.T3Tangent.randn(base, stack_shape=V, apply_gauge_projection=False)
+                w = t3m.T3Tangent.randn(base, stack_shape=V, apply_gauge_projection=False)
 
-                    self.assertEqual(V, u.tangent_stack_shape)
-                    self.assertEqual(BASE_STACK, u.base_stack_shape)
-                    self.assertEqual(V + BASE_STACK, u.stack_shape)
+                self.assertEqual(V, u.tangent_stack_shape)
+                self.assertEqual(BASE_STACK, u.base_stack_shape)
+                self.assertEqual(V + BASE_STACK, u.stack_shape)
 
-                    full = V + BASE_STACK
-                    ip = np.asarray(u.inner(w))
-                    self.assertEqual(full, ip.shape)
+                full = V + BASE_STACK
+                ip = np.asarray(u.inner(w))
+                self.assertEqual(full, ip.shape)
 
-                    ref = np.zeros(full)  # per-slice corewise dot over the full stack
-                    for idx in np.ndindex(*full):
-                        ud = (tuple(np.asarray(c)[idx] for c in u.variations.tucker_variations),
-                              tuple(np.asarray(c)[idx] for c in u.variations.tt_variations))
-                        wd = (tuple(np.asarray(c)[idx] for c in w.variations.tucker_variations),
-                              tuple(np.asarray(c)[idx] for c in w.variations.tt_variations))
-                        ref[idx] = float(cw.corewise_dot(ud, wd))
-                    self.assertLessEqual(norm(ip - ref), tol * max(1.0, norm(ref)))
-                    self.assertLessEqual(norm(np.asarray(u.norm()) - np.sqrt(np.abs(np.asarray(u.inner(u))))), tol)
+                ref = np.zeros(full)  # per-slice corewise dot over the full stack
+                for idx in np.ndindex(*full):
+                    ud = (tuple(np.asarray(c)[idx] for c in u.variations.tucker_variations),
+                          tuple(np.asarray(c)[idx] for c in u.variations.tt_variations))
+                    wd = (tuple(np.asarray(c)[idx] for c in w.variations.tucker_variations),
+                          tuple(np.asarray(c)[idx] for c in w.variations.tt_variations))
+                    ref[idx] = float(cw.corewise_dot(ud, wd))
+                self.assertLessEqual(norm(ip - ref), tol * max(1.0, norm(ref)))
+                self.assertLessEqual(norm(np.asarray(u.norm()) - np.sqrt(np.abs(np.asarray(u.inner(u))))), tol)
 
     def test_tangent_probe(self):
         # forward J^(s): v.probe(ww) == probe_dense(ww, v.to_dense()); probes are stacked F + G + (N,)
         STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         for BASE_STACK in [(), (2,)]:
             for PROBE_STACK in [(), (2,)]:
-                for USE_JAX in [False, True]:
-                    with self.subTest(BASE_STACK=BASE_STACK, PROBE_STACK=PROBE_STACK, USE_JAX=USE_JAX):
-                        rnd = (lambda *s: jnp.array(np.random.randn(*s))) if USE_JAX else np.random.randn
-                        v = _random_tangent(STRUCT, stack_shape=BASE_STACK, use_jax=USE_JAX)
-                        ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
-                        zz = v.probe(ww)  # numpy/jax inferred from inputs (jax when USE_JAX)
-                        zz2 = t3p.probe_dense(ww, v.to_dense())
-                        self.assertEqual(PROBE_STACK + BASE_STACK + (STRUCT[0][0],), tuple(np.asarray(zz[0]).shape))
-                        for a, b in zip(zz, zz2):
-                            self.check_relerr(b, a)
+                with self.subTest(BASE_STACK=BASE_STACK, PROBE_STACK=PROBE_STACK):
+                    rnd = np.random.randn
+                    v = _random_tangent(STRUCT, stack_shape=BASE_STACK)
+                    ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
+                    zz = v.probe(ww)  # numpy/jax inferred from inputs
+                    zz2 = t3p.probe_dense(ww, v.to_dense())
+                    self.assertEqual(PROBE_STACK + BASE_STACK + (STRUCT[0][0],), tuple(np.asarray(zz[0]).shape))
+                    for a, b in zip(zz, zz2):
+                        self.check_relerr(b, a)
 
     def test_tangent_probe_transpose(self):
         # adjoint identity <z, J v> = <J^T z, v> (sum over probes); non-sum gives a V-stacked tangent
         STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         for BASE_STACK in [(), (2,)]:
             for PROBE_STACK in [(), (2,)]:
-                for USE_JAX in [False, True]:
-                    with self.subTest(BASE_STACK=BASE_STACK, PROBE_STACK=PROBE_STACK, USE_JAX=USE_JAX):
-                        rnd = (lambda *s: jnp.array(np.random.randn(*s))) if USE_JAX else np.random.randn
-                        x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=BASE_STACK)
-                        if USE_JAX:
-                            x = x.to_jax()
-                        base, _ = bvf.t3_orthogonal_representations(x)
-                        v = t3m.T3Tangent.randn(base)
-                        ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
-                        z = tuple(rnd(*(PROBE_STACK + BASE_STACK + (N,))) for N in STRUCT[0])  # F + G + (N,)
+                with self.subTest(BASE_STACK=BASE_STACK, PROBE_STACK=PROBE_STACK):
+                    rnd = np.random.randn
+                    x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=BASE_STACK)
+                    base, _ = bvf.t3_orthogonal_representations(x)
+                    v = t3m.T3Tangent.randn(base)
+                    ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
+                    z = tuple(rnd(*(PROBE_STACK + BASE_STACK + (N,))) for N in STRUCT[0])  # F + G + (N,)
 
-                        Jv = v.probe(ww)  # numpy/jax inferred from inputs (jax when USE_JAX)
-                        JTz = t3m.T3Tangent.probe_transpose(z, ww, base, sum_over_probes=True)
-                        # <z, Jv> sums over F, G, N; <J^T z, v> = sum over G of JTz.inner(v) (which keeps G)
-                        lhs = float(np.sum([np.sum(np.asarray(a) * np.asarray(b)) for a, b in zip(z, Jv)]))
-                        rhs = float(np.sum(np.asarray(JTz.inner(v))))
-                        self.assertLessEqual(abs(lhs - rhs), tol * max(1.0, abs(lhs)))
+                    Jv = v.probe(ww)  # numpy/jax inferred from inputs
+                    JTz = t3m.T3Tangent.probe_transpose(z, ww, base, sum_over_probes=True)
+                    # <z, Jv> sums over F, G, N; <J^T z, v> = sum over G of JTz.inner(v) (which keeps G)
+                    lhs = float(np.sum([np.sum(np.asarray(a) * np.asarray(b)) for a, b in zip(z, Jv)]))
+                    rhs = float(np.sum(np.asarray(JTz.inner(v))))
+                    self.assertLessEqual(abs(lhs - rhs), tol * max(1.0, abs(lhs)))
 
-                        # without summing, the result is a tangent-stacked T3Tangent (V = probe stack)
-                        JTz_batch = t3m.T3Tangent.probe_transpose(z, ww, base)
-                        self.assertEqual(PROBE_STACK, JTz_batch.tangent_stack_shape)
-                        self.assertEqual(BASE_STACK, JTz_batch.base_stack_shape)
+                    # without summing, the result is a tangent-stacked T3Tangent (V = probe stack)
+                    JTz_batch = t3m.T3Tangent.probe_transpose(z, ww, base)
+                    self.assertEqual(PROBE_STACK, JTz_batch.tangent_stack_shape)
+                    self.assertEqual(BASE_STACK, JTz_batch.base_stack_shape)
 
     def test_randn(self):
         base, _ = bvf.t3_orthogonal_representations(
@@ -397,52 +361,43 @@ class TestManifold(unittest.TestCase):
     def test_to_t3(self):
         for T3_STRUCTURE in self.t3_structures:
             for STACK_SHAPE in [(), (2,)]:
-                for USE_JAX in [False, True]:
-                    with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
-                        x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
-                        if USE_JAX:
-                            x = x.to_jax()
-                        base, _ = bvf.t3_orthogonal_representations(x)
-                        v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
-                        base_point = t3.TuckerTensorTrain(base.up_tucker_cores, base.left_tt_cores).to_dense()
+                with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
+                    base, _ = bvf.t3_orthogonal_representations(x)
+                    v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+                    base_point = t3.TuckerTensorTrain(base.up_tucker_cores, base.left_tt_cores).to_dense()
 
-                        self.check_relerr(v.to_dense(), v.to_t3().to_dense())
-                        self.check_relerr(np.asarray(base_point) + np.asarray(v.to_dense()),
-                                          v.to_t3(include_shift=True).to_dense())
+                    self.check_relerr(v.to_dense(), v.to_t3().to_dense())
+                    self.check_relerr(np.asarray(base_point) + np.asarray(v.to_dense()),
+                                      v.to_t3(include_shift=True).to_dense())
 
     def test_retract(self):
         # Dense correctness: retract(0) == base point; retract(v) == best rank-(base) T3-SVD of (base point + v).
         for T3_STRUCTURE in [((10, 11), (3, 4), (1, 2, 1)), ((9, 10, 11, 12), (2, 3, 3, 2), (1, 2, 3, 2, 1))]:
             for STACK_SHAPE in [(), (2,)]:
-                for USE_JAX in [False, True]:
-                    with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
-                        x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
-                        if USE_JAX:
-                            x = x.to_jax()
-                        base, _ = bvf.t3_orthogonal_representations(x)
-                        base_point = t3.TuckerTensorTrain(base.up_tucker_cores, base.left_tt_cores).to_dense()
+                with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
+                    base, _ = bvf.t3_orthogonal_representations(x)
+                    base_point = t3.TuckerTensorTrain(base.up_tucker_cores, base.left_tt_cores).to_dense()
 
-                        self.check_relerr(base_point, t3m.T3Tangent.zeros(base).retract().to_dense())
+                    self.check_relerr(base_point, t3m.T3Tangent.zeros(base).retract().to_dense())
 
-                        v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
-                        if STACK_SHAPE == ():  # compare against a from-dense T3-SVD of (base point + v)
-                            shifted_dense = np.asarray(base_point) + np.asarray(v.to_dense())
-                            ref, _, _ = t3.TuckerTensorTrain.t3svd_dense(
-                                shifted_dense, max_tucker_ranks=tuple(base.up_ranks), max_tt_ranks=tuple(base.left_ranks))
-                            self.check_relerr(ref.to_dense(), v.retract().to_dense())
+                    v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+                    if STACK_SHAPE == ():  # compare against a from-dense T3-SVD of (base point + v)
+                        shifted_dense = np.asarray(base_point) + np.asarray(v.to_dense())
+                        ref, _, _ = t3.TuckerTensorTrain.t3svd_dense(
+                            shifted_dense, max_tucker_ranks=tuple(base.up_ranks), max_tt_ranks=tuple(base.left_ranks))
+                        self.check_relerr(ref.to_dense(), v.retract().to_dense())
 
         # Rank preservation holds on a minimal-rank base.
         for STACK_SHAPE in [(), (2,)]:
-            for USE_JAX in [False, True]:
-                with self.subTest(rank_preservation=True, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
-                    x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=STACK_SHAPE)
-                    if USE_JAX:
-                        x = x.to_jax()
-                    base, _ = bvf.t3_orthogonal_representations(x)
-                    self.assertTrue(base.has_minimal_ranks)
-                    r = t3m.T3Tangent.randn(base, apply_gauge_projection=False).retract()
-                    self.assertEqual(tuple(base.up_ranks), r.tucker_ranks)
-                    self.assertEqual(tuple(base.left_ranks), r.tt_ranks)
+            with self.subTest(rank_preservation=True, STACK_SHAPE=STACK_SHAPE):
+                x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=STACK_SHAPE)
+                base, _ = bvf.t3_orthogonal_representations(x)
+                self.assertTrue(base.has_minimal_ranks)
+                r = t3m.T3Tangent.randn(base, apply_gauge_projection=False).retract()
+                self.assertEqual(tuple(base.up_ranks), r.tucker_ranks)
+                self.assertEqual(tuple(base.left_ranks), r.tt_ranks)
 
     def test_project(self):
         # project(x, base) is the orthogonal projection of x onto the tangent space T_P M.
@@ -451,30 +406,27 @@ class TestManifold(unittest.TestCase):
             (((9, 10, 11, 12), (2, 3, 3, 2), (1, 2, 3, 2, 1)), ((9, 10, 11, 12), (3, 3, 4, 2), (1, 2, 2, 2, 1))),
         ]:
             for STACK_SHAPE in [(), (2,)]:
-                for USE_JAX in [False, True]:
-                    with self.subTest(STR_P=STR_P, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
-                        p = t3.TuckerTensorTrain.randn(*STR_P, stack_shape=STACK_SHAPE)
-                        x = t3.TuckerTensorTrain.randn(*STR_X, stack_shape=STACK_SHAPE)
-                        if USE_JAX:
-                            p, x = p.to_jax(), x.to_jax()
-                        base, _ = bvf.t3_orthogonal_representations(p)
+                with self.subTest(STR_P=STR_P, STACK_SHAPE=STACK_SHAPE):
+                    p = t3.TuckerTensorTrain.randn(*STR_P, stack_shape=STACK_SHAPE)
+                    x = t3.TuckerTensorTrain.randn(*STR_X, stack_shape=STACK_SHAPE)
+                    base, _ = bvf.t3_orthogonal_representations(p)
 
-                        proj = t3m.T3Tangent.project(x, base)
-                        self.assertTrue(proj.is_gauged())
+                    proj = t3m.T3Tangent.project(x, base)
+                    self.assertTrue(proj.is_gauged())
 
-                        # idempotency: projecting a tangent vector (its unshifted embedding) recovers it
-                        v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
-                        proj_v = t3m.T3Tangent.project(v.to_t3(), base)
-                        self.check_relerr(v.to_dense(), proj_v.to_dense())
+                    # idempotency: projecting a tangent vector (its unshifted embedding) recovers it
+                    v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+                    proj_v = t3m.T3Tangent.project(v.to_t3(), base)
+                    self.check_relerr(v.to_dense(), proj_v.to_dense())
 
-                        # orthogonality: the residual x - proj_x is perpendicular to the tangent space
-                        residual = np.asarray(x.to_dense()) - np.asarray(proj.to_dense())
-                        tensor_axes = tuple(range(len(STACK_SHAPE), residual.ndim))
-                        for _ in range(3):
-                            w_dense = np.asarray(
-                                t3m.T3Tangent.randn(base, apply_gauge_projection=False).to_dense())
-                            ip = norm(np.sum(residual * w_dense, axis=tensor_axes))
-                            self.assertLessEqual(float(ip), tol * norm(residual) * norm(w_dense))
+                    # orthogonality: the residual x - proj_x is perpendicular to the tangent space
+                    residual = np.asarray(x.to_dense()) - np.asarray(proj.to_dense())
+                    tensor_axes = tuple(range(len(STACK_SHAPE), residual.ndim))
+                    for _ in range(3):
+                        w_dense = np.asarray(
+                            t3m.T3Tangent.randn(base, apply_gauge_projection=False).to_dense())
+                        ip = norm(np.sum(residual * w_dense, axis=tensor_axes))
+                        self.assertLessEqual(float(ip), tol * norm(residual) * norm(w_dense))
 
     def test_tangent_stacked_heavy_ops(self):
         # A V-stacked tangent is a batch of tangent vectors sharing one base (one per (v, g) pair).
@@ -482,29 +434,26 @@ class TestManifold(unittest.TestCase):
         # corresponding unstacked tangent (the shared base point replicated across the tangent stack V).
         STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))  # minimal-rank, so retract preserves ranks
         for BASE_STACK, V in [((), (3,)), ((2,), (3,)), ((2,), ()), ((2,), (2, 2))]:
-            for USE_JAX in [False, True]:
-                with self.subTest(BASE_STACK=BASE_STACK, V=V, USE_JAX=USE_JAX):
-                    x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=BASE_STACK)
-                    if USE_JAX:
-                        x = x.to_jax()
-                    base, _ = bvf.t3_orthogonal_representations(x)
-                    var = t3m.T3Tangent.randn(base, stack_shape=V, apply_gauge_projection=False).variations
-                    v = t3m.T3Tangent(base, var)
-                    full = V + BASE_STACK
-                    n_base = len(BASE_STACK)
+            with self.subTest(BASE_STACK=BASE_STACK, V=V):
+                x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=BASE_STACK)
+                base, _ = bvf.t3_orthogonal_representations(x)
+                var = t3m.T3Tangent.randn(base, stack_shape=V, apply_gauge_projection=False).variations
+                v = t3m.T3Tangent(base, var)
+                full = V + BASE_STACK
+                n_base = len(BASE_STACK)
 
-                    dense = np.asarray(v.to_dense())
-                    t3_dense = np.asarray(v.to_t3().to_dense())
-                    shifted = np.asarray(v.to_t3(include_shift=True).to_dense())
-                    retr = np.asarray(v.retract().to_dense())
-                    self.assertEqual(full + STRUCT[0], dense.shape)
+                dense = np.asarray(v.to_dense())
+                t3_dense = np.asarray(v.to_t3().to_dense())
+                shifted = np.asarray(v.to_t3(include_shift=True).to_dense())
+                retr = np.asarray(v.retract().to_dense())
+                self.assertEqual(full + STRUCT[0], dense.shape)
 
-                    for idx in np.ndindex(*full):
-                        s = _slice_tangent(base, var, idx, n_base)
-                        self.check_relerr(s.to_dense(), dense[idx])
-                        self.check_relerr(s.to_dense(), t3_dense[idx])  # to_t3 round-trips to to_dense
-                        self.check_relerr(s.to_t3(include_shift=True).to_dense(), shifted[idx])
-                        self.check_relerr(s.retract().to_dense(), retr[idx])
+                for idx in np.ndindex(*full):
+                    s = _slice_tangent(base, var, idx, n_base)
+                    self.check_relerr(s.to_dense(), dense[idx])
+                    self.check_relerr(s.to_dense(), t3_dense[idx])  # to_t3 round-trips to to_dense
+                    self.check_relerr(s.to_t3(include_shift=True).to_dense(), shifted[idx])
+                    self.check_relerr(s.retract().to_dense(), retr[idx])
 
     def test_project_tangent_stacked(self):
         # project a BATCH of inputs x (stack V+G) onto a base (stack G): the result is a V-stacked
@@ -512,26 +461,23 @@ class TestManifold(unittest.TestCase):
         STR_P = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         STR_X = ((6, 7, 5), (3, 4, 3), (1, 2, 2, 1))
         for BASE_STACK, V in [((), (3,)), ((2,), (3,))]:
-            for USE_JAX in [False, True]:
-                with self.subTest(BASE_STACK=BASE_STACK, V=V, USE_JAX=USE_JAX):
-                    p = t3.TuckerTensorTrain.randn(*STR_P, stack_shape=BASE_STACK)
-                    x = t3.TuckerTensorTrain.randn(*STR_X, stack_shape=(V + BASE_STACK))
-                    if USE_JAX:
-                        p, x = p.to_jax(), x.to_jax()
-                    base, _ = bvf.t3_orthogonal_representations(p)
+            with self.subTest(BASE_STACK=BASE_STACK, V=V):
+                p = t3.TuckerTensorTrain.randn(*STR_P, stack_shape=BASE_STACK)
+                x = t3.TuckerTensorTrain.randn(*STR_X, stack_shape=(V + BASE_STACK))
+                base, _ = bvf.t3_orthogonal_representations(p)
 
-                    proj = t3m.T3Tangent.project(x, base)
-                    self.assertEqual(V, proj.tangent_stack_shape)
-                    self.assertEqual(BASE_STACK, proj.base_stack_shape)
-                    self.assertTrue(proj.is_gauged())
+                proj = t3m.T3Tangent.project(x, base)
+                self.assertEqual(V, proj.tangent_stack_shape)
+                self.assertEqual(BASE_STACK, proj.base_stack_shape)
+                self.assertTrue(proj.is_gauged())
 
-                    proj_dense = np.asarray(proj.to_dense())  # V + G + (N...)
-                    full = V + BASE_STACK
-                    n_base = len(BASE_STACK)
-                    for idx in np.ndindex(*full):
-                        g_idx = idx[len(idx) - n_base:] if n_base > 0 else ()
-                        ref = t3m.T3Tangent.project(_slice_t3(x, idx), _slice_basis(base, g_idx))
-                        self.check_relerr(ref.to_dense(), proj_dense[idx])
+                proj_dense = np.asarray(proj.to_dense())  # V + G + (N...)
+                full = V + BASE_STACK
+                n_base = len(BASE_STACK)
+                for idx in np.ndindex(*full):
+                    g_idx = idx[len(idx) - n_base:] if n_base > 0 else ()
+                    ref = t3m.T3Tangent.project(_slice_t3(x, idx), _slice_basis(base, g_idx))
+                    self.check_relerr(ref.to_dense(), proj_dense[idx])
 
 
 if __name__ == "__main__":

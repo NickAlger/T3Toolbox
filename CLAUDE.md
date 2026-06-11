@@ -125,9 +125,17 @@ The dividing line is **structural vs numerical**:
 - Correctness is checked against **dense ground truth**: rebuild via `.to_dense()` + a hand-written
   `np.einsum`, compare residual norms (~1e-12..1e-16). Verify a math property empirically with a
   quick script before asserting it in a test.
-- `unittest`, in `tests/`. Pattern: `subTest` over structures × stack_shapes × `[False, True]`
-  (numpy/jax). JAX **x64 is enabled in test files**, so `tol=1e-9` works for jax; without x64 jax is
-  float32 and gauge/orthogonality residuals are ~1e-6.
+- `unittest`, in `tests/`. Pattern: `subTest` over structures × stack_shapes. **Numerical
+  correctness is checked numpy-only** — the backend is backend-agnostic (`xnp`, `'...'` einsums,
+  inferred dispatch), so jax computes the same numbers; duplicating every sweep in jax was wasted
+  time. **jax invocation is covered separately by `tests/test_dispatch.py`** (which jit-compiles each
+  op — a stray `np.*` on a tracer raises, proving no hidden numpy — plus a jax-in→jax-out check for
+  dynamic-shape rtol/atol ops, plus a few numerical smoke tests). This cut the full suite from ~550s
+  to ~50s. When adding a numerical test, write it numpy-only and add the op to `test_dispatch` if its
+  jax dispatch isn't already covered. (Frozen dataclasses are registered jax pytrees; `T3Tangent` has
+  the **basis as aux_data** so the same-tangent-space identity guard survives jit — see `manifold.py`.)
+  A few tests still build explicit jax operands where that *is* the thing under test (e.g.
+  `test_contains_jax`); those keep the `jnp` import.
 - Doctests are NOT wired into the runner — illustrative (captured) values are the convention;
   deterministic outputs (shapes, ranks, exact `0.0`) should still be accurate.
 - **Run tests filtering debug noise**:

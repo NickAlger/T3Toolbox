@@ -8,20 +8,13 @@ import t3toolbox.basis_variations_format as bvf
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.corewise as cw
 
-try:
-    import jax
-    import jax.numpy as jnp
-    jax.config.update("jax_enable_x64", True)
-except ImportError:
-    jnp = np
-
 np.random.seed(0)
 tol = 1e-9
 norm = np.linalg.norm
 randn = np.random.randn
 
 
-def _random_basis_variations(structure, use_jax=False):
+def _random_basis_variations(structure):
     """Build a consistent (T3Basis, T3Variations) pair from a rank spec.
 
     structure = (shape, up_ranks, down_ranks, left_ranks, right_ranks, stack_shape)
@@ -33,7 +26,7 @@ def _random_basis_variations(structure, use_jax=False):
         V_i = (nD_i, N_i)           H_i = (rL_i, nU_i, rR_(i+1))
     """
     shape, up_ranks, down_ranks, left_ranks, right_ranks, stack_shape = structure
-    rnd = (lambda *s: jnp.array(np.random.randn(*s))) if use_jax else (lambda *s: np.random.randn(*s))
+    rnd = lambda *s: np.random.randn(*s)
 
     U = tuple(rnd(*(stack_shape + (nU, N)))       for nU, N       in zip(up_ranks, shape))
     L = tuple(rnd(*(stack_shape + (rL, nU, rLn))) for rL, nU, rLn in zip(left_ranks[:-1], up_ranks, left_ranks[1:]))
@@ -94,36 +87,34 @@ class TestBasisVariationsFormat(unittest.TestCase):
             shape, up_ranks, down_ranks, left_ranks, right_ranks = BASE_STRUCTURE
             for STACK_SHAPE in self.stack_shapes:
                 structure = BASE_STRUCTURE + (STACK_SHAPE,)
-                for USE_JAX in [False, True]:
-                    with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
-                        base, _ = _random_basis_variations(structure, use_jax=USE_JAX)
+                with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    base, _ = _random_basis_variations(structure)
 
-                        self.assertEqual(len(shape), base.d)
-                        self.assertEqual(shape, base.shape)
-                        self.assertEqual(up_ranks, base.up_ranks)
-                        self.assertEqual(down_ranks, base.down_ranks)
-                        self.assertEqual(left_ranks, base.left_ranks)
-                        self.assertEqual(right_ranks, base.right_ranks)
-                        self.assertEqual(STACK_SHAPE, base.stack_shape)
-                        self.assertEqual(structure, base.structure)
-                        self.assertEqual(self._expected_variation_shapes(structure), base.variation_shapes)
-                        self.assertEqual((base.up_tucker_cores, base.down_tt_cores,
-                                          base.left_tt_cores, base.right_tt_cores), base.data)
+                    self.assertEqual(len(shape), base.d)
+                    self.assertEqual(shape, base.shape)
+                    self.assertEqual(up_ranks, base.up_ranks)
+                    self.assertEqual(down_ranks, base.down_ranks)
+                    self.assertEqual(left_ranks, base.left_ranks)
+                    self.assertEqual(right_ranks, base.right_ranks)
+                    self.assertEqual(STACK_SHAPE, base.stack_shape)
+                    self.assertEqual(structure, base.structure)
+                    self.assertEqual(self._expected_variation_shapes(structure), base.variation_shapes)
+                    self.assertEqual((base.up_tucker_cores, base.down_tt_cores,
+                                      base.left_tt_cores, base.right_tt_cores), base.data)
 
     def test_t3variations_properties(self):
         for BASE_STRUCTURE in self.base_structures:
             shape, up_ranks, down_ranks, left_ranks, right_ranks = BASE_STRUCTURE
             for STACK_SHAPE in self.stack_shapes:
                 structure = BASE_STRUCTURE + (STACK_SHAPE,)
-                for USE_JAX in [False, True]:
-                    with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
-                        _, variations = _random_basis_variations(structure, use_jax=USE_JAX)
+                with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    _, variations = _random_basis_variations(structure)
 
-                        self.assertEqual(len(shape), variations.d)
-                        self.assertEqual(shape, variations.shape)
-                        self.assertEqual(STACK_SHAPE, variations.stack_shape)
-                        self.assertEqual(self._expected_variation_shapes(structure), variations.variation_shapes)
-                        self.assertEqual((variations.tucker_variations, variations.tt_variations), variations.data)
+                    self.assertEqual(len(shape), variations.d)
+                    self.assertEqual(shape, variations.shape)
+                    self.assertEqual(STACK_SHAPE, variations.stack_shape)
+                    self.assertEqual(self._expected_variation_shapes(structure), variations.variation_shapes)
+                    self.assertEqual((variations.tucker_variations, variations.tt_variations), variations.data)
 
     def test_t3basis_validate_raises(self):
         # Each corruption introduces exactly one inconsistency into an otherwise-valid set of cores.
@@ -211,28 +202,27 @@ class TestBasisVariationsFormat(unittest.TestCase):
         for BASE_STRUCTURE in self.base_structures:
             for STACK_SHAPE in [(2,), (2, 3)]:
                 structure = BASE_STRUCTURE + (STACK_SHAPE,)
-                for USE_JAX in [False, True]:
-                    with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
-                        base, variations = _random_basis_variations(structure, use_jax=USE_JAX)
+                with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    base, variations = _random_basis_variations(structure)
 
-                        # round trips
-                        base2 = bvf.T3Basis.stack(base.unstack())
-                        self.assertLessEqual(float(cw.corewise_norm(cw.corewise_sub(base.data, base2.data))), tol)
-                        variations2 = bvf.T3Variations.stack(variations.unstack())
-                        self.assertLessEqual(float(cw.corewise_norm(cw.corewise_sub(variations.data, variations2.data))), tol)
+                    # round trips
+                    base2 = bvf.T3Basis.stack(base.unstack())
+                    self.assertLessEqual(float(cw.corewise_norm(cw.corewise_sub(base.data, base2.data))), tol)
+                    variations2 = bvf.T3Variations.stack(variations.unstack())
+                    self.assertLessEqual(float(cw.corewise_norm(cw.corewise_sub(variations.data, variations2.data))), tol)
 
-                        # an unstacked leaf equals the manually sliced sub-basis
-                        idx = tuple(0 for _ in STACK_SHAPE)
-                        leaf = base.unstack()
-                        for k in idx:
-                            leaf = leaf[k]
-                        sliced = bvf.T3Basis(
-                            tuple(U[idx] for U in base.up_tucker_cores),
-                            tuple(G[idx] for G in base.down_tt_cores),
-                            tuple(G[idx] for G in base.left_tt_cores),
-                            tuple(G[idx] for G in base.right_tt_cores),
-                        )
-                        self.assertLessEqual(float(cw.corewise_norm(cw.corewise_sub(sliced.data, leaf.data))), tol)
+                    # an unstacked leaf equals the manually sliced sub-basis
+                    idx = tuple(0 for _ in STACK_SHAPE)
+                    leaf = base.unstack()
+                    for k in idx:
+                        leaf = leaf[k]
+                    sliced = bvf.T3Basis(
+                        tuple(U[idx] for U in base.up_tucker_cores),
+                        tuple(G[idx] for G in base.down_tt_cores),
+                        tuple(G[idx] for G in base.left_tt_cores),
+                        tuple(G[idx] for G in base.right_tt_cores),
+                    )
+                    self.assertLessEqual(float(cw.corewise_norm(cw.corewise_sub(sliced.data, leaf.data))), tol)
 
     def test_bv_to_t3(self):
         for BASE_STRUCTURE in self.base_structures:
@@ -240,22 +230,21 @@ class TestBasisVariationsFormat(unittest.TestCase):
             d = len(shape)
             for STACK_SHAPE in self.stack_shapes:
                 structure = BASE_STRUCTURE + (STACK_SHAPE,)
-                for USE_JAX in [False, True]:
-                    base, variations = _random_basis_variations(structure, use_jax=USE_JAX)
-                    U, D, L, R = base.data
-                    V, H = variations.data
-                    for ii in range(d):
-                        with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
-                                          USE_JAX=USE_JAX, ii=ii, kind="TT"):
-                            x = bvf.bv_to_t3((True, ii), base, variations)
-                            self._equal_cores(x.tucker_cores, U)
-                            self._equal_cores(x.tt_cores, L[:ii] + (H[ii],) + R[ii + 1:])
+                base, variations = _random_basis_variations(structure)
+                U, D, L, R = base.data
+                V, H = variations.data
+                for ii in range(d):
+                    with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                      ii=ii, kind="TT"):
+                        x = bvf.bv_to_t3((True, ii), base, variations)
+                        self._equal_cores(x.tucker_cores, U)
+                        self._equal_cores(x.tt_cores, L[:ii] + (H[ii],) + R[ii + 1:])
 
-                        with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
-                                          USE_JAX=USE_JAX, ii=ii, kind="Tucker"):
-                            x = bvf.bv_to_t3((False, ii), base, variations)
-                            self._equal_cores(x.tucker_cores, U[:ii] + (V[ii],) + U[ii + 1:])
-                            self._equal_cores(x.tt_cores, L[:ii] + (D[ii],) + R[ii + 1:])
+                    with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                      ii=ii, kind="Tucker"):
+                        x = bvf.bv_to_t3((False, ii), base, variations)
+                        self._equal_cores(x.tucker_cores, U[:ii] + (V[ii],) + U[ii + 1:])
+                        self._equal_cores(x.tt_cores, L[:ii] + (D[ii],) + R[ii + 1:])
 
     def test_bv_to_t3_tangent_stacked(self):
         # A V-stacked variation (tangent stack V over base stack G): bv_to_t3 must broadcast the
@@ -265,26 +254,25 @@ class TestBasisVariationsFormat(unittest.TestCase):
             shape = BASE_STRUCTURE[0]
             d = len(shape)
             for BASE_G, V in [((), (2,)), ((2,), (2,))]:
-                for USE_JAX in [False, True]:
-                    with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, BASE_G=BASE_G, V=V, USE_JAX=USE_JAX):
-                        base, _ = _random_basis_variations(BASE_STRUCTURE + (BASE_G,), use_jax=USE_JAX)
-                        rnd = (lambda *s: jnp.array(np.random.randn(*s))) if USE_JAX else (lambda *s: np.random.randn(*s))
-                        VG = V + BASE_G
-                        tuck_shapes, tt_shapes = base.variation_shapes
-                        var = bvf.T3Variations(
-                            tuple(rnd(*(VG + s)) for s in tuck_shapes),
-                            tuple(rnd(*(VG + s)) for s in tt_shapes),
-                        )
-                        for ii in range(d):
-                            for use_tt in (True, False):
-                                term = bvf.bv_to_t3((use_tt, ii), base, var)
-                                self.assertEqual(VG, term.stack_shape)  # valid uniform-stack T3
-                                term_dense = np.asarray(term.to_dense())
-                                for idx in np.ndindex(*VG):
-                                    g_idx = idx[len(idx) - len(BASE_G):] if BASE_G else ()
-                                    ref = bvf.bv_to_t3((use_tt, ii), _slice_basis(base, g_idx),
-                                                       _slice_variations(var, idx))
-                                    self.check_relerr(np.asarray(ref.to_dense()), term_dense[idx])
+                with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, BASE_G=BASE_G, V=V):
+                    base, _ = _random_basis_variations(BASE_STRUCTURE + (BASE_G,))
+                    rnd = lambda *s: np.random.randn(*s)
+                    VG = V + BASE_G
+                    tuck_shapes, tt_shapes = base.variation_shapes
+                    var = bvf.T3Variations(
+                        tuple(rnd(*(VG + s)) for s in tuck_shapes),
+                        tuple(rnd(*(VG + s)) for s in tt_shapes),
+                    )
+                    for ii in range(d):
+                        for use_tt in (True, False):
+                            term = bvf.bv_to_t3((use_tt, ii), base, var)
+                            self.assertEqual(VG, term.stack_shape)  # valid uniform-stack T3
+                            term_dense = np.asarray(term.to_dense())
+                            for idx in np.ndindex(*VG):
+                                g_idx = idx[len(idx) - len(BASE_G):] if BASE_G else ()
+                                ref = bvf.bv_to_t3((use_tt, ii), _slice_basis(base, g_idx),
+                                                   _slice_variations(var, idx))
+                                self.check_relerr(np.asarray(ref.to_dense()), term_dense[idx])
 
     # ----------------------------------------------------------------------
     # Reconstruction / orthogonality tier: t3_orthogonal_representations
@@ -311,14 +299,12 @@ class TestBasisVariationsFormat(unittest.TestCase):
         for T3_STRUCTURE in self.t3_structures:
             for STACK_SHAPE in self.stack_shapes:
                 x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
-                for USE_JAX in [False, True]:
-                    x = x.to_jax() if USE_JAX else x
-                    with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
-                        base, variations = bvf.t3_orthogonal_representations(x)
-                        x_dense = x.to_dense()
-                        for ii in range(x.d):
-                            self.check_relerr(x_dense, bvf.bv_to_t3((True, ii), base, variations).to_dense())
-                            self.check_relerr(x_dense, bvf.bv_to_t3((False, ii), base, variations).to_dense())
+                with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    base, variations = bvf.t3_orthogonal_representations(x)
+                    x_dense = x.to_dense()
+                    for ii in range(x.d):
+                        self.check_relerr(x_dense, bvf.bv_to_t3((True, ii), base, variations).to_dense())
+                        self.check_relerr(x_dense, bvf.bv_to_t3((False, ii), base, variations).to_dense())
 
     def test_orthogonal_representations_base_orthogonality(self):
         # U: up-orthogonal (all i); D: outer-orthogonal (all i);
@@ -326,23 +312,21 @@ class TestBasisVariationsFormat(unittest.TestCase):
         for T3_STRUCTURE in self.t3_structures:
             for STACK_SHAPE in self.stack_shapes:
                 x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
-                for USE_JAX in [False, True]:
-                    x = x.to_jax() if USE_JAX else x
-                    with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
-                        base, _ = bvf.t3_orthogonal_representations(x)
-                        U = [np.asarray(c) for c in base.up_tucker_cores]
-                        D = [np.asarray(c) for c in base.down_tt_cores]
-                        L = [np.asarray(c) for c in base.left_tt_cores]
-                        R = [np.asarray(c) for c in base.right_tt_cores]
-                        d = x.d
+                with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    base, _ = bvf.t3_orthogonal_representations(x)
+                    U = [np.asarray(c) for c in base.up_tucker_cores]
+                    D = [np.asarray(c) for c in base.down_tt_cores]
+                    L = [np.asarray(c) for c in base.left_tt_cores]
+                    R = [np.asarray(c) for c in base.right_tt_cores]
+                    d = x.d
 
-                        for ii in range(d):
-                            self._assert_orthonormal(np.einsum('...io,...jo->...ij', U[ii], U[ii]), U[ii].shape[-2])
-                            self._assert_orthonormal(np.einsum('...iaj,...ibj->...ab', D[ii], D[ii]), D[ii].shape[-2])
-                        for ii in range(d - 1):
-                            self._assert_orthonormal(np.einsum('...iaj,...iak->...jk', L[ii], L[ii]), L[ii].shape[-1])
-                        for ii in range(1, d):
-                            self._assert_orthonormal(np.einsum('...iaj,...kaj->...ik', R[ii], R[ii]), R[ii].shape[-3])
+                    for ii in range(d):
+                        self._assert_orthonormal(np.einsum('...io,...jo->...ij', U[ii], U[ii]), U[ii].shape[-2])
+                        self._assert_orthonormal(np.einsum('...iaj,...ibj->...ab', D[ii], D[ii]), D[ii].shape[-2])
+                    for ii in range(d - 1):
+                        self._assert_orthonormal(np.einsum('...iaj,...iak->...jk', L[ii], L[ii]), L[ii].shape[-1])
+                    for ii in range(1, d):
+                        self._assert_orthonormal(np.einsum('...iaj,...kaj->...ik', R[ii], R[ii]), R[ii].shape[-3])
 
     def test_t3basis_is_orthogonal(self):
         # bases from t3_orthogonal_representations are orthogonal
