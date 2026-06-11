@@ -310,3 +310,10 @@ Treat everything else as copied-in-and-not-yet-working until checked.
   doctests into CI; docs (`conf.py` autoapi excludes backend/weighted, committed `_build`,
   `modules.rst` still titled "TuckerTensorTrainTools"); the TTM algorithm for `t3_mult` (low
   priority — a named method, needs tolerances, not for stacking).
+- **Further test-speed options (deferred; suite is already ~50s after the numpy-only refactor, so
+  low priority):** (1) **per-test seeding → parallelism** — tests share one global `np.random` seeded
+  once at import (the source of the t3svd RNG-order flakiness we hit); seed per-test, then run in
+  parallel (`pytest -n auto`) for a ~cores× speedup; (2) trim `test_dispatch`'s jit-compile time
+  (~12s) — fewer ops, or drop x64 there (it's an invocation check, not a precision one); (3) trim the
+  remaining rtol×atol×rank-limit grids in the SVD-truncation tests (`test_tucker_svd_dense`,
+  `test_ttsvd_dense`, `truncated_svd`, `t3svd_dense`) to representative combos (each ~16 combos).
