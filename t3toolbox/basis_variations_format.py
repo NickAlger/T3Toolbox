@@ -458,7 +458,6 @@ class T3Basis:
     @staticmethod
     def stack(
             xx, # Array-like tree of T3Basis
-            use_jax: bool = False,
     ):
         """Stack array-like tree of T3Basis into a single T3Basis.
 
@@ -658,7 +657,6 @@ class T3Variations:
     @staticmethod
     def stack(
             xx, # Array-like tree of T3Variations
-            use_jax: bool = False,
     ):
         """Stack array-like tree of T3Variations into a single T3Variation.
 
@@ -826,7 +824,6 @@ def t3_orthogonal_representations(
         x: t3.TuckerTensorTrain,
         already_left_orthogonal: bool = False,
         squash: bool = True,
-        use_jax: bool = False,
 ) -> typ.Tuple[
     T3Basis,  # orthogonal base
     T3Variations,  # variations
@@ -879,8 +876,6 @@ def t3_orthogonal_representations(
         x = (x_tucker_cores, x_tt_cores)
         x_tucker_cores = (B0, ..., B(d-1))
         x_tt_cores = (G0, ..., G(d-1))
-    xnp:
-        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -920,6 +915,6 @@ def t3_orthogonal_representations(
     1.3870474292323159e-15
     '''
     result = orth_reps.orthogonal_representations(
-        x.data, already_left_orthogonal=already_left_orthogonal, squash=squash, use_jax=use_jax,
+        x.data, already_left_orthogonal=already_left_orthogonal, squash=squash,
     )
     return T3Basis(*result[0]), T3Variations(*result[1])

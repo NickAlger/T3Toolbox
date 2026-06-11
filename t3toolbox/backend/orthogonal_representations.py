@@ -30,7 +30,6 @@ def orthogonal_representations(
         ],
         already_left_orthogonal: bool = False,
         squash: bool = True,
-        use_jax: bool = False,
 ) -> typ.Union[
     typ.Tuple[
         typ.Tuple[
