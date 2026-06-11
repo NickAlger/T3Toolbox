@@ -41,6 +41,12 @@ implements a numbered equation/algorithm, cite it in the docstring.
   Tangent weighting (`absorb_weights_into_tangent_cores`) is **parked** in `backend/bv_operations.py`
   pending a redesign of weighted tensor networks.
 
+> **Batching/stacking is the most error-prone part of the library. Before touching anything with
+> batch/stack axes, read [`docs/batching_and_stacking.md`](docs/batching_and_stacking.md)** — the full
+> reference for the three meanings of "stack", the three batch blocks (`G`/`F`/`V`), the base-inner
+> convention and *why*, the `'...'`-vs-grouped-contraction machineries, heterogeneous-stack tuples,
+> and `vmap`/`jit` with basis-as-aux. The notes below are the terse version.
+
 **"Stacking" means three different things** — keep them straight:
 1. `stack_shape`: leading batch axes on one object's cores (`core.shape = stack_shape + (...)`).
    A leading `'...'` rides these along for free — **but only ONE batch block** (one shared/broadcast

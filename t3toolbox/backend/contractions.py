@@ -8,6 +8,11 @@ import numpy as np
 
 from t3toolbox.backend.common import *
 
+# This is the grouped-block contraction toolkit for the case of TWO independent batch blocks on
+# DIFFERENT operand subsets (the core/base stack G vs the probe/tangent stack F/V), which a single
+# '...' cannot express. For the full design -- why base-inner (F/V outer, G inner), the naming
+# scheme, and when to use this vs a plain '...' einsum -- see docs/batching_and_stacking.md (esp. §4).
+
 __all__ = [
     'Fa_Gaib_Fi_to_FGb',
     'GFa_Gaib_Fo_Gio_to_GFb',

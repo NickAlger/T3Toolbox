@@ -9,6 +9,10 @@ import typing as typ
 
 from t3toolbox.backend.common import *
 
+# This is the "tree of separate objects <-> one stacked object" machinery -- meaning (2) of "stack"
+# (NOT jax pytrees, NOT a core's stack_shape). It underpins the two-axis T3Tangent stack/unstack.
+# For where this fits the broader batching design, see docs/batching_and_stacking.md (§1, §6).
+
 __all__ = [
     'tree_depth',
     'get_first_leaf',
