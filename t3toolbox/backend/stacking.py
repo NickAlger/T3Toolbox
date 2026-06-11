@@ -245,7 +245,10 @@ def stack(
             # Move axes from the front (0, 1, ...) to their target positions
             stacked = xnp.moveaxis(stacked, source=xnp.arange(len(axes)), destination=axes)
 
-            # Ensure the final array is in contiguous memory order
+            # Ensure the final array is in contiguous memory order (numpy only;
+            # jax arrays are managed by the compiler and have no ascontiguousarray)
+            if use_jax:
+                return stacked
             return xnp.ascontiguousarray(stacked)
 
         if isinstance(template_node, typ.Sequence):
