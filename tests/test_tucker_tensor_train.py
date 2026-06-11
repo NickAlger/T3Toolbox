@@ -1988,7 +1988,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         index = np.array([np.random.choice(N, size=INDEX_STACK_SHAPE) for N in shape])
 
                         entries = x.entries(index)
-                        self.assertEqual(STACK_SHAPE + INDEX_STACK_SHAPE, entries.shape)
+                        self.assertEqual(INDEX_STACK_SHAPE + STACK_SHAPE, entries.shape)  # F + G
 
                         def _get_entries_dense(a, ind, ss, iss):
                             if len(ss) == 0 and len(iss) == 0:
@@ -2006,6 +2006,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                         x_dense = x.to_dense()
                         entries2 = _get_entries_dense(x_dense, index, STACK_SHAPE, INDEX_STACK_SHAPE)
+                        # reference is STACK + INDEX; reorder to INDEX + STACK to match the F+G output
+                        nS, nI = len(STACK_SHAPE), len(INDEX_STACK_SHAPE)
+                        entries2 = np.moveaxis(entries2, tuple(range(nS)), tuple(range(nI, nI + nS)))
 
                         self.check_relerr(entries2, entries)
 
@@ -2039,7 +2042,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         vecs = [np.random.randn(*(VECS_STACK_SHAPE + (N,))) for N in shape]
 
                         result = x.apply(vecs)
-                        self.assertEqual(STACK_SHAPE + VECS_STACK_SHAPE, result.shape)
+                        self.assertEqual(VECS_STACK_SHAPE + STACK_SHAPE, result.shape)  # F + G
 
                         def _apply_dense(a, vecs, ss, vss):
                             if len(ss) == 0 and len(vss) == 0:
@@ -2070,6 +2073,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                         x_dense = x.to_dense()
                         result2 = _apply_dense(x_dense, vecs, STACK_SHAPE, VECS_STACK_SHAPE)
+                        # reference is STACK + VECS; reorder to VECS + STACK to match the F+G output
+                        nS, nV = len(STACK_SHAPE), len(VECS_STACK_SHAPE)
+                        result2 = np.moveaxis(result2, tuple(range(nS)), tuple(range(nV, nV + nS)))
 
                         self.check_relerr(result2, result)
 

@@ -3085,7 +3085,8 @@ class TuckerTensorTrain:
         Returns
         -------
         :py:class:`.NDArray`
-            Array of selected entry or multiple entries with ``shape=idx_stack_shape``
+            Array of selected entries with ``shape=idx_stack_shape+t3_stack_shape`` (base-inner: the
+            index stack is outer, the T3 stack inner). A scalar for an unstacked T3 and a single index.
 
         Raises
         ------
@@ -3121,9 +3122,9 @@ class TuckerTensorTrain:
         >>> idx_stack_shape = (4,5,1)
         >>> index = [choice(14, size=idx_stack_shape), choice(15, size=idx_stack_shape), choice(16, size=idx_stack_shape)]
         >>> entries = x.entries(index)
-        >>> ii, jj = 1, 2
-        >>> ll, mm, nn =  3, 2, 0
-        >>> entry_ij_lmn = entries[ii,jj, ll,mm,nn]
+        >>> ii, jj = 1, 2          # T3 stack index (inner)
+        >>> ll, mm, nn =  3, 2, 0  # index stack (outer)
+        >>> entry_ij_lmn = entries[ll,mm,nn, ii,jj]   # base-inner: idx stack outer, T3 stack inner
         >>> x_ij_dense = x.to_dense()[ii,jj]
         >>> index_lmk = (index[0][ll,mm,nn], index[1][ll,mm,nn], index[2][ll,mm,nn])
         >>> entry_ij_lmn_true = x_ij_dense[index_lmk]
@@ -3191,8 +3192,9 @@ class TuckerTensorTrain:
         Returns
         -------
         NDArray or scalar
-            Result of contracting ``self`` with the vectors in all indices.
-            Scalar if ``vecs`` elements are vectors, ``NDArray`` with shape ``vec_stack_shape`` if ``vecs`` elements are matrices.
+            Result of contracting ``self`` with the vectors in all indices. Scalar if ``vecs``
+            elements are vectors; ``NDArray`` with ``shape=vec_stack_shape+t3_stack_shape`` (base-inner:
+            vec stack outer, T3 stack inner) if ``vecs`` elements are matrices and/or the T3 is stacked.
 
         Raises
         ------
@@ -3228,9 +3230,9 @@ class TuckerTensorTrain:
         >>> vec_stack_shape = (4,5,1)
         >>> vecs = [randn(*(vec_stack_shape+(14,))), randn(*(vec_stack_shape+(15,))), randn(*(vec_stack_shape+(16,)))]
         >>> result = x.apply(vecs)
-        >>> ii, jj = 1, 2 # T3 stack index
-        >>> ll, mm, nn =  3, 2, 0 # Vectors stack index
-        >>> result_ij_lmn = result[ii,jj, ll,mm,nn]
+        >>> ii, jj = 1, 2 # T3 stack index (inner)
+        >>> ll, mm, nn =  3, 2, 0 # vectors stack index (outer)
+        >>> result_ij_lmn = result[ll,mm,nn, ii,jj]   # base-inner: vec stack outer, T3 stack inner
         >>> x_ij_dense = x.to_dense()[ii,jj]
         >>> vecs_lmn = [vecs[0][ll,mm,nn], vecs[1][ll,mm,nn], vecs[2][ll,mm,nn]]
         >>> result_ij_lmn_true = np.einsum('abc,a,b,c', x_ij_dense, *vecs_lmn)

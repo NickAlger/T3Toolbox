@@ -108,6 +108,50 @@ class TestContractions(unittest.TestCase):
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
+    def test_FGa_Gaib_Fo_Gio_to_FGb(self):
+        # FG twin of the apply contraction (base-inner: F outer, G inner).
+        for RANDN in [numpy_randn, jax_randn]:
+            with self.subTest(RANDN=RANDN):
+                # Vectorize over F and G:
+                xyz_uv_a = RANDN(2,3,4, 5,6, 10)
+                uv_aib = RANDN(5,6, 10,11,12)
+                xyz_o = RANDN(2,3,4, 13)
+                uv_io = RANDN(5,6, 11,13)
+                result = contractions.FGa_Gaib_Fo_Gio_to_FGb(xyz_uv_a, uv_aib, xyz_o, uv_io)
+                result_true = np.einsum('xyzuva,uvaib,xyzo,uvio->xyzuvb', xyz_uv_a, uv_aib, xyz_o, uv_io)
+                self.assertEqual(result_true.shape, result.shape)
+                self.check_relerr(result_true, result)
+
+                # Vectorize over F only:
+                xyz_a = RANDN(2,3,4, 10)
+                aib = RANDN(10,11,12)
+                xyz_o = RANDN(2,3,4, 13)
+                io = RANDN(11,13)
+                result = contractions.FGa_Gaib_Fo_Gio_to_FGb(xyz_a, aib, xyz_o, io)
+                result_true = np.einsum('xyza,aib,xyzo,io->xyzb', xyz_a, aib, xyz_o, io)
+                self.assertEqual(result_true.shape, result.shape)
+                self.check_relerr(result_true, result)
+
+                # Vectorize over G only:
+                uv_a = RANDN(5,6, 10)
+                uv_aib = RANDN(5,6, 10,11,12)
+                o = RANDN(13)
+                uv_io = RANDN(5,6, 11,13)
+                result = contractions.FGa_Gaib_Fo_Gio_to_FGb(uv_a, uv_aib, o, uv_io)
+                result_true = np.einsum('uva,uvaib,o,uvio->uvb', uv_a, uv_aib, o, uv_io)
+                self.assertEqual(result_true.shape, result.shape)
+                self.check_relerr(result_true, result)
+
+                # No vectorization:
+                a = RANDN(10)
+                aib = RANDN(10,11,12)
+                o = RANDN(13)
+                io = RANDN(11,13)
+                result = contractions.FGa_Gaib_Fo_Gio_to_FGb(a, aib, o, io)
+                result_true = np.einsum('a,aib,o,io->b', a, aib, o, io)
+                self.assertEqual(result_true.shape, result.shape)
+                self.check_relerr(result_true, result)
+
     def test_GFa_Gaib_GiF_to_GFb(self):
         for RANDN in [numpy_randn, jax_randn]:
             with self.subTest(RANDN=RANDN):

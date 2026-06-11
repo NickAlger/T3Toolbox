@@ -19,7 +19,7 @@ def tucker_tensor_train_entries(
             typ.Tuple[NDArray, NDArray], # (tucker_supercore, tt_supercore)
         ],
         index: NDArray, # dtype=int, shape=(d,)+vsi. (or convertible to int array of this shape)
-) -> NDArray: # shape=vsx+vsi
+) -> NDArray: # shape=vsi+vsx (F + G, base-inner)
     '''Compute entries of a Tucker tensor train.
     '''
     use_jax = tree_contains_jax((x, index))
@@ -33,22 +33,26 @@ def tucker_tensor_train_entries(
     vsx = x[0][0].shape[:-2]
     index = xnp.array(index)
 
-    vsi = index.shape[1:]
+    vsi = index.shape[1:]    # index stack F (base-inner: F outer, G inner)
+    n_idx = len(vsi)
 
-    def _func(mu_XIa, ind_B_G):
+    def _func(mu_IXa, ind_B_G):
         ind, B_Xpo, G_Xapb = ind_B_G
-        xi_XpI = B_Xpo[..., ind]
-
-        mu_XIb = contractions.GFa_Gaib_GiF_to_GFb(
-            mu_XIa, G_Xapb, xi_XpI,
+        xi_XpI = B_Xpo[..., ind]                                   # G + (p,) + I (index batch trails)
+        xi_IXp = xnp.moveaxis(                                     # -> I + G + (p,) = FGi
+            xi_XpI, tuple(range(-n_idx, 0)), tuple(range(n_idx)),
         )
 
-        return mu_XIb, (0,)
+        mu_IXb = contractions.FGa_Gaib_FGi_to_FGb(
+            mu_IXa, G_Xapb, xi_IXp,
+        )
 
-    mu_XIa = xnp.ones(vsx + vsi + (tt_cores[0].shape[-3],))
+        return mu_IXb, (0,)
+
+    mu_IXa = xnp.ones(vsi + vsx + (tt_cores[0].shape[-3],))   # F + G
     ind_B_G = (index, tucker_cores, tt_cores)
-    mu_XIz, _ = xscan(_func, mu_XIa, ind_B_G)
+    mu_IXz, _ = xscan(_func, mu_IXa, ind_B_G)
 
-    result = xnp.sum(mu_XIz, axis=-1)
+    result = xnp.sum(mu_IXz, axis=-1)
     return result
 

@@ -11,6 +11,7 @@ from t3toolbox.backend.common import *
 __all__ = [
     'Fa_Gaib_Fi_to_FGb',
     'GFa_Gaib_Fo_Gio_to_GFb',
+    'FGa_Gaib_Fo_Gio_to_FGb',
     'GFa_Gaib_GiF_to_GFb',
     'FGa_Gaib_FGi_to_FGb',
     'Gio_Fo_to_FGi',
@@ -105,6 +106,53 @@ def GFa_Gaib_Fo_Gio_to_GFb(
 
     GFb = GFb.reshape(G_shape + F_shape + b_shape)
     return GFb
+
+
+def FGa_Gaib_Fo_Gio_to_FGb(
+        FGa: NDArray,
+        Gaib: NDArray,
+        Fo: NDArray,
+        Gio: NDArray,
+) -> NDArray:
+    """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Base-inner convention: F (probe/extra stack) outermost, G (core stack) innermost. FG twin of
+    GFa_Gaib_Fo_Gio_to_GFb, used by the (base-inner) apply.
+    """
+    use_jax = tree_contains_jax((FGa, Gaib, Fo, Gio))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    F_shape = Fo.shape[:-1]
+    G_shape = Gaib.shape[:-3]
+    a_shape = (Gaib.shape[-3],)
+
+    aib_shape = Gaib.shape[-3:]
+    io_shape = Gio.shape[-2:]
+    b_shape = Gaib.shape[-1:]
+    o_shape = Fo.shape[-1:]
+
+    size_G = math.prod(G_shape)
+    size_F = math.prod(F_shape)
+
+    FGa     = FGa.reshape((size_F,) + (size_G,)      + a_shape)
+    Gaib    = Gaib.reshape((size_G,) + aib_shape)
+    Fo      = Fo.reshape((size_F,) + o_shape)
+    Gio     = Gio.reshape((size_G,) + io_shape)
+
+    path = [
+        'einsum_path',
+        (0, 1),
+        (0, 1),
+        (0, 1)
+    ]
+
+    if use_jax:
+        FGb = xnp.einsum('FGa,Gaib,Fo,Gio->FGb', FGa, Gaib, Fo, Gio)
+    else:
+        FGb = xnp.einsum('FGa,Gaib,Fo,Gio->FGb', FGa, Gaib, Fo, Gio, optimize=path)
+
+    FGb = FGb.reshape(F_shape + G_shape + b_shape)
+    return FGb
 
 
 def GFa_Gaib_GiF_to_GFb(

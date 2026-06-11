@@ -32,20 +32,20 @@ def tucker_tensor_train_apply(
 
     #
 
-    vsx = tucker_cores[0].shape[:-2] # vectorization shape for T3s
-    vsv = vecs[0].shape[:-1] # vectorization shape for vecs
+    vsx = tucker_cores[0].shape[:-2] # core stack G (T3s)
+    vsv = vecs[0].shape[:-1]         # vec stack F (probes), base-inner: F outer, G inner
 
-    def _func(mu_XVa, v_B_G):
+    def _func(mu_VXa, v_B_G):
         v_Vo, B_Xpo, G_Xapb = v_B_G
-        mu_XVb = contractions.GFa_Gaib_Fo_Gio_to_GFb(
-            mu_XVa, G_Xapb, v_Vo, B_Xpo,
+        mu_VXb = contractions.FGa_Gaib_Fo_Gio_to_FGb(
+            mu_VXa, G_Xapb, v_Vo, B_Xpo,
         )
-        return mu_XVb, (0,)
+        return mu_VXb, (0,)
 
-    mu_XVa = xnp.ones(vsx + vsv + (tt_cores[0].shape[-3],))
+    mu_VXa = xnp.ones(vsv + vsx + (tt_cores[0].shape[-3],))   # F + G
     v_B_G = (vecs, tucker_cores, tt_cores)
-    mu_XVz, _ = xscan(_func, mu_XVa, v_B_G)
+    mu_VXz, _ = xscan(_func, mu_VXa, v_B_G)
 
-    result = xnp.sum(mu_XVz, axis=-1)
+    result = xnp.sum(mu_VXz, axis=-1)
     return result
 

@@ -61,7 +61,8 @@ stack `G` is innermost (adjacent to the indices); extra stacks — probe `F`, ta
 outermost** (`F+G`, `V+G`, `F+V+G`). Why: the `'...'`-broadcast ops (`to_dense`, gauge, linalg)
 replicate a base over the extra axes for free only when `G` is innermost; the custom contractions
 are flops-neutral to order, so they follow the same convention for one consistent layout (no
-boundary-transpose copies). (`apply`/`entries` are the lone holdout still on `G+F`.)
+boundary-transpose copies). (`apply`/`entries` were the last `G+F` holdout — flipped to `F+G` in
+slice 5b, so the whole library is now base-inner.)
 
 **Two gotchas:**
 - **Canonical core-tuple orderings (frontend takes precedence).** `TuckerTensorTrain.data =
@@ -222,8 +223,7 @@ Treat everything else as copied-in-and-not-yet-working until checked.
       matching stacks.
     - **Slice 3 (DONE)** — flipped the whole probe pipeline to base-inner `F+...+G`: the 11 probing
       contractions in `contractions.py` (`GF`→`FG`), `probe_*`/`probe_dense`, order-agnostic scan
-      inits. `apply`/`entries` use a DISJOINT contraction set and were left `G+F` (flipping
-      `TuckerTensorTrain.apply`/`entries` is a separable follow-up; toolkit names self-document order).
+      inits. `apply`/`entries` use a DISJOINT contraction set; flipped to `F+G` later in slice 5b.
       Values/tests order-invariant.
     - **Slice 4 (DONE)** — `T3Tangent.probe` (`𝒥`, instance method → probes `F+G`) +
       `T3Tangent.probe_transpose` (`𝒥ᵀ`, staticmethod taking a basis → a `T3Tangent`), passing
@@ -286,9 +286,16 @@ Treat everything else as copied-in-and-not-yet-working until checked.
         the term is a valid uniform `V+G`-stack T3. Backend `bv_conversions.bv_to_t3` stays a thin
         selector (returns the mixed-stack tuple, consumed by broadcast-aware `to_dense`). Test:
         `test_bv_to_t3_tangent_stacked` (every `(v,g)` slice == unstacked term; np+jax).
-      - **5b — flip `apply`/`entries` to `F+G`** (independent of V-stacking; the lone `G+F` holdout =
-        `TuckerTensorTrain.apply`/`entries` + their 2 contractions `GFa_Gaib_Fo_Gio_to_GFb` /
-        `GFa_Gaib_GiF_to_GFb`). Changes their public output stacking + tests/doctests. Quick.
+      - **5b (DONE) — flipped `apply`/`entries` to `F+G`** (the last `G+F` holdout; whole library now
+        base-inner). `apply` calls a new `FGa_Gaib_Fo_Gio_to_FGb` (the FG twin of the GF apply
+        contraction); `entries` builds its `xi` as `FGi` (a `moveaxis`) and **reuses the existing
+        `FGa_Gaib_FGi_to_FGb`**. The old GF contractions (`GFa_Gaib_Fo_Gio_to_GFb` /
+        `GFa_Gaib_GiF_to_GFb`) are kept (still tested + toolkit; now unused by apply/entries). Public
+        output stacking flipped `G+F`→`F+G` (vec/index stack outer, T3 stack inner): updated the two
+        frontend docstrings + their stacked doctests' indexing (`[ii,jj, ll,mm,nn]`→`[ll,mm,nn, ii,jj]`)
+        and `test_apply`/`test_entries` (assert `F+G`; reorder the dense reference via `moveaxis`).
+        `+test_FGa_Gaib_Fo_Gio_to_FGb`. (Only consumer of the old order was the deferred/broken uniform
+        layer, already broken.)
       - **5c — forward-probe a `V`-stacked tangent** (`J` on a *batch* of tangents; currently rejected
         by the guard in `T3Tangent.probe`). Needs a 2nd private batch block (`V` on the variation,
         alongside `F` probes / `G` base). DECISION: do **map-over-`V`** first (vmap/loop the 2-block
