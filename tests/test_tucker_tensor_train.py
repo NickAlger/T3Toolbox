@@ -2464,43 +2464,51 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                             for r2, r_max in zip(x2.tt_ranks, MAX_TT_RANKS):
                                                 self.assertLessEqual(r2, r_max)
 
-                                        nn_max = MAX_TUCKER_RANKS if MAX_TUCKER_RANKS is not None else x2.tucker_ranks
-                                        rr_max = MAX_TT_RANKS if MAX_TT_RANKS is not None else x2.tt_ranks
+                                        # The dense T3-SVD (Algorithm 9) truncates SEQUENTIALLY on the reduced
+                                        # tensor, so the rank/error must be checked against the ranks it
+                                        # ACTUALLY chose (x2.tucker_ranks / x2.tt_ranks), evaluated using the
+                                        # ORIGINAL unfoldings'/matricizations' singular values. This is the
+                                        # Oseledets (2011, Theorem 2.2) quasi-optimality bound generalized to
+                                        # Tucker tensor trains (matricization + unfolding tails in quadrature).
                                         rt = RTOL if RTOL is not None else 0.0
                                         at = ATOL if ATOL is not None else 0.0
+                                        # Max-rank caps (None = no cap), used to bound the chosen ranks below.
+                                        tt_caps = MAX_TT_RANKS if MAX_TT_RANKS is not None else (None,) * len(all_unfolding_ss)
+                                        tk_caps = MAX_TUCKER_RANKS if MAX_TUCKER_RANKS is not None else (None,) * len(all_matricization_ss)
 
                                         stack_inds = list(itertools.product(*[tuple(range(s)) for s in STACK_SHAPE]))
 
                                         x2_dense = x2.to_dense()
                                         for ind in stack_inds:
-                                            unfolding_Esq = []
-                                            for sss, r_max in zip(all_unfolding_ss, rr_max):
-                                                ss = sss[ind]
-                                                fronorm = np.sqrt(np.sum(ss**2))
-                                                fronorm_tails = np.sqrt(np.cumsum(ss[::-1]**2))[::-1]
-                                                frotol = np.maximum(fronorm * rt, at)
-                                                r = np.minimum(np.sum(fronorm_tails >= frotol), r_max)
-                                                Esq = np.sum(ss[r:]**2)
-                                                unfolding_Esq.append(Esq)
+                                            # ||x2|| <= every reduced norm during the sweep (the running norm only
+                                            # decreases), so rtol*||x2|| is a lower bound on t3svd's per-step
+                                            # threshold -- hence the delta-rank of the ORIGINAL unfolding at this
+                                            # threshold is a provable UPPER bound on the rank t3svd can choose.
+                                            rank_thresh = max(rt * np.linalg.norm(np.asarray(x2_dense[ind])), at)
 
-                                            matricization_Esq = []
-                                            for sss, n_max in zip(all_matricization_ss, nn_max):
-                                                ss = sss[ind]
-                                                fronorm = np.sqrt(np.sum(ss**2))
-                                                fronorm_tails = np.sqrt(np.cumsum(ss[::-1]**2))[::-1]
-                                                frotol = np.maximum(fronorm * rt, at)
-                                                n = np.minimum(np.sum(fronorm_tails >= frotol), n_max)
-                                                Esq = np.sum(ss[n:]**2)
-                                                matricization_Esq.append(Esq)
+                                            def _esq_and_rank_check(all_ss, actual_ranks, caps):
+                                                Esq = []
+                                                for sss, r_act, cap in zip(all_ss, actual_ranks, caps):
+                                                    ss = np.asarray(sss[ind])
+                                                    # error: original tail energy beyond the ACTUAL rank
+                                                    Esq.append(float(np.sum(ss[int(r_act):] ** 2)))
+                                                    # rank: actual rank must not exceed the delta-rank of the
+                                                    # original unfolding (floored at 1, the min core rank; capped
+                                                    # at the max rank). Guards against passing via huge ranks.
+                                                    tails = np.sqrt(np.cumsum(ss[::-1] ** 2))[::-1]
+                                                    ub = max(1, int(np.sum(tails >= rank_thresh)))
+                                                    if cap is not None:
+                                                        ub = min(ub, cap)
+                                                    self.assertLessEqual(int(r_act), ub)
+                                                return Esq
 
-                                            error_upper_bound = np.sqrt(
-                                                    np.sum(unfolding_Esq) +
-                                                    np.sum(matricization_Esq)
-                                            )
+                                            unfolding_Esq = _esq_and_rank_check(all_unfolding_ss, x2.tt_ranks, tt_caps)
+                                            matricization_Esq = _esq_and_rank_check(all_matricization_ss, x2.tucker_ranks, tk_caps)
 
+                                            error_upper_bound = np.sqrt(np.sum(unfolding_Esq) + np.sum(matricization_Esq))
                                             self.assertLessEqual(
-                                                np.linalg.norm(X[ind] - x2_dense[ind]),
-                                                error_upper_bound + tol * np.linalg.norm(X[ind])
+                                                np.linalg.norm(np.asarray(X[ind]) - np.asarray(x2_dense[ind])),
+                                                error_upper_bound + tol * np.linalg.norm(np.asarray(X[ind]))
                                             )
 
     def test_t3svd_dense_tols(self):
