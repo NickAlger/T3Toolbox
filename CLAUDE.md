@@ -43,11 +43,32 @@ implements a numbered equation/algorithm, cite it in the docstring.
 
 **"Stacking" means three different things** — keep them straight:
 1. `stack_shape`: leading batch axes on one object's cores (`core.shape = stack_shape + (...)`).
-   Every backend einsum uses a leading `'...'` so these ride along for free — the vectorization
-   mechanism. "Add stacking to a function" = rewrite its einsums/concats with `'...'`/negative axes.
+   A leading `'...'` rides these along for free — **but only ONE batch block** (one shared/broadcast
+   prefix). "Add stacking to a function" = rewrite its einsums/concats with `'...'`/negative axes.
 2. `backend/stacking.py`: convert a Python tree of separate objects ↔ one stacked object
    (`stack`/`unstack`, `tree_zip`, `apply_func_to_leaf_subtrees`).
 3. the uniform supercore (the separate, deferred representation).
+
+**The custom-contraction toolkit (`backend/contractions.py`)** — when **two** independent batch
+blocks live on *different subsets* of operands, a single `'...'` can't express it (right-aligned
+broadcasting would force the two blocks to align). The canonical case is probing: the **core/base
+stack `G`** (on the cores) and the **probe stack `F`** (on the probe vectors only). So probing is
+built on named grouped-block contractions — `inputs_to_output` with a capital letter per grouped
+block (e.g. `FGa_Gaib_FGi_to_FGb`): each block is reshaped to one flat axis (`math.prod(shape)`, = 1
+when empty, so no-stack / one-stack / both-stack collapse to the same code), einsum'd with the
+capitals, then reshaped back. **Stacking-axis convention (library-wide, base-inner): the core/base
+stack `G` is innermost (adjacent to the indices); extra stacks — probe `F`, tangent `V` — are
+outermost** (`F+G`, `V+G`, `F+V+G`). Why: the `'...'`-broadcast ops (`to_dense`, gauge, linalg)
+replicate a base over the extra axes for free only when `G` is innermost; the custom contractions
+are flops-neutral to order, so they follow the same convention for one consistent layout (no
+boundary-transpose copies). (`apply`/`entries` are the lone holdout still on `G+F`.)
+
+**Two gotchas:**
+- **Core-tuple orderings differ.** `T3Basis.data = (up, down, left, right) = (U, O, P, Q)`, but the
+  probing/tangent backend wants `base = (up, left, right, outer) = (U, P, Q, O)` — reorder
+  `(U,O,P,Q) → (U,P,Q,O)` at the boundary (manifold.py / the probe wrappers do this).
+- **`corewise_dot`/`corewise_norm` collapse EVERY axis** (stacks included) to a scalar. To keep the
+  stack (vectorized linalg), use `corewise.corewise_stack_dot(X, Y, n_stack)`.
 
 **Backend dispatch**: `xnp, xmap, xscan = get_backend(is_uniform, use_jax)` (`backend/common.py`).
 `xnp` = numpy or jax.numpy; `xmap`/`xscan` = ragged loops / numpy / `jax.lax`.
@@ -100,9 +121,24 @@ The dividing line is **structural vs numerical**:
 
 - **Incremental slices with discussion between steps.** Nick drives the design: propose the plan and
   the genuine decisions, confirm, then implement. Slice big restructures into reviewable units.
+- **When *designing* a format/API, reason from the math/algorithms first.** When Nick says so,
+  explicitly set aside consistency-with-existing-conventions and code-change cost — design the
+  *correct* thing, then change the code to match (he'll pay for big refactors). Treat the library as
+  **general-purpose**: do NOT privilege the T4S paper's optimization tasks (Riemannian fitting/CG) as
+  "the" use case — a batched or exotic operation is as legitimate as a fitting one.
+- **On a subtle design call, lead with the full reasoning, not a bare question.** A multiple-choice
+  prompt without the first-principles argument behind it isn't useful; lay out the tradeoff (and your
+  recommendation), then let Nick decide.
+- **Prefer minimal dataclasses** — cores only; derive shapes/splits rather than storing redundant
+  fields (e.g. the `G`/`V` stack split is recovered from the (basis, variations) pairing).
 - **Commit per logical chunk and push to `main`.** Verify tests pass first; write a descriptive
   message; stage only the relevant files (leave unrelated stray edits alone). End commit messages
   with `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
+- **Changing a backend convention has a wide blast radius — grep ALL consumers.** An axis-ordering or
+  signature change ripples through the OO wrappers that delegate to it (e.g. `TuckerTensorTrain.probe`
+  → `probe_t3`) and *their* tests/doctests, not just the file you edited. After such a change, run the
+  full suite (`test_tucker_tensor_train` + `test_manifold` + `test_basis_variations_format` +
+  `backend/test_contractions`), not only the directly-touched tests.
 - Don't ship a possibly-wrong result with a weak test — if something looks off, dig in or flag it.
 
 ## Current state
