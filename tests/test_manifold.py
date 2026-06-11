@@ -135,9 +135,9 @@ class TestManifold(unittest.TestCase):
         v1 = t3m.T3Tangent(base, _random_variations(base))
         v2 = t3m.T3Tangent(base, _random_variations(base))
 
-        # structural identities (corewise) hold regardless of gauge
-        self.assertAlmostEqual(v1.inner(v2), cw.corewise_dot(v1.variations.data, v2.variations.data))
-        self.assertAlmostEqual(v1.norm(), np.sqrt(v1.inner(v1)))
+        # structural identities (corewise) hold regardless of gauge (unstacked -> scalar)
+        self.assertAlmostEqual(float(v1.inner(v2)), float(cw.corewise_dot(v1.variations.data, v2.variations.data)))
+        self.assertAlmostEqual(float(v1.norm()), float(np.sqrt(v1.inner(v1))))
 
     def test_is_orthogonal_and_is_gauged(self):
         x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
@@ -182,7 +182,8 @@ class TestManifold(unittest.TestCase):
                         # orthogonal projection: the removed component is perpendicular to the projection
                         residual_dot_proj = cw.corewise_dot(
                             cw.corewise_sub(u.variations.data, ug.variations.data), ug.variations.data, use_jax=USE_JAX)
-                        self.assertLessEqual(abs(float(residual_dot_proj)), tol * max(1.0, float(ug.inner(ug))))
+                        scale = float(cw.corewise_dot(ug.variations.data, ug.variations.data, use_jax=USE_JAX))
+                        self.assertLessEqual(abs(float(residual_dot_proj)), tol * max(1.0, scale))
 
     def test_oblique_gauge_projection(self):
         for T3_STRUCTURE in self.t3_structures:
@@ -200,7 +201,8 @@ class TestManifold(unittest.TestCase):
                         self.check_relerr(u.to_dense(), uo.to_dense())  # preserves the tangent vector
 
     def test_inner_norm_faithfulness(self):
-        # orthogonal + minimal-rank base + gauged variations => corewise inner/norm == Hilbert-Schmidt
+        # orthogonal + minimal-rank base + gauged variations => corewise inner/norm == Hilbert-Schmidt.
+        # inner/norm vectorize over the stack, returning a STACK_SHAPE-shaped array (one value/slice).
         for STACK_SHAPE in [(), (2,), (2, 3)]:
             for USE_JAX in [False, True]:
                 with self.subTest(STACK_SHAPE=STACK_SHAPE, USE_JAX=USE_JAX):
@@ -213,10 +215,43 @@ class TestManifold(unittest.TestCase):
                     u = t3m.T3Tangent.randn(base, use_jax=USE_JAX)  # gauged by default
                     w = t3m.T3Tangent.randn(base, use_jax=USE_JAX)
 
-                    hs_inner = float(np.sum(np.asarray(u.to_dense()) * np.asarray(w.to_dense())))
-                    self.assertLessEqual(abs(float(u.inner(w)) - hs_inner), tol * max(1.0, abs(hs_inner)))
-                    hs_norm = float(norm(np.asarray(u.to_dense())))
-                    self.assertLessEqual(abs(float(u.norm()) - hs_norm), tol * max(1.0, hs_norm))
+                    ud, wd = np.asarray(u.to_dense()), np.asarray(w.to_dense())
+                    tensor_axes = tuple(range(len(STACK_SHAPE), ud.ndim))  # the (N0..Nd) axes; keep stack
+                    hs_inner = np.sum(ud * wd, axis=tensor_axes)  # shape = STACK_SHAPE
+                    hs_norm = np.sqrt(np.sum(ud * ud, axis=tensor_axes))
+                    self.assertLessEqual(norm(np.asarray(u.inner(w)) - hs_inner), tol * max(1.0, norm(hs_inner)))
+                    self.assertLessEqual(norm(np.asarray(u.norm()) - hs_norm), tol * max(1.0, norm(hs_norm)))
+
+    def test_inner_norm_tangent_stacked(self):
+        # A T3Tangent may carry an extra OUTER tangent stack V (a batch of tangents sharing one base);
+        # inner/norm vectorize over the full V + G stack.
+        for BASE_STACK, V in [((), (3,)), ((2,), (3,)), ((2,), ())]:
+            for USE_JAX in [False, True]:
+                with self.subTest(BASE_STACK=BASE_STACK, V=V, USE_JAX=USE_JAX):
+                    x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=BASE_STACK)
+                    if USE_JAX:
+                        x = x.to_jax()
+                    base, _ = bvf.t3_orthogonal_representations(x)
+                    u = t3m.T3Tangent.randn(base, stack_shape=V, apply_gauge_projection=False, use_jax=USE_JAX)
+                    w = t3m.T3Tangent.randn(base, stack_shape=V, apply_gauge_projection=False, use_jax=USE_JAX)
+
+                    self.assertEqual(V, u.tangent_stack_shape)
+                    self.assertEqual(BASE_STACK, u.base_stack_shape)
+                    self.assertEqual(V + BASE_STACK, u.stack_shape)
+
+                    full = V + BASE_STACK
+                    ip = np.asarray(u.inner(w))
+                    self.assertEqual(full, ip.shape)
+
+                    ref = np.zeros(full)  # per-slice corewise dot over the full stack
+                    for idx in np.ndindex(*full):
+                        ud = (tuple(np.asarray(c)[idx] for c in u.variations.tucker_variations),
+                              tuple(np.asarray(c)[idx] for c in u.variations.tt_variations))
+                        wd = (tuple(np.asarray(c)[idx] for c in w.variations.tucker_variations),
+                              tuple(np.asarray(c)[idx] for c in w.variations.tt_variations))
+                        ref[idx] = float(cw.corewise_dot(ud, wd))
+                    self.assertLessEqual(norm(ip - ref), tol * max(1.0, norm(ref)))
+                    self.assertLessEqual(norm(np.asarray(u.norm()) - np.sqrt(np.abs(np.asarray(u.inner(u))))), tol)
 
     def test_randn(self):
         base, _ = bvf.t3_orthogonal_representations(

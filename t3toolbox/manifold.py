@@ -140,8 +140,24 @@ class T3Tangent:
         return self.basis.shape
 
     @ft.cached_property
-    def stack_shape(self) -> typ.Tuple[int, ...]:
+    def base_stack_shape(self) -> typ.Tuple[int, ...]:
+        """Base stack ``G``: the batch of base points, shared with the basis (``basis.stack_shape``)."""
         return self.basis.stack_shape
+
+    @ft.cached_property
+    def tangent_stack_shape(self) -> typ.Tuple[int, ...]:
+        """Tangent stack ``V``: the extra *outer* batch of tangent vectors sharing this base.
+
+        This is the part of the variation stack that exceeds the base stack (often empty). The
+        variation cores are stacked as ``V + G + (core,)`` -- extra axes outermost, base stack inner.
+        """
+        full = self.variations.stack_shape
+        return full[:len(full) - len(self.base_stack_shape)]
+
+    @ft.cached_property
+    def stack_shape(self) -> typ.Tuple[int, ...]:
+        """Full stack ``V + G`` (``tangent_stack_shape + base_stack_shape``), outer-to-inner."""
+        return self.variations.stack_shape
 
     @ft.cached_property
     def structure(self):
@@ -207,35 +223,44 @@ class T3Tangent:
 
     @staticmethod
     def zeros(
-            basis:      bvf.T3Basis,
-            use_jax:    bool = False,
+            basis:          bvf.T3Basis,
+            stack_shape:    typ.Tuple[int, ...] = (),  # extra tangent stack V (a batch of tangents)
+            use_jax:        bool = False,
     ) -> 'T3Tangent':
-        """Zero tangent vector at a given basis."""
+        """Zero tangent vector at a given basis.
+
+        ``stack_shape`` is the extra *outer* tangent stack ``V`` (a batch of tangents sharing this
+        base); the variation cores are stacked as ``V + G + (core,)``. Default ``V=()``.
+        """
         xnp, _, _ = get_backend(False, use_jax)
 
-        ss = basis.stack_shape
+        full_stack = stack_shape + basis.stack_shape  # V + G
         tucker_hole_shapes, tt_hole_shapes = basis.variation_shapes
-        tucker_variations = tuple(xnp.zeros(ss + s) for s in tucker_hole_shapes)
-        tt_variations = tuple(xnp.zeros(ss + s) for s in tt_hole_shapes)
+        tucker_variations = tuple(xnp.zeros(full_stack + s) for s in tucker_hole_shapes)
+        tt_variations = tuple(xnp.zeros(full_stack + s) for s in tt_hole_shapes)
         return T3Tangent(basis, bvf.T3Variations(tucker_variations, tt_variations))
 
     @staticmethod
     def randn(
             basis:                  bvf.T3Basis,
+            stack_shape:            typ.Tuple[int, ...] = (),  # extra tangent stack V (a batch of tangents)
             apply_gauge_projection: bool = True,
             use_jax:                bool = False,
     ) -> 'T3Tangent':
         """Random tangent vector at a given basis.
+
+        ``stack_shape`` is the extra *outer* tangent stack ``V`` (a batch of tangents sharing this
+        base); the variation cores are stacked as ``V + G + (core,)``. Default ``V=()``.
 
         With ``apply_gauge_projection=True`` (default) the variations are gauged (via orthogonal
         projection); for an orthogonal, minimal-rank basis this makes the tangent vector a standard
         Gaussian on the tangent space. With ``apply_gauge_projection=False`` the variations are raw
         i.i.d. N(0, 1) cores (ungauged).
         """
-        ss = basis.stack_shape
+        full_stack = stack_shape + basis.stack_shape  # V + G
         tucker_hole_shapes, tt_hole_shapes = basis.variation_shapes
-        tucker_variations = tuple(randn(*(ss + s), use_jax=use_jax) for s in tucker_hole_shapes)
-        tt_variations = tuple(randn(*(ss + s), use_jax=use_jax) for s in tt_hole_shapes)
+        tucker_variations = tuple(randn(*(full_stack + s), use_jax=use_jax) for s in tucker_hole_shapes)
+        tt_variations = tuple(randn(*(full_stack + s), use_jax=use_jax) for s in tt_hole_shapes)
 
         v = T3Tangent(basis, bvf.T3Variations(tucker_variations, tt_variations))
         if apply_gauge_projection:
@@ -267,6 +292,12 @@ class T3Tangent:
                 'Linear algebra between tangent vectors requires the *same* T3Basis object '
                 '(object identity, not merely numerically-equal cores).'
             )
+        if self.stack_shape != other.stack_shape:
+            raise ValueError(
+                'Tangent vectors have different stack shapes; elementwise linear algebra requires '
+                'matching stacks (same tangent stack V over the shared base stack G).\n'
+                + str(self.stack_shape) + ' = self.stack_shape != other.stack_shape = ' + str(other.stack_shape)
+            )
 
     def __add__(self, other: 'T3Tangent') -> 'T3Tangent':
         """Add tangent vectors. Requires both to share the same T3Basis object."""
@@ -290,26 +321,35 @@ class T3Tangent:
     def inner(self, other: 'T3Tangent', use_jax: bool = False):
         """Inner product of two tangent vectors (corewise dot of the variations).
 
+        Vectorized over the stack: returns an array of shape :py:attr:`stack_shape` (``V + G``), one
+        inner product per stacked tangent (a scalar when unstacked). Requires the same T3Basis object
+        and matching stacks.
+
         .. warning::
             This equals the Hilbert-Schmidt inner product of the represented tangent vectors only
             when the basis is orthogonal and BOTH variations are gauged (see :py:meth:`is_gauged`).
-            Otherwise it is merely the corewise dot of the variation cores. Requires the same
-            T3Basis object.
+            Otherwise it is merely the corewise dot of the variation cores.
 
         The gauged identity ``<v, v'>_HS = sum_i <dU_i, dU_i'> + sum_i <dG_i, dG_i'>`` is given in
         Appendix A.3 of Alger et al. (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
         """
         self._check_same_tangent_space(other)
-        return cw.corewise_dot(self.variations.data, other.variations.data, use_jax=use_jax)
+        return cw.corewise_stack_dot(
+            self.variations.data, other.variations.data, len(self.stack_shape), use_jax=use_jax,
+        )
 
     def norm(self, use_jax: bool = False):
         """Norm of the tangent vector (corewise norm of the variations).
+
+        Vectorized over the stack: returns an array of shape :py:attr:`stack_shape` (``V + G``), one
+        norm per stacked tangent (a scalar when unstacked).
 
         .. warning::
             This equals the Hilbert-Schmidt norm only when the basis is orthogonal and the
             variations are gauged (see :py:meth:`is_gauged`).
         """
-        return cw.corewise_norm(self.variations.data, use_jax=use_jax)
+        xnp, _, _ = get_backend(False, use_jax)
+        return xnp.sqrt(xnp.abs(self.inner(self, use_jax=use_jax)))
 
     ############################################
     ##########    Validity checkers    #########

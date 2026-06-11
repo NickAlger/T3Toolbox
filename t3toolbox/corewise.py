@@ -15,6 +15,7 @@ __all__ = [
     'corewise_neg',
     'corewise_sum',
     'corewise_dot',
+    'corewise_stack_dot',
     'corewise_norm',
     'corewise_err',
     'corewise_relerr',
@@ -144,6 +145,36 @@ def corewise_dot(X: NDArrayTree, Y: NDArrayTree, use_jax: bool=False):
         return xnp.sum(xnp.array([corewise_dot(x, y) for x, y in zip(X, Y)]))
     else:
         return xnp.sum(X * Y)
+
+
+def corewise_stack_dot(X: NDArrayTree, Y: NDArrayTree, n_stack: int, use_jax: bool=False):
+    '''Like corewise_dot, but vectorized over the leading ``n_stack`` (stack) axes.
+
+    Each leaf is contracted over its trailing (non-stack) axes only, keeping the leading ``n_stack``
+    axes, and the per-leaf results are summed. Returns an array of shape equal to the common leading
+    stack shape (a scalar when ``n_stack == 0``, matching :py:func:`corewise_dot`).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.corewise as cw
+    >>> X = (np.ones((2, 3)), np.ones((2, 4, 5)))   # stack=(2,), then core axes
+    >>> Y = (2*np.ones((2, 3)), np.ones((2, 4, 5)))
+    >>> print(cw.corewise_stack_dot(X, Y, 1))       # per-stack-slice: 2*3 + 4*5 = 26
+    [26. 26.]
+    '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    if isinstance(X, list) or isinstance(X, tuple):
+        assert(isinstance(Y, list) or isinstance(Y, tuple))
+        assert(len(X) == len(Y))
+        terms = [corewise_stack_dot(x, y, n_stack, use_jax=use_jax) for x, y in zip(X, Y)]
+        out = terms[0]
+        for term in terms[1:]:
+            out = out + term
+        return out
+    else:
+        return xnp.sum(X * Y, axis=tuple(range(n_stack, xnp.ndim(X))))
 
 
 def corewise_norm(X, use_jax: bool=False):
