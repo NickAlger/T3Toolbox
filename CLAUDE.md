@@ -137,14 +137,34 @@ Treat everything else as copied-in-and-not-yet-working until checked.
     the `sum_over_probes` contractions `GFo_GFa_to_Gao`/`Fo_GFa_to_Gao`/`GFi_GFa_GFj_to_Giaj` (sum F,
     keep G; take `n_probe`). Verified: forward vs dense, adjoint identity (sum + non-sum), np+jax.
     Also: `contractions.py` now uses `math.prod` (was `np.prod(..., dtype=int)`).
-  - **Slice B (TODO)** — `T3Tangent` wrappers in `manifold.py` for the bare Jacobian `𝒥` (probe) and
-    its transpose `𝒥ᵀ`, doing the `(U,O,P,Q)→(U,P,Q,O)` reorder. Wrappers do **not** apply the gauge
-    projector `Π` (caller composes the Riemannian `J = 𝒥∘Π` when wanted). Mirror
-    `TuckerTensorTrain.probe` (thin wrapper → backend). Design wrinkle: the transpose's
-    `sum_over_probes=True` gives variations shaped `G+var` that wrap as a `T3Tangent` at the same
-    basis; `=False` carries an extra probe axis `F` that won't match the basis `stack_shape`. Plus
-    real tests in `tests/` (dense reference + adjoint identity, subTest over structures ×
-    stack_shapes × np/jax).
+  - **V-stacking rework (in progress)** — generalizing so a `T3Variations` may carry an extra
+    **tangent stack `V`** (a batch of tangent vectors sharing one base) beyond the basis's base stack
+    `G`. Three stacking axes total: `G` = base/core stack (on the cores), `V` = tangent stack (on
+    variations only), `F` = probe stack (on `ww` only); in the transpose `V = F`. **Convention
+    (decided): base-stack INNERMOST, extra stacks OUTERMOST, everywhere** — i.e. order by how
+    core-bound each axis is. Variation cores = `V + G + core`; full probe ordering = `F + V + G`
+    (probe_t3 = `F + G`). Rationale: the bulk of tangent ops combine a base (stack `G`) with a
+    variation via raw `...` einsums, and right-aligned broadcasting replicates the base over the
+    outer extras only when `G` is innermost; probing's custom contractions are flops-neutral to
+    order, so flip them to match (one convention ⇒ no boundary-transpose copies). The `G`/`V` split
+    is **recoverable from the (basis, variations) pairing** (`G = basis.stack_shape` is the trailing
+    suffix of `variations.stack_shape`) — so **no stored field**; `T3Variations` keeps one
+    `stack_shape`. Beware: stacked arrays blow up fast — keep stack dims 1–2, core dims small in
+    tests. Slices:
+    - **Slice 1 (DONE)** — `check_bv_pair`: equality → "`base.stack_shape` is the trailing suffix of
+      `variations.stack_shape`". `+test_check_bv_pair_stacking`.
+    - **Slice 2 (TODO)** — `T3Tangent`: three properties `base_stack_shape`(`G`) /
+      `tangent_stack_shape`(`V`) / `stack_shape`(`V+G`); stack-aware `inner`/`norm` (sum core content,
+      keep the full `V+G` stack → array; `corewise_dot` currently collapses everything); `zeros`/`randn`
+      gain a `V` param; `add`/`sub` require matching `V`.
+    - **Slice 3 (TODO)** — flip the whole probe pipeline to base-inner `F+...+G`: `contractions.py`,
+      `probe_t3`/`probe_tangent`/`probe_dense`/transpose. Values/tests unaffected (order-invariant).
+    - **Slice 4 (TODO)** — `T3Tangent.probe` (`𝒥`) + transpose (`𝒥ᵀ`) wrappers (the old "Slice B"),
+      `(U,O,P,Q)→(U,P,Q,O)` reorder, **no** gauge projector `Π`. Transpose returns a `T3Tangent`:
+      `sum_over_probes=True` → `V=()`; `=False` → `V=F` stacked. No reorder needed once Slice 3 lands.
+    - **Slice 5+ (deferred)** — `to_dense`/`to_t3`/`retract`/`project` on `V`-stacked inputs need the
+      backend `ss = base_core.shape[:-2]` constructions in `tangent_operations.py` to use the full
+      `V+G` stack; probing an already-`V`-stacked tangent needs 3-block contractions (or map-over-`V`).
 - **Deferred / broken**: the uniform layer (`ut3_*`, `ubv_*`, `uniform_*`) — many modules don't even
   import; every `is_uniform` branch in the tangent code was dropped/stubbed. The weighted layer
   (parked `absorb_weights`). `OLD_*.py` files are still tracked.
