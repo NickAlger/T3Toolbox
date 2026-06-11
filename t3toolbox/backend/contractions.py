@@ -2,6 +2,7 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+import math
 import typing as typ
 import numpy as np
 
@@ -78,8 +79,8 @@ def GFa_Gaib_Fo_Gio_to_GFb(
     b_shape = Gaib.shape[-1:]
     o_shape = Fo.shape[-1:]
 
-    size_G = np.prod(G_shape, dtype=int)
-    size_F = np.prod(F_shape, dtype=int)
+    size_G = math.prod(G_shape)
+    size_F = math.prod(F_shape)
 
     GFa     = GFa.reshape((size_G,) + (size_F,)      + a_shape)
     Gaib    = Gaib.reshape((size_G,) + aib_shape)
@@ -120,8 +121,8 @@ def GFa_Gaib_GiF_to_GFb(
     aib_shape = Gaib.shape[-3:]
     b_shape = Gaib.shape[-1:]
 
-    size_F = np.prod(F_shape, dtype=int) # yes, np. We want this done statically. dtype: () -> int 1
-    size_G = np.prod(G_shape, dtype=int)
+    size_F = math.prod(F_shape)
+    size_G = math.prod(G_shape)
 
     GFa     = GFa.reshape((size_G,) + (size_F,) + a_shape)
     Gaib    = Gaib.reshape((size_G,) + aib_shape)
@@ -160,8 +161,8 @@ def GFa_Gaib_GFi_to_GFb(
     aib_shape = Gaib.shape[-3:]
     b_shape = Gaib.shape[-1:]
 
-    size_F = np.prod(F_shape, dtype=int) # yes, np. We want this done statically. dtype: () -> int 1
-    size_G = np.prod(G_shape, dtype=int)
+    size_F = math.prod(F_shape)
+    size_G = math.prod(G_shape)
 
     GFa     = GFa.reshape((size_G,) + (size_F,) + a_shape)
     Gaib    = Gaib.reshape((size_G,) + aib_shape)
@@ -196,8 +197,8 @@ def Gio_Fo_to_GFi(
     o_shape = (Gio.shape[-1],)
     F_shape = Fo.shape[:-1]
 
-    size_F = np.prod(F_shape, dtype=int) # yes, np. We want this done statically. dtype: () -> int 1
-    size_G = np.prod(G_shape, dtype=int)
+    size_F = math.prod(F_shape)
+    size_G = math.prod(G_shape)
 
     Gio = Gio.reshape((size_G,) + i_shape + o_shape)
     Fo  = Fo.reshape((size_F,) + o_shape)
@@ -223,8 +224,8 @@ def dGio_dFo_to_dGFi(
     o_shape = (dGio.shape[-1],)
     F_shape = dFo.shape[1:-1]
 
-    size_F = np.prod(F_shape, dtype=int) # yes, np. We want this done statically. dtype: () -> int 1
-    size_G = np.prod(G_shape, dtype=int)
+    size_F = math.prod(F_shape)
+    size_G = math.prod(G_shape)
 
     dGio = dGio.reshape(d_shape + (size_G,) + i_shape + o_shape)
     dFo  = dFo.reshape(d_shape + (size_F,) + o_shape)
@@ -251,8 +252,8 @@ def GFa_Gaib_GFb_to_GFi(
     b_shape = (Gaib.shape[-1],)
     F_shape = GFa.shape[len(G_shape):-1]
 
-    size_F = np.prod(F_shape, dtype=int) # yes, np. We want this done statically. dtype: () -> int 1
-    size_G = np.prod(G_shape, dtype=int)
+    size_F = math.prod(F_shape)
+    size_G = math.prod(G_shape)
 
     GFa     = GFa.reshape((size_G,) + (size_F,) + a_shape)
     Gaib    = Gaib.reshape((size_G,) + a_shape + i_shape + b_shape)
@@ -281,8 +282,8 @@ def dGFa_dGaib_dGFb_to_dGFi(
     b_shape = (dGaib.shape[-1],)
     F_shape = dGFa.shape[1+len(G_shape):-1]
 
-    size_F = np.prod(F_shape, dtype=int) # yes, np. We want this done statically. dtype: () -> int 1
-    size_G = np.prod(G_shape, dtype=int)
+    size_F = math.prod(F_shape)
+    size_G = math.prod(G_shape)
 
     dGFa    = dGFa.reshape(d_shape + (size_G,) + (size_F,) + a_shape)
     dGaib   = dGaib.reshape(d_shape + (size_G,) + a_shape + i_shape + b_shape)
@@ -308,8 +309,8 @@ def GFi_Gio_to_GFo(
     o_shape = (Gio.shape[-1],)
     F_shape = GFi.shape[len(G_shape):-1]
 
-    size_F = np.prod(F_shape, dtype=int) # yes, np. We want this done statically. dtype: () -> int 1
-    size_G = np.prod(G_shape, dtype=int)
+    size_F = math.prod(F_shape)
+    size_G = math.prod(G_shape)
 
     Gio = Gio.reshape((size_G,) + i_shape + o_shape)
     GFi = GFi.reshape((size_G,) + (size_F,) + i_shape)
@@ -335,8 +336,8 @@ def dGFi_dGio_to_dGFo(
     o_shape = (dGio.shape[-1],)
     F_shape = dGFi.shape[1+len(G_shape):-1]
 
-    size_F = np.prod(F_shape, dtype=int) # yes, np. We want this done statically. dtype: () -> int 1
-    size_G = np.prod(G_shape, dtype=int)
+    size_F = math.prod(F_shape)
+    size_G = math.prod(G_shape)
 
     dGio = dGio.reshape(d_shape + (size_G,) + i_shape + o_shape)
     dGFi  = dGFi.reshape(d_shape + (size_G,) + (size_F,) + i_shape)
