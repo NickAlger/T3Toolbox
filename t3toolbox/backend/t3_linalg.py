@@ -61,7 +61,6 @@ def t3_add(
 def t3_sum_stack(
         x:          typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
         axis        = None, # stack axis, or sequence of stack axes, to sum over. None: sum over all stack axes
-        use_jax:    bool = False,
 ) -> typ.Tuple[
     typ.Tuple[NDArray,...], # summed_tucker_cores
     typ.Tuple[NDArray,...], # summed_tt_cores
@@ -78,7 +77,7 @@ def t3_sum_stack(
     """
     tucker_cores, tt_cores = x
 
-    use_jax = use_jax or tree_contains_jax(x)
+    use_jax = tree_contains_jax(x)
     xnp, _, _ = get_backend(False, use_jax)
 
     #
@@ -261,7 +260,7 @@ def t3_plus_scalar(
     x_shape = tuple(B.shape[-1] for B in x[0])
     x_stack_shape = x[0][0].shape[:-2]
 
-    y0 = t3_ops.t3_ones(x_shape, x_stack_shape, use_jax=use_jax)
+    y0 = t3_ops.t3_ones(x_shape, x_stack_shape)
     y = t3_scale(y0, s)
     xs = t3_add(x, y)
     return xs

@@ -22,7 +22,6 @@ __all__ = [
 
 def left_orthogonalize_t3(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
-        use_jax: bool = False,
 ) -> typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]]: # (tucker_variations, outer_tt_cores)
     """Left orthogonalize T3.
     """
@@ -33,7 +32,6 @@ def left_orthogonalize_t3(
 
 def right_orthogonalize_t3(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
-        use_jax: bool = False,
 ) -> typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]]: # (tucker_variations, outer_tt_cores)
     """Left orthogonalize T3.
     """

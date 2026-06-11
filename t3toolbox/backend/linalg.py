@@ -24,10 +24,9 @@ def pad_or_truncate(
         array,
         pad_width,
         mode='constant',
-        use_jax: bool = False,
         **kwargs
 ):
-    xnp, _, _ = get_backend(False, use_jax)
+    xnp, _, _ = get_backend(False, is_jax_ndarray(array))
 
     ndim = array.ndim
 

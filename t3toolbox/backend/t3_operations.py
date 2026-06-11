@@ -222,11 +222,10 @@ def t3_core_shapes(
 
 def t3_to_vector(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
-        use_jax: bool=False,
 ) -> NDArray: # shape=(x_size,)
     """Converts T3 to a 1D vector containing all of the core entries.
     """
-    xnp, _, _ = get_backend(False, use_jax)
+    xnp, _, _ = get_backend(False, tree_contains_jax(x))
 
     x_flats = []
     for B in x[0]:
@@ -273,7 +272,7 @@ def t3_corewise_randn(
         tucker_ranks:           typ.Tuple[int, ...],
         tt_ranks:               typ.Tuple[int, ...],
         stack_shape:    typ.Tuple[int, ...] = (),
-        use_jax: bool = False,
+        use_jax:        bool = False,  # constructor: no array inputs, so the flag chooses the output type
 ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]: # (tucker_cores, tt_cores)
     """Construct a Tucker tensor train with random cores.
     """
@@ -336,11 +335,10 @@ def t3_ones(
 
 def wt3_squash_tails(
         x, # weighted Tucker tensor train
-        use_jax: bool = False,
 ):
     """Reduce the first and last dimensions of the first and last tt cores to 1.
     """
-    xnp, _, _ = get_backend(False, use_jax=use_jax)
+    xnp, _, _ = get_backend(False)
 
     x0, w = x
     tucker_cores, tt_cores = x0

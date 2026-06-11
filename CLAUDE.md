@@ -77,14 +77,19 @@ boundary-transpose copies). (`apply`/`entries` are the lone holdout still on `G+
 **Backend dispatch**: `xnp, xmap, xscan = get_backend(is_uniform, use_jax)` (`backend/common.py`).
 `xnp` = numpy or jax.numpy; `xmap`/`xscan` = ragged loops / numpy / `jax.lax`.
 
-**numpy-vs-jax dispatch convention (goal): infer it from the input array types at the lowest level —
-do NOT thread `use_jax` params around.** Each function computes `use_jax = tree_contains_jax((its
-inputs))` and the jax-ness propagates through the computed intermediates (so a delegating function
-needn't infer at all — its callees do, from the arrays passed down). `backend/probing.py` is the
-**reference**: no `use_jax` parameters anywhere; pure delegates (`probe_t3`, `probe_tangent`,
-`probe_tangent_transpose`) just call their callees. The rest of the backend + the frontends still
-thread `use_jax` (the older `use_jax = use_jax or tree_contains_jax(...)` pattern) — migrate toward
-the probing approach when you touch them. Extremely tiny helpers may keep a flag if it's cleaner.
+**numpy-vs-jax dispatch convention: infer it from the input array types at the lowest level — do NOT
+thread `use_jax` params around.** Each operation computes `use_jax = tree_contains_jax((its inputs))`
+(or `is_jax_ndarray(...)`) and the jax-ness propagates through the computed intermediates (so a
+delegating function needn't infer at all — its callees do, from the arrays passed down). Applied
+across the verified code: `probing`, `manifold`, `basis_variations_format`, `corewise`, and their
+backend deps (`tangent_operations`, `bv_conversions`, `t3_operations`, `t3_linalg`,
+`t3_orthogonalization`, `linalg`) — **operations carry no `use_jax`**.
+**The exception: pure constructors with NO array inputs** — `TuckerTensorTrain.randn/zeros/ones` and
+`load`, `t3_corewise_randn`/`t3_zeros`/`t3_ones`, `common.randn`, and the rank-spec helpers in
+`ranks.py` — keep a `use_jax` flag (there's nothing to infer from; it chooses the output type).
+Factories that DO take an existing object infer from it (e.g. `T3Tangent.zeros/randn` from the basis,
+`from_tensor_train`/`from_canonical` from the cores). The deferred uniform/weighted layers still
+thread `use_jax` (old pattern) — migrate when repairing them.
 
 ## Code style (deliberate and nonstandard — do NOT normalize)
 
