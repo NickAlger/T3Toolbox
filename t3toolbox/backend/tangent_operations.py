@@ -196,7 +196,18 @@ def tangent_to_t3(
     use_jax = tree_contains_jax((basis, variations))
     xnp, _, _ = get_backend(False, use_jax)
 
-    ss = up_tucker_cores[0].shape[:-2]  # stack_shape
+    # The output is a single uniformly-stacked doubled-rank T3 (one per (v, g) pair). Its full stack
+    # V+G comes from the variations; the base cores carry only G (the shared base point), so broadcast
+    # every base-derived core up to V+G -- replicating the base point over the tangent stack V -- so
+    # each concatenated doubled-rank core is uniformly stacked. No-op when V=() (the plain G-stack).
+    ss = tucker_variations[0].shape[:-2]  # stack_shape = V + G
+    bcast2 = lambda C: xnp.broadcast_to(C, ss + C.shape[-2:])  # tucker-shaped base core (..., n, N)
+    bcast3 = lambda C: xnp.broadcast_to(C, ss + C.shape[-3:])  # tt-shaped base core (..., rL, n, rR)
+    up_tucker_cores = [bcast2(U) for U in up_tucker_cores]
+    down_tt_cores   = [bcast3(O) for O in down_tt_cores]
+    left_tt_cores   = [bcast3(L) for L in left_tt_cores]
+    right_tt_cores  = [bcast3(R) for R in right_tt_cores]
+
     num_cores = len(up_tucker_cores)
 
     # Tucker cores: [U_i ; V_i] stacked along the Tucker-rank axis.

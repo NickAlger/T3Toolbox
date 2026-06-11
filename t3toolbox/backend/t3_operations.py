@@ -40,7 +40,17 @@ def to_dense(
 
     #
     tucker_cores, tt_cores = x
-    vs = tucker_cores[0].shape[:-2] # stack_shape
+
+    # Cores may carry different (but broadcastable) leading stack axes -- e.g. a tangent term mixes a
+    # V+G-stacked variation core with G-stacked base cores (the shared base point replicated over the
+    # tangent stack V). Broadcast every core up to the common stack so the reshape-based contraction
+    # below sees one uniform stack_shape. No-op for the usual uniform-stack T3.
+    vs = np.broadcast_shapes(                       # stack_shape
+        *(B.shape[:-2] for B in tucker_cores),
+        *(G.shape[:-3] for G in tt_cores),
+    )
+    tucker_cores = [xnp.broadcast_to(B, vs + B.shape[-2:]) for B in tucker_cores]
+    tt_cores     = [xnp.broadcast_to(G, vs + G.shape[-3:]) for G in tt_cores]
 
     big_tt_cores = [xnp.einsum('...iaj,...ab->...ibj', G, U) for G, U in zip(tt_cores, tucker_cores)]
 

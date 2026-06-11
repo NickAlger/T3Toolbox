@@ -223,16 +223,29 @@ Treat everything else as copied-in-and-not-yet-working until checked.
       projector `Π`. Transpose: `sum_over_probes=True` → `V=()`;
       `=False` → `V=F` stacked (wraps with no reorder, since slice-3 made the output `F+G = V+G`).
       `probe()` rejects a `V`-stacked input (needs 3-block contractions).
-    - **Slice 5 (NEXT — reviewed; it's THREE independent pieces, do as separate slices in this order):**
-      - **5a — heavy tangent ops on `V`-stacked** (`to_dense`/`to_t3`/`retract`; highest value: it's
-        what you do with the transpose's non-sum output). VERIFIED breakage: the *concatenate*-based
-        builders **`bv_to_t3`** (→ `to_dense`) and **`tangent_to_t3`** (→ `to_t3`→`retract`) derive the
-        stack from the *base* core (`G`) and build `zeros`/concat at `G`, but variation cores are
-        `V+G`, so `concatenate` errors on ndim. Fix: derive the full stack from the *variation* cores
-        (`V+G`) and broadcast the base cores (`G`) up to `V+G` before concatenating (+ zeros at `V+G`).
-        The `...`-einsum ops (**gauge projections** and **`project_t3_onto_tangent_space`**) already
-        broadcast base over `V` and WORK as-is. `retract` follows once `to_t3` is fixed (`t3svd` is
-        stack-agnostic). Open: verify/support `project` on a *batch* of input `x` (`V`-stacked).
+    - **Slice 5 (THREE independent pieces; do as separate slices in this order):**
+      - **5a (DONE) — heavy tangent ops on `V`-stacked** (`to_dense`/`to_t3`/`retract`/`project`). The
+        semantic model (agreed with Nick): a `V+G`-stacked tangent is a batch of tangent vectors, one
+        per `(v, g)` pair; the base point is ONE object per `g`, **shared/replicated across `V`**.
+        Densifying = densify each pair, stacked `V+G+(N…)`; broadcasting a base core (`G`) against a
+        variation (`V+G`) IS the faithful vectorization of that sharing (base-inner ⇒ `G` is the
+        trailing suffix of `V+G`, so the broadcast is unambiguous). Two code paths, fixed differently
+        on purpose:
+        - **`to_dense` (backend `t3_operations`) made broadcast-stack-aware** (compute the common
+          `np.broadcast_shapes` of all core stacks, `broadcast_to` each core up, then contract). It was
+          the lone *reshape*-based primitive that hard-assumed one shared `vs`; the `...`-einsum ops
+          (gauge, `project_t3_onto_tangent_space`) already broadcast base-`G`/variation-`V+G` tuples, so
+          heterogeneous-but-broadcastable backend tuples are already first-class — `to_dense` just joins
+          them. **`bv_to_t3` left as a thin selector (NOT broadcast there).**
+        - **`tangent_to_t3` (builder) DOES materialize base→`V+G`** (derive `ss` from a variation core;
+          `broadcast_to` every base core before the concats/zeros). Intrinsic, not a workaround: its
+          output is a validated `TuckerTensorTrain`, and `validate()` requires a uniform stack — a
+          doubled-rank core `[U_i ; V_i]` is one array, so `U` (`G`) must be lifted to `V+G`. The
+          asymmetry with `to_dense` is principled (bare-array output vs class instance). `retract`
+          follows (`t3svd` stack-agnostic). **`project` already worked unchanged** on a `V`-stacked `x`.
+        Tests: `test_tangent_stacked_heavy_ops` + `test_project_tangent_stacked` (compare every `(v,g)`
+        slice to the unstacked reference; np+jax). NB `T3Tangent.unstack`/`stack` do NOT yet support a
+        `V`-stack (assume basis & variations share one stack) — out of 5a scope; tests slice cores by hand.
       - **5b — flip `apply`/`entries` to `F+G`** (independent of V-stacking; the lone `G+F` holdout =
         `TuckerTensorTrain.apply`/`entries` + their 2 contractions `GFa_Gaib_Fo_Gio_to_GFb` /
         `GFa_Gaib_GiF_to_GFb`). Changes their public output stacking + tests/doctests. Quick.
