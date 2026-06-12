@@ -456,11 +456,48 @@ Probing a tensor means contracting the tensor with vectors in all but one index,
                         
                      1--G0--G1--G2--1
                         |   |   |    
-    third probe:  =     B0  B1  B2   
-    (len=N3)            |   |   |    
+    third probe:  =     B0  B1  B2
+    (len=N3)            |   |   |
                         u1  u2
-       
-                 
+
+
+Batching and stacking
+---------------------
+
+A single ``TuckerTensorTrain`` / ``T3Basis`` / ``T3Variations`` can hold a whole **batch** of objects
+at once. Every core is stored as ``core.shape == stack_shape + (tensor/rank axes)``, so operations
+vectorize over the leading ``stack_shape``::
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1), stack_shape=(2, 3))
+    >>> print(x.stack_shape)
+    (2, 3)
+    >>> print([B.shape for B in x.tucker_cores])   # each core carries the (2, 3) stack
+    [(2, 3, 3, 10), (2, 3, 4, 11), (2, 3, 3, 12)]
+
+There are **three kinds of batch** ("blocks"), which batch different things on different arrays:
+
+- ``C`` -- the **base/core stack**: a batch of T3s / base points, on every core (this *is* ``stack_shape``).
+- ``W`` -- the **probe stack**: a batch of probe-vector sets, on the probe vectors ``ww`` only.
+- ``K`` -- the **tangent stack**: a batch of tangent vectors at one base point, on the variation cores only.
+
+Axes are ordered **base-inner**: ``W + K + C + (tensor axes)``. For example, with 2 base points
+(``C``), 3 tangent vectors at each (``K``), probed by 4 probe-sets (``W``), every array's shape is::
+
+    base Tucker core  U_i   (T3Basis)        C            (2,)      + (n_i, N_i)
+    variation core    dU_i  (T3Variations)   K + C        (3, 2)    + (n_i, N_i)
+    probe vector      w_i   (ww)             W            (4,)      + (N_i,)
+    forward probe     z_i   (tangent.probe)  W + K + C     (4, 3, 2) + (N_i,)
+
+The base frame ``C`` is *shared* across the ``K`` tangent vectors at it (never copied -- base-inner
+broadcasting handles that for free).
+
+For the full design -- why base-inner, the two contraction machineries, how the ``K``/``C`` split is
+recovered, ``vmap``/``jit`` -- see the reference
+`docs/batching_and_stacking.md <https://github.com/NickAlger/T3Toolbox/blob/main/docs/batching_and_stacking.md>`_
+(start with its "Start here" on-ramp).
+
 Uniform Tucker tensor trains
 ----------------------------
 

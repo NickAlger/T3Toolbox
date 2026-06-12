@@ -752,6 +752,41 @@ the numerical values within the cores.</p>
 </pre></div>
 </div>
 </section>
+<section id="batching-and-stacking">
+<h2>Batching and stacking<a class="headerlink" href="#batching-and-stacking" title="Link to this heading">#</a></h2>
+<p>A single <code class="docutils literal notranslate"><span class="pre">TuckerTensorTrain</span></code> / <code class="docutils literal notranslate"><span class="pre">T3Basis</span></code> / <code class="docutils literal notranslate"><span class="pre">T3Variations</span></code> can hold a whole <strong>batch</strong> of objects
+at once. Every core is stored as <code class="docutils literal notranslate"><span class="pre">core.shape</span> <span class="pre">==</span> <span class="pre">stack_shape</span> <span class="pre">+</span> <span class="pre">(tensor/rank</span> <span class="pre">axes)</span></code>, so operations
+vectorize over the leading <code class="docutils literal notranslate"><span class="pre">stack_shape</span></code>:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="n">stack_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">stack_shape</span><span class="p">)</span>
+<span class="go">(2, 3)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">([</span><span class="n">B</span><span class="o">.</span><span class="n">shape</span> <span class="k">for</span> <span class="n">B</span> <span class="ow">in</span> <span class="n">x</span><span class="o">.</span><span class="n">tucker_cores</span><span class="p">])</span>   <span class="c1"># each core carries the (2, 3) stack</span>
+<span class="go">[(2, 3, 3, 10), (2, 3, 4, 11), (2, 3, 3, 12)]</span>
+</pre></div>
+</div>
+<p>There are <strong>three kinds of batch</strong> (“blocks”), which batch different things on different arrays:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">C</span></code> – the <strong>base/core stack</strong>: a batch of T3s / base points, on every core (this <em>is</em> <code class="docutils literal notranslate"><span class="pre">stack_shape</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">W</span></code> – the <strong>probe stack</strong>: a batch of probe-vector sets, on the probe vectors <code class="docutils literal notranslate"><span class="pre">ww</span></code> only.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">K</span></code> – the <strong>tangent stack</strong>: a batch of tangent vectors at one base point, on the variation cores only.</p></li>
+</ul>
+<p>Axes are ordered <strong>base-inner</strong>: <code class="docutils literal notranslate"><span class="pre">W</span> <span class="pre">+</span> <span class="pre">K</span> <span class="pre">+</span> <span class="pre">C</span> <span class="pre">+</span> <span class="pre">(tensor</span> <span class="pre">axes)</span></code>. For example, with 2 base points
+(<code class="docutils literal notranslate"><span class="pre">C</span></code>), 3 tangent vectors at each (<code class="docutils literal notranslate"><span class="pre">K</span></code>), probed by 4 probe-sets (<code class="docutils literal notranslate"><span class="pre">W</span></code>), every array’s shape is:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">base</span> <span class="n">Tucker</span> <span class="n">core</span>  <span class="n">U_i</span>   <span class="p">(</span><span class="n">T3Basis</span><span class="p">)</span>        <span class="n">C</span>            <span class="p">(</span><span class="mi">2</span><span class="p">,)</span>      <span class="o">+</span> <span class="p">(</span><span class="n">n_i</span><span class="p">,</span> <span class="n">N_i</span><span class="p">)</span>
+<span class="n">variation</span> <span class="n">core</span>    <span class="n">dU_i</span>  <span class="p">(</span><span class="n">T3Variations</span><span class="p">)</span>   <span class="n">K</span> <span class="o">+</span> <span class="n">C</span>        <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>    <span class="o">+</span> <span class="p">(</span><span class="n">n_i</span><span class="p">,</span> <span class="n">N_i</span><span class="p">)</span>
+<span class="n">probe</span> <span class="n">vector</span>      <span class="n">w_i</span>   <span class="p">(</span><span class="n">ww</span><span class="p">)</span>             <span class="n">W</span>            <span class="p">(</span><span class="mi">4</span><span class="p">,)</span>      <span class="o">+</span> <span class="p">(</span><span class="n">N_i</span><span class="p">,)</span>
+<span class="n">forward</span> <span class="n">probe</span>     <span class="n">z_i</span>   <span class="p">(</span><span class="n">tangent</span><span class="o">.</span><span class="n">probe</span><span class="p">)</span>  <span class="n">W</span> <span class="o">+</span> <span class="n">K</span> <span class="o">+</span> <span class="n">C</span>     <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">N_i</span><span class="p">,)</span>
+</pre></div>
+</div>
+<p>The base frame <code class="docutils literal notranslate"><span class="pre">C</span></code> is <em>shared</em> across the <code class="docutils literal notranslate"><span class="pre">K</span></code> tangent vectors at it (never copied – base-inner
+broadcasting handles that for free).</p>
+<p>For the full design – why base-inner, the two contraction machineries, how the <code class="docutils literal notranslate"><span class="pre">K</span></code>/<code class="docutils literal notranslate"><span class="pre">C</span></code> split is
+recovered, <code class="docutils literal notranslate"><span class="pre">vmap</span></code>/<code class="docutils literal notranslate"><span class="pre">jit</span></code> – see the reference
+<a class="reference external" href="https://github.com/NickAlger/T3Toolbox/blob/main/docs/batching_and_stacking.md">docs/batching_and_stacking.md</a>
+(start with its “Start here” on-ramp).</p>
+</section>
 <section id="uniform-tucker-tensor-trains">
 <h2>Uniform Tucker tensor trains<a class="headerlink" href="#uniform-tucker-tensor-trains" title="Link to this heading">#</a></h2>
 <p>For computational efficiency, it can be helpful to pad the cores of a Tucker tensor train with zeros, so that it has uniform ranks. Then the computational operations become uniform, which improves pipelining efficiency and GPU performance.</p>
@@ -899,6 +934,7 @@ SOFTWARE.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#minimal-rank-conditions">Minimal rank conditions</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3-manifold">T3 Manifold</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#probing">Probing</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#batching-and-stacking">Batching and stacking</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#uniform-tucker-tensor-trains">Uniform Tucker tensor trains</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#relevant-literature">Relevant literature</a></li>
 </ul>
