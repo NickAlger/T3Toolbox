@@ -18,8 +18,8 @@ def tucker_tensor_train_apply(
             typ.Tuple[NDArray, NDArray], # (tucker_supercore, tt_supercore)
         ],
         vecs: typ.Union[
-            typ.Sequence[NDArray],  # len=d, elm_shape=vsv+(Ni,), ragged
-            NDArray, # shape=(d,) + vsv +(Ni,), uniform (NOT IMPLEMENTED YET)
+            typ.Sequence[NDArray],  # len=d, elm_shape=vsw+(Ni,), ragged
+            NDArray, # shape=(d,) + vsw +(Ni,), uniform (NOT IMPLEMENTED YET)
         ],
 ) -> NDArray:
     '''Contract a Tucker tensor train with vectors in all indices.
@@ -32,20 +32,20 @@ def tucker_tensor_train_apply(
 
     #
 
-    vsx = tucker_cores[0].shape[:-2] # core stack G (T3s)
-    vsv = vecs[0].shape[:-1]         # vec stack F (probes), base-inner: F outer, G inner
+    vsc = tucker_cores[0].shape[:-2] # core/base stack C (the batch of T3s)
+    vsw = vecs[0].shape[:-1]         # vec stack W (the probe-like vectors), base-inner: W outer, C inner
 
-    def _func(mu_VXa, v_B_G):
-        v_Vo, B_Xpo, G_Xapb = v_B_G
-        mu_VXb = contractions.WCa_Caib_Wo_Cio_to_WCb(
-            mu_VXa, G_Xapb, v_Vo, B_Xpo,
+    def _func(mu_WCa, v_B_G):
+        v_Wo, B_Cpo, G_Capb = v_B_G
+        mu_WCb = contractions.WCa_Caib_Wo_Cio_to_WCb(
+            mu_WCa, G_Capb, v_Wo, B_Cpo,
         )
-        return mu_VXb, (0,)
+        return mu_WCb, (0,)
 
-    mu_VXa = xnp.ones(vsv + vsx + (tt_cores[0].shape[-3],))   # F + G
+    mu_WCa = xnp.ones(vsw + vsc + (tt_cores[0].shape[-3],))   # W + C
     v_B_G = (vecs, tucker_cores, tt_cores)
-    mu_VXz, _ = xscan(_func, mu_VXa, v_B_G)
+    mu_WCz, _ = xscan(_func, mu_WCa, v_B_G)
 
-    result = xnp.sum(mu_VXz, axis=-1)
+    result = xnp.sum(mu_WCz, axis=-1)
     return result
 
