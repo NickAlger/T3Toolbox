@@ -74,11 +74,11 @@ dual-use (manifold vs corewise) by substitution.
 4. **Base edge-var caching**: `ξ̂,μ̂,ν̂,η̂` depend on `(p,s)` not on the tangent vector → can be
    precomputed once per (base, sample) and reused (compute↔memory trade-off). `probe_tangent`
    currently recomputes them every call.
-5. **Stacking/vectorization**: both directions now batch over all three blocks — `F` probes, `V`
-   tangent stack, `G` base stack. Forward (`probe_tangent`): the `V`-stacked case via 3-group
-   contractions in `compute_sigmas`/`detas`, `assemble_tangent_zs` (slice 5c; output `F + V + G`).
-   Transpose (`probe_tangent_transpose`): accepts `V`-stacked residuals `F + V + G` and carries `V`
-   to the result's tangent stack (`sum_over_probes=True` → `V`; `=False` → `F + V`); the adjoint
+5. **Stacking/vectorization**: both directions now batch over all three blocks — `W` probes, `K`
+   tangent stack, `C` base stack. Forward (`probe_tangent`): the `K`-stacked case via 3-group
+   contractions in `compute_sigmas`/`detas`, `assemble_tangent_zs` (slice 5c; output `W + K + C`).
+   Transpose (`probe_tangent_transpose`): accepts `K`-stacked residuals `W + K + C` and carries `K`
+   to the result's tangent stack (`sum_over_probes=True` → `K`; `=False` → `W + K`); the adjoint
    sweep reuses the forward's contractions and the assembly adds 10 outer-product builders.
 
 ## Likely build targets (to confirm with Nick)
@@ -91,14 +91,14 @@ dual-use (manifold vs corewise) by substitution.
 - (Open) directionally-symmetric probe form `wᵢ = (x,…,x,ω)` used in fitting — build on top or stay
   general.
 
-## Future idea — exploit special structure in the tangent stack `V` (deferred, NOT in current scope)
+## Future idea — exploit special structure in the tangent stack `K` (deferred, NOT in current scope)
 
-Slice 5c probes a `V`-stacked tangent (a batch of `k` tangent vectors at *each* base point) via a
-general **3-group contraction** (`F` probes x `V` tangents x `G` bases). It assumes the `V` vectors
+Slice 5c probes a `K`-stacked tangent (a batch of `k` tangent vectors at *each* base point) via a
+general **3-group contraction** (`W` probes x `K` tangents x `C` bases). It assumes the `K` vectors
 are an *arbitrary* collection -- no relationship between them -- and the code must always support that.
 
-Open question (Nick, 2026-06-12): when the `V` tangent vectors carry special structure -- e.g. they
+Open question (Nick, 2026-06-12): when the `K` tangent vectors carry special structure -- e.g. they
 form an **orthonormal block** within the one tangent space `T_x M` -- can `J^(s)` be applied more
 cheaply than the general 3-group sweep? Plausible angles: shared sub-contractions across the block, a
 factored/low-rank form of the perturbation edge variables, or work that cancels under orthonormality.
-Not pursued now; recorded for later. The general (arbitrary-`V`) path stays the default regardless.
+Not pursued now; recorded for later. The general (arbitrary-`K`) path stays the default regardless.

@@ -42,10 +42,18 @@ implements a numbered equation/algorithm, cite it in the docstring.
   pending a redesign of weighted tensor networks.
 
 > **Batching/stacking is the most error-prone part of the library. Before touching anything with
-> batch/stack axes, read [`docs/batching_and_stacking.md`](docs/batching_and_stacking.md)** — the full
-> reference for the three meanings of "stack", the three batch blocks (`G`/`F`/`V`), the base-inner
+> batch/stack axes, read [`docs/batching_and_stacking.md`](docs/batching_and_stacking.md)** — start with
+> its **"Start here"** section (one-screen mental model + a concrete shape table + the shape-notation
+> legend), then the numbered sections for the full reference (three meanings of "stack", the base-inner
 > convention and *why*, the `'...'`-vs-grouped-contraction machineries, heterogeneous-stack tuples,
-> and `vmap`/`jit` with basis-as-aux. The notes below are the terse version.
+> `vmap`/`jit` with basis-as-aux). The notes below are the terse version.
+>
+> The three batch **blocks** (mnemonic-and-collision-free letters): **`C`** = base/core stack (base
+> points, on *every* core; `= stack_shape`), **`W`** = probe stack (the `w` vectors, on `ww` only),
+> **`K`** = tangent stack (the `k` tangent vectors at *one* base, on the *variations* only). Order is
+> base-inner **`W + K + C`**. **The most common slip is conflating `C` (base points) with `K` (tangent
+> vectors at a base)** — they live on different operands and mean different things. (These were `F`/`V`/`G`
+> before a rename that made them disjoint from the core/variation symbols `U`/`P`/`Q`/`O`/`G`/`H`/`V`.)
 
 **"Stacking" means three different things** — keep them straight:
 1. `stack_shape`: leading batch axes on one object's cores (`core.shape = stack_shape + (...)`).
@@ -57,12 +65,12 @@ implements a numbered equation/algorithm, cite it in the docstring.
 
 **Two batch machineries** (full detail + the *why* are in the doc above): (1) **one** broadcastable
 prefix → a leading `'...'` einsum, which rides `stack_shape` for free; (2) **two** independent blocks
-on *different* operand subsets (canonical case: core/base stack `G` on the cores vs probe stack `F` on
+on *different* operand subsets (canonical case: core/base stack `C` on the cores vs probe stack `W` on
 `ww` only — a single `'...'` can't express it) → the named grouped-block contractions in
-`backend/contractions.py` (`FGa_Gaib_FGi_to_FGb` etc.; each capital block reshaped to one flat axis,
-= 1 when empty). **Convention (library-wide, base-inner): core stack `G` innermost, extra stacks
-`F`/`V` outermost** (`F+G`, `V+G`, `F+V+G`) — because `'...'`-broadcast replicates a base over the
-extras for free only when `G` is innermost. (`apply`/`entries` were the last `G+F` holdout — flipped
+`backend/contractions.py` (`WCa_Caib_WCi_to_WCb` etc.; each capital block reshaped to one flat axis,
+= 1 when empty). **Convention (library-wide, base-inner): core stack `C` innermost, extra stacks
+`W`/`K` outermost** (`W+C`, `K+C`, `W+K+C`) — because `'...'`-broadcast replicates a base over the
+extras for free only when `C` is innermost. (`apply`/`entries` were the last `C+W` holdout — flipped
 in 5b; the whole library is now base-inner.)
 
 **Two gotchas:**
@@ -98,9 +106,9 @@ thread `use_jax` (old pattern) — migrate when repairing them.
 - Shape/structure comments are **trailing comments on the same line** as each array argument and
   each return-type element; put **one array per line** (expand return tuples even when they'd fit),
   and **vertically align** argument names with their type annotations.
-- Body locals encode axis layout in the **name suffix** (`G_aib`, `mu_XIa`, `B0_b_j_c`), matching the
-  contraction-naming scheme (`G`/`F` = grouped index blocks, lowercase = single axes, leading `d` =
-  stacked/derivative axis; functions named `inputs_to_output`, e.g. `GFa_Gaib_GFi_to_GFb`).
+- Body locals encode axis layout in the **name suffix** (`C_aib`, `mu_WCa`, `B0_b_j_c`), matching the
+  contraction-naming scheme (`C`/`W`/`K` = grouped index blocks, lowercase = single axes, leading `d` =
+  stacked/derivative axis; functions named `inputs_to_output`, e.g. `WCa_Caib_WCi_to_WCb`).
 - `math.prod` (not `np.prod(..., dtype=int)`) for static products of shape ints.
 - einsum everywhere with a leading `'...'`; numpy path passes `optimize=path`, jax path omits it.
 - Uppercase single-letter core names (`U V G P Q O …`) are intentional — ignore "should be
@@ -158,7 +166,7 @@ The dividing line is **structural vs numerical**:
   prompt without the first-principles argument behind it isn't useful; lay out the tradeoff (and your
   recommendation), then let Nick decide.
 - **Prefer minimal dataclasses** — cores only; derive shapes/splits rather than storing redundant
-  fields (e.g. the `G`/`V` stack split is recovered from the (basis, variations) pairing).
+  fields (e.g. the `C`/`K` stack split is recovered from the (basis, variations) pairing).
 - **Commit per logical chunk and push to `main`.** Verify tests pass first; write a descriptive
   message; stage only the relevant files (leave unrelated stray edits alone). End commit messages
   with `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`.
@@ -187,40 +195,40 @@ Treat everything else as copied-in-and-not-yet-working until checked.
   Covered: `TuckerTensorTrain` + its backend; `basis_variations_format`; `manifold` (`T3Tangent` — full
   ragged port: linalg with the same-basis guard, gauge projections,
   `to_dense`/`to_t3`/`zeros`/`randn`/`project`/`retract`, two-axis stacking, probing (incl. the
-  V-stacked forward probe and transpose via 3-group contractions), checkers).
+  K-stacked forward probe and transpose via 3-group contractions), checkers).
   Tests: `tests/test_tucker_tensor_train.py`, `test_basis_variations_format.py`, `test_manifold.py`,
   `test_dispatch.py`, `backend/test_contractions.py` (suite ~45s).
-- **Probing + V-stacking (`backend/probing.py`, `manifold.py`)** — done through **slice 5c**; the
+- **Probing + K-stacking (`backend/probing.py`, `manifold.py`)** — done through **slice 5c**; the
   blow-by-blow is in git history, and `docs/probing_section6_notes.md` maps Section 6 of the paper
   (the Riemannian Jacobian) to the code. Delivered: forward/transpose probe
   (`T3Tangent.probe`/`probe_transpose` — bare `J^(s)`/`(J^(s))ᵀ`, no gauge `Π`); the whole pipeline
-  flipped to base-inner `F+(V)+G`; V-stacked heavy ops (`to_dense`/`to_t3`/`retract`/`project` on a
+  flipped to base-inner `W+(K)+C`; K-stacked heavy ops (`to_dense`/`to_t3`/`retract`/`project` on a
   batch of tangents sharing one base); two-axis `T3Tangent.unstack_tangents`/`_basis` + `stack_*`;
-  `bv_to_t3` broadcast-on-wrap (`broadcast_t3_to_common_stack`); `apply`/`entries` flipped to `F+G`;
+  `bv_to_t3` broadcast-on-wrap (`broadcast_t3_to_common_stack`); `apply`/`entries` flipped to `W+C`;
   jax pytree registration (`T3Tangent` basis-as-aux). **The whole batch/stack design lives in
   [`docs/batching_and_stacking.md`](docs/batching_and_stacking.md) — read it before touching anything
   with stack axes.**
-  - **5c (done): forward-probe a `V`-stacked tangent.** `T3Tangent.probe` now accepts a `V`-stacked
+  - **5c (done): forward-probe a `K`-stacked tangent.** `T3Tangent.probe` now accepts a `K`-stacked
     input (`m` base points, each carrying `k` tangent vectors sharing its frame), producing probes
-    stacked `F + V + G`. Implemented as a genuine **3-group contraction** (`F` probes × `V` tangents ×
-    `G` base) — the earlier map-over-`V`/`jax.vmap` plan was **reversed** in favour of low-level
-    einsums (consistency with the `contractions.py` toolkit, no numpy `V` loop, clean XLA folding).
+    stacked `W + K + C`. Implemented as a genuine **3-group contraction** (`W` probes × `K` tangents ×
+    `C` base) — the earlier map-over-`K`/`jax.vmap` plan was **reversed** in favour of low-level
+    einsums (consistency with the `contractions.py` toolkit, no numpy `K` loop, clean XLA folding).
     The perturbation sweep (`compute_sigmas`/`detas`, `assemble_tangent_zs`) uses 8 new base-inner
-    `F+V+G` contractions; the base sweep is `V`-free. **The `V`/`G`/`F` split is recovered from
-    shapes, never threaded** — a `G`-only base core pins `len(G)` and an `F+G` edge var pins `len(F)`,
+    `W+K+C` contractions; the base sweep is `K`-free. **The `K`/`C`/`W` split is recovered from
+    shapes, never threaded** — a `C`-only base core pins `len(C)` and an `W+C` edge var pins `len(W)`,
     so most contractions self-infer; only the three whose sole core operand is a variation core
-    (`V+G`) take an `n_base`, recomputed inline in the sweep `_func` from a base core (the `n_probe`
-    precedent). They reduce to the 2-group result when `V=()`. See `docs/batching_and_stacking.md`
-    §4/§7. (Future idea — exploit orthonormal-`V` structure — parked in `docs/probing_section6_notes.md`.)
-  - **V-aware transpose (done): transpose a `V`-stacked forward.** `T3Tangent.probe_transpose` now
-    accepts residuals carrying the tangent batch `V` (`F+V+G`, the output space of the V-stacked
-    forward) and returns a tangent that carries `V`: `sum_over_probes=True` → tangent stack `V`;
-    `=False` → `F+V` (base `G`). `J` and `Jᵀ` are general-purpose / independent (e.g. for `Jᵀ M J`).
+    (`K+C`) take an `n_base`, recomputed inline in the sweep `_func` from a base core (the `n_probe`
+    precedent). They reduce to the 2-group result when `K=()`. See `docs/batching_and_stacking.md`
+    §4/§7. (Future idea — exploit orthonormal-`K` structure — parked in `docs/probing_section6_notes.md`.)
+  - **K-aware transpose (done): transpose a `K`-stacked forward.** `T3Tangent.probe_transpose` now
+    accepts residuals carrying the tangent batch `K` (`W+K+C`, the output space of the K-stacked
+    forward) and returns a tangent that carries `K`: `sum_over_probes=True` → tangent stack `K`;
+    `=False` → `W+K` (base `C`). `J` and `Jᵀ` are general-purpose / independent (e.g. for `Jᵀ M J`).
     The adjoint sweep **reuses the forward's self-inferring 3-group contractions**; the assembly adds
-    10 new outer-product builders (`contractions.py`, keep-`F` and sum-`F` forms — the sum-`F` ones
-    generalize `FGo_FGa_to_Gao`/`Fo_FGa_to_Gao`/`FGi_FGa_FGj_to_Giaj`). **No `V`/`G` inference in
-    `probe_tangent_transpose`:** the sweep self-infers, `assemble_tucker` recovers `len(F)` from the
-    `F`-only probe vectors, and only `assemble_tt` (no `F`/`G`-only operand) takes `n_probe`. `V=()`
+    10 new outer-product builders (`contractions.py`, keep-`W` and sum-`W` forms — the sum-`W` ones
+    generalize `WCo_WCa_to_Cao`/`Wo_WCa_to_Cao`/`WCi_WCa_WCj_to_Ciaj`). **No `K`/`C` inference in
+    `probe_tangent_transpose`:** the sweep self-infers, `assemble_tucker` recovers `len(W)` from the
+    `W`-only probe vectors, and only `assemble_tt` (no `W`/`C`-only operand) takes `n_probe`. `K=()`
     is exactly the prior transpose.
 - **Deferred / broken**: the uniform layer (`ut3_*`, `ubv_*`, `uniform_*`) — many modules don't even
   import; every `is_uniform` branch in the tangent code was dropped/stubbed. The weighted layer
