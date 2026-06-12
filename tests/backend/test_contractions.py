@@ -21,7 +21,7 @@ jax_randn = lambda *args: jnp.array(np.random.randn(*args))
 
 # Distinct einsum letters per grouped block (avoiding the single-index letters a, i, b, o).
 GROUP_POOL = {'F': 'fgh', 'V': 'vwx', 'G': 'mnp'}
-SINGLE_SIZE = {'a': 3, 'i': 4, 'b': 5, 'o': 6}
+SINGLE_SIZE = {'a': 3, 'i': 4, 'b': 5, 'o': 6, 'j': 7}
 
 # (F, V, G) stack shapes exercised by the three-group contractions: all present, V/F multi-axis,
 # each block empty in turn (V empty is the degenerate two-group reduction), and all empty.
@@ -465,12 +465,14 @@ class TestContractions(unittest.TestCase):
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
-    def _check_3group(self, func, op_specs, out_spec, needs_n_base=False):
+    def _check_3group(self, func, op_specs, out_spec, needs_n_base=False, needs_n_probe=False):
         """Check a three-group (F, V, G) contraction against an explicit np.einsum reference.
 
         op_specs/out_spec are (groups, singles) pairs, e.g. ('FVG', 'a') or ('VG', 'aib'); each
         grouped block is mapped to one of the THREE_GROUP_COMBOS stack shapes. needs_n_base passes
-        len(G) as the trailing argument (for the variation-core-only contractions).
+        len(G) as the trailing argument (variation-core-only forward contractions); needs_n_probe
+        passes len(F) (transpose-assemble contractions). A sum-over-F contraction is expressed by an
+        out_spec whose groups omit ``F`` -- np.einsum then sums it.
         """
         for RANDN in [numpy_randn, jax_randn]:
             for F, V, G in THREE_GROUP_COMBOS:
@@ -494,6 +496,8 @@ class TestContractions(unittest.TestCase):
 
                     if needs_n_base:
                         result = func(*operands, len(G))
+                    elif needs_n_probe:
+                        result = func(*operands, len(F))
                     else:
                         result = func(*operands)
                     result = np.asarray(result)
@@ -546,6 +550,68 @@ class TestContractions(unittest.TestCase):
         self._check_3group(
             contractions.FVGi_Gio_to_FVGo,
             [('FVG', 'i'), ('G', 'io')], ('FVG', 'o'),
+        )
+
+    # ---- transpose-assemble outer products (keep-F and sum-F forms) ----
+
+    def test_FVGo_FGa_to_FVGao(self):
+        self._check_3group(
+            contractions.FVGo_FGa_to_FVGao,
+            [('FVG', 'o'), ('FG', 'a')], ('FVG', 'ao'), needs_n_probe=True,
+        )
+
+    def test_FVGo_FGa_to_VGao(self):
+        self._check_3group(
+            contractions.FVGo_FGa_to_VGao,
+            [('FVG', 'o'), ('FG', 'a')], ('VG', 'ao'), needs_n_probe=True,
+        )
+
+    def test_Fo_FVGa_to_FVGao(self):
+        self._check_3group(
+            contractions.Fo_FVGa_to_FVGao,
+            [('F', 'o'), ('FVG', 'a')], ('FVG', 'ao'),
+        )
+
+    def test_Fo_FVGa_to_VGao(self):
+        self._check_3group(
+            contractions.Fo_FVGa_to_VGao,
+            [('F', 'o'), ('FVG', 'a')], ('VG', 'ao'),
+        )
+
+    def test_FGi_FGa_FVGj_to_FVGiaj(self):
+        self._check_3group(
+            contractions.FGi_FGa_FVGj_to_FVGiaj,
+            [('FG', 'i'), ('FG', 'a'), ('FVG', 'j')], ('FVG', 'iaj'), needs_n_probe=True,
+        )
+
+    def test_FGi_FGa_FVGj_to_VGiaj(self):
+        self._check_3group(
+            contractions.FGi_FGa_FVGj_to_VGiaj,
+            [('FG', 'i'), ('FG', 'a'), ('FVG', 'j')], ('VG', 'iaj'), needs_n_probe=True,
+        )
+
+    def test_FVGi_FGa_FGj_to_FVGiaj(self):
+        self._check_3group(
+            contractions.FVGi_FGa_FGj_to_FVGiaj,
+            [('FVG', 'i'), ('FG', 'a'), ('FG', 'j')], ('FVG', 'iaj'), needs_n_probe=True,
+        )
+
+    def test_FVGi_FGa_FGj_to_VGiaj(self):
+        self._check_3group(
+            contractions.FVGi_FGa_FGj_to_VGiaj,
+            [('FVG', 'i'), ('FG', 'a'), ('FG', 'j')], ('VG', 'iaj'), needs_n_probe=True,
+        )
+
+    def test_FGi_FVGa_FGj_to_FVGiaj(self):
+        self._check_3group(
+            contractions.FGi_FVGa_FGj_to_FVGiaj,
+            [('FG', 'i'), ('FVG', 'a'), ('FG', 'j')], ('FVG', 'iaj'), needs_n_probe=True,
+        )
+
+    def test_FGi_FVGa_FGj_to_VGiaj(self):
+        self._check_3group(
+            contractions.FGi_FVGa_FGj_to_VGiaj,
+            [('FG', 'i'), ('FVG', 'a'), ('FG', 'j')], ('VG', 'iaj'), needs_n_probe=True,
         )
 
 

@@ -38,6 +38,17 @@ __all__ = [
     'FGa_VGaib_FGb_to_FVGi',
     'FGi_VGio_to_FVGo',
     'FVGi_Gio_to_FVGo',
+    # Transpose-assemble three-group (F,V,G) outer products that build variation cores.
+    'FVGo_FGa_to_FVGao',
+    'FVGo_FGa_to_VGao',
+    'Fo_FVGa_to_FVGao',
+    'Fo_FVGa_to_VGao',
+    'FGi_FGa_FVGj_to_FVGiaj',
+    'FGi_FGa_FVGj_to_VGiaj',
+    'FVGi_FGa_FGj_to_FVGiaj',
+    'FVGi_FGa_FGj_to_VGiaj',
+    'FGi_FVGa_FGj_to_FVGiaj',
+    'FGi_FVGa_FGj_to_VGiaj',
 ]
 
 
@@ -852,4 +863,367 @@ def FVGi_Gio_to_FVGo(
     is exactly the two-group ``FGi_Gio_to_FGo`` with the outer block being F+V. Delegates to it.
     """
     return FGi_Gio_to_FGo(FVGi, Gio)
+
+
+###############################################################################
+# Transpose-assemble three-group contractions (V-stacked tangent transpose).
+#
+# These build variation cores by OUTER-PRODUCTING edge variables (the indices a/i/j/o are free, not
+# contracted), the adjoint analogue of the forward assembly. The tangent stack V rides on the
+# residual-derived operand; the base edge vars stay F+G. Each comes in a keep-F (output F+V+G+...)
+# and a sum-F (output V+G+..., the probe stack summed) form; the sum-F forms generalize the existing
+# FGo_FGa_to_Gao / Fo_FGa_to_Gao / FGi_FGa_FGj_to_Giaj (their V=() case).
+#
+# len(F) (n_probe) is supplied where no operand pins it; the w-bearing ones self-infer F from the
+# F-only probe vector. See docs/batching_and_stacking.md and docs/probing_section6_notes.md.
+###############################################################################
+
+
+def FVGo_FGa_to_FVGao(
+        FVGo:   NDArray,  # F + V + G + (o,)   -- z-tilde residual (carries V)
+        FGa:    NDArray,  # F + G + (a,)       -- eta-hat base edge var (F+G -> pins G given n_probe)
+        n_probe: int,     # len(F); {F+V+G, F+G} do not pin it, so it is supplied
+) -> NDArray:             # F + V + G + (a, o)
+    """Computes named contraction (outer product over a, o). Capitals are grouped indices, may be empty.
+
+    Transpose-assemble (z-tilde (x) eta-hat), keeping the probe stack F.
+    """
+    use_jax = tree_contains_jax((FVGo, FGa))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    F_shape = FGa.shape[:n_probe]
+    G_shape = FGa.shape[n_probe:-1]
+    o_shape = (FVGo.shape[-1],)
+    a_shape = (FGa.shape[-1],)
+    V_shape = FVGo.shape[n_probe:len(FVGo.shape) - 1 - len(G_shape)]
+
+    size_F = math.prod(F_shape)
+    size_V = math.prod(V_shape)
+    size_G = math.prod(G_shape)
+
+    FVGo = FVGo.reshape((size_F,) + (size_V,) + (size_G,) + o_shape)
+    FGa  = FGa.reshape((size_F,) + (size_G,) + a_shape)
+
+    FVGao = xnp.einsum('FVGo,FGa->FVGao', FVGo, FGa)
+
+    FVGao = FVGao.reshape(F_shape + V_shape + G_shape + a_shape + o_shape)
+    return FVGao
+
+
+def FVGo_FGa_to_VGao(
+        FVGo:   NDArray,  # F + V + G + (o,)   -- z-tilde residual (carries V)
+        FGa:    NDArray,  # F + G + (a,)       -- eta-hat base edge var
+        n_probe: int,     # len(F), summed out
+) -> NDArray:             # V + G + (a, o)
+    """Computes named contraction (outer product over a, o; probe stack F summed out).
+
+    Transpose-assemble (z-tilde (x) eta-hat), summing over the probe stack F.
+    """
+    use_jax = tree_contains_jax((FVGo, FGa))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    F_shape = FGa.shape[:n_probe]
+    G_shape = FGa.shape[n_probe:-1]
+    o_shape = (FVGo.shape[-1],)
+    a_shape = (FGa.shape[-1],)
+    V_shape = FVGo.shape[n_probe:len(FVGo.shape) - 1 - len(G_shape)]
+
+    size_F = math.prod(F_shape)
+    size_V = math.prod(V_shape)
+    size_G = math.prod(G_shape)
+
+    FVGo = FVGo.reshape((size_F,) + (size_V,) + (size_G,) + o_shape)
+    FGa  = FGa.reshape((size_F,) + (size_G,) + a_shape)
+
+    VGao = xnp.einsum('FVGo,FGa->VGao', FVGo, FGa)
+
+    VGao = VGao.reshape(V_shape + G_shape + a_shape + o_shape)
+    return VGao
+
+
+def Fo_FVGa_to_FVGao(
+        Fo:   NDArray,  # F + (o,)           -- probe vector w (F-only -> self-pins len(F))
+        FVGa: NDArray,  # F + V + G + (a,)   -- delta-xi-tilde (carries V)
+) -> NDArray:           # F + V + G + (a, o)
+    """Computes named contraction (outer product over a, o). Capitals are grouped indices, may be empty.
+
+    Transpose-assemble (w (x) delta-xi-tilde), keeping the probe stack F. Self-infers len(F) from the
+    F-only probe vector Fo; V and G never need separating here (no operand carries G without V), so
+    they ride as one combined block.
+    """
+    use_jax = tree_contains_jax((Fo, FVGa))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    F_shape = Fo.shape[:-1]
+    o_shape = (Fo.shape[-1],)
+    a_shape = (FVGa.shape[-1],)
+    VG_shape = FVGa.shape[len(F_shape):-1]
+
+    size_F = math.prod(F_shape)
+    size_VG = math.prod(VG_shape)
+
+    Fo   = Fo.reshape((size_F,) + o_shape)
+    FVGa = FVGa.reshape((size_F,) + (size_VG,) + a_shape)
+
+    FVGao = xnp.einsum('Fo,FXa->FXao', Fo, FVGa)
+
+    FVGao = FVGao.reshape(F_shape + VG_shape + a_shape + o_shape)
+    return FVGao
+
+
+def Fo_FVGa_to_VGao(
+        Fo:   NDArray,  # F + (o,)           -- probe vector w (F-only -> self-pins len(F))
+        FVGa: NDArray,  # F + V + G + (a,)   -- delta-xi-tilde (carries V)
+) -> NDArray:           # V + G + (a, o)
+    """Computes named contraction (outer product over a, o; probe stack F summed out).
+
+    Transpose-assemble (w (x) delta-xi-tilde), summing over the probe stack F. Self-infers len(F);
+    V and G ride combined.
+    """
+    use_jax = tree_contains_jax((Fo, FVGa))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    F_shape = Fo.shape[:-1]
+    o_shape = (Fo.shape[-1],)
+    a_shape = (FVGa.shape[-1],)
+    VG_shape = FVGa.shape[len(F_shape):-1]
+
+    size_F = math.prod(F_shape)
+    size_VG = math.prod(VG_shape)
+
+    Fo   = Fo.reshape((size_F,) + o_shape)
+    FVGa = FVGa.reshape((size_F,) + (size_VG,) + a_shape)
+
+    VGao = xnp.einsum('Fo,FXa->Xao', Fo, FVGa)
+
+    VGao = VGao.reshape(VG_shape + a_shape + o_shape)
+    return VGao
+
+
+def FGi_FGa_FVGj_to_FVGiaj(
+        FGi:    NDArray,  # F + G + (i,)       -- base edge var (F+G -> pins G given n_probe)
+        FGa:    NDArray,  # F + G + (a,)       -- base edge var
+        FVGj:   NDArray,  # F + V + G + (j,)   -- residual-derived edge var (carries V)
+        n_probe: int,     # len(F); {F+G, F+G, F+V+G} do not pin it, so it is supplied
+) -> NDArray:             # F + V + G + (i, a, j)
+    """Computes named contraction (triple outer product over i, a, j). Capitals may be empty.
+
+    Transpose tt-assemble term with V on the third (j) edge var, keeping the probe stack F.
+    """
+    use_jax = tree_contains_jax((FGi, FGa, FVGj))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    F_shape = FGi.shape[:n_probe]
+    G_shape = FGi.shape[n_probe:-1]
+    i_shape = (FGi.shape[-1],)
+    a_shape = (FGa.shape[-1],)
+    j_shape = (FVGj.shape[-1],)
+    V_shape = FVGj.shape[n_probe:len(FVGj.shape) - 1 - len(G_shape)]
+
+    size_F = math.prod(F_shape)
+    size_V = math.prod(V_shape)
+    size_G = math.prod(G_shape)
+
+    FGi  = FGi.reshape((size_F,) + (size_G,) + i_shape)
+    FGa  = FGa.reshape((size_F,) + (size_G,) + a_shape)
+    FVGj = FVGj.reshape((size_F,) + (size_V,) + (size_G,) + j_shape)
+
+    path = ['einsum_path', (0, 1), (0, 1)]
+    if use_jax:
+        FVGiaj = xnp.einsum('FGi,FGa,FVGj->FVGiaj', FGi, FGa, FVGj)
+    else:
+        FVGiaj = xnp.einsum('FGi,FGa,FVGj->FVGiaj', FGi, FGa, FVGj, optimize=path)
+
+    FVGiaj = FVGiaj.reshape(F_shape + V_shape + G_shape + i_shape + a_shape + j_shape)
+    return FVGiaj
+
+
+def FGi_FGa_FVGj_to_VGiaj(
+        FGi:    NDArray,  # F + G + (i,)
+        FGa:    NDArray,  # F + G + (a,)
+        FVGj:   NDArray,  # F + V + G + (j,)
+        n_probe: int,     # len(F), summed out
+) -> NDArray:             # V + G + (i, a, j)
+    """Computes named contraction (triple outer product over i, a, j; probe stack F summed out).
+
+    Transpose tt-assemble term with V on the third (j) edge var, summing over the probe stack F.
+    """
+    use_jax = tree_contains_jax((FGi, FGa, FVGj))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    F_shape = FGi.shape[:n_probe]
+    G_shape = FGi.shape[n_probe:-1]
+    i_shape = (FGi.shape[-1],)
+    a_shape = (FGa.shape[-1],)
+    j_shape = (FVGj.shape[-1],)
+    V_shape = FVGj.shape[n_probe:len(FVGj.shape) - 1 - len(G_shape)]
+
+    size_F = math.prod(F_shape)
+    size_V = math.prod(V_shape)
+    size_G = math.prod(G_shape)
+
+    FGi  = FGi.reshape((size_F,) + (size_G,) + i_shape)
+    FGa  = FGa.reshape((size_F,) + (size_G,) + a_shape)
+    FVGj = FVGj.reshape((size_F,) + (size_V,) + (size_G,) + j_shape)
+
+    path = ['einsum_path', (0, 1), (0, 1)]
+    if use_jax:
+        VGiaj = xnp.einsum('FGi,FGa,FVGj->VGiaj', FGi, FGa, FVGj)
+    else:
+        VGiaj = xnp.einsum('FGi,FGa,FVGj->VGiaj', FGi, FGa, FVGj, optimize=path)
+
+    VGiaj = VGiaj.reshape(V_shape + G_shape + i_shape + a_shape + j_shape)
+    return VGiaj
+
+
+def FVGi_FGa_FGj_to_FVGiaj(
+        FVGi:   NDArray,  # F + V + G + (i,)   -- residual-derived edge var (carries V)
+        FGa:    NDArray,  # F + G + (a,)       -- base edge var (F+G -> pins G given n_probe)
+        FGj:    NDArray,  # F + G + (j,)       -- base edge var
+        n_probe: int,     # len(F); supplied
+) -> NDArray:             # F + V + G + (i, a, j)
+    """Computes named contraction (triple outer product over i, a, j). Capitals may be empty.
+
+    Transpose tt-assemble term with V on the first (i) edge var, keeping the probe stack F.
+    """
+    use_jax = tree_contains_jax((FVGi, FGa, FGj))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    F_shape = FGa.shape[:n_probe]
+    G_shape = FGa.shape[n_probe:-1]
+    i_shape = (FVGi.shape[-1],)
+    a_shape = (FGa.shape[-1],)
+    j_shape = (FGj.shape[-1],)
+    V_shape = FVGi.shape[n_probe:len(FVGi.shape) - 1 - len(G_shape)]
+
+    size_F = math.prod(F_shape)
+    size_V = math.prod(V_shape)
+    size_G = math.prod(G_shape)
+
+    FVGi = FVGi.reshape((size_F,) + (size_V,) + (size_G,) + i_shape)
+    FGa  = FGa.reshape((size_F,) + (size_G,) + a_shape)
+    FGj  = FGj.reshape((size_F,) + (size_G,) + j_shape)
+
+    path = ['einsum_path', (0, 1), (0, 1)]
+    if use_jax:
+        FVGiaj = xnp.einsum('FVGi,FGa,FGj->FVGiaj', FVGi, FGa, FGj)
+    else:
+        FVGiaj = xnp.einsum('FVGi,FGa,FGj->FVGiaj', FVGi, FGa, FGj, optimize=path)
+
+    FVGiaj = FVGiaj.reshape(F_shape + V_shape + G_shape + i_shape + a_shape + j_shape)
+    return FVGiaj
+
+
+def FVGi_FGa_FGj_to_VGiaj(
+        FVGi:   NDArray,  # F + V + G + (i,)
+        FGa:    NDArray,  # F + G + (a,)
+        FGj:    NDArray,  # F + G + (j,)
+        n_probe: int,     # len(F), summed out
+) -> NDArray:             # V + G + (i, a, j)
+    """Computes named contraction (triple outer product over i, a, j; probe stack F summed out).
+
+    Transpose tt-assemble term with V on the first (i) edge var, summing over the probe stack F.
+    """
+    use_jax = tree_contains_jax((FVGi, FGa, FGj))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    F_shape = FGa.shape[:n_probe]
+    G_shape = FGa.shape[n_probe:-1]
+    i_shape = (FVGi.shape[-1],)
+    a_shape = (FGa.shape[-1],)
+    j_shape = (FGj.shape[-1],)
+    V_shape = FVGi.shape[n_probe:len(FVGi.shape) - 1 - len(G_shape)]
+
+    size_F = math.prod(F_shape)
+    size_V = math.prod(V_shape)
+    size_G = math.prod(G_shape)
+
+    FVGi = FVGi.reshape((size_F,) + (size_V,) + (size_G,) + i_shape)
+    FGa  = FGa.reshape((size_F,) + (size_G,) + a_shape)
+    FGj  = FGj.reshape((size_F,) + (size_G,) + j_shape)
+
+    path = ['einsum_path', (0, 1), (0, 1)]
+    if use_jax:
+        VGiaj = xnp.einsum('FVGi,FGa,FGj->VGiaj', FVGi, FGa, FGj)
+    else:
+        VGiaj = xnp.einsum('FVGi,FGa,FGj->VGiaj', FVGi, FGa, FGj, optimize=path)
+
+    VGiaj = VGiaj.reshape(V_shape + G_shape + i_shape + a_shape + j_shape)
+    return VGiaj
+
+
+def FGi_FVGa_FGj_to_FVGiaj(
+        FGi:    NDArray,  # F + G + (i,)       -- base edge var (F+G -> pins G given n_probe)
+        FVGa:   NDArray,  # F + V + G + (a,)   -- residual-derived edge var (carries V)
+        FGj:    NDArray,  # F + G + (j,)       -- base edge var
+        n_probe: int,     # len(F); supplied
+) -> NDArray:             # F + V + G + (i, a, j)
+    """Computes named contraction (triple outer product over i, a, j). Capitals may be empty.
+
+    Transpose tt-assemble term with V on the middle (a) edge var, keeping the probe stack F.
+    """
+    use_jax = tree_contains_jax((FGi, FVGa, FGj))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    F_shape = FGi.shape[:n_probe]
+    G_shape = FGi.shape[n_probe:-1]
+    i_shape = (FGi.shape[-1],)
+    a_shape = (FVGa.shape[-1],)
+    j_shape = (FGj.shape[-1],)
+    V_shape = FVGa.shape[n_probe:len(FVGa.shape) - 1 - len(G_shape)]
+
+    size_F = math.prod(F_shape)
+    size_V = math.prod(V_shape)
+    size_G = math.prod(G_shape)
+
+    FGi  = FGi.reshape((size_F,) + (size_G,) + i_shape)
+    FVGa = FVGa.reshape((size_F,) + (size_V,) + (size_G,) + a_shape)
+    FGj  = FGj.reshape((size_F,) + (size_G,) + j_shape)
+
+    path = ['einsum_path', (0, 1), (0, 1)]
+    if use_jax:
+        FVGiaj = xnp.einsum('FGi,FVGa,FGj->FVGiaj', FGi, FVGa, FGj)
+    else:
+        FVGiaj = xnp.einsum('FGi,FVGa,FGj->FVGiaj', FGi, FVGa, FGj, optimize=path)
+
+    FVGiaj = FVGiaj.reshape(F_shape + V_shape + G_shape + i_shape + a_shape + j_shape)
+    return FVGiaj
+
+
+def FGi_FVGa_FGj_to_VGiaj(
+        FGi:    NDArray,  # F + G + (i,)
+        FVGa:   NDArray,  # F + V + G + (a,)
+        FGj:    NDArray,  # F + G + (j,)
+        n_probe: int,     # len(F), summed out
+) -> NDArray:             # V + G + (i, a, j)
+    """Computes named contraction (triple outer product over i, a, j; probe stack F summed out).
+
+    Transpose tt-assemble term with V on the middle (a) edge var, summing over the probe stack F.
+    """
+    use_jax = tree_contains_jax((FGi, FVGa, FGj))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    F_shape = FGi.shape[:n_probe]
+    G_shape = FGi.shape[n_probe:-1]
+    i_shape = (FGi.shape[-1],)
+    a_shape = (FVGa.shape[-1],)
+    j_shape = (FGj.shape[-1],)
+    V_shape = FVGa.shape[n_probe:len(FVGa.shape) - 1 - len(G_shape)]
+
+    size_F = math.prod(F_shape)
+    size_V = math.prod(V_shape)
+    size_G = math.prod(G_shape)
+
+    FGi  = FGi.reshape((size_F,) + (size_G,) + i_shape)
+    FVGa = FVGa.reshape((size_F,) + (size_V,) + (size_G,) + a_shape)
+    FGj  = FGj.reshape((size_F,) + (size_G,) + j_shape)
+
+    path = ['einsum_path', (0, 1), (0, 1)]
+    if use_jax:
+        VGiaj = xnp.einsum('FGi,FVGa,FGj->VGiaj', FGi, FVGa, FGj)
+    else:
+        VGiaj = xnp.einsum('FGi,FVGa,FGj->VGiaj', FGi, FVGa, FGj, optimize=path)
+
+    VGiaj = VGiaj.reshape(V_shape + G_shape + i_shape + a_shape + j_shape)
+    return VGiaj
 
