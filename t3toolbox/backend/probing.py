@@ -48,7 +48,7 @@ __all__ = [
 #####################################################
 
 def probe_t3(
-        ww: typ.Union[typ.Sequence[NDArray],    NDArray],   # len=d, elm_shape=K+(Ni,)
+        ww: typ.Union[typ.Sequence[NDArray],    NDArray],   # len=d, elm_shape=W+(Ni,)
         x:  typ.Union[
             typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # ragged, (tucker_cores, tt_cores)
             typ.Tuple[NDArray, NDArray],  # uniform, (tucker_supercore, tt_supercore)
@@ -140,8 +140,8 @@ def probe_t3(
 
 
 def compute_xis(
-        up_tucker_cores:    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+(nUi,Ni)
-        ww:                 typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=K+(Ni,)
+        up_tucker_cores:    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=C+(nUi,Ni)
+        ww:                 typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=W+(Ni,)
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # xis. len=d, elm_shape=(...,nUi)
     '''Compute upward edge variables associated with edges between Tucker cores and adjacent TT-cores.
     Used for probing a Tucker tensor train.
@@ -169,9 +169,9 @@ def compute_xis(
 
 
 def compute_mus(
-        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d-1. elm_shape=T+(rLi,nUi,rL(i+1))
-        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+K+(nUi,)
-) -> typ.Union[typ.Sequence[NDArray], NDArray]: # mus. len=d, elm_shape=T+K+(rLi,)
+        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d-1. elm_shape=C+(rLi,nUi,rL(i+1))
+        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=W+C+(nUi,)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # mus. len=d, elm_shape=W+C+(rLi,)
     '''Compute leftward edge variables associated with edges between adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -199,9 +199,9 @@ def compute_mus(
 
 
 def compute_nus(
-        right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+(rRi,nUi,rR(i+1))
-        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+K+(nUi,)
-) -> typ.Union[typ.Sequence[NDArray], NDArray]: # nus. len=d, elm_shape=T+K+(rR(i+1),)
+        right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=C+(rRi,nUi,rR(i+1))
+        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=W+C+(nUi,)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # nus. len=d, elm_shape=W+C+(rR(i+1),)
     '''Compute rightward edge variables associated with edges between adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -219,10 +219,10 @@ def compute_nus(
 
 
 def compute_etas(
-        down_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+(rLi,nOi,rR(i+1))
-        mus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=T+K+(rLi,)
+        down_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=C+(rLi,nOi,rR(i+1))
+        mus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=W+C+(rLi,)
         nus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,rR(i+1))
-) -> typ.Union[typ.Sequence[NDArray], NDArray]: # etas. len=d, elm_shape=T+K+(nOi,)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # etas. len=d, elm_shape=W+C+(nOi,)
     '''Compute downward edge variables associated with edges between Tucker cores and adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -249,9 +249,9 @@ def compute_etas(
 
 
 def assemble_zs(
-        tucker_cores:   typ.Union[typ.Sequence[NDArray], NDArray],  # len=d. elm_shape=T+(ni,Ni)
-        etas:           typ.Union[typ.Sequence[NDArray], NDArray],  # len=d. elm_shape=T+K+(ni,)
-) -> typ.Union[typ.Sequence[NDArray], NDArray]: # zs. len=d, elm_shape=T+K+(Ni,)
+        tucker_cores:   typ.Union[typ.Sequence[NDArray], NDArray],  # len=d. elm_shape=C+(ni,Ni)
+        etas:           typ.Union[typ.Sequence[NDArray], NDArray],  # len=d. elm_shape=W+C+(ni,)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # zs. len=d, elm_shape=W+C+(Ni,)
     '''Assemble probes from downward edge variables.
 
     See Section 6.2, particularly Figure 7 and Algorithm 5, in:
@@ -1096,18 +1096,18 @@ def probe_dense(
     Parameters
     ----------
     T: NDArray
-        Tensor to be probed. shape=Z+(N0,...,N(d-1))
+        Tensor to be probed. shape=C+(N0,...,N(d-1))
     vectors: typ.Sequence[NDArray]
         Probing input vectors.
         len=d.
-        elm_shape=K+(Ni,)
+        elm_shape=W+(Ni,)
 
     Returns
     -------
     typ.Tuple[NDArray]
         Probes.
         len=d.
-        elm_shape=(Ni,) or elm_shape=Z+K+(Ni,)
+        elm_shape=(Ni,) or elm_shape=W+C+(Ni,)
 
     Examples
     --------
@@ -1174,27 +1174,27 @@ def probe_dense(
 
     #
     d = len(vectors)
-    Z = T.shape[:-d]
+    C = T.shape[:-d]
     shape = T.shape[-d:]
-    K = vectors[0].shape[:-1]
+    W = vectors[0].shape[:-1]
 
     for ii, v in enumerate(vectors):
-        assert(v.shape[:-1] == K)
+        assert(v.shape[:-1] == W)
         assert(v.shape[-1] == shape[ii])
 
     # We are going to construct an einsum string from letters.
     # A dense 2x2x..x2 tensor exhausting these letters would have 4e15 entries
     letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
-    Z_letters       = letters[:len(Z)]
-    shape_letters   = letters[len(Z):len(Z)+len(shape)]
-    K_letters       = letters[len(Z)+len(shape):len(Z)+len(shape)+len(K)]
+    C_letters       = letters[:len(C)]
+    shape_letters   = letters[len(C):len(C)+len(shape)]
+    W_letters       = letters[len(C)+len(shape):len(C)+len(shape)+len(W)]
 
     vv_letters = []
     for ii in range(d):
-        vv_letters.append(K_letters + shape_letters[ii])
+        vv_letters.append(W_letters + shape_letters[ii])
 
-    T_letters = Z_letters + shape_letters
+    T_letters = C_letters + shape_letters
 
     zz = []
     for ii in range(d):
@@ -1207,7 +1207,7 @@ def probe_dense(
 
         str += '->'
 
-        str += K_letters + Z_letters + shape_letters[ii]
+        str += W_letters + C_letters + shape_letters[ii]
 
         vvi = tuple(vectors[:ii] + vectors[ii+1:][::-1])
 

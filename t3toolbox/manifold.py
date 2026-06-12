@@ -142,22 +142,22 @@ class T3Tangent:
 
     @ft.cached_property
     def base_stack_shape(self) -> typ.Tuple[int, ...]:
-        """Base stack ``G``: the batch of base points, shared with the basis (``basis.stack_shape``)."""
+        """Base stack ``C``: the batch of base points, shared with the basis (``basis.stack_shape``)."""
         return self.basis.stack_shape
 
     @ft.cached_property
     def tangent_stack_shape(self) -> typ.Tuple[int, ...]:
-        """Tangent stack ``V``: the extra *outer* batch of tangent vectors sharing this base.
+        """Tangent stack ``K``: the extra *outer* batch of tangent vectors sharing this base.
 
         This is the part of the variation stack that exceeds the base stack (often empty). The
-        variation cores are stacked as ``V + G + (core,)`` -- extra axes outermost, base stack inner.
+        variation cores are stacked as ``K + C + (core,)`` -- extra axes outermost, base stack inner.
         """
         full = self.variations.stack_shape
         return full[:len(full) - len(self.base_stack_shape)]
 
     @ft.cached_property
     def stack_shape(self) -> typ.Tuple[int, ...]:
-        """Full stack ``V + G`` (``tangent_stack_shape + base_stack_shape``), outer-to-inner."""
+        """Full stack ``K + C`` (``tangent_stack_shape + base_stack_shape``), outer-to-inner."""
         return self.variations.stack_shape
 
     @ft.cached_property
@@ -222,16 +222,16 @@ class T3Tangent:
     @staticmethod
     def zeros(
             basis:          bvf.T3Basis,
-            stack_shape:    typ.Tuple[int, ...] = (),  # extra tangent stack V (a batch of tangents)
+            stack_shape:    typ.Tuple[int, ...] = (),  # extra tangent stack K (a batch of tangents)
     ) -> 'T3Tangent':
         """Zero tangent vector at a given basis (numpy/jax matching the basis).
 
-        ``stack_shape`` is the extra *outer* tangent stack ``V`` (a batch of tangents sharing this
-        base); the variation cores are stacked as ``V + G + (core,)``. Default ``V=()``.
+        ``stack_shape`` is the extra *outer* tangent stack ``K`` (a batch of tangents sharing this
+        base); the variation cores are stacked as ``K + C + (core,)``. Default ``K=()``.
         """
         xnp, _, _ = get_backend(False, tree_contains_jax(basis.data))
 
-        full_stack = stack_shape + basis.stack_shape  # V + G
+        full_stack = stack_shape + basis.stack_shape  # K + C
         tucker_hole_shapes, tt_hole_shapes = basis.variation_shapes
         tucker_variations = tuple(xnp.zeros(full_stack + s) for s in tucker_hole_shapes)
         tt_variations = tuple(xnp.zeros(full_stack + s) for s in tt_hole_shapes)
@@ -240,13 +240,13 @@ class T3Tangent:
     @staticmethod
     def randn(
             basis:                  bvf.T3Basis,
-            stack_shape:            typ.Tuple[int, ...] = (),  # extra tangent stack V (a batch of tangents)
+            stack_shape:            typ.Tuple[int, ...] = (),  # extra tangent stack K (a batch of tangents)
             apply_gauge_projection: bool = True,
     ) -> 'T3Tangent':
         """Random tangent vector at a given basis (numpy/jax matching the basis).
 
-        ``stack_shape`` is the extra *outer* tangent stack ``V`` (a batch of tangents sharing this
-        base); the variation cores are stacked as ``V + G + (core,)``. Default ``V=()``.
+        ``stack_shape`` is the extra *outer* tangent stack ``K`` (a batch of tangents sharing this
+        base); the variation cores are stacked as ``K + C + (core,)``. Default ``K=()``.
 
         With ``apply_gauge_projection=True`` (default) the variations are gauged (via orthogonal
         projection); for an orthogonal, minimal-rank basis this makes the tangent vector a standard
@@ -254,7 +254,7 @@ class T3Tangent:
         i.i.d. N(0, 1) cores (ungauged).
         """
         use_jax = tree_contains_jax(basis.data)  # match the basis's array type
-        full_stack = stack_shape + basis.stack_shape  # V + G
+        full_stack = stack_shape + basis.stack_shape  # K + C
         tucker_hole_shapes, tt_hole_shapes = basis.variation_shapes
         tucker_variations = tuple(randn(*(full_stack + s), use_jax=use_jax) for s in tucker_hole_shapes)
         tt_variations = tuple(randn(*(full_stack + s), use_jax=use_jax) for s in tt_hole_shapes)
@@ -291,7 +291,7 @@ class T3Tangent:
         if self.stack_shape != other.stack_shape:
             raise ValueError(
                 'Tangent vectors have different stack shapes; elementwise linear algebra requires '
-                'matching stacks (same tangent stack V over the shared base stack G).\n'
+                'matching stacks (same tangent stack K over the shared base stack C).\n'
                 + str(self.stack_shape) + ' = self.stack_shape != other.stack_shape = ' + str(other.stack_shape)
             )
 
@@ -317,7 +317,7 @@ class T3Tangent:
     def inner(self, other: 'T3Tangent'):
         """Inner product of two tangent vectors (corewise dot of the variations).
 
-        Vectorized over the stack: returns an array of shape :py:attr:`stack_shape` (``V + G``), one
+        Vectorized over the stack: returns an array of shape :py:attr:`stack_shape` (``K + C``), one
         inner product per stacked tangent (a scalar when unstacked). Requires the same T3Basis object
         and matching stacks.
 
@@ -337,7 +337,7 @@ class T3Tangent:
     def norm(self):
         """Norm of the tangent vector (corewise norm of the variations).
 
-        Vectorized over the stack: returns an array of shape :py:attr:`stack_shape` (``V + G``), one
+        Vectorized over the stack: returns an array of shape :py:attr:`stack_shape` (``K + C``), one
         norm per stacked tangent (a scalar when unstacked).
 
         .. warning::
@@ -420,15 +420,15 @@ class T3Tangent:
 
     def probe(
             self,
-            ww:         typ.Sequence[NDArray],  # probing vectors, len=d, elm_shape=F+(Ni,)
-    ) -> typ.Sequence[NDArray]:                 # probes, len=d, elm_shape=F+V+G+(Ni,)
+            ww:         typ.Sequence[NDArray],  # probing vectors, len=d, elm_shape=W+(Ni,)
+    ) -> typ.Sequence[NDArray]:                 # probes, len=d, elm_shape=W+K+C+(Ni,)
         """Probe this tangent vector: apply the single-sample least-squares Jacobian J^(s).
 
         Contracts the tangent vector with the probing vectors ``ww`` in all-but-one index, for each
         index -- the tangent analogue of :py:meth:`.TuckerTensorTrain.probe`. The probes are stacked
-        ``F + V + G`` (probe stack ``F`` from ``ww`` outermost, tangent stack ``V`` next, base stack
-        ``G`` innermost). ``V`` is empty unless this is a tangent-stacked (V-stacked) T3Tangent, in
-        which case ``J^(s)`` is applied to each of the ``V`` tangent vectors sharing the base.
+        ``W + K + C`` (probe stack ``W`` from ``ww`` outermost, tangent stack ``K`` next, base stack
+        ``C`` innermost). ``K`` is empty unless this is a tangent-stacked (K-stacked) T3Tangent, in
+        which case ``J^(s)`` is applied to each of the ``K`` tangent vectors sharing the base.
 
         This is the bare ``J^(s)`` (no gauge projector ``Pi``); for the Riemannian ``J = J^(s) o Pi``
         compose a gauge projection (e.g. :py:meth:`orthogonal_gauge_projection`) yourself.
@@ -452,17 +452,17 @@ class T3Tangent:
         >>> v = t3m.T3Tangent(base, variations)
         >>> ww = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
         >>> zz = v.probe(ww)
-        >>> print(zz[0].shape)             # F + G + (N0,) = (2,) + () + (10,)
+        >>> print(zz[0].shape)             # W + C + (N0,) = (2,) + () + (10,)
         (2, 10)
         >>> zz2 = t3p.probe_dense(ww, v.to_dense())   # dense reference
         >>> print([float(np.linalg.norm(a - b)) for a, b in zip(zz, zz2)])
         [1.9485689247039e-12, 4.4498813137605194e-12, 3.528192267475046e-12]
 
-        A tangent-stacked (V-stacked) tangent probes each of its ``V`` vectors, output ``F + V + G``:
+        A tangent-stacked (K-stacked) tangent probes each of its ``K`` vectors, output ``W + K + C``:
 
         >>> vb = t3m.T3Tangent.randn(base, stack_shape=(3,), apply_gauge_projection=False)
         >>> zzb = vb.probe(ww)
-        >>> print(zzb[0].shape)            # F + V + G + (N0,) = (2,) + (3,) + () + (10,)
+        >>> print(zzb[0].shape)            # W + K + C + (N0,) = (2,) + (3,) + () + (10,)
         (2, 3, 10)
         """
         # probing's base order is exactly T3Basis.data = (up, down, left, right) -- no reorder.
@@ -471,23 +471,23 @@ class T3Tangent:
 
     @staticmethod
     def probe_transpose(
-            ztildes:            typ.Sequence[NDArray],  # probe residuals, len=d, elm_shape=F+G+(Ni,)
-            ww:                 typ.Sequence[NDArray],  # probing vectors, len=d, elm_shape=F+(Ni,)
+            ztildes:            typ.Sequence[NDArray],  # probe residuals, len=d, elm_shape=W+C+(Ni,)
+            ww:                 typ.Sequence[NDArray],  # probing vectors, len=d, elm_shape=W+(Ni,)
             basis:              bvf.T3Basis,
             sum_over_probes:    bool = False,
     ) -> 'T3Tangent':
         """Apply the transpose ``(J^(s))^T`` of the probe map to residuals; returns a T3Tangent at ``basis``.
 
         The adjoint of :py:meth:`probe`. The residuals ``ztildes`` live in the forward probe space,
-        ``elm_shape = F + V + G + (Ni,)`` (probe stack ``F`` outer, optional tangent batch ``V``, base
-        stack ``G`` inner -- the output space of a ``V``-stacked :py:meth:`probe`; ``V`` is empty in
-        the common case). The tangent batch ``V`` is always carried to the result's tangent stack; the
-        probe stack ``F`` is summed or kept per ``sum_over_probes``:
+        ``elm_shape = W + K + C + (Ni,)`` (probe stack ``W`` outer, optional tangent batch ``K``, base
+        stack ``C`` inner -- the output space of a ``K``-stacked :py:meth:`probe`; ``K`` is empty in
+        the common case). The tangent batch ``K`` is always carried to the result's tangent stack; the
+        probe stack ``W`` is summed or kept per ``sum_over_probes``:
 
         - ``sum_over_probes=False`` (default): each probe residual becomes one tangent -- the result's
-          tangent stack is ``F + V`` (base stack ``G``).
-        - ``sum_over_probes=True``: the probe stack is summed -- the result's tangent stack is ``V``
-          (base stack ``G``) -- the usual Gauss-Newton ``J^T r`` (a single tangent when ``V = ()``).
+          tangent stack is ``W + K`` (base stack ``C``).
+        - ``sum_over_probes=True``: the probe stack is summed -- the result's tangent stack is ``K``
+          (base stack ``C``) -- the usual Gauss-Newton ``J^T r`` (a single tangent when ``K = ()``).
 
         Bare ``(J^(s))^T`` (no gauge projector). See Section 6.2.3 (Algorithm 8) of Alger et al. (2026).
 
@@ -520,12 +520,12 @@ class T3Tangent:
         >>> print(JTz_batch.tangent_stack_shape, JTz_batch.base_stack_shape)
         (2,) ()
 
-        With ``V``-stacked residuals (``F + V + G``), the tangent batch ``V`` is carried through:
+        With ``K``-stacked residuals (``W + K + C``), the tangent batch ``K`` is carried through:
 
         >>> zb = tuple(np.random.randn(2, 3, N) for N in (10, 11, 12))  # F=(2,), V=(3,), G=()
         >>> print(t3m.T3Tangent.probe_transpose(zb, ww, base, sum_over_probes=True).tangent_stack_shape)
         (3,)
-        >>> print(t3m.T3Tangent.probe_transpose(zb, ww, base).tangent_stack_shape)  # sum=False -> F + V
+        >>> print(t3m.T3Tangent.probe_transpose(zb, ww, base).tangent_stack_shape)  # sum=False -> W + K
         (2, 3)
         """
         # probing's base order is exactly T3Basis.data = (up, down, left, right) -- no reorder.
@@ -540,11 +540,11 @@ class T3Tangent:
     ############################################
 
     def unstack_tangents(self):
-        """Unstack over the tangent stack ``V``: a ``V``-shaped tree of tangents sharing this base.
+        """Unstack over the tangent stack ``K``: a ``K``-shaped tree of tangents sharing this base.
 
         Decomposes the batch of tangent *directions* ("for each vector within the basis"). Each leaf
         is a :py:class:`T3Tangent` with ``tangent_stack_shape == ()`` and ``base_stack_shape`` equal
-        to this tangent's -- and, because the base point is shared across ``V``, every leaf holds the
+        to this tangent's -- and, because the base point is shared across ``K``, every leaf holds the
         **same** :py:class:`T3Basis` object, so the leaves live in one tangent space (linear algebra
         between them is defined). Inverse of :py:meth:`stack_tangents`.
         """
@@ -557,7 +557,7 @@ class T3Tangent:
         )
 
     def unstack_basis(self):
-        """Unstack over the base stack ``G``: a ``G``-shaped tree of single-base-point tangents.
+        """Unstack over the base stack ``C``: a ``C``-shaped tree of single-base-point tangents.
 
         Decomposes over base *points* ("for each basis"). Each leaf is a :py:class:`T3Tangent` with
         ``base_stack_shape == ()`` and ``tangent_stack_shape`` equal to this tangent's; the leaves
@@ -578,12 +578,12 @@ class T3Tangent:
 
     @staticmethod
     def stack_tangents(tree) -> 'T3Tangent':
-        """Stack a ``V``-shaped tree of tangents (sharing one base) into a tangent-stacked T3Tangent.
+        """Stack a ``K``-shaped tree of tangents (sharing one base) into a tangent-stacked T3Tangent.
 
         Inverse of :py:meth:`unstack_tangents`. Requires every leaf to hold the **same**
         :py:class:`T3Basis` object (object identity, as in :py:meth:`inner` / :py:meth:`__add__`):
         the tangents being stacked must live in the same tangent space. The shared base is reused and
-        the variations are stacked over the new outer tangent stack ``V``.
+        the variations are stacked over the new outer tangent stack ``K``.
         """
         leaves = _flatten_tangents(tree)
         base = leaves[0].basis
@@ -600,12 +600,12 @@ class T3Tangent:
 
     @staticmethod
     def stack_basis(tree) -> 'T3Tangent':
-        """Stack a ``G``-shaped tree of single-base-point tangents into a base-stacked T3Tangent.
+        """Stack a ``C``-shaped tree of single-base-point tangents into a base-stacked T3Tangent.
 
         Inverse of :py:meth:`unstack_basis`. The leaves sit at **different** base points (distinct
         bases), so no shared-base identity is required; they must share the same structure and the
-        same tangent stack ``V``. The bases are stacked over the base stack ``G``, which is placed
-        innermost so the variation stack becomes ``V + G``.
+        same tangent stack ``K``. The bases are stacked over the base stack ``C``, which is placed
+        innermost so the variation stack becomes ``K + C``.
         """
         leaves = _flatten_tangents(tree)
         v0 = leaves[0]
@@ -613,7 +613,7 @@ class T3Tangent:
             if t.structure != v0.structure or t.tangent_stack_shape != v0.tangent_stack_shape:
                 raise ValueError(
                     'stack_basis requires all tangents to share the same structure and tangent '
-                    'stack V (only the base point may differ across the base stack G).'
+                    'stack K (only the base point may differ across the base stack C).'
                 )
         basis_tree = stacking.apply_func_to_leaf_subtrees(tree, lambda t: t.basis.data, None)
         variations_tree = stacking.apply_func_to_leaf_subtrees(tree, lambda t: t.variations.data, None)

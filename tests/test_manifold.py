@@ -46,9 +46,9 @@ def _slice_t3(x, idx):
 
 
 def _slice_tangent(base, var, idx, n_base):
-    """The unstacked (basis, variation) tangent at full V+G index ``idx``.
+    """The unstacked (basis, variation) tangent at full K+C index ``idx``.
 
-    The base point is shared across the tangent stack V: the basis is sliced at the trailing G part
+    The base point is shared across the tangent stack K: the basis is sliced at the trailing C part
     of ``idx`` while the variation is sliced at the full ``idx``.
     """
     g_idx = idx[len(idx) - n_base:] if n_base > 0 else ()
@@ -169,7 +169,7 @@ class TestManifold(unittest.TestCase):
         # the zero tangent is trivially gauged (all variation cores are zero)
         self.assertTrue(t3m.T3Tangent.zeros(base).is_gauged())
 
-    # ``stack_shapes`` for the two-axis stacking tests: (base_stack G, tangent_stack V) pairs.
+    # ``stack_shapes`` for the two-axis stacking tests: (base_stack C, tangent_stack K) pairs.
     bv_stack_shapes = [((), (3,)), ((2,), (3,)), ((2,), ()), ((2,), (2, 2)), ((2, 3), (2,))]
 
     def _random_v_stacked(self, struct, base_stack, V):
@@ -178,13 +178,13 @@ class TestManifold(unittest.TestCase):
         return t3m.T3Tangent.randn(base, stack_shape=V, apply_gauge_projection=False)
 
     def test_unstack_stack_tangents(self):
-        # unstack_tangents peels the tangent stack V -> a V-shaped tree of tangents that SHARE the
+        # unstack_tangents peels the tangent stack K -> a K-shaped tree of tangents that SHARE the
         # base (same T3Basis object, one tangent space). stack_tangents inverts it.
         STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         for BASE_STACK, V in self.bv_stack_shapes:
             with self.subTest(BASE_STACK=BASE_STACK, V=V):
                 v = self._random_v_stacked(STRUCT, BASE_STACK, V)
-                dense = np.asarray(v.to_dense())  # V + G + (N...)
+                dense = np.asarray(v.to_dense())  # K + C + (N...)
                 tree = v.unstack_tangents()
 
                 for vidx in np.ndindex(*V):
@@ -200,13 +200,13 @@ class TestManifold(unittest.TestCase):
                 self.check_relerr(dense, rt.to_dense())
 
     def test_unstack_stack_basis(self):
-        # unstack_basis peels the base stack G -> a G-shaped tree of single-base-point tangents (each
-        # at a DIFFERENT base point, still carrying its V batch). stack_basis inverts it.
+        # unstack_basis peels the base stack C -> a C-shaped tree of single-base-point tangents (each
+        # at a DIFFERENT base point, still carrying its K batch). stack_basis inverts it.
         STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         for BASE_STACK, V in self.bv_stack_shapes:
             with self.subTest(BASE_STACK=BASE_STACK, V=V):
                 v = self._random_v_stacked(STRUCT, BASE_STACK, V)
-                dense = np.asarray(v.to_dense())  # V + G + (N...)
+                dense = np.asarray(v.to_dense())  # K + C + (N...)
                 nV = len(V)
                 tree = v.unstack_basis()
 
@@ -214,7 +214,7 @@ class TestManifold(unittest.TestCase):
                     leaf = _tree_get(tree, gidx)
                     self.assertEqual((), leaf.base_stack_shape)
                     self.assertEqual(V, leaf.tangent_stack_shape)
-                    ref = dense[(slice(None),) * nV + gidx]  # slice the interior G axes
+                    ref = dense[(slice(None),) * nV + gidx]  # slice the interior C axes
                     self.check_relerr(ref, leaf.to_dense())
 
                 rt = t3m.T3Tangent.stack_basis(tree)  # round-trip
@@ -284,8 +284,8 @@ class TestManifold(unittest.TestCase):
                 self.assertLessEqual(norm(np.asarray(u.norm()) - hs_norm), tol * max(1.0, norm(hs_norm)))
 
     def test_inner_norm_tangent_stacked(self):
-        # A T3Tangent may carry an extra OUTER tangent stack V (a batch of tangents sharing one base);
-        # inner/norm vectorize over the full V + G stack.
+        # A T3Tangent may carry an extra OUTER tangent stack K (a batch of tangents sharing one base);
+        # inner/norm vectorize over the full K + C stack.
         for BASE_STACK, V in [((), (3,)), ((2,), (3,)), ((2,), ())]:
             with self.subTest(BASE_STACK=BASE_STACK, V=V):
                 x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=BASE_STACK)
@@ -333,7 +333,7 @@ class TestManifold(unittest.TestCase):
                         for a, b in zip(zz, zz2):
                             self.check_relerr(b, a)
 
-                        # V-stack contract: probing the batch == stacking the per-tangent probes
+                        # K-stack contract: probing the batch == stacking the per-tangent probes
                         # (each single tangent shares the base), inserted at the V axis (after F).
                         if TANGENT_STACK != ():
                             per = [leaf.probe(ww) for leaf in v.unstack_tangents()]
@@ -456,8 +456,8 @@ class TestManifold(unittest.TestCase):
 
     def test_tangent_stacked_heavy_ops(self):
         # A K-stacked tangent is a batch of tangent vectors sharing one base (one per (v, g) pair).
-        # to_dense/to_t3/retract produce a V+G-stacked result whose every slice matches the
-        # corresponding unstacked tangent (the shared base point replicated across the tangent stack V).
+        # to_dense/to_t3/retract produce a K+C-stacked result whose every slice matches the
+        # corresponding unstacked tangent (the shared base point replicated across the tangent stack K).
         STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))  # minimal-rank, so retract preserves ranks
         for BASE_STACK, V in [((), (3,)), ((2,), (3,)), ((2,), ()), ((2,), (2, 2))]:
             with self.subTest(BASE_STACK=BASE_STACK, V=V):
@@ -482,7 +482,7 @@ class TestManifold(unittest.TestCase):
                     self.check_relerr(s.retract().to_dense(), retr[idx])
 
     def test_project_tangent_stacked(self):
-        # project a BATCH of inputs x (stack V+G) onto a base (stack G): the result is a K-stacked
+        # project a BATCH of inputs x (stack K+C) onto a base (stack G): the result is a K-stacked
         # tangent whose (v, g) slice equals projecting x[v, g] onto the shared base point base[g].
         STR_P = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         STR_X = ((6, 7, 5), (3, 4, 3), (1, 2, 2, 1))
@@ -497,7 +497,7 @@ class TestManifold(unittest.TestCase):
                 self.assertEqual(BASE_STACK, proj.base_stack_shape)
                 self.assertTrue(proj.is_gauged())
 
-                proj_dense = np.asarray(proj.to_dense())  # V + G + (N...)
+                proj_dense = np.asarray(proj.to_dense())  # K + C + (N...)
                 full = V + BASE_STACK
                 n_base = len(BASE_STACK)
                 for idx in np.ndindex(*full):

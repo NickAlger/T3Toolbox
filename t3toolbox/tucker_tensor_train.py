@@ -3327,7 +3327,7 @@ class TuckerTensorTrain:
         >>> result = x.probe(ww)
         >>> ii, jj = 1, 2          # T3 (base) stack index
         >>> ll, mm, nn =  3, 2, 0  # vector (probe) stack index
-        >>> # probes are stacked F + G (vector stack outer, T3 stack inner)
+        >>> # probes are stacked W + C (vector stack outer, T3 stack inner)
         >>> result_ij_lmn_0 = result[0][ll,mm,nn, ii,jj]
         >>> result_ij_lmn_1 = result[1][ll,mm,nn, ii,jj]
         >>> result_ij_lmn_2 = result[2][ll,mm,nn, ii,jj]

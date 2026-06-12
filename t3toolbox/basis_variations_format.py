@@ -153,7 +153,8 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         return tuple([G.shape[-3] for G in self.right_tt_cores]) + (self.right_tt_cores[-1].shape[-1],)
 
     @ft.cached_property
-    def stack_shape(self) -> typ.Tuple[int,...]:
+    def stack_shape(self) -> typ.Tuple[int,...]:   # C (base/core stack): the batch of base points, on every core
+        """The base/core stack ``C`` -- a batch of base points, shared by every core."""
         return self.up_tucker_cores[0].shape[:-2]
 
     @ft.cached_property
@@ -535,7 +536,14 @@ class T3Variations:
         return tuple([U.shape[-1] for U in self.tucker_variations])
 
     @ft.cached_property
-    def stack_shape(self) -> typ.Tuple[int,...]:
+    def stack_shape(self) -> typ.Tuple[int,...]:   # full leading stack K + C (split-agnostic on its own)
+        """The full leading stack ``K + C`` shared by every variation core.
+
+        ``T3Variations`` is **split-agnostic**: the tangent-stack ``K`` vs base-stack ``C`` split is
+        fixed only when paired with a :py:class:`T3Basis` (``check_bv_pair`` requires ``C`` to be the
+        trailing/inner part of this stack; :py:class:`~t3toolbox.manifold.T3Tangent` then exposes the
+        two parts). See ``docs/batching_and_stacking.md``.
+        """
         return self.tucker_variations[0].shape[:-2]
 
     @ft.cached_property
@@ -819,8 +827,8 @@ def bv_to_t3(
     '''
     check_bv_pair(basis, variations)
     # The term mixes a V+G-stacked variation core with G-stacked base cores (when the variation
-    # carries an extra tangent stack V); broadcast all cores to the common V+G stack so the result is
-    # a valid (uniform-stack) TuckerTensorTrain. A no-op when there is no tangent stack (V=()).
+    # carries an extra tangent stack K); broadcast all cores to the common K+C stack so the result is
+    # a valid (uniform-stack) TuckerTensorTrain. A no-op when there is no tangent stack (K=()).
     cores = t3_operations.broadcast_t3_to_common_stack(
         *bv_conversions.bv_to_t3(index, basis.data, variations.data)
     )
