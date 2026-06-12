@@ -29,6 +29,15 @@ __all__ = [
     'FGo_FGa_to_Gao',
     'Fo_FGa_to_Gao',
     'FGi_FGa_FGj_to_Giaj',
+    # Three-group (F probe, V tangent, G base) contractions for probing a V-stacked tangent.
+    'FVGa_Gaib_FGi_to_FVGb',
+    'FGa_Gaib_FVGi_to_FVGb',
+    'FVGa_Gaib_FGb_to_FVGi',
+    'FGa_Gaib_FVGb_to_FVGi',
+    'FGa_VGaib_FGi_to_FVGb',
+    'FGa_VGaib_FGb_to_FVGi',
+    'FGi_VGio_to_FVGo',
+    'FVGi_Gio_to_FVGo',
 ]
 
 
@@ -541,4 +550,306 @@ def FGi_FGa_FGj_to_Giaj(
 
     Giaj = Giaj.reshape(G_shape + i_shape + a_shape + j_shape)
     return Giaj
+
+
+###############################################################################
+# Three-group contractions (probing a V-stacked tangent).
+#
+# A third independent batch block V (a stack of tangent vectors sharing one base
+# point) joins the probe stack F and base stack G. Base-inner output order is
+# F + V + G (F outer, V middle, G inner -- see docs/batching_and_stacking.md).
+#
+# The split is recovered from shapes, never passed from the frontend. A function
+# self-infers when its operands include a G-only base core (pins len(G)) and an
+# F+G edge variable (pins len(F)). When the only "core" operand is a variation
+# core (V+G) with no G-only operand present, len(G) is underdetermined by the
+# operands alone, so n_base is supplied (computed locally in the sweep _func from
+# a G-only base core it already holds -- the same precedent as n_probe above).
+###############################################################################
+
+
+def FVGa_Gaib_FGi_to_FVGb(
+        FVGa: NDArray,  # F + V + G + (a,)   -- e.g. sigma (perturbation left edge var)
+        Gaib: NDArray,  # G + (a, i, b)      -- e.g. Q base core (G-only -> pins len(G))
+        FGi:  NDArray,  # F + G + (i,)       -- e.g. xi-hat base edge var (F+G -> pins len(F))
+) -> NDArray:           # F + V + G + (b,)
+    """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Three-group (F, V, G) base-inner contraction. Self-infers the split: Gaib (G-only) pins len(G),
+    FGi (F+G) pins len(F), and V is the remainder of FVGa. V rides on FVGa and the output and
+    broadcasts over the operands that lack it.
+    """
+    use_jax = tree_contains_jax((FVGa, Gaib, FGi))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    G_shape = Gaib.shape[:-3]
+    F_shape = FGi.shape[:-(len(G_shape) + 1)]
+    V_shape = FVGa.shape[len(F_shape):-(len(G_shape) + 1)]
+
+    a_shape = (Gaib.shape[-3],)
+    i_shape = (Gaib.shape[-2],)
+    b_shape = (Gaib.shape[-1],)
+
+    size_F = math.prod(F_shape)
+    size_V = math.prod(V_shape)
+    size_G = math.prod(G_shape)
+
+    FVGa = FVGa.reshape((size_F,) + (size_V,) + (size_G,) + a_shape)
+    Gaib = Gaib.reshape((size_G,) + a_shape + i_shape + b_shape)
+    FGi  = FGi.reshape((size_F,) + (size_G,) + i_shape)
+
+    path = ['einsum_path', (0, 1), (0, 1)]
+    if use_jax:
+        FVGb = xnp.einsum('FVGa,Gaib,FGi->FVGb', FVGa, Gaib, FGi)
+    else:
+        FVGb = xnp.einsum('FVGa,Gaib,FGi->FVGb', FVGa, Gaib, FGi, optimize=path)
+
+    FVGb = FVGb.reshape(F_shape + V_shape + G_shape + b_shape)
+    return FVGb
+
+
+def FGa_Gaib_FVGi_to_FVGb(
+        FGa:  NDArray,  # F + G + (a,)       -- e.g. mu-hat base edge var (F+G -> pins len(F))
+        Gaib: NDArray,  # G + (a, i, b)      -- e.g. O base core (G-only -> pins len(G))
+        FVGi: NDArray,  # F + V + G + (i,)   -- e.g. delta-xi (perturbation up edge var)
+) -> NDArray:           # F + V + G + (b,)
+    """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Three-group (F, V, G) base-inner contraction. Self-infers the split: Gaib (G-only) pins len(G),
+    FGa (F+G) pins len(F), and V is the remainder of FVGi.
+    """
+    use_jax = tree_contains_jax((FGa, Gaib, FVGi))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    G_shape = Gaib.shape[:-3]
+    F_shape = FGa.shape[:-(len(G_shape) + 1)]
+    V_shape = FVGi.shape[len(F_shape):-(len(G_shape) + 1)]
+
+    a_shape = (Gaib.shape[-3],)
+    i_shape = (Gaib.shape[-2],)
+    b_shape = (Gaib.shape[-1],)
+
+    size_F = math.prod(F_shape)
+    size_V = math.prod(V_shape)
+    size_G = math.prod(G_shape)
+
+    FGa  = FGa.reshape((size_F,) + (size_G,) + a_shape)
+    Gaib = Gaib.reshape((size_G,) + a_shape + i_shape + b_shape)
+    FVGi = FVGi.reshape((size_F,) + (size_V,) + (size_G,) + i_shape)
+
+    path = ['einsum_path', (0, 1), (0, 1)]
+    if use_jax:
+        FVGb = xnp.einsum('FGa,Gaib,FVGi->FVGb', FGa, Gaib, FVGi)
+    else:
+        FVGb = xnp.einsum('FGa,Gaib,FVGi->FVGb', FGa, Gaib, FVGi, optimize=path)
+
+    FVGb = FVGb.reshape(F_shape + V_shape + G_shape + b_shape)
+    return FVGb
+
+
+def FVGa_Gaib_FGb_to_FVGi(
+        FVGa: NDArray,  # F + V + G + (a,)   -- e.g. sigma (perturbation left edge var)
+        Gaib: NDArray,  # G + (a, i, b)      -- e.g. Q base core (G-only -> pins len(G))
+        FGb:  NDArray,  # F + G + (b,)       -- e.g. nu-hat base edge var (F+G -> pins len(F))
+) -> NDArray:           # F + V + G + (i,)
+    """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Three-group (F, V, G) base-inner contraction. Self-infers the split: Gaib (G-only) pins len(G),
+    FGb (F+G) pins len(F), and V is the remainder of FVGa.
+    """
+    use_jax = tree_contains_jax((FVGa, Gaib, FGb))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    G_shape = Gaib.shape[:-3]
+    F_shape = FGb.shape[:-(len(G_shape) + 1)]
+    V_shape = FVGa.shape[len(F_shape):-(len(G_shape) + 1)]
+
+    a_shape = (Gaib.shape[-3],)
+    i_shape = (Gaib.shape[-2],)
+    b_shape = (Gaib.shape[-1],)
+
+    size_F = math.prod(F_shape)
+    size_V = math.prod(V_shape)
+    size_G = math.prod(G_shape)
+
+    FVGa = FVGa.reshape((size_F,) + (size_V,) + (size_G,) + a_shape)
+    Gaib = Gaib.reshape((size_G,) + a_shape + i_shape + b_shape)
+    FGb  = FGb.reshape((size_F,) + (size_G,) + b_shape)
+
+    path = ['einsum_path', (0, 1), (0, 1)]
+    if use_jax:
+        FVGi = xnp.einsum('FVGa,Gaib,FGb->FVGi', FVGa, Gaib, FGb)
+    else:
+        FVGi = xnp.einsum('FVGa,Gaib,FGb->FVGi', FVGa, Gaib, FGb, optimize=path)
+
+    FVGi = FVGi.reshape(F_shape + V_shape + G_shape + i_shape)
+    return FVGi
+
+
+def FGa_Gaib_FVGb_to_FVGi(
+        FGa:  NDArray,  # F + G + (a,)       -- e.g. mu-hat base edge var (F+G -> pins len(F))
+        Gaib: NDArray,  # G + (a, i, b)      -- e.g. P base core (G-only -> pins len(G))
+        FVGb: NDArray,  # F + V + G + (b,)   -- e.g. tau (perturbation right edge var)
+) -> NDArray:           # F + V + G + (i,)
+    """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Three-group (F, V, G) base-inner contraction. Self-infers the split: Gaib (G-only) pins len(G),
+    FGa (F+G) pins len(F), and V is the remainder of FVGb.
+    """
+    use_jax = tree_contains_jax((FGa, Gaib, FVGb))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    G_shape = Gaib.shape[:-3]
+    F_shape = FGa.shape[:-(len(G_shape) + 1)]
+    V_shape = FVGb.shape[len(F_shape):-(len(G_shape) + 1)]
+
+    a_shape = (Gaib.shape[-3],)
+    i_shape = (Gaib.shape[-2],)
+    b_shape = (Gaib.shape[-1],)
+
+    size_F = math.prod(F_shape)
+    size_V = math.prod(V_shape)
+    size_G = math.prod(G_shape)
+
+    FGa  = FGa.reshape((size_F,) + (size_G,) + a_shape)
+    Gaib = Gaib.reshape((size_G,) + a_shape + i_shape + b_shape)
+    FVGb = FVGb.reshape((size_F,) + (size_V,) + (size_G,) + b_shape)
+
+    path = ['einsum_path', (0, 1), (0, 1)]
+    if use_jax:
+        FVGi = xnp.einsum('FGa,Gaib,FVGb->FVGi', FGa, Gaib, FVGb)
+    else:
+        FVGi = xnp.einsum('FGa,Gaib,FVGb->FVGi', FGa, Gaib, FVGb, optimize=path)
+
+    FVGi = FVGi.reshape(F_shape + V_shape + G_shape + i_shape)
+    return FVGi
+
+
+def FGa_VGaib_FGi_to_FVGb(
+        FGa:   NDArray,  # F + G + (a,)        -- e.g. mu-hat base edge var (F+G)
+        VGaib: NDArray,  # V + G + (a, i, b)   -- e.g. delta-G variation tt core (V+G)
+        FGi:   NDArray,  # F + G + (i,)        -- e.g. xi-hat base edge var (F+G)
+        n_base: int,     # len(G). The only core operand (VGaib) is V+G, so len(G) cannot be
+                         # recovered from these operands -- it is supplied (the n_probe precedent).
+) -> NDArray:            # F + V + G + (b,)
+    """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Three-group (F, V, G) base-inner contraction whose only core operand is a variation core (V+G).
+    The operands {F+G, V+G, F+G} do not pin len(G), so it is passed as ``n_base``.
+    """
+    use_jax = tree_contains_jax((FGa, VGaib, FGi))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    VG_shape = VGaib.shape[:-3]
+    G_shape = VG_shape[len(VG_shape) - n_base:]
+    V_shape = VG_shape[:len(VG_shape) - n_base]
+    F_shape = FGa.shape[:len(FGa.shape) - 1 - n_base]
+
+    a_shape = (VGaib.shape[-3],)
+    i_shape = (VGaib.shape[-2],)
+    b_shape = (VGaib.shape[-1],)
+
+    size_F = math.prod(F_shape)
+    size_V = math.prod(V_shape)
+    size_G = math.prod(G_shape)
+
+    FGa   = FGa.reshape((size_F,) + (size_G,) + a_shape)
+    VGaib = VGaib.reshape((size_V,) + (size_G,) + a_shape + i_shape + b_shape)
+    FGi   = FGi.reshape((size_F,) + (size_G,) + i_shape)
+
+    path = ['einsum_path', (0, 1), (0, 1)]
+    if use_jax:
+        FVGb = xnp.einsum('FGa,VGaib,FGi->FVGb', FGa, VGaib, FGi)
+    else:
+        FVGb = xnp.einsum('FGa,VGaib,FGi->FVGb', FGa, VGaib, FGi, optimize=path)
+
+    FVGb = FVGb.reshape(F_shape + V_shape + G_shape + b_shape)
+    return FVGb
+
+
+def FGa_VGaib_FGb_to_FVGi(
+        FGa:   NDArray,  # F + G + (a,)        -- e.g. mu-hat base edge var (F+G)
+        VGaib: NDArray,  # V + G + (a, i, b)   -- e.g. delta-G variation tt core (V+G)
+        FGb:   NDArray,  # F + G + (b,)        -- e.g. nu-hat base edge var (F+G)
+        n_base: int,     # len(G) (supplied; VGaib is V+G with no G-only operand to pin it).
+) -> NDArray:            # F + V + G + (i,)
+    """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Three-group (F, V, G) base-inner contraction whose only core operand is a variation core (V+G).
+    The operands {F+G, V+G, F+G} do not pin len(G), so it is passed as ``n_base``.
+    """
+    use_jax = tree_contains_jax((FGa, VGaib, FGb))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    VG_shape = VGaib.shape[:-3]
+    G_shape = VG_shape[len(VG_shape) - n_base:]
+    V_shape = VG_shape[:len(VG_shape) - n_base]
+    F_shape = FGa.shape[:len(FGa.shape) - 1 - n_base]
+
+    a_shape = (VGaib.shape[-3],)
+    i_shape = (VGaib.shape[-2],)
+    b_shape = (VGaib.shape[-1],)
+
+    size_F = math.prod(F_shape)
+    size_V = math.prod(V_shape)
+    size_G = math.prod(G_shape)
+
+    FGa   = FGa.reshape((size_F,) + (size_G,) + a_shape)
+    VGaib = VGaib.reshape((size_V,) + (size_G,) + a_shape + i_shape + b_shape)
+    FGb   = FGb.reshape((size_F,) + (size_G,) + b_shape)
+
+    path = ['einsum_path', (0, 1), (0, 1)]
+    if use_jax:
+        FVGi = xnp.einsum('FGa,VGaib,FGb->FVGi', FGa, VGaib, FGb)
+    else:
+        FVGi = xnp.einsum('FGa,VGaib,FGb->FVGi', FGa, VGaib, FGb, optimize=path)
+
+    FVGi = FVGi.reshape(F_shape + V_shape + G_shape + i_shape)
+    return FVGi
+
+
+def FGi_VGio_to_FVGo(
+        FGi:   NDArray,  # F + G + (i,)        -- e.g. eta-hat base edge var (F+G)
+        VGio:  NDArray,  # V + G + (i, o)      -- e.g. delta-U variation tucker core (V+G)
+        n_base: int,     # len(G) (supplied; VGio is V+G with no G-only operand to pin it).
+) -> NDArray:            # F + V + G + (o,)
+    """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Three-group (F, V, G) base-inner contraction whose only core operand is a variation core (V+G).
+    The operands {F+G, V+G} do not pin len(G), so it is passed as ``n_base``.
+    """
+    use_jax = tree_contains_jax((FGi, VGio))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    VG_shape = VGio.shape[:-2]
+    G_shape = VG_shape[len(VG_shape) - n_base:]
+    V_shape = VG_shape[:len(VG_shape) - n_base]
+    F_shape = FGi.shape[:len(FGi.shape) - 1 - n_base]
+
+    i_shape = (VGio.shape[-2],)
+    o_shape = (VGio.shape[-1],)
+
+    size_F = math.prod(F_shape)
+    size_V = math.prod(V_shape)
+    size_G = math.prod(G_shape)
+
+    FGi  = FGi.reshape((size_F,) + (size_G,) + i_shape)
+    VGio = VGio.reshape((size_V,) + (size_G,) + i_shape + o_shape)
+
+    FVGo = xnp.einsum('FGi,VGio->FVGo', FGi, VGio)
+
+    FVGo = FVGo.reshape(F_shape + V_shape + G_shape + o_shape)
+    return FVGo
+
+
+def FVGi_Gio_to_FVGo(
+        FVGi: NDArray,  # F + V + G + (i,)   -- e.g. delta-eta (perturbation down edge var)
+        Gio:  NDArray,  # G + (i, o)         -- e.g. U base tucker core (G-only)
+) -> NDArray:           # F + V + G + (o,)
+    """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Three-group name for readability; F and V fuse into one outer block and Gio is G-only, so this
+    is exactly the two-group ``FGi_Gio_to_FGo`` with the outer block being F+V. Delegates to it.
+    """
+    return FGi_Gio_to_FGo(FVGi, Gio)
 

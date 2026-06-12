@@ -19,6 +19,23 @@ tol = 1e-9
 numpy_randn = np.random.randn
 jax_randn = lambda *args: jnp.array(np.random.randn(*args))
 
+# Distinct einsum letters per grouped block (avoiding the single-index letters a, i, b, o).
+GROUP_POOL = {'F': 'fgh', 'V': 'vwx', 'G': 'mnp'}
+SINGLE_SIZE = {'a': 3, 'i': 4, 'b': 5, 'o': 6}
+
+# (F, V, G) stack shapes exercised by the three-group contractions: all present, V/F multi-axis,
+# each block empty in turn (V empty is the degenerate two-group reduction), and all empty.
+THREE_GROUP_COMBOS = [
+    ((2,),   (3,),   (2,)),
+    ((2,),   (3, 2), (2,)),
+    ((2, 2), (3,),   (2,)),
+    ((),     (3,),   (2,)),
+    ((2,),   (),     (2,)),
+    ((2,),   (3,),   ()),
+    ((),     (),     ()),
+]
+
+
 class TestContractions(unittest.TestCase):
     def check_relerr(self, xtrue, x):
         self.assertLessEqual(
@@ -447,5 +464,88 @@ class TestContractions(unittest.TestCase):
                 result2 = np.einsum('di,dio->do', dGFi, dGio)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
+
+    def _check_3group(self, func, op_specs, out_spec, needs_n_base=False):
+        """Check a three-group (F, V, G) contraction against an explicit np.einsum reference.
+
+        op_specs/out_spec are (groups, singles) pairs, e.g. ('FVG', 'a') or ('VG', 'aib'); each
+        grouped block is mapped to one of the THREE_GROUP_COMBOS stack shapes. needs_n_base passes
+        len(G) as the trailing argument (for the variation-core-only contractions).
+        """
+        for RANDN in [numpy_randn, jax_randn]:
+            for F, V, G in THREE_GROUP_COMBOS:
+                with self.subTest(RANDN=RANDN, F=F, V=V, G=G):
+                    stacks = {'F': F, 'V': V, 'G': G}
+                    glet = {grp: GROUP_POOL[grp][:len(stacks[grp])] for grp in 'FVG'}
+
+                    def sub(groups, singles):
+                        return ''.join(glet[grp] for grp in groups) + singles
+
+                    def shp(groups, singles):
+                        s = ()
+                        for grp in groups:
+                            s = s + tuple(stacks[grp])
+                        return s + tuple(SINGLE_SIZE[c] for c in singles)
+
+                    operands = [RANDN(*shp(grp, si)) for grp, si in op_specs]
+                    in_subs = ','.join(sub(grp, si) for grp, si in op_specs)
+                    out_sub = sub(*out_spec)
+                    ref = np.einsum(in_subs + '->' + out_sub, *operands)
+
+                    if needs_n_base:
+                        result = func(*operands, len(G))
+                    else:
+                        result = func(*operands)
+                    result = np.asarray(result)
+                    self.assertEqual(ref.shape, result.shape)
+                    self.check_relerr(ref, result)
+
+    def test_FVGa_Gaib_FGi_to_FVGb(self):
+        self._check_3group(
+            contractions.FVGa_Gaib_FGi_to_FVGb,
+            [('FVG', 'a'), ('G', 'aib'), ('FG', 'i')], ('FVG', 'b'),
+        )
+
+    def test_FGa_Gaib_FVGi_to_FVGb(self):
+        self._check_3group(
+            contractions.FGa_Gaib_FVGi_to_FVGb,
+            [('FG', 'a'), ('G', 'aib'), ('FVG', 'i')], ('FVG', 'b'),
+        )
+
+    def test_FVGa_Gaib_FGb_to_FVGi(self):
+        self._check_3group(
+            contractions.FVGa_Gaib_FGb_to_FVGi,
+            [('FVG', 'a'), ('G', 'aib'), ('FG', 'b')], ('FVG', 'i'),
+        )
+
+    def test_FGa_Gaib_FVGb_to_FVGi(self):
+        self._check_3group(
+            contractions.FGa_Gaib_FVGb_to_FVGi,
+            [('FG', 'a'), ('G', 'aib'), ('FVG', 'b')], ('FVG', 'i'),
+        )
+
+    def test_FGa_VGaib_FGi_to_FVGb(self):
+        self._check_3group(
+            contractions.FGa_VGaib_FGi_to_FVGb,
+            [('FG', 'a'), ('VG', 'aib'), ('FG', 'i')], ('FVG', 'b'), needs_n_base=True,
+        )
+
+    def test_FGa_VGaib_FGb_to_FVGi(self):
+        self._check_3group(
+            contractions.FGa_VGaib_FGb_to_FVGi,
+            [('FG', 'a'), ('VG', 'aib'), ('FG', 'b')], ('FVG', 'i'), needs_n_base=True,
+        )
+
+    def test_FGi_VGio_to_FVGo(self):
+        self._check_3group(
+            contractions.FGi_VGio_to_FVGo,
+            [('FG', 'i'), ('VG', 'io')], ('FVG', 'o'), needs_n_base=True,
+        )
+
+    def test_FVGi_Gio_to_FVGo(self):
+        self._check_3group(
+            contractions.FVGi_Gio_to_FVGo,
+            [('FVG', 'i'), ('G', 'io')], ('FVG', 'o'),
+        )
 
 
