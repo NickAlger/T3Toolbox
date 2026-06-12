@@ -965,11 +965,12 @@ def probe_tangent_transpose(
 ]:
     '''Apply the transpose of the map from a tangent vector to its probes (apply (J^(s))^T to ztildes).
 
-    Stacking (handled by the G/F custom contractions in ``contractions.py``): the residuals
-    ``ztildes`` live in the forward probe space, ``elm_shape = G + F + (Ni,)`` (T3 stack G, probe
-    stack F), while ``ww`` carries only the probe stack F. With ``sum_over_probes=False`` the
-    resulting variations keep both stacks (``G + F + ...``); with ``sum_over_probes=True`` the probe
-    stack F is summed and the T3 stack G is kept (``G + ...``).
+    Stacking (handled by the F/G custom contractions in ``contractions.py``): the residuals
+    ``ztildes`` live in the forward probe space, ``elm_shape = F + G + (Ni,)`` (probe stack F
+    outermost, T3 stack G innermost -- base-inner), while ``ww`` carries only the probe stack F. With
+    ``sum_over_probes=False`` the resulting variations keep both stacks (``F + G + ...``, the probe
+    stack F becoming the tangent stack V); with ``sum_over_probes=True`` the probe stack F is summed
+    and the T3 stack G is kept (``G + ...``).
 
     See Section 6.2.3, particularly Algorithm 8, in:
         Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
