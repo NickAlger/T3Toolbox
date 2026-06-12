@@ -148,8 +148,15 @@ So probing is built on the **named grouped-block contraction toolkit** in `backe
   `F_shape + G_shape + (b,)`.
 
 When you need a *third* private block (e.g. forward-probing a `V`-stacked tangent — `F` probes, `V`
-tangents, `G` base, all independent), you need a **3-block** contraction (`F`, `V`, `G`). The library
-currently has 1- and 2-block contractions; 3-block is **deferred** in favour of map-over-`V` (§7).
+tangents, `G` base, all independent), you need a **3-block** contraction (`F`, `V`, `G`). These exist
+as of slice 5c (the bottom of `contractions.py`, base-inner output `F + V + G`), used by the tangent
+probe's perturbation sweep. **The split is recovered from operand shapes, never passed in:** a
+`G`-only base core pins `len(G)` and an `F+G` edge variable pins `len(F)`, so most 3-block
+contractions self-infer `V` as the remainder; only the three whose *sole* core operand is a variation
+core (`V+G`, with no `G`-only operand present) take an `n_base` int — `{F+G, V+G, F+G}` is
+underdetermined by axis counts alone — recomputed inline in the sweep `_func` from a base core it
+already holds (the same precedent as `n_probe`). Each reduces to the corresponding 2-block contraction
+when `V` is empty. (The earlier plan to defer this in favour of map-over-`V` was reversed — see §7.)
 
 **Decision rule:** if your two batches are on the *same* operands → `'...'`. If they are on *different*
 operand subsets and must remain independent → a grouped-block contraction.
@@ -237,9 +244,13 @@ can be `jit`/`vmap`/`grad`-ed:
 - **`T3Tangent`: the BASIS is `aux_data`; only the variations are leaves.** The fixed frame is static;
   the moving tangent vector (the variations) is what you differentiate/optimize/`vmap`. Consequences:
   - **`vmap` over a `T3Tangent` maps over the variations = the `V` stack, basis fixed** — i.e.
-    `vmap`-over-`V` *is* the batch-of-tangents-sharing-one-base picture. This is the clean jax route for
-    5c (forward-probe a `V`-stacked tangent): `vmap` the 2-block probe over `V` (basis fixed as aux),
-    numpy path loops. Defer true 3-block (`F`,`V`,`G`) contractions until there's a perf need.
+    `vmap`-over-`V` *is* the batch-of-tangents-sharing-one-base picture, a clean jax route in general.
+    For 5c (forward-probe a `V`-stacked tangent) we deliberately did **not** use it: the probe instead
+    grew genuine 3-block (`F`,`V`,`G`) contractions (§4). Rationale — consistency with the
+    `contractions.py` toolkit (the blessed mechanism for independent blocks), no Python `V` loop on the
+    numpy path, and low-level einsums fold into XLA at least as well as a `vmap` (which can add
+    layout/transpose churn over a long function). The `vmap`-over-`V` picture still holds for other
+    ops; it just isn't how probing batches.
   - **The same-tangent-space identity guard survives `jit`.** `aux_data` is stored in the treedef and
     reconstructed *by reference*, so two tangents built from the same basis object keep
     `a.basis is b.basis` after flatten/unflatten — `inner`/`+` jit cleanly. It still fires for
@@ -299,7 +310,7 @@ The naming scheme encodes axis layout — once you know it, the einsums read the
 |---|---|
 | The `'...'`-einsum ops (broadcast a base over `V`/`F`) | `backend/t3_operations.py` (`to_dense`, `broadcast_t3_to_common_stack`), `backend/tangent_operations.py` (`tangent_to_dense/_t3`, gauge, `project_*`) |
 | The grouped-block contraction toolkit (`F`/`G`/`V` blocks) | `backend/contractions.py` |
-| Probing (the canonical 2-block `F`,`G` case) | `backend/probing.py`, `manifold.py` (`T3Tangent.probe`/`probe_transpose`) |
+| Probing (2-block `F`,`G`; 3-block `F`,`V`,`G` for a V-stacked tangent) | `backend/probing.py`, `manifold.py` (`T3Tangent.probe`/`probe_transpose`) |
 | Tree ↔ stacked-object (meaning 2) | `backend/stacking.py` |
 | Two-axis stack/unstack | `manifold.py` (`unstack_tangents`/`_basis`, `stack_*`) + `tangent_operations.py` (`*_stack` backend fns) |
 | The `V`/`G` split + bv-pair check | `basis_variations_format.py` (`check_bv_pair`), `manifold.py` (`base_stack_shape`/`tangent_stack_shape`/`stack_shape`) |

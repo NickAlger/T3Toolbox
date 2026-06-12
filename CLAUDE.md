@@ -186,10 +186,11 @@ Treat everything else as copied-in-and-not-yet-working until checked.
   guarantee every path; two latent bugs (a `t3svd` test bound, a hidden `np.einsum`) surfaced this way.
   Covered: `TuckerTensorTrain` + its backend; `basis_variations_format`; `manifold` (`T3Tangent` — full
   ragged port: linalg with the same-basis guard, gauge projections,
-  `to_dense`/`to_t3`/`zeros`/`randn`/`project`/`retract`, two-axis stacking, probing, checkers).
+  `to_dense`/`to_t3`/`zeros`/`randn`/`project`/`retract`, two-axis stacking, probing (incl. the
+  V-stacked forward probe via 3-group contractions), checkers).
   Tests: `tests/test_tucker_tensor_train.py`, `test_basis_variations_format.py`, `test_manifold.py`,
   `test_dispatch.py`, `backend/test_contractions.py` (suite ~45s).
-- **Probing + V-stacking (`backend/probing.py`, `manifold.py`)** — done through **slice 5b**; the
+- **Probing + V-stacking (`backend/probing.py`, `manifold.py`)** — done through **slice 5c**; the
   blow-by-blow is in git history, and `docs/probing_section6_notes.md` maps Section 6 of the paper
   (the Riemannian Jacobian) to the code. Delivered: forward/transpose probe
   (`T3Tangent.probe`/`probe_transpose` — bare `J^(s)`/`(J^(s))ᵀ`, no gauge `Π`); the whole pipeline
@@ -199,12 +200,18 @@ Treat everything else as copied-in-and-not-yet-working until checked.
   jax pytree registration (`T3Tangent` basis-as-aux). **The whole batch/stack design lives in
   [`docs/batching_and_stacking.md`](docs/batching_and_stacking.md) — read it before touching anything
   with stack axes.**
-  - **Only remaining piece — 5c: forward-probe a `V`-stacked tangent.** `T3Tangent.probe` rejects a
-    `V`-stacked input (the guard `tangent_stack_shape != ()`), because probing a *batch* of tangents
-    needs a 2nd private batch block (`V` on the variation, alongside `F` probes / `G` base) — i.e. a
-    3-block contraction. DECISION: **map-over-`V`** first (loop on numpy / `jax.vmap` over the variation
-    leaves with the basis fixed as aux — the pytree work makes this clean), removing the guard; defer
-    true 3-block contractions until a perf need.
+  - **5c (done): forward-probe a `V`-stacked tangent.** `T3Tangent.probe` now accepts a `V`-stacked
+    input (`m` base points, each carrying `k` tangent vectors sharing its frame), producing probes
+    stacked `F + V + G`. Implemented as a genuine **3-group contraction** (`F` probes × `V` tangents ×
+    `G` base) — the earlier map-over-`V`/`jax.vmap` plan was **reversed** in favour of low-level
+    einsums (consistency with the `contractions.py` toolkit, no numpy `V` loop, clean XLA folding).
+    The perturbation sweep (`compute_sigmas`/`detas`, `assemble_tangent_zs`) uses 8 new base-inner
+    `F+V+G` contractions; the base sweep is `V`-free. **The `V`/`G`/`F` split is recovered from
+    shapes, never threaded** — a `G`-only base core pins `len(G)` and an `F+G` edge var pins `len(F)`,
+    so most contractions self-infer; only the three whose sole core operand is a variation core
+    (`V+G`) take an `n_base`, recomputed inline in the sweep `_func` from a base core (the `n_probe`
+    precedent). They reduce to the 2-group result when `V=()`. See `docs/batching_and_stacking.md`
+    §4/§7. (Future idea — exploit orthonormal-`V` structure — parked in `docs/probing_section6_notes.md`.)
 - **Deferred / broken**: the uniform layer (`ut3_*`, `ubv_*`, `uniform_*`) — many modules don't even
   import; every `is_uniform` branch in the tangent code was dropped/stubbed. The weighted layer
   (parked `absorb_weights`). `OLD_*.py` files are still tracked.
