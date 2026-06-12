@@ -338,15 +338,21 @@ def compute_sigmas(
 
     def _func(sigma, x):
         Q, O, dG, xi, dxi, mu = x
-        t1 = contractions.FGa_Gaib_FGi_to_FGb(sigma, Q, xi)
-        t2 = contractions.FGa_Gaib_FGi_to_FGb(mu, dG, xi)
-        t3 = contractions.FGa_Gaib_FGi_to_FGb(mu, O, dxi)
+        # Three-group (F probe, V tangent, G base) contractions: sigma/dxi carry V, the base edge
+        # vars (xi, mu) and base cores (Q, O) do not. t1/t3 self-infer the split from a G-only base
+        # core; t2's only core is the variation core dG (V+G), so len(G) is supplied via n_base
+        # (recovered here from the G-only Q, the n_probe precedent). Reduces to the two-group result
+        # when V is empty.
+        n_base = Q.ndim - 3
+        t1 = contractions.FVGa_Gaib_FGi_to_FVGb(sigma, Q, xi)
+        t2 = contractions.FGa_VGaib_FGi_to_FVGb(mu, dG, xi, n_base)
+        t3 = contractions.FGa_Gaib_FVGi_to_FVGb(mu, O, dxi)
         sigma_next = t1 + t2 + t3
         return sigma_next, (sigma,)
 
-    # carry has the same leading stack as the edge variables (order-agnostic), plus the right bond
+    # carry sigma is F+V+G; take the leading stack from dxis (which carries V), not xis (F+G only)
     rR0 = right_tt_cores[0].shape[-3]
-    init = xnp.zeros(xis[0].shape[:-1] + (rR0,))
+    init = xnp.zeros(dxis[0].shape[:-1] + (rR0,))
 
     last_sigma, (sigmas,) = xscan(_func, init, (right_tt_cores, down_tt_cores, var_tt_cores, xis, dxis, mus))
     return sigmas
@@ -437,9 +443,12 @@ def compute_detas(
     else:
         def _func(x):
             P, Q, dG, mu, nu, sigma, tau = x
-            term1 = contractions.FGa_Gaib_FGb_to_FGi(sigma, Q, nu)
-            term2 = contractions.FGa_Gaib_FGb_to_FGi(mu, dG, nu)
-            term3 = contractions.FGa_Gaib_FGb_to_FGi(mu, P, tau)
+            # Three-group contractions (see compute_sigmas): sigma/tau carry V, mu/nu and base cores
+            # P/Q do not. term1/term3 self-infer; term2's only core is dG (V+G) -> n_base from Q.
+            n_base = Q.ndim - 3
+            term1 = contractions.FVGa_Gaib_FGb_to_FVGi(sigma, Q, nu)
+            term2 = contractions.FGa_VGaib_FGb_to_FVGi(mu, dG, nu, n_base)
+            term3 = contractions.FGa_Gaib_FVGb_to_FVGi(mu, P, tau)
             return (term1 + term2 + term3,)
 
         xs = (left_tt_cores, right_tt_cores, var_tt_cores, mus, nus, sigmas, taus)
@@ -481,8 +490,12 @@ def assemble_tangent_zs(
     else:
         def _func(x):
             B, dB, eta, deta = x
-            term1 = contractions.FGi_Gio_to_FGo(deta, B)
-            term2 = contractions.FGi_Gio_to_FGo(eta, dB)
+            # Three-group contractions (see compute_sigmas): deta carries V (term1 fuses F+V over the
+            # G-only base core B, via the delegator); eta is F+G and dB is the variation core V+G, so
+            # term2 needs len(G) -- recovered here from the G-only tucker core B (2 tensor axes).
+            n_base = B.ndim - 2
+            term1 = contractions.FVGi_Gio_to_FVGo(deta, B)
+            term2 = contractions.FGi_VGio_to_FVGo(eta, dB, n_base)
             return (term1 + term2,)
 
         (zs,) = xmap(_func, (tucker_cores, var_tucker_cores, etas, detas))

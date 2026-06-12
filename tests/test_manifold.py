@@ -312,19 +312,34 @@ class TestManifold(unittest.TestCase):
                 self.assertLessEqual(norm(np.asarray(u.norm()) - np.sqrt(np.abs(np.asarray(u.inner(u))))), tol)
 
     def test_tangent_probe(self):
-        # forward J^(s): v.probe(ww) == probe_dense(ww, v.to_dense()); probes are stacked F + G + (N,)
+        # forward J^(s): v.probe(ww) == probe_dense(ww, v.to_dense()); probes are stacked F + V + G + (N,)
         STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         for BASE_STACK in [(), (2,)]:
             for PROBE_STACK in [(), (2,)]:
-                with self.subTest(BASE_STACK=BASE_STACK, PROBE_STACK=PROBE_STACK):
-                    rnd = np.random.randn
-                    v = _random_tangent(STRUCT, stack_shape=BASE_STACK)
-                    ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
-                    zz = v.probe(ww)  # numpy/jax inferred from inputs
-                    zz2 = t3p.probe_dense(ww, v.to_dense())
-                    self.assertEqual(PROBE_STACK + BASE_STACK + (STRUCT[0][0],), tuple(np.asarray(zz[0]).shape))
-                    for a, b in zip(zz, zz2):
-                        self.check_relerr(b, a)
+                for TANGENT_STACK in [(), (2,)]:
+                    with self.subTest(BASE=BASE_STACK, PROBE=PROBE_STACK, TANGENT=TANGENT_STACK):
+                        rnd = np.random.randn
+                        x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=BASE_STACK)
+                        base, _ = bvf.t3_orthogonal_representations(x)
+                        v = t3m.T3Tangent.randn(base, stack_shape=TANGENT_STACK, apply_gauge_projection=False)
+                        ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
+
+                        zz = v.probe(ww)  # numpy/jax inferred from inputs
+                        zz2 = t3p.probe_dense(ww, v.to_dense())  # dense ground truth, also F + V + G
+                        self.assertEqual(
+                            PROBE_STACK + TANGENT_STACK + BASE_STACK + (STRUCT[0][0],),
+                            tuple(np.asarray(zz[0]).shape),
+                        )
+                        for a, b in zip(zz, zz2):
+                            self.check_relerr(b, a)
+
+                        # V-stack contract: probing the batch == stacking the per-tangent probes
+                        # (each single tangent shares the base), inserted at the V axis (after F).
+                        if TANGENT_STACK != ():
+                            per = [leaf.probe(ww) for leaf in v.unstack_tangents()]
+                            for i in range(len(STRUCT[0])):
+                                stacked = np.stack([np.asarray(p[i]) for p in per], axis=len(PROBE_STACK))
+                                self.check_relerr(stacked, np.asarray(zz[i]))
 
     def test_tangent_probe_transpose(self):
         # adjoint identity <z, J v> = <J^T z, v> (sum over probes); non-sum gives a V-stacked tangent

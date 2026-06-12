@@ -421,18 +421,17 @@ class T3Tangent:
     def probe(
             self,
             ww:         typ.Sequence[NDArray],  # probing vectors, len=d, elm_shape=F+(Ni,)
-    ) -> typ.Sequence[NDArray]:                 # probes, len=d, elm_shape=F+G+(Ni,)
+    ) -> typ.Sequence[NDArray]:                 # probes, len=d, elm_shape=F+V+G+(Ni,)
         """Probe this tangent vector: apply the single-sample least-squares Jacobian J^(s).
 
         Contracts the tangent vector with the probing vectors ``ww`` in all-but-one index, for each
         index -- the tangent analogue of :py:meth:`.TuckerTensorTrain.probe`. The probes are stacked
-        ``F + G`` (probe stack ``F`` from ``ww`` outermost, base stack ``G`` innermost).
+        ``F + V + G`` (probe stack ``F`` from ``ww`` outermost, tangent stack ``V`` next, base stack
+        ``G`` innermost). ``V`` is empty unless this is a tangent-stacked (V-stacked) T3Tangent, in
+        which case ``J^(s)`` is applied to each of the ``V`` tangent vectors sharing the base.
 
         This is the bare ``J^(s)`` (no gauge projector ``Pi``); for the Riemannian ``J = J^(s) o Pi``
         compose a gauge projection (e.g. :py:meth:`orthogonal_gauge_projection`) yourself.
-
-        Requires ``tangent_stack_shape == ()`` (probing a *batch* of tangents needs 3-block
-        contractions, not yet implemented).
 
         See Section 6.2.2 (Algorithms 6-7) of Alger et al. (2026), "Tucker Tensor Train Taylor
         Series" (arXiv:2603.21141).
@@ -458,12 +457,14 @@ class T3Tangent:
         >>> zz2 = t3p.probe_dense(ww, v.to_dense())   # dense reference
         >>> print([float(np.linalg.norm(a - b)) for a, b in zip(zz, zz2)])
         [1.9485689247039e-12, 4.4498813137605194e-12, 3.528192267475046e-12]
+
+        A tangent-stacked (V-stacked) tangent probes each of its ``V`` vectors, output ``F + V + G``:
+
+        >>> vb = t3m.T3Tangent.randn(base, stack_shape=(3,), apply_gauge_projection=False)
+        >>> zzb = vb.probe(ww)
+        >>> print(zzb[0].shape)            # F + V + G + (N0,) = (2,) + (3,) + () + (10,)
+        (2, 3, 10)
         """
-        if self.tangent_stack_shape != ():
-            raise ValueError(
-                'probe() does not support a tangent-stacked T3Tangent (tangent_stack_shape != ()).\n'
-                'Probing a batch of tangent vectors needs 3-block contractions (not yet implemented).'
-            )
         # probing's base order is exactly T3Basis.data = (up, down, left, right) -- no reorder.
         # numpy/jax dispatch is inferred from the input array types inside probing.
         return probing.probe_tangent(ww, self.variations.data, self.basis.data)
