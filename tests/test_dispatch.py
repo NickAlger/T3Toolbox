@@ -50,6 +50,7 @@ class TestDispatch(unittest.TestCase):
         cls.v_vstack = t3m.T3Tangent.randn(cls.base, stack_shape=(3,), apply_gauge_projection=False)  # V=(3,)
         cls.ww = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])  # probe stack F=(2,)
         cls.zz = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])  # F + G + (N,), G=()
+        cls.zz_vstack = tuple(jnp.array(np.random.randn(2, 3, N)) for N in STRUCT[0])  # F + V + G, V=(3,)
         cls.x_other = t3.TuckerTensorTrain.randn((4, 5, 6), (3, 3, 3), (1, 2, 2, 1)).to_jax()
 
     # ---------------------------------------------------------------- helpers
@@ -95,6 +96,11 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a, w: a.probe(w), self.v, self.ww)
         self.assert_jit_jax(lambda a, w: a.probe(w), self.v_vstack, self.ww)  # 3-group (F,V,G) probe
         self.assert_jit_jax(lambda z, w: t3m.T3Tangent.probe_transpose(z, w, base), self.zz, self.ww)
+        # V-stacked residuals (F+V+G) -> 3-group transpose assemble, both sum modes
+        self.assert_jit_jax(
+            lambda z, w: t3m.T3Tangent.probe_transpose(z, w, base, sum_over_probes=True), self.zz_vstack, self.ww)
+        self.assert_jit_jax(
+            lambda z, w: t3m.T3Tangent.probe_transpose(z, w, base), self.zz_vstack, self.ww)
 
     # ---------------------------------------------------- jit bucket: backend functions
     def test_jit_backend(self):

@@ -695,12 +695,16 @@ def compute_tau_tildes(
 
     def _func(tau_tilde, x):
         P, xi, deta_tilde, mu = x
-        t1 = contractions.FGa_Gaib_FGi_to_FGb(tau_tilde, P, xi)
-        t2 = contractions.FGa_Gaib_FGi_to_FGb(mu, P, deta_tilde)
+        # Three-group (F probe, V tangent, G base): tau_tilde/deta_tilde carry V (from the residual),
+        # xi/mu and the base core P do not. Both terms self-infer the split (P pins G, xi/mu pin F);
+        # reduces to the two-group result when V is empty (no V-stacked residual).
+        t1 = contractions.FVGa_Gaib_FGi_to_FVGb(tau_tilde, P, xi)
+        t2 = contractions.FGa_Gaib_FVGi_to_FVGb(mu, P, deta_tilde)
         tau_tilde_next = t1 + t2
         return tau_tilde_next, (tau_tilde,)
 
-    init = xnp.zeros(mus[0].shape[:-1] + (left_tt_cores[0].shape[-3],))
+    # carry tau_tilde is F+V+G; take the leading stack from deta_tildes (carries V), not mus (F+G).
+    init = xnp.zeros(deta_tildes[0].shape[:-1] + (left_tt_cores[0].shape[-3],))
 
     last_tau_tilde, (tau_tildes,) = xscan(_func, init, (left_tt_cores, xis, deta_tildes, mus))
     return tau_tildes
@@ -764,8 +768,10 @@ def compute_dxi_tildes(
     else:
         def _func(x):
             O, mu, nu, st, tt = x
-            term1 = contractions.FGa_Gaib_FGb_to_FGi(tt, O, nu)
-            term2 = contractions.FGa_Gaib_FGb_to_FGi(mu, O, st)
+            # Three-group (see compute_tau_tildes): tt/st carry V, mu/nu and the base core O do not.
+            # Both terms self-infer (O pins G, mu/nu pin F).
+            term1 = contractions.FVGa_Gaib_FGb_to_FVGi(tt, O, nu)
+            term2 = contractions.FGa_Gaib_FVGb_to_FVGi(mu, O, st)
             return (term1 + term2,)
 
         xs = (down_tt_cores, mus, nus, sigma_tildes, tau_tildes)
@@ -780,7 +786,6 @@ def assemble_tucker_variations(
         ww:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,Ni)
         etas:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
         sum_over_probes: bool = False,
-        n_probe: int = 0,  # number of trailing probe-stack axes; only used when sum_over_probes
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dU_tildes. len=d, elm_shape=(...,nOi,Ni)
     '''Assemble Tucker core variations, delta_U_tilde.
     Used for computing the transpose of the map from a tangent vector to its probes.
@@ -811,18 +816,23 @@ def assemble_tucker_variations(
     else:
         def _func(x):
             z_tilde, eta, w, dxi_tilde = x
+            # Three-group (F probe, V tangent, G base): z_tilde/dxi_tilde carry V, eta does not, w is
+            # F-only. n_probe = len(F) is recovered locally from the F-only probe vector w (the
+            # z_tilde (x) eta term needs it; the w (x) dxi_tilde term self-infers F from w). Output
+            # keeps V always; F is summed (V+G) or kept (F+V+G) per sum_over_probes. Reduces to the
+            # two-group result when V is empty.
+            n_probe = w.ndim - 1
             if sum_over_probes:
-                # sum over the probe stack F, keep the T3 stack G (raw '->ao' would sum both)
                 dU_tilde = (
-                        contractions.FGo_FGa_to_Gao(z_tilde, eta, n_probe)
+                        contractions.FVGo_FGa_to_VGao(z_tilde, eta, n_probe)
                         +
-                        contractions.Fo_FGa_to_Gao(w, dxi_tilde)
+                        contractions.Fo_FVGa_to_VGao(w, dxi_tilde)
                 )
             else:
                 dU_tilde = (
-                        xnp.einsum('...o,...a->...ao', z_tilde, eta)
+                        contractions.FVGo_FGa_to_FVGao(z_tilde, eta, n_probe)
                         +
-                        xnp.einsum('...o,...a->...ao', w, dxi_tilde)
+                        contractions.Fo_FVGa_to_FVGao(w, dxi_tilde)
                 )
             return (dU_tilde,)
 
@@ -898,34 +908,26 @@ def assemble_tt_variations(
     else:
         def _func(x):
             xi, mu, nu, sigma_tilde, tau_tilde, deta_tilde = x
+            # Three-group (F probe, V tangent, G base): the residual-derived edge vars sigma_tilde /
+            # tau_tilde / deta_tilde carry V (on the j / i / a leg respectively), the base edge vars
+            # xi/mu/nu do not. No operand here is F-only or G-only, so len(F)=n_probe is supplied;
+            # each contraction then derives G from an F+G operand and V from the F+V+G one. Output
+            # keeps V always; F is summed (V+G) or kept (F+V+G) per sum_over_probes.
             if sum_over_probes:
-                # sum over the probe stack F, keep the T3 stack G (raw '->iaj' would sum both)
                 dG_tilde = (
-                        contractions.FGi_FGa_FGj_to_Giaj(mu, xi, sigma_tilde, n_probe)
+                        contractions.FGi_FGa_FVGj_to_VGiaj(mu, xi, sigma_tilde, n_probe)
                         +
-                        contractions.FGi_FGa_FGj_to_Giaj(tau_tilde, xi, nu, n_probe)
+                        contractions.FVGi_FGa_FGj_to_VGiaj(tau_tilde, xi, nu, n_probe)
                         +
-                        contractions.FGi_FGa_FGj_to_Giaj(mu, deta_tilde, nu, n_probe)
+                        contractions.FGi_FVGa_FGj_to_VGiaj(mu, deta_tilde, nu, n_probe)
                 )
             else:
                 dG_tilde = (
-                        xnp.einsum(
-                            '...ia,...j->...iaj',
-                            xnp.einsum('...i,...a->...ia', mu, xi),
-                            sigma_tilde
-                        )
+                        contractions.FGi_FGa_FVGj_to_FVGiaj(mu, xi, sigma_tilde, n_probe)
                         +
-                        xnp.einsum(
-                            '...ia,...j->...iaj',
-                            xnp.einsum('...i,...a->...ia', tau_tilde, xi),
-                            nu
-                        )
+                        contractions.FVGi_FGa_FGj_to_FVGiaj(tau_tilde, xi, nu, n_probe)
                         +
-                        xnp.einsum(
-                            '...ia,...j->...iaj',
-                            xnp.einsum('...i,...a->...ia', mu, deta_tilde),
-                            nu
-                        )
+                        contractions.FGi_FVGa_FGj_to_FVGiaj(mu, deta_tilde, nu, n_probe)
                 )
             return (dG_tilde,)
 
@@ -1063,13 +1065,14 @@ def probe_tangent_transpose(
 
     #
 
-    # Number of trailing probe-stack (F) axes, used only when summing over probes. ww carries the
-    # probe stack F and the single shape axis Ni (ragged: ww[0].shape = F + (Ni,)).
+    # Number of trailing probe-stack (F) axes. Needed by the tt-assemble, whose operands are all F+G
+    # or F+V+G (no F-only operand to recover it from); the tucker-assemble recovers it itself from the
+    # F-only probe vectors ww. (ragged: ww[0].shape = F + (Ni,).)
     n_probe = ww[0].ndim - 1
 
     dU_tildes = assemble_tucker_variations(
         ztildes, dxi_tildes, ww, etas,
-        sum_over_probes=sum_over_probes, n_probe=n_probe,
+        sum_over_probes=sum_over_probes,
     )
 
     dG_tildes = assemble_tt_variations(

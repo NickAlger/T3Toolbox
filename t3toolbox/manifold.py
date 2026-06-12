@@ -478,11 +478,16 @@ class T3Tangent:
     ) -> 'T3Tangent':
         """Apply the transpose ``(J^(s))^T`` of the probe map to residuals; returns a T3Tangent at ``basis``.
 
-        The adjoint of :py:meth:`probe`. With ``sum_over_probes=False`` (default) the result is a
-        *batch* of tangents -- a T3Tangent whose tangent stack ``V`` is the probe stack ``F`` (one
-        tangent per probe residual; the ``F + G`` output is already in canonical ``V + G`` order, so
-        no reorder is needed). With ``sum_over_probes=True`` the probe stack is summed and the result
-        is a single tangent (``V = ()``) at ``basis`` -- the usual Gauss-Newton ``J^T r``.
+        The adjoint of :py:meth:`probe`. The residuals ``ztildes`` live in the forward probe space,
+        ``elm_shape = F + V + G + (Ni,)`` (probe stack ``F`` outer, optional tangent batch ``V``, base
+        stack ``G`` inner -- the output space of a ``V``-stacked :py:meth:`probe`; ``V`` is empty in
+        the common case). The tangent batch ``V`` is always carried to the result's tangent stack; the
+        probe stack ``F`` is summed or kept per ``sum_over_probes``:
+
+        - ``sum_over_probes=False`` (default): each probe residual becomes one tangent -- the result's
+          tangent stack is ``F + V`` (base stack ``G``).
+        - ``sum_over_probes=True``: the probe stack is summed -- the result's tangent stack is ``V``
+          (base stack ``G``) -- the usual Gauss-Newton ``J^T r`` (a single tangent when ``V = ()``).
 
         Bare ``(J^(s))^T`` (no gauge projector). See Section 6.2.3 (Algorithm 8) of Alger et al. (2026).
 
@@ -514,6 +519,14 @@ class T3Tangent:
         >>> JTz_batch = t3m.T3Tangent.probe_transpose(z, ww, base)  # sum_over_probes=False
         >>> print(JTz_batch.tangent_stack_shape, JTz_batch.base_stack_shape)
         (2,) ()
+
+        With ``V``-stacked residuals (``F + V + G``), the tangent batch ``V`` is carried through:
+
+        >>> zb = tuple(np.random.randn(2, 3, N) for N in (10, 11, 12))  # F=(2,), V=(3,), G=()
+        >>> print(t3m.T3Tangent.probe_transpose(zb, ww, base, sum_over_probes=True).tangent_stack_shape)
+        (3,)
+        >>> print(t3m.T3Tangent.probe_transpose(zb, ww, base).tangent_stack_shape)  # sum=False -> F + V
+        (2, 3)
         """
         # probing's base order is exactly T3Basis.data = (up, down, left, right) -- no reorder.
         # numpy/jax dispatch is inferred from the input array types inside probing.

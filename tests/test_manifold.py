@@ -342,29 +342,40 @@ class TestManifold(unittest.TestCase):
                                 self.check_relerr(stacked, np.asarray(zz[i]))
 
     def test_tangent_probe_transpose(self):
-        # adjoint identity <z, J v> = <J^T z, v> (sum over probes); non-sum gives a V-stacked tangent
+        # adjoint identity <z, J v> = <J^T z, v>; J^T accepts V-stacked residuals (F + V + G).
         STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         for BASE_STACK in [(), (2,)]:
             for PROBE_STACK in [(), (2,)]:
-                with self.subTest(BASE_STACK=BASE_STACK, PROBE_STACK=PROBE_STACK):
-                    rnd = np.random.randn
-                    x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=BASE_STACK)
-                    base, _ = bvf.t3_orthogonal_representations(x)
-                    v = t3m.T3Tangent.randn(base)
-                    ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
-                    z = tuple(rnd(*(PROBE_STACK + BASE_STACK + (N,))) for N in STRUCT[0])  # F + G + (N,)
+                for TANGENT_STACK in [(), (2,)]:
+                    with self.subTest(BASE=BASE_STACK, PROBE=PROBE_STACK, TANGENT=TANGENT_STACK):
+                        rnd = np.random.randn
+                        x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=BASE_STACK)
+                        base, _ = bvf.t3_orthogonal_representations(x)
+                        v = t3m.T3Tangent.randn(base, stack_shape=TANGENT_STACK, apply_gauge_projection=False)
+                        ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
+                        # residuals live in the forward probe space: F + V + G + (N,)
+                        z = tuple(rnd(*(PROBE_STACK + TANGENT_STACK + BASE_STACK + (N,))) for N in STRUCT[0])
 
-                    Jv = v.probe(ww)  # numpy/jax inferred from inputs
-                    JTz = t3m.T3Tangent.probe_transpose(z, ww, base, sum_over_probes=True)
-                    # <z, Jv> sums over F, G, N; <J^T z, v> = sum over G of JTz.inner(v) (which keeps G)
-                    lhs = float(np.sum([np.sum(np.asarray(a) * np.asarray(b)) for a, b in zip(z, Jv)]))
-                    rhs = float(np.sum(np.asarray(JTz.inner(v))))
-                    self.assertLessEqual(abs(lhs - rhs), tol * max(1.0, abs(lhs)))
+                        Jv = v.probe(ww)  # numpy/jax inferred from inputs
+                        JTz = t3m.T3Tangent.probe_transpose(z, ww, base, sum_over_probes=True)
+                        # full contraction of both sides (sums F, V, G, N) must agree
+                        lhs = float(np.sum([np.sum(np.asarray(a) * np.asarray(b)) for a, b in zip(z, Jv)]))
+                        rhs = float(np.sum(np.asarray(JTz.inner(v))))
+                        self.assertLessEqual(abs(lhs - rhs), tol * max(1.0, abs(lhs)))
 
-                    # without summing, the result is a tangent-stacked T3Tangent (V = probe stack)
-                    JTz_batch = t3m.T3Tangent.probe_transpose(z, ww, base)
-                    self.assertEqual(PROBE_STACK, JTz_batch.tangent_stack_shape)
-                    self.assertEqual(BASE_STACK, JTz_batch.base_stack_shape)
+                        # sum=True keeps V (base G), drops F; sum=False keeps F+V (base G)
+                        self.assertEqual(TANGENT_STACK, JTz.tangent_stack_shape)
+                        self.assertEqual(BASE_STACK, JTz.base_stack_shape)
+                        JTz_batch = t3m.T3Tangent.probe_transpose(z, ww, base)  # sum_over_probes=False
+                        self.assertEqual(PROBE_STACK + TANGENT_STACK, JTz_batch.tangent_stack_shape)
+                        self.assertEqual(BASE_STACK, JTz_batch.base_stack_shape)
+
+                        # sum=True == sum over the probe stack F of sum=False (validates sum=False)
+                        f_axes = tuple(range(len(PROBE_STACK)))
+                        for cs, cn in zip(JTz.variations.tucker_variations, JTz_batch.variations.tucker_variations):
+                            self.check_relerr(np.asarray(cs), np.asarray(cn).sum(axis=f_axes))
+                        for cs, cn in zip(JTz.variations.tt_variations, JTz_batch.variations.tt_variations):
+                            self.check_relerr(np.asarray(cs), np.asarray(cn).sum(axis=f_axes))
 
     def test_randn(self):
         base, _ = bvf.t3_orthogonal_representations(
