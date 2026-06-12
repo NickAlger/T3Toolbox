@@ -236,6 +236,11 @@ Treat everything else as copied-in-and-not-yet-working until checked.
 
 ## Open questions / TODO
 
+- **`apply`/`entries` for tangents — in progress.** `T3Tangent.apply`/`entries` (forward, the
+  all-modes special case of probing) are **done** (commit `5ac8db22`). The **adjoints** —
+  `T3Tangent.apply_transpose`/`entries_transpose` and `TuckerTensorTrain.apply_transpose`/
+  `entries_transpose` — are derived/verified but **not yet implemented**: see
+  [`docs/apply_entries_handoff.md`](docs/apply_entries_handoff.md) to resume.
 - **Which ops require a minimal-rank basis** (partly answered, full audit pending): gauge
   projections need orthogonality only; `inner`/`norm` Hilbert-Schmidt faithfulness needs orthogonal
   + minimal + gauged; `retract` preserves base ranks only on a minimal base; `project` works on any
