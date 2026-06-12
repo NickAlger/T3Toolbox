@@ -43,7 +43,7 @@ def tucker_tensor_train_entries(
             xi_XpI, tuple(range(-n_idx, 0)), tuple(range(n_idx)),
         )
 
-        mu_IXb = contractions.FGa_Gaib_FGi_to_FGb(
+        mu_IXb = contractions.WCa_Caib_WCi_to_WCb(
             mu_IXa, G_Xapb, xi_IXp,
         )
 

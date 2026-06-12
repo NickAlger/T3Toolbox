@@ -312,7 +312,7 @@ class TestManifold(unittest.TestCase):
                 self.assertLessEqual(norm(np.asarray(u.norm()) - np.sqrt(np.abs(np.asarray(u.inner(u))))), tol)
 
     def test_tangent_probe(self):
-        # forward J^(s): v.probe(ww) == probe_dense(ww, v.to_dense()); probes are stacked F + V + G + (N,)
+        # forward J^(s): v.probe(ww) == probe_dense(ww, v.to_dense()); probes are stacked W + K + C + (N,)
         STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         for BASE_STACK in [(), (2,)]:
             for PROBE_STACK in [(), (2,)]:
@@ -325,7 +325,7 @@ class TestManifold(unittest.TestCase):
                         ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
 
                         zz = v.probe(ww)  # numpy/jax inferred from inputs
-                        zz2 = t3p.probe_dense(ww, v.to_dense())  # dense ground truth, also F + V + G
+                        zz2 = t3p.probe_dense(ww, v.to_dense())  # dense ground truth, also W + K + C
                         self.assertEqual(
                             PROBE_STACK + TANGENT_STACK + BASE_STACK + (STRUCT[0][0],),
                             tuple(np.asarray(zz[0]).shape),
@@ -342,7 +342,7 @@ class TestManifold(unittest.TestCase):
                                 self.check_relerr(stacked, np.asarray(zz[i]))
 
     def test_tangent_probe_transpose(self):
-        # adjoint identity <z, J v> = <J^T z, v>; J^T accepts V-stacked residuals (F + V + G).
+        # adjoint identity <z, J v> = <J^T z, v>; J^T accepts K-stacked residuals (W + K + C).
         STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         for BASE_STACK in [(), (2,)]:
             for PROBE_STACK in [(), (2,)]:
@@ -353,7 +353,7 @@ class TestManifold(unittest.TestCase):
                         base, _ = bvf.t3_orthogonal_representations(x)
                         v = t3m.T3Tangent.randn(base, stack_shape=TANGENT_STACK, apply_gauge_projection=False)
                         ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
-                        # residuals live in the forward probe space: F + V + G + (N,)
+                        # residuals live in the forward probe space: W + K + C + (N,)
                         z = tuple(rnd(*(PROBE_STACK + TANGENT_STACK + BASE_STACK + (N,))) for N in STRUCT[0])
 
                         Jv = v.probe(ww)  # numpy/jax inferred from inputs
@@ -370,7 +370,7 @@ class TestManifold(unittest.TestCase):
                         self.assertEqual(PROBE_STACK + TANGENT_STACK, JTz_batch.tangent_stack_shape)
                         self.assertEqual(BASE_STACK, JTz_batch.base_stack_shape)
 
-                        # sum=True == sum over the probe stack F of sum=False (validates sum=False)
+                        # sum=True == sum over the probe stack W of sum=False (validates sum=False)
                         f_axes = tuple(range(len(PROBE_STACK)))
                         for cs, cn in zip(JTz.variations.tucker_variations, JTz_batch.variations.tucker_variations):
                             self.check_relerr(np.asarray(cs), np.asarray(cn).sum(axis=f_axes))
@@ -455,7 +455,7 @@ class TestManifold(unittest.TestCase):
                         self.assertLessEqual(float(ip), tol * norm(residual) * norm(w_dense))
 
     def test_tangent_stacked_heavy_ops(self):
-        # A V-stacked tangent is a batch of tangent vectors sharing one base (one per (v, g) pair).
+        # A K-stacked tangent is a batch of tangent vectors sharing one base (one per (v, g) pair).
         # to_dense/to_t3/retract produce a V+G-stacked result whose every slice matches the
         # corresponding unstacked tangent (the shared base point replicated across the tangent stack V).
         STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))  # minimal-rank, so retract preserves ranks
@@ -482,7 +482,7 @@ class TestManifold(unittest.TestCase):
                     self.check_relerr(s.retract().to_dense(), retr[idx])
 
     def test_project_tangent_stacked(self):
-        # project a BATCH of inputs x (stack V+G) onto a base (stack G): the result is a V-stacked
+        # project a BATCH of inputs x (stack V+G) onto a base (stack G): the result is a K-stacked
         # tangent whose (v, g) slice equals projecting x[v, g] onto the shared base point base[g].
         STR_P = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         STR_X = ((6, 7, 5), (3, 4, 3), (1, 2, 2, 1))

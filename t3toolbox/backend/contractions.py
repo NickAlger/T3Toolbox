@@ -9,70 +9,70 @@ import numpy as np
 from t3toolbox.backend.common import *
 
 # This is the grouped-block contraction toolkit for the case of TWO independent batch blocks on
-# DIFFERENT operand subsets (the core/base stack G vs the probe/tangent stack F/V), which a single
-# '...' cannot express. For the full design -- why base-inner (F/V outer, G inner), the naming
+# DIFFERENT operand subsets (the core/base stack C vs the probe/tangent stack W/K), which a single
+# '...' cannot express. For the full design -- why base-inner (W/K outer, C inner), the naming
 # scheme, and when to use this vs a plain '...' einsum -- see docs/batching_and_stacking.md (esp. §4).
 
 __all__ = [
-    'Fa_Gaib_Fi_to_FGb',
-    'GFa_Gaib_Fo_Gio_to_GFb',
-    'FGa_Gaib_Fo_Gio_to_FGb',
-    'GFa_Gaib_GiF_to_GFb',
-    'FGa_Gaib_FGi_to_FGb',
-    'Gio_Fo_to_FGi',
-    'dGio_dFo_to_dFGi',
-    'FGa_Gaib_FGb_to_FGi',
-    'dFGa_dGaib_dFGb_to_dFGi',
-    'FGi_Gio_to_FGo',
-    'dFGi_dGio_to_dFGo',
-    'FGo_Gio_to_FGi',
-    'FGo_FGa_to_Gao',
-    'Fo_FGa_to_Gao',
-    'FGi_FGa_FGj_to_Giaj',
-    # Three-group (F probe, V tangent, G base) contractions for probing a V-stacked tangent.
-    'FVGa_Gaib_FGi_to_FVGb',
-    'FGa_Gaib_FVGi_to_FVGb',
-    'FVGa_Gaib_FGb_to_FVGi',
-    'FGa_Gaib_FVGb_to_FVGi',
-    'FGa_VGaib_FGi_to_FVGb',
-    'FGa_VGaib_FGb_to_FVGi',
-    'FGi_VGio_to_FVGo',
-    'FVGi_Gio_to_FVGo',
-    # Transpose-assemble three-group (F,V,G) outer products that build variation cores.
-    'FVGo_FGa_to_FVGao',
-    'FVGo_FGa_to_VGao',
-    'Fo_FVGa_to_FVGao',
-    'Fo_FVGa_to_VGao',
-    'FGi_FGa_FVGj_to_FVGiaj',
-    'FGi_FGa_FVGj_to_VGiaj',
-    'FVGi_FGa_FGj_to_FVGiaj',
-    'FVGi_FGa_FGj_to_VGiaj',
-    'FGi_FVGa_FGj_to_FVGiaj',
-    'FGi_FVGa_FGj_to_VGiaj',
+    'Wa_Caib_Wi_to_WCb',
+    'CWa_Caib_Wo_Cio_to_CWb',
+    'WCa_Caib_Wo_Cio_to_WCb',
+    'CWa_Caib_CiW_to_CWb',
+    'WCa_Caib_WCi_to_WCb',
+    'Cio_Wo_to_WCi',
+    'dCio_dWo_to_dWCi',
+    'WCa_Caib_WCb_to_WCi',
+    'dWCa_dCaib_dWCb_to_dWCi',
+    'WCi_Cio_to_WCo',
+    'dWCi_dCio_to_dWCo',
+    'WCo_Cio_to_WCi',
+    'WCo_WCa_to_Cao',
+    'Wo_WCa_to_Cao',
+    'WCi_WCa_WCj_to_Ciaj',
+    # Three-group (W probe, K tangent, C base) contractions for probing a K-stacked tangent.
+    'WKCa_Caib_WCi_to_WKCb',
+    'WCa_Caib_WKCi_to_WKCb',
+    'WKCa_Caib_WCb_to_WKCi',
+    'WCa_Caib_WKCb_to_WKCi',
+    'WCa_KCaib_WCi_to_WKCb',
+    'WCa_KCaib_WCb_to_WKCi',
+    'WCi_KCio_to_WKCo',
+    'WKCi_Cio_to_WKCo',
+    # Transpose-assemble three-group (W,K,C) outer products that build variation cores.
+    'WKCo_WCa_to_WKCao',
+    'WKCo_WCa_to_KCao',
+    'Wo_WKCa_to_WKCao',
+    'Wo_WKCa_to_KCao',
+    'WCi_WCa_WKCj_to_WKCiaj',
+    'WCi_WCa_WKCj_to_KCiaj',
+    'WKCi_WCa_WCj_to_WKCiaj',
+    'WKCi_WCa_WCj_to_KCiaj',
+    'WCi_WKCa_WCj_to_WKCiaj',
+    'WCi_WKCa_WCj_to_KCiaj',
 ]
 
 
-def Fa_Gaib_Fi_to_FGb(
-        Fa: NDArray,
-        Gaib: NDArray,
-        Fi: NDArray,
+def Wa_Caib_Wi_to_WCb(
+        Wa: NDArray,
+        Caib: NDArray,
+        Wi: NDArray,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
     """
-    use_jax = tree_contains_jax((Fa, Gaib, Fi))
+    use_jax = tree_contains_jax((Wa, Caib, Wi))
     xnp, _, _ = get_backend(True, use_jax)
 
-    F_shape = Fa.shape[:-1]
-    G_shape = Gaib.shape[:-3]
+    W_shape = Wa.shape[:-1]
+    C_shape = Caib.shape[:-3]
 
-    a_shape = Fa.shape[-1:]
-    aib_shape = Gaib.shape[-3:]
-    b_shape = Gaib.shape[-1:]
-    i_shape = Fi.shape[-1:]
+    a_shape = Wa.shape[-1:]
+    aib_shape = Caib.shape[-3:]
+    b_shape = Caib.shape[-1:]
+    i_shape = Wi.shape[-1:]
 
-    Fa      = Fa.reshape((-1,)      + a_shape)
-    Gaib    = Gaib.reshape((-1,)    + aib_shape)
-    Fi      = Fi.reshape((-1,)      + i_shape)
+    Wa      = Wa.reshape((-1,)      + a_shape)
+    Caib    = Caib.reshape((-1,)    + aib_shape)
+    Wi      = Wi.reshape((-1,)      + i_shape)
 
     path = [
         'einsum_path',
@@ -81,88 +81,41 @@ def Fa_Gaib_Fi_to_FGb(
     ]
 
     if use_jax:
-        FGb = xnp.einsum('Fa,Gaib,Fi->FGb', Fa, Gaib, Fi)
+        WCb = xnp.einsum('Wa,Caib,Wi->WCb', Wa, Caib, Wi)
     else:
-        FGb = xnp.einsum('Fa,Gaib,Fi->FGb', Fa, Gaib, Fi, optimize=path)
+        WCb = xnp.einsum('Wa,Caib,Wi->WCb', Wa, Caib, Wi, optimize=path)
 
-    FGb = FGb.reshape(F_shape + G_shape + b_shape)
-    return FGb
+    WCb = WCb.reshape(W_shape + C_shape + b_shape)
+    return WCb
 
 
-def GFa_Gaib_Fo_Gio_to_GFb(
-        GFa: NDArray,
-        Gaib: NDArray,
-        Fo: NDArray,
-        Gio: NDArray,
+def CWa_Caib_Wo_Cio_to_CWb(
+        CWa: NDArray,
+        Caib: NDArray,
+        Wo: NDArray,
+        Cio: NDArray,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
     """
-    use_jax = tree_contains_jax((GFa, Gaib, Fo, Gio))
+    use_jax = tree_contains_jax((CWa, Caib, Wo, Cio))
     xnp, _, _ = get_backend(True, use_jax)
 
-    F_shape = Fo.shape[:-1]
-    G_shape = Gaib.shape[:-3]
-    a_shape = (Gaib.shape[-3],)
+    W_shape = Wo.shape[:-1]
+    C_shape = Caib.shape[:-3]
+    a_shape = (Caib.shape[-3],)
 
-    aib_shape = Gaib.shape[-3:]
-    io_shape = Gio.shape[-2:]
-    b_shape = Gaib.shape[-1:]
-    o_shape = Fo.shape[-1:]
+    aib_shape = Caib.shape[-3:]
+    io_shape = Cio.shape[-2:]
+    b_shape = Caib.shape[-1:]
+    o_shape = Wo.shape[-1:]
 
-    size_G = math.prod(G_shape)
-    size_F = math.prod(F_shape)
+    size_C = math.prod(C_shape)
+    size_W = math.prod(W_shape)
 
-    GFa     = GFa.reshape((size_G,) + (size_F,)      + a_shape)
-    Gaib    = Gaib.reshape((size_G,) + aib_shape)
-    Fo      = Fo.reshape((size_F,) + o_shape)
-    Gio     = Gio.reshape((size_G,) + io_shape)
-
-    path = [
-        'einsum_path',
-        (0, 1),
-        (0, 1),
-        (0, 1)
-    ]
-
-    if use_jax:
-        GFb = xnp.einsum('GFa,Gaib,Fo,Gio->GFb', GFa, Gaib, Fo, Gio) # let the compiler figure out the best path
-    else:
-        GFb = xnp.einsum('GFa,Gaib,Fo,Gio->GFb', GFa, Gaib, Fo, Gio, optimize=path)
-
-    GFb = GFb.reshape(G_shape + F_shape + b_shape)
-    return GFb
-
-
-def FGa_Gaib_Fo_Gio_to_FGb(
-        FGa: NDArray,
-        Gaib: NDArray,
-        Fo: NDArray,
-        Gio: NDArray,
-) -> NDArray:
-    """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
-
-    Base-inner convention: F (probe/extra stack) outermost, G (core stack) innermost. FG twin of
-    GFa_Gaib_Fo_Gio_to_GFb, used by the (base-inner) apply.
-    """
-    use_jax = tree_contains_jax((FGa, Gaib, Fo, Gio))
-    xnp, _, _ = get_backend(True, use_jax)
-
-    F_shape = Fo.shape[:-1]
-    G_shape = Gaib.shape[:-3]
-    a_shape = (Gaib.shape[-3],)
-
-    aib_shape = Gaib.shape[-3:]
-    io_shape = Gio.shape[-2:]
-    b_shape = Gaib.shape[-1:]
-    o_shape = Fo.shape[-1:]
-
-    size_G = math.prod(G_shape)
-    size_F = math.prod(F_shape)
-
-    FGa     = FGa.reshape((size_F,) + (size_G,)      + a_shape)
-    Gaib    = Gaib.reshape((size_G,) + aib_shape)
-    Fo      = Fo.reshape((size_F,) + o_shape)
-    Gio     = Gio.reshape((size_G,) + io_shape)
+    CWa     = CWa.reshape((size_C,) + (size_W,)      + a_shape)
+    Caib    = Caib.reshape((size_C,) + aib_shape)
+    Wo      = Wo.reshape((size_W,) + o_shape)
+    Cio     = Cio.reshape((size_C,) + io_shape)
 
     path = [
         'einsum_path',
@@ -172,38 +125,85 @@ def FGa_Gaib_Fo_Gio_to_FGb(
     ]
 
     if use_jax:
-        FGb = xnp.einsum('FGa,Gaib,Fo,Gio->FGb', FGa, Gaib, Fo, Gio)
+        CWb = xnp.einsum('CWa,Caib,Wo,Cio->CWb', CWa, Caib, Wo, Cio) # let the compiler figure out the best path
     else:
-        FGb = xnp.einsum('FGa,Gaib,Fo,Gio->FGb', FGa, Gaib, Fo, Gio, optimize=path)
+        CWb = xnp.einsum('CWa,Caib,Wo,Cio->CWb', CWa, Caib, Wo, Cio, optimize=path)
 
-    FGb = FGb.reshape(F_shape + G_shape + b_shape)
-    return FGb
+    CWb = CWb.reshape(C_shape + W_shape + b_shape)
+    return CWb
 
 
-def GFa_Gaib_GiF_to_GFb(
-        GFa: NDArray,
-        Gaib: NDArray,
-        GiF: NDArray,
+def WCa_Caib_Wo_Cio_to_WCb(
+        WCa: NDArray,
+        Caib: NDArray,
+        Wo: NDArray,
+        Cio: NDArray,
+) -> NDArray:
+    """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Base-inner convention: W (probe/extra stack) outermost, C (core stack) innermost. WC twin of
+    CWa_Caib_Wo_Cio_to_CWb, used by the (base-inner) apply.
+    """
+    use_jax = tree_contains_jax((WCa, Caib, Wo, Cio))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    W_shape = Wo.shape[:-1]
+    C_shape = Caib.shape[:-3]
+    a_shape = (Caib.shape[-3],)
+
+    aib_shape = Caib.shape[-3:]
+    io_shape = Cio.shape[-2:]
+    b_shape = Caib.shape[-1:]
+    o_shape = Wo.shape[-1:]
+
+    size_C = math.prod(C_shape)
+    size_W = math.prod(W_shape)
+
+    WCa     = WCa.reshape((size_W,) + (size_C,)      + a_shape)
+    Caib    = Caib.reshape((size_C,) + aib_shape)
+    Wo      = Wo.reshape((size_W,) + o_shape)
+    Cio     = Cio.reshape((size_C,) + io_shape)
+
+    path = [
+        'einsum_path',
+        (0, 1),
+        (0, 1),
+        (0, 1)
+    ]
+
+    if use_jax:
+        WCb = xnp.einsum('WCa,Caib,Wo,Cio->WCb', WCa, Caib, Wo, Cio)
+    else:
+        WCb = xnp.einsum('WCa,Caib,Wo,Cio->WCb', WCa, Caib, Wo, Cio, optimize=path)
+
+    WCb = WCb.reshape(W_shape + C_shape + b_shape)
+    return WCb
+
+
+def CWa_Caib_CiW_to_CWb(
+        CWa: NDArray,
+        Caib: NDArray,
+        CiW: NDArray,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
     """
-    use_jax = tree_contains_jax((GFa, Gaib, GiF))
+    use_jax = tree_contains_jax((CWa, Caib, CiW))
     xnp, _, _ = get_backend(True, use_jax)
 
-    G_shape = Gaib.shape[:-3]
-    i_shape = (Gaib.shape[-2],)
-    F_shape = GFa.shape[len(G_shape):-1]
+    C_shape = Caib.shape[:-3]
+    i_shape = (Caib.shape[-2],)
+    W_shape = CWa.shape[len(C_shape):-1]
 
-    a_shape = GFa.shape[-1:]
-    aib_shape = Gaib.shape[-3:]
-    b_shape = Gaib.shape[-1:]
+    a_shape = CWa.shape[-1:]
+    aib_shape = Caib.shape[-3:]
+    b_shape = Caib.shape[-1:]
 
-    size_F = math.prod(F_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
 
-    GFa     = GFa.reshape((size_G,) + (size_F,) + a_shape)
-    Gaib    = Gaib.reshape((size_G,) + aib_shape)
-    GiF     = GiF.reshape((size_G,) + i_shape + (size_F,))
+    CWa     = CWa.reshape((size_C,) + (size_W,) + a_shape)
+    Caib    = Caib.reshape((size_C,) + aib_shape)
+    CiW     = CiW.reshape((size_C,) + i_shape + (size_W,))
 
     path = [
         'einsum_path',
@@ -212,40 +212,40 @@ def GFa_Gaib_GiF_to_GFb(
     ]
 
     if use_jax:
-        GFb = xnp.einsum('GFa,Gaib,GiF->GFb', GFa, Gaib, GiF)
+        CWb = xnp.einsum('CWa,Caib,CiW->CWb', CWa, Caib, CiW)
     else:
-        GFb = xnp.einsum('GFa,Gaib,GiF->GFb', GFa, Gaib, GiF, optimize=path)
+        CWb = xnp.einsum('CWa,Caib,CiW->CWb', CWa, Caib, CiW, optimize=path)
 
-    GFb = GFb.reshape(G_shape + F_shape + b_shape)
-    return GFb
+    CWb = CWb.reshape(C_shape + W_shape + b_shape)
+    return CWb
 
 
-def FGa_Gaib_FGi_to_FGb(
-        FGa: NDArray,
-        Gaib: NDArray,
-        FGi: NDArray,
+def WCa_Caib_WCi_to_WCb(
+        WCa: NDArray,
+        Caib: NDArray,
+        WCi: NDArray,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
-    Base-inner convention: F (probe/extra stack) outermost, G (core stack) innermost.
+    Base-inner convention: W (probe/extra stack) outermost, C (core stack) innermost.
     """
-    use_jax = tree_contains_jax((FGa, Gaib, FGi))
+    use_jax = tree_contains_jax((WCa, Caib, WCi))
     xnp, _, _ = get_backend(True, use_jax)
 
-    G_shape = Gaib.shape[:-3]
-    i_shape = (Gaib.shape[-2],)
-    F_shape = FGa.shape[:-(len(G_shape) + 1)]
+    C_shape = Caib.shape[:-3]
+    i_shape = (Caib.shape[-2],)
+    W_shape = WCa.shape[:-(len(C_shape) + 1)]
 
-    a_shape = FGa.shape[-1:]
-    aib_shape = Gaib.shape[-3:]
-    b_shape = Gaib.shape[-1:]
+    a_shape = WCa.shape[-1:]
+    aib_shape = Caib.shape[-3:]
+    b_shape = Caib.shape[-1:]
 
-    size_F = math.prod(F_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
 
-    FGa     = FGa.reshape((size_F,) + (size_G,) + a_shape)
-    Gaib    = Gaib.reshape((size_G,) + aib_shape)
-    FGi     = FGi.reshape((size_F,) + (size_G,) + i_shape)
+    WCa     = WCa.reshape((size_W,) + (size_C,) + a_shape)
+    Caib    = Caib.reshape((size_C,) + aib_shape)
+    WCi     = WCi.reshape((size_W,) + (size_C,) + i_shape)
 
     path = [
         'einsum_path',
@@ -254,976 +254,976 @@ def FGa_Gaib_FGi_to_FGb(
     ]
 
     if use_jax:
-        FGb = xnp.einsum('FGa,Gaib,FGi->FGb', FGa, Gaib, FGi)
+        WCb = xnp.einsum('WCa,Caib,WCi->WCb', WCa, Caib, WCi)
     else:
-        FGb = xnp.einsum('FGa,Gaib,FGi->FGb', FGa, Gaib, FGi, optimize=path)
+        WCb = xnp.einsum('WCa,Caib,WCi->WCb', WCa, Caib, WCi, optimize=path)
 
-    FGb = FGb.reshape(F_shape + G_shape + b_shape)
-    return FGb
+    WCb = WCb.reshape(W_shape + C_shape + b_shape)
+    return WCb
 
 
-def Gio_Fo_to_FGi(
-        Gio: NDArray,
-        Fo: NDArray,
+def Cio_Wo_to_WCi(
+        Cio: NDArray,
+        Wo: NDArray,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
-    Base-inner convention: F (probe/extra stack) outermost, G (core stack) innermost.
+    Base-inner convention: W (probe/extra stack) outermost, C (core stack) innermost.
     """
-    use_jax = tree_contains_jax((Gio, Fo))
+    use_jax = tree_contains_jax((Cio, Wo))
     xnp, _, _ = get_backend(True, use_jax)
 
-    G_shape = Gio.shape[:-2]
-    i_shape = (Gio.shape[-2],)
-    o_shape = (Gio.shape[-1],)
-    F_shape = Fo.shape[:-1]
+    C_shape = Cio.shape[:-2]
+    i_shape = (Cio.shape[-2],)
+    o_shape = (Cio.shape[-1],)
+    W_shape = Wo.shape[:-1]
 
-    size_F = math.prod(F_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
 
-    Gio = Gio.reshape((size_G,) + i_shape + o_shape)
-    Fo  = Fo.reshape((size_F,) + o_shape)
+    Cio = Cio.reshape((size_C,) + i_shape + o_shape)
+    Wo  = Wo.reshape((size_W,) + o_shape)
 
-    FGi = xnp.einsum('Gio,Fo->FGi', Gio, Fo)
+    WCi = xnp.einsum('Cio,Wo->WCi', Cio, Wo)
 
-    FGi = FGi.reshape(F_shape + G_shape + i_shape)
-    return FGi
+    WCi = WCi.reshape(W_shape + C_shape + i_shape)
+    return WCi
 
 
-def dGio_dFo_to_dFGi(
-        dGio: NDArray,
-        dFo: NDArray,
+def dCio_dWo_to_dWCi(
+        dCio: NDArray,
+        dWo: NDArray,
         use_jax: bool = False,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
-    Base-inner convention: F (probe/extra stack) outermost, G (core stack) innermost.
+    Base-inner convention: W (probe/extra stack) outermost, C (core stack) innermost.
     """
     xnp, _, _ = get_backend(True, use_jax)
 
-    d_shape = (dGio.shape[0],)
-    G_shape = dGio.shape[1:-2]
-    i_shape = (dGio.shape[-2],)
-    o_shape = (dGio.shape[-1],)
-    F_shape = dFo.shape[1:-1]
+    d_shape = (dCio.shape[0],)
+    C_shape = dCio.shape[1:-2]
+    i_shape = (dCio.shape[-2],)
+    o_shape = (dCio.shape[-1],)
+    W_shape = dWo.shape[1:-1]
 
-    size_F = math.prod(F_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
 
-    dGio = dGio.reshape(d_shape + (size_G,) + i_shape + o_shape)
-    dFo  = dFo.reshape(d_shape + (size_F,) + o_shape)
+    dCio = dCio.reshape(d_shape + (size_C,) + i_shape + o_shape)
+    dWo  = dWo.reshape(d_shape + (size_W,) + o_shape)
 
-    dFGi = xnp.einsum('dGio,dFo->dFGi', dGio, dFo)
+    dWCi = xnp.einsum('dCio,dWo->dWCi', dCio, dWo)
 
-    dFGi = dFGi.reshape(d_shape + F_shape + G_shape + i_shape)
-    return dFGi
+    dWCi = dWCi.reshape(d_shape + W_shape + C_shape + i_shape)
+    return dWCi
 
 
-def FGa_Gaib_FGb_to_FGi(
-        FGa: NDArray,
-        Gaib: NDArray,
-        FGb: NDArray,
+def WCa_Caib_WCb_to_WCi(
+        WCa: NDArray,
+        Caib: NDArray,
+        WCb: NDArray,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
-    Base-inner convention: F (probe/extra stack) outermost, G (core stack) innermost.
+    Base-inner convention: W (probe/extra stack) outermost, C (core stack) innermost.
     """
-    use_jax = tree_contains_jax((FGa, Gaib, FGb))
+    use_jax = tree_contains_jax((WCa, Caib, WCb))
     xnp, _, _ = get_backend(True, use_jax)
 
-    G_shape = Gaib.shape[:-3]
-    a_shape = (Gaib.shape[-3],)
-    i_shape = (Gaib.shape[-2],)
-    b_shape = (Gaib.shape[-1],)
-    F_shape = FGa.shape[:-(len(G_shape) + 1)]
+    C_shape = Caib.shape[:-3]
+    a_shape = (Caib.shape[-3],)
+    i_shape = (Caib.shape[-2],)
+    b_shape = (Caib.shape[-1],)
+    W_shape = WCa.shape[:-(len(C_shape) + 1)]
 
-    size_F = math.prod(F_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
 
-    FGa     = FGa.reshape((size_F,) + (size_G,) + a_shape)
-    Gaib    = Gaib.reshape((size_G,) + a_shape + i_shape + b_shape)
-    FGb     = FGb.reshape((size_F,) + (size_G,) + b_shape)
+    WCa     = WCa.reshape((size_W,) + (size_C,) + a_shape)
+    Caib    = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
+    WCb     = WCb.reshape((size_W,) + (size_C,) + b_shape)
 
-    FGi = xnp.einsum('FGa,Gaib,FGb->FGi', FGa, Gaib, FGb)
+    WCi = xnp.einsum('WCa,Caib,WCb->WCi', WCa, Caib, WCb)
 
-    FGi = FGi.reshape(F_shape + G_shape + i_shape)
-    return FGi
+    WCi = WCi.reshape(W_shape + C_shape + i_shape)
+    return WCi
 
 
-def dFGa_dGaib_dFGb_to_dFGi(
-        dFGa: NDArray,
-        dGaib: NDArray,
-        dFGb: NDArray,
+def dWCa_dCaib_dWCb_to_dWCi(
+        dWCa: NDArray,
+        dCaib: NDArray,
+        dWCb: NDArray,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
-    Base-inner convention: F (probe/extra stack) outermost, G (core stack) innermost.
+    Base-inner convention: W (probe/extra stack) outermost, C (core stack) innermost.
     """
-    use_jax = tree_contains_jax((dFGa, dGaib, dFGb))
+    use_jax = tree_contains_jax((dWCa, dCaib, dWCb))
     xnp, _, _ = get_backend(True, use_jax)
 
-    d_shape = (dGaib.shape[0],)
-    G_shape = dGaib.shape[1:-3]
-    a_shape = (dGaib.shape[-3],)
-    i_shape = (dGaib.shape[-2],)
-    b_shape = (dGaib.shape[-1],)
-    F_shape = dFGa.shape[1:-(len(G_shape) + 1)]
+    d_shape = (dCaib.shape[0],)
+    C_shape = dCaib.shape[1:-3]
+    a_shape = (dCaib.shape[-3],)
+    i_shape = (dCaib.shape[-2],)
+    b_shape = (dCaib.shape[-1],)
+    W_shape = dWCa.shape[1:-(len(C_shape) + 1)]
 
-    size_F = math.prod(F_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
 
-    dFGa    = dFGa.reshape(d_shape + (size_F,) + (size_G,) + a_shape)
-    dGaib   = dGaib.reshape(d_shape + (size_G,) + a_shape + i_shape + b_shape)
-    dFGb    = dFGb.reshape(d_shape + (size_F,) + (size_G,) + b_shape)
+    dWCa    = dWCa.reshape(d_shape + (size_W,) + (size_C,) + a_shape)
+    dCaib   = dCaib.reshape(d_shape + (size_C,) + a_shape + i_shape + b_shape)
+    dWCb    = dWCb.reshape(d_shape + (size_W,) + (size_C,) + b_shape)
 
-    dFGi = xnp.einsum('dFGa,dGaib,dFGb->dFGi', dFGa, dGaib, dFGb)
+    dWCi = xnp.einsum('dWCa,dCaib,dWCb->dWCi', dWCa, dCaib, dWCb)
 
-    dFGi = dFGi.reshape(d_shape + F_shape + G_shape + i_shape)
-    return dFGi
+    dWCi = dWCi.reshape(d_shape + W_shape + C_shape + i_shape)
+    return dWCi
 
 
-def FGi_Gio_to_FGo(
-        FGi: NDArray,
-        Gio: NDArray,
+def WCi_Cio_to_WCo(
+        WCi: NDArray,
+        Cio: NDArray,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
-    Base-inner convention: F (probe/extra stack) outermost, G (core stack) innermost.
+    Base-inner convention: W (probe/extra stack) outermost, C (core stack) innermost.
     """
-    use_jax = tree_contains_jax((FGi, Gio))
+    use_jax = tree_contains_jax((WCi, Cio))
     xnp, _, _ = get_backend(True, use_jax)
 
-    G_shape = Gio.shape[:-2]
-    i_shape = (Gio.shape[-2],)
-    o_shape = (Gio.shape[-1],)
-    F_shape = FGi.shape[:-(len(G_shape) + 1)]
+    C_shape = Cio.shape[:-2]
+    i_shape = (Cio.shape[-2],)
+    o_shape = (Cio.shape[-1],)
+    W_shape = WCi.shape[:-(len(C_shape) + 1)]
 
-    size_F = math.prod(F_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
 
-    Gio = Gio.reshape((size_G,) + i_shape + o_shape)
-    FGi = FGi.reshape((size_F,) + (size_G,) + i_shape)
+    Cio = Cio.reshape((size_C,) + i_shape + o_shape)
+    WCi = WCi.reshape((size_W,) + (size_C,) + i_shape)
 
-    FGo = xnp.einsum('FGi,Gio->FGo', FGi, Gio)
+    WCo = xnp.einsum('WCi,Cio->WCo', WCi, Cio)
 
-    FGo = FGo.reshape(F_shape + G_shape + o_shape)
-    return FGo
+    WCo = WCo.reshape(W_shape + C_shape + o_shape)
+    return WCo
 
 
-def dFGi_dGio_to_dFGo(
-        dFGi: NDArray,
-        dGio: NDArray,
+def dWCi_dCio_to_dWCo(
+        dWCi: NDArray,
+        dCio: NDArray,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
-    Base-inner convention: F (probe/extra stack) outermost, G (core stack) innermost.
+    Base-inner convention: W (probe/extra stack) outermost, C (core stack) innermost.
     """
-    use_jax = tree_contains_jax((dFGi, dGio))
+    use_jax = tree_contains_jax((dWCi, dCio))
     xnp, _, _ = get_backend(True, use_jax)
 
-    d_shape = (dGio.shape[0],)
-    G_shape = dGio.shape[1:-2]
-    i_shape = (dGio.shape[-2],)
-    o_shape = (dGio.shape[-1],)
-    F_shape = dFGi.shape[1:-(len(G_shape) + 1)]
+    d_shape = (dCio.shape[0],)
+    C_shape = dCio.shape[1:-2]
+    i_shape = (dCio.shape[-2],)
+    o_shape = (dCio.shape[-1],)
+    W_shape = dWCi.shape[1:-(len(C_shape) + 1)]
 
-    size_F = math.prod(F_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
 
-    dGio = dGio.reshape(d_shape + (size_G,) + i_shape + o_shape)
-    dFGi  = dFGi.reshape(d_shape + (size_F,) + (size_G,) + i_shape)
+    dCio = dCio.reshape(d_shape + (size_C,) + i_shape + o_shape)
+    dWCi  = dWCi.reshape(d_shape + (size_W,) + (size_C,) + i_shape)
 
-    dFGo = xnp.einsum('dFGi,dGio->dFGo', dFGi, dGio)
+    dWCo = xnp.einsum('dWCi,dCio->dWCo', dWCi, dCio)
 
-    dFGo = dFGo.reshape(d_shape + F_shape + G_shape + o_shape)
-    return dFGo
+    dWCo = dWCo.reshape(d_shape + W_shape + C_shape + o_shape)
+    return dWCo
 
 
-def FGo_Gio_to_FGi(
-        FGo: NDArray,
-        Gio: NDArray,
+def WCo_Cio_to_WCi(
+        WCo: NDArray,
+        Cio: NDArray,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
-    Unlike Gio_Fo_to_FGi (which forms an outer product over the two stacks), here G is a *shared*
-    batch on both operands: Gio carries the T3 stack G only, FGo carries the probe stack F and G.
-    Base-inner convention: F outermost, G innermost.
+    Unlike Cio_Wo_to_WCi (which forms an outer product over the two stacks), here C is a *shared*
+    batch on both operands: Cio carries the T3 stack C only, WCo carries the probe stack W and C.
+    Base-inner convention: W outermost, C innermost.
     """
-    use_jax = tree_contains_jax((FGo, Gio))
+    use_jax = tree_contains_jax((WCo, Cio))
     xnp, _, _ = get_backend(True, use_jax)
 
-    G_shape = Gio.shape[:-2]
-    i_shape = (Gio.shape[-2],)
-    o_shape = (Gio.shape[-1],)
-    F_shape = FGo.shape[:-(len(G_shape) + 1)]
+    C_shape = Cio.shape[:-2]
+    i_shape = (Cio.shape[-2],)
+    o_shape = (Cio.shape[-1],)
+    W_shape = WCo.shape[:-(len(C_shape) + 1)]
 
-    size_F = math.prod(F_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
 
-    Gio = Gio.reshape((size_G,) + i_shape + o_shape)
-    FGo = FGo.reshape((size_F,) + (size_G,) + o_shape)
+    Cio = Cio.reshape((size_C,) + i_shape + o_shape)
+    WCo = WCo.reshape((size_W,) + (size_C,) + o_shape)
 
-    FGi = xnp.einsum('FGo,Gio->FGi', FGo, Gio)
+    WCi = xnp.einsum('WCo,Cio->WCi', WCo, Cio)
 
-    FGi = FGi.reshape(F_shape + G_shape + i_shape)
-    return FGi
+    WCi = WCi.reshape(W_shape + C_shape + i_shape)
+    return WCi
 
 
-def FGo_FGa_to_Gao(
-        FGo: NDArray,
-        FGa: NDArray,
+def WCo_WCa_to_Cao(
+        WCo: NDArray,
+        WCa: NDArray,
         n_probe: int,
 ) -> NDArray:
-    """Computes named contraction, summing over the probe stack F (kept on both operands, dropped
+    """Computes named contraction, summing over the probe stack W (kept on both operands, dropped
     from the output). Capital letters indicate grouped indices, which may be empty. n_probe is the
-    number of leading (probe-stack) batch axes to sum over (base-inner: F outermost, G innermost).
+    number of leading (probe-stack) batch axes to sum over (base-inner: W outermost, C innermost).
     """
-    use_jax = tree_contains_jax((FGo, FGa))
+    use_jax = tree_contains_jax((WCo, WCa))
     xnp, _, _ = get_backend(True, use_jax)
 
-    prefix = FGo.shape[:-1]
-    F_shape = prefix[:n_probe]
-    G_shape = prefix[n_probe:]
-    o_shape = (FGo.shape[-1],)
-    a_shape = (FGa.shape[-1],)
+    prefix = WCo.shape[:-1]
+    W_shape = prefix[:n_probe]
+    C_shape = prefix[n_probe:]
+    o_shape = (WCo.shape[-1],)
+    a_shape = (WCa.shape[-1],)
 
-    size_G = math.prod(G_shape)
-    size_F = math.prod(F_shape)
+    size_C = math.prod(C_shape)
+    size_W = math.prod(W_shape)
 
-    FGo = FGo.reshape((size_F,) + (size_G,) + o_shape)
-    FGa = FGa.reshape((size_F,) + (size_G,) + a_shape)
+    WCo = WCo.reshape((size_W,) + (size_C,) + o_shape)
+    WCa = WCa.reshape((size_W,) + (size_C,) + a_shape)
 
-    Gao = xnp.einsum('FGo,FGa->Gao', FGo, FGa)
+    Cao = xnp.einsum('WCo,WCa->Cao', WCo, WCa)
 
-    Gao = Gao.reshape(G_shape + a_shape + o_shape)
-    return Gao
+    Cao = Cao.reshape(C_shape + a_shape + o_shape)
+    return Cao
 
 
-def Fo_FGa_to_Gao(
-        Fo: NDArray,
-        FGa: NDArray,
+def Wo_WCa_to_Cao(
+        Wo: NDArray,
+        WCa: NDArray,
 ) -> NDArray:
-    """Computes named contraction, summing over the probe stack F (with Fo broadcast over the T3
-    stack G). Capital letters indicate grouped indices, which may be empty (base-inner: F outer, G inner).
+    """Computes named contraction, summing over the probe stack W (with Wo broadcast over the T3
+    stack C). Capital letters indicate grouped indices, which may be empty (base-inner: W outer, C inner).
     """
-    use_jax = tree_contains_jax((Fo, FGa))
+    use_jax = tree_contains_jax((Wo, WCa))
     xnp, _, _ = get_backend(True, use_jax)
 
-    F_shape = Fo.shape[:-1]
-    o_shape = (Fo.shape[-1],)
-    a_shape = (FGa.shape[-1],)
-    G_shape = FGa.shape[len(F_shape):-1]
+    W_shape = Wo.shape[:-1]
+    o_shape = (Wo.shape[-1],)
+    a_shape = (WCa.shape[-1],)
+    C_shape = WCa.shape[len(W_shape):-1]
 
-    size_G = math.prod(G_shape)
-    size_F = math.prod(F_shape)
+    size_C = math.prod(C_shape)
+    size_W = math.prod(W_shape)
 
-    Fo = Fo.reshape((size_F,) + o_shape)
-    FGa = FGa.reshape((size_F,) + (size_G,) + a_shape)
+    Wo = Wo.reshape((size_W,) + o_shape)
+    WCa = WCa.reshape((size_W,) + (size_C,) + a_shape)
 
-    Gao = xnp.einsum('Fo,FGa->Gao', Fo, FGa)
+    Cao = xnp.einsum('Wo,WCa->Cao', Wo, WCa)
 
-    Gao = Gao.reshape(G_shape + a_shape + o_shape)
-    return Gao
+    Cao = Cao.reshape(C_shape + a_shape + o_shape)
+    return Cao
 
 
-def FGi_FGa_FGj_to_Giaj(
-        FGi: NDArray,
-        FGa: NDArray,
-        FGj: NDArray,
+def WCi_WCa_WCj_to_Ciaj(
+        WCi: NDArray,
+        WCa: NDArray,
+        WCj: NDArray,
         n_probe: int,
 ) -> NDArray:
-    """Computes named contraction, summing over the probe stack F (kept on all operands, dropped from
+    """Computes named contraction, summing over the probe stack W (kept on all operands, dropped from
     the output). Capital letters indicate grouped indices, which may be empty. n_probe is the number
-    of leading (probe-stack) batch axes to sum over (base-inner: F outermost, G innermost).
+    of leading (probe-stack) batch axes to sum over (base-inner: W outermost, C innermost).
     """
-    use_jax = tree_contains_jax((FGi, FGa, FGj))
+    use_jax = tree_contains_jax((WCi, WCa, WCj))
     xnp, _, _ = get_backend(True, use_jax)
 
-    prefix = FGi.shape[:-1]
-    F_shape = prefix[:n_probe]
-    G_shape = prefix[n_probe:]
-    i_shape = (FGi.shape[-1],)
-    a_shape = (FGa.shape[-1],)
-    j_shape = (FGj.shape[-1],)
+    prefix = WCi.shape[:-1]
+    W_shape = prefix[:n_probe]
+    C_shape = prefix[n_probe:]
+    i_shape = (WCi.shape[-1],)
+    a_shape = (WCa.shape[-1],)
+    j_shape = (WCj.shape[-1],)
 
-    size_G = math.prod(G_shape)
-    size_F = math.prod(F_shape)
+    size_C = math.prod(C_shape)
+    size_W = math.prod(W_shape)
 
-    FGi = FGi.reshape((size_F,) + (size_G,) + i_shape)
-    FGa = FGa.reshape((size_F,) + (size_G,) + a_shape)
-    FGj = FGj.reshape((size_F,) + (size_G,) + j_shape)
+    WCi = WCi.reshape((size_W,) + (size_C,) + i_shape)
+    WCa = WCa.reshape((size_W,) + (size_C,) + a_shape)
+    WCj = WCj.reshape((size_W,) + (size_C,) + j_shape)
 
     path = ['einsum_path', (0, 1), (0, 1)]
     if use_jax:
-        Giaj = xnp.einsum('FGi,FGa,FGj->Giaj', FGi, FGa, FGj)
+        Ciaj = xnp.einsum('WCi,WCa,WCj->Ciaj', WCi, WCa, WCj)
     else:
-        Giaj = xnp.einsum('FGi,FGa,FGj->Giaj', FGi, FGa, FGj, optimize=path)
+        Ciaj = xnp.einsum('WCi,WCa,WCj->Ciaj', WCi, WCa, WCj, optimize=path)
 
-    Giaj = Giaj.reshape(G_shape + i_shape + a_shape + j_shape)
-    return Giaj
+    Ciaj = Ciaj.reshape(C_shape + i_shape + a_shape + j_shape)
+    return Ciaj
 
 
 ###############################################################################
-# Three-group contractions (probing a V-stacked tangent).
+# Three-group contractions (probing a K-stacked tangent).
 #
-# A third independent batch block V (a stack of tangent vectors sharing one base
-# point) joins the probe stack F and base stack G. Base-inner output order is
-# F + V + G (F outer, V middle, G inner -- see docs/batching_and_stacking.md).
+# A third independent batch block K (a stack of tangent vectors sharing one base
+# point) joins the probe stack W and base stack C. Base-inner output order is
+# W + K + C (W outer, K middle, C inner -- see docs/batching_and_stacking.md).
 #
 # The split is recovered from shapes, never passed from the frontend. A function
-# self-infers when its operands include a G-only base core (pins len(G)) and an
-# F+G edge variable (pins len(F)). When the only "core" operand is a variation
-# core (V+G) with no G-only operand present, len(G) is underdetermined by the
+# self-infers when its operands include a C-only base core (pins len(C)) and an
+# W+C edge variable (pins len(W)). When the only "core" operand is a variation
+# core (K+C) with no C-only operand present, len(C) is underdetermined by the
 # operands alone, so n_base is supplied (computed locally in the sweep _func from
-# a G-only base core it already holds -- the same precedent as n_probe above).
+# a C-only base core it already holds -- the same precedent as n_probe above).
 ###############################################################################
 
 
-def FVGa_Gaib_FGi_to_FVGb(
-        FVGa: NDArray,  # F + V + G + (a,)   -- e.g. sigma (perturbation left edge var)
-        Gaib: NDArray,  # G + (a, i, b)      -- e.g. Q base core (G-only -> pins len(G))
-        FGi:  NDArray,  # F + G + (i,)       -- e.g. xi-hat base edge var (F+G -> pins len(F))
-) -> NDArray:           # F + V + G + (b,)
+def WKCa_Caib_WCi_to_WKCb(
+        WKCa: NDArray,  # W + K + C + (a,)   -- e.g. sigma (perturbation left edge var)
+        Caib: NDArray,  # C + (a, i, b)      -- e.g. Q base core (C-only -> pins len(C))
+        WCi:  NDArray,  # W + C + (i,)       -- e.g. xi-hat base edge var (W+C -> pins len(W))
+) -> NDArray:           # W + K + C + (b,)
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
-    Three-group (F, V, G) base-inner contraction. Self-infers the split: Gaib (G-only) pins len(G),
-    FGi (F+G) pins len(F), and V is the remainder of FVGa. V rides on FVGa and the output and
+    Three-group (W, K, C) base-inner contraction. Self-infers the split: Caib (C-only) pins len(C),
+    WCi (W+C) pins len(W), and K is the remainder of WKCa. K rides on WKCa and the output and
     broadcasts over the operands that lack it.
     """
-    use_jax = tree_contains_jax((FVGa, Gaib, FGi))
+    use_jax = tree_contains_jax((WKCa, Caib, WCi))
     xnp, _, _ = get_backend(True, use_jax)
 
-    G_shape = Gaib.shape[:-3]
-    F_shape = FGi.shape[:-(len(G_shape) + 1)]
-    V_shape = FVGa.shape[len(F_shape):-(len(G_shape) + 1)]
+    C_shape = Caib.shape[:-3]
+    W_shape = WCi.shape[:-(len(C_shape) + 1)]
+    K_shape = WKCa.shape[len(W_shape):-(len(C_shape) + 1)]
 
-    a_shape = (Gaib.shape[-3],)
-    i_shape = (Gaib.shape[-2],)
-    b_shape = (Gaib.shape[-1],)
+    a_shape = (Caib.shape[-3],)
+    i_shape = (Caib.shape[-2],)
+    b_shape = (Caib.shape[-1],)
 
-    size_F = math.prod(F_shape)
-    size_V = math.prod(V_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
 
-    FVGa = FVGa.reshape((size_F,) + (size_V,) + (size_G,) + a_shape)
-    Gaib = Gaib.reshape((size_G,) + a_shape + i_shape + b_shape)
-    FGi  = FGi.reshape((size_F,) + (size_G,) + i_shape)
+    WKCa = WKCa.reshape((size_W,) + (size_K,) + (size_C,) + a_shape)
+    Caib = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
+    WCi  = WCi.reshape((size_W,) + (size_C,) + i_shape)
 
     path = ['einsum_path', (0, 1), (0, 1)]
     if use_jax:
-        FVGb = xnp.einsum('FVGa,Gaib,FGi->FVGb', FVGa, Gaib, FGi)
+        WKCb = xnp.einsum('WKCa,Caib,WCi->WKCb', WKCa, Caib, WCi)
     else:
-        FVGb = xnp.einsum('FVGa,Gaib,FGi->FVGb', FVGa, Gaib, FGi, optimize=path)
+        WKCb = xnp.einsum('WKCa,Caib,WCi->WKCb', WKCa, Caib, WCi, optimize=path)
 
-    FVGb = FVGb.reshape(F_shape + V_shape + G_shape + b_shape)
-    return FVGb
+    WKCb = WKCb.reshape(W_shape + K_shape + C_shape + b_shape)
+    return WKCb
 
 
-def FGa_Gaib_FVGi_to_FVGb(
-        FGa:  NDArray,  # F + G + (a,)       -- e.g. mu-hat base edge var (F+G -> pins len(F))
-        Gaib: NDArray,  # G + (a, i, b)      -- e.g. O base core (G-only -> pins len(G))
-        FVGi: NDArray,  # F + V + G + (i,)   -- e.g. delta-xi (perturbation up edge var)
-) -> NDArray:           # F + V + G + (b,)
+def WCa_Caib_WKCi_to_WKCb(
+        WCa:  NDArray,  # W + C + (a,)       -- e.g. mu-hat base edge var (W+C -> pins len(W))
+        Caib: NDArray,  # C + (a, i, b)      -- e.g. O base core (C-only -> pins len(C))
+        WKCi: NDArray,  # W + K + C + (i,)   -- e.g. delta-xi (perturbation up edge var)
+) -> NDArray:           # W + K + C + (b,)
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
-    Three-group (F, V, G) base-inner contraction. Self-infers the split: Gaib (G-only) pins len(G),
-    FGa (F+G) pins len(F), and V is the remainder of FVGi.
+    Three-group (W, K, C) base-inner contraction. Self-infers the split: Caib (C-only) pins len(C),
+    WCa (W+C) pins len(W), and K is the remainder of WKCi.
     """
-    use_jax = tree_contains_jax((FGa, Gaib, FVGi))
+    use_jax = tree_contains_jax((WCa, Caib, WKCi))
     xnp, _, _ = get_backend(True, use_jax)
 
-    G_shape = Gaib.shape[:-3]
-    F_shape = FGa.shape[:-(len(G_shape) + 1)]
-    V_shape = FVGi.shape[len(F_shape):-(len(G_shape) + 1)]
+    C_shape = Caib.shape[:-3]
+    W_shape = WCa.shape[:-(len(C_shape) + 1)]
+    K_shape = WKCi.shape[len(W_shape):-(len(C_shape) + 1)]
 
-    a_shape = (Gaib.shape[-3],)
-    i_shape = (Gaib.shape[-2],)
-    b_shape = (Gaib.shape[-1],)
+    a_shape = (Caib.shape[-3],)
+    i_shape = (Caib.shape[-2],)
+    b_shape = (Caib.shape[-1],)
 
-    size_F = math.prod(F_shape)
-    size_V = math.prod(V_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
 
-    FGa  = FGa.reshape((size_F,) + (size_G,) + a_shape)
-    Gaib = Gaib.reshape((size_G,) + a_shape + i_shape + b_shape)
-    FVGi = FVGi.reshape((size_F,) + (size_V,) + (size_G,) + i_shape)
+    WCa  = WCa.reshape((size_W,) + (size_C,) + a_shape)
+    Caib = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
+    WKCi = WKCi.reshape((size_W,) + (size_K,) + (size_C,) + i_shape)
 
     path = ['einsum_path', (0, 1), (0, 1)]
     if use_jax:
-        FVGb = xnp.einsum('FGa,Gaib,FVGi->FVGb', FGa, Gaib, FVGi)
+        WKCb = xnp.einsum('WCa,Caib,WKCi->WKCb', WCa, Caib, WKCi)
     else:
-        FVGb = xnp.einsum('FGa,Gaib,FVGi->FVGb', FGa, Gaib, FVGi, optimize=path)
+        WKCb = xnp.einsum('WCa,Caib,WKCi->WKCb', WCa, Caib, WKCi, optimize=path)
 
-    FVGb = FVGb.reshape(F_shape + V_shape + G_shape + b_shape)
-    return FVGb
+    WKCb = WKCb.reshape(W_shape + K_shape + C_shape + b_shape)
+    return WKCb
 
 
-def FVGa_Gaib_FGb_to_FVGi(
-        FVGa: NDArray,  # F + V + G + (a,)   -- e.g. sigma (perturbation left edge var)
-        Gaib: NDArray,  # G + (a, i, b)      -- e.g. Q base core (G-only -> pins len(G))
-        FGb:  NDArray,  # F + G + (b,)       -- e.g. nu-hat base edge var (F+G -> pins len(F))
-) -> NDArray:           # F + V + G + (i,)
+def WKCa_Caib_WCb_to_WKCi(
+        WKCa: NDArray,  # W + K + C + (a,)   -- e.g. sigma (perturbation left edge var)
+        Caib: NDArray,  # C + (a, i, b)      -- e.g. Q base core (C-only -> pins len(C))
+        WCb:  NDArray,  # W + C + (b,)       -- e.g. nu-hat base edge var (W+C -> pins len(W))
+) -> NDArray:           # W + K + C + (i,)
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
-    Three-group (F, V, G) base-inner contraction. Self-infers the split: Gaib (G-only) pins len(G),
-    FGb (F+G) pins len(F), and V is the remainder of FVGa.
+    Three-group (W, K, C) base-inner contraction. Self-infers the split: Caib (C-only) pins len(C),
+    WCb (W+C) pins len(W), and K is the remainder of WKCa.
     """
-    use_jax = tree_contains_jax((FVGa, Gaib, FGb))
+    use_jax = tree_contains_jax((WKCa, Caib, WCb))
     xnp, _, _ = get_backend(True, use_jax)
 
-    G_shape = Gaib.shape[:-3]
-    F_shape = FGb.shape[:-(len(G_shape) + 1)]
-    V_shape = FVGa.shape[len(F_shape):-(len(G_shape) + 1)]
+    C_shape = Caib.shape[:-3]
+    W_shape = WCb.shape[:-(len(C_shape) + 1)]
+    K_shape = WKCa.shape[len(W_shape):-(len(C_shape) + 1)]
 
-    a_shape = (Gaib.shape[-3],)
-    i_shape = (Gaib.shape[-2],)
-    b_shape = (Gaib.shape[-1],)
+    a_shape = (Caib.shape[-3],)
+    i_shape = (Caib.shape[-2],)
+    b_shape = (Caib.shape[-1],)
 
-    size_F = math.prod(F_shape)
-    size_V = math.prod(V_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
 
-    FVGa = FVGa.reshape((size_F,) + (size_V,) + (size_G,) + a_shape)
-    Gaib = Gaib.reshape((size_G,) + a_shape + i_shape + b_shape)
-    FGb  = FGb.reshape((size_F,) + (size_G,) + b_shape)
+    WKCa = WKCa.reshape((size_W,) + (size_K,) + (size_C,) + a_shape)
+    Caib = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
+    WCb  = WCb.reshape((size_W,) + (size_C,) + b_shape)
 
     path = ['einsum_path', (0, 1), (0, 1)]
     if use_jax:
-        FVGi = xnp.einsum('FVGa,Gaib,FGb->FVGi', FVGa, Gaib, FGb)
+        WKCi = xnp.einsum('WKCa,Caib,WCb->WKCi', WKCa, Caib, WCb)
     else:
-        FVGi = xnp.einsum('FVGa,Gaib,FGb->FVGi', FVGa, Gaib, FGb, optimize=path)
+        WKCi = xnp.einsum('WKCa,Caib,WCb->WKCi', WKCa, Caib, WCb, optimize=path)
 
-    FVGi = FVGi.reshape(F_shape + V_shape + G_shape + i_shape)
-    return FVGi
+    WKCi = WKCi.reshape(W_shape + K_shape + C_shape + i_shape)
+    return WKCi
 
 
-def FGa_Gaib_FVGb_to_FVGi(
-        FGa:  NDArray,  # F + G + (a,)       -- e.g. mu-hat base edge var (F+G -> pins len(F))
-        Gaib: NDArray,  # G + (a, i, b)      -- e.g. P base core (G-only -> pins len(G))
-        FVGb: NDArray,  # F + V + G + (b,)   -- e.g. tau (perturbation right edge var)
-) -> NDArray:           # F + V + G + (i,)
+def WCa_Caib_WKCb_to_WKCi(
+        WCa:  NDArray,  # W + C + (a,)       -- e.g. mu-hat base edge var (W+C -> pins len(W))
+        Caib: NDArray,  # C + (a, i, b)      -- e.g. P base core (C-only -> pins len(C))
+        WKCb: NDArray,  # W + K + C + (b,)   -- e.g. tau (perturbation right edge var)
+) -> NDArray:           # W + K + C + (i,)
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
-    Three-group (F, V, G) base-inner contraction. Self-infers the split: Gaib (G-only) pins len(G),
-    FGa (F+G) pins len(F), and V is the remainder of FVGb.
+    Three-group (W, K, C) base-inner contraction. Self-infers the split: Caib (C-only) pins len(C),
+    WCa (W+C) pins len(W), and K is the remainder of WKCb.
     """
-    use_jax = tree_contains_jax((FGa, Gaib, FVGb))
+    use_jax = tree_contains_jax((WCa, Caib, WKCb))
     xnp, _, _ = get_backend(True, use_jax)
 
-    G_shape = Gaib.shape[:-3]
-    F_shape = FGa.shape[:-(len(G_shape) + 1)]
-    V_shape = FVGb.shape[len(F_shape):-(len(G_shape) + 1)]
+    C_shape = Caib.shape[:-3]
+    W_shape = WCa.shape[:-(len(C_shape) + 1)]
+    K_shape = WKCb.shape[len(W_shape):-(len(C_shape) + 1)]
 
-    a_shape = (Gaib.shape[-3],)
-    i_shape = (Gaib.shape[-2],)
-    b_shape = (Gaib.shape[-1],)
+    a_shape = (Caib.shape[-3],)
+    i_shape = (Caib.shape[-2],)
+    b_shape = (Caib.shape[-1],)
 
-    size_F = math.prod(F_shape)
-    size_V = math.prod(V_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
 
-    FGa  = FGa.reshape((size_F,) + (size_G,) + a_shape)
-    Gaib = Gaib.reshape((size_G,) + a_shape + i_shape + b_shape)
-    FVGb = FVGb.reshape((size_F,) + (size_V,) + (size_G,) + b_shape)
+    WCa  = WCa.reshape((size_W,) + (size_C,) + a_shape)
+    Caib = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
+    WKCb = WKCb.reshape((size_W,) + (size_K,) + (size_C,) + b_shape)
 
     path = ['einsum_path', (0, 1), (0, 1)]
     if use_jax:
-        FVGi = xnp.einsum('FGa,Gaib,FVGb->FVGi', FGa, Gaib, FVGb)
+        WKCi = xnp.einsum('WCa,Caib,WKCb->WKCi', WCa, Caib, WKCb)
     else:
-        FVGi = xnp.einsum('FGa,Gaib,FVGb->FVGi', FGa, Gaib, FVGb, optimize=path)
+        WKCi = xnp.einsum('WCa,Caib,WKCb->WKCi', WCa, Caib, WKCb, optimize=path)
 
-    FVGi = FVGi.reshape(F_shape + V_shape + G_shape + i_shape)
-    return FVGi
+    WKCi = WKCi.reshape(W_shape + K_shape + C_shape + i_shape)
+    return WKCi
 
 
-def FGa_VGaib_FGi_to_FVGb(
-        FGa:   NDArray,  # F + G + (a,)        -- e.g. mu-hat base edge var (F+G)
-        VGaib: NDArray,  # V + G + (a, i, b)   -- e.g. delta-G variation tt core (V+G)
-        FGi:   NDArray,  # F + G + (i,)        -- e.g. xi-hat base edge var (F+G)
-        n_base: int,     # len(G). The only core operand (VGaib) is V+G, so len(G) cannot be
+def WCa_KCaib_WCi_to_WKCb(
+        WCa:   NDArray,  # W + C + (a,)        -- e.g. mu-hat base edge var (W+C)
+        KCaib: NDArray,  # K + C + (a, i, b)   -- e.g. delta-C variation tt core (K+C)
+        WCi:   NDArray,  # W + C + (i,)        -- e.g. xi-hat base edge var (W+C)
+        n_base: int,     # len(C). The only core operand (KCaib) is K+C, so len(C) cannot be
                          # recovered from these operands -- it is supplied (the n_probe precedent).
-) -> NDArray:            # F + V + G + (b,)
+) -> NDArray:            # W + K + C + (b,)
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
-    Three-group (F, V, G) base-inner contraction whose only core operand is a variation core (V+G).
-    The operands {F+G, V+G, F+G} do not pin len(G), so it is passed as ``n_base``.
+    Three-group (W, K, C) base-inner contraction whose only core operand is a variation core (K+C).
+    The operands {W+C, K+C, W+C} do not pin len(C), so it is passed as ``n_base``.
     """
-    use_jax = tree_contains_jax((FGa, VGaib, FGi))
+    use_jax = tree_contains_jax((WCa, KCaib, WCi))
     xnp, _, _ = get_backend(True, use_jax)
 
-    VG_shape = VGaib.shape[:-3]
-    G_shape = VG_shape[len(VG_shape) - n_base:]
-    V_shape = VG_shape[:len(VG_shape) - n_base]
-    F_shape = FGa.shape[:len(FGa.shape) - 1 - n_base]
+    KC_shape = KCaib.shape[:-3]
+    C_shape = KC_shape[len(KC_shape) - n_base:]
+    K_shape = KC_shape[:len(KC_shape) - n_base]
+    W_shape = WCa.shape[:len(WCa.shape) - 1 - n_base]
 
-    a_shape = (VGaib.shape[-3],)
-    i_shape = (VGaib.shape[-2],)
-    b_shape = (VGaib.shape[-1],)
+    a_shape = (KCaib.shape[-3],)
+    i_shape = (KCaib.shape[-2],)
+    b_shape = (KCaib.shape[-1],)
 
-    size_F = math.prod(F_shape)
-    size_V = math.prod(V_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
 
-    FGa   = FGa.reshape((size_F,) + (size_G,) + a_shape)
-    VGaib = VGaib.reshape((size_V,) + (size_G,) + a_shape + i_shape + b_shape)
-    FGi   = FGi.reshape((size_F,) + (size_G,) + i_shape)
+    WCa   = WCa.reshape((size_W,) + (size_C,) + a_shape)
+    KCaib = KCaib.reshape((size_K,) + (size_C,) + a_shape + i_shape + b_shape)
+    WCi   = WCi.reshape((size_W,) + (size_C,) + i_shape)
 
     path = ['einsum_path', (0, 1), (0, 1)]
     if use_jax:
-        FVGb = xnp.einsum('FGa,VGaib,FGi->FVGb', FGa, VGaib, FGi)
+        WKCb = xnp.einsum('WCa,KCaib,WCi->WKCb', WCa, KCaib, WCi)
     else:
-        FVGb = xnp.einsum('FGa,VGaib,FGi->FVGb', FGa, VGaib, FGi, optimize=path)
+        WKCb = xnp.einsum('WCa,KCaib,WCi->WKCb', WCa, KCaib, WCi, optimize=path)
 
-    FVGb = FVGb.reshape(F_shape + V_shape + G_shape + b_shape)
-    return FVGb
+    WKCb = WKCb.reshape(W_shape + K_shape + C_shape + b_shape)
+    return WKCb
 
 
-def FGa_VGaib_FGb_to_FVGi(
-        FGa:   NDArray,  # F + G + (a,)        -- e.g. mu-hat base edge var (F+G)
-        VGaib: NDArray,  # V + G + (a, i, b)   -- e.g. delta-G variation tt core (V+G)
-        FGb:   NDArray,  # F + G + (b,)        -- e.g. nu-hat base edge var (F+G)
-        n_base: int,     # len(G) (supplied; VGaib is V+G with no G-only operand to pin it).
-) -> NDArray:            # F + V + G + (i,)
+def WCa_KCaib_WCb_to_WKCi(
+        WCa:   NDArray,  # W + C + (a,)        -- e.g. mu-hat base edge var (W+C)
+        KCaib: NDArray,  # K + C + (a, i, b)   -- e.g. delta-C variation tt core (K+C)
+        WCb:   NDArray,  # W + C + (b,)        -- e.g. nu-hat base edge var (W+C)
+        n_base: int,     # len(C) (supplied; KCaib is K+C with no C-only operand to pin it).
+) -> NDArray:            # W + K + C + (i,)
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
-    Three-group (F, V, G) base-inner contraction whose only core operand is a variation core (V+G).
-    The operands {F+G, V+G, F+G} do not pin len(G), so it is passed as ``n_base``.
+    Three-group (W, K, C) base-inner contraction whose only core operand is a variation core (K+C).
+    The operands {W+C, K+C, W+C} do not pin len(C), so it is passed as ``n_base``.
     """
-    use_jax = tree_contains_jax((FGa, VGaib, FGb))
+    use_jax = tree_contains_jax((WCa, KCaib, WCb))
     xnp, _, _ = get_backend(True, use_jax)
 
-    VG_shape = VGaib.shape[:-3]
-    G_shape = VG_shape[len(VG_shape) - n_base:]
-    V_shape = VG_shape[:len(VG_shape) - n_base]
-    F_shape = FGa.shape[:len(FGa.shape) - 1 - n_base]
+    KC_shape = KCaib.shape[:-3]
+    C_shape = KC_shape[len(KC_shape) - n_base:]
+    K_shape = KC_shape[:len(KC_shape) - n_base]
+    W_shape = WCa.shape[:len(WCa.shape) - 1 - n_base]
 
-    a_shape = (VGaib.shape[-3],)
-    i_shape = (VGaib.shape[-2],)
-    b_shape = (VGaib.shape[-1],)
+    a_shape = (KCaib.shape[-3],)
+    i_shape = (KCaib.shape[-2],)
+    b_shape = (KCaib.shape[-1],)
 
-    size_F = math.prod(F_shape)
-    size_V = math.prod(V_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
 
-    FGa   = FGa.reshape((size_F,) + (size_G,) + a_shape)
-    VGaib = VGaib.reshape((size_V,) + (size_G,) + a_shape + i_shape + b_shape)
-    FGb   = FGb.reshape((size_F,) + (size_G,) + b_shape)
+    WCa   = WCa.reshape((size_W,) + (size_C,) + a_shape)
+    KCaib = KCaib.reshape((size_K,) + (size_C,) + a_shape + i_shape + b_shape)
+    WCb   = WCb.reshape((size_W,) + (size_C,) + b_shape)
 
     path = ['einsum_path', (0, 1), (0, 1)]
     if use_jax:
-        FVGi = xnp.einsum('FGa,VGaib,FGb->FVGi', FGa, VGaib, FGb)
+        WKCi = xnp.einsum('WCa,KCaib,WCb->WKCi', WCa, KCaib, WCb)
     else:
-        FVGi = xnp.einsum('FGa,VGaib,FGb->FVGi', FGa, VGaib, FGb, optimize=path)
+        WKCi = xnp.einsum('WCa,KCaib,WCb->WKCi', WCa, KCaib, WCb, optimize=path)
 
-    FVGi = FVGi.reshape(F_shape + V_shape + G_shape + i_shape)
-    return FVGi
+    WKCi = WKCi.reshape(W_shape + K_shape + C_shape + i_shape)
+    return WKCi
 
 
-def FGi_VGio_to_FVGo(
-        FGi:   NDArray,  # F + G + (i,)        -- e.g. eta-hat base edge var (F+G)
-        VGio:  NDArray,  # V + G + (i, o)      -- e.g. delta-U variation tucker core (V+G)
-        n_base: int,     # len(G) (supplied; VGio is V+G with no G-only operand to pin it).
-) -> NDArray:            # F + V + G + (o,)
+def WCi_KCio_to_WKCo(
+        WCi:   NDArray,  # W + C + (i,)        -- e.g. eta-hat base edge var (W+C)
+        KCio:  NDArray,  # K + C + (i, o)      -- e.g. delta-U variation tucker core (K+C)
+        n_base: int,     # len(C) (supplied; KCio is K+C with no C-only operand to pin it).
+) -> NDArray:            # W + K + C + (o,)
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
-    Three-group (F, V, G) base-inner contraction whose only core operand is a variation core (V+G).
-    The operands {F+G, V+G} do not pin len(G), so it is passed as ``n_base``.
+    Three-group (W, K, C) base-inner contraction whose only core operand is a variation core (K+C).
+    The operands {W+C, K+C} do not pin len(C), so it is passed as ``n_base``.
     """
-    use_jax = tree_contains_jax((FGi, VGio))
+    use_jax = tree_contains_jax((WCi, KCio))
     xnp, _, _ = get_backend(True, use_jax)
 
-    VG_shape = VGio.shape[:-2]
-    G_shape = VG_shape[len(VG_shape) - n_base:]
-    V_shape = VG_shape[:len(VG_shape) - n_base]
-    F_shape = FGi.shape[:len(FGi.shape) - 1 - n_base]
+    KC_shape = KCio.shape[:-2]
+    C_shape = KC_shape[len(KC_shape) - n_base:]
+    K_shape = KC_shape[:len(KC_shape) - n_base]
+    W_shape = WCi.shape[:len(WCi.shape) - 1 - n_base]
 
-    i_shape = (VGio.shape[-2],)
-    o_shape = (VGio.shape[-1],)
+    i_shape = (KCio.shape[-2],)
+    o_shape = (KCio.shape[-1],)
 
-    size_F = math.prod(F_shape)
-    size_V = math.prod(V_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
 
-    FGi  = FGi.reshape((size_F,) + (size_G,) + i_shape)
-    VGio = VGio.reshape((size_V,) + (size_G,) + i_shape + o_shape)
+    WCi  = WCi.reshape((size_W,) + (size_C,) + i_shape)
+    KCio = KCio.reshape((size_K,) + (size_C,) + i_shape + o_shape)
 
-    FVGo = xnp.einsum('FGi,VGio->FVGo', FGi, VGio)
+    WKCo = xnp.einsum('WCi,KCio->WKCo', WCi, KCio)
 
-    FVGo = FVGo.reshape(F_shape + V_shape + G_shape + o_shape)
-    return FVGo
+    WKCo = WKCo.reshape(W_shape + K_shape + C_shape + o_shape)
+    return WKCo
 
 
-def FVGi_Gio_to_FVGo(
-        FVGi: NDArray,  # F + V + G + (i,)   -- e.g. delta-eta (perturbation down edge var)
-        Gio:  NDArray,  # G + (i, o)         -- e.g. U base tucker core (G-only)
-) -> NDArray:           # F + V + G + (o,)
+def WKCi_Cio_to_WKCo(
+        WKCi: NDArray,  # W + K + C + (i,)   -- e.g. delta-eta (perturbation down edge var)
+        Cio:  NDArray,  # C + (i, o)         -- e.g. U base tucker core (C-only)
+) -> NDArray:           # W + K + C + (o,)
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
-    Three-group name for readability; F and V fuse into one outer block and Gio is G-only, so this
-    is exactly the two-group ``FGi_Gio_to_FGo`` with the outer block being F+V. Delegates to it.
+    Three-group name for readability; W and K fuse into one outer block and Cio is C-only, so this
+    is exactly the two-group ``WCi_Cio_to_WCo`` with the outer block being W+K. Delegates to it.
     """
-    return FGi_Gio_to_FGo(FVGi, Gio)
+    return WCi_Cio_to_WCo(WKCi, Cio)
 
 
 ###############################################################################
-# Transpose-assemble three-group contractions (V-stacked tangent transpose).
+# Transpose-assemble three-group contractions (K-stacked tangent transpose).
 #
-# These build variation cores by OUTER-PRODUCTING edge variables (the indices a/i/j/o are free, not
-# contracted), the adjoint analogue of the forward assembly. The tangent stack V rides on the
-# residual-derived operand; the base edge vars stay F+G. Each comes in a keep-F (output F+V+G+...)
-# and a sum-F (output V+G+..., the probe stack summed) form; the sum-F forms generalize the existing
-# FGo_FGa_to_Gao / Fo_FGa_to_Gao / FGi_FGa_FGj_to_Giaj (their V=() case).
+# These build variation cores by OUTER-PRODUCTINC edge variables (the indices a/i/j/o are free, not
+# contracted), the adjoint analogue of the forward assembly. The tangent stack K rides on the
+# residual-derived operand; the base edge vars stay W+C. Each comes in a keep-W (output W+K+C+...)
+# and a sum-W (output K+C+..., the probe stack summed) form; the sum-W forms generalize the existing
+# WCo_WCa_to_Cao / Wo_WCa_to_Cao / WCi_WCa_WCj_to_Ciaj (their K=() case).
 #
-# len(F) (n_probe) is supplied where no operand pins it; the w-bearing ones self-infer F from the
-# F-only probe vector. See docs/batching_and_stacking.md and docs/probing_section6_notes.md.
+# len(W) (n_probe) is supplied where no operand pins it; the w-bearing ones self-infer W from the
+# W-only probe vector. See docs/batching_and_stacking.md and docs/probing_section6_notes.md.
 ###############################################################################
 
 
-def FVGo_FGa_to_FVGao(
-        FVGo:   NDArray,  # F + V + G + (o,)   -- z-tilde residual (carries V)
-        FGa:    NDArray,  # F + G + (a,)       -- eta-hat base edge var (F+G -> pins G given n_probe)
-        n_probe: int,     # len(F); {F+V+G, F+G} do not pin it, so it is supplied
-) -> NDArray:             # F + V + G + (a, o)
+def WKCo_WCa_to_WKCao(
+        WKCo:   NDArray,  # W + K + C + (o,)   -- z-tilde residual (carries K)
+        WCa:    NDArray,  # W + C + (a,)       -- eta-hat base edge var (W+C -> pins C given n_probe)
+        n_probe: int,     # len(W); {W+K+C, W+C} do not pin it, so it is supplied
+) -> NDArray:             # W + K + C + (a, o)
     """Computes named contraction (outer product over a, o). Capitals are grouped indices, may be empty.
 
-    Transpose-assemble (z-tilde (x) eta-hat), keeping the probe stack F.
+    Transpose-assemble (z-tilde (x) eta-hat), keeping the probe stack W.
     """
-    use_jax = tree_contains_jax((FVGo, FGa))
+    use_jax = tree_contains_jax((WKCo, WCa))
     xnp, _, _ = get_backend(True, use_jax)
 
-    F_shape = FGa.shape[:n_probe]
-    G_shape = FGa.shape[n_probe:-1]
-    o_shape = (FVGo.shape[-1],)
-    a_shape = (FGa.shape[-1],)
-    V_shape = FVGo.shape[n_probe:len(FVGo.shape) - 1 - len(G_shape)]
+    W_shape = WCa.shape[:n_probe]
+    C_shape = WCa.shape[n_probe:-1]
+    o_shape = (WKCo.shape[-1],)
+    a_shape = (WCa.shape[-1],)
+    K_shape = WKCo.shape[n_probe:len(WKCo.shape) - 1 - len(C_shape)]
 
-    size_F = math.prod(F_shape)
-    size_V = math.prod(V_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
 
-    FVGo = FVGo.reshape((size_F,) + (size_V,) + (size_G,) + o_shape)
-    FGa  = FGa.reshape((size_F,) + (size_G,) + a_shape)
+    WKCo = WKCo.reshape((size_W,) + (size_K,) + (size_C,) + o_shape)
+    WCa  = WCa.reshape((size_W,) + (size_C,) + a_shape)
 
-    FVGao = xnp.einsum('FVGo,FGa->FVGao', FVGo, FGa)
+    WKCao = xnp.einsum('WKCo,WCa->WKCao', WKCo, WCa)
 
-    FVGao = FVGao.reshape(F_shape + V_shape + G_shape + a_shape + o_shape)
-    return FVGao
+    WKCao = WKCao.reshape(W_shape + K_shape + C_shape + a_shape + o_shape)
+    return WKCao
 
 
-def FVGo_FGa_to_VGao(
-        FVGo:   NDArray,  # F + V + G + (o,)   -- z-tilde residual (carries V)
-        FGa:    NDArray,  # F + G + (a,)       -- eta-hat base edge var
-        n_probe: int,     # len(F), summed out
-) -> NDArray:             # V + G + (a, o)
-    """Computes named contraction (outer product over a, o; probe stack F summed out).
+def WKCo_WCa_to_KCao(
+        WKCo:   NDArray,  # W + K + C + (o,)   -- z-tilde residual (carries K)
+        WCa:    NDArray,  # W + C + (a,)       -- eta-hat base edge var
+        n_probe: int,     # len(W), summed out
+) -> NDArray:             # K + C + (a, o)
+    """Computes named contraction (outer product over a, o; probe stack W summed out).
 
-    Transpose-assemble (z-tilde (x) eta-hat), summing over the probe stack F.
+    Transpose-assemble (z-tilde (x) eta-hat), summing over the probe stack W.
     """
-    use_jax = tree_contains_jax((FVGo, FGa))
+    use_jax = tree_contains_jax((WKCo, WCa))
     xnp, _, _ = get_backend(True, use_jax)
 
-    F_shape = FGa.shape[:n_probe]
-    G_shape = FGa.shape[n_probe:-1]
-    o_shape = (FVGo.shape[-1],)
-    a_shape = (FGa.shape[-1],)
-    V_shape = FVGo.shape[n_probe:len(FVGo.shape) - 1 - len(G_shape)]
+    W_shape = WCa.shape[:n_probe]
+    C_shape = WCa.shape[n_probe:-1]
+    o_shape = (WKCo.shape[-1],)
+    a_shape = (WCa.shape[-1],)
+    K_shape = WKCo.shape[n_probe:len(WKCo.shape) - 1 - len(C_shape)]
 
-    size_F = math.prod(F_shape)
-    size_V = math.prod(V_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
 
-    FVGo = FVGo.reshape((size_F,) + (size_V,) + (size_G,) + o_shape)
-    FGa  = FGa.reshape((size_F,) + (size_G,) + a_shape)
+    WKCo = WKCo.reshape((size_W,) + (size_K,) + (size_C,) + o_shape)
+    WCa  = WCa.reshape((size_W,) + (size_C,) + a_shape)
 
-    VGao = xnp.einsum('FVGo,FGa->VGao', FVGo, FGa)
+    KCao = xnp.einsum('WKCo,WCa->KCao', WKCo, WCa)
 
-    VGao = VGao.reshape(V_shape + G_shape + a_shape + o_shape)
-    return VGao
+    KCao = KCao.reshape(K_shape + C_shape + a_shape + o_shape)
+    return KCao
 
 
-def Fo_FVGa_to_FVGao(
-        Fo:   NDArray,  # F + (o,)           -- probe vector w (F-only -> self-pins len(F))
-        FVGa: NDArray,  # F + V + G + (a,)   -- delta-xi-tilde (carries V)
-) -> NDArray:           # F + V + G + (a, o)
+def Wo_WKCa_to_WKCao(
+        Wo:   NDArray,  # W + (o,)           -- probe vector w (W-only -> self-pins len(W))
+        WKCa: NDArray,  # W + K + C + (a,)   -- delta-xi-tilde (carries K)
+) -> NDArray:           # W + K + C + (a, o)
     """Computes named contraction (outer product over a, o). Capitals are grouped indices, may be empty.
 
-    Transpose-assemble (w (x) delta-xi-tilde), keeping the probe stack F. Self-infers len(F) from the
-    F-only probe vector Fo; V and G never need separating here (no operand carries G without V), so
+    Transpose-assemble (w (x) delta-xi-tilde), keeping the probe stack W. Self-infers len(W) from the
+    W-only probe vector Wo; K and C never need separating here (no operand carries C without K), so
     they ride as one combined block.
     """
-    use_jax = tree_contains_jax((Fo, FVGa))
+    use_jax = tree_contains_jax((Wo, WKCa))
     xnp, _, _ = get_backend(True, use_jax)
 
-    F_shape = Fo.shape[:-1]
-    o_shape = (Fo.shape[-1],)
-    a_shape = (FVGa.shape[-1],)
-    VG_shape = FVGa.shape[len(F_shape):-1]
+    W_shape = Wo.shape[:-1]
+    o_shape = (Wo.shape[-1],)
+    a_shape = (WKCa.shape[-1],)
+    KC_shape = WKCa.shape[len(W_shape):-1]
 
-    size_F = math.prod(F_shape)
-    size_VG = math.prod(VG_shape)
+    size_W = math.prod(W_shape)
+    size_KC = math.prod(KC_shape)
 
-    Fo   = Fo.reshape((size_F,) + o_shape)
-    FVGa = FVGa.reshape((size_F,) + (size_VG,) + a_shape)
+    Wo   = Wo.reshape((size_W,) + o_shape)
+    WKCa = WKCa.reshape((size_W,) + (size_KC,) + a_shape)
 
-    FVGao = xnp.einsum('Fo,FXa->FXao', Fo, FVGa)
+    WKCao = xnp.einsum('Wo,WXa->WXao', Wo, WKCa)
 
-    FVGao = FVGao.reshape(F_shape + VG_shape + a_shape + o_shape)
-    return FVGao
+    WKCao = WKCao.reshape(W_shape + KC_shape + a_shape + o_shape)
+    return WKCao
 
 
-def Fo_FVGa_to_VGao(
-        Fo:   NDArray,  # F + (o,)           -- probe vector w (F-only -> self-pins len(F))
-        FVGa: NDArray,  # F + V + G + (a,)   -- delta-xi-tilde (carries V)
-) -> NDArray:           # V + G + (a, o)
-    """Computes named contraction (outer product over a, o; probe stack F summed out).
+def Wo_WKCa_to_KCao(
+        Wo:   NDArray,  # W + (o,)           -- probe vector w (W-only -> self-pins len(W))
+        WKCa: NDArray,  # W + K + C + (a,)   -- delta-xi-tilde (carries K)
+) -> NDArray:           # K + C + (a, o)
+    """Computes named contraction (outer product over a, o; probe stack W summed out).
 
-    Transpose-assemble (w (x) delta-xi-tilde), summing over the probe stack F. Self-infers len(F);
-    V and G ride combined.
+    Transpose-assemble (w (x) delta-xi-tilde), summing over the probe stack W. Self-infers len(W);
+    K and C ride combined.
     """
-    use_jax = tree_contains_jax((Fo, FVGa))
+    use_jax = tree_contains_jax((Wo, WKCa))
     xnp, _, _ = get_backend(True, use_jax)
 
-    F_shape = Fo.shape[:-1]
-    o_shape = (Fo.shape[-1],)
-    a_shape = (FVGa.shape[-1],)
-    VG_shape = FVGa.shape[len(F_shape):-1]
+    W_shape = Wo.shape[:-1]
+    o_shape = (Wo.shape[-1],)
+    a_shape = (WKCa.shape[-1],)
+    KC_shape = WKCa.shape[len(W_shape):-1]
 
-    size_F = math.prod(F_shape)
-    size_VG = math.prod(VG_shape)
+    size_W = math.prod(W_shape)
+    size_KC = math.prod(KC_shape)
 
-    Fo   = Fo.reshape((size_F,) + o_shape)
-    FVGa = FVGa.reshape((size_F,) + (size_VG,) + a_shape)
+    Wo   = Wo.reshape((size_W,) + o_shape)
+    WKCa = WKCa.reshape((size_W,) + (size_KC,) + a_shape)
 
-    VGao = xnp.einsum('Fo,FXa->Xao', Fo, FVGa)
+    KCao = xnp.einsum('Wo,WXa->Xao', Wo, WKCa)
 
-    VGao = VGao.reshape(VG_shape + a_shape + o_shape)
-    return VGao
+    KCao = KCao.reshape(KC_shape + a_shape + o_shape)
+    return KCao
 
 
-def FGi_FGa_FVGj_to_FVGiaj(
-        FGi:    NDArray,  # F + G + (i,)       -- base edge var (F+G -> pins G given n_probe)
-        FGa:    NDArray,  # F + G + (a,)       -- base edge var
-        FVGj:   NDArray,  # F + V + G + (j,)   -- residual-derived edge var (carries V)
-        n_probe: int,     # len(F); {F+G, F+G, F+V+G} do not pin it, so it is supplied
-) -> NDArray:             # F + V + G + (i, a, j)
+def WCi_WCa_WKCj_to_WKCiaj(
+        WCi:    NDArray,  # W + C + (i,)       -- base edge var (W+C -> pins C given n_probe)
+        WCa:    NDArray,  # W + C + (a,)       -- base edge var
+        WKCj:   NDArray,  # W + K + C + (j,)   -- residual-derived edge var (carries K)
+        n_probe: int,     # len(W); {W+C, W+C, W+K+C} do not pin it, so it is supplied
+) -> NDArray:             # W + K + C + (i, a, j)
     """Computes named contraction (triple outer product over i, a, j). Capitals may be empty.
 
-    Transpose tt-assemble term with V on the third (j) edge var, keeping the probe stack F.
+    Transpose tt-assemble term with K on the third (j) edge var, keeping the probe stack W.
     """
-    use_jax = tree_contains_jax((FGi, FGa, FVGj))
+    use_jax = tree_contains_jax((WCi, WCa, WKCj))
     xnp, _, _ = get_backend(True, use_jax)
 
-    F_shape = FGi.shape[:n_probe]
-    G_shape = FGi.shape[n_probe:-1]
-    i_shape = (FGi.shape[-1],)
-    a_shape = (FGa.shape[-1],)
-    j_shape = (FVGj.shape[-1],)
-    V_shape = FVGj.shape[n_probe:len(FVGj.shape) - 1 - len(G_shape)]
+    W_shape = WCi.shape[:n_probe]
+    C_shape = WCi.shape[n_probe:-1]
+    i_shape = (WCi.shape[-1],)
+    a_shape = (WCa.shape[-1],)
+    j_shape = (WKCj.shape[-1],)
+    K_shape = WKCj.shape[n_probe:len(WKCj.shape) - 1 - len(C_shape)]
 
-    size_F = math.prod(F_shape)
-    size_V = math.prod(V_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
 
-    FGi  = FGi.reshape((size_F,) + (size_G,) + i_shape)
-    FGa  = FGa.reshape((size_F,) + (size_G,) + a_shape)
-    FVGj = FVGj.reshape((size_F,) + (size_V,) + (size_G,) + j_shape)
+    WCi  = WCi.reshape((size_W,) + (size_C,) + i_shape)
+    WCa  = WCa.reshape((size_W,) + (size_C,) + a_shape)
+    WKCj = WKCj.reshape((size_W,) + (size_K,) + (size_C,) + j_shape)
 
     path = ['einsum_path', (0, 1), (0, 1)]
     if use_jax:
-        FVGiaj = xnp.einsum('FGi,FGa,FVGj->FVGiaj', FGi, FGa, FVGj)
+        WKCiaj = xnp.einsum('WCi,WCa,WKCj->WKCiaj', WCi, WCa, WKCj)
     else:
-        FVGiaj = xnp.einsum('FGi,FGa,FVGj->FVGiaj', FGi, FGa, FVGj, optimize=path)
+        WKCiaj = xnp.einsum('WCi,WCa,WKCj->WKCiaj', WCi, WCa, WKCj, optimize=path)
 
-    FVGiaj = FVGiaj.reshape(F_shape + V_shape + G_shape + i_shape + a_shape + j_shape)
-    return FVGiaj
+    WKCiaj = WKCiaj.reshape(W_shape + K_shape + C_shape + i_shape + a_shape + j_shape)
+    return WKCiaj
 
 
-def FGi_FGa_FVGj_to_VGiaj(
-        FGi:    NDArray,  # F + G + (i,)
-        FGa:    NDArray,  # F + G + (a,)
-        FVGj:   NDArray,  # F + V + G + (j,)
-        n_probe: int,     # len(F), summed out
-) -> NDArray:             # V + G + (i, a, j)
-    """Computes named contraction (triple outer product over i, a, j; probe stack F summed out).
+def WCi_WCa_WKCj_to_KCiaj(
+        WCi:    NDArray,  # W + C + (i,)
+        WCa:    NDArray,  # W + C + (a,)
+        WKCj:   NDArray,  # W + K + C + (j,)
+        n_probe: int,     # len(W), summed out
+) -> NDArray:             # K + C + (i, a, j)
+    """Computes named contraction (triple outer product over i, a, j; probe stack W summed out).
 
-    Transpose tt-assemble term with V on the third (j) edge var, summing over the probe stack F.
+    Transpose tt-assemble term with K on the third (j) edge var, summing over the probe stack W.
     """
-    use_jax = tree_contains_jax((FGi, FGa, FVGj))
+    use_jax = tree_contains_jax((WCi, WCa, WKCj))
     xnp, _, _ = get_backend(True, use_jax)
 
-    F_shape = FGi.shape[:n_probe]
-    G_shape = FGi.shape[n_probe:-1]
-    i_shape = (FGi.shape[-1],)
-    a_shape = (FGa.shape[-1],)
-    j_shape = (FVGj.shape[-1],)
-    V_shape = FVGj.shape[n_probe:len(FVGj.shape) - 1 - len(G_shape)]
+    W_shape = WCi.shape[:n_probe]
+    C_shape = WCi.shape[n_probe:-1]
+    i_shape = (WCi.shape[-1],)
+    a_shape = (WCa.shape[-1],)
+    j_shape = (WKCj.shape[-1],)
+    K_shape = WKCj.shape[n_probe:len(WKCj.shape) - 1 - len(C_shape)]
 
-    size_F = math.prod(F_shape)
-    size_V = math.prod(V_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
 
-    FGi  = FGi.reshape((size_F,) + (size_G,) + i_shape)
-    FGa  = FGa.reshape((size_F,) + (size_G,) + a_shape)
-    FVGj = FVGj.reshape((size_F,) + (size_V,) + (size_G,) + j_shape)
+    WCi  = WCi.reshape((size_W,) + (size_C,) + i_shape)
+    WCa  = WCa.reshape((size_W,) + (size_C,) + a_shape)
+    WKCj = WKCj.reshape((size_W,) + (size_K,) + (size_C,) + j_shape)
 
     path = ['einsum_path', (0, 1), (0, 1)]
     if use_jax:
-        VGiaj = xnp.einsum('FGi,FGa,FVGj->VGiaj', FGi, FGa, FVGj)
+        KCiaj = xnp.einsum('WCi,WCa,WKCj->KCiaj', WCi, WCa, WKCj)
     else:
-        VGiaj = xnp.einsum('FGi,FGa,FVGj->VGiaj', FGi, FGa, FVGj, optimize=path)
+        KCiaj = xnp.einsum('WCi,WCa,WKCj->KCiaj', WCi, WCa, WKCj, optimize=path)
 
-    VGiaj = VGiaj.reshape(V_shape + G_shape + i_shape + a_shape + j_shape)
-    return VGiaj
+    KCiaj = KCiaj.reshape(K_shape + C_shape + i_shape + a_shape + j_shape)
+    return KCiaj
 
 
-def FVGi_FGa_FGj_to_FVGiaj(
-        FVGi:   NDArray,  # F + V + G + (i,)   -- residual-derived edge var (carries V)
-        FGa:    NDArray,  # F + G + (a,)       -- base edge var (F+G -> pins G given n_probe)
-        FGj:    NDArray,  # F + G + (j,)       -- base edge var
-        n_probe: int,     # len(F); supplied
-) -> NDArray:             # F + V + G + (i, a, j)
+def WKCi_WCa_WCj_to_WKCiaj(
+        WKCi:   NDArray,  # W + K + C + (i,)   -- residual-derived edge var (carries K)
+        WCa:    NDArray,  # W + C + (a,)       -- base edge var (W+C -> pins C given n_probe)
+        WCj:    NDArray,  # W + C + (j,)       -- base edge var
+        n_probe: int,     # len(W); supplied
+) -> NDArray:             # W + K + C + (i, a, j)
     """Computes named contraction (triple outer product over i, a, j). Capitals may be empty.
 
-    Transpose tt-assemble term with V on the first (i) edge var, keeping the probe stack F.
+    Transpose tt-assemble term with K on the first (i) edge var, keeping the probe stack W.
     """
-    use_jax = tree_contains_jax((FVGi, FGa, FGj))
+    use_jax = tree_contains_jax((WKCi, WCa, WCj))
     xnp, _, _ = get_backend(True, use_jax)
 
-    F_shape = FGa.shape[:n_probe]
-    G_shape = FGa.shape[n_probe:-1]
-    i_shape = (FVGi.shape[-1],)
-    a_shape = (FGa.shape[-1],)
-    j_shape = (FGj.shape[-1],)
-    V_shape = FVGi.shape[n_probe:len(FVGi.shape) - 1 - len(G_shape)]
+    W_shape = WCa.shape[:n_probe]
+    C_shape = WCa.shape[n_probe:-1]
+    i_shape = (WKCi.shape[-1],)
+    a_shape = (WCa.shape[-1],)
+    j_shape = (WCj.shape[-1],)
+    K_shape = WKCi.shape[n_probe:len(WKCi.shape) - 1 - len(C_shape)]
 
-    size_F = math.prod(F_shape)
-    size_V = math.prod(V_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
 
-    FVGi = FVGi.reshape((size_F,) + (size_V,) + (size_G,) + i_shape)
-    FGa  = FGa.reshape((size_F,) + (size_G,) + a_shape)
-    FGj  = FGj.reshape((size_F,) + (size_G,) + j_shape)
+    WKCi = WKCi.reshape((size_W,) + (size_K,) + (size_C,) + i_shape)
+    WCa  = WCa.reshape((size_W,) + (size_C,) + a_shape)
+    WCj  = WCj.reshape((size_W,) + (size_C,) + j_shape)
 
     path = ['einsum_path', (0, 1), (0, 1)]
     if use_jax:
-        FVGiaj = xnp.einsum('FVGi,FGa,FGj->FVGiaj', FVGi, FGa, FGj)
+        WKCiaj = xnp.einsum('WKCi,WCa,WCj->WKCiaj', WKCi, WCa, WCj)
     else:
-        FVGiaj = xnp.einsum('FVGi,FGa,FGj->FVGiaj', FVGi, FGa, FGj, optimize=path)
+        WKCiaj = xnp.einsum('WKCi,WCa,WCj->WKCiaj', WKCi, WCa, WCj, optimize=path)
 
-    FVGiaj = FVGiaj.reshape(F_shape + V_shape + G_shape + i_shape + a_shape + j_shape)
-    return FVGiaj
+    WKCiaj = WKCiaj.reshape(W_shape + K_shape + C_shape + i_shape + a_shape + j_shape)
+    return WKCiaj
 
 
-def FVGi_FGa_FGj_to_VGiaj(
-        FVGi:   NDArray,  # F + V + G + (i,)
-        FGa:    NDArray,  # F + G + (a,)
-        FGj:    NDArray,  # F + G + (j,)
-        n_probe: int,     # len(F), summed out
-) -> NDArray:             # V + G + (i, a, j)
-    """Computes named contraction (triple outer product over i, a, j; probe stack F summed out).
+def WKCi_WCa_WCj_to_KCiaj(
+        WKCi:   NDArray,  # W + K + C + (i,)
+        WCa:    NDArray,  # W + C + (a,)
+        WCj:    NDArray,  # W + C + (j,)
+        n_probe: int,     # len(W), summed out
+) -> NDArray:             # K + C + (i, a, j)
+    """Computes named contraction (triple outer product over i, a, j; probe stack W summed out).
 
-    Transpose tt-assemble term with V on the first (i) edge var, summing over the probe stack F.
+    Transpose tt-assemble term with K on the first (i) edge var, summing over the probe stack W.
     """
-    use_jax = tree_contains_jax((FVGi, FGa, FGj))
+    use_jax = tree_contains_jax((WKCi, WCa, WCj))
     xnp, _, _ = get_backend(True, use_jax)
 
-    F_shape = FGa.shape[:n_probe]
-    G_shape = FGa.shape[n_probe:-1]
-    i_shape = (FVGi.shape[-1],)
-    a_shape = (FGa.shape[-1],)
-    j_shape = (FGj.shape[-1],)
-    V_shape = FVGi.shape[n_probe:len(FVGi.shape) - 1 - len(G_shape)]
+    W_shape = WCa.shape[:n_probe]
+    C_shape = WCa.shape[n_probe:-1]
+    i_shape = (WKCi.shape[-1],)
+    a_shape = (WCa.shape[-1],)
+    j_shape = (WCj.shape[-1],)
+    K_shape = WKCi.shape[n_probe:len(WKCi.shape) - 1 - len(C_shape)]
 
-    size_F = math.prod(F_shape)
-    size_V = math.prod(V_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
 
-    FVGi = FVGi.reshape((size_F,) + (size_V,) + (size_G,) + i_shape)
-    FGa  = FGa.reshape((size_F,) + (size_G,) + a_shape)
-    FGj  = FGj.reshape((size_F,) + (size_G,) + j_shape)
+    WKCi = WKCi.reshape((size_W,) + (size_K,) + (size_C,) + i_shape)
+    WCa  = WCa.reshape((size_W,) + (size_C,) + a_shape)
+    WCj  = WCj.reshape((size_W,) + (size_C,) + j_shape)
 
     path = ['einsum_path', (0, 1), (0, 1)]
     if use_jax:
-        VGiaj = xnp.einsum('FVGi,FGa,FGj->VGiaj', FVGi, FGa, FGj)
+        KCiaj = xnp.einsum('WKCi,WCa,WCj->KCiaj', WKCi, WCa, WCj)
     else:
-        VGiaj = xnp.einsum('FVGi,FGa,FGj->VGiaj', FVGi, FGa, FGj, optimize=path)
+        KCiaj = xnp.einsum('WKCi,WCa,WCj->KCiaj', WKCi, WCa, WCj, optimize=path)
 
-    VGiaj = VGiaj.reshape(V_shape + G_shape + i_shape + a_shape + j_shape)
-    return VGiaj
+    KCiaj = KCiaj.reshape(K_shape + C_shape + i_shape + a_shape + j_shape)
+    return KCiaj
 
 
-def FGi_FVGa_FGj_to_FVGiaj(
-        FGi:    NDArray,  # F + G + (i,)       -- base edge var (F+G -> pins G given n_probe)
-        FVGa:   NDArray,  # F + V + G + (a,)   -- residual-derived edge var (carries V)
-        FGj:    NDArray,  # F + G + (j,)       -- base edge var
-        n_probe: int,     # len(F); supplied
-) -> NDArray:             # F + V + G + (i, a, j)
+def WCi_WKCa_WCj_to_WKCiaj(
+        WCi:    NDArray,  # W + C + (i,)       -- base edge var (W+C -> pins C given n_probe)
+        WKCa:   NDArray,  # W + K + C + (a,)   -- residual-derived edge var (carries K)
+        WCj:    NDArray,  # W + C + (j,)       -- base edge var
+        n_probe: int,     # len(W); supplied
+) -> NDArray:             # W + K + C + (i, a, j)
     """Computes named contraction (triple outer product over i, a, j). Capitals may be empty.
 
-    Transpose tt-assemble term with V on the middle (a) edge var, keeping the probe stack F.
+    Transpose tt-assemble term with K on the middle (a) edge var, keeping the probe stack W.
     """
-    use_jax = tree_contains_jax((FGi, FVGa, FGj))
+    use_jax = tree_contains_jax((WCi, WKCa, WCj))
     xnp, _, _ = get_backend(True, use_jax)
 
-    F_shape = FGi.shape[:n_probe]
-    G_shape = FGi.shape[n_probe:-1]
-    i_shape = (FGi.shape[-1],)
-    a_shape = (FVGa.shape[-1],)
-    j_shape = (FGj.shape[-1],)
-    V_shape = FVGa.shape[n_probe:len(FVGa.shape) - 1 - len(G_shape)]
+    W_shape = WCi.shape[:n_probe]
+    C_shape = WCi.shape[n_probe:-1]
+    i_shape = (WCi.shape[-1],)
+    a_shape = (WKCa.shape[-1],)
+    j_shape = (WCj.shape[-1],)
+    K_shape = WKCa.shape[n_probe:len(WKCa.shape) - 1 - len(C_shape)]
 
-    size_F = math.prod(F_shape)
-    size_V = math.prod(V_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
 
-    FGi  = FGi.reshape((size_F,) + (size_G,) + i_shape)
-    FVGa = FVGa.reshape((size_F,) + (size_V,) + (size_G,) + a_shape)
-    FGj  = FGj.reshape((size_F,) + (size_G,) + j_shape)
+    WCi  = WCi.reshape((size_W,) + (size_C,) + i_shape)
+    WKCa = WKCa.reshape((size_W,) + (size_K,) + (size_C,) + a_shape)
+    WCj  = WCj.reshape((size_W,) + (size_C,) + j_shape)
 
     path = ['einsum_path', (0, 1), (0, 1)]
     if use_jax:
-        FVGiaj = xnp.einsum('FGi,FVGa,FGj->FVGiaj', FGi, FVGa, FGj)
+        WKCiaj = xnp.einsum('WCi,WKCa,WCj->WKCiaj', WCi, WKCa, WCj)
     else:
-        FVGiaj = xnp.einsum('FGi,FVGa,FGj->FVGiaj', FGi, FVGa, FGj, optimize=path)
+        WKCiaj = xnp.einsum('WCi,WKCa,WCj->WKCiaj', WCi, WKCa, WCj, optimize=path)
 
-    FVGiaj = FVGiaj.reshape(F_shape + V_shape + G_shape + i_shape + a_shape + j_shape)
-    return FVGiaj
+    WKCiaj = WKCiaj.reshape(W_shape + K_shape + C_shape + i_shape + a_shape + j_shape)
+    return WKCiaj
 
 
-def FGi_FVGa_FGj_to_VGiaj(
-        FGi:    NDArray,  # F + G + (i,)
-        FVGa:   NDArray,  # F + V + G + (a,)
-        FGj:    NDArray,  # F + G + (j,)
-        n_probe: int,     # len(F), summed out
-) -> NDArray:             # V + G + (i, a, j)
-    """Computes named contraction (triple outer product over i, a, j; probe stack F summed out).
+def WCi_WKCa_WCj_to_KCiaj(
+        WCi:    NDArray,  # W + C + (i,)
+        WKCa:   NDArray,  # W + K + C + (a,)
+        WCj:    NDArray,  # W + C + (j,)
+        n_probe: int,     # len(W), summed out
+) -> NDArray:             # K + C + (i, a, j)
+    """Computes named contraction (triple outer product over i, a, j; probe stack W summed out).
 
-    Transpose tt-assemble term with V on the middle (a) edge var, summing over the probe stack F.
+    Transpose tt-assemble term with K on the middle (a) edge var, summing over the probe stack W.
     """
-    use_jax = tree_contains_jax((FGi, FVGa, FGj))
+    use_jax = tree_contains_jax((WCi, WKCa, WCj))
     xnp, _, _ = get_backend(True, use_jax)
 
-    F_shape = FGi.shape[:n_probe]
-    G_shape = FGi.shape[n_probe:-1]
-    i_shape = (FGi.shape[-1],)
-    a_shape = (FVGa.shape[-1],)
-    j_shape = (FGj.shape[-1],)
-    V_shape = FVGa.shape[n_probe:len(FVGa.shape) - 1 - len(G_shape)]
+    W_shape = WCi.shape[:n_probe]
+    C_shape = WCi.shape[n_probe:-1]
+    i_shape = (WCi.shape[-1],)
+    a_shape = (WKCa.shape[-1],)
+    j_shape = (WCj.shape[-1],)
+    K_shape = WKCa.shape[n_probe:len(WKCa.shape) - 1 - len(C_shape)]
 
-    size_F = math.prod(F_shape)
-    size_V = math.prod(V_shape)
-    size_G = math.prod(G_shape)
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
 
-    FGi  = FGi.reshape((size_F,) + (size_G,) + i_shape)
-    FVGa = FVGa.reshape((size_F,) + (size_V,) + (size_G,) + a_shape)
-    FGj  = FGj.reshape((size_F,) + (size_G,) + j_shape)
+    WCi  = WCi.reshape((size_W,) + (size_C,) + i_shape)
+    WKCa = WKCa.reshape((size_W,) + (size_K,) + (size_C,) + a_shape)
+    WCj  = WCj.reshape((size_W,) + (size_C,) + j_shape)
 
     path = ['einsum_path', (0, 1), (0, 1)]
     if use_jax:
-        VGiaj = xnp.einsum('FGi,FVGa,FGj->VGiaj', FGi, FVGa, FGj)
+        KCiaj = xnp.einsum('WCi,WKCa,WCj->KCiaj', WCi, WKCa, WCj)
     else:
-        VGiaj = xnp.einsum('FGi,FVGa,FGj->VGiaj', FGi, FVGa, FGj, optimize=path)
+        KCiaj = xnp.einsum('WCi,WKCa,WCj->KCiaj', WCi, WKCa, WCj, optimize=path)
 
-    VGiaj = VGiaj.reshape(V_shape + G_shape + i_shape + a_shape + j_shape)
-    return VGiaj
+    KCiaj = KCiaj.reshape(K_shape + C_shape + i_shape + a_shape + j_shape)
+    return KCiaj
 

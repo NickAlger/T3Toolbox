@@ -157,11 +157,11 @@ def compute_xis(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        xis = contractions.dGio_dFo_to_dFGi(up_tucker_cores, ww)
+        xis = contractions.dCio_dWo_to_dWCi(up_tucker_cores, ww)
     else:
         def _func(x):
             U, w = x
-            return (contractions.Gio_Fo_to_FGi(U, w),)
+            return (contractions.Cio_Wo_to_WCi(U, w),)
 
         (xis,) = xmap(_func, (up_tucker_cores, ww))
 
@@ -187,7 +187,7 @@ def compute_mus(
 
     def _func(mu, x):
         P, xi = x[0], x[1]
-        mu_next = contractions.FGa_Gaib_FGi_to_FGb(mu, P, xi)
+        mu_next = contractions.WCa_Caib_WCi_to_WCb(mu, P, xi)
         return mu_next, (mu,)
 
     # carry has the same leading stack as the edge variables (order-agnostic), plus the left bond
@@ -237,11 +237,11 @@ def compute_etas(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        etas = contractions.dFGa_dGaib_dFGb_to_dFGi(mus, down_tt_cores, nus)
+        etas = contractions.dWCa_dCaib_dWCb_to_dWCi(mus, down_tt_cores, nus)
     else:
         def _func(x):
             mu, G, nu = x
-            return (contractions.FGa_Gaib_FGb_to_FGi(mu, G, nu),)
+            return (contractions.WCa_Caib_WCb_to_WCi(mu, G, nu),)
 
         (etas,) = xmap(_func, (mus, down_tt_cores, nus))
 
@@ -265,11 +265,11 @@ def assemble_zs(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        zs = contractions.dFGi_dGio_to_dFGo(etas, tucker_cores)
+        zs = contractions.dWCi_dCio_to_dWCo(etas, tucker_cores)
     else:
         def _func(x):
             eta, U = x
-            return (contractions.FGi_Gio_to_FGo(eta, U),)
+            return (contractions.WCi_Cio_to_WCo(eta, U),)
 
         (zs,) = xmap(_func, (etas, tucker_cores))
 
@@ -338,19 +338,19 @@ def compute_sigmas(
 
     def _func(sigma, x):
         Q, O, dG, xi, dxi, mu = x
-        # Three-group (F probe, V tangent, G base) contractions: sigma/dxi carry V, the base edge
-        # vars (xi, mu) and base cores (Q, O) do not. t1/t3 self-infer the split from a G-only base
-        # core; t2's only core is the variation core dG (V+G), so len(G) is supplied via n_base
-        # (recovered here from the G-only Q, the n_probe precedent). Reduces to the two-group result
-        # when V is empty.
+        # Three-group (W probe, K tangent, C base) contractions: sigma/dxi carry K, the base edge
+        # vars (xi, mu) and base cores (Q, O) do not. t1/t3 self-infer the split from a C-only base
+        # core; t2's only core is the variation core dG (K+C), so len(C) is supplied via n_base
+        # (recovered here from the C-only Q, the n_probe precedent). Reduces to the two-group result
+        # when K is empty.
         n_base = Q.ndim - 3
-        t1 = contractions.FVGa_Gaib_FGi_to_FVGb(sigma, Q, xi)
-        t2 = contractions.FGa_VGaib_FGi_to_FVGb(mu, dG, xi, n_base)
-        t3 = contractions.FGa_Gaib_FVGi_to_FVGb(mu, O, dxi)
+        t1 = contractions.WKCa_Caib_WCi_to_WKCb(sigma, Q, xi)
+        t2 = contractions.WCa_KCaib_WCi_to_WKCb(mu, dG, xi, n_base)
+        t3 = contractions.WCa_Caib_WKCi_to_WKCb(mu, O, dxi)
         sigma_next = t1 + t2 + t3
         return sigma_next, (sigma,)
 
-    # carry sigma is F+V+G; take the leading stack from dxis (which carries V), not xis (F+G only)
+    # carry sigma is W+K+C; take the leading stack from dxis (which carries K), not xis (W+C only)
     rR0 = right_tt_cores[0].shape[-3]
     init = xnp.zeros(dxis[0].shape[:-1] + (rR0,))
 
@@ -443,12 +443,12 @@ def compute_detas(
     else:
         def _func(x):
             P, Q, dG, mu, nu, sigma, tau = x
-            # Three-group contractions (see compute_sigmas): sigma/tau carry V, mu/nu and base cores
-            # P/Q do not. term1/term3 self-infer; term2's only core is dG (V+G) -> n_base from Q.
+            # Three-group contractions (see compute_sigmas): sigma/tau carry K, mu/nu and base cores
+            # P/Q do not. term1/term3 self-infer; term2's only core is dG (K+C) -> n_base from Q.
             n_base = Q.ndim - 3
-            term1 = contractions.FVGa_Gaib_FGb_to_FVGi(sigma, Q, nu)
-            term2 = contractions.FGa_VGaib_FGb_to_FVGi(mu, dG, nu, n_base)
-            term3 = contractions.FGa_Gaib_FVGb_to_FVGi(mu, P, tau)
+            term1 = contractions.WKCa_Caib_WCb_to_WKCi(sigma, Q, nu)
+            term2 = contractions.WCa_KCaib_WCb_to_WKCi(mu, dG, nu, n_base)
+            term3 = contractions.WCa_Caib_WKCb_to_WKCi(mu, P, tau)
             return (term1 + term2 + term3,)
 
         xs = (left_tt_cores, right_tt_cores, var_tt_cores, mus, nus, sigmas, taus)
@@ -490,12 +490,12 @@ def assemble_tangent_zs(
     else:
         def _func(x):
             B, dB, eta, deta = x
-            # Three-group contractions (see compute_sigmas): deta carries V (term1 fuses F+V over the
-            # G-only base core B, via the delegator); eta is F+G and dB is the variation core V+G, so
-            # term2 needs len(G) -- recovered here from the G-only tucker core B (2 tensor axes).
+            # Three-group contractions (see compute_sigmas): deta carries K (term1 fuses W+K over the
+            # C-only base core B, via the delegator); eta is W+C and dB is the variation core K+C, so
+            # term2 needs len(C) -- recovered here from the C-only tucker core B (2 tensor axes).
             n_base = B.ndim - 2
-            term1 = contractions.FVGi_Gio_to_FVGo(deta, B)
-            term2 = contractions.FGi_VGio_to_FVGo(eta, dB, n_base)
+            term1 = contractions.WKCi_Cio_to_WKCo(deta, B)
+            term2 = contractions.WCi_KCio_to_WKCo(eta, dB, n_base)
             return (term1 + term2,)
 
         (zs,) = xmap(_func, (tucker_cores, var_tucker_cores, etas, detas))
@@ -532,10 +532,10 @@ def probe_tangent(
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,Ni)
     '''Probe a tangent vector. Applies the (single-sample) least-squares Jacobian J^(s).
 
-    Two independent stackings may ride along (handled by the G/F custom contractions in
-    ``contractions.py``): the T3 stack ``G`` (the base/variation cores' ``stack_shape``) and the
-    probe stack ``F`` (the probing vectors' batch). When both are present the probes are
-    double-stacked, ``elm_shape = G + F + (Ni,)`` (G first).
+    Two independent stackings may ride along (handled by the W/C custom contractions in
+    ``contractions.py``): the T3 stack ``C`` (the base/variation cores' ``stack_shape``) and the
+    probe stack ``W`` (the probing vectors' batch). When both are present the probes are
+    double-stacked, ``elm_shape = W + C + (Ni,)`` (probe outer, base inner).
 
     See Section 6.2.2, particularly Algorithms 6 and 7, in:
         Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
@@ -659,15 +659,15 @@ def compute_deta_tildes(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        # ztildes carry no separate T3 stack G in the uniform layer, so the outer-product form
-        # (same as compute_xis) coincides with the G-batched contraction.
-        deta_tildes = contractions.dGio_dFo_to_dFGi(up_tucker_cores, ztildes)
+        # ztildes carry no separate T3 stack C in the uniform layer, so the outer-product form
+        # (same as compute_xis) coincides with the C-batched contraction.
+        deta_tildes = contractions.dCio_dWo_to_dWCi(up_tucker_cores, ztildes)
     else:
         def _func(x):
             U, zt = x
-            # G (T3 stack) is shared between the core U and the residual zt; F is the probe stack on
+            # C (T3 stack) is shared between the core U and the residual zt; W is the probe stack on
             # zt. This is NOT compute_xis (which forms an outer product over the two stacks).
-            return (contractions.FGo_Gio_to_FGi(zt, U),)
+            return (contractions.WCo_Cio_to_WCi(zt, U),)
 
         (deta_tildes,) = xmap(_func, (up_tucker_cores, ztildes))
 
@@ -695,15 +695,15 @@ def compute_tau_tildes(
 
     def _func(tau_tilde, x):
         P, xi, deta_tilde, mu = x
-        # Three-group (F probe, V tangent, G base): tau_tilde/deta_tilde carry V (from the residual),
-        # xi/mu and the base core P do not. Both terms self-infer the split (P pins G, xi/mu pin F);
-        # reduces to the two-group result when V is empty (no V-stacked residual).
-        t1 = contractions.FVGa_Gaib_FGi_to_FVGb(tau_tilde, P, xi)
-        t2 = contractions.FGa_Gaib_FVGi_to_FVGb(mu, P, deta_tilde)
+        # Three-group (W probe, K tangent, C base): tau_tilde/deta_tilde carry K (from the residual),
+        # xi/mu and the base core P do not. Both terms self-infer the split (P pins C, xi/mu pin W);
+        # reduces to the two-group result when K is empty (no K-stacked residual).
+        t1 = contractions.WKCa_Caib_WCi_to_WKCb(tau_tilde, P, xi)
+        t2 = contractions.WCa_Caib_WKCi_to_WKCb(mu, P, deta_tilde)
         tau_tilde_next = t1 + t2
         return tau_tilde_next, (tau_tilde,)
 
-    # carry tau_tilde is F+V+G; take the leading stack from deta_tildes (carries V), not mus (F+G).
+    # carry tau_tilde is W+K+C; take the leading stack from deta_tildes (carries K), not mus (W+C).
     init = xnp.zeros(deta_tildes[0].shape[:-1] + (left_tt_cores[0].shape[-3],))
 
     last_tau_tilde, (tau_tildes,) = xscan(_func, init, (left_tt_cores, xis, deta_tildes, mus))
@@ -768,10 +768,10 @@ def compute_dxi_tildes(
     else:
         def _func(x):
             O, mu, nu, st, tt = x
-            # Three-group (see compute_tau_tildes): tt/st carry V, mu/nu and the base core O do not.
-            # Both terms self-infer (O pins G, mu/nu pin F).
-            term1 = contractions.FVGa_Gaib_FGb_to_FVGi(tt, O, nu)
-            term2 = contractions.FGa_Gaib_FVGb_to_FVGi(mu, O, st)
+            # Three-group (see compute_tau_tildes): tt/st carry K, mu/nu and the base core O do not.
+            # Both terms self-infer (O pins C, mu/nu pin W).
+            term1 = contractions.WKCa_Caib_WCb_to_WKCi(tt, O, nu)
+            term2 = contractions.WCa_Caib_WKCb_to_WKCi(mu, O, st)
             return (term1 + term2,)
 
         xs = (down_tt_cores, mus, nus, sigma_tildes, tau_tildes)
@@ -816,23 +816,23 @@ def assemble_tucker_variations(
     else:
         def _func(x):
             z_tilde, eta, w, dxi_tilde = x
-            # Three-group (F probe, V tangent, G base): z_tilde/dxi_tilde carry V, eta does not, w is
-            # F-only. n_probe = len(F) is recovered locally from the F-only probe vector w (the
-            # z_tilde (x) eta term needs it; the w (x) dxi_tilde term self-infers F from w). Output
-            # keeps V always; F is summed (V+G) or kept (F+V+G) per sum_over_probes. Reduces to the
-            # two-group result when V is empty.
+            # Three-group (W probe, K tangent, C base): z_tilde/dxi_tilde carry K, eta does not, w is
+            # W-only. n_probe = len(W) is recovered locally from the W-only probe vector w (the
+            # z_tilde (x) eta term needs it; the w (x) dxi_tilde term self-infers W from w). Output
+            # keeps K always; W is summed (K+C) or kept (W+K+C) per sum_over_probes. Reduces to the
+            # two-group result when K is empty.
             n_probe = w.ndim - 1
             if sum_over_probes:
                 dU_tilde = (
-                        contractions.FVGo_FGa_to_VGao(z_tilde, eta, n_probe)
+                        contractions.WKCo_WCa_to_KCao(z_tilde, eta, n_probe)
                         +
-                        contractions.Fo_FVGa_to_VGao(w, dxi_tilde)
+                        contractions.Wo_WKCa_to_KCao(w, dxi_tilde)
                 )
             else:
                 dU_tilde = (
-                        contractions.FVGo_FGa_to_FVGao(z_tilde, eta, n_probe)
+                        contractions.WKCo_WCa_to_WKCao(z_tilde, eta, n_probe)
                         +
-                        contractions.Fo_FVGa_to_FVGao(w, dxi_tilde)
+                        contractions.Wo_WKCa_to_WKCao(w, dxi_tilde)
                 )
             return (dU_tilde,)
 
@@ -908,26 +908,26 @@ def assemble_tt_variations(
     else:
         def _func(x):
             xi, mu, nu, sigma_tilde, tau_tilde, deta_tilde = x
-            # Three-group (F probe, V tangent, G base): the residual-derived edge vars sigma_tilde /
-            # tau_tilde / deta_tilde carry V (on the j / i / a leg respectively), the base edge vars
-            # xi/mu/nu do not. No operand here is F-only or G-only, so len(F)=n_probe is supplied;
-            # each contraction then derives G from an F+G operand and V from the F+V+G one. Output
-            # keeps V always; F is summed (V+G) or kept (F+V+G) per sum_over_probes.
+            # Three-group (W probe, K tangent, C base): the residual-derived edge vars sigma_tilde /
+            # tau_tilde / deta_tilde carry K (on the j / i / a leg respectively), the base edge vars
+            # xi/mu/nu do not. No operand here is W-only or C-only, so len(W)=n_probe is supplied;
+            # each contraction then derives C from an W+C operand and K from the W+K+C one. Output
+            # keeps K always; W is summed (K+C) or kept (W+K+C) per sum_over_probes.
             if sum_over_probes:
                 dG_tilde = (
-                        contractions.FGi_FGa_FVGj_to_VGiaj(mu, xi, sigma_tilde, n_probe)
+                        contractions.WCi_WCa_WKCj_to_KCiaj(mu, xi, sigma_tilde, n_probe)
                         +
-                        contractions.FVGi_FGa_FGj_to_VGiaj(tau_tilde, xi, nu, n_probe)
+                        contractions.WKCi_WCa_WCj_to_KCiaj(tau_tilde, xi, nu, n_probe)
                         +
-                        contractions.FGi_FVGa_FGj_to_VGiaj(mu, deta_tilde, nu, n_probe)
+                        contractions.WCi_WKCa_WCj_to_KCiaj(mu, deta_tilde, nu, n_probe)
                 )
             else:
                 dG_tilde = (
-                        contractions.FGi_FGa_FVGj_to_FVGiaj(mu, xi, sigma_tilde, n_probe)
+                        contractions.WCi_WCa_WKCj_to_WKCiaj(mu, xi, sigma_tilde, n_probe)
                         +
-                        contractions.FVGi_FGa_FGj_to_FVGiaj(tau_tilde, xi, nu, n_probe)
+                        contractions.WKCi_WCa_WCj_to_WKCiaj(tau_tilde, xi, nu, n_probe)
                         +
-                        contractions.FGi_FVGa_FGj_to_FVGiaj(mu, deta_tilde, nu, n_probe)
+                        contractions.WCi_WKCa_WCj_to_WKCiaj(mu, deta_tilde, nu, n_probe)
                 )
             return (dG_tilde,)
 
@@ -967,12 +967,12 @@ def probe_tangent_transpose(
 ]:
     '''Apply the transpose of the map from a tangent vector to its probes (apply (J^(s))^T to ztildes).
 
-    Stacking (handled by the F/G custom contractions in ``contractions.py``): the residuals
-    ``ztildes`` live in the forward probe space, ``elm_shape = F + G + (Ni,)`` (probe stack F
-    outermost, T3 stack G innermost -- base-inner), while ``ww`` carries only the probe stack F. With
-    ``sum_over_probes=False`` the resulting variations keep both stacks (``F + G + ...``, the probe
-    stack F becoming the tangent stack V); with ``sum_over_probes=True`` the probe stack F is summed
-    and the T3 stack G is kept (``G + ...``).
+    Stacking (handled by the W/C custom contractions in ``contractions.py``): the residuals
+    ``ztildes`` live in the forward probe space, ``elm_shape = W + C + (Ni,)`` (probe stack W
+    outermost, T3 stack C innermost -- base-inner), while ``ww`` carries only the probe stack W. With
+    ``sum_over_probes=False`` the resulting variations keep both stacks (``W + C + ...``, the probe
+    stack W becoming the tangent stack K); with ``sum_over_probes=True`` the probe stack W is summed
+    and the T3 stack C is kept (``C + ...``).
 
     See Section 6.2.3, particularly Algorithm 8, in:
         Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
@@ -1065,9 +1065,9 @@ def probe_tangent_transpose(
 
     #
 
-    # Number of trailing probe-stack (F) axes. Needed by the tt-assemble, whose operands are all F+G
-    # or F+V+G (no F-only operand to recover it from); the tucker-assemble recovers it itself from the
-    # F-only probe vectors ww. (ragged: ww[0].shape = F + (Ni,).)
+    # Number of trailing probe-stack (W) axes. Needed by the tt-assemble, whose operands are all W+C
+    # or W+K+C (no W-only operand to recover it from); the tucker-assemble recovers it itself from the
+    # W-only probe vectors ww. (ragged: ww[0].shape = W + (Ni,).)
     n_probe = ww[0].ndim - 1
 
     dU_tildes = assemble_tucker_variations(

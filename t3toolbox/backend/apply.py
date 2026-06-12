@@ -37,7 +37,7 @@ def tucker_tensor_train_apply(
 
     def _func(mu_VXa, v_B_G):
         v_Vo, B_Xpo, G_Xapb = v_B_G
-        mu_VXb = contractions.FGa_Gaib_Fo_Gio_to_FGb(
+        mu_VXb = contractions.WCa_Caib_Wo_Cio_to_WCb(
             mu_VXa, G_Xapb, v_Vo, B_Xpo,
         )
         return mu_VXb, (0,)

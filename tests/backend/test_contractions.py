@@ -20,11 +20,11 @@ numpy_randn = np.random.randn
 jax_randn = lambda *args: jnp.array(np.random.randn(*args))
 
 # Distinct einsum letters per grouped block (avoiding the single-index letters a, i, b, o).
-GROUP_POOL = {'F': 'fgh', 'V': 'vwx', 'G': 'mnp'}
+GROUP_POOL = {'W': 'fgh', 'K': 'vwx', 'C': 'mnp'}
 SINGLE_SIZE = {'a': 3, 'i': 4, 'b': 5, 'o': 6, 'j': 7}
 
-# (F, V, G) stack shapes exercised by the three-group contractions: all present, V/F multi-axis,
-# each block empty in turn (V empty is the degenerate two-group reduction), and all empty.
+# (W, K, C) stack shapes exercised by the three-group contractions: all present, K/W multi-axis,
+# each block empty in turn (K empty is the degenerate two-group reduction), and all empty.
 THREE_GROUP_COMBOS = [
     ((2,),   (3,),   (2,)),
     ((2,),   (3, 2), (2,)),
@@ -43,32 +43,32 @@ class TestContractions(unittest.TestCase):
             tol * np.linalg.norm(xtrue)
         )
 
-    def test_Fa_Gaib_Fi_to_FGb(self):
+    def test_Wa_Caib_Wi_to_WCb(self):
         for RANDN in [numpy_randn, jax_randn]:
             with self.subTest(RANDN=RANDN):
-                # Vectorize over F and G:
+                # Vectorize over W and C:
                 xyz_a = RANDN(2,3,4, 10)
                 uv_aib = RANDN(5,6, 10,11,12)
                 xyz_i = RANDN(2,3,4, 11)
-                result = contractions.Fa_Gaib_Fi_to_FGb(xyz_a, uv_aib, xyz_i)
+                result = contractions.Wa_Caib_Wi_to_WCb(xyz_a, uv_aib, xyz_i)
                 result_true = np.einsum('xyza,uvaib,xyzi->xyzuvb', xyz_a, uv_aib, xyz_i)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
-                # Vectorize over F only:
+                # Vectorize over W only:
                 xyz_a = RANDN(2,3,4, 10)
                 aib = RANDN(10,11,12)
                 xyz_i = RANDN(2,3,4, 11)
-                result = contractions.Fa_Gaib_Fi_to_FGb(xyz_a, aib, xyz_i)
+                result = contractions.Wa_Caib_Wi_to_WCb(xyz_a, aib, xyz_i)
                 result_true = np.einsum('xyza,aib,xyzi->xyzb', xyz_a, aib, xyz_i)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
-                # Vectorize over G only:
+                # Vectorize over C only:
                 a = RANDN(10)
                 uv_aib = RANDN(5,6, 10,11,12)
                 i = RANDN(11)
-                result = contractions.Fa_Gaib_Fi_to_FGb(a, uv_aib, i)
+                result = contractions.Wa_Caib_Wi_to_WCb(a, uv_aib, i)
                 result_true = np.einsum('a,uvaib,i->uvb', a, uv_aib, i)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
@@ -77,40 +77,40 @@ class TestContractions(unittest.TestCase):
                 a = RANDN(10)
                 aib = RANDN(10,11,12)
                 i = RANDN(11)
-                result = contractions.Fa_Gaib_Fi_to_FGb(a, aib, i)
+                result = contractions.Wa_Caib_Wi_to_WCb(a, aib, i)
                 result_true = np.einsum('a,aib,i->b', a, aib, i)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
-    def test_GFa_Gaib_Fo_Gio_to_GFb(self):
+    def test_CWa_Caib_Wo_Cio_to_CWb(self):
         for RANDN in [numpy_randn, jax_randn]:
             with self.subTest(RANDN=RANDN):
-                # Vectorize over F and G:
+                # Vectorize over W and C:
                 uv_xyz_a = RANDN(5,6, 2,3,4, 10)
                 uv_aib = RANDN(5,6, 10,11,12)
                 xyz_o = RANDN(2,3,4, 13)
                 uv_io = RANDN(5,6, 11,13)
-                result = contractions.GFa_Gaib_Fo_Gio_to_GFb(uv_xyz_a, uv_aib, xyz_o, uv_io)
+                result = contractions.CWa_Caib_Wo_Cio_to_CWb(uv_xyz_a, uv_aib, xyz_o, uv_io)
                 result_true = np.einsum('uvxyza,uvaib,xyzo,uvio->uvxyzb', uv_xyz_a, uv_aib, xyz_o, uv_io)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
-                # Vectorize over F only:
+                # Vectorize over W only:
                 xyz_a = RANDN(2,3,4, 10)
                 aib = RANDN(10,11,12)
                 xyz_o = RANDN(2,3,4, 13)
                 io = RANDN(11,13)
-                result = contractions.GFa_Gaib_Fo_Gio_to_GFb(xyz_a, aib, xyz_o, io)
+                result = contractions.CWa_Caib_Wo_Cio_to_CWb(xyz_a, aib, xyz_o, io)
                 result_true = np.einsum('xyza,aib,xyzo,io->xyzb', xyz_a, aib, xyz_o, io)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
-                # Vectorize over G only:
+                # Vectorize over C only:
                 uv_a = RANDN(5,6, 10)
                 uv_aib = RANDN(5,6, 10,11,12)
                 o = RANDN(13)
                 uv_io = RANDN(5,6, 11,13)
-                result = contractions.GFa_Gaib_Fo_Gio_to_GFb(uv_a, uv_aib, o, uv_io)
+                result = contractions.CWa_Caib_Wo_Cio_to_CWb(uv_a, uv_aib, o, uv_io)
                 result_true = np.einsum('uva,uvaib,o,uvio->uvb', uv_a, uv_aib, o, uv_io)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
@@ -120,41 +120,41 @@ class TestContractions(unittest.TestCase):
                 aib = RANDN(10,11,12)
                 o = RANDN(13)
                 io = RANDN(11,13)
-                result = contractions.GFa_Gaib_Fo_Gio_to_GFb(a, aib, o, io)
+                result = contractions.CWa_Caib_Wo_Cio_to_CWb(a, aib, o, io)
                 result_true = np.einsum('a,aib,o,io->b', a, aib, o, io)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
-    def test_FGa_Gaib_Fo_Gio_to_FGb(self):
-        # FG twin of the apply contraction (base-inner: F outer, G inner).
+    def test_WCa_Caib_Wo_Cio_to_WCb(self):
+        # WC twin of the apply contraction (base-inner: W outer, C inner).
         for RANDN in [numpy_randn, jax_randn]:
             with self.subTest(RANDN=RANDN):
-                # Vectorize over F and G:
+                # Vectorize over W and C:
                 xyz_uv_a = RANDN(2,3,4, 5,6, 10)
                 uv_aib = RANDN(5,6, 10,11,12)
                 xyz_o = RANDN(2,3,4, 13)
                 uv_io = RANDN(5,6, 11,13)
-                result = contractions.FGa_Gaib_Fo_Gio_to_FGb(xyz_uv_a, uv_aib, xyz_o, uv_io)
+                result = contractions.WCa_Caib_Wo_Cio_to_WCb(xyz_uv_a, uv_aib, xyz_o, uv_io)
                 result_true = np.einsum('xyzuva,uvaib,xyzo,uvio->xyzuvb', xyz_uv_a, uv_aib, xyz_o, uv_io)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
-                # Vectorize over F only:
+                # Vectorize over W only:
                 xyz_a = RANDN(2,3,4, 10)
                 aib = RANDN(10,11,12)
                 xyz_o = RANDN(2,3,4, 13)
                 io = RANDN(11,13)
-                result = contractions.FGa_Gaib_Fo_Gio_to_FGb(xyz_a, aib, xyz_o, io)
+                result = contractions.WCa_Caib_Wo_Cio_to_WCb(xyz_a, aib, xyz_o, io)
                 result_true = np.einsum('xyza,aib,xyzo,io->xyzb', xyz_a, aib, xyz_o, io)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
-                # Vectorize over G only:
+                # Vectorize over C only:
                 uv_a = RANDN(5,6, 10)
                 uv_aib = RANDN(5,6, 10,11,12)
                 o = RANDN(13)
                 uv_io = RANDN(5,6, 11,13)
-                result = contractions.FGa_Gaib_Fo_Gio_to_FGb(uv_a, uv_aib, o, uv_io)
+                result = contractions.WCa_Caib_Wo_Cio_to_WCb(uv_a, uv_aib, o, uv_io)
                 result_true = np.einsum('uva,uvaib,o,uvio->uvb', uv_a, uv_aib, o, uv_io)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
@@ -164,37 +164,37 @@ class TestContractions(unittest.TestCase):
                 aib = RANDN(10,11,12)
                 o = RANDN(13)
                 io = RANDN(11,13)
-                result = contractions.FGa_Gaib_Fo_Gio_to_FGb(a, aib, o, io)
+                result = contractions.WCa_Caib_Wo_Cio_to_WCb(a, aib, o, io)
                 result_true = np.einsum('a,aib,o,io->b', a, aib, o, io)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
-    def test_GFa_Gaib_GiF_to_GFb(self):
+    def test_CWa_Caib_CiW_to_CWb(self):
         for RANDN in [numpy_randn, jax_randn]:
             with self.subTest(RANDN=RANDN):
-                # Vectorize over F and G:
+                # Vectorize over W and C:
                 uv_xyz_a = RANDN(5,6, 2,3,4, 10)
                 uv_aib = RANDN(5,6, 10,11,12)
                 uv_i_xyz = RANDN(5,6, 11, 2,3,4)
-                result = contractions.GFa_Gaib_GiF_to_GFb(uv_xyz_a, uv_aib, uv_i_xyz)
+                result = contractions.CWa_Caib_CiW_to_CWb(uv_xyz_a, uv_aib, uv_i_xyz)
                 result_true = np.einsum('uvxyza,uvaib,uvixyz->uvxyzb', uv_xyz_a, uv_aib, uv_i_xyz)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
-                # Vectorize over F only:
+                # Vectorize over W only:
                 xyz_a = RANDN(2,3,4, 10)
                 aib = RANDN(10,11,12)
                 i_xyz = RANDN(11, 2,3,4)
-                result = contractions.GFa_Gaib_GiF_to_GFb(xyz_a, aib, i_xyz)
+                result = contractions.CWa_Caib_CiW_to_CWb(xyz_a, aib, i_xyz)
                 result_true = np.einsum('xyza,aib,ixyz->xyzb', xyz_a, aib, i_xyz)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
-                # Vectorize over G only:
+                # Vectorize over C only:
                 uv_a = RANDN(5,6, 10)
                 uv_aib = RANDN(5,6, 10,11,12)
                 uv_i = RANDN(5,6, 11)
-                result = contractions.GFa_Gaib_GiF_to_GFb(uv_a, uv_aib, uv_i)
+                result = contractions.CWa_Caib_CiW_to_CWb(uv_a, uv_aib, uv_i)
                 result_true = np.einsum('uva,uvaib,uvi->uvb', uv_a, uv_aib, uv_i)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
@@ -203,37 +203,37 @@ class TestContractions(unittest.TestCase):
                 a = RANDN(10)
                 aib = RANDN(10,11,12)
                 i = RANDN(11)
-                result = contractions.GFa_Gaib_GiF_to_GFb(a, aib, i)
+                result = contractions.CWa_Caib_CiW_to_CWb(a, aib, i)
                 result_true = np.einsum('a,aib,i->b', a, aib, i)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
-    def test_FGa_Gaib_FGi_to_FGb(self):
+    def test_WCa_Caib_WCi_to_WCb(self):
         for RANDN in [numpy_randn, jax_randn]:
             with self.subTest(RANDN=RANDN):
-                # Vectorize over F and G:
+                # Vectorize over W and C:
                 xyz_uv_a = RANDN(2,3,4, 5,6, 10)
                 uv_aib = RANDN(5,6, 10,11,12)
                 xyz_uv_i = RANDN(2,3,4, 5,6, 11)
-                result = contractions.FGa_Gaib_FGi_to_FGb(xyz_uv_a, uv_aib, xyz_uv_i)
+                result = contractions.WCa_Caib_WCi_to_WCb(xyz_uv_a, uv_aib, xyz_uv_i)
                 result_true = np.einsum('xyzuva,uvaib,xyzuvi->xyzuvb', xyz_uv_a, uv_aib, xyz_uv_i)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
-                # Vectorize over F only:
+                # Vectorize over W only:
                 xyz_a = RANDN(2,3,4, 10)
                 aib = RANDN(10,11,12)
                 xyz_i = RANDN(2,3,4, 11)
-                result = contractions.FGa_Gaib_FGi_to_FGb(xyz_a, aib, xyz_i)
+                result = contractions.WCa_Caib_WCi_to_WCb(xyz_a, aib, xyz_i)
                 result_true = np.einsum('xyza,aib,xyzi->xyzb', xyz_a, aib, xyz_i)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
-                # Vectorize over G only:
+                # Vectorize over C only:
                 uv_a = RANDN(5,6, 10)
                 uv_aib = RANDN(5,6, 10,11,12)
                 uv_i = RANDN(5,6, 11)
-                result = contractions.FGa_Gaib_FGi_to_FGb(uv_a, uv_aib, uv_i)
+                result = contractions.WCa_Caib_WCi_to_WCb(uv_a, uv_aib, uv_i)
                 result_true = np.einsum('uva,uvaib,uvi->uvb', uv_a, uv_aib, uv_i)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
@@ -242,243 +242,243 @@ class TestContractions(unittest.TestCase):
                 a = RANDN(10)
                 aib = RANDN(10,11,12)
                 i = RANDN(11)
-                result = contractions.FGa_Gaib_FGi_to_FGb(a, aib, i)
+                result = contractions.WCa_Caib_WCi_to_WCb(a, aib, i)
                 result_true = np.einsum('a,aib,i->b', a, aib, i)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
-    def test_Gio_Fo_to_FGi(self):
+    def test_Cio_Wo_to_WCi(self):
         for RANDN in [numpy_randn, jax_randn]:
             with self.subTest(RANDN=RANDN):
-                # Vectorize over F and G:
-                Gio = RANDN(5,6, 10,13)
-                Fo = RANDN(2,3,4, 13)
-                result = contractions.Gio_Fo_to_FGi(Gio, Fo)
-                result_true = np.einsum('uvio,xyzo->xyzuvi', Gio, Fo)
+                # Vectorize over W and C:
+                Cio = RANDN(5,6, 10,13)
+                Wo = RANDN(2,3,4, 13)
+                result = contractions.Cio_Wo_to_WCi(Cio, Wo)
+                result_true = np.einsum('uvio,xyzo->xyzuvi', Cio, Wo)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
-                # Vectorize over F only:
-                Gio = RANDN(10,13)
-                Fo = RANDN(2,3,4, 13)
-                result = contractions.Gio_Fo_to_FGi(Gio, Fo)
-                result_true = np.einsum('io,xyzo->xyzi', Gio, Fo)
+                # Vectorize over W only:
+                Cio = RANDN(10,13)
+                Wo = RANDN(2,3,4, 13)
+                result = contractions.Cio_Wo_to_WCi(Cio, Wo)
+                result_true = np.einsum('io,xyzo->xyzi', Cio, Wo)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
-                # Vectorize over G only:
-                Gio = RANDN(5,6, 10,13)
-                Fo = RANDN(13)
-                result = contractions.Gio_Fo_to_FGi(Gio, Fo)
-                result_true = np.einsum('uvio,o->uvi', Gio, Fo)
+                # Vectorize over C only:
+                Cio = RANDN(5,6, 10,13)
+                Wo = RANDN(13)
+                result = contractions.Cio_Wo_to_WCi(Cio, Wo)
+                result_true = np.einsum('uvio,o->uvi', Cio, Wo)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
-                # Fo vectorization:
-                Gio = RANDN(10,13)
-                Fo = RANDN(13)
-                result = contractions.Gio_Fo_to_FGi(Gio, Fo)
-                result_true = np.einsum('io,o->i', Gio, Fo)
+                # Wo vectorization:
+                Cio = RANDN(10,13)
+                Wo = RANDN(13)
+                result = contractions.Cio_Wo_to_WCi(Cio, Wo)
+                result_true = np.einsum('io,o->i', Cio, Wo)
                 self.assertEqual(result_true.shape, result.shape)
                 self.check_relerr(result_true, result)
 
-    def test_dGio_dFo_to_dFGi(self):
+    def test_dCio_dWo_to_dWCi(self):
         for RANDN in [numpy_randn, jax_randn]:
             with self.subTest(RANDN=RANDN):
-                # Vectorize over F and G:
-                dGio = RANDN(8, 5,6, 10,13)
-                dFo = RANDN(8, 2,3,4, 13)
-                result = contractions.dGio_dFo_to_dFGi(dGio, dFo)
-                result2 = np.einsum('duvio,dxyzo->dxyzuvi', dGio, dFo)
+                # Vectorize over W and C:
+                dCio = RANDN(8, 5,6, 10,13)
+                dWo = RANDN(8, 2,3,4, 13)
+                result = contractions.dCio_dWo_to_dWCi(dCio, dWo)
+                result2 = np.einsum('duvio,dxyzo->dxyzuvi', dCio, dWo)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
-                # Vectorize over F only:
-                dGio = RANDN(8, 10,13)
-                dFo = RANDN(8, 2,3,4, 13)
-                result = contractions.dGio_dFo_to_dFGi(dGio, dFo)
-                result2 = np.einsum('dio,dxyzo->dxyzi', dGio, dFo)
+                # Vectorize over W only:
+                dCio = RANDN(8, 10,13)
+                dWo = RANDN(8, 2,3,4, 13)
+                result = contractions.dCio_dWo_to_dWCi(dCio, dWo)
+                result2 = np.einsum('dio,dxyzo->dxyzi', dCio, dWo)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
-                # Vectorize over G only:
-                dGio = RANDN(8, 5,6, 10,13)
-                dFo = RANDN(8, 13)
-                result = contractions.dGio_dFo_to_dFGi(dGio, dFo)
-                result2 = np.einsum('duvio,do->duvi', dGio, dFo)
+                # Vectorize over C only:
+                dCio = RANDN(8, 5,6, 10,13)
+                dWo = RANDN(8, 13)
+                result = contractions.dCio_dWo_to_dWCi(dCio, dWo)
+                result2 = np.einsum('duvio,do->duvi', dCio, dWo)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
                 # No vectorization:
-                dGio = RANDN(8, 10,13)
-                dFo = RANDN(8, 13)
-                result = contractions.dGio_dFo_to_dFGi(dGio, dFo)
-                result2 = np.einsum('dio,do->di', dGio, dFo)
+                dCio = RANDN(8, 10,13)
+                dWo = RANDN(8, 13)
+                result = contractions.dCio_dWo_to_dWCi(dCio, dWo)
+                result2 = np.einsum('dio,do->di', dCio, dWo)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
-    def test_FGa_Gaib_FGb_to_FGi(self):
+    def test_WCa_Caib_WCb_to_WCi(self):
         for RANDN in [numpy_randn, jax_randn]:
             with self.subTest(RANDN=RANDN):
-                # Vectorize over F and G:
-                FGa = RANDN(4,5,6, 2,3, 10)
-                Gaib = RANDN(2,3, 10,11,12)
-                FGb = RANDN(4,5,6, 2,3, 12)
-                result = contractions.FGa_Gaib_FGb_to_FGi(FGa, Gaib, FGb)
-                result2 = np.einsum('xyzuva,uvaib,xyzuvb->xyzuvi', FGa, Gaib, FGb)
+                # Vectorize over W and C:
+                WCa = RANDN(4,5,6, 2,3, 10)
+                Caib = RANDN(2,3, 10,11,12)
+                WCb = RANDN(4,5,6, 2,3, 12)
+                result = contractions.WCa_Caib_WCb_to_WCi(WCa, Caib, WCb)
+                result2 = np.einsum('xyzuva,uvaib,xyzuvb->xyzuvi', WCa, Caib, WCb)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
-                # Vectorize over F only:
-                GFa = RANDN(4,5,6, 10)
-                Gaib = RANDN(10,11,12)
-                GFb = RANDN(4,5,6, 12)
-                result = contractions.FGa_Gaib_FGb_to_FGi(GFa, Gaib, GFb)
-                result2 = np.einsum('xyza,aib,xyzb->xyzi', GFa, Gaib, GFb)
+                # Vectorize over W only:
+                CWa = RANDN(4,5,6, 10)
+                Caib = RANDN(10,11,12)
+                CWb = RANDN(4,5,6, 12)
+                result = contractions.WCa_Caib_WCb_to_WCi(CWa, Caib, CWb)
+                result2 = np.einsum('xyza,aib,xyzb->xyzi', CWa, Caib, CWb)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
-                # Vectorize over G only:
-                GFa = RANDN(2,3, 10)
-                Gaib = RANDN(2,3, 10,11,12)
-                GFb = RANDN(2,3, 12)
-                result = contractions.FGa_Gaib_FGb_to_FGi(GFa, Gaib, GFb)
-                result2 = np.einsum('uva,uvaib,uvb->uvi', GFa, Gaib, GFb)
+                # Vectorize over C only:
+                CWa = RANDN(2,3, 10)
+                Caib = RANDN(2,3, 10,11,12)
+                CWb = RANDN(2,3, 12)
+                result = contractions.WCa_Caib_WCb_to_WCi(CWa, Caib, CWb)
+                result2 = np.einsum('uva,uvaib,uvb->uvi', CWa, Caib, CWb)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
                 # No vectorization:
-                GFa = RANDN(10)
-                Gaib = RANDN(10,11,12)
-                GFb = RANDN(12)
-                result = contractions.FGa_Gaib_FGb_to_FGi(GFa, Gaib, GFb)
-                result2 = np.einsum('a,aib,b->i', GFa, Gaib, GFb)
+                CWa = RANDN(10)
+                Caib = RANDN(10,11,12)
+                CWb = RANDN(12)
+                result = contractions.WCa_Caib_WCb_to_WCi(CWa, Caib, CWb)
+                result2 = np.einsum('a,aib,b->i', CWa, Caib, CWb)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
-    def test_dFGa_dGaib_dFGb_to_dFGi(self):
+    def test_dWCa_dCaib_dWCb_to_dWCi(self):
         for RANDN in [numpy_randn, jax_randn]:
             with self.subTest(RANDN=RANDN):
-                # Vectorize over F and G:
-                dFGa = RANDN(8, 4,5,6, 2,3, 10)
-                dGaib = RANDN(8, 2,3, 10,11,12)
-                dFGb = RANDN(8, 4,5,6, 2,3, 12)
-                result = contractions.dFGa_dGaib_dFGb_to_dFGi(dFGa, dGaib, dFGb)
-                result2 = np.einsum('dxyzuva,duvaib,dxyzuvb->dxyzuvi', dFGa, dGaib, dFGb)
+                # Vectorize over W and C:
+                dWCa = RANDN(8, 4,5,6, 2,3, 10)
+                dCaib = RANDN(8, 2,3, 10,11,12)
+                dWCb = RANDN(8, 4,5,6, 2,3, 12)
+                result = contractions.dWCa_dCaib_dWCb_to_dWCi(dWCa, dCaib, dWCb)
+                result2 = np.einsum('dxyzuva,duvaib,dxyzuvb->dxyzuvi', dWCa, dCaib, dWCb)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
-                # Vectorize over F only:
-                dGFa = RANDN(8, 4,5,6, 10)
-                dGaib = RANDN(8, 10,11,12)
-                dGFb = RANDN(8, 4,5,6, 12)
-                result = contractions.dFGa_dGaib_dFGb_to_dFGi(dGFa, dGaib, dGFb)
-                result2 = np.einsum('dxyza,daib,dxyzb->dxyzi', dGFa, dGaib, dGFb)
+                # Vectorize over W only:
+                dCWa = RANDN(8, 4,5,6, 10)
+                dCaib = RANDN(8, 10,11,12)
+                dCWb = RANDN(8, 4,5,6, 12)
+                result = contractions.dWCa_dCaib_dWCb_to_dWCi(dCWa, dCaib, dCWb)
+                result2 = np.einsum('dxyza,daib,dxyzb->dxyzi', dCWa, dCaib, dCWb)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
-                # Vectorize over G only:
-                dGFa = RANDN(8, 2,3, 10)
-                dGaib = RANDN(8, 2,3, 10,11,12)
-                dGFb = RANDN(8, 2,3, 12)
-                result = contractions.dFGa_dGaib_dFGb_to_dFGi(dGFa, dGaib, dGFb)
-                result2 = np.einsum('duva,duvaib,duvb->duvi', dGFa, dGaib, dGFb)
+                # Vectorize over C only:
+                dCWa = RANDN(8, 2,3, 10)
+                dCaib = RANDN(8, 2,3, 10,11,12)
+                dCWb = RANDN(8, 2,3, 12)
+                result = contractions.dWCa_dCaib_dWCb_to_dWCi(dCWa, dCaib, dCWb)
+                result2 = np.einsum('duva,duvaib,duvb->duvi', dCWa, dCaib, dCWb)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
                 # No vectorization:
-                dGFa = RANDN(8, 10)
-                dGaib = RANDN(8, 10,11,12)
-                dGFb = RANDN(8, 12)
-                result = contractions.dFGa_dGaib_dFGb_to_dFGi(dGFa, dGaib, dGFb)
-                result2 = np.einsum('da,daib,db->di', dGFa, dGaib, dGFb)
+                dCWa = RANDN(8, 10)
+                dCaib = RANDN(8, 10,11,12)
+                dCWb = RANDN(8, 12)
+                result = contractions.dWCa_dCaib_dWCb_to_dWCi(dCWa, dCaib, dCWb)
+                result2 = np.einsum('da,daib,db->di', dCWa, dCaib, dCWb)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
-    def test_FGi_Gio_to_FGo(self):
+    def test_WCi_Cio_to_WCo(self):
         for RANDN in [numpy_randn, jax_randn]:
             with self.subTest(RANDN=RANDN):
-                # Vectorize over F and G:
-                FGi = RANDN(2,3,4, 5,6, 10)
-                Gio = RANDN(5,6, 10,13)
-                result = contractions.FGi_Gio_to_FGo(FGi, Gio)
-                result2 = np.einsum('xyzuvi,uvio->xyzuvo', FGi, Gio)
+                # Vectorize over W and C:
+                WCi = RANDN(2,3,4, 5,6, 10)
+                Cio = RANDN(5,6, 10,13)
+                result = contractions.WCi_Cio_to_WCo(WCi, Cio)
+                result2 = np.einsum('xyzuvi,uvio->xyzuvo', WCi, Cio)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
-                # Vectorize over F only:
-                GFi = RANDN(2,3,4, 10)
-                Gio = RANDN(10,13)
-                result = contractions.FGi_Gio_to_FGo(GFi, Gio)
-                result2 = np.einsum('xyzi,io->xyzo', GFi, Gio)
+                # Vectorize over W only:
+                CWi = RANDN(2,3,4, 10)
+                Cio = RANDN(10,13)
+                result = contractions.WCi_Cio_to_WCo(CWi, Cio)
+                result2 = np.einsum('xyzi,io->xyzo', CWi, Cio)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
-                # Vectorize over G only:
-                GFi = RANDN(5,6, 10)
-                Gio = RANDN(5,6, 10,13)
-                result = contractions.FGi_Gio_to_FGo(GFi, Gio)
-                result2 = np.einsum('uvi,uvio->uvo', GFi, Gio)
+                # Vectorize over C only:
+                CWi = RANDN(5,6, 10)
+                Cio = RANDN(5,6, 10,13)
+                result = contractions.WCi_Cio_to_WCo(CWi, Cio)
+                result2 = np.einsum('uvi,uvio->uvo', CWi, Cio)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
                 # No vectorization:
-                GFi = RANDN(10)
-                Gio = RANDN(10,13)
-                result = contractions.FGi_Gio_to_FGo(GFi, Gio)
-                result2 = np.einsum('i,io->o', GFi, Gio)
+                CWi = RANDN(10)
+                Cio = RANDN(10,13)
+                result = contractions.WCi_Cio_to_WCo(CWi, Cio)
+                result2 = np.einsum('i,io->o', CWi, Cio)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
-    def test_dFGi_dGio_to_dFGo(self):
+    def test_dWCi_dCio_to_dWCo(self):
         for RANDN in [numpy_randn, jax_randn]:
             with self.subTest(RANDN=RANDN):
-                # Vectorize over F and G:
-                dFGi = RANDN(8, 2,3,4, 5,6, 10)
-                dGio = RANDN(8, 5,6, 10,13)
-                result = contractions.dFGi_dGio_to_dFGo(dFGi, dGio)
-                result2 = np.einsum('dxyzuvi,duvio->dxyzuvo', dFGi, dGio)
+                # Vectorize over W and C:
+                dWCi = RANDN(8, 2,3,4, 5,6, 10)
+                dCio = RANDN(8, 5,6, 10,13)
+                result = contractions.dWCi_dCio_to_dWCo(dWCi, dCio)
+                result2 = np.einsum('dxyzuvi,duvio->dxyzuvo', dWCi, dCio)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
-                # Vectorize over F only:
-                dGFi = RANDN(8, 2,3,4, 10)
-                dGio = RANDN(8, 10,13)
-                result = contractions.dFGi_dGio_to_dFGo(dGFi, dGio)
-                result2 = np.einsum('dxyzi,dio->dxyzo', dGFi, dGio)
+                # Vectorize over W only:
+                dCWi = RANDN(8, 2,3,4, 10)
+                dCio = RANDN(8, 10,13)
+                result = contractions.dWCi_dCio_to_dWCo(dCWi, dCio)
+                result2 = np.einsum('dxyzi,dio->dxyzo', dCWi, dCio)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
-                # Vectorize over G only:
-                dGFi = RANDN(8, 5,6, 10)
-                dGio = RANDN(8, 5,6, 10,13)
-                result = contractions.dFGi_dGio_to_dFGo(dGFi, dGio)
-                result2 = np.einsum('duvi,duvio->duvo', dGFi, dGio)
+                # Vectorize over C only:
+                dCWi = RANDN(8, 5,6, 10)
+                dCio = RANDN(8, 5,6, 10,13)
+                result = contractions.dWCi_dCio_to_dWCo(dCWi, dCio)
+                result2 = np.einsum('duvi,duvio->duvo', dCWi, dCio)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
                 # No vectorization:
-                dGFi = RANDN(8, 10)
-                dGio = RANDN(8, 10,13)
-                result = contractions.dFGi_dGio_to_dFGo(dGFi, dGio)
-                result2 = np.einsum('di,dio->do', dGFi, dGio)
+                dCWi = RANDN(8, 10)
+                dCio = RANDN(8, 10,13)
+                result = contractions.dWCi_dCio_to_dWCo(dCWi, dCio)
+                result2 = np.einsum('di,dio->do', dCWi, dCio)
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
     def _check_3group(self, func, op_specs, out_spec, needs_n_base=False, needs_n_probe=False):
-        """Check a three-group (F, V, G) contraction against an explicit np.einsum reference.
+        """Check a three-group (W, K, C) contraction against an explicit np.einsum reference.
 
-        op_specs/out_spec are (groups, singles) pairs, e.g. ('FVG', 'a') or ('VG', 'aib'); each
+        op_specs/out_spec are (groups, singles) pairs, e.g. ('WKC', 'a') or ('KC', 'aib'); each
         grouped block is mapped to one of the THREE_GROUP_COMBOS stack shapes. needs_n_base passes
-        len(G) as the trailing argument (variation-core-only forward contractions); needs_n_probe
-        passes len(F) (transpose-assemble contractions). A sum-over-F contraction is expressed by an
-        out_spec whose groups omit ``F`` -- np.einsum then sums it.
+        len(C) as the trailing argument (variation-core-only forward contractions); needs_n_probe
+        passes len(W) (transpose-assemble contractions). A sum-over-W contraction is expressed by an
+        out_spec whose groups omit ``W`` -- np.einsum then sums it.
         """
         for RANDN in [numpy_randn, jax_randn]:
-            for F, V, G in THREE_GROUP_COMBOS:
-                with self.subTest(RANDN=RANDN, F=F, V=V, G=G):
-                    stacks = {'F': F, 'V': V, 'G': G}
-                    glet = {grp: GROUP_POOL[grp][:len(stacks[grp])] for grp in 'FVG'}
+            for W, K, C in THREE_GROUP_COMBOS:
+                with self.subTest(RANDN=RANDN, W=W, K=K, C=C):
+                    stacks = {'W': W, 'K': K, 'C': C}
+                    glet = {grp: GROUP_POOL[grp][:len(stacks[grp])] for grp in 'WKC'}
 
                     def sub(groups, singles):
                         return ''.join(glet[grp] for grp in groups) + singles
@@ -495,123 +495,123 @@ class TestContractions(unittest.TestCase):
                     ref = np.einsum(in_subs + '->' + out_sub, *operands)
 
                     if needs_n_base:
-                        result = func(*operands, len(G))
+                        result = func(*operands, len(C))
                     elif needs_n_probe:
-                        result = func(*operands, len(F))
+                        result = func(*operands, len(W))
                     else:
                         result = func(*operands)
                     result = np.asarray(result)
                     self.assertEqual(ref.shape, result.shape)
                     self.check_relerr(ref, result)
 
-    def test_FVGa_Gaib_FGi_to_FVGb(self):
+    def test_WKCa_Caib_WCi_to_WKCb(self):
         self._check_3group(
-            contractions.FVGa_Gaib_FGi_to_FVGb,
-            [('FVG', 'a'), ('G', 'aib'), ('FG', 'i')], ('FVG', 'b'),
+            contractions.WKCa_Caib_WCi_to_WKCb,
+            [('WKC', 'a'), ('C', 'aib'), ('WC', 'i')], ('WKC', 'b'),
         )
 
-    def test_FGa_Gaib_FVGi_to_FVGb(self):
+    def test_WCa_Caib_WKCi_to_WKCb(self):
         self._check_3group(
-            contractions.FGa_Gaib_FVGi_to_FVGb,
-            [('FG', 'a'), ('G', 'aib'), ('FVG', 'i')], ('FVG', 'b'),
+            contractions.WCa_Caib_WKCi_to_WKCb,
+            [('WC', 'a'), ('C', 'aib'), ('WKC', 'i')], ('WKC', 'b'),
         )
 
-    def test_FVGa_Gaib_FGb_to_FVGi(self):
+    def test_WKCa_Caib_WCb_to_WKCi(self):
         self._check_3group(
-            contractions.FVGa_Gaib_FGb_to_FVGi,
-            [('FVG', 'a'), ('G', 'aib'), ('FG', 'b')], ('FVG', 'i'),
+            contractions.WKCa_Caib_WCb_to_WKCi,
+            [('WKC', 'a'), ('C', 'aib'), ('WC', 'b')], ('WKC', 'i'),
         )
 
-    def test_FGa_Gaib_FVGb_to_FVGi(self):
+    def test_WCa_Caib_WKCb_to_WKCi(self):
         self._check_3group(
-            contractions.FGa_Gaib_FVGb_to_FVGi,
-            [('FG', 'a'), ('G', 'aib'), ('FVG', 'b')], ('FVG', 'i'),
+            contractions.WCa_Caib_WKCb_to_WKCi,
+            [('WC', 'a'), ('C', 'aib'), ('WKC', 'b')], ('WKC', 'i'),
         )
 
-    def test_FGa_VGaib_FGi_to_FVGb(self):
+    def test_WCa_KCaib_WCi_to_WKCb(self):
         self._check_3group(
-            contractions.FGa_VGaib_FGi_to_FVGb,
-            [('FG', 'a'), ('VG', 'aib'), ('FG', 'i')], ('FVG', 'b'), needs_n_base=True,
+            contractions.WCa_KCaib_WCi_to_WKCb,
+            [('WC', 'a'), ('KC', 'aib'), ('WC', 'i')], ('WKC', 'b'), needs_n_base=True,
         )
 
-    def test_FGa_VGaib_FGb_to_FVGi(self):
+    def test_WCa_KCaib_WCb_to_WKCi(self):
         self._check_3group(
-            contractions.FGa_VGaib_FGb_to_FVGi,
-            [('FG', 'a'), ('VG', 'aib'), ('FG', 'b')], ('FVG', 'i'), needs_n_base=True,
+            contractions.WCa_KCaib_WCb_to_WKCi,
+            [('WC', 'a'), ('KC', 'aib'), ('WC', 'b')], ('WKC', 'i'), needs_n_base=True,
         )
 
-    def test_FGi_VGio_to_FVGo(self):
+    def test_WCi_KCio_to_WKCo(self):
         self._check_3group(
-            contractions.FGi_VGio_to_FVGo,
-            [('FG', 'i'), ('VG', 'io')], ('FVG', 'o'), needs_n_base=True,
+            contractions.WCi_KCio_to_WKCo,
+            [('WC', 'i'), ('KC', 'io')], ('WKC', 'o'), needs_n_base=True,
         )
 
-    def test_FVGi_Gio_to_FVGo(self):
+    def test_WKCi_Cio_to_WKCo(self):
         self._check_3group(
-            contractions.FVGi_Gio_to_FVGo,
-            [('FVG', 'i'), ('G', 'io')], ('FVG', 'o'),
+            contractions.WKCi_Cio_to_WKCo,
+            [('WKC', 'i'), ('C', 'io')], ('WKC', 'o'),
         )
 
-    # ---- transpose-assemble outer products (keep-F and sum-F forms) ----
+    # ---- transpose-assemble outer products (keep-W and sum-W forms) ----
 
-    def test_FVGo_FGa_to_FVGao(self):
+    def test_WKCo_WCa_to_WKCao(self):
         self._check_3group(
-            contractions.FVGo_FGa_to_FVGao,
-            [('FVG', 'o'), ('FG', 'a')], ('FVG', 'ao'), needs_n_probe=True,
+            contractions.WKCo_WCa_to_WKCao,
+            [('WKC', 'o'), ('WC', 'a')], ('WKC', 'ao'), needs_n_probe=True,
         )
 
-    def test_FVGo_FGa_to_VGao(self):
+    def test_WKCo_WCa_to_KCao(self):
         self._check_3group(
-            contractions.FVGo_FGa_to_VGao,
-            [('FVG', 'o'), ('FG', 'a')], ('VG', 'ao'), needs_n_probe=True,
+            contractions.WKCo_WCa_to_KCao,
+            [('WKC', 'o'), ('WC', 'a')], ('KC', 'ao'), needs_n_probe=True,
         )
 
-    def test_Fo_FVGa_to_FVGao(self):
+    def test_Wo_WKCa_to_WKCao(self):
         self._check_3group(
-            contractions.Fo_FVGa_to_FVGao,
-            [('F', 'o'), ('FVG', 'a')], ('FVG', 'ao'),
+            contractions.Wo_WKCa_to_WKCao,
+            [('W', 'o'), ('WKC', 'a')], ('WKC', 'ao'),
         )
 
-    def test_Fo_FVGa_to_VGao(self):
+    def test_Wo_WKCa_to_KCao(self):
         self._check_3group(
-            contractions.Fo_FVGa_to_VGao,
-            [('F', 'o'), ('FVG', 'a')], ('VG', 'ao'),
+            contractions.Wo_WKCa_to_KCao,
+            [('W', 'o'), ('WKC', 'a')], ('KC', 'ao'),
         )
 
-    def test_FGi_FGa_FVGj_to_FVGiaj(self):
+    def test_WCi_WCa_WKCj_to_WKCiaj(self):
         self._check_3group(
-            contractions.FGi_FGa_FVGj_to_FVGiaj,
-            [('FG', 'i'), ('FG', 'a'), ('FVG', 'j')], ('FVG', 'iaj'), needs_n_probe=True,
+            contractions.WCi_WCa_WKCj_to_WKCiaj,
+            [('WC', 'i'), ('WC', 'a'), ('WKC', 'j')], ('WKC', 'iaj'), needs_n_probe=True,
         )
 
-    def test_FGi_FGa_FVGj_to_VGiaj(self):
+    def test_WCi_WCa_WKCj_to_KCiaj(self):
         self._check_3group(
-            contractions.FGi_FGa_FVGj_to_VGiaj,
-            [('FG', 'i'), ('FG', 'a'), ('FVG', 'j')], ('VG', 'iaj'), needs_n_probe=True,
+            contractions.WCi_WCa_WKCj_to_KCiaj,
+            [('WC', 'i'), ('WC', 'a'), ('WKC', 'j')], ('KC', 'iaj'), needs_n_probe=True,
         )
 
-    def test_FVGi_FGa_FGj_to_FVGiaj(self):
+    def test_WKCi_WCa_WCj_to_WKCiaj(self):
         self._check_3group(
-            contractions.FVGi_FGa_FGj_to_FVGiaj,
-            [('FVG', 'i'), ('FG', 'a'), ('FG', 'j')], ('FVG', 'iaj'), needs_n_probe=True,
+            contractions.WKCi_WCa_WCj_to_WKCiaj,
+            [('WKC', 'i'), ('WC', 'a'), ('WC', 'j')], ('WKC', 'iaj'), needs_n_probe=True,
         )
 
-    def test_FVGi_FGa_FGj_to_VGiaj(self):
+    def test_WKCi_WCa_WCj_to_KCiaj(self):
         self._check_3group(
-            contractions.FVGi_FGa_FGj_to_VGiaj,
-            [('FVG', 'i'), ('FG', 'a'), ('FG', 'j')], ('VG', 'iaj'), needs_n_probe=True,
+            contractions.WKCi_WCa_WCj_to_KCiaj,
+            [('WKC', 'i'), ('WC', 'a'), ('WC', 'j')], ('KC', 'iaj'), needs_n_probe=True,
         )
 
-    def test_FGi_FVGa_FGj_to_FVGiaj(self):
+    def test_WCi_WKCa_WCj_to_WKCiaj(self):
         self._check_3group(
-            contractions.FGi_FVGa_FGj_to_FVGiaj,
-            [('FG', 'i'), ('FVG', 'a'), ('FG', 'j')], ('FVG', 'iaj'), needs_n_probe=True,
+            contractions.WCi_WKCa_WCj_to_WKCiaj,
+            [('WC', 'i'), ('WKC', 'a'), ('WC', 'j')], ('WKC', 'iaj'), needs_n_probe=True,
         )
 
-    def test_FGi_FVGa_FGj_to_VGiaj(self):
+    def test_WCi_WKCa_WCj_to_KCiaj(self):
         self._check_3group(
-            contractions.FGi_FVGa_FGj_to_VGiaj,
-            [('FG', 'i'), ('FVG', 'a'), ('FG', 'j')], ('VG', 'iaj'), needs_n_probe=True,
+            contractions.WCi_WKCa_WCj_to_KCiaj,
+            [('WC', 'i'), ('WKC', 'a'), ('WC', 'j')], ('KC', 'iaj'), needs_n_probe=True,
         )
 
 
