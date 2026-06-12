@@ -101,6 +101,8 @@ class TestDispatch(unittest.TestCase):
             lambda z, w: t3m.T3Tangent.probe_transpose(z, w, base, sum_over_probes=True), self.zz_vstack, self.ww)
         self.assert_jit_jax(
             lambda z, w: t3m.T3Tangent.probe_transpose(z, w, base), self.zz_vstack, self.ww)
+        self.assert_jit_jax(lambda a, w: a.apply(w), self.v_vstack, self.ww)              # tangent apply
+        self.assert_jit_jax(lambda a, i: a.entries(i), self.v_vstack, jnp.array([1, 2, 3]))  # tangent entries
 
     # ---------------------------------------------------- jit bucket: backend functions
     def test_jit_backend(self):

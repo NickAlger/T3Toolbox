@@ -377,6 +377,48 @@ class TestManifold(unittest.TestCase):
                         for cs, cn in zip(JTz.variations.tt_variations, JTz_batch.variations.tt_variations):
                             self.check_relerr(np.asarray(cs), np.asarray(cn).sum(axis=f_axes))
 
+    def test_tangent_apply(self):
+        # apply(v, ww) contracts the dense tangent in ALL modes; result is stacked W + K + C.
+        STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
+        for BASE_STACK in [(), (2,)]:
+            for W in [(), (2,)]:           # apply-vector stack
+                for K in [(), (3,)]:       # tangent stack
+                    with self.subTest(BASE=BASE_STACK, W=W, K=K):
+                        x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=BASE_STACK)
+                        base, _ = bvf.t3_orthogonal_representations(x)
+                        v = t3m.T3Tangent.randn(base, stack_shape=K, apply_gauge_projection=False)
+                        ww = tuple(np.random.randn(*(W + (N,))) for N in STRUCT[0])
+
+                        a = np.asarray(v.apply(ww))
+                        self.assertEqual(W + K + BASE_STACK, a.shape)
+                        vd = np.asarray(v.to_dense())   # K + C + (N0,N1,N2)
+                        if W:   # shared apply-vector stack w across all modes
+                            ref = np.einsum('...ijk,wi,wj,wk->w...', vd, ww[0], ww[1], ww[2])
+                        else:
+                            ref = np.einsum('...ijk,i,j,k->...', vd, ww[0], ww[1], ww[2])
+                        self.check_relerr(ref, a)
+
+    def test_tangent_entries(self):
+        # entries(v, idx) extracts entries of the dense tangent (no contraction); result W + K + C.
+        STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
+        for BASE_STACK in [(), (2,)]:
+            for W in [(), (2,)]:           # index stack
+                for K in [(), (3,)]:
+                    with self.subTest(BASE=BASE_STACK, W=W, K=K):
+                        x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=BASE_STACK)
+                        base, _ = bvf.t3_orthogonal_representations(x)
+                        v = t3m.T3Tangent.randn(base, stack_shape=K, apply_gauge_projection=False)
+                        idx = np.array(tuple(np.random.randint(0, N, size=W) for N in STRUCT[0]))  # (d,)+W
+
+                        e = np.asarray(v.entries(idx))
+                        self.assertEqual(W + K + BASE_STACK, e.shape)
+                        vd = np.asarray(v.to_dense())
+                        if W:
+                            ref = np.stack([vd[..., idx[0, w], idx[1, w], idx[2, w]] for w in range(W[0])], axis=0)
+                        else:
+                            ref = vd[..., int(idx[0]), int(idx[1]), int(idx[2])]
+                        self.check_relerr(ref, e)
+
     def test_randn(self):
         base, _ = bvf.t3_orthogonal_representations(
             t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1)))

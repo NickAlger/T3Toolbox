@@ -25,6 +25,9 @@ __all__ = [
     'compute_taus',
     'compute_detas',
     'assemble_tangent_zs',
+    # Apply / entries of a tangent vector (all-modes special case of probing)
+    'apply_tangent',
+    'entries_tangent',
     # Transpose of map from tangent vector to probes
     'compute_deta_tildes',
     'compute_tau_tildes',
@@ -307,6 +310,23 @@ def compute_dxis(
     return compute_xis(var_tucker_cores, ww)
 
 
+def _sigma_step(sigma, Q, O, dG, xi, dxi, mu):
+    '''One step of the perturbation-leftward (sigma) recursion (Algorithm 7), shared by
+    compute_sigmas (which keeps the per-core sequence, for probing) and apply_tangent/entries_tangent
+    (which keep only the terminal carry, for the all-modes contraction).
+
+    Three-group (W probe, K tangent, C base): sigma/dxi carry K, the base edge vars (xi, mu) and base
+    cores (Q, O) do not. t1/t3 self-infer the split from the C-only base core; t2's only core is the
+    variation core dG (K+C), so len(C) is supplied via n_base (recovered from the C-only Q, the
+    n_probe precedent). Reduces to the two-group result when K is empty.
+    '''
+    n_base = Q.ndim - 3
+    t1 = contractions.WKCa_Caib_WCi_to_WKCb(sigma, Q, xi)
+    t2 = contractions.WCa_KCaib_WCi_to_WKCb(mu, dG, xi, n_base)
+    t3 = contractions.WCa_Caib_WKCi_to_WKCb(mu, O, dxi)
+    return t1 + t2 + t3
+
+
 def compute_sigmas(
         var_tt_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
         right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rRi,nUi,rR(i+1))
@@ -338,17 +358,7 @@ def compute_sigmas(
 
     def _func(sigma, x):
         Q, O, dG, xi, dxi, mu = x
-        # Three-group (W probe, K tangent, C base) contractions: sigma/dxi carry K, the base edge
-        # vars (xi, mu) and base cores (Q, O) do not. t1/t3 self-infer the split from a C-only base
-        # core; t2's only core is the variation core dG (K+C), so len(C) is supplied via n_base
-        # (recovered here from the C-only Q, the n_probe precedent). Reduces to the two-group result
-        # when K is empty.
-        n_base = Q.ndim - 3
-        t1 = contractions.WKCa_Caib_WCi_to_WKCb(sigma, Q, xi)
-        t2 = contractions.WCa_KCaib_WCi_to_WKCb(mu, dG, xi, n_base)
-        t3 = contractions.WCa_Caib_WKCi_to_WKCb(mu, O, dxi)
-        sigma_next = t1 + t2 + t3
-        return sigma_next, (sigma,)
+        return _sigma_step(sigma, Q, O, dG, xi, dxi, mu), (sigma,)
 
     # carry sigma is W+K+C; take the leading stack from dxis (which carries K), not xis (W+C only)
     rR0 = right_tt_cores[0].shape[-3]
@@ -635,6 +645,117 @@ def probe_tangent(
     )
 
     return zz
+
+
+#####################################################
+#####    Apply / entries of a tangent vector    #####
+#####################################################
+#
+# apply and entries are the all-modes special case of probing (probing leaves ONE mode free; these
+# contract EVERY mode). With no free mode the whole computation collapses to a single left-to-right
+# pass: the base left sweep mu-hat (via P) feeds the perturbation sweep sigma (via Q, Algorithm 7),
+# which is then contracted at the terminal bond. No right (nu) sweep, no central (eta), no per-mode
+# assembly -- roughly half of probe_tangent. entries is apply with the up-index xis obtained by
+# slicing Tucker-core fibers (no contraction with unit vectors, so no N factor).
+
+
+def _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores):
+    '''Run the perturbation sigma sweep (via Q) to its TERMINAL carry and contract the final bond.
+
+    Shared tail of apply_tangent and entries_tangent (they differ only in how xis/dxis are formed).
+    '''
+    use_jax = tree_contains_jax((xis, dxis, mus, right_tt_cores))
+    is_uniform = not isinstance(xis, typ.Sequence)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
+
+    def _func(sigma, x):
+        Q, O, dG, xi, dxi, mu = x
+        return _sigma_step(sigma, Q, O, dG, xi, dxi, mu), (0,)
+
+    # carry sigma is W+K+C; take the leading stack from dxis (carries K), not xis (W+C only).
+    rR0 = right_tt_cores[0].shape[-3]
+    init = xnp.zeros(dxis[0].shape[:-1] + (rR0,))
+    sigma_terminal, _ = xscan(_func, init, (right_tt_cores, down_tt_cores, var_tt_cores, xis, dxis, mus))
+    return xnp.sum(sigma_terminal, axis=-1)   # contract the terminal bond -> W + K + C
+
+
+def _entry_xis(tucker_cores, index):
+    '''Up-index edge variables by slicing Tucker-core fibers at ``index`` (no contraction).
+
+    tucker_cores[i].shape = C + (p_i, Ni); index is an int array of shape (d,) + W (index stack W).
+    Returns xis with elm_shape = W + C + (p_i,) -- the same layout compute_xis produces, so the
+    downstream mu/sigma sweeps are identical to apply.
+    '''
+    use_jax = tree_contains_jax((tucker_cores,))
+    xnp, _, _ = get_backend(False, use_jax)
+    index = xnp.array(index)
+    n_idx = len(index.shape[1:])                                  # number of index-stack (W) axes
+    xis = []
+    for i, B in enumerate(tucker_cores):
+        xi_CpW = B[..., index[i]]                                 # C + (p,) + W (index batch trails)
+        xi_WCp = xnp.moveaxis(xi_CpW, tuple(range(-n_idx, 0)), tuple(range(n_idx)))  # -> W + C + (p,)
+        xis.append(xi_WCp)
+    return tuple(xis)
+
+
+def apply_tangent(
+        ww:         typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
+        variation:  typ.Tuple[
+            typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nOi,Ni)
+            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nUi,rRi)
+        ],
+        base:       typ.Tuple[
+            typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
+            typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+            typ.Sequence[NDArray],          # left_tt_cores    P. len=d
+            typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
+        ],                                  # base order = T3Basis.data = (up, down, left, right)
+) -> NDArray:                               # the scalar apply(v, ww), one per stack element; shape = W + K + C
+    '''Apply a tangent vector in all modes: contract the dense tangent with ``ww`` in every index.
+
+    The all-modes special case of probing -- a single left-to-right pass (mu-hat via P, then the
+    perturbation sigma via Q), contracted at the terminal bond. No right (nu) / central (eta) sweeps,
+    no per-mode assembly. See Section 6.2.2 (Algorithms 6-7) of Alger et al. (2026).
+
+    See Also
+    --------
+    entries_tangent
+    probe_tangent
+    '''
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base
+    var_tucker_cores, var_tt_cores = variation
+
+    xis  = compute_xis(up_tucker_cores, ww)       # xi-hat_i  = U_i^T w_i
+    dxis = compute_dxis(var_tucker_cores, ww)     # delta-xi_i = dU_i^T w_i
+    mus  = compute_mus(left_tt_cores, xis)        # base left sweep via P
+
+    return _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores)
+
+
+def entries_tangent(
+        index:      NDArray,                # int, shape=(d,)+W (index stack W)
+        variation:  typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (var_tucker, var_tt)
+        base:       typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
+                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right)
+) -> NDArray:                               # entries of the dense tangent at ``index``; shape = W + K + C
+    '''Extract entries of the dense tangent at ``index`` (= apply with unit vectors, by slicing).
+
+    Identical to :py:func:`apply_tangent` except the up-index edge variables come from slicing the
+    Tucker-core fibers (``U_i[..., index_i]`` and ``dU_i[..., index_i]``) rather than contracting with
+    vectors -- so there is no contraction with unit basis vectors and no ``N`` factor.
+
+    See Also
+    --------
+    apply_tangent
+    '''
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base
+    var_tucker_cores, var_tt_cores = variation
+
+    xis  = _entry_xis(up_tucker_cores, index)     # xi-hat_i  = U_i[..., index_i]   (fiber slice)
+    dxis = _entry_xis(var_tucker_cores, index)    # delta-xi_i = dU_i[..., index_i] (fiber slice)
+    mus  = compute_mus(left_tt_cores, xis)
+
+    return _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores)
 
 
 ###############################################################

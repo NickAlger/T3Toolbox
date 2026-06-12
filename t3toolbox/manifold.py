@@ -535,6 +535,77 @@ class T3Tangent:
         )
         return T3Tangent(basis, bvf.T3Variations(dU_tildes, dG_tildes))
 
+    def apply(
+            self,
+            ww:         typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
+    ) -> NDArray:                               # apply(v, ww), one scalar per stack element; shape=W+K+C
+        """Apply this tangent vector in all modes: contract the dense tangent with ``ww`` everywhere.
+
+        The all-modes special case of :py:meth:`probe` (probing leaves one index free; this contracts
+        them all). It is the tangent analogue of :py:meth:`.TuckerTensorTrain.apply`, and is cheaper
+        than probing -- a single left-to-right sweep, no right/central sweeps, no per-mode assembly.
+        The result is stacked ``W + K + C`` (apply-vector stack ``W`` outer, tangent stack ``K``, base
+        stack ``C`` inner); a plain scalar when there are no stacks.
+
+        See Section 6.2.2 (Algorithms 6-7) of Alger et al. (2026), "Tucker Tensor Train Taylor
+        Series" (arXiv:2603.21141).
+
+        See Also
+        --------
+        entries
+        probe
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.basis_variations_format as bvf
+        >>> import t3toolbox.manifold as t3m
+        >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+        >>> base, variations = bvf.t3_orthogonal_representations(x)
+        >>> v = t3m.T3Tangent(base, variations)
+        >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> a = v.apply(ww)
+        >>> a_dense = np.einsum('ijk,i,j,k->', v.to_dense(), *ww)   # dense reference
+        >>> print(bool(abs(float(a) - float(a_dense)) < 1e-9))
+        True
+        """
+        # base order is exactly T3Basis.data = (up, down, left, right) -- no reorder.
+        # numpy/jax dispatch is inferred from the input array types inside probing.
+        return probing.apply_tangent(ww, self.variations.data, self.basis.data)
+
+    def entries(
+            self,
+            index:      NDArray,  # int, shape=(d,)+W (a stack W of multi-indices)
+    ) -> NDArray:                 # entries of the dense tangent at ``index``; shape=W+K+C
+        """Extract entries of the dense tangent at ``index`` (without forming the dense tangent).
+
+        The tangent analogue of :py:meth:`.TuckerTensorTrain.entries`, and the all-modes special case
+        of :py:meth:`probe` with unit vectors -- computed by **slicing** Tucker-core fibers (no
+        contraction, no ``N`` factor), then the same left-to-right sweep as :py:meth:`apply`. ``index``
+        is ``(d,) + W``: ``index[m]`` holds the (stack ``W`` of) indices into mode ``m``. Result
+        stacked ``W + K + C``.
+
+        See Also
+        --------
+        apply
+        probe
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.basis_variations_format as bvf
+        >>> import t3toolbox.manifold as t3m
+        >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+        >>> base, variations = bvf.t3_orthogonal_representations(x)
+        >>> v = t3m.T3Tangent(base, variations)
+        >>> idx = (3, 5, 7)
+        >>> print(bool(abs(float(v.entries(idx)) - float(v.to_dense()[idx])) < 1e-9))
+        True
+        """
+        return probing.entries_tangent(index, self.variations.data, self.basis.data)
+
     ############################################
     ##########    Stacking    ##################
     ############################################
