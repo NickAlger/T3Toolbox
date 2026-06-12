@@ -74,11 +74,12 @@ dual-use (manifold vs corewise) by substitution.
 4. **Base edge-var caching**: `ξ̂,μ̂,ν̂,η̂` depend on `(p,s)` not on the tangent vector → can be
    precomputed once per (base, sample) and reused (compute↔memory trade-off). `probe_tangent`
    currently recomputes them every call.
-5. **Stacking/vectorization**: forward probe (`probe_tangent`) now batches over all three blocks —
-   `F` probes, `V` tangent stack, `G` base stack — the `V`-stacked case via 3-group contractions
-   added in slice 5c (`compute_sigmas`/`detas`, `assemble_tangent_zs`; output `F + V + G`). The
-   transpose (`probe_tangent_transpose`) is not yet `V`-aware (it emits `V == F`, but does not accept
-   a `V`-stacked tangent input).
+5. **Stacking/vectorization**: both directions now batch over all three blocks — `F` probes, `V`
+   tangent stack, `G` base stack. Forward (`probe_tangent`): the `V`-stacked case via 3-group
+   contractions in `compute_sigmas`/`detas`, `assemble_tangent_zs` (slice 5c; output `F + V + G`).
+   Transpose (`probe_tangent_transpose`): accepts `V`-stacked residuals `F + V + G` and carries `V`
+   to the result's tangent stack (`sum_over_probes=True` → `V`; `=False` → `F + V`); the adjoint
+   sweep reuses the forward's contractions and the assembly adds 10 outer-product builders.
 
 ## Likely build targets (to confirm with Nick)
 - Wire `probe_tangent` / `probe_tangent_transpose` into `T3Tangent` (`.probe()` and the transpose),

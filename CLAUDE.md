@@ -187,7 +187,7 @@ Treat everything else as copied-in-and-not-yet-working until checked.
   Covered: `TuckerTensorTrain` + its backend; `basis_variations_format`; `manifold` (`T3Tangent` — full
   ragged port: linalg with the same-basis guard, gauge projections,
   `to_dense`/`to_t3`/`zeros`/`randn`/`project`/`retract`, two-axis stacking, probing (incl. the
-  V-stacked forward probe via 3-group contractions), checkers).
+  V-stacked forward probe and transpose via 3-group contractions), checkers).
   Tests: `tests/test_tucker_tensor_train.py`, `test_basis_variations_format.py`, `test_manifold.py`,
   `test_dispatch.py`, `backend/test_contractions.py` (suite ~45s).
 - **Probing + V-stacking (`backend/probing.py`, `manifold.py`)** — done through **slice 5c**; the
@@ -212,6 +212,16 @@ Treat everything else as copied-in-and-not-yet-working until checked.
     (`V+G`) take an `n_base`, recomputed inline in the sweep `_func` from a base core (the `n_probe`
     precedent). They reduce to the 2-group result when `V=()`. See `docs/batching_and_stacking.md`
     §4/§7. (Future idea — exploit orthonormal-`V` structure — parked in `docs/probing_section6_notes.md`.)
+  - **V-aware transpose (done): transpose a `V`-stacked forward.** `T3Tangent.probe_transpose` now
+    accepts residuals carrying the tangent batch `V` (`F+V+G`, the output space of the V-stacked
+    forward) and returns a tangent that carries `V`: `sum_over_probes=True` → tangent stack `V`;
+    `=False` → `F+V` (base `G`). `J` and `Jᵀ` are general-purpose / independent (e.g. for `Jᵀ M J`).
+    The adjoint sweep **reuses the forward's self-inferring 3-group contractions**; the assembly adds
+    10 new outer-product builders (`contractions.py`, keep-`F` and sum-`F` forms — the sum-`F` ones
+    generalize `FGo_FGa_to_Gao`/`Fo_FGa_to_Gao`/`FGi_FGa_FGj_to_Giaj`). **No `V`/`G` inference in
+    `probe_tangent_transpose`:** the sweep self-infers, `assemble_tucker` recovers `len(F)` from the
+    `F`-only probe vectors, and only `assemble_tt` (no `F`/`G`-only operand) takes `n_probe`. `V=()`
+    is exactly the prior transpose.
 - **Deferred / broken**: the uniform layer (`ut3_*`, `ubv_*`, `uniform_*`) — many modules don't even
   import; every `is_uniform` branch in the tangent code was dropped/stubbed. The weighted layer
   (parked `absorb_weights`). `OLD_*.py` files are still tracked.

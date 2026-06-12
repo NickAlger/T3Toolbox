@@ -149,14 +149,19 @@ So probing is built on the **named grouped-block contraction toolkit** in `backe
 
 When you need a *third* private block (e.g. forward-probing a `V`-stacked tangent — `F` probes, `V`
 tangents, `G` base, all independent), you need a **3-block** contraction (`F`, `V`, `G`). These exist
-as of slice 5c (the bottom of `contractions.py`, base-inner output `F + V + G`), used by the tangent
-probe's perturbation sweep. **The split is recovered from operand shapes, never passed in:** a
-`G`-only base core pins `len(G)` and an `F+G` edge variable pins `len(F)`, so most 3-block
-contractions self-infer `V` as the remainder; only the three whose *sole* core operand is a variation
-core (`V+G`, with no `G`-only operand present) take an `n_base` int — `{F+G, V+G, F+G}` is
-underdetermined by axis counts alone — recomputed inline in the sweep `_func` from a base core it
-already holds (the same precedent as `n_probe`). Each reduces to the corresponding 2-block contraction
-when `V` is empty. (The earlier plan to defer this in favour of map-over-`V` was reversed — see §7.)
+as of slice 5c (the bottom of `contractions.py`, base-inner output `F + V + G`), used by both the
+forward tangent probe's perturbation sweep and the transpose (`probe_transpose` accepting `V`-stacked
+residuals: the adjoint sweep reuses the forward's contractions, the assembly adds 10 outer-product
+builders in keep-`F`/sum-`F` forms). **The split is recovered from operand shapes, never passed in:**
+whichever stack has a *pure* operand pins its length — a `G`-only base core pins `len(G)` (forward), an
+`F`-only probe vector pins `len(F)` (transpose tucker-assemble) — and the rest self-infer the remainder.
+Only a contraction with *no* pure operand for the needed split takes an int count (`{F+G, V+G, F+G}` or
+`{F+G, F+V+G}` is underdetermined by axis counts alone): the forward's variation-core-only ones take
+`n_base`; the transpose's `tt`-assemble takes `n_probe`. Each is recomputed at the lowest level that
+holds a suitable operand (the sweep `_func`, or `probe_tangent_transpose` for `tt`-assemble, which has
+no pure operand of its own), the same precedent as the original `n_probe`. Each reduces to the
+corresponding 2-block contraction when `V` is empty. (The earlier plan to defer this in favour of
+map-over-`V` was reversed — see §7.)
 
 **Decision rule:** if your two batches are on the *same* operands → `'...'`. If they are on *different*
 operand subsets and must remain independent → a grouped-block contraction.
@@ -310,7 +315,7 @@ The naming scheme encodes axis layout — once you know it, the einsums read the
 |---|---|
 | The `'...'`-einsum ops (broadcast a base over `V`/`F`) | `backend/t3_operations.py` (`to_dense`, `broadcast_t3_to_common_stack`), `backend/tangent_operations.py` (`tangent_to_dense/_t3`, gauge, `project_*`) |
 | The grouped-block contraction toolkit (`F`/`G`/`V` blocks) | `backend/contractions.py` |
-| Probing (2-block `F`,`G`; 3-block `F`,`V`,`G` for a V-stacked tangent) | `backend/probing.py`, `manifold.py` (`T3Tangent.probe`/`probe_transpose`) |
+| Probing (2-block `F`,`G`; 3-block `F`,`V`,`G` for a V-stacked tangent — forward + transpose) | `backend/probing.py`, `manifold.py` (`T3Tangent.probe`/`probe_transpose`) |
 | Tree ↔ stacked-object (meaning 2) | `backend/stacking.py` |
 | Two-axis stack/unstack | `manifold.py` (`unstack_tangents`/`_basis`, `stack_*`) + `tangent_operations.py` (`*_stack` backend fns) |
 | The `V`/`G` split + bv-pair check | `basis_variations_format.py` (`check_bv_pair`), `manifold.py` (`base_stack_shape`/`tangent_stack_shape`/`stack_shape`) |
