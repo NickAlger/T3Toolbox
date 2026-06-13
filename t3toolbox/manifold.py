@@ -850,17 +850,14 @@ class T3Tangent:
         sit at **different** base points (different tangent spaces, so they are not mutually
         linear-algebra compatible). Inverse of :py:meth:`stack_basis`.
         """
-        basis_tree, variations_tree = tangent_operations.unstack_base_stack(
-            self.basis.data, self.variations.data,
+        paired_tree = tangent_operations.unstack_base_stack(self.basis.data, self.variations.data)
+        leaf_structure = (((None,) * self.d,) * 4,            # one (basis_data,
+                          ((None,) * self.d, (None,) * self.d))  #      variations_data) pair
+        return stacking.apply_func_to_leaf_subtrees(
+            paired_tree,
+            lambda bv: T3Tangent(bvf.T3Basis(*bv[0]), bvf.T3Variations(*bv[1])),
+            leaf_structure,
         )
-        basis_objs = stacking.apply_func_to_leaf_subtrees(
-            basis_tree, lambda bd: bvf.T3Basis(*bd), ((None,) * self.d,) * 4,
-        )
-        variations_objs = stacking.apply_func_to_leaf_subtrees(
-            variations_tree, lambda vd: bvf.T3Variations(*vd), ((None,) * self.d, (None,) * self.d),
-        )
-        paired = stacking.tree_zip(basis_objs, variations_objs)
-        return stacking.apply_func_to_leaf_subtrees(paired, lambda bv: T3Tangent(*bv), (None, None))
 
     @staticmethod
     def stack_tangents(tree) -> 'T3Tangent':
@@ -901,9 +898,9 @@ class T3Tangent:
                     'stack_basis requires all tangents to share the same structure and tangent '
                     'stack K (only the base point may differ across the base stack C).'
                 )
-        basis_tree = stacking.apply_func_to_leaf_subtrees(tree, lambda t: t.basis.data, None)
-        variations_tree = stacking.apply_func_to_leaf_subtrees(tree, lambda t: t.variations.data, None)
-        basis_data, variations_data = tangent_operations.stack_base_stack(basis_tree, variations_tree)
+        paired_tree = stacking.apply_func_to_leaf_subtrees(
+            tree, lambda t: (t.basis.data, t.variations.data), None)
+        basis_data, variations_data = tangent_operations.stack_base_stack(paired_tree)
         return T3Tangent(bvf.T3Basis(*basis_data), bvf.T3Variations(*variations_data))
 
 

@@ -386,6 +386,29 @@ def _tangent_stack_split(
     return n_full - n_base, n_base
 
 
+def _pair_base_leaves(basis_tree, variations_tree, n_base):
+    """Pair a basis-data tree and a variations-data tree (same G-shaped outer structure, n_base axes
+    deep) leaf-by-leaf into one G-shaped tree of ``(basis_data, variations_data)`` pairs.
+
+    Not a :py:func:`stacking.tree_zip`: the data-tuple leaves are themselves sequences, so tree_zip
+    would recurse into the cores. We stop at the known base-stack depth ``n_base`` instead.
+    """
+    if n_base == 0:
+        return (basis_tree, variations_tree)  # both are single data tuples -> one pair
+    return tuple(_pair_base_leaves(b, v, n_base - 1)
+                 for b, v in zip(basis_tree, variations_tree))
+
+
+def _unpair_base_leaves(paired_tree, n_base):
+    """Inverse of :py:func:`_pair_base_leaves`: split a G-shaped tree of ``(basis_data,
+    variations_data)`` pairs back into a ``(basis_tree, variations_tree)``.
+    """
+    if n_base == 0:
+        return paired_tree  # already a single (basis_data, variations_data) pair
+    split = [_unpair_base_leaves(p, n_base - 1) for p in paired_tree]
+    return tuple(s[0] for s in split), tuple(s[1] for s in split)
+
+
 def unstack_tangent_stack(
         basis,       # (UU, DD, LL, RR), each core stack = G
         variations,  # (VV, HH), each core stack = V + G
@@ -412,30 +435,38 @@ def stack_tangent_stack(
 def unstack_base_stack(
         basis,       # (UU, DD, LL, RR), each core stack = G
         variations,  # (VV, HH), each core stack = V + G
-):  # -> (basis_tree, variations_tree), both shape G
-    """Peel the base stack G off both the basis and the variations, returning two G-shaped trees.
+):  # -> array-like tree (shape G) of (basis_data, variations_data) pairs
+    """Peel the base stack G off both the basis and the variations, returning a G-shaped tree whose
+    leaves are ``(basis_data, variations_data)`` pairs -- one single-base-point tangent per leaf.
 
-    Each basis leaf has stack () (a single base point); each variation leaf has stack V. The base
-    stack is the *inner* part of the variation stack (V + G), so it is peeled from the interior
-    axes of the variation cores. Inverse of :py:func:`stack_base_stack`.
+    Each basis-data leaf has stack () (a single base point); each variations-data leaf has stack V.
+    The base stack is the *inner* part of the variation stack (V + G), so it is peeled from the
+    interior axes of the variation cores. The basis and variation leaves are paired for you (a plain
+    :py:func:`stacking.tree_zip` cannot do it -- it would recurse into the data-tuple leaves -- so a
+    backend user would otherwise have to hand-roll a depth-aware zip). Inverse of
+    :py:func:`stack_base_stack`.
     """
     n_tangent, n_base = _tangent_stack_split(basis, variations)
     basis_tree = stacking.unstack(basis, axes=tuple(range(n_base)))
     variations_tree = stacking.unstack(variations, axes=tuple(range(n_tangent, n_tangent + n_base)))
-    return basis_tree, variations_tree
+    return _pair_base_leaves(basis_tree, variations_tree, n_base)
 
 
 def stack_base_stack(
-        basis_tree,       # array-like tree (shape G) of basis-data tuples (each stack = ())
-        variations_tree,  # array-like tree (shape G) of variations-data tuples (each stack = V)
-):  # -> (basis-data (stack = G), variations-data (stack = V + G))
-    """Stack a G-shaped tree of basis-data and variations-data over the base stack G.
+        paired_tree,  # array-like tree (shape G) of (basis_data, variations_data) pairs
+):  # -> (
+    #        basis-data,       # stack = G
+    #        variations-data,  # stack = V + G
+    #    )
+    """Stack a G-shaped tree of ``(basis_data, variations_data)`` pairs over the base stack G.
 
-    The base stack is placed *innermost* (the variation stack becomes V + G), matching the
-    base-inner convention. Inverse of :py:func:`unstack_base_stack`.
+    The base stack is placed *innermost* (the variation stack becomes V + G), matching the base-inner
+    convention. Takes exactly the paired-tree layout that :py:func:`unstack_base_stack` produces (its
+    inverse), so a backend user round-trips without splitting the pairs by hand.
     """
+    n_base = stacking.tree_depth(paired_tree) - 3   # |G|; a (basis_data, variations_data) leaf is 3 levels deep
+    basis_tree, variations_tree = _unpair_base_leaves(paired_tree, n_base)
     basis = stacking.basic_ragged_stack(basis_tree)                      # G at leading -> stack = G
-    n_base = stacking.tree_depth(basis_tree) - 2                         # |G| (basis-data has 2 inner levels)
     n_tangent = len(stacking.get_first_leaf(variations_tree).shape) - 2  # |V| (a tucker variation leaf)
     variations = stacking.stack(variations_tree, axes=tuple(range(n_tangent, n_tangent + n_base)))
     return basis, variations

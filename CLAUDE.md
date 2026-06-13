@@ -41,6 +41,20 @@ updated to this version by the time the package is released.
 **Thin OO frontend over a pure-functional backend.**
 - Frozen dataclasses hold only the cores; everything else is a `@cached_property`/method that
   delegates to `backend.*` functions operating on raw `.data` tuples, then re-wraps the result.
+
+> **The backend/frontend razor (project-wide).** Decide what belongs in the backend from the
+> perspective of a user who **bypasses the frontend entirely** and works on raw `.data` tuples — an
+> important minority do exactly this, and they must be able to do everything the frontend does. For
+> any piece of nontrivial logic ask: *would such a user rather find and call a backend function, or
+> just rewrite it themselves?* If rewriting is easier (the logic is trivial), leaving it inline in the
+> frontend is fine — don't bloat the backend. If the logic takes real thought to get right and is easy
+> to get **wrong** (e.g. the base-inner stack-axis bookkeeping, a depth-aware tree zip), it belongs in
+> the backend so they can find and reuse it. **Exception:** logic *inseparable* from the frontend —
+> constructing/validating the `T3*` OO classes (the `.validate()` contracts), same-object identity
+> guards — stays in the frontend regardless, since the backend cannot depend on the frontend.
+> **Corollary:** don't leave a backend user one fiddly step short of a usable result — if a backend
+> function would otherwise force them to know some follow-up call (e.g. `tree_zip` to pair two returned
+> trees), fold that step in so the function returns the directly-usable thing.
 - `TuckerTensorTrain` (`tucker_tensor_train.py`) — the keystone; `.data = (tucker_cores, tt_cores)`.
 - `T3Basis` / `T3Variations` (`basis_variations_format.py`) — orthogonal frame + tangent direction.
 - `T3Tangent` (`manifold.py`) — bundles `(T3Basis, T3Variations)`: a tangent vector.
