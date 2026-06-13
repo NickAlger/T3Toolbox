@@ -14,7 +14,10 @@ represents, **without forming it**, exploiting structure to be cheaper than prob
 - `T3Tangent.apply` / `entries` (forward) — **DONE**.
 - `T3Tangent.apply_transpose` / `entries_transpose` (adjoint) — **DONE**.
 - `TuckerTensorTrain.apply_transpose` / `entries_transpose` (adjoint of the existing plain
-  `apply`/`entries`) — **TODO (slice 3)**.
+  `apply`/`entries`) — **DONE**.
+
+**This feature is complete.** All forward + adjoint apply/entries shipped for both `T3Tangent` and the
+plain `TuckerTensorTrain`. Remaining ideas are deferrals only (see Open decisions).
 
 ## Status
 
@@ -30,8 +33,15 @@ represents, **without forming it**, exploiting structure to be cheaper than prob
   `tests/test_dispatch.py`. The clean-reuse insight (below) held: it is **one** contraction per output,
   not the zero-the-other-terms reuse of `assemble_*` originally sketched. Verified `⟨applyᵀc, v⟩ ==
   Σ_W c·apply(v)` to ~1e-16 across all `W/C` stacks and both `sum_over_probes` modes.
-- **Slice 3 — NOT STARTED.** Math derived (plain-`TuckerTensorTrain` adjoints, below); implementation
-  not yet written.
+- **Slice 3 (DONE, committed `af368831`)** — plain `TuckerTensorTrain.apply_transpose(c, ww)` and
+  `entries_transpose(c, index, shape)`. The atomic single-probe adjoint is the rank-1 tensor
+  `c·(w₀⊗…)`; the `W`-stacked operator is its stacking-lift, so both reduce to a **CP decomposition fed
+  to `t3_from_canonical`** (`c` folded into the first factor) — no hand-built diagonal cores.
+  `sum=False` → canonical rank 1, stack `W (+C)`; `sum=True` → canonical rank `|W|`, stack `C` (the
+  CP→TT `Jᵀr`, tt rank `|W|`). `entries_transpose` = `apply_transpose` with one-hot `e_{index}` vectors
+  and an explicit ambient `shape`. Backend in `backend/apply.py` / `backend/entries.py`; frontend static
+  methods in `tucker_tensor_train.py`; tests in `tests/test_tucker_tensor_train.py` + jit dispatch in
+  `tests/test_dispatch.py`. Verified vs dense to ~1e-13 across all `W/C` stacks and both modes.
 
 ## The algorithms
 
@@ -134,12 +144,15 @@ v = t3m.T3Tangent(base, var); ww = tuple(np.random.randn(N) for N in (6,7,5,8))
 Tests go in `tests/test_manifold.py` (tangent) and `tests/test_tucker_tensor_train.py` (plain); jit
 dispatch in `tests/test_dispatch.py`.
 
-## Open decisions to confirm with Nick
+## Open decisions — resolved
 1. ~~`sum_over_probes` default~~ — **RESOLVED**: `False` (keep `W`), matching `probe_transpose`. Shipped.
-2. Plain-T3 batched adjoint output (slice 3) — rank-`|W|` (CP→TT) by default when summed? Or keep-`W` (a
-   `W`-stacked rank-1 T3) default with a sum option? **Still open — confirm before slice 3.**
+2. ~~Plain-T3 batched adjoint output~~ — **RESOLVED** (principled discussion w/ Nick): `sum=False` is the
+   **primary** operation — the stacking-lift of the atomic single-probe adjoint, with `W` a passthrough
+   stacking axis (a `W (+C)` stack of rank-1 tensors). `sum=True` is the **secondary, derived**
+   contraction (`= Σ_W` of the primary): the rank-`|W|` CP→TT back-projection `Jᵀr`. Both shipped,
+   default `False`. The paper's use of the summed form has no bearing on this priority.
 3. `K`-stacking for the adjoints (input `c` carrying an extra `K` from a `K`-stacked forward apply) —
-   `probe_transpose`-style; **deferred** in slice 2 (`c` assumed shape `W (+C)`). Revisit per use case.
+   `probe_transpose`-style; **deferred** (slice 2 `c` is `W (+C)`; plain has no `K`). Revisit per use case.
 4. ~~Naming `apply_transpose` / `entries_transpose`~~ — **RESOLVED**: mirrors `probe_transpose`. Shipped.
 
 ## File map
