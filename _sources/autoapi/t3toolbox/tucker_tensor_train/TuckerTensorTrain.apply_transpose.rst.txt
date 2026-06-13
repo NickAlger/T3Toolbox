@@ -1,0 +1,33 @@
+TuckerTensorTrain.apply_transpose
+=================================
+
+.. py:method:: t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_transpose(c, ww, sum_over_probes = False)
+   :staticmethod:
+
+
+   Transpose of :py:meth:`apply`: back-project a residual ``c`` into a TuckerTensorTrain.
+
+   The Jacobian-transpose of the all-modes map ``X -> ( <X, w0^W (x) ... (x) w_{d-1}^W> )_W``.
+   The atomic single-probe adjoint is the rank-1 tensor ``c * (w0 (x) ... (x) w_{d-1})``, and the
+   ``W``-stacked operator is its stacking-lift:
+
+   - ``sum_over_probes=False`` (default, primary): the probe stack ``W`` is a passthrough stacking
+     axis -- a ``W (+ C)`` stack of rank-1 tensors.
+   - ``sum_over_probes=True``: contract ``W`` (``= sum_W`` of the primary) -- the rank-``|W|``
+     back-projection ``sum_W c_W * (w0^W (x) ...)``, i.e. the Gauss-Newton ``J^T r``.
+
+   .. seealso:: :py:obj:`apply`, :py:obj:`entries_transpose`
+
+   .. rubric:: Examples
+
+   Adjoint identity ``<apply^T(c), x>_F == c * x.apply(ww)`` (no stacks):
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+   >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+   >>> ATc = t3.TuckerTensorTrain.apply_transpose(1.7, ww)
+   >>> lhs = float(np.sum(ATc.to_dense() * x.to_dense()))
+   >>> print(bool(abs(lhs - 1.7 * float(x.apply(ww))) < 1e-9))
+   True
+

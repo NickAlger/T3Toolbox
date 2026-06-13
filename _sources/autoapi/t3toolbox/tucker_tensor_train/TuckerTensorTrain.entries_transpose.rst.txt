@@ -1,0 +1,32 @@
+TuckerTensorTrain.entries_transpose
+===================================
+
+.. py:method:: t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries_transpose(c, index, shape, sum_over_probes = False)
+   :staticmethod:
+
+
+   Transpose of :py:meth:`entries`: scatter a residual ``c`` at ``index`` into a TuckerTensorTrain.
+
+   The Jacobian-transpose of ``X -> ( X[index^W] )_W``. Identical to :py:meth:`apply_transpose`
+   with the apply vectors replaced by the unit vectors ``e_{index_k}``, so each single-entry
+   adjoint is the one-hot rank-1 tensor ``c * e_{idx_0} (x) ... (x) e_{idx_{d-1}}``;
+   ``sum_over_probes=True`` scatter-adds colliding indices (the ``J^T r`` for entry sampling).
+   ``shape`` gives the ambient dims ``(N0, ..., N(d-1))`` -- unlike :py:meth:`apply_transpose`
+   (where ``ww`` carries them), the residual and index alone do not determine them.
+
+   .. seealso:: :py:obj:`entries`, :py:obj:`apply_transpose`
+
+   .. rubric:: Examples
+
+   Back-projecting a residual scatters it at the index:
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+   >>> ETc = t3.TuckerTensorTrain.entries_transpose(2.0, (3, 5, 7), x.shape)
+   >>> print(bool(abs(float(ETc.to_dense()[3, 5, 7]) - 2.0) < 1e-9))     # c lands at the index
+   True
+   >>> rest = ETc.to_dense().copy(); rest[3, 5, 7] = 0.0
+   >>> print(bool(np.linalg.norm(rest) < 1e-9))                          # zero elsewhere
+   True
+
