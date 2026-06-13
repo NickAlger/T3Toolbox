@@ -419,6 +419,53 @@ class TestManifold(unittest.TestCase):
                             ref = vd[..., int(idx[0]), int(idx[1]), int(idx[2])]
                         self.check_relerr(ref, e)
 
+    def test_tangent_apply_transpose(self):
+        # adjoint identity <apply^T c, v> == sum_W c*apply(v) (keep base C); keep-W -> tangent stack W.
+        STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
+        for BASE_STACK in [(), (2,)]:
+            for W in [(), (2,)]:
+                with self.subTest(BASE=BASE_STACK, W=W):
+                    x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=BASE_STACK)
+                    base, _ = bvf.t3_orthogonal_representations(x)
+                    v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+                    ww = tuple(np.random.randn(*(W + (N,))) for N in STRUCT[0])
+                    c = np.asarray(np.random.randn(*(W + BASE_STACK)))
+
+                    ATc = t3m.T3Tangent.apply_transpose(c, ww, base, sum_over_probes=True)
+                    lhs = np.asarray(cw.corewise_stack_dot(ATc.variations.data, v.variations.data, len(BASE_STACK)))
+                    rhs = np.sum(c * np.asarray(v.apply(ww)), axis=tuple(range(len(W))))   # sum_W, keep C
+                    self.check_relerr(rhs, lhs)
+                    self.assertEqual((), ATc.tangent_stack_shape)               # summed over W
+                    self.assertEqual(BASE_STACK, ATc.base_stack_shape)
+
+                    # without summing, W becomes the tangent stack; sum=True == sum_W of sum=False
+                    ATc_keep = t3m.T3Tangent.apply_transpose(c, ww, base)
+                    self.assertEqual(W, ATc_keep.tangent_stack_shape)
+                    self.assertEqual(BASE_STACK, ATc_keep.base_stack_shape)
+                    f_axes = tuple(range(len(W)))
+                    for cs, cn in zip(ATc.variations.tucker_variations, ATc_keep.variations.tucker_variations):
+                        self.check_relerr(np.asarray(cs), np.asarray(cn).sum(axis=f_axes))
+                    for cs, cn in zip(ATc.variations.tt_variations, ATc_keep.variations.tt_variations):
+                        self.check_relerr(np.asarray(cs), np.asarray(cn).sum(axis=f_axes))
+
+    def test_tangent_entries_transpose(self):
+        # adjoint identity <entries^T c, v> == sum_W c*entries(v, idx) (keep base C).
+        STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
+        for BASE_STACK in [(), (2,)]:
+            for W in [(), (2,)]:
+                with self.subTest(BASE=BASE_STACK, W=W):
+                    x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=BASE_STACK)
+                    base, _ = bvf.t3_orthogonal_representations(x)
+                    v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+                    idx = np.array(tuple(np.random.randint(0, N, size=W) for N in STRUCT[0]))  # (d,)+W
+                    c = np.asarray(np.random.randn(*(W + BASE_STACK)))
+
+                    ETc = t3m.T3Tangent.entries_transpose(c, idx, base, sum_over_probes=True)
+                    lhs = np.asarray(cw.corewise_stack_dot(ETc.variations.data, v.variations.data, len(BASE_STACK)))
+                    rhs = np.sum(c * np.asarray(v.entries(idx)), axis=tuple(range(len(W))))
+                    self.check_relerr(rhs, lhs)
+                    self.assertEqual(W, t3m.T3Tangent.entries_transpose(c, idx, base).tangent_stack_shape)
+
     def test_randn(self):
         base, _ = bvf.t3_orthogonal_representations(
             t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1)))

@@ -103,6 +103,14 @@ class TestDispatch(unittest.TestCase):
             lambda z, w: t3m.T3Tangent.probe_transpose(z, w, base), self.zz_vstack, self.ww)
         self.assert_jit_jax(lambda a, w: a.apply(w), self.v_vstack, self.ww)              # tangent apply
         self.assert_jit_jax(lambda a, i: a.entries(i), self.v_vstack, jnp.array([1, 2, 3]))  # tangent entries
+        # tangent adjoints: c shape W (+C); both sum modes
+        self.assert_jit_jax(
+            lambda cc, w: t3m.T3Tangent.apply_transpose(cc, w, base, sum_over_probes=True), jnp.ones(2), self.ww)
+        self.assert_jit_jax(
+            lambda cc, w: t3m.T3Tangent.apply_transpose(cc, w, base), jnp.ones(2), self.ww)  # keep W
+        self.assert_jit_jax(
+            lambda cc, i: t3m.T3Tangent.entries_transpose(cc, i, base, sum_over_probes=True),
+            jnp.ones(()), jnp.array([1, 2, 3]))
 
     # ---------------------------------------------------- jit bucket: backend functions
     def test_jit_backend(self):

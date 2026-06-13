@@ -455,8 +455,8 @@ class T3Tangent:
         >>> print(zz[0].shape)             # W + C + (N0,) = (2,) + () + (10,)
         (2, 10)
         >>> zz2 = t3p.probe_dense(ww, v.to_dense())   # dense reference
-        >>> print([float(np.linalg.norm(a - b)) for a, b in zip(zz, zz2)])
-        [1.9485689247039e-12, 4.4498813137605194e-12, 3.528192267475046e-12]
+        >>> print(bool(max(float(np.linalg.norm(a - b)) for a, b in zip(zz, zz2)) < 1e-9))
+        True
 
         A tangent-stacked (K-stacked) tangent probes each of its ``K`` vectors, output ``W + K + C``:
 
@@ -605,6 +605,64 @@ class T3Tangent:
         True
         """
         return probing.entries_tangent(index, self.variations.data, self.basis.data)
+
+    @staticmethod
+    def apply_transpose(
+            c:          NDArray,                # residual, shape = W + C
+            ww:         typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
+            basis:      bvf.T3Basis,
+            sum_over_probes:    bool = False,
+    ) -> 'T3Tangent':
+        """Apply the transpose ``apply^T`` of :py:meth:`apply`: back-project a residual ``c`` into a tangent.
+
+        The adjoint of the (linear-in-the-variation) all-modes :py:meth:`apply`. With
+        ``sum_over_probes=False`` (default) the apply-vector stack ``W`` becomes the result's tangent
+        stack (one tangent per apply-set); with ``sum_over_probes=True`` ``W`` is summed -- the usual
+        Gauss-Newton ``apply^T c`` back-projection (a single tangent when ``W = ()``). Needs only the
+        base sweep + a single-term scatter assembly (cheaper than a general :py:meth:`probe_transpose`).
+
+        Examples
+        --------
+        Adjoint identity ``<apply^T c, v> == c * apply(v)`` (no stacks):
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.basis_variations_format as bvf
+        >>> import t3toolbox.manifold as t3m
+        >>> import t3toolbox.corewise as cw
+        >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+        >>> base, _ = bvf.t3_orthogonal_representations(x)
+        >>> v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+        >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> ATc = t3m.T3Tangent.apply_transpose(np.asarray(1.7), ww, base, sum_over_probes=True)
+        >>> lhs = float(cw.corewise_dot(ATc.variations.data, v.variations.data))
+        >>> print(bool(abs(lhs - 1.7 * float(v.apply(ww))) < 1e-9))
+        True
+        """
+        # base order is exactly T3Basis.data = (up, down, left, right) -- no reorder.
+        dU, dG = probing.apply_tangent_transpose(c, ww, basis.data, sum_over_probes=sum_over_probes)
+        return T3Tangent(basis, bvf.T3Variations(dU, dG))
+
+    @staticmethod
+    def entries_transpose(
+            c:          NDArray,                # residual, shape = W + C
+            index:      NDArray,                # int, shape=(d,)+W
+            basis:      bvf.T3Basis,
+            sum_over_probes:    bool = False,
+    ) -> 'T3Tangent':
+        """Apply the transpose ``entries^T`` of :py:meth:`entries`: scatter ``c`` at ``index`` into a tangent.
+
+        The adjoint of :py:meth:`entries` -- identical to :py:meth:`apply_transpose` with the up-index
+        ``ξ̂`` from fiber slicing and unit apply-vectors ``e_{index}``. ``sum_over_probes`` as in
+        :py:meth:`apply_transpose`.
+
+        See Also
+        --------
+        entries
+        apply_transpose
+        """
+        dU, dG = probing.entries_tangent_transpose(c, index, basis.data, sum_over_probes=sum_over_probes)
+        return T3Tangent(basis, bvf.T3Variations(dU, dG))
 
     ############################################
     ##########    Stacking    ##################

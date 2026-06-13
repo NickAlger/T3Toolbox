@@ -114,7 +114,6 @@ def ragged_scan(
     https://docs.jax.dev/en/latest/_autosummary/jax.lax.scan.html
 
     """
-    print('RAGGED SCAN')
     scan_length = len(xs[0])
     carry = init
 
@@ -185,7 +184,6 @@ def ragged_map(
     typ.Tuple[NDArray, ...],  # len=map_length
     ...
 ]:  # len=num_outputs
-    print('RAGGED MAP')
     map_length = len(xs[0])
 
     ys_list = []

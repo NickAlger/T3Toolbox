@@ -28,6 +28,8 @@ __all__ = [
     # Apply / entries of a tangent vector (all-modes special case of probing)
     'apply_tangent',
     'entries_tangent',
+    'apply_tangent_transpose',
+    'entries_tangent_transpose',
     # Transpose of map from tangent vector to probes
     'compute_deta_tildes',
     'compute_tau_tildes',
@@ -756,6 +758,94 @@ def entries_tangent(
     mus  = compute_mus(left_tt_cores, xis)
 
     return _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores)
+
+
+def _onehot_vectors(index, up_tucker_cores):
+    '''Unit vectors e_{index_k} (shape W + (Nk,)) -- the "apply vectors" whose adjoint is the entry
+    scatter, so that entries_transpose is apply_transpose with these one-hot vectors.'''
+    use_jax = tree_contains_jax((index, up_tucker_cores))
+    xnp, _, _ = get_backend(False, use_jax)
+    index = xnp.array(index)
+    return tuple(xnp.eye(B.shape[-1])[index[i]] for i, B in enumerate(up_tucker_cores))
+
+
+def _apply_transpose_assemble(c, ww, xis, mus, nus, etas, sum_over_probes):
+    '''Scatter the residual ``c`` into the variation cores -- the adjoint assembly shared by
+    apply_tangent_transpose and entries_tangent_transpose:
+
+        dG-tilde_k = c * mu-hat_{k-1} (x) xi-hat_k (x) nu-hat_{k+1}     # over (rL, nU, rR)
+        dU-tilde_k = c * eta-hat_k (x) w_k                             # over (nO, N)
+
+    These are exactly the ``tau (x) xi (x) nu`` term of ``assemble_tt_variations`` and the
+    ``w (x) dxi`` term of ``assemble_tucker_variations`` (one term each), with ``c`` folded in -- so
+    they inherit the W/C stacking and the sum_over_probes behaviour. ``sum_over_probes=True`` sums the
+    probe stack W (the ``J^T r`` back-projection); otherwise W becomes the output tangent stack.
+    '''
+    c_mus  = tuple(c[..., None] * mu  for mu  in mus)    # c * mu-hat   -> the tau-tilde slot (over rL)
+    c_etas = tuple(c[..., None] * eta for eta in etas)   # c * eta-hat  -> the dxi-tilde slot (over nO)
+    if sum_over_probes:
+        dG_tildes = tuple(contractions.WKCi_WCa_WCj_to_KCiaj(cm, xi, nu, w.ndim - 1)
+                          for cm, xi, nu, w in zip(c_mus, xis, nus, ww))
+        dU_tildes = tuple(contractions.Wo_WKCa_to_KCao(w, ce) for w, ce in zip(ww, c_etas))
+    else:
+        dG_tildes = tuple(contractions.WKCi_WCa_WCj_to_WKCiaj(cm, xi, nu, w.ndim - 1)
+                          for cm, xi, nu, w in zip(c_mus, xis, nus, ww))
+        dU_tildes = tuple(contractions.Wo_WKCa_to_WKCao(w, ce) for w, ce in zip(ww, c_etas))
+    return dU_tildes, dG_tildes   # (var_tucker, var_tt) = T3Variations.data
+
+
+def apply_tangent_transpose(
+        c:          NDArray,                # residual, shape = W + C (one per probe-set, per base point)
+        ww:         typ.Sequence[NDArray],  # the apply vectors, len=d, elm_shape=W+(Ni,)
+        base:       typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
+                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right)
+        sum_over_probes: bool = False,
+) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (dU_tildes, dG_tildes) = T3Variations.data
+    '''Apply the transpose of :py:func:`apply_tangent` -- back-project a residual ``c`` into a tangent.
+
+    The adjoint of the (linear-in-the-variation) all-modes apply. Needs only the base sweep
+    (xi-hat, mu-hat, nu-hat, eta-hat) and a single-term scatter assembly (it skips the adjoint
+    perturbation sweep that probe_tangent_transpose runs). With ``sum_over_probes=False`` the probe
+    stack W becomes the output tangent stack; with ``True`` it is summed (the ``J^T r`` back-projection).
+
+    See Also
+    --------
+    apply_tangent
+    entries_tangent_transpose
+    '''
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base
+    xis  = compute_xis(up_tucker_cores, ww)
+    mus  = compute_mus(left_tt_cores, xis)
+    nus  = compute_nus(right_tt_cores, xis)
+    etas = compute_etas(down_tt_cores, mus, nus)
+    return _apply_transpose_assemble(c, ww, xis, mus, nus, etas, sum_over_probes)
+
+
+def entries_tangent_transpose(
+        c:          NDArray,                # residual, shape = W + C
+        index:      NDArray,                # int, shape=(d,)+W (the indices whose entries c weights)
+        base:       typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
+                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right)
+        sum_over_probes: bool = False,
+) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (dU_tildes, dG_tildes)
+    '''Apply the transpose of :py:func:`entries_tangent` -- scatter a residual ``c`` at ``index`` into a tangent.
+
+    Identical to :py:func:`apply_tangent_transpose` with the up-index ``xi-hat`` from fiber slicing and
+    the apply vectors replaced by the unit vectors ``e_{index_k}`` (so the ``dU-tilde`` outer product
+    *is* the entry scatter).
+
+    See Also
+    --------
+    entries_tangent
+    apply_tangent_transpose
+    '''
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base
+    xis  = _entry_xis(up_tucker_cores, index)
+    mus  = compute_mus(left_tt_cores, xis)
+    nus  = compute_nus(right_tt_cores, xis)
+    etas = compute_etas(down_tt_cores, mus, nus)
+    ww   = _onehot_vectors(index, up_tucker_cores)
+    return _apply_transpose_assemble(c, ww, xis, mus, nus, etas, sum_over_probes)
 
 
 ###############################################################
