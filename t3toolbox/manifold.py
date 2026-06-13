@@ -407,11 +407,25 @@ class T3Tangent:
     ) -> 'T3Tangent':
         """Orthogonal projection of a TuckerTensorTrain onto the tangent space at ``basis``.
 
-        Returns the (gauged) tangent vector representing the orthogonal projection of
-        ``x - (base point)`` onto the tangent space. Requires an orthogonal, minimal-rank ``basis``.
+        Returns the (gauged) tangent vector representing the orthogonal projection ``P_T(x)`` of ``x``
+        **directly** onto the tangent space ``T`` (a linear subspace of the ambient tensor space): it
+        does *not* subtract the base point. For ``x`` already in ``T`` this is the identity; for a
+        general ambient ``x`` the residual ``x - P_T(x)`` is orthogonal to ``T``. This is exactly the
+        map for projecting a gradient (see :py:func:`riemannian_gradient`). Requires an orthogonal,
+        minimal-rank ``basis``.
         """
         variations = tangent_operations.project_t3_onto_tangent_space(basis.data, x.data)
         return T3Tangent(basis, bvf.T3Variations(*variations))
+
+    def transport(self, new_basis: bvf.T3Basis) -> 'T3Tangent':
+        """Projective vector transport of this tangent to the tangent space at ``new_basis``.
+
+        Re-projects this tangent (viewed as an ambient tensor via :py:meth:`to_t3`) orthogonally onto
+        the tangent space at the new base: ``T3Tangent.project(self.to_t3(), new_basis)``. Returns a
+        (gauged) tangent at ``new_basis``. This is projective transport -- the cheap, standard choice
+        for fixed-rank Riemannian optimization -- not parallel transport.
+        """
+        return T3Tangent.project(self.to_t3(), new_basis)
 
     ############################################
     ##########    Linear algebra    ############
@@ -944,6 +958,43 @@ class T3Tangent:
         variations_tree = stacking.apply_func_to_leaf_subtrees(tree, lambda t: t.variations.data, None)
         basis_data, variations_data = tangent_operations.stack_base_stack(basis_tree, variations_tree)
         return T3Tangent(bvf.T3Basis(*basis_data), bvf.T3Variations(*variations_data))
+
+
+def project_dense_onto_tangent(dense_tensor: NDArray, basis: bvf.T3Basis) -> T3Tangent:
+    """Orthogonal projection of a dense ambient tensor onto the tangent space at ``basis``.
+
+    The dense analogue of :py:meth:`T3Tangent.project`: it represents ``dense_tensor`` exactly as a
+    :py:class:`TuckerTensorTrain` (via :py:meth:`TuckerTensorTrain.t3svd_dense`, no truncation) and
+    projects that directly onto the tangent space. Returns the (gauged) tangent ``P_T(dense_tensor)``;
+    the residual ``dense_tensor - P_T(dense_tensor)`` is orthogonal to the tangent space. Lives
+    outside :py:class:`T3Tangent` because its input is a raw array, not a tangent. Leading axes beyond
+    the ``d`` tensor modes are treated as a stack. Requires an orthogonal, minimal-rank ``basis``.
+    """
+    Z = to_jax(dense_tensor) if tree_contains_jax(basis.data) else to_numpy(dense_tensor)
+    d = len(basis.shape)
+    stack_shape = tuple(Z.shape[:Z.ndim - d])
+    x, _, _ = t3.TuckerTensorTrain.t3svd_dense(Z, stack_shape=stack_shape)
+    return T3Tangent.project(x, basis)
+
+
+def riemannian_gradient(euclidean_gradient, basis: bvf.T3Basis) -> T3Tangent:
+    """Riemannian gradient: the orthogonal projection of a Euclidean gradient onto the tangent space.
+
+    Under the standard (Euclidean / Hilbert-Schmidt) ambient metric the Riemannian gradient of a
+    function on the fixed-rank manifold is just the tangent-space projection of its Euclidean
+    gradient. ``euclidean_gradient`` may be a :py:class:`TuckerTensorTrain` (projected via
+    :py:meth:`T3Tangent.project`) or a dense array (via :py:func:`project_dense_onto_tangent`).
+    Returns the (gauged) Riemannian gradient as a tangent vector at ``basis``.
+    """
+    if isinstance(euclidean_gradient, t3.TuckerTensorTrain):
+        return T3Tangent.project(euclidean_gradient, basis)
+    return project_dense_onto_tangent(euclidean_gradient, basis)
+
+
+# Note: exp / log / geodesic (the true Riemannian exponential, logarithm, and geodesics) are
+# intentionally omitted for now -- fixed-rank manifolds have no closed-form geodesics. The library
+# uses retraction (:py:meth:`T3Tangent.retract`) and projective transport
+# (:py:meth:`T3Tangent.transport`) as the practical substitutes.
 
 
 def _flatten_tangents(tree) -> typ.List['T3Tangent']:

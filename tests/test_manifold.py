@@ -64,6 +64,19 @@ def _tree_get(tree, idx):
     return tree
 
 
+def _dense_tangent_projector(base):
+    """Dense orthogonal projector onto the (gauged) tangent space at an unstacked ``base``.
+
+    Built from the dense embeddings of many gauged random tangents: ``A @ pinv(A)`` projects onto
+    their column span, which is exactly the tangent space.
+    """
+    dim = t3m.manifold_dim((base.shape, base.up_ranks, base.left_ranks))
+    cols = [np.asarray(t3m.T3Tangent.randn(base, apply_gauge_projection=True).to_dense()).reshape(-1)
+            for _ in range(3 * dim)]
+    A = np.stack(cols, axis=1)
+    return A @ np.linalg.pinv(A)
+
+
 class TestManifold(unittest.TestCase):
     t3_structures = [
         #  (shape,            tucker_ranks,   tt_ranks)
@@ -699,6 +712,55 @@ class TestManifold(unittest.TestCase):
                 self.assertTrue(v.allclose(v))
                 self.assertFalse(v.allclose(v * 2.0))
                 self.assertTrue(v.allclose(v * (1.0 + 1e-12)))
+
+    def test_project_dense_onto_tangent(self):
+        # project_dense_onto_tangent == the dense orthogonal projector onto the tangent space.
+        STR_P = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
+        base, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STR_P))
+        Pr = _dense_tangent_projector(base)
+        Z = np.random.randn(*STR_P[0])
+        F = t3m.project_dense_onto_tangent(Z, base)
+        self.assertTrue(F.is_gauged())
+        self.check_relerr((Pr @ Z.reshape(-1)).reshape(STR_P[0]), F.to_dense())
+
+        # stacked C=(2,): valid gauged tangent with the right stack; matches the projector per slice
+        base2, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STR_P, stack_shape=(2,)))
+        Z2 = np.random.randn(2, *STR_P[0])
+        F2 = t3m.project_dense_onto_tangent(Z2, base2)
+        F2.validate()
+        self.assertEqual((2,), F2.stack_shape)
+        for i in range(2):
+            Pri = _dense_tangent_projector(_slice_basis(base2, (i,)))
+            self.check_relerr((Pri @ Z2[i].reshape(-1)).reshape(STR_P[0]), np.asarray(F2.to_dense())[i])
+
+    def test_riemannian_gradient(self):
+        # Riemannian gradient = tangent-space projection of the Euclidean gradient (dense -> F, T3 -> project).
+        STR_P = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
+        base, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STR_P))
+        Z = np.random.randn(*STR_P[0])
+        self.check_relerr(t3m.project_dense_onto_tangent(Z, base).to_dense(),
+                          t3m.riemannian_gradient(Z, base).to_dense())
+        g = t3.TuckerTensorTrain.randn((6, 7, 5), (3, 4, 3), (1, 2, 2, 1))
+        self.check_relerr(t3m.T3Tangent.project(g, base).to_dense(),
+                          t3m.riemannian_gradient(g, base).to_dense())
+
+    def test_transport(self):
+        # Projective transport == dense projection onto the new tangent space; result lives at new base.
+        STR = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
+        base, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STR))
+        new_base, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STR))
+        v = t3m.T3Tangent.randn(base)
+
+        # transport to its own base is the identity (v is already in T_base M)
+        self.check_relerr(v.to_dense(), v.transport(base).to_dense())
+
+        # transport to a different base == dense projection onto T_new M
+        Pr_new = _dense_tangent_projector(new_base)
+        vt = v.transport(new_base)
+        vt.validate()
+        self.assertIs(new_base, vt.basis)
+        self.assertTrue(vt.is_gauged())
+        self.check_relerr((Pr_new @ np.asarray(v.to_dense()).reshape(-1)).reshape(STR[0]), vt.to_dense())
 
 
 if __name__ == "__main__":

@@ -327,9 +327,9 @@ def project_t3_onto_tangent_space(
 ]:
     """Orthogonal projection of a Tucker tensor train onto the tangent space at an orthogonal base.
 
-    Returns gauged variations representing the orthogonal projection of ``x - (base point)`` onto
-    the tangent space. The base must be an orthogonal, minimal-rank representation. Stack-aware.
-    Ragged path only (uniform deferred).
+    Returns gauged variations representing the orthogonal projection of ``x`` *directly* onto the
+    tangent space (a linear subspace); it does not subtract the base point. The base must be an
+    orthogonal, minimal-rank representation. Stack-aware. Ragged path only (uniform deferred).
     """
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
     outer_tt_cores = down_tt_cores
