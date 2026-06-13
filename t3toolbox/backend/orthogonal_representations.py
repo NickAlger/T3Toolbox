@@ -121,23 +121,24 @@ def basis_orthogonality_residual(
     '''
     UU, DD, LL, RR = basis
     d = len(UU)
+    xnp, _, _ = get_backend(False, tree_contains_jax(basis))
 
     def _dev(gram, n):
-        return float(np.max(np.abs(np.asarray(gram) - np.eye(n))))
+        return xnp.max(xnp.abs(gram - xnp.eye(n)))
 
-    resid = 0.0
+    devs = []
     for ii in range(d):
-        U = np.asarray(UU[ii])
-        D = np.asarray(DD[ii])
-        resid = max(resid, _dev(np.einsum('...io,...jo->...ij', U, U), U.shape[-2]))
-        resid = max(resid, _dev(np.einsum('...iaj,...ibj->...ab', D, D), D.shape[-2]))
+        U = UU[ii]
+        D = DD[ii]
+        devs.append(_dev(xnp.einsum('...io,...jo->...ij', U, U), U.shape[-2]))
+        devs.append(_dev(xnp.einsum('...iaj,...ibj->...ab', D, D), D.shape[-2]))
     for ii in range(d - 1):
-        L = np.asarray(LL[ii])
-        resid = max(resid, _dev(np.einsum('...iaj,...iak->...jk', L, L), L.shape[-1]))
+        L = LL[ii]
+        devs.append(_dev(xnp.einsum('...iaj,...iak->...jk', L, L), L.shape[-1]))
     for ii in range(1, d):
-        R = np.asarray(RR[ii])
-        resid = max(resid, _dev(np.einsum('...iaj,...kaj->...ik', R, R), R.shape[-3]))
-    return resid
+        R = RR[ii]
+        devs.append(_dev(xnp.einsum('...iaj,...kaj->...ik', R, R), R.shape[-3]))
+    return xnp.max(xnp.stack(devs))
 
 
 def basis_consistency_residual(
@@ -155,7 +156,8 @@ def basis_consistency_residual(
     (``<= rtol``) for a boolean consistency test. EXPENSIVE -- densifies both reconstructions.
     '''
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
-    left = to_numpy(ragged_operations.to_dense((up_tucker_cores, left_tt_cores)))
-    right = to_numpy(ragged_operations.to_dense((up_tucker_cores, right_tt_cores)))
-    return float(np.linalg.norm(left - right) / max(1.0, np.linalg.norm(right)))
+    xnp, _, _ = get_backend(False, tree_contains_jax(basis))
+    left = ragged_operations.to_dense((up_tucker_cores, left_tt_cores))
+    right = ragged_operations.to_dense((up_tucker_cores, right_tt_cores))
+    return xnp.linalg.norm(left - right) / xnp.maximum(1.0, xnp.linalg.norm(right))
 

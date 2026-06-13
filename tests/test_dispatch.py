@@ -23,6 +23,7 @@ import t3toolbox.backend.common as common
 import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.tangent_operations as tops
 import t3toolbox.backend.linalg as linalg
+import t3toolbox.backend.orthogonal_representations as orth_reps
 
 try:
     import jax
@@ -74,6 +75,7 @@ class TestDispatch(unittest.TestCase):
         vecs = tuple(jnp.ones(N) for N in STRUCT[0])
         idx = jnp.array([1, 2, 3])
         self.assert_jit_jax(lambda a: a.to_dense(), self.x)
+        self.assert_jit_jax(lambda a, b: a.inner(b), self.x, self.x_other)  # T3-T3 inner (t3_linalg zipper)
         self.assert_jit_jax(lambda a, v0, v1, v2: a.apply((v0, v1, v2)), self.x, *vecs)
         self.assert_jit_jax(lambda a, i: a.entries(i), self.x, idx)
         self.assert_jit_jax(  # t3svd with FIXED ranks -> static shapes -> jit-able
@@ -133,6 +135,10 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a: bvf.t3_orthogonal_representations(a), self.x)
         # tangent backend (tangent_operations.py)
         self.assert_jit_jax(lambda b, v: tops.tangent_to_dense(b, v), self.base.data, self.var.data)
+        # residual / checker backends -> jax scalar (raw-np dispatch fix)
+        self.assert_jit_jax(lambda b: orth_reps.basis_orthogonality_residual(b), self.base.data)
+        self.assert_jit_jax(lambda b: orth_reps.basis_consistency_residual(b), self.base.data)
+        self.assert_jit_jax(lambda b, v: tops.gauge_residual(b, v), self.base.data, self.var.data)
 
     # ---------------------------------------------------- output-check bucket: dynamic-shape ops
     def test_dynamic_shape_dispatch(self):

@@ -2,6 +2,7 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+import math
 import numpy as np
 import typing as typ
 import functools as ft
@@ -246,7 +247,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
     @ft.cached_property
     def size(self) -> int:
         """Number of elements of the represented (base-point) dense tensor (``prod(shape)``)."""
-        return int(np.prod(self.shape))
+        return math.prod(self.shape)
 
     @ft.cached_property
     def data_size(self) -> int:
@@ -284,7 +285,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         >>> print(base.is_orthogonal())
         True
         '''
-        return orth_reps.basis_orthogonality_residual(self.data) <= atol
+        return bool(orth_reps.basis_orthogonality_residual(self.data) <= atol)
 
     @ft.cached_property
     def minimal_ranks(self) -> typ.Tuple[typ.Tuple[int, ...], typ.Tuple[int, ...]]:
@@ -581,7 +582,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         :py:meth:`from_t3`/:py:meth:`orthogonalize`) consistency holds by construction; this is for
         sanity-checking hand-built bases.
         """
-        return orth_reps.basis_consistency_residual(self.data) <= rtol
+        return bool(orth_reps.basis_consistency_residual(self.data) <= rtol)
 
     def allclose(self, other: 'T3Basis', rtol: float = 1e-9, atol: float = 0.0) -> bool:
         """``True`` if ``other`` represents the same base point as ``self`` (gauge-invariant).
@@ -705,7 +706,7 @@ class T3Variations:
     @ft.cached_property
     def size(self) -> int:
         """Number of elements of the represented dense tensor (``prod(shape)``)."""
-        return int(np.prod(self.shape))
+        return math.prod(self.shape)
 
     @ft.cached_property
     def data_size(self) -> int:

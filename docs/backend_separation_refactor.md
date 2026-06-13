@@ -67,22 +67,26 @@ Note on #13: keeps the existing `'f%d_%d'` key scheme, so saved files stay compa
 These were surfaced while doing the refactor but are **out of scope** here (this refactor is strictly
 behavior-preserving — code is moved as-is). Do not fix them as part of the backend-separation commit.
 
-- **(A) numpy/jax dispatch drift — raw `np.*` calls in moved/related backend code.** Several of the
-  functions touched here compute on array data with raw numpy rather than dispatching at the lowest
-  level. The principle (already in `CLAUDE.md`): infer the backend from the inputs —
-  `use_jax = tree_contains_jax(inputs)`, `xnp, xmap, xscan = get_backend(False, use_jax)`, then use
-  `xnp.*` — **if any input arg contains jax → jax, otherwise numpy**; and **every numpy/jax call site
-  needs a matching case in `tests/test_dispatch.py`**. Reference for the correct pattern:
-  `backend/probing.py` + `tests/test_dispatch.py`. Offenders to clean up in a dedicated pass:
+- **(A) numpy/jax dispatch drift — raw `np.*` calls. ✅ RESOLVED.** The principle (in `CLAUDE.md`):
+  infer the backend from the inputs — `use_jax = tree_contains_jax(inputs)`,
+  `xnp, _, _ = get_backend(False, use_jax)`, then `xnp.*` — **if any input arg contains jax → jax,
+  else numpy**; and **every numpy/jax call site needs a `tests/test_dispatch.py` case** (reference:
+  `backend/probing.py`). What was done:
   - the residual/checker backends — `orthogonal_representations.basis_orthogonality_residual` /
-    `basis_consistency_residual`, `tangent_operations.gauge_residual` — use raw
-    `np.einsum`/`np.asarray`/`np.max`/`np.abs`/`np.eye`/`np.linalg.norm` (moved verbatim from the
-    frontend, where the drift already existed).
-  - `bv_operations.variations_from_vector` / `unit_variations` compute static shape products with
-    `np.prod`; per house style these should be `math.prod` (also sidesteps numpy entirely). [Point-2
-    style note folded in here.]
-  - `common.save_core_families` / `load_core_families` are inherently numpy I/O (`np.savez`/`np.load`)
-    — likely fine to leave numpy, but confirm during the dispatch pass.
+    `basis_consistency_residual` and `tangent_operations.gauge_residual` — rewritten to dispatch via
+    `xnp` and be **jit-able** (collect per-core scalar deviations → `xnp.stack` → `xnp.max`; no
+    `float()`/Python `max()` that would coerce to numpy or break jit). The frontend checkers
+    (`is_orthogonal`/`is_consistent`/`is_gauged`) wrap the threshold in `bool()` to keep a clean
+    Python-`bool` contract. Added to the `test_dispatch` jit bucket; numpy ≡ jax verified.
+  - static shape products `np.prod(...)` → `math.prod(...)` (house style) in
+    `bv_operations.variations_from_vector`, `*.size` (`TuckerTensorTrain`/`T3Basis`/`T3Variations`/
+    `T3Tangent`).
+  - `t3_linalg` inner-product zipper: `np.ones` → `xnp.ones` (added a `TuckerTensorTrain.inner`
+    dispatch test, previously uncovered).
+  - **Left numpy by design:** `common.save_core_families`/`load_core_families` (file I/O — a saved
+    `.npz` is always concrete numpy), `ranks.py` `np.minimum` (integer rank arithmetic, no array
+    data), `t3_operations` `np.broadcast_shapes` (tuple shape arithmetic), `bv_operations.unit_variations`
+    `np.zeros` (pure constructor that builds numpy then `to_jax`s per the constructor pattern).
 
 - **(B) `sum`-axis normalization convention mismatch.** The new `corewise.corewise_stack_sum` (item 12)
   normalizes a negative `axis` as `(axis + n_stack)` and leaves out-of-range axes to error in the

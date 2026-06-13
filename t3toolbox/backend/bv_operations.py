@@ -4,6 +4,7 @@
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
 from __future__ import annotations
 
+import math
 import typing as typ
 import numpy as np
 
@@ -55,7 +56,7 @@ def variations_from_vector(
             + [tuple(stack_shape) + tuple(s) for s in tt_shapes])
     cores, o = [], 0
     for shp in full:
-        n = int(np.prod(shp))
+        n = math.prod(shp)
         cores.append(flat[o:o + n].reshape(shp))
         o += n
     nt = len(tucker_shapes)

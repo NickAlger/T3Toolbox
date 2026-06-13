@@ -5,6 +5,7 @@
 """
 Basic Tucker tensor trains with non-uniform (ragged) shape and ranks.
 """
+import math
 import numpy as np
 import typing as typ
 import functools as ft
@@ -565,7 +566,7 @@ class TuckerTensorTrain:
         >>> print(x.size == 14*15*16)
         True
         """
-        return np.prod(self.shape)
+        return math.prod(self.shape)
 
     @cached_property
     def data_size(self) -> int:

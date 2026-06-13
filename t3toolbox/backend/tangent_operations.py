@@ -494,14 +494,15 @@ def gauge_residual(
     '''
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
     tucker_variations, tt_variations = variations
-    resid = 0.0
+    xnp, _, _ = get_backend(False, tree_contains_jax((basis, variations)))
+    devs = []
     for U, V in zip(up_tucker_cores, tucker_variations):
-        g = np.einsum('...ia,...ja->...ij', np.asarray(U), np.asarray(V))
-        resid = max(resid, float(np.max(np.abs(g))))
+        g = xnp.einsum('...ia,...ja->...ij', U, V)
+        devs.append(xnp.max(xnp.abs(g)))
     for L, H in zip(left_tt_cores[:-1], tt_variations[:-1]):
-        g = np.einsum('...abi,...abj->...ij', np.asarray(L), np.asarray(H))
-        resid = max(resid, float(np.max(np.abs(g))))
-    return resid
+        g = xnp.einsum('...abi,...abj->...ij', L, H)
+        devs.append(xnp.max(xnp.abs(g)))
+    return xnp.max(xnp.stack(devs))
 
 
 def retract(

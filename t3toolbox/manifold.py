@@ -4,6 +4,7 @@
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
 from __future__ import annotations
 
+import math
 import numpy as np
 import typing as typ
 import functools as ft
@@ -185,7 +186,7 @@ class T3Tangent:
     @ft.cached_property
     def size(self) -> int:
         """Number of elements of the represented dense tangent vector (``prod(shape)``)."""
-        return int(np.prod(self.shape))
+        return math.prod(self.shape)
 
     @ft.cached_property
     def data_size(self) -> int:
@@ -518,7 +519,7 @@ class T3Tangent:
         These are the gauge conditions (48)-(49), Appendix A.3, of Alger et al. (2026),
         "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
         """
-        return tangent_operations.gauge_residual(self.basis.data, self.variations.data) <= atol
+        return bool(tangent_operations.gauge_residual(self.basis.data, self.variations.data) <= atol)
 
     ############################################
     ##########    Gauge projections    #########
