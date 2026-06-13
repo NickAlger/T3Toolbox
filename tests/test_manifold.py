@@ -155,6 +155,13 @@ class TestManifold(unittest.TestCase):
                 self.check_relerr(D.transpose(perm), np.asarray(v.reverse().to_dense()))
                 self.check_relerr(D, np.asarray(v.reverse().reverse().to_dense()))
 
+    def test_sum_tangents(self):
+        # Summing over the tangent stack K commutes with to_dense (= the tensor sum, by linearity).
+        base = bvf.T3Basis.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
+        v = t3m.T3Tangent.randn(base, stack_shape=(3,), apply_gauge_projection=False)
+        self.check_relerr(np.sum(np.asarray(v.to_dense()), axis=0), np.asarray(v.sum_tangents().to_dense()))
+        self.assertEqual((), v.sum_tangents().tangent_stack_shape)
+
     def test_manifold_dim(self):
         self.assertEqual(578, t3m.manifold_dim(((15, 16, 13), (9, 10, 8), (2, 7, 6, 3))))
         self.assertEqual(29, t3m.manifold_dim(((5, 6, 3), (5, 3, 2), (2, 2, 4, 1))))

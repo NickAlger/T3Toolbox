@@ -285,6 +285,22 @@ class T3Tangent:
         a T3 and its derived tangent without recomputing the orthogonal representation."""
         return T3Tangent(self.basis.reverse(), self.variations.reverse())
 
+    def sum_tangents(self, axis=None) -> 'T3Tangent':
+        """Sum over the tangent stack ``K`` (a batch of tangents at the shared base) into one tangent.
+
+        Corewise (= the tensor sum, by linearity); the base stack ``C`` is preserved. ``axis`` indexes
+        within ``K`` (default: the whole tangent stack).
+        """
+        k = len(self.tangent_stack_shape)
+        if axis is None:
+            k_axes = tuple(range(k))
+        elif not isinstance(axis, (tuple, list)):
+            k_axes = (axis % k,)
+        else:
+            k_axes = tuple(ax % k for ax in axis)
+        summed = cw.corewise_sum(self.variations.data, axis=k_axes)
+        return T3Tangent(self.basis, bvf.T3Variations(*summed))
+
     def retract(
             self,
     ) -> t3.TuckerTensorTrain:  # retracted Tucker tensor train (on the manifold)

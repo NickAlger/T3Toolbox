@@ -12,6 +12,7 @@ import t3toolbox.backend.bv_conversions as bv_conversions
 import t3toolbox.backend.t3_operations as t3_operations
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.backend.orthogonal_representations as orth_reps
+import t3toolbox.corewise as cw
 from t3toolbox.backend.common import *
 
 
@@ -898,6 +899,36 @@ class T3Variations:
         the tt-variations (bond swap), matching :py:meth:`T3Basis.reverse`."""
         return T3Variations(tuple(V.copy() for V in self.tucker_variations[::-1]),
                             t3_operations.reverse_tt(self.tt_variations))
+
+    def sum_stack(self, axis=None) -> 'T3Variations':
+        """Corewise sum over stack axes (a batch of variations -> their sum). ``axis`` indexes the stack
+        (default: the whole stack). For variations the corewise sum *is* the tangent sum, by linearity."""
+        m = len(self.stack_shape)
+        if axis is None:
+            stack_axes = tuple(range(m))
+        elif not isinstance(axis, (tuple, list)):
+            stack_axes = ((axis + m) if axis < 0 else axis,)
+        else:
+            stack_axes = tuple((ax + m) if ax < 0 else ax for ax in axis)
+        return T3Variations(*cw.corewise_sum(self.data, axis=stack_axes))
+
+    def __add__(self, other: 'T3Variations') -> 'T3Variations':
+        """Corewise sum (variations form a vector space)."""
+        return T3Variations(*cw.corewise_add(self.data, other.data))
+
+    def __sub__(self, other: 'T3Variations') -> 'T3Variations':
+        """Corewise difference."""
+        return T3Variations(*cw.corewise_sub(self.data, other.data))
+
+    def __mul__(self, scalar) -> 'T3Variations':
+        """Corewise scalar multiplication."""
+        return T3Variations(*cw.corewise_scale(self.data, scalar))
+
+    __rmul__ = __mul__
+
+    def __neg__(self) -> 'T3Variations':
+        """Corewise negation."""
+        return T3Variations(*cw.corewise_neg(self.data))
 
 
 def check_bv_pair(base: T3Basis, variations: T3Variations) -> None:

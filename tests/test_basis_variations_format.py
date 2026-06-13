@@ -366,6 +366,20 @@ class TestBasisVariationsFormat(unittest.TestCase):
         var = bvf.T3Variations.randn(base.variation_shapes, stack_shape=(2,))
         self.assertEqual(0.0, cw.corewise_relerr(var.data, var.reverse().reverse().data))
 
+    def test_variations_arithmetic(self):
+        # T3Variations corewise +,-,*,neg correspond to tangent linearity; sum_stack reduces the stack.
+        import t3toolbox.manifold as t3m
+        base = bvf.T3Basis.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
+        a = t3m.T3Tangent.randn(base, apply_gauge_projection=False).variations
+        b = t3m.T3Tangent.randn(base, apply_gauge_projection=False).variations
+        dn = lambda var: np.asarray(t3m.T3Tangent(base, var).to_dense())
+        self.check_relerr(dn(a) + dn(b), dn(a + b))
+        self.check_relerr(dn(a) - dn(b), dn(a - b))
+        self.check_relerr(2.5 * dn(a), dn(2.5 * a))
+        self.check_relerr(-dn(a), dn(-a))
+        vs = bvf.T3Variations.randn(base.variation_shapes, stack_shape=(3,))
+        self.assertEqual((), vs.sum_stack().stack_shape)
+
     def _assert_orthonormal(self, gram, n):
         # gram has shape stack_shape + (n, n); each stacked block must be the identity
         self.assertLessEqual(norm(np.asarray(gram) - np.eye(n)), tol)
