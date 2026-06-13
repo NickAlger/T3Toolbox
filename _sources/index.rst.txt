@@ -493,6 +493,11 @@ Axes are ordered **base-inner**: ``W + K + C + (tensor axes)``. For example, wit
 The base frame ``C`` is *shared* across the ``K`` tangent vectors at it (never copied -- base-inner
 broadcasting handles that for free).
 
+The **transposes** (``probe_transpose``, ``apply_transpose``, ``entries_transpose``) take a
+``sum_over_probes`` flag: ``False`` (default) keeps ``W`` as an output stack -- one tangent/tensor per
+probe -- while ``True`` sums ``W`` to give the Gauss-Newton back-projection ``Jᵀr`` used in
+optimization. The two agree up to that sum (``True`` is ``Σ_W`` of ``False``).
+
 For the full design -- why base-inner, the two contraction machineries, how the ``K``/``C`` split is
 recovered, ``vmap``/``jit`` -- see the reference
 `docs/batching_and_stacking.md <https://github.com/NickAlger/T3Toolbox/blob/main/docs/batching_and_stacking.md>`_

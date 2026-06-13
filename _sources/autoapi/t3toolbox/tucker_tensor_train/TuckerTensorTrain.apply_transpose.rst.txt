@@ -16,6 +16,8 @@ TuckerTensorTrain.apply_transpose
    - ``sum_over_probes=True``: contract ``W`` (``= sum_W`` of the primary) -- the rank-``|W|``
      back-projection ``sum_W c_W * (w0^W (x) ...)``, i.e. the Gauss-Newton ``J^T r``.
 
+   See *Batching & stacking* §11 (``docs/batching_and_stacking.md``) for which mode to use and why.
+
    .. seealso:: :py:obj:`apply`, :py:obj:`entries_transpose`
 
    .. rubric:: Examples

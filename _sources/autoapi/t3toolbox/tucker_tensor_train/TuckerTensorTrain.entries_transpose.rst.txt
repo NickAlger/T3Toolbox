@@ -10,9 +10,10 @@ TuckerTensorTrain.entries_transpose
    The Jacobian-transpose of ``X -> ( X[index^W] )_W``. Identical to :py:meth:`apply_transpose`
    with the apply vectors replaced by the unit vectors ``e_{index_k}``, so each single-entry
    adjoint is the one-hot rank-1 tensor ``c * e_{idx_0} (x) ... (x) e_{idx_{d-1}}``;
-   ``sum_over_probes=True`` scatter-adds colliding indices (the ``J^T r`` for entry sampling).
-   ``shape`` gives the ambient dims ``(N0, ..., N(d-1))`` -- unlike :py:meth:`apply_transpose`
-   (where ``ww`` carries them), the residual and index alone do not determine them.
+   ``sum_over_probes=True`` scatter-adds colliding indices (the ``J^T r`` for entry sampling; see
+   *Batching & stacking* §11). ``shape`` gives the ambient dims ``(N0, ..., N(d-1))`` -- unlike
+   :py:meth:`apply_transpose` (where ``ww`` carries them), the residual and index alone do not
+   determine them.
 
    .. seealso:: :py:obj:`entries`, :py:obj:`apply_transpose`
 
