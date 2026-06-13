@@ -74,9 +74,6 @@ class TestManifold(unittest.TestCase):
     ]
     stack_shapes = [(), (2,), (2, 3)]
 
-    def setUp(self):
-        np.random.seed(0)   # per-test seed: deterministic + order-independent (tests share np.random)
-
     def check_relerr(self, xtrue, x):
         xtrue, x = np.asarray(xtrue), np.asarray(x)
         self.assertLessEqual(norm(xtrue - x), tol * norm(xtrue))

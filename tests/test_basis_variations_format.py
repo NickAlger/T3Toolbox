@@ -286,9 +286,6 @@ class TestBasisVariationsFormat(unittest.TestCase):
         ((14, 15, 16, 17),     (4, 5, 6, 5),   (1, 3, 4, 2, 1)),
     ]
 
-    def setUp(self):
-        np.random.seed(0)   # per-test seed: deterministic + order-independent (tests share np.random)
-
     def check_relerr(self, xtrue, x):
         xtrue, x = np.asarray(xtrue), np.asarray(x)
         self.assertLessEqual(norm(xtrue - x), tol * norm(xtrue))
