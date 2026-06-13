@@ -4,6 +4,7 @@ TuckerTensorTrain
 .. toctree::
    :hidden:
 
+   /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.__repr__
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.get_core_shapes
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.get_minimal_ranks
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.validate
@@ -636,6 +637,7 @@ Methods
 
 .. autoapisummary::
 
+   t3toolbox.tucker_tensor_train.TuckerTensorTrain.__repr__
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.get_core_shapes
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.get_minimal_ranks
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.validate

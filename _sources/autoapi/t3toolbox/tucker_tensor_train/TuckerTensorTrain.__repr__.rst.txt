@@ -1,0 +1,4 @@
+TuckerTensorTrain.__repr__
+==========================
+
+.. py:method:: t3toolbox.tucker_tensor_train.TuckerTensorTrain.__repr__()
