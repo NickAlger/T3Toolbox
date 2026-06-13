@@ -7,7 +7,10 @@ A working reference for collaborating on this codebase. Read this first.
 Pure-Python (NumPy + optional JAX) library for **Tucker tensor trains (T3)** — a Tucker
 decomposition whose central core is stored as a tensor train. Nick Alger and Blake Christierson are converting research
 code into a standalone package: cleaning up, documenting, restructuring for usability, adding
-features. The README still says "WORK IN PROGRESS DO NOT USE."
+features. **The goal is a general-purpose library for other people and other use cases** — not to
+reproduce or serve any particular application. The research it came from (the T4S paper, below) is
+**essentially done** (an arXiv preprint, with only minor revisions still in flight); treat it as
+historical reference for the algorithms, never as the design target. The README still says "WORK IN PROGRESS DO NOT USE."
 
 - Repo: `github.com/NickAlger/T3Toolbox` (renamed from `TuckerTensorTrainTools`; that rename left
   stale references we've mostly fixed). Branch `main`, direct commits.
@@ -15,13 +18,23 @@ features. The README still says "WORK IN PROGRESS DO NOT USE."
 
 ## The paper (`t4s.pdf` in repo root)
 
+**Status: a reference, not the goal.** The T4S paper is an **arXiv preprint** — not yet
+journal-published, and still getting minor revisions (an example, some added detail). It sits in the
+repo only as the reference for the *algorithms* and as context for why this code exists. It is **not**
+the target of this work and **not** authoritative for API or design decisions — when the paper's
+specific usage and good general-purpose library design conflict, library design wins (see "What this
+is"). Use it to understand the math, not to decide what the library should do.
+
 The math is in *Alger, Christierson, Chen & Ghattas (2026), "Tucker Tensor Train Taylor Series"
 (arXiv:2603.21141)* — "T4S". **Appendix A** is the reference for the manifold/tangent code.
 Notation map (paper ↔ code): `U`=up_tucker, `P`=left_tt, `Q`=right_tt, `O`=down_tt (outer);
 `δU`=tucker_variations (V), `δG`=tt_variations (H). The code matches the appendix; the one known
 divergence is the **Algorithm-11 orthogonalization sweep order** (code does left-then-right; the
 paper does right-then-left) — the resulting orthogonal representations are equivalent. When code
-implements a numbered equation/algorithm, cite it in the docstring.
+implements a numbered equation/algorithm, cite it in the docstring — but note **the local `t4s.pdf` is
+newer than the public arXiv version**: the numbering differs and some boxes (e.g. the probing
+algorithms) aren't on arXiv yet. Cite numbers as they appear in the local `t4s.pdf`; arXiv will be
+updated to this version by the time the package is released.
 
 ## Architecture
 
