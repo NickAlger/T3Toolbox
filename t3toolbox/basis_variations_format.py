@@ -572,6 +572,21 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
                        rev(self.right_tt_cores),   # old right -> new left
                        rev(self.left_tt_cores))    # old left  -> new right
 
+    def to_t3(self) -> 't3.TuckerTensorTrain':
+        """The base point this basis represents, as a :py:class:`TuckerTensorTrain` (natural ranks).
+
+        Reconstructed in right-canonical form (the Tucker factors over the right-orthogonal core-TT).
+        For a **consistent** basis (e.g. from :py:func:`t3_orthogonal_representations`) this is the base
+        point and equals the left-canonical reconstruction; for a hand-built inconsistent basis it is
+        specifically this form. No consistency check is performed (verifying it would mean densifying
+        multiple reconstructions -- the kind of expensive check the library avoids).
+        """
+        return t3.TuckerTensorTrain(self.up_tucker_cores, self.right_tt_cores)
+
+    def to_dense(self) -> NDArray:
+        """Dense tensor of the base point this basis represents (``= to_t3().to_dense()``)."""
+        return self.to_t3().to_dense()
+
 
 
 

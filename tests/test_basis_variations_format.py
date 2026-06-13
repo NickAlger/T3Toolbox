@@ -286,6 +286,9 @@ class TestBasisVariationsFormat(unittest.TestCase):
         ((14, 15, 16, 17),     (4, 5, 6, 5),   (1, 3, 4, 2, 1)),
     ]
 
+    def setUp(self):
+        np.random.seed(0)   # per-test seed: deterministic + order-independent (tests share np.random)
+
     def check_relerr(self, xtrue, x):
         xtrue, x = np.asarray(xtrue), np.asarray(x)
         self.assertLessEqual(norm(xtrue - x), tol * norm(xtrue))
@@ -379,6 +382,16 @@ class TestBasisVariationsFormat(unittest.TestCase):
         self.check_relerr(-dn(a), dn(-a))
         vs = bvf.T3Variations.randn(base.variation_shapes, stack_shape=(3,))
         self.assertEqual((), vs.sum_stack().stack_shape)
+
+    def test_to_t3_to_dense(self):
+        # T3Basis.to_t3 / to_dense reconstruct the base point (== the original T3 for a consistent basis).
+        STRUCT = ((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
+        for C in [(), (2,)]:
+            x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
+            base = bvf.T3Basis.from_t3(x)
+            self.check_relerr(np.asarray(x.to_dense()), np.asarray(base.to_dense()))
+            self.check_relerr(np.asarray(x.to_dense()), np.asarray(base.to_t3().to_dense()))
+            self.assertEqual(x.shape, base.to_t3().shape)
 
     def _assert_orthonormal(self, gram, n):
         # gram has shape stack_shape + (n, n); each stacked block must be the identity

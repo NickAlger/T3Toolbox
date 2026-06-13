@@ -61,6 +61,9 @@ def _random_preconditioned_t3(shape, tucker_ranks, tt_ranks, stack_shape=()):
 
 
 class TestTuckerTensorTrain(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(0)   # per-test seed: deterministic + order-independent (tests share np.random)
+
     def check_relerr(self, xtrue, x):
         self.assertLessEqual(norm(xtrue - x), tol * norm(xtrue))
 
