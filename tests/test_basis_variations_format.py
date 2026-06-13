@@ -314,6 +314,29 @@ class TestBasisVariationsFormat(unittest.TestCase):
             except ImportError:
                 pass
 
+    def test_constructors(self):
+        # T3Basis.from_t3 / random_orthogonal / random_orthogonal_like; T3Variations zeros/randn/unit/_like.
+        STRUCT = ((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
+        x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=(2,))
+        b = bvf.T3Basis.from_t3(x)
+        b2, _ = bvf.t3_orthogonal_representations(x)
+        self.assertEqual(b.structure, b2.structure)
+        self.assertTrue(b.is_orthogonal())
+        ro = bvf.T3Basis.random_orthogonal(*STRUCT, stack_shape=(2,))
+        self.assertTrue(ro.is_orthogonal())
+        self.assertEqual((STRUCT[0], STRUCT[1], STRUCT[2], (2,)),
+                         (ro.shape, ro.up_ranks, ro.left_ranks, ro.stack_shape))
+        self.assertEqual(b.structure, bvf.T3Basis.random_orthogonal_like(b).structure)
+        vs = b.variation_shapes
+        z = bvf.T3Variations.zeros(vs, stack_shape=(2,))
+        self.assertTrue(all(np.all(np.asarray(c) == 0) for c in z.tucker_variations + z.tt_variations))
+        self.assertEqual((5, 6, 4), bvf.T3Variations.randn(vs, stack_shape=(2,)).shape)
+        u = bvf.T3Variations.unit(vs, (True, 1, (0, 1, 0)), stack_shape=(2,))   # tt core 1, entry (0,1,0)
+        self.assertEqual(2, sum(int(np.count_nonzero(np.asarray(c)))            # one '1' per stack element
+                                for c in u.tucker_variations + u.tt_variations))
+        self.assertEqual(b.stack_shape, bvf.T3Variations.zeros_like(b).stack_shape)
+        self.assertEqual(z.stack_shape, bvf.T3Variations.randn_like(z).stack_shape)
+
     def _assert_orthonormal(self, gram, n):
         # gram has shape stack_shape + (n, n); each stacked block must be the identity
         self.assertLessEqual(norm(np.asarray(gram) - np.eye(n)), tol)

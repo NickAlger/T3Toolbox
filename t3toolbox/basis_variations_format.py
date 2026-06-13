@@ -527,6 +527,25 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         result = stacking.basic_ragged_stack(xx_tuples)
         return T3Basis(*result)
 
+    @staticmethod
+    def from_t3(x: 't3.TuckerTensorTrain') -> 'T3Basis':
+        """Orthogonal representation (basis) of a TuckerTensorTrain ``x`` -- the orthogonal frame at the
+        point ``x`` (the basis part of :py:func:`t3_orthogonal_representations`)."""
+        return t3_orthogonal_representations(x)[0]
+
+    @staticmethod
+    def random_orthogonal(shape, tucker_ranks, tt_ranks, stack_shape=(), use_jax=False) -> 'T3Basis':
+        """Orthogonal representation of a *random* T3 -- a genuine random base point (orthogonal,
+        consistent), **not** iid-random cores. Equals ``from_t3(TuckerTensorTrain.randn(...))``."""
+        x = t3.TuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks, stack_shape=stack_shape, use_jax=use_jax)
+        return t3_orthogonal_representations(x)[0]
+
+    @staticmethod
+    def random_orthogonal_like(basis: 'T3Basis') -> 'T3Basis':
+        """A random orthogonal basis with the same shape/ranks/stack as ``basis``."""
+        return T3Basis.random_orthogonal(basis.shape, basis.up_ranks, basis.left_ranks,
+                                         stack_shape=basis.stack_shape, use_jax=basis.contains_jax)
+
 
 
 
@@ -762,6 +781,53 @@ class T3Variations:
         )
         result = stacking.basic_ragged_stack(xx_tuples)
         return T3Variations(*result)
+
+    @staticmethod
+    def zeros(variation_shapes, stack_shape=(), use_jax=False) -> 'T3Variations':
+        """Zero variations of the given structure (additive identity).
+
+        ``variation_shapes = (tucker_variation_shapes, tt_variation_shapes)`` -- e.g. a basis's
+        :py:attr:`T3Basis.variation_shapes`. (See :py:meth:`zeros_like` to take the structure from an object.)
+        """
+        tucker_shapes, tt_shapes = variation_shapes
+        v = T3Variations(tuple(np.zeros(tuple(stack_shape) + tuple(s)) for s in tucker_shapes),
+                         tuple(np.zeros(tuple(stack_shape) + tuple(s)) for s in tt_shapes))
+        return v.to_jax() if use_jax else v
+
+    @staticmethod
+    def randn(variation_shapes, stack_shape=(), use_jax=False) -> 'T3Variations':
+        """Variations with i.i.d. N(0,1) core entries (corewise, ungauged). See :py:meth:`randn_like`."""
+        tucker_shapes, tt_shapes = variation_shapes
+        v = T3Variations(tuple(np.random.randn(*(tuple(stack_shape) + tuple(s))) for s in tucker_shapes),
+                         tuple(np.random.randn(*(tuple(stack_shape) + tuple(s))) for s in tt_shapes))
+        return v.to_jax() if use_jax else v
+
+    @staticmethod
+    def unit(variation_shapes, index, stack_shape=(), use_jax=False) -> 'T3Variations':
+        """Canonical unit variation: zero except a single core entry set to 1.
+
+        ``index = (use_tt_coordinate, i, within_index)`` selects the core (a tt-variation if
+        ``use_tt_coordinate`` else a tucker-variation), its position ``i``, and the within-core index.
+        These units are the standard basis of the variation cores -- an **overcomplete, non-ambient-
+        orthogonal** generating set of the tangent space, not an orthonormal basis.
+        """
+        use_tt_coordinate, i, within_index = index
+        tucker_shapes, tt_shapes = variation_shapes
+        tucker = [np.zeros(tuple(stack_shape) + tuple(s)) for s in tucker_shapes]
+        tt = [np.zeros(tuple(stack_shape) + tuple(s)) for s in tt_shapes]
+        (tt if use_tt_coordinate else tucker)[i][(Ellipsis,) + tuple(within_index)] = 1.0
+        v = T3Variations(tuple(tucker), tuple(tt))
+        return v.to_jax() if use_jax else v
+
+    @staticmethod
+    def zeros_like(x) -> 'T3Variations':
+        """Zero variations matching the structure (shapes + stack) of ``x`` (a T3Basis or T3Variations)."""
+        return T3Variations.zeros(x.variation_shapes, stack_shape=x.stack_shape, use_jax=x.contains_jax)
+
+    @staticmethod
+    def randn_like(x) -> 'T3Variations':
+        """Random variations matching the structure (shapes + stack) of ``x`` (a T3Basis or T3Variations)."""
+        return T3Variations.randn(x.variation_shapes, stack_shape=x.stack_shape, use_jax=x.contains_jax)
 
 
 def check_bv_pair(base: T3Basis, variations: T3Variations) -> None:

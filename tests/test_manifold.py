@@ -109,6 +109,22 @@ class TestManifold(unittest.TestCase):
         except ImportError:
             pass
 
+    def test_constructors(self):
+        # T3Tangent.random_orthogonal / unit / zeros_like / randn_like.
+        STRUCT = ((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
+        v = t3m.T3Tangent.random_orthogonal(*STRUCT, stack_shape=(2,), tangent_stack_shape=(3,))
+        self.assertEqual(((2,), (3,)), (v.base_stack_shape, v.tangent_stack_shape))
+        self.assertTrue(v.is_orthogonal() and v.is_gauged())                   # gauged by default
+        base = bvf.T3Basis.random_orthogonal(*STRUCT)
+        u = t3m.T3Tangent.unit(base, (True, 1, (0, 1, 0)))
+        self.assertEqual(1, sum(int(np.count_nonzero(np.asarray(c)))
+                                for c in u.variations.tucker_variations + u.variations.tt_variations))
+        w = t3m.T3Tangent.randn(base, stack_shape=(3,), apply_gauge_projection=False)
+        zl = t3m.T3Tangent.zeros_like(w)
+        self.assertEqual((3,), zl.tangent_stack_shape)
+        self.assertEqual(0.0, float(np.max(np.abs(zl.norm()))))
+        self.assertEqual((3,), t3m.T3Tangent.randn_like(w).tangent_stack_shape)
+
     def test_manifold_dim(self):
         self.assertEqual(578, t3m.manifold_dim(((15, 16, 13), (9, 10, 8), (2, 7, 6, 3))))
         self.assertEqual(29, t3m.manifold_dim(((5, 6, 3), (5, 3, 2), (2, 2, 4, 1))))

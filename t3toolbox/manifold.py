@@ -309,6 +309,43 @@ class T3Tangent:
         return v
 
     @staticmethod
+    def random_orthogonal(shape, tucker_ranks, tt_ranks, stack_shape=(), tangent_stack_shape=(),
+                          use_jax=False, apply_gauge_projection=True) -> 'T3Tangent':
+        """Fully random tangent: a random direction at a random base point.
+
+        ``stack_shape`` is the base stack ``C`` (random base points); ``tangent_stack_shape`` is the
+        tangent stack ``K``. ``apply_gauge_projection`` is as in :py:meth:`randn`. Equivalent to
+        ``T3Tangent.randn(T3Basis.random_orthogonal(...), ...)``.
+        """
+        base = bvf.T3Basis.random_orthogonal(shape, tucker_ranks, tt_ranks,
+                                             stack_shape=stack_shape, use_jax=use_jax)
+        return T3Tangent.randn(base, stack_shape=tangent_stack_shape,
+                               apply_gauge_projection=apply_gauge_projection)
+
+    @staticmethod
+    def unit(basis: bvf.T3Basis, index) -> 'T3Tangent':
+        """Canonical unit tangent at ``basis``: variations zero except a single core entry.
+
+        ``index = (use_tt_coordinate, i, within_index)`` (see :py:meth:`T3Variations.unit`). These units
+        are the standard basis of the variation cores -- an overcomplete, non-ambient-orthogonal
+        generating set of the tangent space, not an orthonormal basis (gauge it yourself if needed).
+        """
+        variations = bvf.T3Variations.unit(basis.variation_shapes, index,
+                                            stack_shape=basis.stack_shape, use_jax=basis.contains_jax)
+        return T3Tangent(basis, variations)
+
+    @staticmethod
+    def zeros_like(tangent: 'T3Tangent') -> 'T3Tangent':
+        """Zero tangent at ``tangent``'s base, with ``tangent``'s tangent stack ``K``."""
+        return T3Tangent.zeros(tangent.basis, stack_shape=tangent.tangent_stack_shape)
+
+    @staticmethod
+    def randn_like(tangent: 'T3Tangent', apply_gauge_projection: bool = True) -> 'T3Tangent':
+        """Random tangent at ``tangent``'s base, with ``tangent``'s tangent stack ``K``."""
+        return T3Tangent.randn(tangent.basis, stack_shape=tangent.tangent_stack_shape,
+                               apply_gauge_projection=apply_gauge_projection)
+
+    @staticmethod
     def project(
             x:          t3.TuckerTensorTrain,
             basis:      bvf.T3Basis,
