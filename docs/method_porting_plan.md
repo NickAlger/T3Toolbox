@@ -15,10 +15,13 @@ get? **Process:** walk `TuckerTensorTrain`'s methods in small groups, discuss & 
 
 ## Locked decisions
 ### Group 1 — metadata
-- `size`/`data_size` on all three = total stored numbers ("size on disk"); `T3Tangent` = basis + variations.
+- `size` (= `np.prod(shape)`, dense element count) and `data_size` (= stored core entries, "size on disk")
+  on all three, consistent with `TuckerTensorTrain`; `T3Tangent.data_size` = basis + variations.
 - `minimal_ranks` (structural) on `T3Basis` (+ `T3Tangent` delegate). Not `T3Variations`.
-- dimension: `T3Basis.manifold_dimension = manifold_dim(structure)`; `T3Tangent.tangent_space_dimension`
-  delegates. (`manifold_dim` already reduces to minimal ranks + is gauge-quotiented.) Not on `TuckerTensorTrain`.
+- dimension: `T3Tangent.tangent_space_dimension = manifold_dim((shape, up_ranks, left_ranks))` (Manifold
+  layer — no circular dep). **NOT** on `T3Basis` (BV layer; would need an upward `bvf`→`manifold` import,
+  violating the nesting) nor `TuckerTensorTrain`. (`manifold_dim` already reduces to minimal ranks + is
+  gauge-quotiented.)
 - Skip: `core_shapes` parity, unified `ranks`, `structure`-on-Variations.
 
 ### Group 2 — validate
@@ -131,7 +134,7 @@ get? **Process:** walk `TuckerTensorTrain`'s methods in small groups, discuss & 
 
 ## Net additions by class (implementation worklist)
 
-**T3Basis:** `to_t3`, `to_dense` (G3); `size`, `data_size`, `minimal_ranks`, `manifold_dimension` (G1);
+**T3Basis:** `to_t3`, `to_dense` (G3); `size`, `data_size`, `minimal_ranks` (G1);
 `reverse` (G4, L↔R swap); `to_jax`/`to_numpy`/`copy`/`contains_jax` (G5); `random_orthogonal`, `from_t3`,
 `random_orthogonal_like` (G7); `save`/`load` (G8).
 
@@ -139,7 +142,7 @@ get? **Process:** walk `TuckerTensorTrain`'s methods in small groups, discuss & 
 (G5); `zeros`, `randn`, `unit`, `zeros_like`, `randn_like` (G7); `to_vector`/`from_vector`, `save`/`load`
 (G8); `sum_stack` (corewise, G10); `__add__`/`__sub__`/`__mul__`/`__neg__` (G14). [all corewise]
 
-**T3Tangent:** `size`, `data_size`, `minimal_ranks` (delegate), `tangent_space_dimension` (delegate) (G1);
+**T3Tangent:** `size`, `data_size`, `minimal_ranks` (delegate), `tangent_space_dimension` (direct) (G1);
 `validate` + `__post_init__` runs it (G2); `reverse` (G4); `to_jax`/`to_numpy`/`copy`/`contains_jax` (G5);
 `random_orthogonal` (+gauge), `unit`, `zeros_like`, `randn_like` (G7); `to_vector`/`from_vector`,
 `save`/`load` (G8); `sum_tangents` (G10).
@@ -169,8 +172,8 @@ to different inputs.
   today). [LOCKED]
 - **`T3Basis.orthogonalize()`** (`= from_t3(self.to_t3())`, re-orthogonalize a drifted basis) and
   **`T3Basis.is_consistent()`** (opt-in, expensive: do the L/R/center reconstructions agree?). [LOCKED]
-- **`T3Tangent.normalized()`** (unit-norm direction) and **stack `__getitem__`** (index one element from a
-  `K`/`C` stack). [LOCKED]
+- **`T3Tangent.normalized()`** (unit-norm direction). [LOCKED] — stack `__getitem__` **rejected**: `x[i]`
+  reads as dense indexing / `.entries()`, so it would confuse users; use `unstack_*` for stack elements.
 - **`allclose(other, rtol, atol)`** — semantic **norm-of-difference** `‖self−other‖ ≤ atol+rtol·‖other‖`:
   `T3Tangent` = `(self−other).norm()` (HS); `T3Basis` = `(self.to_t3()−other.to_t3()).norm()` (chordal,
   gauge-invariant); `T3Variations` = corewise diff-norm. Document the semantics. No representation-level
