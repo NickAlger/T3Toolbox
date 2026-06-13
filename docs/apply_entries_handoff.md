@@ -12,7 +12,7 @@ these contract *every* index). They compute applications / entries of the dense 
 represents, **without forming it**, exploiting structure to be cheaper than probing. Scope:
 
 - `T3Tangent.apply` / `entries` (forward) — **DONE**.
-- `T3Tangent.apply_transpose` / `entries_transpose` (adjoint) — **TODO (slice 2)**.
+- `T3Tangent.apply_transpose` / `entries_transpose` (adjoint) — **DONE**.
 - `TuckerTensorTrain.apply_transpose` / `entries_transpose` (adjoint of the existing plain
   `apply`/`entries`) — **TODO (slice 3)**.
 
@@ -22,8 +22,16 @@ represents, **without forming it**, exploiting structure to be cheaper than prob
   Backend `apply_tangent` / `entries_tangent` in `backend/probing.py`; frontend methods in
   `manifold.py`; tests in `tests/test_manifold.py` (`test_tangent_apply`, `test_tangent_entries`) +
   jit dispatch in `tests/test_dispatch.py`. Verified vs dense to ~1e-16 across all `W/K/C` stacks.
-- **Slices 2 & 3 — NOT STARTED.** Math derived and the `T3Tangent` adjoint *identity* verified
-  numerically (below). Implementation not yet written.
+- **Slice 2 (DONE, committed `f25e3d14`)** — adjoint `T3Tangent.apply_transpose(c, ww, basis)` and
+  `entries_transpose(c, index, basis)`. Backend `apply_tangent_transpose` / `entries_tangent_transpose`
+  in `backend/probing.py` (base sweep + single-term scatter `_apply_transpose_assemble`, reusing the
+  existing `WKCi_WCa_WCj_to_{WKCiaj|KCiaj}` and `Wo_WKCa_to_{WKCao|KCao}` contractions); frontend
+  static methods in `manifold.py`; adjoint-identity tests in `tests/test_manifold.py` + jit dispatch in
+  `tests/test_dispatch.py`. The clean-reuse insight (below) held: it is **one** contraction per output,
+  not the zero-the-other-terms reuse of `assemble_*` originally sketched. Verified `⟨applyᵀc, v⟩ ==
+  Σ_W c·apply(v)` to ~1e-16 across all `W/C` stacks and both `sum_over_probes` modes.
+- **Slice 3 — NOT STARTED.** Math derived (plain-`TuckerTensorTrain` adjoints, below); implementation
+  not yet written.
 
 ## The algorithms
 
@@ -75,10 +83,13 @@ Batch-summed over `W` → a **rank-`|W|`** T3 (the back-projection `Σ_s c_s·W_
 Tucker core `B_i = [w_i^s]_s` (shape `(|W|, N_i)`); tt cores = diagonal "copy" tensors of rank `|W|`;
 `c` absorbed into a boundary core. This is the natural `Jᵀ` for least-squares fitting.
 
-## Clean implementation plan for slice 2 (the key insight — NOT yet verified)
+## Clean implementation plan for slice 2 (DONE — the key insight, verified)
 
-The adjoint assembly is **one term** of the existing transpose-assemble functions (zero the others,
-fold `c`), so it inherits `W`/`C` stacking + `sum_over_probes` for free:
+The shipped slice 2 went one better than the sketch below: each adjoint output is a **single existing
+contraction** (`WKCi_WCa_WCj_to_{WKCiaj|KCiaj}` for `δG̃`, `Wo_WKCa_to_{WKCao|KCao}` for `δŨ`, with
+`c` folded into `μ̂`/`η̂`), not a re-call of `assemble_*` with the other terms zeroed. Kept for the
+record — the original sketch was to take **one term** of the existing transpose-assemble functions
+(zero the others, fold `c`), inheriting `W`/`C` stacking + `sum_over_probes` for free:
 
 ```python
 # δG̃ — only assemble_tt_variations' middle term (τ̃⊗ξ̂⊗ν̂) survives:
@@ -124,12 +135,12 @@ Tests go in `tests/test_manifold.py` (tangent) and `tests/test_tucker_tensor_tra
 dispatch in `tests/test_dispatch.py`.
 
 ## Open decisions to confirm with Nick
-1. `sum_over_probes` default — proposed `False` (keep `W`), matching `probe_transpose`.
-2. Plain-T3 batched adjoint output — rank-`|W|` (CP→TT) by default when summed? Or keep-`W` (a
-   `W`-stacked rank-1 T3) default with a sum option?
+1. ~~`sum_over_probes` default~~ — **RESOLVED**: `False` (keep `W`), matching `probe_transpose`. Shipped.
+2. Plain-T3 batched adjoint output (slice 3) — rank-`|W|` (CP→TT) by default when summed? Or keep-`W` (a
+   `W`-stacked rank-1 T3) default with a sum option? **Still open — confirm before slice 3.**
 3. `K`-stacking for the adjoints (input `c` carrying an extra `K` from a `K`-stacked forward apply) —
-   `probe_transpose`-style; probably defer until a use case needs it.
-4. Naming `apply_transpose` / `entries_transpose` (mirrors `probe_transpose`) — confirm.
+   `probe_transpose`-style; **deferred** in slice 2 (`c` assumed shape `W (+C)`). Revisit per use case.
+4. ~~Naming `apply_transpose` / `entries_transpose`~~ — **RESOLVED**: mirrors `probe_transpose`. Shipped.
 
 ## File map
 - Backend sweeps/assembly: `t3toolbox/backend/probing.py` (`compute_xis/mus/nus/etas`,
