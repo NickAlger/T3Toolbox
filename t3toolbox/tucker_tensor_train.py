@@ -3458,12 +3458,12 @@ class TuckerTensorTrain:
             Maximum Tucker ranks ``ni``, e.g., ``(5,5,5)``. ``len(max_tucker_ranks)=d``.
             Default: no max Tucker rank truncation (``None``).
         rtol: float, optional
-            Relative tolerance for truncation (in the Frobenius norm).
-            Default: no ``rtol`` rank truncation (``None``).
+            Relative tolerance for truncation (in the Frobenius norm), applied **per truncation step**
+            (see Notes -- the overall error can be larger). Default: no ``rtol`` truncation (``None``).
             Requires ``stack_shape=()``.
         atol: float, optional
-            Absolute tolerance for truncation (in the Frobenius norm).
-            Default: no ``atol`` rank truncation (``None``).
+            Absolute tolerance for truncation (in the Frobenius norm), applied **per truncation step**
+            (see Notes). Default: no ``atol`` truncation (``None``).
             Requires ``stack_shape=()``.
 
         Returns
@@ -3474,6 +3474,17 @@ class TuckerTensorTrain:
             Singular values associated with edges between Tucker cores and TT cores
         Tuple[:py:class:`NDArray,...]
             Singular values associated with edges between adjacent TT cores
+
+        Notes
+        -----
+        ``rtol``/``atol`` bound the truncation error at **each step** (each unfolding/matricization SVD
+        truncation), **not** the overall error. The per-step errors accumulate in quadrature over the
+        ``2d-1`` steps (``d-1`` TT unfoldings + ``d`` Tucker matricizations), so the realized error can
+        exceed the requested tolerance by up to a factor ``sqrt(2d-1)`` (the generalized Oseledets bound)::
+
+            ||x - x2||  <=  sqrt( sum of per-step truncation errors^2 )  <=  sqrt(2d-1) * (per-step tol).
+
+        See ``docs/t3svd_verification.md`` for the bound and its proof.
 
         See Also
         --------
@@ -3614,12 +3625,12 @@ class TuckerTensorTrain:
             Maximum TT-ranks ``ri``, e.g., ``(1,5,5,5,1)``. ``len(max_tt_ranks)=d+1``.
             Default: no max TT rank truncation (``None``).
         rtol: float, optional
-            Relative tolerance for truncation (in the Frobenius norm).
-            Default: no ``rtol`` rank truncation (``None``).
+            Relative tolerance for truncation (in the Frobenius norm), applied **per truncation step**
+            (see Notes -- the overall error can be larger). Default: no ``rtol`` truncation (``None``).
             Requires ``stack_shape=()``.
         atol: float, optional
-            Absolute tolerance for truncation (in the Frobenius norm).
-            Default: no ``atol`` rank truncation (``None``).
+            Absolute tolerance for truncation (in the Frobenius norm), applied **per truncation step**
+            (see Notes). Default: no ``atol`` truncation (``None``).
             Requires ``stack_shape=()``.
 
         Returns
@@ -3636,6 +3647,14 @@ class TuckerTensorTrain:
         ValueError
             If ``stack_shape`` is not empty and ``rtol`` or ``atol`` are supplied.
             (Cannot use tolerances with stacking)
+
+        Notes
+        -----
+        ``rtol``/``atol`` bound the truncation error at **each step** (each unfolding/matricization SVD
+        truncation), **not** the overall error. The per-step errors accumulate in quadrature over the
+        ``2d-1`` steps (``d-1`` TT unfoldings + ``d`` Tucker matricizations), so the realized error can
+        exceed the requested tolerance by up to a factor ``sqrt(2d-1)`` (the generalized Oseledets bound).
+        See ``docs/t3svd_verification.md`` for the bound and its proof.
 
         See Also
         --------
