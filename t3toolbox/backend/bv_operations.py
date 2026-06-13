@@ -11,7 +11,100 @@ from t3toolbox.backend.common import *
 
 __all__ = [
     'absorb_weights_into_tangent_cores',
+    'variations_from_vector',
+    'zeros_variations',
+    'randn_variations',
+    'unit_variations',
 ]
+
+
+# Constructors and the vector round-trip for T3 *variations* (the basis-variation tangent format).
+#
+# These cannot reuse the TuckerTensorTrain backends (t3_from_vector / t3_zeros / t3_corewise_randn):
+# those derive their core shapes from (shape, tucker_ranks, tt_ranks) and build the Tucker+TT core
+# layout, whereas variations are given their shapes directly as two families
+# (tucker_variation_shapes, tt_variation_shapes).
+
+VariationShapes = typ.Tuple[
+    typ.Sequence[typ.Sequence[int]],  # tucker_variation_shapes
+    typ.Sequence[typ.Sequence[int]],  # tt_variation_shapes
+]
+
+Variations = typ.Tuple[
+    typ.Tuple[NDArray, ...],  # tucker_variations
+    typ.Tuple[NDArray, ...],  # tt_variations
+]
+
+
+def variations_from_vector(
+        flat:               NDArray,            # shape=(size,)
+        variation_shapes:   VariationShapes,
+        stack_shape:        typ.Sequence[int] = (),
+) -> Variations:
+    '''Rebuild variation cores from a 1D vector (inverse of flattening the variation cores).
+
+    Each core is reshaped to ``stack_shape + core_shape``, consuming the flat vector in order
+    (tucker-variation cores first, then tt-variation cores).
+    '''
+    xnp, _, _ = get_backend(False, tree_contains_jax(flat))
+    flat = xnp.asarray(flat)
+    tucker_shapes, tt_shapes = variation_shapes
+    full = ([tuple(stack_shape) + tuple(s) for s in tucker_shapes]
+            + [tuple(stack_shape) + tuple(s) for s in tt_shapes])
+    cores, o = [], 0
+    for shp in full:
+        n = int(np.prod(shp))
+        cores.append(flat[o:o + n].reshape(shp))
+        o += n
+    nt = len(tucker_shapes)
+    return tuple(cores[:nt]), tuple(cores[nt:])
+
+
+def zeros_variations(
+        variation_shapes:   VariationShapes,
+        stack_shape:        typ.Sequence[int] = (),
+        use_jax:            bool = False,
+) -> Variations:
+    '''All-zero variation cores of the given variation shapes (and stack).'''
+    xnp, _, _ = get_backend(False, use_jax)
+    tucker_shapes, tt_shapes = variation_shapes
+    tucker = tuple(xnp.zeros(tuple(stack_shape) + tuple(s)) for s in tucker_shapes)
+    tt = tuple(xnp.zeros(tuple(stack_shape) + tuple(s)) for s in tt_shapes)
+    return tucker, tt
+
+
+def randn_variations(
+        variation_shapes:   VariationShapes,
+        stack_shape:        typ.Sequence[int] = (),
+        use_jax:            bool = False,
+) -> Variations:
+    '''I.i.d. standard-normal variation cores of the given variation shapes (and stack).'''
+    tucker_shapes, tt_shapes = variation_shapes
+    tucker = tuple(randn(*(tuple(stack_shape) + tuple(s)), use_jax=use_jax) for s in tucker_shapes)
+    tt = tuple(randn(*(tuple(stack_shape) + tuple(s)), use_jax=use_jax) for s in tt_shapes)
+    return tucker, tt
+
+
+def unit_variations(
+        variation_shapes:   VariationShapes,
+        index:              typ.Tuple[bool, int, typ.Sequence[int]],  # (use_tt_coordinate, i, within_index)
+        stack_shape:        typ.Sequence[int] = (),
+        use_jax:            bool = False,
+) -> Variations:
+    '''Canonical unit variation: all-zero cores except a single entry set to 1.
+
+    ``index = (use_tt_coordinate, i, within_index)`` selects the family (tt if ``use_tt_coordinate``
+    else tucker), the core position ``i``, and the within-core entry (broadcast over the stack).
+    '''
+    use_tt_coordinate, i, within_index = index
+    tucker_shapes, tt_shapes = variation_shapes
+    tucker = [np.zeros(tuple(stack_shape) + tuple(s)) for s in tucker_shapes]
+    tt = [np.zeros(tuple(stack_shape) + tuple(s)) for s in tt_shapes]
+    (tt if use_tt_coordinate else tucker)[i][(Ellipsis,) + tuple(within_index)] = 1.0
+    if use_jax:
+        tucker = [to_jax(c) for c in tucker]
+        tt = [to_jax(c) for c in tt]
+    return tuple(tucker), tuple(tt)
 
 
 # NOTE (parked): kept here for safekeeping pending a redesign of weighted tensor networks.

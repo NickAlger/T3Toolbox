@@ -12,6 +12,8 @@ import t3toolbox.backend.bv_conversions as bv_conversions
 import t3toolbox.backend.t3_operations as t3_operations
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.backend.orthogonal_representations as orth_reps
+import t3toolbox.backend.ranks as ranks
+import t3toolbox.backend.bv_operations as bv_operations
 import t3toolbox.corewise as cw
 from t3toolbox.backend.common import *
 
@@ -282,25 +284,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         >>> print(base.is_orthogonal())
         True
         '''
-        UU, DD, LL, RR = self.data
-        d = self.d
-
-        def _dev(gram, n):
-            return float(np.max(np.abs(np.asarray(gram) - np.eye(n))))
-
-        resid = 0.0
-        for ii in range(d):
-            U = np.asarray(UU[ii])
-            D = np.asarray(DD[ii])
-            resid = max(resid, _dev(np.einsum('...io,...jo->...ij', U, U), U.shape[-2]))
-            resid = max(resid, _dev(np.einsum('...iaj,...ibj->...ab', D, D), D.shape[-2]))
-        for ii in range(d - 1):
-            L = np.asarray(LL[ii])
-            resid = max(resid, _dev(np.einsum('...iaj,...iak->...jk', L, L), L.shape[-1]))
-        for ii in range(1, d):
-            R = np.asarray(RR[ii])
-            resid = max(resid, _dev(np.einsum('...iaj,...kaj->...ik', R, R), R.shape[-3]))
-        return resid <= atol
+        return orth_reps.basis_orthogonality_residual(self.data) <= atol
 
     @ft.cached_property
     def minimal_ranks(self) -> typ.Tuple[typ.Tuple[int, ...], typ.Tuple[int, ...]]:
@@ -343,13 +327,8 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         >>> print(base2.has_minimal_ranks)
         False
         '''
-        if tuple(self.left_ranks) != tuple(self.right_ranks):
-            return False
-        if tuple(self.up_ranks) != tuple(self.down_ranks):
-            return False
-        min_tucker_ranks, min_tt_ranks = self.minimal_ranks
-        return (tuple(map(int, min_tucker_ranks)) == tuple(map(int, self.up_ranks))
-                and tuple(map(int, min_tt_ranks)) == tuple(map(int, self.left_ranks)))
+        return ranks.basis_has_minimal_ranks(
+            self.shape, self.up_ranks, self.down_ranks, self.left_ranks, self.right_ranks)
 
     def validate(self) -> None:
         '''Check rank and shape consistency of Tucker tensor train basis (`T3Basis`).
@@ -549,17 +528,13 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
 
     def save(self, file) -> None:
         """Save the basis cores to a ``.npz`` file (load with :py:meth:`load`)."""
-        np.savez(file, **{'f%d_%d' % (fi, ci): np.asarray(c)
-                          for fi, fam in enumerate(self.data) for ci, c in enumerate(fam)})
+        save_core_families(file, self.data)
 
     @staticmethod
     def load(file, use_jax: bool = False) -> 'T3Basis':
         """Load a basis saved by :py:meth:`save`."""
-        npz = np.load(file)
-        def fam(fi):
-            ks = sorted((k for k in npz.files if k.startswith('f%d_' % fi)), key=lambda k: int(k.split('_', 1)[1]))
-            return tuple(npz[k] for k in ks)
-        b = T3Basis(fam(0), fam(1), fam(2), fam(3))
+        f = load_core_families(file)
+        b = T3Basis(f[0], f[1], f[2], f[3])
         return b.to_jax() if use_jax else b
 
     def reverse(self) -> 'T3Basis':
@@ -610,9 +585,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         :py:meth:`from_t3`/:py:meth:`orthogonalize`) consistency holds by construction; this is for
         sanity-checking hand-built bases.
         """
-        left = to_numpy(t3.TuckerTensorTrain(self.up_tucker_cores, self.left_tt_cores).to_dense())
-        right = to_numpy(t3.TuckerTensorTrain(self.up_tucker_cores, self.right_tt_cores).to_dense())
-        return bool(np.linalg.norm(left - right) <= rtol * max(1.0, np.linalg.norm(right)))
+        return orth_reps.basis_consistency_residual(self.data) <= rtol
 
     def allclose(self, other: 'T3Basis', rtol: float = 1e-9, atol: float = 0.0) -> bool:
         """``True`` if ``other`` represents the same base point as ``self`` (gauge-invariant).
@@ -869,18 +842,12 @@ class T3Variations:
         ``variation_shapes = (tucker_variation_shapes, tt_variation_shapes)`` -- e.g. a basis's
         :py:attr:`T3Basis.variation_shapes`. (See :py:meth:`zeros_like` to take the structure from an object.)
         """
-        tucker_shapes, tt_shapes = variation_shapes
-        v = T3Variations(tuple(np.zeros(tuple(stack_shape) + tuple(s)) for s in tucker_shapes),
-                         tuple(np.zeros(tuple(stack_shape) + tuple(s)) for s in tt_shapes))
-        return v.to_jax() if use_jax else v
+        return T3Variations(*bv_operations.zeros_variations(variation_shapes, stack_shape, use_jax))
 
     @staticmethod
     def randn(variation_shapes, stack_shape=(), use_jax=False) -> 'T3Variations':
         """Variations with i.i.d. N(0,1) core entries (corewise, ungauged). See :py:meth:`randn_like`."""
-        tucker_shapes, tt_shapes = variation_shapes
-        v = T3Variations(tuple(np.random.randn(*(tuple(stack_shape) + tuple(s))) for s in tucker_shapes),
-                         tuple(np.random.randn(*(tuple(stack_shape) + tuple(s))) for s in tt_shapes))
-        return v.to_jax() if use_jax else v
+        return T3Variations(*bv_operations.randn_variations(variation_shapes, stack_shape, use_jax))
 
     @staticmethod
     def unit(variation_shapes, index, stack_shape=(), use_jax=False) -> 'T3Variations':
@@ -891,13 +858,7 @@ class T3Variations:
         These units are the standard basis of the variation cores -- an **overcomplete, non-ambient-
         orthogonal** generating set of the tangent space, not an orthonormal basis.
         """
-        use_tt_coordinate, i, within_index = index
-        tucker_shapes, tt_shapes = variation_shapes
-        tucker = [np.zeros(tuple(stack_shape) + tuple(s)) for s in tucker_shapes]
-        tt = [np.zeros(tuple(stack_shape) + tuple(s)) for s in tt_shapes]
-        (tt if use_tt_coordinate else tucker)[i][(Ellipsis,) + tuple(within_index)] = 1.0
-        v = T3Variations(tuple(tucker), tuple(tt))
-        return v.to_jax() if use_jax else v
+        return T3Variations(*bv_operations.unit_variations(variation_shapes, index, stack_shape, use_jax))
 
     @staticmethod
     def zeros_like(x) -> 'T3Variations':
@@ -920,32 +881,17 @@ class T3Variations:
         ``variation_shapes = (tucker_variation_shapes, tt_variation_shapes)`` (e.g. a basis's
         :py:attr:`T3Basis.variation_shapes`); ``stack_shape`` is the full leading stack ``K + C``.
         """
-        xnp, _, _ = get_backend(False, tree_contains_jax(flat))
-        flat = xnp.asarray(flat)
-        tucker_shapes, tt_shapes = variation_shapes
-        full = ([tuple(stack_shape) + tuple(s) for s in tucker_shapes]
-                + [tuple(stack_shape) + tuple(s) for s in tt_shapes])
-        cores, o = [], 0
-        for shp in full:
-            n = int(np.prod(shp))
-            cores.append(flat[o:o + n].reshape(shp))
-            o += n
-        nt = len(tucker_shapes)
-        return T3Variations(tuple(cores[:nt]), tuple(cores[nt:]))
+        return T3Variations(*bv_operations.variations_from_vector(flat, variation_shapes, stack_shape))
 
     def save(self, file) -> None:
         """Save the variation cores to a ``.npz`` file (load with :py:meth:`load`)."""
-        np.savez(file, **{'f%d_%d' % (fi, ci): np.asarray(c)
-                          for fi, fam in enumerate(self.data) for ci, c in enumerate(fam)})
+        save_core_families(file, self.data)
 
     @staticmethod
     def load(file, use_jax: bool = False) -> 'T3Variations':
         """Load variations saved by :py:meth:`save`."""
-        npz = np.load(file)
-        def fam(fi):
-            ks = sorted((k for k in npz.files if k.startswith('f%d_' % fi)), key=lambda k: int(k.split('_', 1)[1]))
-            return tuple(npz[k] for k in ks)
-        v = T3Variations(fam(0), fam(1))
+        f = load_core_families(file)
+        v = T3Variations(f[0], f[1])
         return v.to_jax() if use_jax else v
 
     def reverse(self) -> 'T3Variations':
@@ -957,14 +903,7 @@ class T3Variations:
     def sum_stack(self, axis=None) -> 'T3Variations':
         """Corewise sum over stack axes (a batch of variations -> their sum). ``axis`` indexes the stack
         (default: the whole stack). For variations the corewise sum *is* the tangent sum, by linearity."""
-        m = len(self.stack_shape)
-        if axis is None:
-            stack_axes = tuple(range(m))
-        elif not isinstance(axis, (tuple, list)):
-            stack_axes = ((axis + m) if axis < 0 else axis,)
-        else:
-            stack_axes = tuple((ax + m) if ax < 0 else ax for ax in axis)
-        return T3Variations(*cw.corewise_sum(self.data, axis=stack_axes))
+        return T3Variations(*cw.corewise_stack_sum(self.data, axis, len(self.stack_shape)))
 
     def __add__(self, other: 'T3Variations') -> 'T3Variations':
         """Corewise sum (variations form a vector space)."""

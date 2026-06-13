@@ -24,6 +24,7 @@ __all__ = [
     'stack_tangent_stack',
     'unstack_base_stack',
     'stack_base_stack',
+    'gauge_residual',
 ]
 
 
@@ -438,3 +439,33 @@ def stack_base_stack(
     n_tangent = len(stacking.get_first_leaf(variations_tree).shape) - 2  # |V| (a tucker variation leaf)
     variations = stacking.stack(variations_tree, axes=tuple(range(n_tangent, n_tangent + n_base)))
     return basis, variations
+
+
+def gauge_residual(
+        basis: typ.Tuple[
+            typ.Sequence[NDArray],  # up_tucker_cores
+            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # left_tt_cores
+            typ.Sequence[NDArray],  # right_tt_cores
+        ],
+        variations: typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_variations
+            typ.Sequence[NDArray],  # tt_variations
+        ],
+) -> float:
+    '''Max violation of the gauge conditions for a tangent vector (over the whole stack).
+
+    The gauged tangent space requires each tucker variation orthogonal to its up-core, and each
+    left-interior tt variation orthogonal to its left-core (see :py:func:`orthogonal_gauge_projection`).
+    Returns the max absolute gauge inner product; a caller thresholds it (``<= atol``).
+    '''
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
+    tucker_variations, tt_variations = variations
+    resid = 0.0
+    for U, V in zip(up_tucker_cores, tucker_variations):
+        g = np.einsum('...ia,...ja->...ij', np.asarray(U), np.asarray(V))
+        resid = max(resid, float(np.max(np.abs(g))))
+    for L, H in zip(left_tt_cores[:-1], tt_variations[:-1]):
+        g = np.einsum('...abi,...abj->...ij', np.asarray(L), np.asarray(H))
+        resid = max(resid, float(np.max(np.abs(g))))
+    return resid

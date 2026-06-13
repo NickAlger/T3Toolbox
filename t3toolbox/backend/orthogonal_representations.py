@@ -14,6 +14,8 @@ from t3toolbox.backend.common import *
 
 __all__ = [
     'orthogonal_representations',
+    'basis_orthogonality_residual',
+    'basis_consistency_residual',
 ]
 
 
@@ -99,4 +101,61 @@ def orthogonal_representations(
     base = (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
     variation = (tucker_variations, tt_variations)
     return base, variation
+
+
+def basis_orthogonality_residual(
+        basis: typ.Tuple[
+            typ.Sequence[NDArray],  # up_tucker_cores
+            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # left_tt_cores
+            typ.Sequence[NDArray],  # right_tt_cores
+        ],
+) -> float:
+    '''Max deviation from orthogonality of the four basis core families (over the whole stack).
+
+    Checks each stacked block's gram against the identity:
+        - up_tucker U_i (all i), outer/down D_i (all i),
+        - left L_i (i=0..d-2), right R_i (i=1..d-1).
+    The last left core and first right core are boundary remainders and are not checked. Returns the
+    max absolute deviation; a caller thresholds it (``<= atol``) for a boolean orthogonality test.
+    '''
+    UU, DD, LL, RR = basis
+    d = len(UU)
+
+    def _dev(gram, n):
+        return float(np.max(np.abs(np.asarray(gram) - np.eye(n))))
+
+    resid = 0.0
+    for ii in range(d):
+        U = np.asarray(UU[ii])
+        D = np.asarray(DD[ii])
+        resid = max(resid, _dev(np.einsum('...io,...jo->...ij', U, U), U.shape[-2]))
+        resid = max(resid, _dev(np.einsum('...iaj,...ibj->...ab', D, D), D.shape[-2]))
+    for ii in range(d - 1):
+        L = np.asarray(LL[ii])
+        resid = max(resid, _dev(np.einsum('...iaj,...iak->...jk', L, L), L.shape[-1]))
+    for ii in range(1, d):
+        R = np.asarray(RR[ii])
+        resid = max(resid, _dev(np.einsum('...iaj,...kaj->...ik', R, R), R.shape[-3]))
+    return resid
+
+
+def basis_consistency_residual(
+        basis: typ.Tuple[
+            typ.Sequence[NDArray],  # up_tucker_cores
+            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # left_tt_cores
+            typ.Sequence[NDArray],  # right_tt_cores
+        ],
+) -> float:
+    '''Relative Frobenius mismatch between the left- and right-canonical reconstructions of the base
+    point (``up`` over ``left`` vs ``up`` over ``right``).
+
+    Returns ``||left - right|| / max(1, ||right||)`` over the dense tensors; a caller thresholds it
+    (``<= rtol``) for a boolean consistency test. EXPENSIVE -- densifies both reconstructions.
+    '''
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
+    left = to_numpy(ragged_operations.to_dense((up_tucker_cores, left_tt_cores)))
+    right = to_numpy(ragged_operations.to_dense((up_tucker_cores, right_tt_cores)))
+    return float(np.linalg.norm(left - right) / max(1.0, np.linalg.norm(right)))
 

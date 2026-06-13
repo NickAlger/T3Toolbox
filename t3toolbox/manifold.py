@@ -15,6 +15,7 @@ import t3toolbox.corewise as cw
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.tangent_operations as tangent_operations
 import t3toolbox.backend.probing as probing
+import t3toolbox.backend.ranks as ranks
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -63,28 +64,7 @@ def manifold_dim(
     >>> print(int(np.sum(ss > 1e-9 * ss[0])))   # number of nonzero singular values == manifold_dim
     29
     """
-    shape = s[0]
-    min_tucker_ranks, min_tt_ranks = t3.TuckerTensorTrain.get_minimal_ranks(s[0], s[1], s[2])
-
-    num_cores = len(shape)
-    assert(len(min_tucker_ranks) == num_cores)
-    assert(len(min_tt_ranks) == num_cores+1)
-    manifold_dim: int = 0
-    for ii in range(num_cores):
-        n = min_tucker_ranks[ii]
-        rL = min_tt_ranks[ii]
-        rR = min_tt_ranks[ii+1]
-        if ii == num_cores-1:
-            manifold_dim += rL * n * rR
-        else:
-            manifold_dim += (rL * n - rR) * rR
-
-    for ii in range(num_cores):
-        n = min_tucker_ranks[ii]
-        N = shape[ii]
-        manifold_dim += (N - n) * n
-
-    return manifold_dim
+    return ranks.compute_manifold_dim(s[0], s[1], s[2])
 
 
 @dataclass(frozen=True)
@@ -264,18 +244,14 @@ class T3Tangent:
 
     def save(self, file) -> None:
         """Save the basis + variation cores to a ``.npz`` file (load with :py:meth:`load`)."""
-        data = self.basis.data + self.variations.data   # 4 basis families + 2 variation families
-        np.savez(file, **{'f%d_%d' % (fi, ci): np.asarray(c)
-                          for fi, fam in enumerate(data) for ci, c in enumerate(fam)})
+        families = self.basis.data + self.variations.data   # 4 basis families + 2 variation families
+        save_core_families(file, families)
 
     @staticmethod
     def load(file, use_jax: bool = False) -> 'T3Tangent':
         """Load a tangent saved by :py:meth:`save`."""
-        npz = np.load(file)
-        def fam(fi):
-            ks = sorted((k for k in npz.files if k.startswith('f%d_' % fi)), key=lambda k: int(k.split('_', 1)[1]))
-            return tuple(npz[k] for k in ks)
-        t = T3Tangent(bvf.T3Basis(fam(0), fam(1), fam(2), fam(3)), bvf.T3Variations(fam(4), fam(5)))
+        f = load_core_families(file)
+        t = T3Tangent(bvf.T3Basis(f[0], f[1], f[2], f[3]), bvf.T3Variations(f[4], f[5]))
         return t.to_jax() if use_jax else t
 
     def reverse(self) -> 'T3Tangent':
@@ -291,14 +267,7 @@ class T3Tangent:
         Corewise (= the tensor sum, by linearity); the base stack ``C`` is preserved. ``axis`` indexes
         within ``K`` (default: the whole tangent stack).
         """
-        k = len(self.tangent_stack_shape)
-        if axis is None:
-            k_axes = tuple(range(k))
-        elif not isinstance(axis, (tuple, list)):
-            k_axes = (axis % k,)
-        else:
-            k_axes = tuple(ax % k for ax in axis)
-        summed = cw.corewise_sum(self.variations.data, axis=k_axes)
+        summed = cw.corewise_stack_sum(self.variations.data, axis, len(self.tangent_stack_shape))
         return T3Tangent(self.basis, bvf.T3Variations(*summed))
 
     def retract(
@@ -328,13 +297,10 @@ class T3Tangent:
         ``stack_shape`` is the extra *outer* tangent stack ``K`` (a batch of tangents sharing this
         base); the variation cores are stacked as ``K + C + (core,)``. Default ``K=()``.
         """
-        xnp, _, _ = get_backend(False, tree_contains_jax(basis.data))
-
+        use_jax = tree_contains_jax(basis.data)       # match the basis's array type
         full_stack = stack_shape + basis.stack_shape  # K + C
-        tucker_hole_shapes, tt_hole_shapes = basis.variation_shapes
-        tucker_variations = tuple(xnp.zeros(full_stack + s) for s in tucker_hole_shapes)
-        tt_variations = tuple(xnp.zeros(full_stack + s) for s in tt_hole_shapes)
-        return T3Tangent(basis, bvf.T3Variations(tucker_variations, tt_variations))
+        variations = bvf.T3Variations.zeros(basis.variation_shapes, full_stack, use_jax)
+        return T3Tangent(basis, variations)
 
     @staticmethod
     def randn(
@@ -352,13 +318,9 @@ class T3Tangent:
         Gaussian on the tangent space. With ``apply_gauge_projection=False`` the variations are raw
         i.i.d. N(0, 1) cores (ungauged).
         """
-        use_jax = tree_contains_jax(basis.data)  # match the basis's array type
+        use_jax = tree_contains_jax(basis.data)       # match the basis's array type
         full_stack = stack_shape + basis.stack_shape  # K + C
-        tucker_hole_shapes, tt_hole_shapes = basis.variation_shapes
-        tucker_variations = tuple(randn(*(full_stack + s), use_jax=use_jax) for s in tucker_hole_shapes)
-        tt_variations = tuple(randn(*(full_stack + s), use_jax=use_jax) for s in tt_hole_shapes)
-
-        v = T3Tangent(basis, bvf.T3Variations(tucker_variations, tt_variations))
+        v = T3Tangent(basis, bvf.T3Variations.randn(basis.variation_shapes, full_stack, use_jax))
         if apply_gauge_projection:
             v = v.orthogonal_gauge_projection()
         return v
@@ -504,15 +466,7 @@ class T3Tangent:
         basis is orthogonal and gauged). Each stacked tangent is scaled by its own norm; the base
         point is unchanged.
         """
-        xnp, _, _ = get_backend(False, tree_contains_jax(self.variations.data))
-        inv = 1.0 / xnp.asarray(self.norm())
-        k = inv.ndim  # number of stack axes
-        def _scale(c):
-            return c * inv.reshape(inv.shape + (1,) * (c.ndim - k))
-        variations = bvf.T3Variations(
-            tuple(_scale(c) for c in self.variations.tucker_variations),
-            tuple(_scale(c) for c in self.variations.tt_variations),
-        )
+        variations = bvf.T3Variations(*cw.corewise_stack_scale(self.variations.data, 1.0 / self.norm()))
         return T3Tangent(self.basis, variations)
 
     def allclose(self, other: 'T3Tangent', rtol: float = 1e-9, atol: float = 0.0) -> bool:
@@ -569,14 +523,7 @@ class T3Tangent:
         These are the gauge conditions (48)-(49), Appendix A.3, of Alger et al. (2026),
         "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
         """
-        resid = 0.0
-        for U, V in zip(self.basis.up_tucker_cores, self.variations.tucker_variations):
-            g = np.einsum('...ia,...ja->...ij', np.asarray(U), np.asarray(V))
-            resid = max(resid, float(np.max(np.abs(g))))
-        for L, H in zip(self.basis.left_tt_cores[:-1], self.variations.tt_variations[:-1]):
-            g = np.einsum('...abi,...abj->...ij', np.asarray(L), np.asarray(H))
-            resid = max(resid, float(np.max(np.abs(g))))
-        return resid <= atol
+        return tangent_operations.gauge_residual(self.basis.data, self.variations.data) <= atol
 
     ############################################
     ##########    Gauge projections    #########

@@ -12,8 +12,10 @@ __all__ = [
     'corewise_add',
     'corewise_sub',
     'corewise_scale',
+    'corewise_stack_scale',
     'corewise_neg',
     'corewise_sum',
+    'corewise_stack_sum',
     'corewise_dot',
     'corewise_stack_dot',
     'corewise_norm',
@@ -178,6 +180,56 @@ def corewise_stack_dot(X: NDArrayTree, Y: NDArrayTree, n_stack: int):
         return out
     else:
         return xnp.sum(X * Y, axis=tuple(range(n_stack, xnp.ndim(X))))
+
+
+def corewise_stack_scale(X: NDArrayTree, s) -> NDArrayTree:
+    '''Scale each leaf by a per-stack-slice factor ``s``, broadcasting ``s`` over each leaf's trailing
+    (non-stack) axes.
+
+    ``s`` has shape equal to the leading stack shape; each leaf has shape ``stack_shape + (core dims)``.
+    A scalar ``s`` (ndim 0) scales every entry uniformly, matching :py:func:`corewise_scale`.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.corewise as cw
+    >>> X = (np.ones((2, 3)), np.ones((2, 4, 5)))   # stack=(2,), then core axes
+    >>> out = cw.corewise_stack_scale(X, np.array([10., 100.]))
+    >>> print(out[0][:, 0], out[1][:, 0, 0])
+    [ 10. 100.] [ 10. 100.]
+    '''
+    use_jax = tree_contains_jax((X, s))
+    xnp, _, _ = get_backend(False, use_jax)
+    s = xnp.asarray(s)
+    k = s.ndim
+    def go(x):
+        if isinstance(x, list) or isinstance(x, tuple):
+            return tuple([go(xi) for xi in x])
+        return x * s.reshape(s.shape + (1,) * (xnp.ndim(x) - k))
+    return go(X)
+
+
+def corewise_stack_sum(X: NDArrayTree, axis, n_stack: int) -> NDArrayTree:
+    '''Sum each leaf over stack axes, vectorized.
+
+    Normalizes ``axis`` against the ``n_stack`` leading (stack) axes (``None`` -> all of them; negative
+    axes wrap relative to ``n_stack``), then :py:func:`corewise_sum` over those axes.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.corewise as cw
+    >>> X = (np.ones((2, 3, 4)),)   # stack=(2, 3), then a core axis
+    >>> print(cw.corewise_stack_sum(X, None, 2)[0].shape)   # sum both stack axes
+    (4,)
+    '''
+    if axis is None:
+        stack_axes = tuple(range(n_stack))
+    elif not isinstance(axis, (tuple, list)):
+        stack_axes = ((axis + n_stack) if axis < 0 else axis,)
+    else:
+        stack_axes = tuple((ax + n_stack) if ax < 0 else ax for ax in axis)
+    return corewise_sum(X, axis=stack_axes)
 
 
 def corewise_norm(X):

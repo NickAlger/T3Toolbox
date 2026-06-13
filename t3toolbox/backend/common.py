@@ -32,6 +32,9 @@ __all__ = [
     'items_are_uniform',
     #
     'randn',
+    #
+    'save_core_families',
+    'load_core_families',
 ]
 
 has_jax = False
@@ -357,3 +360,28 @@ def items_are_uniform(
                 return True
 
     return False
+
+
+def save_core_families(file, families) -> None:
+    """Save a sequence of core-families (each a sequence of arrays) to a ``.npz`` file.
+
+    Uses ``'f{family_index}_{core_index}'`` keys so :py:func:`load_core_families` can regroup them.
+    Shared by the frontend ``save`` methods (T3Basis, T3Variations, T3Tangent).
+    """
+    np.savez(file, **{'f%d_%d' % (fi, ci): np.asarray(c)
+                      for fi, fam in enumerate(families) for ci, c in enumerate(fam)})
+
+
+def load_core_families(file) -> typ.Tuple[typ.Tuple[NDArray, ...], ...]:
+    """Inverse of :py:func:`save_core_families`: load a ``.npz`` file into a tuple of core-families.
+
+    The number of families is inferred from the highest ``'f{fi}_...'`` key; each family is returned
+    as a tuple of arrays ordered by core index.
+    """
+    npz = np.load(file)
+    num_families = 1 + max(int(k.split('_', 1)[0][1:]) for k in npz.files)
+    def fam(fi):
+        ks = sorted((k for k in npz.files if k.startswith('f%d_' % fi)),
+                    key=lambda k: int(k.split('_', 1)[1]))
+        return tuple(npz[k] for k in ks)
+    return tuple(fam(fi) for fi in range(num_families))

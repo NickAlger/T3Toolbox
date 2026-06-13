@@ -2434,16 +2434,7 @@ class TuckerTensorTrain:
         >>> print(cw.corewise_norm(cw.corewise_sub((tucker_cores2, tt_cores2), y.data)))
         0.0
         '''
-        m = len(self.stack_shape)
-
-        if axis is None:
-            stack_axes = tuple(range(m))
-        elif not isinstance(axis, Sequence):
-            stack_axes = ((axis + m) if axis < 0 else axis,)
-        else:
-            stack_axes = tuple((ax + m) if ax < 0 else ax for ax in axis)
-
-        return TuckerTensorTrain(*corewise.corewise_sum(self.data, axis=stack_axes))
+        return TuckerTensorTrain(*corewise.corewise_stack_sum(self.data, axis, len(self.stack_shape)))
 
 
     ##########################################

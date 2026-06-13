@@ -11,6 +11,8 @@ from t3toolbox.backend.common import *
 __all__ = [
     'compute_minimal_ranks',
     'compute_orthogonal_representation_ranks',
+    'compute_manifold_dim',
+    'basis_has_minimal_ranks',
 ]
 
 
@@ -176,3 +178,55 @@ def compute_orthogonal_representation_ranks(
         down_ranks = xnp.array(down_ranks)
 
     return up_ranks, down_ranks, left_ranks, right_ranks
+
+
+def compute_manifold_dim(
+        shape:          typ.Sequence[int],  # (N0, ..., N(d-1))
+        tucker_ranks:   typ.Sequence[int],  # (n0, ..., n(d-1))
+        tt_ranks:       typ.Sequence[int],  # (r0, ..., rd)
+) -> int:
+    '''Dimension of the fixed-rank Tucker tensor train manifold for the given structure.
+
+    Computed from the structurally-minimal ranks (gauge already quotiented), so this is the true
+    tangent-space dimension for a minimal-rank base point.
+    '''
+    min_tucker_ranks, min_tt_ranks = compute_minimal_ranks(shape, tucker_ranks, tt_ranks)
+
+    num_cores = len(shape)
+    manifold_dim: int = 0
+    for ii in range(num_cores):
+        n  = min_tucker_ranks[ii]
+        rL = min_tt_ranks[ii]
+        rR = min_tt_ranks[ii + 1]
+        if ii == num_cores - 1:
+            manifold_dim += rL * n * rR
+        else:
+            manifold_dim += (rL * n - rR) * rR
+
+    for ii in range(num_cores):
+        n = min_tucker_ranks[ii]
+        N = shape[ii]
+        manifold_dim += (N - n) * n
+
+    return int(manifold_dim)
+
+
+def basis_has_minimal_ranks(
+        shape:          typ.Sequence[int],
+        up_ranks:       typ.Sequence[int],
+        down_ranks:     typ.Sequence[int],
+        left_ranks:     typ.Sequence[int],
+        right_ranks:    typ.Sequence[int],
+) -> bool:
+    '''True if a T3Basis with these (redundant) ranks is structurally minimal.
+
+    Requires the left/right and up/down rank stores to agree, and the up/left ranks to equal the
+    minimal ranks for the shape.
+    '''
+    if tuple(left_ranks) != tuple(right_ranks):
+        return False
+    if tuple(up_ranks) != tuple(down_ranks):
+        return False
+    min_tucker_ranks, min_tt_ranks = compute_minimal_ranks(shape, up_ranks, left_ranks)
+    return (tuple(int(n) for n in min_tucker_ranks) == tuple(int(n) for n in up_ranks)
+            and tuple(int(r) for r in min_tt_ranks) == tuple(int(r) for r in left_ranks))
