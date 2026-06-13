@@ -149,3 +149,31 @@ get? **Process:** walk `TuckerTensorTrain`'s methods in small groups, discuss & 
 **Not ported (reasons in the groups):** structural surgery except `reverse`; SVD/orthogonalization family;
 `t3svd`/`t3svd_dense`; `sum`/tensor-`sum_stack`; `ones`; `from_canonical`/`from`/`to_tensor_train`;
 evaluation, `inner`/`norm`, `to_dense`/`apply` on the wrong types.
+
+## New methods (beyond TuckerTensorTrain ports)
+
+Orthogonal projection onto the tangent space is the **core primitive**; several of these are it applied
+to different inputs.
+- **F — `manifold.project_dense_onto_tangent(Z_dense, basis)`** — orthogonal projection of a *dense*
+  tensor onto the tangent space; module function (outside `T3Tangent`), returns a `T3Tangent`. [LOCKED.
+  **Direct dense-contraction algorithm (verified correct):** for each variation slot, contract `Z` with
+  the surrounding orthonormal frame (mixed-canonical: `L` before, `R` after, `U`; the `bv_to_t3` adjoint)
+  → ungauged variation, then `orthogonal_gauge_projection`. Requires an orthogonal basis. Mirror
+  `project`'s environment-contraction conventions; verify vs an independent `T_pM` projector
+  (`P=QQᵀ` from gauge-projected `randn` tangents) and the `project(t3svd_dense(Z), basis)` baseline.]
+- **`T3Tangent.transport(new_base)`** — projection-based vector transport (`= project(self.to_t3(),
+  new_base)`). [LOCKED]
+- **Riemannian gradient** (`manifold.riemannian_gradient(euclidean_grad, basis)`) — projection of a
+  Euclidean gradient (dense→F, or T3→`project`) onto the tangent space. [LOCKED]
+- **`__repr__`** on all four classes (class + shape/ranks/stack; never core dumps — confirmed none exist
+  today). [LOCKED]
+- **`T3Basis.orthogonalize()`** (`= from_t3(self.to_t3())`, re-orthogonalize a drifted basis) and
+  **`T3Basis.is_consistent()`** (opt-in, expensive: do the L/R/center reconstructions agree?). [LOCKED]
+- **`T3Tangent.normalized()`** (unit-norm direction) and **stack `__getitem__`** (index one element from a
+  `K`/`C` stack). [LOCKED]
+- **`allclose(other, rtol, atol)`** — semantic **norm-of-difference** `‖self−other‖ ≤ atol+rtol·‖other‖`:
+  `T3Tangent` = `(self−other).norm()` (HS); `T3Basis` = `(self.to_t3()−other.to_t3()).norm()` (chordal,
+  gauge-invariant); `T3Variations` = corewise diff-norm. Document the semantics. No representation-level
+  variant (use `np.allclose` on `.data` for that). [LOCKED]
+- **Future (deferred):** exp / log / geodesic distance — no closed form on this manifold; `retract` +
+  chordal distance substitute. Revisit if a use case needs true geodesics.
