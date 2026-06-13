@@ -2079,6 +2079,85 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                         self.check_relerr(result2, result)
 
+    def test_apply_transpose(self):
+        # adjoint of apply: primary (sum=False) keeps probe stack W; sum=True contracts it (J^T r).
+        base_structures = [
+            ((8,),              (4,),           (4, 5)),
+            ((8, 9),            (4, 5),         (4, 5, 4)),
+            ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
+        ]
+        stack_shapes = [(), (2, 3)]            # C (base/core stack, carried by the residual)
+        probe_stack_shapes = [(), (5,), (2, 3)]  # W (apply-vector stack)
+
+        for BASE in base_structures:
+            shape, tucker_ranks, tt_ranks = BASE
+            d = len(shape)
+            for C in stack_shapes:
+                for W in probe_stack_shapes:
+                    with self.subTest(BASE=BASE, C=C, W=W):
+                        nW, nN = len(W), d
+                        x = t3.TuckerTensorTrain.randn(*(BASE + (C,)))
+                        ww = [np.random.randn(*(W + (N,))) for N in shape]
+                        c = np.asarray(np.random.randn(*(W + C)))
+                        fwd = np.asarray(x.apply(ww))                          # W + C
+                        xd = x.to_dense()                                     # C + N
+
+                        def ndot(ATd, lead):  # contract (lead + C + N) with xd (C + N) over N, x bcast over lead
+                            xb = xd.reshape((1,) * lead + xd.shape)
+                            return np.sum(ATd * xb, axis=tuple(range(ATd.ndim - nN, ATd.ndim)))
+
+                        # primary: W is a passthrough stack; per-probe identity <AT(c)_W, x> == c*apply
+                        ATf = t3.TuckerTensorTrain.apply_transpose(c, ww)
+                        self.assertEqual(W + C, ATf.stack_shape)
+                        self.check_relerr(c * fwd, ndot(ATf.to_dense(), nW))
+
+                        # summed: contract W (the J^T r back-projection); CP->TT gives tt rank |W|
+                        ATt = t3.TuckerTensorTrain.apply_transpose(c, ww, sum_over_probes=True)
+                        self.assertEqual(C, ATt.stack_shape)
+                        lhs = np.sum(ATt.to_dense().reshape(C + (-1,)) * xd.reshape(C + (-1,)), axis=-1)
+                        self.check_relerr(np.sum(c * fwd, axis=tuple(range(nW))), lhs)
+
+                        # consistency: sum=True == sum over W of sum=False
+                        self.check_relerr(ATt.to_dense(), ATf.to_dense().sum(axis=tuple(range(nW))))
+
+    def test_entries_transpose(self):
+        # adjoint of entries: scatter c at index. Primary keeps W; sum=True scatter-adds collisions.
+        base_structures = [
+            ((8,),              (4,),           (4, 5)),
+            ((8, 9),            (4, 5),         (4, 5, 4)),
+            ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
+        ]
+        stack_shapes = [(), (2, 3)]
+        index_stack_shapes = [(), (5,), (2, 3)]
+
+        for BASE in base_structures:
+            shape, tucker_ranks, tt_ranks = BASE
+            d = len(shape)
+            for C in stack_shapes:
+                for W in index_stack_shapes:
+                    with self.subTest(BASE=BASE, C=C, W=W):
+                        nW, nN = len(W), d
+                        x = t3.TuckerTensorTrain.randn(*(BASE + (C,)))
+                        idx = np.array([np.random.randint(0, N, size=W) for N in shape])  # (d,) + W
+                        c = np.asarray(np.random.randn(*(W + C)))
+                        fwd = np.asarray(x.entries(idx))                      # W + C
+                        xd = x.to_dense()                                     # C + N
+
+                        def ndot(ETd, lead):
+                            xb = xd.reshape((1,) * lead + xd.shape)
+                            return np.sum(ETd * xb, axis=tuple(range(ETd.ndim - nN, ETd.ndim)))
+
+                        ETf = t3.TuckerTensorTrain.entries_transpose(c, idx, shape)
+                        self.assertEqual(W + C, ETf.stack_shape)
+                        self.check_relerr(c * fwd, ndot(ETf.to_dense(), nW))
+
+                        ETt = t3.TuckerTensorTrain.entries_transpose(c, idx, shape, sum_over_probes=True)
+                        self.assertEqual(C, ETt.stack_shape)
+                        lhs = np.sum(ETt.to_dense().reshape(C + (-1,)) * xd.reshape(C + (-1,)), axis=-1)
+                        self.check_relerr(np.sum(c * fwd, axis=tuple(range(nW))), lhs)
+
+                        self.check_relerr(ETt.to_dense(), ETf.to_dense().sum(axis=tuple(range(nW))))
+
     def test_probe(self):
         base_structures = [
             ((8,),              (4,),           (4, 5)),

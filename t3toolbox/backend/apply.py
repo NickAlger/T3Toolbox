@@ -6,10 +6,12 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.backend.contractions as contractions
+import t3toolbox.backend.t3_operations as t3_operations
 from t3toolbox.backend.common import *
 
 __all__ = [
     'tucker_tensor_train_apply',
+    'tucker_tensor_train_apply_transpose',
 ]
 
 def tucker_tensor_train_apply(
@@ -48,4 +50,58 @@ def tucker_tensor_train_apply(
 
     result = xnp.sum(mu_WCz, axis=-1)
     return result
+
+
+def tucker_tensor_train_apply_transpose(
+        c:      NDArray,                # residual, shape = W + C
+        ww:     typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape = W + (Ni,)
+        sum_over_probes: bool = False,
+) -> typ.Tuple[typ.Tuple[NDArray, ...], typ.Tuple[NDArray, ...]]:  # (tucker_cores, tt_cores)
+    '''Transpose of :py:func:`tucker_tensor_train_apply`: back-project a residual ``c`` into a tensor.
+
+    The Jacobian-transpose of the all-modes apply  ``X -> ( <X, w0^W (x) ... (x) w_{d-1}^W> )_W``.
+    The atomic (single-probe) adjoint is the rank-1 tensor ``c * (w0 (x) ... (x) w_{d-1})``; the
+    W-stacked operator is its stacking-lift, so:
+
+    - ``sum_over_probes=False`` (primary): ``W`` is a passthrough stacking axis -- a ``W (+ C)`` stack
+      of rank-1 tensors (canonical rank 1).
+    - ``sum_over_probes=True``: contract ``W`` (``= sum_W`` of the primary) -- the rank-``|W|``
+      back-projection ``sum_W c_W * (w0^W (x) ...)``, the Gauss-Newton ``J^T r`` (canonical rank ``|W|``).
+
+    Built as a canonical (CP) decomposition fed to :py:func:`t3_operations.t3_from_canonical`, with
+    ``c`` folded into the first factor. Returns ``(tucker_cores, tt_cores)``.
+    '''
+    use_jax = tree_contains_jax((c, ww))
+    xnp, _, _ = get_backend(False, use_jax)
+    c = xnp.asarray(c)
+
+    nW = ww[0].ndim - 1     # probe stack rank (ww[i] is W + (Ni,))
+    W  = ww[0].shape[:nW]   # probe stack
+    C  = c.shape[nW:]       # base stack (c is W + C)
+    nC = len(C)
+
+    if sum_over_probes:
+        # canonical rank |W|, stack C: w_i flattened over W into the rank axis, broadcast over C;
+        # c folded into F_0 as  F_0[C, s, n] = c_flat[s, C] * w0_flat[s, n].
+        m = int(np.prod(W, dtype=int))                       # |W|
+        c_flat = xnp.moveaxis(c.reshape((m,) + C), 0, nC)    # (m,) + C  ->  C + (m,)
+        factors = []
+        for i, w in enumerate(ww):
+            w_flat = w.reshape((1,) * nC + (m, w.shape[-1]))  # broadcastable to C + (m, Ni)
+            if i == 0:
+                factors.append(c_flat[..., None] * w_flat)               # C + (m, N0)
+            else:
+                factors.append(w_flat * xnp.ones(C + (1, 1)))            # materialize C + (m, Ni)
+    else:
+        # canonical rank 1, stack W + C: c folded into F_0 as  F_0[W, C, 0, n] = c[W, C] * w0[W, n].
+        c_exp = c.reshape(W + C + (1, 1))                    # W + C + (1, 1)
+        factors = []
+        for i, w in enumerate(ww):
+            w_exp = w.reshape(W + (1,) * nC + (1, w.shape[-1]))  # broadcastable to W + C + (1, Ni)
+            if i == 0:
+                factors.append(c_exp * w_exp)                            # W + C + (1, N0)
+            else:
+                factors.append(w_exp * xnp.ones(C + (1, 1)))             # materialize W + C + (1, Ni)
+
+    return t3_operations.t3_from_canonical(factors)
 

@@ -78,6 +78,18 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a, i: a.entries(i), self.x, idx)
         self.assert_jit_jax(  # t3svd with FIXED ranks -> static shapes -> jit-able
             lambda a: a.t3svd(max_tucker_ranks=(2, 2, 2), max_tt_ranks=(1, 2, 2, 1)), self.x)
+        # plain adjoints: residual c shape W (+ C); both sum modes (CP->TT construction)
+        N = STRUCT[0]
+        self.assert_jit_jax(
+            lambda cc, *ws: t3.TuckerTensorTrain.apply_transpose(cc, ws), jnp.ones(2), *self.ww)
+        self.assert_jit_jax(
+            lambda cc, *ws: t3.TuckerTensorTrain.apply_transpose(cc, ws, sum_over_probes=True),
+            jnp.ones(2), *self.ww)
+        self.assert_jit_jax(
+            lambda cc, i: t3.TuckerTensorTrain.entries_transpose(cc, i, N), jnp.ones(()), idx)
+        self.assert_jit_jax(
+            lambda cc, i: t3.TuckerTensorTrain.entries_transpose(cc, i, N, sum_over_probes=True),
+            jnp.ones(2), jnp.array([[1, 2], [2, 3], [3, 0]]))  # (d,) + W, W=(2,)
 
     # ---------------------------------------------------- jit bucket: T3Tangent
     def test_jit_tangent(self):

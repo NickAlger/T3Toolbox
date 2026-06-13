@@ -6,10 +6,12 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.backend.contractions as contractions
+import t3toolbox.backend.apply as apply
 from t3toolbox.backend.common import *
 
 __all__ = [
     'tucker_tensor_train_entries',
+    'tucker_tensor_train_entries_transpose',
 ]
 
 
@@ -55,4 +57,25 @@ def tucker_tensor_train_entries(
 
     result = xnp.sum(mu_WCz, axis=-1)
     return result
+
+
+def tucker_tensor_train_entries_transpose(
+        c:      NDArray,                # residual, shape = W + C
+        index:  NDArray,                # int, shape = (d,) + W
+        shape:  typ.Sequence[int],      # ambient dims (N0, ..., N(d-1)) -- needed to size the one-hots
+        sum_over_probes: bool = False,
+) -> typ.Tuple[typ.Tuple[NDArray, ...], typ.Tuple[NDArray, ...]]:  # (tucker_cores, tt_cores)
+    '''Transpose of :py:func:`tucker_tensor_train_entries`: scatter a residual ``c`` at ``index``.
+
+    Identical to :py:func:`tucker_tensor_train_apply_transpose` with the apply vectors replaced by the
+    unit vectors ``e_{index_k}`` -- so each single-entry adjoint is the one-hot rank-1 tensor
+    ``c * e_{idx_0} (x) ... (x) e_{idx_{d-1}}``. ``sum_over_probes=True`` scatter-adds colliding
+    indices (the ``J^T r`` for entry sampling). ``shape`` supplies the ambient dims, which (unlike the
+    apply case, where ``ww`` carries them) the residual and index alone do not determine.
+    '''
+    use_jax = tree_contains_jax((c, index))
+    xnp, _, _ = get_backend(False, use_jax)
+    index = xnp.array(index)
+    ww = tuple(xnp.eye(N)[index[i]] for i, N in enumerate(shape))   # one-hot, elm_shape = W + (Ni,)
+    return apply.tucker_tensor_train_apply_transpose(c, ww, sum_over_probes=sum_over_probes)
 

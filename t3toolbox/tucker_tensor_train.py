@@ -3344,6 +3344,84 @@ class TuckerTensorTrain:
         """
         return probing.probe_t3(ww, self.data)
 
+    @staticmethod
+    def apply_transpose(
+            c:      NDArray,            # residual, shape = W + C
+            ww:     Sequence[NDArray],  # apply vectors, len=d, elm_shape = W + (Ni,)
+            sum_over_probes: bool = False,
+    ) -> 'TuckerTensorTrain':
+        """Transpose of :py:meth:`apply`: back-project a residual ``c`` into a TuckerTensorTrain.
+
+        The Jacobian-transpose of the all-modes map ``X -> ( <X, w0^W (x) ... (x) w_{d-1}^W> )_W``.
+        The atomic single-probe adjoint is the rank-1 tensor ``c * (w0 (x) ... (x) w_{d-1})``, and the
+        ``W``-stacked operator is its stacking-lift:
+
+        - ``sum_over_probes=False`` (default, primary): the probe stack ``W`` is a passthrough stacking
+          axis -- a ``W (+ C)`` stack of rank-1 tensors.
+        - ``sum_over_probes=True``: contract ``W`` (``= sum_W`` of the primary) -- the rank-``|W|``
+          back-projection ``sum_W c_W * (w0^W (x) ...)``, i.e. the Gauss-Newton ``J^T r``.
+
+        See Also
+        --------
+        apply
+        entries_transpose
+
+        Examples
+        --------
+        Adjoint identity ``<apply^T(c), x>_F == c * x.apply(ww)`` (no stacks):
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+        >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> ATc = t3.TuckerTensorTrain.apply_transpose(1.7, ww)
+        >>> lhs = float(np.sum(ATc.to_dense() * x.to_dense()))
+        >>> print(bool(abs(lhs - 1.7 * float(x.apply(ww))) < 1e-9))
+        True
+        """
+        return TuckerTensorTrain(*apply.tucker_tensor_train_apply_transpose(
+            c, ww, sum_over_probes=sum_over_probes,
+        ))
+
+    @staticmethod
+    def entries_transpose(
+            c:      NDArray,            # residual, shape = W + C
+            index:  NDArray,            # int, shape = (d,) + W
+            shape:  Sequence[int],      # ambient dims (N0, ..., N(d-1))
+            sum_over_probes: bool = False,
+    ) -> 'TuckerTensorTrain':
+        """Transpose of :py:meth:`entries`: scatter a residual ``c`` at ``index`` into a TuckerTensorTrain.
+
+        The Jacobian-transpose of ``X -> ( X[index^W] )_W``. Identical to :py:meth:`apply_transpose`
+        with the apply vectors replaced by the unit vectors ``e_{index_k}``, so each single-entry
+        adjoint is the one-hot rank-1 tensor ``c * e_{idx_0} (x) ... (x) e_{idx_{d-1}}``;
+        ``sum_over_probes=True`` scatter-adds colliding indices (the ``J^T r`` for entry sampling).
+        ``shape`` gives the ambient dims ``(N0, ..., N(d-1))`` -- unlike :py:meth:`apply_transpose`
+        (where ``ww`` carries them), the residual and index alone do not determine them.
+
+        See Also
+        --------
+        entries
+        apply_transpose
+
+        Examples
+        --------
+        Back-projecting a residual scatters it at the index:
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+        >>> ETc = t3.TuckerTensorTrain.entries_transpose(2.0, (3, 5, 7), x.shape)
+        >>> print(bool(abs(float(ETc.to_dense()[3, 5, 7]) - 2.0) < 1e-9))     # c lands at the index
+        True
+        >>> rest = ETc.to_dense().copy(); rest[3, 5, 7] = 0.0
+        >>> print(bool(np.linalg.norm(rest) < 1e-9))                          # zero elsewhere
+        True
+        """
+        return TuckerTensorTrain(*entries.tucker_tensor_train_entries_transpose(
+            c, index, shape, sum_over_probes=sum_over_probes,
+        ))
+
     ##############################################################
     ########################    T3-SVD    ########################
     ##############################################################
