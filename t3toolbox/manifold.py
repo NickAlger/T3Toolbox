@@ -489,6 +489,10 @@ class T3Tangent:
         - ``sum_over_probes=True``: the probe stack is summed -- the result's tangent stack is ``K``
           (base stack ``C``) -- the usual Gauss-Newton ``J^T r`` (a single tangent when ``K = ()``).
 
+        ``False`` is the **primary** transpose (``W`` a passthrough stack); ``True`` is the derived
+        contraction ``sum_over_probes=True == Σ_W sum_over_probes=False``. See *Batching & stacking* §11
+        (``docs/batching_and_stacking.md``) for which mode to use and why.
+
         Bare ``(J^(s))^T`` (no gauge projector). See Section 6.2.3 (Algorithm 8) of Alger et al. (2026).
 
         See Also
@@ -522,11 +526,21 @@ class T3Tangent:
 
         With ``K``-stacked residuals (``W + K + C``), the tangent batch ``K`` is carried through:
 
-        >>> zb = tuple(np.random.randn(2, 3, N) for N in (10, 11, 12))  # F=(2,), V=(3,), G=()
+        >>> zb = tuple(np.random.randn(2, 3, N) for N in (10, 11, 12))  # W=(2,), K=(3,), C=()
         >>> print(t3m.T3Tangent.probe_transpose(zb, ww, base, sum_over_probes=True).tangent_stack_shape)
         (3,)
         >>> print(t3m.T3Tangent.probe_transpose(zb, ww, base).tangent_stack_shape)  # sum=False -> W + K
         (2, 3)
+
+        ``sum_over_probes=True`` is exactly the probe-stack (``W``) sum of the ``False`` result:
+
+        >>> kept   = t3m.T3Tangent.probe_transpose(z, ww, base)                        # W stays a stack
+        >>> summed = t3m.T3Tangent.probe_transpose(z, ww, base, sum_over_probes=True)   # W summed
+        >>> dU_sum = tuple(np.sum(c, axis=0) for c in kept.variations.tucker_variations)  # sum the W axis
+        >>> err = max(float(np.linalg.norm(a - b))
+        ...           for a, b in zip(dU_sum, summed.variations.tucker_variations))
+        >>> print(bool(err < 1e-9))
+        True
         """
         # probing's base order is exactly T3Basis.data = (up, down, left, right) -- no reorder.
         # numpy/jax dispatch is inferred from the input array types inside probing.
@@ -621,6 +635,9 @@ class T3Tangent:
         Gauss-Newton ``apply^T c`` back-projection (a single tangent when ``W = ()``). Needs only the
         base sweep + a single-term scatter assembly (cheaper than a general :py:meth:`probe_transpose`).
 
+        ``False`` is the primary transpose; ``sum_over_probes=True == Σ_W sum_over_probes=False``. See
+        *Batching & stacking* §11 (``docs/batching_and_stacking.md``) for which mode to use and why.
+
         Examples
         --------
         Adjoint identity ``<apply^T c, v> == c * apply(v)`` (no stacks):
@@ -654,7 +671,7 @@ class T3Tangent:
 
         The adjoint of :py:meth:`entries` -- identical to :py:meth:`apply_transpose` with the up-index
         ``ξ̂`` from fiber slicing and unit apply-vectors ``e_{index}``. ``sum_over_probes`` as in
-        :py:meth:`apply_transpose`.
+        :py:meth:`apply_transpose` (see *Batching & stacking* §11).
 
         See Also
         --------

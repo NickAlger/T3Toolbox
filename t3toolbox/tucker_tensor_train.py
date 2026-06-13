@@ -3361,6 +3361,8 @@ class TuckerTensorTrain:
         - ``sum_over_probes=True``: contract ``W`` (``= sum_W`` of the primary) -- the rank-``|W|``
           back-projection ``sum_W c_W * (w0^W (x) ...)``, i.e. the Gauss-Newton ``J^T r``.
 
+        See *Batching & stacking* §11 (``docs/batching_and_stacking.md``) for which mode to use and why.
+
         See Also
         --------
         apply
@@ -3395,9 +3397,10 @@ class TuckerTensorTrain:
         The Jacobian-transpose of ``X -> ( X[index^W] )_W``. Identical to :py:meth:`apply_transpose`
         with the apply vectors replaced by the unit vectors ``e_{index_k}``, so each single-entry
         adjoint is the one-hot rank-1 tensor ``c * e_{idx_0} (x) ... (x) e_{idx_{d-1}}``;
-        ``sum_over_probes=True`` scatter-adds colliding indices (the ``J^T r`` for entry sampling).
-        ``shape`` gives the ambient dims ``(N0, ..., N(d-1))`` -- unlike :py:meth:`apply_transpose`
-        (where ``ww`` carries them), the residual and index alone do not determine them.
+        ``sum_over_probes=True`` scatter-adds colliding indices (the ``J^T r`` for entry sampling; see
+        *Batching & stacking* §11). ``shape`` gives the ambient dims ``(N0, ..., N(d-1))`` -- unlike
+        :py:meth:`apply_transpose` (where ``ww`` carries them), the residual and index alone do not
+        determine them.
 
         See Also
         --------

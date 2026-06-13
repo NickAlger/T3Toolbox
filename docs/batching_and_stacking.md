@@ -83,6 +83,7 @@ The codebase annotates shapes in trailing comments and encodes them in names. Th
 | **`base_stack_shape` / `tangent_stack_shape`** | a `T3Tangent`'s `C` and `K` parts, *derived* from the (basis, variations) pairing (§6), not stored. |
 | **heterogeneous stack** | one T3 whose cores have different-but-broadcastable stacks (base `C`, variation `K+C`). First-class in the backend (§5). |
 | **"the split is recovered"** | `C`/`K`/`W` lengths are read off operand shapes, never threaded as parameters (§4, §6). |
+| **`sum_over_probes`** | transpose flag (§11): `False` (default, **primary**) keeps the probe stack `W` as an output stack — one tangent/tensor per probe; `True` sums `W` (`= Σ_W` of `False`) for the optimization `Jᵀr`. |
 | **ragged / uniform / weighted** | the three representations. Only **ragged** (tuples of arrays) is fully working; uniform (supercore) and weighted are deferred. |
 
 > **Why these letters?** `W`/`K`/`C` are deliberately disjoint from the core/variation symbols
@@ -154,7 +155,8 @@ Key facts:
   variation cores; `C` is only on the cores. This is exactly why a single `'...'` is not enough (§4):
   `'...'` broadcasts a *shared* prefix, but `W`/`K` are present on a *subset* of operands.
 - In the **transpose** of probing, the probe stack and the tangent stack coincide: `K == W` (each
-  probe residual becomes one tangent).
+  probe residual becomes one tangent) — when `sum_over_probes=False`; setting it `True` sums `W` away.
+  See §11 for the full story on transposes and `sum_over_probes`.
 
 **Concrete shapes (base-inner, see §3):**
 - a T3 core: `C + (rL, n, rR)` (tt core) or `C + (n, N)` (tucker core)
@@ -407,6 +409,61 @@ The naming scheme encodes axis layout — once you know it, the einsums read the
 | The `K`/`C` split + bv-pair check | `basis_variations_format.py` (`check_bv_pair`), `manifold.py` (`base_stack_shape`/`tangent_stack_shape`/`stack_shape`) |
 | jax pytree registration + `vmap`/`jit` | bottom of `basis_variations_format.py` & `manifold.py`; `tests/test_dispatch.py` |
 | The validate/uniform-stack requirement | `tucker_tensor_train.py` (`validate`), `basis_variations_format.py` (`T3Basis.validate`/`T3Variations.validate`) |
+
+---
+
+## 11. Transposes, adjoints, and `sum_over_probes`
+
+Every transpose in the library — `probe_transpose`, and the `apply_transpose`/`entries_transpose`
+adjoints on both `T3Tangent` and `TuckerTensorTrain` — takes a `sum_over_probes` flag. This is the one
+place where the probe stack `W` does something subtle, so here is the whole story.
+
+### The mental model
+
+The **atomic** operation is single-probe: one set of vectors `ww`, one residual. Everything batched is
+that atom **lifted over the stacks** `W`/`K`/`C` (§2). The transpose lifts the same way:
+
+- **`sum_over_probes=False` (default) is the primary transpose.** It lifts the atomic adjoint over `W`,
+  so `W` stays a passthrough **stacking** axis — *one tangent (or tensor) per probe*. This is the plain
+  Jacobian-transpose; it is well-defined on its own, with no reference to summing. Here `W` behaves
+  exactly like `C` and `K`: unstack → transpose each → restack.
+- **`sum_over_probes=True` is a derived convenience** that additionally **contracts** `W`:
+  ```
+  sum_over_probes=True   ==   (sum over the W axes of   sum_over_probes=False)
+  ```
+  It exists because, in optimization, the `W` probes are the *outputs of one operator on one shared
+  input* — the forward broadcasts that single input across all `W` probes, and **the transpose of a
+  broadcast is a sum**. Summing the per-probe contributions gives the one gradient / back-projection
+  `Jᵀr`.
+
+The trap (which has caught the authors): do **not** read `True` as "the real transpose" and `False` as
+a special case. It is the reverse — `False` is the fundamental object, `True` is `Σ_W` applied on top.
+
+### Which mode do I want?
+
+- **Using `J` and `Jᵀ` as standalone linear operators**, or you want one output per probe → **`False`**
+  (default).
+- **Assembling a gradient `g = Jᵀr`, or a Gauss-Newton Hessian apply `JᵀJ v`** in an optimizer (one
+  residual *vector* over the `W` data points → one gradient) → **`True`**.
+
+Either way the two agree by the invariant above, so when in doubt use `False` and sum the `W` axes
+yourself once you actually need the gradient.
+
+### Shape contract
+
+The residual lives in the **forward's output space**; the transpose maps it back. `False` keeps `W` as
+an output stack; `True` sums `W` away; `K` and `C` always pass through.
+
+| transpose | residual in | `sum=False` out | `sum=True` out |
+|---|---|---|---|
+| `T3Tangent.probe_transpose` | `ztildes[i]`: `W + K + C + (Nᵢ,)` | tangent stack `W + K`, base `C` | tangent stack `K`, base `C` |
+| `T3Tangent.apply_transpose` / `entries_transpose` | `c`: `W + C` | tangent stack `W`, base `C` | tangent stack `()`, base `C` |
+| `TuckerTensorTrain.apply_transpose` / `entries_transpose` | `c`: `W + C` | T3 `stack_shape = W + C` | T3 `stack_shape = C` |
+
+The `apply`/`entries` adjoints currently take a residual with no `K` block (`K`-stacked residuals are a
+deferred `probe_transpose`-style extension; see `docs/apply_entries_handoff.md`). Their forward outputs
+are `W + K + C` (tangent) and `W + C` (plain), so the residual-in column is just "the forward output,
+adjoint-mapped back."
 
 ---
 

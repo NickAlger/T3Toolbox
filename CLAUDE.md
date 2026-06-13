@@ -241,6 +241,13 @@ Treat everything else as copied-in-and-not-yet-working until checked.
   (commit `f25e3d14`) and plain `TuckerTensorTrain.apply_transpose`/`entries_transpose` (commit
   `af368831`). `sum_over_probes=False` (primary) keeps the probe stack `W`; `=True` is the derived
   `Jᵀr` contraction. History/rationale: [`docs/apply_entries_handoff.md`](docs/apply_entries_handoff.md).
+  The transpose/`sum_over_probes` semantics are documented for users in `docs/batching_and_stacking.md`
+  §11 (+ harmonized transpose docstrings, an invariant doctest on `probe_transpose`, glossary entry).
+- **A least-squares fitting example/tutorial — wanted, deferred (Nick's call).** Show `apply`/`entries`
+  as the forward sampling operator `J` and the summed transpose (`sum_over_probes=True`) as the gradient
+  `Jᵀr` and Gauss-Newton Hessian `JᵀJ v` — the worked use case that motivates `sum_over_probes=True`.
+  Blocked on bringing Nick's optimization code into the project (cleanup + tests = substantial); come
+  back to it later. This is the deferred "S4" follow-up to the §11 transpose docs.
 - **Which ops require a minimal-rank basis** (partly answered, full audit pending): gauge
   projections need orthogonality only; `inner`/`norm` Hilbert-Schmidt faithfulness needs orthogonal
   + minimal + gauged; `retract` preserves base ranks only on a minimal base; `project` works on any
