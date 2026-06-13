@@ -281,11 +281,7 @@ class T3Tangent:
         The truncation is the implicit T3-SVD (Algorithm 10) of Alger et al. (2026),
         "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
         """
-        shifted = self.to_t3(include_shift=True)
-        retracted_x, _, _ = shifted.t3svd(
-            max_tucker_ranks=self.basis.up_ranks, max_tt_ranks=self.basis.left_ranks,
-        )
-        return retracted_x
+        return t3.TuckerTensorTrain(*tangent_operations.retract(self.basis.data, self.variations.data))
 
     @staticmethod
     def zeros(
@@ -456,8 +452,7 @@ class T3Tangent:
             This equals the Hilbert-Schmidt norm only when the basis is orthogonal and the
             variations are gauged (see :py:meth:`is_gauged`).
         """
-        xnp, _, _ = get_backend(False, tree_contains_jax(self.variations.data))
-        return xnp.sqrt(xnp.abs(self.inner(self)))
+        return cw.corewise_stack_norm(self.variations.data, len(self.stack_shape))
 
     def normalized(self) -> 'T3Tangent':
         """Unit-norm rescaling ``self / self.norm()``, vectorized over the stack.

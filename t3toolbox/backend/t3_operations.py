@@ -15,6 +15,8 @@ __all__ = [
     'broadcast_t3_to_common_stack',
     'squash_tt_tails',
     'reverse_tt',
+    't3_segment',
+    't3_concatenate',
     'change_tucker_core_shapes',
     'change_tt_core_shapes',
     't3_unstack',
@@ -126,6 +128,72 @@ def reverse_tt(
     """Reverse a tensor train (no Tucker).
     """
     return tuple(G.swapaxes(-3, -1) for G in tt_cores[::-1])
+
+
+def t3_segment(
+        data: typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_cores
+            typ.Sequence[NDArray],  # tt_cores
+        ],
+        start: int = None,
+        stop:  int = None,
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # tucker_cores[start:stop]
+    typ.Tuple[NDArray, ...],  # tt_cores[start:stop]
+]:
+    """Contiguous mode-segment of a T3: slice both core families over modes ``start:stop``.
+
+    ``start``/``stop`` follow Python slice semantics (``None`` -> the ends; negatives wrap), with a
+    length >= 1 guard. Inverse of :py:func:`t3_concatenate`.
+    """
+    tucker_cores, tt_cores = data
+    d = len(tucker_cores)
+    if start is None:
+        start = 0
+    if stop is None:
+        stop = d
+    if start < 0:
+        start = d + start
+    if stop < 0:
+        stop = d + stop
+    if stop <= start:
+        raise ValueError(
+            "Attempted to extract segment with length < 1.\n"
+            + str(start) + ' = start >= stop = ' + str(stop)
+        )
+    return tuple(tucker_cores[start:stop]), tuple(tt_cores[start:stop])
+
+
+def t3_concatenate(
+        xx,  # sequence of T3 data tuples, each (tucker_cores, tt_cores)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # tucker_cores (concatenated over modes)
+    typ.Tuple[NDArray, ...],  # tt_cores
+]:
+    """Concatenate a sequence of T3 segments into one T3 (inverse of :py:func:`t3_segment`).
+
+    At each seam the TT ranks must match -- the trailing TT rank of one segment equals the leading
+    TT rank of the next -- otherwise a ``ValueError`` is raised. The join is structural (core-tuple
+    concatenation); no re-orthogonalization.
+    """
+    if len(xx) < 1:
+        raise ValueError(
+            'Empty TuckerTensorTrain not supported.\n'
+            + str(len(xx)) + ' = len(xx)'
+        )
+    elif len(xx) == 1:
+        return xx[0]
+    elif len(xx) == 2:
+        (x_tucker, x_tt), (y_tucker, y_tt) = xx[0], xx[1]
+        if x_tt[-1].shape[-1] != y_tt[0].shape[-3]:
+            raise ValueError(
+                'First and last TT-ranks inconsistent for concatenation.\n'
+                + str(x_tt[-1].shape[-1]) + ' = x.tt_ranks[-1] != y.tt_ranks[0] = '
+                + str(y_tt[0].shape[-3])
+            )
+        return tuple(x_tucker) + tuple(y_tucker), tuple(x_tt) + tuple(y_tt)
+    else:
+        return t3_concatenate([t3_concatenate(xx[:2])] + list(xx[2:]))
 
 
 def change_tucker_core_shapes(

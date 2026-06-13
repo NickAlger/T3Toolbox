@@ -19,6 +19,7 @@ __all__ = [
     'corewise_dot',
     'corewise_stack_dot',
     'corewise_norm',
+    'corewise_stack_norm',
     'corewise_err',
     'corewise_relerr',
     'corewise_logical_not',
@@ -249,6 +250,27 @@ def corewise_norm(X):
     xnp, _, _ = get_backend(False, use_jax)
     norm_sq = corewise_dot(X, X)
     return xnp.sqrt(xnp.abs(norm_sq))
+
+
+def corewise_stack_norm(X: NDArrayTree, n_stack: int):
+    '''Like :py:func:`corewise_norm`, but vectorized over the leading ``n_stack`` (stack) axes.
+
+    Returns an array of shape equal to the common leading stack shape -- one norm per stack slice
+    (a scalar when ``n_stack == 0``, matching :py:func:`corewise_norm`). It is the ``sqrt`` of the
+    per-slice :py:func:`corewise_stack_dot` of ``X`` with itself. Use this (not
+    :py:func:`corewise_norm`, which collapses *every* axis including the stack) for a vectorized norm.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.corewise as cw
+    >>> X = (np.ones((2, 3)), np.ones((2, 4, 5)))   # stack=(2,), then core axes
+    >>> print(cw.corewise_stack_norm(X, 1))         # sqrt(3 + 20) per slice
+    [4.79583152 4.79583152]
+    '''
+    use_jax = tree_contains_jax(X)
+    xnp, _, _ = get_backend(False, use_jax)
+    return xnp.sqrt(xnp.abs(corewise_stack_dot(X, X, n_stack)))
 
 
 def corewise_err(X_true, X):

@@ -7,6 +7,7 @@ from __future__ import annotations
 import typing as typ
 import numpy as np
 
+import t3toolbox.backend.t3_operations as t3_operations
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -15,6 +16,7 @@ __all__ = [
     'zeros_variations',
     'randn_variations',
     'unit_variations',
+    'reverse_basis',
 ]
 
 
@@ -105,6 +107,34 @@ def unit_variations(
         tucker = [to_jax(c) for c in tucker]
         tt = [to_jax(c) for c in tt]
     return tuple(tucker), tuple(tt)
+
+
+def reverse_basis(
+        basis: typ.Tuple[
+            typ.Sequence[NDArray],  # up_tucker_cores
+            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # left_tt_cores
+            typ.Sequence[NDArray],  # right_tt_cores
+        ],
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # up_tucker_cores  (mode order reversed)
+    typ.Tuple[NDArray, ...],  # down_tt_cores
+    typ.Tuple[NDArray, ...],  # left_tt_cores    (= reversed old right cores)
+    typ.Tuple[NDArray, ...],  # right_tt_cores   (= reversed old left cores)
+]:
+    '''Reverse the mode order of a T3 basis 4-tuple ``(up, down, left, right)``.
+
+    The left and right TT families **swap roles**: reversing a left-orthogonal chain yields a
+    right-orthogonal one, so the new left family is the reversed old *right* family and vice versa
+    (the up-tucker family is reversed; the down family is reversed per :py:func:`reverse_tt`). The
+    redundant left/right store makes this exact with no re-orthogonalization. Inverse of itself.
+    '''
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
+    rev = t3_operations.reverse_tt
+    return (tuple(U.copy() for U in up_tucker_cores[::-1]),
+            rev(down_tt_cores),
+            rev(right_tt_cores),   # old right -> new left
+            rev(left_tt_cores))    # old left  -> new right
 
 
 # NOTE (parked): kept here for safekeeping pending a redesign of weighted tensor networks.

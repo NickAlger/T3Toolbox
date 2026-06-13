@@ -854,28 +854,7 @@ class TuckerTensorTrain:
         >>> print(x01.core_shapes)
         (((5, 15), (6, 16)), ((3, 5, 2), (2, 6, 2)))
         """
-        if start is None:
-            start = 0
-
-        if stop is None:
-            stop = self.d
-
-        if start < 0:
-            start = self.d + start
-
-        if stop < 0:
-            stop = self.d + stop
-
-        if stop <= start:
-            raise ValueError(
-                "Attempted to extract segment with length < 1.\n"
-                + str(start) + ' = start >= stop = ' + str(stop)
-            )
-
-        return TuckerTensorTrain(
-            self.tucker_cores[start:stop],
-            self.tt_cores[start:stop],
-        )
+        return TuckerTensorTrain(*ragged_operations.t3_segment(self.data, start, stop))
 
     @staticmethod
     def concatenate(
@@ -918,29 +897,7 @@ class TuckerTensorTrain:
         >>> print((xyz-xyz2).norm() / xyz.norm())
         1.959150523916366e-15
         """
-        if len(xx) < 1:
-            raise ValueError(
-                'Empty TuckerTensorTrain not supported.\n'
-                + str(len(xx)) + ' = len(xx)'
-            )
-        elif len(xx) == 1:
-            return xx[0]
-        elif len(xx) == 2:
-            x, y = xx[0], xx[1]
-            if x.tt_ranks[-1] != y.tt_ranks[0]:
-                raise ValueError(
-                    'First and last TT-ranks inconsistent for concatenation.\n'
-                    + str(x.tt_ranks[-1]) + ' = x.tt_ranks[-1] != y.tt_ranks[0] = ' + str(y.tt_ranks[0])
-                )
-
-            return TuckerTensorTrain(
-                x.tucker_cores + y.tucker_cores,
-                x.tt_cores + y.tt_cores
-            )
-        else:
-            return TuckerTensorTrain.concatenate(
-                [TuckerTensorTrain.concatenate(xx[:2])] + xx[2:]
-            )
+        return TuckerTensorTrain(*ragged_operations.t3_concatenate([x.data for x in xx]))
 
     def squash(
             self,
@@ -1610,10 +1567,10 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-        >>> fname = 't3_file'
-        >>> t3.t3_save(fname, x) # Save to file 't3_file.npz'
-        >>> x2 = t3.t3_load(fname) # Load from file
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> fname = 't3_file.npz'
+        >>> x.save(fname) # Save to file 't3_file.npz'
+        >>> x2 = t3.TuckerTensorTrain.load(fname) # Load from file
         >>> tucker_cores, tt_cores = x.data
         >>> tucker_cores2, tt_cores2 = x2.data
         >>> print([np.linalg.norm(B - B2) for B, B2 in zip(tucker_cores, tucker_cores2)])
@@ -1621,14 +1578,7 @@ class TuckerTensorTrain:
         >>> print([np.linalg.norm(G - G2) for G, G2 in zip(tt_cores, tt_cores2)])
         [0.0, 0.0, 0.0]
         """
-        tucker_cores, tt_cores = self.data
-        cores_dict = {'tucker_cores_' + str(ii): tucker_cores[ii] for ii in range(len(tucker_cores))}
-        cores_dict.update({'tt_cores_' + str(ii): tt_cores[ii] for ii in range(len(tt_cores))})
-
-        try:
-            np.savez(file, **cores_dict)
-        except RuntimeError:
-            print('Failed to save TuckerTensorTrain to file')
+        common.save_core_families(file, self.data)
 
     @staticmethod
     def load(
@@ -1669,7 +1619,7 @@ class TuckerTensorTrain:
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
-        >>> fname = 't3_file'
+        >>> fname = 't3_file.npz'
         >>> x.save(fname) # Save to file 't3_file.npz'
         >>> x2 = t3.TuckerTensorTrain.load(fname) # Load from file
         >>> tucker_cores, tt_cores = x.data
@@ -1679,27 +1629,9 @@ class TuckerTensorTrain:
         >>> print([np.linalg.norm(G - G2) for G, G2 in zip(tt_cores, tt_cores2)])
         [0.0, 0.0, 0.0]
         """
-        xnp, _, _ = common.get_backend(False, use_jax)
-
-        #
-        if isinstance(file, str):
-            if not file.endswith('.npz'):
-                file = file + '.npz'
-
-        try:
-            d = np.load(file)
-        except RuntimeError:
-            print('Failed to load TuckerTensorTrain from file')
-
-        assert (len(d.files) % 2 == 0)
-        num_cores = len(d.files) // 2
-        tucker_cores = [d['tucker_cores_' + str(ii)] for ii in range(num_cores)]
-        tt_cores = [d['tt_cores_' + str(ii)] for ii in range(num_cores)]
-
-        tucker_cores = [xnp.array(B) for B in tucker_cores]  # in case we are using jax or some other linalg backend
-        tt_cores = [xnp.array(G) for G in tt_cores]
-
-        return TuckerTensorTrain(tuple(tucker_cores), tuple(tt_cores))
+        tucker_cores, tt_cores = common.load_core_families(file)
+        x = TuckerTensorTrain(tucker_cores, tt_cores)
+        return x.to_jax() if use_jax else x
 
     ##########################################
     ##########    Linear Algebra    ##########

@@ -9,6 +9,7 @@ import numpy as np
 
 import t3toolbox.backend.bv_conversions as bv_conversions
 import t3toolbox.backend.t3_operations as ragged_operations
+import t3toolbox.backend.t3_svd as ragged_t3svd
 import t3toolbox.backend.stacking as stacking
 from t3toolbox.backend.common import *
 
@@ -25,6 +26,7 @@ __all__ = [
     'unstack_base_stack',
     'stack_base_stack',
     'gauge_residual',
+    'retract',
 ]
 
 
@@ -500,3 +502,36 @@ def gauge_residual(
         g = np.einsum('...abi,...abj->...ij', np.asarray(L), np.asarray(H))
         resid = max(resid, float(np.max(np.abs(g))))
     return resid
+
+
+def retract(
+        basis: typ.Tuple[
+            typ.Sequence[NDArray],  # up_tucker_cores
+            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # left_tt_cores
+            typ.Sequence[NDArray],  # right_tt_cores
+        ],
+        variations: typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_variations
+            typ.Sequence[NDArray],  # tt_variations
+        ],
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # tucker_cores (retracted T3, base-point ranks)
+    typ.Tuple[NDArray, ...],  # tt_cores
+]:
+    '''Retract a basis-variations tangent vector onto the fixed-rank manifold.
+
+    Forms the shifted doubled-rank embedding (base point + v) via :py:func:`tangent_to_t3`
+    (``include_shift=True``) and truncates it back to the **base point's own ranks** -- the Tucker
+    ``up`` ranks and ``left`` TT ranks read off the basis cores -- with the implicit T3-SVD, yielding
+    a point on the manifold of the base point's ranks.
+
+    The truncation is the implicit T3-SVD (Algorithm 10) of Alger et al. (2026), "Tucker Tensor
+    Train Taylor Series" (arXiv:2603.21141).
+    '''
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
+    shifted = tangent_to_t3(basis, variations, include_shift=True)
+    up_ranks = tuple(U.shape[-2] for U in up_tucker_cores)
+    left_ranks = tuple(L.shape[-3] for L in left_tt_cores) + (left_tt_cores[-1].shape[-1],)
+    retracted, _, _ = ragged_t3svd.t3svd(shifted, max_tucker_ranks=up_ranks, max_tt_ranks=left_ranks)
+    return retracted

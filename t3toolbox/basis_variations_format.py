@@ -541,11 +541,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         """Reverse the mode order. Left/right cores **swap roles** (reversing a left-orthogonal chain
         yields a right-orthogonal one), so ``new_left = reverse(old_right)`` and vice versa; the
         redundant L/R store makes this exact with no re-orthogonalization."""
-        rev = t3_operations.reverse_tt
-        return T3Basis(tuple(U.copy() for U in self.up_tucker_cores[::-1]),
-                       rev(self.down_tt_cores),
-                       rev(self.right_tt_cores),   # old right -> new left
-                       rev(self.left_tt_cores))    # old left  -> new right
+        return T3Basis(*bv_operations.reverse_basis(self.data))
 
     def to_t3(self) -> 't3.TuckerTensorTrain':
         """The base point this basis represents, as a :py:class:`TuckerTensorTrain` (natural ranks).
