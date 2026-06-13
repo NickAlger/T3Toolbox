@@ -917,10 +917,9 @@ def project_dense_onto_tangent(dense_tensor: NDArray, basis: bvf.T3Basis) -> T3T
     outside :py:class:`T3Tangent` because its input is a raw array, not a tangent. Leading axes beyond
     the ``d`` tensor modes are treated as a stack. Requires an orthogonal, minimal-rank ``basis``.
     """
-    Z = to_jax(dense_tensor) if tree_contains_jax(basis.data) else to_numpy(dense_tensor)
     d = len(basis.shape)
-    stack_shape = tuple(Z.shape[:Z.ndim - d])
-    x, _, _ = t3.TuckerTensorTrain.t3svd_dense(Z, stack_shape=stack_shape)
+    stack_shape = tuple(dense_tensor.shape[:dense_tensor.ndim - d])
+    x, _, _ = t3.TuckerTensorTrain.t3svd_dense(dense_tensor, stack_shape=stack_shape)
     return T3Tangent.project(x, basis)
 
 

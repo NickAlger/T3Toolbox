@@ -140,6 +140,16 @@ class TestDispatch(unittest.TestCase):
         self.assert_eager_jax(lambda a: a.t3svd(rtol=0.05), self.x)
         A = jnp.array(np.random.randn(8, 9))
         self.assert_eager_jax(lambda m: linalg.truncated_svd(m, rtol=0.05), A)
+        # project_dense_onto_tangent / riemannian_gradient: t3svd_dense picks ranks from the data
+        # -> dynamic shapes. Dispatch is pushed down (no top-level jax check), so the output is jax
+        # whenever ANY input is jax. jax dense + jax basis:
+        dense = jnp.array(np.random.randn(*STRUCT[0]))
+        self.assert_eager_jax(lambda z: t3m.project_dense_onto_tangent(z, self.base), dense)
+        self.assert_eager_jax(lambda z: t3m.riemannian_gradient(z, self.base), dense)
+        # jax dense + NUMPY basis must still give jax out (any input jax -> jax); the old code
+        # coerced the dense down to the basis's numpy here -- the regression this fix prevents.
+        base_np = self.base.to_numpy()
+        self.assert_eager_jax(lambda z: t3m.project_dense_onto_tangent(z, base_np), dense)
 
     # ---------------------------------------------------- numerical smoke tests (jax == numpy)
     def test_jax_matches_numpy_smoke(self):
