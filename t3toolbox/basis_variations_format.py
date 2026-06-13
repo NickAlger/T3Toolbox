@@ -561,6 +561,16 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         b = T3Basis(fam(0), fam(1), fam(2), fam(3))
         return b.to_jax() if use_jax else b
 
+    def reverse(self) -> 'T3Basis':
+        """Reverse the mode order. Left/right cores **swap roles** (reversing a left-orthogonal chain
+        yields a right-orthogonal one), so ``new_left = reverse(old_right)`` and vice versa; the
+        redundant L/R store makes this exact with no re-orthogonalization."""
+        rev = t3_operations.reverse_tt
+        return T3Basis(tuple(U.copy() for U in self.up_tucker_cores[::-1]),
+                       rev(self.down_tt_cores),
+                       rev(self.right_tt_cores),   # old right -> new left
+                       rev(self.left_tt_cores))    # old left  -> new right
+
 
 
 
@@ -882,6 +892,12 @@ class T3Variations:
             return tuple(npz[k] for k in ks)
         v = T3Variations(fam(0), fam(1))
         return v.to_jax() if use_jax else v
+
+    def reverse(self) -> 'T3Variations':
+        """Reverse the mode order (corewise): reverse the tucker-variation order and reverse+transpose
+        the tt-variations (bond swap), matching :py:meth:`T3Basis.reverse`."""
+        return T3Variations(tuple(V.copy() for V in self.tucker_variations[::-1]),
+                            t3_operations.reverse_tt(self.tt_variations))
 
 
 def check_bv_pair(base: T3Basis, variations: T3Variations) -> None:

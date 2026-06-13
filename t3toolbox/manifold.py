@@ -278,6 +278,13 @@ class T3Tangent:
         t = T3Tangent(bvf.T3Basis(fam(0), fam(1), fam(2), fam(3)), bvf.T3Variations(fam(4), fam(5)))
         return t.to_jax() if use_jax else t
 
+    def reverse(self) -> 'T3Tangent':
+        """Reverse the mode order of this tangent (reverses both the basis and the variations).
+
+        Commutes with :py:meth:`to_dense` (the dense tangent's mode axes are reversed). Lets you reverse
+        a T3 and its derived tangent without recomputing the orthogonal representation."""
+        return T3Tangent(self.basis.reverse(), self.variations.reverse())
+
     def retract(
             self,
     ) -> t3.TuckerTensorTrain:  # retracted Tucker tensor train (on the manifold)

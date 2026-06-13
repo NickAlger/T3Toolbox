@@ -143,6 +143,18 @@ class TestManifold(unittest.TestCase):
         self.assertEqual(0.0, cw.corewise_relerr(v.variations.data, v2.variations.data))
         self.assertEqual(0.0, cw.corewise_relerr(v.basis.data, v2.basis.data))
 
+    def test_reverse(self):
+        # T3Tangent.reverse commutes with to_dense (mode axes reversed); reverse is an involution.
+        STRUCT = ((5, 6, 4), (2, 3, 2), (1, 2, 2, 1)); d = 3
+        for C in [(), (2,)]:
+            for K in [(), (3,)]:
+                base = bvf.T3Basis.random_orthogonal(*STRUCT, stack_shape=C)
+                v = t3m.T3Tangent.randn(base, stack_shape=K, apply_gauge_projection=False)
+                D = np.asarray(v.to_dense()); ns = D.ndim - d
+                perm = tuple(range(ns)) + tuple(range(D.ndim - 1, ns - 1, -1))
+                self.check_relerr(D.transpose(perm), np.asarray(v.reverse().to_dense()))
+                self.check_relerr(D, np.asarray(v.reverse().reverse().to_dense()))
+
     def test_manifold_dim(self):
         self.assertEqual(578, t3m.manifold_dim(((15, 16, 13), (9, 10, 8), (2, 7, 6, 3))))
         self.assertEqual(29, t3m.manifold_dim(((5, 6, 3), (5, 3, 2), (2, 2, 4, 1))))

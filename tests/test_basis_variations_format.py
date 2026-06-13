@@ -355,6 +355,17 @@ class TestBasisVariationsFormat(unittest.TestCase):
             f = os.path.join(d, name + '.npz'); obj.save(f)
             self.assertEqual(0.0, cw.corewise_relerr(obj.data, loader(f).data))
 
+    def test_reverse(self):
+        # T3Basis.reverse stays orthogonal with reversed shape; reverse is an involution.
+        STRUCT = ((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
+        base = bvf.T3Basis.random_orthogonal(*STRUCT, stack_shape=(2,))
+        rb = base.reverse()
+        self.assertEqual(STRUCT[0][::-1], rb.shape)
+        self.assertTrue(rb.is_orthogonal())
+        self.assertEqual(base.structure, rb.reverse().structure)
+        var = bvf.T3Variations.randn(base.variation_shapes, stack_shape=(2,))
+        self.assertEqual(0.0, cw.corewise_relerr(var.data, var.reverse().reverse().data))
+
     def _assert_orthonormal(self, gram, n):
         # gram has shape stack_shape + (n, n); each stacked block must be the identity
         self.assertLessEqual(norm(np.asarray(gram) - np.eye(n)), tol)
