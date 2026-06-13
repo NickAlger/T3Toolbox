@@ -125,6 +125,24 @@ class TestManifold(unittest.TestCase):
         self.assertEqual(0.0, float(np.max(np.abs(zl.norm()))))
         self.assertEqual((3,), t3m.T3Tangent.randn_like(w).tangent_stack_shape)
 
+    def test_to_from_vector(self):
+        # T3Tangent.to_vector (variation DOF only) / from_vector round-trip.
+        base = bvf.T3Basis.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
+        v = t3m.T3Tangent.randn(base, stack_shape=(3,), apply_gauge_projection=False)
+        flat = v.to_vector()
+        self.assertEqual((v.variations.data_size,), flat.shape)   # variation DOF; basis excluded
+        v2 = t3m.T3Tangent.from_vector(flat, base, tangent_stack_shape=(3,))
+        self.assertEqual(0.0, cw.corewise_relerr(v.variations.data, v2.variations.data))
+
+    def test_save_load(self):
+        import tempfile, os
+        base = bvf.T3Basis.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))
+        v = t3m.T3Tangent.randn(base, stack_shape=(3,), apply_gauge_projection=False)
+        f = os.path.join(tempfile.mkdtemp(), 't.npz'); v.save(f)
+        v2 = t3m.T3Tangent.load(f)
+        self.assertEqual(0.0, cw.corewise_relerr(v.variations.data, v2.variations.data))
+        self.assertEqual(0.0, cw.corewise_relerr(v.basis.data, v2.basis.data))
+
     def test_manifold_dim(self):
         self.assertEqual(578, t3m.manifold_dim(((15, 16, 13), (9, 10, 8), (2, 7, 6, 3))))
         self.assertEqual(29, t3m.manifold_dim(((5, 6, 3), (5, 3, 2), (2, 2, 4, 1))))

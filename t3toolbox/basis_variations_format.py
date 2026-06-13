@@ -546,6 +546,21 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         return T3Basis.random_orthogonal(basis.shape, basis.up_ranks, basis.left_ranks,
                                          stack_shape=basis.stack_shape, use_jax=basis.contains_jax)
 
+    def save(self, file) -> None:
+        """Save the basis cores to a ``.npz`` file (load with :py:meth:`load`)."""
+        np.savez(file, **{'f%d_%d' % (fi, ci): np.asarray(c)
+                          for fi, fam in enumerate(self.data) for ci, c in enumerate(fam)})
+
+    @staticmethod
+    def load(file, use_jax: bool = False) -> 'T3Basis':
+        """Load a basis saved by :py:meth:`save`."""
+        npz = np.load(file)
+        def fam(fi):
+            ks = sorted((k for k in npz.files if k.startswith('f%d_' % fi)), key=lambda k: int(k.split('_', 1)[1]))
+            return tuple(npz[k] for k in ks)
+        b = T3Basis(fam(0), fam(1), fam(2), fam(3))
+        return b.to_jax() if use_jax else b
+
 
 
 
@@ -828,6 +843,45 @@ class T3Variations:
     def randn_like(x) -> 'T3Variations':
         """Random variations matching the structure (shapes + stack) of ``x`` (a T3Basis or T3Variations)."""
         return T3Variations.randn(x.variation_shapes, stack_shape=x.stack_shape, use_jax=x.contains_jax)
+
+    def to_vector(self) -> NDArray:
+        """Flatten the variation cores to a 1D vector (the tangent's degrees of freedom)."""
+        return t3_operations.t3_to_vector(self.data)
+
+    @staticmethod
+    def from_vector(flat, variation_shapes, stack_shape=()) -> 'T3Variations':
+        """Inverse of :py:meth:`to_vector`: rebuild variations of the given structure from a 1D vector.
+
+        ``variation_shapes = (tucker_variation_shapes, tt_variation_shapes)`` (e.g. a basis's
+        :py:attr:`T3Basis.variation_shapes`); ``stack_shape`` is the full leading stack ``K + C``.
+        """
+        xnp, _, _ = get_backend(False, tree_contains_jax(flat))
+        flat = xnp.asarray(flat)
+        tucker_shapes, tt_shapes = variation_shapes
+        full = ([tuple(stack_shape) + tuple(s) for s in tucker_shapes]
+                + [tuple(stack_shape) + tuple(s) for s in tt_shapes])
+        cores, o = [], 0
+        for shp in full:
+            n = int(np.prod(shp))
+            cores.append(flat[o:o + n].reshape(shp))
+            o += n
+        nt = len(tucker_shapes)
+        return T3Variations(tuple(cores[:nt]), tuple(cores[nt:]))
+
+    def save(self, file) -> None:
+        """Save the variation cores to a ``.npz`` file (load with :py:meth:`load`)."""
+        np.savez(file, **{'f%d_%d' % (fi, ci): np.asarray(c)
+                          for fi, fam in enumerate(self.data) for ci, c in enumerate(fam)})
+
+    @staticmethod
+    def load(file, use_jax: bool = False) -> 'T3Variations':
+        """Load variations saved by :py:meth:`save`."""
+        npz = np.load(file)
+        def fam(fi):
+            ks = sorted((k for k in npz.files if k.startswith('f%d_' % fi)), key=lambda k: int(k.split('_', 1)[1]))
+            return tuple(npz[k] for k in ks)
+        v = T3Variations(fam(0), fam(1))
+        return v.to_jax() if use_jax else v
 
 
 def check_bv_pair(base: T3Basis, variations: T3Variations) -> None:

@@ -337,6 +337,24 @@ class TestBasisVariationsFormat(unittest.TestCase):
         self.assertEqual(b.stack_shape, bvf.T3Variations.zeros_like(b).stack_shape)
         self.assertEqual(z.stack_shape, bvf.T3Variations.randn_like(z).stack_shape)
 
+    def test_to_from_vector(self):
+        # T3Variations.to_vector / from_vector round-trip (flat length == stored DOF).
+        base = bvf.T3Basis.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))
+        var = bvf.T3Variations.randn(base.variation_shapes, stack_shape=(3, 2))
+        flat = var.to_vector()
+        self.assertEqual((var.data_size,), flat.shape)
+        var2 = bvf.T3Variations.from_vector(flat, base.variation_shapes, stack_shape=(3, 2))
+        self.assertEqual(0.0, cw.corewise_relerr(var.data, var2.data))
+
+    def test_save_load(self):
+        import tempfile, os
+        base = bvf.T3Basis.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))
+        var = bvf.T3Variations.randn(base.variation_shapes, stack_shape=(2,))
+        d = tempfile.mkdtemp()
+        for obj, loader, name in [(base, bvf.T3Basis.load, 'b'), (var, bvf.T3Variations.load, 'v')]:
+            f = os.path.join(d, name + '.npz'); obj.save(f)
+            self.assertEqual(0.0, cw.corewise_relerr(obj.data, loader(f).data))
+
     def _assert_orthonormal(self, gram, n):
         # gram has shape stack_shape + (n, n); each stacked block must be the identity
         self.assertLessEqual(norm(np.asarray(gram) - np.eye(n)), tol)

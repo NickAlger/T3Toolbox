@@ -246,6 +246,38 @@ class T3Tangent:
         )
         return t3.TuckerTensorTrain(*cores)
 
+    def to_vector(self) -> NDArray:
+        """Flatten this tangent's variation degrees of freedom to a 1D vector (the basis is the fixed
+        point and is *not* included). The optimization interface (pairs with :py:meth:`from_vector`)."""
+        return self.variations.to_vector()
+
+    @staticmethod
+    def from_vector(flat, basis: bvf.T3Basis, tangent_stack_shape=()) -> 'T3Tangent':
+        """Inverse of :py:meth:`to_vector`: rebuild the tangent at ``basis`` from a 1D DOF vector.
+
+        ``tangent_stack_shape`` is the tangent stack ``K`` (default ``()``); the variations are rebuilt
+        with stack ``K + basis.stack_shape``.
+        """
+        variations = bvf.T3Variations.from_vector(
+            flat, basis.variation_shapes, stack_shape=tuple(tangent_stack_shape) + basis.stack_shape)
+        return T3Tangent(basis, variations)
+
+    def save(self, file) -> None:
+        """Save the basis + variation cores to a ``.npz`` file (load with :py:meth:`load`)."""
+        data = self.basis.data + self.variations.data   # 4 basis families + 2 variation families
+        np.savez(file, **{'f%d_%d' % (fi, ci): np.asarray(c)
+                          for fi, fam in enumerate(data) for ci, c in enumerate(fam)})
+
+    @staticmethod
+    def load(file, use_jax: bool = False) -> 'T3Tangent':
+        """Load a tangent saved by :py:meth:`save`."""
+        npz = np.load(file)
+        def fam(fi):
+            ks = sorted((k for k in npz.files if k.startswith('f%d_' % fi)), key=lambda k: int(k.split('_', 1)[1]))
+            return tuple(npz[k] for k in ks)
+        t = T3Tangent(bvf.T3Basis(fam(0), fam(1), fam(2), fam(3)), bvf.T3Variations(fam(4), fam(5)))
+        return t.to_jax() if use_jax else t
+
     def retract(
             self,
     ) -> t3.TuckerTensorTrain:  # retracted Tucker tensor train (on the manifold)
