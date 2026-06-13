@@ -130,7 +130,24 @@ class T3Tangent:
     variations: bvf.T3Variations
 
     def __post_init__(self):
+        self.validate()
+
+    def validate(self) -> None:
+        """Validate this tangent: both components well-formed and a compatible (basis, variations) pair.
+
+        Runs ``basis.validate()`` + ``variations.validate()`` + the bv-pair compatibility check
+        (:py:func:`~t3toolbox.basis_variations_format.check_bv_pair`). Structural only (shapes/ranks), so
+        it is safe to run in ``__post_init__`` (which it is, on every construction) and under jit/pytree
+        tracing.
+        """
+        self.basis.validate()
+        self.variations.validate()
         bvf.check_bv_pair(self.basis, self.variations)
+
+    def __repr__(self) -> str:
+        return (f"T3Tangent(shape={self.shape}, tucker_ranks={self.basis.up_ranks}, "
+                f"tt_ranks={self.basis.left_ranks}, tangent_stack={self.tangent_stack_shape}, "
+                f"base_stack={self.base_stack_shape})")
 
     @ft.cached_property
     def d(self) -> int:
@@ -167,6 +184,33 @@ class T3Tangent:
     @ft.cached_property
     def data(self) -> typ.Tuple[bvf.T3Basis, bvf.T3Variations]:
         return self.basis, self.variations
+
+    def to_jax(self) -> 'T3Tangent':
+        """Copy with basis and variation cores converted to jax arrays."""
+        return T3Tangent(self.basis.to_jax(), self.variations.to_jax())
+
+    def to_numpy(self) -> 'T3Tangent':
+        """Copy with basis and variation cores converted to numpy arrays."""
+        return T3Tangent(self.basis.to_numpy(), self.variations.to_numpy())
+
+    def copy(self) -> 'T3Tangent':
+        """Deep copy (copies the basis and variation cores)."""
+        return T3Tangent(self.basis.copy(), self.variations.copy())
+
+    @ft.cached_property
+    def contains_jax(self) -> bool:
+        """True if any basis or variation core is a jax array."""
+        return self.basis.contains_jax or self.variations.contains_jax
+
+    @ft.cached_property
+    def size(self) -> int:
+        """Number of elements of the represented dense tangent vector (``prod(shape)``)."""
+        return int(np.prod(self.shape))
+
+    @ft.cached_property
+    def data_size(self) -> int:
+        """Number of stored core entries (size on disk): basis + variations."""
+        return self.basis.data_size + self.variations.data_size
 
     ############################################
     ##########    Conversions    ###############
@@ -350,6 +394,20 @@ class T3Tangent:
     ############################################
     ##########    Validity checkers    #########
     ############################################
+
+    @ft.cached_property
+    def minimal_ranks(self):
+        """Structural minimal ranks of this tangent's base point. See :py:attr:`T3Basis.minimal_ranks`."""
+        return self.basis.minimal_ranks
+
+    @ft.cached_property
+    def tangent_space_dimension(self) -> int:
+        """Dimension of the tangent space at this base point (= the fixed-rank manifold dimension).
+
+        Computed from the structurally-minimal ranks (gauge already quotiented), so it equals the true
+        tangent-space dimension for a minimal-rank base point. See :py:func:`manifold_dim`.
+        """
+        return manifold_dim((self.shape, self.basis.up_ranks, self.basis.left_ranks))
 
     @ft.cached_property
     def has_minimal_ranks(self) -> bool:

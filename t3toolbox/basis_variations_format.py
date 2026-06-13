@@ -223,6 +223,38 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
     ]:
         return self.up_tucker_cores, self.down_tt_cores, self.left_tt_cores, self.right_tt_cores
 
+    def to_jax(self) -> 'T3Basis':
+        """Copy with all basis cores converted to jax arrays."""
+        return T3Basis(*[tuple(to_jax(c) for c in fam) for fam in self.data])
+
+    def to_numpy(self) -> 'T3Basis':
+        """Copy with all basis cores converted to numpy arrays."""
+        return T3Basis(*[tuple(to_numpy(c) for c in fam) for fam in self.data])
+
+    def copy(self) -> 'T3Basis':
+        """Deep copy (copies every basis core)."""
+        return T3Basis(*[tuple(c.copy() for c in fam) for fam in self.data])
+
+    @ft.cached_property
+    def contains_jax(self) -> bool:
+        """True if any basis core is a jax array."""
+        return tree_contains_jax(self.data)
+
+    @ft.cached_property
+    def size(self) -> int:
+        """Number of elements of the represented (base-point) dense tensor (``prod(shape)``)."""
+        return int(np.prod(self.shape))
+
+    @ft.cached_property
+    def data_size(self) -> int:
+        """Number of stored core entries (size on disk)."""
+        return sum(int(c.size) for fam in self.data for c in fam)
+
+    def __repr__(self) -> str:
+        ss = f", stack_shape={self.stack_shape}" if self.stack_shape else ""
+        return (f"T3Basis(shape={self.shape}, up_ranks={self.up_ranks}, "
+                f"left_ranks={self.left_ranks}{ss})")
+
     def is_orthogonal(self, atol: float = 1e-9) -> bool:
         '''True if the basis cores are orthogonal in their respective senses.
 
@@ -270,6 +302,15 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         return resid <= atol
 
     @ft.cached_property
+    def minimal_ranks(self) -> typ.Tuple[typ.Tuple[int, ...], typ.Tuple[int, ...]]:
+        """Structural minimal ranks ``(min_tucker_ranks, min_tt_ranks)`` for this basis's shape/ranks.
+
+        **Structural**: computed from the rank tuples + shape, not the numerical core values (see
+        :py:meth:`TuckerTensorTrain.get_minimal_ranks`).
+        """
+        return t3.TuckerTensorTrain.get_minimal_ranks(self.shape, self.up_ranks, self.left_ranks)
+
+    @ft.cached_property
     def has_minimal_ranks(self) -> bool:
         '''True if the basis has minimal ranks.
 
@@ -305,9 +346,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
             return False
         if tuple(self.up_ranks) != tuple(self.down_ranks):
             return False
-        min_tucker_ranks, min_tt_ranks = t3.TuckerTensorTrain.get_minimal_ranks(
-            self.shape, self.up_ranks, self.left_ranks,
-        )
+        min_tucker_ranks, min_tt_ranks = self.minimal_ranks
         return (tuple(map(int, min_tucker_ranks)) == tuple(map(int, self.up_ranks))
                 and tuple(map(int, min_tt_ranks)) == tuple(map(int, self.left_ranks)))
 
@@ -577,6 +616,37 @@ class T3Variations:
         typ.Tuple[NDArray,...], # tt_variations
     ]:
         return self.tucker_variations, self.tt_variations
+
+    def to_jax(self) -> 'T3Variations':
+        """Copy with all variation cores converted to jax arrays."""
+        return T3Variations(*[tuple(to_jax(c) for c in fam) for fam in self.data])
+
+    def to_numpy(self) -> 'T3Variations':
+        """Copy with all variation cores converted to numpy arrays."""
+        return T3Variations(*[tuple(to_numpy(c) for c in fam) for fam in self.data])
+
+    def copy(self) -> 'T3Variations':
+        """Deep copy (copies every variation core)."""
+        return T3Variations(*[tuple(c.copy() for c in fam) for fam in self.data])
+
+    @ft.cached_property
+    def contains_jax(self) -> bool:
+        """True if any variation core is a jax array."""
+        return tree_contains_jax(self.data)
+
+    @ft.cached_property
+    def size(self) -> int:
+        """Number of elements of the represented dense tensor (``prod(shape)``)."""
+        return int(np.prod(self.shape))
+
+    @ft.cached_property
+    def data_size(self) -> int:
+        """Number of stored core entries (size on disk)."""
+        return sum(int(c.size) for fam in self.data for c in fam)
+
+    def __repr__(self) -> str:
+        ss = f", stack_shape={self.stack_shape}" if self.stack_shape else ""
+        return f"T3Variations(shape={self.shape}{ss})"
 
     def validate(self) -> None:
         '''Check rank and shape consistency of Tucker tensor train variations (`T3Variations`).

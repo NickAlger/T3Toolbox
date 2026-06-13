@@ -64,6 +64,14 @@ class TestTuckerTensorTrain(unittest.TestCase):
     def check_relerr(self, xtrue, x):
         self.assertLessEqual(norm(xtrue - x), tol * norm(xtrue))
 
+    def test_repr(self):
+        x = t3.TuckerTensorTrain.randn((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
+        self.assertEqual(
+            "TuckerTensorTrain(shape=(5, 6, 4), tucker_ranks=(2, 3, 2), tt_ranks=(1, 2, 2, 1))", repr(x))
+        xs = t3.TuckerTensorTrain.randn((5, 6, 4), (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))
+        self.assertIn("stack_shape=(2,)", repr(xs))
+        self.assertNotIn("array", repr(x))
+
     def test_t3_validate(self):
         tucker_cores = [np.ones((2,3, 4,14)), np.ones((2,3, 5,15)), np.ones((2,3, 6,16))]
         tt_cores = [np.ones((2,3, 5,4,3)), np.ones((2,3, 3,5,2)), np.ones((2,3, 2,6,3))]

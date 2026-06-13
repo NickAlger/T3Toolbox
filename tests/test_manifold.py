@@ -78,6 +78,37 @@ class TestManifold(unittest.TestCase):
         xtrue, x = np.asarray(xtrue), np.asarray(x)
         self.assertLessEqual(norm(xtrue - x), tol * norm(xtrue))
 
+    def test_metadata_repr_validate(self):
+        # T3Tangent slice-1: size/data_size, minimal_ranks, tangent_space_dimension, copy, repr, validate.
+        STRUCT = ((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
+        v = None
+        for C in [(), (2,)]:
+            for K in [(), (3,)]:
+                x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
+                base, _ = bvf.t3_orthogonal_representations(x)
+                v = t3m.T3Tangent.randn(base, stack_shape=K, apply_gauge_projection=False)
+                self.assertEqual(int(np.prod(STRUCT[0])), v.size)                 # dense element count
+                self.assertEqual(v.basis.data_size + v.variations.data_size, v.data_size)
+                self.assertEqual(base.minimal_ranks, v.minimal_ranks)            # delegates to basis
+                self.assertEqual(t3m.manifold_dim((base.shape, base.up_ranks, base.left_ranks)),
+                                 v.tangent_space_dimension)
+                cp = v.copy(); cp.variations.tucker_variations[0][...] = 9.0      # copy is independent
+                self.assertFalse(np.allclose(np.asarray(v.variations.tucker_variations[0]), 9.0))
+                self.assertIn("T3Tangent", repr(v)); self.assertNotIn("array", repr(v))
+                v.validate()   # valid tangent; also runs in __post_init__
+        # __post_init__ validate rejects an incompatible (basis, variations) pair
+        b1, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STRUCT))
+        _, var2 = bvf.t3_orthogonal_representations(
+            t3.TuckerTensorTrain.randn((5, 6, 4), (3, 3, 3), (1, 2, 2, 1)))
+        with self.assertRaises(Exception):
+            t3m.T3Tangent(b1, var2)
+        try:
+            import jax  # noqa: F401
+            self.assertTrue(v.to_jax().contains_jax)
+            self.assertFalse(v.to_jax().to_numpy().contains_jax)
+        except ImportError:
+            pass
+
     def test_manifold_dim(self):
         self.assertEqual(578, t3m.manifold_dim(((15, 16, 13), (9, 10, 8), (2, 7, 6, 3))))
         self.assertEqual(29, t3m.manifold_dim(((5, 6, 3), (5, 3, 2), (2, 2, 4, 1))))

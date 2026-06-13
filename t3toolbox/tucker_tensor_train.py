@@ -332,6 +332,11 @@ class TuckerTensorTrain:
         """
         return tuple(self.tucker_cores), tuple(self.tt_cores)
 
+    def __repr__(self) -> str:
+        ss = f", stack_shape={self.stack_shape}" if self.stack_shape else ""
+        return (f"TuckerTensorTrain(shape={self.shape}, tucker_ranks={self.tucker_ranks}, "
+                f"tt_ranks={self.tt_ranks}{ss})")
+
     @cached_property
     def d(self) -> int:
         """Number of indices of the tensor. ``d=len(tucker_cores)=len(tt_cores)``

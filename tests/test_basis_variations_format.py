@@ -290,6 +290,30 @@ class TestBasisVariationsFormat(unittest.TestCase):
         xtrue, x = np.asarray(xtrue), np.asarray(x)
         self.assertLessEqual(norm(xtrue - x), tol * norm(xtrue))
 
+    def test_metadata_repr_backend(self):
+        # T3Basis / T3Variations slice-1: size/data_size, minimal_ranks, backend-convert, copy, repr.
+        STRUCT = ((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
+        for C in [(), (2,)]:
+            x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
+            base, var = bvf.t3_orthogonal_representations(x)
+            for obj in (base, var):
+                self.assertEqual(int(np.prod(STRUCT[0])), obj.size)            # dense element count
+                self.assertEqual(sum(int(c.size) for fam in obj.data for c in fam), obj.data_size)
+                self.assertFalse(obj.contains_jax)
+                cp = obj.copy(); cp.data[0][0][...] = 7.0                       # copy is independent
+                self.assertFalse(np.allclose(np.asarray(obj.data[0][0]), 7.0))
+                self.assertIn(type(obj).__name__, repr(obj))                   # concise repr (no array dump)
+                self.assertNotIn("array", repr(obj))
+            self.assertEqual(                                                  # structural minimal ranks
+                t3.TuckerTensorTrain.get_minimal_ranks(base.shape, base.up_ranks, base.left_ranks),
+                base.minimal_ranks)
+            try:
+                import jax  # noqa: F401
+                self.assertTrue(base.to_jax().contains_jax and var.to_jax().contains_jax)
+                self.assertFalse(base.to_jax().to_numpy().contains_jax)
+            except ImportError:
+                pass
+
     def _assert_orthonormal(self, gram, n):
         # gram has shape stack_shape + (n, n); each stacked block must be the identity
         self.assertLessEqual(norm(np.asarray(gram) - np.eye(n)), tol)
