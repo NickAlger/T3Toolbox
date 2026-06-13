@@ -276,6 +276,8 @@
 <li class="toctree-l3"><a class="reference internal" href="corewise_sum.html">corewise_sum</a></li>
 <li class="toctree-l3"><a class="reference internal" href="corewise_dot.html">corewise_dot</a></li>
 <li class="toctree-l3"><a class="reference internal" href="corewise_stack_dot.html">corewise_stack_dot</a></li>
+<li class="toctree-l3"><a class="reference internal" href="corewise_stack_scale.html">corewise_stack_scale</a></li>
+<li class="toctree-l3"><a class="reference internal" href="corewise_stack_sum.html">corewise_stack_sum</a></li>
 <li class="toctree-l3"><a class="reference internal" href="corewise_norm.html">corewise_norm</a></li>
 <li class="toctree-l3"><a class="reference internal" href="corewise_err.html">corewise_err</a></li>
 <li class="toctree-l3"><a class="reference internal" href="corewise_relerr.html">corewise_relerr</a></li>
@@ -444,6 +446,12 @@
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="corewise_stack_dot.html#t3toolbox.corewise.corewise_stack_dot" title="t3toolbox.corewise.corewise_stack_dot"><code class="xref py py-obj docutils literal notranslate"><span class="pre">corewise_stack_dot</span></code></a>(X, Y, n_stack)</p></td>
 <td><p>Like corewise_dot, but vectorized over the leading <code class="docutils literal notranslate"><span class="pre">n_stack</span></code> (stack) axes.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="corewise_stack_scale.html#t3toolbox.corewise.corewise_stack_scale" title="t3toolbox.corewise.corewise_stack_scale"><code class="xref py py-obj docutils literal notranslate"><span class="pre">corewise_stack_scale</span></code></a>(X, s)</p></td>
+<td><p>Scale each leaf by a per-stack-slice factor <code class="docutils literal notranslate"><span class="pre">s</span></code>, broadcasting <code class="docutils literal notranslate"><span class="pre">s</span></code> over each leaf's trailing</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="corewise_stack_sum.html#t3toolbox.corewise.corewise_stack_sum" title="t3toolbox.corewise.corewise_stack_sum"><code class="xref py py-obj docutils literal notranslate"><span class="pre">corewise_stack_sum</span></code></a>(X, axis, n_stack)</p></td>
+<td><p>Sum each leaf over stack axes, vectorized.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="corewise_norm.html#t3toolbox.corewise.corewise_norm" title="t3toolbox.corewise.corewise_norm"><code class="xref py py-obj docutils literal notranslate"><span class="pre">corewise_norm</span></code></a>(X)</p></td>
 <td><p>Norm of nested objects, X -&gt; ||X||</p></td>

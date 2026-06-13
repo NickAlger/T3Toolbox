@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>TuckerTensorTrain.__repr__ &#8212; T3Toolbox 0.1 documentation</title>
+    <title>corewise_stack_sum &#8212; T3Toolbox 0.1 documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.__repr__';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/corewise/corewise_stack_sum';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="TuckerTensorTrain.get_core_shapes" href="TuckerTensorTrain.get_core_shapes.html" />
-    <link rel="prev" title="TuckerTensorTrain" href="TuckerTensorTrain.html" />
+    <link rel="next" title="corewise_norm" href="corewise_norm.html" />
+    <link rel="prev" title="corewise_stack_scale" href="corewise_stack_scale.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -268,76 +268,76 @@
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
   <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
 <li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">t3toolbox</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2 has-children"><a class="reference internal" href="../corewise/index.html">corewise</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_add.html">corewise_add</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_sub.html">corewise_sub</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_scale.html">corewise_scale</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_neg.html">corewise_neg</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_sum.html">corewise_sum</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_dot.html">corewise_dot</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_stack_dot.html">corewise_stack_dot</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_stack_scale.html">corewise_stack_scale</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_stack_sum.html">corewise_stack_sum</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_norm.html">corewise_norm</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_err.html">corewise_err</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_relerr.html">corewise_relerr</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_logical_not.html">corewise_logical_not</a></li>
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">corewise</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="corewise_add.html">corewise_add</a></li>
+<li class="toctree-l3"><a class="reference internal" href="corewise_sub.html">corewise_sub</a></li>
+<li class="toctree-l3"><a class="reference internal" href="corewise_scale.html">corewise_scale</a></li>
+<li class="toctree-l3"><a class="reference internal" href="corewise_neg.html">corewise_neg</a></li>
+<li class="toctree-l3"><a class="reference internal" href="corewise_sum.html">corewise_sum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="corewise_dot.html">corewise_dot</a></li>
+<li class="toctree-l3"><a class="reference internal" href="corewise_stack_dot.html">corewise_stack_dot</a></li>
+<li class="toctree-l3"><a class="reference internal" href="corewise_stack_scale.html">corewise_stack_scale</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">corewise_stack_sum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="corewise_norm.html">corewise_norm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="corewise_err.html">corewise_err</a></li>
+<li class="toctree-l3"><a class="reference internal" href="corewise_relerr.html">corewise_relerr</a></li>
+<li class="toctree-l3"><a class="reference internal" href="corewise_logical_not.html">corewise_logical_not</a></li>
 </ul>
 </details></li>
-<li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">tucker_tensor_train</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l3 current active has-children"><a class="reference internal" href="TuckerTensorTrain.html">TuckerTensorTrain</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l4 current active"><a class="current reference internal" href="#">TuckerTensorTrain.__repr__</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.get_core_shapes.html">TuckerTensorTrain.get_core_shapes</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.get_minimal_ranks.html">TuckerTensorTrain.get_minimal_ranks</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.validate.html">TuckerTensorTrain.validate</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.__post_init__.html">TuckerTensorTrain.__post_init__</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.to_dense.html">TuckerTensorTrain.to_dense</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.segment.html">TuckerTensorTrain.segment</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.concatenate.html">TuckerTensorTrain.concatenate</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.squash.html">TuckerTensorTrain.squash</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.reverse.html">TuckerTensorTrain.reverse</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.resize.html">TuckerTensorTrain.resize</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.to_jax.html">TuckerTensorTrain.to_jax</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.to_numpy.html">TuckerTensorTrain.to_numpy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.copy.html">TuckerTensorTrain.copy</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.unstack.html">TuckerTensorTrain.unstack</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.stack.html">TuckerTensorTrain.stack</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.zeros.html">TuckerTensorTrain.zeros</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.ones.html">TuckerTensorTrain.ones</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.randn.html">TuckerTensorTrain.randn</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.from_canonical.html">TuckerTensorTrain.from_canonical</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.from_tensor_train.html">TuckerTensorTrain.from_tensor_train</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.to_tensor_train.html">TuckerTensorTrain.to_tensor_train</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.to_vector.html">TuckerTensorTrain.to_vector</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.from_vector.html">TuckerTensorTrain.from_vector</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.save.html">TuckerTensorTrain.save</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.load.html">TuckerTensorTrain.load</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.__add__.html">TuckerTensorTrain.__add__</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.__mul__.html">TuckerTensorTrain.__mul__</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.__neg__.html">TuckerTensorTrain.__neg__</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.__sub__.html">TuckerTensorTrain.__sub__</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.inner.html">TuckerTensorTrain.inner</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.norm.html">TuckerTensorTrain.norm</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.sum.html">TuckerTensorTrain.sum</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.sum_stack.html">TuckerTensorTrain.sum_stack</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.sum_stack_corewise.html">TuckerTensorTrain.sum_stack_corewise</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.down_svd_tucker_core.html">TuckerTensorTrain.down_svd_tucker_core</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.left_svd_tt_core.html">TuckerTensorTrain.left_svd_tt_core</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.right_svd_tt_core.html">TuckerTensorTrain.right_svd_tt_core</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.up_svd_tt_core.html">TuckerTensorTrain.up_svd_tt_core</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.orthogonalize_relative_to_tucker_core.html">TuckerTensorTrain.orthogonalize_relative_to_tucker_core</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.orthogonalize_relative_to_tt_core.html">TuckerTensorTrain.orthogonalize_relative_to_tt_core</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.down_orthogonalize_tucker_cores.html">TuckerTensorTrain.down_orthogonalize_tucker_cores</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.up_orthogonalize_tt_cores.html">TuckerTensorTrain.up_orthogonalize_tt_cores</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.left_orthogonalize_tt_cores.html">TuckerTensorTrain.left_orthogonalize_tt_cores</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.right_orthogonalize_tt_cores.html">TuckerTensorTrain.right_orthogonalize_tt_cores</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.entries.html">TuckerTensorTrain.entries</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.apply.html">TuckerTensorTrain.apply</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.probe.html">TuckerTensorTrain.probe</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.apply_transpose.html">TuckerTensorTrain.apply_transpose</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.entries_transpose.html">TuckerTensorTrain.entries_transpose</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.t3svd.html">TuckerTensorTrain.t3svd</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.t3svd_dense.html">TuckerTensorTrain.t3svd_dense</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../tucker_tensor_train/index.html">tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.html">TuckerTensorTrain</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.__repr__.html">TuckerTensorTrain.__repr__</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.get_core_shapes.html">TuckerTensorTrain.get_core_shapes</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.get_minimal_ranks.html">TuckerTensorTrain.get_minimal_ranks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.validate.html">TuckerTensorTrain.validate</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.__post_init__.html">TuckerTensorTrain.__post_init__</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.to_dense.html">TuckerTensorTrain.to_dense</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.segment.html">TuckerTensorTrain.segment</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.concatenate.html">TuckerTensorTrain.concatenate</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.squash.html">TuckerTensorTrain.squash</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.reverse.html">TuckerTensorTrain.reverse</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.resize.html">TuckerTensorTrain.resize</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.to_jax.html">TuckerTensorTrain.to_jax</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.to_numpy.html">TuckerTensorTrain.to_numpy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.copy.html">TuckerTensorTrain.copy</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.unstack.html">TuckerTensorTrain.unstack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.stack.html">TuckerTensorTrain.stack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.zeros.html">TuckerTensorTrain.zeros</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.ones.html">TuckerTensorTrain.ones</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.randn.html">TuckerTensorTrain.randn</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.from_canonical.html">TuckerTensorTrain.from_canonical</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.from_tensor_train.html">TuckerTensorTrain.from_tensor_train</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.to_tensor_train.html">TuckerTensorTrain.to_tensor_train</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.to_vector.html">TuckerTensorTrain.to_vector</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.from_vector.html">TuckerTensorTrain.from_vector</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.save.html">TuckerTensorTrain.save</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.load.html">TuckerTensorTrain.load</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.__add__.html">TuckerTensorTrain.__add__</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.__mul__.html">TuckerTensorTrain.__mul__</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.__neg__.html">TuckerTensorTrain.__neg__</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.__sub__.html">TuckerTensorTrain.__sub__</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.inner.html">TuckerTensorTrain.inner</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.norm.html">TuckerTensorTrain.norm</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.sum.html">TuckerTensorTrain.sum</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.sum_stack.html">TuckerTensorTrain.sum_stack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.sum_stack_corewise.html">TuckerTensorTrain.sum_stack_corewise</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.down_svd_tucker_core.html">TuckerTensorTrain.down_svd_tucker_core</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.left_svd_tt_core.html">TuckerTensorTrain.left_svd_tt_core</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.right_svd_tt_core.html">TuckerTensorTrain.right_svd_tt_core</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.up_svd_tt_core.html">TuckerTensorTrain.up_svd_tt_core</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.orthogonalize_relative_to_tucker_core.html">TuckerTensorTrain.orthogonalize_relative_to_tucker_core</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.orthogonalize_relative_to_tt_core.html">TuckerTensorTrain.orthogonalize_relative_to_tt_core</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.down_orthogonalize_tucker_cores.html">TuckerTensorTrain.down_orthogonalize_tucker_cores</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.up_orthogonalize_tt_cores.html">TuckerTensorTrain.up_orthogonalize_tt_cores</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.left_orthogonalize_tt_cores.html">TuckerTensorTrain.left_orthogonalize_tt_cores</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.right_orthogonalize_tt_cores.html">TuckerTensorTrain.right_orthogonalize_tt_cores</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.entries.html">TuckerTensorTrain.entries</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.apply.html">TuckerTensorTrain.apply</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.probe.html">TuckerTensorTrain.probe</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.apply_transpose.html">TuckerTensorTrain.apply_transpose</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.entries_transpose.html">TuckerTensorTrain.entries_transpose</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.t3svd.html">TuckerTensorTrain.t3svd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.t3svd_dense.html">TuckerTensorTrain.t3svd_dense</a></li>
 </ul>
 </details></li>
 </ul>
@@ -391,12 +391,9 @@
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">t3toolbox</a></li>
     
     
-    <li class="breadcrumb-item"><a href="index.html" class="nav-link">tucker_tensor_train</a></li>
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">corewise</a></li>
     
-    
-    <li class="breadcrumb-item"><a href="TuckerTensorTrain.html" class="nav-link">TuckerTensorTrain</a></li>
-    
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">TuckerTensorTrain.__repr__</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">corewise_stack_sum</span></li>
   </ul>
 </nav>
 </div>
@@ -413,14 +410,31 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="tuckertensortrain-repr">
-<h1>TuckerTensorTrain.__repr__<a class="headerlink" href="#tuckertensortrain-repr" title="Link to this heading">#</a></h1>
-<dl class="py method">
-<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.__repr__">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.</span></span><span class="sig-name descname"><span class="pre">__repr__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.__repr__" title="Link to this definition">#</a></dt>
-<dd><dl class="field-list simple">
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><em>str</em></p>
+  <section id="corewise-stack-sum">
+<h1>corewise_stack_sum<a class="headerlink" href="#corewise-stack-sum" title="Link to this heading">#</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="t3toolbox.corewise.corewise_stack_sum">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.corewise.</span></span><span class="sig-name descname"><span class="pre">corewise_stack_sum</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">X</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">axis</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_stack</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.corewise.corewise_stack_sum" title="Link to this definition">#</a></dt>
+<dd><p>Sum each leaf over stack axes, vectorized.</p>
+<p>Normalizes <code class="docutils literal notranslate"><span class="pre">axis</span></code> against the <code class="docutils literal notranslate"><span class="pre">n_stack</span></code> leading (stack) axes (<code class="docutils literal notranslate"><span class="pre">None</span></code> -&gt; all of them; negative
+axes wrap relative to <code class="docutils literal notranslate"><span class="pre">n_stack</span></code>), then <a class="reference internal" href="corewise_sum.html#t3toolbox.corewise.corewise_sum" title="t3toolbox.corewise.corewise_sum"><code class="xref py py-func docutils literal notranslate"><span class="pre">corewise_sum()</span></code></a> over those axes.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.corewise</span> <span class="k">as</span> <span class="nn">cw</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">X</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">)),)</span>   <span class="c1"># stack=(2, 3), then a core axis</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">cw</span><span class="o">.</span><span class="n">corewise_stack_sum</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="mi">2</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>   <span class="c1"># sum both stack axes</span>
+<span class="go">(4,)</span>
+</pre></div>
+</div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>X</strong> (<a class="reference internal" href="index.html#t3toolbox.corewise.NDArrayTree" title="t3toolbox.corewise.NDArrayTree"><em>NDArrayTree</em></a>)</p></li>
+<li><p><strong>n_stack</strong> (<em>int</em>)</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="index.html#t3toolbox.corewise.NDArrayTree" title="t3toolbox.corewise.NDArrayTree"><em>NDArrayTree</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -438,20 +452,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="TuckerTensorTrain.html"
+       href="corewise_stack_scale.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">TuckerTensorTrain</p>
+        <p class="prev-next-title">corewise_stack_scale</p>
       </div>
     </a>
     <a class="right-next"
-       href="TuckerTensorTrain.get_core_shapes.html"
+       href="corewise_norm.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">TuckerTensorTrain.get_core_shapes</p>
+        <p class="prev-next-title">corewise_norm</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -474,14 +488,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.__repr__"><code class="docutils literal notranslate"><span class="pre">__repr__()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.corewise.corewise_stack_sum"><code class="docutils literal notranslate"><span class="pre">corewise_stack_sum()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.__repr__.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/corewise/corewise_stack_sum.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

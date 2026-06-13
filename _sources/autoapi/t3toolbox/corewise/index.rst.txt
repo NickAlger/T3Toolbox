@@ -26,6 +26,8 @@ Functions
    /autoapi/t3toolbox/corewise/corewise_sum
    /autoapi/t3toolbox/corewise/corewise_dot
    /autoapi/t3toolbox/corewise/corewise_stack_dot
+   /autoapi/t3toolbox/corewise/corewise_stack_scale
+   /autoapi/t3toolbox/corewise/corewise_stack_sum
    /autoapi/t3toolbox/corewise/corewise_norm
    /autoapi/t3toolbox/corewise/corewise_err
    /autoapi/t3toolbox/corewise/corewise_relerr
@@ -40,6 +42,8 @@ Functions
    t3toolbox.corewise.corewise_sum
    t3toolbox.corewise.corewise_dot
    t3toolbox.corewise.corewise_stack_dot
+   t3toolbox.corewise.corewise_stack_scale
+   t3toolbox.corewise.corewise_stack_sum
    t3toolbox.corewise.corewise_norm
    t3toolbox.corewise.corewise_err
    t3toolbox.corewise.corewise_relerr

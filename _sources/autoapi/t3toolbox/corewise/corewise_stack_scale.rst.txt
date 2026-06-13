@@ -1,0 +1,20 @@
+corewise_stack_scale
+====================
+
+.. py:function:: t3toolbox.corewise.corewise_stack_scale(X, s)
+
+   Scale each leaf by a per-stack-slice factor ``s``, broadcasting ``s`` over each leaf's trailing
+   (non-stack) axes.
+
+   ``s`` has shape equal to the leading stack shape; each leaf has shape ``stack_shape + (core dims)``.
+   A scalar ``s`` (ndim 0) scales every entry uniformly, matching :py:func:`corewise_scale`.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.corewise as cw
+   >>> X = (np.ones((2, 3)), np.ones((2, 4, 5)))   # stack=(2,), then core axes
+   >>> out = cw.corewise_stack_scale(X, np.array([10., 100.]))
+   >>> print(out[0][:, 0], out[1][:, 0, 0])
+   [ 10. 100.] [ 10. 100.]
+

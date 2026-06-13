@@ -1,0 +1,18 @@
+corewise_stack_sum
+==================
+
+.. py:function:: t3toolbox.corewise.corewise_stack_sum(X, axis, n_stack)
+
+   Sum each leaf over stack axes, vectorized.
+
+   Normalizes ``axis`` against the ``n_stack`` leading (stack) axes (``None`` -> all of them; negative
+   axes wrap relative to ``n_stack``), then :py:func:`corewise_sum` over those axes.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.corewise as cw
+   >>> X = (np.ones((2, 3, 4)),)   # stack=(2, 3), then a core axis
+   >>> print(cw.corewise_stack_sum(X, None, 2)[0].shape)   # sum both stack axes
+   (4,)
+
