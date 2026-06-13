@@ -13,18 +13,29 @@ TuckerTensorTrain.t3svd
    :param max_tucker_ranks: Maximum Tucker ranks ``ni``, e.g., ``(5,5,5)``. ``len(max_tucker_ranks)=d``.
                             Default: no max Tucker rank truncation (``None``).
    :type max_tucker_ranks: Sequence[int], optional
-   :param rtol: Relative tolerance for truncation (in the Frobenius norm).
-                Default: no ``rtol`` rank truncation (``None``).
+   :param rtol: Relative tolerance for truncation (in the Frobenius norm), applied **per truncation step**
+                (see Notes -- the overall error can be larger). Default: no ``rtol`` truncation (``None``).
                 Requires ``stack_shape=()``.
    :type rtol: float, optional
-   :param atol: Absolute tolerance for truncation (in the Frobenius norm).
-                Default: no ``atol`` rank truncation (``None``).
+   :param atol: Absolute tolerance for truncation (in the Frobenius norm), applied **per truncation step**
+                (see Notes). Default: no ``atol`` truncation (``None``).
                 Requires ``stack_shape=()``.
    :type atol: float, optional
 
    :returns: * :py:class:`TuckerTensorTrain` -- New Tucker tensor train representing the same tensor (or a truncated version), but with modified cores
              * Tuple[:py:class:`NDArray`,...] -- Singular values associated with edges between Tucker cores and TT cores
              * **Tuple[** (py:class:`NDArray,...]) -- Singular values associated with edges between adjacent TT cores
+
+   .. rubric:: Notes
+
+   ``rtol``/``atol`` bound the truncation error at **each step** (each unfolding/matricization SVD
+   truncation), **not** the overall error. The per-step errors accumulate in quadrature over the
+   ``2d-1`` steps (``d-1`` TT unfoldings + ``d`` Tucker matricizations), so the realized error can
+   exceed the requested tolerance by up to a factor ``sqrt(2d-1)`` (the generalized Oseledets bound)::
+
+       ||x - x2||  <=  sqrt( sum of per-step truncation errors^2 )  <=  sqrt(2d-1) * (per-step tol).
+
+   See ``docs/t3svd_verification.md`` for the bound and its proof.
 
    .. seealso:: :py:meth:`.TuckerTensorTrain.t3svd_dense`, :py:meth:`.TuckerTensorTrain.get_minimal_ranks`
 

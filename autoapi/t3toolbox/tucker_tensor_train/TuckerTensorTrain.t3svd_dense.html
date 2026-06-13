@@ -425,11 +425,11 @@
 Default: no max Tucker rank truncation (<code class="docutils literal notranslate"><span class="pre">None</span></code>).</p></li>
 <li><p><strong>max_tt_ranks</strong> (<em>Sequence</em><em>[</em><em>int</em><em>]</em><em>, </em><em>optional</em>) – Maximum TT-ranks <code class="docutils literal notranslate"><span class="pre">ri</span></code>, e.g., <code class="docutils literal notranslate"><span class="pre">(1,5,5,5,1)</span></code>. <code class="docutils literal notranslate"><span class="pre">len(max_tt_ranks)=d+1</span></code>.
 Default: no max TT rank truncation (<code class="docutils literal notranslate"><span class="pre">None</span></code>).</p></li>
-<li><p><strong>rtol</strong> (<em>float</em><em>, </em><em>optional</em>) – Relative tolerance for truncation (in the Frobenius norm).
-Default: no <code class="docutils literal notranslate"><span class="pre">rtol</span></code> rank truncation (<code class="docutils literal notranslate"><span class="pre">None</span></code>).
+<li><p><strong>rtol</strong> (<em>float</em><em>, </em><em>optional</em>) – Relative tolerance for truncation (in the Frobenius norm), applied <strong>per truncation step</strong>
+(see Notes – the overall error can be larger). Default: no <code class="docutils literal notranslate"><span class="pre">rtol</span></code> truncation (<code class="docutils literal notranslate"><span class="pre">None</span></code>).
 Requires <code class="docutils literal notranslate"><span class="pre">stack_shape=()</span></code>.</p></li>
-<li><p><strong>atol</strong> (<em>float</em><em>, </em><em>optional</em>) – Absolute tolerance for truncation (in the Frobenius norm).
-Default: no <code class="docutils literal notranslate"><span class="pre">atol</span></code> rank truncation (<code class="docutils literal notranslate"><span class="pre">None</span></code>).
+<li><p><strong>atol</strong> (<em>float</em><em>, </em><em>optional</em>) – Absolute tolerance for truncation (in the Frobenius norm), applied <strong>per truncation step</strong>
+(see Notes). Default: no <code class="docutils literal notranslate"><span class="pre">atol</span></code> truncation (<code class="docutils literal notranslate"><span class="pre">None</span></code>).
 Requires <code class="docutils literal notranslate"><span class="pre">stack_shape=()</span></code>.</p></li>
 </ul>
 </dd>
@@ -449,6 +449,12 @@ Requires <code class="docutils literal notranslate"><span class="pre">stack_shap
 <dd class="field-even"><p><em>Tuple</em>[<a class="reference internal" href="TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>, <em>Tuple</em>[t3toolbox.backend.common.NDArray, Ellipsis], <em>Tuple</em>[t3toolbox.backend.common.NDArray, Ellipsis]]</p>
 </dd>
 </dl>
+<p class="rubric">Notes</p>
+<p><code class="docutils literal notranslate"><span class="pre">rtol</span></code>/<code class="docutils literal notranslate"><span class="pre">atol</span></code> bound the truncation error at <strong>each step</strong> (each unfolding/matricization SVD
+truncation), <strong>not</strong> the overall error. The per-step errors accumulate in quadrature over the
+<code class="docutils literal notranslate"><span class="pre">2d-1</span></code> steps (<code class="docutils literal notranslate"><span class="pre">d-1</span></code> TT unfoldings + <code class="docutils literal notranslate"><span class="pre">d</span></code> Tucker matricizations), so the realized error can
+exceed the requested tolerance by up to a factor <code class="docutils literal notranslate"><span class="pre">sqrt(2d-1)</span></code> (the generalized Oseledets bound).
+See <code class="docutils literal notranslate"><span class="pre">docs/t3svd_verification.md</span></code> for the bound and its proof.</p>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
 <p><a class="reference internal" href="TuckerTensorTrain.t3svd.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.t3svd()</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.get_minimal_ranks.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.get_minimal_ranks" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.get_minimal_ranks"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.get_minimal_ranks()</span></code></a></p>
