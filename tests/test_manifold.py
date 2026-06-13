@@ -678,6 +678,28 @@ class TestManifold(unittest.TestCase):
                     ref = t3m.T3Tangent.project(_slice_t3(x, idx), _slice_basis(base, g_idx))
                     self.check_relerr(ref.to_dense(), proj_dense[idx])
 
+    def test_normalized(self):
+        # normalized() rescales each stacked tangent to unit norm (HS norm, since randn is gauged).
+        for STACK_SHAPE in [(), (2,)]:
+            for V in [(), (3,)]:
+                with self.subTest(STACK_SHAPE=STACK_SHAPE, V=V):
+                    x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=STACK_SHAPE)
+                    base, _ = bvf.t3_orthogonal_representations(x)
+                    vn = t3m.T3Tangent.randn(base, stack_shape=V).normalized()
+                    vn.validate()
+                    self.assertLessEqual(norm(np.asarray(vn.norm()) - 1.0), tol)
+
+    def test_allclose(self):
+        # T3Tangent.allclose compares two tangents at the same base point.
+        for STACK_SHAPE in [(), (2,)]:
+            with self.subTest(STACK_SHAPE=STACK_SHAPE):
+                x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=STACK_SHAPE)
+                base, _ = bvf.t3_orthogonal_representations(x)
+                v = t3m.T3Tangent.randn(base)
+                self.assertTrue(v.allclose(v))
+                self.assertFalse(v.allclose(v * 2.0))
+                self.assertTrue(v.allclose(v * (1.0 + 1e-12)))
+
 
 if __name__ == "__main__":
     unittest.main()

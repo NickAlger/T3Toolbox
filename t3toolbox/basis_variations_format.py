@@ -587,6 +587,45 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         """Dense tensor of the base point this basis represents (``= to_t3().to_dense()``)."""
         return self.to_t3().to_dense()
 
+    def orthogonalize(self) -> 'T3Basis':
+        """Orthogonal, minimal-rank representation of the base point this basis reconstructs to.
+
+        Equivalent to ``T3Basis.from_t3(self.to_t3())``: reconstruct the base point (right-canonical,
+        see :py:meth:`to_t3`) and recompute its orthogonal representation via
+        :py:func:`t3_orthogonal_representations`. For a basis that is already orthogonal and consistent
+        this returns an equivalent orthogonal basis; for a hand-built or drifted one it returns a
+        genuinely orthogonal, minimal-rank basis for the *right-canonical* base point.
+        """
+        return T3Basis.from_t3(self.to_t3())
+
+    def is_consistent(self, rtol: float = 1e-9) -> bool:
+        """``True`` if the left- and right-canonical reconstructions of the base point agree.
+
+        A basis stores both the left- and right-orthogonal core-TTs (see :py:meth:`to_t3`); for a
+        **consistent** basis they reconstruct the same base point. This checks
+        ``||left - right|| <= rtol * ||right||`` in the dense Frobenius norm.
+
+        EXPENSIVE -- densifies both reconstructions. Deliberately **not** part of :py:meth:`validate`
+        (which is structural and cheap). For a basis from :py:func:`t3_orthogonal_representations` (or
+        :py:meth:`from_t3`/:py:meth:`orthogonalize`) consistency holds by construction; this is for
+        sanity-checking hand-built bases.
+        """
+        left = to_numpy(t3.TuckerTensorTrain(self.up_tucker_cores, self.left_tt_cores).to_dense())
+        right = to_numpy(t3.TuckerTensorTrain(self.up_tucker_cores, self.right_tt_cores).to_dense())
+        return bool(np.linalg.norm(left - right) <= rtol * max(1.0, np.linalg.norm(right)))
+
+    def allclose(self, other: 'T3Basis', rtol: float = 1e-9, atol: float = 0.0) -> bool:
+        """``True`` if ``other`` represents the same base point as ``self`` (gauge-invariant).
+
+        Compares the *represented* base points, not the cores: ``||self.to_t3() - other.to_t3()|| <=
+        atol + rtol * ||other.to_t3()||`` in the dense Frobenius norm (via
+        :py:meth:`TuckerTensorTrain.norm`, no densification). Invariant to the orthogonal/gauge
+        representation -- two different orthogonal bases for the same point compare equal.
+        """
+        dn = (self.to_t3() - other.to_t3()).norm()
+        rn = other.to_t3().norm()
+        return bool((dn <= atol + rtol * rn).all())
+
 
 
 
@@ -944,6 +983,17 @@ class T3Variations:
     def __neg__(self) -> 'T3Variations':
         """Corewise negation."""
         return T3Variations(*cw.corewise_neg(self.data))
+
+    def allclose(self, other: 'T3Variations', rtol: float = 1e-9, atol: float = 0.0) -> bool:
+        """``True`` if ``other`` holds the same variations as ``self``, corewise.
+
+        Checks ``||self - other|| <= atol + rtol * ||other||`` in the corewise norm
+        (:py:func:`t3toolbox.corewise.corewise_norm`). Split-agnostic, like all
+        :py:class:`T3Variations` operations.
+        """
+        dn = cw.corewise_norm((self - other).data)
+        rn = cw.corewise_norm(other.data)
+        return bool((dn <= atol + rtol * rn).all())
 
 
 def check_bv_pair(base: T3Basis, variations: T3Variations) -> None:

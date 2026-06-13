@@ -483,6 +483,35 @@ class T3Tangent:
         xnp, _, _ = get_backend(False, tree_contains_jax(self.variations.data))
         return xnp.sqrt(xnp.abs(self.inner(self)))
 
+    def normalized(self) -> 'T3Tangent':
+        """Unit-norm rescaling ``self / self.norm()``, vectorized over the stack.
+
+        Scales the variations so the result has :py:meth:`norm` 1 (the Hilbert-Schmidt norm when the
+        basis is orthogonal and gauged). Each stacked tangent is scaled by its own norm; the base
+        point is unchanged.
+        """
+        xnp, _, _ = get_backend(False, tree_contains_jax(self.variations.data))
+        inv = 1.0 / xnp.asarray(self.norm())
+        k = inv.ndim  # number of stack axes
+        def _scale(c):
+            return c * inv.reshape(inv.shape + (1,) * (c.ndim - k))
+        variations = bvf.T3Variations(
+            tuple(_scale(c) for c in self.variations.tucker_variations),
+            tuple(_scale(c) for c in self.variations.tt_variations),
+        )
+        return T3Tangent(self.basis, variations)
+
+    def allclose(self, other: 'T3Tangent', rtol: float = 1e-9, atol: float = 0.0) -> bool:
+        """``True`` if ``other`` is the same tangent vector as ``self`` at the same base point.
+
+        Checks ``||self - other|| <= atol + rtol * ||other||`` via :py:meth:`norm` (per stacked
+        element, all of which must pass). Assumes a shared base point (compares corewise on the
+        variations, like :py:meth:`__sub__`); for tangents at different bases compare the dense forms.
+        """
+        dn = (self - other).norm()
+        rn = other.norm()
+        return bool((dn <= atol + rtol * rn).all())
+
     ############################################
     ##########    Validity checkers    #########
     ############################################

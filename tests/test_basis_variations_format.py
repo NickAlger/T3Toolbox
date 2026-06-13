@@ -390,6 +390,39 @@ class TestBasisVariationsFormat(unittest.TestCase):
             self.check_relerr(np.asarray(x.to_dense()), np.asarray(base.to_t3().to_dense()))
             self.assertEqual(x.shape, base.to_t3().shape)
 
+    def test_orthogonalize_is_consistent(self):
+        # orthogonalize() reconstructs the same base point as a valid orthogonal basis; is_consistent()
+        # is True for a from_t3 basis and False when the left/right reconstructions disagree.
+        for C in [(), (2,)]:
+            x = t3.TuckerTensorTrain.randn((5, 6, 4), (3, 4, 3), (1, 2, 3, 1), stack_shape=C)
+            base = bvf.T3Basis.from_t3(x)
+            b2 = base.orthogonalize()
+            b2.validate()
+            self.assertTrue(b2.is_orthogonal())
+            self.check_relerr(np.asarray(x.to_dense()), np.asarray(b2.to_dense()))
+            self.assertTrue(base.is_consistent())
+            # perturb the left cores only -> left/right reconstructions no longer agree
+            bad = bvf.T3Basis(base.up_tucker_cores, base.down_tt_cores,
+                              tuple(c + 0.1 * np.random.randn(*c.shape) for c in base.left_tt_cores),
+                              base.right_tt_cores)
+            self.assertFalse(bad.is_consistent())
+
+    def test_allclose(self):
+        # T3Basis.allclose compares represented base points (gauge-invariant); T3Variations.allclose
+        # compares variations corewise.
+        for C in [(), (2,)]:
+            x = t3.TuckerTensorTrain.randn((5, 6, 4), (3, 4, 3), (1, 2, 3, 1), stack_shape=C)
+            base = bvf.T3Basis.from_t3(x)
+            self.assertTrue(base.allclose(base))
+            self.assertTrue(base.allclose(base.orthogonalize()))  # same point, possibly different gauge
+            y = t3.TuckerTensorTrain.randn((5, 6, 4), (3, 4, 3), (1, 2, 3, 1), stack_shape=C)
+            self.assertFalse(base.allclose(bvf.T3Basis.from_t3(y)))
+
+            _, variations = bvf.t3_orthogonal_representations(x)
+            self.assertTrue(variations.allclose(variations))
+            self.assertFalse(variations.allclose(variations * 2.0))
+            self.assertTrue(variations.allclose(variations + variations * 1e-12))
+
     def _assert_orthonormal(self, gram, n):
         # gram has shape stack_shape + (n, n); each stacked block must be the identity
         self.assertLessEqual(norm(np.asarray(gram) - np.eye(n)), tol)
