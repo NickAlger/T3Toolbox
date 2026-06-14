@@ -102,7 +102,7 @@ def tucker_svd_dense(
 
 
 def ttsvd_dense(
-        T: common.NDArray,
+        T: common.NDArray,  # shape=(N0,...,N(d-1))
         min_ranks:  typ.Sequence[int] = None, # len=d+1
         max_ranks:  typ.Sequence[int] = None,  # len=d+1
         rtol: float = None,
