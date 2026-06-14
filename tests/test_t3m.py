@@ -57,10 +57,27 @@ class TestT3M(unittest.TestCase):
         self.assertLess(_relerr(P.to_dense(), oracle),
                         2.0 * _relerr(ref.to_dense(), oracle) + 1e-12)
 
+    def check_sweep_exact(self, method):
+        # Generous max-ranks (no real truncation) exercise the sweep path -> must reproduce the product.
+        for structure in STRUCTURES:
+            for C in STACK_SHAPES:
+                with self.subTest(method=method, structure=structure, stack=C):
+                    A, B = _pair(structure, C)
+                    P = A.t3m(B, method=method, max_tucker_ranks=10000, max_tt_ranks=10000)
+                    self.assertEqual(A.shape, P.shape)
+                    self.assertEqual(C, P.stack_shape)
+                    self.assertLess(_relerr(P.to_dense(), _oracle(A, B)), 1e-10)
+
     # ---- method (a) ----
     def test_form_then_round(self):
         self.check_exact('form_then_round')
         self.check_truncated('form_then_round')
+
+    # ---- method (b) ----
+    def test_inplace_fused(self):
+        self.check_exact('inplace_fused')        # no-truncation short-circuit
+        self.check_sweep_exact('inplace_fused')  # generous-rank sweep path (exercises the fused sweep)
+        self.check_truncated('inplace_fused')
 
     def test_mul_routes_through_t3m(self):
         # `*` is the exact form_then_round path and works on stacked T3s.

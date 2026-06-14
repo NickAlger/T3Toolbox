@@ -1850,7 +1850,7 @@ class TuckerTensorTrain:
     def t3m(
             self,
             other:              'TuckerTensorTrain',                  # same shape & stack_shape
-            method:             str = 'form_then_round',             # flips to 'inplace_fused' in phase 2
+            method:             str = 'inplace_fused',               # the memory-light default for large d
             max_tucker_ranks:   typ.Union[int, Sequence[int]] = None,  # scalar (caps all) or len=d
             max_tt_ranks:       typ.Union[int, Sequence[int]] = None,  # scalar (caps all) or len=d+1
             rtol:               float = None,                        # requires unstacked
@@ -1893,7 +1893,10 @@ class TuckerTensorTrain:
         valid = ('form_then_round', 'inplace_fused', 'swap')
         if method not in valid:
             raise ValueError('t3m method must be one of %s, got %r' % (valid, method))
-        backend = {'form_then_round': ragged_linalg.t3m_form_then_round}.get(method)
+        backend = {
+            'form_then_round': ragged_linalg.t3m_form_then_round,
+            'inplace_fused': ragged_linalg.t3m_inplace_fused,
+        }.get(method)
         if backend is None:
             raise NotImplementedError('t3m method %r is not implemented yet' % (method,))
 

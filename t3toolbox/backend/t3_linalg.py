@@ -10,6 +10,9 @@ from t3toolbox.backend.t3_operations import squash_tt_tails
 import t3toolbox.backend.t3_orthogonalization as ragged_orth
 import t3toolbox.backend.t3_operations as t3_ops
 import t3toolbox.backend.t3_svd as ragged_t3svd
+import t3toolbox.backend.orthogonalization as orth
+import t3toolbox.backend.linalg as linalg
+import t3toolbox.backend.ranks as ranks
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -20,6 +23,7 @@ __all__ = [
     't3_norm',
     't3_mult',
     't3m_form_then_round',
+    't3m_inplace_fused',
     't3_plus_scalar',
 ]
 
@@ -278,6 +282,91 @@ def t3m_form_then_round(
     rounded, _, _ = ragged_t3svd.t3svd(
         product, max_tt_ranks=max_tt_ranks, max_tucker_ranks=max_tucker_ranks, rtol=rtol, atol=atol)
     return rounded
+
+
+def t3m_inplace_fused(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_x, tt_cores_x)
+        y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_y, tt_cores_y)
+        max_tucker_ranks=None,  # int | Sequence[int] | None
+        max_tt_ranks=None,      # int | Sequence[int] | None
+        rtol=None,              # float | None  (requires unstacked; enforced by the frontend)
+        atol=None,              # float | None
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # x_times_y tucker_cores
+    typ.Tuple[NDArray, ...],  # x_times_y tt_cores
+]:
+    '''Elementwise product ``x ⊙ y`` -- method (b): a fused left-to-right sweep that truncates as it
+    goes, never materializing the full product (the workhorse; see ``docs/t3m_plan.md``).
+
+    Right-orthogonalizes the two central TTs separately (the Kronecker of right-canonical cores is
+    right-canonical, so the product's central TT is right-canonical without being formed), then sweeps
+    left to right carrying the *separate* ``(r_x, r_y)`` bonds. At each mode it builds the product core
+    on the fly, then does the **joint** per-site T3 truncation (the Tucker rank, weighted by the
+    canonical environment, then the TT bond) -- both truncations are optimal because the right side is
+    right-canonical. ``O(d·r⁴)``, memory ``O(r̃·n²·r²)`` (one site). Stack-aware with max-rank
+    truncation; ``rtol``/``atol`` require unstacked. No truncation requested -> the exact full product.
+    '''
+    if max_tucker_ranks is None and max_tt_ranks is None and rtol is None and atol is None:
+        return t3_mult(x, y)
+
+    Ux, Gx = x
+    Uy, Gy = y
+    d = len(Ux)
+    use_jax = is_jax_ndarray(x) or is_jax_ndarray(y)
+    xnp, _, _ = get_backend(False, use_jax)
+    mtr = ranks.normalize_max_ranks(max_tucker_ranks, d)
+    mrr = ranks.normalize_max_ranks(max_tt_ranks, d + 1)
+
+    # Right-orthogonalize each central TT (the product's central TT is then implicitly right-canonical).
+    Gx = orth.right_orthogonalize_tt_cores(Gx)
+    Gy = orth.right_orthogonalize_tt_cores(Gy)
+
+    stack = tuple(Ux[0].shape[:-2])
+    out_tucker = []
+    out_tt = []
+    carry = xnp.ones(stack + (1, 1, 1))  # left center: [center_bond, r_x, r_y], all 1 at the boundary
+    for ii in range(d):
+        Gxi, Gyi, Uxi, Uyi = Gx[ii], Gy[ii], Ux[ii], Uy[ii]
+        t = carry.shape[-3]
+        nA, cA = Gxi.shape[-2], Gxi.shape[-1]
+        nB, cB = Gyi.shape[-2], Gyi.shape[-1]
+        N = Uxi.shape[-1]
+        P, C2 = nA * nB, cA * cB
+
+        # Product core at this site: contract the carry with the two central cores.
+        site = xnp.einsum('...tab,...anc,...bme->...tnmce', carry, Gxi, Gyi)  # [t, nA, nB, cA, cB]
+        site = site.reshape(stack + (t, P, C2))                               # [t, n^2, r^2]
+
+        # Tucker factor W = U_x ⊙ U_y; orthonormalize (full SVD, no truncation): W = Uw diag(sw) Vt.
+        W = xnp.einsum('...nx,...mx->...nmx', Uxi, Uyi).reshape(stack + (P, N))
+        Uw, sw, Vt = linalg.truncated_svd(W)
+        Utilde_full = Vt                                   # row-orthonormal Tucker factor [k, N]
+        Mw = xnp.einsum('...pk,...k->...pk', Uw, sw)       # remainder [n^2, k] -> into the site
+        site = xnp.einsum('...tpc,...pk->...tkc', site, Mw)  # [t, k, r^2]
+        k = site.shape[-2]
+
+        # Joint Tucker truncation (weighted by the canonical environment t and r^2): SVD over the
+        # tucker leg.  site -> [k, t*r^2].
+        env = xnp.moveaxis(site, -2, -3).reshape(stack + (k, t * C2))
+        Qt, st, Vt2 = linalg.truncated_svd(env, max_rank=mtr[ii], rtol=rtol, atol=atol)
+        ntil = Qt.shape[-1]
+        out_tucker.append(xnp.einsum('...kr,...kN->...rN', Qt, Utilde_full))   # [ntil, N]
+        site = (xnp.einsum('...r,...rc->...rc', st, Vt2)                       # [ntil, t*r^2]
+                .reshape(stack + (ntil, t, C2)))
+        site = xnp.moveaxis(site, -3, -2)                                      # [t, ntil, r^2]
+
+        if ii < d - 1:
+            # Joint TT-bond truncation: SVD over (t, ntil) vs r^2.
+            A = site.reshape(stack + (t * ntil, C2))
+            Ac, sc, Vc = linalg.truncated_svd(A, max_rank=mrr[ii + 1], rtol=rtol, atol=atol)
+            rnew = Ac.shape[-1]
+            out_tt.append(Ac.reshape(stack + (t, ntil, rnew)))
+            carry = (xnp.einsum('...r,...rc->...rc', sc, Vc)
+                     .reshape(stack + (rnew, cA, cB)))                          # next carry [rnew, r_x, r_y]
+        else:
+            out_tt.append(site.reshape(stack + (t, ntil, C2)))  # C2 == 1 at the right boundary
+
+    return tuple(out_tucker), tuple(out_tt)
 
 
 def t3_plus_scalar(
