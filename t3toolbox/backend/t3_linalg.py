@@ -35,7 +35,7 @@ def t3_add(
 ) -> typ.Tuple[typ.Tuple[NDArray], typ.Tuple[NDArray]]: # (x_plus_y_tucker_cores, x_plus_y_tt_cores)
     """Add Tucker tensor trains x and y, yielding a Tucker tensor train with summed ranks.
     """
-    use_jax = (is_jax_ndarray(x) or is_jax_ndarray(y))
+    use_jax = tree_contains_jax((x, y))
     xnp, xmap, _ = get_backend(False, use_jax)
 
     #
@@ -555,12 +555,12 @@ def t3_plus_scalar(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],
         s,
 ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:
-    use_jax = is_jax_ndarray(x)
+    use_jax = tree_contains_jax(x)
 
     x_shape = tuple(B.shape[-1] for B in x[0])
     x_stack_shape = x[0][0].shape[:-2]
 
-    y0 = t3_ops.t3_ones(x_shape, x_stack_shape)
+    y0 = t3_ops.t3_ones(x_shape, x_stack_shape, use_jax=use_jax)
     y = t3_scale(y0, s)
     xs = t3_add(x, y)
     return xs

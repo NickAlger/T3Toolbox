@@ -88,6 +88,9 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(  # swap + oversample -> t3svd cleanup at fixed ranks, still static
             lambda a, b: a.t3m(b, method='swap', max_tucker_ranks=2, max_tt_ranks=2, oversample=2),
             self.x, self.x_other)
+        self.assert_jit_jax(lambda a, b: a + b, self.x, self.x_other)  # T3+T3 (t3_add)
+        self.assert_jit_jax(lambda a, b: a - b, self.x, self.x_other)  # T3-T3
+        self.assert_jit_jax(lambda a: a + 2.5, self.x)                 # T3+scalar (t3_plus_scalar)
         # plain adjoints: residual c shape W (+ C); both sum modes (CP->TT construction)
         N = STRUCT[0]
         self.assert_jit_jax(
