@@ -130,9 +130,12 @@ thread `use_jax` (old pattern) — migrate when repairing them.
 
 ## Code style (deliberate and nonstandard — do NOT normalize)
 
-- Shape/structure comments are **trailing comments on the same line** as each array argument and
-  each return-type element; put **one array per line** (expand return tuples even when they'd fit),
-  and **vertically align** argument names with their type annotations.
+- **Signature shape comments — the trailing comment IS the type** (Python's `NDArray` says nothing;
+  the *shape* is the real contract). One argument per line, one return element per line (expand return
+  tuples even when they'd fit), three vertically-aligned columns (name · type · `#` shape-contract).
+  Micro-grammar `# len=d, elm_shape=...`. A **principle, applied within reason** (trivial scalars may
+  need no comment; don't over-align pathological `Union`s). Full rationale + rules + exemplar:
+  **[`docs/signature_style.md`](docs/signature_style.md)** (reference module: `backend/probing.py`).
 - Body locals encode axis layout in the **name suffix** (`C_aib`, `mu_WCa`, `B0_b_j_c`), matching the
   contraction-naming scheme (`C`/`W`/`K` = grouped index blocks, lowercase = single axes, leading `d` =
   stacked/derivative axis; functions named `inputs_to_output`, e.g. `WCa_Caib_WCi_to_WCb`).
