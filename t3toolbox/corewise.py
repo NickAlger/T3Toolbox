@@ -33,7 +33,10 @@ __all__ = [
 NDArrayTree = typ.Union[int, float, NDArray, typ.List['NDArrayTree'], typ.Tuple['NDArrayTree',...]]
 
 
-def corewise_add(X: NDArrayTree, Y: NDArrayTree) -> NDArrayTree:
+def corewise_add(
+        X:  NDArrayTree,  # any nested tree of ints/floats/arrays
+        Y:  NDArrayTree,  # same tree structure as X; leaves broadcast-compatible
+) -> NDArrayTree:         # X+Y. same tree structure as X
     '''Add nested objects, X,Y -> X+Y.
 
     Examples
@@ -53,7 +56,10 @@ def corewise_add(X: NDArrayTree, Y: NDArrayTree) -> NDArrayTree:
         return X + Y
 
 
-def corewise_sub(X: NDArrayTree, Y: NDArrayTree) -> NDArrayTree:
+def corewise_sub(
+        X:  NDArrayTree,  # any nested tree of ints/floats/arrays
+        Y:  NDArrayTree,  # same tree structure as X; leaves broadcast-compatible
+) -> NDArrayTree:         # X-Y. same tree structure as X
     '''Subtract nested objects, X,Y -> X-Y.
 
     Examples
@@ -73,7 +79,10 @@ def corewise_sub(X: NDArrayTree, Y: NDArrayTree) -> NDArrayTree:
         return X - Y
 
 
-def corewise_scale(X: NDArrayTree, s) -> NDArrayTree:
+def corewise_scale(
+        X:  NDArrayTree,  # any nested tree of ints/floats/arrays
+        s,                # scalar multiplier
+) -> NDArrayTree:         # s*X. same tree structure as X
     '''Scale nested objects, X,s -> s*X.
 
     Examples
@@ -107,7 +116,10 @@ def corewise_neg(X: NDArrayTree) -> NDArrayTree:
         return -X
 
 
-def corewise_sum(X: NDArrayTree, axis=None) -> NDArrayTree:
+def corewise_sum(
+        X:      NDArrayTree,                              # any nested tree of ints/floats/arrays
+        axis:   typ.Union[int, typ.Sequence[int], None] = None,  # axis/axes summed in every leaf (None -> all)
+) -> NDArrayTree:                                        # same tree structure as X, summed axes removed
     '''Sum each array in a nested object along the given axis or axes, X -> sum(X, axis).
 
     The same axis or axes are summed in every leaf array, leaving the tree structure intact.
@@ -129,7 +141,10 @@ def corewise_sum(X: NDArrayTree, axis=None) -> NDArrayTree:
         return xnp.sum(X, axis=axis)
 
 
-def corewise_dot(X: NDArrayTree, Y: NDArrayTree):
+def corewise_dot(
+        X:  NDArrayTree,  # any nested tree of ints/floats/arrays
+        Y:  NDArrayTree,  # same tree structure as X; matching leaf shapes
+) -> NDArray:  # X.Y, a scalar (collapses EVERY axis, stacks included)
     '''Dot product of nested objects, X,Y -> X.Y.
 
     Examples
@@ -152,7 +167,11 @@ def corewise_dot(X: NDArrayTree, Y: NDArrayTree):
         return xnp.sum(X * Y)
 
 
-def corewise_stack_dot(X: NDArrayTree, Y: NDArrayTree, n_stack: int):
+def corewise_stack_dot(
+        X:          NDArrayTree,  # tree; each leaf shape = stack_shape + (core dims)
+        Y:          NDArrayTree,  # same tree structure / leaf shapes as X
+        n_stack:    int,          # number of leading stack axes kept (contract the rest)
+) -> NDArray:  # array of shape = common stack_shape (scalar when n_stack==0)
     '''Like corewise_dot, but vectorized over the leading ``n_stack`` (stack) axes.
 
     Each leaf is contracted over its trailing (non-stack) axes only, keeping the leading ``n_stack``
@@ -183,7 +202,10 @@ def corewise_stack_dot(X: NDArrayTree, Y: NDArrayTree, n_stack: int):
         return xnp.sum(X * Y, axis=tuple(range(n_stack, xnp.ndim(X))))
 
 
-def corewise_stack_scale(X: NDArrayTree, s) -> NDArrayTree:
+def corewise_stack_scale(
+        X:  NDArrayTree,  # tree; each leaf shape = stack_shape + (core dims)
+        s,                # per-stack-slice factor, shape = stack_shape (scalar ndim 0 = uniform)
+) -> NDArrayTree:         # same tree structure as X, each leaf scaled
     '''Scale each leaf by a per-stack-slice factor ``s``, broadcasting ``s`` over each leaf's trailing
     (non-stack) axes.
 
@@ -210,7 +232,11 @@ def corewise_stack_scale(X: NDArrayTree, s) -> NDArrayTree:
     return go(X)
 
 
-def corewise_stack_sum(X: NDArrayTree, axis, n_stack: int) -> NDArrayTree:
+def corewise_stack_sum(
+        X:          NDArrayTree,  # tree; each leaf shape = stack_shape + (core dims)
+        axis,                     # stack axis/axes (None -> all; negatives wrap rel. to n_stack)
+        n_stack:    int,          # number of leading stack axes axis is normalized against
+) -> NDArrayTree:                 # same tree structure as X, summed stack axes removed
     '''Sum each leaf over stack axes, vectorized.
 
     Normalizes ``axis`` against the ``n_stack`` leading (stack) axes (``None`` -> all of them; negative
@@ -233,7 +259,9 @@ def corewise_stack_sum(X: NDArrayTree, axis, n_stack: int) -> NDArrayTree:
     return corewise_sum(X, axis=stack_axes)
 
 
-def corewise_norm(X):
+def corewise_norm(
+        X,  # any nested tree of ints/floats/arrays
+) -> NDArray:  # ||X||, a scalar (collapses EVERY axis, stacks included)
     '''Norm of nested objects, X -> ||X||
 
     Examples
@@ -252,7 +280,10 @@ def corewise_norm(X):
     return xnp.sqrt(xnp.abs(norm_sq))
 
 
-def corewise_stack_norm(X: NDArrayTree, n_stack: int):
+def corewise_stack_norm(
+        X:          NDArrayTree,  # tree; each leaf shape = stack_shape + (core dims)
+        n_stack:    int,          # number of leading stack axes kept (one norm per stack slice)
+) -> NDArray:  # array of shape = common stack_shape (scalar when n_stack==0)
     '''Like :py:func:`corewise_norm`, but vectorized over the leading ``n_stack`` (stack) axes.
 
     Returns an array of shape equal to the common leading stack shape -- one norm per stack slice
@@ -273,11 +304,17 @@ def corewise_stack_norm(X: NDArrayTree, n_stack: int):
     return xnp.sqrt(xnp.abs(corewise_stack_dot(X, X, n_stack)))
 
 
-def corewise_err(X_true, X):
+def corewise_err(
+        X_true,  # reference tree of ints/floats/arrays
+        X,       # same tree structure as X_true
+) -> NDArray:  # ||X_true - X||, a scalar
     return corewise_norm(corewise_sub(X_true, X))
 
 
-def corewise_relerr(X_true, X):
+def corewise_relerr(
+        X_true,  # reference tree of ints/floats/arrays
+        X,       # same tree structure as X_true
+) -> NDArray:  # ||X_true - X|| / ||X_true||, a scalar
     return corewise_err(X_true, X) / corewise_norm(X_true)
 
 

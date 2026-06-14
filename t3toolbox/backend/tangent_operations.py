@@ -470,7 +470,11 @@ def _tangent_stack_split(
     return n_full - n_base, n_base
 
 
-def _pair_base_leaves(basis_tree, variations_tree, n_base):
+def _pair_base_leaves(
+        basis_tree,        # G-shaped tree of basis-data tuples,      n_base levels deep
+        variations_tree,   # G-shaped tree of variations-data tuples, n_base levels deep
+        n_base:     int,   # base-stack depth |G|
+):  # -> G-shaped tree of (basis_data, variations_data) pairs
     """Pair a basis-data tree and a variations-data tree (same G-shaped outer structure, n_base axes
     deep) leaf-by-leaf into one G-shaped tree of ``(basis_data, variations_data)`` pairs.
 
@@ -483,7 +487,10 @@ def _pair_base_leaves(basis_tree, variations_tree, n_base):
                  for b, v in zip(basis_tree, variations_tree))
 
 
-def _unpair_base_leaves(paired_tree, n_base):
+def _unpair_base_leaves(
+        paired_tree,       # G-shaped tree of (basis_data, variations_data) pairs
+        n_base:     int,   # base-stack depth |G|
+):  # -> (basis_tree, variations_tree), each G-shaped
     """Inverse of :py:func:`_pair_base_leaves`: split a G-shaped tree of ``(basis_data,
     variations_data)`` pairs back into a ``(basis_tree, variations_tree)``.
     """

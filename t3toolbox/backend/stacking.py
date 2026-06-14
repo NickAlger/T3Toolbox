@@ -29,20 +29,24 @@ __all__ = [
 ]
 
 
-def tree_depth(t):
+def tree_depth(
+        t,  # nested tuples of leaves
+) -> int:   # nesting depth (0 for a bare leaf)
     if not isinstance(t, typ.Sequence):
         return 0
     return tree_depth(t[0])+1
 
-def get_first_leaf(xx):
+def get_first_leaf(
+        xx,  # nested tuples of leaves
+):           # the first leaf, drilling down xx[0]...[0]
     if not isinstance(xx, typ.Sequence):
         return xx
     return get_first_leaf(xx[0])
 
 def trees_have_same_structure(
-        tree1, # array-like structure of nested tuples
-        tree2, # target structure
-):
+        tree1,  # nested tuples of leaves (the structure to check)
+        tree2,  # nested tuples of leaves (the structure to check against)
+) -> bool:      # True iff tree1 and tree2 have identical nesting structure
     """Checks if two trees (nested sequences) have the same structure.
 
     Examples
@@ -109,9 +113,9 @@ def trees_have_same_structure(
 
 
 def apply_func_to_leaf_subtrees(
-        tree,
-        func: typ.Callable, # function to be applied to all leafs
-        leaf_structure, # tree structure of a leaf
+        tree,                  # nested tuples; each leaf is itself a subtree shaped like leaf_structure
+        func: typ.Callable,    # applied to each leaf-subtree
+        leaf_structure,        # nested-tuple template defining what counts as one leaf
 ):
     """Apply a function to all "leafs" in a tree.
     A "leaf" is, itself, a subtree with the structure given in leaft_structure.
@@ -136,8 +140,8 @@ def apply_func_to_leaf_subtrees(
 
 
 def stack(
-        T,
-        axes,
+        T,                              # array-like tree: nested tuples of arrays, one per stack element
+        axes: typ.Sequence[int],        # len=num stacking levels; target array axis for each stack level
 ):
     """Stack array-like nested tree structure.
 
@@ -265,8 +269,8 @@ def stack(
 
 
 def unstack(
-        S,
-        axes,
+        S,                              # tree of arrays (or single array) carrying stack axes to split out
+        axes: typ.Sequence[int],        # len=num stacking levels; array axes to unstack into tree levels
 ):
     """Unstack nested sequence of arrays along specificed array axes.
 
@@ -396,8 +400,8 @@ def unstack(
 
 
 def sum_leafs_along_axes(
-        S,
-        axes,
+        S,                              # tree of NDArrays (or single NDArray)
+        axes: typ.Union[int, typ.Tuple[int, ...]],  # array axes summed in every leaf
 ):
     """Sum leafs of a tree of NDArrays along specified axes.
 
@@ -425,12 +429,12 @@ def sum_leafs_along_axes(
 
 
 def basic_ragged_unstack(
-        x: typ.Tuple[
-            typ.Tuple[NDArray, ...],
+        x:                               typ.Tuple[
+            typ.Tuple[NDArray, ...],     # stacked ragged array tuple (leading axes are the stack)
             ...,
         ],
-        first_leaf_num_nonstacking_axes: int,
-):
+        first_leaf_num_nonstacking_axes: int,  # ndim of x[0][0] excluding stack axes -> infers stack rank
+):                                       # array-like tree of ragged array tuples
     """Unstack stacked ragged array tuple into array-like tree
     """
     num_stacking_axes = len(x[0][0].shape) - first_leaf_num_nonstacking_axes
@@ -439,9 +443,9 @@ def basic_ragged_unstack(
 
 
 def basic_ragged_stack(
-        xx, # Array-like tree of bases
+        xx,  # array-like tree of ragged array tuples (innermost tuple = one ragged object)
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],
+    typ.Tuple[NDArray, ...],  # single ragged array tuple, tree levels stacked into leading axes
     ...,
 ]:
     """Stack array-like tree of ragged array tuples into single ragged array tuple.
@@ -455,12 +459,12 @@ def basic_ragged_stack(
 
 
 def basic_uniform_unstack(
-        x: typ.Tuple[
-            NDArray,
+        x:                               typ.Tuple[
+            NDArray,                     # stacked uniform array tuple (supercores; axis 0 reserved, stack follows)
             ...,
         ],
-        first_leaf_num_nonstacking_axes: int,
-):
+        first_leaf_num_nonstacking_axes: int,  # ndim of x[0] excluding axis-0 + stack axes -> infers stack rank
+):                                       # array-like tree of uniform array tuples
     """Unstack stacked uniform array tuple into array-like tree
     """
     num_stacking_axes = len(x[0].shape) - first_leaf_num_nonstacking_axes
@@ -469,9 +473,9 @@ def basic_uniform_unstack(
 
 
 def basic_uniform_stack(
-        xx, # Array-like tree to be stacked
+        xx,  # array-like tree of uniform array tuples (innermost tuple = one uniform object)
 ) -> typ.Tuple[
-    NDArray,
+    NDArray,  # single uniform array tuple, tree levels stacked after axis 0
     ...,
 ]:
     """Stack array-like tree of uniform array tuples into single ragged array tuple.
@@ -485,7 +489,10 @@ def basic_uniform_stack(
 
 
 
-def tree_zip(T1, T2):
+def tree_zip(
+        T1,  # nested tuples of leaves
+        T2,  # nested tuples of leaves; same structure as T1
+):           # same structure, each leaf a pair (t1, t2)
     """Zips two trees with the same structure.
 
     Examples
