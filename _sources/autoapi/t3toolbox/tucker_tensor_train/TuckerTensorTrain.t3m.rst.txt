@@ -1,7 +1,7 @@
 TuckerTensorTrain.t3m
 =====================
 
-.. py:method:: t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3m(other, method = 'inplace_fused', max_tucker_ranks = None, max_tt_ranks = None, rtol = None, atol = None)
+.. py:method:: t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3m(other, method = 'inplace_fused', max_tucker_ranks = None, max_tt_ranks = None, rtol = None, atol = None, oversample = 1)
 
    Elementwise (Hadamard) product ``self ⊙ other`` with optional rank truncation.
 
@@ -14,11 +14,18 @@ TuckerTensorTrain.t3m
    - ``'inplace_fused'`` (default) -- a fused sweep that never materializes the full product;
      the right default for large ``d``.
    - ``'swap'`` -- the swap-based TTM generalization; best when the TT bond ``r`` greatly exceeds
-     the number of modes ``d``.
+     the number of modes ``d`` (``O(d²·r³)`` compute, ``O(r̃²)`` memory).
 
    Truncation (any combination; default none ⇒ exact full product): ``max_tucker_ranks`` /
    ``max_tt_ranks`` (a scalar caps every position, or a per-position sequence) and ``rtol`` /
    ``atol`` (per-step relative/absolute tolerances).
+
+   ``oversample`` (``method='swap'`` only, ``>= 1``, default ``1`` = off): relaxes the
+   intermediate ranks/tolerances by this factor during the swaps and runs a final ``t3svd``
+   cleanup at the exact targets. ``1`` is the lowest-memory / lowest-quality corner; a modest
+   ``2`` is a good default for near-``form_then_round`` quality at a small memory cost; quality
+   approaches ``form_then_round`` as ``oversample → ∞``. See ``docs/t3m_swap_plan.md`` and
+   ``docs/ttm_t3m_ht_note.tex`` for why this is needed (the Tucker leaf-frame coupling).
 
    .. warning::
        ``rtol``/``atol`` are **not supported for stacked** Tucker tensor trains (different stack
