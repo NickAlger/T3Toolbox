@@ -79,6 +79,12 @@ class TestT3M(unittest.TestCase):
         self.check_sweep_exact('inplace_fused')  # generous-rank sweep path (exercises the fused sweep)
         self.check_truncated('inplace_fused')
 
+    # ---- method (c) ----
+    def test_swap(self):
+        self.check_exact('swap')         # no-truncation short-circuit
+        self.check_sweep_exact('swap')   # generous-rank sweep path (exercises swaps + contracts)
+        self.check_truncated('swap')
+
     def test_mul_routes_through_t3m(self):
         # `*` is the exact form_then_round path and works on stacked T3s.
         for C in STACK_SHAPES:
@@ -94,8 +100,10 @@ class TestT3M(unittest.TestCase):
             A.t3m(t3.TuckerTensorTrain.randn((7, 8, 9), (3, 4, 3), (1, 2, 2, 1), stack_shape=(2,)))
         with self.assertRaises(ValueError):  # unknown method
             A.t3m(B, method='bogus')
-        with self.assertRaises(NotImplementedError):  # not-yet-implemented method
-            A.t3m(B, method='swap')
+        with self.assertRaises(ValueError):  # oversample < 1
+            A.t3m(B, method='swap', max_tucker_ranks=2, oversample=0.5)
+        with self.assertRaises(ValueError):  # oversample with a non-swap method
+            A.t3m(B, method='inplace_fused', max_tucker_ranks=2, oversample=2)
         As, Bs = _pair(((7, 8, 9), (3, 4, 3), (1, 2, 2, 1)), (2,))
         with self.assertRaises(ValueError):  # rtol/atol + stacking
             As.t3m(Bs, method='form_then_round', rtol=1e-3)

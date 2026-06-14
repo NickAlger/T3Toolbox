@@ -1855,6 +1855,7 @@ class TuckerTensorTrain:
             max_tt_ranks:       typ.Union[int, Sequence[int]] = None,  # scalar (caps all) or len=d+1
             rtol:               float = None,                        # requires unstacked
             atol:               float = None,                        # requires unstacked
+            oversample:         float = 1,                           # method='swap' only; intermediate-rank relaxation
     ) -> 'TuckerTensorTrain':
         """Elementwise (Hadamard) product ``self ⊙ other`` with optional rank truncation.
 
@@ -1867,11 +1868,18 @@ class TuckerTensorTrain:
         - ``'inplace_fused'`` (default) -- a fused sweep that never materializes the full product;
           the right default for large ``d``.
         - ``'swap'`` -- the swap-based TTM generalization; best when the TT bond ``r`` greatly exceeds
-          the number of modes ``d``.
+          the number of modes ``d`` (``O(d²·r³)`` compute, ``O(r̃²)`` memory).
 
         Truncation (any combination; default none ⇒ exact full product): ``max_tucker_ranks`` /
         ``max_tt_ranks`` (a scalar caps every position, or a per-position sequence) and ``rtol`` /
         ``atol`` (per-step relative/absolute tolerances).
+
+        ``oversample`` (``method='swap'`` only, ``>= 1``, default ``1`` = off): relaxes the
+        intermediate ranks/tolerances by this factor during the swaps and runs a final ``t3svd``
+        cleanup at the exact targets. ``1`` is the lowest-memory / lowest-quality corner; a modest
+        ``2`` is a good default for near-``form_then_round`` quality at a small memory cost; quality
+        approaches ``form_then_round`` as ``oversample → ∞``. See ``docs/t3m_swap_plan.md`` and
+        ``docs/ttm_t3m_ht_note.tex`` for why this is needed (the Tucker leaf-frame coupling).
 
         .. warning::
             ``rtol``/``atol`` are **not supported for stacked** Tucker tensor trains (different stack
@@ -1893,16 +1901,20 @@ class TuckerTensorTrain:
         valid = ('form_then_round', 'inplace_fused', 'swap')
         if method not in valid:
             raise ValueError('t3m method must be one of %s, got %r' % (valid, method))
+        if oversample < 1:
+            raise ValueError('t3m oversample must be >= 1, got %r' % (oversample,))
+        if oversample != 1 and method != 'swap':
+            raise ValueError('t3m oversample only applies to method="swap", got method=%r' % (method,))
         backend = {
             'form_then_round': ragged_linalg.t3m_form_then_round,
             'inplace_fused': ragged_linalg.t3m_inplace_fused,
-        }.get(method)
-        if backend is None:
-            raise NotImplementedError('t3m method %r is not implemented yet' % (method,))
+            'swap': ragged_linalg.t3m_swap,
+        }[method]
 
-        return TuckerTensorTrain(*backend(
-            self.data, other.data,
-            max_tucker_ranks=max_tucker_ranks, max_tt_ranks=max_tt_ranks, rtol=rtol, atol=atol))
+        kw = dict(max_tucker_ranks=max_tucker_ranks, max_tt_ranks=max_tt_ranks, rtol=rtol, atol=atol)
+        if method == 'swap':
+            kw['oversample'] = oversample
+        return TuckerTensorTrain(*backend(self.data, other.data, **kw))
 
     def __neg__(
             self,
