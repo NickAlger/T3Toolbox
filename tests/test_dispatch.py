@@ -80,6 +80,14 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a, i: a.entries(i), self.x, idx)
         self.assert_jit_jax(  # t3svd with FIXED ranks -> static shapes -> jit-able
             lambda a: a.t3svd(max_tucker_ranks=(2, 2, 2), max_tt_ranks=(1, 2, 2, 1)), self.x)
+        # t3m methods with FIXED max-ranks -> static shapes -> jit-able (rtol/atol stay eager)
+        for mth in ('form_then_round', 'inplace_fused', 'swap'):
+            self.assert_jit_jax(
+                lambda a, b, m=mth: a.t3m(b, method=m, max_tucker_ranks=2, max_tt_ranks=2),
+                self.x, self.x_other)
+        self.assert_jit_jax(  # swap + oversample -> t3svd cleanup at fixed ranks, still static
+            lambda a, b: a.t3m(b, method='swap', max_tucker_ranks=2, max_tt_ranks=2, oversample=2),
+            self.x, self.x_other)
         # plain adjoints: residual c shape W (+ C); both sum modes (CP->TT construction)
         N = STRUCT[0]
         self.assert_jit_jax(
@@ -171,6 +179,12 @@ class TestDispatch(unittest.TestCase):
             a, b = np.asarray(a), np.asarray(b)
             self.assertLessEqual(norm(a - b), tol * max(1.0, norm(b)))
 
+        x_other_np = self.x_other.to_numpy()
+        for m in ('inplace_fused', 'swap'):                                   # t3m: jax == numpy (max-rank)
+            close(self.x.t3m(self.x_other, method=m, max_tucker_ranks=2, max_tt_ranks=2, **(
+                      {'oversample': 2} if m == 'swap' else {})).to_dense(),
+                  self.x_np.t3m(x_other_np, method=m, max_tucker_ranks=2, max_tt_ranks=2, **(
+                      {'oversample': 2} if m == 'swap' else {})).to_dense())
         close(self.x.to_dense(), self.x_np.to_dense())                       # TTT.to_dense
         close(self.v.to_dense(), v_np.to_dense())                            # Tangent.to_dense
         close(self.v.retract().to_dense(), v_np.retract().to_dense())        # retract (fixed-rank t3svd)

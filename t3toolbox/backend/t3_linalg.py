@@ -226,7 +226,7 @@ def t3_mult(
     This is the conventional "dumb" algorithm which does not do intermediate rank truncation.
     Ideally, we should also implement the newer "TTM" algorithm at some point.
     """
-    use_jax = (is_jax_ndarray(x) or is_jax_ndarray(y))
+    use_jax = tree_contains_jax((x, y))
     xnp, xmap, _ = get_backend(False, use_jax)
 
     #
@@ -313,7 +313,7 @@ def t3m_inplace_fused(
     Ux, Gx = x
     Uy, Gy = y
     d = len(Ux)
-    use_jax = is_jax_ndarray(x) or is_jax_ndarray(y)
+    use_jax = tree_contains_jax((x, y))
     xnp, _, _ = get_backend(False, use_jax)
     mtr = ranks.normalize_max_ranks(max_tucker_ranks, d)
     mrr = ranks.normalize_max_ranks(max_tt_ranks, d + 1)
@@ -507,8 +507,6 @@ def t3m_swap(
     Ux, Gx = x
     Uy, Gy = y
     d = len(Ux)
-    use_jax = is_jax_ndarray(x) or is_jax_ndarray(y)
-    xnp, _, _ = get_backend(False, use_jax)
 
     mtr = ranks.normalize_max_ranks(max_tucker_ranks, d)        # exact targets
     mrr = ranks.normalize_max_ranks(max_tt_ranks, d + 1)
