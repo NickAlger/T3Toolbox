@@ -142,16 +142,24 @@ with a length check), in a shared module (`ranks.py`), used by `t3svd` *and* the
 
 ## Phases (commit per phase; each verified against the dense oracle)
 
-- **Phase 0 — `t3svd` upgrade.** Add `normalize_max_ranks`; thread it through `t3svd` (and the
-  `t3svd_dense` + frontend `t3svd`/`t3svd_dense` wrappers) so a **scalar max-rank** works everywhere.
-  (`rtol`/`atol` already work — verified — no change there.) Test: scalar == broadcast list.
-- **Phase 1 — scaffold + (a).** `t3m()` frontend, the shared truncation-option validator
-  (`rtol`/`atol` ⊥ stacking), the **dense-oracle test harness**, and `t3m_form_then_round`. Route
-  `__mul__` through (a).
-- **Phase 2 — (b) `inplace_fused`.** The fused sweep + cleanup. Flip `t3m`'s default to it.
-- **Phase 3 — (c) `swap`.**
-- **Phase 4 — docs.** `t3m` docstring (methods, truncation semantics, "rtol/atol require unstacked;
-  max-rank OK stacked"); update the `CLAUDE.md` `t3_mult` TODO; note method-selection guidance.
+- **Phase 0 — `t3svd` upgrade. ✅ DONE (`f157adac`).** `ranks.normalize_max_ranks` threaded through
+  `t3svd` + `dense_t3svd` + frontend wrappers so a **scalar max-rank** works everywhere. (`rtol`/`atol`
+  already worked — verified.) Test: `test_t3svd_scalar_max_ranks`.
+- **Phase 1 — scaffold + (a). ✅ DONE (`e64705d7`).** `TuckerTensorTrain.t3m()` frontend + validator
+  (`rtol`/`atol` ⊥ stacking, shape/stack checks), `backend.t3_linalg.t3m_form_then_round`, `__mul__`
+  routed through (a), and `tests/test_t3m.py` (reusable dense-oracle harness).
+- **Phase 2 — (b) `inplace_fused`. ✅ DONE (`f6deae43`).** `t3m_inplace_fused`: right-orthogonalize
+  the two central TTs separately (Kronecker is then right-canonical, unformed), single L→R fused sweep
+  with separate `(r_x, r_y)` carry, joint per-site truncation. **No cleanup sweep needed** — the right
+  side being right-canonical makes each site's truncation optimal. `t3m` default flipped to it.
+- **Phase 3 — (c) `swap`. ⬜ TODO.** See `docs/t3m_handoff.md`. The hard part is **gauge-managed
+  truncating swaps**.
+- **Phase 4 — docs + tests. ⬜ TODO.** `t3m` doc polish + method-selection guidance; finish the
+  `CLAUDE.md` `t3_mult` TODO; a cross-method joint-quality test (b/c ≤ a ranks); `test_dispatch` jit
+  cases for the t3m methods (max-rank ⇒ static shapes).
+
+> **Status:** Phases 0–2 live and tested (full suite green). (a) and (b) work; (b) is the default. (c)
+> and the doc/test polish remain — handoff in `docs/t3m_handoff.md`.
 
 ## Testing strategy (oracle = the dense product)
 

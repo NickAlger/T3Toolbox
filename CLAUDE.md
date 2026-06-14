@@ -284,8 +284,16 @@ Treat everything else as copied-in-and-not-yet-working until checked.
 - Redesign the **weighted tensor network** code structure.
 - Cleanup backlog: remove the `common.py` debug prints; `OLD_*.py` + stray `.npz` artifacts; wire
   doctests into CI; docs (`conf.py` autoapi excludes backend/weighted, committed `_build`,
-  `modules.rst` still titled "TuckerTensorTrainTools"); the TTM algorithm for `t3_mult` (low
-  priority — a named method, needs tolerances, not for stacking).
+  `modules.rst` still titled "TuckerTensorTrainTools").
+- **T3M — elementwise multiply with truncation (in progress).** `TuckerTensorTrain.t3m(other,
+  method=..., max_tucker_ranks, max_tt_ranks, rtol, atol)` — three interchangeable algorithms
+  generalizing the TTM algorithm (Michailidis et al., arXiv:2410.19747) to T3. **Done & tested:**
+  method **(a)** `t3m_form_then_round` and **(b)** `t3m_inplace_fused` (the default; `*` uses (a)), plus
+  a scalar-max-rank upgrade to `t3svd` (`ranks.normalize_max_ranks`). **Remaining:** method **(c)**
+  `t3m_swap` (the `r≫d` specialist) + doc/test polish. Full design + status + handoff in
+  **`docs/t3m_plan.md`** and **`docs/t3m_handoff.md`**. Spec: `max_*_ranks` scalar-or-sequence,
+  per-step `rtol`/`atol` (require unstacked; max-rank is stacking-OK), SVD-everywhere, **joint**
+  truncation.
 - **Further test-speed options (deferred; suite is already ~50s after the numpy-only refactor, so
   low priority):** (1) **per-test seeding → parallelism** — tests share one global `np.random` seeded
   once at import (the source of the t3svd RNG-order flakiness we hit); seed per-test, then run in
