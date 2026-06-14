@@ -85,6 +85,59 @@ class TestT3M(unittest.TestCase):
         self.check_sweep_exact('swap')   # generous-rank sweep path (exercises swaps + contracts)
         self.check_truncated('swap')
 
+    def test_swap_oversample(self):
+        # Oversampling improves quality toward optimal and preserves the exact path.
+        structure = ((7, 8, 9), (3, 4, 3), (1, 2, 2, 1))
+        A, B = _pair(structure, ())
+        oracle = _oracle(A, B)
+        kw = dict(method='swap', max_tucker_ranks=2, max_tt_ranks=2)
+        err1 = _relerr(A.t3m(B, oversample=1, **kw).to_dense(), oracle)
+        err3 = _relerr(A.t3m(B, oversample=3, **kw).to_dense(), oracle)
+        self.assertLess(err3, err1)                                    # oversampling helps
+        ref = t3.TuckerTensorTrain.t3svd_dense(oracle, max_tucker_ranks=2, max_tt_ranks=2)[0]
+        self.assertLess(err3, 1.1 * _relerr(ref.to_dense(), oracle) + 1e-12)  # ~optimal
+        # oversample preserves the exact (generous-rank) path
+        P = A.t3m(B, method='swap', max_tucker_ranks=10000, max_tt_ranks=10000, oversample=2)
+        self.assertLess(_relerr(P.to_dense(), oracle), 1e-10)
+
+    def test_swap_per_position_tt(self):
+        # A non-uniform max_tt_ranks sequence is honored bond-by-bond (via the t3svd cleanup).
+        structure = ((6, 7, 8, 9), (2, 3, 3, 2), (1, 2, 3, 2, 1))
+        A, B = _pair(structure, ())
+        oracle = _oracle(A, B)
+        seq = (1, 2, 3, 2, 1)
+        P = A.t3m(B, method='swap', max_tt_ranks=seq, oversample=2)
+        self.assertTrue(all(r <= s for r, s in zip(P.tt_ranks, seq)), (P.tt_ranks, seq))
+        ref = t3.TuckerTensorTrain.t3svd_dense(oracle, max_tt_ranks=seq)[0]
+        self.assertLess(_relerr(P.to_dense(), oracle), 1.5 * _relerr(ref.to_dense(), oracle) + 1e-12)
+
+    def test_swap_stacked_oversample(self):
+        # Stacked + max-rank + oversample: the t3svd cleanup must be stacking-safe; quality ~ method (a).
+        for structure in STRUCTURES:
+            with self.subTest(structure=structure):
+                A, B = _pair(structure, (2,))
+                oracle = _oracle(A, B)
+                Pa = A.t3m(B, method='form_then_round', max_tucker_ranks=2, max_tt_ranks=2)
+                Pc = A.t3m(B, method='swap', max_tucker_ranks=2, max_tt_ranks=2, oversample=2)
+                self.assertEqual((2,), Pc.stack_shape)
+                self.assertTrue(all(n <= 2 for n in Pc.tucker_ranks), Pc.tucker_ranks)
+                self.assertTrue(all(r <= 2 for r in Pc.tt_ranks), Pc.tt_ranks)
+                self.assertLess(_relerr(Pc.to_dense(), oracle),
+                                2.0 * _relerr(Pa.to_dense(), oracle) + 1e-12)
+
+    def test_swap_joint_quality(self):
+        # Decision 1: for the same rtol, swap (oversample=2) keeps ranks <= form_then_round (+ slack).
+        for structure in (((7, 8, 9), (3, 4, 3), (1, 2, 2, 1)),
+                          ((6, 7, 8, 9), (2, 3, 3, 2), (1, 2, 3, 2, 1))):
+            with self.subTest(structure=structure):
+                A, B = _pair(structure, ())
+                a = A.t3m(B, method='form_then_round', rtol=1e-2)
+                c = A.t3m(B, method='swap', rtol=1e-2, oversample=2)
+                a_sz = sum(a.tucker_ranks) + sum(a.tt_ranks)
+                c_sz = sum(c.tucker_ranks) + sum(c.tt_ranks)
+                self.assertLessEqual(c_sz, a_sz + 2,
+                                     (a.tucker_ranks, a.tt_ranks, c.tucker_ranks, c.tt_ranks))
+
     def test_mul_routes_through_t3m(self):
         # `*` is the exact form_then_round path and works on stacked T3s.
         for C in STACK_SHAPES:
