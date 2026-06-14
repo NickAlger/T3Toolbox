@@ -17,6 +17,11 @@ still produce what they claim) — it does *not* test the code (that's `tests/`'
   is fiction, and even a *deterministic* captured value rots (a real case we hit: a doc claimed
   `xy.tt_ranks == (1, 6, 6, 1)` when the true value is `(3, 6, 6, 2)`).
 
+A nuance on "not coverage": *illustrating a property* (e.g. that `t3svd`'s singular values are the dense
+unfoldings' spectra) is legitimate **pedagogy**, not coverage — provided it is reproducible and limited
+to one **representative** case (one unfolding + "the rest are analogous"). Exhaustive verification of a
+property across every mode/branch stays in `tests/` or a verification doc.
+
 ## Reproducibility (a target, not a hard rule)
 
 Every shown output should reproduce. Achieve it by **seeding** (`np.random.seed(0)`) or using **fixed
@@ -51,10 +56,28 @@ True
 - **Print structure, not raw values.** Shapes, ranks, dims, lengths reproduce *and* teach the return
   contract (especially for stacked returns) — prefer them over printing values. Avoid printing raw
   arrays (NumPy reprs drift across versions); prefer `.shape`, `.tolist()`, a scalar, or a bool.
+- **Non-unique or fragile outputs → check the *relationship*, not the values.** Singular vectors /
+  cores / orthogonal frames are defined only up to sign/gauge, and any float array from random input is
+  digit-fragile across BLAS/platforms — never print them raw. Verify the defining relationship
+  (`np.allclose(ss_tt[i], dense_unfolding_svals[:k])` → `True`) and show counts (`len(...)`, a rank).
 - **Exact algebraic `0.0`** is fine to show when it's guaranteed (e.g. `(2v - v) - v`); otherwise use
   `np.allclose`.
 - **Magnitude in a comment** when it's informative: `True   # residual ~1e-13 (machine precision)`.
 - **Small dimensions** (fast, readable) unless a realistic size is itself the point.
+
+## Lossy / approximate operations (truncation)
+
+When the operation is a *deliberate approximation* (truncation/rounding), the `np.allclose(result,
+input)` value-match **inverts** — the result is *supposed* to differ. Instead:
+
+- show the **controlled observable** — the reduced/capped ranks (`print(x.tt_ranks, '->', xt.tt_ranks)`);
+- assert the **documented error bound**, not equality. For T3-SVD truncation there are *two* (see
+  `docs/t3svd_verification.md`): **accuracy** — `||x - xt|| <= sqrt(dropped singular-value energy)` at the
+  *chosen* ranks (generalized Oseledets); and **parsimony** — each chosen rank `<= #{ original singular
+  values >= tau }`, `tau = max(rtol*||xt||, atol)`;
+- to make a **tolerance** (`rtol`/`atol`) example truncate at all, feed a **graded-spectrum** input (a
+  smooth sampled function like `1/(i+j+k)`) — a sharp random spectrum truncates nothing or everything;
+  don't fake it by forcing a small `max_rank` (that dodges the tolerance behavior).
 
 ## Gotchas and failure modes — show them
 
@@ -126,7 +149,9 @@ One idea per block; keep blocks short. Two focused blocks beat one combined bloc
 This is a convention, not a contract. Apply it where it earns its keep:
 - a non-reproducible value that is genuinely the clearest illustration → `# doctest: +SKIP`;
 - a trivial property whose behavior is obvious may need no example at all;
-- realism (a genuinely large shape) can override "small dimensions" when the size *is* the lesson.
+- realism (a genuinely large shape) can override "small dimensions" when the size *is* the lesson;
+- a **foundational, math-rich function** (e.g. `t3svd`) earns a richer doctest — the ~2–5-block cap
+  bends when the properties themselves (a key correspondence, the error/rank bounds) are the value.
 
 The two accepted costs: doctests are **not yet wired into CI** (so a stale one can still slip in until
 that lands — run them when you touch a docstring), and reproducibility occasionally trades a little
