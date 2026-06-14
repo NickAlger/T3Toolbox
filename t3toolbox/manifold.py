@@ -370,8 +370,8 @@ class T3Tangent:
         **directly** onto the tangent space ``T`` (a linear subspace of the ambient tensor space): it
         does *not* subtract the base point. For ``x`` already in ``T`` this is the identity; for a
         general ambient ``x`` the residual ``x - P_T(x)`` is orthogonal to ``T``. This is exactly the
-        map for projecting a gradient (see :py:func:`riemannian_gradient`). Requires an orthogonal,
-        minimal-rank ``basis``.
+        map for projecting a gradient (see :py:func:`riemannian_gradient`). Requires an **orthogonal**
+        ``basis`` (minimal rank is *not* required).
         """
         variations = tangent_operations.project_t3_onto_tangent_space(basis.data, x.data)
         return T3Tangent(basis, bvf.T3Variations(*variations))
@@ -900,20 +900,36 @@ class T3Tangent:
         return T3Tangent(bvf.T3Basis(*basis_data), bvf.T3Variations(*variations_data))
 
 
-def project_dense_onto_tangent(dense_tensor: NDArray, basis: bvf.T3Basis) -> T3Tangent:
+def project_dense_onto_tangent(dense_tensor: NDArray, basis: bvf.T3Basis,
+                               method: str = 'contraction') -> T3Tangent:
     """Orthogonal projection of a dense ambient tensor onto the tangent space at ``basis``.
 
-    The dense analogue of :py:meth:`T3Tangent.project`: it represents ``dense_tensor`` exactly as a
-    :py:class:`TuckerTensorTrain` (via :py:meth:`TuckerTensorTrain.t3svd_dense`, no truncation) and
-    projects that directly onto the tangent space. Returns the (gauged) tangent ``P_T(dense_tensor)``;
-    the residual ``dense_tensor - P_T(dense_tensor)`` is orthogonal to the tangent space. Lives
-    outside :py:class:`T3Tangent` because its input is a raw array, not a tangent. Leading axes beyond
-    the ``d`` tensor modes are treated as a stack. Requires an orthogonal, minimal-rank ``basis``.
+    Returns the (gauged) tangent ``P_T(dense_tensor)``; the residual ``dense_tensor - P_T(dense_tensor)``
+    is orthogonal to the tangent space. It projects *directly* onto the tangent space (a linear
+    subspace) -- it does not subtract the base point. Lives outside :py:class:`T3Tangent` because its
+    input is a raw array, not a tangent. Leading axes beyond the ``d`` tensor modes are treated as a
+    stack. Requires an **orthogonal** ``basis`` (minimal rank is *not* required).
+
+    ``method`` selects the algorithm (both give the same projection):
+
+    - ``'contraction'`` (default) -- contract ``dense_tensor`` directly against the base frames
+      (:py:func:`~t3toolbox.backend.tangent_operations.project_dense_onto_tangent_space`). No SVD and
+      no large intermediate Tucker tensor train.
+    - ``'t3svd'`` -- represent ``dense_tensor`` exactly as a :py:class:`TuckerTensorTrain` (via
+      :py:meth:`TuckerTensorTrain.t3svd_dense`, no truncation) and project that with
+      :py:meth:`T3Tangent.project`. Reuses existing machinery but is expensive (large SVDs).
     """
-    d = len(basis.shape)
-    stack_shape = tuple(dense_tensor.shape[:dense_tensor.ndim - d])
-    x, _, _ = t3.TuckerTensorTrain.t3svd_dense(dense_tensor, stack_shape=stack_shape)
-    return T3Tangent.project(x, basis)
+    if method == 'contraction':
+        variations = tangent_operations.project_dense_onto_tangent_space(basis.data, dense_tensor)
+        return T3Tangent(basis, bvf.T3Variations(*variations))
+    elif method == 't3svd':
+        d = len(basis.shape)
+        stack_shape = tuple(dense_tensor.shape[:dense_tensor.ndim - d])
+        x, _, _ = t3.TuckerTensorTrain.t3svd_dense(dense_tensor, stack_shape=stack_shape)
+        return T3Tangent.project(x, basis)
+    else:
+        raise ValueError(
+            "project_dense_onto_tangent: method must be 'contraction' or 't3svd', got %r" % (method,))
 
 
 def riemannian_gradient(euclidean_gradient, basis: bvf.T3Basis) -> T3Tangent:

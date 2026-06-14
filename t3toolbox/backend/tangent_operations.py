@@ -4,6 +4,7 @@
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
 from __future__ import annotations
 
+import math
 import typing as typ
 import numpy as np
 
@@ -21,6 +22,7 @@ __all__ = [
     'tt_zipper_left_to_right',
     'tt_zipper_right_to_left',
     'project_t3_onto_tangent_space',
+    'project_dense_onto_tangent_space',
     'unstack_tangent_stack',
     'stack_tangent_stack',
     'unstack_base_stack',
@@ -332,7 +334,8 @@ def project_t3_onto_tangent_space(
 
     Returns gauged variations representing the orthogonal projection of ``x`` *directly* onto the
     tangent space (a linear subspace); it does not subtract the base point. The base must be an
-    orthogonal, minimal-rank representation. Stack-aware. Ragged path only (uniform deferred).
+    orthogonal representation (minimal rank is *not* required). Stack-aware. Ragged path only (uniform
+    deferred).
     """
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
     outer_tt_cores = down_tt_cores
@@ -371,6 +374,85 @@ def project_t3_onto_tangent_space(
 
     return orthogonal_gauge_projection(
         basis, (ungauged_tucker_variations, ungauged_tt_variations),
+    )
+
+
+def project_dense_onto_tangent_space(
+        basis:  typ.Tuple[
+            typ.Sequence[NDArray],  # up_tucker_cores
+            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # left_tt_cores
+            typ.Sequence[NDArray],  # right_tt_cores
+        ],
+        Z:      NDArray,  # dense ambient tensor. shape = stack_shape + (N0, ..., N(d-1))
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # gauged tucker_variations
+    typ.Tuple[NDArray, ...],  # gauged tt_variations
+]:
+    """Orthogonal projection of a *dense* tensor onto the tangent space at an orthogonal base.
+
+    Contraction-only: contracts ``Z`` directly against the base's orthonormal frames -- no SVD and no
+    large intermediate Tucker tensor train (unlike densifying ``Z`` with the T3-SVD first). Returns
+    gauged variations representing the orthogonal projection of ``Z`` *directly* onto the tangent space
+    (a linear subspace); it does not subtract the base point. Stack-aware (leading axes beyond the
+    ``d`` tensor modes are a stack). Ragged path only (uniform deferred).
+
+    Requires an **orthogonal** base: the canonical conditions (U row-orthonormal, L/R left/right-
+    canonical, O outer-orthonormal) make each surrounding frame an isometry -- so a bare contraction
+    yields the orthogonal-projection coefficient -- and make the gauged single-core directions mutually
+    orthogonal. A *minimal-rank* base is **not** required.
+
+    Algorithm. For each mode ``i``, reduce ``Z`` over every *other* mode against the base chains -- the
+    left interface ``(U, L)`` over modes ``< i`` and the right interface ``(U, R)`` over modes ``> i``
+    -- leaving the single mode ``x_i`` open, giving the shared environment ``core_env_i`` of shape
+    ``(r_i, N_i, r_{i+1})``. Both variations at ``i`` read off it: ``dG_i = <U_i, core_env_i>`` (the TT
+    variation) and ``dU_i = <O_i, core_env_i>`` (the Tucker variation; ``O`` = the outer/down cores). A
+    single left sweep builds the left-reduced environments; each slot finishes with a right reduction.
+    Finally :py:func:`orthogonal_gauge_projection` orthogonalizes the ``2d`` directions so the sum of
+    their per-direction projections equals the projection onto the tangent space.
+    """
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
+    d = len(up_tucker_cores)
+
+    use_jax = tree_contains_jax((basis, Z))
+    xnp, _, _ = get_backend(False, use_jax)
+
+    ns = Z.ndim - d                                    # number of leading stack axes
+    stack = tuple(Z.shape[:ns])                        # stack_shape
+    Ns = tuple(U.shape[-1] for U in up_tucker_cores)   # mode dimensions N_i
+
+    # Left sweep: EL[i] is Z with modes 0..i-1 absorbed into the left bond r_i (modes i..d-1 still
+    # open), shape stack + (r_i, N_i, N_{i+1}, ..., N_{d-1}).
+    EL = [Z.reshape(stack + (1,) + Ns)]
+    for ii in range(d - 1):
+        cur = EL[ii]
+        r_i = cur.shape[ns]
+        cur = cur.reshape(stack + (r_i, Ns[ii], math.prod(Ns[ii + 1:])))
+        cur = xnp.einsum('...axm,...nx->...anm', cur, up_tucker_cores[ii])  # absorb N_i into the Tucker rank
+        cur = xnp.einsum('...anm,...anb->...bm', cur, left_tt_cores[ii])    # ... then into the left bond
+        EL.append(cur.reshape(stack + (left_tt_cores[ii].shape[-1],) + Ns[ii + 1:]))
+
+    # Each slot: right-reduce EL[i]'s remaining modes (i+1..d-1) into the right bond r_{i+1}, giving the
+    # shared core_env_i, then read off both variations.
+    ungauged_tucker_variations, ungauged_tt_variations = [], []
+    for ii in range(d):
+        cur = EL[ii]
+        r_i, N_i = cur.shape[ns], cur.shape[ns + 1]
+        keep = r_i * N_i
+        cur = cur.reshape(stack + (keep,) + Ns[ii + 1:] + (1,))  # trailing 1 = right boundary bond r_d
+        for jj in range(d - 1, ii, -1):
+            lead = math.prod(cur.shape[ns:-2])
+            N_j, b = cur.shape[-2], cur.shape[-1]
+            cur = cur.reshape(stack + (lead, N_j, b))
+            cur = xnp.einsum('...mxb,...nx->...mnb', cur, up_tucker_cores[jj])  # absorb N_j into the Tucker rank
+            cur = xnp.einsum('...mnb,...anb->...ma', cur, right_tt_cores[jj])   # ... then into the right bond
+            cur = cur.reshape(stack + (keep,) + Ns[ii + 1:jj] + (right_tt_cores[jj].shape[-3],))
+        core_env = cur.reshape(stack + (r_i, N_i, cur.shape[-1]))  # (r_i, N_i, r_{i+1})
+        ungauged_tt_variations.append(xnp.einsum('...axb,...nx->...anb', core_env, up_tucker_cores[ii]))
+        ungauged_tucker_variations.append(xnp.einsum('...axb,...anb->...nx', core_env, down_tt_cores[ii]))
+
+    return orthogonal_gauge_projection(
+        basis, (tuple(ungauged_tucker_variations), tuple(ungauged_tt_variations)),
     )
 
 

@@ -733,6 +733,28 @@ class TestManifold(unittest.TestCase):
             Pri = _dense_tangent_projector(_slice_basis(base2, (i,)))
             self.check_relerr((Pri @ Z2[i].reshape(-1)).reshape(STR_P[0]), np.asarray(F2.to_dense())[i])
 
+        # both methods ('contraction' default, 't3svd') give the same projection.
+        for method in ('contraction', 't3svd'):
+            Fm = t3m.project_dense_onto_tangent(Z, base, method=method)
+            self.check_relerr((Pr @ Z.reshape(-1)).reshape(STR_P[0]), Fm.to_dense())
+        with self.assertRaises(ValueError):
+            t3m.project_dense_onto_tangent(Z, base, method='bogus')
+
+        # NON-minimal orthogonal base: still matches (orthogonality is required, minimal rank is NOT).
+        x_pad = t3.TuckerTensorTrain.randn(STR_P[0], (2, 2, 2), (1, 2, 2, 1)).resize(
+            new_shape=STR_P[0], new_tucker_ranks=(3, 4, 2), new_tt_ranks=(1, 3, 3, 1))
+        base_nm = bvf.T3Basis.from_t3(x_pad)
+        self.assertFalse(base_nm.has_minimal_ranks)
+        self.assertTrue(base_nm.is_orthogonal())
+        # reference: orthonormal projector onto the span of all dense unit tangents (any rank).
+        cols = [np.asarray(t3m.T3Tangent.unit(base_nm, (use_tt, i, tuple(idx))).to_dense()).reshape(-1)
+                for use_tt, shapes in zip((False, True), base_nm.variation_shapes)
+                for i, shp in enumerate(shapes) for idx in np.ndindex(*shp)]
+        A = np.stack(cols, axis=1)
+        Pr_nm = A @ np.linalg.pinv(A)
+        self.check_relerr((Pr_nm @ Z.reshape(-1)).reshape(STR_P[0]),
+                          t3m.project_dense_onto_tangent(Z, base_nm).to_dense())
+
     def test_riemannian_gradient(self):
         # Riemannian gradient = tangent-space projection of the Euclidean gradient (dense -> F, T3 -> project).
         STR_P = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
