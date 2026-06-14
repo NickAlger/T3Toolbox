@@ -26,8 +26,8 @@ __all__ = [
 
 
 def manifold_dim(
-        s,
-) -> int:
+        s,  # structure: (shape, tucker_ranks, tt_ranks) = ((N0,...), (n0,...), (1,r1,...,1))
+) -> int:  # dimension of the fixed-rank T3 manifold
     """Get the dimension of the fixed rank T3 manifold with a given structure.
 
     The fixed-rank Tucker tensor train manifold M_{n,r} is described in Appendix A.3 of Alger et al.
@@ -233,7 +233,11 @@ class T3Tangent:
         return self.variations.to_vector()
 
     @staticmethod
-    def from_vector(flat, basis: bvf.T3Basis, tangent_stack_shape=()) -> 'T3Tangent':
+    def from_vector(
+            flat:                   NDArray,                   # 1D vector of variation DOFs (from to_vector)
+            basis:                  bvf.T3Basis,
+            tangent_stack_shape:    typ.Tuple[int, ...] = (),  # tangent stack K (default ())
+    ) -> 'T3Tangent':
         """Inverse of :py:meth:`to_vector`: rebuild the tangent at ``basis`` from a 1D DOF vector.
 
         ``tangent_stack_shape`` is the tangent stack ``K`` (default ``()``); the variations are rebuilt
@@ -323,8 +327,15 @@ class T3Tangent:
         return v
 
     @staticmethod
-    def random_orthogonal(shape, tucker_ranks, tt_ranks, stack_shape=(), tangent_stack_shape=(),
-                          use_jax=False, apply_gauge_projection=True) -> 'T3Tangent':
+    def random_orthogonal(
+            shape:                  typ.Sequence[int],          # (N0,...,N(d-1))
+            tucker_ranks:           typ.Sequence[int],          # (n0,...,n(d-1))
+            tt_ranks:               typ.Sequence[int],          # (1,r1,...,r(d-1),1)
+            stack_shape:            typ.Tuple[int, ...] = (),   # base stack C (random base points)
+            tangent_stack_shape:    typ.Tuple[int, ...] = (),   # tangent stack K
+            use_jax:                bool = False,
+            apply_gauge_projection: bool = True,
+    ) -> 'T3Tangent':
         """Fully random tangent: a random direction at a random base point.
 
         ``stack_shape`` is the base stack ``C`` (random base points); ``tangent_stack_shape`` is the
@@ -337,7 +348,10 @@ class T3Tangent:
                                apply_gauge_projection=apply_gauge_projection)
 
     @staticmethod
-    def unit(basis: bvf.T3Basis, index) -> 'T3Tangent':
+    def unit(
+            basis:  bvf.T3Basis,
+            index,              # (use_tt_coordinate, i, within_index); see T3Variations.unit
+    ) -> 'T3Tangent':
         """Canonical unit tangent at ``basis``: variations zero except a single core entry.
 
         ``index = (use_tt_coordinate, i, within_index)`` (see :py:meth:`T3Variations.unit`). These units
@@ -354,7 +368,10 @@ class T3Tangent:
         return T3Tangent.zeros(tangent.basis, stack_shape=tangent.tangent_stack_shape)
 
     @staticmethod
-    def randn_like(tangent: 'T3Tangent', apply_gauge_projection: bool = True) -> 'T3Tangent':
+    def randn_like(
+            tangent:                'T3Tangent',  # reuse its base + tangent stack K
+            apply_gauge_projection: bool = True,
+    ) -> 'T3Tangent':
         """Random tangent at ``tangent``'s base, with ``tangent``'s tangent stack ``K``."""
         return T3Tangent.randn(tangent.basis, stack_shape=tangent.tangent_stack_shape,
                                apply_gauge_projection=apply_gauge_projection)
@@ -465,7 +482,12 @@ class T3Tangent:
         variations = bvf.T3Variations(*cw.corewise_stack_scale(self.variations.data, 1.0 / self.norm()))
         return T3Tangent(self.basis, variations)
 
-    def allclose(self, other: 'T3Tangent', rtol: float = 1e-9, atol: float = 0.0) -> bool:
+    def allclose(
+            self,
+            other:  'T3Tangent',  # compared at the SAME base point (corewise, like __sub__)
+            rtol:   float = 1e-9,
+            atol:   float = 0.0,
+    ) -> bool:
         """``True`` if ``other`` is the same tangent vector as ``self`` at the same base point.
 
         Checks ``||self - other|| <= atol + rtol * ||other||`` via :py:meth:`norm` (per stacked
@@ -607,10 +629,10 @@ class T3Tangent:
 
     @staticmethod
     def probe_transpose(
-            ztildes:            typ.Sequence[NDArray],  # probe residuals, len=d, elm_shape=W+C+(Ni,)
+            ztildes:            typ.Sequence[NDArray],  # probe residuals, len=d, elm_shape=W+K+C+(Ni,)
             ww:                 typ.Sequence[NDArray],  # probing vectors, len=d, elm_shape=W+(Ni,)
             basis:              bvf.T3Basis,
-            sum_over_probes:    bool = False,
+            sum_over_probes:    bool = False,           # True: sum the probe stack W (Gauss-Newton J^T r)
     ) -> 'T3Tangent':
         """Apply the transpose ``(J^(s))^T`` of the probe map to residuals; returns a T3Tangent at ``basis``.
 
@@ -758,10 +780,10 @@ class T3Tangent:
 
     @staticmethod
     def apply_transpose(
-            c:          NDArray,                # residual, shape = W + C
-            ww:         typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
-            basis:      bvf.T3Basis,
-            sum_over_probes:    bool = False,
+            c:                  NDArray,                # residual, shape=W+C
+            ww:                 typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
+            basis:              bvf.T3Basis,
+            sum_over_probes:    bool = False,           # True: sum the apply stack W (Gauss-Newton apply^T c)
     ) -> 'T3Tangent':
         """Apply the transpose ``apply^T`` of :py:meth:`apply`: back-project a residual ``c`` into a tangent.
 
@@ -798,10 +820,10 @@ class T3Tangent:
 
     @staticmethod
     def entries_transpose(
-            c:          NDArray,                # residual, shape = W + C
-            index:      NDArray,                # int, shape=(d,)+W
-            basis:      bvf.T3Basis,
-            sum_over_probes:    bool = False,
+            c:                  NDArray,                # residual, shape=W+C
+            index:              NDArray,                # int, shape=(d,)+W
+            basis:              bvf.T3Basis,
+            sum_over_probes:    bool = False,           # True: sum the apply stack W (Gauss-Newton entries^T c)
     ) -> 'T3Tangent':
         """Apply the transpose ``entries^T`` of :py:meth:`entries`: scatter ``c`` at ``index`` into a tangent.
 
