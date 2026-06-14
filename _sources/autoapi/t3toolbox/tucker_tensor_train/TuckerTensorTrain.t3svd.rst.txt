@@ -43,93 +43,68 @@ TuckerTensorTrain.t3svd
 
    .. rubric:: Examples
 
-   T3-SVD with no truncation (NOTE: ranks may decrease to minimal values):
+   No truncation -- re-represents the same tensor, with ranks reduced to minimal:
 
    >>> import numpy as np
    >>> import t3toolbox.tucker_tensor_train as t3
-   >>> x = t3.TuckerTensorTrain.randn((5,6,3), (4,4,3), (1,3,2,1))
-   >>> x2, ss_tucker, ss_tt = x.t3svd() # Compute T3-SVD
-   >>> x_dense = x.to_dense()
-   >>> x2_dense = x2.to_dense()
-   >>> print(np.linalg.norm(x_dense - x2_dense)) # Check error: Tensor unchanged
-   7.556835759880194e-13
-   >>> _, full_ss_tt0, _ = np.linalg.svd(x_dense.reshape((1, 5*6*3))) # SVDs of matrix unfoldings
-   >>> _, full_ss_tt1, _ = np.linalg.svd(x_dense.reshape((5, 6*3)))
-   >>> _, full_ss_tt2, _ = np.linalg.svd(x_dense.reshape((5*6, 3)))
-   >>> _, full_ss_tt3, _ = np.linalg.svd(x_dense.reshape((5*6*3, 1)))
-   >>> print(full_ss_tt0)
-   [206.50692417]
-   >>> print(ss_tt[0])
-   [206.50692417]
-   >>> print(full_ss_tt1)
-   [1.86019457e+02 8.77024408e+01 1.87123807e+01 1.26952234e-14 5.91156202e-15]
-   >>> print(ss_tt[1])
-   [186.01945711  87.70244078  18.7123807 ]
-   >>> print(full_ss_tt2)
-   [2.06139857e+02 1.23072708e+01 3.57067836e-15]
-   >>> print(ss_tt[2])
-   [206.13985742  12.30727078]
-   >>> print(full_ss_tt3)
-   [206.50692417]
-   >>> print(ss_tt[3])
-   [206.50692417]
-   >>> _, full_ss_tucker0, _ = np.linalg.svd(x_dense.transpose([0,1,2]).reshape((5,6*3))) # SVDs of matricizations
-   >>> _, full_ss_tucker1, _ = np.linalg.svd(x_dense.transpose([1,0,2]).reshape((6,5*3)))
-   >>> _, full_ss_tucker2, _ = np.linalg.svd(x_dense.transpose([2,1,0]).reshape((3,6*5)))
-   >>> print(full_ss_tucker0)
-   [1.86019457e+02 8.77024408e+01 1.87123807e+01 1.26952234e-14 5.91156202e-15]
-   >>> print(ss_tucker[0])
-   [186.01945711  87.70244078  18.7123807 ]
-   >>> print(full_ss_tucker1)
-   [1.85973158e+02 8.79127342e+01 1.74592922e+01 5.06146904e+00 1.67807237e-14 1.30640174e-15]
-   >>> print(ss_tucker[1])
-   [185.97315811  87.91273424  17.4592922    5.06146904]
-   >>> print(full_ss_tucker2)
-   [2.06139857e+02 1.23072708e+01 1.33340996e-14]
-   >>> print(ss_tucker[2])
-   [206.13985742  12.30727078]
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((5, 6, 3), (4, 4, 3), (1, 3, 2, 1))
+   >>> x2, ss_tucker, ss_tt = x.t3svd()
+   >>> print(np.allclose(x.to_dense(), x2.to_dense()))        # same tensor
+   True
+   >>> print(x2.tucker_ranks, x2.tt_ranks)                    # reduced to minimal ranks
+   (3, 4, 2) (1, 3, 2, 1)
 
-   Stacked T3s:
+   The singular values ARE the singular values of the dense matrix unfoldings (the
+   numerically-zero tail is dropped -- which is what reduces the ranks):
 
    >>> import numpy as np
    >>> import t3toolbox.tucker_tensor_train as t3
-   >>> x = t3.TuckerTensorTrain.randn((5,6,3), (4,4,3), (1,3,2,1), stack_shape=(2,3))
-   >>> x2, ss_tucker, ss_tt = x.t3svd() # Compute T3-SVD
-   >>> x_dense = x.to_dense()
-   >>> x2_dense = x2.to_dense()
-   >>> print(np.linalg.norm(x_dense - x2_dense)) # Check error: Tensor unchanged
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((5, 6, 3), (4, 4, 3), (1, 3, 2, 1))
+   >>> _, ss_tucker, ss_tt = x.t3svd()
+   >>> dense_svals = np.linalg.svd(x.to_dense().reshape(5, 6 * 3), compute_uv=False)
+   >>> print(np.allclose(ss_tt[1], dense_svals[:len(ss_tt[1])]))   # leading values match the unfolding's
+   True
+   >>> print(len(ss_tt[1]), int(np.sum(dense_svals > 1e-9)))       # kept TT rank == numerical rank of the unfolding
+   3 3
+   >>> # (the Tucker singular values ss_tucker[i] relate to the mode-i matricizations the same way)
 
-   T3-SVD with truncation based on relative tolerance:
-
-   >>> import numpy as np
-   >>> import t3toolbox.tucker_tensor_train as t3
-   >>> B0 = np.random.randn(35,40) @ np.diag(1.0 / np.arange(1, 41)**2) # Preconditioned indices
-   >>> B1 = np.random.randn(45,50) @ np.diag(1.0 / np.arange(1, 51)**2)
-   >>> B2 = np.random.randn(55,60) @ np.diag(1.0 / np.arange(1, 61)**2)
-   >>> G0 = np.random.randn(1,35,30)
-   >>> G1 = np.random.randn(30,45,40)
-   >>> G2 = np.random.randn(40,55,1)
-   >>> tucker_cores_x = (B0, B1, B2)
-   >>> tt_cores_x = (G0, G1, G2)
-   >>> x = t3.TuckerTensorTrain(tucker_cores_x, tt_cores_x) # Tensor has spectral decay due to preconditioning
-   >>> x2, ss_tucker, ss_tt = x.t3svd(rtol=1e-2) # Truncate singular values to reduce rank
-   >>> print(x.structure)
-   ((40, 50, 60), (35, 45, 55), (1, 30, 40, 1), ())
-   >>> print(x2.structure)
-   ((40, 50, 60), (4, 3, 4), (1, 4, 4, 1), ())
-   >>> x_dense = x.to_dense()
-   >>> x2_dense = x2.to_dense()
-   >>> print(np.linalg.norm(x_dense - x2_dense)/np.linalg.norm(x_dense)) # Should be near rtol=1e-2
-   0.016157030535557206
-
-   T3-SVD with truncation based on maximum ranks:
+   Truncation -- a smooth tensor has gradually decaying unfolding spectra, so ``rtol``
+   truncates meaningfully (a sharp random spectrum would not):
 
    >>> import numpy as np
    >>> import t3toolbox.tucker_tensor_train as t3
-   >>> x = t3.t3_corewise_randn((14,15,16), (10,11,12), (1,8,9,1))
-   >>> x2, ss_tucker, ss_tt = t3.t3svd(x, max_tucker_ranks=(3,3,3), max_tt_ranks=(1,2,2,1)) # Truncate based on ranks
-   >>> print(x.uniform_structure)
-   ((14, 15, 16), (10, 11, 12), (1, 8, 9, 1), ())
-   >>> print(x2.uniform_structure)
-   ((14, 15, 16), (3, 3, 2), (1, 2, 2, 1), ())
+   >>> i, j, k = np.ogrid[1:9, 1:9, 1:9]
+   >>> x = t3.TuckerTensorTrain.t3svd_dense(1.0 / (i + j + k))[0]   # exact T3 of a smooth tensor
+   >>> _, full_tucker_ss, full_tt_ss = x.t3svd()                    # original (untruncated) spectra
+   >>> xt, _, _ = x.t3svd(rtol=1e-3)                                # truncate at rtol
+   >>> print(x.tt_ranks, '->', xt.tt_ranks)                        # rtol drops the small singular values
+   (1, 8, 8, 1) -> (1, 3, 3, 1)
+   >>> # accuracy: ||x - xt|| <= sqrt(dropped singular-value energy at the chosen ranks) [Oseledets]
+   >>> dropped_sq = (sum(float(np.sum(s[r:]**2)) for s, r in zip(full_tt_ss, xt.tt_ranks))
+   ...             + sum(float(np.sum(s[r:]**2)) for s, r in zip(full_tucker_ss, xt.tucker_ranks)))
+   >>> print(bool(np.linalg.norm(x.to_dense() - xt.to_dense()) <= np.sqrt(dropped_sq)))
+   True
+   >>> # parsimony: each chosen rank <= #{ original singular values >= tau },  tau = rtol * ||xt||
+   >>> tau = 1e-3 * np.linalg.norm(xt.to_dense())
+   >>> tt_ok = all(r <= max(1, int(np.sum(s >= tau))) for s, r in zip(full_tt_ss, xt.tt_ranks))
+   >>> tk_ok = all(n <= max(1, int(np.sum(s >= tau))) for s, n in zip(full_tucker_ss, xt.tucker_ranks))
+   >>> print(tt_ok, tk_ok)
+   True True
+
+   Stacked T3s truncate vectorized over the stack -- max-rank only (``rtol``/``atol`` need a
+   single T3, since different slices could truncate to different ranks):
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> xs = t3.TuckerTensorTrain.randn((5, 6, 3), (4, 4, 3), (1, 3, 2, 1), stack_shape=(2,))
+   >>> xs2, _, _ = xs.t3svd(max_tucker_ranks=2, max_tt_ranks=2)
+   >>> print(xs2.stack_shape, xs2.tucker_ranks, xs2.tt_ranks)
+   (2,) (2, 2, 2) (1, 2, 2, 1)
+   >>> xs.t3svd(rtol=1e-3)   # doctest: +IGNORE_EXCEPTION_DETAIL
+   Traceback (most recent call last):
+       ...
+   ValueError
 
