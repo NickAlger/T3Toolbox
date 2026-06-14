@@ -90,7 +90,12 @@ question is the **comment** column. The cost of forcing every comment into a sin
   (e.g. `probing.py`, where every arg is the same array type — the column falls out for free).
 - **Large spread → group, and align *within* each group.** Split the args into runs of similar-length
   types (which usually coincide with roles: operands / rank caps / tolerances / flags), put a **blank
-  line** between groups, and align the comment column *within* each group. The comment column resets
+  line** between groups, and align the comment column *within* each group. **Group by type-*length*,
+  not role** — length is what sets the gap; role is only the usual proxy. When they disagree (e.g. a
+  short `str` selector sitting among long `Union` caps), an argument whose type-length matches no group
+  gets **its own** blank-delimited group rather than being force-aligned into a column it doesn't fit —
+  otherwise you reintroduce the very gap grouping exists to remove. Concrete check: if aligning an arg
+  within a group would open a gap wider than ~a tab (≈8 cols), split it out. The comment column resets
   per group; **names/types stay aligned across the whole signature** (still O(1)) — only the comment
   column is per-group. This keeps every comment O(1) *within its group*, keeps lines short, and makes
   the grouping visible. It is strictly better than one column with 30-space gaps, and far better than
