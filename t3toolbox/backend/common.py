@@ -262,9 +262,9 @@ def get_backend(
 
 
 def xcat(
-        x: typ.Union[NDArray, typ.Sequence],
-        y: typ.Union[NDArray, typ.Sequence],
-) -> typ.Union[NDArray, typ.Tuple]:
+        x: typ.Union[NDArray, typ.Sequence],  # array (concat on axis 0) or sequence (concat as tuples); same kind as y
+        y: typ.Union[NDArray, typ.Sequence],  # same kind as x
+) -> typ.Union[NDArray, typ.Tuple]:           # x and y concatenated
     """Concatenate arrays or sequences.
     """
     if is_ndarray(x):
@@ -285,9 +285,9 @@ def xcat(
 
 
 def xappend(
-        S: typ.Union[NDArray, typ.Sequence],
-        x,
-) -> typ.Union[NDArray, typ.Tuple]:
+        S: typ.Union[NDArray, typ.Sequence],  # array or sequence to append to
+        x,                                     # slice (if S is an array) or element (if S is a sequence)
+) -> typ.Union[NDArray, typ.Tuple]:            # S with x appended
     """Append slice to array or element to sequence
     """
     if is_ndarray(S):
@@ -306,9 +306,9 @@ def xappend(
 
 
 def xprepend(
-        x,
-        S: typ.Union[NDArray, typ.Sequence],
-) -> typ.Union[NDArray, typ.Tuple]:
+        x,                                     # slice (if S is an array) or element (if S is a sequence)
+        S: typ.Union[NDArray, typ.Sequence],   # array or sequence to prepend to
+) -> typ.Union[NDArray, typ.Tuple]:            # S with x prepended
     """Prepend slice to array or element to sequence
     """
     if is_ndarray(S):
@@ -362,7 +362,10 @@ def items_are_uniform(
     return False
 
 
-def save_core_families(file, families) -> None:
+def save_core_families(
+        file,      # path or open file object to write the .npz to
+        families,  # sequence of core-families, each a sequence of arrays
+) -> None:
     """Save a sequence of core-families (each a sequence of arrays) to a ``.npz`` file.
 
     Uses ``'f{family_index}_{core_index}'`` keys so :py:func:`load_core_families` can regroup them.
@@ -372,7 +375,12 @@ def save_core_families(file, families) -> None:
                       for fi, fam in enumerate(families) for ci, c in enumerate(fam)})
 
 
-def load_core_families(file) -> typ.Tuple[typ.Tuple[NDArray, ...], ...]:
+def load_core_families(
+        file,  # path or open file object to read the .npz from
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # one core-family per element
+    ...,
+]:
     """Inverse of :py:func:`save_core_families`: load a ``.npz`` file into a tuple of core-families.
 
     The number of families is inferred from the highest ``'f{fi}_...'`` key; each family is returned

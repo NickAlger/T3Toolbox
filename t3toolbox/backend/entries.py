@@ -60,11 +60,14 @@ def tucker_tensor_train_entries(
 
 
 def tucker_tensor_train_entries_transpose(
-        c:      NDArray,                # residual, shape = W + C
-        index:  NDArray,                # int, shape = (d,) + W
-        shape:  typ.Sequence[int],      # ambient dims (N0, ..., N(d-1)) -- needed to size the one-hots
-        sum_over_probes: bool = False,
-) -> typ.Tuple[typ.Tuple[NDArray, ...], typ.Tuple[NDArray, ...]]:  # (tucker_cores, tt_cores)
+        c:                  NDArray,                # residual, shape=W+C
+        index:              NDArray,                # int, shape=(d,)+W
+        shape:              typ.Sequence[int],      # ambient dims (N0,...,N(d-1)) -- to size the one-hots
+        sum_over_probes:    bool = False,           # True: scatter-add colliding indices (Gauss-Newton J^T r)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # tucker_cores
+    typ.Tuple[NDArray, ...],  # tt_cores
+]:
     '''Transpose of :py:func:`tucker_tensor_train_entries`: scatter a residual ``c`` at ``index``.
 
     Identical to :py:func:`tucker_tensor_train_apply_transpose` with the apply vectors replaced by the

@@ -515,7 +515,13 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         return t3_orthogonal_representations(x)[0]
 
     @staticmethod
-    def random_orthogonal(shape, tucker_ranks, tt_ranks, stack_shape=(), use_jax=False) -> 'T3Basis':
+    def random_orthogonal(
+            shape:          typ.Sequence[int],              # (N0,...,N(d-1))
+            tucker_ranks:   typ.Sequence[int],              # (n0,...,n(d-1))
+            tt_ranks:       typ.Sequence[int],              # (1,r1,...,r(d-1),1)
+            stack_shape:    typ.Tuple[int, ...] = (),       # C (base/core stack)
+            use_jax:        bool = False,
+    ) -> 'T3Basis':
         """Orthogonal representation of a *random* T3 -- a genuine random base point (orthogonal,
         consistent), **not** iid-random cores. Equals ``from_t3(TuckerTensorTrain.randn(...))``."""
         x = t3.TuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks, stack_shape=stack_shape, use_jax=use_jax)
@@ -532,7 +538,10 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         save_core_families(file, self.data)
 
     @staticmethod
-    def load(file, use_jax: bool = False) -> 'T3Basis':
+    def load(
+            file,                       # path or file-like (.npz saved by save)
+            use_jax:    bool = False,
+    ) -> 'T3Basis':
         """Load a basis saved by :py:meth:`save`."""
         f = load_core_families(file)
         b = T3Basis(f[0], f[1], f[2], f[3])
@@ -833,7 +842,11 @@ class T3Variations:
         return T3Variations(*result)
 
     @staticmethod
-    def zeros(variation_shapes, stack_shape=(), use_jax=False) -> 'T3Variations':
+    def zeros(
+            variation_shapes,                           # (tucker_variation_shapes, tt_variation_shapes)
+            stack_shape:    typ.Tuple[int, ...] = (),   # full leading stack K + C
+            use_jax:        bool = False,
+    ) -> 'T3Variations':
         """Zero variations of the given structure (additive identity).
 
         ``variation_shapes = (tucker_variation_shapes, tt_variation_shapes)`` -- e.g. a basis's
@@ -842,12 +855,21 @@ class T3Variations:
         return T3Variations(*bv_operations.zeros_variations(variation_shapes, stack_shape, use_jax))
 
     @staticmethod
-    def randn(variation_shapes, stack_shape=(), use_jax=False) -> 'T3Variations':
+    def randn(
+            variation_shapes,                           # (tucker_variation_shapes, tt_variation_shapes)
+            stack_shape:    typ.Tuple[int, ...] = (),   # full leading stack K + C
+            use_jax:        bool = False,
+    ) -> 'T3Variations':
         """Variations with i.i.d. N(0,1) core entries (corewise, ungauged). See :py:meth:`randn_like`."""
         return T3Variations(*bv_operations.randn_variations(variation_shapes, stack_shape, use_jax))
 
     @staticmethod
-    def unit(variation_shapes, index, stack_shape=(), use_jax=False) -> 'T3Variations':
+    def unit(
+            variation_shapes,                                       # (tucker_variation_shapes, tt_variation_shapes)
+            index:          typ.Tuple[bool, int, typ.Sequence[int]],  # (use_tt_coordinate, i, within_index)
+            stack_shape:    typ.Tuple[int, ...] = (),               # full leading stack K + C
+            use_jax:        bool = False,
+    ) -> 'T3Variations':
         """Canonical unit variation: zero except a single core entry set to 1.
 
         ``index = (use_tt_coordinate, i, within_index)`` selects the core (a tt-variation if
@@ -872,7 +894,11 @@ class T3Variations:
         return t3_operations.t3_to_vector(self.data)
 
     @staticmethod
-    def from_vector(flat, variation_shapes, stack_shape=()) -> 'T3Variations':
+    def from_vector(
+            flat,                                       # shape=(size,)
+            variation_shapes,                           # (tucker_variation_shapes, tt_variation_shapes)
+            stack_shape:    typ.Tuple[int, ...] = (),   # full leading stack K + C
+    ) -> 'T3Variations':
         """Inverse of :py:meth:`to_vector`: rebuild variations of the given structure from a 1D vector.
 
         ``variation_shapes = (tucker_variation_shapes, tt_variation_shapes)`` (e.g. a basis's
@@ -885,7 +911,10 @@ class T3Variations:
         save_core_families(file, self.data)
 
     @staticmethod
-    def load(file, use_jax: bool = False) -> 'T3Variations':
+    def load(
+            file,                       # path or file-like (.npz saved by save)
+            use_jax:    bool = False,
+    ) -> 'T3Variations':
         """Load variations saved by :py:meth:`save`."""
         f = load_core_families(file)
         v = T3Variations(f[0], f[1])
@@ -932,7 +961,10 @@ class T3Variations:
         return bool((dn <= atol + rtol * rn).all())
 
 
-def check_bv_pair(base: T3Basis, variations: T3Variations) -> None:
+def check_bv_pair(
+        base:       T3Basis,        # stack_shape = C (base/core stack)
+        variations: T3Variations,   # stack_shape = K + C (base stack is its inner/trailing part)
+) -> None:
     """Check rank and shape consistency between T3Basis and T3Variations.
 
     This ensures that the variation cores (V, H) have the correct dimensions to interface with the
@@ -1001,12 +1033,12 @@ def check_bv_pair(base: T3Basis, variations: T3Variations) -> None:
 
 
 def bv_to_t3(
-        index: typ.Tuple[
-            bool, # TT core (true) or Tucker core (False)
-            int, # number of the non-orthogonal core, 1...d-1
+        index:      typ.Tuple[
+            bool,  # TT core (True) or Tucker core (False)
+            int,   # number of the non-orthogonal core, 1...d-1
         ],
-        basis: T3Basis,
-        variations: T3Variations,
+        basis:      T3Basis,        # stack_shape = C (base/core stack)
+        variations: T3Variations,   # stack_shape = K + C (base stack is its inner/trailing part)
 ) -> t3.TuckerTensorTrain:
     '''Convert basis-variations representation to TuckerTensorTrain.
 

@@ -58,9 +58,9 @@ def broadcast_t3_to_common_stack(
 
 
 def to_dense(
-        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
+        x:            typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
         squash_tails: bool = True,
-) -> NDArray:
+) -> NDArray:  # shape = stack_shape + (N0,...,N(d-1)); +leading/trailing TT-rank axes if squash_tails=False
     """Fully contract a Tucker tensor train to create a dense tensor.
     """
     use_jax = any([is_jax_ndarray(c) for c in x[0]]) or any([is_jax_ndarray(c) for c in x[1]])
@@ -99,8 +99,8 @@ def to_dense(
 
 
 def squash_tt_tails(
-        tt_cores: typ.Sequence[NDArray],
-) -> typ.Tuple[NDArray,...]:
+        tt_cores: typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(rLi,ni,rR(i+1))
+) -> typ.Tuple[NDArray, ...]:  # tt_cores with r0=rd=1. len=d, elm_shape=stack_shape+(1,n0,r1),...,(r(d-1),n(d-1),1)
     """Make leading and trailing TT ranks equal to 1 (r0=rd=1), without changing tensor being represented.
     """
     use_jax = any([is_jax_ndarray(G) for G in tt_cores])
@@ -123,8 +123,8 @@ def squash_tt_tails(
 
 
 def reverse_tt(
-        tt_cores: typ.Sequence[NDArray],
-) -> typ.Tuple[NDArray,...]:
+        tt_cores: typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(rLi,ni,rR(i+1))
+) -> typ.Tuple[NDArray, ...]:  # reversed cores. len=d, elm_shape=stack_shape+(rR(i+1),ni,rLi)
     """Reverse a tensor train (no Tucker).
     """
     return tuple(G.swapaxes(-3, -1) for G in tt_cores[::-1])
@@ -132,11 +132,11 @@ def reverse_tt(
 
 def t3_segment(
         data: typ.Tuple[
-            typ.Sequence[NDArray],  # tucker_cores
-            typ.Sequence[NDArray],  # tt_cores
+            typ.Sequence[NDArray],  # tucker_cores. len=d
+            typ.Sequence[NDArray],  # tt_cores.     len=d
         ],
-        start: int = None,
-        stop:  int = None,
+        start: typ.Optional[int] = None,  # Python slice start (None -> 0; negatives wrap)
+        stop:  typ.Optional[int] = None,  # Python slice stop  (None -> d; negatives wrap)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # tucker_cores[start:stop]
     typ.Tuple[NDArray, ...],  # tt_cores[start:stop]
@@ -165,7 +165,9 @@ def t3_segment(
 
 
 def t3_concatenate(
-        xx,  # sequence of T3 data tuples, each (tucker_cores, tt_cores)
+        xx: typ.Sequence[
+            typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]
+        ],  # T3 data tuples, each (tucker_cores, tt_cores); TT ranks must match at each seam
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # tucker_cores (concatenated over modes)
     typ.Tuple[NDArray, ...],  # tt_cores
@@ -197,10 +199,10 @@ def t3_concatenate(
 
 
 def change_tucker_core_shapes(
-        tucker_cores: typ.Sequence[NDArray],
-        new_shape: typ.Sequence[int], # len=d
-        new_tucker_ranks: typ.Sequence[int], # len=d
-) -> typ.Tuple[NDArray,...]:
+        tucker_cores:     typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(ni,Ni)
+        new_shape:        typ.Sequence[int],      # len=d
+        new_tucker_ranks: typ.Sequence[int],      # len=d
+) -> typ.Tuple[NDArray, ...]:  # resized tucker_cores. len=d, elm_shape=stack_shape+(new_ni,new_Ni)
     """Increase/decrease Tucker and/or TT ranks for TT cores using zero padding/truncation.
     """
     use_jax = tree_contains_jax(tucker_cores)
@@ -231,10 +233,10 @@ def change_tucker_core_shapes(
 
 
 def change_tt_core_shapes(
-        tt_cores: typ.Sequence[NDArray],
-        new_tucker_ranks: typ.Sequence[int], # len=d
-        new_tt_ranks: typ.Sequence[int], # len=d+1
-) -> typ.Tuple[NDArray,...]:
+        tt_cores:         typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(rLi,ni,rR(i+1))
+        new_tucker_ranks: typ.Sequence[int],      # len=d
+        new_tt_ranks:     typ.Sequence[int],      # len=d+1
+) -> typ.Tuple[NDArray, ...]:  # resized tt_cores. len=d, elm_shape=stack_shape+(new_rLi,new_ni,new_rR(i+1))
     """Increase/decrease Tucker and/or TT ranks for TT cores using zero padding/truncation.
     """
     use_jax = tree_contains_jax(tt_cores)
@@ -266,8 +268,11 @@ def change_tt_core_shapes(
 
 
 def t3_stack(
-        xx, # array-like structure of nested tuples containing Tucker tensor trains
-) -> typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]]:  # (stacked_tucker_cores, stacked_tt_cores)
+        xx,  # array-like structure of nested tuples containing Tucker tensor trains (stack tree)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # stacked_tucker_cores. elm_shape=stack_shape+(ni,Ni)
+    typ.Tuple[NDArray, ...],  # stacked_tt_cores.     elm_shape=stack_shape+(rLi,ni,rR(i+1))
+]:
     num_stacking_axes = stacking.tree_depth(xx) - 2
     stacking_axes = tuple(range(num_stacking_axes))
     stacked_xx = stacking.stack(xx, stacking_axes)
@@ -275,8 +280,8 @@ def t3_stack(
 
 
 def t3_unstack(
-        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
-): # returns an array-like structure of nested tuples containing Tucker tensor trains
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores), stacked
+):  # -> array-like structure of nested tuples containing Tucker tensor trains (shape = stack_shape)
     """Given multiple stacked T3s, this unstacks them
     into an array-like structure of nested tuples with the same "shape" as the stacking shape.
     """
@@ -297,13 +302,13 @@ def t3_unstack(
 
 
 def t3_core_shapes(
-        shape: typ.Sequence[int],
-        tucker_ranks: typ.Sequence[int],
-        tt_ranks: typ.Sequence[int],
-        stack_shape: typ.Sequence[int] = (),
+        shape:        typ.Sequence[int],       # len=d, the tensor mode sizes (N0,...,N(d-1))
+        tucker_ranks: typ.Sequence[int],       # len=d
+        tt_ranks:     typ.Sequence[int],       # len=d+1
+        stack_shape:  typ.Sequence[int] = (),  # leading batch axes
 ) -> typ.Tuple[
-    typ.Tuple[int,...], # tucker_core_shapes
-    typ.Tuple[int,...], # tt_core_shapes
+    typ.Tuple[int, ...],  # tucker_core_shapes. len=d, each = stack_shape+(ni,Ni)
+    typ.Tuple[int, ...],  # tt_core_shapes.     len=d, each = stack_shape+(rLi,ni,rR(i+1))
 ]:
     """Determines the shapes of the T3 cores based on the ranks.
     """
@@ -336,12 +341,15 @@ def t3_to_vector(
 
 
 def t3_from_vector(
-        x_flat: NDArray,
-        shape: typ.Sequence[int],
-        tucker_ranks: typ.Sequence[int],
-        tt_ranks: typ.Sequence[int],
-        stack_shape: typ.Sequence[int] = (),
-) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]: # (tucker_cores, tt_cores)
+        x_flat:       NDArray,                 # shape=(x_size,), all core entries flattened
+        shape:        typ.Sequence[int],       # len=d, the tensor mode sizes (N0,...,N(d-1))
+        tucker_ranks: typ.Sequence[int],       # len=d
+        tt_ranks:     typ.Sequence[int],       # len=d+1
+        stack_shape:  typ.Sequence[int] = (),  # leading batch axes
+) -> typ.Tuple[
+    typ.Sequence[NDArray],  # tucker_cores. len=d, elm_shape=stack_shape+(ni,Ni)
+    typ.Sequence[NDArray],  # tt_cores.     len=d, elm_shape=stack_shape+(rLi,ni,rR(i+1))
+]:
     """Constructs a T3 from a 1D vector containing the core entries
     """
     tucker_core_shapes, tt_core_shapes = t3_core_shapes(
@@ -367,12 +375,16 @@ def t3_from_vector(
 
 
 def t3_corewise_randn(
-        shape:                  typ.Tuple[int, ...],
-        tucker_ranks:           typ.Tuple[int, ...],
-        tt_ranks:               typ.Tuple[int, ...],
-        stack_shape:    typ.Tuple[int, ...] = (),
-        use_jax:        bool = False,  # constructor: no array inputs, so the flag chooses the output type
-) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]: # (tucker_cores, tt_cores)
+        shape:        typ.Tuple[int, ...],       # len=d, the tensor mode sizes (N0,...,N(d-1))
+        tucker_ranks: typ.Tuple[int, ...],       # len=d
+        tt_ranks:     typ.Tuple[int, ...],       # len=d+1
+        stack_shape:  typ.Tuple[int, ...] = (),  # leading batch axes
+
+        use_jax:      bool = False,  # constructor: no array inputs, so the flag chooses the output type
+) -> typ.Tuple[
+    typ.Sequence[NDArray],  # tucker_cores. len=d, elm_shape=stack_shape+(ni,Ni)
+    typ.Sequence[NDArray],  # tt_cores.     len=d, elm_shape=stack_shape+(rLi,ni,rR(i+1))
+]:
     """Construct a Tucker tensor train with random cores.
     """
     xnp, _, _ = get_backend(False, use_jax)
@@ -397,12 +409,16 @@ def t3_corewise_randn(
 
 
 def t3_zeros(
-        shape:                  typ.Tuple[int,...],
-        tucker_ranks:           typ.Tuple[int,...],
-        tt_ranks:               typ.Tuple[int,...],
-        stack_shape:    typ.Tuple[int,...] = (),
-        use_jax: bool = False,
-) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]: # (tucker_cores, tt_cores)
+        shape:        typ.Tuple[int, ...],       # len=d, the tensor mode sizes (N0,...,N(d-1))
+        tucker_ranks: typ.Tuple[int, ...],       # len=d
+        tt_ranks:     typ.Tuple[int, ...],       # len=d+1
+        stack_shape:  typ.Tuple[int, ...] = (),  # leading batch axes
+
+        use_jax:      bool = False,  # constructor: no array inputs, so the flag chooses the output type
+) -> typ.Tuple[
+    typ.Sequence[NDArray],  # tucker_cores. len=d, elm_shape=stack_shape+(ni,Ni)
+    typ.Sequence[NDArray],  # tt_cores.     len=d, elm_shape=stack_shape+(rLi,ni,rR(i+1))
+]:
     """Construct a Tucker tensor train of zeros.
     """
     xnp, _, _ = get_backend(False, use_jax)
@@ -416,10 +432,14 @@ def t3_zeros(
 
 
 def t3_ones(
-        shape:                  typ.Tuple[int,...],
-        stack_shape:    typ.Tuple[int,...] = (),
-        use_jax: bool = False,
-) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]: # (tucker_cores, tt_cores)
+        shape:        typ.Tuple[int, ...],       # len=d, the tensor mode sizes (N0,...,N(d-1))
+        stack_shape:  typ.Tuple[int, ...] = (),  # leading batch axes
+
+        use_jax:      bool = False,  # constructor: no array inputs, so the flag chooses the output type
+) -> typ.Tuple[
+    typ.Sequence[NDArray],  # tucker_cores. len=d, rank-1, elm_shape=stack_shape+(1,Ni)
+    typ.Sequence[NDArray],  # tt_cores.     len=d, rank-1, elm_shape=stack_shape+(1,1,1)
+]:
     """Construct the rank-1 Tucker tensor train representing a tensor full of ones.
     """
     xnp, _, _ = get_backend(False, use_jax)
@@ -465,10 +485,10 @@ def wt3_squash_tails(
 
 
 def t3_from_canonical(
-        factors: typ.Sequence[NDArray], # elm_shape = stack_shape + (canonical_rank, Ni)
+        factors: typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(canonical_rank,Ni)
 ) -> typ.Tuple[
-    typ.Tuple[NDArray,...], # tucker_cores
-    typ.Tuple[NDArray,...], # tt_cores
+    typ.Tuple[NDArray, ...],  # tucker_cores. len=d, elm_shape=stack_shape+(canonical_rank,Ni)
+    typ.Tuple[NDArray, ...],  # tt_cores.     len=d, superdiagonal, elm_shape=stack_shape+(cr,cr,cr)
 ]:
     """Constructs Tucker tensor train from Canonical decomposition.
     """
@@ -490,10 +510,10 @@ def t3_from_canonical(
 
 
 def t3_from_tensor_train(
-        tt_cores: typ.Sequence[NDArray], # elm_shape=stack_shape+(ri, N, r(i+1))
+        tt_cores: typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(rLi,Ni,rR(i+1))
 ) -> typ.Tuple[
-    typ.Tuple[NDArray,...], # tucker_cores
-    typ.Tuple[NDArray,...], # tt_cores
+    typ.Tuple[NDArray, ...],  # tucker_cores. len=d, identity bases, elm_shape=stack_shape+(Ni,Ni)
+    typ.Tuple[NDArray, ...],  # tt_cores.     len=d, elm_shape=stack_shape+(rLi,Ni,rR(i+1))
 ]:
     """Convert tensor train into Tucker tensor train by using identity matrices for Tucker bases.
     """
@@ -511,10 +531,10 @@ def t3_from_tensor_train(
 
 def t3_to_tensor_train(
         x: typ.Tuple[
-            typ.Tuple[NDArray,...], # tucker_cores
-            typ.Tuple[NDArray,...], # tt_cores
+            typ.Tuple[NDArray, ...],  # tucker_cores. len=d, elm_shape=stack_shape+(ni,Ni)
+            typ.Tuple[NDArray, ...],  # tt_cores.     len=d, elm_shape=stack_shape+(rLi,ni,rR(i+1))
         ],
-) -> typ.Tuple[NDArray,...]: # tt_cores
+) -> typ.Tuple[NDArray, ...]:  # tt_cores (Tucker absorbed). len=d, elm_shape=stack_shape+(rLi,Ni,rR(i+1))
     """Convert TuckerTensorTrain to tensor train by contracting Tucker bases with TT cores.
     """
     use_jax = any([is_jax_ndarray(c) for c in x[0]]) or any([is_jax_ndarray(c) for c in x[1]])
@@ -528,11 +548,11 @@ def t3_to_tensor_train(
 
 def t3_sum(
         x: typ.Tuple[
-            typ.Tuple[NDArray,...], # tucker_cores
-            typ.Tuple[NDArray,...], # tt_cores
+            typ.Tuple[NDArray, ...],  # tucker_cores. len=d, elm_shape=stack_shape+(ni,Ni)
+            typ.Tuple[NDArray, ...],  # tt_cores.     len=d, elm_shape=stack_shape+(rLi,ni,rR(i+1))
         ],
-        axis=None,
-):
+        axis: typ.Union[int, typ.Sequence[int], None] = None,  # modes to sum (None -> all); negatives wrap
+):  # -> T3 data tuple over the remaining modes, or a scalar NDArray (shape=stack_shape) if all modes summed
     """Sum over axes of TuckerTensorTrain.
     """
     tucker_cores, tt_cores = x

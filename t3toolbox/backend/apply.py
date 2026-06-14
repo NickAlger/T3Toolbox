@@ -53,10 +53,13 @@ def tucker_tensor_train_apply(
 
 
 def tucker_tensor_train_apply_transpose(
-        c:      NDArray,                # residual, shape = W + C
-        ww:     typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape = W + (Ni,)
-        sum_over_probes: bool = False,
-) -> typ.Tuple[typ.Tuple[NDArray, ...], typ.Tuple[NDArray, ...]]:  # (tucker_cores, tt_cores)
+        c:                  NDArray,                # residual, shape=W+C
+        ww:                 typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
+        sum_over_probes:    bool = False,           # True: sum the apply stack W (Gauss-Newton J^T r)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # tucker_cores
+    typ.Tuple[NDArray, ...],  # tt_cores
+]:
     '''Transpose of :py:func:`tucker_tensor_train_apply`: back-project a residual ``c`` into a tensor.
 
     The Jacobian-transpose of the all-modes apply  ``X -> ( <X, w0^W (x) ... (x) w_{d-1}^W> )_W``.
