@@ -1,0 +1,347 @@
+\documentclass[11pt]{article}
+
+% ---------------------------------------------------------------------------
+%  A research note on the TTM algorithm, its Tucker-tensor-train (T3)
+%  generalization (T3M), the hierarchical-Tucker (HT) view, and the idea of
+%  converting between formats to reduce "bubbling".
+%
+%  Compile with pdflatex (needs: amsmath, amssymb, amsthm, algorithm,
+%  algpseudocode, booktabs, hyperref, geometry -- all standard).
+%
+%  This is an *idea capture* note, not a paper: it records connections we
+%  worked out and a hypothesis we are deliberately NOT implementing yet.
+% ---------------------------------------------------------------------------
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+
+\newcommand{\T}{\mathcal{T}}
+\newcommand{\A}{\mathcal{A}}
+\newcommand{\B}{\mathcal{B}}
+\newcommand{\C}{\mathcal{C}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\krrow}{\odot_{\mathrm{r}}}     % row-wise Khatri--Rao
+\newcommand{\kron}{\otimes}
+\newcommand{\had}{\odot}                     % Hadamard / elementwise product
+\newcommand{\rtil}{\tilde{r}}
+\newcommand{\ntil}{\tilde{n}}
+\DeclareMathOperator{\rank}{rank}
+\DeclareMathOperator{\TT}{TT}
+
+\title{\bfseries Elementwise multiplication of tensor trains and Tucker tensor
+trains:\\ the TTM algorithm, its T3 generalization, and the hierarchical-Tucker view}
+\author{T3Toolbox notes --- N.\ Alger, B.\ Christierson \&\ collaborators}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This note records the relationship between three algorithms for the elementwise
+(Hadamard) product of tensors stored in tensor-network form: (i) the
+\emph{tensor-train multiplication} (TTM) swap algorithm of Michailidis,
+Fenton \&\ Kiffner (\href{https://arxiv.org/abs/2410.19747}{arXiv:2410.19747});
+(ii) our generalization to Tucker tensor trains (T3), which we call \emph{T3M};
+and (iii) the hypothetical generalization to arbitrary hierarchical-Tucker (HT)
+trees. We give the product structure, gauge-aware algorithm boxes, and the
+complexity. The central conceptual point is that TTM's per-swap truncation is
+optimal \emph{only because pure tensor trains have trivial leaf frames}; the
+moment leaf frames become nontrivial (the ``Tucker'' in T3, or any HT format),
+the leaf compression couples the two operands and forces an
+\emph{oversample-then-round} structure. We close with a thought experiment:
+converting a TT to a balanced HT to reduce ``bubbling,'' and an analysis of why
+it does not pay off for TT/T3 inputs even though the meta-principle is sound.
+\end{abstract}
+
+\section{Setup and notation}
+
+A dense order-$d$ tensor $\T\in\R^{N_0\times\cdots\times N_{d-1}}$ has entries
+$\T[x_0,\dots,x_{d-1}]$. We write the \emph{Hadamard} (elementwise) product of two
+same-shape tensors as $\C=\A\had\B$, i.e.\ $\C[x]=\A[x]\,\B[x]$.
+
+\paragraph{Tensor train (TT).}
+$\displaystyle \T[x]=\sum G_0[\,\cdot,x_0,\cdot\,]\cdots G_{d-1}[\,\cdot,x_{d-1},\cdot\,]$,
+with cores $G_i\in\R^{r_i\times N_i\times r_{i+1}}$ and boundary bonds
+$r_0=r_d=1$. The $r_i$ are the \emph{TT bonds}.
+
+\paragraph{Tucker tensor train (T3).}
+A Tucker decomposition whose core $\C$ is itself stored as a TT:
+\begin{equation}
+\T[x]=\sum_{n_0,\dots,n_{d-1}} \Big(\prod_{i=0}^{d-1} U_i[n_i,x_i]\Big)\,\C[n_0,\dots,n_{d-1}],
+\qquad \C=\TT(G),
+\label{eq:t3}
+\end{equation}
+with \emph{Tucker factors} (leaf frames) $U_i\in\R^{n_i\times N_i}$ and central TT
+cores $G_i\in\R^{r_i\times n_i\times r_{i+1}}$. The $n_i$ are the \emph{Tucker ranks}.
+Plain TT is the special case $n_i=N_i$, $U_i=I$.
+
+\paragraph{Two combination rules.}
+For a Hadamard product, the row-wise Khatri--Rao and the Kronecker product appear:
+\begin{align}
+(U^A\krrow U^B)[(a,b),\,x] &= U^A[a,x]\,U^B[b,x] && \text{(row-wise Khatri--Rao, ``COPY'')},\\
+(G^A\kron G^B)[(\alpha,\alpha'),(a,b),(\beta,\beta')] &= G^A[\alpha,a,\beta]\,G^B[\alpha',a',\beta'] && \text{(Kronecker)} .
+\end{align}
+
+\paragraph{The product of two T3s.}
+Substituting \eqref{eq:t3} for $\A$ and $\B$ into $\C[x]=\A[x]\B[x]$ and grouping
+factors mode by mode gives the exact product T3:
+\begin{equation}
+W_i \;=\; U^A_i\krrow U^B_i \in\R^{(n^A_i n^B_i)\times N_i},
+\qquad
+G^C_i \;=\; G^A_i\kron G^B_i \in\R^{(r^A_i r^B_i)\times(n^A_i n^B_i)\times(r^A_{i+1}r^B_{i+1})}.
+\label{eq:prod}
+\end{equation}
+\emph{Both} rank families blow up multiplicatively: Tucker rank
+$n^A_i n^B_i$ and TT bond $r^A_i r^B_i$. The point of every algorithm below is to
+produce \eqref{eq:prod} \emph{already truncated} back to target ranks
+$\ntil_i,\rtil_i$, ideally without ever forming the blown-up factors.
+
+\section{The TTM algorithm (pure tensor trains)}
+\label{sec:ttm}
+
+For pure TT the leaf frames are trivial, so only the central object matters and
+the Hadamard acts \emph{diagonally} on each physical leg: when two same-mode cores
+meet, a copy tensor $\delta[x,x',x'']$ (the order-3 diagonal) ties their physical
+legs to a single output leg of the \emph{same} size $N_i$. TTM never forms the
+$r^2$ bonds. Instead it views $\A\kron\B$ (the order-$2d$ outer product) as one
+length-$2d$ TT and merges matching modes by local, gauge-centered, truncating
+\emph{swaps}.
+
+\begin{algorithm}[t]
+\caption{\textsc{TTM} --- Hadamard product of two tensor trains (swap form)}
+\label{alg:ttm}
+\begin{algorithmic}[1]
+\Require TT cores $\{G^A_i\}$, $\{G^B_i\}$; per-step tolerance / target bond $\rtil$
+\State $H \gets [\,G^A_0,\dots,G^A_{d-1},\ \textsc{reverse}(G^B)\,]$ \Comment{length-$2d$ chain $=\A\kron\B$; reversal makes mode $d{-}1$ adjacent}
+\State left-orthogonalize the $A$-half, right-orthogonalize the reversed-$B$ half \Comment{mixed-canonical center at the seam}
+\For{$i=d-1$ \textbf{downto} $0$}
+  \State move the orthogonality center to the right end of the merged block
+  \For{each step bringing the mode-$i$ $B$-core toward its $A$-partner}
+    \State \textsc{swap} the adjacent pair by a \emph{centered} truncated SVD \Comment{bond stays $O(\rtil)$}
+  \EndFor
+  \State \textsc{merge} the adjacent matching pair with the copy tensor $\delta$ (diagonal in $x_i$); single bonds in/out
+\EndFor
+\State \Return the length-$d$ chain $\{G^C_i\}$
+\end{algorithmic}
+\end{algorithm}
+
+The reversal makes the $\tfrac{d(d-1)}{2}$ swaps minimal, and each merged core is
+``bubbled past'' by later $B$-cores. Because every swap and merge is performed in
+mixed-canonical gauge (everything surrounding the active core is orthogonal toward
+it), each truncated SVD is locally optimal in Frobenius norm. \textbf{For pure TT
+this per-step optimality is enough}: the physical leg size $N_i$ is invariant
+(the diagonal merge does not compress it), so the only truncation is of the
+\emph{bonds}, and centered bond truncation is optimal. Cost $O(d^2\rtil^3)$,
+peak memory $O(\rtil^2)$ --- the regime win is $\rtil\gg d$.
+
+\section{Generalization to Tucker tensor trains (T3M)}
+\label{sec:t3m}
+
+\subsection{What changes, and what does not}
+The skeleton of Algorithm~\ref{alg:ttm} ports verbatim: concatenate, reverse,
+the $\tfrac{d(d-1)}{2}$ swap schedule, and the gauge discipline are all
+tensor-agnostic. \emph{One} thing changes: the copy-tensor merge becomes the
+\textbf{Khatri--Rao merge}. When the mode-$i$ pair meets, the merged physical leg
+is the pair $(n^A_i,n^B_i)$ carrying the Tucker factor $W_i=U^A_i\krrow U^B_i$ from
+\eqref{eq:prod}, and $W_i$ admits a \emph{new} compression
+\begin{equation}
+\rank(W_i)\le \min(n^A_i n^B_i,\;N_i),\qquad\text{truncate to } \ntil_i,
+\end{equation}
+weighted by the (orthogonal) environment exactly as the T3-SVD per-site step does.
+This Tucker compression \textbf{has no analogue in pure TT} and is the source of
+everything below.
+
+\begin{algorithm}[t]
+\caption{\textsc{T3M-swap} --- Hadamard product of two Tucker tensor trains}
+\label{alg:t3m}
+\begin{algorithmic}[1]
+\Require T3s $(U^A,G^A)$, $(U^B,G^B)$; targets $\ntil,\rtil$ (and/or $\mathrm{rtol},\mathrm{atol}$); oversample $k\ge1$
+\State down-orthogonalize the Tucker factors of each input \Comment{HT: ``orthogonalize leaves toward the root''}
+\State $H \gets [\,G^A_0,\dots,G^A_{d-1},\ \textsc{reverse}(G^B)\,]$ with each $G_i$ carrying $(U_i,\text{mode }i)$
+\State left-orthogonalize the $A$-half, right-orthogonalize the reversed-$B$ half \Comment{center at the seam}
+\For{$i=d-1$ \textbf{downto} $0$}
+  \State move the center to the right end of the merged block
+  \For{each step bringing the mode-$i$ $B$-core to its $A$-partner}
+    \State centered truncated-SVD \textsc{swap}, intermediate bond capped at $k\,\rtil$ (or tol $/k$) \Comment{memory only}
+  \EndFor
+  \State \textsc{merge}: $W_i\gets U^A_i\krrow U^B_i$; centered weighted-SVD compress to $\le k\,\ntil$; Tucker factors/modes ride along
+\EndFor
+\If{$k>1$ \textbf{or} a non-uniform per-position bond cap was requested}
+  \State $\{(U^C_i,G^C_i)\}\gets$ \textsc{T3-SVD-round}$(\{(U^C_i,G^C_i)\};\ \ntil,\rtil,\mathrm{rtol},\mathrm{atol})$ \Comment{the decisive truncation}
+\EndIf
+\State \Return $\{(U^C_i,G^C_i)\}$
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{The leaf-frame tension}
+With the gauge done correctly the no-truncation path of Algorithm~\ref{alg:t3m}
+reproduces \eqref{eq:prod} to machine precision. Yet under \emph{aggressive}
+truncation it lands at $\approx1.2\times$ the optimal error, whereas
+form-then-round is optimal. The cause is structural, not a gauge bug:
+\begin{quote}
+the Khatri--Rao compression $W_i\!=\!U^A_i\krrow U^B_i$ \textbf{couples} the two
+operands' factors, so it can only happen when the two cores \emph{meet} (the merge,
+which for the last mode is the very last step). Meanwhile the bonds want to be
+truncated \emph{after} all merges: while $a_0$ and $b_0$ are still split across the
+chain, the mode-$0$ correlation is carried by the \emph{bonds}; once merged it
+becomes internal to the merged core and stops burdening them. Truncating bonds
+before the final merge truncates a representation with artificially inflated bonds.
+\end{quote}
+Pure TT escapes this precisely because its leaf frames are trivial: no leaf
+compression, no coupling, no tension. \textbf{The tension is the price of
+nontrivial leaf frames.}
+
+\subsection{Oversample, then round}
+The principled resolution: use the swaps only to bring cores together with
+\emph{loosely} bounded intermediate ranks (a factor $k\ge1$ of oversampling,
+purely for memory), and defer the \emph{decisive} truncation to a final
+T3-SVD rounding pass --- run after every Tucker leg is already compressed and with
+$O(d)$ rather than $O(d^2)$ steps. Empirically $k\!\approx\!3$ recovers the optimal
+error; $k\!=\!1$ (no extra rounding) is the maximal-memory-saving, lowest-quality
+corner that coincides with the naive ``truncate hard in place'' reading of TTM.
+Crucially, in the $\rtil\gg d$ regime where the swap method is used, $\rtil\ll r$, so
+$O((k\rtil)^2)$ memory with small $k$ is still far below the $O(r^2)$ full product:
+the memory advantage survives. The final round, being a native T3-SVD, also makes
+a \emph{per-position} bond-cap sequence honored exactly --- something the swap
+process cannot do bond-by-bond, since it does not preserve per-position bond
+identity.
+
+\section{The view from hierarchical Tucker (HT)}
+\label{sec:ht}
+
+\subsection{TT, Tucker, and T3 as HT instances}
+An HT tensor is a \emph{dimension tree} with leaf frames $U_i\in\R^{n_i\times N_i}$
+and transfer tensors $B_t\in\R^{n_{t_1}\times n_{t_2}\times n_t}$ at internal nodes
+$t$ with children $t_1,t_2$ (root rank $1$). The familiar formats are points in
+this space:
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+format & HT realization\\
+\midrule
+Tensor train & linear (caterpillar) tree, \textbf{trivial} leaf frames ($U_i=I$)\\
+Tucker & star (one root transfer tensor, $d$ leaf frames)\\
+Tucker tensor train (T3) & linear tree, \textbf{nontrivial} leaf frames\\
+\bottomrule
+\end{tabular}
+\end{center}
+So T3 is exactly ``TT with the leaf frames switched on'' --- which, by
+\S\ref{sec:t3m}, is the whole story behind the tension.
+
+\subsection{Hadamard on trees}
+For two HT tensors on the \emph{same} tree, the Hadamard product is, at every node,
+\[
+\text{leaf frames } \;W_i = U^A_i\krrow U^B_i,
+\qquad
+\text{transfer tensors } \; B^C_t = B^A_t\kron B^B_t,
+\]
+i.e.\ the universal ``KR at leaves, Kronecker inside,'' followed by an HT-rounding.
+Equivalently (the TTM viewpoint), $\A\kron\B$ is itself a valid HT tensor on the
+two trees joined at a new root, and the Hadamard is recovered by \emph{merging each
+pair of matching leaves} (the copy tensor / KR) while truncating in mixed-canonical
+gauge. TTM/T3M are the \emph{linear-tree} instances of this; a general tree replaces
+``adjacent swaps'' with SVD-based subtree/gauge moves.
+
+This lens retro-justifies several T3M choices as canonical HT steps:
+down-orthogonalizing the Tucker factors $=$ orthogonalizing leaves toward the root;
+the center-at-the-truncated-node gauge $=$ HT mixed-canonical form; the final
+T3-SVD cleanup $=$ ``round with the format's native rounder.''
+
+\subsection{Bubbling and tree balance}
+In a linear tree the matching leaves of $\A\kron\B$ start $\sim d$ apart, and
+rearranging them to be siblings costs $O(d^2)$ adjacent swaps (the ``bubbling'';
+it is the inversion count of the permutation
+$[0,\dots,d{-}1,\,d{-}1,\dots,0]\mapsto[0,0,1,1,\dots]$). A \emph{balanced} tree has
+diameter $O(\log d)$, so the rearrangement count drops to $O(d\log d)$. Thus the
+$O(d^2)$ in T3M is a \emph{linear-tree artifact}, intrinsic to T3 (which is linear
+by definition), consistent with positioning the swap method for small $d$, large
+$\rtil$.
+
+\section{Thought experiment: convert, multiply, convert back}
+\label{sec:convert}
+
+If a balanced tree needs fewer bubbles, why not \emph{convert} a TT/T3 into a
+balanced HT, take the Hadamard there, and convert back? We record the idea and the
+reason it does \emph{not} pay off for TT/T3 inputs --- while noting the
+meta-principle is nonetheless sound.
+
+\paragraph{Rank inflation under TT$\to$HT.}
+A contiguous \emph{middle} block $[a,b]$ of a TT connects to the rest through
+\emph{two} bonds, so its HT separation rank obeys
+$\rank_{[a,b]}\le r_a\,r_{b+1}\approx r^2$ (prefix/suffix blocks keep rank
+$\approx r$; the middle nodes inflate). Since the separation rank of a Hadamard
+product is sub-multiplicative,
+\[
+\rank_{[a,b]}(\A\had\B)\ \le\ \rank_{[a,b]}(\A)\,\rank_{[a,b]}(\B)\ \approx\ r^2\cdot r^2 = r^4 .
+\]
+So the product is $\approx r^2$-compact as a \textbf{TT} but $\approx r^4$-compact
+as a \textbf{balanced HT}: converting moves you into a representation where the very
+object being computed is quadratically larger.
+
+\paragraph{Cost comparison (working bond $\rtil$).}
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+ & rearrangement count & per-operation cost \\
+\midrule
+linear / TT swap & $O(d^2)$ & $O(\rtil^3)$ \\
+balanced HT & $O(d\log d)$ & $O((\rtil^2)^3)=O(\rtil^6)$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+Hence
+\[
+\frac{\text{balanced}}{\text{linear}}\ \approx\ \frac{\log d}{d}\,\rtil^3 .
+\]
+In the $\rtil\gg d$ regime --- exactly where bubbling matters and the swap method is
+used --- $\rtil^3\gg d$, so the balanced route is \emph{worse}; in the $d\gg\rtil$
+regime the in-place fused method already avoids bubbling, so one would not swap at
+all. There is thus no regime where convert-then-convert-back clearly beats the best
+existing method for TT/T3 inputs.
+
+\paragraph{What survives.}
+The \emph{meta-principle} --- compute in whatever network topology makes the
+operation cheapest, then convert back --- is legitimate and used elsewhere in
+tensor-network practice. It simply requires the alternative topology to be
+genuinely more compact \emph{for this data and this operation}, and balanced HT is
+not, for TT-Hadamard. A partial / data-adaptive rebalancing (cheaper than full
+balancing, avoiding the worst middle-block inflation) is a genuine open direction,
+but is out of scope here.
+
+\section{Summary}
+
+\begin{center}
+\begin{tabular}{lllp{4.6cm}}
+\toprule
+method & compute & peak memory & character \\
+\midrule
+(a) form-then-round & $O(d\,r^6)$ & $O(d\,r^4 n^2)$ & forms full product; embarrassingly parallel; the optimal-quality oracle \\
+(b) in-place fused  & $O(d\,r^4)$ & $O(\rtil\,n^2 r^2)$ & fused L$\to$R sweep; the default for large $d$ \\
+(c) swap (T3M)      & $O(d^2 r^3)$ & $O(\rtil^2)$ & this note; for $r\gg d$; needs oversample$+$round \\
+\midrule
+hypothetical balanced HT & $O(d\log d\,\rtil^6)$ & $O(\rtil^4)$ & fewer bubbles, but rank-inflated; not a win for TT/T3 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Take-aways.}
+(1) TTM's swap skeleton is the faithful generalization to T3; only the merge changes
+(copy tensor $\to$ Khatri--Rao). (2) Per-swap truncation is optimal \emph{only} for
+trivial leaf frames; nontrivial leaf frames (T3, HT) introduce a leaf-compression
+coupling that forces \emph{oversample-then-round}. (3) T3 is the linear-tree,
+leaf-bearing instance of an HT Hadamard algorithm; its $O(d^2)$ bubbling is a
+linear-tree artifact. (4) Converting to a balanced HT trades bubble count for rank
+inflation and does not help for TT/T3 inputs, though the underlying
+topology-choice principle is sound.
+
+\paragraph{References.}
+P.\ Michailidis, C.\ Fenton, M.\ Kiffner, \emph{Tensor Train Multiplication},
+\href{https://arxiv.org/abs/2410.19747}{arXiv:2410.19747} (TTM).\\
+N.\ Alger, B.\ Christierson, P.\ Chen, O.\ Ghattas, \emph{Tucker Tensor Train
+Taylor Series}, arXiv:2603.21141 (T4S; T3 format, T3-SVD).
+
+\end{document}
