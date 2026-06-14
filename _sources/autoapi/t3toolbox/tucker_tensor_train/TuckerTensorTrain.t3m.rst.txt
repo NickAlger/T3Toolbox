@@ -1,7 +1,7 @@
 TuckerTensorTrain.t3m
 =====================
 
-.. py:method:: t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3m(other, method = 'form_then_round', max_tucker_ranks = None, max_tt_ranks = None, rtol = None, atol = None)
+.. py:method:: t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3m(other, method = 'inplace_fused', max_tucker_ranks = None, max_tt_ranks = None, rtol = None, atol = None)
 
    Elementwise (Hadamard) product ``self ⊙ other`` with optional rank truncation.
 
