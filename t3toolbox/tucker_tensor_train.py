@@ -1812,31 +1812,35 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
-        >>> s = 3.2
-        >>> sx = x * s
-        >>> print(np.linalg.norm(s*x.to_dense() - sx.to_dense()))
-        1.6268482531988893e-13
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (1, 3, 2, 1), stack_shape=(2, 3))
+        >>> sx = x * 3.2                                  # scale a T3 by a scalar -> T3
+        >>> print(np.allclose(3.2 * x.to_dense(), sx.to_dense()))
+        True
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (1, 3, 2, 1), stack_shape=(2, 3))
         >>> y = np.random.randn(*(x.stack_shape + x.shape))
-        >>> xy = x * y
-        >>> print(np.linalg.norm(x.to_dense()*y - xy))
-        0.0
+        >>> xy = x * y                                    # T3 * ndarray -> dense ndarray (elementwise product)
+        >>> print(xy.shape)
+        (2, 3, 14, 15, 16)
+        >>> print(np.allclose(x.to_dense() * y, xy))
+        True
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
-        >>> y = t3.TuckerTensorTrain.randn((14,15,16), (2,3,4), (3,2,3,2), stack_shape=(2,3))
-        >>> xy = x * y
-        >>> print(np.linalg.norm(x.to_dense()*y.to_dense() - xy.to_dense()))
-        8.556292929330887e-11
-        >>> print(xy.tucker_ranks) # ranks get multiplied!
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (1, 3, 2, 1), stack_shape=(2, 3))
+        >>> y = t3.TuckerTensorTrain.randn((14, 15, 16), (2, 3, 4), (3, 2, 3, 2), stack_shape=(2, 3))
+        >>> xy = x * y                                    # elementwise product of two T3s -> T3
+        >>> print(np.allclose(x.to_dense() * y.to_dense(), xy.to_dense()))
+        True
+        >>> print(xy.tucker_ranks)                        # Tucker ranks MULTIPLY: 4*2, 5*3, 6*4
         (8, 15, 24)
-        >>> print(xy.tt_ranks)
-        (1, 6, 6, 1)
+        >>> print(xy.tt_ranks)                            # and the TT bonds: 1*3, 3*2, 2*3, 1*2
+        (3, 6, 6, 2)
         """
         if common.is_ndarray(other):
             if other.shape == ():
@@ -2097,45 +2101,55 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,2))
-        >>> y = t3.TuckerTensorTrain.randn((14,15,16), (3,7,2), (3,5,6,3))
-        >>> x_dot_y = x.inner(y)
-        >>> x_dot_y2 = np.sum(x.to_dense() * y.to_dense())
-        >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
-        1.3096723705530167e-10
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (2, 3, 2, 2))
+        >>> y = t3.TuckerTensorTrain.randn((14, 15, 16), (3, 7, 2), (3, 5, 6, 3))
+        >>> hs = x.inner(y)                               # Hilbert-Schmidt inner product (a scalar)
+        >>> print(np.allclose(hs, np.sum(x.to_dense() * y.to_dense())))
+        True
 
-        (T3, T3) using stacking:
-
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,2), stack_shape=(2,3))
-        >>> y = t3.TuckerTensorTrain.randn((14,15,16), (3,7,2), (3,5,6,3), stack_shape=(2,3))
-        >>> x_dot_y = x.inner(y)
-        >>> x_dot_y2 = np.sum(x.to_dense() * y.to_dense(), axis=(2,3,4))
-        >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
-        2.7761383858792984e-09
-
-        Inner product of T3 with dense:
+        (T3, T3) with stacking -- one inner product per stack element:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (3,7,2), (3,5,6,3))
-        >>> y = np.random.randn(14,15,16)
-        >>> x_dot_y = x.inner(y)
-        >>> x_dot_y2 = np.sum(x.to_dense() * y)
-        >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
-        0.0
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (2, 3, 2, 2), stack_shape=(2, 3))
+        >>> y = t3.TuckerTensorTrain.randn((14, 15, 16), (3, 7, 2), (3, 5, 6, 3), stack_shape=(2, 3))
+        >>> hs = x.inner(y)
+        >>> print(hs.shape)                               # result carries the stack shape
+        (2, 3)
+        >>> print(np.allclose(hs, np.sum(x.to_dense() * y.to_dense(), axis=(2, 3, 4))))
+        True
 
-        Inner product of T3 with dense including stacking:
+        Inner product of a T3 with a dense tensor:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (3,7,2), (3,5,6,3), stack_shape=(2,3))
-        >>> y = np.random.randn(2,3, 14,15,16)
-        >>> x_dot_y = x.inner(y)
-        >>> x_dot_y2 = np.einsum('ijxyz,ijxyz->ij', x.to_dense(), y)
-        >>> print(np.linalg.norm(x_dot_y - x_dot_y2))
-        1.2014283869232628e-11
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14, 15, 16), (3, 7, 2), (3, 5, 6, 3))
+        >>> y = np.random.randn(14, 15, 16)
+        >>> print(np.allclose(x.inner(y), np.sum(x.to_dense() * y)))
+        True
+
+        ...with stacking (the dense array carries the stack axes):
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14, 15, 16), (3, 7, 2), (3, 5, 6, 3), stack_shape=(2, 3))
+        >>> y = np.random.randn(2, 3, 14, 15, 16)         # shape = stack_shape + shape
+        >>> print(np.allclose(x.inner(y), np.einsum('ijxyz,ijxyz->ij', x.to_dense(), y)))
+        True
+
+        Gotcha -- the two tensors must have the same shape (raises otherwise):
+
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.TuckerTensorTrain.randn((4, 5), (2, 2), (1, 2, 1))
+        >>> y = t3.TuckerTensorTrain.randn((4, 6), (2, 2), (1, 2, 1))   # different shape!
+        >>> x.inner(y)                                    # doctest: +IGNORE_EXCEPTION_DETAIL
+        Traceback (most recent call last):
+            ...
+        ValueError
         """
         if isinstance(other, TuckerTensorTrain):
             if self.shape != other.shape:
