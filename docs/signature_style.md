@@ -80,6 +80,29 @@ def compute_mus(
   may add nothing — then keep it short or omit (see below).
 - Prefer the comma form over a period (`# len=d, elm_shape=...`, not `# len=d. elm_shape=...`).
 
+## Aligning the comment column: one block, or grouped?
+
+**Names and types are *always* column-aligned** — each is an O(1) jump for the eye. The only open
+question is the **comment** column. The cost of forcing every comment into a single column is the
+**type-length spread**: the gap an argument gets is `(longest type+default) − (its type+default)`. So:
+
+- **Small spread → one aligned comment column.** Cheap, tidy, every comment O(1). The common case
+  (e.g. `probing.py`, where every arg is the same array type — the column falls out for free).
+- **Large spread → group, and align *within* each group.** Split the args into runs of similar-length
+  types (which usually coincide with roles: operands / rank caps / tolerances / flags), put a **blank
+  line** between groups, and align the comment column *within* each group. The comment column resets
+  per group; **names/types stay aligned across the whole signature** (still O(1)) — only the comment
+  column is per-group. This keeps every comment O(1) *within its group*, keeps lines short, and makes
+  the grouping visible. It is strictly better than one column with 30-space gaps, and far better than
+  the **staircase** (each comment 2 spaces after its own type, no cross-row alignment): the staircase
+  minimizes gaps but makes the comment column *unpredictable* — O(n) to find — which is the worst to
+  scan. **Don't use the staircase.**
+
+Rule of thumb: group when the args span clearly different type-lengths (a long array/`Union` next to a
+bare `float`/`bool`) **and** there are enough rows for a staircase to bite (≳4). For two or three args
+a single column is already fine. (`t3m`, frontend and backend, is the worked example: groups
+operands / `max_*` caps / `rtol`,`atol` / `oversample`, blank-line-separated.)
+
 ## Within reason (principle over dogma)
 
 This is a convention, not a contract enforced by anything. Apply it where it earns its keep; handle

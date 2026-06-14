@@ -136,8 +136,10 @@ thread `use_jax` (old pattern) — migrate when repairing them.
   `#` shape-contract). Micro-grammar `# len=d, elm_shape=...`. **Annotate what Python *can* express**
   (real `Union`/`Optional`, include `None`); the comment carries only what it **can't** (shapes,
   sequence lengths like `len=d+1`, constraints, semantics) — so a `#`'s presence signals an
-  inexpressible contract. A **principle, applied within reason** (trivial scalars may need no comment;
-  don't over-align pathological `Union`s). Full rationale + rules + exemplar:
+  inexpressible contract. Names/types always align; **comments align in one column when the
+  type-length spread is small, else split into blank-line-delimited groups of similar types and align
+  within each group** (never the unpredictable staircase). A **principle, applied within reason**
+  (trivial scalars may need no comment). Full rationale + rules + exemplar:
   **[`docs/signature_style.md`](docs/signature_style.md)** (reference module: `backend/probing.py`).
 - Body locals encode axis layout in the **name suffix** (`C_aib`, `mu_WCa`, `B0_b_j_c`), matching the
   contraction-naming scheme (`C`/`W`/`K` = grouped index blocks, lowercase = single axes, leading `d` =

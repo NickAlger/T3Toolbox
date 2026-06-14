@@ -268,10 +268,12 @@ def t3_mult(
 
 
 def t3m_form_then_round(
-        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_x, tt_cores_x)
-        y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_y, tt_cores_y)
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores_x, tt_cores_x)
+        y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores_y, tt_cores_y)
+
         max_tucker_ranks:   typ.Union[int, typ.Sequence[int], None] = None,  # scalar caps all, or len=d
         max_tt_ranks:       typ.Union[int, typ.Sequence[int], None] = None,  # scalar caps all, or len=d+1
+
         rtol:               typ.Optional[float] = None,  # requires unstacked (enforced by the frontend)
         atol:               typ.Optional[float] = None,
 ) -> typ.Tuple[
@@ -295,10 +297,12 @@ def t3m_form_then_round(
 
 
 def t3m_inplace_fused(
-        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_x, tt_cores_x)
-        y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_y, tt_cores_y)
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores_x, tt_cores_x)
+        y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores_y, tt_cores_y)
+
         max_tucker_ranks:   typ.Union[int, typ.Sequence[int], None] = None,  # scalar caps all, or len=d
         max_tt_ranks:       typ.Union[int, typ.Sequence[int], None] = None,  # scalar caps all, or len=d+1
+
         rtol:               typ.Optional[float] = None,  # requires unstacked (enforced by the frontend)
         atol:               typ.Optional[float] = None,
 ) -> typ.Tuple[
@@ -477,12 +481,15 @@ def _t3m_move_center(
 
 
 def t3m_swap(
-        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_x, tt_cores_x)
-        y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_y, tt_cores_y)
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores_x, tt_cores_x)
+        y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores_y, tt_cores_y)
+
         max_tucker_ranks:   typ.Union[int, typ.Sequence[int], None] = None,  # scalar caps all, or len=d
         max_tt_ranks:       typ.Union[int, typ.Sequence[int], None] = None,  # scalar caps all, or len=d+1
+
         rtol:               typ.Optional[float] = None,  # requires unstacked (enforced by the frontend)
         atol:               typ.Optional[float] = None,
+
         oversample:         float = 1,  # >= 1; intermediate rank/tol relaxation factor (see docs/t3m_swap_plan.md)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # x_times_y tucker_cores
