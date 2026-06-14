@@ -11,12 +11,14 @@ TuckerTensorTrain.t3svd_dense
    :type T: NDArray
    :param stack_shape: The stack shape. Default: no stacking (``stack_shape=()``)
    :type stack_shape: Sequence[int], optional
-   :param max_tucker_ranks: Maximum Tucker ranks ``ni``, e.g., ``(5,5,5)``. ``len(max_tucker_ranks)=d``.
+   :param max_tucker_ranks: Maximum Tucker ranks ``ni``. A scalar caps every mode; a sequence is per-mode,
+                            e.g., ``(5,5,5)`` with ``len(max_tucker_ranks)=d``.
                             Default: no max Tucker rank truncation (``None``).
-   :type max_tucker_ranks: Sequence[int], optional
-   :param max_tt_ranks: Maximum TT-ranks ``ri``, e.g., ``(1,5,5,5,1)``. ``len(max_tt_ranks)=d+1``.
+   :type max_tucker_ranks: int or Sequence[int], optional
+   :param max_tt_ranks: Maximum TT-ranks ``ri``. A scalar caps every bond; a sequence is per-bond,
+                        e.g., ``(1,5,5,5,1)`` with ``len(max_tt_ranks)=d+1``.
                         Default: no max TT rank truncation (``None``).
-   :type max_tt_ranks: Sequence[int], optional
+   :type max_tt_ranks: int or Sequence[int], optional
    :param rtol: Relative tolerance for truncation (in the Frobenius norm), applied **per truncation step**
                 (see Notes -- the overall error can be larger). Default: no ``rtol`` truncation (``None``).
                 Requires ``stack_shape=()``.
