@@ -22,6 +22,33 @@ Two goals, both about the reader:
 If an edit serves those two goals, it's in the spirit of the rule. If a mechanical detail ever works
 *against* them, the goals win — see "Within reason" below.
 
+## Annotations vs comments: express what the type system *can*, comment the rest
+
+The comment-as-type technique is a patch for a *specific* deficiency — array **shape**. It is **not** a
+license to write ordinary types as comments. The division of labor:
+
+- **Whatever Python can express, put in the annotation.** A plain `int | Sequence[int] | None`,
+  `Optional[float]`, `bool`, a callable — fully expressible, so annotate them (real, checkable,
+  IDE-visible; this is a library for outside users whose tooling consumes annotations). Be
+  correct-and-explicit: include `None` in the union / use `Optional`.
+- **Whatever it can't, put in the comment.** Array shapes (`NDArray` is content-free), the *length*
+  of a sequence (`Sequence[int]` can't say `len=d+1`), cross-argument constraints
+  (`1 <= max_rank <= min(N,M)`), and semantics (`requires unstacked`).
+
+The two coexist on one argument, exactly like array args do (a weak `NDArray` / `Union[...]` annotation
+*plus* a load-bearing shape comment). Example:
+
+```python
+max_tt_ranks:  typ.Union[int, typ.Sequence[int], None] = None,  # scalar caps all, or len=d+1
+rtol:          typ.Optional[float] = None,                      # requires unstacked
+```
+
+Why not comment-only? Because annotating the expressible part keeps the **presence of a comment
+meaningful**: a `#` then signals "there is a contract here the type system cannot capture." If comments
+also carried ordinary types, you couldn't distinguish load-bearing shape comments from
+types-written-as-comments. (It also keeps the annotation column uniform — every arg carries its Python
+type; the comment carries the rest.)
+
 ## The mechanics
 
 ```python

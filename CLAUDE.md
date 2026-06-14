@@ -130,11 +130,14 @@ thread `use_jax` (old pattern) — migrate when repairing them.
 
 ## Code style (deliberate and nonstandard — do NOT normalize)
 
-- **Signature shape comments — the trailing comment IS the type** (Python's `NDArray` says nothing;
-  the *shape* is the real contract). One argument per line, one return element per line (expand return
-  tuples even when they'd fit), three vertically-aligned columns (name · type · `#` shape-contract).
-  Micro-grammar `# len=d, elm_shape=...`. A **principle, applied within reason** (trivial scalars may
-  need no comment; don't over-align pathological `Union`s). Full rationale + rules + exemplar:
+- **Signature shape comments — the trailing comment IS the type the language can't express** (Python's
+  `NDArray` says nothing; the *shape* is the real contract). One argument per line, one return element
+  per line (expand return tuples even when they'd fit), three vertically-aligned columns (name · type ·
+  `#` shape-contract). Micro-grammar `# len=d, elm_shape=...`. **Annotate what Python *can* express**
+  (real `Union`/`Optional`, include `None`); the comment carries only what it **can't** (shapes,
+  sequence lengths like `len=d+1`, constraints, semantics) — so a `#`'s presence signals an
+  inexpressible contract. A **principle, applied within reason** (trivial scalars may need no comment;
+  don't over-align pathological `Union`s). Full rationale + rules + exemplar:
   **[`docs/signature_style.md`](docs/signature_style.md)** (reference module: `backend/probing.py`).
 - Body locals encode axis layout in the **name suffix** (`C_aib`, `mu_WCa`, `B0_b_j_c`), matching the
   contraction-naming scheme (`C`/`W`/`K` = grouped index blocks, lowercase = single axes, leading `d` =

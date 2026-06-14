@@ -32,7 +32,10 @@ __all__ = [
 def t3_add(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_x, tt_cores_x)
         y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_y, tt_cores_y)
-) -> typ.Tuple[typ.Tuple[NDArray], typ.Tuple[NDArray]]: # (x_plus_y_tucker_cores, x_plus_y_tt_cores)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # x_plus_y tucker_cores
+    typ.Tuple[NDArray, ...],  # x_plus_y tt_cores
+]:
     """Add Tucker tensor trains x and y, yielding a Tucker tensor train with summed ranks.
     """
     use_jax = tree_contains_jax((x, y))
@@ -66,12 +69,12 @@ def t3_add(
 
 
 def t3_sum_stack(
-        x:          typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
-        axis        = None, # stack axis, or sequence of stack axes, to sum over. None: sum over all stack axes
+        x:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
+        axis:   typ.Union[int, typ.Sequence[int], None] = None,  # stack axes to sum over (None: all)
 ) -> typ.Tuple[
-    typ.Tuple[NDArray,...], # summed_tucker_cores
-    typ.Tuple[NDArray,...], # summed_tt_cores
-]: # (summed_tucker_cores, summed_tt_cores)
+    typ.Tuple[NDArray, ...],  # summed_tucker_cores
+    typ.Tuple[NDArray, ...],  # summed_tt_cores
+]:
     """Sum the dense tensors represented by a stacked Tucker tensor train over stack axes.
 
     This is the genuine tensor sum (summing the represented dense tensors), NOT a corewise sum
@@ -137,9 +140,12 @@ def t3_sum_stack(
 
 
 def t3_scale(
-        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
         s,  # scalar
-) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]: # x*s
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # scaled tucker_cores (x * s)
+    typ.Tuple[NDArray, ...],  # tt_cores (unchanged)
+]:
     """Multipy a Tucker tensor train by a scaling factor.
     """
     tucker_cores, tt_cores = x
@@ -153,10 +159,10 @@ def t3_scale(
 
 
 def t3_inner_product_t3(
-        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],
-        y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],
-        use_orthogonalization: bool = True, # for numerical stability
-):
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores_x, tt_cores_x)
+        y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores_y, tt_cores_y)
+        use_orthogonalization: bool = True,  # for numerical stability
+) -> NDArray:  # HS inner product, shape=stack_shape (scalar if unstacked)
     """Compute Hilbert-Schmidt inner product of two Tucker tensor trains.
     """
     use_jax = any([is_jax_ndarray(c) for c in x[0] + x[1] + y[0] + y[1]])
@@ -197,9 +203,9 @@ def t3_inner_product_t3(
 
 
 def t3_norm(
-        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],
-        use_orthogonalization: bool = True, # for numerical stability
-):
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
+        use_orthogonalization: bool = True,  # for numerical stability
+) -> NDArray:  # HS norm, shape=stack_shape (scalar if unstacked)
     """Compute Hilbert-Schmidt norm of a Tucker tensor train.
     """
     use_jax = any([is_jax_ndarray(B) for B in x[0]] + [is_jax_ndarray(G) for G in x[1]])
@@ -220,7 +226,10 @@ def t3_norm(
 def t3_mult(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_x, tt_cores_x)
         y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_y, tt_cores_y)
-) -> typ.Tuple[typ.Tuple[NDArray], typ.Tuple[NDArray]]: # (x_times_y_tucker_cores, x_times_y_tt_cores)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # x_times_y tucker_cores
+    typ.Tuple[NDArray, ...],  # x_times_y tt_cores
+]:
     """Pointwise multiply Tucker tensor trains x and y, yielding a Tucker tensor train with multiplied ranks.
 
     This is the conventional "dumb" algorithm which does not do intermediate rank truncation.
@@ -261,10 +270,10 @@ def t3_mult(
 def t3m_form_then_round(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_x, tt_cores_x)
         y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_y, tt_cores_y)
-        max_tucker_ranks=None,  # int | Sequence[int] | None
-        max_tt_ranks=None,      # int | Sequence[int] | None
-        rtol=None,              # float | None  (requires unstacked; enforced by the frontend)
-        atol=None,              # float | None
+        max_tucker_ranks:   typ.Union[int, typ.Sequence[int], None] = None,  # scalar caps all, or len=d
+        max_tt_ranks:       typ.Union[int, typ.Sequence[int], None] = None,  # scalar caps all, or len=d+1
+        rtol:               typ.Optional[float] = None,  # requires unstacked (enforced by the frontend)
+        atol:               typ.Optional[float] = None,
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # x_times_y tucker_cores
     typ.Tuple[NDArray, ...],  # x_times_y tt_cores
@@ -288,10 +297,10 @@ def t3m_form_then_round(
 def t3m_inplace_fused(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_x, tt_cores_x)
         y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_y, tt_cores_y)
-        max_tucker_ranks=None,  # int | Sequence[int] | None
-        max_tt_ranks=None,      # int | Sequence[int] | None
-        rtol=None,              # float | None  (requires unstacked; enforced by the frontend)
-        atol=None,              # float | None
+        max_tucker_ranks:   typ.Union[int, typ.Sequence[int], None] = None,  # scalar caps all, or len=d
+        max_tt_ranks:       typ.Union[int, typ.Sequence[int], None] = None,  # scalar caps all, or len=d+1
+        rtol:               typ.Optional[float] = None,  # requires unstacked (enforced by the frontend)
+        atol:               typ.Optional[float] = None,
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # x_times_y tucker_cores
     typ.Tuple[NDArray, ...],  # x_times_y tt_cores
@@ -470,11 +479,11 @@ def _t3m_move_center(
 def t3m_swap(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_x, tt_cores_x)
         y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_y, tt_cores_y)
-        max_tucker_ranks=None,  # int | Sequence[int] | None
-        max_tt_ranks=None,      # int | Sequence[int] | None
-        rtol=None,              # float | None  (requires unstacked; enforced by the frontend)
-        atol=None,              # float | None
-        oversample=1,           # numeric >= 1; intermediate rank/tol relaxation factor (see docs/t3m_swap_plan.md)
+        max_tucker_ranks:   typ.Union[int, typ.Sequence[int], None] = None,  # scalar caps all, or len=d
+        max_tt_ranks:       typ.Union[int, typ.Sequence[int], None] = None,  # scalar caps all, or len=d+1
+        rtol:               typ.Optional[float] = None,  # requires unstacked (enforced by the frontend)
+        atol:               typ.Optional[float] = None,
+        oversample:         float = 1,  # >= 1; intermediate rank/tol relaxation factor (see docs/t3m_swap_plan.md)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # x_times_y tucker_cores
     typ.Tuple[NDArray, ...],  # x_times_y tt_cores
@@ -552,9 +561,13 @@ def t3m_swap(
 
 
 def t3_plus_scalar(
-        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],
-        s,
-) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
+        s,  # scalar
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # tucker_cores of x + s
+    typ.Tuple[NDArray, ...],  # tt_cores of x + s
+]:
+    """Add a scalar to a Tucker tensor train: ``(x + s).to_dense() == x.to_dense() + s``."""
     use_jax = tree_contains_jax(x)
 
     x_shape = tuple(B.shape[-1] for B in x[0])

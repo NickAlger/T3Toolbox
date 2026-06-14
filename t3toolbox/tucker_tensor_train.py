@@ -1849,13 +1849,13 @@ class TuckerTensorTrain:
 
     def t3m(
             self,
-            other:              'TuckerTensorTrain',                  # same shape & stack_shape
-            method:             str = 'inplace_fused',               # the memory-light default for large d
-            max_tucker_ranks:   typ.Union[int, Sequence[int]] = None,  # scalar (caps all) or len=d
-            max_tt_ranks:       typ.Union[int, Sequence[int]] = None,  # scalar (caps all) or len=d+1
-            rtol:               float = None,                        # requires unstacked
-            atol:               float = None,                        # requires unstacked
-            oversample:         float = 1,                           # method='swap' only; intermediate-rank relaxation
+            other:              'TuckerTensorTrain',                         # same shape & stack_shape
+            method:             str = 'inplace_fused',                       # the memory-light default for large d
+            max_tucker_ranks:   typ.Union[int, Sequence[int], None] = None,  # scalar (caps all) or len=d
+            max_tt_ranks:       typ.Union[int, Sequence[int], None] = None,  # scalar (caps all) or len=d+1
+            rtol:               typ.Optional[float] = None,                  # requires unstacked
+            atol:               typ.Optional[float] = None,                  # requires unstacked
+            oversample:         float = 1,                                   # method='swap' only; intermediate-rank relaxation
     ) -> 'TuckerTensorTrain':
         """Elementwise (Hadamard) product ``self ⊙ other`` with optional rank truncation.
 
