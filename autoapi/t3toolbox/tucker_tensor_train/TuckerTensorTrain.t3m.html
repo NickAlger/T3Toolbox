@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>TuckerTensorTrain.to_vector &#8212; T3Toolbox 0.1 documentation</title>
+    <title>TuckerTensorTrain.t3m &#8212; T3Toolbox 0.1 documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.to_vector';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.t3m';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="TuckerTensorTrain.from_vector" href="TuckerTensorTrain.from_vector.html" />
-    <link rel="prev" title="TuckerTensorTrain.to_tensor_train" href="TuckerTensorTrain.to_tensor_train.html" />
+    <link rel="next" title="TuckerTensorTrain.__neg__" href="TuckerTensorTrain.__neg__.html" />
+    <link rel="prev" title="TuckerTensorTrain.__mul__" href="TuckerTensorTrain.__mul__.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -309,13 +309,13 @@
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.from_canonical.html">TuckerTensorTrain.from_canonical</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.from_tensor_train.html">TuckerTensorTrain.from_tensor_train</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.to_tensor_train.html">TuckerTensorTrain.to_tensor_train</a></li>
-<li class="toctree-l4 current active"><a class="current reference internal" href="#">TuckerTensorTrain.to_vector</a></li>
+<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.to_vector.html">TuckerTensorTrain.to_vector</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.from_vector.html">TuckerTensorTrain.from_vector</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.save.html">TuckerTensorTrain.save</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.load.html">TuckerTensorTrain.load</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.__add__.html">TuckerTensorTrain.__add__</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.__mul__.html">TuckerTensorTrain.__mul__</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.t3m.html">TuckerTensorTrain.t3m</a></li>
+<li class="toctree-l4 current active"><a class="current reference internal" href="#">TuckerTensorTrain.t3m</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.__neg__.html">TuckerTensorTrain.__neg__</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.__sub__.html">TuckerTensorTrain.__sub__</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.inner.html">TuckerTensorTrain.inner</a></li>
@@ -398,7 +398,7 @@
     
     <li class="breadcrumb-item"><a href="TuckerTensorTrain.html" class="nav-link">TuckerTensorTrain</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">TuckerTensorTrain.to_vector</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">TuckerTensorTrain.t3m</span></li>
   </ul>
 </nav>
 </div>
@@ -415,35 +415,47 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="tuckertensortrain-to-vector">
-<h1>TuckerTensorTrain.to_vector<a class="headerlink" href="#tuckertensortrain-to-vector" title="Link to this heading">#</a></h1>
+  <section id="tuckertensortrain-t3m">
+<h1>TuckerTensorTrain.t3m<a class="headerlink" href="#tuckertensortrain-t3m" title="Link to this heading">#</a></h1>
 <dl class="py method">
-<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.to_vector">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.</span></span><span class="sig-name descname"><span class="pre">to_vector</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.to_vector" title="Link to this definition">#</a></dt>
-<dd><p>Converts a TuckerTensorTrain into a 1D vector containing the core entries.</p>
+<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3m">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.</span></span><span class="sig-name descname"><span class="pre">t3m</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">method</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'form_then_round'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_tucker_ranks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_tt_ranks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3m" title="Link to this definition">#</a></dt>
+<dd><p>Elementwise (Hadamard) product <code class="docutils literal notranslate"><span class="pre">self</span> <span class="pre">⊙</span> <span class="pre">other</span></code> with optional rank truncation.</p>
+<p>Like <code class="docutils literal notranslate"><span class="pre">self</span> <span class="pre">*</span> <span class="pre">other</span></code> (whose ranks multiply: <code class="docutils literal notranslate"><span class="pre">n_x·n_y</span></code> Tucker, <code class="docutils literal notranslate"><span class="pre">r_x·r_y</span></code> TT) but able to
+<strong>truncate</strong> the result. <code class="docutils literal notranslate"><span class="pre">method</span></code> selects the algorithm – all give the same product, with
+different cost/memory trade-offs (see <code class="docutils literal notranslate"><span class="pre">docs/t3m_plan.md</span></code>):</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">'form_then_round'</span></code> – form the full product, then round. Parallel forming; cheapest to
+run for small bonds. This is what <code class="docutils literal notranslate"><span class="pre">*</span></code> uses.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'inplace_fused'</span></code> (default) – a fused sweep that never materializes the full product;
+the right default for large <code class="docutils literal notranslate"><span class="pre">d</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'swap'</span></code> – the swap-based TTM generalization; best when the TT bond <code class="docutils literal notranslate"><span class="pre">r</span></code> greatly exceeds
+the number of modes <code class="docutils literal notranslate"><span class="pre">d</span></code>.</p></li>
+</ul>
+<p>Truncation (any combination; default none ⇒ exact full product): <code class="docutils literal notranslate"><span class="pre">max_tucker_ranks</span></code> /
+<code class="docutils literal notranslate"><span class="pre">max_tt_ranks</span></code> (a scalar caps every position, or a per-position sequence) and <code class="docutils literal notranslate"><span class="pre">rtol</span></code> /
+<code class="docutils literal notranslate"><span class="pre">atol</span></code> (per-step relative/absolute tolerances).</p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p><code class="docutils literal notranslate"><span class="pre">rtol</span></code>/<code class="docutils literal notranslate"><span class="pre">atol</span></code> are <strong>not supported for stacked</strong> Tucker tensor trains (different stack
+elements could truncate to different ranks). Use <code class="docutils literal notranslate"><span class="pre">max_*_ranks</span></code> for stacked input, or
+unstack first. Max-rank truncation <em>is</em> stacking-compatible.</p>
+</div>
 <dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><p>The vector of all core entries. <code class="docutils literal notranslate"><span class="pre">shape=(self.data_size,)</span></code></p>
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>other</strong> (<a class="reference internal" href="TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>)</p></li>
+<li><p><strong>method</strong> (<em>str</em>)</p></li>
+<li><p><strong>max_tucker_ranks</strong> (<em>Union</em><em>[</em><em>int</em><em>, </em><em>collections.abc.Sequence</em><em>[</em><em>int</em><em>]</em><em>]</em>)</p></li>
+<li><p><strong>max_tt_ranks</strong> (<em>Union</em><em>[</em><em>int</em><em>, </em><em>collections.abc.Sequence</em><em>[</em><em>int</em><em>]</em><em>]</em>)</p></li>
+<li><p><strong>rtol</strong> (<em>float</em>)</p></li>
+<li><p><strong>atol</strong> (<em>float</em>)</p></li>
+</ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>NDArray</p>
+<dd class="field-even"><p><a class="reference internal" href="TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a></p>
 </dd>
 </dl>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p><a class="reference internal" href="TuckerTensorTrain.from_vector.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.from_vector" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.from_vector"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.from_vector()</span></code></a></p>
-</div>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.corewise</span> <span class="k">as</span> <span class="nn">cw</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">),</span> <span class="n">stack_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span><span class="mi">3</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x_flat</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">to_vector</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x2</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">from_vector</span><span class="p">(</span><span class="n">x_flat</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">tucker_ranks</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">tt_ranks</span><span class="p">,</span> <span class="n">stack_shape</span><span class="o">=</span><span class="n">x</span><span class="o">.</span><span class="n">stack_shape</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">cw</span><span class="o">.</span><span class="n">corewise_norm</span><span class="p">(</span><span class="n">cw</span><span class="o">.</span><span class="n">corewise_sub</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">x2</span><span class="o">.</span><span class="n">data</span><span class="p">)))</span>
-<span class="go">0.0</span>
-</pre></div>
-</div>
 </dd></dl>
 
 </section>
@@ -459,20 +471,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="TuckerTensorTrain.to_tensor_train.html"
+       href="TuckerTensorTrain.__mul__.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">TuckerTensorTrain.to_tensor_train</p>
+        <p class="prev-next-title">TuckerTensorTrain.__mul__</p>
       </div>
     </a>
     <a class="right-next"
-       href="TuckerTensorTrain.from_vector.html"
+       href="TuckerTensorTrain.__neg__.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">TuckerTensorTrain.from_vector</p>
+        <p class="prev-next-title">TuckerTensorTrain.__neg__</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -495,14 +507,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.to_vector"><code class="docutils literal notranslate"><span class="pre">to_vector()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3m"><code class="docutils literal notranslate"><span class="pre">t3m()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.to_vector.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.t3m.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

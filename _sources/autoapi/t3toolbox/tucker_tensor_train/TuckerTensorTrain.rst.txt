@@ -32,6 +32,7 @@ TuckerTensorTrain
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.load
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.__add__
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.__mul__
+   /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.t3m
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.__neg__
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.__sub__
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.inner
@@ -665,6 +666,7 @@ Methods
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.load
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.__add__
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.__mul__
+   t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3m
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.__neg__
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.__sub__
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.inner

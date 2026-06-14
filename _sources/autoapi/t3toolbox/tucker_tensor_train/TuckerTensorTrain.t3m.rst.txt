@@ -1,0 +1,27 @@
+TuckerTensorTrain.t3m
+=====================
+
+.. py:method:: t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3m(other, method = 'form_then_round', max_tucker_ranks = None, max_tt_ranks = None, rtol = None, atol = None)
+
+   Elementwise (Hadamard) product ``self ⊙ other`` with optional rank truncation.
+
+   Like ``self * other`` (whose ranks multiply: ``n_x·n_y`` Tucker, ``r_x·r_y`` TT) but able to
+   **truncate** the result. ``method`` selects the algorithm -- all give the same product, with
+   different cost/memory trade-offs (see ``docs/t3m_plan.md``):
+
+   - ``'form_then_round'`` -- form the full product, then round. Parallel forming; cheapest to
+     run for small bonds. This is what ``*`` uses.
+   - ``'inplace_fused'`` (default) -- a fused sweep that never materializes the full product;
+     the right default for large ``d``.
+   - ``'swap'`` -- the swap-based TTM generalization; best when the TT bond ``r`` greatly exceeds
+     the number of modes ``d``.
+
+   Truncation (any combination; default none ⇒ exact full product): ``max_tucker_ranks`` /
+   ``max_tt_ranks`` (a scalar caps every position, or a per-position sequence) and ``rtol`` /
+   ``atol`` (per-step relative/absolute tolerances).
+
+   .. warning::
+       ``rtol``/``atol`` are **not supported for stacked** Tucker tensor trains (different stack
+       elements could truncate to different ranks). Use ``max_*_ranks`` for stacked input, or
+       unstack first. Max-rank truncation *is* stacking-compatible.
+
