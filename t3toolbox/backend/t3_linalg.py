@@ -9,6 +9,7 @@ import math
 from t3toolbox.backend.t3_operations import squash_tt_tails
 import t3toolbox.backend.t3_orthogonalization as ragged_orth
 import t3toolbox.backend.t3_operations as t3_ops
+import t3toolbox.backend.t3_svd as ragged_t3svd
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -18,6 +19,7 @@ __all__ = [
     't3_inner_product_t3',
     't3_norm',
     't3_mult',
+    't3m_form_then_round',
     't3_plus_scalar',
 ]
 
@@ -249,6 +251,33 @@ def t3_mult(
     tt_cores_xy = tuple(tt_cores_xy)
 
     return tucker_cores_xy, tt_cores_xy
+
+
+def t3m_form_then_round(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_x, tt_cores_x)
+        y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores_y, tt_cores_y)
+        max_tucker_ranks=None,  # int | Sequence[int] | None
+        max_tt_ranks=None,      # int | Sequence[int] | None
+        rtol=None,              # float | None  (requires unstacked; enforced by the frontend)
+        atol=None,              # float | None
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # x_times_y tucker_cores
+    typ.Tuple[NDArray, ...],  # x_times_y tt_cores
+]:
+    '''Elementwise product ``x ⊙ y`` -- method (a): form the full product, then round.
+
+    Forms the full Khatri-Rao/Kronecker product (:py:func:`t3_mult`, multiplied ranks) and, if any
+    truncation is requested, rounds it with :py:func:`t3svd`; with no truncation it returns the exact
+    full product directly. The forming step is embarrassingly parallel (no sweep) but materializes the
+    whole product -- see ``docs/t3m_plan.md`` for the cost trade-off vs the fused / swap methods.
+    Stack-aware with max-rank truncation; ``rtol``/``atol`` require unstacked.
+    '''
+    product = t3_mult(x, y)
+    if max_tucker_ranks is None and max_tt_ranks is None and rtol is None and atol is None:
+        return product
+    rounded, _, _ = ragged_t3svd.t3svd(
+        product, max_tt_ranks=max_tt_ranks, max_tucker_ranks=max_tucker_ranks, rtol=rtol, atol=atol)
+    return rounded
 
 
 def t3_plus_scalar(

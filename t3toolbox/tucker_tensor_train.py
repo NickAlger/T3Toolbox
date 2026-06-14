@@ -1842,12 +1842,64 @@ class TuckerTensorTrain:
                 return self.to_dense() * other
 
         elif isinstance(other, TuckerTensorTrain):
-            assert(self.shape == other.shape)
-            assert(self.stack_shape == other.stack_shape)
-            return TuckerTensorTrain(*ragged_linalg.t3_mult(self.data, other.data))
+            return self.t3m(other, method='form_then_round')
 
         else: # assume scalar
             return TuckerTensorTrain(*ragged_linalg.t3_scale(self.data, other))
+
+    def t3m(
+            self,
+            other:              'TuckerTensorTrain',                  # same shape & stack_shape
+            method:             str = 'form_then_round',             # flips to 'inplace_fused' in phase 2
+            max_tucker_ranks:   typ.Union[int, Sequence[int]] = None,  # scalar (caps all) or len=d
+            max_tt_ranks:       typ.Union[int, Sequence[int]] = None,  # scalar (caps all) or len=d+1
+            rtol:               float = None,                        # requires unstacked
+            atol:               float = None,                        # requires unstacked
+    ) -> 'TuckerTensorTrain':
+        """Elementwise (Hadamard) product ``self ⊙ other`` with optional rank truncation.
+
+        Like ``self * other`` (whose ranks multiply: ``n_x·n_y`` Tucker, ``r_x·r_y`` TT) but able to
+        **truncate** the result. ``method`` selects the algorithm -- all give the same product, with
+        different cost/memory trade-offs (see ``docs/t3m_plan.md``):
+
+        - ``'form_then_round'`` -- form the full product, then round. Parallel forming; cheapest to
+          run for small bonds. This is what ``*`` uses.
+        - ``'inplace_fused'`` (default) -- a fused sweep that never materializes the full product;
+          the right default for large ``d``.
+        - ``'swap'`` -- the swap-based TTM generalization; best when the TT bond ``r`` greatly exceeds
+          the number of modes ``d``.
+
+        Truncation (any combination; default none ⇒ exact full product): ``max_tucker_ranks`` /
+        ``max_tt_ranks`` (a scalar caps every position, or a per-position sequence) and ``rtol`` /
+        ``atol`` (per-step relative/absolute tolerances).
+
+        .. warning::
+            ``rtol``/``atol`` are **not supported for stacked** Tucker tensor trains (different stack
+            elements could truncate to different ranks). Use ``max_*_ranks`` for stacked input, or
+            unstack first. Max-rank truncation *is* stacking-compatible.
+        """
+        if not isinstance(other, TuckerTensorTrain):
+            raise TypeError('t3m requires a TuckerTensorTrain, got %s' % type(other).__name__)
+        if self.shape != other.shape:
+            raise ValueError('t3m shape mismatch: %s vs %s' % (self.shape, other.shape))
+        if self.stack_shape != other.stack_shape:
+            raise ValueError('t3m stack_shape mismatch: %s vs %s' % (self.stack_shape, other.stack_shape))
+        if (rtol is not None or atol is not None) and len(self.stack_shape) > 0:
+            raise ValueError(
+                'rtol/atol truncation is not supported for stacked Tucker tensor trains '
+                '(stack elements could truncate to different ranks).\n'
+                'Use max_tucker_ranks/max_tt_ranks for stacked input, or unstack first.')
+
+        valid = ('form_then_round', 'inplace_fused', 'swap')
+        if method not in valid:
+            raise ValueError('t3m method must be one of %s, got %r' % (valid, method))
+        backend = {'form_then_round': ragged_linalg.t3m_form_then_round}.get(method)
+        if backend is None:
+            raise NotImplementedError('t3m method %r is not implemented yet' % (method,))
+
+        return TuckerTensorTrain(*backend(
+            self.data, other.data,
+            max_tucker_ranks=max_tucker_ranks, max_tt_ranks=max_tt_ranks, rtol=rtol, atol=atol))
 
     def __neg__(
             self,
