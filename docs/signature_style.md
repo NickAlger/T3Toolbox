@@ -94,8 +94,9 @@ question is the **comment** column. The cost of forcing every comment into a sin
   not role** — length is what sets the gap; role is only the usual proxy. When they disagree (e.g. a
   short `str` selector sitting among long `Union` caps), an argument whose type-length matches no group
   gets **its own** blank-delimited group rather than being force-aligned into a column it doesn't fit —
-  otherwise you reintroduce the very gap grouping exists to remove. Concrete check: if aligning an arg
-  within a group would open a gap wider than ~a tab (≈8 cols), split it out. The comment column resets
+  otherwise you reintroduce the very gap grouping exists to remove. The test is the reader's eye, not a
+  column count: split an arg out when force-aligning it would open a gap big enough to lose the row (a
+  few spaces is fine; a tab-plus usually is not). The comment column resets
   per group; **names/types stay aligned across the whole signature** (still O(1)) — only the comment
   column is per-group. This keeps every comment O(1) *within its group*, keeps lines short, and makes
   the grouping visible. It is strictly better than one column with 30-space gaps, and far better than
