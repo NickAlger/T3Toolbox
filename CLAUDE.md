@@ -181,8 +181,13 @@ The dividing line is **structural vs numerical**:
   the **basis as aux_data** so the same-tangent-space identity guard survives jit — see `manifold.py`.)
   A few tests still build explicit jax operands where that *is* the thing under test (e.g.
   `test_contains_jax`); those keep the `jnp` import.
-- Doctests are NOT wired into the runner — illustrative (captured) values are the convention;
-  deterministic outputs (shapes, ranks, exact `0.0`) should still be accurate.
+- **Doctests = reproducible examples** (not yet wired into CI, but written so they can be): **examples
+  first** (teach the API), not coverage. Seed (`np.random.seed(0)`) or fixed inputs; value-match via
+  `np.allclose`; print **structure** (shapes/ranks) not raw values; show **gotchas** (structural →
+  traceback `+IGNORE_EXCEPTION_DETAIL`; numerical → wrong-vs-right). One distinct behavior per option
+  (no cross-product); long tail → prose. **Run the example and paste the real output — never hand-write
+  it.** Full convention + exemplar (`manifold.py`): **[`docs/doctest_style.md`](docs/doctest_style.md)**.
+  (Supersedes the old "illustrative captured values" convention.)
 - **Run tests filtering debug noise**:
   `python -m unittest tests.test_X 2>&1 | grep -vE "^(RAGGED|NUMPY)"`
   (`common.py`'s ragged_map/scan print `RAGGED MAP` / `NUMPY SCAN(` etc. — leftover debug prints,
