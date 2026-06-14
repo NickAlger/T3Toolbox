@@ -203,7 +203,7 @@ def change_tucker_core_shapes(
 ) -> typ.Tuple[NDArray,...]:
     """Increase/decrease Tucker and/or TT ranks for TT cores using zero padding/truncation.
     """
-    use_jax = is_jax_ndarray(tucker_cores[0])
+    use_jax = tree_contains_jax(tucker_cores)
     xnp, xmap, _ = get_backend(False, use_jax)
 
     #
@@ -237,7 +237,7 @@ def change_tt_core_shapes(
 ) -> typ.Tuple[NDArray,...]:
     """Increase/decrease Tucker and/or TT ranks for TT cores using zero padding/truncation.
     """
-    use_jax = is_jax_ndarray(tt_cores[0])
+    use_jax = tree_contains_jax(tt_cores)
     xnp, xmap, _ = get_backend(False, use_jax)
 
     #

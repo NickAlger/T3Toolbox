@@ -91,6 +91,8 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a, b: a + b, self.x, self.x_other)  # T3+T3 (t3_add)
         self.assert_jit_jax(lambda a, b: a - b, self.x, self.x_other)  # T3-T3
         self.assert_jit_jax(lambda a: a + 2.5, self.x)                 # T3+scalar (t3_plus_scalar)
+        self.assert_jit_jax(  # resize (change_tucker/tt_core_shapes); static shapes -> jit-able
+            lambda a: a.resize((5, 6, 7), (3, 3, 3), (1, 3, 3, 1)), self.x)
         # plain adjoints: residual c shape W (+ C); both sum modes (CP->TT construction)
         N = STRUCT[0]
         self.assert_jit_jax(
