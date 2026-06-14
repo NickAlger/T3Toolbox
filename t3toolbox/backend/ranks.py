@@ -13,7 +13,29 @@ __all__ = [
     'compute_orthogonal_representation_ranks',
     'compute_manifold_dim',
     'basis_has_minimal_ranks',
+    'normalize_max_ranks',
 ]
+
+
+def normalize_max_ranks(
+        spec,            # None | int | Sequence[int or None]
+        length: int,     # d for Tucker ranks, d+1 for TT ranks
+) -> typ.Tuple:          # length-`length` tuple of (int or None); None entry = no cap at that position
+    '''Normalize a max-rank specification to a per-position tuple.
+
+    ``None`` -> no cap anywhere; a scalar caps every position uniformly; a sequence is per-position
+    (length-checked). Shared by :py:func:`t3svd` and the elementwise-multiply (``t3m``) backends so a
+    scalar like ``max_tt_ranks=4`` works the same everywhere.
+    '''
+    if spec is None:
+        return (None,) * length
+    if isinstance(spec, (int, np.integer)):
+        return (int(spec),) * length
+    spec = tuple(spec)
+    if len(spec) != length:
+        raise ValueError(
+            'max-rank sequence has length %d, expected %d' % (len(spec), length))
+    return spec
 
 
 def compute_minimal_ranks(

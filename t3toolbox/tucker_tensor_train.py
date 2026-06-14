@@ -3360,8 +3360,8 @@ class TuckerTensorTrain:
 
     def t3svd(
             self: 'TuckerTensorTrain',
-            max_tt_ranks: Sequence[int] = None,     # len=d+1
-            max_tucker_ranks: Sequence[int] = None, # len=d
+            max_tt_ranks: typ.Union[int, Sequence[int]] = None,     # scalar (caps all) or len=d+1
+            max_tucker_ranks: typ.Union[int, Sequence[int]] = None, # scalar (caps all) or len=d
             rtol: float = None,
             atol: float = None,
     ) -> Tuple[
@@ -3375,11 +3375,13 @@ class TuckerTensorTrain:
         ----------
         self: TuckerTensorTrain
             The Tucker tensor train. ``structure=((N0,...,N(d-1)), (n0,...,n(d-1)), (1,r1,...r(d-1),1))``
-        max_tt_ranks: Sequence[int], optional
-            Maximum TT-ranks ``ri``, e.g., ``(1,5,5,5,1)``. ``len(max_tt_ranks)=d+1``.
+        max_tt_ranks: int or Sequence[int], optional
+            Maximum TT-ranks ``ri``. A scalar caps every bond; a sequence is per-bond,
+            e.g., ``(1,5,5,5,1)`` with ``len(max_tt_ranks)=d+1``.
             Default: no max TT rank truncation (``None``).
-        max_tucker_ranks: Sequence[int], optional
-            Maximum Tucker ranks ``ni``, e.g., ``(5,5,5)``. ``len(max_tucker_ranks)=d``.
+        max_tucker_ranks: int or Sequence[int], optional
+            Maximum Tucker ranks ``ni``. A scalar caps every mode; a sequence is per-mode,
+            e.g., ``(5,5,5)`` with ``len(max_tucker_ranks)=d``.
             Default: no max Tucker rank truncation (``None``).
         rtol: float, optional
             Relative tolerance for truncation (in the Frobenius norm), applied **per truncation step**
@@ -3525,8 +3527,8 @@ class TuckerTensorTrain:
     def t3svd_dense(
             T: NDArray,                              # shape=stack_shape+(N1, N2, .., Nd)
             stack_shape: Sequence[int] = (),
-            max_tucker_ranks: Sequence[int] = None,  # len=d
-            max_tt_ranks: Sequence[int] = None,      # len=d+1
+            max_tucker_ranks: typ.Union[int, Sequence[int]] = None,  # scalar (caps all) or len=d
+            max_tt_ranks: typ.Union[int, Sequence[int]] = None,      # scalar (caps all) or len=d+1
             rtol: float = None,
             atol: float = None,
     ) -> Tuple[
@@ -3542,11 +3544,13 @@ class TuckerTensorTrain:
             The dense tensor. ``shape = stack_shape + (N0, ..., N(d-1))``
         stack_shape: Sequence[int], optional
             The stack shape. Default: no stacking (``stack_shape=()``)
-        max_tucker_ranks: Sequence[int], optional
-            Maximum Tucker ranks ``ni``, e.g., ``(5,5,5)``. ``len(max_tucker_ranks)=d``.
+        max_tucker_ranks: int or Sequence[int], optional
+            Maximum Tucker ranks ``ni``. A scalar caps every mode; a sequence is per-mode,
+            e.g., ``(5,5,5)`` with ``len(max_tucker_ranks)=d``.
             Default: no max Tucker rank truncation (``None``).
-        max_tt_ranks: Sequence[int], optional
-            Maximum TT-ranks ``ri``, e.g., ``(1,5,5,5,1)``. ``len(max_tt_ranks)=d+1``.
+        max_tt_ranks: int or Sequence[int], optional
+            Maximum TT-ranks ``ri``. A scalar caps every bond; a sequence is per-bond,
+            e.g., ``(1,5,5,5,1)`` with ``len(max_tt_ranks)=d+1``.
             Default: no max TT rank truncation (``None``).
         rtol: float, optional
             Relative tolerance for truncation (in the Frobenius norm), applied **per truncation step**

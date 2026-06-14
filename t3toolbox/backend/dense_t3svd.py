@@ -8,6 +8,7 @@ import math
 
 import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.common as common
+import t3toolbox.backend.ranks as ranks
 
 __all__ = [
     'tucker_svd_dense',
@@ -222,8 +223,9 @@ def t3svd_dense(
     #
     shape = T.shape[len(stack_shape):]
 
-    max_tucker_ranks    = max_tucker_ranks  if max_tucker_ranks is not None else [None]*len(shape)
-    max_tt_ranks        = max_tt_ranks      if max_tt_ranks     is not None else [None]*(len(shape)+1)
+    # Accept scalar or per-position max ranks (None entry = no cap at that position).
+    max_tucker_ranks    = ranks.normalize_max_ranks(max_tucker_ranks, len(shape))
+    max_tt_ranks        = ranks.normalize_max_ranks(max_tt_ranks, len(shape)+1)
 
     ss_tt0 = xnp.linalg.norm(T.reshape(stack_shape+(-1,)), axis=-1).reshape(stack_shape + (1,))
 

@@ -9,6 +9,7 @@ import t3toolbox.backend.t3_operations as ragged_ops
 import t3toolbox.backend.t3_orthogonalization as ragged_orth
 import t3toolbox.backend.orthogonalization as orth
 import t3toolbox.backend.linalg as linalg
+import t3toolbox.backend.ranks as ranks
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -39,6 +40,10 @@ def t3svd(
     '''
     num_cores = len(x[0])
 
+    # Accept scalar or per-position max ranks (None entry = no cap at that position).
+    max_tucker_ranks = ranks.normalize_max_ranks(max_tucker_ranks, num_cores)
+    max_tt_ranks = ranks.normalize_max_ranks(max_tt_ranks, num_cores + 1)
+
     # print('0. [B.shape for B in x[0]]=', [B.shape for B in x[0]])
     # print('0. [G.shape for G in x[1]]=', [G.shape for G in x[1]])
 
@@ -67,7 +72,7 @@ def t3svd(
     all_ss_tucker = []
     all_ss_tt = [ss_first]
     for ii in range(num_cores):
-        max_rank = max_tucker_ranks[ii] if max_tucker_ranks is not None else None
+        max_rank = max_tucker_ranks[ii]
         # SVD inbetween TT core and Tucker core
         x, ss_tucker = ragged_orth.down_svd_tt_core(
             x, ii,
@@ -79,7 +84,7 @@ def t3svd(
         # print('4. [G.shape for G in x[1]]=', [G.shape for G in x[1]])
 
         if ii < num_cores-1:
-            max_rank = max_tt_ranks[ii+1] if max_tt_ranks is not None else None
+            max_rank = max_tt_ranks[ii+1]
             # SVD inbetween ith tt core and (i+1)th tt core
             x, ss_tt = ragged_orth.left_svd_tt_core(
                 x, ii,

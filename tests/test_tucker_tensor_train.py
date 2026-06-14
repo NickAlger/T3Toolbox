@@ -2391,6 +2391,29 @@ class TestTuckerTensorTrain(unittest.TestCase):
                     self.assertEqual(min_tucker_ranks, x2.tucker_ranks)
                     self.assertEqual(min_tt_ranks, x2.tt_ranks)
 
+    def test_t3svd_scalar_max_ranks(self):
+        # A scalar max-rank caps every position; result is identical to the broadcast list.
+        import t3toolbox.backend.ranks as ranks
+        self.assertEqual((None, None, None), ranks.normalize_max_ranks(None, 3))
+        self.assertEqual((2, 2, 2, 2), ranks.normalize_max_ranks(2, 4))
+        self.assertEqual((1, 2, 2, 1), ranks.normalize_max_ranks((1, 2, 2, 1), 4))
+        with self.assertRaises(ValueError):
+            ranks.normalize_max_ranks((1, 2), 4)
+
+        shape, tr, ttr = (9, 8, 10, 7), (5, 5, 4, 4), (1, 4, 5, 3, 1)
+        d = len(shape)
+        x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
+        a = x.t3svd(max_tucker_ranks=3, max_tt_ranks=2)[0]
+        b = x.t3svd(max_tucker_ranks=(3,) * d, max_tt_ranks=(2,) * (d + 1))[0]
+        self.assertEqual(a.ranks, b.ranks)
+        self.check_relerr(b.to_dense(), a.to_dense())
+
+        T = np.asarray(x.to_dense())
+        ad = t3.TuckerTensorTrain.t3svd_dense(T, max_tucker_ranks=3, max_tt_ranks=2)[0]
+        bd = t3.TuckerTensorTrain.t3svd_dense(T, max_tucker_ranks=(3,) * d, max_tt_ranks=(2,) * (d + 1))[0]
+        self.assertEqual(ad.ranks, bd.ranks)
+        self.check_relerr(bd.to_dense(), ad.to_dense())
+
     def test_t3svd_dense(self):
         shapes = [
             (8,),
