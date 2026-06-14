@@ -285,15 +285,18 @@ Treat everything else as copied-in-and-not-yet-working until checked.
 - Cleanup backlog: remove the `common.py` debug prints; `OLD_*.py` + stray `.npz` artifacts; wire
   doctests into CI; docs (`conf.py` autoapi excludes backend/weighted, committed `_build`,
   `modules.rst` still titled "TuckerTensorTrainTools").
-- **T3M — elementwise multiply with truncation (in progress).** `TuckerTensorTrain.t3m(other,
-  method=..., max_tucker_ranks, max_tt_ranks, rtol, atol)` — three interchangeable algorithms
-  generalizing the TTM algorithm (Michailidis et al., arXiv:2410.19747) to T3. **Done & tested:**
-  method **(a)** `t3m_form_then_round` and **(b)** `t3m_inplace_fused` (the default; `*` uses (a)), plus
-  a scalar-max-rank upgrade to `t3svd` (`ranks.normalize_max_ranks`). **Remaining:** method **(c)**
-  `t3m_swap` (the `r≫d` specialist) + doc/test polish. Full design + status + handoff in
-  **`docs/t3m_plan.md`** and **`docs/t3m_handoff.md`**. Spec: `max_*_ranks` scalar-or-sequence,
-  per-step `rtol`/`atol` (require unstacked; max-rank is stacking-OK), SVD-everywhere, **joint**
-  truncation.
+- **T3M — elementwise multiply with truncation. ✅ DONE & tested.** `TuckerTensorTrain.t3m(other,
+  method=..., max_tucker_ranks, max_tt_ranks, rtol, atol, oversample=1)` — three interchangeable
+  algorithms generalizing the TTM algorithm (Michailidis et al., arXiv:2410.19747) to T3, all matching
+  the dense oracle: **(a)** `t3m_form_then_round` (form full product → round; `*` uses this exact path),
+  **(b)** `t3m_inplace_fused` (fused L→R sweep; the `t3m()` default), **(c)** `t3m_swap` (the `r≫d`
+  specialist; gauge-managed truncating swaps + KR merge + `oversample`/`t3svd`-cleanup for the
+  Tucker leaf-frame tension). Spec: `max_*_ranks` scalar-or-sequence, per-step `rtol`/`atol` (require
+  unstacked; max-rank is stacking-OK), SVD-everywhere, **joint** truncation. `oversample` (method='swap'
+  only, default 1=off; try 2): trades a little memory for near-(a) quality and is what honors a
+  per-position `max_tt_ranks` sequence in (c). Tests `tests/test_t3m.py` + `test_dispatch` jit cases.
+  Design/status: **`docs/t3m_plan.md`**; build details **`docs/t3m_swap_plan.md`**; the TTM↔T3M↔HT
+  theory (why oversample is forced, why convert-to-balanced-HT doesn't help) **`docs/ttm_t3m_ht_note.tex`**.
 - **Further test-speed options (deferred; suite is already ~50s after the numpy-only refactor, so
   low priority):** (1) **per-test seeding → parallelism** — tests share one global `np.random` seeded
   once at import (the source of the t3svd RNG-order flakiness we hit); seed per-test, then run in

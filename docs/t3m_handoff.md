@@ -1,5 +1,11 @@
 # T3M handoff — resuming at Phase 3 (swap) + Phase 4 (docs/tests)
 
+> **✅ COMPLETED & SUPERSEDED (commit `022216a5` + slices 2–4).** All of T3M is done: methods
+> (a)/(b)/(c) live and tested. Method (c) was built per **`docs/t3m_swap_plan.md`** (the concrete plan
+> that updated the sketch below — explicit-center gauge + `oversample`/`t3svd`-cleanup for the Tucker
+> leaf-frame tension), with the theory in **`docs/ttm_t3m_ht_note.tex`**. This file is kept for history;
+> the Phase-3 sketch below is the *pre-implementation* idea and was refined by `t3m_swap_plan.md`.
+
 Read `docs/t3m_plan.md` first (the full design + all settled decisions). This file is the concrete
 "how to resume" note. Phases 0–2 are done, committed, and tested; (c) and the doc/test polish remain.
 

@@ -66,17 +66,26 @@ The `r²` bond appears only transiently at the active site and is truncated imme
 `O(r̃·n²·r²)` (one site), compute `O(d·r⁴)`. **Joint** truncation (see Decisions). Short-circuits to the
 parallel form when no truncation is requested.
 
-### (c) `t3m_swap(x, y, ...)` — the `r ≫ d` method
-The T3 generalization of TTM. Concatenate the two central TTs (`A`'s cores, then `B`'s **reversed**), with
-each core's Tucker factor riding along on its `n_i` leg. Iterate:
+### (c) `t3m_swap(x, y, ..., oversample=1)` — the `r ≫ d` method ✅ DONE
+The T3 generalization of TTM. Down-orthogonalize the Tucker factors, then concatenate the two central
+TTs (`A`'s cores, then `B`'s **reversed**) into a length-`2d` chain, each core's Tucker factor riding on
+its `n_i` leg. For each mode (`d−1`→`0`): **swap** (centered `truncated_svd`) to bubble the matching pair
+adjacent — Tucker factors follow for free — then **contract** (COPY-merge `W_i = U^A_i ⊙ U^B_i` + joint
+weighted-Tucker truncation). Mixed-canonical gauge is tracked with an **explicit orthogonality-center
+index** (shuttle → bubble-with-center → contract), so every SVD is locally optimal. SVD everywhere (no
+QR). `O(d²·r³)` (the `d(d−1)/2` swaps), memory `O(r̃²)`. Same short-circuit when no truncation.
 
-- **swap** (a `truncated_svd` of a contracted core pair; candidate reuse: `left_svd_pair`/`right_svd_pair`)
-  to bring same-mode cores adjacent — Tucker factors follow for free;
-- **contract** when same-mode cores meet: COPY-merge the Tucker factors (`W_i` + joint SVD truncation)
-  and fuse the central cores.
-
-Mixed-canonical gauge maintained via SVD (no QR). `O(d²·r³)` (the `d(d−1)/2` swaps), memory `O(r̃²)`.
-Most complex. Same short-circuit when no truncation.
+**The leaf-frame tension + oversampling (the T3-specific part).** Unlike pure-TT TTM, the merged Tucker
+leg of the last-merged mode is full-rank while its bonds are set (the Khatri–Rao compression couples the
+two operands and can only happen at the merge) — so per-swap truncation is only quasi-optimal (~1.2×
+optimal under aggressive truncation). `oversample = k ≥ 1` resolves it: intermediate ranks are capped at
+`⌈k·target⌉` (tolerances at `tol/k`) purely to bound memory, then a single `t3svd` cleanup at the exact
+targets does the decisive truncation. `k=1` (default) skips the cleanup (lowest-memory, lowest-quality
+corner); `k≈2` is a good modest default (near-(a) quality, memory still `O((k·r̃)²)≪O(r²)`); quality →
+(a) as `k→∞`. The cleanup is also what makes a **per-position** `max_tt_ranks` sequence honored exactly
+(the swaps can only cap bonds uniformly at `max(seq)`), so a non-uniform sequence triggers it too.
+Full theory (why this is forced, the HT view, why convert-to-balanced-HT doesn't help): `ttm_t3m_ht_note.tex`.
+Concrete build details: `t3m_swap_plan.md`.
 
 ## Settled decisions
 
@@ -152,14 +161,16 @@ with a length check), in a shared module (`ranks.py`), used by `t3svd` *and* the
   the two central TTs separately (Kronecker is then right-canonical, unformed), single L→R fused sweep
   with separate `(r_x, r_y)` carry, joint per-site truncation. **No cleanup sweep needed** — the right
   side being right-canonical makes each site's truncation optimal. `t3m` default flipped to it.
-- **Phase 3 — (c) `swap`. ⬜ TODO.** See `docs/t3m_handoff.md`. The hard part is **gauge-managed
-  truncating swaps**.
-- **Phase 4 — docs + tests. ⬜ TODO.** `t3m` doc polish + method-selection guidance; finish the
-  `CLAUDE.md` `t3_mult` TODO; a cross-method joint-quality test (b/c ≤ a ranks); `test_dispatch` jit
-  cases for the t3m methods (max-rank ⇒ static shapes).
+- **Phase 3 — (c) `swap`. ✅ DONE (`022216a5`).** `t3m_swap` with explicit-center gauge management +
+  the `oversample`+`t3svd`-cleanup refinement (the leaf-frame tension fix — see above). Build details:
+  `docs/t3m_swap_plan.md`; theory: `docs/ttm_t3m_ht_note.tex`. A latent `t3_mult`/`t3m_inplace_fused`
+  jax-dispatch bug (`is_jax_ndarray` on the data tuple) was fixed along the way (slice 3).
+- **Phase 4 — docs + tests. ✅ DONE.** Cross-method joint-quality test (`test_swap_joint_quality`),
+  oversample/per-position/stacked tests, `test_dispatch` jit cases for all three t3m methods (max-rank
+  ⇒ static shapes; rtol/atol stay eager). Method-selection guidance is in the `t3m` docstring.
 
-> **Status:** Phases 0–2 live and tested (full suite green). (a) and (b) work; (b) is the default. (c)
-> and the doc/test polish remain — handoff in `docs/t3m_handoff.md`.
+> **Status:** All phases live and tested (full suite green). (a)/(b)/(c) all work; `*` → (a) exact,
+> `t3m()` default → (b); (c) is the `r≫d` specialist with the `oversample` knob.
 
 ## Testing strategy (oracle = the dense product)
 
