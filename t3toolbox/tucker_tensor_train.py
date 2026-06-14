@@ -819,7 +819,11 @@ class TuckerTensorTrain:
             self.data, squash_tails=squash_tails,
         )
 
-    def segment(self, start: int, stop: int) -> 'TuckerTensorTrain':
+    def segment(
+            self,
+            start: int,  # requires stop > start
+            stop:  int,  # requires stop > start
+    ) -> 'TuckerTensorTrain':
         """Extract contiguous segment of this TuckerTensorTrain. Segments must have length at least one.
 
         Parameters
@@ -1485,11 +1489,11 @@ class TuckerTensorTrain:
 
     @staticmethod
     def from_vector(
-            x_flat: NDArray,
-            shape: Sequence[int],
-            tucker_ranks: Sequence[int],
-            tt_ranks: Sequence[int],
-            stack_shape: Sequence[int] = (),
+            x_flat:         NDArray,             # shape=(data_size,)
+            shape:          Sequence[int],       # len=d
+            tucker_ranks:   Sequence[int],       # len=d
+            tt_ranks:       Sequence[int],       # len=d+1
+            stack_shape:    Sequence[int] = (),  # () if unstacked
     ) -> 'TuckerTensorTrain':
         """Constructs a TuckerTensorTrain from a 1D vector containing the core entries.
 

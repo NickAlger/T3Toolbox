@@ -22,7 +22,10 @@ __all__ = [
 
 def left_orthogonalize_t3(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
-) -> typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]]: # (tucker_variations, outer_tt_cores)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # up_tucker_cores
+    typ.Tuple[NDArray, ...],  # left_tt_cores
+]:
     """Left orthogonalize T3.
     """
     up_tucker_cores, tt_cores = down_orthogonalize_tucker_cores(x)
@@ -32,8 +35,11 @@ def left_orthogonalize_t3(
 
 def right_orthogonalize_t3(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
-) -> typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]]: # (tucker_variations, outer_tt_cores)
-    """Left orthogonalize T3.
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # up_tucker_cores
+    typ.Tuple[NDArray, ...],  # right_tt_cores
+]:
+    """Right orthogonalize T3.
     """
     up_tucker_cores, tt_cores = down_orthogonalize_tucker_cores(x)
     right_tt_cores = orth.right_orthogonalize_tt_cores(tt_cores)
@@ -42,7 +48,10 @@ def right_orthogonalize_t3(
 
 def up_orthogonalize_tt_cores(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
-) -> typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]]: # (tucker_variations, outer_tt_cores)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # tucker_variations
+    typ.Tuple[NDArray, ...],  # outer_tt_cores
+]:
     """Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
     """
     use_jax = any([is_jax_ndarray(c) for c in tuple(x[0]) + tuple(x[1])])
@@ -73,7 +82,10 @@ def up_orthogonalize_tt_cores(
 
 def down_orthogonalize_tucker_cores(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
-) -> typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]]: # (up_tucker_cores, new_tt_cores)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # up_tucker_cores
+    typ.Tuple[NDArray, ...],  # new_tt_cores
+]:
     """Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
     """
     use_jax = any([is_jax_ndarray(c) for c in tuple(x[0]) + tuple(x[1])])
@@ -283,9 +295,12 @@ def up_svd_tt_core(
 
 
 def orthogonalize_relative_to_tucker_core(
-        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
-        ii: int,
-) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:
+        x:  typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
+        ii: int,  # index of the tucker core kept non-orthogonal
+) -> typ.Tuple[
+    typ.Sequence[NDArray],  # tucker_cores
+    typ.Sequence[NDArray],  # tt_cores
+]:
     '''Orthogonalize all cores in the TuckerTensorTrain except for the ith tucker core.
     '''
     tucker_cores, tt_cores = x
@@ -312,9 +327,12 @@ def orthogonalize_relative_to_tucker_core(
 
 
 def orthogonalize_relative_to_tt_core(
-        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
-        ii: int,
-) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:
+        x:  typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
+        ii: int,  # index of the TT-core kept non-orthogonal
+) -> typ.Tuple[
+    typ.Sequence[NDArray],  # tucker_cores
+    typ.Sequence[NDArray],  # tt_cores
+]:
     '''Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
     '''
     tucker_cores, tt_cores = down_orthogonalize_tucker_cores(x)
