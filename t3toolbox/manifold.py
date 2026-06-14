@@ -900,8 +900,11 @@ class T3Tangent:
         return T3Tangent(bvf.T3Basis(*basis_data), bvf.T3Variations(*variations_data))
 
 
-def project_dense_onto_tangent(dense_tensor: NDArray, basis: bvf.T3Basis,
-                               method: str = 'contraction') -> T3Tangent:
+def project_dense_onto_tangent(
+        dense_tensor:   NDArray,                # shape = stack_shape + (N0, ..., N(d-1))
+        basis:          bvf.T3Basis,            # orthogonal base point of the tangent space
+        method:         str = 'contraction',    # 'contraction' (default, no SVD) or 't3svd'
+) -> T3Tangent:                                 # gauged projection P_T(dense_tensor) at ``basis``
     """Orthogonal projection of a dense ambient tensor onto the tangent space at ``basis``.
 
     Returns the (gauged) tangent ``P_T(dense_tensor)``; the residual ``dense_tensor - P_T(dense_tensor)``
