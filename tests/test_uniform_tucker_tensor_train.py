@@ -140,6 +140,45 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         self.assertFalse(np.array_equal(ustacked.tucker_ranks[:, 0], ustacked.tucker_ranks[:, 1]))
         self.assertFalse(np.array_equal(ustacked.tt_ranks[:, 0], ustacked.tt_ranks[:, 1]))
 
+    # ---- orthogonalization (vs ragged; rank reduction is minimal-for-free) ----
+    ORTH_METHODS = ['down_orthogonalize_tucker_cores', 'up_orthogonalize_tt_cores',
+                    'left_orthogonalize_tt_cores', 'right_orthogonalize_tt_cores']
+
+    def _assert_ranks_match(self, uxr, xr):
+        self.assertEqual(tuple(int(v) for v in np.asarray(uxr.tucker_ranks).reshape(uxr.d)),
+                         tuple(xr.tucker_ranks))
+        self.assertEqual(tuple(int(v) for v in np.asarray(uxr.tt_ranks).reshape(uxr.d + 1)),
+                         tuple(xr.tt_ranks))
+
+    def test_orthogonalize_matches_ragged(self):
+        for shape, tr, ttr, ss in self._cases():
+            x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
+            ux = ut3.t3_to_ut3(x)
+            for m in self.ORTH_METHODS:
+                with self.subTest(shape=shape, stack=ss, method=m):
+                    xr = getattr(x, m)()
+                    uxr = getattr(ux, m)()
+                    self.assertLessEqual(relerr(uxr.to_dense(), x.to_dense()), TOL)   # preserves the tensor
+                    self.assertLessEqual(relerr(uxr.to_dense(), xr.to_dense()), TOL)  # matches ragged
+                    if ss == ():
+                        self._assert_ranks_match(uxr, xr)
+
+    def test_orthogonalize_non_minimal(self):
+        # ranks reduce to the structural minimum the SVD produces -- must match ragged exactly
+        cases = [
+            ((5, 6), (8, 4), (1, 3, 1)),               # tucker rank 8 > shape 5
+            ((6, 7, 8), (5, 5, 5), (1, 40, 40, 1)),    # inflated TT ranks
+        ]
+        for shape, tr, ttr in cases:
+            x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
+            ux = ut3.t3_to_ut3(x)
+            for m in self.ORTH_METHODS:
+                with self.subTest(shape=shape, method=m):
+                    xr = getattr(x, m)()
+                    uxr = getattr(ux, m)()
+                    self.assertLessEqual(relerr(uxr.to_dense(), xr.to_dense()), TOL)
+                    self._assert_ranks_match(uxr, xr)
+
     # ---- validate (structural hard errors) ----
     def test_validate_raises_on_bad_shape(self):
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1))

@@ -212,7 +212,15 @@ TRIVIAL = inline one-liner; SWEEP = sequential over `d` (`xscan`/`lax.scan`); BA
    prefix-slice. Tests `tests/test_uniform_tucker_tensor_train.py` (13, incl. a varying-rank-stack
    variety test) + full ragged regression green. **jax pytree registration deferred to slice 7** (the
    class works in numpy; `to_jax`/`to_numpy` convert dtype but it is not yet a registered pytree).
-2. **Orthogonalization** — Tucker-batched rewrite; confirm shared TT left/right sweep on supercores.
+2. **Orthogonalization — ✅ DONE.** `down_orthogonalize_tucker_cores` / `up_orthogonalize_tt_cores` =
+   batched-SVD rewrites (`ut3_orthogonalization`, renamed to the keystone names, dispatch migrated, fixed
+   a hidden `np.einsum`); `left`/`right_orthogonalize_tt_cores` SHARE the polymorphic
+   `orthogonalization.py` sweep (fixed its `if xs[0]:` → `len(xs[0]) > 0` so the uniform-supercore path
+   works — was never exercised before). Re-mask on entry suffices (`R = ss·Vᵀ` zeroes padded slots).
+   Ranks shrink to the structural minimum the SVD yields, with masks recomputed via per-op rules
+   (`min(shape, n)`, `min(n, rL·rR)`, and the L→R / R→L bond recurrences). Verified vs ragged on
+   minimal, **non-minimal** (tucker 8→5; tt `(1,40,40,1)→(1,5,25,1)`/`(1,25,5,1)`), and stacked. Full
+   ragged regression still green.
 3. **Linear algebra** — scale/neg, add/sub, `sum_stack`, inner/norm (+ shared `absorb_tucker_into_tt`).
 4. **Sampling** — `entries` (verify), `apply` (dispatch fix), `probe` (verify); full-`sum` via `apply`-ones.
 5. **ut3svd** — mask-truncation sweep; shrink to minimal structural ranks; non-minimal round-trip verify.

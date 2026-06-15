@@ -23,6 +23,8 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.backend.ut3_conversions as ut3_conversions
 import t3toolbox.backend.ut3_masking as ut3_masking
 import t3toolbox.backend.ut3_operations as ut3_operations
+import t3toolbox.backend.ut3_orthogonalization as ut3_orthogonalization
+import t3toolbox.backend.orthogonalization as orth
 import t3toolbox.backend.t3_operations as ragged_operations
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.common as common
@@ -218,6 +220,58 @@ class UniformTuckerTensorTrain:
         new_ttm = xnp.concatenate([rank1[None], ttm[1:-1], rank1[None]], axis=0)
         return UniformTuckerTensorTrain(self.tucker_supercore, new_tt_supercore, UT3Masks(sm, tkm, new_ttm))
 
+    # ----------------------------------------------------------------- orthogonalization
+    # Core-local Tucker orthogonalizations are uniform-specific BATCHED-SVD rewrites; the TT left/right
+    # sweeps SHARE the polymorphic orthogonalization.py. Each re-masks on entry; the SVD remainder
+    # R = ss.Vt has ss=0 in the padded slots, so no garbage propagates. Ranks naturally drop to the
+    # structural minimum the SVD produces (we shrink to it and set the masks to match -- minimal for free).
+
+    def down_orthogonalize_tucker_cores(self) -> 'UniformTuckerTensorTrain':
+        """Orthogonalize the Tucker cores (rows orthonormal over the mode index), pushing the remainder
+        up into the TT cores. Tucker rank -> min(shape, tucker_rank)."""
+        xnp, _, _ = common.get_backend(False, self.contains_jax)
+        mtk, mtt = ut3_masking.apply_masks_to_cores(self.data)
+        new_tk, new_tt = ut3_orthogonalization.down_orthogonalize_tucker_cores(mtk, mtt)
+        sm, tkm, ttm = self.masks.data
+        shape_arr = sm.sum(axis=-1).reshape((self.d,) + (1,) * len(self.stack_shape))  # (d,)+(1,)*stack
+        new_tucker_ranks = xnp.minimum(self.tucker_ranks, shape_arr)
+        new_tkm = xnp.arange(new_tk.shape[-2]) < new_tucker_ranks[..., None]
+        return UniformTuckerTensorTrain(new_tk, new_tt, UT3Masks(sm, new_tkm, ttm))
+
+    def up_orthogonalize_tt_cores(self) -> 'UniformTuckerTensorTrain':
+        """Up-orthogonalize the TT cores (mode index orthonormal over the bonds), pushing the remainder
+        down into the Tucker cores. Tucker rank -> min(tucker_rank, rL*rR)."""
+        xnp, _, _ = common.get_backend(False, self.contains_jax)
+        mtk, mtt = ut3_masking.apply_masks_to_cores(self.data)
+        new_tk, new_tt = ut3_orthogonalization.up_orthogonalize_tt_cores(mtk, mtt)
+        sm, tkm, ttm = self.masks.data
+        tt_ranks = self.tt_ranks
+        new_tucker_ranks = xnp.minimum(self.tucker_ranks, tt_ranks[:-1] * tt_ranks[1:])
+        new_tkm = xnp.arange(new_tt.shape[-2]) < new_tucker_ranks[..., None]
+        return UniformTuckerTensorTrain(new_tk, new_tt, UT3Masks(sm, new_tkm, ttm))
+
+    def left_orthogonalize_tt_cores(self) -> 'UniformTuckerTensorTrain':
+        """Left-orthogonalize the TT cores (shared polymorphic sweep). TT bond ranks follow the L->R
+        recurrence ``r[i+1] = min(r[i]*n[i], r[i+1])``."""
+        xnp, _, _ = common.get_backend(False, self.contains_jax)
+        _, mtt = ut3_masking.apply_masks_to_cores(self.data)
+        new_tt = orth.left_orthogonalize_tt_cores(mtt)
+        sm, tkm, ttm = self.masks.data
+        new_tt_ranks = _left_orthogonalized_tt_ranks(self.tt_ranks, self.tucker_ranks, xnp)
+        new_ttm = xnp.arange(self.r) < new_tt_ranks[..., None]
+        return UniformTuckerTensorTrain(self.tucker_supercore, new_tt, UT3Masks(sm, tkm, new_ttm))
+
+    def right_orthogonalize_tt_cores(self) -> 'UniformTuckerTensorTrain':
+        """Right-orthogonalize the TT cores (shared polymorphic sweep). TT bond ranks follow the R->L
+        recurrence ``r[i] = min(n[i]*r[i+1], r[i])``."""
+        xnp, _, _ = common.get_backend(False, self.contains_jax)
+        _, mtt = ut3_masking.apply_masks_to_cores(self.data)
+        new_tt = orth.right_orthogonalize_tt_cores(mtt)
+        sm, tkm, ttm = self.masks.data
+        new_tt_ranks = _right_orthogonalized_tt_ranks(self.tt_ranks, self.tucker_ranks, xnp)
+        new_ttm = xnp.arange(self.r) < new_tt_ranks[..., None]
+        return UniformTuckerTensorTrain(self.tucker_supercore, new_tt, UT3Masks(sm, tkm, new_ttm))
+
     # ----------------------------------------------------------------- stacking
     def unstack(self):
         """Unstack into an array-like tree (shaped like ``stack_shape``) of unstacked UT3s."""
@@ -251,6 +305,38 @@ class UniformTuckerTensorTrain:
 
     def copy(self) -> 'UniformTuckerTensorTrain':
         return UniformTuckerTensorTrain(self.tucker_supercore, self.tt_supercore, self.masks)
+
+
+# ------------------------------------------------------------ orthogonalization rank recurrences
+# After left/right TT orthogonalization the real bond ranks follow a sweep recurrence (the boundary
+# bonds r[0], r[d] are untouched). Same logic as ranks.compute_minimal_ranks' passes. Vectorized over
+# the stack; the d-loop is short (and unrolls cleanly under jit).
+
+def _left_orthogonalized_tt_ranks(
+        tt_ranks:     NDArray,  # dtype=int, shape=(d+1,)+stack_shape
+        tucker_ranks: NDArray,  # dtype=int, shape=(d,)+stack_shape
+        xnp,
+) -> NDArray:                   # dtype=int, shape=(d+1,)+stack_shape
+    d = tucker_ranks.shape[0]
+    new = [tt_ranks[0]]
+    for i in range(d - 1):
+        new.append(xnp.minimum(new[i] * tucker_ranks[i], tt_ranks[i + 1]))
+    new.append(tt_ranks[d])
+    return xnp.stack(new)
+
+
+def _right_orthogonalized_tt_ranks(
+        tt_ranks:     NDArray,  # dtype=int, shape=(d+1,)+stack_shape
+        tucker_ranks: NDArray,  # dtype=int, shape=(d,)+stack_shape
+        xnp,
+) -> NDArray:                   # dtype=int, shape=(d+1,)+stack_shape
+    d = tucker_ranks.shape[0]
+    new = [None] * (d + 1)
+    new[d] = tt_ranks[d]
+    for i in range(d - 1, 0, -1):
+        new[i] = xnp.minimum(tucker_ranks[i] * new[i + 1], tt_ranks[i])
+    new[0] = tt_ranks[0]
+    return xnp.stack(new)
 
 
 # ===================================================================== conversions

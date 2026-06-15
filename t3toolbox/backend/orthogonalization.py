@@ -40,7 +40,7 @@ def left_orthogonalize_tt_cores(
 
     init = tt_cores[0]
     xs = (tt_cores[1:],)
-    if xs[0]:
+    if len(xs[0]) > 0:  # >1 core to sweep; len() works for a ragged tuple and a uniform supercore alike
         Hf, (LL0, HH0) = xscan(_left_func, init, xs)
     else:
         Hf = init
