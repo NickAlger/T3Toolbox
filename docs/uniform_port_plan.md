@@ -36,7 +36,13 @@ TRIVIAL = inline one-liner; SWEEP = sequential over `d` (`xscan`/`lax.scan`); BA
 - **Dispatch:** drop `use_jax` threading; infer from inputs (`tree_contains_jax`/`is_ndarray`). Keep
   `use_jax` only on pure constructors with no array inputs (`make_uniform_masks`, `uniform_randn/zeros`).
 - **Structural errors:** `assert` → `ValueError`/`RuntimeError` with messages (structural-vs-numerical).
-- **Frontend:** clean OO class (methods, not module-level `ut3_*` functions); masks follow core dtype.
+- **Frontend = thin wrappers (backend/frontend razor):** every frontend operation must be reproducible
+  on the raw `.data` tuple `(supercore, supercore, (3 masks))` via a backend `ut3_*` function
+  (`.data → .data`, or `→ dense`/scalar); the method just calls it and re-wraps via `_from_data`. All
+  nontrivial logic (mask/rank recomputation, squash boundary masks, `to_dense` slicing, orthogonalization
+  recurrences) lives in the backend — only the OO-class/`UT3Masks` construction stays frontend-side.
+  Exception: genuinely trivial one-liners a user would write faster than find. Clean OO class (methods,
+  not free functions); masks follow core dtype.
 - **Docstrings:** repair the mangled `import … >>>` lines and stale `t3.t3_corewise_randn` references
   (use `t3.TuckerTensorTrain.randn`); examples must be run and pasted (`docs/doctest_style.md`).
 

@@ -11,11 +11,16 @@ from t3toolbox.backend.common import *
 __all__ = [
     'reverse_utt',
     'uniform_squash_tt_tails',
+    'ut3_squash_tails',
+    'ut3_reverse',
     'pack_vectors',
     'unpack_vectors',
     'ut3_unstack',
     'ut3_stack',
 ]
+
+# A uniform-T3 .data tuple: (tucker_supercore, tt_supercore, (shape_mask, tucker_edge_mask, tt_edge_mask)).
+UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[NDArray, NDArray, NDArray]]
 
 # A uniform-T3 leaf in nested .data layout: (tucker_supercore, tt_supercore, (shape_mask, tucker_mask, tt_mask)).
 _UT3_LEAF_STRUCTURE = (None, None, (None, None, None))
@@ -57,6 +62,27 @@ def uniform_squash_tt_tails(
     ], axis=-1)
 
     return xnp.concatenate([new_G0, GG_mid, new_Gf], axis=0)
+
+
+def ut3_squash_tails(data: UT3Data) -> UT3Data:
+    """Sum the leading/trailing TT bonds down to rank 1 (preserves the tensor), updating those edge
+    masks to rank 1. Operates on the full .data tuple."""
+    use_jax = tree_contains_jax(data[:2])
+    xnp, _, _ = get_backend(True, use_jax)
+
+    tk, tt, (sm, tkm, ttm) = data
+    new_tt = uniform_squash_tt_tails(tt)
+    r = tt.shape[-1]
+    stack = tt.shape[1:-3]
+    rank1 = xnp.broadcast_to(xnp.arange(r) < 1, stack + (r,))                  # [True, False, ...]
+    new_ttm = xnp.concatenate([rank1[None], ttm[1:-1], rank1[None]], axis=0)
+    return tk, new_tt, (sm, tkm, new_ttm)
+
+
+def ut3_reverse(data: UT3Data) -> UT3Data:
+    """Reverse the mode order (supercores and masks). Operates on the full .data tuple."""
+    tk, tt, (sm, tkm, ttm) = data
+    return tk[::-1], reverse_utt(tt), (sm[::-1], tkm[::-1], ttm[::-1])
 
 
 def pack_vectors(

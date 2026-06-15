@@ -12,6 +12,7 @@ import t3toolbox.backend.t3_operations as t3_operations
 from t3toolbox.backend.common import *
 
 __all__ = [
+    'ut3_scale',
     'ut3_add',
     'ut3_sum_stack',
     'ut3_inner_product',
@@ -20,6 +21,16 @@ __all__ = [
 
 # A uniform-T3 .data tuple: (tucker_supercore, tt_supercore, (shape_mask, tucker_edge_mask, tt_edge_mask)).
 UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[NDArray, NDArray, NDArray]]
+
+
+def ut3_scale(x: UT3Data, s) -> UT3Data:  # z = s * x
+    """Scale a uniform Tucker tensor train by a scalar (scales the last Tucker supercore slice; masks
+    unchanged)."""
+    use_jax = tree_contains_jax(x[:2])
+    xnp, _, _ = get_backend(True, use_jax)
+    tk, tt, masks = x
+    scaled = xnp.concatenate([tk[:-1], s * tk[-1:]], axis=0)
+    return scaled, tt, masks
 
 
 def ut3_add(x: UT3Data, y: UT3Data) -> UT3Data:  # z = x + y (ranks add; NOT squashed)

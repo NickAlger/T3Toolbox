@@ -6,12 +6,13 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.backend.t3_operations as t3_ops
-from t3toolbox.backend.ut3_masking import make_uniform_masks
+import t3toolbox.backend.ut3_masking as ut3_masking
 from t3toolbox.backend.common import *
 
 __all__ = [
     't3_to_ut3',
     'ut3_to_t3',
+    'ut3_to_dense',
 ]
 
 
@@ -64,8 +65,25 @@ def t3_to_ut3(
     tucker_supercore = xnp.stack(padded_tucker_cores)
     tt_supercore     = xnp.stack(padded_tt_cores)
 
-    masks = make_uniform_masks(shape, tucker_ranks, tt_ranks, N, n, r, use_jax=use_jax)
+    masks = ut3_masking.make_uniform_masks(shape, tucker_ranks, tt_ranks, N, n, r, use_jax=use_jax)
     return tucker_supercore, tt_supercore, masks
+
+
+def ut3_to_dense(
+        x: typ.Tuple[
+            NDArray,                                # tucker_supercore
+            NDArray,                                # tt_supercore
+            typ.Tuple[NDArray, NDArray, NDArray],   # masks
+        ],
+) -> NDArray:  # shape = stack_shape + (N0,...,N(d-1))
+    """Form the dense tensor from a uniform Tucker tensor train: mask the supercores, chain-contract
+    (shared with the ragged path), then static-prefix-slice the padded physical axes to the real shape.
+    """
+    masked_tucker, masked_tt = ut3_masking.apply_masks_to_cores(x)
+    T = t3_ops.t3_to_dense_chain(masked_tucker, masked_tt)   # stack + (N,)*d (padded)
+    shape = [int(m.sum()) for m in x[2][0]]                  # x[2][0] = shape_mask, shape=(d, N)
+    sl = (Ellipsis,) + tuple(slice(0, Ni) for Ni in shape)
+    return T[sl]
 
 
 def ut3_to_t3(

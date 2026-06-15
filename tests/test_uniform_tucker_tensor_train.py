@@ -252,6 +252,29 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         self.assertLessEqual(relerr(ux.copy().to_dense(), x.to_dense()), TOL)
         self.assertLessEqual(relerr(ux.to_numpy().to_dense(), x.to_dense()), TOL)
 
+    # ---- backend-only path: every frontend op is reproducible on the raw .data tuple ----
+    def test_backend_only_on_data(self):
+        import t3toolbox.backend.ut3_conversions as conv
+        import t3toolbox.backend.ut3_orthogonalization as bo
+        import t3toolbox.backend.ut3_operations as bops
+        import t3toolbox.backend.ut3_linalg as bl
+        x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1), stack_shape=(2,))
+        y = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1), stack_shape=(2,))
+        ux, uy = ut3.t3_to_ut3(x), ut3.t3_to_ut3(y)
+
+        # to_dense, orthogonalize, add+squash, inner -- all via backend functions on .data
+        self.assertLessEqual(relerr(conv.ut3_to_dense(ux.data), ux.to_dense()), TOL)
+        self.assertLessEqual(relerr(
+            conv.ut3_to_dense(bo.down_orthogonalize_tucker_cores(ux.data)),
+            ux.down_orthogonalize_tucker_cores().to_dense()), TOL)
+        self.assertLessEqual(relerr(
+            conv.ut3_to_dense(bops.ut3_squash_tails(bl.ut3_add(ux.data, uy.data))),
+            (ux + uy).to_dense()), TOL)
+        orth_data = lambda d: bo.left_orthogonalize_tt_cores(bo.down_orthogonalize_tucker_cores(d))
+        self.assertLessEqual(relerr(
+            bl.ut3_inner_product(orth_data(ux.data), orth_data(uy.data)),
+            ux.inner(uy)), TOL)
+
 
 if __name__ == '__main__':
     unittest.main()

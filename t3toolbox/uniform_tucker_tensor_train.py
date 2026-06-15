@@ -25,8 +25,6 @@ import t3toolbox.backend.ut3_masking as ut3_masking
 import t3toolbox.backend.ut3_operations as ut3_operations
 import t3toolbox.backend.ut3_orthogonalization as ut3_orthogonalization
 import t3toolbox.backend.ut3_linalg as ut3_linalg
-import t3toolbox.backend.orthogonalization as orth
-import t3toolbox.backend.t3_operations as ragged_operations
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.common as common
 from t3toolbox.backend.common import NDArray
@@ -189,44 +187,21 @@ class UniformTuckerTensorTrain:
         return UniformTuckerTensorTrain(mtk, mtt, self.masks)
 
     def to_dense(self) -> NDArray:
-        """Form the dense tensor, ``shape = stack_shape + (N0,...,N(d-1))``.
-
-        Masks the supercores, chain-contracts (shared with the ragged path), then static-prefix-slices
-        the padded physical axes down to the real shape. For checking work / tests -- never form a large
-        one in practice.
-        """
-        masked_tucker, masked_tt = ut3_masking.apply_masks_to_cores(self.data)
-        T = ragged_operations.t3_to_dense_chain(masked_tucker, masked_tt)   # stack + (N,)*d (padded)
-        sl = (Ellipsis,) + tuple(slice(0, Ni) for Ni in self.shape)
-        return T[sl]
+        """Form the dense tensor, ``shape = stack_shape + (N0,...,N(d-1))``. (Inspection/tests only.)"""
+        return ut3_conversions.ut3_to_dense(self.data)
 
     def reverse(self) -> 'UniformTuckerTensorTrain':
         """Reverse the mode order."""
-        sm, tkm, ttm = self.masks.data
-        return UniformTuckerTensorTrain(
-            self.tucker_supercore[::-1],
-            ut3_operations.reverse_utt(self.tt_supercore),
-            UT3Masks(sm[::-1], tkm[::-1], ttm[::-1]),
-        )
+        return _from_data(ut3_operations.ut3_reverse(self.data))
 
     def squash_tails(self) -> 'UniformTuckerTensorTrain':
         """Sum the leading/trailing TT bonds down to rank 1 (preserves the represented tensor)."""
-        use_jax = self.contains_jax
-        xnp, _, _ = common.get_backend(True, use_jax)
-
-        new_tt_supercore = ut3_operations.uniform_squash_tt_tails(self.tt_supercore)
-
-        sm, tkm, ttm = self.masks.data
-        rank1 = xnp.broadcast_to(xnp.arange(self.r) < 1, self.stack_shape + (self.r,))  # [True, False, ...]
-        new_ttm = xnp.concatenate([rank1[None], ttm[1:-1], rank1[None]], axis=0)
-        return UniformTuckerTensorTrain(self.tucker_supercore, new_tt_supercore, UT3Masks(sm, tkm, new_ttm))
+        return _from_data(ut3_operations.ut3_squash_tails(self.data))
 
     # ----------------------------------------------------------------- linear algebra
     def __mul__(self, s) -> 'UniformTuckerTensorTrain':
-        """Scale by a scalar (scales the last Tucker supercore slice; masks/ranks unchanged)."""
-        xnp, _, _ = common.get_backend(True, self.contains_jax)
-        scaled = xnp.concatenate([self.tucker_supercore[:-1], s * self.tucker_supercore[-1:]], axis=0)
-        return UniformTuckerTensorTrain(scaled, self.tt_supercore, self.masks)
+        """Scale by a scalar."""
+        return _from_data(ut3_linalg.ut3_scale(self.data, s))
 
     __rmul__ = __mul__
 
@@ -242,8 +217,7 @@ class UniformTuckerTensorTrain:
         if self.stack_shape != other.stack_shape:
             raise ValueError('Cannot add UniformTuckerTensorTrains with different stack_shapes: %s vs %s.'
                              % (self.stack_shape, other.stack_shape))
-        tk, tt, masks = ut3_linalg.ut3_add(self.data, other.data)
-        return UniformTuckerTensorTrain(tk, tt, UT3Masks(*masks)).squash_tails()
+        return _from_data(ut3_operations.ut3_squash_tails(ut3_linalg.ut3_add(self.data, other.data)))
 
     def __sub__(self, other: 'UniformTuckerTensorTrain') -> 'UniformTuckerTensorTrain':
         return self + (-other)
@@ -251,79 +225,50 @@ class UniformTuckerTensorTrain:
     def sum_stack(self) -> 'UniformTuckerTensorTrain':
         """Sum the represented tensors over the entire stack -> one unstacked uniform T3 (genuine tensor
         sum, not corewise)."""
-        tk, tt, masks = ut3_linalg.ut3_sum_stack(self.data)
-        return UniformTuckerTensorTrain(tk, tt, UT3Masks(*masks)).squash_tails()
+        return _from_data(ut3_operations.ut3_squash_tails(ut3_linalg.ut3_sum_stack(self.data)))
 
     def inner(self, other: 'UniformTuckerTensorTrain', use_orthogonalization: bool = True):
         """Hilbert-Schmidt inner product with another uniform Tucker tensor train (shape=stack_shape)."""
         if self.shape != other.shape:
             raise ValueError('Cannot inner-product UniformTuckerTensorTrains with different shapes: %s vs %s.'
                              % (self.shape, other.shape))
-        x, y = self, other
+        xd, yd = self.data, other.data
         if use_orthogonalization:
-            x = x.down_orthogonalize_tucker_cores().left_orthogonalize_tt_cores()
-            y = y.down_orthogonalize_tucker_cores().left_orthogonalize_tt_cores()
-        return ut3_linalg.ut3_inner_product(x.data, y.data)
+            xd = ut3_orthogonalization.left_orthogonalize_tt_cores(
+                ut3_orthogonalization.down_orthogonalize_tucker_cores(xd))
+            yd = ut3_orthogonalization.left_orthogonalize_tt_cores(
+                ut3_orthogonalization.down_orthogonalize_tucker_cores(yd))
+        return ut3_linalg.ut3_inner_product(xd, yd)
 
     def norm(self, use_orthogonalization: bool = True):
         """Hilbert-Schmidt (Frobenius) norm of the represented tensor (shape=stack_shape)."""
         if use_orthogonalization:
-            x = self.down_orthogonalize_tucker_cores().left_orthogonalize_tt_cores()
-            return ut3_linalg.ut3_norm_orthogonalized(x.data)
+            xd = ut3_orthogonalization.left_orthogonalize_tt_cores(
+                ut3_orthogonalization.down_orthogonalize_tucker_cores(self.data))
+            return ut3_linalg.ut3_norm_orthogonalized(xd)
         xnp, _, _ = common.get_backend(True, self.contains_jax)
         return xnp.sqrt(xnp.abs(ut3_linalg.ut3_inner_product(self.data, self.data)))
 
     # ----------------------------------------------------------------- orthogonalization
-    # Core-local Tucker orthogonalizations are uniform-specific BATCHED-SVD rewrites; the TT left/right
-    # sweeps SHARE the polymorphic orthogonalization.py. Each re-masks on entry; the SVD remainder
-    # R = ss.Vt has ss=0 in the padded slots, so no garbage propagates. Ranks naturally drop to the
-    # structural minimum the SVD produces (we shrink to it and set the masks to match -- minimal for free).
+    # Thin wrappers over the .data-level backend (ut3_orthogonalization): the Tucker-core ops are
+    # batched-SVD rewrites; the TT left/right ops share the polymorphic orthogonalization.py sweep. All
+    # re-masking and mask/rank recomputation lives in the backend.
 
     def down_orthogonalize_tucker_cores(self) -> 'UniformTuckerTensorTrain':
-        """Orthogonalize the Tucker cores (rows orthonormal over the mode index), pushing the remainder
-        up into the TT cores. Tucker rank -> min(shape, tucker_rank)."""
-        xnp, _, _ = common.get_backend(False, self.contains_jax)
-        mtk, mtt = ut3_masking.apply_masks_to_cores(self.data)
-        new_tk, new_tt = ut3_orthogonalization.down_orthogonalize_tucker_cores(mtk, mtt)
-        sm, tkm, ttm = self.masks.data
-        shape_arr = sm.sum(axis=-1).reshape((self.d,) + (1,) * len(self.stack_shape))  # (d,)+(1,)*stack
-        new_tucker_ranks = xnp.minimum(self.tucker_ranks, shape_arr)
-        new_tkm = xnp.arange(new_tk.shape[-2]) < new_tucker_ranks[..., None]
-        return UniformTuckerTensorTrain(new_tk, new_tt, UT3Masks(sm, new_tkm, ttm))
+        """Orthogonalize the Tucker cores, pushing the remainder up into the TT cores."""
+        return _from_data(ut3_orthogonalization.down_orthogonalize_tucker_cores(self.data))
 
     def up_orthogonalize_tt_cores(self) -> 'UniformTuckerTensorTrain':
-        """Up-orthogonalize the TT cores (mode index orthonormal over the bonds), pushing the remainder
-        down into the Tucker cores. Tucker rank -> min(tucker_rank, rL*rR)."""
-        xnp, _, _ = common.get_backend(False, self.contains_jax)
-        mtk, mtt = ut3_masking.apply_masks_to_cores(self.data)
-        new_tk, new_tt = ut3_orthogonalization.up_orthogonalize_tt_cores(mtk, mtt)
-        sm, tkm, ttm = self.masks.data
-        tt_ranks = self.tt_ranks
-        new_tucker_ranks = xnp.minimum(self.tucker_ranks, tt_ranks[:-1] * tt_ranks[1:])
-        new_tkm = xnp.arange(new_tt.shape[-2]) < new_tucker_ranks[..., None]
-        return UniformTuckerTensorTrain(new_tk, new_tt, UT3Masks(sm, new_tkm, ttm))
+        """Up-orthogonalize the TT cores, pushing the remainder down into the Tucker cores."""
+        return _from_data(ut3_orthogonalization.up_orthogonalize_tt_cores(self.data))
 
     def left_orthogonalize_tt_cores(self) -> 'UniformTuckerTensorTrain':
-        """Left-orthogonalize the TT cores (shared polymorphic sweep). TT bond ranks follow the L->R
-        recurrence ``r[i+1] = min(r[i]*n[i], r[i+1])``."""
-        xnp, _, _ = common.get_backend(False, self.contains_jax)
-        _, mtt = ut3_masking.apply_masks_to_cores(self.data)
-        new_tt = orth.left_orthogonalize_tt_cores(mtt)
-        sm, tkm, ttm = self.masks.data
-        new_tt_ranks = _left_orthogonalized_tt_ranks(self.tt_ranks, self.tucker_ranks, xnp)
-        new_ttm = xnp.arange(self.r) < new_tt_ranks[..., None]
-        return UniformTuckerTensorTrain(self.tucker_supercore, new_tt, UT3Masks(sm, tkm, new_ttm))
+        """Left-orthogonalize the TT cores."""
+        return _from_data(ut3_orthogonalization.left_orthogonalize_tt_cores(self.data))
 
     def right_orthogonalize_tt_cores(self) -> 'UniformTuckerTensorTrain':
-        """Right-orthogonalize the TT cores (shared polymorphic sweep). TT bond ranks follow the R->L
-        recurrence ``r[i] = min(n[i]*r[i+1], r[i])``."""
-        xnp, _, _ = common.get_backend(False, self.contains_jax)
-        _, mtt = ut3_masking.apply_masks_to_cores(self.data)
-        new_tt = orth.right_orthogonalize_tt_cores(mtt)
-        sm, tkm, ttm = self.masks.data
-        new_tt_ranks = _right_orthogonalized_tt_ranks(self.tt_ranks, self.tucker_ranks, xnp)
-        new_ttm = xnp.arange(self.r) < new_tt_ranks[..., None]
-        return UniformTuckerTensorTrain(self.tucker_supercore, new_tt, UT3Masks(sm, tkm, new_ttm))
+        """Right-orthogonalize the TT cores."""
+        return _from_data(ut3_orthogonalization.right_orthogonalize_tt_cores(self.data))
 
     # ----------------------------------------------------------------- stacking
     def unstack(self):
@@ -360,36 +305,15 @@ class UniformTuckerTensorTrain:
         return UniformTuckerTensorTrain(self.tucker_supercore, self.tt_supercore, self.masks)
 
 
-# ------------------------------------------------------------ orthogonalization rank recurrences
-# After left/right TT orthogonalization the real bond ranks follow a sweep recurrence (the boundary
-# bonds r[0], r[d] are untouched). Same logic as ranks.compute_minimal_ranks' passes. Vectorized over
-# the stack; the d-loop is short (and unrolls cleanly under jit).
-
-def _left_orthogonalized_tt_ranks(
-        tt_ranks:     NDArray,  # dtype=int, shape=(d+1,)+stack_shape
-        tucker_ranks: NDArray,  # dtype=int, shape=(d,)+stack_shape
-        xnp,
-) -> NDArray:                   # dtype=int, shape=(d+1,)+stack_shape
-    d = tucker_ranks.shape[0]
-    new = [tt_ranks[0]]
-    for i in range(d - 1):
-        new.append(xnp.minimum(new[i] * tucker_ranks[i], tt_ranks[i + 1]))
-    new.append(tt_ranks[d])
-    return xnp.stack(new)
-
-
-def _right_orthogonalized_tt_ranks(
-        tt_ranks:     NDArray,  # dtype=int, shape=(d+1,)+stack_shape
-        tucker_ranks: NDArray,  # dtype=int, shape=(d,)+stack_shape
-        xnp,
-) -> NDArray:                   # dtype=int, shape=(d+1,)+stack_shape
-    d = tucker_ranks.shape[0]
-    new = [None] * (d + 1)
-    new[d] = tt_ranks[d]
-    for i in range(d - 1, 0, -1):
-        new[i] = xnp.minimum(tucker_ranks[i] * new[i + 1], tt_ranks[i])
-    new[0] = tt_ranks[0]
-    return xnp.stack(new)
+def _from_data(
+        data: typ.Tuple[NDArray, NDArray, typ.Tuple[NDArray, NDArray, NDArray]],
+) -> 'UniformTuckerTensorTrain':
+    """Wrap a backend ``.data`` tuple ``(tucker_supercore, tt_supercore, (3 masks))`` into a
+    ``UniformTuckerTensorTrain``. Every frontend operation is a thin wrapper: call the matching
+    ``ut3_*`` backend function on ``self.data``, then re-wrap with this. The masks holder is the only
+    frontend-side construction (the OO-frame exception to the backend/frontend razor)."""
+    tk, tt, masks = data
+    return UniformTuckerTensorTrain(tk, tt, UT3Masks(*masks))
 
 
 # ===================================================================== conversions
