@@ -4,41 +4,19 @@ Goal: rework the **existing** doctests in the verified modules into **reproducib
 convention in **`docs/doctest_style.md`** (read that first — it's the spec). Exemplars: `manifold.py`
 and the reworked `TuckerTensorTrain.__mul__` / `inner` / `t3svd`.
 
-## Status
+## Status — existing-doctest sweep ✅ COMPLETE (all committed)
 
-**Existing-doctest fixes — done & committed:**
 - `manifold`, `corewise`, `backend/stacking` — already conformed (0 failures), untouched.
-- `backend/linalg` (commit `31fd91c7`), `backend/probing` (`c95ba848`), `backend/dense_t3svd`
-  (`f3dbb0d7`), `basis_variations_format` (`5151f415`).
-- `TuckerTensorTrain.__mul__` / `inner` / `t3svd` (`022216a5`-era + `e17f90df`) — the hand pilots.
+- `backend/linalg` (`31fd91c7`), `backend/probing` (`c95ba848`), `backend/dense_t3svd` (`f3dbb0d7`),
+  `basis_variations_format` (`5151f415`), `tucker_tensor_train` (161 failing → 0, latest commit),
+  and the `__mul__`/`inner`/`t3svd` pilots. `python -m doctest <module>` is clean for each.
+- The sweep doubled as a **stale-code detector** — found+fixed wrong captured values and dead
+  imports/`NameError`s the broken doctests hid (e.g. a nonexistent `t3.t3_corewise_randn` used across
+  ~12 `tucker_tensor_train` examples; `bv_to_t3`'s ambiguous `==`; dead imports in `dense_t3svd`).
+- **Flagged for follow-up** (out of doctest scope, no behavior change): `TuckerTensorTrain.core_shapes`
+  (property) strips the stack while `get_core_shapes()` (static) includes it — apparent inconsistency.
 
-**IN PROGRESS — `tucker_tensor_train.py` (the big one): NOT committed.**
-- A sub-agent (`general-purpose`, fix-existing-only) was reworking it when the session ended. It took it
-  from **161 → ~23** failing examples, but the file has **uncommitted edits** and the agent may not have
-  finished (it was still running; no completion report seen).
-
-## Resume steps for `tucker_tensor_train.py`
-
-1. **Check the agent.** If a completion notification arrived, read its report. The working tree already
-   has its partial edits (`git diff --stat t3toolbox/tucker_tensor_train.py`). Do NOT assume it's done.
-2. **Run the doctests:** `python -m doctest t3toolbox/tucker_tensor_train.py 2>&1 | grep -vE "^(RAGGED|NUMPY)"`
-   (and `... | grep -cE "^Failed example:"` for the count). Find the remaining failures
-   (`... | grep -E "line [0-9]+, in"`).
-3. **Finish the remaining ~23** by hand or with a follow-up agent (same prompt shape as the others).
-   They'll be the same patterns: unseeded random → `np.random.seed(0)`; raw residual floats →
-   `np.allclose(result, reference)`; raw/gauge-ambiguous arrays → relationship-check + structure prints;
-   stale deterministic values → fix to the real value (RUN it); failure modes → traceback blocks.
-4. **Review before committing** (doctests are higher-stakes than signatures — a wrong pasted value is a
-   silent lie, so *run*, don't eyeball):
-   - `python -m doctest t3toolbox/tucker_tensor_train.py` → **0 failures**;
-   - scope check — **no new `Examples` added to previously-undocumented methods** (this pass is
-     fix-existing-only): `git diff | grep -E "^\+.*Examples"` should only correspond to methods that
-     already had examples; leave `__mul__`/`inner`/`t3svd` untouched (already done);
-   - spot-check a couple of reworked blocks for teaching quality.
-5. **Commit** `t3toolbox/tucker_tensor_train.py` (per-module commit, message like the others). That
-   **completes the existing-doctest sweep** of the verified modules.
-
-## Then: the deferred pass (Nick wants this)
+## Remaining doctest work: the deferred pass (Nick wants this)
 
 **Add default-path doctests to currently *undocumented* public functions** (the convention's "default
 path always earns an example"). A separate pass after existing fixes are done. The `linalg` probe
