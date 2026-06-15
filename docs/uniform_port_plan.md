@@ -96,13 +96,56 @@ TRIVIAL = inline one-liner; SWEEP = sequential over `d` (`xscan`/`lax.scan`); BA
 
 ---
 
+## inner / norm ✅ — uniform orchestration reusing decided pieces
+
+- REWRITE (uniform-specific orchestration): re-mask → optional orthogonalize (the decided split) →
+  absorb Tucker into TT → zipper. `norm` fast path = `‖last TT core‖_F` when orthogonalized, else
+  `inner(x, x)`.
+- The zipper (carry-`M` contraction `'...ab,...aoc,...bod->...cd'`) is a SWEEP → uniform `xscan`; the
+  ragged twin isn't factored, so leave the uniform zipper its own scan.
+- **Factor a shared primitive** `absorb_tucker_into_tt(tucker_cores, tt_cores)` (the per-core `G·U`
+  batched einsum) — reused by `to_dense` and `inner`, polymorphic over tuple/supercore.
+- Test: round-trip `ut3.inner(ux, uy)` vs `x.inner(y)`.
+
+## sum / sum_stack ✅ (partial-`sum` deferred)
+
+- **`sum_stack`** (genuine tensor sum over the stack) — REWRITE, uniform-specific: direct sum over the
+  stack (block-diagonal TT, concat Tucker ranks, squash) — `add` folded over the whole stack axis at
+  once. **Not** `supercore.sum(stack_axes)` (that's corewise — the commented-out `ut3_sum_stack` had
+  this wrong).
+- **`sum` over physical axes — full (all axes → scalar)**: reuse `apply` with `ones(Ni)` vectors (a
+  sweep we build for `apply`); masking makes `ones(N)` sum only the real columns.
+- **`sum_stack_corewise`**: corewise op; defer to `corewise.py` (don't reimplement in `ut3_*`).
+- **Partial `sum`** (subset of physical axes): DEFERRED — see "Deferred" below.
+- Test: round-trip `sum_stack` / full-`sum` vs ragged.
+
+## ut3svd ✅ — REWRITE (the defining uniform op)
+
+- Uniform-specific mask-truncation sweep (scan over `d`, pad factors back, multiply by **prefix** masks),
+  reusing the shared orthogonalization (batched Tucker rewrite + shared TT sweep) and the polymorphic
+  `linalg` SVD primitives. Truncation = **max-rank masks only, no `rtol`/`atol`** (per the contract);
+  per-stack-element max-ranks allowed (the variety / rank-sweep payoff).
+- **Output ranks shrink to the minimal STRUCTURAL ranks** (`compute_minimal_ranks(structure, max_ranks)`)
+  and the **padded supercore shrinks to match** (`n' = max minimal tucker rank`, `r' = max minimal tt
+  rank`, over modes + stack) — dropping the current "pad back to original `n` for consistency" hack.
+  jit-safe: the new size comes from the *static* structure/aux, not from values. Explicitly **not**
+  numerical-zero dropping (data-dependent → the forbidden `rtol=0`). Ranks only ever shrink
+  (minimal ≤ original), never grow.
+- Works for **non-minimal** inputs (the old "only minimal" comment was a caution, not a target); verify
+  by round-trip vs `t3.t3svd(max_ranks)`. The T3-specific wrinkle (Tucker rank shifts as a side-effect of
+  TT-rank reduction — absent in pure TT-SVD) is expected.
+
 ## Pending ⬜
 
-- ⬜ **inner / norm** (uses orthogonalization) — next.
-- ⬜ **sum / sum_stack**
-- ⬜ **ut3svd** (mask-based truncation; no rtol/atol)
-- ⬜ **entries / apply / probe** (+ transposes?)
+- ⬜ **entries / apply / probe** (+ transposes?) — next.
 - ⬜ **stack / unstack**
 - ⬜ **constructors** (zeros/ones/randn; from_canonical/from_tensor_train; from_vector/to_vector) **+ IO** (save/load)
 - ⬜ **frontend class assembly** (methods, properties, validate, repr, copy, to_jax/to_numpy) + tests/doctests
 - ⬜ **jax-wiring** (pytree registration: identity-hashed mask holder; resolve aux hashability)
+
+## Deferred (return later — wanted)
+
+- **Partial `sum`** (sum a *subset* of physical axes → a smaller uniform T3). A structural reduction:
+  contract the summed Tucker cores with `ones`, fold the resulting bond-matrices into neighbors, and
+  rebuild a smaller (`d' < d`) supercore + masks — a sweep that re-shapes. Self-contained; addable
+  later without touching the rest of the layer. (Full-sum is already covered via `apply`-ones.)

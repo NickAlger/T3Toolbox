@@ -75,6 +75,9 @@ round trip. (This is the behavior that was mid-refactor in the copied-in code.)
   no uniform counterpart (data-dependent shapes would break uniformity/`jit`); uniform truncates via
   **max-rank masks**. So the SVD form of the contract is `ut3svd(max-rank mask) == t3svd(max_ranks)`, not
   the `rtol`/`atol` path. This is a deliberate narrowing, not a gap (`docs/uniform_ranks_and_varieties.md`).
+  Relatedly, rank-changing ops (e.g. `ut3svd`) move to the **minimal *structural* ranks** (computable
+  from shape + rank structure → static, jit-safe; they only ever shrink), never the **numerical** rank
+  (value-dependent, would break `jit` — it is the forbidden `rtol=0`).
 - **The contract says nothing about the garbage.** Tests must compare real parts only (via `to_dense` or
   convert-back); a test that compared raw padded supercores would fail for no real reason.
 
