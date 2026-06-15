@@ -26,6 +26,7 @@ import t3toolbox.backend.ut3_operations as ut3_operations
 import t3toolbox.backend.ut3_orthogonalization as ut3_orthogonalization
 import t3toolbox.backend.ut3_linalg as ut3_linalg
 import t3toolbox.backend.ut3_sampling as ut3_sampling
+import t3toolbox.backend.ut3_svd as ut3_svd
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.common as common
 from t3toolbox.backend.common import NDArray
@@ -292,6 +293,20 @@ class UniformTuckerTensorTrain:
     def right_orthogonalize_tt_cores(self) -> 'UniformTuckerTensorTrain':
         """Right-orthogonalize the TT cores."""
         return _from_data(ut3_orthogonalization.right_orthogonalize_tt_cores(self.data))
+
+    # ----------------------------------------------------------------- T3-SVD
+    def t3svd(self, max_tt_ranks=None, max_tucker_ranks=None, rtol=None, atol=None):
+        """Mask-truncated T3-SVD. Reduces ranks to the minimal structural ranks of the capped target and
+        shrinks the padded supercore to match. Uniform truncates by **max rank only** -- ``rtol``/``atol``
+        are unsupported (they would make data-dependent shapes). Per-stack-element ``max_*_ranks`` arrays
+        are allowed. Returns ``(new UT3, Tucker singular values, TT singular values)``."""
+        if rtol is not None or atol is not None:
+            raise NotImplementedError(
+                'UniformTuckerTensorTrain.t3svd does not support rtol/atol (they would make data-dependent '
+                'shapes); truncate by max_tucker_ranks / max_tt_ranks. See docs/uniform_ranks_and_varieties.md.')
+        new_data, ss_tucker, ss_tt = ut3_svd.ut3svd(
+            self.data, max_tucker_ranks=max_tucker_ranks, max_tt_ranks=max_tt_ranks)
+        return _from_data(new_data), ss_tucker, ss_tt
 
     # ----------------------------------------------------------------- stacking
     def unstack(self):

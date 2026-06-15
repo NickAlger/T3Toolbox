@@ -10,6 +10,7 @@ import t3toolbox.backend.orthogonalization as orth
 from t3toolbox.backend.common import *
 
 __all__ = [
+    'down_orthogonalize_tucker_supercores',
     'down_orthogonalize_tucker_cores',
     'up_orthogonalize_tt_cores',
     'left_orthogonalize_tt_cores',
@@ -47,6 +48,22 @@ def _right_orthogonalized_tt_ranks(tt_ranks, tucker_ranks, xnp):  # (d+1,)+stack
     return xnp.stack(new)
 
 
+def down_orthogonalize_tucker_supercores(
+        tucker_supercore: NDArray,  # shape=(d,)+stack+(n,N) (assumed masked)
+        tt_supercore:     NDArray,  # shape=(d,)+stack+(r,n,r)
+) -> typ.Tuple[NDArray, NDArray]:   # (new_tucker, new_tt) with n-axis -> min(N,n)
+    """Bare batched Tucker SVD on supercores (assumes masked input): rows orthonormal over the mode
+    index, remainder pushed into the TT cores. The SVD core of :py:func:`down_orthogonalize_tucker_cores`;
+    also reused by the T3-SVD sweep (which manages its own truncation masks)."""
+    use_jax = tree_contains_jax((tucker_supercore, tt_supercore))
+    xnp, _, _ = get_backend(True, use_jax)
+    U_o_x, ss, WT_x_i = xnp.linalg.svd(tucker_supercore.swapaxes(-2, -1), full_matrices=False)
+    R_x_i = xnp.einsum('...x,...xi->...xi', ss, WT_x_i)
+    new_tt = xnp.einsum('...aib,...xi->...axb', tt_supercore, R_x_i)
+    new_tk = U_o_x.swapaxes(-1, -2)
+    return new_tk, new_tt
+
+
 def down_orthogonalize_tucker_cores(data: UT3Data) -> UT3Data:
     """Orthogonalize the Tucker cores (rows orthonormal over the mode index), pushing the remainder up
     into the TT cores. Core-local -> one batched SVD over ``(d,)+stack``. Tucker rank -> min(shape, rank)."""
@@ -56,10 +73,7 @@ def down_orthogonalize_tucker_cores(data: UT3Data) -> UT3Data:
     mtk, mtt = ut3_masking.apply_masks_to_cores(data)
     sm, tkm, ttm = data[2]
 
-    U_o_x, ss, WT_x_i = xnp.linalg.svd(mtk.swapaxes(-2, -1), full_matrices=False)
-    R_x_i = xnp.einsum('...x,...xi->...xi', ss, WT_x_i)
-    new_tt = xnp.einsum('...aib,...xi->...axb', mtt, R_x_i)
-    new_tk = U_o_x.swapaxes(-1, -2)
+    new_tk, new_tt = down_orthogonalize_tucker_supercores(mtk, mtt)
 
     stack = mtk.shape[1:-2]
     shape_arr = sm.sum(axis=-1).reshape((mtk.shape[0],) + (1,) * len(stack))

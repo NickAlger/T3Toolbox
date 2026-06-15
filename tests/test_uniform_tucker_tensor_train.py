@@ -270,6 +270,61 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
                     self.assertLessEqual(relerr(uxr.to_dense(), xr.to_dense()), TOL)
                     self._assert_ranks_match(uxr, xr)
 
+    # ---- t3svd (vs t3svd / dense) ----
+    def test_t3svd_no_truncation(self):
+        # reduces to minimal ranks, same tensor; no-truncation ranks match ragged exactly
+        for shape, tr, ttr, ss in self._cases():
+            with self.subTest(shape=shape, stack=ss):
+                x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
+                ux = ut3.t3_to_ut3(x)
+                ux2, _, _ = ux.t3svd()
+                x2, _, _ = x.t3svd()
+                self.assertLessEqual(relerr(ux2.to_dense(), x2.to_dense()), TOL)
+                if ss == ():
+                    self._assert_ranks_match(ux2, x2)
+
+    def test_t3svd_truncation(self):
+        # uniform reduces to the minimal STRUCTURAL ranks of the capped target -> same tensor, ranks
+        # may be <= ragged's (uniform is tidier). Contract is on the represented tensor.
+        for shape, tr, ttr, ss in self._cases():
+            with self.subTest(shape=shape, stack=ss):
+                x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
+                ux = ut3.t3_to_ut3(x)
+                ux2, _, _ = ux.t3svd(max_tt_ranks=2, max_tucker_ranks=2)
+                x2, _, _ = x.t3svd(max_tt_ranks=2, max_tucker_ranks=2)
+                self.assertLessEqual(relerr(ux2.to_dense(), x2.to_dense()), TOL)
+                # ranks respect the cap
+                self.assertTrue(np.all(np.asarray(ux2.tucker_ranks) <= 2))
+                self.assertTrue(np.all(np.asarray(ux2.tt_ranks) <= 2))
+
+    def test_t3svd_non_minimal(self):
+        for shape, tr, ttr in [((5, 6), (8, 4), (1, 3, 1)), ((6, 7, 8), (5, 5, 5), (1, 40, 40, 1))]:
+            with self.subTest(shape=shape):
+                x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
+                ux = ut3.t3_to_ut3(x)
+                ux2, _, _ = ux.t3svd()
+                x2, _, _ = x.t3svd()
+                self.assertLessEqual(relerr(ux2.to_dense(), x2.to_dense()), TOL)
+                self._assert_ranks_match(ux2, x2)
+
+    def test_t3svd_per_stack_max_ranks(self):
+        # the variety: different rank caps per stack element, in one call
+        x = t3.TuckerTensorTrain.randn((5, 6, 7), (4, 5, 4), (1, 4, 4, 1), stack_shape=(2,))
+        ux = ut3.t3_to_ut3(x)
+        max_tk = np.array([[2, 4], [2, 4], [2, 4]])  # (d=3, stack=2): elem0 cap 2, elem1 cap 4
+        ux2, _, _ = ux.t3svd(max_tucker_ranks=max_tk)
+        xx = x.unstack()
+        e0, _, _ = xx[0].t3svd(max_tucker_ranks=2)
+        e1, _, _ = xx[1].t3svd(max_tucker_ranks=4)
+        d = ux2.to_dense()
+        self.assertLessEqual(relerr(d[0], e0.to_dense()), TOL)
+        self.assertLessEqual(relerr(d[1], e1.to_dense()), TOL)
+
+    def test_t3svd_rejects_rtol_atol(self):
+        ux = ut3.t3_to_ut3(t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1)))
+        with self.assertRaises(NotImplementedError):
+            ux.t3svd(rtol=1e-3)
+
     # ---- validate (structural hard errors) ----
     def test_validate_raises_on_bad_shape(self):
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1))

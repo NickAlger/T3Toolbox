@@ -241,7 +241,15 @@ TRIVIAL = inline one-liner; SWEEP = sequential over `d` (`xscan`/`lax.scan`); BA
    `lax.scan`, like `entries`). Full `sum` = `apply` with all-ones; partial `sum` raises NotImplementedError
    (deferred). Verified vs keystone/dense (entries/apply/probe exact; sum ~1e-15), incl. stacked T3s and
    W-stacked vectors/probes; ragged + jax regression green.
-5. **ut3svd** — mask-truncation sweep; shrink to minimal structural ranks; non-minimal round-trip verify.
+5. **ut3svd — ✅ DONE.** Mask-truncation T3-SVD: `ut3svd(data, max_*_ranks)` caps by `min(current, max)`,
+   takes the minimal STRUCTURAL ranks (`compute_minimal_ranks`), builds prefix truncation masks, runs the
+   sweep (`uniform_t3_svd`: orthogonalize + scan of per-edge SVDs, pad factors back, multiply by masks),
+   then shrinks the padded supercore to those ranks. No `rtol`/`atol` (rejected; would be data-dependent);
+   per-stack-element `max_*_ranks` allowed (the variety). Extracted `down_orthogonalize_tucker_supercores`
+   (supercore-level, reused by the sweep). Verified vs `t3svd`: tensor matches (≤3e-15) on no-truncation
+   (ranks match ragged), truncation, non-minimal, stacked, and per-stack-element caps. **Note:** under
+   truncation, uniform yields ranks ≤ ragged's (it applies the full `rL·rR` structural bound that ragged's
+   sweep-order leaves behind) — same tensor, tidier; the contract is on the represented tensor.
 6. **Transposes** — `apply_transpose`/`entries_transpose`; audit + add `d`-folded contractions (oracle-tested).
 7. **jax-wiring** — pytree registration + `test_dispatch` coverage.
 8. **Constructors + IO** — `zeros`/`ones`/`randn`; `from_canonical`/`from_tensor_train`/`to_tensor_train`
