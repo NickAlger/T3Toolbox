@@ -2,1282 +2,285 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
-import numpy as np
+"""
+Uniform Tucker tensor trains (UT3): a stacked-supercore + boolean-mask representation of (a stack of)
+ragged :py:class:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain` s, laid out for GPU/jit efficiency.
+
+A UT3 pads the cores of a Tucker tensor train up to common sizes ``n`` (Tucker rank), ``r`` (TT rank),
+``N`` (mode dimension), stacks the ``d`` cores onto a leading axis to form *supercores*, and records the
+real extent of each padded edge with boolean masks. It is, by design, a *faster representation of the
+ragged layer* -- see ``docs/uniform_equivalence_contract.md`` and the other ``docs/uniform_*.md`` notes.
+
+NOTE: this module is being built incrementally (slice 1: foundation). Linear algebra, orthogonalization,
+SVD, sampling, and the jax pytree registration land in later slices.
+"""
 import typing as typ
-import functools as ft
 from dataclasses import dataclass
+from functools import cached_property
+from typing import Tuple
 
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions
-import t3toolbox.backend.ranks as ranks
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_masking as ut3_masking
-import t3toolbox.backend.stacking as stacking
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.backend.entries as entries
-import t3toolbox.backend.apply as apply
-import t3toolbox.backend.probing as probing
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_operations as uniform_ops
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_linalg as utla
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_orthogonalization as uniform_orthogonalization
-import t3toolbox.backend.orthogonalization as orth
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_svd as ut3_svd
-from t3toolbox.backend.common import *
-
-jax = None
-if has_jax:
-    import jax
+import t3toolbox.backend.ut3_conversions as ut3_conversions
+import t3toolbox.backend.ut3_masking as ut3_masking
+import t3toolbox.backend.ut3_operations as ut3_operations
+import t3toolbox.backend.t3_operations as ragged_operations
+import t3toolbox.backend.stacking as stacking
+import t3toolbox.backend.common as common
+from t3toolbox.backend.common import NDArray
 
 __all__ = [
+    'UT3Masks',
     'UniformTuckerTensorTrain',
-    #
-    'pack_vectors',
-    'unpack_vectors',
-    #
     't3_to_ut3',
     'ut3_to_t3',
-    #
-    'ut3_entries',
-    'ut3_apply',
-    'ut3_probe',
-    #
-    'ut3_add',
-    'ut3_sub',
-    'ut3_inner_product',
-    #
-    'ut3svd',
 ]
+
+# A uniform-T3 leaf in nested .data layout, for the tree machinery in stacking.py.
+_UT3_LEAF_STRUCTURE = (None, None, (None, None, None))
+
+
+@dataclass(frozen=True, eq=False)  # eq=False -> identity __hash__/__eq__, so this array-holding object
+class UT3Masks:                    # can be jax aux_data (value hash/eq is impossible). See
+    """The static structure of a uniform Tucker tensor train: its three boolean edge masks.
+
+    Slot ``j`` of an edge is real iff its mask is ``True`` there (the prefix/canonical form). Held as a
+    separate, identity-hashable object so it can ride as jax ``aux_data`` -- the ``T3Basis``<->``T3Tangent``
+    pattern; see ``docs/uniform_pytree_composition.md``.
+    """
+    shape_mask:       NDArray  # dtype=bool, shape=(d, N)                 (no stack: shape is shared across the stack)
+    tucker_edge_mask: NDArray  # dtype=bool, shape=(d,)   + stack_shape + (n,)
+    tt_edge_mask:     NDArray  # dtype=bool, shape=(d+1,) + stack_shape + (r,)
+
+    @property
+    def data(self) -> Tuple[NDArray, NDArray, NDArray]:
+        """The three raw mask arrays, ``(shape_mask, tucker_edge_mask, tt_edge_mask)``."""
+        return self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask
 
 
 @dataclass(frozen=True)
 class UniformTuckerTensorTrain:
-    """Uniform Tucker tensor train.
+    """A uniform Tucker tensor train: two supercores (the data) + a :py:class:`UT3Masks` holder (the
+    static structure).
 
-    Uniform Tucker tensor trains are created by padding a Tucker tensor train
-    so that the ranks are uniform, then stacking the TT cores and Tucker cores into
-    "supercores", which have one more dimension.
+    - ``tucker_supercore``: shape ``(d,) + stack_shape + (n, N)``
+    - ``tt_supercore``: shape ``(d,) + stack_shape + (r, n, r)``
+    - ``masks``: the :py:class:`UT3Masks` (shape mask + the two rank masks)
 
-    Original core shapes are tracked with boolean mask arrays associated with the edges.
+    The mode index ``d`` leads (outside the stack) so sweeps compile to ``lax.scan`` over axis 0
+    (``docs/uniform_supercore_layout.md``). Ranks may differ across the stack; the physical shape may
+    not (``docs/uniform_ranks_and_varieties.md``).
     """
-    tucker_supercore:   NDArray  #             shape=(d,)   + stack_shape + (n,N)
-    tt_supercore:       NDArray  #             shape=(d+1,) + stack_shape + (r,n,r)
-    shape_mask:         NDArray  # dtype=bool, shape=(d,N). No stacking the shape
-    tucker_edge_mask:   NDArray  # dtype=bool, shape=(d,)   + stack_shape + (n,)
-    tt_edge_mask:       NDArray  # dtype=bool, shape=(d+1,) + stack_shape + (r,)
+    tucker_supercore: NDArray   # shape=(d,)+stack_shape+(n,N)
+    tt_supercore:     NDArray   # shape=(d,)+stack_shape+(r,n,r)
+    masks:            UT3Masks  # static structure (shape mask + rank masks)
 
-    @ft.cached_property
-    def data(self) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray, NDArray]:
-        return (
-            self.tucker_supercore, self.tt_supercore,
-            self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask,
-        )
-
-    @ft.cached_property
-    def supercores(self) -> typ.Tuple[NDArray, NDArray]:
+    # ----------------------------------------------------------------- views
+    @cached_property
+    def supercores(self) -> Tuple[NDArray, NDArray]:
+        """``(tucker_supercore, tt_supercore)``."""
         return self.tucker_supercore, self.tt_supercore
 
-    @ft.cached_property
-    def masks(self) -> typ.Tuple[NDArray, NDArray, NDArray]:
-        return self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask
+    @cached_property
+    def data(self) -> Tuple[NDArray, NDArray, Tuple[NDArray, NDArray, NDArray]]:
+        """Raw-array view, mirroring the fields: ``(tucker_supercore, tt_supercore, (3 masks))``.
 
-    @ft.cached_property
-    def d(self) -> int:
-        """Number of indices of the tensor.
+        Backend ``ut3_*`` functions take this nested layout (supercore-only ops use ``.data[:2]``;
+        mask-using ops unpack ``.data[2]``). The ``UT3Masks`` holder stays a frontend concern.
         """
+        return self.tucker_supercore, self.tt_supercore, self.masks.data
+
+    # ------------------------------------------------- padded (uniform) structure
+    @cached_property
+    def d(self) -> int:
+        """Number of modes."""
         return self.tucker_supercore.shape[0]
 
-    @ft.cached_property
+    @cached_property
     def n(self) -> int:
-        """Padded Tucker rank. n >= max(n0,...,n(d-1)), where ni are the original (unpadded) Tucker ranks.
-        """
+        """Padded Tucker rank (``n >= max`` of the real Tucker ranks)."""
         return self.tucker_supercore.shape[-2]
 
-    @ft.cached_property
+    @cached_property
     def N(self) -> int:
-        """Padded index dimension. N >= max(N0,...,N(d-1)), where Ni are the original (unpadded) shapes.
-        """
+        """Padded mode dimension (``N >= max`` of the real shapes)."""
         return self.tucker_supercore.shape[-1]
 
-    @ft.cached_property
+    @cached_property
     def r(self) -> int:
-        """Padded TT rank. r >= max(r0,...,rd), where ri are the original (unpadded) TT ranks.
-        """
+        """Padded TT rank (``r >= max`` of the real TT ranks)."""
         return self.tt_supercore.shape[-1]
 
-    @ft.cached_property
-    def stack_shape(self) -> typ.Tuple[int,...]:
-        """If this contains many stacked uniform Tucker tensor trains, this is the stacking shape.
-        """
+    @cached_property
+    def stack_shape(self) -> Tuple[int, ...]:
+        """Stack shape (``()`` if unstacked). Lives at axes ``1 .. len(stack_shape)`` (``d`` is axis 0)."""
         return self.tucker_supercore.shape[1:-2]
 
-    @ft.cached_property
-    def uniform_structure(self) -> typ.Tuple[int, int, int, int, typ.Tuple[int,...]]:
-        """d, N, n, r, stack_shape"""
+    @cached_property
+    def uniform_structure(self) -> Tuple[int, int, int, int, Tuple[int, ...]]:
+        """``(d, N, n, r, stack_shape)`` -- the padded structure."""
         return self.d, self.N, self.n, self.r, self.stack_shape
 
-    @ft.cached_property
-    def shape(self) -> typ.Tuple[int,...]: # dtype=int, len=d
-        """Get the original shapes, not including portions of the tensors that are unmasked.
+    # ------------------------------------------------- original (real) structure
+    @cached_property
+    def shape(self) -> Tuple[int, ...]:  # len=d
+        """Real shape ``(N0,...,N(d-1))`` (from ``shape_mask``; shared across the stack)."""
+        return tuple(int(x) for x in self.masks.shape_mask.sum(axis=-1))
 
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> d, N, n, r = 3, 6, 5, 4
-        >>> stack_shape = (2,)
-        >>> tucker_supercore = np.ones((d,)+stack_shape+(n,N))
-        >>> tt_supercore = np.ones((d,)+stack_shape+(r,n,r))
-        >>> shape_mask = np.ones((d,N), dtype=bool)
-        >>> tucker_edge_mask = np.ones((d,)+stack_shape+(n,), dtype=bool)
-        >>> tt_edge_mask = np.ones((d+1,)+stack_shape+(r,), dtype=bool)
-        >>> shape_mask[0, 0] = False # first index, first component
-        >>> shape_mask[0, 1] = False # first index, second component
-        >>> shape_mask[0, 2] = False # first index, third component.  N0=6-3=3
-        >>> shape_mask[1, 0] = False # second index, first component
-        >>> shape_mask[1, 1] = False # second index, second component. N1=6-2=4
-        >>> shape_mask[2, 0] = False # third index, first component.  N2=6-1=5
-        >>> x = ut3.UniformTuckerTensorTrain(tucker_supercore, tt_supercore, shape_mask, tucker_edge_mask, tt_edge_mask)
-        >>> print(x.shape)
-        (3, 4, 5)
-        """
-        shape_ndarray = self.shape_mask.sum(axis=-1)
-        return tuple([int(x) for x in shape_ndarray])
+    @cached_property
+    def tucker_ranks(self) -> NDArray:  # dtype=int, shape=(d,)+stack_shape
+        """Real Tucker ranks (from ``tucker_edge_mask``; may vary across the stack)."""
+        return self.masks.tucker_edge_mask.sum(axis=-1)
 
-    @ft.cached_property
-    def tucker_ranks(self) -> NDArray: # dtype=int, shape=(d,)+stack_shape
-        """Get the original tucker ranks, not including components of the edges that are unmasked.
+    @cached_property
+    def tt_ranks(self) -> NDArray:  # dtype=int, shape=(d+1,)+stack_shape
+        """Real TT ranks (from ``tt_edge_mask``; may vary across the stack)."""
+        return self.masks.tt_edge_mask.sum(axis=-1)
 
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> d, N, n, r = 3, 6, 5, 4
-        >>> stack_shape = (2,)
-        >>> tucker_supercore = np.ones((d,)+stack_shape+(n,N))
-        >>> tt_supercore = np.ones((d,)+stack_shape+(r,n,r))
-        >>> shape_mask = np.ones((d,N), dtype=bool)
-        >>> tucker_edge_mask = np.ones((d,)+stack_shape+(n,), dtype=bool)
-        >>> tt_edge_mask = np.ones((d+1,)+stack_shape+(r,), dtype=bool)
-        >>> tucker_edge_mask[0, 1, 0] = False # first edge,  second T3, first component
-        >>> tucker_edge_mask[0, 1, 1] = False # first edge,  second T3, second component
-        >>> tucker_edge_mask[0, 1, 2] = False # first edge,  second T3, third component.  n0=5-3=2
-        >>> tucker_edge_mask[1, 1, 0] = False # second edge, second T3, first component
-        >>> tucker_edge_mask[1, 1, 1] = False # second edge, second T3, second component. n1=5-2=3
-        >>> tucker_edge_mask[2, 1, 0] = False # third edge,  second T3, first component.  n2=5-1=4
-        >>> x = ut3.UniformTuckerTensorTrain(tucker_supercore, tt_supercore, shape_mask, tucker_edge_mask, tt_edge_mask)
-        >>> print(x.tucker_ranks)
-        [[5 2]
-         [5 3]
-         [5 4]]
-        """
-        return self.tucker_edge_mask.sum(axis=-1)
-
-    @ft.cached_property
-    def tt_ranks(self) -> NDArray: # dtype=int, shape=(d+1,)+stack_shape
-        """Get the original tucker ranks, not including components of the edges that are unmasked.
-
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> d, N, n, r = 3, 6, 5, 4
-        >>> stack_shape = (2,)
-        >>> tucker_supercore = np.ones((d,)+stack_shape+(n,N))
-        >>> tt_supercore = np.ones((d,)+stack_shape+(r,n,r))
-        >>> shape_mask = np.ones((d,N), dtype=bool)
-        >>> tucker_edge_mask = np.ones((d,)+stack_shape+(n,), dtype=bool)
-        >>> tt_edge_mask = np.ones((d+1,)+stack_shape+(r,), dtype=bool)
-        >>> tt_edge_mask[0, 1, 0] = False # first edge,  second T3, first component
-        >>> tt_edge_mask[0, 1, 1] = False # first edge,  second T3, second component
-        >>> tt_edge_mask[0, 1, 2] = False # first edge,  second T3, third component.  r0=4-3=1
-        >>> tt_edge_mask[1, 1, 0] = False # second edge, second T3, first component
-        >>> tt_edge_mask[1, 1, 1] = False # second edge, second T3, second component. r1=4-2=2
-        >>> tt_edge_mask[2, 1, 0] = False # third edge,  second T3, first component.  r2=4-1=3
-        >>> x = ut3.UniformTuckerTensorTrain(tucker_supercore, tt_supercore, shape_mask, tucker_edge_mask, tt_edge_mask)
-        >>> print(x.tt_ranks)
-        [[4 1]
-         [4 2]
-         [4 3]
-         [4 4]]
-        """
-        return self.tt_edge_mask.sum(axis=-1)
-
-    @ft.cached_property
-    def structure(self) -> typ.Tuple[
-        typ.Tuple[int,...], # shape
-        NDArray, # tucker_ranks
-        NDArray, # tt_ranks
-        NDArray, # stack_shape
-    ]:
-        '''Structure of the original tensor.
-
-        Examples
-        --------
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> x = t3.t3_corewise_randn((14,15,16), (5,6,7), (2,3,4,3), stack_shape=(2,))
-        >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-        >>> shape, tucker_ranks, tt_ranks, stack_shape = ux.structure
-        >>> print(shape)
-        (14, 15, 16)
-        >>> print(tucker_ranks)
-        [[5 5]
-         [6 6]
-         [7 7]]
-        >>> print(tt_ranks)
-        [[1 1]
-         [3 3]
-         [4 4]
-         [1 1]]
-        >>> print(stack_shape)
-        (2,)
-        '''
+    @cached_property
+    def structure(self) -> Tuple[Tuple[int, ...], NDArray, NDArray, Tuple[int, ...]]:
+        """``(shape, tucker_ranks, tt_ranks, stack_shape)`` -- the real structure."""
         return self.shape, self.tucker_ranks, self.tt_ranks, self.stack_shape
 
+    # ----------------------------------------------------------------- validation
     def validate(self):
-        assert(is_boolean_ndarray(self.shape_mask))
-        assert(is_boolean_ndarray(self.tucker_edge_mask))
-        assert(is_boolean_ndarray(self.tt_edge_mask))
+        """Check the structural invariants (shapes mutually consistent, masks boolean). Raises ValueError."""
+        sm, tkm, ttm = self.masks.data
+        for m, name in ((sm, 'shape_mask'), (tkm, 'tucker_edge_mask'), (ttm, 'tt_edge_mask')):
+            if not common.is_boolean_ndarray(m):
+                raise ValueError(
+                    'UniformTuckerTensorTrain: %s must be a boolean array (got %s).'
+                    % (name, getattr(m, 'dtype', type(m))))
 
-        assert(self.tucker_supercore.shape == (self.d,)+self.stack_shape+(self.n, self.N))
-        assert(self.tt_supercore.shape == (self.d,)+self.stack_shape+(self.r, self.n, self.r))
-        assert(self.shape_mask.shape == (self.d, self.N,))
-        assert(self.tucker_edge_mask.shape == (self.d,)+self.stack_shape+(self.n,))
-        assert(self.tt_edge_mask.shape == (self.d+1,)+self.stack_shape+(self.r,))
+        d, stack, n, N, r = self.d, self.stack_shape, self.n, self.N, self.r
+        expected = {
+            'tt_supercore':     (d,) + stack + (r, n, r),
+            'shape_mask':       (d, N),
+            'tucker_edge_mask': (d,) + stack + (n,),
+            'tt_edge_mask':     (d + 1,) + stack + (r,),
+        }
+        actual = {
+            'tt_supercore':     tuple(self.tt_supercore.shape),
+            'shape_mask':       tuple(sm.shape),
+            'tucker_edge_mask': tuple(tkm.shape),
+            'tt_edge_mask':     tuple(ttm.shape),
+        }
+        for k in expected:
+            if actual[k] != expected[k]:
+                raise ValueError(
+                    'Inconsistent UniformTuckerTensorTrain: %s.shape = %s, expected %s '
+                    '(d=%d, stack_shape=%s, n=%d, N=%d, r=%d).'
+                    % (k, actual[k], expected[k], d, stack, n, N, r))
 
     def __post_init__(self):
         self.validate()
 
-    def to_dense(self, use_jax: bool = False) -> NDArray:
-        """Convert uniform Tucker tensor train to dense array.
+    def __repr__(self) -> str:
+        ss = ', stack_shape=%s' % (self.stack_shape,) if self.stack_shape else ''
+        return ('UniformTuckerTensorTrain(shape=%s, N=%d, n=%d, r=%d%s)'
+                % (self.shape, self.N, self.n, self.r, ss))
 
-        Examples
-        --------
-        >>> import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> x = t3.t3_corewise_randn((14, 15, 16), (4, 6, 5), (3, 3, 2, 4), stack_shape=(2,3))
-        >>> uniform_x = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)  # Convert t3 -> ut3
-        >>> x_dense = x.to_dense()
-        >>> x_dense2 = uniform_x.to_dense()
-        >>> print(np.linalg.norm(x_dense - x_dense2))
-        3.2298106396012192e-12
+    # ----------------------------------------------------------------- operations
+    def apply_masks(self) -> 'UniformTuckerTensorTrain':
+        """Zero the padded ("garbage") regions of the supercores (the masks are unchanged)."""
+        mtk, mtt = ut3_masking.apply_masks_to_cores(self.data)
+        return UniformTuckerTensorTrain(mtk, mtt, self.masks)
+
+    def to_dense(self) -> NDArray:
+        """Form the dense tensor, ``shape = stack_shape + (N0,...,N(d-1))``.
+
+        Masks the supercores, chain-contracts (shared with the ragged path), then static-prefix-slices
+        the padded physical axes down to the real shape. For checking work / tests -- never form a large
+        one in practice.
         """
-        xnp, _, _ = get_backend(True, use_jax)
-
-        all_t3s = ut3_to_t3(self, use_jax=use_jax)
-        def _func(x):
-            if isinstance(x, t3.TuckerTensorTrain):
-                return x.to_dense(use_jax=use_jax)
-            return xnp.array([_func(xi) for xi in x])
-
-        return _func(all_t3s)
+        masked_tucker, masked_tt = ut3_masking.apply_masks_to_cores(self.data)
+        T = ragged_operations.t3_to_dense_chain(masked_tucker, masked_tt)   # stack + (N,)*d (padded)
+        sl = (Ellipsis,) + tuple(slice(0, Ni) for Ni in self.shape)
+        return T[sl]
 
     def reverse(self) -> 'UniformTuckerTensorTrain':
-        """Reversed a UniformTuckerTensorTrain.
-        """
+        """Reverse the mode order."""
+        sm, tkm, ttm = self.masks.data
         return UniformTuckerTensorTrain(
             self.tucker_supercore[::-1],
-            uniform_ops.reverse_utt(self.tt_supercore),
-            self.shape_mask[::-1],
-            self.tucker_edge_mask[::-1],
-            self.tt_edge_mask[::-1],
+            ut3_operations.reverse_utt(self.tt_supercore),
+            UT3Masks(sm[::-1], tkm[::-1], ttm[::-1]),
         )
 
-    def squash_tails(self, use_jax: bool = False) -> 'UniformTuckerTensorTrain':
-        """Make the first index of the first TT supercore
-        and the last index of the last TT-supercore equal to 1 by summing.
+    def squash_tails(self) -> 'UniformTuckerTensorTrain':
+        """Sum the leading/trailing TT bonds down to rank 1 (preserves the represented tensor)."""
+        use_jax = self.contains_jax
+        xnp, _, _ = common.get_backend(True, use_jax)
 
-        Examples
-        --------
+        new_tt_supercore = ut3_operations.uniform_squash_tt_tails(self.tt_supercore)
 
-        EXAMPLE WORK IN PROGRESS
-        >>> import numpy as np
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> tucker_supercore = np.random.randn(4, 2,3, 6,7)
-        >>> tt_supercore = np.random.randn(4, 2,3, 5,6,5)
-        >>> x = ut3.UniformTuckerTensorTrain(tucker_supercore, tt_supercore)
-        >>> squashed_x = x.squash()
-        >>> print(np.linalg.norm(x.to_dense() - squashed_x.to_dense()))
+        sm, tkm, ttm = self.masks.data
+        rank1 = xnp.broadcast_to(xnp.arange(self.r) < 1, self.stack_shape + (self.r,))  # [True, False, ...]
+        new_ttm = xnp.concatenate([rank1[None], ttm[1:-1], rank1[None]], axis=0)
+        return UniformTuckerTensorTrain(self.tucker_supercore, new_tt_supercore, UT3Masks(sm, tkm, new_ttm))
 
-        >>> new_tt_supercore = uniform_operations.uniform_squash_tt_tails(tt_supercore)
-        >>> print(np.linalg.norm(np.sum(tt_supercore[0], axis=-3) - new_tt_supercore[0, :,:, 0,:,:]))
-        0.0
-        >>> print(np.linalg.norm(new_tt_supercore[0, :,:, 1:,:,:]))
-        0.0
-        >>> print(np.linalg.norm(np.sum(tt_supercore[-1], axis=-1) - new_tt_supercore[-1, :,:, :,:,0]))
-        0.0
-        >>> print(np.linalg.norm(new_tt_supercore[-1, :,:, :,:,1:]))
-        0.0
-        """
-        new_tt_supercore = uniform_ops.uniform_squash_tt_tails(self.tt_supercore, use_jax=use_jax)
-        return UniformTuckerTensorTrain(
-            self.tucker_supercore, new_tt_supercore,
-            self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask,
-        )
-
-    def apply_masks(
-            self, use_jax: bool = False,
-    ) -> 'UniformTuckerTensorTrain':
-        """Applies masking to supercores, replacing unmasked regions with zeros.
-
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> import t3toolbox.corewise as cw
-        >>> x = t3.t3_corewise_randn((10,11,12), (5,6,4), (1,3,5,1))
-        >>> ux = ut3.t3_to_ut3(x)
-        >>> ux_svd, ss1, _ = ut3.ut3svd(ux)
-        >>> x_dense = x.to_dense()
-        >>> ux_dense = ux.to_dense()
-        >>> print(np.linalg.norm(ux_dense - x_dense))
-        3.0208288525321468e-12
-        >>> x_svd, ss2, _ = t3.t3svd(x)
-        >>> print(np.linalg.norm(x_svd.to_dense() - x_dense))
-        2.9361853188555994e-12
-        >>> print(np.linalg.norm(ux_svd.to_dense() - x_dense))
-        3.0208288525321468e-12
-        >>> masks2 = ut3.make_uniform_masks(x_svd.shape, x_svd.tucker_ranks, x_svd.tt_ranks, ux_svd.N, ux_svd.n, ux_svd.r)
-        >>> ux2 = ut3.UniformTuckerTensorTrain(*(ux_svd.supercores + masks2))
-        >>> print(cw.corewise_relerr(ux2.apply_masks().supercores, ux_svd.supercores))
-        0.0024164186526434567
-        >>> print(cw.corewise_relerr(ux_svd.apply_masks().supercores, ux_svd.supercores))
-        0.0
-        """
-        masked_supercores = t3toolbox.backend.uniform_tucker_tensor_train.ut3_masking.apply_masks_to_cores(self.data, use_jax=use_jax)
-        return UniformTuckerTensorTrain(*(masked_supercores + self.masks))
-
-    def __mul__(
-            self,
-            s,  # scalar
-            use_jax: bool = False,
-    ) -> 'UniformTuckerTensorTrain':  # z = s*x
-        """Scale a uniform Tucker tensor train, s,x -> s*x.
-
-        Examples
-        --------
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2))
-        >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-        >>> s = 3.5
-        >>> usx = ux * s
-        >>> print(np.linalg.norm(s*x.to_dense() - usx.to_dense()))
-        1.6880423424147856e-12
-        """
-        return UniformTuckerTensorTrain(
-            self.tucker_supercore,
-            utla.scale_last_slice(self.tt_supercore, s, use_jax=use_jax),
-            self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask,
-        )
-
-    def __neg__(
-            self,
-            use_jax: bool = False,
-    ) -> 'UniformTuckerTensorTrain':  # z = s*x
-        """Flip a uniform Tucker tensor train, x -> -x.
-
-        Examples
-        --------
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2))
-        >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-        >>> neg_ux = -ux
-        >>> print(np.linalg.norm(x.to_dense() + neg_ux.to_dense()))
-        6.440955358355001e-13
-        """
-        return self * (-1.0)
-
-    def __add__(
-            self,
-            other: 'UniformTuckerTensorTrain',
-            squash: bool = True,
-            use_jax: bool = False,
-    ) -> 'UniformTuckerTensorTrain':  # z = x + y
-        """Add two UniformTuckerTensorTrains, x,y -> x+y.
-
-        Examples
-        --------
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2))
-        >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-        >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1))
-        >>> uy = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(y)
-        >>> print(np.linalg.norm(x.to_dense() + y.to_dense() - (ux + uy).to_dense()))
-        2.7361685557814917e-12
-        """
-        return ut3_add(self, other, squash=squash, use_jax=use_jax)
-
-    def __sub__(
-            self,
-            other: 'UniformTuckerTensorTrain',
-            squash: bool = True,
-            use_jax: bool = False,
-    ) -> 'UniformTuckerTensorTrain':  # z = x + y
-        """Subtract two UniformTuckerTensorTrains, x,y -> x-y.
-
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2))
-        >>> ux = ut3.t3_to_ut3(x)
-        >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1))
-        >>> uy = ut3.t3_to_ut3(y)
-        >>> print(np.linalg.norm(x.to_dense() - y.to_dense() - (ux - uy).to_dense()))
-        2.7487527725050217e-12
-        """
-        return ut3_add(self, -other, squash=squash, use_jax=use_jax)
-
-    def up_orthogonalize_tucker_cores(
-            self,
-            use_jax: bool = False,
-    ) -> 'UniformTuckerTensorTrain':
-        """Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
-
-        Examples
-        --------
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-        >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-        >>> ux_orth = ux.down_orthogonalize_tucker_cores()
-        >>> print(np.linalg.norm(ux.to_dense() - ux_orth.to_dense()))
-        5.322185194708616e-12
-        >>> ind = 1
-        >>> B = ux_orth.data[0][ind]
-        >>> print(np.linalg.norm(B @ B.T - np.eye(B.shape[0])))
-        1.6933204261400423e-15
-
-        Stacked:
-
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
-        >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-        >>> ux_orth = ux.down_orthogonalize_tucker_cores()
-        >>> print(np.linalg.norm(ux.to_dense() - ux_orth.to_dense()))
-        5.306364476742805e-12
-        >>> ind = 1
-        >>> B = ux_orth.data[0][ind]
-        >>> BtB = np.einsum('...abio,...abjo->...abij',B,B)
-        >>> print(np.linalg.norm(BtB - np.eye(BtB.shape[-1])))
-        4.2779520202910704e-15
-        """
-        new_tucker_cores, new_tt_cores = uniform_orthogonalization.up_orthogonalize_uniform_tucker_cores(
-            *self.apply_masks_to_cores(use_jax=use_jax), use_jax=use_jax,
-        )
-        return UniformTuckerTensorTrain(
-            new_tucker_cores, new_tt_cores,
-            self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask,
-        )
-
-    def down_orthogonalize_tt_cores(
-            self,
-            use_jax: bool = False,
-    ) -> 'UniformTuckerTensorTrain':
-        """Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
-
-        Examples
-        --------
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
-        >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-        >>> ux_orth = ux.up_orthogonalize_tt_cores()
-        >>> print(np.linalg.norm(ux.to_dense() - ux_orth.to_dense()))
-        4.767839174513546e-12
-        >>> ind = 1
-        >>> G = ux_orth.data[1][ind]
-        >>> print(np.linalg.norm(np.einsum('...iaj,...ibj->...ab',G,G)-np.eye(G.shape[-2])))
-        3.907103432830381e-15
-        """
-        new_tucker_cores, new_tt_cores = uniform_orthogonalization.down_orthogonalize_uniform_tt_cores(
-            *self.apply_masks_to_cores(use_jax=use_jax), use_jax=use_jax,
-        )
-        return UniformTuckerTensorTrain(
-            new_tucker_cores, new_tt_cores,
-            self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask,
-        )
-
-    def left_orthogonalize_tt_cores(
-            self,
-            return_variation_cores: bool = False,
-            use_jax: bool = False,
-    ):
-        """Left orthogonalize the TT cores, possibly returning variation cores as well.
-
-        Examples
-        --------
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-        >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-        >>> ux_orth = ux.left_orthogonalize_tt_cores()
-        >>> print(np.linalg.norm(ux.to_dense() - ux_orth.to_dense()))
-        1.4070101740254461e-12
-        >>> ind = 1
-        >>> G = ux_orth.data[1][ind]
-        >>> print(np.linalg.norm(np.einsum('iaj,iak->jk',G,G)-np.eye(G.shape[2])))
-        1.707889450699257e-16
-
-        Stacked:
-
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
-        >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-        >>> ux_orth = ux.left_orthogonalize_tt_cores()
-        >>> print(np.linalg.norm(ux.to_dense() - ux_orth.to_dense()))
-        3.0778175131798327e-12
-        >>> ind = 1
-        >>> G = ux_orth.data[1][ind]
-        >>> print(np.linalg.norm(np.einsum('...iaj,...iak->...jk',G,G)-np.eye(G.shape[2]))) # broadcast I
-        1.1988396145496563e-15
-        """
-        result = orth.left_orthogonalize_tt_cores(
-            self.apply_masks_to_cores(use_jax=use_jax)[1],
-            return_variation_cores=return_variation_cores, use_jax=use_jax,
-        )
-        if return_variation_cores:
-            return (
-                UniformTuckerTensorTrain(
-                    self.tucker_supercore, result[0],
-                    self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask,
-                ),
-                result[1],
-            )
-        else:
-            return UniformTuckerTensorTrain(
-                self.tucker_supercore, result,
-                self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask,
-            )
-
-    def right_orthogonalize_tt_cores(
-            self,
-            return_variation_cores: bool = False,
-            use_jax: bool = False,
-    ):
-        """Right orthogonalize the TT cores, possibly returning variation cores as well.
-
-        Examples
-        --------
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-        >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-        >>> ux_orth = ux.right_orthogonalize_tt_cores()
-        >>> print(np.linalg.norm(ux.to_dense() - ux_orth.to_dense()))
-        7.049913893369159e-13
-        >>> ind = 1
-        >>> G = ux_orth.data[1][ind]
-        >>> print(np.linalg.norm(np.einsum('iaj,kaj->ik',G,G)-np.eye(G.shape[-3])))
-        5.60978567249119e-16
-
-        Stacked:
-
-import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
-        >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-        >>> ux_orth = ux.right_orthogonalize_tt_cores()
-        >>> print(np.linalg.norm(ux.to_dense() - ux_orth.to_dense()))
-        3.0648554023984285e-12
-        >>> ind = 1
-        >>> G = ux_orth.data[1][ind]
-        >>> print(np.linalg.norm(np.einsum('...iaj,...kaj->...ik',G,G)-np.eye(G.shape[-3]))) # broadcast I
-        2.4167107000621777e-15
-        """
-        result = orth.right_orthogonalize_tt_cores(
-            self.apply_masks_to_cores(use_jax=use_jax)[1],
-            return_variation_cores=return_variation_cores, use_jax=use_jax,
-        )
-        if return_variation_cores:
-            return (
-                UniformTuckerTensorTrain(
-                    self.tucker_supercore, result[0],
-                    self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask,
-                ),
-                result[1],
-            )
-        else:
-            return UniformTuckerTensorTrain(
-                self.tucker_supercore, result,
-                self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask,
-            )
-
-    def norm(
-            self,
-            use_orthogonalization: bool = True,
-            use_jax: bool = False,
-    ):
-        """Compute the Hilbert-Schmidt norm of this uniform Tucker tensor train.
-
-        Examples
-        --------
-        >>> import t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
-        >>> ux = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(x)
-        >>> norm_ux = ux.norm()
-        >>> norm_ux2 = np.einsum('...xyz->...', x.to_dense()**2)
-        >>> print(np.linalg.norm(norm_ux - norm_ux2) / np.linalg.norm(norm_ux))
-        1.4526456430189309e-15
-        """
-        return utla.ut3_norm(
-            self.data, use_orthogonalization=use_orthogonalization, use_jax=use_jax,
-        )
-
+    # ----------------------------------------------------------------- stacking
     def unstack(self):
-        """Unstacks this UniformTuckerTensorTrain into an array-like tree
-        of nested Tuples containing UniformTuckerTensorTrains as leaf nodes.
-
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
-        >>> xx = x.unstack()
-        >>> ux = ut3.t3_to_ut3(x)
-        >>> uxx = ux.unstack()
-        >>> ii, jj = 1, 2
-        >>> uxx_ij = uxx[ii][jj]
-        >>> uxx_ij2 = ut3.t3_to_ut3(xx[ii][jj])
-        >>> print((uxx_ij - uxx_ij2).norm())
-        8.474583009920297e-24
-        """
+        """Unstack into an array-like tree (shaped like ``stack_shape``) of unstacked UT3s."""
         return stacking.apply_func_to_leaf_subtrees(
-            uniform_ops.ut3_unstack(self.data),
-            lambda x: UniformTuckerTensorTrain(*x),
-            (None, None, None, None, None),
+            ut3_operations.ut3_unstack(self.data),
+            lambda leaf: UniformTuckerTensorTrain(leaf[0], leaf[1], UT3Masks(*leaf[2])),
+            _UT3_LEAF_STRUCTURE,
         )
 
     @staticmethod
-    def stack(
-            uxx,
-            use_jax: bool = False,
-    ) -> 'UniformTuckerTensorTrain':
-        """Stacks array-like nested tree of uniform Tucker tensor trains into one uniform Tucker tensor train.
+    def stack(uxx) -> 'UniformTuckerTensorTrain':
+        """Stack an array-like tree of UT3s into one stacked UT3."""
+        data_tree = stacking.apply_func_to_leaf_subtrees(uxx, lambda u: u.data, None)
+        tk, tt, masks = ut3_operations.ut3_stack(data_tree)
+        return UniformTuckerTensorTrain(tk, tt, UT3Masks(*masks))
 
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
-        >>> xx = x.unstack()
-        >>> ux = ut3.t3_to_ut3(x)
-        >>> uxx = ux.unstack()
-        >>> ux2 = ut3.UniformTuckerTensorTrain.stack(uxx)
-        >>> print((ux - ux).norm())
-        [[1.50814985e-24 8.88010523e-25 1.56365971e-23]
-         [1.70736407e-23 1.65540771e-23 5.54533416e-24]]
-        """
-        uxx_tuples = stacking.apply_func_to_leaf_subtrees(
-            uxx, lambda x: x.data, None
-        )
+    # ----------------------------------------------------------------- dtype / copy
+    @cached_property
+    def contains_jax(self) -> bool:
+        return common.tree_contains_jax(self.supercores)
 
-        return stacking.apply_func_to_leaf_subtrees(
-            uniform_ops.ut3_stack(uxx_tuples, use_jax=use_jax),
-            lambda x: UniformTuckerTensorTrain(*x),
-            (None, None, None, None, None),
-        )
+    def to_jax(self) -> 'UniformTuckerTensorTrain':
+        return UniformTuckerTensorTrain(
+            common.to_jax(self.tucker_supercore), common.to_jax(self.tt_supercore),
+            UT3Masks(*[common.to_jax(m) for m in self.masks.data]))
+
+    def to_numpy(self) -> 'UniformTuckerTensorTrain':
+        return UniformTuckerTensorTrain(
+            common.to_numpy(self.tucker_supercore), common.to_numpy(self.tt_supercore),
+            UT3Masks(*[common.to_numpy(m) for m in self.masks.data]))
+
+    def copy(self) -> 'UniformTuckerTensorTrain':
+        return UniformTuckerTensorTrain(self.tucker_supercore, self.tt_supercore, self.masks)
 
 
-if has_jax:
-    # jax.tree_util.register_pytree_node(
-    #     UniformTuckerTensorTrain,
-    #     lambda x: (x.data, None),
-    #     lambda aux_data, children: UniformTuckerTensorTrain(*children),
-    # ) # This one treats boolean masks as dynamic
-    jax.tree_util.register_pytree_node(
-        UniformTuckerTensorTrain,
-        lambda x: (x.data[:2], x.data[2:]), # treat masks statically
-        lambda aux_data, children: UniformTuckerTensorTrain(*(children+aux_data)),
-    ) # This one treats boolean mask as static
-
-
-pack_vectors = uniform_ops.pack_vectors
-unpack_vectors = uniform_ops.unpack_vectors
-
+# ===================================================================== conversions
 
 def t3_to_ut3(
         x: t3.TuckerTensorTrain,
-        d: int = None, N: int = None, n: int = None, r: int = None,
+        N: int = None,              # padded mode dim   (default max(Ni)); pass to force a larger pad
+        n: int = None,              # padded Tucker rank (default max(tucker_ranks))
+        r: int = None,              # padded TT rank    (default max(tt_ranks))
         squash_tails: bool = True,
-        use_jax: bool = False,
 ) -> UniformTuckerTensorTrain:
-    """Convert TuckerTensorTrain to UniformTuckerTensorTrain.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> x = t3.t3_corewise_randn((14, 15, 16), (4, 6, 5), (3, 3, 2, 4), stack_shape=(2,3))
-    >>> ux = ut3.t3_to_ut3(x)  # Convert t3 -> ut3
-    >>> xx2 = ut3.ut3_to_t3(ux)  # Convert ut3 -> t3
-    >>> x2 = t3.TuckerTensorTrain.stack(xx2)
-    >>> print(np.linalg.norm(x.to_dense() - x2.to_dense()))
-    2.695489335865025e-12
-    """
-    return UniformTuckerTensorTrain(*t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.t3_to_ut3(
-        x.data, d=d, N=N, n=n, r=r, squash_tails=squash_tails, use_jax=use_jax
-    ))
+    """Convert a :py:class:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain` to a uniform one."""
+    tk, tt, masks = ut3_conversions.t3_to_ut3(x.data, N=N, n=n, r=r, squash_tails=squash_tails)
+    return UniformTuckerTensorTrain(tk, tt, UT3Masks(*masks))
 
 
 def ut3_to_t3(
-        x_uniform: UniformTuckerTensorTrain,
-        use_jax: bool = False,
-) -> t3.TuckerTensorTrain:
+        ux: UniformTuckerTensorTrain,
+):  # -> TuckerTensorTrain (unstacked) or a nested tree (shaped like stack_shape) of them
+    """Convert a uniform Tucker tensor train back to ragged form.
+
+    Unstacked: one :py:class:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain`. Stacked: a nested tree
+    of them (a varying-rank stack has no single stacked ``TuckerTensorTrain``;
+    ``docs/uniform_ranks_and_varieties.md``).
     """
-    Convert UniformTuckerTensorTrain to TuckerTensorTrain.
+    result = ut3_conversions.ut3_to_t3(ux.data)
 
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (1,3,2,1), stack_shape=(2,))
-    >>> uniform_x = ut3.t3_to_ut3(x) # Convert t3 -> ut3
-    >>> print(uniform_x.uniform_structure)
-    (3, 16, 6, 3, (2,))
-    >>> print(uniform_x.shape)
-    (14, 15, 16)
-    >>> print(uniform_x.tucker_ranks)
-    [[4 4]
-     [6 6]
-     [5 5]]
-    >>> print(uniform_x.tt_ranks)
-    [[1 1]
-     [3 3]
-     [2 2]
-     [1 1]]
-    >>> all_x2 = ut3.ut3_to_t3(uniform_x) # Convert ut3 -> t3 without stacking
-    >>> for x2i in all_x2: print(x2i.structure)
-    ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1), ())
-    ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1), ())
-    >>> stacked_x2 = t3.TuckerTensorTrain.stack(all_x2)
-    >>> print(stacked_x2.structure)
-    ((14, 15, 16), (4, 6, 5), (1, 3, 2, 1), (2,))
-    >>> for B, B2 in zip(stacked_x2.tucker_cores, x.tucker_cores): print(np.linalg.norm(B - B2))
-    0.0
-    0.0
-    0.0
-    >>> for G, G2 in zip(stacked_x2.tt_cores, x.tt_cores): print(np.linalg.norm(G - G2))
-    0.0
-    0.0
-    0.0
-    """
-    result = t3toolbox.backend.uniform_tucker_tensor_train.ut3_conversions.ut3_to_t3(
-        x_uniform.data, use_jax=use_jax,
-    )
+    def _wrap(res):
+        if common.is_ndarray(res[0][0]):   # res = (tucker_cores, tt_cores) leaf
+            return t3.TuckerTensorTrain(*res)
+        return tuple(_wrap(r) for r in res)
 
-    def _func(x):
-        if is_ndarray(x[0][0]):
-            return t3.TuckerTensorTrain(*x)
-        return tuple([_func(xi) for xi in x])
-
-    return _func(result)
-
-#
-
-def ut3_entries(
-        x: UniformTuckerTensorTrain,
-        index: NDArray, # dtype=int. shape=(d,) or shape=(num_entries,d)
-        use_jax: bool = False,
-) -> NDArray:
-    """Compute entry (entries) of a uniform Tucker tensor train.
-
-    If index is outside the tensor, the result is undefined.
-    In this case, the function may either return a meaningless number,
-    or raise an error.
-
-    Examples
-    --------
-	>>> import numpy as np
-	>>> import t3toolbox.tucker_tensor_train as t3
-	>>> import t3toolbox.uniform_tucker_tensor_train as ut3
-	>>> x = t3.t3_corewise_randn((14,15,16), (4,5,3), (1,4,2,1)) # T3
-	>>> index = (3,1,2)
-	>>> x_312 = t3.t3_entries(x, index)
-	>>> print(x_312) # (3,1,2) entry from T3:
-	58.91320690249439
-	>>> uniform_x = ut3.t3_to_ut3(x) # Convert to Uniform T3
-	>>> x_312_uniform = ut3.ut3_entries(uniform_x, index) # (3,1,2) entry from uniform T3:
-	>>> print(x_312_uniform)
-	58.91320690249439
-
-    Multiple entries:
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,3), (1,4,2,1))
-    >>> index = ((3,9), (1,8), (2,7))
-    >>> x_312_987 = t3.t3_entries(x, index)
-    >>> print(x_312_987)
-    [-13.31445318 -16.95641076]
-    >>> uniform_x = ut3.t3_to_ut3(x)
-    >>> x_312_987_uniform = ut3.ut3_entries(uniform_x, index)
-    >>> print(x_312_987_uniform)
-    [-13.31445318 -16.95641076]
-
-    Multiple entries, multiple T3s:
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,3), (1,4,2,1), stack_shape=(3,))
-    >>> index = ((3,9), (1,8), (2,7))
-    >>> x_312_987 = t3.t3_entries(x, index)
-    >>> print(x_312_987)
-    [[ 13.37754112 -14.2301319 ]
-     [ 10.34271727   9.07781055]
-     [ -3.47189513 -21.14557063]]
-    >>> uniform_x = ut3.t3_to_ut3(x)
-    >>> x_312_987_uniform = ut3.ut3_entries(uniform_x, index)
-    >>> print(x_312_987_uniform)
-    [[ 13.37754112 -14.2301319 ]
-     [ 10.34271727   9.07781055]
-     [ -3.47189513 -21.14557063]]
-    """
-    masked_x = x.apply_masks(use_jax=use_jax) # re-mask every time so that mask affects derivatives. It is relatively cheap.
-    return entries.tucker_tensor_train_entries(masked_x.supercores, index, use_jax=use_jax)
-
-
-def ut3_apply(
-        x: UniformTuckerTensorTrain,
-        input_vectors: NDArray, # shape=(d,N) or shape=(...,d,N)
-        use_jax: bool = False,
-) -> NDArray: # shape=(d,N) or (...,d,N)
-    """Apply a uniform Tucker tensor train to vectors. WORK IN PROGRESS
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-    >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
-    >>> result = t3.tucker_tensor_train_apply(x, vecs)
-    >>> uniform_x = ut3.t3_to_ut3(x)
-    >>> uvecs = ut3.pack_vectors(vecs)
-    >>> result2 = ut3.ut3_apply(uniform_x, uvecs)
-    >>> print(np.linalg.norm(result - result2))
-    0.0
-
-    Vectorize over UT3s
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
-    >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
-    >>> result = t3.tucker_tensor_train_apply(x, vecs)
-    >>> uniform_x = ut3.t3_to_ut3(x)
-    >>> uvecs = ut3.pack_vectors(vecs)
-    >>> result2 = ut3.ut3_apply(uniform_x, uvecs)
-    >>> print(np.linalg.norm(result - result2))
-    0.0
-    """
-    masked_x = x.apply_masks() # re-mask every time so that mask affects derivatives. It is relatively cheap.
-    return apply.tucker_tensor_train_apply(masked_x.supercores, input_vectors, use_jax=use_jax)
-
-
-def ut3_probe(
-        input_vectors: NDArray,  # shape=(d,N) or shape=(...,d,N)
-        x: UniformTuckerTensorTrain,
-        use_jax: bool = False,
-) -> NDArray: # shape=(d,N) or (...,d,N)
-    """Apply a uniform Tucker tensor train to vectors.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
-    >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
-    >>> zz = t3.t3_probe(vecs, x)
-    >>> uniform_x = ut3.t3_to_ut3(x)
-    >>> uvecs = ut3.pack_vectors(vecs)
-    >>> uzz = ut3.ut3_probe(uvecs, uniform_x)
-    >>> zz2 = ut3.unpack_vectors(uzz, uniform_x.shape)
-    >>> for z, z2 in zip(zz, zz2): print(np.linalg.norm(z - z2))
-    5.654425920339536e-13
-    6.019471570221263e-13
-    9.452355114682054e-13
-
-    Vectorize over UT3s
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
-    >>> vecs = [np.random.randn(3,14), np.random.randn(3,15), np.random.randn(3,16)]
-    >>> zz = t3.t3_probe(vecs, x)
-    >>> uniform_x = ut3.t3_to_ut3(x)
-    >>> uvecs = ut3.pack_vectors(vecs)
-    >>> uzz = ut3.ut3_probe(uvecs, uniform_x)
-    >>> zz2 = ut3.unpack_vectors(uzz, uniform_x.shape)
-    >>> for z, z2 in zip(zz, zz2): print(np.linalg.norm(z - z2))
-    2.5704672147788592e-12
-    1.724614542977838e-12
-    2.394748346461898e-12
-    """
-    masked_x = x.apply_masks() # re-mask every time so that mask affects derivatives. It is relatively cheap.
-    return probing.probe_t3(input_vectors, masked_x.supercores, use_jax=use_jax)
-
-#
-
-
-def ut3_add(
-        x: UniformTuckerTensorTrain,
-        y: UniformTuckerTensorTrain,
-        squash: bool = True,
-        use_jax: bool = False,
-) -> UniformTuckerTensorTrain: # z = x + y
-    """Add two UniformTuckerTensorTrains, x,y -> x+y.
-
-    Parameters
-    ----------
-    x_cores: UniformTuckerTensorTrainCores
-        First summand cores
-    x_masks: UniformTuckerTensorTrainMasks
-        First summand masks
-    y_cores: UniformTuckerTensorTrainCores
-        Second summand cores
-    y_masks: UniformTuckerTensorTrainMasks
-        Second summand masks
-    xnp:
-        Linear algebra backend. Default: np (numpy)
-
-    Returns
-    -------
-    UniformTuckerTensorTrainCores
-        Cores for sum, x+y
-    UniformTuckerTensorTrainMasks
-        Cores for sum x+y
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
-    >>> ux = ut3.t3_to_ut3(x)
-    >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1), stack_shape=(2,3))
-    >>> uy = ut3.t3_to_ut3(y)
-    >>> ux_plus_uy = ut3.ut3_add(ux, uy) # add x+y
-    >>> print(np.linalg.norm(x.to_dense() + y.to_dense() - ux_plus_uy.to_dense()))
-    3.250578545971108e-12
-    """
-    if x.d != y.d:
-        raise RuntimeError(
-            'Attempted to add UniformTuckerTensorTrains x+y with inconsistent d.\n' +
-            str(x.d) + ' = x.d != y.d = ' + str(y.d)
-        )
-
-    if any(tuple(sx != sy for sx, sy in zip(x.shape, y.shape))):
-        raise RuntimeError(
-            'Attempted to add UniformTuckerTensorTrains x+y with inconsistent shapes.\n' +
-            str(x.shape) + ' = x.shape != y.shape = ' + str(y.shape)
-        )
-
-    if x.N != y.N:
-        raise RuntimeError(
-            'Attempted to add UniformTuckerTensorTrains x+y with inconsistent N.\n' +
-            str(x.N) + ' = x.N != y.N = ' + str(y.N)
-        )
-
-    if any(tuple(sx != sy for sx, sy in zip(x.stack_shape, y.stack_shape))):
-        raise RuntimeError(
-            'Attempted to add UniformTuckerTensorTrains x+y with inconsistent stack_shapes.\n' +
-            str(x.stack_shape) + ' = x.stack_shape != y.stack_shape = ' + str(y.stack_shape)
-        )
-
-    x_plus_y = UniformTuckerTensorTrain(*utla.ut3_add(x.data, y.data, use_jax=use_jax))
-    if squash:
-        x_plus_y = x_plus_y.squash_tails(use_jax=use_jax)
-
-    return x_plus_y
-
-
-def ut3_sub(
-        x: UniformTuckerTensorTrain,
-        y: UniformTuckerTensorTrain,
-        squash: bool = True,
-        use_jax: bool = False,
-) -> UniformTuckerTensorTrain: # z = x + y
-    """Subtract two UniformTuckerTensorTrains, x,y -> x-y.
-
-    Parameters
-    ----------
-    x_cores: UniformTuckerTensorTrainCores
-        First summand cores
-    x_masks: UniformTuckerTensorTrainMasks
-        First summand masks
-    y_cores: UniformTuckerTensorTrainCores
-        Second summand cores
-    y_masks: UniformTuckerTensorTrainMasks
-        Second summand masks
-    xnp:
-        Linear algebra backend. Default: np (numpy)
-
-    Returns
-    -------
-    UniformTuckerTensorTrainCores
-        Cores for sum, x+y
-    UniformTuckerTensorTrainMasks
-        Cores for sum x+y
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
-    >>> ux = ut3.t3_to_ut3(x)
-    >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1), stack_shape=(2,3))
-    >>> uy = ut3.t3_to_ut3(y)
-    >>> ux_minus_uy = ut3.ut3_sub(ux, uy)
-    >>> print(np.linalg.norm(x.to_dense() - y.to_dense() - ux_minus_uy.to_dense()))
-    1.7975763647128273e-12
-    """
-    return ut3_add(x, -y, squash=squash, use_jax=use_jax)
-
-
-def ut3_inner_product(
-        x: UniformTuckerTensorTrain,
-        y: UniformTuckerTensorTrain,
-        use_orthogonalization: bool = True,
-        use_jax: bool = False,
-):
-    """Compute the Hilbert-Schmidt inner product of two uniform Tucker tensor trains.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,6,5), (2,3,2,2), stack_shape=(2,3))
-    >>> ux = ut3.t3_to_ut3(x)
-    >>> y = t3.t3_corewise_randn((14,15,16), (6,7,8), (3,5,6,1), stack_shape=(2,3))
-    >>> uy = ut3.t3_to_ut3(y)
-    >>> ux_dot_uy = ut3.ut3_inner_product(ux, uy)
-    >>> ux_dot_uy2 = np.einsum('...xyz,...xyz->...', x.to_dense(), y.to_dense())
-    >>> print(np.linalg.norm(ux_dot_uy - ux_dot_uy2) / np.linalg.norm(ux_dot_uy))
-    7.667494312151743e-15
-    """
-    return utla.ut3_inner_product(
-        x.data, y.data, use_orthogonalization=use_orthogonalization, use_jax=use_jax,
-    )
-
-
-def make_uniform_masks(
-        shape:          typ.Tuple[int, ...],
-        tucker_ranks:   NDArray, # dtype=int, shape=(d,)+stack_shape
-        tt_ranks:       NDArray, # dtype=int, shape=(d+1,)+stack_shape
-        N: int,
-        n: int,
-        r: int,
-        use_jax: bool = False,
-):
-    """Make masks for UniformTuckerTensorTrain supercores.
-    """
-    return ut3_masking.make_uniform_masks(
-        shape, tucker_ranks, tt_ranks, N, n, r, use_jax=use_jax,
-    )
-
-
-#
-
-
-def ut3svd(
-        x: UniformTuckerTensorTrain,
-        max_tucker_ranks: NDArray = None, # dtype=int, shape=(d,) OR (d,)+stack_shape
-        max_tt_ranks: NDArray = None, # dtype=int, shape=(d+1,) OR (d+1,)+stack_shape
-        use_jax: bool = False,
-) -> typ.Tuple[
-    UniformTuckerTensorTrain, # new_x
-    NDArray, # basis_singular_values, shape=(d, n)
-    NDArray, # tt_singular_values, shape=(d+1, r)
-]:
-    """Compute T3-SVD of uniform Tucker tensor train.
-
-    Masks are used for rank truncation. If the provided mask does not have minimal ranks,
-    this function will create minimal rank masks from it and use those.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> shape, tucker_ranks, tt_ranks = (11,12,13), (6,7,5), (1,3,6,2)
-    >>> min_tucker_ranks, min_tt_ranks = t3.get_minimal_ranks(shape, tucker_ranks, tt_ranks)
-    >>> x = t3.t3_corewise_randn(shape, tucker_ranks, tt_ranks)
-    >>> ux = ut3.t3_to_ut3(x)
-    >>> ux2, ss_tucker_from_ut3, ss_tt_from_ut3 = ut3.ut3svd(ux) # Uniform T3-SVD
-    >>> print(np.linalg.norm(ux2.to_dense() - x.to_dense()))
-    1.2664289217892565e-11
-    >>> print(ux2.structure)
-    ((11, 12, 13), array([3, 7, 5]), array([1, 3, 5, 1]), ())
-    >>> _, ss_tucker, ss_tt = t3.t3svd(x) # Non-uniform T3-SVD
-    >>> print(ss_tt[1])
-    [2271.96541132 2004.56681783  471.59876959]
-    >>> print(ss_tt_from_ut3[1])
-    [2271.96541132 2004.56681783  471.59876959    0.            0.            0.        ]
-    >>> print(ss_tucker[0])
-    [2271.96541132 2004.56681783  471.59876959]
-    >>> print(ss_tucker_from_ut3[0])
-    [2271.96541132 2004.56681783  471.59876959    0.            0.            0.            0.        ]
-
-    Using stacking:
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> shape, tucker_ranks, tt_ranks, stack_shape = (11,12,13), (6,7,5), (1,3,6,2), (2,3)
-    >>> x = t3.t3_corewise_randn(shape, tucker_ranks, tt_ranks, stack_shape=stack_shape)
-    >>> ux = ut3.t3_to_ut3(x)
-    >>> ux2, ss_tucker_from_ut3, ss_tt_from_ut3 = ut3.ut3svd(ux) # Uniform T3-SVD
-    >>> print(np.linalg.norm(ux2.to_dense() - x.to_dense()))
-    2.193805472670695e-11
-    >>> print(ux2.tucker_ranks)
-    [[[3 3 3]
-      [3 3 3]]
-     [[7 7 7]
-      [7 7 7]]
-     [[5 5 5]
-      [5 5 5]]]
-    >>> print(ux2.tt_ranks)
-    [[[1 1 1]
-      [1 1 1]]
-     [[3 3 3]
-      [3 3 3]]
-     [[5 5 5]
-      [5 5 5]]
-     [[1 1 1]
-      [1 1 1]]]
-    >>> xx = x.unstack()
-    >>> core_ind = 1
-    >>> ii, jj = 1,2
-    >>> _, ss_tucker_ij, ss_tt_ij = t3.t3svd(xx[ii][jj]) # Non-uniform T3-SVD of first T3 in stack
-    >>> print(ss_tt_ij[core_ind])
-    [1890.73292474 1059.89413829  692.19080418]
-    >>> print(ss_tt_from_ut3[core_ind,ii,jj])
-    [1890.73292474 1059.89413829  692.19080418    0.            0.            0.        ]
-    >>> print(ss_tucker_ij[core_ind])
-    [1910.0130585  1383.05608517  677.78562322  583.52327916  328.88105484  188.63539256  127.79479047]
-    >>> print(ss_tucker_from_ut3[core_ind,ii,jj])
-    [1910.0130585  1383.05608517  677.78562322  583.52327916  328.88105484  188.63539256  127.79479047]
-
-    Rank truncation, incurring error:
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> B0 = np.random.randn(35,40) @ np.diag(1.0 / np.arange(1, 41)**2) # preconditioned indices
-    >>> B1 = np.random.randn(45,50) @ np.diag(1.0 / np.arange(1, 51)**2)
-    >>> B2 = np.random.randn(55,60) @ np.diag(1.0 / np.arange(1, 61)**2)
-    >>> G0 = np.random.randn(1,35,30)
-    >>> G1 = np.random.randn(30,45,40)
-    >>> G2 = np.random.randn(40,55,1)
-    >>> tucker_cores_x = (B0, B1, B2)
-    >>> tt_cores_x = (G0, G1, G2)
-    >>> x = t3.TuckerTensorTrain(tucker_cores_x, tt_cores_x) # Tensor has spectral decay due to preconditioning
-    >>> ux = ut3.t3_to_ut3(x)
-    >>> max_tkr = (15, 15, 15)
-    >>> max_ttr = (10, 10, 10, 10)
-    >>> ux2, ss_tucker_from_ut3, ss_tt_from_ut3 = ut3.ut3svd(ux, max_tucker_ranks=max_tkr, max_tt_ranks=max_ttr)
-    >>> x_dense = x.to_dense()
-    >>> print(np.linalg.norm(ux2.to_dense() - x_dense) / np.linalg.norm(x_dense))
-    0.0033845263631186308
-    >>> x2, _, _ = t3.t3svd(x, max_tucker_ranks=max_tkr, max_tt_ranks=max_ttr)
-    >>> print(np.linalg.norm(x_dense - x2.to_dense()) / np.linalg.norm(x_dense))
-    0.0033845263631186308
-    """
-    xnp, _, _ = get_backend(True, use_jax)
-
-    if max_tucker_ranks is None:
-        max_tucker_ranks = x.tucker_ranks
-
-    if max_tt_ranks is None:
-        max_tt_ranks = x.tt_ranks
-
-    max_tucker_ranks = xnp.array(max_tucker_ranks)
-    max_tt_ranks = xnp.array(max_tt_ranks)
-
-    if len(max_tucker_ranks.shape) == 1:
-        max_tucker_ranks = xnp.tensordot(max_tucker_ranks, xnp.ones(x.stack_shape, dtype=int), axes=[(),()])
-
-    if len(max_tt_ranks.shape) == 1:
-        max_tt_ranks = xnp.tensordot(max_tt_ranks, xnp.ones(x.stack_shape, dtype=int), axes=[(),()])
-
-    assert(len(max_tucker_ranks.shape) == 1+len(x.stack_shape))
-    assert(len(max_tt_ranks.shape) == 1+len(x.stack_shape))
-    assert(max_tucker_ranks.shape[0] == x.d)
-    assert(max_tt_ranks.shape[0] == x.d + 1)
-    assert(max_tucker_ranks.shape[1:] == x.stack_shape)
-    assert(max_tt_ranks.shape[1:] == x.stack_shape)
-
-    new_tucker_ranks, new_tt_ranks = t3.get_minimal_ranks(x.shape, max_tucker_ranks, max_tt_ranks)
-
-    new_masks = make_uniform_masks(
-        x.shape, new_tucker_ranks, new_tt_ranks, x.N, x.n, x.r,
-    )
-
-    new_cores, tucker_singular_values, tt_singular_values = ut3_svd.uniform_t3_svd(
-        x.supercores, new_masks, squash_tails_first=True, use_jax=use_jax,
-    )
-    return UniformTuckerTensorTrain(*(new_cores + new_masks)), tucker_singular_values, tt_singular_values
-
-
-def compute_minimal_ut3_ranks(
-        shape:          typ.Sequence[int], # len=d
-        tucker_ranks:   NDArray, # dtype=int, shape=(d,)+stack_shape
-        tt_ranks:       NDArray, # dtype=int, shape=(d+1,)+stack_shape
-) -> typ.Tuple[
-    NDArray, # new_tucker_ranks, dtype=int, shape=(d,)+stack_shape
-    NDArray, # new_tt_ranks, dtype=int, shape=(d+1,)+stack_shape
-]:
-    '''Find minimal ranks for a generic uniform Tucker tensor train with a given structure.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> shape = (10,11,12,13)
-    >>> tucker_ranks_a = (9,10,9,8)
-    >>> tt_ranks_a = (48,49,50,51,52)
-    >>> tucker_ranks_b = (14,15,16,17)
-    >>> tt_ranks_b = (14,20,21,19,17)
-    >>> tucker_ranks = np.array((tucker_ranks_a, tucker_ranks_b)).T
-    >>> tt_ranks = np.array((tt_ranks_a, tt_ranks_b)).T
-    >>> min_tucker_ranks, min_tt_ranks = ut3.compute_minimal_ut3_ranks(shape, tucker_ranks, tt_ranks)
-    >>> print('nn_a=', min_tucker_ranks[:,0], ', rr_a=', min_tt_ranks[:,0])
-    nn_a= [ 9 10  9  8] , rr_a= [ 1  9 50  8  1]
-    >>> print('nn_b=', min_tucker_ranks[:,1], ', rr_b=', min_tt_ranks[:,1])
-    nn_b= [10 11 12 13] , rr_b= [ 1 10 21 13  1]
-    '''
-    return ranks.compute_minimal_ranks(shape, tucker_ranks, tt_ranks)
-
+    return _wrap(result)

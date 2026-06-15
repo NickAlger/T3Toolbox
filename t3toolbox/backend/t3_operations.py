@@ -12,6 +12,7 @@ from t3toolbox.backend.common import *
 
 __all__ = [
     'to_dense',
+    't3_to_dense_chain',
     'broadcast_t3_to_common_stack',
     'squash_tt_tails',
     'reverse_tt',
@@ -57,23 +58,29 @@ def broadcast_t3_to_common_stack(
     return new_tucker_cores, new_tt_cores
 
 
-def to_dense(
-        x:            typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
+def t3_to_dense_chain(
+        tucker_cores: typ.Union[
+            typ.Sequence[NDArray],  # ragged:  len=d, elm_shape=stack_shape+(ni, Ni)
+            NDArray,                # uniform: shape=(d,)+stack_shape+(ni, Ni)
+        ],
+        tt_cores: typ.Union[
+            typ.Sequence[NDArray],  # ragged:  len=d, elm_shape=stack_shape+(ri, ni, r(i+1))
+            NDArray,                # uniform: shape=(d,)+stack_shape+(ri, ni, r(i+1))
+        ],
         squash_tails: bool = True,
-) -> NDArray:  # shape = stack_shape + (N0,...,N(d-1)); +leading/trailing TT-rank axes if squash_tails=False
-    """Fully contract a Tucker tensor train to create a dense tensor.
+) -> NDArray:  # stack_shape + (N0,...,N(d-1)); +leading/trailing TT-rank axes if squash_tails=False
+    """Chain-contract (Tucker-absorbed) TT cores into a dense tensor -- the representation-agnostic core
+    of :py:func:`to_dense`.
+
+    Works on a ragged core tuple *or* a uniform supercore array: it only zips/indexes the cores and uses
+    a leading ``'...'`` for the stack, so a supercore's leading mode axis is consumed by iteration just
+    like a tuple. Callers handle the representation-specific pre/post steps (ragged: broadcast to a common
+    stack; uniform: mask, then static prefix-slice to the real shape).
     """
-    use_jax = any([is_jax_ndarray(c) for c in x[0]]) or any([is_jax_ndarray(c) for c in x[1]])
+    use_jax = tree_contains_jax((tucker_cores, tt_cores))
     xnp, _, _ = get_backend(False, use_jax)
 
-    #
-    tucker_cores, tt_cores = x
-
-    # Cores may carry different (but broadcastable) leading stack axes (e.g. a tangent term mixes a
-    # V+G-stacked variation core with G-stacked base cores); broadcast to the common stack so the
-    # reshape-based contraction below sees one uniform stack_shape. No-op for a uniform-stack T3.
-    tucker_cores, tt_cores = broadcast_t3_to_common_stack(tucker_cores, tt_cores)
-    vs = tucker_cores[0].shape[:-2]  # stack_shape (now uniform)
+    vs = tucker_cores[0].shape[:-2]  # stack_shape
 
     big_tt_cores = [xnp.einsum('...iaj,...ab->...ibj', G, U) for G, U in zip(tt_cores, tucker_cores)]
 
@@ -96,6 +103,21 @@ def to_dense(
         T = xnp.tensordot(mu_L, T, axes=((0,), (len(vs),)))
 
     return T
+
+
+def to_dense(
+        x:            typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
+        squash_tails: bool = True,
+) -> NDArray:  # shape = stack_shape + (N0,...,N(d-1)); +leading/trailing TT-rank axes if squash_tails=False
+    """Fully contract a Tucker tensor train to create a dense tensor.
+    """
+    tucker_cores, tt_cores = x
+
+    # Cores may carry different (but broadcastable) leading stack axes (e.g. a tangent term mixes a
+    # V+G-stacked variation core with G-stacked base cores); broadcast to the common stack so the
+    # reshape-based contraction sees one uniform stack_shape. No-op for a uniform-stack T3.
+    tucker_cores, tt_cores = broadcast_t3_to_common_stack(tucker_cores, tt_cores)
+    return t3_to_dense_chain(tucker_cores, tt_cores, squash_tails)
 
 
 def squash_tt_tails(

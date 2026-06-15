@@ -5,7 +5,6 @@
 import numpy as np
 import typing as typ
 
-import t3toolbox.backend.t3_operations as t3_ops
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -13,69 +12,59 @@ __all__ = [
     'apply_masks_to_cores',
 ]
 
-from t3toolbox.backend.common import *
-
 
 def make_uniform_masks(
-        shape:          typ.Tuple[int,...], # len=d
-        tucker_ranks:   NDArray, # dtype=int, shape=(d,)+stack_shape
-        tt_ranks:       NDArray, # dtype=int, shape=(d+1,)+stack_shape
-        N: int,
-        n: int,
-        r: int,
-        use_jax: bool = False,
+        shape:          typ.Sequence[int],  # (N0,...,N(d-1))
+        tucker_ranks:   NDArray,            # dtype=int, shape=(d,)   + stack_shape
+        tt_ranks:       NDArray,            # dtype=int, shape=(d+1,) + stack_shape
+        N:              int,                # padded mode dimension, N >= max(Ni)
+        n:              int,                # padded Tucker rank,     n >= max(tucker_ranks)
+        r:              int,                # padded TT rank,         r >= max(tt_ranks)
+        use_jax:        bool = False,       # pure constructor (no array inputs) -> the flag picks output type
 ) -> typ.Tuple[
-    NDArray, # shape_mask, dtype=bool, shape=(d,N)
-    NDArray, # tucker_edge_masks, dtype=bool, shape=(d,)+stack_shape+(n,)
-    NDArray, # tt_edge_masks, dtype=bool, shape=(d,)+stack_shape+(r,)
+    NDArray,  # shape_mask,       dtype=bool, shape=(d, N)                 (no stack: the ambient shape is shared)
+    NDArray,  # tucker_edge_mask, dtype=bool, shape=(d,)   + stack_shape + (n,)
+    NDArray,  # tt_edge_mask,     dtype=bool, shape=(d+1,) + stack_shape + (r,)
 ]:
-    xnp, xmap, xscan = get_backend(False, use_jax)
+    """Build the prefix edge masks for a uniform Tucker tensor train.
 
-    shape_masks = xnp.stack([
-        xnp.concatenate([
-            xnp.ones((Ni,), dtype=bool),
-            xnp.zeros((N-Ni,), dtype=bool),
-        ], axis=-1,
-        )
-        for Ni in shape
-    ])
+    Slot ``j`` of an edge is marked real iff ``j < rank`` -- the canonical prefix form
+    (``docs/uniform_masks_vs_ranks.md``). ``shape_mask`` carries no stack (shape is fixed across the
+    stack); the rank masks do, so each stack element may declare its own ranks (the variety -- see
+    ``docs/uniform_ranks_and_varieties.md``).
+    """
+    xnp, _, _ = get_backend(False, use_jax)
 
-    def _func1(kk, K):
-        if np.array(kk).shape == ():
-            mask = xnp.concatenate([
-                xnp.ones((kk,), dtype=bool),
-                xnp.zeros((K - kk,), dtype=bool)
-            ])
-            return mask
-        return [_func1(ki, K) for ki in list(kk)]
+    shape        = xnp.asarray(shape)        # (d,)
+    tucker_ranks = xnp.asarray(tucker_ranks) # (d,)   + stack_shape
+    tt_ranks     = xnp.asarray(tt_ranks)     # (d+1,) + stack_shape
 
-    tucker_masks    = [_func1(nni, n) for nni in list(tucker_ranks)]
-    tt_masks        = [_func1(rri, r) for rri in list(tt_ranks)]
+    shape_mask       = xnp.arange(N) < shape[:, None]            # (d, N)
+    tucker_edge_mask = xnp.arange(n) < tucker_ranks[..., None]   # (d,)   + stack_shape + (n,)
+    tt_edge_mask     = xnp.arange(r) < tt_ranks[..., None]       # (d+1,) + stack_shape + (r,)
 
-    tucker_masks = xnp.stack(tucker_masks)
-    tt_masks = xnp.stack(tt_masks)
-
-    return shape_masks, tucker_masks, tt_masks
+    return shape_mask, tucker_edge_mask, tt_edge_mask
 
 
 def apply_masks_to_cores(
         x: typ.Tuple[
-            NDArray,  # tucker_supercore
-            NDArray,  # tt_supercore
-            NDArray,  # shape_mask
-            NDArray,  # tucker_edge_mask
-            NDArray,  # tt_edge_mask
+            NDArray,  # tucker_supercore, shape=(d,)+stack_shape+(n,N)
+            NDArray,  # tt_supercore,     shape=(d,)+stack_shape+(r,n,r)
+            typ.Tuple[
+                NDArray,  # shape_mask
+                NDArray,  # tucker_edge_mask
+                NDArray,  # tt_edge_mask
+            ],
         ],
-        use_jax: bool = False,
 ) -> typ.Tuple[
-    NDArray, # masked_tucker_supercore
-    NDArray, # masked_tt_supercore
+    NDArray,  # masked_tucker_supercore, shape=(d,)+stack_shape+(n,N)
+    NDArray,  # masked_tt_supercore,     shape=(d,)+stack_shape+(r,n,r)
 ]:
-    """Applies masking to supercores, replacing unmasked regions with zeros.
+    """Zero the padded ("garbage") regions of the supercores by multiplying through the edge masks.
     """
-    xnp,_,_ = get_backend(True, use_jax)
-
-    tucker_supercore, tt_supercore, shape_mask, tucker_edge_mask, tt_edge_mask = x
+    tucker_supercore, tt_supercore, (shape_mask, tucker_edge_mask, tt_edge_mask) = x
+    use_jax = tree_contains_jax((tucker_supercore, tt_supercore))
+    xnp, _, _ = get_backend(True, use_jax)
 
     masked_tucker_supercore = xnp.einsum(
         'd...nN,d...n,dN->d...nN',

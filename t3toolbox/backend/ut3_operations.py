@@ -6,209 +6,149 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.backend.stacking as stacking
-import t3toolbox.backend.ut3_masking as ut3_masking
 from t3toolbox.backend.common import *
 
 __all__ = [
     'reverse_utt',
     'uniform_squash_tt_tails',
+    'pack_vectors',
+    'unpack_vectors',
     'ut3_unstack',
     'ut3_stack',
 ]
 
+# A uniform-T3 leaf in nested .data layout: (tucker_supercore, tt_supercore, (shape_mask, tucker_mask, tt_mask)).
+_UT3_LEAF_STRUCTURE = (None, None, (None, None, None))
+
 
 def reverse_utt(
-        tt_cores: typ.Union[typ.Sequence[NDArray], NDArray]
-) -> typ.Union[typ.Sequence[NDArray], NDArray]:
-    """Reverse a uniform tensor train (no Tucker).
+        tt_supercore: NDArray,  # shape=(d,)+stack_shape+(r,n,r)
+) -> NDArray:                   # reversed,  shape=(d,)+stack_shape+(r,n,r)
+    """Reverse a uniform tensor train: reverse the mode order and swap the two bond axes of each core.
     """
-    return tt_cores[::-1].swapaxes(-3, -1)
+    return tt_supercore[::-1].swapaxes(-3, -1)
 
 
 def uniform_squash_tt_tails(
-        tt_supercore: NDArray,
-        use_jax: bool = False,
-) -> NDArray: # new_tt_supercore
-    """Squash tails of uniform tensor train.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.backend.tucker_tensor_train.uniform.operations as uniform_operations
-    >>> tt_supercore = np.random.randn(4, 2,3, 5,6,5)
-    >>> new_tt_supercore = uniform_operations.uniform_squash_tt_tails(tt_supercore)
-    >>> print(np.linalg.norm(np.sum(tt_supercore[0], axis=-3) - new_tt_supercore[0, :,:, 0,:,:]))
-    0.0
-    >>> print(np.linalg.norm(new_tt_supercore[0, :,:, 1:,:,:]))
-    0.0
-    >>> print(np.linalg.norm(np.sum(tt_supercore[-1], axis=-1) - new_tt_supercore[-1, :,:, :,:,0]))
-    0.0
-    >>> print(np.linalg.norm(new_tt_supercore[-1, :,:, :,:,1:]))
-    0.0
+        tt_supercore: NDArray,  # shape=(d,)+stack_shape+(r,n,r)
+) -> NDArray:                   # shape=(d,)+stack_shape+(r,n,r), leading/trailing bond summed into slot 0
+    """Make the leading bond of the first TT core and the trailing bond of the last collapse to one,
+    by summing them into slot 0 (and zeroing the rest), so the represented tensor is unchanged.
     """
-    xnp, xmap, xscan = get_backend(True, use_jax)
+    use_jax = is_jax_ndarray(tt_supercore)
+    xnp, _, _ = get_backend(True, use_jax)
 
-    d = tt_supercore.shape[0]
     stack_shape = tt_supercore.shape[1:-3]
     n = tt_supercore.shape[-2]
     r = tt_supercore.shape[-1]
 
-    G0 = tt_supercore[:1] # shape=(1,)+stack_shape+(r,n,r)
-    new_G0_flat = xnp.sum(G0, axis=-3, keepdims=True) # shape=(1,)+stack_shape+(1,n,r)
-    Z0_flat = xnp.zeros((1,)+stack_shape+(r-1,n,r))
-    new_G0 = xnp.concatenate([new_G0_flat, Z0_flat], axis=-3) # shape=(1,)+stack_shape+(r,n,r)
+    G0 = tt_supercore[:1]                                              # (1,)+stack+(r,n,r)
+    new_G0 = xnp.concatenate([
+        xnp.sum(G0, axis=-3, keepdims=True),                          # (1,)+stack+(1,n,r)
+        xnp.zeros((1,) + stack_shape + (r - 1, n, r)),
+    ], axis=-3)
 
-    GG_mid = tt_supercore[1:-1] # shape=(d-2,)+stack_shape+(r,n,r)
+    GG_mid = tt_supercore[1:-1]
 
-    Gf = tt_supercore[-1:] # shape=(1,)+stack_shape+(r,n,r)
-    new_Gf_flat = xnp.sum(Gf, axis=-1, keepdims=True) # shape=(1,)+stack_shape+(r,n,1)
-    Zf_flat = xnp.zeros((1,)+stack_shape+(r,n,r-1))
-    new_Gf = xnp.concatenate([new_Gf_flat, Zf_flat], axis=-1)  # shape=(1,)+stack_shape+(r,n,r)
+    Gf = tt_supercore[-1:]                                            # (1,)+stack+(r,n,r)
+    new_Gf = xnp.concatenate([
+        xnp.sum(Gf, axis=-1, keepdims=True),                          # (1,)+stack+(r,n,1)
+        xnp.zeros((1,) + stack_shape + (r, n, r - 1)),
+    ], axis=-1)
 
-    new_tt_supercore = xnp.concatenate([new_G0, GG_mid, new_Gf], axis=0)
-    return new_tt_supercore
+    return xnp.concatenate([new_G0, GG_mid, new_Gf], axis=0)
 
 
 def pack_vectors(
-        unpacked_vectors = typ.Sequence[NDArray], # len=d, ith_elm.shape=stack_shape+(Ni,)
-        N: int = None,
-        use_jax: bool = False,
-) -> NDArray: # packed_vectors, shape=(d,)+stack_shape+(N,), where N=max(N0,...,N(d-1))
-    """Use zero-padding to pack several vectors with ragged shapes into one tensor with an extra dimension.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.backend.tucker_tensor_train.uniform.uniform_t3_operations as ut3_ops
-    >>> vv = [np.random.randn(2,3, 6), np.random.randn(2,3, 4), np.random.randn(2,3, 5)]
-    >>> packed_vv = ut3_ops.pack_vectors(vv)
-    >>> print(packed_vv.shape)
-    (3, 2, 3, 6)
-    >>> print(np.linalg.norm(vv[1] - packed_vv[1,:,:,:4]))
-    0.0
-    >>> print(np.linalg.norm(packed_vv[1,:,:,4:]))
-    0.0
+        unpacked_vectors: typ.Sequence[NDArray],  # len=d, ith elm_shape=stack_shape+(Ni,)
+        N: int = None,                            # padded length (default max(Ni))
+) -> NDArray:                                     # packed, shape=(d,)+stack_shape+(N,)
+    """Zero-pad and stack a sequence of (ragged-length) vectors into one supercore-shaped tensor.
     """
+    if not unpacked_vectors:
+        return np.array(())
+    use_jax = tree_contains_jax(unpacked_vectors)
     xnp, _, _ = get_backend(False, use_jax)
 
-    #
-    if not unpacked_vectors:
-        return xnp.array(())
-
     stack_shape = unpacked_vectors[0].shape[:-1]
-
     if N is None:
-        N = max([v.shape[-1] for v in unpacked_vectors])
+        N = max(v.shape[-1] for v in unpacked_vectors)
 
-    padded_vectors_list = []
+    padded = []
     for v in unpacked_vectors:
-        pad = ((0,0),)*len(stack_shape) + ((0, N - v.shape[-1]),)
-
-        padded_v = xnp.pad(v, pad)
-        padded_vectors_list.append(padded_v)
-
-    packed_vectors = xnp.stack(padded_vectors_list)
-    return packed_vectors
+        pad = ((0, 0),) * len(stack_shape) + ((0, N - v.shape[-1]),)
+        padded.append(xnp.pad(v, pad))
+    return xnp.stack(padded)
 
 
 def unpack_vectors(
-        packed_vectors: NDArray, # shape=(d,)+stack_shape+Ni
-        unpacking_shape: typ.Sequence[int], # (N0,...,N(d-1))
-) -> typ.Sequence[NDArray]:
-    """Unpacks stacked vectors of size N,...,N into tuple of vectors of size N0,...,N(d-1).
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.backend.tucker_tensor_train.uniform.uniform_t3_operations as ut3_ops
-    >>> vv = [np.random.randn(2,3, 6), np.random.randn(2,3, 4), np.random.randn(2,3, 5)]
-    >>> packed_vv = ut3_ops.pack_vectors(vv)
-    >>> vv2 = ut3_ops.unpack_vectors(packed_vv, [v.shape[-1] for v in vv])
-    >>> for v, v2 in zip(vv, vv2): print(np.linalg.norm(v - v2))
-    0.0
-    0.0
-    0.0
+        packed_vectors:  NDArray,            # shape=(d,)+stack_shape+(N,)
+        unpacking_shape: typ.Sequence[int],  # (N0,...,N(d-1))
+) -> typ.Tuple[NDArray, ...]:                # len=d, ith elm_shape=stack_shape+(Ni,)
+    """Slice a packed supercore-shaped tensor back into a tuple of (ragged-length) vectors.
     """
-    return tuple([
+    return tuple(
         packed_vectors[ii, ..., :unpacking_shape[ii]]
         for ii in range(len(unpacking_shape))
-    ])
+    )
 
 
 def ut3_unstack(
         x: typ.Tuple[
-            NDArray,  # tucker_supercore
-            NDArray,  # tt_supercore
-            NDArray,  # shape_mask
-            NDArray,  # tucker_edge_mask
-            NDArray,  # tt_edge_mask
+            NDArray,                                # tucker_supercore
+            NDArray,                                # tt_supercore
+            typ.Tuple[NDArray, NDArray, NDArray],   # (shape_mask, tucker_edge_mask, tt_edge_mask)
         ],
-):
-    """Unstacks this uniform Tucker tensor train into an array-like tree
-    of nested Tuples containing uniform Tucker tensor trains as leaf nodes.
+):  # -> nested tuple (shaped like stack_shape) of unstacked uniform-T3 .data leaves
+    """Unstack a uniform Tucker tensor train into an array-like tree of unstacked ones.
+
+    The stack lives at axes ``1 .. len(stack_shape)`` (axis 0 is the mode index ``d``). The supercores
+    and the rank masks unstack along it; ``shape_mask`` is shared and replicated onto every leaf.
     """
-    (tucker_supercore, tt_supercore, shape_mask, tucker_edge_mask, tt_edge_mask) = x
+    tucker_supercore, tt_supercore, (shape_mask, tucker_edge_mask, tt_edge_mask) = x
     stack_shape = tucker_supercore.shape[1:-2]
+    axes = tuple(range(1, 1 + len(stack_shape)))
 
-    stacked = (tucker_supercore, tt_supercore, tucker_edge_mask, tt_edge_mask) # no shape_mask
-    axes = tuple(range(1, 1+len(stack_shape)))
+    tree = stacking.unstack((tucker_supercore, tt_supercore, tucker_edge_mask, tt_edge_mask), axes=axes)
 
-    unstacked = stacking.unstack(stacked, axes=axes)
-
-    def _func(x):
-        if is_ndarray(x[0]):
-            tk, tt, mtk, mtt = x
-            return (tk, tt, shape_mask, mtk, mtt)
-
-        return tuple(_func(xi) for xi in x)
-
-    return _func(unstacked)
+    return stacking.apply_func_to_leaf_subtrees(
+        tree,
+        lambda leaf: (leaf[0], leaf[1], (shape_mask, leaf[2], leaf[3])),
+        (None, None, None, None),
+    )
 
 
 def ut3_stack(
-        xx,
-        use_jax: bool = False,
+        xx,  # nested tuple (shaped like stack_shape) of unstacked uniform-T3 .data leaves
 ) -> typ.Tuple[
-    NDArray,  # tucker_supercore
-    NDArray,  # tt_supercore
-    NDArray,  # shape_mask
-    NDArray,  # tucker_edge_mask
-    NDArray,  # tt_edge_mask
+    NDArray,                                # tucker_supercore
+    NDArray,                                # tt_supercore
+    typ.Tuple[NDArray, NDArray, NDArray],   # (shape_mask, tucker_edge_mask, tt_edge_mask)
 ]:
-    """Stacks array-like nested tree of uniform Tucker tensor trains into one uniform Tucker tensor train.
+    """Stack an array-like tree of uniform Tucker tensor trains into one.
+
+    Inverse of :py:func:`ut3_unstack`: stacks the supercores and rank masks onto axes
+    ``1 .. num_levels`` (after the mode index), keeping the shared ``shape_mask`` unstacked.
     """
-    tk0 = stacking.get_first_leaf(xx)
-    stack_shape = tk0.shape[1:-2]
-    axes = tuple(range(1, 1 + len(stack_shape)))
+    shape_mask = stacking.get_first_leaf(
+        stacking.apply_func_to_leaf_subtrees(xx, lambda leaf: leaf[2][0], _UT3_LEAF_STRUCTURE)
+    )
 
-    return stacking.stack(xx, axes, use_jax=use_jax)
+    flat_tree = stacking.apply_func_to_leaf_subtrees(
+        xx,
+        lambda leaf: (leaf[0], leaf[1], leaf[2][1], leaf[2][2]),
+        _UT3_LEAF_STRUCTURE,
+    )
 
+    num_levels = tree_depth_of_tree_over_leaf(flat_tree)
+    axes = tuple(range(1, 1 + num_levels))
 
-
-# def ut3_sum_stack(
-#     x: typ.Tuple[
-#         NDArray,  # tucker_supercore
-#         NDArray,  # tt_supercore
-#         NDArray,  # shape_mask
-#         NDArray,  # tucker_edge_mask
-#         NDArray,  # tt_edge_mask
-#     ],
-#         use_jax: bool = False,
-# ) -> typ.Tuple[
-#     NDArray,  # summed_tucker_supercore
-#     NDArray,  # summed_tt_supercore
-#     NDArray,  # summed_shape_mask
-#     NDArray,  # summed_tucker_edge_mask
-#     NDArray,  # summed_tt_edge_mask
-# ]:
-#     x = ut3_masking.apply_masks_to_cores(x, use_jax=use_jax)
-#     tk, tt, sm, tkm, ttm = x
-#     stack_shape = tk.shape[1:-2]
-#     axes = tuple(range(1, 1 + len(stack_shape)))
-#
-#     summed_tk = tk.sum(axis=axes)
-#     summed_tt = tt.sum(axis=axes)
-#
-#
+    tucker_supercore, tt_supercore, tucker_edge_mask, tt_edge_mask = stacking.stack(flat_tree, axes)
+    return tucker_supercore, tt_supercore, (shape_mask, tucker_edge_mask, tt_edge_mask)
 
 
+def tree_depth_of_tree_over_leaf(
+        flat_tree,  # tree whose leaves are flat tuples (tk, tt, tucker_mask, tt_mask) of arrays
+) -> int:           # number of stacking levels (tree nesting depth above the leaf tuple)
+    """Number of stack levels in a tree of 4-array leaves = total nesting depth minus the 1 leaf level."""
+    return stacking.tree_depth(flat_tree) - 1

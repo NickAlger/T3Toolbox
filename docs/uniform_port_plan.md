@@ -204,9 +204,14 @@ TRIVIAL = inline one-liner; SWEEP = sequential over `d` (`xscan`/`lax.scan`); BA
 
 ## Implementation order (suggested slices — each independently testable by round-trip vs ragged)
 
-1. **Foundation** — imports/flatten; class + `UT3Masks` holder + `validate`/properties/`repr`; conversions
-   (`t3_to_ut3`/`ut3_to_t3`); masking (`make_uniform_masks`/`apply_masks`); `to_dense` (shared
-   chain-contract helper); `stack`/`unstack`. ⟹ layer imports + basic round-trip + `to_dense` tests.
+1. **Foundation — ✅ DONE.** imports/flatten; clean `UT3Masks` holder + `UniformTuckerTensorTrain`
+   (`validate`→`ValueError`, properties, `repr`, `to_dense`, `apply_masks`, `reverse`, `squash_tails`,
+   `unstack`/`stack`, `to_jax`/`to_numpy`/`copy`); conversions (`t3_to_ut3`/`ut3_to_t3`, nested `.data`,
+   inferred dispatch); masking (`make_uniform_masks` vectorized; `apply_masks` nested-layout);
+   `to_dense` = mask → shared `t3_to_dense_chain` (factored out of ragged `to_dense`) → static
+   prefix-slice. Tests `tests/test_uniform_tucker_tensor_train.py` (13, incl. a varying-rank-stack
+   variety test) + full ragged regression green. **jax pytree registration deferred to slice 7** (the
+   class works in numpy; `to_jax`/`to_numpy` convert dtype but it is not yet a registered pytree).
 2. **Orthogonalization** — Tucker-batched rewrite; confirm shared TT left/right sweep on supercores.
 3. **Linear algebra** — scale/neg, add/sub, `sum_stack`, inner/norm (+ shared `absorb_tucker_into_tt`).
 4. **Sampling** — `entries` (verify), `apply` (dispatch fix), `probe` (verify); full-`sum` via `apply`-ones.
