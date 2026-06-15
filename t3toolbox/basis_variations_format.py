@@ -116,15 +116,15 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
     --------
     >>> import numpy as np
     >>> import t3toolbox.basis_variations_format as bvf
-    >>> ss = (2,3)
+    >>> ss = (2, 3)                                       # base/core stack C, shared by every core
     >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
     >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-    >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
+    >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3, 12, 5)))
     >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
     >>> basis = bvf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
-    >>> print(basis.structure)
-    ((14, 15, 16), (10, 11, 12), (1, 2, 3, 5), (2, 4, 5, 1), (9, 8, 7), (2, 3))
-    >>> print(basis.variation_shapes)
+    >>> print(basis.structure)   # (shape, up_ranks, down_ranks, left_ranks, right_ranks, stack_shape)
+    ((14, 15, 16), (10, 11, 12), (9, 8, 7), (1, 2, 3, 5), (2, 4, 5, 1), (2, 3))
+    >>> print(basis.variation_shapes)   # the (tucker, tt) holes a fitting T3Variations must fill
     (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
     """
     up_tucker_cores:    typ.Tuple[NDArray,...]  # len=d. B_xo B_yo   = I_xy, Bi.shape = stack_shape+(nUi, Ni)
@@ -202,14 +202,17 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         --------
         >>> import numpy as np
         >>> import t3toolbox.basis_variations_format as bvf
-        >>> ss = (2,3) # not included in variation_shapes.
+        >>> ss = (2, 3)                                   # stack C -- NOT part of variation_shapes
         >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
         >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-        >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
+        >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3, 12, 5)))
         >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
         >>> basis = bvf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
-        >>> print(basis.variation_shapes)
-        (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
+        >>> tucker_holes, tt_holes = basis.variation_shapes   # (tucker hole shapes, tt hole shapes)
+        >>> print(tucker_holes)   # one (nDi, Ni) per mode
+        ((9, 14), (8, 15), (7, 16))
+        >>> print(tt_holes)       # one (rLi, nUi, rRi) per mode
+        ((1, 10, 4), (2, 11, 5), (3, 12, 1))
         '''
         tucker_variation_shapes = tuple([(nD, N) for nD, N in zip(self.down_ranks, self.shape)])
         tt_variation_shapes = tuple([
@@ -280,8 +283,9 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> import t3toolbox.basis_variations_format as bvf
+        >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
-        >>> base, _ = bvf.t3_orthogonal_representations(x)
+        >>> base, _ = bvf.t3_orthogonal_representations(x)   # this base IS orthogonal by construction
         >>> print(base.is_orthogonal())
         True
         '''
@@ -317,8 +321,10 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
 
         Examples
         --------
+        >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> import t3toolbox.basis_variations_format as bvf
+        >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))  # minimal ranks
         >>> base, _ = bvf.t3_orthogonal_representations(x)
         >>> print(base.has_minimal_ranks)
@@ -453,23 +459,24 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         >>> import numpy as np
         >>> import t3toolbox.basis_variations_format as bvf
         >>> import t3toolbox.corewise as cw
-        >>> randnstar = lambda x: np.random.randn(*x)
-        >>> ss = (2,3) # not included in variation_shapes.
-        >>> up_tucker_cores = (randnstar(ss+(10, 14)), randnstar(ss+(11, 15)), randnstar(ss+(12, 16)))
-        >>> down_tt_cores = (randnstar(ss+(1, 9, 4)), randnstar(ss+(2, 8, 5)),randnstar(ss+(3, 7, 1)))
-        >>> left_tt_cores = (randnstar(ss+(1, 10, 2)), randnstar(ss+(2, 11, 3)), randnstar(ss+(3,12,5)))
-        >>> right_tt_cores = (randnstar(ss+(2, 10, 4)), randnstar(ss+(4, 11, 5)), randnstar(ss+(5, 12, 1)))
+        >>> np.random.seed(0)
+        >>> rnd = lambda x: np.random.randn(*x)
+        >>> ss = (2, 3)                                   # stack C: unstack splits these leading axes
+        >>> up_tucker_cores = (rnd(ss+(10, 14)), rnd(ss+(11, 15)), rnd(ss+(12, 16)))
+        >>> down_tt_cores = (rnd(ss+(1, 9, 4)), rnd(ss+(2, 8, 5)), rnd(ss+(3, 7, 1)))
+        >>> left_tt_cores = (rnd(ss+(1, 10, 2)), rnd(ss+(2, 11, 3)), rnd(ss+(3, 12, 5)))
+        >>> right_tt_cores = (rnd(ss+(2, 10, 4)), rnd(ss+(4, 11, 5)), rnd(ss+(5, 12, 1)))
         >>> basis = bvf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
         >>> S = basis.unstack()
-        >>> ii, jj = 1, 2
+        >>> print(len(S), len(S[0]))                      # nested tree shaped like the stack (2, 3)
+        2 3
+        >>> ii, jj = 1, 2                                 # the [ii][jj] leaf is just the cores sliced at [ii, jj]
         >>> Sij = S[ii][jj]
-        >>> utk_ij = tuple(x[ii,jj,:,:] for x in up_tucker_cores)
-        >>> dtt_ij = tuple(x[ii,jj,:,:,:] for x in down_tt_cores)
-        >>> ltt_ij = tuple(x[ii,jj,:,:,:] for x in left_tt_cores)
-        >>> rtt_ij = tuple(x[ii,jj,:,:,:] for x in right_tt_cores)
-        >>> basis_ij = bvf.T3Basis(utk_ij, dtt_ij, ltt_ij, rtt_ij)
-        >>> print(cw.corewise_norm(cw.corewise_sub(basis_ij.data, Sij.data)))
-        0.0
+        >>> sliced = bvf.T3Basis(
+        ...     tuple(c[ii, jj] for c in up_tucker_cores), tuple(c[ii, jj] for c in down_tt_cores),
+        ...     tuple(c[ii, jj] for c in left_tt_cores), tuple(c[ii, jj] for c in right_tt_cores))
+        >>> print(np.allclose(cw.corewise_norm(cw.corewise_sub(Sij.data, sliced.data)), 0.0))
+        True
         """
         return stacking.apply_func_to_leaf_subtrees(
             stacking.basic_ragged_unstack(self.data, 2),
@@ -488,17 +495,17 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         >>> import numpy as np
         >>> import t3toolbox.basis_variations_format as bvf
         >>> import t3toolbox.corewise as cw
-        >>> randnstar = lambda x: np.random.randn(*x)
-        >>> ss = (2,3) # not included in variation_shapes.
-        >>> up_tucker_cores = (randnstar(ss+(10, 14)), randnstar(ss+(11, 15)), randnstar(ss+(12, 16)))
-        >>> down_tt_cores = (randnstar(ss+(1, 9, 4)), randnstar(ss+(2, 8, 5)),randnstar(ss+(3, 7, 1)))
-        >>> left_tt_cores = (randnstar(ss+(1, 10, 2)), randnstar(ss+(2, 11, 3)), randnstar(ss+(3,12,5)))
-        >>> right_tt_cores = (randnstar(ss+(2, 10, 4)), randnstar(ss+(4, 11, 5)), randnstar(ss+(5, 12, 1)))
+        >>> np.random.seed(0)
+        >>> rnd = lambda x: np.random.randn(*x)
+        >>> ss = (2, 3)                                   # stack C
+        >>> up_tucker_cores = (rnd(ss+(10, 14)), rnd(ss+(11, 15)), rnd(ss+(12, 16)))
+        >>> down_tt_cores = (rnd(ss+(1, 9, 4)), rnd(ss+(2, 8, 5)), rnd(ss+(3, 7, 1)))
+        >>> left_tt_cores = (rnd(ss+(1, 10, 2)), rnd(ss+(2, 11, 3)), rnd(ss+(3, 12, 5)))
+        >>> right_tt_cores = (rnd(ss+(2, 10, 4)), rnd(ss+(4, 11, 5)), rnd(ss+(5, 12, 1)))
         >>> x = bvf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
-        >>> xx = x.unstack()
-        >>> x2 = bvf.T3Basis.stack(xx)
-        >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
-        0.0
+        >>> x2 = bvf.T3Basis.stack(x.unstack())           # stack is the inverse of unstack
+        >>> print(np.allclose(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)), 0.0))
+        True
         """
         xx_tuples = stacking.apply_func_to_leaf_subtrees(
             xx,
@@ -625,21 +632,22 @@ class T3Variations:
 
     Examples
     --------
+    Build variations that fill the holes of a base point (so ``check_bv_pair`` accepts them):
+
     >>> import numpy as np
     >>> import t3toolbox.basis_variations_format as bvf
-    >>> ss = (2,3) # stack shape
+    >>> ss = (2, 3)                                       # stack shape, shared by base and variations
     >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
-    >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
+    >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3, 12, 5)))
     >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
     >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
     >>> base = bvf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
-    >>> print(base.variation_shapes)
-    (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
-    >>> tucker_variations = tuple([np.ones(ss + B_shape) for B_shape in base.variation_shapes[0]])
-    >>> tt_variations = tuple([np.ones(ss + G_shape) for G_shape in base.variation_shapes[1]])
-    >>> variations = bvf.T3Variations(tucker_variations, tt_variations) # variation that fits with base
-    >>> print(variations.variation_shapes) # same as base, except first right tt rank and last left tt rank, which are None
-    (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
+    >>> tucker_shapes, tt_shapes = base.variation_shapes  # the holes to fill
+    >>> tucker_variations = tuple(np.ones(ss + s) for s in tucker_shapes)
+    >>> tt_variations = tuple(np.ones(ss + s) for s in tt_shapes)
+    >>> variations = bvf.T3Variations(tucker_variations, tt_variations)
+    >>> print(variations.variation_shapes == base.variation_shapes)   # fits the base's holes exactly
+    True
     """
     tucker_variations: typ.Tuple[NDArray,...]  # len=d, elm_shape=stack_shape+(nDi, Ni)
     tt_variations:     typ.Tuple[NDArray,...]  # len=d, elm_shape=stack_shape+(rLi, nUi, rRi)
@@ -790,20 +798,21 @@ class T3Variations:
         >>> import numpy as np
         >>> import t3toolbox.basis_variations_format as bvf
         >>> import t3toolbox.corewise as cw
+        >>> np.random.seed(0)
         >>> rnd = lambda x: np.random.randn(*x)
-        >>> ss = (2,3) # not included in variation_shapes.
-        >>> NN, nnU, nnD, rrL, rrR = (10,11,12), (8,7,8), (6,7,8), (2,3,4,3), (5,4,6,1)
-        >>> tucker_variations = tuple(rnd(ss+(n,N)) for n, N in zip(nnD, NN))
-        >>> tt_variations = tuple(rnd(ss+(rL, n, rR)) for rL, n, rR in zip(rrL[:-1],nnU,rrR[1:]))
+        >>> ss = (2, 3)                                   # stack: unstack splits these leading axes
+        >>> NN, nnU, nnD, rrL, rrR = (10, 11, 12), (8, 7, 8), (6, 7, 8), (2, 3, 4, 3), (5, 4, 6, 1)
+        >>> tucker_variations = tuple(rnd(ss+(n, N)) for n, N in zip(nnD, NN))
+        >>> tt_variations = tuple(rnd(ss+(rL, n, rR)) for rL, n, rR in zip(rrL[:-1], nnU, rrR[1:]))
         >>> V = bvf.T3Variations(tucker_variations, tt_variations)
         >>> VV = V.unstack()
-        >>> ii, jj = 1, 2
-        >>> V_ij = VV[ii][jj]
-        >>> tkv_ij = tuple(x[ii,jj,:,:] for x in tucker_variations)
-        >>> ttv_ij = tuple(x[ii,jj,:,:,:] for x in tt_variations)
-        >>> V_ij2 = bvf.T3Variations(tkv_ij, ttv_ij)
-        >>> print(cw.corewise_norm(cw.corewise_sub(V_ij2.data, V_ij.data)))
-        0.0
+        >>> print(len(VV), len(VV[0]))                    # nested tree shaped like the stack (2, 3)
+        2 3
+        >>> ii, jj = 1, 2                                 # the [ii][jj] leaf is the cores sliced at [ii, jj]
+        >>> sliced = bvf.T3Variations(
+        ...     tuple(c[ii, jj] for c in tucker_variations), tuple(c[ii, jj] for c in tt_variations))
+        >>> print(np.allclose(cw.corewise_norm(cw.corewise_sub(VV[ii][jj].data, sliced.data)), 0.0))
+        True
         """
         return stacking.apply_func_to_leaf_subtrees(
             stacking.basic_ragged_unstack(self.data, 2),
@@ -822,16 +831,16 @@ class T3Variations:
         >>> import numpy as np
         >>> import t3toolbox.basis_variations_format as bvf
         >>> import t3toolbox.corewise as cw
+        >>> np.random.seed(0)
         >>> rnd = lambda x: np.random.randn(*x)
-        >>> ss = (2,3) # not included in variation_shapes.
-        >>> NN, nnU, nnD, rrL, rrR = (10,11,12), (8,7,8), (6,7,8), (2,3,4,3), (5,4,6,1)
-        >>> tucker_variations = tuple(rnd(ss+(n,N)) for n, N in zip(nnD, NN))
-        >>> tt_variations = tuple(rnd(ss+(rL, n, rR)) for rL, n, rR in zip(rrL[:-1],nnU,rrR[1:]))
+        >>> ss = (2, 3)                                   # stack
+        >>> NN, nnU, nnD, rrL, rrR = (10, 11, 12), (8, 7, 8), (6, 7, 8), (2, 3, 4, 3), (5, 4, 6, 1)
+        >>> tucker_variations = tuple(rnd(ss+(n, N)) for n, N in zip(nnD, NN))
+        >>> tt_variations = tuple(rnd(ss+(rL, n, rR)) for rL, n, rR in zip(rrL[:-1], nnU, rrR[1:]))
         >>> V = bvf.T3Variations(tucker_variations, tt_variations)
-        >>> VV = V.unstack()
-        >>> V2 = bvf.T3Variations.stack(VV)
-        >>> print(cw.corewise_norm(cw.corewise_sub(V.data, V2.data)))
-        0.0
+        >>> V2 = bvf.T3Variations.stack(V.unstack())      # stack is the inverse of unstack
+        >>> print(np.allclose(cw.corewise_norm(cw.corewise_sub(V.data, V2.data)), 0.0))
+        True
         """
         xx_tuples = stacking.apply_func_to_leaf_subtrees(
             xx,
@@ -978,27 +987,41 @@ def check_bv_pair(
 
     Examples
     --------
+    Variations whose stack matches the base and whose cores fill the base's holes are consistent
+    (``check_bv_pair`` returns ``None`` and raises nothing):
+
     >>> import numpy as np
     >>> import t3toolbox.basis_variations_format as bvf
-    >>> ss = (2,3) # base stack shape
+    >>> ss = (2, 3)                                       # base stack shape C
     >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
-    >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3,12,5)))
+    >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3, 12, 5)))
     >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
     >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
     >>> base = bvf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
-    >>> tucker_variations = tuple([np.ones(ss + B_shape) for B_shape in base.variation_shapes[0]])
-    >>> tt_variations = tuple([np.ones(ss + G_shape) for G_shape in base.variation_shapes[1]])
-    >>> variations = bvf.T3Variations(tucker_variations, tt_variations)
-    >>> bvf.check_bv_pair(base, variations) # does nothing since these are consistent
+    >>> tucker_shapes, tt_shapes = base.variation_shapes
+    >>> variations = bvf.T3Variations(tuple(np.ones(ss + s) for s in tucker_shapes),
+    ...                               tuple(np.ones(ss + s) for s in tt_shapes))
+    >>> print(bvf.check_bv_pair(base, variations))   # consistent -> returns None
+    None
 
-    A variation may also carry extra outer tangent-stack axes (here ``tangent_stack_shape = (4,)``,
-    so the variation stack is ``(4,) + (2,3) = (4, 2, 3)``):
+    A variation may carry extra *outer* tangent-stack axes ``K`` (here ``K = (4,)``, so its stack is
+    ``(4,) + (2, 3)``) -- still consistent, since the base stack is the inner suffix of the variation stack:
 
-    >>> vss = (4,) + ss # tangent_stack_shape + base_stack_shape
-    >>> tucker_variations = tuple([np.ones(vss + B_shape) for B_shape in base.variation_shapes[0]])
-    >>> tt_variations = tuple([np.ones(vss + G_shape) for G_shape in base.variation_shapes[1]])
-    >>> v_stacked = bvf.T3Variations(tucker_variations, tt_variations)
-    >>> bvf.check_bv_pair(base, v_stacked) # also consistent: base stack is the suffix of the variation stack
+    >>> vss = (4,) + ss                                   # tangent_stack_shape K + base_stack_shape C
+    >>> v_stacked = bvf.T3Variations(tuple(np.ones(vss + s) for s in tucker_shapes),
+    ...                              tuple(np.ones(vss + s) for s in tt_shapes))
+    >>> print(bvf.check_bv_pair(base, v_stacked))
+    None
+
+    Gotcha -- variation cores that do not fit the base's holes raise (structural error):
+
+    >>> bad_shapes = ((tucker_shapes[0][0] + 1, tucker_shapes[0][1]),) + tucker_shapes[1:]
+    >>> bad = bvf.T3Variations(tuple(np.ones(ss + s) for s in bad_shapes),
+    ...                        tuple(np.ones(ss + s) for s in tt_shapes))
+    >>> bvf.check_bv_pair(base, bad)                  # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+        ...
+    ValueError
     """
     base_stack = base.stack_shape
     var_stack = variations.stack_shape
@@ -1079,20 +1102,31 @@ def bv_to_t3(
     --------
     >>> import numpy as np
     >>> import t3toolbox.basis_variations_format as bvf
-    >>> randn = np.random.randn # shorthand
-    >>> (U0,U1,U2) = (randn(10, 14), randn(11, 15), randn(12, 16))
-    >>> (L0,L1,L2) = (randn(1, 10, 2), randn(2, 11, 3), randn(3,12,4))
-    >>> (R0,R1,R2) = (randn(2,10,4), randn(4, 11, 5), randn(5, 12, 1))
-    >>> (D0,D1,D2) = (randn(1, 9, 4), randn(2, 8, 5), randn(3, 7, 1))
-    >>> base = bvf.T3Basis((U0,U1,U2), (D0,D1,D2), (L0,L1,L2), (R0,R1,R2))
-    >>> (V0,V1,V2) = (randn(9,14), randn(8,15), randn(7,16))
-    >>> (H0,H1,H2) = (randn(1,10,4), randn(2,11,5), randn(3,12,1))
-    >>> variations = bvf.T3Variations((V0,V1,V2), (H0,H1,H2))
-    >>> ((B0, B1, B2), (G0, G1, G2)) = bvf.bv_to_t3((True, 1), base, variations).data # replace index-1 TT-core
-    >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,U1,U2), (L0,H1,R2)))
+    >>> import t3toolbox.corewise as cw
+    >>> np.random.seed(0)
+    >>> randn = np.random.randn
+    >>> (U0, U1, U2) = (randn(10, 14), randn(11, 15), randn(12, 16))
+    >>> (L0, L1, L2) = (randn(1, 10, 2), randn(2, 11, 3), randn(3, 12, 4))
+    >>> (R0, R1, R2) = (randn(2, 10, 4), randn(4, 11, 5), randn(5, 12, 1))
+    >>> (D0, D1, D2) = (randn(1, 9, 4), randn(2, 8, 5), randn(3, 7, 1))
+    >>> base = bvf.T3Basis((U0, U1, U2), (D0, D1, D2), (L0, L1, L2), (R0, R1, R2))
+    >>> (V0, V1, V2) = (randn(9, 14), randn(8, 15), randn(7, 16))
+    >>> (H0, H1, H2) = (randn(1, 10, 4), randn(2, 11, 5), randn(3, 12, 1))
+    >>> variations = bvf.T3Variations((V0, V1, V2), (H0, H1, H2))
+
+    Replacing the index-1 TT-core swaps ``H1`` into the right-orthogonal chain ``L0, ?, R2``; the
+    Tucker (up) cores are unchanged:
+
+    >>> tt_term = bvf.bv_to_t3((True, 1), base, variations)
+    >>> expected = ((U0, U1, U2), (L0, H1, R2))      # up cores untouched; TT chain = L0, H1, R2
+    >>> print(np.allclose(cw.corewise_norm(cw.corewise_sub(tt_term.data, expected)), 0.0))
     True
-    >>> ((B0, B1, B2), (G0, G1, G2)) = bvf.bv_to_t3((False, 1), base, variations).data # replace index-1 tucker core
-    >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,D1,R2)))
+
+    Replacing the index-1 Tucker core swaps ``V1`` into the up cores and the down core ``D1`` into the chain:
+
+    >>> tucker_term = bvf.bv_to_t3((False, 1), base, variations)
+    >>> expected = ((U0, V1, U2), (L0, D1, R2))
+    >>> print(np.allclose(cw.corewise_norm(cw.corewise_sub(tucker_term.data, expected)), 0.0))
     True
     '''
     check_bv_pair(basis, variations)
@@ -1171,33 +1205,29 @@ def t3_orthogonal_representations(
 
     Examples
     --------
+    Orthogonalize a (stacked) T3. The base reconstructs the *same* tensor x -- either by dropping the
+    index-1 TT variation H1 into the chain, or the index-1 Tucker variation V1 (these are two of the
+    single-core terms of :py:func:`bv_to_t3`):
+
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.basis_variations_format as bvf
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (3,3,2,1), stack_shape=(2,3))
-    >>> base, variations = bvf.t3_orthogonal_representations(x) # Compute orthogonal representations
-    >>> up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base.data
-    >>> tucker_variations, tt_variations = variations.data
-    >>> (U0,U1,U2) = up_tucker_cores
-    >>> (D0,D1,D2) = down_tt_cores
-    >>> (L0,L1,L2) = left_tt_cores
-    >>> (R0,R1,R2) = right_tt_cores
-    >>> (V0,V1,V2) = tucker_variations
-    >>> (H0,H1,H2) = tt_variations
-    >>> x2 = t3.TuckerTensorTrain((U0,U1,U2), (L0,H1,R2)) # representation with TT-core variation in index 1
-    >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Still represents origional tensor
-    4.978421562425667e-12
-    >>> x3 = t3.TuckerTensorTrain((U0,V1,U2), (L0,D1,R2)) # representation with tucker core variation in index 1
-    >>> print(np.linalg.norm(x.to_dense() - x3.to_dense())) # Still represents origional tensor
-    5.4355175448533146e-12
-    >>> print(np.linalg.norm(np.einsum('...io,...jo', U1, U1) - np.eye(U1.shape[-2]))) # U: orthogonal
-    1.1915111872574236e-15
-    >>> print(np.linalg.norm(np.einsum('...iaj,...iak', L1, L1) - np.eye(L1.shape[-1]))) # L: left orthogonal
-    9.733823879665448e-16
-    >>> print(np.linalg.norm(np.einsum('...iaj,...kaj', R1, R1) - np.eye(R1.shape[-3]))) # R: right orthogonal
-    8.027553546330097e-16
-    >>> print(np.linalg.norm(np.einsum('...iaj,...ibj', D1, D1) - np.eye(D1.shape[-2]))) # O: outer orthogonal
-    1.3870474292323159e-15
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (3, 3, 2, 1), stack_shape=(2, 3))
+    >>> base, variations = bvf.t3_orthogonal_representations(x)
+    >>> x_tt = bvf.bv_to_t3((True, 1), base, variations)    # base with TT-variation H1 in the chain
+    >>> print(np.allclose(x.to_dense(), x_tt.to_dense()))   # still represents the original tensor
+    True
+    >>> x_tk = bvf.bv_to_t3((False, 1), base, variations)   # base with Tucker-variation V1
+    >>> print(np.allclose(x.to_dense(), x_tk.to_dense()))
+    True
+
+    The base cores are orthogonal in their respective senses (the point of this routine):
+
+    >>> print(base.is_orthogonal())
+    True
+    >>> print(base.shape, base.stack_shape)                 # shape and stack are preserved
+    (14, 15, 16) (2, 3)
     '''
     result = orth_reps.orthogonal_representations(
         x.data, already_left_orthogonal=already_left_orthogonal, squash=squash,
