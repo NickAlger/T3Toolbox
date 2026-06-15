@@ -180,10 +180,43 @@ TRIVIAL = inline one-liner; SWEEP = sequential over `d` (`xscan`/`lax.scan`); BA
 - **`to_vector` / `from_vector`** — **DROPPED** (see Deferred): uniform `to_vector` (real entries) just
   equals ragged `to_vector`, and both optimization paths bypass it.
 
-## Pending ⬜
+## frontend class assembly ✅
 
-- ⬜ **frontend class assembly** (methods, properties, validate, repr, copy, to_jax/to_numpy) + tests/doctests — next.
-- ⬜ **jax-wiring** (pytree registration: identity-hashed mask holder; resolve aux hashability)
+- Wire decided backends into a clean OO class (methods, not free `ut3_*` functions — un-jumble), mirroring
+  `TuckerTensorTrain`, respecting the composition `UT3 = tucker_supercore + tt_supercore + masks`-holder.
+- **`.data` is nested, mirroring the fields:** `(tucker_supercore, tt_supercore, (shape_mask,
+  tucker_edge_mask, tt_edge_mask))` — supercores flat, the three masks grouped as a sub-tuple (the
+  holder's raw arrays). `.supercores = .data[:2]`, `.masks = .data[2]`. **Backend `ut3_*` functions take
+  this nested layout** (supercore-only ops take `.data[:2]`; mask-using ops unpack `.data[2]`) — update
+  signatures from the old flat 5-tuple. Raw arrays (razor); holder is frontend-only.
+- Properties (`d,n,N,r,stack_shape,uniform_structure,shape,tucker_ranks,tt_ranks,structure`) all derived.
+  `validate` → structural `ValueError`s. `to_jax`/`to_numpy` convert supercores; masks follow dtype.
+  `copy` trivial. `repr` = structure summary. Repair `reverse`/`squash_tails`/`apply_masks`.
+
+## jax-wiring ✅
+
+- Register pytree: children `=(tucker_supercore, tt_supercore)`, aux `=` the `eq=False` `UT3Masks` holder
+  (identity hash/eq → contents never hashed → solves aux-hashability; the `T3Basis`↔`T3Tangent` pattern).
+- Coverage à la `test_dispatch`: jit each uniform op (stray `np.*` on a tracer raises → no hidden numpy);
+  jax-in → jax-out check.
+
+---
+
+## Implementation order (suggested slices — each independently testable by round-trip vs ragged)
+
+1. **Foundation** — imports/flatten; class + `UT3Masks` holder + `validate`/properties/`repr`; conversions
+   (`t3_to_ut3`/`ut3_to_t3`); masking (`make_uniform_masks`/`apply_masks`); `to_dense` (shared
+   chain-contract helper); `stack`/`unstack`. ⟹ layer imports + basic round-trip + `to_dense` tests.
+2. **Orthogonalization** — Tucker-batched rewrite; confirm shared TT left/right sweep on supercores.
+3. **Linear algebra** — scale/neg, add/sub, `sum_stack`, inner/norm (+ shared `absorb_tucker_into_tt`).
+4. **Sampling** — `entries` (verify), `apply` (dispatch fix), `probe` (verify); full-`sum` via `apply`-ones.
+5. **ut3svd** — mask-truncation sweep; shrink to minimal structural ranks; non-minimal round-trip verify.
+6. **Transposes** — `apply_transpose`/`entries_transpose`; audit + add `d`-folded contractions (oracle-tested).
+7. **jax-wiring** — pytree registration + `test_dispatch` coverage.
+8. **Constructors + IO** — `zeros`/`ones`/`randn`; `from_canonical`/`from_tensor_train`/`to_tensor_train`
+   (ragged round-trip); `save`/`load`.
+
+Deferred (wanted): partial `sum`; `to_vector`/`from_vector` (intentionally omitted — route via ragged + jax-pytree).
 
 ## Deferred (return later — wanted)
 

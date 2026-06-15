@@ -61,9 +61,11 @@ derived from it, so the dataclass stays minimal (three masks; no stored redundan
 - **The dtype debate dissolves.** Because identity hashing never inspects mask contents, the masks may
   be numpy or jax — the cache mechanism does not care. So masks can simply follow the supercore dtype
   on construction, with no impact here.
-- **The backend is unaffected.** The holder is a frontend/pytree concern. Backend functions still take
-  raw arrays (`(tucker_supercore, tt_supercore)` and the three mask arrays), so a user working on raw
-  `.data` is not forced through the holder — consistent with the backend/frontend razor.
+- **The backend is unaffected (raw arrays).** The holder is a frontend/pytree concern; backend functions
+  take **raw arrays** in a layout that mirrors the fields — `.data = (tucker_supercore, tt_supercore,
+  (shape_mask, tucker_edge_mask, tt_edge_mask))`, supercores flat and the three masks grouped as a
+  sub-tuple (supercore-only ops take `.data[:2]`; mask-using ops unpack `.data[2]`). A user on raw
+  `.data` is never forced through the holder — consistent with the backend/frontend razor.
 
 ## Honest costs
 
