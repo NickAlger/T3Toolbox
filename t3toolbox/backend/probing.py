@@ -92,42 +92,50 @@ def probe_t3(
 
     Examples
     --------
+    Probe a T3 with one set of vectors; value-match against the dense reference:
+
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.backend.probing as t3p
-    >>> x = t3.TuckerTensorTrain.randn((10,11,12),(5,6,4),(1,2,3,1)).data
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)).data
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> zz = t3p.probe_t3(ww, x)
-    >>> x_dense = t3.TuckerTensorTrain(*x).to_dense()
-    >>> zz2 = t3p.probe_dense(ww, x_dense)
-    >>> print([float(np.linalg.norm(z - z2)) for z, z2 in zip(zz, zz2)])
-    [1.631156050514306e-13, 3.8657704262548816e-13, 6.591432899726004e-13]
+    >>> zz_dense = t3p.probe_dense(ww, t3.TuckerTensorTrain(*x).to_dense())   # dense reference
+    >>> print([z.shape for z in zz])        # one probe per mode, elm_shape=(Ni,)
+    [(10,), (11,), (12,)]
+    >>> print([bool(np.allclose(z, z2)) for z, z2 in zip(zz, zz_dense)])
+    [True, True, True]
 
-    Vectorize over probes:
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.backend.probing as t3p
-    >>> x = t3.TuckerTensorTrain.randn((10,11,12),(5,6,4),(1,2,3,1)).data
-    >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
-    >>> zz = t3p.probe_t3(ww, x)
-    >>> x_dense = t3.TuckerTensorTrain(*x).to_dense()
-    >>> zz2 = t3p.probe_dense(ww, x_dense)
-    >>> print([float(np.linalg.norm(z - z2)) for z, z2 in zip(zz, zz2)])
-    [1.0617919710198539e-12, 1.4936735922499436e-12, 1.1912692019537275e-12]
-
-    Vectorize over probes and T3s:
+    Vectorize over probes: a probe stack ``W`` rides through to ``elm_shape = W + (Ni,)``:
 
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.backend.probing as t3p
-    >>> x = t3.TuckerTensorTrain.randn((10,11,12),(5,6,4),(1,2,3,1), stack_shape=(4,5)).data
-    >>> ww = (np.random.randn(2,3, 10), np.random.randn(2,3, 11), np.random.randn(2,3, 12))
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)).data
+    >>> ww = (np.random.randn(2, 3, 10), np.random.randn(2, 3, 11), np.random.randn(2, 3, 12))
     >>> zz = t3p.probe_t3(ww, x)
-    >>> x_dense = t3.TuckerTensorTrain(*x).to_dense()
-    >>> zz2 = t3p.probe_dense(ww, x_dense)
-    >>> print([float(np.linalg.norm(z - z2)) for z, z2 in zip(zz, zz2)])
-    [5.7877816775957065e-12, 3.743460951628851e-12, 4.915470050149447e-12]
+    >>> zz_dense = t3p.probe_dense(ww, t3.TuckerTensorTrain(*x).to_dense())
+    >>> print([z.shape for z in zz])        # W=(2,3) outer, mode index inner
+    [(2, 3, 10), (2, 3, 11), (2, 3, 12)]
+    >>> print([bool(np.allclose(z, z2)) for z, z2 in zip(zz, zz_dense)])
+    [True, True, True]
+
+    Vectorize over probes AND T3s: both stacks ride through, base-inner ``elm_shape = W + C + (Ni,)``:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.backend.probing as t3p
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1), stack_shape=(4, 5)).data
+    >>> ww = (np.random.randn(2, 3, 10), np.random.randn(2, 3, 11), np.random.randn(2, 3, 12))
+    >>> zz = t3p.probe_t3(ww, x)
+    >>> zz_dense = t3p.probe_dense(ww, t3.TuckerTensorTrain(*x).to_dense())
+    >>> print(zz[0].shape)                  # W=(2,3) outer, C=(4,5) inner, then N0=10
+    (2, 3, 4, 5, 10)
+    >>> print([bool(np.allclose(z, z2)) for z, z2 in zip(zz, zz_dense)])
+    [True, True, True]
     '''
     tucker_cores, tt_cores = x
 
@@ -583,39 +591,44 @@ def probe_tangent(
     Examples
     --------
 
-    Probe a tangent vector with one set of vectors, compare against the dense reference:
+    Probe a tangent vector with one set of vectors; value-match against the dense reference:
 
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.basis_variations_format as bvf
     >>> import t3toolbox.manifold as t3m
     >>> import t3toolbox.backend.probing as t3p
-    >>> x = t3.TuckerTensorTrain.randn((10,11,12),(5,6,4),(1,2,3,1))
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
     >>> base, variations = bvf.t3_orthogonal_representations(x)
     >>> probe_base = base.data  # probing's base order == T3Basis.data, no reorder
     >>> v = t3m.T3Tangent(base, variations)
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> zz = t3p.probe_tangent(ww, variations.data, probe_base)
-    >>> zz2 = t3p.probe_dense(ww, v.to_dense())
-    >>> print([float(np.linalg.norm(z - z2)) for z, z2 in zip(zz, zz2)])
-    [2.802737740769268e-13, 2.1358428881151504e-13, 2.5895846738623505e-13]
+    >>> zz_dense = t3p.probe_dense(ww, v.to_dense())   # dense reference J^(s) v
+    >>> print([z.shape for z in zz])        # one probe per mode, elm_shape=(Ni,)
+    [(10,), (11,), (12,)]
+    >>> print([bool(np.allclose(z, z2)) for z, z2 in zip(zz, zz_dense)])
+    [True, True, True]
 
-    Probe a tangent vector with two sets of vectors:
+    Probe with a stack of vectors: the probe stack ``W`` rides through, ``elm_shape = W + (Ni,)``:
 
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.basis_variations_format as bvf
     >>> import t3toolbox.manifold as t3m
     >>> import t3toolbox.backend.probing as t3p
-    >>> x = t3.TuckerTensorTrain.randn((10,11,12),(5,6,4),(1,2,3,1))
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
     >>> base, variations = bvf.t3_orthogonal_representations(x)
-    >>> probe_base = base.data
     >>> v = t3m.T3Tangent(base, variations)
-    >>> www = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-    >>> zzz = t3p.probe_tangent(www, variations.data, probe_base)
-    >>> zzz2 = t3p.probe_dense(www, v.to_dense())
-    >>> print([float(np.linalg.norm(zz - zz2)) for zz, zz2 in zip(zzz, zzz2)])
-    [9.92987985605743e-12, 6.7500961542780035e-12, 4.080198471837904e-12]
+    >>> www = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
+    >>> zzz = t3p.probe_tangent(www, variations.data, base.data)
+    >>> zzz_dense = t3p.probe_dense(www, v.to_dense())
+    >>> print(zzz[0].shape)                 # W=(2,) outer, then N0=10
+    (2, 10)
+    >>> print([bool(np.allclose(z, z2)) for z, z2 in zip(zzz, zzz_dense)])
+    [True, True, True]
     '''
     (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores) = base
     (var_tucker_cores, var_tt_cores) = variation
@@ -1216,7 +1229,7 @@ def probe_tangent_transpose(
     Examples
     --------
 
-    Adjoint identity with one set of probing vectors, <z, J v> = <J^T z, v>:
+    Adjoint identity ``<z, J v> = <J^T z, v>`` with one set of probing vectors:
 
     >>> import numpy as np
     >>> import t3toolbox.corewise as cw
@@ -1224,18 +1237,22 @@ def probe_tangent_transpose(
     >>> import t3toolbox.basis_variations_format as bvf
     >>> import t3toolbox.manifold as t3m
     >>> import t3toolbox.backend.probing as t3p
-    >>> x = t3.TuckerTensorTrain.randn((10,11,12),(5,6,4),(1,2,3,1))
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
     >>> base, _ = bvf.t3_orthogonal_representations(x)
-    >>> probe_base = base.data
+    >>> probe_base = base.data  # probing's base order == T3Basis.data, no reorder
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> v = t3m.T3Tangent.randn(base)
     >>> z = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-    >>> Jv = t3p.probe_tangent(ww, v.variations.data, probe_base)
-    >>> JTz = t3p.probe_tangent_transpose(z, ww, probe_base)
-    >>> print(float(abs(cw.corewise_dot(z, Jv) - cw.corewise_dot(JTz, v.variations.data))))
-    7.105427357601002e-15
+    >>> Jv  = t3p.probe_tangent(ww, v.variations.data, probe_base)
+    >>> JTz = t3p.probe_tangent_transpose(z, ww, probe_base)   # (dU_tildes, dG_tildes)
+    >>> lhs = cw.corewise_dot(z, Jv)                  # <z, J v>
+    >>> rhs = cw.corewise_dot(JTz, v.variations.data)  # <J^T z, v>
+    >>> print(bool(np.allclose(lhs, rhs)))
+    True
 
-    Adjoint identity with two sets of probing vectors:
+    With ``sum_over_probes=True`` (the Gauss-Newton ``J^T r``), the adjoint identity still holds
+    when a probe stack ``W`` is summed on both sides:
 
     >>> import numpy as np
     >>> import t3toolbox.corewise as cw
@@ -1243,16 +1260,18 @@ def probe_tangent_transpose(
     >>> import t3toolbox.basis_variations_format as bvf
     >>> import t3toolbox.manifold as t3m
     >>> import t3toolbox.backend.probing as t3p
-    >>> x = t3.TuckerTensorTrain.randn((10,11,12),(5,6,4),(1,2,3,1))
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
     >>> base, _ = bvf.t3_orthogonal_representations(x)
-    >>> probe_base = base.data
-    >>> ww = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
+    >>> ww = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))  # W=(2,)
     >>> v = t3m.T3Tangent.randn(base)
-    >>> z = (np.random.randn(2,10), np.random.randn(2,11), np.random.randn(2,12))
-    >>> Jv = t3p.probe_tangent(ww, v.variations.data, probe_base)
-    >>> JTz = t3p.probe_tangent_transpose(z, ww, probe_base)
-    >>> print(float(abs(cw.corewise_dot(z, Jv) - cw.corewise_dot(JTz, v.variations.data))))
-    1.7763568394002505e-15
+    >>> z = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
+    >>> Jv  = t3p.probe_tangent(ww, v.variations.data, base.data)        # W-stacked probes
+    >>> JTz = t3p.probe_tangent_transpose(z, ww, base.data, sum_over_probes=True)
+    >>> lhs = cw.corewise_dot(z, Jv)                  # sum_W <z_W, (J v)_W>
+    >>> rhs = cw.corewise_dot(JTz, v.variations.data)  # <sum_W J^T z_W, v>
+    >>> print(bool(np.allclose(lhs, rhs)))
+    True
     '''
     (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores) = base
 
@@ -1323,62 +1342,53 @@ def probe_dense(
     Examples
     --------
 
-    Probe with one set of vectors:
+    Probe with one set of vectors; value-match each mode against a hand-written einsum:
 
     >>> import numpy as np
     >>> import t3toolbox.backend.probing as t3p
-    >>> T = np.random.randn(10,11,12)
-    >>> u0 = np.random.randn(10)
-    >>> u1 = np.random.randn(11)
-    >>> u2 = np.random.randn(12)
-    >>> yy = t3p.probe_dense((u0,u1,u2),T)
-    >>> y0 = np.einsum('ijk,j,k', T, u1, u2)
+    >>> np.random.seed(0)
+    >>> T = np.random.randn(10, 11, 12)
+    >>> u0, u1, u2 = np.random.randn(10), np.random.randn(11), np.random.randn(12)
+    >>> yy = t3p.probe_dense((u0, u1, u2), T)
+    >>> y0 = np.einsum('ijk,j,k', T, u1, u2)   # contract all modes but 0
     >>> y1 = np.einsum('ijk,i,k', T, u0, u2)
     >>> y2 = np.einsum('ijk,i,j', T, u0, u1)
-    >>> print(float(np.linalg.norm(yy[0] - y0)))
-    7.377764055609925e-15
-    >>> print(float(np.linalg.norm(yy[1] - y1)))
-    0.0
-    >>> print(float(np.linalg.norm(yy[2] - y2)))
-    0.0
+    >>> print([y.shape for y in yy])           # one probe per mode, elm_shape=(Ni,)
+    [(10,), (11,), (12,)]
+    >>> print([bool(np.allclose(y, ref)) for y, ref in zip(yy, (y0, y1, y2))])
+    [True, True, True]
 
-    Vectorize over probing vectors
+    Vectorize over probing vectors: a probe stack ``W`` rides through, ``elm_shape = W + (Ni,)``:
 
     >>> import numpy as np
     >>> import t3toolbox.backend.probing as t3p
-    >>> T = np.random.randn(10,11,12)
-    >>> u0 = np.random.randn(2,3, 10)
-    >>> u1 = np.random.randn(2,3, 11)
-    >>> u2 = np.random.randn(2,3, 12)
-    >>> yy = t3p.probe_dense((u0,u1,u2),T)
+    >>> np.random.seed(0)
+    >>> T = np.random.randn(10, 11, 12)
+    >>> u0, u1, u2 = np.random.randn(2, 3, 10), np.random.randn(2, 3, 11), np.random.randn(2, 3, 12)
+    >>> yy = t3p.probe_dense((u0, u1, u2), T)
     >>> y0 = np.einsum('ijk,uvj,uvk->uvi', T, u1, u2)
     >>> y1 = np.einsum('ijk,uvi,uvk->uvj', T, u0, u2)
     >>> y2 = np.einsum('ijk,uvi,uvj->uvk', T, u0, u1)
-    >>> print(float(np.linalg.norm(yy[0] - y0)))
-    1.663149665077564e-14
-    >>> print(float(np.linalg.norm(yy[1] - y1)))
-    0.0
-    >>> print(float(np.linalg.norm(yy[2] - y2)))
-    0.0
+    >>> print(yy[0].shape)                      # W=(2,3) outer, then N0=10
+    (2, 3, 10)
+    >>> print([bool(np.allclose(y, ref)) for y, ref in zip(yy, (y0, y1, y2))])
+    [True, True, True]
 
-    Vectorize over probing vectors and big tensor
+    Vectorize over probing vectors AND a stacked (big) tensor: base-inner ``elm_shape = W + C + (Ni,)``:
 
     >>> import numpy as np
     >>> import t3toolbox.backend.probing as t3p
-    >>> T = np.random.randn(4,5,6, 10,11,12)
-    >>> u0 = np.random.randn(2,3, 10)
-    >>> u1 = np.random.randn(2,3, 11)
-    >>> u2 = np.random.randn(2,3, 12)
-    >>> yy = t3p.probe_dense((u0,u1,u2),T)
+    >>> np.random.seed(0)
+    >>> T = np.random.randn(4, 5, 6, 10, 11, 12)   # C=(4,5,6) stack on the tensor
+    >>> u0, u1, u2 = np.random.randn(2, 3, 10), np.random.randn(2, 3, 11), np.random.randn(2, 3, 12)
+    >>> yy = t3p.probe_dense((u0, u1, u2), T)
     >>> y0 = np.einsum('xyzijk,uvj,uvk->uvxyzi', T, u1, u2)
     >>> y1 = np.einsum('xyzijk,uvi,uvk->uvxyzj', T, u0, u2)
     >>> y2 = np.einsum('xyzijk,uvi,uvj->uvxyzk', T, u0, u1)
-    >>> print(float(np.linalg.norm(yy[0] - y0)))
-    2.4890154384764807e-13
-    >>> print(float(np.linalg.norm(yy[1] - y1)))
-    0.0
-    >>> print(float(np.linalg.norm(yy[2] - y2)))
-    0.0
+    >>> print(yy[0].shape)                      # W=(2,3) outer, C=(4,5,6) inner, then N0=10
+    (2, 3, 4, 5, 6, 10)
+    >>> print([bool(np.allclose(y, ref)) for y, ref in zip(yy, (y0, y1, y2))])
+    [True, True, True]
     """
     use_jax = tree_contains_jax((vectors, T))
     xnp, _, _ = get_backend(True, use_jax)
