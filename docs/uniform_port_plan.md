@@ -215,6 +215,14 @@ TRIVIAL = inline one-liner; SWEEP = sequential over `d` (`xscan`/`lax.scan`); BA
 7. **jax-wiring** — pytree registration + `test_dispatch` coverage.
 8. **Constructors + IO** — `zeros`/`ones`/`randn`; `from_canonical`/`from_tensor_train`/`to_tensor_train`
    (ragged round-trip); `save`/`load`.
+9. **`t3m`** (elementwise multiply + truncation) — depends on `ut3svd`. Batched multiply (fold `d` into
+   `t3_mult`'s einsums); **masks combine by Kronecker** (the ⊗ side — `ut3_add` is the ⊕/concat side;
+   needs a small Kronecker-mask helper). Truncation by **max-rank masks only** (no `rtol`/`atol`;
+   per-stack-element caps OK), shrinking to minimal structural ranks. **Two methods, `inplace_fused` the
+   default:** `form_then_round` (full product → `ut3svd`) and a max-rank **`inplace_fused`** sweep that
+   caps each bond per-step and **never materializes the full product** — the memory-critical path, since
+   `t3m` ranks grow multiplicatively (`n_x·n_y`, `r_x·r_y`). No `swap`/`oversample` (those recover
+   `rtol`/`t3svd` quality and fight the `d`-leading scan layout).
 
 Deferred (wanted): partial `sum`; `to_vector`/`from_vector` (intentionally omitted — route via ragged + jax-pytree).
 
@@ -240,14 +248,8 @@ Deferred (wanted): partial `sum`; `to_vector`/`from_vector` (intentionally omitt
   checkers follow the equivalence-contract behavior: evaluate on the **real (masked) sub-blocks**, **per
   stack element at the realized rank** (`mask.sum(-1)`), and **report a bool, never raise** (numerical
   property → non-enforcing, per the structural-vs-numerical guard).
-- **`t3m` (uniform — future op).** Derives cleanly from the principles (validated): batched multiply
-  (fold `d` into `t3_mult`'s einsums), **masks combine by Kronecker** (the ⊗ side of the mask algebra —
-  `ut3_add` is the ⊕/concat side; the Kronecker-mask helper is currently unwritten), truncation by
-  max-rank masks via `uniform_t3_svd` (no `rtol`/`atol`; per-stack-element caps OK), shrinking to minimal
-  structural ranks. **OPEN QUESTION (undecided):** expose only the `form_then_round` path, or also a
-  max-rank `inplace_fused` sweep? A fused sweep avoids materializing the full product (a real memory win
-  for large `d`), *independent* of `rtol` — so "one path only" is simplest-correct but not provably best.
-  Decide when `t3m` is implemented.
+- **`t3m`** — promoted to planned slice #9 (above); the `method=` open question is resolved there
+  (both `form_then_round` and a default max-rank `inplace_fused` sweep).
 
 ---
 
@@ -258,4 +260,5 @@ each posed one design question neutrally: variety/ranks, masks-vs-integer-ranks,
 and two **generalization** tests on un-walked ops (`is_orthogonal`, `t3m`). **All five reached the
 documented decisions** — the two generalization ops were *derived* from the principles — confirming the
 notes stand on their own. The precision/scope fixes they suggested are folded in above; the one genuinely
-*undecided* point they surfaced is the `t3m` `method=` question (see Deferred).
+*undecided* point they surfaced — the `t3m` `method=` question — is now resolved (slice #9: both
+`form_then_round` and a default max-rank `inplace_fused` sweep).
