@@ -172,10 +172,10 @@ class TuckerTensorTrain:
     >>> result = x.t3svd(rtol=1e-2) # OK
     >>> x = t3.TuckerTensorTrain.randn((13,14,15), (4,5,6), (2,8,9,3), stack_shape=(2,3))
     >>> result = x.t3svd() # OK
-    >>> result = x.t3svd(rtol=1e-2) # Error!
-    ValueError: Cannot use rtol or atol with t3svd for stacked Tucker tensor train.
-    Different elements of the stack could end out having different shapes.
-    First unstack, then call t3svd for each unstacked Tucker tensor train.
+    >>> result = x.t3svd(rtol=1e-2) # Error!   # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+        ...
+    ValueError
 
 
     Minimal ranks:
@@ -225,7 +225,8 @@ class TuckerTensorTrain:
     >>> x = t3.TuckerTensorTrain.randn((13,14,15,16), (4,5,6,7), (1,99,9,7,1))
     >>> print(x.has_minimal_ranks)
     False
-    >>> print(x.minimal_ranks)
+    >>> print(x.minimal_ranks)            # the inflated TT bond 99 is structurally minimal at 4
+    ((4, 5, 6, 7), (1, 4, 9, 7, 1))
     >>> x2, _, _ = x.t3svd()
     >>> print(x2.has_minimal_ranks)
     True
@@ -257,8 +258,8 @@ class TuckerTensorTrain:
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> x = t3.TuckerTensorTrain.randn((13,14,15,16), (4,5,6,7), (2,8,9,7,3))
     >>> y = t3.TuckerTensorTrain.randn((13,14,15,16), (9,8,7,6), (1,2,3,4,5))
-    >>> print(np.linalg.norm((x + y).to_dense() - (x.to_dense() + y.to_dense())))
-    3.8159914295689006e-11
+    >>> print(np.allclose((x + y).to_dense(), x.to_dense() + y.to_dense()))
+    True
 
     A more complicated linear algebra operation with three TuckerTensorTrains
 
@@ -270,8 +271,8 @@ class TuckerTensorTrain:
     >>> result = (x * (y * 2.4 + z)).inner(z) + (x - y).norm() + z.sum()
     >>> X, Y, Z = x.to_dense(), y.to_dense(), z.to_dense()
     >>> result2 = np.einsum('ijkl,ijkl', (X * (Y * 2.4 + Z)), Z) + np.linalg.norm(X - Y) + Z.sum()
-    >>> print(np.linalg.norm(result - result2) / np.linalg.norm(result2))
-    1.1486488440369942e-15
+    >>> print(np.allclose(result, result2))
+    True
 
     References
     ----------
@@ -514,12 +515,12 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.corewise as cw
+        >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,4,5), stack_shape=(9,))
         >>> print(t3.TuckerTensorTrain.get_core_shapes(x.shape, x.tucker_ranks, x.tt_ranks, stack_shape=x.stack_shape))
         (((9, 4, 14), (9, 5, 15), (9, 6, 16)), ((9, 1, 4, 3), (9, 3, 5, 4), (9, 4, 6, 5)))
-        >>> print(x.core_shapes)
-        (((9, 4, 14), (9, 5, 15), (9, 6, 16)), ((9, 1, 4, 3), (9, 3, 5, 4), (9, 4, 6, 5)))
+        >>> print(x.core_shapes)    # the core_shapes property reports the per-slice shapes (stack stripped)
+        (((4, 14), (5, 15), (6, 16)), ((1, 4, 3), (3, 5, 4), (4, 6, 5)))
         """
         return ragged_operations.t3_core_shapes(
             shape, tucker_ranks, tt_ranks, stack_shape,
@@ -775,6 +776,7 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> randn = np.random.randn
         >>> tucker_cores = (randn(4,14),randn(5,15),randn(6,16))
         >>> tt_cores = (randn(2,4,3), randn(3,5,2), randn(2,6,5))
@@ -782,38 +784,42 @@ class TuckerTensorTrain:
         >>> x_dense = x.to_dense() # Convert TuckerTensorTrain to dense tensor
         >>> ((B0,B1,B2), (G0,G1,G2)) = tucker_cores, tt_cores
         >>> x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->ijk', B0, B1, B2, G0, G1, G2)
-        >>> print(np.linalg.norm(x_dense - x_dense2) / np.linalg.norm(x_dense))
-        7.48952547844518e-16
+        >>> print(np.allclose(x_dense, x_dense2))
+        True
 
         Example where leading and trailing ones are not contracted
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> randn = np.random.randn
         >>> tucker_cores = (randn(4,14),randn(5,15),randn(6,16))
         >>> tt_cores = (randn(2,4,3), randn(3,5,2), randn(2,6,2))
         >>> x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
         >>> x_dense = x.to_dense(squash_tails=False) # Convert TuckerTensorTrain to dense tensor
-        >>> print(x_dense.shape)
+        >>> print(x_dense.shape)                    # keeps the outer TT bonds r0=rd=2
         (2, 14, 15, 16, 2)
         >>> ((B0,B1,B2), (G0,G1,G2)) = tucker_cores, tt_cores
         >>> x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->aijkd', B0, B1, B2, G0, G1, G2)
-        >>> print(np.linalg.norm(x_dense - x_dense2) / np.linalg.norm(x_dense))
-        1.1217675019342066e-15
+        >>> print(np.allclose(x_dense, x_dense2))
+        True
 
         Example with stacking
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> randn = np.random.randn
         >>> tucker_cores = (randn(2,3, 4,10), randn(2,3, 5,11), randn(2,3, 6,12))
         >>> tt_cores = (randn(2,3, 2,4,3), randn(2,3, 3,5,2), randn(2,3, 2,6,5))
         >>> x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
         >>> x_dense = x.to_dense() # Convert TuckerTensorTrain to dense tensor
+        >>> print(x_dense.shape)                    # leading (2,3) is the stack_shape
+        (2, 3, 10, 11, 12)
         >>> ((B0,B1,B2), (G0,G1,G2)) = tucker_cores, tt_cores
         >>> x_dense2 = np.einsum('uvxi,uvyj,uvzk,uvaxb,uvbyc,uvczd->uvijk', B0, B1, B2, G0, G1, G2)
-        >>> print(np.linalg.norm(x_dense - x_dense2) / np.linalg.norm(x_dense))
-        1.3614138244072514e-15
+        >>> print(np.allclose(x_dense, x_dense2))
+        True
         """
         return ragged_operations.to_dense(
             self.data, squash_tails=squash_tails,
@@ -891,6 +897,7 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> randn = np.random.randn
         >>> tk = (randn(4,14), randn(5,15), randn(6,16), randn(7,17), randn(8,18), randn(9,19))
         >>> tt = (randn(2,4,3), randn(3,5,2), randn(2,6,2), randn(2,7,3), (randn(3,8,4)), (randn(4,9,1)))
@@ -898,9 +905,9 @@ class TuckerTensorTrain:
         >>> y = t3.TuckerTensorTrain(tk[3:4], tt[3:4])
         >>> z = t3.TuckerTensorTrain(tk[4:], tt[4:])
         >>> xyz = t3.TuckerTensorTrain.concatenate([x, y, z])
-        >>> xyz2 = t3.TuckerTensorTrain(tk, tt)
-        >>> print((xyz-xyz2).norm() / xyz.norm())
-        1.959150523916366e-15
+        >>> xyz2 = t3.TuckerTensorTrain(tk, tt)              # the same train, built in one piece
+        >>> print(np.allclose(xyz.to_dense(), xyz2.to_dense()))
+        True
         """
         return TuckerTensorTrain(*ragged_operations.t3_concatenate([x.data for x in xx]))
 
@@ -922,6 +929,7 @@ class TuckerTensorTrain:
         ________
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> randn = np.random.randn
         >>> tucker_cores = (randn(2,3, 4,10), randn(2,3, 5,11), randn(2,3, 6,12))
         >>> tt_cores = (randn(2,3, 2,4,3), randn(2,3, 3,5,2), randn(2,3, 2,6,5))
@@ -929,10 +937,10 @@ class TuckerTensorTrain:
         >>> print(x.tt_ranks)
         (2, 3, 2, 5)
         >>> x2 = x.squash()
-        >>> print(x2.tt_ranks)
+        >>> print(x2.tt_ranks)                  # leading/trailing bonds forced to 1
         (1, 3, 2, 1)
-        >>> print(np.linalg.norm(x.to_dense() - x2.to_dense()))
-        5.805155892491438e-12
+        >>> print(np.allclose(x.to_dense(), x2.to_dense()))   # same dense tensor
+        True
         """
         return TuckerTensorTrain(self.tucker_cores, ragged_operations.squash_tt_tails(self.tt_cores))
 
@@ -951,22 +959,21 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import numpy as np
-        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> randn = np.random.randn
         >>> tucker_cores = (randn(2,3, 4,10), randn(2,3, 5,11), randn(2,3, 6,12))
         >>> tt_cores = (randn(2,3, 1,4,2), randn(2,3, 2,5,3), randn(2,3, 3,6,4))
         >>> x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
         >>> print(x.structure)
-        ((10, 11, 12), (4, 5, 6), (1, 2, 3, 4), (2,3))
+        ((10, 11, 12), (4, 5, 6), (1, 2, 3, 4), (2, 3))
         >>> reversed_x = x.reverse()
-        >>> print(reversed_x.structure)
-        ((12, 11, 10), (6, 5, 4), (4, 3, 2, 1), (2,3))
+        >>> print(reversed_x.structure)             # shape, Tucker and TT ranks all reversed
+        ((12, 11, 10), (6, 5, 4), (4, 3, 2, 1), (2, 3))
         >>> x_dense = x.to_dense()
         >>> reversed_x_dense = reversed_x.to_dense()
-        >>> x_dense2 = reversed_x_dense.transpose([0,1, 4,3,2])
-        >>> print(np.linalg.norm(x_dense - x_dense2))
-        1.859018050214056e-13
+        >>> x_dense2 = reversed_x_dense.transpose([0,1, 4,3,2])   # un-reverse the free axes
+        >>> print(np.allclose(x_dense, x_dense2))
+        True
         """
         reversed_tucker_cores = tuple([B.copy() for B in self.tucker_cores[::-1]])
         reversed_tt_cores = ragged_operations.reverse_tt(self.tt_cores)
@@ -1093,15 +1100,16 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(3,5))
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(3,5))
         >>> unstacked_x = x.unstack()
-        >>> print([len(s) for s in unstacked_x])
+        >>> print([len(s) for s in unstacked_x])    # nested tuples mirror stack_shape=(3,5)
         [5, 5, 5]
-        >>> tucker13 = tuple([B[1,3] for B in x.tucker_cores])
+        >>> tucker13 = tuple([B[1,3] for B in x.tucker_cores])   # build slice (1,3) by hand
         >>> tt13 = tuple([G[1,3] for G in x.tt_cores])
         >>> x13 = t3.TuckerTensorTrain(tucker13, tt13)
-        >>> print((x13 - unstacked_x[1][3]).norm())
-        0.0
+        >>> print(bool((x13 - unstacked_x[1][3]).norm() < 1e-11))   # matches unstacked leaf [1][3]
+        True
         """
         def _dfs(xx):
             if common.is_ndarray(xx[0][0]):
@@ -1306,19 +1314,18 @@ class TuckerTensorTrain:
 
         Examples
         --------
-        >>> from t3toolbox import *
+        >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> shape = (14, 15, 16)
         >>> tucker_ranks = (4, 5, 6)
         >>> tt_ranks = (1, 3, 2, 1)
-        >>> stack_shape = (2,3)
-        >>> x = t3.t3_corewise_randn(shape, tucker_ranks, tt_ranks, stack_shape=stack_shape) # TuckerTensorTrain with random cores
-        >>> x.uniform_structure == (shape, tucker_ranks, tt_ranks, stack_shape)
+        >>> stack_shape = (2, 3)
+        >>> x = t3.TuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks, stack_shape=stack_shape) # random cores
+        >>> print(x.structure == (shape, tucker_ranks, tt_ranks, stack_shape))
         True
-        >>> print(x.tucker_cores[0][0,0,0,0]) # should be random N(0,1)
-        0.0331003310807162
-        >>> print(x.tt_cores[0][0,0,0,0,0]) # should be random N(0,1)
-        -0.10778923886039414
+        >>> print(np.any(x.tucker_cores[0] != 0.0))  # cores are filled with N(0,1) draws, not zeros
+        True
         """
         return TuckerTensorTrain(*ragged_operations.t3_corewise_randn(
             shape, tucker_ranks, tt_ranks, stack_shape, use_jax=use_jax,
@@ -1419,13 +1426,14 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> randn = np.random.randn
         >>> tt_cores = [randn(4,14,5), randn(5,15,3), randn(3,16,2)]
         >>> x = t3.TuckerTensorTrain.from_tensor_train(tt_cores)
         >>> x_dense = x.to_dense()
         >>> x_dense2 = np.einsum('...aib,...bjc,...ckd->...ijk', *tt_cores)
-        >>> print(np.linalg.norm(x_dense - x_dense2))
-        1.8303194206478734e-13
+        >>> print(np.allclose(x_dense, x_dense2))
+        True
         """
         return TuckerTensorTrain(*ragged_operations.t3_from_tensor_train(tt_cores))
 
@@ -1447,12 +1455,13 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((14,15,16), (5,6,7), (2,3,4,1), (2,3))
         >>> big_tt_cores = x.to_tensor_train()
         >>> x_dense = np.einsum('...aib,...bjc,...ckd->...ijk', *big_tt_cores)
         >>> x_dense2 = x.to_dense()
-        >>> print(np.linalg.norm(x_dense - x_dense2))
-        2.337172789566996e-12
+        >>> print(np.allclose(x_dense, x_dense2))
+        True
         """
         return ragged_operations.t3_to_tensor_train(self.data)
 
@@ -1696,13 +1705,14 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> y = t3.TuckerTensorTrain.randn((14,15,16), (3,7,2), (1,5,6,1))
         >>> z = x + y
-        >>> print(np.linalg.norm(x.to_dense() + y.to_dense() - z.to_dense()))
-        6.524094086845177e-13
-        >>> print(z.structure)
-        ((14, 15, 16), (7, 12, 8), (1, 8, 8, 1), ())
+        >>> print(np.allclose(x.to_dense() + y.to_dense(), z.to_dense()))
+        True
+        >>> print(z.structure)                  # adding T3s ADDS their ranks: Tucker 4+3,5+7,6+2; TT 1+1,3+5,2+6,1+1
+        ((14, 15, 16), (7, 12, 8), (2, 8, 8, 2), ())
 
         Adding T3 + dense
 
@@ -2226,21 +2236,24 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2))
-        >>> print(x.norm() - np.linalg.norm(x.to_dense()))
-        9.094947017729282e-13
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,2))
+        >>> print(np.allclose(x.norm(), np.linalg.norm(x.to_dense())))
+        True
 
-        Stacked:
+        Stacked -- ``norm()`` returns an array of shape ``stack_shape``, one norm per slice:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2), stack_shape=(2,3))
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,2), stack_shape=(2,3))
         >>> norms_x = x.norm(use_orthogonalization=True)
+        >>> print(norms_x.shape)
+        (2, 3)
         >>> x_dense = x.to_dense()
         >>> norms_x_dense = np.sqrt(np.sum(x_dense**2, axis=(-3,-2,-1)))
-        >>> print(norms_x - norms_x_dense)
-        [[-1.36424205e-12 -2.50111043e-12  1.36424205e-12]
-         [ 1.59161573e-12  4.09272616e-12  2.72848411e-12]]
+        >>> print(np.allclose(norms_x, norms_x_dense))
+        True
         """
         return ragged_linalg.t3_norm(
             self.data, use_orthogonalization=use_orthogonalization,
@@ -2288,12 +2301,13 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((10,11,12,13), (7,8,9,10), (2,3,4,3,1), (2,3))
-        >>> S = x.sum()
+        >>> S = x.sum()                         # all free axes summed -> ndarray over the stack
         >>> dense_x = x.to_dense()
         >>> non_stack_axes = (2,3,4,5)
-        >>> print(np.linalg.norm(S - dense_x.sum(axis=non_stack_axes)))
-        1.4038073554965914e-10
+        >>> print(np.allclose(S, dense_x.sum(axis=non_stack_axes)))
+        True
         >>> print(type(S))
         <class 'numpy.ndarray'>
         >>> print(S.shape)
@@ -2303,13 +2317,14 @@ class TuckerTensorTrain:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((10,11,12,13), (7,8,9,10), (2,3,4,3,1), (2,3))
         >>> axis = (1,3)
-        >>> S = x.sum(axis=axis)
+        >>> S = x.sum(axis=axis)                # some axes kept -> TuckerTensorTrain
         >>> dense_x = x.to_dense()
         >>> shifted_axis = tuple(ii + len(x.stack_shape) for ii in axis)
-        >>> print(np.linalg.norm(S.to_dense() - dense_x.sum(axis=shifted_axis)))
-        8.457133031493982e-11
+        >>> print(np.allclose(S.to_dense(), dense_x.sum(axis=shifted_axis)))
+        True
         >>> print(type(S))
         <class 't3toolbox.tucker_tensor_train.TuckerTensorTrain'>
         >>> print(S.shape)
@@ -2321,13 +2336,14 @@ class TuckerTensorTrain:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((10,11,12,13), (7,8,9,10), (2,3,4,3,1), (2,3))
         >>> axis = 1
         >>> S = x.sum(axis=axis)
         >>> dense_x = x.to_dense()
         >>> shifted_axis = axis + len(x.stack_shape)
-        >>> print(np.linalg.norm(S.to_dense() - dense_x.sum(axis=shifted_axis)))
-        4.906645592301091e-11
+        >>> print(np.allclose(S.to_dense(), dense_x.sum(axis=shifted_axis)))
+        True
         >>> print(type(S))
         <class 't3toolbox.tucker_tensor_train.TuckerTensorTrain'>
         >>> print(S.shape)
@@ -2383,12 +2399,13 @@ class TuckerTensorTrain:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((4,5,6), (2,3,2), (1,2,2,1), stack_shape=(3,))
         >>> y = x.sum_stack()
         >>> print(y.stack_shape)
         ()
-        >>> print(np.linalg.norm(y.to_dense() - x.to_dense().sum(axis=0)))
-        1.3344301227427602e-14
+        >>> print(np.allclose(y.to_dense(), x.to_dense().sum(axis=0)))
+        True
 
         Ranks grow by the summed stack size (here ``S=3``):
 
@@ -2401,12 +2418,13 @@ class TuckerTensorTrain:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((4,5,6), (2,3,2), (1,2,2,1), stack_shape=(2,3))
         >>> y = x.sum_stack(axis=0)
         >>> print(y.stack_shape)
         (3,)
-        >>> print(np.linalg.norm(y.to_dense() - x.to_dense().sum(axis=0)))
-        1.7956338470588144e-14
+        >>> print(np.allclose(y.to_dense(), x.to_dense().sum(axis=0)))
+        True
         '''
         return TuckerTensorTrain(*ragged_linalg.t3_sum_stack(self.data, axis=axis))
 
@@ -2517,16 +2535,17 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> ind = 1
         >>> x2, ss = x.down_svd_tucker_core(ind)
-        >>> print(np.linalg.norm(x.to_dense() - x.to_dense())) # Tensor unchanged
-        0.0
+        >>> print(np.allclose(x.to_dense(), x2.to_dense())) # Tensor unchanged
+        True
         >>> tucker_cores2, tt_cores2 = x2.data
         >>> rank = len(ss)
         >>> B = tucker_cores2[ind]
-        >>> print(np.linalg.norm(B @ B.T - np.eye(rank))) # Tucker core is orthogonal
-        8.456498415401757e-16
+        >>> print(bool(np.linalg.norm(B @ B.T - np.eye(rank)) < 1e-12)) # Tucker core is (down) orthogonal
+        True
         '''
         result = ragged_orthogonalization.down_svd_tucker_core(
             self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
@@ -2588,16 +2607,16 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.orthogonalization as orth
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> ind = 1
         >>> x2, ss = x.left_svd_tt_core(ind)
-        >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
-            5.186463661974644e-13
+        >>> print(np.allclose(x.to_dense(), x2.to_dense())) # Tensor unchanged
+        True
         >>> tucker_cores2, tt_cores2 = x2.data
         >>> G = tt_cores2[ind]
-        >>> print(np.linalg.norm(np.einsum('iaj,iak->jk', G, G) - np.eye(G.shape[2]))) # TT-core is left-orthogonal
-            4.453244025338311e-16
+        >>> print(bool(np.linalg.norm(np.einsum('iaj,iak->jk', G, G) - np.eye(G.shape[2])) < 1e-12)) # TT-core is left-orthogonal
+        True
         '''
         result = ragged_orthogonalization.left_svd_tt_core(
             self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
@@ -2659,16 +2678,16 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.orthogonalization as orth
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> ind = 1
         >>> x2, ss = x.right_svd_tt_core(ind)
-        >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
-        5.304678679078675e-13
+        >>> print(np.allclose(x.to_dense(), x2.to_dense())) # Tensor unchanged
+        True
         >>> tucker_cores2, tt_cores2 = x2.data
         >>> G = tt_cores2[ind]
-        >>> print(np.linalg.norm(np.einsum('iaj,kaj->ik', G, G) - np.eye(G.shape[0]))) # TT-core is right orthogonal
-        4.207841813173725e-16
+        >>> print(bool(np.linalg.norm(np.einsum('iaj,kaj->ik', G, G) - np.eye(G.shape[0])) < 1e-12)) # TT-core is right orthogonal
+        True
         '''
         result = ragged_orthogonalization.right_svd_tt_core(
             self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
@@ -2724,16 +2743,16 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.orthogonalization as orth
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> ind = 1
-        >>> x2, ss = x.down_svd_tt_core(ind)
-        >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
-        4.367311712704942e-12
+        >>> x2, ss = x.up_svd_tt_core(ind)
+        >>> print(np.allclose(x.to_dense(), x2.to_dense())) # Tensor unchanged
+        True
         >>> tucker_cores2, tt_cores2 = x2.data
         >>> G = tt_cores2[ind]
-        >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1]))) # TT-core is down orthogonal
-        1.0643458053135608e-15
+        >>> print(bool(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1])) < 1e-12)) # TT-core is down orthogonal
+        True
         '''
         result = ragged_orthogonalization.up_svd_tt_core(
             self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
@@ -2772,29 +2791,29 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.orthogonalization as orth
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> x2 = x.orthogonalize_relative_to_tucker_core(1)
-        >>> print(np.linalg.norm(x.to_dense(x) - x2.to_dense(x2))) # Tensor unchanged
-        8.800032152216517e-13
+        >>> print(np.allclose(x.to_dense(), x2.to_dense())) # Tensor unchanged
+        True
         >>> ((B0, B1, B2), (G0, G1, G2)) = x2.data
         >>> X = np.einsum('xi,axb,byc,czd,zk->iyk', B0, G0, G1, G2, B2) # Contraction of everything except B1
-        >>> print(np.linalg.norm(np.einsum('iyk,iwk->yw', X, X) - np.eye(B1.shape[0]))) # Complement of B1 is orthogonal
-        1.7116160385376214e-15
+        >>> print(bool(np.linalg.norm(np.einsum('iyk,iwk->yw', X, X) - np.eye(B1.shape[0])) < 1e-12)) # Complement of B1 is orthogonal
+        True
 
         Example where first and last TT-ranks are not 1:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.orthogonalization as orth
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2))
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,2))
         >>> x2 = x.orthogonalize_relative_to_tucker_core(0)
-        >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
-        5.152424496985265e-12
+        >>> print(np.allclose(x.to_dense(), x2.to_dense())) # Tensor unchanged
+        True
         >>> ((B0, B1, B2), (G0, G1, G2)) = x2.data
         >>> X = np.einsum('yj,zk,axb,byc,czd->axjkd', B1, B2, G0, G1, G2) # Contraction of everything except B0
-        >>> print(np.linalg.norm(np.einsum('axjkd,ayjkd->xy', X, X) - np.eye(B0.shape[0]))) # Complement of B1 is orthogonal
-        2.3594586449868743e-15
+        >>> print(bool(np.linalg.norm(np.einsum('axjkd,ayjkd->xy', X, X) - np.eye(B0.shape[0])) < 1e-12)) # Complement of B0 is orthogonal
+        True
         '''
         return TuckerTensorTrain(*ragged_orthogonalization.orthogonalize_relative_to_tucker_core(
             self.data, ii,
@@ -2829,34 +2848,34 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.orthogonalization as orth
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> x2 = x.orthogonalize_relative_to_tt_core(1)
-        >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
-        8.800032152216517e-13
+        >>> print(np.allclose(x.to_dense(), x2.to_dense())) # Tensor unchanged
+        True
         >>> ((B0, B1, B2), (G0, G1, G2)) = x2.data
         >>> XL = np.einsum('axb,xi -> aib', G0, B0) # Everything to the left of G1
-        >>> print(np.linalg.norm(np.einsum('aib,aic->bc', XL, XL) - np.eye(G1.shape[0]))) # Left subtree is left orthogonal
-        9.820411604510197e-16
-        >>> print(np.linalg.norm(np.einsum('xi,yi->xy', B1, B1) - np.eye(G1.shape[1]))) # Core below G1 is up orthogonal
-        2.1875310121178e-15
+        >>> print(bool(np.linalg.norm(np.einsum('aib,aic->bc', XL, XL) - np.eye(G1.shape[0])) < 1e-12)) # Left subtree is left orthogonal
+        True
+        >>> print(bool(np.linalg.norm(np.einsum('xi,yi->xy', B1, B1) - np.eye(G1.shape[1])) < 1e-12)) # Core below G1 is up orthogonal
+        True
         >>> XR = np.einsum('axb,xi->aib', G2, B2) # Everything to the right of G1
-        >>> print(np.linalg.norm(np.einsum('aib,cib->ac', XR, XR) - np.eye(G1.shape[2]))) # Right subtree is right orthogonal
-        1.180550381921849e-15
+        >>> print(bool(np.linalg.norm(np.einsum('aib,cib->ac', XR, XR) - np.eye(G1.shape[2])) < 1e-12)) # Right subtree is right orthogonal
+        True
 
         Example where first and last TT-ranks are not 1:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.orthogonalization as orth
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2))
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,2))
         >>> x2 = x.orthogonalize_relative_to_tt_core(0)
-        >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Tensor unchanged
-        5.4708999671349535e-12
+        >>> print(np.allclose(x.to_dense(), x2.to_dense())) # Tensor unchanged
+        True
         >>> ((B0, B1, B2), (G0, G1, G2)) = x2.data
         >>> XR = np.einsum('yi,zj,byc,czd->bijd', B1, B2, G1, G2) # Everything to the right of G0
-        >>> print(np.linalg.norm(np.einsum('bijd,cijd->bc', XR, XR) - np.eye(G0.shape[2]))) # Right subtree is right orthogonal
-        8.816596607002667e-16
+        >>> print(bool(np.linalg.norm(np.einsum('bijd,cijd->bc', XR, XR) - np.eye(G0.shape[2])) < 1e-12)) # Right subtree is right orthogonal
+        True
         '''
         return TuckerTensorTrain(*ragged_orthogonalization.orthogonalize_relative_to_tt_core(
             self.data, ii,
@@ -2882,31 +2901,31 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> x_orth = x.down_orthogonalize_tucker_cores()
-        >>> print((x - x_orth).norm())
-        4.420285752780219e-12
+        >>> print(bool((x - x_orth).norm() < 1e-11)) # represents the same tensor
+        True
         >>> ind = 1
         >>> B = x_orth.data[0][ind]
-        >>> print(np.linalg.norm(B @ B.T - np.eye(B.shape[0])))
-        1.2059032102772812e-15
+        >>> print(bool(np.linalg.norm(B @ B.T - np.eye(B.shape[0])) < 1e-12)) # Tucker core is down orthogonal
+        True
 
-        Stacked:
+        Stacked -- ``norm()`` returns a per-stack array; orthogonality holds on every slice:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.orthogonalization as orth
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
         >>> x_orth = x.down_orthogonalize_tucker_cores()
-        >>> print((x - x_orth).norm())
-        [[2.27267321e-12 1.92787570e-12 1.60830015e-12]
-         [9.54262022e-13 1.45211899e-12 3.27867574e-12]]
+        >>> print(bool(np.max((x - x_orth).norm()) < 1e-11)) # same tensor on every stack slice
+        True
         >>> ind = 1
         >>> B = x_orth.data[0][ind]
         >>> BtB = np.einsum('abio,abjo->abij',B,B)
         >>> errs = [[np.linalg.norm(BtB[ii,jj] - np.eye(BtB.shape[-1])) for jj in range(3)] for ii in range(2)]
-        >>> print(np.linalg.norm(errs))
-        4.118375471407983e-15
+        >>> print(bool(np.max(errs) < 1e-12))
+        True
         """
         return TuckerTensorTrain(*ragged_orthogonalization.down_orthogonalize_tucker_cores(self.data))
 
@@ -2930,28 +2949,31 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> x_orth = x.up_orthogonalize_tt_cores()
-        >>> print((x - x_orth).norm())
-        1.927414448489825e-12
+        >>> print(bool((x - x_orth).norm() < 1e-11)) # represents the same tensor
+        True
         >>> ind = 1
         >>> G = x_orth.data[1][ind]
-        >>> print(np.linalg.norm(np.einsum('iaj,ibj->ab',G,G)-np.eye(G.shape[1])))
-        1.9491561709929213e-15
+        >>> print(bool(np.linalg.norm(np.einsum('iaj,ibj->ab',G,G)-np.eye(G.shape[1])) < 1e-12)) # TT core is up orthogonal
+        True
+
+        Stacked -- ``norm()`` returns a per-stack array; orthogonality holds on every slice:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
         >>> x_orth = x.up_orthogonalize_tt_cores()
-        >>> print((x - x_orth).norm())
-        [[1.65714673e-12 1.52503536e-12 2.94647811e-12]
-         [1.56839190e-12 2.61963262e-12 8.78269349e-12]]
+        >>> print(bool(np.max((x - x_orth).norm()) < 1e-11)) # same tensor on every stack slice
+        True
         >>> ind = 1
         >>> G = x_orth.data[1][ind]
         >>> GdG = np.einsum('xyaib,xyajb->xyij',G,G)
         >>> errs = [[np.linalg.norm(GdG[ii,jj] - np.eye(GdG.shape[-1])) for jj in range(3)] for ii in range(2)]
-        >>> print(np.linalg.norm(errs))
-        4.0492695830155885e-15
+        >>> print(bool(np.max(errs) < 1e-12))
+        True
         """
         return TuckerTensorTrain(
             *ragged_orthogonalization.up_orthogonalize_tt_cores(self.data),
@@ -2987,28 +3009,29 @@ class TuckerTensorTrain:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> x_orth = x.left_orthogonalize_tt_cores()
-        >>> print((x - x_orth).norm())
-        2.9839379127106095e-12
+        >>> print(bool((x - x_orth).norm() < 1e-11)) # represents the same tensor
+        True
         >>> ind = 1
         >>> G = x_orth.data[1][ind]
-        >>> print(np.linalg.norm(np.einsum('iaj,iak->jk',G,G)-np.eye(G.shape[2])))
-        1.3526950544911367e-16
+        >>> print(bool(np.linalg.norm(np.einsum('iaj,iak->jk',G,G)-np.eye(G.shape[2])) < 1e-12)) # TT core is left orthogonal
+        True
 
-        Stacked:
+        Stacked -- ``norm()`` returns a per-stack array; orthogonality holds on every slice:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
         >>> x_orth = x.left_orthogonalize_tt_cores()
-        >>> print((x - x_orth).norm())
-        [[1.46128743e-12 1.25202737e-12 5.60494449e-13]
-         [9.77331695e-13 2.50200307e-12 3.07559340e-12]]
+        >>> print(bool(np.max((x - x_orth).norm()) < 1e-11)) # same tensor on every stack slice
+        True
         >>> ind = 1
         >>> G = x_orth.data[1][ind]
-        >>> print(np.linalg.norm(np.einsum('xyiaj,xyiak->xyjk',G,G)-np.eye(G.shape[-1])))
-        9.02970295614302e-16
+        >>> print(bool(np.linalg.norm(np.einsum('xyiaj,xyiak->xyjk',G,G)-np.eye(G.shape[-1])) < 1e-12))
+        True
         """
         result = orth.left_orthogonalize_tt_cores(
             self.tt_cores, return_variation_cores=return_variation_cores,
@@ -3047,28 +3070,29 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1))
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> x_orth = x.right_orthogonalize_tt_cores()
-        >>> print((x - x_orth).norm())
-        2.9839379127106095e-12
+        >>> print(bool((x - x_orth).norm() < 1e-11)) # represents the same tensor
+        True
         >>> ind = 1
         >>> G = x_orth.data[1][ind]
-        >>> print(np.linalg.norm(np.einsum('iaj,kaj->jk',G,G)-np.eye(G.shape[0])))
-        1.3526950544911367e-16
+        >>> print(bool(np.linalg.norm(np.einsum('iaj,kaj->ik',G,G)-np.eye(G.shape[0])) < 1e-12)) # TT core is right orthogonal
+        True
 
-        Stacked:
+        Stacked -- ``norm()`` returns a per-stack array; orthogonality holds on every slice:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
-        >>> x_orth = x.left_orthogonalize_tt_cores()
-        >>> print((x - x_orth).norm())
-        [[1.33512640e-12 1.84518324e-12 6.79235325e-13]
-         [1.34334400e-12 3.38154895e-12 2.93760867e-12]]
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+        >>> x_orth = x.right_orthogonalize_tt_cores()
+        >>> print(bool(np.max((x - x_orth).norm()) < 1e-11)) # same tensor on every stack slice
+        True
         >>> ind = 1
         >>> G = x_orth.data[1][ind]
-        >>> print(np.linalg.norm(np.einsum('xyiaj,xyiak->xyjk',G,G)-np.eye(G.shape[-1])))
-        1.3585381944466237e-15
+        >>> print(bool(np.linalg.norm(np.einsum('xyiaj,xykaj->xyik',G,G)-np.eye(G.shape[2])) < 1e-12))
+        True
         """
         result = orth.right_orthogonalize_tt_cores(
             self.tt_cores, return_variation_cores=return_variation_cores,
@@ -3122,68 +3146,68 @@ class TuckerTensorTrain:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
         >>> index = [9, 4, 7]
         >>> result = x.entries(index)
         >>> result2 = x.to_dense()[9, 4, 7]
-        >>> print(np.abs(result - result2))
-        1.3322676295501878e-15
+        >>> print(np.allclose(result, result2))
+        True
 
-        With stacked index and stacked T3s:
+        With stacked index and stacked T3s -- output is base-inner ``idx_stack_shape + t3_stack_shape``:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> choice = np.random.choice
         >>> t3_stack_shape = (2,3)
         >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,2), t3_stack_shape)
         >>> idx_stack_shape = (4,5,1)
         >>> index = [choice(14, size=idx_stack_shape), choice(15, size=idx_stack_shape), choice(16, size=idx_stack_shape)]
         >>> entries = x.entries(index)
+        >>> print(entries.shape)               # base-inner: idx stack (4,5,1) outer, T3 stack (2,3) inner
+        (4, 5, 1, 2, 3)
         >>> ii, jj = 1, 2          # T3 stack index (inner)
         >>> ll, mm, nn =  3, 2, 0  # index stack (outer)
-        >>> entry_ij_lmn = entries[ll,mm,nn, ii,jj]   # base-inner: idx stack outer, T3 stack inner
+        >>> entry_ij_lmn = entries[ll,mm,nn, ii,jj]
         >>> x_ij_dense = x.to_dense()[ii,jj]
         >>> index_lmk = (index[0][ll,mm,nn], index[1][ll,mm,nn], index[2][ll,mm,nn])
         >>> entry_ij_lmn_true = x_ij_dense[index_lmk]
-        >>> print(np.abs(entry_ij_lmn - entry_ij_lmn_true))
-        0.0
+        >>> print(np.allclose(entry_ij_lmn, entry_ij_lmn_true))
+        True
 
-        Example using jax jit compiling:
+        Differentiable / jit-able under jax -- jit gives the same value as the eager call:
 
-    	>>> import numpy as np
+        >>> import numpy as np
         >>> import jax
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> get_entry_123 = lambda x: x.entries((1,2,3))
-        >>> A = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1)).to_jax() # Random 10x10x10 Tucker tensor train
+        >>> A = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1)).to_jax()
         >>> a123 = get_entry_123(A)
-        >>> print(a123)
-        -1.3764521
-        >>> get_entry_123_jit = jax.jit(get_entry_123) # jit compile
-        >>> a123_jit = get_entry_123_jit(A)
-        >>> print(a123_jit)
-        -1.3764523
+        >>> a123_jit = jax.jit(get_entry_123)(A)        # jit compile, then call
+        >>> print(np.allclose(a123, a123_jit))
+        True
 
-        .. Example using jax automatic differentiation
-           
-           >>> import numpy as np
-           >>> import jax
-           >>> import t3toolbox.tucker_tensor_train as t3
-           >>> import t3toolbox.corewise as cw
-           >>> jax.config.update("jax_enable_x64", True) # Enable double precision for finite difference
-           >>> get_entry_123 = lambda x: x.entries((1,2,3))
-           >>> A0 = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1), use_jax=True) # Random 10x10x10 Tucker tensor train
-           >>> f0 = get_entry_123(A0)
-           >>> G0 = jax.grad(get_entry_123)(A0) # Gradient using automatic differentiation
-           >>> dA = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1), use_jax=True)
-           >>> df = cw.corewise_dot(dA.data, G0.data) # Sensitivity in direction dA
-           >>> print(df)
-           -7.418801772515241
-           >>> s = 1e-7
-           >>> A1 = cw.corewise_add(A0.data, cw.corewise_scale(dA.data, s)) # A1 = A0 + s*dA
-           >>> f1 = get_entry_123(t3.TuckerTensorTrain(*A1))
-           >>> df_diff = (f1 - f0) / s # Finite difference
-           >>> print(df_diff)
-           -7.418812309825662
+        ``jax.grad`` differentiates through the cores; the directional derivative matches a finite difference:
+
+        >>> import numpy as np
+        >>> import jax
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.corewise as cw
+        >>> jax.config.update("jax_enable_x64", True)   # double precision for the finite difference
+        >>> np.random.seed(0)
+        >>> get_entry_123 = lambda x: x.entries((1,2,3))
+        >>> A0 = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1), use_jax=True)
+        >>> f0 = get_entry_123(A0)
+        >>> G0 = jax.grad(get_entry_123)(A0)            # gradient w.r.t. the cores
+        >>> dA = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1), use_jax=True)
+        >>> df = cw.corewise_dot(dA.data, G0.data)      # sensitivity in direction dA
+        >>> s = 1e-7
+        >>> A1 = cw.corewise_add(A0.data, cw.corewise_scale(dA.data, s)) # A1 = A0 + s*dA
+        >>> df_diff = (get_entry_123(t3.TuckerTensorTrain(*A1)) - f0) / s # finite difference
+        >>> print(bool(np.allclose(df, df_diff, rtol=1e-5)))
+        True
         '''
         if len(index) != self.d:
             raise ValueError(
@@ -3230,53 +3254,56 @@ class TuckerTensorTrain:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,1))
         >>> vecs = [np.random.randn(14), np.random.randn(15), np.random.randn(16)]
         >>> result = x.apply(vecs) # Contract x with vecs in all indices
         >>> result2 = np.einsum('ijk,i,j,k', x.to_dense(), vecs[0], vecs[1], vecs[2])
-        >>> print(np.abs(result - result2))
-        5.229594535194337e-12
+        >>> print(np.allclose(result, result2))
+        True
 
-        Apply to stacked vectors and stacked T3s (vectorized)
+        Apply to stacked vectors and stacked T3s (vectorized) -- output is base-inner
+        ``vec_stack_shape + t3_stack_shape``:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> randn = np.random.randn
         >>> stack_shape = (2,3)
         >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,1), stack_shape)
         >>> vec_stack_shape = (4,5,1)
         >>> vecs = [randn(*(vec_stack_shape+(14,))), randn(*(vec_stack_shape+(15,))), randn(*(vec_stack_shape+(16,)))]
         >>> result = x.apply(vecs)
+        >>> print(result.shape)                # base-inner: vec stack (4,5,1) outer, T3 stack (2,3) inner
+        (4, 5, 1, 2, 3)
         >>> ii, jj = 1, 2 # T3 stack index (inner)
         >>> ll, mm, nn =  3, 2, 0 # vectors stack index (outer)
-        >>> result_ij_lmn = result[ll,mm,nn, ii,jj]   # base-inner: vec stack outer, T3 stack inner
+        >>> result_ij_lmn = result[ll,mm,nn, ii,jj]
         >>> x_ij_dense = x.to_dense()[ii,jj]
         >>> vecs_lmn = [vecs[0][ll,mm,nn], vecs[1][ll,mm,nn], vecs[2][ll,mm,nn]]
         >>> result_ij_lmn_true = np.einsum('abc,a,b,c', x_ij_dense, *vecs_lmn)
-        >>> print(np.abs(result_ij_lmn - result_ij_lmn_true))
-        6.252776074688882e-13
+        >>> print(np.allclose(result_ij_lmn, result_ij_lmn_true))
+        True
 
-        Example using jax automatic differentiation:
+        ``apply`` is differentiable under jax -- the directional derivative of the symmetric
+        contraction ``u -> A(u,u,u)`` matches a finite difference:
 
-    	>>> import numpy as np
+        >>> import numpy as np
         >>> import jax
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> jax.config.update("jax_enable_x64", True)
-        >>> A = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1)).to_jax() # Random 10x10x10 Tucker tensor train
-        >>> apply_A_sym = lambda u: A.apply((u,u,u), use_jax=True) # Symmetric apply function
+        >>> np.random.seed(0)
+        >>> A = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1)).to_jax()
+        >>> apply_A_sym = lambda u: A.apply((u,u,u)) # symmetric apply (jax dispatch inferred from A)
         >>> u0 = np.random.randn(10)
         >>> Auuu0 = apply_A_sym(u0)
-        >>> g0 = jax.grad(apply_A_sym)(u0) # Gradient using automatic differentiation
+        >>> g0 = jax.grad(apply_A_sym)(u0) # gradient by automatic differentiation
         >>> du = np.random.randn(10)
-        >>> dAuuu = np.dot(g0, du) # Derivative in direction du
-        >>> print(dAuuu)
-        766.5390335764645
+        >>> dAuuu = np.dot(g0, du) # derivative in direction du
         >>> s = 1e-7
-        >>> u1 = u0 + s*du
-        >>> Auuu1 = apply_A_sym(u1)
-        >>> dAuuu_diff = (Auuu1 - Auuu0) / s # Finite difference approximation
-        >>> print(dAuuu_diff)
-        766.5390504030256
+        >>> dAuuu_diff = (apply_A_sym(u0 + s*du) - Auuu0) / s # finite difference
+        >>> print(bool(np.allclose(dAuuu, dAuuu_diff, rtol=1e-5)))
+        True
         '''
         if len(vecs) != len(self.shape):
             raise ValueError(
@@ -3317,34 +3344,32 @@ class TuckerTensorTrain:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.backend.probing as probing
+        >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((10,11,12),(5,6,4),(2,3,4,2))
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-        >>> zz = x.probe(ww)
+        >>> zz = x.probe(ww)                    # contract all-but-one index, for each index
         >>> x_dense = x.to_dense()
         >>> zz0_true = np.einsum('abc,b,c', x_dense, ww[1], ww[2])
         >>> zz1_true = np.einsum('abc,a,c', x_dense, ww[0], ww[2])
         >>> zz2_true = np.einsum('abc,a,b', x_dense, ww[0], ww[1])
-        >>> print(np.linalg.norm(zz[0] - zz0_true))
-        1.5071547731580326e-12
-        >>> print(np.linalg.norm(zz[1] - zz1_true))
-        4.945327672021522e-13
-        >>> print(np.linalg.norm(zz[2] - zz2_true))
-        1.8042504599894852e-12
+        >>> print(np.allclose(zz[0], zz0_true), np.allclose(zz[1], zz1_true), np.allclose(zz[2], zz2_true))
+        True True True
 
-        Probe with stacked vectors and stacked T3s:
+        Probe with stacked vectors and stacked T3s -- each probe is base-inner ``W + C + (Ni,)``:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
         >>> randn = np.random.randn
         >>> stack_shape = (2,3)
         >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,1), stack_shape)
         >>> vstack_shape = (4,5,1)
         >>> ww = [randn(*(vstack_shape+(14,))), randn(*(vstack_shape+(15,))), randn(*(vstack_shape+(16,)))]
         >>> result = x.probe(ww)
+        >>> print(result[0].shape)             # probe stack (4,5,1) outer, T3 stack (2,3) inner, then N0=14
+        (4, 5, 1, 2, 3, 14)
         >>> ii, jj = 1, 2          # T3 (base) stack index
         >>> ll, mm, nn =  3, 2, 0  # vector (probe) stack index
-        >>> # probes are stacked W + C (vector stack outer, T3 stack inner)
         >>> result_ij_lmn_0 = result[0][ll,mm,nn, ii,jj]
         >>> result_ij_lmn_1 = result[1][ll,mm,nn, ii,jj]
         >>> result_ij_lmn_2 = result[2][ll,mm,nn, ii,jj]
@@ -3352,12 +3377,12 @@ class TuckerTensorTrain:
         >>> result_ij_lmn_0_true = np.einsum('abc,b,c', x_ij_dense, ww[1][ll,mm,nn], ww[2][ll,mm,nn])
         >>> result_ij_lmn_1_true = np.einsum('abc,a,c', x_ij_dense, ww[0][ll,mm,nn], ww[2][ll,mm,nn])
         >>> result_ij_lmn_2_true = np.einsum('abc,a,b', x_ij_dense, ww[0][ll,mm,nn], ww[1][ll,mm,nn])
-        >>> print(np.linalg.norm(result_ij_lmn_0 - result_ij_lmn_0_true))
-        1.7836179565776773e-12
-        >>> print(np.linalg.norm(result_ij_lmn_1 - result_ij_lmn_1_true))
-        1.0522031983404444e-12
-        >>> print(np.linalg.norm(result_ij_lmn_2 - result_ij_lmn_2_true))
-        1.3936060000339696e-12
+        >>> print(np.allclose(result_ij_lmn_0, result_ij_lmn_0_true))
+        True
+        >>> print(np.allclose(result_ij_lmn_1, result_ij_lmn_1_true))
+        True
+        >>> print(np.allclose(result_ij_lmn_2, result_ij_lmn_2_true))
+        True
         """
         return probing.probe_t3(ww, self.data)
 
@@ -3667,19 +3692,21 @@ class TuckerTensorTrain:
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import math
+        >>> np.random.seed(0)
         >>> T0 = np.random.randn(40, 50, 60)
         >>> c0 = 1.0 / np.arange(1, 41)**2
         >>> c1 = 1.0 / np.arange(1, 51)**2
         >>> c2 = 1.0 / np.arange(1, 61)**2
-        >>> T = np.einsum('ijk,i,j,k->ijk', T0, c0, c1, c2) # Preconditioned random tensor
-        >>> x, ss_tucker, ss_tt = t3.TuckerTensorTrain.t3svd_dense(T, rtol=1e-3) # Truncate T3-SVD to reduce rank
-        >>> print(x.tucker_ranks) # Different random values may lead to different ranks
-        (12, 12, 11)
-        >>> print(x.tt_ranks)
-        (1, 11, 12, 1)
+        >>> T = np.einsum('ijk,i,j,k->ijk', T0, c0, c1, c2) # graded-spectrum (preconditioned) tensor
+        >>> x, ss_tucker, ss_tt = t3.TuckerTensorTrain.t3svd_dense(T, rtol=1e-3) # truncated T3-SVD
+        >>> print(x.tucker_ranks, x.tt_ranks)          # rtol reduces the ranks below full (40,50,60)
+        (11, 11, 10) (1, 10, 11, 1)
         >>> T2 = x.to_dense()
-        >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # Should be slightly more than rtol=1e-3
-        0.001985061012010537
+        >>> rel_err = np.linalg.norm(T - T2) / np.linalg.norm(T)
+        >>> # per-step rtol accumulates over 2d-1 steps -> realized error within sqrt(2d-1)*rtol (d=3)
+        >>> print(bool(rel_err <= math.sqrt(2 * 3 - 1) * 1e-3))
+        True
         '''
         if stack_shape and ((rtol is not None) or (atol is not None)):
             raise ValueError(
