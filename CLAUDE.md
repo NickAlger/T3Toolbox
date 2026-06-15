@@ -64,8 +64,11 @@ updated to this version by the time the package is released.
 - **ragged** — tuples of variably-shaped arrays. The default, fully working path.
 - **uniform** — one stacked supercore array + masks (`ut3_*`, `ubv_*`, `uniform_*`); for
   `jax.lax.scan` vectorization. **`UniformTuckerTensorTrain` is being repaired/redesigned now**
-  (uniform basis/variations/tangents still deferred). **Before touching uniform code, read the four
-  design notes**: [`docs/uniform_ranks_and_varieties.md`](docs/uniform_ranks_and_varieties.md) (a
+  (uniform basis/variations/tangents still deferred). **Before touching uniform code, read the design
+  notes** — governing: [`docs/uniform_equivalence_contract.md`](docs/uniform_equivalence_contract.md)
+  (the uniform layer is a *faster ragged layer*: `to_uniform → op → to_ragged == op_ragged` on real
+  parts, garbage don't-care — this is correctness *and* the test strategy). Then:
+  [`docs/uniform_ranks_and_varieties.md`](docs/uniform_ranks_and_varieties.md) (a
   stacked uniform T3 is a batch in the bounded-rank **determinantal variety** — ranks may vary per
   stack element, shape is fixed), [`docs/uniform_supercore_layout.md`](docs/uniform_supercore_layout.md)
   (core index `d` **leads**: `(d,)+stack_shape+(...)`, for `lax.scan` + locality),

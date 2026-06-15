@@ -7,12 +7,20 @@
 > cross-cutting design decisions lives in the four design notes (see below). Updated as we walk through
 > the functions; entries marked ✅ are decided, ⬜ are pending.
 
+**Governing contract** ([`uniform_equivalence_contract.md`](uniform_equivalence_contract.md)): the
+uniform layer is a *faster ragged layer* — `to_uniform → op_uniform → to_ragged == op_ragged` on the
+real (masked) parts; garbage in padding is don't-care. This defines correctness for every op below and
+**the test strategy**: round-trip each op against its ragged twin (compare `to_dense`s or convert back),
+real parts only. Masking schedule: mask on entry + re-mask after any SVD; certified by the round-trip
+test, not proven a priori.
+
 **Hybrid principle** (per `CLAUDE.md`): share where polymorphism just works; rewrite where there's a
 legitimate structural difference, where polymorphism would need unnatural branching, or where splitting
 yields a performance gain (typically: ragged *maps over the mode index `d`*, uniform *folds `d` into a
 batched array op / einsum*).
 
-**Design notes (the "why"):** [`uniform_ranks_and_varieties.md`](uniform_ranks_and_varieties.md),
+**Design notes (the "why"):** [`uniform_equivalence_contract.md`](uniform_equivalence_contract.md)
+(**governing**), [`uniform_ranks_and_varieties.md`](uniform_ranks_and_varieties.md),
 [`uniform_supercore_layout.md`](uniform_supercore_layout.md), [`uniform_masks_vs_ranks.md`](uniform_masks_vs_ranks.md),
 [`uniform_pytree_composition.md`](uniform_pytree_composition.md).
 
@@ -70,12 +78,27 @@ TRIVIAL = inline one-liner; SWEEP = sequential over `d` (`xscan`/`lax.scan`); BA
   padding `n`/`r`; only `N`,`d`,`stack_shape` match (structural `ValueError`). `squash_tails` after. Repair
   existing `ut3_add`; `sub = add(x, -y)`.
 
+## Orthogonalization ✅ — split verdict (the cleanest hybrid example)
+
+- **Tucker-core orthogonalization** (keystone `down_orthogonalize_tucker_cores` / `up_orthogonalize_tt_cores`)
+  — REWRITE, uniform-specific, **BATCH**. Core-local (each core's SVD pushes its remainder into the
+  same-index neighbor; no inter-core dependency), so uniform does one batched `xnp.linalg.svd` over the
+  `(d,)+stack` axes vs. ragged's `xmap` over the tuple — a real GPU win. Existing
+  `up_orthogonalize_uniform_tucker_cores` / `down_orthogonalize_uniform_tt_cores`.
+- **TT left/right orthogonalization** — SHARE, **SWEEP** (already done). Sequential (each core's `R`
+  pushes into the next), so it must scan; `orthogonalization.py` is already polymorphic (`is_ndarray`
+  dispatch, `xscan`→`lax.scan`, uniform-aware `left_svd_pair`). Uniform frontend already calls it.
+- Repairs: fix the `self.apply_masks_to_cores` bug (re-mask via `ut3_masking` per the masking schedule);
+  align flipped method names to the keystone; fix docstrings calling nonexistent methods.
+- **Verify (not-minimal ranks):** match whatever ragged orthogonalization does to a non-minimal core
+  (keep-with-completion vs reduce-and-update-mask) — read/run the ragged path, certify by round-trip.
+  This is the spot that was mid-refactor when copied in.
+
 ---
 
 ## Pending ⬜
 
-- ⬜ **Orthogonalization** (Tucker-core: BATCH/REWRITE; TT left/right: SWEEP/SHARE) — next.
-- ⬜ **inner / norm** (uses orthogonalization)
+- ⬜ **inner / norm** (uses orthogonalization) — next.
 - ⬜ **sum / sum_stack**
 - ⬜ **ut3svd** (mask-based truncation; no rtol/atol)
 - ⬜ **entries / apply / probe** (+ transposes?)
