@@ -15,20 +15,19 @@ TuckerTensorTrain.reverse
 
    >>> import numpy as np
    >>> import t3toolbox.tucker_tensor_train as t3
-   >>> import numpy as np
-   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
    >>> randn = np.random.randn
    >>> tucker_cores = (randn(2,3, 4,10), randn(2,3, 5,11), randn(2,3, 6,12))
    >>> tt_cores = (randn(2,3, 1,4,2), randn(2,3, 2,5,3), randn(2,3, 3,6,4))
    >>> x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
    >>> print(x.structure)
-   ((10, 11, 12), (4, 5, 6), (1, 2, 3, 4), (2,3))
+   ((10, 11, 12), (4, 5, 6), (1, 2, 3, 4), (2, 3))
    >>> reversed_x = x.reverse()
-   >>> print(reversed_x.structure)
-   ((12, 11, 10), (6, 5, 4), (4, 3, 2, 1), (2,3))
+   >>> print(reversed_x.structure)             # shape, Tucker and TT ranks all reversed
+   ((12, 11, 10), (6, 5, 4), (4, 3, 2, 1), (2, 3))
    >>> x_dense = x.to_dense()
    >>> reversed_x_dense = reversed_x.to_dense()
-   >>> x_dense2 = reversed_x_dense.transpose([0,1, 4,3,2])
-   >>> print(np.linalg.norm(x_dense - x_dense2))
-   1.859018050214056e-13
+   >>> x_dense2 = reversed_x_dense.transpose([0,1, 4,3,2])   # un-reverse the free axes
+   >>> print(np.allclose(x_dense, x_dense2))
+   True
 

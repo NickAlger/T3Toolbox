@@ -33,12 +33,13 @@ TuckerTensorTrain.sum_stack
 
    >>> import numpy as np
    >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
    >>> x = t3.TuckerTensorTrain.randn((4,5,6), (2,3,2), (1,2,2,1), stack_shape=(3,))
    >>> y = x.sum_stack()
    >>> print(y.stack_shape)
    ()
-   >>> print(np.linalg.norm(y.to_dense() - x.to_dense().sum(axis=0)))
-   1.3344301227427602e-14
+   >>> print(np.allclose(y.to_dense(), x.to_dense().sum(axis=0)))
+   True
 
    Ranks grow by the summed stack size (here ``S=3``):
 
@@ -51,10 +52,11 @@ TuckerTensorTrain.sum_stack
 
    >>> import numpy as np
    >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
    >>> x = t3.TuckerTensorTrain.randn((4,5,6), (2,3,2), (1,2,2,1), stack_shape=(2,3))
    >>> y = x.sum_stack(axis=0)
    >>> print(y.stack_shape)
    (3,)
-   >>> print(np.linalg.norm(y.to_dense() - x.to_dense().sum(axis=0)))
-   1.7956338470588144e-14
+   >>> print(np.allclose(y.to_dense(), x.to_dense().sum(axis=0)))
+   True
 

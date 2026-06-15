@@ -27,19 +27,22 @@ TuckerTensorTrain.norm
 
    >>> import numpy as np
    >>> import t3toolbox.tucker_tensor_train as t3
-   >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2))
-   >>> print(x.norm() - np.linalg.norm(x.to_dense()))
-   9.094947017729282e-13
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,2))
+   >>> print(np.allclose(x.norm(), np.linalg.norm(x.to_dense())))
+   True
 
-   Stacked:
+   Stacked -- ``norm()`` returns an array of shape ``stack_shape``, one norm per slice:
 
    >>> import numpy as np
    >>> import t3toolbox.tucker_tensor_train as t3
-   >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (2,3,2,2), stack_shape=(2,3))
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,2), stack_shape=(2,3))
    >>> norms_x = x.norm(use_orthogonalization=True)
+   >>> print(norms_x.shape)
+   (2, 3)
    >>> x_dense = x.to_dense()
    >>> norms_x_dense = np.sqrt(np.sum(x_dense**2, axis=(-3,-2,-1)))
-   >>> print(norms_x - norms_x_dense)
-   [[-1.36424205e-12 -2.50111043e-12  1.36424205e-12]
-    [ 1.59161573e-12  4.09272616e-12  2.72848411e-12]]
+   >>> print(np.allclose(norms_x, norms_x_dense))
+   True
 

@@ -186,10 +186,10 @@ TuckerTensorTrain
    >>> result = x.t3svd(rtol=1e-2) # OK
    >>> x = t3.TuckerTensorTrain.randn((13,14,15), (4,5,6), (2,8,9,3), stack_shape=(2,3))
    >>> result = x.t3svd() # OK
-   >>> result = x.t3svd(rtol=1e-2) # Error!
-   ValueError: Cannot use rtol or atol with t3svd for stacked Tucker tensor train.
-   Different elements of the stack could end out having different shapes.
-   First unstack, then call t3svd for each unstacked Tucker tensor train.
+   >>> result = x.t3svd(rtol=1e-2) # Error!   # doctest: +IGNORE_EXCEPTION_DETAIL
+   Traceback (most recent call last):
+       ...
+   ValueError
 
 
    Minimal ranks:
@@ -239,7 +239,8 @@ TuckerTensorTrain
    >>> x = t3.TuckerTensorTrain.randn((13,14,15,16), (4,5,6,7), (1,99,9,7,1))
    >>> print(x.has_minimal_ranks)
    False
-   >>> print(x.minimal_ranks)
+   >>> print(x.minimal_ranks)            # the inflated TT bond 99 is structurally minimal at 4
+   ((4, 5, 6, 7), (1, 4, 9, 7, 1))
    >>> x2, _, _ = x.t3svd()
    >>> print(x2.has_minimal_ranks)
    True
@@ -271,8 +272,8 @@ TuckerTensorTrain
    >>> import t3toolbox.tucker_tensor_train as t3
    >>> x = t3.TuckerTensorTrain.randn((13,14,15,16), (4,5,6,7), (2,8,9,7,3))
    >>> y = t3.TuckerTensorTrain.randn((13,14,15,16), (9,8,7,6), (1,2,3,4,5))
-   >>> print(np.linalg.norm((x + y).to_dense() - (x.to_dense() + y.to_dense())))
-   3.8159914295689006e-11
+   >>> print(np.allclose((x + y).to_dense(), x.to_dense() + y.to_dense()))
+   True
 
    A more complicated linear algebra operation with three TuckerTensorTrains
 
@@ -284,8 +285,8 @@ TuckerTensorTrain
    >>> result = (x * (y * 2.4 + z)).inner(z) + (x - y).norm() + z.sum()
    >>> X, Y, Z = x.to_dense(), y.to_dense(), z.to_dense()
    >>> result2 = np.einsum('ijkl,ijkl', (X * (Y * 2.4 + Z)), Z) + np.linalg.norm(X - Y) + Z.sum()
-   >>> print(np.linalg.norm(result - result2) / np.linalg.norm(result2))
-   1.1486488440369942e-15
+   >>> print(np.allclose(result, result2))
+   True
 
    .. rubric:: References
 

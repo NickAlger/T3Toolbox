@@ -22,6 +22,7 @@ TuckerTensorTrain.concatenate
 
    >>> import numpy as np
    >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
    >>> randn = np.random.randn
    >>> tk = (randn(4,14), randn(5,15), randn(6,16), randn(7,17), randn(8,18), randn(9,19))
    >>> tt = (randn(2,4,3), randn(3,5,2), randn(2,6,2), randn(2,7,3), (randn(3,8,4)), (randn(4,9,1)))
@@ -29,7 +30,7 @@ TuckerTensorTrain.concatenate
    >>> y = t3.TuckerTensorTrain(tk[3:4], tt[3:4])
    >>> z = t3.TuckerTensorTrain(tk[4:], tt[4:])
    >>> xyz = t3.TuckerTensorTrain.concatenate([x, y, z])
-   >>> xyz2 = t3.TuckerTensorTrain(tk, tt)
-   >>> print((xyz-xyz2).norm() / xyz.norm())
-   1.959150523916366e-15
+   >>> xyz2 = t3.TuckerTensorTrain(tk, tt)              # the same train, built in one piece
+   >>> print(np.allclose(xyz.to_dense(), xyz2.to_dense()))
+   True
 
