@@ -298,13 +298,17 @@ Treat everything else as copied-in-and-not-yet-working until checked.
 - Cleanup backlog: remove the `common.py` debug prints; `OLD_*.py` + stray `.npz` artifacts; wire
   doctests into CI; docs (`conf.py` autoapi excludes backend/weighted, committed `_build`,
   `modules.rst` still titled "TuckerTensorTrainTools").
-- **Doctests — in progress.** Reworking the verified modules' **existing** doctests to be reproducible
-  examples (convention: `docs/doctest_style.md`). Done: `manifold`/`corewise`/`stacking` (already
-  conformed), `linalg`, and `TuckerTensorTrain.__mul__`/`inner`/`t3svd`. Remaining existing-doctest
-  fixes: `tucker_tensor_train` (the rest), `basis_variations_format`, `backend/dense_t3svd`,
-  `backend/probing`. **Deferred follow-up (Nick wants this): add default-path doctests to currently
-  *undocumented* public functions** — a separate pass after the existing ones are fixed (the `linalg`
-  probe already did this for `linalg`'s `*_svd`/`*_svd_pair`/`pad_or_truncate`).
+- **Doctests — in progress (resume: `docs/doctest_handoff.md`).** Reworking the verified modules'
+  **existing** doctests into reproducible examples (convention: `docs/doctest_style.md`; exemplars
+  `manifold.py` + `TuckerTensorTrain.__mul__`/`inner`/`t3svd`). **Done & committed:**
+  `manifold`/`corewise`/`stacking` (already conformed), `linalg`, `backend/probing`,
+  `backend/dense_t3svd`, `basis_variations_format`, and `TuckerTensorTrain.__mul__`/`inner`/`t3svd`.
+  **IN PROGRESS — `tucker_tensor_train.py`:** a sub-agent took it 161→~23 failing examples but its work
+  is **UNCOMMITTED** (verify, finish the last failures, commit) — see the handoff. After that the
+  existing-doctest sweep is complete. **Deferred follow-up (Nick wants this): add default-path doctests
+  to currently *undocumented* public functions** — a separate pass (the `linalg` probe already did this
+  for `linalg`'s `*_svd`/`*_svd_pair`/`pad_or_truncate`). The sweep doubles as a stale-code detector: it
+  has already surfaced wrong captured values + dead imports/`NameError`s the broken doctests hid.
 - **T3M — elementwise multiply with truncation. ✅ DONE & tested.** `TuckerTensorTrain.t3m(other,
   method=..., max_tucker_ranks, max_tt_ranks, rtol, atol, oversample=1)` — three interchangeable
   algorithms generalizing the TTM algorithm (Michailidis et al., arXiv:2410.19747) to T3, all matching
