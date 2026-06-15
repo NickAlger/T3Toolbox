@@ -140,6 +140,58 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         self.assertFalse(np.array_equal(ustacked.tucker_ranks[:, 0], ustacked.tucker_ranks[:, 1]))
         self.assertFalse(np.array_equal(ustacked.tt_ranks[:, 0], ustacked.tt_ranks[:, 1]))
 
+    # ---- linear algebra (vs dense ground truth) ----
+    def test_scale_neg(self):
+        for shape, tr, ttr, ss in self._cases():
+            with self.subTest(shape=shape, stack=ss):
+                x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
+                ux = ut3.t3_to_ut3(x); xd = x.to_dense()
+                self.assertLessEqual(relerr((ux * 2.5).to_dense(), 2.5 * xd), TOL)
+                self.assertLessEqual(relerr((-ux).to_dense(), -xd), TOL)
+
+    def test_add_sub_different_ranks(self):
+        for shape, tr, ttr, ss in self._cases():
+            with self.subTest(shape=shape, stack=ss):
+                tr2 = tuple(v + 1 for v in tr)
+                ttr2 = (1,) + tuple(v + 1 for v in ttr[1:-1]) + (1,)
+                x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
+                y = t3.TuckerTensorTrain.randn(shape, tr2, ttr2, stack_shape=ss)
+                ux, uy = ut3.t3_to_ut3(x), ut3.t3_to_ut3(y)
+                xd, yd = x.to_dense(), y.to_dense()
+                self.assertLessEqual(relerr((ux + uy).to_dense(), xd + yd), TOL)
+                self.assertLessEqual(relerr((ux - uy).to_dense(), xd - yd), TOL)
+
+    def test_inner(self):
+        for shape, tr, ttr, ss in self._cases():
+            x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
+            y = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
+            ux, uy = ut3.t3_to_ut3(x), ut3.t3_to_ut3(y)
+            xd, yd = x.to_dense(), y.to_dense()
+            ax = tuple(range(len(ss), xd.ndim))
+            expected = np.sum(xd * yd, axis=ax) if ss else np.sum(xd * yd)
+            for uo in (True, False):
+                with self.subTest(shape=shape, stack=ss, orth=uo):
+                    self.assertLessEqual(relerr(ux.inner(uy, use_orthogonalization=uo), expected), TOL)
+
+    def test_norm(self):
+        for shape, tr, ttr, ss in self._cases():
+            x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
+            ux = ut3.t3_to_ut3(x); xd = x.to_dense()
+            ax = tuple(range(len(ss), xd.ndim))
+            expected = np.sqrt(np.sum(xd ** 2, axis=ax)) if ss else norm(xd)
+            for uo in (True, False):
+                with self.subTest(shape=shape, stack=ss, orth=uo):
+                    self.assertLessEqual(relerr(ux.norm(use_orthogonalization=uo), expected), TOL)
+
+    def test_sum_stack(self):
+        for shape, tr, ttr in STRUCTURES:
+            for ss in [(2,), (2, 3)]:
+                with self.subTest(shape=shape, stack=ss):
+                    x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
+                    ux = ut3.t3_to_ut3(x)
+                    expected = x.to_dense().sum(axis=tuple(range(len(ss))))
+                    self.assertLessEqual(relerr(ux.sum_stack().to_dense(), expected), TOL)
+
     # ---- orthogonalization (vs ragged; rank reduction is minimal-for-free) ----
     ORTH_METHODS = ['down_orthogonalize_tucker_cores', 'up_orthogonalize_tt_cores',
                     'left_orthogonalize_tt_cores', 'right_orthogonalize_tt_cores']

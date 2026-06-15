@@ -13,6 +13,7 @@ from t3toolbox.backend.common import *
 __all__ = [
     'to_dense',
     't3_to_dense_chain',
+    'absorb_tucker_into_tt',
     'broadcast_t3_to_common_stack',
     'squash_tt_tails',
     'reverse_tt',
@@ -58,6 +59,35 @@ def broadcast_t3_to_common_stack(
     return new_tucker_cores, new_tt_cores
 
 
+def absorb_tucker_into_tt(
+        tucker_cores: typ.Union[
+            typ.Sequence[NDArray],  # ragged:  len=d, elm_shape=stack_shape+(ni, Ni)
+            NDArray,                # uniform: shape=(d,)+stack_shape+(ni, Ni)
+        ],
+        tt_cores: typ.Union[
+            typ.Sequence[NDArray],  # ragged:  len=d, elm_shape=stack_shape+(ri, ni, r(i+1))
+            NDArray,                # uniform: shape=(d,)+stack_shape+(ri, ni, r(i+1))
+        ],
+) -> typ.Union[
+    typ.Tuple[NDArray, ...],  # ragged:  big TT cores, elm_shape=stack_shape+(ri, Ni, r(i+1))
+    NDArray,                  # uniform: big TT supercore, shape=(d,)+stack_shape+(r, N, r)
+]:
+    """Absorb each Tucker core into its TT core, replacing the mode (``n``) leg with the physical (``N``)
+    leg: ``big_tt[...,a,o,b] = sum_n tt[...,a,n,b] * tucker[...,n,o]``.
+
+    Representation-agnostic: a single batched einsum over ``(d,)+stack`` for a uniform supercore (the
+    vectorization win), a per-core list-comp for ragged tuples. The opening step of both :py:func:`to_dense`
+    (`t3_to_dense_chain`) and the inner-product/norm zipper.
+    """
+    is_uniform = is_ndarray(tucker_cores)
+    use_jax = tree_contains_jax((tucker_cores, tt_cores))
+    xnp, _, _ = get_backend(is_uniform, use_jax)
+
+    if is_uniform:
+        return xnp.einsum('d...anb,d...no->d...aob', tt_cores, tucker_cores)
+    return tuple(xnp.einsum('...anb,...no->...aob', G, U) for G, U in zip(tt_cores, tucker_cores))
+
+
 def t3_to_dense_chain(
         tucker_cores: typ.Union[
             typ.Sequence[NDArray],  # ragged:  len=d, elm_shape=stack_shape+(ni, Ni)
@@ -82,7 +112,7 @@ def t3_to_dense_chain(
 
     vs = tucker_cores[0].shape[:-2]  # stack_shape
 
-    big_tt_cores = [xnp.einsum('...iaj,...ab->...ibj', G, U) for G, U in zip(tt_cores, tucker_cores)]
+    big_tt_cores = absorb_tucker_into_tt(tucker_cores, tt_cores)
 
     T = big_tt_cores[0]
     for G in big_tt_cores[1:]:

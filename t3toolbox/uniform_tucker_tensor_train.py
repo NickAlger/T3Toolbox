@@ -24,6 +24,7 @@ import t3toolbox.backend.ut3_conversions as ut3_conversions
 import t3toolbox.backend.ut3_masking as ut3_masking
 import t3toolbox.backend.ut3_operations as ut3_operations
 import t3toolbox.backend.ut3_orthogonalization as ut3_orthogonalization
+import t3toolbox.backend.ut3_linalg as ut3_linalg
 import t3toolbox.backend.orthogonalization as orth
 import t3toolbox.backend.t3_operations as ragged_operations
 import t3toolbox.backend.stacking as stacking
@@ -219,6 +220,58 @@ class UniformTuckerTensorTrain:
         rank1 = xnp.broadcast_to(xnp.arange(self.r) < 1, self.stack_shape + (self.r,))  # [True, False, ...]
         new_ttm = xnp.concatenate([rank1[None], ttm[1:-1], rank1[None]], axis=0)
         return UniformTuckerTensorTrain(self.tucker_supercore, new_tt_supercore, UT3Masks(sm, tkm, new_ttm))
+
+    # ----------------------------------------------------------------- linear algebra
+    def __mul__(self, s) -> 'UniformTuckerTensorTrain':
+        """Scale by a scalar (scales the last Tucker supercore slice; masks/ranks unchanged)."""
+        xnp, _, _ = common.get_backend(True, self.contains_jax)
+        scaled = xnp.concatenate([self.tucker_supercore[:-1], s * self.tucker_supercore[-1:]], axis=0)
+        return UniformTuckerTensorTrain(scaled, self.tt_supercore, self.masks)
+
+    __rmul__ = __mul__
+
+    def __neg__(self) -> 'UniformTuckerTensorTrain':
+        return self * (-1.0)
+
+    def __add__(self, other: 'UniformTuckerTensorTrain') -> 'UniformTuckerTensorTrain':
+        """Add two uniform Tucker tensor trains (direct sum, then squash). Requires matching shape / d /
+        stack_shape (structural ValueError); padded ``n``/``r`` need not match."""
+        if self.shape != other.shape:
+            raise ValueError('Cannot add UniformTuckerTensorTrains with different shapes: %s vs %s.'
+                             % (self.shape, other.shape))
+        if self.stack_shape != other.stack_shape:
+            raise ValueError('Cannot add UniformTuckerTensorTrains with different stack_shapes: %s vs %s.'
+                             % (self.stack_shape, other.stack_shape))
+        tk, tt, masks = ut3_linalg.ut3_add(self.data, other.data)
+        return UniformTuckerTensorTrain(tk, tt, UT3Masks(*masks)).squash_tails()
+
+    def __sub__(self, other: 'UniformTuckerTensorTrain') -> 'UniformTuckerTensorTrain':
+        return self + (-other)
+
+    def sum_stack(self) -> 'UniformTuckerTensorTrain':
+        """Sum the represented tensors over the entire stack -> one unstacked uniform T3 (genuine tensor
+        sum, not corewise)."""
+        tk, tt, masks = ut3_linalg.ut3_sum_stack(self.data)
+        return UniformTuckerTensorTrain(tk, tt, UT3Masks(*masks)).squash_tails()
+
+    def inner(self, other: 'UniformTuckerTensorTrain', use_orthogonalization: bool = True):
+        """Hilbert-Schmidt inner product with another uniform Tucker tensor train (shape=stack_shape)."""
+        if self.shape != other.shape:
+            raise ValueError('Cannot inner-product UniformTuckerTensorTrains with different shapes: %s vs %s.'
+                             % (self.shape, other.shape))
+        x, y = self, other
+        if use_orthogonalization:
+            x = x.down_orthogonalize_tucker_cores().left_orthogonalize_tt_cores()
+            y = y.down_orthogonalize_tucker_cores().left_orthogonalize_tt_cores()
+        return ut3_linalg.ut3_inner_product(x.data, y.data)
+
+    def norm(self, use_orthogonalization: bool = True):
+        """Hilbert-Schmidt (Frobenius) norm of the represented tensor (shape=stack_shape)."""
+        if use_orthogonalization:
+            x = self.down_orthogonalize_tucker_cores().left_orthogonalize_tt_cores()
+            return ut3_linalg.ut3_norm_orthogonalized(x.data)
+        xnp, _, _ = common.get_backend(True, self.contains_jax)
+        return xnp.sqrt(xnp.abs(ut3_linalg.ut3_inner_product(self.data, self.data)))
 
     # ----------------------------------------------------------------- orthogonalization
     # Core-local Tucker orthogonalizations are uniform-specific BATCHED-SVD rewrites; the TT left/right

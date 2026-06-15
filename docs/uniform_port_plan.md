@@ -221,7 +221,13 @@ TRIVIAL = inline one-liner; SWEEP = sequential over `d` (`xscan`/`lax.scan`); BA
    (`min(shape, n)`, `min(n, rL·rR)`, and the L→R / R→L bond recurrences). Verified vs ragged on
    minimal, **non-minimal** (tucker 8→5; tt `(1,40,40,1)→(1,5,25,1)`/`(1,25,5,1)`), and stacked. Full
    ragged regression still green.
-3. **Linear algebra** — scale/neg, add/sub, `sum_stack`, inner/norm (+ shared `absorb_tucker_into_tt`).
+3. **Linear algebra — ✅ DONE.** `__mul__`/`__neg__` (scale last Tucker slice), `__add__`/`__sub__`
+   (`ut3_add`: block-diagonal TT + concat Tucker/masks, then squash; `x`,`y` may differ in `n`/`r`),
+   `sum_stack` (`ut3_sum_stack`: super-diagonal block merge of the whole stack via three identities, then
+   squash), `inner`/`norm` (frontend orthogonalizes via the slice-2 methods, then a backend mask → squash
+   → `absorb_tucker_into_tt` → scan-zipper; `norm` fast path = ‖last TT core‖). Factored the shared
+   `absorb_tucker_into_tt` in `t3_operations` (now also opens `to_dense`'s chain). Verified vs dense
+   (scale/neg/add/sub ~1e-16; inner/norm both orth paths ~1e-15; sum_stack ~1e-16), unstacked + stacked.
 4. **Sampling** — `entries` (verify), `apply` (dispatch fix), `probe` (verify); full-`sum` via `apply`-ones.
 5. **ut3svd** — mask-truncation sweep; shrink to minimal structural ranks; non-minimal round-trip verify.
 6. **Transposes** — `apply_transpose`/`entries_transpose`; audit + add `d`-folded contractions (oracle-tested).
