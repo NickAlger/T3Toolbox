@@ -25,6 +25,7 @@ import t3toolbox.backend.ut3_masking as ut3_masking
 import t3toolbox.backend.ut3_operations as ut3_operations
 import t3toolbox.backend.ut3_orthogonalization as ut3_orthogonalization
 import t3toolbox.backend.ut3_linalg as ut3_linalg
+import t3toolbox.backend.ut3_sampling as ut3_sampling
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.common as common
 from t3toolbox.backend.common import NDArray
@@ -248,6 +249,28 @@ class UniformTuckerTensorTrain:
             return ut3_linalg.ut3_norm_orthogonalized(xd)
         xnp, _, _ = common.get_backend(True, self.contains_jax)
         return xnp.sqrt(xnp.abs(ut3_linalg.ut3_inner_product(self.data, self.data)))
+
+    # ----------------------------------------------------------------- sampling / evaluation
+    def entries(self, index) -> NDArray:
+        """Entry/entries of the represented tensor. ``index``: int array, ``shape=(d,)+idx_stack``."""
+        return ut3_sampling.ut3_entries(self.data, index)
+
+    def apply(self, vecs) -> NDArray:
+        """Contract with vectors in all modes. ``vecs``: len-d, ith ``elm_shape=vec_stack+(Ni,)``."""
+        return ut3_sampling.ut3_apply(self.data, vecs)
+
+    def probe(self, ww):
+        """Probe: contract all-but-one mode, for each mode. ``ww``: len-d, ith ``elm_shape=W+(Ni,)``."""
+        return ut3_sampling.ut3_probe(ww, self.data)
+
+    def sum(self, axis=None) -> NDArray:
+        """Sum the represented tensor over all physical modes (shape=stack_shape). Partial sums (``axis``
+        given) are deferred -- see docs/uniform_port_plan.md."""
+        if axis is not None:
+            raise NotImplementedError(
+                'Partial sum (axis given) is deferred for UniformTuckerTensorTrain; only the full sum '
+                '(axis=None) is implemented. See docs/uniform_port_plan.md.')
+        return ut3_sampling.ut3_full_sum(self.data)
 
     # ----------------------------------------------------------------- orthogonalization
     # Thin wrappers over the .data-level backend (ut3_orthogonalization): the Tucker-core ops are

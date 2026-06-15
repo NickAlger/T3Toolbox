@@ -192,6 +192,45 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
                     expected = x.to_dense().sum(axis=tuple(range(len(ss))))
                     self.assertLessEqual(relerr(ux.sum_stack().to_dense(), expected), TOL)
 
+    # ---- sampling / evaluation (vs keystone / dense) ----
+    def test_entries(self):
+        for shape, tr, ttr, ss in self._cases():
+            with self.subTest(shape=shape, stack=ss):
+                x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
+                ux = ut3.t3_to_ut3(x)
+                idx = [min(2, N - 1) for N in shape]
+                self.assertLessEqual(relerr(ux.entries(idx), x.entries(idx)), TOL)
+                idxm = [np.array([0, N // 2, N - 1]) for N in shape]
+                self.assertLessEqual(relerr(ux.entries(idxm), x.entries(idxm)), TOL)
+
+    def test_apply_and_probe(self):
+        # use the SAME vectors for uniform and ragged
+        for shape, tr, ttr, ss in self._cases():
+            with self.subTest(shape=shape, stack=ss):
+                x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
+                ux = ut3.t3_to_ut3(x)
+                d = len(shape)
+                for W in ((), (4,)):
+                    vecs = [np.random.randn(*(W + (N,))) for N in shape]
+                    self.assertLessEqual(relerr(ux.apply(vecs), x.apply(vecs)), TOL)
+                    uzz, xzz = ux.probe(vecs), x.probe(vecs)
+                    for i in range(d):
+                        self.assertLessEqual(relerr(uzz[i], xzz[i]), TOL)
+
+    def test_sum_full(self):
+        for shape, tr, ttr, ss in self._cases():
+            with self.subTest(shape=shape, stack=ss):
+                x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
+                ux = ut3.t3_to_ut3(x); xd = x.to_dense()
+                ax = tuple(range(len(ss), xd.ndim))
+                expected = xd.sum(axis=ax) if ss else xd.sum()
+                self.assertLessEqual(relerr(ux.sum(), expected), TOL)
+
+    def test_sum_partial_raises(self):
+        ux = ut3.t3_to_ut3(t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1)))
+        with self.assertRaises(NotImplementedError):
+            ux.sum(axis=0)
+
     # ---- orthogonalization (vs ragged; rank reduction is minimal-for-free) ----
     ORTH_METHODS = ['down_orthogonalize_tucker_cores', 'up_orthogonalize_tt_cores',
                     'left_orthogonalize_tt_cores', 'right_orthogonalize_tt_cores']

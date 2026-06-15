@@ -234,7 +234,13 @@ TRIVIAL = inline one-liner; SWEEP = sequential over `d` (`xscan`/`lax.scan`); BA
    → `absorb_tucker_into_tt` → scan-zipper; `norm` fast path = ‖last TT core‖). Factored the shared
    `absorb_tucker_into_tt` in `t3_operations` (now also opens `to_dense`'s chain). Verified vs dense
    (scale/neg/add/sub ~1e-16; inner/norm both orth paths ~1e-15; sum_stack ~1e-16), unstacked + stacked.
-4. **Sampling** — `entries` (verify), `apply` (dispatch fix), `probe` (verify); full-`sum` via `apply`-ones.
+4. **Sampling — ✅ DONE.** `entries`/`apply`/`probe`/`sum` (full). Backend `ut3_sampling` wrappers
+   re-mask, then call the SHARED `entries`/`apply`/`probing.probe_t3` on the masked supercores (vectors
+   zero-padded to `N`; probe results sliced back to the real shape; `entries` needs no packing). Fixed
+   `apply.tucker_tensor_train_apply`'s hardcoded `is_uniform=False` → `is_ndarray(x[0])` (now a real
+   `lax.scan`, like `entries`). Full `sum` = `apply` with all-ones; partial `sum` raises NotImplementedError
+   (deferred). Verified vs keystone/dense (entries/apply/probe exact; sum ~1e-15), incl. stacked T3s and
+   W-stacked vectors/probes; ragged + jax regression green.
 5. **ut3svd** — mask-truncation sweep; shrink to minimal structural ranks; non-minimal round-trip verify.
 6. **Transposes** — `apply_transpose`/`entries_transpose`; audit + add `d`-folded contractions (oracle-tested).
 7. **jax-wiring** — pytree registration + `test_dispatch` coverage.

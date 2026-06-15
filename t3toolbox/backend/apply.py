@@ -21,13 +21,14 @@ def tucker_tensor_train_apply(
         ],
         vecs: typ.Union[
             typ.Sequence[NDArray],  # len=d, elm_shape=vsw+(Ni,), ragged
-            NDArray, # shape=(d,) + vsw +(Ni,), uniform (NOT IMPLEMENTED YET)
+            NDArray, # shape=(d,) + vsw +(Ni,), uniform
         ],
 ) -> NDArray:
     '''Contract a Tucker tensor train with vectors in all indices.
     '''
     use_jax = tree_contains_jax((x, vecs))
-    xnp, _, xscan = get_backend(False, use_jax)
+    is_uniform = is_ndarray(x[0])  # supercore -> real lax.scan over the mode axis (like entries)
+    xnp, _, xscan = get_backend(is_uniform, use_jax)
 
     #
     tucker_cores, tt_cores = x
