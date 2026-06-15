@@ -63,7 +63,17 @@ updated to this version by the time the package is released.
 **Three representations** (the organizing principle):
 - **ragged** — tuples of variably-shaped arrays. The default, fully working path.
 - **uniform** — one stacked supercore array + masks (`ut3_*`, `ubv_*`, `uniform_*`); for
-  `jax.lax.scan` vectorization. **Currently broken / deferred.**
+  `jax.lax.scan` vectorization. **`UniformTuckerTensorTrain` is being repaired/redesigned now**
+  (uniform basis/variations/tangents still deferred). **Before touching uniform code, read the four
+  design notes**: [`docs/uniform_ranks_and_varieties.md`](docs/uniform_ranks_and_varieties.md) (a
+  stacked uniform T3 is a batch in the bounded-rank **determinantal variety** — ranks may vary per
+  stack element, shape is fixed), [`docs/uniform_supercore_layout.md`](docs/uniform_supercore_layout.md)
+  (core index `d` **leads**: `(d,)+stack_shape+(...)`, for `lax.scan` + locality),
+  [`docs/uniform_masks_vs_ranks.md`](docs/uniform_masks_vs_ranks.md) (rank metadata is **boolean
+  masks**, not integer ranks — closed under add=concat / multiply=Kronecker with no data movement), and
+  [`docs/uniform_pytree_composition.md`](docs/uniform_pytree_composition.md) (`UT3 = tucker_supercore +
+  tt_supercore + masks`-holder; the holder is an `eq=False` identity-hashed static `aux_data`, the
+  `T3Basis`↔`T3Tangent` pattern).
 - **weighted** — cores + edge-weight vectors (`wt3_*`, `weighted_*`); weights "absorbed" into cores.
   Tangent weighting (`absorb_weights_into_tangent_cores`) is **parked** in `backend/bv_operations.py`
   pending a redesign of weighted tensor networks.
@@ -292,8 +302,14 @@ Treat everything else as copied-in-and-not-yet-working until checked.
   projections need orthogonality only; `inner`/`norm` Hilbert-Schmidt faithfulness needs orthogonal
   + minimal + gauged; `retract` preserves base ranks only on a minimal base; `project` works on any
   orthogonal base.
-- Repair the **uniform layer** (fix `ut3_*`/`ubv_*` imports, then add supercore variants of the
-  tangent ops).
+- Repair the **uniform layer** — **in progress**: `UniformTuckerTensorTrain` (the analog of
+  `TuckerTensorTrain`) is being rebuilt function-by-function, hybrid backend (share where polymorphism
+  "just works", rewrite where there's a real structural/perf difference). Design decisions are in the
+  four `docs/uniform_*.md` notes (see the **uniform** bullet under Architecture). Mechanical debt to
+  clear as we go: `ut3_*` backend still has stale `t3toolbox.backend.{uniform_tucker_tensor_train,
+  tucker_tensor_train}.*` subpackage imports to flatten, and the old `use_jax`-threading to migrate to
+  input-inference. Uniform basis/variations/tangents (`ubv_*`, `uniform_*`) and their supercore tangent
+  ops remain deferred.
 - Redesign the **weighted tensor network** code structure.
 - Cleanup backlog: remove the `common.py` debug prints; `OLD_*.py` + stray `.npz` artifacts; wire
   doctests into CI; docs (`conf.py` autoapi excludes backend/weighted, committed `_build`,
