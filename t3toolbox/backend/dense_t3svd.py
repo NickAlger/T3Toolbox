@@ -62,20 +62,48 @@ def tucker_svd_dense(
 
     Examples
     --------
+    No truncation -- a lossless Tucker decomposition. The factors reconstruct ``T``, and
+    ``bases[ii].shape = (ni, Ni)`` (the small rank ``ni`` first), one singular-value vector per mode:
+
     >>> import numpy as np
-    >>> import t3toolbox.common as common
-    >>> import t3toolbox.t3svd as t3svd
-    >>> T0 = np.random.randn(40, 50, 60)
-    >>> c0 = 1.0 / np.arange(1, 41)**2
-    >>> c1 = 1.0 / np.arange(1, 51)**2
-    >>> c2 = 1.0 / np.arange(1, 61)**2
-    >>> T = np.einsum('ijk,i,j,k->ijk', T0, c0, c1, c2) # Preconditioned random tensor
-    >>> (bases, core), ss = t3svd.tucker_svd_dense(T, rtol=1e-3) # Truncate Tucker SVD to reduce rank
-    >>> print(core.shape)
-    (9, 9, 9)
-    >>> T2 = np.einsum('abc, ai,bj,ck->ijk', core, bases[0], bases[1], bases[2])
-    >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-3
-    0.002418671417862558
+    >>> import t3toolbox.backend.dense_t3svd as dt3svd
+    >>> np.random.seed(0)
+    >>> T = np.random.randn(5, 6, 7)
+    >>> (bases, core), ss = dt3svd.tucker_svd_dense(T)
+    >>> print(core.shape, [B.shape for B in bases])
+    (5, 6, 7) [(5, 5), (6, 6), (7, 7)]
+    >>> T2 = np.einsum('abc,ai,bj,ck->ijk', core, bases[0], bases[1], bases[2])
+    >>> print(np.allclose(T, T2))                          # exact reconstruction
+    True
+
+    The mode-``i`` singular values ARE the singular values of the mode-``i`` matricization (shown for
+    mode 0; the other modes are analogous):
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.dense_t3svd as dt3svd
+    >>> np.random.seed(0)
+    >>> T = np.random.randn(5, 6, 7)
+    >>> _, ss = dt3svd.tucker_svd_dense(T)
+    >>> dense_svals = np.linalg.svd(T.reshape(5, 6 * 7), compute_uv=False)   # mode-0 matricization
+    >>> print(np.allclose(ss[0], dense_svals[:len(ss[0])]))
+    True
+
+    Truncation -- a smooth tensor has gradually decaying matricization spectra, so ``rtol`` truncates
+    meaningfully (a sharp random spectrum would not):
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.dense_t3svd as dt3svd
+    >>> i, j, k = np.ogrid[1:9, 1:9, 1:9]
+    >>> T = 1.0 / (i + j + k)                              # graded-spectrum tensor
+    >>> (bases_f, _), ss_full = dt3svd.tucker_svd_dense(T)         # full (untruncated) spectra
+    >>> (bases, core), _ = dt3svd.tucker_svd_dense(T, rtol=1e-3)   # truncate at rtol
+    >>> print(tuple(B.shape[0] for B in bases_f), '->', tuple(B.shape[0] for B in bases))
+    (8, 8, 8) -> (3, 3, 3)
+    >>> T2 = np.einsum('abc,ai,bj,ck->ijk', core, bases[0], bases[1], bases[2])
+    >>> ranks = tuple(B.shape[0] for B in bases)
+    >>> dropped_sq = sum(float(np.sum(s[r:]**2)) for s, r in zip(ss_full, ranks))
+    >>> print(bool(np.linalg.norm(T - T2) <= np.sqrt(dropped_sq)))  # accuracy bound [Oseledets]
+    True
     '''
     bases = []
     singular_values_of_matricizations = []
@@ -144,19 +172,51 @@ def ttsvd_dense(
 
     Examples
     --------
+    No truncation -- a lossless TT decomposition. The cores reconstruct ``T``; there are ``d`` cores
+    and ``d+1`` singular-value vectors (the two boundary entries are both just ``||T||``):
+
     >>> import numpy as np
-    >>> import t3toolbox.t3svd as t3svd
-    >>> T0 = np.random.randn(40, 50, 60)
-    >>> c0 = 1.0 / np.arange(1, 41)**2
-    >>> c1 = 1.0 / np.arange(1, 51)**2
-    >>> c2 = 1.0 / np.arange(1, 61)**2
-    >>> T = np.einsum('ijk,i,j,k->ijk', T0, c0, c1, c2) # Preconditioned random tensor
-    >>> cores, ss = t3svd.tt_svd_dense(T, rtol=1e-3) # Truncate TT-SVD to reduce rank
-    >>> print([G.shape for G in cores])
-    [(1, 40, 13), (13, 50, 13), (13, 60, 1)]
+    >>> import t3toolbox.backend.dense_t3svd as dt3svd
+    >>> np.random.seed(0)
+    >>> T = np.random.randn(5, 6, 7)
+    >>> cores, ss = dt3svd.ttsvd_dense(T)
+    >>> print([G.shape for G in cores])               # cores[i].shape = (ri, ni, r(i+1))
+    [(1, 5, 5), (5, 6, 7), (7, 7, 1)]
     >>> T2 = np.einsum('aib,bjc,ckd->ijk', cores[0], cores[1], cores[2])
-    >>> print(np.linalg.norm(T - T2) / np.linalg.norm(T)) # should be slightly more than rtol=1e-3
-    0.0023999063535883633
+    >>> print(np.allclose(T, T2))                     # exact reconstruction
+    True
+    >>> print(len(ss), np.allclose(ss[0], np.linalg.norm(T)), np.allclose(ss[-1], np.linalg.norm(T)))
+    4 True True
+
+    The internal singular values ARE the singular values of the matrix unfoldings (shown for the first
+    unfolding; the others are analogous):
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.dense_t3svd as dt3svd
+    >>> np.random.seed(0)
+    >>> T = np.random.randn(5, 6, 7)
+    >>> _, ss = dt3svd.ttsvd_dense(T)
+    >>> dense_svals = np.linalg.svd(T.reshape(5, 6 * 7), compute_uv=False)   # first unfolding
+    >>> print(np.allclose(ss[1], dense_svals[:len(ss[1])]))
+    True
+
+    Truncation -- a smooth tensor has gradually decaying unfolding spectra, so ``rtol`` truncates
+    meaningfully (a sharp random spectrum would not):
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.dense_t3svd as dt3svd
+    >>> i, j, k = np.ogrid[1:9, 1:9, 1:9]
+    >>> T = 1.0 / (i + j + k)                          # graded-spectrum tensor
+    >>> cores_f, ss_full = dt3svd.ttsvd_dense(T)           # full (untruncated) spectra
+    >>> cores, ss = dt3svd.ttsvd_dense(T, rtol=1e-3)       # truncate at rtol
+    >>> full_ranks = tuple(G.shape[0] for G in cores_f) + (1,)
+    >>> tt_ranks = tuple(G.shape[0] for G in cores) + (1,)
+    >>> print(full_ranks, '->', tt_ranks)
+    (1, 8, 8, 1) -> (1, 3, 3, 1)
+    >>> T2 = np.einsum('aib,bjc,ckd->ijk', cores[0], cores[1], cores[2])
+    >>> dropped_sq = sum(float(np.sum(s[r:]**2)) for s, r in zip(ss_full[1:-1], tt_ranks[1:-1]))
+    >>> print(bool(np.linalg.norm(T - T2) <= np.sqrt(dropped_sq)))  # accuracy bound [Oseledets]
+    True
     '''
     use_jax = common.is_jax_ndarray(T)
     xnp, xmap, xscan = common.get_backend(False, use_jax)
@@ -208,14 +268,71 @@ def t3svd_dense(
 
     Examples
     --------
+    No truncation -- a lossless T3 (Tucker + tensor-train) decomposition. Each Tucker basis ``B`` is
+    contracted into its TT core ``G`` to rebuild the dense tensor:
+
     >>> import numpy as np
-    >>> import t3toolbox.backend.tucker_tensor_train.dense_t3svd as dt3svd
-    >>> T = np.random.randn(2,3, 10,11,12)
-    >>> (BB, GG), ss_tucker, ss_tt = dt3svd.t3svd_dense(T, stack_shape=(2,3))
-    >>> GG_big = [np.einsum('...io,...aib->...aob', B, G) for B, G in zip(BB, GG)]
+    >>> import t3toolbox.backend.dense_t3svd as dt3svd
+    >>> np.random.seed(0)
+    >>> T = np.random.randn(5, 6, 7)
+    >>> (tucker_cores, tt_cores), ss_tucker, ss_tt = dt3svd.t3svd_dense(T)
+    >>> print([B.shape for B in tucker_cores], [G.shape for G in tt_cores])
+    [(5, 5), (6, 6), (7, 7)] [(1, 5, 5), (5, 6, 7), (7, 7, 1)]
+    >>> GG_big = [np.einsum('io,aib->aob', B, G) for B, G in zip(tucker_cores, tt_cores)]
+    >>> T2 = np.einsum('aib,bjc,ckd->ijk', *GG_big)
+    >>> print(np.allclose(T, T2))                      # exact reconstruction
+    True
+    >>> print(len(ss_tucker), len(ss_tt))              # d Tucker spectra, d+1 TT spectra
+    3 4
+
+    Stacked -- a leading ``stack_shape`` rides along on every core; the decomposition is vectorized
+    over the stack:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.dense_t3svd as dt3svd
+    >>> np.random.seed(0)
+    >>> T = np.random.randn(2, 3, 5, 6, 7)
+    >>> (tucker_cores, tt_cores), _, _ = dt3svd.t3svd_dense(T, stack_shape=(2, 3))
+    >>> print([B.shape for B in tucker_cores])         # stack_shape=(2,3) prefixes each core
+    [(2, 3, 5, 5), (2, 3, 6, 6), (2, 3, 7, 7)]
+    >>> GG_big = [np.einsum('...io,...aib->...aob', B, G) for B, G in zip(tucker_cores, tt_cores)]
     >>> T2 = np.einsum('...aib,...bjc,...ckd->...ijk', *GG_big)
-    >>> print(np.linalg.norm(T2 - T))
-    3.4057168472825226e-13
+    >>> print(np.allclose(T, T2))
+    True
+
+    Truncation -- a smooth tensor has gradually decaying spectra, so ``rtol`` truncates meaningfully
+    (a sharp random spectrum would not):
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.dense_t3svd as dt3svd
+    >>> i, j, k = np.ogrid[1:9, 1:9, 1:9]
+    >>> T = 1.0 / (i + j + k)                          # graded-spectrum tensor
+    >>> (tk_f, tt_f), ss_tk_full, ss_tt_full = dt3svd.t3svd_dense(T)        # full spectra
+    >>> (tk, tt), _, _ = dt3svd.t3svd_dense(T, rtol=1e-3)                   # truncate at rtol
+    >>> tucker_ranks = tuple(B.shape[0] for B in tk)
+    >>> tt_ranks = tuple(G.shape[0] for G in tt) + (1,)
+    >>> print(tuple(B.shape[0] for B in tk_f), '->', tucker_ranks)         # Tucker ranks drop
+    (8, 8, 8) -> (3, 3, 3)
+    >>> print(tuple(G.shape[0] for G in tt_f) + (1,), '->', tt_ranks)      # TT ranks drop
+    (1, 8, 8, 1) -> (1, 3, 3, 1)
+    >>> GG_big = [np.einsum('io,aib->aob', B, G) for B, G in zip(tk, tt)]
+    >>> T2 = np.einsum('aib,bjc,ckd->ijk', *GG_big)
+    >>> dropped_sq = (sum(float(np.sum(s[r:]**2)) for s, r in zip(ss_tt_full, tt_ranks))
+    ...             + sum(float(np.sum(s[r:]**2)) for s, r in zip(ss_tk_full, tucker_ranks)))
+    >>> print(bool(np.linalg.norm(T - T2) <= np.sqrt(dropped_sq)))  # accuracy bound [Oseledets]
+    True
+
+    Tolerances need a single (unstacked) tensor -- ``rtol``/``atol`` with a non-empty ``stack_shape``
+    raise, since different slices could truncate to different ranks (use ``max_*_ranks`` instead):
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.dense_t3svd as dt3svd
+    >>> np.random.seed(0)
+    >>> T = np.random.randn(2, 3, 5, 6, 7)
+    >>> dt3svd.t3svd_dense(T, stack_shape=(2, 3), rtol=1e-3)   # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+        ...
+    ValueError
     '''
     use_jax = common.is_jax_ndarray(T)
     xnp, xmap, xscan = common.get_backend(False, use_jax)
