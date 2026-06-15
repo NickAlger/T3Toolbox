@@ -135,12 +135,54 @@ TRIVIAL = inline one-liner; SWEEP = sequential over `d` (`xscan`/`lax.scan`); BA
   by round-trip vs `t3.t3svd(max_ranks)`. The T3-specific wrinkle (Tucker rank shifts as a side-effect of
   TT-rank reduction — absent in pure TT-SVD) is expected.
 
+## entries / apply / probe (+ transposes) ✅
+
+- **`entries`** — SHARE (done): `entries.tucker_tensor_train_entries` already dispatches
+  `is_uniform = is_ndarray(x[0])`. Frontend re-masks; round-trip test.
+- **`apply`** — SHARE after a one-liner: `apply.tucker_tensor_train_apply` hardcodes
+  `get_backend(False, …)` ("uniform NOT IMPLEMENTED YET"); change to `is_uniform = is_ndarray(x[0])`
+  like `entries`.
+- **`probe`** — SHARE + verify: `probing.probe_t3` already has `is_uniform` branches (einsum-over-`d`
+  for uniform). Verify the uniform path by round-trip; repair imports/`use_jax`.
+- **Transposes** (`apply_transpose` / `entries_transpose`) — IN SCOPE (core feature, not deferred).
+  REWRITE the assembly to build a uniform supercore (+ masks), vectorized over `d`. Needs new
+  **`d`-folded named contractions** (the outer-product builders have no `d`-sibling; only 3 `d`-variants
+  exist today) — audit each transpose against its active block pattern and add the missing ones,
+  oracle-tested in `tests/backend/test_contractions.py`. `probe_transpose` is tangent → deferred.
+- **Contraction naming = batch-group type signature** (library-wide; add to `batching_and_stacking.md`):
+  every call site uses a named contraction matching its active groups. If a fewer-group contraction
+  subsumes it via a **shared aligned prefix** that flattens in, add the full-group name that
+  **delegates** (reshape → call → reshape) and call that. A group on **some operands only** (e.g. `d`
+  on cores but not probes) is a genuine new implementation. Both get a name + a test (delegating ones:
+  thin/transitive).
+
+## stack / unstack ✅ — SHARE generic machinery + thin uniform wrapper
+
+- `stacking.py` (`stack`/`unstack`/`apply_func_to_leaf_subtrees`/`get_first_leaf`/`tree_zip`) is already
+  generic (takes `axes`) → SHARE. `ut3_stack`/`ut3_unstack` are thin uniform wrappers handling
+  (1) the `d`-leading axis offset (`axes = range(1, 1+len(stack))`); (2) `shape_mask` is shared (no
+  stack) — replicated onto each leaf on unstack, must-match across leaves on stack.
+- Backend works on the raw 5-tuple; frontend reconstructs the `UT3Masks` holder per leaf.
+- Variety-OK: leaves share padded `n,r` with per-leaf rank masks; `stack` requires matching padded `n,r`.
+- Repair: imports/`use_jax`, holder reconstruction. Test: round-trip + per-leaf vs `t3_to_ut3(x.unstack()[i])`.
+
+## constructors + IO ✅
+
+- **`zeros` / `ones` / `randn`** — REWRITE, uniform-specific, pure constructors (keep `use_jax`). Build
+  supercores + masks directly (derive padded `n=max(tucker_ranks)`, `r=max(tt_ranks)`, `N=max(shape)`),
+  apply masks. `tucker_ranks`/`tt_ranks` may be **per-stack-element arrays** (variety / rank batches),
+  which direct construction handles and a ragged round-trip cannot.
+- **`from_canonical` / `from_tensor_train` / `to_tensor_train`** — reuse the verified **ragged** ops via
+  round-trip (`t3_from_canonical` etc. ∘ `t3_to_ut3` / `ut3_to_t3`); one-time, not perf-critical, ranks
+  uniform so the round-trip is faithful.
+- **`save` / `load`** — SHARE `common.save_core_families` / `load_core_families` on the 5 arrays
+  (2 supercores + 3 masks); thin uniform wrapper; `load` keeps `use_jax`.
+- **`to_vector` / `from_vector`** — **DROPPED** (see Deferred): uniform `to_vector` (real entries) just
+  equals ragged `to_vector`, and both optimization paths bypass it.
+
 ## Pending ⬜
 
-- ⬜ **entries / apply / probe** (+ transposes?) — next.
-- ⬜ **stack / unstack**
-- ⬜ **constructors** (zeros/ones/randn; from_canonical/from_tensor_train; from_vector/to_vector) **+ IO** (save/load)
-- ⬜ **frontend class assembly** (methods, properties, validate, repr, copy, to_jax/to_numpy) + tests/doctests
+- ⬜ **frontend class assembly** (methods, properties, validate, repr, copy, to_jax/to_numpy) + tests/doctests — next.
 - ⬜ **jax-wiring** (pytree registration: identity-hashed mask holder; resolve aux hashability)
 
 ## Deferred (return later — wanted)
@@ -149,3 +191,7 @@ TRIVIAL = inline one-liner; SWEEP = sequential over `d` (`xscan`/`lax.scan`); BA
   contract the summed Tucker cores with `ones`, fold the resulting bond-matrices into neighbors, and
   rebuild a smaller (`d' < d`) supercore + masks — a sweep that re-shapes. Self-contained; addable
   later without touching the rest of the layer. (Full-sum is already covered via `apply`-ones.)
+- **`to_vector` / `from_vector` (intentionally omitted, not just deferred)** — uniform-native
+  optimization uses the pytree directly (a jax optimizer on the supercores; padding has zero gradient,
+  stays inert); flat-vector / scipy interop goes through ragged (`ut3_to_t3` → `TuckerTensorTrain.to_vector`).
+  Self-contained; add later (real entries, masks passed separately) only if a concrete need surfaces.

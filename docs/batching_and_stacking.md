@@ -252,6 +252,18 @@ map-over-`K` was reversed — see §7.)
 **Decision rule:** if your two batches are on the *same* operands → `'...'`. If they are on *different*
 operand subsets and must remain independent → a grouped-block contraction.
 
+**Naming as documentation — delegate, don't silently reuse.** The contraction's *name* is its
+batch-group type signature: a reader at the call site sees exactly which blocks (`W`/`C`/`K`/`d`…) are
+live, the same role the shape-comments play for arrays. So even when a fewer-group contraction would
+*silently* handle a case — because the extra group is a **shared, aligned prefix on all operands** that
+just flattens into an existing flat block (e.g. `Xi_Xj_to_Xij` already computes `XYi_XYj_to_XYij`, with
+`Y` riding along) — add the full-group name (`XYi_XYj_to_XYij`) and have it **delegate** (reshape the
+extra group into the block, call the simpler function, reshape back), then call the full-group name. A
+group that lives on only *some* operands (e.g. the mode index `d` on the cores but not the shared probe
+vectors) **cannot** ride free → it is a genuine new contraction, not a delegating wrapper. Both get a
+name; only the implementation differs. (Delegating wrappers are covered by the base's oracle test plus a
+thin smoke test; genuine ones get their own dense/loop-oracle test.)
+
 ---
 
 ## 5. Heterogeneous-but-broadcastable tuples, and the backend/frontend split
