@@ -63,6 +63,14 @@ minimal ranks); it ignores whatever pattern the input mask had. So:
 The prefix is the *canonical form*; the general mask is the *working form*; the only op that requires the
 canonical form is the one that produces it. There is no global prefix invariant to maintain.
 
+**One asymmetry between the two mask kinds, worth stating:** `shape_mask` never goes gappy — the physical
+shape is invariant under `+`/`×` — so it stays prefix, which is exactly what lets `to_dense` take a
+*static* prefix-slice on the physical axes. The **edge (rank) masks** are the ones that go gappy. So a
+gappy mask is fine for *masking-to-zero inside a contraction* (any pattern works), but *extracting a
+dense real sub-block* through it (e.g. `ut3_to_t3`) is a gather/`argwhere`, not a slice — or you
+re-canonicalize via `ut3svd` first. (The integer-rank alternative would pay that same gather on *every*
+`+`/`×`; masks pay it only where a compacted block is actually demanded.)
+
 ## Honest pros and cons
 
 **Boolean masks (a):**

@@ -224,7 +224,38 @@ Deferred (wanted): partial `sum`; `to_vector`/`from_vector` (intentionally omitt
   contract the summed Tucker cores with `ones`, fold the resulting bond-matrices into neighbors, and
   rebuild a smaller (`d' < d`) supercore + masks — a sweep that re-shapes. Self-contained; addable
   later without touching the rest of the layer. (Full-sum is already covered via `apply`-ones.)
-- **`to_vector` / `from_vector` (intentionally omitted, not just deferred)** — uniform-native
-  optimization uses the pytree directly (a jax optimizer on the supercores; padding has zero gradient,
-  stays inert); flat-vector / scipy interop goes through ragged (`ut3_to_t3` → `TuckerTensorTrain.to_vector`).
-  Self-contained; add later (real entries, masks passed separately) only if a concrete need surfaces.
+- **`to_vector` / `from_vector`** — the **ragged-signature** version is **permanently ruled out** (not
+  merely deferred). Decisive reason: a **varying-rank stack has no single flat-vector reconstruction
+  signature** — the ragged `from_vector(vec, shape, ranks)` contract cannot encode per-element ranks; and
+  for a uniform-rank stack the real-entries vector is *identical* to ragged's anyway. Both interop paths
+  bypass it: JAX-native optimization operates on the **pytree directly** (supercores = differentiable
+  children; padding has zero gradient and stays inert); flat-vector/scipy interop routes through ragged —
+  `ut3_to_t3` → `TuckerTensorTrain.to_vector` — clean **only for a uniform-rank stack** (a varying-rank
+  `ut3_to_t3` returns a *tree*: pick one stratum first, and flat-vector optimization across strata is
+  ill-posed regardless). If a concrete need surfaces it would be a **new, distinct, mask-carrying method**
+  (real entries + masks passed separately), never the ragged `to_vector` contract.
+- **Property checkers — placement.** `has_minimal_ranks` belongs on `UniformTuckerTensorTrain` (a
+  structural-rank property, mirroring the keystone). `is_orthogonal`/`is_gauged` are *frame* properties of
+  the deferred uniform **basis** layer (`UT3Basis`), **not** of plain UT3. When built, all property
+  checkers follow the equivalence-contract behavior: evaluate on the **real (masked) sub-blocks**, **per
+  stack element at the realized rank** (`mask.sum(-1)`), and **report a bool, never raise** (numerical
+  property → non-enforcing, per the structural-vs-numerical guard).
+- **`t3m` (uniform — future op).** Derives cleanly from the principles (validated): batched multiply
+  (fold `d` into `t3_mult`'s einsums), **masks combine by Kronecker** (the ⊗ side of the mask algebra —
+  `ut3_add` is the ⊕/concat side; the Kronecker-mask helper is currently unwritten), truncation by
+  max-rank masks via `uniform_t3_svd` (no `rtol`/`atol`; per-stack-element caps OK), shrinking to minimal
+  structural ranks. **OPEN QUESTION (undecided):** expose only the `form_then_round` path, or also a
+  max-rank `inplace_fused` sweep? A fused sweep avoids materializing the full product (a real memory win
+  for large `d`), *independent* of `rtol` — so "one path only" is simplest-correct but not provably best.
+  Decide when `t3m` is implemented.
+
+---
+
+## Validation (docs stress-tested)
+
+These notes were validated by 5 fresh **context-free** agents (no access to the design conversation),
+each posed one design question neutrally: variety/ranks, masks-vs-integer-ranks, `to_vector` keep/drop,
+and two **generalization** tests on un-walked ops (`is_orthogonal`, `t3m`). **All five reached the
+documented decisions** — the two generalization ops were *derived* from the principles — confirming the
+notes stand on their own. The precision/scope fixes they suggested are folded in above; the one genuinely
+*undecided* point they surfaced is the `t3m` `method=` question (see Deferred).

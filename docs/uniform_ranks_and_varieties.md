@@ -66,6 +66,11 @@ So shape consistency is a **structural invariant** (a hard error if violated), w
 just a different point of the same variety. The asymmetry is the right one: same ambient space,
 different models inside it.
 
+(One nuance, since "shape fixed" is easy to misread: it means fixed *across the stack*. Shape still
+varies *across modes* — `N₀,…,N_{d-1}` differ — which the supercore handles by padding each mode to
+`N=max(Nᵢ)` plus `shape_mask`. That cross-*mode* padding is a separate axis from the cross-*stack*
+invariant; only the latter is the structural hard error.)
+
 ## Relationship to ragged `TuckerTensorTrain`, and the one real cost
 
 A ragged stacked `TuckerTensorTrain` *physically cannot* carry varying ranks — its cores are
