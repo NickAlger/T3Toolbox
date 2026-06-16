@@ -17,7 +17,47 @@ __all__ = [
     'down_svd_tucker_core',
     'left_svd_tt_core',
     'right_svd_tt_core',
+    't3_orthogonality_residual',
 ]
+
+
+def t3_orthogonality_residual(
+        x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
+        side: str,  # 'left' or 'right'
+) -> float:  # max abs deviation of the relevant cores from orthonormality (0 == exactly orthogonal)
+    '''Non-enforcing check of T3 *left/right-orthogonal form*: Tucker cores down-orthogonal AND TT
+    cores left- (``side='left'``) or right- (``side='right'``) orthogonal.
+
+    Returns the max-abs deviation from the identity over (each stacked block of):
+        - Tucker B_i, all i:                 ``einsum('...io,...jo->...ij', B, B) = I``
+        - TT G_i, left  (i = 0..d-2):        ``einsum('...aib,...aic->...bc', G, G) = I``
+        - TT G_i, right (i = 1..d-1):        ``einsum('...aib,...cib->...ac', G, G) = I``
+    The boundary TT core (last for left, first for right) is the center remainder and is not checked.
+    This is the form :py:func:`left_orthogonalize_t3` / :py:func:`right_orthogonalize_t3` produce and
+    the form ``t3svd(..., assume_orthogonal=...)`` may assume.
+    '''
+    side = side.lower()
+    tucker_cores, tt_cores = x
+    use_jax = tree_contains_jax(x)
+    xnp, _, _ = get_backend(False, use_jax)
+
+    resid = 0.0
+    for B in tucker_cores:
+        M = xnp.einsum('...io,...jo->...ij', B, B)
+        resid = max(resid, float(xnp.max(xnp.abs(M - xnp.eye(B.shape[-2])))))
+
+    if side == 'left':
+        for G in tt_cores[:-1]:
+            M = xnp.einsum('...aib,...aic->...bc', G, G)
+            resid = max(resid, float(xnp.max(xnp.abs(M - xnp.eye(G.shape[-1])))))
+    elif side == 'right':
+        for G in tt_cores[1:]:
+            M = xnp.einsum('...aib,...cib->...ac', G, G)
+            resid = max(resid, float(xnp.max(xnp.abs(M - xnp.eye(G.shape[-3])))))
+    else:
+        raise ValueError("side must be 'left' or 'right'; got %r" % (side,))
+
+    return resid
 
 
 def left_orthogonalize_t3(

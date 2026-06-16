@@ -80,6 +80,8 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a, i: a.entries(i), self.x, idx)
         self.assert_jit_jax(  # t3svd with FIXED ranks -> static shapes -> jit-able
             lambda a: a.t3svd(max_tucker_ranks=(2, 2, 2), max_tt_ranks=(1, 2, 2, 1)), self.x)
+        self.assert_jit_jax(  # assume_orthogonal='left' -> reverse + recurse path (static branch)
+            lambda a: a.t3svd(max_tt_ranks=(1, 2, 2, 1), assume_orthogonal='left'), self.x)
         # t3m methods with FIXED max-ranks -> static shapes -> jit-able (rtol/atol stay eager)
         for mth in ('form_then_round', 'inplace_fused', 'swap'):
             self.assert_jit_jax(

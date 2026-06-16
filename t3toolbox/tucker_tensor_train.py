@@ -689,6 +689,40 @@ class TuckerTensorTrain:
         """
         return (self.tucker_ranks, self.tt_ranks) == self.minimal_ranks
 
+    def is_left_orthogonal(self, atol: float = 1e-9) -> bool:
+        """True if this T3 is in **left-orthogonal form**: every Tucker core down-orthogonal and every
+        TT core except the last left-orthogonal (the last TT core is the center remainder).
+
+        Non-enforcing convenience checker (max-abs deviation from the identities ``<= atol``; see
+        :py:func:`~t3toolbox.backend.t3_orthogonalization.t3_orthogonality_residual`). A
+        :py:meth:`t3svd` result is left-orthogonal. Use this to verify before asserting
+        ``t3svd(..., assume_orthogonal='left')``, which is **not** checked.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (5, 6, 7), (1, 4, 3, 1))
+        >>> print(x.is_left_orthogonal())     # a random T3 is not in any orthogonal form
+        False
+        >>> x2, _, _ = x.t3svd()              # a t3svd result is left-orthogonal
+        >>> print(x2.is_left_orthogonal())
+        True
+        >>> print(x2.is_right_orthogonal())   # ...but not right-orthogonal
+        False
+        """
+        return bool(ragged_orthogonalization.t3_orthogonality_residual(self.data, 'left') <= atol)
+
+    def is_right_orthogonal(self, atol: float = 1e-9) -> bool:
+        """True if this T3 is in **right-orthogonal form**: every Tucker core down-orthogonal and every
+        TT core except the first right-orthogonal (the first TT core is the center remainder).
+
+        Non-enforcing convenience checker (see :py:meth:`is_left_orthogonal`). Use this to verify before
+        asserting ``t3svd(..., assume_orthogonal='right')``, which is **not** checked.
+        """
+        return bool(ragged_orthogonalization.t3_orthogonality_residual(self.data, 'right') <= atol)
+
     def validate(self):
         """Check internal consistency of the Tucker tensor train.
         """
@@ -3478,6 +3512,7 @@ class TuckerTensorTrain:
             rtol: float = None,
             atol: float = None,
             minimize_ranks: bool = True,
+            assume_orthogonal: str = None,
     ) -> Tuple[
         'TuckerTensorTrain', # new_x
         Tuple[NDArray,...],  # Tucker singular values, len=d
@@ -3518,6 +3553,18 @@ class TuckerTensorTrain:
             is yours, since non-minimal ranks otherwise cost more in every downstream op (storage,
             contraction) and break the minimal-rank precondition of :py:meth:`inner`/:py:meth:`norm` and
             some manifold operations. Default: ``True``.
+        assume_orthogonal: str, optional
+            ``None`` / ``'left'`` / ``'right'`` (case-insensitive; ``'l'`` / ``'r'`` accepted). Skip the
+            initial orthogonalization sweep when the input is already in **left/right-orthogonal form**
+            (every Tucker core down-orthogonal **and** every TT core left/right-orthogonal -- e.g. a
+            prior :py:meth:`t3svd` result is left-orthogonal; a
+            :py:class:`~t3toolbox.basis_variations_format.T3Basis` is orthogonal). ``None`` (default)
+            always orthogonalizes (safe). ``'right'`` skips it; the result matches ``None``. ``'left'``
+            reverses to a right-orthogonal T3, sweeps, and reverses back -- cheap rank-sized TT
+            transposes, no SVD sweep -- but then truncates **right-to-left**: an equally-valid but
+            generally different result from ``None`` (identical when not truncating), returned
+            right-orthogonal. **Not enforced** -- a wrong assertion silently corrupts the result; verify
+            first with :py:meth:`is_left_orthogonal` / :py:meth:`is_right_orthogonal`. Default: ``None``.
 
         Returns
         -------
@@ -3652,6 +3699,29 @@ class TuckerTensorTrain:
         (3, 4, 2) (1, 2, 2, 1)
         >>> print(np.allclose(x3.to_dense(), x2.to_dense()))   # ...but the represented tensor is identical
         True
+
+        ``assume_orthogonal`` skips the initial orthogonalization when the input is already in
+        left/right-orthogonal form. A ``t3svd`` result is left-orthogonal, so re-truncating it can skip
+        the sweep (verify with :py:meth:`is_left_orthogonal` first -- it is not checked):
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (5, 6, 7), (1, 4, 3, 1))
+        >>> xo, _, _ = x.t3svd()                              # a t3svd result is left-orthogonal
+        >>> print(xo.is_left_orthogonal())
+        True
+        >>> xt, _, _ = xo.t3svd(assume_orthogonal='left')     # no truncation -> skip the sweep, exact
+        >>> print(np.allclose(xt.to_dense(), xo.to_dense()))
+        True
+
+        Under truncation, ``'left'`` sweeps right-to-left, an equally-valid but generally different
+        result from the default left-to-right (both minimal, both within the error bound):
+
+        >>> a, _, _ = xo.t3svd(max_tt_ranks=2, assume_orthogonal='left')   # right-to-left
+        >>> b, _, _ = xo.t3svd(max_tt_ranks=2)                             # default left-to-right
+        >>> print(np.allclose(a.to_dense(), b.to_dense()), a.has_minimal_ranks)
+        False True
         '''
         if len(self.stack_shape) > 0 and ((rtol is not None) or (atol is not None)):
             raise ValueError(
@@ -3664,6 +3734,7 @@ class TuckerTensorTrain:
             self.data,
             max_tt_ranks=max_tt_ranks, max_tucker_ranks=max_tucker_ranks,
             rtol=rtol, atol=atol, minimize_ranks=minimize_ranks,
+            assume_orthogonal=assume_orthogonal,
         )
         return TuckerTensorTrain(*result[0]), result[1], result[2]
 

@@ -16,6 +16,19 @@ __all__ = [
     't3svd',
 ]
 
+
+def _normalize_assume_orthogonal(spec):  # None | 'left'/'l' | 'right'/'r' (any case) -> None|'left'|'right'
+    if spec is None:
+        return None
+    s = str(spec).strip().lower()
+    if s in ('l', 'left'):
+        return 'left'
+    if s in ('r', 'right'):
+        return 'right'
+    raise ValueError(
+        "assume_orthogonal must be None, 'left'/'l', or 'right'/'r' (case-insensitive); got %r" % (spec,))
+
+
 def t3svd(
         x: typ.Tuple[
             typ.Tuple[NDArray,...], # tucker_cores
@@ -26,6 +39,7 @@ def t3svd(
         rtol: float = None,
         atol: float = None,
         minimize_ranks: bool = True,
+        assume_orthogonal: str = None,
 ) -> typ.Tuple[
     typ.Tuple[
         typ.Tuple[NDArray, ...],  # new_tucker_cores
@@ -45,33 +59,47 @@ def t3svd(
     raw sweep output -- the SAME represented tensor, but with the possibly-redundant ranks left in. The
     sweep is significant for large, lightly-compressed problems rounded repeatedly (e.g. ODE/iterative
     solvers); it is the caller's trade-off. See ``docs/t3svd_minimal_ranks.md``.
+
+    ``assume_orthogonal`` (``None``/``'left'``/``'right'``, case-insensitive, ``'l'``/``'r'`` accepted)
+    skips the initial orthogonalization sweep when the input is already in orthogonal form (Tucker cores
+    down-orthogonal AND TT cores left/right-orthogonal -- the output of :py:func:`left_orthogonalize_t3`
+    / :py:func:`right_orthogonalize_t3`). ``None`` (default) always orthogonalizes. ``'right'`` skips it
+    (the L->R sweep needs a right-orthogonal input). ``'left'`` reverses to a right-orthogonal T3, sweeps,
+    and reverses back -- only cheap rank-sized TT transposes, no SVD sweep -- but it then truncates
+    **right-to-left**, an equally-valid but generally different result from ``None``/``'right'`` (identical
+    when not truncating) and returns a right-orthogonal result. **NOT enforced**: if the input is not
+    actually in the asserted form the result is silently wrong -- verify with
+    ``TuckerTensorTrain.is_left_orthogonal`` / ``is_right_orthogonal`` (or
+    :py:func:`t3_orthogonality_residual`).
     '''
+    assume_orthogonal = _normalize_assume_orthogonal(assume_orthogonal)
     num_cores = len(x[0])
 
     # Accept scalar or per-position max ranks (None entry = no cap at that position).
     max_tucker_ranks = ranks.normalize_max_ranks(max_tucker_ranks, num_cores)
     max_tt_ranks = ranks.normalize_max_ranks(max_tt_ranks, num_cores + 1)
 
-    # print('0. [B.shape for B in x[0]]=', [B.shape for B in x[0]])
-    # print('0. [G.shape for G in x[1]]=', [G.shape for G in x[1]])
+    # 'left'-orthogonal input: reversing yields a right-orthogonal T3 (down-Tucker preserved, TT
+    # left<->right orthogonal). Sweep it via the 'right' path (no orthogonalization), then reverse the
+    # cores and singular values back. The reverse is lazy rank-sized TT transposes, far cheaper than the
+    # right-orthogonalization sweep it avoids; the cost is a right-to-left truncation (see docstring).
+    if assume_orthogonal == 'left':
+        rev = (tuple(x[0][::-1]), ragged_ops.reverse_tt(x[1]))
+        (rev_tk, rev_tt), ss_tk, ss_tt = t3svd(
+            rev,
+            max_tt_ranks=tuple(max_tt_ranks[::-1]), max_tucker_ranks=tuple(max_tucker_ranks[::-1]),
+            rtol=rtol, atol=atol, minimize_ranks=minimize_ranks, assume_orthogonal='right',
+        )
+        out = (tuple(rev_tk[::-1]), ragged_ops.reverse_tt(rev_tt))
+        return out, tuple(ss_tk[::-1]), tuple(ss_tt[::-1])
 
-    # make leading and trailing TT-ranks equal to 1
+    # make leading and trailing TT-ranks equal to 1 (no-op when already 1, i.e. for orthogonal input)
     x = (x[0], ragged_ops.squash_tt_tails(x[1]))
 
-    # print('1. [B.shape for B in x[0]]=', [B.shape for B in x[0]])
-    # print('1. [G.shape for G in x[1]]=', [G.shape for G in x[1]])
-
-    # Orthogonalize Tucker matrices
-    x = ragged_orth.down_orthogonalize_tucker_cores(x)
-
-    # print('2. [B.shape for B in x[0]]=', [B.shape for B in x[0]])
-    # print('2. [G.shape for G in x[1]]=', [G.shape for G in x[1]])
-
-    # Right orthogonalize
-    x = (x[0], orth.right_orthogonalize_tt_cores(x[1]))
-
-    # print('3. [B.shape for B in x[0]]=', [B.shape for B in x[0]])
-    # print('3. [G.shape for G in x[1]]=', [G.shape for G in x[1]])
+    # Orthogonalize (Tucker down-orthogonal, TT right-orthogonal) -- skipped if asserted right-orthogonal
+    if assume_orthogonal is None:
+        x = ragged_orth.down_orthogonalize_tucker_cores(x)
+        x = (x[0], orth.right_orthogonalize_tt_cores(x[1]))
 
     G0 = x[1][0]
     _, ss_first, _ = linalg.right_svd(G0)

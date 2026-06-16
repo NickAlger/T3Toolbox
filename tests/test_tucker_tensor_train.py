@@ -2484,6 +2484,67 @@ class TestTuckerTensorTrain(unittest.TestCase):
                     for r_off, r_on in zip(xoff.tt_ranks, xon.tt_ranks):
                         self.assertGreaterEqual(r_off, r_on)
 
+    def test_is_left_right_orthogonal_checkers(self):
+        import t3toolbox.backend.t3_orthogonalization as orthx
+        import t3toolbox.backend.orthogonalization as orth
+        for shape, tr, ttr in [((6, 7, 8), (5, 6, 7), (1, 4, 3, 1)),
+                               ((5, 6, 7, 4), (4, 5, 6, 3), (1, 3, 4, 2, 1))]:
+            x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
+            with self.subTest(shape=shape):
+                # a random T3 is in neither orthogonal form
+                self.assertFalse(x.is_left_orthogonal())
+                self.assertFalse(x.is_right_orthogonal())
+                # build the two forms via the backend orthogonalizers
+                tk, tt = orthx.down_orthogonalize_tucker_cores(x.data)
+                xL = t3.TuckerTensorTrain(tk, orth.left_orthogonalize_tt_cores(tt))
+                xR = t3.TuckerTensorTrain(tk, orth.right_orthogonalize_tt_cores(tt))
+                self.assertTrue(xL.is_left_orthogonal())
+                self.assertFalse(xL.is_right_orthogonal())
+                self.assertTrue(xR.is_right_orthogonal())
+                self.assertFalse(xR.is_left_orthogonal())
+                # a t3svd result is left-orthogonal
+                x2, _, _ = x.t3svd()
+                self.assertTrue(x2.is_left_orthogonal())
+
+    def test_t3svd_assume_orthogonal(self):
+        import t3toolbox.backend.t3_orthogonalization as orthx
+        import t3toolbox.backend.orthogonalization as orth
+        structures = [((6, 7, 8), (5, 6, 7), (1, 4, 3, 1)),
+                      ((5, 6, 7, 4), (4, 5, 6, 3), (1, 3, 4, 2, 1))]
+        for shape, tr, ttr in structures:
+            x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
+            tk, tt = orthx.down_orthogonalize_tucker_cores(x.data)
+            xL = t3.TuckerTensorTrain(tk, orth.left_orthogonalize_tt_cores(tt))   # left-orthogonal form
+            xR = t3.TuckerTensorTrain(tk, orth.right_orthogonalize_tt_cores(tt))  # right-orthogonal form
+
+            for MAX_TT in [None, 2, 3]:
+                with self.subTest(shape=shape, max_tt=MAX_TT):
+                    # 'right' on a right-orthogonal input == the default (skips a redundant sweep)
+                    a, _, _ = xR.t3svd(max_tt_ranks=MAX_TT, assume_orthogonal='right')
+                    b, _, _ = xR.t3svd(max_tt_ranks=MAX_TT)
+                    self.assertEqual(a.ranks, b.ranks)
+                    self.check_relerr(b.to_dense(), a.to_dense())
+
+                    # 'left' on a left-orthogonal input == the explicit reverse -> t3svd -> reverse path
+                    c, _, _ = xL.t3svd(max_tt_ranks=MAX_TT, assume_orthogonal='left')
+                    ref, _, _ = xL.reverse().t3svd(max_tt_ranks=MAX_TT)
+                    ref = ref.reverse()
+                    self.check_relerr(ref.to_dense(), c.to_dense())
+                    self.assertTrue(c.has_minimal_ranks)
+                    # no truncation -> 'left' is exact (lossless re-gauge)
+                    if MAX_TT is None:
+                        self.check_relerr(xL.to_dense(), c.to_dense())
+
+        # case-insensitivity + abbreviations
+        x = t3.TuckerTensorTrain.randn((6, 7, 8), (5, 6, 7), (1, 4, 3, 1))
+        tk, tt = orthx.down_orthogonalize_tucker_cores(x.data)
+        xR = t3.TuckerTensorTrain(tk, orth.right_orthogonalize_tt_cores(tt))
+        base = xR.t3svd(max_tt_ranks=2, assume_orthogonal='right')[0].to_dense()
+        for spec in ['R', 'r', 'Right', 'RIGHT']:
+            self.check_relerr(base, xR.t3svd(max_tt_ranks=2, assume_orthogonal=spec)[0].to_dense())
+        with self.assertRaises(ValueError):
+            xR.t3svd(assume_orthogonal='sideways')
+
     def test_compute_minimal_ranks_matches_matricization(self):
         # compute_minimal_ranks must equal the GENERIC numerical rank of every tensor-network edge cut:
         # Tucker edges <-> mode-i matricizations, TT bonds <-> contiguous-split unfoldings. (The T3
