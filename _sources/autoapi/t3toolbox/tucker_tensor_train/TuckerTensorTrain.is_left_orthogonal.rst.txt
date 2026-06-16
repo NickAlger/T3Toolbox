@@ -1,0 +1,27 @@
+TuckerTensorTrain.is_left_orthogonal
+====================================
+
+.. py:method:: t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_left_orthogonal(atol = 1e-09)
+
+   True if this T3 is in **left-orthogonal form**: every Tucker core down-orthogonal and every
+   TT core except the last left-orthogonal (the last TT core is the center remainder).
+
+   Non-enforcing convenience checker (max-abs deviation from the identities ``<= atol``; see
+   :py:func:`~t3toolbox.backend.t3_orthogonalization.t3_orthogonality_residual`). A
+   :py:meth:`t3svd` result is left-orthogonal. Use this to verify before asserting
+   ``t3svd(..., assume_orthogonal='left')``, which is **not** checked.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (5, 6, 7), (1, 4, 3, 1))
+   >>> print(x.is_left_orthogonal())     # a random T3 is not in any orthogonal form
+   False
+   >>> x2, _, _ = x.t3svd()              # a t3svd result is left-orthogonal
+   >>> print(x2.is_left_orthogonal())
+   True
+   >>> print(x2.is_right_orthogonal())   # ...but not right-orthogonal
+   False
+

@@ -1,0 +1,11 @@
+TuckerTensorTrain.is_right_orthogonal
+=====================================
+
+.. py:method:: t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_right_orthogonal(atol = 1e-09)
+
+   True if this T3 is in **right-orthogonal form**: every Tucker core down-orthogonal and every
+   TT core except the first right-orthogonal (the first TT core is the center remainder).
+
+   Non-enforcing convenience checker (see :py:meth:`is_left_orthogonal`). Use this to verify before
+   asserting ``t3svd(..., assume_orthogonal='right')``, which is **not** checked.
+

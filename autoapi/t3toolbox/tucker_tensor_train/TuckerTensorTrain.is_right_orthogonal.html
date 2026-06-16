@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>TuckerTensorTrain.stack &#8212; T3Toolbox 0.1 documentation</title>
+    <title>TuckerTensorTrain.is_right_orthogonal &#8212; T3Toolbox 0.1 documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.stack';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.is_right_orthogonal';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="TuckerTensorTrain.zeros" href="TuckerTensorTrain.zeros.html" />
-    <link rel="prev" title="TuckerTensorTrain.unstack" href="TuckerTensorTrain.unstack.html" />
+    <link rel="next" title="TuckerTensorTrain.validate" href="TuckerTensorTrain.validate.html" />
+    <link rel="prev" title="TuckerTensorTrain.is_left_orthogonal" href="TuckerTensorTrain.is_left_orthogonal.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -291,7 +291,7 @@
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.get_core_shapes.html">TuckerTensorTrain.get_core_shapes</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.get_minimal_ranks.html">TuckerTensorTrain.get_minimal_ranks</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.is_left_orthogonal.html">TuckerTensorTrain.is_left_orthogonal</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.is_right_orthogonal.html">TuckerTensorTrain.is_right_orthogonal</a></li>
+<li class="toctree-l4 current active"><a class="current reference internal" href="#">TuckerTensorTrain.is_right_orthogonal</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.validate.html">TuckerTensorTrain.validate</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.__post_init__.html">TuckerTensorTrain.__post_init__</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.to_dense.html">TuckerTensorTrain.to_dense</a></li>
@@ -304,7 +304,7 @@
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.to_numpy.html">TuckerTensorTrain.to_numpy</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.copy.html">TuckerTensorTrain.copy</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.unstack.html">TuckerTensorTrain.unstack</a></li>
-<li class="toctree-l4 current active"><a class="current reference internal" href="#">TuckerTensorTrain.stack</a></li>
+<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.stack.html">TuckerTensorTrain.stack</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.zeros.html">TuckerTensorTrain.zeros</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.ones.html">TuckerTensorTrain.ones</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.randn.html">TuckerTensorTrain.randn</a></li>
@@ -400,7 +400,7 @@
     
     <li class="breadcrumb-item"><a href="TuckerTensorTrain.html" class="nav-link">TuckerTensorTrain</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">TuckerTensorTrain.stack</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">TuckerTensorTrain.is_right_orthogonal</span></li>
   </ul>
 </nav>
 </div>
@@ -417,42 +417,23 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="tuckertensortrain-stack">
-<h1>TuckerTensorTrain.stack<a class="headerlink" href="#tuckertensortrain-stack" title="Link to this heading">#</a></h1>
+  <section id="tuckertensortrain-is-right-orthogonal">
+<h1>TuckerTensorTrain.is_right_orthogonal<a class="headerlink" href="#tuckertensortrain-is-right-orthogonal" title="Link to this heading">#</a></h1>
 <dl class="py method">
-<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.stack">
-<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.</span></span><span class="sig-name descname"><span class="pre">stack</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">xx</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.stack" title="Link to this definition">#</a></dt>
-<dd><p>Stacks an array-like tree of TuckerTensorTrains into one stacked TuckerTensorTrain.</p>
+<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_right_orthogonal">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.</span></span><span class="sig-name descname"><span class="pre">is_right_orthogonal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">atol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-09</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_right_orthogonal" title="Link to this definition">#</a></dt>
+<dd><p>True if this T3 is in <strong>right-orthogonal form</strong>: every Tucker core down-orthogonal and every
+TT core except the first right-orthogonal (the first TT core is the center remainder).</p>
+<p>Non-enforcing convenience checker (see <a class="reference internal" href="TuckerTensorTrain.is_left_orthogonal.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_left_orthogonal" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_left_orthogonal"><code class="xref py py-meth docutils literal notranslate"><span class="pre">is_left_orthogonal()</span></code></a>). Use this to verify before
+asserting <code class="docutils literal notranslate"><span class="pre">t3svd(...,</span> <span class="pre">assume_orthogonal='right')</span></code>, which is <strong>not</strong> checked.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>xx</strong> (<em>Array-like tree</em><em> of </em><em>nested tuples with TuckerTensorTrain leafs</em>) – TuckerTensorTrains to be stacked. All TuckerTensorTrains must have the same shape and ranks.</p>
+<dd class="field-odd"><p><strong>atol</strong> (<em>float</em>)</p>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Stacked TuckerTensorTrain.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference internal" href="TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a></p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><em>bool</em></p>
 </dd>
 </dl>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p><a class="reference internal" href="TuckerTensorTrain.unstack.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.unstack" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.unstack"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.unstack()</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.stack_shape" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.stack_shape"><code class="xref py py-attr docutils literal notranslate"><span class="pre">TuckerTensorTrain.stack_shape</span></code></a></p>
-</div>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.corewise</span> <span class="k">as</span> <span class="nn">cw</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">6</span><span class="p">,</span><span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">),</span> <span class="n">stack_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span><span class="mi">5</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">xx</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">unstack</span><span class="p">()</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">xx</span><span class="p">))</span>
-<span class="go">3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">xx</span><span class="p">[</span><span class="mi">0</span><span class="p">]))</span>
-<span class="go">5</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x2</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span><span class="n">xx</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">cw</span><span class="o">.</span><span class="n">corewise_norm</span><span class="p">(</span><span class="n">cw</span><span class="o">.</span><span class="n">corewise_sub</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">data</span><span class="p">,</span> <span class="n">x2</span><span class="o">.</span><span class="n">data</span><span class="p">)))</span>
-<span class="go">0.0</span>
-</pre></div>
-</div>
 </dd></dl>
 
 </section>
@@ -468,20 +449,20 @@
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="TuckerTensorTrain.unstack.html"
+       href="TuckerTensorTrain.is_left_orthogonal.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">TuckerTensorTrain.unstack</p>
+        <p class="prev-next-title">TuckerTensorTrain.is_left_orthogonal</p>
       </div>
     </a>
     <a class="right-next"
-       href="TuckerTensorTrain.zeros.html"
+       href="TuckerTensorTrain.validate.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">TuckerTensorTrain.zeros</p>
+        <p class="prev-next-title">TuckerTensorTrain.validate</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -504,14 +485,14 @@
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.stack"><code class="docutils literal notranslate"><span class="pre">stack()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_right_orthogonal"><code class="docutils literal notranslate"><span class="pre">is_right_orthogonal()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.stack.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.is_right_orthogonal.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>
