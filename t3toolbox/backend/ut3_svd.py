@@ -51,17 +51,18 @@ def ut3svd(
     Truncation is by **max rank only** (no rtol/atol -- those would make data-dependent shapes). The
     sweep truncates to the **capped** ranks (``min(current, max)``), keeping the full Tucker rank through
     each bond SVD -- the best approximation (ragged ``t3svd`` "option a"). With ``minimize_ranks=True``
-    (default) a second sweep re-tightens to the minimal **structural** ranks of the capped target
-    (`compute_minimal_ranks`), dropping ranks a hard cap orphaned (lossless -- the cap-result's structural
-    minimum IS the minimal masks); ``minimize_ranks=False`` skips that and keeps the capped ranks (same
-    tensor, possibly non-minimal). The padded supercore shrinks to whichever it kept. Per-stack-element
-    ``max_*_ranks`` arrays are allowed (the variety / rank sweep). See ``docs/t3svd_minimal_ranks.md``.
+    (default) re-tightens to the minimal **structural** ranks of the capped target
+    (`compute_minimal_ranks`), dropping ranks a hard cap orphaned -- only when a genuine orphan exists
+    (raw-sweep content != minimal): a lossless reverse-based re-SVD (via ``assume_orthogonal='left'``,
+    ~half the SVDs of a full re-run); otherwise just a re-mask. ``minimize_ranks=False`` keeps the
+    **raw-sweep** ranks (`compute_raw_sweep_ranks`, what the SVDs actually kept = ragged's raw). Matches
+    ragged ``t3svd`` exactly in tensor, ranks, AND gauge for both flags. The padded supercore shrinks to
+    whichever it kept. Per-stack-element ``max_*_ranks`` arrays are allowed (the variety / rank sweep).
+    See ``docs/t3svd_minimal_ranks.md``.
 
     ``assume_orthogonal`` (``None``/``'left'``/``'right'``) skips the initial orthogonalization when the
     input is already in that orthogonal form (as in ragged ``t3svd``): ``'right'`` skips it; ``'left'``
     reverses to a right-orthogonal T3, sweeps, and reverses back (R->L truncation). **Not enforced**.
-
-    (Slice A: the re-tighten re-runs the full sweep; Slice B replaces it with a cheaper R->L pass.)
     """
     assume_orthogonal = ranks.normalize_assume_orthogonal(assume_orthogonal)
     use_jax = tree_contains_jax(data[:2])
@@ -92,23 +93,42 @@ def ut3svd(
     (out_tucker, out_tt), ss_tucker, ss_tt = uniform_t3_svd(
         (masked_tucker, masked_tt), cap_masks, skip_orthogonalization=(assume_orthogonal == 'right'))
 
-    keep_tucker, keep_tt, keep_masks = capped_tucker, capped_tt, cap_masks
-    if minimize_ranks:
-        # Re-tighten to minimal ranks: re-run the sweep with the minimal masks. Lossless (the cap-result's
-        # structural minimum IS the minimal masks), drops only orphaned ranks. Re-run singular values are
-        # discarded -- we keep the truncation singular values from the cap sweep, sliced to minimal.
-        min_tucker, min_tt = ranks.compute_minimal_ranks(shape, capped_tucker, capped_tt)
-        min_masks = ut3_masking.make_uniform_masks(shape, min_tucker, min_tt, N, n, r, use_jax=use_jax)
-        (out_tucker, out_tt), _, _ = uniform_t3_svd((out_tucker, out_tt), min_masks)
-        keep_tucker, keep_tt, keep_masks = min_tucker, min_tt, min_masks
+    # The cap sweep's *content* ranks are the raw-sweep ranks (what the SVDs actually kept). They equal
+    # the masks (capped) unless a downstream cap left an upstream rank above the structural minimum (an
+    # orphan with NONZERO redundant content); they are also where the content lives when the masks are
+    # merely loose (e.g. no truncation reduces a non-minimal input -- content minimal, masks capped).
+    raw_tucker, raw_tt = ranks.compute_raw_sweep_ranks(
+        shape, tucker_mask.sum(axis=-1), tt_mask.sum(axis=-1), capped_tucker, capped_tt)
 
-    # shrink the padded supercore to the kept ranks
+    if minimize_ranks:
+        # Re-tighten to minimal ranks. If the content is already minimal (raw == minimal), no SVD is
+        # needed -- just shrink to the minimal masks (lossless re-mask; the cap-result stays
+        # left-orthogonal, matching ragged which skips its re-tighten there). Only a genuine orphan
+        # (raw != minimal, i.e. nonzero redundant content) needs a re-SVD: route it through
+        # assume_orthogonal='left' (reverse -> skip-orth sweep -> reverse), ~half the SVDs of a full
+        # re-run, with a right-orthogonal output matching ragged's re-tightened gauge. Keep the cap
+        # sweep's truncation singular values (sliced to minimal). The gate is a static integer comparison
+        # (masks/ranks are static), so it folds away under jit.
+        min_tucker, min_tt = ranks.compute_minimal_ranks(shape, capped_tucker, capped_tt)
+        content_minimal = (bool(xnp.all(raw_tucker == min_tucker))
+                           and bool(xnp.all(raw_tt == min_tt)))
+        if not content_minimal:
+            (out_tucker, out_tt, new_masks), _, _ = ut3svd(
+                (out_tucker, out_tt, cap_masks), max_tucker_ranks=min_tucker, max_tt_ranks=min_tt,
+                minimize_ranks=False, assume_orthogonal='left')
+            n2, r2 = int(xnp.max(min_tucker)), int(xnp.max(min_tt))
+            return (out_tucker, out_tt, new_masks), ss_tucker[..., :n2], ss_tt[..., :r2]
+        keep_tucker, keep_tt = min_tucker, min_tt
+    else:
+        keep_tucker, keep_tt = raw_tucker, raw_tt  # raw-sweep ranks (matches ragged minimize_ranks=False)
+
+    # shrink the (left-orthogonal) cap-result to the kept ranks (content already there -- lossless re-mask)
     n2 = int(xnp.max(keep_tucker))
     r2 = int(xnp.max(keep_tt))
     out_tucker = out_tucker[..., :n2, :]
     out_tt = out_tt[..., :r2, :n2, :r2]
-    _, keep_tkm, keep_ttm = keep_masks
-    new_masks = (shape_mask, keep_tkm[..., :n2], keep_ttm[..., :r2])
+    keep_masks = ut3_masking.make_uniform_masks(shape, keep_tucker, keep_tt, N, n, r, use_jax=use_jax)
+    new_masks = (shape_mask, keep_masks[1][..., :n2], keep_masks[2][..., :r2])
     return (out_tucker, out_tt, new_masks), ss_tucker[..., :n2], ss_tt[..., :r2]
 
 

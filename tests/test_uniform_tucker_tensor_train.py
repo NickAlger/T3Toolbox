@@ -306,27 +306,18 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
                     self.assertEqual(self._first_elem_ranks(ux2, ss), (x2.tucker_ranks, x2.tt_ranks))
 
     def test_t3svd_minimize_ranks(self):
-        # minimize_ranks=True (default) re-tightens to minimal -> matches ragged EXACTLY (tensor + ranks).
-        # minimize_ranks=False skips the re-tighten -> matches ragged on the TENSOR (the equivalence
-        # contract), but uniform keeps the cap-mask ranks (the don't-care padding is zeros), which can
-        # exceed ragged's natural structural ranks. So for False we check tensor + ranks-within-cap only.
+        # Both flags match ragged EXACTLY (tensor + ranks): minimize_ranks=True re-tightens to minimal;
+        # minimize_ranks=False keeps the raw-sweep ranks (compute_raw_sweep_ranks), same as ragged's raw.
         for shape, tr, ttr in STRUCTURES:
             x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
             ux = ut3.t3_to_ut3(x)
-            for mtk, mtt in [(None, 2), (3, 2), (2, 2)]:
-                with self.subTest(shape=shape, max_tucker=mtk, max_tt=mtt, minimize_ranks=True):
-                    ux2, _, _ = ux.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt, minimize_ranks=True)
-                    x2, _, _ = x.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt, minimize_ranks=True)
-                    self.assertLessEqual(relerr(ux2.to_dense(), x2.to_dense()), TOL)
-                    self._assert_ranks_match(ux2, x2)
-                with self.subTest(shape=shape, max_tucker=mtk, max_tt=mtt, minimize_ranks=False):
-                    uxr, _, _ = ux.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt, minimize_ranks=False)
-                    xr, _, _ = x.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt, minimize_ranks=False)
-                    self.assertLessEqual(relerr(uxr.to_dense(), xr.to_dense()), TOL)  # same tensor
-                    if mtk is not None:
-                        self.assertTrue(np.all(np.asarray(uxr.tucker_ranks) <= mtk))
-                    if mtt is not None:
-                        self.assertTrue(np.all(np.asarray(uxr.tt_ranks) <= mtt))
+            for mtk, mtt in [(None, 2), (3, 2), (2, 2), (None, None), (2, None)]:
+                for mr in (True, False):
+                    with self.subTest(shape=shape, max_tucker=mtk, max_tt=mtt, minimize_ranks=mr):
+                        ux2, _, _ = ux.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt, minimize_ranks=mr)
+                        x2, _, _ = x.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt, minimize_ranks=mr)
+                        self.assertLessEqual(relerr(ux2.to_dense(), x2.to_dense()), TOL)
+                        self._assert_ranks_match(ux2, x2)
 
     def test_is_left_right_orthogonal(self):
         for shape, tr, ttr, ss in self._cases():

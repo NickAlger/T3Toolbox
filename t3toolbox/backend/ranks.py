@@ -10,6 +10,7 @@ from t3toolbox.backend.common import *
 
 __all__ = [
     'compute_minimal_ranks',
+    'compute_raw_sweep_ranks',
     'compute_orthogonal_representation_ranks',
     'compute_manifold_dim',
     'basis_has_minimal_ranks',
@@ -121,6 +122,49 @@ def compute_minimal_ranks(
         new_tt_ranks = xnp.array(new_tt_ranks)
 
     return new_tucker_ranks, new_tt_ranks
+
+
+def compute_raw_sweep_ranks(
+        shape:        typ.Sequence[int],  # (N0, ..., N(d-1))
+        tucker_ranks,                     # current Tucker ranks: seq (n0,...) or array (d,)+stack
+        tt_ranks,                         # current TT ranks:     seq (r0,...) or array (d+1,)+stack
+        cap_tucker_ranks,                 # min(current, max) Tucker ranks, same form as tucker_ranks
+        cap_tt_ranks,                     # min(current, max) TT ranks,     same form as tt_ranks
+        use_jax: bool = False,
+) -> typ.Tuple:                           # (raw_tucker_ranks, raw_tt_ranks), same form as inputs
+    '''Ranks the *raw* (un-re-tightened) T3-SVD sweep produces under hard rank caps -- i.e. what ragged
+    ``t3svd(..., minimize_ranks=False)`` returns. The sweep is down-orthogonalize, right-orthogonalize,
+    then a left-to-right pass that caps each Tucker/TT edge: at each mode the SVD keeps ``min(structural
+    rank, cap)``, so a downstream cap can leave an upstream rank above the structural minimum (non-minimal
+    -- see :py:func:`compute_minimal_ranks`). The caps enter the forward pass via the pre-capped ranks.
+    '''
+    xnp, _, _ = get_backend(False, use_jax)
+
+    is_sequence = isinstance(tucker_ranks, typ.Sequence)
+    tucker_ranks = xnp.array(tucker_ranks)
+    tt_ranks = xnp.array(tt_ranks)
+    cap_tucker_ranks = xnp.array(cap_tucker_ranks)
+    cap_tt_ranks = xnp.array(cap_tt_ranks)
+
+    d = len(shape)
+    n = list(tucker_ranks)
+    r = list(tt_ranks)
+
+    for ii in range(d):
+        n[ii] = xnp.minimum(n[ii], shape[ii])              # down-orthogonalize: n_i <= N_i
+
+    r[0] = xnp.ones(tt_ranks.shape[1:], dtype=int)
+    r[-1] = xnp.ones(tt_ranks.shape[1:], dtype=int)
+    for ii in range(d - 1, 0, -1):                          # right-orthogonalize: r_i <- min(r_i, n_i*r_{i+1})
+        r[ii] = xnp.minimum(r[ii], n[ii] * r[ii + 1])
+
+    for ii in range(d):                                     # L->R sweep, each edge capped
+        n[ii] = xnp.minimum(xnp.minimum(n[ii], r[ii] * r[ii + 1]), cap_tucker_ranks[ii])
+        r[ii + 1] = xnp.minimum(xnp.minimum(r[ii] * n[ii], r[ii + 1]), cap_tt_ranks[ii + 1])
+
+    if is_sequence:
+        return tuple(int(v) for v in n), tuple(int(v) for v in r)
+    return xnp.array(n), xnp.array(r)
 
 
 def compute_orthogonal_representation_ranks(
