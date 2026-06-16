@@ -7,62 +7,47 @@ records *where we stopped*, the *one open bug to investigate first*, and the imm
 
 ---
 
-## ⚠️ FLAGGED BUG — ragged `t3svd` returns NON-minimal ranks under truncation (investigate first)
+## ✅ RESOLVED — ragged `t3svd` non-minimal ranks under truncation (FIXED; one uniform consequence)
 
-**Ragged `t3svd` is supposed to return structurally minimal ranks. Under truncation it does not — this
-is a bug and needs a thorough investigation before relying on the uniform-vs-ragged rank comparison.**
+**Fixed.** Ragged `t3svd` now returns structurally minimal ranks for every cap pattern
+(`has_minimal_ranks` always `True`). Full write-up: **[`docs/t3svd_minimal_ranks.md`](t3svd_minimal_ranks.md)**.
+The original repro (`x.t3svd(max_tt_ranks=2, max_tucker_ranks=3)` on `randn((5,6,7),(4,5,6),(1,3,2,1))`)
+now gives tucker `(2,3,2)`, `has_minimal_ranks=True`.
 
-### Reproduction (confirmed)
+### What it was
+At each mode the L→R sweep truncated the **Tucker** rank against the *current* right bond, then shrank
+that bond. A **hard** `max_tt` cap forces the bond below its structural value `rL·n`, retroactively
+orphaning the just-fixed Tucker rank (`n > rL·rR` → non-minimal). Symmetric on the TT side (a `max_tt`
+cap left above the adjacent `tucker·bond` bound). No-truncation / `rtol`/`atol` paths were already
+minimal. **This is not Tucker-specific** — plain TT-SVD with hard per-bond caps has the same orphan
+(see the note).
 
-```python
-import numpy as np, t3toolbox.tucker_tensor_train as t3
-np.random.seed(0)
-x = t3.TuckerTensorTrain.randn((5,6,7), (4,5,6), (1,3,2,1))
-x2, _, _ = x.t3svd(max_tt_ranks=2, max_tucker_ranks=3)
-x2.tucker_ranks                                            # (3, 3, 2)   <-- tucker[0] = 3
-t3.TuckerTensorTrain.get_minimal_ranks(x2.shape,
-        x2.tucker_ranks, x2.tt_ranks)                      # ((2,3,2), (1,2,2,1))  <-- should be 2
-x2.has_minimal_ranks                                       # False  <-- BUG
-```
+### The fix (option (a) — lossless re-tighten)
+`backend/t3_svd.py::_shrink_to_minimal_ranks`: after the sweep, a structural **right-to-left** pass
+(re-SVD each Tucker edge then each bond, no cap) drops exactly the orphaned directions. **Lossless**
+(verified ≤3.7e-15 vs the pre-fix natural-sweep dense) and gated behind a minimality check so the
+already-minimal paths pay nothing. New tests in `tests/test_tucker_tensor_train.py`:
+`test_t3svd_truncation_is_minimal`, `test_t3svd_lossless_compression_of_degenerate`,
+`test_compute_minimal_ranks_matches_matricization`, `test_compute_minimal_ranks_inequalities`.
 
-`tt_ranks = (1,2,2,1)`, so the Tucker rank at mode 0 is bounded by `rL·rR = r0·r1 = 1·2 = 2`. Ragged
-leaves it at **3** → strictly non-minimal (`has_minimal_ranks` is `False`).
+### ⚠️ Consequence for uniform — ragged and uniform now use DIFFERENT truncation orders
+The prior assumption "*once ragged is fixed the two agree exactly*" turned out **false in one regime**.
+When the **Tucker ranks are left uncapped while a TT-bond cap bites**, the order matters and the two
+layers diverge (~1% in the represented tensor in the example case):
 
-### Mechanism (located — strong head-start for the fix)
+- **Ragged = option (a):** keeps the full Tucker rank *through* the bond SVD (more columns → a better
+  rank-`k` bond), then drops the orphan. The **better** approximation; never worse than (b) in testing.
+- **Uniform `ut3svd` = option (b):** its masked sweep truncates the Tucker rank to the precomputed
+  minimal target *first*, starving the bond SVD. Minimal by construction, slightly worse.
 
-`t3toolbox/backend/t3_svd.py`, the L→R sweep at lines ~74–94. At each mode `ii` it does, in order:
-1. `ragged_orth.down_svd_tt_core(..., max_rank=max_tucker_ranks[ii])` — truncate the **Tucker** rank at `ii`;
-2. then (if `ii < last`) `ragged_orth.left_svd_tt_core(..., max_rank=max_tt_ranks[ii+1])` — truncate the
-   **adjacent TT bond** `ii+1`.
-
-So the Tucker truncation at mode `ii` is computed against the **un-truncated** neighbor bond `rR`. When
-step 2 subsequently shrinks that bond below the Tucker rank, the Tucker rank is left at `> rL·rR` →
-non-minimal. (No-truncation is unaffected: every SVD keeps `min(rows,cols)`, i.e. the structural rank, so
-the result is already minimal — and uniform matches it exactly there. Only the interaction of a Tucker cap
-with a smaller adjacent TT cap exposes it.)
-
-### Investigation checklist
-- [ ] **Characterize**: sweep `has_minimal_ranks` over many truncation patterns (vary which of
-      `max_tucker`/`max_tt` bites, both directions, multi-mode) to map exactly when it triggers. Also check
-      the **TT** ranks for the symmetric failure (a `max_tt` cap left larger than the adjacent
-      `tucker·bond` bound) — the same sweep-order argument predicts it can happen on the TT side too.
-- [ ] **Decide the fix.** Candidates: (a) a final minimality cleanup pass (cheap orthogonalize/SVD sweep
-      that drops to `compute_minimal_ranks`), (b) bound each Tucker truncation by the *post-truncation*
-      `rL·rR` (needs lookahead to the next bond cap), or (c) reorder/iterate the sweep. Prefer the one that
-      keeps the represented tensor identical (it must — only redundant ranks are being removed).
-- [ ] **Verify**: `has_minimal_ranks` holds after the fix across the swept patterns; `to_dense` unchanged
-      (≤1e-14); kept singular values unchanged. Re-run `tests/test_tucker_tensor_train.py` (+ `test_t3m`,
-      which rounds via t3svd).
-- [ ] **Reconcile uniform.** Uniform `ut3svd` is *already* minimal (it builds masks from
-      `compute_minimal_ranks` of the capped target — see `ut3_svd.py`). So **once ragged is fixed, the two
-      agree exactly** and the "uniform is tidier than ragged under truncation" caveat disappears. At that
-      point, strengthen `tests/test_uniform_tucker_tensor_train.py::test_t3svd_truncation` to assert exact
-      rank-equality with ragged (it currently only asserts `to_dense` match + ranks ≤ cap, precisely
-      because of this bug). The note in `uniform_port_plan.md` slice 5 should then be revised.
-
-**Until fixed, the uniform behavior is the correct/desired one** (truly minimal, per the agreed
-"shrink-to-minimal-structural" decision + the minimal-for-free principle). Do not "fix" uniform to
-reproduce ragged's non-minimal output — fix ragged.
+So **ragged is now the oracle and uniform no longer matches it** in the uncapped-Tucker case. The
+existing `test_uniform_tucker_tensor_train.py::test_t3svd_truncation` still passes **only because it
+uses symmetric caps** (`max_tucker=max_tt=2`), which forces Tucker truncation in both layers — the
+divergence isn't exercised. When uniform is revisited, **decide**: rework `ut3svd` to option (a) (keep
+the full Tucker supercore through the bond SVD, shrink at the end) so uniform matches the ragged oracle,
+**or** accept the divergence and document it (then do NOT strengthen the uniform test to exact
+rank/tensor-equality with ragged for uncapped-Tucker caps). Until then, leave `ut3svd` as-is. The
+`uniform_port_plan.md` slice-5 note should record this.
 
 ---
 

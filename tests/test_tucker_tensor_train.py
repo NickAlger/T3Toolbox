@@ -2414,6 +2414,126 @@ class TestTuckerTensorTrain(unittest.TestCase):
         self.assertEqual(ad.ranks, bd.ranks)
         self.check_relerr(bd.to_dense(), ad.to_dense())
 
+    def test_t3svd_truncation_is_minimal(self):
+        # Regression: a hard rank cap that pushes a bond below its structural value rL*n used to leave
+        # the Tucker rank (or a neighbouring bond) above the structural minimum -- a non-minimal result.
+        # t3svd must now return STRUCTURALLY MINIMAL ranks for every cap pattern, including the
+        # adversarial "Tucker uncapped while a TT-bond cap bites" case. See docs/t3svd_minimal_ranks.md.
+        structures = [
+            ((5, 6, 7),       (4, 5, 6),    (1, 3, 2, 1)),
+            ((8, 7, 6, 5),    (4, 5, 4, 3), (1, 4, 3, 2, 1)),
+            ((9, 2, 9, 4),    (8, 2, 8, 3), (1, 5, 5, 2, 1)),
+            ((6, 6, 6),       (10, 10, 10), (1, 12, 12, 1)),  # structurally degenerate (inflated)
+        ]
+        caps = [None, 1, 2, 3]
+        for shape, tr, ttr in structures:
+            x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
+            for MAX_TK, MAX_TT in itertools.product(caps, caps):
+                with self.subTest(shape=shape, max_tucker=MAX_TK, max_tt=MAX_TT):
+                    x2, ss_tk, ss_tt = x.t3svd(max_tucker_ranks=MAX_TK, max_tt_ranks=MAX_TT)
+
+                    # (1) the result is structurally minimal ...
+                    self.assertTrue(x2.has_minimal_ranks)
+                    # ... and the reported singular values are sliced to the surviving ranks
+                    self.assertEqual(tuple(s.shape[-1] for s in ss_tk), x2.tucker_ranks)
+                    self.assertEqual(tuple(s.shape[-1] for s in ss_tt), x2.tt_ranks)
+
+                    # (2) the re-tighten is LOSSLESS: a no-cap re-t3svd is a fixed point (ranks and the
+                    #     represented tensor are unchanged -- only redundant directions were removed).
+                    x3, _, _ = x2.t3svd()
+                    self.assertEqual(x3.ranks, x2.ranks)
+                    self.check_relerr(x2.to_dense(), x3.to_dense())
+
+    def test_t3svd_lossless_compression_of_degenerate(self):
+        # A generic (i.i.d.-filled) T3 with inflated/degenerate core shapes compresses to minimal ranks
+        # with ZERO loss under no-truncation t3svd (every SVD keeps exactly the structural rank).
+        rng = np.random.default_rng(0)
+        for _ in range(40):
+            d = int(rng.integers(2, 5))
+            shape = tuple(int(v) for v in rng.integers(2, 8, d))
+            tr = tuple(int(v) for v in rng.integers(1, 10, d))             # inflated Tucker ranks
+            ttr = tuple([1] + [int(v) for v in rng.integers(1, 13, d - 1)] + [1])  # inflated bonds
+            x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
+            x2, _, _ = x.t3svd()
+            with self.subTest(shape=shape, tucker=tr, tt=ttr):
+                self.assertTrue(x2.has_minimal_ranks)
+                self.check_relerr(x.to_dense(), x2.to_dense())
+
+    def test_t3svd_minimize_ranks_flag(self):
+        # minimize_ranks=False skips the re-tighten: SAME represented tensor, but the raw sweep's
+        # (possibly non-minimal) ranks; =True (default) re-tightens to minimal losslessly.
+        structures = [
+            ((5, 6, 7),    (4, 5, 6),    (1, 3, 2, 1)),
+            ((8, 7, 6, 5), (4, 5, 4, 3), (1, 4, 3, 2, 1)),
+        ]
+        caps = [None, 1, 2, 3]
+        for shape, tr, ttr in structures:
+            x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
+            for MAX_TK, MAX_TT in itertools.product(caps, caps):
+                if MAX_TK is None and MAX_TT is None:
+                    continue
+                with self.subTest(shape=shape, max_tucker=MAX_TK, max_tt=MAX_TT):
+                    xon, _, _ = x.t3svd(max_tucker_ranks=MAX_TK, max_tt_ranks=MAX_TT, minimize_ranks=True)
+                    xoff, _, _ = x.t3svd(max_tucker_ranks=MAX_TK, max_tt_ranks=MAX_TT, minimize_ranks=False)
+
+                    self.assertTrue(xon.has_minimal_ranks)                  # default -> minimal
+                    self.check_relerr(xon.to_dense(), xoff.to_dense())     # same tensor either way
+                    # off ranks are never smaller than on ranks (it can only leave redundancy in)
+                    for n_off, n_on in zip(xoff.tucker_ranks, xon.tucker_ranks):
+                        self.assertGreaterEqual(n_off, n_on)
+                    for r_off, r_on in zip(xoff.tt_ranks, xon.tt_ranks):
+                        self.assertGreaterEqual(r_off, r_on)
+
+    def test_compute_minimal_ranks_matches_matricization(self):
+        # compute_minimal_ranks must equal the GENERIC numerical rank of every tensor-network edge cut:
+        # Tucker edges <-> mode-i matricizations, TT bonds <-> contiguous-split unfoldings. (The T3
+        # network is a tree, so each single-edge cut is a clean bipartition with no hidden degeneracy.)
+        import t3toolbox.backend.ranks as ranks
+
+        def numerical_rank(M, rel=1e-9):
+            s = np.linalg.svd(M, compute_uv=False)
+            return int((s > rel * s[0]).sum()) if s.size and s[0] > 0 else 0
+
+        structures = [
+            ((5, 6, 7),    (4, 5, 6),    (1, 3, 2, 1)),
+            ((6, 7, 8, 5), (6, 7, 8, 5), (1, 9, 9, 9, 1)),  # over-declared bonds
+            ((10, 3, 10),  (8, 3, 8),    (1, 7, 2, 1)),
+            ((4, 4, 4, 4), (4, 4, 4, 4), (1, 2, 8, 2, 1)),  # one fat interior bond
+        ]
+        for shape, tr, ttr in structures:
+            d = len(shape)
+            T = np.asarray(t3.TuckerTensorTrain.randn(shape, tr, ttr).to_dense())
+            min_tk, min_tt = ranks.compute_minimal_ranks(shape, tr, ttr)
+            min_tk = tuple(int(v) for v in min_tk)
+            min_tt = tuple(int(v) for v in min_tt)
+            tk_num = tuple(numerical_rank(np.moveaxis(T, i, 0).reshape(shape[i], -1)) for i in range(d))
+            tt_num = (1,) + tuple(numerical_rank(T.reshape(int(np.prod(shape[:k])), -1))
+                                  for k in range(1, d)) + (1,)
+            with self.subTest(shape=shape):
+                self.assertEqual(min_tk, tk_num)
+                self.assertEqual(min_tt, tt_num)
+
+    def test_compute_minimal_ranks_inequalities(self):
+        # The minimal ranks satisfy the no-redundancy inequalities at every core:
+        #   n <= N,  n <= rL*rR,  rL <= n*rR,  rR <= n*rL.
+        import t3toolbox.backend.ranks as ranks
+        rng = np.random.default_rng(3)
+        for _ in range(1000):
+            d = int(rng.integers(2, 6))
+            shape = tuple(int(v) for v in rng.integers(2, 10, d))
+            tr = tuple(int(v) for v in rng.integers(1, 12, d))
+            ttr = tuple([1] + [int(v) for v in rng.integers(1, 15, d - 1)] + [1])
+            n, r = ranks.compute_minimal_ranks(shape, tr, ttr)
+            n = [int(v) for v in n]
+            r = [int(v) for v in r]
+            for i in range(d):
+                rL, rR = r[i], r[i + 1]
+                with self.subTest(shape=shape, tucker=tr, tt=ttr, core=i):
+                    self.assertLessEqual(n[i], shape[i])
+                    self.assertLessEqual(n[i], rL * rR)
+                    self.assertLessEqual(rL, n[i] * rR)
+                    self.assertLessEqual(rR, n[i] * rL)
+
     def test_t3svd_dense(self):
         shapes = [
             (8,),

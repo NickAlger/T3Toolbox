@@ -3477,6 +3477,7 @@ class TuckerTensorTrain:
             max_tucker_ranks: typ.Union[int, Sequence[int]] = None, # scalar (caps all) or len=d
             rtol: float = None,
             atol: float = None,
+            minimize_ranks: bool = True,
     ) -> Tuple[
         'TuckerTensorTrain', # new_x
         Tuple[NDArray,...],  # Tucker singular values, len=d
@@ -3504,6 +3505,19 @@ class TuckerTensorTrain:
             Absolute tolerance for truncation (in the Frobenius norm), applied **per truncation step**
             (see Notes). Default: no ``atol`` truncation (``None``).
             Requires ``stack_shape=()``.
+        minimize_ranks: bool, optional
+            If ``True`` (default), re-tighten the result to **structurally minimal ranks**
+            (``has_minimal_ranks`` is ``True``); see Notes. If ``False``, skip the re-tighten and return
+            the raw sweep output: the **same represented tensor**, but with the (possibly redundant)
+            ranks the sweep left in -- so ``has_minimal_ranks`` may be ``False``. The re-tighten is an
+            extra right-to-left sweep of SVDs whose cost relative to the truncation depends on your
+            regime: it is most significant when each truncation compresses the ranks only *slightly*
+            (the cores it sweeps are still large) and you truncate *repeatedly* -- e.g. an iterative
+            solver or ODE integrator whose T3-valued state is rounded a little each step. ``False`` lets
+            you skip that cost and manage ranks yourself (e.g. re-tighten occasionally); the trade-off
+            is yours, since non-minimal ranks otherwise cost more in every downstream op (storage,
+            contraction) and break the minimal-rank precondition of :py:meth:`inner`/:py:meth:`norm` and
+            some manifold operations. Default: ``True``.
 
         Returns
         -------
@@ -3524,6 +3538,15 @@ class TuckerTensorTrain:
             ||x - x2||  <=  sqrt( sum of per-step truncation errors^2 )  <=  sqrt(2d-1) * (per-step tol).
 
         See ``docs/t3svd_verification.md`` for the bound and its proof.
+
+        With ``minimize_ranks=True`` (default) the result has **structurally minimal ranks**
+        (``x2.has_minimal_ranks`` is ``True``): a hard rank cap can push a bond below its structural
+        value and orphan a Tucker rank / neighbouring bond, so after the sweep ``t3svd`` re-tightens to
+        the minimal ranks -- a lossless step that drops only redundant directions and leaves the
+        represented tensor unchanged. ``minimize_ranks=False`` skips that extra SVD sweep and may return
+        non-minimal ranks; the represented tensor is identical either way. ``docs/t3svd_minimal_ranks.md``
+        discusses the trade-off (the re-tighten is an extra sweep -- significant for large, lightly
+        compressed problems rounded repeatedly).
 
         See Also
         --------
@@ -3596,6 +3619,39 @@ class TuckerTensorTrain:
         Traceback (most recent call last):
             ...
         ValueError
+
+        Truncation always returns **structurally minimal** ranks -- including the adversarial case
+        where the Tucker ranks are left uncapped while a TT-bond cap bites. Capping the bonds to 2
+        forces ``r_1 = 2``, which structurally bounds the mode-0 Tucker rank by
+        ``rL_0 * r_1 = 1 * 2 = 2``; ``t3svd`` re-tightens to that bound (a lossless step that drops
+        only the redundant direction) rather than leaving a non-minimal rank. See
+        ``docs/t3svd_minimal_ranks.md`` for why a naive truncating sweep would not:
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((5, 6, 7), (4, 5, 6), (1, 3, 2, 1))
+        >>> x2, _, _ = x.t3svd(max_tt_ranks=2)            # cap the TT bonds, leave the Tucker ranks uncapped
+        >>> print(x2.has_minimal_ranks)
+        True
+        >>> print(x2.tucker_ranks, x2.tt_ranks)
+        (2, 4, 2) (1, 2, 2, 1)
+        >>> print(x2.tucker_ranks[0], '<= rL*rR =', x2.tt_ranks[0] * x2.tt_ranks[1])
+        2 <= rL*rR = 2
+
+        ``minimize_ranks=False`` skips the re-tightening SVD sweep: the SAME tensor comes back, but with
+        the redundant Tucker rank left in (here ``n_0 = 3 > rL_0*r_1 = 2``), so ``has_minimal_ranks`` is
+        ``False``. Useful when you round repeatedly with little compression (e.g. an ODE integrator whose
+        T3 state drifts slightly each step) and would rather skip the per-step extra sweep -- at the cost
+        of bigger cores in later operations:
+
+        >>> x3, _, _ = x.t3svd(max_tt_ranks=2, minimize_ranks=False)
+        >>> print(x3.has_minimal_ranks)
+        False
+        >>> print(x3.tucker_ranks, x3.tt_ranks)           # n_0 = 3 is redundant (rL_0*r_1 = 1*2 = 2)
+        (3, 4, 2) (1, 2, 2, 1)
+        >>> print(np.allclose(x3.to_dense(), x2.to_dense()))   # ...but the represented tensor is identical
+        True
         '''
         if len(self.stack_shape) > 0 and ((rtol is not None) or (atol is not None)):
             raise ValueError(
@@ -3607,7 +3663,7 @@ class TuckerTensorTrain:
         result = ragged_t3svd.t3svd(
             self.data,
             max_tt_ranks=max_tt_ranks, max_tucker_ranks=max_tucker_ranks,
-            rtol=rtol, atol=atol,
+            rtol=rtol, atol=atol, minimize_ranks=minimize_ranks,
         )
         return TuckerTensorTrain(*result[0]), result[1], result[2]
 
