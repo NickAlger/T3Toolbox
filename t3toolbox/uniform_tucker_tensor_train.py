@@ -294,22 +294,37 @@ class UniformTuckerTensorTrain:
         """Right-orthogonalize the TT cores."""
         return _from_data(ut3_orthogonalization.right_orthogonalize_tt_cores(self.data))
 
+    def is_left_orthogonal(self, atol: float = 1e-9) -> bool:
+        """True if in left-orthogonal form (Tucker supercores down-orthogonal AND TT supercores
+        left-orthogonal). Non-enforcing checker; verify before ``t3svd(..., assume_orthogonal='left')``.
+        See :py:func:`~t3toolbox.backend.ut3_orthogonalization.ut3_orthogonality_residual`."""
+        return bool(ut3_orthogonalization.ut3_orthogonality_residual(self.data, 'left') <= atol)
+
+    def is_right_orthogonal(self, atol: float = 1e-9) -> bool:
+        """True if in right-orthogonal form (Tucker supercores down-orthogonal AND TT supercores
+        right-orthogonal). Non-enforcing checker; verify before ``t3svd(..., assume_orthogonal='right')``."""
+        return bool(ut3_orthogonalization.ut3_orthogonality_residual(self.data, 'right') <= atol)
+
     # ----------------------------------------------------------------- T3-SVD
-    def t3svd(self, max_tt_ranks=None, max_tucker_ranks=None, rtol=None, atol=None, minimize_ranks=True):
+    def t3svd(self, max_tt_ranks=None, max_tucker_ranks=None, rtol=None, atol=None, minimize_ranks=True,
+              assume_orthogonal=None):
         """Mask-truncated T3-SVD. Matches ragged :py:meth:`TuckerTensorTrain.t3svd` on real parts: the
         sweep truncates to the capped ranks (full Tucker through each bond SVD -- the best approximation),
         then with ``minimize_ranks=True`` (default) re-tightens to the minimal structural ranks of the
         capped target and shrinks the padded supercore to match. ``minimize_ranks=False`` keeps the capped
-        ranks (same tensor, possibly non-minimal). Uniform truncates by **max rank only** -- ``rtol``/
-        ``atol`` are unsupported (they would make data-dependent shapes). Per-stack-element ``max_*_ranks``
-        arrays are allowed. Returns ``(new UT3, Tucker singular values, TT singular values)``."""
+        ranks (same tensor, possibly non-minimal). ``assume_orthogonal`` (``None``/``'left'``/``'right'``)
+        skips the initial orthogonalization when the input is already in left/right-orthogonal form (verify
+        with :py:meth:`is_left_orthogonal` / :py:meth:`is_right_orthogonal` -- not checked); ``'left'``
+        truncates right-to-left. Uniform truncates by **max rank only** -- ``rtol``/``atol`` are
+        unsupported (they would make data-dependent shapes). Per-stack-element ``max_*_ranks`` arrays are
+        allowed. Returns ``(new UT3, Tucker singular values, TT singular values)``."""
         if rtol is not None or atol is not None:
             raise NotImplementedError(
                 'UniformTuckerTensorTrain.t3svd does not support rtol/atol (they would make data-dependent '
                 'shapes); truncate by max_tucker_ranks / max_tt_ranks. See docs/uniform_ranks_and_varieties.md.')
         new_data, ss_tucker, ss_tt = ut3_svd.ut3svd(
             self.data, max_tucker_ranks=max_tucker_ranks, max_tt_ranks=max_tt_ranks,
-            minimize_ranks=minimize_ranks)
+            minimize_ranks=minimize_ranks, assume_orthogonal=assume_orthogonal)
         return _from_data(new_data), ss_tucker, ss_tt
 
     # ----------------------------------------------------------------- stacking

@@ -17,18 +17,6 @@ __all__ = [
 ]
 
 
-def _normalize_assume_orthogonal(spec):  # None | 'left'/'l' | 'right'/'r' (any case) -> None|'left'|'right'
-    if spec is None:
-        return None
-    s = str(spec).strip().lower()
-    if s in ('l', 'left'):
-        return 'left'
-    if s in ('r', 'right'):
-        return 'right'
-    raise ValueError(
-        "assume_orthogonal must be None, 'left'/'l', or 'right'/'r' (case-insensitive); got %r" % (spec,))
-
-
 def t3svd(
         x: typ.Tuple[
             typ.Tuple[NDArray,...], # tucker_cores
@@ -72,7 +60,7 @@ def t3svd(
     ``TuckerTensorTrain.is_left_orthogonal`` / ``is_right_orthogonal`` (or
     :py:func:`t3_orthogonality_residual`).
     '''
-    assume_orthogonal = _normalize_assume_orthogonal(assume_orthogonal)
+    assume_orthogonal = ranks.normalize_assume_orthogonal(assume_orthogonal)
     num_cores = len(x[0])
 
     # Accept scalar or per-position max ranks (None entry = no cap at that position).

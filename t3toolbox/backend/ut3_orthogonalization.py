@@ -15,10 +15,44 @@ __all__ = [
     'up_orthogonalize_tt_cores',
     'left_orthogonalize_tt_cores',
     'right_orthogonalize_tt_cores',
+    'ut3_orthogonality_residual',
 ]
 
 # A uniform-T3 .data tuple: (tucker_supercore, tt_supercore, (shape_mask, tucker_edge_mask, tt_edge_mask)).
 UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[NDArray, NDArray, NDArray]]
+
+
+def ut3_orthogonality_residual(
+        data: UT3Data,
+        side: str,  # 'left' or 'right'
+) -> float:  # max abs deviation of the relevant (masked) cores from orthonormality (0 == exactly orthogonal)
+    '''Uniform analog of :py:func:`t3_orthogonality_residual`: non-enforcing check of left/right-orthogonal
+    form (Tucker supercores down-orthogonal AND TT supercores left/right-orthogonal).
+
+    Compares each masked supercore's Gram against ``diag(mask)`` (the masked rows/cols are zero, so the
+    identity is restricted to the real block). The boundary TT core (last for left, first for right) is
+    the center remainder and is not checked.
+    '''
+    side = side.lower()
+    use_jax = tree_contains_jax(data[:2])
+    xnp, _, _ = get_backend(True, use_jax)
+
+    tucker_sc, tt_sc = ut3_masking.apply_masks_to_cores(data)
+    _, tucker_mask, tt_mask = data[2]
+    n, r = tucker_sc.shape[-2], tt_sc.shape[-1]
+
+    Mt = xnp.einsum('...io,...jo->...ij', tucker_sc, tucker_sc)          # (d,)+stack+(n,n)
+    resid = float(xnp.max(xnp.abs(Mt - xnp.eye(n) * tucker_mask[..., None, :])))
+
+    interior = tt_mask[1:-1]                                              # interior bonds 1..d-1
+    if side == 'left':                                                   # modes 0..d-2, right bonds
+        M = xnp.einsum('...aib,...aic->...bc', tt_sc[:-1], tt_sc[:-1])
+    elif side == 'right':                                               # modes 1..d-1, left bonds
+        M = xnp.einsum('...aib,...cib->...ac', tt_sc[1:], tt_sc[1:])
+    else:
+        raise ValueError("side must be 'left' or 'right'; got %r" % (side,))
+    resid = max(resid, float(xnp.max(xnp.abs(M - xnp.eye(r) * interior[..., None, :]))))
+    return resid
 
 # Each function re-masks on entry; the SVD remainder R = ss.Vt has ss=0 in padded slots, so no garbage
 # propagates. Ranks shrink to the structural minimum the SVD produces, and the masks are recomputed to

@@ -29,11 +29,18 @@ def _cap_ranks(current, spec, length, xnp):  # current: (length,)+stack ; spec: 
     return xnp.stack(capped)
 
 
+def _reverse_max_ranks(spec):  # reverse a max-rank spec along the mode axis (None/scalar unchanged)
+    if spec is None or isinstance(spec, (int, np.integer)):
+        return spec
+    return spec[::-1]
+
+
 def ut3svd(
         data:             UT3Data,
         max_tucker_ranks: typ.Union[int, typ.Sequence[int], NDArray, None] = None,  # scalar / len=d / (d,)+stack
         max_tt_ranks:     typ.Union[int, typ.Sequence[int], NDArray, None] = None,  # scalar / len=d+1 / (d+1,)+stack
         minimize_ranks:   bool = True,
+        assume_orthogonal: str = None,
 ) -> typ.Tuple[
     UT3Data,  # new_x (minimal structural ranks of the capped target, or the capped ranks if not minimizing)
     NDArray,  # Tucker singular values, shape=(d,)+stack+(n',)
@@ -50,10 +57,23 @@ def ut3svd(
     tensor, possibly non-minimal). The padded supercore shrinks to whichever it kept. Per-stack-element
     ``max_*_ranks`` arrays are allowed (the variety / rank sweep). See ``docs/t3svd_minimal_ranks.md``.
 
+    ``assume_orthogonal`` (``None``/``'left'``/``'right'``) skips the initial orthogonalization when the
+    input is already in that orthogonal form (as in ragged ``t3svd``): ``'right'`` skips it; ``'left'``
+    reverses to a right-orthogonal T3, sweeps, and reverses back (R->L truncation). **Not enforced**.
+
     (Slice A: the re-tighten re-runs the full sweep; Slice B replaces it with a cheaper R->L pass.)
     """
+    assume_orthogonal = ranks.normalize_assume_orthogonal(assume_orthogonal)
     use_jax = tree_contains_jax(data[:2])
     xnp, _, _ = get_backend(True, use_jax)
+
+    # 'left'-orthogonal input: reverse -> right-orthogonal, run the 'right' path, reverse back.
+    if assume_orthogonal == 'left':
+        rev = ut3_operations.ut3_reverse(data)
+        rev_result, ss_tucker, ss_tt = ut3svd(
+            rev, _reverse_max_ranks(max_tucker_ranks), _reverse_max_ranks(max_tt_ranks),
+            minimize_ranks=minimize_ranks, assume_orthogonal='right')
+        return ut3_operations.ut3_reverse(rev_result), ss_tucker[::-1], ss_tt[::-1]
 
     masked_tucker, masked_tt = ut3_masking.apply_masks_to_cores(data)
     shape_mask, tucker_mask, tt_mask = data[2]
@@ -69,7 +89,8 @@ def ut3svd(
     # the best approximation (ragged "option a"). The singular values from this sweep are the truncation
     # singular values we report.
     cap_masks = ut3_masking.make_uniform_masks(shape, capped_tucker, capped_tt, N, n, r, use_jax=use_jax)
-    (out_tucker, out_tt), ss_tucker, ss_tt = uniform_t3_svd((masked_tucker, masked_tt), cap_masks)
+    (out_tucker, out_tt), ss_tucker, ss_tt = uniform_t3_svd(
+        (masked_tucker, masked_tt), cap_masks, skip_orthogonalization=(assume_orthogonal == 'right'))
 
     keep_tucker, keep_tt, keep_masks = capped_tucker, capped_tt, cap_masks
     if minimize_ranks:
@@ -102,6 +123,7 @@ def uniform_t3_svd(
             NDArray,  # tt_edge_mask
         ],
         squash_tails_first: bool = True,
+        skip_orthogonalization: bool = False,  # assume input already right-orthogonal (Tucker down + TT right)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, NDArray],  # (tucker_supercore, tt_supercore) at the INPUT padded (n, r)
     NDArray,  # basis_singular_values, shape=(d,)+stack+(n,)
@@ -110,6 +132,10 @@ def uniform_t3_svd(
     """The T3-SVD sweep: orthogonalize, then a left-to-right scan that SVDs each Tucker/TT edge, pads the
     factors back to the padded size, and multiplies by the prefix truncation masks. Operates at the input
     padded ``(n, r)``; :py:func:`ut3svd` builds the masks and shrinks afterward.
+
+    ``skip_orthogonalization=True`` assumes the input is already right-orthogonal (Tucker down-orthogonal,
+    TT right-orthogonal -- the gauge the L->R scan needs) and skips the orthogonalization passes. Silently
+    wrong if the input is not in that form (not checked).
     """
     use_jax = tree_contains_jax(cores)
     xnp, _, xscan = get_backend(True, use_jax)
@@ -125,9 +151,10 @@ def uniform_t3_svd(
     n, N = basis_supercore.shape[-2:]
     r = tt_supercore.shape[-1]
 
-    basis_supercore, tt_supercore = ut3_orthogonalization.down_orthogonalize_tucker_supercores(
-        basis_supercore, tt_supercore)
-    tt_supercore = orth.right_orthogonalize_tt_cores(tt_supercore)
+    if not skip_orthogonalization:
+        basis_supercore, tt_supercore = ut3_orthogonalization.down_orthogonalize_tucker_supercores(
+            basis_supercore, tt_supercore)
+        tt_supercore = orth.right_orthogonalize_tt_cores(tt_supercore)
 
     # keep everything the same shape, for consistency with masks
     n2 = basis_supercore.shape[-2]
