@@ -54,6 +54,14 @@ rank-deficient frame with arbitrary orthonormal directions, and the first gradie
 iterate off the rank-deficient submanifold onto the full-rank manifold (the ranks come out minimal at
 every level).
 
+*Why continuation helps (not just the zero start).* The Gauss-Newton Hessian here is ill-conditioned
+and only gets *worse* with rank, so continuation does not improve its conditioning. What it does is
+keep each refit **near its solution**: the lower ranks are already converged, so the warm-started
+gradient is tiny and carries almost no weight in those already-resolved (and worst-conditioned)
+directions -- CG only has to resolve the small new rank block. (Jumping straight to a high rank from
+zero instead lands in a bad local minimum and fails.) Normalizing the probes (above) and continuation
+attack two *different* ill-conditionings -- the sampling operator's, and the tensor's spectrum.
+
 We track the **validation** misfit at every rank level and pick the level that minimizes it -- the
 held-out data tells us when extra rank stops helping and starts fitting noise. The ``oracle`` column
 (the best possible rank-``r`` approximation of ``A``, from a dense T3-SVD) shows the fit is
