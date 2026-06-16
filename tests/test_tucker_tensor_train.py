@@ -2414,11 +2414,8 @@ class TestTuckerTensorTrain(unittest.TestCase):
         self.assertEqual(ad.ranks, bd.ranks)
         self.check_relerr(bd.to_dense(), ad.to_dense())
 
-    def test_t3svd_truncation_is_minimal(self):
-        # Regression: a hard rank cap that pushes a bond below its structural value rL*n used to leave
-        # the Tucker rank (or a neighbouring bond) above the structural minimum -- a non-minimal result.
-        # t3svd must now return STRUCTURALLY MINIMAL ranks for every cap pattern, including the
-        # adversarial "Tucker uncapped while a TT-bond cap bites" case. See docs/t3svd_minimal_ranks.md.
+    def test_t3svd_is_left_orthogonal_not_necessarily_minimal(self):
+        # t3svd is the basic algorithm: always left-orthogonal, NOT guaranteed minimal under truncation.
         structures = [
             ((5, 6, 7),       (4, 5, 6),    (1, 3, 2, 1)),
             ((8, 7, 6, 5),    (4, 5, 4, 3), (1, 4, 3, 2, 1)),
@@ -2431,18 +2428,38 @@ class TestTuckerTensorTrain(unittest.TestCase):
             for MAX_TK, MAX_TT in itertools.product(caps, caps):
                 with self.subTest(shape=shape, max_tucker=MAX_TK, max_tt=MAX_TT):
                     x2, ss_tk, ss_tt = x.t3svd(max_tucker_ranks=MAX_TK, max_tt_ranks=MAX_TT)
-
-                    # (1) the result is structurally minimal ...
-                    self.assertTrue(x2.has_minimal_ranks)
-                    # ... and the reported singular values are sliced to the surviving ranks
+                    self.assertTrue(x2.is_left_orthogonal())                       # always left-orthogonal
                     self.assertEqual(tuple(s.shape[-1] for s in ss_tk), x2.tucker_ranks)
                     self.assertEqual(tuple(s.shape[-1] for s in ss_tt), x2.tt_ranks)
 
-                    # (2) the re-tighten is LOSSLESS: a no-cap re-t3svd is a fixed point (ranks and the
-                    #     represented tensor are unchanged -- only redundant directions were removed).
-                    x3, _, _ = x2.t3svd()
-                    self.assertEqual(x3.ranks, x2.ranks)
-                    self.check_relerr(x2.to_dense(), x3.to_dense())
+    def test_rank_adjustment_sweep(self):
+        # rank_adjustment_sweep drops redundant ranks losslessly: a single sweep in the direction
+        # matching the input's orthogonality reaches minimal. A t3svd output is left-orthogonal, so
+        # 'right_to_left' minimizes it (-> right-orthogonal); composing both gives minimal left-orthogonal.
+        structures = [
+            ((5, 6, 7),       (4, 5, 6),    (1, 3, 2, 1)),
+            ((8, 7, 6, 5),    (4, 5, 4, 3), (1, 4, 3, 2, 1)),
+            ((9, 2, 9, 4),    (8, 2, 8, 3), (1, 5, 5, 2, 1)),
+            ((10, 10, 10),    (9, 9, 9),    (1, 9, 9, 1)),
+        ]
+        cap_patterns = [(None, 2), (3, 2), (2, 2), (2, None), ([9, 1, 9], [1, 9, 2, 1])]  # incl bond-orphan
+        for shape, tr, ttr in structures:
+            x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
+            for MAX_TK, MAX_TT in cap_patterns:
+                if isinstance(MAX_TK, list) and len(MAX_TK) != len(shape):
+                    continue
+                with self.subTest(shape=shape, max_tucker=MAX_TK, max_tt=MAX_TT):
+                    x2, _, _ = x.t3svd(max_tucker_ranks=MAX_TK, max_tt_ranks=MAX_TT)  # left-orth, maybe non-min
+                    rl = x2.rank_adjustment_sweep('right_to_left')    # left-orth input -> R->L minimizes
+                    self.assertTrue(rl.has_minimal_ranks)
+                    self.assertTrue(rl.is_right_orthogonal())
+                    self.check_relerr(x2.to_dense(), rl.to_dense())   # lossless
+                    both = rl.rank_adjustment_sweep('left_to_right')  # right-orth input -> L->R -> minimal left-orth
+                    self.assertTrue(both.has_minimal_ranks)
+                    self.assertTrue(both.is_left_orthogonal())
+                    self.check_relerr(x2.to_dense(), both.to_dense())
+        with self.assertRaises(ValueError):
+            x.rank_adjustment_sweep('sideways')
 
     def test_t3svd_lossless_compression_of_degenerate(self):
         # A generic (i.i.d.-filled) T3 with inflated/degenerate core shapes compresses to minimal ranks
@@ -2456,33 +2473,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
             x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
             x2, _, _ = x.t3svd()
             with self.subTest(shape=shape, tucker=tr, tt=ttr):
-                self.assertTrue(x2.has_minimal_ranks)
+                self.assertTrue(x2.has_minimal_ranks)  # no-truncation t3svd IS minimal
+                self.assertTrue(x2.is_left_orthogonal())
                 self.check_relerr(x.to_dense(), x2.to_dense())
-
-    def test_t3svd_minimize_ranks_flag(self):
-        # minimize_ranks=False skips the re-tighten: SAME represented tensor, but the raw sweep's
-        # (possibly non-minimal) ranks; =True (default) re-tightens to minimal losslessly.
-        structures = [
-            ((5, 6, 7),    (4, 5, 6),    (1, 3, 2, 1)),
-            ((8, 7, 6, 5), (4, 5, 4, 3), (1, 4, 3, 2, 1)),
-        ]
-        caps = [None, 1, 2, 3]
-        for shape, tr, ttr in structures:
-            x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
-            for MAX_TK, MAX_TT in itertools.product(caps, caps):
-                if MAX_TK is None and MAX_TT is None:
-                    continue
-                with self.subTest(shape=shape, max_tucker=MAX_TK, max_tt=MAX_TT):
-                    xon, _, _ = x.t3svd(max_tucker_ranks=MAX_TK, max_tt_ranks=MAX_TT, minimize_ranks=True)
-                    xoff, _, _ = x.t3svd(max_tucker_ranks=MAX_TK, max_tt_ranks=MAX_TT, minimize_ranks=False)
-
-                    self.assertTrue(xon.has_minimal_ranks)                  # default -> minimal
-                    self.check_relerr(xon.to_dense(), xoff.to_dense())     # same tensor either way
-                    # off ranks are never smaller than on ranks (it can only leave redundancy in)
-                    for n_off, n_on in zip(xoff.tucker_ranks, xon.tucker_ranks):
-                        self.assertGreaterEqual(n_off, n_on)
-                    for r_off, r_on in zip(xoff.tt_ranks, xon.tt_ranks):
-                        self.assertGreaterEqual(r_off, r_on)
 
     def test_is_left_right_orthogonal_checkers(self):
         import t3toolbox.backend.t3_orthogonalization as orthx
@@ -2507,43 +2500,21 @@ class TestTuckerTensorTrain(unittest.TestCase):
                 self.assertTrue(x2.is_left_orthogonal())
 
     def test_t3svd_assume_orthogonal(self):
-        import t3toolbox.backend.t3_orthogonalization as orthx
-        import t3toolbox.backend.orthogonalization as orth
+        # assume_orthogonal=True (input already right-orthogonal) skips the redundant orthogonalization
+        # and gives the same result as the default.
         structures = [((6, 7, 8), (5, 6, 7), (1, 4, 3, 1)),
                       ((5, 6, 7, 4), (4, 5, 6, 3), (1, 3, 4, 2, 1))]
         for shape, tr, ttr in structures:
             x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
-            tk, tt = orthx.down_orthogonalize_tucker_cores(x.data)
-            xL = t3.TuckerTensorTrain(tk, orth.left_orthogonalize_tt_cores(tt))   # left-orthogonal form
-            xR = t3.TuckerTensorTrain(tk, orth.right_orthogonalize_tt_cores(tt))  # right-orthogonal form
-
+            xR = x.down_orthogonalize_tucker_cores().right_orthogonalize_tt_cores()  # right-orthogonal
+            self.assertTrue(xR.is_right_orthogonal())
             for MAX_TT in [None, 2, 3]:
                 with self.subTest(shape=shape, max_tt=MAX_TT):
-                    # 'right' on a right-orthogonal input == the default (skips a redundant sweep)
-                    a, _, _ = xR.t3svd(max_tt_ranks=MAX_TT, assume_orthogonal='right')
+                    a, _, _ = xR.t3svd(max_tt_ranks=MAX_TT, assume_orthogonal=True)
                     b, _, _ = xR.t3svd(max_tt_ranks=MAX_TT)
                     self.assertEqual(a.ranks, b.ranks)
                     self.check_relerr(b.to_dense(), a.to_dense())
-
-                    # 'left' on a left-orthogonal input == the explicit reverse -> t3svd -> reverse path
-                    c, _, _ = xL.t3svd(max_tt_ranks=MAX_TT, assume_orthogonal='left')
-                    ref, _, _ = xL.reverse().t3svd(max_tt_ranks=MAX_TT)
-                    ref = ref.reverse()
-                    self.check_relerr(ref.to_dense(), c.to_dense())
-                    self.assertTrue(c.has_minimal_ranks)
-                    # no truncation -> 'left' is exact (lossless re-gauge)
-                    if MAX_TT is None:
-                        self.check_relerr(xL.to_dense(), c.to_dense())
-
-        # case-insensitivity + abbreviations
-        x = t3.TuckerTensorTrain.randn((6, 7, 8), (5, 6, 7), (1, 4, 3, 1))
-        tk, tt = orthx.down_orthogonalize_tucker_cores(x.data)
-        xR = t3.TuckerTensorTrain(tk, orth.right_orthogonalize_tt_cores(tt))
-        base = xR.t3svd(max_tt_ranks=2, assume_orthogonal='right')[0].to_dense()
-        for spec in ['R', 'r', 'Right', 'RIGHT']:
-            self.check_relerr(base, xR.t3svd(max_tt_ranks=2, assume_orthogonal=spec)[0].to_dense())
-        with self.assertRaises(ValueError):
-            xR.t3svd(assume_orthogonal='sideways')
+                    self.assertTrue(a.is_left_orthogonal())
 
     def test_compute_minimal_ranks_matches_matricization(self):
         # compute_minimal_ranks must equal the GENERIC numerical rank of every tensor-network edge cut:

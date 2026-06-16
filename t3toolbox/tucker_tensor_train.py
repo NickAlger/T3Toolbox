@@ -695,8 +695,8 @@ class TuckerTensorTrain:
 
         Non-enforcing convenience checker (max-abs deviation from the identities ``<= atol``; see
         :py:func:`~t3toolbox.backend.t3_orthogonalization.t3_orthogonality_residual`). A
-        :py:meth:`t3svd` result is left-orthogonal. Use this to verify before asserting
-        ``t3svd(..., assume_orthogonal='left')``, which is **not** checked.
+        :py:meth:`t3svd` result is left-orthogonal, as is the result of
+        ``rank_adjustment_sweep('left_to_right')``.
 
         Examples
         --------
@@ -718,8 +718,9 @@ class TuckerTensorTrain:
         """True if this T3 is in **right-orthogonal form**: every Tucker core down-orthogonal and every
         TT core except the first right-orthogonal (the first TT core is the center remainder).
 
-        Non-enforcing convenience checker (see :py:meth:`is_left_orthogonal`). Use this to verify before
-        asserting ``t3svd(..., assume_orthogonal='right')``, which is **not** checked.
+        Non-enforcing convenience checker (see :py:meth:`is_left_orthogonal`). The result of
+        ``rank_adjustment_sweep('right_to_left')`` is right-orthogonal. Use this to verify before
+        asserting ``t3svd(..., assume_orthogonal=True)``, which is **not** checked.
         """
         return bool(ragged_orthogonalization.t3_orthogonality_residual(self.data, 'right') <= atol)
 
@@ -3511,8 +3512,7 @@ class TuckerTensorTrain:
             max_tucker_ranks: typ.Union[int, Sequence[int]] = None, # scalar (caps all) or len=d
             rtol: float = None,
             atol: float = None,
-            minimize_ranks: bool = True,
-            assume_orthogonal: str = None,
+            assume_orthogonal: bool = False,
     ) -> Tuple[
         'TuckerTensorTrain', # new_x
         Tuple[NDArray,...],  # Tucker singular values, len=d
@@ -3540,31 +3540,14 @@ class TuckerTensorTrain:
             Absolute tolerance for truncation (in the Frobenius norm), applied **per truncation step**
             (see Notes). Default: no ``atol`` truncation (``None``).
             Requires ``stack_shape=()``.
-        minimize_ranks: bool, optional
-            If ``True`` (default), re-tighten the result to **structurally minimal ranks**
-            (``has_minimal_ranks`` is ``True``); see Notes. If ``False``, skip the re-tighten and return
-            the raw sweep output: the **same represented tensor**, but with the (possibly redundant)
-            ranks the sweep left in -- so ``has_minimal_ranks`` may be ``False``. The re-tighten is an
-            extra right-to-left sweep of SVDs whose cost relative to the truncation depends on your
-            regime: it is most significant when each truncation compresses the ranks only *slightly*
-            (the cores it sweeps are still large) and you truncate *repeatedly* -- e.g. an iterative
-            solver or ODE integrator whose T3-valued state is rounded a little each step. ``False`` lets
-            you skip that cost and manage ranks yourself (e.g. re-tighten occasionally); the trade-off
-            is yours, since non-minimal ranks otherwise cost more in every downstream op (storage,
-            contraction) and break the minimal-rank precondition of :py:meth:`inner`/:py:meth:`norm` and
-            some manifold operations. Default: ``True``.
-        assume_orthogonal: str, optional
-            ``None`` / ``'left'`` / ``'right'`` (case-insensitive; ``'l'`` / ``'r'`` accepted). Skip the
-            initial orthogonalization sweep when the input is already in **left/right-orthogonal form**
-            (every Tucker core down-orthogonal **and** every TT core left/right-orthogonal -- e.g. a
-            prior :py:meth:`t3svd` result is left-orthogonal; a
-            :py:class:`~t3toolbox.basis_variations_format.T3Basis` is orthogonal). ``None`` (default)
-            always orthogonalizes (safe). ``'right'`` skips it; the result matches ``None``. ``'left'``
-            reverses to a right-orthogonal T3, sweeps, and reverses back -- cheap rank-sized TT
-            transposes, no SVD sweep -- but then truncates **right-to-left**: an equally-valid but
-            generally different result from ``None`` (identical when not truncating), returned
-            right-orthogonal. **Not enforced** -- a wrong assertion silently corrupts the result; verify
-            first with :py:meth:`is_left_orthogonal` / :py:meth:`is_right_orthogonal`. Default: ``None``.
+        assume_orthogonal: bool, optional
+            If ``True``, skip the initial orthogonalization, asserting the input is already
+            **right-orthogonal** (every Tucker core down-orthogonal **and** every TT core
+            right-orthogonal -- the form the left-to-right sweep needs). **Not enforced** -- a wrong
+            assertion silently corrupts the result; verify first with :py:meth:`is_right_orthogonal`. A
+            *left*-orthogonal input (e.g. a prior :py:meth:`t3svd` result) is not the right form; reverse
+            it yourself (a left-orthogonal T3 reversed is right-orthogonal) if you want to skip. Default:
+            ``False`` (always orthogonalize -- safe).
 
         Returns
         -------
@@ -3586,17 +3569,16 @@ class TuckerTensorTrain:
 
         See ``docs/t3svd_verification.md`` for the bound and its proof.
 
-        With ``minimize_ranks=True`` (default) the result has **structurally minimal ranks**
-        (``x2.has_minimal_ranks`` is ``True``): a hard rank cap can push a bond below its structural
-        value and orphan a Tucker rank / neighbouring bond, so after the sweep ``t3svd`` re-tightens to
-        the minimal ranks -- a lossless step that drops only redundant directions and leaves the
-        represented tensor unchanged. ``minimize_ranks=False`` skips that extra SVD sweep and may return
-        non-minimal ranks; the represented tensor is identical either way. ``docs/t3svd_minimal_ranks.md``
-        discusses the trade-off (the re-tighten is an extra sweep -- significant for large, lightly
-        compressed problems rounded repeatedly).
+        This is the basic algorithm: it does **not** guarantee minimal ranks. The result is always
+        **left-orthogonal**, but under a hard rank cap it can leave a Tucker rank / bond above its
+        structural minimum (``has_minimal_ranks`` may be ``False``) -- exactly as the paper's algorithm
+        (and Oseledets' TT-SVD) do. To reduce to minimal ranks, follow with
+        :py:meth:`rank_adjustment_sweep` (the result is left-orthogonal, so ``'right_to_left'`` minimizes
+        it). See ``docs/t3svd_minimal_ranks.md``.
 
         See Also
         --------
+        :py:meth:`.TuckerTensorTrain.rank_adjustment_sweep`
         :py:meth:`.TuckerTensorTrain.t3svd_dense`
         :py:meth:`.TuckerTensorTrain.get_minimal_ranks`
 
@@ -3667,61 +3649,36 @@ class TuckerTensorTrain:
             ...
         ValueError
 
-        Truncation always returns **structurally minimal** ranks -- including the adversarial case
-        where the Tucker ranks are left uncapped while a TT-bond cap bites. Capping the bonds to 2
-        forces ``r_1 = 2``, which structurally bounds the mode-0 Tucker rank by
-        ``rL_0 * r_1 = 1 * 2 = 2``; ``t3svd`` re-tightens to that bound (a lossless step that drops
-        only the redundant direction) rather than leaving a non-minimal rank. See
-        ``docs/t3svd_minimal_ranks.md`` for why a naive truncating sweep would not:
+        Under truncation, ``t3svd`` does **not** guarantee minimal ranks -- a hard cap can leave a
+        Tucker rank above its structural bound (here ``n_0 = 3 > rL_0*r_1 = 1*2 = 2``). The result is
+        left-orthogonal; reduce it to minimal with :py:meth:`rank_adjustment_sweep`
+        (``'right_to_left'``, since a ``t3svd`` result is left-orthogonal):
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((5, 6, 7), (4, 5, 6), (1, 3, 2, 1))
-        >>> x2, _, _ = x.t3svd(max_tt_ranks=2)            # cap the TT bonds, leave the Tucker ranks uncapped
-        >>> print(x2.has_minimal_ranks)
-        True
-        >>> print(x2.tucker_ranks, x2.tt_ranks)
-        (2, 4, 2) (1, 2, 2, 1)
-        >>> print(x2.tucker_ranks[0], '<= rL*rR =', x2.tt_ranks[0] * x2.tt_ranks[1])
-        2 <= rL*rR = 2
+        >>> x2, _, _ = x.t3svd(max_tt_ranks=2)               # cap TT bonds, leave Tucker uncapped
+        >>> print(x2.is_left_orthogonal(), x2.has_minimal_ranks, x2.tucker_ranks)
+        True False (3, 4, 2)
+        >>> x3 = x2.rank_adjustment_sweep('right_to_left')   # reduce to minimal ranks (lossless)
+        >>> print(x3.has_minimal_ranks, x3.tucker_ranks, np.allclose(x3.to_dense(), x2.to_dense()))
+        True (2, 4, 2) True
 
-        ``minimize_ranks=False`` skips the re-tightening SVD sweep: the SAME tensor comes back, but with
-        the redundant Tucker rank left in (here ``n_0 = 3 > rL_0*r_1 = 2``), so ``has_minimal_ranks`` is
-        ``False``. Useful when you round repeatedly with little compression (e.g. an ODE integrator whose
-        T3 state drifts slightly each step) and would rather skip the per-step extra sweep -- at the cost
-        of bigger cores in later operations:
-
-        >>> x3, _, _ = x.t3svd(max_tt_ranks=2, minimize_ranks=False)
-        >>> print(x3.has_minimal_ranks)
-        False
-        >>> print(x3.tucker_ranks, x3.tt_ranks)           # n_0 = 3 is redundant (rL_0*r_1 = 1*2 = 2)
-        (3, 4, 2) (1, 2, 2, 1)
-        >>> print(np.allclose(x3.to_dense(), x2.to_dense()))   # ...but the represented tensor is identical
-        True
-
-        ``assume_orthogonal`` skips the initial orthogonalization when the input is already in
-        left/right-orthogonal form. A ``t3svd`` result is left-orthogonal, so re-truncating it can skip
-        the sweep (verify with :py:meth:`is_left_orthogonal` first -- it is not checked):
+        ``assume_orthogonal=True`` skips the initial orthogonalization, asserting the input is already
+        right-orthogonal (verify with :py:meth:`is_right_orthogonal` first -- it is not checked):
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (5, 6, 7), (1, 4, 3, 1))
-        >>> xo, _, _ = x.t3svd()                              # a t3svd result is left-orthogonal
-        >>> print(xo.is_left_orthogonal())
+        >>> xr = x.down_orthogonalize_tucker_cores().right_orthogonalize_tt_cores()
+        >>> print(xr.is_right_orthogonal())
         True
-        >>> xt, _, _ = xo.t3svd(assume_orthogonal='left')     # no truncation -> skip the sweep, exact
-        >>> print(np.allclose(xt.to_dense(), xo.to_dense()))
+        >>> a, _, _ = xr.t3svd(max_tt_ranks=2, assume_orthogonal=True)   # skip the redundant sweep
+        >>> b, _, _ = xr.t3svd(max_tt_ranks=2)
+        >>> print(np.allclose(a.to_dense(), b.to_dense()))
         True
-
-        Under truncation, ``'left'`` sweeps right-to-left, an equally-valid but generally different
-        result from the default left-to-right (both minimal, both within the error bound):
-
-        >>> a, _, _ = xo.t3svd(max_tt_ranks=2, assume_orthogonal='left')   # right-to-left
-        >>> b, _, _ = xo.t3svd(max_tt_ranks=2)                             # default left-to-right
-        >>> print(np.allclose(a.to_dense(), b.to_dense()), a.has_minimal_ranks)
-        False True
         '''
         if len(self.stack_shape) > 0 and ((rtol is not None) or (atol is not None)):
             raise ValueError(
@@ -3733,10 +3690,37 @@ class TuckerTensorTrain:
         result = ragged_t3svd.t3svd(
             self.data,
             max_tt_ranks=max_tt_ranks, max_tucker_ranks=max_tucker_ranks,
-            rtol=rtol, atol=atol, minimize_ranks=minimize_ranks,
-            assume_orthogonal=assume_orthogonal,
+            rtol=rtol, atol=atol, assume_orthogonal=assume_orthogonal,
         )
         return TuckerTensorTrain(*result[0]), result[1], result[2]
+
+    def rank_adjustment_sweep(self, direction: str = 'right_to_left') -> 'TuckerTensorTrain':
+        """A single lossless directional sweep that drops structurally-redundant ranks (the separate
+        rank-minimization step; :py:meth:`t3svd` itself does **not** minimize). Returns the adjusted T3.
+
+        ``'right_to_left'`` returns a **right-orthogonal** T3; ``'left_to_right'`` a **left-orthogonal**
+        one. A single sweep reaches **minimal ranks only if the input is already orthogonal in the
+        opposite direction** -- e.g. a :py:meth:`t3svd` result is left-orthogonal, so
+        ``result.rank_adjustment_sweep('right_to_left')`` minimizes it (check with
+        :py:attr:`has_minimal_ranks`). On a general input it is a partial reduction; compose both
+        directions for guaranteed minimal ranks. The represented tensor is unchanged.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((5, 6, 7), (4, 5, 6), (1, 3, 2, 1))
+        >>> x2, _, _ = x.t3svd(max_tt_ranks=2)        # basic T3-SVD: left-orthogonal, NOT minimal
+        >>> print(x2.has_minimal_ranks, x2.tucker_ranks)
+        False (3, 4, 2)
+        >>> x3 = x2.rank_adjustment_sweep('right_to_left')   # x2 is left-orthogonal -> R->L minimizes
+        >>> print(x3.has_minimal_ranks, x3.tucker_ranks)
+        True (2, 4, 2)
+        >>> print(np.allclose(x3.to_dense(), x2.to_dense()))  # same tensor, redundant rank removed
+        True
+        """
+        return TuckerTensorTrain(*ragged_t3svd.rank_adjustment_sweep(self.data, direction))
 
     @staticmethod
     def t3svd_dense(

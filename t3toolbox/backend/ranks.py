@@ -132,11 +132,13 @@ def compute_raw_sweep_ranks(
         cap_tt_ranks,                     # min(current, max) TT ranks,     same form as tt_ranks
         use_jax: bool = False,
 ) -> typ.Tuple:                           # (raw_tucker_ranks, raw_tt_ranks), same form as inputs
-    '''Ranks the *raw* (un-re-tightened) T3-SVD sweep produces under hard rank caps -- i.e. what ragged
-    ``t3svd(..., minimize_ranks=False)`` returns. The sweep is down-orthogonalize, right-orthogonalize,
-    then a left-to-right pass that caps each Tucker/TT edge: at each mode the SVD keeps ``min(structural
-    rank, cap)``, so a downstream cap can leave an upstream rank above the structural minimum (non-minimal
-    -- see :py:func:`compute_minimal_ranks`). The caps enter the forward pass via the pre-capped ranks.
+    '''Ranks the T3-SVD sweep produces under hard rank caps -- i.e. the ranks ``t3svd`` returns (it does
+    not minimize; see :py:func:`rank_adjustment_sweep`). The sweep is down-orthogonalize,
+    right-orthogonalize, then a left-to-right pass that caps each Tucker/TT edge: at each mode the SVD
+    keeps ``min(structural rank, cap)``, so a downstream cap can leave an upstream rank above the
+    structural minimum (non-minimal -- see :py:func:`compute_minimal_ranks`). The caps enter the forward
+    pass via the pre-capped ranks. (Used by uniform ``ut3svd`` to shrink the padded supercore to the
+    actual content ranks.)
     '''
     xnp, _, _ = get_backend(False, use_jax)
 
