@@ -10,8 +10,12 @@ TuckerTensorTrain.rank_adjustment_sweep
    one. A single sweep reaches **minimal ranks only if the input is already orthogonal in the
    opposite direction** -- e.g. a :py:meth:`t3svd` result is left-orthogonal, so
    ``result.rank_adjustment_sweep('right_to_left')`` minimizes it (check with
-   :py:attr:`has_minimal_ranks`). On a general input it is a partial reduction; compose both
-   directions for guaranteed minimal ranks. The represented tensor is unchanged.
+   :py:attr:`has_minimal_ranks`). That precondition is **not enforced**: sweeping the wrong
+   direction for the input's gauge just under-minimizes (it stays lossless here -- but the uniform
+   :py:meth:`~t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.rank_adjustment_sweep`
+   is *lossy* in that case). Verify the gauge with :py:meth:`is_left_orthogonal` /
+   :py:meth:`is_right_orthogonal` first, or compose both directions for guaranteed minimal ranks.
+   The represented tensor is unchanged (when used correctly).
 
    .. rubric:: Examples
 
@@ -26,5 +30,20 @@ TuckerTensorTrain.rank_adjustment_sweep
    >>> print(x3.has_minimal_ranks, x3.tucker_ranks)
    True (2, 4, 2)
    >>> print(np.allclose(x3.to_dense(), x2.to_dense()))  # same tensor, redundant rank removed
+   True
+
+   Wrong direction for the input's gauge -- the left-orthogonal ``x2`` needs ``'right_to_left'``;
+   ``'left_to_right'`` here just *under-minimizes* (lossless, but still non-minimal). Use a bond
+   orphan to show it clearly:
+
+   >>> np.random.seed(0)
+   >>> y = t3.TuckerTensorTrain.randn((10, 10, 10), (9, 9, 9), (1, 9, 9, 1))
+   >>> y2, _, _ = y.t3svd(max_tucker_ranks=[9, 1, 9], max_tt_ranks=[1, 9, 2, 1])  # left-orth, non-minimal
+   >>> print(y2.has_minimal_ranks)
+   False
+   >>> wrong = y2.rank_adjustment_sweep('left_to_right')    # WRONG direction for a left-orth input
+   >>> print(wrong.has_minimal_ranks, np.allclose(wrong.to_dense(), y2.to_dense()))  # non-minimal, but lossless
+   False True
+   >>> print(y2.rank_adjustment_sweep('right_to_left').has_minimal_ranks)   # correct direction
    True
 
