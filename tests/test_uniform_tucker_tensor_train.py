@@ -283,19 +283,50 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
                 if ss == ():
                     self._assert_ranks_match(ux2, x2)
 
+    def _first_elem_ranks(self, uxr, ss):
+        d = uxr.d
+        utk = np.asarray(uxr.tucker_ranks).reshape((d,) + ss)
+        utt = np.asarray(uxr.tt_ranks).reshape((d + 1,) + ss)
+        sel = (slice(None),) + (0,) * len(ss)
+        return tuple(int(v) for v in utk[sel]), tuple(int(v) for v in utt[sel])
+
     def test_t3svd_truncation(self):
-        # uniform reduces to the minimal STRUCTURAL ranks of the capped target -> same tensor, ranks
-        # may be <= ragged's (uniform is tidier). Contract is on the represented tensor.
+        # uniform == ragged EXACTLY (option a: the bond SVD sees the full Tucker rank, then a re-tighten
+        # to minimal), including the divergent "uncapped Tucker + biting bond cap" case the old symmetric
+        # test never exercised. Tensor AND ranks match (the "uniform is tidier" caveat is gone).
+        cap_patterns = [(2, 2), (None, 2), (3, 2), (2, None), (None, 3)]
         for shape, tr, ttr, ss in self._cases():
-            with self.subTest(shape=shape, stack=ss):
-                x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
-                ux = ut3.t3_to_ut3(x)
-                ux2, _, _ = ux.t3svd(max_tt_ranks=2, max_tucker_ranks=2)
-                x2, _, _ = x.t3svd(max_tt_ranks=2, max_tucker_ranks=2)
-                self.assertLessEqual(relerr(ux2.to_dense(), x2.to_dense()), TOL)
-                # ranks respect the cap
-                self.assertTrue(np.all(np.asarray(ux2.tucker_ranks) <= 2))
-                self.assertTrue(np.all(np.asarray(ux2.tt_ranks) <= 2))
+            x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
+            ux = ut3.t3_to_ut3(x)
+            for mtk, mtt in cap_patterns:
+                with self.subTest(shape=shape, stack=ss, max_tucker=mtk, max_tt=mtt):
+                    ux2, _, _ = ux.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt)
+                    x2, _, _ = x.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt)  # ragged, same caps
+                    self.assertLessEqual(relerr(ux2.to_dense(), x2.to_dense()), TOL)
+                    self.assertEqual(self._first_elem_ranks(ux2, ss), (x2.tucker_ranks, x2.tt_ranks))
+
+    def test_t3svd_minimize_ranks(self):
+        # minimize_ranks=True (default) re-tightens to minimal -> matches ragged EXACTLY (tensor + ranks).
+        # minimize_ranks=False skips the re-tighten -> matches ragged on the TENSOR (the equivalence
+        # contract), but uniform keeps the cap-mask ranks (the don't-care padding is zeros), which can
+        # exceed ragged's natural structural ranks. So for False we check tensor + ranks-within-cap only.
+        for shape, tr, ttr in STRUCTURES:
+            x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
+            ux = ut3.t3_to_ut3(x)
+            for mtk, mtt in [(None, 2), (3, 2), (2, 2)]:
+                with self.subTest(shape=shape, max_tucker=mtk, max_tt=mtt, minimize_ranks=True):
+                    ux2, _, _ = ux.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt, minimize_ranks=True)
+                    x2, _, _ = x.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt, minimize_ranks=True)
+                    self.assertLessEqual(relerr(ux2.to_dense(), x2.to_dense()), TOL)
+                    self._assert_ranks_match(ux2, x2)
+                with self.subTest(shape=shape, max_tucker=mtk, max_tt=mtt, minimize_ranks=False):
+                    uxr, _, _ = ux.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt, minimize_ranks=False)
+                    xr, _, _ = x.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt, minimize_ranks=False)
+                    self.assertLessEqual(relerr(uxr.to_dense(), xr.to_dense()), TOL)  # same tensor
+                    if mtk is not None:
+                        self.assertTrue(np.all(np.asarray(uxr.tucker_ranks) <= mtk))
+                    if mtt is not None:
+                        self.assertTrue(np.all(np.asarray(uxr.tt_ranks) <= mtt))
 
     def test_t3svd_non_minimal(self):
         for shape, tr, ttr in [((5, 6), (8, 4), (1, 3, 1)), ((6, 7, 8), (5, 5, 5), (1, 40, 40, 1))]:

@@ -33,17 +33,24 @@ def ut3svd(
         data:             UT3Data,
         max_tucker_ranks: typ.Union[int, typ.Sequence[int], NDArray, None] = None,  # scalar / len=d / (d,)+stack
         max_tt_ranks:     typ.Union[int, typ.Sequence[int], NDArray, None] = None,  # scalar / len=d+1 / (d+1,)+stack
+        minimize_ranks:   bool = True,
 ) -> typ.Tuple[
-    UT3Data,  # new_x (ranks shrunk to the minimal structural ranks of the capped target)
+    UT3Data,  # new_x (minimal structural ranks of the capped target, or the capped ranks if not minimizing)
     NDArray,  # Tucker singular values, shape=(d,)+stack+(n',)
     NDArray,  # TT singular values,     shape=(d+1,)+stack+(r',)
 ]:
-    """Mask-truncated T3-SVD of a uniform Tucker tensor train.
+    """Mask-truncated T3-SVD of a uniform Tucker tensor train. Matches ragged ``t3svd`` on real parts.
 
     Truncation is by **max rank only** (no rtol/atol -- those would make data-dependent shapes). The
-    output ranks are the minimal **structural** ranks of the capped target (``min(current, max)`` then
-    `compute_minimal_ranks`), and the padded supercore shrinks to those (minimal-for-free). Per-stack-
-    element ``max_*_ranks`` arrays are allowed (the variety / rank sweep). Matches ``t3svd`` on real parts.
+    sweep truncates to the **capped** ranks (``min(current, max)``), keeping the full Tucker rank through
+    each bond SVD -- the best approximation (ragged ``t3svd`` "option a"). With ``minimize_ranks=True``
+    (default) a second sweep re-tightens to the minimal **structural** ranks of the capped target
+    (`compute_minimal_ranks`), dropping ranks a hard cap orphaned (lossless -- the cap-result's structural
+    minimum IS the minimal masks); ``minimize_ranks=False`` skips that and keeps the capped ranks (same
+    tensor, possibly non-minimal). The padded supercore shrinks to whichever it kept. Per-stack-element
+    ``max_*_ranks`` arrays are allowed (the variety / rank sweep). See ``docs/t3svd_minimal_ranks.md``.
+
+    (Slice A: the re-tighten re-runs the full sweep; Slice B replaces it with a cheaper R->L pass.)
     """
     use_jax = tree_contains_jax(data[:2])
     xnp, _, _ = get_backend(True, use_jax)
@@ -57,18 +64,30 @@ def ut3svd(
 
     capped_tucker = _cap_ranks(tucker_mask.sum(axis=-1), max_tucker_ranks, d, xnp)
     capped_tt = _cap_ranks(tt_mask.sum(axis=-1), max_tt_ranks, d + 1, xnp)
-    new_tucker_ranks, new_tt_ranks = ranks.compute_minimal_ranks(shape, capped_tucker, capped_tt)
 
-    trunc_masks = ut3_masking.make_uniform_masks(shape, new_tucker_ranks, new_tt_ranks, N, n, r, use_jax=use_jax)
-    (out_tucker, out_tt), ss_tucker, ss_tt = uniform_t3_svd((masked_tucker, masked_tt), trunc_masks)
+    # Truncate to the CAPPED ranks (not the minimal ranks): the bond SVD sees the full Tucker rank ->
+    # the best approximation (ragged "option a"). The singular values from this sweep are the truncation
+    # singular values we report.
+    cap_masks = ut3_masking.make_uniform_masks(shape, capped_tucker, capped_tt, N, n, r, use_jax=use_jax)
+    (out_tucker, out_tt), ss_tucker, ss_tt = uniform_t3_svd((masked_tucker, masked_tt), cap_masks)
 
-    # shrink the padded supercore to the minimal structural ranks the SVD produced
-    n2 = int(xnp.max(new_tucker_ranks))
-    r2 = int(xnp.max(new_tt_ranks))
+    keep_tucker, keep_tt, keep_masks = capped_tucker, capped_tt, cap_masks
+    if minimize_ranks:
+        # Re-tighten to minimal ranks: re-run the sweep with the minimal masks. Lossless (the cap-result's
+        # structural minimum IS the minimal masks), drops only orphaned ranks. Re-run singular values are
+        # discarded -- we keep the truncation singular values from the cap sweep, sliced to minimal.
+        min_tucker, min_tt = ranks.compute_minimal_ranks(shape, capped_tucker, capped_tt)
+        min_masks = ut3_masking.make_uniform_masks(shape, min_tucker, min_tt, N, n, r, use_jax=use_jax)
+        (out_tucker, out_tt), _, _ = uniform_t3_svd((out_tucker, out_tt), min_masks)
+        keep_tucker, keep_tt, keep_masks = min_tucker, min_tt, min_masks
+
+    # shrink the padded supercore to the kept ranks
+    n2 = int(xnp.max(keep_tucker))
+    r2 = int(xnp.max(keep_tt))
     out_tucker = out_tucker[..., :n2, :]
     out_tt = out_tt[..., :r2, :n2, :r2]
-    _, out_tkm, out_ttm = trunc_masks
-    new_masks = (shape_mask, out_tkm[..., :n2], out_ttm[..., :r2])
+    _, keep_tkm, keep_ttm = keep_masks
+    new_masks = (shape_mask, keep_tkm[..., :n2], keep_ttm[..., :r2])
     return (out_tucker, out_tt, new_masks), ss_tucker[..., :n2], ss_tt[..., :r2]
 
 

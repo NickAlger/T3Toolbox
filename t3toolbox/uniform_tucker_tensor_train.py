@@ -295,17 +295,21 @@ class UniformTuckerTensorTrain:
         return _from_data(ut3_orthogonalization.right_orthogonalize_tt_cores(self.data))
 
     # ----------------------------------------------------------------- T3-SVD
-    def t3svd(self, max_tt_ranks=None, max_tucker_ranks=None, rtol=None, atol=None):
-        """Mask-truncated T3-SVD. Reduces ranks to the minimal structural ranks of the capped target and
-        shrinks the padded supercore to match. Uniform truncates by **max rank only** -- ``rtol``/``atol``
-        are unsupported (they would make data-dependent shapes). Per-stack-element ``max_*_ranks`` arrays
-        are allowed. Returns ``(new UT3, Tucker singular values, TT singular values)``."""
+    def t3svd(self, max_tt_ranks=None, max_tucker_ranks=None, rtol=None, atol=None, minimize_ranks=True):
+        """Mask-truncated T3-SVD. Matches ragged :py:meth:`TuckerTensorTrain.t3svd` on real parts: the
+        sweep truncates to the capped ranks (full Tucker through each bond SVD -- the best approximation),
+        then with ``minimize_ranks=True`` (default) re-tightens to the minimal structural ranks of the
+        capped target and shrinks the padded supercore to match. ``minimize_ranks=False`` keeps the capped
+        ranks (same tensor, possibly non-minimal). Uniform truncates by **max rank only** -- ``rtol``/
+        ``atol`` are unsupported (they would make data-dependent shapes). Per-stack-element ``max_*_ranks``
+        arrays are allowed. Returns ``(new UT3, Tucker singular values, TT singular values)``."""
         if rtol is not None or atol is not None:
             raise NotImplementedError(
                 'UniformTuckerTensorTrain.t3svd does not support rtol/atol (they would make data-dependent '
                 'shapes); truncate by max_tucker_ranks / max_tt_ranks. See docs/uniform_ranks_and_varieties.md.')
         new_data, ss_tucker, ss_tt = ut3_svd.ut3svd(
-            self.data, max_tucker_ranks=max_tucker_ranks, max_tt_ranks=max_tt_ranks)
+            self.data, max_tucker_ranks=max_tucker_ranks, max_tt_ranks=max_tt_ranks,
+            minimize_ranks=minimize_ranks)
         return _from_data(new_data), ss_tucker, ss_tt
 
     # ----------------------------------------------------------------- stacking
