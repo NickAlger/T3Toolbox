@@ -113,6 +113,13 @@ on *different* operand subsets (canonical case: core/base stack `C` on the cores
 extras for free only when `C` is innermost. (`apply`/`entries` were the last `C+W` holdout — flipped
 in 5b; the whole library is now base-inner.)
 
+**The three sampling operations** (`entries`, `apply`, `probe`) — evaluate the dense tensor without
+forming it, differing in how many modes stay free (`probe`: one → `d` vectors; `apply`/`entries`:
+none → scalar) and the test vectors (general vs one-hot). Containment `probe ⊃ apply ⊃ entries`; all
+three have tangent (Riemannian `𝒥`/`𝒥ᵀ`) forms. **What differs, costs, and how each fits a Riemannian
+solve:** [`docs/entries_apply_probe.md`](docs/entries_apply_probe.md). Probing is the original
+exemplar; `apply`/`entries` are the general-purpose all-modes special cases.
+
 **Two gotchas:**
 - **Canonical core-tuple orderings (frontend takes precedence).** `TuckerTensorTrain.data =
   (tucker_cores, tt_cores)`; `T3Basis.data = (up, down, left, right) = (U, O, P, Q)` (the `O`/down core
