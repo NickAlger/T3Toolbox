@@ -384,10 +384,13 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         self.assertLessEqual(relerr(d[0], e0.to_dense()), TOL)
         self.assertLessEqual(relerr(d[1], e1.to_dense()), TOL)
 
-    def test_t3svd_rejects_rtol_atol(self):
+    def test_t3svd_has_no_rtol_atol(self):
+        # uniform t3svd truncates by max rank only -- rtol/atol are not parameters (data-dependent shapes)
         ux = ut3.t3_to_ut3(t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1)))
-        with self.assertRaises(NotImplementedError):
+        with self.assertRaises(TypeError):
             ux.t3svd(rtol=1e-3)
+        with self.assertRaises(TypeError):
+            ux.t3svd(atol=1e-3)
 
     # ---- validate (structural hard errors) ----
     def test_validate_raises_on_bad_shape(self):

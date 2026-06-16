@@ -306,8 +306,7 @@ class UniformTuckerTensorTrain:
         return bool(ut3_orthogonalization.ut3_orthogonality_residual(self.data, 'right') <= atol)
 
     # ----------------------------------------------------------------- T3-SVD
-    def t3svd(self, max_tt_ranks=None, max_tucker_ranks=None, rtol=None, atol=None, minimize_ranks=True,
-              assume_orthogonal=None):
+    def t3svd(self, max_tt_ranks=None, max_tucker_ranks=None, minimize_ranks=True, assume_orthogonal=None):
         """Mask-truncated T3-SVD. Matches ragged :py:meth:`TuckerTensorTrain.t3svd` on real parts: the
         sweep truncates to the capped ranks (full Tucker through each bond SVD -- the best approximation),
         then with ``minimize_ranks=True`` (default) re-tightens to the minimal structural ranks of the
@@ -316,13 +315,10 @@ class UniformTuckerTensorTrain:
         ``assume_orthogonal`` (``None``/``'left'``/``'right'``)
         skips the initial orthogonalization when the input is already in left/right-orthogonal form (verify
         with :py:meth:`is_left_orthogonal` / :py:meth:`is_right_orthogonal` -- not checked); ``'left'``
-        truncates right-to-left. Uniform truncates by **max rank only** -- ``rtol``/``atol`` are
-        unsupported (they would make data-dependent shapes). Per-stack-element ``max_*_ranks`` arrays are
-        allowed. Returns ``(new UT3, Tucker singular values, TT singular values)``."""
-        if rtol is not None or atol is not None:
-            raise NotImplementedError(
-                'UniformTuckerTensorTrain.t3svd does not support rtol/atol (they would make data-dependent '
-                'shapes); truncate by max_tucker_ranks / max_tt_ranks. See docs/uniform_ranks_and_varieties.md.')
+        truncates right-to-left. Uniform truncates by **max rank only** -- unlike ragged ``t3svd`` there is
+        no ``rtol``/``atol`` (a tolerance would make the output shape data-dependent, which the uniform
+        layer forbids; see ``docs/uniform_ranks_and_varieties.md``). Per-stack-element ``max_*_ranks``
+        arrays are allowed. Returns ``(new UT3, Tucker singular values, TT singular values)``."""
         new_data, ss_tucker, ss_tt = ut3_svd.ut3svd(
             self.data, max_tucker_ranks=max_tucker_ranks, max_tt_ranks=max_tt_ranks,
             minimize_ranks=minimize_ranks, assume_orthogonal=assume_orthogonal)
