@@ -201,10 +201,7 @@ The dividing line is **structural vs numerical**:
   (no cross-product); long tail → prose. **Run the example and paste the real output — never hand-write
   it.** Full convention + exemplar (`manifold.py`): **[`docs/doctest_style.md`](docs/doctest_style.md)**.
   (Supersedes the old "illustrative captured values" convention.)
-- **Run tests filtering debug noise**:
-  `python -m unittest tests.test_X 2>&1 | grep -vE "^(RAGGED|NUMPY)"`
-  (`common.py`'s ragged_map/scan print `RAGGED MAP` / `NUMPY SCAN(` etc. — leftover debug prints,
-  not yet removed). Scripts run from `/tmp` need `PYTHONPATH=/home/nick/repos/T3Toolbox`.
+- **Running tests/scripts**: scripts run from `/tmp` need `PYTHONPATH=/home/nick/repos/T3Toolbox`.
 
 ## Workflow (how Nick likes to work)
 
@@ -314,9 +311,8 @@ Treat everything else as copied-in-and-not-yet-working until checked.
   input-inference. Uniform basis/variations/tangents (`ubv_*`, `uniform_*`) and their supercore tangent
   ops remain deferred.
 - Redesign the **weighted tensor network** code structure.
-- Cleanup backlog: remove the `common.py` debug prints; `OLD_*.py` + stray `.npz` artifacts; wire
-  doctests into CI; docs (`conf.py` autoapi excludes backend/weighted, committed `_build`,
-  `modules.rst` still titled "TuckerTensorTrainTools").
+- Cleanup backlog: `OLD_*.py` + stray `.npz` artifacts; wire doctests into CI; docs (`conf.py` autoapi
+  excludes backend/weighted, committed `_build`, `modules.rst` still titled "TuckerTensorTrainTools").
 - **Doctests — existing-doctest sweep ✅ DONE.** All verified modules' **existing** doctests reworked
   into reproducible examples (convention: `docs/doctest_style.md`; exemplars `manifold.py` +
   `TuckerTensorTrain.__mul__`/`inner`/`t3svd`) and committed: `manifold`/`corewise`/`stacking` (already
