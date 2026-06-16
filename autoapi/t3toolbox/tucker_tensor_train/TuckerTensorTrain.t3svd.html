@@ -47,7 +47,7 @@
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="TuckerTensorTrain.t3svd_dense" href="TuckerTensorTrain.t3svd_dense.html" />
+    <link rel="next" title="TuckerTensorTrain.rank_adjustment_sweep" href="TuckerTensorTrain.rank_adjustment_sweep.html" />
     <link rel="prev" title="TuckerTensorTrain.entries_transpose" href="TuckerTensorTrain.entries_transpose.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -341,6 +341,7 @@
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.apply_transpose.html">TuckerTensorTrain.apply_transpose</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.entries_transpose.html">TuckerTensorTrain.entries_transpose</a></li>
 <li class="toctree-l4 current active"><a class="current reference internal" href="#">TuckerTensorTrain.t3svd</a></li>
+<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.rank_adjustment_sweep.html">TuckerTensorTrain.rank_adjustment_sweep</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.t3svd_dense.html">TuckerTensorTrain.t3svd_dense</a></li>
 </ul>
 </details></li>
@@ -421,7 +422,7 @@
 <h1>TuckerTensorTrain.t3svd<a class="headerlink" href="#tuckertensortrain-t3svd" title="Link to this heading">#</a></h1>
 <dl class="py method">
 <dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.</span></span><span class="sig-name descname"><span class="pre">t3svd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_tt_ranks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_tucker_ranks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">minimize_ranks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assume_orthogonal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd" title="Link to this definition">#</a></dt>
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.</span></span><span class="sig-name descname"><span class="pre">t3svd</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_tt_ranks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_tucker_ranks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">assume_orthogonal</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd" title="Link to this definition">#</a></dt>
 <dd><p>Compute (truncated) T3-SVD of Tucker tensor train.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -439,29 +440,13 @@ Requires <code class="docutils literal notranslate"><span class="pre">stack_shap
 <li><p><strong>atol</strong> (<em>float</em><em>, </em><em>optional</em>) – Absolute tolerance for truncation (in the Frobenius norm), applied <strong>per truncation step</strong>
 (see Notes). Default: no <code class="docutils literal notranslate"><span class="pre">atol</span></code> truncation (<code class="docutils literal notranslate"><span class="pre">None</span></code>).
 Requires <code class="docutils literal notranslate"><span class="pre">stack_shape=()</span></code>.</p></li>
-<li><p><strong>minimize_ranks</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code> (default), re-tighten the result to <strong>structurally minimal ranks</strong>
-(<code class="docutils literal notranslate"><span class="pre">has_minimal_ranks</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>); see Notes. If <code class="docutils literal notranslate"><span class="pre">False</span></code>, skip the re-tighten and return
-the raw sweep output: the <strong>same represented tensor</strong>, but with the (possibly redundant)
-ranks the sweep left in – so <code class="docutils literal notranslate"><span class="pre">has_minimal_ranks</span></code> may be <code class="docutils literal notranslate"><span class="pre">False</span></code>. The re-tighten is an
-extra right-to-left sweep of SVDs whose cost relative to the truncation depends on your
-regime: it is most significant when each truncation compresses the ranks only <em>slightly</em>
-(the cores it sweeps are still large) and you truncate <em>repeatedly</em> – e.g. an iterative
-solver or ODE integrator whose T3-valued state is rounded a little each step. <code class="docutils literal notranslate"><span class="pre">False</span></code> lets
-you skip that cost and manage ranks yourself (e.g. re-tighten occasionally); the trade-off
-is yours, since non-minimal ranks otherwise cost more in every downstream op (storage,
-contraction) and break the minimal-rank precondition of <a class="reference internal" href="TuckerTensorTrain.inner.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.inner" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.inner"><code class="xref py py-meth docutils literal notranslate"><span class="pre">inner()</span></code></a>/<a class="reference internal" href="TuckerTensorTrain.norm.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.norm" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.norm"><code class="xref py py-meth docutils literal notranslate"><span class="pre">norm()</span></code></a> and
-some manifold operations. Default: <code class="docutils literal notranslate"><span class="pre">True</span></code>.</p></li>
-<li><p><strong>assume_orthogonal</strong> (<em>str</em><em>, </em><em>optional</em>) – <code class="docutils literal notranslate"><span class="pre">None</span></code> / <code class="docutils literal notranslate"><span class="pre">'left'</span></code> / <code class="docutils literal notranslate"><span class="pre">'right'</span></code> (case-insensitive; <code class="docutils literal notranslate"><span class="pre">'l'</span></code> / <code class="docutils literal notranslate"><span class="pre">'r'</span></code> accepted). Skip the
-initial orthogonalization sweep when the input is already in <strong>left/right-orthogonal form</strong>
-(every Tucker core down-orthogonal <strong>and</strong> every TT core left/right-orthogonal – e.g. a
-prior <a class="reference internal" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd"><code class="xref py py-meth docutils literal notranslate"><span class="pre">t3svd()</span></code></a> result is left-orthogonal; a
-<code class="xref py py-class docutils literal notranslate"><span class="pre">T3Basis</span></code> is orthogonal). <code class="docutils literal notranslate"><span class="pre">None</span></code> (default)
-always orthogonalizes (safe). <code class="docutils literal notranslate"><span class="pre">'right'</span></code> skips it; the result matches <code class="docutils literal notranslate"><span class="pre">None</span></code>. <code class="docutils literal notranslate"><span class="pre">'left'</span></code>
-reverses to a right-orthogonal T3, sweeps, and reverses back – cheap rank-sized TT
-transposes, no SVD sweep – but then truncates <strong>right-to-left</strong>: an equally-valid but
-generally different result from <code class="docutils literal notranslate"><span class="pre">None</span></code> (identical when not truncating), returned
-right-orthogonal. <strong>Not enforced</strong> – a wrong assertion silently corrupts the result; verify
-first with <a class="reference internal" href="TuckerTensorTrain.is_left_orthogonal.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_left_orthogonal" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_left_orthogonal"><code class="xref py py-meth docutils literal notranslate"><span class="pre">is_left_orthogonal()</span></code></a> / <a class="reference internal" href="TuckerTensorTrain.is_right_orthogonal.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_right_orthogonal" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_right_orthogonal"><code class="xref py py-meth docutils literal notranslate"><span class="pre">is_right_orthogonal()</span></code></a>. Default: <code class="docutils literal notranslate"><span class="pre">None</span></code>.</p></li>
+<li><p><strong>assume_orthogonal</strong> (<em>bool</em><em>, </em><em>optional</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, skip the initial orthogonalization, asserting the input is already
+<strong>right-orthogonal</strong> (every Tucker core down-orthogonal <strong>and</strong> every TT core
+right-orthogonal – the form the left-to-right sweep needs). <strong>Not enforced</strong> – a wrong
+assertion silently corrupts the result; verify first with <a class="reference internal" href="TuckerTensorTrain.is_right_orthogonal.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_right_orthogonal" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_right_orthogonal"><code class="xref py py-meth docutils literal notranslate"><span class="pre">is_right_orthogonal()</span></code></a>. A
+<em>left</em>-orthogonal input (e.g. a prior <a class="reference internal" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd"><code class="xref py py-meth docutils literal notranslate"><span class="pre">t3svd()</span></code></a> result) is not the right form; reverse
+it yourself (a left-orthogonal T3 reversed is right-orthogonal) if you want to skip. Default:
+<code class="docutils literal notranslate"><span class="pre">False</span></code> (always orthogonalize – safe).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -485,17 +470,15 @@ exceed the requested tolerance by up to a factor <code class="docutils literal n
 </pre></div>
 </div>
 <p>See <code class="docutils literal notranslate"><span class="pre">docs/t3svd_verification.md</span></code> for the bound and its proof.</p>
-<p>With <code class="docutils literal notranslate"><span class="pre">minimize_ranks=True</span></code> (default) the result has <strong>structurally minimal ranks</strong>
-(<code class="docutils literal notranslate"><span class="pre">x2.has_minimal_ranks</span></code> is <code class="docutils literal notranslate"><span class="pre">True</span></code>): a hard rank cap can push a bond below its structural
-value and orphan a Tucker rank / neighbouring bond, so after the sweep <code class="docutils literal notranslate"><span class="pre">t3svd</span></code> re-tightens to
-the minimal ranks – a lossless step that drops only redundant directions and leaves the
-represented tensor unchanged. <code class="docutils literal notranslate"><span class="pre">minimize_ranks=False</span></code> skips that extra SVD sweep and may return
-non-minimal ranks; the represented tensor is identical either way. <code class="docutils literal notranslate"><span class="pre">docs/t3svd_minimal_ranks.md</span></code>
-discusses the trade-off (the re-tighten is an extra sweep – significant for large, lightly
-compressed problems rounded repeatedly).</p>
+<p>This is the basic algorithm: it does <strong>not</strong> guarantee minimal ranks. The result is always
+<strong>left-orthogonal</strong>, but under a hard rank cap it can leave a Tucker rank / bond above its
+structural minimum (<code class="docutils literal notranslate"><span class="pre">has_minimal_ranks</span></code> may be <code class="docutils literal notranslate"><span class="pre">False</span></code>) – exactly as the paper’s algorithm
+(and Oseledets’ TT-SVD) do. To reduce to minimal ranks, follow with
+<a class="reference internal" href="TuckerTensorTrain.rank_adjustment_sweep.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.rank_adjustment_sweep" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.rank_adjustment_sweep"><code class="xref py py-meth docutils literal notranslate"><span class="pre">rank_adjustment_sweep()</span></code></a> (the result is left-orthogonal, so <code class="docutils literal notranslate"><span class="pre">'right_to_left'</span></code> minimizes
+it). See <code class="docutils literal notranslate"><span class="pre">docs/t3svd_minimal_ranks.md</span></code>.</p>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
-<p><a class="reference internal" href="TuckerTensorTrain.t3svd_dense.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd_dense" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd_dense"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.t3svd_dense()</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.get_minimal_ranks.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.get_minimal_ranks" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.get_minimal_ranks"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.get_minimal_ranks()</span></code></a></p>
+<p><a class="reference internal" href="TuckerTensorTrain.rank_adjustment_sweep.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.rank_adjustment_sweep" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.rank_adjustment_sweep"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.rank_adjustment_sweep()</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.t3svd_dense.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd_dense" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd_dense"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.t3svd_dense()</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.get_minimal_ranks.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.get_minimal_ranks" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.get_minimal_ranks"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.get_minimal_ranks()</span></code></a></p>
 </div>
 <p class="rubric">Examples</p>
 <p>No truncation – re-represents the same tensor, with ranks reduced to minimal:</p>
@@ -563,60 +546,35 @@ single T3, since different slices could truncate to different ranks):</p>
 <span class="gr">ValueError</span>
 </pre></div>
 </div>
-<p>Truncation always returns <strong>structurally minimal</strong> ranks – including the adversarial case
-where the Tucker ranks are left uncapped while a TT-bond cap bites. Capping the bonds to 2
-forces <code class="docutils literal notranslate"><span class="pre">r_1</span> <span class="pre">=</span> <span class="pre">2</span></code>, which structurally bounds the mode-0 Tucker rank by
-<code class="docutils literal notranslate"><span class="pre">rL_0</span> <span class="pre">*</span> <span class="pre">r_1</span> <span class="pre">=</span> <span class="pre">1</span> <span class="pre">*</span> <span class="pre">2</span> <span class="pre">=</span> <span class="pre">2</span></code>; <code class="docutils literal notranslate"><span class="pre">t3svd</span></code> re-tightens to that bound (a lossless step that drops
-only the redundant direction) rather than leaving a non-minimal rank. See
-<code class="docutils literal notranslate"><span class="pre">docs/t3svd_minimal_ranks.md</span></code> for why a naive truncating sweep would not:</p>
+<p>Under truncation, <code class="docutils literal notranslate"><span class="pre">t3svd</span></code> does <strong>not</strong> guarantee minimal ranks – a hard cap can leave a
+Tucker rank above its structural bound (here <code class="docutils literal notranslate"><span class="pre">n_0</span> <span class="pre">=</span> <span class="pre">3</span> <span class="pre">&gt;</span> <span class="pre">rL_0*r_1</span> <span class="pre">=</span> <span class="pre">1*2</span> <span class="pre">=</span> <span class="pre">2</span></code>). The result is
+left-orthogonal; reduce it to minimal with <a class="reference internal" href="TuckerTensorTrain.rank_adjustment_sweep.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.rank_adjustment_sweep" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.rank_adjustment_sweep"><code class="xref py py-meth docutils literal notranslate"><span class="pre">rank_adjustment_sweep()</span></code></a>
+(<code class="docutils literal notranslate"><span class="pre">'right_to_left'</span></code>, since a <code class="docutils literal notranslate"><span class="pre">t3svd</span></code> result is left-orthogonal):</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x2</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">t3svd</span><span class="p">(</span><span class="n">max_tt_ranks</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>            <span class="c1"># cap the TT bonds, leave the Tucker ranks uncapped</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x2</span><span class="o">.</span><span class="n">has_minimal_ranks</span><span class="p">)</span>
-<span class="go">True</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x2</span><span class="o">.</span><span class="n">tucker_ranks</span><span class="p">,</span> <span class="n">x2</span><span class="o">.</span><span class="n">tt_ranks</span><span class="p">)</span>
-<span class="go">(2, 4, 2) (1, 2, 2, 1)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x2</span><span class="o">.</span><span class="n">tucker_ranks</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s1">&#39;&lt;= rL*rR =&#39;</span><span class="p">,</span> <span class="n">x2</span><span class="o">.</span><span class="n">tt_ranks</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="n">x2</span><span class="o">.</span><span class="n">tt_ranks</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-<span class="go">2 &lt;= rL*rR = 2</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x2</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">t3svd</span><span class="p">(</span><span class="n">max_tt_ranks</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>               <span class="c1"># cap TT bonds, leave Tucker uncapped</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x2</span><span class="o">.</span><span class="n">is_left_orthogonal</span><span class="p">(),</span> <span class="n">x2</span><span class="o">.</span><span class="n">has_minimal_ranks</span><span class="p">,</span> <span class="n">x2</span><span class="o">.</span><span class="n">tucker_ranks</span><span class="p">)</span>
+<span class="go">True False (3, 4, 2)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x3</span> <span class="o">=</span> <span class="n">x2</span><span class="o">.</span><span class="n">rank_adjustment_sweep</span><span class="p">(</span><span class="s1">&#39;right_to_left&#39;</span><span class="p">)</span>   <span class="c1"># reduce to minimal ranks (lossless)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x3</span><span class="o">.</span><span class="n">has_minimal_ranks</span><span class="p">,</span> <span class="n">x3</span><span class="o">.</span><span class="n">tucker_ranks</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">x3</span><span class="o">.</span><span class="n">to_dense</span><span class="p">(),</span> <span class="n">x2</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()))</span>
+<span class="go">True (2, 4, 2) True</span>
 </pre></div>
 </div>
-<p><code class="docutils literal notranslate"><span class="pre">minimize_ranks=False</span></code> skips the re-tightening SVD sweep: the SAME tensor comes back, but with
-the redundant Tucker rank left in (here <code class="docutils literal notranslate"><span class="pre">n_0</span> <span class="pre">=</span> <span class="pre">3</span> <span class="pre">&gt;</span> <span class="pre">rL_0*r_1</span> <span class="pre">=</span> <span class="pre">2</span></code>), so <code class="docutils literal notranslate"><span class="pre">has_minimal_ranks</span></code> is
-<code class="docutils literal notranslate"><span class="pre">False</span></code>. Useful when you round repeatedly with little compression (e.g. an ODE integrator whose
-T3 state drifts slightly each step) and would rather skip the per-step extra sweep – at the cost
-of bigger cores in later operations:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">x3</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">t3svd</span><span class="p">(</span><span class="n">max_tt_ranks</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">minimize_ranks</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x3</span><span class="o">.</span><span class="n">has_minimal_ranks</span><span class="p">)</span>
-<span class="go">False</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x3</span><span class="o">.</span><span class="n">tucker_ranks</span><span class="p">,</span> <span class="n">x3</span><span class="o">.</span><span class="n">tt_ranks</span><span class="p">)</span>           <span class="c1"># n_0 = 3 is redundant (rL_0*r_1 = 1*2 = 2)</span>
-<span class="go">(3, 4, 2) (1, 2, 2, 1)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">x3</span><span class="o">.</span><span class="n">to_dense</span><span class="p">(),</span> <span class="n">x2</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()))</span>   <span class="c1"># ...but the represented tensor is identical</span>
-<span class="go">True</span>
-</pre></div>
-</div>
-<p><code class="docutils literal notranslate"><span class="pre">assume_orthogonal</span></code> skips the initial orthogonalization when the input is already in
-left/right-orthogonal form. A <code class="docutils literal notranslate"><span class="pre">t3svd</span></code> result is left-orthogonal, so re-truncating it can skip
-the sweep (verify with <a class="reference internal" href="TuckerTensorTrain.is_left_orthogonal.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_left_orthogonal" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_left_orthogonal"><code class="xref py py-meth docutils literal notranslate"><span class="pre">is_left_orthogonal()</span></code></a> first – it is not checked):</p>
+<p><code class="docutils literal notranslate"><span class="pre">assume_orthogonal=True</span></code> skips the initial orthogonalization, asserting the input is already
+right-orthogonal (verify with <a class="reference internal" href="TuckerTensorTrain.is_right_orthogonal.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_right_orthogonal" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_right_orthogonal"><code class="xref py py-meth docutils literal notranslate"><span class="pre">is_right_orthogonal()</span></code></a> first – it is not checked):</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">xo</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">t3svd</span><span class="p">()</span>                              <span class="c1"># a t3svd result is left-orthogonal</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">xo</span><span class="o">.</span><span class="n">is_left_orthogonal</span><span class="p">())</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">xr</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">down_orthogonalize_tucker_cores</span><span class="p">()</span><span class="o">.</span><span class="n">right_orthogonalize_tt_cores</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">xr</span><span class="o">.</span><span class="n">is_right_orthogonal</span><span class="p">())</span>
 <span class="go">True</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">xt</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">xo</span><span class="o">.</span><span class="n">t3svd</span><span class="p">(</span><span class="n">assume_orthogonal</span><span class="o">=</span><span class="s1">&#39;left&#39;</span><span class="p">)</span>     <span class="c1"># no truncation -&gt; skip the sweep, exact</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">xt</span><span class="o">.</span><span class="n">to_dense</span><span class="p">(),</span> <span class="n">xo</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">a</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">t3svd</span><span class="p">(</span><span class="n">max_tt_ranks</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">assume_orthogonal</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>   <span class="c1"># skip the redundant sweep</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">b</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">xr</span><span class="o">.</span><span class="n">t3svd</span><span class="p">(</span><span class="n">max_tt_ranks</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">to_dense</span><span class="p">(),</span> <span class="n">b</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()))</span>
 <span class="go">True</span>
-</pre></div>
-</div>
-<p>Under truncation, <code class="docutils literal notranslate"><span class="pre">'left'</span></code> sweeps right-to-left, an equally-valid but generally different
-result from the default left-to-right (both minimal, both within the error bound):</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">a</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">xo</span><span class="o">.</span><span class="n">t3svd</span><span class="p">(</span><span class="n">max_tt_ranks</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">assume_orthogonal</span><span class="o">=</span><span class="s1">&#39;left&#39;</span><span class="p">)</span>   <span class="c1"># right-to-left</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">b</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">xo</span><span class="o">.</span><span class="n">t3svd</span><span class="p">(</span><span class="n">max_tt_ranks</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>                             <span class="c1"># default left-to-right</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">a</span><span class="o">.</span><span class="n">to_dense</span><span class="p">(),</span> <span class="n">b</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()),</span> <span class="n">a</span><span class="o">.</span><span class="n">has_minimal_ranks</span><span class="p">)</span>
-<span class="go">False True</span>
 </pre></div>
 </div>
 </dd></dl>
@@ -643,11 +601,11 @@ result from the default left-to-right (both minimal, both within the error bound
       </div>
     </a>
     <a class="right-next"
-       href="TuckerTensorTrain.t3svd_dense.html"
+       href="TuckerTensorTrain.rank_adjustment_sweep.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">TuckerTensorTrain.t3svd_dense</p>
+        <p class="prev-next-title">TuckerTensorTrain.rank_adjustment_sweep</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>

@@ -8,8 +8,8 @@ TuckerTensorTrain.is_left_orthogonal
 
    Non-enforcing convenience checker (max-abs deviation from the identities ``<= atol``; see
    :py:func:`~t3toolbox.backend.t3_orthogonalization.t3_orthogonality_residual`). A
-   :py:meth:`t3svd` result is left-orthogonal. Use this to verify before asserting
-   ``t3svd(..., assume_orthogonal='left')``, which is **not** checked.
+   :py:meth:`t3svd` result is left-orthogonal, as is the result of
+   ``rank_adjustment_sweep('left_to_right')``.
 
    .. rubric:: Examples
 

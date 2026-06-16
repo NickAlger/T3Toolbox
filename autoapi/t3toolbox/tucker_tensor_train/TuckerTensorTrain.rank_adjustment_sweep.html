@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>TuckerTensorTrain.up_svd_tt_core &#8212; T3Toolbox 0.1 documentation</title>
+    <title>TuckerTensorTrain.rank_adjustment_sweep &#8212; T3Toolbox 0.1 documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.up_svd_tt_core';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.rank_adjustment_sweep';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="TuckerTensorTrain.orthogonalize_relative_to_tucker_core" href="TuckerTensorTrain.orthogonalize_relative_to_tucker_core.html" />
-    <link rel="prev" title="TuckerTensorTrain.right_svd_tt_core" href="TuckerTensorTrain.right_svd_tt_core.html" />
+    <link rel="next" title="TuckerTensorTrain.t3svd_dense" href="TuckerTensorTrain.t3svd_dense.html" />
+    <link rel="prev" title="TuckerTensorTrain.t3svd" href="TuckerTensorTrain.t3svd.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -328,7 +328,7 @@
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.down_svd_tucker_core.html">TuckerTensorTrain.down_svd_tucker_core</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.left_svd_tt_core.html">TuckerTensorTrain.left_svd_tt_core</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.right_svd_tt_core.html">TuckerTensorTrain.right_svd_tt_core</a></li>
-<li class="toctree-l4 current active"><a class="current reference internal" href="#">TuckerTensorTrain.up_svd_tt_core</a></li>
+<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.up_svd_tt_core.html">TuckerTensorTrain.up_svd_tt_core</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.orthogonalize_relative_to_tucker_core.html">TuckerTensorTrain.orthogonalize_relative_to_tucker_core</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.orthogonalize_relative_to_tt_core.html">TuckerTensorTrain.orthogonalize_relative_to_tt_core</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.down_orthogonalize_tucker_cores.html">TuckerTensorTrain.down_orthogonalize_tucker_cores</a></li>
@@ -341,7 +341,7 @@
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.apply_transpose.html">TuckerTensorTrain.apply_transpose</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.entries_transpose.html">TuckerTensorTrain.entries_transpose</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.t3svd.html">TuckerTensorTrain.t3svd</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.rank_adjustment_sweep.html">TuckerTensorTrain.rank_adjustment_sweep</a></li>
+<li class="toctree-l4 current active"><a class="current reference internal" href="#">TuckerTensorTrain.rank_adjustment_sweep</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.t3svd_dense.html">TuckerTensorTrain.t3svd_dense</a></li>
 </ul>
 </details></li>
@@ -401,7 +401,7 @@
     
     <li class="breadcrumb-item"><a href="TuckerTensorTrain.html" class="nav-link">TuckerTensorTrain</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">TuckerTensorTrain.up_svd_tt_core</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">TuckerTensorTrain.rank_adjustment_sweep</span></li>
   </ul>
 </nav>
 </div>
@@ -418,58 +418,42 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="tuckertensortrain-up-svd-tt-core">
-<h1>TuckerTensorTrain.up_svd_tt_core<a class="headerlink" href="#tuckertensortrain-up-svd-tt-core" title="Link to this heading">#</a></h1>
+  <section id="tuckertensortrain-rank-adjustment-sweep">
+<h1>TuckerTensorTrain.rank_adjustment_sweep<a class="headerlink" href="#tuckertensortrain-rank-adjustment-sweep" title="Link to this heading">#</a></h1>
 <dl class="py method">
-<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.up_svd_tt_core">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.</span></span><span class="sig-name descname"><span class="pre">up_svd_tt_core</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ii</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_rank</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.up_svd_tt_core" title="Link to this definition">#</a></dt>
-<dd><p>Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the tucker core below.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>ii</strong> (<em>int</em>) – index of TT core to SVD</p></li>
-<li><p><strong>min_rank</strong> (<em>int</em><em>, </em><em>optional</em>) – Minimum rank for truncation. Default (<code class="docutils literal notranslate"><span class="pre">None</span></code>): no minimum rank.</p></li>
-<li><p><strong>max_rank</strong> (<em>int</em><em>, </em><em>optional</em>) – Maximum rank for truncation. Default (<code class="docutils literal notranslate"><span class="pre">None</span></code>): no maximum rank.</p></li>
-<li><p><strong>rtol</strong> (<em>float</em><em>, </em><em>optional</em>) – Relative tolerance for truncation (in Hilbert-Schmidt/Frobenius norm).
-Default (<code class="docutils literal notranslate"><span class="pre">None</span></code>): no <code class="docutils literal notranslate"><span class="pre">rtol</span></code> truncation.
-If this TuckerTensorTrain is stacked, requires <code class="docutils literal notranslate"><span class="pre">rtol=None</span></code>.</p></li>
-<li><p><strong>atol</strong> (<em>float</em><em>, </em><em>optional</em>) – Absolute tolerance for truncation (in Hilbert-Schmidt/Frobenius norm).
-Default (<code class="docutils literal notranslate"><span class="pre">None</span></code>): no <code class="docutils literal notranslate"><span class="pre">atol</span></code> truncation.
-If this TuckerTensorTrain is stacked, requires <code class="docutils literal notranslate"><span class="pre">atol=None</span></code>.</p></li>
-</ul>
-</dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p><ul class="simple">
-<li><p><strong>new_x</strong> (<em>TuckerTensorTrain</em>) – New TuckerTensorTrain representing the same tensor, but with ith TT-core down orthogonal.
-I.e., <code class="docutils literal notranslate"><span class="pre">einsum('...iaj,...ibj-&gt;...ab',</span> <span class="pre">G,</span> <span class="pre">G)</span> <span class="pre">=</span> <span class="pre">(stacked)</span> <span class="pre">identity</span> <span class="pre">matrix</span></code>, where <code class="docutils literal notranslate"><span class="pre">G=new_tt_cores[ii]</span></code>.
-May have different ith Tucker rank.</p></li>
-<li><p><strong>ss</strong> (<em>NDArray</em>) – <code class="docutils literal notranslate"><span class="pre">ss.shape</span> <span class="pre">=</span> <span class="pre">new_x.stack_shape</span> <span class="pre">+</span> <span class="pre">(new_x.tucker_ranks[ii],)</span></code>.</p></li>
-</ul>
-</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><em>Tuple</em>[<a class="reference internal" href="TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>, t3toolbox.backend.common.NDArray]</p>
-</dd>
-</dl>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p><a class="reference internal" href="TuckerTensorTrain.down_svd_tucker_core.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.down_svd_tucker_core" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.down_svd_tucker_core"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.down_svd_tucker_core()</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.left_svd_tt_core.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.left_svd_tt_core" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.left_svd_tt_core"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.left_svd_tt_core()</span></code></a>, <a class="reference internal" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.up_svd_tt_core" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.up_svd_tt_core"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.up_svd_tt_core()</span></code></a></p>
-</div>
+<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.rank_adjustment_sweep">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.</span></span><span class="sig-name descname"><span class="pre">rank_adjustment_sweep</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">direction</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'right_to_left'</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.rank_adjustment_sweep" title="Link to this definition">#</a></dt>
+<dd><p>A single lossless directional sweep that drops structurally-redundant ranks (the separate
+rank-minimization step; <a class="reference internal" href="TuckerTensorTrain.t3svd.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd"><code class="xref py py-meth docutils literal notranslate"><span class="pre">t3svd()</span></code></a> itself does <strong>not</strong> minimize). Returns the adjusted T3.</p>
+<p><code class="docutils literal notranslate"><span class="pre">'right_to_left'</span></code> returns a <strong>right-orthogonal</strong> T3; <code class="docutils literal notranslate"><span class="pre">'left_to_right'</span></code> a <strong>left-orthogonal</strong>
+one. A single sweep reaches <strong>minimal ranks only if the input is already orthogonal in the
+opposite direction</strong> – e.g. a <a class="reference internal" href="TuckerTensorTrain.t3svd.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd"><code class="xref py py-meth docutils literal notranslate"><span class="pre">t3svd()</span></code></a> result is left-orthogonal, so
+<code class="docutils literal notranslate"><span class="pre">result.rank_adjustment_sweep('right_to_left')</span></code> minimizes it (check with
+<a class="reference internal" href="TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.has_minimal_ranks" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.has_minimal_ranks"><code class="xref py py-attr docutils literal notranslate"><span class="pre">has_minimal_ranks</span></code></a>). On a general input it is a partial reduction; compose both
+directions for guaranteed minimal ranks. The represented tensor is unchanged.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span><span class="mi">15</span><span class="p">,</span><span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">3</span><span class="p">,</span><span class="mi">2</span><span class="p">,</span><span class="mi">1</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">ind</span> <span class="o">=</span> <span class="mi">1</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x2</span><span class="p">,</span> <span class="n">ss</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">up_svd_tt_core</span><span class="p">(</span><span class="n">ind</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">(),</span> <span class="n">x2</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()))</span> <span class="c1"># Tensor unchanged</span>
-<span class="go">True</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_cores2</span><span class="p">,</span> <span class="n">tt_cores2</span> <span class="o">=</span> <span class="n">x2</span><span class="o">.</span><span class="n">data</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">G</span> <span class="o">=</span> <span class="n">tt_cores2</span><span class="p">[</span><span class="n">ind</span><span class="p">]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;iaj,ibj-&gt;ab&#39;</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">G</span><span class="p">)</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">eye</span><span class="p">(</span><span class="n">G</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span> <span class="o">&lt;</span> <span class="mf">1e-12</span><span class="p">))</span> <span class="c1"># TT-core is down orthogonal</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x2</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">t3svd</span><span class="p">(</span><span class="n">max_tt_ranks</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>        <span class="c1"># basic T3-SVD: left-orthogonal, NOT minimal</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x2</span><span class="o">.</span><span class="n">has_minimal_ranks</span><span class="p">,</span> <span class="n">x2</span><span class="o">.</span><span class="n">tucker_ranks</span><span class="p">)</span>
+<span class="go">False (3, 4, 2)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x3</span> <span class="o">=</span> <span class="n">x2</span><span class="o">.</span><span class="n">rank_adjustment_sweep</span><span class="p">(</span><span class="s1">&#39;right_to_left&#39;</span><span class="p">)</span>   <span class="c1"># x2 is left-orthogonal -&gt; R-&gt;L minimizes</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x3</span><span class="o">.</span><span class="n">has_minimal_ranks</span><span class="p">,</span> <span class="n">x3</span><span class="o">.</span><span class="n">tucker_ranks</span><span class="p">)</span>
+<span class="go">True (2, 4, 2)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">x3</span><span class="o">.</span><span class="n">to_dense</span><span class="p">(),</span> <span class="n">x2</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()))</span>  <span class="c1"># same tensor, redundant rank removed</span>
 <span class="go">True</span>
 </pre></div>
 </div>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>direction</strong> (<em>str</em>)</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a></p>
+</dd>
+</dl>
 </dd></dl>
 
 </section>
@@ -485,20 +469,20 @@ May have different ith Tucker rank.</p></li>
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="TuckerTensorTrain.right_svd_tt_core.html"
+       href="TuckerTensorTrain.t3svd.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">TuckerTensorTrain.right_svd_tt_core</p>
+        <p class="prev-next-title">TuckerTensorTrain.t3svd</p>
       </div>
     </a>
     <a class="right-next"
-       href="TuckerTensorTrain.orthogonalize_relative_to_tucker_core.html"
+       href="TuckerTensorTrain.t3svd_dense.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">TuckerTensorTrain.orthogonalize_relative_to_tucker_core</p>
+        <p class="prev-next-title">TuckerTensorTrain.t3svd_dense</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -521,14 +505,14 @@ May have different ith Tucker rank.</p></li>
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.up_svd_tt_core"><code class="docutils literal notranslate"><span class="pre">up_svd_tt_core()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.rank_adjustment_sweep"><code class="docutils literal notranslate"><span class="pre">rank_adjustment_sweep()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.up_svd_tt_core.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.rank_adjustment_sweep.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>
