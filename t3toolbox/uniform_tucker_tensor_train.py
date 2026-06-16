@@ -336,11 +336,35 @@ class UniformTuckerTensorTrain:
         return _from_data(new_data), ss_tucker, ss_tt
 
     def rank_adjustment_sweep(self, direction: str = 'right_to_left') -> 'UniformTuckerTensorTrain':
-        """A single lossless directional sweep that drops structurally-redundant ranks (the separate
+        """A single directional sweep that drops structurally-redundant ranks (the separate
         rank-minimization step; :py:meth:`t3svd` does not minimize). ``'right_to_left'`` returns a
-        right-orthogonal UT3, ``'left_to_right'`` a left-orthogonal one; it reaches minimal ranks only if
-        the input is orthogonal in the opposite direction (a :py:meth:`t3svd` result is left-orthogonal,
-        so ``'right_to_left'`` minimizes it). See :py:func:`~t3toolbox.backend.ut3_svd.ut3_rank_adjustment_sweep`."""
+        right-orthogonal UT3, ``'left_to_right'`` a left-orthogonal one; it reaches minimal ranks **only
+        if the input is orthogonal in the opposite direction** (a :py:meth:`t3svd` result is
+        left-orthogonal, so ``'right_to_left'`` minimizes it).
+
+        That precondition is **required**, not just optimal, and is **not enforced**: because the uniform
+        layer commits to fixed (minimal) output shapes, sweeping the wrong direction for the input's gauge
+        is **lossy** -- it discards real content (unlike the ragged version, which only under-minimizes).
+        Verify the gauge with :py:meth:`is_left_orthogonal` / :py:meth:`is_right_orthogonal` first.
+        See :py:func:`~t3toolbox.backend.ut3_svd.ut3_rank_adjustment_sweep`.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((10, 10, 10), (9, 9, 9), (1, 9, 9, 1))
+        >>> x2, _, _ = ut3.t3_to_ut3(x).t3svd(max_tucker_ranks=[9, 1, 9], max_tt_ranks=[1, 9, 2, 1])
+        >>> print(x2.is_left_orthogonal(), x2.has_minimal_ranks)   # t3svd output: left-orth, non-minimal
+        True False
+        >>> good = x2.rank_adjustment_sweep('right_to_left')       # CORRECT (x2 is left-orthogonal)
+        >>> print(good.has_minimal_ranks, np.allclose(good.to_dense(), x2.to_dense()))
+        True True
+        >>> bad = x2.rank_adjustment_sweep('left_to_right')        # WRONG direction -> corrupts the tensor
+        >>> print(np.allclose(bad.to_dense(), x2.to_dense()))
+        False
+        """
         return _from_data(ut3_svd.ut3_rank_adjustment_sweep(self.data, direction))
 
     # ----------------------------------------------------------------- stacking

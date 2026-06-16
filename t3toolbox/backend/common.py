@@ -160,11 +160,9 @@ def numpy_scan(
 ]:
     """Similar to jax.lax.scan, except returns numpy arrays instead of jax arrays.
     """
-    print('NUMPY SCAN(')
     xs_list = [list(x) for x in xs]
     carry, ys_list = ragged_scan(f, init, xs_list)
     ys = tuple([np.stack(y) for y in ys_list])
-    print(')')
     return carry, ys
 
 
@@ -223,11 +221,9 @@ def numpy_map(
     NDArray,  # shape[0]=map_length
     ...
 ]:  # len=num_outputs,
-    print('NUMPY MAP(')
     xs_list = [list(x) for x in xs]
     ys_list = ragged_map(f, xs_list)
     ys = tuple([np.stack(y) for y in ys_list])
-    print(')')
     return ys
 
 
