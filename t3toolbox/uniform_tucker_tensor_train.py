@@ -15,11 +15,13 @@ NOTE: this module is being built incrementally (slice 1: foundation). Linear alg
 SVD, sampling, and the jax pytree registration land in later slices.
 """
 import typing as typ
+import numpy as np
 from dataclasses import dataclass
 from functools import cached_property
 from typing import Tuple
 
 import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.ut3_conversions as ut3_conversions
 import t3toolbox.backend.ut3_masking as ut3_masking
 import t3toolbox.backend.ut3_operations as ut3_operations
@@ -296,33 +298,50 @@ class UniformTuckerTensorTrain:
 
     def is_left_orthogonal(self, atol: float = 1e-9) -> bool:
         """True if in left-orthogonal form (Tucker supercores down-orthogonal AND TT supercores
-        left-orthogonal). Non-enforcing checker; verify before ``t3svd(..., assume_orthogonal='left')``.
-        See :py:func:`~t3toolbox.backend.ut3_orthogonalization.ut3_orthogonality_residual`."""
+        left-orthogonal). A :py:meth:`t3svd` result is left-orthogonal. Non-enforcing checker; see
+        :py:func:`~t3toolbox.backend.ut3_orthogonalization.ut3_orthogonality_residual`."""
         return bool(ut3_orthogonalization.ut3_orthogonality_residual(self.data, 'left') <= atol)
 
     def is_right_orthogonal(self, atol: float = 1e-9) -> bool:
         """True if in right-orthogonal form (Tucker supercores down-orthogonal AND TT supercores
-        right-orthogonal). Non-enforcing checker; verify before ``t3svd(..., assume_orthogonal='right')``."""
+        right-orthogonal). Non-enforcing checker; verify before ``t3svd(..., assume_orthogonal=True)``."""
         return bool(ut3_orthogonalization.ut3_orthogonality_residual(self.data, 'right') <= atol)
 
+    @property
+    def minimal_ranks(self) -> Tuple[NDArray, NDArray]:
+        """Structural minimal ranks ``(min_tucker_ranks, min_tt_ranks)`` for this UT3's shape/ranks."""
+        use_jax = self.contains_jax
+        return ranks.compute_minimal_ranks(self.shape, self.tucker_ranks, self.tt_ranks, use_jax=use_jax)
+
+    @property
+    def has_minimal_ranks(self) -> bool:
+        """True if this UT3's ranks are structurally minimal (every stack element)."""
+        mn = self.minimal_ranks
+        return bool(np.all(np.asarray(self.tucker_ranks) == np.asarray(mn[0]))
+                    and np.all(np.asarray(self.tt_ranks) == np.asarray(mn[1])))
+
     # ----------------------------------------------------------------- T3-SVD
-    def t3svd(self, max_tt_ranks=None, max_tucker_ranks=None, minimize_ranks=True, assume_orthogonal=None):
-        """Mask-truncated T3-SVD. Matches ragged :py:meth:`TuckerTensorTrain.t3svd` on real parts: the
-        sweep truncates to the capped ranks (full Tucker through each bond SVD -- the best approximation),
-        then with ``minimize_ranks=True`` (default) re-tightens to the minimal structural ranks of the
-        capped target and shrinks the padded supercore to match. ``minimize_ranks=False`` keeps the
-        raw-sweep ranks. Matches ragged exactly (tensor, ranks, gauge) for both flags.
-        ``assume_orthogonal`` (``None``/``'left'``/``'right'``)
-        skips the initial orthogonalization when the input is already in left/right-orthogonal form (verify
-        with :py:meth:`is_left_orthogonal` / :py:meth:`is_right_orthogonal` -- not checked); ``'left'``
-        truncates right-to-left. Uniform truncates by **max rank only** -- unlike ragged ``t3svd`` there is
-        no ``rtol``/``atol`` (a tolerance would make the output shape data-dependent, which the uniform
-        layer forbids; see ``docs/uniform_ranks_and_varieties.md``). Per-stack-element ``max_*_ranks``
-        arrays are allowed. Returns ``(new UT3, Tucker singular values, TT singular values)``."""
+    def t3svd(self, max_tt_ranks=None, max_tucker_ranks=None, assume_orthogonal=False):
+        """Mask-truncated T3-SVD -- the basic algorithm, matching ragged :py:meth:`TuckerTensorTrain.t3svd`
+        on real parts. Always **left-orthogonal**; under truncation **not** necessarily minimal (use
+        :py:meth:`rank_adjustment_sweep` to minimize). ``assume_orthogonal=True`` skips the
+        orthogonalization, asserting the input is already right-orthogonal (verify with
+        :py:meth:`is_right_orthogonal` -- not checked). Uniform truncates by **max rank only** -- unlike
+        ragged ``t3svd`` there is no ``rtol``/``atol`` (a tolerance would make the output shape
+        data-dependent, which the uniform layer forbids; see ``docs/uniform_ranks_and_varieties.md``).
+        Per-stack-element ``max_*_ranks`` arrays are allowed. Returns ``(new UT3, Tucker svals, TT svals)``."""
         new_data, ss_tucker, ss_tt = ut3_svd.ut3svd(
             self.data, max_tucker_ranks=max_tucker_ranks, max_tt_ranks=max_tt_ranks,
-            minimize_ranks=minimize_ranks, assume_orthogonal=assume_orthogonal)
+            assume_orthogonal=assume_orthogonal)
         return _from_data(new_data), ss_tucker, ss_tt
+
+    def rank_adjustment_sweep(self, direction: str = 'right_to_left') -> 'UniformTuckerTensorTrain':
+        """A single lossless directional sweep that drops structurally-redundant ranks (the separate
+        rank-minimization step; :py:meth:`t3svd` does not minimize). ``'right_to_left'`` returns a
+        right-orthogonal UT3, ``'left_to_right'`` a left-orthogonal one; it reaches minimal ranks only if
+        the input is orthogonal in the opposite direction (a :py:meth:`t3svd` result is left-orthogonal,
+        so ``'right_to_left'`` minimizes it). See :py:func:`~t3toolbox.backend.ut3_svd.ut3_rank_adjustment_sweep`."""
+        return _from_data(ut3_svd.ut3_rank_adjustment_sweep(self.data, direction))
 
     # ----------------------------------------------------------------- stacking
     def unstack(self):

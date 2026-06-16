@@ -15,21 +15,7 @@ __all__ = [
     'compute_manifold_dim',
     'basis_has_minimal_ranks',
     'normalize_max_ranks',
-    'normalize_assume_orthogonal',
 ]
-
-
-def normalize_assume_orthogonal(spec):  # None | 'left'/'l' | 'right'/'r' (any case) -> None|'left'|'right'
-    '''Normalize a t3svd ``assume_orthogonal`` spec (shared by ragged ``t3svd`` and uniform ``ut3svd``).'''
-    if spec is None:
-        return None
-    s = str(spec).strip().lower()
-    if s in ('l', 'left'):
-        return 'left'
-    if s in ('r', 'right'):
-        return 'right'
-    raise ValueError(
-        "assume_orthogonal must be None, 'left'/'l', or 'right'/'r' (case-insensitive); got %r" % (spec,))
 
 
 def normalize_max_ranks(

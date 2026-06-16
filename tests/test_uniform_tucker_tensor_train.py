@@ -291,9 +291,8 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         return tuple(int(v) for v in utk[sel]), tuple(int(v) for v in utt[sel])
 
     def test_t3svd_truncation(self):
-        # uniform == ragged EXACTLY (option a: the bond SVD sees the full Tucker rank, then a re-tighten
-        # to minimal), including the divergent "uncapped Tucker + biting bond cap" case the old symmetric
-        # test never exercised. Tensor AND ranks match (the "uniform is tidier" caveat is gone).
+        # t3svd is the basic algorithm: left-orthogonal, raw-sweep ranks (NOT necessarily minimal). Tensor
+        # AND ranks match ragged t3svd (both raw), including the asymmetric/divergent cap patterns.
         cap_patterns = [(2, 2), (None, 2), (3, 2), (2, None), (None, 3)]
         for shape, tr, ttr, ss in self._cases():
             x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
@@ -303,21 +302,33 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
                     ux2, _, _ = ux.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt)
                     x2, _, _ = x.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt)  # ragged, same caps
                     self.assertLessEqual(relerr(ux2.to_dense(), x2.to_dense()), TOL)
+                    self.assertTrue(ux2.is_left_orthogonal())   # always left-orthogonal
                     self.assertEqual(self._first_elem_ranks(ux2, ss), (x2.tucker_ranks, x2.tt_ranks))
 
-    def test_t3svd_minimize_ranks(self):
-        # Both flags match ragged EXACTLY (tensor + ranks): minimize_ranks=True re-tightens to minimal;
-        # minimize_ranks=False keeps the raw-sweep ranks (compute_raw_sweep_ranks), same as ragged's raw.
-        for shape, tr, ttr in STRUCTURES:
-            x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
+    def test_rank_adjustment_sweep(self):
+        # rank_adjustment_sweep minimizes a (left-orthogonal) t3svd output via 'right_to_left'; uniform
+        # matches ragged in tensor, ranks, AND gauge. Composing both directions gives minimal left-orth.
+        cap_patterns = [(None, 2), (3, 2), (2, 2), (2, None)]
+        for shape, tr, ttr, ss in self._cases():
+            x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
             ux = ut3.t3_to_ut3(x)
-            for mtk, mtt in [(None, 2), (3, 2), (2, 2), (None, None), (2, None)]:
-                for mr in (True, False):
-                    with self.subTest(shape=shape, max_tucker=mtk, max_tt=mtt, minimize_ranks=mr):
-                        ux2, _, _ = ux.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt, minimize_ranks=mr)
-                        x2, _, _ = x.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt, minimize_ranks=mr)
-                        self.assertLessEqual(relerr(ux2.to_dense(), x2.to_dense()), TOL)
-                        self._assert_ranks_match(ux2, x2)
+            for mtk, mtt in cap_patterns:
+                with self.subTest(shape=shape, stack=ss, max_tucker=mtk, max_tt=mtt):
+                    ux2, _, _ = ux.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt)  # left-orth, maybe non-min
+                    x2, _, _ = x.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt)
+                    url = ux2.rank_adjustment_sweep('right_to_left')   # left-orth input -> R->L minimizes
+                    rrl = x2.rank_adjustment_sweep('right_to_left')
+                    self.assertLessEqual(relerr(url.to_dense(), rrl.to_dense()), TOL)  # matches ragged
+                    self.assertLessEqual(relerr(url.to_dense(), ux2.to_dense()), TOL)  # lossless
+                    self.assertTrue(url.has_minimal_ranks)
+                    self.assertTrue(url.is_right_orthogonal())
+                    self.assertEqual(self._first_elem_ranks(url, ss), (rrl.tucker_ranks, rrl.tt_ranks))
+                    both = url.rank_adjustment_sweep('left_to_right')  # -> minimal, left-orthogonal
+                    self.assertTrue(both.has_minimal_ranks)
+                    self.assertTrue(both.is_left_orthogonal())
+                    self.assertLessEqual(relerr(both.to_dense(), ux2.to_dense()), TOL)
+        with self.assertRaises(ValueError):
+            ut3.t3_to_ut3(x).rank_adjustment_sweep('sideways')
 
     def test_is_left_right_orthogonal(self):
         for shape, tr, ttr, ss in self._cases():
@@ -334,32 +345,17 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
                 self.assertTrue(ux.t3svd()[0].is_left_orthogonal())  # a t3svd result is left-orthogonal
 
     def test_t3svd_assume_orthogonal(self):
-        # uniform t3svd with assume_orthogonal matches ragged t3svd with the same flag, on the same input.
+        # assume_orthogonal=True (input already right-orthogonal) skips the orthogonalization; same result.
         for shape, tr, ttr, ss in self._cases():
-            x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
-            xL = x.down_orthogonalize_tucker_cores() if ss == () else None  # noqa (unused; use frontend forms)
-            uL = ut3.t3_to_ut3(x).down_orthogonalize_tucker_cores().left_orthogonalize_tt_cores()
-            uR = ut3.t3_to_ut3(x).down_orthogonalize_tucker_cores().right_orthogonalize_tt_cores()
-            # the equivalent ragged forms (same tensors)
-            import t3toolbox.backend.t3_orthogonalization as orthx
-            import t3toolbox.backend.orthogonalization as orth
-            tk, tt = orthx.down_orthogonalize_tucker_cores(x.data)
-            rL = t3.TuckerTensorTrain(tk, orth.left_orthogonalize_tt_cores(tt))
-            rR = t3.TuckerTensorTrain(tk, orth.right_orthogonalize_tt_cores(tt))
+            ux = ut3.t3_to_ut3(t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss))
+            uR = ux.down_orthogonalize_tucker_cores().right_orthogonalize_tt_cores()  # right-orthogonal
+            self.assertTrue(uR.is_right_orthogonal())
             for mtk, mtt in [(None, 2), (3, 2), (2, 2)]:
                 with self.subTest(shape=shape, stack=ss, max_tucker=mtk, max_tt=mtt):
-                    a, _, _ = uR.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt, assume_orthogonal='right')
-                    ra, _, _ = rR.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt, assume_orthogonal='right')
-                    self.assertLessEqual(relerr(a.to_dense(), ra.to_dense()), TOL)
-                    b, _, _ = uL.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt, assume_orthogonal='left')
-                    rb, _, _ = rL.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt, assume_orthogonal='left')
-                    self.assertLessEqual(relerr(b.to_dense(), rb.to_dense()), TOL)
-            # case-insensitive + abbreviations + bad value
-            base = uR.t3svd(max_tt_ranks=2, assume_orthogonal='right')[0].to_dense()
-            for spec in ['R', 'r', 'Right']:
-                self.assertLessEqual(relerr(uR.t3svd(max_tt_ranks=2, assume_orthogonal=spec)[0].to_dense(), base), TOL)
-            with self.assertRaises(ValueError):
-                uR.t3svd(assume_orthogonal='sideways')
+                    a, _, _ = uR.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt, assume_orthogonal=True)
+                    b, _, _ = uR.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt)
+                    self.assertLessEqual(relerr(a.to_dense(), b.to_dense()), TOL)
+                    self.assertTrue(a.is_left_orthogonal())
 
     def test_t3svd_non_minimal(self):
         for shape, tr, ttr in [((5, 6), (8, 4), (1, 3, 1)), ((6, 7, 8), (5, 5, 5), (1, 40, 40, 1))]:
