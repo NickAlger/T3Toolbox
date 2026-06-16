@@ -30,24 +30,20 @@ already-minimal paths pay nothing. New tests in `tests/test_tucker_tensor_train.
 `test_t3svd_truncation_is_minimal`, `test_t3svd_lossless_compression_of_degenerate`,
 `test_compute_minimal_ranks_matches_matricization`, `test_compute_minimal_ranks_inequalities`.
 
-### ⚠️ Consequence for uniform — ragged and uniform now use DIFFERENT truncation orders
-The prior assumption "*once ragged is fixed the two agree exactly*" turned out **false in one regime**.
-When the **Tucker ranks are left uncapped while a TT-bond cap bites**, the order matters and the two
-layers diverge (~1% in the represented tensor in the example case):
-
-- **Ragged = option (a):** keeps the full Tucker rank *through* the bond SVD (more columns → a better
-  rank-`k` bond), then drops the orphan. The **better** approximation; never worse than (b) in testing.
-- **Uniform `ut3svd` = option (b):** its masked sweep truncates the Tucker rank to the precomputed
-  minimal target *first*, starving the bond SVD. Minimal by construction, slightly worse.
-
-So **ragged is now the oracle and uniform no longer matches it** in the uncapped-Tucker case. The
-existing `test_uniform_tucker_tensor_train.py::test_t3svd_truncation` still passes **only because it
-uses symmetric caps** (`max_tucker=max_tt=2`), which forces Tucker truncation in both layers — the
-divergence isn't exercised. When uniform is revisited, **decide**: rework `ut3svd` to option (a) (keep
-the full Tucker supercore through the bond SVD, shrink at the end) so uniform matches the ragged oracle,
-**or** accept the divergence and document it (then do NOT strengthen the uniform test to exact
-rank/tensor-equality with ragged for uncapped-Tucker caps). Until then, leave `ut3svd` as-is. The
-`uniform_port_plan.md` slice-5 note should record this.
+### ✅ RESOLVED — uniform `ut3svd` now matches ragged option (a) exactly
+The post-fix divergence (when the **Tucker ranks are left uncapped while a TT-bond cap bites**, ragged
+option (a) keeps the full Tucker rank through the bond SVD for a better approximation, while uniform's
+old masked sweep truncated Tucker-first = option (b), ~1% worse) is **fixed**. `ut3svd` was reworked to
+build its sweep masks from the *capped* (not minimal) ranks — so the bond SVD sees the full Tucker rank
+— then re-tighten to minimal. Now **uniform == ragged exactly in tensor, ranks, AND gauge for both
+`minimize_ranks` flags** (incl. no-truncation and the uncapped-Tucker case): verified 48+ cases,
+0 mismatch. Also added `assume_orthogonal` (`None`/`'left'`/`'right'`, matching ragged) and the
+non-enforcing `is_left_orthogonal`/`is_right_orthogonal` checkers. The re-tighten fires only on a genuine
+orphan (raw-sweep content != minimal), as a cheap reverse-based re-SVD (`assume_orthogonal='left'`),
+matching ragged's gauge. `test_t3svd_truncation` now asserts exact rank+tensor equality across
+asymmetric/divergent caps. (Commits: option-a + `minimize_ranks`; `assume_orthogonal` + checkers;
+efficient re-tighten + `compute_raw_sweep_ranks`.) Only `rtol`/`atol` remain unsupported in uniform
+(intentional — data-dependent shapes).
 
 ---
 
