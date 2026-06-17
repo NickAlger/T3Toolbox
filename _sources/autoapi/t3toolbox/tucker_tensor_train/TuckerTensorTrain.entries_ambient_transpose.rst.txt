@@ -20,7 +20,7 @@ TuckerTensorTrain.entries_ambient_transpose
    ``ww`` carries them) ``c`` and ``index`` alone do not determine. Returns CP ``factors`` for
    :py:meth:`from_canonical`.
 
-   .. seealso:: :py:obj:`entries`, :py:obj:`apply_ambient_transpose`, :py:obj:`from_canonical`
+   .. seealso:: :py:obj:`entries`, :py:obj:`entries_corewise_transpose`, :py:obj:`apply_ambient_transpose`, :py:obj:`from_canonical`
 
    .. rubric:: Examples
 

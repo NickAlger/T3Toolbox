@@ -1,0 +1,16 @@
+TuckerTensorTrain.entries_corewise_transpose
+============================================
+
+.. py:method:: t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries_corewise_transpose(c, index, sum_over_probes = False)
+
+   Corewise (non-manifold) transpose of :py:meth:`entries`: gradient w.r.t. *this tensor's cores*.
+
+   The ``entries`` counterpart of :py:meth:`apply_corewise_transpose` -- see it (and
+   ``docs/transposes.md``) for the ambient-vs-corewise-vs-tangent distinction; this is the
+   *corewise* gradient (w.r.t. the cores, for Adam / L-BFGS), returned as a raw
+   ``(tucker_grads, tt_grads)`` tuple. Unlike :py:meth:`entries_ambient_transpose` it needs **no**
+   ``shape`` argument -- the ambient dims come from ``self``. ``sum_over_probes=True`` scatter-adds
+   colliding indices (the gradient ``J^T r``).
+
+   .. seealso:: :py:obj:`entries`, :py:obj:`entries_ambient_transpose`, :py:obj:`apply_corewise_transpose`
+

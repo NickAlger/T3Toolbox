@@ -340,6 +340,8 @@
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.probe.html">TuckerTensorTrain.probe</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.apply_ambient_transpose.html">TuckerTensorTrain.apply_ambient_transpose</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.entries_ambient_transpose.html">TuckerTensorTrain.entries_ambient_transpose</a></li>
+<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.apply_corewise_transpose.html">TuckerTensorTrain.apply_corewise_transpose</a></li>
+<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.entries_corewise_transpose.html">TuckerTensorTrain.entries_corewise_transpose</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.t3svd.html">TuckerTensorTrain.t3svd</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.rank_adjustment_sweep.html">TuckerTensorTrain.rank_adjustment_sweep</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.t3svd_dense.html">TuckerTensorTrain.t3svd_dense</a></li>
@@ -1243,6 +1245,12 @@ TuckerTensorTrains ranks may be made minimal using T3-SVD.</p>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="TuckerTensorTrain.entries_ambient_transpose.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries_ambient_transpose" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries_ambient_transpose"><code class="xref py py-obj docutils literal notranslate"><span class="pre">entries_ambient_transpose</span></code></a>(c, index, shape[, ...])</p></td>
 <td><p>Ambient transpose of <code class="xref py py-meth docutils literal notranslate"><span class="pre">entries()</span></code>: scatter <code class="docutils literal notranslate"><span class="pre">c</span></code> at <code class="docutils literal notranslate"><span class="pre">index</span></code> into canonical (CP) factors.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="TuckerTensorTrain.apply_corewise_transpose.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_corewise_transpose" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_corewise_transpose"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_corewise_transpose</span></code></a>(c, ww[, sum_over_probes])</p></td>
+<td><p>Corewise (non-manifold) transpose of <code class="xref py py-meth docutils literal notranslate"><span class="pre">apply()</span></code>: gradient w.r.t. <em>this tensor's cores</em>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="TuckerTensorTrain.entries_corewise_transpose.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries_corewise_transpose" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries_corewise_transpose"><code class="xref py py-obj docutils literal notranslate"><span class="pre">entries_corewise_transpose</span></code></a>(c, index[, sum_over_probes])</p></td>
+<td><p>Corewise (non-manifold) transpose of <code class="xref py py-meth docutils literal notranslate"><span class="pre">entries()</span></code>: gradient w.r.t. <em>this tensor's cores</em>.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="TuckerTensorTrain.t3svd.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">t3svd</span></code></a>([max_tt_ranks, max_tucker_ranks, rtol, atol, ...])</p></td>
 <td><p>Compute (truncated) T3-SVD of Tucker tensor train.</p></td>

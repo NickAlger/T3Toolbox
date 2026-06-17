@@ -33,7 +33,7 @@ TuckerTensorTrain.apply_ambient_transpose
    :py:meth:`from_canonical` consumes. See *Batching & stacking* §11
    (``docs/batching_and_stacking.md``) for the stacking conventions.
 
-   .. seealso:: :py:obj:`apply`, :py:obj:`entries_ambient_transpose`, :py:obj:`from_canonical`
+   .. seealso:: :py:obj:`apply`, :py:obj:`apply_corewise_transpose`, :py:obj:`entries_ambient_transpose`, :py:obj:`from_canonical`
 
    .. rubric:: Examples
 
