@@ -74,7 +74,10 @@ def _dense_tangent_projector(base):
     cols = [np.asarray(t3m.T3Tangent.randn(base, apply_gauge_projection=True).to_dense()).reshape(-1)
             for _ in range(3 * dim)]
     A = np.stack(cols, axis=1)
-    return A @ np.linalg.pinv(A)
+    # A is rank-deficient (the tangent parametrization is redundant): singular values are O(1) then a
+    # clean gap to ~1e-16. pinv's DEFAULT rcond (~1e-15) sits next to those nulls and flakily keeps/
+    # inverts one, contaminating the projector -- use an explicit cutoff well inside the gap.
+    return A @ np.linalg.pinv(A, rcond=1e-8)
 
 
 class TestManifold(unittest.TestCase):
@@ -751,7 +754,10 @@ class TestManifold(unittest.TestCase):
                 for use_tt, shapes in zip((False, True), base_nm.variation_shapes)
                 for i, shp in enumerate(shapes) for idx in np.ndindex(*shp)]
         A = np.stack(cols, axis=1)
-        Pr_nm = A @ np.linalg.pinv(A)
+        # rcond=1e-8: A is rank-deficient (redundant tangent directions); the default rcond ~1e-15 is
+        # too close to its ~1e-16 null singular values and flakily contaminates A @ pinv(A) -- which
+        # masquerades as a project_dense_onto_tangent bug. See _dense_tangent_projector.
+        Pr_nm = A @ np.linalg.pinv(A, rcond=1e-8)
         self.check_relerr((Pr_nm @ Z.reshape(-1)).reshape(STR_P[0]),
                           t3m.project_dense_onto_tangent(Z, base_nm).to_dense())
 
