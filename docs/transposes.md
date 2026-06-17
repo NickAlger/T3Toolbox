@@ -39,7 +39,10 @@ The relationships:
 - **tangent** = the ambient back-projection **projected onto the gauged manifold tangent space** at `X`.
 
 Everything below is identical for `entries` (`entries_ambient_transpose`,
-`entries_corewise_transpose`, `T3Tangent.entries_transpose`).
+`entries_corewise_transpose`, `T3Tangent.entries_transpose`) and for `probe`
+(`probe_ambient_transpose`, `probe_corewise_transpose`, `T3Tangent.probe_transpose`) — all three
+sampling operations have all three transposes. `probe` has one structural twist; see *Probe transposes*
+below.
 
 ---
 
@@ -183,8 +186,30 @@ Are you doing Riemannian optimization on the fixed-rank manifold?
         └── yes → T3Tangent.apply_transpose          (a T3Tangent)
 ```
 
-All three have `entries` counterparts with the same semantics, and **all three take `sum_over_probes`**
-(`True` = sum the probe stack `W`; `False` = keep it as a stack, one result per probe — useful for
-assembling `JᵀJ` matrix-vector products). The difference is *where the sum lands*: cheap in all three
-(CP rank for ambient; the fixed-size cores/tangent for corewise/tangent), but only corewise/tangent
-keep the result at a fixed size independent of `|W|`.
+All three have `entries` **and `probe`** counterparts with the same semantics, and **all three take
+`sum_over_probes`** (`True` = sum the probe stack `W`; `False` = keep it as a stack, one result per
+probe — useful for assembling `JᵀJ` matrix-vector products). The difference is *where the sum lands*:
+cheap in all three (CP rank for ambient; the fixed-size cores/tangent for corewise/tangent), but only
+corewise/tangent keep the result at a fixed size independent of `|W|`.
+
+---
+
+## Probe transposes (the one structural twist)
+
+`probe` contracts all-but-one mode, returning **`d` vectors** (one free mode each) instead of a scalar.
+So its transposes take a residual that is **`d` vectors** `ztildes = (ž₀,…,ž_{d-1})` (plus the probe
+vectors `ww`), where `apply`/`entries` took a scalar residual `c`. Everything else is the same three
+transposes:
+
+- **`probe_ambient_transpose(ztildes, ww)`** (static) — the literal adjoint of `probe`. The
+  back-projection is `Σᵢ (w₀ ⊗ … ⊗ žᵢ ⊗ … ⊗ w_{d-1})` (residual `žᵢ` in slot `i`, probe vectors
+  elsewhere) — a **rank-`d` CP tensor** (vs rank-1 for `apply`), returned as CP factors. Summed → rank
+  `d·|W|`, still `O(d|W|N)`.
+- **`X.probe_corewise_transpose(ztildes, ww)`** (instance) — the gradient of `X.probe(ww)` w.r.t. `X`'s
+  cores, for non-manifold optimizers fitting from probes. Raw `(tucker_grads, tt_grads)`, no `|W|`
+  blow-up.
+- **`T3Tangent.probe_transpose`** — the Riemannian gradient (the paper's original probing Jacobian
+  transpose).
+
+Probing is the paper's exemplar operation, so this completes the full 3×3 grid
+(`entries`/`apply`/`probe` × ambient/corewise/tangent).

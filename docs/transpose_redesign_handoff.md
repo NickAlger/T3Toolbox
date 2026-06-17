@@ -14,7 +14,13 @@ returns raw `(tucker_grads, tt_grads)`; backend wrappers in `probing.py`, instan
 forward Jacobian, both sum modes × stacks) + `test_dispatch`; full suite 137 OK, doctests clean).
 Convention noted: corewise `c` must be an **array** (shares the tangent backend, which doesn't coerce —
 matches `T3Tangent.apply_transpose`'s `np.asarray(c)` convention); the ambient version still accepts a
-scalar. **Both ragged slices complete — next is the uniform mirror** (uniform port slice 6).
+scalar. **Slice 3 DONE** (probe ambient + corewise transposes — `TuckerTensorTrain.probe_ambient_transpose`
+returns rank-`d` CP factors `Σ_i (w0⊗…⊗ž_i⊗…⊗w_{d-1})`, base-free static; `probe_corewise_transpose`
+is the §6.3 substitution into `probe_tangent_transpose`, instance, raw `(tucker_grads, tt_grads)`;
+backend in `probing.py`; tests + dispatch; full suite 139 OK, doctests clean). The probe residual is
+`d` vectors (not a scalar `c`); the ambient back-projection is rank-`d` (not rank-1). **All three ragged
+slices complete — the full 3×3 grid (entries/apply/probe × ambient/corewise/tangent) exists in ragged.
+Next is the uniform mirror** (uniform port slice 6).
 
 Side note (resolved, separate commit): `test_manifold`'s `test_project_dense_onto_tangent` had a
 **pre-existing** flake — a fragile `A @ pinv(A)` reference oracle (default rcond near rank-deficient

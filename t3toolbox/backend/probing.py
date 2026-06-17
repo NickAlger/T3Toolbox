@@ -2,6 +2,7 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+import math
 import numpy as np
 import typing as typ
 
@@ -41,6 +42,9 @@ __all__ = [
     'assemble_tucker_variations',
     'assemble_tt_variations',
     'probe_tangent_transpose',
+    # Ambient / corewise probe transposes (the plain-probe analogs of the apply/entries transposes)
+    'probe_ambient_transpose',
+    'probe_corewise_transpose',
     # Probe a dense tensor
     'probe_dense',
 ]
@@ -1376,6 +1380,83 @@ def probe_tangent_transpose(
     )
 
     return dU_tildes, dG_tildes
+
+
+def probe_ambient_transpose(
+        ztildes:    typ.Sequence[NDArray],  # probe residuals, len=d, elm_shape=W+C+(Ni,)
+        ww:         typ.Sequence[NDArray],  # probe vectors,   len=d, elm_shape=W+(Ni,)
+        sum_over_probes: bool = False,      # True: W folds into the CP rank
+) -> typ.Sequence[NDArray]:  # canonical (CP) factors. len=d, ith elm_shape=stack_shape+(R, Ni)
+    '''Ambient transpose of :py:func:`probe_t3`: back-project probe residuals into CP factors.
+
+    The *ambient* adjoint -- the transpose of ``probe`` as a linear map on the **full tensor space**.
+    Probe returns ``d`` vectors (one free mode each), so the residual ``ztildes`` is ``d`` vectors; the
+    back-projection is the rank-``d`` tensor
+
+        sum_i  w0 (x) ... (x) w_{i-1} (x) ztildes_i (x) w_{i+1} (x) ... (x) w_{d-1}
+
+    (term ``i`` has the residual ``ztildes_i`` in slot ``i`` and the probe vectors elsewhere), whose
+    natural representation is a **canonical (CP) decomposition** of rank ``d``. Base-free. Distinct from
+    the *corewise* transpose (gradient w.r.t. a base's cores) and the *tangent* transpose (Riemannian
+    gradient); see ``docs/transposes.md``. The ``apply``/``entries`` analog is the rank-1 (or rank-|W|)
+    :py:func:`tucker_tensor_train_apply_ambient_transpose`.
+
+    - ``sum_over_probes=False`` (primary): ``W`` is a passthrough stacking axis -- a ``W (+ C)`` stack
+      of rank-``d`` CP tensors.
+    - ``sum_over_probes=True``: ``W`` folds into the CP rank -- one rank-``d|W|`` CP tensor
+      ``sum_W sum_i (...)``. Cheap as CP (``O(d |W| N)``).
+
+    Returns CP ``factors`` (factor ``k`` has the diagonal structure: rank slot ``k`` = ``ztildes_k``,
+    the others = ``ww_k``), in the layout :py:func:`t3_operations.t3_from_canonical` consumes.
+    '''
+    use_jax = tree_contains_jax((ztildes, ww))
+    xnp, _, _ = get_backend(False, use_jax)
+    d = len(ww)
+    nW = ww[0].ndim - 1
+    W  = ww[0].shape[:nW]                 # probe stack
+    C  = ztildes[0].shape[nW:-1]          # base stack (ztildes[i] is W + C + (Ni,))
+    nC = len(C)
+    mW = math.prod(W)
+
+    factors = []
+    for k in range(d):
+        Nk = ww[k].shape[-1]
+        w_bc = xnp.broadcast_to(ww[k].reshape(W + (1,) * nC + (1, Nk)), W + C + (d, Nk))
+        diag = (xnp.arange(d) == k).reshape((d, 1))            # rank slot k is the "diagonal"
+        Fk = xnp.where(diag, ztildes[k][..., None, :], w_bc)   # W + C + (d, Nk)
+        if sum_over_probes:                                    # fold W into the CP rank: rank d -> d|W|
+            Fk = xnp.moveaxis(Fk, tuple(range(nW)), tuple(range(nC, nC + nW)))  # C + W + (d, Nk)
+            Fk = Fk.reshape(C + (mW * d, Nk))
+        factors.append(Fk)
+    return tuple(factors)
+
+
+def probe_corewise_transpose(
+        ztildes:    typ.Sequence[NDArray],  # probe residuals, len=d, elm_shape=W+C+(Ni,)
+        ww:         typ.Sequence[NDArray],  # probe vectors,   len=d, elm_shape=W+(Ni,)
+        core_pair:  typ.Tuple[
+            typ.Sequence[NDArray],          # tucker_cores, len=d, elm_shape=C+(ni,Ni)
+            typ.Sequence[NDArray],          # tt_cores,     len=d, elm_shape=C+(ri,ni,r(i+1))
+        ],
+        sum_over_probes: bool = False,      # True: sum the probe stack W (the gradient J^T r)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # tucker-core gradients, same shapes as tucker_cores
+    typ.Tuple[NDArray, ...],  # tt-core gradients,     same shapes as tt_cores
+]:
+    '''Corewise (non-manifold) transpose of :py:func:`probe_t3`: gradient of the probes w.r.t. the
+    cores of the base ``core_pair``, treated as independent variables.
+
+    The probe analog of :py:func:`apply_corewise_transpose` -- the Section 6.3 substitution
+    ``P, Q, O -> G_i`` (``U`` non-orthogonal) into :py:func:`probe_tangent_transpose`, i.e. that
+    transpose at base ``(U, G, G, G)``. Returns gradients shaped exactly like ``(tucker_cores,
+    tt_cores)`` (a gradient, not a tensor; no ``|W|`` blow-up). For non-manifold optimizers (Adam,
+    L-BFGS) fitting from probes. ``sum_over_probes=True`` sums the probe stack ``W`` (the gradient
+    ``J^T r``); ``False`` keeps it. Math reference: Section 6.3, Alger et al. (2026) (arXiv:2603.21141).
+    '''
+    tucker_cores, tt_cores = core_pair
+    return probe_tangent_transpose(
+        ztildes, ww, (tucker_cores, tt_cores, tt_cores, tt_cores), sum_over_probes=sum_over_probes,
+    )
 
 
 ###############################################

@@ -3422,6 +3422,81 @@ class TuckerTensorTrain:
         return probing.probe_t3(ww, self.data)
 
     @staticmethod
+    def probe_ambient_transpose(
+            ztildes: Sequence[NDArray],  # probe residuals, len=d, elm_shape = W + C + (Ni,)
+            ww:      Sequence[NDArray],  # probe vectors,   len=d, elm_shape = W + (Ni,)
+            sum_over_probes: bool = False,
+    ) -> Sequence[NDArray]:             # canonical (CP) factors, len=d, elm_shape = stack + (R, Ni)
+        """Ambient transpose of :py:meth:`probe`: back-project probe residuals into canonical (CP) factors.
+
+        The probe counterpart of :py:meth:`apply_ambient_transpose` -- the literal adjoint of ``probe``
+        as a linear map on the full tensor space (one of **three** probe transposes; full taxonomy in
+        ``docs/transposes.md``). ``probe`` returns ``d`` vectors, so the residual ``ztildes`` is ``d``
+        vectors; the back-projection is the **rank-``d``** tensor
+        ``sum_i (w0 (x) ... (x) ztildes_i (x) ... (x) w_{d-1})`` (residual ``ztildes_i`` in slot ``i``,
+        probe vectors elsewhere), returned as **CP factors**. Base-free. Realize a ``TuckerTensorTrain``
+        with :py:meth:`from_canonical`.
+
+        The other two probe transposes are ``probe_corewise_transpose`` (gradient w.r.t. a base's cores,
+        for Adam / L-BFGS) and ``T3Tangent.probe_transpose`` (the Riemannian gradient).
+
+        ``sum_over_probes=False`` keeps the probe stack ``W`` (a ``W (+ C)`` stack of rank-``d`` CPs);
+        ``True`` folds ``W`` into the CP rank (one rank-``d|W|`` CP, the ambient ``J^T r``), cheap as CP.
+
+        See Also
+        --------
+        probe
+        apply_ambient_transpose
+        probe_corewise_transpose
+        from_canonical
+
+        Examples
+        --------
+        Adjoint identity ``<probe_ambient_transpose(z, ww), x>_F == sum_i <z_i, x.probe(ww)_i>``:
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+        >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> zt = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> T = t3.TuckerTensorTrain.from_canonical(t3.TuckerTensorTrain.probe_ambient_transpose(zt, ww))
+        >>> lhs = float(np.sum(T.to_dense() * x.to_dense()))
+        >>> rhs = float(sum(np.sum(z * p) for z, p in zip(zt, x.probe(ww))))
+        >>> print(bool(abs(lhs - rhs) < 1e-9))
+        True
+        """
+        return probing.probe_ambient_transpose(ztildes, ww, sum_over_probes=sum_over_probes)
+
+    def probe_corewise_transpose(
+            self:    'TuckerTensorTrain',
+            ztildes: Sequence[NDArray],  # probe residuals, len=d, elm_shape = W + C + (Ni,)
+            ww:      Sequence[NDArray],  # probe vectors,   len=d, elm_shape = W + (Ni,)
+            sum_over_probes: bool = False,
+    ) -> Tuple[
+        Tuple[NDArray, ...],  # tucker-core gradients, same shapes as self.tucker_cores
+        Tuple[NDArray, ...],  # tt-core gradients,     same shapes as self.tt_cores
+    ]:
+        """Corewise (non-manifold) transpose of :py:meth:`probe`: gradient w.r.t. *this tensor's cores*.
+
+        The probe counterpart of :py:meth:`apply_corewise_transpose` -- the gradient of
+        ``self.probe(ww)`` w.r.t. ``self``'s cores (for core-wise optimizers, Adam / L-BFGS, fitting
+        from probes), returned as a raw ``(tucker_grads, tt_grads)`` tuple shaped like ``self.data`` (a
+        gradient, not a tensor; no ``|W|`` blow-up). Computed by the Section 6.3 corewise simplification
+        -- the tangent probe transpose with this tensor's own cores substituted for the orthogonal
+        frames. See ``docs/transposes.md`` for the ambient/corewise/tangent distinction; the ambient and
+        Riemannian probe transposes are :py:meth:`probe_ambient_transpose` and ``T3Tangent.probe_transpose``.
+        ``sum_over_probes=True`` is the summed gradient ``J^T r``; ``False`` keeps the probe stack ``W``.
+
+        See Also
+        --------
+        probe
+        probe_ambient_transpose
+        apply_corewise_transpose
+        """
+        return probing.probe_corewise_transpose(ztildes, ww, self.data, sum_over_probes=sum_over_probes)
+
+    @staticmethod
     def apply_ambient_transpose(
             c:      NDArray,            # residual, shape = W + C
             ww:     Sequence[NDArray],  # apply vectors, len=d, elm_shape = W + (Ni,)

@@ -2270,6 +2270,101 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         for s, k in zip(gG, gGk):
                             self.check_relerr(np.asarray(s), np.asarray(k).sum(axis=tuple(range(nW))))
 
+    def test_probe_ambient_transpose(self):
+        # ambient probe transpose: literal adjoint of probe (linear in X) -> a rank-d CP back-projection.
+        # adjoint identity <probe^T(z), x> == sum_i <z_i, probe(x)_i>; returns CP factors.
+        base_structures = [
+            ((8,),              (4,),           (4, 5)),
+            ((8, 9),            (4, 5),         (4, 5, 4)),
+            ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
+        ]
+        for BASE in base_structures:
+            shape, _, _ = BASE
+            d = len(shape)
+            for C in [(), (2, 3)]:
+                for W in [(), (5,)]:
+                    with self.subTest(BASE=BASE, C=C, W=W):
+                        nW, nC, nN = len(W), len(C), d
+                        x = t3.TuckerTensorTrain.randn(*(BASE + (C,)))
+                        ww = [np.random.randn(*(W + (N,))) for N in shape]
+                        zt = [np.random.randn(*(W + C + (N,))) for N in shape]
+                        probes = [np.asarray(p) for p in x.probe(ww)]       # d vecs, each W+C+(Ni,)
+                        xd = x.to_dense()                                   # C + N
+                        # <z, probe(x)> per (W,C): contract each mode over Ni, sum over modes
+                        zprobe = sum(np.sum(zt[i] * probes[i], axis=-1) for i in range(d))   # W + C
+                        def ndot(Td, lead):  # <Td, xd> over N, x broadcast over the leading `lead` axes
+                            xb = xd.reshape((1,) * lead + xd.shape)
+                            return np.sum(Td * xb, axis=tuple(range(Td.ndim - nN, Td.ndim)))
+
+                        # primary: W passthrough; CP rank d
+                        f = t3.TuckerTensorTrain.probe_ambient_transpose(zt, ww)
+                        self.assertEqual(W + C + (d, shape[0]), f[0].shape)
+                        T = t3.TuckerTensorTrain.from_canonical(f)
+                        self.assertEqual(W + C, T.stack_shape)
+                        self.check_relerr(zprobe, ndot(T.to_dense(), nW))
+
+                        # summed: W folds into the CP rank (d|W|); == sum over W of the primary
+                        fs = t3.TuckerTensorTrain.probe_ambient_transpose(zt, ww, sum_over_probes=True)
+                        self.assertEqual(C + (d * int(np.prod(W, dtype=int)), shape[0]), fs[0].shape)
+                        Ts = t3.TuckerTensorTrain.from_canonical(fs)
+                        self.assertEqual(C, Ts.stack_shape)
+                        lhs = np.sum(Ts.to_dense().reshape(C + (-1,)) * xd.reshape(C + (-1,)), axis=-1)
+                        self.check_relerr(np.sum(zprobe, axis=tuple(range(nW))), lhs)
+                        self.check_relerr(Ts.to_dense(), T.to_dense().sum(axis=tuple(range(nW))))
+
+    def test_probe_corewise_transpose(self):
+        # corewise (Sec 6.3) probe transpose: gradient of probe w.r.t. the cores. Oracle: adjoint
+        # identity vs the EXACT forward corewise Jacobian (per mode, sum of single-core replacements).
+        base_structures = [
+            ((8,),              (4,),           (4, 5)),
+            ((8, 9),            (4, 5),         (4, 5, 4)),
+            ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
+        ]
+        def replace(x, kind, i, new):
+            tk, tt = [list(cs) for cs in x.data]
+            (tk if kind == 'U' else tt)[i] = new
+            return t3.TuckerTensorTrain(tuple(tk), tuple(tt))
+        def core_dot(gA, gB, nC):
+            return sum(np.sum(a * b, axis=tuple(range(nC, a.ndim)))
+                       for a, b in zip(gA[0] + gA[1], gB[0] + gB[1]))
+        for BASE in base_structures:
+            shape, _, _ = BASE
+            d = len(shape)
+            for C in [(), (2, 3)]:
+                for W in [(), (5,)]:
+                    with self.subTest(BASE=BASE, C=C, W=W):
+                        nW, nC = len(W), len(C)
+                        x = t3.TuckerTensorTrain.randn(*(BASE + (C,)))
+                        tk, tt = [list(cs) for cs in x.data]
+                        ww = [np.random.randn(*(W + (N,))) for N in shape]
+                        zt = [np.random.randn(*(W + C + (N,))) for N in shape]
+                        dU = [np.random.randn(*u.shape) for u in tk]
+                        dG = [np.random.randn(*g.shape) for g in tt]
+                        # exact forward corewise Jacobian per mode: Jm[m] = sum_i probe(replace_i)_m
+                        Jm = [np.zeros(W + C + (N,)) for N in shape]
+                        for i in range(d):
+                            for kind, dd in (('U', dU), ('G', dG)):
+                                pr = replace(x, kind, i, dd[i]).probe(ww)
+                                for m in range(d):
+                                    Jm[m] = Jm[m] + np.asarray(pr[m])
+                        # <z, J(dcores)> per (W,C), then sum over W (keep C)
+                        zJ = sum(np.sum(zt[m] * Jm[m], axis=-1) for m in range(d))   # W + C
+                        rhs = np.sum(zJ, axis=tuple(range(nW)))                      # C
+
+                        gU, gG = x.probe_corewise_transpose(zt, ww, sum_over_probes=True)
+                        self.assertEqual([u.shape for u in tk], [g.shape for g in gU])
+                        self.assertEqual([g.shape for g in tt], [g.shape for g in gG])
+                        lhs = core_dot(([np.asarray(g) for g in gU], [np.asarray(g) for g in gG]), (dU, dG), nC)
+                        self.check_relerr(rhs, lhs)
+
+                        # unsummed: W leads each gradient; sum=True == sum_W of sum=False
+                        gUk, gGk = x.probe_corewise_transpose(zt, ww)
+                        self.assertEqual(W + tk[0].shape, gUk[0].shape)
+                        for s, k in zip(gU, gUk):
+                            self.check_relerr(np.asarray(s), np.asarray(k).sum(axis=tuple(range(nW))))
+                        for s, k in zip(gG, gGk):
+                            self.check_relerr(np.asarray(s), np.asarray(k).sum(axis=tuple(range(nW))))
+
     def test_probe(self):
         base_structures = [
             ((8,),              (4,),           (4, 5)),

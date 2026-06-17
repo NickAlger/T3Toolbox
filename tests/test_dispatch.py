@@ -118,6 +118,17 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(
             lambda xx, cc, i: xx.entries_corewise_transpose(cc, i, sum_over_probes=True),
             self.x, jnp.ones(2), jnp.array([[1, 2], [2, 3], [3, 0]]))  # (d,) + W, W=(2,)
+        # probe transposes: residuals zz (d vecs, W+C+(N,)), probe vecs ww; ambient -> CP, corewise -> grads
+        self.assert_jit_jax(
+            lambda zt, w: t3.TuckerTensorTrain.probe_ambient_transpose(zt, w), list(self.zz), list(self.ww))
+        self.assert_jit_jax(
+            lambda zt, w: t3.TuckerTensorTrain.probe_ambient_transpose(zt, w, sum_over_probes=True),
+            list(self.zz), list(self.ww))
+        self.assert_jit_jax(
+            lambda xx, zt, w: xx.probe_corewise_transpose(zt, w), self.x, list(self.zz), list(self.ww))
+        self.assert_jit_jax(
+            lambda xx, zt, w: xx.probe_corewise_transpose(zt, w, sum_over_probes=True),
+            self.x, list(self.zz), list(self.ww))
 
     # ---------------------------------------------------- jit bucket: T3Tangent
     def test_jit_tangent(self):
