@@ -55,6 +55,8 @@ TuckerTensorTrain
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.entries
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.apply
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.probe
+   /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.probe_ambient_transpose
+   /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.probe_corewise_transpose
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.apply_ambient_transpose
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.entries_ambient_transpose
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.apply_corewise_transpose
@@ -695,6 +697,8 @@ Methods
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe
+   t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_ambient_transpose
+   t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_corewise_transpose
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_ambient_transpose
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries_ambient_transpose
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_corewise_transpose

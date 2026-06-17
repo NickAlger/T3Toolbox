@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>TuckerTensorTrain.inner &#8212; T3Toolbox 0.1 documentation</title>
+    <title>TuckerTensorTrain.probe_ambient_transpose &#8212; T3Toolbox 0.1 documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.inner';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.probe_ambient_transpose';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="TuckerTensorTrain.norm" href="TuckerTensorTrain.norm.html" />
-    <link rel="prev" title="TuckerTensorTrain.__sub__" href="TuckerTensorTrain.__sub__.html" />
+    <link rel="next" title="TuckerTensorTrain.probe_corewise_transpose" href="TuckerTensorTrain.probe_corewise_transpose.html" />
+    <link rel="prev" title="TuckerTensorTrain.probe" href="TuckerTensorTrain.probe.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -320,7 +320,7 @@
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.t3m.html">TuckerTensorTrain.t3m</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.__neg__.html">TuckerTensorTrain.__neg__</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.__sub__.html">TuckerTensorTrain.__sub__</a></li>
-<li class="toctree-l4 current active"><a class="current reference internal" href="#">TuckerTensorTrain.inner</a></li>
+<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.inner.html">TuckerTensorTrain.inner</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.norm.html">TuckerTensorTrain.norm</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.sum.html">TuckerTensorTrain.sum</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.sum_stack.html">TuckerTensorTrain.sum_stack</a></li>
@@ -338,7 +338,7 @@
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.entries.html">TuckerTensorTrain.entries</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.apply.html">TuckerTensorTrain.apply</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.probe.html">TuckerTensorTrain.probe</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.probe_ambient_transpose.html">TuckerTensorTrain.probe_ambient_transpose</a></li>
+<li class="toctree-l4 current active"><a class="current reference internal" href="#">TuckerTensorTrain.probe_ambient_transpose</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.probe_corewise_transpose.html">TuckerTensorTrain.probe_corewise_transpose</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.apply_ambient_transpose.html">TuckerTensorTrain.apply_ambient_transpose</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.entries_ambient_transpose.html">TuckerTensorTrain.entries_ambient_transpose</a></li>
@@ -405,7 +405,7 @@
     
     <li class="breadcrumb-item"><a href="TuckerTensorTrain.html" class="nav-link">TuckerTensorTrain</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">TuckerTensorTrain.inner</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">TuckerTensorTrain.probe_ambient_transpose</span></li>
   </ul>
 </nav>
 </div>
@@ -422,109 +422,54 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="tuckertensortrain-inner">
-<h1>TuckerTensorTrain.inner<a class="headerlink" href="#tuckertensortrain-inner" title="Link to this heading">#</a></h1>
+  <section id="tuckertensortrain-probe-ambient-transpose">
+<h1>TuckerTensorTrain.probe_ambient_transpose<a class="headerlink" href="#tuckertensortrain-probe-ambient-transpose" title="Link to this heading">#</a></h1>
 <dl class="py method">
-<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.inner">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.</span></span><span class="sig-name descname"><span class="pre">inner</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">other</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_orthogonalization</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.inner" title="Link to this definition">#</a></dt>
-<dd><p>Compute Hilbert-Schmidt inner product of this TuckerTensorTrain with other tensor, <code class="docutils literal notranslate"><span class="pre">result=(self,</span> <span class="pre">other)_HS</span></code>.</p>
-<p>The Hilbert-Schmidt inner product is defined with respect to the dense <code class="docutils literal notranslate"><span class="pre">N0</span> <span class="pre">x</span> <span class="pre">...</span> <span class="pre">x</span> <span class="pre">N(d-1)</span></code>
-tensor <em>represented</em> by the TuckerTensorTrain.</p>
-<p>For corewise dot product, see <a class="reference internal" href="../corewise/corewise_dot.html#t3toolbox.corewise.corewise_dot" title="t3toolbox.corewise.corewise_dot"><code class="xref py py-func docutils literal notranslate"><span class="pre">t3toolbox.corewise.corewise_dot()</span></code></a></p>
-<p>Allowed types are as follows:</p>
-<ul class="simple">
-<li><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">other:</span> <span class="pre">TuckerTensorTrain</span></code></dt><dd><p><code class="docutils literal notranslate"><span class="pre">self.inner(other)</span> <span class="pre">=</span> <span class="pre">np.sum(self.to_dense()</span> <span class="pre">*</span> <span class="pre">other.to_dense())</span></code></p>
-</dd>
-</dl>
-</li>
-<li><dl class="simple">
-<dt><code class="docutils literal notranslate"><span class="pre">other:</span> <span class="pre">NDArray</span></code></dt><dd><p><code class="docutils literal notranslate"><span class="pre">self.inner(other)</span> <span class="pre">=</span> <span class="pre">np.sum(self.to_dense()</span> <span class="pre">*</span> <span class="pre">other)</span></code></p>
-</dd>
-</dl>
-</li>
-</ul>
+<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_ambient_transpose">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.</span></span><span class="sig-name descname"><span class="pre">probe_ambient_transpose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ztildes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ww</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sum_over_probes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_ambient_transpose" title="Link to this definition">#</a></dt>
+<dd><p>Ambient transpose of <a class="reference internal" href="TuckerTensorTrain.probe.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe"><code class="xref py py-meth docutils literal notranslate"><span class="pre">probe()</span></code></a>: back-project probe residuals into canonical (CP) factors.</p>
+<p>The probe counterpart of <a class="reference internal" href="TuckerTensorTrain.apply_ambient_transpose.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_ambient_transpose" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_ambient_transpose"><code class="xref py py-meth docutils literal notranslate"><span class="pre">apply_ambient_transpose()</span></code></a> – the literal adjoint of <code class="docutils literal notranslate"><span class="pre">probe</span></code>
+as a linear map on the full tensor space (one of <strong>three</strong> probe transposes; full taxonomy in
+<code class="docutils literal notranslate"><span class="pre">docs/transposes.md</span></code>). <code class="docutils literal notranslate"><span class="pre">probe</span></code> returns <code class="docutils literal notranslate"><span class="pre">d</span></code> vectors, so the residual <code class="docutils literal notranslate"><span class="pre">ztildes</span></code> is <code class="docutils literal notranslate"><span class="pre">d</span></code>
+vectors; the back-projection is the <strong>rank-``d``</strong> tensor
+<code class="docutils literal notranslate"><span class="pre">sum_i</span> <span class="pre">(w0</span> <span class="pre">(x)</span> <span class="pre">...</span> <span class="pre">(x)</span> <span class="pre">ztildes_i</span> <span class="pre">(x)</span> <span class="pre">...</span> <span class="pre">(x)</span> <span class="pre">w_{d-1})</span></code> (residual <code class="docutils literal notranslate"><span class="pre">ztildes_i</span></code> in slot <code class="docutils literal notranslate"><span class="pre">i</span></code>,
+probe vectors elsewhere), returned as <strong>CP factors</strong>. Base-free. Realize a <code class="docutils literal notranslate"><span class="pre">TuckerTensorTrain</span></code>
+with <a class="reference internal" href="TuckerTensorTrain.from_canonical.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.from_canonical" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.from_canonical"><code class="xref py py-meth docutils literal notranslate"><span class="pre">from_canonical()</span></code></a>.</p>
+<p>The other two probe transposes are <code class="docutils literal notranslate"><span class="pre">probe_corewise_transpose</span></code> (gradient w.r.t. a base’s cores,
+for Adam / L-BFGS) and <code class="docutils literal notranslate"><span class="pre">T3Tangent.probe_transpose</span></code> (the Riemannian gradient).</p>
+<p><code class="docutils literal notranslate"><span class="pre">sum_over_probes=False</span></code> keeps the probe stack <code class="docutils literal notranslate"><span class="pre">W</span></code> (a <code class="docutils literal notranslate"><span class="pre">W</span> <span class="pre">(+</span> <span class="pre">C)</span></code> stack of rank-<code class="docutils literal notranslate"><span class="pre">d</span></code> CPs);
+<code class="docutils literal notranslate"><span class="pre">True</span></code> folds <code class="docutils literal notranslate"><span class="pre">W</span></code> into the CP rank (one rank-<code class="docutils literal notranslate"><span class="pre">d|W|</span></code> CP, the ambient <code class="docutils literal notranslate"><span class="pre">J^T</span> <span class="pre">r</span></code>), cheap as CP.</p>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<p><a class="reference internal" href="TuckerTensorTrain.probe.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe"><code class="xref py py-obj docutils literal notranslate"><span class="pre">probe</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.apply_ambient_transpose.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_ambient_transpose" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_ambient_transpose"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_ambient_transpose</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.probe_corewise_transpose.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_corewise_transpose" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_corewise_transpose"><code class="xref py py-obj docutils literal notranslate"><span class="pre">probe_corewise_transpose</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.from_canonical.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.from_canonical" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.from_canonical"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_canonical</span></code></a></p>
+</div>
+<p class="rubric">Examples</p>
+<p>Adjoint identity <code class="docutils literal notranslate"><span class="pre">&lt;probe_ambient_transpose(z,</span> <span class="pre">ww),</span> <span class="pre">x&gt;_F</span> <span class="pre">==</span> <span class="pre">sum_i</span> <span class="pre">&lt;z_i,</span> <span class="pre">x.probe(ww)_i&gt;</span></code>:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ww</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">11</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">12</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">zt</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">11</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">12</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">T</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">from_canonical</span><span class="p">(</span><span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">probe_ambient_transpose</span><span class="p">(</span><span class="n">zt</span><span class="p">,</span> <span class="n">ww</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">lhs</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">T</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">*</span> <span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">rhs</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="nb">sum</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">z</span> <span class="o">*</span> <span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">z</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">zt</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">probe</span><span class="p">(</span><span class="n">ww</span><span class="p">))))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="nb">bool</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">lhs</span> <span class="o">-</span> <span class="n">rhs</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-9</span><span class="p">))</span>
+<span class="go">True</span>
+</pre></div>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>other</strong> (<a class="reference internal" href="TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>) – Other tensor to take the inner product with. Requires <code class="docutils literal notranslate"><span class="pre">other.shape=(N0,...,N(d-1))</span></code>.</p></li>
-<li><p><strong>use_orthogonalization</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, orthogonalize tensors before computing inner product (more stable).
-If False, use simple zippering without orthogonalization (faster, better for automatic differentiation).
-Default: <code class="docutils literal notranslate"><span class="pre">use_orthogonalization=True</span></code>.</p></li>
+<li><p><strong>ztildes</strong> (<em>collections.abc.Sequence</em><em>[</em><em>t3toolbox.backend.common.NDArray</em><em>]</em>)</p></li>
+<li><p><strong>ww</strong> (<em>collections.abc.Sequence</em><em>[</em><em>t3toolbox.backend.common.NDArray</em><em>]</em>)</p></li>
+<li><p><strong>sum_over_probes</strong> (<em>bool</em>)</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>Hilbert-Schmidt inner product of Tucker tensor trains, (self, other)_HS.
-If stacked, <code class="docutils literal notranslate"><span class="pre">result.shape=self.stack_shape</span></code>. Otherwise, result is scalar.</p>
-</dd>
-<dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>scalar or NDArray</p>
-</dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><p><strong>ValueError</strong> – <ul class="simple">
-<li><p>Error raised if the TuckerTensorTrains have different shapes and/or stack shapes.</p></li>
-</ul>
-</p>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>collections.abc.Sequence[t3toolbox.backend.common.NDArray]</p>
 </dd>
 </dl>
-<div class="admonition seealso">
-<p class="admonition-title">See also</p>
-<p><a class="reference internal" href="TuckerTensorTrain.__add__.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.__add__" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.__add__"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.__add__()</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.__sub__.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.__sub__" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.__sub__"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.__sub__()</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.__neg__.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.__neg__" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.__neg__"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.__neg__()</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.__mul__.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.__mul__" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.__mul__"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.__mul__()</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.norm.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.norm" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.norm"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.norm()</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.sum.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.sum"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.sum()</span></code></a></p>
-</div>
-<p class="rubric">Examples</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">y</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">hs</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>                               <span class="c1"># Hilbert-Schmidt inner product (a scalar)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">hs</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">*</span> <span class="n">y</span><span class="o">.</span><span class="n">to_dense</span><span class="p">())))</span>
-<span class="go">True</span>
-</pre></div>
-</div>
-<p>(T3, T3) with stacking – one inner product per stack element:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="n">stack_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">y</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">stack_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">hs</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">hs</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>                               <span class="c1"># result carries the stack shape</span>
-<span class="go">(2, 3)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">hs</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">*</span> <span class="n">y</span><span class="o">.</span><span class="n">to_dense</span><span class="p">(),</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">))))</span>
-<span class="go">True</span>
-</pre></div>
-</div>
-<p>Inner product of a T3 with a dense tensor:</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">y</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">*</span> <span class="n">y</span><span class="p">)))</span>
-<span class="go">True</span>
-</pre></div>
-</div>
-<p>…with stacking (the dense array carries the stack axes):</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">3</span><span class="p">),</span> <span class="n">stack_shape</span><span class="o">=</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">y</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">)</span>         <span class="c1"># shape = stack_shape + shape</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">y</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s1">&#39;ijxyz,ijxyz-&gt;ij&#39;</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">(),</span> <span class="n">y</span><span class="p">)))</span>
-<span class="go">True</span>
-</pre></div>
-</div>
-<p>Gotcha – the two tensors must have the same shape (raises otherwise):</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">y</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>   <span class="c1"># different shape!</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span><span class="o">.</span><span class="n">inner</span><span class="p">(</span><span class="n">y</span><span class="p">)</span>
-<span class="gt">Traceback (most recent call last):</span>
-<span class="w">    </span><span class="o">...</span>
-<span class="gr">ValueError</span>
-</pre></div>
-</div>
 </dd></dl>
 
 </section>
@@ -540,20 +485,20 @@ If stacked, <code class="docutils literal notranslate"><span class="pre">result.
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="TuckerTensorTrain.__sub__.html"
+       href="TuckerTensorTrain.probe.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">TuckerTensorTrain.__sub__</p>
+        <p class="prev-next-title">TuckerTensorTrain.probe</p>
       </div>
     </a>
     <a class="right-next"
-       href="TuckerTensorTrain.norm.html"
+       href="TuckerTensorTrain.probe_corewise_transpose.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">TuckerTensorTrain.norm</p>
+        <p class="prev-next-title">TuckerTensorTrain.probe_corewise_transpose</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -576,14 +521,14 @@ If stacked, <code class="docutils literal notranslate"><span class="pre">result.
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.inner"><code class="docutils literal notranslate"><span class="pre">inner()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_ambient_transpose"><code class="docutils literal notranslate"><span class="pre">probe_ambient_transpose()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.inner.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.probe_ambient_transpose.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

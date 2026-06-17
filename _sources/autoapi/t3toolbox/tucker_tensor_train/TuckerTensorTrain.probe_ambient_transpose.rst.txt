@@ -1,0 +1,41 @@
+TuckerTensorTrain.probe_ambient_transpose
+=========================================
+
+.. py:method:: t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_ambient_transpose(ztildes, ww, sum_over_probes = False)
+   :staticmethod:
+
+
+   Ambient transpose of :py:meth:`probe`: back-project probe residuals into canonical (CP) factors.
+
+   The probe counterpart of :py:meth:`apply_ambient_transpose` -- the literal adjoint of ``probe``
+   as a linear map on the full tensor space (one of **three** probe transposes; full taxonomy in
+   ``docs/transposes.md``). ``probe`` returns ``d`` vectors, so the residual ``ztildes`` is ``d``
+   vectors; the back-projection is the **rank-``d``** tensor
+   ``sum_i (w0 (x) ... (x) ztildes_i (x) ... (x) w_{d-1})`` (residual ``ztildes_i`` in slot ``i``,
+   probe vectors elsewhere), returned as **CP factors**. Base-free. Realize a ``TuckerTensorTrain``
+   with :py:meth:`from_canonical`.
+
+   The other two probe transposes are ``probe_corewise_transpose`` (gradient w.r.t. a base's cores,
+   for Adam / L-BFGS) and ``T3Tangent.probe_transpose`` (the Riemannian gradient).
+
+   ``sum_over_probes=False`` keeps the probe stack ``W`` (a ``W (+ C)`` stack of rank-``d`` CPs);
+   ``True`` folds ``W`` into the CP rank (one rank-``d|W|`` CP, the ambient ``J^T r``), cheap as CP.
+
+   .. seealso:: :py:obj:`probe`, :py:obj:`apply_ambient_transpose`, :py:obj:`probe_corewise_transpose`, :py:obj:`from_canonical`
+
+   .. rubric:: Examples
+
+   Adjoint identity ``<probe_ambient_transpose(z, ww), x>_F == sum_i <z_i, x.probe(ww)_i>``:
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+   >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+   >>> zt = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+   >>> T = t3.TuckerTensorTrain.from_canonical(t3.TuckerTensorTrain.probe_ambient_transpose(zt, ww))
+   >>> lhs = float(np.sum(T.to_dense() * x.to_dense()))
+   >>> rhs = float(sum(np.sum(z * p) for z, p in zip(zt, x.probe(ww))))
+   >>> print(bool(abs(lhs - rhs) < 1e-9))
+   True
+
