@@ -95,17 +95,17 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a: a + 2.5, self.x)                 # T3+scalar (t3_plus_scalar)
         self.assert_jit_jax(  # resize (change_tucker/tt_core_shapes); static shapes -> jit-able
             lambda a: a.resize((5, 6, 7), (3, 3, 3), (1, 3, 3, 1)), self.x)
-        # plain adjoints: residual c shape W (+ C); both sum modes (CP->TT construction)
+        # ambient adjoints: residual c shape W (+ C); both sum modes; returns CP factors (a pytree)
         N = STRUCT[0]
         self.assert_jit_jax(
-            lambda cc, *ws: t3.TuckerTensorTrain.apply_transpose(cc, ws), jnp.ones(2), *self.ww)
+            lambda cc, *ws: t3.TuckerTensorTrain.apply_ambient_transpose(cc, ws), jnp.ones(2), *self.ww)
         self.assert_jit_jax(
-            lambda cc, *ws: t3.TuckerTensorTrain.apply_transpose(cc, ws, sum_over_probes=True),
+            lambda cc, *ws: t3.TuckerTensorTrain.apply_ambient_transpose(cc, ws, sum_over_probes=True),
             jnp.ones(2), *self.ww)
         self.assert_jit_jax(
-            lambda cc, i: t3.TuckerTensorTrain.entries_transpose(cc, i, N), jnp.ones(()), idx)
+            lambda cc, i: t3.TuckerTensorTrain.entries_ambient_transpose(cc, i, N), jnp.ones(()), idx)
         self.assert_jit_jax(
-            lambda cc, i: t3.TuckerTensorTrain.entries_transpose(cc, i, N, sum_over_probes=True),
+            lambda cc, i: t3.TuckerTensorTrain.entries_ambient_transpose(cc, i, N, sum_over_probes=True),
             jnp.ones(2), jnp.array([[1, 2], [2, 3], [3, 0]]))  # (d,) + W, W=(2,)
 
     # ---------------------------------------------------- jit bucket: T3Tangent

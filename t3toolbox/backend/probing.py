@@ -775,7 +775,7 @@ def entries_tangent(
 
 def _onehot_vectors(index, up_tucker_cores):
     '''Unit vectors e_{index_k} (shape W + (Nk,)) -- the "apply vectors" whose adjoint is the entry
-    scatter, so that entries_transpose is apply_transpose with these one-hot vectors.'''
+    scatter, so that entries_tangent_transpose is apply_tangent_transpose with these one-hot vectors.'''
     use_jax = tree_contains_jax((index, up_tucker_cores))
     xnp, _, _ = get_backend(False, use_jax)
     index = xnp.array(index)

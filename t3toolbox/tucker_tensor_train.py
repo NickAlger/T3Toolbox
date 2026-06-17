@@ -3422,85 +3422,111 @@ class TuckerTensorTrain:
         return probing.probe_t3(ww, self.data)
 
     @staticmethod
-    def apply_transpose(
+    def apply_ambient_transpose(
             c:      NDArray,            # residual, shape = W + C
             ww:     Sequence[NDArray],  # apply vectors, len=d, elm_shape = W + (Ni,)
             sum_over_probes: bool = False,
-    ) -> 'TuckerTensorTrain':
-        """Transpose of :py:meth:`apply`: back-project a residual ``c`` into a TuckerTensorTrain.
+    ) -> Sequence[NDArray]:            # canonical (CP) factors, len=d, elm_shape = stack + (R, Ni)
+        """Ambient transpose of :py:meth:`apply`: back-project ``c`` into canonical (CP) factors.
 
-        The Jacobian-transpose of the all-modes map ``X -> ( <X, w0^W (x) ... (x) w_{d-1}^W> )_W``.
-        The atomic single-probe adjoint is the rank-1 tensor ``c * (w0 (x) ... (x) w_{d-1})``, and the
-        ``W``-stacked operator is its stacking-lift:
+        This is **one of three** transposes of ``apply`` -- make sure it is the one you want (full
+        taxonomy and costs in ``docs/transposes.md``):
 
-        - ``sum_over_probes=False`` (default, primary): the probe stack ``W`` is a passthrough stacking
-          axis -- a ``W (+ C)`` stack of rank-1 tensors.
-        - ``sum_over_probes=True``: contract ``W`` (``= sum_W`` of the primary) -- the rank-``|W|``
-          back-projection ``sum_W c_W * (w0^W (x) ...)``, i.e. the Gauss-Newton ``J^T r``.
+        - **ambient** (this method): the literal adjoint of ``apply`` viewed as a linear map on the
+          *full tensor space*. Base-free; the back-projection ``c * (w0 (x) ... (x) w_{d-1})`` is
+          rank-1, returned as **CP factors** -- the natural type, since ``apply`` consumes one vector
+          per mode and its adjoint emits one scaled vector per mode. Convert to a ``TuckerTensorTrain``
+          with :py:meth:`from_canonical` if you want T3 form.
+        - **corewise** (``apply_corewise_transpose``): the gradient w.r.t. a base point's cores, for
+          core-wise optimizers (Adam, L-BFGS). Most users who reach for "the transpose to get a
+          gradient" actually want *this* -- hence the explicit names, so neither is the silent default.
+        - **tangent** (``T3Tangent.apply_transpose``): the Riemannian gradient, returned as a tangent
+          vector, for manifold optimization.
 
-        See *Batching & stacking* §11 (``docs/batching_and_stacking.md``) for which mode to use and why.
+        ``sum_over_probes`` chooses where the probe stack ``W`` lands (both modes are cheap, ``O(d|W|N)``):
+
+        - ``False`` (default, primary): ``W`` is a passthrough stacking axis -- a ``W (+ C)`` stack of
+          rank-1 CP tensors (CP rank ``R=1``), one back-projection per probe.
+        - ``True``: ``W`` becomes the CP **rank** -- one rank-``|W|`` CP tensor
+          ``sum_W c_W (w0^W (x) ...)`` (the ambient ``J^T r``). Cheap as CP; the ``|W|^2`` cost of a
+          *dense* T3 is paid only if you then call :py:meth:`from_canonical`.
+
+        Returns the CP ``factors`` (``c`` folded into the first), in the layout
+        :py:meth:`from_canonical` consumes. See *Batching & stacking* §11
+        (``docs/batching_and_stacking.md``) for the stacking conventions.
 
         See Also
         --------
         apply
-        entries_transpose
+        entries_ambient_transpose
+        from_canonical
 
         Examples
         --------
-        Adjoint identity ``<apply^T(c), x>_F == c * x.apply(ww)`` (no stacks):
+        Adjoint identity ``<apply_ambient_transpose(c, ww), x>_F == c * x.apply(ww)`` -- realize the CP
+        factors as a T3 with :py:meth:`from_canonical`:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-        >>> ATc = t3.TuckerTensorTrain.apply_transpose(1.7, ww)
+        >>> factors = t3.TuckerTensorTrain.apply_ambient_transpose(1.7, ww)
+        >>> ATc = t3.TuckerTensorTrain.from_canonical(factors)     # CP factors -> a TuckerTensorTrain
         >>> lhs = float(np.sum(ATc.to_dense() * x.to_dense()))
         >>> print(bool(abs(lhs - 1.7 * float(x.apply(ww))) < 1e-9))
         True
         """
-        return TuckerTensorTrain(*apply.tucker_tensor_train_apply_transpose(
+        return apply.tucker_tensor_train_apply_ambient_transpose(
             c, ww, sum_over_probes=sum_over_probes,
-        ))
+        )
 
     @staticmethod
-    def entries_transpose(
+    def entries_ambient_transpose(
             c:      NDArray,            # residual, shape = W + C
             index:  NDArray,            # int, shape = (d,) + W
             shape:  Sequence[int],      # ambient dims (N0, ..., N(d-1))
             sum_over_probes: bool = False,
-    ) -> 'TuckerTensorTrain':
-        """Transpose of :py:meth:`entries`: scatter a residual ``c`` at ``index`` into a TuckerTensorTrain.
+    ) -> Sequence[NDArray]:            # canonical (CP) factors, len=d, elm_shape = stack + (R, Ni)
+        """Ambient transpose of :py:meth:`entries`: scatter ``c`` at ``index`` into canonical (CP) factors.
 
-        The Jacobian-transpose of ``X -> ( X[index^W] )_W``. Identical to :py:meth:`apply_transpose`
-        with the apply vectors replaced by the unit vectors ``e_{index_k}``, so each single-entry
-        adjoint is the one-hot rank-1 tensor ``c * e_{idx_0} (x) ... (x) e_{idx_{d-1}}``;
-        ``sum_over_probes=True`` scatter-adds colliding indices (the ``J^T r`` for entry sampling; see
-        *Batching & stacking* §11). ``shape`` gives the ambient dims ``(N0, ..., N(d-1))`` -- unlike
-        :py:meth:`apply_transpose` (where ``ww`` carries them), the residual and index alone do not
-        determine them.
+        The ``entries`` counterpart of :py:meth:`apply_ambient_transpose` -- identical, with the apply
+        vectors replaced by the unit vectors ``e_{index_k}``, so the CP factors are one-hots and the
+        back-projection is ``c * e_{idx_0} (x) ... (x) e_{idx_{d-1}}``. See that method (and
+        ``docs/transposes.md``) for the **ambient vs corewise vs tangent** distinction -- this is the
+        *ambient* one (the base-free adjoint on the full tensor space); the gradient-for-optimizers
+        versions are ``entries_corewise_transpose`` and ``T3Tangent.entries_transpose``.
+
+        ``sum_over_probes=True`` makes ``W`` the CP rank (scatter-adding colliding indices -- the
+        ``J^T r`` for entry sampling); ``False`` keeps ``W`` as a stacking axis. ``shape`` supplies the
+        ambient dims ``(N0, ..., N(d-1))``, which (unlike :py:meth:`apply_ambient_transpose`, where
+        ``ww`` carries them) ``c`` and ``index`` alone do not determine. Returns CP ``factors`` for
+        :py:meth:`from_canonical`.
 
         See Also
         --------
         entries
-        apply_transpose
+        apply_ambient_transpose
+        from_canonical
 
         Examples
         --------
-        Back-projecting a residual scatters it at the index:
+        Back-projecting a residual scatters it at the index (realize the CP factors with
+        :py:meth:`from_canonical`):
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-        >>> ETc = t3.TuckerTensorTrain.entries_transpose(2.0, (3, 5, 7), x.shape)
+        >>> factors = t3.TuckerTensorTrain.entries_ambient_transpose(2.0, (3, 5, 7), x.shape)
+        >>> ETc = t3.TuckerTensorTrain.from_canonical(factors)
         >>> print(bool(abs(float(ETc.to_dense()[3, 5, 7]) - 2.0) < 1e-9))     # c lands at the index
         True
         >>> rest = ETc.to_dense().copy(); rest[3, 5, 7] = 0.0
         >>> print(bool(np.linalg.norm(rest) < 1e-9))                          # zero elsewhere
         True
         """
-        return TuckerTensorTrain(*entries.tucker_tensor_train_entries_transpose(
+        return entries.tucker_tensor_train_entries_ambient_transpose(
             c, index, shape, sum_over_probes=sum_over_probes,
-        ))
+        )
 
     ##############################################################
     ########################    T3-SVD    ########################

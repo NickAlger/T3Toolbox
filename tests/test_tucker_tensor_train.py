@@ -2087,8 +2087,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                         self.check_relerr(result2, result)
 
-    def test_apply_transpose(self):
-        # adjoint of apply: primary (sum=False) keeps probe stack W; sum=True contracts it (J^T r).
+    def test_apply_ambient_transpose(self):
+        # ambient adjoint of apply: primary (sum=False) keeps probe stack W; sum=True contracts it (J^T r).
+        # Returns CP factors; from_canonical realizes them as a TuckerTensorTrain.
         base_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
@@ -2114,13 +2115,19 @@ class TestTuckerTensorTrain(unittest.TestCase):
                             xb = xd.reshape((1,) * lead + xd.shape)
                             return np.sum(ATd * xb, axis=tuple(range(ATd.ndim - nN, ATd.ndim)))
 
-                        # primary: W is a passthrough stack; per-probe identity <AT(c)_W, x> == c*apply
-                        ATf = t3.TuckerTensorTrain.apply_transpose(c, ww)
+                        # primary: W is a passthrough stack (CP rank R=1); per-probe identity
+                        # <AT(c)_W, x> == c*apply, after realizing the CP factors via from_canonical.
+                        ATf_factors = t3.TuckerTensorTrain.apply_ambient_transpose(c, ww)
+                        self.assertEqual(W + C + (1, shape[0]), ATf_factors[0].shape)   # CP rank 1, W stacked
+                        ATf = t3.TuckerTensorTrain.from_canonical(ATf_factors)
                         self.assertEqual(W + C, ATf.stack_shape)
                         self.check_relerr(c * fwd, ndot(ATf.to_dense(), nW))
 
-                        # summed: contract W (the J^T r back-projection); CP->TT gives tt rank |W|
-                        ATt = t3.TuckerTensorTrain.apply_transpose(c, ww, sum_over_probes=True)
+                        # summed: W becomes the CP rank |W| (the J^T r back-projection), O(|W|N) -- the
+                        # |W|^2 copy-tensor cost lives only in from_canonical, not in the returned factors.
+                        ATt_factors = t3.TuckerTensorTrain.apply_ambient_transpose(c, ww, sum_over_probes=True)
+                        self.assertEqual(C + (int(np.prod(W, dtype=int)), shape[0]), ATt_factors[0].shape)
+                        ATt = t3.TuckerTensorTrain.from_canonical(ATt_factors)
                         self.assertEqual(C, ATt.stack_shape)
                         lhs = np.sum(ATt.to_dense().reshape(C + (-1,)) * xd.reshape(C + (-1,)), axis=-1)
                         self.check_relerr(np.sum(c * fwd, axis=tuple(range(nW))), lhs)
@@ -2128,8 +2135,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         # consistency: sum=True == sum over W of sum=False
                         self.check_relerr(ATt.to_dense(), ATf.to_dense().sum(axis=tuple(range(nW))))
 
-    def test_entries_transpose(self):
-        # adjoint of entries: scatter c at index. Primary keeps W; sum=True scatter-adds collisions.
+    def test_entries_ambient_transpose(self):
+        # ambient adjoint of entries: scatter c at index. Primary keeps W; sum=True scatter-adds
+        # collisions. Returns CP factors (one-hots); from_canonical realizes them as a T3.
         base_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
@@ -2155,11 +2163,15 @@ class TestTuckerTensorTrain(unittest.TestCase):
                             xb = xd.reshape((1,) * lead + xd.shape)
                             return np.sum(ETd * xb, axis=tuple(range(ETd.ndim - nN, ETd.ndim)))
 
-                        ETf = t3.TuckerTensorTrain.entries_transpose(c, idx, shape)
+                        ETf_factors = t3.TuckerTensorTrain.entries_ambient_transpose(c, idx, shape)
+                        self.assertEqual(W + C + (1, shape[0]), ETf_factors[0].shape)   # CP rank 1, W stacked
+                        ETf = t3.TuckerTensorTrain.from_canonical(ETf_factors)
                         self.assertEqual(W + C, ETf.stack_shape)
                         self.check_relerr(c * fwd, ndot(ETf.to_dense(), nW))
 
-                        ETt = t3.TuckerTensorTrain.entries_transpose(c, idx, shape, sum_over_probes=True)
+                        ETt_factors = t3.TuckerTensorTrain.entries_ambient_transpose(c, idx, shape, sum_over_probes=True)
+                        self.assertEqual(C + (int(np.prod(W, dtype=int)), shape[0]), ETt_factors[0].shape)
+                        ETt = t3.TuckerTensorTrain.from_canonical(ETt_factors)
                         self.assertEqual(C, ETt.stack_shape)
                         lhs = np.sum(ETt.to_dense().reshape(C + (-1,)) * xd.reshape(C + (-1,)), axis=-1)
                         self.check_relerr(np.sum(c * fwd, axis=tuple(range(nW))), lhs)

@@ -11,7 +11,7 @@ from t3toolbox.backend.common import *
 
 __all__ = [
     'tucker_tensor_train_entries',
-    'tucker_tensor_train_entries_transpose',
+    'tucker_tensor_train_entries_ambient_transpose',
 ]
 
 
@@ -59,26 +59,25 @@ def tucker_tensor_train_entries(
     return result
 
 
-def tucker_tensor_train_entries_transpose(
+def tucker_tensor_train_entries_ambient_transpose(
         c:                  NDArray,                # residual, shape=W+C
         index:              NDArray,                # int, shape=(d,)+W
         shape:              typ.Sequence[int],      # ambient dims (N0,...,N(d-1)) -- to size the one-hots
-        sum_over_probes:    bool = False,           # True: scatter-add colliding indices (Gauss-Newton J^T r)
-) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],  # tucker_cores
-    typ.Tuple[NDArray, ...],  # tt_cores
-]:
-    '''Transpose of :py:func:`tucker_tensor_train_entries`: scatter a residual ``c`` at ``index``.
+        sum_over_probes:    bool = False,           # True: W becomes the CP rank (scatter-adds collisions)
+) -> typ.Sequence[NDArray]:  # canonical (CP) factors. len=d, ith elm_shape=stack_shape+(R, Ni)
+    '''Ambient transpose of :py:func:`tucker_tensor_train_entries`: scatter ``c`` at ``index`` into CP factors.
 
-    Identical to :py:func:`tucker_tensor_train_apply_transpose` with the apply vectors replaced by the
-    unit vectors ``e_{index_k}`` -- so each single-entry adjoint is the one-hot rank-1 tensor
-    ``c * e_{idx_0} (x) ... (x) e_{idx_{d-1}}``. ``sum_over_probes=True`` scatter-adds colliding
-    indices (the ``J^T r`` for entry sampling). ``shape`` supplies the ambient dims, which (unlike the
-    apply case, where ``ww`` carries them) the residual and index alone do not determine.
+    The ``entries`` counterpart of :py:func:`tucker_tensor_train_apply_ambient_transpose` -- identical
+    with the apply vectors replaced by the unit vectors ``e_{index_k}``, so the CP factors are one-hots
+    and the back-projection is ``c * e_{idx_0} (x) ... (x) e_{idx_{d-1}}``. ``sum_over_probes=True``
+    makes ``W`` the CP rank (scatter-adding colliding indices -- the ``J^T r`` for entry sampling).
+    ``shape`` supplies the ambient dims, which (unlike the apply case, where ``ww`` carries them) the
+    residual and index alone do not determine. Returns CP factors (see the apply version).
     '''
     use_jax = tree_contains_jax((c, index))
     xnp, _, _ = get_backend(False, use_jax)
     index = xnp.array(index)
-    ww = tuple(xnp.eye(N)[index[i]] for i, N in enumerate(shape))   # one-hot, elm_shape = W + (Ni,)
-    return apply.tucker_tensor_train_apply_transpose(c, ww, sum_over_probes=sum_over_probes)
+    # one-hot CP factors e_{index_i} by direct scatter (O(|W| N), not eye's O(N^2)), elm_shape = W + (Ni,)
+    ww = tuple(1.0 * (xnp.arange(N) == index[i][..., None]) for i, N in enumerate(shape))
+    return apply.tucker_tensor_train_apply_ambient_transpose(c, ww, sum_over_probes=sum_over_probes)
 

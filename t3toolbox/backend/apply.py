@@ -6,12 +6,11 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.backend.contractions as contractions
-import t3toolbox.backend.t3_operations as t3_operations
 from t3toolbox.backend.common import *
 
 __all__ = [
     'tucker_tensor_train_apply',
-    'tucker_tensor_train_apply_transpose',
+    'tucker_tensor_train_apply_ambient_transpose',
 ]
 
 def tucker_tensor_train_apply(
@@ -53,27 +52,29 @@ def tucker_tensor_train_apply(
     return result
 
 
-def tucker_tensor_train_apply_transpose(
+def tucker_tensor_train_apply_ambient_transpose(
         c:                  NDArray,                # residual, shape=W+C
         ww:                 typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
-        sum_over_probes:    bool = False,           # True: sum the apply stack W (Gauss-Newton J^T r)
-) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],  # tucker_cores
-    typ.Tuple[NDArray, ...],  # tt_cores
-]:
-    '''Transpose of :py:func:`tucker_tensor_train_apply`: back-project a residual ``c`` into a tensor.
+        sum_over_probes:    bool = False,           # True: W becomes the CP rank (ambient J^T r)
+) -> typ.Sequence[NDArray]:  # canonical (CP) factors. len=d, ith elm_shape=stack_shape+(R, Ni)
+    '''Ambient transpose of :py:func:`tucker_tensor_train_apply`: back-project ``c`` into CP factors.
 
-    The Jacobian-transpose of the all-modes apply  ``X -> ( <X, w0^W (x) ... (x) w_{d-1}^W> )_W``.
-    The atomic (single-probe) adjoint is the rank-1 tensor ``c * (w0 (x) ... (x) w_{d-1})``; the
-    W-stacked operator is its stacking-lift, so:
+    The *ambient* adjoint -- the transpose of ``apply`` as a linear map on the **full tensor space**
+    (``X -> ( <X, w0^W (x) ... (x) w_{d-1}^W> )_W``). Base-free; the back-projection
+    ``c * (w0 (x) ... (x) w_{d-1})`` is rank-1, whose natural representation is a **canonical (CP)
+    decomposition** (``apply`` consumes one vector per mode; its adjoint emits one scaled vector per
+    mode). This is distinct from the *corewise* transpose (gradient w.r.t. a base point's cores) and
+    the *tangent* transpose (Riemannian gradient) -- see ``docs/transposes.md`` for the full taxonomy.
 
     - ``sum_over_probes=False`` (primary): ``W`` is a passthrough stacking axis -- a ``W (+ C)`` stack
-      of rank-1 tensors (canonical rank 1).
-    - ``sum_over_probes=True``: contract ``W`` (``= sum_W`` of the primary) -- the rank-``|W|``
-      back-projection ``sum_W c_W * (w0^W (x) ...)``, the Gauss-Newton ``J^T r`` (canonical rank ``|W|``).
+      of rank-1 CP tensors (CP rank ``R=1``).
+    - ``sum_over_probes=True``: ``W`` becomes the CP **rank** -- one rank-``|W|`` CP tensor
+      ``sum_W c_W * (w0^W (x) ...)`` (the ambient ``J^T r``). Cheap as CP (``O(d |W| N)``, the shared
+      rank index stays implicit); the ``|W|^2`` cost of a *dense* Tucker tensor train is incurred only
+      if you convert with ``t3_operations.t3_from_canonical``.
 
-    Built as a canonical (CP) decomposition fed to :py:func:`t3_operations.t3_from_canonical`, with
-    ``c`` folded into the first factor. Returns ``(tucker_cores, tt_cores)``.
+    Returns the CP ``factors`` (``c`` folded into the first), in the layout
+    ``t3_operations.t3_from_canonical`` consumes.
     '''
     use_jax = tree_contains_jax((c, ww))
     xnp, _, _ = get_backend(False, use_jax)
@@ -107,5 +108,5 @@ def tucker_tensor_train_apply_transpose(
             else:
                 factors.append(w_exp * xnp.ones(C + (1, 1)))             # materialize W + C + (1, Ni)
 
-    return t3_operations.t3_from_canonical(factors)
+    return tuple(factors)
 
