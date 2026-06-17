@@ -165,13 +165,32 @@ Self-contained refactor; do first.
   compare, per CLAUDE.md ("dense ground truth").
 - **Run** the full relevant suite (see Slice 1) + `backend/test_contractions`. **Commit** Slice 2.
 
-## After ragged is solid
+## RESUME HERE → the uniform layer (the original task)
 
-Return to the uniform layer (the original task). The uniform port's **slice 6** (`docs/uniform_port_plan.md`,
-`docs/uniform_slice_handoff.md`) now mirrors these into uniform: a `ut3` ambient transpose returning CP
-factors (keep `sum_over_probes`) and a uniform corewise transpose (substitution into the uniform tangent
-backend, once that exists). Keep the same names/semantics. Note the uniform ambient transpose returns
-*uniform* CP factors (`(d,)+stack+(R,N)` supercore + mask) — the CP-factor convention carries over.
+**Ragged transposes are 100% done and pushed** (commits `1ce8c587`→`f97669a7`): the full 3×3 grid
+(`entries`/`apply`/`probe` × ambient/corewise/tangent) + the `pinv` test-oracle fix + CLAUDE.md razor
+note. Nothing ragged is outstanding. Next session = back to **fixing the uniform layer**, which was the
+original goal; the transpose redesign was its ragged prerequisite.
+
+**State of the uniform port** (read `docs/uniform_slice_handoff.md` + `docs/uniform_port_plan.md` first):
+`UniformTuckerTensorTrain` is done through **slices 1–5** (foundation, orthogonalization, linalg,
+sampling, ut3svd). Remaining: **6 transposes, 7 jax wiring, 8 constructors+IO, 9 t3m** (+ the deferred
+uniform basis/variations/tangent layer `ubv_*`/`uniform_*`).
+
+**The transpose mirror (uniform slice 6) — and a sequencing decision to raise with Nick:**
+- **Ambient** uniform transposes (`ut3_{apply,entries,probe}_ambient_transpose` → *uniform* CP factors,
+  `(d,)+stack+(R,N)` supercore + mask) are doable **now** — they're CP-factor builders, no tangent
+  machinery needed. The CP-factor convention carries over from ragged.
+- **Corewise** and **tangent** uniform transposes need the **uniform tangent backend** (the uniform
+  analog of `probe_tangent_transpose`), which is part of the **deferred** uniform basis/variations/
+  tangent layer (`ubv_*`/`uniform_*`). So the §6.3 substitution can't be mirrored until that layer
+  exists. → **Decision for Nick:** do the uniform ambient transposes now and defer uniform corewise/
+  tangent until the uniform tangent layer is built, OR reprioritize the uniform tangent layer first.
+- Keep the same names/semantics/taxonomy as ragged (`docs/transposes.md`).
+
+The broader uniform repair (slices 6–9) is Nick-driven; propose the plan and the genuine decisions,
+confirm, then implement (incremental slices, commit per slice — see `docs/uniform_slice_handoff.md`'s
+conventions).
 
 ## Conventions (don't re-derive)
 

@@ -55,6 +55,13 @@ updated to this version by the time the package is released.
 > **Corollary:** don't leave a backend user one fiddly step short of a usable result — if a backend
 > function would otherwise force them to know some follow-up call (e.g. `tree_zip` to pair two returned
 > trees), fold that step in so the function returns the directly-usable thing.
+> **Corollary (the test is knowledge, not line count):** a one-line wrapper *earns* its place in the
+> backend when it encodes a non-obvious **capability** — its value is the name + docstring + test, not
+> the code. A trivial-*and*-obvious one-liner (`return a + b`) stays inline; a trivial-*but*-non-obvious
+> one belongs in the backend, because a user who doesn't know the trick can't "just rewrite it." Example:
+> `probing.{apply,entries,probe}_corewise_transpose` are each a one-line substitution into the *tangent*
+> transpose (`P,Q,O → G`, paper §6.3), but that substitution is the non-obvious part — inlining it in
+> the frontend would hide the corewise capability from backend users entirely.
 - `TuckerTensorTrain` (`tucker_tensor_train.py`) — the keystone; `.data = (tucker_cores, tt_cores)`.
 - `T3Basis` / `T3Variations` (`basis_variations_format.py`) — orthogonal frame + tangent direction.
 - `T3Tangent` (`manifold.py`) — bundles `(T3Basis, T3Variations)`: a tangent vector.
@@ -293,13 +300,21 @@ Treat everything else as copied-in-and-not-yet-working until checked.
 
 ## Open questions / TODO
 
-- **`apply`/`entries` + adjoints — DONE.** Forward `T3Tangent.apply`/`entries` (the all-modes special
-  case of probing, commit `5ac8db22`) plus all adjoints: `T3Tangent.apply_transpose`/`entries_transpose`
-  (commit `f25e3d14`) and plain `TuckerTensorTrain.apply_transpose`/`entries_transpose` (commit
-  `af368831`). `sum_over_probes=False` (primary) keeps the probe stack `W`; `=True` is the derived
-  `Jᵀr` contraction. History/rationale: [`docs/apply_entries_handoff.md`](docs/apply_entries_handoff.md).
-  The transpose/`sum_over_probes` semantics are documented for users in `docs/batching_and_stacking.md`
-  §11 (+ harmonized transpose docstrings, an invariant doctest on `probe_transpose`, glossary entry).
+- **The transpose grid — DONE & REDESIGNED (ragged).** Each sampling op (`entries`/`apply`/`probe`)
+  now has **three** transposes — **ambient / corewise / tangent** — read **[`docs/transposes.md`](docs/transposes.md)**
+  (taxonomy, costs, decision guide) and the work log [`docs/transpose_redesign_handoff.md`](docs/transpose_redesign_handoff.md).
+  - **ambient** = the literal base-free adjoint, returned as **canonical (CP) factor tuples** (the
+    natural type for a multilinear adjoint; convert to a T3 via `from_canonical`):
+    `TuckerTensorTrain.{apply,entries,probe}_ambient_transpose` (static). `apply`/`entries` are rank-1
+    (or rank-`|W|` summed); `probe` is rank-`d`. Keeps `sum_over_probes` (cheap in CP — the `|W|²`
+    dense-T3 cost lives only in `from_canonical`). *(These are the renamed old `*_transpose` methods,
+    which used to wrap into a T3 with a copy-tensor — that `O(|W|³)` path is gone.)*
+  - **corewise** = gradient w.r.t. the cores (Adam/L-BFGS), raw `(tucker_grads, tt_grads)`:
+    `TuckerTensorTrain.{apply,entries,probe}_corewise_transpose` (instance, `self` is the base). The
+    paper §6.3 substitution (`P,Q,O → G`) into the tangent backend; `c` must be an array.
+  - **tangent** = Riemannian gradient, a `T3Tangent`: `T3Tangent.{apply,entries,probe}_transpose`
+    (unchanged; `sum_over_probes=False` keeps `W`, `=True` is `Jᵀr`). Older history:
+    [`docs/apply_entries_handoff.md`](docs/apply_entries_handoff.md), `docs/batching_and_stacking.md` §11.
 - **A least-squares fitting example/tutorial — wanted, deferred (Nick's call).** Show `apply`/`entries`
   as the forward sampling operator `J` and the summed transpose (`sum_over_probes=True`) as the gradient
   `Jᵀr` and Gauss-Newton Hessian `JᵀJ v` — the worked use case that motivates `sum_over_probes=True`.
@@ -307,8 +322,10 @@ Treat everything else as copied-in-and-not-yet-working until checked.
   back to it later. This is the deferred "S4" follow-up to the §11 transpose docs.
 - **Which ops require a minimal-rank basis** (partly answered, full audit pending): gauge
   projections need orthogonality only; `inner`/`norm` Hilbert-Schmidt faithfulness needs orthogonal
-  + minimal + gauged; `retract` preserves base ranks only on a minimal base; `project` works on any
-  orthogonal base.
+  + minimal + gauged; `retract` preserves base ranks only on a minimal base; `project`/
+  `project_dense_onto_tangent` works on any orthogonal base — **minimal rank NOT required, CONFIRMED**
+  (the exact orthogonal projection holds for non-minimal bases; a flaky test that suggested otherwise
+  was a fragile `pinv` *oracle*, not a code bug — see the `pinv-oracle-test-fragility` memory).
 - Repair the **uniform layer** — **in progress**: `UniformTuckerTensorTrain` (the analog of
   `TuckerTensorTrain`) is being rebuilt function-by-function, hybrid backend (share where polymorphism
   "just works", rewrite where there's a real structural/perf difference). Design decisions are in the
