@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>TuckerTensorTrain.apply_transpose &#8212; T3Toolbox 0.1 documentation</title>
+    <title>TuckerTensorTrain.entries_ambient_transpose &#8212; T3Toolbox 0.1 documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.apply_transpose';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.entries_ambient_transpose';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="TuckerTensorTrain.entries_transpose" href="TuckerTensorTrain.entries_transpose.html" />
-    <link rel="prev" title="TuckerTensorTrain.probe" href="TuckerTensorTrain.probe.html" />
+    <link rel="next" title="TuckerTensorTrain.t3svd" href="TuckerTensorTrain.t3svd.html" />
+    <link rel="prev" title="TuckerTensorTrain.apply_ambient_transpose" href="TuckerTensorTrain.apply_ambient_transpose.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -338,8 +338,8 @@
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.entries.html">TuckerTensorTrain.entries</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.apply.html">TuckerTensorTrain.apply</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.probe.html">TuckerTensorTrain.probe</a></li>
-<li class="toctree-l4 current active"><a class="current reference internal" href="#">TuckerTensorTrain.apply_transpose</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.entries_transpose.html">TuckerTensorTrain.entries_transpose</a></li>
+<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.apply_ambient_transpose.html">TuckerTensorTrain.apply_ambient_transpose</a></li>
+<li class="toctree-l4 current active"><a class="current reference internal" href="#">TuckerTensorTrain.entries_ambient_transpose</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.t3svd.html">TuckerTensorTrain.t3svd</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.rank_adjustment_sweep.html">TuckerTensorTrain.rank_adjustment_sweep</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.t3svd_dense.html">TuckerTensorTrain.t3svd_dense</a></li>
@@ -401,7 +401,7 @@
     
     <li class="breadcrumb-item"><a href="TuckerTensorTrain.html" class="nav-link">TuckerTensorTrain</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">TuckerTensorTrain.apply_transpose</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">TuckerTensorTrain.entries_ambient_transpose</span></li>
   </ul>
 </nav>
 </div>
@@ -418,35 +418,39 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="tuckertensortrain-apply-transpose">
-<h1>TuckerTensorTrain.apply_transpose<a class="headerlink" href="#tuckertensortrain-apply-transpose" title="Link to this heading">#</a></h1>
+  <section id="tuckertensortrain-entries-ambient-transpose">
+<h1>TuckerTensorTrain.entries_ambient_transpose<a class="headerlink" href="#tuckertensortrain-entries-ambient-transpose" title="Link to this heading">#</a></h1>
 <dl class="py method">
-<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_transpose">
-<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.</span></span><span class="sig-name descname"><span class="pre">apply_transpose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ww</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sum_over_probes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_transpose" title="Link to this definition">#</a></dt>
-<dd><p>Transpose of <a class="reference internal" href="TuckerTensorTrain.apply.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply"><code class="xref py py-meth docutils literal notranslate"><span class="pre">apply()</span></code></a>: back-project a residual <code class="docutils literal notranslate"><span class="pre">c</span></code> into a TuckerTensorTrain.</p>
-<p>The Jacobian-transpose of the all-modes map <code class="docutils literal notranslate"><span class="pre">X</span> <span class="pre">-&gt;</span> <span class="pre">(</span> <span class="pre">&lt;X,</span> <span class="pre">w0^W</span> <span class="pre">(x)</span> <span class="pre">...</span> <span class="pre">(x)</span> <span class="pre">w_{d-1}^W&gt;</span> <span class="pre">)_W</span></code>.
-The atomic single-probe adjoint is the rank-1 tensor <code class="docutils literal notranslate"><span class="pre">c</span> <span class="pre">*</span> <span class="pre">(w0</span> <span class="pre">(x)</span> <span class="pre">...</span> <span class="pre">(x)</span> <span class="pre">w_{d-1})</span></code>, and the
-<code class="docutils literal notranslate"><span class="pre">W</span></code>-stacked operator is its stacking-lift:</p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">sum_over_probes=False</span></code> (default, primary): the probe stack <code class="docutils literal notranslate"><span class="pre">W</span></code> is a passthrough stacking
-axis – a <code class="docutils literal notranslate"><span class="pre">W</span> <span class="pre">(+</span> <span class="pre">C)</span></code> stack of rank-1 tensors.</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">sum_over_probes=True</span></code>: contract <code class="docutils literal notranslate"><span class="pre">W</span></code> (<code class="docutils literal notranslate"><span class="pre">=</span> <span class="pre">sum_W</span></code> of the primary) – the rank-<code class="docutils literal notranslate"><span class="pre">|W|</span></code>
-back-projection <code class="docutils literal notranslate"><span class="pre">sum_W</span> <span class="pre">c_W</span> <span class="pre">*</span> <span class="pre">(w0^W</span> <span class="pre">(x)</span> <span class="pre">...)</span></code>, i.e. the Gauss-Newton <code class="docutils literal notranslate"><span class="pre">J^T</span> <span class="pre">r</span></code>.</p></li>
-</ul>
-<p>See <em>Batching &amp; stacking</em> §11 (<code class="docutils literal notranslate"><span class="pre">docs/batching_and_stacking.md</span></code>) for which mode to use and why.</p>
+<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries_ambient_transpose">
+<span class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.</span></span><span class="sig-name descname"><span class="pre">entries_ambient_transpose</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">c</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">index</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sum_over_probes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries_ambient_transpose" title="Link to this definition">#</a></dt>
+<dd><p>Ambient transpose of <a class="reference internal" href="TuckerTensorTrain.entries.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries"><code class="xref py py-meth docutils literal notranslate"><span class="pre">entries()</span></code></a>: scatter <code class="docutils literal notranslate"><span class="pre">c</span></code> at <code class="docutils literal notranslate"><span class="pre">index</span></code> into canonical (CP) factors.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">entries</span></code> counterpart of <a class="reference internal" href="TuckerTensorTrain.apply_ambient_transpose.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_ambient_transpose" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_ambient_transpose"><code class="xref py py-meth docutils literal notranslate"><span class="pre">apply_ambient_transpose()</span></code></a> – identical, with the apply
+vectors replaced by the unit vectors <code class="docutils literal notranslate"><span class="pre">e_{index_k}</span></code>, so the CP factors are one-hots and the
+back-projection is <code class="docutils literal notranslate"><span class="pre">c</span> <span class="pre">*</span> <span class="pre">e_{idx_0}</span> <span class="pre">(x)</span> <span class="pre">...</span> <span class="pre">(x)</span> <span class="pre">e_{idx_{d-1}}</span></code>. See that method (and
+<code class="docutils literal notranslate"><span class="pre">docs/transposes.md</span></code>) for the <strong>ambient vs corewise vs tangent</strong> distinction – this is the
+<em>ambient</em> one (the base-free adjoint on the full tensor space); the gradient-for-optimizers
+versions are <code class="docutils literal notranslate"><span class="pre">entries_corewise_transpose</span></code> and <code class="docutils literal notranslate"><span class="pre">T3Tangent.entries_transpose</span></code>.</p>
+<p><code class="docutils literal notranslate"><span class="pre">sum_over_probes=True</span></code> makes <code class="docutils literal notranslate"><span class="pre">W</span></code> the CP rank (scatter-adding colliding indices – the
+<code class="docutils literal notranslate"><span class="pre">J^T</span> <span class="pre">r</span></code> for entry sampling); <code class="docutils literal notranslate"><span class="pre">False</span></code> keeps <code class="docutils literal notranslate"><span class="pre">W</span></code> as a stacking axis. <code class="docutils literal notranslate"><span class="pre">shape</span></code> supplies the
+ambient dims <code class="docutils literal notranslate"><span class="pre">(N0,</span> <span class="pre">...,</span> <span class="pre">N(d-1))</span></code>, which (unlike <a class="reference internal" href="TuckerTensorTrain.apply_ambient_transpose.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_ambient_transpose" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_ambient_transpose"><code class="xref py py-meth docutils literal notranslate"><span class="pre">apply_ambient_transpose()</span></code></a>, where
+<code class="docutils literal notranslate"><span class="pre">ww</span></code> carries them) <code class="docutils literal notranslate"><span class="pre">c</span></code> and <code class="docutils literal notranslate"><span class="pre">index</span></code> alone do not determine. Returns CP <code class="docutils literal notranslate"><span class="pre">factors</span></code> for
+<a class="reference internal" href="TuckerTensorTrain.from_canonical.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.from_canonical" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.from_canonical"><code class="xref py py-meth docutils literal notranslate"><span class="pre">from_canonical()</span></code></a>.</p>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
-<p><a class="reference internal" href="TuckerTensorTrain.apply.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.entries_transpose.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries_transpose" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries_transpose"><code class="xref py py-obj docutils literal notranslate"><span class="pre">entries_transpose</span></code></a></p>
+<p><a class="reference internal" href="TuckerTensorTrain.entries.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries"><code class="xref py py-obj docutils literal notranslate"><span class="pre">entries</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.apply_ambient_transpose.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_ambient_transpose" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_ambient_transpose"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_ambient_transpose</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.from_canonical.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.from_canonical" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.from_canonical"><code class="xref py py-obj docutils literal notranslate"><span class="pre">from_canonical</span></code></a></p>
 </div>
 <p class="rubric">Examples</p>
-<p>Adjoint identity <code class="docutils literal notranslate"><span class="pre">&lt;apply^T(c),</span> <span class="pre">x&gt;_F</span> <span class="pre">==</span> <span class="pre">c</span> <span class="pre">*</span> <span class="pre">x.apply(ww)</span></code> (no stacks):</p>
+<p>Back-projecting a residual scatters it at the index (realize the CP factors with
+<a class="reference internal" href="TuckerTensorTrain.from_canonical.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.from_canonical" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.from_canonical"><code class="xref py py-meth docutils literal notranslate"><span class="pre">from_canonical()</span></code></a>):</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">10</span><span class="p">,</span> <span class="mi">11</span><span class="p">,</span> <span class="mi">12</span><span class="p">),</span> <span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">ww</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">11</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">12</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">ATc</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">apply_transpose</span><span class="p">(</span><span class="mf">1.7</span><span class="p">,</span> <span class="n">ww</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">lhs</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">ATc</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span> <span class="o">*</span> <span class="n">x</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="nb">bool</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="n">lhs</span> <span class="o">-</span> <span class="mf">1.7</span> <span class="o">*</span> <span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">ww</span><span class="p">)))</span> <span class="o">&lt;</span> <span class="mf">1e-9</span><span class="p">))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">factors</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">entries_ambient_transpose</span><span class="p">(</span><span class="mf">2.0</span><span class="p">,</span> <span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="n">x</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">ETc</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">from_canonical</span><span class="p">(</span><span class="n">factors</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="nb">bool</span><span class="p">(</span><span class="nb">abs</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">ETc</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">])</span> <span class="o">-</span> <span class="mf">2.0</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-9</span><span class="p">))</span>     <span class="c1"># c lands at the index</span>
+<span class="go">True</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">rest</span> <span class="o">=</span> <span class="n">ETc</span><span class="o">.</span><span class="n">to_dense</span><span class="p">()</span><span class="o">.</span><span class="n">copy</span><span class="p">();</span> <span class="n">rest</span><span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">7</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">rest</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mf">1e-9</span><span class="p">))</span>                          <span class="c1"># zero elsewhere</span>
 <span class="go">True</span>
 </pre></div>
 </div>
@@ -454,12 +458,13 @@ back-projection <code class="docutils literal notranslate"><span class="pre">sum
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>c</strong> (<em>t3toolbox.backend.common.NDArray</em>)</p></li>
-<li><p><strong>ww</strong> (<em>collections.abc.Sequence</em><em>[</em><em>t3toolbox.backend.common.NDArray</em><em>]</em>)</p></li>
+<li><p><strong>index</strong> (<em>t3toolbox.backend.common.NDArray</em>)</p></li>
+<li><p><strong>shape</strong> (<em>collections.abc.Sequence</em><em>[</em><em>int</em><em>]</em>)</p></li>
 <li><p><strong>sum_over_probes</strong> (<em>bool</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference internal" href="TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a></p>
+<dd class="field-even"><p>collections.abc.Sequence[t3toolbox.backend.common.NDArray]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -477,20 +482,20 @@ back-projection <code class="docutils literal notranslate"><span class="pre">sum
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="TuckerTensorTrain.probe.html"
+       href="TuckerTensorTrain.apply_ambient_transpose.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">TuckerTensorTrain.probe</p>
+        <p class="prev-next-title">TuckerTensorTrain.apply_ambient_transpose</p>
       </div>
     </a>
     <a class="right-next"
-       href="TuckerTensorTrain.entries_transpose.html"
+       href="TuckerTensorTrain.t3svd.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">TuckerTensorTrain.entries_transpose</p>
+        <p class="prev-next-title">TuckerTensorTrain.t3svd</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -513,14 +518,14 @@ back-projection <code class="docutils literal notranslate"><span class="pre">sum
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_transpose"><code class="docutils literal notranslate"><span class="pre">apply_transpose()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries_ambient_transpose"><code class="docutils literal notranslate"><span class="pre">entries_ambient_transpose()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.apply_transpose.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.entries_ambient_transpose.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>
