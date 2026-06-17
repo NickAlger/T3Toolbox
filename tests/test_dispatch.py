@@ -107,6 +107,17 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(
             lambda cc, i: t3.TuckerTensorTrain.entries_ambient_transpose(cc, i, N, sum_over_probes=True),
             jnp.ones(2), jnp.array([[1, 2], [2, 3], [3, 0]]))  # (d,) + W, W=(2,)
+        # corewise (non-manifold) adjoints: gradient w.r.t. the cores (base x passed as a traced pytree)
+        self.assert_jit_jax(
+            lambda xx, cc, *ws: xx.apply_corewise_transpose(cc, ws), self.x, jnp.ones(2), *self.ww)
+        self.assert_jit_jax(
+            lambda xx, cc, *ws: xx.apply_corewise_transpose(cc, ws, sum_over_probes=True),
+            self.x, jnp.ones(2), *self.ww)
+        self.assert_jit_jax(
+            lambda xx, cc, i: xx.entries_corewise_transpose(cc, i), self.x, jnp.ones(()), idx)
+        self.assert_jit_jax(
+            lambda xx, cc, i: xx.entries_corewise_transpose(cc, i, sum_over_probes=True),
+            self.x, jnp.ones(2), jnp.array([[1, 2], [2, 3], [3, 0]]))  # (d,) + W, W=(2,)
 
     # ---------------------------------------------------- jit bucket: T3Tangent
     def test_jit_tangent(self):

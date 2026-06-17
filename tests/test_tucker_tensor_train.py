@@ -2178,6 +2178,98 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                         self.check_relerr(ETt.to_dense(), ETf.to_dense().sum(axis=tuple(range(nW))))
 
+    def test_apply_corewise_transpose(self):
+        # corewise (non-manifold, Sec 6.3) transpose: gradient of apply w.r.t. the cores. Oracle: the
+        # adjoint identity vs the EXACT forward corewise Jacobian (sum of single-core replacements).
+        base_structures = [
+            ((8,),              (4,),           (4, 5)),
+            ((8, 9),            (4, 5),         (4, 5, 4)),
+            ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
+        ]
+        def replace(x, kind, i, new):                      # x with one core replaced
+            tk, tt = [list(cs) for cs in x.data]
+            (tk if kind == 'U' else tt)[i] = new
+            return t3.TuckerTensorTrain(tuple(tk), tuple(tt))
+        def core_dot(gA, gB, nC):                          # sum_cores <a,b>, keep leading C stack
+            return sum(np.sum(a * b, axis=tuple(range(nC, a.ndim)))
+                       for a, b in zip(gA[0] + gA[1], gB[0] + gB[1]))
+        for BASE in base_structures:
+            shape, _, _ = BASE
+            d = len(shape)
+            for C in [(), (2, 3)]:                          # base stack
+                for W in [(), (5,)]:                        # probe stack
+                    with self.subTest(BASE=BASE, C=C, W=W):
+                        nW, nC = len(W), len(C)
+                        x = t3.TuckerTensorTrain.randn(*(BASE + (C,)))
+                        tk, tt = [list(cs) for cs in x.data]
+                        ww = [np.random.randn(*(W + (N,))) for N in shape]
+                        c = np.asarray(np.random.randn(*(W + C)))
+                        dU = [np.random.randn(*u.shape) for u in tk]
+                        dG = [np.random.randn(*g.shape) for g in tt]
+                        # exact forward corewise Jacobian J(dcores) = sum over single-core replacements
+                        Jd = sum(np.asarray(replace(x, 'U', i, dU[i]).apply(ww)) for i in range(d)) \
+                           + sum(np.asarray(replace(x, 'G', i, dG[i]).apply(ww)) for i in range(d))  # W+C
+
+                        # summed (J^T r): gradients shaped exactly like the cores (no |W| anywhere)
+                        gU, gG = x.apply_corewise_transpose(c, ww, sum_over_probes=True)
+                        self.assertEqual([u.shape for u in tk], [g.shape for g in gU])
+                        self.assertEqual([g.shape for g in tt], [g.shape for g in gG])
+                        lhs = core_dot(([np.asarray(g) for g in gU], [np.asarray(g) for g in gG]), (dU, dG), nC)
+                        rhs = np.sum(c * Jd, axis=tuple(range(nW)))               # sum over W, keep C
+                        self.check_relerr(rhs, lhs)
+
+                        # unsummed: W is a leading stack on each gradient; sum=True == sum_W of sum=False
+                        gUk, gGk = x.apply_corewise_transpose(c, ww)
+                        self.assertEqual(W + tk[0].shape, gUk[0].shape)
+                        for s, k in zip(gU, gUk):
+                            self.check_relerr(np.asarray(s), np.asarray(k).sum(axis=tuple(range(nW))))
+                        for s, k in zip(gG, gGk):
+                            self.check_relerr(np.asarray(s), np.asarray(k).sum(axis=tuple(range(nW))))
+
+    def test_entries_corewise_transpose(self):
+        # entries counterpart of test_apply_corewise_transpose (Sec 6.3 substitution, one-hot apply vecs).
+        base_structures = [
+            ((8,),              (4,),           (4, 5)),
+            ((8, 9),            (4, 5),         (4, 5, 4)),
+            ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
+        ]
+        def replace(x, kind, i, new):
+            tk, tt = [list(cs) for cs in x.data]
+            (tk if kind == 'U' else tt)[i] = new
+            return t3.TuckerTensorTrain(tuple(tk), tuple(tt))
+        def core_dot(gA, gB, nC):
+            return sum(np.sum(a * b, axis=tuple(range(nC, a.ndim)))
+                       for a, b in zip(gA[0] + gA[1], gB[0] + gB[1]))
+        for BASE in base_structures:
+            shape, _, _ = BASE
+            d = len(shape)
+            for C in [(), (2, 3)]:
+                for W in [(), (5,)]:
+                    with self.subTest(BASE=BASE, C=C, W=W):
+                        nW, nC = len(W), len(C)
+                        x = t3.TuckerTensorTrain.randn(*(BASE + (C,)))
+                        tk, tt = [list(cs) for cs in x.data]
+                        idx = np.array([np.random.randint(0, N, size=W) for N in shape])   # (d,)+W
+                        c = np.asarray(np.random.randn(*(W + C)))
+                        dU = [np.random.randn(*u.shape) for u in tk]
+                        dG = [np.random.randn(*g.shape) for g in tt]
+                        Jd = sum(np.asarray(replace(x, 'U', i, dU[i]).entries(idx)) for i in range(d)) \
+                           + sum(np.asarray(replace(x, 'G', i, dG[i]).entries(idx)) for i in range(d))
+
+                        gU, gG = x.entries_corewise_transpose(c, idx, sum_over_probes=True)
+                        self.assertEqual([u.shape for u in tk], [g.shape for g in gU])
+                        self.assertEqual([g.shape for g in tt], [g.shape for g in gG])
+                        lhs = core_dot(([np.asarray(g) for g in gU], [np.asarray(g) for g in gG]), (dU, dG), nC)
+                        rhs = np.sum(c * Jd, axis=tuple(range(nW)))
+                        self.check_relerr(rhs, lhs)
+
+                        gUk, gGk = x.entries_corewise_transpose(c, idx)
+                        self.assertEqual(W + tk[0].shape, gUk[0].shape)
+                        for s, k in zip(gU, gUk):
+                            self.check_relerr(np.asarray(s), np.asarray(k).sum(axis=tuple(range(nW))))
+                        for s, k in zip(gG, gGk):
+                            self.check_relerr(np.asarray(s), np.asarray(k).sum(axis=tuple(range(nW))))
+
     def test_probe(self):
         base_structures = [
             ((8,),              (4,),           (4, 5)),

@@ -7,11 +7,19 @@ read this plus [`docs/transposes.md`](transposes.md) (the user-facing rationale)
 uniform layer's slice 6 — fix ragged first, then mirror into uniform).
 
 **Progress:** **Slice 1 DONE** (ambient transposes return CP factors, keep `sum_over_probes`, eye-wart
-fixed; touched suites green — `test_tucker_tensor_train` + `test_dispatch` 69 OK, `test_manifold` 37 OK
-alone, doctests clean). **Slice 2 (corewise transpose) not started.** Note: `test_manifold`'s
-`test_project_dense_onto_tangent` flakes when run *after* `test_tucker_tensor_train` in one process —
-this is the **pre-existing** shared-global-seed RNG-order flakiness (verified it fails identically on
-unmodified `main` with the same combined command), unrelated to this work.
+fixed). **Slice 2 DONE** (corewise transpose `apply_corewise_transpose`/`entries_corewise_transpose`
+via the §6.3 `(U,G,G,G)` substitution into `apply_tangent_transpose`/`entries_tangent_transpose`;
+returns raw `(tucker_grads, tt_grads)`; backend wrappers in `probing.py`, instance methods on
+`TuckerTensorTrain`; tests in `test_tucker_tensor_train` (exact adjoint identity vs the multilinear
+forward Jacobian, both sum modes × stacks) + `test_dispatch`; full suite 137 OK, doctests clean).
+Convention noted: corewise `c` must be an **array** (shares the tangent backend, which doesn't coerce —
+matches `T3Tangent.apply_transpose`'s `np.asarray(c)` convention); the ambient version still accepts a
+scalar. **Both ragged slices complete — next is the uniform mirror** (uniform port slice 6).
+
+Side note (resolved, separate commit): `test_manifold`'s `test_project_dense_onto_tangent` had a
+**pre-existing** flake — a fragile `A @ pinv(A)` reference oracle (default rcond near rank-deficient
+`A`'s null singular values), NOT a code/contract bug. Fixed with explicit `rcond=1e-8`; swept the
+verified suites (multi-seed) for similar oracles, none found. See the `pinv-oracle-test-fragility` memory.
 
 ---
 

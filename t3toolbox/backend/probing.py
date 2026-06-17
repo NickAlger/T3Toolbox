@@ -30,6 +30,9 @@ __all__ = [
     'entries_tangent',
     'apply_tangent_transpose',
     'entries_tangent_transpose',
+    # Corewise (non-manifold) transpose -- the tangent transpose with the base's cores in place of the frames
+    'apply_corewise_transpose',
+    'entries_corewise_transpose',
     # Transpose of map from tangent vector to probes
     'compute_deta_tildes',
     'compute_tau_tildes',
@@ -859,6 +862,68 @@ def entries_tangent_transpose(
     etas = compute_etas(down_tt_cores, mus, nus)
     ww   = _onehot_vectors(index, up_tucker_cores)
     return _apply_transpose_assemble(c, ww, xis, mus, nus, etas, sum_over_probes)
+
+
+def apply_corewise_transpose(
+        c:          NDArray,                # residual, shape=W+C
+        ww:         typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
+        core_pair:  typ.Tuple[
+            typ.Sequence[NDArray],          # tucker_cores, len=d, elm_shape=C+(ni,Ni)
+            typ.Sequence[NDArray],          # tt_cores,     len=d, elm_shape=C+(ri,ni,r(i+1))
+        ],
+        sum_over_probes: bool = False,      # True: sum the apply stack W (the gradient J^T r)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # tucker-core gradients, same shapes as tucker_cores
+    typ.Tuple[NDArray, ...],  # tt-core gradients,     same shapes as tt_cores
+]:
+    '''Corewise (non-manifold) transpose of :py:func:`tucker_tensor_train_apply`: gradient of the
+    measurement w.r.t. the cores of the base ``core_pair``, treated as independent variables.
+
+    The adjoint of the *core parametrization* ``cores -> apply(X(cores), ww)`` at the base point -- the
+    gradient a core-wise optimizer (Adam, L-BFGS) needs. Returns gradients shaped exactly like
+    ``(tucker_cores, tt_cores)`` -- a gradient, NOT a tensor (so no ``|W|`` blow-up: the apply stack
+    collapses into the fixed-size cores). Distinct from the *ambient* transpose (a free CP tensor) and
+    the *tangent* transpose (a Riemannian tangent); see ``docs/transposes.md``.
+
+    Implemented by the Section 6.3 ("corewise simplification") substitution into the tangent transpose:
+    feed the base's own cores in place of the orthogonal frames (``P, Q, O -> G_i``), with ``U_i`` no
+    longer required orthogonal -- i.e. :py:func:`apply_tangent_transpose` at base ``(U, G, G, G)``. No
+    orthogonality is required. ``sum_over_probes=True`` sums the apply stack ``W`` (the gradient
+    ``J^T r``); ``False`` keeps ``W`` as a stack (one core-gradient set per probe).
+
+    Math reference: Section 6.3, Alger et al. (2026), "Tucker Tensor Train Taylor Series"
+    (arXiv:2603.21141).
+    '''
+    tucker_cores, tt_cores = core_pair
+    return apply_tangent_transpose(
+        c, ww, (tucker_cores, tt_cores, tt_cores, tt_cores), sum_over_probes=sum_over_probes,
+    )
+
+
+def entries_corewise_transpose(
+        c:          NDArray,                # residual, shape=W+C
+        index:      NDArray,                # int, shape=(d,)+W
+        core_pair:  typ.Tuple[
+            typ.Sequence[NDArray],          # tucker_cores, len=d, elm_shape=C+(ni,Ni)
+            typ.Sequence[NDArray],          # tt_cores,     len=d, elm_shape=C+(ri,ni,r(i+1))
+        ],
+        sum_over_probes: bool = False,      # True: sum the apply stack W (scatter-adds collisions)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # tucker-core gradients, same shapes as tucker_cores
+    typ.Tuple[NDArray, ...],  # tt-core gradients,     same shapes as tt_cores
+]:
+    '''Corewise (non-manifold) transpose of :py:func:`tucker_tensor_train_entries`: gradient of the
+    sampled entries w.r.t. the base's cores.
+
+    The ``entries`` counterpart of :py:func:`apply_corewise_transpose` -- the Section 6.3 substitution
+    into :py:func:`entries_tangent_transpose`. Needs no ambient ``shape`` argument: the dims come from
+    the base ``tucker_cores``. ``sum_over_probes=True`` scatter-adds colliding indices (the gradient
+    ``J^T r``).
+    '''
+    tucker_cores, tt_cores = core_pair
+    return entries_tangent_transpose(
+        c, index, (tucker_cores, tt_cores, tt_cores, tt_cores), sum_over_probes=sum_over_probes,
+    )
 
 
 ###############################################################

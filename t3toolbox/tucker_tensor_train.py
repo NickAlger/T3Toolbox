@@ -3458,6 +3458,7 @@ class TuckerTensorTrain:
         See Also
         --------
         apply
+        apply_corewise_transpose
         entries_ambient_transpose
         from_canonical
 
@@ -3505,6 +3506,7 @@ class TuckerTensorTrain:
         See Also
         --------
         entries
+        entries_corewise_transpose
         apply_ambient_transpose
         from_canonical
 
@@ -3527,6 +3529,86 @@ class TuckerTensorTrain:
         return entries.tucker_tensor_train_entries_ambient_transpose(
             c, index, shape, sum_over_probes=sum_over_probes,
         )
+
+    def apply_corewise_transpose(
+            self:   'TuckerTensorTrain',
+            c:      NDArray,            # residual, shape = W + C
+            ww:     Sequence[NDArray],  # apply vectors, len=d, elm_shape = W + (Ni,)
+            sum_over_probes: bool = False,
+    ) -> Tuple[
+        Tuple[NDArray, ...],  # tucker-core gradients, same shapes as self.tucker_cores
+        Tuple[NDArray, ...],  # tt-core gradients,     same shapes as self.tt_cores
+    ]:
+        """Corewise (non-manifold) transpose of :py:meth:`apply`: gradient w.r.t. *this tensor's cores*.
+
+        One of **three** transposes of ``apply`` -- pick the one you want (full taxonomy and costs in
+        ``docs/transposes.md``):
+
+        - **corewise** (this method): the gradient of ``self.apply(ww)`` with respect to ``self``'s
+          cores, treated as independent optimization variables -- what a **core-wise optimizer** (Adam,
+          L-BFGS, SGD) needs. Returns a **raw tuple** ``(tucker_grads, tt_grads)`` whose arrays have the
+          exact shapes of ``self.data``. It is a *gradient, not a tensor* -- do not do T3 arithmetic
+          with it. No ``|W|`` blow-up: the probe stack collapses into the fixed-size cores.
+        - **ambient** (:py:meth:`apply_ambient_transpose`): the base-free adjoint, returned as the CP
+          factors of ``c * (w0 (x) ... (x) w_{d-1})``.
+        - **tangent** (``T3Tangent.apply_transpose``): the Riemannian gradient, a tangent vector.
+
+        Computed by the Section 6.3 corewise simplification -- the tangent transpose with this tensor's
+        own cores substituted for the orthogonal frames (orthogonality is not required).
+        ``sum_over_probes=True`` is the summed gradient ``J^T r``; ``False`` keeps the probe stack ``W``
+        (one gradient set per probe, e.g. to assemble ``J^T J``).
+
+        Note: a corewise gradient is meaningful only at the base point where it is taken (the cores are
+        a representation, not intrinsic), so combining them across base points (as L-BFGS history does)
+        is a heuristic; for the principled version use the tangent transpose.
+
+        See Also
+        --------
+        apply
+        apply_ambient_transpose
+        entries_corewise_transpose
+
+        Examples
+        --------
+        The gradient has the same structure as the cores (not a tensor):
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+        >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> gU, gG = x.apply_corewise_transpose(np.asarray(2.0), ww, sum_over_probes=True)
+        >>> print([g.shape for g in gU] == [u.shape for u in x.tucker_cores])   # matches Tucker cores
+        True
+        >>> print([g.shape for g in gG] == [g.shape for g in x.tt_cores])       # matches TT cores
+        True
+        """
+        return probing.apply_corewise_transpose(c, ww, self.data, sum_over_probes=sum_over_probes)
+
+    def entries_corewise_transpose(
+            self:   'TuckerTensorTrain',
+            c:      NDArray,            # residual, shape = W + C
+            index:  NDArray,            # int, shape = (d,) + W
+            sum_over_probes: bool = False,
+    ) -> Tuple[
+        Tuple[NDArray, ...],  # tucker-core gradients, same shapes as self.tucker_cores
+        Tuple[NDArray, ...],  # tt-core gradients,     same shapes as self.tt_cores
+    ]:
+        """Corewise (non-manifold) transpose of :py:meth:`entries`: gradient w.r.t. *this tensor's cores*.
+
+        The ``entries`` counterpart of :py:meth:`apply_corewise_transpose` -- see it (and
+        ``docs/transposes.md``) for the ambient-vs-corewise-vs-tangent distinction; this is the
+        *corewise* gradient (w.r.t. the cores, for Adam / L-BFGS), returned as a raw
+        ``(tucker_grads, tt_grads)`` tuple. Unlike :py:meth:`entries_ambient_transpose` it needs **no**
+        ``shape`` argument -- the ambient dims come from ``self``. ``sum_over_probes=True`` scatter-adds
+        colliding indices (the gradient ``J^T r``).
+
+        See Also
+        --------
+        entries
+        entries_ambient_transpose
+        apply_corewise_transpose
+        """
+        return probing.entries_corewise_transpose(c, index, self.data, sum_over_probes=sum_over_probes)
 
     ##############################################################
     ########################    T3-SVD    ########################
