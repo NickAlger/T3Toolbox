@@ -218,6 +218,11 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(
             lambda var, b, w, p: pd.probe_tangent_derivatives(w, p, var, b, 3),
             self.var.data, self.base.data, list(self.ww), list(self.zz))
+        # Riemannian (tangent) transpose: jit, residual jets (K+1)+W+(N,) -> variation gradient
+        rt = tuple(jnp.asarray(np.random.randn(4, 2, N)) for N in STRUCT[0])  # K+1=4, W=(2,)
+        self.assert_jit_jax(
+            lambda rr, w, p, b: pd.probe_tangent_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=True),
+            rt, list(self.ww), list(self.zz), self.base.data)
 
     # ---------------------------------------------------- jit bucket: backend functions
     def test_jit_backend(self):

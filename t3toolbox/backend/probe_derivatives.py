@@ -62,6 +62,14 @@ __all__ = [
     'compute_tau_jets',
     'compute_deta_jets',
     'assemble_tangent_z_jets',
+    # Tangent vector (Riemannian) -- transpose
+    'probe_tangent_derivatives_transpose',
+    'compute_deta_tilde_jets',
+    'compute_tau_tilde_jets',
+    'compute_sigma_tilde_jets',
+    'compute_dxi_tilde_jets',
+    'assemble_tucker_variation_jets',
+    'assemble_tt_variation_jets',
     # Dense oracle
     'probe_derivatives_dense',
 ]
@@ -468,6 +476,214 @@ def probe_tangent_derivatives(
     z_jets = assemble_tangent_z_jets(up_tucker_cores, var_tucker_cores, eta_jets, deta_jets)
 
     return z_jets
+
+
+###############################################################
+####    Riemannian transpose (the jet-ified adjoint)       ####
+###############################################################
+#
+# The transpose of probe_tangent_derivatives (linear in the variation): residual jets r -> variation
+# gradient (dU_tilde, dG_tilde). Derived as the jet-ified adjoint-state Lagrangian (t4s.pdf Thm 7):
+# every forward contraction in the Lagrangian is replaced by its trs version, and stationarity
+# d L / d (state, variation) = 0 gives the adjoint sweeps and the gradient assembly -- which is exactly
+# the verified non-derivative transpose (probing.compute_*_tildes / assemble_*) with each contraction
+# swapped for its ADJOINT-HOOKED trs version (same trs tensor, transposed legs: the multiplier's order
+# is summed, the swept order is freed) for the sweeps, and the ORDER-LESS trs (TT, 3 edges) / plain
+# order-sum (Tucker, 1 edge) for the assembly. Stacks (this slice): sample stack S only (C deferred);
+# sum_over_probes sums S (the J^T r back-projection) else keeps it. Verified against jax.linear_transpose.
+
+def compute_deta_tilde_jets(
+        up_tucker_cores:    typ.Sequence[NDArray],  # U.  len=d, elm_shape=(nUi,Ni)
+        ztildes:            typ.Sequence[NDArray],  # residual jets, len=d, elm_shape=(K+1,)+S+(Ni,)
+) -> typ.Tuple[NDArray, ...]:                       # deta_tildes. len=d, elm_shape=(K+1,)+S+(nUi,)
+    '''Adjoint-up edge-variable jets: ``deta_tilde_i = U_i r_i`` (contract the ambient mode, order
+    diagonal). The 1-internal-edge (Tucker) case -- the order axis just rides through (no trs).'''
+    use_jax = tree_contains_jax((up_tucker_cores, ztildes))
+    xnp, xmap, _ = get_backend(False, use_jax)
+
+    def _func(data):
+        U, zt = data
+        return (xnp.einsum('io,t...o->t...i', U, zt),)
+
+    (deta_tildes,) = xmap(_func, (up_tucker_cores, ztildes))
+    return deta_tildes
+
+
+def _adj_sweep(P_cores, xi_jets, deta_tildes, edge_jets, trs):
+    '''The jet adjoint sweep shared by compute_tau_tilde_jets / compute_sigma_tilde_jets: a left-to-right scan
+    (mirroring probing.compute_tau_tildes) of the adjoint-hooked pushthrough (propagation) plus the
+    deta_tilde source. Both terms are the same trs, wired as the transpose (output at the swept order s).'''
+    use_jax = tree_contains_jax((P_cores, xi_jets, deta_tildes, edge_jets, trs))
+    xnp, xmap, xscan = get_backend(False, use_jax)
+    s_size = min(2, trs.shape[0])
+    trs_xi = trs[:, :s_size, :]            # input jet (xi) carries orders {0, 1}
+
+    def _step(carry, data):
+        P, xi, deta_t, edge = data
+        prop = xnp.einsum('tus,t...a,aib,u...i->s...b', trs_xi, carry, P, xi[:s_size])  # propagation
+        src  = xnp.einsum('trs,r...a,aib,t...i->s...b', trs,    edge,  P, deta_t)        # deta_tilde source
+        return prop + src, (carry,)
+
+    rL0 = P_cores[0].shape[-3]
+    init = xnp.zeros((trs.shape[0],) + deta_tildes[0].shape[1:-1] + (rL0,))
+    _, (tildes,) = xscan(_step, init, (P_cores, xi_jets, deta_tildes, edge_jets))
+    return tildes
+
+
+def compute_tau_tilde_jets(
+        left_tt_cores:  typ.Sequence[NDArray],  # P.  len=d, elm_shape=(rLi,nUi,rL(i+1))
+        xi_jets:        typ.Sequence[NDArray],  # base input jets, len=d, elm_shape=(2,)+S+(nUi,)
+        deta_tildes:    typ.Sequence[NDArray],  # adjoint-up jets, len=d, elm_shape=(K+1,)+S+(nUi,)
+        mu_jets:        typ.Sequence[NDArray],  # base left jets,  len=d, elm_shape=(K+1,)+S+(rLi,)
+        trs:            NDArray,                # binomial tensor, shape=(K+1,K+1,K+1)
+) -> typ.Tuple[NDArray, ...]:                   # tau_tildes. len=d, elm_shape=(K+1,)+S+(rL(i+1),)
+    '''Adjoint-var-rightward edge-variable jets (jet-ified probing.compute_tau_tildes).'''
+    return _adj_sweep(left_tt_cores, xi_jets, deta_tildes, mu_jets, trs)
+
+
+def compute_sigma_tilde_jets(
+        right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=(rRi,nUi,rR(i+1))
+        xi_jets:        typ.Sequence[NDArray],  # base input jets, len=d, elm_shape=(2,)+S+(nUi,)
+        deta_tildes:    typ.Sequence[NDArray],  # adjoint-up jets, len=d, elm_shape=(K+1,)+S+(nUi,)
+        nu_jets:        typ.Sequence[NDArray],  # base right jets, len=d, elm_shape=(K+1,)+S+(rR(i+1),)
+        trs:            NDArray,                # binomial tensor, shape=(K+1,K+1,K+1)
+) -> typ.Tuple[NDArray, ...]:                   # sigma_tildes. len=d, elm_shape=(K+1,)+S+(rR(i+1),)
+    '''Adjoint-var-leftward edge-variable jets -- the mirror (reverse) of compute_tau_tilde_jets.'''
+    rev = _adj_sweep(ragged_ops.reverse_tt(right_tt_cores), xi_jets[::-1],
+                     deta_tildes[::-1], nu_jets[::-1], trs)
+    return rev[::-1]
+
+
+def compute_dxi_tilde_jets(
+        down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=(rLi,nOi,rR(i+1))
+        mu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+(rLi,)
+        nu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+(rR(i+1),)
+        sigma_tildes:   typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+(rR(i+1),)
+        tau_tildes:     typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+(rL(i+1),)
+        trs:            NDArray,                # binomial tensor, shape=(K+1,K+1,K+1)
+) -> typ.Tuple[NDArray, ...]:                   # dxi_tildes. len=d, elm_shape=(K+1,)+S+(nOi,)
+    '''Adjoint-var-down edge-variable jets (jet-ified probing.compute_dxi_tildes): two adjoint-hooked
+    combines giving delta-xi-tilde on the mode (output at the order-<=1 leg u).'''
+    use_jax = tree_contains_jax((down_tt_cores, mu_jets, nu_jets, sigma_tildes, tau_tildes, trs))
+    xnp, xmap, _ = get_backend(False, use_jax)
+
+    def _func(data):
+        O, mu, nu, st, tt = data
+        from_tau = xnp.einsum('tus,t...a,aib,s...b->u...i', trs, tt, O, nu)
+        from_sig = xnp.einsum('tru,r...a,aib,t...b->u...i', trs, mu, O, st)
+        return (from_tau + from_sig,)
+
+    (dxi_tildes,) = xmap(_func, (down_tt_cores, mu_jets, nu_jets, sigma_tildes, tau_tildes))
+    return dxi_tildes
+
+
+def _w_jets(ww, pp, xnp):
+    '''The ambient input jets (value, direction) on the raw probe vectors -- the order axis for dU.'''
+    return tuple(xnp.stack([w, p], axis=0) for w, p in zip(ww, pp))
+
+
+def assemble_tucker_variation_jets(
+        ztildes:        typ.Sequence[NDArray],  # residual jets, len=d, elm_shape=(K+1,)+S+(Ni,)
+        dxi_tildes:     typ.Sequence[NDArray],  # adjoint-var-down jets, len=d, elm_shape=(K+1,)+S+(nOi,)
+        ww:             typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=S+(Ni,)
+        pp:             typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=S+(Ni,)
+        etas:           typ.Sequence[NDArray],  # base down jets, len=d, elm_shape=(K+1,)+S+(nOi,)
+        sum_over_probes: bool,
+) -> typ.Tuple[NDArray, ...]:                   # dU_tildes. len=d, elm_shape=[S+](nOi,Ni)
+    '''Assemble Tucker-core variation gradients (the 1-edge, plain-order-sum case):
+    ``dU_tilde = sum_t eta^(t) (x) r^(t) + sum_u dxi_tilde^(u) (x) w_jet^(u)``.'''
+    use_jax = tree_contains_jax((ztildes, dxi_tildes, ww, pp, etas))
+    xnp, xmap, _ = get_backend(False, use_jax)
+    w_jets = _w_jets(ww, pp, xnp)
+    len_S = etas[0].ndim - 2
+    s_size = min(2, etas[0].shape[0])          # the w/dxi input jet carries orders {0, 1}, capped at K
+
+    def _func(data):
+        zt, dxt, eta, wj = data
+        dU = (xnp.einsum('t...a,t...o->...ao', eta, zt)                       # eta (x) r,         sum t
+              + xnp.einsum('u...a,u...o->...ao', dxt[:s_size], wj[:s_size]))  # dxi_tilde (x) w_jet, sum u
+        if sum_over_probes:
+            dU = xnp.sum(dU, axis=tuple(range(len_S)))
+        return (dU,)
+
+    (dU_tildes,) = xmap(_func, (ztildes, dxi_tildes, etas, w_jets))
+    return dU_tildes
+
+
+def assemble_tt_variation_jets(
+        sigma_tildes:   typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+(rR(i+1),)
+        tau_tildes:     typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+(rL(i+1),)
+        deta_tildes:    typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+(nUi,)
+        xi_jets:        typ.Sequence[NDArray],  # base input jets, len=d, elm_shape=(2,)+S+(nUi,)
+        mu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+(rLi,)
+        nu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+(rR(i+1),)
+        trs:            NDArray,                # binomial tensor, shape=(K+1,K+1,K+1)
+        sum_over_probes: bool,
+) -> typ.Tuple[NDArray, ...]:                   # dG_tildes. len=d, elm_shape=[S+](rLi,nUi,rRi)
+    '''Assemble TT-core variation gradients (the 3-edge, trs case): three order-less trs outer products
+    ``mu (x) xi (x) sigma_tilde + tau_tilde (x) xi (x) nu + mu (x) deta_tilde (x) nu`` (the core-adjoints
+    of the forward sigma / tau / deta contractions).'''
+    use_jax = tree_contains_jax((sigma_tildes, tau_tildes, deta_tildes, xi_jets, mu_jets, nu_jets, trs))
+    xnp, xmap, _ = get_backend(False, use_jax)
+    s_size = min(2, trs.shape[0])
+    len_S = mu_jets[0].ndim - 2
+
+    def _func(data):
+        xi, mu, nu, st, tt, dt = data
+        t_sig = xnp.einsum('tru,r...a,u...i,t...b->...aib', trs[:, :, :s_size], mu, xi[:s_size], st)
+        t_tau = xnp.einsum('tus,t...a,u...i,s...b->...aib', trs[:, :s_size, :], tt, xi[:s_size], nu)
+        t_det = xnp.einsum('trs,r...a,t...i,s...b->...aib', trs,                mu, dt,           nu)
+        dG = t_sig + t_tau + t_det
+        if sum_over_probes:
+            dG = xnp.sum(dG, axis=tuple(range(len_S)))
+        return (dG,)
+
+    (dG_tildes,) = xmap(_func, (xi_jets, mu_jets, nu_jets, sigma_tildes, tau_tildes, deta_tildes))
+    return dG_tildes
+
+
+def probe_tangent_derivatives_transpose(
+        ztildes:    typ.Sequence[NDArray],  # residual jets, len=d, elm_shape=(K+1,)+S+(Ni,)
+        ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=S+(Ni,)
+        pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=S+(Ni,)
+        base:       typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = T3Basis.data = (U, O, P, Q)
+        order:      int,                    # highest derivative order K
+        sum_over_probes: bool = False,      # True: sum the sample stack S (the J^T r back-projection)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # dU_tildes (Tucker variation gradient)
+    typ.Tuple[NDArray, ...],  # dG_tildes (TT variation gradient)
+]:                                          # = T3Variations.data
+    '''Transpose of :py:func:`probe_tangent_derivatives`: back-project residual jets ``ztildes`` into a
+    variation gradient ``(dU_tildes, dG_tildes)``. The jet-ified adjoint-state method (t4s.pdf Thm 7):
+    every forward contraction is swapped for its ``trs`` version, then stationarity of the Lagrangian
+    gives the adjoint sweeps (``sigma/tau/dxi_tilde`` jets) and the order-less gradient assembly.
+
+    With ``sum_over_probes=False`` the sample stack ``S`` rides through into the variation stack; with
+    ``True`` it is summed (the ``J^T r`` back-projection used for fitting). Verified against the dense
+    adjoint identity ``<r, J v> = <J^T r, v>``. Single tangent (no tangent stack ``K``); ``S`` only.
+    '''
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base
+
+    trs = binomial_combine_tensor(order)
+    xi_jets = build_input_jets(compute_xis(up_tucker_cores, ww), compute_xis(up_tucker_cores, pp))
+
+    mu_jets  = compute_mu_jets(left_tt_cores, xi_jets, trs)
+    nu_jets  = compute_nu_jets(right_tt_cores, xi_jets, trs)
+    eta_jets = compute_eta_jets(down_tt_cores, mu_jets, nu_jets, trs)
+
+    deta_tildes  = compute_deta_tilde_jets(up_tucker_cores, ztildes)
+    tau_tildes   = compute_tau_tilde_jets(left_tt_cores, xi_jets, deta_tildes, mu_jets, trs)
+    sigma_tildes = compute_sigma_tilde_jets(right_tt_cores, xi_jets, deta_tildes, nu_jets, trs)
+    dxi_tildes   = compute_dxi_tilde_jets(down_tt_cores, mu_jets, nu_jets, sigma_tildes, tau_tildes, trs)
+
+    dU_tildes = assemble_tucker_variation_jets(ztildes, dxi_tildes, ww, pp, eta_jets, sum_over_probes)
+    dG_tildes = assemble_tt_variation_jets(sigma_tildes, tau_tildes, deta_tildes, xi_jets,
+                                       mu_jets, nu_jets, trs, sum_over_probes)
+
+    return dU_tildes, dG_tildes
 
 
 #####################################################

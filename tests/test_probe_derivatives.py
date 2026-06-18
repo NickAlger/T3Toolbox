@@ -119,6 +119,42 @@ class TestProbeDerivatives(unittest.TestCase):
                                 for k in range(ORDER + 1):
                                     self.check_relerr(z_dense[i][k], np.asarray(z_jets[i])[sel][k])
 
+    def test_tangent_transpose_adjoint_identity(self):
+        # J^T via the jet-ified adjoint-state Lagrangian: <r, J v> = <J^T r, v>, and sum_over_probes
+        # keeps/sums the sample stack S consistently.
+        STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        shapes = STRUCT[0]
+        d = len(shapes)
+        for S in [(), (3,)]:
+            for K in [0, 1, 2, 3]:
+                with self.subTest(S=S, K=K):
+                    x = t3.TuckerTensorTrain.randn(*STRUCT)
+                    base, _ = bvf.t3_orthogonal_representations(x)
+                    v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+                    dU_v, dG_v = v.variations.data
+                    ww = [np.random.randn(*(S + (N,))) for N in shapes]
+                    pp = [np.random.randn(*(S + (N,))) for N in shapes]
+
+                    z_jets = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.basis.data, K)
+                    r = [np.random.randn(*np.asarray(zi).shape) for zi in z_jets]
+
+                    dU, dG = pd.probe_tangent_derivatives_transpose(
+                        r, ww, pp, v.basis.data, K, sum_over_probes=True)
+                    lhs = sum(np.sum(r[i] * np.asarray(z_jets[i])) for i in range(d))
+                    rhs = (sum(np.sum(np.asarray(dU[i]) * dU_v[i]) for i in range(d))
+                           + sum(np.sum(np.asarray(dG[i]) * dG_v[i]) for i in range(d)))
+                    self.assertLessEqual(abs(lhs - rhs) / abs(lhs), tol)
+
+                    # sum_over_probes=False keeps S; summing those axes recovers the True result
+                    if S:
+                        dU0, dG0 = pd.probe_tangent_derivatives_transpose(
+                            r, ww, pp, v.basis.data, K, sum_over_probes=False)
+                        ax = tuple(range(len(S)))
+                        for a, b in zip(dU0, dU):
+                            self.check_relerr(np.asarray(b), np.sum(np.asarray(a), axis=ax))
+                        for a, b in zip(dG0, dG):
+                            self.check_relerr(np.asarray(b), np.sum(np.asarray(a), axis=ax))
+
     def test_tangent_order_zero_is_plain_tangent_probe(self):
         # The 0-th derivative jet of the Riemannian map is exactly probe_tangent.
         STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
