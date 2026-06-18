@@ -29,6 +29,10 @@ __all__ = [
     'WCo_WCa_to_Cao',
     'Wo_WCa_to_Cao',
     'WCi_WCa_WCj_to_Ciaj',
+    # Symmetric probe-derivative contractions (the t derivative-order axis + binomial tensor).
+    'trs_rWCa_Caib_sWCi_to_tWCb',
+    'trs_rWCa_Caib_sWCb_to_tWCi',
+    'tWCi_Cio_to_tWCo',
     # Three-group (W probe, K tangent, C base) contractions for probing a K-stacked tangent.
     'WKCa_Caib_WCi_to_WKCb',
     'WCa_Caib_WKCi_to_WKCb',
@@ -561,6 +565,136 @@ def WCi_WCa_WCj_to_Ciaj(
 
     Ciaj = Ciaj.reshape(C_shape + i_shape + a_shape + j_shape)
     return Ciaj
+
+
+###############################################################################
+###############################################################################
+# Symmetric probe-derivative contractions (the t derivative-order axis).
+#
+# The derivative order is a single leading axis t (lowercase: a single axis, not
+# a grouped block). Each input vector carries a trivial jet -- value at order 0,
+# direction at order 1, zero above -- because x + s*p is affine in s; so every
+# product of jets is a binomial convolution driven by the static tensor
+#     trs:  trs[t, r, s] = C(t, r) if r + s == t else 0   (binomial_combine_tensor).
+# The pushthrough and combine are then the derivative-order analogs of probing's
+# two core contractions WCa_Caib_WCi_to_WCb and WCa_Caib_WCb_to_WCi, with the
+# binomial tensor threading the order axis (r, s contracted -> output order t).
+# W (sample stack) and C (base stack) ride exactly as in plain probing.
+###############################################################################
+
+
+def trs_rWCa_Caib_sWCi_to_tWCb(
+        trs:  NDArray,  # t + (r, s)          -- binomial_combine_tensor; r,s contracted -> output order t
+        rWCa: NDArray,  # r + W + C + (a,)    -- mu jet (left edge var), stacked over input order r
+        Caib: NDArray,  # C + (a, i, b)       -- core (C-only -> pins len(C))
+        sWCi: NDArray,  # s + W + C + (i,)    -- input jet on mode i: (xi, dxi, 0...) over order s
+) -> NDArray:           # t + W + C + (b,)    -- pushed jet
+    """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Derivative-order pushthrough: the binomial jet-product of the left jet with the input jet through
+    one core. The derivative-order analog of WCa_Caib_WCi_to_WCb, with the binomial tensor trs
+    convolving the order axis (mu order r and input-jet order s -> output order t). Since the input
+    jet is zero above order 1, s may be size 2 (slice trs[:, :, :2]).
+    """
+    use_jax = tree_contains_jax((trs, rWCa, Caib, sWCi))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    C_shape = Caib.shape[:-3]
+    a_shape = (Caib.shape[-3],)
+    i_shape = (Caib.shape[-2],)
+    b_shape = (Caib.shape[-1],)
+    W_shape = rWCa.shape[1:-(len(C_shape) + 1)]
+
+    t_shape = (trs.shape[0],)
+    r_shape = (trs.shape[1],)
+    s_shape = (trs.shape[2],)
+
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
+
+    rWCa = rWCa.reshape(r_shape + (size_W, size_C) + a_shape)
+    Caib = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
+    sWCi = sWCi.reshape(s_shape + (size_W, size_C) + i_shape)
+
+    if use_jax:
+        tWCb = xnp.einsum('trs,rWCa,Caib,sWCi->tWCb', trs, rWCa, Caib, sWCi)
+    else:
+        tWCb = xnp.einsum('trs,rWCa,Caib,sWCi->tWCb', trs, rWCa, Caib, sWCi, optimize=True)
+
+    tWCb = tWCb.reshape(t_shape + W_shape + C_shape + b_shape)
+    return tWCb
+
+
+def trs_rWCa_Caib_sWCb_to_tWCi(
+        trs:  NDArray,  # t + (r, s)          -- binomial_combine_tensor; r,s contracted -> output order t
+        rWCa: NDArray,  # r + W + C + (a,)    -- mu jet (left edge var), stacked over input order r
+        Caib: NDArray,  # C + (a, i, b)       -- core (C-only -> pins len(C))
+        sWCb: NDArray,  # s + W + C + (b,)    -- nu jet (right edge var), stacked over input order s
+) -> NDArray:           # t + W + C + (i,)    -- combined jet, mode i free
+    """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Derivative-order combine: the binomial jet-product of the left and right jets through one core,
+    leaving mode i free. The derivative-order analog of WCa_Caib_WCb_to_WCi, with the binomial tensor
+    trs convolving the order axis (mu order r and nu order s -> output order t).
+    """
+    use_jax = tree_contains_jax((trs, rWCa, Caib, sWCb))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    C_shape = Caib.shape[:-3]
+    a_shape = (Caib.shape[-3],)
+    i_shape = (Caib.shape[-2],)
+    b_shape = (Caib.shape[-1],)
+    W_shape = rWCa.shape[1:-(len(C_shape) + 1)]
+
+    t_shape = (trs.shape[0],)
+    r_shape = (trs.shape[1],)
+    s_shape = (trs.shape[2],)
+
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
+
+    rWCa = rWCa.reshape(r_shape + (size_W, size_C) + a_shape)
+    Caib = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
+    sWCb = sWCb.reshape(s_shape + (size_W, size_C) + b_shape)
+
+    if use_jax:
+        tWCi = xnp.einsum('trs,rWCa,Caib,sWCb->tWCi', trs, rWCa, Caib, sWCb)
+    else:
+        tWCi = xnp.einsum('trs,rWCa,Caib,sWCb->tWCi', trs, rWCa, Caib, sWCb, optimize=True)
+
+    tWCi = tWCi.reshape(t_shape + W_shape + C_shape + i_shape)
+    return tWCi
+
+
+def tWCi_Cio_to_tWCo(
+        tWCi: NDArray,  # t + W + C + (i,)    -- combined jet (down edge var)
+        Cio:  NDArray,  # C + (i, o)          -- Tucker core (C-only -> pins len(C))
+) -> NDArray:           # t + W + C + (o,)    -- lifted jet (probe-derivative output)
+    """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Derivative-order assemble: lift the combined jet to the ambient mode through the Tucker core. The
+    derivative-order analog of WCi_Cio_to_WCo; the order axis t rides as a leading broadcast batch
+    (the Tucker core is order-independent).
+    """
+    use_jax = tree_contains_jax((tWCi, Cio))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    C_shape = Cio.shape[:-2]
+    i_shape = (Cio.shape[-2],)
+    o_shape = (Cio.shape[-1],)
+    W_shape = tWCi.shape[1:-(len(C_shape) + 1)]
+    t_shape = (tWCi.shape[0],)
+
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
+
+    Cio  = Cio.reshape((size_C,) + i_shape + o_shape)
+    tWCi = tWCi.reshape(t_shape + (size_W, size_C) + i_shape)
+
+    tWCo = xnp.einsum('tWCi,Cio->tWCo', tWCi, Cio)
+
+    tWCo = tWCo.reshape(t_shape + W_shape + C_shape + o_shape)
+    return tWCo
 
 
 ###############################################################################

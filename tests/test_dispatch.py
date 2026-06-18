@@ -22,6 +22,7 @@ import t3toolbox.basis_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.common as common
 import t3toolbox.backend.contractions as contractions
+import t3toolbox.backend.probe_derivatives as pd
 import t3toolbox.backend.tangent_operations as tops
 import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.orthogonal_representations as orth_reps
@@ -192,6 +193,22 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(
             lambda cc, i: t3m.T3Tangent.entries_transpose(cc, i, base, sum_over_probes=True),
             jnp.ones(()), jnp.array([1, 2, 3]))
+
+    # ---------------------------------------------------- jit bucket: symmetric probe derivatives
+    def test_jit_probe_derivatives(self):
+        # paired (X, P) sample stack W=(2,); order static; all-orders jet output must be all-jax.
+        self.assert_jit_jax(
+            lambda cc, w, p: pd.probe_derivatives_t3(w, p, cc, 3),
+            self.x.data, list(self.ww), list(self.zz))
+        # the new t-contractions directly (order axis t=3 leading; W=(2,), C=())
+        trs = pd.binomial_combine_tensor(3)
+        mu = jnp.ones((4, 2, 5)); G = jnp.ones((5, 4, 6)); xij = jnp.ones((2, 2, 4)); nu = jnp.ones((4, 2, 6))
+        self.assert_jit_jax(lambda a, b, c, e: contractions.trs_rWCa_Caib_sWCi_to_tWCb(a, b, c, e),
+                            trs[:, :, :2], mu, G, xij)
+        self.assert_jit_jax(lambda a, b, c, e: contractions.trs_rWCa_Caib_sWCb_to_tWCi(a, b, c, e),
+                            trs, mu, G, nu)
+        eta = jnp.ones((4, 2, 4)); U = jnp.ones((4, 7))
+        self.assert_jit_jax(lambda a, b: contractions.tWCi_Cio_to_tWCo(a, b), eta, U)
 
     # ---------------------------------------------------- jit bucket: backend functions
     def test_jit_backend(self):
