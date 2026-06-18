@@ -17,6 +17,7 @@ import numpy as np
 import unittest
 
 import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.basis_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.common as common
@@ -53,6 +54,12 @@ class TestDispatch(unittest.TestCase):
         cls.zz = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])  # W + C + (N,), C=()
         cls.zz_vstack = tuple(jnp.array(np.random.randn(2, 3, N)) for N in STRUCT[0])  # W + K + C, K=(3,)
         cls.x_other = t3.TuckerTensorTrain.randn((4, 5, 6), (3, 3, 3), (1, 2, 2, 1)).to_jax()
+        # uniform fixtures: a jax UT3 (supercores jax, masks numpy/host -- slice 7) + a second one to add/inner
+        cls.ux = ut3.t3_to_ut3(cls.x_np).to_jax()
+        cls.uy = ut3.t3_to_ut3(t3.TuckerTensorTrain.randn(*STRUCT)).to_jax()
+        cls.uvecs = tuple(jnp.array(np.random.randn(N)) for N in STRUCT[0])
+        cls.uww = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])
+        cls.uidx = jnp.array([1, 2, 3])
 
     # ---------------------------------------------------------------- helpers
     def _leaves_all_jax(self, out):
@@ -69,6 +76,25 @@ class TestDispatch(unittest.TestCase):
     def assert_eager_jax(self, fn, *args):
         """For dynamic-shape ops that can't jit: just check jax in -> jax out (eager)."""
         self._leaves_all_jax(fn(*args))
+
+    def assert_concrete_masks(self, ut):
+        """A jitted uniform op that RETURNS a ut3 must keep its masks CONCRETE (host numpy), not tracers.
+
+        ``_leaves_all_jax`` checks only the children (supercores); the masks ride as aux_data and are
+        skipped by tree_leaves -- so a mask-recomputing op (orthogonalize/svd/+) could silently leak a
+        tracer mask into aux_data (the slice-7 failure mode). This catches that.
+        """
+        for m in ut.masks.data:
+            self.assertFalse(isinstance(m, jax.core.Tracer),
+                             "uniform op leaked a TRACER mask into aux_data (must stay host/numpy)")
+            self.assertTrue(common.is_numpy_ndarray(m), "uniform mask must be a host numpy array")
+
+    def assert_jit_uniform(self, fn, *args, returns_ut3=False):
+        """jit-compile a uniform op; check jax leaves; if it returns a ut3, check the masks stay concrete."""
+        out = jax.jit(fn)(*args)
+        self._leaves_all_jax(out)
+        if returns_ut3:
+            self.assert_concrete_masks(out)
 
     # ---------------------------------------------------- jit bucket: TuckerTensorTrain
     def test_jit_tucker_tensor_train(self):
@@ -179,6 +205,37 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda b: orth_reps.basis_orthogonality_residual(b), self.base.data)
         self.assert_jit_jax(lambda b: orth_reps.basis_consistency_residual(b), self.base.data)
         self.assert_jit_jax(lambda b, v: tops.gauge_residual(b, v), self.base.data, self.var.data)
+
+    # ---------------------------------------------------- jit bucket: UniformTuckerTensorTrain
+    def test_jit_uniform(self):
+        # Slice 7: a jitted uniform op must (a) dispatch to pure jax on the supercores and (b) -- for ops
+        # that RETURN a ut3 -- keep the masks CONCRETE (host numpy), never leaking a tracer into aux_data.
+        # Masks ride as static aux_data (closed over via the frontend pytree), traced only via supercores.
+        ux, uy = self.ux, self.uy
+
+        # scalar / array outputs (no ut3): host-int shape/rank extraction must work under jit
+        self.assert_jit_uniform(lambda u: u.to_dense(), ux)
+        self.assert_jit_uniform(lambda a, b: a.inner(b), ux, uy)
+        self.assert_jit_uniform(lambda a, b: a.inner(b, use_orthogonalization=False), ux, uy)
+        self.assert_jit_uniform(lambda u: u.norm(), ux)
+        self.assert_jit_uniform(lambda u: u.norm(use_orthogonalization=False), ux)
+        self.assert_jit_uniform(lambda u, *v: u.apply(v), ux, *self.uvecs)
+        self.assert_jit_uniform(lambda u, i: u.entries(i), ux, self.uidx)
+        self.assert_jit_uniform(lambda u, *w: u.probe(w), ux, *self.uww)
+        self.assert_jit_uniform(lambda u: u.sum(), ux)
+
+        # ops returning a ut3: ALSO check the masks stay concrete (the tracer-leak failure mode)
+        self.assert_jit_uniform(lambda u: u.sum_stack(), ux, returns_ut3=True)
+        self.assert_jit_uniform(lambda u: u.reverse(), ux, returns_ut3=True)
+        self.assert_jit_uniform(lambda u: u.squash_tails(), ux, returns_ut3=True)
+        self.assert_jit_uniform(lambda a, b: a + b, ux, uy, returns_ut3=True)
+        self.assert_jit_uniform(lambda u: 2.5 * u, ux, returns_ut3=True)
+        for m in ('down_orthogonalize_tucker_cores', 'up_orthogonalize_tt_cores',
+                  'left_orthogonalize_tt_cores', 'right_orthogonalize_tt_cores'):
+            self.assert_jit_uniform(lambda u, mm=m: getattr(u, mm)(), ux, returns_ut3=True)
+        # t3svd at FIXED max-ranks -> static shapes -> jit-able; output ut3 masks stay concrete
+        self.assert_jit_uniform(
+            lambda u: u.t3svd(max_tucker_ranks=2, max_tt_ranks=2)[0], ux, returns_ut3=True)
 
     # ---------------------------------------------------- output-check bucket: dynamic-shape ops
     def test_dynamic_shape_dispatch(self):

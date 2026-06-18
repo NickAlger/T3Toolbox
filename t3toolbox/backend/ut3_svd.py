@@ -18,16 +18,21 @@ __all__ = [
     'ut3_rank_adjustment_sweep',
 ]
 
+# The three masks in .data[2] are HOST bool, static structure (numpy, never traced); supercores are xnp.
 UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[NDArray, NDArray, NDArray]]
 
 
-def _cap_ranks(current, spec, length, xnp):  # current: (length,)+stack ; spec: None|int|seq|array
-    """Cap current real ranks by a max-rank spec (None = no cap; per-position None entries allowed)."""
+def _cap_ranks(current, spec, length):  # current: HOST int (length,)+stack ; spec: None|int|seq|array
+    """Cap current real ranks by a max-rank spec (None = no cap; per-position None entries allowed).
+
+    np (host): ranks are mask (structure) metadata, computed on the host (a jax rank under jit is a
+    tracer -> shape-extraction / mask leaks). See docs/uniform_pytree_composition.md.
+    """
     if spec is None:
         return current
     spec = ranks.normalize_max_ranks(spec, length)  # tuple, entries int|array|None
-    capped = [current[i] if spec[i] is None else xnp.minimum(current[i], spec[i]) for i in range(length)]
-    return xnp.stack(capped)
+    capped = [current[i] if spec[i] is None else np.minimum(current[i], spec[i]) for i in range(length)]
+    return np.stack(capped)
 
 
 def ut3svd(
@@ -50,20 +55,19 @@ def ut3svd(
     variety / rank sweep). ``assume_orthogonal=True`` skips the orthogonalization, asserting the input is
     already right-orthogonal (not enforced). See ``docs/t3svd_minimal_ranks.md``.
     """
-    use_jax = tree_contains_jax(data[:2])
-    xnp, _, _ = get_backend(True, use_jax)
-
-    masked_tucker, masked_tt = ut3_masking.apply_masks_to_cores(data)
-    shape_mask, tucker_mask, tt_mask = data[2]
+    masked_tucker, masked_tt = ut3_masking.apply_masks_to_cores(data)   # guards: masks must be host
+    shape_mask, tucker_mask, tt_mask = data[2]                          # HOST bool masks
 
     d, N = masked_tucker.shape[0], masked_tucker.shape[-1]
     n, r = masked_tucker.shape[-2], masked_tt.shape[-1]
-    shape = tuple(int(m.sum()) for m in shape_mask)
+    shape = tuple(int(m.sum()) for m in shape_mask)                     # host ints (masks are numpy)
 
-    capped_tucker = _cap_ranks(tucker_mask.sum(axis=-1), max_tucker_ranks, d, xnp)
-    capped_tt = _cap_ranks(tt_mask.sum(axis=-1), max_tt_ranks, d + 1, xnp)
+    # All rank/mask computation is np (host) -- masks are static structure (a jax rank/mask is a tracer
+    # under jit); only the SVD sweep below touches the supercores via xnp. See docs/uniform_pytree_composition.md.
+    capped_tucker = _cap_ranks(tucker_mask.sum(axis=-1), max_tucker_ranks, d)
+    capped_tt = _cap_ranks(tt_mask.sum(axis=-1), max_tt_ranks, d + 1)
 
-    cap_masks = ut3_masking.make_uniform_masks(shape, capped_tucker, capped_tt, N, n, r, use_jax=use_jax)
+    cap_masks = ut3_masking.make_uniform_masks(shape, capped_tucker, capped_tt, N, n, r)
     (out_tucker, out_tt), ss_tucker, ss_tt = uniform_t3_svd(
         (masked_tucker, masked_tt), cap_masks, skip_orthogonalization=assume_orthogonal)
 
@@ -71,11 +75,11 @@ def ut3svd(
     # kept (= what the masks would be once the loose padding is removed; possibly non-minimal).
     raw_tucker, raw_tt = ranks.compute_raw_sweep_ranks(
         shape, tucker_mask.sum(axis=-1), tt_mask.sum(axis=-1), capped_tucker, capped_tt)
-    n2 = int(xnp.max(raw_tucker))
-    r2 = int(xnp.max(raw_tt))
+    n2 = int(np.max(raw_tucker))
+    r2 = int(np.max(raw_tt))
     out_tucker = out_tucker[..., :n2, :]
     out_tt = out_tt[..., :r2, :n2, :r2]
-    raw_masks = ut3_masking.make_uniform_masks(shape, raw_tucker, raw_tt, N, n, r, use_jax=use_jax)
+    raw_masks = ut3_masking.make_uniform_masks(shape, raw_tucker, raw_tt, N, n, r)
     new_masks = (shape_mask, raw_masks[1][..., :n2], raw_masks[2][..., :r2])
     return (out_tucker, out_tt, new_masks), ss_tucker[..., :n2], ss_tt[..., :r2]
 
@@ -104,22 +108,20 @@ def ut3_rank_adjustment_sweep(
 def _reduce_left_to_right(data: UT3Data) -> UT3Data:
     """Single left-to-right reduction to minimal ranks, skipping orthogonalization (assumes the input is
     right-orthogonal). Lossless when that precondition holds. Shrinks the padded supercore to minimal."""
-    use_jax = tree_contains_jax(data[:2])
-    xnp, _, _ = get_backend(True, use_jax)
-
-    masked_tucker, masked_tt = ut3_masking.apply_masks_to_cores(data)
-    shape_mask, tucker_mask, tt_mask = data[2]
+    masked_tucker, masked_tt = ut3_masking.apply_masks_to_cores(data)   # guards: masks must be host
+    shape_mask, tucker_mask, tt_mask = data[2]                          # HOST bool masks
     d, N = masked_tucker.shape[0], masked_tucker.shape[-1]
     n, r = masked_tucker.shape[-2], masked_tt.shape[-1]
-    shape = tuple(int(m.sum()) for m in shape_mask)
+    shape = tuple(int(m.sum()) for m in shape_mask)                     # host ints (masks are numpy)
 
+    # ranks/masks on the host (np); compute_minimal_ranks defaults to numpy. See docs/uniform_pytree_composition.md.
     min_tucker, min_tt = ranks.compute_minimal_ranks(shape, tucker_mask.sum(axis=-1), tt_mask.sum(axis=-1))
-    min_masks = ut3_masking.make_uniform_masks(shape, min_tucker, min_tt, N, n, r, use_jax=use_jax)
+    min_masks = ut3_masking.make_uniform_masks(shape, min_tucker, min_tt, N, n, r)
     (out_tucker, out_tt), _, _ = uniform_t3_svd(
         (masked_tucker, masked_tt), min_masks, skip_orthogonalization=True)
 
-    n2 = int(xnp.max(min_tucker))
-    r2 = int(xnp.max(min_tt))
+    n2 = int(np.max(min_tucker))
+    r2 = int(np.max(min_tt))
     out_tucker = out_tucker[..., :n2, :]
     out_tt = out_tt[..., :r2, :n2, :r2]
     new_masks = (shape_mask, min_masks[1][..., :n2], min_masks[2][..., :r2])
@@ -155,7 +157,8 @@ def uniform_t3_svd(
     xnp, _, xscan = get_backend(True, use_jax)
 
     basis_supercore, tt_supercore = cores
-    _, basis_masks, tt_masks = rank_truncation_masks
+    shape_mask, basis_masks, tt_masks = rank_truncation_masks
+    ut3_masking.require_concrete_masks(shape_mask, basis_masks, tt_masks)  # masks (constant operands) are host
 
     if squash_tails_first:
         tt_supercore = ut3_operations.uniform_squash_tt_tails(tt_supercore)

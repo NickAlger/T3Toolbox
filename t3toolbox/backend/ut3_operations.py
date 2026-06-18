@@ -6,6 +6,7 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.backend.stacking as stacking
+import t3toolbox.backend.ut3_masking as ut3_masking
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -20,6 +21,7 @@ __all__ = [
 ]
 
 # A uniform-T3 .data tuple: (tucker_supercore, tt_supercore, (shape_mask, tucker_edge_mask, tt_edge_mask)).
+# The three masks are HOST bool, static structure (numpy, never traced); the supercores are xnp data.
 UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[NDArray, NDArray, NDArray]]
 
 # A uniform-T3 leaf in nested .data layout: (tucker_supercore, tt_supercore, (shape_mask, tucker_mask, tt_mask)).
@@ -71,11 +73,13 @@ def ut3_squash_tails(data: UT3Data) -> UT3Data:
     xnp, _, _ = get_backend(True, use_jax)
 
     tk, tt, (sm, tkm, ttm) = data
+    ut3_masking.require_concrete_masks(sm, tkm, ttm)  # masks are host, not traced
     new_tt = uniform_squash_tt_tails(tt)
     r = tt.shape[-1]
     stack = tt.shape[1:-3]
-    rank1 = xnp.broadcast_to(xnp.arange(r) < 1, stack + (r,))                  # [True, False, ...]
-    new_ttm = xnp.concatenate([rank1[None], ttm[1:-1], rank1[None]], axis=0)
+    # np (host): the rank-1 boundary masks are static structure, not supercore data. Intentional.
+    rank1 = np.broadcast_to(np.arange(r) < 1, stack + (r,))                    # [True, False, ...]
+    new_ttm = np.concatenate([rank1[None], ttm[1:-1], rank1[None]], axis=0)
     return tk, new_tt, (sm, tkm, new_ttm)
 
 

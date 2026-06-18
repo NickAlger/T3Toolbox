@@ -293,12 +293,12 @@ def Cio_Wo_to_WCi(
 def dCio_dWo_to_dWCi(
         dCio: NDArray,
         dWo: NDArray,
-        use_jax: bool = False,
 ) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
     Base-inner convention: W (probe/extra stack) outermost, C (core stack) innermost.
     """
+    use_jax = tree_contains_jax((dCio, dWo))
     xnp, _, _ = get_backend(True, use_jax)
 
     d_shape = (dCio.shape[0],)

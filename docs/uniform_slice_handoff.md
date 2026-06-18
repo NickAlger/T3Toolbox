@@ -1,4 +1,4 @@
-# Uniform T3 port — handoff (after slice 5)
+# Uniform T3 port — handoff (slices 1–5 + 7 done; 6/8/9 remaining)
 
 Resume note for the `UniformTuckerTensorTrain` port. The living plan with per-function SHARE/REWRITE
 verdicts and the 9-slice order is **[`docs/uniform_port_plan.md`](uniform_port_plan.md)**; the design
@@ -88,33 +88,45 @@ Done per slice (verified vs ragged/dense, ≤~3e-15):
 - **6 — Transposes.** `apply_transpose`/`entries_transpose`; introduce the `d`-folded named contractions
   (the uniform analog of `backend/contractions.py`, with `d` folded into batched einsums instead of a
   ragged map over the mode index). Oracle: ragged transpose.
-- **7 — jax wiring (IN PROGRESS).** `UniformTuckerTensorTrain` is **registered** as a jax pytree
-  (children = the two supercores; `aux_data` = the `UT3Masks` holder, identity-hashed via `eq=False`).
-  jit-ting the ops then surfaced the key finding (as slice-7 was meant to): **masks must be numpy (host)
-  and all mask logic must use `np`, not `xnp`.** Under jit any `jnp` op on a mask is a tracer →
-  `int(mask.sum())` shape/rank extraction raises `ConcretizationTypeError` (`to_dense`/`inner`/`t3svd`/
-  `probe`), and mask-*recomputing* ops (orthogonalize/svd/`+`/`×`) **leak tracer masks into `aux_data`**
-  (silently invalid). Remaining slice-7 build plan, in order:
-  1. **`xnp → np` mask refactor** across `ut3_*`: mask builders, rank recurrences, `+`/`×`
-     concat/Kronecker, and `int(mask.sum())` shape/rank extraction all use `np` (host); only supercores
-     go through `xnp`. `make_uniform_masks` emits numpy (drop its `use_jax`); `to_jax`/`to_numpy`
-     convert the **supercores only** (masks stay numpy).
-  2. **Tracer guard** at the mask chokepoint (`apply_masks_to_cores` / the shape-extraction helper):
-     if a mask is a `jax.core.Tracer`, raise a clear structural error leading with the **functional**
-     remedy — *"uniform masks must be concrete host (numpy) arrays … close over the masks and trace
-     only the supercores"* — not jax's `ConcretizationTypeError`. No false positives (a mask is never
-     legitimately a tracer here). Put the short version as a code comment where the guard lives.
-  3. **Signature-comment contract:** tag mask args **`HOST bool, static`** (the `HOST` token defined in
-     `docs/signature_style.md`) across the `ut3_*` signatures — the comment states the contract, the
-     guard enforces it (poor-man's dtype/placement type, no type-system pain).
-  4. **Right/wrong functional doctest** (no frontend needed — the OO-averse backend user is first-class):
-     the close-over pattern works; passing masks as traced args raises the guard's stable message
-     (`+IGNORE_EXCEPTION_DETAIL`).
-  5. **Uniform dispatch tests** in `tests/test_dispatch.py` (jit each op, prove no hidden numpy /
-     no tracer-leak) — where uniform jax coverage lands.
+- **7 — jax wiring / host-mask refactor (✅ DONE, pushed to `main`).** `UniformTuckerTensorTrain` was
+  already **registered** as a jax pytree (children = the two supercores; `aux_data` = the `UT3Masks`
+  holder, identity-hashed via `eq=False`). jit-ting the ops surfaced the key finding (as slice-7 was meant
+  to): **masks must be numpy (host) and all mask logic must use `np`, not `xnp`.** Under jit any `jnp` op
+  on a mask is a tracer → `int(mask.sum())` shape/rank extraction raises `ConcretizationTypeError`
+  (`to_dense`/`inner`/`t3svd`/`probe`), and mask-*recomputing* ops (orthogonalize/svd/`+`/`×`) **leak
+  tracer masks into `aux_data`** (silently invalid). All five build steps landed:
+  1. ✅ **`xnp → np` mask refactor** across `ut3_*` (`masking`/`conversions`/`orthogonalization`/`linalg`/
+     `operations`/`sampling`/`svd`): mask builders, rank recurrences (`_prefix_mask`,
+     `_left/right_orthogonalized_tt_ranks` dropped their `xnp` param), `+`/`×` concat/Kronecker
+     (`ut3_add`), the `ut3_squash_tails` rank-1 boundary masks, `ut3_svd._cap_ranks`, and all
+     `int(mask.sum())`/`np.max(raw_*)` shape/rank extraction now use `np` (host); only supercores go
+     through `xnp`. `make_uniform_masks` emits numpy (its `use_jax` flag was dropped); `t3_to_ut3`'s
+     rank metadata switched to `np`; `to_jax`/`to_numpy` and the frontend `.shape` were already host-safe
+     (now reuse the same `UT3Masks` holder — masks stay numpy).
+  2. ✅ **Tracer guard** = `ut3_masking.require_concrete_masks(*masks)` (gated by `common.has_jax`),
+     called at the chokepoint `apply_masks_to_cores` and at every other mask-recomputing/shape-extracting
+     entry point (`ut3_to_t3`, `ut3_add`, `ut3_sum_stack`, `ut3_squash_tails`, `uniform_t3_svd`). Raises a
+     `ValueError` leading with the functional remedy ("…close over the masks as constants and trace only
+     the supercores…"), not jax's `ConcretizationTypeError`. One-line comment at the guard + at each site.
+  3. ✅ **`HOST bool, static`** tags on the mask args/fields across the `ut3_*` signatures, `UT3Masks`
+     fields, and the `UT3Data` alias comments (the `HOST` token from `docs/signature_style.md`).
+  4. ✅ **Right/wrong functional doctest** on `ut3_conversions.ut3_to_dense` (no frontend): close-over
+     jits correctly; tracing the whole `.data` trips the guard (`+IGNORE_EXCEPTION_DETAIL`).
+  5. ✅ **Uniform dispatch tests** — `tests/test_dispatch.py::test_jit_uniform` jits to_dense/inner/norm/
+     apply/entries/probe/sum + sum_stack/reverse/squash_tails/`+`/`×`/4 orthogonalizations/t3svd, with an
+     `assert_concrete_masks` on every ut3-returning op (children-only `_leaves_all_jax` can't see the
+     aux masks, so this catches the tracer-leak mode).
+
+  **Bonus bug fixed (was blocking the uniform `probe` jit):** `contractions.dCio_dWo_to_dWCi` had a
+  stale `use_jax: bool = False` param its callers never passed → `np.einsum` on a jax tracer
+  (`TracerArrayConversionError`). Switched to infer `use_jax = tree_contains_jax((inputs))` like all its
+  siblings (the library-wide dispatch convention). Affects the ragged probe path too; covered by
+  `test_contractions` + `test_manifold` + the dispatch probe.
 
   Full reasoning: `docs/uniform_pytree_composition.md` ("Masks are numpy (host) — the jit story" +
   "How to jit … functional, or via the frontend"). **Don't "fix" mask `np.*` to `xnp` — it's intentional.**
+  Verified: `test_uniform_tucker_tensor_train` 33 / `test_dispatch` 6 / `test_tucker_tensor_train`+
+  `test_basis_variations_format` 91 / `test_manifold` 37 (alone) / `test_contractions` 29 — all green.
 - **8 — Constructors + IO.** `zeros`/`ones`/`randn` (pure constructors keep `use_jax`), `from_canonical`/
   `from_tensor_train`, `save`/`load`.
 - **9 — t3m.** Elementwise multiply + truncation; both `t3m_form_then_round` and the max-rank

@@ -24,6 +24,7 @@ __all__ = [
 # zero-padded to N (pack) and probe results sliced back to the real shape (unpack); index entries need
 # no packing (the real block is the prefix, so an index in [0,Ni) hits the right slot).
 
+# The three masks in .data[2] are HOST bool, static structure (numpy, never traced); supercores are xnp.
 UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[NDArray, NDArray, NDArray]]
 
 
@@ -53,10 +54,12 @@ def ut3_probe(
 ) -> typ.Tuple[NDArray, ...]:         # len=d, ith elm_shape=W+(Ni,)
     """Probe a uniform Tucker tensor train (contract all-but-one mode, for each mode; shares
     ``probing.probe_t3``). Vectors padded to ``N``; results sliced back to the real shape."""
-    masked = ut3_masking.apply_masks_to_cores(data)
+    masked = ut3_masking.apply_masks_to_cores(data)            # guards: masks must be host
     packed = ut3_operations.pack_vectors(ww, masked[0].shape[-1])
-    zz = probing.probe_t3(packed, masked)                       # packed, shape=(d,)+W+(N)
-    shape = [int(m.sum()) for m in data[2][0]]                  # data[2][0] = shape_mask
+    zz = probing.probe_t3(packed, masked)                       # packed (TRACED under jit), shape=(d,)+W+(N)
+    # host ints from the (numpy) shape_mask -> the unpack slices the TRACED zz with a static bound (jit-safe;
+    # no np.asarray on zz). data[2][0] = shape_mask (HOST bool).
+    shape = [int(m.sum()) for m in data[2][0]]
     return ut3_operations.unpack_vectors(zz, shape)
 
 

@@ -55,9 +55,9 @@ class UT3Masks:                    # can be jax aux_data (value hash/eq is impos
     separate, identity-hashable object so it can ride as jax ``aux_data`` -- the ``T3Basis``<->``T3Tangent``
     pattern; see ``docs/uniform_pytree_composition.md``.
     """
-    shape_mask:       NDArray  # dtype=bool, shape=(d, N)                 (no stack: shape is shared across the stack)
-    tucker_edge_mask: NDArray  # dtype=bool, shape=(d,)   + stack_shape + (n,)
-    tt_edge_mask:     NDArray  # dtype=bool, shape=(d+1,) + stack_shape + (r,)
+    shape_mask:       NDArray  # HOST bool, static, shape=(d, N)                 (no stack: shape is shared across the stack)
+    tucker_edge_mask: NDArray  # HOST bool, static, shape=(d,)   + stack_shape + (n,)
+    tt_edge_mask:     NDArray  # HOST bool, static, shape=(d+1,) + stack_shape + (r,)
 
     @property
     def data(self) -> Tuple[NDArray, NDArray, NDArray]:
@@ -131,7 +131,10 @@ class UniformTuckerTensorTrain:
     # ------------------------------------------------- original (real) structure
     @cached_property
     def shape(self) -> Tuple[int, ...]:  # len=d
-        """Real shape ``(N0,...,N(d-1))`` (from ``shape_mask``; shared across the stack)."""
+        """Real shape ``(N0,...,N(d-1))`` (from ``shape_mask``; shared across the stack).
+
+        ``int(...)`` pulls host ints -- correct because the masks are numpy (host) even when the
+        supercores are jax (``docs/uniform_pytree_composition.md``)."""
         return tuple(int(x) for x in self.masks.shape_mask.sum(axis=-1))
 
     @cached_property
@@ -392,14 +395,15 @@ class UniformTuckerTensorTrain:
         return common.tree_contains_jax(self.supercores)
 
     def to_jax(self) -> 'UniformTuckerTensorTrain':
+        # Convert the SUPERCORES (data) to jax; the masks stay numpy (host structure -- a jax mask is a
+        # tracer under jit and breaks the layer). See docs/uniform_pytree_composition.md.
         return UniformTuckerTensorTrain(
-            common.to_jax(self.tucker_supercore), common.to_jax(self.tt_supercore),
-            UT3Masks(*[common.to_jax(m) for m in self.masks.data]))
+            common.to_jax(self.tucker_supercore), common.to_jax(self.tt_supercore), self.masks)
 
     def to_numpy(self) -> 'UniformTuckerTensorTrain':
+        # Supercores -> numpy; the masks are already numpy (host structure), so reuse the holder.
         return UniformTuckerTensorTrain(
-            common.to_numpy(self.tucker_supercore), common.to_numpy(self.tt_supercore),
-            UT3Masks(*[common.to_numpy(m) for m in self.masks.data]))
+            common.to_numpy(self.tucker_supercore), common.to_numpy(self.tt_supercore), self.masks)
 
     def copy(self) -> 'UniformTuckerTensorTrain':
         return UniformTuckerTensorTrain(self.tucker_supercore, self.tt_supercore, self.masks)
