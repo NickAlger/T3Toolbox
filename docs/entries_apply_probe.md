@@ -133,17 +133,26 @@ Each operation has a **tangent** form on `T3Tangent` — the directional derivat
 the T3 moves along a tangent vector at a base point — and a **transpose** (adjoint). These are what a
 manifold least-squares fit needs: the forward applies the Jacobian `J`, the transpose applies `Jᵀ`.
 
-| operation | forward on `TuckerTensorTrain` | forward on `T3Tangent` (`𝒥`) | transpose on `T3Tangent` (`𝒥ᵀ`)            | transpose on `TuckerTensorTrain` (ambient `Sᵀ`) |
-|-----------|--------------------------------|------------------------------|---------------------------------------------|--------------------------------------------------|
-| entries   | `entries(index)`               | `entries(index)`             | `entries_transpose(c, index, basis, …)`     | `entries_transpose(c, index, shape, …)`          |
-| apply     | `apply(ww)`                    | `apply(ww)`                  | `apply_transpose(c, ww, basis, …)`          | `apply_transpose(c, ww, …)`                       |
-| probe     | `probe(ww)`                    | `probe(ww)`                  | `probe_transpose(ztildes, ww, basis, …)`    | *(none — no ambient `probe_transpose`)*          |
+Each op has a forward (`TuckerTensorTrain` Euclidean, `T3Tangent` the Riemannian Jacobian `𝒥`) and
+**three** transpose flavors — **tangent / corewise / ambient**. Full taxonomy, costs, and the decision
+guide live in **[`docs/transposes.md`](transposes.md)**; the quick map:
+
+| op | forward | tangent `𝒥ᵀ` (`T3Tangent` → tangent) | corewise (`TuckerTensorTrain` → core grads) | ambient (`TuckerTensorTrain` → CP factors) |
+|---|---|---|---|---|
+| entries | `entries(index)` | `entries_transpose(c, index, basis, …)` | `entries_corewise_transpose(c, index, …)` | `entries_ambient_transpose(c, index, shape, …)` |
+| apply   | `apply(ww)`      | `apply_transpose(c, ww, basis, …)`      | `apply_corewise_transpose(c, ww, …)`      | `apply_ambient_transpose(c, ww, …)`            |
+| probe   | `probe(ww)`      | `probe_transpose(ztildes, ww, basis, …)` | `probe_corewise_transpose(ztildes, ww, …)` | `probe_ambient_transpose(ztildes, ww, …)`      |
 
 Notes:
 
 - **The forward tangent op is linear in the tangent direction** (it *is* the Jacobian `𝒥⁽ˢ⁾` applied to
   a gauged variation), so the same `.entries/.apply/.probe` names on `T3Tangent` mean "apply `𝒥`,"
   not "evaluate a point."
+- **The three transpose flavors** (see `docs/transposes.md`): **tangent** = Riemannian gradient (a
+  `T3Tangent`); **corewise** = gradient w.r.t. a base's cores (raw core-grad tuple, for Adam/L-BFGS);
+  **ambient** = the base-free adjoint on the full tensor space (CP factors, via `from_canonical`). All
+  three exist for all three ops (the earlier "probe has no ambient transpose" was true only before the
+  transpose-grid redesign).
 - **Bare `𝒥` / `𝒥ᵀ`, no gauge projector.** The tangent methods are the bare single-sample Jacobian and
   its adjoint. The full Riemannian operators factor as **`J = 𝒥 ∘ Π`** and **`Jᵀ = Π ∘ 𝒥ᵀ`**, where
   `Π = orthogonal_gauge_projection` projects onto gauged variations. Compose `Π` yourself: take the
@@ -151,10 +160,6 @@ Notes:
 - **`sum_over_probes`** (transpose only): `False` (primary) keeps the probe/sample stack `W` — one
   tangent per sample; `True` sums it — the Gauss-Newton data-misfit gradient `Jᵀr` (a single tangent
   when `W` is the only extra stack). See [`batching_and_stacking.md`](batching_and_stacking.md) §11.
-- **`probe` has no ambient transpose.** `apply_transpose` / `entries_transpose` exist on plain
-  `TuckerTensorTrain` (the ambient adjoint `Sᵀ`, handy for forming a dense Euclidean gradient as a
-  rank-1 / CP sum); `probe`'s ambient adjoint was never needed, so only the *tangent* `probe_transpose`
-  exists.
 
 ### All three are Riemannian-compatible (verified)
 
@@ -173,6 +178,20 @@ So any of the three can drive a Riemannian fit (gradient descent, inexact Newton
 about what measurements your problem provides, not about what the manifold code supports.
 
 ---
+
+### Symmetric directional derivatives (a fourth dimension)
+
+Each sampling op also has a **derivative** version: `y⁽ᵗ⁾ = dᵗ/dsᵗ [op(X + sP)]|₀` for `t = 0..order`,
+the symmetric directional derivatives in one repeated direction `P` (orders ≥ tensor degree vanish).
+They **strictly generalize** the plain op (`order 0` == the plain op) by adding a leading **order axis**
+(`(order+1)+W+K+C+…`). Frontend: separate methods `{probe,apply,entries}_derivatives(ww | index, pp,
+order)` on both `TuckerTensorTrain` and `T3Tangent` (the points `X` and directions `P` share the sample
+stack `W`), with the same transpose flavors — **tangent** (`*_derivatives_transpose`) and **corewise**
+(`*_corewise_derivatives_transpose`); the **ambient** derivative transpose is deferred
+([`docs/ambient_derivative_transpose_note.md`](ambient_derivative_transpose_note.md)). Full `W+K+C`
+stacking. Math + plan: [`docs/symmetric_probe_derivatives.tex`](symmetric_probe_derivatives.tex),
+[`docs/derivatives_mirror_plan.md`](derivatives_mirror_plan.md). Why fit from derivatives:
+[`docs/derivative_order_information_and_conditioning.md`](derivative_order_information_and_conditioning.md).
 
 ## 5. Measurement spaces (for fitting)
 

@@ -310,32 +310,43 @@ Treat everything else as copied-in-and-not-yet-working until checked.
   constructors+IO) and **jit-wired** (pytree registered; host-numpy masks; `tests/test_dispatch.py`
   `test_jit_uniform`). Live status + remaining slices: `docs/uniform_slice_handoff.md`.
 - **Solid / tested — symmetric probing derivatives (branch `probe-derivatives`, NOT yet merged to
-  `main`).** `d^k/ds^k` of probing (and tangent-vector probing) in one repeated direction `P`, via a
-  Taylor-jet axis + the binomial tensor `trs[t,r,s]=C(t,r)[r+s=t]`. `backend/probe_derivatives.py`:
-  Euclidean forward (`probe_derivatives_t3`), Riemannian forward + transpose
-  (`probe_tangent_derivatives{,_transpose}`), fully stacked (order `t` outermost, sample stack `S`,
-  base stack `C`, base-inner). The transpose is the **jet-ified adjoint-state Lagrangian** (replace
-  each contraction by its `trs` version; stationarity → adjoint-hooked-`trs` sweeps + order-less
-  assembly whose tensor arity = the core's internal-edge count). Verified vs the dense subset-expansion
-  oracle, `jax.linear_transpose`, and the adjoint identity (~1e-16). Math note (full derivation):
-  `docs/symmetric_probe_derivatives.tex`; **handoff + roadmap: `docs/probe_derivatives_handoff.md`**.
-  Tests `tests/test_probe_derivatives.py` (+ `test_dispatch`). Naming distinguishes the jet-ified funcs
-  from probing.py's: forward `*_jets`, transpose adjoints `*_tilde_jets`, gradient `*_variation_jets`.
+  `main`; under review).** `d^t/ds^t` of the three sampling ops (`probe`/`apply`/`entries`) in one
+  repeated direction `P`, via a Taylor-jet axis + the binomial tensor `trs[t,r,s]=C(t,r)[r+s=t]`. The
+  **full grid** is built in `backend/probe_derivatives.py` **and the frontend** (`TuckerTensorTrain` /
+  `T3Tangent` `{probe,apply,entries}_derivatives` + their transposes): **forward** (Euclidean
+  `*_derivatives_t3` + Riemannian `*_tangent_derivatives`), **tangent (Riemannian) transpose**
+  (`*_tangent_derivatives_transpose`), and **corewise transpose** (`*_corewise_derivatives_transpose`,
+  the §6.3 `P,Q,O→G` substitution → core gradients). **Full `W+K+C` stacking, base-inner** (order `t`
+  outermost; sample stack `W` = the paired `(X,P)` samples = probing's probe stack; tangent stack `K`;
+  base stack `C`) — mirrors regular probing via **order-threaded 3-block `(W,K,C)` contractions** in
+  `contractions.py`. The transpose is the **jet-ified adjoint-state Lagrangian** (replace each
+  contraction by its `trs` version; stationarity → adjoint-hooked-`trs` sweeps + order-less assembly
+  whose tensor arity = the core's internal-edge count); apply/entries use the cheaper **`ρ`-seeded
+  `sigma_hat` sweep** (`compute_sigma_hat_jets`). The forwards hard-error on an `X`/`P` stack mismatch
+  (`check_perturbation_{vectors,index}`). Verified vs the dense subset-expansion oracle,
+  `jax.linear_transpose`, the adjoint identity, and `jax.grad` (~1e-16, across `W/K/C/order`). The
+  **ambient** transpose is **deferred** (inherently exponential-rank — `docs/ambient_derivative_transpose_note.md`).
+  Math note: `docs/symmetric_probe_derivatives.tex`; plan/handoff: `docs/derivatives_mirror_plan.md` +
+  `docs/probe_derivatives_handoff.md`. Tests: `tests/test_probe_derivatives.py`,
+  `backend/test_contractions.py`, `test_manifold`/`test_tucker_tensor_train` (frontend), `test_dispatch`
+  (jit). Naming: forward `*_jets`, transpose adjoints `*_tilde_jets`, the seeded apply sweep `*_hat_jets`;
+  sample stack `W` (not `S`), order-count `order` (not `K`).
 - **Deferred / broken**: the uniform **tangent** layer (`ubv_*`, `uniform_*` — uniform basis/variations/
   tangents; every `is_uniform` branch in the tangent code was dropped/stubbed). The weighted layer
   (parked `absorb_weights`). `OLD_*.py` files are still tracked.
 
 ## Open questions / TODO
 
-- **Symmetric probing derivatives — next steps (branch `probe-derivatives`; full roadmap in
-  `docs/probe_derivatives_handoff.md`).** (1) **jet-ified `apply`/`entries`** — the all-modes special
-  cases (probing leaves one mode free; these contract every mode); reuse almost everything, mimic
-  probing.py's `apply_tangent`/`entries_tangent` (a thin layer over the jet sweeps — no central
-  `nu`/`eta`, one terminal contraction). (2) **frontend hookup** — methods on `TuckerTensorTrain` /
-  `T3Tangent`. (3) **fitting example** — fit a T3 to a Hilbert tensor from its probe/apply derivatives,
-  mimicking `examples/fit_hilbert_tensor_newton_cg.py`. (4) **merge to `main`**. Deferred (`.tex` §8):
-  tangent stack `K` (forward+transpose), the Euclidean corewise/ambient transpose, the project-once
-  gather optimization.
+- **Symmetric probing derivatives — remaining (branch `probe-derivatives`; plan
+  `docs/derivatives_mirror_plan.md`).** The feature is **functionally complete**: apply/entries
+  derivatives, `K`-stacking, tangent + corewise transposes, and the full frontend are all done and
+  tested (see "Current state"). Remaining: (1) **doc refresh** — `entries_apply_probe.md` (stale §4
+  table + add the derivative dimension), `symmetric_probe_derivatives.tex` (add apply/entries + `K`);
+  (2) **review + merge to `main`**. **Deferred:** the **ambient** transpose (no use case, exponential-rank
+  — `docs/ambient_derivative_transpose_note.md`); the project-once gather optimization. **Deferred
+  nice-to-haves (Nick's call):** a derivative **fitting example** (mimic
+  `examples/fit_hilbert_tensor_newton_cg.py`); the **Hessian-conditioning experiment**
+  (`docs/derivative_order_information_and_conditioning.md`).
 - **The transpose grid — DONE & REDESIGNED (ragged).** Each sampling op (`entries`/`apply`/`probe`)
   now has **three** transposes — **ambient / corewise / tangent** — read **[`docs/transposes.md`](docs/transposes.md)**
   (taxonomy, costs, decision guide) and the work log [`docs/transpose_redesign_handoff.md`](docs/transpose_redesign_handoff.md).

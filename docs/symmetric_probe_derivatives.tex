@@ -51,8 +51,10 @@ Leibniz rule for jets: because each input vector enters affinely, its jet trunca
 and every quantity built from it is assembled by a binomial convolution of jets. This note records
 the math behind \texttt{t3toolbox/backend/probe\_derivatives.py}. It treats the Euclidean (plain-T3)
 and Riemannian (tangent-vector) probing maps, both forward and transpose, the latter by a
-jet-ified adjoint-state Lagrangian; the remaining Euclidean corewise transpose and the full batch
-stacking are noted but not derived. This material is not part of the published T4S paper.
+jet-ified adjoint-state Lagrangian. Section~\ref{sec:extensions} sketches the extensions that the code
+also implements: the all-modes special cases (\emph{apply}/\emph{entries}), the full batch stacking
+(including the tangent stack), and the corewise (non-manifold) transpose; the base-free \emph{ambient}
+transpose is deferred (see the project note). This material is not part of the published T4S paper.
 \end{abstract}
 
 \section{Setup: probing and its actions}
@@ -517,14 +519,48 @@ J^{(s)} v\rangle = \langle (J^{(s)})^\top \mathbf r, v\rangle$ and the forward m
 transpose (\texttt{jax.\allowbreak linear\_\allowbreak transpose}), across orders and sample-stack
 shapes.
 
-\section{Remaining}
-\label{sec:remaining}
+\section{Extensions (implemented in the code)}
+\label{sec:extensions}
 
-Two pieces follow the same calculus and are left for a later revision. The \emph{Euclidean corewise
-and ambient transposes} --- the gradient of the plain-T3 probe derivatives with respect to the cores
-as independent variables, and the base-free adjoint --- are again binomial jet convolutions of adjoint
-edge variables against \eqref{eq:trs}, mirroring the three transpose flavours of ordinary probing. The
-full \emph{batch stacking} (a base/core stack on the cores, and a tangent stack of many tangent
-vectors at one base) threads orthogonally to the order axis, exactly as the sample stack does above.
+The sections above derive probe derivatives, forward and transpose. The code
+(\texttt{probe\_derivatives.py}) also implements the following, each by the same jet calculus; we sketch
+the math here and refer to \texttt{docs/derivatives\_mirror\_plan.md} for the build details.
+
+\paragraph{All-modes special cases: \emph{apply} and \emph{entries}.}
+\emph{apply} contracts \emph{every} mode (probing leaves one free); with no free mode the pipeline
+collapses to a single left-to-right pass --- the perturbation sweep $\boldsymbol\sigma$ kept only to its
+\emph{terminal} carry and contracted at the boundary bond (no right/central sweeps, no per-mode
+assembly). Its forward jet is therefore the terminal $\boldsymbol\sigma$-jet. Its transpose is the
+adjoint-state Lagrangian with the per-mode residual gone: the scalar residual jet $\mathbf c$ \emph{seeds}
+one propagation sweep at the terminal bond (a propagation-only $\widehat{\boldsymbol\sigma}$ sweep, no
+$\widehat{\delta\boldsymbol\eta}$ source), and the gradient is
+$\delta\widetilde{\mathbf G}_i = \boldsymbol\mu_{i-1}\otimes\boldsymbol\xi_i\otimes\widehat{\boldsymbol
+\sigma}_i$, $\delta\widetilde{\mathbf U}_i = \widehat{\delta\boldsymbol\xi}_i\otimes\mathbf w_i$ (about
+half the work of the probe transpose). \emph{entries} is \emph{apply} with one-hot inputs $\mathbf
+e_{\mathrm{index}}$ in the base slot and a general direction $\mathbf P$ (fiber-slice the base projection,
+contract $\mathbf P$ at order one); its transpose scatters onto the indexed rows.
+
+\paragraph{Full batch stacking, including the tangent stack $K$.}
+Three independent batch blocks thread orthogonally to the convolved order axis (which is outermost):
+the sample stack $W$ (the paired $(\mathbf X,\mathbf P)$ samples, on the inputs), the tangent stack $K$
+(a batch of tangent vectors sharing one base, on the variation cores), and the base stack $C$ (on the
+cores), base-inner $W{+}K{+}C$. The base edge-variable jets carry $W{+}C$; the variation-derived jets
+($\boldsymbol\sigma,\boldsymbol\tau,\delta\boldsymbol\eta,\delta\boldsymbol\xi$ and their adjoints) carry
+$K$. Each forward/adjoint contraction becomes its \emph{order-threaded three-group} $(W,K,C)$ version
+(the binomial tensor \eqref{eq:trs} riding on top), mirroring ordinary probing's $K$-stacked sweeps;
+the split is recovered from operand shapes. Each reduces to the two-group form when $K=\varnothing$.
+
+\paragraph{Corewise (non-manifold) transpose.}
+The gradient of the plain-T3 derivative sampling map with respect to the cores as independent variables
+(for non-manifold optimizers) is the Section-6.3 \emph{corewise simplification}: the tangent derivative
+transpose with the base's own cores substituted for the orthogonal frames
+($\mathbf P,\mathbf Q,\mathbf O\to\mathbf G_i$, $\mathbf U$ no longer required orthogonal). It is a
+trivial substitution wrapper; verified against \texttt{jax.grad} of the forward.
+
+\paragraph{Deferred: the ambient transpose.}
+The base-free adjoint on the full tensor space (CP factors) is deferred: for the derivative map the
+back-projection is inherently exponential-rank --- $[s^t]\!\prod_j(\mathbf w_j+s\mathbf p_j)$ is an
+elementary-symmetric combination of rank $\binom{d}{t}$ --- unlike the clean rank-$1$/rank-$d$
+non-derivative ambient. See \texttt{docs/ambient\_derivative\_transpose\_note.md}.
 
 \end{document}

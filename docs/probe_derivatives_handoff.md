@@ -10,7 +10,17 @@ vector) to measured derivative data.
 
 ## Status
 
-Lives on branch **`probe-derivatives`** (7 commits), ready to merge to `main`. Full suite green (231).
+> **This doc covers the original probe-only slice. The feature has since grown to the full grid
+> (apply/entries derivatives, `K`-stacking, tangent + corewise transposes, frontend). The live,
+> comprehensive plan/handoff is now [`docs/derivatives_mirror_plan.md`](derivatives_mirror_plan.md) —
+> read that first.** Current state: **functionally complete** (forward + tangent + corewise transposes,
+> backend + frontend, full `W+K+C`), under review, not yet merged to `main`; the **ambient** transpose
+> is deferred ([`docs/ambient_derivative_transpose_note.md`](ambient_derivative_transpose_note.md)).
+> Full suite green (262).
+
+Lives on branch **`probe-derivatives`**. The notes below describe the *initial* probe slice (forward +
+tangent transpose, single tangent, sample stack `S`=`W`); they remain accurate for that piece but are
+no longer the whole picture.
 
 - Backend: `t3toolbox/backend/probe_derivatives.py` + the `t`/`trs` contractions in
   `t3toolbox/backend/contractions.py`.
@@ -65,24 +75,21 @@ an HT 4-tensor would need `trsq`).
   **order-less and `S`-summed** (shape `C + core`) — compare it against `sum_over_probes=True`, not
   `False` (which keeps `S`).
 
-## Future work (Nick's roadmap)
+## Future work — status (full tracking in `docs/derivatives_mirror_plan.md`)
 
-1. **Jet-ified `apply` / `entries`** — the all-modes special cases of probing (probing leaves one mode
-   free; `apply`/`entries` contract *every* mode). Reuses almost all of the machinery here; mimic
-   probing.py's `apply_tangent` / `entries_tangent` (+ their transposes). Should be a thin layer over
-   the jet sweeps (no central `nu`/`eta`, single terminal contraction).
-2. **Frontend hookup** — methods on `TuckerTensorTrain` / `T3Tangent` (probe-derivatives forward +
-   tangent transpose), wrapping the backend the way the existing `probe`/`apply`/`entries` methods do.
-3. **Fitting example** — fit a T3 to a Hilbert tensor from its probe-derivative (or apply-derivative)
-   data, mimicking `examples/fit_hilbert_tensor_newton_cg.py` (which fits from ordinary applies).
-4. **Merge `probe-derivatives` → `main`.**
+1. **Jet-ified `apply` / `entries`** — ✅ **DONE** (forward + tangent transpose; the apply/entries
+   transpose is the `ρ`-seeded `sigma_hat` sweep, ~half the probe transpose).
+2. **Frontend hookup** — ✅ **DONE** (`TuckerTensorTrain`/`T3Tangent` `{probe,apply,entries}_derivatives`
+   + tangent/corewise transposes, with doctests + the X/P stack guard).
+3. **Tangent stack `K`** — ✅ **DONE** (forward + transpose, via order-threaded 3-block `W/K/C` contractions).
+4. **Corewise transpose** — ✅ **DONE** (`*_corewise_derivatives_transpose`, the §6.3 `P,Q,O→G` substitution).
+5. **Doc refresh** + **review + merge `probe-derivatives` → `main`** — in progress.
 
-## Deferred (noted in the `.tex` §8 "Remaining")
+## Deferred
 
-- **Tangent stack `K`** (many tangent vectors at one base) — touches both forward and transpose; would
-  reuse probing.py's three-block `W/K/C` contraction pattern.
-- **Euclidean corewise / ambient transpose** — gradient of the plain-T3 probe derivatives w.r.t. the
-  cores as independent variables, and the base-free adjoint (the derivative-map analogue of probing's
-  three transpose flavours).
+- **Ambient transpose** — base-free adjoint (CP factors). Inherently exponential-rank for the derivative
+  map; no use case. Full analysis: [`docs/ambient_derivative_transpose_note.md`](ambient_derivative_transpose_note.md).
+- **Fitting example** (Hilbert tensor from derivative data) + the **Hessian-conditioning experiment** —
+  nice-to-haves, Nick's call.
 - **Project-once gather** — avoid recomputing the `X`-projection per repeated direction when one `X`
   is swept with many `P` (only matters in the large-ambient / small-rank regime; expose as an option).
