@@ -231,6 +231,35 @@ class TestDispatch(unittest.TestCase):
             self.assert_jit_jax(
                 lambda rr, w, p, b: pd.probe_tangent_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=sop),
                 rtC, list(self.ww), list(self.zz), baseC)
+        # K-stacked Riemannian forward (exercises the order-threaded 3-block W/K/C contractions under jit)
+        self.assert_jit_jax(
+            lambda var, b, w, p: pd.probe_tangent_derivatives(w, p, var, b, 3),
+            self.v_vstack.variations.data, self.base.data, list(self.ww), list(self.zz))
+        # apply derivatives: Euclidean (W+C), Riemannian single, Riemannian K-stacked
+        self.assert_jit_jax(
+            lambda cc, w, p: pd.apply_derivatives_t3(w, p, cc, 3),
+            self.x.data, list(self.ww), list(self.zz))
+        self.assert_jit_jax(
+            lambda var, b, w, p: pd.apply_tangent_derivatives(w, p, var, b, 3),
+            self.var.data, self.base.data, list(self.ww), list(self.zz))
+        self.assert_jit_jax(
+            lambda var, b, w, p: pd.apply_tangent_derivatives(w, p, var, b, 3),
+            self.v_vstack.variations.data, self.base.data, list(self.ww), list(self.zz))
+        # entries derivatives: Euclidean and Riemannian (index a dynamic gather; general perturbation P)
+        idx = jnp.array([[1, 2], [2, 3], [3, 4]])              # (d,) + W, W=(2,)
+        self.assert_jit_jax(
+            lambda cc, ix, p: pd.entries_derivatives_t3(ix, p, cc, 3),
+            self.x.data, idx, list(self.zz))
+        self.assert_jit_jax(
+            lambda var, b, ix, p: pd.entries_tangent_derivatives(ix, p, var, b, 3),
+            self.var.data, self.base.data, idx, list(self.zz))
+        # the new order-threaded 3-block contractions directly (K=(3,), C=())
+        sig = jnp.ones((4, 2, 3, 5)); Qc = jnp.ones((5, 4, 6)); xij2 = jnp.ones((2, 2, 4))
+        self.assert_jit_jax(lambda a, b, c, e: contractions.trs_rWKCa_Caib_sWCi_to_tWKCb(a, b, c, e),
+                            trs[:, :, :2], sig, Qc, xij2)
+        dGc = jnp.ones((3, 5, 4, 6)); muc = jnp.ones((4, 2, 5))
+        self.assert_jit_jax(lambda a, b, c, e: contractions.trs_rWCa_KCaib_sWCi_to_tWKCb(a, b, c, e, 0),
+                            trs[:, :, :2], muc, dGc, xij2)
 
     # ---------------------------------------------------- jit bucket: backend functions
     def test_jit_backend(self):

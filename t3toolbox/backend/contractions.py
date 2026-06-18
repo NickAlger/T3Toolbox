@@ -1648,3 +1648,221 @@ def WCi_WKCa_WCj_to_KCiaj(
     KCiaj = KCiaj.reshape(K_shape + C_shape + i_shape + a_shape + j_shape)
     return KCiaj
 
+
+###############################################################################
+# Order-threaded three-group contractions (K-stacked derivative probing).
+#
+# The order-threaded jet pushthrough/combine (trs_rWCa_Caib_sWCi_to_tWCb etc.)
+# with the tangent stack K added, exactly as WKCa_Caib_WCi_to_WKCb extends
+# WCa_Caib_WCi_to_WCb: K rides on the one variation-derived operand (the swept
+# jet, or the variation core), broadcasting over the others, base-inner output
+# t + W + K + C. The split self-infers (C-only core pins len(C), a W+C jet pins
+# len(W), K is the remainder); a variation-core-only term takes n_base. Each
+# reduces to its 2-group trs_... when K=(). Used by the K-aware perturbation
+# sweep + assembly of the derivative-probe forward (probe_derivatives.py).
+###############################################################################
+
+
+def trs_rWKCa_Caib_sWCi_to_tWKCb(
+        trs:   NDArray,  # t + (r, s)           -- binomial tensor; r,s contracted -> output order t
+        rWKCa: NDArray,  # r + W + K + C + (a,)  -- swept variation jet (sigma), K on this operand
+        Caib:  NDArray,  # C + (a, i, b)         -- base core (C-only -> pins len(C))
+        sWCi:  NDArray,  # s + W + C + (i,)      -- base input jet on mode i (W+C -> pins len(W))
+) -> NDArray:            # t + W + K + C + (b,)  -- pushed jet, K rides through
+    """Computes named contraction. Order-threaded 3-group (W,K,C) pushthrough; the K-stacked analog of
+    trs_rWCa_Caib_sWCi_to_tWCb (K on the swept jet). Self-infers: Caib pins C, sWCi pins W, K=remainder."""
+    use_jax = tree_contains_jax((trs, rWKCa, Caib, sWCi))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    C_shape = Caib.shape[:-3]
+    W_shape = sWCi.shape[1:-(len(C_shape) + 1)]
+    K_shape = rWKCa.shape[1 + len(W_shape):-(len(C_shape) + 1)]
+    a_shape, i_shape, b_shape = (Caib.shape[-3],), (Caib.shape[-2],), (Caib.shape[-1],)
+    t_shape = (trs.shape[0],)
+
+    size_W, size_K, size_C = math.prod(W_shape), math.prod(K_shape), math.prod(C_shape)
+    rWKCa = rWKCa.reshape((trs.shape[1], size_W, size_K, size_C) + a_shape)
+    Caib  = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
+    sWCi  = sWCi.reshape((trs.shape[2], size_W, size_C) + i_shape)
+
+    if use_jax:
+        tWKCb = xnp.einsum('trs,rWKCa,Caib,sWCi->tWKCb', trs, rWKCa, Caib, sWCi)
+    else:
+        tWKCb = xnp.einsum('trs,rWKCa,Caib,sWCi->tWKCb', trs, rWKCa, Caib, sWCi, optimize=True)
+
+    return tWKCb.reshape(t_shape + W_shape + K_shape + C_shape + b_shape)
+
+
+def trs_rWCa_Caib_sWKCi_to_tWKCb(
+        trs:   NDArray,  # t + (r, s)           -- binomial tensor; r,s contracted -> output order t
+        rWCa:  NDArray,  # r + W + C + (a,)      -- base left jet (mu) (W+C -> pins len(W))
+        Caib:  NDArray,  # C + (a, i, b)         -- base core (C-only -> pins len(C))
+        sWKCi: NDArray,  # s + W + K + C + (i,)  -- variation input jet on mode i (dxi), K on this operand
+) -> NDArray:            # t + W + K + C + (b,)  -- pushed jet, K rides through
+    """Computes named contraction. Order-threaded 3-group (W,K,C) pushthrough; the K-stacked analog of
+    trs_rWCa_Caib_sWCi_to_tWCb (K on the input jet). Self-infers: Caib pins C, rWCa pins W, K=remainder."""
+    use_jax = tree_contains_jax((trs, rWCa, Caib, sWKCi))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    C_shape = Caib.shape[:-3]
+    W_shape = rWCa.shape[1:-(len(C_shape) + 1)]
+    K_shape = sWKCi.shape[1 + len(W_shape):-(len(C_shape) + 1)]
+    a_shape, i_shape, b_shape = (Caib.shape[-3],), (Caib.shape[-2],), (Caib.shape[-1],)
+    t_shape = (trs.shape[0],)
+
+    size_W, size_K, size_C = math.prod(W_shape), math.prod(K_shape), math.prod(C_shape)
+    rWCa  = rWCa.reshape((trs.shape[1], size_W, size_C) + a_shape)
+    Caib  = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
+    sWKCi = sWKCi.reshape((trs.shape[2], size_W, size_K, size_C) + i_shape)
+
+    if use_jax:
+        tWKCb = xnp.einsum('trs,rWCa,Caib,sWKCi->tWKCb', trs, rWCa, Caib, sWKCi)
+    else:
+        tWKCb = xnp.einsum('trs,rWCa,Caib,sWKCi->tWKCb', trs, rWCa, Caib, sWKCi, optimize=True)
+
+    return tWKCb.reshape(t_shape + W_shape + K_shape + C_shape + b_shape)
+
+
+def trs_rWCa_KCaib_sWCi_to_tWKCb(
+        trs:   NDArray,  # t + (r, s)            -- binomial tensor; r,s contracted -> output order t
+        rWCa:  NDArray,  # r + W + C + (a,)       -- base left jet (mu) (W+C -> pins len(W))
+        KCaib: NDArray,  # K + C + (a, i, b)      -- variation tt core (dG), K on this operand
+        sWCi:  NDArray,  # s + W + C + (i,)       -- base input jet on mode i
+        n_base: int,     # len(C). Only core operand is K+C, so len(C) is supplied (n_probe precedent).
+) -> NDArray:            # t + W + K + C + (b,)   -- pushed jet, K rides through
+    """Computes named contraction. Order-threaded 3-group (W,K,C) pushthrough; the K-stacked analog of
+    trs_rWCa_Caib_sWCi_to_tWCb (K on the variation core). Operands {W+C, K+C, W+C} do not pin len(C) -> n_base."""
+    use_jax = tree_contains_jax((trs, rWCa, KCaib, sWCi))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    KC_shape = KCaib.shape[:-3]
+    C_shape = KC_shape[len(KC_shape) - n_base:]
+    K_shape = KC_shape[:len(KC_shape) - n_base]
+    W_shape = rWCa.shape[1:len(rWCa.shape) - 1 - n_base]
+    a_shape, i_shape, b_shape = (KCaib.shape[-3],), (KCaib.shape[-2],), (KCaib.shape[-1],)
+    t_shape = (trs.shape[0],)
+
+    size_W, size_K, size_C = math.prod(W_shape), math.prod(K_shape), math.prod(C_shape)
+    rWCa  = rWCa.reshape((trs.shape[1], size_W, size_C) + a_shape)
+    KCaib = KCaib.reshape((size_K, size_C) + a_shape + i_shape + b_shape)
+    sWCi  = sWCi.reshape((trs.shape[2], size_W, size_C) + i_shape)
+
+    if use_jax:
+        tWKCb = xnp.einsum('trs,rWCa,KCaib,sWCi->tWKCb', trs, rWCa, KCaib, sWCi)
+    else:
+        tWKCb = xnp.einsum('trs,rWCa,KCaib,sWCi->tWKCb', trs, rWCa, KCaib, sWCi, optimize=True)
+
+    return tWKCb.reshape(t_shape + W_shape + K_shape + C_shape + b_shape)
+
+
+def trs_rWKCa_Caib_sWCb_to_tWKCi(
+        trs:   NDArray,  # t + (r, s)           -- binomial tensor; r,s contracted -> output order t
+        rWKCa: NDArray,  # r + W + K + C + (a,)  -- swept variation jet (sigma), K on this operand
+        Caib:  NDArray,  # C + (a, i, b)         -- base core (C-only -> pins len(C))
+        sWCb:  NDArray,  # s + W + C + (b,)      -- base right jet (nu) (W+C -> pins len(W))
+) -> NDArray:            # t + W + K + C + (i,)  -- combined jet, mode i free, K rides through
+    """Computes named contraction. Order-threaded 3-group (W,K,C) combine; the K-stacked analog of
+    trs_rWCa_Caib_sWCb_to_tWCi (K on the left jet). Self-infers: Caib pins C, sWCb pins W, K=remainder."""
+    use_jax = tree_contains_jax((trs, rWKCa, Caib, sWCb))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    C_shape = Caib.shape[:-3]
+    W_shape = sWCb.shape[1:-(len(C_shape) + 1)]
+    K_shape = rWKCa.shape[1 + len(W_shape):-(len(C_shape) + 1)]
+    a_shape, i_shape, b_shape = (Caib.shape[-3],), (Caib.shape[-2],), (Caib.shape[-1],)
+    t_shape = (trs.shape[0],)
+
+    size_W, size_K, size_C = math.prod(W_shape), math.prod(K_shape), math.prod(C_shape)
+    rWKCa = rWKCa.reshape((trs.shape[1], size_W, size_K, size_C) + a_shape)
+    Caib  = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
+    sWCb  = sWCb.reshape((trs.shape[2], size_W, size_C) + b_shape)
+
+    if use_jax:
+        tWKCi = xnp.einsum('trs,rWKCa,Caib,sWCb->tWKCi', trs, rWKCa, Caib, sWCb)
+    else:
+        tWKCi = xnp.einsum('trs,rWKCa,Caib,sWCb->tWKCi', trs, rWKCa, Caib, sWCb, optimize=True)
+
+    return tWKCi.reshape(t_shape + W_shape + K_shape + C_shape + i_shape)
+
+
+def trs_rWCa_Caib_sWKCb_to_tWKCi(
+        trs:   NDArray,  # t + (r, s)           -- binomial tensor; r,s contracted -> output order t
+        rWCa:  NDArray,  # r + W + C + (a,)      -- base left jet (mu) (W+C -> pins len(W))
+        Caib:  NDArray,  # C + (a, i, b)         -- base core (C-only -> pins len(C))
+        sWKCb: NDArray,  # s + W + K + C + (b,)  -- swept variation jet (tau), K on this operand
+) -> NDArray:            # t + W + K + C + (i,)  -- combined jet, mode i free, K rides through
+    """Computes named contraction. Order-threaded 3-group (W,K,C) combine; the K-stacked analog of
+    trs_rWCa_Caib_sWCb_to_tWCi (K on the right jet). Self-infers: Caib pins C, rWCa pins W, K=remainder."""
+    use_jax = tree_contains_jax((trs, rWCa, Caib, sWKCb))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    C_shape = Caib.shape[:-3]
+    W_shape = rWCa.shape[1:-(len(C_shape) + 1)]
+    K_shape = sWKCb.shape[1 + len(W_shape):-(len(C_shape) + 1)]
+    a_shape, i_shape, b_shape = (Caib.shape[-3],), (Caib.shape[-2],), (Caib.shape[-1],)
+    t_shape = (trs.shape[0],)
+
+    size_W, size_K, size_C = math.prod(W_shape), math.prod(K_shape), math.prod(C_shape)
+    rWCa  = rWCa.reshape((trs.shape[1], size_W, size_C) + a_shape)
+    Caib  = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
+    sWKCb = sWKCb.reshape((trs.shape[2], size_W, size_K, size_C) + b_shape)
+
+    if use_jax:
+        tWKCi = xnp.einsum('trs,rWCa,Caib,sWKCb->tWKCi', trs, rWCa, Caib, sWKCb)
+    else:
+        tWKCi = xnp.einsum('trs,rWCa,Caib,sWKCb->tWKCi', trs, rWCa, Caib, sWKCb, optimize=True)
+
+    return tWKCi.reshape(t_shape + W_shape + K_shape + C_shape + i_shape)
+
+
+def trs_rWCa_KCaib_sWCb_to_tWKCi(
+        trs:   NDArray,  # t + (r, s)            -- binomial tensor; r,s contracted -> output order t
+        rWCa:  NDArray,  # r + W + C + (a,)       -- base left jet (mu) (W+C -> pins len(W))
+        KCaib: NDArray,  # K + C + (a, i, b)      -- variation tt core (dG), K on this operand
+        sWCb:  NDArray,  # s + W + C + (b,)       -- base right jet (nu)
+        n_base: int,     # len(C). Only core operand is K+C, so len(C) is supplied (n_probe precedent).
+) -> NDArray:            # t + W + K + C + (i,)   -- combined jet, mode i free, K rides through
+    """Computes named contraction. Order-threaded 3-group (W,K,C) combine; the K-stacked analog of
+    trs_rWCa_Caib_sWCb_to_tWCi (K on the variation core). Operands {W+C, K+C, W+C} do not pin len(C) -> n_base."""
+    use_jax = tree_contains_jax((trs, rWCa, KCaib, sWCb))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    KC_shape = KCaib.shape[:-3]
+    C_shape = KC_shape[len(KC_shape) - n_base:]
+    K_shape = KC_shape[:len(KC_shape) - n_base]
+    W_shape = rWCa.shape[1:len(rWCa.shape) - 1 - n_base]
+    a_shape, i_shape, b_shape = (KCaib.shape[-3],), (KCaib.shape[-2],), (KCaib.shape[-1],)
+    t_shape = (trs.shape[0],)
+
+    size_W, size_K, size_C = math.prod(W_shape), math.prod(K_shape), math.prod(C_shape)
+    rWCa  = rWCa.reshape((trs.shape[1], size_W, size_C) + a_shape)
+    KCaib = KCaib.reshape((size_K, size_C) + a_shape + i_shape + b_shape)
+    sWCb  = sWCb.reshape((trs.shape[2], size_W, size_C) + b_shape)
+
+    if use_jax:
+        tWKCi = xnp.einsum('trs,rWCa,KCaib,sWCb->tWKCi', trs, rWCa, KCaib, sWCb)
+    else:
+        tWKCi = xnp.einsum('trs,rWCa,KCaib,sWCb->tWKCi', trs, rWCa, KCaib, sWCb, optimize=True)
+
+    return tWKCi.reshape(t_shape + W_shape + K_shape + C_shape + i_shape)
+
+
+def tWKCi_Cio_to_tWKCo(
+        tWKCi: NDArray,  # t + W + K + C + (i,)  -- combined variation jet (deta), K on this operand
+        Cio:   NDArray,  # C + (i, o)            -- base Tucker core (C-only)
+) -> NDArray:            # t + W + K + C + (o,)  -- lifted jet
+    """Computes named contraction. Order-threaded lift; W and K fuse into one outer block and Cio is
+    C-only, so this is exactly tWCi_Cio_to_tWCo with the outer block W+K. Delegates to it."""
+    return tWCi_Cio_to_tWCo(tWKCi, Cio)
+
+
+def tWCi_KCio_to_tWKCo(
+        tWCi: NDArray,  # t + W + C + (i,)     -- base down jet (eta), no K (order rides in the W block)
+        KCio: NDArray,  # K + C + (i, o)       -- variation Tucker core (dU), K on this operand
+        n_base: int,    # len(C). Only core operand is K+C, so len(C) is supplied (n_probe precedent).
+) -> NDArray:           # t + W + K + C + (o,)  -- lifted jet, K rides through
+    """Computes named contraction. Order-threaded lift through a variation core; the lift has no trs
+    (order rides as a passive broadcast), so this is exactly WCi_KCio_to_WKCo with order folded into
+    the W block. Delegates to it."""
+    return WCi_KCio_to_WKCo(tWCi, KCio, n_base)
+

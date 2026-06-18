@@ -196,6 +196,104 @@ class TestProbeDerivatives(unittest.TestCase):
             fd = (np.asarray(z_plus[i]) - np.asarray(z_minus[i])) / (2 * s)
             self.assertLessEqual(norm(fd - np.asarray(z_jets[i][1])) / norm(fd), 1e-6)
 
+    def _all_modes_check(self, y, oracle, W, K, C, order):
+        # y: (order+1,)+W+K+C scalar-jets; oracle(w_idx,k_idx,c_idx) -> (order+1,) dense reference.
+        for w_idx in itertools.product(*[range(n) for n in W]):
+            for k_idx in itertools.product(*[range(n) for n in K]):
+                for c_idx in itertools.product(*[range(n) for n in C]):
+                    got = np.asarray(y)[(slice(None),) + w_idx + k_idx + c_idx]
+                    self.check_relerr(oracle(w_idx, k_idx, c_idx), got)
+
+    def test_tangent_derivatives_K_stacked(self):
+        # probe_tangent_derivatives with a tangent stack K (a batch of tangents sharing one base):
+        # full W + K + C, base-inner, matching the dense oracle on each (W,K,C) element.
+        STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        shapes = STRUCT[0]
+        d = len(shapes)
+        for W, K, C in [((), (3,), ()), ((2,), (3,), ()), ((2,), (3,), (2,)), ((2, 2), (2,), (2,))]:
+            for ORDER in [0, 1, 3]:
+                with self.subTest(W=W, K=K, C=C, ORDER=ORDER):
+                    x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
+                    base, _ = bvf.t3_orthogonal_representations(x)
+                    v = t3m.T3Tangent.randn(base, stack_shape=K, apply_gauge_projection=False)
+                    Vd = v.to_dense()                              # K + C + (N...)
+                    ww = [np.random.randn(*(W + (N,))) for N in shapes]
+                    pp = [np.random.randn(*(W + (N,))) for N in shapes]
+                    z_jets = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.basis.data, ORDER)
+                    for i in range(d):
+                        self.assertEqual(np.asarray(z_jets[i]).shape, (ORDER + 1,) + W + K + C + (shapes[i],))
+                    for w_idx in itertools.product(*[range(n) for n in W]):
+                        ww_s = [a[w_idx] for a in ww]
+                        pp_s = [a[w_idx] for a in pp]
+                        for k_idx in itertools.product(*[range(n) for n in K]):
+                            for c_idx in itertools.product(*[range(n) for n in C]):
+                                z_dense = pd.probe_derivatives_dense(ww_s, pp_s, Vd[k_idx + c_idx], ORDER)
+                                sel = (slice(None),) + w_idx + k_idx + c_idx
+                                for i in range(d):
+                                    for k in range(ORDER + 1):
+                                        self.check_relerr(z_dense[i][k], np.asarray(z_jets[i])[sel][k])
+
+    def test_apply_derivatives_match_dense(self):
+        # apply derivatives (all modes contracted): Euclidean (plain T3, W+C) and Riemannian (tangent,
+        # W+K+C) vs the all-modes dense subset-expansion oracle.
+        STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        shapes = STRUCT[0]
+        for W, K, C in [((), (), ()), ((2,), (), ()), ((2,), (3,), ()), ((2,), (3,), (2,))]:
+            for ORDER in [0, 1, 3, 4]:
+                with self.subTest(W=W, K=K, C=C, ORDER=ORDER):
+                    x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
+                    ww = [np.random.randn(*(W + (N,))) for N in shapes]
+                    pp = [np.random.randn(*(W + (N,))) for N in shapes]
+
+                    if not K:                                      # Euclidean plain-T3 apply
+                        T = x.to_dense()
+                        y = pd.apply_derivatives_t3(ww, pp, x.data, ORDER)
+                        self.assertEqual(y.shape, (ORDER + 1,) + W + C)
+                        self._all_modes_check(
+                            y, lambda w, k, c: pd.apply_derivatives_dense([a[w] for a in ww], [a[w] for a in pp], T[c], ORDER),
+                            W, K, C, ORDER)
+
+                    base, _ = bvf.t3_orthogonal_representations(x)  # Riemannian tangent apply
+                    v = t3m.T3Tangent.randn(base, stack_shape=K, apply_gauge_projection=False)
+                    Vd = v.to_dense()
+                    yv = pd.apply_tangent_derivatives(ww, pp, v.variations.data, v.basis.data, ORDER)
+                    self.assertEqual(yv.shape, (ORDER + 1,) + W + K + C)
+                    self._all_modes_check(
+                        yv, lambda w, k, c: pd.apply_derivatives_dense([a[w] for a in ww], [a[w] for a in pp], Vd[k + c], ORDER),
+                        W, K, C, ORDER)
+                    self.check_relerr(t3p.apply_tangent(ww, v.variations.data, v.basis.data), yv[0])
+
+    def test_entries_derivatives_match_dense(self):
+        # entries derivatives (all modes, one-hot base + general P): Euclidean and Riemannian vs oracle.
+        STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        shapes = STRUCT[0]
+        d = len(shapes)
+        for W, K, C in [((), (), ()), ((2,), (), ()), ((2,), (3,), ()), ((2,), (3,), (2,))]:
+            for ORDER in [0, 1, 3]:
+                with self.subTest(W=W, K=K, C=C, ORDER=ORDER):
+                    x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
+                    index = np.stack([np.random.randint(0, N, size=W) for N in shapes], axis=0)  # (d,)+W
+                    pp = [np.random.randn(*(W + (N,))) for N in shapes]
+                    idx_s = lambda w: [int(index[(j,) + w]) for j in range(d)]
+
+                    if not K:                                      # Euclidean
+                        T = x.to_dense()
+                        y = pd.entries_derivatives_t3(index, pp, x.data, ORDER)
+                        self.assertEqual(y.shape, (ORDER + 1,) + W + C)
+                        self._all_modes_check(
+                            y, lambda w, k, c: pd.entries_derivatives_dense(idx_s(w), [a[w] for a in pp], T[c], ORDER),
+                            W, K, C, ORDER)
+
+                    base, _ = bvf.t3_orthogonal_representations(x)  # Riemannian
+                    v = t3m.T3Tangent.randn(base, stack_shape=K, apply_gauge_projection=False)
+                    Vd = v.to_dense()
+                    yv = pd.entries_tangent_derivatives(index, pp, v.variations.data, v.basis.data, ORDER)
+                    self.assertEqual(yv.shape, (ORDER + 1,) + W + K + C)
+                    self._all_modes_check(
+                        yv, lambda w, k, c: pd.entries_derivatives_dense(idx_s(w), [a[w] for a in pp], Vd[k + c], ORDER),
+                        W, K, C, ORDER)
+                    self.check_relerr(t3p.entries_tangent(index, v.variations.data, v.basis.data), yv[0])
+
     def test_high_order_vanishes(self):
         # y_i depends on d-1 vectors, so symmetric derivatives above order d-1 are exactly zero.
         STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))

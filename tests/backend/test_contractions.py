@@ -614,4 +614,81 @@ class TestContractions(unittest.TestCase):
             [('WC', 'i'), ('WKC', 'a'), ('WC', 'j')], ('KC', 'iaj'), needs_n_probe=True,
         )
 
+    # ---- order-threaded three-group contractions (K-stacked derivative probing) ----
+
+    def _check_jet3(self, func, op_specs, out_spec, trs=True, needs_n_base=False):
+        """Check an order-threaded 3-group (W,K,C) contraction against an explicit np.einsum reference.
+
+        op_specs/out_spec are (order_letters, groups, singles), where order_letters is a subset of
+        ``rst`` (each a single derivative-order axis, size ORD). With trs=True a binomial tensor
+        ``trs[t,r,s]`` is prepended as the first operand (subscript ``trs``); the swept-jet order axes
+        ``r``/``s`` are convolved to the output order ``t``. With trs=False the order axis rides as a
+        passive broadcast (the lift contractions). needs_n_base passes len(C) (variation-core terms).
+        """
+        from t3toolbox.backend.probe_derivatives import binomial_combine_tensor
+        ORD = 3                                       # order axis length (order=2); exercises the convolution
+        OSIZE = {'t': ORD, 'r': ORD, 's': ORD}
+        for RANDN in [numpy_randn, jax_randn]:
+            for W, K, C in THREE_GROUP_COMBOS:
+                with self.subTest(RANDN=RANDN, W=W, K=K, C=C):
+                    stacks = {'W': W, 'K': K, 'C': C}
+                    glet = {grp: GROUP_POOL[grp][:len(stacks[grp])] for grp in 'WKC'}
+
+                    def sub(ords, groups, singles):
+                        return ords + ''.join(glet[grp] for grp in groups) + singles
+
+                    def shp(ords, groups, singles):
+                        s = tuple(OSIZE[o] for o in ords)
+                        for grp in groups:
+                            s = s + tuple(stacks[grp])
+                        return s + tuple(SINGLE_SIZE[c] for c in singles)
+
+                    operands = [RANDN(*shp(*spec)) for spec in op_specs]
+                    in_subs = [sub(*spec) for spec in op_specs]
+                    args = list(operands)
+                    if trs:
+                        trs_t = binomial_combine_tensor(ORD - 1)
+                        operands = [trs_t] + operands
+                        in_subs = ['trs'] + in_subs
+                        args = [trs_t] + args
+                    ref = np.einsum(','.join(in_subs) + '->' + sub(*out_spec), *operands)
+                    result = np.asarray(func(*args, len(C)) if needs_n_base else func(*args))
+                    self.assertEqual(ref.shape, result.shape)
+                    self.check_relerr(ref, result)
+
+    def test_trs_rWKCa_Caib_sWCi_to_tWKCb(self):
+        self._check_jet3(contractions.trs_rWKCa_Caib_sWCi_to_tWKCb,
+                         [('r', 'WKC', 'a'), ('', 'C', 'aib'), ('s', 'WC', 'i')], ('t', 'WKC', 'b'))
+
+    def test_trs_rWCa_Caib_sWKCi_to_tWKCb(self):
+        self._check_jet3(contractions.trs_rWCa_Caib_sWKCi_to_tWKCb,
+                         [('r', 'WC', 'a'), ('', 'C', 'aib'), ('s', 'WKC', 'i')], ('t', 'WKC', 'b'))
+
+    def test_trs_rWCa_KCaib_sWCi_to_tWKCb(self):
+        self._check_jet3(contractions.trs_rWCa_KCaib_sWCi_to_tWKCb,
+                         [('r', 'WC', 'a'), ('', 'KC', 'aib'), ('s', 'WC', 'i')], ('t', 'WKC', 'b'),
+                         needs_n_base=True)
+
+    def test_trs_rWKCa_Caib_sWCb_to_tWKCi(self):
+        self._check_jet3(contractions.trs_rWKCa_Caib_sWCb_to_tWKCi,
+                         [('r', 'WKC', 'a'), ('', 'C', 'aib'), ('s', 'WC', 'b')], ('t', 'WKC', 'i'))
+
+    def test_trs_rWCa_Caib_sWKCb_to_tWKCi(self):
+        self._check_jet3(contractions.trs_rWCa_Caib_sWKCb_to_tWKCi,
+                         [('r', 'WC', 'a'), ('', 'C', 'aib'), ('s', 'WKC', 'b')], ('t', 'WKC', 'i'))
+
+    def test_trs_rWCa_KCaib_sWCb_to_tWKCi(self):
+        self._check_jet3(contractions.trs_rWCa_KCaib_sWCb_to_tWKCi,
+                         [('r', 'WC', 'a'), ('', 'KC', 'aib'), ('s', 'WC', 'b')], ('t', 'WKC', 'i'),
+                         needs_n_base=True)
+
+    def test_tWKCi_Cio_to_tWKCo(self):
+        self._check_jet3(contractions.tWKCi_Cio_to_tWKCo,
+                         [('t', 'WKC', 'i'), ('', 'C', 'io')], ('t', 'WKC', 'o'), trs=False)
+
+    def test_tWCi_KCio_to_tWKCo(self):
+        self._check_jet3(contractions.tWCi_KCio_to_tWKCo,
+                         [('t', 'WC', 'i'), ('', 'KC', 'io')], ('t', 'WKC', 'o'), trs=False,
+                         needs_n_base=True)
+
 
