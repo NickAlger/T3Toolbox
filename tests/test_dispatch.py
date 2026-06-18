@@ -235,6 +235,12 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(
             lambda var, b, w, p: pd.probe_tangent_derivatives(w, p, var, b, 3),
             self.v_vstack.variations.data, self.base.data, list(self.ww), list(self.zz))
+        # K-stacked transpose (the order-threaded 3-block ADJOINT contractions): residual (order+1)+W+K+C
+        rtK = tuple(jnp.asarray(np.random.randn(4, 2, 3, N)) for N in STRUCT[0])  # order+1=4, W=(2,), K=(3,)
+        for sop in (True, False):
+            self.assert_jit_jax(
+                lambda rr, w, p, b: pd.probe_tangent_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=sop),
+                rtK, list(self.ww), list(self.zz), self.base.data)
         # apply derivatives: Euclidean (W+C), Riemannian single, Riemannian K-stacked
         self.assert_jit_jax(
             lambda cc, w, p: pd.apply_derivatives_t3(w, p, cc, 3),

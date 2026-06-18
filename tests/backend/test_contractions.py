@@ -616,18 +616,20 @@ class TestContractions(unittest.TestCase):
 
     # ---- order-threaded three-group contractions (K-stacked derivative probing) ----
 
-    def _check_jet3(self, func, op_specs, out_spec, trs=True, needs_n_base=False):
+    def _check_jet3(self, func, op_specs, out_spec, trs_sub='trs', needs_n_base=False, needs_n_probe=False):
         """Check an order-threaded 3-group (W,K,C) contraction against an explicit np.einsum reference.
 
         op_specs/out_spec are (order_letters, groups, singles), where order_letters is a subset of
-        ``rst`` (each a single derivative-order axis, size ORD). With trs=True a binomial tensor
-        ``trs[t,r,s]`` is prepended as the first operand (subscript ``trs``); the swept-jet order axes
-        ``r``/``s`` are convolved to the output order ``t``. With trs=False the order axis rides as a
-        passive broadcast (the lift contractions). needs_n_base passes len(C) (variation-core terms).
+        ``trsu`` (each a single derivative-order axis, size ORD). ``trs_sub`` is the binomial tensor's
+        subscript (e.g. ``'trs'`` forward, ``'tus'`` / ``'tru'`` for the adjoint hooks) prepended as the
+        first operand; pass ``''`` for the no-trs lift/order-diagonal contractions (the order axis rides
+        passively or is a plain order-diagonal sum). An ``out_spec`` whose order_letters is empty sums
+        the order axis (the order-less gradient assembly). needs_n_base passes len(C) (variation-core
+        terms); needs_n_probe passes len(W) (assembly terms with no pure W/C operand).
         """
         from t3toolbox.backend.probe_derivatives import binomial_combine_tensor
         ORD = 3                                       # order axis length (order=2); exercises the convolution
-        OSIZE = {'t': ORD, 'r': ORD, 's': ORD}
+        OSIZE = {'t': ORD, 'r': ORD, 's': ORD, 'u': ORD}
         for RANDN in [numpy_randn, jax_randn]:
             for W, K, C in THREE_GROUP_COMBOS:
                 with self.subTest(RANDN=RANDN, W=W, K=K, C=C):
@@ -646,13 +648,14 @@ class TestContractions(unittest.TestCase):
                     operands = [RANDN(*shp(*spec)) for spec in op_specs]
                     in_subs = [sub(*spec) for spec in op_specs]
                     args = list(operands)
-                    if trs:
+                    if trs_sub:
                         trs_t = binomial_combine_tensor(ORD - 1)
                         operands = [trs_t] + operands
-                        in_subs = ['trs'] + in_subs
+                        in_subs = [trs_sub] + in_subs
                         args = [trs_t] + args
                     ref = np.einsum(','.join(in_subs) + '->' + sub(*out_spec), *operands)
-                    result = np.asarray(func(*args, len(C)) if needs_n_base else func(*args))
+                    extra = (len(C),) if needs_n_base else (len(W),) if needs_n_probe else ()
+                    result = np.asarray(func(*args, *extra))
                     self.assertEqual(ref.shape, result.shape)
                     self.check_relerr(ref, result)
 
@@ -684,11 +687,87 @@ class TestContractions(unittest.TestCase):
 
     def test_tWKCi_Cio_to_tWKCo(self):
         self._check_jet3(contractions.tWKCi_Cio_to_tWKCo,
-                         [('t', 'WKC', 'i'), ('', 'C', 'io')], ('t', 'WKC', 'o'), trs=False)
+                         [('t', 'WKC', 'i'), ('', 'C', 'io')], ('t', 'WKC', 'o'), trs_sub="")
 
     def test_tWCi_KCio_to_tWKCo(self):
         self._check_jet3(contractions.tWCi_KCio_to_tWKCo,
-                         [('t', 'WC', 'i'), ('', 'KC', 'io')], ('t', 'WKC', 'o'), trs=False,
+                         [('t', 'WC', 'i'), ('', 'KC', 'io')], ('t', 'WKC', 'o'), trs_sub="",
                          needs_n_base=True)
+
+    # ---- order-threaded 3-group ADJOINT contractions (K-stacked derivative-probe transpose) ----
+
+    def test_trs_tWKCa_Caib_uWCi_to_sWKCb(self):
+        self._check_jet3(contractions.trs_tWKCa_Caib_uWCi_to_sWKCb,
+                         [('t', 'WKC', 'a'), ('', 'C', 'aib'), ('u', 'WC', 'i')], ('s', 'WKC', 'b'),
+                         trs_sub='tus')
+
+    def test_trs_rWCa_Caib_tWKCi_to_sWKCb(self):
+        self._check_jet3(contractions.trs_rWCa_Caib_tWKCi_to_sWKCb,
+                         [('r', 'WC', 'a'), ('', 'C', 'aib'), ('t', 'WKC', 'i')], ('s', 'WKC', 'b'),
+                         trs_sub='trs')
+
+    def test_trs_tWKCa_Caib_sWCb_to_uWKCi(self):
+        self._check_jet3(contractions.trs_tWKCa_Caib_sWCb_to_uWKCi,
+                         [('t', 'WKC', 'a'), ('', 'C', 'aib'), ('s', 'WC', 'b')], ('u', 'WKC', 'i'),
+                         trs_sub='tus')
+
+    def test_trs_rWCa_Caib_tWKCb_to_uWKCi(self):
+        self._check_jet3(contractions.trs_rWCa_Caib_tWKCb_to_uWKCi,
+                         [('r', 'WC', 'a'), ('', 'C', 'aib'), ('t', 'WKC', 'b')], ('u', 'WKC', 'i'),
+                         trs_sub='tru')
+
+    def test_tWKCo_Cio_to_tWKCi(self):
+        self._check_jet3(contractions.tWKCo_Cio_to_tWKCi,
+                         [('t', 'WKC', 'o'), ('', 'C', 'io')], ('t', 'WKC', 'i'), trs_sub="")
+
+    # dG gradient assembly (order summed -> out has no order letter)
+    def test_trs_rWCa_uWCi_tWKCb_to_WKCaib(self):
+        self._check_jet3(contractions.trs_rWCa_uWCi_tWKCb_to_WKCaib,
+                         [('r', 'WC', 'a'), ('u', 'WC', 'i'), ('t', 'WKC', 'b')], ('', 'WKC', 'aib'),
+                         trs_sub='tru', needs_n_probe=True)
+
+    def test_trs_rWCa_uWCi_tWKCb_to_KCaib(self):
+        self._check_jet3(contractions.trs_rWCa_uWCi_tWKCb_to_KCaib,
+                         [('r', 'WC', 'a'), ('u', 'WC', 'i'), ('t', 'WKC', 'b')], ('', 'KC', 'aib'),
+                         trs_sub='tru', needs_n_probe=True)
+
+    def test_trs_tWKCa_uWCi_sWCb_to_WKCaib(self):
+        self._check_jet3(contractions.trs_tWKCa_uWCi_sWCb_to_WKCaib,
+                         [('t', 'WKC', 'a'), ('u', 'WC', 'i'), ('s', 'WC', 'b')], ('', 'WKC', 'aib'),
+                         trs_sub='tus', needs_n_probe=True)
+
+    def test_trs_tWKCa_uWCi_sWCb_to_KCaib(self):
+        self._check_jet3(contractions.trs_tWKCa_uWCi_sWCb_to_KCaib,
+                         [('t', 'WKC', 'a'), ('u', 'WC', 'i'), ('s', 'WC', 'b')], ('', 'KC', 'aib'),
+                         trs_sub='tus', needs_n_probe=True)
+
+    def test_trs_rWCa_tWKCi_sWCb_to_WKCaib(self):
+        self._check_jet3(contractions.trs_rWCa_tWKCi_sWCb_to_WKCaib,
+                         [('r', 'WC', 'a'), ('t', 'WKC', 'i'), ('s', 'WC', 'b')], ('', 'WKC', 'aib'),
+                         trs_sub='trs', needs_n_probe=True)
+
+    def test_trs_rWCa_tWKCi_sWCb_to_KCaib(self):
+        self._check_jet3(contractions.trs_rWCa_tWKCi_sWCb_to_KCaib,
+                         [('r', 'WC', 'a'), ('t', 'WKC', 'i'), ('s', 'WC', 'b')], ('', 'KC', 'aib'),
+                         trs_sub='trs', needs_n_probe=True)
+
+    # dU gradient assembly (order-diagonal sum -> no trs operand)
+    def test_tWCa_tWKCo_to_WKCao(self):
+        self._check_jet3(contractions.tWCa_tWKCo_to_WKCao,
+                         [('t', 'WC', 'a'), ('t', 'WKC', 'o')], ('', 'WKC', 'ao'),
+                         trs_sub="", needs_n_probe=True)
+
+    def test_tWCa_tWKCo_to_KCao(self):
+        self._check_jet3(contractions.tWCa_tWKCo_to_KCao,
+                         [('t', 'WC', 'a'), ('t', 'WKC', 'o')], ('', 'KC', 'ao'),
+                         trs_sub="", needs_n_probe=True)
+
+    def test_uWKCa_uWo_to_WKCao(self):
+        self._check_jet3(contractions.uWKCa_uWo_to_WKCao,
+                         [('u', 'WKC', 'a'), ('u', 'W', 'o')], ('', 'WKC', 'ao'), trs_sub="")
+
+    def test_uWKCa_uWo_to_KCao(self):
+        self._check_jet3(contractions.uWKCa_uWo_to_KCao,
+                         [('u', 'WKC', 'a'), ('u', 'W', 'o')], ('', 'KC', 'ao'), trs_sub="")
 
 

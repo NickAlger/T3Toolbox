@@ -142,7 +142,9 @@ order-1 from `U_i p_i`; `dU_tilde` scatter lands on the indexed rows.
 - [x] Slice 1: `entries_derivatives_t3` + `entries_tangent_derivatives` (fiber-slice base via `probing._entry_xis` + general `P`) + `entries_derivatives_dense` — dense oracle + order-0 == `entries_tangent`.
 - [x] Slice 1: tests folded into `tests/test_probe_derivatives.py` (`K`-stacked forward, apply, entries; 11 tests) + `backend/test_contractions.py` + `tests/test_dispatch.py` (jit: K-stacked fwd, apply/entries, new 3-block contractions). **Full suite green (242).**
 - [x] Slice 1: `S→W` prose fix (module header + docstrings) + module header rewritten for `W/K/C/order`. **Deferred to Slice 2 pass:** adding explicit `K` to the per-arg variation-jet shape comments (`W+C`→`W+K+C`) in `compute_{sigma,tau,deta}_jets`/`assemble_tangent_z_jets` (header already states it; done when the transpose retrofit touches every function).
-- [ ] Slice 2: tangent transposes with `K` (probe retrofit + apply/entries adjoint-state) + tests
+- [x] Slice 2a: **probe transpose `K`-retrofit.** 15 order-threaded 3-block ADJOINT contractions (5 sweeps + lift wrapper, 10 gradient-assembly outer products via `_assemble_dG_jet3`/`_assemble_dU_eta`/`_assemble_dU_dxi`); `probe_tangent_derivatives_transpose` now full `W+K+C` (contraction swaps + the `uWKCa_uWo` self-pin dropping `n_probe`). Verified: adjoint identity + `sum_over_probes` consistency + `jax.linear_transpose` (~1e-16, all `W/K/C/order`). Tests in `backend/test_contractions.py` (`_check_jet3` generalized for `trs_sub`/`n_probe`; 15 methods), `test_probe_derivatives.py` (K-transpose adjoint identity), `test_dispatch.py` (jit). **Full suite green (258).**
+- [ ] Slice 2b: apply/entries adjoint-state tangent transposes (the seeded `sigma_hat` sweep) + tests
+- [ ] Slice 2: per-arg variation-jet `K` shape-comments in the forward sweeps (carried over from Slice 1)
 - [ ] Slice 3: corewise wrappers + frontend hookup (all ops) + doctests
 - [ ] Slice 4: ambient transposes (backend + frontend)
 - [ ] Doc refresh (entries_apply_probe.md, .tex, handoff/CLAUDE.md)

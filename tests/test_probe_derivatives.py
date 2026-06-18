@@ -233,6 +233,41 @@ class TestProbeDerivatives(unittest.TestCase):
                                     for k in range(ORDER + 1):
                                         self.check_relerr(z_dense[i][k], np.asarray(z_jets[i])[sel][k])
 
+    def test_tangent_transpose_K_stacked(self):
+        # K-stacked transpose: the adjoint identity <r, J v> = <J^T r, v> with a tangent stack K, plus
+        # the sum_over_probes False/True consistency (summing the W axes of False recovers True).
+        STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        shapes = STRUCT[0]
+        d = len(shapes)
+        for W, K, C in [((2,), (3,), ()), ((), (3,), ()), ((2,), (3,), (2,)), ((2, 2), (2,), (2,))]:
+            for ORDER in [0, 1, 3]:
+                with self.subTest(W=W, K=K, C=C, ORDER=ORDER):
+                    x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
+                    base, _ = bvf.t3_orthogonal_representations(x)
+                    v = t3m.T3Tangent.randn(base, stack_shape=K, apply_gauge_projection=False)
+                    dU_v, dG_v = v.variations.data
+                    ww = [np.random.randn(*(W + (N,))) for N in shapes]
+                    pp = [np.random.randn(*(W + (N,))) for N in shapes]
+
+                    Jv = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.basis.data, ORDER)
+                    r = [np.random.randn(*np.asarray(z).shape) for z in Jv]
+
+                    dU, dG = pd.probe_tangent_derivatives_transpose(
+                        r, ww, pp, v.basis.data, ORDER, sum_over_probes=True)
+                    lhs = sum(np.sum(r[i] * np.asarray(Jv[i])) for i in range(d))
+                    rhs = (sum(np.sum(np.asarray(dU[i]) * dU_v[i]) for i in range(d))
+                           + sum(np.sum(np.asarray(dG[i]) * dG_v[i]) for i in range(d)))
+                    self.assertLessEqual(abs(lhs - rhs) / abs(lhs), tol)
+
+                    if W:                                  # summing the kept-W result recovers the summed one
+                        dU0, dG0 = pd.probe_tangent_derivatives_transpose(
+                            r, ww, pp, v.basis.data, ORDER, sum_over_probes=False)
+                        ax = tuple(range(len(W)))
+                        for a, b in zip(dU0, dU):
+                            self.check_relerr(np.asarray(b), np.sum(np.asarray(a), axis=ax))
+                        for a, b in zip(dG0, dG):
+                            self.check_relerr(np.asarray(b), np.sum(np.asarray(a), axis=ax))
+
     def test_apply_derivatives_match_dense(self):
         # apply derivatives (all modes contracted): Euclidean (plain T3, W+C) and Riemannian (tangent,
         # W+K+C) vs the all-modes dense subset-expansion oracle.

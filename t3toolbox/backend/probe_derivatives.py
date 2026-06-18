@@ -712,16 +712,17 @@ def entries_tangent_derivatives(
 
 def compute_deta_tilde_jets(
         up_tucker_cores:    typ.Sequence[NDArray],  # U.  len=d, elm_shape=C+(nUi,Ni)
-        ztildes:            typ.Sequence[NDArray],  # residual jets, len=d, elm_shape=(order+1,)+W+C+(Ni,)
-) -> typ.Tuple[NDArray, ...]:                       # deta_tildes. len=d, elm_shape=(order+1,)+W+C+(nUi,)
+        ztildes:            typ.Sequence[NDArray],  # residual jets, len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
+) -> typ.Tuple[NDArray, ...]:                       # deta_tildes. len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
     '''Adjoint-up edge-variable jets: ``deta_tilde_i = U_i r_i`` (contract the ambient mode, order
-    diagonal). The 1-internal-edge (Tucker) case -- the order axis just rides through (no trs).'''
+    diagonal). The 1-internal-edge (Tucker) case -- the order axis just rides through (no trs). The
+    residual carries the tangent stack K (the forward output's K), which rides through.'''
     use_jax = tree_contains_jax((up_tucker_cores, ztildes))
     xnp, xmap, _ = get_backend(False, use_jax)
 
     def _func(data):
         U, zt = data
-        return (contractions.tWCo_Cio_to_tWCi(zt, U),)
+        return (contractions.tWKCo_Cio_to_tWKCi(zt, U),)
 
     (deta_tildes,) = xmap(_func, (up_tucker_cores, ztildes))
     return deta_tildes
@@ -738,10 +739,13 @@ def _adj_sweep(P_cores, xi_jets, deta_tildes, edge_jets, trs):
 
     def _step(carry, data):
         P, xi, deta_t, edge = data
-        prop = contractions.trs_tWCa_Caib_uWCi_to_sWCb(trs_xi, carry, P, xi[:s_size])  # propagation
-        src  = contractions.trs_rWCa_Caib_tWCi_to_sWCb(trs,    edge,  P, deta_t)       # deta_tilde source
+        # Three-group (W,K,C): the swept adjoint (carry) and deta_tilde carry K; xi/edge (base) and P
+        # (base core) do not. Both terms self-infer the split (xi pins W, P pins C, K=remainder).
+        prop = contractions.trs_tWKCa_Caib_uWCi_to_sWKCb(trs_xi, carry, P, xi[:s_size])  # propagation
+        src  = contractions.trs_rWCa_Caib_tWKCi_to_sWKCb(trs,    edge,  P, deta_t)       # deta_tilde source
         return prop + src, (carry,)
 
+    # carry is W+K+C; its leading stack comes from deta_tildes (which carry K), so the init carries K
     rL0 = P_cores[0].shape[-3]
     init = xnp.zeros((trs.shape[0],) + deta_tildes[0].shape[1:-1] + (rL0,))
     _, (tildes,) = xscan(_step, init, (P_cores, xi_jets, deta_tildes, edge_jets))
@@ -787,8 +791,10 @@ def compute_dxi_tilde_jets(
 
     def _func(data):
         O, mu, nu, st, tt = data
-        from_tau = contractions.trs_tWCa_Caib_sWCb_to_uWCi(trs, tt, O, nu)
-        from_sig = contractions.trs_rWCa_Caib_tWCb_to_uWCi(trs, mu, O, st)
+        # Three-group (W,K,C): tau_tilde (tt) / sigma_tilde (st) carry K, mu/nu (base) and O (base core)
+        # do not. Both self-infer (mu/nu pin W, O pins C, K=remainder).
+        from_tau = contractions.trs_tWKCa_Caib_sWCb_to_uWKCi(trs, tt, O, nu)
+        from_sig = contractions.trs_rWCa_Caib_tWKCb_to_uWKCi(trs, mu, O, st)
         return (from_tau + from_sig,)
 
     (dxi_tildes,) = xmap(_func, (down_tt_cores, mu_jets, nu_jets, sigma_tildes, tau_tildes))
@@ -814,13 +820,15 @@ def assemble_tucker_variation_jets(
     use_jax = tree_contains_jax((ztildes, dxi_tildes, ww, pp, etas))
     xnp, xmap, _ = get_backend(False, use_jax)
     w_jets = _w_jets(ww, pp, xnp)
-    s_size = min(2, etas[0].shape[0])          # the w/dxi input jet carries orders {0, 1}, capped at K
-    eta_r = contractions.tWCa_tWCo_to_Cao if sum_over_probes else contractions.tWCa_tWCo_to_WCao
-    dxi_w = contractions.uWCa_uWo_to_Cao  if sum_over_probes else contractions.uWCa_uWo_to_WCao
+    s_size = min(2, etas[0].shape[0])          # the w/dxi input jet carries orders {0, 1}, capped at order
+    # Three-group (W,K,C): the residual-derived operands (ztilde, dxi_tilde) carry K, eta is base; the
+    # eta (x) r term takes n_probe (C from eta), the dxi (x) w_jet term self-pins W from the W-only w_jet.
+    eta_r = contractions.tWCa_tWKCo_to_KCao if sum_over_probes else contractions.tWCa_tWKCo_to_WKCao
+    dxi_w = contractions.uWKCa_uWo_to_KCao  if sum_over_probes else contractions.uWKCa_uWo_to_WKCao
 
     def _func(data):
         zt, dxt, eta, wj = data
-        return (eta_r(eta, zt, n_probe) + dxi_w(dxt[:s_size], wj[:s_size], n_probe),)
+        return (eta_r(eta, zt, n_probe) + dxi_w(dxt[:s_size], wj[:s_size]),)
 
     (dU_tildes,) = xmap(_func, (ztildes, dxi_tildes, etas, w_jets))
     return dU_tildes
@@ -843,14 +851,17 @@ def assemble_tt_variation_jets(
     use_jax = tree_contains_jax((sigma_tildes, tau_tildes, deta_tildes, xi_jets, mu_jets, nu_jets, trs))
     xnp, xmap, _ = get_backend(False, use_jax)
     s_size = min(2, trs.shape[0])
+    # Three-group (W,K,C): the residual-derived adjoint vars carry K on the assembled core's leg --
+    # sigma_tilde on b (f_sig), tau_tilde on a (f_tau), deta_tilde on i (f_det); the base xi/mu/nu do
+    # not. K kept always; W summed (sum_over_probes -> KCaib) or kept (WKCaib). n_probe = len(W).
     if sum_over_probes:
-        f_sig, f_tau, f_det = (contractions.trs_rWCa_uWCi_tWCb_to_Caib,
-                               contractions.trs_tWCa_uWCi_sWCb_to_Caib,
-                               contractions.trs_rWCa_tWCi_sWCb_to_Caib)
+        f_sig, f_tau, f_det = (contractions.trs_rWCa_uWCi_tWKCb_to_KCaib,
+                               contractions.trs_tWKCa_uWCi_sWCb_to_KCaib,
+                               contractions.trs_rWCa_tWKCi_sWCb_to_KCaib)
     else:
-        f_sig, f_tau, f_det = (contractions.trs_rWCa_uWCi_tWCb_to_WCaib,
-                               contractions.trs_tWCa_uWCi_sWCb_to_WCaib,
-                               contractions.trs_rWCa_tWCi_sWCb_to_WCaib)
+        f_sig, f_tau, f_det = (contractions.trs_rWCa_uWCi_tWKCb_to_WKCaib,
+                               contractions.trs_tWKCa_uWCi_sWCb_to_WKCaib,
+                               contractions.trs_rWCa_tWKCi_sWCb_to_WKCaib)
 
     def _func(data):
         xi, mu, nu, st, tt, dt = data
