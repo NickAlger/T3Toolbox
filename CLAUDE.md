@@ -309,12 +309,33 @@ Treat everything else as copied-in-and-not-yet-working until checked.
   through **slice 8** (foundation, orthogonalization, linalg, sampling, ut3svd, jax-wiring/host-masks,
   constructors+IO) and **jit-wired** (pytree registered; host-numpy masks; `tests/test_dispatch.py`
   `test_jit_uniform`). Live status + remaining slices: `docs/uniform_slice_handoff.md`.
+- **Solid / tested — symmetric probing derivatives (branch `probe-derivatives`, NOT yet merged to
+  `main`).** `d^k/ds^k` of probing (and tangent-vector probing) in one repeated direction `P`, via a
+  Taylor-jet axis + the binomial tensor `trs[t,r,s]=C(t,r)[r+s=t]`. `backend/probe_derivatives.py`:
+  Euclidean forward (`probe_derivatives_t3`), Riemannian forward + transpose
+  (`probe_tangent_derivatives{,_transpose}`), fully stacked (order `t` outermost, sample stack `S`,
+  base stack `C`, base-inner). The transpose is the **jet-ified adjoint-state Lagrangian** (replace
+  each contraction by its `trs` version; stationarity → adjoint-hooked-`trs` sweeps + order-less
+  assembly whose tensor arity = the core's internal-edge count). Verified vs the dense subset-expansion
+  oracle, `jax.linear_transpose`, and the adjoint identity (~1e-16). Math note (full derivation):
+  `docs/symmetric_probe_derivatives.tex`; **handoff + roadmap: `docs/probe_derivatives_handoff.md`**.
+  Tests `tests/test_probe_derivatives.py` (+ `test_dispatch`). Naming distinguishes the jet-ified funcs
+  from probing.py's: forward `*_jets`, transpose adjoints `*_tilde_jets`, gradient `*_variation_jets`.
 - **Deferred / broken**: the uniform **tangent** layer (`ubv_*`, `uniform_*` — uniform basis/variations/
   tangents; every `is_uniform` branch in the tangent code was dropped/stubbed). The weighted layer
   (parked `absorb_weights`). `OLD_*.py` files are still tracked.
 
 ## Open questions / TODO
 
+- **Symmetric probing derivatives — next steps (branch `probe-derivatives`; full roadmap in
+  `docs/probe_derivatives_handoff.md`).** (1) **jet-ified `apply`/`entries`** — the all-modes special
+  cases (probing leaves one mode free; these contract every mode); reuse almost everything, mimic
+  probing.py's `apply_tangent`/`entries_tangent` (a thin layer over the jet sweeps — no central
+  `nu`/`eta`, one terminal contraction). (2) **frontend hookup** — methods on `TuckerTensorTrain` /
+  `T3Tangent`. (3) **fitting example** — fit a T3 to a Hilbert tensor from its probe/apply derivatives,
+  mimicking `examples/fit_hilbert_tensor_newton_cg.py`. (4) **merge to `main`**. Deferred (`.tex` §8):
+  tangent stack `K` (forward+transpose), the Euclidean corewise/ambient transpose, the project-once
+  gather optimization.
 - **The transpose grid — DONE & REDESIGNED (ragged).** Each sampling op (`entries`/`apply`/`probe`)
   now has **three** transposes — **ambient / corewise / tangent** — read **[`docs/transposes.md`](docs/transposes.md)**
   (taxonomy, costs, decision guide) and the work log [`docs/transpose_redesign_handoff.md`](docs/transpose_redesign_handoff.md).
