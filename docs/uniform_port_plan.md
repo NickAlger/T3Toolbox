@@ -205,12 +205,18 @@ TRIVIAL = inline one-liner; SWEEP = sequential over `d` (`xscan`/`lax.scan`); BA
   stay numpy (host structure; jit-required, see `uniform_pytree_composition.md`). `copy` trivial.
   `repr` = structure summary. Repair `reverse`/`squash_tails`/`apply_masks`.
 
-## jax-wiring ✅
+## jax-wiring (in progress — pytree registered; mask `np` refactor + guard + tests pending)
 
 - Register pytree: children `=(tucker_supercore, tt_supercore)`, aux `=` the `eq=False` `UT3Masks` holder
-  (identity hash/eq → contents never hashed → solves aux-hashability; the `T3Basis`↔`T3Tangent` pattern).
-- Coverage à la `test_dispatch`: jit each uniform op (stray `np.*` on a tracer raises → no hidden numpy);
-  jax-in → jax-out check.
+  (identity hash/eq → contents never hashed → solves aux-hashability; the `T3Basis`↔`T3Tangent` pattern). **Done.**
+- **Masks are host numpy, computed with `np`** (jit-required): the `xnp → np` mask refactor (builders,
+  rank recurrences, `+`/`×`, `int(mask.sum())` extraction; `to_jax`/`make_uniform_masks` keep/emit numpy).
+- **Tracer guard** (a traced mask → clear structural error leading with the close-over fix) + the
+  **`HOST bool, static`** signature-comment contract on mask args (`docs/signature_style.md`).
+- Coverage à la `test_dispatch`: jit each uniform op (a stray `np.*` on a *traced supercore* raises → no
+  hidden numpy; mask `np.*` is on concrete host arrays, so it's fine and intentional); jax-in → jax-out.
+  Plus a **right/wrong functional doctest** (close-over works; masks-as-traced-args trips the guard) so
+  the no-frontend user is covered. Detailed ordered build plan: `docs/uniform_slice_handoff.md` slice 7.
 
 ---
 

@@ -111,6 +111,32 @@ real hot path, cache a device copy of the masks (`jax.device_put` once, reuse th
 eager ops don't re-transfer. Local optimization, not a design change, and explicitly deferred — the
 standing guidance is "if you care about performance, jit," at which point the masks are free.
 
+### How to jit a uniform op — purely functional, or via the frontend
+
+The rule is just *keep the masks static, trace the supercores* — and the **purely functional path needs
+no class** (the OO-averse backend user is fully supported):
+
+- **Functional (raw `.data`).** Close over the masks (host constants) and trace only the supercores —
+  the standard jax idiom:
+
+  ```python
+  masks = (shape_mask, tucker_edge_mask, tt_edge_mask)        # HOST bool, static
+  dense = jax.jit(lambda tk, tt: ut3_to_dense((tk, tt, masks)))(tucker_sc, tt_sc)
+  ```
+
+  The closed-over numpy masks become compile-time device constants; the supercores are the traced args.
+  (`static_argnums`/`static_argnames` is *not* the route — the masks are arrays, hence unhashable, so
+  they can't be marked static without a wrapper; close-over is the clean move.)
+- **Frontend.** If you do use `UniformTuckerTensorTrain`, `jax.jit` over it works with nothing to think
+  about: the masks ride as `aux_data` (static), the supercores are children (traced).
+
+**The misuse, and the guard.** Passing the masks *among the traced args* (e.g. `jax.jit(ut3_to_dense)(data)`,
+which traces every leaf of the tuple, masks included) makes them tracers → the host-int extraction and
+mask recomputation fail. The backend **guards** this: a traced mask raises a clear, actionable error
+("uniform masks must be concrete host arrays … close over the masks and trace only the supercores")
+instead of jax's cryptic `ConcretizationTypeError`. So the failure is self-explaining; the right and
+wrong forms are shown as a doctest.
+
 > **⚠️ Maintainers (human or AI): the `np.*` in the uniform mask code is INTENTIONAL.** Historically a
 > bare `np.` was a tell that code wasn't backend-agnostic (should be `xnp`). **That heuristic does not
 > apply to mask logic.** Masks are host structure and MUST be numpy. Do **not** "fix" mask `np.*` to

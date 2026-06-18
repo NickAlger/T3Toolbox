@@ -94,11 +94,27 @@ Done per slice (verified vs ragged/dense, ≤~3e-15):
   and all mask logic must use `np`, not `xnp`.** Under jit any `jnp` op on a mask is a tracer →
   `int(mask.sum())` shape/rank extraction raises `ConcretizationTypeError` (`to_dense`/`inner`/`t3svd`/
   `probe`), and mask-*recomputing* ops (orthogonalize/svd/`+`/`×`) **leak tracer masks into `aux_data`**
-  (silently invalid). Remaining slice-7 work: (1) refactor mask logic `xnp → np` across `ut3_*`
-  (builders, rank recurrences, `int(mask.sum())` extraction) and make `to_jax`/`make_uniform_masks`
-  keep/emit numpy masks; (2) then add the uniform ops to `tests/test_dispatch.py` (jit each, prove no
-  hidden numpy / no tracer-leak). Full reasoning: `docs/uniform_pytree_composition.md` ("Masks are numpy
-  (host) — the jit story"). **Don't "fix" mask `np.*` to `xnp` — it's intentional.**
+  (silently invalid). Remaining slice-7 build plan, in order:
+  1. **`xnp → np` mask refactor** across `ut3_*`: mask builders, rank recurrences, `+`/`×`
+     concat/Kronecker, and `int(mask.sum())` shape/rank extraction all use `np` (host); only supercores
+     go through `xnp`. `make_uniform_masks` emits numpy (drop its `use_jax`); `to_jax`/`to_numpy`
+     convert the **supercores only** (masks stay numpy).
+  2. **Tracer guard** at the mask chokepoint (`apply_masks_to_cores` / the shape-extraction helper):
+     if a mask is a `jax.core.Tracer`, raise a clear structural error leading with the **functional**
+     remedy — *"uniform masks must be concrete host (numpy) arrays … close over the masks and trace
+     only the supercores"* — not jax's `ConcretizationTypeError`. No false positives (a mask is never
+     legitimately a tracer here). Put the short version as a code comment where the guard lives.
+  3. **Signature-comment contract:** tag mask args **`HOST bool, static`** (the `HOST` token defined in
+     `docs/signature_style.md`) across the `ut3_*` signatures — the comment states the contract, the
+     guard enforces it (poor-man's dtype/placement type, no type-system pain).
+  4. **Right/wrong functional doctest** (no frontend needed — the OO-averse backend user is first-class):
+     the close-over pattern works; passing masks as traced args raises the guard's stable message
+     (`+IGNORE_EXCEPTION_DETAIL`).
+  5. **Uniform dispatch tests** in `tests/test_dispatch.py` (jit each op, prove no hidden numpy /
+     no tracer-leak) — where uniform jax coverage lands.
+
+  Full reasoning: `docs/uniform_pytree_composition.md` ("Masks are numpy (host) — the jit story" +
+  "How to jit … functional, or via the frontend"). **Don't "fix" mask `np.*` to `xnp` — it's intentional.**
 - **8 — Constructors + IO.** `zeros`/`ones`/`randn` (pure constructors keep `use_jax`), `from_canonical`/
   `from_tensor_train`, `save`/`load`.
 - **9 — t3m.** Elementwise multiply + truncation; both `t3m_form_then_round` and the max-rank

@@ -78,6 +78,14 @@ def compute_mus(
 - Non-array / scalar args: a short **role or constraint** note, e.g. `# 1 <= max_rank <= min(N,M)`,
   `# 'left' | 'right'`, `# requires unstacked`. If a scalar's role is obvious from its name, a note
   may add nothing — then keep it short or omit (see below).
+- **Placement / dtype, when load-bearing:** `NDArray` says nothing about *dtype* or *host-vs-device*
+  either — so when those are part of the contract (not just shape), put them in the comment too. The
+  motivating case is the uniform **masks**, tagged **`HOST bool, static`** alongside their shape. The
+  `HOST` token means *"must be a host (numpy) array, never jax/traced — it is static structure,
+  runtime-enforced by the mask guard"* (under jit a traced mask breaks; see
+  `uniform_pytree_composition.md`). **No tag = the default**: dtype-agnostic and `xnp`/backend-polymorphic
+  (numpy *or* jax). Spell a dtype (`bool`, `int`) only when it actually matters. This keeps the old
+  "a bare `np.` is a backend-agnosticism tell" intuition usable: a `HOST` arg is *meant* to be numpy.
 - Prefer the comma form over a period (`# len=d, elm_shape=...`, not `# len=d. elm_shape=...`).
 
 ## Aligning the comment column: one block, or grouped?
