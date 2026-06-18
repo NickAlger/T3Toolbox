@@ -6,6 +6,8 @@ import numpy as np
 import unittest
 
 import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.basis_variations_format as bvf
+import t3toolbox.manifold as t3m
 import t3toolbox.backend.probing as t3p
 import t3toolbox.backend.probe_derivatives as pd
 
@@ -86,6 +88,50 @@ class TestProbeDerivatives(unittest.TestCase):
                         for i in range(d):
                             for k in range(ORDER + 1):
                                 self.check_relerr(z_dense[i][k], np.asarray(z_jets[i])[sel][k])
+
+    def test_tangent_derivatives_match_dense(self):
+        # Riemannian forward: symmetric derivatives of a tangent vector's probing map. The densified
+        # tangent is a dense tensor, so the oracle is the same multilinear subset expansion.
+        STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        shapes = STRUCT[0]
+        d = len(shapes)
+        for S, C in [((), ()), ((3,), ()), ((2,), (2,))]:
+            for ORDER in [0, 1, 2, 3]:
+                with self.subTest(S=S, C=C, ORDER=ORDER):
+                    x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
+                    base, _ = bvf.t3_orthogonal_representations(x)
+                    v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+                    Vd = v.to_dense()                                 # shape C + (N1..Nd)
+                    ww = [np.random.randn(*(S + (N,))) for N in shapes]
+                    pp = [np.random.randn(*(S + (N,))) for N in shapes]
+
+                    z_jets = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.basis.data, ORDER)
+                    for i in range(d):
+                        self.assertEqual(np.asarray(z_jets[i]).shape, (ORDER + 1,) + S + C + (shapes[i],))
+
+                    for s_idx in itertools.product(*[range(n) for n in S]):
+                        ww_s = [w[s_idx] for w in ww]
+                        pp_s = [p[s_idx] for p in pp]
+                        for c_idx in itertools.product(*[range(n) for n in C]):
+                            z_dense = pd.probe_derivatives_dense(ww_s, pp_s, Vd[c_idx], ORDER)
+                            sel = (slice(None),) + s_idx + c_idx
+                            for i in range(d):
+                                for k in range(ORDER + 1):
+                                    self.check_relerr(z_dense[i][k], np.asarray(z_jets[i])[sel][k])
+
+    def test_tangent_order_zero_is_plain_tangent_probe(self):
+        # The 0-th derivative jet of the Riemannian map is exactly probe_tangent.
+        STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        x = t3.TuckerTensorTrain.randn(*STRUCT)
+        base, _ = bvf.t3_orthogonal_representations(x)
+        v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+        ww = [np.random.randn(N) for N in STRUCT[0]]
+        pp = [np.random.randn(N) for N in STRUCT[0]]
+
+        z_jets = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.basis.data, 3)
+        z_probe = t3p.probe_tangent(ww, v.variations.data, v.basis.data)
+        for zj, zp in zip(z_jets, z_probe):
+            self.check_relerr(zp, np.asarray(zj)[0])
 
     def test_order_zero_is_plain_probe(self):
         # The 0-th derivative jet is exactly the ordinary probe.

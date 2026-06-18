@@ -214,6 +214,10 @@ class TestDispatch(unittest.TestCase):
                             trs, mu, G, nu)
         eta = jnp.ones((4, 2, 4)); U = jnp.ones((4, 7))
         self.assert_jit_jax(lambda a, b: contractions.tWCi_Cio_to_tWCo(a, b), eta, U)
+        # Riemannian (tangent) forward derivatives: jit, base + variation sweeps, all-orders
+        self.assert_jit_jax(
+            lambda var, b, w, p: pd.probe_tangent_derivatives(w, p, var, b, 3),
+            self.var.data, self.base.data, list(self.ww), list(self.zz))
 
     # ---------------------------------------------------- jit bucket: backend functions
     def test_jit_backend(self):

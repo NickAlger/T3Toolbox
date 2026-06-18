@@ -48,6 +48,7 @@ from t3toolbox.backend.common import *
 # tt_cores). The Riemannian (tangent-vector) case is deferred.
 
 __all__ = [
+    # Plain T3 (Euclidean)
     'probe_derivatives_t3',
     'build_input_jets',
     'compute_mu_jets',
@@ -55,6 +56,13 @@ __all__ = [
     'compute_eta_jets',
     'assemble_z_jets',
     'binomial_combine_tensor',
+    # Tangent vector (Riemannian) -- forward
+    'probe_tangent_derivatives',
+    'compute_sigma_jets',
+    'compute_tau_jets',
+    'compute_deta_jets',
+    'assemble_tangent_z_jets',
+    # Dense oracle
     'probe_derivatives_dense',
 ]
 
@@ -260,6 +268,205 @@ def assemble_z_jets(
         return (contractions.tWCi_Cio_to_tWCo(eta_jet, U),)
 
     (z_jets,) = xmap(_func, (eta_jets, tucker_cores))
+    return z_jets
+
+
+###############################################################
+####    Riemannian: symmetric derivatives of a tangent     ####
+###############################################################
+#
+# probe_tangent (probing.py) is the action of a tangent vector v on the probe vectors: a base sweep
+# (xi, mu, nu, eta via the frame cores U, O, P, Q) plus a variation sweep (dxi, sigma, tau, deta via
+# the variation cores dU, dG), then z = U.deta + dU.eta. Differentiating that map w.r.t. the probe
+# vectors (the same direction P repeated) jet-ifies every edge variable -- and since every term of
+# every recursion is itself a pushthrough, combine, or lift, each maps onto the SAME three
+# t-contractions with the appropriate (frame or variation) core. The order axis t is uniform across
+# ALL edge variables (everything depends on the probe vectors), so there is no K-style asymmetry: the
+# plain t-contractions suffice (no n_base threading). Scope: a single tangent vector (no tangent
+# stack K); stacks t + S + C as in the plain case. The transpose is a separate slice.
+
+
+def _zero_jet(
+        K:            int,                  # highest derivative order
+        stack_shape:  typ.Tuple[int, ...],  # full leading batch the jets carry (sample + base, S + C)
+        r:            int,                  # bond dimension
+        xnp,                                # numpy or jax.numpy
+) -> NDArray:                               # shape=(K+1,)+S+C+(r,): all orders zero
+    '''All-zero jet -- the sigma_0 / tau_d boundary of the variation sweeps (no order-0 ones).'''
+    return xnp.zeros((K + 1,) + stack_shape + (r,))
+
+
+def compute_sigma_jets(
+        var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=C+(rLi,nUi,rR(i+1))
+        right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
+        down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+        xi_jets:        typ.Sequence[NDArray],  # base input jets, len=d, elm_shape=(2,)+S+C+(nUi,)
+        dxi_jets:       typ.Sequence[NDArray],  # var  input jets, len=d, elm_shape=(2,)+S+C+(nOi,)
+        mu_jets:        typ.Sequence[NDArray],  # base left jets,  len=d, elm_shape=(K+1,)+S+C+(rLi,)
+        trs:            NDArray,                # binomial tensor, shape=(K+1,K+1,K+1)
+) -> typ.Tuple[NDArray, ...]:                   # sigma_jets. len=d, elm_shape=(K+1,)+S+C+(rR(i+1),)
+    '''Variation-leftward edge-variable jets sigma (the jet-ified Algorithm-7 sigma recursion).
+
+    ``sigma_i = sigma_{i-1} Q_i(xi_i) + mu_{i-1} dG_i(xi_i) + mu_{i-1} O_i(dxi_i)`` -- three
+    pushthroughs (``trs_rWCa_Caib_sWCi_to_tWCb``): the carried sigma jet through Q, and the base mu
+    jet through the variation core dG and the down frame O. Boundary ``sigma_0 = 0`` (all orders).
+    '''
+    use_jax = tree_contains_jax((var_tt_cores, right_tt_cores, down_tt_cores, xi_jets, dxi_jets, mu_jets, trs))
+    is_uniform = is_ndarray(var_tt_cores)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
+
+    K = trs.shape[0] - 1
+    s_size = min(2, K + 1)                    # input jets carry orders {0, 1}, capped at K
+    trs_push = trs[:, :, :s_size]
+    push = contractions.trs_rWCa_Caib_sWCi_to_tWCb
+
+    def _func(sigma_jet, data):
+        Q, O, dG, xi_jet, dxi_jet, mu_jet = data
+        t1 = push(trs_push, sigma_jet, Q,  xi_jet[:s_size])
+        t2 = push(trs_push, mu_jet,    dG, xi_jet[:s_size])
+        t3 = push(trs_push, mu_jet,    O,  dxi_jet[:s_size])
+        return t1 + t2 + t3, (sigma_jet,)
+
+    stack_shape = dxi_jets[0].shape[1:-1]     # full S + C batch (S outer, C inner); either may be empty
+    rR0 = right_tt_cores[0].shape[-3]
+    init = _zero_jet(K, stack_shape, rR0, xnp)
+
+    _, (sigma_jets,) = xscan(_func, init, (right_tt_cores, down_tt_cores, var_tt_cores, xi_jets, dxi_jets, mu_jets))
+    return sigma_jets
+
+
+def compute_tau_jets(
+        var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=C+(rLi,nUi,rR(i+1))
+        left_tt_cores:  typ.Sequence[NDArray],  # P.  len=d, elm_shape=C+(rLi,nUi,rL(i+1))
+        down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+        xi_jets:        typ.Sequence[NDArray],  # base input jets, len=d, elm_shape=(2,)+S+C+(nUi,)
+        dxi_jets:       typ.Sequence[NDArray],  # var  input jets, len=d, elm_shape=(2,)+S+C+(nOi,)
+        nu_jets:        typ.Sequence[NDArray],  # base right jets, len=d, elm_shape=(K+1,)+S+C+(rR(i+1),)
+        trs:            NDArray,                # binomial tensor, shape=(K+1,K+1,K+1)
+) -> typ.Tuple[NDArray, ...]:                   # tau_jets. len=d, elm_shape=(K+1,)+S+C+(rL(i+1),)
+    '''Variation-rightward edge-variable jets tau -- the mirror of :py:func:`compute_sigma_jets`.
+
+    Reverse the train (P in the Q-slot, O and dG reversed), run the sigma sweep, reverse the result.
+    '''
+    rev = compute_sigma_jets(
+        ragged_ops.reverse_tt(var_tt_cores), ragged_ops.reverse_tt(left_tt_cores),
+        ragged_ops.reverse_tt(down_tt_cores), xi_jets[::-1], dxi_jets[::-1], nu_jets[::-1], trs,
+    )
+    return rev[::-1]
+
+
+def compute_deta_jets(
+        var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=C+(rLi,nUi,rR(i+1))
+        left_tt_cores:  typ.Sequence[NDArray],  # P.  len=d, elm_shape=C+(rLi,nUi,rL(i+1))
+        right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
+        mu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+C+(rLi,)
+        nu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+C+(rR(i+1),)
+        sigma_jets:     typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+C+(rR(i+1),)
+        tau_jets:       typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+C+(rL(i+1),)
+        trs:            NDArray,                # binomial tensor, shape=(K+1,K+1,K+1)
+) -> typ.Tuple[NDArray, ...]:                   # deta_jets. len=d, elm_shape=(K+1,)+S+C+(nUi,)
+    '''Variation-downward edge-variable jets deta (the jet-ified Algorithm-7 deta combine).
+
+    ``deta_i = sigma_{i-1} Q_i nu_i + mu_{i-1} dG_i nu_i + mu_{i-1} P_i tau_i`` -- three combines
+    (``trs_rWCa_Caib_sWCb_to_tWCi``), mode ``i`` free.
+    '''
+    use_jax = tree_contains_jax((var_tt_cores, left_tt_cores, right_tt_cores, mu_jets, nu_jets, sigma_jets, tau_jets, trs))
+    is_uniform = is_ndarray(var_tt_cores)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
+
+    combine = contractions.trs_rWCa_Caib_sWCb_to_tWCi
+
+    def _func(data):
+        P, Q, dG, mu_jet, nu_jet, sigma_jet, tau_jet = data
+        term1 = combine(trs, sigma_jet, Q,  nu_jet)
+        term2 = combine(trs, mu_jet,    dG, nu_jet)
+        term3 = combine(trs, mu_jet,    P,  tau_jet)
+        return (term1 + term2 + term3,)
+
+    (deta_jets,) = xmap(_func, (left_tt_cores, right_tt_cores, var_tt_cores, mu_jets, nu_jets, sigma_jets, tau_jets))
+    return deta_jets
+
+
+def assemble_tangent_z_jets(
+        tucker_cores:       typ.Sequence[NDArray],  # U.  len=d, elm_shape=C+(nUi,Ni)
+        var_tucker_cores:   typ.Sequence[NDArray],  # dU. len=d, elm_shape=C+(nOi,Ni)
+        eta_jets:           typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+C+(nOi,)
+        deta_jets:          typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+C+(nUi,)
+) -> typ.Tuple[NDArray, ...]:                       # z_jets. len=d, elm_shape=(K+1,)+S+C+(Ni,)
+    '''Assemble tangent-probe-derivative jets: ``z_i = U_i deta_i + dU_i eta_i`` -- two lifts
+    (``tWCi_Cio_to_tWCo``), the order axis riding as a leading broadcast batch.
+    '''
+    use_jax = tree_contains_jax((tucker_cores, var_tucker_cores, eta_jets, deta_jets))
+    is_uniform = is_ndarray(tucker_cores)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
+
+    lift = contractions.tWCi_Cio_to_tWCo
+
+    def _func(data):
+        U, dU, eta_jet, deta_jet = data
+        return (lift(deta_jet, U) + lift(eta_jet, dU),)
+
+    (z_jets,) = xmap(_func, (tucker_cores, var_tucker_cores, eta_jets, deta_jets))
+    return z_jets
+
+
+def probe_tangent_derivatives(
+        ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=S+(Ni,)
+        pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=S+(Ni,)
+        variation:  typ.Tuple[
+            typ.Sequence[NDArray],          # var_tucker_cores dU. len=d, elm_shape=C+(nOi,Ni)
+            typ.Sequence[NDArray],          # var_tt_cores     dG. len=d, elm_shape=C+(rLi,nUi,rRi)
+        ],                                  # = T3Variations.data
+        base:       typ.Tuple[
+            typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
+            typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+            typ.Sequence[NDArray],          # left_tt_cores    P. len=d
+            typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
+        ],                                  # = T3Basis.data = (up, down, left, right) = (U, O, P, Q)
+        order:      int,                    # highest derivative order K
+) -> typ.Tuple[NDArray, ...]:               # z_jets. len=d, elm_shape=(K+1,)+S+C+(Ni,)
+    '''Symmetric derivatives of probing a tangent vector, in one repeated direction (Riemannian J^(s)).
+
+    The probe-derivative analog of :py:func:`probing.probe_tangent`: returns, for each mode ``i``, the
+    stack ``y_i^(t) = d^t/ds^t [J^(s) v]_i (X + s P)|_0`` for ``t=0..K``, where ``v`` is the tangent
+    vector represented by ``(base, variation)``. Index ``0`` is the ordinary tangent probe.
+
+    Identical structure to :py:func:`probe_derivatives_t3` but on the tangent calculus: a base sweep
+    (frame cores) and a variation sweep, every term reusing the three ``t``-contractions. Stacks are
+    ``order + S + C`` as in the plain case (single tangent -- no tangent stack ``K`` yet).
+
+    The symmetric-derivative formulation is not in the published T4S paper; verified against
+    :py:func:`probe_derivatives_dense` on the densified tangent. (Project write-up in preparation.)
+
+    See Also
+    --------
+    probe_derivatives_t3
+    compute_sigma_jets
+    compute_tau_jets
+    compute_deta_jets
+    assemble_tangent_z_jets
+    t3toolbox.backend.probing.probe_tangent
+    '''
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base
+    var_tucker_cores, var_tt_cores = variation
+
+    xi_jets  = build_input_jets(compute_xis(up_tucker_cores, ww),  compute_xis(up_tucker_cores, pp))
+    dxi_jets = build_input_jets(compute_xis(var_tucker_cores, ww), compute_xis(var_tucker_cores, pp))
+
+    trs = binomial_combine_tensor(order)
+
+    # base sweep (frame cores), reusing the plain jet functions
+    mu_jets  = compute_mu_jets(left_tt_cores, xi_jets, trs)
+    nu_jets  = compute_nu_jets(right_tt_cores, xi_jets, trs)
+    eta_jets = compute_eta_jets(down_tt_cores, mu_jets, nu_jets, trs)
+
+    # variation sweep
+    sigma_jets = compute_sigma_jets(var_tt_cores, right_tt_cores, down_tt_cores, xi_jets, dxi_jets, mu_jets, trs)
+    tau_jets   = compute_tau_jets(var_tt_cores, left_tt_cores, down_tt_cores, xi_jets, dxi_jets, nu_jets, trs)
+    deta_jets  = compute_deta_jets(var_tt_cores, left_tt_cores, right_tt_cores, mu_jets, nu_jets, sigma_jets, tau_jets, trs)
+
+    z_jets = assemble_tangent_z_jets(up_tucker_cores, var_tucker_cores, eta_jets, deta_jets)
+
     return z_jets
 
 
