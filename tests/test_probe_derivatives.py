@@ -370,6 +370,53 @@ class TestProbeDerivatives(unittest.TestCase):
                             for a, b in zip(dG0, dG):
                                 self.check_relerr(np.asarray(b), np.sum(np.asarray(a), axis=ax))
 
+    def test_corewise_derivatives_finite_difference(self):
+        # corewise transpose = gradient of the derivative sampling op w.r.t. the base's cores: the
+        # adjoint inner product <g, dcores> matches a central finite difference of <r, forward(cores)>.
+        STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        shapes = STRUCT[0]
+        d = len(shapes)
+        rng = np.random.RandomState(0)
+        W = (2,)
+        for kind in ['probe', 'apply', 'entries']:
+            for ORDER in [1, 3]:
+                with self.subTest(kind=kind, ORDER=ORDER):
+                    x = t3.TuckerTensorTrain.randn(*STRUCT)
+                    tucker_cores, tt_cores = x.data
+                    pp = [rng.randn(*(W + (N,))) for N in shapes]
+                    if kind == 'probe':
+                        ww = [rng.randn(*(W + (N,))) for N in shapes]
+                        fwd = lambda data: pd.probe_derivatives_t3(ww, pp, data, ORDER)
+                        z = fwd(x.data)
+                        r = [rng.randn(*np.asarray(zi).shape) for zi in z]
+                        dot = lambda data: sum(np.sum(r[i] * np.asarray(fwd(data)[i])) for i in range(d))
+                        g = pd.probe_corewise_derivatives_transpose(r, ww, pp, x.data, ORDER, sum_over_probes=True)
+                    elif kind == 'apply':
+                        ww = [rng.randn(*(W + (N,))) for N in shapes]
+                        fwd = lambda data: pd.apply_derivatives_t3(ww, pp, data, ORDER)
+                        c = rng.randn(*np.asarray(fwd(x.data)).shape)
+                        dot = lambda data: float(np.sum(c * np.asarray(fwd(data))))
+                        g = pd.apply_corewise_derivatives_transpose(c, ww, pp, x.data, ORDER, sum_over_probes=True)
+                    else:
+                        index = np.stack([rng.randint(0, N, size=W) for N in shapes], axis=0)
+                        fwd = lambda data: pd.entries_derivatives_t3(index, pp, data, ORDER)
+                        c = rng.randn(*np.asarray(fwd(x.data)).shape)
+                        dot = lambda data: float(np.sum(c * np.asarray(fwd(data))))
+                        g = pd.entries_corewise_derivatives_transpose(c, index, pp, x.data, ORDER, sum_over_probes=True)
+
+                    gU, gG = g
+                    dU = [rng.randn(*u.shape) for u in tucker_cores]
+                    dG = [rng.randn(*gg.shape) for gg in tt_cores]
+                    inner = (sum(np.sum(np.asarray(gU[i]) * dU[i]) for i in range(d))
+                             + sum(np.sum(np.asarray(gG[i]) * dG[i]) for i in range(d)))
+                    eps = 1e-6
+                    plus = ([u + eps * du for u, du in zip(tucker_cores, dU)],
+                            [gg + eps * dg for gg, dg in zip(tt_cores, dG)])
+                    minus = ([u - eps * du for u, du in zip(tucker_cores, dU)],
+                             [gg - eps * dg for gg, dg in zip(tt_cores, dG)])
+                    fd = (dot(plus) - dot(minus)) / (2 * eps)
+                    self.assertLessEqual(abs(inner - fd) / max(abs(fd), 1e-30), 1e-5)
+
     def test_high_order_vanishes(self):
         # y_i depends on d-1 vectors, so symmetric derivatives above order d-1 are exactly zero.
         STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))

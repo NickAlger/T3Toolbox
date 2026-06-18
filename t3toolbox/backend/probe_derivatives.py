@@ -81,6 +81,10 @@ __all__ = [
     'apply_tangent_derivatives_transpose',
     'entries_tangent_derivatives_transpose',
     'compute_sigma_hat_jets',
+    # Corewise (non-manifold) derivative transposes
+    'probe_corewise_derivatives_transpose',
+    'apply_corewise_derivatives_transpose',
+    'entries_corewise_derivatives_transpose',
     # Dense oracle
     'probe_derivatives_dense',
     'apply_derivatives_dense',
@@ -1081,6 +1085,74 @@ def entries_tangent_derivatives_transpose(
 
     return _apply_derivatives_transpose_from_jets(
         c, xi_jets, mu_jets, w_jets, down_tt_cores, right_tt_cores, trs, n_probe, sum_over_probes)
+
+
+###############################################################
+####    Corewise (non-manifold) derivative transposes      ####
+###############################################################
+#
+# The gradient of a plain-T3 derivative sampling op w.r.t. the cores of the base (treated as
+# independent variables) -- the Section 6.3 "corewise simplification": the tangent derivative
+# transpose with the base's OWN cores in place of the orthogonal frames (P, Q, O -> G_i), U no longer
+# required orthogonal. Trivial substitution wrappers (cf. probing.{probe,apply,entries}_corewise_transpose);
+# return raw (tucker_grads, tt_grads) shaped like the cores. Verified vs jax.grad of the forward.
+
+
+def probe_corewise_derivatives_transpose(
+        ztildes:    typ.Sequence[NDArray],  # residual jets, len=d, elm_shape=(order+1)+W+C+(Ni,)
+        ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
+        pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+        core_pair:  typ.Tuple[
+            typ.Sequence[NDArray],          # tucker_cores, len=d, elm_shape=C+(ni,Ni)
+            typ.Sequence[NDArray],          # tt_cores,     len=d, elm_shape=C+(ri,ni,r(i+1))
+        ],                                  # = TuckerTensorTrain.data
+        order:      int,                    # highest derivative order
+        sum_over_probes: bool = False,      # True: sum the sample stack W (the gradient J^T r)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # tucker-core gradients, same shapes as tucker_cores
+    typ.Tuple[NDArray, ...],  # tt-core gradients,     same shapes as tt_cores
+]:
+    '''Corewise (non-manifold) transpose of :py:func:`probe_derivatives_t3`: gradient of the
+    probe-derivative jets w.r.t. the base ``core_pair``'s cores, as independent variables (for
+    core-wise optimizers). The Section 6.3 substitution ``P,Q,O -> G`` into
+    :py:func:`probe_tangent_derivatives_transpose` (base ``(U, G, G, G)``; orthogonality not required).
+    Returns gradients shaped like ``(tucker_cores, tt_cores)``. Verified vs ``jax.grad``.
+    '''
+    tucker_cores, tt_cores = core_pair
+    return probe_tangent_derivatives_transpose(
+        ztildes, ww, pp, (tucker_cores, tt_cores, tt_cores, tt_cores), order, sum_over_probes=sum_over_probes)
+
+
+def apply_corewise_derivatives_transpose(
+        c:          NDArray,                # residual jet (scalar), shape=(order+1)+W+C
+        ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
+        pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+        core_pair:  typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # = TuckerTensorTrain.data
+        order:      int,                    # highest derivative order
+        sum_over_probes: bool = False,
+) -> typ.Tuple[typ.Tuple[NDArray, ...], typ.Tuple[NDArray, ...]]:  # (tucker_grads, tt_grads)
+    '''Corewise transpose of :py:func:`apply_derivatives_t3`: gradient of the apply-derivative jets
+    w.r.t. the base cores (Section 6.3 substitution into :py:func:`apply_tangent_derivatives_transpose`).
+    '''
+    tucker_cores, tt_cores = core_pair
+    return apply_tangent_derivatives_transpose(
+        c, ww, pp, (tucker_cores, tt_cores, tt_cores, tt_cores), order, sum_over_probes=sum_over_probes)
+
+
+def entries_corewise_derivatives_transpose(
+        c:          NDArray,                # residual jet (scalar), shape=(order+1)+W+C
+        index:      NDArray,                # int, shape=(d,)+W
+        pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+        core_pair:  typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # = TuckerTensorTrain.data
+        order:      int,                    # highest derivative order
+        sum_over_probes: bool = False,
+) -> typ.Tuple[typ.Tuple[NDArray, ...], typ.Tuple[NDArray, ...]]:  # (tucker_grads, tt_grads)
+    '''Corewise transpose of :py:func:`entries_derivatives_t3`: gradient of the entry-derivative jets
+    w.r.t. the base cores (Section 6.3 substitution into :py:func:`entries_tangent_derivatives_transpose`).
+    '''
+    tucker_cores, tt_cores = core_pair
+    return entries_tangent_derivatives_transpose(
+        c, index, pp, (tucker_cores, tt_cores, tt_cores, tt_cores), order, sum_over_probes=sum_over_probes)
 
 
 #####################################################

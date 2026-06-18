@@ -280,6 +280,16 @@ class TestDispatch(unittest.TestCase):
             self.assert_jit_jax(
                 lambda cc, ix, p, b: pd.entries_tangent_derivatives_transpose(cc, ix, p, b, 3, sum_over_probes=sop),
                 ca, idx, list(self.zz), self.base.data)
+        # corewise derivative transposes (P,Q,O->G substitution): gradient w.r.t. the base's own cores
+        self.assert_jit_jax(
+            lambda rr, w, p, cp: pd.probe_corewise_derivatives_transpose(rr, w, p, cp, 3, sum_over_probes=True),
+            rt, list(self.ww), list(self.zz), self.x.data)
+        self.assert_jit_jax(
+            lambda cc, w, p, cp: pd.apply_corewise_derivatives_transpose(cc, w, p, cp, 3, sum_over_probes=True),
+            ca, list(self.ww), list(self.zz), self.x.data)
+        self.assert_jit_jax(
+            lambda cc, ix, p, cp: pd.entries_corewise_derivatives_transpose(cc, ix, p, cp, 3, sum_over_probes=True),
+            ca, idx, list(self.zz), self.x.data)
 
     # ---------------------------------------------------- jit bucket: backend functions
     def test_jit_backend(self):

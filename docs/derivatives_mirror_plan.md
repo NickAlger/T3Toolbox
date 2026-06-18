@@ -81,6 +81,26 @@ Forward perturbation sweep + assembly (8): sigma/tau pushthrough
 3-block adjoint-sweep + assembly contractions (Slice 2; count TBD, mirrors the non-order probe
 transpose's "10 outer-product builders"). All get dense/loop-oracle tests in `backend/test_contractions.py`.
 
+## Frontend design decision (locked): SEPARATE methods, not kwargs on probe/apply/entries
+
+The derivative ops get their **own** frontend methods (parallel to the backend), **not** optional
+`perturbation`/`order` kwargs on the existing `probe`/`apply`/`entries`. Rationale (discussed): the
+derivative output gains a leading `order` axis, so a unified method would have **return-rank
+polymorphism** (output rank depends on whether a kwarg was passed) — which fights the house
+shape-comment-as-contract style, makes generic consumption harder, and is gnarlier still for the
+transposes (residual *input* rank becomes context-dependent). A named `*_derivatives` method also
+self-documents an otherwise-buried advanced feature. The frontend *is* allowed to differ from the
+backend, but here matching it is the better call. (The X/P stack consistency check is needed either
+way, so it isn't a differentiator.)
+
+**Frontend method names** (forwards take `(ww, pp, order)` / `(index, pp, order)`, all required):
+- `TuckerTensorTrain`: `probe_derivatives`, `apply_derivatives`, `entries_derivatives` (forward);
+  `{probe,apply,entries}_corewise_derivatives_transpose`; (Slice 4) `*_ambient_derivatives_transpose`.
+- `T3Tangent`: `probe_derivatives`, `apply_derivatives`, `entries_derivatives` (forward);
+  `{probe,apply,entries}_derivatives_transpose` (tangent; static, returns `T3Tangent`).
+- **Consistency check (structural → hard error):** the forwards validate that `pp`'s stack matches
+  `ww`'s (or `index`'s) `W`.
+
 ## Slicing
 
 - **Slice 1 (in progress): K-retrofit the derivative FORWARD + apply/entries forward.** The 8
@@ -92,8 +112,12 @@ transpose's "10 outer-product builders"). All get dense/loop-oracle tests in `ba
 - **Slice 2: tangent transposes with `K`.** Order-threaded 3-block adjoint contractions;
   `probe_tangent_derivatives_transpose` `K`-retrofit; `apply/entries_tangent_derivatives_transpose`
   (adjoint-state, seeded sweep); tests (`jax.linear_transpose` + adjoint identity + `Lᵀ` cross-check).
-- **Slice 3: corewise transpose wrappers (all ops) + full frontend hookup** (all forwards + tangent +
-  corewise, including the existing `probe_derivatives`) + doctests.
+- **Slice 3 (separate methods — see decision above): corewise wrappers + frontend hookup.**
+  - **3a: backend corewise derivative wrappers** — `{probe,apply,entries}_corewise_derivatives_transpose`
+    (the `P,Q,O→G` substitution into the tangent derivative transpose). Verify vs `jax.grad` of the
+    forward w.r.t. the cores.
+  - **3b: `T3Tangent` frontend** — 3 forwards + 3 tangent `*_derivatives_transpose` + doctests + tests.
+  - **3c: `TuckerTensorTrain` frontend** — 3 forwards + 3 corewise transposes + doctests + tests.
 - **Slice 4: ambient derivative transposes (all ops), backend + frontend** (base-free, CP factors).
 
 ## Algorithm notes
