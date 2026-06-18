@@ -137,6 +137,28 @@ mask recomputation fail. The backend **guards** this: a traced mask raises a cle
 instead of jax's cryptic `ConcretizationTypeError`. So the failure is self-explaining; the right and
 wrong forms are shown as a doctest.
 
+### Why `T3Basis` (jax arrays) is fine as aux, but masks aren't
+
+Both `T3Tangent`'s `T3Basis` and a UT3's masks ride as identity-hashed `aux_data`, and both are
+dtype-agnostic *for the cache key* (identity hashing never inspects contents). So why can the basis hold
+jax arrays while the masks must be numpy? Not the dtype — it's what the op **does with the aux** inside
+the trace:
+
+- **`T3Basis` is aux used only as *data*.** Its cores feed contractions (`einsum`), whose tracer results
+  flow on as data. It is never read as a host value (its *structure* is its array shape, which jax tracks
+  statically — no `int(basis…)`), and a tangent op at a fixed base **reuses the same input basis**
+  unchanged as the output aux. Nothing forces it concrete → jax is fine.
+- **The masks' *values* ARE host-readable static structure, and they get recomputed.** A uniform op (a)
+  pulls the real shape/ranks as host Python ints — `int(mask.sum())` — to slice the padded supercore (the
+  mask *values*, not the array shape, say which slot is real); and (b) **recomputes** the masks (ranks
+  change under `+`/`×`/svd) into the output's *static* aux. Both demand concreteness → host numpy (a jax
+  mask gives a tracer on `.sum()`, and recomputed jax masks leak into aux).
+
+One line: **basis = aux-used-as-data** (jax fine); **masks = aux whose values are host-readable structure
+and are recomputed** (must be numpy). (The basis *would* hit the same wall if you re-orthogonalized a base
+inside jit and wrapped a fresh tangent around it — which is why the convention is to hold the basis object
+stable; uniform can't sidestep it, because changing the structure *is* the op.)
+
 > **⚠️ Maintainers (human or AI): the `np.*` in the uniform mask code is INTENTIONAL.** Historically a
 > bare `np.` was a tell that code wasn't backend-agnostic (should be `xnp`). **That heuristic does not
 > apply to mask logic.** Masks are host structure and MUST be numpy. Do **not** "fix" mask `np.*` to
