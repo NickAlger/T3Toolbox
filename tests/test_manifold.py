@@ -791,5 +791,53 @@ class TestManifold(unittest.TestCase):
         self.check_relerr((Pr_new @ np.asarray(v.to_dense()).reshape(-1)).reshape(STR[0]), vt.to_dense())
 
 
+    def test_derivative_methods(self):
+        # T3Tangent.{probe,apply,entries}_derivatives + their transposes: order-0 == the plain op,
+        # the transpose returns a T3Tangent at the same basis satisfying the adjoint identity, and the
+        # X/P sample-stack consistency check is a hard error.
+        STR = ((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+        shapes = STR[0]
+        base, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STR))
+        v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+        W = (2,)
+        ww = [np.random.randn(*(W + (N,))) for N in shapes]
+        pp = [np.random.randn(*(W + (N,))) for N in shapes]
+        index = np.stack([np.random.randint(0, N, size=W) for N in shapes], axis=0)
+        ORDER = 3
+
+        # order 0 == the non-derivative op
+        for zj, z0 in zip(v.probe_derivatives(ww, pp, ORDER), v.probe(ww)):
+            self.check_relerr(np.asarray(z0), np.asarray(zj)[0])
+        self.check_relerr(np.asarray(v.apply(ww)), np.asarray(v.apply_derivatives(ww, pp, ORDER))[0])
+        self.check_relerr(np.asarray(v.entries(index)), np.asarray(v.entries_derivatives(index, pp, ORDER))[0])
+
+        # tangent transpose: returns a T3Tangent at the same basis; adjoint identity <r, J v> = <J^T r, v>
+        for kind in ['probe', 'apply', 'entries']:
+            if kind == 'probe':
+                Jv = v.probe_derivatives(ww, pp, ORDER)
+                r = [np.random.randn(*np.asarray(z).shape) for z in Jv]
+                JTr = t3m.T3Tangent.probe_derivatives_transpose(r, ww, pp, base, ORDER, sum_over_probes=True)
+                lhs = sum(float(np.sum(ri * np.asarray(zi))) for ri, zi in zip(r, Jv))
+            elif kind == 'apply':
+                Jv = v.apply_derivatives(ww, pp, ORDER)
+                r = np.random.randn(*np.asarray(Jv).shape)
+                JTr = t3m.T3Tangent.apply_derivatives_transpose(r, ww, pp, base, ORDER, sum_over_probes=True)
+                lhs = float(np.sum(r * np.asarray(Jv)))
+            else:
+                Jv = v.entries_derivatives(index, pp, ORDER)
+                r = np.random.randn(*np.asarray(Jv).shape)
+                JTr = t3m.T3Tangent.entries_derivatives_transpose(r, index, pp, base, ORDER, sum_over_probes=True)
+                lhs = float(np.sum(r * np.asarray(Jv)))
+            self.assertIs(base, JTr.basis)
+            self.assertLessEqual(abs(lhs - float(JTr.inner(v))) / abs(lhs), 1e-9)
+
+        # X/P sample-stack consistency: hard error
+        pp_bad = [np.random.randn(*((3,) + (N,))) for N in shapes]   # W=(3,) != (2,)
+        with self.assertRaises(ValueError):
+            v.probe_derivatives(ww, pp_bad, ORDER)
+        with self.assertRaises(ValueError):
+            v.entries_derivatives(index, pp_bad, ORDER)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -16,6 +16,7 @@ import t3toolbox.corewise as cw
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.tangent_operations as tangent_operations
 import t3toolbox.backend.probing as probing
+import t3toolbox.backend.probe_derivatives as probe_derivatives
 import t3toolbox.backend.ranks as ranks
 from t3toolbox.backend.common import *
 
@@ -837,6 +838,224 @@ class T3Tangent:
         apply_transpose
         """
         dU, dG = probing.entries_tangent_transpose(c, index, basis.data, sum_over_probes=sum_over_probes)
+        return T3Tangent(basis, bvf.T3Variations(dU, dG))
+
+    ###############################################
+    ##########    Symmetric derivatives    ########
+    ###############################################
+
+    def probe_derivatives(
+            self,
+            ww:     typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
+            pp:     typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+            order:  int,                    # highest derivative order
+    ) -> typ.Sequence[NDArray]:             # len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
+        """Symmetric directional derivatives of probing this tangent vector, in one repeated direction.
+
+        Returns, for each mode ``i``, the stack ``y_i^(t) = d^t/ds^t [probe(X + s P)]_i|_0`` for
+        ``t=0..order`` -- the derivative analogue of :py:meth:`probe`, obtained by perturbing every probe
+        vector in the same direction ``P``. Index ``0`` is the ordinary :py:meth:`probe`. Stacks ``order
+        + W + K + C`` (order outermost; sample stack ``W``, tangent stack ``K``, base stack ``C``). The
+        points ``X`` (``ww``) and the perturbations ``P`` (``pp``) must share the sample stack ``W``.
+
+        See ``docs/symmetric_probe_derivatives.tex`` and ``docs/derivatives_mirror_plan.md``.
+
+        See Also
+        --------
+        probe
+        apply_derivatives
+        probe_derivatives_transpose
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.basis_variations_format as bvf
+        >>> import t3toolbox.manifold as t3m
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+        >>> base, variations = bvf.t3_orthogonal_representations(x)
+        >>> v = t3m.T3Tangent(base, variations)
+        >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> zj = v.probe_derivatives(ww, pp, 3)
+        >>> print([z.shape for z in zj])           # (order+1,) + (Ni,)
+        [(4, 10), (4, 11), (4, 12)]
+        >>> print([bool(np.allclose(z[0], z0)) for z, z0 in zip(zj, v.probe(ww))])  # order 0 == probe
+        [True, True, True]
+        """
+        probe_derivatives.check_perturbation_vectors(ww, pp)
+        return probe_derivatives.probe_tangent_derivatives(ww, pp, self.variations.data, self.basis.data, order)
+
+    def apply_derivatives(
+            self,
+            ww:     typ.Sequence[NDArray],  # apply vectors X,        len=d, elm_shape=W+(Ni,)
+            pp:     typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+            order:  int,                    # highest derivative order
+    ) -> NDArray:                           # shape=(order+1,)+W+K+C
+        """Symmetric directional derivatives of applying this tangent vector in all modes.
+
+        The all-modes analogue of :py:meth:`probe_derivatives` (and the derivative analogue of
+        :py:meth:`apply`): ``y^(t) = d^t/ds^t apply(X + s P)|_0`` for ``t=0..order`` (a scalar per
+        stack element). Stacks ``order + W + K + C``. ``X`` and ``P`` must share the sample stack ``W``.
+
+        See Also
+        --------
+        apply
+        probe_derivatives
+        apply_derivatives_transpose
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.basis_variations_format as bvf
+        >>> import t3toolbox.manifold as t3m
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+        >>> base, variations = bvf.t3_orthogonal_representations(x)
+        >>> v = t3m.T3Tangent(base, variations)
+        >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> yj = v.apply_derivatives(ww, pp, 3)
+        >>> print(yj.shape)                        # (order+1,) -- one scalar per order
+        (4,)
+        >>> print(bool(np.allclose(yj[0], v.apply(ww))))     # order 0 == apply
+        True
+        """
+        probe_derivatives.check_perturbation_vectors(ww, pp)
+        return probe_derivatives.apply_tangent_derivatives(ww, pp, self.variations.data, self.basis.data, order)
+
+    def entries_derivatives(
+            self,
+            index:  NDArray,                # int, shape=(d,)+W -- grid points
+            pp:     typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+            order:  int,                    # highest derivative order
+    ) -> NDArray:                           # shape=(order+1,)+W+K+C
+        """Symmetric directional derivatives of this tangent's entries at ``index``, in direction ``P``.
+
+        The Taylor data of the tangent's multilinear extension at grid corner ``index``, in direction
+        ``P``: ``y^(t) = d^t/ds^t apply(e_{index} + s P)|_0`` for ``t=0..order``. Index ``0`` is the
+        ordinary :py:meth:`entries`. Stacks ``order + W + K + C``. ``index`` and ``P`` share ``W``.
+
+        See Also
+        --------
+        entries
+        apply_derivatives
+        entries_derivatives_transpose
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.basis_variations_format as bvf
+        >>> import t3toolbox.manifold as t3m
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+        >>> base, variations = bvf.t3_orthogonal_representations(x)
+        >>> v = t3m.T3Tangent(base, variations)
+        >>> index = np.array([3, 5, 7])
+        >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> yj = v.entries_derivatives(index, pp, 3)
+        >>> print(yj.shape)
+        (4,)
+        >>> print(bool(np.allclose(yj[0], v.entries(index))))   # order 0 == entries
+        True
+        """
+        probe_derivatives.check_perturbation_index(index, pp)
+        return probe_derivatives.entries_tangent_derivatives(index, pp, self.variations.data, self.basis.data, order)
+
+    @staticmethod
+    def probe_derivatives_transpose(
+            ztildes:            typ.Sequence[NDArray],  # residual jets, len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
+            ww:                 typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
+            pp:                 typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+            basis:              bvf.T3Basis,
+            order:              int,                    # highest derivative order
+            sum_over_probes:    bool = False,           # True: sum the sample stack W (Gauss-Newton J^T r)
+    ) -> 'T3Tangent':
+        """Transpose ``(J^(s))^T`` of :py:meth:`probe_derivatives`; returns a :py:class:`T3Tangent` at ``basis``.
+
+        The adjoint of :py:meth:`probe_derivatives`. Residual jets ``ztildes`` live in its output space
+        (``(order+1)+W+K+C+(Ni,)``); the tangent batch ``K`` rides through, the sample stack ``W`` is
+        summed (``sum_over_probes=True``, the Gauss-Newton ``J^T r``) or kept (``False``, ``W`` becomes
+        the tangent stack). Bare ``(J^(s))^T`` (no gauge projector).
+
+        See Also
+        --------
+        probe_derivatives
+        probe_transpose
+
+        Examples
+        --------
+        Adjoint identity ``<r, J v> = <J^T r, v>`` (sum over probes):
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.basis_variations_format as bvf
+        >>> import t3toolbox.manifold as t3m
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+        >>> base, _ = bvf.t3_orthogonal_representations(x)
+        >>> v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+        >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> Jv = v.probe_derivatives(ww, pp, 2)
+        >>> r = [np.random.randn(*z.shape) for z in Jv]
+        >>> JTr = t3m.T3Tangent.probe_derivatives_transpose(r, ww, pp, base, 2, sum_over_probes=True)
+        >>> lhs = sum(float(np.sum(ri * zi)) for ri, zi in zip(r, Jv))
+        >>> print(bool(abs(lhs - float(JTr.inner(v))) < 1e-9))
+        True
+        """
+        dU, dG = probe_derivatives.probe_tangent_derivatives_transpose(
+            ztildes, ww, pp, basis.data, order, sum_over_probes=sum_over_probes)
+        return T3Tangent(basis, bvf.T3Variations(dU, dG))
+
+    @staticmethod
+    def apply_derivatives_transpose(
+            c:                  NDArray,                # residual jet (scalar), shape=(order+1,)+W+K+C
+            ww:                 typ.Sequence[NDArray],  # apply vectors X,        len=d, elm_shape=W+(Ni,)
+            pp:                 typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+            basis:              bvf.T3Basis,
+            order:              int,                    # highest derivative order
+            sum_over_probes:    bool = False,
+    ) -> 'T3Tangent':
+        """Transpose of :py:meth:`apply_derivatives`: back-project residual jets ``c`` into a tangent.
+
+        The adjoint-state apply-derivative transpose (the scalar residual jet seeds one sweep; about half
+        a :py:meth:`probe_derivatives_transpose`). ``sum_over_probes`` as in :py:meth:`probe_derivatives_transpose`.
+
+        See Also
+        --------
+        apply_derivatives
+        apply_transpose
+        """
+        dU, dG = probe_derivatives.apply_tangent_derivatives_transpose(
+            c, ww, pp, basis.data, order, sum_over_probes=sum_over_probes)
+        return T3Tangent(basis, bvf.T3Variations(dU, dG))
+
+    @staticmethod
+    def entries_derivatives_transpose(
+            c:                  NDArray,                # residual jet (scalar), shape=(order+1,)+W+K+C
+            index:              NDArray,                # int, shape=(d,)+W
+            pp:                 typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+            basis:              bvf.T3Basis,
+            order:              int,                    # highest derivative order
+            sum_over_probes:    bool = False,
+    ) -> 'T3Tangent':
+        """Transpose of :py:meth:`entries_derivatives`: scatter residual jets ``c`` at ``index`` into a tangent.
+
+        Identical to :py:meth:`apply_derivatives_transpose` with the base up-index from fiber slicing and
+        the ambient ``w_jet`` from the unit vectors ``e_{index}`` (so the Tucker-variation gradient
+        scatters onto the indexed rows).
+
+        See Also
+        --------
+        entries_derivatives
+        apply_derivatives_transpose
+        """
+        dU, dG = probe_derivatives.entries_tangent_derivatives_transpose(
+            c, index, pp, basis.data, order, sum_over_probes=sum_over_probes)
         return T3Tangent(basis, bvf.T3Variations(dU, dG))
 
     ############################################

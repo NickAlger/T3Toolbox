@@ -10,6 +10,7 @@ import math
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.corewise as cw
 import t3toolbox.backend.common as common
+import t3toolbox.backend.probe_derivatives as probe_derivatives
 
 try:
     import jax
@@ -2960,6 +2961,48 @@ class TestTuckerTensorTrain(unittest.TestCase):
                 tucker_shapes, tt_shapes = t3.TuckerTensorTrain.get_core_shapes(shape, tucker_ranks, tt_ranks, STACK_SHAPE)
                 self.assertEqual(tuple(B.shape for B in x.tucker_cores), tucker_shapes)
                 self.assertEqual(tuple(G.shape for G in x.tt_cores), tt_shapes)
+
+
+    def test_derivative_methods(self):
+        # TuckerTensorTrain.{probe,apply,entries}_derivatives + corewise transposes: order-0 == the
+        # plain op; the corewise gradient matches a finite difference; the X/P consistency check raises.
+        STRUCT = ((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+        shapes = STRUCT[0]
+        d = len(shapes)
+        x = t3.TuckerTensorTrain.randn(*STRUCT)
+        W = (2,)
+        ww = [np.random.randn(*(W + (N,))) for N in shapes]
+        pp = [np.random.randn(*(W + (N,))) for N in shapes]
+        index = np.stack([np.random.randint(0, N, size=W) for N in shapes], axis=0)
+        ORDER = 3
+
+        # order 0 == the non-derivative op
+        for zj, z0 in zip(x.probe_derivatives(ww, pp, ORDER), x.probe(ww)):
+            self.check_relerr(np.asarray(z0), np.asarray(zj)[0])
+        self.check_relerr(np.asarray(x.apply(ww)), np.asarray(x.apply_derivatives(ww, pp, ORDER))[0])
+        self.check_relerr(np.asarray(x.entries(index)), np.asarray(x.entries_derivatives(index, pp, ORDER))[0])
+
+        # corewise transpose: <g, dcores> matches a central finite difference of <r, forward(cores)>
+        r = [np.random.randn(*np.asarray(z).shape) for z in x.probe_derivatives(ww, pp, ORDER)]
+        gU, gG = x.probe_corewise_derivatives_transpose(r, ww, pp, ORDER, sum_over_probes=True)
+        dU = [np.random.randn(*B.shape) for B in x.tucker_cores]
+        dG = [np.random.randn(*G.shape) for G in x.tt_cores]
+        inner = (sum(np.sum(np.asarray(gU[i]) * dU[i]) for i in range(d))
+                 + sum(np.sum(np.asarray(gG[i]) * dG[i]) for i in range(d)))
+        eps = 1e-6
+        dot = lambda data: sum(np.sum(r[i] * np.asarray(probe_derivatives.probe_derivatives_t3(ww, pp, data, ORDER)[i]))
+                               for i in range(d))
+        plus = ([B + eps * du for B, du in zip(x.tucker_cores, dU)], [G + eps * dg for G, dg in zip(x.tt_cores, dG)])
+        minus = ([B - eps * du for B, du in zip(x.tucker_cores, dU)], [G - eps * dg for G, dg in zip(x.tt_cores, dG)])
+        fd = (dot(plus) - dot(minus)) / (2 * eps)
+        self.assertLessEqual(abs(inner - fd) / max(abs(fd), 1e-30), 1e-5)
+
+        # X/P sample-stack consistency: hard error
+        pp_bad = [np.random.randn(*((3,) + (N,))) for N in shapes]
+        with self.assertRaises(ValueError):
+            x.probe_derivatives(ww, pp_bad, ORDER)
+        with self.assertRaises(ValueError):
+            x.entries_derivatives(index, pp_bad, ORDER)
 
 
 if __name__ == '__main__':

@@ -50,6 +50,9 @@ from t3toolbox.backend.common import *
 # variation-core-only term takes n_base = len(C); the n_probe precedent).
 
 __all__ = [
+    # Input validation (X/P sample-stack consistency)
+    'check_perturbation_vectors',
+    'check_perturbation_index',
     # Plain T3 (Euclidean)
     'probe_derivatives_t3',
     'build_input_jets',
@@ -158,6 +161,34 @@ def probe_derivatives_t3(
     z_jets = assemble_z_jets(tucker_cores, eta_jets)
 
     return z_jets
+
+
+def check_perturbation_vectors(
+        ww: typ.Sequence[NDArray],  # points X,       len=d, elm_shape=W+(Ni,)
+        pp: typ.Sequence[NDArray],  # perturbation P, len=d, elm_shape=W+(Ni,)
+) -> None:
+    '''Structural check (hard error): the perturbation ``P`` (``pp``) shares the sample stack ``W`` and
+    mode dims of the points ``X`` (``ww``) -- each sample pairs a point with a direction. Used by the
+    derivative-probe/apply frontends; shapes are static, so this is jit-safe.'''
+    for i, (w, p) in enumerate(zip(ww, pp)):
+        if np.shape(w) != np.shape(p):
+            raise ValueError(
+                "perturbation P must match the shape (sample stack W and mode dim) of the points X; "
+                "mode %d: P %s vs X %s" % (i, np.shape(p), np.shape(w)))
+
+
+def check_perturbation_index(
+        index: NDArray,                # grid points, int, shape=(d,)+W
+        pp:    typ.Sequence[NDArray],  # perturbation P, len=d, elm_shape=W+(Ni,)
+) -> None:
+    '''Structural check (hard error): the perturbation ``P`` shares the sample stack ``W`` of the grid
+    points ``index`` (shape ``(d,)+W``). Used by the derivative-entries frontends; jit-safe.'''
+    iW = tuple(np.shape(index)[1:])
+    for i, p in enumerate(pp):
+        if tuple(np.shape(p)[:-1]) != iW:
+            raise ValueError(
+                "perturbation P's sample stack W must match index's; mode %d: P %s vs index %s"
+                % (i, tuple(np.shape(p)[:-1]), iW))
 
 
 def binomial_combine_tensor(
