@@ -50,8 +50,9 @@ probing-style sweep that carries an extra Taylor-jet axis. The whole constructio
 Leibniz rule for jets: because each input vector enters affinely, its jet truncates at order one,
 and every quantity built from it is assembled by a binomial convolution of jets. This note records
 the math behind \texttt{t3toolbox/backend/probe\_derivatives.py}. It treats the Euclidean (plain-T3)
-forward map; adjoint and Riemannian extensions are noted but not derived. This material is not part
-of the published T4S paper.
+and Riemannian (tangent-vector) probing maps, both forward and transpose, the latter by a
+jet-ified adjoint-state Lagrangian; the remaining Euclidean corewise transpose and the full batch
+stacking are noted but not derived. This material is not part of the published T4S paper.
 \end{abstract}
 
 \section{Setup: probing and its actions}
@@ -354,21 +355,176 @@ polynomial in $s$ and the $k$th derivative is exact:
 \end{equation}
 the inner contraction feeding $\mathbf p_j$ in the modes $j \in S$ and $\mathbf w_j$ elsewhere. The
 sweeping algorithm matches this dense subset-expansion oracle to machine precision in
-\texttt{tests/test\_probe\_derivatives.py}, across orders, ranks, and sample-stack shapes.
+\texttt{tests/\allowbreak test\_probe\_derivatives.py}, across orders, ranks, and sample-stack shapes.
 
-\section{Extensions (not derived here)}
-\label{sec:future}
+\section{Riemannian: symmetric derivatives of tangent-vector probing}
+\label{sec:riem}
 
-Two extensions follow the same jet calculus and are left for a future revision.
+The construction above probes a fixed tensor. In the Riemannian setting one instead probes a
+\emph{tangent vector} of the T3 manifold and differentiates that probing map with respect to the
+input vectors --- the operator needed to fit a tangent vector to measured derivative data.
 
-\emph{Adjoint and corewise derivatives.} The transpose of the (linear-in-the-tensor) derivative map,
-and the gradient with respect to the cores treated as independent variables, are again binomial jet
-convolutions --- of the adjoint edge variables against the same tensor \eqref{eq:trs}. These mirror
-the three transpose flavours (ambient, corewise, tangent) already present for ordinary probing.
+\paragraph{Tangent-vector probing.}
+A tangent vector $v$ at a base point is represented by an orthogonal frame
+$\big((\mathbf U_i),(\mathbf O_i),(\mathbf P_i),(\mathbf Q_i)\big)$ (up-Tucker, down-, left-, and
+right-TT cores) and a gauged variation $\delta\mathbb V = \big((\delta\mathbf U_i),
+(\delta\mathbf G_i)\big)$; see Appendix~A of the T4S paper. Its $i$th action on $\mathbf W$ is computed
+by a base sweep through the frame,
+\begin{equation}
+  \label{eq:rbase}
+  \boldsymbol\xi_i = \mathbf U_i \mathbf w_i, \quad
+  \boldsymbol\mu_i^\top = \boldsymbol\mu_{i-1}^\top \mathbf P_i(\boldsymbol\xi_i), \quad
+  \boldsymbol\nu_i = \mathbf Q_{i+1}(\boldsymbol\xi_{i+1})\,\boldsymbol\nu_{i+1}, \quad
+  \boldsymbol\eta_i = \boldsymbol\mu_{i-1}^\top \mathbf O_i\, \boldsymbol\nu_i,
+\end{equation}
+(the plain pipeline \eqref{eq:xi}--\eqref{eq:z} with the frame cores $\mathbf P,\mathbf Q,\mathbf O$
+in place of $\mathbf G$), and a variation sweep
+\begin{align}
+  \delta\boldsymbol\xi_i &= \delta\mathbf U_i \mathbf w_i, \label{eq:rdxi}\\
+  \boldsymbol\sigma_i^\top &= \boldsymbol\sigma_{i-1}^\top \mathbf Q_i(\boldsymbol\xi_i)
+    + \boldsymbol\mu_{i-1}^\top \delta\mathbf G_i(\boldsymbol\xi_i)
+    + \boldsymbol\mu_{i-1}^\top \mathbf O_i(\delta\boldsymbol\xi_i), \label{eq:rsigma}\\
+  \boldsymbol\tau_i &= \delta\mathbf G_{i+1}(\boldsymbol\xi_{i+1})\boldsymbol\nu_{i+1}
+    + \mathbf O_{i+1}(\delta\boldsymbol\xi_{i+1})\boldsymbol\nu_{i+1}
+    + \mathbf P_{i+1}(\boldsymbol\xi_{i+1})\boldsymbol\tau_{i+1}, \label{eq:rtau}\\
+  \delta\boldsymbol\eta_i &= \boldsymbol\sigma_{i-1}^\top \mathbf Q_i \boldsymbol\nu_i
+    + \boldsymbol\mu_{i-1}^\top \delta\mathbf G_i \boldsymbol\nu_i
+    + \boldsymbol\mu_{i-1}^\top \mathbf P_i \boldsymbol\tau_i, \label{eq:rdeta}\\
+  \mathbf z_i &= \mathbf U_i^\top \delta\boldsymbol\eta_i + \delta\mathbf U_i^\top \boldsymbol\eta_i,
+    \label{eq:rz}
+\end{align}
+with $\boldsymbol\sigma_0 = 0$, $\boldsymbol\tau_d = 0$ (Algorithm~7 of the T4S paper).
 
-\emph{Riemannian derivatives.} Replacing the plain cores by an orthogonal frame and a tangent
-variation gives the symmetric derivatives of \emph{tangent-vector} probing. The pushthrough and
-combine acquire the variation terms of the tangent calculus, but the order axis threads through them
-exactly as above; the jet Leibniz rule is unchanged.
+\paragraph{Jets.}
+Differentiating \eqref{eq:rbase}--\eqref{eq:rz} with respect to $\mathbf W$ along $\mathbf P$ uses
+nothing new: every right-hand side is a chain of bilinear pairings, so Lemma~\ref{lem:leibniz}
+applies term by term. The base sweep \eqref{eq:rbase} is verbatim Theorems~\ref{thm:push}--%
+\ref{thm:action} with the frame cores. The variation sweep jet-ifies the same way; with the
+order-one input jets $\jet{\boldsymbol\xi_i} = (\boldsymbol\xi_i, \mathbf U_i\mathbf p_i, 0, \dots)$
+and $\jet{\delta\boldsymbol\xi_i} = (\delta\boldsymbol\xi_i, \delta\mathbf U_i\mathbf p_i, 0, \dots)$,
+\eqref{eq:rsigma} becomes the bidiagonal recursion
+\begin{align}
+  \big(\boldsymbol\sigma_i^{(k)}\big)^\top
+  &= \big(\boldsymbol\sigma_{i-1}^{(k)}\big)^\top \mathbf Q_i(\boldsymbol\xi_i)
+   + k \big(\boldsymbol\sigma_{i-1}^{(k-1)}\big)^\top \mathbf Q_i(\mathbf U_i\mathbf p_i) \nonumber\\
+  &\;+ \big(\boldsymbol\mu_{i-1}^{(k)}\big)^\top \delta\mathbf G_i(\boldsymbol\xi_i)
+     + k \big(\boldsymbol\mu_{i-1}^{(k-1)}\big)^\top \delta\mathbf G_i(\mathbf U_i\mathbf p_i) \nonumber\\
+  &\;+ \big(\boldsymbol\mu_{i-1}^{(k)}\big)^\top \mathbf O_i(\delta\boldsymbol\xi_i)
+     + k \big(\boldsymbol\mu_{i-1}^{(k-1)}\big)^\top \mathbf O_i(\delta\mathbf U_i\mathbf p_i),
+  \label{eq:rdsigma}
+\end{align}
+and $\boldsymbol\tau$, $\delta\boldsymbol\eta$, $\mathbf z$ likewise (the combine \eqref{eq:rdeta} and
+lift \eqref{eq:rz} being full binomial convolutions, as in \eqref{eq:deta}--\eqref{eq:dz}).
+
+\begin{remark}[The order axis is uniform]
+\label{rem:uniform}
+Every edge variable above --- base \emph{and} variation --- depends on $\mathbf W$, so every one
+carries the order axis. The forward Riemannian sweep therefore introduces \emph{no new contractions}:
+each term of \eqref{eq:rdsigma} and its companions is one of the three jet contractions of
+Section~\ref{sec:impl}, fed a frame core ($\mathbf P,\mathbf Q,\mathbf O$) or the variation core
+$\delta\mathbf G$. (Contrast the manifold tangent stack of many tangents at one base, which rides
+only the variation-derived edge variables and so needs asymmetric three-block contractions.)
+\end{remark}
+
+\section{The transpose, by a jet-ified adjoint Lagrangian}
+\label{sec:transpose}
+
+The map $\delta\mathbb V \mapsto \{\mathbf z_i^{(k)}\}$ of Section~\ref{sec:riem} is \emph{linear} in
+the variation. Fitting needs its transpose: given residual jets $\mathbf r = \{\mathbf r_i^{(k)}\}$ in
+the action-jet space, return the variation gradient $\big((\delta\widetilde{\mathbf U}_i),
+(\delta\widetilde{\mathbf G}_i)\big)$. We obtain it by the adjoint-state method, jet-ified.
+
+\paragraph{The Lagrangian.}
+Introduce an adjoint (multiplier) jet for each forward edge-variable equation
+\eqref{eq:rdxi}--\eqref{eq:rdeta} --- $\widehat{\delta\boldsymbol\eta}_i,\ \widehat{\boldsymbol\sigma}_i,\
+\widehat{\boldsymbol\tau}_i,\ \widehat{\delta\boldsymbol\xi}_i$ --- and form
+\begin{equation}
+  \label{eq:lagr}
+  \mathcal L = \big\langle \mathbf r,\ \mathbf z \big\rangle
+    + \big\langle \widehat\Xi,\ E(\Xi) \big\rangle,
+\end{equation}
+where $\langle\cdot,\cdot\rangle$ sums over modes \emph{and the order axis}, $\mathbf z$ is
+\eqref{eq:rz}, and $E(\Xi)$ collects the residuals of the forward equations. This is Theorem~7 of the
+T4S paper with one change: \emph{every contraction in $\mathcal L$ is replaced by its $\texttt{trs}$
+version}, so each product of edge variables becomes the binomial jet convolution of
+Section~\ref{sec:impl}. At a stationary point the constraints hold ($\partial_{\widehat\Xi}\mathcal L
+= 0$ recovers the forward jets), the adjoint equations define the multiplier jets
+($\partial_\Xi\mathcal L = 0$), and
+\begin{equation}
+  \label{eq:grad}
+  \big((\delta\widetilde{\mathbf U}_i),(\delta\widetilde{\mathbf G}_i)\big)
+  = \partial_{\delta\mathbb V}\, \mathcal L = \big(J^{(s)}\big)^\top(\mathbf r).
+\end{equation}
+Because the constraints are the jet-ified forward equations, both the adjoint sweeps and the gradient
+are read off by differentiating $\texttt{trs}$ contractions, with two clean consequences.
+
+\paragraph{Adjoint sweeps: the same tensor, transposed.}
+The multiplier equations $\partial_\Xi\mathcal L = 0$ are the adjoint sweeps. Differentiating a forward
+jet convolution with respect to one of its operands \emph{transposes} the $\texttt{trs}$ contraction:
+the output order and a summed input order swap roles. For the pushthrough and its adjoint (with respect
+to the swept edge variable $\mathbf a$),
+\begin{equation}
+  \label{eq:hook}
+  \underbrace{\texttt{trs}[t,r,s]\, \mathbf a^{(r)} \mathbf G\, \boldsymbol\xi^{(s)} \to (\cdot)^{(t)}}
+  _{\text{forward, output order }t}
+  \qquad\Longleftrightarrow\qquad
+  \underbrace{\texttt{trs}[t,r,s]\, \mathbf G\, \boldsymbol\xi^{(s)}\, \widetilde{(\cdot)}^{(t)} \to \mathbf a^{(r)}}
+  _{\text{adjoint, output order }r\ (t\text{ summed})}.
+\end{equation}
+It is literally the same kernel \eqref{eq:trs} wired as its transpose --- the adjoint of a binomial
+convolution is a binomial correlation. Thus $\widehat{\boldsymbol\sigma},\widehat{\boldsymbol\tau},
+\widehat{\delta\boldsymbol\xi}$ are computed by the adjoint-hooked analogues of
+\eqref{eq:rsigma}--\eqref{eq:rdeta}, in the reverse sweep direction, while $\widehat{\delta\boldsymbol
+\eta}_i = \mathbf U_i \mathbf r_i$ is the order-diagonal lift.
+
+\paragraph{Gradient assembly: arity equals internal-edge count.}
+The variation gradients $\partial_{\delta\mathbf G_i}\mathcal L$ and $\partial_{\delta\mathbf U_i}
+\mathcal L$ are \emph{order-less} (the variation cores carry no order axis). Differentiating the
+Lagrangian's contractions with respect to a core sums out the order axes, and \emph{the number summed
+equals the number of internal edges of that core}:
+\begin{itemize}
+  \item the TT core $\delta\mathbf G_i$ has three internal edges (its left and right bonds and the
+    up-edge to its Tucker core), so its gradient contracts three jets against the three-leg tensor
+    $\texttt{trs}$. It is the sum of the core-adjoints of the three $\delta\mathbf G$-terms in
+    \eqref{eq:rsigma}, \eqref{eq:rtau}, \eqref{eq:rdeta} --- each an order-less three-fold outer
+    product placed on the (left-bond, mode, right-bond) legs of the core --- e.g.\ from
+    \eqref{eq:rsigma},
+    \[
+      \delta\widetilde{\mathbf G}_i \;\supset\; \sum_{r+s=t}\texttt{trs}[t,r,s]\
+        \boldsymbol\mu_{i-1}^{(r)} \otimes \boldsymbol\xi_i^{(s)} \otimes \widehat{\boldsymbol\sigma}_i^{(t)};
+    \]
+  \item the Tucker core $\delta\mathbf U_i$ has one internal edge (the down-edge to its TT core), so
+    its gradient contracts against the one-leg ``tensor'' --- a plain sum over the single order axis:
+    \[
+      \delta\widetilde{\mathbf U}_i
+      = \sum_t \boldsymbol\eta_i^{(t)} \otimes \mathbf r_i^{(t)}
+      + \sum_u \widehat{\delta\boldsymbol\xi}_i^{(u)} \otimes \mathbf w_i^{(u)},
+      \qquad \jet{\mathbf w_i} = (\mathbf w_i, \mathbf p_i, 0, \dots).
+    \]
+\end{itemize}
+
+\begin{remark}[General networks]
+\label{rem:arity}
+The rule ``arity of the binomial assembly tensor $=$ number of internal edges of the assembled core''
+is network-agnostic. A hierarchical-Tucker node with four internal edges would assemble against a
+four-leg tensor $\texttt{trsq}$ (a multinomial convolution); the one- and three-edge cases above are
+the trivial ($t$) and binomial ($\texttt{trs}$) instances.
+\end{remark}
+
+\paragraph{Verification.}
+To machine precision the transpose matches both the dense adjoint identity $\langle \mathbf r,
+J^{(s)} v\rangle = \langle (J^{(s)})^\top \mathbf r, v\rangle$ and the forward map's automatic
+transpose (\texttt{jax.\allowbreak linear\_\allowbreak transpose}), across orders and sample-stack
+shapes.
+
+\section{Remaining}
+\label{sec:remaining}
+
+Two pieces follow the same calculus and are left for a later revision. The \emph{Euclidean corewise
+and ambient transposes} --- the gradient of the plain-T3 probe derivatives with respect to the cores
+as independent variables, and the base-free adjoint --- are again binomial jet convolutions of adjoint
+edge variables against \eqref{eq:trs}, mirroring the three transpose flavours of ordinary probing. The
+full \emph{batch stacking} (a base/core stack on the cores, and a tangent stack of many tangent
+vectors at one base) threads orthogonally to the order axis, exactly as the sample stack does above.
 
 \end{document}
