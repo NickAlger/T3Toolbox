@@ -402,6 +402,173 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         with self.assertRaises(ValueError):
             ut3.UniformTuckerTensorTrain(ux.tucker_supercore, ux.tt_supercore, bad)
 
+    # ---- constructors (zeros / ones / randn) ----
+    def test_zeros(self):
+        for shape, tr, ttr, ss in self._cases():
+            with self.subTest(shape=shape, stack=ss):
+                z = ut3.UniformTuckerTensorTrain.zeros(shape, tr, ttr, stack_shape=ss)
+                self.assertEqual(z.shape, shape)
+                self.assertEqual(z.stack_shape, ss)
+                self.assertEqual(float(norm(z.to_dense())), 0.0)
+                # ranks (uniform across the stack) match the request
+                self.assertEqual(self._first_elem_ranks(z, ss), (tuple(tr), tuple(ttr)))
+
+    def test_zeros_default_ranks(self):
+        z = ut3.UniformTuckerTensorTrain.zeros((5, 6, 7))
+        self.assertEqual(z.shape, (5, 6, 7))
+        self.assertEqual(float(norm(z.to_dense())), 0.0)
+        self.assertEqual(self._first_elem_ranks(z, ()), ((1, 1, 1), (1, 1, 1, 1)))
+
+    def test_ones(self):
+        for ss in STACK_SHAPES:
+            with self.subTest(stack=ss):
+                x = ut3.UniformTuckerTensorTrain.ones((5, 6, 7), stack_shape=ss)
+                self.assertEqual(float(norm(x.to_dense() - np.ones(ss + (5, 6, 7)))), 0.0)
+                self.assertEqual(self._first_elem_ranks(x, ss), ((1, 1, 1), (1, 1, 1, 1)))
+
+    def test_randn_structure_and_matches_ragged_roundtrip(self):
+        # randn cores are random N(0,1); the represented tensor equals the ragged round-trip's
+        for shape, tr, ttr, ss in self._cases():
+            with self.subTest(shape=shape, stack=ss):
+                ux = ut3.UniformTuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
+                self.assertEqual(ux.shape, shape)
+                self.assertEqual(ux.stack_shape, ss)
+                self.assertEqual(self._first_elem_ranks(ux, ss), (tuple(tr), tuple(ttr)))
+                self.assertTrue(np.any(np.asarray(ux.tucker_supercore) != 0.0))
+                # the padded ("garbage") regions are masked to zero -> ragged round-trip is faithful
+                back = ut3.ut3_to_t3(ux)
+                rebuilt = back if ss == () else t3.TuckerTensorTrain.stack(back)
+                self.assertEqual(rebuilt.shape, shape)
+                self.assertEqual(rebuilt.tucker_ranks, tuple(tr))
+                self.assertEqual(rebuilt.tt_ranks, tuple(ttr))
+
+    def test_randn_padding_is_masked(self):
+        # garbage cannot hide in the padding: re-masking is a no-op (padding already zero)
+        ux = ut3.UniformTuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1), stack_shape=(2,))
+        self.assertLessEqual(relerr(ux.apply_masks().to_dense(), ux.to_dense()), TOL)
+
+    def test_randn_per_stack_element_ranks(self):
+        # the variety: a full (d,)+stack rank array -> ranks vary per stack element, one padded shape
+        tucker_ranks = np.array([[2, 4], [3, 5], [2, 3]])           # (d=3, stack=2)
+        tt_ranks = np.array([[1, 1], [2, 4], [2, 3], [1, 1]])       # (d+1=4, stack=2)
+        ux = ut3.UniformTuckerTensorTrain.randn((6, 7, 8), tucker_ranks, tt_ranks, stack_shape=(2,))
+        self.assertEqual(ux.stack_shape, (2,))
+        self.assertEqual(ux.n, 5)   # max padded Tucker rank
+        self.assertEqual(ux.r, 4)   # max padded TT rank
+        self.assertTrue(np.array_equal(np.asarray(ux.tucker_ranks), tucker_ranks))
+        self.assertTrue(np.array_equal(np.asarray(ux.tt_ranks), tt_ranks))
+        # ranks genuinely differ across the stack
+        self.assertFalse(np.array_equal(ux.tucker_ranks[:, 0], ux.tucker_ranks[:, 1]))
+        # each stack element's represented tensor has the right shape and is reconstructible
+        tree = ux.unstack()
+        for i in range(2):
+            self.assertEqual(tree[i].shape, (6, 7, 8))
+
+    def test_zeros_per_stack_element_ranks(self):
+        tucker_ranks = np.array([[2, 4], [3, 5], [2, 3]])
+        tt_ranks = np.array([[1, 1], [2, 4], [2, 3], [1, 1]])
+        z = ut3.UniformTuckerTensorTrain.zeros((6, 7, 8), tucker_ranks, tt_ranks, stack_shape=(2,))
+        self.assertEqual(float(norm(z.to_dense())), 0.0)
+        self.assertTrue(np.array_equal(np.asarray(z.tucker_ranks), tucker_ranks))
+        self.assertTrue(np.array_equal(np.asarray(z.tt_ranks), tt_ranks))
+
+    def test_randn_scalar_rank_spec(self):
+        # a scalar rank caps every mode the same
+        ux = ut3.UniformTuckerTensorTrain.randn((5, 6, 7), 2, 2)
+        self.assertEqual(self._first_elem_ranks(ux, ()), ((2, 2, 2), (2, 2, 2, 2)))
+
+    def test_constructor_bad_rank_spec_raises(self):
+        with self.assertRaises(ValueError):
+            ut3.UniformTuckerTensorTrain.randn((5, 6, 7), (3, 4), (1, 3, 2, 1))   # wrong-length tucker
+
+    # ---- conversions to/from other formats ----
+    def test_from_canonical(self):
+        rank, shape, ss = 3, (5, 6, 7), (2,)
+        FF = [np.random.randn(*(ss + (rank, N))) for N in shape]
+        ux = ut3.UniformTuckerTensorTrain.from_canonical(FF)
+        expected = np.einsum('ari,arj,ark->aijk', FF[0], FF[1], FF[2])
+        self.assertLessEqual(relerr(ux.to_dense(), expected), TOL)
+        # Tucker ranks = canonical rank; boundary TT bonds squashed to 1 by t3_to_ut3's default squash
+        self.assertEqual(self._first_elem_ranks(ux, ss), ((rank, rank, rank), (1, rank, rank, 1)))
+        # matches the ragged from_canonical exactly
+        xr = t3.TuckerTensorTrain.from_canonical(FF)
+        self.assertLessEqual(relerr(ux.to_dense(), xr.to_dense()), TOL)
+        self.assertTrue(all(m.dtype == bool for m in ux.masks.data))   # masks numpy bool
+
+    def test_from_tensor_train(self):
+        tt = [np.random.randn(1, 5, 4), np.random.randn(4, 6, 3), np.random.randn(3, 7, 1)]
+        ux = ut3.UniformTuckerTensorTrain.from_tensor_train(tt)
+        expected = np.einsum('aib,bjc,ckd->ijk', *tt)
+        self.assertLessEqual(relerr(ux.to_dense(), expected), TOL)
+        xr = t3.TuckerTensorTrain.from_tensor_train(tt)
+        self.assertLessEqual(relerr(ux.to_dense(), xr.to_dense()), TOL)
+
+    def test_to_tensor_train_unstacked(self):
+        x = t3.TuckerTensorTrain.randn((6, 7, 8), (3, 4, 2), (1, 3, 2, 1))
+        ux = ut3.t3_to_ut3(x)
+        tt = ux.to_tensor_train()
+        got = np.einsum('aib,bjc,ckd->ijk', *tt)
+        self.assertLessEqual(relerr(got, x.to_dense()), TOL)
+        # matches the ragged to_tensor_train
+        ragged_tt = x.to_tensor_train()
+        self.assertLessEqual(relerr(got, np.einsum('aib,bjc,ckd->ijk', *ragged_tt)), TOL)
+
+    def test_to_tensor_train_stacked_tree(self):
+        x = t3.TuckerTensorTrain.randn((6, 7, 8), (3, 4, 2), (1, 3, 2, 1), stack_shape=(2,))
+        ux = ut3.t3_to_ut3(x)
+        tree = ux.to_tensor_train()
+        self.assertEqual(len(tree), 2)
+        xd = x.to_dense()
+        for i in range(2):
+            got = np.einsum('aib,bjc,ckd->ijk', *tree[i])
+            self.assertLessEqual(relerr(got, xd[i]), TOL)
+
+    # ---- save / load ----
+    def test_save_load_roundtrip(self):
+        import tempfile, os
+        x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1), stack_shape=(2,))
+        ux = ut3.t3_to_ut3(x)
+        fname = os.path.join(tempfile.mkdtemp(), 'ut3_test.npz')
+        ux.save(fname)
+        ux2 = ut3.UniformTuckerTensorTrain.load(fname)
+        self.assertEqual(float(norm(ux2.to_dense() - ux.to_dense())), 0.0)
+        # loaded masks are numpy (host) bool -- never jax (the slice-7 invariant)
+        for m in ux2.masks.data:
+            self.assertTrue(isinstance(m, np.ndarray))
+            self.assertEqual(m.dtype, bool)
+        # structure preserved
+        self.assertTrue(np.array_equal(np.asarray(ux2.tucker_ranks), np.asarray(ux.tucker_ranks)))
+        self.assertTrue(np.array_equal(np.asarray(ux2.tt_ranks), np.asarray(ux.tt_ranks)))
+
+    def test_save_load_varying_rank_stack(self):
+        import tempfile, os
+        tucker_ranks = np.array([[2, 4], [3, 5], [2, 3]])
+        tt_ranks = np.array([[1, 1], [2, 4], [2, 3], [1, 1]])
+        ux = ut3.UniformTuckerTensorTrain.randn((6, 7, 8), tucker_ranks, tt_ranks, stack_shape=(2,))
+        fname = os.path.join(tempfile.mkdtemp(), 'ut3_variety.npz')
+        ux.save(fname)
+        ux2 = ut3.UniformTuckerTensorTrain.load(fname)
+        self.assertEqual(float(norm(ux2.to_dense() - ux.to_dense())), 0.0)
+        # the per-element ranks survive the round-trip
+        self.assertTrue(np.array_equal(np.asarray(ux2.tucker_ranks), tucker_ranks))
+        self.assertTrue(np.array_equal(np.asarray(ux2.tt_ranks), tt_ranks))
+
+    # ---- backend-only path: constructors/IO reproducible on raw .data ----
+    def test_constructors_backend_only(self):
+        # every constructor/IO frontend method is a thin wrapper over a ut3_constructors backend function
+        import t3toolbox.backend.ut3_constructors as bc
+        import t3toolbox.backend.ut3_conversions as conv
+        z = bc.ut3_zeros((5, 6, 7), (3, 4, 2), (1, 3, 2, 1))
+        self.assertEqual(float(norm(conv.ut3_to_dense(z))), 0.0)
+        # masks are numpy bool even for a backend-built constructor
+        self.assertTrue(all(isinstance(m, np.ndarray) and m.dtype == bool for m in z[2]))
+        o = bc.ut3_ones((5, 6, 7))
+        self.assertEqual(float(norm(conv.ut3_to_dense(o) - np.ones((5, 6, 7)))), 0.0)
+        FF = [np.random.randn(3, N) for N in (5, 6, 7)]
+        fc = bc.ut3_from_canonical(FF)
+        self.assertLessEqual(relerr(conv.ut3_to_dense(fc),
+                                    np.einsum('ri,rj,rk->ijk', *FF)), TOL)
+
     # ---- dtype / copy ----
     def test_to_numpy_and_copy(self):
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1), stack_shape=(2,))

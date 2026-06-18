@@ -1,4 +1,4 @@
-# Uniform T3 port — handoff (slices 1–5 + 7 done; 6/8/9 remaining)
+# Uniform T3 port — handoff (slices 1–5 + 7 + 8 done; 6/9 remaining)
 
 Resume note for the `UniformTuckerTensorTrain` port. The living plan with per-function SHARE/REWRITE
 verdicts and the 9-slice order is **[`docs/uniform_port_plan.md`](uniform_port_plan.md)**; the design
@@ -127,8 +127,37 @@ Done per slice (verified vs ragged/dense, ≤~3e-15):
   "How to jit … functional, or via the frontend"). **Don't "fix" mask `np.*` to `xnp` — it's intentional.**
   Verified: `test_uniform_tucker_tensor_train` 33 / `test_dispatch` 6 / `test_tucker_tensor_train`+
   `test_basis_variations_format` 91 / `test_manifold` 37 (alone) / `test_contractions` 29 — all green.
-- **8 — Constructors + IO.** `zeros`/`ones`/`randn` (pure constructors keep `use_jax`), `from_canonical`/
-  `from_tensor_train`, `save`/`load`.
+- **8 — Constructors + IO (✅ DONE, pushed to `main`).** New backend module
+  `t3toolbox/backend/ut3_constructors.py` (all `.data`-level; razor-clean) + thin frontend wrappers:
+  1. ✅ **`zeros`/`ones`/`randn`** — pure constructors, keep `use_jax` for the SUPERCORES (nothing to
+     infer from); build padded supercores (`xnp` per `use_jax`) + masks (`make_uniform_masks`, numpy
+     host) **directly**, then `apply_masks_to_cores` to zero the padding so the represented tensor is
+     exactly the fill. **Per-stack-element ranks** (the variety): `tucker_ranks`/`tt_ranks` accept a
+     scalar, a `len=d`/`len=d+1` sequence (uniform across stack, broadcast), or a full `(d,)+stack` /
+     `(d+1,)+stack` array (ranks varying per element) — normalized by `_broadcast_ranks`; `N/n/r =
+     max(...)` over modes AND stack. `zeros`/`randn` ranks `None`→all-1 for `zeros` (`randn` requires
+     ranks like the ragged twin). `ones` is rank-1.
+  2. ✅ **`from_canonical`/`from_tensor_train`/`to_tensor_train`** — reuse the verified ragged ops via
+     round-trip: `t3_from_canonical`/`t3_from_tensor_train` ∘ `t3_to_ut3` (and `ut3_to_t3` ∘
+     `t3_to_tensor_train` for `to_tensor_train`). Infer `use_jax` from inputs; masks come out numpy via
+     `t3_to_ut3`. `to_tensor_train` returns one `tt_cores` tuple (unstacked) or a nested tree (stacked,
+     like `ut3_to_t3`). **Note:** `t3_to_ut3` squashes tails by default, so `from_canonical`'s boundary
+     TT bonds come out 1 (canonical rank elsewhere) — same tensor, tidier than ragged's `(r,…,r)`.
+  3. ✅ **`save`/`load`** — share `common.save_core_families`/`load_core_families` on
+     `((tucker_sc, tt_sc), (3 masks))` (family 0 = supercores, family 1 = masks). `load` keeps `use_jax`
+     for the supercores but the **masks come back numpy (host) bool** (`np.asarray(m, dtype=bool)`) — the
+     slice-7 invariant. `np.savez` preserves the bool dtype.
+  4. ✅ **`to_vector`/`from_vector` DROPPED** (per plan; varying-rank stack has no flat-vector signature,
+     both interop paths bypass it).
+
+  Tests: `tests/test_uniform_tucker_tensor_train.py` **49** (was 33; +16 for ctors/IO incl.
+  per-stack-element ranks for `randn`/`zeros`, scalar rank spec, save→load reproduces + loaded masks
+  numpy bool incl. varying-rank, from/to_tensor_train vs ragged, backend-only path). `test_dispatch.py`
+  **7** (was 6): `from_canonical`/`from_tensor_train` jitted (arrays in → jax supercores, masks
+  concrete) in `test_jit_uniform`; new `test_jax_out_uniform_ctors` (pure `zeros`/`ones`/`randn`
+  `use_jax=True` → jax-out, masks numpy). Doctests on all new public methods (run + pasted). Verified
+  masks stay numpy bool under `use_jax=True` for every constructor + `from_*` + `load`. **No deviations**
+  beyond the documented `from_canonical` tail-squash (tensor-faithful).
 - **9 — t3m.** Elementwise multiply + truncation; both `t3m_form_then_round` and the max-rank
   `t3m_inplace_fused` (mirror the ragged `t3m`).
 - **Deferred** (notes in plan): partial `sum` (only full-sum-via-apply-ones done), `to_vector`/`from_vector`
@@ -157,7 +186,7 @@ Done per slice (verified vs ragged/dense, ≤~3e-15):
 
 ## Key files
 - Frontend: `t3toolbox/uniform_tucker_tensor_train.py`
-- Backend: `t3toolbox/backend/ut3_{masking,conversions,operations,orthogonalization,linalg,sampling,svd}.py`
+- Backend: `t3toolbox/backend/ut3_{masking,conversions,operations,orthogonalization,linalg,sampling,svd,constructors}.py`
 - Shared-path edits made this port: `t3toolbox/backend/{orthogonalization.py (if xs[0] fix),
   t3_operations.py (t3_to_dense_chain / absorb_tucker_into_tt), apply.py (is_uniform inference)}`.
 - Tests: `tests/test_uniform_tucker_tensor_train.py`

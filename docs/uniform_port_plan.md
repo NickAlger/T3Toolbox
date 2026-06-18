@@ -264,8 +264,15 @@ TRIVIAL = inline one-liner; SWEEP = sequential over `d` (`xscan`/`lax.scan`); BA
    sweep-order leaves behind) — same tensor, tidier; the contract is on the represented tensor.
 6. **Transposes** — `apply_transpose`/`entries_transpose`; audit + add `d`-folded contractions (oracle-tested).
 7. **jax-wiring** — pytree registration + `test_dispatch` coverage.
-8. **Constructors + IO** — `zeros`/`ones`/`randn`; `from_canonical`/`from_tensor_train`/`to_tensor_train`
-   (ragged round-trip); `save`/`load`.
+8. **Constructors + IO — ✅ DONE.** New `backend/ut3_constructors.py`: `zeros`/`ones`/`randn` (pure
+   constructors keep `use_jax`; build padded supercores + numpy masks directly, then mask the padding;
+   per-stack-element rank arrays supported — the variety); `from_canonical`/`from_tensor_train`/
+   `to_tensor_train` (ragged-op round-trip via `t3_to_ut3`/`ut3_to_t3`, infer `use_jax`);
+   `save`/`load` (share `common.save_core_families` on the 5 arrays; `load` keeps `use_jax` for the
+   supercores, masks come back numpy bool). `to_vector`/`from_vector` dropped (Deferred). Tests:
+   `test_uniform_tucker_tensor_train` 49 (+16), `test_dispatch` 7 (+1); masks verified numpy bool under
+   `use_jax=True`. The one tensor-faithful quirk: `from_canonical` boundary TT bonds squash to 1
+   (`t3_to_ut3` default squash).
 9. **`t3m`** (elementwise multiply + truncation) — depends on `ut3svd`. Batched multiply (fold `d` into
    `t3_mult`'s einsums); **masks combine by Kronecker** (the ⊗ side — `ut3_add` is the ⊕/concat side;
    needs a small Kronecker-mask helper). Truncation by **max-rank masks only** (no `rtol`/`atol`;

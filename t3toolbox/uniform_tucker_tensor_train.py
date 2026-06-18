@@ -18,7 +18,7 @@ import typing as typ
 import numpy as np
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Tuple
+from typing import Sequence, Tuple
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.backend.ranks as ranks
@@ -29,6 +29,7 @@ import t3toolbox.backend.ut3_orthogonalization as ut3_orthogonalization
 import t3toolbox.backend.ut3_linalg as ut3_linalg
 import t3toolbox.backend.ut3_sampling as ut3_sampling
 import t3toolbox.backend.ut3_svd as ut3_svd
+import t3toolbox.backend.ut3_constructors as ut3_constructors
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.common as common
 from t3toolbox.backend.common import NDArray
@@ -407,6 +408,198 @@ class UniformTuckerTensorTrain:
 
     def copy(self) -> 'UniformTuckerTensorTrain':
         return UniformTuckerTensorTrain(self.tucker_supercore, self.tt_supercore, self.masks)
+
+    # ----------------------------------------------------------------- constructors
+    # Pure constructors keep a `use_jax` flag for the SUPERCORES (no array input to infer from); the
+    # masks are always numpy (host) structure (docs/uniform_pytree_composition.md). The ranks may vary
+    # per stack element (the variety) -- a backend feature a ragged round-trip cannot express.
+
+    @staticmethod
+    def zeros(
+            shape:        Sequence[int],                          # (N0,...,N(d-1))
+            tucker_ranks: typ.Union[int, Sequence[int], NDArray, None] = None,  # int|len-d|(d,)+stack; None->1
+            tt_ranks:     typ.Union[int, Sequence[int], NDArray, None] = None,  # int|len-(d+1)|(d+1,)+stack; None->1
+            stack_shape:  Sequence[int] = (),
+            use_jax:      bool = False,
+    ) -> 'UniformTuckerTensorTrain':
+        """Uniform Tucker tensor train of zeros (padded regions masked to zero).
+
+        ``tucker_ranks``/``tt_ranks`` accept a scalar, a per-mode sequence, or a full ``(d,)+stack`` /
+        ``(d+1,)+stack`` array (the variety: ranks varying per stack element). ``None`` -> all ranks 1.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> z = ut3.UniformTuckerTensorTrain.zeros((5, 6, 7), (3, 4, 2), (1, 3, 2, 1), stack_shape=(2,))
+        >>> print(z.shape, z.stack_shape)
+        (5, 6, 7) (2,)
+        >>> print(float(np.linalg.norm(z.to_dense())))
+        0.0
+        """
+        return _from_data(ut3_constructors.ut3_zeros(
+            shape, tucker_ranks, tt_ranks, tuple(stack_shape), use_jax=use_jax))
+
+    @staticmethod
+    def ones(
+            shape:       Sequence[int],          # (N0,...,N(d-1))
+            stack_shape: Sequence[int] = (),
+            use_jax:     bool = False,
+    ) -> 'UniformTuckerTensorTrain':
+        """Rank-1 uniform Tucker tensor train representing a tensor full of ones (every real entry == 1).
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> x = ut3.UniformTuckerTensorTrain.ones((5, 6, 7), stack_shape=(2,))
+        >>> print(float(np.linalg.norm(x.to_dense() - np.ones((2, 5, 6, 7)))))
+        0.0
+        >>> print(np.asarray(x.tucker_ranks).max(), np.asarray(x.tt_ranks).max())
+        1 1
+        """
+        return _from_data(ut3_constructors.ut3_ones(shape, tuple(stack_shape), use_jax=use_jax))
+
+    @staticmethod
+    def randn(
+            shape:        Sequence[int],                          # (N0,...,N(d-1))
+            tucker_ranks: typ.Union[int, Sequence[int], NDArray], # int|len-d|(d,)+stack
+            tt_ranks:     typ.Union[int, Sequence[int], NDArray], # int|len-(d+1)|(d+1,)+stack
+            stack_shape:  Sequence[int] = (),
+            use_jax:      bool = False,
+    ) -> 'UniformTuckerTensorTrain':
+        """Uniform Tucker tensor train with random N(0,1) supercores (padded regions masked to zero).
+
+        ``tucker_ranks``/``tt_ranks`` accept a scalar, a per-mode sequence, or a full ``(d,)+stack`` /
+        ``(d+1,)+stack`` array -- the latter setting **per-stack-element ranks** (the variety) while
+        keeping one padded supercore shape, which a ragged round-trip cannot express.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> np.random.seed(0)
+        >>> x = ut3.UniformTuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1), stack_shape=(2,))
+        >>> print(x.shape, x.stack_shape)
+        (5, 6, 7) (2,)
+        >>> print(np.reshape(x.tucker_ranks, (3, 2))[:, 0].tolist())   # uniform across the stack here
+        [3, 4, 2]
+        >>> print(bool(np.any(x.tucker_supercore != 0.0)))            # random, not zeros
+        True
+
+        Per-stack-element ranks (the variety): a full ``(d,)+stack`` array gives each stack element its
+        own ranks under one padded shape.
+
+        >>> tucker_ranks = np.array([[2, 4], [3, 5], [2, 3]])         # (d=3, stack=2)
+        >>> tt_ranks = np.array([[1, 1], [2, 4], [2, 3], [1, 1]])     # (d+1=4, stack=2)
+        >>> xv = ut3.UniformTuckerTensorTrain.randn((6, 7, 8), tucker_ranks, tt_ranks, stack_shape=(2,))
+        >>> print(np.asarray(xv.tucker_ranks).tolist())              # ranks genuinely differ per element
+        [[2, 4], [3, 5], [2, 3]]
+        >>> print(xv.n, xv.r)                                        # one padded shape: n=max, r=max
+        5 4
+        """
+        return _from_data(ut3_constructors.ut3_randn(
+            shape, tucker_ranks, tt_ranks, tuple(stack_shape), use_jax=use_jax))
+
+    # ----------------------------------------------------------------- conversions to/from other formats
+
+    @staticmethod
+    def from_canonical(
+            factors: Sequence[NDArray],  # len=d, elm_shape=stack_shape+(canonical_rank, Ni)
+    ) -> 'UniformTuckerTensorTrain':
+        """Build from a Canonical (CP) decomposition (reuses the ragged op, then converts to uniform).
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> np.random.seed(0)
+        >>> rank, shape = 3, (5, 6, 7)
+        >>> FF = [np.random.randn(rank, N) for N in shape]
+        >>> x = ut3.UniformTuckerTensorTrain.from_canonical(FF)
+        >>> x_dense2 = np.einsum('ri,rj,rk->ijk', FF[0], FF[1], FF[2])
+        >>> print(bool(np.allclose(x.to_dense(), x_dense2)))
+        True
+        >>> print(np.asarray(x.tucker_ranks).tolist())
+        [3, 3, 3]
+        """
+        return _from_data(ut3_constructors.ut3_from_canonical(factors))
+
+    @staticmethod
+    def from_tensor_train(
+            tt_cores: Sequence[NDArray],  # len=d, elm_shape=stack_shape+(ri, Ni, r(i+1))
+    ) -> 'UniformTuckerTensorTrain':
+        """Build from a tensor train (identity Tucker bases; reuses the ragged op, then converts).
+
+        The Tucker ranks become ``Ni``; run :py:meth:`t3svd` to minimize.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> np.random.seed(0)
+        >>> tt_cores = [np.random.randn(1, 5, 4), np.random.randn(4, 6, 3), np.random.randn(3, 7, 1)]
+        >>> x = ut3.UniformTuckerTensorTrain.from_tensor_train(tt_cores)
+        >>> x_dense2 = np.einsum('aib,bjc,ckd->ijk', *tt_cores)
+        >>> print(bool(np.allclose(x.to_dense(), x_dense2)))
+        True
+        """
+        return _from_data(ut3_constructors.ut3_from_tensor_train(tt_cores))
+
+    def to_tensor_train(
+            self,
+    ):  # -> tt_cores (unstacked) or a nested tree (shaped like stack_shape) of them
+        """Tensor-train form (Tucker absorbed). Unstacked -> one ``tt_cores`` tuple; stacked -> a nested
+        tree (a varying-rank stack has no single stacked TT; ``docs/uniform_ranks_and_varieties.md``).
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> np.random.seed(0)
+        >>> x = ut3.UniformTuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1))
+        >>> tt_cores = x.to_tensor_train()
+        >>> x_dense2 = np.einsum('aib,bjc,ckd->ijk', *tt_cores)
+        >>> print(bool(np.allclose(x.to_dense(), x_dense2)))
+        True
+        """
+        return ut3_constructors.ut3_to_tensor_train(self.data)
+
+    # ----------------------------------------------------------------- save / load
+    def save(
+            self,
+            file,  # path or open file object to write the .npz to
+    ) -> None:
+        """Save to a ``.npz`` file (2 supercores + 3 masks). See :py:meth:`load`.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> np.random.seed(0)
+        >>> x = ut3.UniformTuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1))
+        >>> fname = 'ut3_file.npz'
+        >>> x.save(fname)
+        >>> x2 = ut3.UniformTuckerTensorTrain.load(fname)
+        >>> print(float(np.linalg.norm(x2.to_dense() - x.to_dense())))
+        0.0
+        >>> print([str(m.dtype) for m in x2.masks.data])   # masks come back numpy (host) bool
+        ['bool', 'bool', 'bool']
+        """
+        ut3_constructors.ut3_save(file, self.data)
+
+    @staticmethod
+    def load(
+            file,                   # path or open file object to read the .npz from
+            use_jax: bool = False,  # supercore type; the masks always come back numpy (host) bool
+    ) -> 'UniformTuckerTensorTrain':
+        """Load from a ``.npz`` file written by :py:meth:`save`.
+
+        The supercores follow ``use_jax``; the masks stay **numpy (host) bool** (a jax mask is a tracer
+        under jit and breaks the layer; ``docs/uniform_pytree_composition.md``). See :py:meth:`save` for
+        an example.
+        """
+        return _from_data(ut3_constructors.ut3_load(file, use_jax=use_jax))
 
 
 def _from_data(
