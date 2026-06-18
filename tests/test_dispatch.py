@@ -266,6 +266,20 @@ class TestDispatch(unittest.TestCase):
         dGc = jnp.ones((3, 5, 4, 6)); muc = jnp.ones((4, 2, 5))
         self.assert_jit_jax(lambda a, b, c, e: contractions.trs_rWCa_KCaib_sWCi_to_tWKCb(a, b, c, e, 0),
                             trs[:, :, :2], muc, dGc, xij2)
+        # apply/entries derivative transpose (adjoint-state seeded sweep): residual jet c is a scalar
+        # (order+1)+W+K+C. Single tangent (K=()) and K-stacked; both sum_over_probes; entries gathers idx.
+        ca = jnp.asarray(np.random.randn(4, 2))        # order+1=4, W=(2,), K=(), C=()
+        caK = jnp.asarray(np.random.randn(4, 2, 3))    # K=(3,)
+        for sop in (True, False):
+            self.assert_jit_jax(
+                lambda cc, w, p, b: pd.apply_tangent_derivatives_transpose(cc, w, p, b, 3, sum_over_probes=sop),
+                ca, list(self.ww), list(self.zz), self.base.data)
+            self.assert_jit_jax(
+                lambda cc, w, p, b: pd.apply_tangent_derivatives_transpose(cc, w, p, b, 3, sum_over_probes=sop),
+                caK, list(self.ww), list(self.zz), self.base.data)
+            self.assert_jit_jax(
+                lambda cc, ix, p, b: pd.entries_tangent_derivatives_transpose(cc, ix, p, b, 3, sum_over_probes=sop),
+                ca, idx, list(self.zz), self.base.data)
 
     # ---------------------------------------------------- jit bucket: backend functions
     def test_jit_backend(self):

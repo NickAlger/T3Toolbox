@@ -329,6 +329,47 @@ class TestProbeDerivatives(unittest.TestCase):
                         W, K, C, ORDER)
                     self.check_relerr(t3p.entries_tangent(index, v.variations.data, v.basis.data), yv[0])
 
+    def test_apply_entries_transpose_adjoint_identity(self):
+        # adjoint identity <c, J v> = <J^T c, v> for the all-modes apply/entries derivative transposes
+        # (adjoint-state seeded sweep), with the tangent stack K; plus sum_over_probes consistency.
+        STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        shapes = STRUCT[0]
+        d = len(shapes)
+        for kind in ['apply', 'entries']:
+            for W, K, C in [((2,), (3,), ()), ((), (3,), ()), ((2,), (3,), (2,)), ((2, 2), (2,), (2,))]:
+                for ORDER in [0, 1, 3]:
+                    with self.subTest(kind=kind, W=W, K=K, C=C, ORDER=ORDER):
+                        x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
+                        base, _ = bvf.t3_orthogonal_representations(x)
+                        v = t3m.T3Tangent.randn(base, stack_shape=K, apply_gauge_projection=False)
+                        dU_v, dG_v = v.variations.data
+                        pp = [np.random.randn(*(W + (N,))) for N in shapes]
+                        if kind == 'apply':
+                            ww = [np.random.randn(*(W + (N,))) for N in shapes]
+                            Jv = pd.apply_tangent_derivatives(ww, pp, v.variations.data, v.basis.data, ORDER)
+                            T = lambda cc, sop: pd.apply_tangent_derivatives_transpose(
+                                cc, ww, pp, v.basis.data, ORDER, sum_over_probes=sop)
+                        else:
+                            index = np.stack([np.random.randint(0, N, size=W) for N in shapes], axis=0)
+                            Jv = pd.entries_tangent_derivatives(index, pp, v.variations.data, v.basis.data, ORDER)
+                            T = lambda cc, sop: pd.entries_tangent_derivatives_transpose(
+                                cc, index, pp, v.basis.data, ORDER, sum_over_probes=sop)
+                        c = np.random.randn(*np.asarray(Jv).shape)
+
+                        dU, dG = T(c, True)
+                        lhs = float(np.sum(c * np.asarray(Jv)))
+                        rhs = (sum(np.sum(np.asarray(dU[i]) * dU_v[i]) for i in range(d))
+                               + sum(np.sum(np.asarray(dG[i]) * dG_v[i]) for i in range(d)))
+                        self.assertLessEqual(abs(lhs - rhs) / abs(lhs), tol)
+
+                        if W:
+                            dU0, dG0 = T(c, False)
+                            ax = tuple(range(len(W)))
+                            for a, b in zip(dU0, dU):
+                                self.check_relerr(np.asarray(b), np.sum(np.asarray(a), axis=ax))
+                            for a, b in zip(dG0, dG):
+                                self.check_relerr(np.asarray(b), np.sum(np.asarray(a), axis=ax))
+
     def test_high_order_vanishes(self):
         # y_i depends on d-1 vectors, so symmetric derivatives above order d-1 are exactly zero.
         STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
