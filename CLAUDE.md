@@ -70,9 +70,9 @@ updated to this version by the time the package is released.
 **Three representations** (the organizing principle):
 - **ragged** — tuples of variably-shaped arrays. The default, fully working path.
 - **uniform** — one stacked supercore array + masks (`ut3_*`, `ubv_*`, `uniform_*`); for
-  `jax.lax.scan` vectorization. **`UniformTuckerTensorTrain` is being repaired/redesigned now**
-  (uniform basis/variations/tangents still deferred). **Before touching uniform code, read the design
-  notes** — governing: [`docs/uniform_equivalence_contract.md`](docs/uniform_equivalence_contract.md)
+  `jax.lax.scan` vectorization. **`UniformTuckerTensorTrain` (the plain layer) is built through slice 8
+  and jit-wired with host-numpy masks** (uniform basis/variations/tangents still deferred). **Before
+  touching uniform code, read the design notes** — governing: [`docs/uniform_equivalence_contract.md`](docs/uniform_equivalence_contract.md)
   (the uniform layer is a *faster ragged layer*: `to_uniform → op → to_ragged == op_ragged` on real
   parts, garbage don't-care — this is correctness *and* the test strategy). Then:
   [`docs/uniform_ranks_and_varieties.md`](docs/uniform_ranks_and_varieties.md) (a
@@ -305,8 +305,12 @@ Treat everything else as copied-in-and-not-yet-working until checked.
     `probe_tangent_transpose`:** the sweep self-infers, `assemble_tucker` recovers `len(W)` from the
     `W`-only probe vectors, and only `assemble_tt` (no `W`/`C`-only operand) takes `n_probe`. `K=()`
     is exactly the prior transpose.
-- **Deferred / broken**: the uniform layer (`ut3_*`, `ubv_*`, `uniform_*`) — many modules don't even
-  import; every `is_uniform` branch in the tangent code was dropped/stubbed. The weighted layer
+- **Solid / tested — the plain uniform layer**: `UniformTuckerTensorTrain` + the `ut3_*` backend, built
+  through **slice 8** (foundation, orthogonalization, linalg, sampling, ut3svd, jax-wiring/host-masks,
+  constructors+IO) and **jit-wired** (pytree registered; host-numpy masks; `tests/test_dispatch.py`
+  `test_jit_uniform`). Live status + remaining slices: `docs/uniform_slice_handoff.md`.
+- **Deferred / broken**: the uniform **tangent** layer (`ubv_*`, `uniform_*` — uniform basis/variations/
+  tangents; every `is_uniform` branch in the tangent code was dropped/stubbed). The weighted layer
   (parked `absorb_weights`). `OLD_*.py` files are still tracked.
 
 ## Open questions / TODO
@@ -337,14 +341,13 @@ Treat everything else as copied-in-and-not-yet-working until checked.
   `project_dense_onto_tangent` works on any orthogonal base — **minimal rank NOT required, CONFIRMED**
   (the exact orthogonal projection holds for non-minimal bases; a flaky test that suggested otherwise
   was a fragile `pinv` *oracle*, not a code bug — see the `pinv-oracle-test-fragility` memory).
-- Repair the **uniform layer** — **in progress**: `UniformTuckerTensorTrain` (the analog of
-  `TuckerTensorTrain`) is being rebuilt function-by-function, hybrid backend (share where polymorphism
-  "just works", rewrite where there's a real structural/perf difference). Design decisions are in the
-  four `docs/uniform_*.md` notes (see the **uniform** bullet under Architecture). Mechanical debt to
-  clear as we go: `ut3_*` backend still has stale `t3toolbox.backend.{uniform_tucker_tensor_train,
-  tucker_tensor_train}.*` subpackage imports to flatten, and the old `use_jax`-threading to migrate to
-  input-inference. Uniform basis/variations/tangents (`ubv_*`, `uniform_*`) and their supercore tangent
-  ops remain deferred.
+- Repair the **uniform layer** — **slices 1–8 DONE** (`UniformTuckerTensorTrain` + `ut3_*`: foundation,
+  orthogonalization, linalg, sampling, ut3svd, jax-wiring/host-masks, constructors+IO), rebuilt
+  function-by-function (hybrid backend). The host-numpy-mask design + jit story live in the five
+  `docs/uniform_*.md` notes (see the **uniform** bullet under Architecture); live status in
+  [`docs/uniform_slice_handoff.md`](docs/uniform_slice_handoff.md). **Remaining:** slice 9 (**t3m**); the
+  **uniform transpose mirror** (ambient doable now — `from_canonical` just landed; corewise/tangent gated
+  on the tangent layer); and the deferred **uniform tangent layer** (`ubv_*`, `uniform_*`).
 - Redesign the **weighted tensor network** code structure.
 - Cleanup backlog: `OLD_*.py` + stray `.npz` artifacts; wire doctests into CI; docs (`conf.py` autoapi
   excludes backend/weighted, committed `_build`, `modules.rst` still titled "TuckerTensorTrainTools").
