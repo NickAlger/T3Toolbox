@@ -33,6 +33,22 @@ __all__ = [
     'trs_rWCa_Caib_sWCi_to_tWCb',
     'trs_rWCa_Caib_sWCb_to_tWCi',
     'tWCi_Cio_to_tWCo',
+    # Transpose (adjoint) of the symmetric probe derivatives: sweeps + order-less gradient assembly.
+    'tWCo_Cio_to_tWCi',
+    'trs_tWCa_Caib_uWCi_to_sWCb',
+    'trs_rWCa_Caib_tWCi_to_sWCb',
+    'trs_tWCa_Caib_sWCb_to_uWCi',
+    'trs_rWCa_Caib_tWCb_to_uWCi',
+    'trs_rWCa_uWCi_tWCb_to_Caib',
+    'trs_rWCa_uWCi_tWCb_to_WCaib',
+    'trs_tWCa_uWCi_sWCb_to_Caib',
+    'trs_tWCa_uWCi_sWCb_to_WCaib',
+    'trs_rWCa_tWCi_sWCb_to_Caib',
+    'trs_rWCa_tWCi_sWCb_to_WCaib',
+    'tWCa_tWCo_to_Cao',
+    'tWCa_tWCo_to_WCao',
+    'uWCa_uWo_to_Cao',
+    'uWCa_uWo_to_WCao',
     # Three-group (W probe, K tangent, C base) contractions for probing a K-stacked tangent.
     'WKCa_Caib_WCi_to_WKCb',
     'WCa_Caib_WKCi_to_WKCb',
@@ -695,6 +711,277 @@ def tWCi_Cio_to_tWCo(
 
     tWCo = tWCo.reshape(t_shape + W_shape + C_shape + o_shape)
     return tWCo
+
+
+###############################################################################
+# Transpose (adjoint) of the symmetric probe derivatives.
+#
+# The jet-ified adjoint sweeps use the SAME binomial tensor trs as the forward,
+# wired as its transpose (the multiplier's order summed, the swept order freed --
+# the adjoint of a binomial convolution is a binomial correlation). The order-less
+# gradient assembly sums every order axis. C (base) is pinned by the core for the
+# sweeps; the core-less assembly takes n_probe = len(W). sum_over_probes sums the
+# probe stack W (output drops W) else keeps it (W + C, base-inner).
+###############################################################################
+
+
+def tWCo_Cio_to_tWCi(
+        tWCo: NDArray,  # t + W + C + (o,)    -- residual jet (transpose of tWCi_Cio_to_tWCo)
+        Cio:  NDArray,  # C + (i, o)          -- Tucker core (C-only -> pins len(C))
+) -> NDArray:           # t + W + C + (i,)    -- adjoint-up jet (deta_tilde), order t broadcast
+    """Computes named contraction. Adjoint lift: contract the ambient mode, order t rides through."""
+    use_jax = tree_contains_jax((tWCo, Cio))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    C_shape = Cio.shape[:-2]
+    i_shape = (Cio.shape[-2],)
+    o_shape = (Cio.shape[-1],)
+    W_shape = tWCo.shape[1:-(len(C_shape) + 1)]
+    t_shape = (tWCo.shape[0],)
+
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
+
+    Cio  = Cio.reshape((size_C,) + i_shape + o_shape)
+    tWCo = tWCo.reshape(t_shape + (size_W, size_C) + o_shape)
+
+    tWCi = xnp.einsum('tWCo,Cio->tWCi', tWCo, Cio)
+
+    return tWCi.reshape(t_shape + W_shape + C_shape + i_shape)
+
+
+def trs_tWCa_Caib_uWCi_to_sWCb(
+        trs:  NDArray,  # t + (u, s)          -- binomial tensor; t (multiplier) and u summed -> order s
+        tWCa: NDArray,  # t + W + C + (a,)    -- swept adjoint jet (tau/sigma_tilde)
+        Caib: NDArray,  # C + (a, i, b)       -- frame core (C-only -> pins len(C))
+        uWCi: NDArray,  # u + W + C + (i,)    -- input jet on mode i (xi), order u in {0,1}
+) -> NDArray:           # s + W + C + (b,)    -- propagated adjoint jet
+    """Computes named contraction. Adjoint-hooked pushthrough (sweep propagation): output at order s."""
+    use_jax = tree_contains_jax((trs, tWCa, Caib, uWCi))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    C_shape = Caib.shape[:-3]
+    a_shape = (Caib.shape[-3],)
+    i_shape = (Caib.shape[-2],)
+    b_shape = (Caib.shape[-1],)
+    W_shape = tWCa.shape[1:-(len(C_shape) + 1)]
+
+    t_shape = (trs.shape[0],)
+    u_shape = (trs.shape[1],)
+    s_shape = (trs.shape[2],)
+
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
+
+    tWCa = tWCa.reshape(t_shape + (size_W, size_C) + a_shape)
+    Caib = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
+    uWCi = uWCi.reshape(u_shape + (size_W, size_C) + i_shape)
+
+    sWCb = xnp.einsum('tus,tWCa,Caib,uWCi->sWCb', trs, tWCa, Caib, uWCi)
+
+    return sWCb.reshape(s_shape + W_shape + C_shape + b_shape)
+
+
+def trs_rWCa_Caib_tWCi_to_sWCb(
+        trs:  NDArray,  # t + (r, s)          -- binomial tensor; r (mu) and t (deta_tilde) summed -> s
+        rWCa: NDArray,  # r + W + C + (a,)    -- base left jet (mu)
+        Caib: NDArray,  # C + (a, i, b)       -- frame core (C-only -> pins len(C))
+        tWCi: NDArray,  # t + W + C + (i,)    -- adjoint-up jet (deta_tilde) on mode i
+) -> NDArray:           # s + W + C + (b,)    -- adjoint sweep source term
+    """Computes named contraction. Adjoint-hooked deta_tilde source for the sweep: output at order s."""
+    use_jax = tree_contains_jax((trs, rWCa, Caib, tWCi))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    C_shape = Caib.shape[:-3]
+    a_shape = (Caib.shape[-3],)
+    i_shape = (Caib.shape[-2],)
+    b_shape = (Caib.shape[-1],)
+    W_shape = rWCa.shape[1:-(len(C_shape) + 1)]
+
+    t_shape = (trs.shape[0],)
+    r_shape = (trs.shape[1],)
+    s_shape = (trs.shape[2],)
+
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
+
+    rWCa = rWCa.reshape(r_shape + (size_W, size_C) + a_shape)
+    Caib = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
+    tWCi = tWCi.reshape(t_shape + (size_W, size_C) + i_shape)
+
+    sWCb = xnp.einsum('trs,rWCa,Caib,tWCi->sWCb', trs, rWCa, Caib, tWCi)
+
+    return sWCb.reshape(s_shape + W_shape + C_shape + b_shape)
+
+
+def trs_tWCa_Caib_sWCb_to_uWCi(
+        trs:  NDArray,  # t + (u, s)          -- binomial tensor; t (tau_tilde) and s (nu) summed -> u
+        tWCa: NDArray,  # t + W + C + (a,)    -- adjoint jet (tau_tilde)
+        Caib: NDArray,  # C + (a, i, b)       -- down frame core O (C-only -> pins len(C))
+        sWCb: NDArray,  # s + W + C + (b,)    -- base right jet (nu)
+) -> NDArray:           # u + W + C + (i,)    -- adjoint-var-down jet (dxi_tilde), output at order u
+    """Computes named contraction. dxi_tilde from tau_tilde: an adjoint-hooked combine, output order u."""
+    use_jax = tree_contains_jax((trs, tWCa, Caib, sWCb))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    C_shape = Caib.shape[:-3]
+    a_shape = (Caib.shape[-3],)
+    i_shape = (Caib.shape[-2],)
+    b_shape = (Caib.shape[-1],)
+    W_shape = tWCa.shape[1:-(len(C_shape) + 1)]
+
+    t_shape = (trs.shape[0],)
+    u_shape = (trs.shape[1],)
+    s_shape = (trs.shape[2],)
+
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
+
+    tWCa = tWCa.reshape(t_shape + (size_W, size_C) + a_shape)
+    Caib = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
+    sWCb = sWCb.reshape(s_shape + (size_W, size_C) + b_shape)
+
+    uWCi = xnp.einsum('tus,tWCa,Caib,sWCb->uWCi', trs, tWCa, Caib, sWCb)
+
+    return uWCi.reshape(u_shape + W_shape + C_shape + i_shape)
+
+
+def trs_rWCa_Caib_tWCb_to_uWCi(
+        trs:  NDArray,  # t + (r, u)          -- binomial tensor; r (mu) and t (sigma_tilde) summed -> u
+        rWCa: NDArray,  # r + W + C + (a,)    -- base left jet (mu)
+        Caib: NDArray,  # C + (a, i, b)       -- down frame core O (C-only -> pins len(C))
+        tWCb: NDArray,  # t + W + C + (b,)    -- adjoint jet (sigma_tilde)
+) -> NDArray:           # u + W + C + (i,)    -- adjoint-var-down jet (dxi_tilde), output at order u
+    """Computes named contraction. dxi_tilde from sigma_tilde: an adjoint-hooked combine, output order u."""
+    use_jax = tree_contains_jax((trs, rWCa, Caib, tWCb))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    C_shape = Caib.shape[:-3]
+    a_shape = (Caib.shape[-3],)
+    i_shape = (Caib.shape[-2],)
+    b_shape = (Caib.shape[-1],)
+    W_shape = rWCa.shape[1:-(len(C_shape) + 1)]
+
+    t_shape = (trs.shape[0],)
+    r_shape = (trs.shape[1],)
+    u_shape = (trs.shape[2],)
+
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
+
+    rWCa = rWCa.reshape(r_shape + (size_W, size_C) + a_shape)
+    Caib = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
+    tWCb = tWCb.reshape(t_shape + (size_W, size_C) + b_shape)
+
+    uWCi = xnp.einsum('tru,rWCa,Caib,tWCb->uWCi', trs, rWCa, Caib, tWCb)
+
+    return uWCi.reshape(u_shape + W_shape + C_shape + i_shape)
+
+
+# ---- order-less gradient assembly (no core; n_probe = len(W); sum_over_probes <-> drop/keep W) ----
+
+def _assemble_dG(trs, ord1Wa, ord2Wi, ord3Wb, n_probe, einsum_str, keep_W):
+    '''Shared body for the three dG_tilde core-adjoint outer products (order-less). The three operands
+    carry orders on the bond/mode legs (a, i, b); n_probe splits W (summed unless keep_W) from C.'''
+    use_jax = tree_contains_jax((trs, ord1Wa, ord2Wi, ord3Wb))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    mid = ord1Wa.shape[1:-1]
+    W_shape = mid[:n_probe]
+    C_shape = mid[n_probe:]
+    a_shape = (ord1Wa.shape[-1],)
+    i_shape = (ord2Wi.shape[-1],)
+    b_shape = (ord3Wb.shape[-1],)
+    o1, o2, o3 = (ord1Wa.shape[0],), (ord2Wi.shape[0],), (ord3Wb.shape[0],)
+
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
+
+    ord1Wa = ord1Wa.reshape(o1 + (size_W, size_C) + a_shape)
+    ord2Wi = ord2Wi.reshape(o2 + (size_W, size_C) + i_shape)
+    ord3Wb = ord3Wb.reshape(o3 + (size_W, size_C) + b_shape)
+
+    out = xnp.einsum(einsum_str, trs, ord1Wa, ord2Wi, ord3Wb)
+
+    tail = a_shape + i_shape + b_shape
+    return out.reshape((W_shape if keep_W else ()) + C_shape + tail)
+
+
+def trs_rWCa_uWCi_tWCb_to_Caib(trs, rWCa, uWCi, tWCb, n_probe):
+    """Computes named contraction. dG_tilde sigma-term core-adjoint (mu (x) xi (x) sigma_tilde), sum W."""
+    return _assemble_dG(trs, rWCa, uWCi, tWCb, n_probe, 'tru,rWCa,uWCi,tWCb->Caib', keep_W=False)
+
+
+def trs_rWCa_uWCi_tWCb_to_WCaib(trs, rWCa, uWCi, tWCb, n_probe):
+    """Computes named contraction. dG_tilde sigma-term core-adjoint (mu (x) xi (x) sigma_tilde), keep W."""
+    return _assemble_dG(trs, rWCa, uWCi, tWCb, n_probe, 'tru,rWCa,uWCi,tWCb->WCaib', keep_W=True)
+
+
+def trs_tWCa_uWCi_sWCb_to_Caib(trs, tWCa, uWCi, sWCb, n_probe):
+    """Computes named contraction. dG_tilde tau-term core-adjoint (tau_tilde (x) xi (x) nu), sum W."""
+    return _assemble_dG(trs, tWCa, uWCi, sWCb, n_probe, 'tus,tWCa,uWCi,sWCb->Caib', keep_W=False)
+
+
+def trs_tWCa_uWCi_sWCb_to_WCaib(trs, tWCa, uWCi, sWCb, n_probe):
+    """Computes named contraction. dG_tilde tau-term core-adjoint (tau_tilde (x) xi (x) nu), keep W."""
+    return _assemble_dG(trs, tWCa, uWCi, sWCb, n_probe, 'tus,tWCa,uWCi,sWCb->WCaib', keep_W=True)
+
+
+def trs_rWCa_tWCi_sWCb_to_Caib(trs, rWCa, tWCi, sWCb, n_probe):
+    """Computes named contraction. dG_tilde deta-term core-adjoint (mu (x) deta_tilde (x) nu), sum W."""
+    return _assemble_dG(trs, rWCa, tWCi, sWCb, n_probe, 'trs,rWCa,tWCi,sWCb->Caib', keep_W=False)
+
+
+def trs_rWCa_tWCi_sWCb_to_WCaib(trs, rWCa, tWCi, sWCb, n_probe):
+    """Computes named contraction. dG_tilde deta-term core-adjoint (mu (x) deta_tilde (x) nu), keep W."""
+    return _assemble_dG(trs, rWCa, tWCi, sWCb, n_probe, 'trs,rWCa,tWCi,sWCb->WCaib', keep_W=True)
+
+
+def _assemble_dU(oWCa, second, n_probe, einsum_str, keep_W, second_has_C):
+    '''Shared body for the two dU_tilde outer products (order-less). Sums the shared order axis and
+    (unless keep_W) the probe stack W. The second operand is r (carries C) or the ambient probe jet
+    w_jet (no C); C always comes from oWCa.'''
+    use_jax = tree_contains_jax((oWCa, second))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    mid = oWCa.shape[1:-1]
+    W_shape = mid[:n_probe]
+    C_shape = mid[n_probe:]
+    a_shape = (oWCa.shape[-1],)
+    o_shape = (second.shape[-1],)
+
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
+
+    oWCa = oWCa.reshape((oWCa.shape[0], size_W, size_C) + a_shape)
+    if second_has_C:
+        second = second.reshape((second.shape[0], size_W, size_C) + o_shape)
+    else:
+        second = second.reshape((second.shape[0], size_W) + o_shape)
+
+    out = xnp.einsum(einsum_str, oWCa, second)
+
+    return out.reshape((W_shape if keep_W else ()) + C_shape + a_shape + o_shape)
+
+
+def tWCa_tWCo_to_Cao(tWCa, tWCo, n_probe):
+    """Computes named contraction. dU_tilde eta (x) r term (sum order t; both carry C), sum W."""
+    return _assemble_dU(tWCa, tWCo, n_probe, 'tWCa,tWCo->Cao', keep_W=False, second_has_C=True)
+
+
+def tWCa_tWCo_to_WCao(tWCa, tWCo, n_probe):
+    """Computes named contraction. dU_tilde eta (x) r term (sum order t; both carry C), keep W."""
+    return _assemble_dU(tWCa, tWCo, n_probe, 'tWCa,tWCo->WCao', keep_W=True, second_has_C=True)
+
+
+def uWCa_uWo_to_Cao(uWCa, uWo, n_probe):
+    """Computes named contraction. dU_tilde dxi_tilde (x) w_jet term (sum order u; w_jet has no C), sum W."""
+    return _assemble_dU(uWCa, uWo, n_probe, 'uWCa,uWo->Cao', keep_W=False, second_has_C=False)
+
+
+def uWCa_uWo_to_WCao(uWCa, uWo, n_probe):
+    """Computes named contraction. dU_tilde dxi_tilde (x) w_jet term (sum order u; w_jet has no C), keep W."""
+    return _assemble_dU(uWCa, uWo, n_probe, 'uWCa,uWo->WCao', keep_W=True, second_has_C=False)
 
 
 ###############################################################################

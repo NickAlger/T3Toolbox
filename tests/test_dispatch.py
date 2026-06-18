@@ -223,6 +223,14 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(
             lambda rr, w, p, b: pd.probe_tangent_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=True),
             rt, list(self.ww), list(self.zz), self.base.data)
+        # transpose with a base/core stack C=(2,): residual jets (K+1)+W+C+(N,), both sum_over_probes
+        baseC = bvf.t3_orthogonal_representations(
+            t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=(2,)).to_jax())[0].data
+        rtC = tuple(jnp.asarray(np.random.randn(4, 2, 2, N)) for N in STRUCT[0])  # K+1=4, W=(2,), C=(2,)
+        for sop in (True, False):
+            self.assert_jit_jax(
+                lambda rr, w, p, b: pd.probe_tangent_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=sop),
+                rtC, list(self.ww), list(self.zz), baseC)
 
     # ---------------------------------------------------- jit bucket: backend functions
     def test_jit_backend(self):

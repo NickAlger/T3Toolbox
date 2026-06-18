@@ -120,15 +120,15 @@ class TestProbeDerivatives(unittest.TestCase):
                                     self.check_relerr(z_dense[i][k], np.asarray(z_jets[i])[sel][k])
 
     def test_tangent_transpose_adjoint_identity(self):
-        # J^T via the jet-ified adjoint-state Lagrangian: <r, J v> = <J^T r, v>, and sum_over_probes
-        # keeps/sums the sample stack S consistently.
+        # J^T via the jet-ified adjoint-state Lagrangian: <r, J v> = <J^T r, v>, with the sample stack
+        # S and base stack C (base-inner); sum_over_probes keeps/sums S consistently, C always kept.
         STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
         shapes = STRUCT[0]
         d = len(shapes)
-        for S in [(), (3,)]:
+        for S, C in [((), ()), ((3,), ()), ((2,), (2,)), ((), (2, 2))]:
             for K in [0, 1, 2, 3]:
-                with self.subTest(S=S, K=K):
-                    x = t3.TuckerTensorTrain.randn(*STRUCT)
+                with self.subTest(S=S, C=C, K=K):
+                    x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
                     base, _ = bvf.t3_orthogonal_representations(x)
                     v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
                     dU_v, dG_v = v.variations.data
