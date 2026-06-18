@@ -47,9 +47,13 @@ Backend functions all live in `backend/probe_derivatives.py`:
 
 | op | fwd Euclidean (`TTT`) | fwd Riemannian (`T3Tangent`) | transpose: tangent | transpose: corewise | transpose: ambient |
 |---|---|---|---|---|---|
-| **probe** | `probe_derivatives_t3` ✓ (W+C) | `probe_tangent_derivatives` ⟳+K | `probe_tangent_derivatives_transpose` ⟳+K | `probe_corewise_derivatives_transpose` **NEW** | `probe_ambient_derivatives_transpose` **NEW** |
-| **apply** | `apply_derivatives_t3` **NEW** | `apply_tangent_derivatives` **NEW** | `apply_tangent_derivatives_transpose` **NEW** | `apply_corewise_derivatives_transpose` **NEW** | `apply_ambient_derivatives_transpose` **NEW** |
-| **entries** | `entries_derivatives_t3` **NEW** | `entries_tangent_derivatives` **NEW** | `entries_tangent_derivatives_transpose` **NEW** | `entries_corewise_derivatives_transpose` **NEW** | `entries_ambient_derivatives_transpose` **NEW** |
+| **probe** | `probe_derivatives_t3` ✅ | `probe_tangent_derivatives` ✅ | `probe_tangent_derivatives_transpose` ✅ | `probe_corewise_derivatives_transpose` ✅ | ⬜ DEFERRED |
+| **apply** | `apply_derivatives_t3` ✅ | `apply_tangent_derivatives` ✅ | `apply_tangent_derivatives_transpose` ✅ | `apply_corewise_derivatives_transpose` ✅ | ⬜ DEFERRED |
+| **entries** | `entries_derivatives_t3` ✅ | `entries_tangent_derivatives` ✅ | `entries_tangent_derivatives_transpose` ✅ | `entries_corewise_derivatives_transpose` ✅ | ⬜ DEFERRED |
+
+All ✅ cells exist in the backend **and** the frontend (`TuckerTensorTrain`/`T3Tangent`), full `W+K+C`,
+verified to ~1e-16. The ambient column is **deferred** — see
+[`docs/ambient_derivative_transpose_note.md`](ambient_derivative_transpose_note.md).
 
 Dense oracles: `probe_derivatives_dense` ✓; `apply_derivatives_dense`, `entries_derivatives_dense` **NEW**.
 Frontend (currently **zero** derivative methods): `TuckerTensorTrain` + `T3Tangent` methods for every
@@ -95,7 +99,7 @@ way, so it isn't a differentiator.)
 
 **Frontend method names** (forwards take `(ww, pp, order)` / `(index, pp, order)`, all required):
 - `TuckerTensorTrain`: `probe_derivatives`, `apply_derivatives`, `entries_derivatives` (forward);
-  `{probe,apply,entries}_corewise_derivatives_transpose`; (Slice 4) `*_ambient_derivatives_transpose`.
+  `{probe,apply,entries}_corewise_derivatives_transpose`. (`*_ambient_derivatives_transpose` deferred.)
 - `T3Tangent`: `probe_derivatives`, `apply_derivatives`, `entries_derivatives` (forward);
   `{probe,apply,entries}_derivatives_transpose` (tangent; static, returns `T3Tangent`).
 - **Consistency check (structural → hard error):** the forwards validate that `pp`'s stack matches
@@ -118,7 +122,10 @@ way, so it isn't a differentiator.)
     forward w.r.t. the cores.
   - **3b: `T3Tangent` frontend** — 3 forwards + 3 tangent `*_derivatives_transpose` + doctests + tests.
   - **3c: `TuckerTensorTrain` frontend** — 3 forwards + 3 corewise transposes + doctests + tests.
-- **Slice 4: ambient derivative transposes (all ops), backend + frontend** (base-free, CP factors).
+- ~~**Slice 4: ambient derivative transposes**~~ — **DEFERRED (not needed).** The base-free adjoint's
+  back-projection is inherently exponential-rank (elementary-symmetric combinations of `wⱼ`/`pⱼ`),
+  unlike the clean rank-`d`/rank-1 non-derivative ambient; least-used flavor; no use case. Full analysis
+  + implementation sketch in [`docs/ambient_derivative_transpose_note.md`](ambient_derivative_transpose_note.md).
 
 ## Algorithm notes
 
@@ -172,5 +179,9 @@ order-1 from `U_i p_i`; `dU_tilde` scatter lands on the indexed rows.
 - [x] Slice 3a: backend corewise derivative wrappers (`{probe,apply,entries}_corewise_derivatives_transpose`) — verified vs `jax.grad` + numpy finite-difference test. Committed `4136e6a3`.
 - [x] Slice 3b: `T3Tangent` frontend — `{probe,apply,entries}_derivatives` + `{…}_derivatives_transpose` (static, → `T3Tangent`) + doctests + `test_manifold` test. Shared `check_perturbation_{vectors,index}` (backend, jit-safe) for the X/P stack guard.
 - [x] Slice 3c: `TuckerTensorTrain` frontend — `{probe,apply,entries}_derivatives` + `{…}_corewise_derivatives_transpose` + doctests + `test_tucker_tensor_train` test. **Full suite green (262); all doctests pass.**
-- [ ] Slice 4: ambient transposes (backend + frontend)
-- [ ] Doc refresh (entries_apply_probe.md, .tex, handoff/CLAUDE.md)
+- [x] ~~Slice 4: ambient transposes~~ — **DEFERRED (not needed)**; analysis in `docs/ambient_derivative_transpose_note.md`.
+- [ ] **Doc refresh (remaining real work):** `entries_apply_probe.md` (stale §4 three-flavor grid + add the
+  derivative dimension), `symmetric_probe_derivatives.tex` (add apply/entries + the `K` stack), CLAUDE.md
+  "Current state" + `probe_derivatives_handoff.md`.
+- Deferred nice-to-haves (Nick's call): the derivative fitting example; the Hessian-conditioning experiment
+  (`docs/derivative_order_information_and_conditioning.md`).
