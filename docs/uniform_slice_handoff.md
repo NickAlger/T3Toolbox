@@ -88,9 +88,17 @@ Done per slice (verified vs ragged/dense, ≤~3e-15):
 - **6 — Transposes.** `apply_transpose`/`entries_transpose`; introduce the `d`-folded named contractions
   (the uniform analog of `backend/contractions.py`, with `d` folded into batched einsums instead of a
   ragged map over the mode index). Oracle: ragged transpose.
-- **7 — jax wiring.** Register the `UT3Masks` holder / `UniformTuckerTensorTrain` as jax pytrees (masks as
-  static `aux_data`, identity-hashed — slice-1 holder is already `eq=False` for this). Add the uniform ops
-  to `tests/test_dispatch.py` (jit each, prove no hidden numpy). This is where uniform jax coverage lands.
+- **7 — jax wiring (IN PROGRESS).** `UniformTuckerTensorTrain` is **registered** as a jax pytree
+  (children = the two supercores; `aux_data` = the `UT3Masks` holder, identity-hashed via `eq=False`).
+  jit-ting the ops then surfaced the key finding (as slice-7 was meant to): **masks must be numpy (host)
+  and all mask logic must use `np`, not `xnp`.** Under jit any `jnp` op on a mask is a tracer →
+  `int(mask.sum())` shape/rank extraction raises `ConcretizationTypeError` (`to_dense`/`inner`/`t3svd`/
+  `probe`), and mask-*recomputing* ops (orthogonalize/svd/`+`/`×`) **leak tracer masks into `aux_data`**
+  (silently invalid). Remaining slice-7 work: (1) refactor mask logic `xnp → np` across `ut3_*`
+  (builders, rank recurrences, `int(mask.sum())` extraction) and make `to_jax`/`make_uniform_masks`
+  keep/emit numpy masks; (2) then add the uniform ops to `tests/test_dispatch.py` (jit each, prove no
+  hidden numpy / no tracer-leak). Full reasoning: `docs/uniform_pytree_composition.md` ("Masks are numpy
+  (host) — the jit story"). **Don't "fix" mask `np.*` to `xnp` — it's intentional.**
 - **8 — Constructors + IO.** `zeros`/`ones`/`randn` (pure constructors keep `use_jax`), `from_canonical`/
   `from_tensor_train`, `save`/`load`.
 - **9 — t3m.** Elementwise multiply + truncation; both `t3m_form_then_round` and the max-rank
@@ -99,9 +107,14 @@ Done per slice (verified vs ragged/dense, ≤~3e-15):
   (route via ragged + jax pytree).
 
 ## Conventions to keep (don't re-derive)
-- **Dispatch by inference**, not threaded flags: `use_jax = tree_contains_jax(data[:2])` (or `is_ndarray`),
-  then `xnp,_,xscan = get_backend(True, use_jax)` (uniform path always `is_uniform=True`). Only pure
-  constructors with no array inputs keep a `use_jax=` param.
+- **Dispatch by inference**, not threaded flags: `use_jax = tree_contains_jax(data[:2])` (note `data[:2]`
+  = the **supercores** only), then `xnp,_,xscan = get_backend(True, use_jax)` (uniform path always
+  `is_uniform=True`). Only the supercore constructors keep a `use_jax=` param.
+- **Masks are numpy (host), via `np` not `xnp` — intentional, jit-required.** Masks are static
+  `aux_data` structure; under jit any `jnp` op on them is a tracer. So mask logic (builders, rank
+  recurrences, `+`/`×`, `int(mask.sum())`) uses `np`; `to_jax`/`make_uniform_masks` keep/emit numpy
+  masks; only supercores go through `xnp`/`to_jax`. **Rule: supercores → `xnp`; masks → `np`.** Do not
+  "fix" mask `np.*` to `xnp` for consistency. (`docs/uniform_pytree_composition.md`.)
 - **`d` (mode index) leads** axis 0, outside the stack: supercores `(d,)+stack+(...)`; `lax.scan` scans
   axis 0. `shape_mask` has no stack `(d,N)`; edge masks carry the stack.
 - **Masking schedule**: re-mask on entry to every op; SVD remainder `R = ss·Vᵀ` auto-zeros padded slots so

@@ -152,8 +152,19 @@ backend deps (`tangent_operations`, `bv_conversions`, `t3_operations`, `t3_linal
 `load`, `t3_corewise_randn`/`t3_zeros`/`t3_ones`, `common.randn`, and the rank-spec helpers in
 `ranks.py` — keep a `use_jax` flag (there's nothing to infer from; it chooses the output type).
 Factories that DO take an existing object infer from it (e.g. `T3Tangent.zeros/randn` from the basis,
-`from_tensor_train`/`from_canonical` from the cores). The deferred uniform/weighted layers still
-thread `use_jax` (old pattern) — migrate when repairing them.
+`from_tensor_train`/`from_canonical` from the cores). The deferred weighted layer still threads
+`use_jax` (old pattern) — migrate when repairing it.
+**The other exception — uniform masks are ALWAYS numpy, by `np` not `xnp` (and that is intentional, not
+a backend-agnosticism bug).** A `UniformTuckerTensorTrain`'s masks are static *structure* (jax pytree
+`aux_data`), so all mask logic — building, rank recurrences, `+`/`×` concat/Kronecker, `int(mask.sum())`
+shape/rank extraction — runs on the **host with `np`**, while only the supercores (data) flow through
+`xnp`. This is required for jit: inside a trace any `jnp` op on a mask yields a tracer, breaking
+`int()` extraction and leaking tracer masks into `aux_data`; numpy masks instead fold into the compiled
+program as device constants (zero per-call transfer). **Historically a bare `np.` was a tell that code
+wasn't backend-agnostic — that heuristic does NOT apply to uniform mask code; do not "fix" mask `np.*`
+to `xnp`.** Rule: **supercores → `xnp`; masks → `np`.** Full reasoning + the deferred eager
+`jax.device_put` option: [`docs/uniform_pytree_composition.md`](docs/uniform_pytree_composition.md),
+[`docs/uniform_masks_vs_ranks.md`](docs/uniform_masks_vs_ranks.md).
 
 ## Code style (deliberate and nonstandard — do NOT normalize)
 

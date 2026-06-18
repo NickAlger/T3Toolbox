@@ -34,7 +34,11 @@ TRIVIAL = inline one-liner; SWEEP = sequential over `d` (`xscan`/`lax.scan`); BA
 - **Imports:** flatten stale `t3toolbox.backend.{uniform_tucker_tensor_train,tucker_tensor_train}.*`
   paths to `t3toolbox.backend.*` (broken in `ut3_conversions`, `ut3_linalg`, `ut3_svd`, and the frontend).
 - **Dispatch:** drop `use_jax` threading; infer from inputs (`tree_contains_jax`/`is_ndarray`). Keep
-  `use_jax` only on pure constructors with no array inputs (`make_uniform_masks`, `uniform_randn/zeros`).
+  `use_jax` only on the **supercore** pure constructors (`uniform_randn/zeros/ones`). **Masks are ALWAYS
+  numpy** — all mask logic uses `np`, not `xnp` (host static structure, required for jit; see
+  `uniform_pytree_composition.md`). So `make_uniform_masks` and the mask builders take **no `use_jax`**
+  (they always emit numpy), and `supercores → xnp; masks → np` is the rule. Don't "fix" mask `np.*` to
+  `xnp`.
 - **Structural errors:** `assert` → `ValueError`/`RuntimeError` with messages (structural-vs-numerical).
 - **Frontend = thin wrappers (backend/frontend razor):** every frontend operation must be reproducible
   on the raw `.data` tuple `(supercore, supercore, (3 masks))` via a backend `ut3_*` function
@@ -42,7 +46,8 @@ TRIVIAL = inline one-liner; SWEEP = sequential over `d` (`xscan`/`lax.scan`); BA
   nontrivial logic (mask/rank recomputation, squash boundary masks, `to_dense` slicing, orthogonalization
   recurrences) lives in the backend — only the OO-class/`UT3Masks` construction stays frontend-side.
   Exception: genuinely trivial one-liners a user would write faster than find. Clean OO class (methods,
-  not free functions); masks follow core dtype.
+  not free functions); masks are always **numpy** (host structure; `np` not `xnp` — see the Dispatch
+  bullet above and `uniform_pytree_composition.md`), never following the supercore dtype.
 - **Docstrings:** repair the mangled `import … >>>` lines and stale `t3.t3_corewise_randn` references
   (use `t3.TuckerTensorTrain.randn`); examples must be run and pasted (`docs/doctest_style.md`).
 
@@ -62,8 +67,8 @@ TRIVIAL = inline one-liner; SWEEP = sequential over `d` (`xscan`/`lax.scan`); BA
   mask). Just repair imports + dispatch.
 - `ut3_to_t3` returns a **tree** of ragged T3s (one per stack element), never auto-stacks — honest for a
   varying-rank stack (`uniform_ranks_and_varieties.md`); caller stacks if uniform-rank.
-- `make_uniform_masks` is a pure constructor (keeps `use_jax`); simplify the recursive `_func1` to a
-  vectorized `arange(pad) < ranks[..., None]`.
+- `make_uniform_masks` is a pure constructor that **always emits numpy masks** (no `use_jax` — masks
+  are host structure); simplify the recursive `_func1` to a vectorized `np.arange(pad) < ranks[..., None]`.
 
 ## to_dense ✅ — SHARE the contraction, wrap it
 
@@ -196,8 +201,9 @@ TRIVIAL = inline one-liner; SWEEP = sequential over `d` (`xscan`/`lax.scan`); BA
   this nested layout** (supercore-only ops take `.data[:2]`; mask-using ops unpack `.data[2]`) — update
   signatures from the old flat 5-tuple. Raw arrays (razor); holder is frontend-only.
 - Properties (`d,n,N,r,stack_shape,uniform_structure,shape,tucker_ranks,tt_ranks,structure`) all derived.
-  `validate` → structural `ValueError`s. `to_jax`/`to_numpy` convert supercores; masks follow dtype.
-  `copy` trivial. `repr` = structure summary. Repair `reverse`/`squash_tails`/`apply_masks`.
+  `validate` → structural `ValueError`s. `to_jax`/`to_numpy` convert the **supercores only** — masks
+  stay numpy (host structure; jit-required, see `uniform_pytree_composition.md`). `copy` trivial.
+  `repr` = structure summary. Repair `reverse`/`squash_tails`/`apply_masks`.
 
 ## jax-wiring ✅
 

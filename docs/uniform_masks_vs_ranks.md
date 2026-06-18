@@ -94,6 +94,36 @@ re-canonicalize via `ut3svd` first. (The integer-rank alternative would pay that
   ragged data movement, the very thing the uniform layer is built to avoid — or it must carry positions
   anyway, which is the mask.
 
+## Other representations we considered (and why they're off the map)
+
+Beyond integer ranks (b), several encodings were weighed and rejected. They each fail one of the two
+properties the uniform layer requires — **closure under ⊕/⊗** (so `+`/`×` move no data) and **uniform
+shape across the stack** (so `lax.scan` sees one fixed shape) — and, for jit, **host-static**
+(resolvable on the host without tracing; see `uniform_pytree_composition.md`).
+
+| representation | closed under +/× | uniform shape across stack | notes |
+|---|---|---|---|
+| **bool mask (dense array)** ✅ chosen | ✅ concat / Kronecker | ✅ fixed padded size | the working representation; rank reported as `mask.sum(-1)` |
+| integer rank **counts** | ❌ gappy ⇒ per-element compaction | ✅ | a count can't denote a gap; compaction is ragged data movement *and* data-dependent shapes ⇒ not jittable |
+| hot-**position** lists / "hot rank" tuples | ✅ position arithmetic | ❌ varying length ⇒ ragged | a *sparse* mask; per-element lengths differ ⇒ jagged, defeating the uniform layout (you'd pad+remask — reinvent the mask) |
+| **bool tuples** (vs arrays) | ✅ | ✅ | value-hashable, but non-contiguous/boxed ⇒ must materialize for the multiply; slower eager, worse stacked memory; no win over a bool array (which can be value-hashed via its bytes) |
+| **float** mask doubling as edge **weights** | — | — | conflates *structure* (static aux, non-differentiable, defines rank, value-neutral) with a *parameter* (traced leaf, differentiable, scales the contraction, value-affecting): opposite jax treatment, and autodiff would silently differentiate — and a grad step corrupt — the "mask." Weights are a separate (parked) concept |
+
+The bool mask is the unique fixed point: **closed ∧ uniform-shaped ∧ host-static.** Counts give up
+closure; positions/tuples give up uniformity (or contiguity); float-weights conflate two objects with
+opposite autodiff semantics. The one attractive property of the integer/tuple forms — value-based
+hashing for jit-cache hits — is real but *separable*: get it on the bool mask via a byte/rank hash
+(`uniform_pytree_composition.md`), without surrendering closure or uniformity. (Caveat: a rank *count*
+is an insufficient cache key off canonical form — two gappy masks with equal counts but different
+positions are different computations — so a general value hash keys on the mask bytes; in canonical
+form the count suffices.)
+
+> **Host vs device & jit.** Whichever encoding, the structure must live as **numpy (host)** static
+> `aux_data`: any jax op on it inside a trace becomes a tracer. Under jit the host masks fold into the
+> compiled program as device constants (no per-call transfer); the eager cost and the deferred
+> `jax.device_put` option are in `uniform_pytree_composition.md`. **The `np.*` in mask code is
+> intentional — do not "fix" it to `xnp`.**
+
 ## Recommendation and the relationship between the two
 
 Store **boolean masks**, treat the prefix form as the *canonical form the SVD produces* rather than a

@@ -33,6 +33,9 @@ import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.common as common
 from t3toolbox.backend.common import NDArray
 
+if common.has_jax:
+    import jax
+
 __all__ = [
     'UT3Masks',
     'UniformTuckerTensorTrain',
@@ -444,3 +447,19 @@ def ut3_to_t3(
         return tuple(_wrap(r) for r in res)
 
     return _wrap(result)
+
+
+if common.has_jax:
+    # UniformTuckerTensorTrain as a jax pytree: the two supercores are the (traced) children; the
+    # UT3Masks holder is static aux_data. The masks are STRUCTURE (which slots are real -- like
+    # ranks/shapes), not data, so they belong in aux, not the traced leaves. UT3Masks is eq=False
+    # (identity hash/eq), so it is valid hashable aux_data even though it holds (unhashable) bool
+    # arrays -- and jit therefore keys on mask-object identity (a new structure recompiles, exactly
+    # like T3Tangent's basis-as-aux). Because uniform output ranks are STATICALLY determined (no rtol;
+    # shrink-to-structural-minimum), a jitted op's output masks stay compile-time constants -- safe as
+    # aux. See docs/uniform_pytree_composition.md.
+    jax.tree_util.register_pytree_node(
+        UniformTuckerTensorTrain,
+        lambda x: ((x.tucker_supercore, x.tt_supercore), x.masks),
+        lambda masks, children: UniformTuckerTensorTrain(children[0], children[1], masks),
+    )
