@@ -1,0 +1,374 @@
+\documentclass[11pt]{article}
+
+% ---------------------------------------------------------------------------
+%  Symmetric directional derivatives of probing a Tucker tensor train.
+%
+%  Compile with pdflatex (needs: amsmath, amssymb, amsthm, algorithm,
+%  algpseudocode, booktabs, hyperref, geometry -- all standard).
+%
+%  This note derives, from a single Leibniz rule for Taylor jets, the efficient
+%  sweeping algorithm that the backend module t3toolbox/backend/probe_derivatives.py
+%  implements. The symmetric-derivative material is NOT part of the published T4S
+%  paper (it was cut long ago); an older, unvetted derivation existed and is
+%  superseded here. Everything below is verified against a dense oracle in
+%  tests/test_probe_derivatives.py.
+% ---------------------------------------------------------------------------
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\jet}[1]{[\![ #1 ]\!]}   % order-K jet (double square brackets, no stmaryrd dependency)
+\newcommand{\dd}[1]{\,\mathrm{d}#1}
+\DeclareMathOperator{\diag}{diag}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\newtheorem{remark}{Remark}
+\theoremstyle{plain}
+\newtheorem{lemma}{Lemma}
+\newtheorem{theorem}{Theorem}
+\newtheorem{corollary}{Corollary}
+
+\title{\bfseries Symmetric directional derivatives of probing\\ a Tucker tensor train}
+\author{T3Toolbox notes --- N.\ Alger, B.\ Christierson \&\ collaborators}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Probing a Tucker tensor train (T3) evaluates its actions: contracting the tensor with a
+collection of vectors in all modes but one. We derive the \emph{symmetric} directional
+derivatives of this map --- the derivatives obtained by perturbing every input vector in the
+\emph{same} direction $\mathbf P$, repeated $k$ times --- and show they are computed by a single
+probing-style sweep that carries an extra Taylor-jet axis. The whole construction follows from one
+Leibniz rule for jets: because each input vector enters affinely, its jet truncates at order one,
+and every quantity built from it is assembled by a binomial convolution of jets. This note records
+the math behind \texttt{t3toolbox/backend/probe\_derivatives.py}. It treats the Euclidean (plain-T3)
+forward map; adjoint and Riemannian extensions are noted but not derived. This material is not part
+of the published T4S paper.
+\end{abstract}
+
+\section{Setup: probing and its actions}
+\label{sec:setup}
+
+We recall just enough of the probing construction to fix notation; see the T4S paper for the full
+development.
+
+A \emph{Tucker tensor train} is a pair of core families $\mathbb T = \big((\mathbf U_i)_{i=1}^d,\,
+(\mathbf G_i)_{i=1}^d\big)$, where each \emph{Tucker factor} $\mathbf U_i \in \R^{n_i \times N_i}$
+has full row rank ($n_i \le N_i$) and each \emph{tensor-train core} $\mathbf G_i \in \R^{r_{i-1}
+\times n_i \times r_i}$, with boundary ranks $r_0 = r_d = 1$. It represents a tensor $\mathbf T \in
+\R^{N_1 \times \cdots \times N_d}$. For a vector $\mathbf v \in \R^{n_i}$ we write $\mathbf
+G_i(\mathbf v) \in \R^{r_{i-1} \times r_i}$ for the matrix obtained by contracting the middle index,
+\[
+  \mathbf G_i(\mathbf v)[a,b] \;=\; \sum_{n} \mathbf G_i[a,n,b]\,\mathbf v[n].
+\]
+
+\paragraph{Actions (probing).}
+Given input vectors $\mathbf W = (\mathbf w_1, \dots, \mathbf w_d)$ with $\mathbf w_i \in \R^{N_i}$,
+the $i$th \emph{action} $\mathbf z_i$ is the result of contracting $\mathbf T$ with $\mathbf w_j$ in
+every mode $j \ne i$, leaving mode $i$ free:
+\[
+  \mathbf z_i \;=\; T(\mathbf w_1, \dots, \mathbf w_{i-1}, \,\cdot\,, \mathbf w_{i+1}, \dots, \mathbf w_d)
+  \;\in\; \R^{N_i}.
+\]
+Probing computes all $d$ actions in two sweeps over the train. Introduce the \emph{edge variables}
+\begin{align}
+  \boldsymbol\xi_i      &= \mathbf U_i \mathbf w_i \in \R^{n_i},
+  & &\text{(projected probe)} \label{eq:xi}\\
+  \boldsymbol\mu_0^\top  &= 1, &
+  \boldsymbol\mu_i^\top &= \boldsymbol\mu_{i-1}^\top\, \mathbf G_i(\boldsymbol\xi_i) \in \R^{r_i},
+  & &\text{(left pushthrough)} \label{eq:mu}\\
+  \boldsymbol\nu_d      &= 1, &
+  \boldsymbol\nu_i      &= \mathbf G_{i+1}(\boldsymbol\xi_{i+1})\, \boldsymbol\nu_{i+1} \in \R^{r_i},
+  & &\text{(right pushthrough)} \label{eq:nu}\\
+  \boldsymbol\eta_i     &= \boldsymbol\mu_{i-1}^\top\, \mathbf G_i\, \boldsymbol\nu_i \in \R^{n_i},
+  & &\text{(combine, mode $i$ free)} \label{eq:eta}\\
+  \mathbf z_i           &= \mathbf U_i^\top \boldsymbol\eta_i \in \R^{N_i}.
+  & &\text{(lift)} \label{eq:z}
+\end{align}
+Here $\boldsymbol\mu_{i-1}^\top \mathbf G_i \boldsymbol\nu_i$ denotes the vector obtained by
+contracting $\boldsymbol\mu_{i-1}$ and $\boldsymbol\nu_i$ into the left and right bond indices of
+$\mathbf G_i$, leaving the middle index free. The single Tucker factor $\mathbf U_i$ is used twice:
+to \emph{project} the probe \eqref{eq:xi} and to \emph{lift} the result \eqref{eq:z}.
+
+\paragraph{Goal.}
+Fix a direction $\mathbf P = (\mathbf p_1, \dots, \mathbf p_d)$, $\mathbf p_i \in \R^{N_i}$. We seek
+the \emph{symmetric directional derivatives} of each action with respect to the inputs, taken $k$
+times in the single repeated direction $\mathbf P$:
+\begin{equation}
+  \label{eq:goal}
+  \mathbf z_i^{(k)} \;:=\; \frac{\dd{^k}}{\dd s^k}\, \mathbf z_i(\mathbf W + s\mathbf P)\Big|_{s=0}
+  \;=\; D^k \mathbf z_i(\mathbf W)\,\mathbf P^{k},
+  \qquad k = 0, 1, \dots, K.
+\end{equation}
+Order $k=0$ is the ordinary probe. The point is that the \emph{same} direction is fed into all $k$
+slots; this is what makes the whole family $k=0,\dots,K$ computable in a single sweep.
+
+\section{Jets and the Leibniz rule}
+\label{sec:jets}
+
+The entire derivation rests on viewing every quantity as a function of the scalar $s$ along the ray
+$\mathbf W + s\mathbf P$ and tracking its Taylor data.
+
+\begin{definition}[Jet]
+\label{def:jet}
+Let $q$ be a quantity that depends smoothly on the inputs $\mathbf W$. Its \emph{order-$K$ jet}
+(along $\mathbf P$, at $\mathbf W$) is the tuple of symmetric derivatives
+\[
+  \jet{q} \;=\; \big(q^{(0)}, q^{(1)}, \dots, q^{(K)}\big),
+  \qquad
+  q^{(k)} := \frac{\dd{^k}}{\dd s^k}\, q(\mathbf W + s\mathbf P)\Big|_{s=0}.
+\]
+So $q^{(0)} = q(\mathbf W)$ is the base value and $q^{(k)}$ is the quantity \eqref{eq:goal} sought
+for $q = \mathbf z_i$.
+\end{definition}
+
+\begin{lemma}[Affine inputs have order-one jets]
+\label{lem:affine}
+Each probe vector is affine in $s$, $\mathbf w_i(s) = \mathbf w_i + s\,\mathbf p_i$, so
+\[
+  \jet{\mathbf w_i} = (\mathbf w_i,\ \mathbf p_i,\ 0, \dots, 0).
+\]
+Consequently the projected probe \eqref{eq:xi}, being a fixed linear image, also has an order-one
+jet:
+\[
+  \jet{\boldsymbol\xi_i} = (\boldsymbol\xi_i,\ \delta\boldsymbol\xi_i,\ 0, \dots, 0),
+  \qquad \delta\boldsymbol\xi_i := \mathbf U_i \mathbf p_i.
+\]
+\end{lemma}
+
+\begin{proof}
+$\mathbf w_i(s)$ is affine, so its second and higher $s$-derivatives vanish. The projection
+$\boldsymbol\xi_i(s) = \mathbf U_i \mathbf w_i(s) = \mathbf U_i \mathbf w_i + s\,\mathbf U_i \mathbf
+p_i$ is again affine.
+\end{proof}
+
+\begin{lemma}[Leibniz rule for jets]
+\label{lem:leibniz}
+Let $B : \R^{A} \times \R^{B} \to \R^{C}$ be a fixed bilinear map, and let $a(s), b(s)$ depend
+smoothly on $s$. Then the jet of $s \mapsto B(a(s), b(s))$ is the binomial convolution of the jets of
+$a$ and $b$:
+\begin{equation}
+  \label{eq:leibniz}
+  \big[B(a,b)\big]^{(k)} \;=\; \sum_{j=0}^{k} \binom{k}{j}\, B\!\big(a^{(j)},\, b^{(k-j)}\big),
+  \qquad k = 0, 1, \dots, K.
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+By bilinearity, $\tfrac{\dd}{\dd s} B(a,b) = B(a',b) + B(a,b')$. This is the ordinary product rule
+for the bilinear pairing $B$, so the general Leibniz rule for the $k$th derivative of a product gives
+\eqref{eq:leibniz}; the binomial coefficients count how the $k$ differentiations are distributed
+between the two arguments. Evaluating at $s=0$ replaces each derivative by the corresponding jet
+component.
+\end{proof}
+
+Lemma~\ref{lem:leibniz} is the only engine we need. Every edge variable in
+\eqref{eq:xi}--\eqref{eq:z} is built from the inputs by a chain of bilinear pairings (and one final
+linear map), so its jet is obtained by applying \eqref{eq:leibniz} at each pairing. The two regimes
+that occur differ only in how many jet components the second argument has: \emph{the input jet has
+just two} (Lemma~\ref{lem:affine}), while \emph{a pushthrough jet has all $K{+}1$}.
+
+\begin{remark}[Jets as a truncated algebra]
+\label{rem:algebra}
+Equivalently, identify $\jet{q}$ with the truncated Taylor polynomial $\sum_{k} \tfrac{1}{k!}
+q^{(k)} s^{k} \pmod{s^{K+1}}$. Then \eqref{eq:leibniz} is exactly multiplication in the algebra
+$\R[s]/(s^{K+1})$ (the Cauchy product, with the $\tfrac1{k!}$ normalisation absorbed into the
+binomial weights). We keep the unnormalised derivatives $q^{(k)}$ rather than Taylor coefficients
+because the binomial form maps directly onto integer-exact arithmetic in the implementation.
+\end{remark}
+
+\section{Symmetric derivatives of the actions}
+\label{sec:derivs}
+
+We now apply Lemma~\ref{lem:leibniz} to each edge-variable recursion. Throughout, the cores $\mathbf
+U_i, \mathbf G_i$ are constants (independent of $s$), so the only $s$-dependence is carried by the
+edge variables.
+
+\begin{theorem}[Pushthrough jets]
+\label{thm:push}
+The left and right pushthrough jets satisfy, for $k = 1, \dots, K$,
+\begin{align}
+  \big(\boldsymbol\mu_i^{(k)}\big)^\top
+    &= \big(\boldsymbol\mu_{i-1}^{(k)}\big)^\top \mathbf G_i(\boldsymbol\xi_i)
+     \;+\; k\,\big(\boldsymbol\mu_{i-1}^{(k-1)}\big)^\top \mathbf G_i(\delta\boldsymbol\xi_i),
+    \label{eq:dmu}\\[2pt]
+  \boldsymbol\nu_i^{(k)}
+    &= \mathbf G_{i+1}(\boldsymbol\xi_{i+1})\, \boldsymbol\nu_{i+1}^{(k)}
+     \;+\; k\,\mathbf G_{i+1}(\delta\boldsymbol\xi_{i+1})\, \boldsymbol\nu_{i+1}^{(k-1)},
+    \label{eq:dnu}
+\end{align}
+with base values $\boldsymbol\mu_i^{(0)} = \boldsymbol\mu_i$, $\boldsymbol\nu_i^{(0)} =
+\boldsymbol\nu_i$, and boundary jets $\boldsymbol\mu_0^{(0)} = 1$, $\boldsymbol\mu_0^{(k)} = 0$
+($k>0$), $\boldsymbol\nu_d^{(0)} = 1$, $\boldsymbol\nu_d^{(k)} = 0$ ($k>0$).
+\end{theorem}
+
+\begin{proof}
+The recursion \eqref{eq:mu} reads $\boldsymbol\mu_i^\top = B(\boldsymbol\mu_{i-1},
+\boldsymbol\xi_i)$ with the bilinear map $B(\mathbf m, \mathbf v) = \mathbf m^\top \mathbf G_i(\mathbf
+v)$ (linear in $\mathbf m$, and linear in $\mathbf v$ since $\mathbf G_i(\cdot)$ is). Apply
+Lemma~\ref{lem:leibniz}:
+\[
+  \big(\boldsymbol\mu_i^{(k)}\big)^\top
+  = \sum_{j=0}^{k} \binom{k}{j}\, \big(\boldsymbol\mu_{i-1}^{(j)}\big)^\top
+      \mathbf G_i\!\big(\boldsymbol\xi_i^{(k-j)}\big).
+\]
+By Lemma~\ref{lem:affine}, $\boldsymbol\xi_i^{(k-j)}$ is nonzero only for $k-j \in \{0,1\}$, i.e.\
+$j \in \{k, k-1\}$, leaving the two terms of \eqref{eq:dmu} with weights $\binom{k}{k}=1$ and
+$\binom{k}{k-1}=k$. The boundary jet $\jet{\boldsymbol\mu_0}$ is constant ($\boldsymbol\mu_0 \equiv
+1$), so all its derivatives above order $0$ vanish. Equation \eqref{eq:dnu} is identical with the
+train reversed.
+\end{proof}
+
+Equation~\eqref{eq:dmu} is a \emph{bidiagonal} recursion in the order index $k$: the order is
+preserved when the core is fed the base projection $\boldsymbol\xi_i$ and raised by one (with weight
+$k$) when it is fed the direction $\delta\boldsymbol\xi_i$. The bidiagonal (only two-term) shape is
+exactly the statement that the input jet stops at order one.
+
+\begin{theorem}[Action jets]
+\label{thm:action}
+For $i = 1, \dots, d$ and $k = 0, 1, \dots, K$,
+\begin{align}
+  \boldsymbol\eta_i^{(k)}
+    &= \sum_{j=0}^{k} \binom{k}{j}\,
+       \big(\boldsymbol\mu_{i-1}^{(j)}\big)^\top \mathbf G_i\, \boldsymbol\nu_i^{(k-j)},
+    \label{eq:deta}\\[2pt]
+  \mathbf z_i^{(k)} &= \mathbf U_i^\top \boldsymbol\eta_i^{(k)}.
+    \label{eq:dz}
+\end{align}
+\end{theorem}
+
+\begin{proof}
+The combine \eqref{eq:eta} is $\boldsymbol\eta_i = B(\boldsymbol\mu_{i-1}, \boldsymbol\nu_i)$ with the
+bilinear map $B(\mathbf m, \mathbf n) = \mathbf m^\top \mathbf G_i \mathbf n$ (mode $i$ free), so
+\eqref{eq:deta} is Lemma~\ref{lem:leibniz} verbatim. Unlike the pushthrough, \emph{both} arguments
+carry full jets, so the sum runs over all $j = 0, \dots, k$. Finally \eqref{eq:z} is the fixed
+linear map $\boldsymbol\eta_i \mapsto \mathbf U_i^\top \boldsymbol\eta_i$, whose jet acts
+componentwise: $\mathbf z_i^{(k)} = \mathbf U_i^\top \boldsymbol\eta_i^{(k)}$.
+\end{proof}
+
+\begin{remark}[The full sum, $j = 0$ to $k$]
+\label{rem:fullsum}
+The action sum \eqref{eq:deta} runs over the \emph{full} range $j = 0, \dots, k$; both endpoints
+($\boldsymbol\mu_{i-1}^{(0)} = \boldsymbol\mu_{i-1}$ paired with $\boldsymbol\nu_i^{(k)}$, and
+$\boldsymbol\mu_{i-1}^{(k)}$ paired with $\boldsymbol\nu_i^{(0)} = \boldsymbol\nu_i$) are genuine
+product-rule terms. An earlier unpublished draft wrote this sum starting at $j=1$; that is an error.
+The forms above are verified against a dense oracle (Section~\ref{sec:impl}).
+\end{remark}
+
+\section{The sweeping algorithm}
+\label{sec:algo}
+
+Theorems~\ref{thm:push}--\ref{thm:action} give an algorithm that produces the entire derivative
+family $\{\mathbf z_i^{(k)}\}_{i,k}$ in two sweeps, exactly mirroring ordinary probing but carrying
+the order index $k$.
+
+\begin{algorithm}[h]
+\caption{Symmetric probe derivatives of a Tucker tensor train}
+\label{alg:sweep}
+\begin{algorithmic}[1]
+\Require T3 $\big((\mathbf U_i),(\mathbf G_i)\big)$; inputs $\mathbf W$; direction $\mathbf P$; order $K$
+\Ensure derivative jets $\jet{\mathbf z_i}$ for $i=1,\dots,d$
+\For{$i = 1,\dots,d$} \Comment{project, forming the order-one input jets}
+  \State $\boldsymbol\xi_i \gets \mathbf U_i \mathbf w_i$,\quad
+         $\delta\boldsymbol\xi_i \gets \mathbf U_i \mathbf p_i$
+\EndFor
+\State $\jet{\boldsymbol\mu_0} \gets (1,0,\dots,0)$
+\For{$i = 1,\dots,d$} \Comment{left sweep, Eq.~\eqref{eq:dmu}}
+  \State $\boldsymbol\mu_i^{(k)} \gets \boldsymbol\mu_{i-1}^{(k)}\mathbf G_i(\boldsymbol\xi_i)
+         + k\,\boldsymbol\mu_{i-1}^{(k-1)}\mathbf G_i(\delta\boldsymbol\xi_i)$ \textbf{ for } $k=0,\dots,K$
+\EndFor
+\State $\jet{\boldsymbol\nu_d} \gets (1,0,\dots,0)$
+\For{$i = d,\dots,1$} \Comment{right sweep, Eq.~\eqref{eq:dnu}}
+  \State $\boldsymbol\nu_{i-1}^{(k)} \gets \mathbf G_i(\boldsymbol\xi_i)\boldsymbol\nu_i^{(k)}
+         + k\,\mathbf G_i(\delta\boldsymbol\xi_i)\boldsymbol\nu_i^{(k-1)}$ \textbf{ for } $k=0,\dots,K$
+\EndFor
+\For{$i = 1,\dots,d$} \Comment{combine and lift, Eqs.~\eqref{eq:deta}--\eqref{eq:dz}}
+  \State $\boldsymbol\eta_i^{(k)} \gets \sum_{j=0}^{k}\binom{k}{j}
+         \big(\boldsymbol\mu_{i-1}^{(j)}\big)^\top \mathbf G_i\,\boldsymbol\nu_i^{(k-j)}$ \textbf{ for } $k=0,\dots,K$
+  \State $\mathbf z_i^{(k)} \gets \mathbf U_i^\top \boldsymbol\eta_i^{(k)}$ \textbf{ for } $k=0,\dots,K$
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph{Cost.}
+Relative to a single probe, the pushthrough sweeps carry an order axis of length $K+1$, each step
+combining only the orders $k$ and $k-1$ (the input jet is order one), so they cost a factor $O(K)$
+more. The combine \eqref{eq:deta} is a length-$(K{+}1)$ binomial convolution at each free mode, an
+$O(K^2)$ factor over a single combine. There are no other changes: the algorithm is the ordinary
+probing pipeline with the order axis threaded through.
+
+\section{The unifying view and the implementation}
+\label{sec:impl}
+
+\paragraph{One operation.}
+Theorems~\ref{thm:push} and \ref{thm:action} are the \emph{same} statement --- Lemma~\ref{lem:leibniz}
+--- applied to two different bilinear pairings. Both are driven by the binomial tensor
+\begin{equation}
+  \label{eq:trs}
+  \texttt{trs}[t,r,s] \;=\; \binom{t}{r}\,[\,r + s = t\,],
+\end{equation}
+where $[\,\cdot\,]$ is the Iverson bracket. The pushthrough is the convolution of a pushthrough jet
+(index $r$) with the input jet (index $s$, supported on $s \in \{0,1\}$), and the combine is the
+convolution of the left and right pushthrough jets (indices $r$ and $s$, both full). In both cases
+$r$ and $s$ are summed against $\texttt{trs}$ to produce the output order $t$. This is the product in
+the truncated jet algebra of Remark~\ref{rem:algebra}.
+
+\paragraph{Contractions.}
+The implementation (\texttt{t3toolbox/backend/probe\_derivatives.py}) realises each step as a single
+einsum, named by its indices (lowercase $t,r,s$ for the order axes, capital $W$ for the sample stack
+and $C$ for the base stack, as in plain probing):
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+step & contraction & probing analogue \\
+\midrule
+pushthrough \eqref{eq:dmu}/\eqref{eq:dnu}
+  & \texttt{trs\_rWCa\_Caib\_sWCi\_to\_tWCb} & \texttt{WCa\_Caib\_WCi\_to\_WCb} \\
+combine \eqref{eq:deta}
+  & \texttt{trs\_rWCa\_Caib\_sWCb\_to\_tWCi} & \texttt{WCa\_Caib\_WCb\_to\_WCi} \\
+lift \eqref{eq:dz}
+  & \texttt{tWCi\_Cio\_to\_tWCo} & \texttt{WCi\_Cio\_to\_WCo} \\
+\bottomrule
+\end{tabular}
+\end{center}
+The first two share the tensor \eqref{eq:trs}; for the pushthrough its $s$ axis is truncated to
+$\{0,1\}$. The order axis $t$ is outermost. A flat \emph{sample stack} lets one call evaluate many
+$(\mathbf W, \mathbf P)$ pairs at once: each sample is a paired input/direction, so to sweep many
+directions at one point one repeats that point across the stack.
+
+\paragraph{Verification.}
+Each action is multilinear in the off-mode inputs, so $\mathbf z_i(\mathbf W + s\mathbf P)$ is a
+polynomial in $s$ and the $k$th derivative is exact:
+\begin{equation}
+  \label{eq:oracle}
+  \mathbf z_i^{(k)} \;=\; k!\!\!\sum_{\substack{S \subseteq \{1,\dots,d\}\setminus\{i\}\\ |S| = k}}
+  T\big(\dots\big),
+\end{equation}
+the inner contraction feeding $\mathbf p_j$ in the modes $j \in S$ and $\mathbf w_j$ elsewhere. The
+sweeping algorithm matches this dense subset-expansion oracle to machine precision in
+\texttt{tests/test\_probe\_derivatives.py}, across orders, ranks, and sample-stack shapes.
+
+\section{Extensions (not derived here)}
+\label{sec:future}
+
+Two extensions follow the same jet calculus and are left for a future revision.
+
+\emph{Adjoint and corewise derivatives.} The transpose of the (linear-in-the-tensor) derivative map,
+and the gradient with respect to the cores treated as independent variables, are again binomial jet
+convolutions --- of the adjoint edge variables against the same tensor \eqref{eq:trs}. These mirror
+the three transpose flavours (ambient, corewise, tangent) already present for ordinary probing.
+
+\emph{Riemannian derivatives.} Replacing the plain cores by an orthogonal frame and a tangent
+variation gives the symmetric derivatives of \emph{tangent-vector} probing. The pushthrough and
+combine acquire the variation terms of the tangent calculus, but the order axis threads through them
+exactly as above; the jet Leibniz rule is unchanged.
+
+\end{document}
