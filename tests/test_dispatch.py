@@ -200,6 +200,11 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(
             lambda cc, w, p: pd.probe_derivatives_t3(w, p, cc, 3),
             self.x.data, list(self.ww), list(self.zz))
+        # with a base/core stack C=(2,) too: output (K+1) + W + C + (N,)
+        xc = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=(2,)).to_jax()
+        self.assert_jit_jax(
+            lambda cc, w, p: pd.probe_derivatives_t3(w, p, cc, 3),
+            xc.data, list(self.ww), list(self.zz))
         # the new t-contractions directly (order axis t=3 leading; W=(2,), C=())
         trs = pd.binomial_combine_tensor(3)
         mu = jnp.ones((4, 2, 5)); G = jnp.ones((5, 4, 6)); xij = jnp.ones((2, 2, 4)); nu = jnp.ones((4, 2, 6))

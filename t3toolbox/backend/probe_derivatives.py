@@ -36,10 +36,13 @@ from t3toolbox.backend.common import *
 # long ago). It is reconstructed from an old, unvetted derivation and will be written up afresh in a
 # project note; the recursions here have been verified against a dense oracle, not against the paper.
 #
-# STACKING (this slice): paired/flat. A single sample stack S = stack of the inputs rides on ww and pp
-# (each sample is a paired (X, P) -- duplicate a point across S to sweep many directions at it). The
-# jets carry order + S + bond and outputs order + S + (Ni,); the order axis t is OUTERMOST. The
-# contractions also carry a base/core stack C (the probing convention), unused for now (one T3).
+# STACKING: two independent stacks, exactly the plain-probing W + C (base-inner).
+#   - sample stack S: paired/flat, on the inputs ww/pp -- each sample is a paired (X, P) (duplicate a
+#     point across S to sweep many directions at it). This is the probing W block.
+#   - base/core stack C: on the cores -- a batch of T3s probed by the same samples.
+# Derived edge-variable jets carry order + S + C + bond; outputs are order + S + C + (Ni,), with the
+# order axis t OUTERMOST and base-inner (S outer, C inner). Either stack may be empty. The contractions
+# self-infer the S/C split from operand shapes, so nothing here threads it.
 #
 # SCOPE: Euclidean, plain Tucker tensor train (the cores ARE the data, so left = right = down =
 # tt_cores). The Riemannian (tangent-vector) case is deferred.
@@ -60,18 +63,20 @@ def probe_derivatives_t3(
         ww:     typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=S+(Ni,)
         pp:     typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=S+(Ni,)
         x:      typ.Tuple[
-            typ.Sequence[NDArray],      # tucker_cores. len=d, elm_shape=(nUi,Ni)
-            typ.Sequence[NDArray],      # tt_cores.     len=d, elm_shape=(rLi,nUi,rR(i+1))
+            typ.Sequence[NDArray],      # tucker_cores. len=d, elm_shape=C+(nUi,Ni)
+            typ.Sequence[NDArray],      # tt_cores.     len=d, elm_shape=C+(rLi,nUi,rR(i+1))
         ],                              # = TuckerTensorTrain.data
         order:  int,                    # highest derivative order K
-) -> typ.Tuple[NDArray, ...]:           # z_jets. len=d, elm_shape=(K+1,)+S+(Ni,)
+) -> typ.Tuple[NDArray, ...]:           # z_jets. len=d, elm_shape=(K+1,)+S+C+(Ni,)
     '''Symmetric derivatives of probing a Tucker tensor train, in one repeated direction.
 
     Returns, for each mode ``i``, the stack ``y_i^(t) = d^t/ds^t y_i(X + s P)|_0`` for ``t=0..K``,
     where ``y_i`` is the ``i``-th probing action. Index ``0`` is the ordinary probe ``probe_t3``.
 
-    A sample stack ``S`` rides on the input vectors: each sample is a paired ``(X, P)`` (so to sweep
-    many directions at one point, repeat that point across ``S``). Outputs are ``order + S + (Ni,)``.
+    Two independent stacks ride through, base-inner as in plain probing: a sample stack ``S`` on the
+    input vectors (each sample a paired ``(X, P)`` -- repeat a point across ``S`` to sweep many
+    directions at it) and a base/core stack ``C`` on the cores (a batch of T3s probed by the same
+    samples). Outputs are ``order + S + C + (Ni,)`` (``S`` outer, ``C`` inner); either may be empty.
 
     The symmetric-derivative formulation is not in the published T4S paper; the recursions are
     verified against :py:func:`probe_derivatives_dense`. (Project write-up in preparation.)
@@ -90,7 +95,7 @@ def probe_derivatives_t3(
     Returns
     -------
     typ.Tuple[NDArray,...]
-        Probe-derivative jets, z_jets. len=d, elm_shape=(K+1,)+S+(Ni,). ``z_jets[i][t]`` is ``y_i^(t)``.
+        Probe-derivative jets, z_jets. len=d, elm_shape=(K+1,)+S+C+(Ni,). ``z_jets[i][t]`` is ``y_i^(t)``.
 
     See Also
     --------
@@ -141,9 +146,9 @@ def binomial_combine_tensor(
 
 
 def build_input_jets(
-        xis:    typ.Sequence[NDArray],  # base projected probes,        len=d, elm_shape=S+(nUi,)
-        dxis:   typ.Sequence[NDArray],  # projected perturbation dirs,  len=d, elm_shape=S+(nUi,)
-) -> typ.Tuple[NDArray, ...]:           # xi_jets. len=d, elm_shape=(2,)+S+(nUi,): order 0 = xi, 1 = dxi
+        xis:    typ.Sequence[NDArray],  # base projected probes,        len=d, elm_shape=S+C+(nUi,)
+        dxis:   typ.Sequence[NDArray],  # projected perturbation dirs,  len=d, elm_shape=S+C+(nUi,)
+) -> typ.Tuple[NDArray, ...]:           # xi_jets. len=d, elm_shape=(2,)+S+C+(nUi,): order 0 = xi, 1 = dxi
     '''Input jets: stack each (value, direction) pair on a leading order axis.
 
     Since ``x + s p`` is affine in ``s``, an input vector's jet is just ``(x, p, 0, ...)`` -- value at
@@ -156,22 +161,22 @@ def build_input_jets(
 
 
 def _init_jet(
-        K:          int,                # highest derivative order
-        S_shape:    typ.Tuple[int, ...],  # sample stack
-        r0:         int,                # leftmost bond dimension
-        xnp,                            # numpy or jax.numpy
-) -> NDArray:                           # mu_0 jet, shape=(K+1,)+S+(r0,): order 0 = ones, higher = 0
+        K:            int,                  # highest derivative order
+        stack_shape:  typ.Tuple[int, ...],  # full leading batch the jets carry (sample + base, S + C)
+        r0:           int,                  # leftmost bond dimension
+        xnp,                                # numpy or jax.numpy
+) -> NDArray:                               # mu_0 jet, shape=(K+1,)+S+C+(r0,): order 0 = ones, higher = 0
     '''Leftmost left-pushthrough jet mu_0^(t): the empty product (ones) at order 0, zero above.'''
-    ones  = xnp.ones((1,) + S_shape + (r0,))
-    zeros = xnp.zeros((K,) + S_shape + (r0,))
+    ones  = xnp.ones((1,) + stack_shape + (r0,))
+    zeros = xnp.zeros((K,) + stack_shape + (r0,))
     return xnp.concatenate([ones, zeros], axis=0)
 
 
 def compute_mu_jets(
-        tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=(rLi,nUi,rR(i+1))
-        xi_jets:    typ.Sequence[NDArray],  # input jets,  len=d, elm_shape=(2,)+S+(nUi,)
+        tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=C+(rLi,nUi,rR(i+1))
+        xi_jets:    typ.Sequence[NDArray],  # input jets,  len=d, elm_shape=(2,)+S+C+(nUi,)
         trs:        NDArray,                # binomial tensor, shape=(K+1,K+1,K+1)
-) -> typ.Tuple[NDArray, ...]:               # mu_jets. len=d, elm_shape=(K+1,)+S+(rLi,). mu_jets[i][t]=mu_{i-1}^(t)
+) -> typ.Tuple[NDArray, ...]:               # mu_jets. len=d, elm_shape=(K+1,)+S+C+(rLi,). mu_jets[i][t]=mu_{i-1}^(t)
     '''Left derivative-pushthrough jets.
 
     Sweep left-to-right, at each core taking the binomial jet-product of the running left jet with the
@@ -190,19 +195,19 @@ def compute_mu_jets(
         G, xi_jet = data
         return contractions.trs_rWCa_Caib_sWCi_to_tWCb(trs_push, mu_jet, G, xi_jet[:s_size]), (mu_jet,)
 
-    S_shape = xi_jets[0].shape[1:-1]
+    stack_shape = xi_jets[0].shape[1:-1]     # full S + C batch (S outer, C inner); either may be empty
     r0 = tt_cores[0].shape[-3]
-    init = _init_jet(K, S_shape, r0, xnp)
+    init = _init_jet(K, stack_shape, r0, xnp)
 
     _, (mu_jets,) = xscan(_func, init, (tt_cores, xi_jets))
     return mu_jets
 
 
 def compute_nu_jets(
-        tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=(rLi,nUi,rR(i+1))
-        xi_jets:    typ.Sequence[NDArray],  # input jets,  len=d, elm_shape=(2,)+S+(nUi,)
+        tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=C+(rLi,nUi,rR(i+1))
+        xi_jets:    typ.Sequence[NDArray],  # input jets,  len=d, elm_shape=(2,)+S+C+(nUi,)
         trs:        NDArray,                # binomial tensor, shape=(K+1,K+1,K+1)
-) -> typ.Tuple[NDArray, ...]:               # nu_jets. len=d, elm_shape=(K+1,)+S+(rR(i+1),). nu_jets[i][t]=nu_i^(t)
+) -> typ.Tuple[NDArray, ...]:               # nu_jets. len=d, elm_shape=(K+1,)+S+C+(rR(i+1),). nu_jets[i][t]=nu_i^(t)
     '''Right derivative-pushthrough jets.
 
     The mirror image of :py:func:`compute_mu_jets`: reverse the tensor train (``reverse_tt`` swaps
@@ -214,11 +219,11 @@ def compute_nu_jets(
 
 
 def compute_eta_jets(
-        tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=(rLi,nOi,rR(i+1))
-        mu_jets:    typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+(rLi,)
-        nu_jets:    typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+(rR(i+1),)
+        tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+        mu_jets:    typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+C+(rLi,)
+        nu_jets:    typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+C+(rR(i+1),)
         trs:        NDArray,                # binomial tensor, shape=(K+1,K+1,K+1)
-) -> typ.Tuple[NDArray, ...]:               # eta_jets. len=d, elm_shape=(K+1,)+S+(nOi,). eta_jets[i][t]=eta_i^(t)
+) -> typ.Tuple[NDArray, ...]:               # eta_jets. len=d, elm_shape=(K+1,)+S+C+(nOi,). eta_jets[i][t]=eta_i^(t)
     '''Combine the left and right jets at each free mode via the binomial jet-product.
 
     ``eta_i^(t) = sum_{r+s=t} C(t,r) mu_{i-1}^(r) . G_i . nu_i^(s)``, one einsum per core
@@ -238,9 +243,9 @@ def compute_eta_jets(
 
 
 def assemble_z_jets(
-        tucker_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=(nUi,Ni)
-        eta_jets:       typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+(nUi,)
-) -> typ.Tuple[NDArray, ...]:                   # z_jets. len=d, elm_shape=(K+1,)+S+(Ni,)
+        tucker_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=C+(nUi,Ni)
+        eta_jets:       typ.Sequence[NDArray],  # len=d, elm_shape=(K+1,)+S+C+(nUi,)
+) -> typ.Tuple[NDArray, ...]:                   # z_jets. len=d, elm_shape=(K+1,)+S+C+(Ni,)
     '''Lift the combined jets back to the ambient modes through the Tucker cores (order by order).
 
     The Tucker factor is order-independent, so ``z_i^(t) = U_i eta_i^(t)`` applies per order

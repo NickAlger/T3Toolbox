@@ -59,6 +59,34 @@ class TestProbeDerivatives(unittest.TestCase):
                                 for k in range(ORDER + 1):
                                     self.check_relerr(z_dense[i][k], np.asarray(z_jets[i])[sel][k])
 
+    def test_base_core_stack(self):
+        # base/core stack C (a batch of T3s) alongside the sample stack S, base-inner S+C. Each base
+        # T3 is probed by the same S samples; validate every (sample, base) element vs the oracle.
+        STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        shapes = STRUCT[0]
+        d = len(shapes)
+        ORDER = 3
+        for S, C in [((), (2,)), ((3,), (2,)), ((2,), (2, 2))]:
+            with self.subTest(S=S, C=C):
+                x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
+                T = x.to_dense()                                  # shape C + (N1..Nd)
+                ww = [np.random.randn(*(S + (N,))) for N in shapes]
+                pp = [np.random.randn(*(S + (N,))) for N in shapes]
+
+                z_jets = pd.probe_derivatives_t3(ww, pp, x.data, ORDER)
+                for i in range(d):
+                    self.assertEqual(np.asarray(z_jets[i]).shape, (ORDER + 1,) + S + C + (shapes[i],))
+
+                for s_idx in itertools.product(*[range(n) for n in S]):
+                    ww_s = [w[s_idx] for w in ww]
+                    pp_s = [p[s_idx] for p in pp]
+                    for c_idx in itertools.product(*[range(n) for n in C]):
+                        z_dense = pd.probe_derivatives_dense(ww_s, pp_s, T[c_idx], ORDER)
+                        sel = (slice(None),) + s_idx + c_idx       # (order, *S, *C)
+                        for i in range(d):
+                            for k in range(ORDER + 1):
+                                self.check_relerr(z_dense[i][k], np.asarray(z_jets[i])[sel][k])
+
     def test_order_zero_is_plain_probe(self):
         # The 0-th derivative jet is exactly the ordinary probe.
         STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
