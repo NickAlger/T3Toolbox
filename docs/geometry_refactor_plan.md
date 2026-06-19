@@ -306,6 +306,22 @@ gauged, Euclidean otherwise."
   added for cheap Cauchy / line-search step lengths. Full design + build:
   [`docs/safe_unsafe_mode_plan.md`](safe_unsafe_mode_plan.md),
   [`docs/numerical_contract_catalog.md`](numerical_contract_catalog.md). **G3 is unblocked.**
+- **MC-SGD (Manifold Cauchy SGD) — prototyped, promising, stopping/batch heuristics still finicky at
+  small scale (2026-06-19).** Validated inline in `examples/fit_hilbert_from_apply_derivatives.py`: the
+  tuning-free Cauchy step (`alpha = ‖g‖²/‖Jg‖²`, exactly `model.gradient` + `model.gn_quadratic`) fits
+  apply-derivatives to the noise floor, ~8× faster than full-batch Newton-CG. The **core optimizer is
+  robust**; the finickiness is in the *auxiliary heuristics*: (1) batch size — the paper's ~10%-of-samples
+  rule degenerates to a single, too-noisy base point at `N_X=10` (floored to 2 in the example); (2) the
+  **stopping window is epoch-based** (`lag = C_t · n_s/|B|`), so a larger batch shrinks the epoch and the
+  stop fires too early (batch=3 failed after ~12 iters — a real early non-monotonicity in the *deterministic
+  full-batch* loss, caught by a ~12-iteration window; batch=3 converged fine when not stopped). Likely a
+  small-scale artifact (at scale a minibatch is small-*fraction* yet large-*absolute* → clean gradient, and
+  epochs are large in absolute iterations → robust window; the paper's MC-SGD is robust at scale on *probe*
+  fitting). **Open for G3:** when lifting MC-SGD into `optimizers.py`, make the stopping window
+  **absolute-iteration-based** (or add a min-iterations guard) so it decouples from batch size; and decide
+  whether a derivative `GaussNewtonModel` (an `apply_derivatives_model` in `fitting.py`) replaces the inline
+  closures so apply/entries/probe get MC-SGD for free. Robustness of apply-derivative MC-SGD *at scale* is
+  unproven (future research). Full diagnosis in the example's git history.
 - **Singular corewise `H`.** `newton_cg` must tolerate it (truncated CG / Levenberg–Marquardt damping),
   or steer corewise users to first-order. A geometry may advertise `hessian_is_degenerate` as a hint.
 - **`oblique_gauge_projection`** (the ambient-preserving gauge fix) — a second manifold projection
