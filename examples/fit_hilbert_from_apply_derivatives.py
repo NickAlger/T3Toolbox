@@ -138,13 +138,13 @@ def _tangent_cg(H, rhs, base, tol, maxiter):
     x = t3m.T3Tangent.zeros(base)
     res = rhs
     p = res
-    rs = float(res.inner(res))
+    rs = float(res.corewise_inner(res))
     if np.sqrt(rs) <= tol:
         return x, 0
     i = 0
     for i in range(1, maxiter + 1):
         Hp = H(p)
-        pHp = float(p.inner(Hp))
+        pHp = float(p.corewise_inner(Hp))
         if pHp <= 1e-30:
             if i == 1:
                 x = rhs
@@ -152,7 +152,7 @@ def _tangent_cg(H, rhs, base, tol, maxiter):
         alpha = rs / pHp
         x = x + alpha * p
         res = res - alpha * Hp
-        rs_new = float(res.inner(res))
+        rs_new = float(res.corewise_inner(res))
         if np.sqrt(rs_new) <= tol:
             break
         p = res + (rs_new / rs) * p
@@ -171,7 +171,7 @@ def riemannian_newton_cg(X0, forward, transpose, meas_dot, b,
         r = forward(X) - b
         f = 0.5 * meas_dot(r, r)
         g = t3m.MANIFOLD.project(transpose(r, base))
-        gnorm = float(g.norm())
+        gnorm = float(g.corewise_norm())
         if g0norm is None:
             g0norm = gnorm if gnorm > 0.0 else 1.0
         if gnorm <= gtol_rel * g0norm:
@@ -183,7 +183,7 @@ def riemannian_newton_cg(X0, forward, transpose, meas_dot, b,
 
         eta = min(0.5, np.sqrt(gnorm / g0norm))
         p, _ = _tangent_cg(H, -g, base, tol=eta * gnorm, maxiter=cg_maxiter)
-        slope = float(g.inner(p))
+        slope = float(g.corewise_inner(p))
         if (not np.isfinite(slope)) or slope >= 0.0:
             p, slope = -g, -gnorm * gnorm
         alpha = 1.0

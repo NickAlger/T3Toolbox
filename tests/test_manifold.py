@@ -8,6 +8,7 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.basis_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.corewise as cw
+import t3toolbox.safety as safety
 import t3toolbox.backend.probing as t3p
 
 np.random.seed(0)
@@ -138,7 +139,7 @@ class TestManifold(unittest.TestCase):
         w = t3m.COREWISE.randn(base, stack_shape=(3,))
         zl = t3m.T3Tangent.zeros_like(w)
         self.assertEqual((3,), zl.tangent_stack_shape)
-        self.assertEqual(0.0, float(np.max(np.abs(zl.norm()))))
+        self.assertEqual(0.0, float(np.max(np.abs(zl.corewise_norm()))))
         self.assertEqual((3,), t3m.MANIFOLD.randn_like(w).tangent_stack_shape)
 
     def test_to_from_vector(self):
@@ -244,7 +245,7 @@ class TestManifold(unittest.TestCase):
         va2 = t3m.T3Tangent(base_a, _random_variations(base_a))
 
         t3m.T3Tangent(base_a, va.variations) + va2  # same basis object: OK
-        for op in (lambda: va + vb, lambda: va - vb, lambda: va.inner(vb)):
+        for op in (lambda: va + vb, lambda: va - vb, lambda: va.corewise_inner(vb)):
             with self.assertRaises(ValueError):
                 op()
 
@@ -255,8 +256,8 @@ class TestManifold(unittest.TestCase):
         v2 = t3m.T3Tangent(base, _random_variations(base))
 
         # structural identities (corewise) hold regardless of gauge (unstacked -> scalar)
-        self.assertAlmostEqual(float(v1.inner(v2)), float(cw.corewise_dot(v1.variations.data, v2.variations.data)))
-        self.assertAlmostEqual(float(v1.norm()), float(np.sqrt(v1.inner(v1))))
+        self.assertAlmostEqual(float(v1.corewise_inner(v2)), float(cw.corewise_dot(v1.variations.data, v2.variations.data)))
+        self.assertAlmostEqual(float(v1.corewise_norm()), float(np.sqrt(v1.corewise_inner(v1))))
 
     def test_is_orthogonal_and_is_gauged(self):
         x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
@@ -380,8 +381,40 @@ class TestManifold(unittest.TestCase):
                 tensor_axes = tuple(range(len(STACK_SHAPE), ud.ndim))  # the (N0..Nd) axes; keep stack
                 hs_inner = np.sum(ud * wd, axis=tensor_axes)  # shape = STACK_SHAPE
                 hs_norm = np.sqrt(np.sum(ud * ud, axis=tensor_axes))
-                self.assertLessEqual(norm(np.asarray(u.inner(w)) - hs_inner), tol * max(1.0, norm(hs_inner)))
-                self.assertLessEqual(norm(np.asarray(u.norm()) - hs_norm), tol * max(1.0, norm(hs_norm)))
+                self.assertLessEqual(norm(np.asarray(u.corewise_inner(w)) - hs_inner), tol * max(1.0, norm(hs_inner)))
+                self.assertLessEqual(norm(np.asarray(u.corewise_norm()) - hs_norm), tol * max(1.0, norm(hs_norm)))
+
+    def test_geometry_inner_norm(self):
+        '''The geometry-level metrics: MANIFOLD.inner/norm = Hilbert-Schmidt (safe mode checks the frame
+        orthogonal + variations gauged); COREWISE.inner/norm = Euclidean (no orth/gauge check). Both equal
+        the raw corewise op where their preconditions hold; the manifold one REJECTS a non-orthonormal
+        frame or ungauged variations in safe mode, and skips the check under safety.unsafe().'''
+        x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
+        base, _ = bvf.t3_orthogonal_representations(x)
+        g, h = t3m.MANIFOLD.randn(base), t3m.MANIFOLD.randn(base)          # gauged, orthonormal frame
+        # HS == corewise for a gauged tangent at an orthonormal frame
+        self.assertAlmostEqual(float(t3m.MANIFOLD.inner(g, h)), float(g.corewise_inner(h)))
+        self.assertAlmostEqual(float(t3m.MANIFOLD.norm(g)), float(g.corewise_norm()))
+        # Euclidean geometry: no orth/gauge requirement, == corewise even on a raw (ungauged) tangent
+        raw = t3m.COREWISE.randn(base)
+        self.assertAlmostEqual(float(t3m.COREWISE.inner(raw, raw)), float(raw.corewise_inner(raw)))
+        self.assertAlmostEqual(float(t3m.COREWISE.norm(raw)), float(raw.corewise_norm()))
+        # safe mode: MANIFOLD.inner/norm reject ungauged variations ...
+        with self.assertRaises(ValueError):
+            t3m.MANIFOLD.inner(raw, raw)
+        with self.assertRaises(ValueError):
+            t3m.MANIFOLD.norm(raw)
+        # ... and a non-orthonormal frame (the corewise (U,G,G,G) base)
+        cg = t3m.COREWISE.randn(t3m.COREWISE.base(x))
+        with self.assertRaises(ValueError):
+            t3m.MANIFOLD.inner(cg, cg)
+        # same-frame: tangents at different base points are rejected
+        base2, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1)))
+        with self.assertRaises(ValueError):
+            t3m.MANIFOLD.inner(g, t3m.MANIFOLD.randn(base2))
+        # unsafe mode: checks skipped -> MANIFOLD.inner falls back to the raw corewise dot
+        with safety.unsafe():
+            self.assertAlmostEqual(float(t3m.MANIFOLD.inner(raw, raw)), float(raw.corewise_inner(raw)))
 
     def test_inner_norm_tangent_stacked(self):
         # A T3Tangent may carry an extra OUTER tangent stack K (a batch of tangents sharing one base);
@@ -398,7 +431,7 @@ class TestManifold(unittest.TestCase):
                 self.assertEqual(V + BASE_STACK, u.stack_shape)
 
                 full = V + BASE_STACK
-                ip = np.asarray(u.inner(w))
+                ip = np.asarray(u.corewise_inner(w))
                 self.assertEqual(full, ip.shape)
 
                 ref = np.zeros(full)  # per-slice corewise dot over the full stack
@@ -409,7 +442,7 @@ class TestManifold(unittest.TestCase):
                           tuple(np.asarray(c)[idx] for c in w.variations.tt_variations))
                     ref[idx] = float(cw.corewise_dot(ud, wd))
                 self.assertLessEqual(norm(ip - ref), tol * max(1.0, norm(ref)))
-                self.assertLessEqual(norm(np.asarray(u.norm()) - np.sqrt(np.abs(np.asarray(u.inner(u))))), tol)
+                self.assertLessEqual(norm(np.asarray(u.corewise_norm()) - np.sqrt(np.abs(np.asarray(u.corewise_inner(u))))), tol)
 
     def test_tangent_probe(self):
         # forward J^(s): v.probe(ww) == probe_dense(ww, v.to_dense()); probes are stacked W + K + C + (N,)
@@ -460,7 +493,7 @@ class TestManifold(unittest.TestCase):
                         JTz = t3m.T3Tangent.probe_transpose(z, ww, base, sum_over_probes=True)
                         # full contraction of both sides (sums F, V, G, N) must agree
                         lhs = float(np.sum([np.sum(np.asarray(a) * np.asarray(b)) for a, b in zip(z, Jv)]))
-                        rhs = float(np.sum(np.asarray(JTz.inner(v))))
+                        rhs = float(np.sum(np.asarray(JTz.corewise_inner(v))))
                         self.assertLessEqual(abs(lhs - rhs), tol * max(1.0, abs(lhs)))
 
                         # sum=True keeps V (base G), drops F; sum=False keeps F+V (base G)
@@ -703,7 +736,7 @@ class TestManifold(unittest.TestCase):
                     base, _ = bvf.t3_orthogonal_representations(x)
                     vn = t3m.MANIFOLD.randn(base, stack_shape=V).normalized()
                     vn.validate()
-                    self.assertLessEqual(norm(np.asarray(vn.norm()) - 1.0), tol)
+                    self.assertLessEqual(norm(np.asarray(vn.corewise_norm()) - 1.0), tol)
 
     def test_allclose(self):
         # T3Tangent.allclose compares two tangents at the same base point.
@@ -829,7 +862,7 @@ class TestManifold(unittest.TestCase):
                 JTr = t3m.T3Tangent.entries_derivatives_transpose(r, index, pp, base, ORDER, sum_over_probes=True)
                 lhs = float(np.sum(r * np.asarray(Jv)))
             self.assertIs(base, JTr.basis)
-            self.assertLessEqual(abs(lhs - float(JTr.inner(v))) / abs(lhs), 1e-9)
+            self.assertLessEqual(abs(lhs - float(JTr.corewise_inner(v))) / abs(lhs), 1e-9)
 
         # X/P sample-stack consistency: hard error
         pp_bad = [np.random.randn(*((3,) + (N,))) for N in shapes]   # W=(3,) != (2,)

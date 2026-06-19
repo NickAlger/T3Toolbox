@@ -160,9 +160,13 @@ completed and signed off):
    Tests: `tests/test_safety.py` (13) + doctests.
 2. **S2 — the precondition catalog (§5).** Sweep verified modules; produce the full precondition table;
    **Nick signs off** before any check is wired. This is the make-or-break step.
-3. **S3 — move `inner`/`norm` to the geometries.** Add `MANIFOLD.inner`/`.norm` (same-frame + gauge check)
-   and `COREWISE.inner`/`.norm` (same-frame). Rename `T3Tangent.inner`/`norm` → `corewise_inner`/
-   `corewise_norm` (raw). Re-point consumers (fitting `evaluate`/two-form, examples, tests).
+3. **S3 — move `inner`/`norm` to the geometries. ✅ DONE.** Added `MANIFOLD.inner`/`.norm` (HS; safe mode
+   checks same-frame + frame **orthogonal** + variations **gauged**, jax-aware tol) and `COREWISE.inner`/
+   `.norm` (Euclidean; same-frame only). Renamed `T3Tangent.inner`/`norm` → `corewise_inner`/`corewise_norm`
+   (raw coordinate op; no HS claim) and re-pointed all consumers (fitting `evaluate`/two-form + doctests,
+   both examples, `test_fitting`/`test_manifold`/`test_dispatch`). **First slice that wires `safety`**:
+   `MANIFOLD.inner` on an ungauged tangent or non-orthonormal frame **raises** in safe mode, passes under
+   `safety.unsafe()`, skips under jit. Verified: 221 core + 11 dispatch + doctests; both examples reproduce.
 4. **S4 — numerical same-frame guard + basis-as-leaf.** Replace the `is`-identity guard
    (`_check_same_tangent_space`, `stack_tangents`, fitting `_require_at_base`) with `check_frames_equal`
    (safe-mode, eager-only). Flip `T3Tangent` to basis-as-leaf; register `GaussNewtonModel` with all-leaf

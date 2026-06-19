@@ -169,8 +169,8 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a: a.to_dense(), self.v)
         self.assert_jit_jax(lambda a: a.to_t3(), self.v)
         self.assert_jit_jax(lambda a: t3m.MANIFOLD.retract(a), self.v)
-        self.assert_jit_jax(lambda a, b: a.inner(b), self.v, self.w)   # binary op, shared base via aux
-        self.assert_jit_jax(lambda a: a.norm(), self.v)
+        self.assert_jit_jax(lambda a, b: a.corewise_inner(b), self.v, self.w)   # binary op, shared base via aux
+        self.assert_jit_jax(lambda a: a.corewise_norm(), self.v)
         self.assert_jit_jax(lambda a, b: a + b, self.v, self.w)
         self.assert_jit_jax(lambda a, b: a - b, self.v, self.w)
         self.assert_jit_jax(lambda a: 2.5 * a, self.v)
@@ -331,8 +331,8 @@ class TestDispatch(unittest.TestCase):
 
     def test_jit_geometry_as_arg(self):
         # the stateless geometry singletons are zero-leaf pytrees -> pass as ordinary traced args
-        self.assert_jit_jax(lambda gm, t: gm.project(t).norm(), t3m.MANIFOLD, self.w)
-        self.assert_jit_jax(lambda gm, t: gm.project(t).norm(), t3m.COREWISE, self.w)
+        self.assert_jit_jax(lambda gm, t: gm.norm(gm.project(t)), t3m.MANIFOLD, self.w)
+        self.assert_jit_jax(lambda gm, t: gm.norm(gm.project(t)), t3m.COREWISE, self.w)
 
     def test_jit_optimizer_wholestep(self):
         # Pattern 1 (the per-step jit): jit the WHOLE step, X in / X_new out, model built INSIDE. The base
@@ -346,7 +346,7 @@ class TestDispatch(unittest.TestCase):
             r = X.apply(ww) - b
             model = fitting.apply_model(t3m.MANIFOLD, X, ww, r)
             g = model.gradient
-            alpha = g.inner(g) / model.gn_quadratic(g)           # Cauchy step (one forward; no H assembly)
+            alpha = g.corewise_inner(g) / model.gn_quadratic(g)           # Cauchy step (one forward; no H assembly)
             return t3m.MANIFOLD.retract((-alpha) * g)
         X = self.x
         for _ in range(3):
@@ -446,7 +446,7 @@ class TestDispatch(unittest.TestCase):
         w_np = t3m.T3Tangent(base_np, bvf.T3Variations(
             tuple(np.asarray(c) for c in self.w.variations.tucker_variations),
             tuple(np.asarray(c) for c in self.w.variations.tt_variations)))
-        close(self.v.inner(self.w), v_np.inner(w_np))                        # inner (binary, shared base)
+        close(self.v.corewise_inner(self.w), v_np.corewise_inner(w_np))      # inner (binary, shared base)
         for a, b in zip(self.v.probe(self.ww), v_np.probe(ww_np)):           # probe
             close(a, b)
 

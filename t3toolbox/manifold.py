@@ -13,6 +13,7 @@ from dataclasses import dataclass
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.basis_variations_format as bvf
 import t3toolbox.corewise as cw
+import t3toolbox.safety as safety
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.tangent_operations as tangent_operations
 import t3toolbox.backend.probing as probing
@@ -84,11 +85,12 @@ class T3Tangent:
     two tangent vectors is only defined when they live in the same tangent space, which here means
     they hold the **same** ``T3Basis`` object (identity, not merely numerically-equal cores).
 
-    Validity caveats (NOT enforced):
-        - :py:meth:`inner` and :py:meth:`norm` (and faithful corewise linear algebra) equal the
-          Hilbert-Schmidt values only when the basis is **orthogonal** and the variations are
-          **gauged**. These are not checked at construction. Use :py:meth:`is_orthogonal` and
-          :py:meth:`is_gauged` to check, and see each operation's docstring for the failure mode.
+    The metric lives on the *geometry*, not here: :py:meth:`ManifoldGeometry.inner` / ``norm`` are the
+    Hilbert-Schmidt inner product / norm (which check the orthogonal-frame + gauged preconditions in safe
+    mode), and :py:meth:`CorewiseGeometry.inner` / ``norm`` are the Euclidean ones. This class exposes only
+    the **raw coordinate** :py:meth:`corewise_inner` / :py:meth:`corewise_norm` (equal to HS only on an
+    orthonormal, gauged, minimal-rank frame -- see :py:meth:`is_orthogonal` / :py:meth:`is_gauged` and the
+    contract catalog), with no HS claim.
 
     A tangent vector is the sum of 2d single-core variation terms -- equation (47), Appendix A.3, of
     Alger, Christierson, Chen & Ghattas (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
@@ -352,46 +354,39 @@ class T3Tangent:
     def __neg__(self) -> 'T3Tangent':
         return self * (-1.0)
 
-    def inner(self, other: 'T3Tangent'):
-        """Inner product of two tangent vectors (corewise dot of the variations).
+    def corewise_inner(self, other: 'T3Tangent'):
+        """The raw corewise (coordinate) dot of two tangents' variations -- **not** the HS inner product.
 
-        Vectorized over the stack: returns an array of shape :py:attr:`stack_shape` (``K + C``), one
-        inner product per stacked tangent (a scalar when unstacked). Requires the same T3Basis object
-        and matching stacks.
+        Vectorized over the stack: returns an array of shape :py:attr:`stack_shape` (``K + C``), one dot
+        per stacked tangent (a scalar when unstacked). The same-frame precondition is checked.
 
-        .. warning::
-            This equals the Hilbert-Schmidt inner product of the represented tangent vectors only
-            when the basis is orthogonal and BOTH variations are gauged (see :py:meth:`is_gauged`).
-            Otherwise it is merely the corewise dot of the variation cores.
-
-        The gauged identity ``<v, v'>_HS = sum_i <dU_i, dU_i'> + sum_i <dG_i, dG_i'>`` is given in
-        Appendix A.3 of Alger et al. (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
+        This is the *coordinate* inner product; it equals Hilbert-Schmidt only on an orthonormal, gauged,
+        (minimal-rank) frame. For that semantic -- with the orthogonal/gauge preconditions checked -- use
+        :py:meth:`ManifoldGeometry.inner` (or :py:meth:`CorewiseGeometry.inner` for the Euclidean metric).
+        The gauged identity ``<v, v'>_HS = sum_i <dU_i, dU_i'> + sum_i <dG_i, dG_i'>`` is Appendix A.3 of
+        Alger et al. (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
         """
         self._check_same_tangent_space(other)
         return cw.corewise_stack_dot(
             self.variations.data, other.variations.data, len(self.stack_shape),
         )
 
-    def norm(self):
-        """Norm of the tangent vector (corewise norm of the variations).
+    def corewise_norm(self):
+        """The raw corewise (coordinate) norm of the variations -- **not** the HS norm.
 
-        Vectorized over the stack: returns an array of shape :py:attr:`stack_shape` (``K + C``), one
-        norm per stacked tangent (a scalar when unstacked).
-
-        .. warning::
-            This equals the Hilbert-Schmidt norm only when the basis is orthogonal and the
-            variations are gauged (see :py:meth:`is_gauged`).
+        Vectorized over the stack: returns an array of shape :py:attr:`stack_shape` (``K + C``), one norm
+        per stacked tangent (a scalar when unstacked). Equals the Hilbert-Schmidt norm only on an
+        orthonormal, gauged frame; for that semantic use :py:meth:`ManifoldGeometry.norm`.
         """
         return cw.corewise_stack_norm(self.variations.data, len(self.stack_shape))
 
     def normalized(self) -> 'T3Tangent':
-        """Unit-norm rescaling ``self / self.norm()``, vectorized over the stack.
+        """Unit-norm rescaling ``self / self.corewise_norm()``, vectorized over the stack.
 
-        Scales the variations so the result has :py:meth:`norm` 1 (the Hilbert-Schmidt norm when the
-        basis is orthogonal and gauged). Each stacked tangent is scaled by its own norm; the base
-        point is unchanged.
+        Scales the variations so the result has :py:meth:`corewise_norm` 1. Each stacked tangent is scaled
+        by its own norm; the base point is unchanged.
         """
-        variations = bvf.T3Variations(*cw.corewise_stack_scale(self.variations.data, 1.0 / self.norm()))
+        variations = bvf.T3Variations(*cw.corewise_stack_scale(self.variations.data, 1.0 / self.corewise_norm()))
         return T3Tangent(self.basis, variations)
 
     def allclose(
@@ -402,12 +397,12 @@ class T3Tangent:
     ) -> bool:
         """``True`` if ``other`` is the same tangent vector as ``self`` at the same base point.
 
-        Checks ``||self - other|| <= atol + rtol * ||other||`` via :py:meth:`norm` (per stacked
+        Checks ``||self - other|| <= atol + rtol * ||other||`` via :py:meth:`corewise_norm` (per stacked
         element, all of which must pass). Assumes a shared base point (compares corewise on the
         variations, like :py:meth:`__sub__`); for tangents at different bases compare the dense forms.
         """
-        dn = (self - other).norm()
-        rn = other.norm()
+        dn = (self - other).corewise_norm()
+        rn = other.corewise_norm()
         return bool((dn <= atol + rtol * rn).all())
 
     ############################################
@@ -556,7 +551,7 @@ class T3Tangent:
         >>> Jv = v.probe(ww)
         >>> JTz = t3m.T3Tangent.probe_transpose(z, ww, base, sum_over_probes=True)
         >>> lhs = float(np.sum([np.sum(a * b) for a, b in zip(z, Jv)]))
-        >>> print(bool(abs(lhs - float(JTz.inner(v))) < 1e-9))
+        >>> print(bool(abs(lhs - float(JTz.corewise_inner(v))) < 1e-9))
         True
 
         Without summing, the result is a tangent-stacked T3Tangent (V = the probe stack):
@@ -886,7 +881,7 @@ class T3Tangent:
         >>> r = [np.random.randn(*z.shape) for z in Jv]
         >>> JTr = t3m.T3Tangent.probe_derivatives_transpose(r, ww, pp, base, 2, sum_over_probes=True)
         >>> lhs = sum(float(np.sum(ri * zi)) for ri, zi in zip(r, Jv))
-        >>> print(bool(abs(lhs - float(JTr.inner(v))) < 1e-9))
+        >>> print(bool(abs(lhs - float(JTr.corewise_inner(v))) < 1e-9))
         True
         """
         probe_derivatives.check_perturbation_vectors(ww, pp)
@@ -1129,12 +1124,56 @@ class ManifoldGeometry:
     ) -> T3Tangent:  # gauged tangent at v's basis (the SAME vector)
         """Gauge ``v``'s variations while preserving the represented tangent vector (oblique projection).
 
-        Returns a tangent at the same basis representing the SAME vector as ``v`` but gauged, so that
-        on an orthogonal minimal-rank basis :py:meth:`T3Tangent.inner` / :py:meth:`T3Tangent.norm`
-        give the true Hilbert-Schmidt values.
+        Returns a tangent at the same basis representing the SAME vector as ``v`` but gauged, so that on
+        an orthogonal minimal-rank basis :py:meth:`inner` / :py:meth:`norm` give the true Hilbert-Schmidt
+        values.
         """
         new_variations = tangent_operations.oblique_gauge_projection(v.basis.data, v.variations.data)
         return T3Tangent(v.basis, bvf.T3Variations(*new_variations))
+
+    def inner(
+            self,
+            t1: T3Tangent,
+            t2: T3Tangent,
+    ) -> NDArray:  # the Hilbert-Schmidt inner product, shape = stack_shape (K + C)
+        """The **Hilbert-Schmidt** inner product of two tangents -- the Riemannian metric on ``M``.
+
+        Computes the corewise (coordinate) dot, which equals HS on this geometry's orthonormal, gauged
+        frame. In **safe mode** it checks the preconditions for that equality: the two tangents share a
+        frame, the frame is orthogonal, and **both** variations are gauged (minimal rank is a documented
+        caveat -- see ``docs/numerical_contract_catalog.md``). For the raw coordinate dot with no HS claim
+        and no orthogonal/gauge check, use :py:meth:`T3Tangent.corewise_inner`.
+        """
+        t1._check_same_tangent_space(t2)
+        if safety.checks_active(t1.basis.data, t1.variations.data, t2.variations.data):
+            atol = safety.effective_rtol(t1.basis.data, t1.variations.data, t2.variations.data)
+            safety.require(t1.basis.is_orthogonal(atol=atol),
+                           'ManifoldGeometry.inner is the Hilbert-Schmidt metric and requires an '
+                           'orthogonal frame. Use T3Tangent.corewise_inner for the raw coordinate dot, '
+                           'or run in unsafe mode (safety.unsafe()).')
+            safety.require(t1.is_gauged(atol=atol) and t2.is_gauged(atol=atol),
+                           'ManifoldGeometry.inner requires both tangents gauged. Gauge them via '
+                           'ManifoldGeometry.project / project_oblique, use T3Tangent.corewise_inner, '
+                           'or run in unsafe mode.')
+        return cw.corewise_stack_dot(t1.variations.data, t2.variations.data, len(t1.stack_shape))
+
+    def norm(
+            self,
+            t:  T3Tangent,
+    ) -> NDArray:  # the Hilbert-Schmidt norm, shape = stack_shape (K + C)
+        """The **Hilbert-Schmidt** norm of a tangent. Safe mode checks the frame orthogonal + variations
+        gauged (the preconditions for the coordinate norm to equal HS; minimal rank a documented caveat).
+        For the raw coordinate norm use :py:meth:`T3Tangent.corewise_norm`."""
+        if safety.checks_active(t.basis.data, t.variations.data):
+            atol = safety.effective_rtol(t.basis.data, t.variations.data)
+            safety.require(t.basis.is_orthogonal(atol=atol),
+                           'ManifoldGeometry.norm is the Hilbert-Schmidt metric and requires an '
+                           'orthogonal frame. Use T3Tangent.corewise_norm, or run in unsafe mode.')
+            safety.require(t.is_gauged(atol=atol),
+                           'ManifoldGeometry.norm requires gauged variations. Gauge via '
+                           'ManifoldGeometry.project / project_oblique, use T3Tangent.corewise_norm, '
+                           'or run in unsafe mode.')
+        return cw.corewise_stack_norm(t.variations.data, len(t.stack_shape))
 
     def retract(
             self,
@@ -1258,6 +1297,26 @@ class CorewiseGeometry:
     ) -> T3Tangent:  # v unchanged (no gauge on the core parameter space)
         """The identity: the core parameter space is Euclidean, with no gauge projection."""
         return v
+
+    def inner(
+            self,
+            t1: T3Tangent,
+            t2: T3Tangent,
+    ) -> NDArray:  # the Euclidean (coordinate) inner product, shape = stack_shape (K + C)
+        """The **Euclidean** (coordinate) inner product of two tangents on the core parameter space.
+
+        The corewise dot of the variations -- *no* orthogonal/gauge requirement (the ``(U,G,G,G)`` frame
+        is non-orthonormal by design). Safe mode checks only that the two tangents share a frame. This is
+        exactly :py:meth:`T3Tangent.corewise_inner`."""
+        return t1.corewise_inner(t2)
+
+    def norm(
+            self,
+            t:  T3Tangent,
+    ) -> NDArray:  # the Euclidean (coordinate) norm, shape = stack_shape (K + C)
+        """The **Euclidean** (coordinate) norm of a tangent (= :py:meth:`T3Tangent.corewise_norm`); no
+        precondition."""
+        return t.corewise_norm()
 
     def retract(
             self,

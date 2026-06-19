@@ -134,7 +134,7 @@ class TestGaussNewtonModel(unittest.TestCase):
                     with self.subTest(kind=kind, geom=geom_name, C=C):
                         s = _setup(kind, geom_name, C)
                         model, p = s['model'], _raw_step(s)
-                        two_form = model.objective_value + model.gradient.inner(p) + 0.5 * p.inner(model.gn_hessian(p))
+                        two_form = model.objective_value + model.gradient.corewise_inner(p) + 0.5 * p.corewise_inner(model.gn_hessian(p))
                         self.assertTrue(np.allclose(model.evaluate(p), two_form, rtol=RTOL, atol=ATOL))
 
     def test_razor_self_containment(self):
@@ -171,8 +171,8 @@ class TestGaussNewtonModel(unittest.TestCase):
                 with self.subTest(kind=kind, geom=geom_name):
                     s = _setup(kind, geom_name, ())
                     model, p, q = s['model'], _raw_step(s), _raw_step(s)
-                    lhs = float(q.inner(model.gn_hessian(p)))
-                    rhs = float(p.inner(model.gn_hessian(q)))
+                    lhs = float(q.corewise_inner(model.gn_hessian(p)))
+                    rhs = float(p.corewise_inner(model.gn_hessian(q)))
                     self.assertTrue(np.allclose(lhs, rhs, rtol=RTOL, atol=ATOL))
 
     def test_jacobian_gradient_adjoint(self):
@@ -188,7 +188,7 @@ class TestGaussNewtonModel(unittest.TestCase):
                         gz_raw = model.kind.transpose(z, s['sample'], s['base'].data, model._base_sweep)
                         gz = geometry.project(t3m.T3Tangent(s['base'], bvf.T3Variations(*gz_raw)))  # Π 𝒥ᵀ z
                         lhs = s['samp_dot'](z, Jp)
-                        rhs = gz.inner(p)
+                        rhs = gz.corewise_inner(p)
                         self.assertTrue(np.allclose(lhs, rhs, rtol=RTOL, atol=ATOL))
 
     def test_jacobian_and_gn_quadratic(self):
@@ -201,7 +201,7 @@ class TestGaussNewtonModel(unittest.TestCase):
                         model, p = s['model'], _raw_step(s)
                         # gn_quadratic == pᵀ H p (the cheap Cauchy / line-search denominator)
                         self.assertTrue(np.allclose(model.gn_quadratic(p),
-                                                    p.inner(model.gn_hessian(p)), rtol=RTOL, atol=ATOL))
+                                                    p.corewise_inner(model.gn_hessian(p)), rtol=RTOL, atol=ATOL))
                         # jacobian == the dense forward of the projected tangent (a sequence for probe)
                         Jp = model.jacobian(p)
                         Jp_oracle = s['dense_fwd'](s['geometry'].project(p).to_dense())

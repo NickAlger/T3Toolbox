@@ -47,7 +47,7 @@ objects incur:
            r     = X.apply(ww) - b
            model = fitting.apply_model(t3m.MANIFOLD, X, ww, r)
            g     = model.gradient
-           alpha = g.inner(g) / model.gn_quadratic(g)     # cheap Cauchy step (one forward)
+           alpha = g.corewise_inner(g) / model.gn_quadratic(g)     # cheap Cauchy step (one forward)
            return t3m.MANIFOLD.retract((-alpha) * g)
        X = x0
        for _ in range(n_steps):
@@ -124,14 +124,14 @@ class GaussNewtonModel:
     ``g`` and the Hessian action (and costs only one forward apply, not a Hessian apply):
 
     >>> hp = model.gn_hessian(p)
-    >>> m_built = float(model.objective_value + model.gradient.inner(p) + 0.5 * p.inner(hp))
+    >>> m_built = float(model.objective_value + model.gradient.corewise_inner(p) + 0.5 * p.corewise_inner(hp))
     >>> bool(np.allclose(float(model.evaluate(p)), m_built))
     True
 
     The Gauss-Newton quadratic form ``pᵀHp = ‖Jp‖²`` comes from one forward sweep (no ``H p`` assembly) --
-    the cheap step-length denominator for Cauchy / line search (``alpha = g.inner(g) / gn_quadratic(g)``):
+    the cheap step-length denominator for Cauchy / line search (``alpha = g.corewise_inner(g) / gn_quadratic(g)``):
 
-    >>> bool(np.allclose(float(model.gn_quadratic(p)), float(p.inner(model.gn_hessian(p)))))
+    >>> bool(np.allclose(float(model.gn_quadratic(p)), float(p.corewise_inner(model.gn_hessian(p)))))
     True
 
     The **corewise** geometry is the same call with a different geometry: the gradient is a tangent at the
@@ -142,8 +142,8 @@ class GaussNewtonModel:
     False
     >>> cp = t3m.COREWISE.randn(cmodel.base)
     >>> bool(np.allclose(float(cmodel.evaluate(cp)),
-    ...                  float(cmodel.objective_value + cmodel.gradient.inner(cp)
-    ...                        + 0.5 * cp.inner(cmodel.gn_hessian(cp)))))
+    ...                  float(cmodel.objective_value + cmodel.gradient.corewise_inner(cp)
+    ...                        + 0.5 * cp.corewise_inner(cmodel.gn_hessian(cp)))))
     True
 
     A trial step at a *different* base is a structural error (the model is tied to its base):
@@ -203,10 +203,10 @@ class GaussNewtonModel:
     ) -> NDArray:  # pᵀ H p = ‖J p‖², shape C
         '''The Gauss-Newton quadratic form ``pᵀ H p = ‖J p‖²`` -- ONE forward sweep, NOT a Hessian apply.
 
-        The cheap denominator for Cauchy / line-search step lengths: ``alpha = g.inner(g) /
+        The cheap denominator for Cauchy / line-search step lengths: ``alpha = g.corewise_inner(g) /
         model.gn_quadratic(g)``. Because ``H = JᵀJ``, ``pᵀHp = (Jp)ᵀ(Jp) = ‖Jp‖²``, so this needs only the
         forward :py:meth:`jacobian` -- it avoids the transpose ``𝒥ᵀ`` and the ``H p`` tangent
-        materialization that the equivalent ``p.inner(self.gn_hessian(p))`` would incur.'''
+        materialization that the equivalent ``p.corewise_inner(self.gn_hessian(p))`` would incur.'''
         return self.kind.sumsq(self.jacobian(p), self._n_w)
 
     def gn_hessian(self, p: t3m.T3Tangent) -> t3m.T3Tangent:
@@ -230,7 +230,7 @@ class GaussNewtonModel:
         _require_at_base(self.base, p)
         Pp = self.geometry.project(p)
         Jp = self.kind.forward(Pp.variations.data, self.sample, self.base.data, self._base_sweep)
-        return self.objective_value + self.gradient.inner(Pp) + 0.5 * self.kind.sumsq(Jp, self._n_w)
+        return self.objective_value + self.gradient.corewise_inner(Pp) + 0.5 * self.kind.sumsq(Jp, self._n_w)
 
 
 def apply_model(

@@ -151,13 +151,13 @@ def _tangent_cg(H, rhs, base, tol, maxiter):
     x = t3m.T3Tangent.zeros(base)
     res = rhs                                  # residual = rhs - H(0) = rhs
     p = res
-    rs = float(res.inner(res))
+    rs = float(res.corewise_inner(res))
     if np.sqrt(rs) <= tol:
         return x, 0
     i = 0
     for i in range(1, maxiter + 1):
         Hp = H(p)
-        pHp = float(p.inner(Hp))
+        pHp = float(p.corewise_inner(Hp))
         if pHp <= 1e-30:                       # nonpositive curvature guard (GN is PSD; rarely hit)
             if i == 1:
                 x = rhs                         # fall back to the gradient direction
@@ -165,7 +165,7 @@ def _tangent_cg(H, rhs, base, tol, maxiter):
         alpha = rs / pHp
         x = x + alpha * p
         res = res - alpha * Hp
-        rs_new = float(res.inner(res))
+        rs_new = float(res.corewise_inner(res))
         if np.sqrt(rs_new) <= tol:
             break
         p = res + (rs_new / rs) * p
@@ -190,7 +190,7 @@ def riemannian_newton_cg(X0, forward, model_builder, meas_dot, b,
         f = float(model.objective_value)                 # = 1/2 ||r||^2
 
         g = model.gradient                               # Riemannian gradient Pi J^T r (already gauged)
-        gnorm = float(g.norm())
+        gnorm = float(g.corewise_norm())
         if g0norm is None:
             g0norm = gnorm if gnorm > 0.0 else 1.0
         if verbose:
@@ -207,7 +207,7 @@ def riemannian_newton_cg(X0, forward, model_builder, meas_dot, b,
         p, cg_iters = _tangent_cg(H, -g, base, tol=eta * gnorm, maxiter=cg_maxiter)
         cg_total += cg_iters
 
-        slope = float(g.inner(p))
+        slope = float(g.corewise_inner(p))
         if (not np.isfinite(slope)) or slope >= 0.0:     # ensure a descent direction
             p, slope = -g, -gnorm * gnorm
 
