@@ -183,5 +183,12 @@ order-1 from `U_i p_i`; `dU_tilde` scatter lands on the indexed rows.
 - [ ] **Doc refresh (remaining real work):** `entries_apply_probe.md` (stale §4 three-flavor grid + add the
   derivative dimension), `symmetric_probe_derivatives.tex` (add apply/entries + the `K` stack), CLAUDE.md
   "Current state" + `probe_derivatives_handoff.md`.
-- Deferred nice-to-haves (Nick's call): the derivative fitting example; the Hessian-conditioning experiment
+- [x] **Derivative fitting example** — `examples/fit_hilbert_from_apply_derivatives.py`: fits a T3 to
+  the Hilbert tensor from apply-**derivative** data (orders 0..d, per-order normalized + unit-norm probes),
+  Riemannian Newton-CG + rank continuation. **Converges and recovers the tensor** (true err 5e-3 at rank
+  4, val picks rank 4); exercises the frontend `apply_derivatives`/`apply_derivatives_transpose` end-to-end
+  — the integration test passed, no issues uncovered. **Review now unblocked.**
+- Deferred nice-to-have (Nick's call): the Hessian-conditioning experiment
   (`docs/derivative_order_information_and_conditioning.md`).
+- **Future-work / low-priority cleanup:** `_assemble_dG_jet3`'s `{'A','I','B'}`-keyed dispatch (vs the
+  codebase's explicit-per-contraction style) — revisit later.
