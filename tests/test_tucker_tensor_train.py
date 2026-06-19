@@ -198,6 +198,21 @@ class TestTuckerTensorTrain(unittest.TestCase):
                 self.assertEqual(is_minimal,            x.has_minimal_ranks)
                 self.assertEqual(MIN_STRUCTURE[1:3],    x.minimal_ranks)
 
+    def test_has_numerically_minimal_ranks(self):
+        np.random.seed(0)
+        # a full-rank random tensor is both structurally and numerically minimal
+        x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
+        self.assertTrue(x.has_minimal_ranks)
+        self.assertTrue(x.has_numerically_minimal_ranks())
+        # padding a Tucker rank makes it structurally non-minimal -> the structural short-circuit -> False
+        xbig = x.resize((6, 7, 5), (3, 2, 2), (1, 2, 2, 1))
+        self.assertFalse(xbig.has_minimal_ranks)
+        self.assertFalse(xbig.has_numerically_minimal_ranks())
+        # a t3svd'd (no-truncation) tensor is numerically minimal; its ranks survive a re-svd
+        x2 = xbig.t3svd()[0]
+        self.assertTrue(x2.has_minimal_ranks)
+        self.assertTrue(x2.has_numerically_minimal_ranks())
+
     def test_to_dense(self):
         structures = [
             ((8, 9, 7), (3, 4, 5), (2, 3, 7, 5), (2, 3)),

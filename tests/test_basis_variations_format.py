@@ -494,6 +494,25 @@ class TestBasisVariationsFormat(unittest.TestCase):
         base3, _ = _random_basis_variations(structure)
         self.assertFalse(base3.has_minimal_ranks)
 
+    def test_t3basis_has_numerically_minimal_ranks(self):
+        # frame numerical minimality is certified WITHOUT an SVD: orthogonal AND structurally minimal.
+        base, _ = bvf.t3_orthogonal_representations(
+            t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1)))     # orthogonal + minimal
+        self.assertTrue(base.is_orthogonal() and base.has_minimal_ranks)
+        self.assertTrue(base.has_numerically_minimal_ranks())
+
+        nb, _ = bvf.t3_orthogonal_representations(
+            t3.TuckerTensorTrain.randn((10, 11, 12), (4, 5, 4), (1, 2, 3, 1)))  # orthogonal, NON-minimal
+        self.assertTrue(nb.is_orthogonal())
+        self.assertFalse(nb.has_minimal_ranks)
+        self.assertFalse(nb.has_numerically_minimal_ranks())                   # structural fail -> False
+
+        # a non-orthogonal frame returns False (the SVD certification path is intentionally not built),
+        # even when its ranks happen to be structurally minimal
+        nonorth, _ = _random_basis_variations(((6, 7, 5), (2, 2, 2), (2, 2, 2), (1, 2, 2, 1), (1, 2, 2, 1), ()))
+        self.assertFalse(nonorth.is_orthogonal())
+        self.assertFalse(nonorth.has_numerically_minimal_ranks())
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -99,34 +99,34 @@ those properties only make them *equal HS*), so it moves to the geometry's `inne
 4. **"some tangent ops only correct when minimal ranks — which exactly is TBD"** (`manifold.py`/`bvf`).
    → resolved as a **caveat everywhere** (see below); the TBD note can be replaced with the table above.
 
-## Minimal ranks — the resolution of the long-standing TBD (keep this; it's the reference)
+## Minimal ranks — the resolution of the long-standing TBD (EMPIRICALLY verified — this is the reference)
 
-Minimal rank splits into two tests: **structural** (`has_minimal_ranks` — the ranks equal the structural
-minimum for the shape; cheap integer arithmetic) and **numerical** (would require an SVD — are the cores
-actually full-rank). The decision:
+Minimal rank splits into **structural** (`has_minimal_ranks` — ranks equal the structural minimum; cheap
+integer arithmetic) and **numerical** (`has_numerically_minimal_ranks` — no stored rank numerically
+redundant; needs an SVD for a tensor, *free* for an orthonormal frame). **An experiment settled which ops
+actually need it** (`tests/`-style script run 2026-06-19; each op compared on a minimal vs a non-minimal
+*orthogonal* base against the dense oracle):
 
-- **Safe mode checks the *structural* test** (`has_minimal_ranks`) on the ops that require minimal ranks,
-  and raises if it fails. It is a precondition, skipped in unsafe / under jit like the others.
-- **The numerical test is *never* run** (no SVD). The structurally-but-not-numerically-minimal gap is an
-  adversarial edge case (failure mode: NaN / wrong result) we accept.
-- **The requirement is documented on each op below** (Nick (b)), and this table *is* the answer to the
-  "which ops need minimal ranks — TBD" note in `manifold.py` / `basis_variations_format.py` (replace that
-  note with a pointer here, do not delete the knowledge).
-
-**The complete list of minimal-rank-requiring ops** (each: precondition checked *structurally* in safe
-mode; numerical caveat documented):
-
-| op | what minimal rank buys | without it (the caveat) |
+| op | needs minimal? | evidence |
 |---|---|---|
-| `MANIFOLD.inner` / `norm` | exact Hilbert–Schmidt | the coordinate dot ≠ HS even when orthogonal+gauged |
-| `MANIFOLD.retract` | **rank preservation** (stay on the same fixed-rank `M`) | lands on a different-rank manifold |
-| `MANIFOLD.randn` / `random_orthogonal` / `randn_like` | a *true* standard Gaussian on `T_xM` | merely a gauged direction |
-| `MANIFOLD.project_oblique` | corewise LA on the gauged result matches HS | the gauge-fix preserves the vector but the LA isn't HS-faithful |
-| `manifold_dim` / `tangent_space_dimension` | the *true* tangent-space dimension | over-counts (uses the structural-minimal ranks) |
-| **not** `MANIFOLD.project`/`project_ambient`/`transport`, gauge `Π` | — | confirmed: **orthogonal suffices, minimal NOT required** |
+| `MANIFOLD.inner` / `norm` (= `corewise_inner` when gauged) | **NO** | `corewise_inner(gauged) == dense HS` *exactly* on the non-minimal orthonormal base. **Orthogonal + gauged suffices** (the CLAUDE.md "+ minimal" was wrong). |
+| `manifold_dim` / `tangent_space_dimension` | **NO** | the formula matches the true SVD rank (103) on the non-minimal base. Correct for any ranks. |
+| `MANIFOLD.retract` | **soft caveat only** | still a valid first-order retraction on a non-minimal base (rel.err 6e-6); it just **drops the numerically-redundant rank** (tucker 4→3) — desirable cleanup, not an error. Minimal buys only *strict* rank preservation. |
+| `MANIFOLD.randn` / `project_oblique` | **NO (correctness)** | gauged direction is valid on any orthonormal base; "true Gaussian / HS-matching" is on whatever the stored-rank tangent space is, which is correct. |
+| `MANIFOLD.project`/`project_ambient`/`transport`, gauge `Π` | **NO** | orthogonal suffices (already known). |
 
-In practice `MANIFOLD.base` returns a squashed→minimal orthonormal frame, so manifold objects are
-structurally minimal by construction and the check rarely fires (matching Nick's "adversarial only" read).
+**Verdict: minimal rank is NOT a correctness precondition for any verified op.** So we **do not wire it as
+a checked precondition** — a structural-minimal check would raise on legitimate rank-redundant bases for
+no correctness reason. (Also corrects an earlier claim: `t3_orthogonal_representations` does **not**
+guarantee structural minimality — e.g. `randn((10,11,12),(4,5,4),(1,2,3,1))` → `has_minimal_ranks=False`.)
+
+Minimal rank lives on as a **caveat** (`retract` strict rank-preservation) and as **diagnostic checkers**
+(built, not wired into any op): structural `has_minimal_ranks` (existing); numerical
+`TuckerTensorTrain.has_numerically_minimal_ranks(rtol)` (structural-first → `t3svd` compare) and
+`T3Basis.has_numerically_minimal_ranks(atol)` (orthogonal + structurally-minimal ⟹ numerically-minimal, no
+SVD; non-orthogonal frames return `False` — the SVD path for them is deferred, "maybe we don't need it").
+**Super-safe mode was considered and dropped** (no op needs it; it would be a ~no-op for orthogonal
+frames). Naming convention: bare `minimal_ranks` = structural; `numerically_minimal` = numerical.
 
 ## Implementation notes (for S3–S5, not decisions here)
 

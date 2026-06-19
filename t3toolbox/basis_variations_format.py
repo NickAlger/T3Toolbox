@@ -310,10 +310,13 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
             - those ranks (tucker_ranks=up_ranks, tt_ranks=left_ranks) are minimal for a regular
               Tucker tensor train of this shape (see :py:meth:`TuckerTensorTrain.get_minimal_ranks`).
 
-        .. note::
-            Some tangent-space operations are only correct when the basis has minimal ranks;
-            exactly which is still to be determined (flagged for later consideration). This is a
-            non-enforcing checker; ``T3Basis`` does not require minimal ranks at construction.
+        This is the **structural** minimal-rank check (cheap integer arithmetic on the ranks); for the
+        **numerical** one (no stored rank numerically redundant) see :py:meth:`has_numerically_minimal_ranks`.
+        Empirically (``docs/numerical_contract_catalog.md``) minimal rank is **not** a correctness
+        precondition for any verified operation -- ``inner``/``norm``-as-HS and ``manifold_dim`` are exact
+        on a non-minimal orthonormal frame, and ``retract`` only loses *strict* rank preservation (it
+        drops the redundant rank, staying a valid retraction). So this is a non-enforcing checker;
+        ``T3Basis`` does not require minimal ranks at construction.
 
         Minimal (non-degenerate) ranks and their connection to matricizations and matrix unfoldings
         are discussed in Appendix A.2 of Alger et al. (2026), "Tucker Tensor Train Taylor Series"
@@ -336,6 +339,34 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         '''
         return ranks.basis_has_minimal_ranks(
             self.shape, self.up_ranks, self.down_ranks, self.left_ranks, self.right_ranks)
+
+    def has_numerically_minimal_ranks(self, atol: float = 1e-9) -> bool:
+        '''True if the frame is **numerically** minimal -- certified *without* an SVD.
+
+        An orthonormal frame's cores are full-rank, so an **orthogonal + structurally-minimal** frame is
+        automatically numerically minimal (no ``t3svd`` -- and a frame is not a tensor to SVD anyway). So
+        this returns ``is_orthogonal(atol) and has_minimal_ranks``. A **non-orthogonal** frame returns
+        ``False``: the SVD certification path for non-orthogonal frames is intentionally not implemented
+        (frames that need numerical minimality are expected to be orthonormal). Distinct from the
+        structural :py:attr:`has_minimal_ranks`; for tensors see
+        :py:meth:`TuckerTensorTrain.has_numerically_minimal_ranks` (the SVD version).
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.basis_variations_format as bvf
+        >>> np.random.seed(0)
+        >>> base, _ = bvf.t3_orthogonal_representations(
+        ...     t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1)))     # orthogonal + minimal
+        >>> print(base.has_numerically_minimal_ranks())
+        True
+        >>> nb, _ = bvf.t3_orthogonal_representations(
+        ...     t3.TuckerTensorTrain.randn((10, 11, 12), (4, 5, 4), (1, 2, 3, 1)))  # orthogonal, NON-minimal
+        >>> print(nb.is_orthogonal(), nb.has_minimal_ranks, nb.has_numerically_minimal_ranks())
+        True False False
+        '''
+        return self.is_orthogonal(atol=atol) and self.has_minimal_ranks
 
     def validate(self) -> None:
         '''Check rank and shape consistency of Tucker tensor train basis (`T3Basis`).

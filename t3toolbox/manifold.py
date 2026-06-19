@@ -425,13 +425,17 @@ class T3Tangent:
 
     @ft.cached_property
     def has_minimal_ranks(self) -> bool:
-        """True if this tangent's basis has minimal ranks. See :py:attr:`T3Basis.has_minimal_ranks`.
-
-        .. note::
-            Some tangent-space operations are only correct when the basis has minimal ranks (which
-            exactly is TBD; flagged for later). Not enforced at construction.
+        """True if this tangent's basis has **structurally** minimal ranks. See
+        :py:attr:`T3Basis.has_minimal_ranks`. Minimal rank is *not* a correctness precondition for the
+        verified tangent ops (see :py:meth:`T3Basis.has_minimal_ranks` / the contract catalog); for the
+        numerical check see :py:meth:`has_numerically_minimal_ranks`. Not enforced at construction.
         """
         return self.basis.has_minimal_ranks
+
+    def has_numerically_minimal_ranks(self, atol: float = 1e-9) -> bool:
+        """True if this tangent's basis is **numerically** minimal. See
+        :py:meth:`T3Basis.has_numerically_minimal_ranks` (orthogonal + structurally-minimal, no SVD)."""
+        return self.basis.has_numerically_minimal_ranks(atol=atol)
 
     def is_orthogonal(self, atol: float = 1e-9) -> bool:
         """True if this tangent's basis is orthogonal. See :py:meth:`T3Basis.is_orthogonal`."""
@@ -440,8 +444,8 @@ class T3Tangent:
     def is_gauged(self, atol: float = 1e-9) -> bool:
         """True if the variations are gauged with respect to the basis.
 
-        Gauge conditions (needed for :py:meth:`inner`/:py:meth:`norm` to equal the Hilbert-Schmidt
-        values; not enforced at construction):
+        Gauge conditions (needed for :py:meth:`ManifoldGeometry.inner` / :py:meth:`ManifoldGeometry.norm`
+        to equal the Hilbert-Schmidt values; not enforced at construction):
             - ``einsum('...ia,...ja->...ij', U_i, V_i) = 0`` for all i (Tucker variations ⟂ U).
             - ``einsum('...abi,...abj->...ij', L_i, H_i) = 0`` for i = 0..d-2 (TT variations ⟂ L).
 
