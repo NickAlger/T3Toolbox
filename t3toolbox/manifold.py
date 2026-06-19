@@ -1303,9 +1303,31 @@ if has_jax:
     # under jit (two tangents built from the same T3Basis object stay identical). The basis is then a
     # jit compile-time constant: hold the basis object stable to keep cache hits (a new base point
     # recompiles). To differentiate w.r.t. the basis, use the backend functions on the raw cores.
+    #
+    # REVISIT (basis-as-aux vs recompile cost): this choice was made on conceptual grounds -- the basis
+    # is the "fixed" frame, the tangent varies within it; we do not want autodiff to differentiate
+    # through the base; we want the same-base identity guard to deny linear algebra across frames. The
+    # PRACTICAL cost was under-weighed: a new base recompiles, so a Newton-CG that jits at the
+    # outer-step granularity (base changes every step) recompiles every step, which can dominate when
+    # the inner CG is short. The two jit patterns sidestep it (see fitting.py "Jitting an optimizer":
+    # build the base inside the jit for a per-step loop; close the model over for an amortized inner
+    # matvec), but if neither fits a use case, weigh offering a base-as-leaf tangent variant (no
+    # recompile, identity guard then eager-only). Decision deferred; the patterns cover today's needs.
     jax.tree_util.register_pytree_node(
         T3Tangent,
         lambda x: ((x.variations,), x.basis),
         lambda basis, children: T3Tangent(basis, children[0]),
     )
+
+    # Register the stateless geometry singletons as ZERO-LEAF pytrees (no array leaves, aux=None): they
+    # carry no data, so they pass through jit/vmap transparently as ordinary args and reconstruct to an
+    # equivalent stateless instance (all instances of a geometry are interchangeable). This is purely
+    # for ergonomics -- geometries are normally closed over -- but it removes the "cannot interpret
+    # ManifoldGeometry as an abstract value" footgun. The GaussNewtonModel is deliberately NOT
+    # registered: it is a scope-local, per-outer-step operator that the jit patterns never cross the
+    # boundary with (built inside, or closed over); see fitting.py "Jitting an optimizer".
+    jax.tree_util.register_pytree_node(
+        ManifoldGeometry, lambda g: ((), None), lambda aux, children: ManifoldGeometry())
+    jax.tree_util.register_pytree_node(
+        CorewiseGeometry, lambda g: ((), None), lambda aux, children: CorewiseGeometry())
 

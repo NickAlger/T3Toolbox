@@ -28,6 +28,41 @@ The expensive base sweep (the base-and-data edge variables) is a ``@cached_prope
 first use and reused across every ``gn_hessian`` / ``evaluate`` of an inner solve. This is the whole
 point -- in an inner CG the base is fixed, so the sweep is computed once, not once per matrix-vector
 product. See :py:mod:`t3toolbox.backend.fitting` and ``docs/geometry_refactor_plan.md``.
+
+Jitting an optimizer
+--------------------
+A ``GaussNewtonModel`` is **not** a registered jax pytree -- by design. It is a scope-local operator
+built fresh at each outer step, and the two efficient ways to ``jit`` an optimizer never pass the model
+(or its base) *across* a jit boundary, so they never trigger the per-base recompile that base-carrying
+objects incur:
+
+1. **Whole-step jit (per-step methods -- Cauchy / gradient descent / a fixed-step loop).** ``jit`` a
+   step function whose only argument is the point ``X`` (a ``TuckerTensorTrain``, already a pytree);
+   build the base, model, and gradient *inside*. The base is recomputed from the traced ``X`` each
+   step, so it is traced (not a constant) and the function **compiles once and is reused across all
+   steps** even though the base changes every step::
+
+       @jax.jit
+       def step(X):
+           r     = X.apply(ww) - b
+           model = fitting.apply_model(t3m.MANIFOLD, X, ww, r)
+           g     = model.gradient
+           alpha = g.inner(g) / model.gn_quadratic(g)     # cheap Cauchy step (one forward)
+           return t3m.MANIFOLD.retract((-alpha) * g)
+       X = x0
+       for _ in range(n_steps):
+           X = step(X)                                    # compiled once, reused
+
+2. **Inner-solve jit (Newton-CG).** Build the model eagerly at the outer point, *close it over*, and
+   ``jit`` only the inner matrix-vector product ``lambda p: model.gn_hessian(p)``. The base is then a
+   closed-over constant -- fixed within the inner CG -- so the matvec compiles once per outer step and
+   is reused across all CG iterations; the trial tangents ``p`` cross the boundary cheaply (``T3Tangent``
+   carries its base as aux_data, identity-preserved). The per-outer-step recompile amortizes over the
+   inner iterations. *(If the inner CG is very short, prefer pattern 1; see the basis-as-aux REVISIT
+   note in ``manifold.py``.)*
+
+The geometry singletons (``t3m.MANIFOLD`` / ``COREWISE``) are registered as zero-leaf pytrees, so they
+may be closed over or passed as ordinary args freely.
 '''
 
 from __future__ import annotations
@@ -93,6 +128,12 @@ class GaussNewtonModel:
     >>> bool(np.allclose(float(model.evaluate(p)), m_built))
     True
 
+    The Gauss-Newton quadratic form ``pᵀHp = ‖Jp‖²`` comes from one forward sweep (no ``H p`` assembly) --
+    the cheap step-length denominator for Cauchy / line search (``alpha = g.inner(g) / gn_quadratic(g)``):
+
+    >>> bool(np.allclose(float(model.gn_quadratic(p)), float(p.inner(model.gn_hessian(p)))))
+    True
+
     The **corewise** geometry is the same call with a different geometry: the gradient is a tangent at the
     raw ``(U,G,G,G)`` frame (a core perturbation), with **no** gauge projection:
 
@@ -141,12 +182,40 @@ class GaussNewtonModel:
         dU_dG = self.kind.transpose(self.residual, self.sample, self.base.data, self._base_sweep)
         return self.geometry.project(t3m.T3Tangent(self.base, bvf.T3Variations(*dU_dG)))
 
+    def jacobian(
+            self,
+            p:  t3m.T3Tangent,
+    ) -> NDArray:  # J p = 𝒥(Π p); apply/entries: shape W+C; probe: len=d, elm_shape=W+C+(Ni,)
+        '''The linearized forward ``J p = 𝒥(Π p)`` (the Gauss-Newton Jacobian-vector product).
+
+        ONE forward sweep -- no transpose ``𝒥ᵀ``, no gauge re-projection of the output, no tangent
+        assembly. The general forward primitive: it gives the predicted residual ``r + J p`` (for
+        trust-region / line-search predicted reduction) and, via :py:meth:`gn_quadratic`, the Gauss-Newton
+        quadratic form. The result lives in the sample space (a scalar per sample for apply / entries; one
+        vector per mode for probe).'''
+        _require_at_base(self.base, p)
+        Pp = self.geometry.project(p)
+        return self.kind.forward(Pp.variations.data, self.sample, self.base.data, self._base_sweep)
+
+    def gn_quadratic(
+            self,
+            p:  t3m.T3Tangent,
+    ) -> NDArray:  # pᵀ H p = ‖J p‖², shape C
+        '''The Gauss-Newton quadratic form ``pᵀ H p = ‖J p‖²`` -- ONE forward sweep, NOT a Hessian apply.
+
+        The cheap denominator for Cauchy / line-search step lengths: ``alpha = g.inner(g) /
+        model.gn_quadratic(g)``. Because ``H = JᵀJ``, ``pᵀHp = (Jp)ᵀ(Jp) = ‖Jp‖²``, so this needs only the
+        forward :py:meth:`jacobian` -- it avoids the transpose ``𝒥ᵀ`` and the ``H p`` tangent
+        materialization that the equivalent ``p.inner(self.gn_hessian(p))`` would incur.'''
+        return self.kind.sumsq(self.jacobian(p), self._n_w)
+
     def gn_hessian(self, p: t3m.T3Tangent) -> t3m.T3Tangent:
         '''The Gauss-Newton Hessian action ``H p = Π 𝒥ᵀ 𝒥 Π p`` (``H = JᵀJ``, *not* the full Hessian).
 
         Projects ``p`` (so the caller need not), applies the bare forward then transpose, and projects the
         result -- a tangent at base. Symmetric. (Corewise: ``Π`` is the identity, so ``H p = 𝒥ᵀ 𝒥 p``,
-        which is gauge-singular -- fine for first-order methods, needs regularization for Newton.)'''
+        which is gauge-singular -- fine for first-order methods, needs regularization for Newton.) For the
+        *scalar* quadratic form ``pᵀHp`` alone, prefer the cheaper :py:meth:`gn_quadratic`.'''
         _require_at_base(self.base, p)
         Pp = self.geometry.project(p)
         z = self.kind.forward(Pp.variations.data, self.sample, self.base.data, self._base_sweep)

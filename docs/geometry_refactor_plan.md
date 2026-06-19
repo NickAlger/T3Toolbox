@@ -293,6 +293,22 @@ gauged, Euclidean otherwise."
 
 ## 8. Risks / open questions
 
+- **jax compatibility (decided post-G2).** The geometry singletons (`MANIFOLD`/`COREWISE`) are registered
+  as **zero-leaf pytrees** (stateless → pass as ordinary args / close over freely). `GaussNewtonModel` is
+  **deliberately NOT a pytree**: it is a scope-local, per-outer-step operator that the two efficient jit
+  patterns never cross the boundary with — **(1) whole-step jit** (`jit(step)(X)`, build the model inside;
+  the base is traced-internal so it **compiles once and is reused** across steps even as the base changes —
+  verified `traces==1`), and **(2) inner-solve jit** (close the model over, `jit(lambda p: model.gn_hessian(p))`;
+  base fixed within the inner CG, recompile per outer step amortized over matvecs). Documented in
+  `fitting.py` "Jitting an optimizer". `jacobian(p)` + `gn_quadratic(p)` (= `pᵀHp = ‖Jp‖²`, one forward)
+  were added for cheap Cauchy / line-search step lengths.
+- **REVISIT — `T3Tangent` basis-as-aux vs recompile cost.** Basis is aux_data (a jit compile-time
+  constant) so a new base **recompiles**; a Newton-CG that jits at the outer-step granularity recompiles
+  every step, which can dominate when the inner CG is short. The conceptual case (basis fixed, don't
+  autodiff through it, same-base guard) was weighed heavily; the *practical* recompile cost was not. The
+  two patterns above sidestep it, but if neither fits a use case, weigh a **base-as-leaf** tangent variant
+  (no recompile; identity guard then eager-only). Full note at the `T3Tangent` pytree registration in
+  `manifold.py`. Decision deferred.
 - **Singular corewise `H`.** `newton_cg` must tolerate it (truncated CG / Levenberg–Marquardt damping),
   or steer corewise users to first-order. A geometry may advertise `hessian_is_degenerate` as a hint.
 - **`oblique_gauge_projection`** (the ambient-preserving gauge fix) — a second manifold projection

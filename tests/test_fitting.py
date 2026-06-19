@@ -183,14 +183,31 @@ class TestGaussNewtonModel(unittest.TestCase):
                     with self.subTest(kind=kind, geom=geom_name, C=C):
                         s = _setup(kind, geom_name, C)
                         model, geometry, p = s['model'], s['geometry'], _raw_step(s)
-                        Pp = geometry.project(p)
-                        Jp = model.kind.forward(Pp.variations.data, s['sample'], s['base'].data, model._base_sweep)
+                        Jp = model.jacobian(p)                                    # J p = 𝒥(Π p)
                         z = s['rand_like'](Jp)
                         gz_raw = model.kind.transpose(z, s['sample'], s['base'].data, model._base_sweep)
-                        gz = geometry.project(t3m.T3Tangent(s['base'], bvf.T3Variations(*gz_raw)))
+                        gz = geometry.project(t3m.T3Tangent(s['base'], bvf.T3Variations(*gz_raw)))  # Π 𝒥ᵀ z
                         lhs = s['samp_dot'](z, Jp)
                         rhs = gz.inner(p)
                         self.assertTrue(np.allclose(lhs, rhs, rtol=RTOL, atol=ATOL))
+
+    def test_jacobian_and_gn_quadratic(self):
+        '''jacobian(p) == the dense forward 𝒥(Πp); gn_quadratic(p) == pᵀHp == ‖Jp‖² (one forward, both geoms).'''
+        for kind in KINDS:
+            for geom_name in GEOMS:
+                for C in [(), (2,)]:
+                    with self.subTest(kind=kind, geom=geom_name, C=C):
+                        s = _setup(kind, geom_name, C)
+                        model, p = s['model'], _raw_step(s)
+                        # gn_quadratic == pᵀ H p (the cheap Cauchy / line-search denominator)
+                        self.assertTrue(np.allclose(model.gn_quadratic(p),
+                                                    p.inner(model.gn_hessian(p)), rtol=RTOL, atol=ATOL))
+                        # jacobian == the dense forward of the projected tangent (a sequence for probe)
+                        Jp = model.jacobian(p)
+                        Jp_oracle = s['dense_fwd'](s['geometry'].project(p).to_dense())
+                        seq = lambda v: list(v) if isinstance(v, (list, tuple)) else [v]
+                        for a, b in zip(seq(Jp), seq(Jp_oracle)):
+                            self.assertTrue(np.allclose(a, b, rtol=RTOL, atol=ATOL))
 
     def test_same_base_guard(self):
         '''A trial tangent at a different base is a structural error (identity, not value), both geometries.'''

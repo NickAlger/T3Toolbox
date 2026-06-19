@@ -324,8 +324,35 @@ class TestDispatch(unittest.TestCase):
             for model in models:
                 _ = model.gradient; _ = model.objective_value   # warm the caches -> concrete jax constants
                 p = geom.randn(model.base)                       # a tangent at the model's base (jax)
-                self.assert_jit_jax(lambda pp: model.gn_hessian(pp), p)   # H p, returns a T3Tangent
-                self.assert_jit_jax(lambda pp: model.evaluate(pp), p)     # m(p), returns a jax scalar
+                self.assert_jit_jax(lambda pp: model.gn_hessian(pp), p)    # H p, returns a T3Tangent
+                self.assert_jit_jax(lambda pp: model.jacobian(pp), p)      # J p (forward), sample-space
+                self.assert_jit_jax(lambda pp: model.gn_quadratic(pp), p)  # pᵀHp = ‖Jp‖², a jax scalar
+                self.assert_jit_jax(lambda pp: model.evaluate(pp), p)      # m(p), returns a jax scalar
+
+    def test_jit_geometry_as_arg(self):
+        # the stateless geometry singletons are zero-leaf pytrees -> pass as ordinary traced args
+        self.assert_jit_jax(lambda gm, t: gm.project(t).norm(), t3m.MANIFOLD, self.w)
+        self.assert_jit_jax(lambda gm, t: gm.project(t).norm(), t3m.COREWISE, self.w)
+
+    def test_jit_optimizer_wholestep(self):
+        # Pattern 1 (the per-step jit): jit the WHOLE step, X in / X_new out, model built INSIDE. The base
+        # is recomputed from the traced X each step, so it is traced -- the step COMPILES ONCE and is
+        # reused across steps even though the base changes every step (no model registration needed).
+        ww, b = self.ww, jnp.ones(2)
+        traces = [0]
+        @jax.jit
+        def step(X):
+            traces[0] += 1                                       # +1 per TRACE (compile), not per call
+            r = X.apply(ww) - b
+            model = fitting.apply_model(t3m.MANIFOLD, X, ww, r)
+            g = model.gradient
+            alpha = g.inner(g) / model.gn_quadratic(g)           # Cauchy step (one forward; no H assembly)
+            return t3m.MANIFOLD.retract((-alpha) * g)
+        X = self.x
+        for _ in range(3):
+            X = step(X)
+        self.assertEqual(traces[0], 1, "whole-step jit recompiled -- base should be traced-internal, not aux")
+        self._leaves_all_jax(X)
 
     # ---------------------------------------------------- jit bucket: UniformTuckerTensorTrain
     def test_jit_uniform(self):
