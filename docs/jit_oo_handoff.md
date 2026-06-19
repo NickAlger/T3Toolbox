@@ -1,5 +1,11 @@
 # Handoff — jit / OO-layer architecture (branch `geometry-refactor`)
 
+> **RESOLVED (2026-06-19) — see [`docs/safe_unsafe_mode_plan.md`](safe_unsafe_mode_plan.md).** The root
+> cause was the same-base guard being a *numerical* check faked as *structural* (object identity); the
+> fix is an honest numerical same-frame check gated by a safe/unsafe mode, which makes `basis`-as-leaf
+> viable (no recompile) and lets you jit the frontend directly. This handoff is kept for the reasoning
+> and empirical findings that led there.
+
 *Paused 2026-06-19, mid design-discussion. **Nothing is broken; G1 and G2 are done, tested (218 pass),
 committed, and pushed.** This note captures an OPEN design question about jax/jit and the OO frontend
 that we did not resolve. Read before resuming — and resume rested; this is a design-taste call, not a
