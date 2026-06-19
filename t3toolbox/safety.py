@@ -12,53 +12,63 @@ The library distinguishes two kinds of guard (see ``docs/safe_unsafe_mode_plan.m
   -- the operation is numerically wrong without them, but a violation is not *malformedness*. These run
   **only in safe mode**.
 
-Safe vs unsafe is an ambient ``safety_rtol`` (a :py:class:`contextvars.ContextVar`): a float is **safe
-mode** at that tolerance; ``None`` is **unsafe mode**. The default is **safe**. Numerical checks are
-**eager-only** -- skipped under a jax trace (you cannot branch on a tracer, and jit is for performance,
-which is unsafe by definition). The contract: validate eagerly in safe mode, then jit (effectively unsafe)
-for speed.
+Safe vs unsafe is an ambient setting (a :py:class:`contextvars.ContextVar`): a
+:py:class:`SafetyTolerances` pair is **safe mode**; ``None`` is **unsafe mode**. The default is **safe**.
 
-This module is the **mechanism** only; the per-op precondition checks are wired at the call sites that own
-the relevant ``T3*`` objects (see the catalog).
+**Two tolerances, numpy vs jax.** The library mixes numpy and jax arrays deliberately (jax for autodiff
+prototyping, *not* jit), and jax runs float32 by default -- so its residuals are far looser than numpy's
+float64 (e.g. an orthogonality residual of ~1e-7 vs ~1e-15). A single tolerance would false-fail every jax
+input. So a precondition check picks ``rtol_jax`` when ``tree_contains_jax(inputs)`` else ``rtol_numpy``,
+using the same numpy/jax dispatch as the rest of the codebase. (If you enable ``jax_enable_x64`` you can
+tighten ``rtol_jax`` via :py:func:`safe`.)
+
+Numerical checks are **eager-only** -- skipped under a jax trace (you cannot branch on a tracer, and jit is
+for performance, which is unsafe by definition). The contract: validate eagerly in safe mode, then jit
+(effectively unsafe) for speed. This module is the **mechanism** only; the per-op checks are wired at the
+call sites that own the relevant ``T3*`` objects (see the catalog).
 
 Examples
 --------
 >>> import numpy as np
 >>> import t3toolbox.safety as safety
->>> print(safety.current_safety_rtol())                 # default: safe
+>>> print(safety.current_safety())                          # default: safe (numpy, jax tolerances)
+SafetyTolerances(rtol_numpy=1e-09, rtol_jax=1e-05)
+>>> print(safety.effective_rtol((np.zeros(3),)))            # numpy input -> numpy rtol
 1e-09
 >>> with safety.unsafe():
-...     print(safety.current_safety_rtol())             # None == unsafe
-...     print(safety.checks_active(np.zeros(3)))         # checks are off
-None
+...     print(safety.current_safety(), safety.checks_active(np.zeros(3)))
+None False
+>>> print(safety.current_safety() is None)                  # restored on exit
 False
->>> print(safety.current_safety_rtol())                 # restored on exit
-1e-09
 
 ``frames_equal`` is the honest "same tangent space" test -- it accepts value-equal-but-different-object
 frames (a jit round-trip), unlike object identity:
 
 >>> a = (np.ones((2, 3)),)
->>> b = (np.ones((2, 3)),)                                # value-equal, different objects
+>>> b = (np.ones((2, 3)),)                                   # value-equal, different objects
 >>> print(a is b, safety.frames_equal(a, b))
 False True
->>> print(safety.frames_equal(a, (np.zeros((2, 3)),)))   # genuinely different
+>>> print(safety.frames_equal(a, (np.zeros((2, 3)),)))      # genuinely different
 False
 '''
 
 import contextlib
 import contextvars
+import typing as typ
 
 import numpy as np
 
-from t3toolbox.backend.common import has_jax
+from t3toolbox.backend.common import has_jax, tree_contains_jax
 
 __all__ = [
-    'DEFAULT_SAFETY_RTOL',
+    'SafetyTolerances',
+    'DEFAULT_RTOL_NUMPY',
+    'DEFAULT_RTOL_JAX',
     'safe',
     'unsafe',
-    'current_safety_rtol',
-    'set_default_safety_rtol',
+    'current_safety',
+    'set_default_safety',
+    'effective_rtol',
     'is_tracing',
     'checks_active',
     'require',
@@ -66,40 +76,58 @@ __all__ = [
     'frames_equal_or_skip',
 ]
 
-DEFAULT_SAFETY_RTOL = 1e-9                                       # default mode is SAFE (None == unsafe)
-
-_safety_rtol = contextvars.ContextVar('t3_safety_rtol', default=DEFAULT_SAFETY_RTOL)
-
-
-def current_safety_rtol():
-    '''The ambient safety tolerance: a float (safe mode) or ``None`` (unsafe mode).'''
-    return _safety_rtol.get()
+DEFAULT_RTOL_NUMPY = 1e-9        # numpy float64
+DEFAULT_RTOL_JAX = 1e-5          # jax defaults to float32 (no x64) -> far looser residuals
 
 
-def set_default_safety_rtol(rtol):
-    '''Set the safety tolerance for the current context (``None`` = unsafe). Prefer the :py:func:`safe` /
-    :py:func:`unsafe` context managers for scoped changes; use this for a script-level default.'''
-    _safety_rtol.set(rtol)
+class SafetyTolerances(typ.NamedTuple):
+    '''The two precondition-check tolerances; the one used is chosen by ``tree_contains_jax(inputs)``.'''
+    rtol_numpy: float
+    rtol_jax: float
+
+
+_DEFAULT = SafetyTolerances(DEFAULT_RTOL_NUMPY, DEFAULT_RTOL_JAX)
+_safety = contextvars.ContextVar('t3_safety', default=_DEFAULT)   # a SafetyTolerances (safe) or None (unsafe)
+
+
+def current_safety():
+    '''The ambient :py:class:`SafetyTolerances` (safe mode) or ``None`` (unsafe mode).'''
+    return _safety.get()
+
+
+def set_default_safety(rtol_numpy=DEFAULT_RTOL_NUMPY, rtol_jax=DEFAULT_RTOL_JAX):
+    '''Set the safety tolerances for the current context. Prefer the :py:func:`safe` / :py:func:`unsafe`
+    context managers for scoped changes; use this for a script-level default.'''
+    _safety.set(SafetyTolerances(rtol_numpy, rtol_jax))
 
 
 @contextlib.contextmanager
-def safe(rtol=DEFAULT_SAFETY_RTOL):
-    '''Context manager: run numerical precondition checks within the block, at tolerance ``rtol``.'''
-    token = _safety_rtol.set(rtol)
+def safe(rtol_numpy=DEFAULT_RTOL_NUMPY, rtol_jax=DEFAULT_RTOL_JAX):
+    '''Context manager: run numerical precondition checks within the block, at these tolerances.'''
+    token = _safety.set(SafetyTolerances(rtol_numpy, rtol_jax))
     try:
         yield
     finally:
-        _safety_rtol.reset(token)
+        _safety.reset(token)
 
 
 @contextlib.contextmanager
 def unsafe():
     '''Context manager: skip numerical precondition checks within the block (performance / jit).'''
-    token = _safety_rtol.set(None)
+    token = _safety.set(None)
     try:
         yield
     finally:
-        _safety_rtol.reset(token)
+        _safety.reset(token)
+
+
+def effective_rtol(*inputs):
+    '''The tolerance to use for a check on these inputs (``rtol_jax`` if any input is a jax array, else
+    ``rtol_numpy``), or ``None`` in unsafe mode. Pass the operand data trees, e.g. ``effective_rtol(basis.data)``.'''
+    tols = _safety.get()
+    if tols is None:
+        return None
+    return tols.rtol_jax if tree_contains_jax(inputs) else tols.rtol_numpy
 
 
 def is_tracing(*arrays):
@@ -110,16 +138,16 @@ def is_tracing(*arrays):
     return any(isinstance(a, jax.core.Tracer) for a in arrays)
 
 
-def checks_active(*witness_arrays):
+def checks_active(*inputs):
     '''True iff numerical precondition checks should run here: **safe mode AND not under a jax trace.**
 
-    Pass a few representative arrays from the operands as ``witness_arrays`` so tracing is detected; a
-    check site computes its (possibly expensive) numerical condition only when this returns True::
+    Pass the operand arrays/trees so tracing is detected; a check site computes its (possibly expensive)
+    numerical condition only when this returns True::
 
-        if safety.checks_active(*basis.up_tucker_cores):
-            safety.require(basis.is_orthogonal(atol=safety.current_safety_rtol()), 'basis not orthogonal')
+        if safety.checks_active(basis.data):
+            safety.require(basis.is_orthogonal(atol=safety.effective_rtol(basis.data)), 'basis not orthogonal')
     '''
-    return current_safety_rtol() is not None and not is_tracing(*witness_arrays)
+    return _safety.get() is not None and not is_tracing(*_flatten_arrays(inputs))
 
 
 def require(condition, message):
@@ -134,33 +162,36 @@ def frames_equal(data1, data2, rtol=None):
 
     The honest "same tangent space" test: two frames are the same iff their cores are equal. It accepts
     the value-equal-but-different-object frames a jit round-trip produces, while rejecting a genuinely
-    different base. ``rtol`` defaults to the ambient :py:func:`current_safety_rtol`.'''
+    different base. ``rtol`` defaults to the ambient jax-aware tolerance (falling back to the defaults if
+    unsafe -- this is a pure comparison, mode-agnostic).'''
     if rtol is None:
-        rtol = current_safety_rtol() or DEFAULT_SAFETY_RTOL
-    flat1, flat2 = _flatten_arrays(data1), _flatten_arrays(data2)
-    if len(flat1) != len(flat2):
-        return False
-    return all(a.shape == b.shape and np.allclose(np.asarray(a), np.asarray(b), rtol=rtol, atol=0.0)
-               for a, b in zip(flat1, flat2))
+        tols = _safety.get() or _DEFAULT
+        rtol = tols.rtol_jax if tree_contains_jax((data1, data2)) else tols.rtol_numpy
+    return _arrays_allclose(_flatten_arrays(data1), _flatten_arrays(data2), rtol)
 
 
 def frames_equal_or_skip(data1, data2):
     '''The convenience guard for "same frame": ``True`` when checks are inactive (unsafe / under a trace)
-    or when the frames are numerically equal -- so a call site reads::
+    or when the frames are numerically equal (jax-aware tolerance) -- so a call site reads::
 
         if not (b1 is b2 or safety.frames_equal_or_skip(b1.data, b2.data)):
             raise ValueError('tangents are in different tangent spaces')
 
     The ``b1 is b2`` identity is the O(1) fast path; this only runs (and only matters) when the objects
     differ but may still represent the same frame (the jit round-trip).'''
-    if current_safety_rtol() is None:
-        return True
+    tols = _safety.get()
+    if tols is None:
+        return True                                              # unsafe -> skip
     flat1, flat2 = _flatten_arrays(data1), _flatten_arrays(data2)
     if is_tracing(*flat1, *flat2):
-        return True
+        return True                                              # under a trace -> skip
+    rtol = tols.rtol_jax if tree_contains_jax((data1, data2)) else tols.rtol_numpy
+    return _arrays_allclose(flat1, flat2, rtol)
+
+
+def _arrays_allclose(flat1, flat2, rtol):
     if len(flat1) != len(flat2):
         return False
-    rtol = current_safety_rtol()
     return all(a.shape == b.shape and np.allclose(np.asarray(a), np.asarray(b), rtol=rtol, atol=0.0)
                for a, b in zip(flat1, flat2))
 

@@ -130,9 +130,11 @@ structurally minimal by construction and the check rarely fires (matching Nick's
 
 ## Implementation notes (for S3–S5, not decisions here)
 
-- **`same_frame(b1, b2)` = `b1 is b2 or frames_equal(b1.data, b2.data, rtol=safety_rtol)`** — the `is`
-  fast-path keeps the common eager case O(1); `frames_equal` only runs (and only matters) when objects
-  differ but values match (jit round-trip) or genuinely differ.
+- **`same_frame(b1, b2)` = `b1 is b2 or safety.frames_equal_or_skip(b1.data, b2.data)`** — the `is`
+  fast-path keeps the common eager case O(1); the value compare only runs (and only matters) when objects
+  differ but values match (jit round-trip) or genuinely differ. The tolerance is **jax-aware** (`rtol_jax`
+  if any input is a jax array, else `rtol_numpy`); under a trace it skips (returns pass). Mechanism in
+  `t3toolbox/safety.py` (S1, done).
 - **Where checks live (razor):** to serve raw-`.data` users, the ORTH/GAUGE checks belong at the **backend**
   functions that consume raw data (`tangent_operations.*`, which already have `is_orthogonal`-style
   residual helpers), with the frontend methods inheriting them. `same_frame` is a frontend concept (it

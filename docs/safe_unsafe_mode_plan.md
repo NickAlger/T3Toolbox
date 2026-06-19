@@ -49,8 +49,12 @@ genuinely different base point (measure-zero false positives — different base 
 - **safe mode** — perform **both** structural and numerical checks before an operation.
 - **unsafe mode** — perform **only** structural checks.
 
-Controlled by an ambient **`safety_rtol: float | None`**: a float is safe mode at that tolerance;
-`None` is unsafe mode. (Prefer this over a `safe_mode: bool` — the checks need a tolerance anyway.)
+Controlled by an ambient setting: a **`SafetyTolerances(rtol_numpy, rtol_jax)`** pair is safe mode; `None`
+is unsafe mode. (Prefer this over a `safe_mode: bool` — the checks need a tolerance anyway.) **Two
+tolerances** because the library mixes numpy and jax deliberately (jax for autodiff prototyping, *not*
+jit), and jax runs float32 by default → far looser residuals (orthogonality ~1e-7 vs numpy ~1e-15). A
+check picks `rtol_jax` when `tree_contains_jax(inputs)` else `rtol_numpy` — the same dispatch as the rest
+of the codebase. Defaults: `rtol_numpy=1e-9`, `rtol_jax=1e-5` (tighten `rtol_jax` if you enable x64).
 
 - **Mechanism: a `contextvars` context manager**, not a bare module global — thread/async-safe and
   scopable: `with t3.unsafe(): ...` / `with t3.safe(rtol=1e-9): ...`, plus a module default. A single
@@ -147,11 +151,13 @@ completed and signed off):
 
 ## 7. Build plan (slices)
 
-1. **S1 — the safety mechanism. ✅ DONE.** `t3toolbox/safety.py`: `safety_rtol` as a `contextvars` var
-   (default **safe**, `1e-9`) + `safe(rtol=...)` / `unsafe()` context managers + `set_default_safety_rtol`;
-   `is_tracing` / `checks_active` (safe **and** not tracing) / `require` / `frames_equal` /
-   `frames_equal_or_skip` (the same-frame convenience: skips under unsafe/trace, else the value compare).
-   Pure plumbing; nothing wired yet (no behavior change). Tests: `tests/test_safety.py` (10) + doctests.
+1. **S1 — the safety mechanism. ✅ DONE.** `t3toolbox/safety.py`: an ambient `SafetyTolerances(rtol_numpy,
+   rtol_jax)` (or `None`=unsafe) `contextvars` var (default **safe**, `1e-9`/`1e-5`) + `safe(rtol_numpy=…,
+   rtol_jax=…)` / `unsafe()` context managers + `set_default_safety`; `effective_rtol(inputs)` (jax-aware
+   tolerance pick via `tree_contains_jax`, `None`=unsafe); `is_tracing` / `checks_active` (safe **and** not
+   tracing) / `require` / `frames_equal` / `frames_equal_or_skip` (the same-frame convenience: skips under
+   unsafe/trace, else the jax-aware value compare). Pure plumbing; nothing wired yet (no behavior change).
+   Tests: `tests/test_safety.py` (13) + doctests.
 2. **S2 — the precondition catalog (§5).** Sweep verified modules; produce the full precondition table;
    **Nick signs off** before any check is wired. This is the make-or-break step.
 3. **S3 — move `inner`/`norm` to the geometries.** Add `MANIFOLD.inner`/`.norm` (same-frame + gauge check)
