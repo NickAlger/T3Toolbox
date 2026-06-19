@@ -321,7 +321,7 @@ gauged, Euclidean otherwise."
   **absolute-iteration-based** (or add a min-iterations guard) so it decouples from batch size; and decide
   whether a derivative `GaussNewtonModel` (an `apply_derivatives_model` in `fitting.py`) replaces the inline
   closures so apply/entries/probe get MC-SGD for free. Robustness of apply-derivative MC-SGD *at scale* is
-  unproven (future research). Full diagnosis in the example's git history.
+  unproven (future research). **Full write-up: [`mcsgd_apply_derivatives.md`](mcsgd_apply_derivatives.md).**
 - **Singular corewise `H`.** `newton_cg` must tolerate it (truncated CG / Levenberg–Marquardt damping),
   or steer corewise users to first-order. A geometry may advertise `hessian_is_degenerate` as a hint.
 - **`oblique_gauge_projection`** (the ambient-preserving gauge fix) — a second manifold projection
