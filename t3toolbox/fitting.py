@@ -4,8 +4,8 @@
 '''Frontend for the least-squares fitting layer: the Gauss-Newton models.
 
 Thin frozen-dataclass frontends over ``backend/fitting.py``, one per sampling kind
-(:py:class:`ApplyGaussNewtonModel`, :py:class:`EntriesGaussNewtonModel`; ``probe`` follows). A model is
-the local Gauss-Newton model of a least-squares objective at a fixed base point (an orthonormal
+(:py:class:`ApplyGaussNewtonModel`, :py:class:`EntriesGaussNewtonModel`, :py:class:`ProbeGaussNewtonModel`).
+A model is the local Gauss-Newton model of a least-squares objective at a fixed base point (an orthonormal
 ``T3Basis``): it exposes the objective value ``c``, the Riemannian gradient ``g``, the Gauss-Newton
 Hessian action ``H p = JᵀJ p``, and the quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p``.
 
@@ -30,7 +30,7 @@ import t3toolbox.backend.probing as probing
 import t3toolbox.backend.fitting as fb
 from t3toolbox.backend.common import *
 
-__all__ = ['ApplyGaussNewtonModel', 'EntriesGaussNewtonModel']
+__all__ = ['ApplyGaussNewtonModel', 'EntriesGaussNewtonModel', 'ProbeGaussNewtonModel']
 
 
 def _require_at_base(base: bvf.T3Basis, p: t3m.T3Tangent) -> None:
@@ -185,4 +185,68 @@ class EntriesGaussNewtonModel:
         _require_at_base(self.base, p)
         return fb.entries_model_value(
             p.variations.data, self.index, self.base.data, self._base_sweep,
+            self.gradient.variations.data, self.objective_value)
+
+
+@dataclass(frozen=True)
+class ProbeGaussNewtonModel:
+    '''The local Gauss-Newton model of a ``probe`` least-squares objective at ``base``.
+
+    Like :py:class:`ApplyGaussNewtonModel` but the measurements are **probes** -- vector-valued (one free
+    mode each), so ``residual`` is a sequence of ``d`` arrays (``elm_shape = W+C+(Ni,)``).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.basis_variations_format as bvf
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.fitting as fitting
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
+    >>> base, _ = bvf.t3_orthogonal_representations(x)
+    >>> ww = [np.random.randn(15, N) for N in (6, 7, 8)]   # 15 probe-vector tuples
+    >>> r = [np.random.randn(15, N) for N in (6, 7, 8)]    # the probe residual (one vector per mode)
+    >>> model = fitting.ProbeGaussNewtonModel(base, ww, r)
+    >>> model.gradient.is_gauged()
+    True
+    >>> p = t3m.T3Tangent.randn(base)
+    >>> hp = model.gn_hessian(p)
+    >>> m_built = float(model.objective_value + model.gradient.inner(p) + 0.5 * p.inner(hp))
+    >>> bool(np.allclose(float(model.evaluate(p)), m_built))
+    True
+    '''
+
+    base:     bvf.T3Basis              # the orthonormal frame -- the linearization point
+    ww:       typ.Sequence[NDArray]    # probe vectors, len=d, elm_shape=W+(Ni,)
+    residual: typ.Sequence[NDArray]    # r = F(base) − y, len=d, elm_shape=W+C+(Ni,)
+
+    @ft.cached_property
+    def _base_sweep(self) -> typ.Tuple:  # (xis, mus, nus, etas) -- computed ONCE, reused (shared with apply)
+        return probing.precompute_apply_base_sweep(self.base.data, self.ww)
+
+    @ft.cached_property
+    def objective_value(self) -> NDArray:  # c = ½‖r‖², shape C
+        '''The least-squares objective at the base, ``c = ½‖r‖²`` summed over the probe vectors.'''
+        n_w = self.ww[0].ndim - 1                      # sample-stack (W) axes; keep the base stack C
+        sq = sum((ri ** 2).sum(axis=tuple(range(n_w)) + (ri.ndim - 1,)) for ri in self.residual)
+        return 0.5 * sq
+
+    @ft.cached_property
+    def gradient(self) -> t3m.T3Tangent:  # g = Π 𝒥ᵀ r
+        '''The Riemannian gradient ``g = Π 𝒥ᵀ r`` (the probe ``Jᵀr``), a gauged tangent at base.'''
+        dU_dG = fb.probe_gradient(self.residual, self.ww, self.base.data, self._base_sweep)
+        return t3m.T3Tangent(self.base, bvf.T3Variations(*dU_dG))
+
+    def gn_hessian(self, p: t3m.T3Tangent) -> t3m.T3Tangent:
+        '''The Gauss-Newton Hessian action ``H p = Π 𝒥ᵀ 𝒥 Π p`` (``H = JᵀJ``), a gauged tangent at base.'''
+        _require_at_base(self.base, p)
+        dU_dG = fb.probe_gn_hessian(p.variations.data, self.ww, self.base.data, self._base_sweep)
+        return t3m.T3Tangent(self.base, bvf.T3Variations(*dU_dG))
+
+    def evaluate(self, p: t3m.T3Tangent) -> NDArray:  # m(p), shape C
+        '''The quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p`` (one forward apply; reuses ``c``, ``g``).'''
+        _require_at_base(self.base, p)
+        return fb.probe_model_value(
+            p.variations.data, self.ww, self.base.data, self._base_sweep,
             self.gradient.variations.data, self.objective_value)

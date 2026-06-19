@@ -1,4 +1,4 @@
-'''Tests for the Gauss-Newton fitting operators (``backend/fitting.py`` + ``fitting.py``; apply & entries).
+'''Tests for the Gauss-Newton fitting operators (``backend/fitting.py`` + ``fitting.py``; apply/entries/probe).
 
 The headline oracle is **exact dense ground truth**: because the sampling forward is linear in the
 ambient tensor, the least-squares objective is exactly quadratic, so the Gauss-Newton model is the exact
@@ -24,16 +24,14 @@ SHAPE = (7, 8, 9)
 TUCKER_RANKS = (3, 4, 2)
 TT_RANKS = (1, 2, 3, 1)
 N_SAMPLES = 20
-KINDS = ('apply', 'entries')
+KINDS = ('apply', 'entries', 'probe')
 
 
 def apply_dense(T, ww, n_c):
     '''Sample-space all-modes apply of a dense (possibly C-stacked) tensor: ``T(w_1,...,w_d)`` per sample.
     ``T`` is ``C + (N_1,...,N_d)``, each ``ww[i]`` is ``(W,) + (N_i,)``; returns ``W + C``.'''
     d = len(ww)
-    c_axes = list(range(n_c))
-    mode_axes = [n_c + i for i in range(d)]
-    w_axis = n_c + d
+    c_axes, mode_axes, w_axis = list(range(n_c)), [n_c + i for i in range(d)], n_c + d
     ops = [T, c_axes + mode_axes]
     for i in range(d):
         ops += [ww[i], [w_axis, mode_axes[i]]]
@@ -42,13 +40,26 @@ def apply_dense(T, ww, n_c):
 
 
 def entries_dense(T, index, n_c):
-    '''Entries of a dense (possibly C-stacked) tensor at integer ``index`` (shape ``(d,)+W``): ``T[index]``,
-    returned as ``W + C``.'''
+    '''Entries of a dense tensor at integer ``index`` (shape ``(d,)+W``): ``T[index]``, returned ``W + C``.'''
     d = index.shape[0]
     n_w = index.ndim - 1
     sel = (slice(None),) * n_c + tuple(index[i] for i in range(d))
-    out = T[sel]                                                   # shape C + W
-    return np.moveaxis(out, tuple(range(n_c, n_c + n_w)), tuple(range(n_w)))
+    return np.moveaxis(T[sel], tuple(range(n_c, n_c + n_w)), tuple(range(n_w)))
+
+
+def probe_dense(T, ww, n_c):
+    '''Probes of a dense tensor: leave mode ``i`` free, contract the rest. Returns ``d`` arrays ``W+C+(Ni,)``.'''
+    d = len(ww)
+    c_axes, mode_axes, w_axis = list(range(n_c)), [n_c + i for i in range(d)], n_c + d
+    out = []
+    for free in range(d):
+        ops = [T, c_axes + mode_axes]
+        for j in range(d):
+            if j != free:
+                ops += [ww[j], [w_axis, mode_axes[j]]]
+        ops += [[w_axis] + c_axes + [mode_axes[free]]]
+        out.append(np.einsum(*ops))
+    return out
 
 
 def gauged(base, variation):
@@ -56,8 +67,8 @@ def gauged(base, variation):
 
 
 def _kind_setup(kind, C):
-    '''Build a base + a kind-specific sample (ww or index) + residual, and bind the backend ops + the
-    dense forward oracle for that kind. Returns one dict of everything the tests need.'''
+    '''Build a base + a kind-specific sample + residual, and bind the backend ops, the dense forward
+    oracle, and kind-aware sample-space reducers (samp_add / samp_dot / rand_like). One dict per call.'''
     np.random.seed(0)
     x = t3.TuckerTensorTrain.randn(SHAPE, TUCKER_RANKS, TT_RANKS, stack_shape=C)
     base, _ = bvf.t3_orthogonal_representations(x)
@@ -67,23 +78,41 @@ def _kind_setup(kind, C):
         sweep = probing.precompute_apply_base_sweep(base.data, sample)
         ops = (fb.apply_jacobian, fb.apply_gradient, fb.apply_gn_hessian, fb.apply_model_value)
         dense_fwd = lambda T: apply_dense(T, sample, n_c)
-    else:
+        r = np.random.randn(*((m,) + C))
+        samp_dot = lambda a, b: np.sum(a * b, axis=tuple(range(n_w)))
+        samp_add = lambda a, b: a + b
+        rand_like = lambda v: np.random.randn(*v.shape)
+    elif kind == 'entries':
         sample = np.stack([np.random.randint(0, N, size=m) for N in SHAPE])   # (d,)+W
         sweep = probing.precompute_entries_base_sweep(base.data, sample)
         ops = (fb.entries_jacobian, fb.entries_gradient, fb.entries_gn_hessian, fb.entries_model_value)
         dense_fwd = lambda T: entries_dense(T, sample, n_c)
+        r = np.random.randn(*((m,) + C))
+        samp_dot = lambda a, b: np.sum(a * b, axis=tuple(range(n_w)))
+        samp_add = lambda a, b: a + b
+        rand_like = lambda v: np.random.randn(*v.shape)
+    else:  # probe -- vector-valued (one free mode each)
+        sample = [np.random.randn(m, N) for N in SHAPE]
+        sweep = probing.precompute_apply_base_sweep(base.data, sample)
+        ops = (fb.probe_jacobian, fb.probe_gradient, fb.probe_gn_hessian, fb.probe_model_value)
+        dense_fwd = lambda T: probe_dense(T, sample, n_c)
+        r = [np.random.randn(*((m,) + C + (N,))) for N in SHAPE]
+        samp_dot = lambda a, b: sum(np.sum(ai * bi, axis=tuple(range(n_w)) + (ai.ndim - 1,))
+                                    for ai, bi in zip(a, b))
+        samp_add = lambda a, b: [ai + bi for ai, bi in zip(a, b)]
+        rand_like = lambda v: [np.random.randn(*vi.shape) for vi in v]
     jac, grad, gnh, mval = ops
-    r = np.random.randn(*((m,) + C))
-    c = 0.5 * np.sum(r ** 2, axis=tuple(range(n_w)))
+    c = 0.5 * samp_dot(r, r)
     g = grad(r, sample, base.data, sweep)
     p = t3m.T3Tangent.randn(base, apply_gauge_projection=False).variations.data   # UN-gauged -> tests Π
     Pp = tangent_operations.orthogonal_gauge_projection(base.data, p)
     return dict(base=base, sample=sample, sweep=sweep, r=r, c=c, g=g, p=p, Pp=Pp, n_c=n_c, n_w=n_w,
-                jac=jac, grad=grad, gnh=gnh, mval=mval, dense_fwd=dense_fwd)
+                jac=jac, grad=grad, gnh=gnh, mval=mval, dense_fwd=dense_fwd,
+                samp_dot=samp_dot, samp_add=samp_add, rand_like=rand_like)
 
 
 class TestGaussNewtonBackend(unittest.TestCase):
-    '''The backend operators, parameterized over the sampling kind (apply / entries) and the base stack C.'''
+    '''The backend operators, parameterized over the sampling kind and the base stack C.'''
 
     def test_dense_truth_model_value(self):
         '''HEADLINE: m(p) == ½‖r + 𝒥(Πp)‖² computed from the dense gauge-projected tangent.'''
@@ -92,7 +121,8 @@ class TestGaussNewtonBackend(unittest.TestCase):
                 with self.subTest(kind=kind, C=C):
                     s = _kind_setup(kind, C)
                     Pp_dense = t3m.T3Tangent(s['base'], bvf.T3Variations(*s['Pp'])).to_dense()
-                    oracle = 0.5 * np.sum((s['r'] + s['dense_fwd'](Pp_dense)) ** 2, axis=tuple(range(s['n_w'])))
+                    res = s['samp_add'](s['r'], s['dense_fwd'](Pp_dense))
+                    oracle = 0.5 * s['samp_dot'](res, res)
                     mval = s['mval'](s['p'], s['sample'], s['base'].data, s['sweep'], s['g'], s['c'])
                     self.assertTrue(np.allclose(mval, oracle, rtol=0, atol=1e-9), f'{kind} C={C}')
 
@@ -145,21 +175,23 @@ class TestGaussNewtonBackend(unittest.TestCase):
                 with self.subTest(kind=kind, C=C):
                     s = _kind_setup(kind, C)
                     Jp = s['jac'](s['p'], s['sample'], s['base'].data, s['sweep'])
-                    z = np.random.randn(*Jp.shape)
+                    z = s['rand_like'](Jp)
                     gz = s['grad'](z, s['sample'], s['base'].data, s['sweep'])
-                    lhs = np.sum(z * Jp, axis=tuple(range(s['n_w'])))
+                    lhs = s['samp_dot'](z, Jp)
                     rhs = cw.corewise_stack_dot(gz, s['p'], s['n_c'])
                     self.assertTrue(np.allclose(lhs, rhs, rtol=0, atol=1e-9))
 
 
-_MODEL_CLS = {'apply': fitting.ApplyGaussNewtonModel, 'entries': fitting.EntriesGaussNewtonModel}
+_MODEL_CLS = {'apply': fitting.ApplyGaussNewtonModel,
+              'entries': fitting.EntriesGaussNewtonModel,
+              'probe': fitting.ProbeGaussNewtonModel}
 
 
 class TestGaussNewtonModelFrontend(unittest.TestCase):
     '''The frontend dataclasses: dense-truth through the model, delegation, the same-base guard, caching.'''
 
     def test_dense_truth_through_model(self):
-        '''End-to-end: model.evaluate(p) == ½‖r + 𝒥(Πp)‖² (dense oracle), via the frontend, both kinds.'''
+        '''End-to-end: model.evaluate(p) == ½‖r + 𝒥(Πp)‖² (dense oracle), via the frontend, all kinds.'''
         for kind in KINDS:
             for C in [(), (2,)]:
                 with self.subTest(kind=kind, C=C):
@@ -168,11 +200,12 @@ class TestGaussNewtonModelFrontend(unittest.TestCase):
                     p = t3m.T3Tangent.randn(s['base'], apply_gauge_projection=False)
                     Pp = tangent_operations.orthogonal_gauge_projection(s['base'].data, p.variations.data)
                     Pp_dense = t3m.T3Tangent(s['base'], bvf.T3Variations(*Pp)).to_dense()
-                    oracle = 0.5 * np.sum((s['r'] + s['dense_fwd'](Pp_dense)) ** 2, axis=tuple(range(s['n_w'])))
+                    res = s['samp_add'](s['r'], s['dense_fwd'](Pp_dense))
+                    oracle = 0.5 * s['samp_dot'](res, res)
                     self.assertTrue(np.allclose(model.evaluate(p), oracle, rtol=0, atol=1e-9))
 
     def test_delegates_to_backend(self):
-        '''The model's properties/methods equal the backend functions it wraps (both kinds).'''
+        '''The model's properties/methods equal the backend functions it wraps (all kinds).'''
         for kind in KINDS:
             with self.subTest(kind=kind):
                 s = _kind_setup(kind, ())
@@ -188,7 +221,7 @@ class TestGaussNewtonModelFrontend(unittest.TestCase):
                     self.assertTrue(np.allclose(a, b))
 
     def test_same_base_guard(self):
-        '''A trial tangent at a different base is a structural error (identity, not value), both kinds.'''
+        '''A trial tangent at a different base is a structural error (identity, not value), all kinds.'''
         for kind in KINDS:
             with self.subTest(kind=kind):
                 s = _kind_setup(kind, ())

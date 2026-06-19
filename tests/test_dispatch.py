@@ -234,6 +234,13 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda rr: fb.entries_gradient(rr, index, base, esweep), r)
         self.assert_jit_jax(lambda pp: fb.entries_gn_hessian(pp, index, base, esweep), p)
         self.assert_jit_jax(lambda pp: fb.entries_model_value(pp, index, base, esweep, eg, c), p)
+        # probe: vector-valued residual (one free mode each); shares the apply base sweep
+        pr_r = tuple(jnp.ones((2, N)) for N in STRUCT[0])         # d probe vectors, W=(2,)
+        pg = fb.probe_gradient(pr_r, ww, base, sweep)
+        self.assert_jit_jax(lambda pp: fb.probe_jacobian(pp, ww, base, sweep), p)
+        self.assert_jit_jax(lambda rr: fb.probe_gradient(rr, ww, base, sweep), pr_r)
+        self.assert_jit_jax(lambda pp: fb.probe_gn_hessian(pp, ww, base, sweep), p)
+        self.assert_jit_jax(lambda pp: fb.probe_model_value(pp, ww, base, sweep, pg, c), p)
 
     def test_jit_fitting_model(self):
         # the GaussNewton model frontends: cached sweep folds in (closure); base survives jit as aux
@@ -245,6 +252,10 @@ class TestDispatch(unittest.TestCase):
         _ = emodel.gradient; _ = emodel.objective_value
         self.assert_jit_jax(lambda pp: emodel.gn_hessian(pp), self.w)
         self.assert_jit_jax(lambda pp: emodel.evaluate(pp), self.w)
+        pmodel = fitting.ProbeGaussNewtonModel(self.base, self.ww, tuple(jnp.ones((2, N)) for N in STRUCT[0]))
+        _ = pmodel.gradient; _ = pmodel.objective_value
+        self.assert_jit_jax(lambda pp: pmodel.gn_hessian(pp), self.w)
+        self.assert_jit_jax(lambda pp: pmodel.evaluate(pp), self.w)
 
     # ---------------------------------------------------- jit bucket: UniformTuckerTensorTrain
     def test_jit_uniform(self):

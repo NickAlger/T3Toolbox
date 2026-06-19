@@ -39,6 +39,9 @@ __all__ = [
     'precompute_entries_base_sweep',
     'entries_jacobian_from_sweep',
     'entries_transpose_from_sweep',
+    # Probe -- base-sweep reuse split (shares precompute_apply_base_sweep; for fitting.py)
+    'probe_jacobian_from_sweep',
+    'probe_transpose_from_sweep',
     # Corewise (non-manifold) transpose -- the tangent transpose with the base's cores in place of the frames
     'apply_corewise_transpose',
     'entries_corewise_transpose',
@@ -536,6 +539,43 @@ def assemble_tangent_zs(
         (zs,) = xmap(_func, (tucker_cores, var_tucker_cores, etas, detas))
 
     return zs
+
+
+def probe_jacobian_from_sweep(
+        variation:  typ.Tuple[
+            typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nOi,Ni)
+            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nUi,rRi)
+        ],
+        ww:         typ.Sequence[NDArray],  # probe vectors, len=d, elm_shape=W+(Ni,) -- for the variation's dxis
+        base:       typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = T3Basis.data = (U, O, P, Q)
+        base_sweep: typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = precompute_apply_base_sweep(base, ww) (apply & probe SHARE it)
+) -> typ.Sequence[NDArray]:                 # probes, len=d, elm_shape=W+K+C+(Ni,) (one free mode each)
+    '''Forward probe of a tangent vector reusing a precomputed base sweep -- the bare ``𝒥`` (probe) with
+    the base edge variables injected. Equivalent to :py:func:`probe_tangent`, but takes
+    ``(xis, mus, nus, etas)`` from ``base_sweep`` instead of recomputing them; only the perturbation
+    sweep (``dxis``/``sigmas``/``taus``/``detas``) is computed here. Apply and probe **share** the base
+    sweep (:py:func:`precompute_apply_base_sweep`). No gauge projector ``Π``.
+
+    See Also
+    --------
+    precompute_apply_base_sweep
+    probe_tangent
+    probe_transpose_from_sweep
+    '''
+    var_tucker_cores, var_tt_cores = variation
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base
+    xis, mus, nus, etas = base_sweep
+    dxis   = compute_dxis(var_tucker_cores, ww)
+    sigmas = compute_sigmas(var_tt_cores, right_tt_cores, down_tt_cores, xis, dxis, mus)
+    taus   = compute_taus(var_tt_cores, left_tt_cores, down_tt_cores, xis, dxis, nus)
+    detas  = compute_detas(var_tt_cores, left_tt_cores, right_tt_cores, mus, nus, sigmas, taus)
+    return assemble_tangent_zs(up_tucker_cores, var_tucker_cores, etas, detas)
 
 
 def probe_tangent(
@@ -1416,6 +1456,43 @@ def assemble_tt_variations(
         (dG_tildes,) = xmap(_func, xs)
 
     return dG_tildes
+
+
+def probe_transpose_from_sweep(
+        ztildes:    typ.Sequence[NDArray],  # probe residuals, len=d, elm_shape=W+K+C+(Ni,)
+        ww:         typ.Sequence[NDArray],  # probe vectors,   len=d, elm_shape=W+(Ni,)
+        base:       typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = T3Basis.data = (U, O, P, Q)
+        base_sweep: typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = precompute_apply_base_sweep(base, ww) (apply & probe SHARE it)
+        sum_over_probes: bool = False,
+) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (dU_tildes, dG_tildes) = T3Variations.data
+    '''Transpose of the probe reusing a precomputed base sweep -- the bare ``𝒥ᵀ`` (probe) with the base
+    edge variables injected. Equivalent to :py:func:`probe_tangent_transpose`, but takes
+    ``(xis, mus, nus, etas)`` from ``base_sweep`` (the reuse hook for ``fitting.py``; apply & probe share
+    the sweep). No gauge projector ``Π``.
+
+    See Also
+    --------
+    precompute_apply_base_sweep
+    probe_tangent_transpose
+    probe_jacobian_from_sweep
+    '''
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base
+    xis, mus, nus, etas = base_sweep
+    deta_tildes  = compute_deta_tildes(up_tucker_cores, ztildes)
+    tau_tildes   = compute_tau_tildes(deta_tildes, left_tt_cores, xis, mus)
+    sigma_tildes = compute_sigma_tildes(deta_tildes, right_tt_cores, xis, nus)
+    dxi_tildes   = compute_dxi_tildes(sigma_tildes, tau_tildes, down_tt_cores, mus, nus)
+    n_probe = ww[0].ndim - 1
+    dU_tildes = assemble_tucker_variations(ztildes, dxi_tildes, ww, etas, sum_over_probes=sum_over_probes)
+    dG_tildes = assemble_tt_variations(sigma_tildes, tau_tildes, deta_tildes, xis, mus, nus,
+                                       sum_over_probes=sum_over_probes, n_probe=n_probe)
+    return dU_tildes, dG_tildes
 
 
 def probe_tangent_transpose(
