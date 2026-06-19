@@ -293,6 +293,12 @@ gauged, Euclidean otherwise."
 
 ## 8. Risks / open questions
 
+- **OPEN — per-function opt-in jit + the OO-vs-functional question (paused 2026-06-19).** Whether/how to
+  let a frontend user jit the optimizer matvec per-function (no global toggle), and whether the
+  `T3Tangent` OO layer earns its keep vs a more functional design. The jit/recompile problem itself has a
+  clean solution (jit the functional core, eager frontend, re-home the output — no recompile, guards
+  intact), so this is now an ergonomics/taste call, not a performance blocker. **Full writeup +
+  empirical findings: [`docs/jit_oo_handoff.md`](jit_oo_handoff.md).** G3 is downstream of it.
 - **jax compatibility (decided post-G2).** The geometry singletons (`MANIFOLD`/`COREWISE`) are registered
   as **zero-leaf pytrees** (stateless → pass as ordinary args / close over freely). `GaussNewtonModel` is
   **deliberately NOT a pytree**: it is a scope-local, per-outer-step operator that the two efficient jit
