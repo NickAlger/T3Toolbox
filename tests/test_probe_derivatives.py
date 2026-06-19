@@ -100,7 +100,7 @@ class TestProbeDerivatives(unittest.TestCase):
                 with self.subTest(S=S, C=C, ORDER=ORDER):
                     x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
                     base, _ = bvf.t3_orthogonal_representations(x)
-                    v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+                    v = t3m.COREWISE.randn(base)
                     Vd = v.to_dense()                                 # shape C + (N1..Nd)
                     ww = [np.random.randn(*(S + (N,))) for N in shapes]
                     pp = [np.random.randn(*(S + (N,))) for N in shapes]
@@ -130,7 +130,7 @@ class TestProbeDerivatives(unittest.TestCase):
                 with self.subTest(S=S, C=C, K=K):
                     x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
                     base, _ = bvf.t3_orthogonal_representations(x)
-                    v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+                    v = t3m.COREWISE.randn(base)
                     dU_v, dG_v = v.variations.data
                     ww = [np.random.randn(*(S + (N,))) for N in shapes]
                     pp = [np.random.randn(*(S + (N,))) for N in shapes]
@@ -160,7 +160,7 @@ class TestProbeDerivatives(unittest.TestCase):
         STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
         x = t3.TuckerTensorTrain.randn(*STRUCT)
         base, _ = bvf.t3_orthogonal_representations(x)
-        v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+        v = t3m.COREWISE.randn(base)
         ww = [np.random.randn(N) for N in STRUCT[0]]
         pp = [np.random.randn(N) for N in STRUCT[0]]
 
@@ -215,7 +215,7 @@ class TestProbeDerivatives(unittest.TestCase):
                 with self.subTest(W=W, K=K, C=C, ORDER=ORDER):
                     x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
                     base, _ = bvf.t3_orthogonal_representations(x)
-                    v = t3m.T3Tangent.randn(base, stack_shape=K, apply_gauge_projection=False)
+                    v = t3m.COREWISE.randn(base, stack_shape=K)
                     Vd = v.to_dense()                              # K + C + (N...)
                     ww = [np.random.randn(*(W + (N,))) for N in shapes]
                     pp = [np.random.randn(*(W + (N,))) for N in shapes]
@@ -244,7 +244,7 @@ class TestProbeDerivatives(unittest.TestCase):
                 with self.subTest(W=W, K=K, C=C, ORDER=ORDER):
                     x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
                     base, _ = bvf.t3_orthogonal_representations(x)
-                    v = t3m.T3Tangent.randn(base, stack_shape=K, apply_gauge_projection=False)
+                    v = t3m.COREWISE.randn(base, stack_shape=K)
                     dU_v, dG_v = v.variations.data
                     ww = [np.random.randn(*(W + (N,))) for N in shapes]
                     pp = [np.random.randn(*(W + (N,))) for N in shapes]
@@ -289,7 +289,7 @@ class TestProbeDerivatives(unittest.TestCase):
                             W, K, C, ORDER)
 
                     base, _ = bvf.t3_orthogonal_representations(x)  # Riemannian tangent apply
-                    v = t3m.T3Tangent.randn(base, stack_shape=K, apply_gauge_projection=False)
+                    v = t3m.COREWISE.randn(base, stack_shape=K)
                     Vd = v.to_dense()
                     yv = pd.apply_tangent_derivatives(ww, pp, v.variations.data, v.basis.data, ORDER)
                     self.assertEqual(yv.shape, (ORDER + 1,) + W + K + C)
@@ -320,7 +320,7 @@ class TestProbeDerivatives(unittest.TestCase):
                             W, K, C, ORDER)
 
                     base, _ = bvf.t3_orthogonal_representations(x)  # Riemannian
-                    v = t3m.T3Tangent.randn(base, stack_shape=K, apply_gauge_projection=False)
+                    v = t3m.COREWISE.randn(base, stack_shape=K)
                     Vd = v.to_dense()
                     yv = pd.entries_tangent_derivatives(index, pp, v.variations.data, v.basis.data, ORDER)
                     self.assertEqual(yv.shape, (ORDER + 1,) + W + K + C)
@@ -341,7 +341,7 @@ class TestProbeDerivatives(unittest.TestCase):
                     with self.subTest(kind=kind, W=W, K=K, C=C, ORDER=ORDER):
                         x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
                         base, _ = bvf.t3_orthogonal_representations(x)
-                        v = t3m.T3Tangent.randn(base, stack_shape=K, apply_gauge_projection=False)
+                        v = t3m.COREWISE.randn(base, stack_shape=K)
                         dU_v, dG_v = v.variations.data
                         pp = [np.random.randn(*(W + (N,))) for N in shapes]
                         if kind == 'apply':

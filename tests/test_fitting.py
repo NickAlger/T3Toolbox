@@ -104,7 +104,7 @@ def _kind_setup(kind, C):
     jac, grad, gnh, mval = ops
     c = 0.5 * samp_dot(r, r)
     g = grad(r, sample, base.data, sweep)
-    p = t3m.T3Tangent.randn(base, apply_gauge_projection=False).variations.data   # UN-gauged -> tests Π
+    p = t3m.COREWISE.randn(base).variations.data   # UN-gauged -> tests Π
     Pp = tangent_operations.orthogonal_gauge_projection(base.data, p)
     return dict(base=base, sample=sample, sweep=sweep, r=r, c=c, g=g, p=p, Pp=Pp, n_c=n_c, n_w=n_w,
                 jac=jac, grad=grad, gnh=gnh, mval=mval, dense_fwd=dense_fwd,
@@ -147,7 +147,7 @@ class TestGaussNewtonBackend(unittest.TestCase):
                     Hp = s['gnh'](s['p'], s['sample'], s['base'].data, s['sweep'])
                     self.assertTrue(gauged(s['base'], s['g']))
                     self.assertTrue(gauged(s['base'], Hp))
-                    q = t3m.T3Tangent.randn(s['base'], apply_gauge_projection=False).variations.data
+                    q = t3m.COREWISE.randn(s['base']).variations.data
                     Hq = s['gnh'](q, s['sample'], s['base'].data, s['sweep'])
                     lhs = cw.corewise_stack_dot(q, Hp, s['n_c'])
                     rhs = cw.corewise_stack_dot(s['p'], Hq, s['n_c'])
@@ -197,7 +197,7 @@ class TestGaussNewtonModelFrontend(unittest.TestCase):
                 with self.subTest(kind=kind, C=C):
                     s = _kind_setup(kind, C)
                     model = _MODEL_CLS[kind](s['base'], s['sample'], s['r'])
-                    p = t3m.T3Tangent.randn(s['base'], apply_gauge_projection=False)
+                    p = t3m.COREWISE.randn(s['base'])
                     Pp = tangent_operations.orthogonal_gauge_projection(s['base'].data, p.variations.data)
                     Pp_dense = t3m.T3Tangent(s['base'], bvf.T3Variations(*Pp)).to_dense()
                     res = s['samp_add'](s['r'], s['dense_fwd'](Pp_dense))
@@ -214,7 +214,7 @@ class TestGaussNewtonModelFrontend(unittest.TestCase):
                 gd = model.gradient.variations.data
                 for a, b in zip(gd[0] + gd[1], s['g'][0] + s['g'][1]):
                     self.assertTrue(np.allclose(a, b))
-                p = t3m.T3Tangent.randn(s['base'], apply_gauge_projection=False)
+                p = t3m.COREWISE.randn(s['base'])
                 h_back = s['gnh'](p.variations.data, s['sample'], s['base'].data, s['sweep'])
                 hd = model.gn_hessian(p).variations.data
                 for a, b in zip(hd[0] + hd[1], h_back[0] + h_back[1]):
@@ -228,7 +228,7 @@ class TestGaussNewtonModelFrontend(unittest.TestCase):
                 model = _MODEL_CLS[kind](s['base'], s['sample'], s['r'])
                 other, _ = bvf.t3_orthogonal_representations(
                     t3.TuckerTensorTrain.randn(SHAPE, TUCKER_RANKS, TT_RANKS))
-                p_other = t3m.T3Tangent.randn(other)
+                p_other = t3m.MANIFOLD.randn(other)
                 with self.assertRaises(ValueError):
                     model.gn_hessian(p_other)
                 with self.assertRaises(ValueError):
@@ -248,13 +248,13 @@ class TestGaussNewtonModelFrontend(unittest.TestCase):
         s = _kind_setup('apply', ())
         base, ww, r = s['base'], s['sample'], s['r']
         model = _MODEL_CLS['apply'](base, ww, r)
-        ref_g = t3m.T3Tangent.apply_transpose(r, ww, base, sum_over_probes=True).orthogonal_gauge_projection()
+        ref_g = t3m.MANIFOLD.project(t3m.T3Tangent.apply_transpose(r, ww, base, sum_over_probes=True))
         gd = model.gradient.variations.data
         for a, b in zip(gd[0] + gd[1], ref_g.variations.data[0] + ref_g.variations.data[1]):
             self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))
-        V = t3m.T3Tangent.randn(base, apply_gauge_projection=True)
-        ref_HV = t3m.T3Tangent.apply_transpose(
-            V.apply(ww), ww, base, sum_over_probes=True).orthogonal_gauge_projection()
+        V = t3m.MANIFOLD.randn(base)
+        ref_HV = t3m.MANIFOLD.project(t3m.T3Tangent.apply_transpose(
+            V.apply(ww), ww, base, sum_over_probes=True))
         Hv = model.gn_hessian(V)
         for a, b in zip(Hv.variations.data[0] + Hv.variations.data[1],
                         ref_HV.variations.data[0] + ref_HV.variations.data[1]):

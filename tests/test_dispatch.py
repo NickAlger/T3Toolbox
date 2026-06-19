@@ -52,8 +52,8 @@ class TestDispatch(unittest.TestCase):
         cls.x = cls.x_np.to_jax()
         cls.base, cls.var = bvf.t3_orthogonal_representations(cls.x)
         cls.v = t3m.T3Tangent(cls.base, cls.var)
-        cls.w = t3m.T3Tangent.randn(cls.base, apply_gauge_projection=False)
-        cls.v_vstack = t3m.T3Tangent.randn(cls.base, stack_shape=(3,), apply_gauge_projection=False)  # K=(3,)
+        cls.w = t3m.COREWISE.randn(cls.base)
+        cls.v_vstack = t3m.COREWISE.randn(cls.base, stack_shape=(3,))  # K=(3,)
         cls.ww = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])  # probe stack W=(2,)
         cls.zz = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])  # W + C + (N,), C=()
         cls.zz_vstack = tuple(jnp.array(np.random.randn(2, 3, N)) for N in STRUCT[0])  # W + K + C, K=(3,)
@@ -169,15 +169,15 @@ class TestDispatch(unittest.TestCase):
         base = self.base  # close over the fixed base (aux_data); never a traced arg
         self.assert_jit_jax(lambda a: a.to_dense(), self.v)
         self.assert_jit_jax(lambda a: a.to_t3(), self.v)
-        self.assert_jit_jax(lambda a: a.retract(), self.v)
+        self.assert_jit_jax(lambda a: t3m.MANIFOLD.retract(a), self.v)
         self.assert_jit_jax(lambda a, b: a.inner(b), self.v, self.w)   # binary op, shared base via aux
         self.assert_jit_jax(lambda a: a.norm(), self.v)
         self.assert_jit_jax(lambda a, b: a + b, self.v, self.w)
         self.assert_jit_jax(lambda a, b: a - b, self.v, self.w)
         self.assert_jit_jax(lambda a: 2.5 * a, self.v)
-        self.assert_jit_jax(lambda a: a.orthogonal_gauge_projection(), self.v)
-        self.assert_jit_jax(lambda a: a.oblique_gauge_projection(), self.v)
-        self.assert_jit_jax(lambda xx: t3m.T3Tangent.project(xx, base), self.x_other)
+        self.assert_jit_jax(lambda a: t3m.MANIFOLD.project(a), self.v)
+        self.assert_jit_jax(lambda a: t3m.MANIFOLD.project_oblique(a), self.v)
+        self.assert_jit_jax(lambda xx: t3m.MANIFOLD.project_ambient(base, xx), self.x_other)
         self.assert_jit_jax(lambda a, w: a.probe(w), self.v, self.ww)
         self.assert_jit_jax(lambda a, w: a.probe(w), self.v_vstack, self.ww)  # 3-group (W,K,C) probe
         self.assert_jit_jax(lambda z, w: t3m.T3Tangent.probe_transpose(z, w, base), self.zz, self.ww)
@@ -448,16 +448,16 @@ class TestDispatch(unittest.TestCase):
         self.assert_eager_jax(lambda a: a.t3svd(rtol=0.05), self.x)
         A = jnp.array(np.random.randn(8, 9))
         self.assert_eager_jax(lambda m: linalg.truncated_svd(m, rtol=0.05), A)
-        # project_dense_onto_tangent / riemannian_gradient: t3svd_dense picks ranks from the data
+        # MANIFOLD.project_ambient (dense grad, 'contraction'/'t3svd'): t3svd_dense picks ranks from the data
         # -> dynamic shapes. Dispatch is pushed down (no top-level jax check), so the output is jax
         # whenever ANY input is jax. jax dense + jax basis:
         dense = jnp.array(np.random.randn(*STRUCT[0]))
-        self.assert_eager_jax(lambda z: t3m.project_dense_onto_tangent(z, self.base), dense)
-        self.assert_eager_jax(lambda z: t3m.riemannian_gradient(z, self.base), dense)
+        self.assert_eager_jax(lambda z: t3m.MANIFOLD.project_ambient(self.base, z), dense)
+        self.assert_eager_jax(lambda z: t3m.MANIFOLD.project_ambient(self.base, z), dense)
         # jax dense + NUMPY basis must still give jax out (any input jax -> jax); the old code
         # coerced the dense down to the basis's numpy here -- the regression this fix prevents.
         base_np = self.base.to_numpy()
-        self.assert_eager_jax(lambda z: t3m.project_dense_onto_tangent(z, base_np), dense)
+        self.assert_eager_jax(lambda z: t3m.MANIFOLD.project_ambient(base_np, z), dense)
 
     # ---------------------------------------------------- numerical smoke tests (jax == numpy)
     def test_jax_matches_numpy_smoke(self):
@@ -478,7 +478,7 @@ class TestDispatch(unittest.TestCase):
                       {'oversample': 2} if m == 'swap' else {})).to_dense())
         close(self.x.to_dense(), self.x_np.to_dense())                       # TTT.to_dense
         close(self.v.to_dense(), v_np.to_dense())                            # Tangent.to_dense
-        close(self.v.retract().to_dense(), v_np.retract().to_dense())        # retract (fixed-rank t3svd)
+        close(t3m.MANIFOLD.retract(self.v).to_dense(), t3m.MANIFOLD.retract(v_np).to_dense())        # retract (fixed-rank t3svd)
         w_np = t3m.T3Tangent(base_np, bvf.T3Variations(
             tuple(np.asarray(c) for c in self.w.variations.tucker_variations),
             tuple(np.asarray(c) for c in self.w.variations.tt_variations)))

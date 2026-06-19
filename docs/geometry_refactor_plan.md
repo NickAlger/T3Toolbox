@@ -172,6 +172,19 @@ x_opt = optimizers.newton_cg(geometry, model_builder, x0)   # Riemannian on M, o
 x_opt = optimizers.lbfgs(geometry, model_builder, x0)
 ```
 
+**Decisions locked in G1 (refining the sketch above — this is the as-built API).** (1) `randn` /
+`random_orthogonal` / `randn_like` **moved onto the geometries** (the old `apply_gauge_projection=` flag
+*is* the geometry choice: `MANIFOLD.randn` gauges → i.i.d. Gaussian on `T_xM`; `COREWISE.randn` is raw
+cores). This supersedes "keep randn, drop the flag" in §5. `zeros` / `unit` stay on `T3Tangent`
+(geometry-independent). (2) The ambient projection is **unified** as
+`ManifoldGeometry.project_ambient(basis, grad, method='contraction')` accepting a `TuckerTensorTrain`
+*or* dense `grad` — it absorbs and **retires** the old `T3Tangent.project`, `project_dense_onto_tangent`,
+and `riemannian_gradient`. (3) `transport` and the oblique gauge fix **moved to `ManifoldGeometry`**
+(`transport(v, new_basis)` / `project_oblique(v)`). (4) **`retract(p)` takes the tangent only** — the
+point is carried by `p.basis`; corewise recovers `(U,G)` from its `(U,G,G,G)` frame. Singletons:
+`MANIFOLD`, `COREWISE`. Methods take the frame (basis) or the tangent (which carries its frame), never a
+bare point — except `base(x)`, which builds the frame from a point.
+
 The model's three methods are generic; the sampling kind's bare `𝒥`/`𝒥ᵀ` (the `*_from_sweep` primitives)
 are bound at construction; the base sweep is cached on the model (the reuse). The `2×3×4 ≈ 24`
 tangent/corewise backend functions collapse to **6 bare probing primitives + the geometry's `project`
@@ -201,15 +214,18 @@ coordinate vector, or a chart/embedding choice?"*
 | `to_dense`, `to_t3` | **keep** | realization; frame-faithful, geometry-independent |
 | `apply`/`probe`/`entries` (+ transposes) | **keep** | bare `𝒥`/`𝒥ᵀ` sampling; no metric/gauge |
 | `shape`, `ranks`, `stack`/`unstack` | **keep** | structure |
-| `randn`, `zeros` | **keep**, **drop** their `apply_gauge_projection=` | raw constructor; gauging is `geometry.project` |
-| `retract` | **move → `Geometry.retract(x, p)`** | the chart's "how to move" — the defining difference |
-| `orthogonal_gauge_projection` / `oblique_gauge_projection` | **move → `Geometry.project`** | `Π` is the manifold's gradient map; identity for corewise; invalid on a non-orthonormal frame |
-| `project` (static, dense → tangent) | **move → `ManifoldGeometry.project_dense`** | HS projection ambient→`T_xM`; manifold-only |
+| `zeros`, `unit` | **keep** | geometry-independent (zero / canonical units have no gauge ambiguity) |
+| `randn`, `random_orthogonal`, `randn_like` | **move → `Geometry.randn(...)`** (G1 refinement) | the `apply_gauge_projection=` flag *is* the geometry: `MANIFOLD.randn` gauges, `COREWISE.randn` is raw |
+| `retract` | **move → `Geometry.retract(p)`** (tangent only) | the chart's "how to move" — the defining difference; point carried by `p.basis` |
+| `orthogonal_gauge_projection` / `oblique_gauge_projection` | **move → `Geometry.project` / `ManifoldGeometry.project_oblique`** | `Π` is the manifold's gradient map; identity for corewise; invalid on a non-orthonormal frame |
+| `project` (static, T3 → tangent), `project_dense_onto_tangent`, `riemannian_gradient` | **move → `ManifoldGeometry.project_ambient(basis, grad, method=)`** | unified ambient→`T_xM` projection (T3 or dense); manifold-only |
+| `transport` | **move → `ManifoldGeometry.transport(v, new_basis)`** | projective transport; orthonormality-requiring, manifold-only |
 | `is_gauged`, `T3Basis.is_orthogonal` | **keep as checkers** | numerical property checks (house philosophy); the geometry *uses* them |
 
-So exactly three operations leave `T3Tangent` — **retract, gauge-projection, project-from-ambient** — the
-embedding-dependent triple. The backend algorithms for these already live in `tangent_operations.py`; the
-geometry classes are thin bundlers that select them.
+The embedding-dependent operations leave `T3Tangent` — **retract, gauge-projection, project-from-ambient,
+transport** — plus (G1 refinement) the **gauged random constructors** (`randn` family), since the
+gauge-vs-raw choice is itself the geometry. The backend algorithms for the embedding ops already live in
+`tangent_operations.py`; the geometry classes are thin bundlers that select them.
 
 **The principle (the answer to "how much should a tangent know about its geometry"):** a tangent knows
 **its frame and the frame-faithful operations on its coordinates** (it is a vector, has a coordinate
@@ -244,12 +260,14 @@ gauged, Euclidean otherwise."
 
 ## 7. Build plan (slices, refactor cost accepted)
 
-1. **Slice G1 — `Geometry` in `manifold.py` + thin `T3Tangent`.** Introduce `ManifoldGeometry` /
-   `CorewiseGeometry`; move `retract`, `*_gauge_projection`, `project(dense→tangent)` off `T3Tangent`
-   onto the geometries (backend algorithms unchanged); drop `apply_gauge_projection=` from the
-   constructors. Update existing `T3Tangent` consumers (the Hilbert example, `manifold`/`tucker`
-   tests, doctests). Self-contained `manifold.py` refactor; no `backend/` change. Verify the full suite +
-   doctests.
+1. **Slice G1 — `Geometry` in `manifold.py` + thin `T3Tangent`. ✅ DONE.** Introduced `ManifoldGeometry` /
+   `CorewiseGeometry` + singletons `MANIFOLD` / `COREWISE`; moved `retract`, `*_gauge_projection`,
+   the ambient projection (unified as `project_ambient`), `transport`, and (refinement) the `randn`
+   family off `T3Tangent` onto the geometries (backend algorithms unchanged). `zeros` / `unit` stay.
+   Updated all consumers (both Hilbert examples, `manifold` / `fitting` / `dispatch` / `probe_derivatives`
+   tests, doctests across `manifold` / `fitting` / `backend.probing`). Self-contained `manifold.py`
+   refactor; no `backend/` change. Verified: 210 core tests + 10 dispatch + all doctests pass; both
+   examples run end-to-end. See the "Decisions locked in G1" note under §4 for the as-built API.
 2. **Slice G2 — generic `GaussNewtonModel`.** Collapse the six `*GaussNewtonModel` classes and the ~24
    tangent/corewise backend functions into one geometry-generic model + sampling-kind factories
    (`apply_model`/`entries_model`/`probe_model`). Corewise gradients/Hessians now return `T3Tangent` at

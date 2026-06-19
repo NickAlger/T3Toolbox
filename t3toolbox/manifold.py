@@ -22,6 +22,10 @@ from t3toolbox.backend.common import *
 
 __all__ = [
     'T3Tangent',
+    'ManifoldGeometry',
+    'CorewiseGeometry',
+    'MANIFOLD',
+    'COREWISE',
     'manifold_dim',
 ]
 
@@ -60,7 +64,7 @@ def manifold_dim(
     >>> base, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*s))
     >>> tucker_shapes, tt_shapes = base.variation_shapes
     >>> n_entries = sum(int(np.prod(sh)) for sh in tucker_shapes) + sum(int(np.prod(sh)) for sh in tt_shapes)
-    >>> dense_vv = np.stack([t3m.T3Tangent.randn(base, apply_gauge_projection=False).to_dense().reshape(-1)
+    >>> dense_vv = np.stack([t3m.MANIFOLD.randn(base).to_dense().reshape(-1)
     ...                      for _ in range(n_entries)])
     >>> ss = np.linalg.svd(dense_vv, compute_uv=False)
     >>> print(int(np.sum(ss > 1e-9 * ss[0])))   # number of nonzero singular values == manifold_dim
@@ -276,19 +280,6 @@ class T3Tangent:
         summed = cw.corewise_stack_sum(self.variations.data, axis, len(self.tangent_stack_shape))
         return T3Tangent(self.basis, bvf.T3Variations(*summed))
 
-    def retract(
-            self,
-    ) -> t3.TuckerTensorTrain:  # retracted Tucker tensor train (on the manifold)
-        """Retract the tangent vector to the fixed-rank manifold.
-
-        Forms the shifted doubled-rank embedding (base point + v) and truncates it back to the base
-        ranks via T3-SVD, yielding a point on the manifold of the base point's ranks.
-
-        The truncation is the implicit T3-SVD (Algorithm 10) of Alger et al. (2026),
-        "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
-        """
-        return t3.TuckerTensorTrain(*tangent_operations.retract(self.basis.data, self.variations.data))
-
     @staticmethod
     def zeros(
             basis:          bvf.T3Basis,
@@ -303,50 +294,6 @@ class T3Tangent:
         full_stack = stack_shape + basis.stack_shape  # K + C
         variations = bvf.T3Variations.zeros(basis.variation_shapes, full_stack, use_jax)
         return T3Tangent(basis, variations)
-
-    @staticmethod
-    def randn(
-            basis:                  bvf.T3Basis,
-            stack_shape:            typ.Tuple[int, ...] = (),  # extra tangent stack K (a batch of tangents)
-            apply_gauge_projection: bool = True,
-    ) -> 'T3Tangent':
-        """Random tangent vector at a given basis (numpy/jax matching the basis).
-
-        ``stack_shape`` is the extra *outer* tangent stack ``K`` (a batch of tangents sharing this
-        base); the variation cores are stacked as ``K + C + (core,)``. Default ``K=()``.
-
-        With ``apply_gauge_projection=True`` (default) the variations are gauged (via orthogonal
-        projection); for an orthogonal, minimal-rank basis this makes the tangent vector a standard
-        Gaussian on the tangent space. With ``apply_gauge_projection=False`` the variations are raw
-        i.i.d. N(0, 1) cores (ungauged).
-        """
-        use_jax = tree_contains_jax(basis.data)       # match the basis's array type
-        full_stack = stack_shape + basis.stack_shape  # K + C
-        v = T3Tangent(basis, bvf.T3Variations.randn(basis.variation_shapes, full_stack, use_jax))
-        if apply_gauge_projection:
-            v = v.orthogonal_gauge_projection()
-        return v
-
-    @staticmethod
-    def random_orthogonal(
-            shape:                  typ.Sequence[int],          # (N0,...,N(d-1))
-            tucker_ranks:           typ.Sequence[int],          # (n0,...,n(d-1))
-            tt_ranks:               typ.Sequence[int],          # (1,r1,...,r(d-1),1)
-            stack_shape:            typ.Tuple[int, ...] = (),   # base stack C (random base points)
-            tangent_stack_shape:    typ.Tuple[int, ...] = (),   # tangent stack K
-            use_jax:                bool = False,
-            apply_gauge_projection: bool = True,
-    ) -> 'T3Tangent':
-        """Fully random tangent: a random direction at a random base point.
-
-        ``stack_shape`` is the base stack ``C`` (random base points); ``tangent_stack_shape`` is the
-        tangent stack ``K``. ``apply_gauge_projection`` is as in :py:meth:`randn`. Equivalent to
-        ``T3Tangent.randn(T3Basis.random_orthogonal(...), ...)``.
-        """
-        base = bvf.T3Basis.random_orthogonal(shape, tucker_ranks, tt_ranks,
-                                             stack_shape=stack_shape, use_jax=use_jax)
-        return T3Tangent.randn(base, stack_shape=tangent_stack_shape,
-                               apply_gauge_projection=apply_gauge_projection)
 
     @staticmethod
     def unit(
@@ -367,42 +314,6 @@ class T3Tangent:
     def zeros_like(tangent: 'T3Tangent') -> 'T3Tangent':
         """Zero tangent at ``tangent``'s base, with ``tangent``'s tangent stack ``K``."""
         return T3Tangent.zeros(tangent.basis, stack_shape=tangent.tangent_stack_shape)
-
-    @staticmethod
-    def randn_like(
-            tangent:                'T3Tangent',  # reuse its base + tangent stack K
-            apply_gauge_projection: bool = True,
-    ) -> 'T3Tangent':
-        """Random tangent at ``tangent``'s base, with ``tangent``'s tangent stack ``K``."""
-        return T3Tangent.randn(tangent.basis, stack_shape=tangent.tangent_stack_shape,
-                               apply_gauge_projection=apply_gauge_projection)
-
-    @staticmethod
-    def project(
-            x:          t3.TuckerTensorTrain,
-            basis:      bvf.T3Basis,
-    ) -> 'T3Tangent':
-        """Orthogonal projection of a TuckerTensorTrain onto the tangent space at ``basis``.
-
-        Returns the (gauged) tangent vector representing the orthogonal projection ``P_T(x)`` of ``x``
-        **directly** onto the tangent space ``T`` (a linear subspace of the ambient tensor space): it
-        does *not* subtract the base point. For ``x`` already in ``T`` this is the identity; for a
-        general ambient ``x`` the residual ``x - P_T(x)`` is orthogonal to ``T``. This is exactly the
-        map for projecting a gradient (see :py:func:`riemannian_gradient`). Requires an **orthogonal**
-        ``basis`` (minimal rank is *not* required).
-        """
-        variations = tangent_operations.project_t3_onto_tangent_space(basis.data, x.data)
-        return T3Tangent(basis, bvf.T3Variations(*variations))
-
-    def transport(self, new_basis: bvf.T3Basis) -> 'T3Tangent':
-        """Projective vector transport of this tangent to the tangent space at ``new_basis``.
-
-        Re-projects this tangent (viewed as an ambient tensor via :py:meth:`to_t3`) orthogonally onto
-        the tangent space at the new base: ``T3Tangent.project(self.to_t3(), new_basis)``. Returns a
-        (gauged) tangent at ``new_basis``. This is projective transport -- the cheap, standard choice
-        for fixed-rank Riemannian optimization -- not parallel transport.
-        """
-        return T3Tangent.project(self.to_t3(), new_basis)
 
     ############################################
     ##########    Linear algebra    ############
@@ -545,35 +456,6 @@ class T3Tangent:
         return bool(tangent_operations.gauge_residual(self.basis.data, self.variations.data) <= atol)
 
     ############################################
-    ##########    Gauge projections    #########
-    ############################################
-
-    def orthogonal_gauge_projection(self) -> 'T3Tangent':
-        """Gauge the variations via orthogonal projection (changes the tangent vector).
-
-        Returns a tangent vector at the same basis whose variations satisfy the gauge conditions.
-        Because it is an orthogonal projection of the variations, it represents a DIFFERENT tangent
-        vector than ``self``. For the gauge-preserving variant see :py:meth:`oblique_gauge_projection`.
-        """
-        new_variations = tangent_operations.orthogonal_gauge_projection(
-            self.basis.data, self.variations.data,
-        )
-        return T3Tangent(self.basis, bvf.T3Variations(*new_variations))
-
-    def oblique_gauge_projection(self) -> 'T3Tangent':
-        """Gauge the variations while preserving the represented tangent vector.
-
-        Returns a tangent vector at the same basis representing the SAME vector as ``self`` but with
-        gauged variations. When the basis is orthogonal with minimal ranks, corewise linear algebra
-        on the gauged variations then faithfully matches the Hilbert-Schmidt operations, so
-        :py:meth:`inner` / :py:meth:`norm` give the true HS values.
-        """
-        new_variations = tangent_operations.oblique_gauge_projection(
-            self.basis.data, self.variations.data,
-        )
-        return T3Tangent(self.basis, bvf.T3Variations(*new_variations))
-
-    ############################################
     ##########    Probing    ###################
     ############################################
 
@@ -590,7 +472,7 @@ class T3Tangent:
         which case ``J^(s)`` is applied to each of the ``K`` tangent vectors sharing the base.
 
         This is the bare ``J^(s)`` (no gauge projector ``Pi``); for the Riemannian ``J = J^(s) o Pi``
-        compose a gauge projection (e.g. :py:meth:`orthogonal_gauge_projection`) yourself.
+        compose a gauge projection (e.g. :py:meth:`ManifoldGeometry.project`) yourself.
 
         See Section 6.2.2 (Algorithms 6-7) of Alger et al. (2026), "Tucker Tensor Train Taylor
         Series" (arXiv:2603.21141).
@@ -619,7 +501,7 @@ class T3Tangent:
 
         A tangent-stacked (K-stacked) tangent probes each of its ``K`` vectors, output ``W + K + C``:
 
-        >>> vb = t3m.T3Tangent.randn(base, stack_shape=(3,), apply_gauge_projection=False)
+        >>> vb = t3m.COREWISE.randn(base, stack_shape=(3,))
         >>> zzb = vb.probe(ww)
         >>> print(zzb[0].shape)            # W + K + C + (N0,) = (2,) + (3,) + () + (10,)
         (2, 3, 10)
@@ -668,7 +550,7 @@ class T3Tangent:
         >>> import t3toolbox.manifold as t3m
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
         >>> base, _ = bvf.t3_orthogonal_representations(x)
-        >>> v = t3m.T3Tangent.randn(base)
+        >>> v = t3m.MANIFOLD.randn(base)
         >>> ww = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
         >>> z = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
         >>> Jv = v.probe(ww)
@@ -808,7 +690,7 @@ class T3Tangent:
         >>> import t3toolbox.corewise as cw
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
         >>> base, _ = bvf.t3_orthogonal_representations(x)
-        >>> v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+        >>> v = t3m.COREWISE.randn(base)
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> ATc = t3m.T3Tangent.apply_transpose(np.asarray(1.7), ww, base, sum_over_probes=True)
         >>> lhs = float(cw.corewise_dot(ATc.variations.data, v.variations.data))
@@ -997,7 +879,7 @@ class T3Tangent:
         >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
         >>> base, _ = bvf.t3_orthogonal_representations(x)
-        >>> v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+        >>> v = t3m.COREWISE.randn(base)
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> Jv = v.probe_derivatives(ww, pp, 2)
@@ -1144,59 +1026,261 @@ class T3Tangent:
         return T3Tangent(bvf.T3Basis(*basis_data), bvf.T3Variations(*variations_data))
 
 
-def project_dense_onto_tangent(
-        dense_tensor:   NDArray,                # shape = stack_shape + (N0, ..., N(d-1))
-        basis:          bvf.T3Basis,            # orthogonal base point of the tangent space
-        method:         str = 'contraction',    # 'contraction' (default, no SVD) or 't3svd'
-) -> T3Tangent:                                 # gauged projection P_T(dense_tensor) at ``basis``
-    """Orthogonal projection of a dense ambient tensor onto the tangent space at ``basis``.
+############################################
+##########    Geometry    ##################
+############################################
 
-    Returns the (gauged) tangent ``P_T(dense_tensor)``; the residual ``dense_tensor - P_T(dense_tensor)``
-    is orthogonal to the tangent space. It projects *directly* onto the tangent space (a linear
-    subspace) -- it does not subtract the base point. Lives outside :py:class:`T3Tangent` because its
-    input is a raw array, not a tangent. Leading axes beyond the ``d`` tensor modes are treated as a
-    stack. Requires an **orthogonal** ``basis`` (minimal rank is *not* required).
 
-    ``method`` selects the algorithm (both give the same projection):
+class ManifoldGeometry:
+    """The Riemannian geometry of the fixed-rank Tucker tensor train manifold ``M``.
 
-    - ``'contraction'`` (default) -- contract ``dense_tensor`` directly against the base frames
-      (:py:func:`~t3toolbox.backend.tangent_operations.project_dense_onto_tangent_space`). No SVD and
-      no large intermediate Tucker tensor train.
-    - ``'t3svd'`` -- represent ``dense_tensor`` exactly as a :py:class:`TuckerTensorTrain` (via
-      :py:meth:`TuckerTensorTrain.t3svd_dense`, no truncation) and project that with
-      :py:meth:`T3Tangent.project`. Reuses existing machinery but is expensive (large SVDs).
+    Optimization happens *on* ``M``: tangents live in ``T_xM`` with an orthonormal, gauged frame, the
+    metric is Hilbert-Schmidt, and one moves by the manifold retraction (truncate the shifted
+    doubled-rank embedding back to the base ranks). A geometry is a *stateless* bundle of the three
+    chart-level choices that distinguish this from the over-parametrized corewise geometry -- the
+    frame (:py:meth:`base`), the gauge projection ``Pi`` (:py:meth:`project`), and the retraction
+    (:py:meth:`retract`) -- plus the manifold-only ambient projection and transport. The point lives
+    in the caller (or the fitting model), not the geometry; use the module singleton :py:data:`MANIFOLD`.
+
+    See Section 6 and Appendix A.3 of Alger et al. (2026), "Tucker Tensor Train Taylor Series"
+    (arXiv:2603.21141). The corewise counterpart is :py:class:`CorewiseGeometry`.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
+    >>> base = t3m.MANIFOLD.base(x)            # orthonormal frame at x
+    >>> print(base.is_orthogonal())
+    True
+    >>> v = t3m.MANIFOLD.randn(base)           # a standard Gaussian on T_xM (gauged)
+    >>> print(v.is_gauged())
+    True
+    >>> y = t3m.MANIFOLD.retract(t3m.T3Tangent.zeros(base))   # retract the zero tangent == the base point
+    >>> print(bool(np.allclose(y.to_dense(), x.to_dense())))
+    True
     """
-    if method == 'contraction':
-        variations = tangent_operations.project_dense_onto_tangent_space(basis.data, dense_tensor)
-        return T3Tangent(basis, bvf.T3Variations(*variations))
-    elif method == 't3svd':
-        d = len(basis.shape)
-        stack_shape = tuple(dense_tensor.shape[:dense_tensor.ndim - d])
-        x, _, _ = t3.TuckerTensorTrain.t3svd_dense(dense_tensor, stack_shape=stack_shape)
-        return T3Tangent.project(x, basis)
-    else:
-        raise ValueError(
-            "project_dense_onto_tangent: method must be 'contraction' or 't3svd', got %r" % (method,))
+
+    def base(
+            self,
+            x:  t3.TuckerTensorTrain,
+    ) -> bvf.T3Basis:  # orthonormal frame (U, O, P, Q) at x
+        """The orthonormal frame at ``x`` (the left/right/outer-orthogonal representation)."""
+        base, _ = bvf.t3_orthogonal_representations(x)
+        return base
+
+    def randn(
+            self,
+            basis:          bvf.T3Basis,
+            stack_shape:    typ.Tuple[int, ...] = (),  # extra tangent stack K (a batch of tangents)
+    ) -> T3Tangent:  # gauged random tangent at basis
+        """Random tangent at ``basis``: a standard Gaussian on the tangent space ``T_xM``.
+
+        Raw i.i.d. N(0, 1) variation cores, then the gauge projection :py:meth:`project` (``Pi``). For
+        an orthogonal, minimal-rank ``basis`` this is exactly the standard Gaussian on ``T_xM``; for a
+        non-orthogonal basis it is merely gauged. ``stack_shape`` is the extra outer tangent stack
+        ``K`` (default ``()``).
+        """
+        use_jax = tree_contains_jax(basis.data)
+        full_stack = tuple(stack_shape) + basis.stack_shape  # K + C
+        v = T3Tangent(basis, bvf.T3Variations.randn(basis.variation_shapes, full_stack, use_jax))
+        return self.project(v)
+
+    def random_orthogonal(
+            self,
+            shape:                  typ.Sequence[int],         # (N0,...,N(d-1))
+            tucker_ranks:           typ.Sequence[int],         # (n0,...,n(d-1))
+            tt_ranks:               typ.Sequence[int],         # (1,r1,...,r(d-1),1)
+            stack_shape:            typ.Tuple[int, ...] = (),  # base stack C (random base points)
+            tangent_stack_shape:    typ.Tuple[int, ...] = (),  # tangent stack K
+            use_jax:                bool = False,
+    ) -> T3Tangent:  # gauged random tangent at a random orthogonal base point
+        """A gauged random tangent at a random orthogonal base point (random direction, random base)."""
+        base = bvf.T3Basis.random_orthogonal(shape, tucker_ranks, tt_ranks,
+                                             stack_shape=stack_shape, use_jax=use_jax)
+        return self.randn(base, stack_shape=tangent_stack_shape)
+
+    def randn_like(
+            self,
+            tangent:    T3Tangent,  # reuse its base + tangent stack K
+    ) -> T3Tangent:  # gauged random tangent at tangent's base
+        """A gauged random tangent at ``tangent``'s base, with ``tangent``'s tangent stack ``K``."""
+        return self.randn(tangent.basis, stack_shape=tangent.tangent_stack_shape)
+
+    def project(
+            self,
+            v:  T3Tangent,
+    ) -> T3Tangent:  # gauged tangent at v's basis (a DIFFERENT vector)
+        """The gauge projection ``Pi``: raw cotangent -> Riemannian gradient (orthogonal gauge).
+
+        Orthogonally projects ``v``'s variations onto the gauged tangent space (the gauge conditions
+        (48)-(49), Appendix A.3). Represents a DIFFERENT tangent vector than ``v``. This is the map
+        that turns a bare adjoint ``J^T r`` into the Riemannian gradient. For the vector-preserving
+        gauge fix see :py:meth:`project_oblique`.
+        """
+        new_variations = tangent_operations.orthogonal_gauge_projection(v.basis.data, v.variations.data)
+        return T3Tangent(v.basis, bvf.T3Variations(*new_variations))
+
+    def project_oblique(
+            self,
+            v:  T3Tangent,
+    ) -> T3Tangent:  # gauged tangent at v's basis (the SAME vector)
+        """Gauge ``v``'s variations while preserving the represented tangent vector (oblique projection).
+
+        Returns a tangent at the same basis representing the SAME vector as ``v`` but gauged, so that
+        on an orthogonal minimal-rank basis :py:meth:`T3Tangent.inner` / :py:meth:`T3Tangent.norm`
+        give the true Hilbert-Schmidt values.
+        """
+        new_variations = tangent_operations.oblique_gauge_projection(v.basis.data, v.variations.data)
+        return T3Tangent(v.basis, bvf.T3Variations(*new_variations))
+
+    def retract(
+            self,
+            p:  T3Tangent,  # step (a tangent at the current point's frame)
+    ) -> t3.TuckerTensorTrain:  # retracted point on M, at p's base ranks
+        """Retract the step ``p`` to the manifold: shifted doubled-rank embedding, truncated to base ranks.
+
+        Forms ``base point + p`` and truncates back to ``p``'s base ranks via the implicit T3-SVD
+        (Algorithm 10). The current point is carried by ``p.basis`` (its orthonormal frame), so no
+        separate point argument is needed.
+        """
+        cores = tangent_operations.retract(p.basis.data, p.variations.data)
+        return t3.TuckerTensorTrain(*cores)
+
+    def project_ambient(
+            self,
+            basis:  bvf.T3Basis,                               # orthogonal base point of the tangent space
+            grad:   typ.Union[t3.TuckerTensorTrain, NDArray],  # ambient gradient: a T3 or a dense array
+            method: str = 'contraction',                       # dense only: 'contraction' (no SVD) or 't3svd'
+    ) -> T3Tangent:  # the Riemannian gradient (gauged projection of grad) at basis
+        """Project an ambient gradient onto ``T_xM`` -- the Riemannian gradient.
+
+        ``grad`` is the Euclidean/ambient gradient, either a :py:class:`TuckerTensorTrain` or a dense
+        array (leading axes beyond the ``d`` modes are a stack). Returns the (gauged) tangent
+        ``P_T(grad)``; the residual ``grad - P_T(grad)`` is orthogonal to the tangent space. Requires
+        an **orthogonal** ``basis`` (minimal rank is *not* required). For a dense ``grad``, ``method``
+        selects the algorithm (same projection): ``'contraction'`` (default, contract against the
+        frames, no SVD) or ``'t3svd'`` (exact T3-SVD then project; expensive). This is the
+        tangent-space projection of Section 6 / Appendix A.3.
+        """
+        if isinstance(grad, t3.TuckerTensorTrain):
+            variations = tangent_operations.project_t3_onto_tangent_space(basis.data, grad.data)
+            return T3Tangent(basis, bvf.T3Variations(*variations))
+        if method == 'contraction':
+            variations = tangent_operations.project_dense_onto_tangent_space(basis.data, grad)
+            return T3Tangent(basis, bvf.T3Variations(*variations))
+        elif method == 't3svd':
+            d = len(basis.shape)
+            stack_shape = tuple(grad.shape[:grad.ndim - d])
+            x, _, _ = t3.TuckerTensorTrain.t3svd_dense(grad, stack_shape=stack_shape)
+            return self.project_ambient(basis, x)
+        else:
+            raise ValueError(
+                "project_ambient: method must be 'contraction' or 't3svd', got %r" % (method,))
+
+    def transport(
+            self,
+            v:          T3Tangent,
+            new_basis:  bvf.T3Basis,
+    ) -> T3Tangent:  # v transported to the tangent space at new_basis
+        """Projective vector transport of ``v`` to the tangent space at ``new_basis``.
+
+        Re-projects ``v`` (as an ambient tensor via :py:meth:`T3Tangent.to_t3`) orthogonally onto the
+        tangent space at ``new_basis``. The cheap, standard choice for fixed-rank Riemannian
+        optimization -- not parallel transport.
+        """
+        return self.project_ambient(new_basis, v.to_t3())
 
 
-def riemannian_gradient(euclidean_gradient, basis: bvf.T3Basis) -> T3Tangent:
-    """Riemannian gradient: the orthogonal projection of a Euclidean gradient onto the tangent space.
+class CorewiseGeometry:
+    """The Euclidean geometry of the core parameter space ``P`` (the over-parametrized cover of ``M``).
 
-    Under the standard (Euclidean / Hilbert-Schmidt) ambient metric the Riemannian gradient of a
-    function on the fixed-rank manifold is just the tangent-space projection of its Euclidean
-    gradient. ``euclidean_gradient`` may be a :py:class:`TuckerTensorTrain` (projected via
-    :py:meth:`T3Tangent.project`) or a dense array (via :py:func:`project_dense_onto_tangent`).
-    Returns the (gauged) Riemannian gradient as a tangent vector at ``basis``.
+    Optimization happens *on* the raw cores: tangents are perturbations of the cores ``(U, G, G, G)``
+    (the non-orthonormal frame whose down/left/right cores are all the TT cores ``G``), the metric is
+    the plain Euclidean (corewise) inner product, the "projection" is the identity (no gauge), and the
+    retraction is vector addition in the cores. The corewise gradient is a genuine
+    :py:class:`T3Tangent` at this frame -- not a raw tuple. Gauge directions lie in the kernel of the
+    pushforward, so the Gauss-Newton Hessian is gauge-singular (fine for Adam / L-BFGS, needs
+    regularization for Newton). Use the module singleton :py:data:`COREWISE`. The §6.3 substitution
+    ``(O, P, Q) -> G`` is exactly this change of frame; the manifold counterpart is
+    :py:class:`ManifoldGeometry`.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
+    >>> base = t3m.COREWISE.base(x)            # the (U, G, G, G) frame
+    >>> v = t3m.COREWISE.randn(base)           # raw randn cores (no gauge)
+    >>> print(v.is_gauged())
+    False
+    >>> y = t3m.COREWISE.retract(v)            # additive: cores += v (a multilinear curve on M)
+    >>> U, G = x.data
+    >>> dU, dG = v.variations.tucker_variations, v.variations.tt_variations
+    >>> ref = t3.TuckerTensorTrain(tuple(u + du for u, du in zip(U, dU)),
+    ...                            tuple(g + dg for g, dg in zip(G, dG)))
+    >>> print(bool(np.allclose(y.to_dense(), ref.to_dense())))
+    True
     """
-    if isinstance(euclidean_gradient, t3.TuckerTensorTrain):
-        return T3Tangent.project(euclidean_gradient, basis)
-    return project_dense_onto_tangent(euclidean_gradient, basis)
+
+    def base(
+            self,
+            x:  t3.TuckerTensorTrain,
+    ) -> bvf.T3Basis:  # the (U, G, G, G) non-orthonormal frame at x
+        """The core-parameter frame at ``x``: ``(U, G, G, G)`` (down/left/right all the TT cores ``G``)."""
+        tucker_cores, tt_cores = x.data
+        return bvf.T3Basis(tucker_cores, tt_cores, tt_cores, tt_cores)
+
+    def randn(
+            self,
+            basis:          bvf.T3Basis,
+            stack_shape:    typ.Tuple[int, ...] = (),  # extra tangent stack K
+    ) -> T3Tangent:  # raw random tangent at basis (ungauged)
+        """Random tangent at ``basis``: raw i.i.d. N(0, 1) variation cores (the natural corewise Gaussian)."""
+        use_jax = tree_contains_jax(basis.data)
+        full_stack = tuple(stack_shape) + basis.stack_shape  # K + C
+        return T3Tangent(basis, bvf.T3Variations.randn(basis.variation_shapes, full_stack, use_jax))
+
+    def randn_like(
+            self,
+            tangent:    T3Tangent,
+    ) -> T3Tangent:  # raw random tangent at tangent's base
+        """A raw random tangent at ``tangent``'s base, with ``tangent``'s tangent stack ``K``."""
+        return self.randn(tangent.basis, stack_shape=tangent.tangent_stack_shape)
+
+    def project(
+            self,
+            v:  T3Tangent,
+    ) -> T3Tangent:  # v unchanged (no gauge on the core parameter space)
+        """The identity: the core parameter space is Euclidean, with no gauge projection."""
+        return v
+
+    def retract(
+            self,
+            p:  T3Tangent,  # step (a corewise tangent at base = (U, G, G, G))
+    ) -> t3.TuckerTensorTrain:  # additive retraction: cores += p
+        """Additive retraction: add the variation cores to the point's cores (``cores += p``).
+
+        Recovers the point ``(U, G)`` from ``p.basis`` (which :py:meth:`base` built as ``(U, G, G, G)``)
+        and adds the variations. ``p`` must be a corewise tangent (a basis from :py:meth:`base`).
+        """
+        x_data = (p.basis.up_tucker_cores, p.basis.left_tt_cores)  # (U, G) from the (U, G, G, G) frame
+        new = cw.corewise_add(x_data, p.variations.data)
+        return t3.TuckerTensorTrain(*new)
+
+
+MANIFOLD = ManifoldGeometry()    # the fixed-rank Riemannian geometry (gauge Pi, manifold retraction)
+COREWISE = CorewiseGeometry()    # the core parameter-space Euclidean geometry (no gauge, additive retraction)
 
 
 # Note: exp / log / geodesic (the true Riemannian exponential, logarithm, and geodesics) are
-# intentionally omitted for now -- fixed-rank manifolds have no closed-form geodesics. The library
-# uses retraction (:py:meth:`T3Tangent.retract`) and projective transport
-# (:py:meth:`T3Tangent.transport`) as the practical substitutes.
+# intentionally omitted -- fixed-rank manifolds have no closed-form geodesics. The library uses the
+# retraction (:py:meth:`ManifoldGeometry.retract`) and projective transport
+# (:py:meth:`ManifoldGeometry.transport`) as the practical substitutes.
 
 
 def _flatten_tangents(tree) -> typ.List['T3Tangent']:

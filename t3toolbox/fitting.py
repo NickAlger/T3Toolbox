@@ -73,7 +73,7 @@ class ApplyGaussNewtonModel:
 
     The Gauss-Newton Hessian action ``H p`` stays on the (gauged) tangent space:
 
-    >>> p = t3m.T3Tangent.randn(base)                       # a gauged trial step
+    >>> p = t3m.MANIFOLD.randn(base)                       # a gauged trial step
     >>> hp = model.gn_hessian(p)
     >>> hp.is_gauged()
     True
@@ -89,7 +89,7 @@ class ApplyGaussNewtonModel:
     A trial step at a *different* base is a structural error (the model is tied to its base):
 
     >>> other, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1)))
-    >>> model.gn_hessian(t3m.T3Tangent.randn(other))   # doctest: +IGNORE_EXCEPTION_DETAIL
+    >>> model.gn_hessian(t3m.MANIFOLD.randn(other))   # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
     ValueError: trial tangent must live at the model's base (same T3Basis object)
     '''
@@ -150,7 +150,7 @@ class EntriesGaussNewtonModel:
     >>> model = fitting.EntriesGaussNewtonModel(base, index, r)
     >>> model.gradient.is_gauged()
     True
-    >>> p = t3m.T3Tangent.randn(base)
+    >>> p = t3m.MANIFOLD.randn(base)
     >>> hp = model.gn_hessian(p)
     >>> m_built = float(model.objective_value + model.gradient.inner(p) + 0.5 * p.inner(hp))
     >>> bool(np.allclose(float(model.evaluate(p)), m_built))
@@ -213,7 +213,7 @@ class ProbeGaussNewtonModel:
     >>> model = fitting.ProbeGaussNewtonModel(base, ww, r)
     >>> model.gradient.is_gauged()
     True
-    >>> p = t3m.T3Tangent.randn(base)
+    >>> p = t3m.MANIFOLD.randn(base)
     >>> hp = model.gn_hessian(p)
     >>> m_built = float(model.objective_value + model.gradient.inner(p) + 0.5 * p.inner(hp))
     >>> bool(np.allclose(float(model.evaluate(p)), m_built))

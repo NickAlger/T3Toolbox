@@ -39,7 +39,7 @@ over the fixed-rank manifold, with **Riemannian inexact Newton-CG and an Armijo 
     it on each apply, which is the whole reason the fitting layer exists;
   * the Newton system is solved approximately by CG in the tangent space (the "inexact" part), with a
     forcing term that tightens as we converge;
-  * each step is retracted back to the manifold by ``T3Tangent.retract`` and accepted by backtracking.
+  * each step is retracted back to the manifold by ``MANIFOLD.retract`` and accepted by backtracking.
 
 The optimizer only touches the forward map, a Gauss-Newton model builder, and a measurement-space inner
 product, so swapping ``apply`` for ``entries`` / ``probe`` is a one-line change of those (once the
@@ -217,7 +217,7 @@ def riemannian_newton_cg(X0, forward, model_builder, meas_dot, b,
         alpha = 1.0
         X_trial = X
         for _ in range(40):
-            X_trial = (alpha * p).retract()
+            X_trial = t3m.MANIFOLD.retract(alpha * p)
             r_trial = forward(X_trial) - b
             f_trial = 0.5 * meas_dot(r_trial, r_trial)
             if f_trial <= f + c_armijo * alpha * slope:

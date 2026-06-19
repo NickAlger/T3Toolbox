@@ -1576,7 +1576,7 @@ def probe_tangent_transpose(
     >>> base, _ = bvf.t3_orthogonal_representations(x)
     >>> probe_base = base.data  # probing's base order == T3Basis.data, no reorder
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-    >>> v = t3m.T3Tangent.randn(base)
+    >>> v = t3m.MANIFOLD.randn(base)
     >>> z = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> Jv  = t3p.probe_tangent(ww, v.variations.data, probe_base)
     >>> JTz = t3p.probe_tangent_transpose(z, ww, probe_base)   # (dU_tildes, dG_tildes)
@@ -1598,7 +1598,7 @@ def probe_tangent_transpose(
     >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
     >>> base, _ = bvf.t3_orthogonal_representations(x)
     >>> ww = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))  # W=(2,)
-    >>> v = t3m.T3Tangent.randn(base)
+    >>> v = t3m.MANIFOLD.randn(base)
     >>> z = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
     >>> Jv  = t3p.probe_tangent(ww, v.variations.data, base.data)        # W-stacked probes
     >>> JTz = t3p.probe_tangent_transpose(z, ww, base.data, sum_over_probes=True)

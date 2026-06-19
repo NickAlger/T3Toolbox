@@ -170,7 +170,7 @@ def riemannian_newton_cg(X0, forward, transpose, meas_dot, b,
         base, _ = bvf.t3_orthogonal_representations(X)
         r = forward(X) - b
         f = 0.5 * meas_dot(r, r)
-        g = transpose(r, base).orthogonal_gauge_projection()
+        g = t3m.MANIFOLD.project(transpose(r, base))
         gnorm = float(g.norm())
         if g0norm is None:
             g0norm = gnorm if gnorm > 0.0 else 1.0
@@ -179,7 +179,7 @@ def riemannian_newton_cg(X0, forward, transpose, meas_dot, b,
         newton_iters += 1
 
         def H(V):
-            return transpose(forward(V), base).orthogonal_gauge_projection()
+            return t3m.MANIFOLD.project(transpose(forward(V), base))
 
         eta = min(0.5, np.sqrt(gnorm / g0norm))
         p, _ = _tangent_cg(H, -g, base, tol=eta * gnorm, maxiter=cg_maxiter)
@@ -189,7 +189,7 @@ def riemannian_newton_cg(X0, forward, transpose, meas_dot, b,
         alpha = 1.0
         X_trial = X
         for _ in range(40):
-            X_trial = (alpha * p).retract()
+            X_trial = t3m.MANIFOLD.retract(alpha * p)
             r_trial = forward(X_trial) - b
             if 0.5 * meas_dot(r_trial, r_trial) <= f + c_armijo * alpha * slope:
                 break
