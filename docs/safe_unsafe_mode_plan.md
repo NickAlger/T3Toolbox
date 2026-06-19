@@ -179,7 +179,23 @@ completed and signed off):
    genuinely-different frame **raises** (+ `unsafe()` skip); `test_dispatch` checks the computed
    **variations** are jax (the passed-through numpy basis is a leaf now). Verified: 220 core + dispatch +
    doctests; both Hilbert examples reproduce.
-5. **S5 — wire the remaining preconditions** from the §5 catalog (orthogonal for retract/project/…, etc.).
+5. **S5 — wire the remaining preconditions. ✅ DONE.** Wired the **ORTH** precondition (safe-mode,
+   eager-only) into the manifold projections/retraction via a shared helper `_require_orthogonal_frame`:
+   `MANIFOLD.project`, `project_oblique`, `retract`, `project_ambient` check the frame orthogonal and
+   raise otherwise; `transport`/`randn`/`random_orthogonal`/`randn_like` inherit it through their
+   delegation (documented). `CorewiseGeometry` is untouched (gauge-free by design). Minimal rank is **not**
+   wired (the experiment settled it is not a correctness precondition) — documented as a caveat on
+   `retract`. **Cost mitigation:** the ORTH/GAUGE checks route through cached residuals —
+   `T3Basis.orthogonality_residual` and `T3Tangent.gauge_residual` are now `@cached_property`s, so a fixed
+   base/tangent in an inner loop is contracted once (benefits S3's `inner`/`norm` too).
+   **Trace-detection fix (general):** a numerical check can run on a *closed-over concrete* operand while
+   globally inside a trace — a jnp op then still yields a constant tracer, so `bool(...)` breaks.
+   `is_tracing` now also detects the global trace state (`jax.core.trace_state_clean`, with a
+   committed-array probe fallback), not just whether the passed arrays are tracers. This also fixes a
+   latent S3 bug (`MANIFOLD.inner` on closed-over concrete tangents under jit). Tests:
+   `test_manifold_orth_preconditions`, `test_orthogonality_residual_cached`,
+   `test_checks_skip_under_trace_closed_over_concrete`; 223 core + dispatch + doctests pass; both Hilbert
+   examples reproduce.
 6. **S6 — verify.** `jit(matvec)` compiles once across bases (no recompile); eager guards fire in safe
    mode, catch real errors, and tolerate value-equal frames; numbers identical to today; both Hilbert
    examples + the full suite pass. Update CLAUDE.md (§8) and the geometry plan.

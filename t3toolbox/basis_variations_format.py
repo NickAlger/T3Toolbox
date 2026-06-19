@@ -262,6 +262,15 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         return (f"T3Basis(shape={self.shape}, up_ranks={self.up_ranks}, "
                 f"left_ranks={self.left_ranks}{ss})")
 
+    @ft.cached_property
+    def orthogonality_residual(self) -> float:
+        '''Max absolute deviation of the orthogonal cores from identity (atol-independent; **cached**).
+
+        The expensive part of :py:meth:`is_orthogonal` -- a fixed frame reused across an inner loop (e.g.
+        the safe-mode ORTH precondition of :py:meth:`~t3toolbox.manifold.ManifoldGeometry.project` on the
+        same base every matvec) is contracted **once**, not per call.'''
+        return orth_reps.basis_orthogonality_residual(self.data)
+
     def is_orthogonal(self, atol: float = 1e-9) -> bool:
         '''True if the basis cores are orthogonal in their respective senses.
 
@@ -289,7 +298,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         >>> print(base.is_orthogonal())
         True
         '''
-        return bool(orth_reps.basis_orthogonality_residual(self.data) <= atol)
+        return bool(self.orthogonality_residual <= atol)
 
     @ft.cached_property
     def minimal_ranks(self) -> typ.Tuple[typ.Tuple[int, ...], typ.Tuple[int, ...]]:

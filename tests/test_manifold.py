@@ -257,6 +257,51 @@ class TestManifold(unittest.TestCase):
         with safety.unsafe():                             # unsafe mode skips the numerical check
             _ = va + vc
 
+    def test_manifold_orth_preconditions(self):
+        # S5: the manifold projections/retraction enforce an ORTHOGONAL frame in safe mode (raise),
+        # skip under safety.unsafe(), and pass on an orthogonal frame. CorewiseGeometry never checks.
+        x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
+        base_orth, _ = bvf.t3_orthogonal_representations(x)
+        bad_cores = tuple(tuple(c + 0.3 * np.random.randn(*c.shape) for c in grp) for grp in base_orth.data)
+        base_bad = bvf.T3Basis(*bad_cores)
+        self.assertTrue(base_orth.is_orthogonal())
+        self.assertFalse(base_bad.is_orthogonal())
+
+        v_bad = t3m.T3Tangent(base_bad, _random_variations(base_bad))
+        raisers = [
+            lambda: t3m.MANIFOLD.project(v_bad),
+            lambda: t3m.MANIFOLD.project_oblique(v_bad),
+            lambda: t3m.MANIFOLD.retract(v_bad),
+            lambda: t3m.MANIFOLD.project_ambient(base_bad, x),
+            lambda: t3m.MANIFOLD.transport(v_bad, base_bad),
+            lambda: t3m.MANIFOLD.randn(base_bad),
+        ]
+        for op in raisers:                                   # safe mode (default): non-orthogonal -> raise
+            with self.assertRaises(ValueError):
+                op()
+        with safety.unsafe():                                # unsafe mode skips every ORTH check
+            for op in raisers:
+                op()
+
+        v_ok = t3m.MANIFOLD.randn(base_orth)                 # orthogonal frame: all pass in safe mode
+        t3m.MANIFOLD.project(v_ok)
+        t3m.MANIFOLD.retract(v_ok)
+        t3m.MANIFOLD.project_ambient(base_orth, x)
+        # CorewiseGeometry is gauge-free by design: no ORTH check even on the non-orthonormal corewise frame
+        cbase = t3m.COREWISE.base(x)
+        self.assertFalse(cbase.is_orthogonal())
+        t3m.COREWISE.project(t3m.COREWISE.randn(cbase))
+        t3m.COREWISE.retract(t3m.COREWISE.randn(cbase))
+
+    def test_orthogonality_residual_cached(self):
+        # the ORTH check routes through a cached residual: a fixed frame is contracted once (inner-loop perf)
+        x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
+        base, _ = bvf.t3_orthogonal_representations(x)
+        self.assertNotIn('orthogonality_residual', base.__dict__)
+        self.assertTrue(base.is_orthogonal())
+        self.assertIn('orthogonality_residual', base.__dict__)        # cached after first check
+        self.assertLess(float(base.orthogonality_residual), 1e-9)
+
     def test_inner_norm(self):
         x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
         base, _ = bvf.t3_orthogonal_representations(x)

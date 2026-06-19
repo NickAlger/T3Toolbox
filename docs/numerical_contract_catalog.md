@@ -140,8 +140,14 @@ frames). Naming convention: bare `minimal_ranks` = structural; `numerically_mini
   residual helpers), with the frontend methods inheriting them. `same_frame` is a frontend concept (it
   needs the two `T3Basis` objects); the backend's analogue is "the caller passed one shared base", so the
   same-frame check is naturally frontend-only.
-- **Cost mitigation:** make `is_orthogonal` (frame-only) and `is_gauged` (pair) `@cached_property`s on the
-  frozen objects so a fixed base/tangent in an inner loop is checked once, not per matvec.
+- **Cost mitigation (done in S5):** cache the atol-*independent* **residual**, not the atol-bool —
+  `T3Basis.orthogonality_residual` and `T3Tangent.gauge_residual` are `@cached_property`s, and
+  `is_orthogonal(atol)`/`is_gauged(atol)` compare against them. A fixed base/tangent in an inner loop is
+  contracted once; the atol stays a free parameter.
+- **Trace detection (done in S5):** the eager-only skip must fire even when the checked operand is a
+  *closed-over concrete* array (not a tracer) while globally inside a trace — a jnp op then still yields a
+  constant tracer. `safety.is_tracing` detects the global trace state (`jax.core.trace_state_clean`, with a
+  committed-array-probe fallback), not just whether the passed arrays are tracers.
 
 ## Sign-off questions for Nick
 

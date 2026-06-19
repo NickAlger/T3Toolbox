@@ -139,12 +139,41 @@ def effective_rtol(*inputs):
     return tols.rtol_jax if tree_contains_jax(inputs) else tols.rtol_numpy
 
 
-def is_tracing(*arrays):
-    '''True if any argument is a jax tracer (i.e. we are inside a jax transform: jit / grad / vmap).'''
+_trace_probe = None  # a committed jax array; lazily built (fallback trace detector, see _inside_jax_trace)
+
+
+def _inside_jax_trace():
+    '''True iff we are currently inside *any* jax transform (jit / grad / vmap), independent of the inputs.
+
+    Needed because a numerical check can operate on **closed-over concrete** arrays (not tracers): inside a
+    trace, even a jnp op on a committed array yields a (constant) tracer, so ``bool(...)`` on the result
+    still fails. Inspecting only the passed arrays (``is_tracing``'s fast path) misses this. Uses jax's
+    ``trace_state_clean`` when available, falling back to the version-stable probe: a committed-array op is
+    a tracer iff we are tracing.'''
     if not has_jax:
         return False
     import jax
-    return any(isinstance(a, jax.core.Tracer) for a in arrays)
+    try:
+        return not jax.core.trace_state_clean()
+    except Exception:
+        global _trace_probe
+        try:
+            if _trace_probe is None:
+                _trace_probe = jax.numpy.zeros(1)
+            return isinstance(_trace_probe + _trace_probe, jax.core.Tracer)
+        except Exception:
+            return False
+
+
+def is_tracing(*arrays):
+    '''True if we are inside a jax transform (jit / grad / vmap): any argument is a tracer, **or** we are
+    globally under a trace (the closed-over-concrete-operand case -- see :py:func:`_inside_jax_trace`).'''
+    if not has_jax:
+        return False
+    import jax
+    if any(isinstance(a, jax.core.Tracer) for a in arrays):
+        return True
+    return _inside_jax_trace()
 
 
 def checks_active(*inputs):

@@ -445,6 +445,15 @@ class T3Tangent:
         """True if this tangent's basis is orthogonal. See :py:meth:`T3Basis.is_orthogonal`."""
         return self.basis.is_orthogonal(atol=atol)
 
+    @ft.cached_property
+    def gauge_residual(self) -> float:
+        """Max absolute gauge-condition violation (atol-independent; **cached**).
+
+        The expensive part of :py:meth:`is_gauged` -- a fixed tangent reused across an inner loop (e.g.
+        the safe-mode GAUGE precondition of :py:meth:`ManifoldGeometry.inner`) is contracted **once**.
+        """
+        return tangent_operations.gauge_residual(self.basis.data, self.variations.data)
+
     def is_gauged(self, atol: float = 1e-9) -> bool:
         """True if the variations are gauged with respect to the basis.
 
@@ -456,7 +465,7 @@ class T3Tangent:
         These are the gauge conditions (48)-(49), Appendix A.3, of Alger et al. (2026),
         "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
         """
-        return bool(tangent_operations.gauge_residual(self.basis.data, self.variations.data) <= atol)
+        return bool(self.gauge_residual <= atol)
 
     ############################################
     ##########    Probing    ###################
@@ -1034,6 +1043,25 @@ class T3Tangent:
 ############################################
 
 
+def _require_orthogonal_frame(basis: bvf.T3Basis, who: str) -> None:
+    """Safe-mode ORTH precondition: ``who`` (a manifold op) requires an orthonormal frame.
+
+    The tolerance is governed by the frame cores (the operand being checked); the check skips under any
+    jax trace (jit == unsafe -- even on a closed-over concrete frame, via ``safety.is_tracing``'s global
+    detection) and under ``safety.unsafe()``. The orthogonality residual is a ``@cached_property`` on
+    :py:class:`~...T3Basis`, so a fixed base reused across an inner loop is contracted once. ORTH (not
+    minimal) is the only numerical precondition for the manifold projections/retraction -- see
+    ``docs/numerical_contract_catalog.md``.
+    """
+    if safety.checks_active(basis.data):
+        atol = safety.effective_rtol(basis.data)
+        safety.require(
+            basis.is_orthogonal(atol=atol),
+            '{} requires an orthogonal frame (the manifold geometry needs an orthonormal base to be '
+            'the Hilbert-Schmidt-orthogonal projection). Build the base with ManifoldGeometry.base / '
+            'T3Basis.random_orthogonal, or run in unsafe mode (safety.unsafe()).'.format(who))
+
+
 class ManifoldGeometry:
     """The Riemannian geometry of the fixed-rank Tucker tensor train manifold ``M``.
 
@@ -1082,9 +1110,12 @@ class ManifoldGeometry:
         """Random tangent at ``basis``: a standard Gaussian on the tangent space ``T_xM``.
 
         Raw i.i.d. N(0, 1) variation cores, then the gauge projection :py:meth:`project` (``Pi``). For
-        an orthogonal, minimal-rank ``basis`` this is exactly the standard Gaussian on ``T_xM``; for a
-        non-orthogonal basis it is merely gauged. ``stack_shape`` is the extra outer tangent stack
-        ``K`` (default ``()``).
+        an orthogonal, minimal-rank ``basis`` this is exactly the standard Gaussian on ``T_xM``.
+        ``stack_shape`` is the extra outer tangent stack ``K`` (default ``()``).
+
+        Inherits :py:meth:`project`'s **safe-mode ORTH precondition**: a non-orthogonal ``basis`` raises
+        (skipped under ``safety.unsafe()`` / a jax trace, where it yields a merely-gauged -- not true
+        Gaussian -- tangent).
         """
         use_jax = tree_contains_jax(basis.data)
         full_stack = tuple(stack_shape) + basis.stack_shape  # K + C
@@ -1122,7 +1153,12 @@ class ManifoldGeometry:
         (48)-(49), Appendix A.3). Represents a DIFFERENT tangent vector than ``v``. This is the map
         that turns a bare adjoint ``J^T r`` into the Riemannian gradient. For the vector-preserving
         gauge fix see :py:meth:`project_oblique`.
+
+        **Safe mode** requires ``v``'s frame to be **orthogonal** (the precondition for this to be the
+        orthogonal-gauge projection ``Pi``); it raises otherwise. Skipped under ``safety.unsafe()`` / a
+        jax trace.
         """
+        _require_orthogonal_frame(v.basis, 'ManifoldGeometry.project')
         new_variations = tangent_operations.orthogonal_gauge_projection(v.basis.data, v.variations.data)
         return T3Tangent(v.basis, bvf.T3Variations(*new_variations))
 
@@ -1135,7 +1171,11 @@ class ManifoldGeometry:
         Returns a tangent at the same basis representing the SAME vector as ``v`` but gauged, so that on
         an orthogonal minimal-rank basis :py:meth:`inner` / :py:meth:`norm` give the true Hilbert-Schmidt
         values.
+
+        **Safe mode** requires ``v``'s frame to be **orthogonal** (raises otherwise); skipped under
+        ``safety.unsafe()`` / a jax trace.
         """
+        _require_orthogonal_frame(v.basis, 'ManifoldGeometry.project_oblique')
         new_variations = tangent_operations.oblique_gauge_projection(v.basis.data, v.variations.data)
         return T3Tangent(v.basis, bvf.T3Variations(*new_variations))
 
@@ -1192,7 +1232,14 @@ class ManifoldGeometry:
         Forms ``base point + p`` and truncates back to ``p``'s base ranks via the implicit T3-SVD
         (Algorithm 10). The current point is carried by ``p.basis`` (its orthonormal frame), so no
         separate point argument is needed.
+
+        **Safe mode** requires ``p``'s frame to be **orthogonal** (raises otherwise); skipped under
+        ``safety.unsafe()`` / a jax trace. ORTH only -- retract is gauge-invariant. Minimal rank is a
+        documented *caveat*, not a precondition: on a non-minimal frame retract stays a valid
+        first-order retraction but drops the numerically-redundant rank rather than preserving it
+        strictly (``docs/numerical_contract_catalog.md``).
         """
+        _require_orthogonal_frame(p.basis, 'ManifoldGeometry.retract')
         cores = tangent_operations.retract(p.basis.data, p.variations.data)
         return t3.TuckerTensorTrain(*cores)
 
@@ -1210,8 +1257,10 @@ class ManifoldGeometry:
         an **orthogonal** ``basis`` (minimal rank is *not* required). For a dense ``grad``, ``method``
         selects the algorithm (same projection): ``'contraction'`` (default, contract against the
         frames, no SVD) or ``'t3svd'`` (exact T3-SVD then project; expensive). This is the
-        tangent-space projection of Section 6 / Appendix A.3.
+        tangent-space projection of Section 6 / Appendix A.3. **Safe mode** enforces the orthogonal
+        requirement (raises otherwise); skipped under ``safety.unsafe()`` / a jax trace.
         """
+        _require_orthogonal_frame(basis, 'ManifoldGeometry.project_ambient')
         if isinstance(grad, t3.TuckerTensorTrain):
             variations = tangent_operations.project_t3_onto_tangent_space(basis.data, grad.data)
             return T3Tangent(basis, bvf.T3Variations(*variations))
@@ -1237,6 +1286,9 @@ class ManifoldGeometry:
         Re-projects ``v`` (as an ambient tensor via :py:meth:`T3Tangent.to_t3`) orthogonally onto the
         tangent space at ``new_basis``. The cheap, standard choice for fixed-rank Riemannian
         optimization -- not parallel transport.
+
+        Inherits :py:meth:`project_ambient`'s **safe-mode ORTH precondition** on ``new_basis`` (raises if
+        non-orthogonal; skipped under ``safety.unsafe()`` / a jax trace).
         """
         return self.project_ambient(new_basis, v.to_t3())
 

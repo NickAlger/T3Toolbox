@@ -109,6 +109,20 @@ class TestEagerOnlyUnderJit(unittest.TestCase):
         self.assertFalse(out['active'])                          # safe mode, but tracing -> inactive
         self.assertTrue(out['or_skip'])                          # skipped under trace -> passes
 
+    def test_checks_skip_under_trace_closed_over_concrete(self):
+        # the subtle case: the CHECKED operand is a closed-over CONCRETE array (not a tracer), but we are
+        # globally inside a trace -- a jnp op then still yields a (constant) tracer, so checks must skip.
+        const = jnp.ones(3)                                      # committed concrete array, closed over
+        out = {}
+        def f(y):                                                # y is the only traced arg
+            out['tracing'] = safety.is_tracing(const)            # const is concrete, yet we ARE tracing
+            out['active'] = safety.checks_active(const)
+            return y
+        jax.jit(f)(jnp.zeros(2))
+        self.assertTrue(out['tracing'])                          # global-trace detection, not input-tracer
+        self.assertFalse(out['active'])                          # so the check correctly skips
+        self.assertFalse(safety.is_tracing(const))               # eager again: not tracing
+
 
 if __name__ == '__main__':
     unittest.main()
