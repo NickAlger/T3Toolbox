@@ -25,6 +25,8 @@ import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.tangent_operations as tops
 import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.orthogonal_representations as orth_reps
+import t3toolbox.backend.probing as probing
+import t3toolbox.backend.fitting as fb
 
 try:
     import jax
@@ -209,6 +211,20 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda b: orth_reps.basis_orthogonality_residual(b), self.base.data)
         self.assert_jit_jax(lambda b: orth_reps.basis_consistency_residual(b), self.base.data)
         self.assert_jit_jax(lambda b, v: tops.gauge_residual(b, v), self.base.data, self.var.data)
+
+    # ---------------------------------------------------- jit bucket: Gauss-Newton fitting (backend/fitting.py)
+    def test_jit_fitting(self):
+        base = self.base.data
+        ww = self.ww                                              # sample stack W=(2,)
+        sweep = probing.precompute_apply_base_sweep(base, ww)     # reusable base sweep (jax)
+        p = self.w.variations.data                               # an un-gauged tangent (exercises internal Π)
+        r = jnp.ones(2)                                          # residual, W=(2,), C=()
+        g = fb.compute_gradient(r, ww, base, sweep)               # gauged gradient (jax)
+        c = jnp.ones(())
+        self.assert_jit_jax(lambda pp: fb.apply_jacobian(pp, ww, base, sweep), p)
+        self.assert_jit_jax(lambda rr: fb.compute_gradient(rr, ww, base, sweep), r)
+        self.assert_jit_jax(lambda pp: fb.apply_gn_hessian(pp, ww, base, sweep), p)
+        self.assert_jit_jax(lambda pp: fb.quadratic_model_value(pp, ww, base, sweep, g, c), p)
 
     # ---------------------------------------------------- jit bucket: UniformTuckerTensorTrain
     def test_jit_uniform(self):
