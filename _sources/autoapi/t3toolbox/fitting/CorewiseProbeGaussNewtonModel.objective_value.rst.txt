@@ -1,0 +1,7 @@
+CorewiseProbeGaussNewtonModel.objective_value
+=============================================
+
+.. py:method:: t3toolbox.fitting.CorewiseProbeGaussNewtonModel.objective_value()
+
+   The least-squares objective at the base, ``c = ½‖r‖²`` summed over the probe vectors.
+

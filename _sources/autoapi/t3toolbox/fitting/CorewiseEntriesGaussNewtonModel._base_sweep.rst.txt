@@ -1,0 +1,4 @@
+CorewiseEntriesGaussNewtonModel._base_sweep
+===========================================
+
+.. py:method:: t3toolbox.fitting.CorewiseEntriesGaussNewtonModel._base_sweep()

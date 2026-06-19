@@ -1,0 +1,49 @@
+fitting
+=======
+
+
+.. py:module:: t3toolbox.fitting
+
+.. autoapi-nested-parse::
+
+   Frontend for the least-squares fitting layer: the Gauss-Newton models.
+
+   Thin frozen-dataclass frontends over ``backend/fitting.py``, one per sampling kind
+   (:py:class:`ApplyGaussNewtonModel`, :py:class:`EntriesGaussNewtonModel`, :py:class:`ProbeGaussNewtonModel`).
+   A model is the local Gauss-Newton model of a least-squares objective at a fixed base point (an orthonormal
+   ``T3Basis``): it exposes the objective value ``c``, the Riemannian gradient ``g``, the Gauss-Newton
+   Hessian action ``H p = JᵀJ p``, and the quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p``.
+
+   The expensive base sweep (the base-and-data edge variables) is a ``@cached_property``: computed once on
+   first use and reused across every ``gn_hessian`` / ``evaluate`` of an inner solve, then garbage-collected
+   when the model leaves scope. This is the whole point -- in an inner CG the base is fixed, so the sweep is
+   computed once, not once per matrix-vector product.
+
+   Gauge handling lives entirely in the backend (``J = 𝒥∘Π``, ``Jᵀ = Π∘𝒥ᵀ``): every method returns a gauged
+   tangent and accepts any-gauge inputs. See ``docs/fitting_plan.md``.
+
+
+
+Classes
+-------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/fitting/ApplyGaussNewtonModel
+   /autoapi/t3toolbox/fitting/EntriesGaussNewtonModel
+   /autoapi/t3toolbox/fitting/ProbeGaussNewtonModel
+   /autoapi/t3toolbox/fitting/CorewiseApplyGaussNewtonModel
+   /autoapi/t3toolbox/fitting/CorewiseEntriesGaussNewtonModel
+   /autoapi/t3toolbox/fitting/CorewiseProbeGaussNewtonModel
+
+.. autoapisummary::
+
+   t3toolbox.fitting.ApplyGaussNewtonModel
+   t3toolbox.fitting.EntriesGaussNewtonModel
+   t3toolbox.fitting.ProbeGaussNewtonModel
+   t3toolbox.fitting.CorewiseApplyGaussNewtonModel
+   t3toolbox.fitting.CorewiseEntriesGaussNewtonModel
+   t3toolbox.fitting.CorewiseProbeGaussNewtonModel
+
+

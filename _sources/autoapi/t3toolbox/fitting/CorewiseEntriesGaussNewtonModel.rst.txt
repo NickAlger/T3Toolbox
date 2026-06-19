@@ -1,0 +1,56 @@
+CorewiseEntriesGaussNewtonModel
+===============================
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/fitting/CorewiseEntriesGaussNewtonModel._base_sweep
+   /autoapi/t3toolbox/fitting/CorewiseEntriesGaussNewtonModel.objective_value
+   /autoapi/t3toolbox/fitting/CorewiseEntriesGaussNewtonModel.gradient
+   /autoapi/t3toolbox/fitting/CorewiseEntriesGaussNewtonModel.gn_hessian
+   /autoapi/t3toolbox/fitting/CorewiseEntriesGaussNewtonModel.evaluate
+
+.. py:class:: t3toolbox.fitting.CorewiseEntriesGaussNewtonModel
+
+   The **corewise** (non-manifold, NO Π) Gauss-Newton model of an ``entries`` least-squares objective.
+
+   Like :py:class:`CorewiseApplyGaussNewtonModel` but the measurements are tensor **entries** at integer
+   grid points ``index`` (shape ``(d,)+W``). Operands are raw ``(tucker, tt)`` core tuples.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.fitting as fitting
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
+   >>> index = np.stack([np.random.randint(0, N, size=12) for N in (6, 7, 8)])
+   >>> r = np.random.randn(12)
+   >>> model = fitting.CorewiseEntriesGaussNewtonModel(x, index, r)
+   >>> print([gi.shape for gi in model.gradient[0]] == [ui.shape for ui in x.tucker_cores])
+   True
+
+
+   .. py:attribute:: x
+      :type:  t3toolbox.tucker_tensor_train.TuckerTensorTrain
+
+
+   .. py:attribute:: index
+      :type:  NDArray
+
+
+   .. py:attribute:: residual
+      :type:  NDArray
+
+Methods
+-------
+
+.. autoapisummary::
+
+   t3toolbox.fitting.CorewiseEntriesGaussNewtonModel._base_sweep
+   t3toolbox.fitting.CorewiseEntriesGaussNewtonModel.objective_value
+   t3toolbox.fitting.CorewiseEntriesGaussNewtonModel.gradient
+   t3toolbox.fitting.CorewiseEntriesGaussNewtonModel.gn_hessian
+   t3toolbox.fitting.CorewiseEntriesGaussNewtonModel.evaluate
+
+

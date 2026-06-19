@@ -1,0 +1,7 @@
+ProbeGaussNewtonModel.gradient
+==============================
+
+.. py:method:: t3toolbox.fitting.ProbeGaussNewtonModel.gradient()
+
+   The Riemannian gradient ``g = Π 𝒥ᵀ r`` (the probe ``Jᵀr``), a gauged tangent at base.
+

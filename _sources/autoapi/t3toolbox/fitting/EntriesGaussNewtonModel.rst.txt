@@ -1,0 +1,64 @@
+EntriesGaussNewtonModel
+=======================
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/fitting/EntriesGaussNewtonModel._base_sweep
+   /autoapi/t3toolbox/fitting/EntriesGaussNewtonModel.objective_value
+   /autoapi/t3toolbox/fitting/EntriesGaussNewtonModel.gradient
+   /autoapi/t3toolbox/fitting/EntriesGaussNewtonModel.gn_hessian
+   /autoapi/t3toolbox/fitting/EntriesGaussNewtonModel.evaluate
+
+.. py:class:: t3toolbox.fitting.EntriesGaussNewtonModel
+
+   The local Gauss-Newton model of an all-modes ``entries`` least-squares objective at ``base``.
+
+   Identical to :py:class:`ApplyGaussNewtonModel` but the measurements are tensor **entries** at integer
+   grid points ``index`` (shape ``(d,)+W``) rather than applies against probe vectors ``ww``.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.basis_variations_format as bvf
+   >>> import t3toolbox.manifold as t3m
+   >>> import t3toolbox.fitting as fitting
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
+   >>> base, _ = bvf.t3_orthogonal_representations(x)
+   >>> index = np.stack([np.random.randint(0, N, size=12) for N in (6, 7, 8)])  # (d,)+W, 12 entries
+   >>> r = np.random.randn(12)
+   >>> model = fitting.EntriesGaussNewtonModel(base, index, r)
+   >>> model.gradient.is_gauged()
+   True
+   >>> p = t3m.T3Tangent.randn(base)
+   >>> hp = model.gn_hessian(p)
+   >>> m_built = float(model.objective_value + model.gradient.inner(p) + 0.5 * p.inner(hp))
+   >>> bool(np.allclose(float(model.evaluate(p)), m_built))
+   True
+
+
+   .. py:attribute:: base
+      :type:  t3toolbox.basis_variations_format.T3Basis
+
+
+   .. py:attribute:: index
+      :type:  NDArray
+
+
+   .. py:attribute:: residual
+      :type:  NDArray
+
+Methods
+-------
+
+.. autoapisummary::
+
+   t3toolbox.fitting.EntriesGaussNewtonModel._base_sweep
+   t3toolbox.fitting.EntriesGaussNewtonModel.objective_value
+   t3toolbox.fitting.EntriesGaussNewtonModel.gradient
+   t3toolbox.fitting.EntriesGaussNewtonModel.gn_hessian
+   t3toolbox.fitting.EntriesGaussNewtonModel.evaluate
+
+

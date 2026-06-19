@@ -1,0 +1,25 @@
+TuckerTensorTrain.apply_corewise_derivatives_transpose
+======================================================
+
+.. py:method:: t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_corewise_derivatives_transpose(c, ww, pp, order, sum_over_probes = False)
+
+   Corewise transpose of :py:meth:`apply_derivatives`: gradient of the apply-derivative jets
+   w.r.t. *this tensor's cores* (the Section 6.3 substitution). Returns raw core gradients.
+
+   .. seealso:: :py:obj:`apply_derivatives`, :py:obj:`probe_corewise_derivatives_transpose`
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (1, 3, 2, 1))
+   >>> ww = (np.random.randn(14), np.random.randn(15), np.random.randn(16))
+   >>> pp = (np.random.randn(14), np.random.randn(15), np.random.randn(16))
+   >>> c = np.random.randn(4)                 # residual jet, order 0..3
+   >>> gU, gG = x.apply_corewise_derivatives_transpose(c, ww, pp, 3, sum_over_probes=True)
+   >>> print([g.shape for g in gU] == [u.shape for u in x.tucker_cores])   # matches the cores
+   True
+   >>> print([g.shape for g in gG] == [g.shape for g in x.tt_cores])
+   True
+

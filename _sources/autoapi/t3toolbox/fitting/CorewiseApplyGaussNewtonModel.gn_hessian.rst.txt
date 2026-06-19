@@ -1,0 +1,7 @@
+CorewiseApplyGaussNewtonModel.gn_hessian
+========================================
+
+.. py:method:: t3toolbox.fitting.CorewiseApplyGaussNewtonModel.gn_hessian(p)
+
+   The corewise Gauss-Newton Hessian action ``H p = 𝒥ᵀ 𝒥 p`` -- raw ``(tucker, tt)`` grads.
+

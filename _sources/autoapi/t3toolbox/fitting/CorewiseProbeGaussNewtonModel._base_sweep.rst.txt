@@ -1,0 +1,4 @@
+CorewiseProbeGaussNewtonModel._base_sweep
+=========================================
+
+.. py:method:: t3toolbox.fitting.CorewiseProbeGaussNewtonModel._base_sweep()

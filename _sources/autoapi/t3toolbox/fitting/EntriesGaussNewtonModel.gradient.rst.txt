@@ -1,0 +1,7 @@
+EntriesGaussNewtonModel.gradient
+================================
+
+.. py:method:: t3toolbox.fitting.EntriesGaussNewtonModel.gradient()
+
+   The Riemannian gradient ``g = Π 𝒥ᵀ r`` (the entry scatter, gauge-projected), at base.
+

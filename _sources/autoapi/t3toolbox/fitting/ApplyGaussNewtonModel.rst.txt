@@ -1,0 +1,86 @@
+ApplyGaussNewtonModel
+=====================
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/fitting/ApplyGaussNewtonModel._base_sweep
+   /autoapi/t3toolbox/fitting/ApplyGaussNewtonModel.objective_value
+   /autoapi/t3toolbox/fitting/ApplyGaussNewtonModel.gradient
+   /autoapi/t3toolbox/fitting/ApplyGaussNewtonModel.gn_hessian
+   /autoapi/t3toolbox/fitting/ApplyGaussNewtonModel.evaluate
+
+.. py:class:: t3toolbox.fitting.ApplyGaussNewtonModel
+
+   The local Gauss-Newton model of an all-modes ``apply`` least-squares objective at ``base``.
+
+   Holds the base (an orthonormal frame), the sample vectors ``ww``, and the data residual
+   ``r = F(base) − y``. The base sweep, objective value, and gradient are cached on first use.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.basis_variations_format as bvf
+   >>> import t3toolbox.manifold as t3m
+   >>> import t3toolbox.fitting as fitting
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
+   >>> base, _ = bvf.t3_orthogonal_representations(x)
+   >>> ww = [np.random.randn(15, N) for N in (6, 7, 8)]    # 15 samples, each a (w_1, w_2, w_3)
+   >>> r = np.random.randn(15)                             # the data residual at the base
+   >>> model = fitting.ApplyGaussNewtonModel(base, ww, r)
+
+   The objective value ``c = ½‖r‖²`` and the gradient ``g = Π 𝒥ᵀ r`` (a gauged tangent):
+
+   >>> print(round(float(model.objective_value), 6))
+   8.295196
+   >>> model.gradient.is_gauged()
+   True
+
+   The Gauss-Newton Hessian action ``H p`` stays on the (gauged) tangent space:
+
+   >>> p = t3m.T3Tangent.randn(base)                       # a gauged trial step
+   >>> hp = model.gn_hessian(p)
+   >>> hp.is_gauged()
+   True
+
+   ``evaluate(p)`` is the quadratic model value -- consistent with assembling it from the cached
+   ``c`` / ``g`` and the Hessian action (and costs only one forward apply, not a Hessian apply):
+
+   >>> m_eval = float(model.evaluate(p))
+   >>> m_built = float(model.objective_value + model.gradient.inner(p) + 0.5 * p.inner(hp))
+   >>> bool(np.allclose(m_eval, m_built))
+   True
+
+   A trial step at a *different* base is a structural error (the model is tied to its base):
+
+   >>> other, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1)))
+   >>> model.gn_hessian(t3m.T3Tangent.randn(other))   # doctest: +IGNORE_EXCEPTION_DETAIL
+   Traceback (most recent call last):
+   ValueError: trial tangent must live at the model's base (same T3Basis object)
+
+
+   .. py:attribute:: base
+      :type:  t3toolbox.basis_variations_format.T3Basis
+
+
+   .. py:attribute:: ww
+      :type:  Sequence[NDArray]
+
+
+   .. py:attribute:: residual
+      :type:  NDArray
+
+Methods
+-------
+
+.. autoapisummary::
+
+   t3toolbox.fitting.ApplyGaussNewtonModel._base_sweep
+   t3toolbox.fitting.ApplyGaussNewtonModel.objective_value
+   t3toolbox.fitting.ApplyGaussNewtonModel.gradient
+   t3toolbox.fitting.ApplyGaussNewtonModel.gn_hessian
+   t3toolbox.fitting.ApplyGaussNewtonModel.evaluate
+
+

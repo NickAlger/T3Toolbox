@@ -1,0 +1,7 @@
+CorewiseEntriesGaussNewtonModel.objective_value
+===============================================
+
+.. py:method:: t3toolbox.fitting.CorewiseEntriesGaussNewtonModel.objective_value()
+
+   The least-squares objective at the base, ``c = ½‖r‖²``.
+
