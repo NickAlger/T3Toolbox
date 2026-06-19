@@ -1,9 +1,16 @@
-'''Least-squares fitting operators (the Gauss-Newton model) for the all-modes ``apply`` sampling.
+'''Least-squares fitting operators (the Gauss-Newton model) for the ``apply`` and ``entries`` sampling.
 
-The fitting layer composes the **bare** probing primitives (``probing.apply_*_from_sweep``, the
+The fitting layer composes the **bare** probing primitives (``probing.<kind>_*_from_sweep``, the
 single-sample Jacobian ``𝒥`` / its transpose ``𝒥ᵀ``) with the **gauge projector** ``Π`` to form the
-*Riemannian* least-squares operators a Gauss-Newton solver consumes: the forward ``J = 𝒥∘Π``, the
-gradient ``Π∘𝒥ᵀ``, the Gauss-Newton normal operator ``Π𝒥ᵀ𝒥Π``, and the quadratic-model value.
+*Riemannian* least-squares operators a Gauss-Newton solver consumes, per sampling kind:
+
+    <kind>_jacobian      = 𝒥(Π p)            (Riemannian forward J p)
+    <kind>_gradient      = Π 𝒥ᵀ r            (the Gauss-Newton J^T r, sum over the sample stack W)
+    <kind>_gn_hessian    = Π 𝒥ᵀ 𝒥 Π p        (H = JᵀJ, the GN normal operator)
+    <kind>_model_value   = c + ⟨g, Π p⟩ + ½‖𝒥 Π p‖²   (the local quadratic-model value m(p))
+
+with ``<kind>`` in ``{apply, entries}`` (``probe`` follows). The functions are named by the **sampling
+kind** (apply / entries), exactly like ``probing.apply_jacobian_from_sweep`` -- not by the operator verb.
 
 Two principles (see ``docs/fitting_plan.md``):
 
@@ -11,12 +18,11 @@ Two principles (see ``docs/fitting_plan.md``):
   ``.data`` tuples gets the correct gauge-projected Riemannian result without remembering the gauge. The
   bare ``𝒥`` / ``𝒥ᵀ`` (no ``Π``) live in ``probing.py`` for callers who explicitly want them.
 - **Manifold ⟺ ``Π``; corewise ⟺ no ``Π``.** These are the *manifold* (tangent) operators. The corewise
-  (free-core) variants -- built on the same bare primitives with the cores substituted for the frame --
-  carry **no** ``Π``; mixing the two silently corrupts the result. That matched pair is structural (no
-  ``apply_gauge`` flag); the corewise wrapper lives elsewhere.
+  (free-core) variants carry **no** ``Π``; mixing the two silently corrupts the result. That matched pair
+  is structural (no ``apply_gauge`` flag); the corewise wrapper lives elsewhere.
 
 ``sum_over_probes=True`` throughout (the normal operator and gradient sum the sample stack ``W``). The
-base sweep ``(xis, mus, nus, etas)`` is precomputed once per base (``probing.precompute_apply_base_sweep``)
+base sweep ``(xis, mus, nus, etas)`` is precomputed once per base (``probing.precompute_<kind>_base_sweep``)
 and reused across every ``J`` / ``Jᵀ`` of an inner solve.
 '''
 
@@ -29,11 +35,30 @@ from t3toolbox.backend.common import *
 
 __all__ = [
     'apply_jacobian',
-    'compute_gradient',
+    'apply_gradient',
     'apply_gn_hessian',
-    'quadratic_model_value',
+    'apply_model_value',
+    'entries_jacobian',
+    'entries_gradient',
+    'entries_gn_hessian',
+    'entries_model_value',
 ]
 
+
+def _sumsq_over_samples(
+        Jp:     NDArray,    # forward output, shape W+C (scalar-output kinds: apply / entries)
+        n_w:    int,        # number of leading sample-stack (W) axes
+) -> NDArray:               # sum of squares over W, keeping the base stack C
+    '''The ``‖𝒥 Π p‖²`` reduction shared by the scalar-output (apply / entries) model values: sum
+    ``Jp**2`` over the leading ``n_w`` sample axes, keeping the base stack ``C``.'''
+    use_jax = is_jax_ndarray(Jp)
+    xnp, _, _ = get_backend(False, use_jax)
+    return xnp.sum(Jp ** 2, axis=tuple(range(n_w)))
+
+
+############################################
+##########   Apply   #######################
+############################################
 
 def apply_jacobian(
         p:          typ.Tuple[
@@ -56,7 +81,7 @@ def apply_jacobian(
     return probing.apply_jacobian_from_sweep(Pp, ww, base, base_sweep)
 
 
-def compute_gradient(
+def apply_gradient(
         r:          NDArray,                # residual, shape W+C
         ww:         typ.Sequence[NDArray],  # sample vectors, len=d, elm_shape=W+(Ni,)
         base:       typ.Tuple[
@@ -102,7 +127,7 @@ def apply_gn_hessian(
     return tangent_operations.orthogonal_gauge_projection(base, dU_dG)                   # Π
 
 
-def quadratic_model_value(
+def apply_model_value(
         p:               typ.Tuple[
             typ.Sequence[NDArray],          # tucker variations dU. len=d, elm_shape=C+(nOi,Ni)
             typ.Sequence[NDArray],          # tt variations     dG. len=d, elm_shape=C+(rLi,nUi,rRi)
@@ -119,7 +144,7 @@ def quadratic_model_value(
         gradient:        typ.Tuple[
             typ.Sequence[NDArray],          # tucker variations of g
             typ.Sequence[NDArray],          # tt variations of g
-        ],                                  # = compute_gradient(r, ...), the model's gauged gradient g
+        ],                                  # = apply_gradient(r, ...), the model's gauged gradient g
         objective_value: NDArray,           # c = ½‖r‖², shape C
 ) -> NDArray:                               # m(p) = c + ⟨g,p⟩ + ½‖J p‖², shape C
     '''The local Gauss-Newton model value ``m(p) = c + gᵀp + ½ pᵀ H p`` with ``H = JᵀJ``, reusing the
@@ -127,15 +152,108 @@ def quadratic_model_value(
     term needs only ``½ pᵀ H p = ½‖𝒥 Π p‖²``, not a full Hessian apply. ``p`` is gauge-projected here, so
     the linear term ``⟨g, Πp⟩`` (a corewise dot of two gauged tangents) and ``½‖𝒥Πp‖²`` share the one
     ``Πp``. Equals ``½‖r + 𝒥Πp‖²`` exactly.'''
-    use_jax = tree_contains_jax((p, ww, base_sweep, gradient, objective_value))
-    xnp, _, _ = get_backend(False, use_jax)
-
-    up_tucker_cores = base[0]
-    n_c = up_tucker_cores[0].ndim - 2          # base-stack (C) axes: U_i is C+(nUi,Ni)
-    n_w = ww[0].ndim - 1                        # sample-stack (W) axes: w_i is W+(Ni,)
-
+    n_c = base[0][0].ndim - 2                   # base-stack (C) axes: U_i is C+(nUi,Ni)
+    n_w = ww[0].ndim - 1                         # sample-stack (W) axes: w_i is W+(Ni,)
     Pp = tangent_operations.orthogonal_gauge_projection(base, p)         # Π p (shared by both terms)
     Jp = probing.apply_jacobian_from_sweep(Pp, ww, base, base_sweep)     # 𝒥 Π p, shape W+C
-    quad = 0.5 * xnp.sum(Jp ** 2, axis=tuple(range(n_w)))               # ½‖𝒥Πp‖², sum W, keep C
-    lin  = cw.corewise_stack_dot(gradient, Pp, n_c)                      # ⟨g, Πp⟩ (both gauged)
-    return objective_value + lin + quad
+    return objective_value + cw.corewise_stack_dot(gradient, Pp, n_c) + 0.5 * _sumsq_over_samples(Jp, n_w)
+
+
+############################################
+##########   Entries   #####################
+############################################
+
+def entries_jacobian(
+        p:          typ.Tuple[
+            typ.Sequence[NDArray],          # tucker variations dU. len=d, elm_shape=C+(nOi,Ni)
+            typ.Sequence[NDArray],          # tt variations     dG. len=d, elm_shape=C+(rLi,nUi,rRi)
+        ],                                  # = T3Variations.data of the trial tangent (any gauge)
+        index:      NDArray,                # int, shape=(d,)+W -- the grid points
+        base:       typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = T3Basis.data = (U, O, P, Q), the orthonormal frame
+        base_sweep: typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = probing.precompute_entries_base_sweep(base, index)
+) -> NDArray:                               # J p = 𝒥(Π p), shape W+C (one entry per index, per base)
+    '''Riemannian forward all-modes entries ``J p = 𝒥(Π p)`` at ``index``: gauge-project ``p``, then the
+    bare single-sample entries Jacobian, reusing the precomputed base sweep.'''
+    Pp = tangent_operations.orthogonal_gauge_projection(base, p)
+    return probing.entries_jacobian_from_sweep(Pp, index, base, base_sweep)
+
+
+def entries_gradient(
+        r:          NDArray,                # residual, shape W+C
+        index:      NDArray,                # int, shape=(d,)+W -- the grid points
+        base:       typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = T3Basis.data = (U, O, P, Q)
+        base_sweep: typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = probing.precompute_entries_base_sweep(base, index)
+) -> typ.Tuple[
+    typ.Sequence[NDArray],  # tucker variations dU. len=d
+    typ.Sequence[NDArray],  # tt variations     dG. len=d
+]:                                          # g = Π 𝒥ᵀ r, a gauged tangent = T3Variations.data
+    '''Riemannian gradient ``g = Π 𝒥ᵀ r`` for entries: bare entries transpose summed over the sample
+    stack ``W`` (the entry scatter), then gauge-projected onto the tangent space.'''
+    dU_dG = probing.entries_transpose_from_sweep(r, index, base, base_sweep, sum_over_probes=True)
+    return tangent_operations.orthogonal_gauge_projection(base, dU_dG)
+
+
+def entries_gn_hessian(
+        p:          typ.Tuple[
+            typ.Sequence[NDArray],          # tucker variations dU. len=d, elm_shape=C+(nOi,Ni)
+            typ.Sequence[NDArray],          # tt variations     dG. len=d, elm_shape=C+(rLi,nUi,rRi)
+        ],                                  # = T3Variations.data of the trial tangent (any gauge)
+        index:      NDArray,                # int, shape=(d,)+W -- the grid points
+        base:       typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = T3Basis.data = (U, O, P, Q)
+        base_sweep: typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = probing.precompute_entries_base_sweep(base, index)
+) -> typ.Tuple[
+    typ.Sequence[NDArray],  # tucker variations dU. len=d
+    typ.Sequence[NDArray],  # tt variations     dG. len=d
+]:                                          # H p = Π 𝒥ᵀ 𝒥 Π p, a gauged tangent = T3Variations.data
+    '''The Gauss-Newton normal operator ``H p = Π 𝒥ᵀ 𝒥 Π p`` for entries (``H = JᵀJ``). Symmetric and
+    maps gauged variations to gauged variations.'''
+    z = entries_jacobian(p, index, base, base_sweep)             # 𝒥 Π p, shape W+C
+    dU_dG = probing.entries_transpose_from_sweep(z, index, base, base_sweep, sum_over_probes=True)  # 𝒥ᵀ
+    return tangent_operations.orthogonal_gauge_projection(base, dU_dG)                              # Π
+
+
+def entries_model_value(
+        p:               typ.Tuple[
+            typ.Sequence[NDArray],          # tucker variations dU. len=d, elm_shape=C+(nOi,Ni)
+            typ.Sequence[NDArray],          # tt variations     dG. len=d, elm_shape=C+(rLi,nUi,rRi)
+        ],                                  # = T3Variations.data of the trial tangent (any gauge)
+        index:           NDArray,           # int, shape=(d,)+W -- the grid points
+        base:            typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = T3Basis.data = (U, O, P, Q)
+        base_sweep:      typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = probing.precompute_entries_base_sweep(base, index)
+        gradient:        typ.Tuple[
+            typ.Sequence[NDArray],          # tucker variations of g
+            typ.Sequence[NDArray],          # tt variations of g
+        ],                                  # = entries_gradient(r, ...), the model's gauged gradient g
+        objective_value: NDArray,           # c = ½‖r‖², shape C
+) -> NDArray:                               # m(p) = c + ⟨g,p⟩ + ½‖J p‖², shape C
+    '''The local Gauss-Newton model value for entries (as :py:func:`apply_model_value`, with the fiber-
+    sliced forward). One forward apply; reuses the cached ``c`` and ``g``. Equals ``½‖r + 𝒥Πp‖²``.'''
+    n_c = base[0][0].ndim - 2                   # base-stack (C) axes: U_i is C+(nUi,Ni)
+    n_w = index.ndim - 1                         # sample-stack (W) axes: index is (d,)+W
+    Pp = tangent_operations.orthogonal_gauge_projection(base, p)             # Π p (shared by both terms)
+    Jp = probing.entries_jacobian_from_sweep(Pp, index, base, base_sweep)    # 𝒥 Π p, shape W+C
+    return objective_value + cw.corewise_stack_dot(gradient, Pp, n_c) + 0.5 * _sumsq_over_samples(Jp, n_w)

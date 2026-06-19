@@ -220,19 +220,31 @@ class TestDispatch(unittest.TestCase):
         sweep = probing.precompute_apply_base_sweep(base, ww)     # reusable base sweep (jax)
         p = self.w.variations.data                               # an un-gauged tangent (exercises internal Π)
         r = jnp.ones(2)                                          # residual, W=(2,), C=()
-        g = fb.compute_gradient(r, ww, base, sweep)               # gauged gradient (jax)
+        g = fb.apply_gradient(r, ww, base, sweep)               # gauged gradient (jax)
         c = jnp.ones(())
         self.assert_jit_jax(lambda pp: fb.apply_jacobian(pp, ww, base, sweep), p)
-        self.assert_jit_jax(lambda rr: fb.compute_gradient(rr, ww, base, sweep), r)
+        self.assert_jit_jax(lambda rr: fb.apply_gradient(rr, ww, base, sweep), r)
         self.assert_jit_jax(lambda pp: fb.apply_gn_hessian(pp, ww, base, sweep), p)
-        self.assert_jit_jax(lambda pp: fb.quadratic_model_value(pp, ww, base, sweep, g, c), p)
+        self.assert_jit_jax(lambda pp: fb.apply_model_value(pp, ww, base, sweep, g, c), p)
+        # entries: integer grid points instead of probe vectors
+        index = jnp.array([[1, 2], [2, 3], [3, 0]])              # (d,)+W, W=(2,)
+        esweep = probing.precompute_entries_base_sweep(base, index)
+        eg = fb.entries_gradient(r, index, base, esweep)
+        self.assert_jit_jax(lambda pp: fb.entries_jacobian(pp, index, base, esweep), p)
+        self.assert_jit_jax(lambda rr: fb.entries_gradient(rr, index, base, esweep), r)
+        self.assert_jit_jax(lambda pp: fb.entries_gn_hessian(pp, index, base, esweep), p)
+        self.assert_jit_jax(lambda pp: fb.entries_model_value(pp, index, base, esweep, eg, c), p)
 
     def test_jit_fitting_model(self):
-        # the GaussNewtonModel frontend: cached sweep folds in (closure); base survives jit as aux
-        model = fitting.GaussNewtonModel(self.base, self.ww, jnp.ones(2))
+        # the GaussNewton model frontends: cached sweep folds in (closure); base survives jit as aux
+        model = fitting.ApplyGaussNewtonModel(self.base, self.ww, jnp.ones(2))
         _ = model.gradient; _ = model.objective_value           # warm the caches -> concrete jax constants
         self.assert_jit_jax(lambda pp: model.gn_hessian(pp), self.w)   # H p, returns a T3Tangent
         self.assert_jit_jax(lambda pp: model.evaluate(pp), self.w)     # m(p), returns a jax scalar
+        emodel = fitting.EntriesGaussNewtonModel(self.base, jnp.array([[1, 2], [2, 3], [3, 0]]), jnp.ones(2))
+        _ = emodel.gradient; _ = emodel.objective_value
+        self.assert_jit_jax(lambda pp: emodel.gn_hessian(pp), self.w)
+        self.assert_jit_jax(lambda pp: emodel.evaluate(pp), self.w)
 
     # ---------------------------------------------------- jit bucket: UniformTuckerTensorTrain
     def test_jit_uniform(self):

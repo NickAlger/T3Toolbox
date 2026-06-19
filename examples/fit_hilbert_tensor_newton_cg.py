@@ -32,7 +32,7 @@ We fit a ``TuckerTensorTrain`` ``X`` of fixed rank by minimizing the training mi
 over the fixed-rank manifold, with **Riemannian inexact Newton-CG and an Armijo line search**:
 
   * the orthogonal frame at ``X`` comes from ``t3_orthogonal_representations`` (a ``T3Basis``);
-  * the gradient and the Gauss-Newton Hessian-vector product come from a ``fitting.GaussNewtonModel``
+  * the gradient and the Gauss-Newton Hessian-vector product come from a ``fitting.ApplyGaussNewtonModel``
     built once per Newton step at the frame: ``model.gradient`` (the Riemannian ``Pi J^T r``) and
     ``model.gn_hessian(V)`` (``Pi J^T J Pi V``, symmetric PSD). The model **precomputes the base sweep
     once per Newton step and reuses it across every CG matrix-vector product** -- instead of recomputing
@@ -136,7 +136,7 @@ def rms(x):
 def apply_operator(ww):
     forward       = lambda Z: Z.apply(ww)   # works for a TuckerTensorTrain (point) or a T3Tangent (Jacobian)
     # build the Gauss-Newton model at a frame for a residual -- precomputes the reusable base sweep once.
-    model_builder = lambda base, r: fitting.GaussNewtonModel(base, ww, r)
+    model_builder = lambda base, r: fitting.ApplyGaussNewtonModel(base, ww, r)
     meas_dot      = lambda a, b: float(np.dot(np.asarray(a), np.asarray(b)))
     return forward, model_builder, meas_dot
 
