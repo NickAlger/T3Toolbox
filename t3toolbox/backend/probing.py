@@ -31,6 +31,17 @@ __all__ = [
     'entries_tangent',
     'apply_tangent_transpose',
     'entries_tangent_transpose',
+    # Apply -- base-sweep reuse split (precompute the base edge vars once; inject into the bare J / Jᵀ; for fitting.py)
+    'precompute_base_sweep',
+    'apply_jacobian_from_sweep',
+    'apply_transpose_from_sweep',
+    # Entries -- base-sweep reuse split (the fiber-sliced seed; one-hot transpose; for fitting.py)
+    'precompute_entries_base_sweep',
+    'entries_jacobian_from_sweep',
+    'entries_transpose_from_sweep',
+    # Probe -- base-sweep reuse split (shares precompute_base_sweep; for fitting.py)
+    'probe_jacobian_from_sweep',
+    'probe_transpose_from_sweep',
     # Corewise (non-manifold) transpose -- the tangent transpose with the base's cores in place of the frames
     'apply_corewise_transpose',
     'entries_corewise_transpose',
@@ -530,6 +541,43 @@ def assemble_tangent_zs(
     return zs
 
 
+def probe_jacobian_from_sweep(
+        variation:  typ.Tuple[
+            typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nOi,Ni)
+            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nUi,rRi)
+        ],
+        ww:         typ.Sequence[NDArray],  # probe vectors, len=d, elm_shape=W+(Ni,) -- for the variation's dxis
+        base:       typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = T3Basis.data = (U, O, P, Q)
+        base_sweep: typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = precompute_base_sweep(base, ww) (apply & probe SHARE it)
+) -> typ.Sequence[NDArray]:                 # probes, len=d, elm_shape=W+K+C+(Ni,) (one free mode each)
+    '''Forward probe of a tangent vector reusing a precomputed base sweep -- the bare ``𝒥`` (probe) with
+    the base edge variables injected. Equivalent to :py:func:`probe_tangent`, but takes
+    ``(xis, mus, nus, etas)`` from ``base_sweep`` instead of recomputing them; only the perturbation
+    sweep (``dxis``/``sigmas``/``taus``/``detas``) is computed here. Apply and probe **share** the base
+    sweep (:py:func:`precompute_base_sweep`). No gauge projector ``Π``.
+
+    See Also
+    --------
+    precompute_base_sweep
+    probe_tangent
+    probe_transpose_from_sweep
+    '''
+    var_tucker_cores, var_tt_cores = variation
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base
+    xis, mus, nus, etas = base_sweep
+    dxis   = compute_dxis(var_tucker_cores, ww)
+    sigmas = compute_sigmas(var_tt_cores, right_tt_cores, down_tt_cores, xis, dxis, mus)
+    taus   = compute_taus(var_tt_cores, left_tt_cores, down_tt_cores, xis, dxis, nus)
+    detas  = compute_detas(var_tt_cores, left_tt_cores, right_tt_cores, mus, nus, sigmas, taus)
+    return assemble_tangent_zs(up_tucker_cores, var_tucker_cores, etas, detas)
+
+
 def probe_tangent(
         ww:         typ.Union[typ.Sequence[NDArray],    NDArray],  # input vectors, len=d, elm_shape=(...,Ni)
         variation:  typ.Union[
@@ -720,6 +768,81 @@ def _entry_xis(tucker_cores, index):
     return tuple(xis)
 
 
+def precompute_base_sweep(
+        base:   typ.Tuple[
+            typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
+            typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+            typ.Sequence[NDArray],          # left_tt_cores    P. len=d
+            typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
+        ],                                  # base order = T3Basis.data = (up, down, left, right)
+        ww:     typ.Sequence[NDArray],      # apply vectors, len=d, elm_shape=W+(Ni,)
+) -> typ.Tuple[
+    typ.Sequence[NDArray],  # xis.  len=d, elm_shape=W+C+(nUi,)
+    typ.Sequence[NDArray],  # mus.  len=d, elm_shape=W+C+(rLi,)
+    typ.Sequence[NDArray],  # nus.  len=d, elm_shape=W+C+(rR(i+1),)
+    typ.Sequence[NDArray],  # etas. len=d, elm_shape=W+C+(nOi,)
+]:                                          # base_sweep -- the reusable base edge variables
+    '''The all-modes apply **base sweep**: the base edge variables (xi-hat, mu-hat, nu-hat, eta-hat)
+    that depend only on the base frame and the sample vectors ``ww`` -- NOT on the tangent direction or
+    the residual. Computing them is the expensive, ``W``-scaled part of the apply Jacobian; they are
+    shared by the forward :py:func:`apply_jacobian_from_sweep` and the transpose
+    :py:func:`apply_transpose_from_sweep`, so a caller (e.g. ``fitting.py``) precomputes them **once per
+    base** and reuses them across every ``J`` / ``Jᵀ`` of an inner solve. The returned bundle is the
+    transpose's superset; the forward reads only the ``(xis, mus)`` subset.
+
+    This is the base half of the bare ``𝒥`` / ``𝒥ᵀ`` (Algorithm 6 of Alger et al. (2026), §6.2.2) -- no
+    gauge projector ``Π``; the Riemannian composition lives in the fitting layer.
+
+    See Also
+    --------
+    apply_jacobian_from_sweep
+    apply_transpose_from_sweep
+    apply_tangent
+    '''
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base
+    xis  = compute_xis(up_tucker_cores, ww)
+    mus  = compute_mus(left_tt_cores, xis)
+    nus  = compute_nus(right_tt_cores, xis)
+    etas = compute_etas(down_tt_cores, mus, nus)
+    return xis, mus, nus, etas
+
+
+def apply_jacobian_from_sweep(
+        variation:  typ.Tuple[
+            typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nOi,Ni)
+            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nUi,rRi)
+        ],
+        ww:         typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,) -- for the variation's dxis
+        base:       typ.Tuple[
+            typ.Sequence[NDArray],          # up_tucker_cores  U. len=d  (unused; for a uniform call signature)
+            typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+            typ.Sequence[NDArray],          # left_tt_cores    P. len=d  (unused)
+            typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
+        ],                                  # base order = T3Basis.data = (up, down, left, right)
+        base_sweep: typ.Tuple[
+            typ.Sequence[NDArray],          # xis  -- used
+            typ.Sequence[NDArray],          # mus  -- used
+            typ.Sequence[NDArray],          # nus  -- unused by the forward (the transpose's)
+            typ.Sequence[NDArray],          # etas -- unused by the forward
+        ],                                  # = precompute_base_sweep(base, ww)
+) -> NDArray:                               # the scalar apply(v, ww), one per stack element; shape = W + K + C
+    '''Forward all-modes apply of a tangent vector reusing a precomputed base sweep -- the bare ``𝒥`` with
+    the base edge variables injected. Equivalent to :py:func:`apply_tangent`, but it takes the shared
+    ``(xis, mus)`` from ``base_sweep`` instead of recomputing them (the reuse hook for ``fitting.py``).
+    Only the variation-dependent ``dxis`` is computed here. No gauge projector ``Π``.
+
+    See Also
+    --------
+    precompute_base_sweep
+    apply_tangent
+    '''
+    var_tucker_cores, var_tt_cores = variation
+    _, down_tt_cores, _, right_tt_cores = base
+    xis, mus, _, _ = base_sweep
+    dxis = compute_dxis(var_tucker_cores, ww)     # variation-dependent; not part of the base sweep
+    return _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores)
+
+
 def apply_tangent(
         ww:         typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
         variation:  typ.Tuple[
@@ -751,6 +874,65 @@ def apply_tangent(
     dxis = compute_dxis(var_tucker_cores, ww)     # delta-xi_i = dU_i^T w_i
     mus  = compute_mus(left_tt_cores, xis)        # base left sweep via P
 
+    return _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores)
+
+
+def precompute_entries_base_sweep(
+        base:   typ.Tuple[
+            typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
+            typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+            typ.Sequence[NDArray],          # left_tt_cores    P. len=d
+            typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
+        ],                                  # base order = T3Basis.data = (up, down, left, right)
+        index:  NDArray,                    # int, shape=(d,)+W -- the grid points
+) -> typ.Tuple[
+    typ.Sequence[NDArray],  # xis.  len=d, elm_shape=W+C+(nUi,) -- the FIBER-SLICED seed (not contracted)
+    typ.Sequence[NDArray],  # mus.  len=d, elm_shape=W+C+(rLi,)
+    typ.Sequence[NDArray],  # nus.  len=d, elm_shape=W+C+(rR(i+1),)
+    typ.Sequence[NDArray],  # etas. len=d, elm_shape=W+C+(nOi,)
+]:                                          # base_sweep -- the reusable base edge variables (entries seed)
+    '''The all-modes **entries** base sweep: identical to :py:func:`precompute_base_sweep` but the
+    ``xi-hat`` seed comes from slicing the Tucker-core fibers at ``index`` (``_entry_xis``) instead of
+    contracting with probe vectors. The ``mu``/``nu``/``eta`` machinery is unchanged. Reused by the
+    entries forward/transpose (the reuse hook for ``fitting.py``).
+
+    See Also
+    --------
+    precompute_base_sweep
+    entries_jacobian_from_sweep
+    entries_transpose_from_sweep
+    '''
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base
+    xis  = _entry_xis(up_tucker_cores, index)
+    mus  = compute_mus(left_tt_cores, xis)
+    nus  = compute_nus(right_tt_cores, xis)
+    etas = compute_etas(down_tt_cores, mus, nus)
+    return xis, mus, nus, etas
+
+
+def entries_jacobian_from_sweep(
+        variation:  typ.Tuple[
+            typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nOi,Ni)
+            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nUi,rRi)
+        ],
+        index:      NDArray,                # int, shape=(d,)+W -- for the variation's fiber-sliced dxis
+        base:       typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = T3Basis.data = (U, O, P, Q); uses Q (right) and O (down)
+        base_sweep: typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = precompute_entries_base_sweep(base, index)
+) -> NDArray:                               # entries of the dense tangent at ``index``; shape = W + K + C
+    '''Forward all-modes entries of a tangent vector reusing a precomputed base sweep -- the bare ``𝒥``
+    (entries) with the base edge variables injected. Equivalent to :py:func:`entries_tangent`, but takes
+    the shared ``(xis, mus)`` from ``base_sweep``; only the fiber-sliced ``dxis`` is computed here. No
+    gauge projector ``Π``.'''
+    var_tucker_cores, var_tt_cores = variation
+    _, down_tt_cores, _, right_tt_cores = base
+    xis, mus, _, _ = base_sweep
+    dxis = _entry_xis(var_tucker_cores, index)    # fiber slice; variation-dependent, not in the base sweep
     return _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores)
 
 
@@ -800,6 +982,12 @@ def _apply_transpose_assemble(c, ww, xis, mus, nus, etas, sum_over_probes):
     ``w (x) dxi`` term of ``assemble_tucker_variations`` (one term each), with ``c`` folded in -- so
     they inherit the W/C stacking and the sum_over_probes behaviour. ``sum_over_probes=True`` sums the
     probe stack W (the ``J^T r`` back-projection); otherwise W becomes the output tangent stack.
+
+    KNOWN LIMITATION (deferred): the residual ``c`` must be ``W + C`` -- a **tangent stack ``K``** in the
+    residual (``W + K + C``, the output space of a K-stacked forward ``apply_tangent``) is NOT supported.
+    Unlike ``probe_tangent_transpose``, the apply/entries transpose is not K-aware: the ``c[..., None] *
+    mu`` scatter misaligns ``K`` (``mu`` carries no ``K``). The K-stacked apply/entries transpose is left
+    for later; it does not affect fitting (which uses ``K=()``).
     '''
     c_mus  = tuple(c[..., None] * mu  for mu  in mus)    # c * mu-hat   -> the tau-tilde slot (over rL)
     c_etas = tuple(c[..., None] * eta for eta in etas)   # c * eta-hat  -> the dxi-tilde slot (over nO)
@@ -812,6 +1000,31 @@ def _apply_transpose_assemble(c, ww, xis, mus, nus, etas, sum_over_probes):
                           for cm, xi, nu, w in zip(c_mus, xis, nus, ww))
         dU_tildes = tuple(contractions.Wo_WKCa_to_WKCao(w, ce) for w, ce in zip(ww, c_etas))
     return dU_tildes, dG_tildes   # (var_tucker, var_tt) = T3Variations.data
+
+
+def apply_transpose_from_sweep(
+        c:          NDArray,                # residual, shape = W + C (or W + K + C)
+        ww:         typ.Sequence[NDArray],  # apply vectors (one-hot e_index for entries), len=d, elm_shape=W+(Ni,)
+        base_sweep: typ.Tuple[
+            typ.Sequence[NDArray],          # xis
+            typ.Sequence[NDArray],          # mus
+            typ.Sequence[NDArray],          # nus
+            typ.Sequence[NDArray],          # etas
+        ],                                  # = precompute_base_sweep(base, ww)
+        sum_over_probes: bool = False,
+) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (dU_tildes, dG_tildes) = T3Variations.data
+    '''Transpose of the all-modes apply reusing a precomputed base sweep -- the bare ``𝒥ᵀ`` with the base
+    edge variables injected. Equivalent to :py:func:`apply_tangent_transpose`, but it takes
+    ``base_sweep`` instead of recomputing it (the reuse hook for ``fitting.py``: one base sweep feeds
+    both the forward and this transpose in a Gauss-Newton ``JᵀJ`` apply). No gauge projector ``Π``.
+
+    See Also
+    --------
+    precompute_base_sweep
+    apply_tangent_transpose
+    '''
+    xis, mus, nus, etas = base_sweep
+    return _apply_transpose_assemble(c, ww, xis, mus, nus, etas, sum_over_probes)
 
 
 def apply_tangent_transpose(
@@ -833,11 +1046,31 @@ def apply_tangent_transpose(
     apply_tangent
     entries_tangent_transpose
     '''
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base
-    xis  = compute_xis(up_tucker_cores, ww)
-    mus  = compute_mus(left_tt_cores, xis)
-    nus  = compute_nus(right_tt_cores, xis)
-    etas = compute_etas(down_tt_cores, mus, nus)
+    base_sweep = precompute_base_sweep(base, ww)
+    return apply_transpose_from_sweep(c, ww, base_sweep, sum_over_probes)
+
+
+def entries_transpose_from_sweep(
+        c:          NDArray,                # residual, shape = W + C (or W + K + C)
+        index:      NDArray,                # int, shape=(d,)+W -- the indices c weights (-> one-hot vectors)
+        base:       typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = T3Basis.data = (U, O, P, Q); uses U (up) for the one-hot vectors
+        base_sweep: typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = precompute_entries_base_sweep(base, index)
+        sum_over_probes: bool = False,
+) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (dU_tildes, dG_tildes) = T3Variations.data
+    '''Transpose of the all-modes entries reusing a precomputed base sweep -- the bare ``𝒥ᵀ`` (entries)
+    with the base edge variables injected. Equivalent to :py:func:`entries_tangent_transpose`, but takes
+    ``base_sweep`` instead of recomputing it (the reuse hook for ``fitting.py``). Identical to
+    :py:func:`apply_transpose_from_sweep` with the one-hot vectors ``e_{index}`` as the apply vectors.
+    No gauge projector ``Π``.'''
+    up_tucker_cores = base[0]
+    ww = _onehot_vectors(index, up_tucker_cores)
+    xis, mus, nus, etas = base_sweep
     return _apply_transpose_assemble(c, ww, xis, mus, nus, etas, sum_over_probes)
 
 
@@ -859,13 +1092,8 @@ def entries_tangent_transpose(
     entries_tangent
     apply_tangent_transpose
     '''
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base
-    xis  = _entry_xis(up_tucker_cores, index)
-    mus  = compute_mus(left_tt_cores, xis)
-    nus  = compute_nus(right_tt_cores, xis)
-    etas = compute_etas(down_tt_cores, mus, nus)
-    ww   = _onehot_vectors(index, up_tucker_cores)
-    return _apply_transpose_assemble(c, ww, xis, mus, nus, etas, sum_over_probes)
+    base_sweep = precompute_entries_base_sweep(base, index)
+    return entries_transpose_from_sweep(c, index, base, base_sweep, sum_over_probes)
 
 
 def apply_corewise_transpose(
@@ -1228,6 +1456,43 @@ def assemble_tt_variations(
         (dG_tildes,) = xmap(_func, xs)
 
     return dG_tildes
+
+
+def probe_transpose_from_sweep(
+        ztildes:    typ.Sequence[NDArray],  # probe residuals, len=d, elm_shape=W+K+C+(Ni,)
+        ww:         typ.Sequence[NDArray],  # probe vectors,   len=d, elm_shape=W+(Ni,)
+        base:       typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = T3Basis.data = (U, O, P, Q)
+        base_sweep: typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = precompute_base_sweep(base, ww) (apply & probe SHARE it)
+        sum_over_probes: bool = False,
+) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (dU_tildes, dG_tildes) = T3Variations.data
+    '''Transpose of the probe reusing a precomputed base sweep -- the bare ``𝒥ᵀ`` (probe) with the base
+    edge variables injected. Equivalent to :py:func:`probe_tangent_transpose`, but takes
+    ``(xis, mus, nus, etas)`` from ``base_sweep`` (the reuse hook for ``fitting.py``; apply & probe share
+    the sweep). No gauge projector ``Π``.
+
+    See Also
+    --------
+    precompute_base_sweep
+    probe_tangent_transpose
+    probe_jacobian_from_sweep
+    '''
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base
+    xis, mus, nus, etas = base_sweep
+    deta_tildes  = compute_deta_tildes(up_tucker_cores, ztildes)
+    tau_tildes   = compute_tau_tildes(deta_tildes, left_tt_cores, xis, mus)
+    sigma_tildes = compute_sigma_tildes(deta_tildes, right_tt_cores, xis, nus)
+    dxi_tildes   = compute_dxi_tildes(sigma_tildes, tau_tildes, down_tt_cores, mus, nus)
+    n_probe = ww[0].ndim - 1
+    dU_tildes = assemble_tucker_variations(ztildes, dxi_tildes, ww, etas, sum_over_probes=sum_over_probes)
+    dG_tildes = assemble_tt_variations(sigma_tildes, tau_tildes, deta_tildes, xis, mus, nus,
+                                       sum_over_probes=sum_over_probes, n_probe=n_probe)
+    return dU_tildes, dG_tildes
 
 
 def probe_tangent_transpose(

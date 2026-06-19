@@ -26,6 +26,9 @@ import t3toolbox.backend.probe_derivatives as pd
 import t3toolbox.backend.tangent_operations as tops
 import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.orthogonal_representations as orth_reps
+import t3toolbox.backend.probing as probing
+import t3toolbox.backend.fitting as fb
+import t3toolbox.fitting as fitting
 
 try:
     import jax
@@ -307,6 +310,85 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda b: orth_reps.basis_orthogonality_residual(b), self.base.data)
         self.assert_jit_jax(lambda b: orth_reps.basis_consistency_residual(b), self.base.data)
         self.assert_jit_jax(lambda b, v: tops.gauge_residual(b, v), self.base.data, self.var.data)
+
+    # ---------------------------------------------------- jit bucket: Gauss-Newton fitting (backend/fitting.py)
+    def test_jit_fitting(self):
+        base = self.base.data
+        ww = self.ww                                              # sample stack W=(2,)
+        sweep = probing.precompute_base_sweep(base, ww)     # reusable base sweep (jax)
+        p = self.w.variations.data                               # an un-gauged tangent (exercises internal Π)
+        r = jnp.ones(2)                                          # residual, W=(2,), C=()
+        g = fb.apply_gradient(r, ww, base, sweep)               # gauged gradient (jax)
+        c = jnp.ones(())
+        self.assert_jit_jax(lambda pp: fb.apply_jacobian(pp, ww, base, sweep), p)
+        self.assert_jit_jax(lambda rr: fb.apply_gradient(rr, ww, base, sweep), r)
+        self.assert_jit_jax(lambda pp: fb.apply_gn_hessian(pp, ww, base, sweep), p)
+        self.assert_jit_jax(lambda pp: fb.apply_model_value(pp, ww, base, sweep, g, c), p)
+        # entries: integer grid points instead of probe vectors
+        index = jnp.array([[1, 2], [2, 3], [3, 0]])              # (d,)+W, W=(2,)
+        esweep = probing.precompute_entries_base_sweep(base, index)
+        eg = fb.entries_gradient(r, index, base, esweep)
+        self.assert_jit_jax(lambda pp: fb.entries_jacobian(pp, index, base, esweep), p)
+        self.assert_jit_jax(lambda rr: fb.entries_gradient(rr, index, base, esweep), r)
+        self.assert_jit_jax(lambda pp: fb.entries_gn_hessian(pp, index, base, esweep), p)
+        self.assert_jit_jax(lambda pp: fb.entries_model_value(pp, index, base, esweep, eg, c), p)
+        # probe: vector-valued residual (one free mode each); shares the apply base sweep
+        pr_r = tuple(jnp.ones((2, N)) for N in STRUCT[0])         # d probe vectors, W=(2,)
+        pg = fb.probe_gradient(pr_r, ww, base, sweep)
+        self.assert_jit_jax(lambda pp: fb.probe_jacobian(pp, ww, base, sweep), p)
+        self.assert_jit_jax(lambda rr: fb.probe_gradient(rr, ww, base, sweep), pr_r)
+        self.assert_jit_jax(lambda pp: fb.probe_gn_hessian(pp, ww, base, sweep), p)
+        self.assert_jit_jax(lambda pp: fb.probe_model_value(pp, ww, base, sweep, pg, c), p)
+        # corewise (NO Π): raw core tuples, base = the current point's cores
+        cores = self.x.data
+        csweep = fb.precompute_corewise_base_sweep(cores, ww)
+        cp = self.w.variations.data                              # a raw core perturbation (same shapes)
+        cg = fb.apply_corewise_gradient(r, ww, csweep)
+        self.assert_jit_jax(lambda pp: fb.apply_corewise_jacobian(pp, ww, cores, csweep), cp)
+        self.assert_jit_jax(lambda rr: fb.apply_corewise_gradient(rr, ww, csweep), r)
+        self.assert_jit_jax(lambda pp: fb.apply_corewise_gn_hessian(pp, ww, cores, csweep), cp)
+        self.assert_jit_jax(lambda pp: fb.apply_corewise_model_value(pp, ww, cores, csweep, cg, c), cp)
+        # entries corewise
+        ecsweep = fb.precompute_entries_corewise_base_sweep(cores, index)
+        ecg = fb.entries_corewise_gradient(r, index, cores, ecsweep)
+        self.assert_jit_jax(lambda pp: fb.entries_corewise_jacobian(pp, index, cores, ecsweep), cp)
+        self.assert_jit_jax(lambda rr: fb.entries_corewise_gradient(rr, index, cores, ecsweep), r)
+        self.assert_jit_jax(lambda pp: fb.entries_corewise_gn_hessian(pp, index, cores, ecsweep), cp)
+        self.assert_jit_jax(lambda pp: fb.entries_corewise_model_value(pp, index, cores, ecsweep, ecg, c), cp)
+        # probe corewise (shares the ww corewise sweep)
+        pcg = fb.probe_corewise_gradient(pr_r, ww, cores, csweep)
+        self.assert_jit_jax(lambda pp: fb.probe_corewise_jacobian(pp, ww, cores, csweep), cp)
+        self.assert_jit_jax(lambda rr: fb.probe_corewise_gradient(rr, ww, cores, csweep), pr_r)
+        self.assert_jit_jax(lambda pp: fb.probe_corewise_gn_hessian(pp, ww, cores, csweep), cp)
+        self.assert_jit_jax(lambda pp: fb.probe_corewise_model_value(pp, ww, cores, csweep, pcg, c), cp)
+
+    def test_jit_fitting_model(self):
+        # the GaussNewton model frontends: cached sweep folds in (closure); base survives jit as aux
+        model = fitting.ApplyGaussNewtonModel(self.base, self.ww, jnp.ones(2))
+        _ = model.gradient; _ = model.objective_value           # warm the caches -> concrete jax constants
+        self.assert_jit_jax(lambda pp: model.gn_hessian(pp), self.w)   # H p, returns a T3Tangent
+        self.assert_jit_jax(lambda pp: model.evaluate(pp), self.w)     # m(p), returns a jax scalar
+        emodel = fitting.EntriesGaussNewtonModel(self.base, jnp.array([[1, 2], [2, 3], [3, 0]]), jnp.ones(2))
+        _ = emodel.gradient; _ = emodel.objective_value
+        self.assert_jit_jax(lambda pp: emodel.gn_hessian(pp), self.w)
+        self.assert_jit_jax(lambda pp: emodel.evaluate(pp), self.w)
+        pmodel = fitting.ProbeGaussNewtonModel(self.base, self.ww, tuple(jnp.ones((2, N)) for N in STRUCT[0]))
+        _ = pmodel.gradient; _ = pmodel.objective_value
+        self.assert_jit_jax(lambda pp: pmodel.gn_hessian(pp), self.w)
+        self.assert_jit_jax(lambda pp: pmodel.evaluate(pp), self.w)
+        cp = self.w.variations.data                                                   # a raw core tuple
+        cmodel = fitting.CorewiseApplyGaussNewtonModel(self.x, self.ww, jnp.ones(2))  # raw cores, NO Π
+        _ = cmodel.gradient; _ = cmodel.objective_value
+        self.assert_jit_jax(lambda pp: cmodel.gn_hessian(pp), cp)
+        self.assert_jit_jax(lambda pp: cmodel.evaluate(pp), cp)
+        ecmodel = fitting.CorewiseEntriesGaussNewtonModel(self.x, jnp.array([[1, 2], [2, 3], [3, 0]]), jnp.ones(2))
+        _ = ecmodel.gradient; _ = ecmodel.objective_value
+        self.assert_jit_jax(lambda pp: ecmodel.gn_hessian(pp), cp)
+        self.assert_jit_jax(lambda pp: ecmodel.evaluate(pp), cp)
+        pcmodel = fitting.CorewiseProbeGaussNewtonModel(self.x, self.ww, tuple(jnp.ones((2, N)) for N in STRUCT[0]))
+        _ = pcmodel.gradient; _ = pcmodel.objective_value
+        self.assert_jit_jax(lambda pp: pcmodel.gn_hessian(pp), cp)
+        self.assert_jit_jax(lambda pp: pcmodel.evaluate(pp), cp)
 
     # ---------------------------------------------------- jit bucket: UniformTuckerTensorTrain
     def test_jit_uniform(self):
