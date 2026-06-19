@@ -61,7 +61,9 @@ version of the count: `σ_min` improves with order up to the tensor order, then 
 1. **Per-order normalization is essential.** `f^(k)` carries a `C(d-1,k) · ‖p‖^k · k!`-type weight, so raw
    orders span wildly different magnitudes — that alone inflates `σ_max` and wrecks the conditioning. With
    per-order normalization (cf. the unit-norm-rows fitting recipe), the graded information comes in balanced
-   and `σ_max` stays controlled. "Well-conditioned" is conditional on this.
+   and `σ_max` stays controlled. "Well-conditioned" is conditional on this. (The output-side per-order
+   normalization and the equivalent input-side "length scale" `λ` — scaling `p` so order `t` scales by `λ^t`
+   — are written up in [`docs/derivative_fitting_scaling_note.md`](derivative_fitting_scaling_note.md).)
 2. **One line ≠ the whole tensor.** Each `(X,P)` constrains only its line's slice of `T` (the graded
    combinations along it). Covering the manifold's full DOF still needs **spatial diversity** — many `X`,
    many `P`. Derivatives make each base point *maximally* informative, so the benefit is largest when

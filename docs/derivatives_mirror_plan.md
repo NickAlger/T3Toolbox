@@ -192,3 +192,11 @@ order-1 from `U_i p_i`; `dU_tilde` scatter lands on the indexed rows.
   (`docs/derivative_order_information_and_conditioning.md`).
 - **Future-work / low-priority cleanup:** `_assemble_dG_jet3`'s `{'A','I','B'}`-keyed dispatch (vs the
   codebase's explicit-per-contraction style) — revisit later.
+- **Future-work / perf optimization (bidiagonal `trs`):** the pushthrough/assembly contractions convolve
+  a full-order jet with the *input/perturbation* jet, which is capped at 2 orders (`s ∈ {0,1}`), so
+  `trs[t,r,s]` is nonzero only at `r ∈ {t, t-1}` — **bidiagonal**. We currently compute them as a dense
+  `(K+1)×(K+1)` einsum (`O(K²)`) where the math is `O(K)`. Exploiting it (two slice-contractions:
+  `core·jet⁽ᵗ⁾` + `t·core·jet⁽ᵗ⁻¹⁾`) would cut the order-mixing by `~K/2` on those contractions (only the
+  *combine* in probe is a genuine full `O(K²)` convolution). Measured (W=300, ranks 4): deriv apply fwd is
+  ~32× regular at order 4, transpose ~78×. Not urgent (training cost secondary; `K ≤ d` small; trades away
+  the clean uniform-`trs` abstraction) — log, don't block the merge.
