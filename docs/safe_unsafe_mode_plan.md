@@ -113,6 +113,10 @@ This cleanly separates **contract** (the geometry's `inner` carries and checks i
 
 ## 5. The contract catalog (the make-or-break work — do this first, with Nick)
 
+> **The full catalog is drafted in [`docs/numerical_contract_catalog.md`](numerical_contract_catalog.md)**
+> (op → genuine precondition, the flagged blurs, the minimal-rank resolution, sign-off questions). The
+> starter table below is kept for orientation.
+
 Sweep the **verified** modules (`tucker_tensor_train`, `basis_variations_format`, `manifold`,
 `corewise`, the fitting layer, `probing`, and their verified backends) and, for each operation, record its
 **genuine numerical precondition** — distinguishing it from any semantic caveat. Starter table (to be
