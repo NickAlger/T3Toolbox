@@ -147,9 +147,11 @@ completed and signed off):
 
 ## 7. Build plan (slices)
 
-1. **S1 — the safety mechanism.** `safety_rtol` as a `contextvars` var + `with t3.safe(rtol=...)` /
-   `t3.unsafe()` context managers + a module default; a `check(...)` / `check_frames_equal(...)` helper
-   that no-ops when unsafe **or** tracing (detect tracers). Pure plumbing; no behavior change yet.
+1. **S1 — the safety mechanism. ✅ DONE.** `t3toolbox/safety.py`: `safety_rtol` as a `contextvars` var
+   (default **safe**, `1e-9`) + `safe(rtol=...)` / `unsafe()` context managers + `set_default_safety_rtol`;
+   `is_tracing` / `checks_active` (safe **and** not tracing) / `require` / `frames_equal` /
+   `frames_equal_or_skip` (the same-frame convenience: skips under unsafe/trace, else the value compare).
+   Pure plumbing; nothing wired yet (no behavior change). Tests: `tests/test_safety.py` (10) + doctests.
 2. **S2 — the precondition catalog (§5).** Sweep verified modules; produce the full precondition table;
    **Nick signs off** before any check is wired. This is the make-or-break step.
 3. **S3 — move `inner`/`norm` to the geometries.** Add `MANIFOLD.inner`/`.norm` (same-frame + gauge check)
