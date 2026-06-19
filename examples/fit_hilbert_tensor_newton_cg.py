@@ -32,7 +32,7 @@ We fit a ``TuckerTensorTrain`` ``X`` of fixed rank by minimizing the training mi
 over the fixed-rank manifold, with **Riemannian inexact Newton-CG and an Armijo line search**:
 
   * the orthogonal frame at ``X`` comes from ``t3_orthogonal_representations`` (a ``T3Basis``);
-  * the gradient and the Gauss-Newton Hessian-vector product come from a ``fitting.ApplyGaussNewtonModel``
+  * the gradient and the Gauss-Newton Hessian-vector product come from a ``fitting.apply_model``
     built once per Newton step at the frame: ``model.gradient`` (the Riemannian ``Pi J^T r``) and
     ``model.gn_hessian(V)`` (``Pi J^T J Pi V``, symmetric PSD). The model **precomputes the base sweep
     once per Newton step and reuses it across every CG matrix-vector product** -- instead of recomputing
@@ -76,7 +76,6 @@ Run from the repo root:  ``python examples/fit_hilbert_tensor_newton_cg.py``
 import numpy as np
 
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.basis_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.fitting as fitting
 
@@ -135,8 +134,8 @@ def rms(x):
 # --------------------------------------------------------------------------------------------------
 def apply_operator(ww):
     forward       = lambda Z: Z.apply(ww)   # works for a TuckerTensorTrain (point) or a T3Tangent (Jacobian)
-    # build the Gauss-Newton model at a frame for a residual -- precomputes the reusable base sweep once.
-    model_builder = lambda base, r: fitting.ApplyGaussNewtonModel(base, ww, r)
+    # build the Gauss-Newton model at the current point for a residual -- precomputes the base sweep once.
+    model_builder = lambda X, r: fitting.apply_model(t3m.MANIFOLD, X, ww, r)
     meas_dot      = lambda a, b: float(np.dot(np.asarray(a), np.asarray(b)))
     return forward, model_builder, meas_dot
 
@@ -183,12 +182,11 @@ def riemannian_newton_cg(X0, forward, model_builder, meas_dot, b,
     newton_iters = 0
     cg_total = 0
     for it in range(max_newton):
-        base, _ = bvf.t3_orthogonal_representations(X)   # orthogonal frame at the current point
-
         r = forward(X) - b
-        # The Gauss-Newton model at this frame -- precomputes the base sweep ONCE and reuses it across
-        # the gradient and every CG Hessian apply below (the per-Newton-step reuse).
-        model = model_builder(base, r)
+        # The Gauss-Newton model at this point -- builds the orthonormal frame and precomputes the base
+        # sweep ONCE, reused across the gradient and every CG Hessian apply below (per-Newton-step reuse).
+        model = model_builder(X, r)
+        base = model.base                                # the orthonormal frame at the current point
         f = float(model.objective_value)                 # = 1/2 ||r||^2
 
         g = model.gradient                               # Riemannian gradient Pi J^T r (already gauged)

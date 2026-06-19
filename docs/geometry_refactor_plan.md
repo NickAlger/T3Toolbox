@@ -268,11 +268,23 @@ gauged, Euclidean otherwise."
    tests, doctests across `manifold` / `fitting` / `backend.probing`). Self-contained `manifold.py`
    refactor; no `backend/` change. Verified: 210 core tests + 10 dispatch + all doctests pass; both
    examples run end-to-end. See the "Decisions locked in G1" note under §4 for the as-built API.
-2. **Slice G2 — generic `GaussNewtonModel`.** Collapse the six `*GaussNewtonModel` classes and the ~24
-   tangent/corewise backend functions into one geometry-generic model + sampling-kind factories
-   (`apply_model`/`entries_model`/`probe_model`). Corewise gradients/Hessians now return `T3Tangent` at
-   `(U,G,G,G)`. Re-point the (kind-parameterized) fitting tests at the new surface; keep the exact
-   dense-truth + matched-pair oracles.
+2. **Slice G2 — generic `GaussNewtonModel`. ✅ DONE.** Collapsed the six `*GaussNewtonModel` classes and
+   the ~38 tangent/corewise backend functions into **one** geometry-generic `GaussNewtonModel(geometry,
+   base, kind, sample, residual)` + factories `apply_model`/`entries_model`/`probe_model(geometry, x,
+   sample, residual)`. The backend is now a `SamplingKind` bundle (bare `𝒥`/`𝒥ᵀ` from `probing` +
+   `sumsq` reducer) per kind (`APPLY`/`ENTRIES`/`PROBE`); the geometry supplies `Π` (`geometry.project`)
+   and the frame (`geometry.base`). Two unifications fell out: `geometry.base(x)` **subsumes** the old
+   `_corewise_base` substitution (corewise base sweep = `precompute_base_sweep((U,G,G,G), ·)`), and the
+   dense oracle is `½‖r + forward(geometry.project(p).to_dense())‖²` for **both** geometries (corewise
+   `project(p).to_dense()` = the sum-of-core-swaps). Corewise gradients/Hessians now return `T3Tangent`
+   at `(U,G,G,G)`; the same-base guard applies to both geometries. `c = ½‖r‖²` folds into `½·sumsq(r)`.
+   Re-pointed `test_fitting.py` to one class parameterized over (kind × geometry × C) — dense-truth,
+   two-form, razor, matched-pair (manifold gauges / corewise no-Π via bare-transpose compare), GN
+   symmetry, adjoint, same-base guard, caching, + cross-checks vs the established `T3Tangent` /
+   `TuckerTensorTrain` transposes. Merged the two `test_dispatch` fitting jit tests into one (model ×
+   kind × geometry). Verified: 206 core + 9 dispatch + doctests pass; the Newton-CG example reproduces
+   **bit-for-bit** the pre-refactor iterates. *(`docs/fitting_plan.md` prose is now historical — defer
+   to G4.)*
 3. **Slice G3 — `optimizers.py`.** One geometry-agnostic `newton_cg` (truncated/regularized for the
    singular corewise `H`), one `lbfgs`/`gradient_descent`. Consume `(geometry, model_builder, x0)`.
 4. **Slice G4 — example + docs.** Run `examples/fit_hilbert_tensor_newton_cg.py` through *both* geometries
