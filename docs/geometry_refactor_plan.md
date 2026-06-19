@@ -7,6 +7,55 @@ functions): tangent and corewise fitting are unified under an explicit **`Geomet
 is accepted; this is the target structure, chosen for mathematical coherence, code simplicity, and
 user utility — not to preserve the existing code.*
 
+## 0. Resuming from a fresh context (read this first)
+
+*If you are a future Claude with little/no memory of the conversation that produced this: this document
+is self-contained. Read §1–§5 for the reasoning, §7 for the build order, then execute. Do not re-derive
+the design or re-litigate the structure — it is decided. Confirm small choices with Nick, but build.*
+
+**Branch & git state (as of 2026-06-19).** The plan was written on branch `fitting`. The intended flow:
+`probe-derivatives` and `fitting` are both merged to `main` (they are tested and work); **this refactor
+runs on a fresh branch off `main`** (e.g. `geometry-refactor`). Check `git branch`/`git log --oneline -15`
+to see where you actually are. The fitting layer described below is the *starting point* you are
+refactoring; everything is committed.
+
+**Current state — what exists to refactor (the starting point):**
+- `t3toolbox/fitting.py` — **six** frozen-dataclass models: `ApplyGaussNewtonModel`,
+  `EntriesGaussNewtonModel`, `ProbeGaussNewtonModel`, and `Corewise{Apply,Entries,Probe}GaussNewtonModel`.
+  Each holds a base (`T3Basis` for tangent, `TuckerTensorTrain` for corewise) + sample data + residual;
+  exposes `objective_value`, `gradient`, `gn_hessian(p)`, `evaluate(p)`; caches `_base_sweep`. Tangent
+  models return `T3Tangent`; corewise models return **raw `(tucker, tt)` tuples** (this is what the
+  refactor changes — corewise should return `T3Tangent` at `(U,G,G,G)`).
+- `t3toolbox/backend/fitting.py` — ~38 functions: `<kind>_{jacobian,gradient,gn_hessian,model_value}` for
+  tangent (compose bare `𝒥`/`𝒥ᵀ` + `Π`); `<kind>_corewise_*` (same, no `Π`, substituted base via
+  `_corewise_base`); `precompute_base_sweep` / `precompute_entries_base_sweep` /
+  `precompute_corewise_base_sweep` / `precompute_entries_corewise_base_sweep`; `_sumsq_over_samples` /
+  `_sumsq_over_probes`.
+- `t3toolbox/backend/probing.py` — the **bare** `𝒥`/`𝒥ᵀ` reuse primitives (KEEP, share across geometries):
+  `precompute_base_sweep`, `precompute_entries_base_sweep`, and
+  `{apply,entries,probe}_{jacobian,transpose}_from_sweep`. These compose with `Π`-or-not in the fitting
+  layer; they are correct and do not change.
+- `t3toolbox/manifold.py` — `T3Tangent` (the class to thin per §5) and `T3Basis`. The backend algorithms
+  for the three methods that move (`tangent_operations.orthogonal_gauge_projection`, the retraction,
+  `project_*_onto_tangent`) live in `t3toolbox/backend/tangent_operations.py` and **do not change** — the
+  geometry classes select them.
+- `examples/fit_hilbert_tensor_newton_cg.py` — uses `fitting.ApplyGaussNewtonModel` via a `model_builder`;
+  the inner CG is the reference. (G4 re-runs it through both geometries.)
+- Tests: `tests/test_fitting.py` (kind-parameterized: backend dense-truth/two-form/gauge/razor/adjoint +
+  frontend), `tests/test_dispatch.py` (`test_jit_fitting*`).
+
+**Verification commands** (run from repo root; conda env `tttt`):
+```
+python -m pytest tests/test_fitting.py tests/test_manifold.py tests/test_tucker_tensor_train.py \
+                 tests/test_basis_variations_format.py tests/backend/test_contractions.py -q
+python -m pytest tests/test_dispatch.py -q              # jax dispatch (jit)
+python -m doctest t3toolbox/manifold.py t3toolbox/fitting.py
+```
+The exact dense-truth oracles in `test_fitting.py` (manifold: `½‖r + 𝒥Πp‖²`; corewise: `½‖r +
+apply_dense(Σ_core dense(core→δcore))‖²`) are the correctness gold standard — preserve them through the
+refactor (they should still pass against the geometry-generic model). Corewise oracles use a *relative*
+tolerance (large raw-core magnitudes).
+
 ## 1. The core idea (one screen)
 
 Manifold fitting and corewise fitting are **not two feature-families — they are two manifolds you
@@ -71,12 +120,15 @@ on `P` and the gradient on `M`).
   as parameters → `∂loss/∂cores` free → Adam/SGD) or **ALS** (exact per-core block least-squares). t3f is
   closest to us — it has both Riemannian and Euclidean paths, but as *two separate code paths*, not a
   unified geometry; its Euclidean path is just autodiff.
-- **Decisive point:** wherever autodiff exists, the corewise gradient is *free*. So framing corewise as a
-  "compute core gradients" feature is redundant — autodiff does it better. Our corewise earns its place
-  only as **(a)** the Euclidean geometry inside a unified framework, **(b)** a matrix-free Gauss–Newton
-  operator (`JᵀJ`-vector products, awkward for autodiff via double-backprop), and **(c)** autodiff-free
-  numpy. All three *are* the geometry-abstraction framing. So the abstraction isn't only cleaner code —
-  it's the correct *positioning* of the feature.
+- **Decisive point (corrected per Nick's benchmarks).** Autodiff makes the corewise gradient *convenient*
+  (free, no hand-coding) but **not** necessarily fast: the hand-rolled sweeping/probing contractions,
+  jit-compiled, **outperform `jax.grad` for the corewise gradient, sometimes substantially** (the
+  base-sweep reuse + no autodiff-graph overhead — empirically observed). So corewise is *not* a redundant
+  autodiff stand-in. Our corewise earns its place as **(a)** the Euclidean geometry inside a unified
+  framework, **(b)** a matrix-free Gauss–Newton operator (`JᵀJ`-vector products, awkward for autodiff via
+  double-backprop), **(c)** autodiff-free numpy, and **(d)** competitive-or-faster performance even where
+  autodiff exists. All four reinforce the geometry-abstraction framing: corewise belongs as a first-class,
+  *performant* Euclidean geometry — not a "just use autodiff" afterthought.
 - **Net on the three criteria:** coherence — strongest (it is the established framework, and corewise is
   its Euclidean instance); simplicity — strongest *for the whole system* (fewer backend functions, six
   classes → one model + two geometries, and — the real win — **optimizers written once, not per
