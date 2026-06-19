@@ -50,8 +50,9 @@ updated to this version by the time the package is released.
 > frontend is fine — don't bloat the backend. If the logic takes real thought to get right and is easy
 > to get **wrong** (e.g. the base-inner stack-axis bookkeeping, a depth-aware tree zip), it belongs in
 > the backend so they can find and reuse it. **Exception:** logic *inseparable* from the frontend —
-> constructing/validating the `T3*` OO classes (the `.validate()` contracts), same-object identity
-> guards — stays in the frontend regardless, since the backend cannot depend on the frontend.
+> constructing/validating the `T3*` OO classes (the `.validate()` contracts), the same-frame guard (it
+> needs the two `T3Basis` objects) — stays in the frontend regardless, since the backend cannot depend on
+> the frontend.
 > **Corollary:** don't leave a backend user one fiddly step short of a usable result — if a backend
 > function would otherwise force them to know some follow-up call (e.g. `tree_zip` to pair two returned
 > trees), fold that step in so the function returns the directly-usable thing.
@@ -93,7 +94,7 @@ updated to this version by the time the package is released.
 > its **"Start here"** section (one-screen mental model + a concrete shape table + the shape-notation
 > legend), then the numbered sections for the full reference (three meanings of "stack", the base-inner
 > convention and *why*, the `'...'`-vs-grouped-contraction machineries, heterogeneous-stack tuples,
-> `vmap`/`jit` with basis-as-aux). The notes below are the terse version.
+> `vmap`/`jit` with the basis as a pytree leaf). The notes below are the terse version.
 >
 > The three batch **blocks** (mnemonic-and-collision-free letters): **`C`** = base/core stack (base
 > points, on *every* core; `= stack_shape`), **`W`** = probe stack (the `w` vectors, on `ww` only),
@@ -187,21 +188,60 @@ to `xnp`.** Rule: **supercores → `xnp`; masks → `np`.** Full reasoning + the
 - Uppercase single-letter core names (`U V G P Q O …`) are intentional — ignore "should be
   lowercase" linter notes.
 
-## House philosophy: hard guards for structural problems, warnings for numerical ones
+## House philosophy: structural problems always error; numerical preconditions are checked in safe mode
 
 The dividing line is **structural vs numerical**:
 
-- **Structural problems → hard error.** Wrong shape, inconsistent ranks/lengths, mismatched stack
-  shapes, operating across different tangent spaces — these raise. `TuckerTensorTrain`,
-  `T3Basis`, and `T3Variations` validate in `__post_init__`; `T3Tangent` `+`/`-`/`inner` require
-  the **same `T3Basis` object** (identity, not value equality, which would be ambiguous on ndarray
-  fields). If something is the wrong shape: error.
+- **Structural problems → hard error, always (both modes).** Wrong shape, inconsistent ranks/lengths,
+  mismatched stack shapes — these raise unconditionally. `TuckerTensorTrain`, `T3Basis`, and
+  `T3Variations` validate in `__post_init__`. If something is the wrong shape: error. (Structural
+  consistency is *not* governed by the safety mode below.)
 
-- **Numerical problems → warn, don't enforce.** If something is supposed to be orthogonal / gauged /
-  minimal-rank but isn't, let it through and let the result be wrong — do not check at construction.
-  Instead provide non-enforcing checkers (`is_orthogonal`, `is_gauged`, `has_minimal_ranks`) and
-  document the requirement + failure mode in the operation's docstring, often with an illustrative
-  doctest showing it failing when the property is absent.
+- **Numerical problems → enforced as PRECONDITIONS in safe mode, skipped in unsafe / under jit.**
+  *(This supersedes the older "numerical problems → warn, never enforce" rule.)* The library carries an
+  ambient **safety** setting (`t3toolbox/safety.py`, a `contextvars` var — the one sanctioned global,
+  justified because it is correctness-neutral): a tolerance pair is **safe mode** (the default), `None`
+  is **unsafe mode**. In safe mode an op with a genuine numerical **precondition** (its result is
+  *wrong* without it) checks it and raises; `with safety.unsafe():` or a jax trace (jit/grad/vmap — you
+  cannot branch on a tracer) **skips** it. This is **correctness-neutral** (the `assert`/`-O`
+  precedent): the *numbers* are identical, only error-catching differs. The non-enforcing checkers
+  (`is_orthogonal`, `is_gauged`, `has_minimal_ranks`, `safety.frames_equal`) still exist and *are* the
+  checks. Master plan: [`docs/safe_unsafe_mode_plan.md`](docs/safe_unsafe_mode_plan.md); the full
+  precondition-vs-caveat sweep: [`docs/numerical_contract_catalog.md`](docs/numerical_contract_catalog.md).
+
+  - **Precondition vs caveat (only preconditions are enforced).** A **caveat** — the op is valid and
+    correct *as computed*, the property only governs what the result *means* (e.g. "this coordinate dot
+    equals Hilbert–Schmidt") — is **never** enforced; it would reject legitimate use. The enforced
+    preconditions are concentrated in the manifold/tangent surface: **same-frame** (`T3Tangent`
+    `+`/`-`/`stack_tangents`, `GaussNewtonModel` matvecs), **orthogonal frame**
+    (`MANIFOLD.project`/`project_oblique`/`retract`/`project_ambient`/`transport`), **gauged variations**
+    (`MANIFOLD.inner`/`norm`). `TuckerTensorTrain` / `corewise` / `probing` are **precondition-free**
+    (exact for any cores). The check sites use `safety.checks_active(*operand_data)` (safe **and** not
+    tracing) → `safety.require(<checker>(atol=safety.effective_rtol(...)), msg)`, routed through cached
+    residuals (`T3Basis.orthogonality_residual`, `T3Tangent.gauge_residual`) so a fixed frame/tangent in
+    an inner loop is contracted once. **Frontend-only** for now (a backend mirror for raw-`.data` users
+    is deferred).
+
+  - **"Same tangent space" is NUMERICAL, not structural** (the key correction). Two tangents share a
+    tangent space iff their frames are *numerically equal* (`safety.frames_equal`, with an `is`-identity
+    fast path) — **not** object identity. The old `self.basis is other.basis` identity guard was a
+    numerical check faked as structural; it forced `T3Tangent`'s basis to be jax **aux_data** (→ jit
+    recompiled on every base change) and false-failed on a jit round-trip. The numerical guard let the
+    basis become a pytree **leaf** (base flows as traced data → no recompile). Likewise `GaussNewtonModel`
+    is a registered pytree (base/sweep/sample/residual leaves; geometry/kind aux) — you can `jit` the
+    frontend matvec directly and it compiles **once** across all bases.
+
+  - **Two tolerances + minimal-rank naming.** A check picks `rtol_jax` (looser) when any input is a jax
+    array, else `rtol_numpy`, because jax runs **float32** by default — this supports jax-but-not-jit
+    usage in safe mode (autodiff prototyping). Naming: bare **`minimal_ranks` = structural** (cheap
+    integer arithmetic, `has_minimal_ranks`); **`numerically_minimal` = numerical** (an SVD;
+    `has_numerically_minimal_ranks`). **Minimal rank is NOT a correctness precondition for any op**
+    (settled empirically — catalog); it survives only as a `retract` caveat + diagnostic checkers.
+
+  - **inner/norm live on the *Geometry*, not the tangent.** The Hilbert–Schmidt metric is
+    `MANIFOLD.inner`/`norm` (checks same-frame + orthogonal + gauged); the Euclidean coordinate metric is
+    `COREWISE.inner`/`norm` (same-frame only). The raw coordinate ops on `T3Tangent` are
+    `corewise_inner`/`corewise_norm` (no HS claim, no orth/gauge check).
 
 ## Verification & testing
 
@@ -215,8 +255,9 @@ The dividing line is **structural vs numerical**:
   op — a stray `np.*` on a tracer raises, proving no hidden numpy — plus a jax-in→jax-out check for
   dynamic-shape rtol/atol ops, plus a few numerical smoke tests). This cut the full suite from ~550s
   to ~50s. When adding a numerical test, write it numpy-only and add the op to `test_dispatch` if its
-  jax dispatch isn't already covered. (Frozen dataclasses are registered jax pytrees; `T3Tangent` has
-  the **basis as aux_data** so the same-tangent-space identity guard survives jit — see `manifold.py`.)
+  jax dispatch isn't already covered. (Frozen dataclasses are registered jax pytrees; `T3Tangent` carries
+  the **basis as a leaf** — the same-frame guard is a *numerical* `frames_equal` check that survives the
+  jit round-trip, so the base flows as traced data with no per-base recompile — see `manifold.py`.)
   A few tests still build explicit jax operands where that *is* the thing under test (e.g.
   `test_contains_jax`); those keep the `jnp` import.
 - **Doctests = reproducible examples** (not yet wired into CI, but written so they can be): **examples
@@ -260,8 +301,9 @@ APIs, half-applied refactors, broken imports, and doctests whose "outputs" were 
 earlier draft. We are working through the codebase **file-by-file**, making each module actually run
 and pass tests before moving on. **Do not assume a module works just because it exists and looks
 complete — verify by running it.** Worked through and verified so far: `tucker_tensor_train.py`,
-`basis_variations_format.py`, `manifold.py`, and the backend functions those three rely on.
-Treat everything else as copied-in-and-not-yet-working until checked.
+`basis_variations_format.py`, `manifold.py` (incl. the `ManifoldGeometry`/`CorewiseGeometry` layer),
+`fitting.py` (the geometry-generic `GaussNewtonModel`), `safety.py` (the safe/unsafe-mode mechanism), and
+the backend functions those rely on. Treat everything else as copied-in-and-not-yet-working until checked.
 
 - **Solid / tested** — *numerical correctness in numpy*; jax **dispatch** (that jax is actually
   invoked, no hidden numpy) is covered separately by `tests/test_dispatch.py`, **not** a duplicate
@@ -273,6 +315,20 @@ Treat everything else as copied-in-and-not-yet-working until checked.
   K-stacked forward probe and transpose via 3-group contractions), checkers).
   Tests: `tests/test_tucker_tensor_train.py`, `test_basis_variations_format.py`, `test_manifold.py`,
   `test_dispatch.py`, `backend/test_contractions.py` (suite ~45s).
+- **Solid / tested — the geometry refactor + safe/unsafe mode (branch `geometry-refactor`).** A
+  Manopt-style **geometry abstraction**: `ManifoldGeometry`/`CorewiseGeometry` singletons (`MANIFOLD`/
+  `COREWISE` in `manifold.py`) bundle the chart choices (frame `base`, gauge `project`, `retract`, the
+  HS `inner`/`norm`); one geometry-generic `GaussNewtonModel` (`fitting.py`) with `apply`/`entries`/
+  `probe` factories, `gradient`/`gn_hessian`/`jacobian`/`gn_quadratic`/`evaluate`. **Safe/unsafe mode**
+  (`safety.py`, S1–S6): ambient `contextvars` tolerance (safe default / `None` unsafe), numerical
+  **preconditions** enforced in safe mode + skipped under unsafe/jit, two tolerances (numpy/jax),
+  eager-only. The same-frame guard is numericalized (`frames_equal`), `T3Tangent`'s basis + the whole
+  `GaussNewtonModel` are jax **leaves** → `jit(matvec)` compiles once across bases (no per-base
+  recompile). ORTH preconditions wired into the manifold projections/retraction; inner/norm moved to the
+  geometries; minimal-rank settled (not a precondition). Docs: `docs/safe_unsafe_mode_plan.md`,
+  `docs/numerical_contract_catalog.md`, `docs/geometry_refactor_plan.md`. Tests: `test_safety.py` +
+  the geometry/safe-mode cases in `test_manifold`/`test_fitting`/`test_dispatch`. **Remaining: G3 —
+  `optimizers.py`** (the Cauchy-SGD / Newton-CG loops this enables).
 - **Probing + K-stacking (`backend/probing.py`, `manifold.py`)** — done through **slice 5c**; the
   blow-by-blow is in git history, and `docs/probing_section6_notes.md` maps Section 6 of the paper
   (the Riemannian Jacobian) to the code. Delivered: forward/transpose probe

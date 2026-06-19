@@ -196,9 +196,13 @@ completed and signed off):
    `test_manifold_orth_preconditions`, `test_orthogonality_residual_cached`,
    `test_checks_skip_under_trace_closed_over_concrete`; 223 core + dispatch + doctests pass; both Hilbert
    examples reproduce.
-6. **S6 — verify.** `jit(matvec)` compiles once across bases (no recompile); eager guards fire in safe
-   mode, catch real errors, and tolerate value-equal frames; numbers identical to today; both Hilbert
-   examples + the full suite pass. Update CLAUDE.md (§8) and the geometry plan.
+6. **S6 — verify. ✅ DONE.** Confirmed: `jit(model, p) -> model.gn_hessian(p)` compiles **once** across
+   distinct bases (`traces=1`); eager safe-mode guards fire (ORTH/GAUGE/same-frame), tolerate value-equal
+   frames, and skip under `safety.unsafe()` / any trace (incl. closed-over concrete operands); numbers
+   identical to before. **Full suite (295) + dispatch + doctests pass; both Hilbert examples reproduce.**
+   Folded the two house-rule changes (§8) into CLAUDE.md ("House philosophy" rewritten;
+   stale identity/aux_data references fixed; geometry+safe-mode added to "Current state") and refreshed
+   the geometry plan. The safe/unsafe-mode arc (S1–S6) is complete; **G3 (`optimizers.py`) is unblocked.**
 
 ## 8. House-rule changes (record + update CLAUDE.md when implemented)
 

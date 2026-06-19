@@ -110,8 +110,9 @@ The codebase annotates shapes in trailing comments and encodes them in names. Th
   (`validate`) require a uniform stack**. That asymmetry explains where broadcasting is lazy vs
   materialized (§5).
 - The `K`/`C` split is **not stored** — it is recovered from the `(basis, variations)` pairing (§6).
-- `jax` pytree registration makes `T3Tangent` `vmap`/`jit`-able; **the basis is `aux_data`**, so
-  `vmap` over a tangent maps over the `K` stack with the base fixed (§7).
+- `jax` pytree registration makes `T3Tangent` `vmap`/`jit`-able; **the basis and variations are both
+  leaves** (the same-frame guard is numerical, not identity), so the base flows as traced data with no
+  per-base recompile (§7).
 
 ---
 
@@ -344,26 +345,31 @@ The frozen dataclasses are registered jax pytrees (`if has_jax:` at the end of e
 can be `jit`/`vmap`/`grad`-ed:
 
 - `TuckerTensorTrain`, `T3Basis`, `T3Variations`: leaves = the cores (`x.data`), no aux.
-- **`T3Tangent`: the BASIS is `aux_data`; only the variations are leaves.** The fixed frame is static;
-  the moving tangent vector (the variations) is what you differentiate/optimize/`vmap`. Consequences:
-  - **`vmap` over a `T3Tangent` maps over the variations = the `K` stack, basis fixed** — i.e.
-    `vmap`-over-`K` *is* the batch-of-tangents-sharing-one-base picture, a clean jax route in general.
-    For 5c (forward-probe a `K`-stacked tangent) we deliberately did **not** use it: the probe instead
-    grew genuine 3-block (`W`,`K`,`C`) contractions (§4). Rationale — consistency with the
-    `contractions.py` toolkit (the blessed mechanism for independent blocks), no Python `K` loop on the
-    numpy path, and low-level einsums fold into XLA at least as well as a `vmap` (which can add
-    layout/transpose churn over a long function). The `vmap`-over-`K` picture still holds for other
-    ops; it just isn't how probing batches.
-  - **The same-tangent-space identity guard survives `jit`.** `aux_data` is stored in the treedef and
-    reconstructed *by reference*, so two tangents built from the same basis object keep
-    `a.basis is b.basis` after flatten/unflatten — `inner`/`+` jit cleanly. It still fires for
-    genuinely different bases.
-  - **Trade-off:** the basis is a `jit` compile-time constant keyed by object identity. **Hold the
-    basis object stable for cache hits; a new base point recompiles.** This fits the usage (heavy
-    fixed-base inner solves / batch ops at one base). To differentiate *w.r.t. the basis*, drop to the
-    backend functions on the raw cores.
-  - `T3Basis` is `@dataclass(frozen=True, eq=False)` so it can serve as `aux_data` (it holds arrays →
-    value hash/eq is impossible/ambiguous; identity hash matches the "same object" semantics).
+- **`T3Tangent`: the basis AND the variations are leaves** (no aux). Both the fixed frame and the moving
+  tangent vector flow as traced data. Consequences:
+  - **`vmap` over a `T3Tangent` maps over *both* the basis and variation leaves.** For the
+    batch-of-tangents-sharing-one-base picture (`vmap`-over-`K`, base fixed), close the base over and map
+    a function of the variations: `vmap(lambda v: f(T3Tangent(base, v)))`. For 5c (forward-probe a
+    `K`-stacked tangent) we deliberately did **not** use `vmap`: the probe instead grew genuine 3-block
+    (`W`,`K`,`C`) contractions (§4). Rationale — consistency with the `contractions.py` toolkit (the
+    blessed mechanism for independent blocks), no Python `K` loop on the numpy path, and low-level
+    einsums fold into XLA at least as well as a `vmap` (which can add layout/transpose churn over a long
+    function).
+  - **The same-frame guard is NUMERICAL (`safety.frames_equal`), not object identity.** Two tangents
+    share a tangent space iff their frame cores are *value-equal* (with an `is`-identity fast path); the
+    check is safe-mode + eager-only (skips under `safety.unsafe()` / any trace). So it survives a jit
+    round-trip (a reconstructed, value-equal basis passes instead of false-failing) and `inner`/`+` jit
+    cleanly. (This replaced the old `self.basis is other.basis` identity guard, which forced the basis to
+    be `aux_data` — see below.)
+  - **Payoff: NO per-base recompile.** Because the basis is a leaf (traced data, not a compile-time aux
+    constant), a tangent or `GaussNewtonModel` crossing a `jit` boundary compiles **once across all
+    bases** (`traces=1`) — you jit the frontend matvec directly. The old basis-as-aux design recompiled
+    on every base change (a Newton step), which is exactly what the numericalized guard fixed. Full
+    story: `docs/safe_unsafe_mode_plan.md`. To grad *w.r.t. the variations only*, close the base over;
+    grad-w.r.t.-the-basis is now also available (the basis is a leaf).
+  - `T3Basis` / `T3Tangent` are `@dataclass(frozen=True, eq=False)`: value hash/eq on ndarray fields is
+    ambiguous, so they stay identity-hashed — but the basis is now a **leaf-bearing pytree node**, not
+    `aux_data`.
 
 `vmap`/`jit` invocation across the ops is checked cheaply in `tests/test_dispatch.py` (a `jit`-compile
 of an op proves no hidden numpy — a stray `np.*` on a tracer raises).
