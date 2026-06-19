@@ -172,6 +172,24 @@ class TestGaussNewtonModelFrontend(unittest.TestCase):
         with self.assertRaises(ValueError):
             model.evaluate(p_other)
 
+    def test_matches_reference_operators(self):
+        '''The model reproduces the closure-based reference operators (the manifold apply_transpose used
+        by examples/fit_hilbert_tensor_newton_cg.py) on the gauged subspace CG lives in: the gradient
+        bit-for-bit, and the GN Hessian on a gauged input. (On an UN-gauged input the model differs --
+        it is the proper symmetric Π𝒥ᵀ𝒥Π; the reference projects only the output.)'''
+        model, base, ww, r = self._model(())
+        ref_g = t3m.T3Tangent.apply_transpose(r, ww, base, sum_over_probes=True).orthogonal_gauge_projection()
+        for a, b in zip(model.gradient.variations.data[0] + model.gradient.variations.data[1],
+                        ref_g.variations.data[0] + ref_g.variations.data[1]):
+            self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))
+        V = t3m.T3Tangent.randn(base, apply_gauge_projection=True)        # gauged -> operators must agree
+        ref_HV = t3m.T3Tangent.apply_transpose(
+            V.apply(ww), ww, base, sum_over_probes=True).orthogonal_gauge_projection()
+        Hv = model.gn_hessian(V)
+        for a, b in zip(Hv.variations.data[0] + Hv.variations.data[1],
+                        ref_HV.variations.data[0] + ref_HV.variations.data[1]):
+            self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))
+
     def test_base_sweep_cached(self):
         '''The base sweep (and gradient/objective) are cached -- the reuse mechanism, computed once.'''
         model, base, ww, r = self._model(())

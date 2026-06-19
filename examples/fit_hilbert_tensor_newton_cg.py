@@ -32,15 +32,18 @@ We fit a ``TuckerTensorTrain`` ``X`` of fixed rank by minimizing the training mi
 over the fixed-rank manifold, with **Riemannian inexact Newton-CG and an Armijo line search**:
 
   * the orthogonal frame at ``X`` comes from ``t3_orthogonal_representations`` (a ``T3Basis``);
-  * the gradient is matrix-free -- ``T3Tangent.apply_transpose(r, ww, base, sum_over_probes=True)``
-    gauge-projected -- and the Gauss-Newton Hessian-vector product is
-    ``V -> apply_transpose(V.apply(ww), ...)`` gauge-projected (symmetric PSD);
+  * the gradient and the Gauss-Newton Hessian-vector product come from a ``fitting.GaussNewtonModel``
+    built once per Newton step at the frame: ``model.gradient`` (the Riemannian ``Pi J^T r``) and
+    ``model.gn_hessian(V)`` (``Pi J^T J Pi V``, symmetric PSD). The model **precomputes the base sweep
+    once per Newton step and reuses it across every CG matrix-vector product** -- instead of recomputing
+    it on each apply, which is the whole reason the fitting layer exists;
   * the Newton system is solved approximately by CG in the tangent space (the "inexact" part), with a
     forcing term that tightens as we converge;
   * each step is retracted back to the manifold by ``T3Tangent.retract`` and accepted by backtracking.
 
-The optimizer only touches the forward map, its transpose, and a measurement-space inner product, so
-swapping ``apply`` for ``entries`` or ``probe`` is a one-line change of the operator closures.
+The optimizer only touches the forward map, a Gauss-Newton model builder, and a measurement-space inner
+product, so swapping ``apply`` for ``entries`` / ``probe`` is a one-line change of those (once the
+corresponding fitting model is added in the fan-out).
 
 Rank continuation + model selection
 -----------------------------------
@@ -75,6 +78,7 @@ import numpy as np
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.basis_variations_format as bvf
 import t3toolbox.manifold as t3m
+import t3toolbox.fitting as fitting
 
 
 # --------------------------------------------------------------------------------------------------
@@ -127,13 +131,14 @@ def rms(x):
 
 # --------------------------------------------------------------------------------------------------
 # The measurement operator (apply).  Everything below is operator-agnostic: the optimizer only uses
-# `forward`, `transpose`, and `meas_dot`.  Swap these three for entries / probe to change the demo.
+# `forward`, `model_builder`, and `meas_dot`.  Swap these for entries / probe to change the demo.
 # --------------------------------------------------------------------------------------------------
 def apply_operator(ww):
-    forward   = lambda Z: Z.apply(ww)   # works for a TuckerTensorTrain (point) or a T3Tangent (Jacobian)
-    transpose = lambda r, base: t3m.T3Tangent.apply_transpose(r, ww, base, sum_over_probes=True)
-    meas_dot  = lambda a, b: float(np.dot(np.asarray(a), np.asarray(b)))
-    return forward, transpose, meas_dot
+    forward       = lambda Z: Z.apply(ww)   # works for a TuckerTensorTrain (point) or a T3Tangent (Jacobian)
+    # build the Gauss-Newton model at a frame for a residual -- precomputes the reusable base sweep once.
+    model_builder = lambda base, r: fitting.GaussNewtonModel(base, ww, r)
+    meas_dot      = lambda a, b: float(np.dot(np.asarray(a), np.asarray(b)))
+    return forward, model_builder, meas_dot
 
 
 # --------------------------------------------------------------------------------------------------
@@ -169,7 +174,7 @@ def _tangent_cg(H, rhs, base, tol, maxiter):
     return x, i
 
 
-def riemannian_newton_cg(X0, forward, transpose, meas_dot, b,
+def riemannian_newton_cg(X0, forward, model_builder, meas_dot, b,
                          max_newton=MAX_NEWTON, gtol_rel=GTOL_REL, cg_maxiter=CG_MAXITER,
                          c_armijo=1e-4, verbose=False):
     """Fit X to data b by minimizing 1/2 ||forward(X) - b||^2 on the fixed-rank manifold."""
@@ -181,10 +186,12 @@ def riemannian_newton_cg(X0, forward, transpose, meas_dot, b,
         base, _ = bvf.t3_orthogonal_representations(X)   # orthogonal frame at the current point
 
         r = forward(X) - b
-        f = 0.5 * meas_dot(r, r)
+        # The Gauss-Newton model at this frame -- precomputes the base sweep ONCE and reuses it across
+        # the gradient and every CG Hessian apply below (the per-Newton-step reuse).
+        model = model_builder(base, r)
+        f = float(model.objective_value)                 # = 1/2 ||r||^2
 
-        # Riemannian gradient: matrix-free transpose, then gauge-project onto the tangent space.
-        g = transpose(r, base).orthogonal_gauge_projection()
+        g = model.gradient                               # Riemannian gradient Pi J^T r (already gauged)
         gnorm = float(g.norm())
         if g0norm is None:
             g0norm = gnorm if gnorm > 0.0 else 1.0
@@ -194,9 +201,8 @@ def riemannian_newton_cg(X0, forward, transpose, meas_dot, b,
             break
         newton_iters += 1
 
-        # Gauss-Newton Hessian-vector product (symmetric PSD on the gauged tangent space).
-        def H(V):
-            return transpose(forward(V), base).orthogonal_gauge_projection()
+        # Gauss-Newton Hessian-vector product (symmetric PSD on the gauged tangent space; sweep reused).
+        H = model.gn_hessian
 
         # Inexact Newton: solve H p = -g by CG to a forcing-term tolerance (tighter as we converge).
         eta = min(0.5, np.sqrt(gnorm / g0norm))
@@ -269,7 +275,7 @@ def main():
     print(f"Measurements (applies): {N_TRAIN} train + {N_VAL} validation,  "
           f"{NOISE_LEVEL * 100:.0f}% noise.  (probe rows normalized to unit norm)\n")
 
-    fwd_train, T_train, mdot = apply_operator(ww_train)
+    fwd_train, builder_train, mdot = apply_operator(ww_train)
     fwd_val, _, _ = apply_operator(ww_val)
 
     # ---- rank-continuation sweep ------------------------------------------------------------------
@@ -286,7 +292,7 @@ def main():
         dof = t3m.manifold_dim((SHAPE, tucker_ranks, tt_ranks))
 
         X0 = X.resize(SHAPE, tucker_ranks, tt_ranks)   # zero-pad the previous solution to this level
-        X, stats = riemannian_newton_cg(X0, fwd_train, T_train, mdot, b_train)
+        X, stats = riemannian_newton_cg(X0, fwd_train, builder_train, mdot, b_train)
 
         train_e = rms(fwd_train(X) - b_train) / b_rms
         val_e = rms(fwd_val(X) - b_val) / b_rms
