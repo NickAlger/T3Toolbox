@@ -32,7 +32,8 @@ import t3toolbox.backend.fitting as fb
 from t3toolbox.backend.common import *
 
 __all__ = ['ApplyGaussNewtonModel', 'EntriesGaussNewtonModel', 'ProbeGaussNewtonModel',
-           'CorewiseApplyGaussNewtonModel']
+           'CorewiseApplyGaussNewtonModel', 'CorewiseEntriesGaussNewtonModel',
+           'CorewiseProbeGaussNewtonModel']
 
 
 def _require_at_base(base: bvf.T3Basis, p: t3m.T3Tangent) -> None:
@@ -320,4 +321,105 @@ class CorewiseApplyGaussNewtonModel:
     def evaluate(self, p: typ.Tuple) -> NDArray:  # m(p), shape C
         '''The quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p`` (one forward apply; reuses ``c``, ``g``).'''
         return fb.apply_corewise_model_value(
+            p, self.ww, self.x.data, self._base_sweep, self.gradient, self.objective_value)
+
+
+@dataclass(frozen=True)
+class CorewiseEntriesGaussNewtonModel:
+    '''The **corewise** (non-manifold, NO Π) Gauss-Newton model of an ``entries`` least-squares objective.
+
+    Like :py:class:`CorewiseApplyGaussNewtonModel` but the measurements are tensor **entries** at integer
+    grid points ``index`` (shape ``(d,)+W``). Operands are raw ``(tucker, tt)`` core tuples.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.fitting as fitting
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
+    >>> index = np.stack([np.random.randint(0, N, size=12) for N in (6, 7, 8)])
+    >>> r = np.random.randn(12)
+    >>> model = fitting.CorewiseEntriesGaussNewtonModel(x, index, r)
+    >>> print([gi.shape for gi in model.gradient[0]] == [ui.shape for ui in x.tucker_cores])
+    True
+    '''
+
+    x:        t3.TuckerTensorTrain     # the current point (raw cores; no frame)
+    index:    NDArray                  # int, shape=(d,)+W -- the grid points
+    residual: NDArray                  # r = F(x) − y, shape W+C
+
+    @ft.cached_property
+    def _base_sweep(self) -> typ.Tuple:
+        return fb.precompute_entries_corewise_base_sweep(self.x.data, self.index)
+
+    @ft.cached_property
+    def objective_value(self) -> NDArray:  # c = ½‖r‖², shape C
+        '''The least-squares objective at the base, ``c = ½‖r‖²``.'''
+        n_w = self.index.ndim - 1
+        return 0.5 * (self.residual ** 2).sum(axis=tuple(range(n_w)))
+
+    @ft.cached_property
+    def gradient(self) -> typ.Tuple:  # raw (tucker_grads, tt_grads); NO Π
+        '''The corewise gradient ``g = 𝒥ᵀ r`` w.r.t. the cores -- raw ``(tucker_grads, tt_grads)``.'''
+        return fb.entries_corewise_gradient(self.residual, self.index, self.x.data, self._base_sweep)
+
+    def gn_hessian(self, p: typ.Tuple) -> typ.Tuple:  # raw core tuples; NO Π
+        '''The corewise Gauss-Newton Hessian action ``H p = 𝒥ᵀ 𝒥 p`` -- raw ``(tucker, tt)`` grads.'''
+        return fb.entries_corewise_gn_hessian(p, self.index, self.x.data, self._base_sweep)
+
+    def evaluate(self, p: typ.Tuple) -> NDArray:  # m(p), shape C
+        '''The quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p`` (one forward apply; reuses ``c``, ``g``).'''
+        return fb.entries_corewise_model_value(
+            p, self.index, self.x.data, self._base_sweep, self.gradient, self.objective_value)
+
+
+@dataclass(frozen=True)
+class CorewiseProbeGaussNewtonModel:
+    '''The **corewise** (non-manifold, NO Π) Gauss-Newton model of a ``probe`` least-squares objective.
+
+    Like :py:class:`CorewiseApplyGaussNewtonModel` but the measurements are **probes** -- vector-valued
+    (one free mode each), so ``residual`` is a sequence of ``d`` arrays. Operands are raw core tuples.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.fitting as fitting
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
+    >>> ww = [np.random.randn(15, N) for N in (6, 7, 8)]
+    >>> r = [np.random.randn(15, N) for N in (6, 7, 8)]
+    >>> model = fitting.CorewiseProbeGaussNewtonModel(x, ww, r)
+    >>> print([gi.shape for gi in model.gradient[1]] == [ci.shape for ci in x.tt_cores])
+    True
+    '''
+
+    x:        t3.TuckerTensorTrain     # the current point (raw cores; no frame)
+    ww:       typ.Sequence[NDArray]    # probe vectors, len=d, elm_shape=W+(Ni,)
+    residual: typ.Sequence[NDArray]    # r = F(x) − y, len=d, elm_shape=W+C+(Ni,)
+
+    @ft.cached_property
+    def _base_sweep(self) -> typ.Tuple:
+        return fb.precompute_corewise_base_sweep(self.x.data, self.ww)
+
+    @ft.cached_property
+    def objective_value(self) -> NDArray:  # c = ½‖r‖², shape C
+        '''The least-squares objective at the base, ``c = ½‖r‖²`` summed over the probe vectors.'''
+        n_w = self.ww[0].ndim - 1
+        sq = sum((ri ** 2).sum(axis=tuple(range(n_w)) + (ri.ndim - 1,)) for ri in self.residual)
+        return 0.5 * sq
+
+    @ft.cached_property
+    def gradient(self) -> typ.Tuple:  # raw (tucker_grads, tt_grads); NO Π
+        '''The corewise gradient ``g = 𝒥ᵀ r`` w.r.t. the cores -- raw ``(tucker_grads, tt_grads)``.'''
+        return fb.probe_corewise_gradient(self.residual, self.ww, self.x.data, self._base_sweep)
+
+    def gn_hessian(self, p: typ.Tuple) -> typ.Tuple:  # raw core tuples; NO Π
+        '''The corewise Gauss-Newton Hessian action ``H p = 𝒥ᵀ 𝒥 p`` -- raw ``(tucker, tt)`` grads.'''
+        return fb.probe_corewise_gn_hessian(p, self.ww, self.x.data, self._base_sweep)
+
+    def evaluate(self, p: typ.Tuple) -> NDArray:  # m(p), shape C
+        '''The quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p`` (one forward apply; reuses ``c``, ``g``).'''
+        return fb.probe_corewise_model_value(
             p, self.ww, self.x.data, self._base_sweep, self.gradient, self.objective_value)

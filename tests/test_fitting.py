@@ -276,77 +276,129 @@ def corewise_dense_lin(x, dcores):
     return total
 
 
-class TestCorewiseApply(unittest.TestCase):
-    '''The corewise (free-core, NO Π) apply operators -- the matched-pair partner of the tangent ones.'''
+_COREWISE_MODEL = {'apply': fitting.CorewiseApplyGaussNewtonModel,
+                   'entries': fitting.CorewiseEntriesGaussNewtonModel,
+                   'probe': fitting.CorewiseProbeGaussNewtonModel}
 
-    def _setup(self, C):
-        np.random.seed(0)
-        x = t3.TuckerTensorTrain.randn(SHAPE, TUCKER_RANKS, TT_RANKS, stack_shape=C)
-        ww = [np.random.randn(N_SAMPLES, N) for N in SHAPE]
-        r = np.random.randn(*((N_SAMPLES,) + C))
-        sweep = fb.precompute_corewise_base_sweep(x.data, ww)
-        p = (tuple(np.random.randn(*u.shape) for u in x.tucker_cores),     # a raw core-perturbation step
-             tuple(np.random.randn(*cc.shape) for cc in x.tt_cores))
-        n_c, n_w = len(C), 1
-        c = 0.5 * np.sum(r ** 2, axis=tuple(range(n_w)))
-        g = fb.apply_corewise_gradient(r, ww, sweep)
-        return dict(x=x, ww=ww, r=r, sweep=sweep, p=p, n_c=n_c, n_w=n_w, c=c, g=g)
+
+def _corewise_setup(kind, C):
+    '''Build the corewise fixtures for one kind, hiding the per-kind backend signatures behind closures
+    (jac/grad/gnh/mval) + the established TuckerTensorTrain corewise transpose (ref) + the dense oracle.'''
+    np.random.seed(0)
+    x = t3.TuckerTensorTrain.randn(SHAPE, TUCKER_RANKS, TT_RANKS, stack_shape=C)
+    cores = x.data
+    m, n_c, n_w = N_SAMPLES, len(C), 1
+    p = (tuple(np.random.randn(*u.shape) for u in x.tucker_cores),       # a raw core-perturbation step
+         tuple(np.random.randn(*cc.shape) for cc in x.tt_cores))
+    if kind == 'apply':
+        sample = [np.random.randn(m, N) for N in SHAPE]
+        sweep = fb.precompute_corewise_base_sweep(cores, sample)
+        jac = lambda pp: fb.apply_corewise_jacobian(pp, sample, cores, sweep)
+        grad = lambda rr: fb.apply_corewise_gradient(rr, sample, sweep)
+        gnh = lambda pp: fb.apply_corewise_gn_hessian(pp, sample, cores, sweep)
+        mval = lambda pp, g, c: fb.apply_corewise_model_value(pp, sample, cores, sweep, g, c)
+        ref = lambda c: x.apply_corewise_transpose(c, sample, sum_over_probes=True)
+        dense_fwd = lambda T: apply_dense(T, sample, n_c)
+        r = np.random.randn(*((m,) + C))
+        samp_dot = lambda a, b: np.sum(a * b, axis=tuple(range(n_w)))
+        samp_add, rand_like = (lambda a, b: a + b), (lambda v: np.random.randn(*v.shape))
+    elif kind == 'entries':
+        sample = np.stack([np.random.randint(0, N, size=m) for N in SHAPE])
+        sweep = fb.precompute_entries_corewise_base_sweep(cores, sample)
+        jac = lambda pp: fb.entries_corewise_jacobian(pp, sample, cores, sweep)
+        grad = lambda rr: fb.entries_corewise_gradient(rr, sample, cores, sweep)
+        gnh = lambda pp: fb.entries_corewise_gn_hessian(pp, sample, cores, sweep)
+        mval = lambda pp, g, c: fb.entries_corewise_model_value(pp, sample, cores, sweep, g, c)
+        ref = lambda c: x.entries_corewise_transpose(c, sample, sum_over_probes=True)
+        dense_fwd = lambda T: entries_dense(T, sample, n_c)
+        r = np.random.randn(*((m,) + C))
+        samp_dot = lambda a, b: np.sum(a * b, axis=tuple(range(n_w)))
+        samp_add, rand_like = (lambda a, b: a + b), (lambda v: np.random.randn(*v.shape))
+    else:  # probe -- vector-valued
+        sample = [np.random.randn(m, N) for N in SHAPE]
+        sweep = fb.precompute_corewise_base_sweep(cores, sample)
+        jac = lambda pp: fb.probe_corewise_jacobian(pp, sample, cores, sweep)
+        grad = lambda rr: fb.probe_corewise_gradient(rr, sample, cores, sweep)
+        gnh = lambda pp: fb.probe_corewise_gn_hessian(pp, sample, cores, sweep)
+        mval = lambda pp, g, c: fb.probe_corewise_model_value(pp, sample, cores, sweep, g, c)
+        ref = lambda c: x.probe_corewise_transpose(c, sample, sum_over_probes=True)
+        dense_fwd = lambda T: probe_dense(T, sample, n_c)
+        r = [np.random.randn(*((m,) + C + (N,))) for N in SHAPE]
+        samp_dot = lambda a, b: sum(np.sum(ai * bi, axis=tuple(range(n_w)) + (ai.ndim - 1,))
+                                    for ai, bi in zip(a, b))
+        samp_add = lambda a, b: [ai + bi for ai, bi in zip(a, b)]
+        rand_like = lambda v: [np.random.randn(*vi.shape) for vi in v]
+    c = 0.5 * samp_dot(r, r)
+    g = grad(r)
+    return dict(x=x, sample=sample, p=p, r=r, c=c, g=g, n_c=n_c, n_w=n_w, jac=jac, grad=grad, gnh=gnh,
+                mval=mval, ref=ref, dense_fwd=dense_fwd, samp_dot=samp_dot, samp_add=samp_add,
+                rand_like=rand_like, model_cls=_COREWISE_MODEL[kind])
+
+
+COREWISE_KINDS = ('apply', 'entries', 'probe')
+
+
+class TestCorewise(unittest.TestCase):
+    '''The corewise (free-core, NO Π) operators -- the matched-pair partner of the tangent ones.'''
 
     def test_dense_truth(self):
-        '''m(p) == ½‖r + apply_dense(Σ_core dense(core→δcore))‖² -- NO gauge projection (the no-Π oracle).'''
-        for C in [(), (2,)]:
-            with self.subTest(C=C):
-                s = self._setup(C)
-                Jp_dense = apply_dense(corewise_dense_lin(s['x'], s['p']), s['ww'], s['n_c'])
-                oracle = 0.5 * np.sum((s['r'] + Jp_dense) ** 2, axis=tuple(range(s['n_w'])))
-                mval = fb.apply_corewise_model_value(s['p'], s['ww'], s['x'].data, s['sweep'], s['g'], s['c'])
-                self.assertTrue(np.allclose(mval, oracle, rtol=1e-9, atol=1e-9))  # large raw-core magnitudes
+        '''m(p) == ½‖r + sample(Σ_core dense(core→δcore))‖² -- NO gauge projection (the no-Π oracle).'''
+        for kind in COREWISE_KINDS:
+            for C in [(), (2,)]:
+                with self.subTest(kind=kind, C=C):
+                    s = _corewise_setup(kind, C)
+                    Jp_dense = s['dense_fwd'](corewise_dense_lin(s['x'], s['p']))
+                    res = s['samp_add'](s['r'], Jp_dense)
+                    oracle = 0.5 * s['samp_dot'](res, res)
+                    mval = s['mval'](s['p'], s['g'], s['c'])
+                    self.assertTrue(np.allclose(mval, oracle, rtol=1e-9, atol=1e-9))  # large raw-core magnitudes
 
     def test_matches_established_corewise_transpose(self):
         '''gradient and gn_hessian match the established (jax.grad-verified) TuckerTensorTrain corewise
-        transpose -- confirming the §6.3 substitution and that NO projection sneaks in.'''
-        for C in [(), (2,)]:
-            with self.subTest(C=C):
-                s = self._setup(C)
-                x, ww = s['x'], s['ww']
-                g_ref = x.apply_corewise_transpose(s['r'], ww, sum_over_probes=True)
-                for a, b in zip(s['g'][0] + s['g'][1], g_ref[0] + g_ref[1]):
-                    self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))
-                Jp = fb.apply_corewise_jacobian(s['p'], ww, x.data, s['sweep'])
-                Hp_ref = x.apply_corewise_transpose(Jp, ww, sum_over_probes=True)
-                Hp = fb.apply_corewise_gn_hessian(s['p'], ww, x.data, s['sweep'])
-                for a, b in zip(Hp[0] + Hp[1], Hp_ref[0] + Hp_ref[1]):
-                    self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))
+        transpose -- confirming the §6.3 substitution per kind and that NO projection sneaks in.'''
+        for kind in COREWISE_KINDS:
+            for C in [(), (2,)]:
+                with self.subTest(kind=kind, C=C):
+                    s = _corewise_setup(kind, C)
+                    g_ref = s['ref'](s['r'])
+                    for a, b in zip(s['g'][0] + s['g'][1], g_ref[0] + g_ref[1]):
+                        self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))
+                    Jp = s['jac'](s['p'])
+                    Hp_ref = s['ref'](Jp)
+                    Hp = s['gnh'](s['p'])
+                    for a, b in zip(Hp[0] + Hp[1], Hp_ref[0] + Hp_ref[1]):
+                        self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))
 
     def test_two_form_and_adjoint(self):
         '''m == c + ⟨g,p⟩ + ½⟨p,Hp⟩ (corewise dots), and the J/Jᵀ adjoint identity.'''
-        for C in [(), (2,)]:
-            with self.subTest(C=C):
-                s = self._setup(C)
-                Hp = fb.apply_corewise_gn_hessian(s['p'], s['ww'], s['x'].data, s['sweep'])
-                two_form = (s['c'] + cw.corewise_stack_dot(s['g'], s['p'], s['n_c'])
-                            + 0.5 * cw.corewise_stack_dot(s['p'], Hp, s['n_c']))
-                mval = fb.apply_corewise_model_value(s['p'], s['ww'], s['x'].data, s['sweep'], s['g'], s['c'])
-                self.assertTrue(np.allclose(two_form, mval, rtol=1e-9, atol=1e-9))
-                Jp = fb.apply_corewise_jacobian(s['p'], s['ww'], s['x'].data, s['sweep'])
-                z = np.random.randn(*Jp.shape)
-                gz = fb.apply_corewise_gradient(z, s['ww'], s['sweep'])
-                lhs = np.sum(z * Jp, axis=tuple(range(s['n_w'])))
-                rhs = cw.corewise_stack_dot(gz, s['p'], s['n_c'])
-                self.assertTrue(np.allclose(lhs, rhs, rtol=1e-9, atol=1e-9))
+        for kind in COREWISE_KINDS:
+            for C in [(), (2,)]:
+                with self.subTest(kind=kind, C=C):
+                    s = _corewise_setup(kind, C)
+                    Hp = s['gnh'](s['p'])
+                    two_form = (s['c'] + cw.corewise_stack_dot(s['g'], s['p'], s['n_c'])
+                                + 0.5 * cw.corewise_stack_dot(s['p'], Hp, s['n_c']))
+                    self.assertTrue(np.allclose(two_form, s['mval'](s['p'], s['g'], s['c']), rtol=1e-9, atol=1e-9))
+                    Jp = s['jac'](s['p'])
+                    z = s['rand_like'](Jp)
+                    gz = s['grad'](z)
+                    lhs = s['samp_dot'](z, Jp)
+                    rhs = cw.corewise_stack_dot(gz, s['p'], s['n_c'])
+                    self.assertTrue(np.allclose(lhs, rhs, rtol=1e-9, atol=1e-9))
 
     def test_frontend(self):
-        '''CorewiseApplyGaussNewtonModel delegates to the backend (gradient / gn_hessian / evaluate).'''
-        s = self._setup(())
-        model = fitting.CorewiseApplyGaussNewtonModel(s['x'], s['ww'], s['r'])
-        self.assertAlmostEqual(float(model.objective_value), float(s['c']), places=10)
-        for a, b in zip(model.gradient[0] + model.gradient[1], s['g'][0] + s['g'][1]):
-            self.assertTrue(np.allclose(a, b))
-        Hp = fb.apply_corewise_gn_hessian(s['p'], s['ww'], s['x'].data, s['sweep'])
-        for a, b in zip(model.gn_hessian(s['p'])[0] + model.gn_hessian(s['p'])[1], Hp[0] + Hp[1]):
-            self.assertTrue(np.allclose(a, b))
-        mval = fb.apply_corewise_model_value(s['p'], s['ww'], s['x'].data, s['sweep'], s['g'], s['c'])
-        self.assertTrue(np.allclose(model.evaluate(s['p']), mval))
+        '''The Corewise*GaussNewtonModel frontends delegate to the backend (all kinds).'''
+        for kind in COREWISE_KINDS:
+            with self.subTest(kind=kind):
+                s = _corewise_setup(kind, ())
+                model = s['model_cls'](s['x'], s['sample'], s['r'])
+                self.assertAlmostEqual(float(model.objective_value), float(s['c']), places=10)
+                for a, b in zip(model.gradient[0] + model.gradient[1], s['g'][0] + s['g'][1]):
+                    self.assertTrue(np.allclose(a, b))
+                Hp = s['gnh'](s['p'])
+                for a, b in zip(model.gn_hessian(s['p'])[0] + model.gn_hessian(s['p'])[1], Hp[0] + Hp[1]):
+                    self.assertTrue(np.allclose(a, b))
+                self.assertTrue(np.allclose(model.evaluate(s['p']), s['mval'](s['p'], s['g'], s['c'])))
 
 
 if __name__ == '__main__':

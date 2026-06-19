@@ -53,6 +53,15 @@ __all__ = [
     'apply_corewise_gradient',
     'apply_corewise_gn_hessian',
     'apply_corewise_model_value',
+    'precompute_entries_corewise_base_sweep',
+    'entries_corewise_jacobian',
+    'entries_corewise_gradient',
+    'entries_corewise_gn_hessian',
+    'entries_corewise_model_value',
+    'probe_corewise_jacobian',
+    'probe_corewise_gradient',
+    'probe_corewise_gn_hessian',
+    'probe_corewise_model_value',
 ]
 
 
@@ -502,3 +511,68 @@ def apply_corewise_model_value(
     n_w = ww[0].ndim - 1                          # sample-stack (W) axes: w_i is W+(Ni,)
     Jp = apply_corewise_jacobian(p, ww, cores, base_sweep)              # 𝒥 p, shape W+C (NO Π on p)
     return objective_value + cw.corewise_stack_dot(gradient, p, n_c) + 0.5 * _sumsq_over_samples(Jp, n_w)
+
+
+# ---- entries corewise (the fiber-sliced seed; one-hot transpose; substituted base; NO Π) ----
+
+def precompute_entries_corewise_base_sweep(
+        cores:  typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # = TuckerTensorTrain.data
+        index:  NDArray,                    # int, shape=(d,)+W -- the grid points
+) -> typ.Tuple[
+    typ.Sequence[NDArray], typ.Sequence[NDArray],
+    typ.Sequence[NDArray], typ.Sequence[NDArray],
+]:                                          # base_sweep -- the reusable base edge variables (substituted)
+    '''The entries corewise base sweep: :py:func:`probing.precompute_entries_base_sweep` on the
+    §6.3-substituted base ``(U, G, G, G)``.'''
+    return probing.precompute_entries_base_sweep(_corewise_base(cores), index)
+
+
+def entries_corewise_jacobian(p, index, cores, base_sweep):  # raw core pert -> entries; NO Π
+    '''Corewise forward entries ``J p`` (the §6.3 substitution; **no Π**).'''
+    return probing.entries_jacobian_from_sweep(p, index, _corewise_base(cores), base_sweep)
+
+
+def entries_corewise_gradient(r, index, cores, base_sweep):  # entries residual -> raw core grads; NO Π
+    '''Corewise entries gradient ``g = 𝒥ᵀ r`` -- raw core gradients (**no Π**).'''
+    return probing.entries_transpose_from_sweep(r, index, _corewise_base(cores), base_sweep, sum_over_probes=True)
+
+
+def entries_corewise_gn_hessian(p, index, cores, base_sweep):  # H p = 𝒥ᵀ𝒥 p; raw core grads; NO Π
+    '''Corewise entries Gauss-Newton normal operator ``H p = 𝒥ᵀ 𝒥 p`` -- raw core grads (**no Π**).'''
+    z = entries_corewise_jacobian(p, index, cores, base_sweep)
+    return probing.entries_transpose_from_sweep(z, index, _corewise_base(cores), base_sweep, sum_over_probes=True)
+
+
+def entries_corewise_model_value(p, index, cores, base_sweep, gradient, objective_value):  # m(p); NO Π
+    '''Corewise entries model value ``m(p) = c + ⟨g,p⟩ + ½‖𝒥p‖²`` (**no Π**; raw-core corewise dot).'''
+    n_c = cores[0][0].ndim - 2
+    n_w = index.ndim - 1
+    Jp = entries_corewise_jacobian(p, index, cores, base_sweep)
+    return objective_value + cw.corewise_stack_dot(gradient, p, n_c) + 0.5 * _sumsq_over_samples(Jp, n_w)
+
+
+# ---- probe corewise (vector output; shares the ww base sweep; substituted base; NO Π) ----
+
+def probe_corewise_jacobian(p, ww, cores, base_sweep):  # raw core pert -> d probe vectors; NO Π
+    '''Corewise forward probe ``J p`` (the §6.3 substitution; **no Π**). Shares
+    :py:func:`precompute_corewise_base_sweep` with apply corewise.'''
+    return probing.probe_jacobian_from_sweep(p, ww, _corewise_base(cores), base_sweep)
+
+
+def probe_corewise_gradient(r, ww, cores, base_sweep):  # probe residual -> raw core grads; NO Π
+    '''Corewise probe gradient ``g = 𝒥ᵀ r`` -- raw core gradients (**no Π**).'''
+    return probing.probe_transpose_from_sweep(r, ww, _corewise_base(cores), base_sweep, sum_over_probes=True)
+
+
+def probe_corewise_gn_hessian(p, ww, cores, base_sweep):  # H p = 𝒥ᵀ𝒥 p; raw core grads; NO Π
+    '''Corewise probe Gauss-Newton normal operator ``H p = 𝒥ᵀ 𝒥 p`` -- raw core grads (**no Π**).'''
+    z = probe_corewise_jacobian(p, ww, cores, base_sweep)
+    return probing.probe_transpose_from_sweep(z, ww, _corewise_base(cores), base_sweep, sum_over_probes=True)
+
+
+def probe_corewise_model_value(p, ww, cores, base_sweep, gradient, objective_value):  # m(p); NO Π
+    '''Corewise probe model value ``m(p) = c + ⟨g,p⟩ + ½‖𝒥p‖²`` (**no Π**; vector-output reduction).'''
+    n_c = cores[0][0].ndim - 2
+    n_w = ww[0].ndim - 1
+    Jp = probe_corewise_jacobian(p, ww, cores, base_sweep)
+    return objective_value + cw.corewise_stack_dot(gradient, p, n_c) + 0.5 * _sumsq_over_probes(Jp, n_w)
