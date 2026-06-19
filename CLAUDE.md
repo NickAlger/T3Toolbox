@@ -400,9 +400,11 @@ the backend functions those rely on. Treat everything else as copied-in-and-not-
   table + add the derivative dimension), `symmetric_probe_derivatives.tex` (add apply/entries + `K`);
   (2) **review + merge to `main`**. **Deferred:** the **ambient** transpose (no use case, exponential-rank
   — `docs/ambient_derivative_transpose_note.md`); the project-once gather optimization. **Deferred
-  nice-to-haves (Nick's call):** a derivative **fitting example** (mimic
-  `examples/fit_hilbert_tensor_newton_cg.py`); the **Hessian-conditioning experiment**
-  (`docs/derivative_order_information_and_conditioning.md`).
+  nice-to-haves (Nick's call):** the **Hessian-conditioning experiment**
+  (`docs/derivative_order_information_and_conditioning.md`). *(The derivative **fitting example** is
+  done: `examples/fit_hilbert_from_apply_derivatives.py` fits from apply-derivatives via Manifold Cauchy
+  SGD — T4S §5.3.2, the tuning-free Cauchy-step stochastic optimizer; ~8× faster than full-batch
+  Newton-CG on that demo.)*
 - **The transpose grid — DONE & REDESIGNED (ragged).** Each sampling op (`entries`/`apply`/`probe`)
   now has **three** transposes — **ambient / corewise / tangent** — read **[`docs/transposes.md`](docs/transposes.md)**
   (taxonomy, costs, decision guide) and the work log [`docs/transpose_redesign_handoff.md`](docs/transpose_redesign_handoff.md).

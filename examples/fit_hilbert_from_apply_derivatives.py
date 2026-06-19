@@ -2,9 +2,10 @@
 
 A worked example of Riemannian fixed-rank fitting from **symmetric directional derivatives** of the
 all-modes ``apply`` operation -- the derivative analogue of ``examples/fit_hilbert_tensor_newton_cg.py``
-(which fits from ordinary applies). It is the end-to-end integration test of the derivative pipeline:
-the forward ``T3Tangent.apply_derivatives`` (the Jacobian ``J``) and its transpose
-``apply_derivatives_transpose`` (``J^T``) drive the same Riemannian inexact Newton-CG solver.
+(which fits from ordinary applies). Here we fit with **Manifold Cauchy SGD (MC-SGD)**, the stochastic
+method of the T4S paper (Section 5.3.2): a minibatched, tuning-free Riemannian optimizer. The forward
+``T3Tangent.apply_derivatives`` (the Jacobian ``J``) and its transpose ``apply_derivatives_transpose``
+(``J^T``) drive it, so this is also the end-to-end integration test of the derivative pipeline.
 
 The problem
 -----------
@@ -34,18 +35,29 @@ measure on a training set of base points and a held-out validation set, with noi
     Gauss-Newton conditioning. We divide each order's data (and the operator output) by that order's RMS
     over the training set. This is the essential step that makes the derivative fit well-behaved.
 
-The method
-----------
-Identical Riemannian inexact Newton-CG with Armijo backtracking as the apply-only example; only the
-forward / transpose / measurement-inner-product closures change. The forward is
-``Z.apply_derivatives(ww, pp, K)`` (works on a ``TuckerTensorTrain`` point or a ``T3Tangent`` Jacobian),
-the gradient is the per-order-weighted ``apply_derivatives_transpose(..., sum_over_probes=True)``
-gauge-projected (this sums the whole ``(N_P, N_X)`` sample stack), and the Gauss-Newton Hessian is
-``V -> Jᵀ J V`` gauged. Rank continuation starts from the zero tensor and grows rank by zero-padding;
-validation picks the rank.
+The method -- Manifold Cauchy SGD (MC-SGD)
+------------------------------------------
+A first-order stochastic Riemannian method (T4S Section 5.3.2). Each iteration draws a fresh **minibatch
+of base points** ``X`` (a few ``X``, with *all* their directions ``P`` -- base points are the scarce
+resource, directions the cheap one), so the per-step work is a fraction of the full batch. On that
+minibatch it forms the gauged stochastic gradient ``g = Pi J^T r`` (the forward ``Z.apply_derivatives``
+works on a ``TuckerTensorTrain`` point or a ``T3Tangent`` direction; the transpose with
+``sum_over_probes=True`` is ``J^T r``; ``Pi = MANIFOLD.project`` gauges it), then sets the step length by
+the **Cauchy rule** ``alpha = ||g||^2 / ||J g||^2`` -- the exact 1D minimizer of the local Gauss-Newton
+quadratic model along ``-g``. That costs one extra forward Jacobian-vector product ``J g`` and needs **no
+learning-rate schedule** (the "Cauchy" in MC-SGD; "manifold" because we retract). The step is
+``X <- retract(-alpha * g)``, and a fixed-rank stage stops when an exponentially-smoothed minibatch loss
+stops decreasing. (``g`` and ``||J g||^2`` are exactly ``fitting.GaussNewtonModel.gradient`` /
+``.gn_quadratic``; this example inlines them against the apply-derivative closures.)
+
+Rank continuation starts from the zero tensor and grows rank by zero-padding (warm start); validation
+picks the rank. Contrast ``fit_hilbert_tensor_newton_cg.py``, which uses deterministic full-batch
+Newton-CG -- MC-SGD trades some final accuracy for cheap, tuning-free steps that scale to many samples.
 
 Run from the repo root:  ``python examples/fit_hilbert_from_apply_derivatives.py``
 """
+import time
+
 import numpy as np
 
 import t3toolbox.tucker_tensor_train as t3
@@ -66,9 +78,15 @@ NOISE_LEVEL  = 0.01                # measurement noise, fraction of the per-orde
 RANK_LEVELS  = (1, 2, 3, 4, 5)     # rank-continuation schedule
 SEED         = 0
 
-MAX_NEWTON   = 30
-GTOL_REL     = 1e-8
-CG_MAXITER   = 200
+# MC-SGD (Manifold Cauchy SGD) knobs -- the Cauchy step is tuning-free, so there is no learning rate.
+# Minibatch = a few base points per step (with ALL their directions P). The paper's rule of thumb is ~10%
+# of the samples, but with only N_X=10 base points that rounds to a single one, whose gradient is too
+# noisy (it makes the stopping test trigger-happy); 2 base points smooths it enough that the paper's
+# default stopping works, while staying a small minibatch. (3+ over-shrinks the epoch and destabilizes.)
+N_X_BATCH    = min(N_X_TRAIN, max(2, N_X_TRAIN // 10))
+MCSGD_MAXITER = 3000               # hard cap (the smoothed-loss criterion normally stops much sooner)
+MCSGD_C_TAU  = 1.0                 # loss-smoothing timescale, in epochs (T4S 5.3.2 default)
+MCSGD_C_T    = 3.0                 # plateau-detection lag, in epochs (T4S 5.3.2 default)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -132,70 +150,65 @@ def apply_derivative_operator(ww, pp, order, s_vec):
 
 
 # --------------------------------------------------------------------------------------------------
-# Riemannian inexact Newton-CG with Armijo line search (same as the apply-only example)
+# Manifold Cauchy SGD (MC-SGD), t4s.pdf Section 5.3.2
 # --------------------------------------------------------------------------------------------------
-def _tangent_cg(H, rhs, base, tol, maxiter):
-    x = t3m.T3Tangent.zeros(base)
-    res = rhs
-    p = res
-    rs = float(res.corewise_inner(res))
-    if np.sqrt(rs) <= tol:
-        return x, 0
-    i = 0
-    for i in range(1, maxiter + 1):
-        Hp = H(p)
-        pHp = float(p.corewise_inner(Hp))
-        if pHp <= 1e-30:
-            if i == 1:
-                x = rhs
-            break
-        alpha = rs / pHp
-        x = x + alpha * p
-        res = res - alpha * Hp
-        rs_new = float(res.corewise_inner(res))
-        if np.sqrt(rs_new) <= tol:
-            break
-        p = res + (rs_new / rs) * p
-        rs = rs_new
-    return x, i
+# A tuning-free stochastic Riemannian method. Each iteration:
+#   * draw a fresh minibatch of base points X (a few X, with ALL their directions P -- the cheap,
+#     plentiful resource), so the per-step work is a fraction of the full batch;
+#   * form the gauged stochastic gradient  g = Pi Jᵀr  on that minibatch (transpose, then the gauge
+#     projection Pi = MANIFOLD.project) -- a T3Tangent at the current frame;
+#   * set the step length by the *Cauchy rule*  alpha = ‖g‖² / ‖J g‖²  -- the 1D minimizer of the local
+#     Gauss-Newton quadratic model along -g. It costs one extra forward Jacobian-vector product J g and
+#     needs NO learning-rate schedule (this is the "Cauchy" in MC-SGD; "manifold" because we retract).
+#   * step and retract:  X <- retract(-alpha * g).
+# We stop a fixed-rank stage when an exponentially-smoothed FULL-batch loss stops decreasing (checked
+# once per epoch -- the single-minibatch loss is too noisy a stop signal; see below).
+# (The same g and ‖J g‖² are exactly what fitting.GaussNewtonModel.gradient / .gn_quadratic compute;
+# we inline them here against the apply-derivative closures, which have no GaussNewtonModel yet.)
+def manifold_cauchy_sgd(X0, ww, pp, b, order, s_vec, rng,
+                        n_x_batch=N_X_BATCH, max_iter=MCSGD_MAXITER,
+                        c_tau=MCSGD_C_TAU, c_t=MCSGD_C_T):
+    n_x = ww[0].shape[1]                                  # base points (axis 1 of the (N_P, N_X) stack)
+    iters_per_epoch = max(1, int(round(n_x / n_x_batch)))             # = n_s / |B|  (the N_P axis cancels)
 
+    # The stopping signal is the FULL-batch loss, checked once per epoch: a single base point's minibatch
+    # loss has too much base-point-to-base-point variance to detect the plateau (it false-triggers early).
+    # One full forward (no transpose) per epoch is cheap. We exponentially smooth it (one sample/epoch) and
+    # stop when it stops decreasing -- the paper's tuning-free criterion (T4S 5.3.2), on the clean signal.
+    fwd_full, _, _ = apply_derivative_operator(ww, pp, order, s_vec)
+    full_loss = lambda Z: 0.5 * float(np.mean((np.asarray(fwd_full(Z)) - b) ** 2))
+    a_smooth = 1.0 - np.exp(-1.0 / c_tau)                 # EMA weight, timescale C_TAU epochs
+    lag = max(1, int(round(c_t)))                         # plateau-detection lag, C_T epochs
+    s_hist = []
 
-def riemannian_newton_cg(X0, forward, transpose, meas_dot, b,
-                         max_newton=MAX_NEWTON, gtol_rel=GTOL_REL, cg_maxiter=CG_MAXITER,
-                         c_armijo=1e-4):
     X = X0
-    g0norm = None
-    newton_iters = 0
-    for it in range(max_newton):
+    n_iter = 0
+    for k in range(max_iter):
+        n_iter = k + 1
+        idx = rng.choice(n_x, size=min(n_x_batch, n_x), replace=False)   # fresh minibatch of base pts
+        ww_B = [w[:, idx, :] for w in ww]                 # X-subset: stack (N_P, n_x_batch)
+        pp_B = [p[:, idx, :] for p in pp]
+        b_B = b[:, :, idx]
+        fwd_B, T_B, mdot_B = apply_derivative_operator(ww_B, pp_B, order, s_vec)
+
         base, _ = bvf.t3_orthogonal_representations(X)
-        r = forward(X) - b
-        f = 0.5 * meas_dot(r, r)
-        g = t3m.MANIFOLD.project(transpose(r, base))
-        gnorm = float(g.corewise_norm())
-        if g0norm is None:
-            g0norm = gnorm if gnorm > 0.0 else 1.0
-        if gnorm <= gtol_rel * g0norm:
+        r_B = fwd_B(X) - b_B
+        g = t3m.MANIFOLD.project(T_B(r_B, base))          # gauged stochastic gradient  g = Pi Jᵀr
+        gg = float(g.corewise_inner(g))                   # ‖g‖²  (HS, since g is gauged at an orth frame)
+        if gg <= 1e-30:                                   # converged on this minibatch
             break
-        newton_iters += 1
+        Jg = fwd_B(g)                                     # one forward Jacobian-vector product  J g
+        denom = float(mdot_B(Jg, Jg))                     # ‖J g‖² = gᵀ(JᵀJ)g  (the GN curvature along g)
+        alpha = gg / max(denom, 1e-12 * gg)               # Cauchy step length (guarded against ‖Jg‖≈0)
+        X = t3m.MANIFOLD.retract((-alpha) * g)
 
-        def H(V):
-            return t3m.MANIFOLD.project(transpose(forward(V), base))
-
-        eta = min(0.5, np.sqrt(gnorm / g0norm))
-        p, _ = _tangent_cg(H, -g, base, tol=eta * gnorm, maxiter=cg_maxiter)
-        slope = float(g.corewise_inner(p))
-        if (not np.isfinite(slope)) or slope >= 0.0:
-            p, slope = -g, -gnorm * gnorm
-        alpha = 1.0
-        X_trial = X
-        for _ in range(40):
-            X_trial = t3m.MANIFOLD.retract(alpha * p)
-            r_trial = forward(X_trial) - b
-            if 0.5 * meas_dot(r_trial, r_trial) <= f + c_armijo * alpha * slope:
+        if n_iter % iters_per_epoch == 0:                 # once-per-epoch full-batch stopping check
+            L = full_loss(X)
+            s = L if not s_hist else a_smooth * L + (1.0 - a_smooth) * s_hist[-1]
+            s_hist.append(s)
+            if len(s_hist) > lag and (s_hist[-1] - s_hist[-1 - lag]) > 0.0:
                 break
-            alpha *= 0.5
-        X = X_trial
-    return X, dict(newton=newton_iters)
+    return X, dict(iters=n_iter)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -218,7 +231,8 @@ def oracle_relerr(A, tucker_ranks, tt_ranks):
 # --------------------------------------------------------------------------------------------------
 def main():
     np.random.seed(SEED)
-    rng = np.random.default_rng(SEED)
+    rng = np.random.default_rng(SEED)          # data: probe directions + measurement noise
+    rng_opt = np.random.default_rng(SEED + 1)  # the optimizer's own minibatch draws (reproducible)
     d = len(SHAPE)
 
     print(__doc__.split("\n\n")[0])
@@ -226,7 +240,8 @@ def main():
     print(f"Measurements: apply-derivatives orders 0..{ORDER}  "
           f"({N_X_TRAIN} train base pts + {N_X_VAL} val base pts, {N_P} directions each, "
           f"{NOISE_LEVEL*100:.0f}% noise).")
-    print("Many directions per base point; probe vectors unit-norm; per-order normalized.\n")
+    print(f"Fit by Manifold Cauchy SGD: minibatch {N_X_BATCH} base pt(s) (all {N_P} directions) per step, "
+          f"tuning-free Cauchy step.\n")
 
     A = hilbert_tensor(SHAPE)
     A_norm = float(np.linalg.norm(A))
@@ -244,8 +259,8 @@ def main():
     b_tr = b_tr_clean + NOISE_LEVEL * sv_tr * rng.standard_normal(b_tr_clean.shape)
     b_va = b_va_clean + NOISE_LEVEL * sv_va * rng.standard_normal(b_va_clean.shape)
 
-    fwd_tr, T_tr, mdot = apply_derivative_operator(ww_tr, pp_tr, ORDER, s_vec)
-    fwd_va, _, _ = apply_derivative_operator(ww_va, pp_va, ORDER, s_vec)
+    fwd_tr, _, _ = apply_derivative_operator(ww_tr, pp_tr, ORDER, s_vec)   # full-batch forwards: errors
+    fwd_va, _, _ = apply_derivative_operator(ww_va, pp_va, ORDER, s_vec)   # only (MC-SGD minibatches itself)
     b_tr_n = b_tr / sv_tr                                          # normalized data
     b_va_n = b_va / sv_va
     b_tr_rms = rms(b_tr_n)
@@ -258,11 +273,12 @@ def main():
 
     X = t3.TuckerTensorTrain.zeros(SHAPE, *level_ranks(RANK_LEVELS[0], SHAPE))
     records = []
+    t_start = time.perf_counter()
     for r in RANK_LEVELS:
         tucker_ranks, tt_ranks = level_ranks(r, SHAPE)
         dof = t3m.manifold_dim((SHAPE, tucker_ranks, tt_ranks))
-        X0 = X.resize(SHAPE, tucker_ranks, tt_ranks)
-        X, stats = riemannian_newton_cg(X0, fwd_tr, T_tr, mdot, b_tr_n)
+        X0 = X.resize(SHAPE, tucker_ranks, tt_ranks)              # warm start: zero-pad to the new ranks
+        X, stats = manifold_cauchy_sgd(X0, ww_tr, pp_tr, b_tr_n, ORDER, s_vec, rng_opt)
 
         train_e = rms(fwd_tr(X) - b_tr_n) / b_tr_rms
         val_e = rms(fwd_va(X) - b_va_n) / b_va_rms
@@ -270,12 +286,12 @@ def main():
         oracle_e = oracle_relerr(A, tucker_ranks, tt_ranks)
         records.append(dict(level=r, val=val_e, true=true_e, dof=dof))
         rank_str = f"{tucker_ranks} {tt_ranks}"
-        print(f"{r:>5} {rank_str:>24} {dof:>5} {stats['newton']:>5} "
+        print(f"{r:>5} {rank_str:>24} {dof:>5} {stats['iters']:>5} "
               f"{train_e:>9.3e} {val_e:>9.3e} {true_e:>9.3e} {oracle_e:>9.3e}")
 
     best = min(records, key=lambda rec: rec["val"])
     print("-" * len(header))
-    print(f"\nNoise floor (relative): {NOISE_LEVEL:.1e}")
+    print(f"\nNoise floor (relative): {NOISE_LEVEL:.1e}    (total fit time {time.perf_counter()-t_start:.1f}s)")
     print(f"Best ranks by validation error: level {best['level']}  "
           f"(val {best['val']:.3e}, true error {best['true']:.3e}, DOF {best['dof']}).")
 
