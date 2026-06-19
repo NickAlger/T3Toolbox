@@ -3796,7 +3796,7 @@ class TuckerTensorTrain:
         >>> print(bool(np.allclose(yj[0], x.entries(index))))   # order 0 == entries
         True
         """
-        probe_derivatives.check_perturbation_index(index, pp)
+        probe_derivatives.check_perturbation_index(index, pp, self.shape)
         return probe_derivatives.entries_derivatives_t3(index, pp, self.data, order)
 
     def probe_corewise_derivatives_transpose(
@@ -3822,6 +3822,7 @@ class TuckerTensorTrain:
         probe_corewise_transpose
         apply_corewise_derivatives_transpose
         """
+        probe_derivatives.check_perturbation_vectors(ww, pp)
         return probe_derivatives.probe_corewise_derivatives_transpose(
             ztildes, ww, pp, self.data, order, sum_over_probes=sum_over_probes)
 
@@ -3856,6 +3857,7 @@ class TuckerTensorTrain:
         >>> print([g.shape for g in gG] == [g.shape for g in x.tt_cores])
         True
         """
+        probe_derivatives.check_perturbation_vectors(ww, pp)
         return probe_derivatives.apply_corewise_derivatives_transpose(
             c, ww, pp, self.data, order, sum_over_probes=sum_over_probes)
 
@@ -3875,6 +3877,7 @@ class TuckerTensorTrain:
         entries_derivatives
         apply_corewise_derivatives_transpose
         """
+        probe_derivatives.check_perturbation_index(index, pp, self.shape)
         return probe_derivatives.entries_corewise_derivatives_transpose(
             c, index, pp, self.data, order, sum_over_probes=sum_over_probes)
 

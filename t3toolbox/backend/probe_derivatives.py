@@ -178,17 +178,25 @@ def check_perturbation_vectors(
 
 
 def check_perturbation_index(
-        index: NDArray,                # grid points, int, shape=(d,)+W
-        pp:    typ.Sequence[NDArray],  # perturbation P, len=d, elm_shape=W+(Ni,)
+        index: NDArray,                          # grid points, int, shape=(d,)+W
+        pp:    typ.Sequence[NDArray],            # perturbation P, len=d, elm_shape=W+(Ni,)
+        shape: typ.Optional[typ.Sequence[int]]   # ambient mode dims (Ni), len=d -- if given, also check P's mode dim
+             = None,
 ) -> None:
     '''Structural check (hard error): the perturbation ``P`` shares the sample stack ``W`` of the grid
-    points ``index`` (shape ``(d,)+W``). Used by the derivative-entries frontends; jit-safe.'''
+    points ``index`` (shape ``(d,)+W``), and -- when ``shape`` is given (the ambient mode dims ``Ni``,
+    which the integer ``index`` does not carry) -- ``P``'s mode dim matches it. Used by the
+    derivative-entries frontends; jit-safe.'''
     iW = tuple(np.shape(index)[1:])
     for i, p in enumerate(pp):
         if tuple(np.shape(p)[:-1]) != iW:
             raise ValueError(
                 "perturbation P's sample stack W must match index's; mode %d: P %s vs index %s"
                 % (i, tuple(np.shape(p)[:-1]), iW))
+        if shape is not None and np.shape(p)[-1] != shape[i]:
+            raise ValueError(
+                "perturbation P's mode dim must match the ambient dim Ni; mode %d: P has %d vs Ni=%d"
+                % (i, np.shape(p)[-1], shape[i]))
 
 
 def binomial_combine_tensor(
@@ -370,7 +378,7 @@ def _sigma_jet_step(sigma_jet, Q, O, dG, xi_jet, dxi_jet, mu_jet, trs_push):
 
 
 def compute_sigma_jets(
-        var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=C+(rLi,nUi,rR(i+1))
+        var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=K+C+(rLi,nUi,rR(i+1))
         right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
         down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
         xi_jets:        typ.Sequence[NDArray],  # base input jets, len=d, elm_shape=(2,)+W+C+(nUi,)
@@ -406,7 +414,7 @@ def compute_sigma_jets(
 
 
 def compute_tau_jets(
-        var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=C+(rLi,nUi,rR(i+1))
+        var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=K+C+(rLi,nUi,rR(i+1))
         left_tt_cores:  typ.Sequence[NDArray],  # P.  len=d, elm_shape=C+(rLi,nUi,rL(i+1))
         down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
         xi_jets:        typ.Sequence[NDArray],  # base input jets, len=d, elm_shape=(2,)+W+C+(nUi,)
@@ -426,7 +434,7 @@ def compute_tau_jets(
 
 
 def compute_deta_jets(
-        var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=C+(rLi,nUi,rR(i+1))
+        var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=K+C+(rLi,nUi,rR(i+1))
         left_tt_cores:  typ.Sequence[NDArray],  # P.  len=d, elm_shape=C+(rLi,nUi,rL(i+1))
         right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
         mu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rLi,)
@@ -460,7 +468,7 @@ def compute_deta_jets(
 
 def assemble_tangent_z_jets(
         tucker_cores:       typ.Sequence[NDArray],  # U.  len=d, elm_shape=C+(nUi,Ni)
-        var_tucker_cores:   typ.Sequence[NDArray],  # dU. len=d, elm_shape=C+(nOi,Ni)
+        var_tucker_cores:   typ.Sequence[NDArray],  # dU. len=d, elm_shape=K+C+(nOi,Ni)
         eta_jets:           typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(nOi,)
         deta_jets:          typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
 ) -> typ.Tuple[NDArray, ...]:                       # z_jets. len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
@@ -487,8 +495,8 @@ def probe_tangent_derivatives(
         ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
         variation:  typ.Tuple[
-            typ.Sequence[NDArray],          # var_tucker_cores dU. len=d, elm_shape=C+(nOi,Ni)
-            typ.Sequence[NDArray],          # var_tt_cores     dG. len=d, elm_shape=C+(rLi,nUi,rRi)
+            typ.Sequence[NDArray],          # var_tucker_cores dU. len=d, elm_shape=K+C+(nOi,Ni)
+            typ.Sequence[NDArray],          # var_tt_cores     dG. len=d, elm_shape=K+C+(rLi,nUi,rRi)
         ],                                  # = T3Variations.data
         base:       typ.Tuple[
             typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
@@ -840,11 +848,6 @@ def compute_dxi_tilde_jets(
     return dxi_tildes
 
 
-def _w_jets(ww, pp, xnp):
-    '''The ambient input jets (value, direction) on the raw probe vectors -- the order axis for dU.'''
-    return tuple(xnp.stack([w, p], axis=0) for w, p in zip(ww, pp))
-
-
 def assemble_tucker_variation_jets(
         ztildes:        typ.Sequence[NDArray],  # residual jets, len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
         dxi_tildes:     typ.Sequence[NDArray],  # adjoint-var-down jets, len=d, elm_shape=(order+1,)+W+K+C+(nOi,)
@@ -857,8 +860,8 @@ def assemble_tucker_variation_jets(
     '''Assemble Tucker-core variation gradients (the 1-edge, plain-order-sum case):
     ``dU_tilde = sum_t eta^(t) (x) r^(t) + sum_u dxi_tilde^(u) (x) w_jet^(u)``.'''
     use_jax = tree_contains_jax((ztildes, dxi_tildes, ww, pp, etas))
-    xnp, xmap, _ = get_backend(False, use_jax)
-    w_jets = _w_jets(ww, pp, xnp)
+    _, xmap, _ = get_backend(False, use_jax)
+    w_jets = build_input_jets(ww, pp)          # ambient input jets (value, direction) for dU
     s_size = min(2, etas[0].shape[0])          # the w/dxi input jet carries orders {0, 1}, capped at order
     # Three-group (W,K,C): the residual-derived operands (ztilde, dxi_tilde) carry K, eta is base; the
     # eta (x) r term takes n_probe (C from eta), the dxi (x) w_jet term self-pins W from the W-only w_jet.
@@ -1065,14 +1068,12 @@ def apply_tangent_derivatives_transpose(
     probe_tangent_derivatives_transpose
     '''
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base
-    use_jax = tree_contains_jax((c, ww, pp, base))
-    xnp, _, _ = get_backend(False, use_jax)
 
     trs = binomial_combine_tensor(order)
     n_probe = ww[0].ndim - 1
     xi_jets = build_input_jets(compute_xis(up_tucker_cores, ww), compute_xis(up_tucker_cores, pp))
     mu_jets = compute_mu_jets(left_tt_cores, xi_jets, trs)
-    w_jets = _w_jets(ww, pp, xnp)
+    w_jets = build_input_jets(ww, pp)               # ambient input jets (value, direction) for dU
 
     return _apply_derivatives_transpose_from_jets(
         c, xi_jets, mu_jets, w_jets, down_tt_cores, right_tt_cores, trs, n_probe, sum_over_probes)
@@ -1104,15 +1105,13 @@ def entries_tangent_derivatives_transpose(
     apply_tangent_derivatives_transpose
     '''
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base
-    use_jax = tree_contains_jax((c, index, pp, base))
-    xnp, _, _ = get_backend(False, use_jax)
 
     trs = binomial_combine_tensor(order)
     ww_onehot = _onehot_vectors(index, up_tucker_cores)   # e_{index}, elm_shape=W+(Ni,)
     n_probe = ww_onehot[0].ndim - 1
     xi_jets = build_input_jets(_entry_xis(up_tucker_cores, index), compute_xis(up_tucker_cores, pp))
     mu_jets = compute_mu_jets(left_tt_cores, xi_jets, trs)
-    w_jets = _w_jets(ww_onehot, pp, xnp)
+    w_jets = build_input_jets(ww_onehot, pp)         # ambient input jets (one-hot, direction) for dU
 
     return _apply_derivatives_transpose_from_jets(
         c, xi_jets, mu_jets, w_jets, down_tt_cores, right_tt_cores, trs, n_probe, sum_over_probes)

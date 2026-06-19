@@ -962,7 +962,7 @@ class T3Tangent:
         >>> print(bool(np.allclose(yj[0], v.entries(index))))   # order 0 == entries
         True
         """
-        probe_derivatives.check_perturbation_index(index, pp)
+        probe_derivatives.check_perturbation_index(index, pp, self.shape)
         return probe_derivatives.entries_tangent_derivatives(index, pp, self.variations.data, self.basis.data, order)
 
     @staticmethod
@@ -1007,6 +1007,7 @@ class T3Tangent:
         >>> print(bool(abs(lhs - float(JTr.inner(v))) < 1e-9))
         True
         """
+        probe_derivatives.check_perturbation_vectors(ww, pp)
         dU, dG = probe_derivatives.probe_tangent_derivatives_transpose(
             ztildes, ww, pp, basis.data, order, sum_over_probes=sum_over_probes)
         return T3Tangent(basis, bvf.T3Variations(dU, dG))
@@ -1030,6 +1031,7 @@ class T3Tangent:
         apply_derivatives
         apply_transpose
         """
+        probe_derivatives.check_perturbation_vectors(ww, pp)
         dU, dG = probe_derivatives.apply_tangent_derivatives_transpose(
             c, ww, pp, basis.data, order, sum_over_probes=sum_over_probes)
         return T3Tangent(basis, bvf.T3Variations(dU, dG))
@@ -1054,6 +1056,7 @@ class T3Tangent:
         entries_derivatives
         apply_derivatives_transpose
         """
+        probe_derivatives.check_perturbation_index(index, pp, basis.shape)
         dU, dG = probe_derivatives.entries_tangent_derivatives_transpose(
             c, index, pp, basis.data, order, sum_over_probes=sum_over_probes)
         return T3Tangent(basis, bvf.T3Variations(dU, dG))
