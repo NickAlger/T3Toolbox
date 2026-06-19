@@ -24,13 +24,15 @@ import functools as ft
 import typing as typ
 from dataclasses import dataclass
 
+import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.basis_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.probing as probing
 import t3toolbox.backend.fitting as fb
 from t3toolbox.backend.common import *
 
-__all__ = ['ApplyGaussNewtonModel', 'EntriesGaussNewtonModel', 'ProbeGaussNewtonModel']
+__all__ = ['ApplyGaussNewtonModel', 'EntriesGaussNewtonModel', 'ProbeGaussNewtonModel',
+           'CorewiseApplyGaussNewtonModel']
 
 
 def _require_at_base(base: bvf.T3Basis, p: t3m.T3Tangent) -> None:
@@ -250,3 +252,72 @@ class ProbeGaussNewtonModel:
         return fb.probe_model_value(
             p.variations.data, self.ww, self.base.data, self._base_sweep,
             self.gradient.variations.data, self.objective_value)
+
+
+@dataclass(frozen=True)
+class CorewiseApplyGaussNewtonModel:
+    '''The **corewise** (non-manifold) Gauss-Newton model of an ``apply`` least-squares objective.
+
+    Fits the base's raw cores directly (Adam / L-BFGS / corewise Gauss-Newton), *not* a manifold tangent
+    vector: the linearization is the §6.3 substitution (the cores stand in for the orthogonal frame), with
+    **no gauge projector Π**. Accordingly the operands are **raw ``(tucker, tt)`` core tuples** (a
+    variation / gradient with the shapes of ``x.data``) -- not :py:class:`T3Tangent`\\ s -- and there is no
+    gauge and no same-base guard. Distinct from :py:class:`ApplyGaussNewtonModel` (the Riemannian one,
+    *with* ``Π``): mixing the two silently corrupts the result, so they are separate types.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.fitting as fitting
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
+    >>> ww = [np.random.randn(15, N) for N in (6, 7, 8)]
+    >>> r = np.random.randn(15)
+    >>> model = fitting.CorewiseApplyGaussNewtonModel(x, ww, r)
+
+    The gradient is a raw ``(tucker_grads, tt_grads)`` tuple shaped exactly like ``x.data`` -- a gradient
+    for a corewise optimizer, NOT a tensor and NOT gauged:
+
+    >>> g = model.gradient
+    >>> print([gi.shape for gi in g[0]] == [ui.shape for ui in x.tucker_cores])
+    True
+
+    A core-perturbation trial step ``p`` (same shapes) gives the GN Hessian action and the model value:
+
+    >>> p = (tuple(np.random.randn(*u.shape) for u in x.tucker_cores),
+    ...      tuple(np.random.randn(*c.shape) for c in x.tt_cores))
+    >>> hp = model.gn_hessian(p)
+    >>> import t3toolbox.corewise as cw
+    >>> m_built = float(model.objective_value + cw.corewise_dot(g, p) + 0.5 * cw.corewise_dot(p, hp))
+    >>> bool(np.allclose(float(model.evaluate(p)), m_built))
+    True
+    '''
+
+    x:        t3.TuckerTensorTrain     # the current point -- the linearization (raw cores; no frame)
+    ww:       typ.Sequence[NDArray]    # sample vectors, len=d, elm_shape=W+(Ni,)
+    residual: NDArray                  # r = F(x) − y, shape W+C
+
+    @ft.cached_property
+    def _base_sweep(self) -> typ.Tuple:  # (xis, mus, nus, etas) on the substituted base -- computed ONCE
+        return fb.precompute_corewise_base_sweep(self.x.data, self.ww)
+
+    @ft.cached_property
+    def objective_value(self) -> NDArray:  # c = ½‖r‖², shape C
+        '''The least-squares objective at the base, ``c = ½‖r‖²`` (the model constant ``m(0)``).'''
+        n_w = self.ww[0].ndim - 1
+        return 0.5 * (self.residual ** 2).sum(axis=tuple(range(n_w)))
+
+    @ft.cached_property
+    def gradient(self) -> typ.Tuple:  # g = 𝒥ᵀ r -- raw (tucker_grads, tt_grads), NOT a tensor; NO Π
+        '''The corewise gradient ``g = 𝒥ᵀ r`` w.r.t. the cores -- raw ``(tucker_grads, tt_grads)``.'''
+        return fb.apply_corewise_gradient(self.residual, self.ww, self._base_sweep)
+
+    def gn_hessian(self, p: typ.Tuple) -> typ.Tuple:  # p, H p -- raw core tuples; NO Π
+        '''The corewise Gauss-Newton Hessian action ``H p = 𝒥ᵀ 𝒥 p`` -- raw ``(tucker, tt)`` grads.'''
+        return fb.apply_corewise_gn_hessian(p, self.ww, self.x.data, self._base_sweep)
+
+    def evaluate(self, p: typ.Tuple) -> NDArray:  # m(p), shape C
+        '''The quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p`` (one forward apply; reuses ``c``, ``g``).'''
+        return fb.apply_corewise_model_value(
+            p, self.ww, self.x.data, self._base_sweep, self.gradient, self.objective_value)

@@ -48,6 +48,11 @@ __all__ = [
     'probe_gradient',
     'probe_gn_hessian',
     'probe_model_value',
+    'precompute_corewise_base_sweep',
+    'apply_corewise_jacobian',
+    'apply_corewise_gradient',
+    'apply_corewise_gn_hessian',
+    'apply_corewise_model_value',
 ]
 
 
@@ -381,3 +386,119 @@ def probe_model_value(
     Pp = tangent_operations.orthogonal_gauge_projection(base, p)         # Π p (shared by both terms)
     zz = probing.probe_jacobian_from_sweep(Pp, ww, base, base_sweep)     # 𝒥 Π p, d probe vectors
     return objective_value + cw.corewise_stack_dot(gradient, Pp, n_c) + 0.5 * _sumsq_over_probes(zz, n_w)
+
+
+################################################
+##########   Corewise (no Π)   #################
+################################################
+#
+# The COREWISE (non-manifold) operators: gradient w.r.t. the base's raw cores, treated as free
+# variables (Adam / L-BFGS / corewise Gauss-Newton). The §6.3 substitution P,Q,O -> G feeds the base's
+# own cores in place of the orthogonal frame (base = (U, G, G, G)); there is **NO gauge projector Π**
+# (free cores have no gauge). Operands are raw (tucker, tt) core tuples -- a variation / gradient, NOT a
+# tensor and NOT a gauged tangent. These compose the **bare** probing primitives directly (never the
+# Π-applying tangent functions above): mixing them in would gauge-project against the non-orthonormal G
+# cores and silently corrupt the result (the manifold ⟺ Π, corewise ⟺ no-Π matched pair).
+
+def _corewise_base(
+        cores:  typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
+) -> typ.Tuple[
+    typ.Sequence[NDArray], typ.Sequence[NDArray],
+    typ.Sequence[NDArray], typ.Sequence[NDArray],
+]:                                          # (U, G, G, G) -- the §6.3 substitution for the frame (U, O, P, Q)
+    '''The §6.3 corewise substitution: feed the base's own cores in place of the orthogonal frame,
+    ``(U, O, P, Q) -> (U, G, G, G)`` (``G = tt_cores``). No orthogonality required.'''
+    tucker_cores, tt_cores = cores
+    return (tucker_cores, tt_cores, tt_cores, tt_cores)
+
+
+def precompute_corewise_base_sweep(
+        cores:  typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # = TuckerTensorTrain.data
+        ww:     typ.Sequence[NDArray],      # sample vectors, len=d, elm_shape=W+(Ni,)
+) -> typ.Tuple[
+    typ.Sequence[NDArray], typ.Sequence[NDArray],
+    typ.Sequence[NDArray], typ.Sequence[NDArray],
+]:                                          # base_sweep -- the reusable base edge variables (substituted)
+    '''The corewise base sweep: :py:func:`probing.precompute_base_sweep` on the §6.3-substituted base
+    ``(U, G, G, G)``. Reused across the corewise ``J`` / ``Jᵀ`` of an inner solve.'''
+    return probing.precompute_base_sweep(_corewise_base(cores), ww)
+
+
+def apply_corewise_jacobian(
+        p:          typ.Tuple[
+            typ.Sequence[NDArray],          # tucker variation dU. len=d, elm_shape=C+(nOi,Ni)
+            typ.Sequence[NDArray],          # tt variation     dG. len=d, elm_shape=C+(rLi,nUi,rRi)
+        ],                                  # a raw core perturbation (NOT a gauged tangent)
+        ww:         typ.Sequence[NDArray],  # sample vectors, len=d, elm_shape=W+(Ni,)
+        cores:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # = TuckerTensorTrain.data
+        base_sweep: typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = precompute_corewise_base_sweep(cores, ww)
+) -> NDArray:                               # J p, shape W+C (the linearized core->sample forward; NO Π)
+    '''Corewise forward apply ``J p`` (the linearization of ``cores -> apply(X(cores))``): the bare ``𝒥``
+    with the cores substituted for the frame. **No gauge projector Π.**'''
+    return probing.apply_jacobian_from_sweep(p, ww, _corewise_base(cores), base_sweep)
+
+
+def apply_corewise_gradient(
+        r:          NDArray,                # residual, shape W+C
+        ww:         typ.Sequence[NDArray],  # sample vectors, len=d, elm_shape=W+(Ni,)
+        base_sweep: typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = precompute_corewise_base_sweep(cores, ww)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # tucker-core gradients, shapes like tucker_cores
+    typ.Tuple[NDArray, ...],  # tt-core gradients,     shapes like tt_cores
+]:                                          # g = 𝒥ᵀ r, raw core gradients (NOT a tensor); NO Π
+    '''Corewise gradient ``g = 𝒥ᵀ r`` -- the gradient of ``cores -> ½‖apply(X(cores)) − y‖²`` w.r.t. the
+    cores (Adam / L-BFGS). Bare transpose summed over the sample stack ``W``. **No gauge projector Π.**'''
+    return probing.apply_transpose_from_sweep(r, ww, base_sweep, sum_over_probes=True)
+
+
+def apply_corewise_gn_hessian(
+        p:          typ.Tuple[
+            typ.Sequence[NDArray],          # tucker variation dU. len=d, elm_shape=C+(nOi,Ni)
+            typ.Sequence[NDArray],          # tt variation     dG. len=d, elm_shape=C+(rLi,nUi,rRi)
+        ],                                  # a raw core perturbation
+        ww:         typ.Sequence[NDArray],  # sample vectors, len=d, elm_shape=W+(Ni,)
+        cores:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # = TuckerTensorTrain.data
+        base_sweep: typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = precompute_corewise_base_sweep(cores, ww)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # tucker-core gradients
+    typ.Tuple[NDArray, ...],  # tt-core gradients
+]:                                          # H p = 𝒥ᵀ 𝒥 p, raw core gradients (NO Π)
+    '''The corewise Gauss-Newton normal operator ``H p = 𝒥ᵀ 𝒥 p`` (``H = JᵀJ``), raw core gradients.
+    **No gauge projector Π** (so it is NOT projected onto a tangent space -- the bare ``𝒥ᵀ𝒥``).'''
+    z = apply_corewise_jacobian(p, ww, cores, base_sweep)        # 𝒥 p, shape W+C
+    return probing.apply_transpose_from_sweep(z, ww, base_sweep, sum_over_probes=True)  # 𝒥ᵀ, NO Π
+
+
+def apply_corewise_model_value(
+        p:               typ.Tuple[
+            typ.Sequence[NDArray],          # tucker variation dU. len=d, elm_shape=C+(nOi,Ni)
+            typ.Sequence[NDArray],          # tt variation     dG. len=d, elm_shape=C+(rLi,nUi,rRi)
+        ],                                  # a raw core perturbation
+        ww:              typ.Sequence[NDArray],  # sample vectors, len=d, elm_shape=W+(Ni,)
+        cores:           typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # = TuckerTensorTrain.data
+        base_sweep:      typ.Tuple[
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+            typ.Sequence[NDArray], typ.Sequence[NDArray],
+        ],                                  # = precompute_corewise_base_sweep(cores, ww)
+        gradient:        typ.Tuple[
+            typ.Tuple[NDArray, ...],        # tucker-core gradients of g
+            typ.Tuple[NDArray, ...],        # tt-core gradients of g
+        ],                                  # = apply_corewise_gradient(r, ...)
+        objective_value: NDArray,           # c = ½‖r‖², shape C
+) -> NDArray:                               # m(p) = c + ⟨g,p⟩ + ½‖J p‖², shape C
+    '''The corewise local Gauss-Newton model value ``m(p) = c + gᵀp + ½ pᵀ H p`` with ``H = JᵀJ`` (the
+    quadratic term via ``½‖𝒥p‖²`` -- one forward apply). ``⟨g, p⟩`` is the plain corewise dot of the raw
+    core tuples. **No gauge projector Π.**'''
+    n_c = cores[0][0].ndim - 2                   # base-stack (C) axes: U_i is C+(nUi,Ni)
+    n_w = ww[0].ndim - 1                          # sample-stack (W) axes: w_i is W+(Ni,)
+    Jp = apply_corewise_jacobian(p, ww, cores, base_sweep)              # 𝒥 p, shape W+C (NO Π on p)
+    return objective_value + cw.corewise_stack_dot(gradient, p, n_c) + 0.5 * _sumsq_over_samples(Jp, n_w)

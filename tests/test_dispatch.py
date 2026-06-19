@@ -241,6 +241,15 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda rr: fb.probe_gradient(rr, ww, base, sweep), pr_r)
         self.assert_jit_jax(lambda pp: fb.probe_gn_hessian(pp, ww, base, sweep), p)
         self.assert_jit_jax(lambda pp: fb.probe_model_value(pp, ww, base, sweep, pg, c), p)
+        # corewise (NO Π): raw core tuples, base = the current point's cores
+        cores = self.x.data
+        csweep = fb.precompute_corewise_base_sweep(cores, ww)
+        cp = self.w.variations.data                              # a raw core perturbation (same shapes)
+        cg = fb.apply_corewise_gradient(r, ww, csweep)
+        self.assert_jit_jax(lambda pp: fb.apply_corewise_jacobian(pp, ww, cores, csweep), cp)
+        self.assert_jit_jax(lambda rr: fb.apply_corewise_gradient(rr, ww, csweep), r)
+        self.assert_jit_jax(lambda pp: fb.apply_corewise_gn_hessian(pp, ww, cores, csweep), cp)
+        self.assert_jit_jax(lambda pp: fb.apply_corewise_model_value(pp, ww, cores, csweep, cg, c), cp)
 
     def test_jit_fitting_model(self):
         # the GaussNewton model frontends: cached sweep folds in (closure); base survives jit as aux
@@ -256,6 +265,10 @@ class TestDispatch(unittest.TestCase):
         _ = pmodel.gradient; _ = pmodel.objective_value
         self.assert_jit_jax(lambda pp: pmodel.gn_hessian(pp), self.w)
         self.assert_jit_jax(lambda pp: pmodel.evaluate(pp), self.w)
+        cmodel = fitting.CorewiseApplyGaussNewtonModel(self.x, self.ww, jnp.ones(2))  # raw cores, NO Π
+        _ = cmodel.gradient; _ = cmodel.objective_value
+        self.assert_jit_jax(lambda pp: cmodel.gn_hessian(pp), self.w.variations.data)  # raw core tuple
+        self.assert_jit_jax(lambda pp: cmodel.evaluate(pp), self.w.variations.data)
 
     # ---------------------------------------------------- jit bucket: UniformTuckerTensorTrain
     def test_jit_uniform(self):
