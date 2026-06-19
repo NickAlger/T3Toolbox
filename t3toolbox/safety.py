@@ -3,14 +3,23 @@
 # https://github.com/NickAlger/T3Toolbox
 '''Safe / unsafe mode: numerical **precondition** checks gated by an ambient safety tolerance.
 
-The library distinguishes two kinds of guard (see ``docs/safe_unsafe_mode_plan.md`` and
-``docs/numerical_contract_catalog.md``):
+The library distinguishes (see ``docs/safe_unsafe_mode_plan.md`` and ``docs/numerical_contract_catalog.md``):
 
 - **consistency / well-formedness** checks (shapes, ranks, ``check_bv_pair``) -- always run, in both
   modes, at construction. These are *not* governed by this module.
-- **numerical preconditions** (same-frame, orthogonal base, gauged variations, structurally-minimal ranks)
-  -- the operation is numerically wrong without them, but a violation is not *malformedness*. These run
-  **only in safe mode**.
+- **preconditions** -- the operation is numerically wrong without them, but a violation is not
+  *malformedness*. These run **only in safe mode**. Two flavours, distinguished by what the *check*
+  costs, not by the kind of property:
+
+  * **numerical** (same-frame, orthogonal frame, gauged variations) -- compared at a jax-aware tolerance,
+    and **eager-only** (a tracer cannot be branched on, so they skip under a jax trace);
+  * **structural-property** (**structurally**-minimal ranks) -- a cheap integer check on the ranks (NOT a
+    numerical check -- this is the term ``safety.py`` previously got wrong).
+
+  A third, opt-in **super-safe** check -- **numerically**-minimal ranks (would require an SVD) -- is
+  planned (off by default). For an orthogonal frame it is free: orthonormal cores are full-rank, so an
+  orthogonal + structurally-minimal frame is automatically numerically minimal; no SVD (and a frame is not
+  a tensor to SVD anyway).
 
 Safe vs unsafe is an ambient setting (a :py:class:`contextvars.ContextVar`): a
 :py:class:`SafetyTolerances` pair is **safe mode**; ``None`` is **unsafe mode**. The default is **safe**.
