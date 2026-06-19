@@ -32,14 +32,14 @@ __all__ = [
     'apply_tangent_transpose',
     'entries_tangent_transpose',
     # Apply -- base-sweep reuse split (precompute the base edge vars once; inject into the bare J / Jᵀ; for fitting.py)
-    'precompute_apply_base_sweep',
+    'precompute_base_sweep',
     'apply_jacobian_from_sweep',
     'apply_transpose_from_sweep',
     # Entries -- base-sweep reuse split (the fiber-sliced seed; one-hot transpose; for fitting.py)
     'precompute_entries_base_sweep',
     'entries_jacobian_from_sweep',
     'entries_transpose_from_sweep',
-    # Probe -- base-sweep reuse split (shares precompute_apply_base_sweep; for fitting.py)
+    # Probe -- base-sweep reuse split (shares precompute_base_sweep; for fitting.py)
     'probe_jacobian_from_sweep',
     'probe_transpose_from_sweep',
     # Corewise (non-manifold) transpose -- the tangent transpose with the base's cores in place of the frames
@@ -554,17 +554,17 @@ def probe_jacobian_from_sweep(
         base_sweep: typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = precompute_apply_base_sweep(base, ww) (apply & probe SHARE it)
+        ],                                  # = precompute_base_sweep(base, ww) (apply & probe SHARE it)
 ) -> typ.Sequence[NDArray]:                 # probes, len=d, elm_shape=W+K+C+(Ni,) (one free mode each)
     '''Forward probe of a tangent vector reusing a precomputed base sweep -- the bare ``𝒥`` (probe) with
     the base edge variables injected. Equivalent to :py:func:`probe_tangent`, but takes
     ``(xis, mus, nus, etas)`` from ``base_sweep`` instead of recomputing them; only the perturbation
     sweep (``dxis``/``sigmas``/``taus``/``detas``) is computed here. Apply and probe **share** the base
-    sweep (:py:func:`precompute_apply_base_sweep`). No gauge projector ``Π``.
+    sweep (:py:func:`precompute_base_sweep`). No gauge projector ``Π``.
 
     See Also
     --------
-    precompute_apply_base_sweep
+    precompute_base_sweep
     probe_tangent
     probe_transpose_from_sweep
     '''
@@ -768,7 +768,7 @@ def _entry_xis(tucker_cores, index):
     return tuple(xis)
 
 
-def precompute_apply_base_sweep(
+def precompute_base_sweep(
         base:   typ.Tuple[
             typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
             typ.Sequence[NDArray],          # down_tt_cores    O. len=d
@@ -824,7 +824,7 @@ def apply_jacobian_from_sweep(
             typ.Sequence[NDArray],          # mus  -- used
             typ.Sequence[NDArray],          # nus  -- unused by the forward (the transpose's)
             typ.Sequence[NDArray],          # etas -- unused by the forward
-        ],                                  # = precompute_apply_base_sweep(base, ww)
+        ],                                  # = precompute_base_sweep(base, ww)
 ) -> NDArray:                               # the scalar apply(v, ww), one per stack element; shape = W + K + C
     '''Forward all-modes apply of a tangent vector reusing a precomputed base sweep -- the bare ``𝒥`` with
     the base edge variables injected. Equivalent to :py:func:`apply_tangent`, but it takes the shared
@@ -833,7 +833,7 @@ def apply_jacobian_from_sweep(
 
     See Also
     --------
-    precompute_apply_base_sweep
+    precompute_base_sweep
     apply_tangent
     '''
     var_tucker_cores, var_tt_cores = variation
@@ -891,14 +891,14 @@ def precompute_entries_base_sweep(
     typ.Sequence[NDArray],  # nus.  len=d, elm_shape=W+C+(rR(i+1),)
     typ.Sequence[NDArray],  # etas. len=d, elm_shape=W+C+(nOi,)
 ]:                                          # base_sweep -- the reusable base edge variables (entries seed)
-    '''The all-modes **entries** base sweep: identical to :py:func:`precompute_apply_base_sweep` but the
+    '''The all-modes **entries** base sweep: identical to :py:func:`precompute_base_sweep` but the
     ``xi-hat`` seed comes from slicing the Tucker-core fibers at ``index`` (``_entry_xis``) instead of
     contracting with probe vectors. The ``mu``/``nu``/``eta`` machinery is unchanged. Reused by the
     entries forward/transpose (the reuse hook for ``fitting.py``).
 
     See Also
     --------
-    precompute_apply_base_sweep
+    precompute_base_sweep
     entries_jacobian_from_sweep
     entries_transpose_from_sweep
     '''
@@ -1010,7 +1010,7 @@ def apply_transpose_from_sweep(
             typ.Sequence[NDArray],          # mus
             typ.Sequence[NDArray],          # nus
             typ.Sequence[NDArray],          # etas
-        ],                                  # = precompute_apply_base_sweep(base, ww)
+        ],                                  # = precompute_base_sweep(base, ww)
         sum_over_probes: bool = False,
 ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (dU_tildes, dG_tildes) = T3Variations.data
     '''Transpose of the all-modes apply reusing a precomputed base sweep -- the bare ``𝒥ᵀ`` with the base
@@ -1020,7 +1020,7 @@ def apply_transpose_from_sweep(
 
     See Also
     --------
-    precompute_apply_base_sweep
+    precompute_base_sweep
     apply_tangent_transpose
     '''
     xis, mus, nus, etas = base_sweep
@@ -1046,7 +1046,7 @@ def apply_tangent_transpose(
     apply_tangent
     entries_tangent_transpose
     '''
-    base_sweep = precompute_apply_base_sweep(base, ww)
+    base_sweep = precompute_base_sweep(base, ww)
     return apply_transpose_from_sweep(c, ww, base_sweep, sum_over_probes)
 
 
@@ -1468,7 +1468,7 @@ def probe_transpose_from_sweep(
         base_sweep: typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = precompute_apply_base_sweep(base, ww) (apply & probe SHARE it)
+        ],                                  # = precompute_base_sweep(base, ww) (apply & probe SHARE it)
         sum_over_probes: bool = False,
 ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (dU_tildes, dG_tildes) = T3Variations.data
     '''Transpose of the probe reusing a precomputed base sweep -- the bare ``𝒥ᵀ`` (probe) with the base
@@ -1478,7 +1478,7 @@ def probe_transpose_from_sweep(
 
     See Also
     --------
-    precompute_apply_base_sweep
+    precompute_base_sweep
     probe_tangent_transpose
     probe_jacobian_from_sweep
     '''

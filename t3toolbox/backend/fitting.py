@@ -96,7 +96,7 @@ def apply_jacobian(
         base_sweep: typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = probing.precompute_apply_base_sweep(base, ww)
+        ],                                  # = probing.precompute_base_sweep(base, ww)
 ) -> NDArray:                               # J p = 𝒥(Π p), shape W+C (one scalar per sample, per base)
     '''Riemannian forward all-modes apply ``J p = 𝒥(Π p)``: gauge-project ``p`` (so the caller need not),
     then apply the bare single-sample apply Jacobian, reusing the precomputed base sweep.'''
@@ -114,7 +114,7 @@ def apply_gradient(
         base_sweep: typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = probing.precompute_apply_base_sweep(base, ww)
+        ],                                  # = probing.precompute_base_sweep(base, ww)
 ) -> typ.Tuple[
     typ.Sequence[NDArray],  # tucker variations dU. len=d
     typ.Sequence[NDArray],  # tt variations     dG. len=d
@@ -138,7 +138,7 @@ def apply_gn_hessian(
         base_sweep: typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = probing.precompute_apply_base_sweep(base, ww)
+        ],                                  # = probing.precompute_base_sweep(base, ww)
 ) -> typ.Tuple[
     typ.Sequence[NDArray],  # tucker variations dU. len=d
     typ.Sequence[NDArray],  # tt variations     dG. len=d
@@ -163,7 +163,7 @@ def apply_model_value(
         base_sweep:      typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = probing.precompute_apply_base_sweep(base, ww)
+        ],                                  # = probing.precompute_base_sweep(base, ww)
         gradient:        typ.Tuple[
             typ.Sequence[NDArray],          # tucker variations of g
             typ.Sequence[NDArray],          # tt variations of g
@@ -299,7 +299,7 @@ def probe_jacobian(
         base_sweep: typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = probing.precompute_apply_base_sweep(base, ww) (apply & probe share it)
+        ],                                  # = probing.precompute_base_sweep(base, ww) (apply & probe share it)
 ) -> typ.Sequence[NDArray]:                 # J p = 𝒥(Π p), len=d, elm_shape=W+C+(Ni,) (one free mode each)
     '''Riemannian forward probe ``J p = 𝒥(Π p)``: gauge-project ``p``, then the bare single-sample probe
     Jacobian (one vector per mode), reusing the precomputed base sweep.'''
@@ -317,7 +317,7 @@ def probe_gradient(
         base_sweep: typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = probing.precompute_apply_base_sweep(base, ww)
+        ],                                  # = probing.precompute_base_sweep(base, ww)
 ) -> typ.Tuple[
     typ.Sequence[NDArray],  # tucker variations dU. len=d
     typ.Sequence[NDArray],  # tt variations     dG. len=d
@@ -341,7 +341,7 @@ def probe_gn_hessian(
         base_sweep: typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = probing.precompute_apply_base_sweep(base, ww)
+        ],                                  # = probing.precompute_base_sweep(base, ww)
 ) -> typ.Tuple[
     typ.Sequence[NDArray],  # tucker variations dU. len=d
     typ.Sequence[NDArray],  # tt variations     dG. len=d
@@ -366,7 +366,7 @@ def probe_model_value(
         base_sweep:      typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = probing.precompute_apply_base_sweep(base, ww)
+        ],                                  # = probing.precompute_base_sweep(base, ww)
         gradient:        typ.Tuple[
             typ.Sequence[NDArray],          # tucker variations of g
             typ.Sequence[NDArray],          # tt variations of g

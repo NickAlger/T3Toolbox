@@ -105,7 +105,7 @@ class GaussNewtonModel:
 
     @cached_property
     def _base_sweep(self):                 # (xis, mus, nus, etas) -- computed ONCE, reused
-        return fb.precompute_apply_base_sweep(self.base.data, self.ww)
+        return fb.precompute_base_sweep(self.base.data, self.ww)
 
     @cached_property
     def objective_value(self) -> NDArray:  # c = ½‖r‖²        (the model constant; shape () or C)
@@ -169,13 +169,13 @@ def evaluate(self, p):                              # require p.basis is self.ba
 **`probing.py` additions (small, mechanical — name & expose the existing split):**
 
 ```python
-def precompute_apply_base_sweep(base, ww) -> base_sweep            # bundles compute_xis/mus/nus/etas
+def precompute_base_sweep(base, ww) -> base_sweep            # bundles compute_xis/mus/nus/etas
 def apply_jacobian_from_sweep(variation, base, base_sweep) -> z    # = _apply_from_xis, sweep injected
 def apply_transpose_from_sweep(c, ww, base, base_sweep, sum_over_probes) -> (dU, dG)  # = _apply_transpose_assemble
 ```
 
 The existing public `apply_tangent` / `apply_tangent_transpose` are rewritten as
-`precompute_apply_base_sweep` + the `_from_sweep` call (behavior identical; the all-in-one API stays). The
+`precompute_base_sweep` + the `_from_sweep` call (behavior identical; the all-in-one API stays). The
 `_from_sweep` functions are the **bare** `𝒥`/`𝒥ᵀ` (no `Π`); they are public so `fitting.py` composes
 *public* probing functions, not privates (the razor: the split is a named capability with a docstring +
 test).
@@ -238,7 +238,7 @@ shared private helper only if the threading repeats verbatim more than a couple 
 
 Scope: **apply, tangent, plain** end-to-end, validated reusing the sweep. Steps:
 
-1. **`probing.py` split** — add `precompute_apply_base_sweep`, `apply_jacobian_from_sweep`,
+1. **`probing.py` split** — add `precompute_base_sweep`, `apply_jacobian_from_sweep`,
    `apply_transpose_from_sweep` (the **bare** `𝒥`/`𝒥ᵀ`); rewrite `apply_tangent`/`apply_tangent_transpose`
    to use them; add to `__all__`. Verify the existing `test_manifold`/probing tests still pass (unchanged).
 2. **`backend/fitting.py`** — `apply_jacobian` (`𝒥(Πp)`), `apply_gradient` (`Π𝒥ᵀr`,

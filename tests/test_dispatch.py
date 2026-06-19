@@ -217,7 +217,7 @@ class TestDispatch(unittest.TestCase):
     def test_jit_fitting(self):
         base = self.base.data
         ww = self.ww                                              # sample stack W=(2,)
-        sweep = probing.precompute_apply_base_sweep(base, ww)     # reusable base sweep (jax)
+        sweep = probing.precompute_base_sweep(base, ww)     # reusable base sweep (jax)
         p = self.w.variations.data                               # an un-gauged tangent (exercises internal Π)
         r = jnp.ones(2)                                          # residual, W=(2,), C=()
         g = fb.apply_gradient(r, ww, base, sweep)               # gauged gradient (jax)

@@ -97,7 +97,7 @@ class ApplyGaussNewtonModel:
 
     @ft.cached_property
     def _base_sweep(self) -> typ.Tuple:  # (xis, mus, nus, etas) -- computed ONCE, reused
-        return probing.precompute_apply_base_sweep(self.base.data, self.ww)
+        return probing.precompute_base_sweep(self.base.data, self.ww)
 
     @ft.cached_property
     def objective_value(self) -> NDArray:  # c = ½‖r‖², shape C
@@ -223,7 +223,7 @@ class ProbeGaussNewtonModel:
 
     @ft.cached_property
     def _base_sweep(self) -> typ.Tuple:  # (xis, mus, nus, etas) -- computed ONCE, reused (shared with apply)
-        return probing.precompute_apply_base_sweep(self.base.data, self.ww)
+        return probing.precompute_base_sweep(self.base.data, self.ww)
 
     @ft.cached_property
     def objective_value(self) -> NDArray:  # c = ½‖r‖², shape C

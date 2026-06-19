@@ -75,7 +75,7 @@ def _kind_setup(kind, C):
     m, n_c, n_w = N_SAMPLES, len(C), 1
     if kind == 'apply':
         sample = [np.random.randn(m, N) for N in SHAPE]
-        sweep = probing.precompute_apply_base_sweep(base.data, sample)
+        sweep = probing.precompute_base_sweep(base.data, sample)
         ops = (fb.apply_jacobian, fb.apply_gradient, fb.apply_gn_hessian, fb.apply_model_value)
         dense_fwd = lambda T: apply_dense(T, sample, n_c)
         r = np.random.randn(*((m,) + C))
@@ -93,7 +93,7 @@ def _kind_setup(kind, C):
         rand_like = lambda v: np.random.randn(*v.shape)
     else:  # probe -- vector-valued (one free mode each)
         sample = [np.random.randn(m, N) for N in SHAPE]
-        sweep = probing.precompute_apply_base_sweep(base.data, sample)
+        sweep = probing.precompute_base_sweep(base.data, sample)
         ops = (fb.probe_jacobian, fb.probe_gradient, fb.probe_gn_hessian, fb.probe_model_value)
         dense_fwd = lambda T: probe_dense(T, sample, n_c)
         r = [np.random.randn(*((m,) + C + (N,))) for N in SHAPE]
