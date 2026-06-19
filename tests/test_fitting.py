@@ -17,6 +17,7 @@ import t3toolbox.manifold as t3m
 import t3toolbox.backend.probing as probing
 import t3toolbox.backend.tangent_operations as tangent_operations
 import t3toolbox.backend.fitting as fb
+import t3toolbox.fitting as fitting
 import t3toolbox.corewise as cw
 
 
@@ -121,6 +122,62 @@ class TestApplyGaussNewtonModel(unittest.TestCase):
                 lhs = np.sum(z * Jp, axis=tuple(range(n_w)))            # ⟨z, Jp⟩_samples, keep C
                 rhs = cw.corewise_stack_dot(gz, p, n_c)                 # ⟨gz, p⟩_corewise
                 self.assertTrue(np.allclose(lhs, rhs, rtol=0, atol=1e-9))
+
+
+class TestGaussNewtonModelFrontend(unittest.TestCase):
+    '''The GaussNewtonModel dataclass: delegation, the same-base guard, and the cached base-sweep reuse.'''
+
+    def _model(self, C):
+        np.random.seed(1)
+        x = t3.TuckerTensorTrain.randn((7, 8, 9), (3, 4, 2), (1, 2, 3, 1), stack_shape=C)
+        base, _ = bvf.t3_orthogonal_representations(x)
+        ww = [np.random.randn(20, N) for N in (7, 8, 9)]
+        r = np.random.randn(*((20,) + C))
+        return fitting.GaussNewtonModel(base, ww, r), base, ww, r
+
+    def test_dense_truth_through_model(self):
+        '''End-to-end: model.evaluate(p) == ½‖r + 𝒥(Πp)‖² (dense oracle), via the frontend.'''
+        for C in [(), (2,)]:
+            with self.subTest(C=C):
+                model, base, ww, r = self._model(C)
+                p = t3m.T3Tangent.randn(base, apply_gauge_projection=False)   # un-gauged -> tests Π
+                Pp = tangent_operations.orthogonal_gauge_projection(base.data, p.variations.data)
+                Pp_dense = t3m.T3Tangent(base, bvf.T3Variations(*Pp)).to_dense()
+                oracle = 0.5 * np.sum((r + apply_dense(Pp_dense, ww, len(C))) ** 2, axis=0)
+                self.assertTrue(np.allclose(model.evaluate(p), oracle, rtol=0, atol=1e-9))
+
+    def test_delegates_to_backend(self):
+        '''The model's properties/methods equal the backend functions it wraps.'''
+        model, base, ww, r = self._model(())
+        sweep = probing.precompute_apply_base_sweep(base.data, ww)
+        self.assertAlmostEqual(float(model.objective_value), 0.5 * float(np.sum(r ** 2)), places=10)
+        g_back = fb.compute_gradient(r, ww, base.data, sweep)
+        for a, b in zip(model.gradient.variations.data[0] + model.gradient.variations.data[1],
+                        g_back[0] + g_back[1]):
+            self.assertTrue(np.allclose(a, b))
+        p = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+        h_back = fb.apply_gn_hessian(p.variations.data, ww, base.data, sweep)
+        for a, b in zip(model.gn_hessian(p).variations.data[0] + model.gn_hessian(p).variations.data[1],
+                        h_back[0] + h_back[1]):
+            self.assertTrue(np.allclose(a, b))
+
+    def test_same_base_guard(self):
+        '''A trial tangent at a different base is a structural error (identity, not value).'''
+        model, base, ww, r = self._model(())
+        other, _ = bvf.t3_orthogonal_representations(
+            t3.TuckerTensorTrain.randn((7, 8, 9), (3, 4, 2), (1, 2, 3, 1)))
+        p_other = t3m.T3Tangent.randn(other)
+        with self.assertRaises(ValueError):
+            model.gn_hessian(p_other)
+        with self.assertRaises(ValueError):
+            model.evaluate(p_other)
+
+    def test_base_sweep_cached(self):
+        '''The base sweep (and gradient/objective) are cached -- the reuse mechanism, computed once.'''
+        model, base, ww, r = self._model(())
+        self.assertIs(model._base_sweep, model._base_sweep)     # same object -> cached, not recomputed
+        self.assertIs(model.gradient, model.gradient)
+        self.assertIs(model.objective_value, model.objective_value)
 
 
 if __name__ == '__main__':

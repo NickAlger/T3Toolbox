@@ -27,6 +27,7 @@ import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.orthogonal_representations as orth_reps
 import t3toolbox.backend.probing as probing
 import t3toolbox.backend.fitting as fb
+import t3toolbox.fitting as fitting
 
 try:
     import jax
@@ -225,6 +226,13 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda rr: fb.compute_gradient(rr, ww, base, sweep), r)
         self.assert_jit_jax(lambda pp: fb.apply_gn_hessian(pp, ww, base, sweep), p)
         self.assert_jit_jax(lambda pp: fb.quadratic_model_value(pp, ww, base, sweep, g, c), p)
+
+    def test_jit_fitting_model(self):
+        # the GaussNewtonModel frontend: cached sweep folds in (closure); base survives jit as aux
+        model = fitting.GaussNewtonModel(self.base, self.ww, jnp.ones(2))
+        _ = model.gradient; _ = model.objective_value           # warm the caches -> concrete jax constants
+        self.assert_jit_jax(lambda pp: model.gn_hessian(pp), self.w)   # H p, returns a T3Tangent
+        self.assert_jit_jax(lambda pp: model.evaluate(pp), self.w)     # m(p), returns a jax scalar
 
     # ---------------------------------------------------- jit bucket: UniformTuckerTensorTrain
     def test_jit_uniform(self):
