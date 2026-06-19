@@ -237,17 +237,25 @@ class TestManifold(unittest.TestCase):
                     self.assertLessEqual(norm(np.asarray(t3m.T3Tangent.zeros(base).to_dense())), tol)
 
     def test_same_tangent_space_guard(self):
+        # the same-frame guard is NUMERICAL (frames_equal), not object identity: value-equal frames PASS
+        # (the jit-round-trip property), a genuinely different frame raises, and safety.unsafe() skips it.
         x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
         base_a, _ = bvf.t3_orthogonal_representations(x)
-        base_b, _ = bvf.t3_orthogonal_representations(x)  # numerically equal cores, different object
+        base_b = bvf.T3Basis(*base_a.data)               # value-equal cores, DIFFERENT object (jit round-trip)
         va = t3m.T3Tangent(base_a, _random_variations(base_a))
         vb = t3m.T3Tangent(base_b, _random_variations(base_b))
-        va2 = t3m.T3Tangent(base_a, _random_variations(base_a))
+        _ = va + t3m.T3Tangent(base_a, _random_variations(base_a))   # same object: OK
+        _ = va + vb                                       # value-equal frame: OK (numerical guard accepts)
+        _ = va.corewise_inner(vb)
 
-        t3m.T3Tangent(base_a, va.variations) + va2  # same basis object: OK
-        for op in (lambda: va + vb, lambda: va - vb, lambda: va.corewise_inner(vb)):
+        base_c, _ = bvf.t3_orthogonal_representations(    # a genuinely different frame -> raises
+            t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1)))
+        vc = t3m.T3Tangent(base_c, _random_variations(base_c))
+        for op in (lambda: va + vc, lambda: va - vc, lambda: va.corewise_inner(vc)):
             with self.assertRaises(ValueError):
                 op()
+        with safety.unsafe():                             # unsafe mode skips the numerical check
+            _ = va + vc
 
     def test_inner_norm(self):
         x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
@@ -324,18 +332,22 @@ class TestManifold(unittest.TestCase):
                 self.check_relerr(dense, rt.to_dense())
 
     def test_stack_tangents_guard(self):
-        # stack_tangents requires a shared T3Basis object (same tangent space); different base
-        # objects (even with numerically equal cores) raise.
+        # stack_tangents requires the same frame (numerical check): value-equal frames stack fine,
+        # a genuinely different frame raises.
         x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
         base_a, _ = bvf.t3_orthogonal_representations(x)
-        base_b, _ = bvf.t3_orthogonal_representations(x)  # equal cores, different object
-        ta = t3m.COREWISE.randn(base_a)
+        base_b = bvf.T3Basis(*base_a.data)               # value-equal, different object
+        ta, ta2 = t3m.COREWISE.randn(base_a), t3m.COREWISE.randn(base_a)
         tb = t3m.COREWISE.randn(base_b)
-        ta2 = t3m.COREWISE.randn(base_a)
 
-        t3m.T3Tangent.stack_tangents([ta, ta2])  # same basis object: OK
+        t3m.T3Tangent.stack_tangents([ta, ta2])          # same object: OK
+        t3m.T3Tangent.stack_tangents([ta, tb])           # value-equal frame: OK (numerical guard accepts)
+
+        base_c, _ = bvf.t3_orthogonal_representations(   # a genuinely different frame -> raises
+            t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1)))
+        tc = t3m.COREWISE.randn(base_c)
         with self.assertRaises(ValueError):
-            t3m.T3Tangent.stack_tangents([ta, tb])
+            t3m.T3Tangent.stack_tangents([ta, tc])
 
     def test_orthogonal_gauge_projection(self):
         for T3_STRUCTURE in self.t3_structures:

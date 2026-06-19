@@ -159,7 +159,7 @@ class TestGaussNewtonModel(unittest.TestCase):
                     self.assertTrue(sm['model'].gn_hessian(_raw_step(sm)).is_gauged())
 
                     sc = _setup(kind, 'corewise', C)
-                    bare = sc['model'].kind.transpose(sc['r'], sc['sample'], sc['base'].data, sc['model']._base_sweep)
+                    bare = sc['model'].kind.transpose(sc['r'], sc['sample'], sc['base'].data, sc['model'].sweep)
                     gd = sc['model'].gradient.variations.data
                     for a, b in zip(gd[0] + gd[1], bare[0] + bare[1]):   # corewise gradient == bare 𝒥ᵀr, no Π
                         self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))
@@ -185,7 +185,7 @@ class TestGaussNewtonModel(unittest.TestCase):
                         model, geometry, p = s['model'], s['geometry'], _raw_step(s)
                         Jp = model.jacobian(p)                                    # J p = 𝒥(Π p)
                         z = s['rand_like'](Jp)
-                        gz_raw = model.kind.transpose(z, s['sample'], s['base'].data, model._base_sweep)
+                        gz_raw = model.kind.transpose(z, s['sample'], s['base'].data, model.sweep)
                         gz = geometry.project(t3m.T3Tangent(s['base'], bvf.T3Variations(*gz_raw)))  # Π 𝒥ᵀ z
                         lhs = s['samp_dot'](z, Jp)
                         rhs = gz.corewise_inner(p)
@@ -225,7 +225,7 @@ class TestGaussNewtonModel(unittest.TestCase):
     def test_caching(self):
         '''The base sweep / gradient / objective are cached -- the reuse mechanism, computed once.'''
         model = _setup('apply', 'manifold', ())['model']
-        self.assertIs(model._base_sweep, model._base_sweep)
+        self.assertIs(model.sweep, model.sweep)
         self.assertIs(model.gradient, model.gradient)
         self.assertIs(model.objective_value, model.objective_value)
 

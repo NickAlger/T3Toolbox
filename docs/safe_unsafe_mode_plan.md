@@ -167,11 +167,18 @@ completed and signed off):
    both examples, `test_fitting`/`test_manifold`/`test_dispatch`). **First slice that wires `safety`**:
    `MANIFOLD.inner` on an ungauged tangent or non-orthonormal frame **raises** in safe mode, passes under
    `safety.unsafe()`, skips under jit. Verified: 221 core + 11 dispatch + doctests; both examples reproduce.
-4. **S4 — numerical same-frame guard + basis-as-leaf.** Replace the `is`-identity guard
-   (`_check_same_tangent_space`, `stack_tangents`, fitting `_require_at_base`) with `check_frames_equal`
-   (safe-mode, eager-only). Flip `T3Tangent` to basis-as-leaf; register `GaussNewtonModel` with all-leaf
-   data + statics as aux; store the sweep as a field. Delete the aux/recompile machinery + the
-   basis-as-aux REVISIT note.
+4. **S4 — numerical same-frame guard + basis-as-leaf. ✅ DONE.** Replaced the `is`-identity guard
+   (`_check_same_tangent_space`, `stack_tangents`, fitting `_require_at_base`) with the numerical
+   `frames_equal_or_skip` (safe-mode, eager-only) + the structural stack-shape check. Flipped `T3Tangent`
+   to **basis-as-leaf** (`(basis, variations)` both leaves, `aux=None`) → base flows as traced data, **no
+   recompile** when the base changes (verified `traces=1` across distinct bases, both model-as-jit-arg and
+   tangent-crosses-jit). Registered `GaussNewtonModel` as a pytree (leaves: `base`, `sweep`, `sample`,
+   `residual`; aux: `geometry`, `kind`); stored the precomputed `sweep` as a field (dropped the
+   `_base_sweep` cached_property). Deleted the basis-as-aux REVISIT note; rewrote the "Jitting an
+   optimizer" docstring. Tests updated: the two guard tests now assert value-equal frames **pass** and a
+   genuinely-different frame **raises** (+ `unsafe()` skip); `test_dispatch` checks the computed
+   **variations** are jax (the passed-through numpy basis is a leaf now). Verified: 220 core + dispatch +
+   doctests; both Hilbert examples reproduce.
 5. **S5 — wire the remaining preconditions** from the §5 catalog (orthogonal for retract/project/…, etc.).
 6. **S6 — verify.** `jit(matvec)` compiles once across bases (no recompile); eager guards fire in safe
    mode, catch real errors, and tolerate value-equal frames; numbers identical to today; both Hilbert

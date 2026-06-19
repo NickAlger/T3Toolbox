@@ -322,11 +322,15 @@ class T3Tangent:
     ############################################
 
     def _check_same_tangent_space(self, other: 'T3Tangent') -> None:
-        if self.basis is not other.basis:
+        # same-frame is a NUMERICAL precondition (are these two frames the same frame?): the `is`
+        # fast-path keeps the common eager case O(1); the value compare runs only when the objects differ
+        # (e.g. a jit round-trip reconstructs a value-equal frame). Safe-mode + eager-only: skips under
+        # safety.unsafe() and under a jax trace. The stack-shape check is structural -> always.
+        if not (self.basis is other.basis or safety.frames_equal_or_skip(self.basis.data, other.basis.data)):
             raise ValueError(
-                'Tangent vectors are in different tangent spaces.\n'
-                'Linear algebra between tangent vectors requires the *same* T3Basis object '
-                '(object identity, not merely numerically-equal cores).'
+                'Tangent vectors are in different tangent spaces (their frames are not the same frame).\n'
+                'Linear algebra between tangent vectors requires the same frame; run inside '
+                'safety.unsafe() to skip this numerical check.'
             )
         if self.stack_shape != other.stack_shape:
             raise ValueError(
@@ -984,19 +988,19 @@ class T3Tangent:
     def stack_tangents(tree) -> 'T3Tangent':
         """Stack a ``K``-shaped tree of tangents (sharing one base) into a tangent-stacked T3Tangent.
 
-        Inverse of :py:meth:`unstack_tangents`. Requires every leaf to hold the **same**
-        :py:class:`T3Basis` object (object identity, as in :py:meth:`inner` / :py:meth:`__add__`):
-        the tangents being stacked must live in the same tangent space. The shared base is reused and
-        the variations are stacked over the new outer tangent stack ``K``.
+        Inverse of :py:meth:`unstack_tangents`. Requires every leaf to be at the **same frame** (the
+        same-frame numerical check, as in :py:meth:`corewise_inner` / :py:meth:`__add__`): the tangents
+        being stacked must live in the same tangent space. The first leaf's base is reused and the
+        variations are stacked over the new outer tangent stack ``K``.
         """
         leaves = _flatten_tangents(tree)
         base = leaves[0].basis
         for t in leaves[1:]:
-            if t.basis is not base:
+            if not (t.basis is base or safety.frames_equal_or_skip(t.basis.data, base.data)):
                 raise ValueError(
-                    'stack_tangents requires every tangent to share the same T3Basis object (object '
-                    'identity, not merely numerically-equal cores) -- they must live in the same '
-                    'tangent space. To stack tangents at *different* base points, use stack_basis.'
+                    'stack_tangents requires every tangent to be at the same frame -- they must live in '
+                    'the same tangent space. To stack tangents at *different* base points, use '
+                    'stack_basis. (Run inside safety.unsafe() to skip this numerical check.)'
                 )
         variations_tree = stacking.apply_func_to_leaf_subtrees(tree, lambda t: t.variations.data, None)
         variations_data = tangent_operations.stack_tangent_stack(variations_tree)
@@ -1359,36 +1363,29 @@ def _flatten_tangents(tree) -> typ.List['T3Tangent']:
 if has_jax:
     import jax
 
-    # Register T3Tangent as a jax pytree with the BASIS as aux_data: the fixed frame is static, only
-    # the variations (the moving tangent vector) are differentiable leaves -- matching the manifold
-    # picture and what one optimizes/vmaps. Because aux_data preserves object identity through
-    # flatten/unflatten, the same-tangent-space guard (`self.basis is other.basis`) keeps working
-    # under jit (two tangents built from the same T3Basis object stay identical). The basis is then a
-    # jit compile-time constant: hold the basis object stable to keep cache hits (a new base point
-    # recompiles). To differentiate w.r.t. the basis, use the backend functions on the raw cores.
-    #
-    # REVISIT (basis-as-aux vs recompile cost): this choice was made on conceptual grounds -- the basis
-    # is the "fixed" frame, the tangent varies within it; we do not want autodiff to differentiate
-    # through the base; we want the same-base identity guard to deny linear algebra across frames. The
-    # PRACTICAL cost was under-weighed: a new base recompiles, so a Newton-CG that jits at the
-    # outer-step granularity (base changes every step) recompiles every step, which can dominate when
-    # the inner CG is short. The two jit patterns sidestep it (see fitting.py "Jitting an optimizer":
-    # build the base inside the jit for a per-step loop; close the model over for an amortized inner
-    # matvec), but if neither fits a use case, weigh offering a base-as-leaf tangent variant (no
-    # recompile, identity guard then eager-only). Decision deferred; the patterns cover today's needs.
+    # Register T3Tangent as a jax pytree with the basis as a LEAF: both the basis and the variations are
+    # children (no aux_data). The basis flows as ordinary traced data, so a tangent that crosses a jit
+    # boundary does NOT recompile when the base changes -- the per-base recompile that basis-as-aux used to
+    # force (and that broke jit-the-frontend Newton-CG) is gone. This works because the same-tangent-space
+    # guard is now a NUMERICAL same-frame check (`safety.frames_equal_or_skip`, safe-mode + eager-only),
+    # not object identity: it survives a jit round-trip (a reconstructed, value-equal frame passes) instead
+    # of false-failing, and under a trace it simply skips. Two by-design consequences: autodiff/tree_map
+    # now see the basis too -- to grad w.r.t. the variations only, close the basis over
+    # (`g = lambda v: f(T3Tangent(b, v)); jax.grad(g)`), and grad-w.r.t.-the-basis is now available. Full
+    # rationale: docs/safe_unsafe_mode_plan.md.
     jax.tree_util.register_pytree_node(
         T3Tangent,
-        lambda x: ((x.variations,), x.basis),
-        lambda basis, children: T3Tangent(basis, children[0]),
+        lambda x: ((x.basis, x.variations), None),
+        lambda aux, children: T3Tangent(children[0], children[1]),
     )
 
     # Register the stateless geometry singletons as ZERO-LEAF pytrees (no array leaves, aux=None): they
     # carry no data, so they pass through jit/vmap transparently as ordinary args and reconstruct to an
     # equivalent stateless instance (all instances of a geometry are interchangeable). This is purely
     # for ergonomics -- geometries are normally closed over -- but it removes the "cannot interpret
-    # ManifoldGeometry as an abstract value" footgun. The GaussNewtonModel is deliberately NOT
-    # registered: it is a scope-local, per-outer-step operator that the jit patterns never cross the
-    # boundary with (built inside, or closed over); see fitting.py "Jitting an optimizer".
+    # ManifoldGeometry as an abstract value" footgun. (The GaussNewtonModel is registered in fitting.py
+    # with all-leaf data + geometry/kind as aux; with basis-as-leaf there is no aux/recompile dilemma, so
+    # jitting the frontend matvec directly no longer recompiles -- see fitting.py "Jitting an optimizer".)
     jax.tree_util.register_pytree_node(
         ManifoldGeometry, lambda g: ((), None), lambda aux, children: ManifoldGeometry())
     jax.tree_util.register_pytree_node(

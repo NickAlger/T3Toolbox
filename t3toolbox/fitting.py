@@ -21,26 +21,32 @@ quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p``. The model is generic o
 Every input and output is a :py:class:`~t3toolbox.manifold.T3Tangent` at ``model.base`` -- including the
 **corewise** case, where the tangent lives at the non-orthonormal frame ``(U,G,G,G)`` (a core
 perturbation; see :py:class:`~t3toolbox.manifold.CorewiseGeometry`). Build trial steps at ``model.base``
-(e.g. ``geometry.randn(model.base)``); a step at a different base is a structural error (the same
-``T3Basis``-object guard as :py:class:`~t3toolbox.manifold.T3Tangent`).
+(e.g. ``geometry.randn(model.base)``); a step at a different frame raises the numerical same-frame guard
+(skipped under ``safety.unsafe()`` / a jax trace), like :py:class:`~t3toolbox.manifold.T3Tangent`.
 
-The expensive base sweep (the base-and-data edge variables) is a ``@cached_property``: computed once on
-first use and reused across every ``gn_hessian`` / ``evaluate`` of an inner solve. This is the whole
-point -- in an inner CG the base is fixed, so the sweep is computed once, not once per matrix-vector
-product. See :py:mod:`t3toolbox.backend.fitting` and ``docs/geometry_refactor_plan.md``.
+The base sweep (the base-and-data edge variables) is computed once by the factory and stored as the
+``sweep`` field, reused across every ``gradient`` / ``gn_hessian`` / ``evaluate`` -- in an inner CG the
+base is fixed, so the sweep is computed once, not once per matrix-vector product. See
+:py:mod:`t3toolbox.backend.fitting` and ``docs/geometry_refactor_plan.md``.
 
 Jitting an optimizer
 --------------------
-A ``GaussNewtonModel`` is **not** a registered jax pytree -- by design. It is a scope-local operator
-built fresh at each outer step, and the two efficient ways to ``jit`` an optimizer never pass the model
-(or its base) *across* a jit boundary, so they never trigger the per-base recompile that base-carrying
-objects incur:
+``GaussNewtonModel`` **is** a registered jax pytree (the data -- ``base``, ``sweep``, ``sample``,
+``residual`` -- are leaves; ``geometry`` / ``kind`` are static aux). Crucially the base flows as a *leaf*,
+not aux (the same is true of :py:class:`~t3toolbox.manifold.T3Tangent`'s basis), so a model or tangent
+that **crosses a jit boundary does NOT recompile when the base changes** -- the per-base recompile that
+basis-as-aux used to force is gone. So you can jit the frontend matvec directly:
 
-1. **Whole-step jit (per-step methods -- Cauchy / gradient descent / a fixed-step loop).** ``jit`` a
-   step function whose only argument is the point ``X`` (a ``TuckerTensorTrain``, already a pytree);
-   build the base, model, and gradient *inside*. The base is recomputed from the traced ``X`` each
-   step, so it is traced (not a constant) and the function **compiles once and is reused across all
-   steps** even though the base changes every step::
+1. **Inner-solve jit (Newton-CG).** Jit the matvec with the model *and* the tangent as arguments; it
+   compiles **once for the whole solve** (the model's base/sweep change as data, not as a recompile
+   trigger), reused across every outer step and CG iteration::
+
+       Hmatvec = jax.jit(lambda model, p: model.gn_hessian(p))
+       # per outer step:  model = fitting.apply_model(geom, X, ww, r)
+       # inner CG:         Hmatvec(model, p_k)
+
+2. **Whole-step jit (Cauchy / gradient descent / a fixed-step loop).** Jit a step function whose only
+   argument is the point ``X`` and build the model *inside*; compiles once, reused across steps::
 
        @jax.jit
        def step(X):
@@ -49,20 +55,10 @@ objects incur:
            g     = model.gradient
            alpha = g.corewise_inner(g) / model.gn_quadratic(g)     # cheap Cauchy step (one forward)
            return t3m.MANIFOLD.retract((-alpha) * g)
-       X = x0
-       for _ in range(n_steps):
-           X = step(X)                                    # compiled once, reused
 
-2. **Inner-solve jit (Newton-CG).** Build the model eagerly at the outer point, *close it over*, and
-   ``jit`` only the inner matrix-vector product ``lambda p: model.gn_hessian(p)``. The base is then a
-   closed-over constant -- fixed within the inner CG -- so the matvec compiles once per outer step and
-   is reused across all CG iterations; the trial tangents ``p`` cross the boundary cheaply (``T3Tangent``
-   carries its base as aux_data, identity-preserved). The per-outer-step recompile amortizes over the
-   inner iterations. *(If the inner CG is very short, prefer pattern 1; see the basis-as-aux REVISIT
-   note in ``manifold.py``.)*
-
-The geometry singletons (``t3m.MANIFOLD`` / ``COREWISE``) are registered as zero-leaf pytrees, so they
-may be closed over or passed as ordinary args freely.
+Under a trace the numerical same-frame guards skip (you cannot branch on a tracer; jit is unsafe mode), so
+a matvec output combines with the eager CG iterates freely. The geometry singletons (``t3m.MANIFOLD`` /
+``COREWISE``) are zero-leaf pytrees -- close over or pass as args freely.
 '''
 
 from __future__ import annotations
@@ -74,6 +70,7 @@ from dataclasses import dataclass
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.basis_variations_format as bvf
 import t3toolbox.manifold as t3m
+import t3toolbox.safety as safety
 import t3toolbox.backend.fitting as fb
 from t3toolbox.backend.common import *
 
@@ -81,10 +78,12 @@ __all__ = ['GaussNewtonModel', 'apply_model', 'entries_model', 'probe_model']
 
 
 def _require_at_base(base: bvf.T3Basis, p: t3m.T3Tangent) -> None:
-    '''Structural guard: a trial tangent must live at the model's base -- the SAME ``T3Basis`` object
-    (identity, not value equality, like ``T3Tangent``'s same-tangent-space guard).'''
-    if p.basis is not base:
-        raise ValueError("trial tangent must live at the model's base (same T3Basis object)")
+    '''Same-frame guard: a trial tangent must live at the model's base. The ``is`` fast-path, else a
+    NUMERICAL frame compare (safe mode, eager-only; skips under ``safety.unsafe()`` / a jax trace), like
+    ``T3Tangent``'s same-tangent-space guard.'''
+    if not (p.basis is base or safety.frames_equal_or_skip(base.data, p.basis.data)):
+        raise ValueError("trial tangent must live at the model's base (it is at a different frame); "
+                         "run inside safety.unsafe() to skip this numerical check")
 
 
 @dataclass(frozen=True)
@@ -151,7 +150,7 @@ class GaussNewtonModel:
     >>> other = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
     >>> model.gn_hessian(t3m.MANIFOLD.randn(t3m.MANIFOLD.base(other)))   # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
-    ValueError: trial tangent must live at the model's base (same T3Basis object)
+    ValueError: trial tangent must live at the model's base (it is at a different frame)
     '''
 
     geometry: typ.Any              # the geometry (MANIFOLD / COREWISE): supplies base & project (Π)
@@ -159,14 +158,12 @@ class GaussNewtonModel:
     kind:     fb.SamplingKind      # the sampling kind (APPLY / ENTRIES / PROBE)
     sample:   typ.Any              # ww (apply / probe; len=d, elm_shape=W+(Ni,)) or index (entries; (d,)+W)
     residual: typ.Any              # r = F(X) − y; shape W+C (apply / entries) or len=d, W+C+(Ni,) (probe)
+    sweep:    typ.Any              # = kind.precompute(base.data, sample); a FIELD (jax leaf) so it is
+                                   # carried across a jit boundary and reused, not recomputed per matvec
 
     @ft.cached_property
     def _n_w(self) -> int:  # number of leading sample-stack (W) axes
         return self.kind.w_axes(self.sample)
-
-    @ft.cached_property
-    def _base_sweep(self) -> typ.Tuple:  # (xis, mus, nus, etas) on geometry.base(X) -- computed ONCE
-        return self.kind.precompute(self.base.data, self.sample)
 
     @ft.cached_property
     def objective_value(self) -> NDArray:  # c = ½‖r‖², shape C
@@ -179,7 +176,7 @@ class GaussNewtonModel:
 
         On the manifold geometry this is the gauged Riemannian gradient; on the corewise geometry it is
         the raw core gradient ``𝒥ᵀr`` (a tangent at ``(U,G,G,G)``, no ``Π``).'''
-        dU_dG = self.kind.transpose(self.residual, self.sample, self.base.data, self._base_sweep)
+        dU_dG = self.kind.transpose(self.residual, self.sample, self.base.data, self.sweep)
         return self.geometry.project(t3m.T3Tangent(self.base, bvf.T3Variations(*dU_dG)))
 
     def jacobian(
@@ -195,7 +192,7 @@ class GaussNewtonModel:
         vector per mode for probe).'''
         _require_at_base(self.base, p)
         Pp = self.geometry.project(p)
-        return self.kind.forward(Pp.variations.data, self.sample, self.base.data, self._base_sweep)
+        return self.kind.forward(Pp.variations.data, self.sample, self.base.data, self.sweep)
 
     def gn_quadratic(
             self,
@@ -218,8 +215,8 @@ class GaussNewtonModel:
         *scalar* quadratic form ``pᵀHp`` alone, prefer the cheaper :py:meth:`gn_quadratic`.'''
         _require_at_base(self.base, p)
         Pp = self.geometry.project(p)
-        z = self.kind.forward(Pp.variations.data, self.sample, self.base.data, self._base_sweep)
-        dU_dG = self.kind.transpose(z, self.sample, self.base.data, self._base_sweep)
+        z = self.kind.forward(Pp.variations.data, self.sample, self.base.data, self.sweep)
+        dU_dG = self.kind.transpose(z, self.sample, self.base.data, self.sweep)
         return self.geometry.project(t3m.T3Tangent(self.base, bvf.T3Variations(*dU_dG)))
 
     def evaluate(self, p: t3m.T3Tangent) -> NDArray:  # m(p), shape C
@@ -229,7 +226,7 @@ class GaussNewtonModel:
         quadratic. Equals ``½‖r + 𝒥 Π p‖²`` exactly (the objective is quadratic in the ambient tensor).'''
         _require_at_base(self.base, p)
         Pp = self.geometry.project(p)
-        Jp = self.kind.forward(Pp.variations.data, self.sample, self.base.data, self._base_sweep)
+        Jp = self.kind.forward(Pp.variations.data, self.sample, self.base.data, self.sweep)
         return self.objective_value + self.gradient.corewise_inner(Pp) + 0.5 * self.kind.sumsq(Jp, self._n_w)
 
 
@@ -240,7 +237,8 @@ def apply_model(
         residual:   NDArray,                 # r = apply(x) − y, shape W+C
 ) -> GaussNewtonModel:
     '''The Gauss-Newton model of an all-modes ``apply`` least-squares objective at ``x``, on ``geometry``.'''
-    return GaussNewtonModel(geometry, geometry.base(x), fb.APPLY, ww, residual)
+    base = geometry.base(x)
+    return GaussNewtonModel(geometry, base, fb.APPLY, ww, residual, fb.APPLY.precompute(base.data, ww))
 
 
 def entries_model(
@@ -253,7 +251,8 @@ def entries_model(
 
     Identical to :py:func:`apply_model` but the measurements are tensor **entries** at integer grid points
     ``index`` (shape ``(d,)+W``) rather than applies against probe vectors.'''
-    return GaussNewtonModel(geometry, geometry.base(x), fb.ENTRIES, index, residual)
+    base = geometry.base(x)
+    return GaussNewtonModel(geometry, base, fb.ENTRIES, index, residual, fb.ENTRIES.precompute(base.data, index))
 
 
 def probe_model(
@@ -266,4 +265,21 @@ def probe_model(
 
     Like :py:func:`apply_model` but the measurements are **probes** -- vector-valued (one free mode each),
     so ``residual`` is a sequence of ``d`` arrays (``elm_shape = W+C+(Ni,)``).'''
-    return GaussNewtonModel(geometry, geometry.base(x), fb.PROBE, ww, residual)
+    base = geometry.base(x)
+    return GaussNewtonModel(geometry, base, fb.PROBE, ww, residual, fb.PROBE.precompute(base.data, ww))
+
+
+if has_jax:
+    import jax
+
+    # Register GaussNewtonModel as a jax pytree: the data (base, sweep, sample, residual) are LEAVES, the
+    # statics (geometry, kind) are aux_data. Because T3Tangent's basis is now a leaf too (see manifold.py),
+    # nothing carries a base as aux_data, so a model crossing a jit boundary does NOT recompile when the
+    # base changes -- `jit(lambda model, p: model.gn_hessian(p))(model, p)` compiles once and reuses across
+    # outer steps. The sweep is a stored field (a leaf) so it is carried/reused, not recomputed inside the
+    # trace. The same-base guard is the numerical same-frame check (skips under the trace).
+    jax.tree_util.register_pytree_node(
+        GaussNewtonModel,
+        lambda m: ((m.base, m.sweep, m.sample, m.residual), (m.geometry, m.kind)),
+        lambda aux, children: GaussNewtonModel(aux[0], children[0], aux[1], children[2], children[3], children[1]),
+    )

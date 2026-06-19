@@ -169,7 +169,7 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a: a.to_dense(), self.v)
         self.assert_jit_jax(lambda a: a.to_t3(), self.v)
         self.assert_jit_jax(lambda a: t3m.MANIFOLD.retract(a), self.v)
-        self.assert_jit_jax(lambda a, b: a.corewise_inner(b), self.v, self.w)   # binary op, shared base via aux
+        self.assert_jit_jax(lambda a, b: a.corewise_inner(b), self.v, self.w)   # binary op; same-frame guard skips under the trace
         self.assert_jit_jax(lambda a: a.corewise_norm(), self.v)
         self.assert_jit_jax(lambda a, b: a + b, self.v, self.w)
         self.assert_jit_jax(lambda a, b: a - b, self.v, self.w)
@@ -418,10 +418,11 @@ class TestDispatch(unittest.TestCase):
         dense = jnp.array(np.random.randn(*STRUCT[0]))
         self.assert_eager_jax(lambda z: t3m.MANIFOLD.project_ambient(self.base, z), dense)
         self.assert_eager_jax(lambda z: t3m.MANIFOLD.project_ambient(self.base, z), dense)
-        # jax dense + NUMPY basis must still give jax out (any input jax -> jax); the old code
-        # coerced the dense down to the basis's numpy here -- the regression this fix prevents.
+        # jax dense + NUMPY basis: the COMPUTED variations must be jax (any input jax -> jax); the old
+        # code coerced the dense down to the basis's numpy here -- the regression this fix prevents. With
+        # basis-as-leaf the tangent also carries the (numpy) basis as leaves, so check the variations only.
         base_np = self.base.to_numpy()
-        self.assert_eager_jax(lambda z: t3m.MANIFOLD.project_ambient(base_np, z), dense)
+        self._leaves_all_jax(t3m.MANIFOLD.project_ambient(base_np, dense).variations)
 
     # ---------------------------------------------------- numerical smoke tests (jax == numpy)
     def test_jax_matches_numpy_smoke(self):
