@@ -180,9 +180,19 @@ order-1 from `U_i p_i`; `dU_tilde` scatter lands on the indexed rows.
 - [x] Slice 3b: `T3Tangent` frontend — `{probe,apply,entries}_derivatives` + `{…}_derivatives_transpose` (static, → `T3Tangent`) + doctests + `test_manifold` test. Shared `check_perturbation_{vectors,index}` (backend, jit-safe) for the X/P stack guard.
 - [x] Slice 3c: `TuckerTensorTrain` frontend — `{probe,apply,entries}_derivatives` + `{…}_corewise_derivatives_transpose` + doctests + `test_tucker_tensor_train` test. **Full suite green (262); all doctests pass.**
 - [x] ~~Slice 4: ambient transposes~~ — **DEFERRED (not needed)**; analysis in `docs/ambient_derivative_transpose_note.md`.
-- [ ] **Doc refresh (remaining real work):** `entries_apply_probe.md` (stale §4 three-flavor grid + add the
-  derivative dimension), `symmetric_probe_derivatives.tex` (add apply/entries + the `K` stack), CLAUDE.md
-  "Current state" + `probe_derivatives_handoff.md`.
+- [x] **Doc refresh** — `entries_apply_probe.md` (§4 grid), `symmetric_probe_derivatives.tex` (apply/entries +
+  `K` stack), CLAUDE.md "Current state", `probe_derivatives_handoff.md`. Done before the review.
+- [x] **`/code-review high` pass + agreed fixes (committed `4ac6205b`).** Tier 1: (#1) deleted the dead 2-block
+  transpose contractions in `contractions.py` — superseded by the 3-block `W+K+C` versions; kept
+  `tWCo_Cio_to_tWCi` (still delegated to); removed 14 stale `__all__` names. (#3) added the numpy
+  `optimize=True` branch to `_assemble_dG_jet3`. (#4) fixed 6 variation-core shape comments (`C+`→`K+C+`).
+  Tier 2: consolidated `_w_jets`→`build_input_jets` (deleted the helper; dropped the now-unused
+  `xnp`/`get_backend` in the apply/entries transposes); added structural validation to the **6 transpose
+  frontend methods** (`check_perturbation_{vectors,index}`), and extended `check_perturbation_index` with an
+  optional ambient-shape (`Ni`) check wired through `self.shape`/`basis.shape` on every entries frontend
+  (forward + transpose). **Left alone (Nick's call):** the `is_uniform` notes (uniform layer still WIP),
+  unguarded invariants, `_assemble_dG_jet3`'s dict-dispatch style. Tests: `test_probe_derivatives` +
+  `test_manifold` + `test_tucker_tensor_train` + `test_contractions` (173) and `test_dispatch` (8) all green.
 - [x] **Derivative fitting example** — `examples/fit_hilbert_from_apply_derivatives.py`: fits a T3 to
   the Hilbert tensor from apply-**derivative** data (orders 0..d, per-order normalized + unit-norm probes),
   Riemannian Newton-CG + rank continuation. **Converges and recovers the tensor** (true err 5e-3 at rank
@@ -200,3 +210,31 @@ order-1 from `U_i p_i`; `dU_tilde` scatter lands on the indexed rows.
   *combine* in probe is a genuine full `O(K²)` convolution). Measured (W=300, ranks 4): deriv apply fwd is
   ~32× regular at order 4, transpose ~78×. Not urgent (training cost secondary; `K ≤ d` small; trades away
   the clean uniform-`trs` abstraction) — log, don't block the merge.
+
+## Session-end handoff (2026-06-18)
+
+**Where we are.** The derivative grid is *complete and reviewed*: forwards + tangent/corewise transposes
+for probe/apply/entries, full `W+K+C` stacking, backend + both frontends, all verified (~1e-16) and tested.
+The `/code-review high` pass is done and every agreed fix is committed (`4ac6205b`). The branch
+`probe-derivatives` is **green** (`test_probe_derivatives` + `test_manifold` + `test_tucker_tensor_train` +
+`test_contractions` = 173, `test_dispatch` = 8) and **not yet merged to `main`**.
+
+**Two open threads before/at merge:**
+
+1. **DISCUSS — base-jet caching (a real feature Nick wants, for regular probing *and* derivatives).**
+   In a Riemannian solve the base is *fixed* across the inner CG, but every `J`/`Jᵀ` call recomputes the
+   base sweeps (`xi_jets`, `mu_jets`, `nu_jets` and their regular-probing analogues). Nick: "this is a
+   feature I have wanted to add... for both regular probing AND derivatives. Let's talk about this." The
+   shape of the design (a "Jacobian-operator-at-fixed-base" object / a reuse hook that precomputes the
+   base sweeps once and exposes `apply`/`transpose` closures) is **undecided — lead with the reasoning,
+   not a bare menu** (CLAUDE.md workflow). This is the next conversation to have.
+
+2. **Merge `probe-derivatives` → `main`.** Nick said the review had to happen "until after we have added
+   the fitting example" — both are now done, so the merge is unblocked once (1) is resolved or explicitly
+   deferred. The example (`examples/fit_hilbert_from_apply_derivatives.py`) converges end-to-end.
+
+**Deferred (logged, not blocking):** ambient derivative transposes (`docs/ambient_derivative_transpose_note.md`,
+exponential-rank → not needed); the bidiagonal-`trs` perf optimization (above); the Hessian-conditioning
+experiment (`docs/derivative_order_information_and_conditioning.md`); `_assemble_dG_jet3` dict-dispatch
+restyle. Tangent stack `K` for the Euclidean/ambient transpose and the project-once gather opt are in
+`symmetric_probe_derivatives.tex` §8.
