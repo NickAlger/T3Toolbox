@@ -252,9 +252,17 @@ inline example is **left unchanged** (refactoring/re-pointing examples is out of
    gn_hessian, both geometries); `topt.mc_sgd(MANIFOLD, 'apply_derivatives', (ww,pp), data, x0, ..., order,
    weight, draw=<X-slice>)` recovers (true err 1e-4); jit path recovers (true err 0). Tests:
    `tests/test_fitting.py::test_derivative_models`.
-4. **D4 — pilot + tests (NEXT).** The pilot example (apply-derivatives + MC-SGD via `topt`, cross-checked
-   against the inline reference); the formal optimizer-level jit-dispatch test for a derivative kind;
-   full suite green.
+4. **D4 — pilot + tests. ✅ DONE.** `examples/fit_hilbert_from_apply_derivatives_topt.py` — the apply-
+   derivative Hilbert fit via the library `topt.mc_sgd` over `'apply_derivatives'` (the per-order RMS
+   normalization expressed as the residual weight `ω = 1/s_vec`, raw data; a custom X-slice `draw`; rank
+   continuation + validation kept example-level). Recovers the tensor monotonically (true err 0.22 →
+   0.0067, val picks level 4 at the ~1% noise floor, ~27 s) — same quality as the inline reference. The
+   optimizer-level jit-dispatch test for a derivative kind is folded into
+   `test_optimizers.py::test_jit_paths_recover`. Full suite green.
+
+**The derivative-fitting plan (D1–D4) is COMPLETE.** Remaining (deferred, §12): the Goal-1 `fit(...)`
+facade; the broader example pass (`optimizers_plan.md` §10 — re-point apply/probes/entries, the
+build-your-own track); doc refreshes.
 
    *(Detours this session, all committed: the `_grouped_einsum` BLAS-path fix in `contractions.py`
    (11–19× on the derivative forward/transpose); the low-memory K-aware adjoint-state regular apply/

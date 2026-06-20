@@ -223,6 +223,16 @@ class TestBackendOptimizers(unittest.TestCase):
             xa, _ = opt.adam(pc, x0_j, np.random.default_rng(7), batch=40, lr=2e-2, max_iter=400, use_jit=True)
             self.assertIsInstance(xa[0][0], jnp.ndarray)
             self.assertLess(true_err(xa), 0.4 * e0)
+        with self.subTest(optimizer='mc_sgd', kind='apply_derivatives'):
+            # the derivative kind (leading order axis, paired (ww,pp) sample, ω weight) composes with jit
+            order, NW = 2, 80
+            wwa = [jnp.asarray(np.asarray(w)[:NW]) for w in ww]            # (NW, Ni) -- a subset of the W stack
+            ppa = [jnp.asarray(rng.standard_normal((NW, N))) for N in SHAPE]
+            da = jnp.asarray(pd.apply_derivatives_t3(wwa, ppa, t3.TuckerTensorTrain(*x0z).data, order)) * 0.0 + 1.0
+            prob_d = opt.least_squares_problem(opt.MANIFOLD, bfit.apply_derivatives_kind(order, [1.0, .5, .3]),
+                                               (wwa, ppa), da)
+            xd, _ = opt.mc_sgd(prob_d, x0z, np.random.default_rng(7), batch=20, max_iter=120, use_jit=True)
+            self.assertIsInstance(xd[0][0], jnp.ndarray)        # jit-compiled (a stray np.* on a tracer raises)
 
 
 if __name__ == "__main__":
