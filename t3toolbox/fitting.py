@@ -74,7 +74,8 @@ import t3toolbox.safety as safety
 import t3toolbox.backend.fitting as fb
 from t3toolbox.backend.common import *
 
-__all__ = ['GaussNewtonModel', 'apply_model', 'entries_model', 'probe_model']
+__all__ = ['GaussNewtonModel', 'apply_model', 'entries_model', 'probe_model',
+           'apply_derivatives_model', 'entries_derivatives_model', 'probe_derivatives_model']
 
 
 def _require_at_base(base: bvf.T3Basis, p: t3m.T3Tangent) -> None:
@@ -267,6 +268,84 @@ def probe_model(
     so ``residual`` is a sequence of ``d`` arrays (``elm_shape = W+C+(Ni,)``).'''
     base = geometry.base(x)
     return GaussNewtonModel(geometry, base, fb.PROBE, ww, residual, fb.PROBE.precompute(base.data, ww))
+
+
+# --------------------------------------------------------------------------------------------------
+# Derivative sampling models (the symmetric directional-derivative jets of apply/entries/probe). Same
+# GaussNewtonModel, a parameterized derivative kind (order + the per-order residual weight ω): the
+# measurement is a jet (a leading order axis), the sample is the paired (ww/index, pp), and `residual`
+# is RAW (r = S(x) − y); ω weights the objective ½‖ω⊙r‖² inside the kind. See docs/derivative_fitting_plan.md.
+# --------------------------------------------------------------------------------------------------
+def apply_derivatives_model(
+        geometry,                            # MANIFOLD / COREWISE
+        x:          t3.TuckerTensorTrain,    # the current point
+        ww:         typ.Sequence[NDArray],   # probe vectors X,        len=d, elm_shape=W+(Ni,)
+        pp:         typ.Sequence[NDArray],   # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+        order:      int,                     # highest derivative order
+        residual:   NDArray,                 # RAW r = apply_derivatives(x) − y, shape (order+1)+W+C
+        weight:     typ.Optional[typ.Sequence[float]] = None,  # per-order residual weight ω, (order+1,); None=1
+) -> GaussNewtonModel:
+    '''The Gauss-Newton model of an ``apply``-**derivatives** least-squares objective at ``x``: the
+    symmetric directional derivatives (orders ``0..order``) of the all-modes apply, in direction ``P``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.fitting as fitting
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
+    >>> ww = [np.random.randn(15, N) for N in (6, 7, 8)]    # 15 samples
+    >>> pp = [np.random.randn(15, N) for N in (6, 7, 8)]    # one direction P per sample
+    >>> r = np.random.randn(4, 15)                          # RAW residual jet, (order+1, W) for order 3
+
+    A per-order weight ``ω`` balances the wildly-different-magnitude orders -- it weights the objective
+    ``½‖ω⊙r‖²`` inside the kind; the gradient stays a gauged Riemannian tangent, and the Gauss-Newton
+    quadratic form ``pᵀHp = ‖J p‖²`` agrees with the Hessian action:
+
+    >>> model = fitting.apply_derivatives_model(t3m.MANIFOLD, x, ww, pp, 3, r, weight=[1.0, 0.5, 0.3, 0.2])
+    >>> model.gradient.is_gauged()
+    True
+    >>> p = t3m.MANIFOLD.randn(model.base)
+    >>> bool(np.allclose(float(model.gn_quadratic(p)), float(p.corewise_inner(model.gn_hessian(p)))))
+    True
+    '''
+    kind = fb.apply_derivatives_kind(order, weight)
+    base = geometry.base(x)
+    return GaussNewtonModel(geometry, base, kind, (ww, pp), residual, kind.precompute(base.data, (ww, pp)))
+
+
+def entries_derivatives_model(
+        geometry,                            # MANIFOLD / COREWISE
+        x:          t3.TuckerTensorTrain,    # the current point
+        index:      NDArray,                 # int, shape=(d,)+W -- the grid points
+        pp:         typ.Sequence[NDArray],   # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+        order:      int,
+        residual:   NDArray,                 # RAW r = entries_derivatives(x) − y, shape (order+1)+W+C
+        weight:     typ.Optional[typ.Sequence[float]] = None,
+) -> GaussNewtonModel:
+    '''The ``entries``-derivatives Gauss-Newton model -- like :py:func:`apply_derivatives_model` at integer
+    grid points ``index``.'''
+    kind = fb.entries_derivatives_kind(order, weight)
+    base = geometry.base(x)
+    return GaussNewtonModel(geometry, base, kind, (index, pp), residual, kind.precompute(base.data, (index, pp)))
+
+
+def probe_derivatives_model(
+        geometry,                            # MANIFOLD / COREWISE
+        x:          t3.TuckerTensorTrain,    # the current point
+        ww:         typ.Sequence[NDArray],   # probe vectors X,        len=d, elm_shape=W+(Ni,)
+        pp:         typ.Sequence[NDArray],   # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+        order:      int,
+        residual:   typ.Sequence[NDArray],   # RAW r = probe_derivatives(x) − y, len=d, elm_shape=(order+1)+W+C+(Ni,)
+        weight:     typ.Optional[typ.Sequence[float]] = None,
+) -> GaussNewtonModel:
+    '''The ``probe``-derivatives Gauss-Newton model -- vector-valued (one free mode per probe), so
+    ``residual`` is a sequence of ``d`` jets.'''
+    kind = fb.probe_derivatives_kind(order, weight)
+    base = geometry.base(x)
+    return GaussNewtonModel(geometry, base, kind, (ww, pp), residual, kind.precompute(base.data, (ww, pp)))
 
 
 if has_jax:

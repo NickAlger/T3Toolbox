@@ -260,6 +260,45 @@ class TestGaussNewtonModel(unittest.TestCase):
                     for a, b in zip(gd[0] + gd[1], g_ref[0] + g_ref[1]):
                         self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))
 
+    def test_derivative_models(self):
+        '''The derivative GN models (apply/entries/probe, per-order weight ω) wrap the derivative kind and
+        reproduce the backend LocalModel's objective / gradient / gn_quadratic / gn_hessian -- oracle ==
+        frontend, both geometries. (RAW residual r = S(x); backend data = 0, so the residuals match.)'''
+        import t3toolbox.backend.optimizers as bopt
+        import t3toolbox.backend.fitting as bfit
+        import t3toolbox.backend.probe_derivatives as pd
+        rng = np.random.default_rng(0)
+        shape, order, NW = (5, 6, 7), 2, 15
+        omega = np.array([1.0, 0.5, 0.3])
+        X = t3.TuckerTensorTrain.randn(shape, (2, 3, 2), (1, 2, 2, 1))
+        ww = [rng.standard_normal((NW, N)) for N in shape]
+        pp = [rng.standard_normal((NW, N)) for N in shape]
+        index = np.stack([rng.integers(0, N, size=NW) for N in shape], axis=0)
+        cases = [
+            ('apply', fitting.apply_derivatives_model, (X, ww, pp, order),
+             bfit.apply_derivatives_kind(order, omega), (ww, pp),
+             np.asarray(pd.apply_derivatives_t3(ww, pp, X.data, order))),
+            ('entries', fitting.entries_derivatives_model, (X, index, pp, order),
+             bfit.entries_derivatives_kind(order, omega), (index, pp),
+             np.asarray(pd.entries_derivatives_t3(index, pp, X.data, order))),
+            ('probe', fitting.probe_derivatives_model, (X, ww, pp, order),
+             bfit.probe_derivatives_kind(order, omega), (ww, pp),
+             [np.asarray(z) for z in pd.probe_derivatives_t3(ww, pp, X.data, order)]),
+        ]
+        relerr = lambda a, b: float(cw.corewise_norm(cw.corewise_sub(a, b)) / cw.corewise_norm(b))
+        for geom_f, geom_b in [(t3m.MANIFOLD, bopt.MANIFOLD), (t3m.COREWISE, bopt.COREWISE)]:
+            for name, factory, fargs, bkind, sample, Sx in cases:
+                with self.subTest(geom=geom_f, kind=name):
+                    r = [np.asarray(z) for z in Sx] if isinstance(Sx, list) else Sx
+                    data = [np.zeros_like(z) for z in r] if isinstance(r, list) else np.zeros_like(r)
+                    fmodel = factory(geom_f, *fargs, r, weight=omega)
+                    lm = bopt.least_squares_problem(geom_b, bkind, sample, data).local_model(X.data)
+                    self.assertTrue(np.allclose(float(fmodel.objective_value), float(lm.objective)))
+                    self.assertLess(relerr(fmodel.gradient.variations.data, lm.gradient), 1e-10)
+                    pt = geom_f.randn(fmodel.base); p = pt.variations.data
+                    self.assertTrue(np.allclose(float(fmodel.gn_quadratic(pt)), float(lm.gn_quadratic(p))))
+                    self.assertLess(relerr(fmodel.gn_hessian(pt).variations.data, lm.hvp(p)), 1e-10)
+
 
 if __name__ == '__main__':
     unittest.main()

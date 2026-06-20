@@ -244,10 +244,16 @@ inline example is **left unchanged** (refactoring/re-pointing examples is out of
    sample, data)` is fully generic now (the kind carries everything). Verified: corewise gradient ==
    `jax.grad` and a finite difference of `½‖ω⊙r‖²`; `gn_quadratic == pᵀHp`; the flat draw flattens a
    multi-axis `W`; `mc_sgd` recovers. Tests: `tests/backend/test_optimizers.py::test_derivative_kinds`.
-3. **D3 — frontend (NEXT).** `fitting.py` derivative model factories (`{apply,entries,probe}_derivatives_
-   model`, + doctests); `optimizers.py` adapter for the derivative kinds (order/weight + the `(ww,pp)`
-   sample + the optional `draw`).
-4. **D4 — pilot + tests.** The pilot example; oracle==frontend, weighting, recovery, jit-dispatch tests;
+3. **D3 — frontend. ✅ DONE.** `fitting.py` derivative GN models (`{apply,entries,probe}_derivatives_model(
+   geometry, x, ww/index, pp, order, residual, weight=None)` -- the same `GaussNewtonModel` over the
+   parameterized derivative kind; + a doctest). `optimizers.py` adapter: the four optimizers take the
+   derivative kind strings (`'apply_derivatives'`, ...) + keyword `order`/`weight` (build the kind) and
+   `draw` (mc_sgd/adam). Verified: frontend model == backend LocalModel (objective/gradient/gn_quadratic/
+   gn_hessian, both geometries); `topt.mc_sgd(MANIFOLD, 'apply_derivatives', (ww,pp), data, x0, ..., order,
+   weight, draw=<X-slice>)` recovers (true err 1e-4); jit path recovers (true err 0). Tests:
+   `tests/test_fitting.py::test_derivative_models`.
+4. **D4 — pilot + tests (NEXT).** The pilot example (apply-derivatives + MC-SGD via `topt`, cross-checked
+   against the inline reference); the formal optimizer-level jit-dispatch test for a derivative kind;
    full suite green.
 
    *(Detours this session, all committed: the `_grouped_einsum` BLAS-path fix in `contractions.py`
