@@ -17,8 +17,10 @@ docs above (notably the rank-1..10 optimizer bake-off on probe data).
 
 ## 1. Decisions (locked)
 
-1. **`use_jit` flag, default `False`.** jax-only (jit is a jax thing); on the numpy path it is ignored
-   (always eager). `True` compiles the per-iteration numerical kernel.
+1. **`use_jit` flag, default `False`.** jax-only; on the numpy path (or if jax is not installed) it
+   **silently falls back to eager** — *not* a hard error, so code is portable across machines /
+   collaborators with different environments without twiddling the flag. `True` + jax inputs compiles the
+   per-iteration numerical kernel.
 2. **No safe/unsafe-mode management in the optimizers — it dissolves.** The numerical preconditions
    (orthogonal frame, gauged, same-frame) live **only in the frontend**; `backend/` functions are
    check-free of them. The optimizer **algorithm runs in the backend**, so there is nothing to bypass:
@@ -121,7 +123,38 @@ the oracle hooks — confirmed sufficient by the example study.
   per shape). Tolerates the **gauge-singular corewise `H`** via the existing nonpositive-curvature guard
   (truncated CG); a geometry may advertise `hessian_is_degenerate` to steer corewise users to first-order.
 
-## 6. Geometry-aware init / continuation (a helper, not the optimizer's job)
+## 6. numpy/jax dispatch × jit (how `use_jit` composes with the dispatch model)
+
+The library's dispatch model — each op infers `use_jax = tree_contains_jax(inputs)` then
+`xnp, xmap, xscan = get_backend(...)`, jax calls guarded by `has_jax()` (reference: `backend/probing.py`)
+— **composes with jit for free**: under a trace the inputs are tracers (which *are* jax arrays), so
+`tree_contains_jax → True → jnp`, and that dispatch is a **trace-time decision (once)**. One
+dispatch-written kernel therefore runs all three ways with no special-casing:
+
+| inputs | `use_jit` | path |
+|---|---|---|
+| numpy | False | numpy eager — the numpy-only install (no jax needed) |
+| jax | False | jnp eager (correct, slow) |
+| jax | True | jnp, jit-compiled (fast) |
+
+So `use_jit` is a thin **jax-only layer on top of** the dispatch model. Rules:
+
+- **`backend/optimizers.py` imports no jax at top level** (numpy-only safe); `jax.jit` / `lax.while_loop`
+  live only inside `has_jax()`-guarded branches. `use_jit=True` with no jax / numpy inputs **silently runs
+  eager** (decision 1).
+- **The one real interaction is data-dependent control flow** — `newton_cg`'s inner CG `while` (iterate
+  until the forcing-term tolerance). Eager it is a Python `while` with a host predicate (`float(‖res‖) >
+  tol`); under jit it must be `lax.while_loop` with a *traced* predicate. The **loop body is shared**
+  (dispatch-written, pure arithmetic); only the **driver** differs. This is the `xscan` precedent for a
+  `while`, factored as a new **`common.xwhile(cond, body, state, use_jit)`** helper next to `get_backend`,
+  so a backend user writing their own iterative solver gets the same numpy / eager-jax / jit treatment.
+- **The stochastic optimizers (`mc_sgd`/`adam`) don't hit this** — their loop is a host Python loop
+  (host-RNG minibatch draws); `use_jit` jits only the per-step kernel (gradient + update) called inside it
+  (the optax-example shape). No `lax` loop.
+- Vector ops and the oracle are dispatch-written, so they already work numpy/jax; minibatch indices stay
+  host numpy.
+
+## 7. Geometry-aware init / continuation (a helper, not the optimizer's job)
 
 The optimizers fit at **fixed rank** from a given `x0`. Rank continuation + the start policy is a separate
 concern — an optional `rank_continuation(optimizer, geometry, levels, ...)` driver, or left to the user.
@@ -135,23 +168,24 @@ The empirically-found defaults (record them in docs + the helper, not hard-code 
 Model selection: **held-out validation** picks the rank (overfitting severity is data-source-set, so
 validation is essential and works off a gentle turnover for well-conditioned sources).
 
-## 7. Build plan (slices)
+## 8. Build plan (slices)
 
 1. **G3.1 — oracle + vector helpers + `gradient_descent`, end-to-end.** Define the `problem` oracle;
    add `corewise_scale`/`corewise_zeros_like`; implement backend `gradient_descent` + the frontend adapter
    (validate-once, build oracle from backend functions, wrap). Run one example end-to-end (eager). Locks
    the stack and the oracle shape before the harder optimizers.
 2. **G3.2 — `mc_sgd` + `adam`.** The first-order/stochastic workhorses (Cauchy step; Adam moments;
-   minibatch via `sample_idx`; absolute-iteration stopping window).
-3. **G3.3 — `newton_cg` with the jit `lax.while_loop` CG.** The complex one; host Armijo line search;
-   truncated-CG curvature guard for the corewise `H`.
+   minibatch via `sample_idx`; absolute-iteration stopping window). `use_jit` jits the per-step kernel.
+3. **G3.3 — `newton_cg` + `common.xwhile` + the jit `lax.while_loop` CG.** The complex one; introduce the
+   `xwhile` driver (numpy / eager-jax / jit); host Armijo line search; truncated-CG curvature guard for the
+   gauge-singular corewise `H`.
 4. **G3.4 — `use_jit` across all + jit tests.** Wire `use_jit` into the kernels; add `test_dispatch`
    jit coverage (compile-once-per-shape; numpy path ignores the flag).
 5. **G3.5 — examples + docs.** Re-point the inline-optimizer examples at the library optimizers where it
    sharpens them (confirm they reproduce the inline results); keep the bridge examples (scipy L-BFGS,
    optax) as integration demos. Refresh `geometry_refactor_plan.md` / `entries_apply_probe.md`.
 
-## 8. Open questions / deferred
+## 9. Open questions / deferred
 
 - **Rank-continuation helper scope** — a library helper vs leave to the user/examples. Decide in G3.5
   once the optimizers exist.
