@@ -193,6 +193,17 @@ def least_squares_problem(
 # --------------------------------------------------------------------------------------------------
 # Optimizers
 # --------------------------------------------------------------------------------------------------
+def _maybe_jit(fn, use_jit, x0, problem):
+    """jit ``fn`` iff ``use_jit`` AND jax is available AND the inputs (x0, sample, data) are **all** jax
+    (so the minibatch gather + kernel run on device). Otherwise return ``fn`` unchanged -- the silent
+    eager fallback (numpy, eager-jax, or no jax). Compiles once and is reused across the fixed-shape steps."""
+    if (use_jit and has_jax and tree_contains_jax(x0)
+            and tree_contains_jax(problem.sample) and tree_contains_jax(problem.data)):
+        import jax
+        return jax.jit(fn)
+    return fn
+
+
 def gradient_descent(
         problem:  Problem,    # the fixed-rank least-squares problem
         x0:       Tangent,    # initial cores (U, G)
@@ -239,29 +250,35 @@ def mc_sgd(
         check_every: int   = 25,   # iterations between full-batch loss checks (the absolute-iteration window)
         smooth_tau:  float = 2.0,  # EMA timescale of the loss check, in checks
         plateau_lag: int   = 4,    # stop when the smoothed loss rises over this many checks
+        use_jit:     bool  = False,  # jit the per-step kernel (gradient + Cauchy step + retract) when jax
 ) -> typ.Tuple[Tangent, dict]:     # (x_cores, stats)
     """Manifold Cauchy SGD (T4S §5.3.2): minibatch + the tuning-free Cauchy step
     ``α = ‖g‖² / ‖𝒥g‖²`` -- no learning rate. Intended for the **manifold** geometry (its bounded
     retraction makes the raw Cauchy step stable; on the additive corewise chart use ``adam``). Stops on an
     exponentially-smoothed **full-batch** loss with an **absolute-iteration window** (``plateau_lag *
     check_every`` iterations) -- decoupled from batch size (the epoch-based window made small batches
-    fragile; see docs/mcsgd_apply_derivatives.md)."""
+    fragile; see docs/mcsgd_apply_derivatives.md). ``use_jit`` jits the per-step kernel (the host loop
+    draws minibatches; the full-batch stop check stays on the host)."""
     n = problem.n_samples
     a_smooth = 1.0 - math.exp(-1.0 / smooth_tau)
+
+    def step(cores, idx):                                   # the jit-able per-step kernel
+        lm = problem.local_model(cores, idx)
+        g = lm.gradient
+        gg = cw.corewise_dot(g, g)
+        xnp, _, _ = get_backend(False, tree_contains_jax(g))
+        alpha = gg / xnp.maximum(lm.gn_quadratic(g), 1e-30)
+        return lm.retract(cw.corewise_scale(g, -alpha))
+    step = _maybe_jit(step, use_jit, x0, problem)
+
     x = x0
     s_hist = []
     n_iter = 0
     for k in range(max_iter):
         n_iter = k + 1
         idx = rng.choice(n, size=min(batch, n), replace=False)
-        lm = problem.local_model(x, idx)
-        g = lm.gradient
-        gg = float(cw.corewise_dot(g, g))
-        if gg <= 1e-30:
-            break
-        alpha = gg / max(float(lm.gn_quadratic(g)), 1e-30 * gg)
-        x = lm.retract(cw.corewise_scale(g, -alpha))
-        if n_iter % check_every == 0:                       # full-batch loss check (the stop signal)
+        x = step(x, idx)
+        if n_iter % check_every == 0:                       # full-batch loss check (the stop signal, host)
             L = float(problem.objective(x))
             s = L if not s_hist else a_smooth * L + (1.0 - a_smooth) * s_hist[-1]
             s_hist.append(s)
@@ -280,12 +297,26 @@ def adam(
         betas:    typ.Tuple[float, float] = (0.9, 0.999),
         eps:      float = 1e-8,
         cosine:   bool  = True,   # cosine-decay the learning rate over max_iter (helps it settle)
+        use_jit:  bool  = False,  # jit the per-step kernel (gradient + Adam update + retract) when jax
 ) -> typ.Tuple[Tangent, dict]:    # (x_cores, stats)
     """Adam over the cores -- the dependency-free first-order method for the **corewise** geometry. The
     moments ``m`` / ``v`` are trees matching the cores (a ``corewise_map`` per step); elementwise, so this
     is exactly per-core Adam. (``lr`` is a real hyperparameter -- Adam is not tuning-free, unlike the Cauchy
-    step.) On corewise the step is additive (``lm.retract`` = ``cores += step``)."""
+    step.) On corewise the step is additive (``lm.retract`` = ``cores += step``). ``use_jit`` jits the
+    per-step kernel (``lr_t``/``t`` flow in as traced args, so the schedule does not force a recompile)."""
     b1, b2 = betas
+
+    def step(cores, m, v, idx, lr_t, t):                   # the jit-able per-step kernel
+        lm = problem.local_model(cores, idx)
+        g = lm.gradient
+        m = cw.corewise_map(lambda mi, gi: b1 * mi + (1.0 - b1) * gi, m, g)
+        v = cw.corewise_map(lambda vi, gi: b2 * vi + (1.0 - b2) * gi * gi, v, g)
+        bc1, bc2 = 1.0 - b1 ** t, 1.0 - b2 ** t            # bias corrections
+        xnp, _, _ = get_backend(False, tree_contains_jax(g))
+        update = cw.corewise_map(lambda mi, vi: lr_t * (mi / bc1) / (xnp.sqrt(vi / bc2) + eps), m, v)
+        return lm.retract(cw.corewise_scale(update, -1.0)), m, v
+    step = _maybe_jit(step, use_jit, x0, problem)
+
     n = problem.n_samples
     cores = x0
     m = cw.corewise_zeros_like(cores)
@@ -293,16 +324,8 @@ def adam(
     losses = []
     for k in range(max_iter):
         idx = rng.choice(n, size=min(batch, n), replace=False)
-        lm = problem.local_model(cores, idx)
-        g = lm.gradient
-        t = k + 1
-        m = cw.corewise_map(lambda mi, gi: b1 * mi + (1.0 - b1) * gi, m, g)
-        v = cw.corewise_map(lambda vi, gi: b2 * vi + (1.0 - b2) * gi * gi, v, g)
         lr_t = lr * (0.5 * (1.0 + math.cos(math.pi * k / max_iter)) if cosine else 1.0)
-        bc1, bc2 = 1.0 - b1 ** t, 1.0 - b2 ** t             # bias corrections
-        xnp, _, _ = get_backend(False, tree_contains_jax(g))
-        update = cw.corewise_map(lambda mi, vi: lr_t * (mi / bc1) / (xnp.sqrt(vi / bc2) + eps), m, v)
-        cores = lm.retract(cw.corewise_scale(update, -1.0))
+        cores, m, v = step(cores, m, v, idx, lr_t, k + 1)
         if (k + 1) % 50 == 0:
             losses.append(float(problem.objective(cores)))
     return cores, {'losses': losses, 'n_iter': max_iter}

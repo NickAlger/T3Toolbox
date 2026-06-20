@@ -26,6 +26,7 @@ def dense_probe(A, ww):
 
 class TestFrontendOptimizers(unittest.TestCase):
     def setUp(self):
+        np.random.seed(1)   # TuckerTensorTrain.randn draws from the GLOBAL rng -> seed for determinism
         rng = np.random.default_rng(1)
         self.A_t3 = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
         self.A = self.A_t3.to_dense()

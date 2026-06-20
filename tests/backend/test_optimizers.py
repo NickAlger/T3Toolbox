@@ -43,6 +43,7 @@ def unit_vecs(M, shape, rng):
 
 class TestBackendOptimizers(unittest.TestCase):
     def setUp(self):
+        np.random.seed(0)   # TuckerTensorTrain.randn draws from the GLOBAL rng -> seed for determinism
         self.rng = np.random.default_rng(0)
         self.A = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).to_dense()
         self.X = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
@@ -141,6 +142,39 @@ class TestBackendOptimizers(unittest.TestCase):
                 x, stats = opt.newton_cg(problem, x0, max_newton=30, use_jit=use_jit)
                 true_e = float(np.linalg.norm(t3.TuckerTensorTrain(*x).to_dense() - self.A)) / A_norm
                 self.assertLess(true_e, 1e-4)
+
+    def test_jit_paths_recover(self):
+        """With jax inputs + use_jit=True, newton_cg (jit CG), mc_sgd, and adam jit-compile their kernels
+        (a stray np.* on a tracer would raise) and recover -- the jit dispatch check for the optimizers."""
+        import jax
+        import jax.numpy as jnp
+        rng = np.random.default_rng(6)
+        ww = unit_vecs(200, SHAPE, rng); data = dense_probe(self.A, ww)
+        ww_j = [jnp.asarray(w) for w in ww]; data_j = [jnp.asarray(d) for d in data]
+        A_norm = float(np.linalg.norm(self.A))
+        def true_err(cores):
+            return float(np.linalg.norm(np.asarray(t3.TuckerTensorTrain(*cores).to_dense()) - self.A)) / A_norm
+        def rms(a): return float(np.sqrt(np.mean(np.concatenate([np.asarray(x).ravel() for x in a]) ** 2)))
+        sc = (rms(data) / rms(self.X.probe(ww))) ** (1.0 / (len(TUCKER) + len(TT) - 1))
+        x0_j = jax.tree_util.tree_map(jnp.asarray, (tuple(sc * C for C in self.X.data[0]),
+                                                    tuple(sc * C for C in self.X.data[1])))
+        e0 = true_err(x0_j)
+        pm = opt.least_squares_problem(opt.MANIFOLD, bfit.PROBE, ww_j, data_j)
+        pc = opt.least_squares_problem(opt.COREWISE, bfit.PROBE, ww_j, data_j)
+
+        with self.subTest(optimizer='newton_cg'):
+            x0z = jax.tree_util.tree_map(jnp.asarray, t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data)
+            xn, _ = opt.newton_cg(pm, x0z, max_newton=20, use_jit=True)
+            self.assertIsInstance(xn[0][0], jnp.ndarray)
+            self.assertLess(true_err(xn), 1e-3)
+        with self.subTest(optimizer='mc_sgd'):
+            xm, _ = opt.mc_sgd(pm, x0_j, np.random.default_rng(7), batch=40, max_iter=300, use_jit=True)
+            self.assertIsInstance(xm[0][0], jnp.ndarray)
+            self.assertLess(true_err(xm), 0.4 * e0)
+        with self.subTest(optimizer='adam'):
+            xa, _ = opt.adam(pc, x0_j, np.random.default_rng(7), batch=40, lr=2e-2, max_iter=400, use_jit=True)
+            self.assertIsInstance(xa[0][0], jnp.ndarray)
+            self.assertLess(true_err(xa), 0.4 * e0)
 
 
 if __name__ == "__main__":
