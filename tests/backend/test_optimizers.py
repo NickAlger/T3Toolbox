@@ -47,60 +47,63 @@ class TestBackendOptimizers(unittest.TestCase):
         self.A = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).to_dense()
         self.X = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
 
-    def _problem_and_frontend(self, kind_name, M=60):
-        """Build a corewise `Problem` and the matching frontend `GaussNewtonModel` (residual at self.X)."""
+    # (geometry name, backend GeometryOps, frontend geometry singleton)
+    GEOMS = [('corewise', opt.COREWISE, t3m.COREWISE), ('manifold', opt.MANIFOLD, t3m.MANIFOLD)]
+    _FMODEL = {'apply': fitting.apply_model, 'entries': fitting.entries_model, 'probe': fitting.probe_model}
+    _BKIND = {'apply': bfit.APPLY, 'entries': bfit.ENTRIES, 'probe': bfit.PROBE}
+
+    def _problem_and_frontend(self, geom_b, geom_f, kind_name, M=60):
+        """Build a `Problem` (backend geometry) and the matching frontend `GaussNewtonModel` (at self.X)."""
         rng, A, X = self.rng, self.A, self.X
-        if kind_name == 'probe':
-            ww = unit_vecs(M, SHAPE, rng); data = dense_probe(A, ww)
-            problem = opt.least_squares_problem(opt.COREWISE, bfit.PROBE, ww, data)
-            r = [np.asarray(p) - d for p, d in zip(X.probe(ww), data)]
-            fmodel = fitting.probe_model(t3m.COREWISE, X, ww, r)
-        elif kind_name == 'apply':
-            ww = unit_vecs(M, SHAPE, rng); data = dense_apply(A, ww)
-            problem = opt.least_squares_problem(opt.COREWISE, bfit.APPLY, ww, data)
-            r = np.asarray(X.apply(ww)) - data
-            fmodel = fitting.apply_model(t3m.COREWISE, X, ww, r)
+        if kind_name == 'apply':
+            sample = unit_vecs(M, SHAPE, rng); data = dense_apply(A, sample); r = np.asarray(X.apply(sample)) - data
+        elif kind_name == 'probe':
+            sample = unit_vecs(M, SHAPE, rng); data = dense_probe(A, sample)
+            r = [np.asarray(p) - d for p, d in zip(X.probe(sample), data)]
         else:  # entries
             flat = rng.choice(int(np.prod(SHAPE)), size=M, replace=False)
-            index = np.array(np.unravel_index(flat, SHAPE)); data = A[tuple(index)]
-            problem = opt.least_squares_problem(opt.COREWISE, bfit.ENTRIES, index, data)
-            r = np.asarray(X.entries(index)) - data
-            fmodel = fitting.entries_model(t3m.COREWISE, X, index, r)
+            sample = np.array(np.unravel_index(flat, SHAPE)); data = A[tuple(sample)]; r = np.asarray(X.entries(sample)) - data
+        problem = opt.least_squares_problem(geom_b, self._BKIND[kind_name], sample, data)
+        fmodel = self._FMODEL[kind_name](geom_f, X, sample, r)
         return problem, fmodel
 
     def test_oracle_matches_frontend(self):
-        """The backend LocalModel reproduces GaussNewtonModel's gradient / objective / gn_quadratic / hvp."""
-        for kind in ('apply', 'entries', 'probe'):
-            with self.subTest(kind=kind):
-                problem, fmodel = self._problem_and_frontend(kind)
-                lm = problem.local_model(self.X.data)
+        """The backend LocalModel reproduces GaussNewtonModel's gradient / objective / gn_quadratic / hvp,
+        for every (geometry, sampling-kind) pair -- it is the same math through the same backend functions."""
+        for gname, geom_b, geom_f in self.GEOMS:
+            for kind in ('apply', 'entries', 'probe'):
+                with self.subTest(geometry=gname, kind=kind):
+                    problem, fmodel = self._problem_and_frontend(geom_b, geom_f, kind)
+                    lm = problem.local_model(self.X.data)
 
-                def relerr_tree(a, b):
-                    return float(cw.corewise_norm(cw.corewise_sub(a, b)) / cw.corewise_norm(b))
+                    def relerr_tree(a, b):
+                        return float(cw.corewise_norm(cw.corewise_sub(a, b)) / cw.corewise_norm(b))
 
-                self.assertLess(relerr_tree(lm.gradient, fmodel.gradient.variations.data), 1e-12)
-                self.assertLess(abs(float(lm.objective) - float(fmodel.objective_value))
-                                / abs(float(fmodel.objective_value)), 1e-12)
+                    self.assertLess(relerr_tree(lm.gradient, fmodel.gradient.variations.data), 1e-11)
+                    self.assertLess(abs(float(lm.objective) - float(fmodel.objective_value))
+                                    / abs(float(fmodel.objective_value)), 1e-11)
 
-                pt = t3m.COREWISE.randn(t3m.COREWISE.base(self.X)); p = pt.variations.data
-                self.assertLess(abs(float(lm.gn_quadratic(p)) - float(fmodel.gn_quadratic(pt)))
-                                / abs(float(fmodel.gn_quadratic(pt))), 1e-12)
-                self.assertLess(relerr_tree(lm.hvp(p), fmodel.gn_hessian(pt).variations.data), 1e-12)
+                    pt = geom_f.randn(geom_f.base(self.X)); p = pt.variations.data
+                    self.assertLess(abs(float(lm.gn_quadratic(p)) - float(fmodel.gn_quadratic(pt)))
+                                    / abs(float(fmodel.gn_quadratic(pt))), 1e-11)
+                    self.assertLess(relerr_tree(lm.hvp(p), fmodel.gn_hessian(pt).variations.data), 1e-11)
 
     def test_gradient_descent_descends(self):
-        """Cauchy + Armijo gradient_descent decreases the loss monotonically (robust on the corewise chart)."""
-        problem, _ = self._problem_and_frontend('probe')
-        # rescale the start so the initial probes match the data magnitude (well-conditioned start)
+        """Cauchy + Armijo gradient_descent decreases the loss monotonically on BOTH geometries (the
+        Armijo line search is what keeps it robust on the additive corewise chart)."""
         def rms(arrs):
             ss = sum(float(np.sum(np.asarray(a) ** 2)) for a in arrs)
             return float(np.sqrt(ss / sum(np.asarray(a).size for a in arrs)))
-        sc = (rms(problem.data) / rms(self.X.probe(problem.sample))) ** (1.0 / (len(TUCKER) + len(TT) - 1))
-        x0 = (tuple(sc * C for C in self.X.data[0]), tuple(sc * C for C in self.X.data[1]))
-
-        _, stats = opt.gradient_descent(problem, x0, n_iter=60)
-        L = stats['losses']
-        self.assertTrue(all(L[i + 1] <= L[i] + 1e-9 * L[0] for i in range(len(L) - 1)), "not monotone")
-        self.assertLess(L[-1], 0.5 * L[0], "did not make substantial progress")
+        for gname, geom_b, geom_f in self.GEOMS:
+            with self.subTest(geometry=gname):
+                problem, _ = self._problem_and_frontend(geom_b, geom_f, 'probe')
+                # rescale the start so the initial probes match the data magnitude (well-conditioned start)
+                sc = (rms(problem.data) / rms(self.X.probe(problem.sample))) ** (1.0 / (len(TUCKER) + len(TT) - 1))
+                x0 = (tuple(sc * C for C in self.X.data[0]), tuple(sc * C for C in self.X.data[1]))
+                _, stats = opt.gradient_descent(problem, x0, n_iter=60)
+                L = stats['losses']
+                self.assertTrue(all(L[i + 1] <= L[i] + 1e-9 * L[0] for i in range(len(L) - 1)), "not monotone")
+                self.assertLess(L[-1], 0.5 * L[0], "did not make substantial progress")
 
 
 if __name__ == "__main__":

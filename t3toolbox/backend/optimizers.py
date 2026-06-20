@@ -29,11 +29,14 @@ from t3toolbox.backend import probing
 from t3toolbox.backend import fitting as bfit
 from t3toolbox.backend import apply as bapply
 from t3toolbox.backend import entries as bentries
+from t3toolbox.backend import tangent_operations as tops
+from t3toolbox.backend.orthogonal_representations import orthogonal_representations
 import t3toolbox.corewise as cw
 
 __all__ = [
     'GeometryOps',
     'COREWISE',
+    'MANIFOLD',
     'Problem',
     'LocalModel',
     'least_squares_problem',
@@ -65,7 +68,20 @@ COREWISE = GeometryOps(
     project=lambda base, var: var,                                   # Euclidean cores: no gauge projection
     retract=lambda base, var: cw.corewise_add((base[0], base[2]), var),   # additive: (U,P)=(U,G) += var
 )
-# MANIFOLD geometry ops (orthogonal_representations base, gauge projection, T3-SVD retraction) -- next slice.
+
+
+def _manifold_base(
+        x_cores: Tangent,    # (tucker_cores, tt_cores)
+) -> typ.Tuple:              # (U, O, P, Q) orthonormal frame (Algorithm 11)
+    base, _ = orthogonal_representations(x_cores)
+    return base
+
+
+MANIFOLD = GeometryOps(
+    base=_manifold_base,
+    project=lambda base, var: tops.orthogonal_gauge_projection(base, var),   # Π  (gauge-fix the tangent)
+    retract=lambda base, var: tops.retract(base, var),                       # implicit truncated T3-SVD
+)
 
 
 # --------------------------------------------------------------------------------------------------
