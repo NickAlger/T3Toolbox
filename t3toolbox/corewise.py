@@ -12,6 +12,7 @@ __all__ = [
     'corewise_add',
     'corewise_sub',
     'corewise_scale',
+    'corewise_zeros_like',
     'corewise_stack_scale',
     'corewise_neg',
     'corewise_sum',
@@ -97,6 +98,22 @@ def corewise_scale(
         return tuple([corewise_scale(x, s) for x in X])
     else:
         return s*X
+
+
+def corewise_zeros_like(
+        X:  NDArrayTree,  # any nested tree of ints/floats/arrays
+) -> NDArrayTree:         # zeros with X's tree structure and leaf shapes (numpy/jax inferred from X)
+    '''Tree of zeros matching ``X``'s structure and leaf shapes/backend (``= corewise_scale(X, 0)``).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.corewise as cw
+    >>> X = (np.ones(3), (1.0, (), np.ones(2)))
+    >>> print(cw.corewise_zeros_like(X))
+    (array([0., 0., 0.]), (0.0, (), array([0., 0.])))
+    '''
+    return corewise_scale(X, 0)
 
 
 def corewise_neg(X: NDArrayTree) -> NDArrayTree:
