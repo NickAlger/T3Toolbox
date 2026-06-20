@@ -9,9 +9,10 @@ It rounds out the example set: ``apply`` (manifold Newton-CG), ``apply``-derivat
   1. **Probes** -- ``X.probe(ww)`` leaves mode ``i`` free and contracts the rest, returning, per probe,
      ``d`` vectors (one per mode). Dense random probe vectors make this a *global, well-conditioned*
      measurement (contrast ``entries``, whose localized one-hot rows make a coherent tensor ill-posed).
-  2. **Our own Adam** -- the standard adaptive first-order method, written here as ~10 lines over the flat
-     core vector: per-coordinate first/second moment EMAs with bias correction. It is elementwise, so the
-     flat update *is* per-core Adam. Dependency-free, runs on the numpy and jax paths, no memory leak.
+  2. **Our own Adam** -- the standard adaptive first-order method, written here as a short **pytree map over
+     the native core tuples** (``X.data``, no flat copies): per-coordinate first/second moment EMAs with
+     bias correction. Elementwise, so it *is* per-core Adam. Dependency-free, runs on the numpy and jax
+     paths, no memory leak.
   3. **Corewise stochastic fitting** -- minibatch over probes, step the raw cores with Adam (the corewise
      gradient is the plain ``J^T r``, no gauge projection). Adam tolerates the gauge-singular corewise
      Hessian for free (the gauge directions are flat valleys it simply coasts along).
@@ -123,7 +124,7 @@ def probe_relerr(pred, data):
 
 
 # --------------------------------------------------------------------------------------------------
-# Corewise Adam (our own; minibatch over probes, stepping the flat core vector)
+# Corewise Adam (our own; minibatch over probes, stepping the native core tuples -- no flat copies)
 # --------------------------------------------------------------------------------------------------
 def random_start(tucker_ranks, tt_ranks, ww, data):
     """A small random corewise start, rescaled so the initial probes match the data magnitude. Corewise
@@ -136,34 +137,43 @@ def random_start(tucker_ranks, tt_ranks, ww, data):
     return t3.TuckerTensorTrain(tuple(c * C for C in tucker_cores), tuple(c * C for C in tt_cores))
 
 
-def corewise_adam(X0, ww, data, tucker_ranks, tt_ranks, rng,
+def _tmap(f, *trees):
+    """Map ``f`` elementwise over the leaf arrays of a T3 ``.data = (tucker_cores, tt_cores)`` tree (a
+    2-tuple of array-tuples). With several trees, ``f`` receives the corresponding array from each."""
+    return tuple(tuple(f(*arrs) for arrs in zip(*group)) for group in zip(*trees))
+
+
+def corewise_adam(X0, ww, data, rng,
                   lr=ADAM_LR, betas=ADAM_BETAS, eps=ADAM_EPS, batch=ADAM_BATCH, max_iter=ADAM_MAXITER):
-    """Fit X to probe data by corewise Adam, minibatching over probes. Adam is elementwise on the flat
-    core vector (== per-core Adam): first/second moment EMAs ``m``/``v`` with bias correction. Each step
-    rebuilds the point, probes the minibatch, and takes the corewise gradient from ``probe_model``."""
+    """Fit X to probe data by corewise Adam, minibatching over probes. Adam steps the **native core tuples**
+    ``X.data = (tucker_cores, tt_cores)`` directly -- no flat ``to_vector``/``from_vector`` copies: the
+    moments ``m``/``v`` are trees of the same shape and each update is a pytree map over the cores
+    (``_tmap``). Adam is elementwise, so this is exactly per-core Adam. The corewise gradient is
+    ``probe_model(...).gradient.variations.data``, a tree matching the cores. (An *external* optimizer that
+    wants a flat array uses the bridge instead -- see the entries/L-BFGS example; our own optimizer steps
+    the cores in place.)"""
     b1, b2 = betas
     n = ww[0].shape[0]                                    # number of probes (axis 0 of each (M, N_i))
-    x = X0.to_vector()
-    m = np.zeros_like(x); v = np.zeros_like(x)
+    cores = X0.data                                       # (tucker_cores, tt_cores) -- stepped each iter
+    m = _tmap(np.zeros_like, cores)
+    v = _tmap(np.zeros_like, cores)
     for k in range(max_iter):
         sel = rng.choice(n, size=min(batch, n), replace=False)       # fresh minibatch of probes
         ww_B = [w[sel] for w in ww]
         data_B = [dd[sel] for dd in data]
-        X = t3.TuckerTensorTrain.from_vector(x, SHAPE, tucker_ranks, tt_ranks)
+        X = t3.TuckerTensorTrain(*cores)
         pred_B = X.probe(ww_B)
         r_B = [np.asarray(pred_B[i]) - data_B[i] for i in range(len(ww))]
-        g = np.asarray(fitting.probe_model(t3m.COREWISE, X, ww_B, r_B).gradient.to_vector(), dtype=float)
+        grad = fitting.probe_model(t3m.COREWISE, X, ww_B, r_B).gradient.variations.data   # tree of core grads
 
         t = k + 1
-        m = b1 * m + (1.0 - b1) * g
-        v = b2 * v + (1.0 - b2) * g * g
-        mhat = m / (1.0 - b1 ** t)
-        vhat = v / (1.0 - b2 ** t)
+        m = _tmap(lambda mi, gi: b1 * mi + (1.0 - b1) * gi, m, grad)
+        v = _tmap(lambda vi, gi: b2 * vi + (1.0 - b2) * gi * gi, v, grad)
         lr_t = lr * 0.5 * (1.0 + np.cos(np.pi * k / max_iter))   # cosine decay -> settle in late steps
-        x = x - lr_t * mhat / (np.sqrt(vhat) + eps)
+        bc1, bc2 = 1.0 - b1 ** t, 1.0 - b2 ** t                  # bias corrections
+        cores = _tmap(lambda c, mi, vi: c - lr_t * (mi / bc1) / (np.sqrt(vi / bc2) + eps), cores, m, v)
 
-    X = t3.TuckerTensorTrain.from_vector(x, SHAPE, tucker_ranks, tt_ranks)
-    return X, dict(iters=max_iter)
+    return t3.TuckerTensorTrain(*cores), dict(iters=max_iter)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -224,7 +234,7 @@ def main():
         dof = t3m.manifold_dim((SHAPE, tucker_ranks, tt_ranks))
 
         X0 = random_start(tucker_ranks, tt_ranks, ww_tr, y_tr)
-        X, stats = corewise_adam(X0, ww_tr, y_tr, tucker_ranks, tt_ranks, rng_opt)
+        X, stats = corewise_adam(X0, ww_tr, y_tr, rng_opt)
 
         train_e = probe_relerr(X.probe(ww_tr), y_tr)
         val_e = probe_relerr(X.probe(ww_va), y_va)
