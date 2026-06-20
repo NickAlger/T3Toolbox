@@ -58,6 +58,9 @@ __all__ = [
     'WKCi_WCa_WCj_to_KCiaj',
     'WCi_WKCa_WCj_to_WKCiaj',
     'WCi_WKCa_WCj_to_KCiaj',
+    # Adjoint-state apply/entries transpose dG assemble: mu (x) xi (x) sigma_hat (tt-core order a,i,b).
+    'WCa_WCi_WKCb_to_WKCaib',
+    'WCa_WCi_WKCb_to_KCaib',
 ]
 
 
@@ -1797,3 +1800,76 @@ def uWKCa_uWo_to_WKCao(uWKCa, uWo):
 def uWKCa_uWo_to_KCao(uWKCa, uWo):
     """Computes named contraction. dU_tilde dxi_tilde (x) w_jet term, K on dxi_tilde, sum W (self-pins W)."""
     return _assemble_dU_dxi(uWKCa, uWo, False)
+
+
+def WCa_WCi_WKCb_to_WKCaib(
+        WCa:    NDArray,  # W + C + (a,)       -- mu (left edge var, base)
+        WCi:    NDArray,  # W + C + (i,)       -- xi (up-index proj, base)
+        WKCb:   NDArray,  # W + K + C + (b,)   -- sigma_hat (adjoint right edge var, carries K)
+        n_probe: int,     # len(W); {W+C, W+C, W+K+C} do not pin it, so it is supplied
+) -> NDArray:             # W + K + C + (a, i, b)   -- the dG-tilde tt-core, keeping the probe stack W
+    """Computes named contraction (triple outer product over a, i, b). Capitals may be empty.
+
+    Adjoint-state apply/entries dG assemble ``mu (x) xi (x) sigma_hat`` (the order-0 strip of
+    :py:func:`trs_rWCa_uWCi_tWKCb_to_WKCaib`; same structure as
+    :py:func:`WCi_WCa_WKCj_to_WKCiaj` relabeled to the tt-core order (a, i, b)). K on the third
+    (sigma_hat) operand, keeping the probe stack W.
+    """
+    use_jax = tree_contains_jax((WCa, WCi, WKCb))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    W_shape = WCa.shape[:n_probe]
+    C_shape = WCa.shape[n_probe:-1]
+    a_shape = (WCa.shape[-1],)
+    i_shape = (WCi.shape[-1],)
+    b_shape = (WKCb.shape[-1],)
+    K_shape = WKCb.shape[n_probe:len(WKCb.shape) - 1 - len(C_shape)]
+
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
+
+    WCa  = WCa.reshape((size_W,) + (size_C,) + a_shape)
+    WCi  = WCi.reshape((size_W,) + (size_C,) + i_shape)
+    WKCb = WKCb.reshape((size_W,) + (size_K,) + (size_C,) + b_shape)
+
+    WKCaib = _grouped_einsum(xnp, use_jax, 'WCa,WCi,WKCb->WKCaib', WCa, WCi, WKCb)
+
+    WKCaib = WKCaib.reshape(W_shape + K_shape + C_shape + a_shape + i_shape + b_shape)
+    return WKCaib
+
+
+def WCa_WCi_WKCb_to_KCaib(
+        WCa:    NDArray,  # W + C + (a,)       -- mu (left edge var, base)
+        WCi:    NDArray,  # W + C + (i,)       -- xi (up-index proj, base)
+        WKCb:   NDArray,  # W + K + C + (b,)   -- sigma_hat (adjoint right edge var, carries K)
+        n_probe: int,     # len(W), summed out
+) -> NDArray:             # K + C + (a, i, b)   -- the dG-tilde tt-core, summing the probe stack W
+    """Computes named contraction (triple outer product over a, i, b; probe stack W summed out).
+
+    Sum-over-probes form of :py:func:`WCa_WCi_WKCb_to_WKCaib` (the J^T r back-projection): the
+    adjoint-state apply/entries dG assemble ``mu (x) xi (x) sigma_hat``, K on the third (sigma_hat)
+    operand, summing over the probe stack W.
+    """
+    use_jax = tree_contains_jax((WCa, WCi, WKCb))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    W_shape = WCa.shape[:n_probe]
+    C_shape = WCa.shape[n_probe:-1]
+    a_shape = (WCa.shape[-1],)
+    i_shape = (WCi.shape[-1],)
+    b_shape = (WKCb.shape[-1],)
+    K_shape = WKCb.shape[n_probe:len(WKCb.shape) - 1 - len(C_shape)]
+
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
+
+    WCa  = WCa.reshape((size_W,) + (size_C,) + a_shape)
+    WCi  = WCi.reshape((size_W,) + (size_C,) + i_shape)
+    WKCb = WKCb.reshape((size_W,) + (size_K,) + (size_C,) + b_shape)
+
+    KCaib = _grouped_einsum(xnp, use_jax, 'WCa,WCi,WKCb->KCaib', WCa, WCi, WKCb)
+
+    KCaib = KCaib.reshape(K_shape + C_shape + a_shape + i_shape + b_shape)
+    return KCaib

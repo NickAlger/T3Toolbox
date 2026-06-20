@@ -656,6 +656,31 @@ class TestManifold(unittest.TestCase):
                     self.check_relerr(rhs, lhs)
                     self.assertEqual(W, t3m.T3Tangent.entries_transpose(c, idx, base).tangent_stack_shape)
 
+    def test_tangent_apply_transpose_kstack(self):
+        # The adjoint-state apply/entries transpose is K-aware: the residual c may carry a tangent
+        # stack K (W + K + C), the output space of a K-stacked forward. (The old scatter could NOT --
+        # it had no adjoint sweep to propagate K.) Adjoint identity per k.
+        import t3toolbox.backend.probing as pr
+        STRUCT = ((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
+        NW, K = 4, 3
+        base, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STRUCT))
+        ww = tuple(np.random.randn(NW, N) for N in STRUCT[0])
+        idx = np.array(tuple(np.random.randint(0, N, size=NW) for N in STRUCT[0]))
+        vs = [t3m.MANIFOLD.randn(base) for _ in range(K)]
+        for op, fwd, tr in [('apply', lambda v: pr.apply_tangent(ww, v.variations.data, base.data),
+                                      lambda c: pr.apply_tangent_transpose(c, ww, base.data, sum_over_probes=True)),
+                            ('entries', lambda v: pr.entries_tangent(idx, v.variations.data, base.data),
+                                        lambda c: pr.entries_tangent_transpose(c, idx, base.data, sum_over_probes=True))]:
+            with self.subTest(op=op):
+                JvK = np.stack([np.asarray(fwd(v)) for v in vs], axis=1)     # base-inner W + K
+                c = np.random.randn(NW, K)
+                dU, dG = tr(c)                                               # -> K + cores
+                for k in range(K):
+                    grad_k = (tuple(np.asarray(g)[k] for g in dU), tuple(np.asarray(g)[k] for g in dG))
+                    lhs = float(np.sum(c[:, k] * JvK[:, k]))
+                    rhs = float(cw.corewise_dot(grad_k, vs[k].variations.data))
+                    self.check_relerr(np.array(rhs), np.array(lhs))
+
     def test_randn(self):
         base, _ = bvf.t3_orthogonal_representations(
             t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1)))

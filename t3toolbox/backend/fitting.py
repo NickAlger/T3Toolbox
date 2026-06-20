@@ -87,9 +87,9 @@ class SamplingKind:
 
 APPLY = SamplingKind(
     name='apply',
-    precompute=lambda base, ww: probing.precompute_base_sweep(base, ww),
+    precompute=lambda base, ww: probing.precompute_apply_base_sweep(base, ww),
     forward=lambda v, ww, base, bs: probing.apply_jacobian_from_sweep(v, ww, base, bs),
-    transpose=lambda r, ww, base, bs: probing.apply_transpose_from_sweep(r, ww, bs, sum_over_probes=True),
+    transpose=lambda r, ww, base, bs: probing.apply_transpose_from_sweep(r, ww, base, bs, sum_over_probes=True),
     sumsq=sumsq_over_samples,
     w_axes=lambda ww: ww[0].ndim - 1,
 )
@@ -105,7 +105,7 @@ ENTRIES = SamplingKind(
 
 PROBE = SamplingKind(
     name='probe',
-    precompute=lambda base, ww: probing.precompute_base_sweep(base, ww),
+    precompute=lambda base, ww: probing.precompute_probe_base_sweep(base, ww),
     forward=lambda v, ww, base, bs: probing.probe_jacobian_from_sweep(v, ww, base, bs),
     transpose=lambda r, ww, base, bs: probing.probe_transpose_from_sweep(r, ww, base, bs, sum_over_probes=True),
     sumsq=sumsq_over_probes,
