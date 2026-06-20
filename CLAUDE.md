@@ -448,6 +448,13 @@ the backend functions those rely on. Treat everything else as copied-in-and-not-
   **uniform transpose mirror** (ambient doable now — `from_canonical` just landed; corewise/tangent gated
   on the tangent layer); and the deferred **uniform tangent layer** (`ubv_*`, `uniform_*`).
 - Redesign the **weighted tensor network** code structure.
+- **⚠️ MUST FIX — numpy-2.0 doctest breakage (surfaced by the `t3toolbox` env move, 2026-06-20).** numpy 2.x
+  changed scalar reprs (`np.False_`/`np.True_` not `False`/`True`; `np.float64(x)` wrappers), so doctests
+  that **print scalars** now fail on the modern env **even though the test suite is green** (doctests aren't
+  wired into CI, so 295-pass does NOT cover them). Confirmed failing: `corewise.corewise_logical_not`
+  (prints `np.False_`). **There are almost certainly more across the codebase.** Needs a numpy-2.0 doctest
+  sweep: rerun `python -m doctest <module>` per module on the `t3toolbox` env and fix printed-scalar reprs
+  (print via `bool(...)`/`float(...)`, or update expected output). **Do not let this slip.**
 - Cleanup backlog: `OLD_*.py` + stray `.npz` artifacts; wire doctests into CI; docs (`conf.py` autoapi
   excludes backend/weighted, committed `_build`, `modules.rst` still titled "TuckerTensorTrainTools").
 - **Doctests — existing-doctest sweep ✅ DONE.** All verified modules' **existing** doctests reworked
