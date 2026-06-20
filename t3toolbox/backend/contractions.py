@@ -2,6 +2,7 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+import functools
 import math
 import typing as typ
 import numpy as np
@@ -60,6 +61,63 @@ __all__ = [
 ]
 
 
+# --------------------------------------------------------------------------------------------------
+# The einsum dispatcher (numpy: forced pairwise BLAS path; jax: one big einsum)
+# --------------------------------------------------------------------------------------------------
+# Every grouped contraction below routes its einsum through `_grouped_einsum`. The numpy/jax split is
+# NOT cosmetic -- the two backends want OPPOSITE things, and getting it wrong is a silent 10-55x perf hit:
+#
+#   * numpy. `np.einsum(..., optimize=True)` minimizes FLOP *count*, not wall-clock. On a FLOP-tie it
+#     runs a single multi-operand contraction as one `c_einsum` nested loop -- which skips BLAS. For the
+#     high-dimensional order-COMBINE contractions (the `trs_*_to_tWCi` jet combines: 4 operands, the full
+#     r,s order convolution) that naive path is ~55x slower than splitting into 2-operand `tensordot`
+#     (BLAS) steps. (`optimize=False` / a bare einsum is just as bad.) So for numpy we FORCE a greedy
+#     pairwise path -- each step a 2-operand BLAS contraction. The path depends only on the subscript
+#     string (index sharing is size-independent), so it is cached.
+#   * jax. `jnp.einsum` uses opt_einsum (BLAS-aware) + XLA fusion, which beats any path we force -- a
+#     single big einsum measured FASTER than manual pairwise. So for jax we pass ONE einsum, no `optimize`.
+#
+# (Historically the toolkit hand-picked pairwise paths -- correct, but the later `trs` jet contractions
+# used `optimize=True`/bare and silently regressed; this dispatcher unifies + fixes them. The greedy path
+# reproduces the old hand-picked `[(0,1),(0,1)]` exactly, so no regression.) See docs/batching_and_stacking.md.
+
+
+@functools.lru_cache(maxsize=None)
+def _pairwise_path(
+        subscripts: str,    # the einsum string, e.g. 'trs,rWCa,Caib,sWCb->tWCi'
+) -> tuple:                 # a numpy `optimize=` path: ('einsum_path', (i,j), ...) -- all 2-operand steps
+    '''A greedy pairwise contraction path for numpy: at each step contract the operand pair sharing the
+    MOST indices (so no outer products), 2 operands at a time (every step BLAS-eligible). Keyed only on
+    the subscript string (index sharing is size-independent), so it is computed once per distinct
+    contraction and cached. Reproduces the toolkit's old hand-picked `[(0,1),(0,1)]` paths.'''
+    terms = [set(t) for t in subscripts.split('->')[0].split(',')]
+    path = []
+    while len(terms) > 2:
+        n = len(terms)
+        i, j = max(((a, b) for a in range(n) for b in range(a + 1, n)),
+                   key=lambda ab: len(terms[ab[0]] & terms[ab[1]]))
+        path.append((i, j))
+        merged = terms[i] | terms[j]
+        terms = [t for k, t in enumerate(terms) if k not in (i, j)] + [merged]
+    path.append((0, 1))
+    return tuple(['einsum_path'] + path)
+
+
+def _grouped_einsum(
+        xnp,                            # numpy or jax.numpy (from get_backend)
+        use_jax:    bool,               # is the computation on jax arrays?
+        subscripts: str,                # the einsum string
+        *operands:  NDArray,
+) -> NDArray:
+    '''Dispatched einsum for the grouped contractions: jax -> one big einsum (XLA optimizes); numpy ->
+    a forced greedy-pairwise BLAS path (numpy's own optimizer runs FLOP-tied multi-operand contractions
+    as a single non-BLAS `c_einsum`). 2-operand contractions are already BLAS, so they pass straight
+    through on both. See the module note above.'''
+    if use_jax or len(operands) <= 2:
+        return xnp.einsum(subscripts, *operands)
+    return xnp.einsum(subscripts, *operands, optimize=list(_pairwise_path(subscripts)))
+
+
 def Wa_Caib_Wi_to_WCb(
         Wa: NDArray,
         Caib: NDArray,
@@ -82,16 +140,7 @@ def Wa_Caib_Wi_to_WCb(
     Caib    = Caib.reshape((-1,)    + aib_shape)
     Wi      = Wi.reshape((-1,)      + i_shape)
 
-    path = [
-        'einsum_path',
-        (0,1),
-        (0,1),
-    ]
-
-    if use_jax:
-        WCb = xnp.einsum('Wa,Caib,Wi->WCb', Wa, Caib, Wi)
-    else:
-        WCb = xnp.einsum('Wa,Caib,Wi->WCb', Wa, Caib, Wi, optimize=path)
+    WCb = _grouped_einsum(xnp, use_jax, 'Wa,Caib,Wi->WCb', Wa, Caib, Wi)
 
     WCb = WCb.reshape(W_shape + C_shape + b_shape)
     return WCb
@@ -125,17 +174,7 @@ def CWa_Caib_Wo_Cio_to_CWb(
     Wo      = Wo.reshape((size_W,) + o_shape)
     Cio     = Cio.reshape((size_C,) + io_shape)
 
-    path = [
-        'einsum_path',
-        (0, 1),
-        (0, 1),
-        (0, 1)
-    ]
-
-    if use_jax:
-        CWb = xnp.einsum('CWa,Caib,Wo,Cio->CWb', CWa, Caib, Wo, Cio) # let the compiler figure out the best path
-    else:
-        CWb = xnp.einsum('CWa,Caib,Wo,Cio->CWb', CWa, Caib, Wo, Cio, optimize=path)
+    CWb = _grouped_einsum(xnp, use_jax, 'CWa,Caib,Wo,Cio->CWb', CWa, Caib, Wo, Cio)
 
     CWb = CWb.reshape(C_shape + W_shape + b_shape)
     return CWb
@@ -172,17 +211,7 @@ def WCa_Caib_Wo_Cio_to_WCb(
     Wo      = Wo.reshape((size_W,) + o_shape)
     Cio     = Cio.reshape((size_C,) + io_shape)
 
-    path = [
-        'einsum_path',
-        (0, 1),
-        (0, 1),
-        (0, 1)
-    ]
-
-    if use_jax:
-        WCb = xnp.einsum('WCa,Caib,Wo,Cio->WCb', WCa, Caib, Wo, Cio)
-    else:
-        WCb = xnp.einsum('WCa,Caib,Wo,Cio->WCb', WCa, Caib, Wo, Cio, optimize=path)
+    WCb = _grouped_einsum(xnp, use_jax, 'WCa,Caib,Wo,Cio->WCb', WCa, Caib, Wo, Cio)
 
     WCb = WCb.reshape(W_shape + C_shape + b_shape)
     return WCb
@@ -213,16 +242,7 @@ def CWa_Caib_CiW_to_CWb(
     Caib    = Caib.reshape((size_C,) + aib_shape)
     CiW     = CiW.reshape((size_C,) + i_shape + (size_W,))
 
-    path = [
-        'einsum_path',
-        (0,1),
-        (0,1),
-    ]
-
-    if use_jax:
-        CWb = xnp.einsum('CWa,Caib,CiW->CWb', CWa, Caib, CiW)
-    else:
-        CWb = xnp.einsum('CWa,Caib,CiW->CWb', CWa, Caib, CiW, optimize=path)
+    CWb = _grouped_einsum(xnp, use_jax, 'CWa,Caib,CiW->CWb', CWa, Caib, CiW)
 
     CWb = CWb.reshape(C_shape + W_shape + b_shape)
     return CWb
@@ -255,16 +275,7 @@ def WCa_Caib_WCi_to_WCb(
     Caib    = Caib.reshape((size_C,) + aib_shape)
     WCi     = WCi.reshape((size_W,) + (size_C,) + i_shape)
 
-    path = [
-        'einsum_path',
-        (0,1),
-        (0,1),
-    ]
-
-    if use_jax:
-        WCb = xnp.einsum('WCa,Caib,WCi->WCb', WCa, Caib, WCi)
-    else:
-        WCb = xnp.einsum('WCa,Caib,WCi->WCb', WCa, Caib, WCi, optimize=path)
+    WCb = _grouped_einsum(xnp, use_jax, 'WCa,Caib,WCi->WCb', WCa, Caib, WCi)
 
     WCb = WCb.reshape(W_shape + C_shape + b_shape)
     return WCb
@@ -292,7 +303,7 @@ def Cio_Wo_to_WCi(
     Cio = Cio.reshape((size_C,) + i_shape + o_shape)
     Wo  = Wo.reshape((size_W,) + o_shape)
 
-    WCi = xnp.einsum('Cio,Wo->WCi', Cio, Wo)
+    WCi = _grouped_einsum(xnp, use_jax, 'Cio,Wo->WCi', Cio, Wo)
 
     WCi = WCi.reshape(W_shape + C_shape + i_shape)
     return WCi
@@ -321,7 +332,7 @@ def dCio_dWo_to_dWCi(
     dCio = dCio.reshape(d_shape + (size_C,) + i_shape + o_shape)
     dWo  = dWo.reshape(d_shape + (size_W,) + o_shape)
 
-    dWCi = xnp.einsum('dCio,dWo->dWCi', dCio, dWo)
+    dWCi = _grouped_einsum(xnp, use_jax, 'dCio,dWo->dWCi', dCio, dWo)
 
     dWCi = dWCi.reshape(d_shape + W_shape + C_shape + i_shape)
     return dWCi
@@ -352,7 +363,7 @@ def WCa_Caib_WCb_to_WCi(
     Caib    = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
     WCb     = WCb.reshape((size_W,) + (size_C,) + b_shape)
 
-    WCi = xnp.einsum('WCa,Caib,WCb->WCi', WCa, Caib, WCb)
+    WCi = _grouped_einsum(xnp, use_jax, 'WCa,Caib,WCb->WCi', WCa, Caib, WCb)
 
     WCi = WCi.reshape(W_shape + C_shape + i_shape)
     return WCi
@@ -384,7 +395,7 @@ def dWCa_dCaib_dWCb_to_dWCi(
     dCaib   = dCaib.reshape(d_shape + (size_C,) + a_shape + i_shape + b_shape)
     dWCb    = dWCb.reshape(d_shape + (size_W,) + (size_C,) + b_shape)
 
-    dWCi = xnp.einsum('dWCa,dCaib,dWCb->dWCi', dWCa, dCaib, dWCb)
+    dWCi = _grouped_einsum(xnp, use_jax, 'dWCa,dCaib,dWCb->dWCi', dWCa, dCaib, dWCb)
 
     dWCi = dWCi.reshape(d_shape + W_shape + C_shape + i_shape)
     return dWCi
@@ -412,7 +423,7 @@ def WCi_Cio_to_WCo(
     Cio = Cio.reshape((size_C,) + i_shape + o_shape)
     WCi = WCi.reshape((size_W,) + (size_C,) + i_shape)
 
-    WCo = xnp.einsum('WCi,Cio->WCo', WCi, Cio)
+    WCo = _grouped_einsum(xnp, use_jax, 'WCi,Cio->WCo', WCi, Cio)
 
     WCo = WCo.reshape(W_shape + C_shape + o_shape)
     return WCo
@@ -441,7 +452,7 @@ def dWCi_dCio_to_dWCo(
     dCio = dCio.reshape(d_shape + (size_C,) + i_shape + o_shape)
     dWCi  = dWCi.reshape(d_shape + (size_W,) + (size_C,) + i_shape)
 
-    dWCo = xnp.einsum('dWCi,dCio->dWCo', dWCi, dCio)
+    dWCo = _grouped_einsum(xnp, use_jax, 'dWCi,dCio->dWCo', dWCi, dCio)
 
     dWCo = dWCo.reshape(d_shape + W_shape + C_shape + o_shape)
     return dWCo
@@ -471,7 +482,7 @@ def WCo_Cio_to_WCi(
     Cio = Cio.reshape((size_C,) + i_shape + o_shape)
     WCo = WCo.reshape((size_W,) + (size_C,) + o_shape)
 
-    WCi = xnp.einsum('WCo,Cio->WCi', WCo, Cio)
+    WCi = _grouped_einsum(xnp, use_jax, 'WCo,Cio->WCi', WCo, Cio)
 
     WCi = WCi.reshape(W_shape + C_shape + i_shape)
     return WCi
@@ -501,7 +512,7 @@ def WCo_WCa_to_Cao(
     WCo = WCo.reshape((size_W,) + (size_C,) + o_shape)
     WCa = WCa.reshape((size_W,) + (size_C,) + a_shape)
 
-    Cao = xnp.einsum('WCo,WCa->Cao', WCo, WCa)
+    Cao = _grouped_einsum(xnp, use_jax, 'WCo,WCa->Cao', WCo, WCa)
 
     Cao = Cao.reshape(C_shape + a_shape + o_shape)
     return Cao
@@ -528,7 +539,7 @@ def Wo_WCa_to_Cao(
     Wo = Wo.reshape((size_W,) + o_shape)
     WCa = WCa.reshape((size_W,) + (size_C,) + a_shape)
 
-    Cao = xnp.einsum('Wo,WCa->Cao', Wo, WCa)
+    Cao = _grouped_einsum(xnp, use_jax, 'Wo,WCa->Cao', Wo, WCa)
 
     Cao = Cao.reshape(C_shape + a_shape + o_shape)
     return Cao
@@ -561,11 +572,7 @@ def WCi_WCa_WCj_to_Ciaj(
     WCa = WCa.reshape((size_W,) + (size_C,) + a_shape)
     WCj = WCj.reshape((size_W,) + (size_C,) + j_shape)
 
-    path = ['einsum_path', (0, 1), (0, 1)]
-    if use_jax:
-        Ciaj = xnp.einsum('WCi,WCa,WCj->Ciaj', WCi, WCa, WCj)
-    else:
-        Ciaj = xnp.einsum('WCi,WCa,WCj->Ciaj', WCi, WCa, WCj, optimize=path)
+    Ciaj = _grouped_einsum(xnp, use_jax, 'WCi,WCa,WCj->Ciaj', WCi, WCa, WCj)
 
     Ciaj = Ciaj.reshape(C_shape + i_shape + a_shape + j_shape)
     return Ciaj
@@ -620,10 +627,7 @@ def trs_rWCa_Caib_sWCi_to_tWCb(
     Caib = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
     sWCi = sWCi.reshape(s_shape + (size_W, size_C) + i_shape)
 
-    if use_jax:
-        tWCb = xnp.einsum('trs,rWCa,Caib,sWCi->tWCb', trs, rWCa, Caib, sWCi)
-    else:
-        tWCb = xnp.einsum('trs,rWCa,Caib,sWCi->tWCb', trs, rWCa, Caib, sWCi, optimize=True)
+    tWCb = _grouped_einsum(xnp, use_jax, 'trs,rWCa,Caib,sWCi->tWCb', trs, rWCa, Caib, sWCi)
 
     tWCb = tWCb.reshape(t_shape + W_shape + C_shape + b_shape)
     return tWCb
@@ -661,10 +665,7 @@ def trs_rWCa_Caib_sWCb_to_tWCi(
     Caib = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
     sWCb = sWCb.reshape(s_shape + (size_W, size_C) + b_shape)
 
-    if use_jax:
-        tWCi = xnp.einsum('trs,rWCa,Caib,sWCb->tWCi', trs, rWCa, Caib, sWCb)
-    else:
-        tWCi = xnp.einsum('trs,rWCa,Caib,sWCb->tWCi', trs, rWCa, Caib, sWCb, optimize=True)
+    tWCi = _grouped_einsum(xnp, use_jax, 'trs,rWCa,Caib,sWCb->tWCi', trs, rWCa, Caib, sWCb)
 
     tWCi = tWCi.reshape(t_shape + W_shape + C_shape + i_shape)
     return tWCi
@@ -695,7 +696,7 @@ def tWCi_Cio_to_tWCo(
     Cio  = Cio.reshape((size_C,) + i_shape + o_shape)
     tWCi = tWCi.reshape(t_shape + (size_W, size_C) + i_shape)
 
-    tWCo = xnp.einsum('tWCi,Cio->tWCo', tWCi, Cio)
+    tWCo = _grouped_einsum(xnp, use_jax, 'tWCi,Cio->tWCo', tWCi, Cio)
 
     tWCo = tWCo.reshape(t_shape + W_shape + C_shape + o_shape)
     return tWCo
@@ -731,7 +732,7 @@ def tWCo_Cio_to_tWCi(
     Cio  = Cio.reshape((size_C,) + i_shape + o_shape)
     tWCo = tWCo.reshape(t_shape + (size_W, size_C) + o_shape)
 
-    tWCi = xnp.einsum('tWCo,Cio->tWCi', tWCo, Cio)
+    tWCi = _grouped_einsum(xnp, use_jax, 'tWCo,Cio->tWCi', tWCo, Cio)
 
     return tWCi.reshape(t_shape + W_shape + C_shape + i_shape)
 
@@ -782,11 +783,7 @@ def WKCa_Caib_WCi_to_WKCb(
     Caib = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
     WCi  = WCi.reshape((size_W,) + (size_C,) + i_shape)
 
-    path = ['einsum_path', (0, 1), (0, 1)]
-    if use_jax:
-        WKCb = xnp.einsum('WKCa,Caib,WCi->WKCb', WKCa, Caib, WCi)
-    else:
-        WKCb = xnp.einsum('WKCa,Caib,WCi->WKCb', WKCa, Caib, WCi, optimize=path)
+    WKCb = _grouped_einsum(xnp, use_jax, 'WKCa,Caib,WCi->WKCb', WKCa, Caib, WCi)
 
     WKCb = WKCb.reshape(W_shape + K_shape + C_shape + b_shape)
     return WKCb
@@ -821,11 +818,7 @@ def WCa_Caib_WKCi_to_WKCb(
     Caib = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
     WKCi = WKCi.reshape((size_W,) + (size_K,) + (size_C,) + i_shape)
 
-    path = ['einsum_path', (0, 1), (0, 1)]
-    if use_jax:
-        WKCb = xnp.einsum('WCa,Caib,WKCi->WKCb', WCa, Caib, WKCi)
-    else:
-        WKCb = xnp.einsum('WCa,Caib,WKCi->WKCb', WCa, Caib, WKCi, optimize=path)
+    WKCb = _grouped_einsum(xnp, use_jax, 'WCa,Caib,WKCi->WKCb', WCa, Caib, WKCi)
 
     WKCb = WKCb.reshape(W_shape + K_shape + C_shape + b_shape)
     return WKCb
@@ -860,11 +853,7 @@ def WKCa_Caib_WCb_to_WKCi(
     Caib = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
     WCb  = WCb.reshape((size_W,) + (size_C,) + b_shape)
 
-    path = ['einsum_path', (0, 1), (0, 1)]
-    if use_jax:
-        WKCi = xnp.einsum('WKCa,Caib,WCb->WKCi', WKCa, Caib, WCb)
-    else:
-        WKCi = xnp.einsum('WKCa,Caib,WCb->WKCi', WKCa, Caib, WCb, optimize=path)
+    WKCi = _grouped_einsum(xnp, use_jax, 'WKCa,Caib,WCb->WKCi', WKCa, Caib, WCb)
 
     WKCi = WKCi.reshape(W_shape + K_shape + C_shape + i_shape)
     return WKCi
@@ -899,11 +888,7 @@ def WCa_Caib_WKCb_to_WKCi(
     Caib = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
     WKCb = WKCb.reshape((size_W,) + (size_K,) + (size_C,) + b_shape)
 
-    path = ['einsum_path', (0, 1), (0, 1)]
-    if use_jax:
-        WKCi = xnp.einsum('WCa,Caib,WKCb->WKCi', WCa, Caib, WKCb)
-    else:
-        WKCi = xnp.einsum('WCa,Caib,WKCb->WKCi', WCa, Caib, WKCb, optimize=path)
+    WKCi = _grouped_einsum(xnp, use_jax, 'WCa,Caib,WKCb->WKCi', WCa, Caib, WKCb)
 
     WKCi = WKCi.reshape(W_shape + K_shape + C_shape + i_shape)
     return WKCi
@@ -941,11 +926,7 @@ def WCa_KCaib_WCi_to_WKCb(
     KCaib = KCaib.reshape((size_K,) + (size_C,) + a_shape + i_shape + b_shape)
     WCi   = WCi.reshape((size_W,) + (size_C,) + i_shape)
 
-    path = ['einsum_path', (0, 1), (0, 1)]
-    if use_jax:
-        WKCb = xnp.einsum('WCa,KCaib,WCi->WKCb', WCa, KCaib, WCi)
-    else:
-        WKCb = xnp.einsum('WCa,KCaib,WCi->WKCb', WCa, KCaib, WCi, optimize=path)
+    WKCb = _grouped_einsum(xnp, use_jax, 'WCa,KCaib,WCi->WKCb', WCa, KCaib, WCi)
 
     WKCb = WKCb.reshape(W_shape + K_shape + C_shape + b_shape)
     return WKCb
@@ -982,11 +963,7 @@ def WCa_KCaib_WCb_to_WKCi(
     KCaib = KCaib.reshape((size_K,) + (size_C,) + a_shape + i_shape + b_shape)
     WCb   = WCb.reshape((size_W,) + (size_C,) + b_shape)
 
-    path = ['einsum_path', (0, 1), (0, 1)]
-    if use_jax:
-        WKCi = xnp.einsum('WCa,KCaib,WCb->WKCi', WCa, KCaib, WCb)
-    else:
-        WKCi = xnp.einsum('WCa,KCaib,WCb->WKCi', WCa, KCaib, WCb, optimize=path)
+    WKCi = _grouped_einsum(xnp, use_jax, 'WCa,KCaib,WCb->WKCi', WCa, KCaib, WCb)
 
     WKCi = WKCi.reshape(W_shape + K_shape + C_shape + i_shape)
     return WKCi
@@ -1020,7 +997,7 @@ def WCi_KCio_to_WKCo(
     WCi  = WCi.reshape((size_W,) + (size_C,) + i_shape)
     KCio = KCio.reshape((size_K,) + (size_C,) + i_shape + o_shape)
 
-    WKCo = xnp.einsum('WCi,KCio->WKCo', WCi, KCio)
+    WKCo = _grouped_einsum(xnp, use_jax, 'WCi,KCio->WKCo', WCi, KCio)
 
     WKCo = WKCo.reshape(W_shape + K_shape + C_shape + o_shape)
     return WKCo
@@ -1077,7 +1054,7 @@ def WKCo_WCa_to_WKCao(
     WKCo = WKCo.reshape((size_W,) + (size_K,) + (size_C,) + o_shape)
     WCa  = WCa.reshape((size_W,) + (size_C,) + a_shape)
 
-    WKCao = xnp.einsum('WKCo,WCa->WKCao', WKCo, WCa)
+    WKCao = _grouped_einsum(xnp, use_jax, 'WKCo,WCa->WKCao', WKCo, WCa)
 
     WKCao = WKCao.reshape(W_shape + K_shape + C_shape + a_shape + o_shape)
     return WKCao
@@ -1108,7 +1085,7 @@ def WKCo_WCa_to_KCao(
     WKCo = WKCo.reshape((size_W,) + (size_K,) + (size_C,) + o_shape)
     WCa  = WCa.reshape((size_W,) + (size_C,) + a_shape)
 
-    KCao = xnp.einsum('WKCo,WCa->KCao', WKCo, WCa)
+    KCao = _grouped_einsum(xnp, use_jax, 'WKCo,WCa->KCao', WKCo, WCa)
 
     KCao = KCao.reshape(K_shape + C_shape + a_shape + o_shape)
     return KCao
@@ -1138,7 +1115,7 @@ def Wo_WKCa_to_WKCao(
     Wo   = Wo.reshape((size_W,) + o_shape)
     WKCa = WKCa.reshape((size_W,) + (size_KC,) + a_shape)
 
-    WKCao = xnp.einsum('Wo,WXa->WXao', Wo, WKCa)
+    WKCao = _grouped_einsum(xnp, use_jax, 'Wo,WXa->WXao', Wo, WKCa)
 
     WKCao = WKCao.reshape(W_shape + KC_shape + a_shape + o_shape)
     return WKCao
@@ -1167,7 +1144,7 @@ def Wo_WKCa_to_KCao(
     Wo   = Wo.reshape((size_W,) + o_shape)
     WKCa = WKCa.reshape((size_W,) + (size_KC,) + a_shape)
 
-    KCao = xnp.einsum('Wo,WXa->Xao', Wo, WKCa)
+    KCao = _grouped_einsum(xnp, use_jax, 'Wo,WXa->Xao', Wo, WKCa)
 
     KCao = KCao.reshape(KC_shape + a_shape + o_shape)
     return KCao
@@ -1201,11 +1178,7 @@ def WCi_WCa_WKCj_to_WKCiaj(
     WCa  = WCa.reshape((size_W,) + (size_C,) + a_shape)
     WKCj = WKCj.reshape((size_W,) + (size_K,) + (size_C,) + j_shape)
 
-    path = ['einsum_path', (0, 1), (0, 1)]
-    if use_jax:
-        WKCiaj = xnp.einsum('WCi,WCa,WKCj->WKCiaj', WCi, WCa, WKCj)
-    else:
-        WKCiaj = xnp.einsum('WCi,WCa,WKCj->WKCiaj', WCi, WCa, WKCj, optimize=path)
+    WKCiaj = _grouped_einsum(xnp, use_jax, 'WCi,WCa,WKCj->WKCiaj', WCi, WCa, WKCj)
 
     WKCiaj = WKCiaj.reshape(W_shape + K_shape + C_shape + i_shape + a_shape + j_shape)
     return WKCiaj
@@ -1239,11 +1212,7 @@ def WCi_WCa_WKCj_to_KCiaj(
     WCa  = WCa.reshape((size_W,) + (size_C,) + a_shape)
     WKCj = WKCj.reshape((size_W,) + (size_K,) + (size_C,) + j_shape)
 
-    path = ['einsum_path', (0, 1), (0, 1)]
-    if use_jax:
-        KCiaj = xnp.einsum('WCi,WCa,WKCj->KCiaj', WCi, WCa, WKCj)
-    else:
-        KCiaj = xnp.einsum('WCi,WCa,WKCj->KCiaj', WCi, WCa, WKCj, optimize=path)
+    KCiaj = _grouped_einsum(xnp, use_jax, 'WCi,WCa,WKCj->KCiaj', WCi, WCa, WKCj)
 
     KCiaj = KCiaj.reshape(K_shape + C_shape + i_shape + a_shape + j_shape)
     return KCiaj
@@ -1277,11 +1246,7 @@ def WKCi_WCa_WCj_to_WKCiaj(
     WCa  = WCa.reshape((size_W,) + (size_C,) + a_shape)
     WCj  = WCj.reshape((size_W,) + (size_C,) + j_shape)
 
-    path = ['einsum_path', (0, 1), (0, 1)]
-    if use_jax:
-        WKCiaj = xnp.einsum('WKCi,WCa,WCj->WKCiaj', WKCi, WCa, WCj)
-    else:
-        WKCiaj = xnp.einsum('WKCi,WCa,WCj->WKCiaj', WKCi, WCa, WCj, optimize=path)
+    WKCiaj = _grouped_einsum(xnp, use_jax, 'WKCi,WCa,WCj->WKCiaj', WKCi, WCa, WCj)
 
     WKCiaj = WKCiaj.reshape(W_shape + K_shape + C_shape + i_shape + a_shape + j_shape)
     return WKCiaj
@@ -1315,11 +1280,7 @@ def WKCi_WCa_WCj_to_KCiaj(
     WCa  = WCa.reshape((size_W,) + (size_C,) + a_shape)
     WCj  = WCj.reshape((size_W,) + (size_C,) + j_shape)
 
-    path = ['einsum_path', (0, 1), (0, 1)]
-    if use_jax:
-        KCiaj = xnp.einsum('WKCi,WCa,WCj->KCiaj', WKCi, WCa, WCj)
-    else:
-        KCiaj = xnp.einsum('WKCi,WCa,WCj->KCiaj', WKCi, WCa, WCj, optimize=path)
+    KCiaj = _grouped_einsum(xnp, use_jax, 'WKCi,WCa,WCj->KCiaj', WKCi, WCa, WCj)
 
     KCiaj = KCiaj.reshape(K_shape + C_shape + i_shape + a_shape + j_shape)
     return KCiaj
@@ -1353,11 +1314,7 @@ def WCi_WKCa_WCj_to_WKCiaj(
     WKCa = WKCa.reshape((size_W,) + (size_K,) + (size_C,) + a_shape)
     WCj  = WCj.reshape((size_W,) + (size_C,) + j_shape)
 
-    path = ['einsum_path', (0, 1), (0, 1)]
-    if use_jax:
-        WKCiaj = xnp.einsum('WCi,WKCa,WCj->WKCiaj', WCi, WKCa, WCj)
-    else:
-        WKCiaj = xnp.einsum('WCi,WKCa,WCj->WKCiaj', WCi, WKCa, WCj, optimize=path)
+    WKCiaj = _grouped_einsum(xnp, use_jax, 'WCi,WKCa,WCj->WKCiaj', WCi, WKCa, WCj)
 
     WKCiaj = WKCiaj.reshape(W_shape + K_shape + C_shape + i_shape + a_shape + j_shape)
     return WKCiaj
@@ -1391,11 +1348,7 @@ def WCi_WKCa_WCj_to_KCiaj(
     WKCa = WKCa.reshape((size_W,) + (size_K,) + (size_C,) + a_shape)
     WCj  = WCj.reshape((size_W,) + (size_C,) + j_shape)
 
-    path = ['einsum_path', (0, 1), (0, 1)]
-    if use_jax:
-        KCiaj = xnp.einsum('WCi,WKCa,WCj->KCiaj', WCi, WKCa, WCj)
-    else:
-        KCiaj = xnp.einsum('WCi,WKCa,WCj->KCiaj', WCi, WKCa, WCj, optimize=path)
+    KCiaj = _grouped_einsum(xnp, use_jax, 'WCi,WKCa,WCj->KCiaj', WCi, WKCa, WCj)
 
     KCiaj = KCiaj.reshape(K_shape + C_shape + i_shape + a_shape + j_shape)
     return KCiaj
@@ -1437,10 +1390,7 @@ def trs_rWKCa_Caib_sWCi_to_tWKCb(
     Caib  = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
     sWCi  = sWCi.reshape((trs.shape[2], size_W, size_C) + i_shape)
 
-    if use_jax:
-        tWKCb = xnp.einsum('trs,rWKCa,Caib,sWCi->tWKCb', trs, rWKCa, Caib, sWCi)
-    else:
-        tWKCb = xnp.einsum('trs,rWKCa,Caib,sWCi->tWKCb', trs, rWKCa, Caib, sWCi, optimize=True)
+    tWKCb = _grouped_einsum(xnp, use_jax, 'trs,rWKCa,Caib,sWCi->tWKCb', trs, rWKCa, Caib, sWCi)
 
     return tWKCb.reshape(t_shape + W_shape + K_shape + C_shape + b_shape)
 
@@ -1467,10 +1417,7 @@ def trs_rWCa_Caib_sWKCi_to_tWKCb(
     Caib  = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
     sWKCi = sWKCi.reshape((trs.shape[2], size_W, size_K, size_C) + i_shape)
 
-    if use_jax:
-        tWKCb = xnp.einsum('trs,rWCa,Caib,sWKCi->tWKCb', trs, rWCa, Caib, sWKCi)
-    else:
-        tWKCb = xnp.einsum('trs,rWCa,Caib,sWKCi->tWKCb', trs, rWCa, Caib, sWKCi, optimize=True)
+    tWKCb = _grouped_einsum(xnp, use_jax, 'trs,rWCa,Caib,sWKCi->tWKCb', trs, rWCa, Caib, sWKCi)
 
     return tWKCb.reshape(t_shape + W_shape + K_shape + C_shape + b_shape)
 
@@ -1499,10 +1446,7 @@ def trs_rWCa_KCaib_sWCi_to_tWKCb(
     KCaib = KCaib.reshape((size_K, size_C) + a_shape + i_shape + b_shape)
     sWCi  = sWCi.reshape((trs.shape[2], size_W, size_C) + i_shape)
 
-    if use_jax:
-        tWKCb = xnp.einsum('trs,rWCa,KCaib,sWCi->tWKCb', trs, rWCa, KCaib, sWCi)
-    else:
-        tWKCb = xnp.einsum('trs,rWCa,KCaib,sWCi->tWKCb', trs, rWCa, KCaib, sWCi, optimize=True)
+    tWKCb = _grouped_einsum(xnp, use_jax, 'trs,rWCa,KCaib,sWCi->tWKCb', trs, rWCa, KCaib, sWCi)
 
     return tWKCb.reshape(t_shape + W_shape + K_shape + C_shape + b_shape)
 
@@ -1529,10 +1473,7 @@ def trs_rWKCa_Caib_sWCb_to_tWKCi(
     Caib  = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
     sWCb  = sWCb.reshape((trs.shape[2], size_W, size_C) + b_shape)
 
-    if use_jax:
-        tWKCi = xnp.einsum('trs,rWKCa,Caib,sWCb->tWKCi', trs, rWKCa, Caib, sWCb)
-    else:
-        tWKCi = xnp.einsum('trs,rWKCa,Caib,sWCb->tWKCi', trs, rWKCa, Caib, sWCb, optimize=True)
+    tWKCi = _grouped_einsum(xnp, use_jax, 'trs,rWKCa,Caib,sWCb->tWKCi', trs, rWKCa, Caib, sWCb)
 
     return tWKCi.reshape(t_shape + W_shape + K_shape + C_shape + i_shape)
 
@@ -1559,10 +1500,7 @@ def trs_rWCa_Caib_sWKCb_to_tWKCi(
     Caib  = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
     sWKCb = sWKCb.reshape((trs.shape[2], size_W, size_K, size_C) + b_shape)
 
-    if use_jax:
-        tWKCi = xnp.einsum('trs,rWCa,Caib,sWKCb->tWKCi', trs, rWCa, Caib, sWKCb)
-    else:
-        tWKCi = xnp.einsum('trs,rWCa,Caib,sWKCb->tWKCi', trs, rWCa, Caib, sWKCb, optimize=True)
+    tWKCi = _grouped_einsum(xnp, use_jax, 'trs,rWCa,Caib,sWKCb->tWKCi', trs, rWCa, Caib, sWKCb)
 
     return tWKCi.reshape(t_shape + W_shape + K_shape + C_shape + i_shape)
 
@@ -1591,10 +1529,7 @@ def trs_rWCa_KCaib_sWCb_to_tWKCi(
     KCaib = KCaib.reshape((size_K, size_C) + a_shape + i_shape + b_shape)
     sWCb  = sWCb.reshape((trs.shape[2], size_W, size_C) + b_shape)
 
-    if use_jax:
-        tWKCi = xnp.einsum('trs,rWCa,KCaib,sWCb->tWKCi', trs, rWCa, KCaib, sWCb)
-    else:
-        tWKCi = xnp.einsum('trs,rWCa,KCaib,sWCb->tWKCi', trs, rWCa, KCaib, sWCb, optimize=True)
+    tWKCi = _grouped_einsum(xnp, use_jax, 'trs,rWCa,KCaib,sWCb->tWKCi', trs, rWCa, KCaib, sWCb)
 
     return tWKCi.reshape(t_shape + W_shape + K_shape + C_shape + i_shape)
 
@@ -1657,10 +1592,7 @@ def trs_tWKCa_Caib_uWCi_to_sWKCb(
     Caib  = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
     uWCi  = uWCi.reshape((trs.shape[1], size_W, size_C) + i_shape)
 
-    if use_jax:
-        sWKCb = xnp.einsum('tus,tWKCa,Caib,uWCi->sWKCb', trs, tWKCa, Caib, uWCi)
-    else:
-        sWKCb = xnp.einsum('tus,tWKCa,Caib,uWCi->sWKCb', trs, tWKCa, Caib, uWCi, optimize=True)
+    sWKCb = _grouped_einsum(xnp, use_jax, 'tus,tWKCa,Caib,uWCi->sWKCb', trs, tWKCa, Caib, uWCi)
 
     return sWKCb.reshape(s_shape + W_shape + K_shape + C_shape + b_shape)
 
@@ -1688,10 +1620,7 @@ def trs_rWCa_Caib_tWKCi_to_sWKCb(
     Caib  = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
     tWKCi = tWKCi.reshape((trs.shape[0], size_W, size_K, size_C) + i_shape)
 
-    if use_jax:
-        sWKCb = xnp.einsum('trs,rWCa,Caib,tWKCi->sWKCb', trs, rWCa, Caib, tWKCi)
-    else:
-        sWKCb = xnp.einsum('trs,rWCa,Caib,tWKCi->sWKCb', trs, rWCa, Caib, tWKCi, optimize=True)
+    sWKCb = _grouped_einsum(xnp, use_jax, 'trs,rWCa,Caib,tWKCi->sWKCb', trs, rWCa, Caib, tWKCi)
 
     return sWKCb.reshape(s_shape + W_shape + K_shape + C_shape + b_shape)
 
@@ -1719,10 +1648,7 @@ def trs_tWKCa_Caib_sWCb_to_uWKCi(
     Caib  = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
     sWCb  = sWCb.reshape((trs.shape[2], size_W, size_C) + b_shape)
 
-    if use_jax:
-        uWKCi = xnp.einsum('tus,tWKCa,Caib,sWCb->uWKCi', trs, tWKCa, Caib, sWCb)
-    else:
-        uWKCi = xnp.einsum('tus,tWKCa,Caib,sWCb->uWKCi', trs, tWKCa, Caib, sWCb, optimize=True)
+    uWKCi = _grouped_einsum(xnp, use_jax, 'tus,tWKCa,Caib,sWCb->uWKCi', trs, tWKCa, Caib, sWCb)
 
     return uWKCi.reshape(u_shape + W_shape + K_shape + C_shape + i_shape)
 
@@ -1750,10 +1676,7 @@ def trs_rWCa_Caib_tWKCb_to_uWKCi(
     Caib  = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
     tWKCb = tWKCb.reshape((trs.shape[0], size_W, size_K, size_C) + b_shape)
 
-    if use_jax:
-        uWKCi = xnp.einsum('tru,rWCa,Caib,tWKCb->uWKCi', trs, rWCa, Caib, tWKCb)
-    else:
-        uWKCi = xnp.einsum('tru,rWCa,Caib,tWKCb->uWKCi', trs, rWCa, Caib, tWKCb, optimize=True)
+    uWKCi = _grouped_einsum(xnp, use_jax, 'tru,rWCa,Caib,tWKCb->uWKCi', trs, rWCa, Caib, tWKCb)
 
     return uWKCi.reshape(u_shape + W_shape + K_shape + C_shape + i_shape)
 
@@ -1789,10 +1712,7 @@ def _assemble_dG_jet3(trs, opA, opI, opB, einsum_str, k_op, n_probe, keep_W):
             rs[k] = op.reshape((op.shape[0], size_W, size_K, size_C, op.shape[-1]))
         else:
             rs[k] = op.reshape((op.shape[0], size_W, size_C, op.shape[-1]))
-    if use_jax:
-        out = xnp.einsum(einsum_str, trs, rs['A'], rs['I'], rs['B'])
-    else:
-        out = xnp.einsum(einsum_str, trs, rs['A'], rs['I'], rs['B'], optimize=True)
+    out = _grouped_einsum(xnp, use_jax, einsum_str, trs, rs['A'], rs['I'], rs['B'])
     tail = (opA.shape[-1], opI.shape[-1], opB.shape[-1])
     return out.reshape((W_shape if keep_W else ()) + K_shape + C_shape + tail)
 
@@ -1839,7 +1759,7 @@ def _assemble_dU_eta(tWCa, tWKCo, n_probe, keep_W):
     size_W, size_K, size_C = math.prod(W_shape), math.prod(K_shape), math.prod(C_shape)
     tWCa  = tWCa.reshape((tWCa.shape[0], size_W, size_C) + a_shape)
     tWKCo = tWKCo.reshape((tWKCo.shape[0], size_W, size_K, size_C) + o_shape)
-    out = xnp.einsum('tWCa,tWKCo->WKCao' if keep_W else 'tWCa,tWKCo->KCao', tWCa, tWKCo)
+    out = _grouped_einsum(xnp, use_jax, 'tWCa,tWKCo->WKCao' if keep_W else 'tWCa,tWKCo->KCao', tWCa, tWKCo)
     return out.reshape((W_shape if keep_W else ()) + K_shape + C_shape + a_shape + o_shape)
 
 
@@ -1865,7 +1785,7 @@ def _assemble_dU_dxi(uWKCa, uWo, keep_W):
     size_W, size_KC = math.prod(W_shape), math.prod(KC_shape)
     uWKCa = uWKCa.reshape((uWKCa.shape[0], size_W, size_KC) + a_shape)
     uWo   = uWo.reshape((uWo.shape[0], size_W) + o_shape)
-    out = xnp.einsum('uWXa,uWo->WXao' if keep_W else 'uWXa,uWo->Xao', uWKCa, uWo)
+    out = _grouped_einsum(xnp, use_jax, 'uWXa,uWo->WXao' if keep_W else 'uWXa,uWo->Xao', uWKCa, uWo)
     return out.reshape((W_shape if keep_W else ()) + KC_shape + a_shape + o_shape)
 
 
