@@ -185,12 +185,68 @@ validation is essential and works off a gentle turnover for well-conditioned sou
    test confirms `newton_cg`/`mc_sgd`/`adam` compile + recover with jax inputs (no hidden numpy).
    `gradient_descent` stays eager (host Armijo loop). Tests: `tests/backend/test_optimizers.py`,
    `tests/test_optimizers_frontend.py` (9 tests, 17 subtests).
-5. **G3.5 — examples + docs (IN PROGRESS).** Re-point the inline-optimizer examples at the library
-   optimizers where it sharpens them (confirm they reproduce the inline results); keep the bridge examples
-   (scipy L-BFGS, optax) as integration demos. Refresh `geometry_refactor_plan.md` /
-   `entries_apply_probe.md`.
+5. **G3.5 — examples + docs (NEXT; example plan in §10, TENTATIVE).** Re-point examples at `topt.*` per the
+   §10 two-track plan (use-our-optimizers + keep-the-hidden-hooks build-your-own), keep the scipy/optax
+   bridges, refresh `geometry_refactor_plan.md` / `entries_apply_probe.md`. **Optional companion:** the §9
+   derivative `SamplingKind`s (no merge blocker — derivatives are already on the branch), which unblock
+   re-pointing the apply-derivatives example to `topt.mc_sgd`. Confirm §10 with Nick before executing.
 
-## 9. Open questions / deferred
+## 9. Supporting the derivative sampling ops (`*_derivatives`) — planned
+
+**No rearchitecture; no merge blocker.** The derivatives feature (`backend/probe_derivatives.py` + the
+frontend `{apply,probe,entries}_derivatives` methods/transposes) is **already merged to `main` and present
+on `geometry-refactor`** (the old "not merged" note was stale — verified against git ancestry 2026-06-20).
+And the `SamplingKind` bundle is *exactly* the seam the oracle needs: `LocalModel` computes
+`gradient`/`objective`/`hvp`/`gn_quadratic` generically from `kind.{precompute, forward, transpose, sumsq,
+w_axes}` + `point_forward`, so **the oracle and all four optimizers fit derivative data with zero changes**.
+
+The work is one new ingredient — **derivative `SamplingKind`s** (`DERIV_APPLY` / `DERIV_PROBE` /
+`DERIV_ENTRIES`) wrapping the existing derivative backend:
+- `forward` = the Riemannian derivative Jacobian (`*_tangent_derivatives`);
+- `transpose` = `*_tangent_derivatives_transpose`;
+- `sumsq` = over (order + `W` + free modes);   `precompute` = the derivative base sweep;
+- `point_forward` = the point's jet (`X.apply_derivatives(ww, pp, order)`).
+
+The **sample gets richer**: `(ww, pp, order)` instead of just `ww` (the kind unpacks it; the oracle treats
+it as opaque). A `derivative_least_squares_problem(geom, deriv_kind, ww, pp, order, data, s_vec)` factory
+(or an overload of `least_squares_problem`) plumbs it.
+
+**The one real design question — per-order normalization.** Carry the per-order RMS `s_vec` *inside the
+derivative kind* (its `forward`/`transpose`/`sumsq` divide/scale by it), mirroring the apply-derivative
+example's `apply_derivative_operator`. Pure data-preprocessing does NOT suffice — the operator's forward
+must be normalized too for the residual to be. So `s_vec` is part of the kind's parameterization (in the
+sample bundle, computed by the user from the data).
+
+Once the kinds exist, the apply-derivative example re-points to `topt.mc_sgd` (a real research use case),
+and corewise derivatives come along too (the §6.3 corewise transpose is in the merged feature).
+
+## 10. Example plan (PROPOSED with Nick 2026-06-20 — NOT locked)
+
+**Guiding principle (Nick's):** point examples at the library optimizers (`topt.*`) as much as possible,
+**subject to: every function/class currently illustrated in the examples stays in ≥1 example.** That
+constraint deliberately *forces a few "duplicate" examples*, because the library optimizers **hide** the
+hooks some examples teach. Three capabilities are illustrated only by inline loops today and must survive:
+
+| illustrated only inline today | by | hidden by |
+|---|---|---|
+| `model.gn_hessian` (Hessian-vector products) | apply Newton-CG | `topt.newton_cg` |
+| `model.gn_quadratic` (Cauchy denominator) | apply-derivatives MC-SGD | `topt.mc_sgd` |
+| `corewise_map` + native-tuple core update | probes hand-Adam | `topt.adam` |
+
+Proposed two-track set (the redundancy is the principle working, not waste):
+
+- **Use-our-optimizers (primary):** `apply → topt.newton_cg` (re-point); `probes → topt.adam` (re-point);
+  `apply-derivatives → topt.mc_sgd` (*after* §9's derivative kinds land).
+- **Build-your-own (keeps the hidden hooks illustrated):** ONE "roll your own Riemannian optimizer"
+  (inline Newton-CG / slim Cauchy-GN using `model.gradient`/`gn_hessian`/`gn_quadratic` + `geometry.retract`);
+  the **hand-Adam** stays as "roll your own corewise optimizer" (`corewise_map` + native tuples).
+- **Bridges (unchanged):** entries → scipy L-BFGS (`to_vector`/`from_vector`); probes → optax (pytree).
+
+**Open (decide at G3.5):** (a) build-your-own = one combined example or two (Riemannian + corewise);
+(b) whether re-pointed tables must *reproduce* the inline ones (library `newton_cg` is modeled on the inline
+one but not guaranteed bit-identical). **Tentative — confirm with Nick before executing G3.5.**
+
+## 11. Open questions / deferred
 
 - **Rank-continuation helper scope** — a library helper vs leave to the user/examples. Decide in G3.5
   once the optimizers exist.

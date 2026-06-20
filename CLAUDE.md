@@ -386,8 +386,11 @@ the backend functions those rely on. Treat everything else as copied-in-and-not-
   through **slice 8** (foundation, orthogonalization, linalg, sampling, ut3svd, jax-wiring/host-masks,
   constructors+IO) and **jit-wired** (pytree registered; host-numpy masks; `tests/test_dispatch.py`
   `test_jit_uniform`). Live status + remaining slices: `docs/uniform_slice_handoff.md`.
-- **Solid / tested — symmetric probing derivatives (branch `probe-derivatives`, NOT yet merged to
-  `main`; under review).** `d^t/ds^t` of the three sampling ops (`probe`/`apply`/`entries`) in one
+- **Solid / tested — symmetric probing derivatives (✅ MERGED to `main`; present on `geometry-refactor`).**
+  *(The `probe-derivatives` feature branch is merged — `backend/probe_derivatives.py` + the frontend
+  `{apply,probe,entries}_derivatives` methods/transposes are on `main` and inherited by `geometry-refactor`;
+  the old branch is now stale. Verified 2026-06-20 against git ancestry.)* `d^t/ds^t` of the three sampling
+  ops (`probe`/`apply`/`entries`) in one
   repeated direction `P`, via a Taylor-jet axis + the binomial tensor `trs[t,r,s]=C(t,r)[r+s=t]`. The
   **full grid** is built in `backend/probe_derivatives.py` **and the frontend** (`TuckerTensorTrain` /
   `T3Tangent` `{probe,apply,entries}_derivatives` + their transposes): **forward** (Euclidean
@@ -414,12 +417,14 @@ the backend functions those rely on. Treat everything else as copied-in-and-not-
 
 ## Open questions / TODO
 
-- **Symmetric probing derivatives — remaining (branch `probe-derivatives`; plan
-  `docs/derivatives_mirror_plan.md`).** The feature is **functionally complete**: apply/entries
-  derivatives, `K`-stacking, tangent + corewise transposes, and the full frontend are all done and
-  tested (see "Current state"). Remaining: (1) **doc refresh** — `entries_apply_probe.md` (stale §4
-  table + add the derivative dimension), `symmetric_probe_derivatives.tex` (add apply/entries + `K`);
-  (2) **review + merge to `main`**. **Deferred:** the **ambient** transpose (no use case, exponential-rank
+- **Symmetric probing derivatives — remaining (✅ merged to `main`; plan
+  `docs/derivatives_mirror_plan.md`).** The feature is **functionally complete and merged**: apply/entries
+  derivatives, `K`-stacking, tangent + corewise transposes, and the full frontend are all done, tested, and
+  on `main`/`geometry-refactor` (see "Current state"). Remaining: (1) **doc refresh** —
+  `entries_apply_probe.md` (stale §4 table + add the derivative dimension), `symmetric_probe_derivatives.tex`
+  (add apply/entries + `K`); (2) **wire `*_derivatives` into the G3 optimizers** (add derivative
+  `SamplingKind`s — `docs/optimizers_plan.md` §9; no merge blocker, the code is already on the branch).
+  **Deferred:** the **ambient** transpose (no use case, exponential-rank
   — `docs/ambient_derivative_transpose_note.md`); the project-once gather optimization. **Deferred
   nice-to-haves (Nick's call):** the **Hessian-conditioning experiment**
   (`docs/derivative_order_information_and_conditioning.md`). *(The derivative **fitting example** is
