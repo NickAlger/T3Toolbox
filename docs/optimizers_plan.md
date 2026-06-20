@@ -170,20 +170,25 @@ validation is essential and works off a gentle turnover for well-conditioned sou
 
 ## 8. Build plan (slices)
 
-1. **G3.1 — oracle + vector helpers + `gradient_descent`, end-to-end.** Define the `problem` oracle;
-   add `corewise_scale`/`corewise_zeros_like`; implement backend `gradient_descent` + the frontend adapter
-   (validate-once, build oracle from backend functions, wrap). Run one example end-to-end (eager). Locks
-   the stack and the oracle shape before the harder optimizers.
-2. **G3.2 — `mc_sgd` + `adam`.** The first-order/stochastic workhorses (Cauchy step; Adam moments;
-   minibatch via `sample_idx`; absolute-iteration stopping window). `use_jit` jits the per-step kernel.
-3. **G3.3 — `newton_cg` + `common.xwhile` + the jit `lax.while_loop` CG.** The complex one; introduce the
-   `xwhile` driver (numpy / eager-jax / jit); host Armijo line search; truncated-CG curvature guard for the
-   gauge-singular corewise `H`.
-4. **G3.4 — `use_jit` across all + jit tests.** Wire `use_jit` into the kernels; add `test_dispatch`
-   jit coverage (compile-once-per-shape; numpy path ignores the flag).
-5. **G3.5 — examples + docs.** Re-point the inline-optimizer examples at the library optimizers where it
-   sharpens them (confirm they reproduce the inline results); keep the bridge examples (scipy L-BFGS,
-   optax) as integration demos. Refresh `geometry_refactor_plan.md` / `entries_apply_probe.md`.
+1. **G3.1 — oracle + vector helpers + `gradient_descent`, end-to-end. ✅ DONE.** The `Problem` /
+   `LocalModel` / `GeometryOps` oracle (both geometries) + `corewise_zeros_like` + backend
+   `gradient_descent` (Cauchy + Armijo) + the frontend adapter. Backend oracle == `GaussNewtonModel`
+   bit-identical across both geometries × all three kinds.
+2. **G3.2 — `mc_sgd` + `adam`. ✅ DONE.** Minibatch on the oracle (kind-aware slicing + `n_samples`);
+   `mc_sgd` (Cauchy step + absolute-iteration stopping window); `adam` (moments via `corewise_map`,
+   cosine schedule). Both recover the tensor (backend + adapter).
+3. **G3.3 — `newton_cg` + `common.xwhile` + the jit `lax.while_loop` CG. ✅ DONE.** `xwhile` driver;
+   `_cg_solve` with a branch-free `xnp.where` curvature guard (truncated CG); host Armijo line search.
+   Recovers to <1e-4 eager and **2.9e-7 via the real `lax.while_loop` CG** with jax inputs.
+4. **G3.4 — `use_jit` across the first-order optimizers + jit tests. ✅ DONE.** `mc_sgd`/`adam` jit their
+   per-step kernel (`_maybe_jit`; silent eager fallback unless x0/sample/data are all jax); jit dispatch
+   test confirms `newton_cg`/`mc_sgd`/`adam` compile + recover with jax inputs (no hidden numpy).
+   `gradient_descent` stays eager (host Armijo loop). Tests: `tests/backend/test_optimizers.py`,
+   `tests/test_optimizers_frontend.py` (9 tests, 17 subtests).
+5. **G3.5 — examples + docs (IN PROGRESS).** Re-point the inline-optimizer examples at the library
+   optimizers where it sharpens them (confirm they reproduce the inline results); keep the bridge examples
+   (scipy L-BFGS, optax) as integration demos. Refresh `geometry_refactor_plan.md` /
+   `entries_apply_probe.md`.
 
 ## 9. Open questions / deferred
 

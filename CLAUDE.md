@@ -336,8 +336,20 @@ the backend functions those rely on. Treat everything else as copied-in-and-not-
   recompile). ORTH preconditions wired into the manifold projections/retraction; inner/norm moved to the
   geometries; minimal-rank settled (not a precondition). Docs: `docs/safe_unsafe_mode_plan.md`,
   `docs/numerical_contract_catalog.md`, `docs/geometry_refactor_plan.md`. Tests: `test_safety.py` +
-  the geometry/safe-mode cases in `test_manifold`/`test_fitting`/`test_dispatch`. **Remaining: G3 —
-  `optimizers.py`** (the Cauchy-SGD / Newton-CG loops this enables).
+  the geometry/safe-mode cases in `test_manifold`/`test_fitting`/`test_dispatch`.
+- **Solid / tested — the optimizers (G3, branch `geometry-refactor`).** **Backend-first** (the razor:
+  algorithms in `backend/optimizers.py`, check-free of numerical preconditions; `optimizers.py` is a thin
+  validate-once frontend adapter — so a raw-`.data` user runs the *same* code). The **problem oracle**
+  (`Problem`/`LocalModel`/`GeometryOps`; `least_squares_problem(geom, kind, sample, data)`) is the backend
+  twin of `GaussNewtonModel` (bit-identical, verified) built from `backend/fitting`+`probing`; geometry ops
+  for both `COREWISE`/`MANIFOLD`. Four optimizers: `gradient_descent` (Cauchy+Armijo), `mc_sgd` (Manifold
+  Cauchy SGD, absolute-iteration stop), `adam` (corewise, `corewise_map` moments), `newton_cg` (inexact
+  Riemannian, inner CG as `common.xwhile` = Python-while / `lax.while_loop`). **`use_jit`** (default False,
+  silent eager fallback) jits the per-step kernel / the CG loop — *not* a safe/unsafe concern (the backend
+  has no numerical checks); the numpy/jax **dispatch composes with jit for free** (trace-time → jnp).
+  L-BFGS stays the scipy-bridge *example*, not a library optimizer. Design: `docs/optimizers_plan.md`.
+  Tests: `tests/backend/test_optimizers.py` + `tests/test_optimizers_frontend.py` (oracle==frontend,
+  recovery, jit dispatch). **Remaining: G3.5 — wire examples through the library optimizers + doc refresh.**
 - **Probing + K-stacking (`backend/probing.py`, `manifold.py`)** — done through **slice 5c**; the
   blow-by-blow is in git history, and `docs/probing_section6_notes.md` maps Section 6 of the paper
   (the Riemannian Jacobian) to the code. Delivered: forward/transpose probe
