@@ -231,17 +231,29 @@ inline example is **left unchanged** (refactoring/re-pointing examples is out of
 
 ## 11. Build slices
 
-1. **D1 — backend split.** `precompute_base_sweep_jets` (+ entries) + the six `*_from_sweep`
-   forward/transpose wrappers; reimplement the public monolithic functions as wrappers; verify identical +
-   re-run derivative tests.
-2. **D2 — derivative kinds + layout-agnostic oracle.** `{apply,entries,probe}_derivatives_kind(order,
-   weight)` (incl. `ω` weighting + the default-draw layout helpers); refactor `Problem`
-   (point_forward-on-kind, explicit-sample `local_model`, remove name dispatch); `flat_draw` + the `draw`
-   plumbing in `mc_sgd`/`adam`. Verify backend oracle == a hand-built derivative GN gradient.
-3. **D3 — frontend.** `fitting.py` derivative model factories (+ doctests); `optimizers.py` adapter for
-   the derivative kinds.
+1. **D1 — backend split. ✅ DONE.** Per-kind base-sweep precompute (apply/entries lean `(xi,mu)`, probe
+   full) + the `*_from_sweep` forward/transpose wrappers; the public monolithic functions are thin
+   wrappers; verified identical + tests.
+2. **D2 — derivative kinds + layout-agnostic oracle. ✅ DONE.** `{apply,entries,probe}_derivatives_kind(
+   order, weight)` in `backend/fitting.py` (the `ω` residual weight in `sumsq`/`transpose`; `point_forward`
+   + the default-draw `n_measurements`/`take` on the kind). `Problem` is now **layout-agnostic**:
+   `point_forward` moved onto the kind, `local_model`/`objective` take an explicit minibatch `(sample,
+   data)`, the `kind.name == 'entries'` slicing dispatch is gone. `flat_draw(problem, batch)` builds the
+   default draw; `mc_sgd`/`adam` take an optional `draw=None` and feed `(sample_B, data_B)` to the jitted
+   step. **No separate `derivative_least_squares_problem` factory** — `least_squares_problem(geom, kind,
+   sample, data)` is fully generic now (the kind carries everything). Verified: corewise gradient ==
+   `jax.grad` and a finite difference of `½‖ω⊙r‖²`; `gn_quadratic == pᵀHp`; the flat draw flattens a
+   multi-axis `W`; `mc_sgd` recovers. Tests: `tests/backend/test_optimizers.py::test_derivative_kinds`.
+3. **D3 — frontend (NEXT).** `fitting.py` derivative model factories (`{apply,entries,probe}_derivatives_
+   model`, + doctests); `optimizers.py` adapter for the derivative kinds (order/weight + the `(ww,pp)`
+   sample + the optional `draw`).
 4. **D4 — pilot + tests.** The pilot example; oracle==frontend, weighting, recovery, jit-dispatch tests;
    full suite green.
+
+   *(Detours this session, all committed: the `_grouped_einsum` BLAS-path fix in `contractions.py`
+   (11–19× on the derivative forward/transpose); the low-memory K-aware adjoint-state regular apply/
+   entries transpose + a latent `rR_d≠1` seed bugfix. None change the D-plan; they speed/repair the
+   foundation it sits on.)*
 
 ## 12. Deferred (explicitly NOT in this plan)
 

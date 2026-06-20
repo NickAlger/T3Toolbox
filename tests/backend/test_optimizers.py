@@ -12,6 +12,7 @@ import t3toolbox.manifold as t3m
 import t3toolbox.fitting as fitting
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.optimizers as opt
+import t3toolbox.backend.probe_derivatives as pd
 import t3toolbox.corewise as cw
 
 SHAPE, TUCKER, TT = (8, 8, 8), (3, 3, 3), (1, 3, 3, 1)
@@ -128,6 +129,53 @@ class TestBackendOptimizers(unittest.TestCase):
             pc = opt.least_squares_problem(opt.COREWISE, bfit.PROBE, ww, data)
             xc, _ = opt.adam(pc, x0, np.random.default_rng(3), batch=40, lr=2e-2, max_iter=600)
             self.assertLess(true_err(xc), 0.3 * e0)
+
+    def test_derivative_kinds(self):
+        """The derivative SamplingKinds (apply/entries/probe, per-order weight ω) feed the SAME generic
+        Problem/optimizers. Check: (1) the corewise gradient matches a finite difference of the ω-weighted
+        objective; (2) the default flat draw flattens a multi-axis W and builds a minibatch local model;
+        (3) mc_sgd recovers from a zero start."""
+        rng = np.random.default_rng(0)
+        order, NP, NX = 2, 4, 3
+        omega = np.array([1.0, 0.5, 0.3])
+        Xtrue = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
+        X0 = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
+        ww = [rng.standard_normal((NP, NX, N)) for N in SHAPE]
+        pp = [rng.standard_normal((NP, NX, N)) for N in SHAPE]
+        index = np.stack([rng.integers(0, N, size=(NP, NX)) for N in SHAPE], axis=0)
+        cases = {
+            'apply':   (bfit.apply_derivatives_kind(order, omega), (ww, pp),
+                        np.asarray(pd.apply_derivatives_t3(ww, pp, Xtrue.data, order))),
+            'entries': (bfit.entries_derivatives_kind(order, omega), (index, pp),
+                        np.asarray(pd.entries_derivatives_t3(index, pp, Xtrue.data, order))),
+            'probe':   (bfit.probe_derivatives_kind(order, omega), (ww, pp),
+                        [np.asarray(z) for z in pd.probe_derivatives_t3(ww, pp, Xtrue.data, order)]),
+        }
+        for name, (kind, sample, data) in cases.items():
+            with self.subTest(kind=name):
+                prob = opt.least_squares_problem(opt.COREWISE, kind, sample, data)
+                gU, gG = prob.local_model(X0.data).gradient
+                dU = [rng.standard_normal(u.shape) for u in X0.tucker_cores]
+                dG = [rng.standard_normal(g.shape) for g in X0.tt_cores]
+                inner = (sum(float(np.sum(np.asarray(gU[i]) * dU[i])) for i in range(len(dU)))
+                         + sum(float(np.sum(np.asarray(gG[i]) * dG[i])) for i in range(len(dG))))
+                eps = 1e-6
+                plus = (tuple(u + eps * du for u, du in zip(X0.tucker_cores, dU)),
+                        tuple(g + eps * dg for g, dg in zip(X0.tt_cores, dG)))
+                minus = (tuple(u - eps * du for u, du in zip(X0.tucker_cores, dU)),
+                         tuple(g - eps * dg for g, dg in zip(X0.tt_cores, dG)))
+                fd = (float(prob.objective(plus)) - float(prob.objective(minus))) / (2 * eps)
+                self.assertLess(abs(inner - fd) / max(abs(fd), 1e-30), 1e-5)
+                # default flat draw: a multi-axis W=(NP,NX) flattens to NP*NX; minibatch local model builds
+                self.assertEqual(kind.n_measurements(sample), NP * NX)
+                sB, dB = opt.flat_draw(prob, batch=5)(rng)
+                self.assertTrue(np.isfinite(float(prob.local_model(X0.data, sB, dB).objective)))
+        # recovery: mc_sgd (manifold) from a zero start, with the apply-derivatives kind + flat default
+        prob_m = opt.least_squares_problem(opt.MANIFOLD, bfit.apply_derivatives_kind(order, omega), (ww, pp),
+                                           np.asarray(pd.apply_derivatives_t3(ww, pp, Xtrue.data, order)))
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
+        _, stats = opt.mc_sgd(prob_m, x0, np.random.default_rng(1), batch=6, max_iter=400)
+        self.assertLess(stats['losses'][-1], 0.1 * stats['losses'][0])
 
     def test_newton_cg_recovers_to_high_accuracy(self):
         """Manifold Newton-CG (2nd-order) recovers an exact low-rank target to high accuracy from a zero

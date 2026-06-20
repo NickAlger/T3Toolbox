@@ -26,10 +26,6 @@ import math
 import typing as typ
 
 from t3toolbox.backend.common import *
-from t3toolbox.backend import probing
-from t3toolbox.backend import fitting as bfit
-from t3toolbox.backend import apply as bapply
-from t3toolbox.backend import entries as bentries
 from t3toolbox.backend import tangent_operations as tops
 from t3toolbox.backend.orthogonal_representations import orthogonal_representations
 import t3toolbox.corewise as cw
@@ -41,6 +37,7 @@ __all__ = [
     'Problem',
     'LocalModel',
     'least_squares_problem',
+    'flat_draw',
     'gradient_descent',
     'mc_sgd',
     'adam',
@@ -125,69 +122,63 @@ class LocalModel:
         return self.geom.retract(self.base, p)
 
 
-def _slice_sample(kind_name, sample, idx):       # the sample-stack axis differs by kind
-    if kind_name == 'entries':
-        return sample[:, idx]                    # index (d, M) -> (d, |idx|)
-    return [w[idx] for w in sample]              # ww list, each (M, Ni) -> (|idx|, Ni)
-
-
-def _slice_data(kind_name, data, idx):
-    if kind_name == 'probe':
-        return [d[idx] for d in data]            # list of (M, Ni)
-    return data[idx]                             # array (M,)
-
-
 @dc.dataclass(frozen=True)
 class Problem:
-    """A fixed-rank least-squares fitting problem: ``min_x ½‖S(x) - data‖²`` for a sampling op ``S``,
-    on the geometry ``geom``. ``local_model(x_cores, sample_idx)`` linearizes it at a point (``sample_idx``
-    selects a minibatch over the sample stack; ``None`` is the full batch)."""
-    geom:          GeometryOps
-    kind:          typ.Any       # backend fitting.SamplingKind
-    sample:        typ.Any       # ww (apply/probe) or index (entries)
-    data:          typ.Any       # observed S(x_true) (+ noise); same structure as point_forward's output
-    point_forward: typ.Callable  # (x_cores, sample) -> S(x)   (the POINT sampling, for the residual)
+    """A fixed-rank least-squares fitting problem ``min_x ½‖S(x) - data‖²`` for a sampling op ``S`` on
+    geometry ``geom``. **Layout-agnostic**: it holds the operator (``kind``), the geometry, and the FULL
+    ``(sample, data)``. ``local_model`` / ``objective`` linearize / evaluate at a point on the full data,
+    or on an explicitly-passed minibatch ``(sample, data)`` (e.g. from a ``draw``). The ``Problem`` itself
+    owns **no** minibatch-layout logic -- where the sample stack ``W`` lives, how to slice it -- that is
+    the ``kind``'s (``kind.take`` for the default flat draw) or the user's ``draw``."""
+    geom:   GeometryOps
+    kind:   typ.Any       # backend fitting.SamplingKind
+    sample: typ.Any       # the FULL sample (ww / index / (ww,pp) / (index,pp))
+    data:   typ.Any       # the FULL observed data S(x_true) (+ noise)
 
-    @property
-    def n_samples(self) -> int:                  # size of the sample stack (for minibatch draws)
-        return int(self.sample.shape[1] if self.kind.name == 'entries' else self.sample[0].shape[0])
-
-    def _sample_data(self, sample_idx):
-        if sample_idx is None:
-            return self.sample, self.data
-        return (_slice_sample(self.kind.name, self.sample, sample_idx),
-                _slice_data(self.kind.name, self.data, sample_idx))
-
-    def local_model(self, x_cores: Tangent, sample_idx=None) -> LocalModel:
-        sample, data = self._sample_data(sample_idx)
+    def local_model(self, x_cores: Tangent, sample=None, data=None) -> LocalModel:
+        """Linearize at ``x_cores`` on the full data (``sample=None``) or an explicit minibatch."""
+        if sample is None:
+            sample, data = self.sample, self.data
         base = self.geom.base(x_cores)
         sweep = self.kind.precompute(base, sample)
-        residual = cw.corewise_sub(self.point_forward(x_cores, sample), data)
+        residual = cw.corewise_sub(self.kind.point_forward(x_cores, sample), data)
         return LocalModel(self.geom, self.kind, sample, base, sweep, residual, self.kind.w_axes(sample))
 
-    def objective(self, x_cores: Tangent, sample_idx=None):  # ½‖S(x)-data‖²; no sweep (cheap; for line search / loss)
-        sample, data = self._sample_data(sample_idx)
-        residual = cw.corewise_sub(self.point_forward(x_cores, sample), data)
+    def objective(self, x_cores: Tangent, sample=None, data=None):
+        """``½‖S(x)-data‖²`` on the full data (``sample=None``) or an explicit minibatch; no base sweep
+        (cheap -- for the line search / the full-batch stop signal)."""
+        if sample is None:
+            sample, data = self.sample, self.data
+        residual = cw.corewise_sub(self.kind.point_forward(x_cores, sample), data)
         return 0.5 * self.kind.sumsq(residual, self.kind.w_axes(sample))
-
-
-# the POINT sampling S(x) per kind (for the residual r = S(x) - data); the kind's own forward is the TANGENT 𝒥
-_POINT_FORWARD = {
-    'apply':   lambda x_cores, ww:    bapply.tucker_tensor_train_apply(x_cores, ww),
-    'entries': lambda x_cores, index: bentries.tucker_tensor_train_entries(x_cores, index),
-    'probe':   lambda x_cores, ww:    probing.probe_t3(ww, x_cores),
-}
 
 
 def least_squares_problem(
         geom:   GeometryOps,   # COREWISE / MANIFOLD
-        kind:   typ.Any,       # backend fitting.APPLY / ENTRIES / PROBE
-        sample: typ.Any,       # ww or index
+        kind:   typ.Any,       # backend fitting.{APPLY,ENTRIES,PROBE} or a derivative kind
+        sample: typ.Any,       # ww / index / (ww,pp) / (index,pp)
         data:   typ.Any,       # observed values
 ) -> Problem:
-    """Assemble a least-squares ``Problem`` from a geometry, a sampling kind, the sample vectors, and the
-    observed data. (The frontend adapter calls this with the same backend objects a raw-data user would.)"""
-    return Problem(geom, kind, sample, data, _POINT_FORWARD[kind.name])
+    """Assemble a least-squares ``Problem`` from a geometry, a sampling kind, the sample, and the observed
+    data. (The frontend adapter calls this with the same backend objects a raw-data user would.)"""
+    return Problem(geom, kind, sample, data)
+
+
+def flat_draw(
+        problem: Problem,
+        batch:   int,        # measurements per minibatch
+) -> typ.Callable:           # draw(rng) -> (sample_B, data_B)
+    """The **default** minibatch draw: a uniform random subset of ``batch`` measurements across the whole
+    (flattened) sample stack ``W`` -- the robust default. Returns a ``draw(rng) -> (sample_B, data_B)``
+    over ``problem``'s full data, via the kind's ``take``. A user may pass **any** ``draw`` instead (slice
+    X / P / order, importance-sample, ...). Host numpy by default; pass jax data + a jax draw to keep the
+    minibatch on device (the optimizer never compiles the draw -- only the per-step kernel)."""
+    n = problem.kind.n_measurements(problem.sample)
+
+    def draw(rng):
+        idx = rng.choice(n, size=min(batch, n), replace=False)
+        return problem.kind.take(problem.sample, problem.data, idx)
+    return draw
 
 
 # --------------------------------------------------------------------------------------------------
@@ -244,8 +235,9 @@ def gradient_descent(
 def mc_sgd(
         problem:     Problem,    # the fixed-rank least-squares problem
         x0:          Tangent,    # initial cores (U, G)
-        rng,                     # np.random.Generator -- for the minibatch draws
-        batch:       int,        # samples per minibatch
+        rng,                     # np.random.Generator -- passed to the draw each step
+        batch:       int,        # measurements per minibatch (for the default flat draw; ignored if draw given)
+        draw:        typ.Optional[typ.Callable] = None,  # custom draw(rng)->(sample_B,data_B); None = flat default
         max_iter:    int   = 3000,
         check_every: int   = 25,   # iterations between full-batch loss checks (the absolute-iteration window)
         smooth_tau:  float = 2.0,  # EMA timescale of the loss check, in checks
@@ -259,11 +251,11 @@ def mc_sgd(
     check_every`` iterations) -- decoupled from batch size (the epoch-based window made small batches
     fragile; see docs/mcsgd_apply_derivatives.md). ``use_jit`` jits the per-step kernel (the host loop
     draws minibatches; the full-batch stop check stays on the host)."""
-    n = problem.n_samples
+    draw = draw if draw is not None else flat_draw(problem, batch)
     a_smooth = 1.0 - math.exp(-1.0 / smooth_tau)
 
-    def step(cores, idx):                                   # the jit-able per-step kernel
-        lm = problem.local_model(cores, idx)
+    def step(cores, sample_B, data_B):                      # the jit-able per-step kernel
+        lm = problem.local_model(cores, sample_B, data_B)
         g = lm.gradient
         gg = cw.corewise_dot(g, g)
         xnp, _, _ = get_backend(False, tree_contains_jax(g))
@@ -276,8 +268,7 @@ def mc_sgd(
     n_iter = 0
     for k in range(max_iter):
         n_iter = k + 1
-        idx = rng.choice(n, size=min(batch, n), replace=False)
-        x = step(x, idx)
+        x = step(x, *draw(rng))
         if n_iter % check_every == 0:                       # full-batch loss check (the stop signal, host)
             L = float(problem.objective(x))
             s = L if not s_hist else a_smooth * L + (1.0 - a_smooth) * s_hist[-1]
@@ -290,8 +281,9 @@ def mc_sgd(
 def adam(
         problem:  Problem,    # the fixed-rank least-squares problem
         x0:       Tangent,    # initial cores (U, G)
-        rng,                  # np.random.Generator -- for the minibatch draws
-        batch:    int,        # samples per minibatch
+        rng,                  # np.random.Generator -- passed to the draw each step
+        batch:    int,        # measurements per minibatch (for the default flat draw; ignored if draw given)
+        draw:     typ.Optional[typ.Callable] = None,  # custom draw(rng)->(sample_B,data_B); None = flat default
         lr:       float = 1e-2,
         max_iter: int   = 2000,
         betas:    typ.Tuple[float, float] = (0.9, 0.999),
@@ -306,8 +298,8 @@ def adam(
     per-step kernel (``lr_t``/``t`` flow in as traced args, so the schedule does not force a recompile)."""
     b1, b2 = betas
 
-    def step(cores, m, v, idx, lr_t, t):                   # the jit-able per-step kernel
-        lm = problem.local_model(cores, idx)
+    def step(cores, m, v, sample_B, data_B, lr_t, t):      # the jit-able per-step kernel
+        lm = problem.local_model(cores, sample_B, data_B)
         g = lm.gradient
         m = cw.corewise_map(lambda mi, gi: b1 * mi + (1.0 - b1) * gi, m, g)
         v = cw.corewise_map(lambda vi, gi: b2 * vi + (1.0 - b2) * gi * gi, v, g)
@@ -317,15 +309,15 @@ def adam(
         return lm.retract(cw.corewise_scale(update, -1.0)), m, v
     step = _maybe_jit(step, use_jit, x0, problem)
 
-    n = problem.n_samples
+    draw = draw if draw is not None else flat_draw(problem, batch)
     cores = x0
     m = cw.corewise_zeros_like(cores)
     v = cw.corewise_zeros_like(cores)
     losses = []
     for k in range(max_iter):
-        idx = rng.choice(n, size=min(batch, n), replace=False)
+        sample_B, data_B = draw(rng)
         lr_t = lr * (0.5 * (1.0 + math.cos(math.pi * k / max_iter)) if cosine else 1.0)
-        cores, m, v = step(cores, m, v, idx, lr_t, k + 1)
+        cores, m, v = step(cores, m, v, sample_B, data_B, lr_t, k + 1)
         if (k + 1) % 50 == 0:
             losses.append(float(problem.objective(cores)))
     return cores, {'losses': losses, 'n_iter': max_iter}
