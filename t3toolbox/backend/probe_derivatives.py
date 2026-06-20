@@ -351,20 +351,20 @@ def assemble_z_jets(
 ####    Base sweep (the reusable, variation-free jets)     ####
 ###############################################################
 #
-# The jet-ified twin of probing.precompute_base_sweep: the base edge-variable jets depend ONLY on the
-# base frame + the sample vectors (ww/pp or index/pp) + order -- NOT on the tangent direction or the
-# residual. They are the expensive W-scaled part of every derivative Jacobian, shared by the forward
-# (*_jacobian_derivatives_from_sweep) and the transpose (*_transpose_derivatives_from_sweep). A fitting
-# inner solve precomputes them ONCE per base (the SamplingKind.precompute hook) and reuses them across
-# every J / J^T -- exactly as plain probing does.
+# The jet-ified twin of probing.precompute_{apply,probe}_base_sweep: the base edge-variable jets depend
+# ONLY on the base frame + the sample vectors (ww/pp or index/pp) + order -- NOT on the tangent direction
+# or the residual. They are the expensive W-scaled part of every derivative Jacobian, shared by the
+# forward (*_jacobian_derivatives_from_sweep) and the transpose (*_transpose_derivatives_from_sweep). A
+# fitting inner solve precomputes them ONCE per base (the SamplingKind.precompute hook) and reuses them
+# across every J / J^T -- exactly as plain probing does.
 #
-# *** Per-kind, NOT shared (unlike plain probing). *** apply / entries are the all-modes special case:
-# both their forward AND their adjoint-state transpose collapse to a single left pass, so they need ONLY
-# the (xi, mu) jets -- the right (nu) and central (eta) sweeps never enter the Lagrangian. Only the
-# *probe* derivative (one free mode) uses all four. So apply/entries get a LEAN (xi, mu) precompute,
-# probe gets the full (xi, mu, nu, eta) -- a real saving (this precompute runs per step in MC-SGD). (In
-# plain probing the apply transpose DOES use nu/eta -- a fuller, non-adjoint-state assembly -- so it
-# shares precompute_base_sweep with probe; the derivative apply transpose is leaner, hence the split.)
+# *** Per-kind, NOT shared. *** apply / entries are the all-modes special case: both their forward AND
+# their adjoint-state transpose collapse to a single left pass, so they need ONLY the (xi, mu) jets --
+# the right (nu) and central (eta) sweeps never enter the Lagrangian. Only the *probe* derivative (one
+# free mode) uses all four. So apply/entries get a LEAN (xi, mu) precompute, probe gets the full
+# (xi, mu, nu, eta) -- a real saving (this precompute runs per step in MC-SGD). Plain probing now does
+# exactly the same split (probing.precompute_apply_base_sweep / _probe_base_sweep, adjoint-state apply
+# transpose) -- the regular and derivative apply/entries transposes are the same algorithm, order apart.
 
 
 def _apply_base_sweep_jets_from_xi(
@@ -467,7 +467,7 @@ def precompute_probe_base_sweep_jets(
     typ.Sequence[NDArray],  # eta_jets. len=d, elm_shape=(order+1,)+W+C+(nOi,)
 ]:                                              # full base sweep -- (xi, mu, nu, eta)
     '''The **probe**-derivative base sweep (full): the jet-ified twin of
-    :py:func:`t3toolbox.backend.probing.precompute_base_sweep`. The probe leaves one mode free, so it
+    :py:func:`t3toolbox.backend.probing.precompute_probe_base_sweep`. The probe leaves one mode free, so it
     needs all four base edge-variable jets ``(xi, mu, nu, eta)`` (the right ``nu`` sweep + central
     ``eta`` combine). Reused across the forward / transpose of an inner solve.'''
     up_tucker_cores = base[0]
@@ -1210,7 +1210,10 @@ def compute_sigma_hat_jets(
 
     rev_Q = ragged_ops.reverse_tt(right_tt_cores)
     rev_xi = xi_jets[::-1]
-    seed = c[..., None]                        # c on the terminal bond rR_d=1 -> (order+1)+W+K+C+(1,)
+    # The forward sums the terminal bond (rR_d, not necessarily 1 -- e.g. the corewise base's own
+    # cores), so the adjoint BROADCASTS c over it: seed -> (order+1)+W+K+C+(rR_d,).
+    rR_d = right_tt_cores[-1].shape[-1]
+    seed = xnp.broadcast_to(c[..., None], tuple(c.shape) + (rR_d,))
 
     def _step(carry, data):
         Q, xi = data

@@ -3019,6 +3019,36 @@ class TestTuckerTensorTrain(unittest.TestCase):
         with self.assertRaises(ValueError):
             x.entries_derivatives(index, pp_bad, ORDER)
 
+    def test_corewise_derivative_transpose_nontrivial_boundary(self):
+        # Regression: the adjoint-state apply/entries (derivative) transpose seeds the reverse sigma_hat
+        # sweep at the terminal bond, which the corewise (U,G,G,G) substitution makes != 1 (the forward
+        # SUMS that bond), so the seed must broadcast c over rR_d. (Probe is unaffected -- no scalar seed.)
+        np.random.seed(0)
+        shapes = (6, 7, 8); ORDER = 2; W = (2,); d = len(shapes); eps = 1e-6
+        x = t3.TuckerTensorTrain.randn(shapes, (3, 4, 3), (1, 3, 2, 3))   # rR_d = 3, not 1
+        ww = [np.random.randn(*(W + (N,))) for N in shapes]
+        pp = [np.random.randn(*(W + (N,))) for N in shapes]
+        index = np.stack([np.random.randint(0, N, size=W) for N in shapes], axis=0)
+        cases = [
+            ('apply', lambda rr: x.apply_corewise_derivatives_transpose(rr, ww, pp, ORDER, sum_over_probes=True),
+                      lambda data: probe_derivatives.apply_derivatives_t3(ww, pp, data, ORDER)),
+            ('entries', lambda rr: x.entries_corewise_derivatives_transpose(rr, index, pp, ORDER, sum_over_probes=True),
+                        lambda data: probe_derivatives.entries_derivatives_t3(index, pp, data, ORDER)),
+        ]
+        for name, transpose, forward in cases:
+            with self.subTest(op=name):
+                r = np.random.randn(*np.asarray(forward(x.data)).shape)
+                gU, gG = transpose(r)
+                dU = [np.random.randn(*B.shape) for B in x.tucker_cores]
+                dG = [np.random.randn(*G.shape) for G in x.tt_cores]
+                inner = (sum(np.sum(np.asarray(gU[i]) * dU[i]) for i in range(d))
+                         + sum(np.sum(np.asarray(gG[i]) * dG[i]) for i in range(d)))
+                dot = lambda data: float(np.sum(r * np.asarray(forward(data))))
+                plus = ([B + eps * du for B, du in zip(x.tucker_cores, dU)], [G + eps * dg for G, dg in zip(x.tt_cores, dG)])
+                minus = ([B - eps * du for B, du in zip(x.tucker_cores, dU)], [G - eps * dg for G, dg in zip(x.tt_cores, dG)])
+                fd = (dot(plus) - dot(minus)) / (2 * eps)
+                self.assertLessEqual(abs(inner - fd) / max(abs(fd), 1e-30), 1e-5)
+
 
 if __name__ == '__main__':
     unittest.main()
