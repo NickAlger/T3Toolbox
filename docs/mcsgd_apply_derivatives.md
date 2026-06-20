@@ -16,6 +16,9 @@ the forward-looking design notes are in [`geometry_refactor_plan.md`](geometry_r
 - The **core optimizer is robust**; the finickiness we hit is entirely in the **auxiliary heuristics**
   — minibatch size and the stopping criterion — and is **most likely a small-scale artifact** of the toy
   problem (`N_X = 10` base points). Unproven at scale → future research.
+- **Flat `(X, P)`-pair minibatching is far more robust** than the original X-only scheme at this scale: it
+  stays near the noise floor across seeds where X-only intermittently fails badly (§3, added 2026-06-19).
+  Likely the better default for the library MC-SGD.
 
 ## 1. What MC-SGD is (T4S §5.3.2)
 
@@ -129,6 +132,44 @@ The bounce is in the true loss (not minibatch noise), so smoothing can't suppres
 **faster per epoch** than batch=2. The failure is purely in the **stopping rule**, because the lag is tied
 to `n_x/n_x_batch` (epoch size) rather than absolute iterations.
 
+### Flat `(X, P)`-pair minibatches are far more robust than X-only (at this scale)
+
+A natural question — the nested-data minibatch policy (§4) — is whether to keep base points whole. The
+reference example draws a few base points `X` with *all* their directions `P`; the alternative is to view
+the data as a flat list of `N_P · N_X` individual `(X, P)` **pairs** and draw a minibatch of those **at
+random**, mixing freely across base points. Hypothesis (Nick's): the extra mixing decorrelates the
+per-sample contributions and lowers the stochastic-gradient variance. The variant lives in
+[`examples/fit_hilbert_from_apply_derivatives_flat.py`](../examples/fit_hilbert_from_apply_derivatives_flat.py)
+— identical problem and optimizer, only the minibatch draw changes; `apply_derivative_operator` is reused
+**verbatim** (it already treats the sample stack `W` as arbitrary leading axes, so flattening
+`(N_P, N_X) → (N_P·N_X,)` is a pure reshape that "just works"). We **match the per-step sample count**
+(60 pairs = the X-only example's 2 base points × 30 directions), so the epoch length is identical and the
+*only* difference is the minibatch composition.
+
+**It is not a marginal win — it fixes the robustness.** Five seeds, validation-picked rank, true relative
+error (noise floor 1e-2):
+
+| seed | flat `(X,P)` pairs | X-only |
+|---|---|---|
+| 0 | 6.99e-03 | 1.21e-02 |
+| 1 | 8.66e-03 | 2.04e-02 |
+| 2 | 1.97e-02 | **7.52e-01** ⚠ |
+| 3 | 1.09e-02 | 1.09e-02 |
+| 4 | 1.12e-02 | **1.34e-01** ⚠ |
+
+Flat batching sits near the noise floor on **all five** seeds (worst 1.97e-2); X-only is fine on three but
+**fails badly on two** (seed 2 ≈ no fit, seed 4 = bad underfit) — the same early-stop / noisy-gradient
+failure modes diagnosed above as the small-`N_X` finickiness. Mechanism: a 60-pair flat minibatch spreads
+across ~all 10 base points (each contributing a random subset of its directions), so no step is hostage to
+the 2 base points that happened to be drawn; the X-only scheme hands the whole gradient to 2 base points
+per step, so its Cauchy curvature estimate **and** its stopping signal both wobble. Flat was occasionally
+slower (seed 2: 82 s vs 48 s) — but because it kept productively iterating rather than stopping early at a
+bad point.
+
+**Caveat (as everywhere here): `N_X = 10`, 5 seeds — suggestive, not conclusive.** But it points the same
+way as the rest of the small-scale story: the finickiness is base-point-clustering variance, and mixing
+across base points removes it.
+
 ## 4. Open questions / future work
 
 - **Robustness at scale (the central unknown — future research).** Both finicky behaviours trace directly
@@ -145,14 +186,18 @@ to `n_x/n_x_batch` (epoch size) rather than absolute iterations.
 - **Derivative `GaussNewtonModel`.** An `apply_derivatives_model` (and entries/probe variants) in
   `fitting.py` would let the optimizer use `model.gradient` / `model.gn_quadratic` instead of inline
   closures — and `apply` / `entries` / `probe` would get MC-SGD for free.
-- **Minibatch policy for nested data.** We minibatched over `X` only (all `P` per `X`). Whether to ever
-  minibatch over `P` (or over flat `(X, P)` pairs) is an open question; X-only matched the cost model and
-  worked here.
+- **Minibatch policy for nested data — flat pairs win (here).** X-only (all `P` per `X`) matched the cost
+  model, but flattening to random `(X, P)` pairs is **substantially more robust** at this scale (§3, the
+  5-seed table) and is the recommended default for the library MC-SGD. Still open **at scale**: whether the
+  gap persists when `N_X` is large (X-only's clustering variance should shrink on its own), and whether any
+  regime wants whole-base-point jets kept together (e.g. correlated per-base-point noise).
 
 ## 5. Pointers
 
 - Optimizer + example: [`examples/fit_hilbert_from_apply_derivatives.py`](../examples/fit_hilbert_from_apply_derivatives.py)
   (`manifold_cauchy_sgd`).
+- Flat `(X, P)`-pair batching variant (the §3 robustness experiment):
+  [`examples/fit_hilbert_from_apply_derivatives_flat.py`](../examples/fit_hilbert_from_apply_derivatives_flat.py).
 - Method reference: **T4S paper, Section 5.3.2 "Manifold Cauchy SGD"** (eqs. 26–27); rank continuation
   Section 5.4; the Cauchy step's GN-quadratic identity in the same section.
 - G3 design notes / open items: [`geometry_refactor_plan.md`](geometry_refactor_plan.md) §8.
