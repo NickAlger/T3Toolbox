@@ -13,6 +13,7 @@ __all__ = [
     'corewise_sub',
     'corewise_scale',
     'corewise_zeros_like',
+    'corewise_map',
     'corewise_stack_scale',
     'corewise_neg',
     'corewise_sum',
@@ -114,6 +115,28 @@ def corewise_zeros_like(
     (array([0., 0., 0.]), (0.0, (), array([0., 0.])))
     '''
     return corewise_scale(X, 0)
+
+
+def corewise_map(
+        f,                  # callable applied to matching leaves: f(leaf_X0, leaf_X1, ...) -> leaf
+        *Xs:  NDArrayTree,  # one or more identically-structured trees
+) -> NDArrayTree:           # tree of f-results, same structure as the inputs
+    '''Apply ``f`` elementwise over the leaves of one or more identically-structured trees (the general
+    tree map the corewise ops are special cases of; used e.g. for an Adam moment update over the cores).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.corewise as cw
+    >>> X = (np.ones(2), (3.0,))
+    >>> print(cw.corewise_map(lambda x: x + 1, X))
+    (array([2., 2.]), (4.0,))
+    >>> print(cw.corewise_map(lambda a, b: a * b, X, X))
+    (array([1., 1.]), (9.0,))
+    '''
+    if isinstance(Xs[0], list) or isinstance(Xs[0], tuple):
+        return tuple([corewise_map(f, *xs) for xs in zip(*Xs)])
+    return f(*Xs)
 
 
 def corewise_neg(X: NDArrayTree) -> NDArrayTree:

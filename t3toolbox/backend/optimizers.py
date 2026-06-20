@@ -22,6 +22,7 @@ The oracle:
 Tangent vectors are raw ``(tucker_var, tt_var)`` tuples; vector arithmetic is the ``corewise`` ops.
 """
 import dataclasses as dc
+import math
 import typing as typ
 
 from t3toolbox.backend.common import *
@@ -41,6 +42,8 @@ __all__ = [
     'LocalModel',
     'least_squares_problem',
     'gradient_descent',
+    'mc_sgd',
+    'adam',
 ]
 
 Tangent = typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]   # (tucker_variations, tt_variations)
@@ -121,25 +124,50 @@ class LocalModel:
         return self.geom.retract(self.base, p)
 
 
+def _slice_sample(kind_name, sample, idx):       # the sample-stack axis differs by kind
+    if kind_name == 'entries':
+        return sample[:, idx]                    # index (d, M) -> (d, |idx|)
+    return [w[idx] for w in sample]              # ww list, each (M, Ni) -> (|idx|, Ni)
+
+
+def _slice_data(kind_name, data, idx):
+    if kind_name == 'probe':
+        return [d[idx] for d in data]            # list of (M, Ni)
+    return data[idx]                             # array (M,)
+
+
 @dc.dataclass(frozen=True)
 class Problem:
     """A fixed-rank least-squares fitting problem: ``min_x ½‖S(x) - data‖²`` for a sampling op ``S``,
-    on the geometry ``geom``. ``local_model(x_cores)`` linearizes it at a point."""
+    on the geometry ``geom``. ``local_model(x_cores, sample_idx)`` linearizes it at a point (``sample_idx``
+    selects a minibatch over the sample stack; ``None`` is the full batch)."""
     geom:          GeometryOps
     kind:          typ.Any       # backend fitting.SamplingKind
-    sample:        typ.Any       # ww or index
+    sample:        typ.Any       # ww (apply/probe) or index (entries)
     data:          typ.Any       # observed S(x_true) (+ noise); same structure as point_forward's output
     point_forward: typ.Callable  # (x_cores, sample) -> S(x)   (the POINT sampling, for the residual)
 
-    def local_model(self, x_cores: Tangent) -> LocalModel:
-        base = self.geom.base(x_cores)
-        sweep = self.kind.precompute(base, self.sample)
-        residual = cw.corewise_sub(self.point_forward(x_cores, self.sample), self.data)
-        return LocalModel(self.geom, self.kind, self.sample, base, sweep, residual, self.kind.w_axes(self.sample))
+    @property
+    def n_samples(self) -> int:                  # size of the sample stack (for minibatch draws)
+        return int(self.sample.shape[1] if self.kind.name == 'entries' else self.sample[0].shape[0])
 
-    def objective(self, x_cores: Tangent):           # ½‖S(x) - data‖²  -- cheap (no sweep/transpose), for line search
-        residual = cw.corewise_sub(self.point_forward(x_cores, self.sample), self.data)
-        return 0.5 * self.kind.sumsq(residual, self.kind.w_axes(self.sample))
+    def _sample_data(self, sample_idx):
+        if sample_idx is None:
+            return self.sample, self.data
+        return (_slice_sample(self.kind.name, self.sample, sample_idx),
+                _slice_data(self.kind.name, self.data, sample_idx))
+
+    def local_model(self, x_cores: Tangent, sample_idx=None) -> LocalModel:
+        sample, data = self._sample_data(sample_idx)
+        base = self.geom.base(x_cores)
+        sweep = self.kind.precompute(base, sample)
+        residual = cw.corewise_sub(self.point_forward(x_cores, sample), data)
+        return LocalModel(self.geom, self.kind, sample, base, sweep, residual, self.kind.w_axes(sample))
+
+    def objective(self, x_cores: Tangent, sample_idx=None):  # ½‖S(x)-data‖²; no sweep (cheap; for line search / loss)
+        sample, data = self._sample_data(sample_idx)
+        residual = cw.corewise_sub(self.point_forward(x_cores, sample), data)
+        return 0.5 * self.kind.sumsq(residual, self.kind.w_axes(sample))
 
 
 # the POINT sampling S(x) per kind (for the residual r = S(x) - data); the kind's own forward is the TANGENT 𝒥
@@ -199,3 +227,81 @@ def gradient_descent(
             alpha *= 0.5
         x = x_trial
     return x, {'losses': losses, 'n_iter': len(losses)}
+
+
+def mc_sgd(
+        problem:     Problem,    # the fixed-rank least-squares problem
+        x0:          Tangent,    # initial cores (U, G)
+        rng,                     # np.random.Generator -- for the minibatch draws
+        batch:       int,        # samples per minibatch
+        max_iter:    int   = 3000,
+        check_every: int   = 25,   # iterations between full-batch loss checks (the absolute-iteration window)
+        smooth_tau:  float = 2.0,  # EMA timescale of the loss check, in checks
+        plateau_lag: int   = 4,    # stop when the smoothed loss rises over this many checks
+) -> typ.Tuple[Tangent, dict]:     # (x_cores, stats)
+    """Manifold Cauchy SGD (T4S §5.3.2): minibatch + the tuning-free Cauchy step
+    ``α = ‖g‖² / ‖𝒥g‖²`` -- no learning rate. Intended for the **manifold** geometry (its bounded
+    retraction makes the raw Cauchy step stable; on the additive corewise chart use ``adam``). Stops on an
+    exponentially-smoothed **full-batch** loss with an **absolute-iteration window** (``plateau_lag *
+    check_every`` iterations) -- decoupled from batch size (the epoch-based window made small batches
+    fragile; see docs/mcsgd_apply_derivatives.md)."""
+    n = problem.n_samples
+    a_smooth = 1.0 - math.exp(-1.0 / smooth_tau)
+    x = x0
+    s_hist = []
+    n_iter = 0
+    for k in range(max_iter):
+        n_iter = k + 1
+        idx = rng.choice(n, size=min(batch, n), replace=False)
+        lm = problem.local_model(x, idx)
+        g = lm.gradient
+        gg = float(cw.corewise_dot(g, g))
+        if gg <= 1e-30:
+            break
+        alpha = gg / max(float(lm.gn_quadratic(g)), 1e-30 * gg)
+        x = lm.retract(cw.corewise_scale(g, -alpha))
+        if n_iter % check_every == 0:                       # full-batch loss check (the stop signal)
+            L = float(problem.objective(x))
+            s = L if not s_hist else a_smooth * L + (1.0 - a_smooth) * s_hist[-1]
+            s_hist.append(s)
+            if len(s_hist) > plateau_lag and (s_hist[-1] - s_hist[-1 - plateau_lag]) > 0.0:
+                break
+    return x, {'losses': s_hist, 'n_iter': n_iter}
+
+
+def adam(
+        problem:  Problem,    # the fixed-rank least-squares problem
+        x0:       Tangent,    # initial cores (U, G)
+        rng,                  # np.random.Generator -- for the minibatch draws
+        batch:    int,        # samples per minibatch
+        lr:       float = 1e-2,
+        max_iter: int   = 2000,
+        betas:    typ.Tuple[float, float] = (0.9, 0.999),
+        eps:      float = 1e-8,
+        cosine:   bool  = True,   # cosine-decay the learning rate over max_iter (helps it settle)
+) -> typ.Tuple[Tangent, dict]:    # (x_cores, stats)
+    """Adam over the cores -- the dependency-free first-order method for the **corewise** geometry. The
+    moments ``m`` / ``v`` are trees matching the cores (a ``corewise_map`` per step); elementwise, so this
+    is exactly per-core Adam. (``lr`` is a real hyperparameter -- Adam is not tuning-free, unlike the Cauchy
+    step.) On corewise the step is additive (``lm.retract`` = ``cores += step``)."""
+    b1, b2 = betas
+    n = problem.n_samples
+    cores = x0
+    m = cw.corewise_zeros_like(cores)
+    v = cw.corewise_zeros_like(cores)
+    losses = []
+    for k in range(max_iter):
+        idx = rng.choice(n, size=min(batch, n), replace=False)
+        lm = problem.local_model(cores, idx)
+        g = lm.gradient
+        t = k + 1
+        m = cw.corewise_map(lambda mi, gi: b1 * mi + (1.0 - b1) * gi, m, g)
+        v = cw.corewise_map(lambda vi, gi: b2 * vi + (1.0 - b2) * gi * gi, v, g)
+        lr_t = lr * (0.5 * (1.0 + math.cos(math.pi * k / max_iter)) if cosine else 1.0)
+        bc1, bc2 = 1.0 - b1 ** t, 1.0 - b2 ** t             # bias corrections
+        xnp, _, _ = get_backend(False, tree_contains_jax(g))
+        update = cw.corewise_map(lambda mi, vi: lr_t * (mi / bc1) / (xnp.sqrt(vi / bc2) + eps), m, v)
+        cores = lm.retract(cw.corewise_scale(update, -1.0))
+        if (k + 1) % 50 == 0:
+            losses.append(float(problem.objective(cores)))
+    return cores, {'losses': losses, 'n_iter': max_iter}

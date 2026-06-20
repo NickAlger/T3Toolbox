@@ -105,6 +105,29 @@ class TestBackendOptimizers(unittest.TestCase):
                 self.assertTrue(all(L[i + 1] <= L[i] + 1e-9 * L[0] for i in range(len(L) - 1)), "not monotone")
                 self.assertLess(L[-1], 0.5 * L[0], "did not make substantial progress")
 
+    def test_stochastic_optimizers_recover(self):
+        """mc_sgd (manifold) and adam (corewise) reduce the true error substantially from a scaled start."""
+        rng = np.random.default_rng(2)
+        ww = unit_vecs(200, SHAPE, rng); data = dense_probe(self.A, ww)
+        def rms(arrs):
+            ss = sum(float(np.sum(np.asarray(a) ** 2)) for a in arrs)
+            return float(np.sqrt(ss / sum(np.asarray(a).size for a in arrs)))
+        sc = (rms(data) / rms(self.X.probe(ww))) ** (1.0 / (len(TUCKER) + len(TT) - 1))
+        x0 = (tuple(sc * C for C in self.X.data[0]), tuple(sc * C for C in self.X.data[1]))
+        A_norm = float(np.linalg.norm(self.A))
+        def true_err(cores):
+            return float(np.linalg.norm(t3.TuckerTensorTrain(*cores).to_dense() - self.A)) / A_norm
+        e0 = true_err(x0)
+
+        with self.subTest(optimizer='mc_sgd', geometry='manifold'):
+            pm = opt.least_squares_problem(opt.MANIFOLD, bfit.PROBE, ww, data)
+            xm, _ = opt.mc_sgd(pm, x0, np.random.default_rng(3), batch=40, max_iter=500)
+            self.assertLess(true_err(xm), 0.3 * e0)
+        with self.subTest(optimizer='adam', geometry='corewise'):
+            pc = opt.least_squares_problem(opt.COREWISE, bfit.PROBE, ww, data)
+            xc, _ = opt.adam(pc, x0, np.random.default_rng(3), batch=40, lr=2e-2, max_iter=600)
+            self.assertLess(true_err(xc), 0.3 * e0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -22,6 +22,8 @@ import t3toolbox.backend.fitting as bfit
 
 __all__ = [
     'gradient_descent',
+    'mc_sgd',
+    'adam',
 ]
 
 _KIND = {'apply': bfit.APPLY, 'entries': bfit.ENTRIES, 'probe': bfit.PROBE}
@@ -59,4 +61,38 @@ def gradient_descent(
     See :py:func:`t3toolbox.backend.optimizers.gradient_descent`."""
     problem = _problem(geometry, kind, sample, data)
     x_cores, stats = bopt.gradient_descent(problem, x0.data, **kwargs)
+    return t3.TuckerTensorTrain(*x_cores), stats
+
+
+def mc_sgd(
+        geometry,                       # t3m.MANIFOLD (intended) / t3m.COREWISE
+        kind:     str,                  # 'apply' / 'entries' / 'probe'
+        sample:   typ.Any,              # ww or index
+        data:     typ.Any,             # observed values to fit
+        x0:       t3.TuckerTensorTrain, # initial point
+        rng,                            # np.random.Generator -- minibatch draws
+        batch:    int,                  # samples per minibatch
+        **kwargs,                       # forwarded to backend.optimizers.mc_sgd
+) -> typ.Tuple[t3.TuckerTensorTrain, dict]:
+    """Manifold Cauchy SGD -- minibatched, tuning-free Cauchy step.
+    See :py:func:`t3toolbox.backend.optimizers.mc_sgd`."""
+    problem = _problem(geometry, kind, sample, data)
+    x_cores, stats = bopt.mc_sgd(problem, x0.data, rng, batch, **kwargs)
+    return t3.TuckerTensorTrain(*x_cores), stats
+
+
+def adam(
+        geometry,                       # t3m.COREWISE (intended) / t3m.MANIFOLD
+        kind:     str,                  # 'apply' / 'entries' / 'probe'
+        sample:   typ.Any,              # ww or index
+        data:     typ.Any,             # observed values to fit
+        x0:       t3.TuckerTensorTrain, # initial point
+        rng,                            # np.random.Generator -- minibatch draws
+        batch:    int,                  # samples per minibatch
+        **kwargs,                       # forwarded to backend.optimizers.adam (lr, max_iter, ...)
+) -> typ.Tuple[t3.TuckerTensorTrain, dict]:
+    """Adam over the cores -- the dependency-free first-order method for the corewise geometry.
+    See :py:func:`t3toolbox.backend.optimizers.adam`."""
+    problem = _problem(geometry, kind, sample, data)
+    x_cores, stats = bopt.adam(problem, x0.data, rng, batch, **kwargs)
     return t3.TuckerTensorTrain(*x_cores), stats
