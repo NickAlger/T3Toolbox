@@ -14,7 +14,14 @@ historical reference for the algorithms, never as the design target. The README 
 
 - Repo: `github.com/NickAlger/T3Toolbox` (renamed from `TuckerTensorTrainTools`; that rename left
   stale references we've mostly fixed). Branch `main`, direct commits.
-- Env: Python 3.9, conda env `tttt`, JAX available. Authors: Nick Alger, Blake Christierson.
+- Env: conda env **`t3toolbox`** (Python 3.11; modern stack — numpy 2.x, scipy, jax 0.10, optax, chex;
+  the full suite is green on it, ~3.5× slower than the old env due to jax 0.10's jit). The older `tttt`
+  py3.9 env (numpy 1.22 / jax 0.4.30, **no optax**) still works for everything except the optax example.
+  **The library is forward-compatible across both** (numpy 1.22↔2.x, jax 0.4.30↔0.10). Run things with the
+  env's python explicitly, e.g. `/home/nick/miniconda3/envs/t3toolbox/bin/python` (no need to
+  `conda activate`). **`pip install` in `t3toolbox` must use `--only-binary=:all:`** — the inherited
+  `CC`/`CXX` point at `tttt`'s (broken) compiler, so source builds fail; wheels sidestep it. JAX available.
+  Authors: Nick Alger, Blake Christierson.
 
 ## The paper (`t4s.pdf` in repo root)
 
@@ -267,7 +274,9 @@ The dividing line is **structural vs numerical**:
   (no cross-product); long tail → prose. **Run the example and paste the real output — never hand-write
   it.** Full convention + exemplar (`manifold.py`): **[`docs/doctest_style.md`](docs/doctest_style.md)**.
   (Supersedes the old "illustrative captured values" convention.)
-- **Running tests/scripts**: scripts run from `/tmp` need `PYTHONPATH=/home/nick/repos/T3Toolbox`.
+- **Running tests/scripts**: use the env's python directly, e.g.
+  `PYTHONPATH=$PWD /home/nick/miniconda3/envs/t3toolbox/bin/python -m pytest tests/ -q` (scripts run from
+  `/tmp` need `PYTHONPATH=/home/nick/repos/T3Toolbox`). The optax example needs the `t3toolbox` env.
 
 ## Workflow (how Nick likes to work)
 
