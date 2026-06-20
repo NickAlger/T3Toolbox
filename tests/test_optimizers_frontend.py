@@ -66,6 +66,13 @@ class TestFrontendOptimizers(unittest.TestCase):
         self.assertIsInstance(x_a, t3.TuckerTensorTrain)
         self.assertLess(self._true_err(x_a), 0.4 * e0)
 
+    def test_newton_cg_adapter(self):
+        """Newton-CG through the adapter recovers the (exact low-rank, noiseless) target to high accuracy."""
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT)   # manifold zero-start is valid
+        x, _ = topt.newton_cg(t3m.MANIFOLD, 'probe', self.ww, self.data, x0, max_newton=30)
+        self.assertIsInstance(x, t3.TuckerTensorTrain)
+        self.assertLess(self._true_err(x), 1e-3)
+
     def test_bad_kind_errors(self):
         with self.assertRaises(ValueError):
             topt.gradient_descent(t3m.MANIFOLD, 'nope', self.ww, self.data, self.X0, n_iter=1)

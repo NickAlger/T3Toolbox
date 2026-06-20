@@ -128,6 +128,20 @@ class TestBackendOptimizers(unittest.TestCase):
             xc, _ = opt.adam(pc, x0, np.random.default_rng(3), batch=40, lr=2e-2, max_iter=600)
             self.assertLess(true_err(xc), 0.3 * e0)
 
+    def test_newton_cg_recovers_to_high_accuracy(self):
+        """Manifold Newton-CG (2nd-order) recovers an exact low-rank target to high accuracy from a zero
+        start (the orthonormal frame completion makes the zero tensor a valid start). Eager + use_jit."""
+        rng = np.random.default_rng(4)
+        ww = unit_vecs(300, SHAPE, rng); data = dense_probe(self.A, ww)
+        problem = opt.least_squares_problem(opt.MANIFOLD, bfit.PROBE, ww, data)
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
+        A_norm = float(np.linalg.norm(self.A))
+        for use_jit in (False, True):                       # eager and (silent-fallback / jax) jit paths agree
+            with self.subTest(use_jit=use_jit):
+                x, stats = opt.newton_cg(problem, x0, max_newton=30, use_jit=use_jit)
+                true_e = float(np.linalg.norm(t3.TuckerTensorTrain(*x).to_dense() - self.A)) / A_norm
+                self.assertLess(true_e, 1e-4)
+
 
 if __name__ == "__main__":
     unittest.main()

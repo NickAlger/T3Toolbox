@@ -44,6 +44,7 @@ __all__ = [
     'gradient_descent',
     'mc_sgd',
     'adam',
+    'newton_cg',
 ]
 
 Tangent = typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]   # (tucker_variations, tt_variations)
@@ -305,3 +306,79 @@ def adam(
         if (k + 1) % 50 == 0:
             losses.append(float(problem.objective(cores)))
     return cores, {'losses': losses, 'n_iter': max_iter}
+
+
+def _cg_solve(hvp, rhs, tol, maxiter, use_jit):
+    """Solve ``H p = rhs`` by conjugate gradients (``H = hvp``, symmetric PSD), to residual ``‖r‖ ≤ tol``.
+    The body is **backend-agnostic and branch-free** (an ``xnp.where`` curvature guard: a nonpositive
+    ``dᵀHd`` -- a gauge direction of the singular corewise ``H`` -- takes a zero step and the ``ok`` flag
+    stops CG, i.e. truncated CG), so the SAME body runs eager (numpy/jax) or jit (``lax.while_loop``)
+    through :py:func:`common.xwhile`."""
+    xnp, _, _ = get_backend(False, tree_contains_jax(rhs))
+    tol2 = tol * tol
+    rs0 = cw.corewise_dot(rhs, rhs)
+    state0 = (cw.corewise_zeros_like(rhs), rhs, rhs, rs0, 0, rs0 > tol2)   # (p, r, d, rs, i, ok)
+
+    def cond(s):
+        p, r, d, rs, i, ok = s
+        return (rs > tol2) & (i < maxiter) & ok
+
+    def body(s):
+        p, r, d, rs, i, ok = s
+        Hd = hvp(d)
+        dHd = cw.corewise_dot(d, Hd)
+        pos = dHd > 0.0
+        alpha = xnp.where(pos, rs / xnp.where(pos, dHd, 1.0), 0.0)        # 0 step on nonpositive curvature
+        p = cw.corewise_add(p, cw.corewise_scale(d, alpha))
+        r = cw.corewise_sub(r, cw.corewise_scale(Hd, alpha))
+        rs_new = cw.corewise_dot(r, r)
+        beta = xnp.where(pos, rs_new / rs, 0.0)
+        d = cw.corewise_add(r, cw.corewise_scale(d, beta))
+        return (p, r, d, rs_new, i + 1, pos)
+
+    return xwhile(cond, body, state0, use_jit)[0]
+
+
+def newton_cg(
+        problem:    Problem,    # the fixed-rank least-squares problem
+        x0:         Tangent,    # initial cores (U, G)
+        max_newton: int   = 30,
+        gtol_rel:   float = 1e-8,   # stop when ‖g‖ <= gtol_rel * ‖g_0‖
+        cg_maxiter: int   = 200,
+        c_armijo:   float = 1e-4,
+        use_jit:    bool  = False,  # jit the inner CG (lax.while_loop) when the inputs are jax; else eager
+) -> typ.Tuple[Tangent, dict]:      # (x_cores, stats)
+    """Inexact Riemannian Newton-CG with an Armijo line search -- the manifold workhorse (the gauged ``H``
+    is positive-definite there). Each Newton step builds the local GN model once, solves ``H p = −g`` by
+    CG to an inexact forcing-term tolerance (the inner loop -- jit-able via :py:func:`_cg_solve`), then
+    backtracks along ``retract(α p)``. The CG truncates on the gauge-singular corewise ``H``; the outer
+    line search keeps it robust regardless. ``use_jit`` jits only the inner CG (the outer loop, line
+    search, and convergence test stay on the host)."""
+    x = x0
+    g0norm = None
+    losses, newton_iters = [], 0
+    for _ in range(max_newton):
+        lm = problem.local_model(x)
+        f = float(lm.objective)
+        losses.append(f)
+        g = lm.gradient
+        gnorm = float(cw.corewise_dot(g, g)) ** 0.5
+        if g0norm is None:
+            g0norm = gnorm if gnorm > 0 else 1.0
+        if gnorm <= gtol_rel * g0norm:
+            break
+        newton_iters += 1
+        eta = min(0.5, (gnorm / g0norm) ** 0.5)                          # inexact-Newton forcing term
+        neg_g = cw.corewise_scale(g, -1.0)
+        p = _cg_solve(lm.hvp, neg_g, tol=eta * gnorm, maxiter=cg_maxiter, use_jit=use_jit)
+        slope = float(cw.corewise_dot(g, p))
+        if (not math.isfinite(slope)) or slope >= 0.0:                   # ensure a descent direction
+            p, slope = neg_g, -gnorm * gnorm
+        alpha, x_trial = 1.0, x
+        for _bt in range(40):                                            # Armijo backtracking
+            x_trial = lm.retract(cw.corewise_scale(p, alpha))
+            if float(problem.objective(x_trial)) <= f + c_armijo * alpha * slope:
+                break
+            alpha *= 0.5
+        x = x_trial
+    return x, {'losses': losses, 'newton': newton_iters}

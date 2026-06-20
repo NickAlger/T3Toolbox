@@ -24,6 +24,7 @@ __all__ = [
     'gradient_descent',
     'mc_sgd',
     'adam',
+    'newton_cg',
 ]
 
 _KIND = {'apply': bfit.APPLY, 'entries': bfit.ENTRIES, 'probe': bfit.PROBE}
@@ -95,4 +96,19 @@ def adam(
     See :py:func:`t3toolbox.backend.optimizers.adam`."""
     problem = _problem(geometry, kind, sample, data)
     x_cores, stats = bopt.adam(problem, x0.data, rng, batch, **kwargs)
+    return t3.TuckerTensorTrain(*x_cores), stats
+
+
+def newton_cg(
+        geometry,                       # t3m.MANIFOLD (intended) / t3m.COREWISE
+        kind:     str,                  # 'apply' / 'entries' / 'probe'
+        sample:   typ.Any,              # ww or index
+        data:     typ.Any,             # observed values to fit
+        x0:       t3.TuckerTensorTrain, # initial point (zero is fine on the manifold)
+        **kwargs,                       # forwarded to backend.optimizers.newton_cg (max_newton, use_jit, ...)
+) -> typ.Tuple[t3.TuckerTensorTrain, dict]:
+    """Inexact Riemannian Newton-CG with an Armijo line search -- the manifold workhorse.
+    See :py:func:`t3toolbox.backend.optimizers.newton_cg`."""
+    problem = _problem(geometry, kind, sample, data)
+    x_cores, stats = bopt.newton_cg(problem, x0.data, **kwargs)
     return t3.TuckerTensorTrain(*x_cores), stats
