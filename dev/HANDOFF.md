@@ -31,7 +31,7 @@ _Updated 2026-06-21._
 
 ## Next steps
 1. **Fix the uniform layer** — the 1.0 centerpiece. It now **subsumes the backend module reorg + the
-   per-op polymorphism triage** (see `dev/naming_review.md` §4). Natural entry points: the per-op
+   per-op polymorphism triage** (design: **`dev/uniform_fix_plan.md`**; reorg context: `dev/naming_review.md` §4). Natural entry points: the per-op
    polymorphism triage (*already-poly / make-poly / can't-or-shouldn't*; ragged/uniform **inferred**
    via `is_ndarray`) and the **`ut3_sampling` packing bug** (a prior stopgap). Parts A–E below.
 2. Then **release hygiene** (the R1–R7 roadmap below). **1.0 = honest mid-level toolkit; the `fit()`
