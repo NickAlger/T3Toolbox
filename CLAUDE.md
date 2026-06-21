@@ -27,8 +27,8 @@ Keep knowledge sorted by **audience × lifetime**, so it doesn't re-jumble:
 - **User-facing design docs** (the *why*: architecture, conventions, rationale) → `docs/` (rendered Sphinx).
 - **Internal working notes** (handoffs, status, plans) → `dev/`; dated superseded ones → `dev/archive/`.
   The living current-state/handoff is **`dev/HANDOFF.md`** — read it for where-we-are + next steps.
-- **Research experiments + findings** → the separate `nicks_research_experiments` repo (it *imports*
-  the library; research never accretes here).
+- **Research experiments + findings** → a separate research repo (maintainer-local; it *imports*
+  the library — research never accretes here).
 - **Maintainer-personal** prefs (work style, commit signature, local env) → personal `~/.claude/`, not the repo.
 
 **Handoff ritual:** when wrapping up, refresh `dev/HANDOFF.md` (one living doc by default; more when

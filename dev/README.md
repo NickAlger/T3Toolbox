@@ -11,5 +11,5 @@ user documentation (that lives in `docs/`), **not** part of the shipped package,
   swept down here.
 
 **Routing rule** (where new writing goes): user-facing design rationale → `docs/`;
-process / status / plans → here; research experiments + findings → the separate
-`nicks_research_experiments` repo.
+process / status / plans → here; research experiments + findings → a separate
+research repo (maintainer-local).
