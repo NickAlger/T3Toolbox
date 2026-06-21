@@ -1,0 +1,60 @@
+# Configuration file for the Sphinx documentation builder.
+#
+# For the full list of built-in configuration values, see the documentation:
+# https://www.sphinx-doc.org/en/master/usage/configuration.html
+
+import os
+import sys
+basedir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.insert(0, basedir)
+
+# -- Project information -----------------------------------------------------
+# https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
+
+project = 'T3Toolbox'
+copyright = '2026, Nick Alger and Blake Christierson'
+author = 'Nick Alger and Blake Christierson'
+release = '0.1'
+
+# -- General configuration ---------------------------------------------------
+# https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
+
+extensions = [
+    'autoapi.extension',
+    'sphinx.ext.githubpages',
+]
+autoapi_dirs = ['../t3toolbox']
+numpydoc_show_class_members = False
+autosummary_generate = True
+templates_path = ['_templates']
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+
+
+autoapi_modules = {'t3toolbox': None}
+autoapi_own_page_level = 'method'
+add_module_names = False
+python_use_unqualified_type_hints = True
+toc_object_entries_show_parents = 'hide'
+
+autoapi_options = [
+    'members',
+    'undoc-members',
+    'show-module-summary',
+    'special-members',
+    'imported-members',
+]
+
+
+
+# -- Options for HTML output -------------------------------------------------
+# https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
+
+html_title = "T3Toolbox " + release + " Documentation"
+html_favicon = 'favicon.ico'
+
+html_theme = "pydata_sphinx_theme"
+html_static_path = ['_static']
+
+html_theme_options = {
+}
+
