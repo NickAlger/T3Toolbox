@@ -7,14 +7,14 @@ import typing as typ
 import functools as ft
 from dataclasses import dataclass
 
-import t3toolbox.backend.basis_variations_format.bv_conversions
-import t3toolbox.backend.uniform_basis_variations_format.ubv_conversions as ubv_conversions
+import t3toolbox.backend.bv_conversions
+import t3toolbox.backend.ubv_conversions as ubv_conversions
 import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.basis_variations_format as bvf
 import t3toolbox.backend.orthogonal_representations as orth_reps
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.ranks as ranks
-import t3toolbox.backend.uniform_basis_variations_format.ubv_masking as masking
+import t3toolbox.backend.ubv_masking as masking
 from t3toolbox.backend.common import *
 
 

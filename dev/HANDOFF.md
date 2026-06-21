@@ -30,10 +30,14 @@ _Updated 2026-06-21._
 - A **routing rule** + **handoff ritual** go into CLAUDE.md (Slice 2).
 
 ## Next steps
-1. **Fix the uniform layer** — the 1.0 centerpiece. It now **subsumes the backend module reorg + the
-   per-op polymorphism triage** (design: **`dev/uniform_fix_plan.md`**; reorg context: `dev/naming_review.md` §4). Natural entry points: the per-op
-   polymorphism triage (*already-poly / make-poly / can't-or-shouldn't*; ragged/uniform **inferred**
-   via `is_ndarray`) and the **`ut3_sampling` packing bug** (a prior stopgap). Parts A–E below.
+1. **Fix the uniform layer** — the 1.0 centerpiece. **Fully designed + triaged** in
+   **`dev/uniform_fix_plan.md`** (polymorphism lenses, packed-vector I/O, `shape`→int-tuple, the
+   strict-sampling + norm/inner-polymorphism decisions; reorg context: `dev/naming_review.md` §4), with 4
+   agreed slices. **Progress:** Slice 1 (fix the 3 broken imports in `uniform_basis_variations_format.py`)
+   ✅ DONE — module imports, no regression (uniform suite 49/49); its doctests now run and pinpoint the
+   Slice-3 staleness. **Next: Slice 2 — `shape_mask` → shape int tuple** (verified safe), then Slice 3
+   (rebuild the tangent layer off OLD types: `UT3Tangent` + manifold ops + un-stub `ubv_to_ut3` + tests),
+   then Slice 4 (close the ragged-poly gaps: `_apply_transpose_adjoint` + `Sequence` signatures).
 2. Then **release hygiene** (the R1–R7 roadmap below). **1.0 = honest mid-level toolkit; the `fit()`
    facade is deferred to 1.1.**
 

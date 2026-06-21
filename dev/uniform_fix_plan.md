@@ -119,7 +119,12 @@ recovered from the supercore mode axis — nothing lost.
   uniform-specific; inside a scalar read-out → polymorphic.*
 
 ## Agreed slices (next)
-1. **Fix the 3 imports** in `uniform_basis_variations_format.py` (unblocks the tangent module + its doctests).
+1. **Fix the 3 imports** in `uniform_basis_variations_format.py` — ✅ **DONE (2026-06-21)**. Module imports;
+   no regression (uniform suite 49/49). Unblocked its doctests, which now RUN and surface concrete Slice-3
+   staleness (the "make broken code run" items): `NameError: basis_left_mask` (docstring example);
+   `TypeError: basic_uniform_stack() got an unexpected 'use_jax'` (stale API call in
+   `ut3_orthogonal_representations` — 26/43 of its doctest failures); scattered-`shape_mask` doctests
+   (`np.random.choice`). 35 doctest failures total = the broken-tangent-layer state, now visible.
 2. **`shape_mask` → shape int tuple** (verified safe; promote out of `masks`). Foundational; do before building on top.
 3. **Rebuild the tangent layer** (the bulk): `uniform_manifold` off OLD types → `UT3Tangent` + manifold ops
    mirroring ragged + un-stub `ubv_to_ut3` + tests.
