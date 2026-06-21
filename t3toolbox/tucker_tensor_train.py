@@ -1653,9 +1653,9 @@ class TuckerTensorTrain:
         >>> x2 = t3.TuckerTensorTrain.load(fname) # Load from file
         >>> tucker_cores, tt_cores = x.data
         >>> tucker_cores2, tt_cores2 = x2.data
-        >>> print([np.linalg.norm(B - B2) for B, B2 in zip(tucker_cores, tucker_cores2)])
+        >>> print([float(np.linalg.norm(B - B2)) for B, B2 in zip(tucker_cores, tucker_cores2)])
         [0.0, 0.0, 0.0]
-        >>> print([np.linalg.norm(G - G2) for G, G2 in zip(tt_cores, tt_cores2)])
+        >>> print([float(np.linalg.norm(G - G2)) for G, G2 in zip(tt_cores, tt_cores2)])
         [0.0, 0.0, 0.0]
         """
         common.save_core_families(file, self.data)
@@ -1704,9 +1704,9 @@ class TuckerTensorTrain:
         >>> x2 = t3.TuckerTensorTrain.load(fname) # Load from file
         >>> tucker_cores, tt_cores = x.data
         >>> tucker_cores2, tt_cores2 = x2.data
-        >>> print([np.linalg.norm(B - B2) for B, B2 in zip(tucker_cores, tucker_cores2)])
+        >>> print([float(np.linalg.norm(B - B2)) for B, B2 in zip(tucker_cores, tucker_cores2)])
         [0.0, 0.0, 0.0]
-        >>> print([np.linalg.norm(G - G2) for G, G2 in zip(tt_cores, tt_cores2)])
+        >>> print([float(np.linalg.norm(G - G2)) for G, G2 in zip(tt_cores, tt_cores2)])
         [0.0, 0.0, 0.0]
         """
         tucker_cores, tt_cores = common.load_core_families(file)
