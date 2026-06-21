@@ -11,7 +11,11 @@ _Updated 2026-06-21._
   separate research repo (maintainer-local; incl. the two cordoned research branches); CLAUDE.md split
   (personal → `~/.claude/CLAUDE.md`) + "Where things live" routing rule added + slimmed; stale
   branches deleted (`fitting`, `probe-derivatives`, `geometry-refactor`, the 2 research branches).
-- **Next:** return to **1.0 release planning**.
+- **Naming/organization review CONVERGED** (this session) — conventions locked in
+  `dev/naming_review.md` (backend prefix grammar + `tv_`; `T3Basis→T3Frame` / `fv_`; cross-class
+  consistency; the target module matrix). **The module reorg + per-op polymorphism triage fold into
+  the uniform-layer fix** (ragged/uniform is *inferred* via `is_ndarray`, like numpy/jax).
+- **Next:** the **uniform-layer fix** (the 1.0 centerpiece).
 
 ## Knowledge architecture (decided this session)
 - `docs/` = durable **design / reference / style** docs → to be distilled into user docs
@@ -26,9 +30,14 @@ _Updated 2026-06-21._
 - A **routing rule** + **handoff ritual** go into CLAUDE.md (Slice 2).
 
 ## Next steps
-1. **Return to 1.0 planning** (agreed sequence): knowledge-arch ✅ → **naming / organization
-   review** (next up) → **fix the uniform layer** (the centerpiece; parts A–E below) → release
-   hygiene. **1.0 = honest mid-level toolkit; the `fit()` facade is deferred to 1.1.**
+1. **Fix the uniform layer** — the 1.0 centerpiece. It now **subsumes the backend module reorg + the
+   per-op polymorphism triage** (see `dev/naming_review.md` §4). Natural entry points: the per-op
+   polymorphism triage (*already-poly / make-poly / can't-or-shouldn't*; ragged/uniform **inferred**
+   via `is_ndarray`) and the **`ut3_sampling` packing bug** (a prior stopgap). Parts A–E below.
+2. Then **release hygiene** (the R1–R7 roadmap below). **1.0 = honest mid-level toolkit; the `fit()`
+   facade is deferred to 1.1.**
+
+_(Knowledge-arch ✅ and naming review ✅ this session — see "Where we are".)_
 
 ## The 1.0 roadmap (mid-level-toolkit scope) — summary
 - **R1** packaging correctness (`readme = README.md`; create `CHANGELOG.md`; numpy range).
