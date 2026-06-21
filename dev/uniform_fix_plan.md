@@ -105,12 +105,18 @@ recovered from the supercore mode axis — nothing lost.
   `ut3_sampling` "bug" = packing done *inside* the op — move it out; the op becomes fully polymorphic. (Perf:
   pack once at the boundary, same principle as mask-once.)
 - **norm/inner can be polymorphic on BOTH algorithms.** Zipper path: read-out scan, mask-once → polymorphic.
-  Orthogonalize-for-stability path: also polymorphic **because it's an internal step of a scalar read-out**
-  (no mask maintenance). Mechanism: mask-once zeros the padding; a QR left-sweep absorbs `R` *forward*
-  (`C_{i+1} := R_i C_{i+1}`, no `R⁻¹`), and `R`'s zero-block keeps the padded-rank garbage isolated from the
-  real read-out. **Caveats:** must be QR-absorb-forward (NOT SVD-with-truncation — that changes ranks →
-  uniform-specific); relies on exactly-zero padding (mask-once is load-bearing); verify via the equivalence
-  contract. Lens: *orthogonalization returning a T3 → uniform-specific; inside a scalar read-out → polymorphic.*
+  Orthogonalize-for-stability path: also polymorphic, by an **exactness** argument — every orthogonalization
+  step is an *exact* factorization contracted along an *internal* edge, so `step(T3).to_dense() ==
+  T3.to_dense()` identically (`Q·(R·C_{i+1}) = (QR)·C_{i+1}`). Hence the padded-slot garbage **provably
+  contracts to zero** (else `to_dense` would change), with no mask maintenance and no isolation hand-waving.
+  **SVD is fine** (library SVD-only convention preserved): `Q=U`, `R=SVᵀ` is an exact factorization;
+  triangularity is irrelevant. **The one caveat is exactness ⇒ NO TRUNCATION:** the read-out orthogonalization
+  must be **shape-preserving** (keep all singular values, incl. the padded zeros) and touch no masks — dropping
+  a *nonzero* σ changes `to_dense` (breaks it); dropping the *zero/padded* σ is exact but shrinks ranks →
+  changes masks → uniform-specific bookkeeping a read-out shouldn't do. So norm/inner need a shape-preserving
+  exact orthogonalization, **distinct from the mask-recomputing `left_orthogonalize_tt_cores`**. (Correctness
+  is a proof modulo roundoff → a smoke test suffices.) Lens: *orthogonalization returning a T3 →
+  uniform-specific; inside a scalar read-out → polymorphic.*
 
 ## Agreed slices (next)
 1. **Fix the 3 imports** in `uniform_basis_variations_format.py` (unblocks the tangent module + its doctests).
@@ -119,5 +125,6 @@ recovered from the supercore mode axis — nothing lost.
    mirroring ragged + un-stub `ubv_to_ut3` + tests.
 4. **Close the ragged-poly gaps** (`_apply_transpose_adjoint` polymorphism + the `Sequence` signatures) so
    optimizers/derivatives run on uniform.
-Module reorg + naming applied throughout. **Open verifications:** the norm/inner orthogonalize-path
-equivalence test; confirm no path relies on a non-prefix `shape_mask`.
+Module reorg + naming applied throughout. **Open verifications:** a norm/inner orthogonalize-path
+smoke test (correctness is a proof modulo roundoff, not an open question); confirm no path relies on a
+non-prefix `shape_mask`.
