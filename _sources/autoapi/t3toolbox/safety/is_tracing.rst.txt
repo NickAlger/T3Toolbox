@@ -1,0 +1,8 @@
+is_tracing
+==========
+
+.. py:function:: t3toolbox.safety.is_tracing(*arrays)
+
+   True if we are inside a jax transform (jit / grad / vmap): any argument is a tracer, **or** we are
+   globally under a trace (the closed-over-concrete-operand case -- see :py:func:`_inside_jax_trace`).
+

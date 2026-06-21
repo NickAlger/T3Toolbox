@@ -1,4 +1,0 @@
-ProbeGaussNewtonModel._base_sweep
-=================================
-
-.. py:method:: t3toolbox.fitting.ProbeGaussNewtonModel._base_sweep()

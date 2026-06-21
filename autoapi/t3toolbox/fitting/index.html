@@ -47,7 +47,7 @@
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="ApplyGaussNewtonModel" href="ApplyGaussNewtonModel.html" />
+    <link rel="next" title="GaussNewtonModel" href="GaussNewtonModel.html" />
     <link rel="prev" title="corewise_logical_not" href="../corewise/corewise_logical_not.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -272,6 +272,8 @@
 <li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_add.html">corewise_add</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_sub.html">corewise_sub</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_scale.html">corewise_scale</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_zeros_like.html">corewise_zeros_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_map.html">corewise_map</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_neg.html">corewise_neg</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_sum.html">corewise_sum</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_dot.html">corewise_dot</a></li>
@@ -286,54 +288,43 @@
 </ul>
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="current reference internal" href="#">fitting</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3 has-children"><a class="reference internal" href="ApplyGaussNewtonModel.html">ApplyGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="ApplyGaussNewtonModel._base_sweep.html">ApplyGaussNewtonModel._base_sweep</a></li>
-<li class="toctree-l4"><a class="reference internal" href="ApplyGaussNewtonModel.objective_value.html">ApplyGaussNewtonModel.objective_value</a></li>
-<li class="toctree-l4"><a class="reference internal" href="ApplyGaussNewtonModel.gradient.html">ApplyGaussNewtonModel.gradient</a></li>
-<li class="toctree-l4"><a class="reference internal" href="ApplyGaussNewtonModel.gn_hessian.html">ApplyGaussNewtonModel.gn_hessian</a></li>
-<li class="toctree-l4"><a class="reference internal" href="ApplyGaussNewtonModel.evaluate.html">ApplyGaussNewtonModel.evaluate</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="GaussNewtonModel.html">GaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="GaussNewtonModel._n_w.html">GaussNewtonModel._n_w</a></li>
+<li class="toctree-l4"><a class="reference internal" href="GaussNewtonModel.objective_value.html">GaussNewtonModel.objective_value</a></li>
+<li class="toctree-l4"><a class="reference internal" href="GaussNewtonModel.gradient.html">GaussNewtonModel.gradient</a></li>
+<li class="toctree-l4"><a class="reference internal" href="GaussNewtonModel.jacobian.html">GaussNewtonModel.jacobian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="GaussNewtonModel.gn_quadratic.html">GaussNewtonModel.gn_quadratic</a></li>
+<li class="toctree-l4"><a class="reference internal" href="GaussNewtonModel.gn_hessian.html">GaussNewtonModel.gn_hessian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="GaussNewtonModel.evaluate.html">GaussNewtonModel.evaluate</a></li>
 </ul>
 </details></li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="EntriesGaussNewtonModel.html">EntriesGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="EntriesGaussNewtonModel._base_sweep.html">EntriesGaussNewtonModel._base_sweep</a></li>
-<li class="toctree-l4"><a class="reference internal" href="EntriesGaussNewtonModel.objective_value.html">EntriesGaussNewtonModel.objective_value</a></li>
-<li class="toctree-l4"><a class="reference internal" href="EntriesGaussNewtonModel.gradient.html">EntriesGaussNewtonModel.gradient</a></li>
-<li class="toctree-l4"><a class="reference internal" href="EntriesGaussNewtonModel.gn_hessian.html">EntriesGaussNewtonModel.gn_hessian</a></li>
-<li class="toctree-l4"><a class="reference internal" href="EntriesGaussNewtonModel.evaluate.html">EntriesGaussNewtonModel.evaluate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="apply_model.html">apply_model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="entries_model.html">entries_model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="probe_model.html">probe_model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="apply_derivatives_model.html">apply_derivatives_model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="entries_derivatives_model.html">entries_derivatives_model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="probe_derivatives_model.html">probe_derivatives_model</a></li>
 </ul>
 </details></li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="ProbeGaussNewtonModel.html">ProbeGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="ProbeGaussNewtonModel._base_sweep.html">ProbeGaussNewtonModel._base_sweep</a></li>
-<li class="toctree-l4"><a class="reference internal" href="ProbeGaussNewtonModel.objective_value.html">ProbeGaussNewtonModel.objective_value</a></li>
-<li class="toctree-l4"><a class="reference internal" href="ProbeGaussNewtonModel.gradient.html">ProbeGaussNewtonModel.gradient</a></li>
-<li class="toctree-l4"><a class="reference internal" href="ProbeGaussNewtonModel.gn_hessian.html">ProbeGaussNewtonModel.gn_hessian</a></li>
-<li class="toctree-l4"><a class="reference internal" href="ProbeGaussNewtonModel.evaluate.html">ProbeGaussNewtonModel.evaluate</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../optimizers/index.html">optimizers</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../optimizers/gradient_descent.html">gradient_descent</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../optimizers/mc_sgd.html">mc_sgd</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../optimizers/adam.html">adam</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../optimizers/newton_cg.html">newton_cg</a></li>
 </ul>
 </details></li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="CorewiseApplyGaussNewtonModel.html">CorewiseApplyGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="CorewiseApplyGaussNewtonModel._base_sweep.html">CorewiseApplyGaussNewtonModel._base_sweep</a></li>
-<li class="toctree-l4"><a class="reference internal" href="CorewiseApplyGaussNewtonModel.objective_value.html">CorewiseApplyGaussNewtonModel.objective_value</a></li>
-<li class="toctree-l4"><a class="reference internal" href="CorewiseApplyGaussNewtonModel.gradient.html">CorewiseApplyGaussNewtonModel.gradient</a></li>
-<li class="toctree-l4"><a class="reference internal" href="CorewiseApplyGaussNewtonModel.gn_hessian.html">CorewiseApplyGaussNewtonModel.gn_hessian</a></li>
-<li class="toctree-l4"><a class="reference internal" href="CorewiseApplyGaussNewtonModel.evaluate.html">CorewiseApplyGaussNewtonModel.evaluate</a></li>
-</ul>
-</details></li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="CorewiseEntriesGaussNewtonModel.html">CorewiseEntriesGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="CorewiseEntriesGaussNewtonModel._base_sweep.html">CorewiseEntriesGaussNewtonModel._base_sweep</a></li>
-<li class="toctree-l4"><a class="reference internal" href="CorewiseEntriesGaussNewtonModel.objective_value.html">CorewiseEntriesGaussNewtonModel.objective_value</a></li>
-<li class="toctree-l4"><a class="reference internal" href="CorewiseEntriesGaussNewtonModel.gradient.html">CorewiseEntriesGaussNewtonModel.gradient</a></li>
-<li class="toctree-l4"><a class="reference internal" href="CorewiseEntriesGaussNewtonModel.gn_hessian.html">CorewiseEntriesGaussNewtonModel.gn_hessian</a></li>
-<li class="toctree-l4"><a class="reference internal" href="CorewiseEntriesGaussNewtonModel.evaluate.html">CorewiseEntriesGaussNewtonModel.evaluate</a></li>
-</ul>
-</details></li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="CorewiseProbeGaussNewtonModel.html">CorewiseProbeGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="CorewiseProbeGaussNewtonModel._base_sweep.html">CorewiseProbeGaussNewtonModel._base_sweep</a></li>
-<li class="toctree-l4"><a class="reference internal" href="CorewiseProbeGaussNewtonModel.objective_value.html">CorewiseProbeGaussNewtonModel.objective_value</a></li>
-<li class="toctree-l4"><a class="reference internal" href="CorewiseProbeGaussNewtonModel.gradient.html">CorewiseProbeGaussNewtonModel.gradient</a></li>
-<li class="toctree-l4"><a class="reference internal" href="CorewiseProbeGaussNewtonModel.gn_hessian.html">CorewiseProbeGaussNewtonModel.gn_hessian</a></li>
-<li class="toctree-l4"><a class="reference internal" href="CorewiseProbeGaussNewtonModel.evaluate.html">CorewiseProbeGaussNewtonModel.evaluate</a></li>
-</ul>
-</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../safety/index.html">safety</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../safety/SafetyTolerances.html">SafetyTolerances</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/current_safety.html">current_safety</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/set_default_safety.html">set_default_safety</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/safe.html">safe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/unsafe.html">unsafe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/effective_rtol.html">effective_rtol</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/is_tracing.html">is_tracing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/checks_active.html">checks_active</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/require.html">require</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/frames_equal.html">frames_equal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/frames_equal_or_skip.html">frames_equal_or_skip</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../tucker_tensor_train/index.html">tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -341,6 +332,7 @@
 <li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.__repr__.html">TuckerTensorTrain.__repr__</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.get_core_shapes.html">TuckerTensorTrain.get_core_shapes</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.get_minimal_ranks.html">TuckerTensorTrain.get_minimal_ranks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.has_numerically_minimal_ranks.html">TuckerTensorTrain.has_numerically_minimal_ranks</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.is_left_orthogonal.html">TuckerTensorTrain.is_left_orthogonal</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.is_right_orthogonal.html">TuckerTensorTrain.is_right_orthogonal</a></li>
 <li class="toctree-l4"><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.validate.html">TuckerTensorTrain.validate</a></li>
@@ -475,41 +467,103 @@
                   
   <section id="module-t3toolbox.fitting">
 <span id="fitting"></span><h1>fitting<a class="headerlink" href="#module-t3toolbox.fitting" title="Link to this heading">#</a></h1>
-<p>Frontend for the least-squares fitting layer: the Gauss-Newton models.</p>
-<p>Thin frozen-dataclass frontends over <code class="docutils literal notranslate"><span class="pre">backend/fitting.py</span></code>, one per sampling kind
-(<a class="reference internal" href="ApplyGaussNewtonModel.html#t3toolbox.fitting.ApplyGaussNewtonModel" title="t3toolbox.fitting.ApplyGaussNewtonModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">ApplyGaussNewtonModel</span></code></a>, <a class="reference internal" href="EntriesGaussNewtonModel.html#t3toolbox.fitting.EntriesGaussNewtonModel" title="t3toolbox.fitting.EntriesGaussNewtonModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">EntriesGaussNewtonModel</span></code></a>, <a class="reference internal" href="ProbeGaussNewtonModel.html#t3toolbox.fitting.ProbeGaussNewtonModel" title="t3toolbox.fitting.ProbeGaussNewtonModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">ProbeGaussNewtonModel</span></code></a>).
-A model is the local Gauss-Newton model of a least-squares objective at a fixed base point (an orthonormal
-<code class="docutils literal notranslate"><span class="pre">T3Basis</span></code>): it exposes the objective value <code class="docutils literal notranslate"><span class="pre">c</span></code>, the Riemannian gradient <code class="docutils literal notranslate"><span class="pre">g</span></code>, the Gauss-Newton
-Hessian action <code class="docutils literal notranslate"><span class="pre">H</span> <span class="pre">p</span> <span class="pre">=</span> <span class="pre">JᵀJ</span> <span class="pre">p</span></code>, and the quadratic-model value <code class="docutils literal notranslate"><span class="pre">m(p)</span> <span class="pre">=</span> <span class="pre">c</span> <span class="pre">+</span> <span class="pre">gᵀp</span> <span class="pre">+</span> <span class="pre">½</span> <span class="pre">pᵀ</span> <span class="pre">H</span> <span class="pre">p</span></code>.</p>
-<p>The expensive base sweep (the base-and-data edge variables) is a <code class="docutils literal notranslate"><span class="pre">&#64;cached_property</span></code>: computed once on
-first use and reused across every <code class="docutils literal notranslate"><span class="pre">gn_hessian</span></code> / <code class="docutils literal notranslate"><span class="pre">evaluate</span></code> of an inner solve, then garbage-collected
-when the model leaves scope. This is the whole point – in an inner CG the base is fixed, so the sweep is
-computed once, not once per matrix-vector product.</p>
-<p>Gauge handling lives entirely in the backend (<code class="docutils literal notranslate"><span class="pre">J</span> <span class="pre">=</span> <span class="pre">𝒥∘Π</span></code>, <code class="docutils literal notranslate"><span class="pre">Jᵀ</span> <span class="pre">=</span> <span class="pre">Π∘𝒥ᵀ</span></code>): every method returns a gauged
-tangent and accepts any-gauge inputs. See <code class="docutils literal notranslate"><span class="pre">docs/fitting_plan.md</span></code>.</p>
+<p>Frontend for the least-squares fitting layer: one geometry-generic Gauss-Newton model.</p>
+<p>A <a class="reference internal" href="GaussNewtonModel.html#t3toolbox.fitting.GaussNewtonModel" title="t3toolbox.fitting.GaussNewtonModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">GaussNewtonModel</span></code></a> is the local Gauss-Newton model of a least-squares objective
+<code class="docutils literal notranslate"><span class="pre">½‖F(X)</span> <span class="pre">−</span> <span class="pre">y‖²</span></code> at a fixed point, linearized through a <strong>geometry</strong>: it exposes the objective value
+<code class="docutils literal notranslate"><span class="pre">c</span> <span class="pre">=</span> <span class="pre">½‖r‖²</span></code>, the gradient <code class="docutils literal notranslate"><span class="pre">g</span></code>, the Gauss-Newton Hessian action <code class="docutils literal notranslate"><span class="pre">H</span> <span class="pre">p</span> <span class="pre">=</span> <span class="pre">JᵀJ</span> <span class="pre">p</span></code>, and the
+quadratic-model value <code class="docutils literal notranslate"><span class="pre">m(p)</span> <span class="pre">=</span> <span class="pre">c</span> <span class="pre">+</span> <span class="pre">gᵀp</span> <span class="pre">+</span> <span class="pre">½</span> <span class="pre">pᵀ</span> <span class="pre">H</span> <span class="pre">p</span></code>. The model is generic over two independent choices:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>the <strong>geometry</strong> – <code class="xref py py-data docutils literal notranslate"><span class="pre">MANIFOLD</span></code> (optimize on the fixed-rank manifold;
+the gauge projection <code class="docutils literal notranslate"><span class="pre">Π</span></code> makes <code class="docutils literal notranslate"><span class="pre">g</span></code> / <code class="docutils literal notranslate"><span class="pre">H</span></code> Riemannian) or
+<code class="xref py py-data docutils literal notranslate"><span class="pre">COREWISE</span></code> (optimize the raw cores; no <code class="docutils literal notranslate"><span class="pre">Π</span></code>). The geometry supplies the
+frame <code class="docutils literal notranslate"><span class="pre">base</span> <span class="pre">=</span> <span class="pre">geometry.base(X)</span></code> and the projection <code class="docutils literal notranslate"><span class="pre">Π</span> <span class="pre">=</span> <span class="pre">geometry.project</span></code>; the forward is
+<code class="docutils literal notranslate"><span class="pre">J</span> <span class="pre">=</span> <span class="pre">𝒥∘Π</span></code> and the gradient is <code class="docutils literal notranslate"><span class="pre">Jᵀr</span> <span class="pre">=</span> <span class="pre">Π∘𝒥ᵀr</span></code>. <strong>Manifold ⟺ Π, corewise ⟺ no Π is structural</strong>
+(bundled in the geometry), never a flag – mixing the two silently corrupts the result.</p></li>
+<li><p>the <strong>sampling kind</strong> – bound by the factory <a class="reference internal" href="apply_model.html#t3toolbox.fitting.apply_model" title="t3toolbox.fitting.apply_model"><code class="xref py py-func docutils literal notranslate"><span class="pre">apply_model()</span></code></a> / <a class="reference internal" href="entries_model.html#t3toolbox.fitting.entries_model" title="t3toolbox.fitting.entries_model"><code class="xref py py-func docutils literal notranslate"><span class="pre">entries_model()</span></code></a> /
+<a class="reference internal" href="probe_model.html#t3toolbox.fitting.probe_model" title="t3toolbox.fitting.probe_model"><code class="xref py py-func docutils literal notranslate"><span class="pre">probe_model()</span></code></a> (the bare <code class="docutils literal notranslate"><span class="pre">𝒥</span></code> / <code class="docutils literal notranslate"><span class="pre">𝒥ᵀ</span></code> from <code class="xref py py-mod docutils literal notranslate"><span class="pre">t3toolbox.backend.probing</span></code>, bundled in
+<code class="xref py py-mod docutils literal notranslate"><span class="pre">t3toolbox.backend.fitting</span></code>).</p></li>
+</ul>
+</div></blockquote>
+<p>Every input and output is a <code class="xref py py-class docutils literal notranslate"><span class="pre">T3Tangent</span></code> at <code class="docutils literal notranslate"><span class="pre">model.base</span></code> – including the
+<strong>corewise</strong> case, where the tangent lives at the non-orthonormal frame <code class="docutils literal notranslate"><span class="pre">(U,G,G,G)</span></code> (a core
+perturbation; see <code class="xref py py-class docutils literal notranslate"><span class="pre">CorewiseGeometry</span></code>). Build trial steps at <code class="docutils literal notranslate"><span class="pre">model.base</span></code>
+(e.g. <code class="docutils literal notranslate"><span class="pre">geometry.randn(model.base)</span></code>); a step at a different frame raises the numerical same-frame guard
+(skipped under <code class="docutils literal notranslate"><span class="pre">safety.unsafe()</span></code> / a jax trace), like <code class="xref py py-class docutils literal notranslate"><span class="pre">T3Tangent</span></code>.</p>
+<p>The base sweep (the base-and-data edge variables) is computed once by the factory and stored as the
+<code class="docutils literal notranslate"><span class="pre">sweep</span></code> field, reused across every <code class="docutils literal notranslate"><span class="pre">gradient</span></code> / <code class="docutils literal notranslate"><span class="pre">gn_hessian</span></code> / <code class="docutils literal notranslate"><span class="pre">evaluate</span></code> – in an inner CG the
+base is fixed, so the sweep is computed once, not once per matrix-vector product. See
+<code class="xref py py-mod docutils literal notranslate"><span class="pre">t3toolbox.backend.fitting</span></code> and <code class="docutils literal notranslate"><span class="pre">docs/geometry_refactor_plan.md</span></code>.</p>
+<section id="jitting-an-optimizer">
+<h2>Jitting an optimizer<a class="headerlink" href="#jitting-an-optimizer" title="Link to this heading">#</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">GaussNewtonModel</span></code> <strong>is</strong> a registered jax pytree (the data – <code class="docutils literal notranslate"><span class="pre">base</span></code>, <code class="docutils literal notranslate"><span class="pre">sweep</span></code>, <code class="docutils literal notranslate"><span class="pre">sample</span></code>,
+<code class="docutils literal notranslate"><span class="pre">residual</span></code> – are leaves; <code class="docutils literal notranslate"><span class="pre">geometry</span></code> / <code class="docutils literal notranslate"><span class="pre">kind</span></code> are static aux). Crucially the base flows as a <em>leaf</em>,
+not aux (the same is true of <code class="xref py py-class docutils literal notranslate"><span class="pre">T3Tangent</span></code>’s basis), so a model or tangent
+that <strong>crosses a jit boundary does NOT recompile when the base changes</strong> – the per-base recompile that
+basis-as-aux used to force is gone. So you can jit the frontend matvec directly:</p>
+<ol class="arabic">
+<li><p><strong>Inner-solve jit (Newton-CG).</strong> Jit the matvec with the model <em>and</em> the tangent as arguments; it
+compiles <strong>once for the whole solve</strong> (the model’s base/sweep change as data, not as a recompile
+trigger), reused across every outer step and CG iteration:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Hmatvec</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="k">lambda</span> <span class="n">model</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">gn_hessian</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
+<span class="c1"># per outer step:  model = fitting.apply_model(geom, X, ww, r)</span>
+<span class="c1"># inner CG:         Hmatvec(model, p_k)</span>
+</pre></div>
+</div>
+</li>
+<li><p><strong>Whole-step jit (Cauchy / gradient descent / a fixed-step loop).</strong> Jit a step function whose only
+argument is the point <code class="docutils literal notranslate"><span class="pre">X</span></code> and build the model <em>inside</em>; compiles once, reused across steps:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="nd">@jax</span><span class="o">.</span><span class="n">jit</span>
+<span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
+    <span class="n">r</span>     <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="n">ww</span><span class="p">)</span> <span class="o">-</span> <span class="n">b</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">fitting</span><span class="o">.</span><span class="n">apply_model</span><span class="p">(</span><span class="n">t3m</span><span class="o">.</span><span class="n">MANIFOLD</span><span class="p">,</span> <span class="n">X</span><span class="p">,</span> <span class="n">ww</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
+    <span class="n">g</span>     <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">gradient</span>
+    <span class="n">alpha</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">corewise_inner</span><span class="p">(</span><span class="n">g</span><span class="p">)</span> <span class="o">/</span> <span class="n">model</span><span class="o">.</span><span class="n">gn_quadratic</span><span class="p">(</span><span class="n">g</span><span class="p">)</span>     <span class="c1"># cheap Cauchy step (one forward)</span>
+    <span class="k">return</span> <span class="n">t3m</span><span class="o">.</span><span class="n">MANIFOLD</span><span class="o">.</span><span class="n">retract</span><span class="p">((</span><span class="o">-</span><span class="n">alpha</span><span class="p">)</span> <span class="o">*</span> <span class="n">g</span><span class="p">)</span>
+</pre></div>
+</div>
+</li>
+</ol>
+<p>Under a trace the numerical same-frame guards skip (you cannot branch on a tracer; jit is unsafe mode), so
+a matvec output combines with the eager CG iterates freely. The geometry singletons (<code class="docutils literal notranslate"><span class="pre">t3m.MANIFOLD</span></code> /
+<code class="docutils literal notranslate"><span class="pre">COREWISE</span></code>) are zero-leaf pytrees – close over or pass as args freely.</p>
+</section>
 <section id="classes">
 <h2>Classes<a class="headerlink" href="#classes" title="Link to this heading">#</a></h2>
 <div class="toctree-wrapper compound">
 </div>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="ApplyGaussNewtonModel.html#t3toolbox.fitting.ApplyGaussNewtonModel" title="t3toolbox.fitting.ApplyGaussNewtonModel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ApplyGaussNewtonModel</span></code></a></p></td>
-<td><p>The local Gauss-Newton model of an all-modes <code class="docutils literal notranslate"><span class="pre">apply</span></code> least-squares objective at <code class="docutils literal notranslate"><span class="pre">base</span></code>.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="GaussNewtonModel.html#t3toolbox.fitting.GaussNewtonModel" title="t3toolbox.fitting.GaussNewtonModel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">GaussNewtonModel</span></code></a></p></td>
+<td><p>The local Gauss-Newton model of a least-squares objective at <code class="docutils literal notranslate"><span class="pre">base</span></code>, generic over the geometry.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="EntriesGaussNewtonModel.html#t3toolbox.fitting.EntriesGaussNewtonModel" title="t3toolbox.fitting.EntriesGaussNewtonModel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">EntriesGaussNewtonModel</span></code></a></p></td>
-<td><p>The local Gauss-Newton model of an all-modes <code class="docutils literal notranslate"><span class="pre">entries</span></code> least-squares objective at <code class="docutils literal notranslate"><span class="pre">base</span></code>.</p></td>
+</tbody>
+</table>
+</div>
+</section>
+<section id="functions">
+<h2>Functions<a class="headerlink" href="#functions" title="Link to this heading">#</a></h2>
+<div class="toctree-wrapper compound">
+</div>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="apply_model.html#t3toolbox.fitting.apply_model" title="t3toolbox.fitting.apply_model"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_model</span></code></a>(geometry, x, ww, residual)</p></td>
+<td><p>The Gauss-Newton model of an all-modes <code class="docutils literal notranslate"><span class="pre">apply</span></code> least-squares objective at <code class="docutils literal notranslate"><span class="pre">x</span></code>, on <code class="docutils literal notranslate"><span class="pre">geometry</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="ProbeGaussNewtonModel.html#t3toolbox.fitting.ProbeGaussNewtonModel" title="t3toolbox.fitting.ProbeGaussNewtonModel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ProbeGaussNewtonModel</span></code></a></p></td>
-<td><p>The local Gauss-Newton model of a <code class="docutils literal notranslate"><span class="pre">probe</span></code> least-squares objective at <code class="docutils literal notranslate"><span class="pre">base</span></code>.</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="entries_model.html#t3toolbox.fitting.entries_model" title="t3toolbox.fitting.entries_model"><code class="xref py py-obj docutils literal notranslate"><span class="pre">entries_model</span></code></a>(geometry, x, index, residual)</p></td>
+<td><p>The Gauss-Newton model of an all-modes <code class="docutils literal notranslate"><span class="pre">entries</span></code> least-squares objective at <code class="docutils literal notranslate"><span class="pre">x</span></code>, on <code class="docutils literal notranslate"><span class="pre">geometry</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="CorewiseApplyGaussNewtonModel.html#t3toolbox.fitting.CorewiseApplyGaussNewtonModel" title="t3toolbox.fitting.CorewiseApplyGaussNewtonModel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CorewiseApplyGaussNewtonModel</span></code></a></p></td>
-<td><p>The <strong>corewise</strong> (non-manifold) Gauss-Newton model of an <code class="docutils literal notranslate"><span class="pre">apply</span></code> least-squares objective.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="probe_model.html#t3toolbox.fitting.probe_model" title="t3toolbox.fitting.probe_model"><code class="xref py py-obj docutils literal notranslate"><span class="pre">probe_model</span></code></a>(geometry, x, ww, residual)</p></td>
+<td><p>The Gauss-Newton model of a <code class="docutils literal notranslate"><span class="pre">probe</span></code> least-squares objective at <code class="docutils literal notranslate"><span class="pre">x</span></code>, on <code class="docutils literal notranslate"><span class="pre">geometry</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="CorewiseEntriesGaussNewtonModel.html#t3toolbox.fitting.CorewiseEntriesGaussNewtonModel" title="t3toolbox.fitting.CorewiseEntriesGaussNewtonModel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CorewiseEntriesGaussNewtonModel</span></code></a></p></td>
-<td><p>The <strong>corewise</strong> (non-manifold, NO Π) Gauss-Newton model of an <code class="docutils literal notranslate"><span class="pre">entries</span></code> least-squares objective.</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="apply_derivatives_model.html#t3toolbox.fitting.apply_derivatives_model" title="t3toolbox.fitting.apply_derivatives_model"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_derivatives_model</span></code></a>(geometry, x, ww, pp, order, ...)</p></td>
+<td><p>The Gauss-Newton model of an <code class="docutils literal notranslate"><span class="pre">apply</span></code>-<strong>derivatives</strong> least-squares objective at <code class="docutils literal notranslate"><span class="pre">x</span></code>: the</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="CorewiseProbeGaussNewtonModel.html#t3toolbox.fitting.CorewiseProbeGaussNewtonModel" title="t3toolbox.fitting.CorewiseProbeGaussNewtonModel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CorewiseProbeGaussNewtonModel</span></code></a></p></td>
-<td><p>The <strong>corewise</strong> (non-manifold, NO Π) Gauss-Newton model of a <code class="docutils literal notranslate"><span class="pre">probe</span></code> least-squares objective.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="entries_derivatives_model.html#t3toolbox.fitting.entries_derivatives_model" title="t3toolbox.fitting.entries_derivatives_model"><code class="xref py py-obj docutils literal notranslate"><span class="pre">entries_derivatives_model</span></code></a>(geometry, x, index, pp, ...)</p></td>
+<td><p>The <code class="docutils literal notranslate"><span class="pre">entries</span></code>-derivatives Gauss-Newton model -- like <a class="reference internal" href="apply_derivatives_model.html#t3toolbox.fitting.apply_derivatives_model" title="t3toolbox.fitting.apply_derivatives_model"><code class="xref py py-func docutils literal notranslate"><span class="pre">apply_derivatives_model()</span></code></a> at integer</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="probe_derivatives_model.html#t3toolbox.fitting.probe_derivatives_model" title="t3toolbox.fitting.probe_derivatives_model"><code class="xref py py-obj docutils literal notranslate"><span class="pre">probe_derivatives_model</span></code></a>(geometry, x, ww, pp, order, ...)</p></td>
+<td><p>The <code class="docutils literal notranslate"><span class="pre">probe</span></code>-derivatives Gauss-Newton model -- vector-valued (one free mode per probe), so</p></td>
 </tr>
 </tbody>
 </table>
@@ -537,11 +591,11 @@ tangent and accepts any-gauge inputs. See <code class="docutils literal notransl
       </div>
     </a>
     <a class="right-next"
-       href="ApplyGaussNewtonModel.html"
+       href="GaussNewtonModel.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">ApplyGaussNewtonModel</p>
+        <p class="prev-next-title">GaussNewtonModel</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -564,7 +618,9 @@ tangent and accepts any-gauge inputs. See <code class="docutils literal notransl
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#jitting-an-optimizer">Jitting an optimizer</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#classes">Classes</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#functions">Functions</a></li>
 </ul>
   </nav></div>
 

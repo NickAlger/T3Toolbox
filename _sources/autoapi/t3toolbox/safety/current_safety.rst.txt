@@ -1,0 +1,7 @@
+current_safety
+==============
+
+.. py:function:: t3toolbox.safety.current_safety()
+
+   The ambient :py:class:`SafetyTolerances` (safe mode) or ``None`` (unsafe mode).
+

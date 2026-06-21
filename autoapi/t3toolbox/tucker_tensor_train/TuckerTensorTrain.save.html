@@ -272,6 +272,8 @@
 <li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_add.html">corewise_add</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_sub.html">corewise_sub</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_scale.html">corewise_scale</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_zeros_like.html">corewise_zeros_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_map.html">corewise_map</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_neg.html">corewise_neg</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_sum.html">corewise_sum</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../corewise/corewise_dot.html">corewise_dot</a></li>
@@ -286,54 +288,43 @@
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="../fitting/index.html">fitting</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../fitting/ApplyGaussNewtonModel.html">ApplyGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/ApplyGaussNewtonModel._base_sweep.html">ApplyGaussNewtonModel._base_sweep</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/ApplyGaussNewtonModel.objective_value.html">ApplyGaussNewtonModel.objective_value</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/ApplyGaussNewtonModel.gradient.html">ApplyGaussNewtonModel.gradient</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/ApplyGaussNewtonModel.gn_hessian.html">ApplyGaussNewtonModel.gn_hessian</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/ApplyGaussNewtonModel.evaluate.html">ApplyGaussNewtonModel.evaluate</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../fitting/GaussNewtonModel.html">GaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/GaussNewtonModel._n_w.html">GaussNewtonModel._n_w</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/GaussNewtonModel.objective_value.html">GaussNewtonModel.objective_value</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/GaussNewtonModel.gradient.html">GaussNewtonModel.gradient</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/GaussNewtonModel.jacobian.html">GaussNewtonModel.jacobian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/GaussNewtonModel.gn_quadratic.html">GaussNewtonModel.gn_quadratic</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/GaussNewtonModel.gn_hessian.html">GaussNewtonModel.gn_hessian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/GaussNewtonModel.evaluate.html">GaussNewtonModel.evaluate</a></li>
 </ul>
 </details></li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../fitting/EntriesGaussNewtonModel.html">EntriesGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/EntriesGaussNewtonModel._base_sweep.html">EntriesGaussNewtonModel._base_sweep</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/EntriesGaussNewtonModel.objective_value.html">EntriesGaussNewtonModel.objective_value</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/EntriesGaussNewtonModel.gradient.html">EntriesGaussNewtonModel.gradient</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/EntriesGaussNewtonModel.gn_hessian.html">EntriesGaussNewtonModel.gn_hessian</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/EntriesGaussNewtonModel.evaluate.html">EntriesGaussNewtonModel.evaluate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../fitting/apply_model.html">apply_model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../fitting/entries_model.html">entries_model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../fitting/probe_model.html">probe_model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../fitting/apply_derivatives_model.html">apply_derivatives_model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../fitting/entries_derivatives_model.html">entries_derivatives_model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../fitting/probe_derivatives_model.html">probe_derivatives_model</a></li>
 </ul>
 </details></li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../fitting/ProbeGaussNewtonModel.html">ProbeGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/ProbeGaussNewtonModel._base_sweep.html">ProbeGaussNewtonModel._base_sweep</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/ProbeGaussNewtonModel.objective_value.html">ProbeGaussNewtonModel.objective_value</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/ProbeGaussNewtonModel.gradient.html">ProbeGaussNewtonModel.gradient</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/ProbeGaussNewtonModel.gn_hessian.html">ProbeGaussNewtonModel.gn_hessian</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/ProbeGaussNewtonModel.evaluate.html">ProbeGaussNewtonModel.evaluate</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../optimizers/index.html">optimizers</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../optimizers/gradient_descent.html">gradient_descent</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../optimizers/mc_sgd.html">mc_sgd</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../optimizers/adam.html">adam</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../optimizers/newton_cg.html">newton_cg</a></li>
 </ul>
 </details></li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../fitting/CorewiseApplyGaussNewtonModel.html">CorewiseApplyGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/CorewiseApplyGaussNewtonModel._base_sweep.html">CorewiseApplyGaussNewtonModel._base_sweep</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/CorewiseApplyGaussNewtonModel.objective_value.html">CorewiseApplyGaussNewtonModel.objective_value</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/CorewiseApplyGaussNewtonModel.gradient.html">CorewiseApplyGaussNewtonModel.gradient</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/CorewiseApplyGaussNewtonModel.gn_hessian.html">CorewiseApplyGaussNewtonModel.gn_hessian</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/CorewiseApplyGaussNewtonModel.evaluate.html">CorewiseApplyGaussNewtonModel.evaluate</a></li>
-</ul>
-</details></li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../fitting/CorewiseEntriesGaussNewtonModel.html">CorewiseEntriesGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/CorewiseEntriesGaussNewtonModel._base_sweep.html">CorewiseEntriesGaussNewtonModel._base_sweep</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/CorewiseEntriesGaussNewtonModel.objective_value.html">CorewiseEntriesGaussNewtonModel.objective_value</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/CorewiseEntriesGaussNewtonModel.gradient.html">CorewiseEntriesGaussNewtonModel.gradient</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/CorewiseEntriesGaussNewtonModel.gn_hessian.html">CorewiseEntriesGaussNewtonModel.gn_hessian</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/CorewiseEntriesGaussNewtonModel.evaluate.html">CorewiseEntriesGaussNewtonModel.evaluate</a></li>
-</ul>
-</details></li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="../fitting/CorewiseProbeGaussNewtonModel.html">CorewiseProbeGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/CorewiseProbeGaussNewtonModel._base_sweep.html">CorewiseProbeGaussNewtonModel._base_sweep</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/CorewiseProbeGaussNewtonModel.objective_value.html">CorewiseProbeGaussNewtonModel.objective_value</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/CorewiseProbeGaussNewtonModel.gradient.html">CorewiseProbeGaussNewtonModel.gradient</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/CorewiseProbeGaussNewtonModel.gn_hessian.html">CorewiseProbeGaussNewtonModel.gn_hessian</a></li>
-<li class="toctree-l4"><a class="reference internal" href="../fitting/CorewiseProbeGaussNewtonModel.evaluate.html">CorewiseProbeGaussNewtonModel.evaluate</a></li>
-</ul>
-</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../safety/index.html">safety</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../safety/SafetyTolerances.html">SafetyTolerances</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/current_safety.html">current_safety</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/set_default_safety.html">set_default_safety</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/safe.html">safe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/unsafe.html">unsafe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/effective_rtol.html">effective_rtol</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/is_tracing.html">is_tracing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/checks_active.html">checks_active</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/require.html">require</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/frames_equal.html">frames_equal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../safety/frames_equal_or_skip.html">frames_equal_or_skip</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 current active has-children"><a class="reference internal" href="index.html">tucker_tensor_train</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
@@ -341,6 +332,7 @@
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.__repr__.html">TuckerTensorTrain.__repr__</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.get_core_shapes.html">TuckerTensorTrain.get_core_shapes</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.get_minimal_ranks.html">TuckerTensorTrain.get_minimal_ranks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.has_numerically_minimal_ranks.html">TuckerTensorTrain.has_numerically_minimal_ranks</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.is_left_orthogonal.html">TuckerTensorTrain.is_left_orthogonal</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.is_right_orthogonal.html">TuckerTensorTrain.is_right_orthogonal</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.validate.html">TuckerTensorTrain.validate</a></li>
@@ -515,9 +507,9 @@ already there.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x2</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">fname</span><span class="p">)</span> <span class="c1"># Load from file</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_cores</span><span class="p">,</span> <span class="n">tt_cores</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">data</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">tucker_cores2</span><span class="p">,</span> <span class="n">tt_cores2</span> <span class="o">=</span> <span class="n">x2</span><span class="o">.</span><span class="n">data</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">B</span> <span class="o">-</span> <span class="n">B2</span><span class="p">)</span> <span class="k">for</span> <span class="n">B</span><span class="p">,</span> <span class="n">B2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">tucker_cores</span><span class="p">,</span> <span class="n">tucker_cores2</span><span class="p">)])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">B</span> <span class="o">-</span> <span class="n">B2</span><span class="p">))</span> <span class="k">for</span> <span class="n">B</span><span class="p">,</span> <span class="n">B2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">tucker_cores</span><span class="p">,</span> <span class="n">tucker_cores2</span><span class="p">)])</span>
 <span class="go">[0.0, 0.0, 0.0]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">([</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">G</span> <span class="o">-</span> <span class="n">G2</span><span class="p">)</span> <span class="k">for</span> <span class="n">G</span><span class="p">,</span> <span class="n">G2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">tt_cores</span><span class="p">,</span> <span class="n">tt_cores2</span><span class="p">)])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">([</span><span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">G</span> <span class="o">-</span> <span class="n">G2</span><span class="p">))</span> <span class="k">for</span> <span class="n">G</span><span class="p">,</span> <span class="n">G2</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">tt_cores</span><span class="p">,</span> <span class="n">tt_cores2</span><span class="p">)])</span>
 <span class="go">[0.0, 0.0, 0.0]</span>
 </pre></div>
 </div>

@@ -11,5 +11,5 @@ corewise_logical_not
    >>> import t3toolbox.corewise as cw
    >>> X = (np.array([True, False, False]), (True, (), np.array([False, True, False])))
    >>> print(cw.corewise_logical_not(X))
-   (array([False,  True,  True]), (False, (), array([ True, False,  True])))
+   (array([False,  True,  True]), (np.False_, (), array([ True, False,  True])))
 

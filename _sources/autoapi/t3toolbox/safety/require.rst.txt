@@ -1,0 +1,8 @@
+require
+=======
+
+.. py:function:: t3toolbox.safety.require(condition, message)
+
+   Raise ``ValueError(message)`` if ``condition`` is falsy. Call only inside a :py:func:`checks_active`
+   guard, so the (possibly expensive) condition is not computed in unsafe mode / under a trace.
+

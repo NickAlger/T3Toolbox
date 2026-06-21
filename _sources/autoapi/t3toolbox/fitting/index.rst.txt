@@ -6,21 +6,64 @@ fitting
 
 .. autoapi-nested-parse::
 
-   Frontend for the least-squares fitting layer: the Gauss-Newton models.
+   Frontend for the least-squares fitting layer: one geometry-generic Gauss-Newton model.
 
-   Thin frozen-dataclass frontends over ``backend/fitting.py``, one per sampling kind
-   (:py:class:`ApplyGaussNewtonModel`, :py:class:`EntriesGaussNewtonModel`, :py:class:`ProbeGaussNewtonModel`).
-   A model is the local Gauss-Newton model of a least-squares objective at a fixed base point (an orthonormal
-   ``T3Basis``): it exposes the objective value ``c``, the Riemannian gradient ``g``, the Gauss-Newton
-   Hessian action ``H p = JᵀJ p``, and the quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p``.
+   A :py:class:`GaussNewtonModel` is the local Gauss-Newton model of a least-squares objective
+   ``½‖F(X) − y‖²`` at a fixed point, linearized through a **geometry**: it exposes the objective value
+   ``c = ½‖r‖²``, the gradient ``g``, the Gauss-Newton Hessian action ``H p = JᵀJ p``, and the
+   quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p``. The model is generic over two independent choices:
 
-   The expensive base sweep (the base-and-data edge variables) is a ``@cached_property``: computed once on
-   first use and reused across every ``gn_hessian`` / ``evaluate`` of an inner solve, then garbage-collected
-   when the model leaves scope. This is the whole point -- in an inner CG the base is fixed, so the sweep is
-   computed once, not once per matrix-vector product.
+     * the **geometry** -- :py:data:`~t3toolbox.manifold.MANIFOLD` (optimize on the fixed-rank manifold;
+       the gauge projection ``Π`` makes ``g`` / ``H`` Riemannian) or
+       :py:data:`~t3toolbox.manifold.COREWISE` (optimize the raw cores; no ``Π``). The geometry supplies the
+       frame ``base = geometry.base(X)`` and the projection ``Π = geometry.project``; the forward is
+       ``J = 𝒥∘Π`` and the gradient is ``Jᵀr = Π∘𝒥ᵀr``. **Manifold ⟺ Π, corewise ⟺ no Π is structural**
+       (bundled in the geometry), never a flag -- mixing the two silently corrupts the result.
+     * the **sampling kind** -- bound by the factory :py:func:`apply_model` / :py:func:`entries_model` /
+       :py:func:`probe_model` (the bare ``𝒥`` / ``𝒥ᵀ`` from :py:mod:`t3toolbox.backend.probing`, bundled in
+       :py:mod:`t3toolbox.backend.fitting`).
 
-   Gauge handling lives entirely in the backend (``J = 𝒥∘Π``, ``Jᵀ = Π∘𝒥ᵀ``): every method returns a gauged
-   tangent and accepts any-gauge inputs. See ``docs/fitting_plan.md``.
+   Every input and output is a :py:class:`~t3toolbox.manifold.T3Tangent` at ``model.base`` -- including the
+   **corewise** case, where the tangent lives at the non-orthonormal frame ``(U,G,G,G)`` (a core
+   perturbation; see :py:class:`~t3toolbox.manifold.CorewiseGeometry`). Build trial steps at ``model.base``
+   (e.g. ``geometry.randn(model.base)``); a step at a different frame raises the numerical same-frame guard
+   (skipped under ``safety.unsafe()`` / a jax trace), like :py:class:`~t3toolbox.manifold.T3Tangent`.
+
+   The base sweep (the base-and-data edge variables) is computed once by the factory and stored as the
+   ``sweep`` field, reused across every ``gradient`` / ``gn_hessian`` / ``evaluate`` -- in an inner CG the
+   base is fixed, so the sweep is computed once, not once per matrix-vector product. See
+   :py:mod:`t3toolbox.backend.fitting` and ``docs/geometry_refactor_plan.md``.
+
+   Jitting an optimizer
+   --------------------
+   ``GaussNewtonModel`` **is** a registered jax pytree (the data -- ``base``, ``sweep``, ``sample``,
+   ``residual`` -- are leaves; ``geometry`` / ``kind`` are static aux). Crucially the base flows as a *leaf*,
+   not aux (the same is true of :py:class:`~t3toolbox.manifold.T3Tangent`'s basis), so a model or tangent
+   that **crosses a jit boundary does NOT recompile when the base changes** -- the per-base recompile that
+   basis-as-aux used to force is gone. So you can jit the frontend matvec directly:
+
+   1. **Inner-solve jit (Newton-CG).** Jit the matvec with the model *and* the tangent as arguments; it
+      compiles **once for the whole solve** (the model's base/sweep change as data, not as a recompile
+      trigger), reused across every outer step and CG iteration::
+
+          Hmatvec = jax.jit(lambda model, p: model.gn_hessian(p))
+          # per outer step:  model = fitting.apply_model(geom, X, ww, r)
+          # inner CG:         Hmatvec(model, p_k)
+
+   2. **Whole-step jit (Cauchy / gradient descent / a fixed-step loop).** Jit a step function whose only
+      argument is the point ``X`` and build the model *inside*; compiles once, reused across steps::
+
+          @jax.jit
+          def step(X):
+              r     = X.apply(ww) - b
+              model = fitting.apply_model(t3m.MANIFOLD, X, ww, r)
+              g     = model.gradient
+              alpha = g.corewise_inner(g) / model.gn_quadratic(g)     # cheap Cauchy step (one forward)
+              return t3m.MANIFOLD.retract((-alpha) * g)
+
+   Under a trace the numerical same-frame guards skip (you cannot branch on a tracer; jit is unsafe mode), so
+   a matvec output combines with the eager CG iterates freely. The geometry singletons (``t3m.MANIFOLD`` /
+   ``COREWISE``) are zero-leaf pytrees -- close over or pass as args freely.
 
 
 
@@ -30,20 +73,33 @@ Classes
 .. toctree::
    :hidden:
 
-   /autoapi/t3toolbox/fitting/ApplyGaussNewtonModel
-   /autoapi/t3toolbox/fitting/EntriesGaussNewtonModel
-   /autoapi/t3toolbox/fitting/ProbeGaussNewtonModel
-   /autoapi/t3toolbox/fitting/CorewiseApplyGaussNewtonModel
-   /autoapi/t3toolbox/fitting/CorewiseEntriesGaussNewtonModel
-   /autoapi/t3toolbox/fitting/CorewiseProbeGaussNewtonModel
+   /autoapi/t3toolbox/fitting/GaussNewtonModel
 
 .. autoapisummary::
 
-   t3toolbox.fitting.ApplyGaussNewtonModel
-   t3toolbox.fitting.EntriesGaussNewtonModel
-   t3toolbox.fitting.ProbeGaussNewtonModel
-   t3toolbox.fitting.CorewiseApplyGaussNewtonModel
-   t3toolbox.fitting.CorewiseEntriesGaussNewtonModel
-   t3toolbox.fitting.CorewiseProbeGaussNewtonModel
+   t3toolbox.fitting.GaussNewtonModel
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/fitting/apply_model
+   /autoapi/t3toolbox/fitting/entries_model
+   /autoapi/t3toolbox/fitting/probe_model
+   /autoapi/t3toolbox/fitting/apply_derivatives_model
+   /autoapi/t3toolbox/fitting/entries_derivatives_model
+   /autoapi/t3toolbox/fitting/probe_derivatives_model
+
+.. autoapisummary::
+
+   t3toolbox.fitting.apply_model
+   t3toolbox.fitting.entries_model
+   t3toolbox.fitting.probe_model
+   t3toolbox.fitting.apply_derivatives_model
+   t3toolbox.fitting.entries_derivatives_model
+   t3toolbox.fitting.probe_derivatives_model
 
 

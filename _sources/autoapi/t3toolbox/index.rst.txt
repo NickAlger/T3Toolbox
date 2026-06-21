@@ -13,6 +13,8 @@ Submodules
 
    /autoapi/t3toolbox/corewise/index
    /autoapi/t3toolbox/fitting/index
+   /autoapi/t3toolbox/optimizers/index
+   /autoapi/t3toolbox/safety/index
    /autoapi/t3toolbox/tucker_tensor_train/index
 
 

@@ -1,0 +1,118 @@
+GaussNewtonModel
+================
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/fitting/GaussNewtonModel._n_w
+   /autoapi/t3toolbox/fitting/GaussNewtonModel.objective_value
+   /autoapi/t3toolbox/fitting/GaussNewtonModel.gradient
+   /autoapi/t3toolbox/fitting/GaussNewtonModel.jacobian
+   /autoapi/t3toolbox/fitting/GaussNewtonModel.gn_quadratic
+   /autoapi/t3toolbox/fitting/GaussNewtonModel.gn_hessian
+   /autoapi/t3toolbox/fitting/GaussNewtonModel.evaluate
+
+.. py:class:: t3toolbox.fitting.GaussNewtonModel
+
+   The local Gauss-Newton model of a least-squares objective at ``base``, generic over the geometry.
+
+   Built by a sampling-kind factory (:py:func:`apply_model` / :py:func:`entries_model` /
+   :py:func:`probe_model`), not directly. Holds the geometry, the frame ``base = geometry.base(X)``, the
+   sampling ``kind``, the measurement ``sample`` (the probe/apply vectors ``ww`` or the integer grid
+   ``index``), and the data residual ``r = F(X) − y``. The base sweep, objective value, and gradient are
+   cached on first use.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.manifold as t3m
+   >>> import t3toolbox.fitting as fitting
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
+   >>> ww = [np.random.randn(15, N) for N in (6, 7, 8)]    # 15 samples, each a (w_1, w_2, w_3)
+   >>> r = np.random.randn(15)                             # the data residual at x
+
+   On the **manifold** geometry the gradient ``g = Π 𝒥ᵀ r`` is a gauged tangent and ``H p`` stays on the
+   gauged tangent space:
+
+   >>> model = fitting.apply_model(t3m.MANIFOLD, x, ww, r)
+   >>> print(round(float(model.objective_value), 6))
+   8.295196
+   >>> model.gradient.is_gauged()
+   True
+   >>> p = t3m.MANIFOLD.randn(model.base)                  # a gauged trial step at the model's base
+   >>> model.gn_hessian(p).is_gauged()
+   True
+
+   ``evaluate(p)`` is the quadratic-model value, consistent with assembling it from the cached ``c`` /
+   ``g`` and the Hessian action (and costs only one forward apply, not a Hessian apply):
+
+   >>> hp = model.gn_hessian(p)
+   >>> m_built = float(model.objective_value + model.gradient.corewise_inner(p) + 0.5 * p.corewise_inner(hp))
+   >>> bool(np.allclose(float(model.evaluate(p)), m_built))
+   True
+
+   The Gauss-Newton quadratic form ``pᵀHp = ‖Jp‖²`` comes from one forward sweep (no ``H p`` assembly) --
+   the cheap step-length denominator for Cauchy / line search (``alpha = g.corewise_inner(g) / gn_quadratic(g)``):
+
+   >>> bool(np.allclose(float(model.gn_quadratic(p)), float(p.corewise_inner(model.gn_hessian(p)))))
+   True
+
+   The **corewise** geometry is the same call with a different geometry: the gradient is a tangent at the
+   raw ``(U,G,G,G)`` frame (a core perturbation), with **no** gauge projection:
+
+   >>> cmodel = fitting.apply_model(t3m.COREWISE, x, ww, r)
+   >>> cmodel.gradient.is_gauged()
+   False
+   >>> cp = t3m.COREWISE.randn(cmodel.base)
+   >>> bool(np.allclose(float(cmodel.evaluate(cp)),
+   ...                  float(cmodel.objective_value + cmodel.gradient.corewise_inner(cp)
+   ...                        + 0.5 * cp.corewise_inner(cmodel.gn_hessian(cp)))))
+   True
+
+   A trial step at a *different* base is a structural error (the model is tied to its base):
+
+   >>> other = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
+   >>> model.gn_hessian(t3m.MANIFOLD.randn(t3m.MANIFOLD.base(other)))   # doctest: +IGNORE_EXCEPTION_DETAIL
+   Traceback (most recent call last):
+   ValueError: trial tangent must live at the model's base (it is at a different frame)
+
+
+   .. py:attribute:: geometry
+      :type:  Any
+
+
+   .. py:attribute:: base
+      :type:  t3toolbox.basis_variations_format.T3Basis
+
+
+   .. py:attribute:: kind
+      :type:  t3toolbox.backend.fitting.SamplingKind
+
+
+   .. py:attribute:: sample
+      :type:  Any
+
+
+   .. py:attribute:: residual
+      :type:  Any
+
+
+   .. py:attribute:: sweep
+      :type:  Any
+
+Methods
+-------
+
+.. autoapisummary::
+
+   t3toolbox.fitting.GaussNewtonModel._n_w
+   t3toolbox.fitting.GaussNewtonModel.objective_value
+   t3toolbox.fitting.GaussNewtonModel.gradient
+   t3toolbox.fitting.GaussNewtonModel.jacobian
+   t3toolbox.fitting.GaussNewtonModel.gn_quadratic
+   t3toolbox.fitting.GaussNewtonModel.gn_hessian
+   t3toolbox.fitting.GaussNewtonModel.evaluate
+
+

@@ -1,0 +1,133 @@
+safety
+======
+
+
+.. py:module:: t3toolbox.safety
+
+.. autoapi-nested-parse::
+
+   Safe / unsafe mode: numerical **precondition** checks gated by an ambient safety tolerance.
+
+   The library distinguishes (see ``docs/safe_unsafe_mode_plan.md`` and ``docs/numerical_contract_catalog.md``):
+
+   - **consistency / well-formedness** checks (shapes, ranks, ``check_bv_pair``) -- always run, in both
+     modes, at construction. These are *not* governed by this module.
+   - **preconditions** -- the operation is numerically wrong without them, but a violation is not
+     *malformedness*. These run **only in safe mode**. Two flavours, distinguished by what the *check*
+     costs, not by the kind of property:
+
+     * **numerical** (same-frame, orthogonal frame, gauged variations) -- compared at a jax-aware tolerance,
+       and **eager-only** (a tracer cannot be branched on, so they skip under a jax trace);
+     * **structural-property** (**structurally**-minimal ranks) -- a cheap integer check on the ranks (NOT a
+       numerical check -- this is the term ``safety.py`` previously got wrong).
+
+     A third, opt-in **super-safe** check -- **numerically**-minimal ranks (would require an SVD) -- is
+     planned (off by default). For an orthogonal frame it is free: orthonormal cores are full-rank, so an
+     orthogonal + structurally-minimal frame is automatically numerically minimal; no SVD (and a frame is not
+     a tensor to SVD anyway).
+
+   Safe vs unsafe is an ambient setting (a :py:class:`contextvars.ContextVar`): a
+   :py:class:`SafetyTolerances` pair is **safe mode**; ``None`` is **unsafe mode**. The default is **safe**.
+
+   **Two tolerances, numpy vs jax.** The library mixes numpy and jax arrays deliberately (jax for autodiff
+   prototyping, *not* jit), and jax runs float32 by default -- so its residuals are far looser than numpy's
+   float64 (e.g. an orthogonality residual of ~1e-7 vs ~1e-15). A single tolerance would false-fail every jax
+   input. So a precondition check picks ``rtol_jax`` when ``tree_contains_jax(inputs)`` else ``rtol_numpy``,
+   using the same numpy/jax dispatch as the rest of the codebase. (If you enable ``jax_enable_x64`` you can
+   tighten ``rtol_jax`` via :py:func:`safe`.)
+
+   Numerical checks are **eager-only** -- skipped under a jax trace (you cannot branch on a tracer, and jit is
+   for performance, which is unsafe by definition). The contract: validate eagerly in safe mode, then jit
+   (effectively unsafe) for speed. This module is the **mechanism** only; the per-op checks are wired at the
+   call sites that own the relevant ``T3*`` objects (see the catalog).
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.safety as safety
+   >>> print(safety.current_safety())                          # default: safe (numpy, jax tolerances)
+   SafetyTolerances(rtol_numpy=1e-09, rtol_jax=1e-05)
+   >>> print(safety.effective_rtol((np.zeros(3),)))            # numpy input -> numpy rtol
+   1e-09
+   >>> with safety.unsafe():
+   ...     print(safety.current_safety(), safety.checks_active(np.zeros(3)))
+   None False
+   >>> print(safety.current_safety() is None)                  # restored on exit
+   False
+
+   ``frames_equal`` is the honest "same tangent space" test -- it accepts value-equal-but-different-object
+   frames (a jit round-trip), unlike object identity:
+
+   >>> a = (np.ones((2, 3)),)
+   >>> b = (np.ones((2, 3)),)                                   # value-equal, different objects
+   >>> print(a is b, safety.frames_equal(a, b))
+   False True
+   >>> print(safety.frames_equal(a, (np.zeros((2, 3)),)))      # genuinely different
+   False
+
+
+
+Attributes
+----------
+
+.. autoapisummary::
+
+   t3toolbox.safety.DEFAULT_RTOL_NUMPY
+   t3toolbox.safety.DEFAULT_RTOL_JAX
+
+
+Classes
+-------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/safety/SafetyTolerances
+
+.. autoapisummary::
+
+   t3toolbox.safety.SafetyTolerances
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/safety/current_safety
+   /autoapi/t3toolbox/safety/set_default_safety
+   /autoapi/t3toolbox/safety/safe
+   /autoapi/t3toolbox/safety/unsafe
+   /autoapi/t3toolbox/safety/effective_rtol
+   /autoapi/t3toolbox/safety/is_tracing
+   /autoapi/t3toolbox/safety/checks_active
+   /autoapi/t3toolbox/safety/require
+   /autoapi/t3toolbox/safety/frames_equal
+   /autoapi/t3toolbox/safety/frames_equal_or_skip
+
+.. autoapisummary::
+
+   t3toolbox.safety.current_safety
+   t3toolbox.safety.set_default_safety
+   t3toolbox.safety.safe
+   t3toolbox.safety.unsafe
+   t3toolbox.safety.effective_rtol
+   t3toolbox.safety.is_tracing
+   t3toolbox.safety.checks_active
+   t3toolbox.safety.require
+   t3toolbox.safety.frames_equal
+   t3toolbox.safety.frames_equal_or_skip
+
+
+Module Contents
+---------------
+
+.. py:data:: DEFAULT_RTOL_NUMPY
+   :value: 1e-09
+
+
+.. py:data:: DEFAULT_RTOL_JAX
+   :value: 1e-05
+
+

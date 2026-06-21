@@ -272,6 +272,8 @@
 <li class="toctree-l3"><a class="reference internal" href="t3toolbox/corewise/corewise_add.html">corewise_add</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3toolbox/corewise/corewise_sub.html">corewise_sub</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3toolbox/corewise/corewise_scale.html">corewise_scale</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/corewise/corewise_zeros_like.html">corewise_zeros_like</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/corewise/corewise_map.html">corewise_map</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3toolbox/corewise/corewise_neg.html">corewise_neg</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3toolbox/corewise/corewise_sum.html">corewise_sum</a></li>
 <li class="toctree-l3"><a class="reference internal" href="t3toolbox/corewise/corewise_dot.html">corewise_dot</a></li>
@@ -286,54 +288,43 @@
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="t3toolbox/fitting/index.html">fitting</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l3 has-children"><a class="reference internal" href="t3toolbox/fitting/ApplyGaussNewtonModel.html">ApplyGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/ApplyGaussNewtonModel._base_sweep.html">ApplyGaussNewtonModel._base_sweep</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/ApplyGaussNewtonModel.objective_value.html">ApplyGaussNewtonModel.objective_value</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/ApplyGaussNewtonModel.gradient.html">ApplyGaussNewtonModel.gradient</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/ApplyGaussNewtonModel.gn_hessian.html">ApplyGaussNewtonModel.gn_hessian</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/ApplyGaussNewtonModel.evaluate.html">ApplyGaussNewtonModel.evaluate</a></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="t3toolbox/fitting/GaussNewtonModel.html">GaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/GaussNewtonModel._n_w.html">GaussNewtonModel._n_w</a></li>
+<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/GaussNewtonModel.objective_value.html">GaussNewtonModel.objective_value</a></li>
+<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/GaussNewtonModel.gradient.html">GaussNewtonModel.gradient</a></li>
+<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/GaussNewtonModel.jacobian.html">GaussNewtonModel.jacobian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/GaussNewtonModel.gn_quadratic.html">GaussNewtonModel.gn_quadratic</a></li>
+<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/GaussNewtonModel.gn_hessian.html">GaussNewtonModel.gn_hessian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/GaussNewtonModel.evaluate.html">GaussNewtonModel.evaluate</a></li>
 </ul>
 </details></li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="t3toolbox/fitting/EntriesGaussNewtonModel.html">EntriesGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/EntriesGaussNewtonModel._base_sweep.html">EntriesGaussNewtonModel._base_sweep</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/EntriesGaussNewtonModel.objective_value.html">EntriesGaussNewtonModel.objective_value</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/EntriesGaussNewtonModel.gradient.html">EntriesGaussNewtonModel.gradient</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/EntriesGaussNewtonModel.gn_hessian.html">EntriesGaussNewtonModel.gn_hessian</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/EntriesGaussNewtonModel.evaluate.html">EntriesGaussNewtonModel.evaluate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/fitting/apply_model.html">apply_model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/fitting/entries_model.html">entries_model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/fitting/probe_model.html">probe_model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/fitting/apply_derivatives_model.html">apply_derivatives_model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/fitting/entries_derivatives_model.html">entries_derivatives_model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/fitting/probe_derivatives_model.html">probe_derivatives_model</a></li>
 </ul>
 </details></li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="t3toolbox/fitting/ProbeGaussNewtonModel.html">ProbeGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/ProbeGaussNewtonModel._base_sweep.html">ProbeGaussNewtonModel._base_sweep</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/ProbeGaussNewtonModel.objective_value.html">ProbeGaussNewtonModel.objective_value</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/ProbeGaussNewtonModel.gradient.html">ProbeGaussNewtonModel.gradient</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/ProbeGaussNewtonModel.gn_hessian.html">ProbeGaussNewtonModel.gn_hessian</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/ProbeGaussNewtonModel.evaluate.html">ProbeGaussNewtonModel.evaluate</a></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="t3toolbox/optimizers/index.html">optimizers</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/optimizers/gradient_descent.html">gradient_descent</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/optimizers/mc_sgd.html">mc_sgd</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/optimizers/adam.html">adam</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/optimizers/newton_cg.html">newton_cg</a></li>
 </ul>
 </details></li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="t3toolbox/fitting/CorewiseApplyGaussNewtonModel.html">CorewiseApplyGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/CorewiseApplyGaussNewtonModel._base_sweep.html">CorewiseApplyGaussNewtonModel._base_sweep</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/CorewiseApplyGaussNewtonModel.objective_value.html">CorewiseApplyGaussNewtonModel.objective_value</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/CorewiseApplyGaussNewtonModel.gradient.html">CorewiseApplyGaussNewtonModel.gradient</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/CorewiseApplyGaussNewtonModel.gn_hessian.html">CorewiseApplyGaussNewtonModel.gn_hessian</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/CorewiseApplyGaussNewtonModel.evaluate.html">CorewiseApplyGaussNewtonModel.evaluate</a></li>
-</ul>
-</details></li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="t3toolbox/fitting/CorewiseEntriesGaussNewtonModel.html">CorewiseEntriesGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/CorewiseEntriesGaussNewtonModel._base_sweep.html">CorewiseEntriesGaussNewtonModel._base_sweep</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/CorewiseEntriesGaussNewtonModel.objective_value.html">CorewiseEntriesGaussNewtonModel.objective_value</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/CorewiseEntriesGaussNewtonModel.gradient.html">CorewiseEntriesGaussNewtonModel.gradient</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/CorewiseEntriesGaussNewtonModel.gn_hessian.html">CorewiseEntriesGaussNewtonModel.gn_hessian</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/CorewiseEntriesGaussNewtonModel.evaluate.html">CorewiseEntriesGaussNewtonModel.evaluate</a></li>
-</ul>
-</details></li>
-<li class="toctree-l3 has-children"><a class="reference internal" href="t3toolbox/fitting/CorewiseProbeGaussNewtonModel.html">CorewiseProbeGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/CorewiseProbeGaussNewtonModel._base_sweep.html">CorewiseProbeGaussNewtonModel._base_sweep</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/CorewiseProbeGaussNewtonModel.objective_value.html">CorewiseProbeGaussNewtonModel.objective_value</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/CorewiseProbeGaussNewtonModel.gradient.html">CorewiseProbeGaussNewtonModel.gradient</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/CorewiseProbeGaussNewtonModel.gn_hessian.html">CorewiseProbeGaussNewtonModel.gn_hessian</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/fitting/CorewiseProbeGaussNewtonModel.evaluate.html">CorewiseProbeGaussNewtonModel.evaluate</a></li>
-</ul>
-</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="t3toolbox/safety/index.html">safety</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/safety/SafetyTolerances.html">SafetyTolerances</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/safety/current_safety.html">current_safety</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/safety/set_default_safety.html">set_default_safety</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/safety/safe.html">safe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/safety/unsafe.html">unsafe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/safety/effective_rtol.html">effective_rtol</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/safety/is_tracing.html">is_tracing</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/safety/checks_active.html">checks_active</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/safety/require.html">require</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/safety/frames_equal.html">frames_equal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/safety/frames_equal_or_skip.html">frames_equal_or_skip</a></li>
 </ul>
 </details></li>
 <li class="toctree-l2 has-children"><a class="reference internal" href="t3toolbox/tucker_tensor_train/index.html">tucker_tensor_train</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
@@ -341,6 +332,7 @@
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/tucker_tensor_train/TuckerTensorTrain.__repr__.html">TuckerTensorTrain.__repr__</a></li>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/tucker_tensor_train/TuckerTensorTrain.get_core_shapes.html">TuckerTensorTrain.get_core_shapes</a></li>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/tucker_tensor_train/TuckerTensorTrain.get_minimal_ranks.html">TuckerTensorTrain.get_minimal_ranks</a></li>
+<li class="toctree-l4"><a class="reference internal" href="t3toolbox/tucker_tensor_train/TuckerTensorTrain.has_numerically_minimal_ranks.html">TuckerTensorTrain.has_numerically_minimal_ranks</a></li>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/tucker_tensor_train/TuckerTensorTrain.is_left_orthogonal.html">TuckerTensorTrain.is_left_orthogonal</a></li>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/tucker_tensor_train/TuckerTensorTrain.is_right_orthogonal.html">TuckerTensorTrain.is_right_orthogonal</a></li>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/tucker_tensor_train/TuckerTensorTrain.validate.html">TuckerTensorTrain.validate</a></li>
@@ -474,7 +466,13 @@
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="t3toolbox/index.html">t3toolbox</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="t3toolbox/corewise/index.html">corewise</a></li>
-<li class="toctree-l2"><a class="reference internal" href="t3toolbox/fitting/index.html">fitting</a></li>
+<li class="toctree-l2"><a class="reference internal" href="t3toolbox/fitting/index.html">fitting</a><ul>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="t3toolbox/optimizers/index.html">optimizers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="t3toolbox/safety/index.html">safety</a><ul>
+</ul>
+</li>
 <li class="toctree-l2"><a class="reference internal" href="t3toolbox/tucker_tensor_train/index.html">tucker_tensor_train</a></li>
 </ul>
 </li>

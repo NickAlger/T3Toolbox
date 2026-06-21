@@ -1,0 +1,10 @@
+entries_model
+=============
+
+.. py:function:: t3toolbox.fitting.entries_model(geometry, x, index, residual)
+
+   The Gauss-Newton model of an all-modes ``entries`` least-squares objective at ``x``, on ``geometry``.
+
+   Identical to :py:func:`apply_model` but the measurements are tensor **entries** at integer grid points
+   ``index`` (shape ``(d,)+W``) rather than applies against probe vectors.
+

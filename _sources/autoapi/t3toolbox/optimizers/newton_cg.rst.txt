@@ -1,0 +1,8 @@
+newton_cg
+=========
+
+.. py:function:: t3toolbox.optimizers.newton_cg(geometry, kind, sample, data, x0, order = None, weight = None, **kwargs)
+
+   Inexact Riemannian Newton-CG with an Armijo line search -- the manifold workhorse.
+   See :py:func:`t3toolbox.backend.optimizers.newton_cg`.
+

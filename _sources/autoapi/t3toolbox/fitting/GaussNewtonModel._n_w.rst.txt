@@ -1,0 +1,4 @@
+GaussNewtonModel._n_w
+=====================
+
+.. py:method:: t3toolbox.fitting.GaussNewtonModel._n_w()

@@ -1,0 +1,8 @@
+set_default_safety
+==================
+
+.. py:function:: t3toolbox.safety.set_default_safety(rtol_numpy=DEFAULT_RTOL_NUMPY, rtol_jax=DEFAULT_RTOL_JAX)
+
+   Set the safety tolerances for the current context. Prefer the :py:func:`safe` / :py:func:`unsafe`
+   context managers for scoped changes; use this for a script-level default.
+

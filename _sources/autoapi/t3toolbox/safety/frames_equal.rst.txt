@@ -1,0 +1,12 @@
+frames_equal
+============
+
+.. py:function:: t3toolbox.safety.frames_equal(data1, data2, rtol=None)
+
+   Numerical equality of two frames given as nested core tuples (e.g. ``T3Basis.data``).
+
+   The honest "same tangent space" test: two frames are the same iff their cores are equal. It accepts
+   the value-equal-but-different-object frames a jit round-trip produces, while rejecting a genuinely
+   different base. ``rtol`` defaults to the ambient jax-aware tolerance (falling back to the defaults if
+   unsafe -- this is a pure comparison, mode-agnostic).
+

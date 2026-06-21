@@ -1,0 +1,8 @@
+effective_rtol
+==============
+
+.. py:function:: t3toolbox.safety.effective_rtol(*inputs)
+
+   The tolerance to use for a check on these inputs (``rtol_jax`` if any input is a jax array, else
+   ``rtol_numpy``), or ``None`` in unsafe mode. Pass the operand data trees, e.g. ``effective_rtol(basis.data)``.
+

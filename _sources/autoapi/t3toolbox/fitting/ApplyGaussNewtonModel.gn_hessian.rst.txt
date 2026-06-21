@@ -1,7 +1,0 @@
-ApplyGaussNewtonModel.gn_hessian
-================================
-
-.. py:method:: t3toolbox.fitting.ApplyGaussNewtonModel.gn_hessian(p)
-
-   The Gauss-Newton Hessian action ``H p = Π 𝒥ᵀ 𝒥 Π p`` (``H = JᵀJ``), a gauged tangent at base.
-

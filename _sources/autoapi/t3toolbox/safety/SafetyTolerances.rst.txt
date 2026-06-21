@@ -1,0 +1,18 @@
+SafetyTolerances
+================
+
+.. py:class:: t3toolbox.safety.SafetyTolerances
+
+   Bases: :py:obj:`NamedTuple`
+
+
+   The two precondition-check tolerances; the one used is chosen by ``tree_contains_jax(inputs)``.
+
+
+   .. py:attribute:: rtol_numpy
+      :type:  float
+
+
+   .. py:attribute:: rtol_jax
+      :type:  float
+

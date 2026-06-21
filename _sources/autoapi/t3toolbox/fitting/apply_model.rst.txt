@@ -1,0 +1,7 @@
+apply_model
+===========
+
+.. py:function:: t3toolbox.fitting.apply_model(geometry, x, ww, residual)
+
+   The Gauss-Newton model of an all-modes ``apply`` least-squares objective at ``x``, on ``geometry``.
+

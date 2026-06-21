@@ -1,7 +1,0 @@
-ApplyGaussNewtonModel.gradient
-==============================
-
-.. py:method:: t3toolbox.fitting.ApplyGaussNewtonModel.gradient()
-
-   The Riemannian gradient ``g = Π 𝒥ᵀ r`` (the Gauss-Newton ``Jᵀr``), a gauged tangent at base.
-

@@ -1,7 +1,0 @@
-CorewiseApplyGaussNewtonModel.gradient
-======================================
-
-.. py:method:: t3toolbox.fitting.CorewiseApplyGaussNewtonModel.gradient()
-
-   The corewise gradient ``g = 𝒥ᵀ r`` w.r.t. the cores -- raw ``(tucker_grads, tt_grads)``.
-

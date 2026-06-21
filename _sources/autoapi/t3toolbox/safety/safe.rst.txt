@@ -1,0 +1,7 @@
+safe
+====
+
+.. py:function:: t3toolbox.safety.safe(rtol_numpy=DEFAULT_RTOL_NUMPY, rtol_jax=DEFAULT_RTOL_JAX)
+
+   Context manager: run numerical precondition checks within the block, at these tolerances.
+

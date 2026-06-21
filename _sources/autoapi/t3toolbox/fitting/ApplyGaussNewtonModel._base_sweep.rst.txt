@@ -1,4 +1,0 @@
-ApplyGaussNewtonModel._base_sweep
-=================================
-
-.. py:method:: t3toolbox.fitting.ApplyGaussNewtonModel._base_sweep()

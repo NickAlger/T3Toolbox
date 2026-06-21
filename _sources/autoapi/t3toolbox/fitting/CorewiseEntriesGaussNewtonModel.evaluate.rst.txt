@@ -1,7 +1,0 @@
-CorewiseEntriesGaussNewtonModel.evaluate
-========================================
-
-.. py:method:: t3toolbox.fitting.CorewiseEntriesGaussNewtonModel.evaluate(p)
-
-   The quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p`` (one forward apply; reuses ``c``, ``g``).
-

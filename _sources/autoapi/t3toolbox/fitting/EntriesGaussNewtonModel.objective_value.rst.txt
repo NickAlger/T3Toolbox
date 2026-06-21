@@ -1,7 +1,0 @@
-EntriesGaussNewtonModel.objective_value
-=======================================
-
-.. py:method:: t3toolbox.fitting.EntriesGaussNewtonModel.objective_value()
-
-   The least-squares objective at the base, ``c = ½‖r‖²`` (the model constant ``m(0)``).
-

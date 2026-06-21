@@ -1,0 +1,8 @@
+gradient_descent
+================
+
+.. py:function:: t3toolbox.optimizers.gradient_descent(geometry, kind, sample, data, x0, order = None, weight = None, **kwargs)
+
+   Fit ``x`` to ``data`` by steepest descent (Cauchy step + Armijo line search) on ``geometry``.
+   See :py:func:`t3toolbox.backend.optimizers.gradient_descent`.
+
