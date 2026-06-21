@@ -165,7 +165,12 @@ def main():
         X, stats = topt.mc_sgd(
             t3m.MANIFOLD, 'apply_derivatives', (ww_tr, pp_tr), b_tr, X0,
             rng_opt, N_X_BATCH * N_P,            # batch -- overridden by the custom draw (= its measurement count)
-            order=ORDER, weight=omega, draw=draw, max_iter=MCSGD_MAXITER)
+            order=ORDER, weight=omega, draw=draw, max_iter=MCSGD_MAXITER,
+            # Stopping window, tuned for this toy scale: check the full-batch loss once per "epoch"
+            # (N_X / N_X_BATCH iters) over a 3-check plateau. The library defaults (check_every=25,
+            # plateau_lag=4) give a ~100-iteration window -- conservative for larger problems, but it
+            # over-runs this tiny one by ~3x.
+            check_every=max(1, N_X_TRAIN // N_X_BATCH), plateau_lag=3, smooth_tau=1.0)
 
         train_e = weighted_relerr(X, ww_tr, pp_tr, b_tr, om_tr)
         val_e = weighted_relerr(X, ww_va, pp_va, b_va, om_va)
