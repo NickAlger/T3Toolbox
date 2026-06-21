@@ -84,5 +84,40 @@ recovered from the supercore mode axis — nothing lost.
   `range(nᵢ)`; update `.data`/pytree/`validate`/type-annotations; promote `shape` out of `masks`. Verify
   (grep + equivalence-contract tests) that no path relies on a non-prefix `shape_mask`.
 
-## Next
-Run the **triage survey** (apply the lenses to the actual uniform/ragged code; assess current state).
+## Triage survey findings (2026-06-21) — three-way split
+- **Plain uniform layer (`ut3_*`): SOLID, tested (49/49).** No stubs. Leave alone. `shape_mask`→tuple
+  migration confirmed safe (all consumers prefix-compatible; the `ut3_to_t3` `argwhere` is over-engineered).
+- **Ragged sampling polymorphism: MOSTLY ALREADY DONE.** `probe_t3` + helper chain, `apply`/`entries`,
+  `probe_tangent`, `probe_tangent_transpose` already dispatch on `is_uniform`. **Gaps:** `apply_tangent_transpose`
+  / `entries_tangent_transpose` route through `_apply_transpose_adjoint` (probing.py:1034–1061, ragged-only) →
+  the 3 `*_corewise_transpose` inherit it; and `apply_tangent`/`entries_tangent` signatures still require a
+  `Sequence`.
+- **Uniform tangent/frame layer: THE BROKEN CENTERPIECE.** (1) 3 broken imports in
+  `uniform_basis_variations_format.py` (lines 10/11/17 — module can't import; **fix first**). (2)
+  `uniform_manifold.py` imports `OLD_uniform`, uses OLD types, 4/7 functions `if False:` stubs. (3) `ubv_to_ut3`
+  stubbed. (4) No `UT3Tangent` class; 10+ tangent ops have no uniform version; zero tangent-layer tests.
+  The `UT3Basis`/`UT3Variations` classes themselves run once imports are fixed.
+
+## Decisions from the triage
+- **Sampling is strict; packing lives at the boundary.** A sampling op assumes matching operand types
+  (uniform cores ↔ packed vectors; ragged cores ↔ ragged vectors); a **mismatch ERRORS** (structural
+  house-rule; no silent auto-pack). `pack_vectors`/`unpack_vectors` are explicit boundary helpers. The
+  `ut3_sampling` "bug" = packing done *inside* the op — move it out; the op becomes fully polymorphic. (Perf:
+  pack once at the boundary, same principle as mask-once.)
+- **norm/inner can be polymorphic on BOTH algorithms.** Zipper path: read-out scan, mask-once → polymorphic.
+  Orthogonalize-for-stability path: also polymorphic **because it's an internal step of a scalar read-out**
+  (no mask maintenance). Mechanism: mask-once zeros the padding; a QR left-sweep absorbs `R` *forward*
+  (`C_{i+1} := R_i C_{i+1}`, no `R⁻¹`), and `R`'s zero-block keeps the padded-rank garbage isolated from the
+  real read-out. **Caveats:** must be QR-absorb-forward (NOT SVD-with-truncation — that changes ranks →
+  uniform-specific); relies on exactly-zero padding (mask-once is load-bearing); verify via the equivalence
+  contract. Lens: *orthogonalization returning a T3 → uniform-specific; inside a scalar read-out → polymorphic.*
+
+## Agreed slices (next)
+1. **Fix the 3 imports** in `uniform_basis_variations_format.py` (unblocks the tangent module + its doctests).
+2. **`shape_mask` → shape int tuple** (verified safe; promote out of `masks`). Foundational; do before building on top.
+3. **Rebuild the tangent layer** (the bulk): `uniform_manifold` off OLD types → `UT3Tangent` + manifold ops
+   mirroring ragged + un-stub `ubv_to_ut3` + tests.
+4. **Close the ragged-poly gaps** (`_apply_transpose_adjoint` polymorphism + the `Sequence` signatures) so
+   optimizers/derivatives run on uniform.
+Module reorg + naming applied throughout. **Open verifications:** the norm/inner orthogonalize-path
+equivalence test; confirm no path relies on a non-prefix `shape_mask`.
