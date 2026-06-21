@@ -347,9 +347,36 @@ the backend functions those rely on. Treat everything else as copied-in-and-not-
   Riemannian, inner CG as `common.xwhile` = Python-while / `lax.while_loop`). **`use_jit`** (default False,
   silent eager fallback) jits the per-step kernel / the CG loop — *not* a safe/unsafe concern (the backend
   has no numerical checks); the numpy/jax **dispatch composes with jit for free** (trace-time → jnp).
-  L-BFGS stays the scipy-bridge *example*, not a library optimizer. Design: `docs/optimizers_plan.md`.
-  Tests: `tests/backend/test_optimizers.py` + `tests/test_optimizers_frontend.py` (oracle==frontend,
-  recovery, jit dispatch). **Remaining: G3.5 — wire examples through the library optimizers + doc refresh.**
+  L-BFGS stays the scipy-bridge *example*, not a library optimizer. Minibatching is a **user-supplied
+  `draw(rng) -> (sample_B, data_B)`** (default `flat_draw` = a random subset across the flattened sample
+  stack `W`); the `Problem` is **layout-agnostic** (the kind owns `point_forward`/`n_measurements`/`take`;
+  no `kind.name` dispatch). Design: `docs/optimizers_plan.md`; **the full architecture +
+  rationale + usage: [`docs/fitting_and_optimization.md`](docs/fitting_and_optimization.md)**. Tests:
+  `tests/backend/test_optimizers.py` + `tests/test_optimizers_frontend.py` + `tests/test_fitting.py`.
+- **Solid / tested — fitting from DERIVATIVE data (D1–D4, branch `geometry-refactor`).** The whole
+  derivative-fitting surface, end to end: `backend/fitting.{apply,entries,probe}_derivatives_kind(order,
+  weight)` (operator-only `SamplingKind`s; the per-order residual weight `ω` enters only `sumsq` (×ω) /
+  `transpose` (×ω²), with raw `forward`/`point_forward`/data) feed the **same** generic `Problem`/
+  optimizers; the frontend `fitting.{apply,entries,probe}_derivatives_model` + the `optimizers.py` adapter
+  (kind strings `'apply_derivatives'`… + keyword `order`/`weight`/`draw`). Base-sweep **reuse** mirrors
+  regular probing (`precompute_{apply,probe,entries}_base_sweep_jets` + `*_jacobian/transpose_derivatives_
+  from_sweep`; apply/entries lean `(xi,mu)`, probe full `(xi,mu,nu,eta)`). Pilot:
+  `examples/fit_hilbert_from_apply_derivatives_topt.py` (recovers to the noise floor, matches the inline
+  reference). Verified vs `jax.grad` / finite-difference / backend-oracle; full suite green. Plan:
+  `docs/derivative_fitting_plan.md`.
+- **Solid / tested — two foundation improvements this session (branch `geometry-refactor`).** (1) **The
+  `contractions.py` BLAS-path fix** — `_grouped_einsum` routes the numpy path through a forced greedy-
+  pairwise BLAS path (numpy's `optimize=True` ran the order-combines as a single non-BLAS `c_einsum`,
+  10–55× slow), jax keeps one big einsum (XLA's opt_einsum + fusion beats forced pairwise). **11–19× on
+  the derivative forward/transpose**; numerically identical (~1e-14). (2) **The low-memory, `K`-aware
+  adjoint-state apply/entries transpose** (`probing.py`) — replaces the **scatter** (which stored the full
+  `(xi,mu,nu,eta)` base sweep, cheap matvec) with the **adjoint-state** seeded `sigma_hat` reverse sweep
+  (stores only `(xi,mu)`, recomputes the right context): **exactly 2× less `W`-scaling memory** (the trade
+  Nick wants for memory-bound large-minibatch Newton-CG — see the `prefer-low-memory-over-compute` memory),
+  and it gains `K`-awareness (the residual may carry a tangent stack). It is the **store-vs-recompute
+  (checkpointing)** choice; probe can't use it (vector residual). This surfaced + fixed a **latent
+  `rR_d≠1` seed bug** (the corewise `(U,G,G,G)` substitution makes the summed terminal bond ≠1, so the
+  adjoint seed must *broadcast* `c` over it) in **both** `probing` and `probe_derivatives`.
 - **Probing + K-stacking (`backend/probing.py`, `manifold.py`)** — done through **slice 5c**; the
   blow-by-blow is in git history, and `docs/probing_section6_notes.md` maps Section 6 of the paper
   (the Riemannian Jacobian) to the code. Delivered: forward/transpose probe
@@ -417,20 +444,15 @@ the backend functions those rely on. Treat everything else as copied-in-and-not-
 
 ## Open questions / TODO
 
-- **Symmetric probing derivatives — remaining (✅ merged to `main`; plan
-  `docs/derivatives_mirror_plan.md`).** The feature is **functionally complete and merged**: apply/entries
-  derivatives, `K`-stacking, tangent + corewise transposes, and the full frontend are all done, tested, and
-  on `main`/`geometry-refactor` (see "Current state"). Remaining: (1) **doc refresh** —
-  `entries_apply_probe.md` (stale §4 table + add the derivative dimension), `symmetric_probe_derivatives.tex`
-  (add apply/entries + `K`); (2) **wire `*_derivatives` into the G3 optimizers** (add derivative
-  `SamplingKind`s — `docs/optimizers_plan.md` §9; no merge blocker, the code is already on the branch).
-  **Deferred:** the **ambient** transpose (no use case, exponential-rank
-  — `docs/ambient_derivative_transpose_note.md`); the project-once gather optimization. **Deferred
-  nice-to-haves (Nick's call):** the **Hessian-conditioning experiment**
-  (`docs/derivative_order_information_and_conditioning.md`). *(The derivative **fitting example** is
-  done: `examples/fit_hilbert_from_apply_derivatives.py` fits from apply-derivatives via Manifold Cauchy
-  SGD — T4S §5.3.2, the tuning-free Cauchy-step stochastic optimizer; ~8× faster than full-batch
-  Newton-CG on that demo.)*
+- **Symmetric probing derivatives — feature + fitting both DONE.** The derivative ops (apply/entries/probe
+  forwards, `K`-stacking, tangent + corewise transposes, full frontend) are merged to `main`; **fitting
+  from derivative data is now wired through the optimizers (D1–D4)** — derivative `SamplingKind`s +
+  frontend models + the pilot example (see "Current state"; `docs/derivative_fitting_plan.md`,
+  `docs/fitting_and_optimization.md`). Remaining: **doc refresh** — `entries_apply_probe.md` (stale §4
+  table + the derivative dimension), `symmetric_probe_derivatives.tex` (add apply/entries + `K`).
+  **Deferred:** the **ambient** derivative transpose (no use case, exponential-rank —
+  `docs/ambient_derivative_transpose_note.md`); the project-once gather optimization; the
+  **Hessian-conditioning experiment** (`docs/derivative_order_information_and_conditioning.md`).
 - **The transpose grid — DONE & REDESIGNED (ragged).** Each sampling op (`entries`/`apply`/`probe`)
   now has **three** transposes — **ambient / corewise / tangent** — read **[`docs/transposes.md`](docs/transposes.md)**
   (taxonomy, costs, decision guide) and the work log [`docs/transpose_redesign_handoff.md`](docs/transpose_redesign_handoff.md).
@@ -446,11 +468,16 @@ the backend functions those rely on. Treat everything else as copied-in-and-not-
   - **tangent** = Riemannian gradient, a `T3Tangent`: `T3Tangent.{apply,entries,probe}_transpose`
     (unchanged; `sum_over_probes=False` keeps `W`, `=True` is `Jᵀr`). Older history:
     [`docs/apply_entries_handoff.md`](docs/apply_entries_handoff.md), `docs/batching_and_stacking.md` §11.
-- **A least-squares fitting example/tutorial — wanted, deferred (Nick's call).** Show `apply`/`entries`
-  as the forward sampling operator `J` and the summed transpose (`sum_over_probes=True`) as the gradient
-  `Jᵀr` and Gauss-Newton Hessian `JᵀJ v` — the worked use case that motivates `sum_over_probes=True`.
-  Blocked on bringing Nick's optimization code into the project (cleanup + tests = substantial); come
-  back to it later. This is the deferred "S4" follow-up to the §11 transpose docs.
+- **Least-squares fitting — DONE (the whole layer + examples are in).** The `GaussNewtonModel` /
+  `Problem` oracle (gradient `Jᵀr`, GN Hessian `JᵀJ v`, the cheap `gn_quadratic`), the four library
+  optimizers, the geometries, and fitting from apply/entries/probe **and their derivatives** are all
+  built, tested, and demonstrated (`examples/fit_hilbert_*`). Architecture + usage + design rationale:
+  **[`docs/fitting_and_optimization.md`](docs/fitting_and_optimization.md)**.
+  - **Remaining (deferred, Nick's call):** the **example pass** — work through all `examples/fit_hilbert_*`
+    and decide which use the library optimizers vs keep them inline to illustrate the hidden hooks
+    (`gn_hessian`, `gn_quadratic`, `corewise_map`); the two-track plan is `docs/optimizers_plan.md` §10
+    (PROPOSED, not locked). And the **Goal-1 `fit(...)` facade** (auto geometry/optimizer/ranks/`x0` +
+    rank-continuation/validation helper) — what delivers "standard user, no fiddling".
 - **Which ops require a minimal-rank basis** (partly answered, full audit pending): gauge
   projections need orthogonality only; `inner`/`norm` Hilbert-Schmidt faithfulness needs orthogonal
   + minimal + gauged; `retract` preserves base ranks only on a minimal base; `project`/
