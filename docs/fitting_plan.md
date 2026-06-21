@@ -315,7 +315,10 @@ reusable one, invariant §3.1) — needs confirming the dense-tensor apply reduc
 from the same `(xis, mus)` so `.objective` reuses the sweep? (flagged in §8). jit treatment of the
 `cached_property` sweep on the frozen dataclass (§9).
 
-**Known limitation (deferred, surfaced in Slice 1).** `apply_tangent_transpose` / `entries_tangent_transpose`
+**Known limitation — ✅ RESOLVED (2026-06-20).** The low-memory adjoint-state apply/entries transpose
+rework (`backend/probing.py`, commit `1e5c6116`) made these **K-aware**: the `sigma_hat` reverse sweep uses
+`W+K+C` 3-block contractions and recovers `len(C)` from shapes (mirroring the probe transpose). *Historical
+note — the original Slice-1 limitation:* `apply_tangent_transpose` / `entries_tangent_transpose`
 (and so `apply_transpose_from_sweep`) accept a residual of shape `W + C` only — they are **not K-aware**: a
 tangent-stack `K` in the residual (`W + K + C`, the output space of a K-stacked forward `apply_tangent`) is
 unsupported (the `c[..., None] * mu` scatter in `_apply_transpose_assemble` misaligns `K`; `probe_tangent_transpose`

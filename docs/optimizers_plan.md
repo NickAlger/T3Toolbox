@@ -252,8 +252,9 @@ one but not guaranteed bit-identical). **Tentative — confirm with Nick before 
   once the optimizers exist.
 - **jit the Armijo line search** (vs host) — host first; revisit if the per-step retract/objective sync
   dominates.
-- **`hessian_is_degenerate` geometry hint** — expose to steer corewise users away from `newton_cg`, or
-  just document. Decide in G3.3.
+- **`hessian_is_degenerate` geometry hint — RESOLVED (G3.3): not exposed.** `newton_cg` tolerates the
+  singular corewise `H` directly (inexact/regularized inner CG), so no geometry hint was needed; corewise
+  Newton-CG is documented rather than gated.
 - **Riemannian L-BFGS** (own, with vector transport) — deferred; the only quasi-Newton only we could
   write (scipy/optax can't do the manifold). Revisit if an example demands it.
 - **Stopping criteria as first-class** — `mc_sgd`'s smoothed-loss test, Newton-CG's gradient-norm test;

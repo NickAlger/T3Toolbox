@@ -87,6 +87,14 @@ jit-the-core finding — it's now an ergonomics / taste call, not forced by perf
   discoverability. (See `geometry_refactor_plan.md` discussion + the four-way assessment in chat.)
 
 ## Open decisions for next session
+
+> **OUTCOME (2026-06-21) — all three settled, see `safe_unsafe_mode_plan.md` / `optimizers_plan.md`.**
+> (1) The jit mechanism: the safe-mode arc made `T3Tangent`'s basis a pytree leaf and registered
+> `GaussNewtonModel`, so you `jit` the frontend matvec directly (compiles once across bases); the optimizers
+> then expose a per-call `use_jit` flag (default off, silent eager fallback). (2) `T3Tangent` was **KEPT**
+> (basis-as-leaf). (3) G3 shipped on top of both — the four optimizers consume `(geometry, model, x0)`.
+> The text below is the pre-resolution framing, kept for the reasoning.
+
 1. **The per-function opt-in jit mechanism** (no global toggle): how does a frontend user say "jit *this*
    matvec" at the call site, given the jit must live on the functional core? Not-yet-evaluated
    directions: a per-operation **jitted-operator builder** the user constructs only where wanted (e.g.

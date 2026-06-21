@@ -3,6 +3,12 @@
 *Resume-here note for the `geometry-refactor` branch. Everything below is committed and pushed; the
 working tree is clean. Read this first, then the linked docs for detail.*
 
+> **SUPERSEDED (2026-06-21): G3 + derivative fitting (D1–D4) have since landed and the branch is being
+> merged to `main`.** This note is kept as the 2026-06-19 break-point record (the "How to verify" /
+> "State caveats" sections are 2026-06-19 snapshots — e.g. the suite has since moved to the `t3toolbox`
+> env, 310 passed). Only "What's next" below is updated. Current source of truth: `CLAUDE.md` "Current
+> state" + `docs/fitting_and_optimization.md`.
+
 ## Where we are
 
 Branch `geometry-refactor` (not merged to `main`). The refactor introduces a Manopt-style **geometry
@@ -56,19 +62,19 @@ robust, but the **batch-size + epoch-based-stopping heuristics are finicky at th
 (likely a small-scale artifact; unproven at scale). Full write-up:
 [`mcsgd_apply_derivatives.md`](mcsgd_apply_derivatives.md).
 
-## What's next — resume here
+## What's next (updated 2026-06-21)
 
-1. **G3 — `optimizers.py`** (the main next step; G3 is now **unblocked** by the safe-mode arc). One
-   geometry-agnostic `newton_cg` (truncated/regularized for the singular corewise `H`), plus
-   `lbfgs` / `gradient_descent`, and **MC-SGD** as a first-class stochastic optimizer. Consume
-   `(geometry, model_builder, x0)`.
-   - **Nick has broader optimizer ideas to discuss before the interface is fixed** — start there.
-   - MC-SGD-into-library specifics: make the **stopping window absolute-iteration-based** (not epoch-based,
-     which is what made batch=3 fragile); consider an `apply_derivatives_model` (+ entries/probe) in
-     `fitting.py` so the optimizer uses `model.gradient`/`.gn_quadratic` instead of inline closures and
-     apply/entries/probe get MC-SGD for free.
-   - Other G3 open items (singular corewise `H`, interface scope, `geometry.py` rename): plan §7–§8.
-2. **Eventually: review + merge `geometry-refactor` → `main`.**
+1. **G3 — `optimizers.py` ✅ DONE.** Four geometry-agnostic optimizers (`gradient_descent`, `mc_sgd`,
+   `adam`, `newton_cg`), backend-first with a thin frontend adapter. MC-SGD's stopping window was made
+   **absolute-iteration-based** (the batch=3 fix); the derivative `GaussNewtonModel`s
+   (`{apply,entries,probe}_derivatives_model`) were built and apply/entries/probe derivative fitting wired
+   end-to-end (D1–D4). `newton_cg` tolerates the singular corewise `H` (inexact/regularized inner CG); no
+   `hessian_is_degenerate` hint was needed. See `docs/optimizers_plan.md`,
+   `docs/fitting_and_optimization.md`, `docs/derivative_fitting_plan.md`.
+2. **Merge `geometry-refactor` → `main` (2026-06-21).** Suite green (310 passed, 39k subtests); doctests
+   swept clean for numpy 2.x. **Deferred past the merge to the 1.0 pass (NOT merge gates):** the Goal-1
+   `fit(...)` facade, the broader *example pass* (`optimizers_plan.md` §10, PROPOSED), and the
+   `entries_apply_probe.md` / `symmetric_probe_derivatives.tex` doc refreshes.
 
 ## How to verify (when resuming)
 

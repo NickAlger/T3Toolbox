@@ -285,13 +285,28 @@ gauged, Euclidean otherwise."
    kind × geometry). Verified: 206 core + 9 dispatch + doctests pass; the Newton-CG example reproduces
    **bit-for-bit** the pre-refactor iterates. *(`docs/fitting_plan.md` prose is now historical — defer
    to G4.)*
-3. **Slice G3 — `optimizers.py`.** One geometry-agnostic `newton_cg` (truncated/regularized for the
-   singular corewise `H`), one `lbfgs`/`gradient_descent`. Consume `(geometry, model_builder, x0)`.
-4. **Slice G4 — example + docs.** Run `examples/fit_hilbert_tensor_newton_cg.py` through *both* geometries
-   from the same optimizer; confirm the manifold path matches today's iterates and a corewise (L-BFGS)
-   path converges. Refresh `fitting_plan.md` / `entries_apply_probe.md` to the geometry framing.
+3. **Slice G3 — `optimizers.py`. ✅ DONE (2026-06-20).** Built **four** geometry-agnostic optimizers
+   (`gradient_descent`, `mc_sgd`, `adam`, `newton_cg`) backend-first in `backend/optimizers.py`, with a thin
+   `optimizers.py` frontend adapter (the razor: a raw-`.data` user runs the same code). `newton_cg` is
+   inexact Riemannian (inner CG via `common.xwhile` = Python-while / `lax.while_loop`); L-BFGS stays the
+   scipy-bridge *example*, not a library optimizer. Optional per-call `use_jit` (default off, silent eager
+   fallback). See `docs/optimizers_plan.md` (G3.1–G3.4 ✅) and `docs/fitting_and_optimization.md` for the
+   as-built architecture + rationale.
+4. **Slice G4 — example + docs. ◑ MOSTLY DONE (2026-06-20).** The library optimizers run apply/probe/
+   apply-derivative fits (pilot `examples/fit_hilbert_from_apply_derivatives_topt.py`); the Newton-CG
+   example reproduces the pre-refactor iterates (verified bit-for-bit in G2). **Remaining (deferred to the
+   post-merge 1.0 pass — NOT a merge gate):** the broader *example pass* — re-point the remaining
+   `fit_hilbert_*` examples at `topt.*` vs keep them inline to illustrate the hidden hooks
+   (`optimizers_plan.md` §10, PROPOSED-not-locked) — and the `entries_apply_probe.md` doc refresh.
 
 ## 8. Risks / open questions
+
+> **STATUS (2026-06-21): the G3-scoped items below are resolved; the refactor is merge-ready.** MC-SGD's
+> stopping window was made **absolute-iteration-based** (G3.2; decouples from batch size), a derivative
+> `GaussNewtonModel` was built (`{apply,entries,probe}_derivatives_model`, D3), and `newton_cg` tolerates
+> the singular corewise `H` (inexact/regularized inner CG). The `oblique_gauge_projection` was kept as
+> `MANIFOLD.project_oblique`. The `geometry.py` rename and a backend mirror of the numerical checks stay
+> deferred-by-design. See `docs/optimizers_plan.md`, `docs/fitting_and_optimization.md`.
 
 - **RESOLVED — the jit/recompile/OO question (the safe-mode arc, S1–S6, done 2026-06-19).** The whole
   predicament traced to one root cause: the same-frame guard was a *numerical* property faked as

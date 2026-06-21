@@ -172,6 +172,12 @@ across base points removes it.
 
 ## 4. Open questions / future work
 
+> **STATUS (2026-06-20): the three "promote to the library" items below are DONE.** The stopping window is
+> now **absolute-iteration-based** (G3.2 `topt.mc_sgd`), MC-SGD is a first-class `optimizers.py` optimizer,
+> and the derivative `GaussNewtonModel` (`{apply,entries,probe}_derivatives_model`, D3) exists — so apply/
+> entries/probe (and their derivatives) get MC-SGD for free. The flat-`(X,P)`-pair default was adopted
+> (`flat_draw`). What remains below is genuinely research (robustness *at scale*), not library work.
+
 - **Robustness at scale (the central unknown — future research).** Both finicky behaviours trace directly
   to `N_X = 10` being tiny: at scale a minibatch can be small-*fraction* yet large-*absolute* (clean
   gradient), and an epoch is large in absolute iterations (robust stopping window). The paper's MC-SGD is
