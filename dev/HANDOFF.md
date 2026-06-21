@@ -6,9 +6,12 @@ _Updated 2026-06-21._
 - **`geometry-refactor` is merged to `main`** (merge commit `bc8692f6`): the geometry
   abstraction, safe/unsafe mode, the four library optimizers, and derivative fitting.
   Suite green (310 passed / ~39k subtests); doctests swept clean for numpy 2.x.
-- **Mid knowledge-architecture reorganization** (this session) — sorting docs by
-  audience × lifetime. **Slice 1 (file moves) done; Slice 2 (CLAUDE.md split) pending.**
-- **Then:** return to **1.0 release planning**.
+- **Knowledge-architecture reorganization DONE** (this session) — docs sorted by audience ×
+  lifetime: `dev/` + `dev/archive/` created (25 process notes archived); research migrated to the
+  `nicks_research_experiments` repo (incl. the two cordoned research branches); CLAUDE.md split
+  (personal → `~/.claude/CLAUDE.md`) + "Where things live" routing rule added + slimmed; stale
+  branches deleted (`fitting`, `probe-derivatives`, `geometry-refactor`, the 2 research branches).
+- **Next:** return to **1.0 release planning**.
 
 ## Knowledge architecture (decided this session)
 - `docs/` = durable **design / reference / style** docs → to be distilled into user docs
@@ -23,13 +26,9 @@ _Updated 2026-06-21._
 - A **routing rule** + **handoff ritual** go into CLAUDE.md (Slice 2).
 
 ## Next steps
-1. **Slice 2 — split CLAUDE.md.** Extract personal bits → `~/.claude/CLAUDE.md`; slim +
-   reframe the in-repo file; add the routing rule + a lean current-state → this file.
-   **Fix CLAUDE.md's links to the docs moved into `dev/archive/`.** (Show the proposed
-   split before writing.)
-2. **Return to 1.0 planning** (agreed sequence): finish knowledge-arch → **naming /
-   organization review** → **fix the uniform layer** (the centerpiece; parts A–E below) →
-   release hygiene. **1.0 = honest mid-level toolkit; the `fit()` facade is deferred to 1.1.**
+1. **Return to 1.0 planning** (agreed sequence): knowledge-arch ✅ → **naming / organization
+   review** (next up) → **fix the uniform layer** (the centerpiece; parts A–E below) → release
+   hygiene. **1.0 = honest mid-level toolkit; the `fit()` facade is deferred to 1.1.**
 
 ## The 1.0 roadmap (mid-level-toolkit scope) — summary
 - **R1** packaging correctness (`readme = README.md`; create `CHANGELOG.md`; numpy range).
