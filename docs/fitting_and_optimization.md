@@ -257,6 +257,15 @@ order-combines; the fix is 11–19× on them, numerically identical.
   `fit_hilbert_from_entries_lbfgs.py` (entries, corewise, scipy bridge); `fit_hilbert_from_apply_
   derivatives.py` / `_flat.py` (apply-derivatives, *inline* MC-SGD); `fit_hilbert_from_apply_derivatives_
   topt.py` (the **library** apply-derivatives pilot).
+- **Research study (branch `polynomial_fitting_experiments`):** `experiments/` recovers a polynomial from
+  function + derivative samples via the `apply_derivatives` fit (`symmetric_polynomial_fitting.tex` is the
+  writeup). **Practical takeaways:** on ill-conditioned high-rank symmetric fits, **prefer `newton_cg`** —
+  MC-SGD's first-order convergence is too slow and its under-converged iterate is *tilted toward the
+  function-space metric* (good function error, poor Frobenius / poor tensor recovery), whereas Newton-CG
+  recovers the true tensor (balanced across norms). **Rank continuation alone** (constant seed +
+  rank-1-first) suffices; order continuation adds nothing. When the data only constrains a *symmetric*
+  (or otherwise structured) subspace, the fit fills the unconstrained null space with a large "halo" —
+  **project/symmetrize the fit** to read off the meaningful part.
 - **Plans:** `optimizers_plan.md` (the optimizers + example two-track plan), `derivative_fitting_plan.md`
   (the D1–D4 derivative-fitting build), `geometry_refactor_plan.md` (the geometry abstraction).
 - **Adjacent:** `entries_apply_probe.md` (the three sampling ops + their transposes), `transposes.md`

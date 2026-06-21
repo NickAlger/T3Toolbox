@@ -364,6 +364,24 @@ the backend functions those rely on. Treat everything else as copied-in-and-not-
   `examples/fit_hilbert_from_apply_derivatives_topt.py` (recovers to the noise floor, matches the inline
   reference). Verified vs `jax.grad` / finite-difference / backend-oracle; full suite green. Plan:
   `docs/derivative_fitting_plan.md`.
+- **Research study — symmetric-polynomial recovery (branch `polynomial_fitting_experiments`, NOT on
+  `geometry-refactor`).** A self-contained study in `experiments/` (separate branch off `geometry-refactor`;
+  needs its derivative-fitting optimizers to run) exercising the apply-derivatives fit as **polynomial
+  regression**: a degree-`d` polynomial in `N` vars is the homogenization `f(x)=T((1,x),…)` of an order-`d`
+  mode-`N+1` tensor, and its symmetric directional derivatives are `T`'s apply-derivative jets, so fitting
+  `T` from `{f, f', f'', …}` samples IS an `apply_derivatives` fit. Files: `fit_polynomial_order_continuation.py`
+  (order-continuation demo, the `e₀` warm start), `compare_continuation_and_optimizers.py` (the 2×2
+  {rank-only, order+rank} × {Newton-CG, MC-SGD} on a tunable slow-decay target `sym(randn)×diag(1/i^β)` + T3-SVD
+  oracle), `metric_trade.py` (function-space vs Frobenius error of each fit's symmetric part), and the writeup
+  `symmetric_polynomial_fitting.tex`. **Key findings:** (1) **Newton-CG recovers the true tensor** — its
+  symmetric part matches to ~0.2% in *both* the function-space and Frobenius norms (metric-balanced), beating
+  the Frobenius oracle in each; no overfit at excess rank. (2) **MC-SGD under-converges** and stops *tilted*
+  toward the function-space metric (decent function error, ~5× worse Frobenius than the oracle) — recovers the
+  *function*, not the *tensor*; the tilt is a symptom of slow first-order convergence (**prefer second-order
+  on these ill-conditioned high-rank symmetric fits**). (3) **Order continuation ties rank continuation** (no
+  accuracy gain, ~2× cost); the real ingredient is the **constant seed + rank-1-first growth** discipline. (4)
+  The **symmetric null space is benign** (an early high-rank "blow-up" was a warm-start artifact); both fits
+  carry an **~85% non-symmetric null-space halo** — *symmetrize the fit to recover the tensor*.
 - **Solid / tested — two foundation improvements this session (branch `geometry-refactor`).** (1) **The
   `contractions.py` BLAS-path fix** — `_grouped_einsum` routes the numpy path through a forced greedy-
   pairwise BLAS path (numpy's `optimize=True` ran the order-combines as a single non-BLAS `c_einsum`,
@@ -478,6 +496,11 @@ the backend functions those rely on. Treat everything else as copied-in-and-not-
     (`gn_hessian`, `gn_quadratic`, `corewise_map`); the two-track plan is `docs/optimizers_plan.md` §10
     (PROPOSED, not locked). And the **Goal-1 `fit(...)` facade** (auto geometry/optimizer/ranks/`x0` +
     rank-continuation/validation helper) — what delivers "standard user, no fiddling".
+  - **Worked research study (separate branch).** The optimizers were exercised end-to-end on a
+    polynomial-recovery task in `experiments/` on branch **`polynomial_fitting_experiments`** — see the
+    Current-state bullet above and `experiments/symmetric_polynomial_fitting.tex`. Practical takeaway for
+    a future facade: on ill-conditioned high-rank symmetric fits **prefer Newton-CG** (MC-SGD
+    under-converges), and **rank continuation alone** (constant seed + rank-1-first) suffices.
 - **Which ops require a minimal-rank basis** (partly answered, full audit pending): gauge
   projections need orthogonality only; `inner`/`norm` Hilbert-Schmidt faithfulness needs orthogonal
   + minimal + gauged; `retract` preserves base ranks only on a minimal base; `project`/
