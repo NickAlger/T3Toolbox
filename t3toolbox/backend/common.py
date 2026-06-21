@@ -25,6 +25,7 @@ __all__ = [
     'jax_map',
     #
     'get_backend',
+    'xwhile',
     'xcat',
     'xappend',
     'xprepend',
@@ -255,6 +256,27 @@ def get_backend(
         xnp = np
 
     return xnp, xmap, xscan
+
+
+def xwhile(
+        cond,                  # state -> 0-d bool (eager) / traced bool (jit): loop while True
+        body,                  # state -> state (a pytree of the SAME structure and leaf shapes)
+        init_state,            # the loop-carried state (pytree)
+        use_jit: bool = False, # True + jax state -> jax.lax.while_loop; else a Python while loop
+):
+    """Data-dependent ``while`` with the numpy / eager-jax / jit dispatch -- the ``xscan`` precedent for a
+    ``while``. With ``use_jit`` and a jax state it compiles via ``jax.lax.while_loop``; otherwise (numpy,
+    eager jax, or jax not installed) it runs ``while bool(cond(state)): state = body(state)``, so it works
+    on every backend and **silently falls back to eager** when jit is unavailable. Write ``cond``/``body``
+    backend-agnostically (``cond`` returns a 0-d boolean; ``body`` uses ``xnp.where``, not Python branches)
+    so the SAME pair drives both paths."""
+    if use_jit and has_jax and tree_contains_jax(init_state):
+        import jax
+        return jax.lax.while_loop(cond, body, init_state)
+    state = init_state
+    while bool(cond(state)):
+        state = body(state)
+    return state
 
 
 def xcat(

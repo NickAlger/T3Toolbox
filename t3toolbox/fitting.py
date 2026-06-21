@@ -1,21 +1,64 @@
 # Authors: Nick Alger and Blake Christierson
 # Copyright: MIT License (2026)
 # https://github.com/NickAlger/T3Toolbox
-'''Frontend for the least-squares fitting layer: the Gauss-Newton models.
+'''Frontend for the least-squares fitting layer: one geometry-generic Gauss-Newton model.
 
-Thin frozen-dataclass frontends over ``backend/fitting.py``, one per sampling kind
-(:py:class:`ApplyGaussNewtonModel`, :py:class:`EntriesGaussNewtonModel`, :py:class:`ProbeGaussNewtonModel`).
-A model is the local Gauss-Newton model of a least-squares objective at a fixed base point (an orthonormal
-``T3Basis``): it exposes the objective value ``c``, the Riemannian gradient ``g``, the Gauss-Newton
-Hessian action ``H p = JᵀJ p``, and the quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p``.
+A :py:class:`GaussNewtonModel` is the local Gauss-Newton model of a least-squares objective
+``½‖F(X) − y‖²`` at a fixed point, linearized through a **geometry**: it exposes the objective value
+``c = ½‖r‖²``, the gradient ``g``, the Gauss-Newton Hessian action ``H p = JᵀJ p``, and the
+quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p``. The model is generic over two independent choices:
 
-The expensive base sweep (the base-and-data edge variables) is a ``@cached_property``: computed once on
-first use and reused across every ``gn_hessian`` / ``evaluate`` of an inner solve, then garbage-collected
-when the model leaves scope. This is the whole point -- in an inner CG the base is fixed, so the sweep is
-computed once, not once per matrix-vector product.
+  * the **geometry** -- :py:data:`~t3toolbox.manifold.MANIFOLD` (optimize on the fixed-rank manifold;
+    the gauge projection ``Π`` makes ``g`` / ``H`` Riemannian) or
+    :py:data:`~t3toolbox.manifold.COREWISE` (optimize the raw cores; no ``Π``). The geometry supplies the
+    frame ``base = geometry.base(X)`` and the projection ``Π = geometry.project``; the forward is
+    ``J = 𝒥∘Π`` and the gradient is ``Jᵀr = Π∘𝒥ᵀr``. **Manifold ⟺ Π, corewise ⟺ no Π is structural**
+    (bundled in the geometry), never a flag -- mixing the two silently corrupts the result.
+  * the **sampling kind** -- bound by the factory :py:func:`apply_model` / :py:func:`entries_model` /
+    :py:func:`probe_model` (the bare ``𝒥`` / ``𝒥ᵀ`` from :py:mod:`t3toolbox.backend.probing`, bundled in
+    :py:mod:`t3toolbox.backend.fitting`).
 
-Gauge handling lives entirely in the backend (``J = 𝒥∘Π``, ``Jᵀ = Π∘𝒥ᵀ``): every method returns a gauged
-tangent and accepts any-gauge inputs. See ``docs/fitting_plan.md``.
+Every input and output is a :py:class:`~t3toolbox.manifold.T3Tangent` at ``model.base`` -- including the
+**corewise** case, where the tangent lives at the non-orthonormal frame ``(U,G,G,G)`` (a core
+perturbation; see :py:class:`~t3toolbox.manifold.CorewiseGeometry`). Build trial steps at ``model.base``
+(e.g. ``geometry.randn(model.base)``); a step at a different frame raises the numerical same-frame guard
+(skipped under ``safety.unsafe()`` / a jax trace), like :py:class:`~t3toolbox.manifold.T3Tangent`.
+
+The base sweep (the base-and-data edge variables) is computed once by the factory and stored as the
+``sweep`` field, reused across every ``gradient`` / ``gn_hessian`` / ``evaluate`` -- in an inner CG the
+base is fixed, so the sweep is computed once, not once per matrix-vector product. See
+:py:mod:`t3toolbox.backend.fitting` and ``docs/geometry_refactor_plan.md``.
+
+Jitting an optimizer
+--------------------
+``GaussNewtonModel`` **is** a registered jax pytree (the data -- ``base``, ``sweep``, ``sample``,
+``residual`` -- are leaves; ``geometry`` / ``kind`` are static aux). Crucially the base flows as a *leaf*,
+not aux (the same is true of :py:class:`~t3toolbox.manifold.T3Tangent`'s basis), so a model or tangent
+that **crosses a jit boundary does NOT recompile when the base changes** -- the per-base recompile that
+basis-as-aux used to force is gone. So you can jit the frontend matvec directly:
+
+1. **Inner-solve jit (Newton-CG).** Jit the matvec with the model *and* the tangent as arguments; it
+   compiles **once for the whole solve** (the model's base/sweep change as data, not as a recompile
+   trigger), reused across every outer step and CG iteration::
+
+       Hmatvec = jax.jit(lambda model, p: model.gn_hessian(p))
+       # per outer step:  model = fitting.apply_model(geom, X, ww, r)
+       # inner CG:         Hmatvec(model, p_k)
+
+2. **Whole-step jit (Cauchy / gradient descent / a fixed-step loop).** Jit a step function whose only
+   argument is the point ``X`` and build the model *inside*; compiles once, reused across steps::
+
+       @jax.jit
+       def step(X):
+           r     = X.apply(ww) - b
+           model = fitting.apply_model(t3m.MANIFOLD, X, ww, r)
+           g     = model.gradient
+           alpha = g.corewise_inner(g) / model.gn_quadratic(g)     # cheap Cauchy step (one forward)
+           return t3m.MANIFOLD.retract((-alpha) * g)
+
+Under a trace the numerical same-frame guards skip (you cannot branch on a tracer; jit is unsafe mode), so
+a matvec output combines with the eager CG iterates freely. The geometry singletons (``t3m.MANIFOLD`` /
+``COREWISE``) are zero-leaf pytrees -- close over or pass as args freely.
 '''
 
 from __future__ import annotations
@@ -27,399 +70,295 @@ from dataclasses import dataclass
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.basis_variations_format as bvf
 import t3toolbox.manifold as t3m
-import t3toolbox.backend.probing as probing
+import t3toolbox.safety as safety
 import t3toolbox.backend.fitting as fb
 from t3toolbox.backend.common import *
 
-__all__ = ['ApplyGaussNewtonModel', 'EntriesGaussNewtonModel', 'ProbeGaussNewtonModel',
-           'CorewiseApplyGaussNewtonModel', 'CorewiseEntriesGaussNewtonModel',
-           'CorewiseProbeGaussNewtonModel']
+__all__ = ['GaussNewtonModel', 'apply_model', 'entries_model', 'probe_model',
+           'apply_derivatives_model', 'entries_derivatives_model', 'probe_derivatives_model']
 
 
 def _require_at_base(base: bvf.T3Basis, p: t3m.T3Tangent) -> None:
-    '''Structural guard: a trial tangent must live at the model's base -- the SAME ``T3Basis`` object
-    (identity, not value equality, like ``T3Tangent``'s same-tangent-space guard).'''
-    if p.basis is not base:
-        raise ValueError('trial tangent must live at the model\'s base (same T3Basis object)')
+    '''Same-frame guard: a trial tangent must live at the model's base. The ``is`` fast-path, else a
+    NUMERICAL frame compare (safe mode, eager-only; skips under ``safety.unsafe()`` / a jax trace), like
+    ``T3Tangent``'s same-tangent-space guard.'''
+    if not (p.basis is base or safety.frames_equal_or_skip(base.data, p.basis.data)):
+        raise ValueError("trial tangent must live at the model's base (it is at a different frame); "
+                         "run inside safety.unsafe() to skip this numerical check")
 
 
 @dataclass(frozen=True)
-class ApplyGaussNewtonModel:
-    '''The local Gauss-Newton model of an all-modes ``apply`` least-squares objective at ``base``.
+class GaussNewtonModel:
+    '''The local Gauss-Newton model of a least-squares objective at ``base``, generic over the geometry.
 
-    Holds the base (an orthonormal frame), the sample vectors ``ww``, and the data residual
-    ``r = F(base) − y``. The base sweep, objective value, and gradient are cached on first use.
+    Built by a sampling-kind factory (:py:func:`apply_model` / :py:func:`entries_model` /
+    :py:func:`probe_model`), not directly. Holds the geometry, the frame ``base = geometry.base(X)``, the
+    sampling ``kind``, the measurement ``sample`` (the probe/apply vectors ``ww`` or the integer grid
+    ``index``), and the data residual ``r = F(X) − y``. The base sweep, objective value, and gradient are
+    cached on first use.
 
     Examples
     --------
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.basis_variations_format as bvf
     >>> import t3toolbox.manifold as t3m
     >>> import t3toolbox.fitting as fitting
     >>> np.random.seed(0)
     >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
-    >>> base, _ = bvf.t3_orthogonal_representations(x)
     >>> ww = [np.random.randn(15, N) for N in (6, 7, 8)]    # 15 samples, each a (w_1, w_2, w_3)
-    >>> r = np.random.randn(15)                             # the data residual at the base
-    >>> model = fitting.ApplyGaussNewtonModel(base, ww, r)
+    >>> r = np.random.randn(15)                             # the data residual at x
 
-    The objective value ``c = ½‖r‖²`` and the gradient ``g = Π 𝒥ᵀ r`` (a gauged tangent):
+    On the **manifold** geometry the gradient ``g = Π 𝒥ᵀ r`` is a gauged tangent and ``H p`` stays on the
+    gauged tangent space:
 
+    >>> model = fitting.apply_model(t3m.MANIFOLD, x, ww, r)
     >>> print(round(float(model.objective_value), 6))
     8.295196
     >>> model.gradient.is_gauged()
     True
-
-    The Gauss-Newton Hessian action ``H p`` stays on the (gauged) tangent space:
-
-    >>> p = t3m.T3Tangent.randn(base)                       # a gauged trial step
-    >>> hp = model.gn_hessian(p)
-    >>> hp.is_gauged()
+    >>> p = t3m.MANIFOLD.randn(model.base)                  # a gauged trial step at the model's base
+    >>> model.gn_hessian(p).is_gauged()
     True
 
-    ``evaluate(p)`` is the quadratic model value -- consistent with assembling it from the cached
-    ``c`` / ``g`` and the Hessian action (and costs only one forward apply, not a Hessian apply):
+    ``evaluate(p)`` is the quadratic-model value, consistent with assembling it from the cached ``c`` /
+    ``g`` and the Hessian action (and costs only one forward apply, not a Hessian apply):
 
-    >>> m_eval = float(model.evaluate(p))
-    >>> m_built = float(model.objective_value + model.gradient.inner(p) + 0.5 * p.inner(hp))
-    >>> bool(np.allclose(m_eval, m_built))
+    >>> hp = model.gn_hessian(p)
+    >>> m_built = float(model.objective_value + model.gradient.corewise_inner(p) + 0.5 * p.corewise_inner(hp))
+    >>> bool(np.allclose(float(model.evaluate(p)), m_built))
+    True
+
+    The Gauss-Newton quadratic form ``pᵀHp = ‖Jp‖²`` comes from one forward sweep (no ``H p`` assembly) --
+    the cheap step-length denominator for Cauchy / line search (``alpha = g.corewise_inner(g) / gn_quadratic(g)``):
+
+    >>> bool(np.allclose(float(model.gn_quadratic(p)), float(p.corewise_inner(model.gn_hessian(p)))))
+    True
+
+    The **corewise** geometry is the same call with a different geometry: the gradient is a tangent at the
+    raw ``(U,G,G,G)`` frame (a core perturbation), with **no** gauge projection:
+
+    >>> cmodel = fitting.apply_model(t3m.COREWISE, x, ww, r)
+    >>> cmodel.gradient.is_gauged()
+    False
+    >>> cp = t3m.COREWISE.randn(cmodel.base)
+    >>> bool(np.allclose(float(cmodel.evaluate(cp)),
+    ...                  float(cmodel.objective_value + cmodel.gradient.corewise_inner(cp)
+    ...                        + 0.5 * cp.corewise_inner(cmodel.gn_hessian(cp)))))
     True
 
     A trial step at a *different* base is a structural error (the model is tied to its base):
 
-    >>> other, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1)))
-    >>> model.gn_hessian(t3m.T3Tangent.randn(other))   # doctest: +IGNORE_EXCEPTION_DETAIL
+    >>> other = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
+    >>> model.gn_hessian(t3m.MANIFOLD.randn(t3m.MANIFOLD.base(other)))   # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
-    ValueError: trial tangent must live at the model's base (same T3Basis object)
+    ValueError: trial tangent must live at the model's base (it is at a different frame)
     '''
 
-    base:     bvf.T3Basis              # the orthonormal frame -- the linearization point
-    ww:       typ.Sequence[NDArray]    # sample vectors, len=d, elm_shape=W+(Ni,)
-    residual: NDArray                  # r = F(base) − y, shape W+C
+    geometry: typ.Any              # the geometry (MANIFOLD / COREWISE): supplies base & project (Π)
+    base:     bvf.T3Basis          # = geometry.base(X) -- the linearization frame
+    kind:     fb.SamplingKind      # the sampling kind (APPLY / ENTRIES / PROBE)
+    sample:   typ.Any              # ww (apply / probe; len=d, elm_shape=W+(Ni,)) or index (entries; (d,)+W)
+    residual: typ.Any              # r = F(X) − y; shape W+C (apply / entries) or len=d, W+C+(Ni,) (probe)
+    sweep:    typ.Any              # = kind.precompute(base.data, sample); a FIELD (jax leaf) so it is
+                                   # carried across a jit boundary and reused, not recomputed per matvec
 
     @ft.cached_property
-    def _base_sweep(self) -> typ.Tuple:  # (xis, mus, nus, etas) -- computed ONCE, reused
-        return probing.precompute_base_sweep(self.base.data, self.ww)
+    def _n_w(self) -> int:  # number of leading sample-stack (W) axes
+        return self.kind.w_axes(self.sample)
 
     @ft.cached_property
     def objective_value(self) -> NDArray:  # c = ½‖r‖², shape C
         '''The least-squares objective at the base, ``c = ½‖r‖²`` (the model constant ``m(0)``).'''
-        n_w = self.ww[0].ndim - 1                      # sample-stack (W) axes; keep the base stack C
-        return 0.5 * (self.residual ** 2).sum(axis=tuple(range(n_w)))
+        return 0.5 * self.kind.sumsq(self.residual, self._n_w)
 
     @ft.cached_property
-    def gradient(self) -> t3m.T3Tangent:  # g = Π 𝒥ᵀ r
-        '''The Riemannian gradient ``g = Π 𝒥ᵀ r`` (the Gauss-Newton ``Jᵀr``), a gauged tangent at base.'''
-        dU_dG = fb.apply_gradient(self.residual, self.ww, self.base.data, self._base_sweep)
-        return t3m.T3Tangent(self.base, bvf.T3Variations(*dU_dG))
+    def gradient(self) -> t3m.T3Tangent:  # g = Π 𝒥ᵀ r, a tangent at base
+        '''The gradient ``g = geometry.project(𝒥ᵀ r)`` (the Gauss-Newton ``Jᵀr``), a tangent at base.
+
+        On the manifold geometry this is the gauged Riemannian gradient; on the corewise geometry it is
+        the raw core gradient ``𝒥ᵀr`` (a tangent at ``(U,G,G,G)``, no ``Π``).'''
+        dU_dG = self.kind.transpose(self.residual, self.sample, self.base.data, self.sweep)
+        return self.geometry.project(t3m.T3Tangent(self.base, bvf.T3Variations(*dU_dG)))
+
+    def jacobian(
+            self,
+            p:  t3m.T3Tangent,
+    ) -> NDArray:  # J p = 𝒥(Π p); apply/entries: shape W+C; probe: len=d, elm_shape=W+C+(Ni,)
+        '''The linearized forward ``J p = 𝒥(Π p)`` (the Gauss-Newton Jacobian-vector product).
+
+        ONE forward sweep -- no transpose ``𝒥ᵀ``, no gauge re-projection of the output, no tangent
+        assembly. The general forward primitive: it gives the predicted residual ``r + J p`` (for
+        trust-region / line-search predicted reduction) and, via :py:meth:`gn_quadratic`, the Gauss-Newton
+        quadratic form. The result lives in the sample space (a scalar per sample for apply / entries; one
+        vector per mode for probe).'''
+        _require_at_base(self.base, p)
+        Pp = self.geometry.project(p)
+        return self.kind.forward(Pp.variations.data, self.sample, self.base.data, self.sweep)
+
+    def gn_quadratic(
+            self,
+            p:  t3m.T3Tangent,
+    ) -> NDArray:  # pᵀ H p = ‖J p‖², shape C
+        '''The Gauss-Newton quadratic form ``pᵀ H p = ‖J p‖²`` -- ONE forward sweep, NOT a Hessian apply.
+
+        The cheap denominator for Cauchy / line-search step lengths: ``alpha = g.corewise_inner(g) /
+        model.gn_quadratic(g)``. Because ``H = JᵀJ``, ``pᵀHp = (Jp)ᵀ(Jp) = ‖Jp‖²``, so this needs only the
+        forward :py:meth:`jacobian` -- it avoids the transpose ``𝒥ᵀ`` and the ``H p`` tangent
+        materialization that the equivalent ``p.corewise_inner(self.gn_hessian(p))`` would incur.'''
+        return self.kind.sumsq(self.jacobian(p), self._n_w)
 
     def gn_hessian(self, p: t3m.T3Tangent) -> t3m.T3Tangent:
-        '''The Gauss-Newton Hessian action ``H p = Π 𝒥ᵀ 𝒥 Π p`` (``H = JᵀJ``), a gauged tangent at base.'''
+        '''The Gauss-Newton Hessian action ``H p = Π 𝒥ᵀ 𝒥 Π p`` (``H = JᵀJ``, *not* the full Hessian).
+
+        Projects ``p`` (so the caller need not), applies the bare forward then transpose, and projects the
+        result -- a tangent at base. Symmetric. (Corewise: ``Π`` is the identity, so ``H p = 𝒥ᵀ 𝒥 p``,
+        which is gauge-singular -- fine for first-order methods, needs regularization for Newton.) For the
+        *scalar* quadratic form ``pᵀHp`` alone, prefer the cheaper :py:meth:`gn_quadratic`.'''
         _require_at_base(self.base, p)
-        dU_dG = fb.apply_gn_hessian(p.variations.data, self.ww, self.base.data, self._base_sweep)
-        return t3m.T3Tangent(self.base, bvf.T3Variations(*dU_dG))
+        Pp = self.geometry.project(p)
+        z = self.kind.forward(Pp.variations.data, self.sample, self.base.data, self.sweep)
+        dU_dG = self.kind.transpose(z, self.sample, self.base.data, self.sweep)
+        return self.geometry.project(t3m.T3Tangent(self.base, bvf.T3Variations(*dU_dG)))
 
     def evaluate(self, p: t3m.T3Tangent) -> NDArray:  # m(p), shape C
-        '''The quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p`` (one forward apply; reuses ``c``, ``g``).'''
+        '''The quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p`` with ``H = JᵀJ``, reusing the cached
+        ``c`` and ``g`` and one **forward** apply: the quadratic term needs only ``½ pᵀ H p = ½‖𝒥 Π p‖²``,
+        not a Hessian apply. ``p`` is projected here, shared by the linear term ``⟨g, Πp⟩`` and the
+        quadratic. Equals ``½‖r + 𝒥 Π p‖²`` exactly (the objective is quadratic in the ambient tensor).'''
         _require_at_base(self.base, p)
-        return fb.apply_model_value(
-            p.variations.data, self.ww, self.base.data, self._base_sweep,
-            self.gradient.variations.data, self.objective_value)
+        Pp = self.geometry.project(p)
+        Jp = self.kind.forward(Pp.variations.data, self.sample, self.base.data, self.sweep)
+        return self.objective_value + self.gradient.corewise_inner(Pp) + 0.5 * self.kind.sumsq(Jp, self._n_w)
 
 
-@dataclass(frozen=True)
-class EntriesGaussNewtonModel:
-    '''The local Gauss-Newton model of an all-modes ``entries`` least-squares objective at ``base``.
+def apply_model(
+        geometry,                            # MANIFOLD / COREWISE (the geometry to linearize through)
+        x:          t3.TuckerTensorTrain,    # the current point (the linearization)
+        ww:         typ.Sequence[NDArray],   # sample vectors, len=d, elm_shape=W+(Ni,)
+        residual:   NDArray,                 # r = apply(x) − y, shape W+C
+) -> GaussNewtonModel:
+    '''The Gauss-Newton model of an all-modes ``apply`` least-squares objective at ``x``, on ``geometry``.'''
+    base = geometry.base(x)
+    return GaussNewtonModel(geometry, base, fb.APPLY, ww, residual, fb.APPLY.precompute(base.data, ww))
 
-    Identical to :py:class:`ApplyGaussNewtonModel` but the measurements are tensor **entries** at integer
-    grid points ``index`` (shape ``(d,)+W``) rather than applies against probe vectors ``ww``.
+
+def entries_model(
+        geometry,                            # MANIFOLD / COREWISE
+        x:          t3.TuckerTensorTrain,    # the current point
+        index:      NDArray,                 # int, shape=(d,)+W -- the grid points
+        residual:   NDArray,                 # r = entries(x) − y, shape W+C
+) -> GaussNewtonModel:
+    '''The Gauss-Newton model of an all-modes ``entries`` least-squares objective at ``x``, on ``geometry``.
+
+    Identical to :py:func:`apply_model` but the measurements are tensor **entries** at integer grid points
+    ``index`` (shape ``(d,)+W``) rather than applies against probe vectors.'''
+    base = geometry.base(x)
+    return GaussNewtonModel(geometry, base, fb.ENTRIES, index, residual, fb.ENTRIES.precompute(base.data, index))
+
+
+def probe_model(
+        geometry,                            # MANIFOLD / COREWISE
+        x:          t3.TuckerTensorTrain,    # the current point
+        ww:         typ.Sequence[NDArray],   # probe vectors, len=d, elm_shape=W+(Ni,)
+        residual:   typ.Sequence[NDArray],   # r = probe(x) − y, len=d, elm_shape=W+C+(Ni,)
+) -> GaussNewtonModel:
+    '''The Gauss-Newton model of a ``probe`` least-squares objective at ``x``, on ``geometry``.
+
+    Like :py:func:`apply_model` but the measurements are **probes** -- vector-valued (one free mode each),
+    so ``residual`` is a sequence of ``d`` arrays (``elm_shape = W+C+(Ni,)``).'''
+    base = geometry.base(x)
+    return GaussNewtonModel(geometry, base, fb.PROBE, ww, residual, fb.PROBE.precompute(base.data, ww))
+
+
+# --------------------------------------------------------------------------------------------------
+# Derivative sampling models (the symmetric directional-derivative jets of apply/entries/probe). Same
+# GaussNewtonModel, a parameterized derivative kind (order + the per-order residual weight ω): the
+# measurement is a jet (a leading order axis), the sample is the paired (ww/index, pp), and `residual`
+# is RAW (r = S(x) − y); ω weights the objective ½‖ω⊙r‖² inside the kind. See docs/derivative_fitting_plan.md.
+# --------------------------------------------------------------------------------------------------
+def apply_derivatives_model(
+        geometry,                            # MANIFOLD / COREWISE
+        x:          t3.TuckerTensorTrain,    # the current point
+        ww:         typ.Sequence[NDArray],   # probe vectors X,        len=d, elm_shape=W+(Ni,)
+        pp:         typ.Sequence[NDArray],   # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+        order:      int,                     # highest derivative order
+        residual:   NDArray,                 # RAW r = apply_derivatives(x) − y, shape (order+1)+W+C
+        weight:     typ.Optional[typ.Sequence[float]] = None,  # per-order residual weight ω, (order+1,); None=1
+) -> GaussNewtonModel:
+    '''The Gauss-Newton model of an ``apply``-**derivatives** least-squares objective at ``x``: the
+    symmetric directional derivatives (orders ``0..order``) of the all-modes apply, in direction ``P``.
 
     Examples
     --------
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.basis_variations_format as bvf
     >>> import t3toolbox.manifold as t3m
     >>> import t3toolbox.fitting as fitting
     >>> np.random.seed(0)
     >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
-    >>> base, _ = bvf.t3_orthogonal_representations(x)
-    >>> index = np.stack([np.random.randint(0, N, size=12) for N in (6, 7, 8)])  # (d,)+W, 12 entries
-    >>> r = np.random.randn(12)
-    >>> model = fitting.EntriesGaussNewtonModel(base, index, r)
+    >>> ww = [np.random.randn(15, N) for N in (6, 7, 8)]    # 15 samples
+    >>> pp = [np.random.randn(15, N) for N in (6, 7, 8)]    # one direction P per sample
+    >>> r = np.random.randn(4, 15)                          # RAW residual jet, (order+1, W) for order 3
+
+    A per-order weight ``ω`` balances the wildly-different-magnitude orders -- it weights the objective
+    ``½‖ω⊙r‖²`` inside the kind; the gradient stays a gauged Riemannian tangent, and the Gauss-Newton
+    quadratic form ``pᵀHp = ‖J p‖²`` agrees with the Hessian action:
+
+    >>> model = fitting.apply_derivatives_model(t3m.MANIFOLD, x, ww, pp, 3, r, weight=[1.0, 0.5, 0.3, 0.2])
     >>> model.gradient.is_gauged()
     True
-    >>> p = t3m.T3Tangent.randn(base)
-    >>> hp = model.gn_hessian(p)
-    >>> m_built = float(model.objective_value + model.gradient.inner(p) + 0.5 * p.inner(hp))
-    >>> bool(np.allclose(float(model.evaluate(p)), m_built))
+    >>> p = t3m.MANIFOLD.randn(model.base)
+    >>> bool(np.allclose(float(model.gn_quadratic(p)), float(p.corewise_inner(model.gn_hessian(p)))))
     True
     '''
-
-    base:     bvf.T3Basis              # the orthonormal frame -- the linearization point
-    index:    NDArray                  # int, shape=(d,)+W -- the grid points
-    residual: NDArray                  # r = F(base) − y, shape W+C
-
-    @ft.cached_property
-    def _base_sweep(self) -> typ.Tuple:  # (xis, mus, nus, etas) -- computed ONCE, reused
-        return probing.precompute_entries_base_sweep(self.base.data, self.index)
-
-    @ft.cached_property
-    def objective_value(self) -> NDArray:  # c = ½‖r‖², shape C
-        '''The least-squares objective at the base, ``c = ½‖r‖²`` (the model constant ``m(0)``).'''
-        n_w = self.index.ndim - 1                      # sample-stack (W) axes; keep the base stack C
-        return 0.5 * (self.residual ** 2).sum(axis=tuple(range(n_w)))
-
-    @ft.cached_property
-    def gradient(self) -> t3m.T3Tangent:  # g = Π 𝒥ᵀ r
-        '''The Riemannian gradient ``g = Π 𝒥ᵀ r`` (the entry scatter, gauge-projected), at base.'''
-        dU_dG = fb.entries_gradient(self.residual, self.index, self.base.data, self._base_sweep)
-        return t3m.T3Tangent(self.base, bvf.T3Variations(*dU_dG))
-
-    def gn_hessian(self, p: t3m.T3Tangent) -> t3m.T3Tangent:
-        '''The Gauss-Newton Hessian action ``H p = Π 𝒥ᵀ 𝒥 Π p`` (``H = JᵀJ``), a gauged tangent at base.'''
-        _require_at_base(self.base, p)
-        dU_dG = fb.entries_gn_hessian(p.variations.data, self.index, self.base.data, self._base_sweep)
-        return t3m.T3Tangent(self.base, bvf.T3Variations(*dU_dG))
-
-    def evaluate(self, p: t3m.T3Tangent) -> NDArray:  # m(p), shape C
-        '''The quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p`` (one forward apply; reuses ``c``, ``g``).'''
-        _require_at_base(self.base, p)
-        return fb.entries_model_value(
-            p.variations.data, self.index, self.base.data, self._base_sweep,
-            self.gradient.variations.data, self.objective_value)
+    kind = fb.apply_derivatives_kind(order, weight)
+    base = geometry.base(x)
+    return GaussNewtonModel(geometry, base, kind, (ww, pp), residual, kind.precompute(base.data, (ww, pp)))
 
 
-@dataclass(frozen=True)
-class ProbeGaussNewtonModel:
-    '''The local Gauss-Newton model of a ``probe`` least-squares objective at ``base``.
-
-    Like :py:class:`ApplyGaussNewtonModel` but the measurements are **probes** -- vector-valued (one free
-    mode each), so ``residual`` is a sequence of ``d`` arrays (``elm_shape = W+C+(Ni,)``).
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.basis_variations_format as bvf
-    >>> import t3toolbox.manifold as t3m
-    >>> import t3toolbox.fitting as fitting
-    >>> np.random.seed(0)
-    >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
-    >>> base, _ = bvf.t3_orthogonal_representations(x)
-    >>> ww = [np.random.randn(15, N) for N in (6, 7, 8)]   # 15 probe-vector tuples
-    >>> r = [np.random.randn(15, N) for N in (6, 7, 8)]    # the probe residual (one vector per mode)
-    >>> model = fitting.ProbeGaussNewtonModel(base, ww, r)
-    >>> model.gradient.is_gauged()
-    True
-    >>> p = t3m.T3Tangent.randn(base)
-    >>> hp = model.gn_hessian(p)
-    >>> m_built = float(model.objective_value + model.gradient.inner(p) + 0.5 * p.inner(hp))
-    >>> bool(np.allclose(float(model.evaluate(p)), m_built))
-    True
-    '''
-
-    base:     bvf.T3Basis              # the orthonormal frame -- the linearization point
-    ww:       typ.Sequence[NDArray]    # probe vectors, len=d, elm_shape=W+(Ni,)
-    residual: typ.Sequence[NDArray]    # r = F(base) − y, len=d, elm_shape=W+C+(Ni,)
-
-    @ft.cached_property
-    def _base_sweep(self) -> typ.Tuple:  # (xis, mus, nus, etas) -- computed ONCE, reused (shared with apply)
-        return probing.precompute_base_sweep(self.base.data, self.ww)
-
-    @ft.cached_property
-    def objective_value(self) -> NDArray:  # c = ½‖r‖², shape C
-        '''The least-squares objective at the base, ``c = ½‖r‖²`` summed over the probe vectors.'''
-        n_w = self.ww[0].ndim - 1                      # sample-stack (W) axes; keep the base stack C
-        sq = sum((ri ** 2).sum(axis=tuple(range(n_w)) + (ri.ndim - 1,)) for ri in self.residual)
-        return 0.5 * sq
-
-    @ft.cached_property
-    def gradient(self) -> t3m.T3Tangent:  # g = Π 𝒥ᵀ r
-        '''The Riemannian gradient ``g = Π 𝒥ᵀ r`` (the probe ``Jᵀr``), a gauged tangent at base.'''
-        dU_dG = fb.probe_gradient(self.residual, self.ww, self.base.data, self._base_sweep)
-        return t3m.T3Tangent(self.base, bvf.T3Variations(*dU_dG))
-
-    def gn_hessian(self, p: t3m.T3Tangent) -> t3m.T3Tangent:
-        '''The Gauss-Newton Hessian action ``H p = Π 𝒥ᵀ 𝒥 Π p`` (``H = JᵀJ``), a gauged tangent at base.'''
-        _require_at_base(self.base, p)
-        dU_dG = fb.probe_gn_hessian(p.variations.data, self.ww, self.base.data, self._base_sweep)
-        return t3m.T3Tangent(self.base, bvf.T3Variations(*dU_dG))
-
-    def evaluate(self, p: t3m.T3Tangent) -> NDArray:  # m(p), shape C
-        '''The quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p`` (one forward apply; reuses ``c``, ``g``).'''
-        _require_at_base(self.base, p)
-        return fb.probe_model_value(
-            p.variations.data, self.ww, self.base.data, self._base_sweep,
-            self.gradient.variations.data, self.objective_value)
+def entries_derivatives_model(
+        geometry,                            # MANIFOLD / COREWISE
+        x:          t3.TuckerTensorTrain,    # the current point
+        index:      NDArray,                 # int, shape=(d,)+W -- the grid points
+        pp:         typ.Sequence[NDArray],   # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+        order:      int,
+        residual:   NDArray,                 # RAW r = entries_derivatives(x) − y, shape (order+1)+W+C
+        weight:     typ.Optional[typ.Sequence[float]] = None,
+) -> GaussNewtonModel:
+    '''The ``entries``-derivatives Gauss-Newton model -- like :py:func:`apply_derivatives_model` at integer
+    grid points ``index``.'''
+    kind = fb.entries_derivatives_kind(order, weight)
+    base = geometry.base(x)
+    return GaussNewtonModel(geometry, base, kind, (index, pp), residual, kind.precompute(base.data, (index, pp)))
 
 
-@dataclass(frozen=True)
-class CorewiseApplyGaussNewtonModel:
-    '''The **corewise** (non-manifold) Gauss-Newton model of an ``apply`` least-squares objective.
-
-    Fits the base's raw cores directly (Adam / L-BFGS / corewise Gauss-Newton), *not* a manifold tangent
-    vector: the linearization is the §6.3 substitution (the cores stand in for the orthogonal frame), with
-    **no gauge projector Π**. Accordingly the operands are **raw ``(tucker, tt)`` core tuples** (a
-    variation / gradient with the shapes of ``x.data``) -- not :py:class:`T3Tangent`\\ s -- and there is no
-    gauge and no same-base guard. Distinct from :py:class:`ApplyGaussNewtonModel` (the Riemannian one,
-    *with* ``Π``): mixing the two silently corrupts the result, so they are separate types.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.fitting as fitting
-    >>> np.random.seed(0)
-    >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
-    >>> ww = [np.random.randn(15, N) for N in (6, 7, 8)]
-    >>> r = np.random.randn(15)
-    >>> model = fitting.CorewiseApplyGaussNewtonModel(x, ww, r)
-
-    The gradient is a raw ``(tucker_grads, tt_grads)`` tuple shaped exactly like ``x.data`` -- a gradient
-    for a corewise optimizer, NOT a tensor and NOT gauged:
-
-    >>> g = model.gradient
-    >>> print([gi.shape for gi in g[0]] == [ui.shape for ui in x.tucker_cores])
-    True
-
-    A core-perturbation trial step ``p`` (same shapes) gives the GN Hessian action and the model value:
-
-    >>> p = (tuple(np.random.randn(*u.shape) for u in x.tucker_cores),
-    ...      tuple(np.random.randn(*c.shape) for c in x.tt_cores))
-    >>> hp = model.gn_hessian(p)
-    >>> import t3toolbox.corewise as cw
-    >>> m_built = float(model.objective_value + cw.corewise_dot(g, p) + 0.5 * cw.corewise_dot(p, hp))
-    >>> bool(np.allclose(float(model.evaluate(p)), m_built))
-    True
-    '''
-
-    x:        t3.TuckerTensorTrain     # the current point -- the linearization (raw cores; no frame)
-    ww:       typ.Sequence[NDArray]    # sample vectors, len=d, elm_shape=W+(Ni,)
-    residual: NDArray                  # r = F(x) − y, shape W+C
-
-    @ft.cached_property
-    def _base_sweep(self) -> typ.Tuple:  # (xis, mus, nus, etas) on the substituted base -- computed ONCE
-        return fb.precompute_corewise_base_sweep(self.x.data, self.ww)
-
-    @ft.cached_property
-    def objective_value(self) -> NDArray:  # c = ½‖r‖², shape C
-        '''The least-squares objective at the base, ``c = ½‖r‖²`` (the model constant ``m(0)``).'''
-        n_w = self.ww[0].ndim - 1
-        return 0.5 * (self.residual ** 2).sum(axis=tuple(range(n_w)))
-
-    @ft.cached_property
-    def gradient(self) -> typ.Tuple:  # g = 𝒥ᵀ r -- raw (tucker_grads, tt_grads), NOT a tensor; NO Π
-        '''The corewise gradient ``g = 𝒥ᵀ r`` w.r.t. the cores -- raw ``(tucker_grads, tt_grads)``.'''
-        return fb.apply_corewise_gradient(self.residual, self.ww, self._base_sweep)
-
-    def gn_hessian(self, p: typ.Tuple) -> typ.Tuple:  # p, H p -- raw core tuples; NO Π
-        '''The corewise Gauss-Newton Hessian action ``H p = 𝒥ᵀ 𝒥 p`` -- raw ``(tucker, tt)`` grads.'''
-        return fb.apply_corewise_gn_hessian(p, self.ww, self.x.data, self._base_sweep)
-
-    def evaluate(self, p: typ.Tuple) -> NDArray:  # m(p), shape C
-        '''The quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p`` (one forward apply; reuses ``c``, ``g``).'''
-        return fb.apply_corewise_model_value(
-            p, self.ww, self.x.data, self._base_sweep, self.gradient, self.objective_value)
+def probe_derivatives_model(
+        geometry,                            # MANIFOLD / COREWISE
+        x:          t3.TuckerTensorTrain,    # the current point
+        ww:         typ.Sequence[NDArray],   # probe vectors X,        len=d, elm_shape=W+(Ni,)
+        pp:         typ.Sequence[NDArray],   # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+        order:      int,
+        residual:   typ.Sequence[NDArray],   # RAW r = probe_derivatives(x) − y, len=d, elm_shape=(order+1)+W+C+(Ni,)
+        weight:     typ.Optional[typ.Sequence[float]] = None,
+) -> GaussNewtonModel:
+    '''The ``probe``-derivatives Gauss-Newton model -- vector-valued (one free mode per probe), so
+    ``residual`` is a sequence of ``d`` jets.'''
+    kind = fb.probe_derivatives_kind(order, weight)
+    base = geometry.base(x)
+    return GaussNewtonModel(geometry, base, kind, (ww, pp), residual, kind.precompute(base.data, (ww, pp)))
 
 
-@dataclass(frozen=True)
-class CorewiseEntriesGaussNewtonModel:
-    '''The **corewise** (non-manifold, NO Π) Gauss-Newton model of an ``entries`` least-squares objective.
+if has_jax:
+    import jax
 
-    Like :py:class:`CorewiseApplyGaussNewtonModel` but the measurements are tensor **entries** at integer
-    grid points ``index`` (shape ``(d,)+W``). Operands are raw ``(tucker, tt)`` core tuples.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.fitting as fitting
-    >>> np.random.seed(0)
-    >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
-    >>> index = np.stack([np.random.randint(0, N, size=12) for N in (6, 7, 8)])
-    >>> r = np.random.randn(12)
-    >>> model = fitting.CorewiseEntriesGaussNewtonModel(x, index, r)
-    >>> print([gi.shape for gi in model.gradient[0]] == [ui.shape for ui in x.tucker_cores])
-    True
-    '''
-
-    x:        t3.TuckerTensorTrain     # the current point (raw cores; no frame)
-    index:    NDArray                  # int, shape=(d,)+W -- the grid points
-    residual: NDArray                  # r = F(x) − y, shape W+C
-
-    @ft.cached_property
-    def _base_sweep(self) -> typ.Tuple:
-        return fb.precompute_entries_corewise_base_sweep(self.x.data, self.index)
-
-    @ft.cached_property
-    def objective_value(self) -> NDArray:  # c = ½‖r‖², shape C
-        '''The least-squares objective at the base, ``c = ½‖r‖²``.'''
-        n_w = self.index.ndim - 1
-        return 0.5 * (self.residual ** 2).sum(axis=tuple(range(n_w)))
-
-    @ft.cached_property
-    def gradient(self) -> typ.Tuple:  # raw (tucker_grads, tt_grads); NO Π
-        '''The corewise gradient ``g = 𝒥ᵀ r`` w.r.t. the cores -- raw ``(tucker_grads, tt_grads)``.'''
-        return fb.entries_corewise_gradient(self.residual, self.index, self.x.data, self._base_sweep)
-
-    def gn_hessian(self, p: typ.Tuple) -> typ.Tuple:  # raw core tuples; NO Π
-        '''The corewise Gauss-Newton Hessian action ``H p = 𝒥ᵀ 𝒥 p`` -- raw ``(tucker, tt)`` grads.'''
-        return fb.entries_corewise_gn_hessian(p, self.index, self.x.data, self._base_sweep)
-
-    def evaluate(self, p: typ.Tuple) -> NDArray:  # m(p), shape C
-        '''The quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p`` (one forward apply; reuses ``c``, ``g``).'''
-        return fb.entries_corewise_model_value(
-            p, self.index, self.x.data, self._base_sweep, self.gradient, self.objective_value)
-
-
-@dataclass(frozen=True)
-class CorewiseProbeGaussNewtonModel:
-    '''The **corewise** (non-manifold, NO Π) Gauss-Newton model of a ``probe`` least-squares objective.
-
-    Like :py:class:`CorewiseApplyGaussNewtonModel` but the measurements are **probes** -- vector-valued
-    (one free mode each), so ``residual`` is a sequence of ``d`` arrays. Operands are raw core tuples.
-
-    Examples
-    --------
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.fitting as fitting
-    >>> np.random.seed(0)
-    >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
-    >>> ww = [np.random.randn(15, N) for N in (6, 7, 8)]
-    >>> r = [np.random.randn(15, N) for N in (6, 7, 8)]
-    >>> model = fitting.CorewiseProbeGaussNewtonModel(x, ww, r)
-    >>> print([gi.shape for gi in model.gradient[1]] == [ci.shape for ci in x.tt_cores])
-    True
-    '''
-
-    x:        t3.TuckerTensorTrain     # the current point (raw cores; no frame)
-    ww:       typ.Sequence[NDArray]    # probe vectors, len=d, elm_shape=W+(Ni,)
-    residual: typ.Sequence[NDArray]    # r = F(x) − y, len=d, elm_shape=W+C+(Ni,)
-
-    @ft.cached_property
-    def _base_sweep(self) -> typ.Tuple:
-        return fb.precompute_corewise_base_sweep(self.x.data, self.ww)
-
-    @ft.cached_property
-    def objective_value(self) -> NDArray:  # c = ½‖r‖², shape C
-        '''The least-squares objective at the base, ``c = ½‖r‖²`` summed over the probe vectors.'''
-        n_w = self.ww[0].ndim - 1
-        sq = sum((ri ** 2).sum(axis=tuple(range(n_w)) + (ri.ndim - 1,)) for ri in self.residual)
-        return 0.5 * sq
-
-    @ft.cached_property
-    def gradient(self) -> typ.Tuple:  # raw (tucker_grads, tt_grads); NO Π
-        '''The corewise gradient ``g = 𝒥ᵀ r`` w.r.t. the cores -- raw ``(tucker_grads, tt_grads)``.'''
-        return fb.probe_corewise_gradient(self.residual, self.ww, self.x.data, self._base_sweep)
-
-    def gn_hessian(self, p: typ.Tuple) -> typ.Tuple:  # raw core tuples; NO Π
-        '''The corewise Gauss-Newton Hessian action ``H p = 𝒥ᵀ 𝒥 p`` -- raw ``(tucker, tt)`` grads.'''
-        return fb.probe_corewise_gn_hessian(p, self.ww, self.x.data, self._base_sweep)
-
-    def evaluate(self, p: typ.Tuple) -> NDArray:  # m(p), shape C
-        '''The quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p`` (one forward apply; reuses ``c``, ``g``).'''
-        return fb.probe_corewise_model_value(
-            p, self.ww, self.x.data, self._base_sweep, self.gradient, self.objective_value)
+    # Register GaussNewtonModel as a jax pytree: the data (base, sweep, sample, residual) are LEAVES, the
+    # statics (geometry, kind) are aux_data. Because T3Tangent's basis is now a leaf too (see manifold.py),
+    # nothing carries a base as aux_data, so a model crossing a jit boundary does NOT recompile when the
+    # base changes -- `jit(lambda model, p: model.gn_hessian(p))(model, p)` compiles once and reuses across
+    # outer steps. The sweep is a stored field (a leaf) so it is carried/reused, not recomputed inside the
+    # trace. The same-base guard is the numerical same-frame check (skips under the trace).
+    jax.tree_util.register_pytree_node(
+        GaussNewtonModel,
+        lambda m: ((m.base, m.sweep, m.sample, m.residual), (m.geometry, m.kind)),
+        lambda aux, children: GaussNewtonModel(aux[0], children[0], aux[1], children[2], children[3], children[1]),
+    )

@@ -32,14 +32,14 @@ We fit a ``TuckerTensorTrain`` ``X`` of fixed rank by minimizing the training mi
 over the fixed-rank manifold, with **Riemannian inexact Newton-CG and an Armijo line search**:
 
   * the orthogonal frame at ``X`` comes from ``t3_orthogonal_representations`` (a ``T3Basis``);
-  * the gradient and the Gauss-Newton Hessian-vector product come from a ``fitting.ApplyGaussNewtonModel``
+  * the gradient and the Gauss-Newton Hessian-vector product come from a ``fitting.apply_model``
     built once per Newton step at the frame: ``model.gradient`` (the Riemannian ``Pi J^T r``) and
     ``model.gn_hessian(V)`` (``Pi J^T J Pi V``, symmetric PSD). The model **precomputes the base sweep
     once per Newton step and reuses it across every CG matrix-vector product** -- instead of recomputing
     it on each apply, which is the whole reason the fitting layer exists;
   * the Newton system is solved approximately by CG in the tangent space (the "inexact" part), with a
     forcing term that tightens as we converge;
-  * each step is retracted back to the manifold by ``T3Tangent.retract`` and accepted by backtracking.
+  * each step is retracted back to the manifold by ``MANIFOLD.retract`` and accepted by backtracking.
 
 The optimizer only touches the forward map, a Gauss-Newton model builder, and a measurement-space inner
 product, so swapping ``apply`` for ``entries`` / ``probe`` is a one-line change of those (once the
@@ -76,7 +76,6 @@ Run from the repo root:  ``python examples/fit_hilbert_tensor_newton_cg.py``
 import numpy as np
 
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.basis_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.fitting as fitting
 
@@ -135,8 +134,8 @@ def rms(x):
 # --------------------------------------------------------------------------------------------------
 def apply_operator(ww):
     forward       = lambda Z: Z.apply(ww)   # works for a TuckerTensorTrain (point) or a T3Tangent (Jacobian)
-    # build the Gauss-Newton model at a frame for a residual -- precomputes the reusable base sweep once.
-    model_builder = lambda base, r: fitting.ApplyGaussNewtonModel(base, ww, r)
+    # build the Gauss-Newton model at the current point for a residual -- precomputes the base sweep once.
+    model_builder = lambda X, r: fitting.apply_model(t3m.MANIFOLD, X, ww, r)
     meas_dot      = lambda a, b: float(np.dot(np.asarray(a), np.asarray(b)))
     return forward, model_builder, meas_dot
 
@@ -152,13 +151,13 @@ def _tangent_cg(H, rhs, base, tol, maxiter):
     x = t3m.T3Tangent.zeros(base)
     res = rhs                                  # residual = rhs - H(0) = rhs
     p = res
-    rs = float(res.inner(res))
+    rs = float(res.corewise_inner(res))
     if np.sqrt(rs) <= tol:
         return x, 0
     i = 0
     for i in range(1, maxiter + 1):
         Hp = H(p)
-        pHp = float(p.inner(Hp))
+        pHp = float(p.corewise_inner(Hp))
         if pHp <= 1e-30:                       # nonpositive curvature guard (GN is PSD; rarely hit)
             if i == 1:
                 x = rhs                         # fall back to the gradient direction
@@ -166,7 +165,7 @@ def _tangent_cg(H, rhs, base, tol, maxiter):
         alpha = rs / pHp
         x = x + alpha * p
         res = res - alpha * Hp
-        rs_new = float(res.inner(res))
+        rs_new = float(res.corewise_inner(res))
         if np.sqrt(rs_new) <= tol:
             break
         p = res + (rs_new / rs) * p
@@ -183,16 +182,15 @@ def riemannian_newton_cg(X0, forward, model_builder, meas_dot, b,
     newton_iters = 0
     cg_total = 0
     for it in range(max_newton):
-        base, _ = bvf.t3_orthogonal_representations(X)   # orthogonal frame at the current point
-
         r = forward(X) - b
-        # The Gauss-Newton model at this frame -- precomputes the base sweep ONCE and reuses it across
-        # the gradient and every CG Hessian apply below (the per-Newton-step reuse).
-        model = model_builder(base, r)
+        # The Gauss-Newton model at this point -- builds the orthonormal frame and precomputes the base
+        # sweep ONCE, reused across the gradient and every CG Hessian apply below (per-Newton-step reuse).
+        model = model_builder(X, r)
+        base = model.base                                # the orthonormal frame at the current point
         f = float(model.objective_value)                 # = 1/2 ||r||^2
 
         g = model.gradient                               # Riemannian gradient Pi J^T r (already gauged)
-        gnorm = float(g.norm())
+        gnorm = float(g.corewise_norm())
         if g0norm is None:
             g0norm = gnorm if gnorm > 0.0 else 1.0
         if verbose:
@@ -209,7 +207,7 @@ def riemannian_newton_cg(X0, forward, model_builder, meas_dot, b,
         p, cg_iters = _tangent_cg(H, -g, base, tol=eta * gnorm, maxiter=cg_maxiter)
         cg_total += cg_iters
 
-        slope = float(g.inner(p))
+        slope = float(g.corewise_inner(p))
         if (not np.isfinite(slope)) or slope >= 0.0:     # ensure a descent direction
             p, slope = -g, -gnorm * gnorm
 
@@ -217,7 +215,7 @@ def riemannian_newton_cg(X0, forward, model_builder, meas_dot, b,
         alpha = 1.0
         X_trial = X
         for _ in range(40):
-            X_trial = (alpha * p).retract()
+            X_trial = t3m.MANIFOLD.retract(alpha * p)
             r_trial = forward(X_trial) - b
             f_trial = 0.5 * meas_dot(r_trial, r_trial)
             if f_trial <= f + c_armijo * alpha * slope:

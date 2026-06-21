@@ -27,7 +27,6 @@ import t3toolbox.backend.tangent_operations as tops
 import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.orthogonal_representations as orth_reps
 import t3toolbox.backend.probing as probing
-import t3toolbox.backend.fitting as fb
 import t3toolbox.fitting as fitting
 
 try:
@@ -52,8 +51,8 @@ class TestDispatch(unittest.TestCase):
         cls.x = cls.x_np.to_jax()
         cls.base, cls.var = bvf.t3_orthogonal_representations(cls.x)
         cls.v = t3m.T3Tangent(cls.base, cls.var)
-        cls.w = t3m.T3Tangent.randn(cls.base, apply_gauge_projection=False)
-        cls.v_vstack = t3m.T3Tangent.randn(cls.base, stack_shape=(3,), apply_gauge_projection=False)  # K=(3,)
+        cls.w = t3m.COREWISE.randn(cls.base)
+        cls.v_vstack = t3m.COREWISE.randn(cls.base, stack_shape=(3,))  # K=(3,)
         cls.ww = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])  # probe stack W=(2,)
         cls.zz = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])  # W + C + (N,), C=()
         cls.zz_vstack = tuple(jnp.array(np.random.randn(2, 3, N)) for N in STRUCT[0])  # W + K + C, K=(3,)
@@ -169,15 +168,15 @@ class TestDispatch(unittest.TestCase):
         base = self.base  # close over the fixed base (aux_data); never a traced arg
         self.assert_jit_jax(lambda a: a.to_dense(), self.v)
         self.assert_jit_jax(lambda a: a.to_t3(), self.v)
-        self.assert_jit_jax(lambda a: a.retract(), self.v)
-        self.assert_jit_jax(lambda a, b: a.inner(b), self.v, self.w)   # binary op, shared base via aux
-        self.assert_jit_jax(lambda a: a.norm(), self.v)
+        self.assert_jit_jax(lambda a: t3m.MANIFOLD.retract(a), self.v)
+        self.assert_jit_jax(lambda a, b: a.corewise_inner(b), self.v, self.w)   # binary op; same-frame guard skips under the trace
+        self.assert_jit_jax(lambda a: a.corewise_norm(), self.v)
         self.assert_jit_jax(lambda a, b: a + b, self.v, self.w)
         self.assert_jit_jax(lambda a, b: a - b, self.v, self.w)
         self.assert_jit_jax(lambda a: 2.5 * a, self.v)
-        self.assert_jit_jax(lambda a: a.orthogonal_gauge_projection(), self.v)
-        self.assert_jit_jax(lambda a: a.oblique_gauge_projection(), self.v)
-        self.assert_jit_jax(lambda xx: t3m.T3Tangent.project(xx, base), self.x_other)
+        self.assert_jit_jax(lambda a: t3m.MANIFOLD.project(a), self.v)
+        self.assert_jit_jax(lambda a: t3m.MANIFOLD.project_oblique(a), self.v)
+        self.assert_jit_jax(lambda xx: t3m.MANIFOLD.project_ambient(base, xx), self.x_other)
         self.assert_jit_jax(lambda a, w: a.probe(w), self.v, self.ww)
         self.assert_jit_jax(lambda a, w: a.probe(w), self.v_vstack, self.ww)  # 3-group (W,K,C) probe
         self.assert_jit_jax(lambda z, w: t3m.T3Tangent.probe_transpose(z, w, base), self.zz, self.ww)
@@ -311,84 +310,49 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda b: orth_reps.basis_consistency_residual(b), self.base.data)
         self.assert_jit_jax(lambda b, v: tops.gauge_residual(b, v), self.base.data, self.var.data)
 
-    # ---------------------------------------------------- jit bucket: Gauss-Newton fitting (backend/fitting.py)
+    # ---------------------------------------------------- jit bucket: Gauss-Newton fitting (fitting.py)
     def test_jit_fitting(self):
-        base = self.base.data
-        ww = self.ww                                              # sample stack W=(2,)
-        sweep = probing.precompute_base_sweep(base, ww)     # reusable base sweep (jax)
-        p = self.w.variations.data                               # an un-gauged tangent (exercises internal Π)
-        r = jnp.ones(2)                                          # residual, W=(2,), C=()
-        g = fb.apply_gradient(r, ww, base, sweep)               # gauged gradient (jax)
-        c = jnp.ones(())
-        self.assert_jit_jax(lambda pp: fb.apply_jacobian(pp, ww, base, sweep), p)
-        self.assert_jit_jax(lambda rr: fb.apply_gradient(rr, ww, base, sweep), r)
-        self.assert_jit_jax(lambda pp: fb.apply_gn_hessian(pp, ww, base, sweep), p)
-        self.assert_jit_jax(lambda pp: fb.apply_model_value(pp, ww, base, sweep, g, c), p)
-        # entries: integer grid points instead of probe vectors
+        # the geometry-generic GN model, every (kind x geometry): cached sweep + base fold in as closure
+        # constants; the trial tangent pp is the traced input (basis survives jit as aux). evaluate exercises
+        # the kind's sumsq reducer; gn_hessian exercises forward + transpose + geometry.project.
         index = jnp.array([[1, 2], [2, 3], [3, 0]])              # (d,)+W, W=(2,)
-        esweep = probing.precompute_entries_base_sweep(base, index)
-        eg = fb.entries_gradient(r, index, base, esweep)
-        self.assert_jit_jax(lambda pp: fb.entries_jacobian(pp, index, base, esweep), p)
-        self.assert_jit_jax(lambda rr: fb.entries_gradient(rr, index, base, esweep), r)
-        self.assert_jit_jax(lambda pp: fb.entries_gn_hessian(pp, index, base, esweep), p)
-        self.assert_jit_jax(lambda pp: fb.entries_model_value(pp, index, base, esweep, eg, c), p)
-        # probe: vector-valued residual (one free mode each); shares the apply base sweep
-        pr_r = tuple(jnp.ones((2, N)) for N in STRUCT[0])         # d probe vectors, W=(2,)
-        pg = fb.probe_gradient(pr_r, ww, base, sweep)
-        self.assert_jit_jax(lambda pp: fb.probe_jacobian(pp, ww, base, sweep), p)
-        self.assert_jit_jax(lambda rr: fb.probe_gradient(rr, ww, base, sweep), pr_r)
-        self.assert_jit_jax(lambda pp: fb.probe_gn_hessian(pp, ww, base, sweep), p)
-        self.assert_jit_jax(lambda pp: fb.probe_model_value(pp, ww, base, sweep, pg, c), p)
-        # corewise (NO Π): raw core tuples, base = the current point's cores
-        cores = self.x.data
-        csweep = fb.precompute_corewise_base_sweep(cores, ww)
-        cp = self.w.variations.data                              # a raw core perturbation (same shapes)
-        cg = fb.apply_corewise_gradient(r, ww, csweep)
-        self.assert_jit_jax(lambda pp: fb.apply_corewise_jacobian(pp, ww, cores, csweep), cp)
-        self.assert_jit_jax(lambda rr: fb.apply_corewise_gradient(rr, ww, csweep), r)
-        self.assert_jit_jax(lambda pp: fb.apply_corewise_gn_hessian(pp, ww, cores, csweep), cp)
-        self.assert_jit_jax(lambda pp: fb.apply_corewise_model_value(pp, ww, cores, csweep, cg, c), cp)
-        # entries corewise
-        ecsweep = fb.precompute_entries_corewise_base_sweep(cores, index)
-        ecg = fb.entries_corewise_gradient(r, index, cores, ecsweep)
-        self.assert_jit_jax(lambda pp: fb.entries_corewise_jacobian(pp, index, cores, ecsweep), cp)
-        self.assert_jit_jax(lambda rr: fb.entries_corewise_gradient(rr, index, cores, ecsweep), r)
-        self.assert_jit_jax(lambda pp: fb.entries_corewise_gn_hessian(pp, index, cores, ecsweep), cp)
-        self.assert_jit_jax(lambda pp: fb.entries_corewise_model_value(pp, index, cores, ecsweep, ecg, c), cp)
-        # probe corewise (shares the ww corewise sweep)
-        pcg = fb.probe_corewise_gradient(pr_r, ww, cores, csweep)
-        self.assert_jit_jax(lambda pp: fb.probe_corewise_jacobian(pp, ww, cores, csweep), cp)
-        self.assert_jit_jax(lambda rr: fb.probe_corewise_gradient(rr, ww, cores, csweep), pr_r)
-        self.assert_jit_jax(lambda pp: fb.probe_corewise_gn_hessian(pp, ww, cores, csweep), cp)
-        self.assert_jit_jax(lambda pp: fb.probe_corewise_model_value(pp, ww, cores, csweep, pcg, c), cp)
+        probe_r = tuple(jnp.ones((2, N)) for N in STRUCT[0])     # d probe residual vectors, W=(2,)
+        for geom in (t3m.MANIFOLD, t3m.COREWISE):                # corewise: NO Π; manifold: gauged
+            models = [fitting.apply_model(geom, self.x, self.ww, jnp.ones(2)),
+                      fitting.entries_model(geom, self.x, index, jnp.ones(2)),
+                      fitting.probe_model(geom, self.x, self.ww, probe_r)]
+            for model in models:
+                _ = model.gradient; _ = model.objective_value   # warm the caches -> concrete jax constants
+                p = geom.randn(model.base)                       # a tangent at the model's base (jax)
+                self.assert_jit_jax(lambda pp: model.gn_hessian(pp), p)    # H p, returns a T3Tangent
+                self.assert_jit_jax(lambda pp: model.jacobian(pp), p)      # J p (forward), sample-space
+                self.assert_jit_jax(lambda pp: model.gn_quadratic(pp), p)  # pᵀHp = ‖Jp‖², a jax scalar
+                self.assert_jit_jax(lambda pp: model.evaluate(pp), p)      # m(p), returns a jax scalar
 
-    def test_jit_fitting_model(self):
-        # the GaussNewton model frontends: cached sweep folds in (closure); base survives jit as aux
-        model = fitting.ApplyGaussNewtonModel(self.base, self.ww, jnp.ones(2))
-        _ = model.gradient; _ = model.objective_value           # warm the caches -> concrete jax constants
-        self.assert_jit_jax(lambda pp: model.gn_hessian(pp), self.w)   # H p, returns a T3Tangent
-        self.assert_jit_jax(lambda pp: model.evaluate(pp), self.w)     # m(p), returns a jax scalar
-        emodel = fitting.EntriesGaussNewtonModel(self.base, jnp.array([[1, 2], [2, 3], [3, 0]]), jnp.ones(2))
-        _ = emodel.gradient; _ = emodel.objective_value
-        self.assert_jit_jax(lambda pp: emodel.gn_hessian(pp), self.w)
-        self.assert_jit_jax(lambda pp: emodel.evaluate(pp), self.w)
-        pmodel = fitting.ProbeGaussNewtonModel(self.base, self.ww, tuple(jnp.ones((2, N)) for N in STRUCT[0]))
-        _ = pmodel.gradient; _ = pmodel.objective_value
-        self.assert_jit_jax(lambda pp: pmodel.gn_hessian(pp), self.w)
-        self.assert_jit_jax(lambda pp: pmodel.evaluate(pp), self.w)
-        cp = self.w.variations.data                                                   # a raw core tuple
-        cmodel = fitting.CorewiseApplyGaussNewtonModel(self.x, self.ww, jnp.ones(2))  # raw cores, NO Π
-        _ = cmodel.gradient; _ = cmodel.objective_value
-        self.assert_jit_jax(lambda pp: cmodel.gn_hessian(pp), cp)
-        self.assert_jit_jax(lambda pp: cmodel.evaluate(pp), cp)
-        ecmodel = fitting.CorewiseEntriesGaussNewtonModel(self.x, jnp.array([[1, 2], [2, 3], [3, 0]]), jnp.ones(2))
-        _ = ecmodel.gradient; _ = ecmodel.objective_value
-        self.assert_jit_jax(lambda pp: ecmodel.gn_hessian(pp), cp)
-        self.assert_jit_jax(lambda pp: ecmodel.evaluate(pp), cp)
-        pcmodel = fitting.CorewiseProbeGaussNewtonModel(self.x, self.ww, tuple(jnp.ones((2, N)) for N in STRUCT[0]))
-        _ = pcmodel.gradient; _ = pcmodel.objective_value
-        self.assert_jit_jax(lambda pp: pcmodel.gn_hessian(pp), cp)
-        self.assert_jit_jax(lambda pp: pcmodel.evaluate(pp), cp)
+    def test_jit_geometry_as_arg(self):
+        # the stateless geometry singletons are zero-leaf pytrees -> pass as ordinary traced args
+        self.assert_jit_jax(lambda gm, t: gm.norm(gm.project(t)), t3m.MANIFOLD, self.w)
+        self.assert_jit_jax(lambda gm, t: gm.norm(gm.project(t)), t3m.COREWISE, self.w)
+
+    def test_jit_optimizer_wholestep(self):
+        # Pattern 1 (the per-step jit): jit the WHOLE step, X in / X_new out, model built INSIDE. The base
+        # is recomputed from the traced X each step, so it is traced -- the step COMPILES ONCE and is
+        # reused across steps even though the base changes every step (no model registration needed).
+        ww, b = self.ww, jnp.ones(2)
+        traces = [0]
+        @jax.jit
+        def step(X):
+            traces[0] += 1                                       # +1 per TRACE (compile), not per call
+            r = X.apply(ww) - b
+            model = fitting.apply_model(t3m.MANIFOLD, X, ww, r)
+            g = model.gradient
+            alpha = g.corewise_inner(g) / model.gn_quadratic(g)           # Cauchy step (one forward; no H assembly)
+            return t3m.MANIFOLD.retract((-alpha) * g)
+        X = self.x
+        for _ in range(3):
+            X = step(X)
+        self.assertEqual(traces[0], 1, "whole-step jit recompiled -- base should be traced-internal, not aux")
+        self._leaves_all_jax(X)
 
     # ---------------------------------------------------- jit bucket: UniformTuckerTensorTrain
     def test_jit_uniform(self):
@@ -448,16 +412,17 @@ class TestDispatch(unittest.TestCase):
         self.assert_eager_jax(lambda a: a.t3svd(rtol=0.05), self.x)
         A = jnp.array(np.random.randn(8, 9))
         self.assert_eager_jax(lambda m: linalg.truncated_svd(m, rtol=0.05), A)
-        # project_dense_onto_tangent / riemannian_gradient: t3svd_dense picks ranks from the data
+        # MANIFOLD.project_ambient (dense grad, 'contraction'/'t3svd'): t3svd_dense picks ranks from the data
         # -> dynamic shapes. Dispatch is pushed down (no top-level jax check), so the output is jax
         # whenever ANY input is jax. jax dense + jax basis:
         dense = jnp.array(np.random.randn(*STRUCT[0]))
-        self.assert_eager_jax(lambda z: t3m.project_dense_onto_tangent(z, self.base), dense)
-        self.assert_eager_jax(lambda z: t3m.riemannian_gradient(z, self.base), dense)
-        # jax dense + NUMPY basis must still give jax out (any input jax -> jax); the old code
-        # coerced the dense down to the basis's numpy here -- the regression this fix prevents.
+        self.assert_eager_jax(lambda z: t3m.MANIFOLD.project_ambient(self.base, z), dense)
+        self.assert_eager_jax(lambda z: t3m.MANIFOLD.project_ambient(self.base, z), dense)
+        # jax dense + NUMPY basis: the COMPUTED variations must be jax (any input jax -> jax); the old
+        # code coerced the dense down to the basis's numpy here -- the regression this fix prevents. With
+        # basis-as-leaf the tangent also carries the (numpy) basis as leaves, so check the variations only.
         base_np = self.base.to_numpy()
-        self.assert_eager_jax(lambda z: t3m.project_dense_onto_tangent(z, base_np), dense)
+        self._leaves_all_jax(t3m.MANIFOLD.project_ambient(base_np, dense).variations)
 
     # ---------------------------------------------------- numerical smoke tests (jax == numpy)
     def test_jax_matches_numpy_smoke(self):
@@ -478,11 +443,11 @@ class TestDispatch(unittest.TestCase):
                       {'oversample': 2} if m == 'swap' else {})).to_dense())
         close(self.x.to_dense(), self.x_np.to_dense())                       # TTT.to_dense
         close(self.v.to_dense(), v_np.to_dense())                            # Tangent.to_dense
-        close(self.v.retract().to_dense(), v_np.retract().to_dense())        # retract (fixed-rank t3svd)
+        close(t3m.MANIFOLD.retract(self.v).to_dense(), t3m.MANIFOLD.retract(v_np).to_dense())        # retract (fixed-rank t3svd)
         w_np = t3m.T3Tangent(base_np, bvf.T3Variations(
             tuple(np.asarray(c) for c in self.w.variations.tucker_variations),
             tuple(np.asarray(c) for c in self.w.variations.tt_variations)))
-        close(self.v.inner(self.w), v_np.inner(w_np))                        # inner (binary, shared base)
+        close(self.v.corewise_inner(self.w), v_np.corewise_inner(w_np))      # inner (binary, shared base)
         for a, b in zip(self.v.probe(self.ww), v_np.probe(ww_np)):           # probe
             close(a, b)
 

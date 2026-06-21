@@ -1,60 +1,41 @@
-"""Fit a Tucker tensor train to APPLY-DERIVATIVE data of a Hilbert tensor.
+"""Fit a Tucker tensor train to APPLY-DERIVATIVE data -- MC-SGD with FLAT ``(X, P)`` minibatches.
 
-A worked example of Riemannian fixed-rank fitting from **symmetric directional derivatives** of the
-all-modes ``apply`` operation -- the derivative analogue of ``examples/fit_hilbert_tensor_newton_cg.py``
-(which fits from ordinary applies). Here we fit with **Manifold Cauchy SGD (MC-SGD)**, the stochastic
-method of the T4S paper (Section 5.3.2): a minibatched, tuning-free Riemannian optimizer. The forward
-``T3Tangent.apply_derivatives`` (the Jacobian ``J``) and its transpose ``apply_derivatives_transpose``
-(``J^T``) drive it, so this is also the end-to-end integration test of the derivative pipeline.
+A variant of ``examples/fit_hilbert_from_apply_derivatives.py``. **Same problem, same optimizer
+(Manifold Cauchy SGD, T4S Section 5.3.2); the only change is how minibatches are drawn.** The
+reference example minibatches over **base points ``X``**: a few ``X``, each carrying *all* its
+directions ``P``. Here we instead view the data as a **flat list of ``(X, P)`` pairs** and draw a
+minibatch of those pairs **totally at random**, mixing freely across base points.
 
-The problem
------------
-The order-``d`` **Hilbert tensor** ``A[i0,...] = 1 / (1 + i0 + ... + i_{d-1})`` is smooth, positive, and
-well approximated by low rank. We never see ``A`` directly.
+Why try this
+------------
+The sample stack is ``W = (N_P, N_X)``. The X-only scheme picks a subset of the ``N_X`` axis, so a
+minibatch only ever sees a handful of distinct base points (its gradient is dominated by, and
+correlated within, those few ``X``). Flattening to ``W = (N_P * N_X,)`` and sampling pairs at random
+spreads each minibatch across (likely) *all* the base points, each contributing a random subset of its
+directions. **Hypothesis:** this extra mixing decorrelates the per-sample contributions and lowers the
+variance of the stochastic gradient -- which, for a Cauchy-step method, should mean steadier step
+lengths and a more robust stopping signal. Untested; this example exists to see whether it holds here.
 
-    *Sampling: a few base points, many directions each.*  We sample ``N_X`` random base points
-    ``X = (x0,...,x_{d-1})`` and, **for each ``X``**, ``N_P`` random perturbation directions
-    ``P = (p0,...,p_{d-1})``.  So the perturbation stack is ``(N_P, N_X)`` and the base stack starts as
-    ``(N_X,)``; we **replicate** ``X`` over the ``N_P`` axis to give it the same ``(N_P, N_X)`` stack as
-    ``P`` (the sampling functions pair an ``X`` with a ``P`` per stack element).  This mimics the common
-    use case where base points are the scarce resource and the directional derivatives at each base point
-    are what is cheap -- exactly the regime where higher-order derivatives buy the most (see
-    ``docs/derivative_order_information_and_conditioning.md``).
+Nothing else changes. The flatten is a pure reshape of the *same* collected data (``N_X`` distinct base
+points, ``N_P`` directions each), and the apply-derivative forward / transpose treat ``W`` as arbitrary
+leading batch axes -- so ``apply_derivative_operator`` is reused verbatim and ``sum_over_probes=True``
+still sums the whole minibatch into one ``J^T r``. To isolate the mixing effect we **match the per-step
+sample count** to the reference (its 2 base points x ``N_P`` directions = 60 pairs), so the epoch length
+(``round(n_pairs / |B|)``) comes out identical and the *only* difference is the minibatch composition.
 
-For each ``(X, P)`` we observe the **apply-derivative jet**
+The problem (unchanged from the reference example)
+--------------------------------------------------
+The order-``d`` **Hilbert tensor** ``A[i0,...] = 1 / (1 + i0 + ... + i_{d-1})`` is smooth and low-rank-
+friendly; we never see ``A``, only **apply-derivative jets** along lines ``X + sP``:
 
-    b = [ d^t/ds^t  A(x0 + s p0, ..., x_{d-1} + s p_{d-1}) |_{s=0} ]_{t=0..K},
+    b = [ d^t/ds^t  A(x0 + s p0, ..., x_{d-1} + s p_{d-1}) |_{s=0} ]_{t=0..K}.
 
-a vector of ``K+1`` numbers (order 0 is the ordinary apply). The restriction to the line ``X + sP`` is a
-degree-``d`` polynomial in ``s``, so orders ``0..d`` carry the whole line and orders ``> d`` vanish. We
-measure on a training set of base points and a held-out validation set, with noise.
+We sample ``N_X`` base points, ``N_P`` directions each, normalize per order (the essential conditioning
+step), add noise, and fit with rank continuation (increase-by-1, zero-padded warm starts, validation-
+picked rank). See ``fit_hilbert_from_apply_derivatives.py`` for the full annotation of the problem and
+the Cauchy step; this file documents only the batching difference.
 
-    *Two normalizations.*  (1) **Unit-norm probe vectors** -- each sample's rank-1 row has unit Frobenius
-    norm, so no sample dominates.  (2) **Per-order normalization** -- the order-``t`` derivative carries a
-    ``t!``/binomial-type weight, so raw orders span wildly different magnitudes and (left alone) wreck the
-    Gauss-Newton conditioning. We divide each order's data (and the operator output) by that order's RMS
-    over the training set. This is the essential step that makes the derivative fit well-behaved.
-
-The method -- Manifold Cauchy SGD (MC-SGD)
-------------------------------------------
-A first-order stochastic Riemannian method (T4S Section 5.3.2). Each iteration draws a fresh **minibatch
-of base points** ``X`` (a few ``X``, with *all* their directions ``P`` -- base points are the scarce
-resource, directions the cheap one), so the per-step work is a fraction of the full batch. On that
-minibatch it forms the gauged stochastic gradient ``g = Pi J^T r`` (the forward ``Z.apply_derivatives``
-works on a ``TuckerTensorTrain`` point or a ``T3Tangent`` direction; the transpose with
-``sum_over_probes=True`` is ``J^T r``; ``Pi = MANIFOLD.project`` gauges it), then sets the step length by
-the **Cauchy rule** ``alpha = ||g||^2 / ||J g||^2`` -- the exact 1D minimizer of the local Gauss-Newton
-quadratic model along ``-g``. That costs one extra forward Jacobian-vector product ``J g`` and needs **no
-learning-rate schedule** (the "Cauchy" in MC-SGD; "manifold" because we retract). The step is
-``X <- retract(-alpha * g)``, and a fixed-rank stage stops when an exponentially-smoothed minibatch loss
-stops decreasing. (``g`` and ``||J g||^2`` are exactly ``fitting.GaussNewtonModel.gradient`` /
-``.gn_quadratic``; this example inlines them against the apply-derivative closures.)
-
-Rank continuation starts from the zero tensor and grows rank by zero-padding (warm start); validation
-picks the rank. Contrast ``fit_hilbert_tensor_newton_cg.py``, which uses deterministic full-batch
-Newton-CG -- MC-SGD trades some final accuracy for cheap, tuning-free steps that scale to many samples.
-
-Run from the repo root:  ``python examples/fit_hilbert_from_apply_derivatives.py``
+Run from the repo root:  ``python examples/fit_hilbert_from_apply_derivatives_flat.py``
 """
 import time
 
@@ -67,7 +48,7 @@ import t3toolbox.backend.probe_derivatives as pd
 
 
 # --------------------------------------------------------------------------------------------------
-# Problem configuration (tweak these)
+# Problem configuration (tweak these) -- identical to the reference example
 # --------------------------------------------------------------------------------------------------
 SHAPE        = (12, 12, 12, 12)    # Hilbert tensor shape (order d = len(SHAPE))
 ORDER        = 4                   # highest derivative order K (apply has degree d; orders 0..d carry it)
@@ -78,15 +59,15 @@ NOISE_LEVEL  = 0.01                # measurement noise, fraction of the per-orde
 RANK_LEVELS  = (1, 2, 3, 4, 5)     # rank-continuation schedule
 SEED         = 0
 
-# MC-SGD (Manifold Cauchy SGD) knobs -- the Cauchy step is tuning-free, so there is no learning rate.
-# Minibatch = a few base points per step (with ALL their directions P). The paper's rule of thumb is ~10%
-# of the samples, but with only N_X=10 base points that rounds to a single one, whose gradient is too
-# noisy (it makes the stopping test trigger-happy); 2 base points smooths it enough that the paper's
-# default stopping works, while staying a small minibatch. (3+ over-shrinks the epoch and destabilizes.)
-N_X_BATCH    = min(N_X_TRAIN, max(2, N_X_TRAIN // 10))
-MCSGD_MAXITER = 3000               # hard cap (the smoothed-loss criterion normally stops much sooner)
-MCSGD_C_TAU  = 1.0                 # loss-smoothing timescale, in epochs (T4S 5.3.2 default)
-MCSGD_C_T    = 3.0                 # plateau-detection lag, in epochs (T4S 5.3.2 default)
+# MC-SGD knobs. The minibatch is now a flat set of (X, P) PAIRS drawn uniformly at random from the
+# N_P*N_X training pairs (vs the reference's "a few base points, all their directions"). We size it to
+# match the reference's per-step sample count -- 2 base points worth of directions -- so the epoch length
+# is identical and the only difference is the mixing. (Shrink BATCH_PAIRS to test smaller minibatches.)
+N_X_BATCH_EQ  = 2                          # the reference example's base-point batch (for matching only)
+BATCH_PAIRS   = N_X_BATCH_EQ * N_P         # = 60 random (X,P) pairs/step, 20% of the 300 training pairs
+MCSGD_MAXITER = 3000                       # hard cap (the smoothed-loss criterion normally stops sooner)
+MCSGD_C_TAU   = 1.0                        # loss-smoothing timescale, in epochs (T4S 5.3.2 default)
+MCSGD_C_T     = 3.0                        # plateau-detection lag, in epochs (T4S 5.3.2 default)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -114,6 +95,18 @@ def unit_pairs_many_p(n_x, n_p, shape, rng):
     return ww, pp
 
 
+def flatten_pairs(ww, pp, b):
+    """Collapse the ``(n_p, n_x)`` sample stack to one flat ``(n_p*n_x,)`` axis of ``(X, P)`` pairs.
+
+    A pure reshape -- the same samples, regrouped so a minibatch can mix across base points. ``ww``/``pp``
+    go ``(n_p, n_x, N) -> (n_p*n_x, N)``; ``b`` goes ``(order+1, n_p, n_x) -> (order+1, n_p*n_x)``."""
+    n_p, n_x = ww[0].shape[:2]
+    ww_f = [w.reshape(n_p * n_x, w.shape[-1]) for w in ww]
+    pp_f = [p.reshape(n_p * n_x, p.shape[-1]) for p in pp]
+    b_f = b.reshape(b.shape[0], n_p * n_x)
+    return ww_f, pp_f, b_f
+
+
 def dense_apply_derivatives(A, ww, pp, order):
     """Ground-truth apply-derivative jets of the dense tensor ``A``: shape ``(order+1,) + W`` (``W`` the
     sample stack). Each ``W``-element is ``apply_derivatives_dense`` (the exact subset expansion)."""
@@ -131,15 +124,16 @@ def rms(x):
 
 
 # --------------------------------------------------------------------------------------------------
-# The measurement operator (per-order-normalized apply-derivatives). The optimizer below uses only
-# `forward`, `transpose`, `meas_dot`.
+# The measurement operator (per-order-normalized apply-derivatives) -- reused verbatim from the
+# reference example; it treats the sample stack W as arbitrary leading axes, so a flat (X,P) stack
+# "just works". The optimizer below uses only `forward`, `transpose`, `meas_dot`.
 # --------------------------------------------------------------------------------------------------
 def apply_derivative_operator(ww, pp, order, s_vec):
     """forward / transpose / meas_dot for the per-order-normalized apply-derivative map.
 
     Dividing the output (and the data) by ``s_vec`` (per order, broadcast over the sample stack ``W``)
     folds the per-order normalization into the operator, so ``transpose(r)`` applies ``J^T`` to
-    ``r / s_vec``. ``sum_over_probes=True`` sums the whole ``W = (n_p, n_x)`` stack -> one tangent."""
+    ``r / s_vec``. ``sum_over_probes=True`` sums the whole ``W`` stack -> one tangent."""
     nW = ww[0].ndim - 1
     sv = s_vec.reshape((order + 1,) + (1,) * nW)               # broadcast over the W sample stack
     forward = lambda Z: np.asarray(Z.apply_derivatives(ww, pp, order)) / sv
@@ -150,31 +144,26 @@ def apply_derivative_operator(ww, pp, order, s_vec):
 
 
 # --------------------------------------------------------------------------------------------------
-# Manifold Cauchy SGD (MC-SGD), t4s.pdf Section 5.3.2
+# Manifold Cauchy SGD (MC-SGD), t4s.pdf Section 5.3.2 -- FLAT (X,P)-pair minibatching
 # --------------------------------------------------------------------------------------------------
-# A tuning-free stochastic Riemannian method. Each iteration:
-#   * draw a fresh minibatch of base points X (a few X, with ALL their directions P -- the cheap,
-#     plentiful resource), so the per-step work is a fraction of the full batch;
-#   * form the gauged stochastic gradient  g = Pi Jᵀr  on that minibatch (transpose, then the gauge
-#     projection Pi = MANIFOLD.project) -- a T3Tangent at the current frame;
-#   * set the step length by the *Cauchy rule*  alpha = ‖g‖² / ‖J g‖²  -- the 1D minimizer of the local
-#     Gauss-Newton quadratic model along -g. It costs one extra forward Jacobian-vector product J g and
-#     needs NO learning-rate schedule (this is the "Cauchy" in MC-SGD; "manifold" because we retract).
+# Same tuning-free Cauchy-step method as the reference example; the minibatch is the difference. Each
+# iteration:
+#   * draw a fresh minibatch of `batch` (X, P) PAIRS uniformly at random from the n_pairs = N_P*N_X
+#     flat training pairs -- mixed across base points (vs the reference's few-X-all-their-P scheme);
+#   * form the gauged stochastic gradient  g = Pi Jᵀr  on that minibatch (transpose with
+#     sum_over_probes=True sums the pairs, then Pi = MANIFOLD.project gauges) -- a T3Tangent;
+#   * Cauchy step length  alpha = ‖g‖² / ‖J g‖²  (1D GN-quadratic minimizer along -g; one extra J·v);
 #   * step and retract:  X <- retract(-alpha * g).
-# We stop a fixed-rank stage when an exponentially-smoothed FULL-batch loss stops decreasing (checked
-# once per epoch -- the single-minibatch loss is too noisy a stop signal; see below).
-# (The same g and ‖J g‖² are exactly what fitting.GaussNewtonModel.gradient / .gn_quadratic compute;
-# we inline them here against the apply-derivative closures, which have no GaussNewtonModel yet.)
+# Stop a fixed-rank stage when an exponentially-smoothed FULL-batch loss stops decreasing (checked once
+# per epoch; the single-minibatch loss is too noisy a stop signal).
 def manifold_cauchy_sgd(X0, ww, pp, b, order, s_vec, rng,
-                        n_x_batch=N_X_BATCH, max_iter=MCSGD_MAXITER,
+                        batch=BATCH_PAIRS, max_iter=MCSGD_MAXITER,
                         c_tau=MCSGD_C_TAU, c_t=MCSGD_C_T):
-    n_x = ww[0].shape[1]                                  # base points (axis 1 of the (N_P, N_X) stack)
-    iters_per_epoch = max(1, int(round(n_x / n_x_batch)))             # = n_s / |B|  (the N_P axis cancels)
+    n_pairs = ww[0].shape[0]                              # flat (X,P) pairs (axis 0 of the flattened stack)
+    iters_per_epoch = max(1, int(round(n_pairs / batch)))            # = n_pairs / |B|
 
-    # The stopping signal is the FULL-batch loss, checked once per epoch: a single base point's minibatch
-    # loss has too much base-point-to-base-point variance to detect the plateau (it false-triggers early).
-    # One full forward (no transpose) per epoch is cheap. We exponentially smooth it (one sample/epoch) and
-    # stop when it stops decreasing -- the paper's tuning-free criterion (T4S 5.3.2), on the clean signal.
+    # Stopping signal: the deterministic FULL-batch loss over all pairs, checked once per epoch and
+    # exponentially smoothed; stop when it stops decreasing (T4S 5.3.2's tuning-free criterion).
     fwd_full, _, _ = apply_derivative_operator(ww, pp, order, s_vec)
     full_loss = lambda Z: 0.5 * float(np.mean((np.asarray(fwd_full(Z)) - b) ** 2))
     a_smooth = 1.0 - np.exp(-1.0 / c_tau)                 # EMA weight, timescale C_TAU epochs
@@ -185,10 +174,10 @@ def manifold_cauchy_sgd(X0, ww, pp, b, order, s_vec, rng,
     n_iter = 0
     for k in range(max_iter):
         n_iter = k + 1
-        idx = rng.choice(n_x, size=min(n_x_batch, n_x), replace=False)   # fresh minibatch of base pts
-        ww_B = [w[:, idx, :] for w in ww]                 # X-subset: stack (N_P, n_x_batch)
-        pp_B = [p[:, idx, :] for p in pp]
-        b_B = b[:, :, idx]
+        idx = rng.choice(n_pairs, size=min(batch, n_pairs), replace=False)   # fresh minibatch of (X,P) pairs
+        ww_B = [w[idx, :] for w in ww]                    # pair-subset: stack (batch,), mixed across base pts
+        pp_B = [p[idx, :] for p in pp]
+        b_B = b[:, idx]
         fwd_B, T_B, mdot_B = apply_derivative_operator(ww_B, pp_B, order, s_vec)
 
         base, _ = bvf.t3_orthogonal_representations(X)
@@ -240,8 +229,8 @@ def main():
     print(f"Measurements: apply-derivatives orders 0..{ORDER}  "
           f"({N_X_TRAIN} train base pts + {N_X_VAL} val base pts, {N_P} directions each, "
           f"{NOISE_LEVEL*100:.0f}% noise).")
-    print(f"Fit by Manifold Cauchy SGD: minibatch {N_X_BATCH} base pt(s) (all {N_P} directions) per step, "
-          f"tuning-free Cauchy step.\n")
+    print(f"Fit by Manifold Cauchy SGD: minibatch {BATCH_PAIRS} random (X,P) pairs per step "
+          f"(of {N_P*N_X_TRAIN} training pairs), tuning-free Cauchy step.\n")
 
     A = hilbert_tensor(SHAPE)
     A_norm = float(np.linalg.norm(A))
@@ -259,10 +248,16 @@ def main():
     b_tr = b_tr_clean + NOISE_LEVEL * sv_tr * rng.standard_normal(b_tr_clean.shape)
     b_va = b_va_clean + NOISE_LEVEL * sv_va * rng.standard_normal(b_va_clean.shape)
 
-    fwd_tr, _, _ = apply_derivative_operator(ww_tr, pp_tr, ORDER, s_vec)   # full-batch forwards: errors
-    fwd_va, _, _ = apply_derivative_operator(ww_va, pp_va, ORDER, s_vec)   # only (MC-SGD minibatches itself)
     b_tr_n = b_tr / sv_tr                                          # normalized data
     b_va_n = b_va / sv_va
+
+    # Flatten the (N_P, N_X) sample stack to one (N_P*N_X,) axis of (X,P) pairs -- the only structural
+    # change from the reference example. Everything downstream sees a 1D sample stack.
+    ww_tr, pp_tr, b_tr_n = flatten_pairs(ww_tr, pp_tr, b_tr_n)     # (N_P*N_X_TRAIN, N), (order+1, *)
+    ww_va, pp_va, b_va_n = flatten_pairs(ww_va, pp_va, b_va_n)
+
+    fwd_tr, _, _ = apply_derivative_operator(ww_tr, pp_tr, ORDER, s_vec)   # full-batch forwards: errors
+    fwd_va, _, _ = apply_derivative_operator(ww_va, pp_va, ORDER, s_vec)   # only (MC-SGD minibatches itself)
     b_tr_rms = rms(b_tr_n)
     b_va_rms = rms(b_va_n)
 

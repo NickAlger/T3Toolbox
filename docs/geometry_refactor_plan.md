@@ -172,6 +172,19 @@ x_opt = optimizers.newton_cg(geometry, model_builder, x0)   # Riemannian on M, o
 x_opt = optimizers.lbfgs(geometry, model_builder, x0)
 ```
 
+**Decisions locked in G1 (refining the sketch above — this is the as-built API).** (1) `randn` /
+`random_orthogonal` / `randn_like` **moved onto the geometries** (the old `apply_gauge_projection=` flag
+*is* the geometry choice: `MANIFOLD.randn` gauges → i.i.d. Gaussian on `T_xM`; `COREWISE.randn` is raw
+cores). This supersedes "keep randn, drop the flag" in §5. `zeros` / `unit` stay on `T3Tangent`
+(geometry-independent). (2) The ambient projection is **unified** as
+`ManifoldGeometry.project_ambient(basis, grad, method='contraction')` accepting a `TuckerTensorTrain`
+*or* dense `grad` — it absorbs and **retires** the old `T3Tangent.project`, `project_dense_onto_tangent`,
+and `riemannian_gradient`. (3) `transport` and the oblique gauge fix **moved to `ManifoldGeometry`**
+(`transport(v, new_basis)` / `project_oblique(v)`). (4) **`retract(p)` takes the tangent only** — the
+point is carried by `p.basis`; corewise recovers `(U,G)` from its `(U,G,G,G)` frame. Singletons:
+`MANIFOLD`, `COREWISE`. Methods take the frame (basis) or the tangent (which carries its frame), never a
+bare point — except `base(x)`, which builds the frame from a point.
+
 The model's three methods are generic; the sampling kind's bare `𝒥`/`𝒥ᵀ` (the `*_from_sweep` primitives)
 are bound at construction; the base sweep is cached on the model (the reuse). The `2×3×4 ≈ 24`
 tangent/corewise backend functions collapse to **6 bare probing primitives + the geometry's `project`
@@ -201,15 +214,18 @@ coordinate vector, or a chart/embedding choice?"*
 | `to_dense`, `to_t3` | **keep** | realization; frame-faithful, geometry-independent |
 | `apply`/`probe`/`entries` (+ transposes) | **keep** | bare `𝒥`/`𝒥ᵀ` sampling; no metric/gauge |
 | `shape`, `ranks`, `stack`/`unstack` | **keep** | structure |
-| `randn`, `zeros` | **keep**, **drop** their `apply_gauge_projection=` | raw constructor; gauging is `geometry.project` |
-| `retract` | **move → `Geometry.retract(x, p)`** | the chart's "how to move" — the defining difference |
-| `orthogonal_gauge_projection` / `oblique_gauge_projection` | **move → `Geometry.project`** | `Π` is the manifold's gradient map; identity for corewise; invalid on a non-orthonormal frame |
-| `project` (static, dense → tangent) | **move → `ManifoldGeometry.project_dense`** | HS projection ambient→`T_xM`; manifold-only |
+| `zeros`, `unit` | **keep** | geometry-independent (zero / canonical units have no gauge ambiguity) |
+| `randn`, `random_orthogonal`, `randn_like` | **move → `Geometry.randn(...)`** (G1 refinement) | the `apply_gauge_projection=` flag *is* the geometry: `MANIFOLD.randn` gauges, `COREWISE.randn` is raw |
+| `retract` | **move → `Geometry.retract(p)`** (tangent only) | the chart's "how to move" — the defining difference; point carried by `p.basis` |
+| `orthogonal_gauge_projection` / `oblique_gauge_projection` | **move → `Geometry.project` / `ManifoldGeometry.project_oblique`** | `Π` is the manifold's gradient map; identity for corewise; invalid on a non-orthonormal frame |
+| `project` (static, T3 → tangent), `project_dense_onto_tangent`, `riemannian_gradient` | **move → `ManifoldGeometry.project_ambient(basis, grad, method=)`** | unified ambient→`T_xM` projection (T3 or dense); manifold-only |
+| `transport` | **move → `ManifoldGeometry.transport(v, new_basis)`** | projective transport; orthonormality-requiring, manifold-only |
 | `is_gauged`, `T3Basis.is_orthogonal` | **keep as checkers** | numerical property checks (house philosophy); the geometry *uses* them |
 
-So exactly three operations leave `T3Tangent` — **retract, gauge-projection, project-from-ambient** — the
-embedding-dependent triple. The backend algorithms for these already live in `tangent_operations.py`; the
-geometry classes are thin bundlers that select them.
+The embedding-dependent operations leave `T3Tangent` — **retract, gauge-projection, project-from-ambient,
+transport** — plus (G1 refinement) the **gauged random constructors** (`randn` family), since the
+gauge-vs-raw choice is itself the geometry. The backend algorithms for the embedding ops already live in
+`tangent_operations.py`; the geometry classes are thin bundlers that select them.
 
 **The principle (the answer to "how much should a tangent know about its geometry"):** a tangent knows
 **its frame and the frame-faithful operations on its coordinates** (it is a vector, has a coordinate
@@ -244,25 +260,83 @@ gauged, Euclidean otherwise."
 
 ## 7. Build plan (slices, refactor cost accepted)
 
-1. **Slice G1 — `Geometry` in `manifold.py` + thin `T3Tangent`.** Introduce `ManifoldGeometry` /
-   `CorewiseGeometry`; move `retract`, `*_gauge_projection`, `project(dense→tangent)` off `T3Tangent`
-   onto the geometries (backend algorithms unchanged); drop `apply_gauge_projection=` from the
-   constructors. Update existing `T3Tangent` consumers (the Hilbert example, `manifold`/`tucker`
-   tests, doctests). Self-contained `manifold.py` refactor; no `backend/` change. Verify the full suite +
-   doctests.
-2. **Slice G2 — generic `GaussNewtonModel`.** Collapse the six `*GaussNewtonModel` classes and the ~24
-   tangent/corewise backend functions into one geometry-generic model + sampling-kind factories
-   (`apply_model`/`entries_model`/`probe_model`). Corewise gradients/Hessians now return `T3Tangent` at
-   `(U,G,G,G)`. Re-point the (kind-parameterized) fitting tests at the new surface; keep the exact
-   dense-truth + matched-pair oracles.
-3. **Slice G3 — `optimizers.py`.** One geometry-agnostic `newton_cg` (truncated/regularized for the
-   singular corewise `H`), one `lbfgs`/`gradient_descent`. Consume `(geometry, model_builder, x0)`.
-4. **Slice G4 — example + docs.** Run `examples/fit_hilbert_tensor_newton_cg.py` through *both* geometries
-   from the same optimizer; confirm the manifold path matches today's iterates and a corewise (L-BFGS)
-   path converges. Refresh `fitting_plan.md` / `entries_apply_probe.md` to the geometry framing.
+1. **Slice G1 — `Geometry` in `manifold.py` + thin `T3Tangent`. ✅ DONE.** Introduced `ManifoldGeometry` /
+   `CorewiseGeometry` + singletons `MANIFOLD` / `COREWISE`; moved `retract`, `*_gauge_projection`,
+   the ambient projection (unified as `project_ambient`), `transport`, and (refinement) the `randn`
+   family off `T3Tangent` onto the geometries (backend algorithms unchanged). `zeros` / `unit` stay.
+   Updated all consumers (both Hilbert examples, `manifold` / `fitting` / `dispatch` / `probe_derivatives`
+   tests, doctests across `manifold` / `fitting` / `backend.probing`). Self-contained `manifold.py`
+   refactor; no `backend/` change. Verified: 210 core tests + 10 dispatch + all doctests pass; both
+   examples run end-to-end. See the "Decisions locked in G1" note under §4 for the as-built API.
+2. **Slice G2 — generic `GaussNewtonModel`. ✅ DONE.** Collapsed the six `*GaussNewtonModel` classes and
+   the ~38 tangent/corewise backend functions into **one** geometry-generic `GaussNewtonModel(geometry,
+   base, kind, sample, residual)` + factories `apply_model`/`entries_model`/`probe_model(geometry, x,
+   sample, residual)`. The backend is now a `SamplingKind` bundle (bare `𝒥`/`𝒥ᵀ` from `probing` +
+   `sumsq` reducer) per kind (`APPLY`/`ENTRIES`/`PROBE`); the geometry supplies `Π` (`geometry.project`)
+   and the frame (`geometry.base`). Two unifications fell out: `geometry.base(x)` **subsumes** the old
+   `_corewise_base` substitution (corewise base sweep = `precompute_base_sweep((U,G,G,G), ·)`), and the
+   dense oracle is `½‖r + forward(geometry.project(p).to_dense())‖²` for **both** geometries (corewise
+   `project(p).to_dense()` = the sum-of-core-swaps). Corewise gradients/Hessians now return `T3Tangent`
+   at `(U,G,G,G)`; the same-base guard applies to both geometries. `c = ½‖r‖²` folds into `½·sumsq(r)`.
+   Re-pointed `test_fitting.py` to one class parameterized over (kind × geometry × C) — dense-truth,
+   two-form, razor, matched-pair (manifold gauges / corewise no-Π via bare-transpose compare), GN
+   symmetry, adjoint, same-base guard, caching, + cross-checks vs the established `T3Tangent` /
+   `TuckerTensorTrain` transposes. Merged the two `test_dispatch` fitting jit tests into one (model ×
+   kind × geometry). Verified: 206 core + 9 dispatch + doctests pass; the Newton-CG example reproduces
+   **bit-for-bit** the pre-refactor iterates. *(`docs/fitting_plan.md` prose is now historical — defer
+   to G4.)*
+3. **Slice G3 — `optimizers.py`. ✅ DONE (2026-06-20).** Built **four** geometry-agnostic optimizers
+   (`gradient_descent`, `mc_sgd`, `adam`, `newton_cg`) backend-first in `backend/optimizers.py`, with a thin
+   `optimizers.py` frontend adapter (the razor: a raw-`.data` user runs the same code). `newton_cg` is
+   inexact Riemannian (inner CG via `common.xwhile` = Python-while / `lax.while_loop`); L-BFGS stays the
+   scipy-bridge *example*, not a library optimizer. Optional per-call `use_jit` (default off, silent eager
+   fallback). See `docs/optimizers_plan.md` (G3.1–G3.4 ✅) and `docs/fitting_and_optimization.md` for the
+   as-built architecture + rationale.
+4. **Slice G4 — example + docs. ◑ MOSTLY DONE (2026-06-20).** The library optimizers run apply/probe/
+   apply-derivative fits (pilot `examples/fit_hilbert_from_apply_derivatives_topt.py`); the Newton-CG
+   example reproduces the pre-refactor iterates (verified bit-for-bit in G2). **Remaining (deferred to the
+   post-merge 1.0 pass — NOT a merge gate):** the broader *example pass* — re-point the remaining
+   `fit_hilbert_*` examples at `topt.*` vs keep them inline to illustrate the hidden hooks
+   (`optimizers_plan.md` §10, PROPOSED-not-locked) — and the `entries_apply_probe.md` doc refresh.
 
 ## 8. Risks / open questions
 
+> **STATUS (2026-06-21): the G3-scoped items below are resolved; the refactor is merge-ready.** MC-SGD's
+> stopping window was made **absolute-iteration-based** (G3.2; decouples from batch size), a derivative
+> `GaussNewtonModel` was built (`{apply,entries,probe}_derivatives_model`, D3), and `newton_cg` tolerates
+> the singular corewise `H` (inexact/regularized inner CG). The `oblique_gauge_projection` was kept as
+> `MANIFOLD.project_oblique`. The `geometry.py` rename and a backend mirror of the numerical checks stay
+> deferred-by-design. See `docs/optimizers_plan.md`, `docs/fitting_and_optimization.md`.
+
+- **RESOLVED — the jit/recompile/OO question (the safe-mode arc, S1–S6, done 2026-06-19).** The whole
+  predicament traced to one root cause: the same-frame guard was a *numerical* property faked as
+  *structural* via object identity (`self.basis is other.basis`). Identity forced `T3Tangent`'s basis to
+  be jax **aux_data** (→ recompile every base change) and false-failed on a jit round-trip. The fix:
+  numericalize the guard (`safety.frames_equal`, an `is`-fast-path then value compare), which lets the
+  basis become a pytree **leaf** and the whole `GaussNewtonModel` a registered pytree (base/sweep/sample/
+  residual leaves; geometry/kind aux). Now **`jit(lambda model, p: model.gn_hessian(p))` compiles once
+  across all bases** (`traces=1`) — you jit the frontend matvec directly; no per-function toggle, no
+  recompile. Numerical guards are eager-only (skip under unsafe/jit). The OO layer stays. The geometry
+  singletons remain zero-leaf pytrees. `jacobian(p)` + `gn_quadratic(p)` (= `pᵀHp = ‖Jp‖²`, one forward)
+  added for cheap Cauchy / line-search step lengths. Full design + build:
+  [`docs/safe_unsafe_mode_plan.md`](safe_unsafe_mode_plan.md),
+  [`docs/numerical_contract_catalog.md`](numerical_contract_catalog.md). **G3 is unblocked.**
+- **MC-SGD (Manifold Cauchy SGD) — prototyped, promising, stopping/batch heuristics still finicky at
+  small scale (2026-06-19).** Validated inline in `examples/fit_hilbert_from_apply_derivatives.py`: the
+  tuning-free Cauchy step (`alpha = ‖g‖²/‖Jg‖²`, exactly `model.gradient` + `model.gn_quadratic`) fits
+  apply-derivatives to the noise floor, ~8× faster than full-batch Newton-CG. The **core optimizer is
+  robust**; the finickiness is in the *auxiliary heuristics*: (1) batch size — the paper's ~10%-of-samples
+  rule degenerates to a single, too-noisy base point at `N_X=10` (floored to 2 in the example); (2) the
+  **stopping window is epoch-based** (`lag = C_t · n_s/|B|`), so a larger batch shrinks the epoch and the
+  stop fires too early (batch=3 failed after ~12 iters — a real early non-monotonicity in the *deterministic
+  full-batch* loss, caught by a ~12-iteration window; batch=3 converged fine when not stopped). Likely a
+  small-scale artifact (at scale a minibatch is small-*fraction* yet large-*absolute* → clean gradient, and
+  epochs are large in absolute iterations → robust window; the paper's MC-SGD is robust at scale on *probe*
+  fitting). **Open for G3:** when lifting MC-SGD into `optimizers.py`, make the stopping window
+  **absolute-iteration-based** (or add a min-iterations guard) so it decouples from batch size; and decide
+  whether a derivative `GaussNewtonModel` (an `apply_derivatives_model` in `fitting.py`) replaces the inline
+  closures so apply/entries/probe get MC-SGD for free. Robustness of apply-derivative MC-SGD *at scale* is
+  unproven (future research). **Full write-up: [`mcsgd_apply_derivatives.md`](mcsgd_apply_derivatives.md).**
 - **Singular corewise `H`.** `newton_cg` must tolerate it (truncated CG / Levenberg–Marquardt damping),
   or steer corewise users to first-order. A geometry may advertise `hessian_is_degenerate` as a hint.
 - **`oblique_gauge_projection`** (the ambient-preserving gauge fix) — a second manifold projection

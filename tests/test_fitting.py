@@ -1,10 +1,15 @@
-'''Tests for the Gauss-Newton fitting operators (``backend/fitting.py`` + ``fitting.py``; apply/entries/probe).
+'''Tests for the geometry-generic Gauss-Newton fitting model (``fitting.py`` + ``backend/fitting.py``).
 
-The headline oracle is **exact dense ground truth**: because the sampling forward is linear in the
-ambient tensor, the least-squares objective is exactly quadratic, so the Gauss-Newton model is the exact
-restriction of the objective to the affine tangent space ``x + dense(Π p)``. We also check the gauge
-correctness (outputs gauged, operator symmetric), the razor self-containment (raw ``p`` == gauged ``Π p``),
-and the ``J`` / ``Jᵀ`` adjoint identity -- parameterized over the sampling kind. See ``docs/fitting_plan.md`` §9.
+One ``GaussNewtonModel`` is parameterized over the **sampling kind** (apply / entries / probe) AND the
+**geometry** (manifold / corewise). The headline oracle is **exact dense ground truth**: because the
+sampling forward is linear in the ambient tensor, the least-squares objective is exactly quadratic, so the
+Gauss-Newton model is the exact restriction of the objective to the affine tangent space ``r +
+dense(𝒥 Π p)`` -- and ``dense(𝒥 Π p)`` is just ``geometry.project(p).to_dense()`` for *both* geometries
+(manifold: a gauged tangent; corewise: the sum-of-core-swaps at ``(U,G,G,G)``). We also check the
+two-form consistency, the razor self-containment (raw ``p`` == projected ``Π p``), the matched pair
+(manifold gauges, corewise does not), GN symmetry, the ``J`` / ``Jᵀ`` adjoint, and -- as an independent
+cross-check -- agreement with the established ``T3Tangent`` / ``TuckerTensorTrain`` transpose operators.
+See ``docs/geometry_refactor_plan.md``.
 '''
 
 import unittest
@@ -14,8 +19,6 @@ import numpy as np
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.basis_variations_format as bvf
 import t3toolbox.manifold as t3m
-import t3toolbox.backend.probing as probing
-import t3toolbox.backend.tangent_operations as tangent_operations
 import t3toolbox.backend.fitting as fb
 import t3toolbox.fitting as fitting
 import t3toolbox.corewise as cw
@@ -25,6 +28,10 @@ TUCKER_RANKS = (3, 4, 2)
 TT_RANKS = (1, 2, 3, 1)
 N_SAMPLES = 20
 KINDS = ('apply', 'entries', 'probe')
+GEOMS = {'manifold': t3m.MANIFOLD, 'corewise': t3m.COREWISE}
+_FACTORY = {'apply': fitting.apply_model, 'entries': fitting.entries_model, 'probe': fitting.probe_model}
+# tol: manifold matches to ~1e-13, corewise to ~1e-9 (large raw-core magnitudes) -> a relative band.
+RTOL, ATOL = 1e-9, 1e-9
 
 
 def apply_dense(T, ww, n_c):
@@ -62,21 +69,15 @@ def probe_dense(T, ww, n_c):
     return out
 
 
-def gauged(base, variation):
-    return t3m.T3Tangent(base, bvf.T3Variations(*variation)).is_gauged()
-
-
-def _kind_setup(kind, C):
-    '''Build a base + a kind-specific sample + residual, and bind the backend ops, the dense forward
-    oracle, and kind-aware sample-space reducers (samp_add / samp_dot / rand_like). One dict per call.'''
+def _setup(kind, geom_name, C):
+    '''Build a model of one (kind, geometry, base-stack C), plus the dense forward oracle and the
+    kind-aware sample-space reducers (samp_add / samp_dot / rand_like). One dict per call.'''
     np.random.seed(0)
     x = t3.TuckerTensorTrain.randn(SHAPE, TUCKER_RANKS, TT_RANKS, stack_shape=C)
-    base, _ = bvf.t3_orthogonal_representations(x)
+    geometry = GEOMS[geom_name]
     m, n_c, n_w = N_SAMPLES, len(C), 1
     if kind == 'apply':
         sample = [np.random.randn(m, N) for N in SHAPE]
-        sweep = probing.precompute_base_sweep(base.data, sample)
-        ops = (fb.apply_jacobian, fb.apply_gradient, fb.apply_gn_hessian, fb.apply_model_value)
         dense_fwd = lambda T: apply_dense(T, sample, n_c)
         r = np.random.randn(*((m,) + C))
         samp_dot = lambda a, b: np.sum(a * b, axis=tuple(range(n_w)))
@@ -84,8 +85,6 @@ def _kind_setup(kind, C):
         rand_like = lambda v: np.random.randn(*v.shape)
     elif kind == 'entries':
         sample = np.stack([np.random.randint(0, N, size=m) for N in SHAPE])   # (d,)+W
-        sweep = probing.precompute_entries_base_sweep(base.data, sample)
-        ops = (fb.entries_jacobian, fb.entries_gradient, fb.entries_gn_hessian, fb.entries_model_value)
         dense_fwd = lambda T: entries_dense(T, sample, n_c)
         r = np.random.randn(*((m,) + C))
         samp_dot = lambda a, b: np.sum(a * b, axis=tuple(range(n_w)))
@@ -93,312 +92,212 @@ def _kind_setup(kind, C):
         rand_like = lambda v: np.random.randn(*v.shape)
     else:  # probe -- vector-valued (one free mode each)
         sample = [np.random.randn(m, N) for N in SHAPE]
-        sweep = probing.precompute_base_sweep(base.data, sample)
-        ops = (fb.probe_jacobian, fb.probe_gradient, fb.probe_gn_hessian, fb.probe_model_value)
         dense_fwd = lambda T: probe_dense(T, sample, n_c)
         r = [np.random.randn(*((m,) + C + (N,))) for N in SHAPE]
         samp_dot = lambda a, b: sum(np.sum(ai * bi, axis=tuple(range(n_w)) + (ai.ndim - 1,))
                                     for ai, bi in zip(a, b))
         samp_add = lambda a, b: [ai + bi for ai, bi in zip(a, b)]
         rand_like = lambda v: [np.random.randn(*vi.shape) for vi in v]
-    jac, grad, gnh, mval = ops
-    c = 0.5 * samp_dot(r, r)
-    g = grad(r, sample, base.data, sweep)
-    p = t3m.T3Tangent.randn(base, apply_gauge_projection=False).variations.data   # UN-gauged -> tests Π
-    Pp = tangent_operations.orthogonal_gauge_projection(base.data, p)
-    return dict(base=base, sample=sample, sweep=sweep, r=r, c=c, g=g, p=p, Pp=Pp, n_c=n_c, n_w=n_w,
-                jac=jac, grad=grad, gnh=gnh, mval=mval, dense_fwd=dense_fwd,
+    model = _FACTORY[kind](geometry, x, sample, r)
+    return dict(x=x, geometry=geometry, geom_name=geom_name, model=model, base=model.base,
+                sample=sample, r=r, c=0.5 * samp_dot(r, r), n_c=n_c, n_w=n_w, dense_fwd=dense_fwd,
                 samp_dot=samp_dot, samp_add=samp_add, rand_like=rand_like)
 
 
-class TestGaussNewtonBackend(unittest.TestCase):
-    '''The backend operators, parameterized over the sampling kind and the base stack C.'''
+def _raw_step(s):
+    '''A raw (any-gauge) trial tangent at the model's base -- ungauged on the manifold (tests Π),
+    a raw core perturbation on the corewise frame.'''
+    return t3m.COREWISE.randn(s['base'])
 
-    def test_dense_truth_model_value(self):
-        '''HEADLINE: m(p) == ½‖r + 𝒥(Πp)‖² computed from the dense gauge-projected tangent.'''
+
+class TestGaussNewtonModel(unittest.TestCase):
+    '''The generic GN model, parameterized over the sampling kind, the geometry, and the base stack C.'''
+
+    def test_dense_truth(self):
+        '''HEADLINE: model.evaluate(p) == ½‖r + 𝒥(Πp)‖² from the dense projected tangent (both geometries).'''
         for kind in KINDS:
-            for C in [(), (2,)]:
-                with self.subTest(kind=kind, C=C):
-                    s = _kind_setup(kind, C)
-                    Pp_dense = t3m.T3Tangent(s['base'], bvf.T3Variations(*s['Pp'])).to_dense()
-                    res = s['samp_add'](s['r'], s['dense_fwd'](Pp_dense))
-                    oracle = 0.5 * s['samp_dot'](res, res)
-                    mval = s['mval'](s['p'], s['sample'], s['base'].data, s['sweep'], s['g'], s['c'])
-                    self.assertTrue(np.allclose(mval, oracle, rtol=0, atol=1e-9), f'{kind} C={C}')
+            for geom_name in GEOMS:
+                for C in [(), (2,)]:
+                    with self.subTest(kind=kind, geom=geom_name, C=C):
+                        s = _setup(kind, geom_name, C)
+                        p = _raw_step(s)
+                        Pp_dense = s['geometry'].project(p).to_dense()   # dense(𝒥 Π p); corewise: sum-of-swaps
+                        res = s['samp_add'](s['r'], s['dense_fwd'](Pp_dense))
+                        oracle = 0.5 * s['samp_dot'](res, res)
+                        self.assertTrue(np.allclose(s['model'].evaluate(p), oracle, rtol=RTOL, atol=ATOL))
 
     def test_two_form_consistency(self):
-        '''m(p) == c + ⟨g, Πp⟩ + ½⟨Πp, H Πp⟩ (the gn_hessian-based quadratic term).'''
+        '''m(p) == c + ⟨g, p⟩ + ½⟨p, H p⟩ (the gn_hessian-based quadratic term), both geometries.'''
         for kind in KINDS:
-            for C in [(), (2,)]:
-                with self.subTest(kind=kind, C=C):
-                    s = _kind_setup(kind, C)
-                    Hp = s['gnh'](s['p'], s['sample'], s['base'].data, s['sweep'])
-                    two_form = (s['c'] + cw.corewise_stack_dot(s['g'], s['Pp'], s['n_c'])
-                                + 0.5 * cw.corewise_stack_dot(Hp, s['Pp'], s['n_c']))
-                    mval = s['mval'](s['p'], s['sample'], s['base'].data, s['sweep'], s['g'], s['c'])
-                    self.assertTrue(np.allclose(two_form, mval, rtol=0, atol=1e-9))
-
-    def test_outputs_gauged_and_symmetric(self):
-        '''gradient and gn_hessian outputs are gauged; the GN operator is symmetric.'''
-        for kind in KINDS:
-            for C in [(), (2,)]:
-                with self.subTest(kind=kind, C=C):
-                    s = _kind_setup(kind, C)
-                    Hp = s['gnh'](s['p'], s['sample'], s['base'].data, s['sweep'])
-                    self.assertTrue(gauged(s['base'], s['g']))
-                    self.assertTrue(gauged(s['base'], Hp))
-                    q = t3m.T3Tangent.randn(s['base'], apply_gauge_projection=False).variations.data
-                    Hq = s['gnh'](q, s['sample'], s['base'].data, s['sweep'])
-                    lhs = cw.corewise_stack_dot(q, Hp, s['n_c'])
-                    rhs = cw.corewise_stack_dot(s['p'], Hq, s['n_c'])
-                    self.assertTrue(np.allclose(lhs, rhs, rtol=0, atol=1e-9))
+            for geom_name in GEOMS:
+                for C in [(), (2,)]:
+                    with self.subTest(kind=kind, geom=geom_name, C=C):
+                        s = _setup(kind, geom_name, C)
+                        model, p = s['model'], _raw_step(s)
+                        two_form = model.objective_value + model.gradient.corewise_inner(p) + 0.5 * p.corewise_inner(model.gn_hessian(p))
+                        self.assertTrue(np.allclose(model.evaluate(p), two_form, rtol=RTOL, atol=ATOL))
 
     def test_razor_self_containment(self):
-        '''The functions apply Π themselves: a raw p gives the same result as the gauge-projected Πp.'''
+        '''The model applies Π itself: a raw p gives the same result as the projected Πp (both geometries).'''
+        for kind in KINDS:
+            for geom_name in GEOMS:
+                for C in [(), (2,)]:
+                    with self.subTest(kind=kind, geom=geom_name, C=C):
+                        s = _setup(kind, geom_name, C)
+                        model, p = s['model'], _raw_step(s)
+                        Pp = s['geometry'].project(p)
+                        self.assertTrue(np.allclose(model.evaluate(p), model.evaluate(Pp), rtol=RTOL, atol=ATOL))
+                        self.assertTrue(model.gn_hessian(p).allclose(model.gn_hessian(Pp), rtol=RTOL, atol=ATOL))
+
+    def test_matched_pair(self):
+        '''The structural matched pair: MANIFOLD gauges (g, H gauged); COREWISE does NOT (g == bare 𝒥ᵀr).'''
         for kind in KINDS:
             for C in [(), (2,)]:
                 with self.subTest(kind=kind, C=C):
-                    s = _kind_setup(kind, C)
-                    args = (s['sample'], s['base'].data, s['sweep'])
-                    m_raw = s['mval'](s['p'], *args, s['g'], s['c'])
-                    m_gau = s['mval'](s['Pp'], *args, s['g'], s['c'])
-                    self.assertTrue(np.allclose(m_raw, m_gau, rtol=0, atol=1e-9))
-                    H_raw = s['gnh'](s['p'], *args)
-                    H_gau = s['gnh'](s['Pp'], *args)
-                    for a, b in zip(H_raw[0] + H_raw[1], H_gau[0] + H_gau[1]):
-                        self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-9))
+                    sm = _setup(kind, 'manifold', C)
+                    self.assertTrue(sm['model'].gradient.is_gauged())
+                    self.assertTrue(sm['model'].gn_hessian(_raw_step(sm)).is_gauged())
+
+                    sc = _setup(kind, 'corewise', C)
+                    bare = sc['model'].kind.transpose(sc['r'], sc['sample'], sc['base'].data, sc['model'].sweep)
+                    gd = sc['model'].gradient.variations.data
+                    for a, b in zip(gd[0] + gd[1], bare[0] + bare[1]):   # corewise gradient == bare 𝒥ᵀr, no Π
+                        self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))
+
+    def test_gn_hessian_symmetric(self):
+        '''The GN normal operator is symmetric: ⟨q, H p⟩ == ⟨p, H q⟩ (both geometries).'''
+        for kind in KINDS:
+            for geom_name in GEOMS:
+                with self.subTest(kind=kind, geom=geom_name):
+                    s = _setup(kind, geom_name, ())
+                    model, p, q = s['model'], _raw_step(s), _raw_step(s)
+                    lhs = float(q.corewise_inner(model.gn_hessian(p)))
+                    rhs = float(p.corewise_inner(model.gn_hessian(q)))
+                    self.assertTrue(np.allclose(lhs, rhs, rtol=RTOL, atol=ATOL))
 
     def test_jacobian_gradient_adjoint(self):
-        '''Adjoint identity ⟨z, J p⟩_samples == ⟨Π𝒥ᵀz, p⟩_corewise (J = 𝒥∘Π, gradient = Π∘𝒥ᵀ).'''
+        '''Adjoint ⟨z, 𝒥 Π p⟩_samples == ⟨Π 𝒥ᵀ z, p⟩_corewise (J = 𝒥∘Π, gradient = Π∘𝒥ᵀ), both geometries.'''
         for kind in KINDS:
-            for C in [(), (2,)]:
-                with self.subTest(kind=kind, C=C):
-                    s = _kind_setup(kind, C)
-                    Jp = s['jac'](s['p'], s['sample'], s['base'].data, s['sweep'])
-                    z = s['rand_like'](Jp)
-                    gz = s['grad'](z, s['sample'], s['base'].data, s['sweep'])
-                    lhs = s['samp_dot'](z, Jp)
-                    rhs = cw.corewise_stack_dot(gz, s['p'], s['n_c'])
-                    self.assertTrue(np.allclose(lhs, rhs, rtol=0, atol=1e-9))
+            for geom_name in GEOMS:
+                for C in [(), (2,)]:
+                    with self.subTest(kind=kind, geom=geom_name, C=C):
+                        s = _setup(kind, geom_name, C)
+                        model, geometry, p = s['model'], s['geometry'], _raw_step(s)
+                        Jp = model.jacobian(p)                                    # J p = 𝒥(Π p)
+                        z = s['rand_like'](Jp)
+                        gz_raw = model.kind.transpose(z, s['sample'], s['base'].data, model.sweep)
+                        gz = geometry.project(t3m.T3Tangent(s['base'], bvf.T3Variations(*gz_raw)))  # Π 𝒥ᵀ z
+                        lhs = s['samp_dot'](z, Jp)
+                        rhs = gz.corewise_inner(p)
+                        self.assertTrue(np.allclose(lhs, rhs, rtol=RTOL, atol=ATOL))
 
-
-_MODEL_CLS = {'apply': fitting.ApplyGaussNewtonModel,
-              'entries': fitting.EntriesGaussNewtonModel,
-              'probe': fitting.ProbeGaussNewtonModel}
-
-
-class TestGaussNewtonModelFrontend(unittest.TestCase):
-    '''The frontend dataclasses: dense-truth through the model, delegation, the same-base guard, caching.'''
-
-    def test_dense_truth_through_model(self):
-        '''End-to-end: model.evaluate(p) == ½‖r + 𝒥(Πp)‖² (dense oracle), via the frontend, all kinds.'''
+    def test_jacobian_and_gn_quadratic(self):
+        '''jacobian(p) == the dense forward 𝒥(Πp); gn_quadratic(p) == pᵀHp == ‖Jp‖² (one forward, both geoms).'''
         for kind in KINDS:
-            for C in [(), (2,)]:
-                with self.subTest(kind=kind, C=C):
-                    s = _kind_setup(kind, C)
-                    model = _MODEL_CLS[kind](s['base'], s['sample'], s['r'])
-                    p = t3m.T3Tangent.randn(s['base'], apply_gauge_projection=False)
-                    Pp = tangent_operations.orthogonal_gauge_projection(s['base'].data, p.variations.data)
-                    Pp_dense = t3m.T3Tangent(s['base'], bvf.T3Variations(*Pp)).to_dense()
-                    res = s['samp_add'](s['r'], s['dense_fwd'](Pp_dense))
-                    oracle = 0.5 * s['samp_dot'](res, res)
-                    self.assertTrue(np.allclose(model.evaluate(p), oracle, rtol=0, atol=1e-9))
-
-    def test_delegates_to_backend(self):
-        '''The model's properties/methods equal the backend functions it wraps (all kinds).'''
-        for kind in KINDS:
-            with self.subTest(kind=kind):
-                s = _kind_setup(kind, ())
-                model = _MODEL_CLS[kind](s['base'], s['sample'], s['r'])
-                self.assertAlmostEqual(float(model.objective_value), float(s['c']), places=10)
-                gd = model.gradient.variations.data
-                for a, b in zip(gd[0] + gd[1], s['g'][0] + s['g'][1]):
-                    self.assertTrue(np.allclose(a, b))
-                p = t3m.T3Tangent.randn(s['base'], apply_gauge_projection=False)
-                h_back = s['gnh'](p.variations.data, s['sample'], s['base'].data, s['sweep'])
-                hd = model.gn_hessian(p).variations.data
-                for a, b in zip(hd[0] + hd[1], h_back[0] + h_back[1]):
-                    self.assertTrue(np.allclose(a, b))
+            for geom_name in GEOMS:
+                for C in [(), (2,)]:
+                    with self.subTest(kind=kind, geom=geom_name, C=C):
+                        s = _setup(kind, geom_name, C)
+                        model, p = s['model'], _raw_step(s)
+                        # gn_quadratic == pᵀ H p (the cheap Cauchy / line-search denominator)
+                        self.assertTrue(np.allclose(model.gn_quadratic(p),
+                                                    p.corewise_inner(model.gn_hessian(p)), rtol=RTOL, atol=ATOL))
+                        # jacobian == the dense forward of the projected tangent (a sequence for probe)
+                        Jp = model.jacobian(p)
+                        Jp_oracle = s['dense_fwd'](s['geometry'].project(p).to_dense())
+                        seq = lambda v: list(v) if isinstance(v, (list, tuple)) else [v]
+                        for a, b in zip(seq(Jp), seq(Jp_oracle)):
+                            self.assertTrue(np.allclose(a, b, rtol=RTOL, atol=ATOL))
 
     def test_same_base_guard(self):
-        '''A trial tangent at a different base is a structural error (identity, not value), all kinds.'''
+        '''A trial tangent at a different base is a structural error (identity, not value), both geometries.'''
         for kind in KINDS:
-            with self.subTest(kind=kind):
-                s = _kind_setup(kind, ())
-                model = _MODEL_CLS[kind](s['base'], s['sample'], s['r'])
-                other, _ = bvf.t3_orthogonal_representations(
-                    t3.TuckerTensorTrain.randn(SHAPE, TUCKER_RANKS, TT_RANKS))
-                p_other = t3m.T3Tangent.randn(other)
-                with self.assertRaises(ValueError):
-                    model.gn_hessian(p_other)
-                with self.assertRaises(ValueError):
-                    model.evaluate(p_other)
+            for geom_name in GEOMS:
+                with self.subTest(kind=kind, geom=geom_name):
+                    s = _setup(kind, geom_name, ())
+                    other_x = t3.TuckerTensorTrain.randn(SHAPE, TUCKER_RANKS, TT_RANKS)
+                    p_other = s['geometry'].randn(s['geometry'].base(other_x))
+                    with self.assertRaises(ValueError):
+                        s['model'].gn_hessian(p_other)
+                    with self.assertRaises(ValueError):
+                        s['model'].evaluate(p_other)
 
-    def test_base_sweep_cached(self):
+    def test_caching(self):
         '''The base sweep / gradient / objective are cached -- the reuse mechanism, computed once.'''
-        s = _kind_setup('apply', ())
-        model = _MODEL_CLS['apply'](s['base'], s['sample'], s['r'])
-        self.assertIs(model._base_sweep, model._base_sweep)
+        model = _setup('apply', 'manifold', ())['model']
+        self.assertIs(model.sweep, model.sweep)
         self.assertIs(model.gradient, model.gradient)
         self.assertIs(model.objective_value, model.objective_value)
 
-    def test_matches_reference_operators(self):
-        '''The apply model reproduces the closure-based reference operators (the example) on the gauged
-        subspace: gradient bit-for-bit, GN Hessian on a gauged input.'''
-        s = _kind_setup('apply', ())
-        base, ww, r = s['base'], s['sample'], s['r']
-        model = _MODEL_CLS['apply'](base, ww, r)
-        ref_g = t3m.T3Tangent.apply_transpose(r, ww, base, sum_over_probes=True).orthogonal_gauge_projection()
+    def test_matches_established_manifold(self):
+        '''Manifold gradient/Hessian == the established bare T3Tangent transpose + MANIFOLD.project (apply).'''
+        s = _setup('apply', 'manifold', ())
+        base, ww, r, model = s['base'], s['sample'], s['r'], s['model']
+        ref_g = t3m.MANIFOLD.project(t3m.T3Tangent.apply_transpose(r, ww, base, sum_over_probes=True))
         gd = model.gradient.variations.data
         for a, b in zip(gd[0] + gd[1], ref_g.variations.data[0] + ref_g.variations.data[1]):
             self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))
-        V = t3m.T3Tangent.randn(base, apply_gauge_projection=True)
-        ref_HV = t3m.T3Tangent.apply_transpose(
-            V.apply(ww), ww, base, sum_over_probes=True).orthogonal_gauge_projection()
+        V = t3m.MANIFOLD.randn(base)
+        ref_HV = t3m.MANIFOLD.project(t3m.T3Tangent.apply_transpose(
+            V.apply(ww), ww, base, sum_over_probes=True))
         Hv = model.gn_hessian(V)
         for a, b in zip(Hv.variations.data[0] + Hv.variations.data[1],
                         ref_HV.variations.data[0] + ref_HV.variations.data[1]):
             self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))
 
-
-def corewise_dense_lin(x, dcores):
-    '''The corewise linearization as a dense tensor: sum over single-core replacements
-    ``Σ_core dense(x with that core -> its perturbation)`` -- this is exactly ``dense(J_corewise·dcores)``.'''
-    dtucker, dtt = dcores
-    tucker, tt = x.tucker_cores, x.tt_cores
-    total = None
-    for i in range(len(tucker)):
-        Ti = t3.TuckerTensorTrain(tucker[:i] + (dtucker[i],) + tucker[i + 1:], tt).to_dense()
-        total = Ti if total is None else total + Ti
-    for i in range(len(tt)):
-        Ti = t3.TuckerTensorTrain(tucker, tt[:i] + (dtt[i],) + tt[i + 1:]).to_dense()
-        total = total + Ti
-    return total
-
-
-_COREWISE_MODEL = {'apply': fitting.CorewiseApplyGaussNewtonModel,
-                   'entries': fitting.CorewiseEntriesGaussNewtonModel,
-                   'probe': fitting.CorewiseProbeGaussNewtonModel}
-
-
-def _corewise_setup(kind, C):
-    '''Build the corewise fixtures for one kind, hiding the per-kind backend signatures behind closures
-    (jac/grad/gnh/mval) + the established TuckerTensorTrain corewise transpose (ref) + the dense oracle.'''
-    np.random.seed(0)
-    x = t3.TuckerTensorTrain.randn(SHAPE, TUCKER_RANKS, TT_RANKS, stack_shape=C)
-    cores = x.data
-    m, n_c, n_w = N_SAMPLES, len(C), 1
-    p = (tuple(np.random.randn(*u.shape) for u in x.tucker_cores),       # a raw core-perturbation step
-         tuple(np.random.randn(*cc.shape) for cc in x.tt_cores))
-    if kind == 'apply':
-        sample = [np.random.randn(m, N) for N in SHAPE]
-        sweep = fb.precompute_corewise_base_sweep(cores, sample)
-        jac = lambda pp: fb.apply_corewise_jacobian(pp, sample, cores, sweep)
-        grad = lambda rr: fb.apply_corewise_gradient(rr, sample, sweep)
-        gnh = lambda pp: fb.apply_corewise_gn_hessian(pp, sample, cores, sweep)
-        mval = lambda pp, g, c: fb.apply_corewise_model_value(pp, sample, cores, sweep, g, c)
-        ref = lambda c: x.apply_corewise_transpose(c, sample, sum_over_probes=True)
-        dense_fwd = lambda T: apply_dense(T, sample, n_c)
-        r = np.random.randn(*((m,) + C))
-        samp_dot = lambda a, b: np.sum(a * b, axis=tuple(range(n_w)))
-        samp_add, rand_like = (lambda a, b: a + b), (lambda v: np.random.randn(*v.shape))
-    elif kind == 'entries':
-        sample = np.stack([np.random.randint(0, N, size=m) for N in SHAPE])
-        sweep = fb.precompute_entries_corewise_base_sweep(cores, sample)
-        jac = lambda pp: fb.entries_corewise_jacobian(pp, sample, cores, sweep)
-        grad = lambda rr: fb.entries_corewise_gradient(rr, sample, cores, sweep)
-        gnh = lambda pp: fb.entries_corewise_gn_hessian(pp, sample, cores, sweep)
-        mval = lambda pp, g, c: fb.entries_corewise_model_value(pp, sample, cores, sweep, g, c)
-        ref = lambda c: x.entries_corewise_transpose(c, sample, sum_over_probes=True)
-        dense_fwd = lambda T: entries_dense(T, sample, n_c)
-        r = np.random.randn(*((m,) + C))
-        samp_dot = lambda a, b: np.sum(a * b, axis=tuple(range(n_w)))
-        samp_add, rand_like = (lambda a, b: a + b), (lambda v: np.random.randn(*v.shape))
-    else:  # probe -- vector-valued
-        sample = [np.random.randn(m, N) for N in SHAPE]
-        sweep = fb.precompute_corewise_base_sweep(cores, sample)
-        jac = lambda pp: fb.probe_corewise_jacobian(pp, sample, cores, sweep)
-        grad = lambda rr: fb.probe_corewise_gradient(rr, sample, cores, sweep)
-        gnh = lambda pp: fb.probe_corewise_gn_hessian(pp, sample, cores, sweep)
-        mval = lambda pp, g, c: fb.probe_corewise_model_value(pp, sample, cores, sweep, g, c)
-        ref = lambda c: x.probe_corewise_transpose(c, sample, sum_over_probes=True)
-        dense_fwd = lambda T: probe_dense(T, sample, n_c)
-        r = [np.random.randn(*((m,) + C + (N,))) for N in SHAPE]
-        samp_dot = lambda a, b: sum(np.sum(ai * bi, axis=tuple(range(n_w)) + (ai.ndim - 1,))
-                                    for ai, bi in zip(a, b))
-        samp_add = lambda a, b: [ai + bi for ai, bi in zip(a, b)]
-        rand_like = lambda v: [np.random.randn(*vi.shape) for vi in v]
-    c = 0.5 * samp_dot(r, r)
-    g = grad(r)
-    return dict(x=x, sample=sample, p=p, r=r, c=c, g=g, n_c=n_c, n_w=n_w, jac=jac, grad=grad, gnh=gnh,
-                mval=mval, ref=ref, dense_fwd=dense_fwd, samp_dot=samp_dot, samp_add=samp_add,
-                rand_like=rand_like, model_cls=_COREWISE_MODEL[kind])
-
-
-COREWISE_KINDS = ('apply', 'entries', 'probe')
-
-
-class TestCorewise(unittest.TestCase):
-    '''The corewise (free-core, NO Π) operators -- the matched-pair partner of the tangent ones.'''
-
-    def test_dense_truth(self):
-        '''m(p) == ½‖r + sample(Σ_core dense(core→δcore))‖² -- NO gauge projection (the no-Π oracle).'''
-        for kind in COREWISE_KINDS:
+    def test_matches_established_corewise(self):
+        '''Corewise gradient == the established (jax.grad-verified) TuckerTensorTrain corewise transpose
+        (all kinds) -- confirming the §6.3 substitution per kind and that NO projection sneaks in.'''
+        ref_method = {'apply': 'apply_corewise_transpose',
+                      'entries': 'entries_corewise_transpose',
+                      'probe': 'probe_corewise_transpose'}
+        for kind in KINDS:
             for C in [(), (2,)]:
                 with self.subTest(kind=kind, C=C):
-                    s = _corewise_setup(kind, C)
-                    Jp_dense = s['dense_fwd'](corewise_dense_lin(s['x'], s['p']))
-                    res = s['samp_add'](s['r'], Jp_dense)
-                    oracle = 0.5 * s['samp_dot'](res, res)
-                    mval = s['mval'](s['p'], s['g'], s['c'])
-                    self.assertTrue(np.allclose(mval, oracle, rtol=1e-9, atol=1e-9))  # large raw-core magnitudes
-
-    def test_matches_established_corewise_transpose(self):
-        '''gradient and gn_hessian match the established (jax.grad-verified) TuckerTensorTrain corewise
-        transpose -- confirming the §6.3 substitution per kind and that NO projection sneaks in.'''
-        for kind in COREWISE_KINDS:
-            for C in [(), (2,)]:
-                with self.subTest(kind=kind, C=C):
-                    s = _corewise_setup(kind, C)
-                    g_ref = s['ref'](s['r'])
-                    for a, b in zip(s['g'][0] + s['g'][1], g_ref[0] + g_ref[1]):
-                        self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))
-                    Jp = s['jac'](s['p'])
-                    Hp_ref = s['ref'](Jp)
-                    Hp = s['gnh'](s['p'])
-                    for a, b in zip(Hp[0] + Hp[1], Hp_ref[0] + Hp_ref[1]):
+                    s = _setup(kind, 'corewise', C)
+                    g_ref = getattr(s['x'], ref_method[kind])(s['r'], s['sample'], sum_over_probes=True)
+                    gd = s['model'].gradient.variations.data
+                    for a, b in zip(gd[0] + gd[1], g_ref[0] + g_ref[1]):
                         self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))
 
-    def test_two_form_and_adjoint(self):
-        '''m == c + ⟨g,p⟩ + ½⟨p,Hp⟩ (corewise dots), and the J/Jᵀ adjoint identity.'''
-        for kind in COREWISE_KINDS:
-            for C in [(), (2,)]:
-                with self.subTest(kind=kind, C=C):
-                    s = _corewise_setup(kind, C)
-                    Hp = s['gnh'](s['p'])
-                    two_form = (s['c'] + cw.corewise_stack_dot(s['g'], s['p'], s['n_c'])
-                                + 0.5 * cw.corewise_stack_dot(s['p'], Hp, s['n_c']))
-                    self.assertTrue(np.allclose(two_form, s['mval'](s['p'], s['g'], s['c']), rtol=1e-9, atol=1e-9))
-                    Jp = s['jac'](s['p'])
-                    z = s['rand_like'](Jp)
-                    gz = s['grad'](z)
-                    lhs = s['samp_dot'](z, Jp)
-                    rhs = cw.corewise_stack_dot(gz, s['p'], s['n_c'])
-                    self.assertTrue(np.allclose(lhs, rhs, rtol=1e-9, atol=1e-9))
-
-    def test_frontend(self):
-        '''The Corewise*GaussNewtonModel frontends delegate to the backend (all kinds).'''
-        for kind in COREWISE_KINDS:
-            with self.subTest(kind=kind):
-                s = _corewise_setup(kind, ())
-                model = s['model_cls'](s['x'], s['sample'], s['r'])
-                self.assertAlmostEqual(float(model.objective_value), float(s['c']), places=10)
-                for a, b in zip(model.gradient[0] + model.gradient[1], s['g'][0] + s['g'][1]):
-                    self.assertTrue(np.allclose(a, b))
-                Hp = s['gnh'](s['p'])
-                for a, b in zip(model.gn_hessian(s['p'])[0] + model.gn_hessian(s['p'])[1], Hp[0] + Hp[1]):
-                    self.assertTrue(np.allclose(a, b))
-                self.assertTrue(np.allclose(model.evaluate(s['p']), s['mval'](s['p'], s['g'], s['c'])))
+    def test_derivative_models(self):
+        '''The derivative GN models (apply/entries/probe, per-order weight ω) wrap the derivative kind and
+        reproduce the backend LocalModel's objective / gradient / gn_quadratic / gn_hessian -- oracle ==
+        frontend, both geometries. (RAW residual r = S(x); backend data = 0, so the residuals match.)'''
+        import t3toolbox.backend.optimizers as bopt
+        import t3toolbox.backend.fitting as bfit
+        import t3toolbox.backend.probe_derivatives as pd
+        rng = np.random.default_rng(0)
+        shape, order, NW = (5, 6, 7), 2, 15
+        omega = np.array([1.0, 0.5, 0.3])
+        X = t3.TuckerTensorTrain.randn(shape, (2, 3, 2), (1, 2, 2, 1))
+        ww = [rng.standard_normal((NW, N)) for N in shape]
+        pp = [rng.standard_normal((NW, N)) for N in shape]
+        index = np.stack([rng.integers(0, N, size=NW) for N in shape], axis=0)
+        cases = [
+            ('apply', fitting.apply_derivatives_model, (X, ww, pp, order),
+             bfit.apply_derivatives_kind(order, omega), (ww, pp),
+             np.asarray(pd.apply_derivatives_t3(ww, pp, X.data, order))),
+            ('entries', fitting.entries_derivatives_model, (X, index, pp, order),
+             bfit.entries_derivatives_kind(order, omega), (index, pp),
+             np.asarray(pd.entries_derivatives_t3(index, pp, X.data, order))),
+            ('probe', fitting.probe_derivatives_model, (X, ww, pp, order),
+             bfit.probe_derivatives_kind(order, omega), (ww, pp),
+             [np.asarray(z) for z in pd.probe_derivatives_t3(ww, pp, X.data, order)]),
+        ]
+        relerr = lambda a, b: float(cw.corewise_norm(cw.corewise_sub(a, b)) / cw.corewise_norm(b))
+        for geom_f, geom_b in [(t3m.MANIFOLD, bopt.MANIFOLD), (t3m.COREWISE, bopt.COREWISE)]:
+            for name, factory, fargs, bkind, sample, Sx in cases:
+                with self.subTest(geom=geom_f, kind=name):
+                    r = [np.asarray(z) for z in Sx] if isinstance(Sx, list) else Sx
+                    data = [np.zeros_like(z) for z in r] if isinstance(r, list) else np.zeros_like(r)
+                    fmodel = factory(geom_f, *fargs, r, weight=omega)
+                    lm = bopt.least_squares_problem(geom_b, bkind, sample, data).local_model(X.data)
+                    self.assertTrue(np.allclose(float(fmodel.objective_value), float(lm.objective)))
+                    self.assertLess(relerr(fmodel.gradient.variations.data, lm.gradient), 1e-10)
+                    pt = geom_f.randn(fmodel.base); p = pt.variations.data
+                    self.assertTrue(np.allclose(float(fmodel.gn_quadratic(pt)), float(lm.gn_quadratic(p))))
+                    self.assertLess(relerr(fmodel.gn_hessian(pt).variations.data, lm.hvp(p)), 1e-10)
 
 
 if __name__ == '__main__':

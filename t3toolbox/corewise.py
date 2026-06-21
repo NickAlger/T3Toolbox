@@ -12,6 +12,8 @@ __all__ = [
     'corewise_add',
     'corewise_sub',
     'corewise_scale',
+    'corewise_zeros_like',
+    'corewise_map',
     'corewise_stack_scale',
     'corewise_neg',
     'corewise_sum',
@@ -97,6 +99,44 @@ def corewise_scale(
         return tuple([corewise_scale(x, s) for x in X])
     else:
         return s*X
+
+
+def corewise_zeros_like(
+        X:  NDArrayTree,  # any nested tree of ints/floats/arrays
+) -> NDArrayTree:         # zeros with X's tree structure and leaf shapes (numpy/jax inferred from X)
+    '''Tree of zeros matching ``X``'s structure and leaf shapes/backend (``= corewise_scale(X, 0)``).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.corewise as cw
+    >>> X = (np.ones(3), (1.0, (), np.ones(2)))
+    >>> print(cw.corewise_zeros_like(X))
+    (array([0., 0., 0.]), (0.0, (), array([0., 0.])))
+    '''
+    return corewise_scale(X, 0)
+
+
+def corewise_map(
+        f,                  # callable applied to matching leaves: f(leaf_X0, leaf_X1, ...) -> leaf
+        *Xs:  NDArrayTree,  # one or more identically-structured trees
+) -> NDArrayTree:           # tree of f-results, same structure as the inputs
+    '''Apply ``f`` elementwise over the leaves of one or more identically-structured trees (the general
+    tree map the corewise ops are special cases of; used e.g. for an Adam moment update over the cores).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.corewise as cw
+    >>> X = (np.ones(2), (3.0,))
+    >>> print(cw.corewise_map(lambda x: x + 1, X))
+    (array([2., 2.]), (4.0,))
+    >>> print(cw.corewise_map(lambda a, b: a * b, X, X))
+    (array([1., 1.]), (9.0,))
+    '''
+    if isinstance(Xs[0], list) or isinstance(Xs[0], tuple):
+        return tuple([corewise_map(f, *xs) for xs in zip(*Xs)])
+    return f(*Xs)
 
 
 def corewise_neg(X: NDArrayTree) -> NDArrayTree:
@@ -327,7 +367,7 @@ def corewise_logical_not(X: NDArrayTree) -> NDArrayTree:
     >>> import t3toolbox.corewise as cw
     >>> X = (np.array([True, False, False]), (True, (), np.array([False, True, False])))
     >>> print(cw.corewise_logical_not(X))
-    (array([False,  True,  True]), (False, (), array([ True, False,  True])))
+    (array([False,  True,  True]), (np.False_, (), array([ True, False,  True])))
     '''
     use_jax = tree_contains_jax(X)
     xnp, _, _ = get_backend(False, use_jax)

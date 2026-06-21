@@ -8,6 +8,7 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.basis_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.corewise as cw
+import t3toolbox.safety as safety
 import t3toolbox.backend.probing as t3p
 
 np.random.seed(0)
@@ -71,7 +72,7 @@ def _dense_tangent_projector(base):
     their column span, which is exactly the tangent space.
     """
     dim = t3m.manifold_dim((base.shape, base.up_ranks, base.left_ranks))
-    cols = [np.asarray(t3m.T3Tangent.randn(base, apply_gauge_projection=True).to_dense()).reshape(-1)
+    cols = [np.asarray(t3m.MANIFOLD.randn(base).to_dense()).reshape(-1)
             for _ in range(3 * dim)]
     A = np.stack(cols, axis=1)
     # A is rank-deficient (the tangent parametrization is redundant): singular values are O(1) then a
@@ -102,7 +103,7 @@ class TestManifold(unittest.TestCase):
             for K in [(), (3,)]:
                 x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
                 base, _ = bvf.t3_orthogonal_representations(x)
-                v = t3m.T3Tangent.randn(base, stack_shape=K, apply_gauge_projection=False)
+                v = t3m.COREWISE.randn(base, stack_shape=K)
                 self.assertEqual(int(np.prod(STRUCT[0])), v.size)                 # dense element count
                 self.assertEqual(v.basis.data_size + v.variations.data_size, v.data_size)
                 self.assertEqual(base.minimal_ranks, v.minimal_ranks)            # delegates to basis
@@ -126,25 +127,25 @@ class TestManifold(unittest.TestCase):
             pass
 
     def test_constructors(self):
-        # T3Tangent.random_orthogonal / unit / zeros_like / randn_like.
+        # MANIFOLD.random_orthogonal / unit / zeros_like / randn_like.
         STRUCT = ((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
-        v = t3m.T3Tangent.random_orthogonal(*STRUCT, stack_shape=(2,), tangent_stack_shape=(3,))
+        v = t3m.MANIFOLD.random_orthogonal(*STRUCT, stack_shape=(2,), tangent_stack_shape=(3,))
         self.assertEqual(((2,), (3,)), (v.base_stack_shape, v.tangent_stack_shape))
         self.assertTrue(v.is_orthogonal() and v.is_gauged())                   # gauged by default
         base = bvf.T3Basis.random_orthogonal(*STRUCT)
         u = t3m.T3Tangent.unit(base, (True, 1, (0, 1, 0)))
         self.assertEqual(1, sum(int(np.count_nonzero(np.asarray(c)))
                                 for c in u.variations.tucker_variations + u.variations.tt_variations))
-        w = t3m.T3Tangent.randn(base, stack_shape=(3,), apply_gauge_projection=False)
+        w = t3m.COREWISE.randn(base, stack_shape=(3,))
         zl = t3m.T3Tangent.zeros_like(w)
         self.assertEqual((3,), zl.tangent_stack_shape)
-        self.assertEqual(0.0, float(np.max(np.abs(zl.norm()))))
-        self.assertEqual((3,), t3m.T3Tangent.randn_like(w).tangent_stack_shape)
+        self.assertEqual(0.0, float(np.max(np.abs(zl.corewise_norm()))))
+        self.assertEqual((3,), t3m.MANIFOLD.randn_like(w).tangent_stack_shape)
 
     def test_to_from_vector(self):
         # T3Tangent.to_vector (variation DOF only) / from_vector round-trip.
         base = bvf.T3Basis.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
-        v = t3m.T3Tangent.randn(base, stack_shape=(3,), apply_gauge_projection=False)
+        v = t3m.COREWISE.randn(base, stack_shape=(3,))
         flat = v.to_vector()
         self.assertEqual((v.variations.data_size,), flat.shape)   # variation DOF; basis excluded
         v2 = t3m.T3Tangent.from_vector(flat, base, tangent_stack_shape=(3,))
@@ -153,7 +154,7 @@ class TestManifold(unittest.TestCase):
     def test_save_load(self):
         import tempfile, os
         base = bvf.T3Basis.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))
-        v = t3m.T3Tangent.randn(base, stack_shape=(3,), apply_gauge_projection=False)
+        v = t3m.COREWISE.randn(base, stack_shape=(3,))
         f = os.path.join(tempfile.mkdtemp(), 't.npz'); v.save(f)
         v2 = t3m.T3Tangent.load(f)
         self.assertEqual(0.0, cw.corewise_relerr(v.variations.data, v2.variations.data))
@@ -165,7 +166,7 @@ class TestManifold(unittest.TestCase):
         for C in [(), (2,)]:
             for K in [(), (3,)]:
                 base = bvf.T3Basis.random_orthogonal(*STRUCT, stack_shape=C)
-                v = t3m.T3Tangent.randn(base, stack_shape=K, apply_gauge_projection=False)
+                v = t3m.COREWISE.randn(base, stack_shape=K)
                 D = np.asarray(v.to_dense()); ns = D.ndim - d
                 perm = tuple(range(ns)) + tuple(range(D.ndim - 1, ns - 1, -1))
                 self.check_relerr(D.transpose(perm), np.asarray(v.reverse().to_dense()))
@@ -174,7 +175,7 @@ class TestManifold(unittest.TestCase):
     def test_sum_tangents(self):
         # Summing over the tangent stack K commutes with to_dense (= the tensor sum, by linearity).
         base = bvf.T3Basis.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
-        v = t3m.T3Tangent.randn(base, stack_shape=(3,), apply_gauge_projection=False)
+        v = t3m.COREWISE.randn(base, stack_shape=(3,))
         self.check_relerr(np.sum(np.asarray(v.to_dense()), axis=0), np.asarray(v.sum_tangents().to_dense()))
         self.assertEqual((), v.sum_tangents().tangent_stack_shape)
 
@@ -236,17 +237,70 @@ class TestManifold(unittest.TestCase):
                     self.assertLessEqual(norm(np.asarray(t3m.T3Tangent.zeros(base).to_dense())), tol)
 
     def test_same_tangent_space_guard(self):
+        # the same-frame guard is NUMERICAL (frames_equal), not object identity: value-equal frames PASS
+        # (the jit-round-trip property), a genuinely different frame raises, and safety.unsafe() skips it.
         x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
         base_a, _ = bvf.t3_orthogonal_representations(x)
-        base_b, _ = bvf.t3_orthogonal_representations(x)  # numerically equal cores, different object
+        base_b = bvf.T3Basis(*base_a.data)               # value-equal cores, DIFFERENT object (jit round-trip)
         va = t3m.T3Tangent(base_a, _random_variations(base_a))
         vb = t3m.T3Tangent(base_b, _random_variations(base_b))
-        va2 = t3m.T3Tangent(base_a, _random_variations(base_a))
+        _ = va + t3m.T3Tangent(base_a, _random_variations(base_a))   # same object: OK
+        _ = va + vb                                       # value-equal frame: OK (numerical guard accepts)
+        _ = va.corewise_inner(vb)
 
-        t3m.T3Tangent(base_a, va.variations) + va2  # same basis object: OK
-        for op in (lambda: va + vb, lambda: va - vb, lambda: va.inner(vb)):
+        base_c, _ = bvf.t3_orthogonal_representations(    # a genuinely different frame -> raises
+            t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1)))
+        vc = t3m.T3Tangent(base_c, _random_variations(base_c))
+        for op in (lambda: va + vc, lambda: va - vc, lambda: va.corewise_inner(vc)):
             with self.assertRaises(ValueError):
                 op()
+        with safety.unsafe():                             # unsafe mode skips the numerical check
+            _ = va + vc
+
+    def test_manifold_orth_preconditions(self):
+        # S5: the manifold projections/retraction enforce an ORTHOGONAL frame in safe mode (raise),
+        # skip under safety.unsafe(), and pass on an orthogonal frame. CorewiseGeometry never checks.
+        x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
+        base_orth, _ = bvf.t3_orthogonal_representations(x)
+        bad_cores = tuple(tuple(c + 0.3 * np.random.randn(*c.shape) for c in grp) for grp in base_orth.data)
+        base_bad = bvf.T3Basis(*bad_cores)
+        self.assertTrue(base_orth.is_orthogonal())
+        self.assertFalse(base_bad.is_orthogonal())
+
+        v_bad = t3m.T3Tangent(base_bad, _random_variations(base_bad))
+        raisers = [
+            lambda: t3m.MANIFOLD.project(v_bad),
+            lambda: t3m.MANIFOLD.project_oblique(v_bad),
+            lambda: t3m.MANIFOLD.retract(v_bad),
+            lambda: t3m.MANIFOLD.project_ambient(base_bad, x),
+            lambda: t3m.MANIFOLD.transport(v_bad, base_bad),
+            lambda: t3m.MANIFOLD.randn(base_bad),
+        ]
+        for op in raisers:                                   # safe mode (default): non-orthogonal -> raise
+            with self.assertRaises(ValueError):
+                op()
+        with safety.unsafe():                                # unsafe mode skips every ORTH check
+            for op in raisers:
+                op()
+
+        v_ok = t3m.MANIFOLD.randn(base_orth)                 # orthogonal frame: all pass in safe mode
+        t3m.MANIFOLD.project(v_ok)
+        t3m.MANIFOLD.retract(v_ok)
+        t3m.MANIFOLD.project_ambient(base_orth, x)
+        # CorewiseGeometry is gauge-free by design: no ORTH check even on the non-orthonormal corewise frame
+        cbase = t3m.COREWISE.base(x)
+        self.assertFalse(cbase.is_orthogonal())
+        t3m.COREWISE.project(t3m.COREWISE.randn(cbase))
+        t3m.COREWISE.retract(t3m.COREWISE.randn(cbase))
+
+    def test_orthogonality_residual_cached(self):
+        # the ORTH check routes through a cached residual: a fixed frame is contracted once (inner-loop perf)
+        x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
+        base, _ = bvf.t3_orthogonal_representations(x)
+        self.assertNotIn('orthogonality_residual', base.__dict__)
+        self.assertTrue(base.is_orthogonal())
+        self.assertIn('orthogonality_residual', base.__dict__)        # cached after first check
+        self.assertLess(float(base.orthogonality_residual), 1e-9)
 
     def test_inner_norm(self):
         x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
@@ -255,8 +309,8 @@ class TestManifold(unittest.TestCase):
         v2 = t3m.T3Tangent(base, _random_variations(base))
 
         # structural identities (corewise) hold regardless of gauge (unstacked -> scalar)
-        self.assertAlmostEqual(float(v1.inner(v2)), float(cw.corewise_dot(v1.variations.data, v2.variations.data)))
-        self.assertAlmostEqual(float(v1.norm()), float(np.sqrt(v1.inner(v1))))
+        self.assertAlmostEqual(float(v1.corewise_inner(v2)), float(cw.corewise_dot(v1.variations.data, v2.variations.data)))
+        self.assertAlmostEqual(float(v1.corewise_norm()), float(np.sqrt(v1.corewise_inner(v1))))
 
     def test_is_orthogonal_and_is_gauged(self):
         x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
@@ -275,7 +329,7 @@ class TestManifold(unittest.TestCase):
     def _random_v_stacked(self, struct, base_stack, V):
         x = t3.TuckerTensorTrain.randn(*struct, stack_shape=base_stack)
         base, _ = bvf.t3_orthogonal_representations(x)
-        return t3m.T3Tangent.randn(base, stack_shape=V, apply_gauge_projection=False)
+        return t3m.COREWISE.randn(base, stack_shape=V)
 
     def test_unstack_stack_tangents(self):
         # unstack_tangents peels the tangent stack K -> a K-shaped tree of tangents that SHARE the
@@ -323,18 +377,22 @@ class TestManifold(unittest.TestCase):
                 self.check_relerr(dense, rt.to_dense())
 
     def test_stack_tangents_guard(self):
-        # stack_tangents requires a shared T3Basis object (same tangent space); different base
-        # objects (even with numerically equal cores) raise.
+        # stack_tangents requires the same frame (numerical check): value-equal frames stack fine,
+        # a genuinely different frame raises.
         x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
         base_a, _ = bvf.t3_orthogonal_representations(x)
-        base_b, _ = bvf.t3_orthogonal_representations(x)  # equal cores, different object
-        ta = t3m.T3Tangent.randn(base_a, apply_gauge_projection=False)
-        tb = t3m.T3Tangent.randn(base_b, apply_gauge_projection=False)
-        ta2 = t3m.T3Tangent.randn(base_a, apply_gauge_projection=False)
+        base_b = bvf.T3Basis(*base_a.data)               # value-equal, different object
+        ta, ta2 = t3m.COREWISE.randn(base_a), t3m.COREWISE.randn(base_a)
+        tb = t3m.COREWISE.randn(base_b)
 
-        t3m.T3Tangent.stack_tangents([ta, ta2])  # same basis object: OK
+        t3m.T3Tangent.stack_tangents([ta, ta2])          # same object: OK
+        t3m.T3Tangent.stack_tangents([ta, tb])           # value-equal frame: OK (numerical guard accepts)
+
+        base_c, _ = bvf.t3_orthogonal_representations(   # a genuinely different frame -> raises
+            t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1)))
+        tc = t3m.COREWISE.randn(base_c)
         with self.assertRaises(ValueError):
-            t3m.T3Tangent.stack_tangents([ta, tb])
+            t3m.T3Tangent.stack_tangents([ta, tc])
 
     def test_orthogonal_gauge_projection(self):
         for T3_STRUCTURE in self.t3_structures:
@@ -342,8 +400,8 @@ class TestManifold(unittest.TestCase):
                 with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
                     x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
                     base, _ = bvf.t3_orthogonal_representations(x)
-                    u = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
-                    ug = u.orthogonal_gauge_projection()
+                    u = t3m.COREWISE.randn(base)
+                    ug = t3m.MANIFOLD.project(u)
 
                     self.assertTrue(ug.is_gauged())
                     # orthogonal projection: the removed component is perpendicular to the projection
@@ -358,8 +416,8 @@ class TestManifold(unittest.TestCase):
                 with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
                     x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
                     base, _ = bvf.t3_orthogonal_representations(x)
-                    u = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
-                    uo = u.oblique_gauge_projection()
+                    u = t3m.COREWISE.randn(base)
+                    uo = t3m.MANIFOLD.project_oblique(u)
 
                     self.assertTrue(uo.is_gauged())
                     self.check_relerr(u.to_dense(), uo.to_dense())  # preserves the tangent vector
@@ -373,15 +431,47 @@ class TestManifold(unittest.TestCase):
                 base, _ = bvf.t3_orthogonal_representations(x)
                 self.assertTrue(base.is_orthogonal() and base.has_minimal_ranks)
 
-                u = t3m.T3Tangent.randn(base)  # gauged by default
-                w = t3m.T3Tangent.randn(base)
+                u = t3m.MANIFOLD.randn(base)  # gauged by default
+                w = t3m.MANIFOLD.randn(base)
 
                 ud, wd = np.asarray(u.to_dense()), np.asarray(w.to_dense())
                 tensor_axes = tuple(range(len(STACK_SHAPE), ud.ndim))  # the (N0..Nd) axes; keep stack
                 hs_inner = np.sum(ud * wd, axis=tensor_axes)  # shape = STACK_SHAPE
                 hs_norm = np.sqrt(np.sum(ud * ud, axis=tensor_axes))
-                self.assertLessEqual(norm(np.asarray(u.inner(w)) - hs_inner), tol * max(1.0, norm(hs_inner)))
-                self.assertLessEqual(norm(np.asarray(u.norm()) - hs_norm), tol * max(1.0, norm(hs_norm)))
+                self.assertLessEqual(norm(np.asarray(u.corewise_inner(w)) - hs_inner), tol * max(1.0, norm(hs_inner)))
+                self.assertLessEqual(norm(np.asarray(u.corewise_norm()) - hs_norm), tol * max(1.0, norm(hs_norm)))
+
+    def test_geometry_inner_norm(self):
+        '''The geometry-level metrics: MANIFOLD.inner/norm = Hilbert-Schmidt (safe mode checks the frame
+        orthogonal + variations gauged); COREWISE.inner/norm = Euclidean (no orth/gauge check). Both equal
+        the raw corewise op where their preconditions hold; the manifold one REJECTS a non-orthonormal
+        frame or ungauged variations in safe mode, and skips the check under safety.unsafe().'''
+        x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
+        base, _ = bvf.t3_orthogonal_representations(x)
+        g, h = t3m.MANIFOLD.randn(base), t3m.MANIFOLD.randn(base)          # gauged, orthonormal frame
+        # HS == corewise for a gauged tangent at an orthonormal frame
+        self.assertAlmostEqual(float(t3m.MANIFOLD.inner(g, h)), float(g.corewise_inner(h)))
+        self.assertAlmostEqual(float(t3m.MANIFOLD.norm(g)), float(g.corewise_norm()))
+        # Euclidean geometry: no orth/gauge requirement, == corewise even on a raw (ungauged) tangent
+        raw = t3m.COREWISE.randn(base)
+        self.assertAlmostEqual(float(t3m.COREWISE.inner(raw, raw)), float(raw.corewise_inner(raw)))
+        self.assertAlmostEqual(float(t3m.COREWISE.norm(raw)), float(raw.corewise_norm()))
+        # safe mode: MANIFOLD.inner/norm reject ungauged variations ...
+        with self.assertRaises(ValueError):
+            t3m.MANIFOLD.inner(raw, raw)
+        with self.assertRaises(ValueError):
+            t3m.MANIFOLD.norm(raw)
+        # ... and a non-orthonormal frame (the corewise (U,G,G,G) base)
+        cg = t3m.COREWISE.randn(t3m.COREWISE.base(x))
+        with self.assertRaises(ValueError):
+            t3m.MANIFOLD.inner(cg, cg)
+        # same-frame: tangents at different base points are rejected
+        base2, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1)))
+        with self.assertRaises(ValueError):
+            t3m.MANIFOLD.inner(g, t3m.MANIFOLD.randn(base2))
+        # unsafe mode: checks skipped -> MANIFOLD.inner falls back to the raw corewise dot
+        with safety.unsafe():
+            self.assertAlmostEqual(float(t3m.MANIFOLD.inner(raw, raw)), float(raw.corewise_inner(raw)))
 
     def test_inner_norm_tangent_stacked(self):
         # A T3Tangent may carry an extra OUTER tangent stack K (a batch of tangents sharing one base);
@@ -390,15 +480,15 @@ class TestManifold(unittest.TestCase):
             with self.subTest(BASE_STACK=BASE_STACK, V=V):
                 x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=BASE_STACK)
                 base, _ = bvf.t3_orthogonal_representations(x)
-                u = t3m.T3Tangent.randn(base, stack_shape=V, apply_gauge_projection=False)
-                w = t3m.T3Tangent.randn(base, stack_shape=V, apply_gauge_projection=False)
+                u = t3m.COREWISE.randn(base, stack_shape=V)
+                w = t3m.COREWISE.randn(base, stack_shape=V)
 
                 self.assertEqual(V, u.tangent_stack_shape)
                 self.assertEqual(BASE_STACK, u.base_stack_shape)
                 self.assertEqual(V + BASE_STACK, u.stack_shape)
 
                 full = V + BASE_STACK
-                ip = np.asarray(u.inner(w))
+                ip = np.asarray(u.corewise_inner(w))
                 self.assertEqual(full, ip.shape)
 
                 ref = np.zeros(full)  # per-slice corewise dot over the full stack
@@ -409,7 +499,7 @@ class TestManifold(unittest.TestCase):
                           tuple(np.asarray(c)[idx] for c in w.variations.tt_variations))
                     ref[idx] = float(cw.corewise_dot(ud, wd))
                 self.assertLessEqual(norm(ip - ref), tol * max(1.0, norm(ref)))
-                self.assertLessEqual(norm(np.asarray(u.norm()) - np.sqrt(np.abs(np.asarray(u.inner(u))))), tol)
+                self.assertLessEqual(norm(np.asarray(u.corewise_norm()) - np.sqrt(np.abs(np.asarray(u.corewise_inner(u))))), tol)
 
     def test_tangent_probe(self):
         # forward J^(s): v.probe(ww) == probe_dense(ww, v.to_dense()); probes are stacked W + K + C + (N,)
@@ -421,7 +511,7 @@ class TestManifold(unittest.TestCase):
                         rnd = np.random.randn
                         x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=BASE_STACK)
                         base, _ = bvf.t3_orthogonal_representations(x)
-                        v = t3m.T3Tangent.randn(base, stack_shape=TANGENT_STACK, apply_gauge_projection=False)
+                        v = t3m.COREWISE.randn(base, stack_shape=TANGENT_STACK)
                         ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
 
                         zz = v.probe(ww)  # numpy/jax inferred from inputs
@@ -451,7 +541,7 @@ class TestManifold(unittest.TestCase):
                         rnd = np.random.randn
                         x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=BASE_STACK)
                         base, _ = bvf.t3_orthogonal_representations(x)
-                        v = t3m.T3Tangent.randn(base, stack_shape=TANGENT_STACK, apply_gauge_projection=False)
+                        v = t3m.COREWISE.randn(base, stack_shape=TANGENT_STACK)
                         ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
                         # residuals live in the forward probe space: W + K + C + (N,)
                         z = tuple(rnd(*(PROBE_STACK + TANGENT_STACK + BASE_STACK + (N,))) for N in STRUCT[0])
@@ -460,7 +550,7 @@ class TestManifold(unittest.TestCase):
                         JTz = t3m.T3Tangent.probe_transpose(z, ww, base, sum_over_probes=True)
                         # full contraction of both sides (sums F, V, G, N) must agree
                         lhs = float(np.sum([np.sum(np.asarray(a) * np.asarray(b)) for a, b in zip(z, Jv)]))
-                        rhs = float(np.sum(np.asarray(JTz.inner(v))))
+                        rhs = float(np.sum(np.asarray(JTz.corewise_inner(v))))
                         self.assertLessEqual(abs(lhs - rhs), tol * max(1.0, abs(lhs)))
 
                         # sum=True keeps V (base G), drops F; sum=False keeps F+V (base G)
@@ -486,7 +576,7 @@ class TestManifold(unittest.TestCase):
                     with self.subTest(BASE=BASE_STACK, W=W, K=K):
                         x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=BASE_STACK)
                         base, _ = bvf.t3_orthogonal_representations(x)
-                        v = t3m.T3Tangent.randn(base, stack_shape=K, apply_gauge_projection=False)
+                        v = t3m.COREWISE.randn(base, stack_shape=K)
                         ww = tuple(np.random.randn(*(W + (N,))) for N in STRUCT[0])
 
                         a = np.asarray(v.apply(ww))
@@ -507,7 +597,7 @@ class TestManifold(unittest.TestCase):
                     with self.subTest(BASE=BASE_STACK, W=W, K=K):
                         x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=BASE_STACK)
                         base, _ = bvf.t3_orthogonal_representations(x)
-                        v = t3m.T3Tangent.randn(base, stack_shape=K, apply_gauge_projection=False)
+                        v = t3m.COREWISE.randn(base, stack_shape=K)
                         idx = np.array(tuple(np.random.randint(0, N, size=W) for N in STRUCT[0]))  # (d,)+W
 
                         e = np.asarray(v.entries(idx))
@@ -527,7 +617,7 @@ class TestManifold(unittest.TestCase):
                 with self.subTest(BASE=BASE_STACK, W=W):
                     x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=BASE_STACK)
                     base, _ = bvf.t3_orthogonal_representations(x)
-                    v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+                    v = t3m.COREWISE.randn(base)
                     ww = tuple(np.random.randn(*(W + (N,))) for N in STRUCT[0])
                     c = np.asarray(np.random.randn(*(W + BASE_STACK)))
 
@@ -556,7 +646,7 @@ class TestManifold(unittest.TestCase):
                 with self.subTest(BASE=BASE_STACK, W=W):
                     x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=BASE_STACK)
                     base, _ = bvf.t3_orthogonal_representations(x)
-                    v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+                    v = t3m.COREWISE.randn(base)
                     idx = np.array(tuple(np.random.randint(0, N, size=W) for N in STRUCT[0]))  # (d,)+W
                     c = np.asarray(np.random.randn(*(W + BASE_STACK)))
 
@@ -566,12 +656,37 @@ class TestManifold(unittest.TestCase):
                     self.check_relerr(rhs, lhs)
                     self.assertEqual(W, t3m.T3Tangent.entries_transpose(c, idx, base).tangent_stack_shape)
 
+    def test_tangent_apply_transpose_kstack(self):
+        # The adjoint-state apply/entries transpose is K-aware: the residual c may carry a tangent
+        # stack K (W + K + C), the output space of a K-stacked forward. (The old scatter could NOT --
+        # it had no adjoint sweep to propagate K.) Adjoint identity per k.
+        import t3toolbox.backend.probing as pr
+        STRUCT = ((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
+        NW, K = 4, 3
+        base, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STRUCT))
+        ww = tuple(np.random.randn(NW, N) for N in STRUCT[0])
+        idx = np.array(tuple(np.random.randint(0, N, size=NW) for N in STRUCT[0]))
+        vs = [t3m.MANIFOLD.randn(base) for _ in range(K)]
+        for op, fwd, tr in [('apply', lambda v: pr.apply_tangent(ww, v.variations.data, base.data),
+                                      lambda c: pr.apply_tangent_transpose(c, ww, base.data, sum_over_probes=True)),
+                            ('entries', lambda v: pr.entries_tangent(idx, v.variations.data, base.data),
+                                        lambda c: pr.entries_tangent_transpose(c, idx, base.data, sum_over_probes=True))]:
+            with self.subTest(op=op):
+                JvK = np.stack([np.asarray(fwd(v)) for v in vs], axis=1)     # base-inner W + K
+                c = np.random.randn(NW, K)
+                dU, dG = tr(c)                                               # -> K + cores
+                for k in range(K):
+                    grad_k = (tuple(np.asarray(g)[k] for g in dU), tuple(np.asarray(g)[k] for g in dG))
+                    lhs = float(np.sum(c[:, k] * JvK[:, k]))
+                    rhs = float(cw.corewise_dot(grad_k, vs[k].variations.data))
+                    self.check_relerr(np.array(rhs), np.array(lhs))
+
     def test_randn(self):
         base, _ = bvf.t3_orthogonal_representations(
             t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1)))
-        self.assertTrue(t3m.T3Tangent.randn(base).is_gauged())                                   # gauged by default
-        self.assertFalse(t3m.T3Tangent.randn(base, apply_gauge_projection=False).is_gauged())    # ungauged on request
-        self.assertEqual(base.stack_shape, t3m.T3Tangent.randn(base).stack_shape)                # construction validates fit
+        self.assertTrue(t3m.MANIFOLD.randn(base).is_gauged())                                   # gauged by default
+        self.assertFalse(t3m.COREWISE.randn(base).is_gauged())    # ungauged on request
+        self.assertEqual(base.stack_shape, t3m.MANIFOLD.randn(base).stack_shape)                # construction validates fit
 
     def test_to_t3(self):
         for T3_STRUCTURE in self.t3_structures:
@@ -579,7 +694,7 @@ class TestManifold(unittest.TestCase):
                 with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
                     x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
                     base, _ = bvf.t3_orthogonal_representations(x)
-                    v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+                    v = t3m.COREWISE.randn(base)
                     base_point = t3.TuckerTensorTrain(base.up_tucker_cores, base.left_tt_cores).to_dense()
 
                     self.check_relerr(v.to_dense(), v.to_t3().to_dense())
@@ -595,14 +710,14 @@ class TestManifold(unittest.TestCase):
                     base, _ = bvf.t3_orthogonal_representations(x)
                     base_point = t3.TuckerTensorTrain(base.up_tucker_cores, base.left_tt_cores).to_dense()
 
-                    self.check_relerr(base_point, t3m.T3Tangent.zeros(base).retract().to_dense())
+                    self.check_relerr(base_point, t3m.MANIFOLD.retract(t3m.T3Tangent.zeros(base)).to_dense())
 
-                    v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+                    v = t3m.COREWISE.randn(base)
                     if STACK_SHAPE == ():  # compare against a from-dense T3-SVD of (base point + v)
                         shifted_dense = np.asarray(base_point) + np.asarray(v.to_dense())
                         ref, _, _ = t3.TuckerTensorTrain.t3svd_dense(
                             shifted_dense, max_tucker_ranks=tuple(base.up_ranks), max_tt_ranks=tuple(base.left_ranks))
-                        self.check_relerr(ref.to_dense(), v.retract().to_dense())
+                        self.check_relerr(ref.to_dense(), t3m.MANIFOLD.retract(v).to_dense())
 
         # Rank preservation holds on a minimal-rank base.
         for STACK_SHAPE in [(), (2,)]:
@@ -610,7 +725,7 @@ class TestManifold(unittest.TestCase):
                 x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=STACK_SHAPE)
                 base, _ = bvf.t3_orthogonal_representations(x)
                 self.assertTrue(base.has_minimal_ranks)
-                r = t3m.T3Tangent.randn(base, apply_gauge_projection=False).retract()
+                r = t3m.MANIFOLD.retract(t3m.COREWISE.randn(base))
                 self.assertEqual(tuple(base.up_ranks), r.tucker_ranks)
                 self.assertEqual(tuple(base.left_ranks), r.tt_ranks)
 
@@ -626,12 +741,12 @@ class TestManifold(unittest.TestCase):
                     x = t3.TuckerTensorTrain.randn(*STR_X, stack_shape=STACK_SHAPE)
                     base, _ = bvf.t3_orthogonal_representations(p)
 
-                    proj = t3m.T3Tangent.project(x, base)
+                    proj = t3m.MANIFOLD.project_ambient(base, x)
                     self.assertTrue(proj.is_gauged())
 
                     # idempotency: projecting a tangent vector (its unshifted embedding) recovers it
-                    v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
-                    proj_v = t3m.T3Tangent.project(v.to_t3(), base)
+                    v = t3m.COREWISE.randn(base)
+                    proj_v = t3m.MANIFOLD.project_ambient(base, v.to_t3())
                     self.check_relerr(v.to_dense(), proj_v.to_dense())
 
                     # orthogonality: the residual x - proj_x is perpendicular to the tangent space
@@ -639,7 +754,7 @@ class TestManifold(unittest.TestCase):
                     tensor_axes = tuple(range(len(STACK_SHAPE), residual.ndim))
                     for _ in range(3):
                         w_dense = np.asarray(
-                            t3m.T3Tangent.randn(base, apply_gauge_projection=False).to_dense())
+                            t3m.COREWISE.randn(base).to_dense())
                         ip = norm(np.sum(residual * w_dense, axis=tensor_axes))
                         self.assertLessEqual(float(ip), tol * norm(residual) * norm(w_dense))
 
@@ -652,7 +767,7 @@ class TestManifold(unittest.TestCase):
             with self.subTest(BASE_STACK=BASE_STACK, V=V):
                 x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=BASE_STACK)
                 base, _ = bvf.t3_orthogonal_representations(x)
-                var = t3m.T3Tangent.randn(base, stack_shape=V, apply_gauge_projection=False).variations
+                var = t3m.COREWISE.randn(base, stack_shape=V).variations
                 v = t3m.T3Tangent(base, var)
                 full = V + BASE_STACK
                 n_base = len(BASE_STACK)
@@ -660,7 +775,7 @@ class TestManifold(unittest.TestCase):
                 dense = np.asarray(v.to_dense())
                 t3_dense = np.asarray(v.to_t3().to_dense())
                 shifted = np.asarray(v.to_t3(include_shift=True).to_dense())
-                retr = np.asarray(v.retract().to_dense())
+                retr = np.asarray(t3m.MANIFOLD.retract(v).to_dense())
                 self.assertEqual(full + STRUCT[0], dense.shape)
 
                 for idx in np.ndindex(*full):
@@ -668,7 +783,7 @@ class TestManifold(unittest.TestCase):
                     self.check_relerr(s.to_dense(), dense[idx])
                     self.check_relerr(s.to_dense(), t3_dense[idx])  # to_t3 round-trips to to_dense
                     self.check_relerr(s.to_t3(include_shift=True).to_dense(), shifted[idx])
-                    self.check_relerr(s.retract().to_dense(), retr[idx])
+                    self.check_relerr(t3m.MANIFOLD.retract(s).to_dense(), retr[idx])
 
     def test_project_tangent_stacked(self):
         # project a BATCH of inputs x (stack K+C) onto a base (stack G): the result is a K-stacked
@@ -681,7 +796,7 @@ class TestManifold(unittest.TestCase):
                 x = t3.TuckerTensorTrain.randn(*STR_X, stack_shape=(V + BASE_STACK))
                 base, _ = bvf.t3_orthogonal_representations(p)
 
-                proj = t3m.T3Tangent.project(x, base)
+                proj = t3m.MANIFOLD.project_ambient(base, x)
                 self.assertEqual(V, proj.tangent_stack_shape)
                 self.assertEqual(BASE_STACK, proj.base_stack_shape)
                 self.assertTrue(proj.is_gauged())
@@ -691,7 +806,7 @@ class TestManifold(unittest.TestCase):
                 n_base = len(BASE_STACK)
                 for idx in np.ndindex(*full):
                     g_idx = idx[len(idx) - n_base:] if n_base > 0 else ()
-                    ref = t3m.T3Tangent.project(_slice_t3(x, idx), _slice_basis(base, g_idx))
+                    ref = t3m.MANIFOLD.project_ambient(_slice_basis(base, g_idx), _slice_t3(x, idx))
                     self.check_relerr(ref.to_dense(), proj_dense[idx])
 
     def test_normalized(self):
@@ -701,9 +816,9 @@ class TestManifold(unittest.TestCase):
                 with self.subTest(STACK_SHAPE=STACK_SHAPE, V=V):
                     x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=STACK_SHAPE)
                     base, _ = bvf.t3_orthogonal_representations(x)
-                    vn = t3m.T3Tangent.randn(base, stack_shape=V).normalized()
+                    vn = t3m.MANIFOLD.randn(base, stack_shape=V).normalized()
                     vn.validate()
-                    self.assertLessEqual(norm(np.asarray(vn.norm()) - 1.0), tol)
+                    self.assertLessEqual(norm(np.asarray(vn.corewise_norm()) - 1.0), tol)
 
     def test_allclose(self):
         # T3Tangent.allclose compares two tangents at the same base point.
@@ -711,7 +826,7 @@ class TestManifold(unittest.TestCase):
             with self.subTest(STACK_SHAPE=STACK_SHAPE):
                 x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=STACK_SHAPE)
                 base, _ = bvf.t3_orthogonal_representations(x)
-                v = t3m.T3Tangent.randn(base)
+                v = t3m.MANIFOLD.randn(base)
                 self.assertTrue(v.allclose(v))
                 self.assertFalse(v.allclose(v * 2.0))
                 self.assertTrue(v.allclose(v * (1.0 + 1e-12)))
@@ -722,14 +837,14 @@ class TestManifold(unittest.TestCase):
         base, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STR_P))
         Pr = _dense_tangent_projector(base)
         Z = np.random.randn(*STR_P[0])
-        F = t3m.project_dense_onto_tangent(Z, base)
+        F = t3m.MANIFOLD.project_ambient(base, Z)
         self.assertTrue(F.is_gauged())
         self.check_relerr((Pr @ Z.reshape(-1)).reshape(STR_P[0]), F.to_dense())
 
         # stacked C=(2,): valid gauged tangent with the right stack; matches the projector per slice
         base2, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STR_P, stack_shape=(2,)))
         Z2 = np.random.randn(2, *STR_P[0])
-        F2 = t3m.project_dense_onto_tangent(Z2, base2)
+        F2 = t3m.MANIFOLD.project_ambient(base2, Z2)
         F2.validate()
         self.assertEqual((2,), F2.stack_shape)
         for i in range(2):
@@ -738,10 +853,10 @@ class TestManifold(unittest.TestCase):
 
         # both methods ('contraction' default, 't3svd') give the same projection.
         for method in ('contraction', 't3svd'):
-            Fm = t3m.project_dense_onto_tangent(Z, base, method=method)
+            Fm = t3m.MANIFOLD.project_ambient(base, Z, method=method)
             self.check_relerr((Pr @ Z.reshape(-1)).reshape(STR_P[0]), Fm.to_dense())
         with self.assertRaises(ValueError):
-            t3m.project_dense_onto_tangent(Z, base, method='bogus')
+            t3m.MANIFOLD.project_ambient(base, Z, method='bogus')
 
         # NON-minimal orthogonal base: still matches (orthogonality is required, minimal rank is NOT).
         x_pad = t3.TuckerTensorTrain.randn(STR_P[0], (2, 2, 2), (1, 2, 2, 1)).resize(
@@ -759,32 +874,32 @@ class TestManifold(unittest.TestCase):
         # masquerades as a project_dense_onto_tangent bug. See _dense_tangent_projector.
         Pr_nm = A @ np.linalg.pinv(A, rcond=1e-8)
         self.check_relerr((Pr_nm @ Z.reshape(-1)).reshape(STR_P[0]),
-                          t3m.project_dense_onto_tangent(Z, base_nm).to_dense())
+                          t3m.MANIFOLD.project_ambient(base_nm, Z).to_dense())
 
     def test_riemannian_gradient(self):
         # Riemannian gradient = tangent-space projection of the Euclidean gradient (dense -> F, T3 -> project).
         STR_P = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         base, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STR_P))
         Z = np.random.randn(*STR_P[0])
-        self.check_relerr(t3m.project_dense_onto_tangent(Z, base).to_dense(),
-                          t3m.riemannian_gradient(Z, base).to_dense())
+        self.check_relerr(t3m.MANIFOLD.project_ambient(base, Z).to_dense(),
+                          t3m.MANIFOLD.project_ambient(base, Z).to_dense())
         g = t3.TuckerTensorTrain.randn((6, 7, 5), (3, 4, 3), (1, 2, 2, 1))
-        self.check_relerr(t3m.T3Tangent.project(g, base).to_dense(),
-                          t3m.riemannian_gradient(g, base).to_dense())
+        self.check_relerr(t3m.MANIFOLD.project_ambient(base, g).to_dense(),
+                          t3m.MANIFOLD.project_ambient(base, g).to_dense())
 
     def test_transport(self):
         # Projective transport == dense projection onto the new tangent space; result lives at new base.
         STR = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         base, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STR))
         new_base, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STR))
-        v = t3m.T3Tangent.randn(base)
+        v = t3m.MANIFOLD.randn(base)
 
         # transport to its own base is the identity (v is already in T_base M)
-        self.check_relerr(v.to_dense(), v.transport(base).to_dense())
+        self.check_relerr(v.to_dense(), t3m.MANIFOLD.transport(v, base).to_dense())
 
         # transport to a different base == dense projection onto T_new M
         Pr_new = _dense_tangent_projector(new_base)
-        vt = v.transport(new_base)
+        vt = t3m.MANIFOLD.transport(v, new_base)
         vt.validate()
         self.assertIs(new_base, vt.basis)
         self.assertTrue(vt.is_gauged())
@@ -798,7 +913,7 @@ class TestManifold(unittest.TestCase):
         STR = ((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
         shapes = STR[0]
         base, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STR))
-        v = t3m.T3Tangent.randn(base, apply_gauge_projection=False)
+        v = t3m.COREWISE.randn(base)
         W = (2,)
         ww = [np.random.randn(*(W + (N,))) for N in shapes]
         pp = [np.random.randn(*(W + (N,))) for N in shapes]
@@ -829,7 +944,7 @@ class TestManifold(unittest.TestCase):
                 JTr = t3m.T3Tangent.entries_derivatives_transpose(r, index, pp, base, ORDER, sum_over_probes=True)
                 lhs = float(np.sum(r * np.asarray(Jv)))
             self.assertIs(base, JTr.basis)
-            self.assertLessEqual(abs(lhs - float(JTr.inner(v))) / abs(lhs), 1e-9)
+            self.assertLessEqual(abs(lhs - float(JTr.corewise_inner(v))) / abs(lhs), 1e-9)
 
         # X/P sample-stack consistency: hard error
         pp_bad = [np.random.randn(*((3,) + (N,))) for N in shapes]   # W=(3,) != (2,)

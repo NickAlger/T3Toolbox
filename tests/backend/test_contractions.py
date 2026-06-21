@@ -614,6 +614,18 @@ class TestContractions(unittest.TestCase):
             [('WC', 'i'), ('WKC', 'a'), ('WC', 'j')], ('KC', 'iaj'), needs_n_probe=True,
         )
 
+    def test_WCa_WCi_WKCb_to_WKCaib(self):  # adjoint-state apply/entries dG assemble (keep W)
+        self._check_3group(
+            contractions.WCa_WCi_WKCb_to_WKCaib,
+            [('WC', 'a'), ('WC', 'i'), ('WKC', 'b')], ('WKC', 'aib'), needs_n_probe=True,
+        )
+
+    def test_WCa_WCi_WKCb_to_KCaib(self):  # adjoint-state apply/entries dG assemble (sum W = J^T r)
+        self._check_3group(
+            contractions.WCa_WCi_WKCb_to_KCaib,
+            [('WC', 'a'), ('WC', 'i'), ('WKC', 'b')], ('KC', 'aib'), needs_n_probe=True,
+        )
+
     # ---- order-threaded three-group contractions (K-stacked derivative probing) ----
 
     def _check_jet3(self, func, op_specs, out_spec, trs_sub='trs', needs_n_base=False, needs_n_probe=False):

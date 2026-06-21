@@ -159,11 +159,11 @@ def stack(
     >>> T11 = (a11, (b11, c11))
     >>> T = ((T00, T01), (T10, T11))
     >>> (a, (b, c)) = stacking.stack(T, axes=(0,1))
-    >>> np.linalg.norm(a - np.array([[a00, a01], [a10, a11]]))
+    >>> float(np.linalg.norm(a - np.array([[a00, a01], [a10, a11]])))
     0.0
-    >>> np.linalg.norm(b - np.array([[b00, b01], [b10, b11]]))
+    >>> float(np.linalg.norm(b - np.array([[b00, b01], [b10, b11]])))
     0.0
-    >>> np.linalg.norm(c - np.array([[c00, c01], [c10, c11]]))
+    >>> float(np.linalg.norm(c - np.array([[c00, c01], [c10, c11]])))
     0.0
 
     Stacking along different axes
@@ -180,11 +180,11 @@ def stack(
     >>> T11 = (a11, (b11, c11))
     >>> T = ((T00, T01), (T10, T11))
     >>> (a, (b, c)) = stacking.stack(T, axes=(1,2))
-    >>> np.linalg.norm(a - np.moveaxis(np.array([[a00, a01], [a10, a11]]), 2, 0))
+    >>> float(np.linalg.norm(a - np.moveaxis(np.array([[a00, a01], [a10, a11]]), 2, 0)))
     0.0
-    >>> np.linalg.norm(b - np.moveaxis(np.array([[b00, b01], [b10, b11]]), 2, 0))
+    >>> float(np.linalg.norm(b - np.moveaxis(np.array([[b00, b01], [b10, b11]]), 2, 0)))
     0.0
-    >>> np.linalg.norm(c - np.moveaxis(np.array([[c00, c01], [c10, c11]]), 2, 0))
+    >>> float(np.linalg.norm(c - np.moveaxis(np.array([[c00, c01], [c10, c11]]), 2, 0)))
     0.0
 
     Stacking when there is only one, non-nested, object

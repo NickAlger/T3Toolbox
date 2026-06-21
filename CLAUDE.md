@@ -14,7 +14,14 @@ historical reference for the algorithms, never as the design target. The README 
 
 - Repo: `github.com/NickAlger/T3Toolbox` (renamed from `TuckerTensorTrainTools`; that rename left
   stale references we've mostly fixed). Branch `main`, direct commits.
-- Env: Python 3.9, conda env `tttt`, JAX available. Authors: Nick Alger, Blake Christierson.
+- Env: conda env **`t3toolbox`** (Python 3.11; modern stack — numpy 2.x, scipy, jax 0.10, optax, chex;
+  the full suite is green on it, ~3.5× slower than the old env due to jax 0.10's jit). The older `tttt`
+  py3.9 env (numpy 1.22 / jax 0.4.30, **no optax**) still works for everything except the optax example.
+  **The library is forward-compatible across both** (numpy 1.22↔2.x, jax 0.4.30↔0.10). Run things with the
+  env's python explicitly, e.g. `/home/nick/miniconda3/envs/t3toolbox/bin/python` (no need to
+  `conda activate`). **`pip install` in `t3toolbox` must use `--only-binary=:all:`** — the inherited
+  `CC`/`CXX` point at `tttt`'s (broken) compiler, so source builds fail; wheels sidestep it. JAX available.
+  Authors: Nick Alger, Blake Christierson.
 
 ## The paper (`t4s.pdf` in repo root)
 
@@ -50,8 +57,9 @@ updated to this version by the time the package is released.
 > frontend is fine — don't bloat the backend. If the logic takes real thought to get right and is easy
 > to get **wrong** (e.g. the base-inner stack-axis bookkeeping, a depth-aware tree zip), it belongs in
 > the backend so they can find and reuse it. **Exception:** logic *inseparable* from the frontend —
-> constructing/validating the `T3*` OO classes (the `.validate()` contracts), same-object identity
-> guards — stays in the frontend regardless, since the backend cannot depend on the frontend.
+> constructing/validating the `T3*` OO classes (the `.validate()` contracts), the same-frame guard (it
+> needs the two `T3Basis` objects) — stays in the frontend regardless, since the backend cannot depend on
+> the frontend.
 > **Corollary:** don't leave a backend user one fiddly step short of a usable result — if a backend
 > function would otherwise force them to know some follow-up call (e.g. `tree_zip` to pair two returned
 > trees), fold that step in so the function returns the directly-usable thing.
@@ -93,7 +101,7 @@ updated to this version by the time the package is released.
 > its **"Start here"** section (one-screen mental model + a concrete shape table + the shape-notation
 > legend), then the numbered sections for the full reference (three meanings of "stack", the base-inner
 > convention and *why*, the `'...'`-vs-grouped-contraction machineries, heterogeneous-stack tuples,
-> `vmap`/`jit` with basis-as-aux). The notes below are the terse version.
+> `vmap`/`jit` with the basis as a pytree leaf). The notes below are the terse version.
 >
 > The three batch **blocks** (mnemonic-and-collision-free letters): **`C`** = base/core stack (base
 > points, on *every* core; `= stack_shape`), **`W`** = probe stack (the `w` vectors, on `ww` only),
@@ -187,21 +195,60 @@ to `xnp`.** Rule: **supercores → `xnp`; masks → `np`.** Full reasoning + the
 - Uppercase single-letter core names (`U V G P Q O …`) are intentional — ignore "should be
   lowercase" linter notes.
 
-## House philosophy: hard guards for structural problems, warnings for numerical ones
+## House philosophy: structural problems always error; numerical preconditions are checked in safe mode
 
 The dividing line is **structural vs numerical**:
 
-- **Structural problems → hard error.** Wrong shape, inconsistent ranks/lengths, mismatched stack
-  shapes, operating across different tangent spaces — these raise. `TuckerTensorTrain`,
-  `T3Basis`, and `T3Variations` validate in `__post_init__`; `T3Tangent` `+`/`-`/`inner` require
-  the **same `T3Basis` object** (identity, not value equality, which would be ambiguous on ndarray
-  fields). If something is the wrong shape: error.
+- **Structural problems → hard error, always (both modes).** Wrong shape, inconsistent ranks/lengths,
+  mismatched stack shapes — these raise unconditionally. `TuckerTensorTrain`, `T3Basis`, and
+  `T3Variations` validate in `__post_init__`. If something is the wrong shape: error. (Structural
+  consistency is *not* governed by the safety mode below.)
 
-- **Numerical problems → warn, don't enforce.** If something is supposed to be orthogonal / gauged /
-  minimal-rank but isn't, let it through and let the result be wrong — do not check at construction.
-  Instead provide non-enforcing checkers (`is_orthogonal`, `is_gauged`, `has_minimal_ranks`) and
-  document the requirement + failure mode in the operation's docstring, often with an illustrative
-  doctest showing it failing when the property is absent.
+- **Numerical problems → enforced as PRECONDITIONS in safe mode, skipped in unsafe / under jit.**
+  *(This supersedes the older "numerical problems → warn, never enforce" rule.)* The library carries an
+  ambient **safety** setting (`t3toolbox/safety.py`, a `contextvars` var — the one sanctioned global,
+  justified because it is correctness-neutral): a tolerance pair is **safe mode** (the default), `None`
+  is **unsafe mode**. In safe mode an op with a genuine numerical **precondition** (its result is
+  *wrong* without it) checks it and raises; `with safety.unsafe():` or a jax trace (jit/grad/vmap — you
+  cannot branch on a tracer) **skips** it. This is **correctness-neutral** (the `assert`/`-O`
+  precedent): the *numbers* are identical, only error-catching differs. The non-enforcing checkers
+  (`is_orthogonal`, `is_gauged`, `has_minimal_ranks`, `safety.frames_equal`) still exist and *are* the
+  checks. Master plan: [`docs/safe_unsafe_mode_plan.md`](docs/safe_unsafe_mode_plan.md); the full
+  precondition-vs-caveat sweep: [`docs/numerical_contract_catalog.md`](docs/numerical_contract_catalog.md).
+
+  - **Precondition vs caveat (only preconditions are enforced).** A **caveat** — the op is valid and
+    correct *as computed*, the property only governs what the result *means* (e.g. "this coordinate dot
+    equals Hilbert–Schmidt") — is **never** enforced; it would reject legitimate use. The enforced
+    preconditions are concentrated in the manifold/tangent surface: **same-frame** (`T3Tangent`
+    `+`/`-`/`stack_tangents`, `GaussNewtonModel` matvecs), **orthogonal frame**
+    (`MANIFOLD.project`/`project_oblique`/`retract`/`project_ambient`/`transport`), **gauged variations**
+    (`MANIFOLD.inner`/`norm`). `TuckerTensorTrain` / `corewise` / `probing` are **precondition-free**
+    (exact for any cores). The check sites use `safety.checks_active(*operand_data)` (safe **and** not
+    tracing) → `safety.require(<checker>(atol=safety.effective_rtol(...)), msg)`, routed through cached
+    residuals (`T3Basis.orthogonality_residual`, `T3Tangent.gauge_residual`) so a fixed frame/tangent in
+    an inner loop is contracted once. **Frontend-only** for now (a backend mirror for raw-`.data` users
+    is deferred).
+
+  - **"Same tangent space" is NUMERICAL, not structural** (the key correction). Two tangents share a
+    tangent space iff their frames are *numerically equal* (`safety.frames_equal`, with an `is`-identity
+    fast path) — **not** object identity. The old `self.basis is other.basis` identity guard was a
+    numerical check faked as structural; it forced `T3Tangent`'s basis to be jax **aux_data** (→ jit
+    recompiled on every base change) and false-failed on a jit round-trip. The numerical guard let the
+    basis become a pytree **leaf** (base flows as traced data → no recompile). Likewise `GaussNewtonModel`
+    is a registered pytree (base/sweep/sample/residual leaves; geometry/kind aux) — you can `jit` the
+    frontend matvec directly and it compiles **once** across all bases.
+
+  - **Two tolerances + minimal-rank naming.** A check picks `rtol_jax` (looser) when any input is a jax
+    array, else `rtol_numpy`, because jax runs **float32** by default — this supports jax-but-not-jit
+    usage in safe mode (autodiff prototyping). Naming: bare **`minimal_ranks` = structural** (cheap
+    integer arithmetic, `has_minimal_ranks`); **`numerically_minimal` = numerical** (an SVD;
+    `has_numerically_minimal_ranks`). **Minimal rank is NOT a correctness precondition for any op**
+    (settled empirically — catalog); it survives only as a `retract` caveat + diagnostic checkers.
+
+  - **inner/norm live on the *Geometry*, not the tangent.** The Hilbert–Schmidt metric is
+    `MANIFOLD.inner`/`norm` (checks same-frame + orthogonal + gauged); the Euclidean coordinate metric is
+    `COREWISE.inner`/`norm` (same-frame only). The raw coordinate ops on `T3Tangent` are
+    `corewise_inner`/`corewise_norm` (no HS claim, no orth/gauge check).
 
 ## Verification & testing
 
@@ -215,8 +262,9 @@ The dividing line is **structural vs numerical**:
   op — a stray `np.*` on a tracer raises, proving no hidden numpy — plus a jax-in→jax-out check for
   dynamic-shape rtol/atol ops, plus a few numerical smoke tests). This cut the full suite from ~550s
   to ~50s. When adding a numerical test, write it numpy-only and add the op to `test_dispatch` if its
-  jax dispatch isn't already covered. (Frozen dataclasses are registered jax pytrees; `T3Tangent` has
-  the **basis as aux_data** so the same-tangent-space identity guard survives jit — see `manifold.py`.)
+  jax dispatch isn't already covered. (Frozen dataclasses are registered jax pytrees; `T3Tangent` carries
+  the **basis as a leaf** — the same-frame guard is a *numerical* `frames_equal` check that survives the
+  jit round-trip, so the base flows as traced data with no per-base recompile — see `manifold.py`.)
   A few tests still build explicit jax operands where that *is* the thing under test (e.g.
   `test_contains_jax`); those keep the `jnp` import.
 - **Doctests = reproducible examples** (not yet wired into CI, but written so they can be): **examples
@@ -226,7 +274,9 @@ The dividing line is **structural vs numerical**:
   (no cross-product); long tail → prose. **Run the example and paste the real output — never hand-write
   it.** Full convention + exemplar (`manifold.py`): **[`docs/doctest_style.md`](docs/doctest_style.md)**.
   (Supersedes the old "illustrative captured values" convention.)
-- **Running tests/scripts**: scripts run from `/tmp` need `PYTHONPATH=/home/nick/repos/T3Toolbox`.
+- **Running tests/scripts**: use the env's python directly, e.g.
+  `PYTHONPATH=$PWD /home/nick/miniconda3/envs/t3toolbox/bin/python -m pytest tests/ -q` (scripts run from
+  `/tmp` need `PYTHONPATH=/home/nick/repos/T3Toolbox`). The optax example needs the `t3toolbox` env.
 
 ## Workflow (how Nick likes to work)
 
@@ -260,8 +310,9 @@ APIs, half-applied refactors, broken imports, and doctests whose "outputs" were 
 earlier draft. We are working through the codebase **file-by-file**, making each module actually run
 and pass tests before moving on. **Do not assume a module works just because it exists and looks
 complete — verify by running it.** Worked through and verified so far: `tucker_tensor_train.py`,
-`basis_variations_format.py`, `manifold.py`, and the backend functions those three rely on.
-Treat everything else as copied-in-and-not-yet-working until checked.
+`basis_variations_format.py`, `manifold.py` (incl. the `ManifoldGeometry`/`CorewiseGeometry` layer),
+`fitting.py` (the geometry-generic `GaussNewtonModel`), `safety.py` (the safe/unsafe-mode mechanism), and
+the backend functions those rely on. Treat everything else as copied-in-and-not-yet-working until checked.
 
 - **Solid / tested** — *numerical correctness in numpy*; jax **dispatch** (that jax is actually
   invoked, no hidden numpy) is covered separately by `tests/test_dispatch.py`, **not** a duplicate
@@ -273,6 +324,77 @@ Treat everything else as copied-in-and-not-yet-working until checked.
   K-stacked forward probe and transpose via 3-group contractions), checkers).
   Tests: `tests/test_tucker_tensor_train.py`, `test_basis_variations_format.py`, `test_manifold.py`,
   `test_dispatch.py`, `backend/test_contractions.py` (suite ~45s).
+- **Solid / tested — the geometry refactor + safe/unsafe mode (branch `geometry-refactor`).** A
+  Manopt-style **geometry abstraction**: `ManifoldGeometry`/`CorewiseGeometry` singletons (`MANIFOLD`/
+  `COREWISE` in `manifold.py`) bundle the chart choices (frame `base`, gauge `project`, `retract`, the
+  HS `inner`/`norm`); one geometry-generic `GaussNewtonModel` (`fitting.py`) with `apply`/`entries`/
+  `probe` factories, `gradient`/`gn_hessian`/`jacobian`/`gn_quadratic`/`evaluate`. **Safe/unsafe mode**
+  (`safety.py`, S1–S6): ambient `contextvars` tolerance (safe default / `None` unsafe), numerical
+  **preconditions** enforced in safe mode + skipped under unsafe/jit, two tolerances (numpy/jax),
+  eager-only. The same-frame guard is numericalized (`frames_equal`), `T3Tangent`'s basis + the whole
+  `GaussNewtonModel` are jax **leaves** → `jit(matvec)` compiles once across bases (no per-base
+  recompile). ORTH preconditions wired into the manifold projections/retraction; inner/norm moved to the
+  geometries; minimal-rank settled (not a precondition). Docs: `docs/safe_unsafe_mode_plan.md`,
+  `docs/numerical_contract_catalog.md`, `docs/geometry_refactor_plan.md`. Tests: `test_safety.py` +
+  the geometry/safe-mode cases in `test_manifold`/`test_fitting`/`test_dispatch`.
+- **Solid / tested — the optimizers (G3, branch `geometry-refactor`).** **Backend-first** (the razor:
+  algorithms in `backend/optimizers.py`, check-free of numerical preconditions; `optimizers.py` is a thin
+  validate-once frontend adapter — so a raw-`.data` user runs the *same* code). The **problem oracle**
+  (`Problem`/`LocalModel`/`GeometryOps`; `least_squares_problem(geom, kind, sample, data)`) is the backend
+  twin of `GaussNewtonModel` (bit-identical, verified) built from `backend/fitting`+`probing`; geometry ops
+  for both `COREWISE`/`MANIFOLD`. Four optimizers: `gradient_descent` (Cauchy+Armijo), `mc_sgd` (Manifold
+  Cauchy SGD, absolute-iteration stop), `adam` (corewise, `corewise_map` moments), `newton_cg` (inexact
+  Riemannian, inner CG as `common.xwhile` = Python-while / `lax.while_loop`). **`use_jit`** (default False,
+  silent eager fallback) jits the per-step kernel / the CG loop — *not* a safe/unsafe concern (the backend
+  has no numerical checks); the numpy/jax **dispatch composes with jit for free** (trace-time → jnp).
+  L-BFGS stays the scipy-bridge *example*, not a library optimizer. Minibatching is a **user-supplied
+  `draw(rng) -> (sample_B, data_B)`** (default `flat_draw` = a random subset across the flattened sample
+  stack `W`); the `Problem` is **layout-agnostic** (the kind owns `point_forward`/`n_measurements`/`take`;
+  no `kind.name` dispatch). Design: `docs/optimizers_plan.md`; **the full architecture +
+  rationale + usage: [`docs/fitting_and_optimization.md`](docs/fitting_and_optimization.md)**. Tests:
+  `tests/backend/test_optimizers.py` + `tests/test_optimizers_frontend.py` + `tests/test_fitting.py`.
+- **Solid / tested — fitting from DERIVATIVE data (D1–D4, branch `geometry-refactor`).** The whole
+  derivative-fitting surface, end to end: `backend/fitting.{apply,entries,probe}_derivatives_kind(order,
+  weight)` (operator-only `SamplingKind`s; the per-order residual weight `ω` enters only `sumsq` (×ω) /
+  `transpose` (×ω²), with raw `forward`/`point_forward`/data) feed the **same** generic `Problem`/
+  optimizers; the frontend `fitting.{apply,entries,probe}_derivatives_model` + the `optimizers.py` adapter
+  (kind strings `'apply_derivatives'`… + keyword `order`/`weight`/`draw`). Base-sweep **reuse** mirrors
+  regular probing (`precompute_{apply,probe,entries}_base_sweep_jets` + `*_jacobian/transpose_derivatives_
+  from_sweep`; apply/entries lean `(xi,mu)`, probe full `(xi,mu,nu,eta)`). Pilot:
+  `examples/fit_hilbert_from_apply_derivatives_topt.py` (recovers to the noise floor, matches the inline
+  reference). Verified vs `jax.grad` / finite-difference / backend-oracle; full suite green. Plan:
+  `docs/derivative_fitting_plan.md`.
+- **Research study — symmetric-polynomial recovery (branch `polynomial_fitting_experiments`, NOT on
+  `geometry-refactor`).** A self-contained study in `experiments/` (separate branch off `geometry-refactor`;
+  needs its derivative-fitting optimizers to run) exercising the apply-derivatives fit as **polynomial
+  regression**: a degree-`d` polynomial in `N` vars is the homogenization `f(x)=T((1,x),…)` of an order-`d`
+  mode-`N+1` tensor, and its symmetric directional derivatives are `T`'s apply-derivative jets, so fitting
+  `T` from `{f, f', f'', …}` samples IS an `apply_derivatives` fit. Files: `fit_polynomial_order_continuation.py`
+  (order-continuation demo, the `e₀` warm start), `compare_continuation_and_optimizers.py` (the 2×2
+  {rank-only, order+rank} × {Newton-CG, MC-SGD} on a tunable slow-decay target `sym(randn)×diag(1/i^β)` + T3-SVD
+  oracle), `metric_trade.py` (function-space vs Frobenius error of each fit's symmetric part), and the writeup
+  `symmetric_polynomial_fitting.tex`. **Key findings:** (1) **Newton-CG recovers the true tensor** — its
+  symmetric part matches to ~0.2% in *both* the function-space and Frobenius norms (metric-balanced), beating
+  the Frobenius oracle in each; no overfit at excess rank. (2) **MC-SGD under-converges** and stops *tilted*
+  toward the function-space metric (decent function error, ~5× worse Frobenius than the oracle) — recovers the
+  *function*, not the *tensor*; the tilt is a symptom of slow first-order convergence (**prefer second-order
+  on these ill-conditioned high-rank symmetric fits**). (3) **Order continuation ties rank continuation** (no
+  accuracy gain, ~2× cost); the real ingredient is the **constant seed + rank-1-first growth** discipline. (4)
+  The **symmetric null space is benign** (an early high-rank "blow-up" was a warm-start artifact); both fits
+  carry an **~85% non-symmetric null-space halo** — *symmetrize the fit to recover the tensor*.
+- **Solid / tested — two foundation improvements this session (branch `geometry-refactor`).** (1) **The
+  `contractions.py` BLAS-path fix** — `_grouped_einsum` routes the numpy path through a forced greedy-
+  pairwise BLAS path (numpy's `optimize=True` ran the order-combines as a single non-BLAS `c_einsum`,
+  10–55× slow), jax keeps one big einsum (XLA's opt_einsum + fusion beats forced pairwise). **11–19× on
+  the derivative forward/transpose**; numerically identical (~1e-14). (2) **The low-memory, `K`-aware
+  adjoint-state apply/entries transpose** (`probing.py`) — replaces the **scatter** (which stored the full
+  `(xi,mu,nu,eta)` base sweep, cheap matvec) with the **adjoint-state** seeded `sigma_hat` reverse sweep
+  (stores only `(xi,mu)`, recomputes the right context): **exactly 2× less `W`-scaling memory** (the trade
+  Nick wants for memory-bound large-minibatch Newton-CG — see the `prefer-low-memory-over-compute` memory),
+  and it gains `K`-awareness (the residual may carry a tangent stack). It is the **store-vs-recompute
+  (checkpointing)** choice; probe can't use it (vector residual). This surfaced + fixed a **latent
+  `rR_d≠1` seed bug** (the corewise `(U,G,G,G)` substitution makes the summed terminal bond ≠1, so the
+  adjoint seed must *broadcast* `c` over it) in **both** `probing` and `probe_derivatives`.
 - **Probing + K-stacking (`backend/probing.py`, `manifold.py`)** — done through **slice 5c**; the
   blow-by-blow is in git history, and `docs/probing_section6_notes.md` maps Section 6 of the paper
   (the Riemannian Jacobian) to the code. Delivered: forward/transpose probe
@@ -309,8 +431,11 @@ Treat everything else as copied-in-and-not-yet-working until checked.
   through **slice 8** (foundation, orthogonalization, linalg, sampling, ut3svd, jax-wiring/host-masks,
   constructors+IO) and **jit-wired** (pytree registered; host-numpy masks; `tests/test_dispatch.py`
   `test_jit_uniform`). Live status + remaining slices: `docs/uniform_slice_handoff.md`.
-- **Solid / tested — symmetric probing derivatives (branch `probe-derivatives`, NOT yet merged to
-  `main`; under review).** `d^t/ds^t` of the three sampling ops (`probe`/`apply`/`entries`) in one
+- **Solid / tested — symmetric probing derivatives (✅ MERGED to `main`; present on `geometry-refactor`).**
+  *(The `probe-derivatives` feature branch is merged — `backend/probe_derivatives.py` + the frontend
+  `{apply,probe,entries}_derivatives` methods/transposes are on `main` and inherited by `geometry-refactor`;
+  the old branch is now stale. Verified 2026-06-20 against git ancestry.)* `d^t/ds^t` of the three sampling
+  ops (`probe`/`apply`/`entries`) in one
   repeated direction `P`, via a Taylor-jet axis + the binomial tensor `trs[t,r,s]=C(t,r)[r+s=t]`. The
   **full grid** is built in `backend/probe_derivatives.py` **and the frontend** (`TuckerTensorTrain` /
   `T3Tangent` `{probe,apply,entries}_derivatives` + their transposes): **forward** (Euclidean
@@ -337,16 +462,15 @@ Treat everything else as copied-in-and-not-yet-working until checked.
 
 ## Open questions / TODO
 
-- **Symmetric probing derivatives — remaining (branch `probe-derivatives`; plan
-  `docs/derivatives_mirror_plan.md`).** The feature is **functionally complete**: apply/entries
-  derivatives, `K`-stacking, tangent + corewise transposes, and the full frontend are all done and
-  tested (see "Current state"). Remaining: (1) **doc refresh** — `entries_apply_probe.md` (stale §4
-  table + add the derivative dimension), `symmetric_probe_derivatives.tex` (add apply/entries + `K`);
-  (2) **review + merge to `main`**. **Deferred:** the **ambient** transpose (no use case, exponential-rank
-  — `docs/ambient_derivative_transpose_note.md`); the project-once gather optimization. **Deferred
-  nice-to-haves (Nick's call):** a derivative **fitting example** (mimic
-  `examples/fit_hilbert_tensor_newton_cg.py`); the **Hessian-conditioning experiment**
-  (`docs/derivative_order_information_and_conditioning.md`).
+- **Symmetric probing derivatives — feature + fitting both DONE.** The derivative ops (apply/entries/probe
+  forwards, `K`-stacking, tangent + corewise transposes, full frontend) are merged to `main`; **fitting
+  from derivative data is now wired through the optimizers (D1–D4)** — derivative `SamplingKind`s +
+  frontend models + the pilot example (see "Current state"; `docs/derivative_fitting_plan.md`,
+  `docs/fitting_and_optimization.md`). Remaining: **doc refresh** — `entries_apply_probe.md` (stale §4
+  table + the derivative dimension), `symmetric_probe_derivatives.tex` (add apply/entries + `K`).
+  **Deferred:** the **ambient** derivative transpose (no use case, exponential-rank —
+  `docs/ambient_derivative_transpose_note.md`); the project-once gather optimization; the
+  **Hessian-conditioning experiment** (`docs/derivative_order_information_and_conditioning.md`).
 - **The transpose grid — DONE & REDESIGNED (ragged).** Each sampling op (`entries`/`apply`/`probe`)
   now has **three** transposes — **ambient / corewise / tangent** — read **[`docs/transposes.md`](docs/transposes.md)**
   (taxonomy, costs, decision guide) and the work log [`docs/transpose_redesign_handoff.md`](docs/transpose_redesign_handoff.md).
@@ -362,11 +486,21 @@ Treat everything else as copied-in-and-not-yet-working until checked.
   - **tangent** = Riemannian gradient, a `T3Tangent`: `T3Tangent.{apply,entries,probe}_transpose`
     (unchanged; `sum_over_probes=False` keeps `W`, `=True` is `Jᵀr`). Older history:
     [`docs/apply_entries_handoff.md`](docs/apply_entries_handoff.md), `docs/batching_and_stacking.md` §11.
-- **A least-squares fitting example/tutorial — wanted, deferred (Nick's call).** Show `apply`/`entries`
-  as the forward sampling operator `J` and the summed transpose (`sum_over_probes=True`) as the gradient
-  `Jᵀr` and Gauss-Newton Hessian `JᵀJ v` — the worked use case that motivates `sum_over_probes=True`.
-  Blocked on bringing Nick's optimization code into the project (cleanup + tests = substantial); come
-  back to it later. This is the deferred "S4" follow-up to the §11 transpose docs.
+- **Least-squares fitting — DONE (the whole layer + examples are in).** The `GaussNewtonModel` /
+  `Problem` oracle (gradient `Jᵀr`, GN Hessian `JᵀJ v`, the cheap `gn_quadratic`), the four library
+  optimizers, the geometries, and fitting from apply/entries/probe **and their derivatives** are all
+  built, tested, and demonstrated (`examples/fit_hilbert_*`). Architecture + usage + design rationale:
+  **[`docs/fitting_and_optimization.md`](docs/fitting_and_optimization.md)**.
+  - **Remaining (deferred, Nick's call):** the **example pass** — work through all `examples/fit_hilbert_*`
+    and decide which use the library optimizers vs keep them inline to illustrate the hidden hooks
+    (`gn_hessian`, `gn_quadratic`, `corewise_map`); the two-track plan is `docs/optimizers_plan.md` §10
+    (PROPOSED, not locked). And the **Goal-1 `fit(...)` facade** (auto geometry/optimizer/ranks/`x0` +
+    rank-continuation/validation helper) — what delivers "standard user, no fiddling".
+  - **Worked research study (separate branch).** The optimizers were exercised end-to-end on a
+    polynomial-recovery task in `experiments/` on branch **`polynomial_fitting_experiments`** — see the
+    Current-state bullet above and `experiments/symmetric_polynomial_fitting.tex`. Practical takeaway for
+    a future facade: on ill-conditioned high-rank symmetric fits **prefer Newton-CG** (MC-SGD
+    under-converges), and **rank continuation alone** (constant seed + rank-1-first) suffices.
 - **Which ops require a minimal-rank basis** (partly answered, full audit pending): gauge
   projections need orthogonality only; `inner`/`norm` Hilbert-Schmidt faithfulness needs orthogonal
   + minimal + gauged; `retract` preserves base ranks only on a minimal base; `project`/
@@ -381,6 +515,14 @@ Treat everything else as copied-in-and-not-yet-working until checked.
   **uniform transpose mirror** (ambient doable now — `from_canonical` just landed; corewise/tangent gated
   on the tangent layer); and the deferred **uniform tangent layer** (`ubv_*`, `uniform_*`).
 - Redesign the **weighted tensor network** code structure.
+- **✅ DONE (2026-06-21) — numpy-2.0 doctest breakage swept.** numpy 2.x changed scalar reprs
+  (`np.False_`/`np.True_` not `False`/`True`; `np.float64(x)` wrappers), breaking 11 printed-scalar doctest
+  examples that the green unittest suite did not cover (doctests aren't wired into CI). Fixed by a full
+  per-module `python -m doctest` sweep on the `t3toolbox` env: wrapped `np.linalg.norm(...)` results in
+  `float(...)` (`backend/stacking.py` ×6, `tucker_tensor_train.py` ×4) and updated the nested-tuple
+  `np.bool_` expected output in `corewise.corewise_logical_not` (×1, can't wrap a nested element). Sweep is
+  now clean across the whole library (the deferred uniform/weighted layers excepted — they fail on import,
+  unrelated). *Still open:* wire doctests into CI so this can't silently regress (see cleanup backlog below).
 - Cleanup backlog: `OLD_*.py` + stray `.npz` artifacts; wire doctests into CI; docs (`conf.py` autoapi
   excludes backend/weighted, committed `_build`, `modules.rst` still titled "TuckerTensorTrainTools").
 - **Doctests — existing-doctest sweep ✅ DONE.** All verified modules' **existing** doctests reworked

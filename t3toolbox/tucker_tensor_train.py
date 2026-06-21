@@ -690,6 +690,36 @@ class TuckerTensorTrain:
         """
         return (self.tucker_ranks, self.tt_ranks) == self.minimal_ranks
 
+    def has_numerically_minimal_ranks(self, rtol: float = 1e-9) -> bool:
+        """True if the ranks are **numerically** minimal: no stored rank is numerically redundant.
+
+        Distinct from :py:attr:`has_minimal_ranks`, which is **structural** (ranks equal the structural
+        minimum). A tensor can be structurally minimal yet have a near-zero singular value at some rank
+        boundary (numerically redundant); this catches that. Algorithm: the cheap **structural** check
+        first (structural redundancy implies numerical redundancy), then -- only if structurally minimal
+        -- an :py:meth:`t3svd` at relative tolerance ``rtol`` and a comparison of the truncated ranks to
+        the stored ranks. The ``t3svd`` makes this O(tensor) -- a diagnostic, not a hot-path check.
+
+        For an **orthonormal frame** prefer :py:meth:`T3Basis.has_numerically_minimal_ranks`, which needs
+        no SVD (orthonormal cores are full-rank, so structurally-minimal => numerically-minimal).
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
+        >>> print(x.has_minimal_ranks, x.has_numerically_minimal_ranks())   # full-rank random tensor
+        True True
+        >>> xbig = x.resize((6, 7, 5), (3, 2, 2), (1, 2, 2, 1))  # tucker_0 padded -> a redundant rank
+        >>> print(xbig.has_minimal_ranks, xbig.has_numerically_minimal_ranks())
+        False False
+        """
+        if not self.has_minimal_ranks:
+            return False                                # structural redundancy => numerical redundancy
+        truncated = self.t3svd(rtol=rtol)[0]
+        return (self.tucker_ranks, self.tt_ranks) == (truncated.tucker_ranks, truncated.tt_ranks)
+
     def is_left_orthogonal(self, atol: float = 1e-9) -> bool:
         """True if this T3 is in **left-orthogonal form**: every Tucker core down-orthogonal and every
         TT core except the last left-orthogonal (the last TT core is the center remainder).
@@ -1623,9 +1653,9 @@ class TuckerTensorTrain:
         >>> x2 = t3.TuckerTensorTrain.load(fname) # Load from file
         >>> tucker_cores, tt_cores = x.data
         >>> tucker_cores2, tt_cores2 = x2.data
-        >>> print([np.linalg.norm(B - B2) for B, B2 in zip(tucker_cores, tucker_cores2)])
+        >>> print([float(np.linalg.norm(B - B2)) for B, B2 in zip(tucker_cores, tucker_cores2)])
         [0.0, 0.0, 0.0]
-        >>> print([np.linalg.norm(G - G2) for G, G2 in zip(tt_cores, tt_cores2)])
+        >>> print([float(np.linalg.norm(G - G2)) for G, G2 in zip(tt_cores, tt_cores2)])
         [0.0, 0.0, 0.0]
         """
         common.save_core_families(file, self.data)
@@ -1674,9 +1704,9 @@ class TuckerTensorTrain:
         >>> x2 = t3.TuckerTensorTrain.load(fname) # Load from file
         >>> tucker_cores, tt_cores = x.data
         >>> tucker_cores2, tt_cores2 = x2.data
-        >>> print([np.linalg.norm(B - B2) for B, B2 in zip(tucker_cores, tucker_cores2)])
+        >>> print([float(np.linalg.norm(B - B2)) for B, B2 in zip(tucker_cores, tucker_cores2)])
         [0.0, 0.0, 0.0]
-        >>> print([np.linalg.norm(G - G2) for G, G2 in zip(tt_cores, tt_cores2)])
+        >>> print([float(np.linalg.norm(G - G2)) for G, G2 in zip(tt_cores, tt_cores2)])
         [0.0, 0.0, 0.0]
         """
         tucker_cores, tt_cores = common.load_core_families(file)
