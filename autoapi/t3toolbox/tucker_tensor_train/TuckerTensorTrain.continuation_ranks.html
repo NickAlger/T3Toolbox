@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>TuckerTensorTrain.probe_derivatives &#8212; T3Toolbox 0.1 documentation</title>
+    <title>TuckerTensorTrain.continuation_ranks &#8212; T3Toolbox 0.1 documentation</title>
   
   
   
@@ -42,13 +42,13 @@
     <script src="../../../_static/documentation_options.js?v=2709fde1"></script>
     <script src="../../../_static/doctools.js?v=fd6eb6e6"></script>
     <script src="../../../_static/sphinx_highlight.js?v=6ffebe34"></script>
-    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.probe_derivatives';</script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.continuation_ranks';</script>
     <script>DOCUMENTATION_OPTIONS.search_as_you_type = false;</script>
     <link rel="icon" href="../../../_static/favicon.ico"/>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="TuckerTensorTrain.apply_derivatives" href="TuckerTensorTrain.apply_derivatives.html" />
-    <link rel="prev" title="TuckerTensorTrain.entries_corewise_transpose" href="TuckerTensorTrain.entries_corewise_transpose.html" />
+    <link rel="next" title="TuckerTensorTrain.rank_adjustment_sweep" href="TuckerTensorTrain.rank_adjustment_sweep.html" />
+    <link rel="prev" title="TuckerTensorTrain.t3svd" href="TuckerTensorTrain.t3svd.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="" />
@@ -387,14 +387,14 @@
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.entries_ambient_transpose.html">TuckerTensorTrain.entries_ambient_transpose</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.apply_corewise_transpose.html">TuckerTensorTrain.apply_corewise_transpose</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.entries_corewise_transpose.html">TuckerTensorTrain.entries_corewise_transpose</a></li>
-<li class="toctree-l4 current active"><a class="current reference internal" href="#">TuckerTensorTrain.probe_derivatives</a></li>
+<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.probe_derivatives.html">TuckerTensorTrain.probe_derivatives</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.apply_derivatives.html">TuckerTensorTrain.apply_derivatives</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.entries_derivatives.html">TuckerTensorTrain.entries_derivatives</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.probe_corewise_derivatives_transpose.html">TuckerTensorTrain.probe_corewise_derivatives_transpose</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.apply_corewise_derivatives_transpose.html">TuckerTensorTrain.apply_corewise_derivatives_transpose</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.entries_corewise_derivatives_transpose.html">TuckerTensorTrain.entries_corewise_derivatives_transpose</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.t3svd.html">TuckerTensorTrain.t3svd</a></li>
-<li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.continuation_ranks.html">TuckerTensorTrain.continuation_ranks</a></li>
+<li class="toctree-l4 current active"><a class="current reference internal" href="#">TuckerTensorTrain.continuation_ranks</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.rank_adjustment_sweep.html">TuckerTensorTrain.rank_adjustment_sweep</a></li>
 <li class="toctree-l4"><a class="reference internal" href="TuckerTensorTrain.t3svd_dense.html">TuckerTensorTrain.t3svd_dense</a></li>
 </ul>
@@ -455,7 +455,7 @@
     
     <li class="breadcrumb-item"><a href="TuckerTensorTrain.html" class="nav-link">TuckerTensorTrain</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">TuckerTensorTrain.probe_derivatives</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">TuckerTensorTrain.continuation_ranks</span></li>
   </ul>
 </nav>
 </div>
@@ -472,47 +472,88 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="tuckertensortrain-probe-derivatives">
-<h1>TuckerTensorTrain.probe_derivatives<a class="headerlink" href="#tuckertensortrain-probe-derivatives" title="Link to this heading">#</a></h1>
+  <section id="tuckertensortrain-continuation-ranks">
+<h1>TuckerTensorTrain.continuation_ranks<a class="headerlink" href="#tuckertensortrain-continuation-ranks" title="Link to this heading">#</a></h1>
 <dl class="py method">
-<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_derivatives">
-<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.</span></span><span class="sig-name descname"><span class="pre">probe_derivatives</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ww</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pp</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">order</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_derivatives" title="Link to this definition">#</a></dt>
-<dd><p>Symmetric directional derivatives of probing this Tucker tensor train, in one repeated direction.</p>
-<p>Returns, for each mode <code class="docutils literal notranslate"><span class="pre">i</span></code>, the stack <code class="docutils literal notranslate"><span class="pre">y_i^(t)</span> <span class="pre">=</span> <span class="pre">d^t/ds^t</span> <span class="pre">[probe(X</span> <span class="pre">+</span> <span class="pre">s</span> <span class="pre">P)]_i|_0</span></code> for
-<code class="docutils literal notranslate"><span class="pre">t=0..order</span></code> – the derivative analogue of <a class="reference internal" href="TuckerTensorTrain.probe.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe"><code class="xref py py-meth docutils literal notranslate"><span class="pre">probe()</span></code></a>, perturbing every probe vector in
-the same direction <code class="docutils literal notranslate"><span class="pre">P</span></code>. Index <code class="docutils literal notranslate"><span class="pre">0</span></code> is the ordinary <a class="reference internal" href="TuckerTensorTrain.probe.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe"><code class="xref py py-meth docutils literal notranslate"><span class="pre">probe()</span></code></a>. Stacks <code class="docutils literal notranslate"><span class="pre">order</span> <span class="pre">+</span> <span class="pre">W</span> <span class="pre">+</span> <span class="pre">C</span></code>
-(order outermost; probe stack <code class="docutils literal notranslate"><span class="pre">W</span></code>, T3 stack <code class="docutils literal notranslate"><span class="pre">C</span></code>). <code class="docutils literal notranslate"><span class="pre">X</span></code> (<code class="docutils literal notranslate"><span class="pre">ww</span></code>) and <code class="docutils literal notranslate"><span class="pre">P</span></code> (<code class="docutils literal notranslate"><span class="pre">pp</span></code>) must
-share the sample stack <code class="docutils literal notranslate"><span class="pre">W</span></code>. (For the gradient w.r.t. the cores, see
-<a class="reference internal" href="TuckerTensorTrain.probe_corewise_derivatives_transpose.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_corewise_derivatives_transpose" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_corewise_derivatives_transpose"><code class="xref py py-meth docutils literal notranslate"><span class="pre">probe_corewise_derivatives_transpose()</span></code></a>; for the Riemannian Jacobian use
-<code class="docutils literal notranslate"><span class="pre">T3Tangent.probe_derivatives</span></code>.) See <code class="docutils literal notranslate"><span class="pre">docs/symmetric_probe_derivatives.tex</span></code>.</p>
+<dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.continuation_ranks">
+<span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.</span></span><span class="sig-name descname"><span class="pre">continuation_ranks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tau</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_chunk</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kappa_guard</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1000000000000.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_grow</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">rtol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">atol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.continuation_ranks" title="Link to this definition">#</a></dt>
+<dd><p>Rank-continuation update (Section 5.4.1): the ranks to grow to next, from this iterate’s spectra.</p>
+<p>Computes the implicit T3-SVD of <code class="docutils literal notranslate"><span class="pre">self</span></code> and feeds the unfolding singular values to
+<code class="xref py py-func docutils literal notranslate"><span class="pre">t3toolbox.backend.ranks.compute_continuation_ranks()</span></code>, which grows the well-conditioned
+edges (each edge’s condition number a factor <code class="docutils literal notranslate"><span class="pre">tau</span></code> below the worst) so the ranks trend toward
+comparable conditioning across edges. Pair with <a class="reference internal" href="TuckerTensorTrain.resize.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.resize" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.resize"><code class="xref py py-meth docutils literal notranslate"><span class="pre">resize()</span></code></a> for the zero-padded warm start
+of the next fit – this is the outer loop of Riemannian fitting with rank continuation:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">new_tucker</span><span class="p">,</span> <span class="n">new_tt</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">continuation_ranks</span><span class="p">()</span>
+<span class="n">X0</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">new_tucker</span><span class="p">,</span> <span class="n">new_tt</span><span class="p">)</span>   <span class="c1"># warm start at the grown ranks (same tensor)</span>
+</pre></div>
+</div>
+<p>The current ranks are read from the SVD: with the default (no <code class="docutils literal notranslate"><span class="pre">rtol</span></code>/<code class="docutils literal notranslate"><span class="pre">atol</span></code>) these are the
+structural ranks of <code class="docutils literal notranslate"><span class="pre">self</span></code> – which, for a converged minimal-rank iterate, are its core ranks;
+pass <code class="docutils literal notranslate"><span class="pre">rtol</span></code>/<code class="docutils literal notranslate"><span class="pre">atol</span></code> to continue from the numerical rank at that tolerance instead.
+<code class="docutils literal notranslate"><span class="pre">kappa_guard</span></code> is an absolute conditioning safety net (see the backend function): when <strong>no</strong>
+edge is below it, the returned ranks <strong>equal</strong> <code class="docutils literal notranslate"><span class="pre">self</span></code>’s current ranks – the caller’s signal to
+stop continuation. (The current ranks are also returned when the structure is already maximal;
+both mean “stop”.) Defined for a single (unstacked) T3 only.</p>
+<p><code class="docutils literal notranslate"><span class="pre">max_grow</span></code> caps how many edges grow per call: <code class="docutils literal notranslate"><span class="pre">None</span></code> (default) grows every eligible edge at
+once; <code class="docutils literal notranslate"><span class="pre">max_grow=1</span></code> grows <strong>one edge at a time</strong> (the single best-conditioned edge that has
+structural room) – pair with <code class="docutils literal notranslate"><span class="pre">tau=1.0</span></code> for the most conservative, finest-grained continuation.</p>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
-<p><a class="reference internal" href="TuckerTensorTrain.probe.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe"><code class="xref py py-obj docutils literal notranslate"><span class="pre">probe</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.apply_derivatives.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_derivatives" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_derivatives"><code class="xref py py-obj docutils literal notranslate"><span class="pre">apply_derivatives</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.probe_corewise_derivatives_transpose.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_corewise_derivatives_transpose" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_corewise_derivatives_transpose"><code class="xref py py-obj docutils literal notranslate"><span class="pre">probe_corewise_derivatives_transpose</span></code></a></p>
+<p><code class="xref py py-func docutils literal notranslate"><span class="pre">t3toolbox.backend.ranks.compute_continuation_ranks()</span></code>, <code class="xref py py-func docutils literal notranslate"><span class="pre">t3toolbox.backend.ranks.edge_condition_numbers()</span></code>, <a class="reference internal" href="TuckerTensorTrain.resize.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.resize" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.resize"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.resize()</span></code></a>, <a class="reference internal" href="TuckerTensorTrain.t3svd.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd"><code class="xref py py-meth docutils literal notranslate"><span class="pre">TuckerTensorTrain.t3svd()</span></code></a></p>
 </div>
 <p class="rubric">Examples</p>
+<p>Mid-continuation: at a low-rank iterate, ask which ranks to grow to next, then warm-start there
+by zero-padding (<code class="docutils literal notranslate"><span class="pre">resize</span></code>) – the represented tensor is unchanged, ready for the next fit:</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">x</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">14</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="mi">16</span><span class="p">),</span> <span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">ww</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">14</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">15</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">16</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">pp</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">14</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">15</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="mi">16</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">zj</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">probe_derivatives</span><span class="p">(</span><span class="n">ww</span><span class="p">,</span> <span class="n">pp</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">([</span><span class="n">z</span><span class="o">.</span><span class="n">shape</span> <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="n">zj</span><span class="p">])</span>           <span class="c1"># (order+1,) + (Ni,)</span>
-<span class="go">[(4, 14), (4, 15), (4, 16)]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">([</span><span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">z</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">z0</span><span class="p">))</span> <span class="k">for</span> <span class="n">z</span><span class="p">,</span> <span class="n">z0</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">zj</span><span class="p">,</span> <span class="n">x</span><span class="o">.</span><span class="n">probe</span><span class="p">(</span><span class="n">ww</span><span class="p">))])</span>  <span class="c1"># order 0 == probe</span>
-<span class="go">[True, True, True]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ogrid</span><span class="p">[</span><span class="mi">1</span><span class="p">:</span><span class="mi">7</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">7</span><span class="p">,</span> <span class="mi">1</span><span class="p">:</span><span class="mi">7</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">A</span> <span class="o">=</span> <span class="mf">1.0</span> <span class="o">/</span> <span class="p">(</span><span class="n">i</span> <span class="o">+</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">j</span> <span class="o">+</span> <span class="mi">4</span> <span class="o">*</span> <span class="n">k</span><span class="p">)</span>                                   <span class="c1"># smooth, anisotropic per mode</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">X</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">t3svd_dense</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">max_tucker_ranks</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">max_tt_ranks</span><span class="o">=</span><span class="mi">2</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">tucker_ranks</span><span class="p">,</span> <span class="n">X</span><span class="o">.</span><span class="n">tt_ranks</span><span class="p">)</span>                              <span class="c1"># a rank-2 iterate</span>
+<span class="go">(2, 2, 2) (1, 2, 2, 1)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">new_tucker</span><span class="p">,</span> <span class="n">new_tt</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">continuation_ranks</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">new_tucker</span><span class="p">,</span> <span class="n">new_tt</span><span class="p">)</span>                                      <span class="c1"># the grown ranks for the next fit</span>
+<span class="go">(3, 3, 3) (1, 3, 3, 1)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">X0</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">resize</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">new_tucker</span><span class="p">,</span> <span class="n">new_tt</span><span class="p">)</span>                     <span class="c1"># zero-padded warm start</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">X0</span><span class="o">.</span><span class="n">tucker_ranks</span><span class="p">,</span> <span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">X0</span><span class="o">.</span><span class="n">to_dense</span><span class="p">(),</span> <span class="n">X</span><span class="o">.</span><span class="n">to_dense</span><span class="p">())))</span>
+<span class="go">(3, 3, 3) True</span>
+</pre></div>
+</div>
+<p>The edge condition numbers that drive the choice (length-1 boundary TT bonds are 1.0). Here all
+edges are comparably conditioned (~15–24), so none is a factor <code class="docutils literal notranslate"><span class="pre">tau=10</span></code> below the worst and
+the fallback grows them uniformly:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.backend.ranks</span> <span class="k">as</span> <span class="nn">ranks</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">_</span><span class="p">,</span> <span class="n">ss_tucker</span><span class="p">,</span> <span class="n">ss_tt</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">t3svd</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">kappa_tucker</span><span class="p">,</span> <span class="n">kappa_tt</span> <span class="o">=</span> <span class="n">ranks</span><span class="o">.</span><span class="n">edge_condition_numbers</span><span class="p">(</span><span class="n">ss_tucker</span><span class="p">,</span> <span class="n">ss_tt</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">([</span><span class="nb">round</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">kappa_tucker</span><span class="p">])</span>
+<span class="go">[23.94, 15.91, 14.91]</span>
+</pre></div>
+</div>
+<p>A stricter <code class="docutils literal notranslate"><span class="pre">tau</span></code> grows only edges well below the worst – here it holds back the stiffest
+Tucker mode and TT bond (condition number ~24) while growing the better-conditioned ones:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">continuation_ranks</span><span class="p">(</span><span class="n">tau</span><span class="o">=</span><span class="mf">1.5</span><span class="p">))</span>
+<span class="go">((2, 3, 3), (1, 2, 3, 1))</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">max_grow=1</span></code> grows only the single best-conditioned edge that has room (one edge at a time),
+instead of every eligible edge at once:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">X</span><span class="o">.</span><span class="n">continuation_ranks</span><span class="p">(</span><span class="n">tau</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span> <span class="n">max_grow</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span>
+<span class="go">((2, 3, 2), (1, 2, 2, 1))</span>
 </pre></div>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>ww</strong> (<em>collections.abc.Sequence</em><em>[</em><em>t3toolbox.backend.common.NDArray</em><em>]</em>)</p></li>
-<li><p><strong>pp</strong> (<em>collections.abc.Sequence</em><em>[</em><em>t3toolbox.backend.common.NDArray</em><em>]</em>)</p></li>
-<li><p><strong>order</strong> (<em>int</em>)</p></li>
+<li><p><strong>tau</strong> (<em>float</em>)</p></li>
+<li><p><strong>n_chunk</strong> (<em>int</em>)</p></li>
+<li><p><strong>kappa_guard</strong> (<em>float</em>)</p></li>
+<li><p><strong>max_grow</strong> (<em>Optional</em><em>[</em><em>int</em><em>]</em>)</p></li>
+<li><p><strong>rtol</strong> (<em>float</em>)</p></li>
+<li><p><strong>atol</strong> (<em>float</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p>collections.abc.Sequence[t3toolbox.backend.common.NDArray]</p>
+<dd class="field-even"><p><em>Tuple</em>[<em>Tuple</em>[<em>int</em>, Ellipsis], <em>Tuple</em>[<em>int</em>, Ellipsis]]</p>
 </dd>
 </dl>
 </dd></dl>
@@ -530,20 +571,20 @@ share the sample stack <code class="docutils literal notranslate"><span class="p
                   
 <div class="prev-next-area">
     <a class="left-prev"
-       href="TuckerTensorTrain.entries_corewise_transpose.html"
+       href="TuckerTensorTrain.t3svd.html"
        title="previous page">
       <i class="fa-solid fa-angle-left"></i>
       <div class="prev-next-info">
         <p class="prev-next-subtitle">previous</p>
-        <p class="prev-next-title">TuckerTensorTrain.entries_corewise_transpose</p>
+        <p class="prev-next-title">TuckerTensorTrain.t3svd</p>
       </div>
     </a>
     <a class="right-next"
-       href="TuckerTensorTrain.apply_derivatives.html"
+       href="TuckerTensorTrain.rank_adjustment_sweep.html"
        title="next page">
       <div class="prev-next-info">
         <p class="prev-next-subtitle">next</p>
-        <p class="prev-next-title">TuckerTensorTrain.apply_derivatives</p>
+        <p class="prev-next-title">TuckerTensorTrain.rank_adjustment_sweep</p>
       </div>
       <i class="fa-solid fa-angle-right"></i>
     </a>
@@ -566,14 +607,14 @@ share the sample stack <code class="docutils literal notranslate"><span class="p
   </div>
   <nav id="pst-page-toc-nav" class="page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="pst-show_toc_level nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_derivatives"><code class="docutils literal notranslate"><span class="pre">probe_derivatives()</span></code></a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.continuation_ranks"><code class="docutils literal notranslate"><span class="pre">continuation_ranks()</span></code></a></li>
 </ul>
   </nav></div>
 
   <div class="sidebar-secondary-item">
 
   <div class="tocsection sourcelink">
-    <a href="../../../_sources/autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.probe_derivatives.rst.txt">
+    <a href="../../../_sources/autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.continuation_ranks.rst.txt">
       <i class="fa-solid fa-file-lines"></i> Show Source
     </a>
   </div>

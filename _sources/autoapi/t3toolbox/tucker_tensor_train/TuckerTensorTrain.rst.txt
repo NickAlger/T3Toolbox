@@ -69,6 +69,7 @@ TuckerTensorTrain
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.apply_corewise_derivatives_transpose
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.entries_corewise_derivatives_transpose
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.t3svd
+   /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.continuation_ranks
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.rank_adjustment_sweep
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.t3svd_dense
 
@@ -718,6 +719,7 @@ Methods
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_corewise_derivatives_transpose
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.entries_corewise_derivatives_transpose
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd
+   t3toolbox.tucker_tensor_train.TuckerTensorTrain.continuation_ranks
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.rank_adjustment_sweep
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd_dense
 
