@@ -4103,6 +4103,100 @@ class TuckerTensorTrain:
         )
         return TuckerTensorTrain(*result[0]), result[1], result[2]
 
+    def continuation_ranks(
+            self: 'TuckerTensorTrain',
+            tau:         float = 10.0,   # grow an edge only if kappa_i < kappa_max / tau  (tau > 1)
+            n_chunk:     int   = 1,      # rank increment added to each grown edge
+            kappa_guard: float = 1e12,   # absolute safety cap: never grow an edge with kappa_i >= this
+            max_grow:    typ.Optional[int] = None,  # cap on #edges grown per call (None = all eligible)
+            rtol:        float = None,
+            atol:        float = None,
+    ) -> Tuple[
+        Tuple[int, ...],  # (n0', ..., n(d-1)')  new Tucker ranks
+        Tuple[int, ...],  # (r0', ..., rd')      new TT ranks
+    ]:
+        '''Rank-continuation update (Section 5.4.1): the ranks to grow to next, from this iterate's spectra.
+
+        Computes the implicit T3-SVD of ``self`` and feeds the unfolding singular values to
+        :py:func:`t3toolbox.backend.ranks.compute_continuation_ranks`, which grows the well-conditioned
+        edges (each edge's condition number a factor ``tau`` below the worst) so the ranks trend toward
+        comparable conditioning across edges. Pair with :py:meth:`resize` for the zero-padded warm start
+        of the next fit -- this is the outer loop of Riemannian fitting with rank continuation::
+
+            new_tucker, new_tt = X.continuation_ranks()
+            X0 = X.resize(X.shape, new_tucker, new_tt)   # warm start at the grown ranks (same tensor)
+
+        The current ranks are read from the SVD: with the default (no ``rtol``/``atol``) these are the
+        structural ranks of ``self`` -- which, for a converged minimal-rank iterate, are its core ranks;
+        pass ``rtol``/``atol`` to continue from the numerical rank at that tolerance instead.
+        ``kappa_guard`` is an absolute conditioning safety net (see the backend function): when **no**
+        edge is below it, the returned ranks **equal** ``self``'s current ranks -- the caller's signal to
+        stop continuation. (The current ranks are also returned when the structure is already maximal;
+        both mean "stop".) Defined for a single (unstacked) T3 only.
+
+        ``max_grow`` caps how many edges grow per call: ``None`` (default) grows every eligible edge at
+        once; ``max_grow=1`` grows **one edge at a time** (the single best-conditioned edge that has
+        structural room) -- pair with ``tau=1.0`` for the most conservative, finest-grained continuation.
+
+        See Also
+        --------
+        :py:func:`t3toolbox.backend.ranks.compute_continuation_ranks`
+        :py:func:`t3toolbox.backend.ranks.edge_condition_numbers`
+        :py:meth:`.TuckerTensorTrain.resize`
+        :py:meth:`.TuckerTensorTrain.t3svd`
+
+        Examples
+        --------
+        Mid-continuation: at a low-rank iterate, ask which ranks to grow to next, then warm-start there
+        by zero-padding (``resize``) -- the represented tensor is unchanged, ready for the next fit:
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> i, j, k = np.ogrid[1:7, 1:7, 1:7]
+        >>> A = 1.0 / (i + 2 * j + 4 * k)                                   # smooth, anisotropic per mode
+        >>> X = t3.TuckerTensorTrain.t3svd_dense(A, max_tucker_ranks=2, max_tt_ranks=2)[0]
+        >>> print(X.tucker_ranks, X.tt_ranks)                              # a rank-2 iterate
+        (2, 2, 2) (1, 2, 2, 1)
+        >>> new_tucker, new_tt = X.continuation_ranks()
+        >>> print(new_tucker, new_tt)                                      # the grown ranks for the next fit
+        (3, 3, 3) (1, 3, 3, 1)
+        >>> X0 = X.resize(X.shape, new_tucker, new_tt)                     # zero-padded warm start
+        >>> print(X0.tucker_ranks, bool(np.allclose(X0.to_dense(), X.to_dense())))
+        (3, 3, 3) True
+
+        The edge condition numbers that drive the choice (length-1 boundary TT bonds are 1.0). Here all
+        edges are comparably conditioned (~15--24), so none is a factor ``tau=10`` below the worst and
+        the fallback grows them uniformly:
+
+        >>> import t3toolbox.backend.ranks as ranks
+        >>> _, ss_tucker, ss_tt = X.t3svd()
+        >>> kappa_tucker, kappa_tt = ranks.edge_condition_numbers(ss_tucker, ss_tt)
+        >>> print([round(k, 2) for k in kappa_tucker])
+        [23.94, 15.91, 14.91]
+
+        A stricter ``tau`` grows only edges well below the worst -- here it holds back the stiffest
+        Tucker mode and TT bond (condition number ~24) while growing the better-conditioned ones:
+
+        >>> print(X.continuation_ranks(tau=1.5))
+        ((2, 3, 3), (1, 2, 3, 1))
+
+        ``max_grow=1`` grows only the single best-conditioned edge that has room (one edge at a time),
+        instead of every eligible edge at once:
+
+        >>> print(X.continuation_ranks(tau=1.5, max_grow=1))
+        ((2, 3, 2), (1, 2, 2, 1))
+        '''
+        if len(self.stack_shape) > 0:
+            raise ValueError(
+                'continuation_ranks is defined for a single (unstacked) Tucker tensor train.\n'
+                'Different stack elements could continue to different ranks. Unstack first, then call '
+                'continuation_ranks for each unstacked Tucker tensor train.'
+            )
+        _, ss_tucker, ss_tt = self.t3svd(rtol=rtol, atol=atol)
+        return ranks.compute_continuation_ranks(
+            self.shape, ss_tucker, ss_tt,
+            tau=tau, n_chunk=n_chunk, kappa_guard=kappa_guard, max_grow=max_grow)
+
     def rank_adjustment_sweep(self, direction: str = 'right_to_left') -> 'TuckerTensorTrain':
         """A single lossless directional sweep that drops structurally-redundant ranks (the separate
         rank-minimization step; :py:meth:`t3svd` itself does **not** minimize). Returns the adjusted T3.

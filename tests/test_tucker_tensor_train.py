@@ -213,6 +213,28 @@ class TestTuckerTensorTrain(unittest.TestCase):
         self.assertTrue(x2.has_minimal_ranks)
         self.assertTrue(x2.has_numerically_minimal_ranks())
 
+    def test_continuation_ranks(self):
+        import t3toolbox.backend.ranks as branks
+        np.random.seed(0)
+        # the frontend method = compute_continuation_ranks on this T3's own t3svd singular values
+        x = t3.TuckerTensorTrain.randn((8, 9, 7), (2, 2, 2), (1, 2, 2, 1))
+        new_tucker, new_tt = x.continuation_ranks()
+        _, ss_tucker, ss_tt = x.t3svd()
+        self.assertEqual((new_tucker, new_tt),
+                         branks.compute_continuation_ranks(x.shape, ss_tucker, ss_tt))
+        # the proposed ranks are structurally valid: a zero-padded warm start preserves the tensor
+        x0 = x.resize(x.shape, new_tucker, new_tt)
+        self.assertEqual((x0.tucker_ranks, x0.tt_ranks), (new_tucker, new_tt))
+        self.assertTrue(np.allclose(x0.to_dense(), x.to_dense()))
+        # params (tau, n_chunk, kappa_guard, max_grow) thread through verbatim to the backend
+        self.assertEqual(x.continuation_ranks(tau=1.5, n_chunk=2, max_grow=1),
+                         branks.compute_continuation_ranks(x.shape, ss_tucker, ss_tt,
+                                                           tau=1.5, n_chunk=2, max_grow=1))
+        # defined for a single T3 only: a stacked T3 is a structural error
+        xs = t3.TuckerTensorTrain.randn((8, 9, 7), (2, 2, 2), (1, 2, 2, 1), stack_shape=(3,))
+        with self.assertRaises(ValueError):
+            xs.continuation_ranks()
+
     def test_to_dense(self):
         structures = [
             ((8, 9, 7), (3, 4, 5), (2, 3, 7, 5), (2, 3)),
