@@ -15,6 +15,14 @@ _Updated 2026-06-21._
   `dev/naming_review.md` (backend prefix grammar + `tv_`; `T3Basis→T3Frame` / `fv_`; cross-class
   consistency; the target module matrix). **The module reorg + per-op polymorphism triage fold into
   the uniform-layer fix** (ragged/uniform is *inferred* via `is_ndarray`, like numpy/jax).
+- **Rank-continuation detour SHIPPED** (this session, direct to `main`; a time-sensitive collaborator
+  request, orthogonal to the uniform work) — the Section 5.4.1 condition-number rank-continuation scheme:
+  `compute_continuation_ranks` + `edge_condition_numbers` (`backend/ranks.py`) and the
+  `TuckerTensorTrain.continuation_ranks` frontend method (params `tau`/`n_chunk`/`kappa_guard`/`max_grow`;
+  `max_grow=1` = one edge at a time). Tests (`tests/backend/test_ranks.py` + a frontend wiring test),
+  a doctest, the worked example `examples/fit_varied_rank_tensor_newton_cg.py` (adaptive vs uniform
+  continuation), and the user doc `docs/rank_continuation.md`. Suite green. New public API to fold into
+  the API-surface/doc passes (R2/R4).
 - **Next:** the **uniform-layer fix** (the 1.0 centerpiece).
 
 ## Knowledge architecture (decided this session)
