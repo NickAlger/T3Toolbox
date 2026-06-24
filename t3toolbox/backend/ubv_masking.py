@@ -123,17 +123,26 @@ def apply_basis_masks(
 
 
 def apply_variations_masks(
-        tucker_variations_supercore: NDArray,  # shape = (d,)+stack_shape+(nD, N)
-        tt_variations_supercore:     NDArray,  # shape = (d,)+stack_shape+(rL, nU, rR)
-        shape_mask:             NDArray,  # dtype=bool, (d,N)
-        up_mask:                NDArray,  # dtype=bool, shape=(d,)+stack_shape+(nU,)
-        down_mask:              NDArray,  # dtype=bool, shape=(d,)+stack_shape+(nD,)
-        variations_left_mask:   NDArray,  # dtype=bool, shape=(d,)+stack_shape+(rL,)
-        variations_right_mask:  NDArray,  # dtype=bool, shape=(d,)+stack_shape+(rR,)
+        data: typ.Tuple[
+            NDArray,             # tucker_variations_supercore, (d,)+stack_shape+(nD, N)
+            NDArray,             # tt_variations_supercore,     (d,)+stack_shape+(rL, nU, rR)
+            typ.Sequence[int],   # shape = (N0,...,N(d-1)), static int tuple
+            typ.Tuple[
+                NDArray,  # variations_up_mask,    dtype=bool, (d,)+stack_shape+(nU,)
+                NDArray,  # variations_down_mask,  dtype=bool, (d,)+stack_shape+(nD,)
+                NDArray,  # variations_left_mask,  dtype=bool, (d,)+stack_shape+(rL,)
+                NDArray,  # variations_right_mask, dtype=bool, (d,)+stack_shape+(rR,)
+            ],
+        ],
 ) -> typ.Tuple[
     NDArray,  # masked_tucker_variations_supercore
     NDArray,  # masked_tt_variations_supercore
 ]:
+    """Zero the padded ("garbage") regions of the variation supercores via the edge masks. ``shape_mask``
+    is reconstructed on the host from the static ``shape`` ints (``np``, never ``jnp``)."""
+    (tucker_variations_supercore, tt_variations_supercore,
+     shape, (up_mask, down_mask, variations_left_mask, variations_right_mask)) = data
+
     d = tucker_variations_supercore.shape[0]
     ss = tucker_variations_supercore.shape[1:-2]
     nD = tucker_variations_supercore.shape[-2]
@@ -142,15 +151,17 @@ def apply_variations_masks(
     nU = tt_variations_supercore.shape[-2]
     rR = tt_variations_supercore.shape[-1]
 
-    SM_k = shape_mask.reshape(            (d,) + (1,)*len(ss) + (1,)  + (N,))
-    UM_k = up_mask.reshape(               (d,) + ss           + (nU,) + (1,)) # not used
-    UM_t = up_mask.reshape(               (d,) + ss           + (1,)  + (nU,) + (1,))
-    DM_k = down_mask.reshape(             (d,) + ss           + (1,)  + (nD,) + (1,))
-    DM_t = down_mask.reshape(             (d,) + ss           + (1,)  + (nD,) + (1,)) # not used
+    shape_mask = np.arange(N) < np.asarray(shape)[:, None]  # (d, N) HOST bool, reconstructed from ints
+
+    # tucker_variations (d,)+ss+(nD, N): mask nD by variations_down, N by shape.
+    SM   = shape_mask.reshape(            (d,) + (1,)*len(ss) + (1,)  + (N,))
+    DM_k = down_mask.reshape(             (d,) + ss           + (nD,) + (1,))
+    # tt_variations (d,)+ss+(rL, nU, rR): mask rL/nU/rR by left/up/right.
     LM_l = variations_left_mask.reshape(  (d,) + ss           + (rL,) + (1,)  + (1,))
+    UM_t = up_mask.reshape(               (d,) + ss           + (1,)  + (nU,) + (1,))
     RM_r = variations_right_mask.reshape( (d,) + ss           + (1,)  + (1,)  + (rR,))
 
-    masked_tucker_variations_supercore = tucker_variations_supercore * (SM_k * DM_k)
+    masked_tucker_variations_supercore = tucker_variations_supercore * (SM * DM_k)
     masked_tt_variations_supercore     = tt_variations_supercore     * (LM_l * UM_t * RM_r)
 
     return masked_tucker_variations_supercore, masked_tt_variations_supercore

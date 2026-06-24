@@ -71,10 +71,18 @@ _Updated 2026-06-23._
          `unstack`/`stack` stubbed (increment 2); `ut3_orthogonal_representations`' `UT3Basis` construction
          forward-ported (but that fn still has stale `use_jax` calls + builds the old `UT3Variations` →
          increment 2). Tests: `tests/test_uniform_basis_variations_format.py`. Suite 334 green.
-       - **Increment 2 (NEXT):** rebuild `UT3Variations` (same holder pattern); port
-         `ut3_orthogonal_representations` fully (drop `use_jax`, finish the `UT3Variations` half); migrate
-         conversions (`ut3basis_to_t3basis` int-tuple + a `t3basis_to_ut3basis` constructor) → `to_t3`/
-         `to_dense` round-trip anchor; rebuild `unstack`/`stack`; then the method buildout.
+       - **Increment 2a ✅ DONE (2026-06-24):** `UT3Variations` + `UT3VariationsMasks` rebuilt on the new
+         design (value-hashed holder, int-tuple shape, pytree); `ubv_masking.apply_variations_masks`
+         migrated **and a latent bug fixed** (it used the 5-axis TT reshape for the 4-axis tucker core →
+         wrong output shape); `check_ubv_pair` fixed (its `base.up_mask` accessors broke at increment 1,
+         and the `(a!=b).all()` logic was wrong → now `np.array_equal`); `ut3_orthogonal_representations`'
+         `UT3Variations` construction forward-ported; `unstack`/`stack` stubbed. Tests + doctests green;
+         full suite 342.
+       - **Increment 2b (NEXT):** port `ut3_orthogonal_representations` **fully** (drop the stale `use_jax`
+         calls → inferred dispatch; the function still doesn't run); migrate conversions
+         (`ubv_conversions.ut3basis_to_t3basis` → int-tuple + a `t3basis_to_ut3basis` constructor) →
+         **`to_t3`/`to_dense` round-trip anchor** (the equivalence-contract test deferred since increment 1);
+         rebuild `unstack`/`stack` (dynamic-leaf-template); then the method buildout.
      - **3b — tangent/manifold:** `UT3Tangent` + `uniform_manifold` off the new types (drop `OLD_uniform` +
        ~600 lines of `if False:` dead code), un-stub geometry/`ubv_to_ut3`, derivative probing, tests.
      - **Naming DEFERRED:** 3a keeps `UT3Basis`/`ubv_` names; the global `T3Basis→T3Frame` + `bv_→fv_` +

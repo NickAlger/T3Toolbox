@@ -155,5 +155,112 @@ class TestUT3Basis(unittest.TestCase):
         self.assertTrue(all(isinstance(m, np.ndarray) for m in B.masks.data))
 
 
+# ---- UT3Variations (increment 2): variation left/right masks are (d,), not (d+1,) ----
+_V_LEFT_R, _V_RIGHT_R = [1, 2, 3], [1, 2, 2]   # (d,) variation TT ranks
+
+
+def _make_variations(ss=()):
+    def b(r, length):
+        a = np.broadcast_to(np.array(r).reshape((length,) + (1,) * len(ss)), (length,) + ss)
+        return a.copy()
+    tkv = np.random.randn(*((_D,) + ss + (_ND, _N)))
+    ttv = np.random.randn(*((_D,) + ss + (_RL, _NU, _RR)))
+    masks = ubv.UT3VariationsMasks(
+        _prefix_mask(b(_UP_R, _D), _NU), _prefix_mask(b(_DOWN_R, _D), _ND),
+        _prefix_mask(b(_V_LEFT_R, _D), _RL), _prefix_mask(b(_V_RIGHT_R, _D), _RR),
+    )
+    return ubv.UT3Variations(tkv, ttv, _SHAPE, masks)
+
+
+class TestUT3Variations(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(0)
+
+    def test_construct_and_structure(self):
+        for ss in ((), (2,)):
+            with self.subTest(stack=ss):
+                V = _make_variations(ss)
+                self.assertEqual(V.shape, _SHAPE)
+                self.assertEqual(V.stack_shape, ss)
+                self.assertEqual(V.uniform_structure, (_D, _N, _NU, _ND, _RL, _RR, ss))
+                idx = (slice(None),) + (0,) * len(ss)
+                self.assertEqual(np.asarray(V.up_ranks)[idx].tolist(), _UP_R)
+                self.assertEqual(np.asarray(V.variation_left_ranks)[idx].tolist(), _V_LEFT_R)
+
+    def test_data_layout(self):
+        V = _make_variations()
+        tkv, ttv, shape, masks = V.data
+        self.assertEqual(shape, _SHAPE)
+        self.assertEqual(len(masks), 4)
+        self.assertTrue(all(m.dtype == bool for m in masks))
+
+    def test_validate_rejects_bad(self):
+        V = _make_variations()
+        with self.assertRaises(ValueError):
+            ubv.UT3Variations(V.tucker_variations[..., :-1], V.tt_variations, V.shape, V.masks)  # wrong N
+        with self.assertRaises(ValueError):
+            ubv.UT3Variations(*V.data[:2], _SHAPE[:-1], V.masks)                                  # wrong shape len
+
+    def test_apply_masks_zeros_padding(self):
+        # ones tucker_variations -> after masking, exactly (variations_down AND shape_mask) survives.
+        # (this also pins the apply_variations_masks tucker-axis fix -- the old reshape was a bug.)
+        tkv = np.ones((_D, _ND, _N))
+        ttv = np.random.randn(_D, _RL, _NU, _RR)
+        masks = ubv.UT3VariationsMasks(_prefix_mask(_UP_R, _NU), _prefix_mask(_DOWN_R, _ND),
+                                       _prefix_mask(_V_LEFT_R, _RL), _prefix_mask(_V_RIGHT_R, _RR))
+        V = ubv.UT3Variations(tkv, ttv, _SHAPE, masks)
+        masked_tk = V.apply_masks().tucker_variations
+        shape_mask = np.arange(_N) < np.array(_SHAPE)[:, None]                       # (d, N)
+        expected = (_prefix_mask(_DOWN_R, _ND)[:, :, None] & shape_mask[:, None, :]).astype(float)
+        self.assertEqual(masked_tk.shape, (_D, _ND, _N))                              # not the old broken shape
+        self.assertTrue(np.array_equal(masked_tk, expected))
+
+    def test_masks_value_hash_eq(self):
+        def masks(up_r):
+            return ubv.UT3VariationsMasks(_prefix_mask(up_r, _NU), _prefix_mask(_DOWN_R, _ND),
+                                          _prefix_mask(_V_LEFT_R, _RL), _prefix_mask(_V_RIGHT_R, _RR))
+        a, b = masks(_UP_R), masks(_UP_R)
+        self.assertIsNot(a, b)
+        self.assertEqual(a, b)
+        self.assertEqual(hash(a), hash(b))
+        self.assertNotEqual(a, masks([1, 3, 4]))
+
+    @unittest.skipUnless(HAS_JAX, 'jax not installed')
+    def test_pytree_roundtrip(self):
+        V = _make_variations((2,))
+        leaves, treedef = jax.tree_util.tree_flatten(V)
+        self.assertEqual(len(leaves), 2)                                             # two variation supercores
+        V2 = jax.tree_util.tree_unflatten(treedef, leaves)
+        for a, b in zip(V.data[:2], V2.data[:2]):
+            self.assertTrue(np.array_equal(np.asarray(a), np.asarray(b)))
+        self.assertEqual(V2.shape, V.shape)
+        self.assertIs(V2.masks, V.masks)
+
+
+class TestCheckUbvPair(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(0)
+
+    def _pair(self, v_up_r=_UP_R):
+        d, N, nU, nD, rL, rR = _D, _N, _NU, _ND, _RL, _RR
+        up = _prefix_mask(_UP_R, nU); dn = _prefix_mask(_DOWN_R, nD)
+        bl = _prefix_mask([1, 2, 3, 1], rL); br = _prefix_mask([1, 2, 2, 1], rR)      # (d+1,)
+        B = ubv.UT3Basis(np.random.randn(d, nU, N), np.random.randn(d, rL, nD, rR),
+                         np.random.randn(d, rL, nU, rL), np.random.randn(d, rR, nU, rR),
+                         _SHAPE, ubv.UT3BasisMasks(up, dn, bl, br))
+        V = ubv.UT3Variations(np.random.randn(d, nD, N), np.random.randn(d, rL, nU, rR), _SHAPE,
+                              ubv.UT3VariationsMasks(_prefix_mask(v_up_r, nU), dn, bl[:-1], br[1:]))
+        return B, V
+
+    def test_consistent_passes(self):
+        B, V = self._pair()
+        ubv.check_ubv_pair(B, V)   # consistent -> no error
+
+    def test_inconsistent_raises(self):
+        B, Vbad = self._pair(v_up_r=[1, 3, 4])   # variation up ranks differ from the base's
+        with self.assertRaises(ValueError):
+            ubv.check_ubv_pair(B, Vbad)
+
+
 if __name__ == '__main__':
     unittest.main()
