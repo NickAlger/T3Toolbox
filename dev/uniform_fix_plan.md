@@ -92,6 +92,7 @@ recovered from the supercore mode axis — nothing lost.
   (`docs/uniform_pytree_composition.md`, CLAUDE.md).
 
 ### CONSIDERED & REJECTED (2026-06-24): a maskless uniform tangent layer
+_(Canonical user-facing write-up: [`docs/uniform_rank_masks_rationale.md`](../docs/uniform_rank_masks_rationale.md).)_
 - **The idea:** drop masks from the bv/fv/tangent layer entirely — inflate the frame (SVD orthonormal
   completion) + zero-extend variations to the padded size `R`, work on pure supercores. Motivated by the
   minimal-rank catalog (`docs/numerical_contract_catalog.md`, empirically verified): **no tangent op needs

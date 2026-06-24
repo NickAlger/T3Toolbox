@@ -100,7 +100,12 @@ updated to this version by the time the package is released.
   stack element, shape is fixed), [`docs/uniform_supercore_layout.md`](docs/uniform_supercore_layout.md)
   (core index `d` **leads**: `(d,)+stack_shape+(...)`, for `lax.scan` + locality),
   [`docs/uniform_masks_vs_ranks.md`](docs/uniform_masks_vs_ranks.md) (rank metadata is **boolean
-  masks**, not integer ranks — closed under add=concat / multiply=Kronecker with no data movement), and
+  masks**, not integer ranks — closed under add=concat / multiply=Kronecker with no data movement),
+  [`docs/uniform_rank_masks_rationale.md`](docs/uniform_rank_masks_rationale.md) (**why the masks exist at
+  all**: they enforce the variable-rank feature by zeroing the variation padding, so the gradient can't
+  grow rank — a maskless "inflate to uniform rank" layer is operation-equivalent but loses rank control;
+  considered & rejected) and [`docs/uniform_svd_prefix_orthogonalization.md`](docs/uniform_svd_prefix_orthogonalization.md)
+  (orthogonalization must be **SVD-based** so the masks are a deterministic prefix), and
   [`docs/uniform_pytree_composition.md`](docs/uniform_pytree_composition.md) (`UT3 = tucker_supercore +
   tt_supercore + masks`-holder; the holder is a static `aux_data` with **value-based** hash/eq over mask
   **content** — the `common.ValueHashedMasks` mixin — so a rebuilt-but-identical holder is the *same* jit
