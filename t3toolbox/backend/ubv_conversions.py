@@ -5,11 +5,74 @@
 import numpy as np
 import typing as typ
 
+import t3toolbox.backend.orthogonal_representations as orth_reps
+import t3toolbox.backend.ranks as ranks
+import t3toolbox.backend.ubv_masking as ubv_masking
+import t3toolbox.backend.ut3_masking as ut3_masking
 from t3toolbox.backend.common import *
 
 __all__ = [
+    'ut3_orthogonal_representations',
     'ut3basis_to_t3basis',
 ]
+
+
+def ut3_orthogonal_representations(
+        data: typ.Tuple[
+            NDArray,                          # tucker_supercore
+            NDArray,                          # tt_supercore
+            typ.Tuple[int, ...],              # shape
+            typ.Tuple[NDArray, NDArray],      # (tucker_edge_mask, tt_edge_mask) -- the plain-UT3 rank masks
+        ],
+        already_left_orthogonal: bool = False,
+        squash:                  bool = True,
+) -> typ.Tuple[
+    typ.Tuple[                                # frame .data:
+        NDArray, NDArray, NDArray, NDArray,   #   up_sc, down_sc, left_sc, right_sc
+        typ.Tuple[int, ...],                  #   shape
+        typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (up, down, basis_left, basis_right) masks
+    ],
+    typ.Tuple[                                # variations .data:
+        NDArray, NDArray,                     #   tucker_var_sc, tt_var_sc
+        typ.Tuple[int, ...],                  #   shape
+        typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (variations up, down, left, right) masks
+    ],
+]:
+    '''Orthogonal (frame, variations) representation of a uniform Tucker tensor train, on raw ``.data``.
+
+    Backend twin of the frontend ``ut3_orthogonal_representations`` (which wraps this into the OO
+    ``UT3Basis`` / ``UT3Variations``). Takes a plain ``UniformTuckerTensorTrain.data`` and returns the
+    **frame** and **variation** ``.data`` tuples (supercores + ``shape`` + the rank masks).
+
+    WHY THIS IS A BACKEND FUNCTION (and not something to open-code): the output frame masks are **prefix**
+    masks built from the orthogonal-representation *ranks* (``make_basis_masks`` = ``arange < rank``) --
+    they assert the real orthonormal content sits in the **upper-left** ``[0, rank)`` slots of each
+    supercore. That is correct ONLY because the orthogonalization is **SVD-based**: the SVD sorts content
+    by singular value into the leading slots, with zeros / orthonormal completion trailing. A QR-based
+    orthogonalization would scatter the real content across non-prefix positions and these masks would be
+    WRONG -- see ``docs/uniform_svd_prefix_orthogonalization.md``. Building the masks any other way (e.g.
+    from raw supercore magnitudes) is the easy mistake this function exists to prevent.
+
+    The frame masks come from the orthogonal-representation ranks; the variation masks reuse the up/down
+    masks and the basis left/right masks shifted by one (a variation occupies one TT slot, not a boundary
+    edge -- hence ``left[:-1]`` / ``right[1:]``).
+    '''
+    tk_sc, tt_sc, shape, (tkm, ttm) = data
+    masked_tk, masked_tt = ut3_masking.apply_masks_to_cores(data)   # zero the garbage before the SVD sweep
+
+    # orth_reps.orthogonal_representations is polymorphic (accepts uniform supercores) and SVD-based.
+    (uc, dc, lc, rc), (tkv, ttv) = orth_reps.orthogonal_representations(
+        (masked_tk, masked_tt), already_left_orthogonal=already_left_orthogonal, squash=squash)
+
+    up_ranks, down_ranks, left_ranks, right_ranks = ranks.compute_orthogonal_representation_ranks(
+        shape, tkm.sum(axis=-1), ttm.sum(axis=-1))
+
+    nU, nD, rL, rR = uc.shape[-2], dc.shape[-2], lc.shape[-1], rc.shape[-1]
+    um, dm, lm, rm = ubv_masking.make_basis_masks(up_ranks, down_ranks, left_ranks, right_ranks, nU, nD, rL, rR)
+
+    frame_data     = (uc, dc, lc, rc, shape, (um, dm, lm, rm))
+    variation_data = (tkv, ttv, shape, (um, dm, lm[:-1], rm[1:]))
+    return frame_data, variation_data
 
 
 def ut3basis_to_t3basis(

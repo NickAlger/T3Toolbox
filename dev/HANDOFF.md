@@ -86,7 +86,11 @@ _Updated 2026-06-23._
          masks) and `ubv_conversions.ut3basis_to_t3basis` (int-tuple, prefix-slice). **The
          equivalence-contract anchor lands:** orthogonalize a uniform T3 → frame → back to ragged →
          `to_dense` reconstructs `x` AND == the ragged orthogonal representation (err ~1e-14; stacked
-         per-element 0.0). New tests; full suite 344 green.
+         per-element 0.0). New tests; full suite 344 green. **+ backend twin (2026-06-24):**
+         `ubv_conversions.ut3_orthogonal_representations(data) -> (frame_data, variation_data)` on raw
+         `.data`, with the docstring spelling out the non-obvious bit (the prefix masks are correct only
+         because the orthogonalization is SVD-based → real content upper-left); the frontend is now a thin
+         wrapper. Backend-path test added.
        - **Increment 2c (NEXT, smaller):** the leftover bv-layer pieces — a `t3basis_to_ut3basis`
          (ragged→uniform) constructor; rebuild `UT3Basis`/`UT3Variations` `unstack`/`stack` (the
          dynamic-leaf-template, currently stubbed); the variations/tangent conversion

@@ -11,9 +11,7 @@ import t3toolbox.backend.bv_conversions
 import t3toolbox.backend.ubv_conversions as ubv_conversions
 import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.basis_variations_format as bvf
-import t3toolbox.backend.orthogonal_representations as orth_reps
 import t3toolbox.backend.stacking as stacking
-import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.ubv_masking as masking
 import t3toolbox.backend.common as common
 from t3toolbox.backend.common import *
@@ -593,24 +591,14 @@ def ut3_orthogonal_representations(
     True
 
     '''
-    x = x.apply_masks()
-    utk, utt = x.data[:2]  # plain UT3 .data = (tk_sc, tt_sc, shape, (tkm, ttm)); only the supercores needed
-
-    # orth_reps.orthogonal_representations is polymorphic (it accepts uniform supercores) and infers
-    # numpy/jax from its inputs -- no use_jax. The frame masks are built from the (host int) ranks.
-    (uc, dc, lc, rc), (tkv, ttv) = orth_reps.orthogonal_representations(
-        (utk, utt), already_left_orthogonal=already_left_orthogonal, squash=squash,
-    )
-
-    up_ranks, down_ranks, left_ranks, right_ranks = ranks.compute_orthogonal_representation_ranks(
-        x.shape, x.tucker_ranks, x.tt_ranks,
-    )
-
-    nU, nD, rL, rR = uc.shape[-2], dc.shape[-2], lc.shape[-1], rc.shape[-1]
-    um, dm, lm, rm = masking.make_basis_masks(up_ranks, down_ranks, left_ranks, right_ranks, nU, nD, rL, rR)
-
-    return (UT3Basis(uc, dc, lc, rc, x.shape, UT3BasisMasks(um, dm, lm, rm)),
-            UT3Variations(tkv, ttv, x.shape, UT3VariationsMasks(um, dm, lm[:-1], rm[1:])))
+    # Thin wrapper: the backend twin carries the logic (orthogonalize + build the SVD-justified prefix
+    # masks); this only wraps the raw frame/variation .data into the OO classes.
+    frame_data, variation_data = ubv_conversions.ut3_orthogonal_representations(
+        x.data, already_left_orthogonal=already_left_orthogonal, squash=squash)
+    uc, dc, lc, rc, shape, basis_masks = frame_data
+    tkv, ttv, _, variation_masks = variation_data
+    return (UT3Basis(uc, dc, lc, rc, shape, UT3BasisMasks(*basis_masks)),
+            UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*variation_masks)))
 
 
 if False:

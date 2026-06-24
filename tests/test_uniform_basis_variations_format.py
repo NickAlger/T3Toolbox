@@ -290,6 +290,22 @@ class TestUt3OrthogonalRepresentations(unittest.TestCase):
         for i in range(2):
             self.assertLess(float(np.linalg.norm(tree[i].to_dense() - xd[i])), 1e-10)
 
+    def test_backend_path_on_raw_data(self):
+        # the backend twin: raw plain-UT3 .data in -> raw (frame, variation) .data out, NO frontend objects.
+        # the round-trip also proves the prefix masks are right (i.e. SVD put the real content upper-left).
+        import t3toolbox.tucker_tensor_train as t3
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        import t3toolbox.backend.ubv_conversions as ubvc
+        import t3toolbox.basis_variations_format as bvf
+        x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        frame_data, variation_data = ubvc.ut3_orthogonal_representations(ut3.t3_to_ut3(x).data)
+        self.assertEqual(len(frame_data), 6)          # (up, down, left, right, shape, masks)
+        self.assertEqual(len(variation_data), 4)      # (tucker_var, tt_var, shape, masks)
+        self.assertEqual(frame_data[4], (4, 5, 6))    # shape carried through
+        self.assertEqual(len(frame_data[5]), 4)       # four frame rank masks
+        ragged_cores = ubvc.ut3basis_to_t3basis(frame_data)   # backend uniform->ragged, all on raw .data
+        self.assertLess(float(np.linalg.norm(bvf.T3Basis(*ragged_cores).to_dense() - x.to_dense())), 1e-10)
+
 
 if __name__ == '__main__':
     unittest.main()
