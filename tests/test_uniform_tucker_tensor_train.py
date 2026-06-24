@@ -77,10 +77,11 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         # garbage injected only into the padded ("garbage") region must not affect the dense tensor
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1), stack_shape=(2,))
         ux = ut3.t3_to_ut3(x)
-        sm, tkm, ttm = ux.masks.data
+        tkm, ttm = ux.masks.data
+        sm = np.arange(ux.N) < np.asarray(ux.shape)[:, None]   # (d, N) shape mask, reconstructed from ints
         tucker_real = np.einsum('d...n,dN->d...nN', tkm.astype(float), sm.astype(float))  # 1 on real, 0 on pad
         garbage = np.random.randn(*ux.tucker_supercore.shape) * (1.0 - tucker_real)
-        ux_g = ut3.UniformTuckerTensorTrain(ux.tucker_supercore + garbage, ux.tt_supercore, ux.masks)
+        ux_g = ut3.UniformTuckerTensorTrain(ux.tucker_supercore + garbage, ux.tt_supercore, ux.shape, ux.masks)
         self.assertLessEqual(relerr(ux_g.to_dense(), x.to_dense()), TOL)
 
     # ---- structural manipulations ----
@@ -393,14 +394,24 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1))
         ux = ut3.t3_to_ut3(x)
         with self.assertRaises(ValueError):
-            ut3.UniformTuckerTensorTrain(ux.tucker_supercore, ux.tt_supercore[..., :-1], ux.masks)
+            ut3.UniformTuckerTensorTrain(ux.tucker_supercore, ux.tt_supercore[..., :-1], ux.shape, ux.masks)
 
     def test_validate_raises_on_nonbool_mask(self):
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1))
         ux = ut3.t3_to_ut3(x)
-        bad = ut3.UT3Masks(ux.masks.shape_mask.astype(float), ux.masks.tucker_edge_mask, ux.masks.tt_edge_mask)
+        bad = ut3.UT3Masks(ux.masks.tucker_edge_mask.astype(float), ux.masks.tt_edge_mask)
         with self.assertRaises(ValueError):
-            ut3.UniformTuckerTensorTrain(ux.tucker_supercore, ux.tt_supercore, bad)
+            ut3.UniformTuckerTensorTrain(ux.tucker_supercore, ux.tt_supercore, ux.shape, bad)
+
+    def test_validate_raises_on_bad_shape_tuple(self):
+        # shape must be a length-d tuple of mode dims within the padded N (the int-tuple invariant)
+        x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1))
+        ux = ut3.t3_to_ut3(x)
+        with self.assertRaises(ValueError):
+            ut3.UniformTuckerTensorTrain(ux.tucker_supercore, ux.tt_supercore, ux.shape[:-1], ux.masks)  # wrong length
+        with self.assertRaises(ValueError):
+            ut3.UniformTuckerTensorTrain(ux.tucker_supercore, ux.tt_supercore,
+                                         (ux.N + 1,) + ux.shape[1:], ux.masks)  # exceeds padded N
 
     # ---- constructors (zeros / ones / randn) ----
     def test_zeros(self):
@@ -560,8 +571,9 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         import t3toolbox.backend.ut3_conversions as conv
         z = bc.ut3_zeros((5, 6, 7), (3, 4, 2), (1, 3, 2, 1))
         self.assertEqual(float(norm(conv.ut3_to_dense(z))), 0.0)
-        # masks are numpy bool even for a backend-built constructor
-        self.assertTrue(all(isinstance(m, np.ndarray) and m.dtype == bool for m in z[2]))
+        self.assertEqual(z[2], (5, 6, 7))   # .data[2] is the static int-tuple shape
+        # rank masks (.data[3]) are numpy bool even for a backend-built constructor
+        self.assertTrue(all(isinstance(m, np.ndarray) and m.dtype == bool for m in z[3]))
         o = bc.ut3_ones((5, 6, 7))
         self.assertEqual(float(norm(conv.ut3_to_dense(o) - np.ones((5, 6, 7)))), 0.0)
         FF = [np.random.randn(3, N) for N in (5, 6, 7)]

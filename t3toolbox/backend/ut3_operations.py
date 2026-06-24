@@ -18,14 +18,29 @@ __all__ = [
     'unpack_vectors',
     'ut3_unstack',
     'ut3_stack',
+    'ut3_leaf_structure',
 ]
 
-# A uniform-T3 .data tuple: (tucker_supercore, tt_supercore, (shape_mask, tucker_edge_mask, tt_edge_mask)).
-# The three masks are HOST bool, static structure (numpy, never traced); the supercores are xnp data.
-UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[NDArray, NDArray, NDArray]]
+# A uniform-T3 .data tuple: (tucker_supercore, tt_supercore, shape, (tucker_edge_mask, tt_edge_mask)).
+# `shape` is a static int tuple (N0,...,N(d-1)); the two rank masks are HOST bool, static structure
+# (numpy, never traced); the supercores are xnp data.
+UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[int, ...], typ.Tuple[NDArray, NDArray]]
 
-# A uniform-T3 leaf in nested .data layout: (tucker_supercore, tt_supercore, (shape_mask, tucker_mask, tt_mask)).
-_UT3_LEAF_STRUCTURE = (None, None, (None, None, None))
+
+def ut3_leaf_structure(d: int):  # leaf-structure template for stacking.apply_func_to_leaf_subtrees
+    """Template marking one uniform-T3 ``.data`` leaf ``(tucker_supercore, tt_supercore, shape,
+    (tucker_mask, tt_mask))`` for the tree machinery in ``stacking.py``. The ``shape`` int tuple has
+    ``d`` int leaves, so the template must encode its length: a bare ``None`` there fails to match (an
+    int tuple is a ``Sequence``, unlike the ndarray leaves, so the walker would recurse into it)."""
+    return (None, None, (None,) * d, (None, None))
+
+
+def _first_data_leaf(xx):  # drill to the first .data leaf without recursing into the int-tuple `shape`
+    # A .data leaf has an ndarray (tucker_supercore) at [0]; a nesting node has a subtree (tuple) there.
+    # (get_first_leaf can't be used here: it would drill into `shape`, which is itself a Sequence.)
+    while not is_ndarray(xx[0]):
+        xx = xx[0]
+    return xx
 
 
 def reverse_utt(
@@ -72,21 +87,21 @@ def ut3_squash_tails(data: UT3Data) -> UT3Data:
     use_jax = tree_contains_jax(data[:2])
     xnp, _, _ = get_backend(True, use_jax)
 
-    tk, tt, (sm, tkm, ttm) = data
-    ut3_masking.require_concrete_masks(sm, tkm, ttm)  # masks are host, not traced
+    tk, tt, shape, (tkm, ttm) = data
+    ut3_masking.require_concrete_masks(tkm, ttm)  # masks are host, not traced
     new_tt = uniform_squash_tt_tails(tt)
     r = tt.shape[-1]
     stack = tt.shape[1:-3]
     # np (host): the rank-1 boundary masks are static structure, not supercore data. Intentional.
     rank1 = np.broadcast_to(np.arange(r) < 1, stack + (r,))                    # [True, False, ...]
     new_ttm = np.concatenate([rank1[None], ttm[1:-1], rank1[None]], axis=0)
-    return tk, new_tt, (sm, tkm, new_ttm)
+    return tk, new_tt, shape, (tkm, new_ttm)
 
 
 def ut3_reverse(data: UT3Data) -> UT3Data:
-    """Reverse the mode order (supercores and masks). Operates on the full .data tuple."""
-    tk, tt, (sm, tkm, ttm) = data
-    return tk[::-1], reverse_utt(tt), (sm[::-1], tkm[::-1], ttm[::-1])
+    """Reverse the mode order (supercores, shape, and masks). Operates on the full .data tuple."""
+    tk, tt, shape, (tkm, ttm) = data
+    return tk[::-1], reverse_utt(tt), shape[::-1], (tkm[::-1], ttm[::-1])
 
 
 def pack_vectors(
@@ -125,17 +140,19 @@ def unpack_vectors(
 
 def ut3_unstack(
         x: typ.Tuple[
-            NDArray,                                # tucker_supercore
-            NDArray,                                # tt_supercore
-            typ.Tuple[NDArray, NDArray, NDArray],   # (shape_mask, tucker_edge_mask, tt_edge_mask)
+            NDArray,                          # tucker_supercore
+            NDArray,                          # tt_supercore
+            typ.Tuple[int, ...],              # shape
+            typ.Tuple[NDArray, NDArray],      # (tucker_edge_mask, tt_edge_mask)
         ],
 ):  # -> nested tuple (shaped like stack_shape) of unstacked uniform-T3 .data leaves
     """Unstack a uniform Tucker tensor train into an array-like tree of unstacked ones.
 
     The stack lives at axes ``1 .. len(stack_shape)`` (axis 0 is the mode index ``d``). The supercores
-    and the rank masks unstack along it; ``shape_mask`` is shared and replicated onto every leaf.
+    and the rank masks unstack along it; ``shape`` is shared and replicated onto every leaf (the
+    ndarray-only ``(tk, tt, tkm, ttm)`` go through the tree machinery; ``shape`` is woven in after).
     """
-    tucker_supercore, tt_supercore, (shape_mask, tucker_edge_mask, tt_edge_mask) = x
+    tucker_supercore, tt_supercore, shape, (tucker_edge_mask, tt_edge_mask) = x
     stack_shape = tucker_supercore.shape[1:-2]
     axes = tuple(range(1, 1 + len(stack_shape)))
 
@@ -143,7 +160,7 @@ def ut3_unstack(
 
     return stacking.apply_func_to_leaf_subtrees(
         tree,
-        lambda leaf: (leaf[0], leaf[1], (shape_mask, leaf[2], leaf[3])),
+        lambda leaf: (leaf[0], leaf[1], shape, (leaf[2], leaf[3])),
         (None, None, None, None),
     )
 
@@ -151,30 +168,33 @@ def ut3_unstack(
 def ut3_stack(
         xx,  # nested tuple (shaped like stack_shape) of unstacked uniform-T3 .data leaves
 ) -> typ.Tuple[
-    NDArray,                                # tucker_supercore
-    NDArray,                                # tt_supercore
-    typ.Tuple[NDArray, NDArray, NDArray],   # (shape_mask, tucker_edge_mask, tt_edge_mask)
+    NDArray,                          # tucker_supercore
+    NDArray,                          # tt_supercore
+    typ.Tuple[int, ...],              # shape
+    typ.Tuple[NDArray, NDArray],      # (tucker_edge_mask, tt_edge_mask)
 ]:
     """Stack an array-like tree of uniform Tucker tensor trains into one.
 
     Inverse of :py:func:`ut3_unstack`: stacks the supercores and rank masks onto axes
-    ``1 .. num_levels`` (after the mode index), keeping the shared ``shape_mask`` unstacked.
+    ``1 .. num_levels`` (after the mode index), keeping the shared ``shape`` unstacked. Only the four
+    ndarray components go through ``stacking.stack``; ``shape`` (a ``Sequence`` the walker would recurse
+    into) is read once from the first leaf and re-attached.
     """
-    shape_mask = stacking.get_first_leaf(
-        stacking.apply_func_to_leaf_subtrees(xx, lambda leaf: leaf[2][0], _UT3_LEAF_STRUCTURE)
-    )
+    first = _first_data_leaf(xx)        # shape is shared across the stack -> read once (manual drill)
+    shape = first[2]
+    d = first[0].shape[0]
 
     flat_tree = stacking.apply_func_to_leaf_subtrees(
         xx,
-        lambda leaf: (leaf[0], leaf[1], leaf[2][1], leaf[2][2]),
-        _UT3_LEAF_STRUCTURE,
+        lambda leaf: (leaf[0], leaf[1], leaf[3][0], leaf[3][1]),   # (tk, tt, tucker_mask, tt_mask)
+        ut3_leaf_structure(d),
     )
 
     num_levels = tree_depth_of_tree_over_leaf(flat_tree)
     axes = tuple(range(1, 1 + num_levels))
 
     tucker_supercore, tt_supercore, tucker_edge_mask, tt_edge_mask = stacking.stack(flat_tree, axes)
-    return tucker_supercore, tt_supercore, (shape_mask, tucker_edge_mask, tt_edge_mask)
+    return tucker_supercore, tt_supercore, shape, (tucker_edge_mask, tt_edge_mask)
 
 
 def tree_depth_of_tree_over_leaf(

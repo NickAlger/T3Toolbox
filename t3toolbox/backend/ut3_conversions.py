@@ -26,11 +26,12 @@ def t3_to_ut3(
         r: int = None,              # padded TT rank    (default max(tt_ranks))
         squash_tails: bool = True,
 ) -> typ.Tuple[
-    NDArray,                                # tucker_supercore, shape=(d,)+stack_shape+(n,N)
-    NDArray,                                # tt_supercore,     shape=(d,)+stack_shape+(r,n,r)
-    typ.Tuple[NDArray, NDArray, NDArray],   # masks = (shape_mask, tucker_edge_mask, tt_edge_mask), HOST bool, static
+    NDArray,                          # tucker_supercore, shape=(d,)+stack_shape+(n,N)
+    NDArray,                          # tt_supercore,     shape=(d,)+stack_shape+(r,n,r)
+    typ.Tuple[int, ...],              # shape = (N0,...,N(d-1)), static int tuple
+    typ.Tuple[NDArray, NDArray],      # (tucker_edge_mask, tt_edge_mask), HOST bool, static
 ]:
-    """Convert a (ragged) TuckerTensorTrain core pair to uniform supercores + masks (nested .data layout).
+    """Convert a (ragged) TuckerTensorTrain core pair to uniform supercores + shape + masks (nested .data).
 
     Pads each core to common sizes ``(n, N)`` / ``(r, n, r)``, stacks the ``d`` cores onto a leading
     axis, and records the real extent as prefix masks. ``use_jax`` is inferred from the input cores for
@@ -66,22 +67,22 @@ def t3_to_ut3(
     tucker_supercore = xnp.stack(padded_tucker_cores)
     tt_supercore     = xnp.stack(padded_tt_cores)
 
-    masks = ut3_masking.make_uniform_masks(shape, tucker_ranks, tt_ranks, N, n, r)
-    return tucker_supercore, tt_supercore, masks
+    masks = ut3_masking.make_uniform_masks(tucker_ranks, tt_ranks, n, r)
+    return tucker_supercore, tt_supercore, shape, masks
 
 
 def ut3_to_dense(
         x: typ.Tuple[
-            NDArray,                                # tucker_supercore
-            NDArray,                                # tt_supercore
-            typ.Tuple[NDArray, NDArray, NDArray],   # masks, HOST bool, static
+            NDArray,                          # tucker_supercore
+            NDArray,                          # tt_supercore
+            typ.Tuple[int, ...],              # shape, static int tuple
+            typ.Tuple[NDArray, NDArray],      # (tucker_edge_mask, tt_edge_mask), HOST bool, static
         ],
 ) -> NDArray:  # shape = stack_shape + (N0,...,N(d-1))
     """Form the dense tensor from a uniform Tucker tensor train: mask the supercores, chain-contract
     (shared with the ragged path), then static-prefix-slice the padded physical axes to the real shape.
 
-    ``int(m.sum())`` pulls the real shape as host ints -- correct only because the masks are numpy (host);
-    a traced mask would raise ``ConcretizationTypeError`` (``apply_masks_to_cores`` guards it first).
+    The real ``shape`` is the static int tuple ``x[2]``; the padded physical axes are sliced to it.
 
     Jitting this functionally (no frontend): close over the host masks as constants and trace only the
     supercores. Tracing the whole ``.data`` instead would put the masks among the traced args, which the
@@ -93,8 +94,8 @@ def ut3_to_dense(
     >>> import t3toolbox.backend.ut3_conversions as ut3_conversions
     >>> np.random.seed(0)
     >>> ux = ut3.t3_to_ut3(t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))).to_jax()
-    >>> tk, tt, masks = ux.data                                 # masks: HOST bool, static
-    >>> dense = jax.jit(lambda a, b: ut3_conversions.ut3_to_dense((a, b, masks)))(tk, tt)  # RIGHT
+    >>> tk, tt, shape, masks = ux.data                          # shape ints + HOST bool masks, static
+    >>> dense = jax.jit(lambda a, b: ut3_conversions.ut3_to_dense((a, b, shape, masks)))(tk, tt)  # RIGHT
     >>> bool(np.allclose(dense, ux.to_dense()))
     True
     >>> jax.jit(ut3_conversions.ut3_to_dense)(ux.data)  # WRONG: masks are traced args   # doctest: +IGNORE_EXCEPTION_DETAIL
@@ -103,16 +104,17 @@ def ut3_to_dense(
     """
     masked_tucker, masked_tt = ut3_masking.apply_masks_to_cores(x)
     T = t3_ops.t3_to_dense_chain(masked_tucker, masked_tt)   # stack + (N,)*d (padded)
-    shape = [int(m.sum()) for m in x[2][0]]                  # x[2][0] = shape_mask (HOST bool), shape=(d, N)
+    shape = x[2]                                             # static int tuple (N0,...,N(d-1))
     sl = (Ellipsis,) + tuple(slice(0, Ni) for Ni in shape)
     return T[sl]
 
 
 def ut3_to_t3(
         x: typ.Tuple[
-            NDArray,                                # tucker_supercore
-            NDArray,                                # tt_supercore
-            typ.Tuple[NDArray, NDArray, NDArray],   # masks = (shape_mask, tucker_edge_mask, tt_edge_mask)
+            NDArray,                          # tucker_supercore
+            NDArray,                          # tt_supercore
+            typ.Tuple[int, ...],              # shape, static int tuple
+            typ.Tuple[NDArray, NDArray],      # (tucker_edge_mask, tt_edge_mask)
         ],
 ) -> typ.Union[
     typ.Tuple[typ.Tuple[NDArray, ...], typ.Tuple[NDArray, ...]],  # (tucker_cores, tt_cores), if unstacked
@@ -125,20 +127,20 @@ def ut3_to_t3(
     ``TuckerTensorTrain`` (``docs/uniform_ranks_and_varieties.md``). The real sub-blocks are extracted by
     ``argwhere`` (handles gappy edge masks; ``docs/uniform_masks_vs_ranks.md``).
     """
-    tucker_supercore, tt_supercore, (shape_masks, tucker_masks, tt_masks) = x
-    ut3_masking.require_concrete_masks(shape_masks, tucker_masks, tt_masks)  # host masks: argwhere is np
+    tucker_supercore, tt_supercore, shape, (tucker_masks, tt_masks) = x
+    ut3_masking.require_concrete_masks(tucker_masks, tt_masks)  # host masks: argwhere is np
 
     stack_shape = tucker_supercore.shape[1:-2]
 
     if not stack_shape:  # unstacked -> one ragged T3
-        # np: the masks are host structure, so the real-index extraction runs on the host.
-        shape_inds  = [np.argwhere(em).reshape(-1) for em in list(shape_masks)]
+        # np: the masks are host structure, so the real-index extraction runs on the host. The physical
+        # `shape` is a contiguous prefix, so it slices [:Ni] (no argwhere); only the rank masks scatter.
         tucker_inds = [np.argwhere(em).reshape(-1) for em in list(tucker_masks)]
         tt_inds     = [np.argwhere(em).reshape(-1) for em in list(tt_masks)]
 
         tucker_cores = tuple(
-            B[ii, :][:, jj]
-            for ii, jj, B in zip(tucker_inds, shape_inds, list(tucker_supercore))
+            B[ii, :][:, :Ni]
+            for ii, Ni, B in zip(tucker_inds, shape, list(tucker_supercore))
         )
         tt_cores = tuple(
             G[ii, :, :][:, aa, :][:, :, jj]
@@ -151,7 +153,8 @@ def ut3_to_t3(
         xi = (
             tucker_supercore[:, ii],
             tt_supercore[:, ii],
-            (shape_masks, tucker_masks[:, ii], tt_masks[:, ii]),
+            shape,
+            (tucker_masks[:, ii], tt_masks[:, ii]),
         )
         all_t3s.append(ut3_to_t3(xi))
     return tuple(all_t3s)

@@ -44,26 +44,22 @@ __all__ = [
     'ut3_to_t3',
 ]
 
-# A uniform-T3 leaf in nested .data layout, for the tree machinery in stacking.py.
-_UT3_LEAF_STRUCTURE = (None, None, (None, None, None))
-
-
 @dataclass(frozen=True, eq=False)  # eq=False -> identity __hash__/__eq__, so this array-holding object
 class UT3Masks:                    # can be jax aux_data (value hash/eq is impossible). See
-    """The static structure of a uniform Tucker tensor train: its three boolean edge masks.
+    """The static rank structure of a uniform Tucker tensor train: its two boolean edge masks.
 
     Slot ``j`` of an edge is real iff its mask is ``True`` there (the prefix/canonical form). Held as a
     separate, identity-hashable object so it can ride as jax ``aux_data`` -- the ``T3Basis``<->``T3Tangent``
-    pattern; see ``docs/uniform_pytree_composition.md``.
+    pattern; see ``docs/uniform_pytree_composition.md``. (The physical ``shape`` is a separate static int
+    tuple on :py:class:`UniformTuckerTensorTrain` -- not a mask, and value-hashable.)
     """
-    shape_mask:       NDArray  # HOST bool, static, shape=(d, N)                 (no stack: shape is shared across the stack)
     tucker_edge_mask: NDArray  # HOST bool, static, shape=(d,)   + stack_shape + (n,)
     tt_edge_mask:     NDArray  # HOST bool, static, shape=(d+1,) + stack_shape + (r,)
 
     @property
-    def data(self) -> Tuple[NDArray, NDArray, NDArray]:
-        """The three raw mask arrays, ``(shape_mask, tucker_edge_mask, tt_edge_mask)``."""
-        return self.shape_mask, self.tucker_edge_mask, self.tt_edge_mask
+    def data(self) -> Tuple[NDArray, NDArray]:
+        """The two raw rank-mask arrays, ``(tucker_edge_mask, tt_edge_mask)``."""
+        return self.tucker_edge_mask, self.tt_edge_mask
 
 
 @dataclass(frozen=True)
@@ -79,9 +75,10 @@ class UniformTuckerTensorTrain:
     (``docs/uniform_supercore_layout.md``). Ranks may differ across the stack; the physical shape may
     not (``docs/uniform_ranks_and_varieties.md``).
     """
-    tucker_supercore: NDArray   # shape=(d,)+stack_shape+(n,N)
-    tt_supercore:     NDArray   # shape=(d,)+stack_shape+(r,n,r)
-    masks:            UT3Masks  # static structure (shape mask + rank masks)
+    tucker_supercore: NDArray         # shape=(d,)+stack_shape+(n,N)
+    tt_supercore:     NDArray         # shape=(d,)+stack_shape+(r,n,r)
+    shape:            Tuple[int, ...] # len=d; (N0,...,N(d-1)) real mode dims, shared across the stack
+    masks:            UT3Masks        # static rank structure (the two edge masks)
 
     # ----------------------------------------------------------------- views
     @cached_property
@@ -90,13 +87,14 @@ class UniformTuckerTensorTrain:
         return self.tucker_supercore, self.tt_supercore
 
     @cached_property
-    def data(self) -> Tuple[NDArray, NDArray, Tuple[NDArray, NDArray, NDArray]]:
-        """Raw-array view, mirroring the fields: ``(tucker_supercore, tt_supercore, (3 masks))``.
+    def data(self) -> Tuple[NDArray, NDArray, Tuple[int, ...], Tuple[NDArray, NDArray]]:
+        """Raw-array view, mirroring the fields: ``(tucker_supercore, tt_supercore, shape, (2 rank masks))``.
 
-        Backend ``ut3_*`` functions take this nested layout (supercore-only ops use ``.data[:2]``;
-        mask-using ops unpack ``.data[2]``). The ``UT3Masks`` holder stays a frontend concern.
+        Backend ``ut3_*`` functions take this layout (supercore-only ops use ``.data[:2]``; the static
+        ``shape`` is ``.data[2]``; mask-using ops unpack ``.data[3]``). The ``UT3Masks`` holder stays a
+        frontend concern.
         """
-        return self.tucker_supercore, self.tt_supercore, self.masks.data
+        return self.tucker_supercore, self.tt_supercore, self.shape, self.masks.data
 
     # ------------------------------------------------- padded (uniform) structure
     @cached_property
@@ -130,13 +128,7 @@ class UniformTuckerTensorTrain:
         return self.d, self.N, self.n, self.r, self.stack_shape
 
     # ------------------------------------------------- original (real) structure
-    @cached_property
-    def shape(self) -> Tuple[int, ...]:  # len=d
-        """Real shape ``(N0,...,N(d-1))`` (from ``shape_mask``; shared across the stack).
-
-        ``int(...)`` pulls host ints -- correct because the masks are numpy (host) even when the
-        supercores are jax (``docs/uniform_pytree_composition.md``)."""
-        return tuple(int(x) for x in self.masks.shape_mask.sum(axis=-1))
+    # (`shape` is a stored field above -- the real mode dims, shared across the stack.)
 
     @cached_property
     def tucker_ranks(self) -> NDArray:  # dtype=int, shape=(d,)+stack_shape
@@ -155,24 +147,32 @@ class UniformTuckerTensorTrain:
 
     # ----------------------------------------------------------------- validation
     def validate(self):
-        """Check the structural invariants (shapes mutually consistent, masks boolean). Raises ValueError."""
-        sm, tkm, ttm = self.masks.data
-        for m, name in ((sm, 'shape_mask'), (tkm, 'tucker_edge_mask'), (ttm, 'tt_edge_mask')):
+        """Check the structural invariants (shapes mutually consistent, rank masks boolean, ``shape`` a
+        length-``d`` tuple of mode dims within the padded ``N``). Raises ValueError."""
+        tkm, ttm = self.masks.data
+        for m, name in ((tkm, 'tucker_edge_mask'), (ttm, 'tt_edge_mask')):
             if not common.is_boolean_ndarray(m):
                 raise ValueError(
                     'UniformTuckerTensorTrain: %s must be a boolean array (got %s).'
                     % (name, getattr(m, 'dtype', type(m))))
 
         d, stack, n, N, r = self.d, self.stack_shape, self.n, self.N, self.r
+        if len(self.shape) != d:
+            raise ValueError(
+                'UniformTuckerTensorTrain: shape=%s has length %d, expected d=%d.'
+                % (self.shape, len(self.shape), d))
+        if any(Ni < 0 or Ni > N for Ni in self.shape):
+            raise ValueError(
+                'UniformTuckerTensorTrain: every entry of shape=%s must be in [0, padded N=%d].'
+                % (self.shape, N))
+
         expected = {
             'tt_supercore':     (d,) + stack + (r, n, r),
-            'shape_mask':       (d, N),
             'tucker_edge_mask': (d,) + stack + (n,),
             'tt_edge_mask':     (d + 1,) + stack + (r,),
         }
         actual = {
             'tt_supercore':     tuple(self.tt_supercore.shape),
-            'shape_mask':       tuple(sm.shape),
             'tucker_edge_mask': tuple(tkm.shape),
             'tt_edge_mask':     tuple(ttm.shape),
         }
@@ -195,7 +195,7 @@ class UniformTuckerTensorTrain:
     def apply_masks(self) -> 'UniformTuckerTensorTrain':
         """Zero the padded ("garbage") regions of the supercores (the masks are unchanged)."""
         mtk, mtt = ut3_masking.apply_masks_to_cores(self.data)
-        return UniformTuckerTensorTrain(mtk, mtt, self.masks)
+        return UniformTuckerTensorTrain(mtk, mtt, self.shape, self.masks)
 
     def to_dense(self) -> NDArray:
         """Form the dense tensor, ``shape = stack_shape + (N0,...,N(d-1))``. (Inspection/tests only.)"""
@@ -379,16 +379,16 @@ class UniformTuckerTensorTrain:
         """Unstack into an array-like tree (shaped like ``stack_shape``) of unstacked UT3s."""
         return stacking.apply_func_to_leaf_subtrees(
             ut3_operations.ut3_unstack(self.data),
-            lambda leaf: UniformTuckerTensorTrain(leaf[0], leaf[1], UT3Masks(*leaf[2])),
-            _UT3_LEAF_STRUCTURE,
+            lambda leaf: UniformTuckerTensorTrain(leaf[0], leaf[1], leaf[2], UT3Masks(*leaf[3])),
+            ut3_operations.ut3_leaf_structure(self.d),
         )
 
     @staticmethod
     def stack(uxx) -> 'UniformTuckerTensorTrain':
         """Stack an array-like tree of UT3s into one stacked UT3."""
         data_tree = stacking.apply_func_to_leaf_subtrees(uxx, lambda u: u.data, None)
-        tk, tt, masks = ut3_operations.ut3_stack(data_tree)
-        return UniformTuckerTensorTrain(tk, tt, UT3Masks(*masks))
+        tk, tt, shape, masks = ut3_operations.ut3_stack(data_tree)
+        return UniformTuckerTensorTrain(tk, tt, shape, UT3Masks(*masks))
 
     # ----------------------------------------------------------------- dtype / copy
     @cached_property
@@ -399,15 +399,15 @@ class UniformTuckerTensorTrain:
         # Convert the SUPERCORES (data) to jax; the masks stay numpy (host structure -- a jax mask is a
         # tracer under jit and breaks the layer). See docs/uniform_pytree_composition.md.
         return UniformTuckerTensorTrain(
-            common.to_jax(self.tucker_supercore), common.to_jax(self.tt_supercore), self.masks)
+            common.to_jax(self.tucker_supercore), common.to_jax(self.tt_supercore), self.shape, self.masks)
 
     def to_numpy(self) -> 'UniformTuckerTensorTrain':
         # Supercores -> numpy; the masks are already numpy (host structure), so reuse the holder.
         return UniformTuckerTensorTrain(
-            common.to_numpy(self.tucker_supercore), common.to_numpy(self.tt_supercore), self.masks)
+            common.to_numpy(self.tucker_supercore), common.to_numpy(self.tt_supercore), self.shape, self.masks)
 
     def copy(self) -> 'UniformTuckerTensorTrain':
-        return UniformTuckerTensorTrain(self.tucker_supercore, self.tt_supercore, self.masks)
+        return UniformTuckerTensorTrain(self.tucker_supercore, self.tt_supercore, self.shape, self.masks)
 
     # ----------------------------------------------------------------- constructors
     # Pure constructors keep a `use_jax` flag for the SUPERCORES (no array input to infer from); the
@@ -570,7 +570,7 @@ class UniformTuckerTensorTrain:
             self,
             file,  # path or open file object to write the .npz to
     ) -> None:
-        """Save to a ``.npz`` file (2 supercores + 3 masks). See :py:meth:`load`.
+        """Save to a ``.npz`` file (2 supercores + 2 rank masks + the shape ints). See :py:meth:`load`.
 
         Examples
         --------
@@ -583,8 +583,10 @@ class UniformTuckerTensorTrain:
         >>> x2 = ut3.UniformTuckerTensorTrain.load(fname)
         >>> print(float(np.linalg.norm(x2.to_dense() - x.to_dense())))
         0.0
-        >>> print([str(m.dtype) for m in x2.masks.data])   # masks come back numpy (host) bool
-        ['bool', 'bool', 'bool']
+        >>> x2.shape                                       # the static shape survives the round-trip
+        (5, 6, 7)
+        >>> print([str(m.dtype) for m in x2.masks.data])   # rank masks come back numpy (host) bool
+        ['bool', 'bool']
         """
         ut3_constructors.ut3_save(file, self.data)
 
@@ -603,14 +605,14 @@ class UniformTuckerTensorTrain:
 
 
 def _from_data(
-        data: typ.Tuple[NDArray, NDArray, typ.Tuple[NDArray, NDArray, NDArray]],
+        data: typ.Tuple[NDArray, NDArray, typ.Tuple[int, ...], typ.Tuple[NDArray, NDArray]],
 ) -> 'UniformTuckerTensorTrain':
-    """Wrap a backend ``.data`` tuple ``(tucker_supercore, tt_supercore, (3 masks))`` into a
+    """Wrap a backend ``.data`` tuple ``(tucker_supercore, tt_supercore, shape, (2 rank masks))`` into a
     ``UniformTuckerTensorTrain``. Every frontend operation is a thin wrapper: call the matching
     ``ut3_*`` backend function on ``self.data``, then re-wrap with this. The masks holder is the only
     frontend-side construction (the OO-frame exception to the backend/frontend razor)."""
-    tk, tt, masks = data
-    return UniformTuckerTensorTrain(tk, tt, UT3Masks(*masks))
+    tk, tt, shape, masks = data
+    return UniformTuckerTensorTrain(tk, tt, shape, UT3Masks(*masks))
 
 
 # ===================================================================== conversions
@@ -623,8 +625,8 @@ def t3_to_ut3(
         squash_tails: bool = True,
 ) -> UniformTuckerTensorTrain:
     """Convert a :py:class:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain` to a uniform one."""
-    tk, tt, masks = ut3_conversions.t3_to_ut3(x.data, N=N, n=n, r=r, squash_tails=squash_tails)
-    return UniformTuckerTensorTrain(tk, tt, UT3Masks(*masks))
+    tk, tt, shape, masks = ut3_conversions.t3_to_ut3(x.data, N=N, n=n, r=r, squash_tails=squash_tails)
+    return UniformTuckerTensorTrain(tk, tt, shape, UT3Masks(*masks))
 
 
 def ut3_to_t3(
@@ -647,16 +649,16 @@ def ut3_to_t3(
 
 
 if common.has_jax:
-    # UniformTuckerTensorTrain as a jax pytree: the two supercores are the (traced) children; the
-    # UT3Masks holder is static aux_data. The masks are STRUCTURE (which slots are real -- like
-    # ranks/shapes), not data, so they belong in aux, not the traced leaves. UT3Masks is eq=False
-    # (identity hash/eq), so it is valid hashable aux_data even though it holds (unhashable) bool
-    # arrays -- and jit therefore keys on mask-object identity (a new structure recompiles, exactly
-    # like T3Tangent's basis-as-aux). Because uniform output ranks are STATICALLY determined (no rtol;
-    # shrink-to-structural-minimum), a jitted op's output masks stay compile-time constants -- safe as
-    # aux. See docs/uniform_pytree_composition.md.
+    # UniformTuckerTensorTrain as a jax pytree: the two supercores are the (traced) children; the static
+    # aux_data is ``(shape, UT3Masks)``. Both are STRUCTURE (the real mode dims + which rank slots are
+    # real), not data, so they belong in aux, not the traced leaves. ``shape`` is a value-hashable int
+    # tuple (same shape -> same jit cache key); ``UT3Masks`` is eq=False (identity hash/eq), valid
+    # hashable aux even though it holds (unhashable) bool arrays -- jit keys on mask-object identity (a
+    # new rank structure recompiles, like T3Tangent's basis-as-aux). Because uniform output ranks are
+    # STATICALLY determined (no rtol; shrink-to-structural-minimum), a jitted op's output masks stay
+    # compile-time constants -- safe as aux. See docs/uniform_pytree_composition.md.
     jax.tree_util.register_pytree_node(
         UniformTuckerTensorTrain,
-        lambda x: ((x.tucker_supercore, x.tt_supercore), x.masks),
-        lambda masks, children: UniformTuckerTensorTrain(children[0], children[1], masks),
+        lambda x: ((x.tucker_supercore, x.tt_supercore), (x.shape, x.masks)),
+        lambda aux, children: UniformTuckerTensorTrain(children[0], children[1], aux[0], aux[1]),
     )

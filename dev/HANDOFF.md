@@ -1,6 +1,6 @@
 # T3Toolbox — current handoff
 
-_Updated 2026-06-21._
+_Updated 2026-06-23._
 
 ## Where we are
 - **`geometry-refactor` is merged to `main`** (merge commit `bc8692f6`): the geometry
@@ -23,7 +23,8 @@ _Updated 2026-06-21._
   a doctest, the worked example `examples/fit_varied_rank_tensor_newton_cg.py` (adaptive vs uniform
   continuation), and the user doc `docs/rank_continuation.md`. Suite green. New public API to fold into
   the API-surface/doc passes (R2/R4).
-- **Next:** the **uniform-layer fix** (the 1.0 centerpiece).
+- **In progress:** the **uniform-layer fix** (the 1.0 centerpiece) — Slices 1 & 2 ✅ done; Slice 3 (the
+  tangent-layer rebuild) is next. See "Next steps" below.
 
 ## Knowledge architecture (decided this session)
 - `docs/` = durable **design / reference / style** docs → to be distilled into user docs
@@ -41,11 +42,20 @@ _Updated 2026-06-21._
 1. **Fix the uniform layer** — the 1.0 centerpiece. **Fully designed + triaged** in
    **`dev/uniform_fix_plan.md`** (polymorphism lenses, packed-vector I/O, `shape`→int-tuple, the
    strict-sampling + norm/inner-polymorphism decisions; reorg context: `dev/naming_review.md` §4), with 4
-   agreed slices. **Progress:** Slice 1 (fix the 3 broken imports in `uniform_basis_variations_format.py`)
-   ✅ DONE — module imports, no regression (uniform suite 49/49); its doctests now run and pinpoint the
-   Slice-3 staleness. **Next: Slice 2 — `shape_mask` → shape int tuple** (verified safe), then Slice 3
-   (rebuild the tangent layer off OLD types: `UT3Tangent` + manifold ops + un-stub `ubv_to_ut3` + tests),
-   then Slice 4 (close the ragged-poly gaps: `_apply_transpose_adjoint` + `Sequence` signatures).
+   agreed slices. **Progress:**
+   - Slice 1 (fix the 3 broken imports in `uniform_basis_variations_format.py`) ✅ DONE.
+   - **Slice 2 — `shape_mask` → shape int tuple ✅ DONE (2026-06-23).** Plain `ut3_` layer (frontend + 8
+     `ut3_*` backend modules + tests) migrated to **4-arity-flat `.data = (tk_sc, tt_sc, shape, (tkm,
+     ttm))`**; `UT3Masks` now holds only the two rank masks; `shape` is a value-hashed pytree-aux field.
+     Notable wrinkle solved: the int-tuple `shape` is a `Sequence`, so `stacking.py`'s leaf-walker needed a
+     **dynamic leaf template** (`ut3_operations.ut3_leaf_structure(d)`) + a manual first-leaf drill in
+     `ut3_stack`/`ut3_unstack` + frontend `unstack`. `save`/`load` gained a third (shape) family. **Full
+     suite green: 327 passed / 39 198 subtests; jax dispatch + doctests green.** jit value-hashing is
+     **shape-only** (rank masks stay identity-hashed) — deferred, noted in the plan.
+   - **Next: Slice 3** (rebuild the tangent layer off OLD types: `UT3Tangent` + manifold ops + un-stub
+     `ubv_to_ut3` + tests — build it on the new int-tuple convention), then Slice 4 (close the ragged-poly
+     gaps: `_apply_transpose_adjoint` + `Sequence` signatures). _(Note `uniform_manifold.py` still imports
+     `OLD_uniform` and does not import — pre-existing, the Slice-3 rebuild target; not exercised by the suite.)_
 2. Then **release hygiene** (the R1–R7 roadmap below). **1.0 = honest mid-level toolkit; the `fit()`
    facade is deferred to 1.1.**
 

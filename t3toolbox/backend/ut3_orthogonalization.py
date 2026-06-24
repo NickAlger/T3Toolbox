@@ -18,9 +18,10 @@ __all__ = [
     'ut3_orthogonality_residual',
 ]
 
-# A uniform-T3 .data tuple: (tucker_supercore, tt_supercore, (shape_mask, tucker_edge_mask, tt_edge_mask)).
-# The three masks are HOST bool, static structure (numpy, never traced); the supercores are xnp data.
-UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[NDArray, NDArray, NDArray]]
+# A uniform-T3 .data tuple: (tucker_supercore, tt_supercore, shape, (tucker_edge_mask, tt_edge_mask)).
+# `shape` is a static int tuple; the two rank masks are HOST bool, static structure (numpy, never
+# traced); the supercores are xnp data.
+UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[int, ...], typ.Tuple[NDArray, NDArray]]
 
 
 def ut3_orthogonality_residual(
@@ -39,7 +40,7 @@ def ut3_orthogonality_residual(
     xnp, _, _ = get_backend(True, use_jax)
 
     tucker_sc, tt_sc = ut3_masking.apply_masks_to_cores(data)  # guards: masks must be host (not traced)
-    _, tucker_mask, tt_mask = data[2]                          # HOST bool masks (constant operands below)
+    tucker_mask, tt_mask = data[3]                             # HOST bool rank masks (constant operands below)
     n, r = tucker_sc.shape[-2], tt_sc.shape[-1]
 
     Mt = xnp.einsum('...io,...jo->...ij', tucker_sc, tucker_sc)          # (d,)+stack+(n,n)
@@ -110,16 +111,17 @@ def down_orthogonalize_tucker_cores(data: UT3Data) -> UT3Data:
     xnp, _, _ = get_backend(True, use_jax)
 
     mtk, mtt = ut3_masking.apply_masks_to_cores(data)
-    sm, tkm, ttm = data[2]                          # HOST bool masks
+    shape = data[2]                                 # static int tuple
+    tkm, ttm = data[3]                              # HOST bool rank masks
 
     new_tk, new_tt = down_orthogonalize_tucker_supercores(mtk, mtt)
 
     # masks/ranks on the host (np), supercores via xnp -- see the module note above.
     stack = mtk.shape[1:-2]
-    shape_arr = sm.sum(axis=-1).reshape((mtk.shape[0],) + (1,) * len(stack))
+    shape_arr = np.asarray(shape).reshape((mtk.shape[0],) + (1,) * len(stack))
     new_tucker_ranks = np.minimum(tkm.sum(axis=-1), shape_arr)
     new_tkm = _prefix_mask(new_tucker_ranks, new_tk.shape[-2])
-    return new_tk, new_tt, (sm, new_tkm, ttm)
+    return new_tk, new_tt, shape, (new_tkm, ttm)
 
 
 def up_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
@@ -129,7 +131,8 @@ def up_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
     xnp, _, _ = get_backend(True, use_jax)
 
     mtk, mtt = ut3_masking.apply_masks_to_cores(data)
-    sm, tkm, ttm = data[2]                          # HOST bool masks
+    shape = data[2]                                 # static int tuple
+    tkm, ttm = data[3]                              # HOST bool rank masks
 
     d = mtt.shape[0]
     stack = mtt.shape[1:-3]
@@ -144,7 +147,7 @@ def up_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
     tt_ranks = ttm.sum(axis=-1)  # HOST int (d+1,)+stack
     new_tucker_ranks = np.minimum(tkm.sum(axis=-1), tt_ranks[:-1] * tt_ranks[1:])
     new_tkm = _prefix_mask(new_tucker_ranks, new_tt.shape[-2])
-    return new_tk, new_tt, (sm, new_tkm, ttm)
+    return new_tk, new_tt, shape, (new_tkm, ttm)
 
 
 def left_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
@@ -153,11 +156,11 @@ def left_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
     xnp, _, _ = get_backend(True, use_jax)
 
     _, mtt = ut3_masking.apply_masks_to_cores(data)
-    sm, tkm, ttm = data[2]                          # HOST bool masks
+    tkm, ttm = data[3]                              # HOST bool rank masks
     new_tt = orth.left_orthogonalize_tt_cores(mtt)
     new_tt_ranks = _left_orthogonalized_tt_ranks(ttm.sum(axis=-1), tkm.sum(axis=-1))
     new_ttm = _prefix_mask(new_tt_ranks, new_tt.shape[-1])
-    return data[0], new_tt, (sm, tkm, new_ttm)
+    return data[0], new_tt, data[2], (tkm, new_ttm)
 
 
 def right_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
@@ -166,8 +169,8 @@ def right_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
     xnp, _, _ = get_backend(True, use_jax)
 
     _, mtt = ut3_masking.apply_masks_to_cores(data)
-    sm, tkm, ttm = data[2]                          # HOST bool masks
+    tkm, ttm = data[3]                              # HOST bool rank masks
     new_tt = orth.right_orthogonalize_tt_cores(mtt)
     new_tt_ranks = _right_orthogonalized_tt_ranks(ttm.sum(axis=-1), tkm.sum(axis=-1))
     new_ttm = _prefix_mask(new_tt_ranks, new_tt.shape[-1])
-    return data[0], new_tt, (sm, tkm, new_ttm)
+    return data[0], new_tt, data[2], (tkm, new_ttm)

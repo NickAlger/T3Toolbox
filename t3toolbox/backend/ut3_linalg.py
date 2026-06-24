@@ -19,19 +19,20 @@ __all__ = [
     'ut3_norm_orthogonalized',
 ]
 
-# A uniform-T3 .data tuple: (tucker_supercore, tt_supercore, (shape_mask, tucker_edge_mask, tt_edge_mask)).
-# The three masks are HOST bool, static structure (numpy, never traced); the supercores are xnp data.
-UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[NDArray, NDArray, NDArray]]
+# A uniform-T3 .data tuple: (tucker_supercore, tt_supercore, shape, (tucker_edge_mask, tt_edge_mask)).
+# `shape` is a static int tuple; the two rank masks are HOST bool, static structure (numpy, never
+# traced); the supercores are xnp data.
+UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[int, ...], typ.Tuple[NDArray, NDArray]]
 
 
 def ut3_scale(x: UT3Data, s) -> UT3Data:  # z = s * x
-    """Scale a uniform Tucker tensor train by a scalar (scales the last Tucker supercore slice; masks
-    unchanged)."""
+    """Scale a uniform Tucker tensor train by a scalar (scales the last Tucker supercore slice; shape and
+    masks unchanged)."""
     use_jax = tree_contains_jax(x[:2])
     xnp, _, _ = get_backend(True, use_jax)
-    tk, tt, masks = x
+    tk, tt, shape, masks = x
     scaled = xnp.concatenate([tk[:-1], s * tk[-1:]], axis=0)
-    return scaled, tt, masks
+    return scaled, tt, shape, masks
 
 
 def ut3_add(x: UT3Data, y: UT3Data) -> UT3Data:  # z = x + y (ranks add; NOT squashed)
@@ -43,9 +44,9 @@ def ut3_add(x: UT3Data, y: UT3Data) -> UT3Data:  # z = x + y (ranks add; NOT squ
     use_jax = tree_contains_jax((x[:2], y[:2]))
     xnp, _, _ = get_backend(True, use_jax)
 
-    tk_x, tt_x, (sm_x, tkm_x, ttm_x) = x
-    tk_y, tt_y, (sm_y, tkm_y, ttm_y) = y
-    ut3_masking.require_concrete_masks(sm_x, tkm_x, ttm_x, sm_y, tkm_y, ttm_y)  # masks are host, not traced
+    tk_x, tt_x, shape, (tkm_x, ttm_x) = x
+    tk_y, tt_y, _,     (tkm_y, ttm_y) = y
+    ut3_masking.require_concrete_masks(tkm_x, ttm_x, tkm_y, ttm_y)  # masks are host, not traced
 
     d = tk_x.shape[0]
     stack = tk_x.shape[1:-2]
@@ -60,12 +61,12 @@ def ut3_add(x: UT3Data, y: UT3Data) -> UT3Data:  # z = x + y (ranks add; NOT squ
         [[Z(ry, nx, rx),   Z(ry, nx, ry)], [Z(ry, ny, rx), tt_y]],
     ])
 
-    # masks via np (host): + concatenates the rank masks, ORs the shape mask -- the closure under +.
+    # masks via np (host): + concatenates the rank masks -- the closure under +. The physical `shape` is
+    # shared (the frontend enforces x.shape == y.shape), so it passes straight through.
     # np, not xnp: masks are static structure (a jax mask is a tracer under jit). See the module note.
-    z_sm = np.logical_or(sm_x, sm_y)                        # same ambient shape -> either
     z_tkm = np.concatenate([tkm_x, tkm_y], axis=-1)         # Tucker ranks add
     z_ttm = np.concatenate([ttm_x, ttm_y], axis=-1)         # TT ranks add
-    return z_tk, z_tt, (z_sm, z_tkm, z_ttm)
+    return z_tk, z_tt, shape, (z_tkm, z_ttm)
 
 
 def ut3_sum_stack(x: UT3Data) -> UT3Data:  # sum over ALL stack axes -> unstacked UT3 (NOT squashed)
@@ -77,8 +78,8 @@ def ut3_sum_stack(x: UT3Data) -> UT3Data:  # sum over ALL stack axes -> unstacke
     use_jax = tree_contains_jax(x[:2])
     xnp, _, _ = get_backend(True, use_jax)
 
-    tk, tt, (sm, tkm, ttm) = x
-    ut3_masking.require_concrete_masks(sm, tkm, ttm)  # masks are host, not traced
+    tk, tt, shape, (tkm, ttm) = x
+    ut3_masking.require_concrete_masks(tkm, ttm)  # masks are host, not traced
     d = tk.shape[0]
     stack = tk.shape[1:-2]
     if len(stack) == 0:
@@ -96,7 +97,7 @@ def ut3_sum_stack(x: UT3Data) -> UT3Data:  # sum over ALL stack axes -> unstacke
 
     new_tkm = tkm.reshape((d, S * n))                                              # masks reshape the same way
     new_ttm = ttm.reshape((d + 1, S * rR))
-    return new_tk, new_tt, (sm, new_tkm, new_ttm)
+    return new_tk, new_tt, shape, (new_tkm, new_ttm)
 
 
 def ut3_inner_product(x: UT3Data, y: UT3Data) -> NDArray:  # HS inner product, shape=stack_shape

@@ -63,6 +63,29 @@ edge cases get flagged, not auto-resolved.
 (so `masks` = the rank masks `(tucker_edge_mask, tt_edge_mask)`; `shape` is its own static field). `N` is
 recovered from the supercore mode axis — nothing lost.
 
+### Slice 2 — DECIDED & IN PROGRESS (2026-06-23)
+- **`.data` representation: (A) 4-arity flat** — `.data = (tk_sc, tt_sc, shape, (tkm, ttm))`. `shape` is a
+  sibling dataclass field (it is genuinely **not a mask**: no stack axis, value-hashable, prefix-enforced
+  by construction); `UT3Masks` shrinks to the two rank masks; pytree aux = `(shape, masks)`. Every
+  mask-using backend op's unpack changes `a, b, masks = x` → `a, b, shape, masks = x` (mechanical).
+  `make_uniform_masks(...)` returns `(tkm, ttm)`; `apply_masks_to_cores` reconstructs the boolean
+  `shape_mask` on the **host** (`np.arange(N) < np.array(shape)[:,None]`) for its einsum; `uniform_t3_svd`'s
+  `rank_truncation_masks` becomes the 2-tuple `(tkm, ttm)`; `ut3_to_t3`/`ut3_to_dense` drop the
+  over-engineered `np.argwhere` on the shape mask for a prefix slice `[:Ni]`.
+- **Scope: the plain `ut3_` layer ONLY** — `UniformTuckerTensorTrain` + the 8 `ut3_*` backend modules +
+  `tests/test_uniform_tucker_tensor_train.py` (~9 files, suite-gated 49/49). The bv/manifold layer's
+  `shape_mask` (`ubv_masking`, `ubv_conversions`, `uniform_basis_variations_format`, `uniform_manifold`)
+  is **independent and broken**; it is rebuilt directly on the int-tuple convention in Slice 3 — not
+  migrated twice. (Verified: `ut3_masking` is consumed only within the `ut3_` layer; the bv layer has its
+  own `ubv_masking`; the only non-prefix `shape_mask`s anywhere are two `np.random.choice` doctests in the
+  bv layer.)
+- **jit value-hashing is a PARTIAL win (honesty caveat).** Promoting `shape` to a value-hashable int tuple
+  removes it from the retrace triggers and kills the `int(mask.sum())`-on-a-tracer trap — a strict
+  improvement. But the rank masks stay bool arrays in the `eq=False` identity-hashed `UT3Masks`, so a
+  fresh-but-identical holder still retraces; "same shape → same compiled program" only fully lands once the
+  rank masks are also value-keyed (`tobytes()`/frozen tuples). **Deferred** — revisit only if profiling
+  shows retrace cost. The doc's jit claim should be softened to match.
+
 - **Why (code):** `shape_mask = np.arange(N) < shape[:,None]` is always a contiguous prefix and is passed
   through every algebraic op untouched (only *ranks* scatter via concat/Kronecker — `ut3_svd` keeps
   `shape_mask`, comments it "unused"). Most consumers already `.sum(axis=-1)` it back to ints. It's a
@@ -125,7 +148,16 @@ recovered from the supercore mode axis — nothing lost.
    `TypeError: basic_uniform_stack() got an unexpected 'use_jax'` (stale API call in
    `ut3_orthogonal_representations` — 26/43 of its doctest failures); scattered-`shape_mask` doctests
    (`np.random.choice`). 35 doctest failures total = the broken-tangent-layer state, now visible.
-2. **`shape_mask` → shape int tuple** (verified safe; promote out of `masks`). Foundational; do before building on top.
+2. **`shape_mask` → shape int tuple** — ✅ **DONE (2026-06-23).** Plain `ut3_` layer migrated to the
+   4-arity-flat `.data = (tk_sc, tt_sc, shape, (tkm, ttm))`; `UT3Masks` shrunk to the two rank masks;
+   `shape` a value-hashed pytree-aux field. **The one real wrinkle:** the int-tuple `shape` is a
+   `Sequence`, which `stacking.py`'s `isinstance(x, Sequence)` leaf-predicate would recurse into — so
+   `ut3_stack`/`ut3_unstack` and the frontend `unstack` use a **dynamic leaf template**
+   `ut3_leaf_structure(d) = (None, None, (None,)*d, (None, None))` + a manual first-leaf drill
+   (`_first_data_leaf`) to keep `shape` out of the tree walkers. `ut3_save`/`load` serialize `shape` as a
+   third family. Full suite green (327 / 39 198 subtests); jax dispatch + doctests green. **Open jit
+   caveat carried forward:** value-hashing is shape-only (rank masks stay identity-hashed) — see the
+   "Slice 2 DECIDED" note above.
 3. **Rebuild the tangent layer** (the bulk): `uniform_manifold` off OLD types → `UT3Tangent` + manifold ops
    mirroring ragged + un-stub `ubv_to_ut3` + tests.
 4. **Close the ragged-poly gaps** (`_apply_transpose_adjoint` polymorphism + the `Sequence` signatures) so

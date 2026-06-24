@@ -24,8 +24,9 @@ __all__ = [
 # zero-padded to N (pack) and probe results sliced back to the real shape (unpack); index entries need
 # no packing (the real block is the prefix, so an index in [0,Ni) hits the right slot).
 
-# The three masks in .data[2] are HOST bool, static structure (numpy, never traced); supercores are xnp.
-UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[NDArray, NDArray, NDArray]]
+# .data[2] is the static int-tuple shape; .data[3] = (tucker_edge_mask, tt_edge_mask) are HOST bool,
+# static structure (numpy, never traced); the supercores are xnp.
+UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[int, ...], typ.Tuple[NDArray, NDArray]]
 
 
 def ut3_entries(
@@ -57,10 +58,9 @@ def ut3_probe(
     masked = ut3_masking.apply_masks_to_cores(data)            # guards: masks must be host
     packed = ut3_operations.pack_vectors(ww, masked[0].shape[-1])
     zz = probing.probe_t3(packed, masked)                       # packed (TRACED under jit), shape=(d,)+W+(N)
-    # host ints from the (numpy) shape_mask -> the unpack slices the TRACED zz with a static bound (jit-safe;
-    # no np.asarray on zz). data[2][0] = shape_mask (HOST bool).
-    shape = [int(m.sum()) for m in data[2][0]]
-    return ut3_operations.unpack_vectors(zz, shape)
+    # data[2] is the static int-tuple shape -> the unpack slices the TRACED zz with a static bound
+    # (jit-safe; no np.asarray on zz).
+    return ut3_operations.unpack_vectors(zz, data[2])
 
 
 def ut3_full_sum(

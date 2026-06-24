@@ -37,8 +37,9 @@ __all__ = [
     'ut3_load',
 ]
 
-# The three masks in .data[2] are HOST bool, static structure (numpy, never traced); supercores are xnp.
-UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[NDArray, NDArray, NDArray]]
+# .data[2] is the static int-tuple shape; .data[3] = (tucker_edge_mask, tt_edge_mask) are HOST bool,
+# static structure (numpy, never traced); the supercores are xnp.
+UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[int, ...], typ.Tuple[NDArray, NDArray]]
 
 
 def _broadcast_ranks(
@@ -102,10 +103,11 @@ def _ut3_constant(
     else:
         raise ValueError('unknown fill %r' % (fill,))
 
-    masks = ut3_masking.make_uniform_masks(shape, tucker_ranks, tt_ranks, N, n, r)  # HOST bool, static
+    shape = tuple(int(Ni) for Ni in shape)  # static int tuple (N0,...,N(d-1))
+    masks = ut3_masking.make_uniform_masks(tucker_ranks, tt_ranks, n, r)  # HOST bool rank masks, static
     # Mask the padded ("garbage") regions to zero so the represented tensor is exactly the fill value.
-    masked_tucker, masked_tt = ut3_masking.apply_masks_to_cores((tucker_supercore, tt_supercore, masks))
-    return masked_tucker, masked_tt, masks
+    masked_tucker, masked_tt = ut3_masking.apply_masks_to_cores((tucker_supercore, tt_supercore, shape, masks))
+    return masked_tucker, masked_tt, shape, masks
 
 
 def ut3_zeros(
@@ -199,14 +201,19 @@ def ut3_save(
         file,         # path or open file object to write the .npz to
         data: UT3Data,
 ) -> None:
-    """Save a uniform Tucker tensor train (2 supercores + 3 masks) to a ``.npz`` file.
+    """Save a uniform Tucker tensor train (2 supercores + 2 rank masks + the shape ints) to a ``.npz``.
 
     Shares :py:func:`~t3toolbox.backend.common.save_core_families`: family 0 is the supercores, family 1
-    is the (numpy, host) masks. :py:func:`ut3_load` regroups them. ``np.savez`` stores the boolean masks
-    with their dtype, so ``ut3_load`` recovers numpy bool masks.
+    is the (numpy, host) rank masks, family 2 is the static ``shape`` as a 1-element int array.
+    :py:func:`ut3_load` regroups them. ``np.savez`` stores the boolean masks with their dtype, so
+    ``ut3_load`` recovers numpy bool masks.
     """
-    tucker_supercore, tt_supercore, masks = data
-    common.save_core_families(file, ((tucker_supercore, tt_supercore), tuple(masks)))
+    tucker_supercore, tt_supercore, shape, masks = data
+    common.save_core_families(file, (
+        (tucker_supercore, tt_supercore),
+        tuple(masks),
+        (np.asarray(shape, dtype=int),),
+    ))
 
 
 def ut3_load(
@@ -219,11 +226,12 @@ def ut3_load(
     tracer under jit and breaks the layer (``docs/uniform_pytree_composition.md``). ``np.load`` returns
     the masks with their saved bool dtype; we only convert the supercores.
     """
-    (supercores, masks) = common.load_core_families(file)
+    (supercores, masks, shape_family) = common.load_core_families(file)
     tucker_supercore, tt_supercore = supercores
     if use_jax:
         tucker_supercore = common.to_jax(tucker_supercore)
         tt_supercore     = common.to_jax(tt_supercore)
     # Masks: numpy (host), boolean. np.load already gives numpy; ensure bool dtype (saved as bool).
     masks = tuple(np.asarray(m, dtype=bool) for m in masks)
-    return tucker_supercore, tt_supercore, masks
+    shape = tuple(int(x) for x in shape_family[0])  # static int tuple (saved as a 1-element int array)
+    return tucker_supercore, tt_supercore, shape, masks
