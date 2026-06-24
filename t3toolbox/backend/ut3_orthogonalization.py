@@ -11,6 +11,7 @@ from t3toolbox.backend.common import *
 
 __all__ = [
     'down_orthogonalize_tucker_supercores',
+    'up_orthogonalize_tt_supercores',
     'down_orthogonalize_tucker_cores',
     'up_orthogonalize_tt_cores',
     'left_orthogonalize_tt_cores',
@@ -124,25 +125,36 @@ def down_orthogonalize_tucker_cores(data: UT3Data) -> UT3Data:
     return new_tk, new_tt, shape, (new_tkm, ttm)
 
 
-def up_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
-    """Up-orthogonalize the TT cores (mode index orthonormal over the bonds), pushing the remainder down
-    into the Tucker cores. Core-local -> one batched SVD. Tucker rank -> min(rank, rL*rR)."""
-    use_jax = tree_contains_jax(data[:2])
+def up_orthogonalize_tt_supercores(
+        tucker_supercore: NDArray,  # (d,)+stack+(n,N) (assumed masked)
+        tt_supercore:     NDArray,  # (d,)+stack+(rL, n, rR)
+) -> typ.Tuple[NDArray, NDArray]:   # (new_tucker = variations V, new_tt = down-orthogonal O)
+    """Bare batched TT-up SVD on supercores (assumes masked input): the TT mode index becomes orthonormal
+    over the bonds, the remainder pushed down into the Tucker core. The SVD core of
+    :py:func:`up_orthogonalize_tt_cores`; also reused by the orthogonal-representation sweep
+    (``backend/orthogonal_representations.py``), which manages its own ranks/masks afterward."""
+    use_jax = tree_contains_jax((tucker_supercore, tt_supercore))
     xnp, _, _ = get_backend(True, use_jax)
-
-    mtk, mtt = ut3_masking.apply_masks_to_cores(data)
-    shape = data[2]                                 # static int tuple
-    tkm, ttm = data[3]                              # HOST bool rank masks
-
-    d = mtt.shape[0]
-    stack = mtt.shape[1:-3]
-    rL, n, rR = mtt.shape[-3:]
-    H_ab_i = mtt.swapaxes(-1, -2).reshape((d,) + stack + (rL * rR, n))
+    d = tt_supercore.shape[0]
+    stack = tt_supercore.shape[1:-3]
+    rL, n, rR = tt_supercore.shape[-3:]
+    H_ab_i = tt_supercore.swapaxes(-1, -2).reshape((d,) + stack + (rL * rR, n))
     O_ab_x, ss, WT_x_i = xnp.linalg.svd(H_ab_i, full_matrices=False)
     x = ss.shape[-1]
     new_tt = O_ab_x.reshape((d,) + stack + (rL, rR, x)).swapaxes(-1, -2)   # (d,)+stack+(rL,x,rR)
     C_x_i = xnp.einsum('...x,...xi->...xi', ss, WT_x_i)
-    new_tk = xnp.einsum('...xi,...io->...xo', C_x_i, mtk)                  # (d,)+stack+(x,N)
+    new_tk = xnp.einsum('...xi,...io->...xo', C_x_i, tucker_supercore)     # (d,)+stack+(x,N)
+    return new_tk, new_tt
+
+
+def up_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
+    """Up-orthogonalize the TT cores (mode index orthonormal over the bonds), pushing the remainder down
+    into the Tucker cores. Core-local -> one batched SVD. Tucker rank -> min(rank, rL*rR)."""
+    mtk, mtt = ut3_masking.apply_masks_to_cores(data)
+    shape = data[2]                                 # static int tuple
+    tkm, ttm = data[3]                              # HOST bool rank masks
+
+    new_tk, new_tt = up_orthogonalize_tt_supercores(mtk, mtt)
 
     tt_ranks = ttm.sum(axis=-1)  # HOST int (d+1,)+stack
     new_tucker_ranks = np.minimum(tkm.sum(axis=-1), tt_ranks[:-1] * tt_ranks[1:])

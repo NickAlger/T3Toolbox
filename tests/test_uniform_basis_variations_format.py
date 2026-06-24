@@ -262,5 +262,34 @@ class TestCheckUbvPair(unittest.TestCase):
             ubv.check_ubv_pair(B, Vbad)
 
 
+class TestUt3OrthogonalRepresentations(unittest.TestCase):
+    """The equivalence-contract anchor (increment 2b): orthogonalize a uniform T3, convert the frame back
+    to ragged, and check it reconstructs the original tensor (and == the ragged orthogonal representation)."""
+    def setUp(self):
+        np.random.seed(0)
+
+    def test_unstacked_roundtrip_reconstructs_x(self):
+        import t3toolbox.tucker_tensor_train as t3
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        import t3toolbox.basis_variations_format as bvf
+        x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        base, variations = ubv.ut3_orthogonal_representations(ut3.t3_to_ut3(x))
+        base.validate(); variations.validate(); ubv.check_ubv_pair(base, variations)
+        rb = ubv.ut3basis_to_t3basis(base)                                  # uniform frame -> ragged T3Basis
+        self.assertLess(float(np.linalg.norm(rb.to_dense() - x.to_dense())), 1e-10)
+        rbase, _ = bvf.t3_orthogonal_representations(x)                     # uniform == ragged on real parts
+        self.assertLess(float(np.linalg.norm(rb.to_dense() - rbase.to_dense())), 1e-10)
+
+    def test_stacked_roundtrip_per_element(self):
+        import t3toolbox.tucker_tensor_train as t3
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))
+        base, _ = ubv.ut3_orthogonal_representations(ut3.t3_to_ut3(x))
+        tree = ubv.ut3basis_to_t3basis(base)                               # nested tree of T3Basis
+        xd = x.to_dense()
+        for i in range(2):
+            self.assertLess(float(np.linalg.norm(tree[i].to_dense() - xd[i])), 1e-10)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -503,18 +503,15 @@ def check_ubv_pair(base: UT3Basis, variations: UT3Variations) -> None:
 
 def ut3basis_to_t3basis(
         x: UT3Basis,
-        use_jax: bool = False,
-) -> bvf.T3Basis:
-    """Convert UT3Basis to array-like tree of T3Basis.
-    """
-    x = x.apply_masks()
-
-    result = ubv_conversions.ut3basis_to_t3basis(x.data, use_jax=use_jax)
-
+):  # -> bvf.T3Basis, or a nested tree (shaped like stack_shape) of them if stacked
+    """Convert a UT3Basis to a ragged :py:class:`~t3toolbox.basis_variations_format.T3Basis` (or, if
+    stacked, an array-like tree of them)."""
+    d = x.d
+    result = ubv_conversions.ut3basis_to_t3basis(x.apply_masks().data)
     return stacking.apply_func_to_leaf_subtrees(
         result,
-        lambda x: bvf.T3Basis(*x),
-        ((None,)*x.d,)*4, # leaf_structure
+        lambda c: bvf.T3Basis(*c),
+        ((None,) * d,) * 4,  # leaf_structure: 4 core-families, each a length-d tuple
     )
 
 
@@ -522,7 +519,6 @@ def ut3_orthogonal_representations(
         x: ut3.UniformTuckerTensorTrain,
         already_left_orthogonal: bool = False,
         squash: bool = True,
-        use_jax: bool = False,
 ) -> typ.Tuple[
     UT3Basis,  # orthogonal base
     UT3Variations,  # variations
@@ -582,76 +578,36 @@ def ut3_orthogonal_representations(
     Examples
     --------
     >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> import t3toolbox.uniform_basis_variations_format as ubvf
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.basis_variations_format as bvf
-    >>> import t3toolbox.corewise as cw
-    >>> d, N, n, r = 3, 6, 5, 4
-    >>> stack_shape = (2,3)
-    >>> tucker_supercore = np.random.randn(*((d,)+stack_shape+(n,N)))
-    >>> tt_supercore = np.random.randn(*((d,)+stack_shape+(r,n,r)))
-    >>> shape_mask = np.random.choice([True, False], (d,N))
-    >>> tucker_edge_mask = np.random.choice([True, False], (d,)+stack_shape+(n,))
-    >>> tt_edge_mask = np.random.choice([True, False], (d+1,)+stack_shape+(r,))
-    >>> ux = ut3.UniformTuckerTensorTrain(tucker_supercore, tt_supercore, shape_mask, tucker_edge_mask, tt_edge_mask)
-    >>> ubase, uvar = ubvf.ut3_orthogonal_representations(ux)
-    >>> all_base = ubvf.ut3basis_to_t3basis(ubase)
-    >>> ii, jj = 1, 2
-    >>> base_ij = all_base[ii][jj]
-    >>> xx = ut3.ut3_to_t3(ux)
-    >>> x_ij = xx[ii][jj]
-    >>> base_ij2, var_ij2 = bvf.t3_orthogonal_representations(x_ij)
-    >>> print(cw.corewise_norm(cw.corewise_sub(base_ij.data, base_ij2.data)))
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+    >>> base, variations = ubvf.ut3_orthogonal_representations(ut3.t3_to_ut3(x))
+    >>> type(base).__name__, type(variations).__name__
+    ('UT3Basis', 'UT3Variations')
+    >>> base.shape
+    (4, 5, 6)
+    >>> # the orthogonal frame still represents the original tensor:
+    >>> bool(np.allclose(ubvf.ut3basis_to_t3basis(base).to_dense(), x.to_dense()))
+    True
 
-
-    >>> import numpy as np
-    >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.basis_variations_format as bvf
-    >>> x = t3.t3_corewise_randn((14,15,16), (4,5,6), (3,3,2,1), stack_shape=(2,3))
-    >>> base, variations = bvf.t3_orthogonal_representations(x) # Compute orthogonal representations
-    >>> up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base.data
-    >>> tucker_variations, tt_variations = variations.data
-    >>> (U0,U1,U2) = up_tucker_cores
-    >>> (D0,D1,D2) = down_tt_cores
-    >>> (L0,L1,L2) = left_tt_cores
-    >>> (R0,R1,R2) = right_tt_cores
-    >>> (V0,V1,V2) = tucker_variations
-    >>> (H0,H1,H2) = tt_variations
-    >>> x2 = t3.TuckerTensorTrain((U0,U1,U2), (L0,H1,R2)) # representation with TT-core variation in index 1
-    >>> print(np.linalg.norm(x.to_dense() - x2.to_dense())) # Still represents origional tensor
-    4.978421562425667e-12
-    >>> x3 = t3.TuckerTensorTrain((U0,V1,U2), (L0,D1,R2)) # representation with tucker core variation in index 1
-    >>> print(np.linalg.norm(x.to_dense() - x3.to_dense())) # Still represents origional tensor
-    5.4355175448533146e-12
-    >>> print(np.linalg.norm(np.einsum('...io,...jo', U1, U1) - np.eye(U1.shape[-2]))) # U: orthogonal
-    1.1915111872574236e-15
-    >>> print(np.linalg.norm(np.einsum('...iaj,...iak', L1, L1) - np.eye(L1.shape[-1]))) # L: left orthogonal
-    9.733823879665448e-16
-    >>> print(np.linalg.norm(np.einsum('...iaj,...kaj', R1, R1) - np.eye(R1.shape[-3]))) # R: right orthogonal
-    8.027553546330097e-16
-    >>> print(np.linalg.norm(np.einsum('...iaj,...ibj', D1, D1) - np.eye(D1.shape[-2]))) # O: outer orthogonal
-    1.3870474292323159e-15
     '''
     x = x.apply_masks()
-    utk, utt = x.data[:2]  # plain UT3 .data = (tk_sc, tt_sc, shape, (tkm, ttm)); only the supercores needed here
+    utk, utt = x.data[:2]  # plain UT3 .data = (tk_sc, tt_sc, shape, (tkm, ttm)); only the supercores needed
 
+    # orth_reps.orthogonal_representations is polymorphic (it accepts uniform supercores) and infers
+    # numpy/jax from its inputs -- no use_jax. The frame masks are built from the (host int) ranks.
     (uc, dc, lc, rc), (tkv, ttv) = orth_reps.orthogonal_representations(
-        (utk, utt), already_left_orthogonal=already_left_orthogonal, squash=squash, use_jax=use_jax,
+        (utk, utt), already_left_orthogonal=already_left_orthogonal, squash=squash,
     )
 
     up_ranks, down_ranks, left_ranks, right_ranks = ranks.compute_orthogonal_representation_ranks(
-        x.shape, x.tucker_ranks, x.tt_ranks, use_jax=use_jax,
+        x.shape, x.tucker_ranks, x.tt_ranks,
     )
 
-    nU = uc.shape[-2]
-    nD = dc.shape[-2]
-    rL = lc.shape[-1]
-    rR = rc.shape[-1]
-
-    sm, um, dm, lm, rm = masking.make_basis_masks(
-        x.shape, up_ranks, down_ranks, left_ranks, right_ranks, x.N, nU, nD, rL, rR,
-    )
+    nU, nD, rL, rR = uc.shape[-2], dc.shape[-2], lc.shape[-1], rc.shape[-1]
+    um, dm, lm, rm = masking.make_basis_masks(up_ranks, down_ranks, left_ranks, right_ranks, nU, nD, rL, rR)
 
     return (UT3Basis(uc, dc, lc, rc, x.shape, UT3BasisMasks(um, dm, lm, rm)),
             UT3Variations(tkv, ttv, x.shape, UT3VariationsMasks(um, dm, lm[:-1], rm[1:])))

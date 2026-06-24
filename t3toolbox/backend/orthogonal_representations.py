@@ -68,9 +68,10 @@ def orthogonal_representations(
     is_uniform = is_ndarray(x[0])
 
     if is_uniform:
+        # uniform path operates on bare (masked) supercores -- the (n,N)/(rL,n,rR) arrays, not .data.
         squash_tails = lambda tk, tt: (tk, uniform_operations.uniform_squash_tt_tails(tt))
-        up_orthogonalize_tucker_cores = lambda x, **kwargs: uniform_orth.up_orthogonalize_uniform_tucker_cores(*x, **kwargs)
-        down_orthogonalize_tt_cores = lambda x, **kwargs: uniform_orth.down_orthogonalize_uniform_tt_cores(*x, **kwargs)
+        up_orthogonalize_tucker_cores = lambda x: uniform_orth.down_orthogonalize_tucker_supercores(*x)
+        down_orthogonalize_tt_cores = lambda x: uniform_orth.up_orthogonalize_tt_supercores(*x)
     else:
         squash_tails = lambda tk, tt: (tk, ragged_operations.squash_tt_tails(tt))
         up_orthogonalize_tucker_cores = ragged_orth.down_orthogonalize_tucker_cores

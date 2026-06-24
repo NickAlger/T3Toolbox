@@ -15,55 +15,28 @@ __all__ = [
 
 
 def make_basis_masks(
-        shape: typ.Tuple[int, ...], # len=d
-        up_ranks:   NDArray,    # dtype=int, shape=(d,)+stack_shape
-        down_ranks: NDArray,    # dtype=int, shape=(d,)+stack_shape
-        left_ranks,             # dtype=int, shape=(d+1,)+stack_shape
-        right_ranks,            # dtype=int, shape=(d+1,)+stack_shape
-        N: int,
+        up_ranks:    NDArray,   # HOST int, (d,)   + stack_shape
+        down_ranks:  NDArray,   # HOST int, (d,)   + stack_shape
+        left_ranks:  NDArray,   # HOST int, (d+1,) + stack_shape
+        right_ranks: NDArray,   # HOST int, (d+1,) + stack_shape
         nU: int,
         nD: int,
         rL: int,
         rR: int,
-        use_jax: bool = False,
 ) -> typ.Tuple[
-    NDArray, # shape_mask, dtype=bool, shape=(d,N)
-    NDArray, # up_mask, dtype=bool, shape=(d,)+stack_shape+(n,)
-    NDArray, # down_mask, dtype=bool, shape=(d,)+stack_shape+(n,)
-    NDArray, # left_mask, dtype=bool, shape=(d+1,)+stack_shape+(r,)
-    NDArray, # right_mask, dtype=bool, shape=(d+1,)+stack_shape+(r,)
+    NDArray,  # up_mask,    HOST bool, (d,)   + stack_shape + (nU,)
+    NDArray,  # down_mask,  HOST bool, (d,)   + stack_shape + (nD,)
+    NDArray,  # left_mask,  HOST bool, (d+1,) + stack_shape + (rL,)
+    NDArray,  # right_mask, HOST bool, (d+1,) + stack_shape + (rR,)
 ]:
-    xnp, _, _ = get_backend(True, use_jax)
-
-    shape_masks = xnp.stack([
-        xnp.concatenate([
-            xnp.ones((Ni,), dtype=bool),
-            xnp.zeros((N - Ni,), dtype=bool),
-        ], axis=-1,
-        )
-        for Ni in shape
-    ])
-
-    def _func1(kk, K):
-        if np.array(kk).shape == ():
-            mask = xnp.concatenate([
-                xnp.ones((kk,), dtype=bool),
-                xnp.zeros((K - kk,), dtype=bool)
-            ])
-            return mask
-        return [_func1(ki, K) for ki in list(kk)]
-
-    up_masks = [_func1(nnUi, nU) for nnUi in list(up_ranks)]
-    down_masks = [_func1(nnDi, nD) for nnDi in list(down_ranks)]
-    left_masks = [_func1(rrLi, rL) for rrLi in list(left_ranks)]
-    right_masks = [_func1(rrRi, rR) for rrRi in list(right_ranks)]
-
-    up_masks    = xnp.stack(up_masks)
-    down_masks  = xnp.stack(down_masks)
-    left_masks  = xnp.stack(left_masks)
-    right_masks = xnp.stack(right_masks)
-
-    return shape_masks, up_masks, down_masks, left_masks, right_masks
+    """Build the prefix RANK edge masks for a uniform basis (frame). The physical ``shape`` is a separate
+    int tuple (not a mask), so this returns only the four rank masks. HOST numpy (masks are static
+    structure -- ``np``, not ``xnp``; see ``docs/uniform_pytree_composition.md``)."""
+    up_mask    = np.arange(nU) < np.asarray(up_ranks)[..., None]
+    down_mask  = np.arange(nD) < np.asarray(down_ranks)[..., None]
+    left_mask  = np.arange(rL) < np.asarray(left_ranks)[..., None]
+    right_mask = np.arange(rR) < np.asarray(right_ranks)[..., None]
+    return up_mask, down_mask, left_mask, right_mask
 
 
 def apply_basis_masks(

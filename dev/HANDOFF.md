@@ -78,11 +78,20 @@ _Updated 2026-06-23._
          and the `(a!=b).all()` logic was wrong → now `np.array_equal`); `ut3_orthogonal_representations`'
          `UT3Variations` construction forward-ported; `unstack`/`stack` stubbed. Tests + doctests green;
          full suite 342.
-       - **Increment 2b (NEXT):** port `ut3_orthogonal_representations` **fully** (drop the stale `use_jax`
-         calls → inferred dispatch; the function still doesn't run); migrate conversions
-         (`ubv_conversions.ut3basis_to_t3basis` → int-tuple + a `t3basis_to_ut3basis` constructor) →
-         **`to_t3`/`to_dense` round-trip anchor** (the equivalence-contract test deferred since increment 1);
-         rebuild `unstack`/`stack` (dynamic-leaf-template); then the method buildout.
+       - **Increment 2b ✅ DONE (2026-06-24):** `ut3_orthogonal_representations` now **runs end-to-end**.
+         Ported it (dropped `use_jax` → inferred dispatch); **fixed the backend `orthogonal_representations`
+         uniform dispatch** (it referenced renamed/missing fns — added a bare
+         `ut3_orthogonalization.up_orthogonalize_tt_supercores` and pointed the dispatch at it +
+         `down_orthogonalize_tucker_supercores`); migrated `make_basis_masks` (int-tuple, np-host, 4 rank
+         masks) and `ubv_conversions.ut3basis_to_t3basis` (int-tuple, prefix-slice). **The
+         equivalence-contract anchor lands:** orthogonalize a uniform T3 → frame → back to ragged →
+         `to_dense` reconstructs `x` AND == the ragged orthogonal representation (err ~1e-14; stacked
+         per-element 0.0). New tests; full suite 344 green.
+       - **Increment 2c (NEXT, smaller):** the leftover bv-layer pieces — a `t3basis_to_ut3basis`
+         (ragged→uniform) constructor; rebuild `UT3Basis`/`UT3Variations` `unstack`/`stack` (the
+         dynamic-leaf-template, currently stubbed); the variations/tangent conversion
+         (`ut3variations_to_t3variations`); then the method buildout. After that → **3b** (UT3Tangent +
+         uniform_manifold).
      - **3b — tangent/manifold:** `UT3Tangent` + `uniform_manifold` off the new types (drop `OLD_uniform` +
        ~600 lines of `if False:` dead code), un-stub geometry/`ubv_to_ut3`, derivative probing, tests.
      - **Naming DEFERRED:** 3a keeps `UT3Basis`/`ubv_` names; the global `T3Basis→T3Frame` + `bv_→fv_` +
