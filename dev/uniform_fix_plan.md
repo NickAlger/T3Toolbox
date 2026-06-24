@@ -79,12 +79,17 @@ recovered from the supercore mode axis — nothing lost.
   migrated twice. (Verified: `ut3_masking` is consumed only within the `ut3_` layer; the bv layer has its
   own `ubv_masking`; the only non-prefix `shape_mask`s anywhere are two `np.random.choice` doctests in the
   bv layer.)
-- **jit value-hashing is a PARTIAL win (honesty caveat).** Promoting `shape` to a value-hashable int tuple
-  removes it from the retrace triggers and kills the `int(mask.sum())`-on-a-tracer trap — a strict
-  improvement. But the rank masks stay bool arrays in the `eq=False` identity-hashed `UT3Masks`, so a
-  fresh-but-identical holder still retraces; "same shape → same compiled program" only fully lands once the
-  rank masks are also value-keyed (`tobytes()`/frozen tuples). **Deferred** — revisit only if profiling
-  shows retrace cost. The doc's jit claim should be softened to match.
+- **jit value-hashing — now FULLY RESOLVED (2026-06-23).** Slice 2 promoted `shape` to a value-hashable
+  int tuple but left the rank masks `eq=False` *identity*-hashed (a fresh-but-identical holder still
+  retraced — the deferred "partial win" caveat). That deferral is now retired: the rank masks are
+  **value-hashed by content** via the `common.ValueHashedMasks` mixin (cached `tobytes` hash + `array_equal`
+  eq + `is` fast-path), so a rebuilt-but-identical holder is the *same* jit cache key — "same structure →
+  same compiled program" fully lands. This was forced by the optimization use case (the orthogonal frame is
+  rebuilt every iteration → fresh holders → identity hashing would recompile *every step*, dwarfing the
+  per-step compute). We hash **mask bytes** (not a rank count) because masks scatter off canonical form
+  (add = concat → gappy, non-prefix). Empirically: identity → 5 compiles / 5 iters; value → 1. Regression
+  test `tests/test_dispatch.py::test_mask_rebuild_does_not_recompile`. Docs updated
+  (`docs/uniform_pytree_composition.md`, CLAUDE.md).
 
 - **Why (code):** `shape_mask = np.arange(N) < shape[:,None]` is always a contiguous prefix and is passed
   through every algebraic op untouched (only *ranks* scatter via concat/Kronecker — `ut3_svd` keeps
@@ -155,9 +160,9 @@ recovered from the supercore mode axis — nothing lost.
    `ut3_stack`/`ut3_unstack` and the frontend `unstack` use a **dynamic leaf template**
    `ut3_leaf_structure(d) = (None, None, (None,)*d, (None, None))` + a manual first-leaf drill
    (`_first_data_leaf`) to keep `shape` out of the tree walkers. `ut3_save`/`load` serialize `shape` as a
-   third family. Full suite green (327 / 39 198 subtests); jax dispatch + doctests green. **Open jit
-   caveat carried forward:** value-hashing is shape-only (rank masks stay identity-hashed) — see the
-   "Slice 2 DECIDED" note above.
+   third family. Full suite green (327 / 39 198 subtests); jax dispatch + doctests green. _(The Slice-2
+   "value-hashing is shape-only" caveat is now **resolved** — rank masks are value-hashed via
+   `ValueHashedMasks`; see the "Slice 2 DECIDED" note above.)_
 2.5. **Cleanup before the rebuild — ✅ DONE (2026-06-23).** Removed the ambiguous
    `UniformTuckerTensorTrain.{from_canonical, from_tensor_train, to_tensor_train}` frontend methods + their
    backend twins (`ut3_from_canonical`/`ut3_from_tensor_train`/`ut3_to_tensor_train`) + dead imports. They
@@ -176,10 +181,11 @@ Rationale: one kind of change per slice; keep the working ragged layer stable; d
 3a. **Frame/variations foundation (the bulk of the rebuild).** Rebuild `UT3Basis` + `UT3Variations`
    **directly in the target shape** (rebuild-in-place: the layer is *broken*, unlike Slice 2's *solid* plain
    layer) — mirror the ragged `T3Basis`/`T3Variations` method-for-method, on:
-   - the **int-tuple `shape`** + the **plain-layer pytree composition** (a `UFV*Masks`-style identity-hashed
-     aux holder for the rank masks, `shape` value-hashed aux, supercores as the only children — today the
-     bv masks are wrongly pytree *children* with no registration). Drops the 9-tuple/7-tuple `.data` to
-     supercores + shape + rank-mask holder.
+   - the **int-tuple `shape`** + the **plain-layer pytree composition** (a `ValueHashedMasks` aux holder for
+     the rank masks — value-hashed by content, NOT identity; `shape` value-hashed aux; supercores as the
+     only children — today the bv masks are wrongly pytree *children* with no registration). Drops the
+     9-tuple/7-tuple `.data` to supercores + shape + rank-mask holder. _(Increment 1 ✅ DONE for `UT3Basis`
+     + `UT3BasisMasks`; value-hashing applied across all holders 2026-06-23.)_
    - the missing ~50 methods (`to_t3`/`to_dense`, `orthogonalize`, geometry hooks, vector conversions,
      linalg, `reverse`, save/load, `from_t3`/`random_orthogonal`, repr…) + `validate` + tests/doctests.
    - the `ubv_*` backend (`ubv_masking`/`ubv_conversions`) migrated to the int-tuple + 5→fewer-mask layout.

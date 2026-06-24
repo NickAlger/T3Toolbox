@@ -413,6 +413,18 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
             ut3.UniformTuckerTensorTrain(ux.tucker_supercore, ux.tt_supercore,
                                          (ux.N + 1,) + ux.shape[1:], ux.masks)  # exceeds padded N
 
+    def test_masks_value_hash_eq(self):
+        # UT3Masks hashes/compares by mask CONTENT, so a rebuilt-but-identical holder is the same jit
+        # cache key (no per-iteration recompile). A different rank structure is not equal.
+        x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1))
+        a = ut3.t3_to_ut3(x).masks
+        b = ut3.t3_to_ut3(x).masks                       # rebuilt -> distinct object, identical structure
+        self.assertIsNot(a, b)
+        self.assertEqual(a, b)
+        self.assertEqual(hash(a), hash(b))
+        c = ut3.t3_to_ut3(t3.TuckerTensorTrain.randn((5, 6, 7), (2, 2, 2), (1, 2, 2, 1))).masks
+        self.assertNotEqual(a, c)                         # different ranks -> not equal
+
     # ---- constructors (zeros / ones / randn) ----
     def test_zeros(self):
         for shape, tr, ttr, ss in self._cases():

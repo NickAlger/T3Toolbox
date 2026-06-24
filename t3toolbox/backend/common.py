@@ -4,6 +4,7 @@
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
 import numpy as np
 import typing as typ
+import functools as ft
 
 __all__ = [
     'has_jax',
@@ -15,6 +16,8 @@ __all__ = [
     'is_numpy_ndarray',
     'to_jax',
     'to_numpy',
+    #
+    'ValueHashedMasks',
     #
     'ragged_scan',
     'numpy_scan',
@@ -411,3 +414,37 @@ def load_core_families(
                     key=lambda k: int(k.split('_', 1)[1]))
         return tuple(npz[k] for k in ks)
     return tuple(fam(fi) for fi in range(num_families))
+
+
+class ValueHashedMasks:
+    """Mixin giving uniform-layer mask holders VALUE-based ``__hash__``/``__eq__`` over mask content.
+
+    Why this matters (PERFORMANCE, not cosmetics): a mask holder rides as jax ``aux_data``, so its
+    ``__hash__``/``__eq__`` are part of the jit compilation cache key. Identity hash/eq (the bare
+    ``@dataclass(eq=False)`` default) makes a fresh-but-array-identical holder a NEW key -> jit
+    RECOMPILES. In a manifold-optimization loop the orthogonal frame is rebuilt every iteration (via
+    ``ut3_orthogonal_representations``), producing fresh holders whose rank structure is identical;
+    identity hashing would recompile every step, dwarfing the actual compute -- the opposite of the
+    uniform layer's whole point. Value-based hash/eq makes the cache key reflect the rank STRUCTURE:
+    identical structure -> cache hit (no recompile); genuinely different structure -> recompile (correct).
+    See ``docs/uniform_pytree_composition.md``.
+
+    Subclasses must be ``@dataclass(frozen=True, eq=False)`` and expose ``.data`` as a tuple of the
+    (HOST numpy, concrete) mask arrays. The content hash is cached (the holder is frozen/immutable); eq
+    short-circuits on identity, then compares by ``np.array_equal``.
+    """
+
+    @ft.cached_property
+    def _content_hash(self) -> int:
+        # shape + dtype + bytes so distinct-shape/dtype masks never collide; masks are HOST numpy.
+        return hash(tuple((m.shape, m.dtype.str, m.tobytes()) for m in self.data))
+
+    def __hash__(self) -> int:
+        return self._content_hash
+
+    def __eq__(self, other) -> bool:
+        if self is other:
+            return True
+        if type(other) is not type(self):
+            return NotImplemented
+        return all(np.array_equal(a, b) for a, b in zip(self.data, other.data))

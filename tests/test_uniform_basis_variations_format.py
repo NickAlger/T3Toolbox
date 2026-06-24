@@ -115,6 +115,19 @@ class TestUT3Basis(unittest.TestCase):
         for a, b in zip(once.data[:4], twice.data[:4]):
             self.assertEqual(float(np.linalg.norm(a - b)), 0.0)
 
+    # ---- value-based mask hashing (the jit-cache-stability contract) ----
+    def test_masks_value_hash_eq(self):
+        # a rebuilt-but-array-identical UT3BasisMasks must be == and hash-equal (so a re-orthogonalized
+        # frame is the SAME jit cache key); a different rank structure must not be.
+        def masks(up_r):
+            return ubv.UT3BasisMasks(_prefix_mask(up_r, _NU), _prefix_mask(_DOWN_R, _ND),
+                                     _prefix_mask(_LEFT_R, _RL), _prefix_mask(_RIGHT_R, _RR))
+        a, b = masks(_UP_R), masks(_UP_R)
+        self.assertIsNot(a, b)
+        self.assertEqual(a, b)
+        self.assertEqual(hash(a), hash(b))
+        self.assertNotEqual(a, masks([1, 3, 4]))   # different up ranks -> not equal
+
     # ---- jax pytree composition (supercores = children; (shape, masks) = static aux) ----
     @unittest.skipUnless(HAS_JAX, 'jax not installed')
     def test_pytree_roundtrip(self):

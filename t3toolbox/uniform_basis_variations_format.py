@@ -27,15 +27,17 @@ __all__ = [
 ]
 
 
-@dataclass(frozen=True, eq=False)  # eq=False -> identity hash/eq, valid jit aux_data (holds bool arrays)
-class UT3BasisMasks:
+@dataclass(frozen=True, eq=False)  # eq=False -> the mixin's VALUE-based __hash__/__eq__ stand
+class UT3BasisMasks(common.ValueHashedMasks):
     """The static rank structure of a :py:class:`UT3Basis`: its four boolean edge masks.
 
     Slot ``j`` of an edge is real iff its mask is ``True`` there (the prefix/canonical form). Held as a
-    separate, identity-hashable object so it can ride as jax ``aux_data`` -- the plain-layer
-    :py:class:`~t3toolbox.uniform_tucker_tensor_train.UT3Masks` pattern; see
-    ``docs/uniform_pytree_composition.md``. (The physical ``shape`` is a separate static int tuple on
-    :py:class:`UT3Basis` -- not a mask, and value-hashable.)
+    separate object so it can ride as jax ``aux_data``; hash/eq are **value-based** (the
+    :py:class:`~t3toolbox.backend.common.ValueHashedMasks` mixin) so a rebuilt-but-identical frame is the
+    *same* jit cache key (no per-iteration recompile when the orthogonal frame is rebuilt in an
+    optimization loop). The plain-layer :py:class:`~t3toolbox.uniform_tucker_tensor_train.UT3Masks`
+    pattern; see ``docs/uniform_pytree_composition.md``. (The physical ``shape`` is a separate static int
+    tuple on :py:class:`UT3Basis` -- not a mask, and value-hashable.)
     """
     up_mask:          NDArray  # dtype=bool, (d,)  +stack_shape+(nU,)
     down_mask:        NDArray  # dtype=bool, (d,)  +stack_shape+(nD,)

@@ -387,6 +387,43 @@ class TestDispatch(unittest.TestCase):
         # jax-out only, covered by test_jax_out_uniform_ctors.)
         self.assert_jit_uniform(lambda x: ut3.t3_to_ut3(x), self.x_np.to_jax(), returns_ut3=True)
 
+    # ------------------------------------------- performance contract: value-hashed masks => no recompile
+    def test_mask_rebuild_does_not_recompile(self):
+        # A uniform object's masks ride as jax aux_data, so their __hash__/__eq__ are part of the jit cache
+        # key. Rebuilding the masks (a fresh-but-array-identical holder -- e.g. re-orthogonalizing the frame
+        # every optimization step) must NOT recompile, or the loop pays a recompile every iteration. The
+        # ValueHashedMasks mixin makes the key reflect rank STRUCTURE, not object identity. (The Python body
+        # of a jitted fn runs once per TRACE, so the counter == number of compilations.)
+        import t3toolbox.uniform_basis_variations_format as ubv
+
+        n_plain = [0]
+        @jax.jit
+        def fn_plain(u):
+            n_plain[0] += 1
+            return u.norm()
+        for _ in range(4):
+            fn_plain(ut3.t3_to_ut3(self.x_np).to_jax())   # fresh UT3Masks each call, identical structure
+        self.assertEqual(n_plain[0], 1, 'plain UT3 recompiled on mask rebuild (mask hash/eq not value-based)')
+
+        # same for the orthogonal frame's UT3BasisMasks (the optimization-loop case)
+        d, N, nU, nD, rL, rR = 3, 6, 4, 5, 3, 2
+        pm = lambda r, p: np.arange(p) < np.asarray(r)[..., None]
+        def make_frame():
+            up    = jnp.asarray(np.random.randn(d, nU, N))
+            down  = jnp.asarray(np.random.randn(d, rL, nD, rR))
+            left  = jnp.asarray(np.random.randn(d, rL, nU, rL))
+            right = jnp.asarray(np.random.randn(d, rR, nU, rR))
+            masks = ubv.UT3BasisMasks(pm([2,3,4],nU), pm([3,4,5],nD), pm([1,2,3,1],rL), pm([1,2,2,1],rR))
+            return ubv.UT3Basis(up, down, left, right, (4,5,6), masks)
+        n_frame = [0]
+        @jax.jit
+        def fn_frame(B):
+            n_frame[0] += 1
+            return sum(jnp.sum(c) for c in B.data[:4])
+        for _ in range(4):
+            fn_frame(make_frame())                        # fresh UT3BasisMasks each call, identical structure
+        self.assertEqual(n_frame[0], 1, 'UT3Basis recompiled on frame rebuild (mask hash/eq not value-based)')
+
     # ---------------------------------------------------- jax-out bucket: pure uniform constructors
     def test_jax_out_uniform_ctors(self):
         # pure constructors (no array input) take use_jax=True -> jax supercores out, masks numpy (host).

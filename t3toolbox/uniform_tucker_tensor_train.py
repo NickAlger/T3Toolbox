@@ -44,14 +44,16 @@ __all__ = [
     'ut3_to_t3',
 ]
 
-@dataclass(frozen=True, eq=False)  # eq=False -> identity __hash__/__eq__, so this array-holding object
-class UT3Masks:                    # can be jax aux_data (value hash/eq is impossible). See
+@dataclass(frozen=True, eq=False)  # eq=False -> the mixin's VALUE-based __hash__/__eq__ stand (a bare
+class UT3Masks(common.ValueHashedMasks):  # eq=True would fail on arrays). See ValueHashedMasks.
     """The static rank structure of a uniform Tucker tensor train: its two boolean edge masks.
 
     Slot ``j`` of an edge is real iff its mask is ``True`` there (the prefix/canonical form). Held as a
-    separate, identity-hashable object so it can ride as jax ``aux_data`` -- the ``T3Basis``<->``T3Tangent``
-    pattern; see ``docs/uniform_pytree_composition.md``. (The physical ``shape`` is a separate static int
-    tuple on :py:class:`UniformTuckerTensorTrain` -- not a mask, and value-hashable.)
+    separate object so it can ride as jax ``aux_data``. Hash/eq are **value-based** (the
+    :py:class:`~t3toolbox.backend.common.ValueHashedMasks` mixin), so a rebuilt-but-identical holder is the
+    *same* jit cache key -- no per-iteration recompile in optimization loops; see
+    ``docs/uniform_pytree_composition.md``. (The physical ``shape`` is a separate static int tuple on
+    :py:class:`UniformTuckerTensorTrain` -- not a mask, and already value-hashable.)
     """
     tucker_edge_mask: NDArray  # HOST bool, static, shape=(d,)   + stack_shape + (n,)
     tt_edge_mask:     NDArray  # HOST bool, static, shape=(d+1,) + stack_shape + (r,)
@@ -592,12 +594,13 @@ def ut3_to_t3(
 if common.has_jax:
     # UniformTuckerTensorTrain as a jax pytree: the two supercores are the (traced) children; the static
     # aux_data is ``(shape, UT3Masks)``. Both are STRUCTURE (the real mode dims + which rank slots are
-    # real), not data, so they belong in aux, not the traced leaves. ``shape`` is a value-hashable int
-    # tuple (same shape -> same jit cache key); ``UT3Masks`` is eq=False (identity hash/eq), valid
-    # hashable aux even though it holds (unhashable) bool arrays -- jit keys on mask-object identity (a
-    # new rank structure recompiles, like T3Tangent's basis-as-aux). Because uniform output ranks are
-    # STATICALLY determined (no rtol; shrink-to-structural-minimum), a jitted op's output masks stay
-    # compile-time constants -- safe as aux. See docs/uniform_pytree_composition.md.
+    # real), not data, so they belong in aux, not the traced leaves. BOTH are value-keyed: ``shape`` is a
+    # value-hashable int tuple, and ``UT3Masks`` hashes/compares by mask CONTENT (the ValueHashedMasks
+    # mixin). So the jit cache key reflects the rank STRUCTURE -- a rebuilt-but-identical object is the
+    # same key (no per-iteration recompile when frames are re-orthogonalized in an optimization loop); a
+    # genuinely different structure recompiles (correct). Because uniform output ranks are STATICALLY
+    # determined (no rtol; shrink-to-structural-minimum), a jitted op's output masks stay compile-time
+    # constants -- safe as aux. See docs/uniform_pytree_composition.md.
     jax.tree_util.register_pytree_node(
         UniformTuckerTensorTrain,
         lambda x: ((x.tucker_supercore, x.tt_supercore), (x.shape, x.masks)),

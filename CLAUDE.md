@@ -102,7 +102,9 @@ updated to this version by the time the package is released.
   [`docs/uniform_masks_vs_ranks.md`](docs/uniform_masks_vs_ranks.md) (rank metadata is **boolean
   masks**, not integer ranks — closed under add=concat / multiply=Kronecker with no data movement), and
   [`docs/uniform_pytree_composition.md`](docs/uniform_pytree_composition.md) (`UT3 = tucker_supercore +
-  tt_supercore + masks`-holder; the holder is an `eq=False` identity-hashed static `aux_data`, the
+  tt_supercore + masks`-holder; the holder is a static `aux_data` with **value-based** hash/eq over mask
+  **content** — the `common.ValueHashedMasks` mixin — so a rebuilt-but-identical holder is the *same* jit
+  cache key and re-orthogonalizing the frame each optimization step does **not** recompile; the
   `T3Basis`↔`T3Tangent` pattern).
 - **weighted** — cores + edge-weight vectors (`wt3_*`, `weighted_*`); weights "absorbed" into cores.
   Tangent weighting (`absorb_weights_into_tangent_cores`) is **parked** in `backend/bv_operations.py`

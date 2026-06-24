@@ -50,17 +50,31 @@ _Updated 2026-06-23._
      Notable wrinkle solved: the int-tuple `shape` is a `Sequence`, so `stacking.py`'s leaf-walker needed a
      **dynamic leaf template** (`ut3_operations.ut3_leaf_structure(d)`) + a manual first-leaf drill in
      `ut3_stack`/`ut3_unstack` + frontend `unstack`. `save`/`load` gained a third (shape) family. **Full
-     suite green: 327 passed / 39 198 subtests; jax dispatch + doctests green.** jit value-hashing is
-     **shape-only** (rank masks stay identity-hashed) — deferred, noted in the plan.
+     suite green: 327 passed / 39 198 subtests; jax dispatch + doctests green.**
    - **Cleanup before the rebuild ✅ DONE (2026-06-23):** removed the ambiguous
      `UniformTuckerTensorTrain.{from_canonical, from_tensor_train, to_tensor_train}` + their backend twins
      (they round-tripped *ragged* CP/TT through `TuckerTensorTrain` — ragged-vs-uniform ambiguity; compose
      `t3_to_ut3`/`ut3_to_t3` explicitly instead). Suites green.
-   - **Slice 3 is now split → 3a + 3b** (decided 2026-06-23; details in `dev/uniform_fix_plan.md`):
-     - **3a — frame/variations foundation (NEXT):** rebuild `UT3Basis` + `UT3Variations` directly in the
-       target shape (int-tuple `shape` + the plain-layer pytree composition — masks in an identity-hashed
-       aux holder, not pytree children as today; supercores the only children), mirroring ragged
+   - **Value-hashed mask holders ✅ DONE (2026-06-23):** all mask holders (`UT3Masks`, `UT3BasisMasks`,
+     future `UT3VariationsMasks`) now hash/compare by mask **content** via the `common.ValueHashedMasks`
+     mixin, so a rebuilt-but-identical holder is the *same* jit cache key. This **retires** the Slice-2
+     "value-hashing is shape-only" caveat and fixes the optimization-loop recompile (re-orthogonalizing the
+     frame each iteration was creating fresh identity-hashed holders → recompile every step). Empirically
+     5→1 compiles; regression test `test_dispatch.py::test_mask_rebuild_does_not_recompile`. Docs updated.
+   - **Slice 3 split → 3a + 3b** (decided 2026-06-23; details in `dev/uniform_fix_plan.md`):
+     - **3a — frame/variations foundation (IN PROGRESS):** rebuild `UT3Basis` + `UT3Variations` directly in
+       the target shape (int-tuple `shape` + the plain-layer pytree composition — masks in a value-hashed
+       aux holder, not pytree children as before; supercores the only children), mirroring ragged
        method-for-method (~50 missing methods), + `ubv_*` backend + tests.
+       - **Increment 1 ✅ DONE (2026-06-23):** `UT3Basis` + `UT3BasisMasks` rebuilt on the new design
+         (flat holder, int-tuple shape, pytree); `ubv_masking.apply_basis_masks` migrated;
+         `unstack`/`stack` stubbed (increment 2); `ut3_orthogonal_representations`' `UT3Basis` construction
+         forward-ported (but that fn still has stale `use_jax` calls + builds the old `UT3Variations` →
+         increment 2). Tests: `tests/test_uniform_basis_variations_format.py`. Suite 334 green.
+       - **Increment 2 (NEXT):** rebuild `UT3Variations` (same holder pattern); port
+         `ut3_orthogonal_representations` fully (drop `use_jax`, finish the `UT3Variations` half); migrate
+         conversions (`ut3basis_to_t3basis` int-tuple + a `t3basis_to_ut3basis` constructor) → `to_t3`/
+         `to_dense` round-trip anchor; rebuild `unstack`/`stack`; then the method buildout.
      - **3b — tangent/manifold:** `UT3Tangent` + `uniform_manifold` off the new types (drop `OLD_uniform` +
        ~600 lines of `if False:` dead code), un-stub geometry/`ubv_to_ut3`, derivative probing, tests.
      - **Naming DEFERRED:** 3a keeps `UT3Basis`/`ubv_` names; the global `T3Basis→T3Frame` + `bv_→fv_` +
