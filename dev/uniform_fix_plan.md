@@ -91,6 +91,26 @@ recovered from the supercore mode axis — nothing lost.
   test `tests/test_dispatch.py::test_mask_rebuild_does_not_recompile`. Docs updated
   (`docs/uniform_pytree_composition.md`, CLAUDE.md).
 
+### CONSIDERED & REJECTED (2026-06-24): a maskless uniform tangent layer
+- **The idea:** drop masks from the bv/fv/tangent layer entirely — inflate the frame (SVD orthonormal
+  completion) + zero-extend variations to the padded size `R`, work on pure supercores. Motivated by the
+  minimal-rank catalog (`docs/numerical_contract_catalog.md`, empirically verified): **no tangent op needs
+  minimal rank** (inner/norm need only orthogonal+gauged — it corrects the stale CLAUDE.md "+minimal";
+  project/transport/gauge need orthogonal; retract is a soft caveat). The catalog's "non-minimal base vs
+  dense oracle" tests *are* inflation tests, so `op(inflate(t)).to_dense() == op(t).to_dense()` is
+  essentially pre-verified. Payoff would have been huge: no masks → no static jit-key structure → the whole
+  recompile saga evaporates for the tangent layer.
+- **Why REJECTED:** the claim holds for **operations on a given tangent**, but **optimization computes new
+  tangents (gradients)**. The masks zero the variation in the padded slots — that is what **prevents the
+  gradient from growing rank into the padding**. That pin is a **core feature**, not bookkeeping: it lets
+  you fit at specific per-edge ranks and grow them under control (`examples/fit_varied_rank_tensor_newton_cg.py`,
+  `docs/rank_continuation.md`). Maskless would force uniform rank `R` everywhere → either too low (leave fit
+  on the table) or too high (overfit). **Simulating varied ranks within uniform is the point of the layer.**
+- **Consequence:** masks stay; **value-hashing is the right recompile fix**; SVD orthogonalization
+  (`docs/uniform_svd_prefix_orthogonalization.md`) keeps the masks a deterministic prefix → loop-invariant
+  at fixed rank → no recompile within a continuation stage; rank continuation recompiles only at stage
+  boundaries (rank changes — correct, rare). Increment 3a proceeds **with** masks, as planned.
+
 - **Why (code):** `shape_mask = np.arange(N) < shape[:,None]` is always a contiguous prefix and is passed
   through every algebraic op untouched (only *ranks* scatter via concat/Kronecker — `ut3_svd` keeps
   `shape_mask`, comments it "unused"). Most consumers already `.sum(axis=-1)` it back to ints. It's a
