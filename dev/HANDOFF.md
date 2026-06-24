@@ -52,10 +52,22 @@ _Updated 2026-06-23._
      `ut3_stack`/`ut3_unstack` + frontend `unstack`. `save`/`load` gained a third (shape) family. **Full
      suite green: 327 passed / 39 198 subtests; jax dispatch + doctests green.** jit value-hashing is
      **shape-only** (rank masks stay identity-hashed) — deferred, noted in the plan.
-   - **Next: Slice 3** (rebuild the tangent layer off OLD types: `UT3Tangent` + manifold ops + un-stub
-     `ubv_to_ut3` + tests — build it on the new int-tuple convention), then Slice 4 (close the ragged-poly
-     gaps: `_apply_transpose_adjoint` + `Sequence` signatures). _(Note `uniform_manifold.py` still imports
-     `OLD_uniform` and does not import — pre-existing, the Slice-3 rebuild target; not exercised by the suite.)_
+   - **Cleanup before the rebuild ✅ DONE (2026-06-23):** removed the ambiguous
+     `UniformTuckerTensorTrain.{from_canonical, from_tensor_train, to_tensor_train}` + their backend twins
+     (they round-tripped *ragged* CP/TT through `TuckerTensorTrain` — ragged-vs-uniform ambiguity; compose
+     `t3_to_ut3`/`ut3_to_t3` explicitly instead). Suites green.
+   - **Slice 3 is now split → 3a + 3b** (decided 2026-06-23; details in `dev/uniform_fix_plan.md`):
+     - **3a — frame/variations foundation (NEXT):** rebuild `UT3Basis` + `UT3Variations` directly in the
+       target shape (int-tuple `shape` + the plain-layer pytree composition — masks in an identity-hashed
+       aux holder, not pytree children as today; supercores the only children), mirroring ragged
+       method-for-method (~50 missing methods), + `ubv_*` backend + tests.
+     - **3b — tangent/manifold:** `UT3Tangent` + `uniform_manifold` off the new types (drop `OLD_uniform` +
+       ~600 lines of `if False:` dead code), un-stub geometry/`ubv_to_ut3`, derivative probing, tests.
+     - **Naming DEFERRED:** 3a keeps `UT3Basis`/`ubv_` names; the global `T3Basis→T3Frame` + `bv_→fv_` +
+       `ubv_→ufv_` rename (naming_review.md §2) is its own later mechanical, suite-gated pass.
+   - Then Slice 4 (close the ragged-poly gaps: `_apply_transpose_adjoint` + `Sequence` signatures).
+   - _(`uniform_manifold.py` still imports `OLD_uniform` and does not import — pre-existing, the 3b rebuild
+     target; not exercised by the suite.)_
 2. Then **release hygiene** (the R1–R7 roadmap below). **1.0 = honest mid-level toolkit; the `fit()`
    facade is deferred to 1.1.**
 

@@ -158,10 +158,36 @@ recovered from the supercore mode axis — nothing lost.
    third family. Full suite green (327 / 39 198 subtests); jax dispatch + doctests green. **Open jit
    caveat carried forward:** value-hashing is shape-only (rank masks stay identity-hashed) — see the
    "Slice 2 DECIDED" note above.
-3. **Rebuild the tangent layer** (the bulk): `uniform_manifold` off OLD types → `UT3Tangent` + manifold ops
-   mirroring ragged + un-stub `ubv_to_ut3` + tests.
+2.5. **Cleanup before the rebuild — ✅ DONE (2026-06-23).** Removed the ambiguous
+   `UniformTuckerTensorTrain.{from_canonical, from_tensor_train, to_tensor_train}` frontend methods + their
+   backend twins (`ut3_from_canonical`/`ut3_from_tensor_train`/`ut3_to_tensor_train`) + dead imports. They
+   took *ragged* CP/TT data and round-tripped through `TuckerTensorTrain` (ragged-vs-uniform input
+   ambiguity); users compose `t3_to_ut3` / `ut3_to_t3` explicitly. Tests/doctests updated; the array-in
+   jit-dispatch check now exercises `t3_to_ut3`. (Per the razor: trivial-and-obvious round-trips don't earn
+   a backend home.)
+
+**Slice 3 is split into 3a + 3b** (decided 2026-06-23) — the old "rebuild the tangent layer" is really two
+stacked layers (frame/variations foundation, then tangent/manifold on top); the user wants the foundation
+solid first. **Naming decision: DEFER the rename.** 3a keeps the current `UT3Basis`/`UT3Variations`/`ubv_`
+names (consistent with ragged `T3Basis` *now*); the global `T3Basis→T3Frame` + `bv_→fv_` + `ubv_→ufv_`
+rename (naming_review.md §2) is its own later mechanical, suite+doctest-gated pass over the whole library.
+Rationale: one kind of change per slice; keep the working ragged layer stable; don't block the rebuild.
+
+3a. **Frame/variations foundation (the bulk of the rebuild).** Rebuild `UT3Basis` + `UT3Variations`
+   **directly in the target shape** (rebuild-in-place: the layer is *broken*, unlike Slice 2's *solid* plain
+   layer) — mirror the ragged `T3Basis`/`T3Variations` method-for-method, on:
+   - the **int-tuple `shape`** + the **plain-layer pytree composition** (a `UFV*Masks`-style identity-hashed
+     aux holder for the rank masks, `shape` value-hashed aux, supercores as the only children — today the
+     bv masks are wrongly pytree *children* with no registration). Drops the 9-tuple/7-tuple `.data` to
+     supercores + shape + rank-mask holder.
+   - the missing ~50 methods (`to_t3`/`to_dense`, `orthogonalize`, geometry hooks, vector conversions,
+     linalg, `reverse`, save/load, `from_t3`/`random_orthogonal`, repr…) + `validate` + tests/doctests.
+   - the `ubv_*` backend (`ubv_masking`/`ubv_conversions`) migrated to the int-tuple + 5→fewer-mask layout.
+3b. **Tangent + manifold.** `UT3Tangent` + `uniform_manifold` rebuilt off the new types (drop the
+   `OLD_uniform` import + ~600 lines of `if False:` dead code); un-stub retract/project/transport + the
+   geometry; un-stub `ubv_to_ut3`; derivative probing (ragged was built polymorphism-ready); tests.
 4. **Close the ragged-poly gaps** (`_apply_transpose_adjoint` polymorphism + the `Sequence` signatures) so
    optimizers/derivatives run on uniform.
-Module reorg + naming applied throughout. **Open verifications:** a norm/inner orthogonalize-path
-smoke test (correctness is a proof modulo roundoff, not an open question); confirm no path relies on a
-non-prefix `shape_mask`.
+
+**Open verifications:** a norm/inner orthogonalize-path smoke test (correctness is a proof modulo roundoff,
+not an open question); confirm no path relies on a non-prefix `shape_mask`.
