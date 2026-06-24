@@ -63,10 +63,6 @@ class TestDispatch(unittest.TestCase):
         cls.uvecs = tuple(jnp.array(np.random.randn(N)) for N in STRUCT[0])
         cls.uww = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])
         cls.uidx = jnp.array([1, 2, 3])
-        # constructor IO inputs (jax arrays in -> jax supercores out, masks numpy)
-        cls.ufactors = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])  # CP, rank 2
-        cls.uttc = (jnp.array(np.random.randn(1, 4, 2)), jnp.array(np.random.randn(2, 5, 2)),
-                    jnp.array(np.random.randn(2, 6, 1)))                            # tensor-train cores
 
     # ---------------------------------------------------------------- helpers
     def _leaves_all_jax(self, out):
@@ -385,14 +381,11 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_uniform(
             lambda u: u.t3svd(max_tucker_ranks=2, max_tt_ranks=2)[0], ux, returns_ut3=True)
 
-        # constructors taking arrays: jax factors/cores in -> jax supercores out, masks stay concrete.
-        # (pure zeros/ones/randn have no array input -> jax-out only, covered by test_jax_out_uniform_ctors.)
-        self.assert_jit_uniform(
-            lambda f0, f1, f2: ut3.UniformTuckerTensorTrain.from_canonical((f0, f1, f2)),
-            *self.ufactors, returns_ut3=True)
-        self.assert_jit_uniform(
-            lambda g0, g1, g2: ut3.UniformTuckerTensorTrain.from_tensor_train((g0, g1, g2)),
-            *self.uttc, returns_ut3=True)
+        # array-in constructor under jit: a jax TuckerTensorTrain in -> jax supercores out, masks stay
+        # concrete. (t3_to_ut3 is the array-taking uniform constructor; from_canonical / from_tensor_train
+        # were removed as ambiguous ragged round-trips. Pure zeros/ones/randn have no array input ->
+        # jax-out only, covered by test_jax_out_uniform_ctors.)
+        self.assert_jit_uniform(lambda x: ut3.t3_to_ut3(x), self.x_np.to_jax(), returns_ut3=True)
 
     # ---------------------------------------------------- jax-out bucket: pure uniform constructors
     def test_jax_out_uniform_ctors(self):

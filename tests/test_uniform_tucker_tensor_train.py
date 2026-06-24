@@ -492,47 +492,9 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         with self.assertRaises(ValueError):
             ut3.UniformTuckerTensorTrain.randn((5, 6, 7), (3, 4), (1, 3, 2, 1))   # wrong-length tucker
 
-    # ---- conversions to/from other formats ----
-    def test_from_canonical(self):
-        rank, shape, ss = 3, (5, 6, 7), (2,)
-        FF = [np.random.randn(*(ss + (rank, N))) for N in shape]
-        ux = ut3.UniformTuckerTensorTrain.from_canonical(FF)
-        expected = np.einsum('ari,arj,ark->aijk', FF[0], FF[1], FF[2])
-        self.assertLessEqual(relerr(ux.to_dense(), expected), TOL)
-        # Tucker ranks = canonical rank; boundary TT bonds squashed to 1 by t3_to_ut3's default squash
-        self.assertEqual(self._first_elem_ranks(ux, ss), ((rank, rank, rank), (1, rank, rank, 1)))
-        # matches the ragged from_canonical exactly
-        xr = t3.TuckerTensorTrain.from_canonical(FF)
-        self.assertLessEqual(relerr(ux.to_dense(), xr.to_dense()), TOL)
-        self.assertTrue(all(m.dtype == bool for m in ux.masks.data))   # masks numpy bool
-
-    def test_from_tensor_train(self):
-        tt = [np.random.randn(1, 5, 4), np.random.randn(4, 6, 3), np.random.randn(3, 7, 1)]
-        ux = ut3.UniformTuckerTensorTrain.from_tensor_train(tt)
-        expected = np.einsum('aib,bjc,ckd->ijk', *tt)
-        self.assertLessEqual(relerr(ux.to_dense(), expected), TOL)
-        xr = t3.TuckerTensorTrain.from_tensor_train(tt)
-        self.assertLessEqual(relerr(ux.to_dense(), xr.to_dense()), TOL)
-
-    def test_to_tensor_train_unstacked(self):
-        x = t3.TuckerTensorTrain.randn((6, 7, 8), (3, 4, 2), (1, 3, 2, 1))
-        ux = ut3.t3_to_ut3(x)
-        tt = ux.to_tensor_train()
-        got = np.einsum('aib,bjc,ckd->ijk', *tt)
-        self.assertLessEqual(relerr(got, x.to_dense()), TOL)
-        # matches the ragged to_tensor_train
-        ragged_tt = x.to_tensor_train()
-        self.assertLessEqual(relerr(got, np.einsum('aib,bjc,ckd->ijk', *ragged_tt)), TOL)
-
-    def test_to_tensor_train_stacked_tree(self):
-        x = t3.TuckerTensorTrain.randn((6, 7, 8), (3, 4, 2), (1, 3, 2, 1), stack_shape=(2,))
-        ux = ut3.t3_to_ut3(x)
-        tree = ux.to_tensor_train()
-        self.assertEqual(len(tree), 2)
-        xd = x.to_dense()
-        for i in range(2):
-            got = np.einsum('aib,bjc,ckd->ijk', *tree[i])
-            self.assertLessEqual(relerr(got, xd[i]), TOL)
+    # (No from_canonical / from_tensor_train / to_tensor_train: those round-trip ragged CP/TT data
+    # through TuckerTensorTrain -- ambiguous -- so they were removed. Convert explicitly via t3_to_ut3
+    # / ut3_to_t3 instead, exercised by the round-trip tests elsewhere in this file.)
 
     # ---- save / load ----
     def test_save_load_roundtrip(self):
@@ -576,10 +538,6 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         self.assertTrue(all(isinstance(m, np.ndarray) and m.dtype == bool for m in z[3]))
         o = bc.ut3_ones((5, 6, 7))
         self.assertEqual(float(norm(conv.ut3_to_dense(o) - np.ones((5, 6, 7)))), 0.0)
-        FF = [np.random.randn(3, N) for N in (5, 6, 7)]
-        fc = bc.ut3_from_canonical(FF)
-        self.assertLessEqual(relerr(conv.ut3_to_dense(fc),
-                                    np.einsum('ri,rj,rk->ijk', *FF)), TOL)
 
     # ---- dtype / copy ----
     def test_to_numpy_and_copy(self):

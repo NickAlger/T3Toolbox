@@ -501,69 +501,10 @@ class UniformTuckerTensorTrain:
         return _from_data(ut3_constructors.ut3_randn(
             shape, tucker_ranks, tt_ranks, tuple(stack_shape), use_jax=use_jax))
 
-    # ----------------------------------------------------------------- conversions to/from other formats
-
-    @staticmethod
-    def from_canonical(
-            factors: Sequence[NDArray],  # len=d, elm_shape=stack_shape+(canonical_rank, Ni)
-    ) -> 'UniformTuckerTensorTrain':
-        """Build from a Canonical (CP) decomposition (reuses the ragged op, then converts to uniform).
-
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> np.random.seed(0)
-        >>> rank, shape = 3, (5, 6, 7)
-        >>> FF = [np.random.randn(rank, N) for N in shape]
-        >>> x = ut3.UniformTuckerTensorTrain.from_canonical(FF)
-        >>> x_dense2 = np.einsum('ri,rj,rk->ijk', FF[0], FF[1], FF[2])
-        >>> print(bool(np.allclose(x.to_dense(), x_dense2)))
-        True
-        >>> print(np.asarray(x.tucker_ranks).tolist())
-        [3, 3, 3]
-        """
-        return _from_data(ut3_constructors.ut3_from_canonical(factors))
-
-    @staticmethod
-    def from_tensor_train(
-            tt_cores: Sequence[NDArray],  # len=d, elm_shape=stack_shape+(ri, Ni, r(i+1))
-    ) -> 'UniformTuckerTensorTrain':
-        """Build from a tensor train (identity Tucker bases; reuses the ragged op, then converts).
-
-        The Tucker ranks become ``Ni``; run :py:meth:`t3svd` to minimize.
-
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> np.random.seed(0)
-        >>> tt_cores = [np.random.randn(1, 5, 4), np.random.randn(4, 6, 3), np.random.randn(3, 7, 1)]
-        >>> x = ut3.UniformTuckerTensorTrain.from_tensor_train(tt_cores)
-        >>> x_dense2 = np.einsum('aib,bjc,ckd->ijk', *tt_cores)
-        >>> print(bool(np.allclose(x.to_dense(), x_dense2)))
-        True
-        """
-        return _from_data(ut3_constructors.ut3_from_tensor_train(tt_cores))
-
-    def to_tensor_train(
-            self,
-    ):  # -> tt_cores (unstacked) or a nested tree (shaped like stack_shape) of them
-        """Tensor-train form (Tucker absorbed). Unstacked -> one ``tt_cores`` tuple; stacked -> a nested
-        tree (a varying-rank stack has no single stacked TT; ``docs/uniform_ranks_and_varieties.md``).
-
-        Examples
-        --------
-        >>> import numpy as np
-        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-        >>> np.random.seed(0)
-        >>> x = ut3.UniformTuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1))
-        >>> tt_cores = x.to_tensor_train()
-        >>> x_dense2 = np.einsum('aib,bjc,ckd->ijk', *tt_cores)
-        >>> print(bool(np.allclose(x.to_dense(), x_dense2)))
-        True
-        """
-        return ut3_constructors.ut3_to_tensor_train(self.data)
+    # Note: there are deliberately NO ``from_canonical`` / ``from_tensor_train`` / ``to_tensor_train``
+    # methods. They would take *ragged* CP/TT data and round-trip through ``TuckerTensorTrain``, which is
+    # ambiguous (ragged vs uniform input). Be explicit instead: build a ``TuckerTensorTrain`` (which has
+    # those methods) and convert with :py:func:`t3_to_ut3` / :py:func:`ut3_to_t3`.
 
     # ----------------------------------------------------------------- save / load
     def save(

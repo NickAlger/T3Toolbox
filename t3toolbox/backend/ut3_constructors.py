@@ -6,22 +6,22 @@
 
 ``ut3_zeros`` / ``ut3_ones`` / ``ut3_randn`` build the padded supercores + masks **directly** (the
 uniform feature ragged round-tripping cannot express: ranks may vary per stack element -- the
-determinantal variety, ``docs/uniform_ranks_and_varieties.md``). ``ut3_from_canonical`` /
-``ut3_from_tensor_train`` / ``ut3_to_tensor_train`` reuse the verified ragged ops via a round-trip
-through ``t3_to_ut3`` / ``ut3_to_t3`` (faithful here -- uniform ranks). ``ut3_save`` / ``ut3_load``
-share ``common.save_core_families`` over the 5 arrays (2 supercores + 3 masks).
+determinantal variety, ``docs/uniform_ranks_and_varieties.md``). ``ut3_save`` / ``ut3_load`` share
+``common.save_core_families`` (2 supercores + 2 rank masks + the shape ints).
+
+There are deliberately **no** ``ut3_from_canonical`` / ``ut3_from_tensor_train`` / ``ut3_to_tensor_train``
+round-trips: they would take *ragged* CP/TT data and round-trip through ``TuckerTensorTrain``, which is
+ambiguous (ragged vs uniform input) and trivially composable from the existing ragged ops + ``t3_to_ut3``
+/ ``ut3_to_t3``. Be explicit at the boundary instead.
 
 Following the layer-wide rule (``docs/uniform_pytree_composition.md``): **supercores (data) ->
 ``xnp``/``use_jax``; masks (structure) -> ``np`` (host)**. The pure constructors keep a ``use_jax``
-flag for the supercores (there is no array input to infer from); the ``from_*`` factories infer it
-from their input arrays. ``ut3_load`` keeps ``use_jax`` for the supercores but always returns numpy
-(host) bool masks.
+flag for the supercores (there is no array input to infer from). ``ut3_load`` keeps ``use_jax`` for the
+supercores but always returns numpy (host) bool masks.
 """
 import numpy as np
 import typing as typ
 
-import t3toolbox.backend.t3_operations as t3_ops
-import t3toolbox.backend.ut3_conversions as ut3_conversions
 import t3toolbox.backend.ut3_masking as ut3_masking
 from t3toolbox.backend.common import *
 import t3toolbox.backend.common as common
@@ -30,9 +30,6 @@ __all__ = [
     'ut3_zeros',
     'ut3_ones',
     'ut3_randn',
-    'ut3_from_canonical',
-    'ut3_from_tensor_train',
-    'ut3_to_tensor_train',
     'ut3_save',
     'ut3_load',
 ]
@@ -146,55 +143,6 @@ def ut3_randn(
     ``(d+1,)+stack`` array sets per-element ranks while keeping one padded supercore shape.
     """
     return _ut3_constant('randn', shape, tucker_ranks, tt_ranks, stack_shape, use_jax=use_jax)
-
-
-def ut3_from_canonical(
-        factors: typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(canonical_rank,Ni)
-) -> UT3Data:
-    """Uniform Tucker tensor train from a Canonical (CP) decomposition.
-
-    Reuses the verified ragged :py:func:`~t3toolbox.backend.t3_operations.t3_from_canonical`, then
-    converts via :py:func:`~t3toolbox.backend.ut3_conversions.t3_to_ut3` (faithful -- uniform ranks).
-    ``use_jax`` is inferred from the factor arrays; masks come out numpy (host) from ``t3_to_ut3``.
-    """
-    tucker_cores, tt_cores = t3_ops.t3_from_canonical(factors)
-    return ut3_conversions.t3_to_ut3((tucker_cores, tt_cores))
-
-
-def ut3_from_tensor_train(
-        tt_cores: typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(ri,Ni,r(i+1))
-) -> UT3Data:
-    """Uniform Tucker tensor train from a tensor train (identity Tucker bases).
-
-    Reuses ragged :py:func:`~t3toolbox.backend.t3_operations.t3_from_tensor_train` then ``t3_to_ut3``.
-    The Tucker ranks become ``Ni`` (identity bases), so this is a high-Tucker-rank form -- run
-    :py:func:`~t3toolbox.backend.ut3_svd.ut3svd` to minimize. ``use_jax`` inferred; masks numpy (host).
-    """
-    tucker_cores, tt_cores = t3_ops.t3_from_tensor_train(tt_cores)
-    return ut3_conversions.t3_to_ut3((tucker_cores, tt_cores))
-
-
-def ut3_to_tensor_train(
-        data: UT3Data,
-) -> typ.Union[
-    typ.Tuple[NDArray, ...],  # tt_cores (unstacked), len=d, elm_shape=(ri,Ni,r(i+1))
-    typ.Tuple,                # else a nested tree (shaped like stack_shape) of such tuples
-]:
-    """Tensor-train form (Tucker absorbed) of a uniform Tucker tensor train.
-
-    Routes through ragged :py:func:`~t3toolbox.backend.ut3_conversions.ut3_to_t3` then
-    :py:func:`~t3toolbox.backend.t3_operations.t3_to_tensor_train`. Unstacked -> one ``tt_cores`` tuple;
-    stacked -> a nested tree (a varying-rank stack has no single stacked TT;
-    ``docs/uniform_ranks_and_varieties.md``).
-    """
-    ragged = ut3_conversions.ut3_to_t3(data)
-
-    def _convert(res):
-        if is_ndarray(res[0][0]):              # res = (tucker_cores, tt_cores) leaf
-            return t3_ops.t3_to_tensor_train(res)
-        return tuple(_convert(r) for r in res)
-
-    return _convert(ragged)
 
 
 def ut3_save(
