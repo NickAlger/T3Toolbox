@@ -110,7 +110,11 @@ updated to this version by the time the package is released.
   tt_supercore + masks`-holder; the holder is a static `aux_data` with **value-based** hash/eq over mask
   **content** — the `common.ValueHashedMasks` mixin — so a rebuilt-but-identical holder is the *same* jit
   cache key and re-orthogonalizing the frame each optimization step does **not** recompile; the
-  `T3Basis`↔`T3Tangent` pattern).
+  `T3Basis`↔`T3Tangent` pattern), and
+  [`docs/uniform_backend_jit_recipe.md`](docs/uniform_backend_jit_recipe.md) (the **backend** jit story:
+  masks can't be traced, so a backend optimizer holds them as loop-invariant state and traces only the
+  supercores — jit the whole step closing over the base masks, and the frame masks fall out as
+  constant-folded constants; the design constraint for the 3b uniform optimizer).
 - **weighted** — cores + edge-weight vectors (`wt3_*`, `weighted_*`); weights "absorbed" into cores.
   Tangent weighting (`absorb_weights_into_tangent_cores`) is **parked** in `backend/bv_operations.py`
   pending a redesign of weighted tensor networks.

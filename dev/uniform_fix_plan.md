@@ -213,6 +213,17 @@ Rationale: one kind of change per slice; keep the working ragged layer stable; d
 3b. **Tangent + manifold.** `UT3Tangent` + `uniform_manifold` rebuilt off the new types (drop the
    `OLD_uniform` import + ~600 lines of `if False:` dead code); un-stub retract/project/transport + the
    geometry; un-stub `ubv_to_ut3`; derivative probing (ragged was built polymorphism-ready); tests.
+   - **DESIGN CONSTRAINT — jit/recompile (decided 2026-06-24; doc: `docs/uniform_backend_jit_recipe.md`).**
+     The backend optimization functions (uniform MC-SGD / Newton-CG / fitting) MUST be structured so the
+     masks are **loop-invariant state held across a rank-stage and reused**, with only the supercores (+
+     minibatch) traced — recompiling only at rank-continuation stage boundaries (correct + rare). Two valid
+     shapes: (a) jit the whole per-step kernel, close over the base masks → `ut3_orthogonal_representations`
+     inside re-derives the frame masks as **constant-folded constants** (not a jit cache key → no recompile;
+     empirically 1 compile); (b) hold the masks separate and reuse the same objects across iterations (the
+     value-hashing idea made explicit at the backend level). The **anti-pattern** to avoid: running
+     `ut3_orthogonal_representations` outside a jit and passing its fresh-object masks into a separate jit
+     (traced → rejected, or a fresh closure each step → recompile). `ut3_orthogonal_representations` itself
+     is correct as-is; this is a constraint on how the optimizer *calls* it.
 4. **Close the ragged-poly gaps** (`_apply_transpose_adjoint` polymorphism + the `Sequence` signatures) so
    optimizers/derivatives run on uniform.
 

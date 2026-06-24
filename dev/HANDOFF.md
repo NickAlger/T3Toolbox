@@ -1,6 +1,6 @@
 # T3Toolbox — current handoff
 
-_Updated 2026-06-23._
+_Updated 2026-06-24._
 
 ## Where we are
 - **`geometry-refactor` is merged to `main`** (merge commit `bc8692f6`): the geometry
@@ -23,8 +23,15 @@ _Updated 2026-06-23._
   a doctest, the worked example `examples/fit_varied_rank_tensor_newton_cg.py` (adaptive vs uniform
   continuation), and the user doc `docs/rank_continuation.md`. Suite green. New public API to fold into
   the API-surface/doc passes (R2/R4).
-- **In progress:** the **uniform-layer fix** (the 1.0 centerpiece) — Slices 1 & 2 ✅ done; Slice 3 (the
-  tangent-layer rebuild) is next. See "Next steps" below.
+- **In progress:** the **uniform-layer fix** (the 1.0 centerpiece). Slices 1, 2 ✅; the value-hashed mask
+  holders ✅; **Slice 3a (frame/variations rebuild) is well underway** — `UT3Basis` + `UT3Variations`
+  rebuilt on the int-tuple/value-hashed-holder design, `ut3_orthogonal_representations` runs end-to-end
+  with a frontend + **backend twin**, and the **equivalence-contract anchor passes** (uniform == ragged).
+  **Next: increment 2c** (the smaller leftovers) then **3b** (UT3Tangent + manifold). Suite **345 green**.
+  Full detail in `dev/uniform_fix_plan.md`; the per-increment log is under "Next steps" below. Three
+  design-rationale docs were captured this session: `docs/uniform_svd_prefix_orthogonalization.md`,
+  `docs/uniform_rank_masks_rationale.md` (why masks ≠ maskless), `docs/uniform_backend_jit_recipe.md`
+  (hold masks fixed; the 3b optimizer constraint).
 
 ## Knowledge architecture (decided this session)
 - `docs/` = durable **design / reference / style** docs → to be distilled into user docs
