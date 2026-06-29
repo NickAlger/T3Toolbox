@@ -477,17 +477,19 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_right_orthogonal">
 <span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.</span></span><span class="sig-name descname"><span class="pre">is_right_orthogonal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">atol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-09</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_right_orthogonal" title="Link to this definition">#</a></dt>
-<dd><p>True if this T3 is in <strong>right-orthogonal form</strong>: every Tucker core down-orthogonal and every
-TT core except the first right-orthogonal (the first TT core is the center remainder).</p>
+<dd><p>True (per stack element) if this T3 is in <strong>right-orthogonal form</strong>: every Tucker core
+down-orthogonal and every TT core except the first right-orthogonal (the first TT core is the
+center remainder).</p>
 <p>Non-enforcing convenience checker (see <a class="reference internal" href="TuckerTensorTrain.is_left_orthogonal.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_left_orthogonal" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_left_orthogonal"><code class="xref py py-meth docutils literal notranslate"><span class="pre">is_left_orthogonal()</span></code></a>). The result of
 <code class="docutils literal notranslate"><span class="pre">rank_adjustment_sweep('right_to_left')</span></code> is right-orthogonal. Use this to verify before
-asserting <code class="docutils literal notranslate"><span class="pre">t3svd(...,</span> <span class="pre">assume_orthogonal=True)</span></code>, which is <strong>not</strong> checked.</p>
+asserting <code class="docutils literal notranslate"><span class="pre">t3svd(...,</span> <span class="pre">assume_orthogonal=True)</span></code>, which is <strong>not</strong> checked. <strong>Per-stack-element
+bool array</strong> (scalar when unstacked); reduce with <code class="docutils literal notranslate"><span class="pre">.all()</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>atol</strong> (<em>float</em>)</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><em>bool</em></p>
+<dd class="field-even"><p>t3toolbox.backend.common.NDArray</p>
 </dd>
 </dl>
 </dd></dl>

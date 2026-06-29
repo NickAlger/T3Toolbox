@@ -478,7 +478,7 @@
 <p>Pass the operand arrays/trees so tracing is detected; a check site computes its (possibly expensive)
 numerical condition only when this returns True:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="k">if</span> <span class="n">safety</span><span class="o">.</span><span class="n">checks_active</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">data</span><span class="p">):</span>
-    <span class="n">safety</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">is_orthogonal</span><span class="p">(</span><span class="n">atol</span><span class="o">=</span><span class="n">safety</span><span class="o">.</span><span class="n">effective_rtol</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">data</span><span class="p">)),</span> <span class="s1">&#39;basis not orthogonal&#39;</span><span class="p">)</span>
+    <span class="n">safety</span><span class="o">.</span><span class="n">require</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">is_orthogonal</span><span class="p">(</span><span class="n">atol</span><span class="o">=</span><span class="n">safety</span><span class="o">.</span><span class="n">effective_rtol</span><span class="p">(</span><span class="n">basis</span><span class="o">.</span><span class="n">data</span><span class="p">))</span><span class="o">.</span><span class="n">all</span><span class="p">(),</span> <span class="s1">&#39;basis not orthogonal&#39;</span><span class="p">)</span>
 </pre></div>
 </div>
 </dd></dl>

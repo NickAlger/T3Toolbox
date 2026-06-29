@@ -3,10 +3,12 @@ TuckerTensorTrain.is_right_orthogonal
 
 .. py:method:: t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_right_orthogonal(atol = 1e-09)
 
-   True if this T3 is in **right-orthogonal form**: every Tucker core down-orthogonal and every
-   TT core except the first right-orthogonal (the first TT core is the center remainder).
+   True (per stack element) if this T3 is in **right-orthogonal form**: every Tucker core
+   down-orthogonal and every TT core except the first right-orthogonal (the first TT core is the
+   center remainder).
 
    Non-enforcing convenience checker (see :py:meth:`is_left_orthogonal`). The result of
    ``rank_adjustment_sweep('right_to_left')`` is right-orthogonal. Use this to verify before
-   asserting ``t3svd(..., assume_orthogonal=True)``, which is **not** checked.
+   asserting ``t3svd(..., assume_orthogonal=True)``, which is **not** checked. **Per-stack-element
+   bool array** (scalar when unstacked); reduce with ``.all()``.
 

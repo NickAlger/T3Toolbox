@@ -477,12 +477,14 @@
 <dl class="py method">
 <dt class="sig sig-object py" id="t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_left_orthogonal">
 <span class="sig-prename descclassname"><span class="pre">t3toolbox.tucker_tensor_train.TuckerTensorTrain.</span></span><span class="sig-name descname"><span class="pre">is_left_orthogonal</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">atol</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1e-09</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_left_orthogonal" title="Link to this definition">#</a></dt>
-<dd><p>True if this T3 is in <strong>left-orthogonal form</strong>: every Tucker core down-orthogonal and every
-TT core except the last left-orthogonal (the last TT core is the center remainder).</p>
+<dd><p>True (per stack element) if this T3 is in <strong>left-orthogonal form</strong>: every Tucker core
+down-orthogonal and every TT core except the last left-orthogonal (the last TT core is the center
+remainder).</p>
 <p>Non-enforcing convenience checker (max-abs deviation from the identities <code class="docutils literal notranslate"><span class="pre">&lt;=</span> <span class="pre">atol</span></code>; see
 <code class="xref py py-func docutils literal notranslate"><span class="pre">t3_orthogonality_residual()</span></code>). A
 <a class="reference internal" href="TuckerTensorTrain.t3svd.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.t3svd"><code class="xref py py-meth docutils literal notranslate"><span class="pre">t3svd()</span></code></a> result is left-orthogonal, as is the result of
-<code class="docutils literal notranslate"><span class="pre">rank_adjustment_sweep('left_to_right')</span></code>.</p>
+<code class="docutils literal notranslate"><span class="pre">rank_adjustment_sweep('left_to_right')</span></code>. <strong>Per-stack-element bool array</strong> (scalar when
+unstacked); reduce with <code class="docutils literal notranslate"><span class="pre">.all()</span></code> for a single verdict.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">t3toolbox.tucker_tensor_train</span> <span class="k">as</span> <span class="nn">t3</span>
@@ -497,12 +499,19 @@ TT core except the last left-orthogonal (the last TT core is the center remainde
 <span class="go">False</span>
 </pre></div>
 </div>
+<p>Stacked: a per-element bool array. Stack a left-orthogonal element with a non-orthogonal one:</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">m</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">5</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>  <span class="c1"># minimal -&gt; t3svd keeps ranks</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">stacked</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">m</span><span class="o">.</span><span class="n">t3svd</span><span class="p">()[</span><span class="mi">0</span><span class="p">],</span> <span class="n">m</span><span class="p">])</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">stacked</span><span class="o">.</span><span class="n">is_left_orthogonal</span><span class="p">()</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">stacked</span><span class="o">.</span><span class="n">is_left_orthogonal</span><span class="p">())</span>
+<span class="go">(2,) [ True False]</span>
+</pre></div>
+</div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>atol</strong> (<em>float</em>)</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><em>bool</em></p>
+<dd class="field-even"><p>t3toolbox.backend.common.NDArray</p>
 </dd>
 </dl>
 </dd></dl>

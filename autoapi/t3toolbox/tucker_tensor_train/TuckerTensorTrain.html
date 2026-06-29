@@ -1104,6 +1104,7 @@ TuckerTensorTrains ranks may be made minimal using T3-SVD.</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">has_minimal_ranks</span><span class="p">)</span>
 <span class="go">False</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">minimal_ranks</span><span class="p">)</span>
+<span class="go">((4, 5, 6, 7), (1, 4, 9, 7, 1))</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">x2</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">t3svd</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">x2</span><span class="o">.</span><span class="n">has_minimal_ranks</span><span class="p">)</span>
 <span class="go">True</span>
@@ -1152,10 +1153,10 @@ TuckerTensorTrains ranks may be made minimal using T3-SVD.</p>
 <td><p>True if the ranks are <strong>numerically</strong> minimal: no stored rank is numerically redundant.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="TuckerTensorTrain.is_left_orthogonal.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_left_orthogonal" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_left_orthogonal"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_left_orthogonal</span></code></a>([atol])</p></td>
-<td><p>True if this T3 is in <strong>left-orthogonal form</strong>: every Tucker core down-orthogonal and every</p></td>
+<td><p>True (per stack element) if this T3 is in <strong>left-orthogonal form</strong>: every Tucker core</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="TuckerTensorTrain.is_right_orthogonal.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_right_orthogonal" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.is_right_orthogonal"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_right_orthogonal</span></code></a>([atol])</p></td>
-<td><p>True if this T3 is in <strong>right-orthogonal form</strong>: every Tucker core down-orthogonal and every</p></td>
+<td><p>True (per stack element) if this T3 is in <strong>right-orthogonal form</strong>: every Tucker core</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="TuckerTensorTrain.validate.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.validate" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.validate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">validate</span></code></a>()</p></td>
 <td><p>Check internal consistency of the Tucker tensor train.</p></td>
