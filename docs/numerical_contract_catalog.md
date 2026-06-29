@@ -38,6 +38,12 @@ those properties only make them *equal HS*), so it moves to the geometry's `inne
 | **gauged** | variations satisfy the gauge conditions (48)–(49) | `T3Tangent.is_gauged()` | contractions | per (basis,variations) pair; cacheable. |
 | **minimal rank** | structurally-and-numerically minimal ranks | `has_minimal_ranks` (structural) | SVD (numerical) | **numerical check intentionally skipped** (§ "Minimal ranks"). |
 
+> **Checkers are per-stack-element.** Every checker/residual above returns one verdict per stack element
+> (shape `stack_shape`, scalar when unstacked) — see `docs/batching_and_stacking.md` §9. So a safe-mode
+> precondition reduces with **`.all()`** at the call site (`safety.require(basis.is_orthogonal(atol).all(),
+> …)`): it requires **all** stack elements to pass; `safety.require` itself stays a scalar gate. (The
+> *structural* `has_minimal_ranks` is the one scalar-in-ragged exception — see that §9 note.)
+
 ## Master table (by surface)
 
 `SF` = same-frame, `ORTH` = orthogonal base, `GAUGE` = variations gauged. "—" = no numerical precondition

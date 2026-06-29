@@ -80,6 +80,11 @@ because the mask layout can express more. The relationship is clean and worth ke
 - uniform-rank UT3 stacks ↔ ragged stacked T3 (a faithful round-trip), and
 - UT3 *additionally* represents varying-rank stacks that a single ragged stacked T3 cannot.
 
+This is exactly why the **structural** rank checker is shaped differently in the two layers: `has_minimal_ranks`
+is a **scalar in ragged** (one core shape ⇒ ranks shared across the stack, so there is nothing per-element to
+report) but **per-element (shape `stack_shape`) in uniform** (ranks vary across the stack). The *numerical*
+checkers (`is_orthogonal`, etc.) are per-element in both layers — see `docs/batching_and_stacking.md` §9.
+
 The honest cost shows up at exactly the two places where the manifold matters:
 
 1. **Round-trip.** `ut3_to_t3` of a varying-rank stack can only return a *tree* of distinct T3s, not

@@ -399,6 +399,16 @@ The naming scheme encodes axis layout — once you know it, the einsums read the
 
 - **`corewise_dot` / `corewise_norm` collapse EVERY axis** (stacks included) to a scalar. To keep the
   stack (vectorized linalg), use `corewise.corewise_stack_dot(X, Y, n_stack)`.
+- **Validity checkers and residuals are per-stack-element.** `is_orthogonal`, `is_gauged`, `is_consistent`,
+  `is_left/right_orthogonal`, `allclose`, and the `*_residual` properties reduce over the *non-stack* axes
+  and return an array of shape `stack_shape` — **a scalar when unstacked, an array when stacked** (stack
+  elements can differ: e.g. `frame.is_orthogonal()` on a `(2,)` stack → `[ True False]`). Reduce with
+  `.all()` for one verdict; the safe-mode preconditions do exactly this at the call site, so they require
+  **all** stack elements to pass (see `docs/numerical_contract_catalog.md`). **One asymmetry worth knowing:**
+  the *structural* `has_minimal_ranks` is a **scalar in the ragged layer** (one core shape ⇒ ranks are
+  shared across the stack, so there is nothing per-element to report) but **per-element in the uniform
+  layer** (ranks vary per stack element — the determinantal variety, `docs/uniform_ranks_and_varieties.md`);
+  the *numerical* checkers are per-element in both layers.
 - **`to_dense` and the doubled-rank `to_t3` are not symmetric about broadcasting** — `to_dense`
   broadcasts lazily (bare array out), `to_t3` materializes (validated class out). See §5.
 - **`apply`/`entries` are now `W+C`** (vec/index stack OUTER, T3 stack INNER) as of slice 5b — older
