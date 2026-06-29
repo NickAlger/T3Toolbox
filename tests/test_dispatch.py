@@ -399,6 +399,11 @@ class TestDispatch(unittest.TestCase):
         UV = ubv.UT3Variations.from_t3variations(self.var)
         self.assert_jit_jax(lambda b: b.to_t3basis(), UB)
         self.assert_jit_jax(lambda v: v.to_t3variations(), UV)
+        # 2c-B base-point conversions: to_ut3 returns a ut3 (masks must stay concrete); to_dense -> array;
+        # from_ut3 runs the orthogonal-representation sweep under jit (its frame masks stay concrete too).
+        self.assert_jit_uniform(lambda b: b.to_ut3(), UB, returns_ut3=True)
+        self.assert_jit_uniform(lambda b: b.to_dense(), UB)
+        self.assert_jit_uniform(lambda u: ubv.UT3Basis.from_ut3(u).to_ut3(), self.ux, returns_ut3=True)
 
     # ------------------------------------------- performance contract: value-hashed masks => no recompile
     def test_mask_rebuild_does_not_recompile(self):

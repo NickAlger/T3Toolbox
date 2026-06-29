@@ -221,6 +221,54 @@ class UT3Basis:
             ((None,) * d,) * 4,  # leaf_structure: 4 core-families, each a length-d tuple
         )
 
+    # ------------------------------------------------------------- base point / orthogonal frame
+    @staticmethod
+    def from_ut3(x: ut3.UniformTuckerTensorTrain) -> 'UT3Basis':
+        """Orthogonal frame at the point ``x`` (the frame part of :py:func:`ut3_orthogonal_representations`).
+        Uniform analog of :py:meth:`~t3toolbox.basis_variations_format.T3Basis.from_t3`."""
+        return ut3_orthogonal_representations(x)[0]
+
+    def to_ut3(self) -> ut3.UniformTuckerTensorTrain:
+        """The base point this frame represents, as a :py:class:`UniformTuckerTensorTrain` (right-canonical:
+        the Tucker supercore over the right-orthogonal TT supercore). Uniform analog of ``T3Basis.to_t3``;
+        the plain-UT3 tt edge mask is the frame's ``basis_right_mask`` (the right TT ranks)."""
+        return ut3.UniformTuckerTensorTrain(
+            self.up_tucker_supercore, self.right_tt_supercore,
+            self.shape, ut3.UT3Masks(self.masks.up_mask, self.masks.basis_right_mask))
+
+    def to_dense(self) -> NDArray:
+        """Dense tensor of the base point this frame represents (``= to_ut3().to_dense()``)."""
+        return self.to_ut3().to_dense()
+
+    # ------------------------------------------------------------- dtype / copy / repr
+    @ft.cached_property
+    def supercores(self) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray]:
+        """The four padded supercores ``(up, down, left, right)`` (the data; masks ride separately)."""
+        return (self.up_tucker_supercore, self.down_tt_supercore,
+                self.left_tt_supercore, self.right_tt_supercore)
+
+    @ft.cached_property
+    def contains_jax(self) -> bool:
+        """True if any supercore is a jax array (the masks are always host numpy)."""
+        return tree_contains_jax(self.supercores)
+
+    def to_jax(self) -> 'UT3Basis':
+        # Supercores -> jax; masks stay host numpy (a jax mask is a tracer under jit). See docs/uniform_*.
+        return UT3Basis(*(to_jax(sc) for sc in self.supercores), self.shape, self.masks)
+
+    def to_numpy(self) -> 'UT3Basis':
+        # Supercores -> numpy; the masks are already host numpy, so reuse the holder.
+        return UT3Basis(*(to_numpy(sc) for sc in self.supercores), self.shape, self.masks)
+
+    def copy(self) -> 'UT3Basis':
+        # Shallow over the (immutable, never-mutated-in-place) arrays; mirrors the plain UT3 layer.
+        return UT3Basis(*self.supercores, self.shape, self.masks)
+
+    def __repr__(self) -> str:
+        ss = ', stack_shape=%s' % (self.stack_shape,) if self.stack_shape else ''
+        return ('UT3Basis(shape=%s, N=%d, nU=%d, nD=%d, rL=%d, rR=%d%s)'
+                % (self.shape, self.N, self.nU, self.nD, self.rL, self.rR, ss))
+
     def validate(self) -> None:
         '''Check rank and shape consistency of a uniform Tucker tensor train basis (`UT3Basis`).
 
@@ -460,6 +508,33 @@ class UT3Variations:
             lambda c: bvf.T3Variations(*c),
             ((None,) * d,) * 2,  # leaf_structure: 2 core-families, each a length-d tuple
         )
+
+    # ------------------------------------------------------------- dtype / copy / repr
+    @ft.cached_property
+    def supercores(self) -> typ.Tuple[NDArray, NDArray]:
+        """The two padded supercores ``(tucker_variations, tt_variations)`` (the data; masks ride separately)."""
+        return (self.tucker_variations, self.tt_variations)
+
+    @ft.cached_property
+    def contains_jax(self) -> bool:
+        """True if any supercore is a jax array (the masks are always host numpy)."""
+        return tree_contains_jax(self.supercores)
+
+    def to_jax(self) -> 'UT3Variations':
+        # Supercores -> jax; masks stay host numpy (a jax mask is a tracer under jit). See docs/uniform_*.
+        return UT3Variations(*(to_jax(sc) for sc in self.supercores), self.shape, self.masks)
+
+    def to_numpy(self) -> 'UT3Variations':
+        return UT3Variations(*(to_numpy(sc) for sc in self.supercores), self.shape, self.masks)
+
+    def copy(self) -> 'UT3Variations':
+        # Shallow over the (immutable, never-mutated-in-place) arrays; mirrors the plain UT3 layer.
+        return UT3Variations(*self.supercores, self.shape, self.masks)
+
+    def __repr__(self) -> str:
+        ss = ', stack_shape=%s' % (self.stack_shape,) if self.stack_shape else ''
+        return ('UT3Variations(shape=%s, N=%d, nU=%d, nD=%d, rL=%d, rR=%d%s)'
+                % (self.shape, self.N, self.nU, self.nD, self.rL, self.rR, ss))
 
     def validate(self) -> None:
         '''Check rank and shape consistency of a uniform Tucker tensor train variations (`UT3Variations`).

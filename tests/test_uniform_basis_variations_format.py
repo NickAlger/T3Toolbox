@@ -364,5 +364,70 @@ class TestCrossLayerConverters(unittest.TestCase):
                 cw.corewise_norm(cw.corewise_sub(tree[i].data, unstacked[i].data)), 0.0))
 
 
+class TestBasePointAndDtype(unittest.TestCase):
+    """2c-B: base-point conversions (to_ut3 / to_dense / from_ut3) + dtype/copy/repr utilities.
+    Users build frames via ut3_orthogonal_representations, so that is the path under test."""
+    def setUp(self):
+        np.random.seed(0)
+
+    def _frame(self, ss=()):
+        import t3toolbox.tucker_tensor_train as t3
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1), stack_shape=ss)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+        base, variations = ubv.ut3_orthogonal_representations(ux)
+        return x, ux, base, variations
+
+    def test_to_dense_reconstructs_base_point(self):
+        x, _, base, _ = self._frame()
+        self.assertLess(float(np.linalg.norm(base.to_dense() - x.to_dense())), 1e-10)
+
+    def test_to_ut3_matches_to_dense_and_x(self):
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        x, _, base, _ = self._frame()
+        ub = base.to_ut3()
+        self.assertIsInstance(ub, ut3.UniformTuckerTensorTrain)
+        self.assertTrue(np.allclose(ub.to_dense(), base.to_dense()))   # to_dense == to_ut3().to_dense()
+        self.assertTrue(np.allclose(ub.to_dense(), x.to_dense()))      # and reconstructs x
+
+    def test_to_dense_stacked(self):
+        x, _, base, _ = self._frame(ss=(2,))
+        self.assertEqual(base.stack_shape, (2,))
+        self.assertTrue(np.allclose(base.to_dense(), x.to_dense()))
+
+    def test_from_ut3_reconstructs_x(self):
+        x, ux, _, _ = self._frame()
+        base2 = ubv.UT3Basis.from_ut3(ux)
+        self.assertIsInstance(base2, ubv.UT3Basis)
+        self.assertLess(float(np.linalg.norm(base2.to_dense() - x.to_dense())), 1e-10)
+
+    def test_basis_dtype_copy_repr(self):
+        import t3toolbox.backend.common as common
+        _, _, base, _ = self._frame()
+        self.assertTrue(np.allclose(base.copy().to_dense(), base.to_dense()))
+        self.assertFalse(base.contains_jax)
+        self.assertIn('UT3Basis(shape=(4, 5, 6)', repr(base))
+        if HAS_JAX:
+            jb = base.to_jax()
+            self.assertTrue(jb.contains_jax)
+            self.assertTrue(all(common.is_jax_ndarray(sc) for sc in jb.supercores))    # data -> jax
+            self.assertTrue(all(common.is_numpy_ndarray(m) for m in jb.masks.data))    # masks stay host
+            self.assertFalse(jb.to_numpy().contains_jax)
+
+    def test_variations_dtype_copy_repr(self):
+        import t3toolbox.backend.common as common
+        _, _, _, variations = self._frame()
+        self.assertTrue(np.allclose(variations.copy().apply_masks().tucker_variations,
+                                    variations.apply_masks().tucker_variations))
+        self.assertFalse(variations.contains_jax)
+        self.assertIn('UT3Variations(shape=(4, 5, 6)', repr(variations))
+        if HAS_JAX:
+            jv = variations.to_jax()
+            self.assertTrue(jv.contains_jax)
+            self.assertTrue(all(common.is_jax_ndarray(sc) for sc in jv.supercores))
+            self.assertTrue(all(common.is_numpy_ndarray(m) for m in jv.masks.data))
+            self.assertFalse(jv.to_numpy().contains_jax)
+
+
 if __name__ == '__main__':
     unittest.main()
