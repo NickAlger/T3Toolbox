@@ -24,11 +24,12 @@ __all__ = [
 def t3_orthogonality_residual(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
         side: str,  # 'left' or 'right'
-) -> float:  # max abs deviation of the relevant cores from orthonormality (0 == exactly orthogonal)
+) -> NDArray:  # shape = stack_shape; max abs deviation from orthonormality per stack element (0 == exact)
     '''Non-enforcing check of T3 *left/right-orthogonal form*: Tucker cores down-orthogonal AND TT
-    cores left- (``side='left'``) or right- (``side='right'``) orthogonal.
+    cores left- (``side='left'``) or right- (``side='right'``) orthogonal, **per stack element**.
 
-    Returns the max-abs deviation from the identity over (each stacked block of):
+    Returns the max-abs deviation from the identity over (each stacked block of), reduced over the
+    **non-stack** axes (shape ``stack_shape``):
         - Tucker B_i, all i:                 ``einsum('...io,...jo->...ij', B, B) = I``
         - TT G_i, left  (i = 0..d-2):        ``einsum('...aib,...aic->...bc', G, G) = I``
         - TT G_i, right (i = 1..d-1):        ``einsum('...aib,...cib->...ac', G, G) = I``
@@ -41,23 +42,23 @@ def t3_orthogonality_residual(
     use_jax = tree_contains_jax(x)
     xnp, _, _ = get_backend(False, use_jax)
 
-    resid = 0.0
+    devs = []
     for B in tucker_cores:
         M = xnp.einsum('...io,...jo->...ij', B, B)
-        resid = max(resid, float(xnp.max(xnp.abs(M - xnp.eye(B.shape[-2])))))
+        devs.append(xnp.max(xnp.abs(M - xnp.eye(B.shape[-2])), axis=(-2, -1)))   # keep stack
 
     if side == 'left':
         for G in tt_cores[:-1]:
             M = xnp.einsum('...aib,...aic->...bc', G, G)
-            resid = max(resid, float(xnp.max(xnp.abs(M - xnp.eye(G.shape[-1])))))
+            devs.append(xnp.max(xnp.abs(M - xnp.eye(G.shape[-1])), axis=(-2, -1)))
     elif side == 'right':
         for G in tt_cores[1:]:
             M = xnp.einsum('...aib,...cib->...ac', G, G)
-            resid = max(resid, float(xnp.max(xnp.abs(M - xnp.eye(G.shape[-3])))))
+            devs.append(xnp.max(xnp.abs(M - xnp.eye(G.shape[-3])), axis=(-2, -1)))
     else:
         raise ValueError("side must be 'left' or 'right'; got %r" % (side,))
 
-    return resid
+    return xnp.max(xnp.stack(devs), axis=0)   # max over the checks, keep stack_shape
 
 
 def left_orthogonalize_t3(

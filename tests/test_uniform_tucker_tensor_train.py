@@ -303,7 +303,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
                     ux2, _, _ = ux.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt)
                     x2, _, _ = x.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt)  # ragged, same caps
                     self.assertLessEqual(relerr(ux2.to_dense(), x2.to_dense()), TOL)
-                    self.assertTrue(ux2.is_left_orthogonal())   # always left-orthogonal
+                    self.assertTrue(ux2.is_left_orthogonal().all())   # always left-orthogonal
                     self.assertEqual(self._first_elem_ranks(ux2, ss), (x2.tucker_ranks, x2.tt_ranks))
 
     def test_rank_adjustment_sweep(self):
@@ -322,11 +322,11 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
                     self.assertLessEqual(relerr(url.to_dense(), rrl.to_dense()), TOL)  # matches ragged
                     self.assertLessEqual(relerr(url.to_dense(), ux2.to_dense()), TOL)  # lossless
                     self.assertTrue(url.has_minimal_ranks)
-                    self.assertTrue(url.is_right_orthogonal())
+                    self.assertTrue(url.is_right_orthogonal().all())
                     self.assertEqual(self._first_elem_ranks(url, ss), (rrl.tucker_ranks, rrl.tt_ranks))
                     both = url.rank_adjustment_sweep('left_to_right')  # -> minimal, left-orthogonal
                     self.assertTrue(both.has_minimal_ranks)
-                    self.assertTrue(both.is_left_orthogonal())
+                    self.assertTrue(both.is_left_orthogonal().all())
                     self.assertLessEqual(relerr(both.to_dense(), ux2.to_dense()), TOL)
         with self.assertRaises(ValueError):
             ut3.UniformTuckerTensorTrain.from_t3(x).rank_adjustment_sweep('sideways')
@@ -335,28 +335,28 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         for shape, tr, ttr, ss in self._cases():
             with self.subTest(shape=shape, stack=ss):
                 ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss))
-                self.assertFalse(ux.is_left_orthogonal())          # a random T3 is in neither form
-                self.assertFalse(ux.is_right_orthogonal())
+                self.assertFalse(ux.is_left_orthogonal().all())          # a random T3 is in neither form
+                self.assertFalse(ux.is_right_orthogonal().all())
                 uxL = ux.down_orthogonalize_tucker_cores().left_orthogonalize_tt_cores()
                 uxR = ux.down_orthogonalize_tucker_cores().right_orthogonalize_tt_cores()
-                self.assertTrue(uxL.is_left_orthogonal())
-                self.assertFalse(uxL.is_right_orthogonal())
-                self.assertTrue(uxR.is_right_orthogonal())
-                self.assertFalse(uxR.is_left_orthogonal())
-                self.assertTrue(ux.t3svd()[0].is_left_orthogonal())  # a t3svd result is left-orthogonal
+                self.assertTrue(uxL.is_left_orthogonal().all())
+                self.assertFalse(uxL.is_right_orthogonal().all())
+                self.assertTrue(uxR.is_right_orthogonal().all())
+                self.assertFalse(uxR.is_left_orthogonal().all())
+                self.assertTrue(ux.t3svd()[0].is_left_orthogonal().all())  # a t3svd result is left-orthogonal
 
     def test_t3svd_assume_orthogonal(self):
         # assume_orthogonal=True (input already right-orthogonal) skips the orthogonalization; same result.
         for shape, tr, ttr, ss in self._cases():
             ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss))
             uR = ux.down_orthogonalize_tucker_cores().right_orthogonalize_tt_cores()  # right-orthogonal
-            self.assertTrue(uR.is_right_orthogonal())
+            self.assertTrue(uR.is_right_orthogonal().all())
             for mtk, mtt in [(None, 2), (3, 2), (2, 2)]:
                 with self.subTest(shape=shape, stack=ss, max_tucker=mtk, max_tt=mtt):
                     a, _, _ = uR.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt, assume_orthogonal=True)
                     b, _, _ = uR.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt)
                     self.assertLessEqual(relerr(a.to_dense(), b.to_dense()), TOL)
-                    self.assertTrue(a.is_left_orthogonal())
+                    self.assertTrue(a.is_left_orthogonal().all())
 
     def test_t3svd_non_minimal(self):
         for shape, tr, ttr in [((5, 6), (8, 4), (1, 3, 1)), ((6, 7, 8), (5, 5, 5), (1, 40, 40, 1))]:

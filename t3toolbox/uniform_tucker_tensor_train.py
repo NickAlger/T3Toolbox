@@ -329,16 +329,18 @@ class UniformTuckerTensorTrain:
         """Right-orthogonalize the TT cores."""
         return _from_data(ut3_orthogonalization.right_orthogonalize_tt_cores(self.data))
 
-    def is_left_orthogonal(self, atol: float = 1e-9) -> bool:
-        """True if in left-orthogonal form (Tucker supercores down-orthogonal AND TT supercores
-        left-orthogonal). A :py:meth:`t3svd` result is left-orthogonal. Non-enforcing checker; see
+    def is_left_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape (scalar unstacked)
+        """True (per stack element) if in left-orthogonal form (Tucker supercores down-orthogonal AND TT
+        supercores left-orthogonal). A :py:meth:`t3svd` result is left-orthogonal. Non-enforcing checker;
+        per-element bool array (reduce with ``.all()``); see
         :py:func:`~t3toolbox.backend.ut3_orthogonalization.ut3_orthogonality_residual`."""
-        return bool(ut3_orthogonalization.ut3_orthogonality_residual(self.data, 'left') <= atol)
+        return ut3_orthogonalization.ut3_orthogonality_residual(self.data, 'left') <= atol
 
-    def is_right_orthogonal(self, atol: float = 1e-9) -> bool:
-        """True if in right-orthogonal form (Tucker supercores down-orthogonal AND TT supercores
-        right-orthogonal). Non-enforcing checker; verify before ``t3svd(..., assume_orthogonal=True)``."""
-        return bool(ut3_orthogonalization.ut3_orthogonality_residual(self.data, 'right') <= atol)
+    def is_right_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape (scalar unstacked)
+        """True (per stack element) if in right-orthogonal form (Tucker supercores down-orthogonal AND TT
+        supercores right-orthogonal). Non-enforcing per-element checker (reduce with ``.all()``); verify
+        before ``t3svd(..., assume_orthogonal=True)``."""
+        return ut3_orthogonalization.ut3_orthogonality_residual(self.data, 'right') <= atol
 
     @property
     def minimal_ranks(self) -> Tuple[NDArray, NDArray]:

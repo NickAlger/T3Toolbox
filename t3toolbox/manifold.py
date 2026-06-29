@@ -436,26 +436,28 @@ class T3Tangent:
         """
         return self.basis.has_minimal_ranks
 
-    def has_numerically_minimal_ranks(self, atol: float = 1e-9) -> bool:
-        """True if this tangent's basis is **numerically** minimal. See
+    def has_numerically_minimal_ranks(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = base stack C
+        """True (per base-stack element) if this tangent's basis is **numerically** minimal. See
         :py:meth:`T3Basis.has_numerically_minimal_ranks` (orthogonal + structurally-minimal, no SVD)."""
         return self.basis.has_numerically_minimal_ranks(atol=atol)
 
-    def is_orthogonal(self, atol: float = 1e-9) -> bool:
-        """True if this tangent's basis is orthogonal. See :py:meth:`T3Basis.is_orthogonal`."""
+    def is_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = base stack C (scalar unstacked)
+        """True (per base-stack element) if this tangent's basis is orthogonal. See
+        :py:meth:`T3Basis.is_orthogonal`. Reduce with ``.all()`` for a single verdict."""
         return self.basis.is_orthogonal(atol=atol)
 
     @ft.cached_property
-    def gauge_residual(self) -> float:
-        """Max absolute gauge-condition violation (atol-independent; **cached**).
+    def gauge_residual(self) -> NDArray:  # shape = variation stack K+C (scalar/0-d when unstacked)
+        """Max absolute gauge-condition violation, **per stack element** (shape = variation stack ``K+C``;
+        atol-independent; **cached**).
 
         The expensive part of :py:meth:`is_gauged` -- a fixed tangent reused across an inner loop (e.g.
         the safe-mode GAUGE precondition of :py:meth:`ManifoldGeometry.inner`) is contracted **once**.
         """
         return tangent_operations.gauge_residual(self.basis.data, self.variations.data)
 
-    def is_gauged(self, atol: float = 1e-9) -> bool:
-        """True if the variations are gauged with respect to the basis.
+    def is_gauged(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = variation stack K+C (scalar unstacked)
+        """True (per stack element) if the variations are gauged with respect to the basis.
 
         Gauge conditions (needed for :py:meth:`ManifoldGeometry.inner` / :py:meth:`ManifoldGeometry.norm`
         to equal the Hilbert-Schmidt values; not enforced at construction):
@@ -463,9 +465,10 @@ class T3Tangent:
             - ``einsum('...abi,...abj->...ij', L_i, H_i) = 0`` for i = 0..d-2 (TT variations ⟂ L).
 
         These are the gauge conditions (48)-(49), Appendix A.3, of Alger et al. (2026),
-        "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
+        "Tucker Tensor Train Taylor Series" (arXiv:2603.21141). **Per-stack-element bool array** (shape =
+        variation stack ``K+C``; scalar when unstacked); reduce with ``.all()`` for a single verdict.
         """
-        return bool(self.gauge_residual <= atol)
+        return self.gauge_residual <= atol
 
     ############################################
     ##########    Probing    ###################
@@ -1056,7 +1059,7 @@ def _require_orthogonal_frame(basis: bvf.T3Basis, who: str) -> None:
     if safety.checks_active(basis.data):
         atol = safety.effective_rtol(basis.data)
         safety.require(
-            basis.is_orthogonal(atol=atol),
+            basis.is_orthogonal(atol=atol).all(),   # per-element check -> require ALL stack elements orthogonal
             '{} requires an orthogonal frame (the manifold geometry needs an orthonormal base to be '
             'the Hilbert-Schmidt-orthogonal projection). Build the base with ManifoldGeometry.base / '
             'T3Basis.random_orthogonal, or run in unsafe mode (safety.unsafe()).'.format(who))
@@ -1195,11 +1198,11 @@ class ManifoldGeometry:
         t1._check_same_tangent_space(t2)
         if safety.checks_active(t1.basis.data, t1.variations.data, t2.variations.data):
             atol = safety.effective_rtol(t1.basis.data, t1.variations.data, t2.variations.data)
-            safety.require(t1.basis.is_orthogonal(atol=atol),
+            safety.require(t1.basis.is_orthogonal(atol=atol).all(),
                            'ManifoldGeometry.inner is the Hilbert-Schmidt metric and requires an '
                            'orthogonal frame. Use T3Tangent.corewise_inner for the raw coordinate dot, '
                            'or run in unsafe mode (safety.unsafe()).')
-            safety.require(t1.is_gauged(atol=atol) and t2.is_gauged(atol=atol),
+            safety.require(t1.is_gauged(atol=atol).all() and t2.is_gauged(atol=atol).all(),
                            'ManifoldGeometry.inner requires both tangents gauged. Gauge them via '
                            'ManifoldGeometry.project / project_oblique, use T3Tangent.corewise_inner, '
                            'or run in unsafe mode.')
@@ -1214,10 +1217,10 @@ class ManifoldGeometry:
         For the raw coordinate norm use :py:meth:`T3Tangent.corewise_norm`."""
         if safety.checks_active(t.basis.data, t.variations.data):
             atol = safety.effective_rtol(t.basis.data, t.variations.data)
-            safety.require(t.basis.is_orthogonal(atol=atol),
+            safety.require(t.basis.is_orthogonal(atol=atol).all(),
                            'ManifoldGeometry.norm is the Hilbert-Schmidt metric and requires an '
                            'orthogonal frame. Use T3Tangent.corewise_norm, or run in unsafe mode.')
-            safety.require(t.is_gauged(atol=atol),
+            safety.require(t.is_gauged(atol=atol).all(),
                            'ManifoldGeometry.norm requires gauged variations. Gauge via '
                            'ManifoldGeometry.project / project_oblique, use T3Tangent.corewise_norm, '
                            'or run in unsafe mode.')

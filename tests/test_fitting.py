@@ -155,8 +155,8 @@ class TestGaussNewtonModel(unittest.TestCase):
             for C in [(), (2,)]:
                 with self.subTest(kind=kind, C=C):
                     sm = _setup(kind, 'manifold', C)
-                    self.assertTrue(sm['model'].gradient.is_gauged())
-                    self.assertTrue(sm['model'].gn_hessian(_raw_step(sm)).is_gauged())
+                    self.assertTrue(sm['model'].gradient.is_gauged().all())
+                    self.assertTrue(sm['model'].gn_hessian(_raw_step(sm)).is_gauged().all())
 
                     sc = _setup(kind, 'corewise', C)
                     bare = sc['model'].kind.transpose(sc['r'], sc['sample'], sc['base'].data, sc['model'].sweep)

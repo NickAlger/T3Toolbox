@@ -684,6 +684,7 @@ class TuckerTensorTrain:
         >>> print(x.has_minimal_ranks)
         False
         >>> print(x.minimal_ranks)
+        ((4, 5, 6, 7), (1, 4, 9, 7, 1))
         >>> x2 = x.t3svd()[0]
         >>> print(x2.has_minimal_ranks)
         True
@@ -720,14 +721,16 @@ class TuckerTensorTrain:
         truncated = self.t3svd(rtol=rtol)[0]
         return (self.tucker_ranks, self.tt_ranks) == (truncated.tucker_ranks, truncated.tt_ranks)
 
-    def is_left_orthogonal(self, atol: float = 1e-9) -> bool:
-        """True if this T3 is in **left-orthogonal form**: every Tucker core down-orthogonal and every
-        TT core except the last left-orthogonal (the last TT core is the center remainder).
+    def is_left_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape (scalar unstacked)
+        """True (per stack element) if this T3 is in **left-orthogonal form**: every Tucker core
+        down-orthogonal and every TT core except the last left-orthogonal (the last TT core is the center
+        remainder).
 
         Non-enforcing convenience checker (max-abs deviation from the identities ``<= atol``; see
         :py:func:`~t3toolbox.backend.t3_orthogonalization.t3_orthogonality_residual`). A
         :py:meth:`t3svd` result is left-orthogonal, as is the result of
-        ``rank_adjustment_sweep('left_to_right')``.
+        ``rank_adjustment_sweep('left_to_right')``. **Per-stack-element bool array** (scalar when
+        unstacked); reduce with ``.all()`` for a single verdict.
 
         Examples
         --------
@@ -742,18 +745,27 @@ class TuckerTensorTrain:
         True
         >>> print(x2.is_right_orthogonal())   # ...but not right-orthogonal
         False
-        """
-        return bool(ragged_orthogonalization.t3_orthogonality_residual(self.data, 'left') <= atol)
 
-    def is_right_orthogonal(self, atol: float = 1e-9) -> bool:
-        """True if this T3 is in **right-orthogonal form**: every Tucker core down-orthogonal and every
-        TT core except the first right-orthogonal (the first TT core is the center remainder).
+        Stacked: a per-element bool array. Stack a left-orthogonal element with a non-orthogonal one:
+
+        >>> m = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 2, 2), (1, 2, 2, 1))  # minimal -> t3svd keeps ranks
+        >>> stacked = t3.TuckerTensorTrain.stack([m.t3svd()[0], m])
+        >>> print(stacked.is_left_orthogonal().shape, stacked.is_left_orthogonal())
+        (2,) [ True False]
+        """
+        return ragged_orthogonalization.t3_orthogonality_residual(self.data, 'left') <= atol
+
+    def is_right_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape (scalar unstacked)
+        """True (per stack element) if this T3 is in **right-orthogonal form**: every Tucker core
+        down-orthogonal and every TT core except the first right-orthogonal (the first TT core is the
+        center remainder).
 
         Non-enforcing convenience checker (see :py:meth:`is_left_orthogonal`). The result of
         ``rank_adjustment_sweep('right_to_left')`` is right-orthogonal. Use this to verify before
-        asserting ``t3svd(..., assume_orthogonal=True)``, which is **not** checked.
+        asserting ``t3svd(..., assume_orthogonal=True)``, which is **not** checked. **Per-stack-element
+        bool array** (scalar when unstacked); reduce with ``.all()``.
         """
-        return bool(ragged_orthogonalization.t3_orthogonality_residual(self.data, 'right') <= atol)
+        return ragged_orthogonalization.t3_orthogonality_residual(self.data, 'right') <= atol
 
     def validate(self):
         """Check internal consistency of the Tucker tensor train.

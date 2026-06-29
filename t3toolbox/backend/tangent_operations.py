@@ -574,12 +574,13 @@ def gauge_residual(
             typ.Sequence[NDArray],  # tucker_variations
             typ.Sequence[NDArray],  # tt_variations
         ],
-) -> float:
-    '''Max violation of the gauge conditions for a tangent vector (over the whole stack).
+) -> NDArray:  # shape = variation stack_shape (K+C); per stack element (scalar/0-d when unstacked)
+    '''Max violation of the gauge conditions for a tangent vector, **per stack element**.
 
     The gauged tangent space requires each tucker variation orthogonal to its up-core, and each
     left-interior tt variation orthogonal to its left-core (see :py:func:`orthogonal_gauge_projection`).
-    Returns the max absolute gauge inner product; a caller thresholds it (``<= atol``).
+    Returns the max absolute gauge inner product reduced over the **non-stack** axes (shape = the variation
+    stack ``K+C``); a caller thresholds it (``<= atol``).
     '''
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
     tucker_variations, tt_variations = variations
@@ -587,11 +588,11 @@ def gauge_residual(
     devs = []
     for U, V in zip(up_tucker_cores, tucker_variations):
         g = xnp.einsum('...ia,...ja->...ij', U, V)
-        devs.append(xnp.max(xnp.abs(g)))
+        devs.append(xnp.max(xnp.abs(g), axis=(-2, -1)))   # keep stack, max over the gauge-gram axes
     for L, H in zip(left_tt_cores[:-1], tt_variations[:-1]):
         g = xnp.einsum('...abi,...abj->...ij', L, H)
-        devs.append(xnp.max(xnp.abs(g)))
-    return xnp.max(xnp.stack(devs))
+        devs.append(xnp.max(xnp.abs(g), axis=(-2, -1)))
+    return xnp.max(xnp.stack(devs), axis=0)   # max over the checks, keep stack_shape
 
 
 def retract(

@@ -263,16 +263,17 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
                 f"left_ranks={self.left_ranks}{ss})")
 
     @ft.cached_property
-    def orthogonality_residual(self) -> float:
-        '''Max absolute deviation of the orthogonal cores from identity (atol-independent; **cached**).
+    def orthogonality_residual(self) -> NDArray:  # shape = stack_shape (scalar/0-d when unstacked)
+        '''Max absolute deviation of the orthogonal cores from identity, **per stack element** (shape
+        ``stack_shape``; atol-independent; **cached**).
 
         The expensive part of :py:meth:`is_orthogonal` -- a fixed frame reused across an inner loop (e.g.
         the safe-mode ORTH precondition of :py:meth:`~t3toolbox.manifold.ManifoldGeometry.project` on the
         same base every matvec) is contracted **once**, not per call.'''
         return orth_reps.basis_orthogonality_residual(self.data)
 
-    def is_orthogonal(self, atol: float = 1e-9) -> bool:
-        '''True if the basis cores are orthogonal in their respective senses.
+    def is_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape (scalar unstacked)
+        '''True (per stack element) if the basis cores are orthogonal in their respective senses.
 
         Checks (each stacked block; max absolute deviation from identity <= atol):
             - up_tucker U_i (all i):    ``einsum('...io,...jo->...ij', U, U) = I``
@@ -282,7 +283,9 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
 
         The last left core and the first right core are the (non-orthogonal) boundary remainders
         and are not checked. This is a non-enforcing convenience checker; ``T3Basis`` does not
-        require orthogonality at construction.
+        require orthogonality at construction. **Returns a per-stack-element bool array** (shape
+        ``stack_shape``; a scalar when unstacked) -- different base points in a stack can differ; reduce
+        with ``.all()`` for a single verdict.
 
         Orthogonal cores (left/right/outer/Tucker) are defined in Appendix A.1 of Alger et al.
         (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
@@ -295,10 +298,20 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
         >>> base, _ = bvf.t3_orthogonal_representations(x)   # this base IS orthogonal by construction
-        >>> print(base.is_orthogonal())
+        >>> print(base.is_orthogonal())          # unstacked -> a scalar bool
         True
+
+        Stacked: a per-element bool array. Stack a good frame with a deliberately non-orthogonal one to
+        show the elements differ:
+
+        >>> good, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn((5, 6), (2, 2), (1, 2, 1)))
+        >>> bad = bvf.T3Basis(tuple(np.ones_like(U) for U in good.up_tucker_cores),  # ones cores: not orthogonal
+        ...                   good.down_tt_cores, good.left_tt_cores, good.right_tt_cores)
+        >>> stacked = bvf.T3Basis.stack([good, bad])
+        >>> print(stacked.is_orthogonal().shape, stacked.is_orthogonal())   # one bool per stack element
+        (2,) [ True False]
         '''
-        return bool(self.orthogonality_residual <= atol)
+        return self.orthogonality_residual <= atol
 
     @ft.cached_property
     def minimal_ranks(self) -> typ.Tuple[typ.Tuple[int, ...], typ.Tuple[int, ...]]:
@@ -349,8 +362,8 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         return ranks.basis_has_minimal_ranks(
             self.shape, self.up_ranks, self.down_ranks, self.left_ranks, self.right_ranks)
 
-    def has_numerically_minimal_ranks(self, atol: float = 1e-9) -> bool:
-        '''True if the frame is **numerically** minimal -- certified *without* an SVD.
+    def has_numerically_minimal_ranks(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape
+        '''True (per stack element) if the frame is **numerically** minimal -- certified *without* an SVD.
 
         An orthonormal frame's cores are full-rank, so an **orthogonal + structurally-minimal** frame is
         automatically numerically minimal (no ``t3svd`` -- and a frame is not a tensor to SVD anyway). So
@@ -375,7 +388,9 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         >>> print(nb.is_orthogonal(), nb.has_minimal_ranks, nb.has_numerically_minimal_ranks())
         True False False
         '''
-        return self.is_orthogonal(atol=atol) and self.has_minimal_ranks
+        # is_orthogonal is per-stack-element (bool array); has_minimal_ranks is a structural scalar -- use
+        # `&` (element-wise, broadcasting the scalar) so the result is per-element, NOT Python `and`.
+        return self.is_orthogonal(atol=atol) & self.has_minimal_ranks
 
     def validate(self) -> None:
         '''Check rank and shape consistency of Tucker tensor train basis (`T3Basis`).
@@ -626,8 +641,8 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         """
         return T3Basis.from_t3(self.to_t3())
 
-    def is_consistent(self, rtol: float = 1e-9) -> bool:
-        """``True`` if the left- and right-canonical reconstructions of the base point agree.
+    def is_consistent(self, rtol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape (scalar unstacked)
+        """``True`` (per stack element) if the left- and right-canonical reconstructions of the base point agree.
 
         A basis stores both the left- and right-orthogonal core-TTs (see :py:meth:`to_t3`); for a
         **consistent** basis they reconstruct the same base point. This checks
@@ -638,7 +653,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         :py:meth:`from_t3`/:py:meth:`orthogonalize`) consistency holds by construction; this is for
         sanity-checking hand-built bases.
         """
-        return bool(orth_reps.basis_consistency_residual(self.data) <= rtol)
+        return orth_reps.basis_consistency_residual(self.data) <= rtol
 
     def allclose(self, other: 'T3Basis', rtol: float = 1e-9, atol: float = 0.0) -> bool:
         """``True`` if ``other`` represents the same base point as ``self`` (gauge-invariant).
@@ -1262,10 +1277,11 @@ def t3_orthogonal_representations(
     >>> print(np.allclose(x.to_dense(), x_tk.to_dense()))
     True
 
-    The base cores are orthogonal in their respective senses (the point of this routine):
+    The base cores are orthogonal in their respective senses (the point of this routine). ``base`` is
+    ``(2, 3)``-stacked, so ``is_orthogonal()`` returns a per-element bool array; ``.all()`` summarizes it:
 
-    >>> print(base.is_orthogonal())
-    True
+    >>> print(base.is_orthogonal().shape, base.is_orthogonal().all())
+    (2, 3) True
     >>> print(base.shape, base.stack_shape)                 # shape and stack are preserved
     (14, 15, 16) (2, 3)
     '''

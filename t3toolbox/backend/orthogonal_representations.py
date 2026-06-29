@@ -111,21 +111,22 @@ def basis_orthogonality_residual(
             typ.Sequence[NDArray],  # left_tt_cores
             typ.Sequence[NDArray],  # right_tt_cores
         ],
-) -> float:
-    '''Max deviation from orthogonality of the four basis core families (over the whole stack).
+) -> NDArray:  # shape = stack_shape (per stack element; scalar/0-d when unstacked)
+    '''Max deviation from orthogonality of the four basis core families, **per stack element**.
 
     Checks each stacked block's gram against the identity:
         - up_tucker U_i (all i), outer/down D_i (all i),
         - left L_i (i=0..d-2), right R_i (i=1..d-1).
-    The last left core and first right core are boundary remainders and are not checked. Returns the
-    max absolute deviation; a caller thresholds it (``<= atol``) for a boolean orthogonality test.
+    The last left core and first right core are boundary remainders and are not checked. Returns the max
+    absolute deviation reduced over the **non-stack** axes (shape ``stack_shape``); a caller thresholds it
+    (``<= atol``) for a per-element boolean orthogonality test.
     '''
     UU, DD, LL, RR = basis
     d = len(UU)
     xnp, _, _ = get_backend(False, tree_contains_jax(basis))
 
-    def _dev(gram, n):
-        return xnp.max(xnp.abs(gram - xnp.eye(n)))
+    def _dev(gram, n):  # max over the two gram axes only -> keep stack (the leading '...')
+        return xnp.max(xnp.abs(gram - xnp.eye(n)), axis=(-2, -1))
 
     devs = []
     for ii in range(d):
@@ -139,7 +140,7 @@ def basis_orthogonality_residual(
     for ii in range(1, d):
         R = RR[ii]
         devs.append(_dev(xnp.einsum('...iaj,...kaj->...ik', R, R), R.shape[-3]))
-    return xnp.max(xnp.stack(devs))
+    return xnp.max(xnp.stack(devs), axis=0)   # max over the checks, keep stack_shape
 
 
 def basis_consistency_residual(
@@ -149,16 +150,21 @@ def basis_consistency_residual(
             typ.Sequence[NDArray],  # left_tt_cores
             typ.Sequence[NDArray],  # right_tt_cores
         ],
-) -> float:
+) -> NDArray:  # shape = stack_shape (per stack element; scalar/0-d when unstacked)
     '''Relative Frobenius mismatch between the left- and right-canonical reconstructions of the base
-    point (``up`` over ``left`` vs ``up`` over ``right``).
+    point (``up`` over ``left`` vs ``up`` over ``right``), **per stack element**.
 
-    Returns ``||left - right|| / max(1, ||right||)`` over the dense tensors; a caller thresholds it
-    (``<= rtol``) for a boolean consistency test. EXPENSIVE -- densifies both reconstructions.
+    Returns ``||left - right|| / max(1, ||right||)`` over the dense **mode** axes (the norm is reduced over
+    the non-stack axes, so the result has shape ``stack_shape``); a caller thresholds it (``<= rtol``) for a
+    per-element boolean consistency test. EXPENSIVE -- densifies both reconstructions.
     '''
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
     xnp, _, _ = get_backend(False, tree_contains_jax(basis))
+    d = len(up_tucker_cores)
     left = ragged_operations.to_dense((up_tucker_cores, left_tt_cores))
     right = ragged_operations.to_dense((up_tucker_cores, right_tt_cores))
-    return xnp.linalg.norm(left - right) / xnp.maximum(1.0, xnp.linalg.norm(right))
+    mode_axes = tuple(range(left.ndim - d, left.ndim))   # the d physical-mode axes; stack axes lead
+    num = xnp.sqrt(xnp.sum((left - right) ** 2, axis=mode_axes))   # Frobenius over modes -> stack_shape
+    den = xnp.sqrt(xnp.sum(right ** 2, axis=mode_axes))
+    return num / xnp.maximum(1.0, den)
 

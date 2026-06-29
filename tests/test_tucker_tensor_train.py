@@ -2665,7 +2665,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
             for MAX_TK, MAX_TT in itertools.product(caps, caps):
                 with self.subTest(shape=shape, max_tucker=MAX_TK, max_tt=MAX_TT):
                     x2, ss_tk, ss_tt = x.t3svd(max_tucker_ranks=MAX_TK, max_tt_ranks=MAX_TT)
-                    self.assertTrue(x2.is_left_orthogonal())                       # always left-orthogonal
+                    self.assertTrue(x2.is_left_orthogonal().all())                       # always left-orthogonal
                     self.assertEqual(tuple(s.shape[-1] for s in ss_tk), x2.tucker_ranks)
                     self.assertEqual(tuple(s.shape[-1] for s in ss_tt), x2.tt_ranks)
 
@@ -2689,11 +2689,11 @@ class TestTuckerTensorTrain(unittest.TestCase):
                     x2, _, _ = x.t3svd(max_tucker_ranks=MAX_TK, max_tt_ranks=MAX_TT)  # left-orth, maybe non-min
                     rl = x2.rank_adjustment_sweep('right_to_left')    # left-orth input -> R->L minimizes
                     self.assertTrue(rl.has_minimal_ranks)
-                    self.assertTrue(rl.is_right_orthogonal())
+                    self.assertTrue(rl.is_right_orthogonal().all())
                     self.check_relerr(x2.to_dense(), rl.to_dense())   # lossless
                     both = rl.rank_adjustment_sweep('left_to_right')  # right-orth input -> L->R -> minimal left-orth
                     self.assertTrue(both.has_minimal_ranks)
-                    self.assertTrue(both.is_left_orthogonal())
+                    self.assertTrue(both.is_left_orthogonal().all())
                     self.check_relerr(x2.to_dense(), both.to_dense())
         with self.assertRaises(ValueError):
             x.rank_adjustment_sweep('sideways')
@@ -2711,7 +2711,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
             x2, _, _ = x.t3svd()
             with self.subTest(shape=shape, tucker=tr, tt=ttr):
                 self.assertTrue(x2.has_minimal_ranks)  # no-truncation t3svd IS minimal
-                self.assertTrue(x2.is_left_orthogonal())
+                self.assertTrue(x2.is_left_orthogonal().all())
                 self.check_relerr(x.to_dense(), x2.to_dense())
 
     def test_is_left_right_orthogonal_checkers(self):
@@ -2722,19 +2722,19 @@ class TestTuckerTensorTrain(unittest.TestCase):
             x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
             with self.subTest(shape=shape):
                 # a random T3 is in neither orthogonal form
-                self.assertFalse(x.is_left_orthogonal())
-                self.assertFalse(x.is_right_orthogonal())
+                self.assertFalse(x.is_left_orthogonal().all())
+                self.assertFalse(x.is_right_orthogonal().all())
                 # build the two forms via the backend orthogonalizers
                 tk, tt = orthx.down_orthogonalize_tucker_cores(x.data)
                 xL = t3.TuckerTensorTrain(tk, orth.left_orthogonalize_tt_cores(tt))
                 xR = t3.TuckerTensorTrain(tk, orth.right_orthogonalize_tt_cores(tt))
-                self.assertTrue(xL.is_left_orthogonal())
-                self.assertFalse(xL.is_right_orthogonal())
-                self.assertTrue(xR.is_right_orthogonal())
-                self.assertFalse(xR.is_left_orthogonal())
+                self.assertTrue(xL.is_left_orthogonal().all())
+                self.assertFalse(xL.is_right_orthogonal().all())
+                self.assertTrue(xR.is_right_orthogonal().all())
+                self.assertFalse(xR.is_left_orthogonal().all())
                 # a t3svd result is left-orthogonal
                 x2, _, _ = x.t3svd()
-                self.assertTrue(x2.is_left_orthogonal())
+                self.assertTrue(x2.is_left_orthogonal().all())
 
     def test_t3svd_assume_orthogonal(self):
         # assume_orthogonal=True (input already right-orthogonal) skips the redundant orthogonalization
@@ -2744,14 +2744,14 @@ class TestTuckerTensorTrain(unittest.TestCase):
         for shape, tr, ttr in structures:
             x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
             xR = x.down_orthogonalize_tucker_cores().right_orthogonalize_tt_cores()  # right-orthogonal
-            self.assertTrue(xR.is_right_orthogonal())
+            self.assertTrue(xR.is_right_orthogonal().all())
             for MAX_TT in [None, 2, 3]:
                 with self.subTest(shape=shape, max_tt=MAX_TT):
                     a, _, _ = xR.t3svd(max_tt_ranks=MAX_TT, assume_orthogonal=True)
                     b, _, _ = xR.t3svd(max_tt_ranks=MAX_TT)
                     self.assertEqual(a.ranks, b.ranks)
                     self.check_relerr(b.to_dense(), a.to_dense())
-                    self.assertTrue(a.is_left_orthogonal())
+                    self.assertTrue(a.is_left_orthogonal().all())
 
     def test_compute_minimal_ranks_matches_matricization(self):
         # compute_minimal_ranks must equal the GENERIC numerical rank of every tensor-network edge cut:

@@ -114,10 +114,10 @@ class GaussNewtonModel:
     >>> model = fitting.apply_model(t3m.MANIFOLD, x, ww, r)
     >>> print(round(float(model.objective_value), 6))
     8.295196
-    >>> model.gradient.is_gauged()
+    >>> print(model.gradient.is_gauged())
     True
     >>> p = t3m.MANIFOLD.randn(model.base)                  # a gauged trial step at the model's base
-    >>> model.gn_hessian(p).is_gauged()
+    >>> print(model.gn_hessian(p).is_gauged())
     True
 
     ``evaluate(p)`` is the quadratic-model value, consistent with assembling it from the cached ``c`` /
@@ -138,7 +138,7 @@ class GaussNewtonModel:
     raw ``(U,G,G,G)`` frame (a core perturbation), with **no** gauge projection:
 
     >>> cmodel = fitting.apply_model(t3m.COREWISE, x, ww, r)
-    >>> cmodel.gradient.is_gauged()
+    >>> print(cmodel.gradient.is_gauged())
     False
     >>> cp = t3m.COREWISE.randn(cmodel.base)
     >>> bool(np.allclose(float(cmodel.evaluate(cp)),
@@ -305,7 +305,7 @@ def apply_derivatives_model(
     quadratic form ``pᵀHp = ‖J p‖²`` agrees with the Hessian action:
 
     >>> model = fitting.apply_derivatives_model(t3m.MANIFOLD, x, ww, pp, 3, r, weight=[1.0, 0.5, 0.3, 0.2])
-    >>> model.gradient.is_gauged()
+    >>> print(model.gradient.is_gauged())
     True
     >>> p = t3m.MANIFOLD.randn(model.base)
     >>> bool(np.allclose(float(model.gn_quadratic(p)), float(p.corewise_inner(model.gn_hessian(p)))))

@@ -183,7 +183,7 @@ def checks_active(*inputs):
     numerical condition only when this returns True::
 
         if safety.checks_active(basis.data):
-            safety.require(basis.is_orthogonal(atol=safety.effective_rtol(basis.data)), 'basis not orthogonal')
+            safety.require(basis.is_orthogonal(atol=safety.effective_rtol(basis.data)).all(), 'basis not orthogonal')
     '''
     return _safety.get() is not None and not is_tracing(*_flatten_arrays(inputs))
 

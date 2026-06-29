@@ -28,13 +28,14 @@ UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[int, ...], typ.Tuple[NDArray, ND
 def ut3_orthogonality_residual(
         data: UT3Data,
         side: str,  # 'left' or 'right'
-) -> float:  # max abs deviation of the relevant (masked) cores from orthonormality (0 == exactly orthogonal)
+) -> NDArray:  # shape = stack_shape; max abs deviation of the masked cores from orthonormality, per element
     '''Uniform analog of :py:func:`t3_orthogonality_residual`: non-enforcing check of left/right-orthogonal
-    form (Tucker supercores down-orthogonal AND TT supercores left/right-orthogonal).
+    form (Tucker supercores down-orthogonal AND TT supercores left/right-orthogonal), **per stack element**.
 
     Compares each masked supercore's Gram against ``diag(mask)`` (the masked rows/cols are zero, so the
-    identity is restricted to the real block). The boundary TT core (last for left, first for right) is
-    the center remainder and is not checked.
+    identity is restricted to the real block). The boundary TT core (last for left, first for right) is the
+    center remainder and is not checked. Reduced over the **non-stack** axes (the leading mode index ``d``
+    and the two gram axes), so the result has shape ``stack_shape``.
     '''
     side = side.lower()
     use_jax = tree_contains_jax(data[:2])
@@ -45,7 +46,7 @@ def ut3_orthogonality_residual(
     n, r = tucker_sc.shape[-2], tt_sc.shape[-1]
 
     Mt = xnp.einsum('...io,...jo->...ij', tucker_sc, tucker_sc)          # (d,)+stack+(n,n)
-    resid = float(xnp.max(xnp.abs(Mt - xnp.eye(n) * tucker_mask[..., None, :])))
+    resid = xnp.max(xnp.abs(Mt - xnp.eye(n) * tucker_mask[..., None, :]), axis=(0, -2, -1))  # -> stack_shape
 
     interior = tt_mask[1:-1]                                              # interior bonds 1..d-1
     if side == 'left':                                                   # modes 0..d-2, right bonds
@@ -54,8 +55,8 @@ def ut3_orthogonality_residual(
         M = xnp.einsum('...aib,...cib->...ac', tt_sc[1:], tt_sc[1:])
     else:
         raise ValueError("side must be 'left' or 'right'; got %r" % (side,))
-    resid = max(resid, float(xnp.max(xnp.abs(M - xnp.eye(r) * interior[..., None, :]))))
-    return resid
+    resid_tt = xnp.max(xnp.abs(M - xnp.eye(r) * interior[..., None, :]), axis=(0, -2, -1))   # -> stack_shape
+    return xnp.maximum(resid, resid_tt)
 
 # Each function re-masks on entry; the SVD remainder R = ss.Vt has ss=0 in padded slots, so no garbage
 # propagates. Ranks shrink to the structural minimum the SVD produces, and the masks are recomputed to

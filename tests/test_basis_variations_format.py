@@ -321,9 +321,9 @@ class TestBasisVariationsFormat(unittest.TestCase):
         b = bvf.T3Basis.from_t3(x)
         b2, _ = bvf.t3_orthogonal_representations(x)
         self.assertEqual(b.structure, b2.structure)
-        self.assertTrue(b.is_orthogonal())
+        self.assertTrue(b.is_orthogonal().all())
         ro = bvf.T3Basis.random_orthogonal(*STRUCT, stack_shape=(2,))
-        self.assertTrue(ro.is_orthogonal())
+        self.assertTrue(ro.is_orthogonal().all())
         self.assertEqual((STRUCT[0], STRUCT[1], STRUCT[2], (2,)),
                          (ro.shape, ro.up_ranks, ro.left_ranks, ro.stack_shape))
         self.assertEqual(b.structure, bvf.T3Basis.random_orthogonal_like(b).structure)
@@ -361,7 +361,7 @@ class TestBasisVariationsFormat(unittest.TestCase):
         base = bvf.T3Basis.random_orthogonal(*STRUCT, stack_shape=(2,))
         rb = base.reverse()
         self.assertEqual(STRUCT[0][::-1], rb.shape)
-        self.assertTrue(rb.is_orthogonal())
+        self.assertTrue(rb.is_orthogonal().all())
         self.assertEqual(base.structure, rb.reverse().structure)
         var = bvf.T3Variations.randn(base.variation_shapes, stack_shape=(2,))
         self.assertEqual(0.0, cw.corewise_relerr(var.data, var.reverse().reverse().data))
@@ -398,14 +398,14 @@ class TestBasisVariationsFormat(unittest.TestCase):
             base = bvf.T3Basis.from_t3(x)
             b2 = base.orthogonalize()
             b2.validate()
-            self.assertTrue(b2.is_orthogonal())
+            self.assertTrue(b2.is_orthogonal().all())
             self.check_relerr(np.asarray(x.to_dense()), np.asarray(b2.to_dense()))
-            self.assertTrue(base.is_consistent())
+            self.assertTrue(base.is_consistent().all())
             # perturb the left cores only -> left/right reconstructions no longer agree
             bad = bvf.T3Basis(base.up_tucker_cores, base.down_tt_cores,
                               tuple(c + 0.1 * np.random.randn(*c.shape) for c in base.left_tt_cores),
                               base.right_tt_cores)
-            self.assertFalse(bad.is_consistent())
+            self.assertFalse(bad.is_consistent().all())
 
     def test_allclose(self):
         # T3Basis.allclose compares represented base points (gauge-invariant); T3Variations.allclose
@@ -469,12 +469,12 @@ class TestBasisVariationsFormat(unittest.TestCase):
                 with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
                     x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
                     base, _ = bvf.t3_orthogonal_representations(x)
-                    self.assertTrue(base.is_orthogonal())
+                    self.assertTrue(base.is_orthogonal().all())
 
         # a generic (non-orthogonal) basis is not orthogonal
         structure = ((14, 15, 16), (4, 5, 6), (3, 4, 5), (1, 2, 3, 1), (1, 3, 2, 1), ())
         base2, _ = _random_basis_variations(structure)
-        self.assertFalse(base2.is_orthogonal())
+        self.assertFalse(base2.is_orthogonal().all())
 
     def test_t3basis_has_minimal_ranks(self):
         # minimal-rank x -> minimal-rank base
@@ -498,20 +498,20 @@ class TestBasisVariationsFormat(unittest.TestCase):
         # frame numerical minimality is certified WITHOUT an SVD: orthogonal AND structurally minimal.
         base, _ = bvf.t3_orthogonal_representations(
             t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1)))     # orthogonal + minimal
-        self.assertTrue(base.is_orthogonal() and base.has_minimal_ranks)
-        self.assertTrue(base.has_numerically_minimal_ranks())
+        self.assertTrue(base.is_orthogonal().all() and base.has_minimal_ranks)
+        self.assertTrue(base.has_numerically_minimal_ranks().all())
 
         nb, _ = bvf.t3_orthogonal_representations(
             t3.TuckerTensorTrain.randn((10, 11, 12), (4, 5, 4), (1, 2, 3, 1)))  # orthogonal, NON-minimal
-        self.assertTrue(nb.is_orthogonal())
+        self.assertTrue(nb.is_orthogonal().all())
         self.assertFalse(nb.has_minimal_ranks)
-        self.assertFalse(nb.has_numerically_minimal_ranks())                   # structural fail -> False
+        self.assertFalse(nb.has_numerically_minimal_ranks().all())                   # structural fail -> False
 
         # a non-orthogonal frame returns False (the SVD certification path is intentionally not built),
         # even when its ranks happen to be structurally minimal
         nonorth, _ = _random_basis_variations(((6, 7, 5), (2, 2, 2), (2, 2, 2), (1, 2, 2, 1), (1, 2, 2, 1), ()))
-        self.assertFalse(nonorth.is_orthogonal())
-        self.assertFalse(nonorth.has_numerically_minimal_ranks())
+        self.assertFalse(nonorth.is_orthogonal().all())
+        self.assertFalse(nonorth.has_numerically_minimal_ranks().all())
 
 
 if __name__ == "__main__":
