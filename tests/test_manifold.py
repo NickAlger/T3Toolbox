@@ -827,9 +827,9 @@ class TestManifold(unittest.TestCase):
                 x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=STACK_SHAPE)
                 base, _ = bvf.t3_orthogonal_representations(x)
                 v = t3m.MANIFOLD.randn(base)
-                self.assertTrue(v.allclose(v))
-                self.assertFalse(v.allclose(v * 2.0))
-                self.assertTrue(v.allclose(v * (1.0 + 1e-12)))
+                self.assertTrue(v.allclose(v).all())
+                self.assertFalse(v.allclose(v * 2.0).all())
+                self.assertTrue(v.allclose(v * (1.0 + 1e-12)).all())
 
     def test_project_dense_onto_tangent(self):
         # project_dense_onto_tangent == the dense orthogonal projector onto the tangent space.

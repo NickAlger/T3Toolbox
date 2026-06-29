@@ -12,6 +12,7 @@ import t3toolbox.backend.ubv_conversions as ubv_conversions
 import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.basis_variations_format as bvf
 import t3toolbox.corewise as cw
+import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.ubv_operations as ubv_operations
 import t3toolbox.backend.ubv_masking as masking
@@ -192,6 +193,62 @@ class UT3Basis:
             up_sc, down_sc, left_sc, right_sc,
             self.shape, self.masks,
         )
+
+    # ------------------------------------------------------------- validity checkers (per stack element)
+    @ft.cached_property
+    def orthogonality_residual(self) -> NDArray:  # shape = stack_shape (scalar/0-d when unstacked)
+        """Max deviation of the (masked) basis supercores from orthonormality, **per stack element**
+        (uniform analog of :py:attr:`~t3toolbox.basis_variations_format.T3Basis.orthogonality_residual`;
+        masked-Gram over the four senses -- see
+        :py:func:`~t3toolbox.backend.ubv_operations.ubv_basis_orthogonality_residual`). **cached**."""
+        return ubv_operations.ubv_basis_orthogonality_residual(self.data)
+
+    def is_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape (scalar unstacked)
+        """True (per stack element) if the basis supercores are orthogonal in their respective senses on
+        the real (masked) content. Per-element bool array (reduce with ``.all()`` for a single verdict);
+        verified against the ragged oracle ``to_t3basis(self).is_orthogonal()``."""
+        return self.orthogonality_residual <= atol
+
+    @ft.cached_property
+    def minimal_ranks(self):  # (min_tucker (d,)+stack, min_tt (d+1,)+stack) -- host int, per stack element
+        """Structural minimal ranks ``(min_tucker_ranks, min_tt_ranks)`` for this frame's shape/ranks,
+        **per stack element** (the ranks vary across the stack -- the determinantal variety). Host ints."""
+        return ranks.compute_minimal_ranks(self.shape, self.up_ranks, self.left_ranks)
+
+    @ft.cached_property
+    def has_minimal_ranks(self) -> NDArray:  # bool array, shape = stack_shape (per element; uniform ranks vary)
+        """True (per stack element) if the frame has structurally minimal ranks: ``left==right``,
+        ``up==down``, and up/left equal the minimal ranks for the shape (reduced over the mode axis).
+        Non-enforcing; not a correctness precondition (``docs/numerical_contract_catalog.md``)."""
+        up, down = np.asarray(self.up_ranks), np.asarray(self.down_ranks)        # (d,)+stack
+        left, right = np.asarray(self.left_ranks), np.asarray(self.right_ranks)  # (d+1,)+stack
+        mn_tk, mn_tt = self.minimal_ranks
+        return (np.all(left == right, axis=0) & np.all(up == down, axis=0)
+                & np.all(up == np.asarray(mn_tk), axis=0) & np.all(left == np.asarray(mn_tt), axis=0))
+
+    def has_numerically_minimal_ranks(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape
+        """True (per stack element) if the frame is **numerically** minimal -- ``is_orthogonal(atol) &
+        has_minimal_ranks`` (orthonormal cores are full-rank, so orthogonal + structurally minimal =>
+        numerically minimal; no SVD). Mirrors ``T3Basis.has_numerically_minimal_ranks``."""
+        return self.is_orthogonal(atol=atol) & self.has_minimal_ranks
+
+    def is_consistent(self, rtol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape
+        """``True`` (per stack element) if the left- and right-canonical reconstructions of the base point
+        agree: ``||up·left - up·right|| <= rtol * ||up·right||`` (dense Frobenius norm). EXPENSIVE
+        (densifies both). Consistent by construction for a frame from :py:func:`ut3_orthogonal_representations`."""
+        left_ut3 = ut3.UniformTuckerTensorTrain(
+            self.up_tucker_supercore, self.left_tt_supercore, self.shape,
+            ut3.UT3Masks(self.masks.up_mask, self.masks.basis_left_mask))
+        right_ut3 = self.to_ut3()
+        return (left_ut3 - right_ut3).norm() <= rtol * right_ut3.norm()
+
+    def allclose(self, other: 'UT3Basis', rtol: float = 1e-9, atol: float = 0.0) -> NDArray:  # bool array, stack
+        """``True`` (per stack element) if ``other`` represents the same base point as ``self``
+        (gauge-invariant): ``||self.to_ut3() - other.to_ut3()|| <= atol + rtol * ||other.to_ut3()||`` in
+        the dense Frobenius norm. Reduce with ``.all()`` for a single verdict."""
+        dn = (self.to_ut3() - other.to_ut3()).norm()
+        rn = other.to_ut3().norm()
+        return dn <= atol + rtol * rn
 
     # ------------------------------------------------------------- ragged <-> uniform conversions
     @staticmethod
@@ -691,13 +748,24 @@ class UT3Variations:
         tkv, ttv, shape, masks = ubv_operations.ubv_variations_sum_stack(self.data, axis)
         return UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*masks))
 
-    def allclose(self, other: 'UT3Variations', rtol: float = 1e-9, atol: float = 0.0) -> bool:
-        """``True`` if ``other`` holds the same variations as ``self`` on the **real (masked)** content:
-        ``||self - other|| <= atol + rtol * ||other||`` in the corewise norm. (A single bool for now; the
-        per-stack-element checker semantics land in slice 2c-G.)"""
-        dn = cw.corewise_norm((self - other).apply_masks().supercores)
-        rn = cw.corewise_norm(other.apply_masks().supercores)
-        return bool(dn <= atol + rtol * rn)
+    def allclose(self, other: 'UT3Variations', rtol: float = 1e-9, atol: float = 0.0) -> NDArray:  # bool array, stack
+        """``True`` (per stack element) if ``other`` holds the same variations as ``self`` on the **real
+        (masked)** content: ``||self - other|| <= atol + rtol * ||other||``, the corewise (Euclidean) norm
+        reduced over the **non-stack** axes -- the leading mode index ``d`` and the core axes -- keeping the
+        stack (reduce with ``.all()`` for a single verdict)."""
+        n_stack = len(self.stack_shape)
+        use_jax = self.contains_jax or other.contains_jax
+        xnp, _, _ = get_backend(True, use_jax)
+
+        def stack_norm(supercores):  # sqrt of summed squares over non-stack axes (d + core), keep the stack
+            total = 0.0
+            for sc in supercores:
+                total = total + xnp.sum(sc ** 2, axis=(0,) + tuple(range(1 + n_stack, sc.ndim)))
+            return xnp.sqrt(total)
+
+        dn = stack_norm((self - other).apply_masks().supercores)
+        rn = stack_norm(other.apply_masks().supercores)
+        return dn <= atol + rtol * rn
 
     # ------------------------------------------------------------- constructors (fill complete; masks optional)
     @staticmethod

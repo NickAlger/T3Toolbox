@@ -321,11 +321,11 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
                     rrl = x2.rank_adjustment_sweep('right_to_left')
                     self.assertLessEqual(relerr(url.to_dense(), rrl.to_dense()), TOL)  # matches ragged
                     self.assertLessEqual(relerr(url.to_dense(), ux2.to_dense()), TOL)  # lossless
-                    self.assertTrue(url.has_minimal_ranks)
+                    self.assertTrue(url.has_minimal_ranks.all())
                     self.assertTrue(url.is_right_orthogonal().all())
                     self.assertEqual(self._first_elem_ranks(url, ss), (rrl.tucker_ranks, rrl.tt_ranks))
                     both = url.rank_adjustment_sweep('left_to_right')  # -> minimal, left-orthogonal
-                    self.assertTrue(both.has_minimal_ranks)
+                    self.assertTrue(both.has_minimal_ranks.all())
                     self.assertTrue(both.is_left_orthogonal().all())
                     self.assertLessEqual(relerr(both.to_dense(), ux2.to_dense()), TOL)
         with self.assertRaises(ValueError):

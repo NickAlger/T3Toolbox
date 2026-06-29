@@ -349,11 +349,12 @@ class UniformTuckerTensorTrain:
         return ranks.compute_minimal_ranks(self.shape, self.tucker_ranks, self.tt_ranks, use_jax=use_jax)
 
     @property
-    def has_minimal_ranks(self) -> bool:
-        """True if this UT3's ranks are structurally minimal (every stack element)."""
+    def has_minimal_ranks(self) -> NDArray:  # bool array, shape = stack_shape (per element; uniform ranks vary)
+        """True (per stack element) if this UT3's ranks are structurally minimal. Per-element (uniform ranks
+        vary across the stack), reduced over the mode axes; reduce with ``.all()`` for a single verdict."""
         mn = self.minimal_ranks
-        return bool(np.all(np.asarray(self.tucker_ranks) == np.asarray(mn[0]))
-                    and np.all(np.asarray(self.tt_ranks) == np.asarray(mn[1])))
+        return (np.all(np.asarray(self.tucker_ranks) == np.asarray(mn[0]), axis=0)
+                & np.all(np.asarray(self.tt_ranks) == np.asarray(mn[1]), axis=0))
 
     # ----------------------------------------------------------------- T3-SVD
     def t3svd(self, max_tt_ranks=None, max_tucker_ranks=None, assume_orthogonal=False):

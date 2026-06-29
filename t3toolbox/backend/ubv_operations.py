@@ -16,6 +16,7 @@ import typing as typ
 
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.ut3_operations as ut3_operations
+import t3toolbox.backend.ubv_masking as ubv_masking
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -27,6 +28,7 @@ __all__ = [
     'ubv_reverse_variations',
     'ubv_save',
     'ubv_load',
+    'ubv_basis_orthogonality_residual',
 ]
 
 N_MASKS = 4  # both UT3Basis and UT3Variations hold four edge masks
@@ -176,3 +178,32 @@ def ubv_load(file, use_jax: bool = False):  # -> (*supercores, shape, masks)
     masks = tuple(np.asarray(m, dtype=bool) for m in masks)
     shape = tuple(int(x) for x in shape_family[0])
     return tuple(supercores) + (shape, masks)
+
+
+def ubv_basis_orthogonality_residual(data):  # UT3Basis .data -> max orthogonality deviation, per stack element
+    """Max deviation of the four masked basis supercores from orthonormality, **per stack element** (shape
+    ``stack_shape``). Each masked supercore slice IS a hypothetical ragged core (mask the padding to zero);
+    require its Gram == ``diag(outgoing_mask)`` -- the masked-Gram pattern, over the four senses (up ``U``,
+    down/outer ``O``, left ``L``, right ``R``), with the correct outgoing mask per sense (left core ``i`` ->
+    ``basis_left_mask[i+1]``). The uniform analog of
+    :py:func:`orthogonal_representations.basis_orthogonality_residual`; the per-element oracle is the ragged
+    one via ``to_t3basis``. The boundary left/right cores are remainders and are not checked (so left
+    checks cores ``0..d-2``, right checks ``1..d-1``)."""
+    up_sc, down_sc, left_sc, right_sc, shape, (um, dm, lm, rm) = data
+    mup, mdown, mleft, mright = ubv_masking.apply_basis_masks(data)   # zero the padding (mask-once)
+    use_jax = tree_contains_jax((up_sc, down_sc, left_sc, right_sc))
+    xnp, _, _ = get_backend(True, use_jax)
+    d = up_sc.shape[0]
+    nU, nD, rL, rR = mup.shape[-2], mdown.shape[-2], mleft.shape[-1], mright.shape[-1]
+
+    def dev(G, mask, n):  # max over the leading core axis + the two gram axes -> keep stack
+        return xnp.max(xnp.abs(G - xnp.eye(n) * mask[..., None, :]), axis=(0, -2, -1))
+
+    devs = [
+        dev(xnp.einsum('...io,...jo->...ij', mup, mup), um, nU),          # up: rows orthonormal over mode
+        dev(xnp.einsum('...iaj,...ibj->...ab', mdown, mdown), dm, nD),    # down/outer: mode orthonormal over bonds
+    ]
+    if d > 1:   # interior left/right cores; the boundary core of each is the unchecked remainder
+        devs.append(dev(xnp.einsum('...iaj,...iak->...jk', mleft[:-1], mleft[:-1]), lm[1:-1], rL))   # outgoing edges 1..d-1
+        devs.append(dev(xnp.einsum('...iaj,...kaj->...ik', mright[1:], mright[1:]), rm[1:-1], rR))   # incoming edges 1..d-1
+    return xnp.max(xnp.stack(devs), axis=0)   # max over the four senses, keep stack_shape

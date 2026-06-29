@@ -147,7 +147,7 @@ class TestGaussNewtonModel(unittest.TestCase):
                         model, p = s['model'], _raw_step(s)
                         Pp = s['geometry'].project(p)
                         self.assertTrue(np.allclose(model.evaluate(p), model.evaluate(Pp), rtol=RTOL, atol=ATOL))
-                        self.assertTrue(model.gn_hessian(p).allclose(model.gn_hessian(Pp), rtol=RTOL, atol=ATOL))
+                        self.assertTrue(model.gn_hessian(p).allclose(model.gn_hessian(Pp), rtol=RTOL, atol=ATOL).all())
 
     def test_matched_pair(self):
         '''The structural matched pair: MANIFOLD gauges (g, H gauged); COREWISE does NOT (g == bare 𝒥ᵀr).'''

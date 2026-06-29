@@ -398,16 +398,16 @@ class T3Tangent:
             other:  'T3Tangent',  # compared at the SAME base point (corewise, like __sub__)
             rtol:   float = 1e-9,
             atol:   float = 0.0,
-    ) -> bool:
-        """``True`` if ``other`` is the same tangent vector as ``self`` at the same base point.
+    ) -> NDArray:  # bool array, shape = stack_shape (K+C); scalar when unstacked
+        """``True`` (per stack element) if ``other`` is the same tangent vector as ``self`` at the same base.
 
-        Checks ``||self - other|| <= atol + rtol * ||other||`` via :py:meth:`corewise_norm` (per stacked
-        element, all of which must pass). Assumes a shared base point (compares corewise on the
-        variations, like :py:meth:`__sub__`); for tangents at different bases compare the dense forms.
+        Checks ``||self - other|| <= atol + rtol * ||other||`` via :py:meth:`corewise_norm`, **per stacked
+        element** (reduce with ``.all()`` for a single verdict). Assumes a shared base point (compares
+        corewise on the variations, like :py:meth:`__sub__`); for tangents at different bases compare dense.
         """
         dn = (self - other).corewise_norm()
         rn = other.corewise_norm()
-        return bool((dn <= atol + rtol * rn).all())
+        return dn <= atol + rtol * rn
 
     ############################################
     ##########    Validity checkers    #########

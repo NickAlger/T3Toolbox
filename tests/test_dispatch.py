@@ -408,6 +408,10 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_uniform(lambda b: b.reverse(), UB, returns_ut3=True)
         self.assert_jit_uniform(lambda v: v.reverse(), UV, returns_ut3=True)
         self.assert_jit_uniform(lambda b: b.orthogonalize(), UB, returns_ut3=True)
+        # 2c-G2: uniform-native per-element checkers jit to jax (masked-Gram residual; masks stay np const)
+        self.assert_jit_jax(lambda b: b.is_orthogonal(), UB)
+        self.assert_jit_jax(lambda b: b.is_consistent(), UB)
+        self.assert_jit_jax(lambda a, b: a.allclose(b), UB, ubv.UT3Basis.from_t3basis(self.base))
 
     # ---------------------------------------------------- stack/unstack: masks must stay host under jax
     def test_stack_unstack_keeps_masks_host(self):

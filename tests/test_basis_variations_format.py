@@ -413,15 +413,15 @@ class TestBasisVariationsFormat(unittest.TestCase):
         for C in [(), (2,)]:
             x = t3.TuckerTensorTrain.randn((5, 6, 4), (3, 4, 3), (1, 2, 3, 1), stack_shape=C)
             base = bvf.T3Basis.from_t3(x)
-            self.assertTrue(base.allclose(base))
-            self.assertTrue(base.allclose(base.orthogonalize()))  # same point, possibly different gauge
+            self.assertTrue(base.allclose(base).all())
+            self.assertTrue(base.allclose(base.orthogonalize()).all())  # same point, possibly different gauge
             y = t3.TuckerTensorTrain.randn((5, 6, 4), (3, 4, 3), (1, 2, 3, 1), stack_shape=C)
-            self.assertFalse(base.allclose(bvf.T3Basis.from_t3(y)))
+            self.assertFalse(base.allclose(bvf.T3Basis.from_t3(y)).all())
 
             _, variations = bvf.t3_orthogonal_representations(x)
-            self.assertTrue(variations.allclose(variations))
-            self.assertFalse(variations.allclose(variations * 2.0))
-            self.assertTrue(variations.allclose(variations + variations * 1e-12))
+            self.assertTrue(variations.allclose(variations).all())
+            self.assertFalse(variations.allclose(variations * 2.0).all())
+            self.assertTrue(variations.allclose(variations + variations * 1e-12).all())
 
     def _assert_orthonormal(self, gram, n):
         # gram has shape stack_shape + (n, n); each stacked block must be the identity

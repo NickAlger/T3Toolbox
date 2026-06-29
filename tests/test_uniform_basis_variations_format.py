@@ -566,9 +566,9 @@ class TestVariationLinearAlgebra(unittest.TestCase):
 
     def test_allclose(self):
         base, v = self._pair()
-        self.assertTrue(v.allclose(v))
-        self.assertTrue(v.allclose(v.copy()))
-        self.assertFalse(v.allclose(ubv.UT3Variations.randn_like(base)))
+        self.assertTrue(v.allclose(v).all())
+        self.assertTrue(v.allclose(v.copy()).all())
+        self.assertFalse(v.allclose(ubv.UT3Variations.randn_like(base)).all())
 
     def test_precondition_same_structure_different_masks(self):
         # the uniform-specific footgun: same padded shape, DIFFERENT masks (different ranks) -> different
@@ -684,6 +684,66 @@ class TestSaveLoad(unittest.TestCase):
         jb = ubv.UT3Basis.load(fname, use_jax=True)
         self.assertTrue(all(common.is_jax_ndarray(s) for s in jb.supercores))   # supercores -> jax
         self.assertTrue(all(common.is_numpy_ndarray(m) for m in jb.masks.data)) # masks stay host
+
+
+class TestUT3BasisCheckers(unittest.TestCase):
+    """2c-G2: uniform-native per-element checkers (masked-Gram orthogonality, minimal-rank, consistency,
+    allclose), verified against the ragged oracle (to_t3basis + per-element)."""
+    def setUp(self):
+        np.random.seed(0)
+
+    def _base(self, struct=((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)), ss=()):
+        import t3toolbox.tucker_tensor_train as t3
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        x = t3.TuckerTensorTrain.randn(*struct, stack_shape=ss)
+        return ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))[0]
+
+    def _oracle(self, base, fn):  # ragged per-element verdict via to_t3basis
+        tree = base.to_t3basis()
+        if base.stack_shape == ():
+            return np.asarray(bool(fn(tree)))
+        return np.array([bool(fn(tree[i])) for i in range(base.stack_shape[0])])
+
+    def test_is_orthogonal_matches_oracle(self):
+        for ss in [(), (2,)]:
+            with self.subTest(stack=ss):
+                base = self._base(ss=ss)
+                self.assertEqual(base.is_orthogonal().shape, ss)        # scalar unstacked, array stacked
+                self.assertTrue(np.array_equal(base.is_orthogonal(),
+                                               self._oracle(base, lambda b: b.is_orthogonal())))
+                self.assertTrue(base.is_orthogonal().all())             # an orthogonal frame
+
+    def test_is_orthogonal_mixed_stack(self):
+        good = self._base()
+        bad = ubv.UT3Basis(good.up_tucker_supercore + 0.5, good.down_tt_supercore,
+                           good.left_tt_supercore, good.right_tt_supercore, good.shape, good.masks)
+        mixed = ubv.UT3Basis.stack([good, bad])
+        self.assertTrue(np.array_equal(mixed.is_orthogonal(), np.array([True, False])))
+
+    def test_minimal_rank_checkers_match_oracle(self):
+        for struct in [((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)),       # minimal
+                       ((10, 11, 12), (4, 5, 4), (1, 2, 3, 1))]:    # non-minimal (tucker rank 4 > 1*3)
+            with self.subTest(struct=struct):
+                base = self._base(struct, ss=(2,))
+                self.assertTrue(np.array_equal(base.has_minimal_ranks,
+                                               self._oracle(base, lambda b: b.has_minimal_ranks)))
+                self.assertTrue(np.array_equal(base.has_numerically_minimal_ranks(),
+                                               self._oracle(base, lambda b: b.has_numerically_minimal_ranks())))
+
+    def test_is_consistent_matches_oracle(self):
+        base = self._base(ss=(2,))
+        self.assertTrue(np.array_equal(base.is_consistent(), self._oracle(base, lambda b: b.is_consistent())))
+        self.assertTrue(base.is_consistent().all())
+
+    def test_allclose(self):
+        import t3toolbox.tucker_tensor_train as t3
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        base = self._base(ss=(2,))
+        self.assertTrue(base.allclose(base).all())
+        self.assertTrue(base.allclose(base.orthogonalize()).all())   # same point, possibly different gauge
+        other = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(
+            t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1), stack_shape=(2,))))[0]
+        self.assertFalse(base.allclose(other).all())                 # different base points
 
 
 if __name__ == '__main__':

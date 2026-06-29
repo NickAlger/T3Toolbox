@@ -655,17 +655,18 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         """
         return orth_reps.basis_consistency_residual(self.data) <= rtol
 
-    def allclose(self, other: 'T3Basis', rtol: float = 1e-9, atol: float = 0.0) -> bool:
-        """``True`` if ``other`` represents the same base point as ``self`` (gauge-invariant).
+    def allclose(self, other: 'T3Basis', rtol: float = 1e-9, atol: float = 0.0) -> NDArray:  # bool array, stack_shape
+        """``True`` (per stack element) if ``other`` represents the same base point as ``self`` (gauge-invariant).
 
         Compares the *represented* base points, not the cores: ``||self.to_t3() - other.to_t3()|| <=
         atol + rtol * ||other.to_t3()||`` in the dense Frobenius norm (via
-        :py:meth:`TuckerTensorTrain.norm`, no densification). Invariant to the orthogonal/gauge
+        :py:meth:`TuckerTensorTrain.norm`, no densification), **per stack element** (reduce with ``.all()``
+        for a single verdict). Invariant to the orthogonal/gauge
         representation -- two different orthogonal bases for the same point compare equal.
         """
         dn = (self.to_t3() - other.to_t3()).norm()
         rn = other.to_t3().norm()
-        return bool((dn <= atol + rtol * rn).all())
+        return dn <= atol + rtol * rn
 
 
 
@@ -1013,16 +1014,16 @@ class T3Variations:
         """Corewise negation."""
         return T3Variations(*cw.corewise_neg(self.data))
 
-    def allclose(self, other: 'T3Variations', rtol: float = 1e-9, atol: float = 0.0) -> bool:
-        """``True`` if ``other`` holds the same variations as ``self``, corewise.
+    def allclose(self, other: 'T3Variations', rtol: float = 1e-9, atol: float = 0.0) -> NDArray:  # bool array, stack
+        """``True`` (per stack element) if ``other`` holds the same variations as ``self``, corewise.
 
-        Checks ``||self - other|| <= atol + rtol * ||other||`` in the corewise norm
-        (:py:func:`t3toolbox.corewise.corewise_norm`). Split-agnostic, like all
-        :py:class:`T3Variations` operations.
+        Checks ``||self - other|| <= atol + rtol * ||other||`` in the **stack-vectorized** corewise norm
+        (:py:func:`t3toolbox.corewise.corewise_stack_norm`), one verdict per stack slice (reduce with
+        ``.all()`` for a single bool). Split-agnostic, like all :py:class:`T3Variations` operations.
         """
-        dn = cw.corewise_norm((self - other).data)
-        rn = cw.corewise_norm(other.data)
-        return bool((dn <= atol + rtol * rn).all())
+        dn = cw.corewise_stack_norm((self - other).data, len(self.stack_shape))
+        rn = cw.corewise_stack_norm(other.data, len(other.stack_shape))
+        return dn <= atol + rtol * rn
 
 
 def check_bv_pair(
