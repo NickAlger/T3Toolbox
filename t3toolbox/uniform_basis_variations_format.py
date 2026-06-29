@@ -20,7 +20,6 @@ from t3toolbox.backend.common import *
 __all__ = [
     'UT3Basis',
     'UT3Variations',
-    'ubv_to_ut3',
     'ut3_orthogonal_representations',
 ]
 
@@ -190,6 +189,36 @@ class UT3Basis:
         return UT3Basis(
             up_sc, down_sc, left_sc, right_sc,
             self.shape, self.masks,
+        )
+
+    # ------------------------------------------------------------- ragged <-> uniform conversions
+    @staticmethod
+    def from_t3basis(
+            basis: bvf.T3Basis,
+            N:  typ.Optional[int] = None,   # padded mode dim   (default max(shape))
+            nU: typ.Optional[int] = None,   # padded up rank    (default max(up_ranks))
+            nD: typ.Optional[int] = None,   # padded down rank  (default max(down_ranks))
+            rL: typ.Optional[int] = None,   # padded left rank  (default max(left_ranks))
+            rR: typ.Optional[int] = None,   # padded right rank (default max(right_ranks))
+    ) -> 'UT3Basis':
+        """Pack a ragged :py:class:`~t3toolbox.basis_variations_format.T3Basis` into a uniform frame.
+
+        A single ragged frame has ranks shared across its ``C`` stack, so the masks come out **uniform
+        across the stack** (varying-rank uniform batches arise only by ``stack``-ing a heterogeneous tree).
+        """
+        uc, dc, lc, rc, shape, masks = ubv_conversions.t3basis_to_ut3basis(
+            basis.data, N=N, nU=nU, nD=nD, rL=rL, rR=rR)
+        return UT3Basis(uc, dc, lc, rc, shape, UT3BasisMasks(*masks))
+
+    def to_t3basis(self):  # -> bvf.T3Basis, or a nested tree (shaped like stack_shape) of them if stacked
+        """Convert to a ragged :py:class:`~t3toolbox.basis_variations_format.T3Basis` (or, if stacked, an
+        array-like tree of them)."""
+        d = self.d
+        result = ubv_conversions.ut3basis_to_t3basis(self.apply_masks().data)
+        return stacking.apply_func_to_leaf_subtrees(
+            result,
+            lambda c: bvf.T3Basis(*c),
+            ((None,) * d,) * 4,  # leaf_structure: 4 core-families, each a length-d tuple
         )
 
     def validate(self) -> None:
@@ -406,6 +435,32 @@ class UT3Variations:
         masked_tk_supercore, masked_tt_supercore = masking.apply_variations_masks(self.data)
         return UT3Variations(masked_tk_supercore, masked_tt_supercore, self.shape, self.masks)
 
+    # ------------------------------------------------------------- ragged <-> uniform conversions
+    @staticmethod
+    def from_t3variations(
+            variations: bvf.T3Variations,
+            N:  typ.Optional[int] = None,   # padded mode dim   (default max(shape))
+            nU: typ.Optional[int] = None,   # padded up rank    (default max(up_ranks))
+            nD: typ.Optional[int] = None,   # padded down rank  (default max(down_ranks))
+            rL: typ.Optional[int] = None,   # padded left rank  (default max(left_ranks))
+            rR: typ.Optional[int] = None,   # padded right rank (default max(right_ranks))
+    ) -> 'UT3Variations':
+        """Pack a ragged :py:class:`~t3toolbox.basis_variations_format.T3Variations` into uniform variations."""
+        tkv, ttv, shape, masks = ubv_conversions.t3variations_to_ut3variations(
+            variations.data, N=N, nU=nU, nD=nD, rL=rL, rR=rR)
+        return UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*masks))
+
+    def to_t3variations(self):  # -> bvf.T3Variations, or a nested tree (shaped like stack_shape) of them if stacked
+        """Convert to ragged :py:class:`~t3toolbox.basis_variations_format.T3Variations` (or, if stacked, an
+        array-like tree of them)."""
+        d = self.d
+        result = ubv_conversions.ut3variations_to_t3variations(self.apply_masks().data)
+        return stacking.apply_func_to_leaf_subtrees(
+            result,
+            lambda c: bvf.T3Variations(*c),
+            ((None,) * d,) * 2,  # leaf_structure: 2 core-families, each a length-d tuple
+        )
+
     def validate(self) -> None:
         '''Check rank and shape consistency of a uniform Tucker tensor train variations (`UT3Variations`).
         Raises ValueError.'''
@@ -499,20 +554,6 @@ def check_ubv_pair(base: UT3Basis, variations: UT3Variations) -> None:
                 'Inconsistent (UT3Basis, UT3Variations) pair: %s rank masks differ.' % name)
 
 
-def ut3basis_to_t3basis(
-        x: UT3Basis,
-):  # -> bvf.T3Basis, or a nested tree (shaped like stack_shape) of them if stacked
-    """Convert a UT3Basis to a ragged :py:class:`~t3toolbox.basis_variations_format.T3Basis` (or, if
-    stacked, an array-like tree of them)."""
-    d = x.d
-    result = ubv_conversions.ut3basis_to_t3basis(x.apply_masks().data)
-    return stacking.apply_func_to_leaf_subtrees(
-        result,
-        lambda c: bvf.T3Basis(*c),
-        ((None,) * d,) * 4,  # leaf_structure: 4 core-families, each a length-d tuple
-    )
-
-
 def ut3_orthogonal_representations(
         x: ut3.UniformTuckerTensorTrain,
         already_left_orthogonal: bool = False,
@@ -581,13 +622,13 @@ def ut3_orthogonal_representations(
     >>> import t3toolbox.uniform_basis_variations_format as ubvf
     >>> np.random.seed(0)
     >>> x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
-    >>> base, variations = ubvf.ut3_orthogonal_representations(ut3.t3_to_ut3(x))
+    >>> base, variations = ubvf.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
     >>> type(base).__name__, type(variations).__name__
     ('UT3Basis', 'UT3Variations')
     >>> base.shape
     (4, 5, 6)
     >>> # the orthogonal frame still represents the original tensor:
-    >>> bool(np.allclose(ubvf.ut3basis_to_t3basis(base).to_dense(), x.to_dense()))
+    >>> bool(np.allclose(base.to_t3basis().to_dense(), x.to_dense()))
     True
 
     '''
@@ -601,69 +642,9 @@ def ut3_orthogonal_representations(
             UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*variation_masks)))
 
 
-if False:
-    def ubv_to_ut3(
-            ii: int, # index of variation
-            use_tt_variation: bool, # If True, use TT variation. If False, use Tucker variation
-            basis: UT3Basis,
-            variations: UT3Variations,
-    ) -> ut3.UniformTuckerTensorTrain:
-        '''Convert basis-variations representation to TuckerTensorTrain.
-
-        If replacement_ind=1, replace_tt=True::
-
-            1 -- L0 --(H1)-- R2 -- R3 -- 1
-                 |     |     |     |
-                 U0    U1    U2    U3
-                 |     |     |     |
-
-        If replacement_ind=2, replace_tt=False::
-
-            1 -- L0 -- L1 -- O2 -- R3 -- 1
-                 |     |     |     |
-                 U0    U1   (V2)   U3
-                 |     |     |     |
-
-        Parameters
-        ----------
-        ii: int
-            Index of variation. 0 <= replacement_ind < num_cores
-        replace_tt: bool
-            Indicates whether to use TT variation (True) or a Tucker variation (False)
-        base: T3Basis
-            Basis cores
-        variations: T3Variations
-            Variation cores
-
-        Raises
-        ------
-        RuntimeError
-            - Error raised if the basis and variations do not fit with each other
-
-        Examples
-        --------
-    import t3toolbox.backend.basis_variations_format.bv_conversions    >>> import numpy as np
-        >>> import t3toolbox.basis_variations_format as bcf
-        >>> randn = np.random.randn # shorthand
-        >>> (U0,U1,U2) = (randn(10, 14), randn(11, 15), randn(12, 16))
-        >>> (L0,L1,L2) = (randn(1, 10, 2), randn(2, 11, 3), randn(3,12,4))
-        >>> (R0,R1,R2) = (randn(2,10,4), randn(4, 11, 5), randn(5, 12, 1))
-        >>> (O0,O1,O2) = (randn(1, 9, 4), randn(2, 8, 5), randn(3, 7, 1))
-        >>> base = bcf.T3Basis((U0,U1,U2), (L0,L1,L2), (R0,R1,R2), (O0,O1,O2))
-        >>> (V0,V1,V2) = (randn(9,14), randn(8,15), randn(7,16))
-        >>> (H0,H1,H2) = (randn(1,10,4), randn(2,11,5), randn(3,12,1))
-        >>> variations = bcf.T3Variations((V0,V1,V2), (H0,H1,H2))
-        >>> ((B0, B1, B2), (G0, G1, G2)) = t3toolbox.backend.basis_variations_format.bv_conversions.bv_to_t3(1, True, base, variations).data # replace index-1 TT-backend
-        >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,U1,U2), (L0,H1,R2)))
-        True
-    import t3toolbox.backend.basis_variations_format.bv_conversions    >>> ((B0, B1, B2), (G0, G1, G2)) = t3toolbox.backend.basis_variations_format.bv_conversions.bv_to_t3(1, False, base, variations).data # replace index-1 tucker backend
-        >>> print(((B0,B1,B2), (G0,G1,G2)) == ((U0,V1,U2), (L0,O1,R2)))
-        True
-        '''
-        check_basis_variations_pair(basis, variations)
-        return t3.TuckerTensorTrain(*t3toolbox.backend.basis_variations_format.bv_conversions.bv_to_t3(ii, use_tt_variation, basis.data, variations.data))
-
-
+# (`ubv_to_ut3` -- the uniform analog of `bv_to_t3`, substituting one variation core into the frame -- was
+# dropped: the left/right subchains become differently-shaped supercores glued by the variation, with no
+# clean single uniform supercore op. Low importance. See dev/uniform_fix_plan.md "Refinements (round 2)".)
 
 
 

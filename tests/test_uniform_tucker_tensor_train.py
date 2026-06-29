@@ -35,14 +35,14 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         for shape, tr, ttr, ss in self._cases():
             with self.subTest(shape=shape, stack=ss):
                 x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
-                ux = ut3.t3_to_ut3(x)
+                ux = ut3.UniformTuckerTensorTrain.from_t3(x)
                 self.assertLessEqual(relerr(ux.to_dense(), x.to_dense()), TOL)
 
     def test_roundtrip_t3_ut3_t3(self):
         for shape, tr, ttr, ss in self._cases():
             with self.subTest(shape=shape, stack=ss):
                 x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
-                back = ut3.ut3_to_t3(ut3.t3_to_ut3(x))
+                back = ut3.UniformTuckerTensorTrain.from_t3(x).to_t3()
                 if ss == ():
                     self.assertLessEqual(relerr(back.to_dense(), x.to_dense()), TOL)
                 else:
@@ -54,7 +54,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         for shape, tr, ttr, ss in self._cases():
             with self.subTest(shape=shape, stack=ss):
                 x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
-                ux = ut3.t3_to_ut3(x)
+                ux = ut3.UniformTuckerTensorTrain.from_t3(x)
                 self.assertEqual(ux.shape, shape)
                 self.assertEqual(ux.stack_shape, ss)
                 self.assertEqual(ux.d, len(shape))
@@ -70,13 +70,13 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         for shape, tr, ttr, ss in self._cases():
             with self.subTest(shape=shape, stack=ss):
                 x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
-                ux = ut3.t3_to_ut3(x)
+                ux = ut3.UniformTuckerTensorTrain.from_t3(x)
                 self.assertLessEqual(relerr(ux.apply_masks().to_dense(), x.to_dense()), TOL)
 
     def test_padding_is_dont_care(self):
         # garbage injected only into the padded ("garbage") region must not affect the dense tensor
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1), stack_shape=(2,))
-        ux = ut3.t3_to_ut3(x)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
         tkm, ttm = ux.masks.data
         sm = np.arange(ux.N) < np.asarray(ux.shape)[:, None]   # (d, N) shape mask, reconstructed from ints
         tucker_real = np.einsum('d...n,dN->d...nN', tkm.astype(float), sm.astype(float))  # 1 on real, 0 on pad
@@ -89,7 +89,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         for shape, tr, ttr, ss in self._cases():
             with self.subTest(shape=shape, stack=ss):
                 x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
-                ux = ut3.t3_to_ut3(x)
+                ux = ut3.UniformTuckerTensorTrain.from_t3(x)
                 d = len(shape)
                 mode_axes = tuple(range(len(ss), len(ss) + d))
                 perm = tuple(range(len(ss))) + tuple(reversed(mode_axes))
@@ -98,7 +98,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
     def test_squash_tails_preserves_tensor(self):
         # use squash_tails=False on conversion so the boundary bonds are nontrivial, then squash
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (2, 3, 2, 2), stack_shape=(2,))
-        ux = ut3.t3_to_ut3(x, squash_tails=False)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x, squash_tails=False)
         squashed = ux.squash_tails()
         self.assertLessEqual(relerr(squashed.to_dense(), x.to_dense()), TOL)
         # boundary TT ranks are now 1
@@ -112,13 +112,13 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
                 continue
             with self.subTest(shape=shape, stack=ss):
                 x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
-                ux = ut3.t3_to_ut3(x)
+                ux = ut3.UniformTuckerTensorTrain.from_t3(x)
                 ux2 = ut3.UniformTuckerTensorTrain.stack(ux.unstack())
                 self.assertLessEqual(relerr(ux2.to_dense(), x.to_dense()), TOL)
 
     def test_unstack_leaves_match_elements(self):
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1), stack_shape=(2, 3))
-        ux = ut3.t3_to_ut3(x)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
         tree = ux.unstack()
         xd = x.to_dense()
         for i in range(2):
@@ -130,8 +130,8 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         xa = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
         xb = t3.TuckerTensorTrain.randn((6, 7, 8), (4, 5, 3), (1, 4, 3, 1))
         N, n, r = 8, 5, 4
-        ua = ut3.t3_to_ut3(xa, N=N, n=n, r=r)
-        ub = ut3.t3_to_ut3(xb, N=N, n=n, r=r)
+        ua = ut3.UniformTuckerTensorTrain.from_t3(xa, N=N, n=n, r=r)
+        ub = ut3.UniformTuckerTensorTrain.from_t3(xb, N=N, n=n, r=r)
         ustacked = ut3.UniformTuckerTensorTrain.stack([ua, ub])
         self.assertEqual(ustacked.stack_shape, (2,))
         dense = ustacked.to_dense()
@@ -146,7 +146,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         for shape, tr, ttr, ss in self._cases():
             with self.subTest(shape=shape, stack=ss):
                 x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
-                ux = ut3.t3_to_ut3(x); xd = x.to_dense()
+                ux = ut3.UniformTuckerTensorTrain.from_t3(x); xd = x.to_dense()
                 self.assertLessEqual(relerr((ux * 2.5).to_dense(), 2.5 * xd), TOL)
                 self.assertLessEqual(relerr((-ux).to_dense(), -xd), TOL)
 
@@ -157,7 +157,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
                 ttr2 = (1,) + tuple(v + 1 for v in ttr[1:-1]) + (1,)
                 x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
                 y = t3.TuckerTensorTrain.randn(shape, tr2, ttr2, stack_shape=ss)
-                ux, uy = ut3.t3_to_ut3(x), ut3.t3_to_ut3(y)
+                ux, uy = ut3.UniformTuckerTensorTrain.from_t3(x), ut3.UniformTuckerTensorTrain.from_t3(y)
                 xd, yd = x.to_dense(), y.to_dense()
                 self.assertLessEqual(relerr((ux + uy).to_dense(), xd + yd), TOL)
                 self.assertLessEqual(relerr((ux - uy).to_dense(), xd - yd), TOL)
@@ -166,7 +166,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         for shape, tr, ttr, ss in self._cases():
             x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
             y = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
-            ux, uy = ut3.t3_to_ut3(x), ut3.t3_to_ut3(y)
+            ux, uy = ut3.UniformTuckerTensorTrain.from_t3(x), ut3.UniformTuckerTensorTrain.from_t3(y)
             xd, yd = x.to_dense(), y.to_dense()
             ax = tuple(range(len(ss), xd.ndim))
             expected = np.sum(xd * yd, axis=ax) if ss else np.sum(xd * yd)
@@ -177,7 +177,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
     def test_norm(self):
         for shape, tr, ttr, ss in self._cases():
             x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
-            ux = ut3.t3_to_ut3(x); xd = x.to_dense()
+            ux = ut3.UniformTuckerTensorTrain.from_t3(x); xd = x.to_dense()
             ax = tuple(range(len(ss), xd.ndim))
             expected = np.sqrt(np.sum(xd ** 2, axis=ax)) if ss else norm(xd)
             for uo in (True, False):
@@ -189,7 +189,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
             for ss in [(2,), (2, 3)]:
                 with self.subTest(shape=shape, stack=ss):
                     x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
-                    ux = ut3.t3_to_ut3(x)
+                    ux = ut3.UniformTuckerTensorTrain.from_t3(x)
                     expected = x.to_dense().sum(axis=tuple(range(len(ss))))
                     self.assertLessEqual(relerr(ux.sum_stack().to_dense(), expected), TOL)
 
@@ -198,7 +198,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         for shape, tr, ttr, ss in self._cases():
             with self.subTest(shape=shape, stack=ss):
                 x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
-                ux = ut3.t3_to_ut3(x)
+                ux = ut3.UniformTuckerTensorTrain.from_t3(x)
                 idx = [min(2, N - 1) for N in shape]
                 self.assertLessEqual(relerr(ux.entries(idx), x.entries(idx)), TOL)
                 idxm = [np.array([0, N // 2, N - 1]) for N in shape]
@@ -209,7 +209,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         for shape, tr, ttr, ss in self._cases():
             with self.subTest(shape=shape, stack=ss):
                 x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
-                ux = ut3.t3_to_ut3(x)
+                ux = ut3.UniformTuckerTensorTrain.from_t3(x)
                 d = len(shape)
                 for W in ((), (4,)):
                     vecs = [np.random.randn(*(W + (N,))) for N in shape]
@@ -222,13 +222,13 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         for shape, tr, ttr, ss in self._cases():
             with self.subTest(shape=shape, stack=ss):
                 x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
-                ux = ut3.t3_to_ut3(x); xd = x.to_dense()
+                ux = ut3.UniformTuckerTensorTrain.from_t3(x); xd = x.to_dense()
                 ax = tuple(range(len(ss), xd.ndim))
                 expected = xd.sum(axis=ax) if ss else xd.sum()
                 self.assertLessEqual(relerr(ux.sum(), expected), TOL)
 
     def test_sum_partial_raises(self):
-        ux = ut3.t3_to_ut3(t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1)))
+        ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1)))
         with self.assertRaises(NotImplementedError):
             ux.sum(axis=0)
 
@@ -245,7 +245,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
     def test_orthogonalize_matches_ragged(self):
         for shape, tr, ttr, ss in self._cases():
             x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
-            ux = ut3.t3_to_ut3(x)
+            ux = ut3.UniformTuckerTensorTrain.from_t3(x)
             for m in self.ORTH_METHODS:
                 with self.subTest(shape=shape, stack=ss, method=m):
                     xr = getattr(x, m)()
@@ -263,7 +263,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         ]
         for shape, tr, ttr in cases:
             x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
-            ux = ut3.t3_to_ut3(x)
+            ux = ut3.UniformTuckerTensorTrain.from_t3(x)
             for m in self.ORTH_METHODS:
                 with self.subTest(shape=shape, method=m):
                     xr = getattr(x, m)()
@@ -277,7 +277,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         for shape, tr, ttr, ss in self._cases():
             with self.subTest(shape=shape, stack=ss):
                 x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
-                ux = ut3.t3_to_ut3(x)
+                ux = ut3.UniformTuckerTensorTrain.from_t3(x)
                 ux2, _, _ = ux.t3svd()
                 x2, _, _ = x.t3svd()
                 self.assertLessEqual(relerr(ux2.to_dense(), x2.to_dense()), TOL)
@@ -297,7 +297,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         cap_patterns = [(2, 2), (None, 2), (3, 2), (2, None), (None, 3)]
         for shape, tr, ttr, ss in self._cases():
             x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
-            ux = ut3.t3_to_ut3(x)
+            ux = ut3.UniformTuckerTensorTrain.from_t3(x)
             for mtk, mtt in cap_patterns:
                 with self.subTest(shape=shape, stack=ss, max_tucker=mtk, max_tt=mtt):
                     ux2, _, _ = ux.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt)
@@ -312,7 +312,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         cap_patterns = [(None, 2), (3, 2), (2, 2), (2, None)]
         for shape, tr, ttr, ss in self._cases():
             x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
-            ux = ut3.t3_to_ut3(x)
+            ux = ut3.UniformTuckerTensorTrain.from_t3(x)
             for mtk, mtt in cap_patterns:
                 with self.subTest(shape=shape, stack=ss, max_tucker=mtk, max_tt=mtt):
                     ux2, _, _ = ux.t3svd(max_tucker_ranks=mtk, max_tt_ranks=mtt)  # left-orth, maybe non-min
@@ -329,12 +329,12 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
                     self.assertTrue(both.is_left_orthogonal())
                     self.assertLessEqual(relerr(both.to_dense(), ux2.to_dense()), TOL)
         with self.assertRaises(ValueError):
-            ut3.t3_to_ut3(x).rank_adjustment_sweep('sideways')
+            ut3.UniformTuckerTensorTrain.from_t3(x).rank_adjustment_sweep('sideways')
 
     def test_is_left_right_orthogonal(self):
         for shape, tr, ttr, ss in self._cases():
             with self.subTest(shape=shape, stack=ss):
-                ux = ut3.t3_to_ut3(t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss))
+                ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss))
                 self.assertFalse(ux.is_left_orthogonal())          # a random T3 is in neither form
                 self.assertFalse(ux.is_right_orthogonal())
                 uxL = ux.down_orthogonalize_tucker_cores().left_orthogonalize_tt_cores()
@@ -348,7 +348,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
     def test_t3svd_assume_orthogonal(self):
         # assume_orthogonal=True (input already right-orthogonal) skips the orthogonalization; same result.
         for shape, tr, ttr, ss in self._cases():
-            ux = ut3.t3_to_ut3(t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss))
+            ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss))
             uR = ux.down_orthogonalize_tucker_cores().right_orthogonalize_tt_cores()  # right-orthogonal
             self.assertTrue(uR.is_right_orthogonal())
             for mtk, mtt in [(None, 2), (3, 2), (2, 2)]:
@@ -362,7 +362,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         for shape, tr, ttr in [((5, 6), (8, 4), (1, 3, 1)), ((6, 7, 8), (5, 5, 5), (1, 40, 40, 1))]:
             with self.subTest(shape=shape):
                 x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
-                ux = ut3.t3_to_ut3(x)
+                ux = ut3.UniformTuckerTensorTrain.from_t3(x)
                 ux2, _, _ = ux.t3svd()
                 x2, _, _ = x.t3svd()
                 self.assertLessEqual(relerr(ux2.to_dense(), x2.to_dense()), TOL)
@@ -371,7 +371,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
     def test_t3svd_per_stack_max_ranks(self):
         # the variety: different rank caps per stack element, in one call
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (4, 5, 4), (1, 4, 4, 1), stack_shape=(2,))
-        ux = ut3.t3_to_ut3(x)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
         max_tk = np.array([[2, 4], [2, 4], [2, 4]])  # (d=3, stack=2): elem0 cap 2, elem1 cap 4
         ux2, _, _ = ux.t3svd(max_tucker_ranks=max_tk)
         xx = x.unstack()
@@ -383,7 +383,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
 
     def test_t3svd_has_no_rtol_atol(self):
         # uniform t3svd truncates by max rank only -- rtol/atol are not parameters (data-dependent shapes)
-        ux = ut3.t3_to_ut3(t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1)))
+        ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1)))
         with self.assertRaises(TypeError):
             ux.t3svd(rtol=1e-3)
         with self.assertRaises(TypeError):
@@ -392,13 +392,13 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
     # ---- validate (structural hard errors) ----
     def test_validate_raises_on_bad_shape(self):
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1))
-        ux = ut3.t3_to_ut3(x)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
         with self.assertRaises(ValueError):
             ut3.UniformTuckerTensorTrain(ux.tucker_supercore, ux.tt_supercore[..., :-1], ux.shape, ux.masks)
 
     def test_validate_raises_on_nonbool_mask(self):
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1))
-        ux = ut3.t3_to_ut3(x)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
         bad = ut3.UT3Masks(ux.masks.tucker_edge_mask.astype(float), ux.masks.tt_edge_mask)
         with self.assertRaises(ValueError):
             ut3.UniformTuckerTensorTrain(ux.tucker_supercore, ux.tt_supercore, ux.shape, bad)
@@ -406,7 +406,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
     def test_validate_raises_on_bad_shape_tuple(self):
         # shape must be a length-d tuple of mode dims within the padded N (the int-tuple invariant)
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1))
-        ux = ut3.t3_to_ut3(x)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
         with self.assertRaises(ValueError):
             ut3.UniformTuckerTensorTrain(ux.tucker_supercore, ux.tt_supercore, ux.shape[:-1], ux.masks)  # wrong length
         with self.assertRaises(ValueError):
@@ -417,12 +417,12 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         # UT3Masks hashes/compares by mask CONTENT, so a rebuilt-but-identical holder is the same jit
         # cache key (no per-iteration recompile). A different rank structure is not equal.
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1))
-        a = ut3.t3_to_ut3(x).masks
-        b = ut3.t3_to_ut3(x).masks                       # rebuilt -> distinct object, identical structure
+        a = ut3.UniformTuckerTensorTrain.from_t3(x).masks
+        b = ut3.UniformTuckerTensorTrain.from_t3(x).masks                       # rebuilt -> distinct object, identical structure
         self.assertIsNot(a, b)
         self.assertEqual(a, b)
         self.assertEqual(hash(a), hash(b))
-        c = ut3.t3_to_ut3(t3.TuckerTensorTrain.randn((5, 6, 7), (2, 2, 2), (1, 2, 2, 1))).masks
+        c = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((5, 6, 7), (2, 2, 2), (1, 2, 2, 1))).masks
         self.assertNotEqual(a, c)                         # different ranks -> not equal
 
     # ---- constructors (zeros / ones / randn) ----
@@ -459,7 +459,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
                 self.assertEqual(self._first_elem_ranks(ux, ss), (tuple(tr), tuple(ttr)))
                 self.assertTrue(np.any(np.asarray(ux.tucker_supercore) != 0.0))
                 # the padded ("garbage") regions are masked to zero -> ragged round-trip is faithful
-                back = ut3.ut3_to_t3(ux)
+                back = ux.to_t3()
                 rebuilt = back if ss == () else t3.TuckerTensorTrain.stack(back)
                 self.assertEqual(rebuilt.shape, shape)
                 self.assertEqual(rebuilt.tucker_ranks, tuple(tr))
@@ -505,14 +505,14 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
             ut3.UniformTuckerTensorTrain.randn((5, 6, 7), (3, 4), (1, 3, 2, 1))   # wrong-length tucker
 
     # (No from_canonical / from_tensor_train / to_tensor_train: those round-trip ragged CP/TT data
-    # through TuckerTensorTrain -- ambiguous -- so they were removed. Convert explicitly via t3_to_ut3
-    # / ut3_to_t3 instead, exercised by the round-trip tests elsewhere in this file.)
+    # through TuckerTensorTrain -- ambiguous -- so they were removed. Convert explicitly via
+    # UniformTuckerTensorTrain.from_t3 / .to_t3 instead, exercised by the round-trip tests elsewhere.)
 
     # ---- save / load ----
     def test_save_load_roundtrip(self):
         import tempfile, os
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1), stack_shape=(2,))
-        ux = ut3.t3_to_ut3(x)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
         fname = os.path.join(tempfile.mkdtemp(), 'ut3_test.npz')
         ux.save(fname)
         ux2 = ut3.UniformTuckerTensorTrain.load(fname)
@@ -554,7 +554,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
     # ---- dtype / copy ----
     def test_to_numpy_and_copy(self):
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1), stack_shape=(2,))
-        ux = ut3.t3_to_ut3(x)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
         self.assertLessEqual(relerr(ux.copy().to_dense(), x.to_dense()), TOL)
         self.assertLessEqual(relerr(ux.to_numpy().to_dense(), x.to_dense()), TOL)
 
@@ -566,7 +566,7 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         import t3toolbox.backend.ut3_linalg as bl
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1), stack_shape=(2,))
         y = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1), stack_shape=(2,))
-        ux, uy = ut3.t3_to_ut3(x), ut3.t3_to_ut3(y)
+        ux, uy = ut3.UniformTuckerTensorTrain.from_t3(x), ut3.UniformTuckerTensorTrain.from_t3(y)
 
         # to_dense, orthogonalize, add+squash, inner -- all via backend functions on .data
         self.assertLessEqual(relerr(conv.ut3_to_dense(ux.data), ux.to_dense()), TOL)

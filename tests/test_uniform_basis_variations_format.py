@@ -273,9 +273,9 @@ class TestUt3OrthogonalRepresentations(unittest.TestCase):
         import t3toolbox.uniform_tucker_tensor_train as ut3
         import t3toolbox.basis_variations_format as bvf
         x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
-        base, variations = ubv.ut3_orthogonal_representations(ut3.t3_to_ut3(x))
+        base, variations = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
         base.validate(); variations.validate(); ubv.check_ubv_pair(base, variations)
-        rb = ubv.ut3basis_to_t3basis(base)                                  # uniform frame -> ragged T3Basis
+        rb = base.to_t3basis()                                  # uniform frame -> ragged T3Basis
         self.assertLess(float(np.linalg.norm(rb.to_dense() - x.to_dense())), 1e-10)
         rbase, _ = bvf.t3_orthogonal_representations(x)                     # uniform == ragged on real parts
         self.assertLess(float(np.linalg.norm(rb.to_dense() - rbase.to_dense())), 1e-10)
@@ -284,8 +284,8 @@ class TestUt3OrthogonalRepresentations(unittest.TestCase):
         import t3toolbox.tucker_tensor_train as t3
         import t3toolbox.uniform_tucker_tensor_train as ut3
         x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))
-        base, _ = ubv.ut3_orthogonal_representations(ut3.t3_to_ut3(x))
-        tree = ubv.ut3basis_to_t3basis(base)                               # nested tree of T3Basis
+        base, _ = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
+        tree = base.to_t3basis()                               # nested tree of T3Basis
         xd = x.to_dense()
         for i in range(2):
             self.assertLess(float(np.linalg.norm(tree[i].to_dense() - xd[i])), 1e-10)
@@ -298,13 +298,70 @@ class TestUt3OrthogonalRepresentations(unittest.TestCase):
         import t3toolbox.backend.ubv_conversions as ubvc
         import t3toolbox.basis_variations_format as bvf
         x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
-        frame_data, variation_data = ubvc.ut3_orthogonal_representations(ut3.t3_to_ut3(x).data)
+        frame_data, variation_data = ubvc.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x).data)
         self.assertEqual(len(frame_data), 6)          # (up, down, left, right, shape, masks)
         self.assertEqual(len(variation_data), 4)      # (tucker_var, tt_var, shape, masks)
         self.assertEqual(frame_data[4], (4, 5, 6))    # shape carried through
         self.assertEqual(len(frame_data[5]), 4)       # four frame rank masks
         ragged_cores = ubvc.ut3basis_to_t3basis(frame_data)   # backend uniform->ragged, all on raw .data
         self.assertLess(float(np.linalg.norm(bvf.T3Basis(*ragged_cores).to_dense() - x.to_dense())), 1e-10)
+
+
+class TestCrossLayerConverters(unittest.TestCase):
+    """2c-A: the ragged<->uniform converters as methods (from_t3basis/to_t3basis,
+    from_t3variations/to_t3variations), verified by round-trip + dense/corewise equivalence."""
+    def setUp(self):
+        np.random.seed(0)
+
+    def _ragged_pair(self, ss=()):
+        import t3toolbox.tucker_tensor_train as t3
+        import t3toolbox.basis_variations_format as bvf
+        x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1), stack_shape=ss)
+        base, variations = bvf.t3_orthogonal_representations(x)
+        return x, base, variations
+
+    def test_from_t3basis_roundtrip_unstacked(self):
+        _, base, _ = self._ragged_pair()
+        UB = ubv.UT3Basis.from_t3basis(base)              # ragged frame -> uniform
+        UB.validate()
+        B2 = UB.to_t3basis()                              # unstacked -> back to ragged T3Basis
+        self.assertLess(float(np.linalg.norm(B2.to_dense() - base.to_dense())), 1e-10)
+
+    def test_from_t3basis_roundtrip_stacked(self):
+        _, base, _ = self._ragged_pair(ss=(2,))
+        UB = ubv.UT3Basis.from_t3basis(base)
+        UB.validate()
+        tree = UB.to_t3basis()                            # nested tree of T3Basis
+        bd = base.to_dense()
+        for i in range(2):
+            self.assertLess(float(np.linalg.norm(tree[i].to_dense() - bd[i])), 1e-10)
+
+    def test_from_t3basis_extra_padding_still_roundtrips(self):
+        # padding-invariance: forcing larger pad than the natural max must not change the represented point.
+        _, base, _ = self._ragged_pair()
+        UB = ubv.UT3Basis.from_t3basis(base, N=10, nU=8, nD=8, rL=6, rR=6)
+        UB.validate()
+        self.assertEqual((UB.N, UB.nU, UB.nD, UB.rL, UB.rR), (10, 8, 8, 6, 6))
+        self.assertLess(float(np.linalg.norm(UB.to_t3basis().to_dense() - base.to_dense())), 1e-10)
+
+    def test_from_t3variations_roundtrip_unstacked(self):
+        import t3toolbox.corewise as cw
+        _, _, variations = self._ragged_pair()
+        UV = ubv.UT3Variations.from_t3variations(variations)   # ragged variations -> uniform
+        UV.validate()
+        V2 = UV.to_t3variations()                              # unstacked -> back to ragged T3Variations
+        self.assertTrue(np.allclose(cw.corewise_norm(cw.corewise_sub(V2.data, variations.data)), 0.0))
+
+    def test_from_t3variations_roundtrip_stacked(self):
+        import t3toolbox.corewise as cw
+        _, _, variations = self._ragged_pair(ss=(2,))
+        UV = ubv.UT3Variations.from_t3variations(variations)
+        UV.validate()
+        tree = UV.to_t3variations()                           # nested tree of T3Variations
+        unstacked = variations.unstack()
+        for i in range(2):
+            self.assertTrue(np.allclose(
+                cw.corewise_norm(cw.corewise_sub(tree[i].data, unstacked[i].data)), 0.0))
 
 
 if __name__ == '__main__':

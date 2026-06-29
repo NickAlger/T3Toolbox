@@ -18,7 +18,7 @@ import typing as typ
 import numpy as np
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Sequence, Tuple
+from typing import Optional, Sequence, Tuple
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.backend.ranks as ranks
@@ -40,8 +40,6 @@ if common.has_jax:
 __all__ = [
     'UT3Masks',
     'UniformTuckerTensorTrain',
-    't3_to_ut3',
-    'ut3_to_t3',
 ]
 
 @dataclass(frozen=True, eq=False)  # eq=False -> the mixin's VALUE-based __hash__/__eq__ stand (a bare
@@ -202,6 +200,32 @@ class UniformTuckerTensorTrain:
     def to_dense(self) -> NDArray:
         """Form the dense tensor, ``shape = stack_shape + (N0,...,N(d-1))``. (Inspection/tests only.)"""
         return ut3_conversions.ut3_to_dense(self.data)
+
+    # ----------------------------------------------------------------- ragged <-> uniform conversions
+    @staticmethod
+    def from_t3(
+            x:  t3.TuckerTensorTrain,
+            N:  Optional[int] = None,   # padded mode dim   (default max(Ni)); pass to force a larger pad
+            n:  Optional[int] = None,   # padded Tucker rank (default max(tucker_ranks))
+            r:  Optional[int] = None,   # padded TT rank    (default max(tt_ranks))
+            squash_tails: bool = True,
+    ) -> 'UniformTuckerTensorTrain':
+        """Pack a ragged :py:class:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain` into a uniform one."""
+        return _from_data(ut3_conversions.t3_to_ut3(x.data, N=N, n=n, r=r, squash_tails=squash_tails))
+
+    def to_t3(self):  # -> TuckerTensorTrain (unstacked) or a nested tree (shaped like stack_shape) of them
+        """Convert back to ragged form.
+
+        Unstacked: one :py:class:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain`. Stacked: a nested tree
+        of them (a varying-rank stack has no single stacked ``TuckerTensorTrain``;
+        ``docs/uniform_ranks_and_varieties.md``).
+        """
+        def _wrap(res):
+            if common.is_ndarray(res[0][0]):   # res = (tucker_cores, tt_cores) leaf
+                return t3.TuckerTensorTrain(*res)
+            return tuple(_wrap(r) for r in res)
+
+        return _wrap(ut3_conversions.ut3_to_t3(self.data))
 
     def reverse(self) -> 'UniformTuckerTensorTrain':
         """Reverse the mode order."""
@@ -364,7 +388,7 @@ class UniformTuckerTensorTrain:
         >>> import t3toolbox.uniform_tucker_tensor_train as ut3
         >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((10, 10, 10), (9, 9, 9), (1, 9, 9, 1))
-        >>> x2, _, _ = ut3.t3_to_ut3(x).t3svd(max_tucker_ranks=[9, 1, 9], max_tt_ranks=[1, 9, 2, 1])
+        >>> x2, _, _ = ut3.UniformTuckerTensorTrain.from_t3(x).t3svd(max_tucker_ranks=[9, 1, 9], max_tt_ranks=[1, 9, 2, 1])
         >>> print(x2.is_left_orthogonal(), x2.has_minimal_ranks)   # t3svd output: left-orth, non-minimal
         True False
         >>> good = x2.rank_adjustment_sweep('right_to_left')       # CORRECT (x2 is left-orthogonal)
@@ -506,7 +530,7 @@ class UniformTuckerTensorTrain:
     # Note: there are deliberately NO ``from_canonical`` / ``from_tensor_train`` / ``to_tensor_train``
     # methods. They would take *ragged* CP/TT data and round-trip through ``TuckerTensorTrain``, which is
     # ambiguous (ragged vs uniform input). Be explicit instead: build a ``TuckerTensorTrain`` (which has
-    # those methods) and convert with :py:func:`t3_to_ut3` / :py:func:`ut3_to_t3`.
+    # those methods) and convert with :py:meth:`from_t3` / :py:meth:`to_t3`.
 
     # ----------------------------------------------------------------- save / load
     def save(
@@ -558,37 +582,7 @@ def _from_data(
     return UniformTuckerTensorTrain(tk, tt, shape, UT3Masks(*masks))
 
 
-# ===================================================================== conversions
-
-def t3_to_ut3(
-        x: t3.TuckerTensorTrain,
-        N: int = None,              # padded mode dim   (default max(Ni)); pass to force a larger pad
-        n: int = None,              # padded Tucker rank (default max(tucker_ranks))
-        r: int = None,              # padded TT rank    (default max(tt_ranks))
-        squash_tails: bool = True,
-) -> UniformTuckerTensorTrain:
-    """Convert a :py:class:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain` to a uniform one."""
-    tk, tt, shape, masks = ut3_conversions.t3_to_ut3(x.data, N=N, n=n, r=r, squash_tails=squash_tails)
-    return UniformTuckerTensorTrain(tk, tt, shape, UT3Masks(*masks))
-
-
-def ut3_to_t3(
-        ux: UniformTuckerTensorTrain,
-):  # -> TuckerTensorTrain (unstacked) or a nested tree (shaped like stack_shape) of them
-    """Convert a uniform Tucker tensor train back to ragged form.
-
-    Unstacked: one :py:class:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain`. Stacked: a nested tree
-    of them (a varying-rank stack has no single stacked ``TuckerTensorTrain``;
-    ``docs/uniform_ranks_and_varieties.md``).
-    """
-    result = ut3_conversions.ut3_to_t3(ux.data)
-
-    def _wrap(res):
-        if common.is_ndarray(res[0][0]):   # res = (tucker_cores, tt_cores) leaf
-            return t3.TuckerTensorTrain(*res)
-        return tuple(_wrap(r) for r in res)
-
-    return _wrap(result)
+# (ragged <-> uniform conversions are methods on UniformTuckerTensorTrain: `.from_t3` / `.to_t3`.)
 
 
 if common.has_jax:

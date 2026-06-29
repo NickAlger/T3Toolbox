@@ -58,8 +58,8 @@ class TestDispatch(unittest.TestCase):
         cls.zz_vstack = tuple(jnp.array(np.random.randn(2, 3, N)) for N in STRUCT[0])  # W + K + C, K=(3,)
         cls.x_other = t3.TuckerTensorTrain.randn((4, 5, 6), (3, 3, 3), (1, 2, 2, 1)).to_jax()
         # uniform fixtures: a jax UT3 (supercores jax, masks numpy/host -- slice 7) + a second one to add/inner
-        cls.ux = ut3.t3_to_ut3(cls.x_np).to_jax()
-        cls.uy = ut3.t3_to_ut3(t3.TuckerTensorTrain.randn(*STRUCT)).to_jax()
+        cls.ux = ut3.UniformTuckerTensorTrain.from_t3(cls.x_np).to_jax()
+        cls.uy = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*STRUCT)).to_jax()
         cls.uvecs = tuple(jnp.array(np.random.randn(N)) for N in STRUCT[0])
         cls.uww = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])
         cls.uidx = jnp.array([1, 2, 3])
@@ -382,10 +382,23 @@ class TestDispatch(unittest.TestCase):
             lambda u: u.t3svd(max_tucker_ranks=2, max_tt_ranks=2)[0], ux, returns_ut3=True)
 
         # array-in constructor under jit: a jax TuckerTensorTrain in -> jax supercores out, masks stay
-        # concrete. (t3_to_ut3 is the array-taking uniform constructor; from_canonical / from_tensor_train
+        # concrete. (from_t3 is the array-taking uniform constructor; from_canonical / from_tensor_train
         # were removed as ambiguous ragged round-trips. Pure zeros/ones/randn have no array input ->
         # jax-out only, covered by test_jax_out_uniform_ctors.)
-        self.assert_jit_uniform(lambda x: ut3.t3_to_ut3(x), self.x_np.to_jax(), returns_ut3=True)
+        self.assert_jit_uniform(lambda x: ut3.UniformTuckerTensorTrain.from_t3(x), self.x_np.to_jax(), returns_ut3=True)
+
+    # ---------------------------------------------------- jit bucket: ragged <-> uniform bv converters (2c-A)
+    def test_jit_cross_layer_bv_converters(self):
+        # from_t3basis / from_t3variations: jax ragged cores in -> jax supercores out, masks stay host
+        # (same pad+stack-via-xnp / np-host-mask machinery as from_t3). to_t3basis / to_t3variations:
+        # argwhere on host masks indexes jax supercores -> jax ragged out.
+        import t3toolbox.uniform_basis_variations_format as ubv
+        self.assert_jit_uniform(lambda b: ubv.UT3Basis.from_t3basis(b), self.base, returns_ut3=True)
+        self.assert_jit_uniform(lambda v: ubv.UT3Variations.from_t3variations(v), self.var, returns_ut3=True)
+        UB = ubv.UT3Basis.from_t3basis(self.base)
+        UV = ubv.UT3Variations.from_t3variations(self.var)
+        self.assert_jit_jax(lambda b: b.to_t3basis(), UB)
+        self.assert_jit_jax(lambda v: v.to_t3variations(), UV)
 
     # ------------------------------------------- performance contract: value-hashed masks => no recompile
     def test_mask_rebuild_does_not_recompile(self):
@@ -402,7 +415,7 @@ class TestDispatch(unittest.TestCase):
             n_plain[0] += 1
             return u.norm()
         for _ in range(4):
-            fn_plain(ut3.t3_to_ut3(self.x_np).to_jax())   # fresh UT3Masks each call, identical structure
+            fn_plain(ut3.UniformTuckerTensorTrain.from_t3(self.x_np).to_jax())   # fresh UT3Masks each call, identical structure
         self.assertEqual(n_plain[0], 1, 'plain UT3 recompiled on mask rebuild (mask hash/eq not value-based)')
 
         # same for the orthogonal frame's UT3BasisMasks (the optimization-loop case)

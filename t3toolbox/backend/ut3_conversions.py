@@ -93,7 +93,7 @@ def ut3_to_dense(
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> import t3toolbox.backend.ut3_conversions as ut3_conversions
     >>> np.random.seed(0)
-    >>> ux = ut3.t3_to_ut3(t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))).to_jax()
+    >>> ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))).to_jax()
     >>> tk, tt, shape, masks = ux.data                          # shape ints + HOST bool masks, static
     >>> dense = jax.jit(lambda a, b: ut3_conversions.ut3_to_dense((a, b, shape, masks)))(tk, tt)  # RIGHT
     >>> bool(np.allclose(dense, ux.to_dense()))

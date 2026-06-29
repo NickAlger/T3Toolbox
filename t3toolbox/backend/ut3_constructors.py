@@ -11,8 +11,8 @@ determinantal variety, ``docs/uniform_ranks_and_varieties.md``). ``ut3_save`` / 
 
 There are deliberately **no** ``ut3_from_canonical`` / ``ut3_from_tensor_train`` / ``ut3_to_tensor_train``
 round-trips: they would take *ragged* CP/TT data and round-trip through ``TuckerTensorTrain``, which is
-ambiguous (ragged vs uniform input) and trivially composable from the existing ragged ops + ``t3_to_ut3``
-/ ``ut3_to_t3``. Be explicit at the boundary instead.
+ambiguous (ragged vs uniform input) and trivially composable from the existing ragged ops +
+``UniformTuckerTensorTrain.from_t3`` / ``.to_t3``. Be explicit at the boundary instead.
 
 Following the layer-wide rule (``docs/uniform_pytree_composition.md``): **supercores (data) ->
 ``xnp``/``use_jax``; masks (structure) -> ``np`` (host)**. The pure constructors keep a ``use_jax``
