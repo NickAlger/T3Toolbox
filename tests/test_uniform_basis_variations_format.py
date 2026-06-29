@@ -404,7 +404,10 @@ class TestBasePointAndDtype(unittest.TestCase):
     def test_basis_dtype_copy_repr(self):
         import t3toolbox.backend.common as common
         _, _, base, _ = self._frame()
-        self.assertTrue(np.allclose(base.copy().to_dense(), base.to_dense()))
+        cp = base.copy()
+        self.assertTrue(np.allclose(cp.to_dense(), base.to_dense()))
+        # deep copy: supercores are independent arrays (mirrors ragged T3Basis.copy)
+        self.assertTrue(all(not np.shares_memory(a, b) for a, b in zip(cp.supercores, base.supercores)))
         self.assertFalse(base.contains_jax)
         self.assertIn('UT3Basis(shape=(4, 5, 6)', repr(base))
         if HAS_JAX:
@@ -417,8 +420,11 @@ class TestBasePointAndDtype(unittest.TestCase):
     def test_variations_dtype_copy_repr(self):
         import t3toolbox.backend.common as common
         _, _, _, variations = self._frame()
-        self.assertTrue(np.allclose(variations.copy().apply_masks().tucker_variations,
+        cp = variations.copy()
+        self.assertTrue(np.allclose(cp.apply_masks().tucker_variations,
                                     variations.apply_masks().tucker_variations))
+        # deep copy: supercores are independent arrays (mirrors ragged T3Variations.copy)
+        self.assertTrue(all(not np.shares_memory(a, b) for a, b in zip(cp.supercores, variations.supercores)))
         self.assertFalse(variations.contains_jax)
         self.assertIn('UT3Variations(shape=(4, 5, 6)', repr(variations))
         if HAS_JAX:

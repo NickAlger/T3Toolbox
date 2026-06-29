@@ -433,7 +433,10 @@ class UniformTuckerTensorTrain:
             common.to_numpy(self.tucker_supercore), common.to_numpy(self.tt_supercore), self.shape, self.masks)
 
     def copy(self) -> 'UniformTuckerTensorTrain':
-        return UniformTuckerTensorTrain(self.tucker_supercore, self.tt_supercore, self.shape, self.masks)
+        # Deep-copy the supercores (the data leaves), like ragged T3*.copy; the static aux (shape + masks)
+        # is shared (immutable structure, the same way `shape` is not duplicated).
+        return UniformTuckerTensorTrain(
+            self.tucker_supercore.copy(), self.tt_supercore.copy(), self.shape, self.masks)
 
     # ----------------------------------------------------------------- constructors
     # Pure constructors keep a `use_jax` flag for the SUPERCORES (no array input to infer from); the

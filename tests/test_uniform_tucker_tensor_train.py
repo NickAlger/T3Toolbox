@@ -555,7 +555,11 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
     def test_to_numpy_and_copy(self):
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1), stack_shape=(2,))
         ux = ut3.UniformTuckerTensorTrain.from_t3(x)
-        self.assertLessEqual(relerr(ux.copy().to_dense(), x.to_dense()), TOL)
+        cp = ux.copy()
+        self.assertLessEqual(relerr(cp.to_dense(), x.to_dense()), TOL)
+        # deep copy: the supercores are independent arrays (mirrors ragged T3*.copy)
+        self.assertFalse(np.shares_memory(cp.tucker_supercore, ux.tucker_supercore))
+        self.assertFalse(np.shares_memory(cp.tt_supercore, ux.tt_supercore))
         self.assertLessEqual(relerr(ux.to_numpy().to_dense(), x.to_dense()), TOL)
 
     # ---- backend-only path: every frontend op is reproducible on the raw .data tuple ----

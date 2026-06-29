@@ -261,8 +261,9 @@ class UT3Basis:
         return UT3Basis(*(to_numpy(sc) for sc in self.supercores), self.shape, self.masks)
 
     def copy(self) -> 'UT3Basis':
-        # Shallow over the (immutable, never-mutated-in-place) arrays; mirrors the plain UT3 layer.
-        return UT3Basis(*self.supercores, self.shape, self.masks)
+        # Deep-copy the supercores (the data leaves), like ragged T3Basis.copy; the static aux (shape +
+        # masks) is shared (immutable structure, the same way `shape` is not duplicated).
+        return UT3Basis(*(sc.copy() for sc in self.supercores), self.shape, self.masks)
 
     def __repr__(self) -> str:
         ss = ', stack_shape=%s' % (self.stack_shape,) if self.stack_shape else ''
@@ -528,8 +529,9 @@ class UT3Variations:
         return UT3Variations(*(to_numpy(sc) for sc in self.supercores), self.shape, self.masks)
 
     def copy(self) -> 'UT3Variations':
-        # Shallow over the (immutable, never-mutated-in-place) arrays; mirrors the plain UT3 layer.
-        return UT3Variations(*self.supercores, self.shape, self.masks)
+        # Deep-copy the supercores (the data leaves), like ragged T3Variations.copy; the static aux (shape +
+        # masks) is shared (immutable structure, the same way `shape` is not duplicated).
+        return UT3Variations(*(sc.copy() for sc in self.supercores), self.shape, self.masks)
 
     def __repr__(self) -> str:
         ss = ', stack_shape=%s' % (self.stack_shape,) if self.stack_shape else ''
