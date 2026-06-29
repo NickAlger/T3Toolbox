@@ -643,5 +643,48 @@ class TestReverseOrthogonalizeRandom(unittest.TestCase):
         self.assertEqual((like.shape, like.stack_shape), (base.shape, base.stack_shape))
 
 
+class TestSaveLoad(unittest.TestCase):
+    """2c-F: UT3Basis / UT3Variations save/load round-trip (3 families: supercores, masks, shape)."""
+    def setUp(self):
+        np.random.seed(0)
+
+    def _pair(self):
+        import t3toolbox.tucker_tensor_train as t3
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))
+        return ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
+
+    def _roundtrip(self, obj, loader, name):
+        import tempfile, os
+        fname = os.path.join(tempfile.mkdtemp(), name)
+        obj.save(fname)
+        obj2 = loader(fname)
+        obj2.validate()
+        for a, b in zip(obj2.supercores, obj.supercores):
+            self.assertEqual(float(np.max(np.abs(a - b))), 0.0)            # supercores exact
+        for a, b in zip(obj2.masks.data, obj.masks.data):
+            self.assertTrue(np.array_equal(a, b))                         # masks exact...
+            self.assertTrue(isinstance(a, np.ndarray) and a.dtype == bool)  # ...and host bool
+        self.assertEqual(obj2.shape, obj.shape)
+        return fname
+
+    def test_basis_save_load(self):
+        base, _ = self._pair()
+        self._roundtrip(base, ubv.UT3Basis.load, 'ut3basis.npz')
+
+    def test_variations_save_load(self):
+        _, var = self._pair()
+        self._roundtrip(var, ubv.UT3Variations.load, 'ut3var.npz')
+
+    @unittest.skipUnless(HAS_JAX, 'jax not installed')
+    def test_load_use_jax_keeps_masks_host(self):
+        import t3toolbox.backend.common as common
+        base, _ = self._pair()
+        fname = self._roundtrip(base, ubv.UT3Basis.load, 'ut3basis_jax.npz')
+        jb = ubv.UT3Basis.load(fname, use_jax=True)
+        self.assertTrue(all(common.is_jax_ndarray(s) for s in jb.supercores))   # supercores -> jax
+        self.assertTrue(all(common.is_numpy_ndarray(m) for m in jb.masks.data)) # masks stay host
+
+
 if __name__ == '__main__':
     unittest.main()

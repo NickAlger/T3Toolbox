@@ -276,6 +276,17 @@ class UT3Basis:
         return UT3Basis.random_orthogonal(basis.shape, basis.up_ranks, basis.left_ranks,
                                           stack_shape=basis.stack_shape, use_jax=basis.contains_jax)
 
+    # ------------------------------------------------------------- save / load
+    def save(self, file) -> None:
+        """Save the four supercores + ``shape`` + masks to a ``.npz`` file (load with :py:meth:`load`)."""
+        ubv_operations.ubv_save(file, self.data)
+
+    @staticmethod
+    def load(file, use_jax: bool = False) -> 'UT3Basis':
+        """Load a frame saved by :py:meth:`save`. Supercores follow ``use_jax``; masks stay host numpy."""
+        up, down, left, right, shape, masks = ubv_operations.ubv_load(file, use_jax=use_jax)
+        return UT3Basis(up, down, left, right, shape, UT3BasisMasks(*masks))
+
     # ------------------------------------------------------------- dtype / copy / repr
     @ft.cached_property
     def supercores(self) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray]:
@@ -661,6 +672,16 @@ class UT3Variations:
         supercore reverses with a bond swap; the per-slot left/right masks swap. Matches
         :py:meth:`UT3Basis.reverse` so a tangent reverses by reversing both components."""
         tkv, ttv, shape, masks = ubv_operations.ubv_reverse_variations(self.data)
+        return UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*masks))
+
+    def save(self, file) -> None:
+        """Save the two supercores + ``shape`` + masks to a ``.npz`` file (load with :py:meth:`load`)."""
+        ubv_operations.ubv_save(file, self.data)
+
+    @staticmethod
+    def load(file, use_jax: bool = False) -> 'UT3Variations':
+        """Load variations saved by :py:meth:`save`. Supercores follow ``use_jax``; masks stay host numpy."""
+        tkv, ttv, shape, masks = ubv_operations.ubv_load(file, use_jax=use_jax)
         return UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*masks))
 
     def sum_stack(self, axis=None) -> 'UT3Variations':

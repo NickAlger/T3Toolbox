@@ -25,6 +25,8 @@ __all__ = [
     'ubv_variations_sum_stack',
     'ubv_reverse_basis',
     'ubv_reverse_variations',
+    'ubv_save',
+    'ubv_load',
 ]
 
 N_MASKS = 4  # both UT3Basis and UT3Variations hold four edge masks
@@ -154,3 +156,23 @@ def ubv_reverse_variations(data):  # UT3Variations .data -> reversed UT3Variatio
         tuple(shape[::-1]),
         (vup[::-1], vdown[::-1], vright[::-1], vleft[::-1]),   # up/down reverse; left/right swap + reverse
     )
+
+
+def ubv_save(file, data) -> None:  # data: (*supercores, shape, masks) for a UT3Basis or UT3Variations
+    """Save a bv ``.data`` tuple to a ``.npz`` (3 families: the supercores, the rank masks, the ``shape``
+    ints). Generic over the supercore count; mirrors :py:func:`ut3_constructors.ut3_save`. ``np.savez``
+    keeps the boolean mask dtype, so :py:func:`ubv_load` recovers host bool masks."""
+    *supercores, shape, masks = data
+    save_core_families(file, (tuple(supercores), tuple(masks), (np.asarray(shape, dtype=int),)))
+
+
+def ubv_load(file, use_jax: bool = False):  # -> (*supercores, shape, masks)
+    """Load a bv ``.data`` tuple saved by :py:func:`ubv_save`. The supercores follow ``use_jax``; the
+    masks always come back **numpy (host) bool** (a jax mask is a tracer under jit). The caller wraps the
+    returned tuple into the OO class (the supercore count is fixed per class)."""
+    supercores, masks, shape_family = load_core_families(file)
+    if use_jax:
+        supercores = tuple(to_jax(s) for s in supercores)
+    masks = tuple(np.asarray(m, dtype=bool) for m in masks)
+    shape = tuple(int(x) for x in shape_family[0])
+    return tuple(supercores) + (shape, masks)
