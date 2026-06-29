@@ -11,6 +11,7 @@ the mode index ``d``, NOT a stack axis); the supercores and all four masks unsta
 int-tuple ``shape`` is shared and woven onto every leaf. The masks' differing leading axis (``d`` vs
 ``d+1``) is irrelevant -- only axes ``1..k`` are sliced.
 """
+import numpy as np
 import typing as typ
 
 import t3toolbox.backend.stacking as stacking
@@ -20,6 +21,7 @@ __all__ = [
     'ubv_leaf_structure',
     'ubv_unstack',
     'ubv_stack',
+    'ubv_variations_sum_stack',
 ]
 
 N_MASKS = 4  # both UT3Basis and UT3Variations hold four edge masks
@@ -99,3 +101,23 @@ def ubv_stack(
     supercores = stacking.stack(sc_tree, axes)      # supercores: xnp-inferred (jax-aware)
     masks      = stacking.stack(mask_tree, axes)    # masks: all host -> stay host numpy
     return tuple(supercores) + (shape, tuple(masks))
+
+
+def ubv_variations_sum_stack(
+        data,             # UT3Variations .data: (tkv, ttv, shape, (4 masks))
+        axis: typ.Optional[int] = None,  # stack axis to sum (None = whole stack); 0-based within the stack
+):  # -> summed .data (the summed stack axes removed)
+    """Sum a UT3Variations over stack axes (a batch of tangents -> their sum; corewise == tangent sum by
+    linearity). The supercores sum via ``xnp``; the masks **OR** over the same axes (host ``np``) -- the
+    union of real slots, a no-op for a same-mask stack (``docs/uniform_masks_vs_ranks.md``). The stack
+    lives at axes ``1 ..`` (after the leading mode index ``d``), shared by supercores and masks."""
+    tkv, ttv, shape, masks = data
+    n_stack = tkv.ndim - 3   # (d,)+stack+(nD, N)
+    use_jax = tree_contains_jax((tkv, ttv))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    stack_axes = tuple(range(1, 1 + n_stack)) if axis is None else (1 + axis,)
+    new_tkv = xnp.sum(tkv, axis=stack_axes)
+    new_ttv = xnp.sum(ttv, axis=stack_axes)
+    new_masks = tuple(np.any(m, axis=stack_axes) for m in masks)   # host np: OR the real slots over the stack
+    return new_tkv, new_ttv, shape, new_masks

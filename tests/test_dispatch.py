@@ -419,6 +419,20 @@ class TestDispatch(unittest.TestCase):
         for r in (ubv.UT3Basis.stack(base.unstack()), ubv.UT3Variations.stack(var.unstack())):
             self._leaves_all_jax(r); self.assert_concrete_masks(r)
 
+    # ---------------------------------------------------- jit bucket: UT3Variations vector-space ops (2c-D)
+    def test_jit_variation_linear_algebra(self):
+        # corewise ops return a UT3Variations with the SAME (unchanged) mask -> masks stay concrete; the
+        # same-mask precondition runs on host-static structure (no tracer branch).
+        import t3toolbox.uniform_basis_variations_format as ubv
+        UV = ubv.UT3Variations.from_t3variations(self.var)
+        UW = ubv.UT3Variations.randn_like(UV)                          # same base -> same mask -> addable
+        self.assert_jit_uniform(lambda a, b: a + b, UV, UW, returns_ut3=True)
+        self.assert_jit_uniform(lambda a, b: a - b, UV, UW, returns_ut3=True)
+        self.assert_jit_uniform(lambda a: 2.5 * a, UV, returns_ut3=True)
+        self.assert_jit_uniform(lambda a: -a, UV, returns_ut3=True)
+        UVS = ubv.UT3Variations.from_t3variations(self.v_vstack.variations)   # stacked (K=3)
+        self.assert_jit_uniform(lambda a: a.sum_stack(), UVS, returns_ut3=True)
+
     # ------------------------------------------- performance contract: value-hashed masks => no recompile
     def test_mask_rebuild_does_not_recompile(self):
         # A uniform object's masks ride as jax aux_data, so their __hash__/__eq__ are part of the jit cache

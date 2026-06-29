@@ -11,6 +11,7 @@ import t3toolbox.backend.bv_conversions
 import t3toolbox.backend.ubv_conversions as ubv_conversions
 import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.basis_variations_format as bvf
+import t3toolbox.corewise as cw
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.ubv_operations as ubv_operations
 import t3toolbox.backend.ubv_masking as masking
@@ -580,6 +581,153 @@ class UT3Variations:
         data_tree = stacking.apply_func_to_leaf_subtrees(xx, lambda v: v.data, None)
         tkv, ttv, shape, masks = ubv_operations.ubv_stack(data_tree, 2)
         return UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*masks))
+
+    # ------------------------------------------------------------- linear algebra (fixed-rank vector space)
+    def _check_same_tangent_structure(self, other: 'UT3Variations') -> None:
+        """Structural precondition for the vector-space ops: ``other`` must be the same fixed-rank tangent
+        structure (padded dims + stack, real ``shape``, and the four rank masks). Uniform padding hides a
+        mismatch that ragged would catch as a numpy shape error, so it is enforced explicitly; masks are
+        host numpy, so the check is a cheap ``array_equal`` valid even under jit. The variation-level analog
+        of the same-frame guard; see the "tangent vector-space ops" section of ``docs/uniform_masks_vs_ranks.md``.
+        """
+        if self.uniform_structure != other.uniform_structure:
+            raise ValueError('UT3Variations op: structures differ (%s vs %s).'
+                             % (self.uniform_structure, other.uniform_structure))
+        if self.shape != other.shape:
+            raise ValueError('UT3Variations op: shapes differ (%s vs %s).' % (self.shape, other.shape))
+        if self.masks != other.masks:
+            raise ValueError('UT3Variations op: rank masks differ (different tangent spaces).')
+
+    def __add__(self, other: 'UT3Variations') -> 'UT3Variations':
+        """Corewise sum (variations form a vector space at a fixed base; the mask is unchanged)."""
+        self._check_same_tangent_structure(other)
+        tkv, ttv = cw.corewise_add(self.supercores, other.supercores)
+        return UT3Variations(tkv, ttv, self.shape, self.masks)
+
+    def __sub__(self, other: 'UT3Variations') -> 'UT3Variations':
+        """Corewise difference (mask unchanged)."""
+        self._check_same_tangent_structure(other)
+        tkv, ttv = cw.corewise_sub(self.supercores, other.supercores)
+        return UT3Variations(tkv, ttv, self.shape, self.masks)
+
+    def __mul__(self, scalar) -> 'UT3Variations':
+        """Corewise scalar multiplication (mask unchanged)."""
+        tkv, ttv = cw.corewise_scale(self.supercores, scalar)
+        return UT3Variations(tkv, ttv, self.shape, self.masks)
+
+    __rmul__ = __mul__
+
+    def __neg__(self) -> 'UT3Variations':
+        """Corewise negation (mask unchanged)."""
+        tkv, ttv = cw.corewise_neg(self.supercores)
+        return UT3Variations(tkv, ttv, self.shape, self.masks)
+
+    def sum_stack(self, axis=None) -> 'UT3Variations':
+        """Corewise sum over stack axes (a batch of variations -> their sum; the tangent sum, by linearity).
+        ``axis`` indexes the stack (default: the whole stack). The mask ORs over the summed axes -- a no-op
+        for a same-mask (single-base) stack; see ``docs/uniform_masks_vs_ranks.md``."""
+        tkv, ttv, shape, masks = ubv_operations.ubv_variations_sum_stack(self.data, axis)
+        return UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*masks))
+
+    def allclose(self, other: 'UT3Variations', rtol: float = 1e-9, atol: float = 0.0) -> bool:
+        """``True`` if ``other`` holds the same variations as ``self`` on the **real (masked)** content:
+        ``||self - other|| <= atol + rtol * ||other||`` in the corewise norm. (A single bool for now; the
+        per-stack-element checker semantics land in slice 2c-G.)"""
+        dn = cw.corewise_norm((self - other).apply_masks().supercores)
+        rn = cw.corewise_norm(other.apply_masks().supercores)
+        return bool(dn <= atol + rtol * rn)
+
+    # ------------------------------------------------------------- constructors (fill complete; masks optional)
+    @staticmethod
+    def _filled(uniform_variation_shapes, shape, stack_shape, masks, use_jax, fill):
+        (d, nD, N), (_d2, rL, nU, rR) = uniform_variation_shapes
+        stack = tuple(stack_shape)
+        tk_shape = (d,) + stack + (nD, N)
+        tt_shape = (d,) + stack + (rL, nU, rR)
+        if fill == 'randn':
+            tkv = common.randn(*tk_shape, use_jax=use_jax)
+            ttv = common.randn(*tt_shape, use_jax=use_jax)
+        else:  # zeros
+            tkv, ttv = np.zeros(tk_shape), np.zeros(tt_shape)
+            if use_jax:
+                tkv, ttv = to_jax(tkv), to_jax(ttv)
+        if masks is None:  # default: all-True (full rank) -- the user fills the supercores completely
+            masks = UT3VariationsMasks(
+                np.ones((d,) + stack + (nU,), dtype=bool), np.ones((d,) + stack + (nD,), dtype=bool),
+                np.ones((d,) + stack + (rL,), dtype=bool), np.ones((d,) + stack + (rR,), dtype=bool))
+        return UT3Variations(tkv, ttv, tuple(shape), masks)
+
+    @staticmethod
+    def zeros(
+            uniform_variation_shapes,                    # ((d, nD, N), (d, rL, nU, rR)) -- the padded supercore dims
+            shape:       typ.Sequence[int],              # (N0,...,N(d-1)) real mode dims
+            stack_shape: typ.Tuple[int, ...] = (),
+            masks:       typ.Optional['UT3VariationsMasks'] = None,  # None -> all-True (full rank)
+            use_jax:     bool = False,
+    ) -> 'UT3Variations':
+        """Zero variations filling the padded supercores completely (additive identity). ``masks`` optional;
+        ``None`` -> all-True. (See :py:meth:`zeros_like` to take the structure -- incl. gauge masks -- from
+        a :py:class:`UT3Basis` / :py:class:`UT3Variations`.)"""
+        return UT3Variations._filled(uniform_variation_shapes, shape, stack_shape, masks, use_jax, 'zeros')
+
+    @staticmethod
+    def randn(
+            uniform_variation_shapes,
+            shape:       typ.Sequence[int],
+            stack_shape: typ.Tuple[int, ...] = (),
+            masks:       typ.Optional['UT3VariationsMasks'] = None,
+            use_jax:     bool = False,
+    ) -> 'UT3Variations':
+        """Variations with i.i.d. N(0,1) supercore entries (filled completely; ungauged). See :py:meth:`randn_like`."""
+        return UT3Variations._filled(uniform_variation_shapes, shape, stack_shape, masks, use_jax, 'randn')
+
+    @staticmethod
+    def unit(
+            uniform_variation_shapes,
+            shape:       typ.Sequence[int],
+            index:       typ.Tuple[bool, int, typ.Sequence[int]],  # (use_tt_coordinate, i, within_index)
+            stack_shape: typ.Tuple[int, ...] = (),
+            masks:       typ.Optional['UT3VariationsMasks'] = None,
+            use_jax:     bool = False,
+    ) -> 'UT3Variations':
+        """Canonical unit variation: zero supercores except a single entry set to 1 (broadcast over the
+        stack). ``index = (use_tt_coordinate, i, within_index)`` selects the family, the mode ``i``, and the
+        within-core entry. (For a meaningful unit the entry must land in a real slot -- automatic under the
+        all-True default.)"""
+        (d, nD, N), (_d2, rL, nU, rR) = uniform_variation_shapes
+        stack = tuple(stack_shape)
+        use_tt, i, within = index
+        tkv = np.zeros((d,) + stack + (nD, N))
+        ttv = np.zeros((d,) + stack + (rL, nU, rR))
+        (ttv if use_tt else tkv)[(i, Ellipsis) + tuple(within)] = 1.0   # i = mode (leading axis); ... = stack
+        if use_jax:
+            tkv, ttv = to_jax(tkv), to_jax(ttv)
+        if masks is None:
+            masks = UT3VariationsMasks(
+                np.ones((d,) + stack + (nU,), dtype=bool), np.ones((d,) + stack + (nD,), dtype=bool),
+                np.ones((d,) + stack + (rL,), dtype=bool), np.ones((d,) + stack + (rR,), dtype=bool))
+        return UT3Variations(tkv, ttv, tuple(shape), masks)
+
+    @staticmethod
+    def _variation_masks_of(x) -> 'UT3VariationsMasks':
+        # x: UT3Basis (gauge-shift its frame masks -> left[:-1], right[1:]) or UT3Variations (its own masks).
+        if isinstance(x, UT3Basis):
+            bm = x.masks
+            return UT3VariationsMasks(bm.up_mask, bm.down_mask, bm.basis_left_mask[:-1], bm.basis_right_mask[1:])
+        return x.masks
+
+    @staticmethod
+    def zeros_like(x) -> 'UT3Variations':
+        """Zero variations matching the structure of ``x`` (a :py:class:`UT3Basis` or :py:class:`UT3Variations`).
+        For a basis this is the zero tangent carrying the base's gauge masks."""
+        return UT3Variations.zeros(x.uniform_variation_shapes, x.shape, stack_shape=x.stack_shape,
+                                   masks=UT3Variations._variation_masks_of(x), use_jax=x.contains_jax)
+
+    @staticmethod
+    def randn_like(x) -> 'UT3Variations':
+        """Random variations matching the structure (incl. gauge masks) of ``x`` (a UT3Basis or UT3Variations)."""
+        return UT3Variations.randn(x.uniform_variation_shapes, x.shape, stack_shape=x.stack_shape,
+                                   masks=UT3Variations._variation_masks_of(x), use_jax=x.contains_jax)
 
 
 def check_ubv_pair(base: UT3Basis, variations: UT3Variations) -> None:

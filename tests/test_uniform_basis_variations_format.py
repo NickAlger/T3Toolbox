@@ -497,5 +497,95 @@ class TestStackUnstack(unittest.TestCase):
             self.assertLess(float(np.linalg.norm(tree[i].to_dense() - x.to_dense())), 1e-10)
 
 
+class TestVariationLinearAlgebra(unittest.TestCase):
+    """2c-D: UT3Variations vector-space ops (corewise at a fixed mask) + constructors. Verified against
+    the ragged T3Variations via the equivalence contract."""
+    def setUp(self):
+        np.random.seed(0)
+
+    def _pair(self, ss=()):
+        import t3toolbox.tucker_tensor_train as t3
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1), stack_shape=ss)
+        return ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
+
+    def _cerr(self, a, b):
+        import t3toolbox.corewise as cw
+        return float(cw.corewise_norm(cw.corewise_sub(a, b)))
+
+    def test_vector_space_ops_match_ragged(self):
+        base, v = self._pair()
+        w = ubv.UT3Variations.randn_like(base)          # second tangent at the SAME base (same mask)
+        rv, rw = v.to_t3variations(), w.to_t3variations()
+        self.assertEqual(self._cerr((v + w).to_t3variations().data, (rv + rw).data), 0.0)
+        self.assertEqual(self._cerr((v - w).to_t3variations().data, (rv - rw).data), 0.0)
+        self.assertEqual(self._cerr((2.5 * v).to_t3variations().data, (2.5 * rv).data), 0.0)
+        self.assertEqual(self._cerr((v * 2.5).to_t3variations().data, (2.5 * rv).data), 0.0)  # __rmul__
+        self.assertEqual(self._cerr((-v).to_t3variations().data, (-rv).data), 0.0)
+
+    def test_ops_preserve_mask(self):
+        base, v = self._pair()
+        w = ubv.UT3Variations.randn_like(base)
+        for r in (v + w, v - w, 2.0 * v, -v):
+            self.assertTrue(all(np.array_equal(a, b) for a, b in zip(r.masks.data, v.masks.data)))
+
+    def test_sum_stack_matches_ragged(self):
+        base, v = self._pair(ss=(3,))
+        s = v.sum_stack()
+        s.validate()
+        self.assertEqual(s.stack_shape, ())
+        tree = v.to_t3variations()                       # 3 ragged T3Variations
+        self.assertEqual(self._cerr(s.to_t3variations().data, (tree[0] + tree[1] + tree[2]).data), 0.0)
+
+    def test_zeros_like_is_zero_tangent_at_base(self):
+        base, _ = self._pair()
+        z = ubv.UT3Variations.zeros_like(base)
+        z.validate()
+        ubv.check_ubv_pair(base, z)                       # carries the base's gauge masks -> pairs
+        self.assertEqual(float(np.max(np.abs(z.tucker_variations))), 0.0)
+        self.assertTrue(np.array_equal(z.masks.variations_left_mask, base.masks.basis_left_mask[:-1]))
+
+    def test_randn_like_pairs_with_base_stacked(self):
+        base, _ = self._pair(ss=(2,))
+        r = ubv.UT3Variations.randn_like(base)
+        r.validate(); ubv.check_ubv_pair(base, r)
+        self.assertEqual(r.stack_shape, (2,))
+
+    def test_zeros_default_all_true_masks(self):
+        z = ubv.UT3Variations.zeros(((3, 4, 6), (3, 2, 5, 2)), (4, 5, 6))   # (d,nD,N),(d,rL,nU,rR)
+        z.validate()
+        self.assertTrue(all(m.all() for m in z.masks.data))                 # all-True (full rank)
+        self.assertEqual(float(np.max(np.abs(z.tucker_variations))), 0.0)
+
+    def test_unit(self):
+        u = ubv.UT3Variations.unit(((3, 4, 6), (3, 2, 5, 2)), (4, 5, 6), (False, 1, (2, 3)))
+        u.validate()
+        self.assertEqual(u.tucker_variations[1, 2, 3], 1.0)
+        self.assertEqual(float(np.sum(np.abs(u.tucker_variations))), 1.0)   # exactly one nonzero
+        self.assertEqual(float(np.sum(np.abs(u.tt_variations))), 0.0)
+
+    def test_allclose(self):
+        base, v = self._pair()
+        self.assertTrue(v.allclose(v))
+        self.assertTrue(v.allclose(v.copy()))
+        self.assertFalse(v.allclose(ubv.UT3Variations.randn_like(base)))
+
+    def test_precondition_same_structure_different_masks(self):
+        # the uniform-specific footgun: same padded shape, DIFFERENT masks (different ranks) -> different
+        # tangent space. Ragged would catch a rank mismatch as a shape error; uniform padding hides it,
+        # so add/sub must reject it explicitly.
+        import t3toolbox.tucker_tensor_train as t3
+        import t3toolbox.basis_variations_format as bvf
+        pad = dict(N=6, nU=4, nD=4, rL=3, rR=3)
+        v1 = ubv.UT3Variations.from_t3variations(
+            bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)))[1], **pad)
+        v2 = ubv.UT3Variations.from_t3variations(
+            bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn((4, 5, 6), (3, 3, 2), (1, 1, 2, 1)))[1], **pad)
+        self.assertEqual(v1.uniform_structure, v2.uniform_structure)   # same padded structure...
+        self.assertNotEqual(v1.masks, v2.masks)                        # ...but different rank masks
+        with self.assertRaises(ValueError):
+            v1 + v2
+
+
 if __name__ == '__main__':
     unittest.main()
