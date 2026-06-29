@@ -404,3 +404,92 @@ these. They AMEND the slices above.
 - **Oracle gaps acknowledged:** per-element checkers need the ragged per-element version first (hence 2c-G
   ragged-first); `K`-bugs are only caught by `K≠()` tests (hence add them as we build, per the
   fix-stacking-now rule).
+
+---
+
+# Increment 2c-G — per-element checker semantics (detailed plan, 2026-06-29)
+
+_The last 2c slice, and the only one that edits the **verified** layer. Designed with Nick; PENDING final
+review. Done **ragged-first** (the ragged per-element checkers are the oracle for the uniform ones),
+full-suite gated after each sub-slice._
+
+## Design rules (agreed 2026-06-29)
+- **Residuals + bool predicates return shape `stack_shape`** (scalar when unstacked): reduce over the
+  **non-stack axes only** (today they `max` over *everything*, incl. the stack, → one scalar).
+- **Safety preconditions reduce with `.all()` at the call site** (Option A): `safety.require` stays a
+  scalar gate; each precondition becomes `safety.require(checker(...).all(), msg)` ("require **all** stack
+  elements pass"). The `and` of two checks becomes `chk1.all() and chk2.all()`. ~6 sites in `manifold.py`
+  (`_require_orthogonal_frame`, `inner`, `norm`). The checker itself never collapses — only the
+  precondition's *consumption* adds `.all()`. (`is_orthogonal` is per-`C`; `is_gauged` is per-`K+C`; `.all()`
+  reduces whatever shape, which is why call-site reduction is clean.)
+- **Granularity is per representation (the "honest" rule), NOT a forced uniform contract — PENDING Nick:**
+  - **Numerical** checkers (orthogonality / consistency / gauge / `allclose`) vary per stack element →
+    **per-element in BOTH ragged and uniform.**
+  - **Structural** `has_minimal_ranks`: ragged ranks are **shared across the stack** (one core shape) → it
+    is genuinely one answer → **ragged stays SCALAR (unchanged)**; uniform ranks vary per element →
+    **uniform is per-element.** _(Alternative considered: broadcast ragged structural to `stack_shape` for a
+    single contract; rejected as churn-for-its-own-sake on verified code that has no per-element variation.
+    Flag for Nick.)_
+  - `has_numerically_minimal_ranks` combines a numerical (per-element) and a structural (ragged-scalar)
+    check → **per-element** (`is_orthogonal(atol) & has_minimal_ranks`; numpy broadcasts the scalar).
+- **Not bool checkers → unchanged in 2c-G:** `minimal_ranks` (returns the *ranks*, already arrays in
+  uniform / tuples in ragged), `tangent_space_dimension` / `manifold_dim` (return an int). The uniform
+  per-element *dimension* (varying ranks → varying dim) is deferred to 3b if needed.
+- **Doctests (per checker family):** (a) print the return **shape**; (b) the `.all()` summary; (c) a
+  **mixed stack** `stack_shape=(2,)` with element 0 orthogonal + element 1 deliberately perturbed, printed
+  **whole** (`[ True False]`) — the doctest that *teaches* the per-element semantics, built by `stack`-ing
+  a good frame + a perturbed one; (d) **scalar-vs-array** (same checker unstacked → scalar, stacked →
+  array). One "structure" doctest per checker family, not per method.
+
+## The checker inventory (current → new)
+| Class | checker | now | 2c-G |
+|---|---|---|---|
+| **T3Basis** | `orthogonality_residual` | scalar float | `(C,)` array |
+| | `is_orthogonal`, `is_consistent`, `allclose` | bool | `(C,)` bool array |
+| | `has_minimal_ranks` | bool | **scalar (unchanged)** |
+| | `has_numerically_minimal_ranks` | bool | `(C,)` bool array |
+| **T3Variations** | `allclose` | bool | `(K+C,)` bool array |
+| **T3Tangent** | `is_orthogonal` (→basis), `allclose` | bool | per-element |
+| | `gauge_residual` | scalar float | `(K+C,)` array |
+| | `is_gauged` | bool | `(K+C,)` bool array |
+| | `has_minimal_ranks` (→basis) | bool | scalar (unchanged) |
+| | `has_numerically_minimal_ranks` | bool | per-element |
+| **TuckerTensorTrain** | `is_left_orthogonal`, `is_right_orthogonal` | bool | `stack_shape` bool array |
+| | `has_minimal_ranks` | bool | scalar (unchanged) |
+| | `has_numerically_minimal_ranks` | bool | per-element |
+| **UniformTuckerTensorTrain** | `is_left_orthogonal`, `is_right_orthogonal` | bool | `stack_shape` array |
+| | `has_minimal_ranks` | bool (np.all) | **per-element** (ranks vary) |
+| **UT3Basis** (new, G3) | `orthogonality_residual` (masked-Gram, 4 senses), `is_orthogonal`, `is_consistent`, `allclose`, `has_numerically_minimal_ranks` | — | per-element |
+| | `minimal_ranks`, `has_minimal_ranks` | — | per-element (structural, varies) |
+| **UT3Variations** (G3) | `allclose` (2c-D shipped it collapsed) | scalar | per-element |
+
+## Backend residual changes (reduce over non-stack axes → keep `stack_shape`)
+- `orthogonal_representations.basis_orthogonality_residual`, `.basis_consistency_residual`
+- `tangent_operations.gauge_residual`
+- `t3_orthogonalization.t3_orthogonality_residual` (TuckerTensorTrain)
+- `ut3_orthogonalization.ut3_orthogonality_residual` (plain UT3 — already masked; just change the final
+  `max` to keep `stack_shape`)
+Each infers its stack rank from the cores and `max`-reduces only the per-core/non-stack axes.
+
+## The uniform-native checkers (G3)
+`UT3Basis` orthogonality: each masked supercore slice IS a hypothetical ragged core; require *its* Gram ==
+`diag(outgoing_mask)`, per stack element — the masked-Gram pattern of `ut3_orthogonality_residual`,
+extended to the **four** basis senses (up `U`, down/outer `O`, left `L`, right `R`), with the correct
+*outgoing* mask per sense (left core `i` → `basis_left_mask[i+1]`). Oracle: the ragged per-element
+`is_orthogonal` via `to_t3basis` (unstack + per-element).
+
+## Sub-slices
+- **2c-G1 — ragged numerical residual checkers + safety `.all()`.** THE risky one (verified code + safety).
+  Backend residuals → `stack_shape`; T3Basis/T3Variations/T3Tangent/TuckerTensorTrain numerical predicates
+  → per-element; `manifold.py` precondition `.all()` edits; the per-element doctests. **Grep ALL consumers
+  of the residuals/predicates first** (wide blast radius). Full-suite gated.
+- **2c-G2 — `has_numerically_minimal_ranks` → per-element** (the numerical×structural combiner) across the
+  classes; ragged `has_minimal_ranks` left scalar (pending the granularity decision). Lower risk (no safety
+  dependency — minimal rank is not a precondition, per `numerical_contract_catalog.md`).
+- **2c-G3 — uniform-native checkers** (UT3Basis/UT3Variations/UniformTTT), per-element from the start,
+  tested against the ragged oracle. New code (no verified-code risk).
+
+## Open decision for Nick
+**Ragged `has_minimal_ranks` (structural): stay scalar (honest — ragged ranks are shared) or broadcast to
+`stack_shape` (one contract across all checkers)?** Recommendation: **stay scalar** (less verified-code
+churn, honest granularity; numerical checkers carry the per-element story).
