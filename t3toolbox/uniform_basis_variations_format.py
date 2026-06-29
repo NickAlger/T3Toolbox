@@ -242,6 +242,40 @@ class UT3Basis:
         """Dense tensor of the base point this frame represents (``= to_ut3().to_dense()``)."""
         return self.to_ut3().to_dense()
 
+    def reverse(self) -> 'UT3Basis':
+        """Reverse the mode order. Left/right supercores (and masks) **swap roles** -- reversing a
+        left-orthogonal chain yields a right-orthogonal one -- so the redundant L/R store makes this exact
+        with no re-orthogonalization. Commutes with conversion: ``B.reverse().to_t3basis() ==
+        B.to_t3basis().reverse()``."""
+        up, down, left, right, shape, masks = ubv_operations.ubv_reverse_basis(self.data)
+        return UT3Basis(up, down, left, right, shape, UT3BasisMasks(*masks))
+
+    def orthogonalize(self) -> 'UT3Basis':
+        """Orthogonal representation of the base point this frame reconstructs to (``= from_ut3(to_ut3())``).
+        For an already-orthogonal frame, an equivalent orthogonal frame; for a drifted one, a genuinely
+        orthogonal (minimal-rank) frame for the right-canonical base point."""
+        return UT3Basis.from_ut3(self.to_ut3())
+
+    @staticmethod
+    def random_orthogonal(
+            shape:        typ.Sequence[int],   # (N0,...,N(d-1))
+            tucker_ranks,                       # int | len-d seq | (d,)+stack array (the variety)
+            tt_ranks,                           # int | len-(d+1) seq | (d+1,)+stack array
+            stack_shape:  typ.Tuple[int, ...] = (),
+            use_jax:      bool = False,
+    ) -> 'UT3Basis':
+        """Orthogonal representation of a *random* uniform T3 -- a genuine random base point (orthogonal,
+        consistent), not iid-random supercores. Equals ``from_ut3(UniformTuckerTensorTrain.randn(...))``."""
+        x = ut3.UniformTuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks,
+                                               stack_shape=tuple(stack_shape), use_jax=use_jax)
+        return UT3Basis.from_ut3(x)
+
+    @staticmethod
+    def random_orthogonal_like(basis: 'UT3Basis') -> 'UT3Basis':
+        """A random orthogonal frame with the same shape / ranks / stack as ``basis``."""
+        return UT3Basis.random_orthogonal(basis.shape, basis.up_ranks, basis.left_ranks,
+                                          stack_shape=basis.stack_shape, use_jax=basis.contains_jax)
+
     # ------------------------------------------------------------- dtype / copy / repr
     @ft.cached_property
     def supercores(self) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray]:
@@ -621,6 +655,13 @@ class UT3Variations:
         """Corewise negation (mask unchanged)."""
         tkv, ttv = cw.corewise_neg(self.supercores)
         return UT3Variations(tkv, ttv, self.shape, self.masks)
+
+    def reverse(self) -> 'UT3Variations':
+        """Reverse the mode order (corewise): the tucker-variation supercore reverses; the tt-variation
+        supercore reverses with a bond swap; the per-slot left/right masks swap. Matches
+        :py:meth:`UT3Basis.reverse` so a tangent reverses by reversing both components."""
+        tkv, ttv, shape, masks = ubv_operations.ubv_reverse_variations(self.data)
+        return UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*masks))
 
     def sum_stack(self, axis=None) -> 'UT3Variations':
         """Corewise sum over stack axes (a batch of variations -> their sum; the tangent sum, by linearity).

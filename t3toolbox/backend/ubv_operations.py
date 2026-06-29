@@ -15,6 +15,7 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.backend.stacking as stacking
+import t3toolbox.backend.ut3_operations as ut3_operations
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -22,6 +23,8 @@ __all__ = [
     'ubv_unstack',
     'ubv_stack',
     'ubv_variations_sum_stack',
+    'ubv_reverse_basis',
+    'ubv_reverse_variations',
 ]
 
 N_MASKS = 4  # both UT3Basis and UT3Variations hold four edge masks
@@ -121,3 +124,33 @@ def ubv_variations_sum_stack(
     new_ttv = xnp.sum(ttv, axis=stack_axes)
     new_masks = tuple(np.any(m, axis=stack_axes) for m in masks)   # host np: OR the real slots over the stack
     return new_tkv, new_ttv, shape, new_masks
+
+
+def ubv_reverse_basis(data):  # UT3Basis .data -> reversed UT3Basis .data
+    """Reverse the mode order of a UT3Basis ``.data``. The left/right supercores **and** their masks
+    **swap roles** (reversing a left-orthogonal chain yields a right-orthogonal one) and reverse; up/down
+    reverse (down with a bond swap, via :py:func:`ut3_operations.reverse_utt`). The redundant L/R store
+    makes this exact -- no re-orthogonalization. Inverse of itself."""
+    up_sc, down_sc, left_sc, right_sc, shape, (um, dm, lm, rm) = data
+    rev = ut3_operations.reverse_utt
+    return (
+        up_sc[::-1],
+        rev(down_sc),
+        rev(right_sc),                              # old right -> new left
+        rev(left_sc),                               # old left  -> new right
+        tuple(shape[::-1]),
+        (um[::-1], dm[::-1], rm[::-1], lm[::-1]),    # up/down reverse; left/right masks swap + reverse
+    )
+
+
+def ubv_reverse_variations(data):  # UT3Variations .data -> reversed UT3Variations .data
+    """Reverse the mode order of a UT3Variations ``.data``: the tucker-variation supercore reverses; the
+    tt-variation supercore reverses with a bond swap (:py:func:`ut3_operations.reverse_utt`). The per-slot
+    left/right masks swap + reverse (a variation occupies one TT slot). Inverse of itself."""
+    tkv, ttv, shape, (vup, vdown, vleft, vright) = data
+    return (
+        tkv[::-1],
+        ut3_operations.reverse_utt(ttv),
+        tuple(shape[::-1]),
+        (vup[::-1], vdown[::-1], vright[::-1], vleft[::-1]),   # up/down reverse; left/right swap + reverse
+    )

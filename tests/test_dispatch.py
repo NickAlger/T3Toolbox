@@ -404,6 +404,10 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_uniform(lambda b: b.to_ut3(), UB, returns_ut3=True)
         self.assert_jit_uniform(lambda b: b.to_dense(), UB)
         self.assert_jit_uniform(lambda u: ubv.UT3Basis.from_ut3(u).to_ut3(), self.ux, returns_ut3=True)
+        # 2c-E: reverse (both classes) + orthogonalize -- masks reverse/rebuild on the host, stay concrete
+        self.assert_jit_uniform(lambda b: b.reverse(), UB, returns_ut3=True)
+        self.assert_jit_uniform(lambda v: v.reverse(), UV, returns_ut3=True)
+        self.assert_jit_uniform(lambda b: b.orthogonalize(), UB, returns_ut3=True)
 
     # ---------------------------------------------------- stack/unstack: masks must stay host under jax
     def test_stack_unstack_keeps_masks_host(self):

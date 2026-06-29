@@ -587,5 +587,61 @@ class TestVariationLinearAlgebra(unittest.TestCase):
             v1 + v2
 
 
+class TestReverseOrthogonalizeRandom(unittest.TestCase):
+    """2c-E: UT3Basis/UT3Variations reverse + UT3Basis orthogonalize / random_orthogonal (direct uniform)."""
+    def setUp(self):
+        np.random.seed(0)
+
+    def _pair(self, ss=()):
+        import t3toolbox.tucker_tensor_train as t3
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1), stack_shape=ss)
+        base, var = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
+        return x, base, var
+
+    def _cerr(self, a, b):
+        import t3toolbox.corewise as cw
+        return float(cw.corewise_norm(cw.corewise_sub(a, b)))
+
+    def test_basis_reverse_commutes_with_to_t3basis(self):
+        _, base, _ = self._pair()
+        base.reverse().validate()
+        # Nick's correctness lens: reverse commutes with conversion
+        self.assertLess(float(np.linalg.norm(
+            base.reverse().to_t3basis().to_dense() - base.to_t3basis().reverse().to_dense())), 1e-10)
+
+    def test_basis_reverse_involution(self):
+        for ss in [(), (2,)]:
+            with self.subTest(stack=ss):
+                _, base, _ = self._pair(ss)
+                self.assertLess(float(np.linalg.norm(
+                    base.reverse().reverse().to_dense() - base.to_dense())), 1e-10)
+
+    def test_variations_reverse_commutes_and_involution(self):
+        _, _, var = self._pair()
+        var.reverse().validate()
+        self.assertEqual(self._cerr(var.reverse().to_t3variations().data,
+                                    var.to_t3variations().reverse().data), 0.0)
+        self.assertEqual(self._cerr(var.reverse().reverse().to_t3variations().data,
+                                    var.to_t3variations().data), 0.0)
+
+    def test_orthogonalize_reconstructs_base_point(self):
+        x, base, _ = self._pair()
+        o = base.orthogonalize()
+        o.validate()
+        self.assertLess(float(np.linalg.norm(o.to_dense() - x.to_dense())), 1e-10)
+
+    def test_random_orthogonal(self):
+        b = ubv.UT3Basis.random_orthogonal((4, 5, 6), (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))
+        b.validate()
+        self.assertEqual((b.shape, b.stack_shape), ((4, 5, 6), (2,)))
+
+    def test_random_orthogonal_like_matches_structure(self):
+        _, base, _ = self._pair(ss=(2,))
+        like = ubv.UT3Basis.random_orthogonal_like(base)
+        like.validate()
+        self.assertEqual((like.shape, like.stack_shape), (base.shape, base.stack_shape))
+
+
 if __name__ == '__main__':
     unittest.main()
