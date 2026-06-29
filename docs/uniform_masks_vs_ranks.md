@@ -124,6 +124,42 @@ form the count suffices.)
 > `jax.device_put` option are in `uniform_pytree_composition.md`. **The `np.*` in mask code is
 > intentional — do not "fix" it to `xnp`.**
 
+## A different algebra: tangent (variation) vector-space ops
+
+Everything above describes **tensor algebra** on a `UniformTuckerTensorTrain`: addition is the direct
+sum (⊕), multiplication the Kronecker product (⊗), and the masks *concatenate* / *Kronecker* precisely
+because the ranks genuinely change. The **basis-variations / tangent layer** (`UT3Variations`, and the
+tangent space of a `UT3Basis`) runs a **different algebra**, and the mask behavior is different —
+**identical, not combined.**
+
+A variation is a **tangent vector**: a point in the fixed-dimensional tangent space `T_B` at a base
+point `B`. Its rank structure (the mask) is a property of **`B`'s gauge**, shared by *every* tangent at
+`B`. So the vector-space operations there are **corewise at a fixed rank**, not direct sums:
+
+| op | mask |
+|---|---|
+| `v + w`, `v - w` (both tangents at `B`) | **identical** — `v` and `w` carry `B`'s mask; the sum is another vector of `T_B` with the *same* mask. No concat. |
+| `α · v`, `-v` | unchanged (scaling cannot change which slots are real) |
+| `sum_stack` (sum a batch of tangents) | OR the mask over the summed stack axes — a **no-op** when the batch shares a base (`K`-stack, one mask); a genuine union only for a varying-rank stack |
+
+This mirrors the ragged layer exactly: `T3Variations.__add__` is a *corewise* add of equal-shaped cores
+(it has no direct-sum/concat at all), because tangent addition stays inside one fixed-dimensional space.
+The ⊕/⊗ closure argument above is about *tensors*; the tangent algebra never invokes it.
+
+**Consequence — why the masks-as-`aux_data` worry does not bite here.** Because add/sub/scale **do not
+change the mask**, they create no new static structure: no fresh jit cache key, no recompile, and the
+result still pairs with its base (`check_ubv_pair`) since two tangents at one base share that base's
+mask. Mask *changes* are confined to the tensor layer — where a rank change is a real new structure, and
+`ValueHashedMasks` keeps a rebuilt-but-identical mask from recompiling anyway (see
+`uniform_pytree_composition.md`).
+
+**One thing uniform must enforce that ragged gets for free.** In ragged, adding mismatched variations
+fails loudly (a numpy shape error). In uniform the supercores are *padded to a common shape*, so two
+variations with **different masks but equal padded shape** would `corewise_add` silently to a **wrong**
+result — the padding hides the mismatch. So uniform variation add/sub carries an explicit **same-mask
+structural precondition** (`shape` and the masks must match; masks are host numpy, so it is a cheap
+`array_equal` valid even under jit). It is the variation-level analog of the same-frame guard on tangents.
+
 ## Recommendation and the relationship between the two
 
 Store **boolean masks**, treat the prefix form as the *canonical form the SVD produces* rather than a

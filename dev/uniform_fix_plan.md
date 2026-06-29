@@ -331,6 +331,14 @@ These were always intended to be methods; the existing module-func forms are ret
   template + first-leaf drill); frontend wrappers on both classes.
 - **2c-D — `UT3Variations` vector space + constructors.** `__add__`/`__sub__`/`__mul__`/`__rmul__`/`__neg__`/
   `sum_stack`/`allclose`; `zeros`/`randn`/`unit`/`zeros_like`/`randn_like` — all direct on supercores.
+  **Masking semantics (decided 2026-06-29; user doc: the "tangent vector-space ops" section of
+  `docs/uniform_masks_vs_ranks.md`):** the variation algebra is a *fixed-rank vector space* (corewise),
+  NOT the tensor ⊕/⊗ (concat/Kronecker) — so add/sub keep the mask (require an explicit **same-mask + same-
+  shape structural precondition**, since uniform padding hides the mismatch ragged would catch as a shape
+  error); scalar mul/neg leave the mask; `sum_stack` ORs the mask over the summed stack axes (no-op for a
+  same-mask `K`-stack). Masks never change → no aux_data churn / recompile / `check_ubv_pair` breakage.
+  Constructors fill supercores completely with optional all-True-default masks; `*_like(x)` takes
+  shape+masks+stack from `x` (so `zeros_like(basis)` is the zero tangent carrying the base's gauge masks).
 - **2c-E — `reverse` / `orthogonalize` / `random_orthogonal(_like)`** — direct uniform (`reverse` needs a
   backend `ubv_reverse`; `orthogonalize`/`random_orthogonal` reuse `ut3_orthogonal_representations`).
 - **2c-F — `save`/`load`** (both classes). *(Independent; may move earlier if convenient.)*
