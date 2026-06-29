@@ -405,6 +405,20 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_uniform(lambda b: b.to_dense(), UB)
         self.assert_jit_uniform(lambda u: ubv.UT3Basis.from_ut3(u).to_ut3(), self.ux, returns_ut3=True)
 
+    # ---------------------------------------------------- stack/unstack: masks must stay host under jax
+    def test_stack_unstack_keeps_masks_host(self):
+        # stacking.stack infers ONE backend per call, so stacking a jax object's supercores together with
+        # its host masks would promote the masks to jax. The uniform stack ops split the two calls; this
+        # eager check (stack/unstack are tree ops, not jit targets) guards that masks stay host numpy.
+        import t3toolbox.uniform_basis_variations_format as ubv
+        xs = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=(2,)).to_jax()
+        ux = ut3.UniformTuckerTensorTrain.from_t3(xs)
+        ru = ut3.UniformTuckerTensorTrain.stack(ux.unstack())          # plain UT3
+        self._leaves_all_jax(ru); self.assert_concrete_masks(ru)
+        base, var = ubv.ut3_orthogonal_representations(ux)             # bv frame + variations
+        for r in (ubv.UT3Basis.stack(base.unstack()), ubv.UT3Variations.stack(var.unstack())):
+            self._leaves_all_jax(r); self.assert_concrete_masks(r)
+
     # ------------------------------------------- performance contract: value-hashed masks => no recompile
     def test_mask_rebuild_does_not_recompile(self):
         # A uniform object's masks ride as jax aux_data, so their __hash__/__eq__ are part of the jit cache

@@ -435,5 +435,67 @@ class TestBasePointAndDtype(unittest.TestCase):
             self.assertFalse(jv.to_numpy().contains_jax)
 
 
+class TestStackUnstack(unittest.TestCase):
+    """2c-C: UT3Basis / UT3Variations unstack <-> stack (the stack rides axes 1..len(stack_shape);
+    shape is shared; the four masks unstack along the stack too)."""
+    def setUp(self):
+        np.random.seed(0)
+
+    def _frame(self, ss):
+        import t3toolbox.tucker_tensor_train as t3
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1), stack_shape=ss)
+        base, variations = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
+        return x, base, variations
+
+    def _assert_exact_roundtrip(self, obj, restacked):
+        for a, b in zip(restacked.supercores, obj.supercores):
+            self.assertEqual(float(np.max(np.abs(a - b))), 0.0)        # supercores exact
+        for a, b in zip(restacked.masks.data, obj.masks.data):
+            self.assertTrue(np.array_equal(a, b))                      # masks exact
+
+    def test_basis_stack_is_inverse_of_unstack(self):
+        for ss in [(), (2,), (2, 3)]:
+            with self.subTest(stack=ss):
+                _, base, _ = self._frame(ss)
+                self._assert_exact_roundtrip(base, ubv.UT3Basis.stack(base.unstack()))
+
+    def test_variations_stack_is_inverse_of_unstack(self):
+        for ss in [(), (2,), (2, 3)]:
+            with self.subTest(stack=ss):
+                _, _, var = self._frame(ss)
+                self._assert_exact_roundtrip(var, ubv.UT3Variations.stack(var.unstack()))
+
+    def test_basis_unstack_leaves_reconstruct_per_element(self):
+        x, base, _ = self._frame((2,))
+        tree = base.unstack()                          # 1D stack -> tuple of UT3Basis
+        self.assertEqual(len(tree), 2)
+        xd = x.to_dense()
+        for i in range(2):
+            tree[i].validate()
+            self.assertLess(float(np.linalg.norm(tree[i].to_dense() - xd[i])), 1e-10)
+
+    def test_unstacked_unstack_returns_single_object(self):
+        _, base, _ = self._frame(())
+        self.assertIsInstance(base.unstack(), ubv.UT3Basis)   # no stack axes -> the object itself
+
+    def test_stack_heterogeneous_ranks(self):
+        # the point of the uniform layer: stack frames of DIFFERENT ranks into one batch (common padding),
+        # a varying-rank slice of the determinantal variety. Per-element masks then differ along the stack.
+        import t3toolbox.tucker_tensor_train as t3
+        import t3toolbox.basis_variations_format as bvf
+        xs = [t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)),
+              t3.TuckerTensorTrain.randn((4, 5, 6), (3, 3, 2), (1, 1, 2, 1))]
+        pad = dict(N=6, nU=4, nD=4, rL=3, rR=3)        # common padded dims so they stack
+        ubases = [ubv.UT3Basis.from_t3basis(bvf.t3_orthogonal_representations(x)[0], **pad) for x in xs]
+        stacked = ubv.UT3Basis.stack(ubases)
+        stacked.validate()
+        self.assertEqual(stacked.stack_shape, (2,))
+        self.assertFalse(np.array_equal(stacked.masks.up_mask[:, 0], stacked.masks.up_mask[:, 1]))  # ranks vary
+        tree = stacked.unstack()
+        for i, x in enumerate(xs):
+            self.assertLess(float(np.linalg.norm(tree[i].to_dense() - x.to_dense())), 1e-10)
+
+
 if __name__ == '__main__':
     unittest.main()

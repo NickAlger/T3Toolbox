@@ -184,16 +184,20 @@ def ut3_stack(
     shape = first[2]
     d = first[0].shape[0]
 
-    flat_tree = stacking.apply_func_to_leaf_subtrees(
-        xx,
-        lambda leaf: (leaf[0], leaf[1], leaf[3][0], leaf[3][1]),   # (tk, tt, tucker_mask, tt_mask)
-        ut3_leaf_structure(d),
-    )
+    # Stack the supercores and the masks via SEPARATE stacking.stack calls. stacking.stack infers ONE
+    # backend per call (tree_contains_jax over the whole tree), so a mixed (jax supercore + host mask) call
+    # would promote the masks to jax -- breaking the masks-are-host-numpy invariant. The mask-only call has
+    # no jax inputs, so the masks stay host numpy; the supercores follow xnp as usual.
+    sc_tree   = stacking.apply_func_to_leaf_subtrees(
+        xx, lambda leaf: (leaf[0], leaf[1]), ut3_leaf_structure(d))
+    mask_tree = stacking.apply_func_to_leaf_subtrees(
+        xx, lambda leaf: (leaf[3][0], leaf[3][1]), ut3_leaf_structure(d))
 
-    num_levels = tree_depth_of_tree_over_leaf(flat_tree)
+    num_levels = tree_depth_of_tree_over_leaf(sc_tree)
     axes = tuple(range(1, 1 + num_levels))
 
-    tucker_supercore, tt_supercore, tucker_edge_mask, tt_edge_mask = stacking.stack(flat_tree, axes)
+    tucker_supercore, tt_supercore = stacking.stack(sc_tree, axes)
+    tucker_edge_mask, tt_edge_mask = stacking.stack(mask_tree, axes)
     return tucker_supercore, tt_supercore, shape, (tucker_edge_mask, tt_edge_mask)
 
 

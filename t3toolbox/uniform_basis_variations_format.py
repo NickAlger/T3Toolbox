@@ -12,6 +12,7 @@ import t3toolbox.backend.ubv_conversions as ubv_conversions
 import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.basis_variations_format as bvf
 import t3toolbox.backend.stacking as stacking
+import t3toolbox.backend.ubv_operations as ubv_operations
 import t3toolbox.backend.ubv_masking as masking
 import t3toolbox.backend.common as common
 from t3toolbox.backend.common import *
@@ -316,23 +317,19 @@ class UT3Basis:
         self.validate()
 
     def unstack(self):
-        """Unstack a stacked UT3Basis into an array-like tree of unstacked UT3Basis.
-
-        DEFERRED -- uniform-fix slice 3a increment 2. The int-tuple ``shape`` is a ``Sequence`` the
-        tree-walker recurses into, so this needs the plain-layer dynamic-leaf-template treatment
-        (``ut3_operations.ut3_leaf_structure`` + a first-leaf drill), not the stale ``basic_uniform_*``.
-        """
-        raise NotImplementedError(
-            'UT3Basis.unstack: rebuild pending (uniform-fix slice 3a, increment 2).')
+        """Unstack a stacked UT3Basis into an array-like tree (shaped like ``stack_shape``) of UT3Basis."""
+        return stacking.apply_func_to_leaf_subtrees(
+            ubv_operations.ubv_unstack(self.data, 4),
+            lambda leaf: UT3Basis(leaf[0], leaf[1], leaf[2], leaf[3], leaf[4], UT3BasisMasks(*leaf[5])),
+            ubv_operations.ubv_leaf_structure(self.d, 4),
+        )
 
     @staticmethod
     def stack(xx):  # Array-like tree of UT3Basis
-        """Stack an array-like tree of UT3Basis into a single UT3Basis.
-
-        DEFERRED -- uniform-fix slice 3a increment 2 (see :py:meth:`unstack`).
-        """
-        raise NotImplementedError(
-            'UT3Basis.stack: rebuild pending (uniform-fix slice 3a, increment 2).')
+        """Stack an array-like tree of UT3Basis into a single stacked UT3Basis."""
+        data_tree = stacking.apply_func_to_leaf_subtrees(xx, lambda b: b.data, None)
+        up, down, left, right, shape, masks = ubv_operations.ubv_stack(data_tree, 4)
+        return UT3Basis(up, down, left, right, shape, UT3BasisMasks(*masks))
 
 
 @dataclass(frozen=True, eq=False)  # eq=False -> the mixin's VALUE-based __hash__/__eq__ stand
@@ -570,16 +567,19 @@ class UT3Variations:
         self.validate()
 
     def unstack(self):
-        """Unstack a stacked UT3Variations. DEFERRED -- uniform-fix slice 3a increment 2 (needs the
-        plain-layer dynamic-leaf-template, like :py:meth:`UT3Basis.unstack`)."""
-        raise NotImplementedError(
-            'UT3Variations.unstack: rebuild pending (uniform-fix slice 3a, increment 2).')
+        """Unstack a stacked UT3Variations into an array-like tree (shaped like ``stack_shape``) of them."""
+        return stacking.apply_func_to_leaf_subtrees(
+            ubv_operations.ubv_unstack(self.data, 2),
+            lambda leaf: UT3Variations(leaf[0], leaf[1], leaf[2], UT3VariationsMasks(*leaf[3])),
+            ubv_operations.ubv_leaf_structure(self.d, 2),
+        )
 
     @staticmethod
     def stack(xx):  # array-like tree of UT3Variations
-        """Stack an array-like tree of UT3Variations. DEFERRED -- uniform-fix slice 3a increment 2."""
-        raise NotImplementedError(
-            'UT3Variations.stack: rebuild pending (uniform-fix slice 3a, increment 2).')
+        """Stack an array-like tree of UT3Variations into a single stacked UT3Variations."""
+        data_tree = stacking.apply_func_to_leaf_subtrees(xx, lambda v: v.data, None)
+        tkv, ttv, shape, masks = ubv_operations.ubv_stack(data_tree, 2)
+        return UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*masks))
 
 
 def check_ubv_pair(base: UT3Basis, variations: UT3Variations) -> None:
