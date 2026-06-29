@@ -1,6 +1,6 @@
 # T3Toolbox — current handoff
 
-_Updated 2026-06-24._
+_Updated 2026-06-29._
 
 ## Where we are
 - **`geometry-refactor` is merged to `main`** (merge commit `bc8692f6`): the geometry
@@ -23,15 +23,26 @@ _Updated 2026-06-24._
   a doctest, the worked example `examples/fit_varied_rank_tensor_newton_cg.py` (adaptive vs uniform
   continuation), and the user doc `docs/rank_continuation.md`. Suite green. New public API to fold into
   the API-surface/doc passes (R2/R4).
-- **In progress:** the **uniform-layer fix** (the 1.0 centerpiece). Slices 1, 2 ✅; the value-hashed mask
-  holders ✅; **Slice 3a (frame/variations rebuild) is well underway** — `UT3Basis` + `UT3Variations`
-  rebuilt on the int-tuple/value-hashed-holder design, `ut3_orthogonal_representations` runs end-to-end
-  with a frontend + **backend twin**, and the **equivalence-contract anchor passes** (uniform == ragged).
-  **Next: increment 2c** (the smaller leftovers) then **3b** (UT3Tangent + manifold). Suite **345 green**.
-  Full detail in `dev/uniform_fix_plan.md`; the per-increment log is under "Next steps" below. Three
-  design-rationale docs were captured this session: `docs/uniform_svd_prefix_orthogonalization.md`,
-  `docs/uniform_rank_masks_rationale.md` (why masks ≠ maskless), `docs/uniform_backend_jit_recipe.md`
-  (hold masks fixed; the 3b optimizer constraint).
+- **In progress:** the **uniform-layer fix** (the 1.0 centerpiece). Slices 1, 2 ✅; value-hashed mask
+  holders ✅; **Slice 3a / increment 2c COMPLETE (2026-06-29)** — the whole `UT3Basis`/`UT3Variations`
+  foundation buildout is done and verified against the ragged layer, in seven reviewable slices:
+  - **2c-A** cross-layer converters → methods/staticmethods on the uniform classes (`from_t3`/`to_t3`,
+    `from_t3basis`/`to_t3basis`, `from_t3variations`/`to_t3variations`; retired the module funcs);
+  - **2c-B** base-point conversions (`to_ut3`/`to_dense`/`from_ut3`) + dtype/copy/repr (deep-copy fixed
+    across all three uniform classes);
+  - **2c-C** `unstack`/`stack` (backend `ubv_operations`; also fixed a latent masks-promotion bug in the
+    plain `ut3_stack` — separate stack calls so host masks stay numpy under jax);
+  - **2c-D** `UT3Variations` vector space + constructors (fixed-rank corewise algebra; same-mask
+    precondition; doc `docs/uniform_masks_vs_ranks.md` "tangent vector-space ops");
+  - **2c-E** `reverse`/`orthogonalize`/`random_orthogonal`;
+  - **2c-F** `save`/`load`;
+  - **2c-G** per-element checker semantics (G1: residual checkers across the verified layer → `stack_shape`
+    + safety `.all()` at call sites; G2: uniform-native masked-Gram `UT3Basis` checkers + per-element
+    `allclose`). `has_minimal_ranks` stays scalar in ragged (shared ranks), per-element in uniform.
+  Full suite **387 green / 39 214 subtests**; doctests + jax dispatch covered. Detail + the
+  design decisions in `dev/uniform_fix_plan.md`. **Next: 3b** (UT3Tangent + uniform_manifold — drop the
+  `OLD_uniform` import + the `if False:` dead code; geometry/derivative probing; the jit/recompile
+  constraint in `docs/uniform_backend_jit_recipe.md`; fix `check_ubv_pair` for the `K` tangent stack).
 
 ## Knowledge architecture (decided this session)
 - `docs/` = durable **design / reference / style** docs → to be distilled into user docs
