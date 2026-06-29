@@ -229,3 +229,170 @@ Rationale: one kind of change per slice; keep the working ragged layer stable; d
 
 **Open verifications:** a norm/inner orthogonalize-path smoke test (correctness is a proof modulo roundoff,
 not an open question); confirm no path relies on a non-prefix `shape_mask`.
+
+---
+
+# Increment 2c — detailed plan (2026-06-29)
+
+_The bv-layer foundation buildout: the converters + the `UT3Basis`/`UT3Variations` method buildout,
+mirroring ragged `T3Basis`/`T3Variations` **only where the uniform structure earns it**. Designed with
+Nick 2026-06-29; PENDING his review before we start. Done in slices 2c-A … 2c-G, one at a time._
+
+## Guiding principle (the triage lens)
+- **Does the method use the uniform structure nontrivially?** If there is no computational disadvantage to
+  doing it in the ragged layer then converting, *consider not mirroring it*. If it is naturally done
+  differently in uniform — a vectorized supercore op (einsum / slice / `[::-1]` over the leading `d` axis)
+  where ragged loops core-by-core — it **earns its keep**.
+- **Do uniform things directly**, not via ragged methods + conversions, wherever reasonable. (Canonical:
+  `bv_to_ut3` must substitute a *slice of the variation supercore into the frame supercore* — NOT convert
+  to ragged, call `bv_to_t3`, and convert back, as the old `if False` stub did.)
+- Not a hard rule; applied within reason.
+
+Outcome of applying it: nearly everything earns its keep (uniform realizes it as a vectorized supercore
+op). The only outright **drop** is `to_vector`/`from_vector`.
+
+## Settled design decisions (2026-06-29)
+- **Drop `size`/`data_size` from the uniform bv layer.** Precedent: the plain `UniformTuckerTensorTrain`
+  already omits both (`data_size` is ambiguous under padding + mixed bool/float; `size = prod(shape)` is
+  well-defined but the plain layer still omits it). If the uniform tangent (3b) needs a footprint metric,
+  define it there as padded-supercore entry count.
+- **Drop `to_vector`/`from_vector` from the uniform layer.** Their purpose is interop with external
+  flat-vector optimizers (scipy etc.), which cannot exploit the uniform structure; that user is better
+  served by the flat layer.
+- **Checkers return per-stack-element results.** The determinantal-variety premise is that ranks vary per
+  stack element, so "is element `[i,j]` orthogonal / minimal" is the fact, not a collapsed bool. Rule:
+  - residual properties reduce **only over non-stack axes** → shape `stack_shape` (scalar when unstacked);
+  - predicates (`is_orthogonal`, `has_minimal_ranks`, `is_consistent`, `allclose`) → bool arrays of shape
+    `stack_shape`;
+  - safety preconditions that must branch add `.all()` **at the call site** (the checker stays per-element).
+  This requires **revisiting the verified ragged checkers AND `TuckerTensorTrain`** for the same
+  semantics — a wide-blast-radius API change (doctests print `True`; safety does `bool(...)`). Done **LAST**
+  (slice 2c-G), full-suite gated, with the exact ragged return-type change pinned down first. New uniform
+  checkers are per-element from the start.
+
+## Converter inventory + homes
+**Placement rule (Nick's):** a converter **tied to one class** lives with it — **method** if `to_`,
+**staticmethod** if `from_`; a converter **combining two peer classes** is a **standalone function**.
+Placement follows logical dependency: `TuckerTensorTrain` stands alone and does not know
+`UniformTuckerTensorTrain`; the uniform classes import and know the ragged ones, so **all ragged↔uniform
+converters live in the uniform modules**. The backend `.data`-level functions (`ut3_conversions`,
+`ubv_conversions`) are unaffected — this governs only the **frontend** wrapper.
+
+### Within-layer (frame/variations/tangent ↔ tensor, one representation)
+| Operation | Ragged | Uniform | Home |
+|---|---|---|---|
+| Orthogonal rep: tensor → (frame, variations) | `t3_orthogonal_representations` | `ut3_orthogonal_representations` ✅ | **standalone** (produces two peers) |
+| Frame → its base point | `T3Basis.to_t3` | `UT3Basis.to_ut3` | **method** |
+| Tensor → its frame (convenience = orth-rep[0]) | `T3Basis.from_t3` | `UT3Basis.from_ut3` | **staticmethod** |
+| Single-variation substitution → tensor | `bv_to_t3` | ~~`ubv_to_ut3`~~ **DROPPED** (see Refinements round 2) | — |
+| Whole tangent → tensor (doubled-rank efficient formula) | `T3Tangent.to_t3` | `UT3Tangent.to_ut3` (3b) | **method** |
+| → dense | `*.to_dense` | `*.to_dense` | **method** |
+
+~~`bv_to_ut3` (genuinely uniform): …~~ **DROPPED** — see "Refinements (round 2)" below. (The substituted
+left/right subchains are differently-shaped supercores glued by the variation; there is no clean single
+uniform supercore op, which is why the old `if False` stub went via ragged. Low importance; dropped for
+now, maybe permanently.)
+
+### Cross-layer (ragged ↔ uniform) — ALL migrated to methods/staticmethods on the uniform class
+These were always intended to be methods; the existing module-func forms are retired here.
+| Pair | uniform→ragged (method) | ragged→uniform (staticmethod) | Retires |
+|---|---|---|---|
+| tensor | `UniformTuckerTensorTrain.to_t3` | `.from_t3` | `ut3_to_t3` / `t3_to_ut3` |
+| frame | `UT3Basis.to_t3basis` | `.from_t3basis` | `ut3basis_to_t3basis` (module func) |
+| variations | `UT3Variations.to_t3variations` | `.from_t3variations` | — (new) |
+| tangent (3b) | `UT3Tangent.to_t3tangent` | `.from_t3tangent` | — (new) |
+
+## Method disposition (the `UT3Basis`/`UT3Variations` buildout)
+| Ragged method(s) | Verdict | Uniform-native realization |
+|---|---|---|
+| `unstack` / `stack` | port | tree machinery over supercores+masks (mirror `ut3_operations`); dynamic-leaf-template |
+| `to_ut3` / `to_dense` / `from_ut3` | port | direct supercore restructure; `to_dense = to_ut3().to_dense()` |
+| `to_jax`/`to_numpy`/`copy`/`contains_jax`/`__repr__` | port | supercores convert; masks stay `np` |
+| `size` / `data_size` | **drop** | (see decisions) |
+| `__add__`/`__sub__`/`__mul__`/`__neg__`/`sum_stack`/`allclose` (Variations) | port | `corewise_*` on supercore arrays + carry masks; vectorized |
+| `zeros`/`randn`/`unit`/`zeros_like`/`randn_like` (Variations) | port | build padded supercores + masks directly |
+| `reverse` | port | `[::-1].swapaxes` + L/R swap (mirror `ut3_reverse`) |
+| `orthogonalize` / `random_orthogonal(_like)` | port | via `ut3_orthogonal_representations` — uniform-native |
+| checkers (`is_orthogonal`/`orthogonality_residual`, minimal-rank family, `is_consistent`, `allclose`) | port | masked-supercore einsum vs the **mask-prefix identity**, reduced over non-stack axes (per-element) |
+| `to_vector` / `from_vector` | **drop** | external flat-optimizer interop → use the flat layer |
+| `save` / `load` | port | mirror plain-UT3 3-family (supercores + shape + masks) |
+
+## The slices (done one at a time)
+- **2c-A — Cross-layer converters → methods (B1 tensor, B2 frame, B3 variations).** Add the missing
+  backend twins (`t3basis_to_ut3basis`, `ut3variations_to_t3variations`, `t3variations_to_ut3variations`;
+  `ut3basis_to_t3basis` exists). Move the frontend wrappers to method/staticmethod form on the uniform
+  classes; **retire** `t3_to_ut3`/`ut3_to_t3`/`ut3basis_to_t3basis` module funcs and update all call sites +
+  tests/doctests. Pad policy mirrors `t3_to_ut3` (max-over-modes, optional overrides). *First — the glue used
+  to test the rest; touches plain-layer consumers (grep), so full-suite gate.*
+- **2c-B — Within-layer frame → tensor + dtype utils.** `UT3Basis.to_ut3`/`to_dense`/`from_ut3`, and the
+  dtype/structural utilities (`to_jax`/`to_numpy`/`copy`/`contains_jax`/`__repr__`) on both classes.
+  (`ubv_to_ut3` dropped — see Refinements round 2.)
+- **2c-C — `unstack`/`stack`.** New backend `ubv_operations` mirroring `ut3_operations` (dynamic-leaf
+  template + first-leaf drill); frontend wrappers on both classes.
+- **2c-D — `UT3Variations` vector space + constructors.** `__add__`/`__sub__`/`__mul__`/`__rmul__`/`__neg__`/
+  `sum_stack`/`allclose`; `zeros`/`randn`/`unit`/`zeros_like`/`randn_like` — all direct on supercores.
+- **2c-E — `reverse` / `orthogonalize` / `random_orthogonal(_like)`** — direct uniform (`reverse` needs a
+  backend `ubv_reverse`; `orthogonalize`/`random_orthogonal` reuse `ut3_orthogonal_representations`).
+- **2c-F — `save`/`load`** (both classes). *(Independent; may move earlier if convenient.)*
+- **2c-G — Checkers + per-element-semantics revisit** (ragged `T3Basis`/`T3Variations` + `TuckerTensorTrain`
+  + plain `UniformTuckerTensorTrain`). **Last**, full-suite gated, exact ragged return-type change pinned
+  down first (see decisions).
+
+_Dependencies: 2c-A first (glue). `orthogonalize` (2c-E) needs `to_ut3` (2c-B). 2c-G last. The rest are
+largely independent._
+
+_After 2c → **3b** (UT3Tangent + uniform_manifold): the tangent converters (A5 `UT3Tangent.to_ut3`,
+B4 `from_t3tangent`/`to_t3tangent`), geometry, derivative probing._
+
+## Refinements (2026-06-29, round 2) — stacking/masking pre-mortem
+A careful pass over the two historically-tricky areas (stacking, masking), grounded in the code, settled
+these. They AMEND the slices above.
+
+- **`ubv_to_ut3` DROPPED.** Substituting a variation yields a left subchain supercore + a differently-shaped
+  right subchain supercore glued by the variation — not a clean single uniform supercore op (the reason the
+  old `if False` stub went via ragged). Low importance; dropped for now, maybe permanently. (Correct name
+  would have been `ubv_to_ut3`, moot.) 2c-B loses it.
+
+- **Stacking is mirrored from the ragged layer EXACTLY; fix every stacking issue as encountered, never
+  defer.** The ragged model (verified, full of subtle pitfalls we already navigated):
+  - `T3Basis` carries **one** stack `C` (base points), on every core (+ masks, in uniform).
+  - `T3Variations` carries **one** stack and is **split-agnostic** — it does NOT know/store any `K`/`C`
+    partition; `stack_shape` is just its whole leading stack (supercores AND masks ride it together).
+  - `check_bv_pair` only ties them: `base.stack_shape` (`C`) must be the **inner/trailing suffix** of
+    `variations.stack_shape`, plus the holes match. No split is computed here.
+  - `T3Tangent` **infers** the split, never stores it: `C = basis.stack_shape`, `K = variations.stack_shape`
+    minus that suffix, full `= K + C` (base-inner: variation cores stack `K + C + (core,)`).
+  - **Resolved my earlier Model-A/B "where do the variation masks live" fork: there is no fork.** The
+    variation carries one stack including its masks (split-agnostic); nothing is "constant over K" from the
+    variation's view. The uniform layer mirrors this verbatim.
+
+- **`check_ubv_pair` `K`-stacking BUG → fix in 2c (not 3b).** Today it demands `base.uniform_structure ==
+  variations.uniform_structure`, which includes `stack_shape`, so it *forbids* any tangent-stack excess.
+  Fix to mirror ragged `check_bv_pair`: (1) the stack-free structure `(d,N,nU,nD,rL,rR)` matches; (2) `C` is
+  the inner suffix of the variation stack; (3) rank-structure (mask) match — since masks carry the stack,
+  the base masks (over `C`) equal the variation masks (over `K+C`) **broadcast over the excess `K`**, with
+  the gauge shifts (`basis_left[:-1]`, `basis_right[1:]`). This is the uniform analog of ragged's exact
+  `variation_shapes` match. **Add `K≠()` tests wherever the type permits** (`UT3Variations` ops,
+  `check_ubv_pair`); frames are `C`-only so no `K` there.
+
+- **Checkers (2c-G) — orthogonality principle CLARIFIED.** Each masked supercore slice IS a hypothetical
+  ragged core (slice by mask). Orthogonality = whether *that* ragged core is orthonormal in its sense — e.g.
+  left TT core `tt_sc[i]` masked to `(rLi, nUi, rL(i+1))`, require its `(rLi·nUi, rL(i+1))` left-unfolding
+  has orthonormal columns. This is exactly `ut3_orthogonality_residual`'s masked-Gram-vs-`diag(outgoing_mask)`
+  (the per-element equivalence oracle). Work = extend to the 4 basis senses (U/O/L/R), per-element reduction
+  (keep `stack_shape`), correct *outgoing* mask index per sense (left core `i` → `basis_left_mask[i+1]`).
+  **2c-G goes ragged-FIRST**: build/fix the per-element semantics on `TuckerTensorTrain`/`T3Basis`/
+  `T3Variations` (they become the oracle), then the uniform checkers test against them.
+
+- **Constructors (2c-D) — fill-complete + optional masks.** `zeros`/`randn`/`unit` always fill the supercores
+  completely; the user must supply the (padded) shape; masks are **optional** and default to all-True arrays
+  of the appropriate shapes (full rank). `*_like(x)` derives shape + masks + stack from an object. (`unit`'s
+  index must land in a real slot — trivially true under the all-True default.)
+
+- **`reverse` (2c-E) — oracle.** Left/right swap under reversal; correctness lens is that `reverse` commutes
+  with conversion: `to_t3basis(B.reverse()) == to_t3basis(B).reverse()` (and at the tangent level once 3b
+  lands, `x.reverse().to_t3tangent() == x.to_t3tangent().reverse()`).
+
+- **Oracle gaps acknowledged:** per-element checkers need the ragged per-element version first (hence 2c-G
+  ragged-first); `K`-bugs are only caught by `K≠()` tests (hence add them as we build, per the
+  fix-stacking-now rule).
