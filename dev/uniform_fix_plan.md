@@ -493,3 +493,239 @@ extended to the **four** basis senses (up `U`, down/outer `O`, left `L`, right `
 **Ragged `has_minimal_ranks` (structural): stay scalar (honest — ragged ranks are shared) or broadcast to
 `stack_shape` (one contract across all checkers)?** Recommendation: **stay scalar** (less verified-code
 churn, honest granularity; numerical checkers carry the per-element story).
+
+---
+
+# Increment 3b — uniform tangent + manifold layer (detailed plan, 2026-06-29)
+
+_The final stretch of the 1.0 centerpiece: rebuild the uniform tangent + manifold layer off the new
+`UT3Basis`/`UT3Variations` (2c is done), mirroring ragged `manifold.py` + `backend/tangent_operations.py`.
+Designed with Nick 2026-06-29; PENDING his review before we start. The current `uniform_manifold.py` is a
+graveyard (imports `OLD_uniform`, dead `if False:` blocks, doesn't import) — a full rebuild._
+
+## The three layers we mirror
+1. **`UT3Tangent`** (mirror `T3Tangent`) — a frozen dataclass bundling `(UT3Basis, UT3Variations)`; the
+   `K`/`C` split is **inferred** from the pair, never stored (the split-agnostic stacking of 2c).
+2. **`UniformManifoldGeometry` / `UniformCorewiseGeometry`** (mirror `ManifoldGeometry` / `CorewiseGeometry`)
+   — stateless bundles of `base`/`randn`/`project`/`inner`/`norm`/`retract` (+ `project_ambient`/`transport`
+   on the manifold), with the per-element safe-mode preconditions (`.all()`, from 2c-G).
+3. **backend uniform tangent ops** (mirror `tangent_operations.py`) — the algorithms. **The real work.**
+
+## Guiding principle (reaffirmed for 3b)
+- Mirror where uniform earns it; **do uniform things directly** (vectorized supercore ops), not via
+  ragged-then-convert. Drop only `size`/`data_size` and `to_vector`/`from_vector` (already dropped in 2c).
+- **Scan vs map** (the backend reuse rule):
+  - **Scan-based** ops (TT sweeps: `tt_zipper_*`, the `compute_sigmas`-style edge-variable carries) →
+    **reuse the ragged code polymorphically** by dispatching on `is_uniform` + **mask-once** the supercores
+    first (padded bonds contract to zero; mask-free inside the sweep). Exception: if a sweep must *update*
+    masks mid-stream, don't reuse — but the manifold sweeps contract the fixed orthonormal frame, so
+    mask-once-before suffices.
+  - **Map-based** ops (gauge projection, the doubled-rank build, `assemble_*`) → a **vectorized einsum over
+    the leading `d` axis**, NOT an `xmap` loop and NOT a bare `d...` einsum: for the tangent maps it must
+    treat `W`/`K`/`C` as **separate blocks** (`d`-prefixed grouped-block contractions).
+- **The `W`/`K`/`C` multi-block stacking is the hard, untrusted part** — neither the OLD code nor the
+  current uniform-tangent probing handles the full combination. **Build it ourselves and test every combo**
+  (`W` / `K` / `W+K` / `+C`) against the ragged grouped-block oracle. Do NOT trust OLD stacking or assume a
+  single `d...` prefix is enough.
+
+## Triage — case-by-case
+
+### Layer 1 — `UT3Tangent` (mirror `T3Tangent`)
+Mirror nearly everything, delegating to `UT3Basis`/`UT3Variations`:
+| group | verdict |
+|---|---|
+| structure props (`d`/`shape`/`base_stack_shape`/`tangent_stack_shape`/`stack_shape`/`structure`/`data`) | **mirror** — infer `K`/`C` from the pair |
+| `to_jax`/`to_numpy`/`copy`/`contains_jax`/`__repr__` | **mirror** (delegate) |
+| `size` / `data_size`, `to_vector` / `from_vector` | **drop** (2c decisions) |
+| vector-space (`__add__`/`__sub__`/`__mul__`/`__neg__`), `_check_same_tangent_space`, `sum_tangents`, `normalized`, `zeros`/`unit`/`zeros_like` | **mirror** (delegate to `UT3Variations` + a uniform `safety.frames_equal`) |
+| `corewise_inner`/`corewise_norm`, `allclose` | **mirror, uniform-direct** — supercores are `d`-leading, so reduce over the non-stack axes (like `UT3Variations.allclose`), NOT `corewise_stack_*` |
+| `is_orthogonal`/`minimal_ranks`/`has_minimal_ranks`/`has_numerically_minimal_ranks` | **mirror** (delegate to `UT3Basis`; per-element from 2c-G) |
+| `tangent_space_dimension` | **mirror, per-element** — `int` unstacked, `array(int)` shape `stack_shape` stacked (`manifold_dim` made rank-array-aware) |
+| `gauge_residual`/`is_gauged` | **mirror** — needs the uniform `gauge_residual` backend |
+| `reverse`, `unstack_*`/`stack_*` | **mirror** (the commute-with-conversion lens; reuse `ubv_operations`) |
+| `to_dense`/`to_ut3` (doubled-rank), cross-layer `to_t3tangent`/`from_t3tangent` | **mirror** (see backend) |
+| `probe`/`apply`/`entries` + derivatives + transposes | **mirror by wiring** — but see the probing-tangent gap below (NOT free) |
+| `save`/`load` | **mirror** (basis+variations families, like 2c-F) |
+
+**Prerequisite:** `check_ubv_pair` still **forbids `K`** (confirmed — it compares `uniform_structure`, which
+includes `stack_shape`). Must become the ragged-style suffix check + the mask broadcast-over-`K`.
+
+### Layer 2 — the geometries
+**Mirror all.** `MANIFOLD`: `base`, `randn`, `random_orthogonal`, `randn_like`, `project`/`project_oblique`,
+`inner`/`norm` (+ per-element `.all()` preconditions), `retract`, `project_ambient`, `transport`. `COREWISE`:
+`base` (the `(U,G,G,G)` frame), `randn`, `project` (identity), `inner`/`norm`, `retract` (additive).
+`project_ambient(basis, dense)` does **not** get an efficient native uniform path (see below).
+
+### Layer 3 — backend algorithms (the meaty layer) + reuse map
+| # | op | structure | uniform approach | source |
+|---|---|---|---|---|
+| (a) | `tangent_to_ut3` (doubled-rank) — **keystone** | per-core block-bidiagonal (`[U;V]` tucker concat; 2×2 zero-padded TT blocks; first/mid/last differ) | vectorize the mid-block over `d`; **masks double (concat)** | **port OLD `uniform_tangent_to_uniform_t3` + the mask-concat rule** |
+| (b) | `tangent_to_dense` | sum of `2d` `bv_to_t3` terms (ragged) | **= `to_ut3()(doubled).to_dense()`** (no `bv_to_ut3`) | trivial from (a) |
+| (c) | `retract` | `tangent_to_t3(shift)` → `t3svd` truncate to base ranks | `tangent_to_ut3(shift)` → `ut3.t3svd` truncate to the **base masks**, prefix-slice | OLD skeleton (sub `ut3.t3svd` for vapor `ut3_svd_masked`) |
+| (d) | `orthogonal_gauge_projection` | per-core **map** of `'...'` einsums | vectorized `d`-axis einsum + `[:-1]` boundary + mask-once | **port OLD `ut3_orthogonal_gauge_projection_for_loop`** (identical einsums) |
+| (e) | `oblique_gauge_projection` | **sequential** (compensate through down/right) | sequential; vectorize the independent parts | ragged template (no OLD) |
+| (g) | `project_t3_onto_tangent_space` | TT **zippers** (scan) + per-core map + gauge | reuse zippers (mask-once + polymorphic) + `d`-axis map + uniform gauge | ragged template (no OLD) |
+| (h) | `gauge_residual` | per-core gauge inner products, max | vectorized `d`-axis einsum + masking (per-element, like G1) | ragged template (no OLD) |
+| (f) | `project_dense_onto_tangent_space` | left sweep + per-slot reductions | **DROP the native uniform path** (perf layer; users shouldn't work dense here). Provide the cross-layer hooks (`to_t3basis` + `from_t3tangent`) so dense ground-truth checks go via ragged. | — |
+| — | `tt_zipper_*`, stack/unstack tangent helpers | scans / tree ops | make polymorphic (`is_uniform` + mask-once) / reuse `ubv_operations` | reuse |
+
+## OLD-code mining findings (folded in)
+- **OLD masks are boolean prefix masks** (not float edge-weights) → the supercore einsums port; only the
+  **mask packaging** differs (OLD flat 5-tuple → the new `UT3*Masks` holders).
+- **Fully implemented + portable:** (a) doubled-rank `tangent→ut3` (`uniform_manifold.py:29`) and (d)
+  orthogonal gauge (`:565`, the for-loop — identical einsums to ragged).
+- **The keystone artifact — the doubled-rank mask-concat rule:** `tucker_mask = concat(up, down)`;
+  `tt_mask = concat(left_ext, right_ext)` with `left_ext = [left, ones]`, `right_ext = [ones, right]`
+  (boundary edges padded full). The doubled TT bond is `rL+rR`. **This is the single most valuable thing the
+  OLD code gives us** — the ragged code never had to think about it.
+- **(c) retract skeleton** (`:272`) is correct (doubled-shift → truncate → prefix slice) but calls vapor
+  helpers. **Vapor to ignore:** `ut3_svd_masked`, `ut3_orthogonal_gauge_projection_using_map`,
+  `pack_uniform_tensor_train`.
+- **(e), (g), (h)** have no OLD uniform code → from ragged templates. **(f)** OLD skeleton is debug-only.
+- **OLD stacking is not trusted** (stack-naive concats) — use OLD for the *unstacked* algorithm + the
+  mask-concat rule; **derive + test the `K`/`C`/`W` stacking ourselves.**
+
+## The probing-tangent gap (diagnosed)
+`probing.py` is uniform-polymorphic for the **plain `UniformTTT`** (real `d`-prefixed `WC` contractions,
+`dCio_dWo_to_dWCi` …), but the **uniform *tangent* path is incomplete**:
+- **scan-style** tangent fns are fine: `compute_sigmas` runs `xscan` over `d`, and its step `_sigma_step`
+  uses the proper `WKC` grouped-block contractions.
+- **map-style** tangent fns are **broken for `C≠()` AND `K≠()`** (see "Validation hardening" — NOT just a
+  base `C` stack, and **NOT `compute_dxis`**, which is fine): the broken ones are `compute_detas`,
+  `assemble_tangent_zs`, `compute_dxi_tildes`, `assemble_tucker_variations`, `assemble_tt_variations`. They
+  fall back to raw `d...` einsums (e.g. `einsum('d...i,diaj->d...aj', sigmas, right_tt_cores)` —
+  `right_tt_cores` is `diaj`, **no `...`**, so it assumes `C=()`, and the single `...` conflates `W` with
+  `K`). `compute_deta_tildes` is broken *differently* (a wrong grouped contraction → needs a shared-`C`
+  `dWCo_dCio_to_dWCi`). There are **no `d`-prefixed uniform `WKC` contractions** in `contractions.py`.
+- It is **untested** (no `UT3Tangent` exists yet).
+**Fix (a real sub-slice):** build the `d`-prefixed uniform `WKC` grouped-block contractions in
+`contractions.py` (mirror the ragged `WKC` family, leading-`d` batch) and rewrite the map-style uniform
+tangent branches to use them; test all stacking combos against the ragged `WKC` oracle.
+
+## Other design points
+- **jit/recompile constraint** (`docs/uniform_backend_jit_recipe.md`): the geometry/optimizer must hold
+  masks loop-invariant and trace only supercores; at fixed rank the doubled→truncate masks are
+  deterministic, so the kernel compiles once. Shapes the `retract`/geometry design.
+- **Masking through conversions:** unlike the 2c ops, `to_ut3` is **doubled-rank** — masks change (double
+  via concat), then `retract` truncates back. The boundary `ones`-padding in the mask-concat is the
+  error-prone spot.
+- **`K` everywhere:** variations carry `K+C`; einsums ride it (or the `d`-prefixed grouped-block
+  contractions handle it); add `K≠()` tests throughout (fix-stacking-now).
+
+## Sub-slices (dependency-ordered)
+- **3b-0** — `check_ubv_pair` `K`-fix (prerequisite; small): suffix check on `C` + mask broadcast-over-`K`.
+- **3b-1** — `UT3Tangent` skeleton: bundle + `K`/`C` inference, vector-space ops, `stack`/`unstack`,
+  constructors, dtype/copy/repr, `reverse`. No backend math yet.
+- **3b-2** — **keystone**: backend `tangent_to_ut3` (doubled-rank, port (a) + mask-concat) +
+  `UT3Tangent.to_ut3`/`to_dense` (b) + `retract` (c). Verify per-element vs the ragged doubled-rank `to_t3`
+  and `retract` (equivalence contract).
+- **3b-3** — gauge: `orthogonal_gauge_projection` (port (d)) + `oblique_gauge_projection` (e) +
+  `gauge_residual`/`is_gauged` (h).
+- **3b-4** — `project_t3_onto_tangent_space` (g) only (drop (f); reuse zippers via mask-once). Cross-layer
+  `to_t3tangent`/`from_t3tangent`.
+- **3b-5** — the two geometries (`UniformManifoldGeometry`/`UniformCorewiseGeometry`), wired with the jit
+  constraint + per-element preconditions.
+- **3b-6** — the `d`-prefixed uniform `WKC` grouped-block contractions + fix the map-style uniform tangent
+  probing + wire `UT3Tangent.probe`/`apply`/`entries` (+ derivatives). Plus the old Slice-4 ragged-poly gaps
+  (`_apply_transpose_adjoint`, the `Sequence` signatures).
+- **3b-7** — tests/doctests sweep (equivalence contract, `K≠()`); **delete `OLD_uniform*` + the `if False:`
+  graveyard** once functionality is confirmed preserved.
+
+## Testing strategy
+Per slice: the **equivalence contract** `to_ragged(uniform_op(to_uniform(x))) == ragged_op(x)` per stack
+element (the tangent oracle is `to_t3tangent` / the doubled-rank `to_t3`). **Include `K≠()`** (tangent
+stack) tests everywhere the type permits. For the `WKC` contractions: test every `W`/`K`/`W+K`/`+C` combo
+against the ragged grouped-block result. jax dispatch in `test_dispatch` (masks stay host; jit the kernel).
+
+## Validation hardening (2026-06-29) — pins from the cold-resume validation pass
+
+_Three fresh agents read the 3b plan with NO prior context and reproduced the intended decisions; these
+are the underspecifications + one error they surfaced. **These pins SUPERSEDE the prose above where they
+conflict.** Read this subsection before starting any 3b slice._
+
+### Corrections to the prose above
+- **`compute_dxis` is NOT broken** (error above): it dispatches to the proper `d`-prefixed
+  `dCio_dWo_to_dWCi` and handles `C` and `K`. The broken map-style uniform tangent functions are exactly:
+  `compute_detas`, `assemble_tangent_zs`, `compute_dxi_tildes`, `assemble_tucker_variations`,
+  `assemble_tt_variations`, and `compute_deta_tildes`.
+- **The probing diagnosis is `C≠()` AND `K≠()`**, not just "a base `C` stack": the raw-`d...` einsums give
+  the cores no stack-subscript home and the single `...` conflates `W` with `K`.
+- **`compute_deta_tildes` is a *wrong-contraction* case, not a raw-`d...` one**: it calls the outer-product
+  `dCio_dWo_to_dWCi` where it needs a **shared-`C`** twin. So 3b-6 must also add a 2-block
+  **`dWCo_dCio_to_dWCi`** (mirror ragged `WCo_Cio_to_WCi`) — "mirror the `WKC` family" does not cover it.
+
+### Keystone (3b-2) — the load-bearing pins
+- **Signature:** `tangent_to_ut3(basis_data, variations_data, include_shift=False)` (model on ragged
+  `tangent_operations.tangent_to_t3`). Doubled masks from the variation's length-`d`
+  `variations_left/right_mask` + the basis/variation `up`/`down` masks.
+- **The doubled-rank mask rule (EXACT — the #1 correctness trap):**
+  - `tucker_mask = concat([up_mask, down_mask], axis=-1)` -> `(d,)+stack+(nU+nD,)`.
+  - `left_ext  = concat([variations_left_mask,  ones((1,)+stack+(rL,))], axis=0)` -> `(d+1,)+stack+(rL,)`.
+  - `right_ext = concat([ones((1,)+stack+(rR,)), variations_right_mask],  axis=0)` -> `(d+1,)+stack+(rR,)`.
+  - `tt_mask = concat([left_ext, right_ext], axis=-1)` -> `(d+1,)+stack+(rL+rR,)`.
+  - **TRAP:** the appended boundary slot is **`ones` (FULL)**, NOT `basis_left_mask[d]`/`basis_right_mask[0]`
+    (those hold the real boundary rank ~1 -> WRONG). The interior source is the **length-`d`
+    `variations_*` masks** (= `basis_*_mask[:-1]` / `[1:]`).
+- **Stacking discipline (do NOT trust OLD):** OLD uses positive `axis=1/2/3` + stack-free `Z` zeros —
+  correct only for `stack=()`. Use **negative axes** (`-1/-2/-3`) and **broadcast each base supercore
+  (stack `C`) up to `K+C`** (mirror ragged `tangent_to_t3`'s `bcast2`/`bcast3`); shape the `Z` zero-blocks
+  on `K+C`. Test `C≠()`, `K≠()`, `K+C` (x `include_shift ∈ {False,True}`).
+- **`include_shift`:** OLD and ragged fold the last-core shift into *different* zero-block arrangements;
+  pick ONE convention and verify dense-equivalence in **both** modes (don't assume the two references agree
+  structurally).
+- **Oracle (until 3b-4):** `to_t3tangent`/`from_t3tangent` do NOT exist at 3b-2. Build the ragged oracle
+  from the **2c converters**: `bvf.T3Tangent(B.to_t3basis(), V.to_t3variations()).to_t3(include_shift)`
+  (then `.to_dense()`, or `tangent_operations.tangent_to_dense`). Cleanest comparison is **dense**
+  (stack- and mask-aware), ~1e-13, per stack element. _(This corrects the "Testing strategy" line, which
+  names `to_t3tangent` — that converter is a 3b-4 deliverable.)_
+
+### Retract (3b-2 (c)) — the `K`-stack gap
+- `retract` = `tangent_to_ut3(shift)` -> `ut3.t3svd(max_tucker_ranks, max_tt_ranks)` truncate ->
+  prefix-slice supercores to base padded dims (`nU`, `rL`, `N`).
+- **`K`-stack:** base ranks are `(d,)+C` / `(d+1,)+C` but the shifted ut3 is `K+C`, so they won't
+  right-align — **reshape base ranks to `(d,)+(1,)*|K|+C`** before `t3svd`. (The plan's retract item was
+  silent on `K`.)
+- The retracted UT3 carries the **base masks** (truncation targets the base ranks).
+
+### Backend reuse (scan vs map) — clarifications
+- **Editing verified `tangent_operations.py` in place is SANCTIONED** for the scan reuse (make the
+  `tt_zipper_*` + `reverse_tt` dispatch on `is_uniform`; mask-once the supercores first). Precedent:
+  `orthogonal_representations`, `probing` are already inferred-`is_uniform`. Wide blast radius -> **grep
+  all consumers + full-suite gate.**
+- **Mask-once happens in the *calling* tangent function**, before the contraction/sweep; the `d`-prefixed
+  contractions and the reused zippers stay **mask-agnostic** (padded bonds contract to zero because the
+  operands were zeroed upfront).
+- **"Map -> vectorized `d`-axis einsum" is a PERF rule, not correctness:** a correct-but-looped first cut
+  is acceptable, then optimized. Get the equivalence-contract green first, optimize after.
+
+### 3b-0 `check_ubv_pair` `K`-fix — the exact mask comparison
+1. Compare the **stack-free** structure `(d,N,nU,nD,rL,rR)` (slice `uniform_structure[:6]`), not the full
+   7-tuple (whose trailing `stack_shape` is what wrongly rejects `K`).
+2. Require `base.stack_shape` to be the **trailing suffix** of `variations.stack_shape`
+   (`var_stack[len(var_stack)-len(base_stack):] == base_stack`).
+3. Rank-mask match **broadcast over the excess `K`** (keep the gauge shifts `basis_left_mask[:-1]` /
+   `basis_right_mask[1:]`): `np.array_equal(np.broadcast_to(base_mask_reshaped_with_K_axes, var_mask.shape),
+   var_mask)` — i.e. the variation mask is constant along `K` and equals the base mask. Add `K≠()` tests
+   (the only doctest uses `stack_shape=()`).
+
+### Slice gating + drops
+- **Slice gating:** each slice is gated on the **prior slice's equivalence-contract tests being green**
+  (a resumer must re-verify the keystone before building the gauge layer on it).
+- **`project_dense` fallback ordering:** the go-via-ragged dense path needs **`from_t3tangent`**, which
+  only lands in **3b-4** — so the dense-ground-truth round-trip is unavailable until then (`to_t3basis`
+  already exists from 2c-A; the in-the-middle step is ragged `MANIFOLD.project_ambient(basis, dense)`).
+- **`size`/`data_size` is a *conditional* drop** (define a padded-supercore-entry footprint in 3b if the
+  tangent needs one), not a hard removal.
+
+### `d`-prefixed contraction inventory to build (3b-6)
+Mirror each ragged `WKC` with a leading shared `d` (strip `d`, derive block shapes, flatten each block
+keeping `d`, `_grouped_einsum`). Per broken function:
+- `compute_detas`: `dWKCa_dCaib_dWCb_to_dWKCi`, `dWCa_dKCaib_dWCb_to_dWKCi` (n_base), `dWCa_dCaib_dWKCb_to_dWKCi`.
+- `assemble_tangent_zs`: `dWKCi_dCio_to_dWKCo`, `dWCi_dKCio_to_dWKCo` (n_base).
+- `compute_deta_tildes`: `dWCo_dCio_to_dWCi` (shared-`C`, no `K`).
+- `compute_dxi_tildes`: `dWKCa_dCaib_dWCb_to_dWKCi`, `dWCa_dCaib_dWKCb_to_dWKCi`.
+- `assemble_tucker_variations`: `dWKCo_dWCa_to_{dWKCao,dKCao}` (n_probe), `dWo_dWKCa_to_{dWKCao,dKCao}`.
+- `assemble_tt_variations`: `dWCi_dWCa_dWKCj` / `dWKCi_dWCa_dWCj` / `dWCi_dWKCa_dWCj` -> `d{WKCiaj,KCiaj}` (n_probe).
+**Oracle:** per leading-`d` index, the `d`-prefixed contraction must equal the ragged `WKC` applied to
+`operand[i]`; test all `W`/`K`/`W+K`/`+C` combos. (Ragged `WKC` family + the existing `d`-prefixed plain
+2-block contractions: `backend/contractions.py` ~lines 315–461 (`dCio_dWo_to_dWCi`, …) and ~759–1357.)
