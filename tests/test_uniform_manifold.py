@@ -66,6 +66,82 @@ def _hetero_tangents(seed=0):
     return us, rs
 
 
+# ------------------------------------------------------------------ 3b-4c hardening helpers
+# Forced padding STRICTLY above the real max ranks of _STRUCT (nU=3, nD<=4, rL=rR=2; N=6) so EVERY core
+# has a padded region (default from_t3 pads to max(ranks), leaving the max-rank core unpadded).
+_PAD_T3   = dict(N=8, n=5, r=4)                                  # UniformTuckerTensorTrain.from_t3
+_PAD_BV   = dict(N=8, nU=5, nD=5, rL=4, rR=4)                    # from_t3basis / from_t3variations
+
+
+def _base(x, force_pad=False):
+    """Orthogonal uniform frame + variations of x; force_pad pads every core (vs the tight default)."""
+    ux = ut3.UniformTuckerTensorTrain.from_t3(x, **_PAD_T3) if force_pad else ut3.UniformTuckerTensorTrain.from_t3(x)
+    return ubv.ut3_orthogonal_representations(ux)
+
+
+def _corrupt(obj, scale=1e3):
+    """Add ``scale`` * garbage to ``obj``'s masked-out (padding) region; the real region is unchanged.
+
+    The contract says padding is garbage-don't-care, so a correct (mask-once) op must be UNAFFECTED by
+    this; an op that reads raw padding -- or whose output mask is too permissive -- will leak the garbage.
+    ``obj``: UT3Variations / UT3Basis / UniformTuckerTensorTrain (uses its own -- correct -- mask)."""
+    scs = obj.supercores
+    if isinstance(obj, ubv.UT3Variations):
+        ind = ubv.UT3Variations(*[np.ones_like(s) for s in scs], obj.shape, obj.masks).apply_masks().supercores
+        new = [sc + scale * (1.0 - i) for sc, i in zip(scs, ind)]
+        return ubv.UT3Variations(new[0], new[1], obj.shape, obj.masks)
+    if isinstance(obj, ubv.UT3Basis):
+        ind = ubv.UT3Basis(*[np.ones_like(s) for s in scs], obj.shape, obj.masks).apply_masks().supercores
+        new = [sc + scale * (1.0 - i) for sc, i in zip(scs, ind)]
+        return ubv.UT3Basis(new[0], new[1], new[2], new[3], obj.shape, obj.masks)
+    if isinstance(obj, ut3.UniformTuckerTensorTrain):
+        ind = ut3.UniformTuckerTensorTrain(*[np.ones_like(s) for s in scs], obj.shape, obj.masks).apply_masks().supercores
+        new = [sc + scale * (1.0 - i) for sc, i in zip(scs, ind)]
+        return ut3.UniformTuckerTensorTrain(new[0], new[1], obj.shape, obj.masks)
+    raise TypeError(type(obj))
+
+
+def _expected_doubled_masks(basis):
+    """Independently build the doubled (tucker_edge_mask, tt_edge_mask) from the BASE ranks + the paper
+    rule (eqs 50-53) -- a different derivation than tangent_to_ut3's concat, so the comparison is
+    non-circular. Tucker = prefix-pair [up | down]; TT bond = [Q-block | P-block] with honest boundaries
+    (Q0=0, Qi=right_rank_i; Pd=0, Pi=left_rank_i)."""
+    nU, nD, rL, rR = basis.nU, basis.nD, basis.rL, basis.rR
+    up_r, down_r = np.asarray(basis.up_ranks), np.asarray(basis.down_ranks)      # (d,)  +C
+    left_r, right_r = np.asarray(basis.left_ranks), np.asarray(basis.right_ranks)  # (d+1,)+C
+    tucker = np.concatenate([np.arange(nU) < up_r[..., None],
+                             np.arange(nD) < down_r[..., None]], axis=-1)        # (d,)+C+(nU+nD,)
+    q = right_r.copy(); q[0] = 0                                                 # Q honest at the left boundary
+    p = left_r.copy();  p[-1] = 0                                                # P honest at the right boundary
+    tt = np.concatenate([np.arange(rR) < q[..., None],
+                         np.arange(rL) < p[..., None]], axis=-1)                 # (d+1,)+C+(rR+rL,)  [Q | P]
+    return tucker, tt
+
+
+def _bc_over_K(m, K):  # (lead,)+C+(size,) -> (lead,)+K+C+(size,): a base mask broadcast over the tangent stack
+    return np.broadcast_to(m.reshape(m.shape[:1] + (1,) * len(K) + m.shape[1:]),
+                           m.shape[:1] + tuple(K) + m.shape[1:])
+
+
+def _prefix(ranks, size):  # int ranks -> boolean prefix mask of width `size` (the canonical form)
+    return np.arange(size) < np.asarray(ranks)[..., None]
+
+
+def _is_prefix(mask):  # True if every edge of `mask` is a boolean prefix (canonical form), i.e. no gaps
+    return bool(np.array_equal(mask, _prefix(mask.sum(axis=-1), mask.shape[-1])))
+
+
+# (stack_shape, K, force_pad): unstacked / C / K / K+C / forced-pad / multi-axis C / multi-axis K
+_CONFIGS = [((), (), False), ((2,), (), False), ((), (3,), False), ((2,), (3,), False),
+            ((), (), True), ((2,), (), True), ((2, 3), (), False), ((), (2, 3), False)]
+
+
+def _make_tangent(stack_shape=(), K=(), force_pad=False, seed=0):
+    np.random.seed(seed)
+    B, V = _base(t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=stack_shape), force_pad=force_pad)
+    return ut3m.UT3Tangent(B, _K_variations(B, K) if K else V)
+
+
 class TestStructureAndInference(unittest.TestCase):
     def setUp(self):
         np.random.seed(0)
@@ -457,13 +533,17 @@ class TestStackUnstack(unittest.TestCase):
 
 
 def _full_unstack(v):
-    """Fully unstack a UT3Tangent into a flat list of single-element (unstacked) tangents, K-major."""
-    if v.tangent_stack_shape:
-        out = []
-        for kt in v.unstack_tangents():
-            out += list(kt.unstack_basis()) if kt.base_stack_shape else [kt]
-        return out
-    return list(v.unstack_basis()) if v.base_stack_shape else [v]
+    """Fully unstack a UT3Tangent into a FLAT list of single-element (unstacked) tangents, K-major then C.
+
+    Handles multi-axis stacks: `unstack_tangents` / `unstack_basis` return a NESTED tree for a multi-axis
+    stack, so flatten it (row-major, matching `reshape(d, -1)` order) before recursing."""
+    if not v.stack_shape:
+        return [v]
+    sub = v.unstack_tangents() if v.tangent_stack_shape else v.unstack_basis()
+    out = []
+    for leaf in ut3m._flatten_tangents(sub):        # flatten the (possibly nested) tree, row-major
+        out.extend(_full_unstack(leaf))
+    return out
 
 
 def _ragged_dense(leaf, shift):  # leaf: an unstacked UT3Tangent -> ragged dense ground truth
@@ -495,11 +575,11 @@ class TestDoubledRankToDense(unittest.TestCase):
                     self._check(ut3m.UT3Tangent(B, V), shift)
 
     def test_base_and_tangent_stacks(self):
-        for stack_shape, K in [((2,), ()), ((), (3,)), ((2,), (3,))]:
-            B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=stack_shape))
-            v = ut3m.UT3Tangent(B, _K_variations(B, K) if K else V)
+        # all of _CONFIGS: C / K / K+C / forced-pad / multi-axis C / multi-axis K (D, E)
+        for ss, K, fp in _CONFIGS:
+            v = _make_tangent(ss, K, fp)
             for shift in (False, True):
-                with self.subTest(stack_shape=stack_shape, K=K, shift=shift):
+                with self.subTest(ss=ss, K=K, fp=fp, shift=shift):
                     self._check(v, shift)
 
     def test_varying_C_ranks(self):
@@ -551,6 +631,134 @@ def _wrap_ut3(data):
     return ut3.UniformTuckerTensorTrain(data[0], data[1], data[2], ut3.UT3Masks(*data[3]))
 
 
+class TestExactMasks(unittest.TestCase):
+    """3b-4c (B): assert EXACT output masks (not just dense), so a too-permissive mask (phantom rank) is
+    caught -- the bug class our dense-on-clean-padding tests are blind to. Expected masks are derived
+    independently (base ranks + the paper rule), so the comparison is non-circular."""
+    def setUp(self):
+        np.random.seed(0)
+        import t3toolbox.backend.ubv_tangent_operations as ubvt
+        self.ubvt = ubvt
+
+    def test_doubled_masks(self):
+        for ss, K, fp in _CONFIGS:
+            v = _make_tangent(ss, K, fp)
+            du = v.to_ut3()
+            exp_tk, exp_tt = _expected_doubled_masks(v.basis)
+            with self.subTest(ss=ss, K=K, fp=fp):
+                self.assertTrue(np.array_equal(du.masks.tucker_edge_mask, _bc_over_K(exp_tk, K)))
+                self.assertTrue(np.array_equal(du.masks.tt_edge_mask, _bc_over_K(exp_tt, K)))
+
+    def test_retract_masks_are_prefix(self):
+        # the retracted ranks can drop BELOW the base ranks (base+tangent may have lower rank -- matches
+        # ragged), so the ground truth is the ragged retract's ranks, checked per element in TestRetract.
+        # Here we only assert the masks are canonical (prefix), which a garbage/non-prefix mask would fail.
+        for ss, K, fp in _CONFIGS:
+            v = _make_tangent(ss, K, fp)
+            ru = _wrap_ut3(self.ubvt.retract(v.basis.data, v.variations.data))
+            with self.subTest(ss=ss, K=K, fp=fp):
+                self.assertTrue(_is_prefix(ru.masks.tucker_edge_mask))
+                self.assertTrue(_is_prefix(ru.masks.tt_edge_mask))
+
+    def test_gauge_preserves_masks(self):
+        for which in ('orthogonal_gauge_projection', 'oblique_gauge_projection'):
+            for ss, K, fp in _CONFIGS:
+                v = _make_tangent(ss, K, fp)
+                gd = getattr(self.ubvt, which)(v.basis.data, v.variations.data)
+                with self.subTest(which=which, ss=ss, K=K, fp=fp):
+                    self.assertEqual(_wrap_var(gd).masks, v.variations.masks)   # gauge must not change the masks
+
+    def test_project_masks_are_gauge_masks(self):
+        for ss, _K, fp in [c for c in _CONFIGS if not c[1]]:                    # project is C-only (no K)
+            B, _ = _base(t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss), force_pad=fp)
+            xu = (ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss), **_PAD_T3)
+                  if fp else ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss)))
+            pv = _wrap_var(self.ubvt.project_ut3_onto_tangent_space(B.data, xu.data))
+            with self.subTest(ss=ss, fp=fp):
+                self.assertEqual(pv.masks, ubv.UT3Variations._variation_masks_of(B))
+
+    def test_stack_unstack_preserves_masks(self):
+        # full unstack then restack: the masks must round-trip exactly (array-level, not just dense)
+        v = _make_tangent((2,), (3,))
+        for leaf in _full_unstack(v):
+            back = ut3m.UT3Tangent.from_t3tangent(leaf.to_t3tangent())
+            self.assertEqual(back.variations.masks, leaf.variations.masks)
+        # varying-C stack_basis preserves each element's (different) masks
+        us, _ = _hetero_tangents()
+        stacked = ut3m.UT3Tangent.stack_basis(us)
+        for i, leaf in enumerate(stacked.unstack_basis()):
+            self.assertEqual(leaf.variations.masks, us[i].variations.masks)
+
+    def test_doubled_masks_varying_C(self):
+        us, _ = _hetero_tangents()
+        v = ut3m.UT3Tangent.stack_basis(us)
+        exp_tk, exp_tt = _expected_doubled_masks(v.basis)
+        du = v.to_ut3()
+        self.assertTrue(np.array_equal(du.masks.tucker_edge_mask, exp_tk))
+        self.assertTrue(np.array_equal(du.masks.tt_edge_mask, exp_tt))
+
+
+class TestGarbageInputRobustness(unittest.TestCase):
+    """3b-4c (A): garbage in the masked-out padding is don't-care -- a correct (mask-once / tight-output-
+    mask) op must give the IDENTICAL result on a garbage-padded input as on a clean one. Catches ops that
+    read raw padding, and (for tangent_to_ut3, which builds from raw supercores) a too-permissive output
+    mask that leaks the garbage."""
+    def setUp(self):
+        np.random.seed(0)
+        import t3toolbox.backend.ubv_tangent_operations as ubvt
+        self.ubvt = ubvt
+
+    def _bv(self, ss, K, fp):
+        v = _make_tangent(ss, K, fp)
+        return v.basis, v.variations
+
+    def test_tangent_to_ut3(self):
+        for ss, K, fp in _CONFIGS:
+            B, V = self._bv(ss, K, fp)
+            Bc, Vc = _corrupt(B), _corrupt(V)
+            for shift in (False, True):
+                clean = np.asarray(ut3m.UT3Tangent(B, V).to_dense(include_shift=shift))
+                dirty = np.asarray(ut3m.UT3Tangent(Bc, Vc).to_dense(include_shift=shift))
+                with self.subTest(ss=ss, K=K, fp=fp, shift=shift):
+                    self.assertTrue(np.allclose(clean, dirty, atol=1e-9))
+
+    def test_retract(self):
+        for ss, K, fp in _CONFIGS:
+            B, V = self._bv(ss, K, fp)
+            clean = np.asarray(_wrap_ut3(self.ubvt.retract(B.data, V.data)).to_dense())
+            dirty = np.asarray(_wrap_ut3(self.ubvt.retract(_corrupt(B).data, _corrupt(V).data)).to_dense())
+            with self.subTest(ss=ss, K=K, fp=fp):
+                self.assertTrue(np.allclose(clean, dirty, atol=1e-9))
+
+    def test_gauge(self):
+        for which in ('orthogonal_gauge_projection', 'oblique_gauge_projection'):
+            for ss, K, fp in _CONFIGS:
+                B, V = self._bv(ss, K, fp)
+                proj = getattr(self.ubvt, which)
+                clean = np.asarray(ut3m.UT3Tangent(B, _wrap_var(proj(B.data, V.data))).to_dense())
+                dirty = np.asarray(ut3m.UT3Tangent(B, _wrap_var(proj(_corrupt(B).data, _corrupt(V).data))).to_dense())
+                with self.subTest(which=which, ss=ss, K=K, fp=fp):
+                    self.assertTrue(np.allclose(clean, dirty, atol=1e-9))
+
+    def test_gauge_residual(self):
+        for ss, K, fp in _CONFIGS:
+            B, V = self._bv(ss, K, fp)
+            clean = np.asarray(self.ubvt.gauge_residual(B.data, V.data))
+            dirty = np.asarray(self.ubvt.gauge_residual(_corrupt(B).data, _corrupt(V).data))
+            with self.subTest(ss=ss, K=K, fp=fp):
+                self.assertTrue(np.allclose(clean, dirty, atol=1e-9))
+
+    def test_project(self):
+        for ss, _K, fp in [c for c in _CONFIGS if not c[1]]:                    # project is C-only
+            B, _ = _base(t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss), force_pad=fp)
+            xt = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss)
+            xu = ut3.UniformTuckerTensorTrain.from_t3(xt, **_PAD_T3) if fp else ut3.UniformTuckerTensorTrain.from_t3(xt)
+            clean = np.asarray(ut3m.UT3Tangent(B, _wrap_var(self.ubvt.project_ut3_onto_tangent_space(B.data, xu.data))).to_dense())
+            dirty = np.asarray(ut3m.UT3Tangent(B, _wrap_var(self.ubvt.project_ut3_onto_tangent_space(_corrupt(B).data, _corrupt(xu).data))).to_dense())
+            with self.subTest(ss=ss, fp=fp):
+                self.assertTrue(np.allclose(clean, dirty, atol=1e-9))
+
+
 class TestRetract(unittest.TestCase):
     """3b-2: backend retract (shifted doubled-rank -> mask-truncated T3-SVD back to the base ranks),
     verified per stack element against the ragged tangent_operations.retract."""
@@ -560,28 +768,32 @@ class TestRetract(unittest.TestCase):
         import t3toolbox.backend.tangent_operations as tops
         self.ubvt, self.tops = ubvt, tops
 
-    def _ragged_retract_dense(self, leaf):
-        cores = self.tops.retract(leaf.basis.to_t3basis().data, leaf.variations.to_t3variations().data)
-        return t3.TuckerTensorTrain(*cores).to_dense()
-
     def _check(self, v):
         ru = _wrap_ut3(self.ubvt.retract(v.basis.data, v.variations.data))
         # retracted padded dims = max actual rank across the stack, never exceeding the base padding
         self.assertLessEqual(ru.n, v.basis.nU)
         self.assertLessEqual(ru.r, v.basis.rL)
+        self.assertTrue(_is_prefix(ru.masks.tucker_edge_mask) and _is_prefix(ru.masks.tt_edge_mask))  # canonical
         dense = np.asarray(ru.to_dense())
         flat = _full_unstack(v)
         dflat = dense.reshape((-1,) + dense.shape[len(v.stack_shape):])
+        # per-element ranks, K-major-then-C (matches _full_unstack); ground truth = the ragged retract
+        utk = np.asarray(ru.tucker_ranks).reshape(ru.d, -1)
+        utt = np.asarray(ru.tt_ranks).reshape(ru.d + 1, -1)
         for i, leaf in enumerate(flat):
-            o = self._ragged_retract_dense(leaf)
-            self.assertLess(float(np.linalg.norm(dflat[i] - o)) / (float(np.linalg.norm(o)) + 1e-30), 1e-9)
+            rT = t3.TuckerTensorTrain(*self.tops.retract(leaf.basis.to_t3basis().data,
+                                                         leaf.variations.to_t3variations().data))
+            rd = rT.to_dense()
+            self.assertLess(float(np.linalg.norm(dflat[i] - rd)) / (float(np.linalg.norm(rd)) + 1e-30), 1e-9)
+            # STRICTNESS: the retracted ranks/masks must match the ragged ground truth EXACTLY -- this is
+            # what catches a phantom (too-permissive) mask that the dense check alone is blind to.
+            self.assertEqual(tuple(int(x) for x in utk[:, i]), tuple(rT.tucker_ranks))
+            self.assertEqual(tuple(int(x) for x in utt[:, i]), tuple(rT.tt_ranks))
 
     def test_stacks(self):
-        for stack_shape, K in [((), ()), ((2,), ()), ((), (3,)), ((2,), (3,))]:
-            B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=stack_shape))
-            v = ut3m.UT3Tangent(B, _K_variations(B, K) if K else V)
-            with self.subTest(stack_shape=stack_shape, K=K):
-                self._check(v)
+        for ss, K, fp in _CONFIGS:                                          # +forced-pad, +multi-axis (D, E)
+            with self.subTest(ss=ss, K=K, fp=fp):
+                self._check(_make_tangent(ss, K, fp))
 
     def test_varying_C_ranks(self):
         us, _ = _hetero_tangents()
@@ -643,24 +855,22 @@ class TestGauge(unittest.TestCase):
 
     def test_orthogonal_gauge_matches_ragged_dense(self):
         # orthogonal projection CHANGES the tangent vector -- compare the changed dense vs ragged per element
-        for ss in [(), (2,)]:
-            B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss))
-            v = ut3m.UT3Tangent(B, V)
+        for ss, K, fp in _CONFIGS:                                          # incl. K (item C), forced-pad, multi-axis
+            v = _make_tangent(ss, K, fp)
             ug = self._gauged_tangent(v, 'orthogonal_gauge_projection')
             dense = np.asarray(ug.to_dense()); dflat = dense.reshape((-1,) + dense.shape[len(v.stack_shape):])
             for i, leaf in enumerate(_full_unstack(v)):
                 rt = self._ragged(leaf)
                 rg = t3m.T3Tangent(rt.basis, bvf.T3Variations(*self.tops.orthogonal_gauge_projection(rt.basis.data, rt.variations.data)))
-                with self.subTest(ss=ss, i=i):
+                with self.subTest(ss=ss, K=K, fp=fp, i=i):
                     self.assertLess(float(np.linalg.norm(dflat[i] - rg.to_dense())) / (float(np.linalg.norm(rg.to_dense())) + 1e-30), 1e-10)
 
     def test_oblique_gauge_preserves_tangent(self):
         # oblique projection PRESERVES the tangent vector (only the representation changes)
-        for ss, K in [((), ()), ((2,), ()), ((), (3,))]:
-            B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss))
-            v = ut3m.UT3Tangent(B, _K_variations(B, K) if K else V)
+        for ss, K, fp in _CONFIGS:
+            v = _make_tangent(ss, K, fp)
             ob = self._gauged_tangent(v, 'oblique_gauge_projection')
-            with self.subTest(ss=ss, K=K):
+            with self.subTest(ss=ss, K=K, fp=fp):
                 self.assertLess(float(np.linalg.norm(np.asarray(ob.to_dense()) - np.asarray(v.to_dense())))
                                 / (float(np.linalg.norm(np.asarray(v.to_dense()))) + 1e-30), 1e-10)
                 self.assertTrue(bool(ob.is_gauged().all()))
