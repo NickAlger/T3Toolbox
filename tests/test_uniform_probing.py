@@ -27,14 +27,52 @@ _CONFIGS = [((), ()), ((2,), ()), ((), (3,)), ((2,), (3,)), ((2, 3), ()), ((), (
 _HETERO = [((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)), ((4, 5, 6), (3, 3, 2), (1, 1, 2, 1))]
 _HETERO_PAD = dict(N=6, nU=4, nD=4, rL=3, rR=3)
 
+# forced padding STRICTLY above the real max ranks of _STRUCT (nU=3, rL=rR=2, N=6) so EVERY core has a
+# padded region (the default from_t3 pads to max(ranks), leaving the max-rank cores clean) -- 3b-6d (E)
+_PAD_T3 = dict(N=8, n=5, r=4)
 
-def _uniform_tangent(C=(), K=(), seed=0):
+
+def _uniform_tangent(C=(), K=(), force_pad=False, seed=0):
     """A random uniform tangent at an orthogonal frame (forward 𝒥 is linear in the variation, so the
     corewise -- ungauged -- random tangent is a fine test input; gauge is irrelevant to 𝒥)."""
     np.random.seed(seed)
     x = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=C)
-    base = ut3m.UNIFORM_MANIFOLD.base(ut3.UniformTuckerTensorTrain.from_t3(x))
-    return ut3m.UNIFORM_COREWISE.randn(base, stack_shape=K)
+    xu = ut3.UniformTuckerTensorTrain.from_t3(x, **_PAD_T3) if force_pad \
+        else ut3.UniformTuckerTensorTrain.from_t3(x)
+    return ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(xu), stack_shape=K)
+
+
+def _corrupt(obj, scale=1e3):
+    """Add ``scale`` * garbage to ``obj``'s masked-out (padding) region; the real region is unchanged.
+    A correct (mask-once) probing op must be UNAFFECTED. ``obj``: UT3Basis / UT3Variations / UniformT3."""
+    scs = obj.supercores
+    ind = type(obj)(*([np.ones_like(s) for s in scs] + [obj.shape, obj.masks])).apply_masks().supercores
+    new = [sc + scale * (1.0 - i) for sc, i in zip(scs, ind)]
+    return type(obj)(*(new + [obj.shape, obj.masks]))
+
+
+def _corrupt_tangent(v, scale=1e3):
+    return ut3m.UT3Tangent(_corrupt(v.basis, scale), _corrupt(v.variations, scale))
+
+
+def _prefix(ranks, size):  # int ranks -> boolean prefix mask of width `size` (canonical form)
+    return np.arange(size) < np.asarray(ranks)[..., None]
+
+
+def _bc_over_K(m, K):  # (d,)+C+(size,) -> (d,)+K+C+(size,)
+    return np.broadcast_to(m.reshape(m.shape[:1] + (1,) * len(K) + m.shape[1:]),
+                           m.shape[:1] + tuple(K) + m.shape[1:])
+
+
+def _expected_gauge_masks(basis, K_new=()):
+    """The variation gauge masks built INDEPENDENTLY from the base ranks + the gauge rule (prefix; the
+    left/right boundary-shifted [:-1] / [1:]), broadcast over the new tangent stack -- a different
+    derivation than the impl's slice of the stored masks, so the comparison catches a boundary slip."""
+    up = _prefix(np.asarray(basis.up_ranks), basis.nU)
+    down = _prefix(np.asarray(basis.down_ranks), basis.nD)
+    left = _prefix(np.asarray(basis.left_ranks)[:-1], basis.rL)
+    right = _prefix(np.asarray(basis.right_ranks)[1:], basis.rR)
+    return tuple(_bc_over_K(m, K_new) for m in (up, down, left, right))
 
 
 def _varying_C_tangent(seed=0):
@@ -277,6 +315,87 @@ class TestUT3CorewiseTranspose(unittest.TestCase):
                 zt = [np.random.randn(*((2,) + C + (N,))) for N in _STRUCT[0]]
                 self._cmp(*xu.probe_corewise_transpose(zt, ww, sum_over_probes=True),
                           *x.probe_corewise_transpose(zt, ww, sum_over_probes=True))
+
+
+class TestUT3ProbingHardening(unittest.TestCase):
+    """3b-6d: mask-strict + garbage-robust hardening of the uniform probing path (per
+    docs/testing_strategy.md). Dense/numerical tests on clean padding are blind to too-permissive masks;
+    these close that with (A) garbage-padded inputs -- mask-once must make every op's output UNCHANGED
+    (clean == dirty, since the garbage contracts to zero) -- and (B) exact transpose output masks derived
+    independently from the base ranks. Forced padding (E) exercises masking on every core."""
+
+    def setUp(self):
+        np.random.seed(4)
+
+    @staticmethod
+    def _equal_supercores(a, b):
+        return all(np.allclose(np.asarray(x), np.asarray(y), atol=1e-9) for x, y in zip(a, b))
+
+    def test_forward_garbage_robust(self):
+        ww = _probe_vectors((2,))
+        index = _index((2,))
+        for C, K, fp in [((), (), False), ((2,), (3,), False), ((), (), True), ((2, 3), (), False)]:
+            with self.subTest(C=C, K=K, fp=fp):
+                v = _uniform_tangent(C, K, force_pad=fp)
+                d = _corrupt_tangent(v)
+                self.assertTrue(self._equal_supercores(v.probe(ww), d.probe(ww)))
+                self.assertTrue(np.allclose(np.asarray(v.apply(ww)), np.asarray(d.apply(ww)), atol=1e-9))
+                self.assertTrue(np.allclose(np.asarray(v.entries(index)), np.asarray(d.entries(index)), atol=1e-9))
+
+    def test_transpose_garbage_robust(self):
+        ww = _probe_vectors((2,))
+        index = _index((2,))
+        for C, K, fp in [((), (), False), ((2,), (3,), False), ((), (), True)]:
+            with self.subTest(C=C, K=K, fp=fp):
+                v = _uniform_tangent(C, K, force_pad=fp)
+                bd = _corrupt(v.basis)                                    # corrupt the basis padding only
+                r = [np.random.randn(*z.shape) for z in v.probe(ww)]
+                c = np.random.randn(*np.asarray(v.apply(ww)).shape)
+                pairs = [(ut3m.UT3Tangent.probe_transpose, (r, ww)),
+                         (ut3m.UT3Tangent.apply_transpose, (c, ww)),
+                         (ut3m.UT3Tangent.entries_transpose, (c, index))]
+                for op, args in pairs:
+                    clean = op(*args, v.basis, sum_over_probes=True)
+                    dirty = op(*args, bd, sum_over_probes=True)
+                    self.assertTrue(self._equal_supercores(clean.variations.supercores, dirty.variations.supercores))
+                    for ma, mb in zip(clean.variations.masks.data, dirty.variations.masks.data):
+                        self.assertTrue(np.array_equal(ma, mb))
+
+    def test_transpose_exact_masks(self):
+        ww = _probe_vectors((2,))
+        index = _index((2,))
+        for C, K, fp in [((), (), False), ((2,), (3,), False), ((), (), True), ((2, 3), (), False), ((), (2, 3), False)]:
+            with self.subTest(C=C, K=K, fp=fp):
+                v = _uniform_tangent(C, K, force_pad=fp)
+                r = [np.random.randn(*z.shape) for z in v.probe(ww)]
+                c = np.random.randn(*np.asarray(v.apply(ww)).shape)
+                for sop in (True, False):
+                    K_new = tuple(K) if sop else (2,) + tuple(K)         # sum: K ; keep: W + K (W = (2,))
+                    exp = _expected_gauge_masks(v.basis, K_new)
+                    outs = [ut3m.UT3Tangent.probe_transpose(r, ww, v.basis, sum_over_probes=sop),
+                            ut3m.UT3Tangent.apply_transpose(c, ww, v.basis, sum_over_probes=sop),
+                            ut3m.UT3Tangent.entries_transpose(c, index, v.basis, sum_over_probes=sop)]
+                    for JT in outs:
+                        for got, e in zip(JT.variations.masks.data, exp):
+                            self.assertTrue(np.array_equal(got, e), msg='sop=%s' % sop)
+
+    def test_corewise_garbage_robust(self):
+        ww = _probe_vectors((2,))
+        index = _index((2,))
+        for C, fp in [((), False), ((2,), False), ((), True)]:
+            with self.subTest(C=C, fp=fp):
+                x = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=C)
+                xu = ut3.UniformTuckerTensorTrain.from_t3(x, **_PAD_T3) if fp \
+                    else ut3.UniformTuckerTensorTrain.from_t3(x)
+                xd = _corrupt(xu)
+                c = np.random.randn(*((2,) + C))
+                zt = [np.random.randn(*((2,) + C + (N,))) for N in _STRUCT[0]]
+                self.assertTrue(self._equal_supercores(xu.apply_corewise_transpose(c, ww, sum_over_probes=True),
+                                                       xd.apply_corewise_transpose(c, ww, sum_over_probes=True)))
+                self.assertTrue(self._equal_supercores(xu.entries_corewise_transpose(c, index, sum_over_probes=True),
+                                                       xd.entries_corewise_transpose(c, index, sum_over_probes=True)))
+                self.assertTrue(self._equal_supercores(xu.probe_corewise_transpose(zt, ww, sum_over_probes=True),
+                                                       xd.probe_corewise_transpose(zt, ww, sum_over_probes=True)))
 
 
 if __name__ == '__main__':
