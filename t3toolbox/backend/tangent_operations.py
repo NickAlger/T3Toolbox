@@ -10,6 +10,7 @@ import numpy as np
 
 import t3toolbox.backend.bv_conversions as bv_conversions
 import t3toolbox.backend.t3_operations as ragged_operations
+import t3toolbox.backend.ut3_operations as uniform_operations
 import t3toolbox.backend.t3_svd as ragged_t3svd
 import t3toolbox.backend.stacking as stacking
 from t3toolbox.backend.common import *
@@ -288,10 +289,14 @@ def tt_zipper_left_to_right(
     """Accumulate left-to-right the partial contractions of two TT chains sharing tensor indices.
 
     Returns d+1 matrices Z_i; Z_0 is the (left-boundary) ones matrix and Z_(i+1) contracts Z_i with
-    cores A_i, B_i. Stack-aware.
+    cores A_i, B_i. Stack-aware. **Polymorphic over the representation** (the scan reuse rule): a ragged
+    core tuple gives a ragged ``xscan`` and a tuple of d+1 matrices; a uniform TT *supercore*
+    (``(d,)+stack+(rA, n, rB)``, detected as a bare ndarray) gives the uniform ``xscan`` over the leading
+    mode axis -- still returned as a tuple of d+1 matrices (the caller stacks if it wants a supercore).
     """
+    is_uniform = is_ndarray(coresA)   # uniform: ONE supercore; ragged: a tuple of cores
     use_jax = tree_contains_jax((coresA, coresB))
-    xnp, _, xscan = get_backend(False, use_jax)
+    xnp, _, xscan = get_backend(is_uniform, use_jax)
 
     def _func(Z, GA_GB):
         GA, GB = GA_GB
@@ -308,10 +313,10 @@ def tt_zipper_right_to_left(
         coresA:     typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(rAi, ni, rA(i+1))
         coresB:     typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(rBi, ni, rB(i+1))
 ) -> typ.Tuple[NDArray, ...]:  # zipper matrices, len=d+1, elm_shape=stack_shape+(rA(i+1), rB(i+1))
-    """As :py:func:`tt_zipper_left_to_right`, accumulating right-to-left."""
-    rev = tt_zipper_left_to_right(
-        ragged_operations.reverse_tt(coresA), ragged_operations.reverse_tt(coresB),
-    )
+    """As :py:func:`tt_zipper_left_to_right`, accumulating right-to-left. Polymorphic: dispatches the
+    reverse to ``reverse_utt`` (uniform supercore) or ``reverse_tt`` (ragged core tuple)."""
+    reverse = uniform_operations.reverse_utt if is_ndarray(coresA) else ragged_operations.reverse_tt
+    rev = tt_zipper_left_to_right(reverse(coresA), reverse(coresB))
     return rev[::-1]
 
 

@@ -24,7 +24,9 @@ import typing as typ
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.ubv_operations as ubv_operations
 import t3toolbox.backend.ubv_masking as ubv_masking
+import t3toolbox.backend.ut3_masking as ut3_masking
 import t3toolbox.backend.ut3_svd as ut3_svd
+import t3toolbox.backend.tangent_operations as tangent_operations
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -33,6 +35,7 @@ __all__ = [
     'orthogonal_gauge_projection',
     'oblique_gauge_projection',
     'gauge_residual',
+    'project_ut3_onto_tangent_space',
     'unstack_tangent_stack',
     'stack_tangent_stack',
     'unstack_base_stack',
@@ -393,3 +396,42 @@ def gauge_residual(
 
     devs = xnp.concatenate([dev_tk, dev_tt[:-1]], axis=0)                      # d Tucker + (d-1) interior TT
     return xnp.max(devs, axis=0)                                              # max over checks, keep the stack
+
+
+def project_ut3_onto_tangent_space(
+        basis_data,  # UT3Basis .data (an orthogonal frame), supercore stack = C
+        x_data,      # UniformTuckerTensorTrain .data to project, supercore stack = C
+):  # -> gauged variations .data (the orthogonal projection of x onto the tangent space at the base)
+    """Orthogonal projection of a uniform Tucker tensor train onto the tangent space at an orthogonal base
+    (the uniform mirror of :py:func:`tangent_operations.project_t3_onto_tangent_space`). Returns gauged
+    variations representing the projection of ``x`` *directly* onto the tangent space (the linear subspace;
+    it does NOT subtract the base point). The base must be orthogonal (minimal rank not required).
+
+    Mask-once up front, then: re-express ``x``'s TT cores in the base's up-Tucker basis (a per-core map
+    vectorized over ``d``); accumulate the left/right TT environments with the polymorphic
+    :py:func:`tangent_operations.tt_zipper_*` (uniform ``xscan``, mask-free since the operands are masked);
+    contract each environment into the ungauged Tucker/TT variations (a ``d``-axis map); then gauge."""
+    up_sc, down_sc, left_sc, right_sc = ubv_masking.apply_basis_masks(basis_data)
+    other_tk, other_tt = ut3_masking.apply_masks_to_cores(x_data)
+    shape = basis_data[4]
+    up_mask, down_mask, basis_left_mask, basis_right_mask = basis_data[5]
+    xnp, _, _ = get_backend(True, tree_contains_jax((up_sc, down_sc, left_sc, right_sc, other_tk, other_tt)))
+
+    # Re-express x's TT cores in the base's up-Tucker basis (vectorized over d).
+    BU1 = xnp.einsum('d...iz,d...xz->d...ix', other_tk, up_sc)                 # B_x U^T, (d,)+stack+(n_x, nU)
+    other_tt2 = xnp.einsum('d...aib,d...ix->d...axb', other_tt, BU1)           # (d,)+stack+(rA, nU, rB)
+
+    # Accumulate the left/right TT environments (polymorphic zippers -> tuples; stack into supercores).
+    zl = xnp.stack(tangent_operations.tt_zipper_left_to_right(other_tt2[:-1], left_sc[:-1]), axis=0)
+    zr = xnp.stack(tangent_operations.tt_zipper_right_to_left(other_tt2[1:], right_sc[1:]), axis=0)
+
+    # Contract the environments into the ungauged variations (vectorized over d).
+    env = xnp.einsum('d...ax,d...aib,d...by->d...xiy', zl, other_tt, zr)       # (d,)+stack+(rL, n_x, rR)
+    BU = xnp.einsum('d...io,d...jo->d...ij', other_tk, up_sc)                  # B_x U^T, (d,)+stack+(n_x, nU)
+    dG = xnp.einsum('d...xiy,d...ij->d...xjy', env, BU)                        # tt variation, (d,)+stack+(rL, nU, rR)
+    M  = xnp.einsum('d...xiy,d...xjy->d...ij', env, down_sc)                   # (d,)+stack+(n_x, nD)
+    dB = xnp.einsum('d...ij,d...io->d...jo', M, other_tk)                      # tucker variation, (d,)+stack+(nD, N)
+
+    # Gauge the ungauged variations (they carry the base's gauge-shifted masks).
+    gauge_masks = (up_mask, down_mask, basis_left_mask[:-1], basis_right_mask[1:])
+    return orthogonal_gauge_projection(basis_data, (dB, dG, shape, gauge_masks))

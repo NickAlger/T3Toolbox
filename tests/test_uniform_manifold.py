@@ -703,6 +703,85 @@ class TestGauge(unittest.TestCase):
         self.assertTrue(np.allclose(dense, ref, rtol=1e-3, atol=1e-3))
 
 
+class TestProjectOntoTangent(unittest.TestCase):
+    """3b-4: backend project_ut3_onto_tangent_space (orthogonal projection of a UT3 onto the tangent space
+    at an orthogonal base), verified per element against ragged project_t3_onto_tangent_space."""
+    def setUp(self):
+        np.random.seed(0)
+        import t3toolbox.backend.ubv_tangent_operations as ubvt
+        import t3toolbox.backend.tangent_operations as tops
+        self.ubvt, self.tops = ubvt, tops
+
+    def _check_pair(self, p, x):  # p, x: ragged TuckerTensorTrains (same shape); project x onto tangent at p's frame
+        B = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(p))[0]
+        xu = ut3.UniformTuckerTensorTrain.from_t3(x)
+        uv = ut3m.UT3Tangent(B, _wrap_var(self.ubvt.project_ut3_onto_tangent_space(B.data, xu.data)))
+        rb = B.to_t3basis()
+        rvar = self.tops.project_t3_onto_tangent_space(rb.data, x.data)
+        rd = t3m.T3Tangent(rb, bvf.T3Variations(*rvar)).to_dense()
+        self.assertLess(float(np.linalg.norm(np.asarray(uv.to_dense()) - np.asarray(rd))) / (float(np.linalg.norm(rd)) + 1e-30), 1e-10)
+        self.assertTrue(bool(uv.is_gauged().all()))
+
+    def test_unstacked_same_and_different_ranks(self):
+        S = (4, 5, 6)
+        self._check_pair(t3.TuckerTensorTrain.randn(S, (2, 3, 2), (1, 2, 2, 1)),
+                         t3.TuckerTensorTrain.randn(S, (2, 3, 2), (1, 2, 2, 1)))     # same ranks
+        self._check_pair(t3.TuckerTensorTrain.randn(S, (2, 3, 2), (1, 2, 2, 1)),
+                         t3.TuckerTensorTrain.randn(S, (3, 2, 3), (1, 1, 2, 1)))     # x has different ranks
+        self._check_pair(t3.TuckerTensorTrain.randn((4, 5, 6, 7), (2, 3, 2, 3), (1, 2, 3, 2, 1)),
+                         t3.TuckerTensorTrain.randn((4, 5, 6, 7), (2, 2, 2, 2), (1, 1, 2, 1, 1)))  # d=4
+
+    def test_C_stacked(self):
+        S = (4, 5, 6)
+        B = ubv.ut3_orthogonal_representations(
+            ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(S, (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))))[0]
+        xs = t3.TuckerTensorTrain.randn(S, (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))
+        xu = ut3.UniformTuckerTensorTrain.from_t3(xs)
+        uv = ut3m.UT3Tangent(B, _wrap_var(self.ubvt.project_ut3_onto_tangent_space(B.data, xu.data)))
+        ud = np.asarray(uv.to_dense())
+        rb_tree, x_tree = B.to_t3basis(), xs.unstack()
+        for i in range(2):
+            rvar = self.tops.project_t3_onto_tangent_space(rb_tree[i].data, x_tree[i].data)
+            rd = t3m.T3Tangent(rb_tree[i], bvf.T3Variations(*rvar)).to_dense()
+            self.assertLess(float(np.linalg.norm(ud[i] - rd)) / (float(np.linalg.norm(rd)) + 1e-30), 1e-10)
+        self.assertTrue(bool(uv.is_gauged().all()))
+
+    def test_varying_C(self):
+        # varying-rank base stack (the rank-sweep case) + a per-element x
+        pad = dict(N=6, nU=4, nD=4, rL=3, rR=3)
+        het = [((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)), ((4, 5, 6), (3, 3, 2), (1, 1, 2, 1))]
+        bases, xs = [], []
+        for s in het:
+            p = t3.TuckerTensorTrain.randn(*s); x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 1, 1))
+            bases.append(ubv.UT3Basis.from_t3basis(bvf.t3_orthogonal_representations(p)[0], **pad))
+            xs.append((ut3.UniformTuckerTensorTrain.from_t3(x, N=6, n=4, r=3), x))
+        B = ubv.UT3Basis.stack(bases)
+        xu = ut3.UniformTuckerTensorTrain.stack([xe[0] for xe in xs])
+        uv = ut3m.UT3Tangent(B, _wrap_var(self.ubvt.project_ut3_onto_tangent_space(B.data, xu.data)))
+        ud = np.asarray(uv.to_dense())
+        for i in range(2):
+            rvar = self.tops.project_t3_onto_tangent_space(bases[i].to_t3basis().data, xs[i][1].data)
+            rd = t3m.T3Tangent(bases[i].to_t3basis(), bvf.T3Variations(*rvar)).to_dense()
+            self.assertLess(float(np.linalg.norm(ud[i] - rd)) / (float(np.linalg.norm(rd)) + 1e-30), 1e-10)
+        self.assertTrue(bool(uv.is_gauged().all()))
+
+    @unittest.skipUnless(HAS_JAX, "jax not installed")
+    def test_jit_project(self):
+        B = ubv.ut3_orthogonal_representations(
+            ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*_STRUCT)))[0].to_jax()
+        xu = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*_STRUCT)).to_jax()
+        bsh, bmk, xsh, xmk = B.data[4], B.data[5], xu.data[2], xu.data[3]
+
+        def f(u, dn, lt, rt, xtk, xtt):
+            vd = self.ubvt.project_ut3_onto_tangent_space((u, dn, lt, rt, bsh, bmk), (xtk, xtt, xsh, xmk))
+            return ut3m.UT3Tangent(ut3m._ut3basis_from_data((u, dn, lt, rt, bsh, bmk)), _wrap_var(vd)).to_dense()
+
+        dense = np.asarray(jax.jit(f)(B.data[0], B.data[1], B.data[2], B.data[3], xu.data[0], xu.data[1]))
+        ref = np.asarray(ut3m.UT3Tangent(B.to_numpy(), _wrap_var(self.ubvt.project_ut3_onto_tangent_space(
+            B.to_numpy().data, xu.to_numpy().data))).to_dense())
+        self.assertTrue(np.allclose(dense, ref, rtol=1e-3, atol=1e-3))
+
+
 class TestCrossLayerConverters(unittest.TestCase):
     """3b-4: UT3Tangent <-> T3Tangent (to_t3tangent / from_t3tangent)."""
     def setUp(self):
