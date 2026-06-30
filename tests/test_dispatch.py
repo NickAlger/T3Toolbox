@@ -413,6 +413,38 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda b: b.is_consistent(), UB)
         self.assert_jit_jax(lambda a, b: a.allclose(b), UB, ubv.UT3Basis.from_t3basis(self.base))
 
+    # ---------------------------------------------------- jit bucket: the uniform geometries (3b-5)
+    def test_jit_uniform_geometry(self):
+        # 3b-5: the uniform geometries jit cleanly -- supercores trace to jax, masks stay host constants, and
+        # the per-element safe-mode preconditions skip under the trace (the uniform mirror of test_jit_tangent).
+        import t3toolbox.uniform_manifold as ut3m
+        M, C = ut3m.UNIFORM_MANIFOLD, ut3m.UNIFORM_COREWISE
+        ux_np = ut3.UniformTuckerTensorTrain.from_t3(self.x_np)
+        v = M.randn(M.base(ux_np)).to_jax()                # gauged jax tangent (built on numpy then to_jax)
+        cv = C.randn(C.base(ux_np)).to_jax()
+        base, g = M.base(ux_np).to_jax(), self.uy          # an orthogonal jax frame + a jax UniformTTT grad
+
+        # base returns a UT3Basis; retract a UniformTTT -- masks must stay concrete (the tracer-leak mode)
+        self.assert_jit_uniform(lambda u: M.base(u), self.ux, returns_ut3=True)
+        self.assert_jit_uniform(lambda u: C.base(u), self.ux, returns_ut3=True)
+        self.assert_jit_uniform(lambda t: M.retract(t), v, returns_ut3=True)
+        self.assert_jit_uniform(lambda t: C.retract(t), cv, returns_ut3=True)
+
+        # tangent-returning ops: jit op().to_dense() (no numpy on a tracer) + the returned tangent's basis &
+        # variations masks stay concrete (UT3Tangent has no .masks of its own -- check both sub-holders)
+        for op in (M.project, M.project_oblique):
+            self.assert_jit_jax(lambda t, o=op: o(t).to_dense(), v)
+            gt = jax.jit(lambda t, o=op: o(t))(v)
+            self._leaves_all_jax(gt)
+            self.assert_concrete_masks(gt.basis); self.assert_concrete_masks(gt.variations)
+
+        # scalar metrics + ambient projection + transport (all -> jax, preconditions skip under trace)
+        self.assert_jit_jax(lambda a, b: M.inner(a, b), v, v)
+        self.assert_jit_jax(lambda t: M.norm(t), v)
+        self.assert_jit_jax(lambda a, b: C.inner(a, b), cv, cv)
+        self.assert_jit_jax(lambda b, gg: M.project_ambient(b, gg).to_dense(), base, g)
+        self.assert_jit_jax(lambda t, b: M.transport(t, b).to_dense(), v, base)
+
     # ---------------------------------------------------- stack/unstack: masks must stay host under jax
     def test_stack_unstack_keeps_masks_host(self):
         # stacking.stack infers ONE backend per call, so stacking a jax object's supercores together with

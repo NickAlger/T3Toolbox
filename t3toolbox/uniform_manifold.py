@@ -5,17 +5,19 @@
 """Uniform tangent + manifold layer (the uniform-fix 1.0 centerpiece, increment 3b).
 
 Mirrors the ragged :py:mod:`t3toolbox.manifold` on the uniform (stacked-supercore + boolean-mask)
-representation. This slice (3b-1a) builds the :py:class:`UT3Tangent` skeleton -- the structural bundle,
-the ``K``/``C`` stack inference, the vector-space ops, the raw coordinate inner/norm, the (delegating)
-validity checkers, the constructors, and ``reverse``. Everything here delegates to the existing 2c
-:py:class:`~t3toolbox.uniform_basis_variations_format.UT3Basis` /
-:py:class:`~t3toolbox.uniform_basis_variations_format.UT3Variations` -- there is **no new backend math**.
+representation. Holds:
 
-Deferred to later 3b slices: the tangent stack/unstack conversions (``stack_tangents`` / ``unstack_*`` /
-``stack_basis`` / ``sum_tangents`` -- splitting a stacked tangent into a tree of per-element tangents and
-recombining, not an axis permutation; they need a new ``backend/ubv_tangent_operations`` module -- 3b-1b);
-``to_dense`` / ``to_ut3`` / ``retract`` (the doubled-rank keystone -- 3b-2); ``gauge_residual`` /
-``is_gauged`` (3b-3); ``probe`` / ``apply`` / ``entries`` (3b-6); the two geometries (3b-5).
+- :py:class:`UT3Tangent` -- the structural bundle ``(UT3Basis, UT3Variations)`` (the ``K``/``C`` stack
+  inferred from the pair), the vector-space ops, the raw coordinate inner/norm, the (delegating) validity
+  checkers, the constructors, ``reverse``, the doubled-rank ``to_ut3``/``to_dense``, ``gauge_residual`` /
+  ``is_gauged``, the cross-layer converters, and the stack/unstack tree conversions;
+- :py:class:`UniformManifoldGeometry` / :py:class:`UniformCorewiseGeometry` (3b-5) -- the stateless
+  geometry bundles (``base`` / ``randn`` / ``project`` / ``inner`` / ``norm`` / ``retract`` ...) mirroring
+  the ragged ``MANIFOLD`` / ``COREWISE``, behind the per-element safe-mode preconditions, with the module
+  singletons :py:data:`UNIFORM_MANIFOLD` / :py:data:`UNIFORM_COREWISE`.
+
+Deferred to later 3b slices: ``probe`` / ``apply`` / ``entries`` (+ derivatives) and the ``WKC``
+contractions (3b-6).
 """
 from __future__ import annotations
 
@@ -37,6 +39,10 @@ from t3toolbox.backend.common import *
 
 __all__ = [
     'UT3Tangent',
+    'UniformManifoldGeometry',
+    'UniformCorewiseGeometry',
+    'UNIFORM_MANIFOLD',
+    'UNIFORM_COREWISE',
 ]
 
 
@@ -570,3 +576,350 @@ if has_jax:
         lambda x: ((x.basis, x.variations), None),
         lambda aux, children: UT3Tangent(children[0], children[1]),
     )
+
+
+# ============================================================================================== geometries
+# The uniform mirror of t3m.ManifoldGeometry / CorewiseGeometry (manifold.py). Stateless bundles of the
+# chart-level choices (frame / gauge projection / retraction + metric); the point lives in the caller. Each
+# method delegates to the 3b backend (ubv_tangent_operations) and the 2c UT3Basis / UT3Variations, behind
+# the per-element safe-mode preconditions (.all() over the per-stack-element checkers, from 2c-G). See the
+# ragged docstrings for the math (Section 6 + Appendix A.3 of Alger et al. 2026, arXiv:2603.21141).
+
+def _ut3_from_data(data) -> ut3.UniformTuckerTensorTrain:  # data = (tk_sc, tt_sc, shape, (tucker_mask, tt_mask))
+    return ut3.UniformTuckerTensorTrain(data[0], data[1], data[2], ut3.UT3Masks(*data[3]))
+
+
+def _require_orthogonal_frame(basis: ubv.UT3Basis, who: str) -> None:
+    """Safe-mode ORTH precondition (uniform mirror of :py:func:`t3toolbox.manifold._require_orthogonal_frame`).
+
+    ``who`` (a manifold geometry op) requires an orthonormal frame **on every base-stack element**; in safe
+    mode a non-orthogonal element raises. Skipped under ``safety.unsafe()`` / a jax trace. The gating helpers
+    are fed the four supercores (``basis.data[:4]``) -- not the full ``.data``, whose trailing ``shape`` int
+    tuple and mask holder carry no float content -- and the orthogonality check itself is mask-aware (it
+    tests the real, masked content; the contract is ``to_t3basis(basis).is_orthogonal()``). ORTH (not
+    minimal rank) is the only numerical precondition for the manifold projections / retraction (see
+    ``docs/numerical_contract_catalog.md``)."""
+    if safety.checks_active(basis.data[:4]):
+        atol = safety.effective_rtol(basis.data[:4])
+        safety.require(
+            basis.is_orthogonal(atol=atol).all(),     # per-element check -> require ALL base-stack elements orthogonal
+            '{} requires an orthogonal frame (the manifold geometry needs an orthonormal base to be the '
+            'Hilbert-Schmidt-orthogonal projection). Build the base with UniformManifoldGeometry.base / '
+            'UT3Basis.random_orthogonal, or run in unsafe mode (safety.unsafe()).'.format(who))
+
+
+def _randn_variations_at(
+        basis:  ubv.UT3Basis,
+        K:      typ.Tuple[int, ...],   # extra tangent stack K (a batch of directions)
+) -> ubv.UT3Variations:  # raw N(0,1) variations at basis (ungauged), gauge masks broadcast over K
+    """Raw i.i.d. ``N(0, 1)`` variations at ``basis`` with the base's gauge-shifted rank masks replicated
+    (constant) along the tangent stack ``K`` -- the natural (corewise) Gaussian on the variation supercores,
+    before any gauge projection. Mirrors :py:meth:`UT3Tangent.zeros`'s mask derivation with a randn fill (the
+    masks are the rank structure, identical for both geometries; only whether you gauge afterwards differs)."""
+    K = tuple(K)
+    gauge_masks = ubv.UT3Variations._variation_masks_of(basis)        # gauge-shifted masks, stack C
+    masks = _broadcast_variation_masks_over_K(gauge_masks, K)         # -> stack K + C
+    return ubv.UT3Variations.randn(
+        basis.uniform_variation_shapes, basis.shape, stack_shape=K + basis.stack_shape,
+        masks=masks, use_jax=basis.contains_jax)
+
+
+class UniformManifoldGeometry:
+    """The Riemannian geometry of the uniform fixed-rank Tucker tensor train manifold (uniform mirror of
+    :py:class:`~t3toolbox.manifold.ManifoldGeometry`).
+
+    A stateless bundle of the chart-level choices that distinguish the manifold from the over-parametrized
+    corewise geometry -- the orthonormal frame (:py:meth:`base`), the gauge projection ``Pi``
+    (:py:meth:`project`), and the manifold retraction (:py:meth:`retract`) -- plus the ambient projection and
+    transport. Tangents live in ``T_xM`` with an orthonormal, gauged frame; the metric is Hilbert-Schmidt.
+    All methods are **per-element-mask-aware** (varying ranks across the base stack ``C`` are supported) and
+    carry the per-element safe-mode preconditions (orthogonal frame, gauged variations; ``.all()`` over the
+    stack). Use the module singleton :py:data:`UNIFORM_MANIFOLD`. The corewise counterpart is
+    :py:class:`UniformCorewiseGeometry`.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> import t3toolbox.uniform_manifold as ut3m
+    >>> np.random.seed(0)
+    >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1)))
+    >>> base = ut3m.UNIFORM_MANIFOLD.base(x)            # orthonormal frame at x
+    >>> print(bool(base.is_orthogonal().all()))
+    True
+    >>> v = ut3m.UNIFORM_MANIFOLD.randn(base)           # a standard Gaussian on T_xM (gauged)
+    >>> print(bool(v.is_gauged().all()))
+    True
+    >>> y = ut3m.UNIFORM_MANIFOLD.retract(ut3m.UT3Tangent.zeros(base))   # retract the zero tangent == the base point
+    >>> print(bool(np.allclose(y.to_dense(), x.to_dense())))
+    True
+    """
+
+    def base(
+            self,
+            x:  ut3.UniformTuckerTensorTrain,
+    ) -> ubv.UT3Basis:  # orthonormal frame at x
+        """The orthonormal frame at ``x`` (the frame part of ``ut3_orthogonal_representations``)."""
+        return ubv.UT3Basis.from_ut3(x)
+
+    def randn(
+            self,
+            basis:        ubv.UT3Basis,
+            stack_shape:  typ.Tuple[int, ...] = (),   # extra tangent stack K (a batch of tangents)
+    ) -> UT3Tangent:  # gauged random tangent at basis
+        """Random tangent at ``basis``: a standard Gaussian on the tangent space ``T_xM``.
+
+        Raw i.i.d. ``N(0, 1)`` variation supercores, then the gauge projection :py:meth:`project` (``Pi``).
+        For an orthogonal, minimal-rank ``basis`` this is the standard Gaussian on ``T_xM``. ``stack_shape``
+        is the extra outer tangent stack ``K`` (default ``()``). Inherits :py:meth:`project`'s safe-mode ORTH
+        precondition (a non-orthogonal ``basis`` raises; skipped under ``safety.unsafe()`` / a jax trace)."""
+        return self.project(UT3Tangent(basis, _randn_variations_at(basis, stack_shape)))
+
+    def random_orthogonal(
+            self,
+            shape:                  typ.Sequence[int],         # (N0,...,N(d-1))
+            tucker_ranks,                                      # int | len-d seq | (d,)+C array (the variety)
+            tt_ranks,                                          # int | len-(d+1) seq | (d+1,)+C array
+            stack_shape:            typ.Tuple[int, ...] = (),  # base stack C (random base points)
+            tangent_stack_shape:    typ.Tuple[int, ...] = (),  # tangent stack K
+            use_jax:                bool = False,
+    ) -> UT3Tangent:  # gauged random tangent at a random orthogonal base point
+        """A gauged random tangent at a random orthogonal base point (random direction, random base)."""
+        base = ubv.UT3Basis.random_orthogonal(shape, tucker_ranks, tt_ranks,
+                                              stack_shape=stack_shape, use_jax=use_jax)
+        return self.randn(base, stack_shape=tangent_stack_shape)
+
+    def randn_like(
+            self,
+            tangent:    UT3Tangent,   # reuse its base + tangent stack K
+    ) -> UT3Tangent:  # gauged random tangent at tangent's base
+        """A gauged random tangent at ``tangent``'s base, with ``tangent``'s tangent stack ``K``."""
+        return self.randn(tangent.basis, stack_shape=tangent.tangent_stack_shape)
+
+    def project(
+            self,
+            v:  UT3Tangent,
+    ) -> UT3Tangent:  # gauged tangent at v's basis (a DIFFERENT vector)
+        """The gauge projection ``Pi``: raw cotangent -> Riemannian gradient (orthogonal gauge).
+
+        Orthogonally projects ``v``'s variations onto the gauged tangent space (conditions (48)-(49),
+        Appendix A.3). Represents a DIFFERENT tangent vector than ``v`` -- the map that turns a bare adjoint
+        ``J^T r`` into the Riemannian gradient. For the vector-preserving fix see :py:meth:`project_oblique`.
+        **Safe mode** requires ``v``'s frame orthogonal (raises otherwise; skipped under ``safety.unsafe()`` /
+        a jax trace)."""
+        _require_orthogonal_frame(v.basis, 'UniformManifoldGeometry.project')
+        vd = ubv_tangent_operations.orthogonal_gauge_projection(v.basis.data, v.variations.data)
+        return UT3Tangent(v.basis, _ut3variations_from_data(vd))
+
+    def project_oblique(
+            self,
+            v:  UT3Tangent,
+    ) -> UT3Tangent:  # gauged tangent at v's basis (the SAME vector)
+        """Gauge ``v``'s variations while preserving the represented tangent vector (oblique projection).
+
+        Returns a tangent at the same basis representing the SAME vector as ``v`` but gauged, so that on an
+        orthogonal minimal-rank basis :py:meth:`inner` / :py:meth:`norm` give the true Hilbert-Schmidt values.
+        **Safe mode** requires ``v``'s frame orthogonal (raises otherwise); skipped under ``safety.unsafe()``
+        / a jax trace."""
+        _require_orthogonal_frame(v.basis, 'UniformManifoldGeometry.project_oblique')
+        vd = ubv_tangent_operations.oblique_gauge_projection(v.basis.data, v.variations.data)
+        return UT3Tangent(v.basis, _ut3variations_from_data(vd))
+
+    def inner(
+            self,
+            t1: UT3Tangent,
+            t2: UT3Tangent,
+    ) -> NDArray:  # the Hilbert-Schmidt inner product, shape = stack_shape (K + C)
+        """The **Hilbert-Schmidt** inner product of two tangents -- the Riemannian metric on the manifold.
+
+        The corewise (coordinate) dot, which equals HS on this geometry's orthonormal, gauged frame
+        (vectorized over the stack -> shape ``K + C``). In **safe mode** it checks the preconditions for that
+        equality: the two tangents share a frame, the frame is orthogonal, and **both** variations are gauged
+        (per stack element, reduced with ``.all()``; minimal rank is a documented caveat -- see
+        ``docs/numerical_contract_catalog.md``). For the raw coordinate dot with no HS claim and no
+        orthogonal/gauge check, use :py:meth:`UT3Tangent.corewise_inner`."""
+        t1._check_same_tangent_space(t2)
+        if safety.checks_active(t1.basis.data[:4], t1.variations.data[:2], t2.variations.data[:2]):
+            atol = safety.effective_rtol(t1.basis.data[:4], t1.variations.data[:2], t2.variations.data[:2])
+            safety.require(t1.basis.is_orthogonal(atol=atol).all(),
+                           'UniformManifoldGeometry.inner is the Hilbert-Schmidt metric and requires an '
+                           'orthogonal frame. Use UT3Tangent.corewise_inner for the raw coordinate dot, or '
+                           'run in unsafe mode (safety.unsafe()).')
+            safety.require(t1.is_gauged(atol=atol).all() and t2.is_gauged(atol=atol).all(),
+                           'UniformManifoldGeometry.inner requires both tangents gauged. Gauge them via '
+                           'UniformManifoldGeometry.project / project_oblique, use UT3Tangent.corewise_inner, '
+                           'or run in unsafe mode.')
+        return t1.corewise_inner(t2)
+
+    def norm(
+            self,
+            t:  UT3Tangent,
+    ) -> NDArray:  # the Hilbert-Schmidt norm, shape = stack_shape (K + C)
+        """The **Hilbert-Schmidt** norm of a tangent. Safe mode checks the frame orthogonal + variations
+        gauged, per stack element (the preconditions for the coordinate norm to equal HS; minimal rank a
+        documented caveat). For the raw coordinate norm use :py:meth:`UT3Tangent.corewise_norm`."""
+        if safety.checks_active(t.basis.data[:4], t.variations.data[:2]):
+            atol = safety.effective_rtol(t.basis.data[:4], t.variations.data[:2])
+            safety.require(t.basis.is_orthogonal(atol=atol).all(),
+                           'UniformManifoldGeometry.norm is the Hilbert-Schmidt metric and requires an '
+                           'orthogonal frame. Use UT3Tangent.corewise_norm, or run in unsafe mode.')
+            safety.require(t.is_gauged(atol=atol).all(),
+                           'UniformManifoldGeometry.norm requires gauged variations. Gauge via '
+                           'UniformManifoldGeometry.project / project_oblique, use UT3Tangent.corewise_norm, '
+                           'or run in unsafe mode.')
+        return t.corewise_norm()
+
+    def retract(
+            self,
+            p:  UT3Tangent,   # step (a tangent at the current point's frame)
+    ) -> ut3.UniformTuckerTensorTrain:  # retracted point on M, at p's base ranks
+        """Retract the step ``p`` to the manifold: shifted doubled-rank embedding, truncated to base ranks.
+
+        Forms ``base point + p`` and truncates back to ``p``'s base ranks via the implicit uniform T3-SVD
+        (Algorithm 10). The current point is carried by ``p.basis``, so no separate point argument is needed.
+        **Safe mode** requires ``p``'s frame orthogonal (raises otherwise; skipped under ``safety.unsafe()`` /
+        a jax trace). ORTH only -- retract is gauge-invariant; minimal rank is a documented caveat."""
+        _require_orthogonal_frame(p.basis, 'UniformManifoldGeometry.retract')
+        return _ut3_from_data(ubv_tangent_operations.retract(p.basis.data, p.variations.data))
+
+    def project_ambient(
+            self,
+            basis:  ubv.UT3Basis,                     # orthogonal base point of the tangent space
+            grad:   ut3.UniformTuckerTensorTrain,     # ambient gradient as a uniform Tucker tensor train
+    ) -> UT3Tangent:  # the Riemannian gradient (gauged projection of grad) at basis
+        """Project an ambient gradient onto ``T_xM`` -- the Riemannian gradient.
+
+        ``grad`` is the Euclidean/ambient gradient as a :py:class:`UniformTuckerTensorTrain`. Returns the
+        gauged tangent ``P_T(grad)`` (the residual ``grad - P_T(grad)`` is orthogonal to the tangent space).
+        Requires an **orthogonal** ``basis`` (minimal rank not required); enforced in safe mode (skipped under
+        ``safety.unsafe()`` / a jax trace).
+
+        Unlike the ragged :py:meth:`~t3toolbox.manifold.ManifoldGeometry.project_ambient`, the uniform layer
+        has **no native dense-array path** (the uniform layer is a performance layer; working dense here
+        defeats its purpose). For a dense gradient, go via the ragged geometry and the cross-layer converters
+        (:py:meth:`UT3Basis.to_t3basis` -> ``MANIFOLD.project_ambient`` -> :py:meth:`UT3Tangent.from_t3tangent`)."""
+        if not isinstance(grad, ut3.UniformTuckerTensorTrain):
+            raise TypeError(
+                'UniformManifoldGeometry.project_ambient accepts a UniformTuckerTensorTrain gradient only; '
+                'the uniform layer has no native dense-array projection. For a dense gradient, project via '
+                'the ragged ManifoldGeometry.project_ambient and the cross-layer converters '
+                '(UT3Basis.to_t3basis / UT3Tangent.from_t3tangent). Got %r.' % (type(grad).__name__,))
+        _require_orthogonal_frame(basis, 'UniformManifoldGeometry.project_ambient')
+        vd = ubv_tangent_operations.project_ut3_onto_tangent_space(basis.data, grad.data)
+        return UT3Tangent(basis, _ut3variations_from_data(vd))
+
+    def transport(
+            self,
+            v:          UT3Tangent,
+            new_basis:  ubv.UT3Basis,
+    ) -> UT3Tangent:  # v transported to the tangent space at new_basis
+        """Projective vector transport of ``v`` to the tangent space at ``new_basis``.
+
+        Re-projects ``v`` (as an ambient tensor via its doubled-rank :py:meth:`UT3Tangent.to_ut3`)
+        orthogonally onto the tangent space at ``new_basis`` -- the cheap, standard choice for fixed-rank
+        Riemannian optimization (not parallel transport). Inherits :py:meth:`project_ambient`'s safe-mode ORTH
+        precondition on ``new_basis``."""
+        return self.project_ambient(new_basis, v.to_ut3())
+
+
+class UniformCorewiseGeometry:
+    """The Euclidean geometry of the uniform core parameter space (uniform mirror of
+    :py:class:`~t3toolbox.manifold.CorewiseGeometry`).
+
+    Optimization happens *on* the raw supercores: tangents are perturbations of the cores ``(U, G, G, G)``
+    (the non-orthonormal frame whose down/left/right cores are all the TT supercore ``G`` -- the Section 6.3
+    ``(P, Q, O) -> G`` substitution), the metric is the plain Euclidean (corewise) inner product, the
+    "projection" is the identity (no gauge), and the retraction is vector addition in the supercores. Use the
+    module singleton :py:data:`UNIFORM_COREWISE`. The manifold counterpart is
+    :py:class:`UniformManifoldGeometry`.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> import t3toolbox.uniform_manifold as ut3m
+    >>> np.random.seed(0)
+    >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1)))
+    >>> base = ut3m.UNIFORM_COREWISE.base(x)            # the (U, G, G, G) frame
+    >>> v = ut3m.UNIFORM_COREWISE.randn(base)           # raw randn cores (no gauge)
+    >>> print(bool(v.is_gauged().all()))
+    False
+    >>> y = ut3m.UNIFORM_COREWISE.retract(ut3m.UT3Tangent.zeros(base))   # additive: cores += step (zero -> the point)
+    >>> print(bool(np.allclose(y.to_dense(), x.to_dense())))
+    True
+    """
+
+    def base(
+            self,
+            x:  ut3.UniformTuckerTensorTrain,
+    ) -> ubv.UT3Basis:  # the (U, G, G, G) non-orthonormal frame at x
+        """The core-parameter frame at ``x``: ``(U, G, G, G)`` (down/left/right all the TT supercore ``G``).
+
+        The mask analog of the cores: ``up = down = tucker_edge_mask`` (the U-G Tucker edges) and
+        ``left = right = tt_edge_mask`` (the G-G TT bonds, full length ``d+1``) -- the Section 6.3
+        substitution ``(P, Q, O) -> G`` gives all three non-up slots the single core ``G``'s rank structure,
+        with no boundary slicing (the ``[:-1]`` / ``[1:]`` gauge shift is a *variations*, not a basis,
+        thing)."""
+        tk_sc, tt_sc, shape, (tucker_mask, tt_mask) = x.data
+        masks = ubv.UT3BasisMasks(tucker_mask, tucker_mask, tt_mask, tt_mask)
+        return ubv.UT3Basis(tk_sc, tt_sc, tt_sc, tt_sc, shape, masks)
+
+    def randn(
+            self,
+            basis:        ubv.UT3Basis,
+            stack_shape:  typ.Tuple[int, ...] = (),   # extra tangent stack K
+    ) -> UT3Tangent:  # raw random tangent at basis (ungauged)
+        """Random tangent at ``basis``: raw i.i.d. ``N(0, 1)`` variation supercores (the natural corewise
+        Gaussian; no gauge projection). ``stack_shape`` is the extra outer tangent stack ``K``."""
+        return UT3Tangent(basis, _randn_variations_at(basis, stack_shape))
+
+    def randn_like(
+            self,
+            tangent:    UT3Tangent,
+    ) -> UT3Tangent:  # raw random tangent at tangent's base
+        """A raw random tangent at ``tangent``'s base, with ``tangent``'s tangent stack ``K``."""
+        return self.randn(tangent.basis, stack_shape=tangent.tangent_stack_shape)
+
+    def project(
+            self,
+            v:  UT3Tangent,
+    ) -> UT3Tangent:  # v unchanged (no gauge on the core parameter space)
+        """The identity: the core parameter space is Euclidean, with no gauge projection."""
+        return v
+
+    def inner(
+            self,
+            t1: UT3Tangent,
+            t2: UT3Tangent,
+    ) -> NDArray:  # the Euclidean (coordinate) inner product, shape = stack_shape (K + C)
+        """The **Euclidean** (coordinate) inner product of two tangents on the core parameter space.
+
+        The corewise dot of the variations -- *no* orthogonal/gauge requirement (the ``(U, G, G, G)`` frame is
+        non-orthonormal by design). Safe mode checks only that the two tangents share a frame. This is exactly
+        :py:meth:`UT3Tangent.corewise_inner`."""
+        return t1.corewise_inner(t2)
+
+    def norm(
+            self,
+            t:  UT3Tangent,
+    ) -> NDArray:  # the Euclidean (coordinate) norm, shape = stack_shape (K + C)
+        """The **Euclidean** (coordinate) norm of a tangent (= :py:meth:`UT3Tangent.corewise_norm`); no
+        precondition."""
+        return t.corewise_norm()
+
+    def retract(
+            self,
+            p:  UT3Tangent,   # step (a corewise tangent at base = (U, G, G, G))
+    ) -> ut3.UniformTuckerTensorTrain:  # additive retraction: cores += p
+        """Additive retraction: add the variation supercores to the point's cores (``cores += p``).
+
+        Recovers the point ``(U, G)`` from ``p.basis`` (which :py:meth:`base` built as ``(U, G, G, G)``) and
+        adds the variations. ``p`` must be a corewise tangent (a basis from :py:meth:`base`). See
+        :py:func:`~t3toolbox.backend.ubv_tangent_operations.corewise_retract`."""
+        return _ut3_from_data(ubv_tangent_operations.corewise_retract(p.basis.data, p.variations.data))
+
+
+UNIFORM_MANIFOLD = UniformManifoldGeometry()   # the uniform fixed-rank Riemannian geometry (gauge Pi, manifold retraction)
+UNIFORM_COREWISE = UniformCorewiseGeometry()   # the uniform core-parameter Euclidean geometry (no gauge, additive retraction)

@@ -32,6 +32,7 @@ from t3toolbox.backend.common import *
 __all__ = [
     'tangent_to_ut3',
     'retract',
+    'corewise_retract',
     'orthogonal_gauge_projection',
     'oblique_gauge_projection',
     'gauge_residual',
@@ -298,6 +299,44 @@ def retract(
     new_data, _ss_tucker, _ss_tt = ut3_svd.ut3svd(
         doubled, max_tucker_ranks=bcast_over_K(up_ranks), max_tt_ranks=bcast_over_K(left_ranks))
     return new_data
+
+
+def corewise_retract(
+        basis_data,       # UT3Basis .data: the (U, G, G, G) corewise frame, supercore stack = C
+        variations_data,  # UT3Variations .data: free core perturbations (dU, dG), stack = K + C
+):  # -> retracted UniformTuckerTensorTrain .data (at the base point's ranks; stack = K + C)
+    """Additive (corewise) retraction: ``cores += variations``.
+
+    The uniform mirror of the additive retraction on the corewise frame ``(U, G, G, G)`` (Section 6.3,
+    Alger et al. 2026 -- the ``(P, Q, O) -> G`` substitution): recovers the point ``(U, G)`` from the frame
+    (``up_tucker_supercore`` and ``left_tt_supercore``, which the corewise frame sets to the single core
+    ``G``) and adds the variation supercores, giving a uniform Tucker tensor train at the base point's own
+    ranks. Mirrors ``CorewiseGeometry.retract`` / ``corewise.corewise_add`` -- but the uniform supercores are
+    ``d``-leading (stack interior), so a ``K`` tangent stack cannot be added by plain numpy broadcasting (it
+    would misalign ``d`` with ``K``): the base point (stack ``C``) is broadcast up to ``K + C`` by inserting
+    ``n_K`` size-1 axes *after* the leading mode axis -- the ``K`` perturbations share one base point. The
+    result masks are the base plain-UT3 masks (``up_mask``, ``basis_left_mask``) broadcast over ``K``.
+    """
+    up_sc = basis_data[0]       # (d,)   + C + (nU, N)        -- the point's Tucker core U
+    G_sc  = basis_data[2]       # (d,)   + C + (rL, nU, rR)   -- the point's TT core G (left == right == G)
+    shape = basis_data[4]
+    up_mask, _down_mask, basis_left_mask, _basis_right_mask = basis_data[5]
+
+    dU, dG = variations_data[0], variations_data[1]   # (d,) + K + C + (nD, N), (d,) + K + C + (rL, nU, rR)
+    C  = up_sc.shape[1:-2]      # base stack C
+    ss = dU.shape[1:-2]         # K + C (the variation stack)
+    n_K = len(ss) - len(C)
+
+    def bcast_sc(sc):    # (d,)+C+core -> (d,)+(1,)*n_K+C+core: insert K size-1 axes after the leading mode axis
+        return sc.reshape(sc.shape[:1] + (1,) * n_K + sc.shape[1:])
+
+    def bcast_mask(m):   # (L,)+C+(rank,) -> (L,)+K+C+(rank,); host numpy (masks are np)
+        return np.broadcast_to(m.reshape(m.shape[:1] + (1,) * n_K + m.shape[1:]),
+                               m.shape[:1] + ss + m.shape[-1:])
+
+    new_tk = bcast_sc(up_sc) + dU
+    new_tt = bcast_sc(G_sc) + dG
+    return (new_tk, new_tt, shape, (bcast_mask(up_mask), bcast_mask(basis_left_mask)))
 
 
 def orthogonal_gauge_projection(

@@ -1043,5 +1043,187 @@ class TestCrossLayerConverters(unittest.TestCase):
             self.assertLess(float(np.linalg.norm(np.asarray(tree[i].to_dense()) - np.asarray(rs[i].to_dense()))), 1e-10)
 
 
+def _per_element_dense(testcase, v, uop, rop, atol=1e-10):
+    """``uop(v)`` (a uniform geometry op returning an object with ``.to_dense()``) matches ``rop`` applied to
+    each ragged leaf of ``v`` (via ``to_t3tangent``), per stack element -- the equivalence contract."""
+    u = np.asarray(uop(v).to_dense())                       # stacked dense, stack (K+C) + (N..)
+    uf = u.reshape((-1,) + u.shape[len(v.stack_shape):])
+    for i, leaf in enumerate(_full_unstack(v)):
+        r = np.asarray(rop(leaf.to_t3tangent()).to_dense())
+        testcase.assertLess(float(np.linalg.norm(uf[i] - r)) / (float(np.linalg.norm(r)) + 1e-30), atol)
+
+
+def _per_element_scalar(testcase, v, u_arr, rop, atol=1e-9):
+    """The stack-shaped array ``u_arr`` (e.g. inner/norm) matches the ragged scalar ``rop`` per leaf."""
+    uf = np.asarray(u_arr).reshape(-1)
+    for i, leaf in enumerate(_full_unstack(v)):
+        testcase.assertTrue(np.allclose(uf[i], float(rop(leaf.to_t3tangent())), atol=atol))
+
+
+def _make_corewise_tangent(stack_shape=(), K=(), force_pad=False, seed=0):
+    """A random tangent at the corewise ``(U, G, G, G)`` frame of a (possibly stacked) random point."""
+    np.random.seed(seed)
+    x = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=stack_shape)
+    xu = ut3.UniformTuckerTensorTrain.from_t3(x, **_PAD_T3) if force_pad else ut3.UniformTuckerTensorTrain.from_t3(x)
+    return ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_COREWISE.base(xu), stack_shape=K)
+
+
+def _hetero_corewise(seed=0):
+    """Corewise tangents at DIFFERENT base ranks (the varying-C case), padded to common dims so they stack."""
+    np.random.seed(seed)
+    us = []
+    for s in _HETERO:
+        xu = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*s),
+                                                  N=_HETERO_PAD['N'], n=_HETERO_PAD['nU'], r=_HETERO_PAD['rL'])
+        us.append(ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_COREWISE.base(xu)))
+    return us
+
+
+class TestUniformManifoldGeometry(unittest.TestCase):
+    """3b-5: UNIFORM_MANIFOLD (the Riemannian geometry) verified per stack element against the ragged
+    t3m.MANIFOLD -- base / project / project_oblique / inner / norm / retract / project_ambient / transport
+    -- across _CONFIGS (incl. K / multi-axis / forced-pad) and the varying-C rank sweep, plus the per-element
+    safe-mode ORTH preconditions."""
+    def setUp(self):
+        np.random.seed(0)
+        self.M, self.C, self.RM = ut3m.UNIFORM_MANIFOLD, ut3m.UNIFORM_COREWISE, t3m.MANIFOLD
+
+    def _varying_C(self):
+        return ut3m.UT3Tangent.stack_basis(_hetero_tangents()[0])           # orthogonal frames, different ranks
+
+    def test_base(self):
+        for ss in [(), (2,), (2, 3)]:
+            with self.subTest(ss=ss):
+                x = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss)
+                bu = self.M.base(ut3.UniformTuckerTensorTrain.from_t3(x))
+                self.assertTrue(bool(bu.is_orthogonal().all()))
+                self.assertTrue(np.allclose(np.asarray(bu.to_dense()), np.asarray(self.RM.base(x).to_dense())))
+
+    def test_project(self):
+        for ss, K, fp in _CONFIGS:
+            with self.subTest(ss=ss, K=K, fp=fp):
+                _per_element_dense(self, _make_tangent(ss, K, fp), self.M.project, self.RM.project)
+        with self.subTest('varying_C'):
+            _per_element_dense(self, self._varying_C(), self.M.project, self.RM.project)
+
+    def test_project_oblique(self):
+        for ss, K, fp in _CONFIGS:
+            with self.subTest(ss=ss, K=K, fp=fp):
+                _per_element_dense(self, _make_tangent(ss, K, fp), self.M.project_oblique, self.RM.project_oblique)
+        with self.subTest('varying_C'):
+            _per_element_dense(self, self._varying_C(), self.M.project_oblique, self.RM.project_oblique)
+
+    def test_inner_and_norm(self):
+        cfgs = list(_CONFIGS) + [('varying_C', None, None)]
+        for cfg in cfgs:
+            with self.subTest(cfg=cfg):
+                v = self._varying_C() if cfg[0] == 'varying_C' else _make_tangent(*cfg)
+                v = self.M.project(v)                                       # gauge (precondition for HS = coord)
+                _per_element_scalar(self, v, self.M.inner(v, v), lambda r: self.RM.inner(r, r))
+                _per_element_scalar(self, v, self.M.norm(v), self.RM.norm)
+
+    def test_retract(self):
+        for ss, K, fp in _CONFIGS:
+            with self.subTest(ss=ss, K=K, fp=fp):
+                _per_element_dense(self, _make_tangent(ss, K, fp), self.M.retract, self.RM.retract)
+        with self.subTest('varying_C'):
+            _per_element_dense(self, self._varying_C(), self.M.retract, self.RM.retract)
+
+    def test_project_ambient(self):
+        for ss in [(), (2,), (2, 3)]:
+            with self.subTest(ss=ss):
+                np.random.seed(3)
+                x = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss)
+                g = t3.TuckerTensorTrain.randn(_STRUCT[0], (1, 1, 1), (1, 1, 1, 1), stack_shape=ss)
+                bu = self.M.base(ut3.UniformTuckerTensorTrain.from_t3(x))
+                gu = ut3.UniformTuckerTensorTrain.from_t3(g)
+                pu = np.asarray(self.M.project_ambient(bu, gu).to_dense())
+                pr = np.asarray(self.RM.project_ambient(self.RM.base(x), g).to_dense())
+                self.assertTrue(np.allclose(pu, pr, atol=1e-10))
+
+    def test_project_ambient_dense_raises(self):
+        x = t3.TuckerTensorTrain.randn(*_STRUCT)
+        bu = self.M.base(ut3.UniformTuckerTensorTrain.from_t3(x))
+        with self.assertRaises(TypeError):
+            self.M.project_ambient(bu, np.zeros(_STRUCT[0]))
+
+    def test_transport(self):
+        # v and the destination base share the C stack; compare the whole stacked dense directly (both sides
+        # are identically C-stacked, the op is per-element). No K (a tangent stack does not ride a base point).
+        for ss in [(), (2,)]:
+            with self.subTest(ss=ss):
+                np.random.seed(4)
+                x = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss)
+                x2 = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss)
+                gv_r = self.RM.project(t3m.COREWISE.randn(self.RM.base(x)))   # gauged ragged tangent, stack ss
+                v_u = ut3m.UT3Tangent.from_t3tangent(gv_r)                    # same data, uniform-padded
+                b2u = self.M.base(ut3.UniformTuckerTensorTrain.from_t3(x2))
+                tu = np.asarray(self.M.transport(v_u, b2u).to_dense())
+                tr = np.asarray(self.RM.transport(gv_r, self.RM.base(x2)).to_dense())
+                self.assertTrue(np.allclose(tu, tr, atol=1e-10))
+
+    def test_randn_is_gauged(self):
+        for ss, K in [((), ()), ((2,), ()), ((), (3,)), ((2,), (3,))]:
+            with self.subTest(ss=ss, K=K):
+                base = self.M.base(ut3.UniformTuckerTensorTrain.from_t3(
+                    t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss)))
+                v = self.M.randn(base, stack_shape=K)
+                self.assertEqual(v.stack_shape, tuple(K) + tuple(ss))
+                self.assertTrue(bool(v.is_gauged().all()))
+
+    def test_safety_requires_orthogonal(self):
+        x = t3.TuckerTensorTrain.randn(*_STRUCT)
+        cbase = self.C.base(ut3.UniformTuckerTensorTrain.from_t3(x))        # the non-orthogonal (U,G,G,G) frame
+        self.assertFalse(bool(cbase.is_orthogonal().all()))
+        v = ut3m.UT3Tangent.zeros(cbase)
+        for op in (self.M.project, self.M.project_oblique, self.M.retract):
+            with self.assertRaises(ValueError):
+                op(v)
+        with safety.unsafe():                                              # preconditions skipped -> no raise
+            self.M.project(v); self.M.project_oblique(v); self.M.retract(v)
+
+
+class TestUniformCorewiseGeometry(unittest.TestCase):
+    """3b-5: UNIFORM_COREWISE (the Euclidean core-parameter geometry) verified against the ragged
+    t3m.COREWISE -- base (the (U,G,G,G) frame + EXACT masks) / project (identity) / inner / norm / additive
+    retract -- across _CONFIGS and the varying-C rank sweep."""
+    def setUp(self):
+        np.random.seed(0)
+        self.C, self.RC = ut3m.UNIFORM_COREWISE, t3m.COREWISE
+
+    def test_base_dense_and_masks(self):
+        for ss in [(), (2,), (2, 3)]:
+            with self.subTest(ss=ss):
+                x = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss)
+                xu = ut3.UniformTuckerTensorTrain.from_t3(x)
+                cb = self.C.base(xu)
+                self.assertTrue(np.allclose(np.asarray(cb.to_dense()), np.asarray(self.RC.base(x).to_dense())))
+                # EXACT masks: up == down == tucker_edge_mask; left == right == tt_edge_mask (no slicing)
+                tkm, ttm = xu.masks.data
+                self.assertTrue(np.array_equal(cb.masks.up_mask, tkm))
+                self.assertTrue(np.array_equal(cb.masks.down_mask, tkm))
+                self.assertTrue(np.array_equal(cb.masks.basis_left_mask, ttm))
+                self.assertTrue(np.array_equal(cb.masks.basis_right_mask, ttm))
+
+    def test_project_is_identity(self):
+        v = _make_corewise_tangent()
+        self.assertIs(self.C.project(v), v)
+
+    def test_inner_and_norm(self):
+        for ss, K, fp in _CONFIGS:
+            with self.subTest(ss=ss, K=K, fp=fp):
+                v = _make_corewise_tangent(ss, K, fp)
+                _per_element_scalar(self, v, self.C.inner(v, v), lambda r: self.RC.inner(r, r))
+                _per_element_scalar(self, v, self.C.norm(v), self.RC.norm)
+
+    def test_retract(self):
+        for ss, K, fp in _CONFIGS:
+            with self.subTest(ss=ss, K=K, fp=fp):
+                _per_element_dense(self, _make_corewise_tangent(ss, K, fp), self.C.retract, self.RC.retract)
+        with self.subTest('varying_C'):
+            v = ut3m.UT3Tangent.stack_basis(_hetero_corewise())
+            _per_element_dense(self, v, self.C.retract, self.RC.retract)
+
+
 if __name__ == '__main__':
     unittest.main()
