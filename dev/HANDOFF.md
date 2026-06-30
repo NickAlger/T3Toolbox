@@ -1,12 +1,12 @@
 # T3Toolbox — current handoff
 
-_Updated 2026-06-30._
+_Updated 2026-06-30 (cont.)._
 
 ## Where we are
 
-**The uniform-layer fix (the 1.0 centerpiece) is well advanced: the entire uniform *tangent backend* is
-built and exhaustively tested.** Branch `main`, direct commits; full suite green throughout
-(**467 passed / 39 393 subtests**).
+**The uniform-layer fix (the 1.0 centerpiece) is well advanced: the uniform *tangent backend*, the *two
+geometries*, and the *tangent + corewise probing* (`𝒥` / `𝒥ᵀ`) are all built and exhaustively tested.**
+Branch `main`, direct commits; full suite green throughout (**518 passed / 39 784 subtests**).
 
 Done in earlier sessions:
 - Slices 1, 2 (the `shape_mask`→int-tuple migration), value-hashed mask holders, and the cleanup before the
@@ -36,22 +36,39 @@ varying-`C`, and jit-clean:
   **clean-padding blind spot** (dense tests are blind to too-permissive/phantom masks). Found **no impl
   bug** (two issues surfaced, both in the tests); cross-checked by an independent adversarial cold-read
   audit agent (also no bug). New durable rationale: **`docs/testing_strategy.md`**.
+- **3b-5 — the two geometries** (`UniformManifoldGeometry`/`UniformCorewiseGeometry` + `UNIFORM_MANIFOLD`/
+  `UNIFORM_COREWISE`): mirror the ragged `MANIFOLD`/`COREWISE` method-for-method, behind the per-element
+  `.all()` safe-mode preconditions. `project_ambient` is `UniformTuckerTensorTrain`-only (dense → ragged);
+  new backend `corewise_retract` for the `d`-leading additive add. `COREWISE.base` masks verified against
+  §6.3 (`up=down=tucker_edge_mask`, `left=right=tt_edge_mask`, no slice).
+- **3b-6 — tangent + corewise probing** (`𝒥` / `𝒥ᵀ`), per-element verified vs ragged + mask-strict +
+  garbage-robust + jit-clean:
+  - **3b-6a** — the 18 `d`-prefixed uniform `WKC` grouped-block contractions in `backend/contractions.py`,
+    oracle-tested per `W`/`K`/`C` combo. **3b-6b** — forward `𝒥`: fixed `compute_detas`/`assemble_tangent_zs`
+    + new `backend/ubv_sampling` (mask-once + pack/unpack) + `UT3Tangent.probe`/`apply`/`entries`.
+  - **3b-6c** — transpose `𝒥ᵀ`: fixed the four transpose branches + made `_apply_transpose_adjoint` /
+    `_onehot_vectors` / `_entry_xis` polymorphic (the last fixed a latent jit *unroll* in entries) +
+    `UT3Tangent.{probe,apply,entries}_transpose` + the corewise
+    `UniformTuckerTensorTrain.{apply,entries,probe}_corewise_transpose` (the §6.3 substitution). Verified by
+    the adjoint identity `⟨r,𝒥V⟩=⟨𝒥ᵀr,V⟩`. **3b-6d** — the mask-strict + garbage-robust hardening
+    (`tests/test_uniform_probing.py`).
+  - **The probe-derivative (jet) version is deferred to its own slice 3b-6′** (below) — probing and
+    `probe_derivatives.py` were split (the order-0 of every jet contraction reproduces the now-verified
+    plain `WKC`, a built-in correctness anchor).
 
 ## Next steps (finishing increment 3b)
 
 The full slicing + design lives in **`dev/uniform_fix_plan.md`** (the living plan); status here.
-1. **3b-5 — the geometries.** `UniformManifoldGeometry` / `UniformCorewiseGeometry`: give the backend ops
-   (project / inner / norm / retract / project_ambient / transport / base / randn) their frontend home,
-   behind the per-element safe-mode preconditions (orthogonal frame, gauged — `.all()`) and the
-   jit-recompile constraint (`docs/uniform_backend_jit_recipe.md`). `project_ut3_onto_tangent_space` and
-   `retract` get exposed here.
-2. **3b-6 — probing + the `WKC` contractions.** Build the `d`-prefixed uniform `WKC` grouped-block
-   contractions in `backend/contractions.py` and fix the map-style uniform-tangent probing branches
-   (`compute_detas`/`assemble_*`/`compute_dxi_tildes`/`compute_deta_tildes` — NOT `compute_dxis`); wire
-   `UT3Tangent.probe`/`apply`/`entries` (+ derivatives). Inventory in the plan's "Validation hardening".
-3. **3b-7 — sweep + cleanup.** Tests/doctests final sweep; **delete `OLD_uniform*.py` + the `if False:`
-   graveyard** once functionality is confirmed preserved (the standing caution).
-4. Then make the optimizers/fitting work on the uniform layer (speed is its whole point), and the
+1. **3b-6′ — uniform tangent `probe_derivatives.py`** (the jet/derivative version of 3b-6). The binomial-jet
+   `trs_*` family: build the `d`-prefixed jet contractions (order axis `t` on top of the same `d` batch),
+   fix the broken `_jets` map-style fns (they hardcode `get_backend(False)` — further from uniform-ready
+   than probing was) + add the missing `is_ndarray` dispatch, wire the `*_derivatives` methods (ambient
+   derivative transpose stays deferred). Built by **mirroring 3b-6**; order-0 cross-checks the plain `WKC`.
+2. **3b-7 — sweep + cleanup.** Tests/doctests final sweep; **delete `OLD_uniform*.py` + the `if False:`
+   graveyard** once functionality is confirmed preserved (the standing caution). Relax the now-cosmetic
+   `Sequence`-only type hints on the polymorphic `apply_tangent`/`entries_tangent` (+ transposes) to
+   `Union` (runtime already polymorphic — not a blocker).
+3. Then make the optimizers/fitting work on the uniform layer (speed is its whole point), and the
    release-hygiene roadmap below.
 
 ## The 1.0 roadmap (mid-level-toolkit scope) — summary

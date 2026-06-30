@@ -345,19 +345,23 @@ of every path. Full suite ~50s, green.
   (`gradient_descent`/`mc_sgd`/`adam`/`newton_cg`, in `optimizers.py`) + least-squares fitting from
   apply/entries/probe **and their derivatives**; the **plain** `UniformTuckerTensorTrain` + `ut3_*`
   backend (through slice 8); **the uniform `UT3Basis`/`UT3Variations` foundation (increment 2c) and the
-  uniform *tangent backend* (increment 3b: `UT3Tangent` + `backend/ubv_tangent_operations` — doubled-rank
-  `to_ut3`/`to_dense`, `retract`, gauge, `project_ut3_onto_tangent_space`, cross-layer converters,
-  stack/unstack), per-element verified vs ragged + mask-strict + garbage-robust** (see
-  `docs/testing_strategy.md`). Worked examples in `examples/fit_hilbert_*`.
+  uniform *tangent + manifold layer* (increment 3b) — the *tangent backend* (`UT3Tangent` +
+  `backend/ubv_tangent_operations`: doubled-rank `to_ut3`/`to_dense`, `retract`, gauge,
+  `project_ut3_onto_tangent_space`, cross-layer converters, stack/unstack), the *two geometries*
+  (`UNIFORM_MANIFOLD`/`UNIFORM_COREWISE`, 3b-5), and *tangent + corewise probing* (3b-6: the `d`-prefixed
+  `WKC` contractions, `UT3Tangent.{probe,apply,entries}` + their `𝒥ᵀ` transposes, and the corewise
+  `UniformTuckerTensorTrain.*_corewise_transpose`) — all per-element verified vs ragged + mask-strict +
+  garbage-robust + jit-clean** (see `docs/testing_strategy.md`). Worked examples in `examples/fit_hilbert_*`.
 - **Design references** (the durable *why*, to be folded into user docs in the doc pass):
   `docs/fitting_and_optimization.md`, `docs/batching_and_stacking.md`, `docs/entries_apply_probe.md`,
   `docs/transposes.md`, `docs/numerical_contract_catalog.md`, `docs/probing_section6_notes.md`,
   `docs/signature_style.md`, `docs/doctest_style.md`, the `docs/uniform_*` notes, the `docs/t3svd_*`
   notes. (Historical plans/handoffs are archived under `dev/archive/`.)
-- **In progress (the 1.0 centerpiece):** the **uniform tangent layer**. The *backend* is built + tested
-  (increment 3b, above); **remaining: 3b-5 the geometries** (`UniformManifoldGeometry`/`UniformCorewiseGeometry`),
-  **3b-6 probing + the `d`-prefixed `WKC` contractions**, **3b-7 cleanup** (delete `OLD_uniform*` + the
-  `if False:` graveyard once preserved), then optimizers/fitting on it. Live status: `dev/HANDOFF.md`.
+- **In progress (the 1.0 centerpiece):** the **uniform tangent layer**. The *backend*, *geometries*, and
+  *tangent + corewise probing* are built + tested (increment 3b through 3b-6, above); **remaining: 3b-6′ the
+  jet/derivative `probe_derivatives.py`** (mirroring 3b-6 with the binomial-jet `trs_*` family),
+  **3b-7 cleanup** (delete `OLD_uniform*` + the `if False:` graveyard once preserved; relax the cosmetic
+  `Sequence`-only hints), then optimizers/fitting on it. Live status: `dev/HANDOFF.md`.
 - **Deferred / broken:** the **weighted layer** (parked `absorb_weights`) — deferred past 1.0; `OLD_*.py`
   files (incl. `OLD_uniform_manifold.py`, the preserved 3b-2 port reference) are still tracked (delete only
   after confirming the functionality is preserved elsewhere).
