@@ -753,3 +753,55 @@ a varying-rank `C`-stack tangent gives per-element dims matching the ragged mode
 - If a specific op *empirically* needs uniform `C`, add a **narrow non-enforced precondition there**
   (orthogonal/gauged pattern), never a blanket restriction. "If we hit problems later, do the deep
   thinking then" (the agreed posture).
+
+## Slice 3b-4c — test-hardening pass for the UT3 tangent layer (decided 2026-06-30)
+
+**Why.** Every correctness test in `test_uniform_manifold.py` is a dense/numerical comparison on
+**clean-padding** inputs (everything comes from `ut3_orthogonal_representations` / `from_t3`). That
+combination is **blind to too-permissive masks** (phantom rank): on clean padding an over-claimed rank
+just keeps zeros, so the dense is still right. This is the exact class of the phantom-boundary bug that
+only the paper caught (the `ones`-vs-`zeros` doubled-mask boundary). The hardening pass closes this blind
+spot plus the stacking / masking / boundary gaps.
+
+**Two complementary tools** do most of the work:
+- **Exact output-mask assertions** — catch phantom rank / wrong masks directly. Non-tautological: derive
+  the expected mask from a *different* source than the impl (the base ranks + the paper rule), not from
+  the impl's own construction.
+- **Garbage-padded *inputs*** — catch ops that fail to mask-once and silently depend on clean padding;
+  for `tangent_to_ut3` (which builds from raw supercores) the garbage flows into the output's
+  input-derived padding, so it also exposes a too-permissive mask there.
+
+> Tempting-but-wrong: corrupting an *output's* padding using the object's **own** mask and re-densifying
+> is **tautological** (`to_dense` applies that same mask, so it always passes). Non-circularity requires
+> the expected real-region to come from an independent source -> exact-mask assertions.
+
+**Shared helpers** (in the test module):
+- `_corrupt_padding(obj, scale=1e3)` — add `scale*(1 - apply_masks(ones_like(sc)))` to each supercore of a
+  `UT3Variations` / `UniformTuckerTensorTrain` / `UT3Tangent` (corrupts the masked-out region per the
+  object's own -- correct, for a valid input -- mask). Used on **inputs**.
+- `_expected_doubled_masks(basis)` — independently build the doubled `(tucker_edge_mask, tt_edge_mask)`
+  from the **base ranks** + the paper rule: tucker = prefix-pair `[up_prefix | down_prefix]`; tt =
+  `[Q-block | P-block]` honest boundaries (`Q0=0, Qi=right_rank_i`; `Pd=0, Pi=left_rank_i`).
+- `_PAD_FORCED` — padding strictly above the real max ranks so **every** core has a padded region.
+
+**Additions (priority order):**
+- **(A) Mask-once / garbage-input robustness** (likely to find bugs): corrupt each op's input padding, run
+  it, assert the result matches the clean-input result (which matches ragged). Ops: `tangent_to_ut3`
+  (both shifts), `retract`, `orthogonal_gauge_projection`, `oblique_gauge_projection`,
+  `project_ut3_onto_tangent_space`, `gauge_residual`. Prime suspects: the **`squash_tt_tails` drop in
+  `project`** and the boundary handling.
+- **(B) Exact output-mask assertions** (the strictness fix): `tangent_to_ut3` masks ==
+  `_expected_doubled_masks` (full arrays, unstacked/C/K+C/varying-C/forced-pad); `retract` masks == the
+  base plain-UT3 masks per element; `orthogonal`/`oblique` gauge output masks == input masks; `project`
+  output masks == base gauge masks; stack/unstack/sum round-tripped masks == original (exact array).
+- **(C) Orthogonal gauge with a `K` stack** (+ `gauge_residual` with `K`) — currently only oblique has `K`.
+- **(D) Multi-axis stacks** `C=(2,3)` / `K=(2,3)` across doubled-rank, retract, both gauges, project,
+  stack/unstack — targets off-by-ones in the negative-axis / `1+n_K` / suffix arithmetic.
+- **(E) Forced-larger padding** woven into a representative subset of the dense + (A) + (B) tests, so
+  masking is exercised on every core (not just the sub-max-rank ones).
+
+**Logistics:** all in `tests/test_uniform_manifold.py`; numpy-only correctness + existing jit coverage;
+full-suite gate. **No impl changes unless a test finds a bug -> then fix the impl + note it** (do not
+relax the test). An **independent adversarial audit agent** runs alongside (cold read of the impl, try to
+construct a passing-but-wrong case); reconcile its findings with this plan. A durable testing-strategy
+note for future developers follows once the pass is green.
