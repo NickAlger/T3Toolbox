@@ -278,6 +278,11 @@ The dividing line is **structural vs numerical**:
 - Correctness is checked against **dense ground truth**: rebuild via `.to_dense()` + a hand-written
   `np.einsum`, compare residual norms (~1e-12..1e-16). Verify a math property empirically with a
   quick script before asserting it in a test.
+- **The deeper rationale — and a real trap — is [`docs/testing_strategy.md`](docs/testing_strategy.md):**
+  dense/numerical tests on clean-padding inputs are **blind to too-permissive masks** (phantom rank — the
+  doubled-boundary bug class). For any uniform op, dense-vs-ragged is **not enough**; also assert **exact
+  output masks** (derived non-circularly) and **garbage-padded-input robustness**. Read it before adding
+  uniform tests.
 - `unittest`, in `tests/`. Pattern: `subTest` over structures × stack_shapes. **Numerical
   correctness is checked numpy-only** — the backend is backend-agnostic (`xnp`, `'...'` einsums,
   inferred dispatch), so jax computes the same numbers; duplicating every sweep in jax was wasted
