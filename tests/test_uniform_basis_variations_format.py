@@ -261,6 +261,75 @@ class TestCheckUbvPair(unittest.TestCase):
         with self.assertRaises(ValueError):
             ubv.check_ubv_pair(B, Vbad)
 
+    def _K_variation(self, B, K, up_r=_UP_R):
+        """A K-stacked variation (a bundle of K tangents at the single base B): cores grow a leading K
+        stack, masks are the base's gauge-shifted masks broadcast constant along K."""
+        d, N, nU, nD, rL, rR = _D, _N, _NU, _ND, _RL, _RR
+        bm = B.masks
+        bcast = lambda m: np.broadcast_to(m.reshape(m.shape[:1] + (1,) * len(K) + m.shape[1:]),
+                                          m.shape[:1] + K + m.shape[1:])
+        up = bcast(_prefix_mask(up_r, nU))           # allow an over-ridden up rank to test mismatch
+        masks = ubv.UT3VariationsMasks(up, bcast(bm.down_mask),
+                                       bcast(bm.basis_left_mask[:-1]), bcast(bm.basis_right_mask[1:]))
+        return ubv.UT3Variations(np.random.randn(*((d,) + K + (nD, N))),
+                                 np.random.randn(*((d,) + K + (rL, nU, rR))), _SHAPE, masks)
+
+    def test_tangent_K_stack_passes(self):
+        # the 3b-0 capability: a base with C=() and a K-stacked variation (K != ()) is a consistent pair.
+        B, _ = self._pair()
+        for K in [(2,), (4,), (2, 3)]:
+            with self.subTest(K=K):
+                ubv.check_ubv_pair(B, self._K_variation(B, K))
+
+    def test_tangent_K_plus_C_stack_passes(self):
+        # base carries a core (C) stack; variation carries K+C with C as the trailing suffix.
+        d, N, nU, nD, rL, rR = _D, _N, _NU, _ND, _RL, _RR
+        C, K = (3,), (2,)
+        up = _prefix_mask(_UP_R, nU); dn = _prefix_mask(_DOWN_R, nD)
+        bl = _prefix_mask([1, 2, 3, 1], rL); br = _prefix_mask([1, 2, 2, 1], rR)
+        bcastC = lambda m: np.broadcast_to(m[:, None], m.shape[:1] + C + m.shape[1:])
+        B = ubv.UT3Basis(np.random.randn(d, *C, nU, N), np.random.randn(d, *C, rL, nD, rR),
+                         np.random.randn(d, *C, rL, nU, rL), np.random.randn(d, *C, rR, nU, rR),
+                         _SHAPE, ubv.UT3BasisMasks(bcastC(up), bcastC(dn), bcastC(bl), bcastC(br)))
+        # K+C variation masks: insert K after d, broadcast the base's gauge-shifted (C-stacked) masks.
+        bcastK = lambda m: np.broadcast_to(m[:, None], m.shape[:1] + K + m.shape[1:])
+        masks = ubv.UT3VariationsMasks(bcastK(bcastC(up)), bcastK(bcastC(dn)),
+                                       bcastK(bcastC(bl[:-1])), bcastK(bcastC(br[1:])))
+        V = ubv.UT3Variations(np.random.randn(d, *K, *C, nD, N),
+                              np.random.randn(d, *K, *C, rL, nU, rR), _SHAPE, masks)
+        ubv.check_ubv_pair(B, V)
+
+    def test_K_stack_mask_not_constant_raises(self):
+        # a K-stacked variation whose mask is NOT constant along K (one slice has a different up rank).
+        B, _ = self._pair()
+        V = self._K_variation(B, (2,))
+        bad_up = np.array(V.masks.variations_up_mask)
+        bad_up[:, 1, :] = _prefix_mask([1, 3, 4], _NU)   # second K slice differs from the base
+        Vbad = ubv.UT3Variations(V.tucker_variations, V.tt_variations, _SHAPE,
+                                 ubv.UT3VariationsMasks(bad_up, V.masks.variations_down_mask,
+                                                        V.masks.variations_left_mask,
+                                                        V.masks.variations_right_mask))
+        with self.assertRaises(ValueError):
+            ubv.check_ubv_pair(B, Vbad)
+
+    def test_base_stack_not_suffix_raises(self):
+        # base C=(3,) is NOT a trailing suffix of variation stack (5,) -> reject.
+        d, N, nU, nD, rL, rR = _D, _N, _NU, _ND, _RL, _RR
+        C = (3,)
+        up = _prefix_mask(_UP_R, nU); dn = _prefix_mask(_DOWN_R, nD)
+        bl = _prefix_mask([1, 2, 3, 1], rL); br = _prefix_mask([1, 2, 2, 1], rR)
+        bcastC = lambda m, c: np.broadcast_to(m[:, None], m.shape[:1] + c + m.shape[1:])
+        B = ubv.UT3Basis(np.random.randn(d, *C, nU, N), np.random.randn(d, *C, rL, nD, rR),
+                         np.random.randn(d, *C, rL, nU, rL), np.random.randn(d, *C, rR, nU, rR),
+                         _SHAPE, ubv.UT3BasisMasks(bcastC(up, C), bcastC(dn, C), bcastC(bl, C), bcastC(br, C)))
+        bad = (5,)
+        masks = ubv.UT3VariationsMasks(bcastC(up, bad), bcastC(dn, bad),
+                                       bcastC(bl[:-1], bad), bcastC(br[1:], bad))
+        V = ubv.UT3Variations(np.random.randn(d, *bad, nD, N),
+                              np.random.randn(d, *bad, rL, nU, rR), _SHAPE, masks)
+        with self.assertRaises(ValueError):
+            ubv.check_ubv_pair(B, V)
+
 
 class TestUt3OrthogonalRepresentations(unittest.TestCase):
     """The equivalence-contract anchor (increment 2b): orthogonalize a uniform T3, convert the frame back

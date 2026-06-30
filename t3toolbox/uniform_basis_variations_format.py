@@ -866,6 +866,14 @@ def check_ubv_pair(base: UT3Basis, variations: UT3Variations) -> None:
     This ensures that the variation cores (V, H) have the correct dimensions
      to interface with the base cores (U, L, R, O).
 
+    The variations may carry an EXTRA leading tangent (``K``) stack on top of the base's core
+    (``C``) stack -- i.e. ``variations.stack_shape == K + base.stack_shape`` -- because a bundle of
+    tangent vectors all live at a single base point (the ``W+K+C`` convention, see
+    ``docs/batching_and_stacking.md``). So the check compares the *stack-free* structure
+    ``(d, N, nU, nD, rL, rR)``, requires the base ``C`` stack to be the trailing suffix of the
+    variations ``K+C`` stack, and matches the rank masks broadcast over the excess ``K`` (each
+    variation mask must be constant along ``K`` and equal the base's gauge-shifted mask).
+
     Examples
     --------
     >>> import numpy as np
@@ -887,26 +895,53 @@ def check_ubv_pair(base: UT3Basis, variations: UT3Variations) -> None:
     >>> V = ubcf.UT3Variations(tkv, ttv, shape,
     ...                        ubcf.UT3VariationsMasks(up, dn, bl[:-1], br[1:]))
     >>> ubcf.check_ubv_pair(B, V)   # consistent base/variations pair -> no error
+
+    A bundle of ``K`` tangent vectors at the SAME base carries an extra leading stack; the masks must
+    be constant along it and equal the base's gauge-shifted masks:
+
+    >>> K = (2,)
+    >>> bcast = lambda m: np.broadcast_to(m[:, None], (m.shape[0],) + K + m.shape[1:])
+    >>> VK = ubcf.UT3Variations(np.random.randn(*((d,) + K + (nD, N))),
+    ...                         np.random.randn(*((d,) + K + (rL, nU, rR))), shape,
+    ...                         ubcf.UT3VariationsMasks(bcast(up), bcast(dn), bcast(bl[:-1]), bcast(br[1:])))
+    >>> ubcf.check_ubv_pair(B, VK)   # base (C=()) vs K-stacked variations -> still consistent
     """
-    if base.uniform_structure != variations.uniform_structure:
+    # Compare the stack-free structure (d, N, nU, nD, rL, rR) -- NOT the full 7-tuple, whose trailing
+    # stack_shape would wrongly reject a legitimate tangent (K) stack on the variations.
+    if base.uniform_structure[:6] != variations.uniform_structure[:6]:
         raise ValueError(
-            'Inconsistent (UT3Basis, UT3Variations) pair: structures differ.\n'
-            + str(base.uniform_structure) + ' (base) != ' + str(variations.uniform_structure) + ' (variations)')
+            'Inconsistent (UT3Basis, UT3Variations) pair: stack-free structures differ.\n'
+            + str(base.uniform_structure[:6]) + ' (base) != '
+            + str(variations.uniform_structure[:6]) + ' (variations)')
 
     if base.shape != variations.shape:
         raise ValueError('Inconsistent (UT3Basis, UT3Variations) pair: shapes differ (%s vs %s).'
                          % (base.shape, variations.shape))
 
+    # The base core (C) stack must be the trailing suffix of the variations (K+C) stack.
+    base_stack, var_stack = base.stack_shape, variations.stack_shape
+    n_K = len(var_stack) - len(base_stack)
+    if n_K < 0 or var_stack[n_K:] != base_stack:
+        raise ValueError(
+            'Inconsistent (UT3Basis, UT3Variations) pair: base stack_shape %s is not a trailing suffix '
+            'of variations stack_shape %s (expected variations.stack_shape == K + base.stack_shape).'
+            % (base_stack, var_stack))
+
+    # Rank masks must match, broadcast over the excess K: reshape each base mask to insert n_K size-1
+    # axes after the leading core (d) axis, then broadcast up to the variations mask shape. Masks are
+    # host numpy (static aux), so this stays on `np` (see CLAUDE.md: supercores -> xnp, masks -> np).
     bm, vm = base.masks, variations.masks
     for a, b, name in (
-            (bm.up_mask,             vm.variations_up_mask,    'up'),
-            (bm.down_mask,           vm.variations_down_mask,  'down'),
+            (bm.up_mask,              vm.variations_up_mask,    'up'),
+            (bm.down_mask,            vm.variations_down_mask,  'down'),
             (bm.basis_left_mask[:-1], vm.variations_left_mask,  'left'),
             (bm.basis_right_mask[1:], vm.variations_right_mask, 'right'),
     ):
-        if not np.array_equal(a, b):
+        a_bcast = np.broadcast_to(a.reshape(a.shape[:1] + (1,) * n_K + a.shape[1:]), b.shape)
+        if not np.array_equal(a_bcast, b):
             raise ValueError(
-                'Inconsistent (UT3Basis, UT3Variations) pair: %s rank masks differ.' % name)
+                'Inconsistent (UT3Basis, UT3Variations) pair: %s rank masks differ '
+                '(variation mask must be constant along the K stack and equal the base mask).' % name)
 
 
 def ut3_orthogonal_representations(
