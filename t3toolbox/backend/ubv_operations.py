@@ -23,6 +23,8 @@ __all__ = [
     'ubv_leaf_structure',
     'ubv_unstack',
     'ubv_stack',
+    'ubv_unstack_axes',
+    'ubv_stack_axes',
     'ubv_variations_sum_stack',
     'ubv_reverse_basis',
     'ubv_reverse_variations',
@@ -55,23 +57,24 @@ def _first_data_leaf(xx):  # drill to the first .data leaf without recursing int
     return xx
 
 
-def ubv_unstack(
-        data:         typ.Tuple,  # (*supercores, shape, masks): n_supercores arrays, int-tuple, 4-tuple of masks
-        n_supercores: int,        # 4 (frame) or 2 (variations)
-):  # -> nested tuple (shaped like stack_shape) of unstacked bv .data leaves
-    """Unstack a (stacked) bv ``.data`` tuple into an array-like tree of unstacked ones.
+def ubv_unstack_axes(
+        data:         typ.Tuple,        # (*supercores, shape, masks): n_supercores arrays, int-tuple, 4-tuple of masks
+        n_supercores: int,              # 4 (frame) or 2 (variations)
+        axes:         typ.Sequence[int],  # the array axes to peel into tree levels (a CONTIGUOUS run within the stack)
+):  # -> nested tuple (shaped like the peeled axes) of bv .data leaves carrying the remaining stack
+    """Unstack a bv ``.data`` tuple along the GIVEN array axes (a sub-run of the stack), leaving the rest.
 
-    The supercores and the four rank masks unstack along the stack axes ``1 .. len(stack_shape)``;
-    ``shape`` is shared and replicated onto every leaf. Mirrors :py:func:`ut3_operations.ut3_unstack`.
+    Generalizes :py:func:`ubv_unstack` (which peels the whole stack) to a contiguous sub-run -- the
+    primitive the tangent layer needs to split a ``K + C`` variation stack into just its ``K`` part or just
+    its ``C`` part. The supercores and all four rank masks slice along ``axes`` (they share those stack-axis
+    positions; the masks' leading ``d`` vs ``d+1`` is irrelevant since only ``axes`` are touched); ``shape``
+    is shared and replicated onto every leaf.
     """
     supercores = tuple(data[:n_supercores])
     shape      = data[n_supercores]
     masks      = tuple(data[n_supercores + 1])
 
-    stack_shape = supercores[0].shape[1:-2]   # first supercore is the tucker one: (d,)+stack+(n, N)
-    axes = tuple(range(1, 1 + len(stack_shape)))
-
-    tree = stacking.unstack(supercores + masks, axes=axes)
+    tree = stacking.unstack(supercores + masks, axes=tuple(axes))
 
     return stacking.apply_func_to_leaf_subtrees(
         tree,
@@ -80,34 +83,56 @@ def ubv_unstack(
     )
 
 
-def ubv_stack(
-        xx,                       # nested tuple (shaped like stack_shape) of unstacked bv .data leaves
+def ubv_stack_axes(
+        xx,                       # nested tuple (shaped like the stacked sub-run) of bv .data leaves
         n_supercores: int,        # 4 (frame) or 2 (variations)
+        axes_start:   int,        # array axis the OUTERMOST new stack level lands on (others follow contiguously)
 ) -> typ.Tuple:                   # one stacked bv .data tuple (*supercores, shape, masks)
-    """Stack an array-like tree of bv ``.data`` leaves into one. Inverse of :py:func:`ubv_unstack`.
+    """Stack an array-like tree of bv ``.data`` leaves onto a CONTIGUOUS run of array axes starting at
+    ``axes_start``. Inverse of :py:func:`ubv_unstack_axes`.
 
-    Stacks the supercores and rank masks onto axes ``1 .. num_levels`` (after the mode index), keeping the
-    shared ``shape`` unstacked (read once from the first leaf -- a ``Sequence`` the walker would recurse
-    into). Mirrors :py:func:`ut3_operations.ut3_stack`.
+    Generalizes :py:func:`ubv_stack` (which stacks onto axes ``1 ..``) so the tangent layer can slot a new
+    stack run at the right place -- e.g. the base stack ``C`` *after* an existing tangent stack ``K`` (at
+    ``axes_start = 1 + |K|``), keeping ``C`` inner. ``shape`` is read once (shared) and supercores/masks are
+    stacked in SEPARATE :py:func:`stacking.stack` calls so the host-numpy masks are not promoted to jax.
     """
     first = _first_data_leaf(xx)        # shape is shared across the stack -> read once (manual drill)
     shape = first[n_supercores]
     d     = first[0].shape[0]
     template = ubv_leaf_structure(d, n_supercores)
 
-    # Stack the supercores and the masks via SEPARATE stacking.stack calls. stacking.stack infers ONE
-    # backend per call (tree_contains_jax over the whole tree), so a mixed (jax supercore + host mask) call
-    # would promote the masks to jax -- breaking the masks-are-host-numpy invariant. The mask-only call has
-    # no jax inputs, so the masks stay host numpy; the supercores follow xnp as usual.
     sc_tree   = stacking.apply_func_to_leaf_subtrees(xx, lambda leaf: tuple(leaf[:n_supercores]), template)
     mask_tree = stacking.apply_func_to_leaf_subtrees(xx, lambda leaf: tuple(leaf[n_supercores + 1]), template)
 
     num_levels = stacking.tree_depth(sc_tree) - 1   # minus the 1 flat-tuple leaf level
-    axes = tuple(range(1, 1 + num_levels))
+    axes = tuple(range(axes_start, axes_start + num_levels))
 
     supercores = stacking.stack(sc_tree, axes)      # supercores: xnp-inferred (jax-aware)
     masks      = stacking.stack(mask_tree, axes)    # masks: all host -> stay host numpy
     return tuple(supercores) + (shape, tuple(masks))
+
+
+def ubv_unstack(
+        data:         typ.Tuple,  # (*supercores, shape, masks): n_supercores arrays, int-tuple, 4-tuple of masks
+        n_supercores: int,        # 4 (frame) or 2 (variations)
+):  # -> nested tuple (shaped like stack_shape) of unstacked bv .data leaves
+    """Unstack a (stacked) bv ``.data`` tuple into an array-like tree of unstacked ones (the WHOLE stack).
+
+    The supercores and the four rank masks unstack along the stack axes ``1 .. len(stack_shape)``;
+    ``shape`` is shared and replicated onto every leaf. Mirrors :py:func:`ut3_operations.ut3_unstack`;
+    thin wrapper over :py:func:`ubv_unstack_axes` over the full stack.
+    """
+    stack_shape = data[0].shape[1:-2]   # first supercore is the tucker one: (d,)+stack+(n, N)
+    return ubv_unstack_axes(data, n_supercores, tuple(range(1, 1 + len(stack_shape))))
+
+
+def ubv_stack(
+        xx,                       # nested tuple (shaped like stack_shape) of unstacked bv .data leaves
+        n_supercores: int,        # 4 (frame) or 2 (variations)
+) -> typ.Tuple:                   # one stacked bv .data tuple (*supercores, shape, masks)
+    """Stack an array-like tree of bv ``.data`` leaves into one (the WHOLE stack at axes ``1 ..``). Inverse
+    of :py:func:`ubv_unstack`; thin wrapper over :py:func:`ubv_stack_axes` with ``axes_start = 1``."""
+    return ubv_stack_axes(xx, n_supercores, axes_start=1)
 
 
 def ubv_variations_sum_stack(

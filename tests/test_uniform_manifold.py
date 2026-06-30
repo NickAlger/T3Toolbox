@@ -46,6 +46,26 @@ def _K_variations(basis, K, seed=0):
                                    stack_shape=tuple(K) + basis.stack_shape, masks=masks)
 
 
+_HETERO = [((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)),     # two models of DIFFERENT base ranks (rank-sweep),
+           ((4, 5, 6), (3, 3, 2), (1, 1, 2, 1))]     # padded to common dims so they stack on one C batch
+_HETERO_PAD = dict(N=6, nU=4, nD=4, rL=3, rR=3)
+
+
+def _hetero_tangents(seed=0):
+    """A list of single-base UT3Tangents at DIFFERENT ranks (the varying-C rank-sweep case), plus the
+    matching ragged T3Tangents for the equivalence checks."""
+    np.random.seed(seed)
+    us, rs = [], []
+    for s in _HETERO:
+        x = t3.TuckerTensorTrain.randn(*s)
+        rb, rv = bvf.t3_orthogonal_representations(x)
+        ub = ubv.UT3Basis.from_t3basis(rb, **_HETERO_PAD)
+        uv = ubv.UT3Variations.from_t3variations(rv, **_HETERO_PAD)
+        us.append(ut3m.UT3Tangent(ub, uv))
+        rs.append(t3m.T3Tangent(rb, rv))
+    return us, rs
+
+
 class TestStructureAndInference(unittest.TestCase):
     def setUp(self):
         np.random.seed(0)
@@ -326,6 +346,114 @@ class TestPytree(unittest.TestCase):
         v = ut3m.UT3Tangent(*_uniform_base(x)).to_jax()
         n = jax.jit(lambda t: t.corewise_norm())(v)
         self.assertGreater(float(n), 0.0)
+
+
+class TestStackUnstack(unittest.TestCase):
+    """3b-1b: the tangent stack/unstack conversions (tree <-> stacked tangent) + sum_tangents over K."""
+    def setUp(self):
+        np.random.seed(0)
+
+    def _v(self, stack_shape=(), K=()):
+        x = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=stack_shape)
+        B, V = _uniform_base(x)
+        return ut3m.UT3Tangent(B, _K_variations(B, K) if K else V)
+
+    # ------- tangent (K) stack -------
+    def test_unstack_stack_tangents_roundtrip(self):
+        v = self._v(K=(3,))
+        leaves = v.unstack_tangents()
+        self.assertEqual(len(leaves), 3)
+        self.assertTrue(all(t.tangent_stack_shape == () and t.base_stack_shape == () for t in leaves))
+        self.assertTrue(all(t.basis is v.basis for t in leaves))            # one shared frame across K
+        self.assertTrue(ut3m.UT3Tangent.stack_tangents(leaves).allclose(v).all())
+
+    def test_unstack_stack_tangents_over_base_stack(self):
+        v = self._v(stack_shape=(2,), K=(3,))                               # K+C = (3, 2)
+        leaves = v.unstack_tangents()                                       # peel K=3, each leaf base_stack=(2,)
+        self.assertEqual(len(leaves), 3)
+        self.assertTrue(all(t.base_stack_shape == (2,) and t.tangent_stack_shape == () for t in leaves))
+        self.assertTrue(ut3m.UT3Tangent.stack_tangents(leaves).allclose(v).all())
+
+    def test_stack_tangents_requires_same_frame(self):
+        v = self._v(K=())
+        B2 = ubv.UT3Basis(v.basis.up_tucker_supercore + 0.1, v.basis.down_tt_supercore + 0.1,
+                          v.basis.left_tt_supercore + 0.1, v.basis.right_tt_supercore + 0.1,
+                          v.basis.shape, v.basis.masks)
+        v2 = ut3m.UT3Tangent(B2, v.variations.copy())
+        with self.assertRaises(ValueError):
+            ut3m.UT3Tangent.stack_tangents((v, v2))
+        with safety.unsafe():                                              # numerical check skipped
+            self.assertEqual(ut3m.UT3Tangent.stack_tangents((v, v2)).tangent_stack_shape, (2,))
+
+    # ------- base (C) stack -------
+    def test_unstack_stack_basis_roundtrip(self):
+        v = self._v(stack_shape=(2,), K=(3,))
+        leaves = v.unstack_basis()                                          # peel C=2, each leaf tangent_stack=(3,)
+        self.assertEqual(len(leaves), 2)
+        self.assertTrue(all(t.base_stack_shape == () and t.tangent_stack_shape == (3,) for t in leaves))
+        self.assertTrue(ut3m.UT3Tangent.stack_basis(leaves).allclose(v).all())
+
+    def test_stack_basis_requires_matching_padded_dims_and_K(self):
+        a = self._v(stack_shape=(), K=())
+        # different tangent stack K -> reject
+        b = self._v(stack_shape=(), K=(2,))
+        with self.assertRaises(ValueError):
+            ut3m.UT3Tangent.stack_basis((a, b))
+
+    # ------- varying ranks across C (the rank-sweep use case) -------
+    def test_stack_basis_varying_C_ranks(self):
+        us, rs = _hetero_tangents()
+        stacked = ut3m.UT3Tangent.stack_basis(us)                          # different base ranks in one C batch
+        self.assertEqual(stacked.base_stack_shape, (2,))
+        # per-element tangent-space dims differ and match the per-model ragged dims
+        dims = np.asarray(stacked.tangent_space_dimension)
+        self.assertEqual(dims.shape, (2,))
+        self.assertEqual(list(dims), [rs[0].tangent_space_dimension, rs[1].tangent_space_dimension])
+        self.assertNotEqual(dims[0], dims[1])                              # genuinely varying
+        # unstack recovers each model
+        back = stacked.unstack_basis()
+        self.assertTrue(back[0].allclose(us[0]).all() and back[1].allclose(us[1]).all())
+
+    def test_varying_C_corewise_norm_per_element_vs_ragged(self):
+        us, rs = _hetero_tangents()
+        stacked = ut3m.UT3Tangent.stack_basis(us)
+        un = np.asarray(stacked.corewise_norm())
+        self.assertTrue(np.allclose(un, [float(rs[0].corewise_norm()), float(rs[1].corewise_norm())]))
+
+    # ------- K-stack equivalence vs the ragged T3Tangent (the deferred 3b-1a check) -------
+    def test_K_stack_equivalence_vs_ragged(self):
+        v = self._v(K=(3,))
+        un = np.asarray(v.corewise_norm())                                 # per-K uniform norms
+        for k, leaf in enumerate(v.unstack_tangents()):
+            rt = t3m.T3Tangent(leaf.basis.to_t3basis(), leaf.variations.to_t3variations())
+            self.assertTrue(np.allclose(float(un[k]), float(rt.corewise_norm())))
+
+    # ------- sum over K -------
+    def test_sum_tangents_all(self):
+        v = self._v(K=(3,))
+        leaves = v.unstack_tangents()
+        summed = v.sum_tangents()
+        self.assertEqual(summed.stack_shape, ())
+        self.assertTrue(summed.allclose(leaves[0] + leaves[1] + leaves[2]).all())
+
+    def test_sum_tangents_single_axis(self):
+        x = t3.TuckerTensorTrain.randn(*_STRUCT)
+        B, _ = _uniform_base(x)
+        v = ut3m.UT3Tangent(B, _K_variations(B, (2, 3)))                   # K = (2, 3)
+        s = v.sum_tangents(axis=0)                                         # sum the outer K axis -> K=(3,)
+        self.assertEqual(s.tangent_stack_shape, (3,))
+        # cross-check against an explicit sum over that axis of the masked supercores
+        tkv = np.asarray(v.variations.apply_masks().tucker_variations).sum(axis=1)
+        self.assertTrue(np.allclose(np.asarray(s.variations.apply_masks().tucker_variations), tkv))
+
+    @unittest.skipUnless(HAS_JAX, "jax not installed")
+    def test_stack_basis_jax_supercores_host_masks(self):
+        us, _ = _hetero_tangents()
+        stacked = ut3m.UT3Tangent.stack_basis([t.to_jax() for t in us])
+        import t3toolbox.backend.common as common
+        self.assertTrue(stacked.contains_jax)
+        self.assertTrue(all(common.is_jax_ndarray(sc) for sc in stacked.variations.supercores))
+        self.assertTrue(all(common.is_numpy_ndarray(m) for m in stacked.variations.masks.data))
 
 
 if __name__ == '__main__':

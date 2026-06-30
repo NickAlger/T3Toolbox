@@ -27,6 +27,9 @@ from dataclasses import dataclass
 import t3toolbox.uniform_basis_variations_format as ubv
 import t3toolbox.safety as safety
 import t3toolbox.backend.ranks as ranks
+import t3toolbox.backend.stacking as stacking
+import t3toolbox.backend.ubv_operations as ubv_operations
+import t3toolbox.backend.ubv_tangent_operations as ubv_tangent_operations
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -52,6 +55,24 @@ def _broadcast_variation_masks_over_K(
 
     return ubv.UT3VariationsMasks(b(masks.variations_up_mask), b(masks.variations_down_mask),
                                   b(masks.variations_left_mask), b(masks.variations_right_mask))
+
+
+def _ut3basis_from_data(bd) -> ubv.UT3Basis:        # bd = (up, down, left, right, shape, masks_tuple)
+    return ubv.UT3Basis(bd[0], bd[1], bd[2], bd[3], bd[4], ubv.UT3BasisMasks(*bd[5]))
+
+
+def _ut3variations_from_data(vd) -> ubv.UT3Variations:  # vd = (tkv, ttv, shape, masks_tuple)
+    return ubv.UT3Variations(vd[0], vd[1], vd[2], ubv.UT3VariationsMasks(*vd[3]))
+
+
+def _flatten_tangents(tree) -> typ.List['UT3Tangent']:
+    """Flatten an array-like tree of UT3Tangents (nested tuples) into a flat list of leaves."""
+    if isinstance(tree, UT3Tangent):
+        return [tree]
+    out = []
+    for sub in tree:
+        out.extend(_flatten_tangents(sub))
+    return out
 
 
 def _variations_stack_dot(
@@ -334,6 +355,16 @@ class UT3Tangent:
         recomputing the orthogonal representation."""
         return UT3Tangent(self.basis.reverse(), self.variations.reverse())
 
+    def sum_tangents(self, axis=None) -> 'UT3Tangent':
+        """Sum over the tangent stack ``K`` (a batch of tangents at the shared base) into one tangent.
+
+        Corewise (= the tensor sum, by linearity); the base stack ``C`` is preserved. ``axis`` indexes
+        within ``K`` (default: the whole tangent stack). The masks OR over the summed axes -- a no-op for
+        a single-base ``K`` stack (constant masks), but the correct reduction in general."""
+        vd = ubv_tangent_operations.sum_tangent_stack(
+            self.variations.data, len(self.tangent_stack_shape), axis)
+        return UT3Tangent(self.basis, _ut3variations_from_data(vd))
+
     # ------------------------------------------------------------- constructors
     @staticmethod
     def zeros(
@@ -373,6 +404,78 @@ class UT3Tangent:
     def zeros_like(tangent: 'UT3Tangent') -> 'UT3Tangent':
         """Zero tangent at ``tangent``'s base, with ``tangent``'s tangent stack ``K``."""
         return UT3Tangent.zeros(tangent.basis, stack_shape=tangent.tangent_stack_shape)
+
+    # ------------------------------------------------------------- stack/unstack (tree <-> stacked tangent)
+    def unstack_tangents(self):
+        """Unstack over the tangent stack ``K``: a ``K``-shaped tree of tangents sharing this base.
+
+        Decomposes the batch of tangent *directions*. Each leaf is a :py:class:`UT3Tangent` with
+        ``tangent_stack_shape == ()`` and this tangent's ``base_stack_shape`` -- and, because the base is
+        shared across ``K``, every leaf holds the **same** :py:class:`UT3Basis` object, so the leaves live
+        in one tangent space. Inverse of :py:meth:`stack_tangents`."""
+        variations_tree = ubv_tangent_operations.unstack_tangent_stack(self.basis.data, self.variations.data)
+        return stacking.apply_func_to_leaf_subtrees(
+            variations_tree,
+            lambda vd: UT3Tangent(self.basis, _ut3variations_from_data(vd)),   # SAME basis object (shared)
+            ubv_operations.ubv_leaf_structure(self.d, 2))
+
+    def unstack_basis(self):
+        """Unstack over the base stack ``C``: a ``C``-shaped tree of single-base-point tangents.
+
+        Decomposes over base *points*. Each leaf is a :py:class:`UT3Tangent` with ``base_stack_shape == ()``
+        and this tangent's ``tangent_stack_shape``; the leaves sit at **different** base points (different
+        tangent spaces, not mutually linear-algebra compatible) and may have **different ranks** (the
+        varying-``C`` rank-sweep case). Inverse of :py:meth:`stack_basis`."""
+        paired_tree = ubv_tangent_operations.unstack_base_stack(self.basis.data, self.variations.data)
+        leaf_structure = (ubv_operations.ubv_leaf_structure(self.d, 4),    # a basis_data leaf
+                          ubv_operations.ubv_leaf_structure(self.d, 2))    # a variations_data leaf
+        return stacking.apply_func_to_leaf_subtrees(
+            paired_tree,
+            lambda bv: UT3Tangent(_ut3basis_from_data(bv[0]), _ut3variations_from_data(bv[1])),
+            leaf_structure)
+
+    @staticmethod
+    def stack_tangents(tree) -> 'UT3Tangent':
+        """Stack a ``K``-shaped tree of tangents (sharing one base) into a tangent-stacked UT3Tangent.
+
+        Inverse of :py:meth:`unstack_tangents`. Requires every leaf to be at the **same frame** (the
+        numerical same-frame check, as in :py:meth:`__add__`): the tangents being stacked must live in the
+        same tangent space. The first leaf's base is reused; the variations stack over the new outer
+        tangent stack ``K``."""
+        leaves = _flatten_tangents(tree)
+        base = leaves[0].basis
+        for t in leaves[1:]:
+            if not (t.basis is base or safety.frames_equal_or_skip(t.basis.data[:4], base.data[:4])):
+                raise ValueError(
+                    'stack_tangents requires every tangent to be at the same frame -- they must live in the '
+                    'same tangent space. To stack tangents at *different* base points, use stack_basis. '
+                    '(Run inside safety.unsafe() to skip this numerical check.)')
+        variations_tree = stacking.apply_func_to_leaf_subtrees(tree, lambda t: t.variations.data, None)
+        vd = ubv_tangent_operations.stack_tangent_stack(variations_tree)
+        return UT3Tangent(base, _ut3variations_from_data(vd))
+
+    @staticmethod
+    def stack_basis(tree) -> 'UT3Tangent':
+        """Stack a ``C``-shaped tree of single-base-point tangents into a base-stacked UT3Tangent.
+
+        Inverse of :py:meth:`unstack_basis`. The leaves sit at **different** base points, so no shared-base
+        identity is required; they must share the padded dims ``(d, N, nU, nD, rL, rR)``, the real mode
+        ``shape``, and the tangent stack ``K`` -- but the **ranks/masks MAY differ across the base stack
+        ``C``** (varying-rank stacks are supported). The bases stack over the inner base stack ``C`` (so the
+        variation stack becomes ``K + C``)."""
+        leaves = _flatten_tangents(tree)
+        key = lambda t: (t.basis.uniform_structure[:6], t.tangent_stack_shape, t.shape)
+        k0 = key(leaves[0])
+        for t in leaves[1:]:
+            if key(t) != k0:
+                raise ValueError(
+                    'stack_basis requires all tangents to share the padded dims (d, N, nU, nD, rL, rR), the '
+                    'mode shape, and the tangent stack K (only the base point -- and its ranks/masks -- may '
+                    'differ across the base stack C).')
+        paired_tree = stacking.apply_func_to_leaf_subtrees(
+            tree, lambda t: (t.basis.data, t.variations.data), None)
+        basis_data, variations_data = ubv_tangent_operations.stack_base_stack(paired_tree)
+        return UT3Tangent(_ut3basis_from_data(basis_data), _ut3variations_from_data(variations_data))
 
 
 if has_jax:
