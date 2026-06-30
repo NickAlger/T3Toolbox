@@ -244,12 +244,16 @@ def tangent_to_ut3(
     blocks = [first_core()] + ([mid_cores()] if d > 2 else []) + [last_core()]
     tt_supercore = xnp.concatenate(blocks, axis=0)                             # (d,)+ss+(rR+rL, nU+nD, rR+rL)
 
-    # ---- Doubled rank masks (HOST numpy; carry K+C from the variation masks). The appended boundary slots
-    # are FULL ones -- harmless: the supercore is zero there (to_dense masks-then-contracts). ----
-    tucker_mask = np.concatenate([var_up_mask, var_down_mask], axis=-1)        # (d,)+ss+(nU+nD,)
-    left_ext  = np.concatenate([var_left_mask,  np.ones((1,) + ss + (rL,), bool)], axis=0)   # (d+1,)+ss+(rL,)
-    right_ext = np.concatenate([np.ones((1,) + ss + (rR,), bool), var_right_mask], axis=0)   # (d+1,)+ss+(rR,)
-    tt_mask = np.concatenate([right_ext, left_ext], axis=-1)                   # (d+1,)+ss+(rR+rL,)  [R, L] order
+    # ---- Doubled rank masks (HOST numpy; carry K+C from the variation masks). The order respects the
+    # block structure (eqs 50-53): Tucker axis [U | dU] = [up | down]; the TT bond is [Q | P] = [R | L], so
+    # the right-chain mask sits in the Q block and the left-chain mask in the P block -- the unique
+    # concatenation where each diagonal mask multiplies the core block it belongs to. At the two boundary
+    # bonds the global "1" sits in the CONTENT block (P at bond 0, Q at bond d); the opposite (free) block
+    # has no core, hence rank 0 -- appended as zeros (not phantom ones), so the doubled ranks stay honest. ----
+    tucker_mask = np.concatenate([var_up_mask, var_down_mask], axis=-1)        # (d,)+ss+(nU+nD,)  [U | dU]
+    left_ext  = np.concatenate([var_left_mask,  np.zeros((1,) + ss + (rL,), bool)], axis=0)  # (d+1,)+ss+(rL,): P-part
+    right_ext = np.concatenate([np.zeros((1,) + ss + (rR,), bool), var_right_mask], axis=0)  # (d+1,)+ss+(rR,): Q-part
+    tt_mask = np.concatenate([right_ext, left_ext], axis=-1)                   # (d+1,)+ss+(rR+rL,)  [Q | P] order
 
     return tucker_supercore, tt_supercore, shape, (tucker_mask, tt_mask)
 

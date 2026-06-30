@@ -513,8 +513,16 @@ class TestDoubledRankToDense(unittest.TestCase):
         B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT))
         du = ut3m.UT3Tangent(B, V).to_ut3()
         self.assertIsInstance(du, ut3.UniformTuckerTensorTrain)
-        self.assertEqual(du.n, B.nU + B.nD)                                # doubled Tucker rank
-        self.assertEqual(du.r, B.rL + B.rR)                                # doubled TT bond
+        self.assertEqual(du.n, B.nU + B.nD)                                # doubled Tucker padding
+        self.assertEqual(du.r, B.rL + B.rR)                                # doubled TT bond padding
+        # honest masks (eqs 50-53): doubled Tucker rank = up + down; TT bonds = left + right INTERIOR, but
+        # the two boundary bonds stay rank 1 (the global "1" is in one block; the free block has rank 0).
+        lr, rr = np.asarray(B.left_ranks), np.asarray(B.right_ranks)       # (d+1,)
+        expected_tt = lr + rr
+        expected_tt[0] = lr[0]; expected_tt[-1] = rr[-1]                   # boundaries: free block has no rank
+        self.assertTrue(np.array_equal(np.asarray(du.tt_ranks), expected_tt))
+        self.assertTrue(np.array_equal(np.asarray(du.tucker_ranks),
+                                       np.asarray(B.up_ranks) + np.asarray(B.down_ranks)))
 
     def test_d1_not_implemented(self):
         import t3toolbox.backend.ubv_tangent_operations as ubvt
