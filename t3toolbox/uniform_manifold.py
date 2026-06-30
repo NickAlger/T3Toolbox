@@ -26,6 +26,8 @@ from dataclasses import dataclass
 
 import t3toolbox.uniform_basis_variations_format as ubv
 import t3toolbox.uniform_tucker_tensor_train as ut3
+import t3toolbox.manifold as t3m
+import t3toolbox.basis_variations_format as bvf
 import t3toolbox.safety as safety
 import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.stacking as stacking
@@ -388,6 +390,40 @@ class UT3Tangent:
         The tangent vector is the sum of the 2d single-core-replacement terms; with ``include_shift=True``
         the base point is added. Stack-aware (the result is stacked ``K + C``). Inspection/tests only."""
         return self.to_ut3(include_shift).to_dense()
+
+    def to_t3tangent(self):  # -> T3Tangent (unstacked) or a nested tree (shaped K+C) of unstacked T3Tangents
+        """Convert to a ragged :py:class:`~t3toolbox.manifold.T3Tangent` (the cross-layer converter; uniform
+        analog of pairing :py:meth:`UT3Basis.to_t3basis` with :py:meth:`UT3Variations.to_t3variations`).
+
+        Unstacked: one :py:class:`T3Tangent`. Stacked: a nested tree (shaped ``K + C``) of *unstacked*
+        :py:class:`T3Tangent` s -- a single ragged stacked tangent cannot carry varying-``C`` ranks, so the
+        truthful answer is one ragged tangent per element."""
+        if not self.stack_shape:
+            return t3m.T3Tangent(self.basis.to_t3basis(), self.variations.to_t3variations())
+        sub = self.unstack_tangents() if self.tangent_stack_shape else self.unstack_basis()
+        return stacking.apply_func_to_leaf_subtrees(sub, lambda leaf: leaf.to_t3tangent(), None)
+
+    @staticmethod
+    def from_t3tangent(
+            tangent:  't3m.T3Tangent',
+            N:   typ.Optional[int] = None,   # padded mode dim   (default max(shape))
+            nU:  typ.Optional[int] = None,   # padded up rank    (default max(up_ranks))
+            nD:  typ.Optional[int] = None,   # padded down rank  (default max(down_ranks))
+            rL:  typ.Optional[int] = None,   # padded left rank  (default max(left_ranks))
+            rR:  typ.Optional[int] = None,   # padded right rank (default max(right_ranks))
+    ) -> 'UT3Tangent':
+        """Pack a ragged :py:class:`~t3toolbox.manifold.T3Tangent` into a uniform one (inverse of
+        :py:meth:`to_t3tangent` on a single tangent). The basis and variations are padded to the **same**
+        dims (derived from the basis if not given) so the masks come out consistent."""
+        b = tangent.basis
+        N  = max(b.shape)            if N  is None else N
+        nU = int(max(b.up_ranks))    if nU is None else nU
+        nD = int(max(b.down_ranks))  if nD is None else nD
+        rL = int(max(b.left_ranks))  if rL is None else rL
+        rR = int(max(b.right_ranks)) if rR is None else rR
+        pad = dict(N=N, nU=nU, nD=nD, rL=rL, rR=rR)
+        return UT3Tangent(ubv.UT3Basis.from_t3basis(b, **pad),
+                          ubv.UT3Variations.from_t3variations(tangent.variations, **pad))
 
     def reverse(self) -> 'UT3Tangent':
         """Reverse the mode order of this tangent (reverses both the basis and the variations).

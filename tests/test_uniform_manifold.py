@@ -467,7 +467,7 @@ def _full_unstack(v):
 
 
 def _ragged_dense(leaf, shift):  # leaf: an unstacked UT3Tangent -> ragged dense ground truth
-    return t3m.T3Tangent(leaf.basis.to_t3basis(), leaf.variations.to_t3variations()).to_dense(include_shift=shift)
+    return leaf.to_t3tangent().to_dense(include_shift=shift)
 
 
 class TestDoubledRankToDense(unittest.TestCase):
@@ -622,7 +622,7 @@ class TestGauge(unittest.TestCase):
         return ut3m.UT3Tangent(v.basis, _wrap_var(proj(v.basis.data, v.variations.data)))
 
     def _ragged(self, leaf):
-        return t3m.T3Tangent(leaf.basis.to_t3basis(), leaf.variations.to_t3variations())
+        return leaf.to_t3tangent()
 
     def test_gauge_residual_matches_ragged(self):
         for ss in [(), (2,)]:
@@ -701,6 +701,57 @@ class TestGauge(unittest.TestCase):
         dense = np.asarray(jax.jit(f)(Bj.data[0], Bj.data[1], Bj.data[2], Bj.data[3], Vj.data[0], Vj.data[1]))
         ref = np.asarray(ut3m.UT3Tangent(B, V).to_dense())                  # oblique preserves the tangent
         self.assertTrue(np.allclose(dense, ref, rtol=1e-3, atol=1e-3))
+
+
+class TestCrossLayerConverters(unittest.TestCase):
+    """3b-4: UT3Tangent <-> T3Tangent (to_t3tangent / from_t3tangent)."""
+    def setUp(self):
+        np.random.seed(0)
+
+    def test_to_t3tangent_unstacked(self):
+        B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT))
+        v = ut3m.UT3Tangent(B, V)
+        rt = v.to_t3tangent()
+        self.assertIsInstance(rt, t3m.T3Tangent)
+        for shift in (False, True):
+            self.assertLess(float(np.linalg.norm(np.asarray(rt.to_dense(include_shift=shift))
+                                                 - np.asarray(v.to_dense(include_shift=shift)))), 1e-10)
+
+    def test_roundtrip_preserves_tangent(self):
+        for ss, K in [((), ()), ((2,), ()), ((), (3,))]:
+            B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss))
+            v = ut3m.UT3Tangent(B, _K_variations(B, K) if K else V)
+            # for a stacked v, to_t3tangent is a tree -> round-trip per leaf
+            for leaf in _full_unstack(v):
+                back = ut3m.UT3Tangent.from_t3tangent(leaf.to_t3tangent())
+                with self.subTest(ss=ss, K=K):
+                    self.assertLess(float(np.linalg.norm(np.asarray(back.to_dense()) - np.asarray(leaf.to_dense()))), 1e-10)
+
+    def test_to_t3tangent_stacked_tree(self):
+        B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT))
+        v = ut3m.UT3Tangent(B, _K_variations(B, (3,)))
+        tree = v.to_t3tangent()
+        self.assertEqual(len(tree), 3)
+        vd = np.asarray(v.to_dense())
+        for i in range(3):
+            self.assertLess(float(np.linalg.norm(np.asarray(tree[i].to_dense()) - vd[i])), 1e-10)
+
+    def test_from_t3tangent_K_stacked(self):
+        x = t3.TuckerTensorTrain.randn(*_STRUCT)
+        rb, _ = bvf.t3_orthogonal_representations(x)
+        rt = t3m.T3Tangent(rb, bvf.T3Variations.randn(rb.variation_shapes, stack_shape=(3,) + rb.stack_shape))
+        u = ut3m.UT3Tangent.from_t3tangent(rt)
+        self.assertEqual(u.stack_shape, (3,))
+        ud = np.asarray(u.to_dense())
+        self.assertTrue(np.allclose(ud, np.asarray(rt.to_dense()), atol=1e-10))
+
+    def test_varying_C_to_t3tangent_tree(self):
+        us, rs = _hetero_tangents()
+        v = ut3m.UT3Tangent.stack_basis(us)
+        tree = v.to_t3tangent()                                             # different ranks per element
+        self.assertEqual(len(tree), 2)
+        for i in range(2):
+            self.assertLess(float(np.linalg.norm(np.asarray(tree[i].to_dense()) - np.asarray(rs[i].to_dense()))), 1e-10)
 
 
 if __name__ == '__main__':
