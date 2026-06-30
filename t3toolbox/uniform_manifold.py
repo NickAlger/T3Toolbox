@@ -35,6 +35,7 @@ import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.ubv_operations as ubv_operations
 import t3toolbox.backend.ubv_tangent_operations as ubv_tangent_operations
+import t3toolbox.backend.ubv_sampling as ubv_sampling
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -438,6 +439,80 @@ class UT3Tangent:
         doubled-rank conversion lands -- lets you reverse a T3 and its derived tangent without
         recomputing the orthogonal representation."""
         return UT3Tangent(self.basis.reverse(), self.variations.reverse())
+
+    # ------------------------------------------------------------- sampling (the bare Jacobian 𝒥; 3b-6b)
+    def probe(
+            self,
+            ww:  typ.Sequence[NDArray],  # probe vectors, len=d, ith elm_shape=W+(Ni,)
+    ) -> typ.Tuple[NDArray, ...]:        # d probes, ith elm_shape=W+K+C+(Ni,)
+        """Probe this tangent vector: the single-sample Riemannian Jacobian ``𝒥`` (contract all-but-one
+        mode, for each mode). Uniform mirror of :py:meth:`~t3toolbox.manifold.T3Tangent.probe`; ``ww`` is
+        packed at the boundary and the ``d`` probes come back as ragged-width vectors, stacked ``W+K+C``.
+        The bare ``𝒥`` (no gauge projector ``Π``).
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> import t3toolbox.uniform_manifold as ut3m
+        >>> import t3toolbox.backend.probing as t3p
+        >>> np.random.seed(0)
+        >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)))
+        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(x))
+        >>> ww = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))   # probe stack W=(2,)
+        >>> zz = v.probe(ww)
+        >>> print(zz[0].shape)                                     # W + K + C + (N0,) = (2,) + () + () + (10,)
+        (2, 10)
+        >>> print(bool(max(float(np.linalg.norm(a - b))
+        ...                for a, b in zip(zz, t3p.probe_dense(ww, v.to_dense()))) < 1e-9))   # dense reference
+        True
+        """
+        return ubv_sampling.ut3tangent_probe(ww, self.basis.data, self.variations.data)
+
+    def apply(
+            self,
+            ww:  typ.Sequence[NDArray],  # apply vectors, len=d, ith elm_shape=W+(Ni,)
+    ) -> NDArray:                        # scalar apply, shape=W+K+C
+        """Apply this tangent vector in all modes (the all-modes special case of :py:meth:`probe`; a scalar
+        per stack element, stacked ``W+K+C``). The bare ``𝒥``. Uniform mirror of
+        :py:meth:`~t3toolbox.manifold.T3Tangent.apply`.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> import t3toolbox.uniform_manifold as ut3m
+        >>> np.random.seed(0)
+        >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)))
+        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(x))
+        >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> print(bool(abs(float(v.apply(ww)) - float(np.einsum('ijk,i,j,k->', v.to_dense(), *ww))) < 1e-9))
+        True
+        """
+        return ubv_sampling.ut3tangent_apply(ww, self.basis.data, self.variations.data)
+
+    def entries(
+            self,
+            index:  NDArray,  # int, shape=(d,)+W (a stack W of multi-indices)
+    ) -> NDArray:             # scalar entries, shape=W+K+C
+        """Entries of the dense tangent at ``index`` (= :py:meth:`apply` with unit vectors, by fiber
+        slicing). The bare ``𝒥``. Uniform mirror of :py:meth:`~t3toolbox.manifold.T3Tangent.entries`.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> import t3toolbox.uniform_manifold as ut3m
+        >>> np.random.seed(0)
+        >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)))
+        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(x))
+        >>> print(bool(abs(float(v.entries((3, 5, 7))) - float(v.to_dense()[3, 5, 7])) < 1e-9))
+        True
+        """
+        return ubv_sampling.ut3tangent_entries(index, self.basis.data, self.variations.data)
 
     def sum_tangents(self, axis=None) -> 'UT3Tangent':
         """Sum over the tangent stack ``K`` (a batch of tangents at the shared base) into one tangent.

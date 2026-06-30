@@ -465,21 +465,13 @@ def compute_detas(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        term1 = xnp.einsum(
-            'd...aj,d...j->d...a',
-            xnp.einsum('d...i,diaj->d...aj', sigmas, right_tt_cores),
-            nus,
-        )
-        term2 = xnp.einsum(
-            'd...aj,d...j->d...a',
-            xnp.einsum('d...i,diaj->d...aj', mus, var_tt_cores),
-            nus,
-        )
-        term3 = xnp.einsum(
-            'd...aj,d...j->d...a',
-            xnp.einsum('d...i,diaj->d...aj', mus, left_tt_cores),
-            taus,
-        )
+        # d-prefixed WKC contractions (3b-6a): sigmas/taus carry K (W+K+C); mus/nus and the base
+        # supercores are W+C / C-only; the variation supercore var_tt_cores is K+C. n_base = len(C),
+        # read off the C-only base supercore (d,)+C+(rR,nU,rR). The ragged xmap branch below is the oracle.
+        n_base = right_tt_cores.ndim - 4
+        term1 = contractions.dWKCa_dCaib_dWCb_to_dWKCi(sigmas, right_tt_cores, nus)
+        term2 = contractions.dWCa_dKCaib_dWCb_to_dWKCi(mus, var_tt_cores, nus, n_base)
+        term3 = contractions.dWCa_dCaib_dWKCb_to_dWKCi(mus, left_tt_cores, taus)
         detas = term1 + term2 + term3
     else:
         def _func(x):
@@ -525,8 +517,12 @@ def assemble_tangent_zs(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        term1 = xnp.einsum('dao,d...a->d...o', tucker_cores, detas)
-        term2 = xnp.einsum('dao,d...a->d...o', var_tucker_cores, etas)
+        # d-prefixed (3b-6a): lift the edge vars through the tucker supercores. detas is W+K+C, lifted
+        # through the C-only base tucker core (dWKCi_dCio_to_dWKCo delegates to the two-group form); etas
+        # is W+C, lifted through the K+C variation tucker core (n_base = len(C)). Ragged xmap is the oracle.
+        n_base = tucker_cores.ndim - 3
+        term1 = contractions.dWKCi_dCio_to_dWKCo(detas, tucker_cores)
+        term2 = contractions.dWCi_dKCio_to_dWKCo(etas, var_tucker_cores, n_base)
         zs = term1 + term2
     else:
         def _func(x):

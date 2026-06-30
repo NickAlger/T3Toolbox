@@ -445,6 +445,20 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda b, gg: M.project_ambient(b, gg).to_dense(), base, g)
         self.assert_jit_jax(lambda t, b: M.transport(t, b).to_dense(), v, base)
 
+    # ---------------------------------------------------- jit bucket: uniform tangent probing (3b-6b)
+    def test_jit_uniform_probing(self):
+        # 3b-6b: the bare forward 𝒥 (probe / apply / entries on UT3Tangent) jits -- the supercores trace to
+        # jax (through the d-prefixed WKC contractions + the scan sweeps), the masks stay host, and pack /
+        # unpack slice with static shapes (the int-tuple shape). K-stacked to exercise the W/K/C blocks.
+        import t3toolbox.uniform_manifold as ut3m
+        base = ut3m.UNIFORM_MANIFOLD.base(ut3.UniformTuckerTensorTrain.from_t3(self.x_np))
+        v = ut3m.UNIFORM_COREWISE.randn(base, stack_shape=(2,)).to_jax()   # K = (2,)
+        ww = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])    # W = (2,)
+        idx = jnp.array([[1, 2], [2, 3], [3, 0]])                         # (d,) + W
+        self.assert_jit_jax(lambda t, *w: t.probe(w), v, *ww)
+        self.assert_jit_jax(lambda t, *w: t.apply(w), v, *ww)
+        self.assert_jit_jax(lambda t, i: t.entries(i), v, idx)
+
     # ---------------------------------------------------- stack/unstack: masks must stay host under jax
     def test_stack_unstack_keeps_masks_host(self):
         # stacking.stack infers ONE backend per call, so stacking a jax object's supercores together with
