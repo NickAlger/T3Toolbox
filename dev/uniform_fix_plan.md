@@ -613,6 +613,12 @@ tangent branches to use them; test all stacking combos against the ragged `WKC` 
   contractions handle it); add `K≠()` tests throughout (fix-stacking-now).
 
 ## Sub-slices (dependency-ordered)
+
+> **STATUS (2026-06-30): 3b-0 … 3b-4 + the 3b-4c hardening pass are DONE** (the whole uniform tangent
+> *backend*, per-element verified vs ragged + mask-strict + garbage-robust; audited). **Remaining: 3b-5
+> (geometries), 3b-6 (probing + `WKC` contractions), 3b-7 (cleanup + delete `OLD_uniform*`).** Live status:
+> `dev/HANDOFF.md`.
+
 - **3b-0** — `check_ubv_pair` `K`-fix (prerequisite; small): suffix check on `C` + mask broadcast-over-`K`.
 - **3b-1** — `UT3Tangent` skeleton: bundle + `K`/`C` inference, vector-space ops, `stack`/`unstack`,
   constructors, dtype/copy/repr, `reverse`. No backend math yet.
