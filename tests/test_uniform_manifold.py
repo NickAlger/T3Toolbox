@@ -539,5 +539,62 @@ class TestDoubledRankToDense(unittest.TestCase):
         self.assertTrue(np.allclose(np.asarray(dense), np.asarray(v.to_numpy().to_dense()), atol=1e-5))
 
 
+def _wrap_ut3(data):
+    return ut3.UniformTuckerTensorTrain(data[0], data[1], data[2], ut3.UT3Masks(*data[3]))
+
+
+class TestRetract(unittest.TestCase):
+    """3b-2: backend retract (shifted doubled-rank -> mask-truncated T3-SVD back to the base ranks),
+    verified per stack element against the ragged tangent_operations.retract."""
+    def setUp(self):
+        np.random.seed(0)
+        import t3toolbox.backend.ubv_tangent_operations as ubvt
+        import t3toolbox.backend.tangent_operations as tops
+        self.ubvt, self.tops = ubvt, tops
+
+    def _ragged_retract_dense(self, leaf):
+        cores = self.tops.retract(leaf.basis.to_t3basis().data, leaf.variations.to_t3variations().data)
+        return t3.TuckerTensorTrain(*cores).to_dense()
+
+    def _check(self, v):
+        ru = _wrap_ut3(self.ubvt.retract(v.basis.data, v.variations.data))
+        # retracted padded dims = max actual rank across the stack, never exceeding the base padding
+        self.assertLessEqual(ru.n, v.basis.nU)
+        self.assertLessEqual(ru.r, v.basis.rL)
+        dense = np.asarray(ru.to_dense())
+        flat = _full_unstack(v)
+        dflat = dense.reshape((-1,) + dense.shape[len(v.stack_shape):])
+        for i, leaf in enumerate(flat):
+            o = self._ragged_retract_dense(leaf)
+            self.assertLess(float(np.linalg.norm(dflat[i] - o)) / (float(np.linalg.norm(o)) + 1e-30), 1e-9)
+
+    def test_stacks(self):
+        for stack_shape, K in [((), ()), ((2,), ()), ((), (3,)), ((2,), (3,))]:
+            B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=stack_shape))
+            v = ut3m.UT3Tangent(B, _K_variations(B, K) if K else V)
+            with self.subTest(stack_shape=stack_shape, K=K):
+                self._check(v)
+
+    def test_varying_C_ranks(self):
+        us, _ = _hetero_tangents()
+        self._check(ut3m.UT3Tangent.stack_basis(us))
+
+    @unittest.skipUnless(HAS_JAX, "jax not installed")
+    def test_jit_retract(self):
+        # retract under a trace: supercores flow through xnp; masks/shape stay host constants (closed over).
+        B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT))
+        Bj, Vj = B.to_jax(), V.to_jax()
+        bsh, bmk = Bj.data[4], Bj.data[5]
+        vsh, vmk = Vj.data[2], Vj.data[3]
+
+        def f(u, dn, lt, rt, tk, tt):
+            rd = self.ubvt.retract((u, dn, lt, rt, bsh, bmk), (tk, tt, vsh, vmk))
+            return _wrap_ut3(rd).to_dense()
+
+        dense = np.asarray(jax.jit(f)(Bj.data[0], Bj.data[1], Bj.data[2], Bj.data[3], Vj.data[0], Vj.data[1]))
+        ref = np.asarray(_wrap_ut3(self.ubvt.retract(B.data, V.data)).to_dense())   # float64 ground truth
+        self.assertTrue(np.allclose(dense, ref, rtol=1e-3, atol=1e-3))              # jit is float32
+
+
 if __name__ == '__main__':
     unittest.main()

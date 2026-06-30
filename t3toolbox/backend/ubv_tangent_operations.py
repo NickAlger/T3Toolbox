@@ -23,10 +23,12 @@ import typing as typ
 
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.ubv_operations as ubv_operations
+import t3toolbox.backend.ut3_svd as ut3_svd
 from t3toolbox.backend.common import *
 
 __all__ = [
     'tangent_to_ut3',
+    'retract',
     'unstack_tangent_stack',
     'stack_tangent_stack',
     'unstack_base_stack',
@@ -250,3 +252,38 @@ def tangent_to_ut3(
     tt_mask = np.concatenate([right_ext, left_ext], axis=-1)                   # (d+1,)+ss+(rR+rL,)  [R, L] order
 
     return tucker_supercore, tt_supercore, shape, (tucker_mask, tt_mask)
+
+
+def retract(
+        basis_data,       # UT3Basis .data:      supercore stack = C
+        variations_data,  # UT3Variations .data: supercore stack = K + C
+):  # -> retracted UniformTuckerTensorTrain .data (at the BASE point's ranks; stack = K + C)
+    """Retract a uniform basis-variations tangent vector onto the fixed-rank manifold.
+
+    Forms the shifted doubled-rank embedding ``base point + v`` (:py:func:`tangent_to_ut3` with
+    ``include_shift=True``) and truncates it back to the **base point's own ranks** -- the Tucker ``up``
+    ranks and ``left`` TT ranks read off the base masks -- via the mask-truncated uniform T3-SVD. The output
+    is a UT3 at the base padded dims (``ut3svd`` truncates by max rank to a fixed shape, so no extra slice
+    is needed), one retracted point per stack element. The uniform mirror of
+    :py:func:`tangent_operations.retract` (the implicit T3-SVD / Algorithm 10, Alger et al. 2026).
+
+    **Varying ranks across ``C``** work for free: the per-``C`` base ranks are the per-element truncation
+    targets. **The ``K`` (tangent) stack:** the base ranks have stack ``C`` while the shifted UT3 has stack
+    ``K + C``, so the base ranks are broadcast over ``K`` (the ``K`` tangents share the base, hence the same
+    truncation targets)."""
+    doubled = tangent_to_ut3(basis_data, variations_data, include_shift=True)   # .data, stack K + C
+    ss = doubled[0].shape[1:-2]                       # K + C (the shifted UT3 stack)
+    C = basis_data[0].shape[1:-2]                     # C (the base stack)
+    n_K = len(ss) - len(C)
+
+    up_mask, _down_mask, basis_left_mask, _basis_right_mask = basis_data[5]
+    up_ranks   = up_mask.sum(axis=-1)                 # (d,)   + C, HOST int
+    left_ranks = basis_left_mask.sum(axis=-1)         # (d+1,) + C, HOST int
+
+    def bcast_over_K(ranks):  # (L,)+C -> (L,)+K+C: the K tangents share the base point's truncation targets
+        return np.broadcast_to(ranks.reshape(ranks.shape[:1] + (1,) * n_K + ranks.shape[1:]),
+                               ranks.shape[:1] + ss)
+
+    new_data, _ss_tucker, _ss_tt = ut3_svd.ut3svd(
+        doubled, max_tucker_ranks=bcast_over_K(up_ranks), max_tt_ranks=bcast_over_K(left_ranks))
+    return new_data
