@@ -85,17 +85,39 @@ is a **scalar in ragged** (one core shape ⇒ ranks shared across the stack, so 
 report) but **per-element (shape `stack_shape`) in uniform** (ranks vary across the stack). The *numerical*
 checkers (`is_orthogonal`, etc.) are per-element in both layers — see `docs/batching_and_stacking.md` §9.
 
-The honest cost shows up at exactly the two places where the manifold matters:
+The honest cost shows up at exactly one place — the ragged round-trip:
 
 1. **Round-trip.** `ut3_to_t3` of a varying-rank stack can only return a *tree* of distinct T3s, not
    one stacked `TuckerTensorTrain` — which is the truthful answer, since the elements really do have
-   different ranks.
-2. **The future tangent layer.** A tangent vector needs a single tangent space, i.e. a base sitting at
-   a *smooth* point — uniform ranks across the base (`C`) stack. A varying-rank stack has no single
-   tangent space.
+   different ranks. (`to_dense` is unaffected: the ambient shape is uniform across the stack.)
 
-We handle this the way the project already handles orthogonal / minimal / gauged: as a **non-enforced
-precondition** of the manifold-flavored operations — documented and checkable, not a construction-time
-error — while shape consistency stays a structural hard error. For the plain UT3 layer (linear
-algebra, SVD-with-mask truncation, entries/apply/probe), varying ranks cost nothing and simply work;
-the precondition only bites once we reach tangents, where it is the natural requirement anyway.
+## The tangent layer keeps the varying-rank stack — uniform rank is a `K`-stack property, not a `C`-stack one
+
+It is tempting to think a *tangent* forces uniform rank across the stack ("a tangent needs a single
+tangent space, so the stack must be one smooth manifold point"). That conflates a **single** tangent
+vector with a **stack** of them. The distinction is `K` (tangent stack) vs `C` (base stack); see
+`docs/batching_and_stacking.md`:
+
+- A single tangent vector — or a **tangent (`K`) stack**, a bundle of tangents sharing *one* base — lives
+  in **one** tangent space, so its rank is uniform. This is automatic (they share a base) and is the *one*
+  genuine uniform-rank requirement. The bv-pair check enforces it structurally: the variation rank masks
+  must be **constant along `K`** (= the base's gauge-shifted masks broadcast over `K`).
+- A **base (`C`) stack** is a batch of tangents at *different* bases. It is a tangent vector to the
+  **product** manifold `M_{n_1,r_1} × … × M_{n_C,r_C}`, which is smooth even when the factors are different
+  fixed-rank manifolds; the per-element tangent spaces may have different dimensions and nothing couples
+  them. So **ranks may vary across `C` exactly as in the plain layer** — the rank-sweep use case (a batch
+  of candidate models at different ranks, compared against each other) is a varying-`C` stack of tangents.
+
+The price of varying `C` is a **discipline, not a precondition**: every tangent / manifold op is
+per-element-mask-aware (it must be anyway for the masks to mean anything), so it vectorizes over `C` with
+each element applying its own mask — `tangent_space_dimension`, `inner`/`norm`, gauge, retraction are all
+per-element. The one subtle spot is a batched Riemannian solve (Gauss-Newton / CG) over a varying-rank `C`
+stack: the masked-out directions must sit in `ker(J)` so they contribute zero to the CG reductions
+(`rᵀr`, `pᵀAp`) and never pollute the active per-element solve — which holds as long as the gauge
+projection and `J`/`Jᵀ` respect the masks. If some specific op ever turns out to *genuinely* need uniform
+`C` rank, add a **narrow non-enforced precondition there** (the orthogonal / gauged pattern), never a
+blanket construction-time restriction; shape consistency stays the only structural hard error.
+
+*(Decided 2026-06-30, after the earlier draft of this note over-restricted tangents to uniform `C`.
+Varying-`C` is verified to work through the `UT3Tangent` skeleton and is a first-class case in the
+uniform-tangent equivalence-contract tests.)*

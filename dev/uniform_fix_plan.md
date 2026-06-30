@@ -729,3 +729,27 @@ keeping `d`, `_grouped_einsum`). Per broken function:
 **Oracle:** per leading-`d` index, the `d`-prefixed contraction must equal the ragged `WKC` applied to
 `operand[i]`; test all `W`/`K`/`W+K`/`+C` combos. (Ragged `WKC` family + the existing `d`-prefixed plain
 2-block contractions: `backend/contractions.py` ~lines 315–461 (`dCio_dWo_to_dWCi`, …) and ~759–1357.)
+
+## Varying ranks across the `C` (base) stack — decided 2026-06-30
+
+A uniform tangent stack **supports varying ranks across the base (`C`) stack** (a rank sweep / batch of
+models at different ranks). Uniform rank is required only *within* one tangent space — i.e. **across `K`
+(the tangent stack), where it is automatic** (one shared base; `check_ubv_pair` enforces masks constant
+along `K`). A `C`-stack is a tangent to the **product** of (possibly different) fixed-rank manifolds, so
+its per-element tangent-space dimensions may differ. Full reasoning: the revised tangent section of
+`docs/uniform_ranks_and_varieties.md`. (This overturns that doc's earlier over-restriction to uniform-`C`;
+no committed code assumed uniform-`C` — 2c + 3b-1a are already per-element, verified by experiment:
+a varying-rank `C`-stack tangent gives per-element dims matching the ragged models.)
+
+**Consequences for the remaining slices:**
+- **Do NOT add a uniform-`C` precondition.** Implement every backend op (gauge, retract, projection,
+  later the optimizers/CG) **per-element-mask-aware** — vectorize over `C` with each element applying its
+  own mask. The subtle spot is a batched Gauss-Newton/CG over a varying-rank `C`: the masked-out
+  directions must sit in `ker(J)` so they add zero to the CG reductions and don't pollute the active
+  per-element solve (holds iff the gauge projection + `J`/`Jᵀ` respect the masks).
+- **Varying-`C` is a first-class equivalence-contract test case** from 3b-2 on: alongside `()` / `C` / `K`
+  / `K+C`, include a **varying-rank `C` stack** (build it via the 2c heterogeneous `UT3Basis.stack`, as in
+  `test_stack_heterogeneous_ranks`) and check each element against its own ragged model.
+- If a specific op *empirically* needs uniform `C`, add a **narrow non-enforced precondition there**
+  (orthogonal/gauged pattern), never a blanket restriction. "If we hit problems later, do the deep
+  thinking then" (the agreed posture).
