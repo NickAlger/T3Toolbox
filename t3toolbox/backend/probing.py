@@ -756,8 +756,21 @@ def _entry_xis(tucker_cores, index):
     downstream mu/sigma sweeps are identical to apply.
     '''
     use_jax = tree_contains_jax((tucker_cores,))
-    xnp, _, _ = get_backend(False, use_jax)
+    is_uniform = is_ndarray(tucker_cores)
+    xnp, _, _ = get_backend(is_uniform, use_jax)
     index = xnp.array(index)
+
+    if is_uniform:
+        # Vectorized fiber slice over the core index d: a single advanced-indexing gather, NOT a per-core
+        # Python loop (which would unroll under jit) and NOT a one-hot contraction (which would add the N
+        # factor entries exists to avoid). The supercore is (d,)+C+(p,N); advanced indices on axis 0 (d)
+        # and axis -1 (N) broadcast to (d,)+W, the C/p slice rides between -> (d,)+W+C+(p,), matching the
+        # ragged W+C+(p,) layout. index_i < Ni <= N stays in the real region.
+        D = tucker_cores.shape[0]
+        n_W = index.ndim - 1
+        d_idx = xnp.arange(D).reshape((D,) + (1,) * n_W)          # (d,) + (1,)*W, broadcasts with index
+        return tucker_cores[d_idx, ..., index]                   # (d,) + W + C + (p,)
+
     n_idx = len(index.shape[1:])                                  # number of index-stack (W) axes
     xis = []
     for i, B in enumerate(tucker_cores):
@@ -990,8 +1003,15 @@ def _onehot_vectors(index, up_tucker_cores):
     '''Unit vectors e_{index_k} (shape W + (Nk,)) -- the "apply vectors" whose adjoint is the entry
     scatter, so that entries_tangent_transpose is apply_tangent_transpose with these one-hot vectors.'''
     use_jax = tree_contains_jax((index, up_tucker_cores))
-    xnp, _, _ = get_backend(False, use_jax)
+    is_uniform = is_ndarray(up_tucker_cores)
+    xnp, _, _ = get_backend(is_uniform, use_jax)
     index = xnp.array(index)
+    if is_uniform:
+        # packed one-hots (d,)+W+(N,): eye(N) indexed by the (d,)+W index array. N is the padded mode dim;
+        # each real index_i < Ni <= N puts the 1 in the real region (the padding stays zero -> contracts
+        # to zero against the masked supercore).
+        N = up_tucker_cores.shape[-1]
+        return xnp.eye(N)[index]
     return tuple(xnp.eye(B.shape[-1])[index[i]] for i, B in enumerate(up_tucker_cores))
 
 
@@ -1042,8 +1062,24 @@ def _apply_transpose_adjoint(c, ww, xis, mus, down_tt_cores, right_tt_cores, sum
     space of a ``K``-stacked forward ``apply_tangent``), which rides into the variation gradient -- the
     capability the scatter lacked. ``sum_over_probes=True`` sums the probe stack ``W`` (the ``J^T r``
     back-projection); ``False`` keeps it as the output tangent stack. ``K``/``C`` always kept.'''
+    is_uniform = is_ndarray(mus)
+    sigma_hats = compute_sigma_hats(right_tt_cores, xis, c)               # polymorphic reverse sweep
+
+    if is_uniform:
+        # d-prefixed WKC (3b-6a/c), vectorized over the core index d (NOT a per-core loop -> no jit
+        # unroll). ww is the packed apply/one-hot probe supercore (d,)+W+(N,) -> n_probe = len(W). The
+        # ragged loop below is the oracle.
+        n_probe = ww.ndim - 2
+        dxi_hats = contractions.dWCa_dCaib_dWKCb_to_dWKCi(mus, down_tt_cores, sigma_hats)
+        if sum_over_probes:
+            dG_tildes = contractions.dWCa_dWCi_dWKCb_to_dKCaib(mus, xis, sigma_hats, n_probe)
+            dU_tildes = contractions.dWo_dWKCa_to_dKCao(ww, dxi_hats)
+        else:
+            dG_tildes = contractions.dWCa_dWCi_dWKCb_to_dWKCaib(mus, xis, sigma_hats, n_probe)
+            dU_tildes = contractions.dWo_dWKCa_to_dWKCao(ww, dxi_hats)
+        return dU_tildes, dG_tildes
+
     n_probe = ww[0].ndim - 1
-    sigma_hats = compute_sigma_hats(right_tt_cores, xis, c)
     dxi_hats = tuple(contractions.WCa_Caib_WKCb_to_WKCi(mu, O, sh)        # dxi_hat = mu . O . sigma_hat
                      for mu, O, sh in zip(mus, down_tt_cores, sigma_hats))
     if sum_over_probes:
@@ -1241,9 +1277,11 @@ def compute_deta_tildes(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        # ztildes carry no separate T3 stack C in the uniform layer, so the outer-product form
-        # (same as compute_xis) coincides with the C-batched contraction.
-        deta_tildes = contractions.dCio_dWo_to_dWCi(up_tucker_cores, ztildes)
+        # C IS a shared batch on both operands (the residual ztildes carries the base stack C, not only
+        # the probe stack W), so this is the SHARED-C contraction dWCo_dCio_to_dWCi -- NOT the outer-product
+        # dCio_dWo_to_dWCi (which assumes no shared C and is wrong for a C-stacked tangent). Mirrors the
+        # ragged WCo_Cio_to_WCi(zt, U); the ragged xmap branch below is the oracle.
+        deta_tildes = contractions.dWCo_dCio_to_dWCi(ztildes, up_tucker_cores)
     else:
         def _func(x):
             U, zt = x
@@ -1336,16 +1374,10 @@ def compute_dxi_tildes(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        term1 = xnp.einsum(
-            'd...aj,d...j->d...a',
-            xnp.einsum('d...i,diaj->d...aj', tau_tildes, down_tt_cores),
-            nus,
-        )
-        term2 = xnp.einsum(
-            'd...aj,d...j->d...a',
-            xnp.einsum('d...i,diaj->d...aj', mus, down_tt_cores),
-            sigma_tildes,
-        )
+        # d-prefixed WKC (3b-6a): tau_tildes/sigma_tildes carry K (W+K+C); mus/nus are W+C; the base
+        # supercore down_tt_cores (O) is C-only. Mirrors the ragged calls; the ragged xmap is the oracle.
+        term1 = contractions.dWKCa_dCaib_dWCb_to_dWKCi(tau_tildes, down_tt_cores, nus)
+        term2 = contractions.dWCa_dCaib_dWKCb_to_dWKCi(mus, down_tt_cores, sigma_tildes)
         dxi_tildes = term1 + term2
     else:
         def _func(x):
@@ -1383,18 +1415,15 @@ def assemble_tucker_variations(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
+        # d-prefixed (3b-6a): ztildes/dxi_tildes carry K; etas is W+C; ww is the W-only packed probe
+        # supercore (d,)+W+(N,) -> n_probe = len(W). The ragged xmap below is the oracle.
+        n_probe = ww.ndim - 2
         if sum_over_probes:
-            dU_tildes = (
-                    xnp.einsum('d...o,d...a->dao', ztildes, etas)
-                    +
-                    xnp.einsum('d...o,d...a->dao', ww, dxi_tildes)
-            )
+            dU_tildes = (contractions.dWKCo_dWCa_to_dKCao(ztildes, etas, n_probe)
+                         + contractions.dWo_dWKCa_to_dKCao(ww, dxi_tildes))
         else:
-            dU_tildes = (
-                    xnp.einsum('d...o,d...a->d...ao', ztildes, etas)
-                    +
-                    xnp.einsum('d...o,d...a->d...ao', ww, dxi_tildes)
-            )
+            dU_tildes = (contractions.dWKCo_dWCa_to_dWKCao(ztildes, etas, n_probe)
+                         + contractions.dWo_dWKCa_to_dWKCao(ww, dxi_tildes))
     else:
         def _func(x):
             z_tilde, eta, w, dxi_tilde = x
@@ -1447,46 +1476,17 @@ def assemble_tt_variations(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
+        # d-prefixed WKC triple outer products (3b-6a): K rides on the residual-derived edge var of each
+        # term (sigma_tilde on j, tau_tilde on i, deta_tilde on a); the base edge vars xi/mu/nu are W+C.
+        # n_probe = len(W) (supplied). The ragged xmap below is the oracle.
         if sum_over_probes:
-            dG_tildes = (
-                    xnp.einsum(
-                        'd...ia,d...j->diaj',
-                        xnp.einsum('d...i,d...a->d...ia', mus, xis),
-                        sigma_tildes
-                    )
-                    +
-                    xnp.einsum(
-                        'd...ia,d...j->diaj',
-                        xnp.einsum('d...i,d...a->d...ia', tau_tildes, xis),
-                        nus
-                    )
-                    +
-                    xnp.einsum(
-                        'd...ia,d...j->diaj',
-                        xnp.einsum('d...i,d...a->d...ia', mus, deta_tildes),
-                        nus
-                    )
-            )
+            dG_tildes = (contractions.dWCi_dWCa_dWKCj_to_dKCiaj(mus, xis, sigma_tildes, n_probe)
+                         + contractions.dWKCi_dWCa_dWCj_to_dKCiaj(tau_tildes, xis, nus, n_probe)
+                         + contractions.dWCi_dWKCa_dWCj_to_dKCiaj(mus, deta_tildes, nus, n_probe))
         else:
-            dG_tildes = (
-                    xnp.einsum(
-                        'd...ia,d...j->d...iaj',
-                        xnp.einsum('d...i,d...a->d...ia', mus, xis),
-                        sigma_tildes
-                    )
-                    +
-                    xnp.einsum(
-                        'd...ia,d...j->d...iaj',
-                        xnp.einsum('d...i,d...a->d...ia', tau_tildes, xis),
-                        nus
-                    )
-                    +
-                    xnp.einsum(
-                        'd...ia,d...j->d...iaj',
-                        xnp.einsum('d...i,d...a->d...ia', mus, deta_tildes),
-                        nus
-                    )
-            )
+            dG_tildes = (contractions.dWCi_dWCa_dWKCj_to_dWKCiaj(mus, xis, sigma_tildes, n_probe)
+                         + contractions.dWKCi_dWCa_dWCj_to_dWKCiaj(tau_tildes, xis, nus, n_probe)
+                         + contractions.dWCi_dWKCa_dWCj_to_dWKCiaj(mus, deta_tildes, nus, n_probe))
     else:
         def _func(x):
             xi, mu, nu, sigma_tilde, tau_tilde, deta_tilde = x

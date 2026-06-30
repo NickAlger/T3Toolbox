@@ -145,5 +145,139 @@ class TestUT3TangentForward(unittest.TestCase):
                 self._check_probe(v, ww, ())
 
 
+class TestUT3TangentTranspose(unittest.TestCase):
+    """3b-6c: the bare transpose Jacobian 𝒥ᵀ (probe / apply / entries transpose) -- the adjoint identity
+    ``<r, 𝒥V> = <𝒥ᵀr, V>`` (the defining property), the ``Σ_W(sum=False) == sum=True`` relation, and a
+    per-element comparison to the ragged 𝒥ᵀ. Probe stack W = (2,)."""
+
+    def setUp(self):
+        np.random.seed(2)
+
+    def _meas_dot_sumW(self, r, y):
+        # measurement inner product summed over the probe stack W (axis 0), keeping K+C: for probe r/y are
+        # d vectors (sum the mode too); for apply/entries r/y are single arrays shape W+K+C.
+        if isinstance(y, (tuple, list)):
+            return sum((np.asarray(a) * np.asarray(b)).sum(axis=(0, -1)) for a, b in zip(r, y))
+        return (np.asarray(r) * np.asarray(y)).sum(axis=0)
+
+    def _adjoint(self, v, forward, transpose):
+        y = forward()                                          # 𝒥V
+        r = [np.random.randn(*np.asarray(a).shape) for a in y] if isinstance(y, (tuple, list)) \
+            else np.random.randn(*np.asarray(y).shape)
+        JTr = transpose(r)                                     # 𝒥ᵀr (sum_over_probes=True -> tangent stack K)
+        lhs = self._meas_dot_sumW(r, y)
+        rhs = np.asarray(JTr.corewise_inner(v))
+        self.assertTrue(np.allclose(np.asarray(lhs), rhs, atol=1e-9))
+
+    def test_probe_transpose_adjoint(self):
+        ww = _probe_vectors((2,))
+        for C, K in _CONFIGS:
+            with self.subTest(C=C, K=K):
+                v = _uniform_tangent(C, K)
+                self._adjoint(v, lambda: v.probe(ww),
+                              lambda r: ut3m.UT3Tangent.probe_transpose(r, ww, v.basis, sum_over_probes=True))
+        with self.subTest('varying_C'):
+            v = _varying_C_tangent()
+            self._adjoint(v, lambda: v.probe(ww),
+                          lambda r: ut3m.UT3Tangent.probe_transpose(r, ww, v.basis, sum_over_probes=True))
+
+    def test_apply_transpose_adjoint(self):
+        ww = _probe_vectors((2,))
+        for C, K in _CONFIGS:
+            with self.subTest(C=C, K=K):
+                v = _uniform_tangent(C, K)
+                self._adjoint(v, lambda: v.apply(ww),
+                              lambda r: ut3m.UT3Tangent.apply_transpose(r, ww, v.basis, sum_over_probes=True))
+        with self.subTest('varying_C'):
+            v = _varying_C_tangent()
+            self._adjoint(v, lambda: v.apply(ww),
+                          lambda r: ut3m.UT3Tangent.apply_transpose(r, ww, v.basis, sum_over_probes=True))
+
+    def test_entries_transpose_adjoint(self):
+        index = _index((2,))
+        for C, K in _CONFIGS:
+            with self.subTest(C=C, K=K):
+                v = _uniform_tangent(C, K)
+                self._adjoint(v, lambda: v.entries(index),
+                              lambda r: ut3m.UT3Tangent.entries_transpose(r, index, v.basis, sum_over_probes=True))
+        with self.subTest('varying_C'):
+            v = _varying_C_tangent()
+            self._adjoint(v, lambda: v.entries(index),
+                          lambda r: ut3m.UT3Tangent.entries_transpose(r, index, v.basis, sum_over_probes=True))
+
+    def test_sum_over_probes_is_W_sum(self):
+        # sum_over_probes=True == Σ_W (sum_over_probes=False): the kept-W result summed over its W axis
+        ww = _probe_vectors((2,))
+        for C, K in [((), ()), ((2,), ()), ((), (3,)), ((2,), (3,))]:
+            with self.subTest(C=C, K=K):
+                v = _uniform_tangent(C, K)
+                zz = v.probe(ww)
+                r = [np.random.randn(*z.shape) for z in zz]
+                kept = ut3m.UT3Tangent.probe_transpose(r, ww, v.basis, sum_over_probes=False)   # stack W+K+C
+                summ = ut3m.UT3Tangent.probe_transpose(r, ww, v.basis, sum_over_probes=True)     # stack K+C
+                for k, s in zip(kept.variations.supercores, summ.variations.supercores):
+                    self.assertTrue(np.allclose(k.sum(axis=1), s, atol=1e-9))   # sum the W axis (axis 1)
+
+    def test_transpose_masks_are_gauge(self):
+        # the transpose output carries the basis's gauge masks (broadcast over the new tangent stack)
+        ww = _probe_vectors((2,))
+        v = _uniform_tangent((), ())
+        r = [np.random.randn(*z.shape) for z in v.probe(ww)]
+        JTr = ut3m.UT3Tangent.probe_transpose(r, ww, v.basis, sum_over_probes=True)
+        gauge = ubv.UT3Variations._variation_masks_of(v.basis)
+        for got, exp in zip(JTr.variations.masks.data, gauge.data):
+            self.assertTrue(np.array_equal(got, exp))
+
+
+class TestUT3CorewiseTranspose(unittest.TestCase):
+    """3b-6c: the corewise (non-manifold) sampling transposes on UniformTuckerTensorTrain -- the Section 6.3
+    (P,Q,O)->G substitution. The raw gradient supercores match the ragged TuckerTensorTrain corewise
+    gradients per stack element (in the real/masked region), across base stacks; sum_over_probes=True (the
+    residual c is shape W+C, shared by both layers)."""
+
+    def setUp(self):
+        np.random.seed(3)
+
+    def _xs(self, C):
+        x = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=C)
+        return x, ut3.UniformTuckerTensorTrain.from_t3(x)
+
+    def _cmp(self, du, dg, rdu, rdg):
+        # uniform grad supercores (d,)+C+(p,N) / (d,)+C+(rL,nU,rR); compare the real region to the ragged
+        for i in range(len(_STRUCT[0])):
+            self.assertTrue(np.allclose(
+                np.asarray(du)[i][..., :rdu[i].shape[-2], :rdu[i].shape[-1]], np.asarray(rdu[i]), atol=1e-9))
+            self.assertTrue(np.allclose(
+                np.asarray(dg)[i][..., :rdg[i].shape[-3], :rdg[i].shape[-2], :rdg[i].shape[-1]],
+                np.asarray(rdg[i]), atol=1e-9))
+
+    def test_apply_corewise(self):
+        ww = _probe_vectors((2,))
+        for C in [(), (2,)]:
+            with self.subTest(C=C):
+                x, xu = self._xs(C)
+                c = np.random.randn(*((2,) + C))                       # residual W+C
+                self._cmp(*xu.apply_corewise_transpose(c, ww, sum_over_probes=True),
+                          *x.apply_corewise_transpose(c, ww, sum_over_probes=True))
+
+    def test_entries_corewise(self):
+        index = _index((2,))
+        for C in [(), (2,)]:
+            with self.subTest(C=C):
+                x, xu = self._xs(C)
+                c = np.random.randn(*((2,) + C))
+                self._cmp(*xu.entries_corewise_transpose(c, index, sum_over_probes=True),
+                          *x.entries_corewise_transpose(c, index, sum_over_probes=True))
+
+    def test_probe_corewise(self):
+        ww = _probe_vectors((2,))
+        for C in [(), (2,)]:
+            with self.subTest(C=C):
+                x, xu = self._xs(C)
+                zt = [np.random.randn(*((2,) + C + (N,))) for N in _STRUCT[0]]
+                self._cmp(*xu.probe_corewise_transpose(zt, ww, sum_over_probes=True),
+                          *x.probe_corewise_transpose(zt, ww, sum_over_probes=True))
+
+
 if __name__ == '__main__':
     unittest.main()

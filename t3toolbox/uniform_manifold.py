@@ -514,6 +514,52 @@ class UT3Tangent:
         """
         return ubv_sampling.ut3tangent_entries(index, self.basis.data, self.variations.data)
 
+    @staticmethod
+    def probe_transpose(
+            ztildes,                   # probe residuals, len=d, ith elm_shape=W+K+C+(Ni,)
+            ww,                        # probe vectors,   len=d, ith elm_shape=W+(Ni,)
+            basis:  ubv.UT3Basis,      # the orthogonal frame the tangent attaches at
+            sum_over_probes:  bool = False,   # True: sum the probe stack W (Gauss-Newton 𝒥ᵀr); False: keep it
+    ) -> 'UT3Tangent':  # tangent stack W+K (sum_over_probes=False) or K (True); base stack C
+        """Apply the transpose ``𝒥ᵀ`` of the probe map to residuals; returns a :py:class:`UT3Tangent` at
+        ``basis``. The adjoint of :py:meth:`probe`. Uniform mirror of
+        :py:meth:`~t3toolbox.manifold.T3Tangent.probe_transpose`: the residuals live in the forward probe
+        space (``W+K+C``); ``sum_over_probes=False`` keeps the probe stack ``W`` as the result's tangent
+        stack (``W+K``), ``True`` sums it (``K``, the Gauss-Newton ``𝒥ᵀr``). The bare ``𝒥ᵀ`` (no gauge
+        projector ``Π``)."""
+        vd = ubv_sampling.ut3tangent_probe_transpose(
+            ztildes, ww, basis.data, sum_over_probes=sum_over_probes)
+        return UT3Tangent(basis, _ut3variations_from_data(vd))
+
+    @staticmethod
+    def apply_transpose(
+            c,                         # residual, shape=W+K+C (a scalar per stack element)
+            ww,                        # apply vectors, len=d, ith elm_shape=W+(Ni,)
+            basis:  ubv.UT3Basis,
+            sum_over_probes:  bool = False,
+    ) -> 'UT3Tangent':  # tangent stack W+K (sum_over_probes=False) or K (True); base stack C
+        """Apply the transpose ``𝒥ᵀ`` of :py:meth:`apply` -- back-project a residual ``c`` into a tangent
+        at ``basis``. The adjoint of :py:meth:`apply`. Uniform mirror of
+        :py:meth:`~t3toolbox.manifold.T3Tangent.apply_transpose`; ``sum_over_probes`` as in
+        :py:meth:`probe_transpose`. The bare ``𝒥ᵀ`` (no gauge projector ``Π``)."""
+        vd = ubv_sampling.ut3tangent_apply_transpose(
+            c, ww, basis.data, sum_over_probes=sum_over_probes)
+        return UT3Tangent(basis, _ut3variations_from_data(vd))
+
+    @staticmethod
+    def entries_transpose(
+            c,                         # residual, shape=W+K+C
+            index,                     # int, shape=(d,)+W (the indices whose entries c weights)
+            basis:  ubv.UT3Basis,
+            sum_over_probes:  bool = False,
+    ) -> 'UT3Tangent':  # tangent stack W+K (sum_over_probes=False) or K (True); base stack C
+        """Apply the transpose ``𝒥ᵀ`` of :py:meth:`entries` -- scatter ``c`` at ``index`` into a tangent at
+        ``basis``. The adjoint of :py:meth:`entries` (= :py:meth:`apply_transpose` with one-hot vectors).
+        Uniform mirror of :py:meth:`~t3toolbox.manifold.T3Tangent.entries_transpose`. The bare ``𝒥ᵀ``."""
+        vd = ubv_sampling.ut3tangent_entries_transpose(
+            c, index, basis.data, sum_over_probes=sum_over_probes)
+        return UT3Tangent(basis, _ut3variations_from_data(vd))
+
     def sum_tangents(self, axis=None) -> 'UT3Tangent':
         """Sum over the tangent stack ``K`` (a batch of tangents at the shared base) into one tangent.
 

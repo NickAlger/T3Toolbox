@@ -299,6 +299,26 @@ class UniformTuckerTensorTrain:
         """Probe: contract all-but-one mode, for each mode. ``ww``: len-d, ith ``elm_shape=W+(Ni,)``."""
         return ut3_sampling.ut3_probe(ww, self.data)
 
+    # --------------------------------------------------------- corewise (non-manifold) sampling transposes (3b-6c)
+    def apply_corewise_transpose(self, c, ww, sum_over_probes=False):
+        """Corewise (non-manifold) transpose of :py:meth:`apply`: gradient of ``apply(X(cores), ww)`` w.r.t.
+        the supercores (treated as free variables) -- for a core-wise optimizer (Adam, L-BFGS). Returns the
+        raw gradient supercores ``(tucker_grad, tt_grad)`` (shaped like ``(tucker_supercore, tt_supercore)``;
+        a gradient, NOT a tensor). The Section 6.3 ``(P,Q,O)->G`` substitution; no orthogonality required.
+        ``sum_over_probes=True`` sums the apply stack ``W`` (the gradient ``J^T r``). Uniform mirror of
+        :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_corewise_transpose`."""
+        return ut3_sampling.ut3_apply_corewise_transpose(c, ww, self.data, sum_over_probes=sum_over_probes)
+
+    def entries_corewise_transpose(self, c, index, sum_over_probes=False):
+        """Corewise transpose of :py:meth:`entries`: gradient w.r.t. the supercores (= one-hot
+        :py:meth:`apply_corewise_transpose`). See :py:meth:`apply_corewise_transpose`."""
+        return ut3_sampling.ut3_entries_corewise_transpose(c, index, self.data, sum_over_probes=sum_over_probes)
+
+    def probe_corewise_transpose(self, ztildes, ww, sum_over_probes=False):
+        """Corewise transpose of :py:meth:`probe`: gradient w.r.t. the supercores. See
+        :py:meth:`apply_corewise_transpose`."""
+        return ut3_sampling.ut3_probe_corewise_transpose(ztildes, ww, self.data, sum_over_probes=sum_over_probes)
+
     def sum(self, axis=None) -> NDArray:
         """Sum the represented tensor over all physical modes (shape=stack_shape). Partial sums (``axis``
         given) are deferred -- see docs/uniform_port_plan.md."""

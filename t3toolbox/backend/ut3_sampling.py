@@ -17,6 +17,9 @@ __all__ = [
     'ut3_apply',
     'ut3_probe',
     'ut3_full_sum',
+    'ut3_apply_corewise_transpose',
+    'ut3_entries_corewise_transpose',
+    'ut3_probe_corewise_transpose',
 ]
 
 # All re-mask first (so the padded "garbage" contributes nothing), then call the SHARED, already-
@@ -73,3 +76,49 @@ def ut3_full_sum(
     masked = ut3_masking.apply_masks_to_cores(data)
     d, N = masked[0].shape[0], masked[0].shape[-1]
     return apply.tucker_tensor_train_apply(masked, xnp.ones((d, N)))
+
+
+# ----------------------------------------------------------------- corewise (non-manifold) transposes (3b-6c)
+# Gradient of a sampling op w.r.t. the base's own supercores (the Section 6.3 (P,Q,O)->G substitution, via
+# the now-polymorphic probing.*_corewise_transpose -- the tangent transpose at the frame (U, G, G, G)). For
+# a uniform core-wise optimizer (Adam, L-BFGS). Mask-once + pack at the boundary; return the RAW gradient
+# supercores (dU, dG), clean-padded (the masked base zeros the padding, so the gradient never grows rank
+# into it) -- the uniform mirror of the ragged TuckerTensorTrain.*_corewise_transpose raw-tuple return.
+
+def ut3_apply_corewise_transpose(
+        c:    NDArray,                # residual, shape=W+K+C
+        ww:   typ.Sequence[NDArray],  # apply vectors, len=d, ith elm_shape=W+(Ni,)
+        data: UT3Data,
+        sum_over_probes: bool = False,
+) -> typ.Tuple[NDArray, NDArray]:     # (tucker-core grad supercore, tt-core grad supercore)
+    """Corewise transpose of :py:func:`ut3_apply`: gradient w.r.t. the base supercores. ``ww`` packed to N."""
+    masked = ut3_masking.apply_masks_to_cores(data)
+    packed = ut3_operations.pack_vectors(ww, masked[0].shape[-1])
+    return probing.apply_corewise_transpose(c, packed, masked, sum_over_probes=sum_over_probes)
+
+
+def ut3_entries_corewise_transpose(
+        c:     NDArray,    # residual, shape=W+K+C
+        index: NDArray,    # int, shape=(d,)+W (the indices c weights)
+        data:  UT3Data,
+        sum_over_probes: bool = False,
+) -> typ.Tuple[NDArray, NDArray]:     # (tucker-core grad supercore, tt-core grad supercore)
+    """Corewise transpose of :py:func:`ut3_entries`: gradient w.r.t. the base supercores (index unpacked --
+    the one-hot vectors are built packed inside ``probing._onehot_vectors``)."""
+    masked = ut3_masking.apply_masks_to_cores(data)
+    return probing.entries_corewise_transpose(c, index, masked, sum_over_probes=sum_over_probes)
+
+
+def ut3_probe_corewise_transpose(
+        ztildes: typ.Sequence[NDArray],  # probe residuals, len=d, ith elm_shape=W+K+C+(Ni,)
+        ww:      typ.Sequence[NDArray],  # probe vectors,   len=d, ith elm_shape=W+(Ni,)
+        data:    UT3Data,
+        sum_over_probes: bool = False,
+) -> typ.Tuple[NDArray, NDArray]:     # (tucker-core grad supercore, tt-core grad supercore)
+    """Corewise transpose of :py:func:`ut3_probe`: gradient w.r.t. the base supercores. ``ztildes`` and
+    ``ww`` packed to N."""
+    masked = ut3_masking.apply_masks_to_cores(data)
+    N = masked[0].shape[-1]
+    packed_z = ut3_operations.pack_vectors(ztildes, N)
+    packed_ww = ut3_operations.pack_vectors(ww, N)
+    return probing.probe_corewise_transpose(packed_z, packed_ww, masked, sum_over_probes=sum_over_probes)

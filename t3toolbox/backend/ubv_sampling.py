@@ -18,6 +18,8 @@ The uniform mirror of the ragged ``T3Tangent`` sampling frontend, sharing the po
 
 These are the bare Jacobian ``𝒥`` (no gauge projector ``Π``); the transpose ``𝒥ᵀ`` lands in 3b-6c.
 """
+import numpy as np
+
 import t3toolbox.backend.probing as probing
 import t3toolbox.backend.ubv_masking as ubv_masking
 import t3toolbox.backend.ut3_operations as ut3_operations
@@ -27,6 +29,9 @@ __all__ = [
     'ut3tangent_probe',
     'ut3tangent_apply',
     'ut3tangent_entries',
+    'ut3tangent_probe_transpose',
+    'ut3tangent_apply_transpose',
+    'ut3tangent_entries_transpose',
 ]
 
 
@@ -73,3 +78,81 @@ def ut3tangent_entries(
     real indices ``index_i < Ni`` never reach the mode padding)."""
     mv, mb = _mask_once(basis_data, variations_data)
     return probing.entries_tangent(index, mv, mb)
+
+
+# ----------------------------------------------------------------- the transpose 𝒥ᵀ (probe; 3b-6c)
+def _gauge_masks_over_Knew(
+        basis_data,      # UT3Basis .data
+        out_supercore,   # a transpose-output variation supercore (d,)+K_new+C+(...), pins the stack
+):  # -> the 4 variation rank masks, each (d,)+K_new+C+(size,)
+    """The result tangent's variation masks: the basis's gauge-shifted variation masks
+    ``(up, down, basis_left[:-1], basis_right[1:])`` broadcast (constant) over the new tangent stack
+    ``K_new`` -- the leading stack of the transpose output minus the base stack ``C``. ``sum_over_probes``
+    determines ``K_new`` (``W+K`` kept / ``K`` summed); we read it off the output supercore rather than
+    re-deriving it. Masks are host numpy (static aux), so this stays on ``np``."""
+    up_mask, down_mask, basis_left_mask, basis_right_mask = basis_data[5]
+    gauge = (up_mask, down_mask, basis_left_mask[:-1], basis_right_mask[1:])  # length-d variation masks, stack C
+    C = basis_data[0].shape[1:-2]                 # base stack C (up supercore is (d,)+C+(nU,N))
+    out_stack = out_supercore.shape[1:-2]         # K_new + C
+    K_new = out_stack[:len(out_stack) - len(C)]
+
+    def b(m):  # (d,)+C+(size,) -> (d,)+K_new+C+(size,)
+        return np.broadcast_to(m.reshape(m.shape[:1] + (1,) * len(K_new) + m.shape[1:]),
+                               m.shape[:1] + K_new + m.shape[1:])
+
+    return tuple(b(m) for m in gauge)
+
+
+def ut3tangent_probe_transpose(
+        ztildes,          # probe residuals, len=d, ith elm_shape=W+K+C+(Ni,)
+        ww,               # probe vectors,   len=d, ith elm_shape=W+(Ni,)
+        basis_data,       # UT3Basis .data (an orthogonal frame), supercore stack = C
+        sum_over_probes=False,
+):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks); stack K_new + C
+    """Apply the transpose ``𝒥ᵀ`` of the probe map to residuals (the bare adjoint; no gauge projector).
+
+    Mask-once the basis, pack both the residuals and the probe vectors, share
+    ``probing.probe_tangent_transpose`` (which routes through the 3b-6a d-prefixed WKC contractions), and
+    attach the result variation masks: the basis's gauge masks broadcast over the new tangent stack
+    ``K_new`` (``W+K`` if ``sum_over_probes=False``, ``K`` if ``True``). The bare ``𝒥ᵀ``."""
+    mb = ubv_masking.apply_basis_masks(basis_data)
+    N = mb[0].shape[-1]
+    packed_z = ut3_operations.pack_vectors(ztildes, N)
+    packed_ww = ut3_operations.pack_vectors(ww, N)
+    dU_tilde, dG_tilde = probing.probe_tangent_transpose(
+        packed_z, packed_ww, mb, sum_over_probes=sum_over_probes)
+    masks = _gauge_masks_over_Knew(basis_data, dU_tilde)
+    return (dU_tilde, dG_tilde, basis_data[4], masks)
+
+
+def ut3tangent_apply_transpose(
+        c,                # residual, shape=W+K+C (a scalar per stack element)
+        ww,               # apply vectors, len=d, ith elm_shape=W+(Ni,)
+        basis_data,       # UT3Basis .data (orthogonal frame), stack=C
+        sum_over_probes=False,
+):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks); stack K_new + C
+    """Apply the transpose ``𝒥ᵀ`` of the all-modes apply (the bare adjoint; the adjoint-state method).
+    Mask-once the basis, pack ``ww``, share ``probing.apply_tangent_transpose``, attach the gauge masks
+    over the new tangent stack ``K_new``."""
+    mb = ubv_masking.apply_basis_masks(basis_data)
+    packed_ww = ut3_operations.pack_vectors(ww, mb[0].shape[-1])
+    dU_tilde, dG_tilde = probing.apply_tangent_transpose(
+        c, packed_ww, mb, sum_over_probes=sum_over_probes)
+    masks = _gauge_masks_over_Knew(basis_data, dU_tilde)
+    return (dU_tilde, dG_tilde, basis_data[4], masks)
+
+
+def ut3tangent_entries_transpose(
+        c,                # residual, shape=W+K+C
+        index,            # int array, shape=(d,)+W -- the indices c weights
+        basis_data,       # UT3Basis .data (orthogonal frame), stack=C
+        sum_over_probes=False,
+):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks); stack K_new + C
+    """Apply the transpose ``𝒥ᵀ`` of the all-modes entries (scatter ``c`` at ``index``). Like
+    :py:func:`ut3tangent_apply_transpose` with the apply vectors replaced by the one-hot ``e_index`` (built
+    packed inside ``probing._onehot_vectors``), so ``index`` needs no packing."""
+    mb = ubv_masking.apply_basis_masks(basis_data)
+    dU_tilde, dG_tilde = probing.entries_tangent_transpose(
+        c, index, mb, sum_over_probes=sum_over_probes)
+    masks = _gauge_masks_over_Knew(basis_data, dU_tilde)
+    return (dU_tilde, dG_tilde, basis_data[4], masks)

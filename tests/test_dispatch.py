@@ -459,6 +459,32 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda t, *w: t.apply(w), v, *ww)
         self.assert_jit_jax(lambda t, i: t.entries(i), v, idx)
 
+        # 3b-6c transposes 𝒥ᵀ: residual -> UT3Tangent; jit the whole op + .to_dense() (supercores trace,
+        # the gauge masks stay host constants). The basis (jax frame, C=()) is closed over; residual traces.
+        bj = v.basis
+        rr = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])   # probe residual, W=(2,), K=C=()
+        cc = jnp.array(np.random.randn(2))                               # scalar residual, W=(2,)
+        self.assert_jit_jax(
+            lambda r0, r1, r2, *w: ut3m.UT3Tangent.probe_transpose((r0, r1, r2), w, bj, sum_over_probes=True).to_dense(),
+            *rr, *ww)
+        self.assert_jit_jax(
+            lambda c, *w: ut3m.UT3Tangent.apply_transpose(c, w, bj, sum_over_probes=True).to_dense(), cc, *ww)
+        self.assert_jit_jax(
+            lambda c, i: ut3m.UT3Tangent.entries_transpose(c, i, bj, sum_over_probes=True).to_dense(), cc, idx)
+
+    # ---------------------------------------------------- jit bucket: uniform corewise transposes (3b-6c)
+    def test_jit_uniform_corewise_transpose(self):
+        # 3b-6c: the corewise (non-manifold) sampling transposes on UniformTuckerTensorTrain (gradient w.r.t.
+        # the cores, the §6.3 substitution through the tangent transpose) jit to jax supercores; masks host.
+        xu = ut3.UniformTuckerTensorTrain.from_t3(self.x_np).to_jax()
+        ww = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])    # W = (2,)
+        idx = jnp.array([[1, 2], [2, 3], [3, 0]])
+        cc = jnp.array(np.random.randn(2))
+        self.assert_jit_jax(lambda u, c, *w: u.apply_corewise_transpose(c, w, sum_over_probes=True), xu, cc, *ww)
+        self.assert_jit_jax(lambda u, c, i: u.entries_corewise_transpose(c, i, sum_over_probes=True), xu, cc, idx)
+        self.assert_jit_jax(lambda u, *w: u.probe_corewise_transpose(w[:3], w[3:], sum_over_probes=True),
+                            xu, *ww, *ww)
+
     # ---------------------------------------------------- stack/unstack: masks must stay host under jax
     def test_stack_unstack_keeps_masks_host(self):
         # stacking.stack infers ONE backend per call, so stacking a jax object's supercores together with
