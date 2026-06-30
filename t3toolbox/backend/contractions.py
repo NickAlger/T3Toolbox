@@ -61,6 +61,26 @@ __all__ = [
     # Adjoint-state apply/entries transpose dG assemble: mu (x) xi (x) sigma_hat (tt-core order a,i,b).
     'WCa_WCi_WKCb_to_WKCaib',
     'WCa_WCi_WKCb_to_KCaib',
+    # d-prefixed uniform WKC contractions (3b-6a): each ragged WKC twin with the core index d prepended,
+    # vectorized over d in one einsum (the uniform-tangent map-style probing branches).
+    'dWKCa_dCaib_dWCb_to_dWKCi',
+    'dWCa_dCaib_dWKCb_to_dWKCi',
+    'dWCa_dKCaib_dWCb_to_dWKCi',
+    'dWKCi_dCio_to_dWKCo',
+    'dWCi_dKCio_to_dWKCo',
+    'dWCo_dCio_to_dWCi',
+    'dWKCo_dWCa_to_dWKCao',
+    'dWKCo_dWCa_to_dKCao',
+    'dWo_dWKCa_to_dWKCao',
+    'dWo_dWKCa_to_dKCao',
+    'dWCi_dWCa_dWKCj_to_dWKCiaj',
+    'dWCi_dWCa_dWKCj_to_dKCiaj',
+    'dWKCi_dWCa_dWCj_to_dWKCiaj',
+    'dWKCi_dWCa_dWCj_to_dKCiaj',
+    'dWCi_dWKCa_dWCj_to_dWKCiaj',
+    'dWCi_dWKCa_dWCj_to_dKCiaj',
+    'dWCa_dWCi_dWKCb_to_dWKCaib',
+    'dWCa_dWCi_dWKCb_to_dKCaib',
 ]
 
 
@@ -1873,3 +1893,549 @@ def WCa_WCi_WKCb_to_KCaib(
 
     KCaib = KCaib.reshape(K_shape + C_shape + a_shape + i_shape + b_shape)
     return KCaib
+
+
+###############################################################################
+# d-prefixed uniform WKC contractions (3b-6a). Each is the ragged WKC contraction (above) with the core
+# index ``d`` prepended to every operand and the output, vectorized over ``d`` in a SINGLE einsum (NOT a
+# per-core Python loop -- that would unroll under jit). The W/K/C block-flattening is identical; ``d`` rides
+# as a leading batch axis (it appears in every operand and the output, never contracted), so the only change
+# from the ragged twin is: a leading ``d_shape`` on every reshape, and the W/K/C front-counted slices shift
+# by +1 to skip ``d``. These are the uniform-tangent map-style probing branches' contractions (the
+# is_ndarray-dispatched path of compute_detas / assemble_tangent_zs / compute_*_tildes / assemble_*).
+#
+# Order-0 note for 3b-6' (the jet/derivative slice): the binomial-jet ``trs_*`` analogs add the order axis
+# ``t`` on top of this same ``d`` batch, and at order 0 reduce to exactly these contractions.
+###############################################################################
+
+
+def dWKCa_dCaib_dWCb_to_dWKCi(
+        dWKCa: NDArray,  # d + W + K + C + (a,)
+        dCaib: NDArray,  # d + C + (a, i, b)   -- C-only core, pins len(C)
+        dWCb:  NDArray,  # d + W + C + (b,)    -- W+C, pins len(W)
+) -> NDArray:            # d + W + K + C + (i,)
+    """d-prefixed uniform twin of :py:func:`WKCa_Caib_WCb_to_WKCi` (compute_detas term1)."""
+    use_jax = tree_contains_jax((dWKCa, dCaib, dWCb))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dCaib.shape[0],)
+    C_shape = dCaib.shape[1:-3]
+    W_shape = dWCb.shape[1:-(len(C_shape) + 1)]
+    K_shape = dWKCa.shape[1 + len(W_shape):-(len(C_shape) + 1)]
+
+    a_shape = (dCaib.shape[-3],)
+    i_shape = (dCaib.shape[-2],)
+    b_shape = (dCaib.shape[-1],)
+
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
+
+    dWKCa = dWKCa.reshape(d_shape + (size_W, size_K, size_C) + a_shape)
+    dCaib = dCaib.reshape(d_shape + (size_C,) + a_shape + i_shape + b_shape)
+    dWCb  = dWCb.reshape(d_shape + (size_W, size_C) + b_shape)
+
+    dWKCi = _grouped_einsum(xnp, use_jax, 'dWKCa,dCaib,dWCb->dWKCi', dWKCa, dCaib, dWCb)
+
+    dWKCi = dWKCi.reshape(d_shape + W_shape + K_shape + C_shape + i_shape)
+    return dWKCi
+
+
+def dWCa_dCaib_dWKCb_to_dWKCi(
+        dWCa:  NDArray,  # d + W + C + (a,)        -- W+C, pins len(W)
+        dCaib: NDArray,  # d + C + (a, i, b)       -- C-only core, pins len(C)
+        dWKCb: NDArray,  # d + W + K + C + (b,)
+) -> NDArray:            # d + W + K + C + (i,)
+    """d-prefixed uniform twin of :py:func:`WCa_Caib_WKCb_to_WKCi` (compute_detas term3, compute_dxi_tildes)."""
+    use_jax = tree_contains_jax((dWCa, dCaib, dWKCb))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dCaib.shape[0],)
+    C_shape = dCaib.shape[1:-3]
+    W_shape = dWCa.shape[1:-(len(C_shape) + 1)]
+    K_shape = dWKCb.shape[1 + len(W_shape):-(len(C_shape) + 1)]
+
+    a_shape = (dCaib.shape[-3],)
+    i_shape = (dCaib.shape[-2],)
+    b_shape = (dCaib.shape[-1],)
+
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
+
+    dWCa  = dWCa.reshape(d_shape + (size_W, size_C) + a_shape)
+    dCaib = dCaib.reshape(d_shape + (size_C,) + a_shape + i_shape + b_shape)
+    dWKCb = dWKCb.reshape(d_shape + (size_W, size_K, size_C) + b_shape)
+
+    dWKCi = _grouped_einsum(xnp, use_jax, 'dWCa,dCaib,dWKCb->dWKCi', dWCa, dCaib, dWKCb)
+
+    dWKCi = dWKCi.reshape(d_shape + W_shape + K_shape + C_shape + i_shape)
+    return dWKCi
+
+
+def dWCa_dKCaib_dWCb_to_dWKCi(
+        dWCa:   NDArray,  # d + W + C + (a,)        -- W+C
+        dKCaib: NDArray,  # d + K + C + (a, i, b)   -- variation core (K+C); no C-only operand
+        dWCb:   NDArray,  # d + W + C + (b,)        -- W+C
+        n_base: int,      # len(C) (supplied; dKCaib is K+C with no C-only operand to pin it)
+) -> NDArray:             # d + W + K + C + (i,)
+    """d-prefixed uniform twin of :py:func:`WCa_KCaib_WCb_to_WKCi` (compute_detas term2)."""
+    use_jax = tree_contains_jax((dWCa, dKCaib, dWCb))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dKCaib.shape[0],)
+    KC_shape = dKCaib.shape[1:-3]
+    C_shape = KC_shape[len(KC_shape) - n_base:]
+    K_shape = KC_shape[:len(KC_shape) - n_base]
+    W_shape = dWCa.shape[1:-(1 + n_base)]
+
+    a_shape = (dKCaib.shape[-3],)
+    i_shape = (dKCaib.shape[-2],)
+    b_shape = (dKCaib.shape[-1],)
+
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
+
+    dWCa   = dWCa.reshape(d_shape + (size_W, size_C) + a_shape)
+    dKCaib = dKCaib.reshape(d_shape + (size_K, size_C) + a_shape + i_shape + b_shape)
+    dWCb   = dWCb.reshape(d_shape + (size_W, size_C) + b_shape)
+
+    dWKCi = _grouped_einsum(xnp, use_jax, 'dWCa,dKCaib,dWCb->dWKCi', dWCa, dKCaib, dWCb)
+
+    dWKCi = dWKCi.reshape(d_shape + W_shape + K_shape + C_shape + i_shape)
+    return dWKCi
+
+
+def dWKCi_dCio_to_dWKCo(
+        dWKCi: NDArray,  # d + W + K + C + (i,)
+        dCio:  NDArray,  # d + C + (i, o)   -- C-only core
+) -> NDArray:            # d + W + K + C + (o,)
+    """d-prefixed uniform twin of :py:func:`WKCi_Cio_to_WKCo` (assemble_tangent_zs term1). W and K fuse
+    into one outer block and dCio is C-only, so this is exactly :py:func:`dWCi_dCio_to_dWCo` (W+K outer)."""
+    return dWCi_dCio_to_dWCo(dWKCi, dCio)
+
+
+def dWCi_dKCio_to_dWKCo(
+        dWCi:   NDArray,  # d + W + C + (i,)       -- W+C
+        dKCio:  NDArray,  # d + K + C + (i, o)     -- variation core (K+C)
+        n_base: int,      # len(C) (supplied; dKCio is K+C with no C-only operand to pin it)
+) -> NDArray:             # d + W + K + C + (o,)
+    """d-prefixed uniform twin of :py:func:`WCi_KCio_to_WKCo` (assemble_tangent_zs term2)."""
+    use_jax = tree_contains_jax((dWCi, dKCio))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dKCio.shape[0],)
+    KC_shape = dKCio.shape[1:-2]
+    C_shape = KC_shape[len(KC_shape) - n_base:]
+    K_shape = KC_shape[:len(KC_shape) - n_base]
+    W_shape = dWCi.shape[1:-(1 + n_base)]
+
+    i_shape = (dKCio.shape[-2],)
+    o_shape = (dKCio.shape[-1],)
+
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
+
+    dWCi  = dWCi.reshape(d_shape + (size_W, size_C) + i_shape)
+    dKCio = dKCio.reshape(d_shape + (size_K, size_C) + i_shape + o_shape)
+
+    dWKCo = _grouped_einsum(xnp, use_jax, 'dWCi,dKCio->dWKCo', dWCi, dKCio)
+
+    dWKCo = dWKCo.reshape(d_shape + W_shape + K_shape + C_shape + o_shape)
+    return dWKCo
+
+
+def dWCo_dCio_to_dWCi(
+        dWCo: NDArray,  # d + W + C + (o,)   -- W+C
+        dCio: NDArray,  # d + C + (i, o)     -- C-only core (shared C batch on both operands)
+) -> NDArray:           # d + W + C + (i,)
+    """d-prefixed uniform twin of :py:func:`WCo_Cio_to_WCi` (compute_deta_tildes). C is a SHARED batch on
+    both operands (the shared-C contraction, NOT the outer-product :py:func:`dCio_dWo_to_dWCi`)."""
+    use_jax = tree_contains_jax((dWCo, dCio))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dCio.shape[0],)
+    C_shape = dCio.shape[1:-2]
+    i_shape = (dCio.shape[-2],)
+    o_shape = (dCio.shape[-1],)
+    W_shape = dWCo.shape[1:-(len(C_shape) + 1)]
+
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
+
+    dCio = dCio.reshape(d_shape + (size_C,) + i_shape + o_shape)
+    dWCo = dWCo.reshape(d_shape + (size_W, size_C) + o_shape)
+
+    dWCi = _grouped_einsum(xnp, use_jax, 'dWCo,dCio->dWCi', dWCo, dCio)
+
+    dWCi = dWCi.reshape(d_shape + W_shape + C_shape + i_shape)
+    return dWCi
+
+
+def dWKCo_dWCa_to_dWKCao(
+        dWKCo:   NDArray,  # d + W + K + C + (o,)
+        dWCa:    NDArray,  # d + W + C + (a,)    -- W+C, pins C given n_probe
+        n_probe: int,      # len(W); {W+K+C, W+C} do not pin it, so supplied
+) -> NDArray:              # d + W + K + C + (a, o)
+    """d-prefixed uniform twin of :py:func:`WKCo_WCa_to_WKCao` (assemble_tucker_variations, keep W)."""
+    use_jax = tree_contains_jax((dWKCo, dWCa))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dWCa.shape[0],)
+    W_shape = dWCa.shape[1:1 + n_probe]
+    C_shape = dWCa.shape[1 + n_probe:-1]
+    o_shape = (dWKCo.shape[-1],)
+    a_shape = (dWCa.shape[-1],)
+    K_shape = dWKCo.shape[1 + n_probe:len(dWKCo.shape) - 1 - len(C_shape)]
+
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
+
+    dWKCo = dWKCo.reshape(d_shape + (size_W, size_K, size_C) + o_shape)
+    dWCa  = dWCa.reshape(d_shape + (size_W, size_C) + a_shape)
+
+    dWKCao = _grouped_einsum(xnp, use_jax, 'dWKCo,dWCa->dWKCao', dWKCo, dWCa)
+
+    dWKCao = dWKCao.reshape(d_shape + W_shape + K_shape + C_shape + a_shape + o_shape)
+    return dWKCao
+
+
+def dWKCo_dWCa_to_dKCao(
+        dWKCo:   NDArray,  # d + W + K + C + (o,)
+        dWCa:    NDArray,  # d + W + C + (a,)
+        n_probe: int,      # len(W), summed out
+) -> NDArray:              # d + K + C + (a, o)
+    """d-prefixed uniform twin of :py:func:`WKCo_WCa_to_KCao` (assemble_tucker_variations, sum W)."""
+    use_jax = tree_contains_jax((dWKCo, dWCa))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dWCa.shape[0],)
+    W_shape = dWCa.shape[1:1 + n_probe]
+    C_shape = dWCa.shape[1 + n_probe:-1]
+    o_shape = (dWKCo.shape[-1],)
+    a_shape = (dWCa.shape[-1],)
+    K_shape = dWKCo.shape[1 + n_probe:len(dWKCo.shape) - 1 - len(C_shape)]
+
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
+
+    dWKCo = dWKCo.reshape(d_shape + (size_W, size_K, size_C) + o_shape)
+    dWCa  = dWCa.reshape(d_shape + (size_W, size_C) + a_shape)
+
+    dKCao = _grouped_einsum(xnp, use_jax, 'dWKCo,dWCa->dKCao', dWKCo, dWCa)
+
+    dKCao = dKCao.reshape(d_shape + K_shape + C_shape + a_shape + o_shape)
+    return dKCao
+
+
+def dWo_dWKCa_to_dWKCao(
+        dWo:   NDArray,  # d + W + (o,)           -- W-only probe vector, self-pins len(W)
+        dWKCa: NDArray,  # d + W + K + C + (a,)
+) -> NDArray:            # d + W + K + C + (a, o)
+    """d-prefixed uniform twin of :py:func:`Wo_WKCa_to_WKCao` (assemble_tucker_variations, keep W).
+    K and C ride as one combined block X (no operand carries C without K)."""
+    use_jax = tree_contains_jax((dWo, dWKCa))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dWo.shape[0],)
+    W_shape = dWo.shape[1:-1]
+    o_shape = (dWo.shape[-1],)
+    a_shape = (dWKCa.shape[-1],)
+    KC_shape = dWKCa.shape[1 + len(W_shape):-1]
+
+    size_W = math.prod(W_shape)
+    size_KC = math.prod(KC_shape)
+
+    dWo   = dWo.reshape(d_shape + (size_W,) + o_shape)
+    dWKCa = dWKCa.reshape(d_shape + (size_W, size_KC) + a_shape)
+
+    dWKCao = _grouped_einsum(xnp, use_jax, 'dWo,dWXa->dWXao', dWo, dWKCa)
+
+    dWKCao = dWKCao.reshape(d_shape + W_shape + KC_shape + a_shape + o_shape)
+    return dWKCao
+
+
+def dWo_dWKCa_to_dKCao(
+        dWo:   NDArray,  # d + W + (o,)           -- W-only probe vector, self-pins len(W)
+        dWKCa: NDArray,  # d + W + K + C + (a,)
+) -> NDArray:            # d + K + C + (a, o)
+    """d-prefixed uniform twin of :py:func:`Wo_WKCa_to_KCao` (assemble_tucker_variations, sum W)."""
+    use_jax = tree_contains_jax((dWo, dWKCa))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dWo.shape[0],)
+    W_shape = dWo.shape[1:-1]
+    o_shape = (dWo.shape[-1],)
+    a_shape = (dWKCa.shape[-1],)
+    KC_shape = dWKCa.shape[1 + len(W_shape):-1]
+
+    size_W = math.prod(W_shape)
+    size_KC = math.prod(KC_shape)
+
+    dWo   = dWo.reshape(d_shape + (size_W,) + o_shape)
+    dWKCa = dWKCa.reshape(d_shape + (size_W, size_KC) + a_shape)
+
+    dKCao = _grouped_einsum(xnp, use_jax, 'dWo,dWXa->dXao', dWo, dWKCa)
+
+    dKCao = dKCao.reshape(d_shape + KC_shape + a_shape + o_shape)
+    return dKCao
+
+
+def dWCi_dWCa_dWKCj_to_dWKCiaj(
+        dWCi:    NDArray,  # d + W + C + (i,)       -- W+C, pins C given n_probe
+        dWCa:    NDArray,  # d + W + C + (a,)
+        dWKCj:   NDArray,  # d + W + K + C + (j,)   -- carries K
+        n_probe: int,      # len(W); supplied
+) -> NDArray:              # d + W + K + C + (i, a, j)
+    """d-prefixed uniform twin of :py:func:`WCi_WCa_WKCj_to_WKCiaj` (assemble_tt_variations, K on j, keep W)."""
+    use_jax = tree_contains_jax((dWCi, dWCa, dWKCj))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dWCi.shape[0],)
+    W_shape = dWCi.shape[1:1 + n_probe]
+    C_shape = dWCi.shape[1 + n_probe:-1]
+    i_shape = (dWCi.shape[-1],)
+    a_shape = (dWCa.shape[-1],)
+    j_shape = (dWKCj.shape[-1],)
+    K_shape = dWKCj.shape[1 + n_probe:len(dWKCj.shape) - 1 - len(C_shape)]
+
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
+
+    dWCi  = dWCi.reshape(d_shape + (size_W, size_C) + i_shape)
+    dWCa  = dWCa.reshape(d_shape + (size_W, size_C) + a_shape)
+    dWKCj = dWKCj.reshape(d_shape + (size_W, size_K, size_C) + j_shape)
+
+    dWKCiaj = _grouped_einsum(xnp, use_jax, 'dWCi,dWCa,dWKCj->dWKCiaj', dWCi, dWCa, dWKCj)
+
+    dWKCiaj = dWKCiaj.reshape(d_shape + W_shape + K_shape + C_shape + i_shape + a_shape + j_shape)
+    return dWKCiaj
+
+
+def dWCi_dWCa_dWKCj_to_dKCiaj(
+        dWCi:    NDArray,  # d + W + C + (i,)
+        dWCa:    NDArray,  # d + W + C + (a,)
+        dWKCj:   NDArray,  # d + W + K + C + (j,)
+        n_probe: int,      # len(W), summed out
+) -> NDArray:              # d + K + C + (i, a, j)
+    """d-prefixed uniform twin of :py:func:`WCi_WCa_WKCj_to_KCiaj` (assemble_tt_variations, K on j, sum W)."""
+    use_jax = tree_contains_jax((dWCi, dWCa, dWKCj))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dWCi.shape[0],)
+    W_shape = dWCi.shape[1:1 + n_probe]
+    C_shape = dWCi.shape[1 + n_probe:-1]
+    i_shape = (dWCi.shape[-1],)
+    a_shape = (dWCa.shape[-1],)
+    j_shape = (dWKCj.shape[-1],)
+    K_shape = dWKCj.shape[1 + n_probe:len(dWKCj.shape) - 1 - len(C_shape)]
+
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
+
+    dWCi  = dWCi.reshape(d_shape + (size_W, size_C) + i_shape)
+    dWCa  = dWCa.reshape(d_shape + (size_W, size_C) + a_shape)
+    dWKCj = dWKCj.reshape(d_shape + (size_W, size_K, size_C) + j_shape)
+
+    dKCiaj = _grouped_einsum(xnp, use_jax, 'dWCi,dWCa,dWKCj->dKCiaj', dWCi, dWCa, dWKCj)
+
+    dKCiaj = dKCiaj.reshape(d_shape + K_shape + C_shape + i_shape + a_shape + j_shape)
+    return dKCiaj
+
+
+def dWKCi_dWCa_dWCj_to_dWKCiaj(
+        dWKCi:   NDArray,  # d + W + K + C + (i,)   -- carries K
+        dWCa:    NDArray,  # d + W + C + (a,)       -- W+C, pins C given n_probe
+        dWCj:    NDArray,  # d + W + C + (j,)
+        n_probe: int,      # len(W); supplied
+) -> NDArray:              # d + W + K + C + (i, a, j)
+    """d-prefixed uniform twin of :py:func:`WKCi_WCa_WCj_to_WKCiaj` (assemble_tt_variations, K on i, keep W)."""
+    use_jax = tree_contains_jax((dWKCi, dWCa, dWCj))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dWCa.shape[0],)
+    W_shape = dWCa.shape[1:1 + n_probe]
+    C_shape = dWCa.shape[1 + n_probe:-1]
+    i_shape = (dWKCi.shape[-1],)
+    a_shape = (dWCa.shape[-1],)
+    j_shape = (dWCj.shape[-1],)
+    K_shape = dWKCi.shape[1 + n_probe:len(dWKCi.shape) - 1 - len(C_shape)]
+
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
+
+    dWKCi = dWKCi.reshape(d_shape + (size_W, size_K, size_C) + i_shape)
+    dWCa  = dWCa.reshape(d_shape + (size_W, size_C) + a_shape)
+    dWCj  = dWCj.reshape(d_shape + (size_W, size_C) + j_shape)
+
+    dWKCiaj = _grouped_einsum(xnp, use_jax, 'dWKCi,dWCa,dWCj->dWKCiaj', dWKCi, dWCa, dWCj)
+
+    dWKCiaj = dWKCiaj.reshape(d_shape + W_shape + K_shape + C_shape + i_shape + a_shape + j_shape)
+    return dWKCiaj
+
+
+def dWKCi_dWCa_dWCj_to_dKCiaj(
+        dWKCi:   NDArray,  # d + W + K + C + (i,)
+        dWCa:    NDArray,  # d + W + C + (a,)
+        dWCj:    NDArray,  # d + W + C + (j,)
+        n_probe: int,      # len(W), summed out
+) -> NDArray:              # d + K + C + (i, a, j)
+    """d-prefixed uniform twin of :py:func:`WKCi_WCa_WCj_to_KCiaj` (assemble_tt_variations, K on i, sum W)."""
+    use_jax = tree_contains_jax((dWKCi, dWCa, dWCj))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dWCa.shape[0],)
+    W_shape = dWCa.shape[1:1 + n_probe]
+    C_shape = dWCa.shape[1 + n_probe:-1]
+    i_shape = (dWKCi.shape[-1],)
+    a_shape = (dWCa.shape[-1],)
+    j_shape = (dWCj.shape[-1],)
+    K_shape = dWKCi.shape[1 + n_probe:len(dWKCi.shape) - 1 - len(C_shape)]
+
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
+
+    dWKCi = dWKCi.reshape(d_shape + (size_W, size_K, size_C) + i_shape)
+    dWCa  = dWCa.reshape(d_shape + (size_W, size_C) + a_shape)
+    dWCj  = dWCj.reshape(d_shape + (size_W, size_C) + j_shape)
+
+    dKCiaj = _grouped_einsum(xnp, use_jax, 'dWKCi,dWCa,dWCj->dKCiaj', dWKCi, dWCa, dWCj)
+
+    dKCiaj = dKCiaj.reshape(d_shape + K_shape + C_shape + i_shape + a_shape + j_shape)
+    return dKCiaj
+
+
+def dWCi_dWKCa_dWCj_to_dWKCiaj(
+        dWCi:    NDArray,  # d + W + C + (i,)       -- W+C, pins C given n_probe
+        dWKCa:   NDArray,  # d + W + K + C + (a,)   -- carries K
+        dWCj:    NDArray,  # d + W + C + (j,)
+        n_probe: int,      # len(W); supplied
+) -> NDArray:              # d + W + K + C + (i, a, j)
+    """d-prefixed uniform twin of :py:func:`WCi_WKCa_WCj_to_WKCiaj` (assemble_tt_variations, K on a, keep W)."""
+    use_jax = tree_contains_jax((dWCi, dWKCa, dWCj))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dWCi.shape[0],)
+    W_shape = dWCi.shape[1:1 + n_probe]
+    C_shape = dWCi.shape[1 + n_probe:-1]
+    i_shape = (dWCi.shape[-1],)
+    a_shape = (dWKCa.shape[-1],)
+    j_shape = (dWCj.shape[-1],)
+    K_shape = dWKCa.shape[1 + n_probe:len(dWKCa.shape) - 1 - len(C_shape)]
+
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
+
+    dWCi  = dWCi.reshape(d_shape + (size_W, size_C) + i_shape)
+    dWKCa = dWKCa.reshape(d_shape + (size_W, size_K, size_C) + a_shape)
+    dWCj  = dWCj.reshape(d_shape + (size_W, size_C) + j_shape)
+
+    dWKCiaj = _grouped_einsum(xnp, use_jax, 'dWCi,dWKCa,dWCj->dWKCiaj', dWCi, dWKCa, dWCj)
+
+    dWKCiaj = dWKCiaj.reshape(d_shape + W_shape + K_shape + C_shape + i_shape + a_shape + j_shape)
+    return dWKCiaj
+
+
+def dWCi_dWKCa_dWCj_to_dKCiaj(
+        dWCi:    NDArray,  # d + W + C + (i,)
+        dWKCa:   NDArray,  # d + W + K + C + (a,)
+        dWCj:    NDArray,  # d + W + C + (j,)
+        n_probe: int,      # len(W), summed out
+) -> NDArray:              # d + K + C + (i, a, j)
+    """d-prefixed uniform twin of :py:func:`WCi_WKCa_WCj_to_KCiaj` (assemble_tt_variations, K on a, sum W)."""
+    use_jax = tree_contains_jax((dWCi, dWKCa, dWCj))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dWCi.shape[0],)
+    W_shape = dWCi.shape[1:1 + n_probe]
+    C_shape = dWCi.shape[1 + n_probe:-1]
+    i_shape = (dWCi.shape[-1],)
+    a_shape = (dWKCa.shape[-1],)
+    j_shape = (dWCj.shape[-1],)
+    K_shape = dWKCa.shape[1 + n_probe:len(dWKCa.shape) - 1 - len(C_shape)]
+
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
+
+    dWCi  = dWCi.reshape(d_shape + (size_W, size_C) + i_shape)
+    dWKCa = dWKCa.reshape(d_shape + (size_W, size_K, size_C) + a_shape)
+    dWCj  = dWCj.reshape(d_shape + (size_W, size_C) + j_shape)
+
+    dKCiaj = _grouped_einsum(xnp, use_jax, 'dWCi,dWKCa,dWCj->dKCiaj', dWCi, dWKCa, dWCj)
+
+    dKCiaj = dKCiaj.reshape(d_shape + K_shape + C_shape + i_shape + a_shape + j_shape)
+    return dKCiaj
+
+
+def dWCa_dWCi_dWKCb_to_dWKCaib(
+        dWCa:    NDArray,  # d + W + C + (a,)       -- W+C, pins C given n_probe
+        dWCi:    NDArray,  # d + W + C + (i,)
+        dWKCb:   NDArray,  # d + W + K + C + (b,)   -- carries K
+        n_probe: int,      # len(W); supplied
+) -> NDArray:              # d + W + K + C + (a, i, b)
+    """d-prefixed uniform twin of :py:func:`WCa_WCi_WKCb_to_WKCaib` (apply/entries adjoint dG assemble, keep W)."""
+    use_jax = tree_contains_jax((dWCa, dWCi, dWKCb))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dWCa.shape[0],)
+    W_shape = dWCa.shape[1:1 + n_probe]
+    C_shape = dWCa.shape[1 + n_probe:-1]
+    a_shape = (dWCa.shape[-1],)
+    i_shape = (dWCi.shape[-1],)
+    b_shape = (dWKCb.shape[-1],)
+    K_shape = dWKCb.shape[1 + n_probe:len(dWKCb.shape) - 1 - len(C_shape)]
+
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
+
+    dWCa  = dWCa.reshape(d_shape + (size_W, size_C) + a_shape)
+    dWCi  = dWCi.reshape(d_shape + (size_W, size_C) + i_shape)
+    dWKCb = dWKCb.reshape(d_shape + (size_W, size_K, size_C) + b_shape)
+
+    dWKCaib = _grouped_einsum(xnp, use_jax, 'dWCa,dWCi,dWKCb->dWKCaib', dWCa, dWCi, dWKCb)
+
+    dWKCaib = dWKCaib.reshape(d_shape + W_shape + K_shape + C_shape + a_shape + i_shape + b_shape)
+    return dWKCaib
+
+
+def dWCa_dWCi_dWKCb_to_dKCaib(
+        dWCa:    NDArray,  # d + W + C + (a,)
+        dWCi:    NDArray,  # d + W + C + (i,)
+        dWKCb:   NDArray,  # d + W + K + C + (b,)
+        n_probe: int,      # len(W), summed out
+) -> NDArray:              # d + K + C + (a, i, b)
+    """d-prefixed uniform twin of :py:func:`WCa_WCi_WKCb_to_KCaib` (apply/entries adjoint dG assemble, sum W)."""
+    use_jax = tree_contains_jax((dWCa, dWCi, dWKCb))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dWCa.shape[0],)
+    W_shape = dWCa.shape[1:1 + n_probe]
+    C_shape = dWCa.shape[1 + n_probe:-1]
+    a_shape = (dWCa.shape[-1],)
+    i_shape = (dWCi.shape[-1],)
+    b_shape = (dWKCb.shape[-1],)
+    K_shape = dWKCb.shape[1 + n_probe:len(dWKCb.shape) - 1 - len(C_shape)]
+
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
+
+    dWCa  = dWCa.reshape(d_shape + (size_W, size_C) + a_shape)
+    dWCi  = dWCi.reshape(d_shape + (size_W, size_C) + i_shape)
+    dWKCb = dWKCb.reshape(d_shape + (size_W, size_K, size_C) + b_shape)
+
+    dKCaib = _grouped_einsum(xnp, use_jax, 'dWCa,dWCi,dWKCb->dKCaib', dWCa, dWCi, dWKCb)
+
+    dKCaib = dKCaib.reshape(d_shape + K_shape + C_shape + a_shape + i_shape + b_shape)
+    return dKCaib

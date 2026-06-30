@@ -626,6 +626,116 @@ class TestContractions(unittest.TestCase):
             [('WC', 'a'), ('WC', 'i'), ('WKC', 'b')], ('KC', 'aib'), needs_n_probe=True,
         )
 
+    # ---- d-prefixed uniform WKC contractions (3b-6a): the core index d vectorized over a leading batch ----
+
+    def _check_3group_d(self, func, op_specs, out_spec, needs_n_base=False, needs_n_probe=False):
+        """d-prefixed twin of :py:meth:`_check_3group`: prepend a leading core-index axis ``d`` to every
+        operand and the output, and verify against the d-vectorized ``np.einsum`` reference. Since a
+        d-batched einsum equals the ragged contraction applied per d-slice, this IS the "per d-index ==
+        ragged WKC" oracle (the ragged twins are the same op_specs, checked above)."""
+        D = 3
+        for RANDN in [numpy_randn, jax_randn]:
+            for W, K, C in THREE_GROUP_COMBOS:
+                with self.subTest(RANDN=RANDN, W=W, K=K, C=C):
+                    stacks = {'W': W, 'K': K, 'C': C}
+                    glet = {grp: GROUP_POOL[grp][:len(stacks[grp])] for grp in 'WKC'}
+
+                    def sub(groups, singles):
+                        return 'd' + ''.join(glet[grp] for grp in groups) + singles
+
+                    def shp(groups, singles):
+                        s = (D,)
+                        for grp in groups:
+                            s = s + tuple(stacks[grp])
+                        return s + tuple(SINGLE_SIZE[c] for c in singles)
+
+                    operands = [RANDN(*shp(grp, si)) for grp, si in op_specs]
+                    in_subs = ','.join(sub(grp, si) for grp, si in op_specs)
+                    out_sub = sub(*out_spec)
+                    ref = np.einsum(in_subs + '->' + out_sub, *operands)
+
+                    if needs_n_base:
+                        result = func(*operands, len(C))
+                    elif needs_n_probe:
+                        result = func(*operands, len(W))
+                    else:
+                        result = func(*operands)
+                    result = np.asarray(result)
+                    self.assertEqual(ref.shape, result.shape)
+                    self.check_relerr(ref, result)
+
+    def test_dWKCa_dCaib_dWCb_to_dWKCi(self):
+        self._check_3group_d(contractions.dWKCa_dCaib_dWCb_to_dWKCi,
+                             [('WKC', 'a'), ('C', 'aib'), ('WC', 'b')], ('WKC', 'i'))
+
+    def test_dWCa_dCaib_dWKCb_to_dWKCi(self):
+        self._check_3group_d(contractions.dWCa_dCaib_dWKCb_to_dWKCi,
+                             [('WC', 'a'), ('C', 'aib'), ('WKC', 'b')], ('WKC', 'i'))
+
+    def test_dWCa_dKCaib_dWCb_to_dWKCi(self):
+        self._check_3group_d(contractions.dWCa_dKCaib_dWCb_to_dWKCi,
+                             [('WC', 'a'), ('KC', 'aib'), ('WC', 'b')], ('WKC', 'i'), needs_n_base=True)
+
+    def test_dWKCi_dCio_to_dWKCo(self):
+        self._check_3group_d(contractions.dWKCi_dCio_to_dWKCo,
+                             [('WKC', 'i'), ('C', 'io')], ('WKC', 'o'))
+
+    def test_dWCi_dKCio_to_dWKCo(self):
+        self._check_3group_d(contractions.dWCi_dKCio_to_dWKCo,
+                             [('WC', 'i'), ('KC', 'io')], ('WKC', 'o'), needs_n_base=True)
+
+    def test_dWCo_dCio_to_dWCi(self):  # shared-C (compute_deta_tildes); a two-group, K unused
+        self._check_3group_d(contractions.dWCo_dCio_to_dWCi,
+                             [('WC', 'o'), ('C', 'io')], ('WC', 'i'))
+
+    def test_dWKCo_dWCa_to_dWKCao(self):
+        self._check_3group_d(contractions.dWKCo_dWCa_to_dWKCao,
+                             [('WKC', 'o'), ('WC', 'a')], ('WKC', 'ao'), needs_n_probe=True)
+
+    def test_dWKCo_dWCa_to_dKCao(self):
+        self._check_3group_d(contractions.dWKCo_dWCa_to_dKCao,
+                             [('WKC', 'o'), ('WC', 'a')], ('KC', 'ao'), needs_n_probe=True)
+
+    def test_dWo_dWKCa_to_dWKCao(self):
+        self._check_3group_d(contractions.dWo_dWKCa_to_dWKCao,
+                             [('W', 'o'), ('WKC', 'a')], ('WKC', 'ao'))
+
+    def test_dWo_dWKCa_to_dKCao(self):
+        self._check_3group_d(contractions.dWo_dWKCa_to_dKCao,
+                             [('W', 'o'), ('WKC', 'a')], ('KC', 'ao'))
+
+    def test_dWCi_dWCa_dWKCj_to_dWKCiaj(self):
+        self._check_3group_d(contractions.dWCi_dWCa_dWKCj_to_dWKCiaj,
+                             [('WC', 'i'), ('WC', 'a'), ('WKC', 'j')], ('WKC', 'iaj'), needs_n_probe=True)
+
+    def test_dWCi_dWCa_dWKCj_to_dKCiaj(self):
+        self._check_3group_d(contractions.dWCi_dWCa_dWKCj_to_dKCiaj,
+                             [('WC', 'i'), ('WC', 'a'), ('WKC', 'j')], ('KC', 'iaj'), needs_n_probe=True)
+
+    def test_dWKCi_dWCa_dWCj_to_dWKCiaj(self):
+        self._check_3group_d(contractions.dWKCi_dWCa_dWCj_to_dWKCiaj,
+                             [('WKC', 'i'), ('WC', 'a'), ('WC', 'j')], ('WKC', 'iaj'), needs_n_probe=True)
+
+    def test_dWKCi_dWCa_dWCj_to_dKCiaj(self):
+        self._check_3group_d(contractions.dWKCi_dWCa_dWCj_to_dKCiaj,
+                             [('WKC', 'i'), ('WC', 'a'), ('WC', 'j')], ('KC', 'iaj'), needs_n_probe=True)
+
+    def test_dWCi_dWKCa_dWCj_to_dWKCiaj(self):
+        self._check_3group_d(contractions.dWCi_dWKCa_dWCj_to_dWKCiaj,
+                             [('WC', 'i'), ('WKC', 'a'), ('WC', 'j')], ('WKC', 'iaj'), needs_n_probe=True)
+
+    def test_dWCi_dWKCa_dWCj_to_dKCiaj(self):
+        self._check_3group_d(contractions.dWCi_dWKCa_dWCj_to_dKCiaj,
+                             [('WC', 'i'), ('WKC', 'a'), ('WC', 'j')], ('KC', 'iaj'), needs_n_probe=True)
+
+    def test_dWCa_dWCi_dWKCb_to_dWKCaib(self):
+        self._check_3group_d(contractions.dWCa_dWCi_dWKCb_to_dWKCaib,
+                             [('WC', 'a'), ('WC', 'i'), ('WKC', 'b')], ('WKC', 'aib'), needs_n_probe=True)
+
+    def test_dWCa_dWCi_dWKCb_to_dKCaib(self):
+        self._check_3group_d(contractions.dWCa_dWCi_dWKCb_to_dKCaib,
+                             [('WC', 'a'), ('WC', 'i'), ('WKC', 'b')], ('KC', 'aib'), needs_n_probe=True)
+
     # ---- order-threaded three-group contractions (K-stacked derivative probing) ----
 
     def _check_jet3(self, func, op_specs, out_spec, trs_sub='trs', needs_n_base=False, needs_n_probe=False):

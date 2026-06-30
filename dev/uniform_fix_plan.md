@@ -811,3 +811,82 @@ full-suite gate. **No impl changes unless a test finds a bug -> then fix the imp
 relax the test). An **independent adversarial audit agent** runs alongside (cold read of the impl, try to
 construct a passing-but-wrong case); reconcile its findings with this plan. A durable testing-strategy
 note for future developers follows once the pass is green.
+
+---
+
+# Increment 3b-6 — uniform tangent probing (`probing.py`) — detailed plan (2026-06-30)
+
+_Designed with Nick 2026-06-30 (all four decisions resolved below); PENDING nothing — approved, starting
+3b-6a. **Sequencing decision: probing and `probe_derivatives.py` are split into two slices.** 3b-6 does
+plain probing (`probing.py`); the jet/derivative version (`probe_derivatives.py`) is the follow-on slice
+**3b-6′**, built by mirroring this one (order-0 of every jet contraction reproduces the plain one we verify
+here -- a built-in correctness anchor). 3b-7 (cleanup) is unchanged._
+
+## Goal
+Make `probing.py`'s **tangent** path run for uniform `UT3Tangent`: the forward Riemannian Jacobian `𝒥`
+(`probe`/`apply`/`entries` on `UT3Tangent`) and its transpose `𝒥ᵀ`, verified per stack element against the
+ragged path. Written **derivatives-aware** so the conventions extend cleanly to 3b-6′.
+
+## Verified diagnosis (read the code, 2026-06-30)
+- **Scan-style tangent fns already work** (`compute_sigmas`/`compute_taus`/**`compute_dxis`**): they
+  `is_ndarray`-dispatch + `xscan` with proper `WKC` grouped-block steps. (`compute_dxis` is NOT broken --
+  corrects an earlier plan line.)
+- **Six map-style tangent fns are broken**: they have `if is_uniform:` branches, but those use raw `d...`
+  einsums with the cores written `diaj` (no stack -> assume `C=()`) and a single `...` conflating `W` with
+  `K`. Confirmed: `compute_detas` does `einsum('d...i,diaj->d...aj', sigmas, right_tt_cores)` where the
+  ragged branch correctly calls `WKCa_Caib_WCb_to_WKCi(sigma, Q, nu)` + two siblings. The six:
+  **`compute_detas`, `assemble_tangent_zs`** (forward) and **`compute_deta_tildes`, `compute_dxi_tildes`,
+  `assemble_tucker_variations`, `assemble_tt_variations`** (transpose).
+- **`compute_deta_tildes` is the wrong-contraction special case**: its uniform branch calls the
+  outer-product `dCio_dWo_to_dWCi` (its comment even asserts "ztildes carry no separate T3 stack C" --
+  false for a `C`-stacked tangent); it needs the **shared-`C`** `dWCo_dCio_to_dWCi`.
+- **Two ragged-poly gaps** block the apply/entries transposes for uniform: `_apply_transpose_adjoint` is
+  ragged-only (`get_backend(False)`), and `apply_tangent`/`entries_tangent` signatures still demand a
+  `Sequence`.
+- **The `d`-prefix recipe is already proven**: `dCio_dWo_to_dWCi` is exactly the `d`-prefixed
+  `Cio_Wo_to_WCi` (same `_grouped_einsum` block-flattening). So 6a applies a proven pattern to the `WKC`
+  family -- not new machinery.
+
+## Resolved decisions (2026-06-30)
+1. **Scope = tangent + corewise transpose flavors; ambient deferred.** 3b-6 does the tangent `𝒥`/`𝒥ᵀ` for
+   all three ops (probe/apply/entries) AND the corewise transpose (it falls out of the same
+   `_apply_transpose_adjoint` polymorphism fix). The **ambient transpose is deferred** (rarely used; the
+   ambient *derivative* transpose is already a documented deferral).
+2. **Derivatives-aware naming.** Name the contractions so the jet family is a clean superset
+   (`trs_·d·WKC` with the order axis); note "order-0 == this plain contraction" on each -- the 3b-6′ anchor.
+3. **Test home = a new `tests/test_uniform_probing.py`** (mirror `tests/test_probing.py` for the uniform
+   tangent path), not growing `test_uniform_manifold.py`.
+4. **Granularity = 6a/b/c/d** (contraction foundation isolated + proven first).
+
+## Sub-slices (dependency-ordered, each suite-gated)
+- **3b-6a -- the `d`-prefixed uniform `WKC` contractions** (`contractions.py`). Built + tested in ISOLATION
+  (no `probing.py` changes). Each = the ragged `WKC` einsum with `d` prepended to every operand + output,
+  routed through `_grouped_einsum` (capital blocks flatten; `d` rides as a leading batch). Inventory
+  (ragged twin -> consumer):
+  - `dWKCa_dCaib_dWCb_to_dWKCi` (`WKCa_Caib_WCb_to_WKCi`) -- compute_detas, compute_dxi_tildes
+  - `dWCa_dKCaib_dWCb_to_dWKCi` (`WCa_KCaib_WCb_to_WKCi`) -- compute_detas
+  - `dWCa_dCaib_dWKCb_to_dWKCi` (`WCa_Caib_WKCb_to_WKCi`) -- compute_detas, compute_dxi_tildes
+  - `dWKCi_dCio_to_dWKCo`, `dWCi_dKCio_to_dWKCo` (`WKCi_Cio_to_WKCo`, `WCi_KCio_to_WKCo`) -- assemble_tangent_zs
+  - `dWCo_dCio_to_dWCi` shared-C (`WCo_Cio_to_WCi`) -- compute_deta_tildes
+  - `dWKCo_dWCa_to_{dWKCao,dKCao}`, `dWo_dWKCa_to_{dWKCao,dKCao}` (the `WKCo_WCa_*`/`Wo_WKCa_*` quartet) -- assemble_tucker_variations
+  - the three `d·WKCiaj`/`d·KCiaj` builders (`WCi_WCa_WKCj_to_*` family) -- assemble_tt_variations
+  ~16 contractions (some shared). **Test (the strict part):** per leading-`d` index the result equals the
+  ragged `WKC` contraction applied to `operand[i]`, over EVERY `W`/`K`/`W+K`/`+C` combo (the multi-block
+  stacking is the historically-untrusted part).
+- **3b-6b -- forward `𝒥`.** Rewrite `compute_detas`/`assemble_tangent_zs` uniform branches to the new
+  contractions -> `probe_tangent`/`apply_tangent`/`entries_tangent` dispatch for uniform. Wire
+  `UT3Tangent.probe`/`apply`/`entries` via a `ut3_sampling`-style tangent helper (mask-once basis+variations
+  -> `pack_vectors` -> `probing.probe_tangent` -> `unpack_vectors`). Test forward equivalence per element.
+- **3b-6c -- transpose `𝒥ᵀ` + corewise.** Rewrite the four broken transpose branches (incl.
+  `dWCo_dCio_to_dWCi` for `compute_deta_tildes`); make `_apply_transpose_adjoint` polymorphic + relax the
+  `Sequence` signatures (old Slice-4 gaps). Wire `UT3Tangent.{probe,apply,entries}_transpose` (tangent) +
+  the corewise transposes. Test `⟨r,𝒥V⟩ = ⟨𝒥ᵀr,V⟩` per element + dense, both `sum_over_probes` modes.
+- **3b-6d -- harden + dispatch.** Mask-strict (exact output masks where a tangent is returned) +
+  garbage-padded-input robustness + varying-`C` + jit dispatch, per `docs/testing_strategy.md`.
+
+## Follow-on (separate slice, not 3b-6)
+- **3b-6′ -- uniform tangent `probe_derivatives.py`.** The jet family: `d`-prefixed `trs_*` contractions
+  (order axis `t` + binomial combine), fix the `_jets` map-style fns (currently hardcode
+  `get_backend(False)` -- further from uniform-ready than probing) + add the missing `is_ndarray` dispatch,
+  wire the `*_derivatives` methods (ambient derivative transpose stays deferred). Built by mirroring 3b-6;
+  order-0 cross-checks against the verified plain contractions.
