@@ -6,9 +6,11 @@
 The UT3Tangent skeleton: structural bundle + K/C inference, vector-space ops, raw coordinate
 inner/norm/allclose/normalized, the delegating validity checkers, per-element tangent_space_dimension,
 constructors, and reverse. Verified against the ragged manifold.T3Tangent (the equivalence contract:
-uniform is a faster ragged, so the real/masked content matches per stack element) and structurally for
-the K (tangent) stack the ragged layer cannot carry on a single object. No backend math yet (stack/
-unstack tangent reshuffles + to_dense/to_ut3 land in later slices)."""
+for tangents the uniform layer is a *faster* ragged -- same representational power, so the real/masked
+content matches per stack element; the K and C stacks are both carried by ragged too). The K (tangent)
+stack here is exercised on the uniform side; an explicit K-stack-vs-ragged equivalence check lands in
+3b-1b alongside the tangent stack/unstack conversions. No backend math yet (the stack/unstack tangent
+conversions + to_dense/to_ut3 land in later slices)."""
 import unittest
 import numpy as np
 

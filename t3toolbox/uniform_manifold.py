@@ -11,8 +11,9 @@ validity checkers, the constructors, and ``reverse``. Everything here delegates 
 :py:class:`~t3toolbox.uniform_basis_variations_format.UT3Basis` /
 :py:class:`~t3toolbox.uniform_basis_variations_format.UT3Variations` -- there is **no new backend math**.
 
-Deferred to later 3b slices: the tangent-stack reshuffles (``stack_tangents`` / ``unstack_*`` /
-``stack_basis`` / ``sum_tangents``, which need a new ``backend/ubv_tangent_operations`` module -- 3b-1b);
+Deferred to later 3b slices: the tangent stack/unstack conversions (``stack_tangents`` / ``unstack_*`` /
+``stack_basis`` / ``sum_tangents`` -- splitting a stacked tangent into a tree of per-element tangents and
+recombining, not an axis permutation; they need a new ``backend/ubv_tangent_operations`` module -- 3b-1b);
 ``to_dense`` / ``to_ut3`` / ``retract`` (the doubled-rank keystone -- 3b-2); ``gauge_residual`` /
 ``is_gauged`` (3b-3); ``probe`` / ``apply`` / ``entries`` (3b-6); the two geometries (3b-5).
 """
@@ -324,7 +325,7 @@ class UT3Tangent:
         :py:meth:`UT3Basis.is_orthogonal`. Reduce with ``.all()`` for a single verdict."""
         return self.basis.is_orthogonal(atol=atol)
 
-    # ------------------------------------------------------------- conversions / reshuffles
+    # ------------------------------------------------------------- conversions
     def reverse(self) -> 'UT3Tangent':
         """Reverse the mode order of this tangent (reverses both the basis and the variations).
 
