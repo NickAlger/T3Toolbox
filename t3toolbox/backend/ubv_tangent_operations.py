@@ -23,12 +23,16 @@ import typing as typ
 
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.ubv_operations as ubv_operations
+import t3toolbox.backend.ubv_masking as ubv_masking
 import t3toolbox.backend.ut3_svd as ut3_svd
 from t3toolbox.backend.common import *
 
 __all__ = [
     'tangent_to_ut3',
     'retract',
+    'orthogonal_gauge_projection',
+    'oblique_gauge_projection',
+    'gauge_residual',
     'unstack_tangent_stack',
     'stack_tangent_stack',
     'unstack_base_stack',
@@ -291,3 +295,93 @@ def retract(
     new_data, _ss_tucker, _ss_tt = ut3_svd.ut3svd(
         doubled, max_tucker_ranks=bcast_over_K(up_ranks), max_tt_ranks=bcast_over_K(left_ranks))
     return new_data
+
+
+def orthogonal_gauge_projection(
+        basis_data,       # UT3Basis .data
+        variations_data,  # UT3Variations .data
+):  # -> gauged variations .data (same masks; the tangent VECTOR changes)
+    """Orthogonally project the variations onto the gauge-satisfying subspace (the uniform mirror of
+    :py:func:`tangent_operations.orthogonal_gauge_projection`). Removes the component of each Tucker
+    variation parallel to its up-core ``U`` and of each left-interior TT variation parallel to its
+    left-core ``P`` -- the gauge conditions (48)-(49), Appendix A.3 of Alger et al. (2026). The
+    represented tangent vector CHANGES (orthogonal, not oblique).
+
+    Mask-once up front (the frame and variation padding zeroed), then mask-agnostic einsums vectorized over
+    the leading mode axis ``d`` (a per-core *map*); the last TT variation is left unchanged (the ``[:-1]``
+    boundary). The output carries the variation's masks unchanged (gauge preserves the rank structure)."""
+    up_sc, _down, left_sc, _right = ubv_masking.apply_basis_masks(basis_data)
+    tkv, ttv = ubv_masking.apply_variations_masks(variations_data)
+    _tkv0, _ttv0, shape, masks = variations_data
+    xnp, _, _ = get_backend(True, tree_contains_jax((up_sc, left_sc, tkv, ttv)))
+
+    # TT variations: remove the P-parallel component (vectorized over d); keep the last core unchanged.
+    gram = xnp.einsum('d...iaj,d...iak->d...jk', left_sc, ttv)                 # (P^L)^T dG^L, (d,)+stack+(rL, rR)
+    parallel = xnp.einsum('d...iaj,d...jk->d...iak', left_sc, gram)
+    new_ttv = xnp.concatenate([(ttv - parallel)[:-1], ttv[-1:]], axis=0)       # last TT variation untouched
+
+    # Tucker variations: remove the U-parallel component (all d cores).
+    gram_tk = xnp.einsum('d...jo,d...ko->d...jk', tkv, up_sc)                  # dB U^T, (d,)+stack+(nD, nU)
+    new_tkv = tkv - xnp.einsum('d...jk,d...ko->d...jo', gram_tk, up_sc)
+
+    return new_tkv, new_ttv, shape, masks
+
+
+def oblique_gauge_projection(
+        basis_data,       # UT3Basis .data
+        variations_data,  # UT3Variations .data
+):  # -> gauged variations .data (same masks; the tangent VECTOR is PRESERVED)
+    """Project the variations onto the gauge-satisfying subspace while PRESERVING the tangent vector (the
+    uniform mirror of :py:func:`tangent_operations.oblique_gauge_projection`). The Tucker perturbation is
+    made perpendicular to ``U`` (compensating through the down core ``O``), then the TT variations are made
+    left-perpendicular (compensating through the right core ``Q``).
+
+    The Tucker step is independent per core -> vectorized over ``d``. The TT step carries a correction
+    forward to the next core, so it is a left-to-right sequential sweep -- a Python loop over the (static)
+    ``d`` core slices (which unrolls under jit). Mask-once up front. Enforces the gauge conditions
+    (48)-(49), Appendix A.3 of Alger et al. (2026)."""
+    up_sc, down_sc, left_sc, right_sc = ubv_masking.apply_basis_masks(basis_data)
+    tkv, ttv = ubv_masking.apply_variations_masks(variations_data)
+    _tkv0, _ttv0, shape, masks = variations_data
+    xnp, _, _ = get_backend(True, tree_contains_jax((up_sc, down_sc, left_sc, right_sc, tkv, ttv)))
+    d = up_sc.shape[0]
+
+    # Make Tucker variations perpendicular to U; compensate through the down core O (vectorized over d).
+    X = xnp.einsum('d...jo,d...io->d...ji', tkv, up_sc)                        # dB U^T, (d,)+stack+(nD, nU)
+    new_tkv = tkv - xnp.einsum('d...ji,d...io->d...jo', X, up_sc)
+    ttv = ttv + xnp.einsum('d...aib,d...ij->d...ajb', down_sc, X)              # O-compensation into the TT vars
+
+    # Make TT variations left-perpendicular; compensate through the right core Q (sequential left-to-right).
+    tt_list = [ttv[ii] for ii in range(d)]                                     # d slices of (stack, rL, nU, rR)
+    for ii in range(d - 1):
+        L, R, dG = left_sc[ii], right_sc[ii + 1], tt_list[ii]
+        Xi = xnp.einsum('...iaj,...iak->...jk', L, dG)                         # (P^L)^T dG^L, stack+(rL, rR)
+        tt_list[ii] = dG - xnp.einsum('...iaj,...jk->...iak', L, Xi)
+        tt_list[ii + 1] = tt_list[ii + 1] + xnp.einsum('...jk,...kbl->...jbl', Xi, R)
+    new_ttv = xnp.stack(tt_list, axis=0)
+
+    return new_tkv, new_ttv, shape, masks
+
+
+def gauge_residual(
+        basis_data,       # UT3Basis .data
+        variations_data,  # UT3Variations .data
+) -> NDArray:  # shape = variation stack (K+C); per stack element (scalar/0-d when unstacked)
+    """Max violation of the gauge conditions for a uniform tangent vector, **per stack element** (the
+    uniform mirror of :py:func:`tangent_operations.gauge_residual`).
+
+    Each Tucker variation must be orthogonal to its up-core (``U^T dU = 0``) and each left-interior TT
+    variation orthogonal to its left-core (``(P^L)^T dG^L = 0``). Mask-once, then the gauge grams vectorized
+    over ``d``, max-abs reduced over the gram axes (keeping the stack), then the max over all checks (the
+    last TT core is excluded -- the ``[:-1]`` boundary). A caller thresholds it (``<= atol``)."""
+    up_sc, _down, left_sc, _right = ubv_masking.apply_basis_masks(basis_data)
+    tkv, ttv = ubv_masking.apply_variations_masks(variations_data)
+    xnp, _, _ = get_backend(True, tree_contains_jax((up_sc, left_sc, tkv, ttv)))
+
+    g_tk = xnp.einsum('d...ia,d...ja->d...ij', up_sc, tkv)                     # U^T dU,        (d,)+stack+(nU, nD)
+    dev_tk = xnp.max(xnp.abs(g_tk), axis=(-2, -1))                             # (d,)+stack
+    g_tt = xnp.einsum('d...abi,d...abj->d...ij', left_sc, ttv)                 # (P^L)^T dG^L,  (d,)+stack+(rL, rR)
+    dev_tt = xnp.max(xnp.abs(g_tt), axis=(-2, -1))                             # (d,)+stack
+
+    devs = xnp.concatenate([dev_tk, dev_tt[:-1]], axis=0)                      # d Tucker + (d-1) interior TT
+    return xnp.max(devs, axis=0)                                              # max over checks, keep the stack

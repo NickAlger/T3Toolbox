@@ -347,6 +347,23 @@ class UT3Tangent:
         :py:meth:`UT3Basis.is_orthogonal`. Reduce with ``.all()`` for a single verdict."""
         return self.basis.is_orthogonal(atol=atol)
 
+    @ft.cached_property
+    def gauge_residual(self) -> NDArray:  # shape = variation stack K+C (scalar/0-d when unstacked); cached
+        """Max absolute gauge-condition violation, **per stack element** (shape = variation stack ``K+C``;
+        atol-independent; **cached**). The expensive part of :py:meth:`is_gauged` -- a fixed tangent reused
+        across an inner loop (e.g. the safe-mode GAUGE precondition of the manifold inner product) is
+        contracted once. See :py:func:`~t3toolbox.backend.ubv_tangent_operations.gauge_residual`."""
+        return ubv_tangent_operations.gauge_residual(self.basis.data, self.variations.data)
+
+    def is_gauged(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = variation stack K+C (scalar unstacked)
+        """True (per stack element) if the variations are gauged w.r.t. the basis.
+
+        Gauge conditions (needed for the manifold Hilbert-Schmidt inner product / norm to equal the
+        coordinate ones; not enforced at construction): ``U_i^T dU_i = 0`` (all i) and
+        ``(P_i^L)^T dG_i^L = 0`` (i = 0..d-2) -- conditions (48)-(49), Appendix A.3 of Alger et al. (2026).
+        **Per-stack-element bool array** (reduce with ``.all()`` for a single verdict)."""
+        return self.gauge_residual <= atol
+
     # ------------------------------------------------------------- conversions
     def to_ut3(
             self,

@@ -604,5 +604,87 @@ class TestRetract(unittest.TestCase):
         self.assertTrue(np.allclose(dense, ref, rtol=1e-3, atol=1e-3))              # jit is float32
 
 
+def _wrap_var(vd):
+    return ubv.UT3Variations(vd[0], vd[1], vd[2], ubv.UT3VariationsMasks(*vd[3]))
+
+
+class TestGauge(unittest.TestCase):
+    """3b-3: the gauge layer -- orthogonal / oblique gauge projection + gauge_residual / is_gauged,
+    verified against the ragged tangent_operations (conditions (48)-(49), Appendix A.3)."""
+    def setUp(self):
+        np.random.seed(0)
+        import t3toolbox.backend.ubv_tangent_operations as ubvt
+        import t3toolbox.backend.tangent_operations as tops
+        self.ubvt, self.tops = ubvt, tops
+
+    def _gauged_tangent(self, v, which):  # apply a backend gauge projection -> a new UT3Tangent
+        proj = getattr(self.ubvt, which)
+        return ut3m.UT3Tangent(v.basis, _wrap_var(proj(v.basis.data, v.variations.data)))
+
+    def _ragged(self, leaf):
+        return t3m.T3Tangent(leaf.basis.to_t3basis(), leaf.variations.to_t3variations())
+
+    def test_gauge_residual_matches_ragged(self):
+        for ss in [(), (2,)]:
+            B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss))
+            v = ut3m.UT3Tangent(B, V)
+            ures = np.asarray(v.gauge_residual).reshape(-1)
+            for i, leaf in enumerate(_full_unstack(v)):
+                with self.subTest(ss=ss, i=i):
+                    self.assertAlmostEqual(float(ures[i]), float(np.asarray(self._ragged(leaf).gauge_residual)), places=10)
+
+    def test_is_gauged_false_then_true(self):
+        B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT))
+        v = ut3m.UT3Tangent(B, V)
+        self.assertFalse(bool(v.is_gauged().all()))                         # random variations: ungauged
+        for which in ('orthogonal_gauge_projection', 'oblique_gauge_projection'):
+            with self.subTest(which=which):
+                self.assertTrue(bool(self._gauged_tangent(v, which).is_gauged(atol=1e-9).all()))
+
+    def test_orthogonal_gauge_matches_ragged_dense(self):
+        # orthogonal projection CHANGES the tangent vector -- compare the changed dense vs ragged per element
+        for ss in [(), (2,)]:
+            B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss))
+            v = ut3m.UT3Tangent(B, V)
+            ug = self._gauged_tangent(v, 'orthogonal_gauge_projection')
+            dense = np.asarray(ug.to_dense()); dflat = dense.reshape((-1,) + dense.shape[len(v.stack_shape):])
+            for i, leaf in enumerate(_full_unstack(v)):
+                rt = self._ragged(leaf)
+                rg = t3m.T3Tangent(rt.basis, bvf.T3Variations(*self.tops.orthogonal_gauge_projection(rt.basis.data, rt.variations.data)))
+                with self.subTest(ss=ss, i=i):
+                    self.assertLess(float(np.linalg.norm(dflat[i] - rg.to_dense())) / (float(np.linalg.norm(rg.to_dense())) + 1e-30), 1e-10)
+
+    def test_oblique_gauge_preserves_tangent(self):
+        # oblique projection PRESERVES the tangent vector (only the representation changes)
+        for ss, K in [((), ()), ((2,), ()), ((), (3,))]:
+            B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss))
+            v = ut3m.UT3Tangent(B, _K_variations(B, K) if K else V)
+            ob = self._gauged_tangent(v, 'oblique_gauge_projection')
+            with self.subTest(ss=ss, K=K):
+                self.assertLess(float(np.linalg.norm(np.asarray(ob.to_dense()) - np.asarray(v.to_dense())))
+                                / (float(np.linalg.norm(np.asarray(v.to_dense()))) + 1e-30), 1e-10)
+                self.assertTrue(bool(ob.is_gauged().all()))
+
+    def test_varying_C(self):
+        us, rs = _hetero_tangents()
+        v = ut3m.UT3Tangent.stack_basis(us)
+        # per-element residual matches each ragged model
+        ures = np.asarray(v.gauge_residual)
+        self.assertTrue(np.allclose(ures, [float(np.asarray(r.gauge_residual)) for r in rs]))
+        # both projections gauge a varying-C stack; oblique preserves it
+        self.assertTrue(bool(self._gauged_tangent(v, 'orthogonal_gauge_projection').is_gauged().all()))
+        ob = self._gauged_tangent(v, 'oblique_gauge_projection')
+        self.assertTrue(bool(ob.is_gauged().all()))
+        self.assertLess(float(np.linalg.norm(np.asarray(ob.to_dense()) - np.asarray(v.to_dense())))
+                        / (float(np.linalg.norm(np.asarray(v.to_dense()))) + 1e-30), 1e-10)
+
+    @unittest.skipUnless(HAS_JAX, "jax not installed")
+    def test_jit_gauge(self):
+        B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT))
+        v = ut3m.UT3Tangent(B, V).to_jax()
+        res = jax.jit(lambda t: t.gauge_residual)(v)                        # gauge_residual under a trace
+        self.assertTrue(np.allclose(float(res), float(ut3m.UT3Tangent(B, V).gauge_residual), atol=1e-4))
+
+
 if __name__ == '__main__':
     unittest.main()
