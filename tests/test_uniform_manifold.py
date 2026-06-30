@@ -456,5 +456,88 @@ class TestStackUnstack(unittest.TestCase):
         self.assertTrue(all(common.is_numpy_ndarray(m) for m in stacked.variations.masks.data))
 
 
+def _full_unstack(v):
+    """Fully unstack a UT3Tangent into a flat list of single-element (unstacked) tangents, K-major."""
+    if v.tangent_stack_shape:
+        out = []
+        for kt in v.unstack_tangents():
+            out += list(kt.unstack_basis()) if kt.base_stack_shape else [kt]
+        return out
+    return list(v.unstack_basis()) if v.base_stack_shape else [v]
+
+
+def _ragged_dense(leaf, shift):  # leaf: an unstacked UT3Tangent -> ragged dense ground truth
+    return t3m.T3Tangent(leaf.basis.to_t3basis(), leaf.variations.to_t3variations()).to_dense(include_shift=shift)
+
+
+class TestDoubledRankToDense(unittest.TestCase):
+    """3b-2: the doubled-rank keystone -- UT3Tangent.to_ut3 / to_dense verified per stack element against
+    the ragged T3Tangent.to_dense (the equivalence contract), across structures / stacks / shift modes."""
+    def setUp(self):
+        np.random.seed(0)
+
+    def _check(self, v, shift):
+        dense = np.asarray(v.to_dense(include_shift=shift))                 # stack (K+C) + (N..)
+        flat = _full_unstack(v)
+        dflat = dense.reshape((-1,) + dense.shape[len(v.stack_shape):])
+        for i, leaf in enumerate(flat):
+            o = _ragged_dense(leaf, shift)
+            self.assertLess(float(np.linalg.norm(dflat[i] - o)) / (float(np.linalg.norm(o)) + 1e-30), 1e-10)
+
+    def test_structures_and_stacks(self):
+        structs = [((4, 5, 6), (2, 3, 2), (1, 2, 2, 1)),                    # d=3
+                   ((4, 5), (2, 3), (1, 2, 1)),                             # d=2
+                   ((4, 5, 6, 7), (2, 3, 2, 3), (1, 2, 3, 2, 1))]          # d=4, rL != rR per bond
+        for s in structs:
+            B, V = _uniform_base(t3.TuckerTensorTrain.randn(*s))
+            for shift in (False, True):
+                with self.subTest(s=s, shift=shift):
+                    self._check(ut3m.UT3Tangent(B, V), shift)
+
+    def test_base_and_tangent_stacks(self):
+        for stack_shape, K in [((2,), ()), ((), (3,)), ((2,), (3,))]:
+            B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=stack_shape))
+            v = ut3m.UT3Tangent(B, _K_variations(B, K) if K else V)
+            for shift in (False, True):
+                with self.subTest(stack_shape=stack_shape, K=K, shift=shift):
+                    self._check(v, shift)
+
+    def test_varying_C_ranks(self):
+        us, _ = _hetero_tangents()
+        v = ut3m.UT3Tangent.stack_basis(us)                                # different ranks across C
+        for shift in (False, True):
+            with self.subTest(shift=shift):
+                self._check(v, shift)
+
+    def test_to_ut3_is_doubled_uniform_t3(self):
+        B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT))
+        du = ut3m.UT3Tangent(B, V).to_ut3()
+        self.assertIsInstance(du, ut3.UniformTuckerTensorTrain)
+        self.assertEqual(du.n, B.nU + B.nD)                                # doubled Tucker rank
+        self.assertEqual(du.r, B.rL + B.rR)                                # doubled TT bond
+
+    def test_d1_not_implemented(self):
+        import t3toolbox.backend.ubv_tangent_operations as ubvt
+        B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT))
+        # call the backend with a faked d=1 by slicing to one core is fragile; instead assert the guard
+        # message is reachable through a genuine d=1 build path is out of scope -- check the guard directly.
+        with self.assertRaises(NotImplementedError):
+            # craft a minimal d=1 .data pair (square bonds so shapes are valid) to hit the guard
+            d1_basis = (np.random.randn(1, 2, 5), np.random.randn(1, 1, 2, 1), np.random.randn(1, 1, 2, 1),
+                        np.random.randn(1, 1, 2, 1), (5,),
+                        (np.ones((1, 2), bool), np.ones((1, 1), bool), np.ones((2, 1), bool), np.ones((2, 1), bool)))
+            d1_var = (np.random.randn(1, 1, 5), np.random.randn(1, 1, 2, 1), (5,),
+                      (np.ones((1, 2), bool), np.ones((1, 1), bool), np.ones((1, 1), bool), np.ones((1, 1), bool)))
+            ubvt.tangent_to_ut3(d1_basis, d1_var)
+
+    @unittest.skipUnless(HAS_JAX, "jax not installed")
+    def test_jit_to_dense(self):
+        # the doubled build + dense under a trace: supercores flow through xnp, masks stay host constants.
+        B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT))
+        v = ut3m.UT3Tangent(B, V).to_jax()
+        dense = jax.jit(lambda t: t.to_dense())(v)
+        self.assertTrue(np.allclose(np.asarray(dense), np.asarray(v.to_numpy().to_dense()), atol=1e-5))
+
+
 if __name__ == '__main__':
     unittest.main()

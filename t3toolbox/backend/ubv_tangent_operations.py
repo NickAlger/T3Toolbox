@@ -26,6 +26,7 @@ import t3toolbox.backend.ubv_operations as ubv_operations
 from t3toolbox.backend.common import *
 
 __all__ = [
+    'tangent_to_ut3',
     'unstack_tangent_stack',
     'stack_tangent_stack',
     'unstack_base_stack',
@@ -155,3 +156,97 @@ def sum_tangent_stack(
     new_ttv = xnp.sum(ttv, axis=k_axes)
     new_masks = tuple(np.any(m, axis=k_axes) for m in masks)   # host np: OR the real slots over K
     return new_tkv, new_ttv, shape, new_masks
+
+
+def tangent_to_ut3(
+        basis_data,       # UT3Basis .data:      (up, down, left, right, shape, (4 masks)),  supercore stack = C
+        variations_data,  # UT3Variations .data: (tkv, ttv, shape, (4 masks)),               supercore stack = K + C
+        include_shift: bool = False,  # False: tangent vector v. True: base point + v.
+):  # -> doubled-rank UniformTuckerTensorTrain .data: (tucker_supercore, tt_supercore, shape, (tucker_mask, tt_mask))
+    """Doubled-rank uniform Tucker tensor train representing a uniform basis-variations tangent vector.
+
+    The uniform mirror of :py:func:`tangent_operations.tangent_to_t3` (equations (50)-(53) / Figure 20,
+    Appendix A.3.1 of Alger et al. 2026). The Tucker supercore becomes ``[U ; V]`` (concat along the
+    Tucker-rank axis); the TT supercore is the block-bidiagonal embedding, uniform-padded to bonds
+    ``rL+rR`` for every core with the **base-inner ``[R, L]`` bond order** (mirroring the ragged build).
+    The doubled rank masks are concatenations of the existing masks (the **#1 trap**: the appended boundary
+    slots are FULL ``ones`` -- the supercore is zero there, so to_dense's mask-then-contract is unaffected):
+    ``tucker_mask = concat([up, down])``; ``tt_mask = concat([right_ext, left_ext])`` with
+    ``left_ext = [var_left, ones]`` and ``right_ext = [ones, var_right]``.
+
+    Stack-aware: the variation supercores carry ``K + C``; the base supercores (stack ``C``) are broadcast
+    up to ``K + C`` (mirror ragged ``bcast``), and the masks (host numpy, carrying ``K + C`` already from
+    the variations) are concatenated on the host. With ``include_shift=True`` the base point is folded into
+    the last core (``base point + v``)."""
+    up_sc, down_sc, left_sc, right_sc, shape, _base_masks = basis_data
+    tkv, ttv, _shape_v, var_masks = variations_data
+    var_up_mask, var_down_mask, var_left_mask, var_right_mask = var_masks
+
+    use_jax = tree_contains_jax((up_sc, down_sc, left_sc, right_sc, tkv, ttv))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d  = up_sc.shape[0]
+    nU = up_sc.shape[-2]; N = up_sc.shape[-1]; nD = down_sc.shape[-2]
+    rL = left_sc.shape[-1]; rR = right_sc.shape[-1]
+    base_stack = up_sc.shape[1:-2]                 # C
+    ss = tkv.shape[1:-2]                           # K + C (the variation/output stack)
+    n_K = len(ss) - len(base_stack)
+
+    def bcast(sc):  # base supercore (d,)+C+(core) -> (d,)+K+C+(core): insert |K| size-1 axes after d
+        return xnp.broadcast_to(sc.reshape(sc.shape[:1] + (1,) * n_K + sc.shape[1:]),
+                                sc.shape[:1] + tuple(ss[:n_K]) + sc.shape[1:])
+
+    U = bcast(up_sc); O = bcast(down_sc); L = bcast(left_sc); R = bcast(right_sc)
+    Z = lambda nd, a, b, c: xnp.zeros((nd,) + ss + (a, b, c))   # nd cores of a (a, b, c) zero block
+
+    # ---- Tucker supercore: [U ; V] along the Tucker-rank axis (-2). Fully vectorized over d. ----
+    tucker_supercore = xnp.concatenate([U, tkv], axis=-2)       # (d,)+ss+(nU+nD, N)
+
+    # ---- TT supercore: first / mid / last cores, [R, L] bond order, padded to (rR+rL, nU+nD, rR+rL). ----
+    def first_core():     # left bond is the boundary (the L-block); pad the R-block (rR rows) with zeros
+        Gtop = xnp.concatenate([ttv[:1], L[:1]], axis=-1)                       # (rL, nU, rR+rL)
+        Gbot = xnp.concatenate([O[:1], Z(1, rL, nD, rL)], axis=-1)             # (rL, nD, rR+rL)
+        G = xnp.concatenate([Gtop, Gbot], axis=-2)                            # (rL, nU+nD, rR+rL)
+        return xnp.concatenate([Z(1, rR, nU + nD, rR + rL), G], axis=-3)       # (rR+rL, nU+nD, rR+rL)
+
+    def mid_cores():      # the full block-bidiagonal core (ragged-middle), vectorized over [1:-1]
+        nd = d - 2
+        Gtop = xnp.concatenate([
+            xnp.concatenate([R[1:-1], Z(nd, rR, nU, rL)], axis=-1),            # [R, Z001] -> (rR, nU, rR+rL)
+            xnp.concatenate([ttv[1:-1], L[1:-1]], axis=-1),                    # [dU, L]   -> (rL, nU, rR+rL)
+        ], axis=-3)                                                            # (rR+rL, nU, rR+rL)
+        Gbot = xnp.concatenate([
+            xnp.concatenate([Z(nd, rR, nD, rR), Z(nd, rR, nD, rL)], axis=-1),  # (rR, nD, rR+rL)
+            xnp.concatenate([O[1:-1], Z(nd, rL, nD, rL)], axis=-1),            # [O, Z111] -> (rL, nD, rR+rL)
+        ], axis=-3)                                                            # (rR+rL, nD, rR+rL)
+        return xnp.concatenate([Gtop, Gbot], axis=-2)                         # (rR+rL, nU+nD, rR+rL)
+
+    def last_core():      # right bond is the boundary (the R-block); pad the L-block (rL cols) with zeros
+        dG = ttv[-1:]
+        if include_shift:  # fold the base point's last core in: add its rank-1 right boundary (col 0) to dU
+            Lf_boundary = xnp.concatenate(
+                [L[-1:][..., :1], Z(1, rL, nU, rR - 1)], axis=-1)              # (rL, nU, rR), boundary in col 0
+            dG = dG + Lf_boundary
+        Gtop = xnp.concatenate([R[-1:], dG], axis=-3)                          # [R, dU] -> (rR+rL, nU, rR)
+        Gbot = xnp.concatenate([Z(1, rR, nD, rR), O[-1:]], axis=-3)            # (rR+rL, nD, rR)
+        G = xnp.concatenate([Gtop, Gbot], axis=-2)                            # (rR+rL, nU+nD, rR)
+        return xnp.concatenate([G, Z(1, rR + rL, nU + nD, rL)], axis=-1)       # (rR+rL, nU+nD, rR+rL)
+
+    if d < 2:
+        # d==1 is degenerate: the single core's two boundaries don't double into a square (rR+rL) bond,
+        # so it does not fit the square-bond uniform tt_supercore (r, n, r) when rL != rR. A single-mode T3
+        # is a plain Tucker decomposition; support it separately if a real use case appears.
+        raise NotImplementedError(
+            'tangent_to_ut3 requires d >= 2 (the d == 1 single-mode case does not fit the square-bond '
+            'uniform doubled-rank format).')
+    blocks = [first_core()] + ([mid_cores()] if d > 2 else []) + [last_core()]
+    tt_supercore = xnp.concatenate(blocks, axis=0)                             # (d,)+ss+(rR+rL, nU+nD, rR+rL)
+
+    # ---- Doubled rank masks (HOST numpy; carry K+C from the variation masks). The appended boundary slots
+    # are FULL ones -- harmless: the supercore is zero there (to_dense masks-then-contracts). ----
+    tucker_mask = np.concatenate([var_up_mask, var_down_mask], axis=-1)        # (d,)+ss+(nU+nD,)
+    left_ext  = np.concatenate([var_left_mask,  np.ones((1,) + ss + (rL,), bool)], axis=0)   # (d+1,)+ss+(rL,)
+    right_ext = np.concatenate([np.ones((1,) + ss + (rR,), bool), var_right_mask], axis=0)   # (d+1,)+ss+(rR,)
+    tt_mask = np.concatenate([right_ext, left_ext], axis=-1)                   # (d+1,)+ss+(rR+rL,)  [R, L] order
+
+    return tucker_supercore, tt_supercore, shape, (tucker_mask, tt_mask)

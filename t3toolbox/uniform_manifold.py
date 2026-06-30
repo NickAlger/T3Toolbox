@@ -25,6 +25,7 @@ import functools as ft
 from dataclasses import dataclass
 
 import t3toolbox.uniform_basis_variations_format as ubv
+import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.safety as safety
 import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.stacking as stacking
@@ -347,6 +348,30 @@ class UT3Tangent:
         return self.basis.is_orthogonal(atol=atol)
 
     # ------------------------------------------------------------- conversions
+    def to_ut3(
+            self,
+            include_shift:  bool = False,  # False: tangent vector v. True: base point + v.
+    ) -> ut3.UniformTuckerTensorTrain:  # doubled-rank uniform Tucker tensor train
+        """Doubled-rank :py:class:`UniformTuckerTensorTrain` representation of this tangent vector.
+
+        The Tucker and TT ranks are (roughly) doubled (masks double via concatenation). With
+        ``include_shift=True`` the result represents ``base point + v`` (used by retraction). The uniform
+        mirror of :py:meth:`T3Tangent.to_t3`; see
+        :py:func:`~t3toolbox.backend.ubv_tangent_operations.tangent_to_ut3` (Appendix A.3.1)."""
+        tk, tt, shape, (tucker_mask, tt_mask) = ubv_tangent_operations.tangent_to_ut3(
+            self.basis.data, self.variations.data, include_shift=include_shift)
+        return ut3.UniformTuckerTensorTrain(tk, tt, shape, ut3.UT3Masks(tucker_mask, tt_mask))
+
+    def to_dense(
+            self,
+            include_shift:  bool = False,  # False: tangent vector v. True: base point + v.
+    ) -> NDArray:  # dense tangent vector, shape = stack_shape (K+C) + (N0,...,N(d-1))
+        """Form the dense tensor represented by this tangent vector (``= to_ut3(...).to_dense()``).
+
+        The tangent vector is the sum of the 2d single-core-replacement terms; with ``include_shift=True``
+        the base point is added. Stack-aware (the result is stacked ``K + C``). Inspection/tests only."""
+        return self.to_ut3(include_shift).to_dense()
+
     def reverse(self) -> 'UT3Tangent':
         """Reverse the mode order of this tangent (reverses both the basis and the variations).
 
