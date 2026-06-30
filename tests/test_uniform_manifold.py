@@ -685,6 +685,23 @@ class TestGauge(unittest.TestCase):
         res = jax.jit(lambda t: t.gauge_residual)(v)                        # gauge_residual under a trace
         self.assertTrue(np.allclose(float(res), float(ut3m.UT3Tangent(B, V).gauge_residual), atol=1e-4))
 
+    @unittest.skipUnless(HAS_JAX, "jax not installed")
+    def test_jit_oblique_scan(self):
+        # the oblique TT step is an xscan (compile body once, not d unrolled copies); confirm it jits and
+        # still preserves the tangent under a trace. d=4 so the scan iterates a few times.
+        B, V = _uniform_base(t3.TuckerTensorTrain.randn((4, 5, 6, 7), (2, 3, 2, 3), (1, 2, 3, 2, 1)))
+        Bj, Vj = B.to_jax(), V.to_jax()
+        bsh, bmk, vsh, vmk = Bj.data[4], Bj.data[5], Vj.data[2], Vj.data[3]
+
+        def f(u, dn, lt, rt, tk, tt):
+            bd = (u, dn, lt, rt, bsh, bmk)
+            vd = self.ubvt.oblique_gauge_projection(bd, (tk, tt, vsh, vmk))
+            return ut3m.UT3Tangent(ut3m._ut3basis_from_data(bd), _wrap_var(vd)).to_dense()
+
+        dense = np.asarray(jax.jit(f)(Bj.data[0], Bj.data[1], Bj.data[2], Bj.data[3], Vj.data[0], Vj.data[1]))
+        ref = np.asarray(ut3m.UT3Tangent(B, V).to_dense())                  # oblique preserves the tangent
+        self.assertTrue(np.allclose(dense, ref, rtol=1e-3, atol=1e-3))
+
 
 if __name__ == '__main__':
     unittest.main()

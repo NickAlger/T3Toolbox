@@ -337,28 +337,36 @@ def oblique_gauge_projection(
     left-perpendicular (compensating through the right core ``Q``).
 
     The Tucker step is independent per core -> vectorized over ``d``. The TT step carries a correction
-    forward to the next core, so it is a left-to-right sequential sweep -- a Python loop over the (static)
-    ``d`` core slices (which unrolls under jit). Mask-once up front. Enforces the gauge conditions
-    (48)-(49), Appendix A.3 of Alger et al. (2026)."""
+    forward to the next core (a left-to-right sweep), implemented as an ``xscan`` over ``d`` -- NOT a Python
+    loop: an unrolled loop bakes ``d`` copies of the step into the jit graph (compile time superlinear in
+    the tensor order ``d``), while a scan compiles the body once. Mask-once up front. Enforces the gauge
+    conditions (48)-(49), Appendix A.3 of Alger et al. (2026)."""
     up_sc, down_sc, left_sc, right_sc = ubv_masking.apply_basis_masks(basis_data)
     tkv, ttv = ubv_masking.apply_variations_masks(variations_data)
     _tkv0, _ttv0, shape, masks = variations_data
-    xnp, _, _ = get_backend(True, tree_contains_jax((up_sc, down_sc, left_sc, right_sc, tkv, ttv)))
-    d = up_sc.shape[0]
+    xnp, _, xscan = get_backend(True, tree_contains_jax((up_sc, down_sc, left_sc, right_sc, tkv, ttv)))
 
     # Make Tucker variations perpendicular to U; compensate through the down core O (vectorized over d).
     X = xnp.einsum('d...jo,d...io->d...ji', tkv, up_sc)                        # dB U^T, (d,)+stack+(nD, nU)
     new_tkv = tkv - xnp.einsum('d...ji,d...io->d...jo', X, up_sc)
     ttv = ttv + xnp.einsum('d...aib,d...ij->d...ajb', down_sc, X)              # O-compensation into the TT vars
 
-    # Make TT variations left-perpendicular; compensate through the right core Q (sequential left-to-right).
-    tt_list = [ttv[ii] for ii in range(d)]                                     # d slices of (stack, rL, nU, rR)
-    for ii in range(d - 1):
-        L, R, dG = left_sc[ii], right_sc[ii + 1], tt_list[ii]
+    # Make TT variations left-perpendicular; compensate through the right core Q. Left-to-right SCAN: the
+    # carry is the previous core's X = (P^L)^T dG^L (shape stack+(rL, rR)); at core ii it first applies the
+    # incoming correction X_prev @ Q_ii, then projects. The last core is left un-projected (its emitted
+    # dG -- the corrected-but-not-projected core -- is used instead of its projection).
+    ss = tkv.shape[1:-2]                                                       # variation stack K+C
+    rL, rR = left_sc.shape[-1], right_sc.shape[-1]
+
+    def _tt_step(X_prev, core):
+        L, R, dG_in = core                                                    # slices: L,R (stack C), dG (stack K+C)
+        dG = dG_in + xnp.einsum('...jk,...kbl->...jbl', X_prev, R)            # incoming correction X_prev @ Q_ii
         Xi = xnp.einsum('...iaj,...iak->...jk', L, dG)                         # (P^L)^T dG^L, stack+(rL, rR)
-        tt_list[ii] = dG - xnp.einsum('...iaj,...jk->...iak', L, Xi)
-        tt_list[ii + 1] = tt_list[ii + 1] + xnp.einsum('...jk,...kbl->...jbl', Xi, R)
-    new_ttv = xnp.stack(tt_list, axis=0)
+        proj = dG - xnp.einsum('...iaj,...jk->...iak', L, Xi)
+        return Xi, (proj, dG)
+
+    _, (proj_stack, dG_stack) = xscan(_tt_step, xnp.zeros(ss + (rL, rR)), (left_sc, right_sc, ttv))
+    new_ttv = xnp.concatenate([proj_stack[:-1], dG_stack[-1:]], axis=0)        # last core: un-projected
 
     return new_tkv, new_ttv, shape, masks
 
