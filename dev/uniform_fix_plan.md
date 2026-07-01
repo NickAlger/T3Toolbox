@@ -614,11 +614,23 @@ tangent branches to use them; test all stacking combos against the ragged `WKC` 
 
 ## Sub-slices (dependency-ordered)
 
-> **STATUS (2026-06-30, cont.): 3b-0 … 3b-5 + 3b-6 (6a–6d) are DONE** — the uniform tangent *backend*, the
-> *two geometries* (`UNIFORM_MANIFOLD`/`UNIFORM_COREWISE`), and *tangent + corewise probing* (`𝒥`/`𝒥ᵀ`:
-> probe/apply/entries + transposes + the corewise transposes), all per-element verified vs ragged +
-> mask-strict + garbage-robust + jit-clean. **Remaining: 3b-6′ (the jet/derivative `probe_derivatives.py`,
-> mirroring 3b-6) and 3b-7 (cleanup + delete `OLD_uniform*`).** Live status: `dev/HANDOFF.md`.
+> **STATUS (2026-07-01): 3b-0 … 3b-5 + 3b-6 (6a–6d) + 3b-6′ (6′a–6′d) are DONE** — the uniform tangent
+> *backend*, the *two geometries* (`UNIFORM_MANIFOLD`/`UNIFORM_COREWISE`), *tangent + corewise probing*
+> (`𝒥`/`𝒥ᵀ`), AND the *derivative (jet) probing* (`probe_derivatives`: forward + transpose + corewise, both
+> the plain `UniformTuckerTensorTrain` and `UT3Tangent` layers), all per-element verified vs ragged +
+> adjoint-identity + mask-strict + garbage-robust + jit-clean. **Remaining: 3b-7 (cleanup + delete
+> `OLD_uniform*`).** Live status: `dev/HANDOFF.md`.
+>
+> **3b-6′ refinements vs the plan below (recorded for the record):** (1) only the *map-style* jet fns needed
+> `d`-prefixed contractions; the *scan-style* ones (`_apply_derivatives_*_from_*`, `_adj_sweep`,
+> `compute_sigma_hat_jets`) needed only a dispatch-flag flip (the `xscan` strips `d`, the ragged `trs_*` runs
+> per-slice). (2) `_init_jet` needed NO change (the scan carry has no `d` axis). (3) Beyond `build_input_jets`,
+> the **`reverse_tt` in the four reversers** (`compute_nu_jets`/`compute_tau_jets`/`compute_sigma_tilde_jets`/
+> `compute_sigma_hat_jets`) was a second unroll-trap class — the plan mislabeled these as "already
+> uniform-aware"; fixed via `uniform_ops.reverse_utt`. (4) Chose **Approach B** (d-prefixed vectorized einsums,
+> matching the plain-probing reference module) over xmap-over-`d`, so the whole probing/derivatives surface is
+> consistent + fully vectorized over `d`; the forward-jet map fns (`compute_eta_jets`/`assemble_z_jets`/
+> `compute_deta_jets`/`assemble_tangent_z_jets`) were converted to `d`-prefixed too.
 
 - **3b-0** — `check_ubv_pair` `K`-fix (prerequisite; small): suffix check on `C` + mask broadcast-over-`K`.
 - **3b-1** — `UT3Tangent` skeleton: bundle + `K`/`C` inference, vector-space ops, `stack`/`unstack`,
