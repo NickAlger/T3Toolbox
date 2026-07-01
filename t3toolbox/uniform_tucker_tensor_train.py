@@ -28,6 +28,7 @@ import t3toolbox.backend.ut3_operations as ut3_operations
 import t3toolbox.backend.ut3_orthogonalization as ut3_orthogonalization
 import t3toolbox.backend.ut3_linalg as ut3_linalg
 import t3toolbox.backend.ut3_sampling as ut3_sampling
+import t3toolbox.backend.probe_derivatives as probe_derivatives
 import t3toolbox.backend.ut3_svd as ut3_svd
 import t3toolbox.backend.ut3_constructors as ut3_constructors
 import t3toolbox.backend.stacking as stacking
@@ -298,6 +299,29 @@ class UniformTuckerTensorTrain:
     def probe(self, ww):
         """Probe: contract all-but-one mode, for each mode. ``ww``: len-d, ith ``elm_shape=W+(Ni,)``."""
         return ut3_sampling.ut3_probe(ww, self.data)
+
+    # --------------------------------------------------------------- derivative sampling (jets; 3b-6'b)
+    def probe_derivatives(self, ww, pp, order):
+        """Symmetric directional derivatives of :py:meth:`probe`, in one repeated direction ``P`` (``pp``):
+        ``y_i^(t) = d^t/ds^t [probe(X + s P)]_i|_0`` for ``t=0..order`` (order 0 is :py:meth:`probe`).
+        ``ww``/``pp``: len-d, ith ``elm_shape=W+(Ni,)`` (shared sample stack ``W``); returns len-d, ith
+        ``elm_shape=(order+1,)+W+stack_shape+(Ni,)``. Uniform mirror of
+        :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe_derivatives`."""
+        probe_derivatives.check_perturbation_vectors(ww, pp)
+        return ut3_sampling.ut3_probe_derivatives(ww, pp, self.data, order)
+
+    def apply_derivatives(self, ww, pp, order):
+        """Symmetric all-modes apply derivatives (derivative twin of :py:meth:`apply`), one direction ``P``:
+        ``y^(t) = d^t/ds^t apply(X + s P)|_0`` for ``t=0..order`` (a scalar jet per stack element)."""
+        probe_derivatives.check_perturbation_vectors(ww, pp)
+        return ut3_sampling.ut3_apply_derivatives(ww, pp, self.data, order)
+
+    def entries_derivatives(self, index, pp, order):
+        """Symmetric entry derivatives at ``index`` in direction ``P`` (derivative twin of :py:meth:`entries`):
+        the Taylor data of the multilinear extension at grid corner ``index`` (order 0 is :py:meth:`entries`).
+        ``index``: int, ``shape=(d,)+W``; ``pp`` shares ``W``."""
+        probe_derivatives.check_perturbation_index(index, pp, self.shape)
+        return ut3_sampling.ut3_entries_derivatives(index, pp, self.data, order)
 
     # --------------------------------------------------------- corewise (non-manifold) sampling transposes (3b-6c)
     def apply_corewise_transpose(self, c, ww, sum_over_probes=False):

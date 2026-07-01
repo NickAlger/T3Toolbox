@@ -9,6 +9,7 @@ import typing as typ
 
 import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.t3_operations as ragged_ops
+import t3toolbox.backend.ut3_operations as uniform_ops
 from t3toolbox.backend.probing import compute_xis, _entry_xis, _onehot_vectors
 from t3toolbox.backend.common import *
 
@@ -240,7 +241,14 @@ def build_input_jets(
     the binomial tensor to ``s in {0,1}`` accordingly.
     '''
     use_jax = tree_contains_jax((xis, dxis))
-    xnp, _, _ = get_backend(False, use_jax)
+    is_uniform = is_ndarray(xis)
+    xnp, _, _ = get_backend(is_uniform, use_jax)
+    if is_uniform:
+        # Supercore (d,)+W+C+(nU,): stack (value, direction) at axis 1, AFTER the leading core axis d ->
+        # (d,)+(2,)+W+C+(nU,), the uniform jet layout (d leads, then the order axis). NOT a per-core Python
+        # loop over d (the unroll trap: it "works" by ragged-emulation but unrolls under jit + returns ragged
+        # tuples that break the d-prefixed contractions downstream -- the same class as the _entry_xis bug).
+        return xnp.stack([xis, dxis], axis=1)
     return tuple(xnp.stack([xi, dxi], axis=0) for xi, dxi in zip(xis, dxis))
 
 
@@ -298,7 +306,10 @@ def compute_nu_jets(
     bonds and core order), run the left sweep, reverse the result. ``nu_jets[i]`` is the right edge
     variable entering core ``i`` (``nu_i``), stacked over derivative orders.
     '''
-    rev_nu_jets = compute_mu_jets(ragged_ops.reverse_tt(tt_cores), xi_jets[::-1], trs)
+    # Polymorphic reverse: the uniform reverse_utt keeps the supercore (ragged_ops.reverse_tt would iterate
+    # the supercore's d axis -- the unroll trap). The jet slices [::-1] just reverse the leading d axis.
+    reverse = uniform_ops.reverse_utt if is_ndarray(tt_cores) else ragged_ops.reverse_tt
+    rev_nu_jets = compute_mu_jets(reverse(tt_cores), xi_jets[::-1], trs)
     return rev_nu_jets[::-1]
 
 
@@ -318,11 +329,16 @@ def compute_eta_jets(
     is_uniform = is_ndarray(tt_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
-    def _func(data):
-        mu_jet, G, nu_jet = data
-        return (contractions.trs_rWCa_Caib_sWCb_to_tWCi(trs, mu_jet, G, nu_jet),)
+    if is_uniform:
+        # d-prefixed jet combine (3b-6'a), vectorized over the core index d; the ragged xmap below is the
+        # oracle. mu/nu jets are (d,)+(order,)+W+C+(r,); the tt supercore is (d,)+C+(rL,nO,rR) (C-only).
+        eta_jets = contractions.trs_drWCa_dCaib_dsWCb_to_dtWCi(trs, mu_jets, tt_cores, nu_jets)
+    else:
+        def _func(data):
+            mu_jet, G, nu_jet = data
+            return (contractions.trs_rWCa_Caib_sWCb_to_tWCi(trs, mu_jet, G, nu_jet),)
 
-    (eta_jets,) = xmap(_func, (mu_jets, tt_cores, nu_jets))
+        (eta_jets,) = xmap(_func, (mu_jets, tt_cores, nu_jets))
     return eta_jets
 
 
@@ -339,11 +355,16 @@ def assemble_z_jets(
     is_uniform = is_ndarray(tucker_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
-    def _func(data):
-        eta_jet, U = data
-        return (contractions.tWCi_Cio_to_tWCo(eta_jet, U),)
+    if is_uniform:
+        # d-prefixed jet lift (3b-6'a); the ragged xmap below is the oracle. The order axis rides passively
+        # through the C-only tucker supercore (delegates to the plain dWCi_dCio_to_dWCo, t folded into W).
+        z_jets = contractions.dtWCi_dCio_to_dtWCo(eta_jets, tucker_cores)
+    else:
+        def _func(data):
+            eta_jet, U = data
+            return (contractions.tWCi_Cio_to_tWCo(eta_jet, U),)
 
-    (z_jets,) = xmap(_func, (eta_jets, tucker_cores))
+        (z_jets,) = xmap(_func, (eta_jets, tucker_cores))
     return z_jets
 
 
@@ -565,9 +586,10 @@ def compute_tau_jets(
 
     Reverse the train (P in the Q-slot, O and dG reversed), run the sigma sweep, reverse the result.
     '''
+    reverse = uniform_ops.reverse_utt if is_ndarray(var_tt_cores) else ragged_ops.reverse_tt
     rev = compute_sigma_jets(
-        ragged_ops.reverse_tt(var_tt_cores), ragged_ops.reverse_tt(left_tt_cores),
-        ragged_ops.reverse_tt(down_tt_cores), xi_jets[::-1], dxi_jets[::-1], nu_jets[::-1], trs,
+        reverse(var_tt_cores), reverse(left_tt_cores),
+        reverse(down_tt_cores), xi_jets[::-1], dxi_jets[::-1], nu_jets[::-1], trs,
     )
     return rev[::-1]
 
@@ -591,17 +613,27 @@ def compute_deta_jets(
     is_uniform = is_ndarray(var_tt_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
-    def _func(data):
-        P, Q, dG, mu_jet, nu_jet, sigma_jet, tau_jet = data
-        # Three-group (W,K,C): sigma/tau carry K, mu/nu and base cores P/Q do not; term2's only core
-        # is the variation core dG (K+C), so len(C) is supplied via n_base (the C-only Q pins it).
-        n_base = Q.ndim - 3
-        term1 = contractions.trs_rWKCa_Caib_sWCb_to_tWKCi(trs, sigma_jet, Q,  nu_jet)
-        term2 = contractions.trs_rWCa_KCaib_sWCb_to_tWKCi(trs, mu_jet,    dG, nu_jet, n_base)
-        term3 = contractions.trs_rWCa_Caib_sWKCb_to_tWKCi(trs, mu_jet,    P,  tau_jet)
-        return (term1 + term2 + term3,)
+    if is_uniform:
+        # d-prefixed jet combines (3b-6'a), vectorized over d; the ragged xmap below is the oracle. sigma/tau
+        # jets carry K (W+K+C); mu/nu are W+C; P/Q are C-only supercores; term2's only core is dG (K+C), so
+        # len(C) = n_base, read off the C-only Q supercore (d,)+C+(rR,nU,rR).
+        n_base = right_tt_cores.ndim - 4
+        term1 = contractions.trs_drWKCa_dCaib_dsWCb_to_dtWKCi(trs, sigma_jets, right_tt_cores, nu_jets)
+        term2 = contractions.trs_drWCa_dKCaib_dsWCb_to_dtWKCi(trs, mu_jets, var_tt_cores, nu_jets, n_base)
+        term3 = contractions.trs_drWCa_dCaib_dsWKCb_to_dtWKCi(trs, mu_jets, left_tt_cores, tau_jets)
+        deta_jets = term1 + term2 + term3
+    else:
+        def _func(data):
+            P, Q, dG, mu_jet, nu_jet, sigma_jet, tau_jet = data
+            # Three-group (W,K,C): sigma/tau carry K, mu/nu and base cores P/Q do not; term2's only core
+            # is the variation core dG (K+C), so len(C) is supplied via n_base (the C-only Q pins it).
+            n_base = Q.ndim - 3
+            term1 = contractions.trs_rWKCa_Caib_sWCb_to_tWKCi(trs, sigma_jet, Q,  nu_jet)
+            term2 = contractions.trs_rWCa_KCaib_sWCb_to_tWKCi(trs, mu_jet,    dG, nu_jet, n_base)
+            term3 = contractions.trs_rWCa_Caib_sWKCb_to_tWKCi(trs, mu_jet,    P,  tau_jet)
+            return (term1 + term2 + term3,)
 
-    (deta_jets,) = xmap(_func, (left_tt_cores, right_tt_cores, var_tt_cores, mu_jets, nu_jets, sigma_jets, tau_jets))
+        (deta_jets,) = xmap(_func, (left_tt_cores, right_tt_cores, var_tt_cores, mu_jets, nu_jets, sigma_jets, tau_jets))
     return deta_jets
 
 
@@ -618,15 +650,24 @@ def assemble_tangent_z_jets(
     is_uniform = is_ndarray(tucker_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
-    def _func(data):
-        U, dU, eta_jet, deta_jet = data
-        # Three-group (W,K,C): deta carries K (lift via the C-only U fuses W+K); eta is W+C and dU is
-        # the variation core (K+C), so the eta-lift needs len(C) -- recovered from the C-only U.
-        n_base = U.ndim - 2
-        return (contractions.tWKCi_Cio_to_tWKCo(deta_jet, U)
-                + contractions.tWCi_KCio_to_tWKCo(eta_jet, dU, n_base),)
+    if is_uniform:
+        # d-prefixed jet lifts (3b-6'a); the ragged xmap below is the oracle. deta carries K (lifted via the
+        # C-only U supercore, which fuses W+K); eta is W+C lifted through the K+C variation tucker core dU,
+        # so the eta-lift needs len(C) = n_base, read off the C-only U supercore (d,)+C+(nU,N).
+        n_base = tucker_cores.ndim - 3
+        term1 = contractions.dtWKCi_dCio_to_dtWKCo(deta_jets, tucker_cores)
+        term2 = contractions.dtWCi_dKCio_to_dtWKCo(eta_jets, var_tucker_cores, n_base)
+        z_jets = term1 + term2
+    else:
+        def _func(data):
+            U, dU, eta_jet, deta_jet = data
+            # Three-group (W,K,C): deta carries K (lift via the C-only U fuses W+K); eta is W+C and dU is
+            # the variation core (K+C), so the eta-lift needs len(C) -- recovered from the C-only U.
+            n_base = U.ndim - 2
+            return (contractions.tWKCi_Cio_to_tWKCo(deta_jet, U)
+                    + contractions.tWCi_KCio_to_tWKCo(eta_jet, dU, n_base),)
 
-    (z_jets,) = xmap(_func, (tucker_cores, var_tucker_cores, eta_jets, deta_jets))
+        (z_jets,) = xmap(_func, (tucker_cores, var_tucker_cores, eta_jets, deta_jets))
     return z_jets
 
 
@@ -723,7 +764,7 @@ def _apply_derivatives_t3_from_xi_jets(xi_jets, tt_cores, trs):
     formed). Returns ``(order+1,) + W + C`` (no K for a plain T3).
     '''
     use_jax = tree_contains_jax((tt_cores, xi_jets, trs))
-    xnp, xmap, xscan = get_backend(False, use_jax)
+    xnp, xmap, xscan = get_backend(is_ndarray(tt_cores), use_jax)   # scan-style: xscan strips d, trs_* runs per-slice
     order = trs.shape[0] - 1
     s_size = min(2, order + 1)
     trs_push = trs[:, :, :s_size]
@@ -771,7 +812,7 @@ def _apply_derivatives_from_jets(
     `W+K+C`-stacked) but keeps only the terminal carry. Returns ``(order+1,) + W + K + C``.
     '''
     use_jax = tree_contains_jax((xi_jets, dxi_jets, mu_jets, right_tt_cores, trs))
-    xnp, xmap, xscan = get_backend(False, use_jax)
+    xnp, xmap, xscan = get_backend(is_ndarray(right_tt_cores), use_jax)  # scan-style: xscan strips d, per-slice trs_*
     order = trs.shape[0] - 1
     s_size = min(2, order + 1)
     trs_push = trs[:, :, :s_size]

@@ -36,6 +36,7 @@ import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.ubv_operations as ubv_operations
 import t3toolbox.backend.ubv_tangent_operations as ubv_tangent_operations
 import t3toolbox.backend.ubv_sampling as ubv_sampling
+import t3toolbox.backend.probe_derivatives as probe_derivatives
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -513,6 +514,45 @@ class UT3Tangent:
         True
         """
         return ubv_sampling.ut3tangent_entries(index, self.basis.data, self.variations.data)
+
+    # --------------------------------------------------------------- derivative sampling (jets 𝒥; 3b-6'b)
+    def probe_derivatives(
+            self,
+            ww:     typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
+            pp:     typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+            order:  int,                    # highest derivative order
+    ) -> typ.Tuple[NDArray, ...]:           # len=d, ith elm_shape=(order+1,)+W+K+C+(Ni,)
+        """Symmetric directional derivatives of :py:meth:`probe`, in one repeated direction ``P`` (``pp``):
+        the forward Riemannian Jacobian derivatives ``y_i^(t) = d^t/ds^t [probe(X + s P)]_i|_0`` for
+        ``t=0..order`` (order 0 is :py:meth:`probe`; the bare ``𝒥``, no gauge ``Π``). ``ww``/``pp`` share the
+        sample stack ``W``; stacks ``order + W + K + C``. Uniform mirror of
+        :py:meth:`~t3toolbox.manifold.T3Tangent.probe_derivatives`."""
+        probe_derivatives.check_perturbation_vectors(ww, pp)
+        return ubv_sampling.ut3tangent_probe_derivatives(ww, pp, self.basis.data, self.variations.data, order)
+
+    def apply_derivatives(
+            self,
+            ww:     typ.Sequence[NDArray],  # apply vectors X,        len=d, elm_shape=W+(Ni,)
+            pp:     typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+            order:  int,                    # highest derivative order
+    ) -> NDArray:                           # scalar jets, shape=(order+1,)+W+K+C
+        """Symmetric all-modes apply derivatives (derivative twin of :py:meth:`apply`; the bare ``𝒥``, a
+        scalar jet per stack element). Uniform mirror of
+        :py:meth:`~t3toolbox.manifold.T3Tangent.apply_derivatives`."""
+        probe_derivatives.check_perturbation_vectors(ww, pp)
+        return ubv_sampling.ut3tangent_apply_derivatives(ww, pp, self.basis.data, self.variations.data, order)
+
+    def entries_derivatives(
+            self,
+            index:  NDArray,                # int, shape=(d,)+W -- the grid points
+            pp:     typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+            order:  int,                    # highest derivative order
+    ) -> NDArray:                           # scalar jets, shape=(order+1,)+W+K+C
+        """Symmetric entry derivatives at ``index`` in direction ``P`` (derivative twin of :py:meth:`entries`;
+        the bare ``𝒥``). ``index`` and ``pp`` share ``W``. Uniform mirror of
+        :py:meth:`~t3toolbox.manifold.T3Tangent.entries_derivatives`."""
+        probe_derivatives.check_perturbation_index(index, pp, self.shape)
+        return ubv_sampling.ut3tangent_entries_derivatives(index, pp, self.basis.data, self.variations.data, order)
 
     @staticmethod
     def probe_transpose(

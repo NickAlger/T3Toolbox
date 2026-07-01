@@ -485,6 +485,27 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda u, *w: u.probe_corewise_transpose(w[:3], w[3:], sum_over_probes=True),
                             xu, *ww, *ww)
 
+    # ---------------------------------------------------- jit bucket: uniform forward derivatives (3b-6'b)
+    def test_jit_uniform_derivatives(self):
+        # 3b-6'b: the forward derivative jets (probe/apply/entries_derivatives) jit -- the supercores trace
+        # through the d-prefixed JET contractions + the scan sweeps, the binomial tensor + masks stay host
+        # constants, build_input_jets vectorizes over d (no unroll), pack/unpack slice with static shapes.
+        # order is a Python int (static; sets the order-axis length). Plain UT3 + K-stacked UT3Tangent.
+        import t3toolbox.uniform_manifold as ut3m
+        ww = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])    # W = (2,)
+        pp = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])
+        idx = jnp.array([[1, 2], [2, 3], [3, 0]])                         # (d,) + W
+
+        xu = ut3.UniformTuckerTensorTrain.from_t3(self.x_np).to_jax()     # plain layer
+        self.assert_jit_jax(lambda u, *w: u.probe_derivatives(w[:3], w[3:], 2), xu, *ww, *pp)
+        self.assert_jit_jax(lambda u, *w: u.apply_derivatives(w[:3], w[3:], 2), xu, *ww, *pp)
+        self.assert_jit_jax(lambda u, i, *w: u.entries_derivatives(i, w, 2), xu, idx, *pp)
+
+        v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(xu), stack_shape=(2,)).to_jax()  # K=(2,)
+        self.assert_jit_jax(lambda t, *w: t.probe_derivatives(w[:3], w[3:], 2), v, *ww, *pp)
+        self.assert_jit_jax(lambda t, *w: t.apply_derivatives(w[:3], w[3:], 2), v, *ww, *pp)
+        self.assert_jit_jax(lambda t, i, *w: t.entries_derivatives(i, w, 2), v, idx, *pp)
+
     # ---------------------------------------------------- stack/unstack: masks must stay host under jax
     def test_stack_unstack_keeps_masks_host(self):
         # stacking.stack infers ONE backend per call, so stacking a jax object's supercores together with

@@ -183,6 +183,121 @@ class TestUT3TangentForward(unittest.TestCase):
                 self._check_probe(v, ww, ())
 
 
+_ORDER = 2   # highest derivative order for the jet tests (>=2 exercises the binomial convolution)
+
+
+def _pert_vectors(W, seed=3):
+    np.random.seed(seed)
+    return [np.random.randn(*(tuple(W) + (N,))) for N in _STRUCT[0]]
+
+
+class TestUT3TangentForwardDerivatives(unittest.TestCase):
+    """3b-6'b: the forward Jacobian DERIVATIVES 𝒥 (probe/apply/entries_derivatives on UT3Tangent), per
+    stack element vs the ragged T3Tangent over the _CONFIGS matrix + varying-C. The output carries a
+    leading derivative-order axis (order + W + K + C [+ Ni]); order 0 == the plain forward sample."""
+
+    def _leaves(self, v):
+        return [leaf.to_t3tangent() for leaf in _full_unstack(v)]
+
+    def _check_probe(self, v, ww, pp, W):
+        zz = v.probe_derivatives(ww, pp, _ORDER)
+        nW = int(np.prod(W)) if W else 1
+        O = _ORDER + 1
+        for i, leaf in enumerate(self._leaves(v)):
+            rzz = leaf.probe_derivatives(ww, pp, _ORDER)
+            for m in range(len(rzz)):
+                Nm = rzz[m].shape[-1]
+                u = np.asarray(zz[m]).reshape((O, nW, -1, Nm))[:, :, i, :]
+                self.assertTrue(np.allclose(u, np.asarray(rzz[m]).reshape((O, nW, Nm)), atol=1e-8),
+                                msg='probe_deriv mode %d, element %d' % (m, i))
+            # order 0 == plain probe
+            z0 = leaf.probe(ww)
+            for m in range(len(rzz)):
+                self.assertTrue(np.allclose(np.asarray(rzz[m])[0], np.asarray(z0[m]), atol=1e-9))
+
+    def _check_apply(self, v, ww, pp, W):
+        aa = np.asarray(v.apply_derivatives(ww, pp, _ORDER))
+        nW, O = (int(np.prod(W)) if W else 1), _ORDER + 1
+        for i, leaf in enumerate(self._leaves(v)):
+            u = aa.reshape((O, nW, -1))[:, :, i]
+            self.assertTrue(np.allclose(u, np.asarray(leaf.apply_derivatives(ww, pp, _ORDER)).reshape((O, nW)),
+                                        atol=1e-8), msg='apply_deriv element %d' % i)
+
+    def _check_entries(self, v, index, pp, W):
+        ee = np.asarray(v.entries_derivatives(index, pp, _ORDER))
+        nW, O = (int(np.prod(W)) if W else 1), _ORDER + 1
+        for i, leaf in enumerate(self._leaves(v)):
+            u = ee.reshape((O, nW, -1))[:, :, i]
+            self.assertTrue(np.allclose(u, np.asarray(leaf.entries_derivatives(index, pp, _ORDER)).reshape((O, nW)),
+                                        atol=1e-8), msg='entries_deriv element %d' % i)
+
+    def test_probe(self):
+        W = (2,); ww, pp = _probe_vectors(W), _pert_vectors(W)
+        for C, K in _CONFIGS:
+            with self.subTest(C=C, K=K):
+                self._check_probe(_uniform_tangent(C, K), ww, pp, W)
+        with self.subTest('varying_C'):
+            self._check_probe(_varying_C_tangent(), ww, pp, W)
+
+    def test_apply(self):
+        W = (2,); ww, pp = _probe_vectors(W), _pert_vectors(W)
+        for C, K in _CONFIGS:
+            with self.subTest(C=C, K=K):
+                self._check_apply(_uniform_tangent(C, K), ww, pp, W)
+        with self.subTest('varying_C'):
+            self._check_apply(_varying_C_tangent(), ww, pp, W)
+
+    def test_entries(self):
+        W = (2,); index, pp = _index(W), _pert_vectors(W)
+        for C, K in _CONFIGS:
+            with self.subTest(C=C, K=K):
+                self._check_entries(_uniform_tangent(C, K), index, pp, W)
+        with self.subTest('varying_C'):
+            self._check_entries(_varying_C_tangent(), index, pp, W)
+
+    def test_no_probe_stack(self):
+        ww, pp, index = _probe_vectors(()), _pert_vectors(()), _index(())
+        for C, K in [((), ()), ((2,), ()), ((), (3,)), ((2,), (3,))]:
+            with self.subTest(C=C, K=K):
+                v = _uniform_tangent(C, K)
+                self._check_apply(v, ww, pp, ())
+                self._check_entries(v, index, pp, ())
+                self._check_probe(v, ww, pp, ())
+
+
+class TestUniformT3PlainDerivatives(unittest.TestCase):
+    """3b-6'b: the PLAIN (non-tangent) forward derivatives (UniformTuckerTensorTrain.{probe,apply,entries}
+    _derivatives) vs the ragged TuckerTensorTrain, per base-stack (C) element. Output order + W + C [+ Ni]."""
+
+    def _models(self, C, force_pad=False):
+        np.random.seed(5)
+        x = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=C)
+        xu = ut3.UniformTuckerTensorTrain.from_t3(x, **_PAD_T3) if force_pad \
+            else ut3.UniformTuckerTensorTrain.from_t3(x)
+        return x, xu
+
+    def test_probe(self):
+        W = (2,); ww, pp = _probe_vectors(W), _pert_vectors(W)
+        for C in [(), (2,), (2, 3)]:
+            for fp in [False, True]:
+                with self.subTest(C=C, force_pad=fp):
+                    x, xu = self._models(C, fp)
+                    zr, zu = x.probe_derivatives(ww, pp, _ORDER), xu.probe_derivatives(ww, pp, _ORDER)
+                    for m in range(len(zr)):
+                        self.assertTrue(np.allclose(np.asarray(zu[m]), np.asarray(zr[m]), atol=1e-9))
+
+    def test_apply_entries(self):
+        W = (2,); ww, pp, index = _probe_vectors(W), _pert_vectors(W), _index(W)
+        for C in [(), (2,), (2, 3)]:
+            for fp in [False, True]:
+                with self.subTest(C=C, force_pad=fp):
+                    x, xu = self._models(C, fp)
+                    self.assertTrue(np.allclose(np.asarray(xu.apply_derivatives(ww, pp, _ORDER)),
+                                                np.asarray(x.apply_derivatives(ww, pp, _ORDER)), atol=1e-9))
+                    self.assertTrue(np.allclose(np.asarray(xu.entries_derivatives(index, pp, _ORDER)),
+                                                np.asarray(x.entries_derivatives(index, pp, _ORDER)), atol=1e-9))
+
+
 class TestUT3TangentTranspose(unittest.TestCase):
     """3b-6c: the bare transpose Jacobian 𝒥ᵀ (probe / apply / entries transpose) -- the adjoint identity
     ``<r, 𝒥V> = <𝒥ᵀr, V>`` (the defining property), the ``Σ_W(sum=False) == sum=True`` relation, and a

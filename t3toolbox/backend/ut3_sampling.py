@@ -8,6 +8,7 @@ import typing as typ
 import t3toolbox.backend.apply as apply
 import t3toolbox.backend.entries as entries
 import t3toolbox.backend.probing as probing
+import t3toolbox.backend.probe_derivatives as probe_derivatives
 import t3toolbox.backend.ut3_masking as ut3_masking
 import t3toolbox.backend.ut3_operations as ut3_operations
 from t3toolbox.backend.common import *
@@ -20,6 +21,9 @@ __all__ = [
     'ut3_apply_corewise_transpose',
     'ut3_entries_corewise_transpose',
     'ut3_probe_corewise_transpose',
+    'ut3_probe_derivatives',
+    'ut3_apply_derivatives',
+    'ut3_entries_derivatives',
 ]
 
 # All re-mask first (so the padded "garbage" contributes nothing), then call the SHARED, already-
@@ -122,3 +126,55 @@ def ut3_probe_corewise_transpose(
     packed_z = ut3_operations.pack_vectors(ztildes, N)
     packed_ww = ut3_operations.pack_vectors(ww, N)
     return probing.probe_corewise_transpose(packed_z, packed_ww, masked, sum_over_probes=sum_over_probes)
+
+
+# ----------------------------------------------------------------- derivative sampling (jets; 3b-6'b)
+# The symmetric-directional-derivative twins of ut3_probe / ut3_apply / ut3_entries: mask-once, pack the
+# probe vectors ww AND the perturbation direction pp (entries slices fibers, so only pp is packed), share
+# the polymorphic probe_derivatives.*_derivatives_t3, and unpack the probe output (which now carries a
+# leading derivative-order axis -- the middle axis rides through unpack_vectors' `...`). Output order 0 is
+# the ordinary (non-derivative) sample.
+
+def ut3_probe_derivatives(
+        ww:    typ.Sequence[NDArray],  # probe vectors X,        len=d, ith elm_shape=W+(Ni,)
+        pp:    typ.Sequence[NDArray],  # perturbation vectors P, len=d, ith elm_shape=W+(Ni,)
+        data:  UT3Data,
+        order: int,                    # highest derivative order
+) -> typ.Tuple[NDArray, ...]:          # len=d, ith elm_shape=(order+1,)+W+(Ni,)
+    """Symmetric probe derivatives of a uniform Tucker tensor train (shares
+    ``probe_derivatives.probe_derivatives_t3``). ``ww``/``pp`` packed to ``N``; results sliced back."""
+    masked = ut3_masking.apply_masks_to_cores(data)
+    N = masked[0].shape[-1]
+    packed_ww = ut3_operations.pack_vectors(ww, N)
+    packed_pp = ut3_operations.pack_vectors(pp, N)
+    zz = probe_derivatives.probe_derivatives_t3(packed_ww, packed_pp, masked, order)  # (d,)+(order+1,)+W+(N,)
+    return ut3_operations.unpack_vectors(zz, data[2])
+
+
+def ut3_apply_derivatives(
+        ww:    typ.Sequence[NDArray],  # apply vectors X,        len=d, ith elm_shape=W+(Ni,)
+        pp:    typ.Sequence[NDArray],  # perturbation vectors P, len=d, ith elm_shape=W+(Ni,)
+        data:  UT3Data,
+        order: int,                    # highest derivative order
+) -> NDArray:                          # shape=(order+1,)+W+stack_shape
+    """Symmetric all-modes apply derivatives of a uniform Tucker tensor train (shares
+    ``probe_derivatives.apply_derivatives_t3``; a scalar jet per stack element). ``ww``/``pp`` packed to ``N``."""
+    masked = ut3_masking.apply_masks_to_cores(data)
+    N = masked[0].shape[-1]
+    packed_ww = ut3_operations.pack_vectors(ww, N)
+    packed_pp = ut3_operations.pack_vectors(pp, N)
+    return probe_derivatives.apply_derivatives_t3(packed_ww, packed_pp, masked, order)
+
+
+def ut3_entries_derivatives(
+        index: NDArray,                # int, shape=(d,)+W -- the grid points
+        pp:    typ.Sequence[NDArray],  # perturbation vectors P, len=d, ith elm_shape=W+(Ni,)
+        data:  UT3Data,
+        order: int,                    # highest derivative order
+) -> NDArray:                          # shape=(order+1,)+W+stack_shape
+    """Symmetric entry derivatives of a uniform Tucker tensor train at ``index`` (shares
+    ``probe_derivatives.entries_derivatives_t3``; the up-index jet slices Tucker fibers, so only ``pp`` is
+    packed -- ``index`` in ``[0,Ni)`` hits the real prefix)."""
+    masked = ut3_masking.apply_masks_to_cores(data)
+    packed_pp = ut3_operations.pack_vectors(pp, masked[0].shape[-1])
+    return probe_derivatives.entries_derivatives_t3(index, packed_pp, masked, order)

@@ -21,6 +21,7 @@ These are the bare Jacobian ``𝒥`` (no gauge projector ``Π``); the transpose 
 import numpy as np
 
 import t3toolbox.backend.probing as probing
+import t3toolbox.backend.probe_derivatives as probe_derivatives
 import t3toolbox.backend.ubv_masking as ubv_masking
 import t3toolbox.backend.ut3_operations as ut3_operations
 from t3toolbox.backend.common import *
@@ -32,6 +33,9 @@ __all__ = [
     'ut3tangent_probe_transpose',
     'ut3tangent_apply_transpose',
     'ut3tangent_entries_transpose',
+    'ut3tangent_probe_derivatives',
+    'ut3tangent_apply_derivatives',
+    'ut3tangent_entries_derivatives',
 ]
 
 
@@ -78,6 +82,60 @@ def ut3tangent_entries(
     real indices ``index_i < Ni`` never reach the mode padding)."""
     mv, mb = _mask_once(basis_data, variations_data)
     return probing.entries_tangent(index, mv, mb)
+
+
+# ----------------------------------------------------------------- derivative sampling (jets 𝒥; 3b-6'b)
+# The symmetric-directional-derivative twins of ut3tangent_probe / apply / entries (the forward Riemannian
+# Jacobian derivatives). Same boundary work: mask-once basis+variations, pack ww AND pp (entries slices
+# fibers -> only pp packed), share probe_derivatives.*_tangent_derivatives, unpack the probe output (which
+# carries a leading derivative-order axis; the middle axis rides through unpack_vectors' `...`). Output
+# order 0 is the ordinary tangent sample. These are the bare 𝒥 (no gauge projector Π).
+
+def ut3tangent_probe_derivatives(
+        ww,               # probe vectors X,        len=d, ith elm_shape=W+(Ni,)
+        pp,               # perturbation vectors P, len=d, ith elm_shape=W+(Ni,)
+        basis_data,       # UT3Basis .data
+        variations_data,  # UT3Variations .data
+        order,            # highest derivative order
+):  # -> len=d tuple, ith elm_shape=(order+1,)+W+K+C+(Ni,)
+    """Symmetric probe derivatives of a uniform tangent vector (the bare ``𝒥``): mask-once, pack ``ww``/``pp``,
+    share ``probe_derivatives.probe_tangent_derivatives``, unpack the d probe jets."""
+    mv, mb = _mask_once(basis_data, variations_data)
+    N = mb[0].shape[-1]
+    packed_ww = ut3_operations.pack_vectors(ww, N)
+    packed_pp = ut3_operations.pack_vectors(pp, N)
+    zz = probe_derivatives.probe_tangent_derivatives(packed_ww, packed_pp, mv, mb, order)
+    return ut3_operations.unpack_vectors(zz, basis_data[4])
+
+
+def ut3tangent_apply_derivatives(
+        ww,               # apply vectors X,        len=d, ith elm_shape=W+(Ni,)
+        pp,               # perturbation vectors P, len=d, ith elm_shape=W+(Ni,)
+        basis_data,       # UT3Basis .data
+        variations_data,  # UT3Variations .data
+        order,            # highest derivative order
+):  # -> scalar jets, shape=(order+1,)+W+K+C
+    """Symmetric all-modes apply derivatives of a uniform tangent vector (the bare ``𝒥``; a scalar jet per
+    stack element)."""
+    mv, mb = _mask_once(basis_data, variations_data)
+    N = mb[0].shape[-1]
+    packed_ww = ut3_operations.pack_vectors(ww, N)
+    packed_pp = ut3_operations.pack_vectors(pp, N)
+    return probe_derivatives.apply_tangent_derivatives(packed_ww, packed_pp, mv, mb, order)
+
+
+def ut3tangent_entries_derivatives(
+        index,            # int array, shape=(d,)+W -- the multi-indices
+        pp,               # perturbation vectors P, len=d, ith elm_shape=W+(Ni,)
+        basis_data,       # UT3Basis .data
+        variations_data,  # UT3Variations .data
+        order,            # highest derivative order
+):  # -> scalar jets, shape=(order+1,)+W+K+C
+    """Symmetric entry derivatives of a uniform tangent vector at ``index`` (the bare ``𝒥``; fiber slicing,
+    so only ``pp`` is packed)."""
+    mv, mb = _mask_once(basis_data, variations_data)
+    packed_pp = ut3_operations.pack_vectors(pp, mb[0].shape[-1])
+    return probe_derivatives.entries_tangent_derivatives(index, packed_pp, mv, mb, order)
 
 
 # ----------------------------------------------------------------- the transpose 𝒥ᵀ (probe; 3b-6c)
