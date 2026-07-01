@@ -360,14 +360,14 @@ of every path. Full suite ~50s, green.
   `docs/transposes.md`, `docs/numerical_contract_catalog.md`, `docs/probing_section6_notes.md`,
   `docs/signature_style.md`, `docs/doctest_style.md`, the `docs/uniform_*` notes, the `docs/t3svd_*`
   notes. (Historical plans/handoffs are archived under `dev/archive/`.)
-- **In progress (the 1.0 centerpiece):** the **uniform tangent layer**. The *backend*, *geometries*,
-  *tangent + corewise probing*, and now the *derivative (jet) probing* are all built + tested (increment 3b
-  through **3b-6′**, above); **remaining: 3b-7 cleanup** (delete `OLD_uniform*` + the `if False:` graveyard
-  once preserved; relax the cosmetic `Sequence`-only hints on the polymorphic tangent/jet fns), then
-  optimizers/fitting on it. Live status: `dev/HANDOFF.md`.
-- **Deferred / broken:** the **weighted layer** (parked `absorb_weights`) — deferred past 1.0; `OLD_*.py`
-  files (incl. `OLD_uniform_manifold.py`, the preserved 3b-2 port reference) are still tracked (delete only
-  after confirming the functionality is preserved elsewhere).
+- **Uniform tangent layer — DONE (the 1.0 centerpiece).** The *backend*, *geometries*, *tangent + corewise
+  probing*, the *derivative (jet) probing*, AND the *doc/cleanup sweep* are all built + tested (increment 3b
+  through **3b-7**, above): the sampling/derivative surface is doctested to the reference-module standard, and
+  the superseded `OLD_uniform*.py` are deleted. (Deferred: the cosmetic `Sequence`→`Union` hint relaxation →
+  R2.) **Next: make the optimizers/fitting work on it** (speed is its whole point). Live status: `dev/HANDOFF.md`.
+- **Deferred / broken:** the **weighted layer** (parked `absorb_weights`) — deferred past 1.0. Remaining
+  `OLD_*.py` / `OLD_test_*.py` stray files (`OLD_orthogonalization.py`, the OLD test files) are dead/superseded
+  and slated for the **R6** cleanup (delete only after confirming functionality is preserved elsewhere).
 
 ## Open questions / TODO
 

@@ -614,12 +614,14 @@ tangent branches to use them; test all stacking combos against the ragged `WKC` 
 
 ## Sub-slices (dependency-ordered)
 
-> **STATUS (2026-07-01): 3b-0 … 3b-5 + 3b-6 (6a–6d) + 3b-6′ (6′a–6′d) are DONE** — the uniform tangent
-> *backend*, the *two geometries* (`UNIFORM_MANIFOLD`/`UNIFORM_COREWISE`), *tangent + corewise probing*
-> (`𝒥`/`𝒥ᵀ`), AND the *derivative (jet) probing* (`probe_derivatives`: forward + transpose + corewise, both
-> the plain `UniformTuckerTensorTrain` and `UT3Tangent` layers), all per-element verified vs ragged +
-> adjoint-identity + mask-strict + garbage-robust + jit-clean. **Remaining: 3b-7 (cleanup + delete
-> `OLD_uniform*`).** Live status: `dev/HANDOFF.md`.
+> **STATUS (2026-07-01): increment 3b is DONE — 3b-0 … 3b-5 + 3b-6 (6a–6d) + 3b-6′ (6′a–6′d) + 3b-7.** The
+> uniform tangent *backend*, the *two geometries* (`UNIFORM_MANIFOLD`/`UNIFORM_COREWISE`), *tangent + corewise
+> probing* (`𝒥`/`𝒥ᵀ`), and the *derivative (jet) probing* (`probe_derivatives`: forward + transpose + corewise,
+> both the plain `UniformTuckerTensorTrain` and `UT3Tangent` layers) are all per-element verified vs ragged +
+> adjoint-identity + mask-strict + garbage-robust + jit-clean. **3b-7 sweep+cleanup** done too: the
+> sampling/derivative surface is doctested to the reference-module standard; `OLD_uniform*.py` deleted
+> (signed off); `Sequence`→`Union` hint relaxation deferred to R2. **Next: optimizers/fitting on the uniform
+> layer.** Live status: `dev/HANDOFF.md`.
 >
 > **3b-6′ refinements vs the plan below (recorded for the record):** (1) only the *map-style* jet fns needed
 > `d`-prefixed contractions; the *scan-style* ones (`_apply_derivatives_*_from_*`, `_adj_sweep`,

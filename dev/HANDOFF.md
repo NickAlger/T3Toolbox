@@ -73,15 +73,19 @@ varying-`C`, and jit-clean:
     (`tests/test_uniform_probing.py`).
   - **The probe-derivative (jet) version — slice 3b-6′ — is now DONE** (this session; see above).
 
-## Next steps (finishing increment 3b)
+## Next steps (increment 3b essentially DONE)
 
 The full slicing + design lives in **`dev/uniform_fix_plan.md`** (the living plan); status here.
-1. **3b-7 — sweep + cleanup.** Tests/doctests final sweep; **delete `OLD_uniform*.py` + the `if False:`
-   graveyard** once functionality is confirmed preserved (the standing caution). Relax the now-cosmetic
-   `Sequence`-only type hints on the polymorphic `apply_tangent`/`entries_tangent` (+ transposes, + the
-   `probe_derivatives.py` jet fns) to `Union` (runtime already polymorphic — not a blocker).
-2. Then make the optimizers/fitting work on the uniform layer (speed is its whole point), and the
-   release-hygiene roadmap below.
+- **3b-7 — sweep + cleanup — DONE (2026-07-01).** (a) **Documentation pass**: doctested the previously-bare
+  uniform sampling/derivative surface (~21 methods across `UniformTuckerTensorTrain` + `UT3Tangent`) to the
+  `tucker_tensor_train.py`/`manifold.py` standard — signature shape-comments, precondition notes (bare 𝒥/𝒥ᵀ:
+  no *numerical* precondition; the structural P-matches-X one shown as a failure-mode doctest), adjoint-identity
+  + order-0 anchors. 114 + 128 doctests pass. (b) **Deleted `OLD_uniform*.py`** (all 3, incl. the `if False:`
+  graveyard) — confirmed dead + functionality preserved in the tested rebuild, signed off by Nick. (c) The
+  cosmetic `Sequence`→`Union` hint relaxation is **deferred to R2** (its natural mechanical/suite-gated home;
+  runtime already polymorphic). Residual OLD_* / OLD_test_* stray files → R6.
+- **Next: make the optimizers/fitting work on the uniform layer** (speed is its whole point), then the
+  release-hygiene roadmap below.
 
 ## The 1.0 roadmap (mid-level-toolkit scope) — summary
 - **R1** packaging correctness (`readme = README.md`; create `CHANGELOG.md`; numpy range).
