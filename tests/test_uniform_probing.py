@@ -636,5 +636,90 @@ class TestUT3ProbingHardening(unittest.TestCase):
                                                        xd.probe_corewise_transpose(zt, ww, sum_over_probes=True)))
 
 
+class TestUT3DerivativeHardening(unittest.TestCase):
+    """3b-6'd: mask-strict + garbage-robust hardening of the uniform DERIVATIVE probing path (per
+    docs/testing_strategy.md), the jet twin of TestUT3ProbingHardening. Same three guards -- (A)
+    garbage-padded inputs leave every derivative op UNCHANGED, (B) exact transpose output masks (the
+    derivative gradient carries no order axis, so its masks are the plain gauge masks over K_new), (C)
+    forced padding on every core. The perturbation pp is a second garbage-robustness surface."""
+
+    def setUp(self):
+        np.random.seed(4)
+
+    @staticmethod
+    def _equal_supercores(a, b):
+        return all(np.allclose(np.asarray(x), np.asarray(y), atol=1e-8) for x, y in zip(a, b))
+
+    def test_forward_garbage_robust(self):
+        ww, pp, index = _probe_vectors((2,)), _pert_vectors((2,)), _index((2,))
+        for C, K, fp in [((), (), False), ((2,), (3,), False), ((), (), True), ((2, 3), (), False)]:
+            with self.subTest(C=C, K=K, fp=fp):
+                v = _uniform_tangent(C, K, force_pad=fp)
+                d = _corrupt_tangent(v)
+                self.assertTrue(self._equal_supercores(v.probe_derivatives(ww, pp, _ORDER),
+                                                       d.probe_derivatives(ww, pp, _ORDER)))
+                self.assertTrue(np.allclose(np.asarray(v.apply_derivatives(ww, pp, _ORDER)),
+                                            np.asarray(d.apply_derivatives(ww, pp, _ORDER)), atol=1e-8))
+                self.assertTrue(np.allclose(np.asarray(v.entries_derivatives(index, pp, _ORDER)),
+                                            np.asarray(d.entries_derivatives(index, pp, _ORDER)), atol=1e-8))
+
+    def test_transpose_garbage_robust(self):
+        ww, pp, index = _probe_vectors((2,)), _pert_vectors((2,)), _index((2,))
+        for C, K, fp in [((), (), False), ((2,), (3,), False), ((), (), True)]:
+            with self.subTest(C=C, K=K, fp=fp):
+                v = _uniform_tangent(C, K, force_pad=fp)
+                bd = _corrupt(v.basis)                                    # corrupt the basis padding only
+                r = [np.random.randn(*z.shape) for z in v.probe_derivatives(ww, pp, _ORDER)]
+                c = np.random.randn(*np.asarray(v.apply_derivatives(ww, pp, _ORDER)).shape)
+                T = ut3m.UT3Tangent
+                pairs = [(T.probe_derivatives_transpose, (r, ww, pp)),
+                         (T.apply_derivatives_transpose, (c, ww, pp)),
+                         (T.entries_derivatives_transpose, (c, index, pp))]
+                for op, args in pairs:
+                    clean = op(*args, v.basis, _ORDER, sum_over_probes=True)
+                    dirty = op(*args, bd, _ORDER, sum_over_probes=True)
+                    self.assertTrue(self._equal_supercores(clean.variations.supercores, dirty.variations.supercores))
+                    for ma, mb in zip(clean.variations.masks.data, dirty.variations.masks.data):
+                        self.assertTrue(np.array_equal(ma, mb))
+
+    def test_transpose_exact_masks(self):
+        ww, pp, index = _probe_vectors((2,)), _pert_vectors((2,)), _index((2,))
+        for C, K, fp in [((), (), False), ((2,), (3,), False), ((), (), True), ((2, 3), (), False), ((), (2, 3), False)]:
+            with self.subTest(C=C, K=K, fp=fp):
+                v = _uniform_tangent(C, K, force_pad=fp)
+                r = [np.random.randn(*z.shape) for z in v.probe_derivatives(ww, pp, _ORDER)]
+                c = np.random.randn(*np.asarray(v.apply_derivatives(ww, pp, _ORDER)).shape)
+                T = ut3m.UT3Tangent
+                for sop in (True, False):
+                    K_new = tuple(K) if sop else (2,) + tuple(K)         # the gradient has no order axis
+                    exp = _expected_gauge_masks(v.basis, K_new)
+                    outs = [T.probe_derivatives_transpose(r, ww, pp, v.basis, _ORDER, sum_over_probes=sop),
+                            T.apply_derivatives_transpose(c, ww, pp, v.basis, _ORDER, sum_over_probes=sop),
+                            T.entries_derivatives_transpose(c, index, pp, v.basis, _ORDER, sum_over_probes=sop)]
+                    for JT in outs:
+                        for got, e in zip(JT.variations.masks.data, exp):
+                            self.assertTrue(np.array_equal(got, e), msg='sop=%s' % sop)
+
+    def test_corewise_garbage_robust(self):
+        ww, pp, index = _probe_vectors((2,)), _pert_vectors((2,)), _index((2,))
+        for C, fp in [((), False), ((2,), False), ((), True)]:
+            with self.subTest(C=C, fp=fp):
+                x = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=C)
+                xu = ut3.UniformTuckerTensorTrain.from_t3(x, **_PAD_T3) if fp \
+                    else ut3.UniformTuckerTensorTrain.from_t3(x)
+                xd = _corrupt(xu)
+                c = np.random.randn(*((_ORDER + 1, 2) + C))
+                zt = [np.random.randn(*((_ORDER + 1, 2) + C + (N,))) for N in _STRUCT[0]]
+                self.assertTrue(self._equal_supercores(
+                    xu.apply_corewise_derivatives_transpose(c, ww, pp, _ORDER, sum_over_probes=True),
+                    xd.apply_corewise_derivatives_transpose(c, ww, pp, _ORDER, sum_over_probes=True)))
+                self.assertTrue(self._equal_supercores(
+                    xu.entries_corewise_derivatives_transpose(c, index, pp, _ORDER, sum_over_probes=True),
+                    xd.entries_corewise_derivatives_transpose(c, index, pp, _ORDER, sum_over_probes=True)))
+                self.assertTrue(self._equal_supercores(
+                    xu.probe_corewise_derivatives_transpose(zt, ww, pp, _ORDER, sum_over_probes=True),
+                    xd.probe_corewise_derivatives_transpose(zt, ww, pp, _ORDER, sum_over_probes=True)))
+
+
 if __name__ == '__main__':
     unittest.main()
