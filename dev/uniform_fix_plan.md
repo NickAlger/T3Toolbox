@@ -885,9 +885,106 @@ ragged path. Written **derivatives-aware** so the conventions extend cleanly to 
 - **3b-6d -- harden + dispatch.** Mask-strict (exact output masks where a tangent is returned) +
   garbage-padded-input robustness + varying-`C` + jit dispatch, per `docs/testing_strategy.md`.
 
-## Follow-on (separate slice, not 3b-6)
-- **3b-6′ -- uniform tangent `probe_derivatives.py`.** The jet family: `d`-prefixed `trs_*` contractions
-  (order axis `t` + binomial combine), fix the `_jets` map-style fns (currently hardcode
-  `get_backend(False)` -- further from uniform-ready than probing) + add the missing `is_ndarray` dispatch,
-  wire the `*_derivatives` methods (ambient derivative transpose stays deferred). Built by mirroring 3b-6;
-  order-0 cross-checks against the verified plain contractions.
+## Follow-on: 3b-6′ -- uniform `probe_derivatives.py` (detailed plan, 2026-06-30 cont.)
+
+_The jet/derivative version of 3b-6 (`probe_derivatives.py` is the "jetted" probing: same computational
+structure + a leading derivative-order axis via a binomial jet-product). Split from 3b-6 (agreed with Nick):
+build 3b-6 first as the verified foundation, then mirror it here. **Written for a future agent/session with
+little context** -- read the "Lessons from 3b-6" subsection below FIRST; it is the map to the traps._
+
+### Scope -- BOTH layers (the correction: not just the tangent)
+`probe_derivatives` must work for **both**:
+1. the **plain `UniformTuckerTensorTrain`** -- the base derivative sampling. **It has NO `*_derivatives`
+   methods today** (grep: the ragged `TuckerTensorTrain.{probe,apply,entries}_derivatives` at
+   `tucker_tensor_train.py` 3735 / 3774 / 3809 have no uniform counterpart). Add the 3 methods (+ the plain
+   backend wrappers in `ut3_sampling`, mirroring `ut3_probe`/etc. with a `pp` perturbation-vector pack and
+   the leading order axis on the output).
+2. the **`UT3Tangent`** -- the Riemannian `𝒥`/`𝒥ᵀ` derivatives + the corewise derivative transposes (mirror
+   ragged `T3Tangent.{probe,apply,entries}_derivatives` + `*_derivatives_transpose`, and
+   `TuckerTensorTrain.*_corewise_derivatives_transpose`). Backend wrappers in `ubv_sampling` /
+   `ut3_sampling`. **The ambient derivative transpose stays DEFERRED** (`docs/ambient_derivative_transpose_note.md`).
+
+Both layers are broken the same way and get fixed by the same contraction work -- do them together per op.
+
+### Verified state (2026-06-30) -- what's uniform-ready, what's broken
+- **Scan-style jet fns ARE uniform-aware** (`is_ndarray` + `xscan`): `compute_mu_jets` / `compute_nu_jets`
+  / `compute_eta_jets` / `assemble_z_jets` / `compute_sigma_jets` / `compute_tau_jets` (probe_derivatives.py
+  271 / 318 / 339 / 618 / 535 / 591). Leave them; they use the `trs_*` contractions inside the scan step.
+- **Map-style jet fns hardcode `get_backend(False)` -> BROKEN for uniform** (the exact analog of the plain
+  probing map-style break): `_apply_derivatives_t3_from_xi_jets` (726), `_apply_derivatives_from_jets`
+  (774), `compute_deta_tilde_jets` (960), `_adj_sweep` (975; the reverse-sweep helper behind
+  `compute_tau_tilde_jets`/`compute_sigma_tilde_jets`), `compute_dxi_tilde_jets` (1029),
+  `assemble_tucker_variation_jets` (1055), `assemble_tt_variation_jets` (1086), `compute_sigma_hat_jets`
+  (1207), `_apply_derivatives_transpose_from_jets` (1233). Rewrite each uniform branch with the
+  `d`-prefixed jet contractions + `is_ndarray` dispatch.
+- **The UNROLL TRAP -- `build_input_jets` (line 244)** does `tuple(xnp.stack([xi, dxi], axis=0) for xi, dxi
+  in zip(xis, dxis))` -- iterating the supercore `d` axis (a Python loop). This is EXACTLY the
+  `_entry_xis` bug 3b-6c fixed: for uniform it "works" by ragged-emulation but **unrolls under jit** and
+  returns ragged tuples. Fix: for uniform (`xis` a supercore `(d,)+W+C+(nU,)`) vectorize as
+  `xnp.stack([xis, dxis], axis=1)` -> `(d,)+(2,)+W+C+(nU,)` (order axis at axis 1, AFTER the leading `d`).
+  `_init_jet` (247) builds `mu_0` with an explicit order axis -- for uniform it needs the `d`-leading
+  layout too (order axis inserted after `d`). Also audit the plain entries `probe_derivatives_t3` (109),
+  `apply_derivatives_t3` (742), `entries_derivatives_t3` (853) for the same. `check_perturbation_*` (184 /
+  202) are host-side shape checks on the *ragged input vectors* (pre-pack) -- fine, not a trap.
+
+### Sub-slices (mirror 3b-6a/b/c/d)
+- **3b-6′a -- the `d`-prefixed jet contractions** in `contractions.py`. Each is a ragged `trs_*` `WKC`
+  contraction (`contractions.py` ~1374-1785: `trs_rWKCa_Caib_sWCi_to_tWKCb`, the `tWKCi_Cio_to_tWKCo`
+  family, the `trs_..._to_WKCaib`/`KCaib` assemble family, `tWCa_tWKCo_to_{WKCao,KCao}`, ...) with `d`
+  prepended to every operand + output. **`d` AND the order axes (`r,s,t,u`) ride as leading batches**; the
+  `W`/`K`/`C` block-flattening is unchanged (same recipe as 3b-6a). Test with the **existing `_check_jet3`
+  harness** (`tests/backend/test_contractions.py` 631) + a `d`-prefixed variant (mirror `_check_3group_d`).
+  **The order-0 anchor:** each jet contraction at order 0 reduces to the plain `dWKC` contraction verified
+  in 3b-6a -- assert it (the ragged `WCa_WCi_WKCb_to_WKCaib` docstring already notes "the order-0 strip of
+  `trs_rWCa_uWCi_tWKCb_to_WKCaib`"). Also need the plain-jet (`trs_·WC`, no K) `d`-prefixed twins for the
+  base-point (plain UniformTTT) derivative path.
+- **3b-6′b -- forward `𝒥` derivatives.** Fix `build_input_jets` + `_init_jet` (the unroll trap) + the
+  forward map-style jet fns (`_apply_derivatives_*_from_*`, `assemble_z_jets` is already OK). Wire
+  `UniformTuckerTensorTrain.{probe,apply,entries}_derivatives` AND `UT3Tangent.{...}_derivatives` (backend
+  wrappers: mask-once + pack `ww` **and `pp`** + call + unpack; the output carries the leading order axis).
+- **3b-6′c -- transpose `𝒥ᵀ` derivatives + corewise.** Fix `_adj_sweep` / `compute_*_tilde_jets` /
+  `assemble_*_variation_jets` / `compute_sigma_hat_jets` / `_apply_derivatives_transpose_from_jets`. Wire
+  the `*_derivatives_transpose` (tangent) + `*_corewise_derivatives_transpose` (the §6.3 substitution, as in
+  3b-6c). Gauge masks over `K_new`: reuse `ubv_sampling._gauge_masks_over_Knew` (it already exists).
+- **3b-6′d -- harden.** Same as 3b-6d (`tests/test_uniform_probing.py` helpers extend cleanly): the adjoint
+  identity **per order**, per-element vs ragged over `_CONFIGS` + varying-`C`, garbage-robustness, exact
+  masks, forced-pad, jit.
+
+### Lessons from 3b-6 -- carry these into 3b-6′ (read first)
+1. **Hunt the unroll trap FIRST.** Any `for ... in enumerate(cores)` / `zip(cores)` / `cores[k]` that walks
+   a uniform **supercore's leading `d` axis** silently "works" by ragged-emulation but (a) **unrolls under
+   jit** (compile time superlinear in `d`) and (b) returns **ragged tuples** that break downstream
+   supercore-expecting code. 3b-6c hit this in `_entry_xis` (forward entries looked fine -- even passed a
+   jit test -- because unrolling is numerically correct). In `probe_derivatives` the known instance is
+   `build_input_jets` (244); grep `enumerate(` / `get_backend(False` / `[k]` and audit each. Fix by
+   vectorizing over `d`, inserting the order axis at **axis 1** (after `d`).
+2. **The `d`-prefix recipe generalizes cleanly.** Take the ragged contraction's `_grouped_einsum` string,
+   prepend `d` to every operand + output; `d` (and, for jets, the order axes `r,s,t,u`) ride as leading
+   batches; the `W`/`K`/`C` front-counted slices shift by `+1` per leading batch axis. The reshape gains a
+   leading `d_shape` (+ order shapes). See the 3b-6a `dWKC` family (`contractions.py`, the "d-prefixed
+   uniform WKC contractions" section) as the worked template; the ragged `trs_*` family is right above it.
+3. **Order 0 is a free correctness anchor.** Every jet contraction at order 0 == the plain `dWKC` one you
+   already verified in 3b-6a. Assert it -- it catches a whole class of order-axis bookkeeping slips for
+   nearly free, on top of the full `np.einsum` oracle.
+4. **The map/scan split is the whole diagnosis.** Scan-style fns (`xscan` over `d`, `trs_*` grouped-block
+   step) were already made uniform-aware upstream; only the **map-style** fns (a per-core map -> a
+   vectorized `d`-axis einsum) are broken. This held for plain probing (3b-6b/c) and holds for the jets.
+5. **The frontend boundary is a fixed pattern.** `ubv_sampling` (tangent) / `ut3_sampling` (plain):
+   **mask-once** the supercores, **pack** the vectors (`ww` -- and for derivatives **also `pp`**), call the
+   now-polymorphic backend (`is_uniform` inferred from the masked supercores being bare ndarrays),
+   **unpack** the probe output. Transposes return a tangent -> attach masks via
+   `ubv_sampling._gauge_masks_over_Knew` (gauge masks over the new tangent stack `K_new` = `W+K` if
+   `sum_over_probes=False`, `K` if `True`). Corewise transposes return **raw gradient supercores** (no mask
+   holder; clean-padded). `n_probe` for a packed uniform `ww` is `ww[0].ndim - 1` (a `ww[0]` d-slice) or
+   `ww.ndim - 2` inside a `d`-prefixed map fn; the order axis does not change it.
+6. **`_onehot_vectors` / `_entry_xis` are already polymorphic** (3b-6c): the jet entries/entries-transpose
+   derivative paths reuse them -- don't re-break them. `_entry_xis` is a **vectorized fiber-slice gather**
+   (advanced indexing on axis 0 + axis -1, broadcasting to `(d,)+W`), NOT a one-hot contraction (which would
+   re-introduce the `N` factor entries exists to avoid).
+7. **Test spine: adjoint identity + per-element-vs-ragged + hardening.** `⟨r, 𝒥V⟩ = ⟨𝒥ᵀr, V⟩` (now summed
+   appropriately per order) is the strongest, cheapest transpose check; add per-element-vs-ragged and the
+   garbage/exact-mask hardening (`docs/testing_strategy.md`). Reuse `tests/test_uniform_probing.py`'s
+   helpers (`_corrupt`, `_expected_gauge_masks`, `_full_unstack`, the `_CONFIGS` matrix); the order axis
+   just adds one leading axis to the reshapes.
+8. **`xnp` often goes unused** in a rewritten uniform branch (the `d`-prefixed contractions infer their own
+   backend from the arrays). Leave the `xnp, xmap, xscan = get_backend(...)` unpack; don't chase the lint.

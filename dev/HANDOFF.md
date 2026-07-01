@@ -59,11 +59,14 @@ varying-`C`, and jit-clean:
 ## Next steps (finishing increment 3b)
 
 The full slicing + design lives in **`dev/uniform_fix_plan.md`** (the living plan); status here.
-1. **3b-6′ — uniform tangent `probe_derivatives.py`** (the jet/derivative version of 3b-6). The binomial-jet
-   `trs_*` family: build the `d`-prefixed jet contractions (order axis `t` on top of the same `d` batch),
-   fix the broken `_jets` map-style fns (they hardcode `get_backend(False)` — further from uniform-ready
-   than probing was) + add the missing `is_ndarray` dispatch, wire the `*_derivatives` methods (ambient
-   derivative transpose stays deferred). Built by **mirroring 3b-6**; order-0 cross-checks the plain `WKC`.
+1. **3b-6′ — uniform `probe_derivatives.py`** (the jet/derivative version of 3b-6). **Detailed plan +
+   "Lessons from 3b-6" (read first) in `dev/uniform_fix_plan.md`.** Scope covers **BOTH layers**: the plain
+   `UniformTuckerTensorTrain.{probe,apply,entries}_derivatives` (which do NOT exist yet) *and* the
+   `UT3Tangent` derivatives + transposes. Build the `d`-prefixed jet `trs_*` contractions (order axes ride
+   as leading batches on top of `d`), fix the map-style `_jets` fns (hardcode `get_backend(False)`) + the
+   **unroll trap in `build_input_jets`** (same class as the `_entry_xis` bug 3b-6c fixed), wire the
+   frontends (ambient derivative transpose stays deferred). Built by **mirroring 3b-6**; order-0 of every
+   jet contraction cross-checks the verified plain `dWKC`.
 2. **3b-7 — sweep + cleanup.** Tests/doctests final sweep; **delete `OLD_uniform*.py` + the `if False:`
    graveyard** once functionality is confirmed preserved (the standing caution). Relax the now-cosmetic
    `Sequence`-only type hints on the polymorphic `apply_tangent`/`entries_tangent` (+ transposes) to
