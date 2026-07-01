@@ -526,7 +526,42 @@ class UT3Tangent:
         the forward Riemannian Jacobian derivatives ``y_i^(t) = d^t/ds^t [probe(X + s P)]_i|_0`` for
         ``t=0..order`` (order 0 is :py:meth:`probe`; the bare ``𝒥``, no gauge ``Π``). ``ww``/``pp`` share the
         sample stack ``W``; stacks ``order + W + K + C``. Uniform mirror of
-        :py:meth:`~t3toolbox.manifold.T3Tangent.probe_derivatives`."""
+        :py:meth:`~t3toolbox.manifold.T3Tangent.probe_derivatives`.
+
+        No *numerical* precondition (gauge-invariant, any frame). **Structural precondition** (hard error):
+        ``P`` (``pp``) shares the sample stack ``W`` and mode dims of ``X`` (``ww``).
+
+        See Also
+        --------
+        probe
+        apply_derivatives
+        probe_derivatives_transpose
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> import t3toolbox.uniform_manifold as ut3m
+        >>> np.random.seed(0)
+        >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)))
+        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(x))
+        >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> zj = v.probe_derivatives(ww, pp, 3)
+        >>> print([z.shape for z in zj])                                    # (order+1,) + (Ni,)
+        [(4, 10), (4, 11), (4, 12)]
+        >>> print([bool(np.allclose(z[0], z0)) for z, z0 in zip(zj, v.probe(ww))])   # order 0 == probe
+        [True, True, True]
+
+        ``P`` must match ``X``'s sample stack and mode dims (structural, raises):
+
+        >>> v.probe_derivatives(ww, (np.random.randn(10), np.random.randn(11), np.random.randn(99)), 3)
+        ... # doctest: +IGNORE_EXCEPTION_DETAIL
+        Traceback (most recent call last):
+            ...
+        ValueError
+        """
         probe_derivatives.check_perturbation_vectors(ww, pp)
         return ubv_sampling.ut3tangent_probe_derivatives(ww, pp, self.basis.data, self.variations.data, order)
 
@@ -537,8 +572,24 @@ class UT3Tangent:
             order:  int,                    # highest derivative order
     ) -> NDArray:                           # scalar jets, shape=(order+1,)+W+K+C
         """Symmetric all-modes apply derivatives (derivative twin of :py:meth:`apply`; the bare ``𝒥``, a
-        scalar jet per stack element). Uniform mirror of
-        :py:meth:`~t3toolbox.manifold.T3Tangent.apply_derivatives`."""
+        scalar jet per stack element). Structural precondition as in :py:meth:`probe_derivatives`. Uniform
+        mirror of :py:meth:`~t3toolbox.manifold.T3Tangent.apply_derivatives`.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> import t3toolbox.uniform_manifold as ut3m
+        >>> np.random.seed(0)
+        >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)))
+        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(x))
+        >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> yj = v.apply_derivatives(ww, pp, 3)
+        >>> print(yj.shape, bool(np.allclose(yj[0], v.apply(ww))))          # (order+1,); order 0 == apply
+        (4,) True
+        """
         probe_derivatives.check_perturbation_vectors(ww, pp)
         return ubv_sampling.ut3tangent_apply_derivatives(ww, pp, self.basis.data, self.variations.data, order)
 
@@ -550,7 +601,22 @@ class UT3Tangent:
     ) -> NDArray:                           # scalar jets, shape=(order+1,)+W+K+C
         """Symmetric entry derivatives at ``index`` in direction ``P`` (derivative twin of :py:meth:`entries`;
         the bare ``𝒥``). ``index`` and ``pp`` share ``W``. Uniform mirror of
-        :py:meth:`~t3toolbox.manifold.T3Tangent.entries_derivatives`."""
+        :py:meth:`~t3toolbox.manifold.T3Tangent.entries_derivatives`.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> import t3toolbox.uniform_manifold as ut3m
+        >>> np.random.seed(0)
+        >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)))
+        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(x))
+        >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> yj = v.entries_derivatives(np.array([3, 5, 7]), pp, 3)
+        >>> print(yj.shape, bool(np.allclose(yj[0], v.entries((3, 5, 7)))))  # (order+1,); order 0 == entries
+        (4,) True
+        """
         probe_derivatives.check_perturbation_index(index, pp, self.shape)
         return ubv_sampling.ut3tangent_entries_derivatives(index, pp, self.basis.data, self.variations.data, order)
 
@@ -566,7 +632,36 @@ class UT3Tangent:
         :py:meth:`~t3toolbox.manifold.T3Tangent.probe_transpose`: the residuals live in the forward probe
         space (``W+K+C``); ``sum_over_probes=False`` keeps the probe stack ``W`` as the result's tangent
         stack (``W+K``), ``True`` sums it (``K``, the Gauss-Newton ``𝒥ᵀr``). The bare ``𝒥ᵀ`` (no gauge
-        projector ``Π``)."""
+        projector ``Π``).
+
+        See Also
+        --------
+        probe
+        apply_transpose
+        probe_derivatives_transpose
+
+        Examples
+        --------
+        The defining property -- the adjoint identity ``<r, 𝒥v> = <𝒥ᵀr, v>`` (summed over probes):
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> import t3toolbox.uniform_manifold as ut3m
+        >>> np.random.seed(0)
+        >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)))
+        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(x))
+        >>> ww = [np.random.randn(2, N) for N in (10, 11, 12)]              # probe stack W=(2,)
+        >>> zz = v.probe(ww)
+        >>> r = [np.random.randn(*np.asarray(z).shape) for z in zz]
+        >>> JTr = ut3m.UT3Tangent.probe_transpose(r, ww, v.basis, sum_over_probes=True)
+        >>> lhs = sum(float(np.sum(ri * np.asarray(zi))) for ri, zi in zip(r, zz))
+        >>> print(bool(abs(lhs - float(JTr.corewise_inner(v))) < 1e-9))
+        True
+        >>> keep = ut3m.UT3Tangent.probe_transpose(r, ww, v.basis, sum_over_probes=False)
+        >>> print(keep.tangent_stack_shape, JTr.tangent_stack_shape)        # keep W (=W+K) vs sum W (=K)
+        (2,) ()
+        """
         vd = ubv_sampling.ut3tangent_probe_transpose(
             ztildes, ww, basis.data, sum_over_probes=sum_over_probes)
         return UT3Tangent(basis, _ut3variations_from_data(vd))
@@ -612,9 +707,37 @@ class UT3Tangent:
     ) -> 'UT3Tangent':  # tangent stack W+K (sum_over_probes=False) or K (True); base stack C
         """Transpose ``𝒥ᵀ`` of :py:meth:`probe_derivatives`: back-project residual jets into a
         :py:class:`UT3Tangent` at ``basis``. The residual jets live in the forward derivative-probe space
-        (``(order+1)+W+K+C+(Ni,)``); the tangent batch ``K`` rides through, ``sum_over_probes`` sums (``True``,
+        (``(order+1)+W+K+C+(Ni,)``); the transpose sums the order axis, so the result is a single tangent
+        (no order axis). The tangent batch ``K`` rides through, ``sum_over_probes`` sums (``True``,
         Gauss-Newton ``𝒥ᵀr``) or keeps (``False``) the sample stack ``W``. Bare ``𝒥ᵀ``. Uniform mirror of
-        :py:meth:`~t3toolbox.manifold.T3Tangent.probe_derivatives_transpose`."""
+        :py:meth:`~t3toolbox.manifold.T3Tangent.probe_derivatives_transpose`.
+
+        See Also
+        --------
+        probe_derivatives
+        probe_transpose
+        apply_derivatives_transpose
+
+        Examples
+        --------
+        The adjoint identity ``<r, 𝒥v> = <𝒥ᵀr, v>`` per order (the measurement dot sums the order axis too):
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> import t3toolbox.uniform_manifold as ut3m
+        >>> np.random.seed(0)
+        >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)))
+        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(x))
+        >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+        >>> Jv = v.probe_derivatives(ww, pp, 2)
+        >>> r = [np.random.randn(*np.asarray(z).shape) for z in Jv]
+        >>> JTr = ut3m.UT3Tangent.probe_derivatives_transpose(r, ww, pp, v.basis, 2, sum_over_probes=True)
+        >>> lhs = sum(float(np.sum(ri * np.asarray(zi))) for ri, zi in zip(r, Jv))
+        >>> print(bool(abs(lhs - float(JTr.corewise_inner(v))) < 1e-9))
+        True
+        """
         probe_derivatives.check_perturbation_vectors(ww, pp)
         vd = ubv_sampling.ut3tangent_probe_derivatives_transpose(
             ztildes, ww, pp, basis.data, order, sum_over_probes=sum_over_probes)
