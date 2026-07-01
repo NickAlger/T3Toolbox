@@ -36,6 +36,9 @@ __all__ = [
     'ut3tangent_probe_derivatives',
     'ut3tangent_apply_derivatives',
     'ut3tangent_entries_derivatives',
+    'ut3tangent_probe_derivatives_transpose',
+    'ut3tangent_apply_derivatives_transpose',
+    'ut3tangent_entries_derivatives_transpose',
 ]
 
 
@@ -212,5 +215,71 @@ def ut3tangent_entries_transpose(
     mb = ubv_masking.apply_basis_masks(basis_data)
     dU_tilde, dG_tilde = probing.entries_tangent_transpose(
         c, index, mb, sum_over_probes=sum_over_probes)
+    masks = _gauge_masks_over_Knew(basis_data, dU_tilde)
+    return (dU_tilde, dG_tilde, basis_data[4], masks)
+
+
+# ----------------------------------------------------------------- the transpose 𝒥ᵀ derivatives (jets; 3b-6'c)
+# The jet-ified twins of the transpose wrappers above: back-project residual JETS (which carry the leading
+# order axis) into a SINGLE variation gradient (the transpose sums the order axis in the assembly, so the
+# output has no order axis -- structurally identical to the plain transpose). Mask-once, pack ww AND pp
+# (entries: pp only), share probe_derivatives.*_tangent_derivatives_transpose, attach the gauge masks over
+# the new tangent stack K_new (the same _gauge_masks_over_Knew as the plain transpose). The bare 𝒥ᵀ.
+
+def ut3tangent_probe_derivatives_transpose(
+        ztildes,          # probe residual jets, len=d, ith elm_shape=(order+1,)+W+K+C+(Ni,)
+        ww,               # probe vectors,   len=d, ith elm_shape=W+(Ni,)
+        pp,               # perturbation P,  len=d, ith elm_shape=W+(Ni,)
+        basis_data,       # UT3Basis .data (an orthogonal frame), supercore stack = C
+        order,            # highest derivative order
+        sum_over_probes=False,
+):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks); stack K_new + C
+    """Apply the transpose ``𝒥ᵀ`` of the probe-derivative map to residual jets (the bare adjoint). Mask-once,
+    pack the residual jets + ``ww`` + ``pp``, share ``probe_derivatives.probe_tangent_derivatives_transpose``,
+    attach the gauge masks over the new tangent stack ``K_new``."""
+    mb = ubv_masking.apply_basis_masks(basis_data)
+    N = mb[0].shape[-1]
+    packed_z = ut3_operations.pack_vectors(ztildes, N)
+    packed_ww = ut3_operations.pack_vectors(ww, N)
+    packed_pp = ut3_operations.pack_vectors(pp, N)
+    dU_tilde, dG_tilde = probe_derivatives.probe_tangent_derivatives_transpose(
+        packed_z, packed_ww, packed_pp, mb, order, sum_over_probes=sum_over_probes)
+    masks = _gauge_masks_over_Knew(basis_data, dU_tilde)
+    return (dU_tilde, dG_tilde, basis_data[4], masks)
+
+
+def ut3tangent_apply_derivatives_transpose(
+        c,                # residual jet (scalar), shape=(order+1,)+W+K+C
+        ww,               # apply vectors,  len=d, ith elm_shape=W+(Ni,)
+        pp,               # perturbation P, len=d, ith elm_shape=W+(Ni,)
+        basis_data,       # UT3Basis .data (orthogonal frame), stack=C
+        order,            # highest derivative order
+        sum_over_probes=False,
+):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks); stack K_new + C
+    """Apply the transpose ``𝒥ᵀ`` of the all-modes apply-derivative (the bare adjoint-state method)."""
+    mb = ubv_masking.apply_basis_masks(basis_data)
+    N = mb[0].shape[-1]
+    packed_ww = ut3_operations.pack_vectors(ww, N)
+    packed_pp = ut3_operations.pack_vectors(pp, N)
+    dU_tilde, dG_tilde = probe_derivatives.apply_tangent_derivatives_transpose(
+        c, packed_ww, packed_pp, mb, order, sum_over_probes=sum_over_probes)
+    masks = _gauge_masks_over_Knew(basis_data, dU_tilde)
+    return (dU_tilde, dG_tilde, basis_data[4], masks)
+
+
+def ut3tangent_entries_derivatives_transpose(
+        c,                # residual jet (scalar), shape=(order+1,)+W+K+C
+        index,            # int array, shape=(d,)+W
+        pp,               # perturbation P, len=d, ith elm_shape=W+(Ni,)
+        basis_data,       # UT3Basis .data (orthogonal frame), stack=C
+        order,            # highest derivative order
+        sum_over_probes=False,
+):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks); stack K_new + C
+    """Apply the transpose ``𝒥ᵀ`` of the all-modes entry-derivative (scatter ``c`` at ``index``; ``pp`` packed,
+    ``index`` unpacked -- the one-hots are built packed inside ``probing._onehot_vectors``)."""
+    mb = ubv_masking.apply_basis_masks(basis_data)
+    packed_pp = ut3_operations.pack_vectors(pp, mb[0].shape[-1])
+    dU_tilde, dG_tilde = probe_derivatives.entries_tangent_derivatives_transpose(
+        c, index, packed_pp, mb, order, sum_over_probes=sum_over_probes)
     masks = _gauge_masks_over_Knew(basis_data, dU_tilde)
     return (dU_tilde, dG_tilde, basis_data[4], masks)

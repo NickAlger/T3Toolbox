@@ -506,6 +506,30 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda t, *w: t.apply_derivatives(w[:3], w[3:], 2), v, *ww, *pp)
         self.assert_jit_jax(lambda t, i, *w: t.entries_derivatives(i, w, 2), v, idx, *pp)
 
+        # 3b-6'c transpose derivatives 𝒥ᵀ: residual jets -> UT3Tangent (jit the whole op + .to_dense()); the
+        # supercores trace through the d-prefixed JET adjoint contractions + scan sweeps, gauge masks host.
+        bj = v.basis                                                     # jax frame, C=()
+        rj = tuple(jnp.array(np.random.randn(3, 2, N)) for N in STRUCT[0])   # probe residual jets, (order+1,W,Ni)
+        cj = jnp.array(np.random.randn(3, 2))                            # scalar residual jet, (order+1,W)
+        self.assert_jit_jax(
+            lambda r0, r1, r2, *w: ut3m.UT3Tangent.probe_derivatives_transpose(
+                (r0, r1, r2), w[:3], w[3:], bj, 2, sum_over_probes=True).to_dense(), *rj, *ww, *pp)
+        self.assert_jit_jax(
+            lambda c, *w: ut3m.UT3Tangent.apply_derivatives_transpose(c, w[:3], w[3:], bj, 2, sum_over_probes=True).to_dense(),
+            cj, *ww, *pp)
+        self.assert_jit_jax(
+            lambda c, i, *w: ut3m.UT3Tangent.entries_derivatives_transpose(c, i, w, bj, 2, sum_over_probes=True).to_dense(),
+            cj, idx, *pp)
+
+        # corewise (non-manifold) derivative transposes on the plain UT3 (gradient w.r.t. cores; §6.3)
+        self.assert_jit_jax(
+            lambda u, c, *w: u.apply_corewise_derivatives_transpose(c, w[:3], w[3:], 2, sum_over_probes=True), xu, cj, *ww, *pp)
+        self.assert_jit_jax(
+            lambda u, c, i, *w: u.entries_corewise_derivatives_transpose(c, i, w, 2, sum_over_probes=True), xu, cj, idx, *pp)
+        self.assert_jit_jax(
+            lambda u, r0, r1, r2, *w: u.probe_corewise_derivatives_transpose((r0, r1, r2), w[:3], w[3:], 2, sum_over_probes=True),
+            xu, *rj, *ww, *pp)
+
     # ---------------------------------------------------- stack/unstack: masks must stay host under jax
     def test_stack_unstack_keeps_masks_host(self):
         # stacking.stack infers ONE backend per call, so stacking a jax object's supercores together with

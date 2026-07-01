@@ -343,6 +343,31 @@ class UniformTuckerTensorTrain:
         :py:meth:`apply_corewise_transpose`."""
         return ut3_sampling.ut3_probe_corewise_transpose(ztildes, ww, self.data, sum_over_probes=sum_over_probes)
 
+    # ------------------------------------------------- corewise (non-manifold) derivative transposes (3b-6'c)
+    def apply_corewise_derivatives_transpose(self, c, ww, pp, order, sum_over_probes=False):
+        """Corewise (non-manifold) transpose of :py:meth:`apply_derivatives`: gradient of the
+        apply-derivative jets w.r.t. the supercores (treated as free variables), for a core-wise optimizer.
+        Returns the raw gradient supercores ``(tucker_grad, tt_grad)``. The §6.3 ``(P,Q,O)->G`` substitution.
+        ``sum_over_probes=True`` sums the apply stack ``W``. Uniform mirror of
+        :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_corewise_derivatives_transpose`."""
+        probe_derivatives.check_perturbation_vectors(ww, pp)
+        return ut3_sampling.ut3_apply_corewise_derivatives_transpose(
+            c, ww, pp, self.data, order, sum_over_probes=sum_over_probes)
+
+    def entries_corewise_derivatives_transpose(self, c, index, pp, order, sum_over_probes=False):
+        """Corewise transpose of :py:meth:`entries_derivatives`: gradient w.r.t. the supercores (= one-hot
+        :py:meth:`apply_corewise_derivatives_transpose`). See :py:meth:`apply_corewise_derivatives_transpose`."""
+        probe_derivatives.check_perturbation_index(index, pp, self.shape)
+        return ut3_sampling.ut3_entries_corewise_derivatives_transpose(
+            c, index, pp, self.data, order, sum_over_probes=sum_over_probes)
+
+    def probe_corewise_derivatives_transpose(self, ztildes, ww, pp, order, sum_over_probes=False):
+        """Corewise transpose of :py:meth:`probe_derivatives`: gradient w.r.t. the supercores. See
+        :py:meth:`apply_corewise_derivatives_transpose`."""
+        probe_derivatives.check_perturbation_vectors(ww, pp)
+        return ut3_sampling.ut3_probe_corewise_derivatives_transpose(
+            ztildes, ww, pp, self.data, order, sum_over_probes=sum_over_probes)
+
     def sum(self, axis=None) -> NDArray:
         """Sum the represented tensor over all physical modes (shape=stack_shape). Partial sums (``axis``
         given) are deferred -- see docs/uniform_port_plan.md."""

@@ -24,6 +24,9 @@ __all__ = [
     'ut3_probe_derivatives',
     'ut3_apply_derivatives',
     'ut3_entries_derivatives',
+    'ut3_apply_corewise_derivatives_transpose',
+    'ut3_entries_corewise_derivatives_transpose',
+    'ut3_probe_corewise_derivatives_transpose',
 ]
 
 # All re-mask first (so the padded "garbage" contributes nothing), then call the SHARED, already-
@@ -178,3 +181,61 @@ def ut3_entries_derivatives(
     masked = ut3_masking.apply_masks_to_cores(data)
     packed_pp = ut3_operations.pack_vectors(pp, masked[0].shape[-1])
     return probe_derivatives.entries_derivatives_t3(index, packed_pp, masked, order)
+
+
+# ----------------------------------------------------------- corewise derivative transposes (jets; 3b-6'c)
+# The jet-ified twins of the corewise transposes above: gradient of a plain-T3 derivative sampling op w.r.t.
+# the base's own supercores (the §6.3 (P,Q,O)->G substitution, via the now-polymorphic
+# probe_derivatives.*_corewise_derivatives_transpose). Mask-once + pack ww/pp (entries: pp only) at the
+# boundary; return the RAW gradient supercores (dU, dG), clean-padded. For a uniform core-wise optimizer.
+
+def ut3_apply_corewise_derivatives_transpose(
+        c:     NDArray,                # residual jet (scalar), shape=(order+1,)+W+K+C
+        ww:    typ.Sequence[NDArray],  # apply vectors,          len=d, ith elm_shape=W+(Ni,)
+        pp:    typ.Sequence[NDArray],  # perturbation vectors P, len=d, ith elm_shape=W+(Ni,)
+        data:  UT3Data,
+        order: int,                    # highest derivative order
+        sum_over_probes: bool = False,
+) -> typ.Tuple[NDArray, NDArray]:     # (tucker-core grad supercore, tt-core grad supercore)
+    """Corewise transpose of :py:func:`ut3_apply_derivatives`: gradient w.r.t. the base supercores. ``ww``/``pp`` packed to N."""
+    masked = ut3_masking.apply_masks_to_cores(data)
+    N = masked[0].shape[-1]
+    packed_ww = ut3_operations.pack_vectors(ww, N)
+    packed_pp = ut3_operations.pack_vectors(pp, N)
+    return probe_derivatives.apply_corewise_derivatives_transpose(
+        c, packed_ww, packed_pp, masked, order, sum_over_probes=sum_over_probes)
+
+
+def ut3_entries_corewise_derivatives_transpose(
+        c:     NDArray,                # residual jet (scalar), shape=(order+1,)+W+K+C
+        index: NDArray,                # int, shape=(d,)+W
+        pp:    typ.Sequence[NDArray],  # perturbation vectors P, len=d, ith elm_shape=W+(Ni,)
+        data:  UT3Data,
+        order: int,
+        sum_over_probes: bool = False,
+) -> typ.Tuple[NDArray, NDArray]:     # (tucker-core grad supercore, tt-core grad supercore)
+    """Corewise transpose of :py:func:`ut3_entries_derivatives`: gradient w.r.t. the base supercores
+    (``pp`` packed, ``index`` unpacked)."""
+    masked = ut3_masking.apply_masks_to_cores(data)
+    packed_pp = ut3_operations.pack_vectors(pp, masked[0].shape[-1])
+    return probe_derivatives.entries_corewise_derivatives_transpose(
+        c, index, packed_pp, masked, order, sum_over_probes=sum_over_probes)
+
+
+def ut3_probe_corewise_derivatives_transpose(
+        ztildes: typ.Sequence[NDArray],  # probe residual jets, len=d, ith elm_shape=(order+1,)+W+C+(Ni,)
+        ww:      typ.Sequence[NDArray],  # probe vectors,          len=d, ith elm_shape=W+(Ni,)
+        pp:      typ.Sequence[NDArray],  # perturbation vectors P, len=d, ith elm_shape=W+(Ni,)
+        data:    UT3Data,
+        order:   int,
+        sum_over_probes: bool = False,
+) -> typ.Tuple[NDArray, NDArray]:     # (tucker-core grad supercore, tt-core grad supercore)
+    """Corewise transpose of :py:func:`ut3_probe_derivatives`: gradient w.r.t. the base supercores.
+    ``ztildes``/``ww``/``pp`` packed to N."""
+    masked = ut3_masking.apply_masks_to_cores(data)
+    N = masked[0].shape[-1]
+    packed_z = ut3_operations.pack_vectors(ztildes, N)
+    packed_ww = ut3_operations.pack_vectors(ww, N)
+    packed_pp = ut3_operations.pack_vectors(pp, N)
+    return probe_derivatives.probe_corewise_derivatives_transpose(
+        packed_z, packed_ww, packed_pp, masked, order, sum_over_probes=sum_over_probes)

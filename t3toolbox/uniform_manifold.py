@@ -600,6 +600,60 @@ class UT3Tangent:
             c, index, basis.data, sum_over_probes=sum_over_probes)
         return UT3Tangent(basis, _ut3variations_from_data(vd))
 
+    # --------------------------------------------------------- derivative transpose 𝒥ᵀ (jets; 3b-6'c)
+    @staticmethod
+    def probe_derivatives_transpose(
+            ztildes,                   # probe residual jets, len=d, ith elm_shape=(order+1,)+W+K+C+(Ni,)
+            ww,                        # probe vectors,   len=d, ith elm_shape=W+(Ni,)
+            pp,                        # perturbation P,  len=d, ith elm_shape=W+(Ni,)
+            basis:  ubv.UT3Basis,      # the orthogonal frame the tangent attaches at
+            order:  int,               # highest derivative order
+            sum_over_probes:  bool = False,
+    ) -> 'UT3Tangent':  # tangent stack W+K (sum_over_probes=False) or K (True); base stack C
+        """Transpose ``𝒥ᵀ`` of :py:meth:`probe_derivatives`: back-project residual jets into a
+        :py:class:`UT3Tangent` at ``basis``. The residual jets live in the forward derivative-probe space
+        (``(order+1)+W+K+C+(Ni,)``); the tangent batch ``K`` rides through, ``sum_over_probes`` sums (``True``,
+        Gauss-Newton ``𝒥ᵀr``) or keeps (``False``) the sample stack ``W``. Bare ``𝒥ᵀ``. Uniform mirror of
+        :py:meth:`~t3toolbox.manifold.T3Tangent.probe_derivatives_transpose`."""
+        probe_derivatives.check_perturbation_vectors(ww, pp)
+        vd = ubv_sampling.ut3tangent_probe_derivatives_transpose(
+            ztildes, ww, pp, basis.data, order, sum_over_probes=sum_over_probes)
+        return UT3Tangent(basis, _ut3variations_from_data(vd))
+
+    @staticmethod
+    def apply_derivatives_transpose(
+            c,                         # residual jet (scalar), shape=(order+1,)+W+K+C
+            ww,                        # apply vectors, len=d, ith elm_shape=W+(Ni,)
+            pp,                        # perturbation P, len=d, ith elm_shape=W+(Ni,)
+            basis:  ubv.UT3Basis,
+            order:  int,
+            sum_over_probes:  bool = False,
+    ) -> 'UT3Tangent':
+        """Transpose ``𝒥ᵀ`` of :py:meth:`apply_derivatives` (the adjoint-state apply-derivative transpose).
+        ``sum_over_probes`` as in :py:meth:`probe_derivatives_transpose`. Uniform mirror of
+        :py:meth:`~t3toolbox.manifold.T3Tangent.apply_derivatives_transpose`."""
+        probe_derivatives.check_perturbation_vectors(ww, pp)
+        vd = ubv_sampling.ut3tangent_apply_derivatives_transpose(
+            c, ww, pp, basis.data, order, sum_over_probes=sum_over_probes)
+        return UT3Tangent(basis, _ut3variations_from_data(vd))
+
+    @staticmethod
+    def entries_derivatives_transpose(
+            c,                         # residual jet (scalar), shape=(order+1,)+W+K+C
+            index,                     # int, shape=(d,)+W
+            pp,                        # perturbation P, len=d, ith elm_shape=W+(Ni,)
+            basis:  ubv.UT3Basis,
+            order:  int,
+            sum_over_probes:  bool = False,
+    ) -> 'UT3Tangent':
+        """Transpose ``𝒥ᵀ`` of :py:meth:`entries_derivatives`: scatter residual jets ``c`` at ``index`` into a
+        tangent (= :py:meth:`apply_derivatives_transpose` with one-hot vectors). Uniform mirror of
+        :py:meth:`~t3toolbox.manifold.T3Tangent.entries_derivatives_transpose`."""
+        probe_derivatives.check_perturbation_index(index, pp, basis.shape)
+        vd = ubv_sampling.ut3tangent_entries_derivatives_transpose(
+            c, index, pp, basis.data, order, sum_over_probes=sum_over_probes)
+        return UT3Tangent(basis, _ut3variations_from_data(vd))
+
     def sum_tangents(self, axis=None) -> 'UT3Tangent':
         """Sum over the tangent stack ``K`` (a batch of tangents at the shared base) into one tangent.
 

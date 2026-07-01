@@ -998,13 +998,19 @@ def compute_deta_tilde_jets(
     diagonal). The 1-internal-edge (Tucker) case -- the order axis just rides through (no trs). The
     residual carries the tangent stack K (the forward output's K), which rides through.'''
     use_jax = tree_contains_jax((up_tucker_cores, ztildes))
-    xnp, xmap, _ = get_backend(False, use_jax)
+    is_uniform = is_ndarray(up_tucker_cores)
+    xnp, xmap, _ = get_backend(is_uniform, use_jax)
 
-    def _func(data):
-        U, zt = data
-        return (contractions.tWKCo_Cio_to_tWKCi(zt, U),)
+    if is_uniform:
+        # d-prefixed adjoint lift (3b-6'a); the ragged xmap is the oracle. The order axis rides passively
+        # through the C-only U supercore (delegates to the shared-C dWCo_dCio_to_dWCi, t+W+K folded into W).
+        deta_tildes = contractions.dtWKCo_dCio_to_dtWKCi(ztildes, up_tucker_cores)
+    else:
+        def _func(data):
+            U, zt = data
+            return (contractions.tWKCo_Cio_to_tWKCi(zt, U),)
 
-    (deta_tildes,) = xmap(_func, (up_tucker_cores, ztildes))
+        (deta_tildes,) = xmap(_func, (up_tucker_cores, ztildes))
     return deta_tildes
 
 
@@ -1013,7 +1019,7 @@ def _adj_sweep(P_cores, xi_jets, deta_tildes, edge_jets, trs):
     (mirroring probing.compute_tau_tildes) of the adjoint-hooked pushthrough (propagation) plus the
     deta_tilde source. Both terms are the same trs, wired as the transpose (output at the swept order s).'''
     use_jax = tree_contains_jax((P_cores, xi_jets, deta_tildes, edge_jets, trs))
-    xnp, xmap, xscan = get_backend(False, use_jax)
+    xnp, xmap, xscan = get_backend(is_ndarray(P_cores), use_jax)  # scan-style: xscan strips d, per-slice trs_*
     s_size = min(2, trs.shape[0])
     trs_xi = trs[:, :s_size, :]            # input jet (xi) carries orders {0, 1}
 
@@ -1051,7 +1057,8 @@ def compute_sigma_tilde_jets(
         trs:            NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
 ) -> typ.Tuple[NDArray, ...]:                   # sigma_tildes. len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
     '''Adjoint-var-leftward edge-variable jets -- the mirror (reverse) of compute_tau_tilde_jets.'''
-    rev = _adj_sweep(ragged_ops.reverse_tt(right_tt_cores), xi_jets[::-1],
+    reverse = uniform_ops.reverse_utt if is_ndarray(right_tt_cores) else ragged_ops.reverse_tt
+    rev = _adj_sweep(reverse(right_tt_cores), xi_jets[::-1],
                      deta_tildes[::-1], nu_jets[::-1], trs)
     return rev[::-1]
 
@@ -1067,17 +1074,25 @@ def compute_dxi_tilde_jets(
     '''Adjoint-var-down edge-variable jets (jet-ified probing.compute_dxi_tildes): two adjoint-hooked
     combines giving delta-xi-tilde on the mode (output at the order-<=1 leg u).'''
     use_jax = tree_contains_jax((down_tt_cores, mu_jets, nu_jets, sigma_tildes, tau_tildes, trs))
-    xnp, xmap, _ = get_backend(False, use_jax)
+    is_uniform = is_ndarray(down_tt_cores)
+    xnp, xmap, _ = get_backend(is_uniform, use_jax)
 
-    def _func(data):
-        O, mu, nu, st, tt = data
-        # Three-group (W,K,C): tau_tilde (tt) / sigma_tilde (st) carry K, mu/nu (base) and O (base core)
-        # do not. Both self-infer (mu/nu pin W, O pins C, K=remainder).
-        from_tau = contractions.trs_tWKCa_Caib_sWCb_to_uWKCi(trs, tt, O, nu)
-        from_sig = contractions.trs_rWCa_Caib_tWKCb_to_uWKCi(trs, mu, O, st)
-        return (from_tau + from_sig,)
+    if is_uniform:
+        # d-prefixed adjoint combines (3b-6'a); the ragged xmap is the oracle. tau/sigma_tilde carry K; mu/nu
+        # are W+C; O is the C-only down supercore. Both self-infer the W/K/C split.
+        from_tau = contractions.trs_dtWKCa_dCaib_dsWCb_to_duWKCi(trs, tau_tildes, down_tt_cores, nu_jets)
+        from_sig = contractions.trs_drWCa_dCaib_dtWKCb_to_duWKCi(trs, mu_jets, down_tt_cores, sigma_tildes)
+        dxi_tildes = from_tau + from_sig
+    else:
+        def _func(data):
+            O, mu, nu, st, tt = data
+            # Three-group (W,K,C): tau_tilde (tt) / sigma_tilde (st) carry K, mu/nu (base) and O (base core)
+            # do not. Both self-infer (mu/nu pin W, O pins C, K=remainder).
+            from_tau = contractions.trs_tWKCa_Caib_sWCb_to_uWKCi(trs, tt, O, nu)
+            from_sig = contractions.trs_rWCa_Caib_tWKCb_to_uWKCi(trs, mu, O, st)
+            return (from_tau + from_sig,)
 
-    (dxi_tildes,) = xmap(_func, (down_tt_cores, mu_jets, nu_jets, sigma_tildes, tau_tildes))
+        (dxi_tildes,) = xmap(_func, (down_tt_cores, mu_jets, nu_jets, sigma_tildes, tau_tildes))
     return dxi_tildes
 
 
@@ -1093,11 +1108,19 @@ def assemble_tucker_variation_jets(
     '''Assemble Tucker-core variation gradients (the 1-edge, plain-order-sum case):
     ``dU_tilde = sum_t eta^(t) (x) r^(t) + sum_u dxi_tilde^(u) (x) w_jet^(u)``.'''
     use_jax = tree_contains_jax((ztildes, dxi_tildes, ww, pp, etas))
-    _, xmap, _ = get_backend(False, use_jax)
+    is_uniform = is_ndarray(etas)
+    _, xmap, _ = get_backend(is_uniform, use_jax)
     w_jets = build_input_jets(ww, pp)          # ambient input jets (value, direction) for dU
     s_size = min(2, etas[0].shape[0])          # the w/dxi input jet carries orders {0, 1}, capped at order
     # Three-group (W,K,C): the residual-derived operands (ztilde, dxi_tilde) carry K, eta is base; the
     # eta (x) r term takes n_probe (C from eta), the dxi (x) w_jet term self-pins W from the W-only w_jet.
+    if is_uniform:
+        # d-prefixed assembly (3b-6'a); the order axis is at supercore axis 1, so the w/dxi order-slice is
+        # [:, :s_size] (NOT [:s_size], which would slice the leading core axis d). Ragged xmap is the oracle.
+        eta_r = contractions.dtWCa_dtWKCo_to_dKCao if sum_over_probes else contractions.dtWCa_dtWKCo_to_dWKCao
+        dxi_w = contractions.duWKCa_duWo_to_dKCao if sum_over_probes else contractions.duWKCa_duWo_to_dWKCao
+        return eta_r(etas, ztildes, n_probe) + dxi_w(dxi_tildes[:, :s_size], w_jets[:, :s_size])
+
     eta_r = contractions.tWCa_tWKCo_to_KCao if sum_over_probes else contractions.tWCa_tWKCo_to_WKCao
     dxi_w = contractions.uWKCa_uWo_to_KCao  if sum_over_probes else contractions.uWKCa_uWo_to_WKCao
 
@@ -1124,11 +1147,28 @@ def assemble_tt_variation_jets(
     ``mu (x) xi (x) sigma_tilde + tau_tilde (x) xi (x) nu + mu (x) deta_tilde (x) nu`` (the core-adjoints
     of the forward sigma / tau / deta contractions).'''
     use_jax = tree_contains_jax((sigma_tildes, tau_tildes, deta_tildes, xi_jets, mu_jets, nu_jets, trs))
-    xnp, xmap, _ = get_backend(False, use_jax)
+    is_uniform = is_ndarray(xi_jets)
+    xnp, xmap, _ = get_backend(is_uniform, use_jax)
     s_size = min(2, trs.shape[0])
     # Three-group (W,K,C): the residual-derived adjoint vars carry K on the assembled core's leg --
     # sigma_tilde on b (f_sig), tau_tilde on a (f_tau), deta_tilde on i (f_det); the base xi/mu/nu do
     # not. K kept always; W summed (sum_over_probes -> KCaib) or kept (WKCaib). n_probe = len(W).
+    if is_uniform:
+        # d-prefixed dG assembly (3b-6'a); the xi order-slice is [:, :s_size] (order at supercore axis 1).
+        # trs is shared (no d), so its slices are unchanged. Ragged xmap is the oracle.
+        if sum_over_probes:
+            f_sig, f_tau, f_det = (contractions.trs_drWCa_duWCi_dtWKCb_to_dKCaib,
+                                   contractions.trs_dtWKCa_duWCi_dsWCb_to_dKCaib,
+                                   contractions.trs_drWCa_dtWKCi_dsWCb_to_dKCaib)
+        else:
+            f_sig, f_tau, f_det = (contractions.trs_drWCa_duWCi_dtWKCb_to_dWKCaib,
+                                   contractions.trs_dtWKCa_duWCi_dsWCb_to_dWKCaib,
+                                   contractions.trs_drWCa_dtWKCi_dsWCb_to_dWKCaib)
+        t_sig = f_sig(trs[:, :, :s_size], mu_jets, xi_jets[:, :s_size], sigma_tildes, n_probe)
+        t_tau = f_tau(trs[:, :s_size, :], tau_tildes, xi_jets[:, :s_size], nu_jets, n_probe)
+        t_det = f_det(trs,                mu_jets, deta_tildes,           nu_jets, n_probe)
+        return t_sig + t_tau + t_det
+
     if sum_over_probes:
         f_sig, f_tau, f_det = (contractions.trs_rWCa_uWCi_tWKCb_to_KCaib,
                                contractions.trs_tWKCa_uWCi_sWCb_to_KCaib,
@@ -1245,11 +1285,13 @@ def compute_sigma_hat_jets(
     stack ``K`` (from ``c``). Right-to-left via ``reverse_tt`` (mirroring the ``Q``-sweep there).
     '''
     use_jax = tree_contains_jax((right_tt_cores, xi_jets, c, trs))
-    xnp, xmap, xscan = get_backend(False, use_jax)
+    xnp, xmap, xscan = get_backend(is_ndarray(right_tt_cores), use_jax)  # scan-style: xscan strips d, per-slice
     s_size = min(2, trs.shape[0])
     trs_xi = trs[:, :s_size, :]                # input jet (xi) carries orders {0, 1}
 
-    rev_Q = ragged_ops.reverse_tt(right_tt_cores)
+    # Polymorphic reverse (uniform reverse_utt keeps the supercore; ragged_ops.reverse_tt would iterate d).
+    reverse = uniform_ops.reverse_utt if is_ndarray(right_tt_cores) else ragged_ops.reverse_tt
+    rev_Q = reverse(right_tt_cores)
     rev_xi = xi_jets[::-1]
     # The forward sums the terminal bond (rR_d, not necessarily 1 -- e.g. the corewise base's own
     # cores), so the adjoint BROADCASTS c over it: seed -> (order+1)+W+K+C+(rR_d,).
@@ -1271,9 +1313,20 @@ def _apply_derivatives_transpose_from_jets(
     w_jets are formed). Runs the seeded sigma_hat sweep, the dxi_hat combine, and the single-term
     gradient assembly (dG = mu (x) xi (x) sigma_hat, dU = dxi_hat (x) w_jet). Returns (dU, dG).'''
     use_jax = tree_contains_jax((c, xi_jets, mu_jets, w_jets, down_tt_cores, right_tt_cores, trs))
-    xnp, xmap, _ = get_backend(False, use_jax)
+    is_uniform = is_ndarray(down_tt_cores)
+    xnp, xmap, _ = get_backend(is_uniform, use_jax)
     s_size = min(2, trs.shape[0])
-    sigma_hats = compute_sigma_hat_jets(right_tt_cores, xi_jets, c, trs)
+    sigma_hats = compute_sigma_hat_jets(right_tt_cores, xi_jets, c, trs)   # polymorphic
+
+    if is_uniform:
+        # d-prefixed adjoint combine + single-term assembly (3b-6'a); the w/dxi order-slice is [:, :s_size]
+        # (order at supercore axis 1). trs is shared (no d). Ragged xmap is the oracle.
+        dxi_hats = contractions.trs_drWCa_dCaib_dtWKCb_to_duWKCi(trs, mu_jets, down_tt_cores, sigma_hats)
+        dG = contractions.trs_drWCa_duWCi_dtWKCb_to_dKCaib if sum_over_probes else contractions.trs_drWCa_duWCi_dtWKCb_to_dWKCaib
+        dU = contractions.duWKCa_duWo_to_dKCao if sum_over_probes else contractions.duWKCa_duWo_to_dWKCao
+        dG_tildes = dG(trs[:, :, :s_size], mu_jets, xi_jets[:, :s_size], sigma_hats, n_probe)
+        dU_tildes = dU(dxi_hats[:, :s_size], w_jets[:, :s_size])
+        return dU_tildes, dG_tildes
 
     def _dxi_hat(data):
         O, mu, sh = data                        # dxi_hat = mu * O * sigma_hat (mode leg free)
