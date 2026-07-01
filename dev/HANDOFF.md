@@ -4,14 +4,19 @@ _Updated 2026-07-01._
 
 ## Where we are
 
-**The uniform-layer fix (the 1.0 centerpiece) is well advanced: the uniform *tangent backend*, the *two
-geometries*, the *tangent + corewise probing* (`𝒥` / `𝒥ᵀ`), AND now the *derivative (jet) probing*
-(`probe_derivatives`) are all built and exhaustively tested.** Branch `main`, direct commits; full suite
-green throughout (**553 passed / 40 134 subtests**).
+**The uniform-layer fix (the 1.0 centerpiece) — increment 3b — is COMPLETE.** The uniform *tangent backend*,
+the *two geometries*, the *tangent + corewise probing* (`𝒥` / `𝒥ᵀ`), the *derivative (jet) probing*
+(`probe_derivatives`), and the *doc + cleanup sweep* are all built, exhaustively tested, doctested, and
+cleaned. Branch `main`, direct commits; full suite green throughout (**557 passed / 40 149 subtests**).
 
-Done **this session (2026-07-01) — Increment 3b-6′, uniform `probe_derivatives`** (the jet/derivative twin
-of 3b-6), both the plain `UniformTuckerTensorTrain` and `UT3Tangent` layers, per-element verified vs ragged
-+ adjoint-identity + mask-strict + garbage-robust + jit-clean:
+**→ The next major step is making the optimizers/fitting run on the uniform layer** — speed is the layer's
+whole reason for existing (see "Next steps" below).
+
+Done **this session (2026-07-01)**:
+
+**Increment 3b-6′ — uniform `probe_derivatives`** (the jet/derivative twin of 3b-6), both the plain
+`UniformTuckerTensorTrain` and `UT3Tangent` layers, per-element verified vs ragged + adjoint-identity +
+mask-strict + garbage-robust + jit-clean:
 - **3b-6′a** — the 20 `d`-prefixed uniform JET contractions in `backend/contractions.py` (the binomial-jet
   `trs_*` twins with `d` prepended; `d` leads, then the order axis, then W/K/C). Oracle + order-0-anchor tested.
 - **3b-6′b** — forward `𝒥`: `build_input_jets` unroll-trap fix (stack at axis 1, not a per-core loop over
@@ -24,8 +29,16 @@ of 3b-6), both the plain `UniformTuckerTensorTrain` and `UT3Tangent` layers, per
   hardcoded `get_backend(False)` and `ragged_ops.reverse_tt` in `probe_derivatives.py` are now polymorphic.**
 - **3b-6′d** — the mask-strict + garbage-robust hardening (`TestUT3DerivativeHardening`).
 
-Earlier this session's context also produced the two extra unroll-trap discoveries beyond `build_input_jets`
-(the `reverse_tt` in the four reversers), which the plan had mislabeled as "already uniform-aware".
+Two extra unroll-trap discoveries beyond `build_input_jets` surfaced here (the `reverse_tt` in the four
+reversers), which the plan had mislabeled as "already uniform-aware".
+
+**Increment 3b-7 — sweep + cleanup** (closes increment 3b):
+- **Documentation pass** — doctested the previously-bare uniform sampling/derivative surface (~21 methods
+  across `UniformTuckerTensorTrain` + `UT3Tangent`) to the `tucker_tensor_train.py`/`manifold.py` standard:
+  signature shape-comments, precondition notes (bare 𝒥/𝒥ᵀ → no *numerical* precondition; the structural
+  P-matches-X one shown as a failure-mode doctest), adjoint-identity + order-0 anchors. 114 + 128 doctests pass.
+- **Deleted `OLD_uniform*.py`** (all 3, incl. the `if False:` graveyard) — dead + preserved, signed off.
+- Deferred: `Sequence`→`Union` hint relaxation → R2; residual `OLD_*`/`OLD_test_*` stray files → R6.
 
 Done in earlier sessions:
 - Slices 1, 2 (the `shape_mask`→int-tuple migration), value-hashed mask holders, and the cleanup before the
@@ -73,19 +86,21 @@ varying-`C`, and jit-clean:
     (`tests/test_uniform_probing.py`).
   - **The probe-derivative (jet) version — slice 3b-6′ — is now DONE** (this session; see above).
 
-## Next steps (increment 3b essentially DONE)
+## Next steps — optimizers/fitting on the uniform layer (the whole point: speed)
 
-The full slicing + design lives in **`dev/uniform_fix_plan.md`** (the living plan); status here.
-- **3b-7 — sweep + cleanup — DONE (2026-07-01).** (a) **Documentation pass**: doctested the previously-bare
-  uniform sampling/derivative surface (~21 methods across `UniformTuckerTensorTrain` + `UT3Tangent`) to the
-  `tucker_tensor_train.py`/`manifold.py` standard — signature shape-comments, precondition notes (bare 𝒥/𝒥ᵀ:
-  no *numerical* precondition; the structural P-matches-X one shown as a failure-mode doctest), adjoint-identity
-  + order-0 anchors. 114 + 128 doctests pass. (b) **Deleted `OLD_uniform*.py`** (all 3, incl. the `if False:`
-  graveyard) — confirmed dead + functionality preserved in the tested rebuild, signed off by Nick. (c) The
-  cosmetic `Sequence`→`Union` hint relaxation is **deferred to R2** (its natural mechanical/suite-gated home;
-  runtime already polymorphic). Residual OLD_* / OLD_test_* stray files → R6.
-- **Next: make the optimizers/fitting work on the uniform layer** (speed is its whole point), then the
-  release-hygiene roadmap below.
+Increment 3b is done (slicing history in **`dev/uniform_fix_plan.md`**). The uniform layer now evaluates
+(`to_dense`, sampling, `𝒥`/`𝒥ᵀ`, derivatives) exactly like the ragged layer but through stacked supercores +
+host masks, and is jit-clean. **What it does NOT yet have: the optimize loop.** Next increment:
+- **Wire `GaussNewtonModel` (`fitting.py`) + the four optimizers (`optimizers.py`) to run on uniform
+  supercores.** The geometry-generic design already abstracts over `MANIFOLD`/`COREWISE`; the uniform
+  `UNIFORM_MANIFOLD`/`UNIFORM_COREWISE` geometries + the sampling/derivative Jacobians are all built, so this
+  is mostly *wiring + a uniform `x0`/precompute path*, not new math. **Design constraint — read first:**
+  [`docs/uniform_backend_jit_recipe.md`](../docs/uniform_backend_jit_recipe.md) (masks can't be traced → the
+  optimizer holds them as loop-invariant state and traces only the supercores; jit the whole step closing over
+  the base masks so the frame masks constant-fold). The `precompute_*_base_sweep` reuse hooks (plain + jet)
+  are already uniform-polymorphic — the fitting inner-solve reuse should fall out.
+- Then the **release-hygiene roadmap** below (R1–R6), incl. the deferred `Sequence`→`Union` sweep (R2) and the
+  residual `OLD_*`/`OLD_test_*` deletion (R6).
 
 ## The 1.0 roadmap (mid-level-toolkit scope) — summary
 - **R1** packaging correctness (`readme = README.md`; create `CHANGELOG.md`; numpy range).
