@@ -892,4 +892,168 @@ class TestContractions(unittest.TestCase):
         self._check_jet3(contractions.uWKCa_uWo_to_KCao,
                          [('u', 'WKC', 'a'), ('u', 'W', 'o')], ('', 'KC', 'ao'), trs_sub="")
 
+    # ---- d-prefixed uniform JET contractions (3b-6'a) ----
+
+    def _check_jet3_d(self, func, op_specs, out_spec, trs_sub='trs', needs_n_base=False, needs_n_probe=False):
+        """d-prefixed twin of :py:meth:`_check_jet3`: prepend a leading core-index axis ``d`` to every
+        jet/core operand and the output (``trs`` stays shared, no ``d``), and verify against the
+        d-vectorized ``np.einsum`` reference. Uniform jet layout is ``d + order + W + K + C + (...)``, so the
+        order letters sit AFTER ``d``. Since a d-batched einsum equals the ragged jet applied per d-slice,
+        this IS the "per d-index == ragged trs_*" oracle (the ragged twins share op_specs, checked above)."""
+        from t3toolbox.backend.probe_derivatives import binomial_combine_tensor
+        D = 3
+        ORD = 3                                       # order axis length (order=2); exercises the convolution
+        OSIZE = {'t': ORD, 'r': ORD, 's': ORD, 'u': ORD}
+        for RANDN in [numpy_randn, jax_randn]:
+            for W, K, C in THREE_GROUP_COMBOS:
+                with self.subTest(RANDN=RANDN, W=W, K=K, C=C):
+                    stacks = {'W': W, 'K': K, 'C': C}
+                    glet = {grp: GROUP_POOL[grp][:len(stacks[grp])] for grp in 'WKC'}
+
+                    def sub(ords, groups, singles):
+                        return 'd' + ords + ''.join(glet[grp] for grp in groups) + singles
+
+                    def shp(ords, groups, singles):
+                        s = (D,) + tuple(OSIZE[o] for o in ords)
+                        for grp in groups:
+                            s = s + tuple(stacks[grp])
+                        return s + tuple(SINGLE_SIZE[c] for c in singles)
+
+                    operands = [RANDN(*shp(*spec)) for spec in op_specs]
+                    in_subs = [sub(*spec) for spec in op_specs]
+                    args = list(operands)
+                    if trs_sub:
+                        trs_t = binomial_combine_tensor(ORD - 1)
+                        operands = [trs_t] + operands
+                        in_subs = [trs_sub] + in_subs
+                        args = [trs_t] + args
+                    ref = np.einsum(','.join(in_subs) + '->' + sub(*out_spec), *operands)
+                    extra = (len(C),) if needs_n_base else (len(W),) if needs_n_probe else ()
+                    result = np.asarray(func(*args, *extra))
+                    self.assertEqual(ref.shape, result.shape)
+                    self.check_relerr(ref, result)
+
+    # forward combine + lift
+    def test_trs_drWCa_dCaib_dsWCb_to_dtWCi(self):
+        self._check_jet3_d(contractions.trs_drWCa_dCaib_dsWCb_to_dtWCi,
+                           [('r', 'WC', 'a'), ('', 'C', 'aib'), ('s', 'WC', 'b')], ('t', 'WC', 'i'))
+
+    def test_dtWCi_dCio_to_dtWCo(self):
+        self._check_jet3_d(contractions.dtWCi_dCio_to_dtWCo,
+                           [('t', 'WC', 'i'), ('', 'C', 'io')], ('t', 'WC', 'o'), trs_sub="")
+
+    def test_dtWKCi_dCio_to_dtWKCo(self):
+        self._check_jet3_d(contractions.dtWKCi_dCio_to_dtWKCo,
+                           [('t', 'WKC', 'i'), ('', 'C', 'io')], ('t', 'WKC', 'o'), trs_sub="")
+
+    def test_dtWCi_dKCio_to_dtWKCo(self):
+        self._check_jet3_d(contractions.dtWCi_dKCio_to_dtWKCo,
+                           [('t', 'WC', 'i'), ('', 'KC', 'io')], ('t', 'WKC', 'o'), trs_sub="", needs_n_base=True)
+
+    def test_trs_drWKCa_dCaib_dsWCb_to_dtWKCi(self):
+        self._check_jet3_d(contractions.trs_drWKCa_dCaib_dsWCb_to_dtWKCi,
+                           [('r', 'WKC', 'a'), ('', 'C', 'aib'), ('s', 'WC', 'b')], ('t', 'WKC', 'i'))
+
+    def test_trs_drWCa_dKCaib_dsWCb_to_dtWKCi(self):
+        self._check_jet3_d(contractions.trs_drWCa_dKCaib_dsWCb_to_dtWKCi,
+                           [('r', 'WC', 'a'), ('', 'KC', 'aib'), ('s', 'WC', 'b')], ('t', 'WKC', 'i'),
+                           needs_n_base=True)
+
+    def test_trs_drWCa_dCaib_dsWKCb_to_dtWKCi(self):
+        self._check_jet3_d(contractions.trs_drWCa_dCaib_dsWKCb_to_dtWKCi,
+                           [('r', 'WC', 'a'), ('', 'C', 'aib'), ('s', 'WKC', 'b')], ('t', 'WKC', 'i'))
+
+    # transpose sweeps + assembly
+    def test_dtWKCo_dCio_to_dtWKCi(self):
+        self._check_jet3_d(contractions.dtWKCo_dCio_to_dtWKCi,
+                           [('t', 'WKC', 'o'), ('', 'C', 'io')], ('t', 'WKC', 'i'), trs_sub="")
+
+    def test_trs_dtWKCa_dCaib_dsWCb_to_duWKCi(self):
+        self._check_jet3_d(contractions.trs_dtWKCa_dCaib_dsWCb_to_duWKCi,
+                           [('t', 'WKC', 'a'), ('', 'C', 'aib'), ('s', 'WC', 'b')], ('u', 'WKC', 'i'),
+                           trs_sub='tus')
+
+    def test_trs_drWCa_dCaib_dtWKCb_to_duWKCi(self):
+        self._check_jet3_d(contractions.trs_drWCa_dCaib_dtWKCb_to_duWKCi,
+                           [('r', 'WC', 'a'), ('', 'C', 'aib'), ('t', 'WKC', 'b')], ('u', 'WKC', 'i'),
+                           trs_sub='tru')
+
+    # dG gradient assembly (order summed -> out has no order letter)
+    def test_trs_drWCa_duWCi_dtWKCb_to_dWKCaib(self):
+        self._check_jet3_d(contractions.trs_drWCa_duWCi_dtWKCb_to_dWKCaib,
+                           [('r', 'WC', 'a'), ('u', 'WC', 'i'), ('t', 'WKC', 'b')], ('', 'WKC', 'aib'),
+                           trs_sub='tru', needs_n_probe=True)
+
+    def test_trs_drWCa_duWCi_dtWKCb_to_dKCaib(self):
+        self._check_jet3_d(contractions.trs_drWCa_duWCi_dtWKCb_to_dKCaib,
+                           [('r', 'WC', 'a'), ('u', 'WC', 'i'), ('t', 'WKC', 'b')], ('', 'KC', 'aib'),
+                           trs_sub='tru', needs_n_probe=True)
+
+    def test_trs_dtWKCa_duWCi_dsWCb_to_dWKCaib(self):
+        self._check_jet3_d(contractions.trs_dtWKCa_duWCi_dsWCb_to_dWKCaib,
+                           [('t', 'WKC', 'a'), ('u', 'WC', 'i'), ('s', 'WC', 'b')], ('', 'WKC', 'aib'),
+                           trs_sub='tus', needs_n_probe=True)
+
+    def test_trs_dtWKCa_duWCi_dsWCb_to_dKCaib(self):
+        self._check_jet3_d(contractions.trs_dtWKCa_duWCi_dsWCb_to_dKCaib,
+                           [('t', 'WKC', 'a'), ('u', 'WC', 'i'), ('s', 'WC', 'b')], ('', 'KC', 'aib'),
+                           trs_sub='tus', needs_n_probe=True)
+
+    def test_trs_drWCa_dtWKCi_dsWCb_to_dWKCaib(self):
+        self._check_jet3_d(contractions.trs_drWCa_dtWKCi_dsWCb_to_dWKCaib,
+                           [('r', 'WC', 'a'), ('t', 'WKC', 'i'), ('s', 'WC', 'b')], ('', 'WKC', 'aib'),
+                           trs_sub='trs', needs_n_probe=True)
+
+    def test_trs_drWCa_dtWKCi_dsWCb_to_dKCaib(self):
+        self._check_jet3_d(contractions.trs_drWCa_dtWKCi_dsWCb_to_dKCaib,
+                           [('r', 'WC', 'a'), ('t', 'WKC', 'i'), ('s', 'WC', 'b')], ('', 'KC', 'aib'),
+                           trs_sub='trs', needs_n_probe=True)
+
+    # dU gradient assembly (order-diagonal sum -> no trs operand)
+    def test_dtWCa_dtWKCo_to_dWKCao(self):
+        self._check_jet3_d(contractions.dtWCa_dtWKCo_to_dWKCao,
+                           [('t', 'WC', 'a'), ('t', 'WKC', 'o')], ('', 'WKC', 'ao'),
+                           trs_sub="", needs_n_probe=True)
+
+    def test_dtWCa_dtWKCo_to_dKCao(self):
+        self._check_jet3_d(contractions.dtWCa_dtWKCo_to_dKCao,
+                           [('t', 'WC', 'a'), ('t', 'WKC', 'o')], ('', 'KC', 'ao'),
+                           trs_sub="", needs_n_probe=True)
+
+    def test_duWKCa_duWo_to_dWKCao(self):
+        self._check_jet3_d(contractions.duWKCa_duWo_to_dWKCao,
+                           [('u', 'WKC', 'a'), ('u', 'W', 'o')], ('', 'WKC', 'ao'), trs_sub="")
+
+    def test_duWKCa_duWo_to_dKCao(self):
+        self._check_jet3_d(contractions.duWKCa_duWo_to_dKCao,
+                           [('u', 'WKC', 'a'), ('u', 'W', 'o')], ('', 'KC', 'ao'), trs_sub="")
+
+    def test_jet_d_order0_anchor(self):
+        """The 3b-6' anchor (plan lesson #3): at order 0 each d-prefixed jet contraction reduces to the
+        plain dWKC contraction verified in 3b-6a. A free cross-check on top of the np.einsum oracle above:
+        it catches order-axis bookkeeping slips (a stray order slot in the wrong place). Slice all order
+        axes to index 0 and compare against the plain d-prefixed twin on the order-0 operand slices."""
+        from t3toolbox.backend.probe_derivatives import binomial_combine_tensor
+        D, W, K, C = 3, (2,), (4,), (5,)
+        a, i, b, o = 6, 7, 8, 9
+        trs = binomial_combine_tensor(2)              # (t,r,s) = (3,3,3)
+        for RANDN in [numpy_randn, jax_randn]:
+            with self.subTest(RANDN=RANDN):
+                # forward combine term1: trs_drWKCa_dCaib_dsWCb_to_dtWKCi  ==0==  dWKCa_dCaib_dWCb_to_dWKCi
+                drWKCa = RANDN(D, 3, *W, *K, *C, a); dCaib = RANDN(D, *C, a, i, b); dsWCb = RANDN(D, 3, *W, *C, b)
+                jet = np.asarray(contractions.trs_drWKCa_dCaib_dsWCb_to_dtWKCi(trs, drWKCa, dCaib, dsWCb))
+                plain = np.asarray(contractions.dWKCa_dCaib_dWCb_to_dWKCi(
+                    np.asarray(drWKCa)[:, 0], dCaib, np.asarray(dsWCb)[:, 0]))
+                self.check_relerr(plain, jet[:, 0])
+
+                # dG assembly (sum W): trs_drWCa_duWCi_dtWKCb_to_dKCaib  ==0==  dWCa_dWCi_dWKCb_to_dKCaib.
+                # The assembly sums all orders (r+u=t), so zero orders >0 -> only the r=u=t=0 term survives.
+                drWCa = np.array(RANDN(D, 3, *W, *C, a)); duWCi = np.array(RANDN(D, 3, *W, *C, i))
+                dtWKCb = np.array(RANDN(D, 3, *W, *K, *C, b))
+                drWCa[:, 1:] = 0.0; duWCi[:, 1:] = 0.0; dtWKCb[:, 1:] = 0.0
+                jetG = np.asarray(contractions.trs_drWCa_duWCi_dtWKCb_to_dKCaib(trs, drWCa, duWCi, dtWKCb, len(W)))
+                plainG = np.asarray(contractions.dWCa_dWCi_dWKCb_to_dKCaib(
+                    drWCa[:, 0], duWCi[:, 0], dtWKCb[:, 0], len(W)))
+                self.check_relerr(plainG, jetG)
+
 
