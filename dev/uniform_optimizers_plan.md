@@ -9,7 +9,9 @@ supercores). Design settled with Nick in the 2026-07-06 session._
 
 _**Progress:** U1 DONE (2026-07-06) — `ubv_corewise_inner` + `GeometryOps.inner` seam; ragged
 non-regression byte-identical, uniform-equivalence + garbage-robust + stacking verified, jit-clean.
-Next: U2 (uniform `GeometryOps` factories)._
+U2 DONE (2026-07-06) — `backend/uniform_fitting.py` `uniform_{manifold,corewise}_ops` factories (bare
+supercore pairs, masks closed over); verified == the frontend geometry `.data` path + mask
+loop-invariance across points. Next: U3 (uniform `SamplingKind` builders)._
 
 ## The key architectural fact (why this is mostly wiring, not new math)
 
