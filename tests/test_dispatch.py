@@ -350,6 +350,37 @@ class TestDispatch(unittest.TestCase):
         self.assertEqual(traces[0], 1, "whole-step jit recompiled -- base should be traced-internal, not aux")
         self._leaves_all_jax(X)
 
+    def test_jit_uniform_optimizer_wholestep(self):
+        # The UNIFORM mask-holding recipe (docs/uniform_backend_jit_recipe.md): the per-step optimizer kernel
+        # closes over the host-numpy masks (via the uniform geometry/kind) and traces only the SUPERCORES, so
+        # with changing supercores it COMPILES ONCE -- the frame masks re-derived inside local_model
+        # constant-fold; no per-step recompile. One clean trace also proves the step is jit-clean (a stray np
+        # on a tracer, or a tracer leaking into the host-numpy masks, would break the compile).
+        import t3toolbox.backend.uniform_fitting as uf
+        import t3toolbox.corewise as cw
+        from t3toolbox.backend import apply as bapply
+        SH, TK, TT = STRUCT
+        W = 12
+        x_true = t3.TuckerTensorTrain.randn(SH, TK, TT)
+        ww = [jnp.asarray(np.random.randn(W, n)) for n in SH]
+        data = jnp.asarray(bapply.tucker_tensor_train_apply(x_true.data, [np.asarray(w) for w in ww]))
+        ux0 = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(SH, TK, TT)).to_jax()
+        sc = (ux0.data[0], ux0.data[1])                     # jax supercores; masks stay host numpy
+        prob = uf.uniform_least_squares_problem('manifold', 'apply', ux0, ww, data)
+        traces = [0]
+        @jax.jit
+        def step(supercores):
+            traces[0] += 1                                  # +1 per TRACE (compile), not per call
+            lm = prob.local_model(supercores)
+            g = lm.gradient
+            alpha = prob.geom.inner(g, g) / jnp.maximum(lm.gn_quadratic(g), 1e-30)   # Cauchy step
+            return lm.retract(cw.corewise_scale(g, -alpha))
+        for _ in range(3):
+            sc = step(sc)                                   # changing supercores, fixed shape
+        jax.block_until_ready(sc)
+        self.assertEqual(traces[0], 1, "uniform whole-step jit recompiled -- masks must be closed-over host np")
+        self._leaves_all_jax(ut3.UniformTuckerTensorTrain(sc[0], sc[1], ux0.shape, ux0.masks))
+
     # ---------------------------------------------------- jit bucket: UniformTuckerTensorTrain
     def test_jit_uniform(self):
         # Slice 7: a jitted uniform op must (a) dispatch to pure jax on the supercores and (b) -- for ops
