@@ -86,21 +86,6 @@ def _flatten_tangents(tree) -> typ.List['UT3Tangent']:
     return out
 
 
-def _variations_stack_dot(
-        va:  ubv.UT3Variations,  # mask-applied variations (real content only)
-        vb:  ubv.UT3Variations,  # mask-applied variations (same structure)
-) -> NDArray:                    # shape = stack_shape (K+C); scalar (0-d) when unstacked
-    """Coordinate dot of two (mask-applied) variations, reduced over the non-stack axes (leading mode
-    index ``d`` + the core axes), keeping the stack -- one dot per stacked tangent. Uniform-direct (the
-    supercores are ``d``-leading), mirroring :py:meth:`UT3Variations.allclose`'s reduction."""
-    n_stack = len(va.stack_shape)
-    xnp, _, _ = get_backend(True, va.contains_jax or vb.contains_jax)
-    total = 0.0
-    for sa, sb in zip(va.supercores, vb.supercores):
-        total = total + xnp.sum(sa * sb, axis=(0,) + tuple(range(1 + n_stack, sa.ndim)))
-    return total
-
-
 @dataclass(frozen=True)
 class UT3Tangent:
     """Tangent vector to the uniform manifold of fixed-rank Tucker tensor trains (uniform analog of
@@ -267,7 +252,8 @@ class UT3Tangent:
         gauged frame; for that semantic use the (forthcoming) manifold geometry's ``inner``.
         """
         self._check_same_tangent_space(other)
-        return _variations_stack_dot(self.variations.apply_masks(), other.variations.apply_masks())
+        return ubv_tangent_operations.ubv_corewise_inner(
+            self.variations.data, other.variations.data, len(self.stack_shape))
 
     def corewise_norm(self) -> NDArray:  # shape = stack_shape (K+C); scalar unstacked
         """The raw corewise (coordinate) norm of the variations (masked content) -- **not** the HS norm.

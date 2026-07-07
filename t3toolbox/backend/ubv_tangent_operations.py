@@ -33,6 +33,7 @@ __all__ = [
     'tangent_to_ut3',
     'retract',
     'corewise_retract',
+    'ubv_corewise_inner',
     'orthogonal_gauge_projection',
     'oblique_gauge_projection',
     'gauge_residual',
@@ -337,6 +338,34 @@ def corewise_retract(
     new_tk = bcast_sc(up_sc) + dU
     new_tt = bcast_sc(G_sc) + dG
     return (new_tk, new_tt, shape, (bcast_mask(up_mask), bcast_mask(basis_left_mask)))
+
+
+def ubv_corewise_inner(
+        variations_a:  typ.Tuple,  # UT3Variations .data: (tkv, ttv, shape, masks), supercore stack = K + C
+        variations_b:  typ.Tuple,  # UT3Variations .data: same structure as variations_a
+        n_stack:       int,        # number of leading stack axes (K + C) to keep; 0 -> a single scalar
+) -> NDArray:                      # coordinate inner product, shape = stack_shape[:n_stack] (scalar if n_stack==0)
+    """The raw coordinate (corewise) inner product of two uniform tangents' variations -- mask-applied and
+    stack-keeping; **not** the Hilbert-Schmidt metric.
+
+    The raw-tuple backend twin of :py:meth:`~t3toolbox.uniform_manifold.UT3Tangent.corewise_inner` (which
+    delegates here). Masks both variation supercores once (``apply_variations_masks`` -- so the garbage
+    padding is zeroed, never summed into the dot), then sums the elementwise product over the leading mode
+    index ``d`` and the trailing core axes, **keeping the first** ``n_stack`` **stack axes** (one dot per
+    stacked tangent). Pass ``n_stack = len(stack_shape)`` to keep the whole ``K + C`` stack, or
+    ``n_stack = 0`` to collapse to a single scalar -- the unstacked optimizer's coordinate ``⟨·,·⟩``, the
+    check-free twin the geometries' ``inner`` binds (it equals Hilbert-Schmidt only on an orthonormal,
+    gauged frame). Masking makes it robust to garbage padding, so the reduction needs no clean-padding
+    precondition.
+    """
+    use_jax = tree_contains_jax((variations_a[0], variations_a[1], variations_b[0], variations_b[1]))
+    xnp, _, _ = get_backend(True, use_jax)
+    masked_a = ubv_masking.apply_variations_masks(variations_a)   # (masked_tkv, masked_ttv), stack = K + C
+    masked_b = ubv_masking.apply_variations_masks(variations_b)
+    total = 0.0
+    for sa, sb in zip(masked_a, masked_b):
+        total = total + xnp.sum(sa * sb, axis=(0,) + tuple(range(1 + n_stack, sa.ndim)))
+    return total
 
 
 def orthogonal_gauge_projection(

@@ -55,6 +55,7 @@ class GeometryOps:
     base:    typ.Callable    # x_cores=(U,G)            -> base=(U,O,P,Q)        the linearization frame
     project: typ.Callable    # (base, variations)       -> variations           gauge Π (identity for corewise)
     retract: typ.Callable    # (base, variations)       -> x_cores=(U,G)        chart retraction
+    inner:   typ.Callable    # (v1, v2)                 -> scalar               coordinate ⟨·,·⟩ (check-free twin of Geometry.inner)
 
 
 def _corewise_base(
@@ -68,6 +69,7 @@ COREWISE = GeometryOps(
     base=_corewise_base,
     project=lambda base, var: var,                                   # Euclidean cores: no gauge projection
     retract=lambda base, var: cw.corewise_add((base[0], base[2]), var),   # additive: (U,P)=(U,G) += var
+    inner=cw.corewise_dot,                                           # ragged coordinate dot (layer-agnostic tree dot)
 )
 
 
@@ -82,6 +84,7 @@ MANIFOLD = GeometryOps(
     base=_manifold_base,
     project=lambda base, var: tops.orthogonal_gauge_projection(base, var),   # Π  (gauge-fix the tangent)
     retract=lambda base, var: tops.retract(base, var),                       # implicit truncated T3-SVD
+    inner=cw.corewise_dot,                                                    # ragged coordinate dot
 )
 
 
@@ -216,7 +219,7 @@ def gradient_descent(
         f = float(lm.objective)
         losses.append(f)
         g = lm.gradient
-        gg = float(cw.corewise_dot(g, g))                   # ‖g‖²
+        gg = float(problem.geom.inner(g, g))                # ‖g‖²
         if g0norm is None:
             g0norm = gg ** 0.5 if gg > 0 else 1.0
         if gg ** 0.5 <= gtol_rel * g0norm:                  # converged
@@ -257,7 +260,7 @@ def mc_sgd(
     def step(cores, sample_B, data_B):                      # the jit-able per-step kernel
         lm = problem.local_model(cores, sample_B, data_B)
         g = lm.gradient
-        gg = cw.corewise_dot(g, g)
+        gg = problem.geom.inner(g, g)
         xnp, _, _ = get_backend(False, tree_contains_jax(g))
         alpha = gg / xnp.maximum(lm.gn_quadratic(g), 1e-30)
         return lm.retract(cw.corewise_scale(g, -alpha))
@@ -323,15 +326,16 @@ def adam(
     return cores, {'losses': losses, 'n_iter': max_iter}
 
 
-def _cg_solve(hvp, rhs, tol, maxiter, use_jit):
+def _cg_solve(hvp, rhs, tol, maxiter, use_jit, inner):
     """Solve ``H p = rhs`` by conjugate gradients (``H = hvp``, symmetric PSD), to residual ``‖r‖ ≤ tol``.
-    The body is **backend-agnostic and branch-free** (an ``xnp.where`` curvature guard: a nonpositive
-    ``dᵀHd`` -- a gauge direction of the singular corewise ``H`` -- takes a zero step and the ``ok`` flag
-    stops CG, i.e. truncated CG), so the SAME body runs eager (numpy/jax) or jit (``lax.while_loop``)
-    through :py:func:`common.xwhile`."""
+    ``inner`` is the geometry's coordinate ``⟨·,·⟩`` (``geom.inner`` -- masked for the uniform layer, so
+    padding is never summed). The body is **backend-agnostic and branch-free** (an ``xnp.where`` curvature
+    guard: a nonpositive ``dᵀHd`` -- a gauge direction of the singular corewise ``H`` -- takes a zero step
+    and the ``ok`` flag stops CG, i.e. truncated CG), so the SAME body runs eager (numpy/jax) or jit
+    (``lax.while_loop``) through :py:func:`common.xwhile`."""
     xnp, _, _ = get_backend(False, tree_contains_jax(rhs))
     tol2 = tol * tol
-    rs0 = cw.corewise_dot(rhs, rhs)
+    rs0 = inner(rhs, rhs)
     state0 = (cw.corewise_zeros_like(rhs), rhs, rhs, rs0, 0, rs0 > tol2)   # (p, r, d, rs, i, ok)
 
     def cond(s):
@@ -341,12 +345,12 @@ def _cg_solve(hvp, rhs, tol, maxiter, use_jit):
     def body(s):
         p, r, d, rs, i, ok = s
         Hd = hvp(d)
-        dHd = cw.corewise_dot(d, Hd)
+        dHd = inner(d, Hd)
         pos = dHd > 0.0
         alpha = xnp.where(pos, rs / xnp.where(pos, dHd, 1.0), 0.0)        # 0 step on nonpositive curvature
         p = cw.corewise_add(p, cw.corewise_scale(d, alpha))
         r = cw.corewise_sub(r, cw.corewise_scale(Hd, alpha))
-        rs_new = cw.corewise_dot(r, r)
+        rs_new = inner(r, r)
         beta = xnp.where(pos, rs_new / rs, 0.0)
         d = cw.corewise_add(r, cw.corewise_scale(d, beta))
         return (p, r, d, rs_new, i + 1, pos)
@@ -377,7 +381,7 @@ def newton_cg(
         f = float(lm.objective)
         losses.append(f)
         g = lm.gradient
-        gnorm = float(cw.corewise_dot(g, g)) ** 0.5
+        gnorm = float(problem.geom.inner(g, g)) ** 0.5
         if g0norm is None:
             g0norm = gnorm if gnorm > 0 else 1.0
         if gnorm <= gtol_rel * g0norm:
@@ -385,8 +389,9 @@ def newton_cg(
         newton_iters += 1
         eta = min(0.5, (gnorm / g0norm) ** 0.5)                          # inexact-Newton forcing term
         neg_g = cw.corewise_scale(g, -1.0)
-        p = _cg_solve(lm.hvp, neg_g, tol=eta * gnorm, maxiter=cg_maxiter, use_jit=use_jit)
-        slope = float(cw.corewise_dot(g, p))
+        p = _cg_solve(lm.hvp, neg_g, tol=eta * gnorm, maxiter=cg_maxiter, use_jit=use_jit,
+                      inner=problem.geom.inner)
+        slope = float(problem.geom.inner(g, p))
         if (not math.isfinite(slope)) or slope >= 0.0:                   # ensure a descent direction
             p, slope = neg_g, -gnorm * gnorm
         alpha, x_trial = 1.0, x

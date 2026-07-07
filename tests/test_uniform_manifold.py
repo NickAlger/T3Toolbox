@@ -21,6 +21,7 @@ import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.basis_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.safety as safety
+import t3toolbox.backend.ubv_tangent_operations as ubto
 
 try:
     import jax
@@ -280,6 +281,32 @@ class TestCoordinateMetricVsRagged(unittest.TestCase):
         corrupt = ubv.UT3Variations(ck_tkv + 100.0 * (1.0 - m_tkv),  # garbage ONLY in the padding
                                     ck_ttv + 100.0 * (1.0 - m_ttv), V.shape, V.masks)
         self.assertTrue(np.allclose(float(ut3m.UT3Tangent(B, corrupt).corewise_norm()), clean))
+
+    def test_ubv_corewise_inner_backend_entry_point(self):
+        # The raw-tuple backend twin `ubv_corewise_inner` (which `corewise_inner` delegates to) is a
+        # first-class capability for raw-.data users; pin it directly for the unstacked (n_stack=0 scalar)
+        # and base-stacked (n_stack=1, keeps C) cases against the frontend delegate.
+        for stack_shape in [(), (2,)]:
+            with self.subTest(stack_shape=stack_shape):
+                uv, _ = self._pair(stack_shape)
+                back = np.asarray(ubto.ubv_corewise_inner(
+                    uv.variations.data, uv.variations.data, len(stack_shape)))
+                front = np.asarray(uv.corewise_inner(uv))
+                self.assertEqual(back.shape, front.shape)          # () unstacked, (2,) base-stacked
+                self.assertTrue(np.allclose(back, front))
+
+    def test_ubv_corewise_inner_garbage_robust(self):
+        # Raw-tuple garbage-robustness: the backend masks internally, so big finite garbage in the
+        # masked-out padding leaves the coordinate dot unchanged (never summed).
+        uv, _ = self._pair()
+        V = uv.variations
+        clean = float(ubto.ubv_corewise_inner(V.data, V.data, 0))
+        tkv, ttv = V.supercores
+        m_tkv, m_ttv = ubv.UT3Variations(np.ones_like(tkv), np.ones_like(ttv),
+                                         V.shape, V.masks).apply_masks().supercores
+        ck_tkv, ck_ttv = V.apply_masks().supercores                # clean real content; padding already 0
+        garb = (ck_tkv + 1e6 * (1.0 - m_tkv), ck_ttv + 1e6 * (1.0 - m_ttv), V.shape, V.masks.data)
+        self.assertTrue(np.allclose(float(ubto.ubv_corewise_inner(garb, V.data, 0)), clean))
 
 
 class TestCheckersAndDimension(unittest.TestCase):
