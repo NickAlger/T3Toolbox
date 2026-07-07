@@ -25,8 +25,13 @@ the optimizer **split-seam is packed-only** (the inner loop keeps probe residual
 unpack/repack, `d` stays a scan axis). `sumsq_over_probes` + `_make_order_weight(order_axis=)` made
 packed-aware (ragged path byte-identical); the packed probe-derivative order axis is 1, so
 `uniform_probe_derivatives_kind` overrides ω with `order_axis=1`. Doc: `docs/uniform_equivalence_contract.md`
-gains the vector-I/O mirror section. Next: U4 (`LocalModel`/`Problem` wiring; the Problem packs the sample
-once so the optimizer runs fully packed)._
+gains the vector-I/O mirror section.
+U4 DONE (2026-07-06) — `uniform_least_squares_problem` (packs the loop-invariant sample+data once → the
+reused backend `Problem`/`LocalModel` run fully packed; optimizer state = the bare supercore pair). Verified
+`LocalModel` objective / gradient / `gn_quadratic` == ragged for every kind × both geometries. Next: U5 (run
+the four optimizers eager; `x_opt` == ragged). **Note for U5:** the minibatch `flat_draw`/`kind.take` need a
+packed-aware gather (`packed[:, idx]`) for mc_sgd/adam to keep minibatches packed — full-batch
+gradient_descent/newton_cg already run fully packed._
 
 ## The key architectural fact (why this is mostly wiring, not new math)
 

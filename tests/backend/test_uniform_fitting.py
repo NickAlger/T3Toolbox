@@ -14,6 +14,8 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.uniform_basis_variations_format as ubv
 import t3toolbox.uniform_manifold as ut3m
+import t3toolbox.manifold as t3m
+import t3toolbox.backend.optimizers as bopt
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.uniform_fitting as uf
 import t3toolbox.backend.ubv_tangent_operations as ubto
@@ -296,6 +298,74 @@ class TestUniformDerivativeSamplingKind(unittest.TestCase):
                 garb = (ck_tkv + 1e6 * (1.0 - m_tkv), ck_ttv + 1e6 * (1.0 - m_ttv))
                 dirty = kind_u.forward(garb, sample, self.base.data, sw)
                 self.assertTrue(np.allclose(np.asarray(clean), np.asarray(dirty)))   # scalar / packed array
+
+
+class TestUniformProblem(unittest.TestCase):
+    """U4: the uniform least-squares Problem (fully packed) reproduces the ragged backend Problem's
+    LocalModel -- objective, gradient (via <g, p>), and gn_quadratic(p) -- on the equivalent frame, for
+    every sampling kind and both geometries. This certifies the Problem factory's sample/data packing and
+    the reused LocalModel wiring."""
+    _GEOMS = [('manifold', bopt.MANIFOLD, t3m.MANIFOLD), ('corewise', bopt.COREWISE, t3m.COREWISE)]
+
+    def setUp(self):
+        import t3toolbox.corewise as cw
+        self.cw = cw
+        np.random.seed(0)
+        self.x0 = t3.TuckerTensorTrain.randn(*_STRUCT)
+        self.ux0 = ut3.UniformTuckerTensorTrain.from_t3(self.x0)
+        self.W = 15
+        # per-geometry trial tangent at x0's base (ragged .data + its uniform supercores)
+        self.trial = {}
+        for name, _bg, fg in self._GEOMS:
+            p = fg.randn(fg.base(self.x0))
+            self.trial[name] = (p.variations.data,
+                                ubv.UT3Variations.from_t3variations(p.variations).supercores)
+
+    def _check(self, geom, bgeom, kind_name, ragged_kind, sample, data, order=None, weight=None):
+        p_r, p_u = self.trial[geom]
+        prob_r = bopt.least_squares_problem(bgeom, ragged_kind, sample, data)
+        prob_u = uf.uniform_least_squares_problem(geom, kind_name, self.ux0, sample, data, order, weight)
+        lm_r = prob_r.local_model(self.x0.data)
+        lm_u = prob_u.local_model((self.ux0.data[0], self.ux0.data[1]))
+        self.assertTrue(np.isclose(float(lm_r.objective), float(lm_u.objective)), 'objective')
+        self.assertTrue(np.isclose(float(self.cw.corewise_dot(lm_r.gradient, p_r)),
+                                   float(prob_u.geom.inner(lm_u.gradient, p_u))), '<g, p>')
+        self.assertTrue(np.isclose(float(lm_r.gn_quadratic(p_r)), float(lm_u.gn_quadratic(p_u))),
+                        'gn_quadratic')
+
+    def _sample_data(self, kind_name):
+        SH = _STRUCT[0]
+        ww = [np.random.randn(self.W, n) for n in SH]
+        pp = [np.random.randn(self.W, n) for n in SH]
+        idx = np.stack([np.random.randint(0, n, size=self.W) for n in SH], axis=0)
+        O = 3
+        return {
+            'apply':   (ww, np.random.randn(self.W)),
+            'entries': (idx, np.random.randn(self.W)),
+            'probe':   (ww, [np.random.randn(self.W, n) for n in SH]),
+            'apply_derivatives':   ((ww, pp), np.random.randn(O + 1, self.W)),
+            'entries_derivatives': ((idx, pp), np.random.randn(O + 1, self.W)),
+            'probe_derivatives':   ((ww, pp), [np.random.randn(O + 1, self.W, n) for n in SH]),
+        }[kind_name]
+
+    def test_plain_kinds_match_ragged(self):
+        kinds = {'apply': bfit.APPLY, 'entries': bfit.ENTRIES, 'probe': bfit.PROBE}
+        for geom, bgeom, _fg in self._GEOMS:
+            for kind_name, ragged_kind in kinds.items():
+                with self.subTest(geometry=geom, kind=kind_name):
+                    sample, data = self._sample_data(kind_name)
+                    self._check(geom, bgeom, kind_name, ragged_kind, sample, data)
+
+    def test_derivative_kinds_match_ragged(self):
+        O, WEIGHT = 3, [1.0, 0.5, 0.3, 0.2]
+        kinds = {'apply_derivatives': bfit.apply_derivatives_kind,
+                 'entries_derivatives': bfit.entries_derivatives_kind,
+                 'probe_derivatives': bfit.probe_derivatives_kind}
+        for geom, bgeom, _fg in self._GEOMS:
+            for kind_name, factory in kinds.items():
+                with self.subTest(geometry=geom, kind=kind_name):
+                    sample, data = self._sample_data(kind_name)
+                    self._check(geom, bgeom, kind_name, factory(O, WEIGHT), sample, data, order=O, weight=WEIGHT)
 
 
 if __name__ == '__main__':
