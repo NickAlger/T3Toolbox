@@ -34,8 +34,26 @@ amplifies ~1e-15 packed-vs-ragged summation-order differences into a different p
 convergence test, not a trajectory match); `mc_sgd` tracks ragged + descends; `adam` (corewise) descends.
 Added the **packed-aware minibatch `take`** (`_ptake_*`, a single `bfit._flat_gather`) so mc_sgd/adam keep
 minibatches packed (verified == the ragged take's minibatch). `w_axes`/`n_measurements` needed no override
-(they index `ww[0]`). **The uniform layer now optimizes** — the whole point. Next: U6 (jit the step;
-compile-once; ragged-vs-uniform timing), then U7 (frontend surface + docs)._
+(they index `ww[0]`). **The uniform layer now optimizes** — the whole point.
+U6 DONE (2026-07-07) — **the jit path.** The uniform optimizer runs under jit (`use_jit=True`, jax inputs)
+and converges; the per-step kernel **compiles ONCE** across iterations with changing supercores (verified
+`traces==1`) — the mask-holding recipe works: masks closed over as host-numpy constants, only supercores
+traced, frame masks re-derived inside `local_model` constant-fold. Test in `tests/test_dispatch.py`
+(`test_jit_uniform_optimizer_wholestep`, next to the ragged twin). Reusable GPU benchmark:
+`dev/bench_uniform_vs_ragged.py` (ragged-eager vs uniform-eager vs uniform-jit; CPU shows ~no gain / jit
+slower as expected — the win is a GPU story; Nick to re-run on GPU).
+U5.6 DONE (2026-07-07) — **minimal-rank requirement** (a bug found during U6's benchmark investigation).
+The uniform optimizer crashed on a **non-minimal** base: the retraction truncates to the realizable rank,
+desyncing from the fixed masks → a cryptic mid-loop crash (ragged tolerates non-minimal; uniform can't).
+Fix (Nick's call — enforce the precondition since we own the optimizer): `uniform_minimal(x0)` reduces to
+minimal (t3svd → right-to-left rank_adjustment_sweep; no-op if already minimal), and
+`uniform_least_squares_problem` validates + raises a clear error pointing to it. Docstring + doctests
+(fail non-minimal → succeed after `uniform_minimal`), `TestUniformMinimalRank`, and fixed the module test
+fixture (it was itself non-minimal: `(3,4,3),(1,2,2,1)` → `(2,4,2),(1,2,2,1)`, still rank-varied). Two
+investigation answers: (1) the eager timing tie is real (2.59× flops offset by better pipelining, not a
+bug); (2) ops are properly scanned/vectorized (8 scans, batched SVD, vectorized sampling) with a small
+~6 eqn/mode residual in orthogonalization+retract (no ballooning). Next: U7 (frontend surface + docs; the
+frontend optimizer will call `uniform_minimal` transparently)._
 
 ## The key architectural fact (why this is mostly wiring, not new math)
 

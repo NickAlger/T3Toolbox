@@ -22,7 +22,8 @@ import t3toolbox.backend.uniform_fitting as uf
 import t3toolbox.backend.ubv_tangent_operations as ubto
 import t3toolbox.backend.ut3_operations as uops
 
-_STRUCT = ((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))   # (shape, tucker_ranks, tt_ranks)
+_STRUCT = ((10, 11, 12), (2, 4, 2), (1, 2, 2, 1))   # (shape, tucker, tt); MINIMAL ranks (tucker capped by
+                                                    # the tt bonds), still rank-varied -> real padding
 
 # name -> (frontend geometry singleton, backend GeometryOps factory)
 _GEOMS = {
@@ -420,6 +421,42 @@ class TestUniformOptimizers(unittest.TestCase):
         _, pu = self._problems('corewise')
         _, su = bopt.adam(pu, self._x0u, np.random.default_rng(0), batch=10, lr=5e-2, max_iter=200)
         self.assertLess(su['losses'][-1], 0.5 * su['losses'][0])                    # descends
+
+
+class TestUniformMinimalRank(unittest.TestCase):
+    """U5.6: uniform fitting requires a minimal-rank base (from a non-minimal base the retraction truncates
+    to the realizable rank and desyncs from the fixed masks -> a mid-loop crash). uniform_minimal reduces
+    to it (same tensor; a no-op if already minimal); uniform_least_squares_problem rejects a non-minimal x0
+    with a clear error up front; the optimizer runs cleanly from the reduced base."""
+    def setUp(self):
+        np.random.seed(0)
+        self.ww = [np.random.randn(30, n) for n in (6, 6, 6)]
+        self.data = np.random.randn(30)
+
+    def _x0(self, TK, TT):
+        return ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((6, 6, 6), TK, TT))
+
+    def test_nonminimal_x0_rejected(self):
+        x0 = self._x0((2, 2, 2), (1, 3, 3, 1))          # TT bond rank 3 unrealizable for a 2x2x2 core
+        self.assertFalse(bool(np.all(x0.has_minimal_ranks)))
+        with self.assertRaises(ValueError):
+            uf.uniform_least_squares_problem('manifold', 'apply', x0, self.ww, self.data)
+
+    def test_uniform_minimal_reduces_same_tensor(self):
+        x0 = self._x0((2, 2, 2), (1, 3, 3, 1))
+        x0m = uf.uniform_minimal(x0)
+        self.assertTrue(bool(np.all(x0m.has_minimal_ranks)))
+        self.assertTrue(np.allclose(x0m.to_dense(), x0.to_dense()))   # lossless: the same tensor
+
+    def test_uniform_minimal_noop_on_minimal(self):
+        x0 = self._x0((2, 2, 2), (1, 2, 2, 1))          # already minimal
+        self.assertIs(uf.uniform_minimal(x0), x0)        # returned unchanged (no re-gauge)
+
+    def test_optimizer_runs_after_minimal(self):
+        x0 = uf.uniform_minimal(self._x0((2, 2, 2), (1, 3, 3, 1)))
+        prob = uf.uniform_least_squares_problem('manifold', 'apply', x0, self.ww, self.data)
+        _, s = bopt.gradient_descent(prob, (x0.data[0], x0.data[1]), n_iter=10)
+        self.assertLess(s['losses'][-1], s['losses'][0])
 
 
 if __name__ == '__main__':

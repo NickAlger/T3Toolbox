@@ -26,6 +26,8 @@ constant-fold to device constants (the "1 compile" behaviour of the recipe).
 import dataclasses as dc
 import typing as typ
 
+import numpy as np
+
 from t3toolbox.backend import optimizers as bopt
 from t3toolbox.backend import fitting as bfit
 from t3toolbox.backend import ubv_conversions
@@ -47,6 +49,7 @@ __all__ = [
     'uniform_entries_derivatives_kind',
     'uniform_probe_derivatives_kind',
     'uniform_derivatives_kind',
+    'uniform_minimal',
     'uniform_least_squares_problem',
 ]
 
@@ -378,10 +381,31 @@ def _ptake_deriv_probe(sample, data, idx):
     return (_fg(ww, 1, n_w, idx), _fg(pp, 1, n_w, idx)), _fg(data, 2, n_w, idx)   # data (d,)+(order+1,)+W+C+(N,)
 
 
+def uniform_minimal(
+        x0:  typ.Any,   # UniformTuckerTensorTrain
+) -> typ.Any:           # the same tensor with structurally-minimal ranks (x0 itself if already minimal)
+    """Reduce ``x0`` to its **structurally-minimal ranks** -- the SAME tensor, with any unrealizable nominal
+    rank dropped (e.g. a TT bond rank exceeding what the Tucker ranks can realize). A no-op (returns ``x0``
+    unchanged) when it is already minimal, which is the common case.
+
+    **Uniform fitting requires a minimal base** (:py:func:`uniform_least_squares_problem`). The reason is
+    structural: from a *non*-minimal base the manifold retraction truncates to the realizable (minimal)
+    rank, which no longer matches the fixed masks the optimizer holds loop-invariant -- so the next step's
+    masking desyncs and crashes. The ragged layer tolerates non-minimal ranks (per-core shapes adapt); the
+    uniform layer cannot (its masks are fixed), so it must start minimal and stay minimal (from a minimal
+    base the retraction provably preserves the ranks). Reduction: ``t3svd`` (-> left-orthogonal) then a
+    ``'right_to_left'`` :py:meth:`~t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.rank_adjustment_sweep`
+    (-> minimal, right-orthogonal). Same-tensor, done once at setup (eager)."""
+    if bool(np.all(x0.has_minimal_ranks)):
+        return x0
+    left_orthogonal, _ss_tk, _ss_tt = x0.t3svd()
+    return left_orthogonal.rank_adjustment_sweep('right_to_left')
+
+
 def uniform_least_squares_problem(
         geometry:  str,        # 'manifold' / 'corewise'
         kind_name: str,        # 'apply' / 'entries' / 'probe' (+ '_derivatives')
-        x0:        typ.Any,    # UniformTuckerTensorTrain -- the fixed rank to optimize over (masks captured)
+        x0:        typ.Any,    # UniformTuckerTensorTrain -- MINIMAL-rank base (see uniform_minimal); masks captured
         sample:    typ.Any,    # ww / index / (ww, pp) / (index, pp) -- ragged or packed (packed once here)
         data:      typ.Any,    # observed S(x_true): scalar array (apply/entries) or a d-list/packed (probe)
         order:     typ.Optional[int]                 = None,  # derivative kinds only (required)
@@ -393,7 +417,48 @@ def uniform_least_squares_problem(
     (:py:func:`uniform_sampling_kind` / :py:func:`uniform_derivatives_kind`) at ``x0``'s fixed rank, packs
     the loop-invariant ``sample`` + ``data`` once, and returns the reused backend ``Problem``. The optimizer
     then runs on the bare supercore pair ``(x0.data[0], x0.data[1])`` -- e.g.
-    ``backend.optimizers.newton_cg(problem, (x0.data[0], x0.data[1]))``."""
+    ``backend.optimizers.newton_cg(problem, (x0.data[0], x0.data[1]))``.
+
+    **``x0`` must have minimal ranks** -- call :py:func:`uniform_minimal` first if it might not. A
+    non-minimal nominal rank is unrealizable and would desync the retraction from the held masks
+    mid-optimization; this is checked (structurally, cheap) and rejected up front rather than crashing
+    later.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> import t3toolbox.backend.optimizers as bopt
+    >>> import t3toolbox.backend.uniform_fitting as uf
+    >>> from t3toolbox.backend import apply as bapply
+    >>> np.random.seed(0)
+    >>> ww = [np.random.randn(20, n) for n in (6, 6, 6)]
+    >>> data = np.random.randn(20)
+
+    A **non-minimal** base -- here TT bond rank 3 is unrealizable for a 2x2x2 central Tucker core (its TT
+    bonds are at most 2) -- is rejected up front with a clear error:
+
+    >>> x0 = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((6, 6, 6), (2, 2, 2), (1, 3, 3, 1)))
+    >>> uf.uniform_least_squares_problem('manifold', 'apply', x0, ww, data)   # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+    ValueError: uniform_least_squares_problem requires a minimal-rank base x0 ...
+
+    :py:func:`uniform_minimal` reduces it to minimal ranks (the SAME tensor), and then it works:
+
+    >>> x0m = uf.uniform_minimal(x0)
+    >>> print(bool(np.allclose(x0m.to_dense(), x0.to_dense())))   # same tensor, minimal ranks
+    True
+    >>> prob = uf.uniform_least_squares_problem('manifold', 'apply', x0m, ww, data)
+    >>> x_opt, stats = bopt.gradient_descent(prob, (x0m.data[0], x0m.data[1]), n_iter=5)
+    >>> print(bool(stats['losses'][-1] < stats['losses'][0]))     # it descends
+    True
+    """
+    if not bool(np.all(x0.has_minimal_ranks)):
+        raise ValueError(
+            "uniform_least_squares_problem requires a minimal-rank base x0 (a non-minimal nominal rank is "
+            "unrealizable and would desync the retraction from the fixed masks mid-optimization). Reduce it "
+            "first: x0 = uniform_minimal(x0).")
     x0_data = x0.data
     N = x0_data[0].shape[-1]
     geom = uniform_geometry_ops(geometry, x0_data)
