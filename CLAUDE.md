@@ -360,11 +360,16 @@ of every path. Full suite ~50s, green.
   `docs/transposes.md`, `docs/numerical_contract_catalog.md`, `docs/probing_section6_notes.md`,
   `docs/signature_style.md`, `docs/doctest_style.md`, the `docs/uniform_*` notes, the `docs/t3svd_*`
   notes. (Historical plans/handoffs are archived under `dev/archive/`.)
-- **Uniform tangent layer — DONE (the 1.0 centerpiece).** The *backend*, *geometries*, *tangent + corewise
-  probing*, the *derivative (jet) probing*, AND the *doc/cleanup sweep* are all built + tested (increment 3b
-  through **3b-7**, above): the sampling/derivative surface is doctested to the reference-module standard, and
-  the superseded `OLD_uniform*.py` are deleted. (Deferred: the cosmetic `Sequence`→`Union` hint relaxation →
-  R2.) **Next: make the optimizers/fitting work on it** (speed is its whole point). Live status: `dev/HANDOFF.md`.
+- **Uniform tangent layer + optimizers — DONE (the 1.0 centerpiece).** The *backend*, *geometries*, *tangent
+  + corewise probing*, and the *derivative (jet) probing* (increment 3b), AND now the **optimizers/fitting on
+  the uniform layer** (this session — increments U1–U6 + the U5.6 minimal-rank fix, `dev/uniform_optimizers_plan.md`):
+  all four optimizers run on uniform, **fully packed**, **jit-compile-once**, verified vs the ragged optimizer,
+  robust to non-minimal input (`uniform_minimal`). Key new pieces: `backend/uniform_fitting.py`
+  (`uniform_{manifold,corewise}_ops`, the `uniform_*_kind` `SamplingKind` builders, `uniform_least_squares_problem`),
+  the packedness-mirror convention (`ut3_operations.{is_packed,pack_if_ragged}`), a GPU benchmark
+  (`dev/bench_uniform_vs_ragged.py`). **Next: the frontend surface (U7)** — `fitting.py`/`optimizers.py` accept a
+  `UniformTuckerTensorTrain` x0 + the uniform geometries (calling `uniform_minimal` transparently). Live status:
+  `dev/HANDOFF.md`.
 - **Deferred / broken:** the **weighted layer** (parked `absorb_weights`) — deferred past 1.0. Remaining
   `OLD_*.py` / `OLD_test_*.py` stray files (`OLD_orthogonalization.py`, the OLD test files) are dead/superseded
   and slated for the **R6** cleanup (delete only after confirming functionality is preserved elsewhere).
@@ -373,12 +378,11 @@ of every path. Full suite ~50s, green.
 
 Live roadmap + next steps: **`dev/HANDOFF.md`**. The durable open items:
 
-- **Fix the uniform tangent layer — the 1.0 centerpiece.** (A) make the broken code run; (B) refactor
-  the uniform basis-variations + manifold modules into the OO-frontend + functional-backend style,
-  mirroring the ragged layer; (C) make the optimizers/fitting work on it (speed is its whole point);
-  (D) add derivative probing (the ragged ops were built polymorphism-ready); (E) tests/docstrings/
-  doctests. The plain uniform layer is done through slice 8; the host-mask + jit design is in the
-  `docs/uniform_*` notes.
+- **Uniform layer + optimizers — essentially done (the 1.0 centerpiece).** The tangent/manifold layer
+  (increment 3b) and the optimizers/fitting on it (U1–U6 + U5.6, backend-first, verified vs ragged) are built
+  and tested. **Only the frontend surface (U7) remains:** extend `fitting.py`/`optimizers.py` to accept a
+  `UniformTuckerTensorTrain` x0 + the uniform geometries, calling `uniform_minimal(x0)` transparently so
+  frontend users never meet the minimal-rank requirement. Slicing history: `dev/uniform_optimizers_plan.md`.
 - **Redesign the weighted tensor-network** code structure (deferred past 1.0).
 - **Doc pass (Track B / release):** fold the design rationale from `docs/` into user-facing Sphinx
   docs; fix the docs build (`conf.py` autoapi excludes core modules; committed `_build`; `modules.rst`
