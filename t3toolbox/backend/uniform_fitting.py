@@ -42,6 +42,10 @@ __all__ = [
     'uniform_entries_kind',
     'uniform_probe_kind',
     'uniform_sampling_kind',
+    'uniform_apply_derivatives_kind',
+    'uniform_entries_derivatives_kind',
+    'uniform_probe_derivatives_kind',
+    'uniform_derivatives_kind',
 ]
 
 
@@ -202,3 +206,100 @@ def uniform_sampling_kind(
     if name not in _SAMPLING_KIND:
         raise ValueError(f"unknown uniform sampling kind {name!r}; expected one of {sorted(_SAMPLING_KIND)}")
     return _SAMPLING_KIND[name](x0_data)
+
+
+# --------------------------------------------------------------------------------------------------
+# Derivative (jet) SamplingKind builders -- the uniform twins of backend.fitting.{apply,entries,probe}_
+# derivatives_kind. The sample is the paired `(ww, pp)` / `(index, pp)`; the per-order residual weight
+# omega enters only sumsq (inherited from the ragged kind) and transpose (re-applied here as aw(r, 2), the
+# omega**2 residual weight of the gradient J^T omega^2 r). forward / point_forward stay RAW (the user
+# passes raw data + omega). `forward` derives the variation masks from the frame (geometry-agnostic).
+# --------------------------------------------------------------------------------------------------
+def uniform_apply_derivatives_kind(
+        x0_data:  typ.Tuple,                             # UniformTuckerTensorTrain.data at the fixed rank
+        order:    int,                                   # highest derivative order
+        weight:   typ.Optional[typ.Sequence[float]] = None,  # per-order residual weight omega, (order+1,); None=1
+) -> bfit.SamplingKind:                                  # sample = (ww, pp)
+    """The uniform **apply-derivatives** ``SamplingKind`` -- the twin of
+    :py:func:`t3toolbox.backend.fitting.apply_derivatives_kind`."""
+    _tk, _tt, shape, base_masks = x0_data
+    aw = bfit._make_order_weight(weight, order)
+    return dc.replace(
+        bfit.apply_derivatives_kind(order, weight),
+        precompute=lambda base_data, s: ubv_sampling.ut3tangent_precompute_apply_base_sweep_jets(
+            base_data, s[0], s[1], order),
+        forward=lambda v_sc, s, base_data, sweep: ubv_sampling.ut3tangent_apply_jacobian_derivatives_from_sweep(
+            (v_sc[0], v_sc[1], base_data[4], _var_masks_from_base(base_data)), sweep, order),
+        transpose=lambda r, s, base_data, sweep: ubv_sampling.ut3tangent_apply_transpose_derivatives_from_sweep(
+            aw(r, 2), sweep, order, sum_over_probes=True),
+        point_forward=lambda x_sc, s: ut3_sampling.ut3_apply_derivatives(
+            s[0], s[1], (x_sc[0], x_sc[1], shape, base_masks), order),
+    )
+
+
+def uniform_entries_derivatives_kind(
+        x0_data:  typ.Tuple,
+        order:    int,
+        weight:   typ.Optional[typ.Sequence[float]] = None,
+) -> bfit.SamplingKind:                                  # sample = (index, pp)
+    """The uniform **entries-derivatives** ``SamplingKind`` -- the twin of
+    :py:func:`t3toolbox.backend.fitting.entries_derivatives_kind`."""
+    _tk, _tt, shape, base_masks = x0_data
+    aw = bfit._make_order_weight(weight, order)
+    return dc.replace(
+        bfit.entries_derivatives_kind(order, weight),
+        precompute=lambda base_data, s: ubv_sampling.ut3tangent_precompute_entries_base_sweep_jets(
+            base_data, s[0], s[1], order),
+        forward=lambda v_sc, s, base_data, sweep: ubv_sampling.ut3tangent_entries_jacobian_derivatives_from_sweep(
+            (v_sc[0], v_sc[1], base_data[4], _var_masks_from_base(base_data)), sweep, order),
+        transpose=lambda r, s, base_data, sweep: ubv_sampling.ut3tangent_entries_transpose_derivatives_from_sweep(
+            aw(r, 2), sweep, order, sum_over_probes=True),
+        point_forward=lambda x_sc, s: ut3_sampling.ut3_entries_derivatives(
+            s[0], s[1], (x_sc[0], x_sc[1], shape, base_masks), order),
+    )
+
+
+def uniform_probe_derivatives_kind(
+        x0_data:  typ.Tuple,
+        order:    int,
+        weight:   typ.Optional[typ.Sequence[float]] = None,
+) -> bfit.SamplingKind:                                  # sample = (ww, pp)
+    """The uniform **probe-derivatives** ``SamplingKind`` -- the twin of
+    :py:func:`t3toolbox.backend.fitting.probe_derivatives_kind`.
+
+    The forward / residual are the **packed** probe-derivative jets ``(d,)+(order+1,)+W+C+(N,)`` (order at
+    axis 1, after the mode index ``d``), so the per-order weight ``ω`` is built with ``order_axis=1`` and
+    ``sumsq`` / ``transpose`` are overridden to weight the correct axis (the inherited order-leading ``aw``
+    would broadcast ``ω`` over ``d``)."""
+    _tk, _tt, shape, base_masks = x0_data
+    aw = bfit._make_order_weight(weight, order, order_axis=1)   # packed probe: order axis is 1 (after d)
+    return dc.replace(
+        bfit.probe_derivatives_kind(order, weight),
+        precompute=lambda base_data, s: ubv_sampling.ut3tangent_precompute_probe_base_sweep_jets(
+            base_data, s[0], s[1], order),
+        forward=lambda v_sc, s, base_data, sweep: ubv_sampling.ut3tangent_probe_jacobian_derivatives_from_sweep(
+            (v_sc[0], v_sc[1], base_data[4], _var_masks_from_base(base_data)), sweep, order),
+        transpose=lambda r, s, base_data, sweep: ubv_sampling.ut3tangent_probe_transpose_derivatives_from_sweep(
+            aw(r, 2), sweep, order, sum_over_probes=True),
+        sumsq=lambda out, n_w: bfit.sumsq_over_probes(aw(out, 1), n_w + 1),
+        point_forward=lambda x_sc, s: ut3_sampling.ut3_probe_derivatives(
+            s[0], s[1], (x_sc[0], x_sc[1], shape, base_masks), order),
+    )
+
+
+_DERIV_SAMPLING_KIND = {'apply_derivatives':   uniform_apply_derivatives_kind,
+                        'entries_derivatives': uniform_entries_derivatives_kind,
+                        'probe_derivatives':   uniform_probe_derivatives_kind}
+
+
+def uniform_derivatives_kind(
+        name:     str,        # 'apply_derivatives' / 'entries_derivatives' / 'probe_derivatives'
+        x0_data:  typ.Tuple,  # UniformTuckerTensorTrain.data at the fixed rank
+        order:    int,
+        weight:   typ.Optional[typ.Sequence[float]] = None,
+) -> bfit.SamplingKind:
+    """Dispatch to the uniform derivative sampling kind by name."""
+    if name not in _DERIV_SAMPLING_KIND:
+        raise ValueError(f"unknown uniform derivative kind {name!r}; expected one of "
+                         f"{sorted(_DERIV_SAMPLING_KIND)}")
+    return _DERIV_SAMPLING_KIND[name](x0_data, order, weight)

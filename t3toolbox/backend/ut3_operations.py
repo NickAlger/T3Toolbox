@@ -16,6 +16,8 @@ __all__ = [
     'ut3_reverse',
     'pack_vectors',
     'unpack_vectors',
+    'is_packed',
+    'pack_if_ragged',
     'ut3_unstack',
     'ut3_stack',
     'ut3_leaf_structure',
@@ -136,6 +138,24 @@ def unpack_vectors(
         packed_vectors[ii, ..., :unpacking_shape[ii]]
         for ii in range(len(unpacking_shape))
     )
+
+
+def is_packed(
+        vectors,  # a packed supercore array (single ndarray) OR a ragged len=d sequence of per-mode vectors
+) -> bool:        # True if already packed (one array), False if a ragged list/tuple of d per-mode arrays
+    """Whether mode ``vectors`` are packed (a single supercore-shaped ndarray) or ragged (a ``len=d``
+    sequence of per-mode arrays of differing widths). The uniform sampling ops infer packedness from this
+    and **mirror** it -- packed in ``->`` packed out, ragged in ``->`` ragged out."""
+    return not isinstance(vectors, (list, tuple))
+
+
+def pack_if_ragged(
+        vectors,        # packed array (returned as-is) OR ragged len=d sequence, ith elm_shape=stack+(Ni,)
+        N:  int = None,  # padded length (default max Ni); ignored when ``vectors`` is already packed
+) -> NDArray:            # packed, shape=(d,)+stack_shape+(N,)
+    """Pack ``vectors`` iff ragged (a ``len=d`` sequence); an already-packed array is returned unchanged.
+    The input side of the sampling-op packedness mirror (:py:func:`is_packed`)."""
+    return vectors if is_packed(vectors) else pack_vectors(vectors, N)
 
 
 def ut3_unstack(

@@ -66,6 +66,32 @@ guesswork: **do whatever the ragged op does** — keep the rank with an arbitrar
 or reduce it and update the mask — determined by reading/running the ragged path, then verified by the
 round trip. (This is the behavior that was mid-refactor in the copied-in code.)
 
+## The vector I/O boundary — packedness mirror
+
+The sampling ops (`probe` / `apply` / `entries` and their derivatives) take mode-**vectors** across the
+ragged/uniform seam, and `probe` returns them too. These can be carried two ways, and the uniform ops
+**infer the input's packedness and mirror it in the output** (the same "infer, don't flag" rule as
+numpy/jax and ragged/uniform dispatch):
+
+- **ragged in → ragged out** — a `len=d` sequence of real-width vectors. Here the contract holds as
+  written: `op_uniform(ragged) == op_ragged`.
+- **packed in → packed out** — one supercore-shaped `(d,)+…+(N,)` array (each mode zero-padded to the
+  common width `N`). Here the contract holds *after unpacking*: `unpack(op_uniform(packed)) == op_ragged`,
+  equivalently `op_uniform(packed) == pack(op_ragged)`.
+
+So the contract is not weakened — it attaches to whichever form crossed the boundary. The packed form is
+the **inner-loop path** (the optimizer keeps probe residuals packed end-to-end — no per-matvec
+unpack/repack, and `d` stays a single scan-able axis rather than a Python list); the ragged form is the
+drop-in "faster ragged" for one-off/interactive use. The user-facing ops (frontend methods included, by
+delegation) mirror; the fitting **split-seam** `*_from_sweep` hooks are packed-only (the loop's natural
+mode). A backend user gets full parity via the mirroring ops plus the exposed `pack_vectors` /
+`unpack_vectors` / `pack_if_ragged` helpers.
+
+**The padding convention is a prefix**, and it is *not* obvious (internal rank edge-vectors scatter; only
+the mode/shape padding is a prefix): real data sits in `[0:Ni]`, zeros in `[Ni:N]`, keyed on the `shape`
+ints — no mask needed. `pack`/`unpack` encode exactly this, so packed reductions (e.g. `sumsq_over_probes`
+over a packed array) are correct because the padding is inert zeros.
+
 ## Honest scope and limits
 
 - **Only user-facing ops with ragged twins are bound by the contract.** The masking/padding plumbing

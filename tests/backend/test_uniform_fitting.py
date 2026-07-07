@@ -17,6 +17,7 @@ import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.uniform_fitting as uf
 import t3toolbox.backend.ubv_tangent_operations as ubto
+import t3toolbox.backend.ut3_operations as uops
 
 _STRUCT = ((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))   # (shape, tucker_ranks, tt_ranks)
 
@@ -110,6 +111,7 @@ class TestUniformSamplingKind(unittest.TestCase):
                 fu = kind_u.forward(self.var.supercores, sample, self.base.data, sw_u)
                 fr = kind_r.forward(self.var_r.data, sample, self.base_r.data, sw_r)
                 if name == 'probe':
+                    fu = uops.unpack_vectors(fu, _STRUCT[0])   # the split-seam forward is PACKED; unpack to compare
                     self.assertTrue(all(np.allclose(np.asarray(a), np.asarray(b)) for a, b in zip(fu, fr)))
                 else:
                     self.assertTrue(np.allclose(np.asarray(fu), np.asarray(fr)))
@@ -134,12 +136,9 @@ class TestUniformSamplingKind(unittest.TestCase):
                 sample = self._sample(is_index)
                 sw = kind_u.precompute(self.base.data, sample)
                 fwd = kind_u.forward(self.var.supercores, sample, self.base.data, sw)
-                if name == 'probe':
-                    r = [np.random.randn(*np.asarray(z).shape) for z in fwd]
-                    lhs = sum(float(np.sum(ri * np.asarray(zi))) for ri, zi in zip(r, fwd))
-                else:
-                    r = np.random.randn(*np.asarray(fwd).shape)
-                    lhs = float(np.sum(r * np.asarray(fwd)))
+                # probe forward is PACKED (d,)+W+C+(N,); a packed random residual exercises the packed path.
+                r = np.random.randn(*np.asarray(fwd).shape)
+                lhs = float(np.sum(r * np.asarray(fwd)))
                 jt = kind_u.transpose(r, sample, self.base.data, sw)     # bare (dU, dG)
                 rhs = float(ubto.ubv_corewise_inner(
                     (jt[0], jt[1], _STRUCT[0], self.vmask), self.var.data, 0))
@@ -160,10 +159,143 @@ class TestUniformSamplingKind(unittest.TestCase):
                 ck_tkv, ck_ttv = V.apply_masks().supercores
                 garb = (ck_tkv + 1e6 * (1.0 - m_tkv), ck_ttv + 1e6 * (1.0 - m_ttv))
                 dirty = kind_u.forward(garb, sample, self.base.data, sw)
-                if name == 'probe':
-                    self.assertTrue(all(np.allclose(np.asarray(a), np.asarray(b)) for a, b in zip(clean, dirty)))
+                self.assertTrue(np.allclose(np.asarray(clean), np.asarray(dirty)))   # scalar / packed array
+
+
+class TestUniformSamplingMirror(unittest.TestCase):
+    """U3.5: the user-facing uniform sampling ops MIRROR their vector input's packedness -- ragged in ->
+    ragged (len=d tuple) out, packed in -> packed (d,)+... out -- and the two agree via pack/unpack. The
+    frontend methods inherit this by delegation."""
+    def setUp(self):
+        np.random.seed(0)
+        self.x = _uniform_x(0)
+        self.N = self.x.data[0].shape[-1]
+
+    def _ww(self, W=6):
+        return [np.random.randn(W, n) for n in _STRUCT[0]]
+
+    def test_probe_mirrors_and_agrees(self):
+        ww_r = self._ww()
+        ww_p = uops.pack_vectors(ww_r, self.N)
+        out_r = self.x.probe(ww_r)
+        out_p = self.x.probe(ww_p)
+        self.assertIsInstance(out_r, tuple)            # ragged in -> ragged out
+        self.assertNotIsInstance(out_p, (list, tuple))  # packed in -> packed out (one array)
+        unpacked = uops.unpack_vectors(out_p, _STRUCT[0])
+        self.assertTrue(all(np.allclose(np.asarray(a), np.asarray(b)) for a, b in zip(unpacked, out_r)))
+
+    def test_apply_accepts_both(self):
+        ww_r = self._ww()
+        ww_p = uops.pack_vectors(ww_r, self.N)
+        self.assertTrue(np.allclose(np.asarray(self.x.apply(ww_r)), np.asarray(self.x.apply(ww_p))))
+
+    def test_probe_derivatives_mirrors_and_agrees(self):
+        ww_r, pp_r = self._ww(), self._ww()
+        ww_p, pp_p = uops.pack_vectors(ww_r, self.N), uops.pack_vectors(pp_r, self.N)
+        out_r = self.x.probe_derivatives(ww_r, pp_r, 3)
+        out_p = self.x.probe_derivatives(ww_p, pp_p, 3)
+        self.assertIsInstance(out_r, tuple)
+        self.assertNotIsInstance(out_p, (list, tuple))
+        unpacked = uops.unpack_vectors(out_p, _STRUCT[0])
+        self.assertTrue(all(np.allclose(np.asarray(a), np.asarray(b)) for a, b in zip(unpacked, out_r)))
+
+
+class TestUniformDerivativeSamplingKind(unittest.TestCase):
+    """U3': the uniform DERIVATIVE (jet) SamplingKind builders reproduce the ragged derivative kind on the
+    equivalent frame, satisfy the omega-weighted adjoint identity <w^2 r, Jv> = <J^T w^2 r, v>, and ignore
+    garbage in the masked-out variation padding."""
+    _ORDER = 3
+    _WEIGHT = [1.0, 0.5, 0.3, 0.2]
+    # (name, ragged kind factory, sample-first-is-integer-index)
+    _KINDS = [('apply_derivatives', bfit.apply_derivatives_kind, False),
+              ('probe_derivatives', bfit.probe_derivatives_kind, False),
+              ('entries_derivatives', bfit.entries_derivatives_kind, True)]
+
+    def setUp(self):
+        np.random.seed(0)
+        self.x = _uniform_x(0)
+        self.base = ut3m.UNIFORM_MANIFOLD.base(self.x)
+        self.var = ubv.UT3Variations.randn_like(self.base)
+        self.base_r = self.base.to_t3basis()
+        self.var_r = self.var.to_t3variations()
+        self.vmask = uf._var_masks_from_base(self.base.data)
+        self.aw = bfit._make_order_weight(self._WEIGHT, self._ORDER)                    # order-leading (apply/entries)
+        self.aw_packed = bfit._make_order_weight(self._WEIGHT, self._ORDER, order_axis=1)  # packed probe: order at axis 1
+
+    def _sample(self, is_index, W=15):
+        shape = _STRUCT[0]
+        pp = [np.random.randn(W, n) for n in shape]
+        if is_index:
+            return (np.stack([np.random.randint(0, n, size=W) for n in shape], axis=0), pp)
+        return ([np.random.randn(W, n) for n in shape], pp)
+
+    def _kinds(self, name, ragged_factory):
+        return (uf.uniform_derivatives_kind(name, self.x.data, self._ORDER, self._WEIGHT),
+                ragged_factory(self._ORDER, self._WEIGHT))
+
+    def test_forward_matches_ragged(self):
+        for name, factory, is_index in self._KINDS:
+            with self.subTest(kind=name):
+                kind_u, kind_r = self._kinds(name, factory)
+                sample = self._sample(is_index)
+                fu = kind_u.forward(self.var.supercores, sample, self.base.data,
+                                    kind_u.precompute(self.base.data, sample))
+                fr = kind_r.forward(self.var_r.data, sample, self.base_r.data,
+                                    kind_r.precompute(self.base_r.data, sample))
+                if name == 'probe_derivatives':
+                    fu = uops.unpack_vectors(fu, _STRUCT[0])   # the split-seam forward is PACKED; unpack to compare
+                    self.assertTrue(all(np.allclose(np.asarray(a), np.asarray(b)) for a, b in zip(fu, fr)))
                 else:
-                    self.assertTrue(np.allclose(np.asarray(clean), np.asarray(dirty)))
+                    self.assertTrue(np.allclose(np.asarray(fu), np.asarray(fr)))
+
+    def test_point_forward_matches_ragged(self):
+        for name, factory, is_index in self._KINDS:
+            with self.subTest(kind=name):
+                kind_u, kind_r = self._kinds(name, factory)
+                sample = self._sample(is_index)
+                x_r = self.base_r.to_t3()
+                pu = kind_u.point_forward((self.x.data[0], self.x.data[1]), sample)
+                pr = kind_r.point_forward(x_r.data, sample)
+                if name == 'probe_derivatives':
+                    self.assertTrue(all(np.allclose(np.asarray(a), np.asarray(b)) for a, b in zip(pu, pr)))
+                else:
+                    self.assertTrue(np.allclose(np.asarray(pu), np.asarray(pr)))
+
+    def test_adjoint_identity_weighted(self):
+        for name, factory, is_index in self._KINDS:
+            with self.subTest(kind=name):
+                kind_u, _ = self._kinds(name, factory)
+                sample = self._sample(is_index)
+                sw = kind_u.precompute(self.base.data, sample)
+                fwd = kind_u.forward(self.var.supercores, sample, self.base.data, sw)
+                # transpose applies the omega**2 weight aw(r, 2) internally -> the identity is
+                # <aw(r,2), Jv> = <J^T aw(r,2), v>. probe_derivatives forward/residual are PACKED with the
+                # order axis at 1 (after d), so its omega uses order_axis=1 (aw_packed).
+                if name == 'probe_derivatives':
+                    r = np.random.randn(*np.asarray(fwd).shape)   # packed (d,)+(order+1,)+W+C+(N,)
+                    lhs = float(np.sum(np.asarray(self.aw_packed(r, 2)) * np.asarray(fwd)))
+                else:
+                    r = np.random.randn(*np.asarray(fwd).shape)
+                    lhs = float(np.sum(np.asarray(self.aw(r, 2)) * np.asarray(fwd)))
+                jt = kind_u.transpose(r, sample, self.base.data, sw)
+                rhs = float(ubto.ubv_corewise_inner((jt[0], jt[1], _STRUCT[0], self.vmask), self.var.data, 0))
+                self.assertTrue(np.isclose(lhs, rhs), f"{name}: {lhs} != {rhs}")
+
+    def test_forward_garbage_robust(self):
+        for name, factory, is_index in self._KINDS:
+            with self.subTest(kind=name):
+                kind_u, _ = self._kinds(name, factory)
+                sample = self._sample(is_index)
+                sw = kind_u.precompute(self.base.data, sample)
+                clean = kind_u.forward(self.var.supercores, sample, self.base.data, sw)
+                V = self.var
+                tkv, ttv = V.supercores
+                m_tkv, m_ttv = ubv.UT3Variations(np.ones_like(tkv), np.ones_like(ttv),
+                                                 V.shape, V.masks).apply_masks().supercores
+                ck_tkv, ck_ttv = V.apply_masks().supercores
+                garb = (ck_tkv + 1e6 * (1.0 - m_tkv), ck_ttv + 1e6 * (1.0 - m_ttv))
+                dirty = kind_u.forward(garb, sample, self.base.data, sw)
+                self.assertTrue(np.allclose(np.asarray(clean), np.asarray(dirty)))   # scalar / packed array
 
 
 if __name__ == '__main__':

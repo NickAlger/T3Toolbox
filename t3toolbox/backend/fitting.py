@@ -60,12 +60,19 @@ def sumsq_over_samples(
 
 
 def sumsq_over_probes(
-        zz:     typ.Sequence[NDArray],  # probe forward/residual, len=d, elm_shape=W+C+(Ni,)
-        n_w:    int,                    # number of leading sample-stack (W) axes
-) -> NDArray:                           # sum of squares over W and the free mode Ni, summed over d, keep C
-    '''The ``‖·‖²`` reduction for the vector-output ``probe`` kind: each ``z_i`` is ``W+C+(Ni,)``; sum
-    ``z_i**2`` over the leading ``n_w`` sample axes and the trailing free mode ``Ni``, keeping the base
-    stack ``C``, summed over the ``d`` probes.'''
+        zz:     typ.Union[typ.Sequence[NDArray], NDArray],  # ragged len=d (elm W+C+(Ni,)) OR packed (d,)+W+C+(N,)
+        n_w:    int,                                         # number of leading sample-stack (W) axes
+) -> NDArray:                           # sum of squares over W and the free mode, summed over d, keep C
+    '''The ``‖·‖²`` reduction for the vector-output ``probe`` kind: sum over the leading ``n_w`` sample
+    axes and the trailing free mode, keeping the base stack ``C``, summed over the ``d`` probes. **Mirrors**
+    ``zz``'s packedness: a ragged ``len=d`` sequence loops over ``d`` (each ``z_i`` is ``W+C+(Ni,)``); a
+    packed ``(d,)+W+C+(N,)`` array sums ``d`` + ``W`` + the padded mode ``N`` in one op (the free-mode
+    padding is a zeroed prefix, so it contributes nothing -- the packed inner-loop path).'''
+    if not isinstance(zz, (list, tuple)):               # packed (d,)+W+C+(N,): d (axis 0) + W + N, keep C
+        use_jax = is_jax_ndarray(zz)
+        xnp, _, _ = get_backend(False, use_jax)
+        axes = (0,) + tuple(range(1, 1 + n_w)) + (zz.ndim - 1,)
+        return xnp.sum(zz ** 2, axis=axes)
     use_jax = is_jax_ndarray(zz[0])
     xnp, _, _ = get_backend(False, use_jax)
     total = None
@@ -130,19 +137,26 @@ def _take_deriv_probe(sample, data, idx):
         [_flat_gather(d, 1, n_w, idx) for d in data]
 
 
-def _make_order_weight(weight, order):
+def _make_order_weight(weight, order, order_axis=0):
     '''The per-order residual weight ``ω``: returns ``apply(x, power) = x · ω**power`` broadcast over the
-    leading order axis (``x`` an array for apply/entries, a list of ``d`` arrays for probe). ``weight=None``
-    is ``ω=1`` (identity). ``ω`` enters the objective ``½‖ω⊙r‖²`` only -- so ``sumsq`` scales by ``ω`` and
-    ``transpose`` (the gradient ``𝒥ᵀ ω²r``) by ``ω²``; ``forward`` / ``point_forward`` stay raw.'''
+    order axis (``x`` an array for apply/entries, a list of ``d`` arrays for probe). ``weight=None`` is
+    ``ω=1`` (identity). ``ω`` enters the objective ``½‖ω⊙r‖²`` only -- so ``sumsq`` scales by ``ω`` and
+    ``transpose`` (the gradient ``𝒥ᵀ ω²r``) by ``ω²``; ``forward`` / ``point_forward`` stay raw.
+
+    ``order_axis`` is the position of the order axis in an *array* ``x`` (default 0 -- order leads, as for
+    apply/entries and the per-element ragged-probe arrays). The **packed** probe-derivative output is
+    ``(d,)+(order+1,)+…`` -- order at axis 1 after the mode index ``d`` -- so its kind builds this with
+    ``order_axis=1``. (The ``list`` branch is always the ragged probe, order-leading per element.)'''
     if weight is None:
         return lambda x, power: x
     w = np.asarray(weight, dtype=float)                  # (order+1,)
     def apply_w(x, power):
         wp = w ** power
-        if isinstance(x, (list, tuple)):                 # probe: a list of d arrays
+        if isinstance(x, (list, tuple)):                 # ragged probe: a list of d order-leading arrays
             return [xi * wp.reshape((order + 1,) + (1,) * (xi.ndim - 1)) for xi in x]
-        return x * wp.reshape((order + 1,) + (1,) * (x.ndim - 1))
+        shp = [1] * x.ndim                               # broadcast ω over the order axis of the array
+        shp[order_axis] = order + 1
+        return x * wp.reshape(tuple(shp))
     return apply_w
 
 

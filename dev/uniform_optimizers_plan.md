@@ -15,7 +15,18 @@ loop-invariance across points.
 U3 DONE (2026-07-06) — the split `precompute → from_sweep` seam (`ubv_sampling`, sweep carries the
 mask-once base + packed vectors) + `uniform_{apply,entries,probe}_kind` (reuse ragged layer-agnostic
 fields via `dataclasses.replace`, geometry-agnostic); verified == ragged `SamplingKind` + adjoint
-identity + garbage-robust. Next: U3′ (derivative/jet `SamplingKind` builders)._
+identity + garbage-robust.
+U3′ DONE (2026-07-06) — the derivative/jet `SamplingKind` builders (twins over `probe_derivatives.*`,
+inherit ω-aware fields, re-apply ω² in transpose).
+U3.5 DONE (2026-07-06) — **packedness-mirror pivot** (design change, agreed with Nick): the user-facing
+sampling ops (point + fused + frontend by delegation) **infer input packedness and mirror it** (ragged
+in→out matches ragged; packed in→out matches `pack(ragged)`) via `ut3_operations.{is_packed,pack_if_ragged}`;
+the optimizer **split-seam is packed-only** (the inner loop keeps probe residuals packed — no per-matvec
+unpack/repack, `d` stays a scan axis). `sumsq_over_probes` + `_make_order_weight(order_axis=)` made
+packed-aware (ragged path byte-identical); the packed probe-derivative order axis is 1, so
+`uniform_probe_derivatives_kind` overrides ω with `order_axis=1`. Doc: `docs/uniform_equivalence_contract.md`
+gains the vector-I/O mirror section. Next: U4 (`LocalModel`/`Problem` wiring; the Problem packs the sample
+once so the optimizer runs fully packed)._
 
 ## The key architectural fact (why this is mostly wiring, not new math)
 
