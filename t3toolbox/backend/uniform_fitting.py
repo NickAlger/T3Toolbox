@@ -23,17 +23,25 @@ the ``ubv_tangent_operations`` primitives expect) and strips them back to a bare
 ``corewise.*`` and ``GeometryOps.inner`` see only supercores. Under jit the re-derived frame masks
 constant-fold to device constants (the "1 compile" behaviour of the recipe).
 """
+import dataclasses as dc
 import typing as typ
 
 from t3toolbox.backend import optimizers as bopt
+from t3toolbox.backend import fitting as bfit
 from t3toolbox.backend import ubv_conversions
 from t3toolbox.backend import ubv_tangent_operations as ubv_tops
+from t3toolbox.backend import ubv_sampling
+from t3toolbox.backend import ut3_sampling
 from t3toolbox.backend.common import *
 
 __all__ = [
     'uniform_manifold_ops',
     'uniform_corewise_ops',
     'uniform_geometry_ops',
+    'uniform_apply_kind',
+    'uniform_entries_kind',
+    'uniform_probe_kind',
+    'uniform_sampling_kind',
 ]
 
 
@@ -117,3 +125,80 @@ def uniform_geometry_ops(
     if kind == 'corewise':
         return uniform_corewise_ops(x0_data)
     raise ValueError(f"unknown uniform geometry kind {kind!r}; expected 'manifold' or 'corewise'")
+
+
+# --------------------------------------------------------------------------------------------------
+# SamplingKind builders -- the uniform twins of backend.fitting.{APPLY,ENTRIES,PROBE}. Only the four
+# layer-specific fields (precompute / forward / transpose / point_forward) differ; the layer-agnostic
+# reductions and default-draw layout (sumsq / w_axes / n_measurements / take) are reused verbatim from
+# the ragged kind via `dataclasses.replace`. `forward` derives the variation masks from the frame it is
+# handed (the `(up, down, left[:-1], right[1:])` gauge shift -- valid for BOTH the orthonormal manifold
+# frame and the (U,G,G,G) corewise frame), so the kind is geometry-agnostic; only `point_forward` (the
+# S(x) op on the plain-UT3 point) closes over the plain-UT3 shape + edge masks.
+# --------------------------------------------------------------------------------------------------
+def _var_masks_from_base(base_data):
+    """The variation masks of a frame: the basis's gauge-shifted rank masks
+    ``(up, down, basis_left[:-1], basis_right[1:])`` (mirrors ``UT3Variations._variation_masks_of``)."""
+    up_mask, down_mask, basis_left_mask, basis_right_mask = base_data[5]
+    return (up_mask, down_mask, basis_left_mask[:-1], basis_right_mask[1:])
+
+
+def uniform_apply_kind(
+        x0_data:  typ.Tuple,   # UniformTuckerTensorTrain.data = (tk_sc, tt_sc, shape, (tucker_mask, tt_mask))
+) -> bfit.SamplingKind:        # the uniform all-modes `apply` sampling kind at x0's fixed rank
+    """The uniform **apply** ``SamplingKind`` -- the twin of :py:data:`t3toolbox.backend.fitting.APPLY`."""
+    _tk, _tt, shape, base_masks = x0_data
+    return dc.replace(
+        bfit.APPLY,
+        precompute=lambda base_data, ww: ubv_sampling.ut3tangent_precompute_apply_base_sweep(base_data, ww),
+        forward=lambda v_sc, ww, base_data, sweep: ubv_sampling.ut3tangent_apply_jacobian_from_sweep(
+            (v_sc[0], v_sc[1], base_data[4], _var_masks_from_base(base_data)), sweep),
+        transpose=lambda r, ww, base_data, sweep: ubv_sampling.ut3tangent_apply_transpose_from_sweep(
+            r, sweep, sum_over_probes=True),
+        point_forward=lambda x_sc, ww: ut3_sampling.ut3_apply((x_sc[0], x_sc[1], shape, base_masks), ww),
+    )
+
+
+def uniform_entries_kind(
+        x0_data:  typ.Tuple,
+) -> bfit.SamplingKind:        # the uniform all-modes `entries` sampling kind
+    """The uniform **entries** ``SamplingKind`` -- the twin of :py:data:`t3toolbox.backend.fitting.ENTRIES`."""
+    _tk, _tt, shape, base_masks = x0_data
+    return dc.replace(
+        bfit.ENTRIES,
+        precompute=lambda base_data, index: ubv_sampling.ut3tangent_precompute_entries_base_sweep(base_data, index),
+        forward=lambda v_sc, index, base_data, sweep: ubv_sampling.ut3tangent_entries_jacobian_from_sweep(
+            (v_sc[0], v_sc[1], base_data[4], _var_masks_from_base(base_data)), sweep),
+        transpose=lambda r, index, base_data, sweep: ubv_sampling.ut3tangent_entries_transpose_from_sweep(
+            r, sweep, sum_over_probes=True),
+        point_forward=lambda x_sc, index: ut3_sampling.ut3_entries((x_sc[0], x_sc[1], shape, base_masks), index),
+    )
+
+
+def uniform_probe_kind(
+        x0_data:  typ.Tuple,
+) -> bfit.SamplingKind:        # the uniform vector-valued `probe` sampling kind
+    """The uniform **probe** ``SamplingKind`` -- the twin of :py:data:`t3toolbox.backend.fitting.PROBE`."""
+    _tk, _tt, shape, base_masks = x0_data
+    return dc.replace(
+        bfit.PROBE,
+        precompute=lambda base_data, ww: ubv_sampling.ut3tangent_precompute_probe_base_sweep(base_data, ww),
+        forward=lambda v_sc, ww, base_data, sweep: ubv_sampling.ut3tangent_probe_jacobian_from_sweep(
+            (v_sc[0], v_sc[1], base_data[4], _var_masks_from_base(base_data)), sweep),
+        transpose=lambda r, ww, base_data, sweep: ubv_sampling.ut3tangent_probe_transpose_from_sweep(
+            r, sweep, sum_over_probes=True),
+        point_forward=lambda x_sc, ww: ut3_sampling.ut3_probe(ww, (x_sc[0], x_sc[1], shape, base_masks)),
+    )
+
+
+_SAMPLING_KIND = {'apply': uniform_apply_kind, 'entries': uniform_entries_kind, 'probe': uniform_probe_kind}
+
+
+def uniform_sampling_kind(
+        name:     str,        # 'apply' / 'entries' / 'probe'
+        x0_data:  typ.Tuple,  # UniformTuckerTensorTrain.data at the fixed rank
+) -> bfit.SamplingKind:
+    """Dispatch to the uniform :py:func:`uniform_apply_kind` / ``entries`` / ``probe`` by name."""
+    if name not in _SAMPLING_KIND:
+        raise ValueError(f"unknown uniform sampling kind {name!r}; expected one of {sorted(_SAMPLING_KIND)}")
+    return _SAMPLING_KIND[name](x0_data)

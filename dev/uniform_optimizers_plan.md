@@ -11,7 +11,11 @@ _**Progress:** U1 DONE (2026-07-06) — `ubv_corewise_inner` + `GeometryOps.inne
 non-regression byte-identical, uniform-equivalence + garbage-robust + stacking verified, jit-clean.
 U2 DONE (2026-07-06) — `backend/uniform_fitting.py` `uniform_{manifold,corewise}_ops` factories (bare
 supercore pairs, masks closed over); verified == the frontend geometry `.data` path + mask
-loop-invariance across points. Next: U3 (uniform `SamplingKind` builders)._
+loop-invariance across points.
+U3 DONE (2026-07-06) — the split `precompute → from_sweep` seam (`ubv_sampling`, sweep carries the
+mask-once base + packed vectors) + `uniform_{apply,entries,probe}_kind` (reuse ragged layer-agnostic
+fields via `dataclasses.replace`, geometry-agnostic); verified == ragged `SamplingKind` + adjoint
+identity + garbage-robust. Next: U3′ (derivative/jet `SamplingKind` builders)._
 
 ## The key architectural fact (why this is mostly wiring, not new math)
 
