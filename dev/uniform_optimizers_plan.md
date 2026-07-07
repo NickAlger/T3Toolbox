@@ -28,10 +28,14 @@ packed-aware (ragged path byte-identical); the packed probe-derivative order axi
 gains the vector-I/O mirror section.
 U4 DONE (2026-07-06) — `uniform_least_squares_problem` (packs the loop-invariant sample+data once → the
 reused backend `Problem`/`LocalModel` run fully packed; optimizer state = the bare supercore pair). Verified
-`LocalModel` objective / gradient / `gn_quadratic` == ragged for every kind × both geometries. Next: U5 (run
-the four optimizers eager; `x_opt` == ragged). **Note for U5:** the minibatch `flat_draw`/`kind.take` need a
-packed-aware gather (`packed[:, idx]`) for mc_sgd/adam to keep minibatches packed — full-batch
-gradient_descent/newton_cg already run fully packed._
+`LocalModel` objective / gradient / `gn_quadratic` == ragged for every kind × both geometries. U5 DONE (2026-07-06) — **all four optimizers run on the uniform layer, fully packed.**
+`gradient_descent` matches ragged exactly (dense); `newton_cg` reaches the same minimum (its inner CG
+amplifies ~1e-15 packed-vs-ragged summation-order differences into a different path to the same fit — a
+convergence test, not a trajectory match); `mc_sgd` tracks ragged + descends; `adam` (corewise) descends.
+Added the **packed-aware minibatch `take`** (`_ptake_*`, a single `bfit._flat_gather`) so mc_sgd/adam keep
+minibatches packed (verified == the ragged take's minibatch). `w_axes`/`n_measurements` needed no override
+(they index `ww[0]`). **The uniform layer now optimizes** — the whole point. Next: U6 (jit the step;
+compile-once; ragged-vs-uniform timing), then U7 (frontend surface + docs)._
 
 ## The key architectural fact (why this is mostly wiring, not new math)
 

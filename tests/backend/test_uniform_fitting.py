@@ -16,6 +16,7 @@ import t3toolbox.uniform_basis_variations_format as ubv
 import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.optimizers as bopt
+import t3toolbox.backend.apply as bapply
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.uniform_fitting as uf
 import t3toolbox.backend.ubv_tangent_operations as ubto
@@ -366,6 +367,59 @@ class TestUniformProblem(unittest.TestCase):
                 with self.subTest(geometry=geom, kind=kind_name):
                     sample, data = self._sample_data(kind_name)
                     self._check(geom, bgeom, kind_name, factory(O, WEIGHT), sample, data, order=O, weight=WEIGHT)
+
+
+class TestUniformOptimizers(unittest.TestCase):
+    """U5: the four backend optimizers run on the uniform Problem (fully packed) and reproduce / match the
+    ragged run. Deliberately small + short (this suite runs a lot): correctness needs a *few* iterations,
+    not deep convergence. gradient_descent is deterministic -> its trajectory matches ragged (to tolerance
+    -- never rely on bit-exactness: it happens to hold on this machine, but different hardware / BLAS /
+    summation orders can drift ~1e-15); newton_cg at a few steps still tracks ragged (its inner CG only
+    diverges once such differences accumulate over many steps); the stochastic mc_sgd/adam descend and
+    (mc_sgd) track ragged -- also exercising the packed-aware minibatch `take`. All numerical assertions
+    are tolerance tests (np.allclose / np.isclose)."""
+    def setUp(self):
+        np.random.seed(0)
+        SH, TK, TT = (4, 5, 6), (2, 2, 2), (1, 2, 2, 1)     # small + easy -> fast
+        W = 25
+        x_true = t3.TuckerTensorTrain.randn(SH, TK, TT)
+        self.ww = [np.random.randn(W, n) for n in SH]
+        self.data = bapply.tucker_tensor_train_apply(x_true.data, self.ww)
+        self.x0 = t3.TuckerTensorTrain.randn(SH, TK, TT)
+        self.ux0 = ut3.UniformTuckerTensorTrain.from_t3(self.x0)
+        self._x0u = (self.ux0.data[0], self.ux0.data[1])
+
+    def _problems(self, geom):
+        bg = {'manifold': bopt.MANIFOLD, 'corewise': bopt.COREWISE}[geom]
+        return (bopt.least_squares_problem(bg, bfit.APPLY, self.ww, self.data),
+                uf.uniform_least_squares_problem(geom, 'apply', self.ux0, self.ww, self.data))
+
+    def test_gradient_descent_matches_ragged(self):
+        pr, pu = self._problems('manifold')
+        _, sr = bopt.gradient_descent(pr, self.x0.data, n_iter=8)
+        _, su = bopt.gradient_descent(pu, self._x0u, n_iter=8)
+        self.assertTrue(np.allclose(sr['losses'], su['losses']))   # deterministic -> matches ragged (to tol)
+
+    def test_newton_cg_matches_ragged(self):
+        pr, pu = self._problems('manifold')
+        _, sr = bopt.newton_cg(pr, self.x0.data, max_newton=4)
+        _, su = bopt.newton_cg(pu, self._x0u, max_newton=4)
+        self.assertLess(su['losses'][-1], su['losses'][0])                          # descends
+        self.assertTrue(np.isclose(su['losses'][-1], sr['losses'][-1], rtol=1e-2))  # tracks ragged
+
+    def test_mc_sgd_matches_ragged_and_descends(self):
+        # same rng + same flat draw + the packed take gives the same minibatch as ragged, so the descent
+        # tracks the ragged run.
+        pr, pu = self._problems('manifold')
+        _, sr = bopt.mc_sgd(pr, self.x0.data, np.random.default_rng(0), batch=10, max_iter=100)
+        _, su = bopt.mc_sgd(pu, self._x0u, np.random.default_rng(0), batch=10, max_iter=100)
+        self.assertLess(su['losses'][-1], 0.7 * su['losses'][0])                    # descends
+        self.assertTrue(np.isclose(su['losses'][-1], sr['losses'][-1], rtol=1e-3))  # tracks ragged
+
+    def test_adam_descends(self):
+        _, pu = self._problems('corewise')
+        _, su = bopt.adam(pu, self._x0u, np.random.default_rng(0), batch=10, lr=5e-2, max_iter=200)
+        self.assertLess(su['losses'][-1], 0.5 * su['losses'][0])                    # descends
 
 
 if __name__ == '__main__':

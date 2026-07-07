@@ -162,6 +162,7 @@ def uniform_apply_kind(
         transpose=lambda r, ww, base_data, sweep: ubv_sampling.ut3tangent_apply_transpose_from_sweep(
             r, sweep, sum_over_probes=True),
         point_forward=lambda x_sc, ww: ut3_sampling.ut3_apply((x_sc[0], x_sc[1], shape, base_masks), ww),
+        take=_ptake_apply,
     )
 
 
@@ -178,6 +179,7 @@ def uniform_entries_kind(
         transpose=lambda r, index, base_data, sweep: ubv_sampling.ut3tangent_entries_transpose_from_sweep(
             r, sweep, sum_over_probes=True),
         point_forward=lambda x_sc, index: ut3_sampling.ut3_entries((x_sc[0], x_sc[1], shape, base_masks), index),
+        take=_ptake_entries,
     )
 
 
@@ -194,6 +196,7 @@ def uniform_probe_kind(
         transpose=lambda r, ww, base_data, sweep: ubv_sampling.ut3tangent_probe_transpose_from_sweep(
             r, sweep, sum_over_probes=True),
         point_forward=lambda x_sc, ww: ut3_sampling.ut3_probe(ww, (x_sc[0], x_sc[1], shape, base_masks)),
+        take=_ptake_probe,
     )
 
 
@@ -236,6 +239,7 @@ def uniform_apply_derivatives_kind(
             aw(r, 2), sweep, order, sum_over_probes=True),
         point_forward=lambda x_sc, s: ut3_sampling.ut3_apply_derivatives(
             s[0], s[1], (x_sc[0], x_sc[1], shape, base_masks), order),
+        take=_ptake_deriv_apply,
     )
 
 
@@ -258,6 +262,7 @@ def uniform_entries_derivatives_kind(
             aw(r, 2), sweep, order, sum_over_probes=True),
         point_forward=lambda x_sc, s: ut3_sampling.ut3_entries_derivatives(
             s[0], s[1], (x_sc[0], x_sc[1], shape, base_masks), order),
+        take=_ptake_deriv_entries,
     )
 
 
@@ -286,6 +291,7 @@ def uniform_probe_derivatives_kind(
         sumsq=lambda out, n_w: bfit.sumsq_over_probes(aw(out, 1), n_w + 1),
         point_forward=lambda x_sc, s: ut3_sampling.ut3_probe_derivatives(
             s[0], s[1], (x_sc[0], x_sc[1], shape, base_masks), order),
+        take=_ptake_deriv_probe,
     )
 
 
@@ -337,6 +343,39 @@ def _pack_data(name, data, N):
     if name in ('probe', 'probe_derivatives'):
         return ut3_operations.pack_if_ragged(data, N)
     return data
+
+
+# Packed-aware minibatch `take` (the SamplingKind default-draw hook), so mc_sgd/adam keep minibatches
+# PACKED (a single `(d,)+W'+…` gather via bfit._flat_gather) instead of the ragged `take` iterating the
+# packed sample back into a d-list. W sits at axis 1 of the d-leading packed sample/ww/pp/probe-data (axis
+# 2 for a probe-derivative jet's data, after d + order); apply/entries scalar data has W at axis 0 (axis 1
+# after a leading order axis). `w_axes` / `n_measurements` need no override -- they index ww[0], which drops
+# the d axis to the same W-leading shape as the ragged sample.
+_fg = bfit._flat_gather
+
+def _ptake_apply(ww, data, idx):
+    n_w = ww.ndim - 2                                          # ww packed (d,)+W+(N,)
+    return _fg(ww, 1, n_w, idx), _fg(data, 0, n_w, idx)        # data (W,)+C
+
+def _ptake_probe(ww, data, idx):
+    n_w = ww.ndim - 2
+    return _fg(ww, 1, n_w, idx), _fg(data, 1, n_w, idx)        # data packed (d,)+W+C+(N,)
+
+def _ptake_entries(index, data, idx):
+    n_w = index.ndim - 1                                       # index (d,)+W
+    return _fg(index, 1, n_w, idx), _fg(data, 0, n_w, idx)
+
+def _ptake_deriv_apply(sample, data, idx):
+    ww, pp = sample; n_w = ww.ndim - 2
+    return (_fg(ww, 1, n_w, idx), _fg(pp, 1, n_w, idx)), _fg(data, 1, n_w, idx)   # data (order+1,)+W+C
+
+def _ptake_deriv_entries(sample, data, idx):
+    index, pp = sample; n_w = index.ndim - 1
+    return (_fg(index, 1, n_w, idx), _fg(pp, 1, n_w, idx)), _fg(data, 1, n_w, idx)
+
+def _ptake_deriv_probe(sample, data, idx):
+    ww, pp = sample; n_w = ww.ndim - 2
+    return (_fg(ww, 1, n_w, idx), _fg(pp, 1, n_w, idx)), _fg(data, 2, n_w, idx)   # data (d,)+(order+1,)+W+C+(N,)
 
 
 def uniform_least_squares_problem(
