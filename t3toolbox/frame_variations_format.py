@@ -619,7 +619,7 @@ class T3Frame:                     # jax aux_data (it holds arrays; value hash/e
         """The base point this frame represents, as a :py:class:`TuckerTensorTrain` (natural ranks).
 
         Reconstructed in right-canonical form (the Tucker factors over the right-orthogonal core-TT).
-        For a **consistent** frame (e.g. from :py:func:`t3_orthogonal_representations`) this is the frame
+        For a **consistent** frame (e.g. from :py:func:`t3_orthogonal_representations`) this is the base
         point and equals the left-canonical reconstruction; for a hand-built inconsistent frame it is
         specifically this form. No consistency check is performed (verifying it would mean densifying
         multiple reconstructions -- the kind of expensive check the library avoids).

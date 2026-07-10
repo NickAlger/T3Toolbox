@@ -16,7 +16,7 @@ directions. **Hypothesis:** this extra mixing decorrelates the per-sample contri
 variance of the stochastic gradient -- which, for a Cauchy-step method, should mean steadier step
 lengths and a more robust stopping signal. Untested; this example exists to see whether it holds here.
 
-Nothing else changes. The flatten is a pure reshape of the *same* collected data (``N_X`` distinct frame
+Nothing else changes. The flatten is a pure reshape of the *same* collected data (``N_X`` distinct base
 points, ``N_P`` directions each), and the apply-derivative forward / transpose treat ``W`` as arbitrary
 leading batch axes -- so ``apply_derivative_operator`` is reused verbatim and ``sum_over_probes=True``
 still sums the whole minibatch into one ``J^T r``. To isolate the mixing effect we **match the per-step

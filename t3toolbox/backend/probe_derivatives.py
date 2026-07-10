@@ -1618,7 +1618,7 @@ def entries_derivatives_dense(
         T:      NDArray,                # dense tensor, shape=(N0,...,N(d-1))
         order:  int,                    # highest derivative order
 ) -> NDArray:                           # entries-derivative jets, shape=(order+1,)
-    '''Exact dense symmetric entry derivatives (oracle): apply-derivatives with one-hot frame vectors
+    '''Exact dense symmetric entry derivatives (oracle): apply-derivatives with one-hot basis vectors
     ``e_{index}`` (entries = apply with one-hot), via :py:func:`apply_derivatives_dense`. Unstacked.'''
     ww = [np.eye(T.shape[j])[index[j]] for j in range(T.ndim)]   # one-hot e_{index_j}
     return apply_derivatives_dense(ww, pp, T, order)

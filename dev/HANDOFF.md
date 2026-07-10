@@ -87,11 +87,11 @@ nearly a drop-in chapter), then the small nugget-extractions + cosmetic cleanups
 
 Built the backend the U7 frontend sits on; **full slicing detail in `dev/archive/uniform_optimizers_plan.md`.**
 All backend-first (the geometry-generic optimizer bodies in `backend/optimizers.py` are unchanged apart from
-one `inner`-seam swap); new code in `backend/uniform_fitting.py`, `backend/ubv_sampling.py`,
+one `inner`-seam swap); new code in `backend/uniform_fitting.py`, `backend/ufv_sampling.py`,
 `backend/ut3_operations.py`; tests in `tests/backend/test_uniform_fitting.py` (+ jit in `test_dispatch.py`).
 The load-bearing pieces that the frontend + future work rely on:
 
-- **`GeometryOps.inner` seam** + `ubv_corewise_inner` (the honest masked/stacked coordinate dot; ragged =
+- **`GeometryOps.inner` seam** + `ufv_corewise_inner` (the honest masked/stacked coordinate dot; ragged =
   `corewise_dot`, byte-identical). **Arch-B1:** optimizer state = the bare supercore pair, masks are
   **loop-invariant state closed over** (only supercores traced) → jit-compile-once.
 - **`uniform_{manifold,corewise}_ops`** + the `uniform_*_kind` `SamplingKind` builders (plain + jet twins) +
@@ -118,15 +118,24 @@ The load-bearing pieces that the frontend + future work rely on:
 
 The uniform layer is closed. The agreed sequence (with Nick, this session) is **naming pass → doc pass**:
 
-**1. Naming pass** (`dev/naming_review.md`). The heavy item is the **`T3Basis → T3Frame` rename** +
-`bv_ → fv_` / `ubv_ → ufv_` prefixes + `basis_* → frame_*` (module `basis_variations_format.py →
-frame_variations_format.py`) — ~160 refs, a **scripted, full-suite + per-module-doctest-gated** pass in one
-go (`T3Variations` stays; "variation" is paper-confirmed). Recommendation held with Nick: do this
-mechanical rename **first** (self-contained). **Then reconsider the backend module reorg** (§4's
-family×op-kind matrix + per-op polymorphism triage) **separately** — it was nominally tied to the uniform
-fix, which is now done, and it *didn't* happen, so it's a still-pending, much more invasive decision (fold
-in or drop). Also the smaller open items in `naming_review.md` (cross-class method sweep, `Sequence`→`Union`
-hint relaxation, plurality/morpheme cleanups).
+**1. Naming pass** (`dev/naming_review.md`).
+- **`basis`/`base` → `frame` — DONE (2026-07-10).** Two commits: the `basis`-half (`T3Basis`→`T3Frame`,
+  `UT3Basis`→`UT3Frame`, `.basis`→`.frame`, `basis_*`→`frame_*`, prefixes `bv_`→`fv_` / `ubv_`→`ufv_`,
+  module + file renames) and the `base`-half (frame accessors `model.base`→`.frame` /
+  `geometry.base(x)`→`geometry.frame(x)`, the **C stack → frame stack**: `base_stack_shape`→`frame_stack_shape`,
+  `n_base`→`n_frame`). `T3Variations` kept. **Math "basis" preserved** — the standard/orthonormal basis of
+  the variation cores, "basis vectors", the **Tucker basis** (factor matrices) — verified via an exhaustive
+  cross-line audit (a real trap: placeholder protection missed line-split phrases, corrupting a few
+  "base point"→"frame point" / "Tucker basis"→"Tucker frame"; all found + fixed). "base" kept for the plain
+  manifold **point** (`base_point`, `base_masks`, "base point(s)"), the math "Tucker bases", and the
+  named **`base-inner`** axis-ordering convention (could still become `frame-inner` for full consistency —
+  a flagged nicety). Full suite green each half.
+- **Still open:** the **cross-class method-name sweep** (verify parallel methods are truly the same op
+  before unifying — do NOT force-merge subtly-different ones), the small `naming_review.md` items
+  (singular alignment like `compute_mus`→`compute_mu`, drop `has_jax`, `probe_t3`→`t3_probe`-style
+  auto-fixes), and the deferred cosmetic `Sequence`→`Union` hint relaxation.
+- **Backend module reorg** (§4's family×op-kind matrix + per-op polymorphism triage): **DEFERRED** (Nick's
+  call) — much more invasive; decide fold-in-or-drop later.
 
 **2. Doc pass** (R3/R4): README (drop "WORK IN PROGRESS DO NOT USE" only at ship), fix the Sphinx build
 (`conf.py` autoapi exclusions, committed `_build`, `modules.rst` still titled "TuckerTensorTrainTools"),
@@ -137,9 +146,10 @@ paper, `dev/paper_scope.md` — above.)
 
 ## The 1.0 roadmap (mid-level-toolkit scope) — summary
 - **R1** packaging correctness (`readme = README.md`; create `CHANGELOG.md`; numpy range).
-- **R2** public API surface (curate `__init__.py`) **+ the naming/organization review** (`dev/naming_review.md`:
-  backend prefix grammar; `T3Basis→T3Frame` / `bv_→fv_` / `ubv_→ufv_` — its own mechanical, suite-gated pass).
-  Also the deferred cosmetic `Sequence`→`Union` hint relaxation.
+- **R2** public API surface (curate `__init__.py`) **+ the naming/organization review** (`dev/naming_review.md`).
+  The `T3Basis→T3Frame` / `bv_→fv_` / `ubv_→ufv_` rename is **DONE**; what remains is the cross-class
+  method-name sweep + the small auto-fixes (see "Next steps → 1"), and the deferred cosmetic
+  `Sequence`→`Union` hint relaxation.
 - **R3** README + quickstart (remove the "DO NOT USE" banner **only at the moment of shipping**).
 - **R4** docs build (fix autoapi exclusions + `modules.rst` title; **fold design rationale from `docs/` into
   user-facing Sphinx docs**).

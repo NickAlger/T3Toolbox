@@ -151,7 +151,7 @@ def frame_consistency_residual(
             typ.Sequence[NDArray],  # right_tt_cores
         ],
 ) -> NDArray:  # shape = stack_shape (per stack element; scalar/0-d when unstacked)
-    '''Relative Frobenius mismatch between the left- and right-canonical reconstructions of the frame
+    '''Relative Frobenius mismatch between the left- and right-canonical reconstructions of the base
     point (``up`` over ``left`` vs ``up`` over ``right``), **per stack element**.
 
     Returns ``||left - right|| / max(1, ||right||)`` over the dense **mode** axes (the norm is reduced over

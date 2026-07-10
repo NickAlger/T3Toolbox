@@ -76,7 +76,7 @@ updated to this version by the time the package is released.
 > to get **wrong** (e.g. the base-inner stack-axis bookkeeping, a depth-aware tree zip), it belongs in
 > the backend so they can find and reuse it. **Exception:** logic *inseparable* from the frontend —
 > constructing/validating the `T3*` OO classes (the `.validate()` contracts), the same-frame guard (it
-> needs the two `T3Basis` objects) — stays in the frontend regardless, since the backend cannot depend on
+> needs the two `T3Frame` objects) — stays in the frontend regardless, since the backend cannot depend on
 > the frontend.
 > **Corollary:** don't leave a backend user one fiddly step short of a usable result — if a backend
 > function would otherwise force them to know some follow-up call (e.g. `tree_zip` to pair two returned
@@ -89,15 +89,15 @@ updated to this version by the time the package is released.
 > transpose (`P,Q,O → G`, paper §6.3), but that substitution is the non-obvious part — inlining it in
 > the frontend would hide the corewise capability from backend users entirely.
 - `TuckerTensorTrain` (`tucker_tensor_train.py`) — the keystone; `.data = (tucker_cores, tt_cores)`.
-- `T3Basis` / `T3Variations` (`basis_variations_format.py`) — orthogonal frame + tangent direction.
-- `T3Tangent` (`manifold.py`) — bundles `(T3Basis, T3Variations)`: a tangent vector.
+- `T3Frame` / `T3Variations` (`frame_variations_format.py`) — orthogonal frame + tangent direction.
+- `T3Tangent` (`manifold.py`) — bundles `(T3Frame, T3Variations)`: a tangent vector.
 - `backend/` — stateless functions, each module with its own `__all__`.
 
 **Three representations** (the organizing principle):
 - **ragged** — tuples of variably-shaped arrays. The default, fully working path.
-- **uniform** — one stacked supercore array + masks (`ut3_*`, `ubv_*`, `uniform_*`); for
+- **uniform** — one stacked supercore array + masks (`ut3_*`, `ufv_*`, `uniform_*`); for
   `jax.lax.scan` vectorization. **`UniformTuckerTensorTrain` (the plain layer) is built through slice 8
-  and jit-wired with host-numpy masks** (uniform basis/variations/tangents still deferred). **Before
+  and jit-wired with host-numpy masks** (uniform frame/variations/tangents still deferred). **Before
   touching uniform code, read the design notes** — governing: [`docs/uniform_equivalence_contract.md`](docs/uniform_equivalence_contract.md)
   (the uniform layer is a *faster ragged layer*: `to_uniform → op → to_ragged == op_ragged` on real
   parts, garbage don't-care — this is correctness *and* the test strategy). Then:
@@ -116,13 +116,13 @@ updated to this version by the time the package is released.
   tt_supercore + masks`-holder; the holder is a static `aux_data` with **value-based** hash/eq over mask
   **content** — the `common.ValueHashedMasks` mixin — so a rebuilt-but-identical holder is the *same* jit
   cache key and re-orthogonalizing the frame each optimization step does **not** recompile; the
-  `T3Basis`↔`T3Tangent` pattern), and
+  `T3Frame`↔`T3Tangent` pattern), and
   [`docs/uniform_backend_jit_recipe.md`](docs/uniform_backend_jit_recipe.md) (the **backend** jit story:
   masks can't be traced, so a backend optimizer holds them as loop-invariant state and traces only the
-  supercores — jit the whole step closing over the base masks, and the frame masks fall out as
+  supercores — jit the whole step closing over the frame masks, and the frame masks fall out as
   constant-folded constants; the design constraint for the 3b uniform optimizer).
 - **weighted** — cores + edge-weight vectors (`wt3_*`, `weighted_*`); weights "absorbed" into cores.
-  Tangent weighting (`absorb_weights_into_tangent_cores`) is **parked** in `backend/bv_operations.py`
+  Tangent weighting (`absorb_weights_into_tangent_cores`) is **parked** in `backend/fv_operations.py`
   pending a redesign of weighted tensor networks.
 
 > **Batching/stacking is the most error-prone part of the library. Before touching anything with
@@ -130,13 +130,13 @@ updated to this version by the time the package is released.
 > its **"Start here"** section (one-screen mental model + a concrete shape table + the shape-notation
 > legend), then the numbered sections for the full reference (three meanings of "stack", the base-inner
 > convention and *why*, the `'...'`-vs-grouped-contraction machineries, heterogeneous-stack tuples,
-> `vmap`/`jit` with the basis as a pytree leaf). The notes below are the terse version.
+> `vmap`/`jit` with the frame as a pytree leaf). The notes below are the terse version.
 >
-> The three batch **blocks** (mnemonic-and-collision-free letters): **`C`** = base/core stack (base
+> The three batch **blocks** (mnemonic-and-collision-free letters): **`C`** = frame/core stack (base
 > points, on *every* core; `= stack_shape`), **`W`** = probe stack (the `w` vectors, on `ww` only),
-> **`K`** = tangent stack (the `k` tangent vectors at *one* base, on the *variations* only). Order is
+> **`K`** = tangent stack (the `k` tangent vectors at *one* frame, on the *variations* only). Order is
 > base-inner **`W + K + C`**. **The most common slip is conflating `C` (base points) with `K` (tangent
-> vectors at a base)** — they live on different operands and mean different things. (These were `F`/`V`/`G`
+> vectors at a frame)** — they live on different operands and mean different things. (These were `F`/`V`/`G`
 > before a rename that made them disjoint from the core/variation symbols `U`/`P`/`Q`/`O`/`G`/`H`/`V`.)
 
 **"Stacking" means three different things** — keep them straight:
@@ -149,11 +149,11 @@ updated to this version by the time the package is released.
 
 **Two batch machineries** (full detail + the *why* are in the doc above): (1) **one** broadcastable
 prefix → a leading `'...'` einsum, which rides `stack_shape` for free; (2) **two** independent blocks
-on *different* operand subsets (canonical case: core/base stack `C` on the cores vs probe stack `W` on
+on *different* operand subsets (canonical case: core/frame stack `C` on the cores vs probe stack `W` on
 `ww` only — a single `'...'` can't express it) → the named grouped-block contractions in
 `backend/contractions.py` (`WCa_Caib_WCi_to_WCb` etc.; each capital block reshaped to one flat axis,
 = 1 when empty). **Convention (library-wide, base-inner): core stack `C` innermost, extra stacks
-`W`/`K` outermost** (`W+C`, `K+C`, `W+K+C`) — because `'...'`-broadcast replicates a base over the
+`W`/`K` outermost** (`W+C`, `K+C`, `W+K+C`) — because `'...'`-broadcast replicates a frame over the
 extras for free only when `C` is innermost. (`apply`/`entries` were the last `C+W` holdout — flipped
 in 5b; the whole library is now base-inner.)
 
@@ -166,11 +166,11 @@ exemplar; `apply`/`entries` are the general-purpose all-modes special cases.
 
 **Two gotchas:**
 - **Canonical core-tuple orderings (frontend takes precedence).** `TuckerTensorTrain.data =
-  (tucker_cores, tt_cores)`; `T3Basis.data = (up, down, left, right) = (U, O, P, Q)` (the `O`/down core
+  (tucker_cores, tt_cores)`; `T3Frame.data = (up, down, left, right) = (U, O, P, Q)` (the `O`/down core
   is called **`down_tt_cores`**, not "outer"); `T3Variations.data = (tucker_variations, tt_variations)`;
-  `(basis, variations)` pairs are basis-first. All verified backends (`tangent_operations`,
-  `bv_conversions`, `orthogonal_representations`, **and now `probing`**) take these tuples in this
-  exact order — pass `.data` straight through, no reorder. (Only the parked `bv_operations.py`
+  `(frame, variations)` pairs are frame-first. All verified backends (`tangent_operations`,
+  `fv_conversions`, `orthogonal_representations`, **and now `probing`**) take these tuples in this
+  exact order — pass `.data` straight through, no reorder. (Only the parked `fv_operations.py`
   `absorb_weights` still uses the old `(up, left, right, outer)` probing order.)
 - **`corewise_dot`/`corewise_norm` collapse EVERY axis** (stacks included) to a scalar. To keep the
   stack (vectorized linalg), use `corewise.corewise_stack_dot(X, Y, n_stack)`.
@@ -182,13 +182,13 @@ exemplar; `apply`/`entries` are the general-purpose all-modes special cases.
 thread `use_jax` params around.** Each operation computes `use_jax = tree_contains_jax((its inputs))`
 (or `is_jax_ndarray(...)`) and the jax-ness propagates through the computed intermediates (so a
 delegating function needn't infer at all — its callees do, from the arrays passed down). Applied
-across the verified code: `probing`, `manifold`, `basis_variations_format`, `corewise`, and their
-backend deps (`tangent_operations`, `bv_conversions`, `t3_operations`, `t3_linalg`,
+across the verified code: `probing`, `manifold`, `frame_variations_format`, `corewise`, and their
+backend deps (`tangent_operations`, `fv_conversions`, `t3_operations`, `t3_linalg`,
 `t3_orthogonalization`, `linalg`) — **operations carry no `use_jax`**.
 **The exception: pure constructors with NO array inputs** — `TuckerTensorTrain.randn/zeros/ones` and
 `load`, `t3_corewise_randn`/`t3_zeros`/`t3_ones`, `common.randn`, and the rank-spec helpers in
 `ranks.py` — keep a `use_jax` flag (there's nothing to infer from; it chooses the output type).
-Factories that DO take an existing object infer from it (e.g. `T3Tangent.zeros/randn` from the basis,
+Factories that DO take an existing object infer from it (e.g. `T3Tangent.zeros/randn` from the frame,
 `from_tensor_train`/`from_canonical` from the cores). The deferred weighted layer still threads
 `use_jax` (old pattern) — migrate when repairing it.
 **The other exception — uniform masks are ALWAYS numpy, by `np` not `xnp` (and that is intentional, not
@@ -229,7 +229,7 @@ to `xnp`.** Rule: **supercores → `xnp`; masks → `np`.** Full reasoning + the
 The dividing line is **structural vs numerical**:
 
 - **Structural problems → hard error, always (both modes).** Wrong shape, inconsistent ranks/lengths,
-  mismatched stack shapes — these raise unconditionally. `TuckerTensorTrain`, `T3Basis`, and
+  mismatched stack shapes — these raise unconditionally. `TuckerTensorTrain`, `T3Frame`, and
   `T3Variations` validate in `__post_init__`. If something is the wrong shape: error. (Structural
   consistency is *not* governed by the safety mode below.)
 
@@ -254,17 +254,17 @@ The dividing line is **structural vs numerical**:
     (`MANIFOLD.inner`/`norm`). `TuckerTensorTrain` / `corewise` / `probing` are **precondition-free**
     (exact for any cores). The check sites use `safety.checks_active(*operand_data)` (safe **and** not
     tracing) → `safety.require(<checker>(atol=safety.effective_rtol(...)), msg)`, routed through cached
-    residuals (`T3Basis.orthogonality_residual`, `T3Tangent.gauge_residual`) so a fixed frame/tangent in
+    residuals (`T3Frame.orthogonality_residual`, `T3Tangent.gauge_residual`) so a fixed frame/tangent in
     an inner loop is contracted once. **Frontend-only** for now (a backend mirror for raw-`.data` users
     is deferred).
 
   - **"Same tangent space" is NUMERICAL, not structural** (the key correction). Two tangents share a
     tangent space iff their frames are *numerically equal* (`safety.frames_equal`, with an `is`-identity
-    fast path) — **not** object identity. The old `self.basis is other.basis` identity guard was a
-    numerical check faked as structural; it forced `T3Tangent`'s basis to be jax **aux_data** (→ jit
-    recompiled on every base change) and false-failed on a jit round-trip. The numerical guard let the
-    basis become a pytree **leaf** (base flows as traced data → no recompile). Likewise `GaussNewtonModel`
-    is a registered pytree (base/sweep/sample/residual leaves; geometry/kind aux) — you can `jit` the
+    fast path) — **not** object identity. The old `self.frame is other.frame` identity guard was a
+    numerical check faked as structural; it forced `T3Tangent`'s frame to be jax **aux_data** (→ jit
+    recompiled on every frame change) and false-failed on a jit round-trip. The numerical guard let the
+    frame become a pytree **leaf** (frame flows as traced data → no recompile). Likewise `GaussNewtonModel`
+    is a registered pytree (frame/sweep/sample/residual leaves; geometry/kind aux) — you can `jit` the
     frontend matvec directly and it compiles **once** across all bases.
 
   - **Two tolerances + minimal-rank naming.** A check picks `rtol_jax` (looser) when any input is a jax
@@ -297,8 +297,8 @@ The dividing line is **structural vs numerical**:
   dynamic-shape rtol/atol ops, plus a few numerical smoke tests). This cut the full suite from ~550s
   to ~50s. When adding a numerical test, write it numpy-only and add the op to `test_dispatch` if its
   jax dispatch isn't already covered. (Frozen dataclasses are registered jax pytrees; `T3Tangent` carries
-  the **basis as a leaf** — the same-frame guard is a *numerical* `frames_equal` check that survives the
-  jit round-trip, so the base flows as traced data with no per-base recompile — see `manifold.py`.)
+  the **frame as a leaf** — the same-frame guard is a *numerical* `frames_equal` check that survives the
+  jit round-trip, so the frame flows as traced data with no per-frame recompile — see `manifold.py`.)
   A few tests still build explicit jax operands where that *is* the thing under test (e.g.
   `test_contains_jax`); those keep the `jnp` import.
 - **Doctests = reproducible examples** (not yet wired into CI, but written so they can be): **examples
@@ -325,13 +325,13 @@ project engineering practices below are shared.)*
   optimization tasks (Riemannian fitting/CG) as "the" use case — a batched or exotic operation is as
   legitimate as a fitting one.
 - **Prefer minimal dataclasses** — cores only; derive shapes/splits rather than storing redundant
-  fields (e.g. the `C`/`K` stack split is recovered from the (basis, variations) pairing).
+  fields (e.g. the `C`/`K` stack split is recovered from the (frame, variations) pairing).
 - **Commit per logical chunk.** Verify tests pass first; write a descriptive message; stage only the
   relevant files (leave unrelated stray edits alone).
 - **Changing a backend convention has a wide blast radius — grep ALL consumers.** An axis-ordering or
   signature change ripples through the OO wrappers that delegate to it (e.g. `TuckerTensorTrain.probe`
   → `probe_t3`) and *their* tests/doctests, not just the file you edited. After such a change, run the
-  full suite (`test_tucker_tensor_train` + `test_manifold` + `test_basis_variations_format` +
+  full suite (`test_tucker_tensor_train` + `test_manifold` + `test_frame_variations_format` +
   `backend/test_contractions`), not only the directly-touched tests.
 - Don't ship a possibly-wrong result with a weak test — if something looks off, dig in or flag it.
 
@@ -345,14 +345,14 @@ of every path. Full suite ~50s, green.
 
 - **Solid / tested:** `TuckerTensorTrain` + backend (arithmetic, `to_dense`, `t3svd`, `t3m`, save/load;
   the three sampling ops `apply`/`entries`/`probe` + their symmetric derivatives + the three transpose
-  families ambient/corewise/tangent); `basis_variations_format`; `manifold` (`T3Tangent`, the
+  families ambient/corewise/tangent); `frame_variations_format`; `manifold` (`T3Tangent`, the
   `MANIFOLD`/`COREWISE` geometries) + safe/unsafe mode (`safety.py`); the geometry-generic
   `GaussNewtonModel` (`fitting.py`) + the four optimizers
   (`gradient_descent`/`mc_sgd`/`adam`/`newton_cg`, in `optimizers.py`) + least-squares fitting from
   apply/entries/probe **and their derivatives**; the **plain** `UniformTuckerTensorTrain` + `ut3_*`
-  backend (through slice 8); **the uniform `UT3Basis`/`UT3Variations` foundation (increment 2c) and the
+  backend (through slice 8); **the uniform `UT3Frame`/`UT3Variations` foundation (increment 2c) and the
   uniform *tangent + manifold layer* (increment 3b) — the *tangent backend* (`UT3Tangent` +
-  `backend/ubv_tangent_operations`: doubled-rank `to_ut3`/`to_dense`, `retract`, gauge,
+  `backend/ufv_tangent_operations`: doubled-rank `to_ut3`/`to_dense`, `retract`, gauge,
   `project_ut3_onto_tangent_space`, cross-layer converters, stack/unstack), the *two geometries*
   (`UNIFORM_MANIFOLD`/`UNIFORM_COREWISE`, 3b-5), *tangent + corewise probing* (3b-6: the `d`-prefixed
   `WKC` contractions, `UT3Tangent.{probe,apply,entries}` + their `𝒥ᵀ` transposes, and the corewise
@@ -396,8 +396,9 @@ Live roadmap + next steps: **`dev/HANDOFF.md`**. The durable open items:
 - **Doc pass (Track B / release):** fold the design rationale from `docs/` into user-facing Sphinx
   docs; fix the docs build (`conf.py` autoapi excludes core modules; committed `_build`; `modules.rst`
   still titled "TuckerTensorTrainTools").
-- **Public API + naming review** — curate `t3toolbox/__init__.py`; review class/function names and
-  their file placement (cheap now, before release).
+- **Public API + naming review** — the `basis`/`base` → `frame` rename is **DONE** (`dev/naming_review.md`
+  §2); remaining: curate `t3toolbox/__init__.py`, the cross-class method-name sweep + small auto-fixes, and
+  the **deferred** backend module reorg (§4).
 - **Goal-1 `fit(...)` facade** — auto geometry/optimizer/ranks/`x0` + rank-continuation/validation
   ("standard user, no fiddling"). **Deferred to 1.1**; 1.0 ships as an honest mid-level toolkit.
 - **Cleanup backlog:** `OLD_*.py` (delete only once functionality is confirmed preserved elsewhere);
@@ -406,6 +407,6 @@ Live roadmap + next steps: **`dev/HANDOFF.md`**. The durable open items:
   at the moment of shipping**. **No auto-formatter near the deliberately-nonstandard code style.**
 - **Minimal-rank audit** (mostly resolved): gauge projections + `project`/`project_dense_onto_tangent`
   need orthogonality only (minimal rank NOT required — confirmed); `inner`/`norm` HS-faithfulness needs
-  orthogonal + minimal + gauged; `retract` preserves base ranks only on a minimal base.
+  orthogonal + minimal + gauged; `retract` preserves frame ranks only on a minimal frame.
 - **Deferred niceties:** the ambient derivative transpose (exponential-rank, no use case); per-test
   seeding → `pytest -n auto` parallelism; trimming `test_dispatch` jit time + the SVD-truncation grids.

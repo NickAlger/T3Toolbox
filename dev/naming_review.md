@@ -1,8 +1,21 @@
 # Naming / organization review — decisions log
 
-_In progress (2026-06-21). **Planning only** — the renames are a deferred execution pass
-(a careful, full-suite + doctest-gated refactor), not done yet. This log records the agreed
-conventions so far + the open concerns. Will be folded into CLAUDE.md's conventions when complete._
+_Started 2026-06-21._
+
+> **§2 EXECUTED 2026-07-10: `basis`/`base` → `frame`.** The `T3Basis→T3Frame` / `UT3Basis→UT3Frame` /
+> `.basis→.frame` / `basis_*→frame_*` / `bv_→fv_` / `ubv_→ufv_` rename **and** the `base`-half (frame
+> accessors `model.base`→`.frame`, `geometry.base(x)`→`geometry.frame(x)`, and the **C stack → frame stack**:
+> `base_stack_shape→frame_stack_shape`, `n_base→n_frame`) shipped in two suite-gated commits. `T3Variations`
+> kept. Math "basis" preserved (variation-core standard/orthonormal basis, "basis vectors", the **Tucker
+> basis** factor matrices); `base` kept for the plain manifold **point** (`base_point`/`base_masks`/prose)
+> and the named **`base-inner`** convention. Decision refinements settled during execution: (a) `fv_`-coarse
+> for frame/variation-only ops; (b) singular alignment (`compute_mus→compute_mu`); (c) accept long morphemes;
+> (d) the C stack is structurally a batch of *frames* → "frame stack". **Still open:** the cross-class
+> method-name sweep (§3, verify-before-merge), the §1 auto-fixes (`probe_t3→t3_probe` etc.), and §4's backend
+> module reorg (**DEFERRED**). See `dev/HANDOFF.md`.
+
+_The log below records the agreed conventions + open concerns (planning notes; some now executed per the
+banner above)._
 
 ## Locked decisions
 

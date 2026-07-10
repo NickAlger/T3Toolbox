@@ -132,7 +132,7 @@ because the ranks genuinely change. The **frame-variations / tangent layer** (`U
 tangent space of a `UT3Frame`) runs a **different algebra**, and the mask behavior is different —
 **identical, not combined.**
 
-A variation is a **tangent vector**: a point in the fixed-dimensional tangent space `T_B` at a frame
+A variation is a **tangent vector**: a point in the fixed-dimensional tangent space `T_B` at a base
 point `B`. Its rank structure (the mask) is a property of **`B`'s gauge**, shared by *every* tangent at
 `B`. So the vector-space operations there are **corewise at a fixed rank**, not direct sums:
 

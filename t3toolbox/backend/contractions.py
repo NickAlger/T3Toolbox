@@ -785,7 +785,7 @@ def tWCo_Cio_to_tWCi(
 ###############################################################################
 # Three-group contractions (probing a K-stacked tangent).
 #
-# A third independent batch block K (a stack of tangent vectors sharing one frame
+# A third independent batch block K (a stack of tangent vectors sharing one base
 # point) joins the probe stack W and frame stack C. Base-inner output order is
 # W + K + C (W outer, K middle, C inner -- see docs/batching_and_stacking.md).
 #
