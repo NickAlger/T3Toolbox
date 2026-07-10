@@ -366,16 +366,19 @@ of every path. Full suite ~50s, green.
   `docs/transposes.md`, `docs/numerical_contract_catalog.md`, `docs/probing_section6_notes.md`,
   `docs/signature_style.md`, `docs/doctest_style.md`, the `docs/uniform_*` notes, the `docs/t3svd_*`
   notes. (Historical plans/handoffs are archived under `dev/archive/`.)
-- **Uniform tangent layer + optimizers — DONE (the 1.0 centerpiece).** The *backend*, *geometries*, *tangent
-  + corewise probing*, and the *derivative (jet) probing* (increment 3b), AND now the **optimizers/fitting on
-  the uniform layer** (this session — increments U1–U6 + the U5.6 minimal-rank fix, `dev/uniform_optimizers_plan.md`):
+- **Uniform tangent layer + optimizers — DONE, INCLUDING the frontend (the 1.0 centerpiece).** The *backend*,
+  *geometries*, *tangent + corewise probing*, and the *derivative (jet) probing* (increment 3b), the
+  **optimizers/fitting on the uniform layer** (increments U1–U6 + U5.6), AND now the **frontend surface (U7)**:
   all four optimizers run on uniform, **fully packed**, **jit-compile-once**, verified vs the ragged optimizer,
-  robust to non-minimal input (`uniform_minimal`). Key new pieces: `backend/uniform_fitting.py`
-  (`uniform_{manifold,corewise}_ops`, the `uniform_*_kind` `SamplingKind` builders, `uniform_least_squares_problem`),
-  the packedness-mirror convention (`ut3_operations.{is_packed,pack_if_ragged}`), a GPU benchmark
-  (`dev/bench_uniform_vs_ragged.py`). **Next: the frontend surface (U7)** — `fitting.py`/`optimizers.py` accept a
-  `UniformTuckerTensorTrain` x0 + the uniform geometries (calling `uniform_minimal` transparently). Live status:
-  `dev/HANDOFF.md`.
+  robust to non-minimal input (`uniform_minimal`). Backend pieces: `backend/uniform_fitting.py`
+  (`uniform_{manifold,corewise}_ops`, the `uniform_*_kind` `SamplingKind` builders, `uniform_least_squares_problem`,
+  `pack_sample`/`pack_data`), the packedness-mirror convention (`ut3_operations.{is_packed,pack_if_ragged}`), a
+  GPU benchmark (`dev/bench_uniform_vs_ragged.py`). **Frontend (U7):** the four `optimizers.*` and the six
+  `fitting.*_model` factories **infer** ragged-vs-uniform from `x0`'s type (a uniform `x0` requires a uniform
+  geometry singleton; the optimizer path calls `uniform_minimal` transparently). The roll-your-own surface is
+  `fitting.UniformGaussNewtonModel` (UT3Tangent-valued gradient/Hessian; value-hashed jit aux → compile-once).
+  Worked examples: `examples/fit_hilbert_uniform_{newton_cg,probe_derivatives_newton_cg}.py`. History:
+  `dev/archive/uniform_optimizers_plan.md`. Live status: `dev/HANDOFF.md`.
 - **Deferred / broken:** the **weighted layer** (parked `absorb_weights`) — deferred past 1.0. Remaining
   `OLD_*.py` / `OLD_test_*.py` stray files (`OLD_orthogonalization.py`, the OLD test files) are dead/superseded
   and slated for the **R6** cleanup (delete only after confirming functionality is preserved elsewhere).
@@ -384,11 +387,11 @@ of every path. Full suite ~50s, green.
 
 Live roadmap + next steps: **`dev/HANDOFF.md`**. The durable open items:
 
-- **Uniform layer + optimizers — essentially done (the 1.0 centerpiece).** The tangent/manifold layer
-  (increment 3b) and the optimizers/fitting on it (U1–U6 + U5.6, backend-first, verified vs ragged) are built
-  and tested. **Only the frontend surface (U7) remains:** extend `fitting.py`/`optimizers.py` to accept a
-  `UniformTuckerTensorTrain` x0 + the uniform geometries, calling `uniform_minimal(x0)` transparently so
-  frontend users never meet the minimal-rank requirement. Slicing history: `dev/uniform_optimizers_plan.md`.
+- **Uniform layer + optimizers — DONE (the 1.0 centerpiece), frontend included.** The tangent/manifold layer
+  (increment 3b), the optimizers/fitting on it (U1–U6 + U5.6), and the **frontend surface (U7)** are built and
+  tested: `optimizers.*` / `fitting.*_model` infer ragged-vs-uniform from `x0`, `fitting.UniformGaussNewtonModel`
+  is the roll-your-own surface, and worked examples exist. Slicing history: `dev/archive/uniform_optimizers_plan.md`.
+  **The uniform layer is closed; next is the naming pass then the doc pass** (below).
 - **Redesign the weighted tensor-network** code structure (deferred past 1.0).
 - **Doc pass (Track B / release):** fold the design rationale from `docs/` into user-facing Sphinx
   docs; fix the docs build (`conf.py` autoapi excludes core modules; committed `_build`; `modules.rst`

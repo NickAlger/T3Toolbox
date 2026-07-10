@@ -1,5 +1,10 @@
 # Optimizers/fitting on the uniform layer — design & plan (the speed payoff)
 
+> **CLOSED 2026-07-10 (archived).** All slices done: the backend (U1–U6 + U5.6) landed 2026-07-06→07, and
+> the frontend (**U7**) landed 2026-07-10 — `optimizers.*` + `fitting.*_model` infer ragged-vs-uniform from
+> `x0` (U7a), `fitting.UniformGaussNewtonModel` is the roll-your-own surface with value-hashed jit aux (U7b),
+> and two worked examples + a `newton_cg` doctest (U7c). Full suite green. Current state: `dev/HANDOFF.md`.
+
 _Planning (2026-07-06). The next increment after 3b (uniform tangent + probing + jets, all DONE). Goal:
 make the geometry-generic Gauss-Newton fitting stack (`fitting.py`, `optimizers.py`) run on **uniform
 supercores** — the whole reason the uniform layer exists is speed (`lax.scan` over the `d` core axis

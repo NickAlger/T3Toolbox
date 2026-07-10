@@ -1,17 +1,52 @@
 # T3Toolbox — current handoff
 
-_Updated 2026-07-09._
+_Updated 2026-07-10._
 
 ## Where we are
 
-**The uniform optimizer layer — the 1.0 centerpiece — is BUILT and tested (backend complete).** The four
-optimizers (`gradient_descent` / `mc_sgd` / `adam` / `newton_cg`) now run on the uniform layer, **fully
-packed**, **jit-compile once**, and are **robust to non-minimal input**, all verified against the ragged
-optimizer. Increment 3b (the uniform tangent + probing + jets) closed 2026-07-01; this session
-(2026-07-06 → 07) wired the optimizers/fitting onto it — the whole reason the uniform layer exists
-(speed). Branch `main`, direct commits, pushed; full suite green.
+**The uniform layer is CLOSED — backend, optimizers, AND the frontend (U7) are done and tested.** The four
+optimizers (`gradient_descent` / `mc_sgd` / `adam` / `newton_cg`) and the six `fitting.*_model` factories now
+accept a `UniformTuckerTensorTrain` — **inferring** ragged-vs-uniform from `x0`'s type, fully packed,
+**jit-compile-once**, verified against the ragged path. The roll-your-own surface
+(`fitting.UniformGaussNewtonModel`, UT3Tangent-valued gradient/Hessian) and two worked examples ship too.
+Branch `main`, direct commits (**not pushed** this session, per Nick). Full suite green (593 tests / 40 215
+subtests).
 
-**→ The one remaining slice is U7: the frontend surface + docs** (see "Next steps").
+**→ The uniform 1.0 centerpiece is complete. Next: the naming pass, then the doc pass** (see "Next steps").
+
+## Done this session (2026-07-10) — U7: the uniform frontend surface
+
+Closes the uniform-optimizer thread. Backend-mirroring, suite-gated per slice; history in
+`dev/archive/uniform_optimizers_plan.md`.
+
+- **U7a — optimizers frontend.** The four `t3toolbox/optimizers.*` accept a `UniformTuckerTensorTrain` x0 +
+  the uniform geometry singletons, **inferring** the representation from x0's type (library-wide dispatch); a
+  consistency guard requires the geometry to match. Refactored the shared `_problem` → `_setup` returning
+  `(problem, init, rewrap)` (ragged path byte-identical); the uniform path calls `uniform_minimal(x0)`
+  transparently and rewraps the bare supercore pair with x0's held shape+masks. Verified frontend uniform ==
+  backend == ragged (tolerance).
+- **U7b — `fitting.UniformGaussNewtonModel`** (the roll-your-own surface). The same-named `fitting.*_model`
+  factories dispatch on x's type; the uniform model surfaces **UT3Tangent**-valued gradient / gn_hessian /
+  gn_quadratic / jacobian / evaluate. **jit-compile-once:** the aux is **value-hashed** (`geometry`,
+  `kind_name`, x0 rank masks, `order`, `weight`) and the packed kind is **rebuilt lazily** from it (a
+  fresh-closure kind as aux would recompile) — verified `traces==1` for both the model-as-arg matvec and the
+  whole-step patterns. Promoted `backend/uniform_fitting.pack_sample`/`pack_data` to public (the razor). Verified
+  vs the backend `LocalModel` (all six kinds × both geometries), gauged gradient, GN self-consistency, guards.
+- **U7c — examples + a doctest.** `examples/fit_hilbert_uniform_newton_cg.py` (minimal on-ramp: the ragged
+  Hilbert apply fit + rank continuation, on the uniform layer — only x0/geometry change) and
+  `fit_hilbert_uniform_probe_derivatives_newton_cg.py` (showcase: probe-derivative jets + uniform Newton-CG +
+  rank continuation + per-order weight ω). Continuation keeps the `resize`/zero-pad glue **ragged** and drops
+  into **uniform** only for the fit (a zero-pad is structurally minimal → `uniform_minimal` no-op → the
+  gradient grows the rank); verified it matches the ragged run. Added a runnable `newton_cg` doctest (the
+  frontend optimizers had none).
+- **U7d** — this refresh + archived the plan.
+
+**Design decisions settled with Nick this session (carry forward):** (1) same-named frontend functions infer
+ragged/uniform from x0 (not separate uniform functions); (2) **build** the uniform roll-your-own model
+surface (`UniformGaussNewtonModel`), not defer it — the "support frontend AND backend users equally"
+principle (a frontend user rolling manifold L-BFGS needs UT3Tangent gradient/Hessian + the geometry's
+inner/retract/transport); a **twin class** (not a polymorphic single class) — frontend precedent is distinct
+classes with identical method names, and two pytree registrations are cleaner for jit.
 
 ## Active thread (2026-07-09): the T3Toolbox software reference paper
 
@@ -46,49 +81,27 @@ for nothing**.
 
 **Next on this thread:** walk the 11 groups (start at **Group 6** — `symmetric_probe_derivatives.tex` is
 nearly a drop-in chapter), then the small nugget-extractions + cosmetic cleanups listed in
-`dev/paper_scope.md`. Independent of the U7 uniform-frontend work below.
+`dev/paper_scope.md`. Independent of the uniform / naming / docs work.
 
-## Done this session (2026-07-06 → 07) — optimizers/fitting on the uniform layer
+## Prior session (2026-07-06 → 07) — the uniform optimizer backend (U1–U6 + U5.6)
 
-Sliced U1–U6 + U5.6; plan + slicing history in **`dev/uniform_optimizers_plan.md`**. All backend-first
-(the reused geometry-generic optimizer bodies in `backend/optimizers.py` are unchanged apart from an
-`inner`-seam swap); the new code lives in `backend/uniform_fitting.py`, `backend/ubv_sampling.py`,
-`backend/ut3_operations.py`. Tests in `tests/backend/test_uniform_fitting.py` (+ jit in `test_dispatch.py`).
+Built the backend the U7 frontend sits on; **full slicing detail in `dev/archive/uniform_optimizers_plan.md`.**
+All backend-first (the geometry-generic optimizer bodies in `backend/optimizers.py` are unchanged apart from
+one `inner`-seam swap); new code in `backend/uniform_fitting.py`, `backend/ubv_sampling.py`,
+`backend/ut3_operations.py`; tests in `tests/backend/test_uniform_fitting.py` (+ jit in `test_dispatch.py`).
+The load-bearing pieces that the frontend + future work rely on:
 
-- **U1** — `ubv_corewise_inner` (the masked/stacked raw-tuple twin of `UT3Tangent.corewise_inner`) + a
-  `GeometryOps.inner` seam on the optimizer bodies (ragged = `corewise_dot`, byte-identical). This was
-  Nick's redirect from an earlier "masking-project" hack — the honest masked-reduction is the right design.
-- **U2** — uniform `GeometryOps` factories (`uniform_{manifold,corewise}_ops`): **bare-supercore-pair in/out,
-  fixed-rank masks closed over** (Arch-B1: masks are loop-invariant state, only supercores traced). Verified
-  == the frontend `UNIFORM_MANIFOLD` / `UNIFORM_COREWISE` `.data` path + mask loop-invariance across points.
-- **U3 / U3′** — uniform `SamplingKind` builders (plain apply/entries/probe + the derivative/jet twins): the
-  split `precompute → from_sweep` seam in `ubv_sampling` (the sweep carries the mask-once base + packed
-  vectors), reusing the ragged layer-agnostic fields via `dataclasses.replace`; geometry-agnostic (variation
-  masks derived from the frame). Verified == ragged `SamplingKind` + adjoint identity + garbage-robust.
-- **U3.5 — the packedness-mirror pivot** (a design change, agreed with Nick). The user-facing sampling ops
-  **infer input packedness and mirror it** — ragged in → ragged out (== ragged), packed in → packed out
-  (== `pack`(ragged)); the fitting **split-seam is packed-only**, so the optimizer inner loop keeps probe
-  residuals packed (no per-matvec unpack/repack; `d` stays a single scan axis, not a Python list).
-  `ut3_operations.{is_packed,pack_if_ragged}`; `sumsq_over_probes` + `_make_order_weight(order_axis=)` made
-  packed-aware (ragged path byte-identical). Doc: `docs/uniform_equivalence_contract.md` § vector-I/O mirror.
-- **U4** — `uniform_least_squares_problem` (packs the loop-invariant sample+data **once** → the reused
-  backend `Problem`/`LocalModel` run fully packed; optimizer state = the bare supercore pair). LocalModel
-  objective/gradient/gn_quadratic verified == ragged for every kind × both geometries.
-- **U5** — all four optimizers run on uniform (fully packed) + the packed-aware minibatch `take` (`_ptake_*`,
-  so mc_sgd/adam keep minibatches packed). gradient_descent matches ragged; newton_cg + mc_sgd track ragged;
-  adam descends. (Optimizer tests are deliberately small/short — correctness needs a few iterations, not
-  deep convergence — with **tolerance-based** assertions, never bit-exactness.)
-- **U6 — the jit path.** The per-step kernel **compiles ONCE** across iterations with changing supercores
-  (verified `traces==1`): masks closed over as host-numpy constants, only supercores traced, frame masks
-  re-derived inside `local_model` constant-fold. Test: `test_jit_uniform_optimizer_wholestep` in
-  `tests/test_dispatch.py`. Reusable GPU benchmark: **`dev/bench_uniform_vs_ragged.py`**.
-- **U5.6 — minimal-rank requirement** (a real bug found during U6's benchmark investigation). The uniform
-  optimizer crashed on a **non-minimal** base: the retraction truncates to the realizable rank and desyncs
-  from the fixed masks → a cryptic mid-loop crash (ragged tolerates non-minimal; uniform cannot, its masks
-  are fixed). Fix (enforce the precondition, since we own the optimizer): **`uniform_minimal(x0)`** reduces
-  to minimal (`t3svd` → right-to-left `rank_adjustment_sweep`; no-op if already minimal), and
-  `uniform_least_squares_problem` validates + raises a clear error pointing to it. Docstring + doctests
-  (fail non-minimal → succeed after `uniform_minimal`) + `TestUniformMinimalRank`.
+- **`GeometryOps.inner` seam** + `ubv_corewise_inner` (the honest masked/stacked coordinate dot; ragged =
+  `corewise_dot`, byte-identical). **Arch-B1:** optimizer state = the bare supercore pair, masks are
+  **loop-invariant state closed over** (only supercores traced) → jit-compile-once.
+- **`uniform_{manifold,corewise}_ops`** + the `uniform_*_kind` `SamplingKind` builders (plain + jet twins) +
+  **`uniform_least_squares_problem`** (packs the loop-invariant sample+data **once**).
+- **The packedness-mirror convention** (U3.5): user-facing sampling ops infer & mirror packedness; the
+  fitting split-seam is **packed-only** so the inner loop stays packed (`ut3_operations.{is_packed,pack_if_ragged}`).
+- **U5.6 — the minimal-rank requirement** (still a standing constraint): the uniform optimizer needs a
+  **minimal-rank base** (a non-minimal nominal rank desyncs the retraction from the fixed masks → mid-loop
+  crash). `uniform_minimal(x0)` reduces to it (no-op if already minimal); `uniform_least_squares_problem`
+  rejects a non-minimal x0. **U7's frontend calls `uniform_minimal` transparently.**
 
 ### Two investigation findings (from Nick's benchmark questions) — carry forward
 - **Eager timing:** uniform-eager ≈ ragged-eager is NOT a bug. The uniform supercores carry ~2.6× more
@@ -103,17 +116,24 @@ Sliced U1–U6 + U5.6; plan + slicing history in **`dev/uniform_optimizers_plan.
 
 ## Next steps
 
-**U7 — the frontend surface + docs (closes optimizers-on-uniform):**
-- Extend `t3toolbox/fitting.py` (`apply_model` &c.) and `t3toolbox/optimizers.py` to accept a
-  `UniformTuckerTensorTrain` `x0` + the uniform geometries (`UNIFORM_MANIFOLD` / `UNIFORM_COREWISE`), or add
-  uniform frontend factory functions. **The frontend optimizer MUST call `uniform_minimal(x0)`
-  transparently** so frontend users never meet the minimal-rank requirement (the backend
-  `uniform_least_squares_problem` raises a clear error; the frontend should just reduce and proceed).
-- Doctests to the reference-module standard (`docs/doctest_style.md`); a worked uniform example alongside
-  `examples/fit_hilbert_*`.
-- On close: refresh this handoff + sweep `dev/uniform_optimizers_plan.md` into `dev/archive/` (dated).
+The uniform layer is closed. The agreed sequence (with Nick, this session) is **naming pass → doc pass**:
 
-Then the **release-hygiene roadmap** (R1–R6) below.
+**1. Naming pass** (`dev/naming_review.md`). The heavy item is the **`T3Basis → T3Frame` rename** +
+`bv_ → fv_` / `ubv_ → ufv_` prefixes + `basis_* → frame_*` (module `basis_variations_format.py →
+frame_variations_format.py`) — ~160 refs, a **scripted, full-suite + per-module-doctest-gated** pass in one
+go (`T3Variations` stays; "variation" is paper-confirmed). Recommendation held with Nick: do this
+mechanical rename **first** (self-contained). **Then reconsider the backend module reorg** (§4's
+family×op-kind matrix + per-op polymorphism triage) **separately** — it was nominally tied to the uniform
+fix, which is now done, and it *didn't* happen, so it's a still-pending, much more invasive decision (fold
+in or drop). Also the smaller open items in `naming_review.md` (cross-class method sweep, `Sequence`→`Union`
+hint relaxation, plurality/morpheme cleanups).
+
+**2. Doc pass** (R3/R4): README (drop "WORK IN PROGRESS DO NOT USE" only at ship), fix the Sphinx build
+(`conf.py` autoapi exclusions, committed `_build`, `modules.rst` still titled "TuckerTensorTrainTools"),
+and **fold the design rationale from `docs/` into user-facing Sphinx docs**.
+
+Plus the rest of the **release-hygiene roadmap** (R1–R6) below. (Independent thread: the toolbox reference
+paper, `dev/paper_scope.md` — above.)
 
 ## The 1.0 roadmap (mid-level-toolkit scope) — summary
 - **R1** packaging correctness (`readme = README.md`; create `CHANGELOG.md`; numpy range).
@@ -125,14 +145,14 @@ Then the **release-hygiene roadmap** (R1–R6) below.
   user-facing Sphinx docs**).
 - **R5** test CI (pytest numpy-1.x/2.x matrix + **wire doctests in**); no auto-formatter near the curated style.
 - **R6** cleanup — delete `OLD_*` / stray artifacts **only after confirming functionality is preserved**.
-- **R7 — DONE this session** (the uniform tangent layer + optimizers/fitting on it), except **U7** (frontend)
-  above. Still: document the absent weighted layer; do **not** ship research caveats as user guidance.
+- **R7 — DONE** (the uniform tangent layer + optimizers/fitting on it + the U7 frontend). Still: document the
+  absent weighted layer; do **not** ship research caveats as user guidance.
 - **→ 1.1:** the Goal-1 `fit(...)` facade (auto geometry/optimizer/ranks/`x0` + rank-continuation).
 
 ## Don't-trip constraints (the maintainer's standing rules)
 - **The uniform optimizer requires a minimal-rank base** — a non-minimal (unrealizable) nominal rank desyncs
   the retraction from the fixed masks and crashes mid-loop. `uniform_least_squares_problem` rejects it with a
-  clear error; call `uniform_minimal(x0)` first (the frontend U7 will do this transparently).
+  clear error; the frontend `optimizers.*` call `uniform_minimal(x0)` transparently.
 - **The packedness-mirror convention** (U3.5): user-facing sampling ops infer & mirror packedness; the
   fitting split-seam is packed-only (the optimizer inner loop stays packed). Don't "normalize" it to a flag.
 - **A uniform op needs more than dense-vs-ragged** — also exact output masks + garbage-robustness
