@@ -533,7 +533,7 @@ def unstack_frame_stack(
         variations,  # (VV, HH), each core stack = V + G
 ):  # -> array-like tree (shape G) of (frame_data, variations_data) pairs
     """Peel the frame stack G off both the frame and the variations, returning a G-shaped tree whose
-    leaves are ``(frame_data, variations_data)`` pairs -- one single-frame-point tangent per leaf.
+    leaves are ``(frame_data, variations_data)`` pairs -- one single-base-point tangent per leaf.
 
     Each frame-data leaf has stack () (a single base point); each variations-data leaf has stack V.
     The frame stack is the *inner* part of the variation stack (V + G), so it is peeled from the
@@ -612,7 +612,7 @@ def retract(
             typ.Sequence[NDArray],  # tt_variations
         ],
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],  # tucker_cores (retracted T3, frame-point ranks)
+    typ.Tuple[NDArray, ...],  # tucker_cores (retracted T3, base-point ranks)
     typ.Tuple[NDArray, ...],  # tt_cores
 ]:
     '''Retract a frame-variations tangent vector onto the fixed-rank manifold.

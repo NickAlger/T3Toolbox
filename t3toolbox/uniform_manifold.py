@@ -828,7 +828,7 @@ class UT3Tangent:
             ufv_operations.ufv_leaf_structure(self.d, 2))
 
     def unstack_frame(self):
-        """Unstack over the frame stack ``C``: a ``C``-shaped tree of single-frame-point tangents.
+        """Unstack over the frame stack ``C``: a ``C``-shaped tree of single-base-point tangents.
 
         Decomposes over frame *points*. Each leaf is a :py:class:`UT3Tangent` with ``frame_stack_shape == ()``
         and this tangent's ``tangent_stack_shape``; the leaves sit at **different** base points (different
@@ -864,7 +864,7 @@ class UT3Tangent:
 
     @staticmethod
     def stack_frame(tree) -> 'UT3Tangent':
-        """Stack a ``C``-shaped tree of single-frame-point tangents into a frame-stacked UT3Tangent.
+        """Stack a ``C``-shaped tree of single-base-point tangents into a frame-stacked UT3Tangent.
 
         Inverse of :py:meth:`unstack_frame`. The leaves sit at **different** base points, so no shared-frame
         identity is required; they must share the padded dims ``(d, N, nU, nD, rL, rR)``, the real mode

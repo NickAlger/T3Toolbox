@@ -249,7 +249,7 @@ class T3Frame:                     # jax aux_data (it holds arrays; value hash/e
 
     @ft.cached_property
     def size(self) -> int:
-        """Number of elements of the represented (frame-point) dense tensor (``prod(shape)``)."""
+        """Number of elements of the represented (base-point) dense tensor (``prod(shape)``)."""
         return math.prod(self.shape)
 
     @ft.cached_property

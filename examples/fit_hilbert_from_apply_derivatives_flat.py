@@ -63,7 +63,7 @@ SEED         = 0
 # N_P*N_X training pairs (vs the reference's "a few base points, all their directions"). We size it to
 # match the reference's per-step sample count -- 2 base points worth of directions -- so the epoch length
 # is identical and the only difference is the mixing. (Shrink BATCH_PAIRS to test smaller minibatches.)
-N_X_BATCH_EQ  = 2                          # the reference example's frame-point batch (for matching only)
+N_X_BATCH_EQ  = 2                          # the reference example's base-point batch (for matching only)
 BATCH_PAIRS   = N_X_BATCH_EQ * N_P         # = 60 random (X,P) pairs/step, 20% of the 300 training pairs
 MCSGD_MAXITER = 3000                       # hard cap (the smoothed-loss criterion normally stops sooner)
 MCSGD_C_TAU   = 1.0                        # loss-smoothing timescale, in epochs (T4S 5.3.2 default)

@@ -980,7 +980,7 @@ class T3Tangent:
         )
 
     def unstack_frame(self):
-        """Unstack over the frame stack ``C``: a ``C``-shaped tree of single-frame-point tangents.
+        """Unstack over the frame stack ``C``: a ``C``-shaped tree of single-base-point tangents.
 
         Decomposes over frame *points* ("for each frame"). Each leaf is a :py:class:`T3Tangent` with
         ``frame_stack_shape == ()`` and ``tangent_stack_shape`` equal to this tangent's; the leaves
@@ -1020,7 +1020,7 @@ class T3Tangent:
 
     @staticmethod
     def stack_frame(tree) -> 'T3Tangent':
-        """Stack a ``C``-shaped tree of single-frame-point tangents into a frame-stacked T3Tangent.
+        """Stack a ``C``-shaped tree of single-base-point tangents into a frame-stacked T3Tangent.
 
         Inverse of :py:meth:`unstack_frame`. The leaves sit at **different** base points (distinct
         bases), so no shared-frame identity is required; they must share the same structure and the

@@ -172,7 +172,7 @@ def manifold_cauchy_sgd(X0, ww, pp, b, order, s_vec, rng,
     iters_per_epoch = max(1, int(round(n_x / n_x_batch)))             # = n_s / |B|  (the N_P axis cancels)
 
     # The stopping signal is the FULL-batch loss, checked once per epoch: a single base point's minibatch
-    # loss has too much frame-point-to-frame-point variance to detect the plateau (it false-triggers early).
+    # loss has too much base-point-to-base-point variance to detect the plateau (it false-triggers early).
     # One full forward (no transpose) per epoch is cheap. We exponentially smooth it (one sample/epoch) and
     # stop when it stops decreasing -- the paper's tuning-free criterion (T4S 5.3.2), on the clean signal.
     fwd_full, _, _ = apply_derivative_operator(ww, pp, order, s_vec)

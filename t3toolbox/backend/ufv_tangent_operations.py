@@ -117,7 +117,7 @@ def unstack_frame_stack(
         variations_data,  # variations .data, supercore stack = K + C
 ):  # -> array-like tree (shape C) of (frame_data, variations_data) pairs
     """Peel the frame stack ``C`` off both the frame and the variations, returning a ``C``-shaped tree whose
-    leaves are ``(frame_data, variations_data)`` pairs -- one single-frame-point tangent per leaf.
+    leaves are ``(frame_data, variations_data)`` pairs -- one single-base-point tangent per leaf.
 
     Each frame-``.data`` leaf has stack ``()`` (a single frame); each variations-``.data`` leaf has stack
     ``K``. The frame stack is the *inner* part of the ``K + C`` variation stack, so it is peeled from the

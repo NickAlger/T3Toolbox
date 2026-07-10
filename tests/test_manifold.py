@@ -354,7 +354,7 @@ class TestManifold(unittest.TestCase):
                 self.check_relerr(dense, rt.to_dense())
 
     def test_unstack_stack_frame(self):
-        # unstack_frame peels the frame stack C -> a C-shaped tree of single-frame-point tangents (each
+        # unstack_frame peels the frame stack C -> a C-shaped tree of single-base-point tangents (each
         # at a DIFFERENT base point, still carrying its K batch). stack_frame inverts it.
         STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         for FRAME_STACK, V in self.fv_stack_shapes:

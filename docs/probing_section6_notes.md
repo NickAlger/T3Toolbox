@@ -16,7 +16,7 @@ Riemannian fitting (TR-RMGN, MC-SGD) applies the manifold least-squares Jacobian
 - **`𝒥`** = probe the tangent vector against training data. Cost `O(dNn + dnr² + Mm)` per sample;
   `N`, `d` enter only linearly.
 - `𝒥⁽ˢ⁾` = single-sample version; full `𝒥` loops/vectorizes over samples. Notation: hat `^` =
-  frame-point, `δ` = perturbation, tilde `~` = adjoint (transpose sweep).
+  base-point, `δ` = perturbation, tilde `~` = adjoint (transpose sweep).
 
 ## A "probe" (6.2.1, Algorithm 5)
 `i`-th probe `zᵢ` of multilinear `T` represents `t ↦ T(w₁,…,wᵢ₋₁,t,wᵢ₊₁,…,w_d)` — contract with all

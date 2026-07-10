@@ -97,7 +97,7 @@ def oracle_relerr(A, tucker_ranks, tt_ranks):
 # --------------------------------------------------------------------------------------------------
 # A custom minibatch draw: slice base points X (keep all their directions P). The library calls it with
 # the optimizer's rng each step and feeds (sample_B, data_B) to the (jit-able) step. `data` carries a
-# leading order axis (axis 0), so the frame-point slice is over axis 2 of (order+1, N_P, N_X).
+# leading order axis (axis 0), so the base-point slice is over axis 2 of (order+1, N_P, N_X).
 # (The flat default -- a random subset across the whole (N_P, N_X) stack -- is just draw=None.)
 # --------------------------------------------------------------------------------------------------
 def x_minibatch_draw(ww, pp, data, n_x_batch):

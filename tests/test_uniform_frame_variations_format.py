@@ -434,7 +434,7 @@ class TestCrossLayerConverters(unittest.TestCase):
 
 
 class TestBasePointAndDtype(unittest.TestCase):
-    """2c-B: frame-point conversions (to_ut3 / to_dense / from_ut3) + dtype/copy/repr utilities.
+    """2c-B: base-point conversions (to_ut3 / to_dense / from_ut3) + dtype/copy/repr utilities.
     Users build frames via ut3_orthogonal_representations, so that is the path under test."""
     def setUp(self):
         np.random.seed(0)

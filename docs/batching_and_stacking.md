@@ -328,7 +328,7 @@ a bare tree). So `T3Tangent` has **two explicit pairs**, each peeling **one name
   linalg-compatible). "For each vector within the frame." `stack_tangents` **guards** that all leaves
   share the same frame object (structural identity, as in `inner`/`+`).
 - `unstack_frame` / `stack_frame` — peel the **frame stack `C`**. Yields a `C`-shaped tree of
-  single-frame-point tangents at **distinct** bases (distinct tangent spaces). "For each frame."
+  single-base-point tangents at **distinct** bases (distinct tangent spaces). "For each frame."
   `stack_frame` places `C` **innermost** (variation stack → `K + C`), which needs *interior-axis*
   stacking that the component `T3Variations.stack` can't do — hence it is a real op, not user-assembled.
 
