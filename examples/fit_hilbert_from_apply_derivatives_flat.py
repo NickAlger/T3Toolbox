@@ -16,7 +16,7 @@ directions. **Hypothesis:** this extra mixing decorrelates the per-sample contri
 variance of the stochastic gradient -- which, for a Cauchy-step method, should mean steadier step
 lengths and a more robust stopping signal. Untested; this example exists to see whether it holds here.
 
-Nothing else changes. The flatten is a pure reshape of the *same* collected data (``N_X`` distinct base
+Nothing else changes. The flatten is a pure reshape of the *same* collected data (``N_X`` distinct frame
 points, ``N_P`` directions each), and the apply-derivative forward / transpose treat ``W`` as arbitrary
 leading batch axes -- so ``apply_derivative_operator`` is reused verbatim and ``sum_over_probes=True``
 still sums the whole minibatch into one ``J^T r``. To isolate the mixing effect we **match the per-step
@@ -63,7 +63,7 @@ SEED         = 0
 # N_P*N_X training pairs (vs the reference's "a few base points, all their directions"). We size it to
 # match the reference's per-step sample count -- 2 base points worth of directions -- so the epoch length
 # is identical and the only difference is the mixing. (Shrink BATCH_PAIRS to test smaller minibatches.)
-N_X_BATCH_EQ  = 2                          # the reference example's base-point batch (for matching only)
+N_X_BATCH_EQ  = 2                          # the reference example's frame-point batch (for matching only)
 BATCH_PAIRS   = N_X_BATCH_EQ * N_P         # = 60 random (X,P) pairs/step, 20% of the 300 training pairs
 MCSGD_MAXITER = 3000                       # hard cap (the smoothed-loss criterion normally stops sooner)
 MCSGD_C_TAU   = 1.0                        # loss-smoothing timescale, in epochs (T4S 5.3.2 default)
@@ -137,8 +137,8 @@ def apply_derivative_operator(ww, pp, order, s_vec):
     nW = ww[0].ndim - 1
     sv = s_vec.reshape((order + 1,) + (1,) * nW)               # broadcast over the W sample stack
     forward = lambda Z: np.asarray(Z.apply_derivatives(ww, pp, order)) / sv
-    transpose = lambda r, base: t3m.T3Tangent.apply_derivatives_transpose(
-        np.asarray(r) / sv, ww, pp, base, order, sum_over_probes=True)
+    transpose = lambda r, frame: t3m.T3Tangent.apply_derivatives_transpose(
+        np.asarray(r) / sv, ww, pp, frame, order, sum_over_probes=True)
     meas_dot = lambda a, b: float(np.sum(np.asarray(a) * np.asarray(b)))
     return forward, transpose, meas_dot
 
@@ -180,9 +180,9 @@ def manifold_cauchy_sgd(X0, ww, pp, b, order, s_vec, rng,
         b_B = b[:, idx]
         fwd_B, T_B, mdot_B = apply_derivative_operator(ww_B, pp_B, order, s_vec)
 
-        base, _ = bvf.t3_orthogonal_representations(X)
+        frame, _ = bvf.t3_orthogonal_representations(X)
         r_B = fwd_B(X) - b_B
-        g = t3m.MANIFOLD.project(T_B(r_B, base))          # gauged stochastic gradient  g = Pi Jᵀr
+        g = t3m.MANIFOLD.project(T_B(r_B, frame))          # gauged stochastic gradient  g = Pi Jᵀr
         gg = float(g.corewise_inner(g))                   # ‖g‖²  (HS, since g is gauged at an orth frame)
         if gg <= 1e-30:                                   # converged on this minibatch
             break

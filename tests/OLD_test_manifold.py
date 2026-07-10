@@ -44,13 +44,13 @@ class TestManifold(unittest.TestCase):
                 mdim = t3m.manifold_dim(SHAPE)
 
                 p = t3.t3_corewise_randn(SHAPE)
-                base, _ = orth.orthogonal_representations(p)
-                tucker_shapes, tt_shapes = bvf.get_base_hole_shapes(base)
+                frame, _ = orth.orthogonal_representations(p)
+                tucker_shapes, tt_shapes = bvf.get_frame_hole_shapes(frame)
                 num_tucker_entries = np.sum([np.prod(shape) for shape in tucker_shapes])
                 num_tt_entries = np.sum([np.prod(shape) for shape in tt_shapes])
                 num_core_entries = num_tucker_entries + num_tt_entries
-                vv = [t3m.tangent_randn(base, apply_gauge_projection=False) for _ in range(num_core_entries)]
-                dense_vv = np.stack([t3m.tangent_to_dense(v, base) for v in vv])
+                vv = [t3m.tangent_randn(frame, apply_gauge_projection=False) for _ in range(num_core_entries)]
+                dense_vv = np.stack([t3m.tangent_to_dense(v, frame) for v in vv])
                 _, ss, _ = np.linalg.svd(dense_vv.reshape((num_core_entries, -1)), full_matrices=False)
                 self.assertLessEqual(ss[mdim], tol * ss[0]) # first zero singular value
                 self.assertGreaterEqual(ss[mdim-1], 1e8 * ss[mdim]) # last nonzero singular value
@@ -64,12 +64,12 @@ class TestManifold(unittest.TestCase):
             for USE_JAX in [True, False]:
                 with self.subTest(STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
-                    base, _ = orth.orthogonal_representations(p)
-                    variation = t3m.tangent_randn(base)
+                    frame, _ = orth.orthogonal_representations(p)
+                    variation = t3m.tangent_randn(frame)
 
-                    v_dense     = t3m.tangent_to_dense(variation, base, use_jax=USE_JAX)  # Convert tangent to dense
+                    v_dense     = t3m.tangent_to_dense(variation, frame, use_jax=USE_JAX)  # Convert tangent to dense
 
-                    ((U0, U1, U2), (L0, L1, L2), (R0, R1, R2), (O0, O1, O2)) = base
+                    ((U0, U1, U2), (L0, L1, L2), (R0, R1, R2), (O0, O1, O2)) = frame
                     ((V0, V1, V2), (H0, H1, H2)) = variation
                     s1 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', U0, U1, U2, H0, R1, R2)
                     s2 = np.einsum('ai,bj,ck,xay,ybz,zcw->ijk', U0, U1, U2, L0, H1, R2)
@@ -80,7 +80,7 @@ class TestManifold(unittest.TestCase):
                     v_dense2 = s1 + s2 + s3 + s4 + s5 + s6
                     self.check_relerr(v_dense2, v_dense)
 
-                    p_plus_v_dense = t3m.tangent_to_dense(variation, base, include_shift=True)  # Convert shifted tangent, p+v, to dense
+                    p_plus_v_dense = t3m.tangent_to_dense(variation, frame, include_shift=True)  # Convert shifted tangent, p+v, to dense
                     p_plus_v_dense2 = t3.t3_to_dense(p) + v_dense
                     self.check_relerr(p_plus_v_dense2, p_plus_v_dense)
 
@@ -93,19 +93,19 @@ class TestManifold(unittest.TestCase):
             for USE_JAX in [True, False]:
                 with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
-                    base, _ = orth.orthogonal_representations(p)
-                    variation = t3m.tangent_randn(base)
+                    frame, _ = orth.orthogonal_representations(p)
+                    variation = t3m.tangent_randn(frame)
 
-                    v_t3 = t3m.tangent_to_t3(variation, base, use_jax=USE_JAX)  # tangent vector only (attached at zero)
+                    v_t3 = t3m.tangent_to_t3(variation, frame, use_jax=USE_JAX)  # tangent vector only (attached at zero)
 
                     v_dense = t3.t3_to_dense(v_t3)
                     v_dense_jax = t3.t3_to_dense(v_t3)
                     self.check_relerr(v_dense, v_dense_jax)
 
-                    v_dense2 = t3m.tangent_to_dense(variation, base)
+                    v_dense2 = t3m.tangent_to_dense(variation, frame)
                     self.check_relerr(v_dense2, v_dense)
 
-                    p_plus_v_t3 = t3m.tangent_to_t3(variation, base, include_shift=True)  # shifted tangent vector (include attachment at base point)
+                    p_plus_v_t3 = t3m.tangent_to_t3(variation, frame, include_shift=True)  # shifted tangent vector (include attachment at base point)
                     p_plus_v_dense      = t3.t3_to_dense(p_plus_v_t3)
 
                     p_plus_v_dense2 = v_dense2 + t3.t3_to_dense(p)
@@ -120,13 +120,13 @@ class TestManifold(unittest.TestCase):
             for USE_JAX in [True, False]:
                 with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
-                    base, _ = orth.orthogonal_representations(p)
+                    frame, _ = orth.orthogonal_representations(p)
 
-                    z = t3m.tangent_zeros(base, use_jax=USE_JAX)
+                    z = t3m.tangent_zeros(frame, use_jax=USE_JAX)
 
-                    self.assertLessEqual(norm(t3m.tangent_to_dense(z, base)), tol)
+                    self.assertLessEqual(norm(t3m.tangent_to_dense(z, frame)), tol)
 
-                    shapes = bvf.get_base_hole_shapes(base)
+                    shapes = bvf.get_frame_hole_shapes(frame)
                     tucker_z, tt_z = z
                     tucker_shapes, tt_shapes = shapes
 
@@ -146,11 +146,11 @@ class TestManifold(unittest.TestCase):
             for USE_JAX in [True, False]:
                 with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
-                    base, vars0 = orth.orthogonal_representations(p)
+                    frame, vars0 = orth.orthogonal_representations(p)
 
-                    v = t3m.tangent_randn(base, use_jax=USE_JAX)  # Random tangent vector, gauged.
+                    v = t3m.tangent_randn(frame, use_jax=USE_JAX)  # Random tangent vector, gauged.
 
-                    shapes = bvf.get_base_hole_shapes(base)
+                    shapes = bvf.get_frame_hole_shapes(frame)
                     tucker_v, tt_v = v
                     tucker_shapes, tt_shapes = shapes
 
@@ -169,12 +169,12 @@ class TestManifold(unittest.TestCase):
             for USE_JAX in [True, False]:
                 with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
-                    base, _ = orth.orthogonal_representations(p)
-                    variation = t3m.tangent_randn(base)
+                    frame, _ = orth.orthogonal_representations(p)
+                    variation = t3m.tangent_randn(frame)
 
-                    proj_variation = t3m.orthogonal_gauge_projection(variation, base)  # Make gauged via orthogonal projection
+                    proj_variation = t3m.orthogonal_gauge_projection(variation, frame)  # Make gauged via orthogonal projection
 
-                    (U0, U1, U2), (L0, L1, L2), _, _ = base
+                    (U0, U1, U2), (L0, L1, L2), _, _ = frame
                     ((V0, V1, V2), (H0, H1, H2)) = proj_variation
 
                     # Gauge conditions
@@ -206,18 +206,18 @@ class TestManifold(unittest.TestCase):
             for USE_JAX in [True, False]:
                 with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
-                    base, _ = orth.orthogonal_representations(p)
-                    variation = t3m.tangent_randn(base)
+                    frame, _ = orth.orthogonal_representations(p)
+                    variation = t3m.tangent_randn(frame)
 
-                    proj_variation = t3m.oblique_gauge_projection(variation, base, use_jax=USE_JAX)  # Make gauged via oblique projection
+                    proj_variation = t3m.oblique_gauge_projection(variation, frame, use_jax=USE_JAX)  # Make gauged via oblique projection
 
-                    v_dense = t3m.tangent_to_dense(variation, base)
-                    proj_v_dense = t3m.tangent_to_dense(proj_variation, base)
+                    v_dense = t3m.tangent_to_dense(variation, frame)
+                    proj_v_dense = t3m.tangent_to_dense(proj_variation, frame)
 
                     # Check that vector represents same tangent after oblique projection
                     self.check_relerr(v_dense, proj_v_dense)
 
-                    (U0, U1, U2), (L0, L1, L2), _, _ = base
+                    (U0, U1, U2), (L0, L1, L2), _, _ = frame
                     ((V0, V1, V2), (H0, H1, H2)) = proj_variation
 
                     # Check gauge conditions
@@ -240,14 +240,14 @@ class TestManifold(unittest.TestCase):
             for USE_JAX in [True, False]:
                 with self.subTest(USE_JAX=USE_JAX, STRUCTURE_P=STRUCTURE_P, STRUCTURE_X=STRUCTURE_X):
                     p = t3.t3_corewise_randn(STRUCTURE_P)
-                    base, _ = orth.orthogonal_representations(p)
+                    frame, _ = orth.orthogonal_representations(p)
                     x = t3.t3_corewise_randn(STRUCTURE_X)
 
-                    proj_x = t3m.project_t3_onto_tangent_space(x, base, use_jax=USE_JAX)  # Project x onto tangent space
+                    proj_x = t3m.project_t3_onto_tangent_space(x, frame, use_jax=USE_JAX)  # Project x onto tangent space
 
                     P = t3.t3_to_dense(p)
                     X = t3.t3_to_dense(x)
-                    proj_X = t3m.tangent_to_dense(proj_x, base)
+                    proj_X = t3m.tangent_to_dense(proj_x, frame)
                     self.assertLessEqual(np.abs(np.sum((X - proj_X) * (proj_X - P))), tol * np.linalg.norm(X))
 
 
@@ -260,10 +260,10 @@ class TestManifold(unittest.TestCase):
             for USE_JAX in [True, False]:
                 with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
-                    base, _ = orth.orthogonal_representations(p)
-                    z = t3m.tangent_zeros(base)
+                    frame, _ = orth.orthogonal_representations(p)
+                    z = t3m.tangent_zeros(frame)
 
-                    ret_v = t3m.retract(z, base)
+                    ret_v = t3m.retract(z, frame)
 
                     ret_V = t3.t3_to_dense(ret_v)
                     P = t3.t3_to_dense(p)

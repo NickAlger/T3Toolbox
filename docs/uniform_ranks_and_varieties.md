@@ -95,14 +95,14 @@ The honest cost shows up at exactly one place — the ragged round-trip:
 
 It is tempting to think a *tangent* forces uniform rank across the stack ("a tangent needs a single
 tangent space, so the stack must be one smooth manifold point"). That conflates a **single** tangent
-vector with a **stack** of them. The distinction is `K` (tangent stack) vs `C` (base stack); see
+vector with a **stack** of them. The distinction is `K` (tangent stack) vs `C` (frame stack); see
 `docs/batching_and_stacking.md`:
 
-- A single tangent vector — or a **tangent (`K`) stack**, a bundle of tangents sharing *one* base — lives
-  in **one** tangent space, so its rank is uniform. This is automatic (they share a base) and is the *one*
+- A single tangent vector — or a **tangent (`K`) stack**, a bundle of tangents sharing *one* frame — lives
+  in **one** tangent space, so its rank is uniform. This is automatic (they share a frame) and is the *one*
   genuine uniform-rank requirement. The bv-pair check enforces it structurally: the variation rank masks
-  must be **constant along `K`** (= the base's gauge-shifted masks broadcast over `K`).
-- A **base (`C`) stack** is a batch of tangents at *different* bases. It is a tangent vector to the
+  must be **constant along `K`** (= the frame's gauge-shifted masks broadcast over `K`).
+- A **frame (`C`) stack** is a batch of tangents at *different* bases. It is a tangent vector to the
   **product** manifold `M_{n_1,r_1} × … × M_{n_C,r_C}`, which is smooth even when the factors are different
   fixed-rank manifolds; the per-element tangent spaces may have different dimensions and nothing couples
   them. So **ranks may vary across `C` exactly as in the plain layer** — the rank-sweep use case (a batch

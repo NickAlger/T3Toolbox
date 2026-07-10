@@ -31,7 +31,7 @@ hold ranks at chosen, possibly-varied values — i.e. that the optimizer **respe
 The minimal-rank audit (`numerical_contract_catalog.md`, empirically verified against the dense oracle)
 found that **no manifold operation requires minimal rank**: `inner`/`norm` need only an orthonormal,
 gauged frame; `project`/`transport`/gauge need only orthonormality; `retract` is valid on a non-minimal
-base. Equivalently, for a **given** tangent vector, inflating its ranks to the padded size (orthonormally
+frame. Equivalently, for a **given** tangent vector, inflating its ranks to the padded size (orthonormally
 completing the frame, zero-extending the variations) leaves every operation's result unchanged:
 
 ```

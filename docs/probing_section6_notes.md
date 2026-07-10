@@ -16,7 +16,7 @@ Riemannian fitting (TR-RMGN, MC-SGD) applies the manifold least-squares Jacobian
 - **`𝒥`** = probe the tangent vector against training data. Cost `O(dNn + dnr² + Mm)` per sample;
   `N`, `d` enter only linearly.
 - `𝒥⁽ˢ⁾` = single-sample version; full `𝒥` loops/vectorizes over samples. Notation: hat `^` =
-  base-point, `δ` = perturbation, tilde `~` = adjoint (transpose sweep).
+  frame-point, `δ` = perturbation, tilde `~` = adjoint (transpose sweep).
 
 ## A "probe" (6.2.1, Algorithm 5)
 `i`-th probe `zᵢ` of multilinear `T` represents `t ↦ T(w₁,…,wᵢ₋₁,t,wᵢ₊₁,…,w_d)` — contract with all
@@ -35,11 +35,11 @@ Algorithm 5 edge variables (Figure 7) ↔ code:
 `probe_t3` = Algorithm 5 (already wrapped by `TuckerTensorTrain.probe`).
 
 ## Tangent probing = `𝒥⁽ˢ⁾` (6.2.2, Algorithms 6 + 7)
-A tangent vector is a **doubled-rank** T3 (A.3.1), so each edge variable splits into base + pert:
+A tangent vector is a **doubled-rank** T3 (A.3.1), so each edge variable splits into frame + pert:
 `ξ→(ξ̂,δξ)`, `μ→(σ,μ̂)`, `ν→(τ,ν̂)`, `η→(δη,η̂)`.
 
 - **Algorithm 6** = Algorithm 5 on the *base point* with gauge-appropriate cores **`P` (left),
-  `Q` (right), `O` (central)** in place of `G` → base probes `ẑ` and base edge vars `ξ̂,μ̂,ν̂,η̂`.
+  `Q` (right), `O` (central)** in place of `G` → frame probes `ẑ` and frame edge vars `ξ̂,μ̂,ν̂,η̂`.
   In code: `compute_xis/mus/nus/etas` on `(U,P,Q,O)`.
 - **Algorithm 7** (perturbation sweep) ↔ code, verified term-by-term:
   - `δξᵢ = δUᵢᵀwᵢ` → `compute_dxis`
@@ -66,16 +66,16 @@ dual-use (manifold vs corewise) by substitution.
 1. **Stale paper refs in `probing.py`**: docstrings cite "Section 5.2, Figure 9" and
    "Formula (34)/(36)/(38)/(40)/(41)/(43)–(46)" — earlier-draft numbering. Current paper:
    **Section 6.2, Figure 7, Algorithms 5–8**. (Same kind of cross-ref pass we did for manifold.)
-2. **Base-core ordering**: `probe_tangent`/`probe_tangent_transpose` take
-   `base = (up, left, right, outer) = (U,P,Q,O)`, but `T3Frame.data = (up, down, left, right) =
+2. **Frame-core ordering**: `probe_tangent`/`probe_tangent_transpose` take
+   `frame = (up, left, right, outer) = (U,P,Q,O)`, but `T3Frame.data = (up, down, left, right) =
    (U,O,P,Q)`. Same reorder mismatch as manifold.py; not yet wired to `T3Frame`/`T3Tangent`.
 3. **Factorization not assembled**: `probe_tangent` is `𝒥⁽ˢ⁾`, `orthogonal_gauge_projection` is `Π`,
    but the Riemannian `J = 𝒥∘Π` / `Jᵀ = Π∘𝒥ᵀ` aren't composed into a single callable yet.
-4. **Base edge-var caching**: `ξ̂,μ̂,ν̂,η̂` depend on `(p,s)` not on the tangent vector → can be
-   precomputed once per (base, sample) and reused (compute↔memory trade-off). `probe_tangent`
+4. **Frame edge-var caching**: `ξ̂,μ̂,ν̂,η̂` depend on `(p,s)` not on the tangent vector → can be
+   precomputed once per (frame, sample) and reused (compute↔memory trade-off). `probe_tangent`
    currently recomputes them every call.
 5. **Stacking/vectorization**: both directions now batch over all three blocks — `W` probes, `K`
-   tangent stack, `C` base stack. Forward (`probe_tangent`): the `K`-stacked case via 3-group
+   tangent stack, `C` frame stack. Forward (`probe_tangent`): the `K`-stacked case via 3-group
    contractions in `compute_sigmas`/`detas`, `assemble_tangent_zs` (slice 5c; output `W + K + C`).
    Transpose (`probe_tangent_transpose`): accepts `K`-stacked residuals `W + K + C` and carries `K`
    to the result's tangent stack (`sum_over_probes=True` → `K`; `=False` → `W + K`); the adjoint
@@ -83,7 +83,7 @@ dual-use (manifold vs corewise) by substitution.
 
 ## Likely build targets (to confirm with Nick)
 - Wire `probe_tangent` / `probe_tangent_transpose` into `T3Tangent` (`.probe()` and the transpose),
-  reconciling the base order, like the manifold port.
+  reconciling the frame order, like the manifold port.
 - Compose the Riemannian `J` / `Jᵀ` (`𝒥∘Π`, `Π∘𝒥ᵀ`) as callables on `T3Tangent`.
 - Tests against the dense reference (`probe_dense`) + the `Jᵀ` adjoint identity
   `⟨z̃, 𝒥(δV)⟩ = ⟨𝒥ᵀ(z̃), δV⟩`.

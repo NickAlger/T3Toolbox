@@ -145,7 +145,7 @@ class TestFrontendUniformOptimizers(unittest.TestCase):
         self.assertFalse(bool(np.all(ux0.has_minimal_ranks)))            # genuinely non-minimal
         xu, stats = topt.gradient_descent(ut3m.UNIFORM_MANIFOLD, 'probe', self.ww, self.data, ux0, n_iter=5)
         self.assertIsInstance(xu, ut3.UniformTuckerTensorTrain)
-        self.assertTrue(bool(np.all(xu.has_minimal_ranks)))             # ran from the reduced (minimal) base
+        self.assertTrue(bool(np.all(xu.has_minimal_ranks)))             # ran from the reduced (minimal) frame
         self.assertLess(stats['losses'][-1], stats['losses'][0])
 
 

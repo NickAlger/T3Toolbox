@@ -639,18 +639,18 @@ class TestTuckerTensorTrain(unittest.TestCase):
                 )
 
     def test_unstack(self):
-        base_structures = [
+        frame_structures = [
             ((14,),             (4,),           (4, 5)),
             ((14, 15),          (4, 5),         (4, 5, 4)),
             ((14, 15, 16, 17),  (4, 5, 6, 7),   (4, 5, 4, 3, 2)),
         ]
         stack_shapes = [(), (1,), (2,), (1,1), (1,3), (2,3), (2,1)]
 
-        for BASE_STRUCTURE in base_structures:
+        for FRAME_STRUCTURE in frame_structures:
             for STACK_SHAPE in stack_shapes:
-                with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
-                    shape, tucker_ranks, tt_ranks = BASE_STRUCTURE
-                    structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                with self.subTest(FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    shape, tucker_ranks, tt_ranks = FRAME_STRUCTURE
+                    structure = FRAME_STRUCTURE + (STACK_SHAPE,)
                     tucker_cores, tt_cores = _structure_to_cores(structure)
                     x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
                     dense_x = x.to_dense()
@@ -688,18 +688,18 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                 self.check_relerr(dense_x[ii,jj], xx[ii][jj].to_dense())
 
     def test_stack(self):
-        base_structures = [
+        frame_structures = [
             ((14,),             (4,),           (4, 5)),
             ((14, 15),          (4, 5),         (4, 5, 4)),
             ((14, 15, 16, 17),  (4, 5, 6, 7),   (4, 5, 4, 3, 2)),
         ]
         stack_shapes = [(), (1,), (2,), (1,1), (1,3), (2,3), (2,1)]
 
-        for BASE_STRUCTURE in base_structures:
+        for FRAME_STRUCTURE in frame_structures:
             for STACK_SHAPE in stack_shapes:
-                with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
-                    shape, tucker_ranks, tt_ranks = BASE_STRUCTURE
-                    structure = BASE_STRUCTURE + ((),)
+                with self.subTest(FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    shape, tucker_ranks, tt_ranks = FRAME_STRUCTURE
+                    structure = FRAME_STRUCTURE + ((),)
 
                     if len(STACK_SHAPE) == 0:
                         tucker_cores, tt_cores = _structure_to_cores(structure)
@@ -1183,7 +1183,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                     self.check_relerr(norm_x_true, norm_x)
 
     def test_sum(self):
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
@@ -1194,13 +1194,13 @@ class TestTuckerTensorTrain(unittest.TestCase):
             (2,3)
         ]
 
-        for BASE_STRUCTURE in base_structures:
+        for FRAME_STRUCTURE in frame_structures:
             for STACK_SHAPE in stack_shapes:
-                structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                structure = FRAME_STRUCTURE + (STACK_SHAPE,)
                 shape, tucker_ranks, tt_ranks, stack_shape = structure
                 x = t3.TuckerTensorTrain.randn(*structure)
                 with self.subTest(
-                        BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                        FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                         AXES=None,
                 ):
                     S = x.sum()
@@ -1211,7 +1211,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                 for ax in range(len(shape)):
                     with self.subTest(
-                            BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                            FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                             AXES=ax,
                     ):
                         S = x.sum(axis=ax)
@@ -1226,7 +1226,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                 for num_ax in range(len(all_axes)+1):
                     for axes in itertools.combinations(all_axes, num_ax):
                         with self.subTest(
-                                BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                                 AXES=axes,
                         ):
                             S = x.sum(axis=axes)
@@ -1238,7 +1238,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                             self.check_relerr(S2_dense, S_dense)
 
     def test_sum_stack(self):
-        base_structures = [
+        frame_structures = [
             ((8,),              (3,),           (1, 2)),
             ((5, 6),            (2, 3),         (1, 2, 1)),
             ((4, 5, 6),         (2, 3, 2),      (1, 2, 2, 1)),
@@ -1251,8 +1251,8 @@ class TestTuckerTensorTrain(unittest.TestCase):
             (2, 1, 2),
         ]
 
-        for BASE_STRUCTURE in base_structures:
-            shape, tucker_ranks, tt_ranks = BASE_STRUCTURE
+        for FRAME_STRUCTURE in frame_structures:
+            shape, tucker_ranks, tt_ranks = FRAME_STRUCTURE
             for STACK_SHAPE in stack_shapes:
                 x = t3.TuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks, STACK_SHAPE)
                 m = len(STACK_SHAPE)
@@ -1264,7 +1264,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                 for AXIS in axis_options:
                     with self.subTest(
-                            BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                            FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                             AXIS=AXIS,
                     ):
                         y = x.sum_stack(axis=AXIS)
@@ -1288,7 +1288,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         self.assertEqual(expected_tt_ranks, y.tt_ranks)
 
     def test_sum_stack_corewise(self):
-        base_structures = [
+        frame_structures = [
             ((8,),              (3,),           (1, 2)),
             ((5, 6),            (2, 3),         (1, 2, 1)),
             ((4, 5, 6),         (2, 3, 2),      (1, 2, 2, 1)),
@@ -1299,8 +1299,8 @@ class TestTuckerTensorTrain(unittest.TestCase):
             (2, 1, 2),
         ]
 
-        for BASE_STRUCTURE in base_structures:
-            shape, tucker_ranks, tt_ranks = BASE_STRUCTURE
+        for FRAME_STRUCTURE in frame_structures:
+            shape, tucker_ranks, tt_ranks = FRAME_STRUCTURE
             for STACK_SHAPE in stack_shapes:
                 x = t3.TuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks, STACK_SHAPE)
                 m = len(STACK_SHAPE)
@@ -1312,7 +1312,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                 for AXIS in axis_options:
                     with self.subTest(
-                            BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                            FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                             AXIS=AXIS,
                     ):
                         y = x.sum_stack_corewise(axis=AXIS)
@@ -1336,7 +1336,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
     ####
 
     def test_down_svd_tucker_core(self):
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
@@ -1348,9 +1348,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
         ]
 
 
-        for BASE_STRUCTURE in base_structures:
+        for FRAME_STRUCTURE in frame_structures:
             for STACK_SHAPE in stack_shapes:
-                structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                structure = FRAME_STRUCTURE + (STACK_SHAPE,)
                 shape, tucker_ranks, tt_ranks, stack_shape = structure
                 for MIN_RANK, MAX_RANK in zip(
                     [None, 2,    None, 2],
@@ -1367,7 +1367,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                         for CORE_IND in range(len(shape)):
                             with self.subTest(
-                                    BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                    FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                                     MIN_RANK=MIN_RANK, MAX_RANK=MAX_RANK,
                                     CORE_IND=CORE_IND,
                             ):
@@ -1442,7 +1442,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                     )
 
     def test_left_svd_tt_core(self):
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
@@ -1453,9 +1453,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
             (2,3)
         ]
 
-        for BASE_STRUCTURE in base_structures:
+        for FRAME_STRUCTURE in frame_structures:
             for STACK_SHAPE in stack_shapes:
-                structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                structure = FRAME_STRUCTURE + (STACK_SHAPE,)
                 shape, tucker_ranks, tt_ranks, stack_shape = structure
                 for MIN_RANK, MAX_RANK in zip(
                     [None, 2,    None, 2],
@@ -1472,7 +1472,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                         for CORE_IND in range(len(shape)):
                             with self.subTest(
-                                    BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                    FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                                     MIN_RANK=MIN_RANK, MAX_RANK=MAX_RANK,
                                     CORE_IND=CORE_IND,
                             ):
@@ -1553,7 +1553,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                         )
 
     def test_right_svd_tt_core(self):
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
@@ -1564,9 +1564,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
             (2,3)
         ]
 
-        for BASE_STRUCTURE in base_structures:
+        for FRAME_STRUCTURE in frame_structures:
             for STACK_SHAPE in stack_shapes:
-                structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                structure = FRAME_STRUCTURE + (STACK_SHAPE,)
                 shape, tucker_ranks, tt_ranks, stack_shape = structure
                 for MIN_RANK, MAX_RANK in zip(
                     [None, 2,    None, 2],
@@ -1583,7 +1583,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                         for CORE_IND in range(len(shape)):
                             with self.subTest(
-                                    BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                    FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                                     MIN_RANK=MIN_RANK, MAX_RANK=MAX_RANK,
                                     CORE_IND=CORE_IND,
                             ):
@@ -1664,7 +1664,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                         )
 
     def test_up_svd_tt_core(self):
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
@@ -1675,9 +1675,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
             (2,3)
         ]
 
-        for BASE_STRUCTURE in base_structures:
+        for FRAME_STRUCTURE in frame_structures:
             for STACK_SHAPE in stack_shapes:
-                structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                structure = FRAME_STRUCTURE + (STACK_SHAPE,)
                 shape, tucker_ranks, tt_ranks, stack_shape = structure
                 for MIN_RANK, MAX_RANK in zip(
                     [None, 2,    None, 2],
@@ -1694,7 +1694,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                         for CORE_IND in range(len(shape)):
                             with self.subTest(
-                                    BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                    FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                                     MIN_RANK=MIN_RANK, MAX_RANK=MAX_RANK,
                                     CORE_IND=CORE_IND,
                             ):
@@ -1775,7 +1775,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                     )
 
     def test_orthogonalize_relative_to_tucker_core(self):
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
@@ -1786,14 +1786,14 @@ class TestTuckerTensorTrain(unittest.TestCase):
             (2,3)
         ]
 
-        for BASE_STRUCTURE in base_structures:
+        for FRAME_STRUCTURE in frame_structures:
             for STACK_SHAPE in stack_shapes:
-                structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                structure = FRAME_STRUCTURE + (STACK_SHAPE,)
                 shape, tucker_ranks, tt_ranks, stack_shape = structure
                 x = t3.TuckerTensorTrain.randn(*structure, use_jax=False)
                 for CORE_IND in range(len(shape)):
                     with self.subTest(
-                            BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                            FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                             CORE_IND=CORE_IND,
                     ):
                         dense_x = x.to_dense()
@@ -1829,7 +1829,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                             )
 
     def test_orthogonalize_relative_to_tt_core(self):
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
@@ -1840,14 +1840,14 @@ class TestTuckerTensorTrain(unittest.TestCase):
             (2,3)
         ]
 
-        for BASE_STRUCTURE in base_structures:
+        for FRAME_STRUCTURE in frame_structures:
             for STACK_SHAPE in stack_shapes:
-                structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                structure = FRAME_STRUCTURE + (STACK_SHAPE,)
                 shape, tucker_ranks, tt_ranks, stack_shape = structure
                 x = t3.TuckerTensorTrain.randn(*structure, use_jax=False)
                 for CORE_IND in range(len(shape)):
                     with self.subTest(
-                            BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                            FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                             CORE_IND=CORE_IND,
                     ):
                         dense_x = x.to_dense()
@@ -1877,7 +1877,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
 
     def test_down_orthogonalize_tucker_cores(self):
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
@@ -1888,12 +1888,12 @@ class TestTuckerTensorTrain(unittest.TestCase):
             (2,3)
         ]
 
-        for BASE_STRUCTURE in base_structures:
+        for FRAME_STRUCTURE in frame_structures:
             for STACK_SHAPE in stack_shapes:
-                structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                structure = FRAME_STRUCTURE + (STACK_SHAPE,)
                 x = t3.TuckerTensorTrain.randn(*structure, use_jax=False)
                 with self.subTest(
-                        BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                        FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                 ):
                     dense_x = x.to_dense()
 
@@ -1909,7 +1909,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         )
 
     def test_up_orthogonalize_tt_cores(self):
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
@@ -1920,12 +1920,12 @@ class TestTuckerTensorTrain(unittest.TestCase):
             (2,3)
         ]
 
-        for BASE_STRUCTURE in base_structures:
+        for FRAME_STRUCTURE in frame_structures:
             for STACK_SHAPE in stack_shapes:
-                structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                structure = FRAME_STRUCTURE + (STACK_SHAPE,)
                 x = t3.TuckerTensorTrain.randn(*structure, use_jax=False)
                 with self.subTest(
-                        BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                        FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                 ):
                     dense_x = x.to_dense()
 
@@ -1941,7 +1941,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         )
 
     def test_left_orthogonalize_tt_cores(self):
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
@@ -1952,12 +1952,12 @@ class TestTuckerTensorTrain(unittest.TestCase):
             (2,3)
         ]
 
-        for BASE_STRUCTURE in base_structures:
+        for FRAME_STRUCTURE in frame_structures:
             for STACK_SHAPE in stack_shapes:
-                structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                structure = FRAME_STRUCTURE + (STACK_SHAPE,)
                 x = t3.TuckerTensorTrain.randn(*structure, use_jax=False)
                 with self.subTest(
-                        BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                        FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                 ):
                     dense_x = x.to_dense()
 
@@ -1973,7 +1973,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         )
 
     def test_right_orthogonalize_tt_cores(self):
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10, 11),    (4, 5, 6, 7),   (4, 5, 4, 3, 3)),
@@ -1984,12 +1984,12 @@ class TestTuckerTensorTrain(unittest.TestCase):
             (2,3)
         ]
 
-        for BASE_STRUCTURE in base_structures:
+        for FRAME_STRUCTURE in frame_structures:
             for STACK_SHAPE in stack_shapes:
-                structure = BASE_STRUCTURE + (STACK_SHAPE,)
+                structure = FRAME_STRUCTURE + (STACK_SHAPE,)
                 x = t3.TuckerTensorTrain.randn(*structure, use_jax=False)
                 with self.subTest(
-                        BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                        FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                 ):
                     dense_x = x.to_dense()
 
@@ -2005,7 +2005,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         )
 
     def test_entries(self):
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
@@ -2021,15 +2021,15 @@ class TestTuckerTensorTrain(unittest.TestCase):
             (2,3),
         ]
 
-        for BASE_STRUCTURE in base_structures:
-            shape, tucker_ranks, tt_ranks = BASE_STRUCTURE
+        for FRAME_STRUCTURE in frame_structures:
+            shape, tucker_ranks, tt_ranks = FRAME_STRUCTURE
             for STACK_SHAPE in stack_shapes:
                 for INDEX_STACK_SHAPE in index_stack_shapes:
                     with self.subTest(
-                            BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                            FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                             INDEX_STACK_SHAPE=INDEX_STACK_SHAPE
                     ):
-                        x = t3.TuckerTensorTrain.randn(*(BASE_STRUCTURE + (STACK_SHAPE,)))
+                        x = t3.TuckerTensorTrain.randn(*(FRAME_STRUCTURE + (STACK_SHAPE,)))
 
                         index = np.array([np.random.choice(N, size=INDEX_STACK_SHAPE) for N in shape])
 
@@ -2060,7 +2060,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
 
     def test_apply(self):
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
@@ -2076,14 +2076,14 @@ class TestTuckerTensorTrain(unittest.TestCase):
             (2,3),
         ]
 
-        for BASE_STRUCTURE in base_structures:
-            shape, tucker_ranks, tt_ranks = BASE_STRUCTURE
+        for FRAME_STRUCTURE in frame_structures:
+            shape, tucker_ranks, tt_ranks = FRAME_STRUCTURE
             for STACK_SHAPE in stack_shapes:
                 for VECS_STACK_SHAPE in vecs_stack_shapes:
                     with self.subTest(
-                            BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                            FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                     ):
-                        x = t3.TuckerTensorTrain.randn(*(BASE_STRUCTURE + (STACK_SHAPE,)))
+                        x = t3.TuckerTensorTrain.randn(*(FRAME_STRUCTURE + (STACK_SHAPE,)))
 
                         vecs = [np.random.randn(*(VECS_STACK_SHAPE + (N,))) for N in shape]
 
@@ -2128,15 +2128,15 @@ class TestTuckerTensorTrain(unittest.TestCase):
     def test_apply_ambient_transpose(self):
         # ambient adjoint of apply: primary (sum=False) keeps probe stack W; sum=True contracts it (J^T r).
         # Returns CP factors; from_canonical realizes them as a TuckerTensorTrain.
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
         ]
-        stack_shapes = [(), (2, 3)]            # C (base/core stack, carried by the residual)
+        stack_shapes = [(), (2, 3)]            # C (frame/core stack, carried by the residual)
         probe_stack_shapes = [(), (5,), (2, 3)]  # W (apply-vector stack)
 
-        for BASE in base_structures:
+        for BASE in frame_structures:
             shape, tucker_ranks, tt_ranks = BASE
             d = len(shape)
             for C in stack_shapes:
@@ -2176,7 +2176,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
     def test_entries_ambient_transpose(self):
         # ambient adjoint of entries: scatter c at index. Primary keeps W; sum=True scatter-adds
         # collisions. Returns CP factors (one-hots); from_canonical realizes them as a T3.
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
@@ -2184,7 +2184,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         stack_shapes = [(), (2, 3)]
         index_stack_shapes = [(), (5,), (2, 3)]
 
-        for BASE in base_structures:
+        for BASE in frame_structures:
             shape, tucker_ranks, tt_ranks = BASE
             d = len(shape)
             for C in stack_shapes:
@@ -2219,7 +2219,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
     def test_apply_corewise_transpose(self):
         # corewise (non-manifold, Sec 6.3) transpose: gradient of apply w.r.t. the cores. Oracle: the
         # adjoint identity vs the EXACT forward corewise Jacobian (sum of single-core replacements).
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
@@ -2231,10 +2231,10 @@ class TestTuckerTensorTrain(unittest.TestCase):
         def core_dot(gA, gB, nC):                          # sum_cores <a,b>, keep leading C stack
             return sum(np.sum(a * b, axis=tuple(range(nC, a.ndim)))
                        for a, b in zip(gA[0] + gA[1], gB[0] + gB[1]))
-        for BASE in base_structures:
+        for BASE in frame_structures:
             shape, _, _ = BASE
             d = len(shape)
-            for C in [(), (2, 3)]:                          # base stack
+            for C in [(), (2, 3)]:                          # frame stack
                 for W in [(), (5,)]:                        # probe stack
                     with self.subTest(BASE=BASE, C=C, W=W):
                         nW, nC = len(W), len(C)
@@ -2266,7 +2266,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
     def test_entries_corewise_transpose(self):
         # entries counterpart of test_apply_corewise_transpose (Sec 6.3 substitution, one-hot apply vecs).
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
@@ -2278,7 +2278,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         def core_dot(gA, gB, nC):
             return sum(np.sum(a * b, axis=tuple(range(nC, a.ndim)))
                        for a, b in zip(gA[0] + gA[1], gB[0] + gB[1]))
-        for BASE in base_structures:
+        for BASE in frame_structures:
             shape, _, _ = BASE
             d = len(shape)
             for C in [(), (2, 3)]:
@@ -2311,12 +2311,12 @@ class TestTuckerTensorTrain(unittest.TestCase):
     def test_probe_ambient_transpose(self):
         # ambient probe transpose: literal adjoint of probe (linear in X) -> a rank-d CP back-projection.
         # adjoint identity <probe^T(z), x> == sum_i <z_i, probe(x)_i>; returns CP factors.
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
         ]
-        for BASE in base_structures:
+        for BASE in frame_structures:
             shape, _, _ = BASE
             d = len(shape)
             for C in [(), (2, 3)]:
@@ -2353,7 +2353,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
     def test_probe_corewise_transpose(self):
         # corewise (Sec 6.3) probe transpose: gradient of probe w.r.t. the cores. Oracle: adjoint
         # identity vs the EXACT forward corewise Jacobian (per mode, sum of single-core replacements).
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
@@ -2365,7 +2365,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         def core_dot(gA, gB, nC):
             return sum(np.sum(a * b, axis=tuple(range(nC, a.ndim)))
                        for a, b in zip(gA[0] + gA[1], gB[0] + gB[1]))
-        for BASE in base_structures:
+        for BASE in frame_structures:
             shape, _, _ = BASE
             d = len(shape)
             for C in [(), (2, 3)]:
@@ -2404,7 +2404,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                             self.check_relerr(np.asarray(s), np.asarray(k).sum(axis=tuple(range(nW))))
 
     def test_probe(self):
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
@@ -2420,15 +2420,15 @@ class TestTuckerTensorTrain(unittest.TestCase):
             (2,3),
         ]
 
-        for BASE_STRUCTURE in base_structures:
-            shape, tucker_ranks, tt_ranks = BASE_STRUCTURE
+        for FRAME_STRUCTURE in frame_structures:
+            shape, tucker_ranks, tt_ranks = FRAME_STRUCTURE
             for STACK_SHAPE in stack_shapes:
                 for VECS_STACK_SHAPE in vecs_stack_shapes:
                     with self.subTest(
-                            BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                            FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                             VECS_STACK_SHAPE=VECS_STACK_SHAPE
                     ):
-                        x = t3.TuckerTensorTrain.randn(*(BASE_STRUCTURE + (STACK_SHAPE,)))
+                        x = t3.TuckerTensorTrain.randn(*(FRAME_STRUCTURE + (STACK_SHAPE,)))
 
                         vecs = [np.random.randn(*(VECS_STACK_SHAPE + (N,))) for N in shape]
 
@@ -2473,7 +2473,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                                     self.check_relerr(zt, z)
 
     def test_t3svd(self):
-        base_structures = [
+        frame_structures = [
             ((8,),          (7,),       (6, 7)),
             ((8, 9, 10),    (7, 8, 9),  (6, 7, 8, 7)),
         ]
@@ -2482,8 +2482,8 @@ class TestTuckerTensorTrain(unittest.TestCase):
             (2,3),
         ]
 
-        for BASE_STRUCTURE in base_structures:
-            shape, tucker_ranks, tt_ranks = BASE_STRUCTURE
+        for FRAME_STRUCTURE in frame_structures:
+            shape, tucker_ranks, tt_ranks = FRAME_STRUCTURE
 
             tucker_ranks_limits = [
                 None,
@@ -2529,7 +2529,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         for MAX_TUCKER_RANKS in tucker_ranks_limits:
                             for MAX_TT_RANKS in tt_ranks_limits:
                                 with self.subTest(
-                                        BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                                        FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                                         RTOL=RTOL, ATOL=ATOL,
                                         MAX_TUCKER_RANKS=MAX_TUCKER_RANKS,
                                         MAX_TT_RANKS=MAX_TT_RANKS,
@@ -2978,7 +2978,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         self.assertEqual(mr, mr_true)
 
     def test_get_core_shapes(self):
-        base_structures = [
+        frame_structures = [
             ((8,),              (4,),           (4, 5)),
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
@@ -2989,8 +2989,8 @@ class TestTuckerTensorTrain(unittest.TestCase):
             (2, 3),
         ]
 
-        for BASE_STRUCTURE in base_structures:
-            shape, tucker_ranks, tt_ranks = BASE_STRUCTURE
+        for FRAME_STRUCTURE in frame_structures:
+            shape, tucker_ranks, tt_ranks = FRAME_STRUCTURE
 
             for STACK_SHAPE in stack_shapes:
                 x = t3.TuckerTensorTrain.zeros(shape, tucker_ranks, tt_ranks, STACK_SHAPE)

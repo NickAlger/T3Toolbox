@@ -14,7 +14,7 @@ well approximated by low rank. We never see ``A`` directly.
 
     *Sampling: a few base points, many directions each.*  We sample ``N_X`` random base points
     ``X = (x0,...,x_{d-1})`` and, **for each ``X``**, ``N_P`` random perturbation directions
-    ``P = (p0,...,p_{d-1})``.  So the perturbation stack is ``(N_P, N_X)`` and the base stack starts as
+    ``P = (p0,...,p_{d-1})``.  So the perturbation stack is ``(N_P, N_X)`` and the frame stack starts as
     ``(N_X,)``; we **replicate** ``X`` over the ``N_P`` axis to give it the same ``(N_P, N_X)`` stack as
     ``P`` (the sampling functions pair an ``X`` with a ``P`` per stack element).  This mimics the common
     use case where base points are the scarce resource and the directional derivatives at each base point
@@ -143,8 +143,8 @@ def apply_derivative_operator(ww, pp, order, s_vec):
     nW = ww[0].ndim - 1
     sv = s_vec.reshape((order + 1,) + (1,) * nW)               # broadcast over the W sample stack
     forward = lambda Z: np.asarray(Z.apply_derivatives(ww, pp, order)) / sv
-    transpose = lambda r, base: t3m.T3Tangent.apply_derivatives_transpose(
-        np.asarray(r) / sv, ww, pp, base, order, sum_over_probes=True)
+    transpose = lambda r, frame: t3m.T3Tangent.apply_derivatives_transpose(
+        np.asarray(r) / sv, ww, pp, frame, order, sum_over_probes=True)
     meas_dot = lambda a, b: float(np.sum(np.asarray(a) * np.asarray(b)))
     return forward, transpose, meas_dot
 
@@ -172,7 +172,7 @@ def manifold_cauchy_sgd(X0, ww, pp, b, order, s_vec, rng,
     iters_per_epoch = max(1, int(round(n_x / n_x_batch)))             # = n_s / |B|  (the N_P axis cancels)
 
     # The stopping signal is the FULL-batch loss, checked once per epoch: a single base point's minibatch
-    # loss has too much base-point-to-base-point variance to detect the plateau (it false-triggers early).
+    # loss has too much frame-point-to-frame-point variance to detect the plateau (it false-triggers early).
     # One full forward (no transpose) per epoch is cheap. We exponentially smooth it (one sample/epoch) and
     # stop when it stops decreasing -- the paper's tuning-free criterion (T4S 5.3.2), on the clean signal.
     fwd_full, _, _ = apply_derivative_operator(ww, pp, order, s_vec)
@@ -191,9 +191,9 @@ def manifold_cauchy_sgd(X0, ww, pp, b, order, s_vec, rng,
         b_B = b[:, :, idx]
         fwd_B, T_B, mdot_B = apply_derivative_operator(ww_B, pp_B, order, s_vec)
 
-        base, _ = bvf.t3_orthogonal_representations(X)
+        frame, _ = bvf.t3_orthogonal_representations(X)
         r_B = fwd_B(X) - b_B
-        g = t3m.MANIFOLD.project(T_B(r_B, base))          # gauged stochastic gradient  g = Pi Jᵀr
+        g = t3m.MANIFOLD.project(T_B(r_B, frame))          # gauged stochastic gradient  g = Pi Jᵀr
         gg = float(g.corewise_inner(g))                   # ‖g‖²  (HS, since g is gauged at an orth frame)
         if gg <= 1e-30:                                   # converged on this minibatch
             break
@@ -240,7 +240,7 @@ def main():
     print(f"Measurements: apply-derivatives orders 0..{ORDER}  "
           f"({N_X_TRAIN} train base pts + {N_X_VAL} val base pts, {N_P} directions each, "
           f"{NOISE_LEVEL*100:.0f}% noise).")
-    print(f"Fit by Manifold Cauchy SGD: minibatch {N_X_BATCH} base pt(s) (all {N_P} directions) per step, "
+    print(f"Fit by Manifold Cauchy SGD: minibatch {N_X_BATCH} frame pt(s) (all {N_P} directions) per step, "
           f"tuning-free Cauchy step.\n")
 
     A = hilbert_tensor(SHAPE)

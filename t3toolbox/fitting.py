@@ -11,34 +11,34 @@ quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p``. The model is generic o
   * the **geometry** -- :py:data:`~t3toolbox.manifold.MANIFOLD` (optimize on the fixed-rank manifold;
     the gauge projection ``Π`` makes ``g`` / ``H`` Riemannian) or
     :py:data:`~t3toolbox.manifold.COREWISE` (optimize the raw cores; no ``Π``). The geometry supplies the
-    frame ``base = geometry.base(X)`` and the projection ``Π = geometry.project``; the forward is
+    frame ``frame = geometry.frame(X)`` and the projection ``Π = geometry.project``; the forward is
     ``J = 𝒥∘Π`` and the gradient is ``Jᵀr = Π∘𝒥ᵀr``. **Manifold ⟺ Π, corewise ⟺ no Π is structural**
     (bundled in the geometry), never a flag -- mixing the two silently corrupts the result.
   * the **sampling kind** -- bound by the factory :py:func:`apply_model` / :py:func:`entries_model` /
     :py:func:`probe_model` (the bare ``𝒥`` / ``𝒥ᵀ`` from :py:mod:`t3toolbox.backend.probing`, bundled in
     :py:mod:`t3toolbox.backend.fitting`).
 
-Every input and output is a :py:class:`~t3toolbox.manifold.T3Tangent` at ``model.base`` -- including the
+Every input and output is a :py:class:`~t3toolbox.manifold.T3Tangent` at ``model.frame`` -- including the
 **corewise** case, where the tangent lives at the non-orthonormal frame ``(U,G,G,G)`` (a core
-perturbation; see :py:class:`~t3toolbox.manifold.CorewiseGeometry`). Build trial steps at ``model.base``
-(e.g. ``geometry.randn(model.base)``); a step at a different frame raises the numerical same-frame guard
+perturbation; see :py:class:`~t3toolbox.manifold.CorewiseGeometry`). Build trial steps at ``model.frame``
+(e.g. ``geometry.randn(model.frame)``); a step at a different frame raises the numerical same-frame guard
 (skipped under ``safety.unsafe()`` / a jax trace), like :py:class:`~t3toolbox.manifold.T3Tangent`.
 
-The base sweep (the base-and-data edge variables) is computed once by the factory and stored as the
+The frame sweep (the frame-and-data edge variables) is computed once by the factory and stored as the
 ``sweep`` field, reused across every ``gradient`` / ``gn_hessian`` / ``evaluate`` -- in an inner CG the
-base is fixed, so the sweep is computed once, not once per matrix-vector product. See
+frame is fixed, so the sweep is computed once, not once per matrix-vector product. See
 :py:mod:`t3toolbox.backend.fitting` and ``dev/archive/geometry_refactor_plan.md``.
 
 Jitting an optimizer
 --------------------
-``GaussNewtonModel`` **is** a registered jax pytree (the data -- ``base``, ``sweep``, ``sample``,
-``residual`` -- are leaves; ``geometry`` / ``kind`` are static aux). Crucially the base flows as a *leaf*,
+``GaussNewtonModel`` **is** a registered jax pytree (the data -- ``frame``, ``sweep``, ``sample``,
+``residual`` -- are leaves; ``geometry`` / ``kind`` are static aux). Crucially the frame flows as a *leaf*,
 not aux (the same is true of :py:class:`~t3toolbox.manifold.T3Tangent`'s frame), so a model or tangent
-that **crosses a jit boundary does NOT recompile when the base changes** -- the per-base recompile that
+that **crosses a jit boundary does NOT recompile when the frame changes** -- the per-frame recompile that
 frame-as-aux used to force is gone. So you can jit the frontend matvec directly:
 
 1. **Inner-solve jit (Newton-CG).** Jit the matvec with the model *and* the tangent as arguments; it
-   compiles **once for the whole solve** (the model's base/sweep change as data, not as a recompile
+   compiles **once for the whole solve** (the model's frame/sweep change as data, not as a recompile
    trigger), reused across every outer step and CG iteration::
 
        Hmatvec = jax.jit(lambda model, p: model.gn_hessian(p))
@@ -83,32 +83,32 @@ __all__ = ['GaussNewtonModel', 'UniformGaussNewtonModel',
            'apply_derivatives_model', 'entries_derivatives_model', 'probe_derivatives_model']
 
 
-def _require_at_base(base: bvf.T3Frame, p: t3m.T3Tangent) -> None:
-    '''Same-frame guard: a trial tangent must live at the model's base. The ``is`` fast-path, else a
+def _require_at_frame(frame: bvf.T3Frame, p: t3m.T3Tangent) -> None:
+    '''Same-frame guard: a trial tangent must live at the model's frame. The ``is`` fast-path, else a
     NUMERICAL frame compare (safe mode, eager-only; skips under ``safety.unsafe()`` / a jax trace), like
     ``T3Tangent``'s same-tangent-space guard.'''
-    if not (p.frame is base or safety.frames_equal_or_skip(base.data, p.frame.data)):
-        raise ValueError("trial tangent must live at the model's base (it is at a different frame); "
+    if not (p.frame is frame or safety.frames_equal_or_skip(frame.data, p.frame.data)):
+        raise ValueError("trial tangent must live at the model's frame (it is at a different frame); "
                          "run inside safety.unsafe() to skip this numerical check")
 
 
-def _require_at_base_uniform(base: ubv.UT3Frame, p: ut3m.UT3Tangent) -> None:
-    '''Uniform twin of :py:func:`_require_at_base`: the frame compare is on the four supercores
-    (``base.data[:4]`` -- the full ``.data`` carries the int-tuple ``shape`` that safety's array compare
+def _require_at_frame_uniform(frame: ubv.UT3Frame, p: ut3m.UT3Tangent) -> None:
+    '''Uniform twin of :py:func:`_require_at_frame`: the frame compare is on the four supercores
+    (``frame.data[:4]`` -- the full ``.data`` carries the int-tuple ``shape`` that safety's array compare
     cannot take), mirroring ``UT3Tangent._check_same_tangent_space``.'''
-    if not (p.frame is base or safety.frames_equal_or_skip(base.data[:4], p.frame.data[:4])):
-        raise ValueError("trial tangent must live at the model's base (it is at a different frame); "
+    if not (p.frame is frame or safety.frames_equal_or_skip(frame.data[:4], p.frame.data[:4])):
+        raise ValueError("trial tangent must live at the model's frame (it is at a different frame); "
                          "run inside safety.unsafe() to skip this numerical check")
 
 
 @dataclass(frozen=True)
 class GaussNewtonModel:
-    '''The local Gauss-Newton model of a least-squares objective at ``base``, generic over the geometry.
+    '''The local Gauss-Newton model of a least-squares objective at ``frame``, generic over the geometry.
 
     Built by a sampling-kind factory (:py:func:`apply_model` / :py:func:`entries_model` /
-    :py:func:`probe_model`), not directly. Holds the geometry, the frame ``base = geometry.base(X)``, the
+    :py:func:`probe_model`), not directly. Holds the geometry, the frame ``frame = geometry.frame(X)``, the
     sampling ``kind``, the measurement ``sample`` (the probe/apply vectors ``ww`` or the integer grid
-    ``index``), and the data residual ``r = F(X) − y``. The base sweep, objective value, and gradient are
+    ``index``), and the data residual ``r = F(X) − y``. The frame sweep, objective value, and gradient are
     cached on first use.
 
     Examples
@@ -130,7 +130,7 @@ class GaussNewtonModel:
     8.295196
     >>> print(model.gradient.is_gauged())
     True
-    >>> p = t3m.MANIFOLD.randn(model.base)                  # a gauged trial step at the model's base
+    >>> p = t3m.MANIFOLD.randn(model.frame)                  # a gauged trial step at the model's frame
     >>> print(model.gn_hessian(p).is_gauged())
     True
 
@@ -154,26 +154,26 @@ class GaussNewtonModel:
     >>> cmodel = fitting.apply_model(t3m.COREWISE, x, ww, r)
     >>> print(cmodel.gradient.is_gauged())
     False
-    >>> cp = t3m.COREWISE.randn(cmodel.base)
+    >>> cp = t3m.COREWISE.randn(cmodel.frame)
     >>> bool(np.allclose(float(cmodel.evaluate(cp)),
     ...                  float(cmodel.objective_value + cmodel.gradient.corewise_inner(cp)
     ...                        + 0.5 * cp.corewise_inner(cmodel.gn_hessian(cp)))))
     True
 
-    A trial step at a *different* base is a structural error (the model is tied to its base):
+    A trial step at a *different* frame is a structural error (the model is tied to its frame):
 
     >>> other = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
-    >>> model.gn_hessian(t3m.MANIFOLD.randn(t3m.MANIFOLD.base(other)))   # doctest: +IGNORE_EXCEPTION_DETAIL
+    >>> model.gn_hessian(t3m.MANIFOLD.randn(t3m.MANIFOLD.frame(other)))   # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
-    ValueError: trial tangent must live at the model's base (it is at a different frame)
+    ValueError: trial tangent must live at the model's frame (it is at a different frame)
     '''
 
-    geometry: typ.Any              # the geometry (MANIFOLD / COREWISE): supplies base & project (Π)
-    base:     bvf.T3Frame          # = geometry.base(X) -- the linearization frame
+    geometry: typ.Any              # the geometry (MANIFOLD / COREWISE): supplies frame & project (Π)
+    frame:     bvf.T3Frame          # = geometry.frame(X) -- the linearization frame
     kind:     fb.SamplingKind      # the sampling kind (APPLY / ENTRIES / PROBE)
     sample:   typ.Any              # ww (apply / probe; len=d, elm_shape=W+(Ni,)) or index (entries; (d,)+W)
     residual: typ.Any              # r = F(X) − y; shape W+C (apply / entries) or len=d, W+C+(Ni,) (probe)
-    sweep:    typ.Any              # = kind.precompute(base.data, sample); a FIELD (jax leaf) so it is
+    sweep:    typ.Any              # = kind.precompute(frame.data, sample); a FIELD (jax leaf) so it is
                                    # carried across a jit boundary and reused, not recomputed per matvec
 
     @ft.cached_property
@@ -182,17 +182,17 @@ class GaussNewtonModel:
 
     @ft.cached_property
     def objective_value(self) -> NDArray:  # c = ½‖r‖², shape C
-        '''The least-squares objective at the base, ``c = ½‖r‖²`` (the model constant ``m(0)``).'''
+        '''The least-squares objective at the frame, ``c = ½‖r‖²`` (the model constant ``m(0)``).'''
         return 0.5 * self.kind.sumsq(self.residual, self._n_w)
 
     @ft.cached_property
-    def gradient(self) -> t3m.T3Tangent:  # g = Π 𝒥ᵀ r, a tangent at base
-        '''The gradient ``g = geometry.project(𝒥ᵀ r)`` (the Gauss-Newton ``Jᵀr``), a tangent at base.
+    def gradient(self) -> t3m.T3Tangent:  # g = Π 𝒥ᵀ r, a tangent at frame
+        '''The gradient ``g = geometry.project(𝒥ᵀ r)`` (the Gauss-Newton ``Jᵀr``), a tangent at frame.
 
         On the manifold geometry this is the gauged Riemannian gradient; on the corewise geometry it is
         the raw core gradient ``𝒥ᵀr`` (a tangent at ``(U,G,G,G)``, no ``Π``).'''
-        dU_dG = self.kind.transpose(self.residual, self.sample, self.base.data, self.sweep)
-        return self.geometry.project(t3m.T3Tangent(self.base, bvf.T3Variations(*dU_dG)))
+        dU_dG = self.kind.transpose(self.residual, self.sample, self.frame.data, self.sweep)
+        return self.geometry.project(t3m.T3Tangent(self.frame, bvf.T3Variations(*dU_dG)))
 
     def jacobian(
             self,
@@ -205,9 +205,9 @@ class GaussNewtonModel:
         trust-region / line-search predicted reduction) and, via :py:meth:`gn_quadratic`, the Gauss-Newton
         quadratic form. The result lives in the sample space (a scalar per sample for apply / entries; one
         vector per mode for probe).'''
-        _require_at_base(self.base, p)
+        _require_at_frame(self.frame, p)
         Pp = self.geometry.project(p)
-        return self.kind.forward(Pp.variations.data, self.sample, self.base.data, self.sweep)
+        return self.kind.forward(Pp.variations.data, self.sample, self.frame.data, self.sweep)
 
     def gn_quadratic(
             self,
@@ -225,29 +225,29 @@ class GaussNewtonModel:
         '''The Gauss-Newton Hessian action ``H p = Π 𝒥ᵀ 𝒥 Π p`` (``H = JᵀJ``, *not* the full Hessian).
 
         Projects ``p`` (so the caller need not), applies the bare forward then transpose, and projects the
-        result -- a tangent at base. Symmetric. (Corewise: ``Π`` is the identity, so ``H p = 𝒥ᵀ 𝒥 p``,
+        result -- a tangent at frame. Symmetric. (Corewise: ``Π`` is the identity, so ``H p = 𝒥ᵀ 𝒥 p``,
         which is gauge-singular -- fine for first-order methods, needs regularization for Newton.) For the
         *scalar* quadratic form ``pᵀHp`` alone, prefer the cheaper :py:meth:`gn_quadratic`.'''
-        _require_at_base(self.base, p)
+        _require_at_frame(self.frame, p)
         Pp = self.geometry.project(p)
-        z = self.kind.forward(Pp.variations.data, self.sample, self.base.data, self.sweep)
-        dU_dG = self.kind.transpose(z, self.sample, self.base.data, self.sweep)
-        return self.geometry.project(t3m.T3Tangent(self.base, bvf.T3Variations(*dU_dG)))
+        z = self.kind.forward(Pp.variations.data, self.sample, self.frame.data, self.sweep)
+        dU_dG = self.kind.transpose(z, self.sample, self.frame.data, self.sweep)
+        return self.geometry.project(t3m.T3Tangent(self.frame, bvf.T3Variations(*dU_dG)))
 
     def evaluate(self, p: t3m.T3Tangent) -> NDArray:  # m(p), shape C
         '''The quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p`` with ``H = JᵀJ``, reusing the cached
         ``c`` and ``g`` and one **forward** apply: the quadratic term needs only ``½ pᵀ H p = ½‖𝒥 Π p‖²``,
         not a Hessian apply. ``p`` is projected here, shared by the linear term ``⟨g, Πp⟩`` and the
         quadratic. Equals ``½‖r + 𝒥 Π p‖²`` exactly (the objective is quadratic in the ambient tensor).'''
-        _require_at_base(self.base, p)
+        _require_at_frame(self.frame, p)
         Pp = self.geometry.project(p)
-        Jp = self.kind.forward(Pp.variations.data, self.sample, self.base.data, self.sweep)
+        Jp = self.kind.forward(Pp.variations.data, self.sample, self.frame.data, self.sweep)
         return self.objective_value + self.gradient.corewise_inner(Pp) + 0.5 * self.kind.sumsq(Jp, self._n_w)
 
 
 @dataclass(frozen=True)
 class UniformGaussNewtonModel:
-    '''The uniform-layer twin of :py:class:`GaussNewtonModel`: the local Gauss-Newton model at ``base``,
+    '''The uniform-layer twin of :py:class:`GaussNewtonModel`: the local Gauss-Newton model at ``frame``,
     surfacing :py:class:`~t3toolbox.uniform_manifold.UT3Tangent` gradients / Hessian actions so a frontend
     user can **roll their own uniform optimizer** (e.g. manifold L-BFGS) with the same ergonomics as the
     ragged model -- ``UNIFORM_MANIFOLD.inner`` / ``.retract`` / ``.transport`` supply the rest. Built by the
@@ -261,7 +261,7 @@ class UniformGaussNewtonModel:
     closure each rebuild would recompile). Instead the aux is the **value-hashed** ``(kind_name, x0_masks,
     order, weight)`` and the kind is **rebuilt lazily** from it (the kind builders use only ``(shape,
     masks)``, not the supercores). So a model crossing a jit boundary keeps a stable, value-based aux and
-    ``jit(lambda m, p: m.gn_hessian(p))`` compiles **once** across rebuilt models of the same rank (base /
+    ``jit(lambda m, p: m.gn_hessian(p))`` compiles **once** across rebuilt models of the same rank (frame /
     sweep / sample / residual flow as leaves). See ``docs/uniform_backend_jit_recipe.md``.
 
     Examples
@@ -282,23 +282,23 @@ class UniformGaussNewtonModel:
     >>> model = fitting.apply_model(ut3m.UNIFORM_MANIFOLD, x, ww, r)
     >>> print(bool(model.gradient.is_gauged().all()))
     True
-    >>> p = ut3m.UNIFORM_MANIFOLD.randn(model.base)
+    >>> p = ut3m.UNIFORM_MANIFOLD.randn(model.frame)
     >>> bool(np.allclose(float(model.gn_quadratic(p)), float(p.corewise_inner(model.gn_hessian(p)))))
     True
     '''
     geometry:  typ.Any               # UNIFORM_MANIFOLD / UNIFORM_COREWISE
-    base:      ubv.UT3Frame          # = geometry.base(x); the linearization frame (a jax-leaf pytree)
+    frame:      ubv.UT3Frame          # = geometry.frame(x); the linearization frame (a jax-leaf pytree)
     kind_name: str                   # 'apply'/'entries'/'probe' (+'_derivatives') -- rebuilds the packed kind
     x0_masks:  ut3.UT3Masks          # x0's plain rank masks (value-hashed aux) -> rebuilds the kind
     order:     typ.Optional[int]                          # derivative kinds only (None for a plain kind)
     weight:    typ.Optional[typ.Tuple[float, ...]]        # derivative kinds only: per-order weight ω (hashable)
     sample:    typ.Any               # PACKED ww (apply/probe) / index (entries) / (ww, pp) (derivatives)
     residual:  typ.Any               # PACKED r = S(x) − y
-    sweep:     typ.Any               # = kind.precompute(base.data, sample); a leaf (carried across a jit boundary)
+    sweep:     typ.Any               # = kind.precompute(frame.data, sample); a leaf (carried across a jit boundary)
 
     @ft.cached_property
     def kind(self) -> fb.SamplingKind:  # the packed uniform sampling kind, rebuilt from the value-hashed aux
-        x0_data = (None, None, self.base.shape, self.x0_masks.data)   # the kind uses only (shape, masks)
+        x0_data = (None, None, self.frame.shape, self.x0_masks.data)   # the kind uses only (shape, masks)
         if self.order is None:
             return ufit.uniform_sampling_kind(self.kind_name, x0_data)
         return ufit.uniform_derivatives_kind(self.kind_name, x0_data, self.order, self.weight)
@@ -309,24 +309,24 @@ class UniformGaussNewtonModel:
 
     @ft.cached_property
     def objective_value(self) -> NDArray:  # c = ½‖r‖², shape C
-        '''The least-squares objective at the base, ``c = ½‖r‖²``.'''
+        '''The least-squares objective at the frame, ``c = ½‖r‖²``.'''
         return 0.5 * self.kind.sumsq(self.residual, self._n_w)
 
-    def _wrap(self, bare) -> ut3m.UT3Tangent:  # gauge-project a bare variation pair -> a UT3Tangent at base
-        var = ubv.UT3Variations(bare[0], bare[1], self.base.shape,
-                                ubv.UT3Variations._variation_masks_of(self.base))
-        return self.geometry.project(ut3m.UT3Tangent(self.base, var))
+    def _wrap(self, bare) -> ut3m.UT3Tangent:  # gauge-project a bare variation pair -> a UT3Tangent at frame
+        var = ubv.UT3Variations(bare[0], bare[1], self.frame.shape,
+                                ubv.UT3Variations._variation_masks_of(self.frame))
+        return self.geometry.project(ut3m.UT3Tangent(self.frame, var))
 
     @ft.cached_property
-    def gradient(self) -> ut3m.UT3Tangent:  # g = Π 𝒥ᵀ r, a UT3Tangent at base
+    def gradient(self) -> ut3m.UT3Tangent:  # g = Π 𝒥ᵀ r, a UT3Tangent at frame
         '''The gradient ``g = geometry.project(𝒥ᵀ r)`` -- gauged on the manifold, raw on corewise.'''
-        return self._wrap(self.kind.transpose(self.residual, self.sample, self.base.data, self.sweep))
+        return self._wrap(self.kind.transpose(self.residual, self.sample, self.frame.data, self.sweep))
 
     def jacobian(self, p: ut3m.UT3Tangent) -> NDArray:  # J p = 𝒥(Π p)
         '''The linearized forward ``J p = 𝒥(Π p)`` -- ONE forward sweep (the predicted residual ``r + J p``).'''
-        _require_at_base_uniform(self.base, p)
+        _require_at_frame_uniform(self.frame, p)
         Pp = self.geometry.project(p)
-        return self.kind.forward(Pp.variations.supercores, self.sample, self.base.data, self.sweep)
+        return self.kind.forward(Pp.variations.supercores, self.sample, self.frame.data, self.sweep)
 
     def gn_quadratic(self, p: ut3m.UT3Tangent) -> NDArray:  # pᵀHp = ‖J p‖², shape C
         '''The Gauss-Newton quadratic form ``pᵀHp = ‖J p‖²`` -- ONE forward sweep (the Cauchy / line-search
@@ -334,27 +334,27 @@ class UniformGaussNewtonModel:
         return self.kind.sumsq(self.jacobian(p), self._n_w)
 
     def gn_hessian(self, p: ut3m.UT3Tangent) -> ut3m.UT3Tangent:  # H p = Π 𝒥ᵀ 𝒥 Π p
-        '''The Gauss-Newton Hessian action ``H p = Π 𝒥ᵀ 𝒥 Π p`` (``H = JᵀJ``), a UT3Tangent at base.'''
-        _require_at_base_uniform(self.base, p)
+        '''The Gauss-Newton Hessian action ``H p = Π 𝒥ᵀ 𝒥 Π p`` (``H = JᵀJ``), a UT3Tangent at frame.'''
+        _require_at_frame_uniform(self.frame, p)
         Pp = self.geometry.project(p)
-        z = self.kind.forward(Pp.variations.supercores, self.sample, self.base.data, self.sweep)
-        return self._wrap(self.kind.transpose(z, self.sample, self.base.data, self.sweep))
+        z = self.kind.forward(Pp.variations.supercores, self.sample, self.frame.data, self.sweep)
+        return self._wrap(self.kind.transpose(z, self.sample, self.frame.data, self.sweep))
 
     def evaluate(self, p: ut3m.UT3Tangent) -> NDArray:  # m(p), shape C
         '''The quadratic-model value ``m(p) = c + gᵀp + ½ pᵀHp``, reusing ``c`` / ``g`` and ONE forward apply.'''
-        _require_at_base_uniform(self.base, p)
+        _require_at_frame_uniform(self.frame, p)
         Pp = self.geometry.project(p)
-        Jp = self.kind.forward(Pp.variations.supercores, self.sample, self.base.data, self.sweep)
+        Jp = self.kind.forward(Pp.variations.supercores, self.sample, self.frame.data, self.sweep)
         return self.objective_value + self.gradient.corewise_inner(Pp) + 0.5 * self.kind.sumsq(Jp, self._n_w)
 
 
-def _ragged_base(geometry, x: t3.TuckerTensorTrain) -> bvf.T3Frame:
+def _ragged_frame(geometry, x: t3.TuckerTensorTrain) -> bvf.T3Frame:
     '''Validate + build the frame for a ragged model: a ragged ``x`` needs a ragged geometry singleton.'''
     if geometry is not t3m.MANIFOLD and geometry is not t3m.COREWISE:
         raise ValueError("a ragged TuckerTensorTrain requires a ragged geometry (manifold.MANIFOLD / "
                          "manifold.COREWISE); for a UniformTuckerTensorTrain use the uniform geometries "
                          "(uniform_manifold.UNIFORM_MANIFOLD / UNIFORM_COREWISE).")
-    return geometry.base(x)
+    return geometry.frame(x)
 
 
 def _uniform_model(
@@ -368,20 +368,20 @@ def _uniform_model(
 ) -> UniformGaussNewtonModel:
     '''Assemble a :py:class:`UniformGaussNewtonModel`: build the frame, pack the loop-invariant sample +
     residual once (:py:func:`~t3toolbox.backend.uniform_fitting.pack_sample` / ``pack_data``), precompute
-    the base sweep, and store the value-hashed aux to rebuild the packed kind under jit.'''
+    the frame sweep, and store the value-hashed aux to rebuild the packed kind under jit.'''
     if geometry is not ut3m.UNIFORM_MANIFOLD and geometry is not ut3m.UNIFORM_COREWISE:
         raise ValueError("a UniformTuckerTensorTrain requires a uniform geometry "
                          "(uniform_manifold.UNIFORM_MANIFOLD / UNIFORM_COREWISE).")
     N = x.N
-    base = geometry.base(x)                              # UT3Frame
+    frame = geometry.frame(x)                              # UT3Frame
     weight_t = tuple(weight) if weight is not None else None   # hashable aux (jit)
     packed_sample = ufit.pack_sample(kind_name, sample, N)
     packed_residual = ufit.pack_data(kind_name, residual, N)
     x0_data = (None, None, x.shape, x.masks.data)        # the kind builders use only (shape, masks)
     kind = (ufit.uniform_sampling_kind(kind_name, x0_data) if order is None
             else ufit.uniform_derivatives_kind(kind_name, x0_data, order, weight_t))
-    sweep = kind.precompute(base.data, packed_sample)
-    return UniformGaussNewtonModel(geometry, base, kind_name, x.masks, order, weight_t,
+    sweep = kind.precompute(frame.data, packed_sample)
+    return UniformGaussNewtonModel(geometry, frame, kind_name, x.masks, order, weight_t,
                                    packed_sample, packed_residual, sweep)
 
 
@@ -398,8 +398,8 @@ def apply_model(
     from ``x`` and the geometry must match.'''
     if isinstance(x, ut3.UniformTuckerTensorTrain):
         return _uniform_model(geometry, x, 'apply', ww, residual)
-    base = _ragged_base(geometry, x)
-    return GaussNewtonModel(geometry, base, fb.APPLY, ww, residual, fb.APPLY.precompute(base.data, ww))
+    frame = _ragged_frame(geometry, x)
+    return GaussNewtonModel(geometry, frame, fb.APPLY, ww, residual, fb.APPLY.precompute(frame.data, ww))
 
 
 def entries_model(
@@ -414,8 +414,8 @@ def entries_model(
     ``index`` (shape ``(d,)+W``) rather than applies against probe vectors.'''
     if isinstance(x, ut3.UniformTuckerTensorTrain):
         return _uniform_model(geometry, x, 'entries', index, residual)
-    base = _ragged_base(geometry, x)
-    return GaussNewtonModel(geometry, base, fb.ENTRIES, index, residual, fb.ENTRIES.precompute(base.data, index))
+    frame = _ragged_frame(geometry, x)
+    return GaussNewtonModel(geometry, frame, fb.ENTRIES, index, residual, fb.ENTRIES.precompute(frame.data, index))
 
 
 def probe_model(
@@ -430,8 +430,8 @@ def probe_model(
     so ``residual`` is a sequence of ``d`` arrays (``elm_shape = W+C+(Ni,)``).'''
     if isinstance(x, ut3.UniformTuckerTensorTrain):
         return _uniform_model(geometry, x, 'probe', ww, residual)
-    base = _ragged_base(geometry, x)
-    return GaussNewtonModel(geometry, base, fb.PROBE, ww, residual, fb.PROBE.precompute(base.data, ww))
+    frame = _ragged_frame(geometry, x)
+    return GaussNewtonModel(geometry, frame, fb.PROBE, ww, residual, fb.PROBE.precompute(frame.data, ww))
 
 
 # --------------------------------------------------------------------------------------------------
@@ -471,15 +471,15 @@ def apply_derivatives_model(
     >>> model = fitting.apply_derivatives_model(t3m.MANIFOLD, x, ww, pp, 3, r, weight=[1.0, 0.5, 0.3, 0.2])
     >>> print(model.gradient.is_gauged())
     True
-    >>> p = t3m.MANIFOLD.randn(model.base)
+    >>> p = t3m.MANIFOLD.randn(model.frame)
     >>> bool(np.allclose(float(model.gn_quadratic(p)), float(p.corewise_inner(model.gn_hessian(p)))))
     True
     '''
     if isinstance(x, ut3.UniformTuckerTensorTrain):
         return _uniform_model(geometry, x, 'apply_derivatives', (ww, pp), residual, order, weight)
     kind = fb.apply_derivatives_kind(order, weight)
-    base = _ragged_base(geometry, x)
-    return GaussNewtonModel(geometry, base, kind, (ww, pp), residual, kind.precompute(base.data, (ww, pp)))
+    frame = _ragged_frame(geometry, x)
+    return GaussNewtonModel(geometry, frame, kind, (ww, pp), residual, kind.precompute(frame.data, (ww, pp)))
 
 
 def entries_derivatives_model(
@@ -496,8 +496,8 @@ def entries_derivatives_model(
     if isinstance(x, ut3.UniformTuckerTensorTrain):
         return _uniform_model(geometry, x, 'entries_derivatives', (index, pp), residual, order, weight)
     kind = fb.entries_derivatives_kind(order, weight)
-    base = _ragged_base(geometry, x)
-    return GaussNewtonModel(geometry, base, kind, (index, pp), residual, kind.precompute(base.data, (index, pp)))
+    frame = _ragged_frame(geometry, x)
+    return GaussNewtonModel(geometry, frame, kind, (index, pp), residual, kind.precompute(frame.data, (index, pp)))
 
 
 def probe_derivatives_model(
@@ -514,33 +514,33 @@ def probe_derivatives_model(
     if isinstance(x, ut3.UniformTuckerTensorTrain):
         return _uniform_model(geometry, x, 'probe_derivatives', (ww, pp), residual, order, weight)
     kind = fb.probe_derivatives_kind(order, weight)
-    base = _ragged_base(geometry, x)
-    return GaussNewtonModel(geometry, base, kind, (ww, pp), residual, kind.precompute(base.data, (ww, pp)))
+    frame = _ragged_frame(geometry, x)
+    return GaussNewtonModel(geometry, frame, kind, (ww, pp), residual, kind.precompute(frame.data, (ww, pp)))
 
 
 if has_jax:
     import jax
 
-    # Register GaussNewtonModel as a jax pytree: the data (base, sweep, sample, residual) are LEAVES, the
+    # Register GaussNewtonModel as a jax pytree: the data (frame, sweep, sample, residual) are LEAVES, the
     # statics (geometry, kind) are aux_data. Because T3Tangent's frame is now a leaf too (see manifold.py),
-    # nothing carries a base as aux_data, so a model crossing a jit boundary does NOT recompile when the
-    # base changes -- `jit(lambda model, p: model.gn_hessian(p))(model, p)` compiles once and reuses across
+    # nothing carries a frame as aux_data, so a model crossing a jit boundary does NOT recompile when the
+    # frame changes -- `jit(lambda model, p: model.gn_hessian(p))(model, p)` compiles once and reuses across
     # outer steps. The sweep is a stored field (a leaf) so it is carried/reused, not recomputed inside the
-    # trace. The same-base guard is the numerical same-frame check (skips under the trace).
+    # trace. The same-frame guard is the numerical same-frame check (skips under the trace).
     jax.tree_util.register_pytree_node(
         GaussNewtonModel,
-        lambda m: ((m.base, m.sweep, m.sample, m.residual), (m.geometry, m.kind)),
+        lambda m: ((m.frame, m.sweep, m.sample, m.residual), (m.geometry, m.kind)),
         lambda aux, children: GaussNewtonModel(aux[0], children[0], aux[1], children[2], children[3], children[1]),
     )
 
-    # UniformGaussNewtonModel: the data (base -- itself a leaf pytree -- sweep, sample, residual) are LEAVES;
+    # UniformGaussNewtonModel: the data (frame -- itself a leaf pytree -- sweep, sample, residual) are LEAVES;
     # the aux is VALUE-HASHED (geometry singleton, kind_name, x0's rank masks, order, weight) so a rebuilt
     # model of the same rank is the SAME jit cache key -> `jit(lambda m, p: m.gn_hessian(p))` compiles once
     # across outer steps (the packed kind is rebuilt lazily from this aux; it can't be aux itself -- a fresh
     # closure would recompile). See the class docstring + docs/uniform_backend_jit_recipe.md.
     jax.tree_util.register_pytree_node(
         UniformGaussNewtonModel,
-        lambda m: ((m.base, m.sweep, m.sample, m.residual),
+        lambda m: ((m.frame, m.sweep, m.sample, m.residual),
                    (m.geometry, m.kind_name, m.x0_masks, m.order, m.weight)),
         lambda aux, ch: UniformGaussNewtonModel(aux[0], ch[0], aux[1], aux[2], aux[3], aux[4],
                                                 ch[2], ch[3], ch[1]),

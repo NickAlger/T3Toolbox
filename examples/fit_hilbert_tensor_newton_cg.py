@@ -34,7 +34,7 @@ over the fixed-rank manifold, with **Riemannian inexact Newton-CG and an Armijo 
   * the orthogonal frame at ``X`` comes from ``t3_orthogonal_representations`` (a ``T3Frame``);
   * the gradient and the Gauss-Newton Hessian-vector product come from a ``fitting.apply_model``
     built once per Newton step at the frame: ``model.gradient`` (the Riemannian ``Pi J^T r``) and
-    ``model.gn_hessian(V)`` (``Pi J^T J Pi V``, symmetric PSD). The model **precomputes the base sweep
+    ``model.gn_hessian(V)`` (``Pi J^T J Pi V``, symmetric PSD). The model **precomputes the frame sweep
     once per Newton step and reuses it across every CG matrix-vector product** -- instead of recomputing
     it on each apply, which is the whole reason the fitting layer exists;
   * the Newton system is solved approximately by CG in the tangent space (the "inexact" part), with a
@@ -134,7 +134,7 @@ def rms(x):
 # --------------------------------------------------------------------------------------------------
 def apply_operator(ww):
     forward       = lambda Z: Z.apply(ww)   # works for a TuckerTensorTrain (point) or a T3Tangent (Jacobian)
-    # build the Gauss-Newton model at the current point for a residual -- precomputes the base sweep once.
+    # build the Gauss-Newton model at the current point for a residual -- precomputes the frame sweep once.
     model_builder = lambda X, r: fitting.apply_model(t3m.MANIFOLD, X, ww, r)
     meas_dot      = lambda a, b: float(np.dot(np.asarray(a), np.asarray(b)))
     return forward, model_builder, meas_dot
@@ -143,12 +143,12 @@ def apply_operator(ww):
 # --------------------------------------------------------------------------------------------------
 # Riemannian inexact Newton-CG with Armijo line search
 # --------------------------------------------------------------------------------------------------
-def _tangent_cg(H, rhs, base, tol, maxiter):
-    """Solve H x = rhs in the tangent space at ``base`` (all iterates share the one T3Frame object).
+def _tangent_cg(H, rhs, frame, tol, maxiter):
+    """Solve H x = rhs in the tangent space at ``frame`` (all iterates share the one T3Frame object).
 
     H is symmetric positive-semidefinite (Gauss-Newton), so plain CG is safe; we stop early on the
     forcing-term tolerance ``tol`` (the "inexact" Newton solve)."""
-    x = t3m.T3Tangent.zeros(base)
+    x = t3m.T3Tangent.zeros(frame)
     res = rhs                                  # residual = rhs - H(0) = rhs
     p = res
     rs = float(res.corewise_inner(res))
@@ -183,10 +183,10 @@ def riemannian_newton_cg(X0, forward, model_builder, meas_dot, b,
     cg_total = 0
     for it in range(max_newton):
         r = forward(X) - b
-        # The Gauss-Newton model at this point -- builds the orthonormal frame and precomputes the base
+        # The Gauss-Newton model at this point -- builds the orthonormal frame and precomputes the frame
         # sweep ONCE, reused across the gradient and every CG Hessian apply below (per-Newton-step reuse).
         model = model_builder(X, r)
-        base = model.base                                # the orthonormal frame at the current point
+        frame = model.frame                                # the orthonormal frame at the current point
         f = float(model.objective_value)                 # = 1/2 ||r||^2
 
         g = model.gradient                               # Riemannian gradient Pi J^T r (already gauged)
@@ -204,7 +204,7 @@ def riemannian_newton_cg(X0, forward, model_builder, meas_dot, b,
 
         # Inexact Newton: solve H p = -g by CG to a forcing-term tolerance (tighter as we converge).
         eta = min(0.5, np.sqrt(gnorm / g0norm))
-        p, cg_iters = _tangent_cg(H, -g, base, tol=eta * gnorm, maxiter=cg_maxiter)
+        p, cg_iters = _tangent_cg(H, -g, frame, tol=eta * gnorm, maxiter=cg_maxiter)
         cg_total += cg_iters
 
         slope = float(g.corewise_inner(p))

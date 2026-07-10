@@ -137,9 +137,9 @@ def apply_operator(ww):
 # --------------------------------------------------------------------------------------------------
 # Riemannian inexact Newton-CG with Armijo line search (identical to fit_hilbert_tensor_newton_cg.py)
 # --------------------------------------------------------------------------------------------------
-def _tangent_cg(H, rhs, base, tol, maxiter):
-    """Solve H x = rhs in the tangent space at ``base`` (symmetric PSD Gauss-Newton, inexact stop)."""
-    x = t3m.T3Tangent.zeros(base)
+def _tangent_cg(H, rhs, frame, tol, maxiter):
+    """Solve H x = rhs in the tangent space at ``frame`` (symmetric PSD Gauss-Newton, inexact stop)."""
+    x = t3m.T3Tangent.zeros(frame)
     res = rhs                                  # residual = rhs - H(0) = rhs
     p = res
     rs = float(res.corewise_inner(res))
@@ -173,8 +173,8 @@ def riemannian_newton_cg(X0, forward, model_builder, meas_dot, b,
     newton_iters = 0
     for it in range(max_newton):
         r = forward(X) - b
-        model = model_builder(X, r)            # frame + base sweep, precomputed once and reused below
-        base = model.base
+        model = model_builder(X, r)            # frame + frame sweep, precomputed once and reused below
+        frame = model.frame
         f = float(model.objective_value)       # = 1/2 ||r||^2
 
         g = model.gradient                     # Riemannian gradient Pi J^T r (already gauged)
@@ -187,7 +187,7 @@ def riemannian_newton_cg(X0, forward, model_builder, meas_dot, b,
 
         H = model.gn_hessian                   # GN Hessian-vector product (symmetric PSD; sweep reused)
         eta = min(0.5, np.sqrt(gnorm / g0norm))                       # inexact-Newton forcing term
-        p, _ = _tangent_cg(H, -g, base, tol=eta * gnorm, maxiter=cg_maxiter)
+        p, _ = _tangent_cg(H, -g, frame, tol=eta * gnorm, maxiter=cg_maxiter)
 
         slope = float(g.corewise_inner(p))
         if (not np.isfinite(slope)) or slope >= 0.0:

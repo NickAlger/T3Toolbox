@@ -70,7 +70,7 @@ def probe_dense(T, ww, n_c):
 
 
 def _setup(kind, geom_name, C):
-    '''Build a model of one (kind, geometry, base-stack C), plus the dense forward oracle and the
+    '''Build a model of one (kind, geometry, frame-stack C), plus the dense forward oracle and the
     kind-aware sample-space reducers (samp_add / samp_dot / rand_like). One dict per call.'''
     np.random.seed(0)
     x = t3.TuckerTensorTrain.randn(SHAPE, TUCKER_RANKS, TT_RANKS, stack_shape=C)
@@ -99,19 +99,19 @@ def _setup(kind, geom_name, C):
         samp_add = lambda a, b: [ai + bi for ai, bi in zip(a, b)]
         rand_like = lambda v: [np.random.randn(*vi.shape) for vi in v]
     model = _FACTORY[kind](geometry, x, sample, r)
-    return dict(x=x, geometry=geometry, geom_name=geom_name, model=model, base=model.base,
+    return dict(x=x, geometry=geometry, geom_name=geom_name, model=model, frame=model.frame,
                 sample=sample, r=r, c=0.5 * samp_dot(r, r), n_c=n_c, n_w=n_w, dense_fwd=dense_fwd,
                 samp_dot=samp_dot, samp_add=samp_add, rand_like=rand_like)
 
 
 def _raw_step(s):
-    '''A raw (any-gauge) trial tangent at the model's base -- ungauged on the manifold (tests Π),
+    '''A raw (any-gauge) trial tangent at the model's frame -- ungauged on the manifold (tests Π),
     a raw core perturbation on the corewise frame.'''
-    return t3m.COREWISE.randn(s['base'])
+    return t3m.COREWISE.randn(s['frame'])
 
 
 class TestGaussNewtonModel(unittest.TestCase):
-    '''The generic GN model, parameterized over the sampling kind, the geometry, and the base stack C.'''
+    '''The generic GN model, parameterized over the sampling kind, the geometry, and the frame stack C.'''
 
     def test_dense_truth(self):
         '''HEADLINE: model.evaluate(p) == ½‖r + 𝒥(Πp)‖² from the dense projected tangent (both geometries).'''
@@ -159,7 +159,7 @@ class TestGaussNewtonModel(unittest.TestCase):
                     self.assertTrue(sm['model'].gn_hessian(_raw_step(sm)).is_gauged().all())
 
                     sc = _setup(kind, 'corewise', C)
-                    bare = sc['model'].kind.transpose(sc['r'], sc['sample'], sc['base'].data, sc['model'].sweep)
+                    bare = sc['model'].kind.transpose(sc['r'], sc['sample'], sc['frame'].data, sc['model'].sweep)
                     gd = sc['model'].gradient.variations.data
                     for a, b in zip(gd[0] + gd[1], bare[0] + bare[1]):   # corewise gradient == bare 𝒥ᵀr, no Π
                         self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))
@@ -185,8 +185,8 @@ class TestGaussNewtonModel(unittest.TestCase):
                         model, geometry, p = s['model'], s['geometry'], _raw_step(s)
                         Jp = model.jacobian(p)                                    # J p = 𝒥(Π p)
                         z = s['rand_like'](Jp)
-                        gz_raw = model.kind.transpose(z, s['sample'], s['base'].data, model.sweep)
-                        gz = geometry.project(t3m.T3Tangent(s['base'], bvf.T3Variations(*gz_raw)))  # Π 𝒥ᵀ z
+                        gz_raw = model.kind.transpose(z, s['sample'], s['frame'].data, model.sweep)
+                        gz = geometry.project(t3m.T3Tangent(s['frame'], bvf.T3Variations(*gz_raw)))  # Π 𝒥ᵀ z
                         lhs = s['samp_dot'](z, Jp)
                         rhs = gz.corewise_inner(p)
                         self.assertTrue(np.allclose(lhs, rhs, rtol=RTOL, atol=ATOL))
@@ -209,21 +209,21 @@ class TestGaussNewtonModel(unittest.TestCase):
                         for a, b in zip(seq(Jp), seq(Jp_oracle)):
                             self.assertTrue(np.allclose(a, b, rtol=RTOL, atol=ATOL))
 
-    def test_same_base_guard(self):
-        '''A trial tangent at a different base is a structural error (identity, not value), both geometries.'''
+    def test_same_frame_guard(self):
+        '''A trial tangent at a different frame is a structural error (identity, not value), both geometries.'''
         for kind in KINDS:
             for geom_name in GEOMS:
                 with self.subTest(kind=kind, geom=geom_name):
                     s = _setup(kind, geom_name, ())
                     other_x = t3.TuckerTensorTrain.randn(SHAPE, TUCKER_RANKS, TT_RANKS)
-                    p_other = s['geometry'].randn(s['geometry'].base(other_x))
+                    p_other = s['geometry'].randn(s['geometry'].frame(other_x))
                     with self.assertRaises(ValueError):
                         s['model'].gn_hessian(p_other)
                     with self.assertRaises(ValueError):
                         s['model'].evaluate(p_other)
 
     def test_caching(self):
-        '''The base sweep / gradient / objective are cached -- the reuse mechanism, computed once.'''
+        '''The frame sweep / gradient / objective are cached -- the reuse mechanism, computed once.'''
         model = _setup('apply', 'manifold', ())['model']
         self.assertIs(model.sweep, model.sweep)
         self.assertIs(model.gradient, model.gradient)
@@ -232,14 +232,14 @@ class TestGaussNewtonModel(unittest.TestCase):
     def test_matches_established_manifold(self):
         '''Manifold gradient/Hessian == the established bare T3Tangent transpose + MANIFOLD.project (apply).'''
         s = _setup('apply', 'manifold', ())
-        base, ww, r, model = s['base'], s['sample'], s['r'], s['model']
-        ref_g = t3m.MANIFOLD.project(t3m.T3Tangent.apply_transpose(r, ww, base, sum_over_probes=True))
+        frame, ww, r, model = s['frame'], s['sample'], s['r'], s['model']
+        ref_g = t3m.MANIFOLD.project(t3m.T3Tangent.apply_transpose(r, ww, frame, sum_over_probes=True))
         gd = model.gradient.variations.data
         for a, b in zip(gd[0] + gd[1], ref_g.variations.data[0] + ref_g.variations.data[1]):
             self.assertTrue(np.allclose(a, b, rtol=0, atol=1e-12))
-        V = t3m.MANIFOLD.randn(base)
+        V = t3m.MANIFOLD.randn(frame)
         ref_HV = t3m.MANIFOLD.project(t3m.T3Tangent.apply_transpose(
-            V.apply(ww), ww, base, sum_over_probes=True))
+            V.apply(ww), ww, frame, sum_over_probes=True))
         Hv = model.gn_hessian(V)
         for a, b in zip(Hv.variations.data[0] + Hv.variations.data[1],
                         ref_HV.variations.data[0] + ref_HV.variations.data[1]):
@@ -295,7 +295,7 @@ class TestGaussNewtonModel(unittest.TestCase):
                     lm = bopt.least_squares_problem(geom_b, bkind, sample, data).local_model(X.data)
                     self.assertTrue(np.allclose(float(fmodel.objective_value), float(lm.objective)))
                     self.assertLess(relerr(fmodel.gradient.variations.data, lm.gradient), 1e-10)
-                    pt = geom_f.randn(fmodel.base); p = pt.variations.data
+                    pt = geom_f.randn(fmodel.frame); p = pt.variations.data
                     self.assertTrue(np.allclose(float(fmodel.gn_quadratic(pt)), float(lm.gn_quadratic(p))))
                     self.assertLess(relerr(fmodel.gn_hessian(pt).variations.data, lm.hvp(p)), 1e-10)
 
@@ -348,7 +348,7 @@ class TestUniformGaussNewtonModel(unittest.TestCase):
                     self.assertIsInstance(fmodel, fitting.UniformGaussNewtonModel)
                     self.assertTrue(np.allclose(float(fmodel.objective_value), float(lm.objective)))
                     self.assertLess(self._relerr(fmodel.gradient.variations.supercores, lm.gradient), 1e-10)
-                    pt = geom.randn(fmodel.base)
+                    pt = geom.randn(fmodel.frame)
                     p = pt.variations.supercores
                     self.assertTrue(np.allclose(float(fmodel.gn_quadratic(pt)), float(lm.gn_quadratic(p)), rtol=1e-9))
                     self.assertLess(self._relerr(fmodel.gn_hessian(pt).variations.supercores, lm.hvp(p)), 1e-10)
@@ -368,7 +368,7 @@ class TestUniformGaussNewtonModel(unittest.TestCase):
                     kw = {'weight': w} if w is not None else {}
                     m = factory(geom, x, *fargs, lm.residual, **kw)
                     self.assertEqual(bool(m.gradient.is_gauged().all()), want_gauged)
-                    p = geom.randn(m.base)
+                    p = geom.randn(m.frame)
                     self.assertTrue(np.allclose(float(m.gn_quadratic(p)),
                                                 float(p.corewise_inner(m.gn_hessian(p))), rtol=1e-9))
 
@@ -387,8 +387,8 @@ class TestUniformGaussNewtonModel(unittest.TestCase):
         with self.assertRaises(ValueError):   # ragged x + uniform geometry
             fitting.apply_model(ut3m.UNIFORM_MANIFOLD, rx, ww, r)
 
-    def test_same_base_guard(self):
-        '''A trial tangent at a different base is rejected (the numerical same-frame guard).'''
+    def test_same_frame_guard(self):
+        '''A trial tangent at a different frame is rejected (the numerical same-frame guard).'''
         import t3toolbox.uniform_tucker_tensor_train as ut3
         import t3toolbox.uniform_manifold as ut3m
         rng = np.random.default_rng(0)
@@ -397,7 +397,7 @@ class TestUniformGaussNewtonModel(unittest.TestCase):
         other = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(shape, (2, 3, 2), (1, 2, 2, 1)))
         ww = [rng.standard_normal((10, N)) for N in shape]
         m = fitting.apply_model(ut3m.UNIFORM_MANIFOLD, x, ww, rng.standard_normal(10))
-        p_other = ut3m.UNIFORM_MANIFOLD.randn(ut3m.UNIFORM_MANIFOLD.base(other))
+        p_other = ut3m.UNIFORM_MANIFOLD.randn(ut3m.UNIFORM_MANIFOLD.frame(other))
         with self.assertRaises(ValueError):
             m.gn_hessian(p_other)
 

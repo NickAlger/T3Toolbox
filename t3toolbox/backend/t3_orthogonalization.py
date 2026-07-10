@@ -151,7 +151,7 @@ def down_orthogonalize_tucker_cores(
 
 def down_svd_tucker_core(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
-        ii: int,  # which base backend to orthogonalize
+        ii: int,  # which frame backend to orthogonalize
         min_rank: int = None,
         max_rank: int = None,
         rtol: float = None,

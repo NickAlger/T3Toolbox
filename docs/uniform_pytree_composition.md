@@ -156,7 +156,7 @@ cannot be jax — for reasons that are about *what the op does with the aux*, no
 
 - **`T3Frame` is aux used only as *data*.** Its cores feed contractions (`einsum`), whose tracer results
   flow on as data. It is never read as a host value (its *structure* is its array shape, which jax tracks
-  statically — no `int(frame…)`), and a tangent op at a fixed base **reuses the same input frame**
+  statically — no `int(frame…)`), and a tangent op at a fixed frame **reuses the same input frame**
   unchanged as the output aux. Nothing forces it concrete → jax is fine.
 - **The masks' *values* ARE host-readable static structure — read, recomputed, AND now hashed.** A uniform
   op (a) pulls the real shape/ranks as host Python ints — `int(mask.sum())` — to slice the padded supercore
@@ -167,7 +167,7 @@ cannot be jax — for reasons that are about *what the op does with the aux*, no
   *strengthens* this: a stray tracer mask now fails fast at hash time rather than leaking silently.
 
 One line: **frame = aux-used-as-data** (jax fine); **masks = aux whose values are host-readable structure
-and are recomputed** (must be numpy). (The frame *would* hit the same wall if you re-orthogonalized a base
+and are recomputed** (must be numpy). (The frame *would* hit the same wall if you re-orthogonalized a frame
 inside jit and wrapped a fresh tangent around it — which is why the convention is to hold the frame object
 stable; uniform can't sidestep it, because changing the structure *is* the op.)
 

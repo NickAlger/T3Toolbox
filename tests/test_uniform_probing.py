@@ -5,7 +5,7 @@
 
 The bare Riemannian Jacobian 𝒥 (3b-6b: forward) -- and, once landed, 𝒥ᵀ (3b-6c) -- on the uniform
 (supercore + mask) tangent layer, verified per stack element against the ragged T3Tangent (the
-equivalence contract). The hard, historically-untrusted part is the W (probe) / K (tangent) / C (base)
+equivalence contract). The hard, historically-untrusted part is the W (probe) / K (tangent) / C (frame)
 multi-block stacking, so every op is swept over the full _CONFIGS matrix (incl. K, multi-axis) and the
 varying-C rank sweep. The underlying d-prefixed WKC contractions are unit-tested in
 tests/backend/test_contractions.py (3b-6a)."""
@@ -20,10 +20,10 @@ import t3toolbox.uniform_frame_variations_format as ubv
 import t3toolbox.uniform_manifold as ut3m
 
 _STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))   # (shape, tucker_ranks, tt_ranks)
-# (base stack C, tangent stack K): unstacked / C / K / K+C / multi-axis C / multi-axis K
+# (frame stack C, tangent stack K): unstacked / C / K / K+C / multi-axis C / multi-axis K
 _CONFIGS = [((), ()), ((2,), ()), ((), (3,)), ((2,), (3,)), ((2, 3), ()), ((), (2, 3))]
 
-# varying-C rank sweep: two models of DIFFERENT base ranks padded to common dims (so they stack on one C)
+# varying-C rank sweep: two models of DIFFERENT frame ranks padded to common dims (so they stack on one C)
 _HETERO = [((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)), ((4, 5, 6), (3, 3, 2), (1, 1, 2, 1))]
 _HETERO_PAD = dict(N=6, nU=4, nD=4, rL=3, rR=3)
 
@@ -39,7 +39,7 @@ def _uniform_tangent(C=(), K=(), force_pad=False, seed=0):
     x = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=C)
     xu = ut3.UniformTuckerTensorTrain.from_t3(x, **_PAD_T3) if force_pad \
         else ut3.UniformTuckerTensorTrain.from_t3(x)
-    return ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(xu), stack_shape=K)
+    return ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.frame(xu), stack_shape=K)
 
 
 def _corrupt(obj, scale=1e3):
@@ -65,7 +65,7 @@ def _bc_over_K(m, K):  # (d,)+C+(size,) -> (d,)+K+C+(size,)
 
 
 def _expected_gauge_masks(frame, K_new=()):
-    """The variation gauge masks built INDEPENDENTLY from the base ranks + the gauge rule (prefix; the
+    """The variation gauge masks built INDEPENDENTLY from the frame ranks + the gauge rule (prefix; the
     left/right boundary-shifted [:-1] / [1:]), broadcast over the new tangent stack -- a different
     derivation than the impl's slice of the stored masks, so the comparison catches a boundary slip."""
     up = _prefix(np.asarray(frame.up_ranks), frame.nU)
@@ -104,10 +104,10 @@ def _probe_vectors(W, seed=1):
 
 
 def _index(W):
-    base = np.array([1, 2, 3])                      # one valid multi-index (< every Ni)
+    frame = np.array([1, 2, 3])                      # one valid multi-index (< every Ni)
     if not W:
-        return base
-    return np.broadcast_to(base[:, None], (len(base),) + tuple(W)) + np.zeros((1,) + tuple(W), int)
+        return frame
+    return np.broadcast_to(frame[:, None], (len(frame),) + tuple(W)) + np.zeros((1,) + tuple(W), int)
 
 
 class TestUT3TangentForward(unittest.TestCase):
@@ -267,7 +267,7 @@ class TestUT3TangentForwardDerivatives(unittest.TestCase):
 
 class TestUniformT3PlainDerivatives(unittest.TestCase):
     """3b-6'b: the PLAIN (non-tangent) forward derivatives (UniformTuckerTensorTrain.{probe,apply,entries}
-    _derivatives) vs the ragged TuckerTensorTrain, per base-stack (C) element. Output order + W + C [+ Ni]."""
+    _derivatives) vs the ragged TuckerTensorTrain, per frame-stack (C) element. Output order + W + C [+ Ni]."""
 
     def _models(self, C, force_pad=False):
         np.random.seed(5)
@@ -385,7 +385,7 @@ class TestUT3TangentTranspose(unittest.TestCase):
 class TestUT3CorewiseTranspose(unittest.TestCase):
     """3b-6c: the corewise (non-manifold) sampling transposes on UniformTuckerTensorTrain -- the Section 6.3
     (P,Q,O)->G substitution. The raw gradient supercores match the ragged TuckerTensorTrain corewise
-    gradients per stack element (in the real/masked region), across base stacks; sum_over_probes=True (the
+    gradients per stack element (in the real/masked region), across frame stacks; sum_over_probes=True (the
     residual c is shape W+C, shared by both layers)."""
 
     def setUp(self):
@@ -510,7 +510,7 @@ class TestUT3TangentTransposeDerivatives(unittest.TestCase):
 class TestUT3CorewiseTransposeDerivatives(unittest.TestCase):
     """3b-6'c: the corewise (non-manifold) DERIVATIVE transposes on UniformTuckerTensorTrain (the §6.3
     substitution into the tangent derivative transpose). Raw gradient supercores match the ragged per stack
-    element (real region), across base stacks; sum_over_probes=True (residual jets shape (order+1)+W+C[+Ni])."""
+    element (real region), across frame stacks; sum_over_probes=True (residual jets shape (order+1)+W+C[+Ni])."""
 
     def setUp(self):
         np.random.seed(3)
@@ -560,7 +560,7 @@ class TestUT3ProbingHardening(unittest.TestCase):
     docs/testing_strategy.md). Dense/numerical tests on clean padding are blind to too-permissive masks;
     these close that with (A) garbage-padded inputs -- mask-once must make every op's output UNCHANGED
     (clean == dirty, since the garbage contracts to zero) -- and (B) exact transpose output masks derived
-    independently from the base ranks. Forced padding (E) exercises masking on every core."""
+    independently from the frame ranks. Forced padding (E) exercises masking on every core."""
 
     def setUp(self):
         np.random.seed(4)

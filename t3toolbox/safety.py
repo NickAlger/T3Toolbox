@@ -200,7 +200,7 @@ def frames_equal(data1, data2, rtol=None):
 
     The honest "same tangent space" test: two frames are the same iff their cores are equal. It accepts
     the value-equal-but-different-object frames a jit round-trip produces, while rejecting a genuinely
-    different base. ``rtol`` defaults to the ambient jax-aware tolerance (falling back to the defaults if
+    different frame. ``rtol`` defaults to the ambient jax-aware tolerance (falling back to the defaults if
     unsafe -- this is a pure comparison, mode-agnostic).'''
     if rtol is None:
         tols = _safety.get() or _DEFAULT

@@ -92,7 +92,7 @@ def ufv_stack_axes(
     ``axes_start``. Inverse of :py:func:`ufv_unstack_axes`.
 
     Generalizes :py:func:`ufv_stack` (which stacks onto axes ``1 ..``) so the tangent layer can slot a new
-    stack run at the right place -- e.g. the base stack ``C`` *after* an existing tangent stack ``K`` (at
+    stack run at the right place -- e.g. the frame stack ``C`` *after* an existing tangent stack ``K`` (at
     ``axes_start = 1 + |K|``), keeping ``C`` inner. ``shape`` is read once (shared) and supercores/masks are
     stacked in SEPARATE :py:func:`stacking.stack` calls so the host-numpy masks are not promoted to jax.
     """

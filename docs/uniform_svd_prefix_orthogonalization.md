@@ -58,7 +58,7 @@ SVD gives the prefix-mask design exactly the two things it needs:
 ## Honest caveat (not a bug)
 
 When the **structural** rank exceeds the **numerical** rank, SVD completes the prefix with *arbitrary*
-orthonormal vectors at the zero-σ slots. This is intentional — it is how a rank-deficient base escapes its
+orthonormal vectors at the zero-σ slots. This is intentional — it is how a rank-deficient frame escapes its
 stratum (the examples' "completes the rank-deficient frame with orthonormal vectors"). The completion
 vectors are non-unique, but they are **traced data, not the jit cache key**, so their wobble is invisible
 to jit; and the mask still marks them real (they are legitimate orthonormal frame directions).

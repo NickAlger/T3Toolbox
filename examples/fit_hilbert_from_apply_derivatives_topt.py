@@ -97,7 +97,7 @@ def oracle_relerr(A, tucker_ranks, tt_ranks):
 # --------------------------------------------------------------------------------------------------
 # A custom minibatch draw: slice base points X (keep all their directions P). The library calls it with
 # the optimizer's rng each step and feeds (sample_B, data_B) to the (jit-able) step. `data` carries a
-# leading order axis (axis 0), so the base-point slice is over axis 2 of (order+1, N_P, N_X).
+# leading order axis (axis 0), so the frame-point slice is over axis 2 of (order+1, N_P, N_X).
 # (The flat default -- a random subset across the whole (N_P, N_X) stack -- is just draw=None.)
 # --------------------------------------------------------------------------------------------------
 def x_minibatch_draw(ww, pp, data, n_x_batch):
@@ -123,7 +123,7 @@ def main():
     print(f"Measurements: apply-derivatives orders 0..{ORDER}  "
           f"({N_X_TRAIN} train + {N_X_VAL} val base pts, {N_P} directions each, {NOISE_LEVEL*100:.0f}% noise).")
     print(f"Fit by library topt.mc_sgd over the 'apply_derivatives' kind (ω = 1/s_vec; X-slice draw of "
-          f"{N_X_BATCH} base pt(s)/step).\n")
+          f"{N_X_BATCH} frame pt(s)/step).\n")
 
     A = hilbert_tensor(SHAPE)
     A_norm = float(np.linalg.norm(A))

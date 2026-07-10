@@ -48,11 +48,11 @@ the honest `zeros` boundaries that respect the block structure.
 Assert the produced object's masks **exactly equal an independently-derived expected mask** — derived from
 a *different source* than the implementation, so the test is not the code checking itself. Examples:
 
-- the doubled-rank masks vs a from-the-base-ranks construction of the prefix-pair Tucker mask and the
+- the doubled-rank masks vs a from-the-frame-ranks construction of the prefix-pair Tucker mask and the
   `[Q | P]` honest-boundary TT mask (the paper rule), not vs the impl's own concatenation;
 - `retract`'s ranks vs the **ragged** `retract`'s ranks (the ground truth — note these can drop *below* the
-  base ranks when `base+tangent` is genuinely lower-rank, which is correct, not a bug);
-- gauge output masks `==` input masks (gauge must preserve them); `project` masks `==` the base gauge masks.
+  frame ranks when `frame+tangent` is genuinely lower-rank, which is correct, not a bug);
+- gauge output masks `==` input masks (gauge must preserve them); `project` masks `==` the frame gauge masks.
 
 > **The tautology trap.** Corrupting an output's padding using *the object's own mask* and re-densifying
 > **always passes** — `to_dense` applies that same mask, so it is testing that `to_dense` applies the mask,
@@ -75,7 +75,7 @@ not reach it — that one needs the exact-mask assertion. The two tools are comp
 ## The stack matrix
 
 Batching/stacking is the most error-prone part of the library (`batching_and_stacking.md`). Every op test is
-parametrized over a standard matrix (`_CONFIGS`): the no-stack case, a base (`C`) stack, a tangent (`K`)
+parametrized over a standard matrix (`_CONFIGS`): the no-stack case, a frame (`C`) stack, a tangent (`K`)
 stack, `K+C`, **forced-larger padding** (so *every* core has a padded region, not just the sub-max-rank
 ones the default tight pad leaves clean), and **multi-axis** `C=(2,3)` / `K=(2,3)` (where the negative-axis
 / `1+|K|` / suffix bookkeeping hides off-by-ones), plus a **varying-rank-across-`C`** stack (the rank-sweep

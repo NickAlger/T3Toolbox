@@ -49,10 +49,10 @@ class TestDispatch(unittest.TestCase):
         np.random.seed(0)
         cls.x_np = t3.TuckerTensorTrain.randn(*STRUCT)
         cls.x = cls.x_np.to_jax()
-        cls.base, cls.var = bvf.t3_orthogonal_representations(cls.x)
-        cls.v = t3m.T3Tangent(cls.base, cls.var)
-        cls.w = t3m.COREWISE.randn(cls.base)
-        cls.v_vstack = t3m.COREWISE.randn(cls.base, stack_shape=(3,))  # K=(3,)
+        cls.frame, cls.var = bvf.t3_orthogonal_representations(cls.x)
+        cls.v = t3m.T3Tangent(cls.frame, cls.var)
+        cls.w = t3m.COREWISE.randn(cls.frame)
+        cls.v_vstack = t3m.COREWISE.randn(cls.frame, stack_shape=(3,))  # K=(3,)
         cls.ww = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])  # probe stack W=(2,)
         cls.zz = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])  # W + C + (N,), C=()
         cls.zz_vstack = tuple(jnp.array(np.random.randn(2, 3, N)) for N in STRUCT[0])  # W + K + C, K=(3,)
@@ -136,7 +136,7 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(
             lambda cc, i: t3.TuckerTensorTrain.entries_ambient_transpose(cc, i, N, sum_over_probes=True),
             jnp.ones(2), jnp.array([[1, 2], [2, 3], [3, 0]]))  # (d,) + W, W=(2,)
-        # corewise (non-manifold) adjoints: gradient w.r.t. the cores (base x passed as a traced pytree)
+        # corewise (non-manifold) adjoints: gradient w.r.t. the cores (frame x passed as a traced pytree)
         self.assert_jit_jax(
             lambda xx, cc, *ws: xx.apply_corewise_transpose(cc, ws), self.x, jnp.ones(2), *self.ww)
         self.assert_jit_jax(
@@ -161,7 +161,7 @@ class TestDispatch(unittest.TestCase):
 
     # ---------------------------------------------------- jit bucket: T3Tangent
     def test_jit_tangent(self):
-        base = self.base  # close over the fixed base (aux_data); never a traced arg
+        frame = self.frame  # close over the fixed frame (aux_data); never a traced arg
         self.assert_jit_jax(lambda a: a.to_dense(), self.v)
         self.assert_jit_jax(lambda a: a.to_t3(), self.v)
         self.assert_jit_jax(lambda a: t3m.MANIFOLD.retract(a), self.v)
@@ -172,24 +172,24 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a: 2.5 * a, self.v)
         self.assert_jit_jax(lambda a: t3m.MANIFOLD.project(a), self.v)
         self.assert_jit_jax(lambda a: t3m.MANIFOLD.project_oblique(a), self.v)
-        self.assert_jit_jax(lambda xx: t3m.MANIFOLD.project_ambient(base, xx), self.x_other)
+        self.assert_jit_jax(lambda xx: t3m.MANIFOLD.project_ambient(frame, xx), self.x_other)
         self.assert_jit_jax(lambda a, w: a.probe(w), self.v, self.ww)
         self.assert_jit_jax(lambda a, w: a.probe(w), self.v_vstack, self.ww)  # 3-group (W,K,C) probe
-        self.assert_jit_jax(lambda z, w: t3m.T3Tangent.probe_transpose(z, w, base), self.zz, self.ww)
+        self.assert_jit_jax(lambda z, w: t3m.T3Tangent.probe_transpose(z, w, frame), self.zz, self.ww)
         # K-stacked residuals (W+K+C) -> 3-group transpose assemble, both sum modes
         self.assert_jit_jax(
-            lambda z, w: t3m.T3Tangent.probe_transpose(z, w, base, sum_over_probes=True), self.zz_vstack, self.ww)
+            lambda z, w: t3m.T3Tangent.probe_transpose(z, w, frame, sum_over_probes=True), self.zz_vstack, self.ww)
         self.assert_jit_jax(
-            lambda z, w: t3m.T3Tangent.probe_transpose(z, w, base), self.zz_vstack, self.ww)
+            lambda z, w: t3m.T3Tangent.probe_transpose(z, w, frame), self.zz_vstack, self.ww)
         self.assert_jit_jax(lambda a, w: a.apply(w), self.v_vstack, self.ww)              # tangent apply
         self.assert_jit_jax(lambda a, i: a.entries(i), self.v_vstack, jnp.array([1, 2, 3]))  # tangent entries
         # tangent adjoints: c shape W (+C); both sum modes
         self.assert_jit_jax(
-            lambda cc, w: t3m.T3Tangent.apply_transpose(cc, w, base, sum_over_probes=True), jnp.ones(2), self.ww)
+            lambda cc, w: t3m.T3Tangent.apply_transpose(cc, w, frame, sum_over_probes=True), jnp.ones(2), self.ww)
         self.assert_jit_jax(
-            lambda cc, w: t3m.T3Tangent.apply_transpose(cc, w, base), jnp.ones(2), self.ww)  # keep W
+            lambda cc, w: t3m.T3Tangent.apply_transpose(cc, w, frame), jnp.ones(2), self.ww)  # keep W
         self.assert_jit_jax(
-            lambda cc, i: t3m.T3Tangent.entries_transpose(cc, i, base, sum_over_probes=True),
+            lambda cc, i: t3m.T3Tangent.entries_transpose(cc, i, frame, sum_over_probes=True),
             jnp.ones(()), jnp.array([1, 2, 3]))
 
     # ---------------------------------------------------- jit bucket: symmetric probe derivatives
@@ -198,7 +198,7 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(
             lambda cc, w, p: pd.probe_derivatives_t3(w, p, cc, 3),
             self.x.data, list(self.ww), list(self.zz))
-        # with a base/core stack C=(2,) too: output (K+1) + W + C + (N,)
+        # with a frame/core stack C=(2,) too: output (K+1) + W + C + (N,)
         xc = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=(2,)).to_jax()
         self.assert_jit_jax(
             lambda cc, w, p: pd.probe_derivatives_t3(w, p, cc, 3),
@@ -212,43 +212,43 @@ class TestDispatch(unittest.TestCase):
                             trs, mu, G, nu)
         eta = jnp.ones((4, 2, 4)); U = jnp.ones((4, 7))
         self.assert_jit_jax(lambda a, b: contractions.tWCi_Cio_to_tWCo(a, b), eta, U)
-        # Riemannian (tangent) forward derivatives: jit, base + variation sweeps, all-orders
+        # Riemannian (tangent) forward derivatives: jit, frame + variation sweeps, all-orders
         self.assert_jit_jax(
             lambda var, b, w, p: pd.probe_tangent_derivatives(w, p, var, b, 3),
-            self.var.data, self.base.data, list(self.ww), list(self.zz))
+            self.var.data, self.frame.data, list(self.ww), list(self.zz))
         # Riemannian (tangent) transpose: jit, residual jets (K+1)+W+(N,) -> variation gradient
         rt = tuple(jnp.asarray(np.random.randn(4, 2, N)) for N in STRUCT[0])  # K+1=4, W=(2,)
         self.assert_jit_jax(
             lambda rr, w, p, b: pd.probe_tangent_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=True),
-            rt, list(self.ww), list(self.zz), self.base.data)
-        # transpose with a base/core stack C=(2,): residual jets (K+1)+W+C+(N,), both sum_over_probes
-        baseC = bvf.t3_orthogonal_representations(
+            rt, list(self.ww), list(self.zz), self.frame.data)
+        # transpose with a frame/core stack C=(2,): residual jets (K+1)+W+C+(N,), both sum_over_probes
+        frameC = bvf.t3_orthogonal_representations(
             t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=(2,)).to_jax())[0].data
         rtC = tuple(jnp.asarray(np.random.randn(4, 2, 2, N)) for N in STRUCT[0])  # K+1=4, W=(2,), C=(2,)
         for sop in (True, False):
             self.assert_jit_jax(
                 lambda rr, w, p, b: pd.probe_tangent_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=sop),
-                rtC, list(self.ww), list(self.zz), baseC)
+                rtC, list(self.ww), list(self.zz), frameC)
         # K-stacked Riemannian forward (exercises the order-threaded 3-block W/K/C contractions under jit)
         self.assert_jit_jax(
             lambda var, b, w, p: pd.probe_tangent_derivatives(w, p, var, b, 3),
-            self.v_vstack.variations.data, self.base.data, list(self.ww), list(self.zz))
+            self.v_vstack.variations.data, self.frame.data, list(self.ww), list(self.zz))
         # K-stacked transpose (the order-threaded 3-block ADJOINT contractions): residual (order+1)+W+K+C
         rtK = tuple(jnp.asarray(np.random.randn(4, 2, 3, N)) for N in STRUCT[0])  # order+1=4, W=(2,), K=(3,)
         for sop in (True, False):
             self.assert_jit_jax(
                 lambda rr, w, p, b: pd.probe_tangent_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=sop),
-                rtK, list(self.ww), list(self.zz), self.base.data)
+                rtK, list(self.ww), list(self.zz), self.frame.data)
         # apply derivatives: Euclidean (W+C), Riemannian single, Riemannian K-stacked
         self.assert_jit_jax(
             lambda cc, w, p: pd.apply_derivatives_t3(w, p, cc, 3),
             self.x.data, list(self.ww), list(self.zz))
         self.assert_jit_jax(
             lambda var, b, w, p: pd.apply_tangent_derivatives(w, p, var, b, 3),
-            self.var.data, self.base.data, list(self.ww), list(self.zz))
+            self.var.data, self.frame.data, list(self.ww), list(self.zz))
         self.assert_jit_jax(
             lambda var, b, w, p: pd.apply_tangent_derivatives(w, p, var, b, 3),
-            self.v_vstack.variations.data, self.base.data, list(self.ww), list(self.zz))
+            self.v_vstack.variations.data, self.frame.data, list(self.ww), list(self.zz))
         # entries derivatives: Euclidean and Riemannian (index a dynamic gather; general perturbation P)
         idx = jnp.array([[1, 2], [2, 3], [3, 4]])              # (d,) + W, W=(2,)
         self.assert_jit_jax(
@@ -256,7 +256,7 @@ class TestDispatch(unittest.TestCase):
             self.x.data, idx, list(self.zz))
         self.assert_jit_jax(
             lambda var, b, ix, p: pd.entries_tangent_derivatives(ix, p, var, b, 3),
-            self.var.data, self.base.data, idx, list(self.zz))
+            self.var.data, self.frame.data, idx, list(self.zz))
         # the new order-threaded 3-block contractions directly (K=(3,), C=())
         sig = jnp.ones((4, 2, 3, 5)); Qc = jnp.ones((5, 4, 6)); xij2 = jnp.ones((2, 2, 4))
         self.assert_jit_jax(lambda a, b, c, e: contractions.trs_rWKCa_Caib_sWCi_to_tWKCb(a, b, c, e),
@@ -271,14 +271,14 @@ class TestDispatch(unittest.TestCase):
         for sop in (True, False):
             self.assert_jit_jax(
                 lambda cc, w, p, b: pd.apply_tangent_derivatives_transpose(cc, w, p, b, 3, sum_over_probes=sop),
-                ca, list(self.ww), list(self.zz), self.base.data)
+                ca, list(self.ww), list(self.zz), self.frame.data)
             self.assert_jit_jax(
                 lambda cc, w, p, b: pd.apply_tangent_derivatives_transpose(cc, w, p, b, 3, sum_over_probes=sop),
-                caK, list(self.ww), list(self.zz), self.base.data)
+                caK, list(self.ww), list(self.zz), self.frame.data)
             self.assert_jit_jax(
                 lambda cc, ix, p, b: pd.entries_tangent_derivatives_transpose(cc, ix, p, b, 3, sum_over_probes=sop),
-                ca, idx, list(self.zz), self.base.data)
-        # corewise derivative transposes (P,Q,O->G substitution): gradient w.r.t. the base's own cores
+                ca, idx, list(self.zz), self.frame.data)
+        # corewise derivative transposes (P,Q,O->G substitution): gradient w.r.t. the frame's own cores
         self.assert_jit_jax(
             lambda rr, w, p, cp: pd.probe_corewise_derivatives_transpose(rr, w, p, cp, 3, sum_over_probes=True),
             rt, list(self.ww), list(self.zz), self.x.data)
@@ -297,18 +297,18 @@ class TestDispatch(unittest.TestCase):
         # orthogonal_representations (orthogonal_representations.py) -> returns (T3Frame, T3Variations)
         self.assert_jit_jax(lambda a: bvf.t3_orthogonal_representations(a), self.x)
         # tangent backend (tangent_operations.py)
-        self.assert_jit_jax(lambda b, v: tops.tangent_to_dense(b, v), self.base.data, self.var.data)
+        self.assert_jit_jax(lambda b, v: tops.tangent_to_dense(b, v), self.frame.data, self.var.data)
         # contraction-only dense projection (no SVD -> static shapes -> jit-able)
         dense = jnp.asarray(np.random.randn(*STRUCT[0]))
-        self.assert_jit_jax(lambda b, z: tops.project_dense_onto_tangent_space(b, z), self.base.data, dense)
+        self.assert_jit_jax(lambda b, z: tops.project_dense_onto_tangent_space(b, z), self.frame.data, dense)
         # residual / checker backends -> jax scalar (raw-np dispatch fix)
-        self.assert_jit_jax(lambda b: orth_reps.frame_orthogonality_residual(b), self.base.data)
-        self.assert_jit_jax(lambda b: orth_reps.frame_consistency_residual(b), self.base.data)
-        self.assert_jit_jax(lambda b, v: tops.gauge_residual(b, v), self.base.data, self.var.data)
+        self.assert_jit_jax(lambda b: orth_reps.frame_orthogonality_residual(b), self.frame.data)
+        self.assert_jit_jax(lambda b: orth_reps.frame_consistency_residual(b), self.frame.data)
+        self.assert_jit_jax(lambda b, v: tops.gauge_residual(b, v), self.frame.data, self.var.data)
 
     # ---------------------------------------------------- jit bucket: Gauss-Newton fitting (fitting.py)
     def test_jit_fitting(self):
-        # the geometry-generic GN model, every (kind x geometry): cached sweep + base fold in as closure
+        # the geometry-generic GN model, every (kind x geometry): cached sweep + frame fold in as closure
         # constants; the trial tangent pp is the traced input (frame survives jit as aux). evaluate exercises
         # the kind's sumsq reducer; gn_hessian exercises forward + transpose + geometry.project.
         index = jnp.array([[1, 2], [2, 3], [3, 0]])              # (d,)+W, W=(2,)
@@ -319,7 +319,7 @@ class TestDispatch(unittest.TestCase):
                       fitting.probe_model(geom, self.x, self.ww, probe_r)]
             for model in models:
                 _ = model.gradient; _ = model.objective_value   # warm the caches -> concrete jax constants
-                p = geom.randn(model.base)                       # a tangent at the model's base (jax)
+                p = geom.randn(model.frame)                       # a tangent at the model's frame (jax)
                 self.assert_jit_jax(lambda pp: model.gn_hessian(pp), p)    # H p, returns a T3Tangent
                 self.assert_jit_jax(lambda pp: model.jacobian(pp), p)      # J p (forward), sample-space
                 self.assert_jit_jax(lambda pp: model.gn_quadratic(pp), p)  # pᵀHp = ‖Jp‖², a jax scalar
@@ -331,9 +331,9 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda gm, t: gm.norm(gm.project(t)), t3m.COREWISE, self.w)
 
     def test_jit_optimizer_wholestep(self):
-        # Pattern 1 (the per-step jit): jit the WHOLE step, X in / X_new out, model built INSIDE. The base
+        # Pattern 1 (the per-step jit): jit the WHOLE step, X in / X_new out, model built INSIDE. The frame
         # is recomputed from the traced X each step, so it is traced -- the step COMPILES ONCE and is
-        # reused across steps even though the base changes every step (no model registration needed).
+        # reused across steps even though the frame changes every step (no model registration needed).
         ww, b = self.ww, jnp.ones(2)
         traces = [0]
         @jax.jit
@@ -347,7 +347,7 @@ class TestDispatch(unittest.TestCase):
         X = self.x
         for _ in range(3):
             X = step(X)
-        self.assertEqual(traces[0], 1, "whole-step jit recompiled -- base should be traced-internal, not aux")
+        self.assertEqual(traces[0], 1, "whole-step jit recompiled -- frame should be traced-internal, not aux")
         self._leaves_all_jax(X)
 
     def test_jit_uniform_optimizer_wholestep(self):
@@ -405,8 +405,8 @@ class TestDispatch(unittest.TestCase):
             traces[0] += 1                                  # +1 per TRACE (compile), not per call
             return m.gn_hessian(p)
         for seed in (1, 2, 3):
-            m = build(seed)                                 # rebuilt model (different base supercores, same rank)
-            p = ut3m.UNIFORM_MANIFOLD.randn(m.base)
+            m = build(seed)                                 # rebuilt model (different frame supercores, same rank)
+            p = ut3m.UNIFORM_MANIFOLD.randn(m.frame)
             hp = Hmatvec(m, p)
             jax.block_until_ready(hp.variations.supercores)
         self.assertEqual(traces[0], 1, "UniformGaussNewtonModel matvec recompiled -- aux must be value-hashed "
@@ -456,13 +456,13 @@ class TestDispatch(unittest.TestCase):
         # (same pad+stack-via-xnp / np-host-mask machinery as from_t3). to_t3frame / to_t3variations:
         # argwhere on host masks indexes jax supercores -> jax ragged out.
         import t3toolbox.uniform_frame_variations_format as ubv
-        self.assert_jit_uniform(lambda b: ubv.UT3Frame.from_t3frame(b), self.base, returns_ut3=True)
+        self.assert_jit_uniform(lambda b: ubv.UT3Frame.from_t3frame(b), self.frame, returns_ut3=True)
         self.assert_jit_uniform(lambda v: ubv.UT3Variations.from_t3variations(v), self.var, returns_ut3=True)
-        UB = ubv.UT3Frame.from_t3frame(self.base)
+        UB = ubv.UT3Frame.from_t3frame(self.frame)
         UV = ubv.UT3Variations.from_t3variations(self.var)
         self.assert_jit_jax(lambda b: b.to_t3frame(), UB)
         self.assert_jit_jax(lambda v: v.to_t3variations(), UV)
-        # 2c-B base-point conversions: to_ut3 returns a ut3 (masks must stay concrete); to_dense -> array;
+        # 2c-B frame-point conversions: to_ut3 returns a ut3 (masks must stay concrete); to_dense -> array;
         # from_ut3 runs the orthogonal-representation sweep under jit (its frame masks stay concrete too).
         self.assert_jit_uniform(lambda b: b.to_ut3(), UB, returns_ut3=True)
         self.assert_jit_uniform(lambda b: b.to_dense(), UB)
@@ -474,7 +474,7 @@ class TestDispatch(unittest.TestCase):
         # 2c-G2: uniform-native per-element checkers jit to jax (masked-Gram residual; masks stay np const)
         self.assert_jit_jax(lambda b: b.is_orthogonal(), UB)
         self.assert_jit_jax(lambda b: b.is_consistent(), UB)
-        self.assert_jit_jax(lambda a, b: a.allclose(b), UB, ubv.UT3Frame.from_t3frame(self.base))
+        self.assert_jit_jax(lambda a, b: a.allclose(b), UB, ubv.UT3Frame.from_t3frame(self.frame))
 
     # ---------------------------------------------------- jit bucket: the uniform geometries (3b-5)
     def test_jit_uniform_geometry(self):
@@ -483,13 +483,13 @@ class TestDispatch(unittest.TestCase):
         import t3toolbox.uniform_manifold as ut3m
         M, C = ut3m.UNIFORM_MANIFOLD, ut3m.UNIFORM_COREWISE
         ux_np = ut3.UniformTuckerTensorTrain.from_t3(self.x_np)
-        v = M.randn(M.base(ux_np)).to_jax()                # gauged jax tangent (built on numpy then to_jax)
-        cv = C.randn(C.base(ux_np)).to_jax()
-        base, g = M.base(ux_np).to_jax(), self.uy          # an orthogonal jax frame + a jax UniformTTT grad
+        v = M.randn(M.frame(ux_np)).to_jax()                # gauged jax tangent (built on numpy then to_jax)
+        cv = C.randn(C.frame(ux_np)).to_jax()
+        frame, g = M.frame(ux_np).to_jax(), self.uy          # an orthogonal jax frame + a jax UniformTTT grad
 
-        # base returns a UT3Frame; retract a UniformTTT -- masks must stay concrete (the tracer-leak mode)
-        self.assert_jit_uniform(lambda u: M.base(u), self.ux, returns_ut3=True)
-        self.assert_jit_uniform(lambda u: C.base(u), self.ux, returns_ut3=True)
+        # frame returns a UT3Frame; retract a UniformTTT -- masks must stay concrete (the tracer-leak mode)
+        self.assert_jit_uniform(lambda u: M.frame(u), self.ux, returns_ut3=True)
+        self.assert_jit_uniform(lambda u: C.frame(u), self.ux, returns_ut3=True)
         self.assert_jit_uniform(lambda t: M.retract(t), v, returns_ut3=True)
         self.assert_jit_uniform(lambda t: C.retract(t), cv, returns_ut3=True)
 
@@ -505,8 +505,8 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a, b: M.inner(a, b), v, v)
         self.assert_jit_jax(lambda t: M.norm(t), v)
         self.assert_jit_jax(lambda a, b: C.inner(a, b), cv, cv)
-        self.assert_jit_jax(lambda b, gg: M.project_ambient(b, gg).to_dense(), base, g)
-        self.assert_jit_jax(lambda t, b: M.transport(t, b).to_dense(), v, base)
+        self.assert_jit_jax(lambda b, gg: M.project_ambient(b, gg).to_dense(), frame, g)
+        self.assert_jit_jax(lambda t, b: M.transport(t, b).to_dense(), v, frame)
 
     # ---------------------------------------------------- jit bucket: uniform tangent probing (3b-6b)
     def test_jit_uniform_probing(self):
@@ -514,8 +514,8 @@ class TestDispatch(unittest.TestCase):
         # jax (through the d-prefixed WKC contractions + the scan sweeps), the masks stay host, and pack /
         # unpack slice with static shapes (the int-tuple shape). K-stacked to exercise the W/K/C blocks.
         import t3toolbox.uniform_manifold as ut3m
-        base = ut3m.UNIFORM_MANIFOLD.base(ut3.UniformTuckerTensorTrain.from_t3(self.x_np))
-        v = ut3m.UNIFORM_COREWISE.randn(base, stack_shape=(2,)).to_jax()   # K = (2,)
+        frame = ut3m.UNIFORM_MANIFOLD.frame(ut3.UniformTuckerTensorTrain.from_t3(self.x_np))
+        v = ut3m.UNIFORM_COREWISE.randn(frame, stack_shape=(2,)).to_jax()   # K = (2,)
         ww = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])    # W = (2,)
         idx = jnp.array([[1, 2], [2, 3], [3, 0]])                         # (d,) + W
         self.assert_jit_jax(lambda t, *w: t.probe(w), v, *ww)
@@ -564,7 +564,7 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda u, *w: u.apply_derivatives(w[:3], w[3:], 2), xu, *ww, *pp)
         self.assert_jit_jax(lambda u, i, *w: u.entries_derivatives(i, w, 2), xu, idx, *pp)
 
-        v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(xu), stack_shape=(2,)).to_jax()  # K=(2,)
+        v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.frame(xu), stack_shape=(2,)).to_jax()  # K=(2,)
         self.assert_jit_jax(lambda t, *w: t.probe_derivatives(w[:3], w[3:], 2), v, *ww, *pp)
         self.assert_jit_jax(lambda t, *w: t.apply_derivatives(w[:3], w[3:], 2), v, *ww, *pp)
         self.assert_jit_jax(lambda t, i, *w: t.entries_derivatives(i, w, 2), v, idx, *pp)
@@ -603,8 +603,8 @@ class TestDispatch(unittest.TestCase):
         ux = ut3.UniformTuckerTensorTrain.from_t3(xs)
         ru = ut3.UniformTuckerTensorTrain.stack(ux.unstack())          # plain UT3
         self._leaves_all_jax(ru); self.assert_concrete_masks(ru)
-        base, var = ubv.ut3_orthogonal_representations(ux)             # bv frame + variations
-        for r in (ubv.UT3Frame.stack(base.unstack()), ubv.UT3Variations.stack(var.unstack())):
+        frame, var = ubv.ut3_orthogonal_representations(ux)             # bv frame + variations
+        for r in (ubv.UT3Frame.stack(frame.unstack()), ubv.UT3Variations.stack(var.unstack())):
             self._leaves_all_jax(r); self.assert_concrete_masks(r)
 
     # ---------------------------------------------------- jit bucket: UT3Variations vector-space ops (2c-D)
@@ -613,7 +613,7 @@ class TestDispatch(unittest.TestCase):
         # same-mask precondition runs on host-static structure (no tracer branch).
         import t3toolbox.uniform_frame_variations_format as ubv
         UV = ubv.UT3Variations.from_t3variations(self.var)
-        UW = ubv.UT3Variations.randn_like(UV)                          # same base -> same mask -> addable
+        UW = ubv.UT3Variations.randn_like(UV)                          # same frame -> same mask -> addable
         self.assert_jit_uniform(lambda a, b: a + b, UV, UW, returns_ut3=True)
         self.assert_jit_uniform(lambda a, b: a - b, UV, UW, returns_ut3=True)
         self.assert_jit_uniform(lambda a: 2.5 * a, UV, returns_ut3=True)
@@ -680,19 +680,19 @@ class TestDispatch(unittest.TestCase):
         # -> dynamic shapes. Dispatch is pushed down (no top-level jax check), so the output is jax
         # whenever ANY input is jax. jax dense + jax frame:
         dense = jnp.array(np.random.randn(*STRUCT[0]))
-        self.assert_eager_jax(lambda z: t3m.MANIFOLD.project_ambient(self.base, z), dense)
-        self.assert_eager_jax(lambda z: t3m.MANIFOLD.project_ambient(self.base, z), dense)
+        self.assert_eager_jax(lambda z: t3m.MANIFOLD.project_ambient(self.frame, z), dense)
+        self.assert_eager_jax(lambda z: t3m.MANIFOLD.project_ambient(self.frame, z), dense)
         # jax dense + NUMPY frame: the COMPUTED variations must be jax (any input jax -> jax); the old
         # code coerced the dense down to the frame's numpy here -- the regression this fix prevents. With
         # frame-as-leaf the tangent also carries the (numpy) frame as leaves, so check the variations only.
-        base_np = self.base.to_numpy()
-        self._leaves_all_jax(t3m.MANIFOLD.project_ambient(base_np, dense).variations)
+        frame_np = self.frame.to_numpy()
+        self._leaves_all_jax(t3m.MANIFOLD.project_ambient(frame_np, dense).variations)
 
     # ---------------------------------------------------- numerical smoke tests (jax == numpy)
     def test_jax_matches_numpy_smoke(self):
         # A few complex ops: jax must agree with numpy (guards subtle backend divergence).
-        base_np, var_np = bvf.t3_orthogonal_representations(self.x_np)
-        v_np = t3m.T3Tangent(base_np, var_np)
+        frame_np, var_np = bvf.t3_orthogonal_representations(self.x_np)
+        v_np = t3m.T3Tangent(frame_np, var_np)
         ww_np = tuple(np.asarray(w) for w in self.ww)
 
         def close(a, b):
@@ -708,10 +708,10 @@ class TestDispatch(unittest.TestCase):
         close(self.x.to_dense(), self.x_np.to_dense())                       # TTT.to_dense
         close(self.v.to_dense(), v_np.to_dense())                            # Tangent.to_dense
         close(t3m.MANIFOLD.retract(self.v).to_dense(), t3m.MANIFOLD.retract(v_np).to_dense())        # retract (fixed-rank t3svd)
-        w_np = t3m.T3Tangent(base_np, bvf.T3Variations(
+        w_np = t3m.T3Tangent(frame_np, bvf.T3Variations(
             tuple(np.asarray(c) for c in self.w.variations.tucker_variations),
             tuple(np.asarray(c) for c in self.w.variations.tt_variations)))
-        close(self.v.corewise_inner(self.w), v_np.corewise_inner(w_np))      # inner (binary, shared base)
+        close(self.v.corewise_inner(self.w), v_np.corewise_inner(w_np))      # inner (binary, shared frame)
         for a, b in zip(self.v.probe(self.ww), v_np.probe(ww_np)):           # probe
             close(a, b)
 

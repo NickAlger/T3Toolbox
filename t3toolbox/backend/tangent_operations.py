@@ -26,8 +26,8 @@ __all__ = [
     'project_dense_onto_tangent_space',
     'unstack_tangent_stack',
     'stack_tangent_stack',
-    'unstack_base_stack',
-    'stack_base_stack',
+    'unstack_frame_stack',
+    'stack_frame_stack',
     'gauge_residual',
     'retract',
 ]
@@ -208,12 +208,12 @@ def tangent_to_t3(
     xnp, _, _ = get_backend(False, use_jax)
 
     # The output is a single uniformly-stacked doubled-rank T3 (one per (v, g) pair). Its full stack
-    # V+G comes from the variations; the base cores carry only G (the shared base point), so broadcast
-    # every base-derived core up to V+G -- replicating the base point over the tangent stack V -- so
+    # V+G comes from the variations; the frame cores carry only G (the shared base point), so broadcast
+    # every frame-derived core up to V+G -- replicating the base point over the tangent stack V -- so
     # each concatenated doubled-rank core is uniformly stacked. No-op when V=() (the plain G-stack).
     ss = tucker_variations[0].shape[:-2]  # stack_shape = V + G
-    bcast2 = lambda C: xnp.broadcast_to(C, ss + C.shape[-2:])  # tucker-shaped base core (..., n, N)
-    bcast3 = lambda C: xnp.broadcast_to(C, ss + C.shape[-3:])  # tt-shaped base core (..., rL, n, rR)
+    bcast2 = lambda C: xnp.broadcast_to(C, ss + C.shape[-2:])  # tucker-shaped frame core (..., n, N)
+    bcast3 = lambda C: xnp.broadcast_to(C, ss + C.shape[-3:])  # tt-shaped frame core (..., rL, n, rR)
     up_tucker_cores = [bcast2(U) for U in up_tucker_cores]
     down_tt_cores   = [bcast3(O) for O in down_tt_cores]
     left_tt_cores   = [bcast3(L) for L in left_tt_cores]
@@ -335,10 +335,10 @@ def project_t3_onto_tangent_space(
     typ.Tuple[NDArray, ...],  # gauged tucker_variations
     typ.Tuple[NDArray, ...],  # gauged tt_variations
 ]:
-    """Orthogonal projection of a Tucker tensor train onto the tangent space at an orthogonal base.
+    """Orthogonal projection of a Tucker tensor train onto the tangent space at an orthogonal frame.
 
     Returns gauged variations representing the orthogonal projection of ``x`` *directly* onto the
-    tangent space (a linear subspace); it does not subtract the base point. The base must be an
+    tangent space (a linear subspace); it does not subtract the base point. The frame must be an
     orthogonal representation (minimal rank is *not* required). Stack-aware. Ragged path only (uniform
     deferred).
     """
@@ -351,7 +351,7 @@ def project_t3_onto_tangent_space(
     use_jax = tree_contains_jax((frame, x))
     xnp, xmap, _ = get_backend(False, use_jax)
 
-    # Re-express the other T3's TT cores in the base's up-Tucker basis.
+    # Re-express the other T3's TT cores in the frame's up-Tucker basis.
     def _func1(args):
         G_other, B_other, U = args
         BU = xnp.einsum('...iz,...xz->...ix', B_other, U)
@@ -394,20 +394,20 @@ def project_dense_onto_tangent_space(
     typ.Tuple[NDArray, ...],  # gauged tucker_variations
     typ.Tuple[NDArray, ...],  # gauged tt_variations
 ]:
-    """Orthogonal projection of a *dense* tensor onto the tangent space at an orthogonal base.
+    """Orthogonal projection of a *dense* tensor onto the tangent space at an orthogonal frame.
 
-    Contraction-only: contracts ``Z`` directly against the base's orthonormal frames -- no SVD and no
+    Contraction-only: contracts ``Z`` directly against the frame's orthonormal frames -- no SVD and no
     large intermediate Tucker tensor train (unlike densifying ``Z`` with the T3-SVD first). Returns
     gauged variations representing the orthogonal projection of ``Z`` *directly* onto the tangent space
     (a linear subspace); it does not subtract the base point. Stack-aware (leading axes beyond the
     ``d`` tensor modes are a stack). Ragged path only (uniform deferred).
 
-    Requires an **orthogonal** base: the canonical conditions (U row-orthonormal, L/R left/right-
+    Requires an **orthogonal** frame: the canonical conditions (U row-orthonormal, L/R left/right-
     canonical, O outer-orthonormal) make each surrounding frame an isometry -- so a bare contraction
     yields the orthogonal-projection coefficient -- and make the gauged single-core directions mutually
-    orthogonal. A *minimal-rank* base is **not** required.
+    orthogonal. A *minimal-rank* frame is **not** required.
 
-    Algorithm. For each mode ``i``, reduce ``Z`` over every *other* mode against the base chains -- the
+    Algorithm. For each mode ``i``, reduce ``Z`` over every *other* mode against the frame chains -- the
     left interface ``(U, L)`` over modes ``< i`` and the right interface ``(U, R)`` over modes ``> i``
     -- leaving the single mode ``x_i`` open, giving the shared environment ``core_env_i`` of shape
     ``(r_i, N_i, r_{i+1})``. Both variations at ``i`` read off it: ``dG_i = <U_i, core_env_i>`` (the TT
@@ -465,43 +465,43 @@ def _tangent_stack_split(
         frame,       # (UU, DD, LL, RR), each core stack = G
         variations,  # (VV, HH), each core stack = V + G
 ) -> typ.Tuple[int, int]:  # (|V|, |G|)
-    """Recover the tangent-stack / base-stack split from a (frame, variations) data pair.
+    """Recover the tangent-stack / frame-stack split from a (frame, variations) data pair.
 
-    The base cores carry only the base stack G; the variation cores carry the full stack V + G (the
-    extra tangent stack V outermost). So |G| comes from a base core and |V| is the remainder.
+    The frame cores carry only the frame stack G; the variation cores carry the full stack V + G (the
+    extra tangent stack V outermost). So |G| comes from a frame core and |V| is the remainder.
     """
-    n_base = len(frame[0][0].shape) - 2       # |G|   (up core: stack + (nU, N))
+    n_frame = len(frame[0][0].shape) - 2       # |G|   (up core: stack + (nU, N))
     n_full = len(variations[0][0].shape) - 2  # |V+G| (tucker variation: stack + (nD, N))
-    return n_full - n_base, n_base
+    return n_full - n_frame, n_frame
 
 
-def _pair_base_leaves(
-        frame_tree,        # G-shaped tree of frame-data tuples,      n_base levels deep
-        variations_tree,   # G-shaped tree of variations-data tuples, n_base levels deep
-        n_base:     int,   # base-stack depth |G|
+def _pair_frame_leaves(
+        frame_tree,        # G-shaped tree of frame-data tuples,      n_frame levels deep
+        variations_tree,   # G-shaped tree of variations-data tuples, n_frame levels deep
+        n_frame:     int,   # frame-stack depth |G|
 ):  # -> G-shaped tree of (frame_data, variations_data) pairs
-    """Pair a frame-data tree and a variations-data tree (same G-shaped outer structure, n_base axes
+    """Pair a frame-data tree and a variations-data tree (same G-shaped outer structure, n_frame axes
     deep) leaf-by-leaf into one G-shaped tree of ``(frame_data, variations_data)`` pairs.
 
     Not a :py:func:`stacking.tree_zip`: the data-tuple leaves are themselves sequences, so tree_zip
-    would recurse into the cores. We stop at the known base-stack depth ``n_base`` instead.
+    would recurse into the cores. We stop at the known frame-stack depth ``n_frame`` instead.
     """
-    if n_base == 0:
+    if n_frame == 0:
         return (frame_tree, variations_tree)  # both are single data tuples -> one pair
-    return tuple(_pair_base_leaves(b, v, n_base - 1)
+    return tuple(_pair_frame_leaves(b, v, n_frame - 1)
                  for b, v in zip(frame_tree, variations_tree))
 
 
-def _unpair_base_leaves(
+def _unpair_frame_leaves(
         paired_tree,       # G-shaped tree of (frame_data, variations_data) pairs
-        n_base:     int,   # base-stack depth |G|
+        n_frame:     int,   # frame-stack depth |G|
 ):  # -> (frame_tree, variations_tree), each G-shaped
-    """Inverse of :py:func:`_pair_base_leaves`: split a G-shaped tree of ``(frame_data,
+    """Inverse of :py:func:`_pair_frame_leaves`: split a G-shaped tree of ``(frame_data,
     variations_data)`` pairs back into a ``(frame_tree, variations_tree)``.
     """
-    if n_base == 0:
+    if n_frame == 0:
         return paired_tree  # already a single (frame_data, variations_data) pair
-    split = [_unpair_base_leaves(p, n_base - 1) for p in paired_tree]
+    split = [_unpair_frame_leaves(p, n_frame - 1) for p in paired_tree]
     return tuple(s[0] for s in split), tuple(s[1] for s in split)
 
 
@@ -511,8 +511,8 @@ def unstack_tangent_stack(
 ):  # -> array-like tree (shape V) of variations-data tuples (each stack = G)
     """Peel the tangent stack V off the variations, returning a V-shaped tree of variation-data.
 
-    The base point is shared across V, so the base cores are untouched (the caller pairs the same
-    base with every leaf). Inverse of :py:func:`stack_tangent_stack`.
+    The base point is shared across V, so the frame cores are untouched (the caller pairs the same
+    frame with every leaf). Inverse of :py:func:`stack_tangent_stack`.
     """
     n_tangent, _ = _tangent_stack_split(frame, variations)
     return stacking.unstack(variations, axes=tuple(range(n_tangent)))
@@ -528,43 +528,43 @@ def stack_tangent_stack(
     return stacking.basic_ragged_stack(variations_tree)
 
 
-def unstack_base_stack(
+def unstack_frame_stack(
         frame,       # (UU, DD, LL, RR), each core stack = G
         variations,  # (VV, HH), each core stack = V + G
 ):  # -> array-like tree (shape G) of (frame_data, variations_data) pairs
-    """Peel the base stack G off both the frame and the variations, returning a G-shaped tree whose
-    leaves are ``(frame_data, variations_data)`` pairs -- one single-base-point tangent per leaf.
+    """Peel the frame stack G off both the frame and the variations, returning a G-shaped tree whose
+    leaves are ``(frame_data, variations_data)`` pairs -- one single-frame-point tangent per leaf.
 
     Each frame-data leaf has stack () (a single base point); each variations-data leaf has stack V.
-    The base stack is the *inner* part of the variation stack (V + G), so it is peeled from the
+    The frame stack is the *inner* part of the variation stack (V + G), so it is peeled from the
     interior axes of the variation cores. The frame and variation leaves are paired for you (a plain
     :py:func:`stacking.tree_zip` cannot do it -- it would recurse into the data-tuple leaves -- so a
     backend user would otherwise have to hand-roll a depth-aware zip). Inverse of
-    :py:func:`stack_base_stack`.
+    :py:func:`stack_frame_stack`.
     """
-    n_tangent, n_base = _tangent_stack_split(frame, variations)
-    frame_tree = stacking.unstack(frame, axes=tuple(range(n_base)))
-    variations_tree = stacking.unstack(variations, axes=tuple(range(n_tangent, n_tangent + n_base)))
-    return _pair_base_leaves(frame_tree, variations_tree, n_base)
+    n_tangent, n_frame = _tangent_stack_split(frame, variations)
+    frame_tree = stacking.unstack(frame, axes=tuple(range(n_frame)))
+    variations_tree = stacking.unstack(variations, axes=tuple(range(n_tangent, n_tangent + n_frame)))
+    return _pair_frame_leaves(frame_tree, variations_tree, n_frame)
 
 
-def stack_base_stack(
+def stack_frame_stack(
         paired_tree,  # array-like tree (shape G) of (frame_data, variations_data) pairs
 ):  # -> (
     #        frame-data,       # stack = G
     #        variations-data,  # stack = V + G
     #    )
-    """Stack a G-shaped tree of ``(frame_data, variations_data)`` pairs over the base stack G.
+    """Stack a G-shaped tree of ``(frame_data, variations_data)`` pairs over the frame stack G.
 
-    The base stack is placed *innermost* (the variation stack becomes V + G), matching the base-inner
-    convention. Takes exactly the paired-tree layout that :py:func:`unstack_base_stack` produces (its
+    The frame stack is placed *innermost* (the variation stack becomes V + G), matching the base-inner
+    convention. Takes exactly the paired-tree layout that :py:func:`unstack_frame_stack` produces (its
     inverse), so a backend user round-trips without splitting the pairs by hand.
     """
-    n_base = stacking.tree_depth(paired_tree) - 3   # |G|; a (frame_data, variations_data) leaf is 3 levels deep
-    frame_tree, variations_tree = _unpair_base_leaves(paired_tree, n_base)
+    n_frame = stacking.tree_depth(paired_tree) - 3   # |G|; a (frame_data, variations_data) leaf is 3 levels deep
+    frame_tree, variations_tree = _unpair_frame_leaves(paired_tree, n_frame)
     frame = stacking.basic_ragged_stack(frame_tree)                      # G at leading -> stack = G
     n_tangent = len(stacking.get_first_leaf(variations_tree).shape) - 2  # |V| (a tucker variation leaf)
-    variations = stacking.stack(variations_tree, axes=tuple(range(n_tangent, n_tangent + n_base)))
+    variations = stacking.stack(variations_tree, axes=tuple(range(n_tangent, n_tangent + n_frame)))
     return frame, variations
 
 
@@ -612,7 +612,7 @@ def retract(
             typ.Sequence[NDArray],  # tt_variations
         ],
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],  # tucker_cores (retracted T3, base-point ranks)
+    typ.Tuple[NDArray, ...],  # tucker_cores (retracted T3, frame-point ranks)
     typ.Tuple[NDArray, ...],  # tt_cores
 ]:
     '''Retract a frame-variations tangent vector onto the fixed-rank manifold.

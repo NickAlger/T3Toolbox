@@ -139,16 +139,16 @@ def reverse_frame(
 
 
 # NOTE (parked): kept here for safekeeping pending a redesign of weighted tensor networks.
-# This is the pre-refactor implementation. It uses the OLD base-core ordering
+# This is the pre-refactor implementation. It uses the OLD frame-core ordering
 # (up, left, right, outer) and is NOT wired into the manifold / T3Tangent API. Do not rely
 # on it until the weighting code structure is reworked.
 def absorb_weights_into_tangent_cores(
         variation,      # (tucker_variations, tt_variations)
-        base,           # OLD order: (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+        frame,           # OLD order: (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
         edge_weights = (None, None, None, None),
         use_jax: bool = False,
 ):
-    """Contract edge weights with neighboring cores in base-variation representation.
+    """Contract edge weights with neighboring cores in frame-variation representation.
 
     Tensor network diagrams illustrating groupings::
 
@@ -177,7 +177,7 @@ def absorb_weights_into_tangent_cores(
                 |        |        |
 
     """
-    is_uniform = not isinstance(base[0], typ.Sequence)
+    is_uniform = not isinstance(frame[0], typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     #
@@ -186,7 +186,7 @@ def absorb_weights_into_tangent_cores(
      left_tt_weights, right_tt_weights,
      ) = edge_weights
 
-    (up_tucker_cores0, left_tt_cores0, right_tt_cores0, outer_tt_cores0) = base
+    (up_tucker_cores0, left_tt_cores0, right_tt_cores0, outer_tt_cores0) = frame
     (var_tucker_cores0, var_tt_cores0) = variation
 
     if is_uniform:
@@ -235,6 +235,6 @@ def absorb_weights_into_tangent_cores(
             (left_tt_weights, var_tt_cores0, right_tt_weights)
         )
 
-    weighted_base = (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+    weighted_frame = (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
     weighted_variation = (var_tucker_cores, var_tt_cores)
-    return weighted_variation, weighted_base
+    return weighted_variation, weighted_frame

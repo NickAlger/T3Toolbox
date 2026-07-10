@@ -61,9 +61,9 @@ class TestProbeDerivatives(unittest.TestCase):
                                 for k in range(ORDER + 1):
                                     self.check_relerr(z_dense[i][k], np.asarray(z_jets[i])[sel][k])
 
-    def test_base_core_stack(self):
-        # base/core stack C (a batch of T3s) alongside the sample stack S, base-inner S+C. Each base
-        # T3 is probed by the same S samples; validate every (sample, base) element vs the oracle.
+    def test_frame_core_stack(self):
+        # frame/core stack C (a batch of T3s) alongside the sample stack S, base-inner S+C. Each frame
+        # T3 is probed by the same S samples; validate every (sample, frame) element vs the oracle.
         STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
         shapes = STRUCT[0]
         d = len(shapes)
@@ -99,8 +99,8 @@ class TestProbeDerivatives(unittest.TestCase):
             for ORDER in [0, 1, 2, 3]:
                 with self.subTest(S=S, C=C, ORDER=ORDER):
                     x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
-                    base, _ = bvf.t3_orthogonal_representations(x)
-                    v = t3m.COREWISE.randn(base)
+                    frame, _ = bvf.t3_orthogonal_representations(x)
+                    v = t3m.COREWISE.randn(frame)
                     Vd = v.to_dense()                                 # shape C + (N1..Nd)
                     ww = [np.random.randn(*(S + (N,))) for N in shapes]
                     pp = [np.random.randn(*(S + (N,))) for N in shapes]
@@ -121,7 +121,7 @@ class TestProbeDerivatives(unittest.TestCase):
 
     def test_tangent_transpose_adjoint_identity(self):
         # J^T via the jet-ified adjoint-state Lagrangian: <r, J v> = <J^T r, v>, with the sample stack
-        # S and base stack C (base-inner); sum_over_probes keeps/sums S consistently, C always kept.
+        # S and frame stack C (base-inner); sum_over_probes keeps/sums S consistently, C always kept.
         STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
         shapes = STRUCT[0]
         d = len(shapes)
@@ -129,8 +129,8 @@ class TestProbeDerivatives(unittest.TestCase):
             for K in [0, 1, 2, 3]:
                 with self.subTest(S=S, C=C, K=K):
                     x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
-                    base, _ = bvf.t3_orthogonal_representations(x)
-                    v = t3m.COREWISE.randn(base)
+                    frame, _ = bvf.t3_orthogonal_representations(x)
+                    v = t3m.COREWISE.randn(frame)
                     dU_v, dG_v = v.variations.data
                     ww = [np.random.randn(*(S + (N,))) for N in shapes]
                     pp = [np.random.randn(*(S + (N,))) for N in shapes]
@@ -159,8 +159,8 @@ class TestProbeDerivatives(unittest.TestCase):
         # The 0-th derivative jet of the Riemannian map is exactly probe_tangent.
         STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
         x = t3.TuckerTensorTrain.randn(*STRUCT)
-        base, _ = bvf.t3_orthogonal_representations(x)
-        v = t3m.COREWISE.randn(base)
+        frame, _ = bvf.t3_orthogonal_representations(x)
+        v = t3m.COREWISE.randn(frame)
         ww = [np.random.randn(N) for N in STRUCT[0]]
         pp = [np.random.randn(N) for N in STRUCT[0]]
 
@@ -205,7 +205,7 @@ class TestProbeDerivatives(unittest.TestCase):
                     self.check_relerr(oracle(w_idx, k_idx, c_idx), got)
 
     def test_tangent_derivatives_K_stacked(self):
-        # probe_tangent_derivatives with a tangent stack K (a batch of tangents sharing one base):
+        # probe_tangent_derivatives with a tangent stack K (a batch of tangents sharing one frame):
         # full W + K + C, base-inner, matching the dense oracle on each (W,K,C) element.
         STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
         shapes = STRUCT[0]
@@ -214,8 +214,8 @@ class TestProbeDerivatives(unittest.TestCase):
             for ORDER in [0, 1, 3]:
                 with self.subTest(W=W, K=K, C=C, ORDER=ORDER):
                     x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
-                    base, _ = bvf.t3_orthogonal_representations(x)
-                    v = t3m.COREWISE.randn(base, stack_shape=K)
+                    frame, _ = bvf.t3_orthogonal_representations(x)
+                    v = t3m.COREWISE.randn(frame, stack_shape=K)
                     Vd = v.to_dense()                              # K + C + (N...)
                     ww = [np.random.randn(*(W + (N,))) for N in shapes]
                     pp = [np.random.randn(*(W + (N,))) for N in shapes]
@@ -243,8 +243,8 @@ class TestProbeDerivatives(unittest.TestCase):
             for ORDER in [0, 1, 3]:
                 with self.subTest(W=W, K=K, C=C, ORDER=ORDER):
                     x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
-                    base, _ = bvf.t3_orthogonal_representations(x)
-                    v = t3m.COREWISE.randn(base, stack_shape=K)
+                    frame, _ = bvf.t3_orthogonal_representations(x)
+                    v = t3m.COREWISE.randn(frame, stack_shape=K)
                     dU_v, dG_v = v.variations.data
                     ww = [np.random.randn(*(W + (N,))) for N in shapes]
                     pp = [np.random.randn(*(W + (N,))) for N in shapes]
@@ -288,8 +288,8 @@ class TestProbeDerivatives(unittest.TestCase):
                             y, lambda w, k, c: pd.apply_derivatives_dense([a[w] for a in ww], [a[w] for a in pp], T[c], ORDER),
                             W, K, C, ORDER)
 
-                    base, _ = bvf.t3_orthogonal_representations(x)  # Riemannian tangent apply
-                    v = t3m.COREWISE.randn(base, stack_shape=K)
+                    frame, _ = bvf.t3_orthogonal_representations(x)  # Riemannian tangent apply
+                    v = t3m.COREWISE.randn(frame, stack_shape=K)
                     Vd = v.to_dense()
                     yv = pd.apply_tangent_derivatives(ww, pp, v.variations.data, v.frame.data, ORDER)
                     self.assertEqual(yv.shape, (ORDER + 1,) + W + K + C)
@@ -299,7 +299,7 @@ class TestProbeDerivatives(unittest.TestCase):
                     self.check_relerr(t3p.apply_tangent(ww, v.variations.data, v.frame.data), yv[0])
 
     def test_entries_derivatives_match_dense(self):
-        # entries derivatives (all modes, one-hot base + general P): Euclidean and Riemannian vs oracle.
+        # entries derivatives (all modes, one-hot frame + general P): Euclidean and Riemannian vs oracle.
         STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
         shapes = STRUCT[0]
         d = len(shapes)
@@ -319,8 +319,8 @@ class TestProbeDerivatives(unittest.TestCase):
                             y, lambda w, k, c: pd.entries_derivatives_dense(idx_s(w), [a[w] for a in pp], T[c], ORDER),
                             W, K, C, ORDER)
 
-                    base, _ = bvf.t3_orthogonal_representations(x)  # Riemannian
-                    v = t3m.COREWISE.randn(base, stack_shape=K)
+                    frame, _ = bvf.t3_orthogonal_representations(x)  # Riemannian
+                    v = t3m.COREWISE.randn(frame, stack_shape=K)
                     Vd = v.to_dense()
                     yv = pd.entries_tangent_derivatives(index, pp, v.variations.data, v.frame.data, ORDER)
                     self.assertEqual(yv.shape, (ORDER + 1,) + W + K + C)
@@ -340,8 +340,8 @@ class TestProbeDerivatives(unittest.TestCase):
                 for ORDER in [0, 1, 3]:
                     with self.subTest(kind=kind, W=W, K=K, C=C, ORDER=ORDER):
                         x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
-                        base, _ = bvf.t3_orthogonal_representations(x)
-                        v = t3m.COREWISE.randn(base, stack_shape=K)
+                        frame, _ = bvf.t3_orthogonal_representations(x)
+                        v = t3m.COREWISE.randn(frame, stack_shape=K)
                         dU_v, dG_v = v.variations.data
                         pp = [np.random.randn(*(W + (N,))) for N in shapes]
                         if kind == 'apply':
@@ -371,7 +371,7 @@ class TestProbeDerivatives(unittest.TestCase):
                                 self.check_relerr(np.asarray(b), np.sum(np.asarray(a), axis=ax))
 
     def test_corewise_derivatives_finite_difference(self):
-        # corewise transpose = gradient of the derivative sampling op w.r.t. the base's cores: the
+        # corewise transpose = gradient of the derivative sampling op w.r.t. the frame's cores: the
         # adjoint inner product <g, dcores> matches a central finite difference of <r, forward(cores)>.
         STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
         shapes = STRUCT[0]

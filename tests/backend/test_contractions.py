@@ -465,11 +465,11 @@ class TestContractions(unittest.TestCase):
                 self.assertEqual(result2.shape, result.shape)
                 self.check_relerr(result2, result)
 
-    def _check_3group(self, func, op_specs, out_spec, needs_n_base=False, needs_n_probe=False):
+    def _check_3group(self, func, op_specs, out_spec, needs_n_frame=False, needs_n_probe=False):
         """Check a three-group (W, K, C) contraction against an explicit np.einsum reference.
 
         op_specs/out_spec are (groups, singles) pairs, e.g. ('WKC', 'a') or ('KC', 'aib'); each
-        grouped block is mapped to one of the THREE_GROUP_COMBOS stack shapes. needs_n_base passes
+        grouped block is mapped to one of the THREE_GROUP_COMBOS stack shapes. needs_n_frame passes
         len(C) as the trailing argument (variation-core-only forward contractions); needs_n_probe
         passes len(W) (transpose-assemble contractions). A sum-over-W contraction is expressed by an
         out_spec whose groups omit ``W`` -- np.einsum then sums it.
@@ -494,7 +494,7 @@ class TestContractions(unittest.TestCase):
                     out_sub = sub(*out_spec)
                     ref = np.einsum(in_subs + '->' + out_sub, *operands)
 
-                    if needs_n_base:
+                    if needs_n_frame:
                         result = func(*operands, len(C))
                     elif needs_n_probe:
                         result = func(*operands, len(W))
@@ -531,19 +531,19 @@ class TestContractions(unittest.TestCase):
     def test_WCa_KCaib_WCi_to_WKCb(self):
         self._check_3group(
             contractions.WCa_KCaib_WCi_to_WKCb,
-            [('WC', 'a'), ('KC', 'aib'), ('WC', 'i')], ('WKC', 'b'), needs_n_base=True,
+            [('WC', 'a'), ('KC', 'aib'), ('WC', 'i')], ('WKC', 'b'), needs_n_frame=True,
         )
 
     def test_WCa_KCaib_WCb_to_WKCi(self):
         self._check_3group(
             contractions.WCa_KCaib_WCb_to_WKCi,
-            [('WC', 'a'), ('KC', 'aib'), ('WC', 'b')], ('WKC', 'i'), needs_n_base=True,
+            [('WC', 'a'), ('KC', 'aib'), ('WC', 'b')], ('WKC', 'i'), needs_n_frame=True,
         )
 
     def test_WCi_KCio_to_WKCo(self):
         self._check_3group(
             contractions.WCi_KCio_to_WKCo,
-            [('WC', 'i'), ('KC', 'io')], ('WKC', 'o'), needs_n_base=True,
+            [('WC', 'i'), ('KC', 'io')], ('WKC', 'o'), needs_n_frame=True,
         )
 
     def test_WKCi_Cio_to_WKCo(self):
@@ -628,7 +628,7 @@ class TestContractions(unittest.TestCase):
 
     # ---- d-prefixed uniform WKC contractions (3b-6a): the core index d vectorized over a leading batch ----
 
-    def _check_3group_d(self, func, op_specs, out_spec, needs_n_base=False, needs_n_probe=False):
+    def _check_3group_d(self, func, op_specs, out_spec, needs_n_frame=False, needs_n_probe=False):
         """d-prefixed twin of :py:meth:`_check_3group`: prepend a leading core-index axis ``d`` to every
         operand and the output, and verify against the d-vectorized ``np.einsum`` reference. Since a
         d-batched einsum equals the ragged contraction applied per d-slice, this IS the "per d-index ==
@@ -654,7 +654,7 @@ class TestContractions(unittest.TestCase):
                     out_sub = sub(*out_spec)
                     ref = np.einsum(in_subs + '->' + out_sub, *operands)
 
-                    if needs_n_base:
+                    if needs_n_frame:
                         result = func(*operands, len(C))
                     elif needs_n_probe:
                         result = func(*operands, len(W))
@@ -674,7 +674,7 @@ class TestContractions(unittest.TestCase):
 
     def test_dWCa_dKCaib_dWCb_to_dWKCi(self):
         self._check_3group_d(contractions.dWCa_dKCaib_dWCb_to_dWKCi,
-                             [('WC', 'a'), ('KC', 'aib'), ('WC', 'b')], ('WKC', 'i'), needs_n_base=True)
+                             [('WC', 'a'), ('KC', 'aib'), ('WC', 'b')], ('WKC', 'i'), needs_n_frame=True)
 
     def test_dWKCi_dCio_to_dWKCo(self):
         self._check_3group_d(contractions.dWKCi_dCio_to_dWKCo,
@@ -682,7 +682,7 @@ class TestContractions(unittest.TestCase):
 
     def test_dWCi_dKCio_to_dWKCo(self):
         self._check_3group_d(contractions.dWCi_dKCio_to_dWKCo,
-                             [('WC', 'i'), ('KC', 'io')], ('WKC', 'o'), needs_n_base=True)
+                             [('WC', 'i'), ('KC', 'io')], ('WKC', 'o'), needs_n_frame=True)
 
     def test_dWCo_dCio_to_dWCi(self):  # shared-C (compute_deta_tildes); a two-group, K unused
         self._check_3group_d(contractions.dWCo_dCio_to_dWCi,
@@ -738,7 +738,7 @@ class TestContractions(unittest.TestCase):
 
     # ---- order-threaded three-group contractions (K-stacked derivative probing) ----
 
-    def _check_jet3(self, func, op_specs, out_spec, trs_sub='trs', needs_n_base=False, needs_n_probe=False):
+    def _check_jet3(self, func, op_specs, out_spec, trs_sub='trs', needs_n_frame=False, needs_n_probe=False):
         """Check an order-threaded 3-group (W,K,C) contraction against an explicit np.einsum reference.
 
         op_specs/out_spec are (order_letters, groups, singles), where order_letters is a subset of
@@ -746,7 +746,7 @@ class TestContractions(unittest.TestCase):
         subscript (e.g. ``'trs'`` forward, ``'tus'`` / ``'tru'`` for the adjoint hooks) prepended as the
         first operand; pass ``''`` for the no-trs lift/order-diagonal contractions (the order axis rides
         passively or is a plain order-diagonal sum). An ``out_spec`` whose order_letters is empty sums
-        the order axis (the order-less gradient assembly). needs_n_base passes len(C) (variation-core
+        the order axis (the order-less gradient assembly). needs_n_frame passes len(C) (variation-core
         terms); needs_n_probe passes len(W) (assembly terms with no pure W/C operand).
         """
         from t3toolbox.backend.probe_derivatives import binomial_combine_tensor
@@ -776,7 +776,7 @@ class TestContractions(unittest.TestCase):
                         in_subs = [trs_sub] + in_subs
                         args = [trs_t] + args
                     ref = np.einsum(','.join(in_subs) + '->' + sub(*out_spec), *operands)
-                    extra = (len(C),) if needs_n_base else (len(W),) if needs_n_probe else ()
+                    extra = (len(C),) if needs_n_frame else (len(W),) if needs_n_probe else ()
                     result = np.asarray(func(*args, *extra))
                     self.assertEqual(ref.shape, result.shape)
                     self.check_relerr(ref, result)
@@ -792,7 +792,7 @@ class TestContractions(unittest.TestCase):
     def test_trs_rWCa_KCaib_sWCi_to_tWKCb(self):
         self._check_jet3(contractions.trs_rWCa_KCaib_sWCi_to_tWKCb,
                          [('r', 'WC', 'a'), ('', 'KC', 'aib'), ('s', 'WC', 'i')], ('t', 'WKC', 'b'),
-                         needs_n_base=True)
+                         needs_n_frame=True)
 
     def test_trs_rWKCa_Caib_sWCb_to_tWKCi(self):
         self._check_jet3(contractions.trs_rWKCa_Caib_sWCb_to_tWKCi,
@@ -805,7 +805,7 @@ class TestContractions(unittest.TestCase):
     def test_trs_rWCa_KCaib_sWCb_to_tWKCi(self):
         self._check_jet3(contractions.trs_rWCa_KCaib_sWCb_to_tWKCi,
                          [('r', 'WC', 'a'), ('', 'KC', 'aib'), ('s', 'WC', 'b')], ('t', 'WKC', 'i'),
-                         needs_n_base=True)
+                         needs_n_frame=True)
 
     def test_tWKCi_Cio_to_tWKCo(self):
         self._check_jet3(contractions.tWKCi_Cio_to_tWKCo,
@@ -814,7 +814,7 @@ class TestContractions(unittest.TestCase):
     def test_tWCi_KCio_to_tWKCo(self):
         self._check_jet3(contractions.tWCi_KCio_to_tWKCo,
                          [('t', 'WC', 'i'), ('', 'KC', 'io')], ('t', 'WKC', 'o'), trs_sub="",
-                         needs_n_base=True)
+                         needs_n_frame=True)
 
     # ---- order-threaded 3-group ADJOINT contractions (K-stacked derivative-probe transpose) ----
 
@@ -894,7 +894,7 @@ class TestContractions(unittest.TestCase):
 
     # ---- d-prefixed uniform JET contractions (3b-6'a) ----
 
-    def _check_jet3_d(self, func, op_specs, out_spec, trs_sub='trs', needs_n_base=False, needs_n_probe=False):
+    def _check_jet3_d(self, func, op_specs, out_spec, trs_sub='trs', needs_n_frame=False, needs_n_probe=False):
         """d-prefixed twin of :py:meth:`_check_jet3`: prepend a leading core-index axis ``d`` to every
         jet/core operand and the output (``trs`` stays shared, no ``d``), and verify against the
         d-vectorized ``np.einsum`` reference. Uniform jet layout is ``d + order + W + K + C + (...)``, so the
@@ -928,7 +928,7 @@ class TestContractions(unittest.TestCase):
                         in_subs = [trs_sub] + in_subs
                         args = [trs_t] + args
                     ref = np.einsum(','.join(in_subs) + '->' + sub(*out_spec), *operands)
-                    extra = (len(C),) if needs_n_base else (len(W),) if needs_n_probe else ()
+                    extra = (len(C),) if needs_n_frame else (len(W),) if needs_n_probe else ()
                     result = np.asarray(func(*args, *extra))
                     self.assertEqual(ref.shape, result.shape)
                     self.check_relerr(ref, result)
@@ -948,7 +948,7 @@ class TestContractions(unittest.TestCase):
 
     def test_dtWCi_dKCio_to_dtWKCo(self):
         self._check_jet3_d(contractions.dtWCi_dKCio_to_dtWKCo,
-                           [('t', 'WC', 'i'), ('', 'KC', 'io')], ('t', 'WKC', 'o'), trs_sub="", needs_n_base=True)
+                           [('t', 'WC', 'i'), ('', 'KC', 'io')], ('t', 'WKC', 'o'), trs_sub="", needs_n_frame=True)
 
     def test_trs_drWKCa_dCaib_dsWCb_to_dtWKCi(self):
         self._check_jet3_d(contractions.trs_drWKCa_dCaib_dsWCb_to_dtWKCi,
@@ -957,7 +957,7 @@ class TestContractions(unittest.TestCase):
     def test_trs_drWCa_dKCaib_dsWCb_to_dtWKCi(self):
         self._check_jet3_d(contractions.trs_drWCa_dKCaib_dsWCb_to_dtWKCi,
                            [('r', 'WC', 'a'), ('', 'KC', 'aib'), ('s', 'WC', 'b')], ('t', 'WKC', 'i'),
-                           needs_n_base=True)
+                           needs_n_frame=True)
 
     def test_trs_drWCa_dCaib_dsWKCb_to_dtWKCi(self):
         self._check_jet3_d(contractions.trs_drWCa_dCaib_dsWKCb_to_dtWKCi,

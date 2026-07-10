@@ -30,7 +30,7 @@ The other two transposes are *that same object, **projected** onto a smaller spa
 |---|---|---|---|---|
 | **ambient** — `TuckerTensorTrain.apply_ambient_transpose(c, ww)` | `apply` on the full tensor space | raw tuple of **canonical (CP) factors** (`c·⊗w`) | **no** (static) | you want the literal back-projection: a building block, a rank-1 update, to combine back-projections across base points, or to hand off to a CP/general-tensor library |
 | **corewise** — `X.apply_corewise_transpose(c, ww)` | the **core parametrization** at `X` | raw tuple `(tucker_grads, tt_grads)` | **yes** (`self`) | you optimize the cores directly with a **core-wise optimizer** (Adam, L-BFGS, plain SGD) |
-| **tangent** — `T3Tangent.apply_transpose(c, ww, base)` | the **manifold tangent** map at `X` | a `T3Tangent` | **yes** (orthogonal, gauged) | you do **Riemannian** optimization on the fixed-rank manifold |
+| **tangent** — `T3Tangent.apply_transpose(c, ww, frame)` | the **manifold tangent** map at `X` | a `T3Tangent` | **yes** (orthogonal, gauged) | you do **Riemannian** optimization on the fixed-rank manifold |
 
 The relationships:
 
@@ -53,13 +53,13 @@ respect to the cores**: you have cores, you computed a measurement, you want `�
 the **corewise** transpose. But it is *not* the literal adjoint of `apply`:
 
 - `apply` is the linear map `X ↦ ⟨X, ⊗w⟩`. Its adjoint, in the textbook sense `⟨Aᵀc, X⟩ = ⟨c, A X⟩`,
-  is `c·⊗w` — base-free, representation-free. That is the **ambient** transpose.
-- The corewise gradient is the adjoint of a *different* (composite, base-dependent) map
+  is `c·⊗w` — frame-free, representation-free. That is the **ambient** transpose.
+- The corewise gradient is the adjoint of a *different* (composite, frame-dependent) map
   `cores ↦ measurement`.
 
 If `apply_transpose` were unqualified it would have to mean one of these, and whichever we picked, half
 of all users would silently get the wrong object. So both carry an explicit qualifier. The
-static-vs-instance split reinforces it: the ambient transpose is **base-free** (a `@staticmethod` — it
+static-vs-instance split reinforces it: the ambient transpose is **frame-free** (a `@staticmethod` — it
 depends on nothing but `c` and the probe vectors), while the corewise transpose differentiates *your*
 cores (an instance method, `self` is the base point).
 
@@ -124,10 +124,10 @@ variables. Returns a **raw tuple** `(tucker_grads, tt_grads)` whose arrays have 
   Core-wise optimizers do it anyway and it works in practice; just know that is what is happening. If
   you want the principled version, use the **tangent** transpose.
 
-### Tangent — `T3Tangent.apply_transpose(c, ww, base, sum_over_probes=…)`  *(static, takes a base)*
+### Tangent — `T3Tangent.apply_transpose(c, ww, frame, sum_over_probes=…)`  *(static, takes a frame)*
 
 The Riemannian Jacobian transpose: back-projects `c` into a **tangent vector** at a base point on the
-fixed-rank manifold. Returns a `T3Tangent`. Requires an orthogonal (gauged) base; the resulting tangent
+fixed-rank manifold. Returns a `T3Tangent`. Requires an orthogonal (gauged) frame; the resulting tangent
 is the Riemannian gradient after the gauge projection. This is the operation for Riemannian
 optimization (Newton-CG, RGD); see the worked example `examples/fit_hilbert_tensor_newton_cg.py`. It
 lives on `T3Tangent`, so the class name already says "tangent" — no qualifier needed.

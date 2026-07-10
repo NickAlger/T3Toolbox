@@ -24,9 +24,9 @@ class TestBaseVariationFormat(unittest.TestCase):
         left_tt_cores = (np.ones((5, 10, 2)), np.ones((2, 11, 3)), np.ones((3,12,4)))
         right_tt_cores = (np.ones((1,10,4)), np.ones((4, 11, 5)), np.ones((5, 12, 4)))
         outer_tt_cores = (np.ones((5, 9, 4)), np.ones((2, 8, 5)), np.ones((3, 7, 4)))
-        base = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
+        frame = (tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
 
-        shapes = bvf.get_base_hole_shapes(base)
+        shapes = bvf.get_frame_hole_shapes(frame)
 
         var_tucker_shapes, var_tt_shapes = shapes
 
@@ -38,31 +38,31 @@ class TestBaseVariationFormat(unittest.TestCase):
         (L0, L1, L2) = (randn(5, 10, 2), randn(2, 11, 3), randn(3, 12, 2))
         (R0, R1, R2) = (randn(3,10,4), randn(4, 11, 5), randn(5, 12, 4))
         (O0, O1, O2) = (randn(5, 9, 4), randn(2, 8, 5), randn(3, 7, 4))
-        base = ((U0, U1, U2), (L0, L1, L2), (R0, R1, R2), (O0, O1, O2))
+        frame = ((U0, U1, U2), (L0, L1, L2), (R0, R1, R2), (O0, O1, O2))
         (V0, V1, V2) = (randn(9, 14), randn(8, 15), randn(7, 16))
         (H0, H1, H2) = (randn(1, 10, 4), randn(2, 11, 5), randn(3, 12, 1))
         variation = ((V0, V1, V2), (H0, H1, H2))
 
         # TT replacements
 
-        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_fv_to_t3(0, True, base, variation)
+        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_fv_to_t3(0, True, frame, variation)
         self.assertEqual(((U0, U1, U2), (H0, R1, R2)), ((B0, B1, B2), (G0, G1, G2)))
 
-        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_fv_to_t3(1, True, base, variation)
+        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_fv_to_t3(1, True, frame, variation)
         self.assertEqual(((U0, U1, U2), (L0, H1, R2)), ((B0, B1, B2), (G0, G1, G2)))
 
-        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_fv_to_t3(2, True, base, variation)
+        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_fv_to_t3(2, True, frame, variation)
         self.assertEqual(((U0, U1, U2), (L0, L1, H2)), ((B0, B1, B2), (G0, G1, G2)))
 
         # Frame replacements
 
-        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_fv_to_t3(0, False, base, variation)
+        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_fv_to_t3(0, False, frame, variation)
         self.assertEqual(((V0, U1, U2), (O0, R1, R2)), ((B0, B1, B2), (G0, G1, G2)))
 
-        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_fv_to_t3(1, False, base, variation)
+        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_fv_to_t3(1, False, frame, variation)
         self.assertEqual(((U0, V1, U2), (L0, O1, R2)), ((B0, B1, B2), (G0, G1, G2)))
 
-        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_fv_to_t3(2, False, base, variation)
+        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_fv_to_t3(2, False, frame, variation)
         self.assertEqual(((U0, U1, V2), (L0, L1, O2)), ((B0, B1, B2), (G0, G1, G2)))
 
 

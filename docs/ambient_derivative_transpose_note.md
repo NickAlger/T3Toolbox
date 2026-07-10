@@ -3,7 +3,7 @@
 **Status: DEFERRED (not currently needed).** The symmetric-derivative work (branch `probe-derivatives`)
 mirrors the probing surface with derivative versions for the **forward**, **tangent** (Riemannian), and
 **corewise** (non-manifold core-gradient) flavors of `probe`/`apply`/`entries`. The **ambient** flavor —
-the base-free adjoint on the full tensor space, returning canonical (CP) factors — was the one cell of
+the frame-free adjoint on the full tensor space, returning canonical (CP) factors — was the one cell of
 the grid left unbuilt. This note records the math and the design analysis so it can be picked back up
 if a use case arises. It is **not** scheduled work.
 
@@ -57,7 +57,7 @@ perturbed probe vectors `wⱼ + s pⱼ`**, then contracted against the residual 
 per-mode 2-jets `[wⱼ, pⱼ]` (value at order 0, direction at order 1) — so the binomial tensor `trs`
 appears in the outer products, as one would expect by analogy with the forward.
 
-**entries.** Apply with one-hot in the base slot and a general direction: vectors `(e_{index_j} + s pⱼ)`.
+**entries.** Apply with one-hot in the frame slot and a general direction: vectors `(e_{index_j} + s pⱼ)`.
 So `Tᵀ = Σₜ c⁽ᵗ⁾ t! [sᵗ] ⊗ⱼ(e_{index_j} + s pⱼ)` — the `w`-slots become one-hot scatters at `index`.
 Unlike the non-derivative `entries_ambient_transpose`, **no explicit `shape` is needed**: `pp[j]` carries
 `Nⱼ`.

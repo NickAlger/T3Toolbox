@@ -701,7 +701,7 @@ class UT3Variations:
             raise ValueError('UT3Variations op: rank masks differ (different tangent spaces).')
 
     def __add__(self, other: 'UT3Variations') -> 'UT3Variations':
-        """Corewise sum (variations form a vector space at a fixed base; the mask is unchanged)."""
+        """Corewise sum (variations form a vector space at a fixed frame; the mask is unchanged)."""
         self._check_same_tangent_structure(other)
         tkv, ttv = cw.corewise_add(self.supercores, other.supercores)
         return UT3Variations(tkv, ttv, self.shape, self.masks)
@@ -744,7 +744,7 @@ class UT3Variations:
     def sum_stack(self, axis=None) -> 'UT3Variations':
         """Corewise sum over stack axes (a batch of variations -> their sum; the tangent sum, by linearity).
         ``axis`` indexes the stack (default: the whole stack). The mask ORs over the summed axes -- a no-op
-        for a same-mask (single-base) stack; see ``docs/uniform_masks_vs_ranks.md``."""
+        for a same-mask (single-frame) stack; see ``docs/uniform_masks_vs_ranks.md``."""
         tkv, ttv, shape, masks = ufv_operations.ufv_variations_sum_stack(self.data, axis)
         return UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*masks))
 
@@ -849,7 +849,7 @@ class UT3Variations:
     @staticmethod
     def zeros_like(x) -> 'UT3Variations':
         """Zero variations matching the structure of ``x`` (a :py:class:`UT3Frame` or :py:class:`UT3Variations`).
-        For a frame this is the zero tangent carrying the base's gauge masks."""
+        For a frame this is the zero tangent carrying the frame's gauge masks."""
         return UT3Variations.zeros(x.uniform_variation_shapes, x.shape, stack_shape=x.stack_shape,
                                    masks=UT3Variations._variation_masks_of(x), use_jax=x.contains_jax)
 
@@ -860,19 +860,19 @@ class UT3Variations:
                                    masks=UT3Variations._variation_masks_of(x), use_jax=x.contains_jax)
 
 
-def check_ufv_pair(base: UT3Frame, variations: UT3Variations) -> None:
+def check_ufv_pair(frame: UT3Frame, variations: UT3Variations) -> None:
     """Check rank and shape consistency between UT3Frame and UT3Variations.
 
     This ensures that the variation cores (V, H) have the correct dimensions
-     to interface with the base cores (U, L, R, O).
+     to interface with the frame cores (U, L, R, O).
 
-    The variations may carry an EXTRA leading tangent (``K``) stack on top of the base's core
-    (``C``) stack -- i.e. ``variations.stack_shape == K + base.stack_shape`` -- because a bundle of
+    The variations may carry an EXTRA leading tangent (``K``) stack on top of the frame's core
+    (``C``) stack -- i.e. ``variations.stack_shape == K + frame.stack_shape`` -- because a bundle of
     tangent vectors all live at a single base point (the ``W+K+C`` convention, see
     ``docs/batching_and_stacking.md``). So the check compares the *stack-free* structure
-    ``(d, N, nU, nD, rL, rR)``, requires the base ``C`` stack to be the trailing suffix of the
+    ``(d, N, nU, nD, rL, rR)``, requires the frame ``C`` stack to be the trailing suffix of the
     variations ``K+C`` stack, and matches the rank masks broadcast over the excess ``K`` (each
-    variation mask must be constant along ``K`` and equal the base's gauge-shifted mask).
+    variation mask must be constant along ``K`` and equal the frame's gauge-shifted mask).
 
     Examples
     --------
@@ -894,43 +894,43 @@ def check_ufv_pair(base: UT3Frame, variations: UT3Variations) -> None:
     >>> ttv = np.random.randn(*((d,) + stack_shape + (rL, nU, rR)))
     >>> V = ubcf.UT3Variations(tkv, ttv, shape,
     ...                        ubcf.UT3VariationsMasks(up, dn, bl[:-1], br[1:]))
-    >>> ubcf.check_ufv_pair(B, V)   # consistent base/variations pair -> no error
+    >>> ubcf.check_ufv_pair(B, V)   # consistent frame/variations pair -> no error
 
-    A bundle of ``K`` tangent vectors at the SAME base carries an extra leading stack; the masks must
-    be constant along it and equal the base's gauge-shifted masks:
+    A bundle of ``K`` tangent vectors at the SAME frame carries an extra leading stack; the masks must
+    be constant along it and equal the frame's gauge-shifted masks:
 
     >>> K = (2,)
     >>> bcast = lambda m: np.broadcast_to(m[:, None], (m.shape[0],) + K + m.shape[1:])
     >>> VK = ubcf.UT3Variations(np.random.randn(*((d,) + K + (nD, N))),
     ...                         np.random.randn(*((d,) + K + (rL, nU, rR))), shape,
     ...                         ubcf.UT3VariationsMasks(bcast(up), bcast(dn), bcast(bl[:-1]), bcast(br[1:])))
-    >>> ubcf.check_ufv_pair(B, VK)   # base (C=()) vs K-stacked variations -> still consistent
+    >>> ubcf.check_ufv_pair(B, VK)   # frame (C=()) vs K-stacked variations -> still consistent
     """
     # Compare the stack-free structure (d, N, nU, nD, rL, rR) -- NOT the full 7-tuple, whose trailing
     # stack_shape would wrongly reject a legitimate tangent (K) stack on the variations.
-    if base.uniform_structure[:6] != variations.uniform_structure[:6]:
+    if frame.uniform_structure[:6] != variations.uniform_structure[:6]:
         raise ValueError(
             'Inconsistent (UT3Frame, UT3Variations) pair: stack-free structures differ.\n'
-            + str(base.uniform_structure[:6]) + ' (base) != '
+            + str(frame.uniform_structure[:6]) + ' (frame) != '
             + str(variations.uniform_structure[:6]) + ' (variations)')
 
-    if base.shape != variations.shape:
+    if frame.shape != variations.shape:
         raise ValueError('Inconsistent (UT3Frame, UT3Variations) pair: shapes differ (%s vs %s).'
-                         % (base.shape, variations.shape))
+                         % (frame.shape, variations.shape))
 
-    # The base core (C) stack must be the trailing suffix of the variations (K+C) stack.
-    base_stack, var_stack = base.stack_shape, variations.stack_shape
-    n_K = len(var_stack) - len(base_stack)
-    if n_K < 0 or var_stack[n_K:] != base_stack:
+    # The frame core (C) stack must be the trailing suffix of the variations (K+C) stack.
+    frame_stack, var_stack = frame.stack_shape, variations.stack_shape
+    n_K = len(var_stack) - len(frame_stack)
+    if n_K < 0 or var_stack[n_K:] != frame_stack:
         raise ValueError(
-            'Inconsistent (UT3Frame, UT3Variations) pair: base stack_shape %s is not a trailing suffix '
-            'of variations stack_shape %s (expected variations.stack_shape == K + base.stack_shape).'
-            % (base_stack, var_stack))
+            'Inconsistent (UT3Frame, UT3Variations) pair: frame stack_shape %s is not a trailing suffix '
+            'of variations stack_shape %s (expected variations.stack_shape == K + frame.stack_shape).'
+            % (frame_stack, var_stack))
 
-    # Rank masks must match, broadcast over the excess K: reshape each base mask to insert n_K size-1
+    # Rank masks must match, broadcast over the excess K: reshape each frame mask to insert n_K size-1
     # axes after the leading core (d) axis, then broadcast up to the variations mask shape. Masks are
     # host numpy (static aux), so this stays on `np` (see CLAUDE.md: supercores -> xnp, masks -> np).
-    bm, vm = base.masks, variations.masks
+    bm, vm = frame.masks, variations.masks
     for a, b, name in (
             (bm.up_mask,              vm.variations_up_mask,    'up'),
             (bm.down_mask,            vm.variations_down_mask,  'down'),
@@ -941,7 +941,7 @@ def check_ufv_pair(base: UT3Frame, variations: UT3Variations) -> None:
         if not np.array_equal(a_bcast, b):
             raise ValueError(
                 'Inconsistent (UT3Frame, UT3Variations) pair: %s rank masks differ '
-                '(variation mask must be constant along the K stack and equal the base mask).' % name)
+                '(variation mask must be constant along the K stack and equal the frame mask).' % name)
 
 
 def ut3_orthogonal_representations(
@@ -949,10 +949,10 @@ def ut3_orthogonal_representations(
         already_left_orthogonal: bool = False,
         squash: bool = True,
 ) -> typ.Tuple[
-    UT3Frame,  # orthogonal base
+    UT3Frame,  # orthogonal frame
     UT3Variations,  # variations
 ]:
-    '''Construct base-variation representations of UniformTuckerTensorTrain with orthogonal base.
+    '''Construct frame-variation representations of UniformTuckerTensorTrain with orthogonal frame.
 
     Input TuckerTensorTrain::
 
@@ -961,14 +961,14 @@ def ut3_orthogonal_representations(
                        B0    B1    B2    B3
                        |     |     |     |
 
-    Base-variation representation with non-orthogonal TT-backend H1::
+    Frame-variation representation with non-orthogonal TT-backend H1::
 
                   1 -- L0 -- H1 -- R2 -- R3 -- 1
         X    =         |     |     |     |
                        U0    U1    U2    U3
                        |     |     |     |
 
-    Base-variation representation with non-orthogonal tucker backend V2::
+    Frame-variation representation with non-orthogonal tucker backend V2::
 
                   1 -- L0 -- L1 -- O2 -- R3 -- 1
         X    =         |     |     |     |
@@ -978,7 +978,7 @@ def ut3_orthogonal_representations(
     The input tensor train x is defined by:
         - x_tucker_cores     = (B0, B1, B2, B3)
         - x_tt_cores        = (G0, G1, G2, G3)
-    The "base cores" are:
+    The "frame cores" are:
         - tucker_cores       = (U0,U1, U2, U3), up orthogonal
         - left_tt_cores     = (L0, L1, L2),     left orthogonal
         - right_tt_cores    = (R1, R2, R3),     right orthogonal
@@ -1000,9 +1000,9 @@ def ut3_orthogonal_representations(
     Returns
     -------
     T3Base
-        Orthogonal base for base-variation representations of x.
+        Orthogonal frame for frame-variation representations of x.
     T3Variation
-        Variation for base-variation representaions of x.
+        Variation for frame-variation representaions of x.
 
     Examples
     --------
@@ -1012,13 +1012,13 @@ def ut3_orthogonal_representations(
     >>> import t3toolbox.uniform_frame_variations_format as ubvf
     >>> np.random.seed(0)
     >>> x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
-    >>> base, variations = ubvf.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
-    >>> type(base).__name__, type(variations).__name__
+    >>> frame, variations = ubvf.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
+    >>> type(frame).__name__, type(variations).__name__
     ('UT3Frame', 'UT3Variations')
-    >>> base.shape
+    >>> frame.shape
     (4, 5, 6)
     >>> # the orthogonal frame still represents the original tensor:
-    >>> bool(np.allclose(base.to_t3frame().to_dense(), x.to_dense()))
+    >>> bool(np.allclose(frame.to_t3frame().to_dense(), x.to_dense()))
     True
 
     '''

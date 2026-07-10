@@ -17,7 +17,7 @@ plus the jet data + a per-order weight); the uniform pipeline and the continuati
 The problem
 -----------
 The order-``d`` Hilbert tensor ``A[i0,...] = 1 / (1 + i0 + ... + i_{d-1})`` is smooth and low-rank-friendly.
-We observe **probe-derivative jets**: for random base probe vectors ``X = (x0,...,x_{d-1})`` and directions
+We observe **probe-derivative jets**: for random frame probe vectors ``X = (x0,...,x_{d-1})`` and directions
 ``P = (p0,...,p_{d-1})``, each measurement is, for every free mode ``i``,
 
     b_i = [ dᵗ/dsᵗ  probe_i(A; x + s p) |_{s=0} ]_{t=0..K},
@@ -58,7 +58,7 @@ import t3toolbox.backend.probe_derivatives as pd     # dense ground-truth jets (
 # Problem configuration (tweak these)
 # --------------------------------------------------------------------------------------------------
 SHAPE        = (10, 10, 10)        # Hilbert tensor shape (order d = len(SHAPE))
-N_TRAIN      = 300                 # number of training (base, direction) samples
+N_TRAIN      = 300                 # number of training (frame, direction) samples
 N_VAL        = 150                 # held-out validation samples
 NOISE_LEVEL  = 0.01                # measurement noise, fraction of the per-order RMS
 RANK_LEVELS  = (1, 2, 3, 4)        # rank-continuation schedule
@@ -131,7 +131,7 @@ def main():
     A_norm = float(np.linalg.norm(A))
 
     M = N_TRAIN + N_VAL
-    ww = unit_vectors(M, SHAPE, rng)                       # base probe vectors X
+    ww = unit_vectors(M, SHAPE, rng)                       # frame probe vectors X
     pp = unit_vectors(M, SHAPE, rng)                       # perturbation directions P
     data_clean = dense_probe_derivative_jets(A, ww, pp, ORDER)   # len=d, each (order+1, M, N_i)
 

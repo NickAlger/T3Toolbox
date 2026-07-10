@@ -17,7 +17,7 @@ accepts **either** representation and infers it from ``x0``:
 
 The uniform run returns a ``UniformTuckerTensorTrain``, fully packed, and (under ``use_jit=True`` with jax
 inputs) its per-step kernel **compiles once** across Newton steps -- the masks are held loop-invariant and
-only the supercores are traced. The uniform optimizer also requires a **minimal-rank base**; the frontend
+only the supercores are traced. The uniform optimizer also requires a **minimal-rank frame**; the frontend
 calls ``uniform_minimal(x0)`` transparently, so we never have to think about it here.
 
 Rank continuation, uniform-style

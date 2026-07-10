@@ -18,7 +18,7 @@ The oracle:
   * ``Problem``      -- (geometry ops, sampling kind, sample, data); builds ``LocalModel``s and retracts.
   * ``LocalModel``   -- the GN model linearized at a point (``.gradient`` / ``.objective`` / ``.hvp`` /
                         ``.gn_quadratic`` / ``.retract``), the backend twin of ``fitting.GaussNewtonModel``.
-  * ``GeometryOps``  -- (base, project, retract) on raw data; ``MANIFOLD`` / ``COREWISE`` singletons.
+  * ``GeometryOps``  -- (frame, project, retract) on raw data; ``MANIFOLD`` / ``COREWISE`` singletons.
 Tangent vectors are raw ``(tucker_var, tt_var)`` tuples; vector arithmetic is the ``corewise`` ops.
 """
 import dataclasses as dc
@@ -48,17 +48,17 @@ Tangent = typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]   # (tucker_va
 
 
 # --------------------------------------------------------------------------------------------------
-# Geometry ops on raw data (base / project / retract) -- the backend twin of the frontend geometries
+# Geometry ops on raw data (frame / project / retract) -- the backend twin of the frontend geometries
 # --------------------------------------------------------------------------------------------------
 @dc.dataclass(frozen=True)
 class GeometryOps:
-    base:    typ.Callable    # x_cores=(U,G)            -> base=(U,O,P,Q)        the linearization frame
-    project: typ.Callable    # (base, variations)       -> variations           gauge Π (identity for corewise)
-    retract: typ.Callable    # (base, variations)       -> x_cores=(U,G)        chart retraction
+    frame:    typ.Callable    # x_cores=(U,G)            -> frame=(U,O,P,Q)        the linearization frame
+    project: typ.Callable    # (frame, variations)       -> variations           gauge Π (identity for corewise)
+    retract: typ.Callable    # (frame, variations)       -> x_cores=(U,G)        chart retraction
     inner:   typ.Callable    # (v1, v2)                 -> scalar               coordinate ⟨·,·⟩ (check-free twin of Geometry.inner)
 
 
-def _corewise_base(
+def _corewise_frame(
         x_cores: Tangent,    # (tucker_cores, tt_cores)
 ) -> typ.Tuple:              # (U, O, P, Q) = (U, G, G, G); the raw cores ARE the frame
     tucker_cores, tt_cores = x_cores
@@ -66,24 +66,24 @@ def _corewise_base(
 
 
 COREWISE = GeometryOps(
-    base=_corewise_base,
-    project=lambda base, var: var,                                   # Euclidean cores: no gauge projection
-    retract=lambda base, var: cw.corewise_add((base[0], base[2]), var),   # additive: (U,P)=(U,G) += var
+    frame=_corewise_frame,
+    project=lambda frame, var: var,                                   # Euclidean cores: no gauge projection
+    retract=lambda frame, var: cw.corewise_add((frame[0], frame[2]), var),   # additive: (U,P)=(U,G) += var
     inner=cw.corewise_dot,                                           # ragged coordinate dot (layer-agnostic tree dot)
 )
 
 
-def _manifold_base(
+def _manifold_frame(
         x_cores: Tangent,    # (tucker_cores, tt_cores)
 ) -> typ.Tuple:              # (U, O, P, Q) orthonormal frame (Algorithm 11)
-    base, _ = orthogonal_representations(x_cores)
-    return base
+    frame, _ = orthogonal_representations(x_cores)
+    return frame
 
 
 MANIFOLD = GeometryOps(
-    base=_manifold_base,
-    project=lambda base, var: tops.orthogonal_gauge_projection(base, var),   # Π  (gauge-fix the tangent)
-    retract=lambda base, var: tops.retract(base, var),                       # implicit truncated T3-SVD
+    frame=_manifold_frame,
+    project=lambda frame, var: tops.orthogonal_gauge_projection(frame, var),   # Π  (gauge-fix the tangent)
+    retract=lambda frame, var: tops.retract(frame, var),                       # implicit truncated T3-SVD
     inner=cw.corewise_dot,                                                    # ragged coordinate dot
 )
 
@@ -94,12 +94,12 @@ MANIFOLD = GeometryOps(
 @dc.dataclass(frozen=True)
 class LocalModel:
     """The Gauss-Newton model linearized at a point -- the backend twin of ``fitting.GaussNewtonModel``.
-    Built by ``Problem.local_model``; the base sweep is computed once and reused by every method below."""
+    Built by ``Problem.local_model``; the frame sweep is computed once and reused by every method below."""
     geom:     GeometryOps
     kind:     typ.Any        # backend fitting.SamplingKind (forward / transpose / sumsq / w_axes)
     sample:   typ.Any        # ww (probe/apply) or index (entries)
-    base:     typ.Tuple      # (U, O, P, Q)
-    sweep:    typ.Tuple      # precomputed base sweep (reused across gradient/jacobian/hvp)
+    frame:     typ.Tuple      # (U, O, P, Q)
+    sweep:    typ.Tuple      # precomputed frame sweep (reused across gradient/jacobian/hvp)
     residual: typ.Any        # r = S(x) - data
     n_w:      int            # number of leading sample-stack axes
 
@@ -109,20 +109,20 @@ class LocalModel:
 
     @property
     def gradient(self) -> Tangent:                       # g = Π 𝒥ᵀ r
-        return self.geom.project(self.base, self.kind.transpose(self.residual, self.sample, self.base, self.sweep))
+        return self.geom.project(self.frame, self.kind.transpose(self.residual, self.sample, self.frame, self.sweep))
 
     def jacobian(self, p: Tangent):                      # 𝒥 Π p
-        return self.kind.forward(self.geom.project(self.base, p), self.sample, self.base, self.sweep)
+        return self.kind.forward(self.geom.project(self.frame, p), self.sample, self.frame, self.sweep)
 
     def gn_quadratic(self, p: Tangent):                  # ‖𝒥 Π p‖²  (one forward; the Cauchy denominator)
         return self.kind.sumsq(self.jacobian(p), self.n_w)
 
     def hvp(self, p: Tangent) -> Tangent:                # H p = Π 𝒥ᵀ 𝒥 Π p
         z = self.jacobian(p)
-        return self.geom.project(self.base, self.kind.transpose(z, self.sample, self.base, self.sweep))
+        return self.geom.project(self.frame, self.kind.transpose(z, self.sample, self.frame, self.sweep))
 
-    def retract(self, p: Tangent) -> Tangent:            # chart step from this base -> new x_cores
-        return self.geom.retract(self.base, p)
+    def retract(self, p: Tangent) -> Tangent:            # chart step from this frame -> new x_cores
+        return self.geom.retract(self.frame, p)
 
 
 @dc.dataclass(frozen=True)
@@ -142,13 +142,13 @@ class Problem:
         """Linearize at ``x_cores`` on the full data (``sample=None``) or an explicit minibatch."""
         if sample is None:
             sample, data = self.sample, self.data
-        base = self.geom.base(x_cores)
-        sweep = self.kind.precompute(base, sample)
+        frame = self.geom.frame(x_cores)
+        sweep = self.kind.precompute(frame, sample)
         residual = cw.corewise_sub(self.kind.point_forward(x_cores, sample), data)
-        return LocalModel(self.geom, self.kind, sample, base, sweep, residual, self.kind.w_axes(sample))
+        return LocalModel(self.geom, self.kind, sample, frame, sweep, residual, self.kind.w_axes(sample))
 
     def objective(self, x_cores: Tangent, sample=None, data=None):
-        """``½‖S(x)-data‖²`` on the full data (``sample=None``) or an explicit minibatch; no base sweep
+        """``½‖S(x)-data‖²`` on the full data (``sample=None``) or an explicit minibatch; no frame sweep
         (cheap -- for the line search / the full-batch stop signal)."""
         if sample is None:
             sample, data = self.sample, self.data

@@ -130,17 +130,17 @@ class TestProbing(unittest.TestCase):
             for USE_JAX in [True, False]:
                 with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
-                    base, _ = orth.orthogonal_representations(p)
-                    variation = t3m.tangent_randn(base)
+                    frame, _ = orth.orthogonal_representations(p)
+                    variation = t3m.tangent_randn(frame)
 
                     SHAPE = STRUCTURE[0]
                     ww = (np.random.randn(SHAPE[0]),
                           np.random.randn(SHAPE[1]),
                           np.random.randn(SHAPE[2]))
 
-                    zz = t3p.probe_tangent(ww, variation, base, use_jax=USE_JAX)
+                    zz = t3p.probe_tangent(ww, variation, frame, use_jax=USE_JAX)
 
-                    zz2 = t3p.probe_dense(ww, t3m.tangent_to_dense(variation, base))
+                    zz2 = t3p.probe_dense(ww, t3m.tangent_to_dense(variation, frame))
 
                     for z, z2 in zip(zz, zz2):
                         self.check_relerr(z2, z)
@@ -155,17 +155,17 @@ class TestProbing(unittest.TestCase):
             for USE_JAX in [True, False]:
                 with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
-                    base, _ = orth.orthogonal_representations(p)
-                    variation = t3m.tangent_randn(base)
+                    frame, _ = orth.orthogonal_representations(p)
+                    variation = t3m.tangent_randn(frame)
 
                     SHAPE = STRUCTURE[0]
                     www = (np.random.randn(NUM_PROBES, SHAPE[0]),
                            np.random.randn(NUM_PROBES, SHAPE[1]),
                            np.random.randn(NUM_PROBES, SHAPE[2]))
 
-                    zzz = t3p.probe_tangent(www, variation, base, use_jax=USE_JAX)  # Compute probes!
+                    zzz = t3p.probe_tangent(www, variation, frame, use_jax=USE_JAX)  # Compute probes!
 
-                    zzz2 = t3p.probe_dense(www, t3m.tangent_to_dense(variation, base))
+                    zzz2 = t3p.probe_dense(www, t3m.tangent_to_dense(variation, frame))
 
                     for zz, zz2 in zip(zzz, zzz2):
                         self.check_relerr(zz2, zz)
@@ -179,19 +179,19 @@ class TestProbing(unittest.TestCase):
             for USE_JAX in [True, False]:
                 with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
-                    base, _ = orth.orthogonal_representations(p)
+                    frame, _ = orth.orthogonal_representations(p)
 
                     SHAPE = STRUCTURE[0]
                     ww = (np.random.randn(SHAPE[0]),
                           np.random.randn(SHAPE[1]),
                           np.random.randn(SHAPE[2]))
 
-                    v1 = t3m.tangent_randn(base)
+                    v1 = t3m.tangent_randn(frame)
 
-                    zz1 = t3p.probe_tangent(ww, v1, base, use_jax=USE_JAX)
+                    zz1 = t3p.probe_tangent(ww, v1, frame, use_jax=USE_JAX)
 
                     zz2 = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-                    v2 = t3p.probe_tangent_transpose(zz2, ww, base)
+                    v2 = t3p.probe_tangent_transpose(zz2, ww, frame)
                     ipA = cw.corewise_dot(v1, v2)
                     ipB = cw.corewise_dot(zz1, zz2)
                     self.assertLessEqual(np.abs(ipA - ipB), tol * (np.abs(ipA) + np.abs(ipB)))
@@ -206,16 +206,16 @@ class TestProbing(unittest.TestCase):
             for USE_JAX in [True, False]:
                 with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     p = t3.t3_corewise_randn(STRUCTURE)
-                    base, _ = orth.orthogonal_representations(p)
+                    frame, _ = orth.orthogonal_representations(p)
 
                     SHAPE = STRUCTURE[0]
                     www = (np.random.randn(NUM_PROBES, SHAPE[0]),
                            np.random.randn(NUM_PROBES, SHAPE[1]),
                            np.random.randn(NUM_PROBES, SHAPE[2]))
 
-                    apply_J = lambda v: t3p.probe_tangent(www, v, base)
-                    apply_Jt = lambda zz: t3p.probe_tangent_transpose(zz, www, base, use_jax=USE_JAX)
-                    v = t3m.tangent_randn(base)
+                    apply_J = lambda v: t3p.probe_tangent(www, v, frame)
+                    apply_Jt = lambda zz: t3p.probe_tangent_transpose(zz, www, frame, use_jax=USE_JAX)
+                    v = t3m.tangent_randn(frame)
 
                     zzz = (np.random.randn(NUM_PROBES, SHAPE[0]),
                            np.random.randn(NUM_PROBES, SHAPE[1]),

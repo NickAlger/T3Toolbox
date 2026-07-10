@@ -18,7 +18,7 @@ combinatorial code**:
 | axis | what it answers | the object |
 |---|---|---|
 | **kind** | *what* you measure | `SamplingKind` — the bare Jacobian `𝒥`, its transpose `𝒥ᵀ`, the point op `S(x)`, the `‖·‖²` reduction |
-| **geometry** | *where* you optimize | `Geometry` — the frame `base(x)`, the gauge projector `Π`, the `retract` |
+| **geometry** | *where* you optimize | `Geometry` — the frame `frame(x)`, the gauge projector `Π`, the `retract` |
 | **draw** | *how* you subsample | a `draw(rng) → (sample_B, data_B)` function |
 | **optimizer** | *how* you step | `gradient_descent` / `mc_sgd` / `adam` / `newton_cg` |
 
@@ -79,7 +79,7 @@ x_new = t3m.MANIFOLD.retract(-α * g)
 Factories: `apply_model` / `entries_model` / `probe_model`, and `apply_derivatives_model` /
 `entries_derivatives_model` / `probe_derivatives_model` (which additionally take `order` + optional
 `weight`). The model is generic over the geometry — pass `t3m.MANIFOLD` or `t3m.COREWISE`. Everything in
-and out is a `T3Tangent` at `model.base`. The base sweep is computed once and reused across every
+and out is a `T3Tangent` at `model.frame`. The frame sweep is computed once and reused across every
 `gradient`/`gn_hessian`/`evaluate` (so an inner CG pays for it once, not per matvec).
 
 ### 2.3 Custom minibatching — the `draw`
@@ -124,22 +124,22 @@ geometry object. Mixing them silently corrupts the result, so they cannot be mix
    ─────────────────────────────  the backend razor: a raw-.data user runs the SAME check-free code ──────
         backend/optimizers.py     (algorithms; Problem/LocalModel oracle; GeometryOps; flat_draw)
         backend/fitting.py        (SamplingKind: APPLY/ENTRIES/PROBE + *_derivatives_kind; sumsq helpers)
-        backend/probing.py        (the bare 𝒥/𝒥ᵀ for apply/entries/probe + base-sweep reuse hooks)
-        backend/probe_derivatives.py  (the derivative 𝒥/𝒥ᵀ + base-sweep-jets reuse hooks)
-        manifold.py               (MANIFOLD/COREWISE geometries; T3Tangent; retract/project/base)
+        backend/probing.py        (the bare 𝒥/𝒥ᵀ for apply/entries/probe + frame-sweep reuse hooks)
+        backend/probe_derivatives.py  (the derivative 𝒥/𝒥ᵀ + frame-sweep-jets reuse hooks)
+        manifold.py               (MANIFOLD/COREWISE geometries; T3Tangent; retract/project/frame)
 ```
 
 - **`SamplingKind`** (`backend/fitting.py`) — bundles the kind-specific functions the GN model needs:
-  `precompute` (the reusable base sweep), `forward` (`𝒥v`), `transpose` (`𝒥ᵀr`, summed over `W`), `sumsq`
+  `precompute` (the reusable frame sweep), `forward` (`𝒥v`), `transpose` (`𝒥ᵀr`, summed over `W`), `sumsq`
   (the `‖·‖²` reduction), `w_axes`, plus `point_forward` (`S(x)`, for the residual) and the minimal layout
   for the default draw (`n_measurements`, `take`). It carries **no gauge** — that's the geometry's.
   Singletons `APPLY`/`ENTRIES`/`PROBE`; parameterized constructors `*_derivatives_kind(order, weight)`.
-- **`Geometry`** (`manifold.py` `MANIFOLD`/`COREWISE`; backend `GeometryOps`) — `base(x)` (the frame),
+- **`Geometry`** (`manifold.py` `MANIFOLD`/`COREWISE`; backend `GeometryOps`) — `frame(x)` (the frame),
   `project` (the gauge `Π`), `retract`, plus the Hilbert-Schmidt `inner`/`norm`.
 - **`Problem` + `LocalModel`** (`backend/optimizers.py`) — the backend oracle. `Problem(geom, kind, sample,
   data)` is **layout-agnostic**: `local_model(x [, sample_B, data_B])` linearizes at a point on the full
   data or an explicit minibatch, returning a `LocalModel` with `.gradient` / `.objective` / `.hvp` /
-  `.gn_quadratic` / `.retract`. The base sweep is computed once and shared. **`GaussNewtonModel`**
+  `.gn_quadratic` / `.retract`. The frame sweep is computed once and shared. **`GaussNewtonModel`**
   (`fitting.py`) is its interactive frontend twin (`T3Tangent` in/out), verified bit-identical.
 - **The optimizers** (`backend/optimizers.py`) consume the oracle hooks + (for the stochastic ones) a
   `draw`. `flat_draw(problem, batch)` builds the default minibatch draw.
@@ -165,12 +165,12 @@ silently corrupts the result. Bundling makes that unrepresentable. (This is the 
 move: one geometry-generic `GaussNewtonModel`/`Problem`, so optimizers are written *once, not per
 geometry*.)
 
-### 4.3 Base-sweep reuse (the `precompute` / `*_from_sweep` split)
+### 4.3 Frame-sweep reuse (the `precompute` / `*_from_sweep` split)
 
-The Jacobian's expensive, `W`-scaling part — the **base edge variables** (`xi`/`mu`/`nu`/`eta`, and their
-order-jets for derivatives) — depends only on the base frame + the sample vectors, **not** on the tangent
-direction or the residual. So it is computed **once per base** (`SamplingKind.precompute`) and reused by
-every `J` / `Jᵀ`. **Why:** an inner CG solve fixes the base across many matvecs; recomputing the sweep each
+The Jacobian's expensive, `W`-scaling part — the **frame edge variables** (`xi`/`mu`/`nu`/`eta`, and their
+order-jets for derivatives) — depends only on the frame frame + the sample vectors, **not** on the tangent
+direction or the residual. So it is computed **once per frame** (`SamplingKind.precompute`) and reused by
+every `J` / `Jᵀ`. **Why:** an inner CG solve fixes the frame across many matvecs; recomputing the sweep each
 matvec would dominate. Per-kind it is **lean or full**: apply/entries need only `(xi, mu)`, probe needs all
 four (§4.7).
 
@@ -213,7 +213,7 @@ scale, …; default `ω=1`).
 ### 4.7 Low-memory transpose: adjoint-state over scatter (store-vs-recompute)
 
 The gradient `𝒥ᵀr` for apply/entries needs a **right context** beyond the forward's left sweep. Two ways:
-the **scatter** *stores* the full base sweep `(xi,mu,nu,eta)` (cheap matvec, more memory), or the
+the **scatter** *stores* the full frame sweep `(xi,mu,nu,eta)` (cheap matvec, more memory), or the
 **adjoint-state** method *recomputes* the right context as a seeded `sigma_hat` reverse sweep (stores only
 `(xi,mu)`, costs a sweep per matvec). T3Toolbox uses **adjoint-state** — **exactly 2× less `W`-scaling
 memory**. **Why:** at real scale the `W`-batched edge variables get large; memory is the binding constraint

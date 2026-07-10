@@ -88,10 +88,10 @@ def ut3_full_sum(
 
 
 # ----------------------------------------------------------------- corewise (non-manifold) transposes (3b-6c)
-# Gradient of a sampling op w.r.t. the base's own supercores (the Section 6.3 (P,Q,O)->G substitution, via
+# Gradient of a sampling op w.r.t. the frame's own supercores (the Section 6.3 (P,Q,O)->G substitution, via
 # the now-polymorphic probing.*_corewise_transpose -- the tangent transpose at the frame (U, G, G, G)). For
 # a uniform core-wise optimizer (Adam, L-BFGS). Mask-once + pack at the boundary; return the RAW gradient
-# supercores (dU, dG), clean-padded (the masked base zeros the padding, so the gradient never grows rank
+# supercores (dU, dG), clean-padded (the masked frame zeros the padding, so the gradient never grows rank
 # into it) -- the uniform mirror of the ragged TuckerTensorTrain.*_corewise_transpose raw-tuple return.
 
 def ut3_apply_corewise_transpose(
@@ -100,7 +100,7 @@ def ut3_apply_corewise_transpose(
         data: UT3Data,
         sum_over_probes: bool = False,
 ) -> typ.Tuple[NDArray, NDArray]:     # (tucker-core grad supercore, tt-core grad supercore)
-    """Corewise transpose of :py:func:`ut3_apply`: gradient w.r.t. the base supercores. ``ww`` packed to N."""
+    """Corewise transpose of :py:func:`ut3_apply`: gradient w.r.t. the frame supercores. ``ww`` packed to N."""
     masked = ut3_masking.apply_masks_to_cores(data)
     packed = ut3_operations.pack_if_ragged(ww, masked[0].shape[-1])
     return probing.apply_corewise_transpose(c, packed, masked, sum_over_probes=sum_over_probes)
@@ -112,7 +112,7 @@ def ut3_entries_corewise_transpose(
         data:  UT3Data,
         sum_over_probes: bool = False,
 ) -> typ.Tuple[NDArray, NDArray]:     # (tucker-core grad supercore, tt-core grad supercore)
-    """Corewise transpose of :py:func:`ut3_entries`: gradient w.r.t. the base supercores (index unpacked --
+    """Corewise transpose of :py:func:`ut3_entries`: gradient w.r.t. the frame supercores (index unpacked --
     the one-hot vectors are built packed inside ``probing._onehot_vectors``)."""
     masked = ut3_masking.apply_masks_to_cores(data)
     return probing.entries_corewise_transpose(c, index, masked, sum_over_probes=sum_over_probes)
@@ -124,7 +124,7 @@ def ut3_probe_corewise_transpose(
         data:    UT3Data,
         sum_over_probes: bool = False,
 ) -> typ.Tuple[NDArray, NDArray]:     # (tucker-core grad supercore, tt-core grad supercore)
-    """Corewise transpose of :py:func:`ut3_probe`: gradient w.r.t. the base supercores. ``ztildes`` and
+    """Corewise transpose of :py:func:`ut3_probe`: gradient w.r.t. the frame supercores. ``ztildes`` and
     ``ww`` packed to N."""
     masked = ut3_masking.apply_masks_to_cores(data)
     N = masked[0].shape[-1]
@@ -189,7 +189,7 @@ def ut3_entries_derivatives(
 
 # ----------------------------------------------------------- corewise derivative transposes (jets; 3b-6'c)
 # The jet-ified twins of the corewise transposes above: gradient of a plain-T3 derivative sampling op w.r.t.
-# the base's own supercores (the §6.3 (P,Q,O)->G substitution, via the now-polymorphic
+# the frame's own supercores (the §6.3 (P,Q,O)->G substitution, via the now-polymorphic
 # probe_derivatives.*_corewise_derivatives_transpose). Mask-once + pack ww/pp (entries: pp only) at the
 # boundary; return the RAW gradient supercores (dU, dG), clean-padded. For a uniform core-wise optimizer.
 
@@ -201,7 +201,7 @@ def ut3_apply_corewise_derivatives_transpose(
         order: int,                    # highest derivative order
         sum_over_probes: bool = False,
 ) -> typ.Tuple[NDArray, NDArray]:     # (tucker-core grad supercore, tt-core grad supercore)
-    """Corewise transpose of :py:func:`ut3_apply_derivatives`: gradient w.r.t. the base supercores. ``ww``/``pp`` packed to N."""
+    """Corewise transpose of :py:func:`ut3_apply_derivatives`: gradient w.r.t. the frame supercores. ``ww``/``pp`` packed to N."""
     masked = ut3_masking.apply_masks_to_cores(data)
     N = masked[0].shape[-1]
     packed_ww = ut3_operations.pack_if_ragged(ww, N)
@@ -218,7 +218,7 @@ def ut3_entries_corewise_derivatives_transpose(
         order: int,
         sum_over_probes: bool = False,
 ) -> typ.Tuple[NDArray, NDArray]:     # (tucker-core grad supercore, tt-core grad supercore)
-    """Corewise transpose of :py:func:`ut3_entries_derivatives`: gradient w.r.t. the base supercores
+    """Corewise transpose of :py:func:`ut3_entries_derivatives`: gradient w.r.t. the frame supercores
     (``pp`` packed, ``index`` unpacked)."""
     masked = ut3_masking.apply_masks_to_cores(data)
     packed_pp = ut3_operations.pack_if_ragged(pp, masked[0].shape[-1])
@@ -234,7 +234,7 @@ def ut3_probe_corewise_derivatives_transpose(
         order:   int,
         sum_over_probes: bool = False,
 ) -> typ.Tuple[NDArray, NDArray]:     # (tucker-core grad supercore, tt-core grad supercore)
-    """Corewise transpose of :py:func:`ut3_probe_derivatives`: gradient w.r.t. the base supercores.
+    """Corewise transpose of :py:func:`ut3_probe_derivatives`: gradient w.r.t. the frame supercores.
     ``ztildes``/``ww``/``pp`` packed to N."""
     masked = ut3_masking.apply_masks_to_cores(data)
     N = masked[0].shape[-1]

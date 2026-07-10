@@ -41,14 +41,14 @@ from t3toolbox.backend.common import *
 # axis t. See docs/batching_and_stacking.md.
 #   - sample stack W: on the inputs ww/pp -- each sample is a paired (X, P) (duplicate a point across W
 #     to sweep many directions at it). This IS the probing probe stack W.
-#   - tangent stack K: on the variation cores only -- a batch of tangent vectors sharing one base
-#     (Riemannian only). Rides the variation-derived jets (sigma/tau/deta/dxi), not the base jets.
-#   - base/core stack C: on the cores -- a batch of T3s.
+#   - tangent stack K: on the variation cores only -- a batch of tangent vectors sharing one frame
+#     (Riemannian only). Rides the variation-derived jets (sigma/tau/deta/dxi), not the frame jets.
+#   - frame/core stack C: on the cores -- a batch of T3s.
 # The order axis t (the derivative orders, convolved by the binomial tensor trs) is placed OUTERMOST;
-# the passive blocks are base-inner W + K + C. So base jets carry order + W + C, variation jets carry
+# the passive blocks are base-inner W + K + C. So frame jets carry order + W + C, variation jets carry
 # order + W + K + C, and outputs are order + W + (K) + C + (Ni,). Any block may be empty. The
 # contractions self-infer the W/K/C split from operand shapes, so nothing here threads it (a
-# variation-core-only term takes n_base = len(C); the n_probe precedent).
+# variation-core-only term takes n_frame = len(C); the n_probe precedent).
 
 __all__ = [
     # Input validation (X/P sample-stack consistency)
@@ -62,11 +62,11 @@ __all__ = [
     'compute_eta_jets',
     'assemble_z_jets',
     'binomial_combine_tensor',
-    # Base sweep (the reusable, variation-free jets -- the fitting inner-solve reuse hook). Per-kind:
+    # Frame sweep (the reusable, variation-free jets -- the fitting inner-solve reuse hook). Per-kind:
     # apply/entries are lean (xi, mu) -- the adjoint-state forward+transpose use no nu/eta; probe is full.
-    'precompute_apply_base_sweep_jets',
-    'precompute_entries_base_sweep_jets',
-    'precompute_probe_base_sweep_jets',
+    'precompute_apply_frame_sweep_jets',
+    'precompute_entries_frame_sweep_jets',
+    'precompute_probe_frame_sweep_jets',
     # Tangent vector (Riemannian) -- forward
     'probe_tangent_derivatives',
     'probe_jacobian_derivatives_from_sweep',
@@ -123,7 +123,7 @@ def probe_derivatives_t3(
 
     Two independent stacks ride through, base-inner as in plain probing: a sample stack ``W`` on the
     input vectors (each sample a paired ``(X, P)`` -- repeat a point across ``W`` to sweep many
-    directions at it) and a base/core stack ``C`` on the cores (a batch of T3s probed by the same
+    directions at it) and a frame/core stack ``C`` on the cores (a batch of T3s probed by the same
     samples). Outputs are ``order + W + C + (Ni,)`` (``W`` outer, ``C`` inner); either may be empty.
     (A plain T3 has no tangent stack ``K``; the Riemannian forwards carry ``order + W + K + C``.)
 
@@ -157,7 +157,7 @@ def probe_derivatives_t3(
     '''
     tucker_cores, tt_cores = x
 
-    xis  = compute_xis(tucker_cores, ww)      # base projected probes,   U_i x_i
+    xis  = compute_xis(tucker_cores, ww)      # frame projected probes,   U_i x_i
     dxis = compute_xis(tucker_cores, pp)       # projected perturbations, U_i p_i
 
     xi_jets = build_input_jets(xis, dxis)      # input jet on each mode: (xi, dxi) over order s
@@ -231,7 +231,7 @@ def binomial_combine_tensor(
 
 
 def build_input_jets(
-        xis:    typ.Sequence[NDArray],  # base projected probes,        len=d, elm_shape=W+C+(nUi,)
+        xis:    typ.Sequence[NDArray],  # frame projected probes,        len=d, elm_shape=W+C+(nUi,)
         dxis:   typ.Sequence[NDArray],  # projected perturbation dirs,  len=d, elm_shape=W+C+(nUi,)
 ) -> typ.Tuple[NDArray, ...]:           # xi_jets. len=d, elm_shape=(2,)+W+C+(nUi,): order 0 = xi, 1 = dxi
     '''Input jets: stack each (value, direction) pair on a leading order axis.
@@ -254,7 +254,7 @@ def build_input_jets(
 
 def _init_jet(
         order:        int,                  # highest derivative order
-        stack_shape:  typ.Tuple[int, ...],  # full leading batch the base jet carries (sample + base, W + C)
+        stack_shape:  typ.Tuple[int, ...],  # full leading batch the frame jet carries (sample + frame, W + C)
         r0:           int,                  # leftmost bond dimension
         xnp,                                # numpy or jax.numpy
 ) -> NDArray:                               # mu_0 jet, shape=(order+1,)+W+C+(r0,): order 0 = ones, higher = 0
@@ -369,14 +369,14 @@ def assemble_z_jets(
 
 
 ###############################################################
-####    Base sweep (the reusable, variation-free jets)     ####
+####    Frame sweep (the reusable, variation-free jets)     ####
 ###############################################################
 #
-# The jet-ified twin of probing.precompute_{apply,probe}_base_sweep: the base edge-variable jets depend
-# ONLY on the base frame + the sample vectors (ww/pp or index/pp) + order -- NOT on the tangent direction
+# The jet-ified twin of probing.precompute_{apply,probe}_frame_sweep: the frame edge-variable jets depend
+# ONLY on the frame frame + the sample vectors (ww/pp or index/pp) + order -- NOT on the tangent direction
 # or the residual. They are the expensive W-scaled part of every derivative Jacobian, shared by the
 # forward (*_jacobian_derivatives_from_sweep) and the transpose (*_transpose_derivatives_from_sweep). A
-# fitting inner solve precomputes them ONCE per base (the SamplingKind.precompute hook) and reuses them
+# fitting inner solve precomputes them ONCE per frame (the SamplingKind.precompute hook) and reuses them
 # across every J / J^T -- exactly as plain probing does.
 #
 # *** Per-kind, NOT shared. *** apply / entries are the all-modes special case: both their forward AND
@@ -384,12 +384,12 @@ def assemble_z_jets(
 # the right (nu) and central (eta) sweeps never enter the Lagrangian. Only the *probe* derivative (one
 # free mode) uses all four. So apply/entries get a LEAN (xi, mu) precompute, probe gets the full
 # (xi, mu, nu, eta) -- a real saving (this precompute runs per step in MC-SGD). Plain probing now does
-# exactly the same split (probing.precompute_apply_base_sweep / _probe_base_sweep, adjoint-state apply
+# exactly the same split (probing.precompute_apply_frame_sweep / _probe_frame_sweep, adjoint-state apply
 # transpose) -- the regular and derivative apply/entries transposes are the same algorithm, order apart.
 
 
-def _apply_base_sweep_jets_from_xi(
-        base:    typ.Tuple[
+def _apply_frame_sweep_jets_from_xi(
+        frame:    typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                      # = T3Frame.data = (U, O, P, Q)
@@ -398,17 +398,17 @@ def _apply_base_sweep_jets_from_xi(
 ) -> typ.Tuple[
     typ.Sequence[NDArray],  # xi_jets. len=d, elm_shape=(2,)+W+C+(nUi,)
     typ.Sequence[NDArray],  # mu_jets. len=d, elm_shape=(order+1,)+W+C+(rLi,)
-]:                                              # lean base sweep -- (xi, mu) only (apply / entries)
-    '''Run the lean base sweep (only the left ``mu`` jets) from an already-formed ``xi_jets`` -- the
+]:                                              # lean frame sweep -- (xi, mu) only (apply / entries)
+    '''Run the lean frame sweep (only the left ``mu`` jets) from an already-formed ``xi_jets`` -- the
     apply/entries case (the adjoint-state forward + transpose use no ``nu`` / ``eta``). Shared tail of
-    :py:func:`precompute_apply_base_sweep_jets` / :py:func:`precompute_entries_base_sweep_jets`.'''
-    left_tt_cores = base[2]
+    :py:func:`precompute_apply_frame_sweep_jets` / :py:func:`precompute_entries_frame_sweep_jets`.'''
+    left_tt_cores = frame[2]
     mu_jets = compute_mu_jets(left_tt_cores, xi_jets, binomial_combine_tensor(order))
     return xi_jets, mu_jets
 
 
-def _probe_base_sweep_jets_from_xi(
-        base:    typ.Tuple[
+def _probe_frame_sweep_jets_from_xi(
+        frame:    typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                      # = T3Frame.data = (U, O, P, Q)
@@ -419,11 +419,11 @@ def _probe_base_sweep_jets_from_xi(
     typ.Sequence[NDArray],  # mu_jets.  len=d, elm_shape=(order+1,)+W+C+(rLi,)
     typ.Sequence[NDArray],  # nu_jets.  len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
     typ.Sequence[NDArray],  # eta_jets. len=d, elm_shape=(order+1,)+W+C+(nOi,)
-]:                                              # full base sweep -- (xi, mu, nu, eta) (probe)
-    '''Run the full base mu/nu/eta jet sweeps from an already-formed ``xi_jets`` -- the probe case (one
+]:                                              # full frame sweep -- (xi, mu, nu, eta) (probe)
+    '''Run the full frame mu/nu/eta jet sweeps from an already-formed ``xi_jets`` -- the probe case (one
     free mode needs the right ``nu`` sweep and central ``eta`` combine). The tail of
-    :py:func:`precompute_probe_base_sweep_jets`.'''
-    _, down_tt_cores, left_tt_cores, right_tt_cores = base
+    :py:func:`precompute_probe_frame_sweep_jets`.'''
+    _, down_tt_cores, left_tt_cores, right_tt_cores = frame
     trs = binomial_combine_tensor(order)
     mu_jets  = compute_mu_jets(left_tt_cores, xi_jets, trs)
     nu_jets  = compute_nu_jets(right_tt_cores, xi_jets, trs)
@@ -431,8 +431,8 @@ def _probe_base_sweep_jets_from_xi(
     return xi_jets, mu_jets, nu_jets, eta_jets
 
 
-def precompute_apply_base_sweep_jets(
-        base:   typ.Tuple[
+def precompute_apply_frame_sweep_jets(
+        frame:   typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                      # = T3Frame.data = (U, O, P, Q)
@@ -442,19 +442,19 @@ def precompute_apply_base_sweep_jets(
 ) -> typ.Tuple[
     typ.Sequence[NDArray],  # xi_jets. len=d, elm_shape=(2,)+W+C+(nUi,)
     typ.Sequence[NDArray],  # mu_jets. len=d, elm_shape=(order+1,)+W+C+(rLi,)
-]:                                              # lean base sweep -- (xi, mu) only
-    '''The **apply**-derivative base sweep (lean): the up-index jet ``build_input_jets(U_i x_i, U_i p_i)``
+]:                                              # lean frame sweep -- (xi, mu) only
+    '''The **apply**-derivative frame sweep (lean): the up-index jet ``build_input_jets(U_i x_i, U_i p_i)``
     + the left ``mu`` jets. The all-modes apply forward and its adjoint-state transpose use ONLY
     ``(xi, mu)`` (no ``nu`` / ``eta``), so this skips the right + central sweeps -- a per-step saving in
     a stochastic solve. Reused across the forward / transpose of an inner solve (the
     :py:class:`SamplingKind.precompute` hook).'''
-    up_tucker_cores = base[0]
+    up_tucker_cores = frame[0]
     xi_jets = build_input_jets(compute_xis(up_tucker_cores, ww), compute_xis(up_tucker_cores, pp))
-    return _apply_base_sweep_jets_from_xi(base, xi_jets, order)
+    return _apply_frame_sweep_jets_from_xi(frame, xi_jets, order)
 
 
-def precompute_entries_base_sweep_jets(
-        base:   typ.Tuple[
+def precompute_entries_frame_sweep_jets(
+        frame:   typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                      # = T3Frame.data = (U, O, P, Q)
@@ -464,17 +464,17 @@ def precompute_entries_base_sweep_jets(
 ) -> typ.Tuple[
     typ.Sequence[NDArray],  # xi_jets. len=d, elm_shape=(2,)+W+C+(nUi,)
     typ.Sequence[NDArray],  # mu_jets. len=d, elm_shape=(order+1,)+W+C+(rLi,)
-]:                                              # lean base sweep -- (xi, mu) only
-    '''The **entries**-derivative base sweep (lean): like :py:func:`precompute_apply_base_sweep_jets`
+]:                                              # lean frame sweep -- (xi, mu) only
+    '''The **entries**-derivative frame sweep (lean): like :py:func:`precompute_apply_frame_sweep_jets`
     but the up-index jet is formed by fiber-slicing the Tucker cores at ``index`` (order 0) + contracting
     ``P`` (order 1), so the variation gradient scatters onto the indexed rows. Also ``(xi, mu)`` only.'''
-    up_tucker_cores = base[0]
+    up_tucker_cores = frame[0]
     xi_jets = build_input_jets(_entry_xis(up_tucker_cores, index), compute_xis(up_tucker_cores, pp))
-    return _apply_base_sweep_jets_from_xi(base, xi_jets, order)
+    return _apply_frame_sweep_jets_from_xi(frame, xi_jets, order)
 
 
-def precompute_probe_base_sweep_jets(
-        base:   typ.Tuple[
+def precompute_probe_frame_sweep_jets(
+        frame:   typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                      # = T3Frame.data = (U, O, P, Q)
@@ -486,30 +486,30 @@ def precompute_probe_base_sweep_jets(
     typ.Sequence[NDArray],  # mu_jets.  len=d, elm_shape=(order+1,)+W+C+(rLi,)
     typ.Sequence[NDArray],  # nu_jets.  len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
     typ.Sequence[NDArray],  # eta_jets. len=d, elm_shape=(order+1,)+W+C+(nOi,)
-]:                                              # full base sweep -- (xi, mu, nu, eta)
-    '''The **probe**-derivative base sweep (full): the jet-ified twin of
-    :py:func:`t3toolbox.backend.probing.precompute_probe_base_sweep`. The probe leaves one mode free, so it
-    needs all four base edge-variable jets ``(xi, mu, nu, eta)`` (the right ``nu`` sweep + central
+]:                                              # full frame sweep -- (xi, mu, nu, eta)
+    '''The **probe**-derivative frame sweep (full): the jet-ified twin of
+    :py:func:`t3toolbox.backend.probing.precompute_probe_frame_sweep`. The probe leaves one mode free, so it
+    needs all four frame edge-variable jets ``(xi, mu, nu, eta)`` (the right ``nu`` sweep + central
     ``eta`` combine). Reused across the forward / transpose of an inner solve.'''
-    up_tucker_cores = base[0]
+    up_tucker_cores = frame[0]
     xi_jets = build_input_jets(compute_xis(up_tucker_cores, ww), compute_xis(up_tucker_cores, pp))
-    return _probe_base_sweep_jets_from_xi(base, xi_jets, order)
+    return _probe_frame_sweep_jets_from_xi(frame, xi_jets, order)
 
 
 ###############################################################
 ####    Riemannian: symmetric derivatives of a tangent     ####
 ###############################################################
 #
-# probe_tangent (probing.py) is the action of a tangent vector v on the probe vectors: a base sweep
+# probe_tangent (probing.py) is the action of a tangent vector v on the probe vectors: a frame sweep
 # (xi, mu, nu, eta via the frame cores U, O, P, Q) plus a variation sweep (dxi, sigma, tau, deta via
 # the variation cores dU, dG), then z = U.deta + dU.eta. Differentiating that map w.r.t. the probe
 # vectors (the same direction P repeated) jet-ifies every edge variable -- and since every term of
 # every recursion is itself a pushthrough, combine, or lift, each maps onto the order-threaded
 # contractions with the appropriate (frame or variation) core. The order axis t is uniform across
-# ALL edge variables (everything depends on the probe vectors). The base sweep (xi, mu, nu, eta) uses
+# ALL edge variables (everything depends on the probe vectors). The frame sweep (xi, mu, nu, eta) uses
 # the 2-block (W,C) order-threaded contractions; the variation sweep (dxi, sigma, tau, deta) carries
 # the tangent stack K, so it uses the order-threaded THREE-block (W,K,C) contractions, exactly as
-# probe_tangent's perturbation sweep does (K on the variation cores; n_base = len(C) where the only
+# probe_tangent's perturbation sweep does (K on the variation cores; n_frame = len(C) where the only
 # core operand is a variation core). Stacks t + W + K + C, base-inner. The transpose is a separate slice.
 
 
@@ -526,13 +526,13 @@ def _zero_jet(
 def _sigma_jet_step(sigma_jet, Q, O, dG, xi_jet, dxi_jet, mu_jet, trs_push):
     '''One step of the K-aware jet-ified sigma recursion (the perturbation-leftward jets), shared by
     compute_sigma_jets (keeps the per-core sequence) and apply_tangent_derivatives (keeps only the
-    terminal carry). Three-group (W sample, K tangent, C base): sigma/dxi carry K, the base edge vars
-    (xi, mu) and base cores (Q, O) do not; t2's only core is the variation core dG (K+C), so len(C) is
-    supplied via n_base (recovered from the C-only Q). Reduces to the 2-group result when K=().'''
+    terminal carry). Three-group (W sample, K tangent, C frame): sigma/dxi carry K, the frame edge vars
+    (xi, mu) and frame cores (Q, O) do not; t2's only core is the variation core dG (K+C), so len(C) is
+    supplied via n_frame (recovered from the C-only Q). Reduces to the 2-group result when K=().'''
     s_size = trs_push.shape[2]                # input jets carry orders {0, 1}, capped at order
-    n_base = Q.ndim - 3
+    n_frame = Q.ndim - 3
     t1 = contractions.trs_rWKCa_Caib_sWCi_to_tWKCb(trs_push, sigma_jet, Q,  xi_jet[:s_size])
-    t2 = contractions.trs_rWCa_KCaib_sWCi_to_tWKCb(trs_push, mu_jet,    dG, xi_jet[:s_size], n_base)
+    t2 = contractions.trs_rWCa_KCaib_sWCi_to_tWKCb(trs_push, mu_jet,    dG, xi_jet[:s_size], n_frame)
     t3 = contractions.trs_rWCa_Caib_sWKCi_to_tWKCb(trs_push, mu_jet,    O,  dxi_jet[:s_size])
     return t1 + t2 + t3
 
@@ -541,15 +541,15 @@ def compute_sigma_jets(
         var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=K+C+(rLi,nUi,rR(i+1))
         right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
         down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
-        xi_jets:        typ.Sequence[NDArray],  # base input jets, len=d, elm_shape=(2,)+W+C+(nUi,)
+        xi_jets:        typ.Sequence[NDArray],  # frame input jets, len=d, elm_shape=(2,)+W+C+(nUi,)
         dxi_jets:       typ.Sequence[NDArray],  # var  input jets, len=d, elm_shape=(2,)+W+K+C+(nOi,)
-        mu_jets:        typ.Sequence[NDArray],  # base left jets,  len=d, elm_shape=(order+1,)+W+C+(rLi,)
+        mu_jets:        typ.Sequence[NDArray],  # frame left jets,  len=d, elm_shape=(order+1,)+W+C+(rLi,)
         trs:            NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
 ) -> typ.Tuple[NDArray, ...]:                   # sigma_jets. len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
     '''Variation-leftward edge-variable jets sigma (the jet-ified Algorithm-7 sigma recursion).
 
     ``sigma_i = sigma_{i-1} Q_i(xi_i) + mu_{i-1} dG_i(xi_i) + mu_{i-1} O_i(dxi_i)`` -- three
-    pushthroughs (``trs_rWCa_Caib_sWCi_to_tWCb``): the carried sigma jet through Q, and the base mu
+    pushthroughs (``trs_rWCa_Caib_sWCi_to_tWCb``): the carried sigma jet through Q, and the frame mu
     jet through the variation core dG and the down frame O. Boundary ``sigma_0 = 0`` (all orders).
     '''
     use_jax = tree_contains_jax((var_tt_cores, right_tt_cores, down_tt_cores, xi_jets, dxi_jets, mu_jets, trs))
@@ -577,9 +577,9 @@ def compute_tau_jets(
         var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=K+C+(rLi,nUi,rR(i+1))
         left_tt_cores:  typ.Sequence[NDArray],  # P.  len=d, elm_shape=C+(rLi,nUi,rL(i+1))
         down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
-        xi_jets:        typ.Sequence[NDArray],  # base input jets, len=d, elm_shape=(2,)+W+C+(nUi,)
+        xi_jets:        typ.Sequence[NDArray],  # frame input jets, len=d, elm_shape=(2,)+W+C+(nUi,)
         dxi_jets:       typ.Sequence[NDArray],  # var  input jets, len=d, elm_shape=(2,)+W+K+C+(nOi,)
-        nu_jets:        typ.Sequence[NDArray],  # base right jets, len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
+        nu_jets:        typ.Sequence[NDArray],  # frame right jets, len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
         trs:            NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
 ) -> typ.Tuple[NDArray, ...]:                   # tau_jets. len=d, elm_shape=(order+1,)+W+K+C+(rL(i+1),)
     '''Variation-rightward edge-variable jets tau -- the mirror of :py:func:`compute_sigma_jets`.
@@ -616,20 +616,20 @@ def compute_deta_jets(
     if is_uniform:
         # d-prefixed jet combines (3b-6'a), vectorized over d; the ragged xmap below is the oracle. sigma/tau
         # jets carry K (W+K+C); mu/nu are W+C; P/Q are C-only supercores; term2's only core is dG (K+C), so
-        # len(C) = n_base, read off the C-only Q supercore (d,)+C+(rR,nU,rR).
-        n_base = right_tt_cores.ndim - 4
+        # len(C) = n_frame, read off the C-only Q supercore (d,)+C+(rR,nU,rR).
+        n_frame = right_tt_cores.ndim - 4
         term1 = contractions.trs_drWKCa_dCaib_dsWCb_to_dtWKCi(trs, sigma_jets, right_tt_cores, nu_jets)
-        term2 = contractions.trs_drWCa_dKCaib_dsWCb_to_dtWKCi(trs, mu_jets, var_tt_cores, nu_jets, n_base)
+        term2 = contractions.trs_drWCa_dKCaib_dsWCb_to_dtWKCi(trs, mu_jets, var_tt_cores, nu_jets, n_frame)
         term3 = contractions.trs_drWCa_dCaib_dsWKCb_to_dtWKCi(trs, mu_jets, left_tt_cores, tau_jets)
         deta_jets = term1 + term2 + term3
     else:
         def _func(data):
             P, Q, dG, mu_jet, nu_jet, sigma_jet, tau_jet = data
-            # Three-group (W,K,C): sigma/tau carry K, mu/nu and base cores P/Q do not; term2's only core
-            # is the variation core dG (K+C), so len(C) is supplied via n_base (the C-only Q pins it).
-            n_base = Q.ndim - 3
+            # Three-group (W,K,C): sigma/tau carry K, mu/nu and frame cores P/Q do not; term2's only core
+            # is the variation core dG (K+C), so len(C) is supplied via n_frame (the C-only Q pins it).
+            n_frame = Q.ndim - 3
             term1 = contractions.trs_rWKCa_Caib_sWCb_to_tWKCi(trs, sigma_jet, Q,  nu_jet)
-            term2 = contractions.trs_rWCa_KCaib_sWCb_to_tWKCi(trs, mu_jet,    dG, nu_jet, n_base)
+            term2 = contractions.trs_rWCa_KCaib_sWCb_to_tWKCi(trs, mu_jet,    dG, nu_jet, n_frame)
             term3 = contractions.trs_rWCa_Caib_sWKCb_to_tWKCi(trs, mu_jet,    P,  tau_jet)
             return (term1 + term2 + term3,)
 
@@ -653,19 +653,19 @@ def assemble_tangent_z_jets(
     if is_uniform:
         # d-prefixed jet lifts (3b-6'a); the ragged xmap below is the oracle. deta carries K (lifted via the
         # C-only U supercore, which fuses W+K); eta is W+C lifted through the K+C variation tucker core dU,
-        # so the eta-lift needs len(C) = n_base, read off the C-only U supercore (d,)+C+(nU,N).
-        n_base = tucker_cores.ndim - 3
+        # so the eta-lift needs len(C) = n_frame, read off the C-only U supercore (d,)+C+(nU,N).
+        n_frame = tucker_cores.ndim - 3
         term1 = contractions.dtWKCi_dCio_to_dtWKCo(deta_jets, tucker_cores)
-        term2 = contractions.dtWCi_dKCio_to_dtWKCo(eta_jets, var_tucker_cores, n_base)
+        term2 = contractions.dtWCi_dKCio_to_dtWKCo(eta_jets, var_tucker_cores, n_frame)
         z_jets = term1 + term2
     else:
         def _func(data):
             U, dU, eta_jet, deta_jet = data
             # Three-group (W,K,C): deta carries K (lift via the C-only U fuses W+K); eta is W+C and dU is
             # the variation core (K+C), so the eta-lift needs len(C) -- recovered from the C-only U.
-            n_base = U.ndim - 2
+            n_frame = U.ndim - 2
             return (contractions.tWKCi_Cio_to_tWKCo(deta_jet, U)
-                    + contractions.tWCi_KCio_to_tWKCo(eta_jet, dU, n_base),)
+                    + contractions.tWCi_KCio_to_tWKCo(eta_jet, dU, n_frame),)
 
         (z_jets,) = xmap(_func, (tucker_cores, var_tucker_cores, eta_jets, deta_jets))
     return z_jets
@@ -678,20 +678,20 @@ def probe_jacobian_derivatives_from_sweep(
         ],                                  # = T3Variations.data
         ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        base:       typ.Tuple[
+        frame:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (U, O, P, Q)
         sweep:      typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = precompute_probe_base_sweep_jets(base, ww, pp, order)
+        ],                                  # = precompute_probe_frame_sweep_jets(frame, ww, pp, order)
         order:      int,                    # highest derivative order K
 ) -> typ.Tuple[NDArray, ...]:               # z_jets. len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
-    '''Variation half of :py:func:`probe_tangent_derivatives` from a precomputed base ``sweep``: the
-    variation sweep (sigma/tau/deta jets via the variation cores) + the lift, reusing the base
-    ``(xi, mu, nu, eta)_jets``. The reuse hook for a fitting inner solve (base fixed across J / J^T).'''
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base
+    '''Variation half of :py:func:`probe_tangent_derivatives` from a precomputed frame ``sweep``: the
+    variation sweep (sigma/tau/deta jets via the variation cores) + the lift, reusing the frame
+    ``(xi, mu, nu, eta)_jets``. The reuse hook for a fitting inner solve (frame fixed across J / J^T).'''
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
     var_tucker_cores, var_tt_cores = variation
     xi_jets, mu_jets, nu_jets, eta_jets = sweep
     trs = binomial_combine_tensor(order)
@@ -710,7 +710,7 @@ def probe_tangent_derivatives(
             typ.Sequence[NDArray],          # var_tucker_cores dU. len=d, elm_shape=K+C+(nOi,Ni)
             typ.Sequence[NDArray],          # var_tt_cores     dG. len=d, elm_shape=K+C+(rLi,nUi,rRi)
         ],                                  # = T3Variations.data
-        base:       typ.Tuple[
+        frame:       typ.Tuple[
             typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
             typ.Sequence[NDArray],          # down_tt_cores    O. len=d
             typ.Sequence[NDArray],          # left_tt_cores    P. len=d
@@ -722,12 +722,12 @@ def probe_tangent_derivatives(
 
     The probe-derivative analog of :py:func:`probing.probe_tangent`: returns, for each mode ``i``, the
     stack ``y_i^(t) = d^t/ds^t [J^(s) v]_i (X + s P)|_0`` for ``t=0..K``, where ``v`` is the tangent
-    vector represented by ``(base, variation)``. Index ``0`` is the ordinary tangent probe.
+    vector represented by ``(frame, variation)``. Index ``0`` is the ordinary tangent probe.
 
-    Identical structure to :py:func:`probe_derivatives_t3` but on the tangent calculus: a base sweep
+    Identical structure to :py:func:`probe_derivatives_t3` but on the tangent calculus: a frame sweep
     (frame cores) and a variation sweep. Full ``order + W + K + C`` stacking (base-inner, mirroring
-    probe_tangent): sample stack ``W``, tangent stack ``K`` (a batch of tangents sharing the base, on
-    the variation cores), base stack ``C``; any may be empty.
+    probe_tangent): sample stack ``W``, tangent stack ``K`` (a batch of tangents sharing the frame, on
+    the variation cores), frame stack ``C``; any may be empty.
 
     The symmetric-derivative formulation is not in the published T4S paper; verified against
     :py:func:`probe_derivatives_dense` on the densified tangent. (Project write-up in preparation.)
@@ -741,8 +741,8 @@ def probe_tangent_derivatives(
     assemble_tangent_z_jets
     t3toolbox.backend.probing.probe_tangent
     '''
-    sweep = precompute_probe_base_sweep_jets(base, ww, pp, order)
-    return probe_jacobian_derivatives_from_sweep(variation, ww, pp, base, sweep, order)
+    sweep = precompute_probe_frame_sweep_jets(frame, ww, pp, order)
+    return probe_jacobian_derivatives_from_sweep(variation, ww, pp, frame, sweep, order)
 
 
 ###############################################################
@@ -751,7 +751,7 @@ def probe_tangent_derivatives(
 #
 # apply and entries are the all-modes special case of probing (probing leaves ONE mode free; these
 # contract EVERY mode). As in probing.py, with no free mode the computation collapses to a single
-# left-to-right pass: the base left sweep mu (via P/G) feeds the perturbation sweep sigma (via Q),
+# left-to-right pass: the frame left sweep mu (via P/G) feeds the perturbation sweep sigma (via Q),
 # kept only to its TERMINAL carry and contracted at the terminal bond -- no right (nu) / central (eta)
 # sweeps, no per-mode assembly. The order axis t and the W/K/C stacks ride exactly as in probing's
 # apply (here apply derivatives output order + W + K + C, a scalar-jet per stack element). entries is
@@ -795,7 +795,7 @@ def apply_derivatives_t3(
     ``y^(t) = d^t/ds^t apply(X, W + s P)|_0`` for ``t=0..order``, where ``apply`` contracts the tensor
     with the vectors in every mode (a scalar). Index ``0`` is the ordinary apply. Computed as the
     terminal carry of the left mu-jet sweep (via the cores), bond summed -- no right/central sweeps.
-    Stacks ride as ``order + W + C`` (sample stack ``W``, base stack ``C``; no tangent stack here).
+    Stacks ride as ``order + W + C`` (sample stack ``W``, frame stack ``C``; no tangent stack here).
     Verified against :py:func:`apply_derivatives_dense`.
     '''
     tucker_cores, tt_cores = x
@@ -835,20 +835,20 @@ def apply_jacobian_derivatives_from_sweep(
         ],                                  # = T3Variations.data
         ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        base:       typ.Tuple[
+        frame:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (U, O, P, Q)
         sweep:      typ.Tuple[
             typ.Sequence[NDArray],          # xi_jets
             typ.Sequence[NDArray],          # mu_jets
-        ],                                  # = precompute_apply_base_sweep_jets(base, ww, pp, order)
+        ],                                  # = precompute_apply_frame_sweep_jets(frame, ww, pp, order)
         order:      int,                    # highest derivative order
 ) -> NDArray:                               # apply-derivative jets, shape=(order+1,)+W+K+C
-    '''Variation half of :py:func:`apply_tangent_derivatives` from a precomputed base ``sweep``: the
-    variation input jets + the terminal sigma carry, reusing the base ``(xi, mu)_jets`` (apply needs no
-    ``nu`` / ``eta``). The reuse hook for a fitting inner solve (base fixed across J / J^T).'''
-    _, down_tt_cores, _, right_tt_cores = base
+    '''Variation half of :py:func:`apply_tangent_derivatives` from a precomputed frame ``sweep``: the
+    variation input jets + the terminal sigma carry, reusing the frame ``(xi, mu)_jets`` (apply needs no
+    ``nu`` / ``eta``). The reuse hook for a fitting inner solve (frame fixed across J / J^T).'''
+    _, down_tt_cores, _, right_tt_cores = frame
     var_tucker_cores, var_tt_cores = variation
     xi_jets, mu_jets = sweep
     trs = binomial_combine_tensor(order)
@@ -864,7 +864,7 @@ def apply_tangent_derivatives(
             typ.Sequence[NDArray],          # var_tucker_cores dU. len=d, elm_shape=K+C+(nOi,Ni)
             typ.Sequence[NDArray],          # var_tt_cores     dG. len=d, elm_shape=K+C+(rLi,nUi,rRi)
         ],                                  # = T3Variations.data
-        base:       typ.Tuple[
+        frame:       typ.Tuple[
             typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
             typ.Sequence[NDArray],          # down_tt_cores    O. len=d
             typ.Sequence[NDArray],          # left_tt_cores    P. len=d
@@ -876,9 +876,9 @@ def apply_tangent_derivatives(
 
     The all-modes Riemannian analog of :py:func:`probe_tangent_derivatives` (and the derivative analog
     of :py:func:`probing.apply_tangent`): returns ``y^(t) = d^t/ds^t [apply(v, W + s P)]|_0`` for
-    ``t=0..order``, where ``v`` is the tangent vector ``(base, variation)``. A single left-to-right pass
-    (base mu via P, perturbation sigma via Q) to the terminal carry, bond summed. Stacks ``order + W +
-    K + C`` (sample stack ``W``, tangent stack ``K``, base stack ``C``). Verified against
+    ``t=0..order``, where ``v`` is the tangent vector ``(frame, variation)``. A single left-to-right pass
+    (frame mu via P, perturbation sigma via Q) to the terminal carry, bond summed. Stacks ``order + W +
+    K + C`` (sample stack ``W``, tangent stack ``K``, frame stack ``C``). Verified against
     :py:func:`apply_derivatives_dense` on the densified tangent.
 
     See Also
@@ -887,8 +887,8 @@ def apply_tangent_derivatives(
     probe_tangent_derivatives
     probing.apply_tangent
     '''
-    sweep = precompute_apply_base_sweep_jets(base, ww, pp, order)
-    return apply_jacobian_derivatives_from_sweep(variation, ww, pp, base, sweep, order)
+    sweep = precompute_apply_frame_sweep_jets(frame, ww, pp, order)
+    return apply_jacobian_derivatives_from_sweep(variation, ww, pp, frame, sweep, order)
 
 
 def entries_derivatives_t3(
@@ -903,7 +903,7 @@ def entries_derivatives_t3(
     '''Symmetric derivatives of an entry of a Tucker tensor train, in one repeated direction.
 
     The ``entries`` analog of :py:func:`apply_derivatives_t3` -- apply-derivatives with the up-index
-    base jet from slicing Tucker-core fibers at ``index`` (order 0) and contracting ``P`` (order 1).
+    frame jet from slicing Tucker-core fibers at ``index`` (order 0) and contracting ``P`` (order 1).
     Returns ``y^(t) = d^t/ds^t apply(X, e_{index} + s P)|_0`` for ``t=0..order``: the Taylor data of
     the tensor's multilinear extension at grid corner ``index``, in direction ``P``. Index ``0`` is the
     ordinary entry ``X[index]``. Stacks ``order + W + C``. Verified vs :py:func:`entries_derivatives_dense`.
@@ -920,20 +920,20 @@ def entries_jacobian_derivatives_from_sweep(
         ],                                  # = T3Variations.data
         index:      NDArray,                # int, shape=(d,)+W -- the grid points
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        base:       typ.Tuple[
+        frame:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (U, O, P, Q)
         sweep:      typ.Tuple[
             typ.Sequence[NDArray],          # xi_jets
             typ.Sequence[NDArray],          # mu_jets
-        ],                                  # = precompute_entries_base_sweep_jets(base, index, pp, order)
+        ],                                  # = precompute_entries_frame_sweep_jets(frame, index, pp, order)
         order:      int,                    # highest derivative order
 ) -> NDArray:                               # entries-derivative jets, shape=(order+1,)+W+K+C
-    '''Variation half of :py:func:`entries_tangent_derivatives` from a precomputed base ``sweep``:
+    '''Variation half of :py:func:`entries_tangent_derivatives` from a precomputed frame ``sweep``:
     the entries analog of :py:func:`apply_jacobian_derivatives_from_sweep` (variation up-index jet from
-    fiber-slicing at ``index`` + ``P``), reusing the base ``(xi, mu)_jets``.'''
-    _, down_tt_cores, _, right_tt_cores = base
+    fiber-slicing at ``index`` + ``P``), reusing the frame ``(xi, mu)_jets``.'''
+    _, down_tt_cores, _, right_tt_cores = frame
     var_tucker_cores, var_tt_cores = variation
     xi_jets, mu_jets = sweep
     trs = binomial_combine_tensor(order)
@@ -949,7 +949,7 @@ def entries_tangent_derivatives(
             typ.Sequence[NDArray],          # var_tucker_cores dU. len=d, elm_shape=K+C+(nOi,Ni)
             typ.Sequence[NDArray],          # var_tt_cores     dG. len=d, elm_shape=K+C+(rLi,nUi,rRi)
         ],                                  # = T3Variations.data
-        base:       typ.Tuple[
+        frame:       typ.Tuple[
             typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
             typ.Sequence[NDArray],          # down_tt_cores    O. len=d
             typ.Sequence[NDArray],          # left_tt_cores    P. len=d
@@ -959,7 +959,7 @@ def entries_tangent_derivatives(
 ) -> NDArray:                               # entries-derivative jets, shape=(order+1,)+W+K+C
     '''Symmetric derivatives of an entry of a tangent vector, in one repeated direction.
 
-    The ``entries`` analog of :py:func:`apply_tangent_derivatives` -- identical but with the base/var
+    The ``entries`` analog of :py:func:`apply_tangent_derivatives` -- identical but with the frame/var
     up-index jets from slicing Tucker-core fibers at ``index`` (order 0) + contracting ``P`` (order 1).
     Stacks ``order + W + K + C``. Verified vs :py:func:`entries_derivatives_dense` on the densified tangent.
 
@@ -969,8 +969,8 @@ def entries_tangent_derivatives(
     apply_tangent_derivatives
     probing.entries_tangent
     '''
-    sweep = precompute_entries_base_sweep_jets(base, index, pp, order)
-    return entries_jacobian_derivatives_from_sweep(variation, index, pp, base, sweep, order)
+    sweep = precompute_entries_frame_sweep_jets(frame, index, pp, order)
+    return entries_jacobian_derivatives_from_sweep(variation, index, pp, frame, sweep, order)
 
 
 ###############################################################
@@ -985,7 +985,7 @@ def entries_tangent_derivatives(
 # swapped for its ADJOINT-HOOKED trs version (same trs tensor, transposed legs: the multiplier's order
 # is summed, the swept order is freed) for the sweeps, and the ORDER-LESS trs (TT, 3 edges) / plain
 # order-sum (Tucker, 1 edge) for the assembly. Stacks (base-inner W + C, as in plain probing): sample
-# stack W on the inputs, base stack C on the cores; sum_over_probes sums W (the J^T r back-projection)
+# stack W on the inputs, frame stack C on the cores; sum_over_probes sums W (the J^T r back-projection)
 # else keeps it (W rides into the variation stack). Verified against jax.linear_transpose + the
 # adjoint identity. The named contractions live in contractions.py (the *_to_sWCb / *_to_uWCi sweeps,
 # the order-less *_to_[W]Caib / *_to_[W]Cao assembly).
@@ -1025,8 +1025,8 @@ def _adj_sweep(P_cores, xi_jets, deta_tildes, edge_jets, trs):
 
     def _step(carry, data):
         P, xi, deta_t, edge = data
-        # Three-group (W,K,C): the swept adjoint (carry) and deta_tilde carry K; xi/edge (base) and P
-        # (base core) do not. Both terms self-infer the split (xi pins W, P pins C, K=remainder).
+        # Three-group (W,K,C): the swept adjoint (carry) and deta_tilde carry K; xi/edge (frame) and P
+        # (frame core) do not. Both terms self-infer the split (xi pins W, P pins C, K=remainder).
         prop = contractions.trs_tWKCa_Caib_uWCi_to_sWKCb(trs_xi, carry, P, xi[:s_size])  # propagation
         src  = contractions.trs_rWCa_Caib_tWKCi_to_sWKCb(trs,    edge,  P, deta_t)       # deta_tilde source
         return prop + src, (carry,)
@@ -1040,9 +1040,9 @@ def _adj_sweep(P_cores, xi_jets, deta_tildes, edge_jets, trs):
 
 def compute_tau_tilde_jets(
         left_tt_cores:  typ.Sequence[NDArray],  # P.  len=d, elm_shape=C+(rLi,nUi,rL(i+1))
-        xi_jets:        typ.Sequence[NDArray],  # base input jets, len=d, elm_shape=(2,)+W+C+(nUi,)
+        xi_jets:        typ.Sequence[NDArray],  # frame input jets, len=d, elm_shape=(2,)+W+C+(nUi,)
         deta_tildes:    typ.Sequence[NDArray],  # adjoint-up jets, len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
-        mu_jets:        typ.Sequence[NDArray],  # base left jets,  len=d, elm_shape=(order+1,)+W+C+(rLi,)
+        mu_jets:        typ.Sequence[NDArray],  # frame left jets,  len=d, elm_shape=(order+1,)+W+C+(rLi,)
         trs:            NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
 ) -> typ.Tuple[NDArray, ...]:                   # tau_tildes. len=d, elm_shape=(order+1,)+W+K+C+(rL(i+1),)
     '''Adjoint-var-rightward edge-variable jets (jet-ified probing.compute_tau_tildes).'''
@@ -1051,9 +1051,9 @@ def compute_tau_tilde_jets(
 
 def compute_sigma_tilde_jets(
         right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
-        xi_jets:        typ.Sequence[NDArray],  # base input jets, len=d, elm_shape=(2,)+W+C+(nUi,)
+        xi_jets:        typ.Sequence[NDArray],  # frame input jets, len=d, elm_shape=(2,)+W+C+(nUi,)
         deta_tildes:    typ.Sequence[NDArray],  # adjoint-up jets, len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
-        nu_jets:        typ.Sequence[NDArray],  # base right jets, len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
+        nu_jets:        typ.Sequence[NDArray],  # frame right jets, len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
         trs:            NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
 ) -> typ.Tuple[NDArray, ...]:                   # sigma_tildes. len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
     '''Adjoint-var-leftward edge-variable jets -- the mirror (reverse) of compute_tau_tilde_jets.'''
@@ -1086,7 +1086,7 @@ def compute_dxi_tilde_jets(
     else:
         def _func(data):
             O, mu, nu, st, tt = data
-            # Three-group (W,K,C): tau_tilde (tt) / sigma_tilde (st) carry K, mu/nu (base) and O (base core)
+            # Three-group (W,K,C): tau_tilde (tt) / sigma_tilde (st) carry K, mu/nu (frame) and O (frame core)
             # do not. Both self-infer (mu/nu pin W, O pins C, K=remainder).
             from_tau = contractions.trs_tWKCa_Caib_sWCb_to_uWKCi(trs, tt, O, nu)
             from_sig = contractions.trs_rWCa_Caib_tWKCb_to_uWKCi(trs, mu, O, st)
@@ -1101,7 +1101,7 @@ def assemble_tucker_variation_jets(
         dxi_tildes:     typ.Sequence[NDArray],  # adjoint-var-down jets, len=d, elm_shape=(order+1,)+W+K+C+(nOi,)
         ww:             typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
         pp:             typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        etas:           typ.Sequence[NDArray],  # base down jets, len=d, elm_shape=(order+1,)+W+C+(nOi,)
+        etas:           typ.Sequence[NDArray],  # frame down jets, len=d, elm_shape=(order+1,)+W+C+(nOi,)
         n_probe:        int,                    # number of sample-stack (W) axes
         sum_over_probes: bool,
 ) -> typ.Tuple[NDArray, ...]:                   # dU_tildes. len=d, elm_shape=[W+]C+(nOi,Ni)
@@ -1112,7 +1112,7 @@ def assemble_tucker_variation_jets(
     _, xmap, _ = get_backend(is_uniform, use_jax)
     w_jets = build_input_jets(ww, pp)          # ambient input jets (value, direction) for dU
     s_size = min(2, etas[0].shape[0])          # the w/dxi input jet carries orders {0, 1}, capped at order
-    # Three-group (W,K,C): the residual-derived operands (ztilde, dxi_tilde) carry K, eta is base; the
+    # Three-group (W,K,C): the residual-derived operands (ztilde, dxi_tilde) carry K, eta is frame; the
     # eta (x) r term takes n_probe (C from eta), the dxi (x) w_jet term self-pins W from the W-only w_jet.
     if is_uniform:
         # d-prefixed assembly (3b-6'a); the order axis is at supercore axis 1, so the w/dxi order-slice is
@@ -1136,7 +1136,7 @@ def assemble_tt_variation_jets(
         sigma_tildes:   typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
         tau_tildes:     typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rL(i+1),)
         deta_tildes:    typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
-        xi_jets:        typ.Sequence[NDArray],  # base input jets, len=d, elm_shape=(2,)+W+C+(nUi,)
+        xi_jets:        typ.Sequence[NDArray],  # frame input jets, len=d, elm_shape=(2,)+W+C+(nUi,)
         mu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rLi,)
         nu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
         trs:            NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
@@ -1151,7 +1151,7 @@ def assemble_tt_variation_jets(
     xnp, xmap, _ = get_backend(is_uniform, use_jax)
     s_size = min(2, trs.shape[0])
     # Three-group (W,K,C): the residual-derived adjoint vars carry K on the assembled core's leg --
-    # sigma_tilde on b (f_sig), tau_tilde on a (f_tau), deta_tilde on i (f_det); the base xi/mu/nu do
+    # sigma_tilde on b (f_sig), tau_tilde on a (f_tau), deta_tilde on i (f_det); the frame xi/mu/nu do
     # not. K kept always; W summed (sum_over_probes -> KCaib) or kept (WKCaib). n_probe = len(W).
     if is_uniform:
         # d-prefixed dG assembly (3b-6'a); the xi order-slice is [:, :s_size] (order at supercore axis 1).
@@ -1193,24 +1193,24 @@ def probe_transpose_derivatives_from_sweep(
         ztildes:    typ.Sequence[NDArray],  # residual jets, len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
         ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        base:       typ.Tuple[
+        frame:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (U, O, P, Q)
         sweep:      typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = precompute_probe_base_sweep_jets(base, ww, pp, order)
+        ],                                  # = precompute_probe_frame_sweep_jets(frame, ww, pp, order)
         order:      int,                    # highest derivative order K
         sum_over_probes: bool = False,      # True: sum the sample stack W (the J^T r back-projection)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # dU_tildes (Tucker variation gradient)
     typ.Tuple[NDArray, ...],  # dG_tildes (TT variation gradient)
 ]:                                          # = T3Variations.data
-    '''Variation gradient of :py:func:`probe_tangent_derivatives_transpose` from a precomputed base
+    '''Variation gradient of :py:func:`probe_tangent_derivatives_transpose` from a precomputed frame
     ``sweep``: the adjoint sweeps (``sigma/tau/dxi_tilde`` jets) + the order-less gradient assembly,
-    reusing the base ``(xi, mu, nu, eta)_jets``. The reuse hook for a fitting inner solve.'''
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = base
+    reusing the frame ``(xi, mu, nu, eta)_jets``. The reuse hook for a fitting inner solve.'''
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
     xi_jets, mu_jets, nu_jets, eta_jets = sweep
     trs = binomial_combine_tensor(order)
     n_probe = ww[0].ndim - 1   # number of sample-stack (W) axes (ww carries W, no C)
@@ -1231,7 +1231,7 @@ def probe_tangent_derivatives_transpose(
         ztildes:    typ.Sequence[NDArray],  # residual jets, len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
         ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        base:       typ.Tuple[
+        frame:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (U, O, P, Q)
@@ -1247,14 +1247,14 @@ def probe_tangent_derivatives_transpose(
     gives the adjoint sweeps (``sigma/tau/dxi_tilde`` jets) and the order-less gradient assembly.
 
     Full ``W + K + C`` stacking, base-inner as in plain probing: the residual jets ``ztildes`` carry the
-    sample stack ``W``, the tangent stack ``K`` (the forward output's ``K``), and the base stack ``C``.
+    sample stack ``W``, the tangent stack ``K`` (the forward output's ``K``), and the frame stack ``C``.
     The tangent batch ``K`` always rides through to the variation gradient. With ``sum_over_probes=False``
     the sample stack ``W`` rides through into the variation stack too; with ``True`` it is summed (the
     ``J^T r`` back-projection used for fitting), ``K``/``C`` always kept. Verified against the dense
     adjoint identity ``<r, J v> = <J^T r, v>`` and ``jax.linear_transpose``.
     '''
-    sweep = precompute_probe_base_sweep_jets(base, ww, pp, order)
-    return probe_transpose_derivatives_from_sweep(ztildes, ww, pp, base, sweep, order, sum_over_probes)
+    sweep = precompute_probe_frame_sweep_jets(frame, ww, pp, order)
+    return probe_transpose_derivatives_from_sweep(ztildes, ww, pp, frame, sweep, order, sum_over_probes)
 
 
 ###############################################################
@@ -1273,7 +1273,7 @@ def probe_tangent_derivatives_transpose(
 
 def compute_sigma_hat_jets(
         right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
-        xi_jets:        typ.Sequence[NDArray],  # base input jets, len=d, elm_shape=(2,)+W+C+(nUi,)
+        xi_jets:        typ.Sequence[NDArray],  # frame input jets, len=d, elm_shape=(2,)+W+C+(nUi,)
         c:              NDArray,                # residual jet (scalar), shape=(order+1)+W+K+C
         trs:            NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
 ) -> typ.Tuple[NDArray, ...]:                   # sigma_hats. len=d, elm_shape=(order+1)+W+K+C+(rR(i+1),)
@@ -1293,7 +1293,7 @@ def compute_sigma_hat_jets(
     reverse = uniform_ops.reverse_utt if is_ndarray(right_tt_cores) else ragged_ops.reverse_tt
     rev_Q = reverse(right_tt_cores)
     rev_xi = xi_jets[::-1]
-    # The forward sums the terminal bond (rR_d, not necessarily 1 -- e.g. the corewise base's own
+    # The forward sums the terminal bond (rR_d, not necessarily 1 -- e.g. the corewise frame's own
     # cores), so the adjoint BROADCASTS c over it: seed -> (order+1)+W+K+C+(rR_d,).
     rR_d = right_tt_cores[-1].shape[-1]
     seed = xnp.broadcast_to(c[..., None], tuple(c.shape) + (rR_d,))
@@ -1351,24 +1351,24 @@ def apply_transpose_derivatives_from_sweep(
         c:          NDArray,                # residual jet (scalar), shape=(order+1)+W+K+C
         ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        base:       typ.Tuple[
+        frame:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (U, O, P, Q)
         sweep:      typ.Tuple[
             typ.Sequence[NDArray],          # xi_jets
             typ.Sequence[NDArray],          # mu_jets
-        ],                                  # = precompute_apply_base_sweep_jets(base, ww, pp, order)
+        ],                                  # = precompute_apply_frame_sweep_jets(frame, ww, pp, order)
         order:      int,                    # highest derivative order
         sum_over_probes: bool = False,      # True: sum the sample stack W (the J^T r back-projection)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # dU_tildes
     typ.Tuple[NDArray, ...],  # dG_tildes
 ]:                                          # = T3Variations.data
-    '''Variation gradient of :py:func:`apply_tangent_derivatives_transpose` from a precomputed base
-    ``sweep``: the ``c``-seeded ``sigma_hat`` sweep + the single-term assembly, reusing the base
-    ``(xi, mu)_jets`` (``w_jets`` is base-free, recomputed here). The reuse hook for a fitting inner solve.'''
-    _, down_tt_cores, _, right_tt_cores = base
+    '''Variation gradient of :py:func:`apply_tangent_derivatives_transpose` from a precomputed frame
+    ``sweep``: the ``c``-seeded ``sigma_hat`` sweep + the single-term assembly, reusing the frame
+    ``(xi, mu)_jets`` (``w_jets`` is frame-free, recomputed here). The reuse hook for a fitting inner solve.'''
+    _, down_tt_cores, _, right_tt_cores = frame
     xi_jets, mu_jets = sweep
     trs = binomial_combine_tensor(order)
     n_probe = ww[0].ndim - 1
@@ -1381,7 +1381,7 @@ def apply_tangent_derivatives_transpose(
         c:          NDArray,                # residual jet (scalar), shape=(order+1)+W+K+C
         ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        base:       typ.Tuple[
+        frame:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (U, O, P, Q)
@@ -1405,32 +1405,32 @@ def apply_tangent_derivatives_transpose(
     entries_tangent_derivatives_transpose
     probe_tangent_derivatives_transpose
     '''
-    sweep = precompute_apply_base_sweep_jets(base, ww, pp, order)
-    return apply_transpose_derivatives_from_sweep(c, ww, pp, base, sweep, order, sum_over_probes)
+    sweep = precompute_apply_frame_sweep_jets(frame, ww, pp, order)
+    return apply_transpose_derivatives_from_sweep(c, ww, pp, frame, sweep, order, sum_over_probes)
 
 
 def entries_transpose_derivatives_from_sweep(
         c:          NDArray,                # residual jet (scalar), shape=(order+1)+W+K+C
         index:      NDArray,                # int, shape=(d,)+W -- the grid points
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        base:       typ.Tuple[
+        frame:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (U, O, P, Q)
         sweep:      typ.Tuple[
             typ.Sequence[NDArray],          # xi_jets
             typ.Sequence[NDArray],          # mu_jets
-        ],                                  # = precompute_entries_base_sweep_jets(base, index, pp, order)
+        ],                                  # = precompute_entries_frame_sweep_jets(frame, index, pp, order)
         order:      int,                    # highest derivative order
         sum_over_probes: bool = False,      # True: sum the sample stack W (the J^T r back-projection)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # dU_tildes
     typ.Tuple[NDArray, ...],  # dG_tildes
 ]:                                          # = T3Variations.data
-    '''Variation gradient of :py:func:`entries_tangent_derivatives_transpose` from a precomputed base
+    '''Variation gradient of :py:func:`entries_tangent_derivatives_transpose` from a precomputed frame
     ``sweep``: the entries analog of :py:func:`apply_transpose_derivatives_from_sweep` (ambient
-    ``w_jets`` from the one-hot ``e_{index}`` + ``P``), reusing the base ``(xi, mu)_jets``.'''
-    up_tucker_cores, down_tt_cores, _, right_tt_cores = base
+    ``w_jets`` from the one-hot ``e_{index}`` + ``P``), reusing the frame ``(xi, mu)_jets``.'''
+    up_tucker_cores, down_tt_cores, _, right_tt_cores = frame
     xi_jets, mu_jets = sweep
     trs = binomial_combine_tensor(order)
     ww_onehot = _onehot_vectors(index, up_tucker_cores)   # e_{index}, elm_shape=W+(Ni,)
@@ -1444,7 +1444,7 @@ def entries_tangent_derivatives_transpose(
         c:          NDArray,                # residual jet (scalar), shape=(order+1)+W+K+C
         index:      NDArray,                # int, shape=(d,)+W -- the grid points
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        base:       typ.Tuple[
+        frame:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (U, O, P, Q)
@@ -1456,7 +1456,7 @@ def entries_tangent_derivatives_transpose(
 ]:                                          # = T3Variations.data
     '''Transpose of :py:func:`entries_tangent_derivatives`: scatter residual jets ``c`` at ``index``
     into a variation gradient. Identical to :py:func:`apply_tangent_derivatives_transpose` with the
-    base up-index jet from fiber slicing at ``index`` (order 0) + contracting ``P`` (order 1), and the
+    frame up-index jet from fiber slicing at ``index`` (order 0) + contracting ``P`` (order 1), and the
     ambient ``w_jet`` from the unit vectors ``e_{index}`` (order 0) + ``P`` (order 1) -- so the
     Tucker-variation gradient scatters onto the indexed rows.
 
@@ -1465,17 +1465,17 @@ def entries_tangent_derivatives_transpose(
     entries_tangent_derivatives
     apply_tangent_derivatives_transpose
     '''
-    sweep = precompute_entries_base_sweep_jets(base, index, pp, order)
-    return entries_transpose_derivatives_from_sweep(c, index, pp, base, sweep, order, sum_over_probes)
+    sweep = precompute_entries_frame_sweep_jets(frame, index, pp, order)
+    return entries_transpose_derivatives_from_sweep(c, index, pp, frame, sweep, order, sum_over_probes)
 
 
 ###############################################################
 ####    Corewise (non-manifold) derivative transposes      ####
 ###############################################################
 #
-# The gradient of a plain-T3 derivative sampling op w.r.t. the cores of the base (treated as
+# The gradient of a plain-T3 derivative sampling op w.r.t. the cores of the frame (treated as
 # independent variables) -- the Section 6.3 "corewise simplification": the tangent derivative
-# transpose with the base's OWN cores in place of the orthogonal frames (P, Q, O -> G_i), U no longer
+# transpose with the frame's OWN cores in place of the orthogonal frames (P, Q, O -> G_i), U no longer
 # required orthogonal. Trivial substitution wrappers (cf. probing.{probe,apply,entries}_corewise_transpose);
 # return raw (tucker_grads, tt_grads) shaped like the cores. Verified vs jax.grad of the forward.
 
@@ -1495,9 +1495,9 @@ def probe_corewise_derivatives_transpose(
     typ.Tuple[NDArray, ...],  # tt-core gradients,     same shapes as tt_cores
 ]:
     '''Corewise (non-manifold) transpose of :py:func:`probe_derivatives_t3`: gradient of the
-    probe-derivative jets w.r.t. the base ``core_pair``'s cores, as independent variables (for
+    probe-derivative jets w.r.t. the frame ``core_pair``'s cores, as independent variables (for
     core-wise optimizers). The Section 6.3 substitution ``P,Q,O -> G`` into
-    :py:func:`probe_tangent_derivatives_transpose` (base ``(U, G, G, G)``; orthogonality not required).
+    :py:func:`probe_tangent_derivatives_transpose` (frame ``(U, G, G, G)``; orthogonality not required).
     Returns gradients shaped like ``(tucker_cores, tt_cores)``. Verified vs ``jax.grad``.
     '''
     tucker_cores, tt_cores = core_pair
@@ -1514,7 +1514,7 @@ def apply_corewise_derivatives_transpose(
         sum_over_probes: bool = False,
 ) -> typ.Tuple[typ.Tuple[NDArray, ...], typ.Tuple[NDArray, ...]]:  # (tucker_grads, tt_grads)
     '''Corewise transpose of :py:func:`apply_derivatives_t3`: gradient of the apply-derivative jets
-    w.r.t. the base cores (Section 6.3 substitution into :py:func:`apply_tangent_derivatives_transpose`).
+    w.r.t. the frame cores (Section 6.3 substitution into :py:func:`apply_tangent_derivatives_transpose`).
     '''
     tucker_cores, tt_cores = core_pair
     return apply_tangent_derivatives_transpose(
@@ -1530,7 +1530,7 @@ def entries_corewise_derivatives_transpose(
         sum_over_probes: bool = False,
 ) -> typ.Tuple[typ.Tuple[NDArray, ...], typ.Tuple[NDArray, ...]]:  # (tucker_grads, tt_grads)
     '''Corewise transpose of :py:func:`entries_derivatives_t3`: gradient of the entry-derivative jets
-    w.r.t. the base cores (Section 6.3 substitution into :py:func:`entries_tangent_derivatives_transpose`).
+    w.r.t. the frame cores (Section 6.3 substitution into :py:func:`entries_tangent_derivatives_transpose`).
     '''
     tucker_cores, tt_cores = core_pair
     return entries_tangent_derivatives_transpose(
@@ -1618,7 +1618,7 @@ def entries_derivatives_dense(
         T:      NDArray,                # dense tensor, shape=(N0,...,N(d-1))
         order:  int,                    # highest derivative order
 ) -> NDArray:                           # entries-derivative jets, shape=(order+1,)
-    '''Exact dense symmetric entry derivatives (oracle): apply-derivatives with one-hot base vectors
+    '''Exact dense symmetric entry derivatives (oracle): apply-derivatives with one-hot frame vectors
     ``e_{index}`` (entries = apply with one-hot), via :py:func:`apply_derivatives_dense`. Unstacked.'''
     ww = [np.eye(T.shape[j])[index[j]] for j in range(T.ndim)]   # one-hot e_{index_j}
     return apply_derivatives_dense(ww, pp, T, order)

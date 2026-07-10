@@ -268,9 +268,9 @@ class Orthogonalization(unittest.TestCase):
                 with self.subTest(USE_JAX=USE_JAX, STRUCTURE=STRUCTURE):
                     x = t3.t3_corewise_randn(STRUCTURE)
 
-                    base, variation = orth.orthogonal_representations(x, use_jax=USE_JAX)  # Compute orthogonal representations
+                    frame, variation = orth.orthogonal_representations(x, use_jax=USE_JAX)  # Compute orthogonal representations
 
-                    tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = base
+                    tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores = frame
                     tucker_vars, tt_vars = variation
                     (U0, U1, U2) = tucker_cores
                     (L0, L1, L2) = left_tt_cores

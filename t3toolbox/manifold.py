@@ -62,10 +62,10 @@ def manifold_dim(
     >>> mdim = t3m.manifold_dim(s)
     >>> print(mdim)
     29
-    >>> base, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*s))
-    >>> tucker_shapes, tt_shapes = base.variation_shapes
+    >>> frame, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*s))
+    >>> tucker_shapes, tt_shapes = frame.variation_shapes
     >>> n_entries = sum(int(np.prod(sh)) for sh in tucker_shapes) + sum(int(np.prod(sh)) for sh in tt_shapes)
-    >>> dense_vv = np.stack([t3m.MANIFOLD.randn(base).to_dense().reshape(-1)
+    >>> dense_vv = np.stack([t3m.MANIFOLD.randn(frame).to_dense().reshape(-1)
     ...                      for _ in range(n_entries)])
     >>> ss = np.linalg.svd(dense_vv, compute_uv=False)
     >>> print(int(np.sum(ss > 1e-9 * ss[0])))   # number of nonzero singular values == manifold_dim
@@ -102,11 +102,11 @@ class T3Tangent:
     >>> import t3toolbox.frame_variations_format as bvf
     >>> import t3toolbox.manifold as t3m
     >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
-    >>> base, variations = bvf.t3_orthogonal_representations(x)
-    >>> v = t3m.T3Tangent(base, variations)
+    >>> frame, variations = bvf.t3_orthogonal_representations(x)
+    >>> v = t3m.T3Tangent(frame, variations)
     >>> print(v.shape, v.stack_shape)
     (10, 11, 12) ()
-    >>> print(v.is_orthogonal())   # base from t3_orthogonal_representations is orthogonal
+    >>> print(v.is_orthogonal())   # frame from t3_orthogonal_representations is orthogonal
     True
     >>> print(v.is_gauged())       # ...but those variations are not gauged
     False
@@ -135,7 +135,7 @@ class T3Tangent:
     def __repr__(self) -> str:
         return (f"T3Tangent(shape={self.shape}, tucker_ranks={self.frame.up_ranks}, "
                 f"tt_ranks={self.frame.left_ranks}, tangent_stack={self.tangent_stack_shape}, "
-                f"base_stack={self.base_stack_shape})")
+                f"frame_stack={self.frame_stack_shape})")
 
     @ft.cached_property
     def d(self) -> int:
@@ -146,23 +146,23 @@ class T3Tangent:
         return self.frame.shape
 
     @ft.cached_property
-    def base_stack_shape(self) -> typ.Tuple[int, ...]:
-        """Base stack ``C``: the batch of base points, shared with the frame (``frame.stack_shape``)."""
+    def frame_stack_shape(self) -> typ.Tuple[int, ...]:
+        """Frame stack ``C``: the batch of base points, shared with the frame (``frame.stack_shape``)."""
         return self.frame.stack_shape
 
     @ft.cached_property
     def tangent_stack_shape(self) -> typ.Tuple[int, ...]:
-        """Tangent stack ``K``: the extra *outer* batch of tangent vectors sharing this base.
+        """Tangent stack ``K``: the extra *outer* batch of tangent vectors sharing this frame.
 
-        This is the part of the variation stack that exceeds the base stack (often empty). The
-        variation cores are stacked as ``K + C + (core,)`` -- extra axes outermost, base stack inner.
+        This is the part of the variation stack that exceeds the frame stack (often empty). The
+        variation cores are stacked as ``K + C + (core,)`` -- extra axes outermost, frame stack inner.
         """
         full = self.variations.stack_shape
-        return full[:len(full) - len(self.base_stack_shape)]
+        return full[:len(full) - len(self.frame_stack_shape)]
 
     @ft.cached_property
     def stack_shape(self) -> typ.Tuple[int, ...]:
-        """Full stack ``K + C`` (``tangent_stack_shape + base_stack_shape``), outer-to-inner."""
+        """Full stack ``K + C`` (``tangent_stack_shape + frame_stack_shape``), outer-to-inner."""
         return self.variations.stack_shape
 
     @ft.cached_property
@@ -274,9 +274,9 @@ class T3Tangent:
         return T3Tangent(self.frame.reverse(), self.variations.reverse())
 
     def sum_tangents(self, axis=None) -> 'T3Tangent':
-        """Sum over the tangent stack ``K`` (a batch of tangents at the shared base) into one tangent.
+        """Sum over the tangent stack ``K`` (a batch of tangents at the shared frame) into one tangent.
 
-        Corewise (= the tensor sum, by linearity); the base stack ``C`` is preserved. ``axis`` indexes
+        Corewise (= the tensor sum, by linearity); the frame stack ``C`` is preserved. ``axis`` indexes
         within ``K`` (default: the whole tangent stack).
         """
         summed = cw.corewise_stack_sum(self.variations.data, axis, len(self.tangent_stack_shape))
@@ -290,7 +290,7 @@ class T3Tangent:
         """Zero tangent vector at a given frame (numpy/jax matching the frame).
 
         ``stack_shape`` is the extra *outer* tangent stack ``K`` (a batch of tangents sharing this
-        base); the variation cores are stacked as ``K + C + (core,)``. Default ``K=()``.
+        frame); the variation cores are stacked as ``K + C + (core,)``. Default ``K=()``.
         """
         use_jax = tree_contains_jax(frame.data)       # match the frame's array type
         full_stack = stack_shape + frame.stack_shape  # K + C
@@ -314,7 +314,7 @@ class T3Tangent:
 
     @staticmethod
     def zeros_like(tangent: 'T3Tangent') -> 'T3Tangent':
-        """Zero tangent at ``tangent``'s base, with ``tangent``'s tangent stack ``K``."""
+        """Zero tangent at ``tangent``'s frame, with ``tangent``'s tangent stack ``K``."""
         return T3Tangent.zeros(tangent.frame, stack_shape=tangent.tangent_stack_shape)
 
     ############################################
@@ -335,7 +335,7 @@ class T3Tangent:
         if self.stack_shape != other.stack_shape:
             raise ValueError(
                 'Tangent vectors have different stack shapes; elementwise linear algebra requires '
-                'matching stacks (same tangent stack K over the shared base stack C).\n'
+                'matching stacks (same tangent stack K over the shared frame stack C).\n'
                 + str(self.stack_shape) + ' = self.stack_shape != other.stack_shape = ' + str(other.stack_shape)
             )
 
@@ -399,7 +399,7 @@ class T3Tangent:
             rtol:   float = 1e-9,
             atol:   float = 0.0,
     ) -> NDArray:  # bool array, shape = stack_shape (K+C); scalar when unstacked
-        """``True`` (per stack element) if ``other`` is the same tangent vector as ``self`` at the same base.
+        """``True`` (per stack element) if ``other`` is the same tangent vector as ``self`` at the same frame.
 
         Checks ``||self - other|| <= atol + rtol * ||other||`` via :py:meth:`corewise_norm`, **per stacked
         element** (reduce with ``.all()`` for a single verdict). Assumes a shared base point (compares
@@ -436,13 +436,13 @@ class T3Tangent:
         """
         return self.frame.has_minimal_ranks
 
-    def has_numerically_minimal_ranks(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = base stack C
-        """True (per base-stack element) if this tangent's frame is **numerically** minimal. See
+    def has_numerically_minimal_ranks(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = frame stack C
+        """True (per frame-stack element) if this tangent's frame is **numerically** minimal. See
         :py:meth:`T3Frame.has_numerically_minimal_ranks` (orthogonal + structurally-minimal, no SVD)."""
         return self.frame.has_numerically_minimal_ranks(atol=atol)
 
-    def is_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = base stack C (scalar unstacked)
-        """True (per base-stack element) if this tangent's frame is orthogonal. See
+    def is_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = frame stack C (scalar unstacked)
+        """True (per frame-stack element) if this tangent's frame is orthogonal. See
         :py:meth:`T3Frame.is_orthogonal`. Reduce with ``.all()`` for a single verdict."""
         return self.frame.is_orthogonal(atol=atol)
 
@@ -482,9 +482,9 @@ class T3Tangent:
 
         Contracts the tangent vector with the probing vectors ``ww`` in all-but-one index, for each
         index -- the tangent analogue of :py:meth:`.TuckerTensorTrain.probe`. The probes are stacked
-        ``W + K + C`` (probe stack ``W`` from ``ww`` outermost, tangent stack ``K`` next, base stack
+        ``W + K + C`` (probe stack ``W`` from ``ww`` outermost, tangent stack ``K`` next, frame stack
         ``C`` innermost). ``K`` is empty unless this is a tangent-stacked (K-stacked) T3Tangent, in
-        which case ``J^(s)`` is applied to each of the ``K`` tangent vectors sharing the base.
+        which case ``J^(s)`` is applied to each of the ``K`` tangent vectors sharing the frame.
 
         This is the bare ``J^(s)`` (no gauge projector ``Pi``); for the Riemannian ``J = J^(s) o Pi``
         compose a gauge projection (e.g. :py:meth:`ManifoldGeometry.project`) yourself.
@@ -504,8 +504,8 @@ class T3Tangent:
         >>> import t3toolbox.manifold as t3m
         >>> import t3toolbox.backend.probing as t3p
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-        >>> base, variations = bvf.t3_orthogonal_representations(x)
-        >>> v = t3m.T3Tangent(base, variations)
+        >>> frame, variations = bvf.t3_orthogonal_representations(x)
+        >>> v = t3m.T3Tangent(frame, variations)
         >>> ww = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
         >>> zz = v.probe(ww)
         >>> print(zz[0].shape)             # W + C + (N0,) = (2,) + () + (10,)
@@ -516,12 +516,12 @@ class T3Tangent:
 
         A tangent-stacked (K-stacked) tangent probes each of its ``K`` vectors, output ``W + K + C``:
 
-        >>> vb = t3m.COREWISE.randn(base, stack_shape=(3,))
+        >>> vb = t3m.COREWISE.randn(frame, stack_shape=(3,))
         >>> zzb = vb.probe(ww)
         >>> print(zzb[0].shape)            # W + K + C + (N0,) = (2,) + (3,) + () + (10,)
         (2, 3, 10)
         """
-        # probing's base order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
+        # probing's frame order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
         # numpy/jax dispatch is inferred from the input array types inside probing.
         return probing.probe_tangent(ww, self.variations.data, self.frame.data)
 
@@ -535,15 +535,15 @@ class T3Tangent:
         """Apply the transpose ``(J^(s))^T`` of the probe map to residuals; returns a T3Tangent at ``frame``.
 
         The adjoint of :py:meth:`probe`. The residuals ``ztildes`` live in the forward probe space,
-        ``elm_shape = W + K + C + (Ni,)`` (probe stack ``W`` outer, optional tangent batch ``K``, base
+        ``elm_shape = W + K + C + (Ni,)`` (probe stack ``W`` outer, optional tangent batch ``K``, frame
         stack ``C`` inner -- the output space of a ``K``-stacked :py:meth:`probe`; ``K`` is empty in
         the common case). The tangent batch ``K`` is always carried to the result's tangent stack; the
         probe stack ``W`` is summed or kept per ``sum_over_probes``:
 
         - ``sum_over_probes=False`` (default): each probe residual becomes one tangent -- the result's
-          tangent stack is ``W + K`` (base stack ``C``).
+          tangent stack is ``W + K`` (frame stack ``C``).
         - ``sum_over_probes=True``: the probe stack is summed -- the result's tangent stack is ``K``
-          (base stack ``C``) -- the usual Gauss-Newton ``J^T r`` (a single tangent when ``K = ()``).
+          (frame stack ``C``) -- the usual Gauss-Newton ``J^T r`` (a single tangent when ``K = ()``).
 
         ``False`` is the **primary** transpose (``W`` a passthrough stack); ``True`` is the derived
         contraction ``sum_over_probes=True == Σ_W sum_over_probes=False``. See *Batching & stacking* §11
@@ -564,41 +564,41 @@ class T3Tangent:
         >>> import t3toolbox.frame_variations_format as bvf
         >>> import t3toolbox.manifold as t3m
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-        >>> base, _ = bvf.t3_orthogonal_representations(x)
-        >>> v = t3m.MANIFOLD.randn(base)
+        >>> frame, _ = bvf.t3_orthogonal_representations(x)
+        >>> v = t3m.MANIFOLD.randn(frame)
         >>> ww = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
         >>> z = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
         >>> Jv = v.probe(ww)
-        >>> JTz = t3m.T3Tangent.probe_transpose(z, ww, base, sum_over_probes=True)
+        >>> JTz = t3m.T3Tangent.probe_transpose(z, ww, frame, sum_over_probes=True)
         >>> lhs = float(np.sum([np.sum(a * b) for a, b in zip(z, Jv)]))
         >>> print(bool(abs(lhs - float(JTz.corewise_inner(v))) < 1e-9))
         True
 
         Without summing, the result is a tangent-stacked T3Tangent (V = the probe stack):
 
-        >>> JTz_batch = t3m.T3Tangent.probe_transpose(z, ww, base)  # sum_over_probes=False
-        >>> print(JTz_batch.tangent_stack_shape, JTz_batch.base_stack_shape)
+        >>> JTz_batch = t3m.T3Tangent.probe_transpose(z, ww, frame)  # sum_over_probes=False
+        >>> print(JTz_batch.tangent_stack_shape, JTz_batch.frame_stack_shape)
         (2,) ()
 
         With ``K``-stacked residuals (``W + K + C``), the tangent batch ``K`` is carried through:
 
         >>> zb = tuple(np.random.randn(2, 3, N) for N in (10, 11, 12))  # W=(2,), K=(3,), C=()
-        >>> print(t3m.T3Tangent.probe_transpose(zb, ww, base, sum_over_probes=True).tangent_stack_shape)
+        >>> print(t3m.T3Tangent.probe_transpose(zb, ww, frame, sum_over_probes=True).tangent_stack_shape)
         (3,)
-        >>> print(t3m.T3Tangent.probe_transpose(zb, ww, base).tangent_stack_shape)  # sum=False -> W + K
+        >>> print(t3m.T3Tangent.probe_transpose(zb, ww, frame).tangent_stack_shape)  # sum=False -> W + K
         (2, 3)
 
         ``sum_over_probes=True`` is exactly the probe-stack (``W``) sum of the ``False`` result:
 
-        >>> kept   = t3m.T3Tangent.probe_transpose(z, ww, base)                        # W stays a stack
-        >>> summed = t3m.T3Tangent.probe_transpose(z, ww, base, sum_over_probes=True)   # W summed
+        >>> kept   = t3m.T3Tangent.probe_transpose(z, ww, frame)                        # W stays a stack
+        >>> summed = t3m.T3Tangent.probe_transpose(z, ww, frame, sum_over_probes=True)   # W summed
         >>> dU_sum = tuple(np.sum(c, axis=0) for c in kept.variations.tucker_variations)  # sum the W axis
         >>> err = max(float(np.linalg.norm(a - b))
         ...           for a, b in zip(dU_sum, summed.variations.tucker_variations))
         >>> print(bool(err < 1e-9))
         True
         """
-        # probing's base order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
+        # probing's frame order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
         # numpy/jax dispatch is inferred from the input array types inside probing.
         dU_tildes, dG_tildes = probing.probe_tangent_transpose(
             ztildes, ww, frame.data, sum_over_probes=sum_over_probes,
@@ -614,7 +614,7 @@ class T3Tangent:
         The all-modes special case of :py:meth:`probe` (probing leaves one index free; this contracts
         them all). It is the tangent analogue of :py:meth:`.TuckerTensorTrain.apply`, and is cheaper
         than probing -- a single left-to-right sweep, no right/central sweeps, no per-mode assembly.
-        The result is stacked ``W + K + C`` (apply-vector stack ``W`` outer, tangent stack ``K``, base
+        The result is stacked ``W + K + C`` (apply-vector stack ``W`` outer, tangent stack ``K``, frame
         stack ``C`` inner); a plain scalar when there are no stacks.
 
         See Section 6.2.2 (Algorithms 6-7) of Alger et al. (2026), "Tucker Tensor Train Taylor
@@ -632,15 +632,15 @@ class T3Tangent:
         >>> import t3toolbox.frame_variations_format as bvf
         >>> import t3toolbox.manifold as t3m
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-        >>> base, variations = bvf.t3_orthogonal_representations(x)
-        >>> v = t3m.T3Tangent(base, variations)
+        >>> frame, variations = bvf.t3_orthogonal_representations(x)
+        >>> v = t3m.T3Tangent(frame, variations)
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> a = v.apply(ww)
         >>> a_dense = np.einsum('ijk,i,j,k->', v.to_dense(), *ww)   # dense reference
         >>> print(bool(abs(float(a) - float(a_dense)) < 1e-9))
         True
         """
-        # base order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
+        # frame order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
         # numpy/jax dispatch is inferred from the input array types inside probing.
         return probing.apply_tangent(ww, self.variations.data, self.frame.data)
 
@@ -668,8 +668,8 @@ class T3Tangent:
         >>> import t3toolbox.frame_variations_format as bvf
         >>> import t3toolbox.manifold as t3m
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-        >>> base, variations = bvf.t3_orthogonal_representations(x)
-        >>> v = t3m.T3Tangent(base, variations)
+        >>> frame, variations = bvf.t3_orthogonal_representations(x)
+        >>> v = t3m.T3Tangent(frame, variations)
         >>> idx = (3, 5, 7)
         >>> print(bool(abs(float(v.entries(idx)) - float(v.to_dense()[idx])) < 1e-9))
         True
@@ -689,7 +689,7 @@ class T3Tangent:
         ``sum_over_probes=False`` (default) the apply-vector stack ``W`` becomes the result's tangent
         stack (one tangent per apply-set); with ``sum_over_probes=True`` ``W`` is summed -- the usual
         Gauss-Newton ``apply^T c`` back-projection (a single tangent when ``W = ()``). Needs only the
-        base sweep + a single-term scatter assembly (cheaper than a general :py:meth:`probe_transpose`).
+        frame sweep + a single-term scatter assembly (cheaper than a general :py:meth:`probe_transpose`).
 
         ``False`` is the primary transpose; ``sum_over_probes=True == Σ_W sum_over_probes=False``. See
         *Batching & stacking* §11 (``docs/batching_and_stacking.md``) for which mode to use and why.
@@ -704,15 +704,15 @@ class T3Tangent:
         >>> import t3toolbox.manifold as t3m
         >>> import t3toolbox.corewise as cw
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-        >>> base, _ = bvf.t3_orthogonal_representations(x)
-        >>> v = t3m.COREWISE.randn(base)
+        >>> frame, _ = bvf.t3_orthogonal_representations(x)
+        >>> v = t3m.COREWISE.randn(frame)
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-        >>> ATc = t3m.T3Tangent.apply_transpose(np.asarray(1.7), ww, base, sum_over_probes=True)
+        >>> ATc = t3m.T3Tangent.apply_transpose(np.asarray(1.7), ww, frame, sum_over_probes=True)
         >>> lhs = float(cw.corewise_dot(ATc.variations.data, v.variations.data))
         >>> print(bool(abs(lhs - 1.7 * float(v.apply(ww))) < 1e-9))
         True
         """
-        # base order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
+        # frame order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
         dU, dG = probing.apply_tangent_transpose(c, ww, frame.data, sum_over_probes=sum_over_probes)
         return T3Tangent(frame, bvf.T3Variations(dU, dG))
 
@@ -752,7 +752,7 @@ class T3Tangent:
         Returns, for each mode ``i``, the stack ``y_i^(t) = d^t/ds^t [probe(X + s P)]_i|_0`` for
         ``t=0..order`` -- the derivative analogue of :py:meth:`probe`, obtained by perturbing every probe
         vector in the same direction ``P``. Index ``0`` is the ordinary :py:meth:`probe`. Stacks ``order
-        + W + K + C`` (order outermost; sample stack ``W``, tangent stack ``K``, base stack ``C``). The
+        + W + K + C`` (order outermost; sample stack ``W``, tangent stack ``K``, frame stack ``C``). The
         points ``X`` (``ww``) and the perturbations ``P`` (``pp``) must share the sample stack ``W``.
 
         See ``docs/symmetric_probe_derivatives.tex``.
@@ -771,8 +771,8 @@ class T3Tangent:
         >>> import t3toolbox.manifold as t3m
         >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-        >>> base, variations = bvf.t3_orthogonal_representations(x)
-        >>> v = t3m.T3Tangent(base, variations)
+        >>> frame, variations = bvf.t3_orthogonal_representations(x)
+        >>> v = t3m.T3Tangent(frame, variations)
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> zj = v.probe_derivatives(ww, pp, 3)
@@ -810,8 +810,8 @@ class T3Tangent:
         >>> import t3toolbox.manifold as t3m
         >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-        >>> base, variations = bvf.t3_orthogonal_representations(x)
-        >>> v = t3m.T3Tangent(base, variations)
+        >>> frame, variations = bvf.t3_orthogonal_representations(x)
+        >>> v = t3m.T3Tangent(frame, variations)
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> yj = v.apply_derivatives(ww, pp, 3)
@@ -849,8 +849,8 @@ class T3Tangent:
         >>> import t3toolbox.manifold as t3m
         >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-        >>> base, variations = bvf.t3_orthogonal_representations(x)
-        >>> v = t3m.T3Tangent(base, variations)
+        >>> frame, variations = bvf.t3_orthogonal_representations(x)
+        >>> v = t3m.T3Tangent(frame, variations)
         >>> index = np.array([3, 5, 7])
         >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> yj = v.entries_derivatives(index, pp, 3)
@@ -893,13 +893,13 @@ class T3Tangent:
         >>> import t3toolbox.manifold as t3m
         >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
-        >>> base, _ = bvf.t3_orthogonal_representations(x)
-        >>> v = t3m.COREWISE.randn(base)
+        >>> frame, _ = bvf.t3_orthogonal_representations(x)
+        >>> v = t3m.COREWISE.randn(frame)
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> Jv = v.probe_derivatives(ww, pp, 2)
         >>> r = [np.random.randn(*z.shape) for z in Jv]
-        >>> JTr = t3m.T3Tangent.probe_derivatives_transpose(r, ww, pp, base, 2, sum_over_probes=True)
+        >>> JTr = t3m.T3Tangent.probe_derivatives_transpose(r, ww, pp, frame, 2, sum_over_probes=True)
         >>> lhs = sum(float(np.sum(ri * zi)) for ri, zi in zip(r, Jv))
         >>> print(bool(abs(lhs - float(JTr.corewise_inner(v))) < 1e-9))
         True
@@ -944,7 +944,7 @@ class T3Tangent:
     ) -> 'T3Tangent':
         """Transpose of :py:meth:`entries_derivatives`: scatter residual jets ``c`` at ``index`` into a tangent.
 
-        Identical to :py:meth:`apply_derivatives_transpose` with the base up-index from fiber slicing and
+        Identical to :py:meth:`apply_derivatives_transpose` with the frame up-index from fiber slicing and
         the ambient ``w_jet`` from the unit vectors ``e_{index}`` (so the Tucker-variation gradient
         scatters onto the indexed rows).
 
@@ -963,10 +963,10 @@ class T3Tangent:
     ############################################
 
     def unstack_tangents(self):
-        """Unstack over the tangent stack ``K``: a ``K``-shaped tree of tangents sharing this base.
+        """Unstack over the tangent stack ``K``: a ``K``-shaped tree of tangents sharing this frame.
 
         Decomposes the batch of tangent *directions* ("for each vector within the frame"). Each leaf
-        is a :py:class:`T3Tangent` with ``tangent_stack_shape == ()`` and ``base_stack_shape`` equal
+        is a :py:class:`T3Tangent` with ``tangent_stack_shape == ()`` and ``frame_stack_shape`` equal
         to this tangent's -- and, because the base point is shared across ``K``, every leaf holds the
         **same** :py:class:`T3Frame` object, so the leaves live in one tangent space (linear algebra
         between them is defined). Inverse of :py:meth:`stack_tangents`.
@@ -980,14 +980,14 @@ class T3Tangent:
         )
 
     def unstack_frame(self):
-        """Unstack over the base stack ``C``: a ``C``-shaped tree of single-base-point tangents.
+        """Unstack over the frame stack ``C``: a ``C``-shaped tree of single-frame-point tangents.
 
-        Decomposes over base *points* ("for each frame"). Each leaf is a :py:class:`T3Tangent` with
-        ``base_stack_shape == ()`` and ``tangent_stack_shape`` equal to this tangent's; the leaves
+        Decomposes over frame *points* ("for each frame"). Each leaf is a :py:class:`T3Tangent` with
+        ``frame_stack_shape == ()`` and ``tangent_stack_shape`` equal to this tangent's; the leaves
         sit at **different** base points (different tangent spaces, so they are not mutually
         linear-algebra compatible). Inverse of :py:meth:`stack_frame`.
         """
-        paired_tree = tangent_operations.unstack_base_stack(self.frame.data, self.variations.data)
+        paired_tree = tangent_operations.unstack_frame_stack(self.frame.data, self.variations.data)
         leaf_structure = (((None,) * self.d,) * 4,            # one (frame_data,
                           ((None,) * self.d, (None,) * self.d))  #      variations_data) pair
         return stacking.apply_func_to_leaf_subtrees(
@@ -998,17 +998,17 @@ class T3Tangent:
 
     @staticmethod
     def stack_tangents(tree) -> 'T3Tangent':
-        """Stack a ``K``-shaped tree of tangents (sharing one base) into a tangent-stacked T3Tangent.
+        """Stack a ``K``-shaped tree of tangents (sharing one frame) into a tangent-stacked T3Tangent.
 
         Inverse of :py:meth:`unstack_tangents`. Requires every leaf to be at the **same frame** (the
         same-frame numerical check, as in :py:meth:`corewise_inner` / :py:meth:`__add__`): the tangents
-        being stacked must live in the same tangent space. The first leaf's base is reused and the
+        being stacked must live in the same tangent space. The first leaf's frame is reused and the
         variations are stacked over the new outer tangent stack ``K``.
         """
         leaves = _flatten_tangents(tree)
-        base = leaves[0].frame
+        frame = leaves[0].frame
         for t in leaves[1:]:
-            if not (t.frame is base or safety.frames_equal_or_skip(t.frame.data, base.data)):
+            if not (t.frame is frame or safety.frames_equal_or_skip(t.frame.data, frame.data)):
                 raise ValueError(
                     'stack_tangents requires every tangent to be at the same frame -- they must live in '
                     'the same tangent space. To stack tangents at *different* base points, use '
@@ -1016,15 +1016,15 @@ class T3Tangent:
                 )
         variations_tree = stacking.apply_func_to_leaf_subtrees(tree, lambda t: t.variations.data, None)
         variations_data = tangent_operations.stack_tangent_stack(variations_tree)
-        return T3Tangent(base, bvf.T3Variations(*variations_data))
+        return T3Tangent(frame, bvf.T3Variations(*variations_data))
 
     @staticmethod
     def stack_frame(tree) -> 'T3Tangent':
-        """Stack a ``C``-shaped tree of single-base-point tangents into a base-stacked T3Tangent.
+        """Stack a ``C``-shaped tree of single-frame-point tangents into a frame-stacked T3Tangent.
 
         Inverse of :py:meth:`unstack_frame`. The leaves sit at **different** base points (distinct
-        bases), so no shared-base identity is required; they must share the same structure and the
-        same tangent stack ``K``. The bases are stacked over the base stack ``C``, which is placed
+        bases), so no shared-frame identity is required; they must share the same structure and the
+        same tangent stack ``K``. The bases are stacked over the frame stack ``C``, which is placed
         innermost so the variation stack becomes ``K + C``.
         """
         leaves = _flatten_tangents(tree)
@@ -1033,11 +1033,11 @@ class T3Tangent:
             if t.structure != v0.structure or t.tangent_stack_shape != v0.tangent_stack_shape:
                 raise ValueError(
                     'stack_frame requires all tangents to share the same structure and tangent '
-                    'stack K (only the base point may differ across the base stack C).'
+                    'stack K (only the base point may differ across the frame stack C).'
                 )
         paired_tree = stacking.apply_func_to_leaf_subtrees(
             tree, lambda t: (t.frame.data, t.variations.data), None)
-        frame_data, variations_data = tangent_operations.stack_base_stack(paired_tree)
+        frame_data, variations_data = tangent_operations.stack_frame_stack(paired_tree)
         return T3Tangent(bvf.T3Frame(*frame_data), bvf.T3Variations(*variations_data))
 
 
@@ -1052,7 +1052,7 @@ def _require_orthogonal_frame(frame: bvf.T3Frame, who: str) -> None:
     The tolerance is governed by the frame cores (the operand being checked); the check skips under any
     jax trace (jit == unsafe -- even on a closed-over concrete frame, via ``safety.is_tracing``'s global
     detection) and under ``safety.unsafe()``. The orthogonality residual is a ``@cached_property`` on
-    :py:class:`~...T3Frame`, so a fixed base reused across an inner loop is contracted once. ORTH (not
+    :py:class:`~...T3Frame`, so a fixed frame reused across an inner loop is contracted once. ORTH (not
     minimal) is the only numerical precondition for the manifold projections/retraction -- see
     ``docs/numerical_contract_catalog.md``.
     """
@@ -1060,8 +1060,8 @@ def _require_orthogonal_frame(frame: bvf.T3Frame, who: str) -> None:
         atol = safety.effective_rtol(frame.data)
         safety.require(
             frame.is_orthogonal(atol=atol).all(),   # per-element check -> require ALL stack elements orthogonal
-            '{} requires an orthogonal frame (the manifold geometry needs an orthonormal base to be '
-            'the Hilbert-Schmidt-orthogonal projection). Build the base with ManifoldGeometry.base / '
+            '{} requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be '
+            'the Hilbert-Schmidt-orthogonal projection). Build the frame with ManifoldGeometry.frame / '
             'T3Frame.random_orthogonal, or run in unsafe mode (safety.unsafe()).'.format(who))
 
 
@@ -1070,9 +1070,9 @@ class ManifoldGeometry:
 
     Optimization happens *on* ``M``: tangents live in ``T_xM`` with an orthonormal, gauged frame, the
     metric is Hilbert-Schmidt, and one moves by the manifold retraction (truncate the shifted
-    doubled-rank embedding back to the base ranks). A geometry is a *stateless* bundle of the three
+    doubled-rank embedding back to the frame ranks). A geometry is a *stateless* bundle of the three
     chart-level choices that distinguish this from the over-parametrized corewise geometry -- the
-    frame (:py:meth:`base`), the gauge projection ``Pi`` (:py:meth:`project`), and the retraction
+    frame (:py:meth:`frame`), the gauge projection ``Pi`` (:py:meth:`project`), and the retraction
     (:py:meth:`retract`) -- plus the manifold-only ambient projection and transport. The point lives
     in the caller (or the fitting model), not the geometry; use the module singleton :py:data:`MANIFOLD`.
 
@@ -1086,24 +1086,24 @@ class ManifoldGeometry:
     >>> import t3toolbox.manifold as t3m
     >>> np.random.seed(0)
     >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
-    >>> base = t3m.MANIFOLD.base(x)            # orthonormal frame at x
-    >>> print(base.is_orthogonal())
+    >>> frame = t3m.MANIFOLD.frame(x)            # orthonormal frame at x
+    >>> print(frame.is_orthogonal())
     True
-    >>> v = t3m.MANIFOLD.randn(base)           # a standard Gaussian on T_xM (gauged)
+    >>> v = t3m.MANIFOLD.randn(frame)           # a standard Gaussian on T_xM (gauged)
     >>> print(v.is_gauged())
     True
-    >>> y = t3m.MANIFOLD.retract(t3m.T3Tangent.zeros(base))   # retract the zero tangent == the base point
+    >>> y = t3m.MANIFOLD.retract(t3m.T3Tangent.zeros(frame))   # retract the zero tangent == the base point
     >>> print(bool(np.allclose(y.to_dense(), x.to_dense())))
     True
     """
 
-    def base(
+    def frame(
             self,
             x:  t3.TuckerTensorTrain,
     ) -> bvf.T3Frame:  # orthonormal frame (U, O, P, Q) at x
         """The orthonormal frame at ``x`` (the left/right/outer-orthogonal representation)."""
-        base, _ = bvf.t3_orthogonal_representations(x)
-        return base
+        frame, _ = bvf.t3_orthogonal_representations(x)
+        return frame
 
     def randn(
             self,
@@ -1133,20 +1133,20 @@ class ManifoldGeometry:
             shape:                  typ.Sequence[int],         # (N0,...,N(d-1))
             tucker_ranks:           typ.Sequence[int],         # (n0,...,n(d-1))
             tt_ranks:               typ.Sequence[int],         # (1,r1,...,r(d-1),1)
-            stack_shape:            typ.Tuple[int, ...] = (),  # base stack C (random base points)
+            stack_shape:            typ.Tuple[int, ...] = (),  # frame stack C (random base points)
             tangent_stack_shape:    typ.Tuple[int, ...] = (),  # tangent stack K
             use_jax:                bool = False,
     ) -> T3Tangent:  # gauged random tangent at a random orthogonal base point
-        """A gauged random tangent at a random orthogonal base point (random direction, random base)."""
-        base = bvf.T3Frame.random_orthogonal(shape, tucker_ranks, tt_ranks,
+        """A gauged random tangent at a random orthogonal base point (random direction, random frame)."""
+        frame = bvf.T3Frame.random_orthogonal(shape, tucker_ranks, tt_ranks,
                                              stack_shape=stack_shape, use_jax=use_jax)
-        return self.randn(base, stack_shape=tangent_stack_shape)
+        return self.randn(frame, stack_shape=tangent_stack_shape)
 
     def randn_like(
             self,
-            tangent:    T3Tangent,  # reuse its base + tangent stack K
-    ) -> T3Tangent:  # gauged random tangent at tangent's base
-        """A gauged random tangent at ``tangent``'s base, with ``tangent``'s tangent stack ``K``."""
+            tangent:    T3Tangent,  # reuse its frame + tangent stack K
+    ) -> T3Tangent:  # gauged random tangent at tangent's frame
+        """A gauged random tangent at ``tangent``'s frame, with ``tangent``'s tangent stack ``K``."""
         return self.randn(tangent.frame, stack_shape=tangent.tangent_stack_shape)
 
     def project(
@@ -1232,10 +1232,10 @@ class ManifoldGeometry:
     def retract(
             self,
             p:  T3Tangent,  # step (a tangent at the current point's frame)
-    ) -> t3.TuckerTensorTrain:  # retracted point on M, at p's base ranks
-        """Retract the step ``p`` to the manifold: shifted doubled-rank embedding, truncated to base ranks.
+    ) -> t3.TuckerTensorTrain:  # retracted point on M, at p's frame ranks
+        """Retract the step ``p`` to the manifold: shifted doubled-rank embedding, truncated to frame ranks.
 
-        Forms ``base point + p`` and truncates back to ``p``'s base ranks via the implicit T3-SVD
+        Forms ``base point + p`` and truncates back to ``p``'s frame ranks via the implicit T3-SVD
         (Algorithm 10). The current point is carried by ``p.frame`` (its orthonormal frame), so no
         separate point argument is needed.
 
@@ -1319,8 +1319,8 @@ class CorewiseGeometry:
     >>> import t3toolbox.manifold as t3m
     >>> np.random.seed(0)
     >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
-    >>> base = t3m.COREWISE.base(x)            # the (U, G, G, G) frame
-    >>> v = t3m.COREWISE.randn(base)           # raw randn cores (no gauge)
+    >>> frame = t3m.COREWISE.frame(x)            # the (U, G, G, G) frame
+    >>> v = t3m.COREWISE.randn(frame)           # raw randn cores (no gauge)
     >>> print(v.is_gauged())
     False
     >>> y = t3m.COREWISE.retract(v)            # additive: cores += v (a multilinear curve on M)
@@ -1332,7 +1332,7 @@ class CorewiseGeometry:
     True
     """
 
-    def base(
+    def frame(
             self,
             x:  t3.TuckerTensorTrain,
     ) -> bvf.T3Frame:  # the (U, G, G, G) non-orthonormal frame at x
@@ -1353,8 +1353,8 @@ class CorewiseGeometry:
     def randn_like(
             self,
             tangent:    T3Tangent,
-    ) -> T3Tangent:  # raw random tangent at tangent's base
-        """A raw random tangent at ``tangent``'s base, with ``tangent``'s tangent stack ``K``."""
+    ) -> T3Tangent:  # raw random tangent at tangent's frame
+        """A raw random tangent at ``tangent``'s frame, with ``tangent``'s tangent stack ``K``."""
         return self.randn(tangent.frame, stack_shape=tangent.tangent_stack_shape)
 
     def project(
@@ -1386,12 +1386,12 @@ class CorewiseGeometry:
 
     def retract(
             self,
-            p:  T3Tangent,  # step (a corewise tangent at base = (U, G, G, G))
+            p:  T3Tangent,  # step (a corewise tangent at frame = (U, G, G, G))
     ) -> t3.TuckerTensorTrain:  # additive retraction: cores += p
         """Additive retraction: add the variation cores to the point's cores (``cores += p``).
 
-        Recovers the point ``(U, G)`` from ``p.frame`` (which :py:meth:`base` built as ``(U, G, G, G)``)
-        and adds the variations. ``p`` must be a corewise tangent (a frame from :py:meth:`base`).
+        Recovers the point ``(U, G)`` from ``p.frame`` (which :py:meth:`frame` built as ``(U, G, G, G)``)
+        and adds the variations. ``p`` must be a corewise tangent (a frame from :py:meth:`frame`).
         """
         x_data = (p.frame.up_tucker_cores, p.frame.left_tt_cores)  # (U, G) from the (U, G, G, G) frame
         new = cw.corewise_add(x_data, p.variations.data)
@@ -1423,7 +1423,7 @@ if has_jax:
 
     # Register T3Tangent as a jax pytree with the frame as a LEAF: both the frame and the variations are
     # children (no aux_data). The frame flows as ordinary traced data, so a tangent that crosses a jit
-    # boundary does NOT recompile when the base changes -- the per-base recompile that frame-as-aux used to
+    # boundary does NOT recompile when the frame changes -- the per-frame recompile that frame-as-aux used to
     # force (and that broke jit-the-frontend Newton-CG) is gone. This works because the same-tangent-space
     # guard is now a NUMERICAL same-frame check (`safety.frames_equal_or_skip`, safe-mode + eager-only),
     # not object identity: it survives a jit round-trip (a reconstructed, value-equal frame passes) instead

@@ -47,9 +47,9 @@ Shapes use the library's standard symbols (see [`batching_and_stacking.md`](batc
 - `Nᵢ` — ambient mode dimensions; `nᵢ` — Tucker ranks; `rᵢ` — TT bond ranks.
 - `W` — the **probe / sample stack** (a batch of test-vector sets, or of multi-indices). Lives on the
   test vectors `ww` / the `index` array **only**, never on the cores.
-- `C` — the **base/core stack** (`= stack_shape`; a batch of whole T3s). Lives on every core.
-- `K` — the **tangent stack** (a batch of tangent directions at one base; tangent operations only).
-- Output stacking is always **base-inner**: `W + K + C` (probe stack outer, base stack inner).
+- `C` — the **frame/core stack** (`= stack_shape`; a batch of whole T3s). Lives on every core.
+- `K` — the **tangent stack** (a batch of tangent directions at one frame; tangent operations only).
+- Output stacking is always **base-inner**: `W + K + C` (probe stack outer, frame stack inner).
 
 ---
 
@@ -149,8 +149,8 @@ Notes:
   a gauged variation), so the same `.entries/.apply/.probe` names on `T3Tangent` mean "apply `𝒥`,"
   not "evaluate a point."
 - **The three transpose flavors** (see `docs/transposes.md`): **tangent** = Riemannian gradient (a
-  `T3Tangent`); **corewise** = gradient w.r.t. a base's cores (raw core-grad tuple, for Adam/L-BFGS);
-  **ambient** = the base-free adjoint on the full tensor space (CP factors, via `from_canonical`). All
+  `T3Tangent`); **corewise** = gradient w.r.t. a frame's cores (raw core-grad tuple, for Adam/L-BFGS);
+  **ambient** = the frame-free adjoint on the full tensor space (CP factors, via `from_canonical`). All
   three exist for all three ops (the earlier "probe has no ambient transpose" was true only before the
   transpose-grid redesign).
 - **Bare `𝒥` / `𝒥ᵀ`, no gauge projector.** The tangent methods are the bare single-sample Jacobian and
@@ -166,7 +166,7 @@ Notes:
 For the least-squares objective `f(X) = ½‖S(X) − b‖²` on the fixed-rank manifold, with `S` any of the
 three operations, the matrix-free Riemannian gradient
 `g = op_transpose(r, …, sum_over_probes=True).orthogonal_gauge_projection()` and the Gauss-Newton
-Hessian `H V = (𝒥ᵀ 𝒥 V)` gauged were checked end-to-end at an orthogonal, minimal-rank base:
+Hessian `H V = (𝒥ᵀ 𝒥 V)` gauged were checked end-to-end at an orthogonal, minimal-rank frame:
 
 | operator | adjoint `⟨r, 𝒥V⟩ = ⟨𝒥ᵀr, V⟩` | gradient vs finite-diff *along the retraction* | Gauss-Newton Hessian   |
 |----------|-------------------------------|-----------------------------------------------|------------------------|

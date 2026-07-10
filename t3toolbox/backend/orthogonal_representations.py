@@ -58,7 +58,7 @@ def orthogonal_representations(
         ],
     ],  # uniform
 ]:
-    '''Construct base-variation representations of TuckerTensorTrain with orthogonal base.
+    '''Construct frame-variation representations of TuckerTensorTrain with orthogonal frame.
 
     Sweeping orthogonalization (Algorithm 11) producing the representations (45)-(46), Appendix A.3,
     of Alger et al. (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141). NOTE: the
@@ -99,9 +99,9 @@ def orthogonal_representations(
         (up_tucker_cores, tt_variations),
     )
 
-    base = (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+    frame = (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
     variation = (tucker_variations, tt_variations)
-    return base, variation
+    return frame, variation
 
 
 def frame_orthogonality_residual(
@@ -151,7 +151,7 @@ def frame_consistency_residual(
             typ.Sequence[NDArray],  # right_tt_cores
         ],
 ) -> NDArray:  # shape = stack_shape (per stack element; scalar/0-d when unstacked)
-    '''Relative Frobenius mismatch between the left- and right-canonical reconstructions of the base
+    '''Relative Frobenius mismatch between the left- and right-canonical reconstructions of the frame
     point (``up`` over ``left`` vs ``up`` over ``right``), **per stack element**.
 
     Returns ``||left - right|| / max(1, ||right||)`` over the dense **mode** axes (the norm is reduced over

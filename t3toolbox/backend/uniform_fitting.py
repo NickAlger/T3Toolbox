@@ -16,7 +16,7 @@ fixed rank) and closes over them; the optimizer traces only the supercores. The 
 
   * the optimizer's **point** ``x`` is a bare supercore pair ``(tucker_sc, tt_sc)`` (masks closed over);
   * a **tangent** is a bare variation supercore pair ``(tucker_var_sc, tt_var_sc)``;
-  * a **base** is the full frame ``.data`` (``base`` returns it, ``project`` / ``retract`` consume it).
+  * a **frame** is the full frame ``.data`` (``frame`` returns it, ``project`` / ``retract`` consume it).
 
 Each closure re-attaches the held ``shape`` + masks at the boundary (building the full ``.data`` tuples
 the ``ufv_tangent_operations`` primitives expect) and strips them back to a bare pair on output, so
@@ -62,18 +62,18 @@ def uniform_manifold_ops(
     """The uniform **manifold** ``GeometryOps`` at ``x0``'s fixed rank -- the raw-supercore twin of
     :py:data:`t3toolbox.uniform_manifold.UNIFORM_MANIFOLD`.
 
-    ``base`` = the orthonormal frame (:py:func:`ufv_conversions.ut3_orthogonal_representations`); ``project``
+    ``frame`` = the orthonormal frame (:py:func:`ufv_conversions.ut3_orthogonal_representations`); ``project``
     = the gauge projection ``Pi``; ``retract`` = the manifold (doubled-rank, mask-truncated) retraction;
     ``inner`` = the masked coordinate dot (:py:func:`ufv_tangent_operations.ufv_corewise_inner`, the
     check-free twin of ``UNIFORM_MANIFOLD.inner`` -- equal to Hilbert-Schmidt on this orthonormal, gauged
     frame). All masks are loop-invariant at ``x0``'s rank and closed over here.
     """
     tucker_sc, _tt_sc, shape, base_masks = x0_data
-    n_stack = tucker_sc.ndim - 3     # |C| base stack (0 for a single tensor); tucker sc = (d,) + C + (nU, N)
+    n_stack = tucker_sc.ndim - 3     # |C| frame stack (0 for a single tensor); tucker sc = (d,) + C + (nU, N)
     _frame, var_data = ufv_conversions.ut3_orthogonal_representations(x0_data)
     var_masks = var_data[3]          # (up, down, left[:-1], right[1:]) -- fixed at this rank; for `inner`
 
-    def base(x_sc):                                          # (tk_sc, tt_sc) -> orthonormal frame .data
+    def frame(x_sc):                                          # (tk_sc, tt_sc) -> orthonormal frame .data
         return ufv_conversions.ut3_orthogonal_representations(
             (x_sc[0], x_sc[1], shape, base_masks))[0]
 
@@ -90,7 +90,7 @@ def uniform_manifold_ops(
         return ufv_tops.ufv_corewise_inner(
             (a_sc[0], a_sc[1], shape, var_masks), (b_sc[0], b_sc[1], shape, var_masks), n_stack)
 
-    return bopt.GeometryOps(base=base, project=project, retract=retract, inner=inner)
+    return bopt.GeometryOps(frame=frame, project=project, retract=retract, inner=inner)
 
 
 def uniform_corewise_ops(
@@ -99,7 +99,7 @@ def uniform_corewise_ops(
     """The uniform **corewise** ``GeometryOps`` at ``x0``'s fixed rank -- the raw-supercore twin of
     :py:data:`t3toolbox.uniform_manifold.UNIFORM_COREWISE`.
 
-    ``base`` = the ``(U, G, G, G)`` non-orthonormal frame (Section 6.3 ``(P, Q, O) -> G``); ``project`` =
+    ``frame`` = the ``(U, G, G, G)`` non-orthonormal frame (Section 6.3 ``(P, Q, O) -> G``); ``project`` =
     the identity (no gauge on the core space); ``retract`` = the additive retraction (``cores += var``);
     ``inner`` = the masked coordinate dot (the Euclidean metric here). Masks are loop-invariant and closed
     over.
@@ -108,7 +108,7 @@ def uniform_corewise_ops(
     n_stack = tucker_sc.ndim - 3
     var_masks = (tucker_mask, tucker_mask, tt_mask[:-1], tt_mask[1:])   # _variation_masks_of the (U,G,G,G) frame
 
-    def base(x_sc):                                         # (tk_sc, tt_sc) -> the (U, G, G, G) frame .data
+    def frame(x_sc):                                         # (tk_sc, tt_sc) -> the (U, G, G, G) frame .data
         return (x_sc[0], x_sc[1], x_sc[1], x_sc[1], shape,
                 (tucker_mask, tucker_mask, tt_mask, tt_mask))
 
@@ -123,7 +123,7 @@ def uniform_corewise_ops(
         return ufv_tops.ufv_corewise_inner(
             (a_sc[0], a_sc[1], shape, var_masks), (b_sc[0], b_sc[1], shape, var_masks), n_stack)
 
-    return bopt.GeometryOps(base=base, project=project, retract=retract, inner=inner)
+    return bopt.GeometryOps(frame=frame, project=project, retract=retract, inner=inner)
 
 
 def uniform_geometry_ops(
@@ -147,10 +147,10 @@ def uniform_geometry_ops(
 # frame and the (U,G,G,G) corewise frame), so the kind is geometry-agnostic; only `point_forward` (the
 # S(x) op on the plain-UT3 point) closes over the plain-UT3 shape + edge masks.
 # --------------------------------------------------------------------------------------------------
-def _var_masks_from_base(base_data):
+def _var_masks_from_frame(frame_data):
     """The variation masks of a frame: the frame's gauge-shifted rank masks
     ``(up, down, frame_left[:-1], frame_right[1:])`` (mirrors ``UT3Variations._variation_masks_of``)."""
-    up_mask, down_mask, frame_left_mask, frame_right_mask = base_data[5]
+    up_mask, down_mask, frame_left_mask, frame_right_mask = frame_data[5]
     return (up_mask, down_mask, frame_left_mask[:-1], frame_right_mask[1:])
 
 
@@ -161,10 +161,10 @@ def uniform_apply_kind(
     _tk, _tt, shape, base_masks = x0_data
     return dc.replace(
         bfit.APPLY,
-        precompute=lambda base_data, ww: ufv_sampling.ut3tangent_precompute_apply_base_sweep(base_data, ww),
-        forward=lambda v_sc, ww, base_data, sweep: ufv_sampling.ut3tangent_apply_jacobian_from_sweep(
-            (v_sc[0], v_sc[1], base_data[4], _var_masks_from_base(base_data)), sweep),
-        transpose=lambda r, ww, base_data, sweep: ufv_sampling.ut3tangent_apply_transpose_from_sweep(
+        precompute=lambda frame_data, ww: ufv_sampling.ut3tangent_precompute_apply_frame_sweep(frame_data, ww),
+        forward=lambda v_sc, ww, frame_data, sweep: ufv_sampling.ut3tangent_apply_jacobian_from_sweep(
+            (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep),
+        transpose=lambda r, ww, frame_data, sweep: ufv_sampling.ut3tangent_apply_transpose_from_sweep(
             r, sweep, sum_over_probes=True),
         point_forward=lambda x_sc, ww: ut3_sampling.ut3_apply((x_sc[0], x_sc[1], shape, base_masks), ww),
         take=_ptake_apply,
@@ -178,10 +178,10 @@ def uniform_entries_kind(
     _tk, _tt, shape, base_masks = x0_data
     return dc.replace(
         bfit.ENTRIES,
-        precompute=lambda base_data, index: ufv_sampling.ut3tangent_precompute_entries_base_sweep(base_data, index),
-        forward=lambda v_sc, index, base_data, sweep: ufv_sampling.ut3tangent_entries_jacobian_from_sweep(
-            (v_sc[0], v_sc[1], base_data[4], _var_masks_from_base(base_data)), sweep),
-        transpose=lambda r, index, base_data, sweep: ufv_sampling.ut3tangent_entries_transpose_from_sweep(
+        precompute=lambda frame_data, index: ufv_sampling.ut3tangent_precompute_entries_frame_sweep(frame_data, index),
+        forward=lambda v_sc, index, frame_data, sweep: ufv_sampling.ut3tangent_entries_jacobian_from_sweep(
+            (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep),
+        transpose=lambda r, index, frame_data, sweep: ufv_sampling.ut3tangent_entries_transpose_from_sweep(
             r, sweep, sum_over_probes=True),
         point_forward=lambda x_sc, index: ut3_sampling.ut3_entries((x_sc[0], x_sc[1], shape, base_masks), index),
         take=_ptake_entries,
@@ -195,10 +195,10 @@ def uniform_probe_kind(
     _tk, _tt, shape, base_masks = x0_data
     return dc.replace(
         bfit.PROBE,
-        precompute=lambda base_data, ww: ufv_sampling.ut3tangent_precompute_probe_base_sweep(base_data, ww),
-        forward=lambda v_sc, ww, base_data, sweep: ufv_sampling.ut3tangent_probe_jacobian_from_sweep(
-            (v_sc[0], v_sc[1], base_data[4], _var_masks_from_base(base_data)), sweep),
-        transpose=lambda r, ww, base_data, sweep: ufv_sampling.ut3tangent_probe_transpose_from_sweep(
+        precompute=lambda frame_data, ww: ufv_sampling.ut3tangent_precompute_probe_frame_sweep(frame_data, ww),
+        forward=lambda v_sc, ww, frame_data, sweep: ufv_sampling.ut3tangent_probe_jacobian_from_sweep(
+            (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep),
+        transpose=lambda r, ww, frame_data, sweep: ufv_sampling.ut3tangent_probe_transpose_from_sweep(
             r, sweep, sum_over_probes=True),
         point_forward=lambda x_sc, ww: ut3_sampling.ut3_probe(ww, (x_sc[0], x_sc[1], shape, base_masks)),
         take=_ptake_probe,
@@ -236,11 +236,11 @@ def uniform_apply_derivatives_kind(
     aw = bfit._make_order_weight(weight, order)
     return dc.replace(
         bfit.apply_derivatives_kind(order, weight),
-        precompute=lambda base_data, s: ufv_sampling.ut3tangent_precompute_apply_base_sweep_jets(
-            base_data, s[0], s[1], order),
-        forward=lambda v_sc, s, base_data, sweep: ufv_sampling.ut3tangent_apply_jacobian_derivatives_from_sweep(
-            (v_sc[0], v_sc[1], base_data[4], _var_masks_from_base(base_data)), sweep, order),
-        transpose=lambda r, s, base_data, sweep: ufv_sampling.ut3tangent_apply_transpose_derivatives_from_sweep(
+        precompute=lambda frame_data, s: ufv_sampling.ut3tangent_precompute_apply_frame_sweep_jets(
+            frame_data, s[0], s[1], order),
+        forward=lambda v_sc, s, frame_data, sweep: ufv_sampling.ut3tangent_apply_jacobian_derivatives_from_sweep(
+            (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep, order),
+        transpose=lambda r, s, frame_data, sweep: ufv_sampling.ut3tangent_apply_transpose_derivatives_from_sweep(
             aw(r, 2), sweep, order, sum_over_probes=True),
         point_forward=lambda x_sc, s: ut3_sampling.ut3_apply_derivatives(
             s[0], s[1], (x_sc[0], x_sc[1], shape, base_masks), order),
@@ -259,11 +259,11 @@ def uniform_entries_derivatives_kind(
     aw = bfit._make_order_weight(weight, order)
     return dc.replace(
         bfit.entries_derivatives_kind(order, weight),
-        precompute=lambda base_data, s: ufv_sampling.ut3tangent_precompute_entries_base_sweep_jets(
-            base_data, s[0], s[1], order),
-        forward=lambda v_sc, s, base_data, sweep: ufv_sampling.ut3tangent_entries_jacobian_derivatives_from_sweep(
-            (v_sc[0], v_sc[1], base_data[4], _var_masks_from_base(base_data)), sweep, order),
-        transpose=lambda r, s, base_data, sweep: ufv_sampling.ut3tangent_entries_transpose_derivatives_from_sweep(
+        precompute=lambda frame_data, s: ufv_sampling.ut3tangent_precompute_entries_frame_sweep_jets(
+            frame_data, s[0], s[1], order),
+        forward=lambda v_sc, s, frame_data, sweep: ufv_sampling.ut3tangent_entries_jacobian_derivatives_from_sweep(
+            (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep, order),
+        transpose=lambda r, s, frame_data, sweep: ufv_sampling.ut3tangent_entries_transpose_derivatives_from_sweep(
             aw(r, 2), sweep, order, sum_over_probes=True),
         point_forward=lambda x_sc, s: ut3_sampling.ut3_entries_derivatives(
             s[0], s[1], (x_sc[0], x_sc[1], shape, base_masks), order),
@@ -287,11 +287,11 @@ def uniform_probe_derivatives_kind(
     aw = bfit._make_order_weight(weight, order, order_axis=1)   # packed probe: order axis is 1 (after d)
     return dc.replace(
         bfit.probe_derivatives_kind(order, weight),
-        precompute=lambda base_data, s: ufv_sampling.ut3tangent_precompute_probe_base_sweep_jets(
-            base_data, s[0], s[1], order),
-        forward=lambda v_sc, s, base_data, sweep: ufv_sampling.ut3tangent_probe_jacobian_derivatives_from_sweep(
-            (v_sc[0], v_sc[1], base_data[4], _var_masks_from_base(base_data)), sweep, order),
-        transpose=lambda r, s, base_data, sweep: ufv_sampling.ut3tangent_probe_transpose_derivatives_from_sweep(
+        precompute=lambda frame_data, s: ufv_sampling.ut3tangent_precompute_probe_frame_sweep_jets(
+            frame_data, s[0], s[1], order),
+        forward=lambda v_sc, s, frame_data, sweep: ufv_sampling.ut3tangent_probe_jacobian_derivatives_from_sweep(
+            (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep, order),
+        transpose=lambda r, s, frame_data, sweep: ufv_sampling.ut3tangent_probe_transpose_derivatives_from_sweep(
             aw(r, 2), sweep, order, sum_over_probes=True),
         sumsq=lambda out, n_w: bfit.sumsq_over_probes(aw(out, 1), n_w + 1),
         point_forward=lambda x_sc, s: ut3_sampling.ut3_probe_derivatives(
@@ -395,12 +395,12 @@ def uniform_minimal(
     rank dropped (e.g. a TT bond rank exceeding what the Tucker ranks can realize). A no-op (returns ``x0``
     unchanged) when it is already minimal, which is the common case.
 
-    **Uniform fitting requires a minimal base** (:py:func:`uniform_least_squares_problem`). The reason is
-    structural: from a *non*-minimal base the manifold retraction truncates to the realizable (minimal)
+    **Uniform fitting requires a minimal frame** (:py:func:`uniform_least_squares_problem`). The reason is
+    structural: from a *non*-minimal frame the manifold retraction truncates to the realizable (minimal)
     rank, which no longer matches the fixed masks the optimizer holds loop-invariant -- so the next step's
     masking desyncs and crashes. The ragged layer tolerates non-minimal ranks (per-core shapes adapt); the
     uniform layer cannot (its masks are fixed), so it must start minimal and stay minimal (from a minimal
-    base the retraction provably preserves the ranks). Reduction: ``t3svd`` (-> left-orthogonal) then a
+    frame the retraction provably preserves the ranks). Reduction: ``t3svd`` (-> left-orthogonal) then a
     ``'right_to_left'`` :py:meth:`~t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.rank_adjustment_sweep`
     (-> minimal, right-orthogonal). Same-tensor, done once at setup (eager)."""
     if bool(np.all(x0.has_minimal_ranks)):
@@ -412,7 +412,7 @@ def uniform_minimal(
 def uniform_least_squares_problem(
         geometry:  str,        # 'manifold' / 'corewise'
         kind_name: str,        # 'apply' / 'entries' / 'probe' (+ '_derivatives')
-        x0:        typ.Any,    # UniformTuckerTensorTrain -- MINIMAL-rank base (see uniform_minimal); masks captured
+        x0:        typ.Any,    # UniformTuckerTensorTrain -- MINIMAL-rank frame (see uniform_minimal); masks captured
         sample:    typ.Any,    # ww / index / (ww, pp) / (index, pp) -- ragged or packed (packed once here)
         data:      typ.Any,    # observed S(x_true): scalar array (apply/entries) or a d-list/packed (probe)
         order:     typ.Optional[int]                 = None,  # derivative kinds only (required)
@@ -443,13 +443,13 @@ def uniform_least_squares_problem(
     >>> ww = [np.random.randn(20, n) for n in (6, 6, 6)]
     >>> data = np.random.randn(20)
 
-    A **non-minimal** base -- here TT bond rank 3 is unrealizable for a 2x2x2 central Tucker core (its TT
+    A **non-minimal** frame -- here TT bond rank 3 is unrealizable for a 2x2x2 central Tucker core (its TT
     bonds are at most 2) -- is rejected up front with a clear error:
 
     >>> x0 = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((6, 6, 6), (2, 2, 2), (1, 3, 3, 1)))
     >>> uf.uniform_least_squares_problem('manifold', 'apply', x0, ww, data)   # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
-    ValueError: uniform_least_squares_problem requires a minimal-rank base x0 ...
+    ValueError: uniform_least_squares_problem requires a minimal-rank frame x0 ...
 
     :py:func:`uniform_minimal` reduces it to minimal ranks (the SAME tensor), and then it works:
 
@@ -463,7 +463,7 @@ def uniform_least_squares_problem(
     """
     if not bool(np.all(x0.has_minimal_ranks)):
         raise ValueError(
-            "uniform_least_squares_problem requires a minimal-rank base x0 (a non-minimal nominal rank is "
+            "uniform_least_squares_problem requires a minimal-rank frame x0 (a non-minimal nominal rank is "
             "unrealizable and would desync the retraction from the fixed masks mid-optimization). Reduce it "
             "first: x0 = uniform_minimal(x0).")
     x0_data = x0.data

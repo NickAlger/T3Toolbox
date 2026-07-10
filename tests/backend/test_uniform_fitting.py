@@ -51,21 +51,21 @@ class TestUniformGeometryOps(unittest.TestCase):
     def _compare_ops(self, geom_front, ops, x):
         """Backend ops (on bare supercore pairs) vs the frontend geometry (on typed objects), at point x."""
         x_sc = (x.data[0], x.data[1])
-        base_front, base_back = geom_front.base(x), ops.base(x_sc)
-        self.assertTrue(_frame_close(base_front.data, base_back), 'base')
+        frame_front, frame_back = geom_front.frame(x), ops.frame(x_sc)
+        self.assertTrue(_frame_close(frame_front.data, frame_back), 'frame')
 
-        v1 = ubv.UT3Variations.randn_like(base_front)     # ungauged variations at the base
-        v2 = ubv.UT3Variations.randn_like(base_front)
+        v1 = ubv.UT3Variations.randn_like(frame_front)     # ungauged variations at the frame
+        v2 = ubv.UT3Variations.randn_like(frame_front)
 
-        proj_front = geom_front.project(ut3m.UT3Tangent(base_front, v1)).variations.supercores
-        self.assertTrue(_sc_close(proj_front, ops.project(base_back, v1.supercores)), 'project')
+        proj_front = geom_front.project(ut3m.UT3Tangent(frame_front, v1)).variations.supercores
+        self.assertTrue(_sc_close(proj_front, ops.project(frame_back, v1.supercores)), 'project')
 
-        retr_front = geom_front.retract(ut3m.UT3Tangent(base_front, v1))   # UniformTuckerTensorTrain
+        retr_front = geom_front.retract(ut3m.UT3Tangent(frame_front, v1))   # UniformTuckerTensorTrain
         self.assertTrue(_sc_close((retr_front.data[0], retr_front.data[1]),
-                                  ops.retract(base_back, v1.supercores)), 'retract')
+                                  ops.retract(frame_back, v1.supercores)), 'retract')
 
         # GeometryOps.inner is the check-free COORDINATE dot == UT3Tangent.corewise_inner (not HS)
-        inner_front = float(ut3m.UT3Tangent(base_front, v1).corewise_inner(ut3m.UT3Tangent(base_front, v2)))
+        inner_front = float(ut3m.UT3Tangent(frame_front, v1).corewise_inner(ut3m.UT3Tangent(frame_front, v2)))
         self.assertTrue(np.isclose(inner_front, float(ops.inner(v1.supercores, v2.supercores))), 'inner')
 
     def test_ops_match_frontend(self):
@@ -76,7 +76,7 @@ class TestUniformGeometryOps(unittest.TestCase):
 
     def test_masks_loop_invariant_across_points(self):
         # The factory captures the fixed-rank masks at x0; the ops must still match the frontend at a
-        # DIFFERENT same-rank point (the base supercores change every optimizer step; the masks do not).
+        # DIFFERENT same-rank point (the frame supercores change every optimizer step; the masks do not).
         for name, (geom_front, factory) in _GEOMS.items():
             with self.subTest(geometry=name):
                 x0, x = _uniform_x(0), _uniform_x(1)
@@ -93,11 +93,11 @@ class TestUniformSamplingKind(unittest.TestCase):
     def setUp(self):
         np.random.seed(0)
         self.x = _uniform_x(0)
-        self.base = ut3m.UNIFORM_MANIFOLD.base(self.x)
-        self.var = ubv.UT3Variations.randn_like(self.base)
-        self.base_r = self.base.to_t3frame()               # equivalent ragged frame
+        self.frame = ut3m.UNIFORM_MANIFOLD.frame(self.x)
+        self.var = ubv.UT3Variations.randn_like(self.frame)
+        self.frame_r = self.frame.to_t3frame()               # equivalent ragged frame
         self.var_r = self.var.to_t3variations()            # equivalent ragged variation
-        self.vmask = uf._var_masks_from_base(self.base.data)
+        self.vmask = uf._var_masks_from_frame(self.frame.data)
 
     def _sample(self, is_index, W=15):
         shape = _STRUCT[0]
@@ -110,10 +110,10 @@ class TestUniformSamplingKind(unittest.TestCase):
             with self.subTest(kind=name):
                 kind_u = uf.uniform_sampling_kind(name, self.x.data)
                 sample = self._sample(is_index)
-                sw_u = kind_u.precompute(self.base.data, sample)
-                sw_r = kind_r.precompute(self.base_r.data, sample)
-                fu = kind_u.forward(self.var.supercores, sample, self.base.data, sw_u)
-                fr = kind_r.forward(self.var_r.data, sample, self.base_r.data, sw_r)
+                sw_u = kind_u.precompute(self.frame.data, sample)
+                sw_r = kind_r.precompute(self.frame_r.data, sample)
+                fu = kind_u.forward(self.var.supercores, sample, self.frame.data, sw_u)
+                fr = kind_r.forward(self.var_r.data, sample, self.frame_r.data, sw_r)
                 if name == 'probe':
                     fu = uops.unpack_vectors(fu, _STRUCT[0])   # the split-seam forward is PACKED; unpack to compare
                     self.assertTrue(all(np.allclose(np.asarray(a), np.asarray(b)) for a, b in zip(fu, fr)))
@@ -125,7 +125,7 @@ class TestUniformSamplingKind(unittest.TestCase):
             with self.subTest(kind=name):
                 kind_u = uf.uniform_sampling_kind(name, self.x.data)
                 sample = self._sample(is_index)
-                x_r = self.base_r.to_t3()                   # the ragged point (== x)
+                x_r = self.frame_r.to_t3()                   # the ragged point (== x)
                 su = kind_u.point_forward((self.x.data[0], self.x.data[1]), sample)
                 sr = kind_r.point_forward(x_r.data, sample)
                 if name == 'probe':
@@ -138,12 +138,12 @@ class TestUniformSamplingKind(unittest.TestCase):
             with self.subTest(kind=name):
                 kind_u = uf.uniform_sampling_kind(name, self.x.data)
                 sample = self._sample(is_index)
-                sw = kind_u.precompute(self.base.data, sample)
-                fwd = kind_u.forward(self.var.supercores, sample, self.base.data, sw)
+                sw = kind_u.precompute(self.frame.data, sample)
+                fwd = kind_u.forward(self.var.supercores, sample, self.frame.data, sw)
                 # probe forward is PACKED (d,)+W+C+(N,); a packed random residual exercises the packed path.
                 r = np.random.randn(*np.asarray(fwd).shape)
                 lhs = float(np.sum(r * np.asarray(fwd)))
-                jt = kind_u.transpose(r, sample, self.base.data, sw)     # bare (dU, dG)
+                jt = kind_u.transpose(r, sample, self.frame.data, sw)     # bare (dU, dG)
                 rhs = float(ubto.ufv_corewise_inner(
                     (jt[0], jt[1], _STRUCT[0], self.vmask), self.var.data, 0))
                 self.assertTrue(np.isclose(lhs, rhs), f"{name}: {lhs} != {rhs}")
@@ -154,15 +154,15 @@ class TestUniformSamplingKind(unittest.TestCase):
             with self.subTest(kind=name):
                 kind_u = uf.uniform_sampling_kind(name, self.x.data)
                 sample = self._sample(is_index)
-                sw = kind_u.precompute(self.base.data, sample)
-                clean = kind_u.forward(self.var.supercores, sample, self.base.data, sw)
+                sw = kind_u.precompute(self.frame.data, sample)
+                clean = kind_u.forward(self.var.supercores, sample, self.frame.data, sw)
                 V = self.var
                 tkv, ttv = V.supercores
                 m_tkv, m_ttv = ubv.UT3Variations(np.ones_like(tkv), np.ones_like(ttv),
                                                  V.shape, V.masks).apply_masks().supercores
                 ck_tkv, ck_ttv = V.apply_masks().supercores
                 garb = (ck_tkv + 1e6 * (1.0 - m_tkv), ck_ttv + 1e6 * (1.0 - m_ttv))
-                dirty = kind_u.forward(garb, sample, self.base.data, sw)
+                dirty = kind_u.forward(garb, sample, self.frame.data, sw)
                 self.assertTrue(np.allclose(np.asarray(clean), np.asarray(dirty)))   # scalar / packed array
 
 
@@ -218,11 +218,11 @@ class TestUniformDerivativeSamplingKind(unittest.TestCase):
     def setUp(self):
         np.random.seed(0)
         self.x = _uniform_x(0)
-        self.base = ut3m.UNIFORM_MANIFOLD.base(self.x)
-        self.var = ubv.UT3Variations.randn_like(self.base)
-        self.base_r = self.base.to_t3frame()
+        self.frame = ut3m.UNIFORM_MANIFOLD.frame(self.x)
+        self.var = ubv.UT3Variations.randn_like(self.frame)
+        self.frame_r = self.frame.to_t3frame()
         self.var_r = self.var.to_t3variations()
-        self.vmask = uf._var_masks_from_base(self.base.data)
+        self.vmask = uf._var_masks_from_frame(self.frame.data)
         self.aw = bfit._make_order_weight(self._WEIGHT, self._ORDER)                    # order-leading (apply/entries)
         self.aw_packed = bfit._make_order_weight(self._WEIGHT, self._ORDER, order_axis=1)  # packed probe: order at axis 1
 
@@ -242,10 +242,10 @@ class TestUniformDerivativeSamplingKind(unittest.TestCase):
             with self.subTest(kind=name):
                 kind_u, kind_r = self._kinds(name, factory)
                 sample = self._sample(is_index)
-                fu = kind_u.forward(self.var.supercores, sample, self.base.data,
-                                    kind_u.precompute(self.base.data, sample))
-                fr = kind_r.forward(self.var_r.data, sample, self.base_r.data,
-                                    kind_r.precompute(self.base_r.data, sample))
+                fu = kind_u.forward(self.var.supercores, sample, self.frame.data,
+                                    kind_u.precompute(self.frame.data, sample))
+                fr = kind_r.forward(self.var_r.data, sample, self.frame_r.data,
+                                    kind_r.precompute(self.frame_r.data, sample))
                 if name == 'probe_derivatives':
                     fu = uops.unpack_vectors(fu, _STRUCT[0])   # the split-seam forward is PACKED; unpack to compare
                     self.assertTrue(all(np.allclose(np.asarray(a), np.asarray(b)) for a, b in zip(fu, fr)))
@@ -257,7 +257,7 @@ class TestUniformDerivativeSamplingKind(unittest.TestCase):
             with self.subTest(kind=name):
                 kind_u, kind_r = self._kinds(name, factory)
                 sample = self._sample(is_index)
-                x_r = self.base_r.to_t3()
+                x_r = self.frame_r.to_t3()
                 pu = kind_u.point_forward((self.x.data[0], self.x.data[1]), sample)
                 pr = kind_r.point_forward(x_r.data, sample)
                 if name == 'probe_derivatives':
@@ -270,8 +270,8 @@ class TestUniformDerivativeSamplingKind(unittest.TestCase):
             with self.subTest(kind=name):
                 kind_u, _ = self._kinds(name, factory)
                 sample = self._sample(is_index)
-                sw = kind_u.precompute(self.base.data, sample)
-                fwd = kind_u.forward(self.var.supercores, sample, self.base.data, sw)
+                sw = kind_u.precompute(self.frame.data, sample)
+                fwd = kind_u.forward(self.var.supercores, sample, self.frame.data, sw)
                 # transpose applies the omega**2 weight aw(r, 2) internally -> the identity is
                 # <aw(r,2), Jv> = <J^T aw(r,2), v>. probe_derivatives forward/residual are PACKED with the
                 # order axis at 1 (after d), so its omega uses order_axis=1 (aw_packed).
@@ -281,7 +281,7 @@ class TestUniformDerivativeSamplingKind(unittest.TestCase):
                 else:
                     r = np.random.randn(*np.asarray(fwd).shape)
                     lhs = float(np.sum(np.asarray(self.aw(r, 2)) * np.asarray(fwd)))
-                jt = kind_u.transpose(r, sample, self.base.data, sw)
+                jt = kind_u.transpose(r, sample, self.frame.data, sw)
                 rhs = float(ubto.ufv_corewise_inner((jt[0], jt[1], _STRUCT[0], self.vmask), self.var.data, 0))
                 self.assertTrue(np.isclose(lhs, rhs), f"{name}: {lhs} != {rhs}")
 
@@ -290,15 +290,15 @@ class TestUniformDerivativeSamplingKind(unittest.TestCase):
             with self.subTest(kind=name):
                 kind_u, _ = self._kinds(name, factory)
                 sample = self._sample(is_index)
-                sw = kind_u.precompute(self.base.data, sample)
-                clean = kind_u.forward(self.var.supercores, sample, self.base.data, sw)
+                sw = kind_u.precompute(self.frame.data, sample)
+                clean = kind_u.forward(self.var.supercores, sample, self.frame.data, sw)
                 V = self.var
                 tkv, ttv = V.supercores
                 m_tkv, m_ttv = ubv.UT3Variations(np.ones_like(tkv), np.ones_like(ttv),
                                                  V.shape, V.masks).apply_masks().supercores
                 ck_tkv, ck_ttv = V.apply_masks().supercores
                 garb = (ck_tkv + 1e6 * (1.0 - m_tkv), ck_ttv + 1e6 * (1.0 - m_ttv))
-                dirty = kind_u.forward(garb, sample, self.base.data, sw)
+                dirty = kind_u.forward(garb, sample, self.frame.data, sw)
                 self.assertTrue(np.allclose(np.asarray(clean), np.asarray(dirty)))   # scalar / packed array
 
 
@@ -316,10 +316,10 @@ class TestUniformProblem(unittest.TestCase):
         self.x0 = t3.TuckerTensorTrain.randn(*_STRUCT)
         self.ux0 = ut3.UniformTuckerTensorTrain.from_t3(self.x0)
         self.W = 15
-        # per-geometry trial tangent at x0's base (ragged .data + its uniform supercores)
+        # per-geometry trial tangent at x0's frame (ragged .data + its uniform supercores)
         self.trial = {}
         for name, _bg, fg in self._GEOMS:
-            p = fg.randn(fg.base(self.x0))
+            p = fg.randn(fg.frame(self.x0))
             self.trial[name] = (p.variations.data,
                                 ubv.UT3Variations.from_t3variations(p.variations).supercores)
 
@@ -424,10 +424,10 @@ class TestUniformOptimizers(unittest.TestCase):
 
 
 class TestUniformMinimalRank(unittest.TestCase):
-    """U5.6: uniform fitting requires a minimal-rank base (from a non-minimal base the retraction truncates
+    """U5.6: uniform fitting requires a minimal-rank frame (from a non-minimal frame the retraction truncates
     to the realizable rank and desyncs from the fixed masks -> a mid-loop crash). uniform_minimal reduces
     to it (same tensor; a no-op if already minimal); uniform_least_squares_problem rejects a non-minimal x0
-    with a clear error up front; the optimizer runs cleanly from the reduced base."""
+    with a clear error up front; the optimizer runs cleanly from the reduced frame."""
     def setUp(self):
         np.random.seed(0)
         self.ww = [np.random.randn(30, n) for n in (6, 6, 6)]

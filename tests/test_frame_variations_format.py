@@ -47,10 +47,10 @@ def _good_frame_cores():
     return U, D, L, R
 
 
-def _slice_frame(base, idx):
-    """The unstacked T3Frame at stack index ``idx`` (idx=() returns the whole base)."""
+def _slice_frame(frame, idx):
+    """The unstacked T3Frame at stack index ``idx`` (idx=() returns the whole frame)."""
     s = lambda C: np.asarray(C)[idx]
-    up, down, left, right = base.data
+    up, down, left, right = frame.data
     return bvf.T3Frame(tuple(map(s, up)), tuple(map(s, down)), tuple(map(s, left)), tuple(map(s, right)))
 
 
@@ -61,7 +61,7 @@ def _slice_variations(var, idx):
 
 
 class TestFrameVariationsFormat(unittest.TestCase):
-    base_structures = [
+    frame_structures = [
         #  (shape,             up_ranks,      down_ranks,    left_ranks,        right_ranks)
         ((14,),                (4,),          (3,),          (1, 1),            (1, 1)),
         ((14, 15),             (4, 5),        (3, 4),        (1, 2, 1),         (1, 2, 1)),
@@ -83,31 +83,31 @@ class TestFrameVariationsFormat(unittest.TestCase):
         return tucker_variation_shapes, tt_variation_shapes
 
     def test_t3frame_properties(self):
-        for BASE_STRUCTURE in self.base_structures:
-            shape, up_ranks, down_ranks, left_ranks, right_ranks = BASE_STRUCTURE
+        for FRAME_STRUCTURE in self.frame_structures:
+            shape, up_ranks, down_ranks, left_ranks, right_ranks = FRAME_STRUCTURE
             for STACK_SHAPE in self.stack_shapes:
-                structure = BASE_STRUCTURE + (STACK_SHAPE,)
-                with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
-                    base, _ = _random_frame_variations(structure)
+                structure = FRAME_STRUCTURE + (STACK_SHAPE,)
+                with self.subTest(FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    frame, _ = _random_frame_variations(structure)
 
-                    self.assertEqual(len(shape), base.d)
-                    self.assertEqual(shape, base.shape)
-                    self.assertEqual(up_ranks, base.up_ranks)
-                    self.assertEqual(down_ranks, base.down_ranks)
-                    self.assertEqual(left_ranks, base.left_ranks)
-                    self.assertEqual(right_ranks, base.right_ranks)
-                    self.assertEqual(STACK_SHAPE, base.stack_shape)
-                    self.assertEqual(structure, base.structure)
-                    self.assertEqual(self._expected_variation_shapes(structure), base.variation_shapes)
-                    self.assertEqual((base.up_tucker_cores, base.down_tt_cores,
-                                      base.left_tt_cores, base.right_tt_cores), base.data)
+                    self.assertEqual(len(shape), frame.d)
+                    self.assertEqual(shape, frame.shape)
+                    self.assertEqual(up_ranks, frame.up_ranks)
+                    self.assertEqual(down_ranks, frame.down_ranks)
+                    self.assertEqual(left_ranks, frame.left_ranks)
+                    self.assertEqual(right_ranks, frame.right_ranks)
+                    self.assertEqual(STACK_SHAPE, frame.stack_shape)
+                    self.assertEqual(structure, frame.structure)
+                    self.assertEqual(self._expected_variation_shapes(structure), frame.variation_shapes)
+                    self.assertEqual((frame.up_tucker_cores, frame.down_tt_cores,
+                                      frame.left_tt_cores, frame.right_tt_cores), frame.data)
 
     def test_t3variations_properties(self):
-        for BASE_STRUCTURE in self.base_structures:
-            shape, up_ranks, down_ranks, left_ranks, right_ranks = BASE_STRUCTURE
+        for FRAME_STRUCTURE in self.frame_structures:
+            shape, up_ranks, down_ranks, left_ranks, right_ranks = FRAME_STRUCTURE
             for STACK_SHAPE in self.stack_shapes:
-                structure = BASE_STRUCTURE + (STACK_SHAPE,)
-                with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                structure = FRAME_STRUCTURE + (STACK_SHAPE,)
+                with self.subTest(FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
                     _, variations = _random_frame_variations(structure)
 
                     self.assertEqual(len(shape), variations.d)
@@ -159,118 +159,118 @@ class TestFrameVariationsFormat(unittest.TestCase):
 
     def test_check_fv_pair(self):
         structure = ((14, 15, 16), (4, 5, 6), (3, 4, 5), (1, 2, 3, 1), (1, 3, 2, 1), ())
-        base, variations = _random_frame_variations(structure)
-        bvf.check_fv_pair(base, variations)  # consistent: must not raise
+        frame, variations = _random_frame_variations(structure)
+        bvf.check_fv_pair(frame, variations)  # consistent: must not raise
 
         V, H = variations.tucker_variations, variations.tt_variations
 
-        # Tucker variation does not fit a base hole
+        # Tucker variation does not fit a frame hole
         badV = (randn(V[0].shape[-2] + 1, V[0].shape[-1]),) + V[1:]
         with self.assertRaises(ValueError):
-            bvf.check_fv_pair(base, bvf.T3Variations(badV, H))
+            bvf.check_fv_pair(frame, bvf.T3Variations(badV, H))
 
-        # TT variation does not fit a base hole
+        # TT variation does not fit a frame hole
         badH = (randn(H[0].shape[-3] + 1, H[0].shape[-2], H[0].shape[-1]),) + H[1:]
         with self.assertRaises(ValueError):
-            bvf.check_fv_pair(base, bvf.T3Variations(V, badH))
+            bvf.check_fv_pair(frame, bvf.T3Variations(V, badH))
 
     def test_check_fv_pair_stacking(self):
-        # A variation may carry extra OUTER tangent-stack axes V; consistency requires the base
+        # A variation may carry extra OUTER tangent-stack axes V; consistency requires the frame
         # stack G to be the trailing (inner) part of the variation stack (variation stack = V + G).
-        def variations_with_stack(base, full_stack):
-            VV_shapes, HH_shapes = base.variation_shapes
+        def variations_with_stack(frame, full_stack):
+            VV_shapes, HH_shapes = frame.variation_shapes
             VV = tuple(randn(*(full_stack + s)) for s in VV_shapes)
             HH = tuple(randn(*(full_stack + s)) for s in HH_shapes)
             return bvf.T3Variations(VV, HH)
 
         STRUCT = ((14, 15, 16), (4, 5, 6), (3, 4, 5), (1, 2, 3, 1), (1, 3, 2, 1))
 
-        # base stack G is a suffix of the variation stack -> consistent (incl. extra tangent stack V)
-        for BASE_STACK, TANGENT_STACK in [((), ()), ((), (4,)), ((2,), ()), ((2,), (4,)), ((2, 3), (4,))]:
-            with self.subTest(case="ok", BASE_STACK=BASE_STACK, TANGENT_STACK=TANGENT_STACK):
-                base, _ = _random_frame_variations(STRUCT + (BASE_STACK,))
-                bvf.check_fv_pair(base, variations_with_stack(base, TANGENT_STACK + BASE_STACK))
+        # frame stack G is a suffix of the variation stack -> consistent (incl. extra tangent stack V)
+        for FRAME_STACK, TANGENT_STACK in [((), ()), ((), (4,)), ((2,), ()), ((2,), (4,)), ((2, 3), (4,))]:
+            with self.subTest(case="ok", FRAME_STACK=FRAME_STACK, TANGENT_STACK=TANGENT_STACK):
+                frame, _ = _random_frame_variations(STRUCT + (FRAME_STACK,))
+                bvf.check_fv_pair(frame, variations_with_stack(frame, TANGENT_STACK + FRAME_STACK))
 
-        # base stack G is NOT a suffix of the variation stack -> raises
-        for BASE_STACK, VAR_STACK in [((2,), (3,)), ((2,), ()), ((2, 3), (2,)), ((2, 3), (4, 2))]:
-            with self.subTest(case="bad", BASE_STACK=BASE_STACK, VAR_STACK=VAR_STACK):
-                base, _ = _random_frame_variations(STRUCT + (BASE_STACK,))
+        # frame stack G is NOT a suffix of the variation stack -> raises
+        for FRAME_STACK, VAR_STACK in [((2,), (3,)), ((2,), ()), ((2, 3), (2,)), ((2, 3), (4, 2))]:
+            with self.subTest(case="bad", FRAME_STACK=FRAME_STACK, VAR_STACK=VAR_STACK):
+                frame, _ = _random_frame_variations(STRUCT + (FRAME_STACK,))
                 with self.assertRaises(ValueError):
-                    bvf.check_fv_pair(base, variations_with_stack(base, VAR_STACK))
+                    bvf.check_fv_pair(frame, variations_with_stack(frame, VAR_STACK))
 
     def test_stack_unstack(self):
-        for BASE_STRUCTURE in self.base_structures:
+        for FRAME_STRUCTURE in self.frame_structures:
             for STACK_SHAPE in [(2,), (2, 3)]:
-                structure = BASE_STRUCTURE + (STACK_SHAPE,)
-                with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
-                    base, variations = _random_frame_variations(structure)
+                structure = FRAME_STRUCTURE + (STACK_SHAPE,)
+                with self.subTest(FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    frame, variations = _random_frame_variations(structure)
 
                     # round trips
-                    base2 = bvf.T3Frame.stack(base.unstack())
-                    self.assertLessEqual(float(cw.corewise_norm(cw.corewise_sub(base.data, base2.data))), tol)
+                    frame2 = bvf.T3Frame.stack(frame.unstack())
+                    self.assertLessEqual(float(cw.corewise_norm(cw.corewise_sub(frame.data, frame2.data))), tol)
                     variations2 = bvf.T3Variations.stack(variations.unstack())
                     self.assertLessEqual(float(cw.corewise_norm(cw.corewise_sub(variations.data, variations2.data))), tol)
 
                     # an unstacked leaf equals the manually sliced sub-frame
                     idx = tuple(0 for _ in STACK_SHAPE)
-                    leaf = base.unstack()
+                    leaf = frame.unstack()
                     for k in idx:
                         leaf = leaf[k]
                     sliced = bvf.T3Frame(
-                        tuple(U[idx] for U in base.up_tucker_cores),
-                        tuple(G[idx] for G in base.down_tt_cores),
-                        tuple(G[idx] for G in base.left_tt_cores),
-                        tuple(G[idx] for G in base.right_tt_cores),
+                        tuple(U[idx] for U in frame.up_tucker_cores),
+                        tuple(G[idx] for G in frame.down_tt_cores),
+                        tuple(G[idx] for G in frame.left_tt_cores),
+                        tuple(G[idx] for G in frame.right_tt_cores),
                     )
                     self.assertLessEqual(float(cw.corewise_norm(cw.corewise_sub(sliced.data, leaf.data))), tol)
 
     def test_fv_to_t3(self):
-        for BASE_STRUCTURE in self.base_structures:
-            shape = BASE_STRUCTURE[0]
+        for FRAME_STRUCTURE in self.frame_structures:
+            shape = FRAME_STRUCTURE[0]
             d = len(shape)
             for STACK_SHAPE in self.stack_shapes:
-                structure = BASE_STRUCTURE + (STACK_SHAPE,)
-                base, variations = _random_frame_variations(structure)
-                U, D, L, R = base.data
+                structure = FRAME_STRUCTURE + (STACK_SHAPE,)
+                frame, variations = _random_frame_variations(structure)
+                U, D, L, R = frame.data
                 V, H = variations.data
                 for ii in range(d):
-                    with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                    with self.subTest(FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                                       ii=ii, kind="TT"):
-                        x = bvf.fv_to_t3((True, ii), base, variations)
+                        x = bvf.fv_to_t3((True, ii), frame, variations)
                         self._equal_cores(x.tucker_cores, U)
                         self._equal_cores(x.tt_cores, L[:ii] + (H[ii],) + R[ii + 1:])
 
-                    with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
+                    with self.subTest(FRAME_STRUCTURE=FRAME_STRUCTURE, STACK_SHAPE=STACK_SHAPE,
                                       ii=ii, kind="Tucker"):
-                        x = bvf.fv_to_t3((False, ii), base, variations)
+                        x = bvf.fv_to_t3((False, ii), frame, variations)
                         self._equal_cores(x.tucker_cores, U[:ii] + (V[ii],) + U[ii + 1:])
                         self._equal_cores(x.tt_cores, L[:ii] + (D[ii],) + R[ii + 1:])
 
     def test_fv_to_t3_tangent_stacked(self):
-        # A V-stacked variation (tangent stack V over base stack G): fv_to_t3 must broadcast the
-        # G-stacked base cores up to V+G so the term is a valid uniform-stack TuckerTensorTrain whose
-        # every (v, g) slice equals the corresponding unstacked term (base shared across V).
-        for BASE_STRUCTURE in self.base_structures:
-            shape = BASE_STRUCTURE[0]
+        # A V-stacked variation (tangent stack V over frame stack G): fv_to_t3 must broadcast the
+        # G-stacked frame cores up to V+G so the term is a valid uniform-stack TuckerTensorTrain whose
+        # every (v, g) slice equals the corresponding unstacked term (frame shared across V).
+        for FRAME_STRUCTURE in self.frame_structures:
+            shape = FRAME_STRUCTURE[0]
             d = len(shape)
             for BASE_G, V in [((), (2,)), ((2,), (2,))]:
-                with self.subTest(BASE_STRUCTURE=BASE_STRUCTURE, BASE_G=BASE_G, V=V):
-                    base, _ = _random_frame_variations(BASE_STRUCTURE + (BASE_G,))
+                with self.subTest(FRAME_STRUCTURE=FRAME_STRUCTURE, BASE_G=BASE_G, V=V):
+                    frame, _ = _random_frame_variations(FRAME_STRUCTURE + (BASE_G,))
                     rnd = lambda *s: np.random.randn(*s)
                     VG = V + BASE_G
-                    tuck_shapes, tt_shapes = base.variation_shapes
+                    tuck_shapes, tt_shapes = frame.variation_shapes
                     var = bvf.T3Variations(
                         tuple(rnd(*(VG + s)) for s in tuck_shapes),
                         tuple(rnd(*(VG + s)) for s in tt_shapes),
                     )
                     for ii in range(d):
                         for use_tt in (True, False):
-                            term = bvf.fv_to_t3((use_tt, ii), base, var)
+                            term = bvf.fv_to_t3((use_tt, ii), frame, var)
                             self.assertEqual(VG, term.stack_shape)  # valid uniform-stack T3
                             term_dense = np.asarray(term.to_dense())
                             for idx in np.ndindex(*VG):
                                 g_idx = idx[len(idx) - len(BASE_G):] if BASE_G else ()
-                                ref = bvf.fv_to_t3((use_tt, ii), _slice_frame(base, g_idx),
+                                ref = bvf.fv_to_t3((use_tt, ii), _slice_frame(frame, g_idx),
                                                    _slice_variations(var, idx))
                                 self.check_relerr(np.asarray(ref.to_dense()), term_dense[idx])
 
@@ -295,8 +295,8 @@ class TestFrameVariationsFormat(unittest.TestCase):
         STRUCT = ((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
         for C in [(), (2,)]:
             x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
-            base, var = bvf.t3_orthogonal_representations(x)
-            for obj in (base, var):
+            frame, var = bvf.t3_orthogonal_representations(x)
+            for obj in (frame, var):
                 self.assertEqual(int(np.prod(STRUCT[0])), obj.size)            # dense element count
                 self.assertEqual(sum(int(c.size) for fam in obj.data for c in fam), obj.data_size)
                 self.assertFalse(obj.contains_jax)
@@ -305,12 +305,12 @@ class TestFrameVariationsFormat(unittest.TestCase):
                 self.assertIn(type(obj).__name__, repr(obj))                   # concise repr (no array dump)
                 self.assertNotIn("array", repr(obj))
             self.assertEqual(                                                  # structural minimal ranks
-                t3.TuckerTensorTrain.get_minimal_ranks(base.shape, base.up_ranks, base.left_ranks),
-                base.minimal_ranks)
+                t3.TuckerTensorTrain.get_minimal_ranks(frame.shape, frame.up_ranks, frame.left_ranks),
+                frame.minimal_ranks)
             try:
                 import jax  # noqa: F401
-                self.assertTrue(base.to_jax().contains_jax and var.to_jax().contains_jax)
-                self.assertFalse(base.to_jax().to_numpy().contains_jax)
+                self.assertTrue(frame.to_jax().contains_jax and var.to_jax().contains_jax)
+                self.assertFalse(frame.to_jax().to_numpy().contains_jax)
             except ImportError:
                 pass
 
@@ -339,45 +339,45 @@ class TestFrameVariationsFormat(unittest.TestCase):
 
     def test_to_from_vector(self):
         # T3Variations.to_vector / from_vector round-trip (flat length == stored DOF).
-        base = bvf.T3Frame.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))
-        var = bvf.T3Variations.randn(base.variation_shapes, stack_shape=(3, 2))
+        frame = bvf.T3Frame.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))
+        var = bvf.T3Variations.randn(frame.variation_shapes, stack_shape=(3, 2))
         flat = var.to_vector()
         self.assertEqual((var.data_size,), flat.shape)
-        var2 = bvf.T3Variations.from_vector(flat, base.variation_shapes, stack_shape=(3, 2))
+        var2 = bvf.T3Variations.from_vector(flat, frame.variation_shapes, stack_shape=(3, 2))
         self.assertEqual(0.0, cw.corewise_relerr(var.data, var2.data))
 
     def test_save_load(self):
         import tempfile, os
-        base = bvf.T3Frame.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))
-        var = bvf.T3Variations.randn(base.variation_shapes, stack_shape=(2,))
+        frame = bvf.T3Frame.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))
+        var = bvf.T3Variations.randn(frame.variation_shapes, stack_shape=(2,))
         d = tempfile.mkdtemp()
-        for obj, loader, name in [(base, bvf.T3Frame.load, 'b'), (var, bvf.T3Variations.load, 'v')]:
+        for obj, loader, name in [(frame, bvf.T3Frame.load, 'b'), (var, bvf.T3Variations.load, 'v')]:
             f = os.path.join(d, name + '.npz'); obj.save(f)
             self.assertEqual(0.0, cw.corewise_relerr(obj.data, loader(f).data))
 
     def test_reverse(self):
         # T3Frame.reverse stays orthogonal with reversed shape; reverse is an involution.
         STRUCT = ((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
-        base = bvf.T3Frame.random_orthogonal(*STRUCT, stack_shape=(2,))
-        rb = base.reverse()
+        frame = bvf.T3Frame.random_orthogonal(*STRUCT, stack_shape=(2,))
+        rb = frame.reverse()
         self.assertEqual(STRUCT[0][::-1], rb.shape)
         self.assertTrue(rb.is_orthogonal().all())
-        self.assertEqual(base.structure, rb.reverse().structure)
-        var = bvf.T3Variations.randn(base.variation_shapes, stack_shape=(2,))
+        self.assertEqual(frame.structure, rb.reverse().structure)
+        var = bvf.T3Variations.randn(frame.variation_shapes, stack_shape=(2,))
         self.assertEqual(0.0, cw.corewise_relerr(var.data, var.reverse().reverse().data))
 
     def test_variations_arithmetic(self):
         # T3Variations corewise +,-,*,neg correspond to tangent linearity; sum_stack reduces the stack.
         import t3toolbox.manifold as t3m
-        base = bvf.T3Frame.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
-        a = t3m.COREWISE.randn(base).variations
-        b = t3m.COREWISE.randn(base).variations
-        dn = lambda var: np.asarray(t3m.T3Tangent(base, var).to_dense())
+        frame = bvf.T3Frame.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
+        a = t3m.COREWISE.randn(frame).variations
+        b = t3m.COREWISE.randn(frame).variations
+        dn = lambda var: np.asarray(t3m.T3Tangent(frame, var).to_dense())
         self.check_relerr(dn(a) + dn(b), dn(a + b))
         self.check_relerr(dn(a) - dn(b), dn(a - b))
         self.check_relerr(2.5 * dn(a), dn(2.5 * a))
         self.check_relerr(-dn(a), dn(-a))
-        vs = bvf.T3Variations.randn(base.variation_shapes, stack_shape=(3,))
+        vs = bvf.T3Variations.randn(frame.variation_shapes, stack_shape=(3,))
         self.assertEqual((), vs.sum_stack().stack_shape)
 
     def test_to_t3_to_dense(self):
@@ -385,26 +385,26 @@ class TestFrameVariationsFormat(unittest.TestCase):
         STRUCT = ((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
         for C in [(), (2,)]:
             x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
-            base = bvf.T3Frame.from_t3(x)
-            self.check_relerr(np.asarray(x.to_dense()), np.asarray(base.to_dense()))
-            self.check_relerr(np.asarray(x.to_dense()), np.asarray(base.to_t3().to_dense()))
-            self.assertEqual(x.shape, base.to_t3().shape)
+            frame = bvf.T3Frame.from_t3(x)
+            self.check_relerr(np.asarray(x.to_dense()), np.asarray(frame.to_dense()))
+            self.check_relerr(np.asarray(x.to_dense()), np.asarray(frame.to_t3().to_dense()))
+            self.assertEqual(x.shape, frame.to_t3().shape)
 
     def test_orthogonalize_is_consistent(self):
         # orthogonalize() reconstructs the same base point as a valid orthogonal frame; is_consistent()
         # is True for a from_t3 frame and False when the left/right reconstructions disagree.
         for C in [(), (2,)]:
             x = t3.TuckerTensorTrain.randn((5, 6, 4), (3, 4, 3), (1, 2, 3, 1), stack_shape=C)
-            base = bvf.T3Frame.from_t3(x)
-            b2 = base.orthogonalize()
+            frame = bvf.T3Frame.from_t3(x)
+            b2 = frame.orthogonalize()
             b2.validate()
             self.assertTrue(b2.is_orthogonal().all())
             self.check_relerr(np.asarray(x.to_dense()), np.asarray(b2.to_dense()))
-            self.assertTrue(base.is_consistent().all())
+            self.assertTrue(frame.is_consistent().all())
             # perturb the left cores only -> left/right reconstructions no longer agree
-            bad = bvf.T3Frame(base.up_tucker_cores, base.down_tt_cores,
-                              tuple(c + 0.1 * np.random.randn(*c.shape) for c in base.left_tt_cores),
-                              base.right_tt_cores)
+            bad = bvf.T3Frame(frame.up_tucker_cores, frame.down_tt_cores,
+                              tuple(c + 0.1 * np.random.randn(*c.shape) for c in frame.left_tt_cores),
+                              frame.right_tt_cores)
             self.assertFalse(bad.is_consistent().all())
 
     def test_allclose(self):
@@ -412,11 +412,11 @@ class TestFrameVariationsFormat(unittest.TestCase):
         # compares variations corewise.
         for C in [(), (2,)]:
             x = t3.TuckerTensorTrain.randn((5, 6, 4), (3, 4, 3), (1, 2, 3, 1), stack_shape=C)
-            base = bvf.T3Frame.from_t3(x)
-            self.assertTrue(base.allclose(base).all())
-            self.assertTrue(base.allclose(base.orthogonalize()).all())  # same point, possibly different gauge
+            frame = bvf.T3Frame.from_t3(x)
+            self.assertTrue(frame.allclose(frame).all())
+            self.assertTrue(frame.allclose(frame.orthogonalize()).all())  # same point, possibly different gauge
             y = t3.TuckerTensorTrain.randn((5, 6, 4), (3, 4, 3), (1, 2, 3, 1), stack_shape=C)
-            self.assertFalse(base.allclose(bvf.T3Frame.from_t3(y)).all())
+            self.assertFalse(frame.allclose(bvf.T3Frame.from_t3(y)).all())
 
             _, variations = bvf.t3_orthogonal_representations(x)
             self.assertTrue(variations.allclose(variations).all())
@@ -433,24 +433,24 @@ class TestFrameVariationsFormat(unittest.TestCase):
             for STACK_SHAPE in self.stack_shapes:
                 x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
                 with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
-                    base, variations = bvf.t3_orthogonal_representations(x)
+                    frame, variations = bvf.t3_orthogonal_representations(x)
                     x_dense = x.to_dense()
                     for ii in range(x.d):
-                        self.check_relerr(x_dense, bvf.fv_to_t3((True, ii), base, variations).to_dense())
-                        self.check_relerr(x_dense, bvf.fv_to_t3((False, ii), base, variations).to_dense())
+                        self.check_relerr(x_dense, bvf.fv_to_t3((True, ii), frame, variations).to_dense())
+                        self.check_relerr(x_dense, bvf.fv_to_t3((False, ii), frame, variations).to_dense())
 
-    def test_orthogonal_representations_base_orthogonality(self):
+    def test_orthogonal_representations_frame_orthogonality(self):
         # U: up-orthogonal (all i); D: outer-orthogonal (all i);
         # L: left-orthogonal (i=0..d-2); R: right-orthogonal (i=1..d-1).
         for T3_STRUCTURE in self.t3_structures:
             for STACK_SHAPE in self.stack_shapes:
                 x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
                 with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
-                    base, _ = bvf.t3_orthogonal_representations(x)
-                    U = [np.asarray(c) for c in base.up_tucker_cores]
-                    D = [np.asarray(c) for c in base.down_tt_cores]
-                    L = [np.asarray(c) for c in base.left_tt_cores]
-                    R = [np.asarray(c) for c in base.right_tt_cores]
+                    frame, _ = bvf.t3_orthogonal_representations(x)
+                    U = [np.asarray(c) for c in frame.up_tucker_cores]
+                    D = [np.asarray(c) for c in frame.down_tt_cores]
+                    L = [np.asarray(c) for c in frame.left_tt_cores]
+                    R = [np.asarray(c) for c in frame.right_tt_cores]
                     d = x.d
 
                     for ii in range(d):
@@ -468,38 +468,38 @@ class TestFrameVariationsFormat(unittest.TestCase):
             for STACK_SHAPE in [(), (2,)]:
                 with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
                     x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
-                    base, _ = bvf.t3_orthogonal_representations(x)
-                    self.assertTrue(base.is_orthogonal().all())
+                    frame, _ = bvf.t3_orthogonal_representations(x)
+                    self.assertTrue(frame.is_orthogonal().all())
 
         # a generic (non-orthogonal) frame is not orthogonal
         structure = ((14, 15, 16), (4, 5, 6), (3, 4, 5), (1, 2, 3, 1), (1, 3, 2, 1), ())
-        base2, _ = _random_frame_variations(structure)
-        self.assertFalse(base2.is_orthogonal().all())
+        frame2, _ = _random_frame_variations(structure)
+        self.assertFalse(frame2.is_orthogonal().all())
 
     def test_t3frame_has_minimal_ranks(self):
-        # minimal-rank x -> minimal-rank base
+        # minimal-rank x -> minimal-rank frame
         for STACK_SHAPE in [(), (2,), (2, 3)]:
             x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=STACK_SHAPE)
             self.assertTrue(x.has_minimal_ranks)
-            base, _ = bvf.t3_orthogonal_representations(x)
-            self.assertTrue(base.has_minimal_ranks)
+            frame, _ = bvf.t3_orthogonal_representations(x)
+            self.assertTrue(frame.has_minimal_ranks)
 
         # non-minimal Tucker rank (4 > rL*rR = 1*3) -> up_ranks != down_ranks -> not minimal
         x2 = t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (1, 3, 2, 1))
-        base2, _ = bvf.t3_orthogonal_representations(x2)
-        self.assertFalse(base2.has_minimal_ranks)
+        frame2, _ = bvf.t3_orthogonal_representations(x2)
+        self.assertFalse(frame2.has_minimal_ranks)
 
         # hand-built frame with left_ranks != right_ranks and up_ranks != down_ranks -> not minimal
         structure = ((14, 15, 16), (4, 5, 6), (3, 4, 5), (1, 2, 3, 1), (1, 3, 2, 1), ())
-        base3, _ = _random_frame_variations(structure)
-        self.assertFalse(base3.has_minimal_ranks)
+        frame3, _ = _random_frame_variations(structure)
+        self.assertFalse(frame3.has_minimal_ranks)
 
     def test_t3frame_has_numerically_minimal_ranks(self):
         # frame numerical minimality is certified WITHOUT an SVD: orthogonal AND structurally minimal.
-        base, _ = bvf.t3_orthogonal_representations(
+        frame, _ = bvf.t3_orthogonal_representations(
             t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1)))     # orthogonal + minimal
-        self.assertTrue(base.is_orthogonal().all() and base.has_minimal_ranks)
-        self.assertTrue(base.has_numerically_minimal_ranks().all())
+        self.assertTrue(frame.is_orthogonal().all() and frame.has_minimal_ranks)
+        self.assertTrue(frame.has_numerically_minimal_ranks().all())
 
         nb, _ = bvf.t3_orthogonal_representations(
             t3.TuckerTensorTrain.randn((10, 11, 12), (4, 5, 4), (1, 2, 3, 1)))  # orthogonal, NON-minimal

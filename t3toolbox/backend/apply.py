@@ -34,7 +34,7 @@ def tucker_tensor_train_apply(
 
     #
 
-    vsc = tucker_cores[0].shape[:-2] # core/base stack C (the batch of T3s)
+    vsc = tucker_cores[0].shape[:-2] # core/frame stack C (the batch of T3s)
     vsw = vecs[0].shape[:-1]         # vec stack W (the probe-like vectors), base-inner: W outer, C inner
 
     def _func(mu_WCa, v_B_G):
@@ -60,7 +60,7 @@ def tucker_tensor_train_apply_ambient_transpose(
     '''Ambient transpose of :py:func:`tucker_tensor_train_apply`: back-project ``c`` into CP factors.
 
     The *ambient* adjoint -- the transpose of ``apply`` as a linear map on the **full tensor space**
-    (``X -> ( <X, w0^W (x) ... (x) w_{d-1}^W> )_W``). Base-free; the back-projection
+    (``X -> ( <X, w0^W (x) ... (x) w_{d-1}^W> )_W``). Frame-free; the back-projection
     ``c * (w0 (x) ... (x) w_{d-1})`` is rank-1, whose natural representation is a **canonical (CP)
     decomposition** (``apply`` consumes one vector per mode; its adjoint emits one scaled vector per
     mode). This is distinct from the *corewise* transpose (gradient w.r.t. a base point's cores) and
@@ -82,7 +82,7 @@ def tucker_tensor_train_apply_ambient_transpose(
 
     nW = ww[0].ndim - 1     # probe stack rank (ww[i] is W + (Ni,))
     W  = ww[0].shape[:nW]   # probe stack
-    C  = c.shape[nW:]       # base stack (c is W + C)
+    C  = c.shape[nW:]       # frame stack (c is W + C)
     nC = len(C)
 
     if sum_over_probes:

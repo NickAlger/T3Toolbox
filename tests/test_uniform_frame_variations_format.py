@@ -257,13 +257,13 @@ class TestCheckUbvPair(unittest.TestCase):
         ubv.check_ufv_pair(B, V)   # consistent -> no error
 
     def test_inconsistent_raises(self):
-        B, Vbad = self._pair(v_up_r=[1, 3, 4])   # variation up ranks differ from the base's
+        B, Vbad = self._pair(v_up_r=[1, 3, 4])   # variation up ranks differ from the frame's
         with self.assertRaises(ValueError):
             ubv.check_ufv_pair(B, Vbad)
 
     def _K_variation(self, B, K, up_r=_UP_R):
-        """A K-stacked variation (a bundle of K tangents at the single base B): cores grow a leading K
-        stack, masks are the base's gauge-shifted masks broadcast constant along K."""
+        """A K-stacked variation (a bundle of K tangents at the single frame B): cores grow a leading K
+        stack, masks are the frame's gauge-shifted masks broadcast constant along K."""
         d, N, nU, nD, rL, rR = _D, _N, _NU, _ND, _RL, _RR
         bm = B.masks
         bcast = lambda m: np.broadcast_to(m.reshape(m.shape[:1] + (1,) * len(K) + m.shape[1:]),
@@ -275,14 +275,14 @@ class TestCheckUbvPair(unittest.TestCase):
                                  np.random.randn(*((d,) + K + (rL, nU, rR))), _SHAPE, masks)
 
     def test_tangent_K_stack_passes(self):
-        # the 3b-0 capability: a base with C=() and a K-stacked variation (K != ()) is a consistent pair.
+        # the 3b-0 capability: a frame with C=() and a K-stacked variation (K != ()) is a consistent pair.
         B, _ = self._pair()
         for K in [(2,), (4,), (2, 3)]:
             with self.subTest(K=K):
                 ubv.check_ufv_pair(B, self._K_variation(B, K))
 
     def test_tangent_K_plus_C_stack_passes(self):
-        # base carries a core (C) stack; variation carries K+C with C as the trailing suffix.
+        # frame carries a core (C) stack; variation carries K+C with C as the trailing suffix.
         d, N, nU, nD, rL, rR = _D, _N, _NU, _ND, _RL, _RR
         C, K = (3,), (2,)
         up = _prefix_mask(_UP_R, nU); dn = _prefix_mask(_DOWN_R, nD)
@@ -291,7 +291,7 @@ class TestCheckUbvPair(unittest.TestCase):
         B = ubv.UT3Frame(np.random.randn(d, *C, nU, N), np.random.randn(d, *C, rL, nD, rR),
                          np.random.randn(d, *C, rL, nU, rL), np.random.randn(d, *C, rR, nU, rR),
                          _SHAPE, ubv.UT3FrameMasks(bcastC(up), bcastC(dn), bcastC(bl), bcastC(br)))
-        # K+C variation masks: insert K after d, broadcast the base's gauge-shifted (C-stacked) masks.
+        # K+C variation masks: insert K after d, broadcast the frame's gauge-shifted (C-stacked) masks.
         bcastK = lambda m: np.broadcast_to(m[:, None], m.shape[:1] + K + m.shape[1:])
         masks = ubv.UT3VariationsMasks(bcastK(bcastC(up)), bcastK(bcastC(dn)),
                                        bcastK(bcastC(bl[:-1])), bcastK(bcastC(br[1:])))
@@ -304,7 +304,7 @@ class TestCheckUbvPair(unittest.TestCase):
         B, _ = self._pair()
         V = self._K_variation(B, (2,))
         bad_up = np.array(V.masks.variations_up_mask)
-        bad_up[:, 1, :] = _prefix_mask([1, 3, 4], _NU)   # second K slice differs from the base
+        bad_up[:, 1, :] = _prefix_mask([1, 3, 4], _NU)   # second K slice differs from the frame
         Vbad = ubv.UT3Variations(V.tucker_variations, V.tt_variations, _SHAPE,
                                  ubv.UT3VariationsMasks(bad_up, V.masks.variations_down_mask,
                                                         V.masks.variations_left_mask,
@@ -312,8 +312,8 @@ class TestCheckUbvPair(unittest.TestCase):
         with self.assertRaises(ValueError):
             ubv.check_ufv_pair(B, Vbad)
 
-    def test_base_stack_not_suffix_raises(self):
-        # base C=(3,) is NOT a trailing suffix of variation stack (5,) -> reject.
+    def test_frame_stack_not_suffix_raises(self):
+        # frame C=(3,) is NOT a trailing suffix of variation stack (5,) -> reject.
         d, N, nU, nD, rL, rR = _D, _N, _NU, _ND, _RL, _RR
         C = (3,)
         up = _prefix_mask(_UP_R, nU); dn = _prefix_mask(_DOWN_R, nD)
@@ -342,19 +342,19 @@ class TestUt3OrthogonalRepresentations(unittest.TestCase):
         import t3toolbox.uniform_tucker_tensor_train as ut3
         import t3toolbox.frame_variations_format as bvf
         x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
-        base, variations = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
-        base.validate(); variations.validate(); ubv.check_ufv_pair(base, variations)
-        rb = base.to_t3frame()                                  # uniform frame -> ragged T3Frame
+        frame, variations = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
+        frame.validate(); variations.validate(); ubv.check_ufv_pair(frame, variations)
+        rb = frame.to_t3frame()                                  # uniform frame -> ragged T3Frame
         self.assertLess(float(np.linalg.norm(rb.to_dense() - x.to_dense())), 1e-10)
-        rbase, _ = bvf.t3_orthogonal_representations(x)                     # uniform == ragged on real parts
-        self.assertLess(float(np.linalg.norm(rb.to_dense() - rbase.to_dense())), 1e-10)
+        rframe, _ = bvf.t3_orthogonal_representations(x)                     # uniform == ragged on real parts
+        self.assertLess(float(np.linalg.norm(rb.to_dense() - rframe.to_dense())), 1e-10)
 
     def test_stacked_roundtrip_per_element(self):
         import t3toolbox.tucker_tensor_train as t3
         import t3toolbox.uniform_tucker_tensor_train as ut3
         x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))
-        base, _ = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
-        tree = base.to_t3frame()                               # nested tree of T3Frame
+        frame, _ = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
+        tree = frame.to_t3frame()                               # nested tree of T3Frame
         xd = x.to_dense()
         for i in range(2):
             self.assertLess(float(np.linalg.norm(tree[i].to_dense() - xd[i])), 1e-10)
@@ -386,32 +386,32 @@ class TestCrossLayerConverters(unittest.TestCase):
         import t3toolbox.tucker_tensor_train as t3
         import t3toolbox.frame_variations_format as bvf
         x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1), stack_shape=ss)
-        base, variations = bvf.t3_orthogonal_representations(x)
-        return x, base, variations
+        frame, variations = bvf.t3_orthogonal_representations(x)
+        return x, frame, variations
 
     def test_from_t3frame_roundtrip_unstacked(self):
-        _, base, _ = self._ragged_pair()
-        UB = ubv.UT3Frame.from_t3frame(base)              # ragged frame -> uniform
+        _, frame, _ = self._ragged_pair()
+        UB = ubv.UT3Frame.from_t3frame(frame)              # ragged frame -> uniform
         UB.validate()
         B2 = UB.to_t3frame()                              # unstacked -> back to ragged T3Frame
-        self.assertLess(float(np.linalg.norm(B2.to_dense() - base.to_dense())), 1e-10)
+        self.assertLess(float(np.linalg.norm(B2.to_dense() - frame.to_dense())), 1e-10)
 
     def test_from_t3frame_roundtrip_stacked(self):
-        _, base, _ = self._ragged_pair(ss=(2,))
-        UB = ubv.UT3Frame.from_t3frame(base)
+        _, frame, _ = self._ragged_pair(ss=(2,))
+        UB = ubv.UT3Frame.from_t3frame(frame)
         UB.validate()
         tree = UB.to_t3frame()                            # nested tree of T3Frame
-        bd = base.to_dense()
+        bd = frame.to_dense()
         for i in range(2):
             self.assertLess(float(np.linalg.norm(tree[i].to_dense() - bd[i])), 1e-10)
 
     def test_from_t3frame_extra_padding_still_roundtrips(self):
         # padding-invariance: forcing larger pad than the natural max must not change the represented point.
-        _, base, _ = self._ragged_pair()
-        UB = ubv.UT3Frame.from_t3frame(base, N=10, nU=8, nD=8, rL=6, rR=6)
+        _, frame, _ = self._ragged_pair()
+        UB = ubv.UT3Frame.from_t3frame(frame, N=10, nU=8, nD=8, rL=6, rR=6)
         UB.validate()
         self.assertEqual((UB.N, UB.nU, UB.nD, UB.rL, UB.rR), (10, 8, 8, 6, 6))
-        self.assertLess(float(np.linalg.norm(UB.to_t3frame().to_dense() - base.to_dense())), 1e-10)
+        self.assertLess(float(np.linalg.norm(UB.to_t3frame().to_dense() - frame.to_dense())), 1e-10)
 
     def test_from_t3variations_roundtrip_unstacked(self):
         import t3toolbox.corewise as cw
@@ -434,7 +434,7 @@ class TestCrossLayerConverters(unittest.TestCase):
 
 
 class TestBasePointAndDtype(unittest.TestCase):
-    """2c-B: base-point conversions (to_ut3 / to_dense / from_ut3) + dtype/copy/repr utilities.
+    """2c-B: frame-point conversions (to_ut3 / to_dense / from_ut3) + dtype/copy/repr utilities.
     Users build frames via ut3_orthogonal_representations, so that is the path under test."""
     def setUp(self):
         np.random.seed(0)
@@ -444,43 +444,43 @@ class TestBasePointAndDtype(unittest.TestCase):
         import t3toolbox.uniform_tucker_tensor_train as ut3
         x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1), stack_shape=ss)
         ux = ut3.UniformTuckerTensorTrain.from_t3(x)
-        base, variations = ubv.ut3_orthogonal_representations(ux)
-        return x, ux, base, variations
+        frame, variations = ubv.ut3_orthogonal_representations(ux)
+        return x, ux, frame, variations
 
     def test_to_dense_reconstructs_base_point(self):
-        x, _, base, _ = self._frame()
-        self.assertLess(float(np.linalg.norm(base.to_dense() - x.to_dense())), 1e-10)
+        x, _, frame, _ = self._frame()
+        self.assertLess(float(np.linalg.norm(frame.to_dense() - x.to_dense())), 1e-10)
 
     def test_to_ut3_matches_to_dense_and_x(self):
         import t3toolbox.uniform_tucker_tensor_train as ut3
-        x, _, base, _ = self._frame()
-        ub = base.to_ut3()
+        x, _, frame, _ = self._frame()
+        ub = frame.to_ut3()
         self.assertIsInstance(ub, ut3.UniformTuckerTensorTrain)
-        self.assertTrue(np.allclose(ub.to_dense(), base.to_dense()))   # to_dense == to_ut3().to_dense()
+        self.assertTrue(np.allclose(ub.to_dense(), frame.to_dense()))   # to_dense == to_ut3().to_dense()
         self.assertTrue(np.allclose(ub.to_dense(), x.to_dense()))      # and reconstructs x
 
     def test_to_dense_stacked(self):
-        x, _, base, _ = self._frame(ss=(2,))
-        self.assertEqual(base.stack_shape, (2,))
-        self.assertTrue(np.allclose(base.to_dense(), x.to_dense()))
+        x, _, frame, _ = self._frame(ss=(2,))
+        self.assertEqual(frame.stack_shape, (2,))
+        self.assertTrue(np.allclose(frame.to_dense(), x.to_dense()))
 
     def test_from_ut3_reconstructs_x(self):
         x, ux, _, _ = self._frame()
-        base2 = ubv.UT3Frame.from_ut3(ux)
-        self.assertIsInstance(base2, ubv.UT3Frame)
-        self.assertLess(float(np.linalg.norm(base2.to_dense() - x.to_dense())), 1e-10)
+        frame2 = ubv.UT3Frame.from_ut3(ux)
+        self.assertIsInstance(frame2, ubv.UT3Frame)
+        self.assertLess(float(np.linalg.norm(frame2.to_dense() - x.to_dense())), 1e-10)
 
     def test_frame_dtype_copy_repr(self):
         import t3toolbox.backend.common as common
-        _, _, base, _ = self._frame()
-        cp = base.copy()
-        self.assertTrue(np.allclose(cp.to_dense(), base.to_dense()))
+        _, _, frame, _ = self._frame()
+        cp = frame.copy()
+        self.assertTrue(np.allclose(cp.to_dense(), frame.to_dense()))
         # deep copy: supercores are independent arrays (mirrors ragged T3Frame.copy)
-        self.assertTrue(all(not np.shares_memory(a, b) for a, b in zip(cp.supercores, base.supercores)))
-        self.assertFalse(base.contains_jax)
-        self.assertIn('UT3Frame(shape=(4, 5, 6)', repr(base))
+        self.assertTrue(all(not np.shares_memory(a, b) for a, b in zip(cp.supercores, frame.supercores)))
+        self.assertFalse(frame.contains_jax)
+        self.assertIn('UT3Frame(shape=(4, 5, 6)', repr(frame))
         if HAS_JAX:
-            jb = base.to_jax()
+            jb = frame.to_jax()
             self.assertTrue(jb.contains_jax)
             self.assertTrue(all(common.is_jax_ndarray(sc) for sc in jb.supercores))    # data -> jax
             self.assertTrue(all(common.is_numpy_ndarray(m) for m in jb.masks.data))    # masks stay host
@@ -514,8 +514,8 @@ class TestStackUnstack(unittest.TestCase):
         import t3toolbox.tucker_tensor_train as t3
         import t3toolbox.uniform_tucker_tensor_train as ut3
         x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1), stack_shape=ss)
-        base, variations = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
-        return x, base, variations
+        frame, variations = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
+        return x, frame, variations
 
     def _assert_exact_roundtrip(self, obj, restacked):
         for a, b in zip(restacked.supercores, obj.supercores):
@@ -526,8 +526,8 @@ class TestStackUnstack(unittest.TestCase):
     def test_frame_stack_is_inverse_of_unstack(self):
         for ss in [(), (2,), (2, 3)]:
             with self.subTest(stack=ss):
-                _, base, _ = self._frame(ss)
-                self._assert_exact_roundtrip(base, ubv.UT3Frame.stack(base.unstack()))
+                _, frame, _ = self._frame(ss)
+                self._assert_exact_roundtrip(frame, ubv.UT3Frame.stack(frame.unstack()))
 
     def test_variations_stack_is_inverse_of_unstack(self):
         for ss in [(), (2,), (2, 3)]:
@@ -536,8 +536,8 @@ class TestStackUnstack(unittest.TestCase):
                 self._assert_exact_roundtrip(var, ubv.UT3Variations.stack(var.unstack()))
 
     def test_frame_unstack_leaves_reconstruct_per_element(self):
-        x, base, _ = self._frame((2,))
-        tree = base.unstack()                          # 1D stack -> tuple of UT3Frame
+        x, frame, _ = self._frame((2,))
+        tree = frame.unstack()                          # 1D stack -> tuple of UT3Frame
         self.assertEqual(len(tree), 2)
         xd = x.to_dense()
         for i in range(2):
@@ -545,8 +545,8 @@ class TestStackUnstack(unittest.TestCase):
             self.assertLess(float(np.linalg.norm(tree[i].to_dense() - xd[i])), 1e-10)
 
     def test_unstacked_unstack_returns_single_object(self):
-        _, base, _ = self._frame(())
-        self.assertIsInstance(base.unstack(), ubv.UT3Frame)   # no stack axes -> the object itself
+        _, frame, _ = self._frame(())
+        self.assertIsInstance(frame.unstack(), ubv.UT3Frame)   # no stack axes -> the object itself
 
     def test_stack_heterogeneous_ranks(self):
         # the point of the uniform layer: stack frames of DIFFERENT ranks into one batch (common padding),
@@ -583,8 +583,8 @@ class TestVariationLinearAlgebra(unittest.TestCase):
         return float(cw.corewise_norm(cw.corewise_sub(a, b)))
 
     def test_vector_space_ops_match_ragged(self):
-        base, v = self._pair()
-        w = ubv.UT3Variations.randn_like(base)          # second tangent at the SAME base (same mask)
+        frame, v = self._pair()
+        w = ubv.UT3Variations.randn_like(frame)          # second tangent at the SAME frame (same mask)
         rv, rw = v.to_t3variations(), w.to_t3variations()
         self.assertEqual(self._cerr((v + w).to_t3variations().data, (rv + rw).data), 0.0)
         self.assertEqual(self._cerr((v - w).to_t3variations().data, (rv - rw).data), 0.0)
@@ -593,31 +593,31 @@ class TestVariationLinearAlgebra(unittest.TestCase):
         self.assertEqual(self._cerr((-v).to_t3variations().data, (-rv).data), 0.0)
 
     def test_ops_preserve_mask(self):
-        base, v = self._pair()
-        w = ubv.UT3Variations.randn_like(base)
+        frame, v = self._pair()
+        w = ubv.UT3Variations.randn_like(frame)
         for r in (v + w, v - w, 2.0 * v, -v):
             self.assertTrue(all(np.array_equal(a, b) for a, b in zip(r.masks.data, v.masks.data)))
 
     def test_sum_stack_matches_ragged(self):
-        base, v = self._pair(ss=(3,))
+        frame, v = self._pair(ss=(3,))
         s = v.sum_stack()
         s.validate()
         self.assertEqual(s.stack_shape, ())
         tree = v.to_t3variations()                       # 3 ragged T3Variations
         self.assertEqual(self._cerr(s.to_t3variations().data, (tree[0] + tree[1] + tree[2]).data), 0.0)
 
-    def test_zeros_like_is_zero_tangent_at_base(self):
-        base, _ = self._pair()
-        z = ubv.UT3Variations.zeros_like(base)
+    def test_zeros_like_is_zero_tangent_at_frame(self):
+        frame, _ = self._pair()
+        z = ubv.UT3Variations.zeros_like(frame)
         z.validate()
-        ubv.check_ufv_pair(base, z)                       # carries the base's gauge masks -> pairs
+        ubv.check_ufv_pair(frame, z)                       # carries the frame's gauge masks -> pairs
         self.assertEqual(float(np.max(np.abs(z.tucker_variations))), 0.0)
-        self.assertTrue(np.array_equal(z.masks.variations_left_mask, base.masks.frame_left_mask[:-1]))
+        self.assertTrue(np.array_equal(z.masks.variations_left_mask, frame.masks.frame_left_mask[:-1]))
 
-    def test_randn_like_pairs_with_base_stacked(self):
-        base, _ = self._pair(ss=(2,))
-        r = ubv.UT3Variations.randn_like(base)
-        r.validate(); ubv.check_ufv_pair(base, r)
+    def test_randn_like_pairs_with_frame_stacked(self):
+        frame, _ = self._pair(ss=(2,))
+        r = ubv.UT3Variations.randn_like(frame)
+        r.validate(); ubv.check_ufv_pair(frame, r)
         self.assertEqual(r.stack_shape, (2,))
 
     def test_zeros_default_all_true_masks(self):
@@ -634,10 +634,10 @@ class TestVariationLinearAlgebra(unittest.TestCase):
         self.assertEqual(float(np.sum(np.abs(u.tt_variations))), 0.0)
 
     def test_allclose(self):
-        base, v = self._pair()
+        frame, v = self._pair()
         self.assertTrue(v.allclose(v).all())
         self.assertTrue(v.allclose(v.copy()).all())
-        self.assertFalse(v.allclose(ubv.UT3Variations.randn_like(base)).all())
+        self.assertFalse(v.allclose(ubv.UT3Variations.randn_like(frame)).all())
 
     def test_precondition_same_structure_different_masks(self):
         # the uniform-specific footgun: same padded shape, DIFFERENT masks (different ranks) -> different
@@ -665,26 +665,26 @@ class TestReverseOrthogonalizeRandom(unittest.TestCase):
         import t3toolbox.tucker_tensor_train as t3
         import t3toolbox.uniform_tucker_tensor_train as ut3
         x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1), stack_shape=ss)
-        base, var = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
-        return x, base, var
+        frame, var = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
+        return x, frame, var
 
     def _cerr(self, a, b):
         import t3toolbox.corewise as cw
         return float(cw.corewise_norm(cw.corewise_sub(a, b)))
 
     def test_frame_reverse_commutes_with_to_t3frame(self):
-        _, base, _ = self._pair()
-        base.reverse().validate()
+        _, frame, _ = self._pair()
+        frame.reverse().validate()
         # Nick's correctness lens: reverse commutes with conversion
         self.assertLess(float(np.linalg.norm(
-            base.reverse().to_t3frame().to_dense() - base.to_t3frame().reverse().to_dense())), 1e-10)
+            frame.reverse().to_t3frame().to_dense() - frame.to_t3frame().reverse().to_dense())), 1e-10)
 
     def test_frame_reverse_involution(self):
         for ss in [(), (2,)]:
             with self.subTest(stack=ss):
-                _, base, _ = self._pair(ss)
+                _, frame, _ = self._pair(ss)
                 self.assertLess(float(np.linalg.norm(
-                    base.reverse().reverse().to_dense() - base.to_dense())), 1e-10)
+                    frame.reverse().reverse().to_dense() - frame.to_dense())), 1e-10)
 
     def test_variations_reverse_commutes_and_involution(self):
         _, _, var = self._pair()
@@ -695,8 +695,8 @@ class TestReverseOrthogonalizeRandom(unittest.TestCase):
                                     var.to_t3variations().data), 0.0)
 
     def test_orthogonalize_reconstructs_base_point(self):
-        x, base, _ = self._pair()
-        o = base.orthogonalize()
+        x, frame, _ = self._pair()
+        o = frame.orthogonalize()
         o.validate()
         self.assertLess(float(np.linalg.norm(o.to_dense() - x.to_dense())), 1e-10)
 
@@ -706,10 +706,10 @@ class TestReverseOrthogonalizeRandom(unittest.TestCase):
         self.assertEqual((b.shape, b.stack_shape), ((4, 5, 6), (2,)))
 
     def test_random_orthogonal_like_matches_structure(self):
-        _, base, _ = self._pair(ss=(2,))
-        like = ubv.UT3Frame.random_orthogonal_like(base)
+        _, frame, _ = self._pair(ss=(2,))
+        like = ubv.UT3Frame.random_orthogonal_like(frame)
         like.validate()
-        self.assertEqual((like.shape, like.stack_shape), (base.shape, base.stack_shape))
+        self.assertEqual((like.shape, like.stack_shape), (frame.shape, frame.stack_shape))
 
 
 class TestSaveLoad(unittest.TestCase):
@@ -738,8 +738,8 @@ class TestSaveLoad(unittest.TestCase):
         return fname
 
     def test_frame_save_load(self):
-        base, _ = self._pair()
-        self._roundtrip(base, ubv.UT3Frame.load, 'ut3frame.npz')
+        frame, _ = self._pair()
+        self._roundtrip(frame, ubv.UT3Frame.load, 'ut3frame.npz')
 
     def test_variations_save_load(self):
         _, var = self._pair()
@@ -748,8 +748,8 @@ class TestSaveLoad(unittest.TestCase):
     @unittest.skipUnless(HAS_JAX, 'jax not installed')
     def test_load_use_jax_keeps_masks_host(self):
         import t3toolbox.backend.common as common
-        base, _ = self._pair()
-        fname = self._roundtrip(base, ubv.UT3Frame.load, 'ut3frame_jax.npz')
+        frame, _ = self._pair()
+        fname = self._roundtrip(frame, ubv.UT3Frame.load, 'ut3frame_jax.npz')
         jb = ubv.UT3Frame.load(fname, use_jax=True)
         self.assertTrue(all(common.is_jax_ndarray(s) for s in jb.supercores))   # supercores -> jax
         self.assertTrue(all(common.is_numpy_ndarray(m) for m in jb.masks.data)) # masks stay host
@@ -761,29 +761,29 @@ class TestUT3FrameCheckers(unittest.TestCase):
     def setUp(self):
         np.random.seed(0)
 
-    def _base(self, struct=((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)), ss=()):
+    def _frame(self, struct=((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)), ss=()):
         import t3toolbox.tucker_tensor_train as t3
         import t3toolbox.uniform_tucker_tensor_train as ut3
         x = t3.TuckerTensorTrain.randn(*struct, stack_shape=ss)
         return ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))[0]
 
-    def _oracle(self, base, fn):  # ragged per-element verdict via to_t3frame
-        tree = base.to_t3frame()
-        if base.stack_shape == ():
+    def _oracle(self, frame, fn):  # ragged per-element verdict via to_t3frame
+        tree = frame.to_t3frame()
+        if frame.stack_shape == ():
             return np.asarray(bool(fn(tree)))
-        return np.array([bool(fn(tree[i])) for i in range(base.stack_shape[0])])
+        return np.array([bool(fn(tree[i])) for i in range(frame.stack_shape[0])])
 
     def test_is_orthogonal_matches_oracle(self):
         for ss in [(), (2,)]:
             with self.subTest(stack=ss):
-                base = self._base(ss=ss)
-                self.assertEqual(base.is_orthogonal().shape, ss)        # scalar unstacked, array stacked
-                self.assertTrue(np.array_equal(base.is_orthogonal(),
-                                               self._oracle(base, lambda b: b.is_orthogonal())))
-                self.assertTrue(base.is_orthogonal().all())             # an orthogonal frame
+                frame = self._frame(ss=ss)
+                self.assertEqual(frame.is_orthogonal().shape, ss)        # scalar unstacked, array stacked
+                self.assertTrue(np.array_equal(frame.is_orthogonal(),
+                                               self._oracle(frame, lambda b: b.is_orthogonal())))
+                self.assertTrue(frame.is_orthogonal().all())             # an orthogonal frame
 
     def test_is_orthogonal_mixed_stack(self):
-        good = self._base()
+        good = self._frame()
         bad = ubv.UT3Frame(good.up_tucker_supercore + 0.5, good.down_tt_supercore,
                            good.left_tt_supercore, good.right_tt_supercore, good.shape, good.masks)
         mixed = ubv.UT3Frame.stack([good, bad])
@@ -793,26 +793,26 @@ class TestUT3FrameCheckers(unittest.TestCase):
         for struct in [((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)),       # minimal
                        ((10, 11, 12), (4, 5, 4), (1, 2, 3, 1))]:    # non-minimal (tucker rank 4 > 1*3)
             with self.subTest(struct=struct):
-                base = self._base(struct, ss=(2,))
-                self.assertTrue(np.array_equal(base.has_minimal_ranks,
-                                               self._oracle(base, lambda b: b.has_minimal_ranks)))
-                self.assertTrue(np.array_equal(base.has_numerically_minimal_ranks(),
-                                               self._oracle(base, lambda b: b.has_numerically_minimal_ranks())))
+                frame = self._frame(struct, ss=(2,))
+                self.assertTrue(np.array_equal(frame.has_minimal_ranks,
+                                               self._oracle(frame, lambda b: b.has_minimal_ranks)))
+                self.assertTrue(np.array_equal(frame.has_numerically_minimal_ranks(),
+                                               self._oracle(frame, lambda b: b.has_numerically_minimal_ranks())))
 
     def test_is_consistent_matches_oracle(self):
-        base = self._base(ss=(2,))
-        self.assertTrue(np.array_equal(base.is_consistent(), self._oracle(base, lambda b: b.is_consistent())))
-        self.assertTrue(base.is_consistent().all())
+        frame = self._frame(ss=(2,))
+        self.assertTrue(np.array_equal(frame.is_consistent(), self._oracle(frame, lambda b: b.is_consistent())))
+        self.assertTrue(frame.is_consistent().all())
 
     def test_allclose(self):
         import t3toolbox.tucker_tensor_train as t3
         import t3toolbox.uniform_tucker_tensor_train as ut3
-        base = self._base(ss=(2,))
-        self.assertTrue(base.allclose(base).all())
-        self.assertTrue(base.allclose(base.orthogonalize()).all())   # same point, possibly different gauge
+        frame = self._frame(ss=(2,))
+        self.assertTrue(frame.allclose(frame).all())
+        self.assertTrue(frame.allclose(frame.orthogonalize()).all())   # same point, possibly different gauge
         other = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(
             t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1), stack_shape=(2,))))[0]
-        self.assertFalse(base.allclose(other).all())                 # different base points
+        self.assertFalse(frame.allclose(other).all())                 # different base points
 
 
 if __name__ == '__main__':

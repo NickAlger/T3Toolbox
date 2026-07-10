@@ -15,7 +15,7 @@ raw cores, and (3) re-wraps the result. Design: ``dev/archive/optimizers_plan.md
 * a **uniform** ``UniformTuckerTensorTrain`` x0 with a uniform geometry
   (``uniform_manifold.UNIFORM_MANIFOLD`` / ``UNIFORM_COREWISE``) -- the optimizer runs on the packed
   supercore pair (``lax.scan`` over the mode axis; the speed path). The uniform path requires a
-  **minimal-rank base**; it calls :py:func:`~t3toolbox.backend.uniform_fitting.uniform_minimal`
+  **minimal-rank frame**; it calls :py:func:`~t3toolbox.backend.uniform_fitting.uniform_minimal`
   transparently so a frontend user never meets that requirement.
 
 The geometry must match ``x0``'s representation (a uniform x0 with a ragged geometry, or vice versa, is a
@@ -101,7 +101,7 @@ def _setup(
     ``TuckerTensorTrain`` x0 with a ragged one -- else a structural error. The uniform path reduces ``x0`` to
     minimal ranks (:py:func:`~t3toolbox.backend.uniform_fitting.uniform_minimal`) transparently, so a
     frontend user never meets the minimal-rank requirement, and rewraps the optimizer's bare supercore pair
-    with the base's held ``shape`` + ``masks``.
+    with the frame's held ``shape`` + ``masks``.
     """
     _check_kind(kind, order)
 

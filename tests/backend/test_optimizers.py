@@ -85,7 +85,7 @@ class TestBackendOptimizers(unittest.TestCase):
                     self.assertLess(abs(float(lm.objective) - float(fmodel.objective_value))
                                     / abs(float(fmodel.objective_value)), 1e-11)
 
-                    pt = geom_f.randn(geom_f.base(self.X)); p = pt.variations.data
+                    pt = geom_f.randn(geom_f.frame(self.X)); p = pt.variations.data
                     self.assertLess(abs(float(lm.gn_quadratic(p)) - float(fmodel.gn_quadratic(pt)))
                                     / abs(float(fmodel.gn_quadratic(pt))), 1e-11)
                     self.assertLess(relerr_tree(lm.hvp(p), fmodel.gn_hessian(pt).variations.data), 1e-11)

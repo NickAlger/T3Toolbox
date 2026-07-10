@@ -132,7 +132,7 @@ because the ranks genuinely change. The **frame-variations / tangent layer** (`U
 tangent space of a `UT3Frame`) runs a **different algebra**, and the mask behavior is different —
 **identical, not combined.**
 
-A variation is a **tangent vector**: a point in the fixed-dimensional tangent space `T_B` at a base
+A variation is a **tangent vector**: a point in the fixed-dimensional tangent space `T_B` at a frame
 point `B`. Its rank structure (the mask) is a property of **`B`'s gauge**, shared by *every* tangent at
 `B`. So the vector-space operations there are **corewise at a fixed rank**, not direct sums:
 
@@ -140,7 +140,7 @@ point `B`. Its rank structure (the mask) is a property of **`B`'s gauge**, share
 |---|---|
 | `v + w`, `v - w` (both tangents at `B`) | **identical** — `v` and `w` carry `B`'s mask; the sum is another vector of `T_B` with the *same* mask. No concat. |
 | `α · v`, `-v` | unchanged (scaling cannot change which slots are real) |
-| `sum_stack` (sum a batch of tangents) | OR the mask over the summed stack axes — a **no-op** when the batch shares a base (`K`-stack, one mask); a genuine union only for a varying-rank stack |
+| `sum_stack` (sum a batch of tangents) | OR the mask over the summed stack axes — a **no-op** when the batch shares a frame (`K`-stack, one mask); a genuine union only for a varying-rank stack |
 
 This mirrors the ragged layer exactly: `T3Variations.__add__` is a *corewise* add of equal-shaped cores
 (it has no direct-sum/concat at all), because tangent addition stays inside one fixed-dimensional space.
@@ -148,7 +148,7 @@ The ⊕/⊗ closure argument above is about *tensors*; the tangent algebra never
 
 **Consequence — why the masks-as-`aux_data` worry does not bite here.** Because add/sub/scale **do not
 change the mask**, they create no new static structure: no fresh jit cache key, no recompile, and the
-result still pairs with its base (`check_ufv_pair`) since two tangents at one base share that base's
+result still pairs with its frame (`check_ufv_pair`) since two tangents at one frame share that frame's
 mask. Mask *changes* are confined to the tensor layer — where a rank change is a real new structure, and
 `ValueHashedMasks` keeps a rebuilt-but-identical mask from recompiling anyway (see
 `uniform_pytree_composition.md`).

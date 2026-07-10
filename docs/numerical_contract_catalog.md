@@ -46,7 +46,7 @@ those properties only make them *equal HS*), so it moves to the geometry's `inne
 
 ## Master table (by surface)
 
-`SF` = same-frame, `ORTH` = orthogonal base, `GAUGE` = variations gauged. "—" = no numerical precondition
+`SF` = same-frame, `ORTH` = orthogonal frame, `GAUGE` = variations gauged. "—" = no numerical precondition
 (structural checks like shapes/ranks/`check_fv_pair` still apply, always, in both modes).
 
 ### `T3Tangent` (after the §S3 rename)
@@ -76,12 +76,12 @@ those properties only make them *equal HS*), so it moves to the geometry's `inne
 | `MANIFOLD.project_ambient(frame,grad)` | **ORTH** | — | docstring already states "Requires orthogonal; minimal NOT required" ✓ |
 | `MANIFOLD.transport(v,new_frame)` | **ORTH** (new_frame) | — | = `project_ambient` onto the new frame |
 | `MANIFOLD.randn`/`random_orthogonal`/`randn_like` | **ORTH** (via `project`) | minimal (for a *true* Gaussian on `T_xM`) | docstring already careful: "for a non-orthogonal frame it is merely gauged" |
-| `MANIFOLD.base`, `COREWISE.base`, `COREWISE.{randn,project,retract,randn_like}` | — | — | `base` *produces* the frame; corewise ops are gauge-free by design |
+| `MANIFOLD.frame`, `COREWISE.frame`, `COREWISE.{randn,project,retract,randn_like}` | — | — | `frame` *produces* the frame; corewise ops are gauge-free by design |
 
 ### `GaussNewtonModel` (fitting)
 | op | precondition | note |
 |---|---|---|
-| `gradient`, `gn_hessian(p)`, `jacobian(p)`, `gn_quadratic(p)`, `evaluate(p)` | **SF** (`p` vs `model.base`) | today `_require_at_base` identity → `same_frame`. The base's ORTH (manifold) is guaranteed by `geometry.base(x)` at construction — a *construction invariant*, not a per-op check. `evaluate`/two-form use `corewise_inner` (coordinate metric), so **SF**, not HS. |
+| `gradient`, `gn_hessian(p)`, `jacobian(p)`, `gn_quadratic(p)`, `evaluate(p)` | **SF** (`p` vs `model.frame`) | today `_require_at_frame` identity → `same_frame`. The frame's ORTH (manifold) is guaranteed by `geometry.frame(x)` at construction — a *construction invariant*, not a per-op check. `evaluate`/two-form use `corewise_inner` (coordinate metric), so **SF**, not HS. |
 
 ### `TuckerTensorTrain`, `corewise`, `probing` — **precondition-free**
 | surface | precondition | why |
@@ -94,7 +94,7 @@ those properties only make them *equal HS*), so it moves to the geometry's `inne
 
 ## The blurs this fixes (current code conflations)
 
-1. **The same-base guard is labelled "structural" but is numerical** (`fitting._require_at_base` docstring
+1. **The same-frame guard is labelled "structural" but is numerical** (`fitting._require_at_frame` docstring
    "Structural guard"; `T3Tangent._check_same_tangent_space` via `is`). **The root cause.** → `same_frame`
    (identity fast-path + `frames_equal`), safe-mode, eager-only. *This is what unblocks frame-as-leaf.*
 2. **`T3Tangent.inner`/`norm` fold the HS caveat into the op** (`.. warning:: equals HS only when
@@ -111,14 +111,14 @@ Minimal rank splits into **structural** (`has_minimal_ranks` — ranks equal the
 integer arithmetic) and **numerical** (`has_numerically_minimal_ranks` — no stored rank numerically
 redundant; needs an SVD for a tensor, *free* for an orthonormal frame). **An experiment settled which ops
 actually need it** (`tests/`-style script run 2026-06-19; each op compared on a minimal vs a non-minimal
-*orthogonal* base against the dense oracle):
+*orthogonal* frame against the dense oracle):
 
 | op | needs minimal? | evidence |
 |---|---|---|
-| `MANIFOLD.inner` / `norm` (= `corewise_inner` when gauged) | **NO** | `corewise_inner(gauged) == dense HS` *exactly* on the non-minimal orthonormal base. **Orthogonal + gauged suffices** (the CLAUDE.md "+ minimal" was wrong). |
-| `manifold_dim` / `tangent_space_dimension` | **NO** | the formula matches the true SVD rank (103) on the non-minimal base. Correct for any ranks. |
-| `MANIFOLD.retract` | **soft caveat only** | still a valid first-order retraction on a non-minimal base (rel.err 6e-6); it just **drops the numerically-redundant rank** (tucker 4→3) — desirable cleanup, not an error. Minimal buys only *strict* rank preservation. |
-| `MANIFOLD.randn` / `project_oblique` | **NO (correctness)** | gauged direction is valid on any orthonormal base; "true Gaussian / HS-matching" is on whatever the stored-rank tangent space is, which is correct. |
+| `MANIFOLD.inner` / `norm` (= `corewise_inner` when gauged) | **NO** | `corewise_inner(gauged) == dense HS` *exactly* on the non-minimal orthonormal frame. **Orthogonal + gauged suffices** (the CLAUDE.md "+ minimal" was wrong). |
+| `manifold_dim` / `tangent_space_dimension` | **NO** | the formula matches the true SVD rank (103) on the non-minimal frame. Correct for any ranks. |
+| `MANIFOLD.retract` | **soft caveat only** | still a valid first-order retraction on a non-minimal frame (rel.err 6e-6); it just **drops the numerically-redundant rank** (tucker 4→3) — desirable cleanup, not an error. Minimal buys only *strict* rank preservation. |
+| `MANIFOLD.randn` / `project_oblique` | **NO (correctness)** | gauged direction is valid on any orthonormal frame; "true Gaussian / HS-matching" is on whatever the stored-rank tangent space is, which is correct. |
 | `MANIFOLD.project`/`project_ambient`/`transport`, gauge `Π` | **NO** | orthogonal suffices (already known). |
 
 **Verdict: minimal rank is NOT a correctness precondition for any verified op.** So we **do not wire it as
@@ -144,11 +144,11 @@ frames). Naming convention: bare `minimal_ranks` = structural; `numerically_mini
 - **Where checks live (razor):** to serve raw-`.data` users, the ORTH/GAUGE checks belong at the **backend**
   functions that consume raw data (`tangent_operations.*`, which already have `is_orthogonal`-style
   residual helpers), with the frontend methods inheriting them. `same_frame` is a frontend concept (it
-  needs the two `T3Frame` objects); the backend's analogue is "the caller passed one shared base", so the
+  needs the two `T3Frame` objects); the backend's analogue is "the caller passed one shared frame", so the
   same-frame check is naturally frontend-only.
 - **Cost mitigation (done in S5):** cache the atol-*independent* **residual**, not the atol-bool —
   `T3Frame.orthogonality_residual` and `T3Tangent.gauge_residual` are `@cached_property`s, and
-  `is_orthogonal(atol)`/`is_gauged(atol)` compare against them. A fixed base/tangent in an inner loop is
+  `is_orthogonal(atol)`/`is_gauged(atol)` compare against them. A fixed frame/tangent in an inner loop is
   contracted once; the atol stays a free parameter.
 - **Trace detection (done in S5):** the eager-only skip must fire even when the checked operand is a
   *closed-over concrete* array (not a tracer) while globally inside a trace — a jnp op then still yields a
@@ -160,8 +160,8 @@ frames). Naming convention: bare `minimal_ranks` = structural; `numerically_mini
 1. **`retract` precondition = ORTH only** (not GAUGE)? My read: yes — retract is gauge-invariant; gauge
    only relabels the variations, not the represented step. Confirm.
 2. **`MANIFOLD.inner` should check both operands GAUGE + the frame ORTH** (3 checks) — accept the cost in
-   safe mode (mitigated by caching), or check only SF + GAUGE and treat ORTH as a base-construction
-   invariant (since `MANIFOLD.base` guarantees it)? Leaning: check all three for honesty, cache the frame
+   safe mode (mitigated by caching), or check only SF + GAUGE and treat ORTH as a frame-construction
+   invariant (since `MANIFOLD.frame` guarantees it)? Leaning: check all three for honesty, cache the frame
    ones.
 3. **Backend-level enforcement** for raw-`.data` users (ORTH/GAUGE checks in `tangent_operations`), or
    frontend-only for now? Leaning: frontend-first (S3–S5), backend mirror later.

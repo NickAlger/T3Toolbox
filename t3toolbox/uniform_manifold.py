@@ -12,7 +12,7 @@ representation. Holds:
   checkers, the constructors, ``reverse``, the doubled-rank ``to_ut3``/``to_dense``, ``gauge_residual`` /
   ``is_gauged``, the cross-layer converters, and the stack/unstack tree conversions;
 - :py:class:`UniformManifoldGeometry` / :py:class:`UniformCorewiseGeometry` (3b-5) -- the stateless
-  geometry bundles (``base`` / ``randn`` / ``project`` / ``inner`` / ``norm`` / ``retract`` ...) mirroring
+  geometry bundles (``frame`` / ``randn`` / ``project`` / ``inner`` / ``norm`` / ``retract`` ...) mirroring
   the ragged ``MANIFOLD`` / ``COREWISE``, behind the per-element safe-mode preconditions, with the module
   singletons :py:data:`UNIFORM_MANIFOLD` / :py:data:`UNIFORM_COREWISE`.
 
@@ -54,8 +54,8 @@ def _broadcast_variation_masks_over_K(
 ) -> ubv.UT3VariationsMasks:             # masks broadcast constant along K, each (d,)+K+C+(size,)
     """Broadcast variation rank masks over an outer tangent stack ``K`` (constant along it).
 
-    A ``K``-stacked zero tangent is a bundle of ``K`` tangent vectors at one base, so each tangent
-    carries the *same* gauge masks -- the base's masks replicated (constant) along ``K``. Masks are host
+    A ``K``-stacked zero tangent is a bundle of ``K`` tangent vectors at one frame, so each tangent
+    carries the *same* gauge masks -- the frame's masks replicated (constant) along ``K``. Masks are host
     numpy (static aux), so this stays on ``np`` (see CLAUDE.md: supercores -> ``xnp``, masks -> ``np``).
     """
     K = tuple(K)
@@ -94,7 +94,7 @@ class UT3Tangent:
     A ``UT3Tangent`` bundles a :py:class:`~t3toolbox.uniform_frame_variations_format.UT3Frame` (the frame
     at the base point where the tangent space is attached) with a
     :py:class:`~t3toolbox.uniform_frame_variations_format.UT3Variations` (the tangent direction in that
-    frame). The ``K``/``C`` stack split (extra tangent stack ``K`` over the shared base stack ``C``) is
+    frame). The ``K``/``C`` stack split (extra tangent stack ``K`` over the shared frame stack ``C``) is
     **inferred** from the pair -- the variation stack is ``K + C`` and the frame stack is ``C`` -- never
     stored (the split-agnostic stacking of increment 2c).
 
@@ -111,11 +111,11 @@ class UT3Tangent:
     >>> import t3toolbox.uniform_manifold as ut3m
     >>> np.random.seed(0)
     >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
-    >>> base, variations = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
-    >>> v = ut3m.UT3Tangent(base, variations)
+    >>> frame, variations = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
+    >>> v = ut3m.UT3Tangent(frame, variations)
     >>> print(v.shape, v.stack_shape)
     (10, 11, 12) ()
-    >>> print(bool(v.is_orthogonal()))   # base from ut3_orthogonal_representations is orthogonal
+    >>> print(bool(v.is_orthogonal()))   # frame from ut3_orthogonal_representations is orthogonal
     True
     >>> w = 2.0 * v - v                  # linear algebra stays in the same tangent space
     >>> print(bool(w.allclose(v)))       # (2v - v) == v
@@ -142,7 +142,7 @@ class UT3Tangent:
     def __repr__(self) -> str:
         return (f"UT3Tangent(shape={self.shape}, tucker_ranks={self.frame.up_ranks}, "
                 f"tt_ranks={self.frame.left_ranks}, tangent_stack={self.tangent_stack_shape}, "
-                f"base_stack={self.base_stack_shape})")
+                f"frame_stack={self.frame_stack_shape})")
 
     # ------------------------------------------------------------- structure (K/C inferred from the pair)
     @ft.cached_property
@@ -154,29 +154,29 @@ class UT3Tangent:
         return self.frame.shape
 
     @ft.cached_property
-    def base_stack_shape(self) -> typ.Tuple[int, ...]:
-        """Base stack ``C``: the batch of base points, shared with the frame (``frame.stack_shape``)."""
+    def frame_stack_shape(self) -> typ.Tuple[int, ...]:
+        """Frame stack ``C``: the batch of base points, shared with the frame (``frame.stack_shape``)."""
         return self.frame.stack_shape
 
     @ft.cached_property
     def tangent_stack_shape(self) -> typ.Tuple[int, ...]:
-        """Tangent stack ``K``: the extra *outer* batch of tangent vectors sharing this base.
+        """Tangent stack ``K``: the extra *outer* batch of tangent vectors sharing this frame.
 
-        The part of the variation stack that exceeds the base stack (often empty). The variation
-        supercores are stacked ``(d,) + K + C + (core,)`` -- extra axes outermost, base stack inner.
+        The part of the variation stack that exceeds the frame stack (often empty). The variation
+        supercores are stacked ``(d,) + K + C + (core,)`` -- extra axes outermost, frame stack inner.
         """
         full = self.variations.stack_shape
-        return full[:len(full) - len(self.base_stack_shape)]
+        return full[:len(full) - len(self.frame_stack_shape)]
 
     @ft.cached_property
     def stack_shape(self) -> typ.Tuple[int, ...]:
-        """Full stack ``K + C`` (``tangent_stack_shape + base_stack_shape``), outer-to-inner."""
+        """Full stack ``K + C`` (``tangent_stack_shape + frame_stack_shape``), outer-to-inner."""
         return self.variations.stack_shape
 
     @ft.cached_property
     def structure(self):
         """The frame's per-element structure ``(shape, up_ranks, down_ranks, left_ranks, right_ranks,
-        stack_shape)`` (ranks are arrays over the base stack ``C``)."""
+        stack_shape)`` (ranks are arrays over the frame stack ``C``)."""
         return self.frame.structure
 
     @ft.cached_property
@@ -207,7 +207,7 @@ class UT3Tangent:
         if self.stack_shape != other.stack_shape:
             raise ValueError(
                 'Tangent vectors have different stack shapes; elementwise linear algebra requires '
-                'matching stacks (same tangent stack K over the shared base stack C).\n'
+                'matching stacks (same tangent stack K over the shared frame stack C).\n'
                 + str(self.stack_shape) + ' = self.stack_shape != other.stack_shape = ' + str(other.stack_shape))
         if self.variations.masks != other.variations.masks:
             raise ValueError(
@@ -283,10 +283,10 @@ class UT3Tangent:
             rtol:   float = 1e-9,
             atol:   float = 0.0,
     ) -> NDArray:  # bool array, shape = stack_shape (K+C); scalar when unstacked
-        """``True`` (per stack element) if ``other`` is the same tangent vector as ``self`` at the same base.
+        """``True`` (per stack element) if ``other`` is the same tangent vector as ``self`` at the same frame.
 
         Checks ``||self - other|| <= atol + rtol * ||other||`` via :py:meth:`corewise_norm`, **per stacked
-        element** (reduce with ``.all()`` for a single verdict). Assumes a shared base (compares corewise on
+        element** (reduce with ``.all()`` for a single verdict). Assumes a shared frame (compares corewise on
         the variations, like :py:meth:`__sub__`); for tangents at different bases, compare dense."""
         dn = (self - other).corewise_norm()
         rn = other.corewise_norm()
@@ -295,22 +295,22 @@ class UT3Tangent:
     # ------------------------------------------------------------- validity checkers (delegate to UT3Frame)
     @ft.cached_property
     def minimal_ranks(self):
-        """Structural minimal ranks of this tangent's base point, **per base-stack element** (the ranks
+        """Structural minimal ranks of this tangent's base point, **per frame-stack element** (the ranks
         vary across the stack). See :py:meth:`UT3Frame.minimal_ranks`."""
         return self.frame.minimal_ranks
 
     @ft.cached_property
-    def tangent_space_dimension(self):  # int (unstacked) or int array of shape = base stack C
+    def tangent_space_dimension(self):  # int (unstacked) or int array of shape = frame stack C
         """Dimension of the tangent space at this base point (= the fixed-rank manifold dimension),
-        **per base-stack element** ``C`` (the ``K`` vectors share the base, hence the same tangent space).
+        **per frame-stack element** ``C`` (the ``K`` vectors share the frame, hence the same tangent space).
 
         An ``int`` when unstacked (``C == ()``), else an int array of shape ``C``. Computed from the
         structurally-minimal ranks (gauge already quotiented); see
         :py:func:`~t3toolbox.backend.ranks.compute_manifold_dim`. Masks are host numpy, so the ranks --
-        and this dimension -- are host quantities (a small loop over the base stack, computed once)."""
+        and this dimension -- are host quantities (a small loop over the frame stack, computed once)."""
         up = np.asarray(self.frame.up_ranks)        # (d,)   + C
         left = np.asarray(self.frame.left_ranks)    # (d+1,) + C
-        C = self.base_stack_shape
+        C = self.frame_stack_shape
 
         def dim_at(idx):  # idx: an index tuple into C
             sel = (slice(None),) + idx
@@ -326,20 +326,20 @@ class UT3Tangent:
         return out
 
     @ft.cached_property
-    def has_minimal_ranks(self) -> NDArray:  # bool array, shape = base stack C (scalar unstacked)
-        """True (per base-stack element) if this tangent's frame has **structurally** minimal ranks. See
+    def has_minimal_ranks(self) -> NDArray:  # bool array, shape = frame stack C (scalar unstacked)
+        """True (per frame-stack element) if this tangent's frame has **structurally** minimal ranks. See
         :py:meth:`UT3Frame.has_minimal_ranks`. Minimal rank is *not* a correctness precondition for the
         tangent ops (see the contract catalog); for the numerical check see
         :py:meth:`has_numerically_minimal_ranks`. Not enforced at construction."""
         return self.frame.has_minimal_ranks
 
-    def has_numerically_minimal_ranks(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = base stack C
-        """True (per base-stack element) if this tangent's frame is **numerically** minimal. See
+    def has_numerically_minimal_ranks(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = frame stack C
+        """True (per frame-stack element) if this tangent's frame is **numerically** minimal. See
         :py:meth:`UT3Frame.has_numerically_minimal_ranks` (orthogonal + structurally-minimal, no SVD)."""
         return self.frame.has_numerically_minimal_ranks(atol=atol)
 
-    def is_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = base stack C (scalar unstacked)
-        """True (per base-stack element) if this tangent's frame is orthogonal. See
+    def is_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = frame stack C (scalar unstacked)
+        """True (per frame-stack element) if this tangent's frame is orthogonal. See
         :py:meth:`UT3Frame.is_orthogonal`. Reduce with ``.all()`` for a single verdict."""
         return self.frame.is_orthogonal(atol=atol)
 
@@ -446,7 +446,7 @@ class UT3Tangent:
         >>> import t3toolbox.backend.probing as t3p
         >>> np.random.seed(0)
         >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)))
-        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(x))
+        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.frame(x))
         >>> ww = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))   # probe stack W=(2,)
         >>> zz = v.probe(ww)
         >>> print(zz[0].shape)                                     # W + K + C + (N0,) = (2,) + () + () + (10,)
@@ -473,7 +473,7 @@ class UT3Tangent:
         >>> import t3toolbox.uniform_manifold as ut3m
         >>> np.random.seed(0)
         >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)))
-        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(x))
+        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.frame(x))
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> print(bool(abs(float(v.apply(ww)) - float(np.einsum('ijk,i,j,k->', v.to_dense(), *ww))) < 1e-9))
         True
@@ -495,7 +495,7 @@ class UT3Tangent:
         >>> import t3toolbox.uniform_manifold as ut3m
         >>> np.random.seed(0)
         >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)))
-        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(x))
+        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.frame(x))
         >>> print(bool(abs(float(v.entries((3, 5, 7))) - float(v.to_dense()[3, 5, 7])) < 1e-9))
         True
         """
@@ -531,7 +531,7 @@ class UT3Tangent:
         >>> import t3toolbox.uniform_manifold as ut3m
         >>> np.random.seed(0)
         >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)))
-        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(x))
+        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.frame(x))
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> zj = v.probe_derivatives(ww, pp, 3)
@@ -569,7 +569,7 @@ class UT3Tangent:
         >>> import t3toolbox.uniform_manifold as ut3m
         >>> np.random.seed(0)
         >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)))
-        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(x))
+        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.frame(x))
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> yj = v.apply_derivatives(ww, pp, 3)
@@ -597,7 +597,7 @@ class UT3Tangent:
         >>> import t3toolbox.uniform_manifold as ut3m
         >>> np.random.seed(0)
         >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)))
-        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(x))
+        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.frame(x))
         >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> yj = v.entries_derivatives(np.array([3, 5, 7]), pp, 3)
         >>> print(yj.shape, bool(np.allclose(yj[0], v.entries((3, 5, 7)))))  # (order+1,); order 0 == entries
@@ -612,7 +612,7 @@ class UT3Tangent:
             ww,                        # probe vectors,   len=d, ith elm_shape=W+(Ni,)
             frame:  ubv.UT3Frame,      # the orthogonal frame the tangent attaches at
             sum_over_probes:  bool = False,   # True: sum the probe stack W (Gauss-Newton 𝒥ᵀr); False: keep it
-    ) -> 'UT3Tangent':  # tangent stack W+K (sum_over_probes=False) or K (True); base stack C
+    ) -> 'UT3Tangent':  # tangent stack W+K (sum_over_probes=False) or K (True); frame stack C
         """Apply the transpose ``𝒥ᵀ`` of the probe map to residuals; returns a :py:class:`UT3Tangent` at
         ``frame``. The adjoint of :py:meth:`probe`. Uniform mirror of
         :py:meth:`~t3toolbox.manifold.T3Tangent.probe_transpose`: the residuals live in the forward probe
@@ -636,7 +636,7 @@ class UT3Tangent:
         >>> import t3toolbox.uniform_manifold as ut3m
         >>> np.random.seed(0)
         >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)))
-        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(x))
+        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.frame(x))
         >>> ww = [np.random.randn(2, N) for N in (10, 11, 12)]              # probe stack W=(2,)
         >>> zz = v.probe(ww)
         >>> r = [np.random.randn(*np.asarray(z).shape) for z in zz]
@@ -658,7 +658,7 @@ class UT3Tangent:
             ww,                        # apply vectors, len=d, ith elm_shape=W+(Ni,)
             frame:  ubv.UT3Frame,
             sum_over_probes:  bool = False,
-    ) -> 'UT3Tangent':  # tangent stack W+K (sum_over_probes=False) or K (True); base stack C
+    ) -> 'UT3Tangent':  # tangent stack W+K (sum_over_probes=False) or K (True); frame stack C
         """Apply the transpose ``𝒥ᵀ`` of :py:meth:`apply` -- back-project a residual ``c`` into a tangent
         at ``frame``. The adjoint of :py:meth:`apply`. Uniform mirror of
         :py:meth:`~t3toolbox.manifold.T3Tangent.apply_transpose`; ``sum_over_probes`` as in
@@ -673,7 +673,7 @@ class UT3Tangent:
             index,                     # int, shape=(d,)+W (the indices whose entries c weights)
             frame:  ubv.UT3Frame,
             sum_over_probes:  bool = False,
-    ) -> 'UT3Tangent':  # tangent stack W+K (sum_over_probes=False) or K (True); base stack C
+    ) -> 'UT3Tangent':  # tangent stack W+K (sum_over_probes=False) or K (True); frame stack C
         """Apply the transpose ``𝒥ᵀ`` of :py:meth:`entries` -- scatter ``c`` at ``index`` into a tangent at
         ``frame``. The adjoint of :py:meth:`entries` (= :py:meth:`apply_transpose` with one-hot vectors).
         Uniform mirror of :py:meth:`~t3toolbox.manifold.T3Tangent.entries_transpose`. The bare ``𝒥ᵀ``."""
@@ -690,7 +690,7 @@ class UT3Tangent:
             frame:  ubv.UT3Frame,      # the orthogonal frame the tangent attaches at
             order:  int,               # highest derivative order
             sum_over_probes:  bool = False,
-    ) -> 'UT3Tangent':  # tangent stack W+K (sum_over_probes=False) or K (True); base stack C
+    ) -> 'UT3Tangent':  # tangent stack W+K (sum_over_probes=False) or K (True); frame stack C
         """Transpose ``𝒥ᵀ`` of :py:meth:`probe_derivatives`: back-project residual jets into a
         :py:class:`UT3Tangent` at ``frame``. The residual jets live in the forward derivative-probe space
         (``(order+1)+W+K+C+(Ni,)``); the transpose sums the order axis, so the result is a single tangent
@@ -714,7 +714,7 @@ class UT3Tangent:
         >>> import t3toolbox.uniform_manifold as ut3m
         >>> np.random.seed(0)
         >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)))
-        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.base(x))
+        >>> v = ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_MANIFOLD.frame(x))
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> pp = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
         >>> Jv = v.probe_derivatives(ww, pp, 2)
@@ -764,11 +764,11 @@ class UT3Tangent:
         return UT3Tangent(frame, _ut3variations_from_data(vd))
 
     def sum_tangents(self, axis=None) -> 'UT3Tangent':
-        """Sum over the tangent stack ``K`` (a batch of tangents at the shared base) into one tangent.
+        """Sum over the tangent stack ``K`` (a batch of tangents at the shared frame) into one tangent.
 
-        Corewise (= the tensor sum, by linearity); the base stack ``C`` is preserved. ``axis`` indexes
+        Corewise (= the tensor sum, by linearity); the frame stack ``C`` is preserved. ``axis`` indexes
         within ``K`` (default: the whole tangent stack). The masks OR over the summed axes -- a no-op for
-        a single-base ``K`` stack (constant masks), but the correct reduction in general."""
+        a single-frame ``K`` stack (constant masks), but the correct reduction in general."""
         vd = ufv_tangent_operations.sum_tangent_stack(
             self.variations.data, len(self.tangent_stack_shape), axis)
         return UT3Tangent(self.frame, _ut3variations_from_data(vd))
@@ -781,9 +781,9 @@ class UT3Tangent:
     ) -> 'UT3Tangent':
         """Zero tangent vector at a given frame (numpy/jax matching the frame).
 
-        ``stack_shape`` is the extra *outer* tangent stack ``K`` (a batch of tangents sharing this base);
+        ``stack_shape`` is the extra *outer* tangent stack ``K`` (a batch of tangents sharing this frame);
         the variation supercores are stacked ``(d,) + K + C + (core,)``, and the variation masks are the
-        base's gauge masks replicated (constant) along ``K``. Default ``K = ()``."""
+        frame's gauge masks replicated (constant) along ``K``. Default ``K = ()``."""
         K = tuple(stack_shape)
         gauge_masks = ubv.UT3Variations._variation_masks_of(frame)         # gauge-shifted masks, stack C
         masks = _broadcast_variation_masks_over_K(gauge_masks, K)          # -> stack K + C
@@ -810,15 +810,15 @@ class UT3Tangent:
 
     @staticmethod
     def zeros_like(tangent: 'UT3Tangent') -> 'UT3Tangent':
-        """Zero tangent at ``tangent``'s base, with ``tangent``'s tangent stack ``K``."""
+        """Zero tangent at ``tangent``'s frame, with ``tangent``'s tangent stack ``K``."""
         return UT3Tangent.zeros(tangent.frame, stack_shape=tangent.tangent_stack_shape)
 
     # ------------------------------------------------------------- stack/unstack (tree <-> stacked tangent)
     def unstack_tangents(self):
-        """Unstack over the tangent stack ``K``: a ``K``-shaped tree of tangents sharing this base.
+        """Unstack over the tangent stack ``K``: a ``K``-shaped tree of tangents sharing this frame.
 
         Decomposes the batch of tangent *directions*. Each leaf is a :py:class:`UT3Tangent` with
-        ``tangent_stack_shape == ()`` and this tangent's ``base_stack_shape`` -- and, because the base is
+        ``tangent_stack_shape == ()`` and this tangent's ``frame_stack_shape`` -- and, because the frame is
         shared across ``K``, every leaf holds the **same** :py:class:`UT3Frame` object, so the leaves live
         in one tangent space. Inverse of :py:meth:`stack_tangents`."""
         variations_tree = ufv_tangent_operations.unstack_tangent_stack(self.frame.data, self.variations.data)
@@ -828,13 +828,13 @@ class UT3Tangent:
             ufv_operations.ufv_leaf_structure(self.d, 2))
 
     def unstack_frame(self):
-        """Unstack over the base stack ``C``: a ``C``-shaped tree of single-base-point tangents.
+        """Unstack over the frame stack ``C``: a ``C``-shaped tree of single-frame-point tangents.
 
-        Decomposes over base *points*. Each leaf is a :py:class:`UT3Tangent` with ``base_stack_shape == ()``
+        Decomposes over frame *points*. Each leaf is a :py:class:`UT3Tangent` with ``frame_stack_shape == ()``
         and this tangent's ``tangent_stack_shape``; the leaves sit at **different** base points (different
         tangent spaces, not mutually linear-algebra compatible) and may have **different ranks** (the
         varying-``C`` rank-sweep case). Inverse of :py:meth:`stack_frame`."""
-        paired_tree = ufv_tangent_operations.unstack_base_stack(self.frame.data, self.variations.data)
+        paired_tree = ufv_tangent_operations.unstack_frame_stack(self.frame.data, self.variations.data)
         leaf_structure = (ufv_operations.ufv_leaf_structure(self.d, 4),    # a frame_data leaf
                           ufv_operations.ufv_leaf_structure(self.d, 2))    # a variations_data leaf
         return stacking.apply_func_to_leaf_subtrees(
@@ -844,32 +844,32 @@ class UT3Tangent:
 
     @staticmethod
     def stack_tangents(tree) -> 'UT3Tangent':
-        """Stack a ``K``-shaped tree of tangents (sharing one base) into a tangent-stacked UT3Tangent.
+        """Stack a ``K``-shaped tree of tangents (sharing one frame) into a tangent-stacked UT3Tangent.
 
         Inverse of :py:meth:`unstack_tangents`. Requires every leaf to be at the **same frame** (the
         numerical same-frame check, as in :py:meth:`__add__`): the tangents being stacked must live in the
-        same tangent space. The first leaf's base is reused; the variations stack over the new outer
+        same tangent space. The first leaf's frame is reused; the variations stack over the new outer
         tangent stack ``K``."""
         leaves = _flatten_tangents(tree)
-        base = leaves[0].frame
+        frame = leaves[0].frame
         for t in leaves[1:]:
-            if not (t.frame is base or safety.frames_equal_or_skip(t.frame.data[:4], base.data[:4])):
+            if not (t.frame is frame or safety.frames_equal_or_skip(t.frame.data[:4], frame.data[:4])):
                 raise ValueError(
                     'stack_tangents requires every tangent to be at the same frame -- they must live in the '
                     'same tangent space. To stack tangents at *different* base points, use stack_frame. '
                     '(Run inside safety.unsafe() to skip this numerical check.)')
         variations_tree = stacking.apply_func_to_leaf_subtrees(tree, lambda t: t.variations.data, None)
         vd = ufv_tangent_operations.stack_tangent_stack(variations_tree)
-        return UT3Tangent(base, _ut3variations_from_data(vd))
+        return UT3Tangent(frame, _ut3variations_from_data(vd))
 
     @staticmethod
     def stack_frame(tree) -> 'UT3Tangent':
-        """Stack a ``C``-shaped tree of single-base-point tangents into a base-stacked UT3Tangent.
+        """Stack a ``C``-shaped tree of single-frame-point tangents into a frame-stacked UT3Tangent.
 
-        Inverse of :py:meth:`unstack_frame`. The leaves sit at **different** base points, so no shared-base
+        Inverse of :py:meth:`unstack_frame`. The leaves sit at **different** base points, so no shared-frame
         identity is required; they must share the padded dims ``(d, N, nU, nD, rL, rR)``, the real mode
-        ``shape``, and the tangent stack ``K`` -- but the **ranks/masks MAY differ across the base stack
-        ``C``** (varying-rank stacks are supported). The bases stack over the inner base stack ``C`` (so the
+        ``shape``, and the tangent stack ``K`` -- but the **ranks/masks MAY differ across the frame stack
+        ``C``** (varying-rank stacks are supported). The bases stack over the inner frame stack ``C`` (so the
         variation stack becomes ``K + C``)."""
         leaves = _flatten_tangents(tree)
         key = lambda t: (t.frame.uniform_structure[:6], t.tangent_stack_shape, t.shape)
@@ -879,10 +879,10 @@ class UT3Tangent:
                 raise ValueError(
                     'stack_frame requires all tangents to share the padded dims (d, N, nU, nD, rL, rR), the '
                     'mode shape, and the tangent stack K (only the base point -- and its ranks/masks -- may '
-                    'differ across the base stack C).')
+                    'differ across the frame stack C).')
         paired_tree = stacking.apply_func_to_leaf_subtrees(
             tree, lambda t: (t.frame.data, t.variations.data), None)
-        frame_data, variations_data = ufv_tangent_operations.stack_base_stack(paired_tree)
+        frame_data, variations_data = ufv_tangent_operations.stack_frame_stack(paired_tree)
         return UT3Tangent(_ut3frame_from_data(frame_data), _ut3variations_from_data(variations_data))
 
 
@@ -891,8 +891,8 @@ if has_jax:
 
     # Register UT3Tangent as a jax pytree with the frame as a LEAF: both the frame and the variations are
     # children (no aux_data at this level -- each carries its own static masks aux internally). Mirrors the
-    # ragged T3Tangent: the base flows as ordinary traced data, so a tangent crossing a jit boundary does
-    # NOT recompile when the base changes; the same-tangent-space guard is the NUMERICAL same-frame check
+    # ragged T3Tangent: the frame flows as ordinary traced data, so a tangent crossing a jit boundary does
+    # NOT recompile when the frame changes; the same-tangent-space guard is the NUMERICAL same-frame check
     # (safety.frames_equal_or_skip, safe-mode + eager-only), which survives a jit round-trip and skips
     # under a trace. (The masks ride inside UT3Frame / UT3Variations as value-hashed aux.)
     jax.tree_util.register_pytree_node(
@@ -916,7 +916,7 @@ def _ut3_from_data(data) -> ut3.UniformTuckerTensorTrain:  # data = (tk_sc, tt_s
 def _require_orthogonal_frame(frame: ubv.UT3Frame, who: str) -> None:
     """Safe-mode ORTH precondition (uniform mirror of :py:func:`t3toolbox.manifold._require_orthogonal_frame`).
 
-    ``who`` (a manifold geometry op) requires an orthonormal frame **on every base-stack element**; in safe
+    ``who`` (a manifold geometry op) requires an orthonormal frame **on every frame-stack element**; in safe
     mode a non-orthogonal element raises. Skipped under ``safety.unsafe()`` / a jax trace. The gating helpers
     are fed the four supercores (``frame.data[:4]``) -- not the full ``.data``, whose trailing ``shape`` int
     tuple and mask holder carry no float content -- and the orthogonality check itself is mask-aware (it
@@ -926,9 +926,9 @@ def _require_orthogonal_frame(frame: ubv.UT3Frame, who: str) -> None:
     if safety.checks_active(frame.data[:4]):
         atol = safety.effective_rtol(frame.data[:4])
         safety.require(
-            frame.is_orthogonal(atol=atol).all(),     # per-element check -> require ALL base-stack elements orthogonal
-            '{} requires an orthogonal frame (the manifold geometry needs an orthonormal base to be the '
-            'Hilbert-Schmidt-orthogonal projection). Build the base with UniformManifoldGeometry.base / '
+            frame.is_orthogonal(atol=atol).all(),     # per-element check -> require ALL frame-stack elements orthogonal
+            '{} requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the '
+            'Hilbert-Schmidt-orthogonal projection). Build the frame with UniformManifoldGeometry.frame / '
             'UT3Frame.random_orthogonal, or run in unsafe mode (safety.unsafe()).'.format(who))
 
 
@@ -936,7 +936,7 @@ def _randn_variations_at(
         frame:  ubv.UT3Frame,
         K:      typ.Tuple[int, ...],   # extra tangent stack K (a batch of directions)
 ) -> ubv.UT3Variations:  # raw N(0,1) variations at frame (ungauged), gauge masks broadcast over K
-    """Raw i.i.d. ``N(0, 1)`` variations at ``frame`` with the base's gauge-shifted rank masks replicated
+    """Raw i.i.d. ``N(0, 1)`` variations at ``frame`` with the frame's gauge-shifted rank masks replicated
     (constant) along the tangent stack ``K`` -- the natural (corewise) Gaussian on the variation supercores,
     before any gauge projection. Mirrors :py:meth:`UT3Tangent.zeros`'s mask derivation with a randn fill (the
     masks are the rank structure, identical for both geometries; only whether you gauge afterwards differs)."""
@@ -953,10 +953,10 @@ class UniformManifoldGeometry:
     :py:class:`~t3toolbox.manifold.ManifoldGeometry`).
 
     A stateless bundle of the chart-level choices that distinguish the manifold from the over-parametrized
-    corewise geometry -- the orthonormal frame (:py:meth:`base`), the gauge projection ``Pi``
+    corewise geometry -- the orthonormal frame (:py:meth:`frame`), the gauge projection ``Pi``
     (:py:meth:`project`), and the manifold retraction (:py:meth:`retract`) -- plus the ambient projection and
     transport. Tangents live in ``T_xM`` with an orthonormal, gauged frame; the metric is Hilbert-Schmidt.
-    All methods are **per-element-mask-aware** (varying ranks across the base stack ``C`` are supported) and
+    All methods are **per-element-mask-aware** (varying ranks across the frame stack ``C`` are supported) and
     carry the per-element safe-mode preconditions (orthogonal frame, gauged variations; ``.all()`` over the
     stack). Use the module singleton :py:data:`UNIFORM_MANIFOLD`. The corewise counterpart is
     :py:class:`UniformCorewiseGeometry`.
@@ -969,18 +969,18 @@ class UniformManifoldGeometry:
     >>> import t3toolbox.uniform_manifold as ut3m
     >>> np.random.seed(0)
     >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1)))
-    >>> base = ut3m.UNIFORM_MANIFOLD.base(x)            # orthonormal frame at x
-    >>> print(bool(base.is_orthogonal().all()))
+    >>> frame = ut3m.UNIFORM_MANIFOLD.frame(x)            # orthonormal frame at x
+    >>> print(bool(frame.is_orthogonal().all()))
     True
-    >>> v = ut3m.UNIFORM_MANIFOLD.randn(base)           # a standard Gaussian on T_xM (gauged)
+    >>> v = ut3m.UNIFORM_MANIFOLD.randn(frame)           # a standard Gaussian on T_xM (gauged)
     >>> print(bool(v.is_gauged().all()))
     True
-    >>> y = ut3m.UNIFORM_MANIFOLD.retract(ut3m.UT3Tangent.zeros(base))   # retract the zero tangent == the base point
+    >>> y = ut3m.UNIFORM_MANIFOLD.retract(ut3m.UT3Tangent.zeros(frame))   # retract the zero tangent == the base point
     >>> print(bool(np.allclose(y.to_dense(), x.to_dense())))
     True
     """
 
-    def base(
+    def frame(
             self,
             x:  ut3.UniformTuckerTensorTrain,
     ) -> ubv.UT3Frame:  # orthonormal frame at x
@@ -1005,20 +1005,20 @@ class UniformManifoldGeometry:
             shape:                  typ.Sequence[int],         # (N0,...,N(d-1))
             tucker_ranks,                                      # int | len-d seq | (d,)+C array (the variety)
             tt_ranks,                                          # int | len-(d+1) seq | (d+1,)+C array
-            stack_shape:            typ.Tuple[int, ...] = (),  # base stack C (random base points)
+            stack_shape:            typ.Tuple[int, ...] = (),  # frame stack C (random base points)
             tangent_stack_shape:    typ.Tuple[int, ...] = (),  # tangent stack K
             use_jax:                bool = False,
     ) -> UT3Tangent:  # gauged random tangent at a random orthogonal base point
-        """A gauged random tangent at a random orthogonal base point (random direction, random base)."""
-        base = ubv.UT3Frame.random_orthogonal(shape, tucker_ranks, tt_ranks,
+        """A gauged random tangent at a random orthogonal base point (random direction, random frame)."""
+        frame = ubv.UT3Frame.random_orthogonal(shape, tucker_ranks, tt_ranks,
                                               stack_shape=stack_shape, use_jax=use_jax)
-        return self.randn(base, stack_shape=tangent_stack_shape)
+        return self.randn(frame, stack_shape=tangent_stack_shape)
 
     def randn_like(
             self,
-            tangent:    UT3Tangent,   # reuse its base + tangent stack K
-    ) -> UT3Tangent:  # gauged random tangent at tangent's base
-        """A gauged random tangent at ``tangent``'s base, with ``tangent``'s tangent stack ``K``."""
+            tangent:    UT3Tangent,   # reuse its frame + tangent stack K
+    ) -> UT3Tangent:  # gauged random tangent at tangent's frame
+        """A gauged random tangent at ``tangent``'s frame, with ``tangent``'s tangent stack ``K``."""
         return self.randn(tangent.frame, stack_shape=tangent.tangent_stack_shape)
 
     def project(
@@ -1097,10 +1097,10 @@ class UniformManifoldGeometry:
     def retract(
             self,
             p:  UT3Tangent,   # step (a tangent at the current point's frame)
-    ) -> ut3.UniformTuckerTensorTrain:  # retracted point on M, at p's base ranks
-        """Retract the step ``p`` to the manifold: shifted doubled-rank embedding, truncated to base ranks.
+    ) -> ut3.UniformTuckerTensorTrain:  # retracted point on M, at p's frame ranks
+        """Retract the step ``p`` to the manifold: shifted doubled-rank embedding, truncated to frame ranks.
 
-        Forms ``base point + p`` and truncates back to ``p``'s base ranks via the implicit uniform T3-SVD
+        Forms ``base point + p`` and truncates back to ``p``'s frame ranks via the implicit uniform T3-SVD
         (Algorithm 10). The current point is carried by ``p.frame``, so no separate point argument is needed.
         **Safe mode** requires ``p``'s frame orthogonal (raises otherwise; skipped under ``safety.unsafe()`` /
         a jax trace). ORTH only -- retract is gauge-invariant; minimal rank is a documented caveat."""
@@ -1166,16 +1166,16 @@ class UniformCorewiseGeometry:
     >>> import t3toolbox.uniform_manifold as ut3m
     >>> np.random.seed(0)
     >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1)))
-    >>> base = ut3m.UNIFORM_COREWISE.base(x)            # the (U, G, G, G) frame
-    >>> v = ut3m.UNIFORM_COREWISE.randn(base)           # raw randn cores (no gauge)
+    >>> frame = ut3m.UNIFORM_COREWISE.frame(x)            # the (U, G, G, G) frame
+    >>> v = ut3m.UNIFORM_COREWISE.randn(frame)           # raw randn cores (no gauge)
     >>> print(bool(v.is_gauged().all()))
     False
-    >>> y = ut3m.UNIFORM_COREWISE.retract(ut3m.UT3Tangent.zeros(base))   # additive: cores += step (zero -> the point)
+    >>> y = ut3m.UNIFORM_COREWISE.retract(ut3m.UT3Tangent.zeros(frame))   # additive: cores += step (zero -> the point)
     >>> print(bool(np.allclose(y.to_dense(), x.to_dense())))
     True
     """
 
-    def base(
+    def frame(
             self,
             x:  ut3.UniformTuckerTensorTrain,
     ) -> ubv.UT3Frame:  # the (U, G, G, G) non-orthonormal frame at x
@@ -1202,8 +1202,8 @@ class UniformCorewiseGeometry:
     def randn_like(
             self,
             tangent:    UT3Tangent,
-    ) -> UT3Tangent:  # raw random tangent at tangent's base
-        """A raw random tangent at ``tangent``'s base, with ``tangent``'s tangent stack ``K``."""
+    ) -> UT3Tangent:  # raw random tangent at tangent's frame
+        """A raw random tangent at ``tangent``'s frame, with ``tangent``'s tangent stack ``K``."""
         return self.randn(tangent.frame, stack_shape=tangent.tangent_stack_shape)
 
     def project(
@@ -1235,12 +1235,12 @@ class UniformCorewiseGeometry:
 
     def retract(
             self,
-            p:  UT3Tangent,   # step (a corewise tangent at base = (U, G, G, G))
+            p:  UT3Tangent,   # step (a corewise tangent at frame = (U, G, G, G))
     ) -> ut3.UniformTuckerTensorTrain:  # additive retraction: cores += p
         """Additive retraction: add the variation supercores to the point's cores (``cores += p``).
 
-        Recovers the point ``(U, G)`` from ``p.frame`` (which :py:meth:`base` built as ``(U, G, G, G)``) and
-        adds the variations. ``p`` must be a corewise tangent (a frame from :py:meth:`base`). See
+        Recovers the point ``(U, G)`` from ``p.frame`` (which :py:meth:`frame` built as ``(U, G, G, G)``) and
+        adds the variations. ``p`` must be a corewise tangent (a frame from :py:meth:`frame`). See
         :py:func:`~t3toolbox.backend.ufv_tangent_operations.corewise_retract`."""
         return _ut3_from_data(ufv_tangent_operations.corewise_retract(p.frame.data, p.variations.data))
 

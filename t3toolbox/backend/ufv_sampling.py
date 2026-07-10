@@ -33,18 +33,18 @@ __all__ = [
     'ut3tangent_probe_transpose',
     'ut3tangent_apply_transpose',
     'ut3tangent_entries_transpose',
-    'ut3tangent_precompute_apply_base_sweep',
-    'ut3tangent_precompute_probe_base_sweep',
-    'ut3tangent_precompute_entries_base_sweep',
+    'ut3tangent_precompute_apply_frame_sweep',
+    'ut3tangent_precompute_probe_frame_sweep',
+    'ut3tangent_precompute_entries_frame_sweep',
     'ut3tangent_apply_jacobian_from_sweep',
     'ut3tangent_probe_jacobian_from_sweep',
     'ut3tangent_entries_jacobian_from_sweep',
     'ut3tangent_apply_transpose_from_sweep',
     'ut3tangent_probe_transpose_from_sweep',
     'ut3tangent_entries_transpose_from_sweep',
-    'ut3tangent_precompute_apply_base_sweep_jets',
-    'ut3tangent_precompute_probe_base_sweep_jets',
-    'ut3tangent_precompute_entries_base_sweep_jets',
+    'ut3tangent_precompute_apply_frame_sweep_jets',
+    'ut3tangent_precompute_probe_frame_sweep_jets',
+    'ut3tangent_precompute_entries_frame_sweep_jets',
     'ut3tangent_apply_jacobian_derivatives_from_sweep',
     'ut3tangent_probe_jacobian_derivatives_from_sweep',
     'ut3tangent_entries_jacobian_derivatives_from_sweep',
@@ -65,7 +65,7 @@ def _mask_once(
         variations_data,  # UT3Variations .data: (tkv, ttv, shape, masks)
 ):  # -> (masked variation supercores (tkv, ttv), masked frame supercores (up, down, left, right))
     """Apply the rank masks once up front; return the masked supercores in probing's operand order
-    (variation, base) -- the padded slots are now zero, so the shared probing algorithm runs mask-free."""
+    (variation, frame) -- the padded slots are now zero, so the shared probing algorithm runs mask-free."""
     return (ufv_masking.apply_variations_masks(variations_data),
             ufv_masking.apply_frame_masks(frame_data))
 
@@ -108,236 +108,236 @@ def ut3tangent_entries(
 
 # ----------------------------------------------------------------- the split precompute -> from_sweep seam
 # The SamplingKind hooks for the uniform Gauss-Newton fitting model (optimizers-on-uniform U3), the uniform
-# twins of probing.{precompute_*_base_sweep, *_jacobian_from_sweep, *_transpose_from_sweep}. The base sweep
-# is the expensive, W-scaled part (the environment tensors); precomputed ONCE per base and reused across
+# twins of probing.{precompute_*_frame_sweep, *_jacobian_from_sweep, *_transpose_from_sweep}. The frame sweep
+# is the expensive, W-scaled part (the environment tensors); precomputed ONCE per frame and reused across
 # every J / Jᵀ of an inner solve (e.g. Newton-CG). Here the uniform sweep additionally carries the
 # boundary-processed operands -- the mask-once frame (a bare-supercore 4-tuple) + the packed probe vectors
 # (or the raw index) + the static shape -- so the from_sweep half re-masks / re-packs NOTHING per matvec:
 #
-#     uniform_sweep = (masked_base_4tuple, packed_ww_or_index, shape, probing_base_sweep)
+#     uniform_sweep = (masked_frame_4tuple, packed_ww_or_index, shape, probing_frame_sweep)
 #
 # The from_sweep halves mask-once their variation / residual operands and call the polymorphic probing
 # from_sweep functions. These are the bare 𝒥 / 𝒥ᵀ (no gauge projector Π); the geometry supplies Π.
 
-def ut3tangent_precompute_apply_base_sweep(
+def ut3tangent_precompute_apply_frame_sweep(
         frame_data,  # UT3Frame .data (an orthogonal frame), supercore stack = C
         ww,          # apply vectors, len=d, ith elm_shape=W+(Ni,)
-):  # -> uniform apply base sweep: (masked_base, packed_ww, shape, (xis, mus))
-    """The all-modes **apply** base sweep for the uniform tangent Jacobian: mask-once the frame, pack ``ww``
+):  # -> uniform apply frame sweep: (masked_frame, packed_ww, shape, (xis, mus))
+    """The all-modes **apply** frame sweep for the uniform tangent Jacobian: mask-once the frame, pack ``ww``
     to the supercore mode width ``N``, and precompute the lean ``(xis, mus)`` via the polymorphic
-    :py:func:`probing.precompute_apply_base_sweep`. The reuse hook for the uniform fitting inner solve."""
+    :py:func:`probing.precompute_apply_frame_sweep`. The reuse hook for the uniform fitting inner solve."""
     mb = ufv_masking.apply_frame_masks(frame_data)
     packed_ww = ut3_operations.pack_if_ragged(ww, mb[0].shape[-1])
-    return (mb, packed_ww, frame_data[4], probing.precompute_apply_base_sweep(mb, packed_ww))
+    return (mb, packed_ww, frame_data[4], probing.precompute_apply_frame_sweep(mb, packed_ww))
 
 
-def ut3tangent_precompute_probe_base_sweep(
+def ut3tangent_precompute_probe_frame_sweep(
         frame_data,  # UT3Frame .data (orthogonal frame)
         ww,          # probe vectors, len=d, ith elm_shape=W+(Ni,)
-):  # -> uniform probe base sweep: (masked_base, packed_ww, shape, (xis, mus, nus, etas))
-    """The **probe** base sweep (full ``(xis, mus, nus, etas)``): mask-once, pack ``ww``, share
-    :py:func:`probing.precompute_probe_base_sweep`."""
+):  # -> uniform probe frame sweep: (masked_frame, packed_ww, shape, (xis, mus, nus, etas))
+    """The **probe** frame sweep (full ``(xis, mus, nus, etas)``): mask-once, pack ``ww``, share
+    :py:func:`probing.precompute_probe_frame_sweep`."""
     mb = ufv_masking.apply_frame_masks(frame_data)
     packed_ww = ut3_operations.pack_if_ragged(ww, mb[0].shape[-1])
-    return (mb, packed_ww, frame_data[4], probing.precompute_probe_base_sweep(mb, packed_ww))
+    return (mb, packed_ww, frame_data[4], probing.precompute_probe_frame_sweep(mb, packed_ww))
 
 
-def ut3tangent_precompute_entries_base_sweep(
+def ut3tangent_precompute_entries_frame_sweep(
         frame_data,  # UT3Frame .data (orthogonal frame)
         index,       # int array, shape=(d,)+W -- the grid points (no packing; the real block is the prefix)
-):  # -> uniform entries base sweep: (masked_base, index, shape, (xis, mus))
-    """The all-modes **entries** base sweep (lean ``(xis, mus)``): mask-once, keep ``index`` (fiber slicing
-    needs no packing), share :py:func:`probing.precompute_entries_base_sweep`."""
+):  # -> uniform entries frame sweep: (masked_frame, index, shape, (xis, mus))
+    """The all-modes **entries** frame sweep (lean ``(xis, mus)``): mask-once, keep ``index`` (fiber slicing
+    needs no packing), share :py:func:`probing.precompute_entries_frame_sweep`."""
     mb = ufv_masking.apply_frame_masks(frame_data)
-    return (mb, index, frame_data[4], probing.precompute_entries_base_sweep(mb, index))
+    return (mb, index, frame_data[4], probing.precompute_entries_frame_sweep(mb, index))
 
 
 def ut3tangent_apply_jacobian_from_sweep(
         variations_data,  # UT3Variations .data (the tangent direction); stack = K + C
-        base_sweep,       # = ut3tangent_precompute_apply_base_sweep(...)
+        frame_sweep,       # = ut3tangent_precompute_apply_frame_sweep(...)
 ):  # -> scalar apply, shape=W+K+C
-    """Forward all-modes apply of a uniform tangent reusing the base sweep (the bare ``𝒥``): mask-once the
+    """Forward all-modes apply of a uniform tangent reusing the frame sweep (the bare ``𝒥``): mask-once the
     variation, share :py:func:`probing.apply_jacobian_from_sweep`."""
     mv = ufv_masking.apply_variations_masks(variations_data)
-    mb, packed_ww, _shape, psweep = base_sweep
+    mb, packed_ww, _shape, psweep = frame_sweep
     return probing.apply_jacobian_from_sweep(mv, packed_ww, mb, psweep)
 
 
 def ut3tangent_probe_jacobian_from_sweep(
         variations_data,  # UT3Variations .data; stack = K + C
-        base_sweep,       # = ut3tangent_precompute_probe_base_sweep(...)
+        frame_sweep,       # = ut3tangent_precompute_probe_frame_sweep(...)
 ):  # -> PACKED probes, shape=(d,)+W+K+C+(N,)  (the inner-loop path is packed; no unpack)
-    """Forward probe of a uniform tangent reusing the base sweep (the bare ``𝒥``): mask-once the variation,
+    """Forward probe of a uniform tangent reusing the frame sweep (the bare ``𝒥``): mask-once the variation,
     share :py:func:`probing.probe_jacobian_from_sweep`. **Packed** output (the split-seam is the optimizer's
     inner-loop path, which stays packed; use :py:func:`ut3tangent_probe` or ``unpack_vectors`` for ragged)."""
     mv = ufv_masking.apply_variations_masks(variations_data)
-    mb, packed_ww, shape, psweep = base_sweep
+    mb, packed_ww, shape, psweep = frame_sweep
     return probing.probe_jacobian_from_sweep(mv, packed_ww, mb, psweep)
 
 
 def ut3tangent_entries_jacobian_from_sweep(
         variations_data,  # UT3Variations .data; stack = K + C
-        base_sweep,       # = ut3tangent_precompute_entries_base_sweep(...)
+        frame_sweep,       # = ut3tangent_precompute_entries_frame_sweep(...)
 ):  # -> scalar entries, shape=W+K+C
-    """Forward all-modes entries of a uniform tangent reusing the base sweep (the bare ``𝒥``): mask-once the
+    """Forward all-modes entries of a uniform tangent reusing the frame sweep (the bare ``𝒥``): mask-once the
     variation, share :py:func:`probing.entries_jacobian_from_sweep`."""
     mv = ufv_masking.apply_variations_masks(variations_data)
-    mb, index, _shape, psweep = base_sweep
+    mb, index, _shape, psweep = frame_sweep
     return probing.entries_jacobian_from_sweep(mv, index, mb, psweep)
 
 
 def ut3tangent_apply_transpose_from_sweep(
         residual,     # apply residual, shape=W+K+C (a scalar per stack element)
-        base_sweep,   # = ut3tangent_precompute_apply_base_sweep(...)
+        frame_sweep,   # = ut3tangent_precompute_apply_frame_sweep(...)
         sum_over_probes=True,
 ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
-    """Transpose ``𝒥ᵀ`` of the all-modes apply reusing the base sweep (the bare adjoint; no gauge ``Π`` --
+    """Transpose ``𝒥ᵀ`` of the all-modes apply reusing the frame sweep (the bare adjoint; no gauge ``Π`` --
     the geometry projects). Shares :py:func:`probing.apply_transpose_from_sweep`; returns the bare gradient
     supercores ``(dU_tilde, dG_tilde)`` (the caller's ``project`` attaches the variation masks)."""
-    mb, packed_ww, _shape, psweep = base_sweep
+    mb, packed_ww, _shape, psweep = frame_sweep
     return probing.apply_transpose_from_sweep(residual, packed_ww, mb, psweep, sum_over_probes=sum_over_probes)
 
 
 def ut3tangent_probe_transpose_from_sweep(
         ztildes,      # probe residuals, len=d, ith elm_shape=W+K+C+(Ni,)
-        base_sweep,   # = ut3tangent_precompute_probe_base_sweep(...)
+        frame_sweep,   # = ut3tangent_precompute_probe_frame_sweep(...)
         sum_over_probes=True,
 ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
-    """Transpose ``𝒥ᵀ`` of the probe reusing the base sweep (the bare adjoint): pack the residuals to ``N``,
+    """Transpose ``𝒥ᵀ`` of the probe reusing the frame sweep (the bare adjoint): pack the residuals to ``N``,
     share :py:func:`probing.probe_transpose_from_sweep`. Returns the bare gradient supercores."""
-    mb, packed_ww, _shape, psweep = base_sweep
+    mb, packed_ww, _shape, psweep = frame_sweep
     packed_z = ut3_operations.pack_if_ragged(ztildes, mb[0].shape[-1])
     return probing.probe_transpose_from_sweep(packed_z, packed_ww, mb, psweep, sum_over_probes=sum_over_probes)
 
 
 def ut3tangent_entries_transpose_from_sweep(
         residual,     # entries residual, shape=W+K+C
-        base_sweep,   # = ut3tangent_precompute_entries_base_sweep(...)
+        frame_sweep,   # = ut3tangent_precompute_entries_frame_sweep(...)
         sum_over_probes=True,
 ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
-    """Transpose ``𝒥ᵀ`` of the all-modes entries reusing the base sweep (scatter ``residual`` at the sweep's
+    """Transpose ``𝒥ᵀ`` of the all-modes entries reusing the frame sweep (scatter ``residual`` at the sweep's
     ``index``). Shares :py:func:`probing.entries_transpose_from_sweep`; returns the bare gradient supercores."""
-    mb, index, _shape, psweep = base_sweep
+    mb, index, _shape, psweep = frame_sweep
     return probing.entries_transpose_from_sweep(residual, index, mb, psweep, sum_over_probes=sum_over_probes)
 
 
 # ----------------------------------------------------------------- the split seam, DERIVATIVE (jet) twins
 # The jet-ified split-seam hooks for the uniform derivative Gauss-Newton fitting model (optimizers-on-
-# uniform U3'), the uniform twins of probe_derivatives.{precompute_*_base_sweep_jets,
+# uniform U3'), the uniform twins of probe_derivatives.{precompute_*_frame_sweep_jets,
 # *_jacobian_derivatives_from_sweep, *_transpose_derivatives_from_sweep}. Same recipe as the plain seam:
-# the uniform sweep carries the mask-once base + the packed X (`ww`) AND perturbation (`pp`) vectors +
-# the static shape + the jet base sweep, so from_sweep re-masks/re-packs nothing per matvec:
+# the uniform sweep carries the mask-once frame + the packed X (`ww`) AND perturbation (`pp`) vectors +
+# the static shape + the jet frame sweep, so from_sweep re-masks/re-packs nothing per matvec:
 #
-#     uniform_jet_sweep = (masked_base_4tuple, packed_ww_or_index, packed_pp, shape, probing_jet_sweep)
+#     uniform_jet_sweep = (masked_frame_4tuple, packed_ww_or_index, packed_pp, shape, probing_jet_sweep)
 #
 # `order` (highest derivative order) threads through; the per-order residual weight omega lives in the
 # geometry-agnostic SamplingKind (sumsq / transpose), not here. The bare 𝒥 / 𝒥ᵀ (no gauge projector Π).
 
-def ut3tangent_precompute_apply_base_sweep_jets(
+def ut3tangent_precompute_apply_frame_sweep_jets(
         frame_data,  # UT3Frame .data (an orthogonal frame)
         ww,          # apply vectors X,        len=d, ith elm_shape=W+(Ni,)
         pp,          # perturbation vectors P, len=d, ith elm_shape=W+(Ni,)
         order,       # highest derivative order
-):  # -> uniform apply jet sweep: (masked_base, packed_ww, packed_pp, shape, (xi_jets, mu_jets))
-    """The **apply**-derivative base sweep: mask-once the frame, pack ``ww`` and ``pp`` to ``N``, share
-    :py:func:`probe_derivatives.precompute_apply_base_sweep_jets`."""
+):  # -> uniform apply jet sweep: (masked_frame, packed_ww, packed_pp, shape, (xi_jets, mu_jets))
+    """The **apply**-derivative frame sweep: mask-once the frame, pack ``ww`` and ``pp`` to ``N``, share
+    :py:func:`probe_derivatives.precompute_apply_frame_sweep_jets`."""
     mb = ufv_masking.apply_frame_masks(frame_data)
     N = mb[0].shape[-1]
     packed_ww = ut3_operations.pack_if_ragged(ww, N)
     packed_pp = ut3_operations.pack_if_ragged(pp, N)
     return (mb, packed_ww, packed_pp, frame_data[4],
-            probe_derivatives.precompute_apply_base_sweep_jets(mb, packed_ww, packed_pp, order))
+            probe_derivatives.precompute_apply_frame_sweep_jets(mb, packed_ww, packed_pp, order))
 
 
-def ut3tangent_precompute_probe_base_sweep_jets(
+def ut3tangent_precompute_probe_frame_sweep_jets(
         frame_data,  # UT3Frame .data (orthogonal frame)
         ww,          # probe vectors X,        len=d, ith elm_shape=W+(Ni,)
         pp,          # perturbation vectors P, len=d, ith elm_shape=W+(Ni,)
         order,       # highest derivative order
-):  # -> uniform probe jet sweep: (masked_base, packed_ww, packed_pp, shape, (xi, mu, nu, eta jets))
-    """The **probe**-derivative base sweep (full jets): mask-once, pack ``ww``/``pp``, share
-    :py:func:`probe_derivatives.precompute_probe_base_sweep_jets`."""
+):  # -> uniform probe jet sweep: (masked_frame, packed_ww, packed_pp, shape, (xi, mu, nu, eta jets))
+    """The **probe**-derivative frame sweep (full jets): mask-once, pack ``ww``/``pp``, share
+    :py:func:`probe_derivatives.precompute_probe_frame_sweep_jets`."""
     mb = ufv_masking.apply_frame_masks(frame_data)
     N = mb[0].shape[-1]
     packed_ww = ut3_operations.pack_if_ragged(ww, N)
     packed_pp = ut3_operations.pack_if_ragged(pp, N)
     return (mb, packed_ww, packed_pp, frame_data[4],
-            probe_derivatives.precompute_probe_base_sweep_jets(mb, packed_ww, packed_pp, order))
+            probe_derivatives.precompute_probe_frame_sweep_jets(mb, packed_ww, packed_pp, order))
 
 
-def ut3tangent_precompute_entries_base_sweep_jets(
+def ut3tangent_precompute_entries_frame_sweep_jets(
         frame_data,  # UT3Frame .data (orthogonal frame)
         index,       # int array, shape=(d,)+W -- the grid points (no packing)
         pp,          # perturbation vectors P, len=d, ith elm_shape=W+(Ni,)
         order,       # highest derivative order
-):  # -> uniform entries jet sweep: (masked_base, index, packed_pp, shape, (xi_jets, mu_jets))
-    """The **entries**-derivative base sweep: mask-once, pack only ``pp`` (fiber slicing needs no ``index``
-    packing), share :py:func:`probe_derivatives.precompute_entries_base_sweep_jets`."""
+):  # -> uniform entries jet sweep: (masked_frame, index, packed_pp, shape, (xi_jets, mu_jets))
+    """The **entries**-derivative frame sweep: mask-once, pack only ``pp`` (fiber slicing needs no ``index``
+    packing), share :py:func:`probe_derivatives.precompute_entries_frame_sweep_jets`."""
     mb = ufv_masking.apply_frame_masks(frame_data)
     packed_pp = ut3_operations.pack_if_ragged(pp, mb[0].shape[-1])
     return (mb, index, packed_pp, frame_data[4],
-            probe_derivatives.precompute_entries_base_sweep_jets(mb, index, packed_pp, order))
+            probe_derivatives.precompute_entries_frame_sweep_jets(mb, index, packed_pp, order))
 
 
 def ut3tangent_apply_jacobian_derivatives_from_sweep(
         variations_data,  # UT3Variations .data; stack = K + C
-        base_sweep,       # = ut3tangent_precompute_apply_base_sweep_jets(...)
+        frame_sweep,       # = ut3tangent_precompute_apply_frame_sweep_jets(...)
         order,            # highest derivative order
 ):  # -> scalar jets, shape=(order+1,)+W+K+C
     """Forward apply-derivatives of a uniform tangent reusing the jet sweep (the bare ``𝒥``): mask-once the
     variation, share :py:func:`probe_derivatives.apply_jacobian_derivatives_from_sweep`."""
     mv = ufv_masking.apply_variations_masks(variations_data)
-    mb, packed_ww, packed_pp, _shape, psweep = base_sweep
+    mb, packed_ww, packed_pp, _shape, psweep = frame_sweep
     return probe_derivatives.apply_jacobian_derivatives_from_sweep(mv, packed_ww, packed_pp, mb, psweep, order)
 
 
 def ut3tangent_probe_jacobian_derivatives_from_sweep(
         variations_data,  # UT3Variations .data; stack = K + C
-        base_sweep,       # = ut3tangent_precompute_probe_base_sweep_jets(...)
+        frame_sweep,       # = ut3tangent_precompute_probe_frame_sweep_jets(...)
         order,            # highest derivative order
 ):  # -> PACKED probe jets, shape=(d,)+(order+1,)+W+K+C+(N,)  (packed inner-loop path; no unpack)
     """Forward probe-derivatives of a uniform tangent reusing the jet sweep (the bare ``𝒥``): mask-once the
     variation, share :py:func:`probe_derivatives.probe_jacobian_derivatives_from_sweep`. **Packed** output
     (the split-seam inner-loop path stays packed)."""
     mv = ufv_masking.apply_variations_masks(variations_data)
-    mb, packed_ww, packed_pp, shape, psweep = base_sweep
+    mb, packed_ww, packed_pp, shape, psweep = frame_sweep
     return probe_derivatives.probe_jacobian_derivatives_from_sweep(mv, packed_ww, packed_pp, mb, psweep, order)
 
 
 def ut3tangent_entries_jacobian_derivatives_from_sweep(
         variations_data,  # UT3Variations .data; stack = K + C
-        base_sweep,       # = ut3tangent_precompute_entries_base_sweep_jets(...)
+        frame_sweep,       # = ut3tangent_precompute_entries_frame_sweep_jets(...)
         order,            # highest derivative order
 ):  # -> scalar jets, shape=(order+1,)+W+K+C
     """Forward entries-derivatives of a uniform tangent reusing the jet sweep (the bare ``𝒥``): mask-once the
     variation, share :py:func:`probe_derivatives.entries_jacobian_derivatives_from_sweep`."""
     mv = ufv_masking.apply_variations_masks(variations_data)
-    mb, index, packed_pp, _shape, psweep = base_sweep
+    mb, index, packed_pp, _shape, psweep = frame_sweep
     return probe_derivatives.entries_jacobian_derivatives_from_sweep(mv, index, packed_pp, mb, psweep, order)
 
 
 def ut3tangent_apply_transpose_derivatives_from_sweep(
         residual,     # apply residual jet (scalar), shape=(order+1,)+W+K+C
-        base_sweep,   # = ut3tangent_precompute_apply_base_sweep_jets(...)
+        frame_sweep,   # = ut3tangent_precompute_apply_frame_sweep_jets(...)
         order,        # highest derivative order
         sum_over_probes=True,
 ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
     """Transpose ``𝒥ᵀ`` of the apply-derivatives reusing the jet sweep (the bare adjoint; sums the order
     axis in assembly). Shares :py:func:`probe_derivatives.apply_transpose_derivatives_from_sweep`."""
-    mb, packed_ww, packed_pp, _shape, psweep = base_sweep
+    mb, packed_ww, packed_pp, _shape, psweep = frame_sweep
     return probe_derivatives.apply_transpose_derivatives_from_sweep(
         residual, packed_ww, packed_pp, mb, psweep, order, sum_over_probes=sum_over_probes)
 
 
 def ut3tangent_probe_transpose_derivatives_from_sweep(
         ztildes,      # probe residual jets, len=d, ith elm_shape=(order+1,)+W+K+C+(Ni,)
-        base_sweep,   # = ut3tangent_precompute_probe_base_sweep_jets(...)
+        frame_sweep,   # = ut3tangent_precompute_probe_frame_sweep_jets(...)
         order,        # highest derivative order
         sum_over_probes=True,
 ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
     """Transpose ``𝒥ᵀ`` of the probe-derivatives reusing the jet sweep (the bare adjoint): pack the residual
     jets to ``N``, share :py:func:`probe_derivatives.probe_transpose_derivatives_from_sweep`."""
-    mb, packed_ww, packed_pp, _shape, psweep = base_sweep
+    mb, packed_ww, packed_pp, _shape, psweep = frame_sweep
     packed_z = ut3_operations.pack_if_ragged(ztildes, mb[0].shape[-1])
     return probe_derivatives.probe_transpose_derivatives_from_sweep(
         packed_z, packed_ww, packed_pp, mb, psweep, order, sum_over_probes=sum_over_probes)
@@ -345,13 +345,13 @@ def ut3tangent_probe_transpose_derivatives_from_sweep(
 
 def ut3tangent_entries_transpose_derivatives_from_sweep(
         residual,     # entries residual jet (scalar), shape=(order+1,)+W+K+C
-        base_sweep,   # = ut3tangent_precompute_entries_base_sweep_jets(...)
+        frame_sweep,   # = ut3tangent_precompute_entries_frame_sweep_jets(...)
         order,        # highest derivative order
         sum_over_probes=True,
 ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
     """Transpose ``𝒥ᵀ`` of the entries-derivatives reusing the jet sweep (scatter at the sweep's ``index``).
     Shares :py:func:`probe_derivatives.entries_transpose_derivatives_from_sweep`."""
-    mb, index, packed_pp, _shape, psweep = base_sweep
+    mb, index, packed_pp, _shape, psweep = frame_sweep
     return probe_derivatives.entries_transpose_derivatives_from_sweep(
         residual, index, packed_pp, mb, psweep, order, sum_over_probes=sum_over_probes)
 
@@ -418,12 +418,12 @@ def _gauge_masks_over_Knew(
 ):  # -> the 4 variation rank masks, each (d,)+K_new+C+(size,)
     """The result tangent's variation masks: the frame's gauge-shifted variation masks
     ``(up, down, frame_left[:-1], frame_right[1:])`` broadcast (constant) over the new tangent stack
-    ``K_new`` -- the leading stack of the transpose output minus the base stack ``C``. ``sum_over_probes``
+    ``K_new`` -- the leading stack of the transpose output minus the frame stack ``C``. ``sum_over_probes``
     determines ``K_new`` (``W+K`` kept / ``K`` summed); we read it off the output supercore rather than
     re-deriving it. Masks are host numpy (static aux), so this stays on ``np``."""
     up_mask, down_mask, frame_left_mask, frame_right_mask = frame_data[5]
     gauge = (up_mask, down_mask, frame_left_mask[:-1], frame_right_mask[1:])  # length-d variation masks, stack C
-    C = frame_data[0].shape[1:-2]                 # base stack C (up supercore is (d,)+C+(nU,N))
+    C = frame_data[0].shape[1:-2]                 # frame stack C (up supercore is (d,)+C+(nU,N))
     out_stack = out_supercore.shape[1:-2]         # K_new + C
     K_new = out_stack[:len(out_stack) - len(C)]
 

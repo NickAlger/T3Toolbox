@@ -44,7 +44,7 @@ def broadcast_t3_to_common_stack(
     """Broadcast every core of a T3 up to the common (broadcast) stack of all its cores.
 
     Cores may carry different but broadcastable leading stack axes -- e.g. a single-core-replacement
-    term (``fv_to_t3``) or a tangent term mixes a V+G-stacked variation core with G-stacked base
+    term (``fv_to_t3``) or a tangent term mixes a V+G-stacked variation core with G-stacked frame
     cores (the shared base point replicated over the tangent stack V). Returns the cores all stacked
     at the common ``np.broadcast_shapes`` stack, so the result is a valid uniform-stack T3. A no-op
     when every core already shares one stack.
@@ -144,7 +144,7 @@ def to_dense(
     tucker_cores, tt_cores = x
 
     # Cores may carry different (but broadcastable) leading stack axes (e.g. a tangent term mixes a
-    # V+G-stacked variation core with G-stacked base cores); broadcast to the common stack so the
+    # V+G-stacked variation core with G-stacked frame cores); broadcast to the common stack so the
     # reshape-based contraction sees one uniform stack_shape. No-op for a uniform-stack T3.
     tucker_cores, tt_cores = broadcast_t3_to_common_stack(tucker_cores, tt_cores)
     return t3_to_dense_chain(tucker_cores, tt_cores, squash_tails)

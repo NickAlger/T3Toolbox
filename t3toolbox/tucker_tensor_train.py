@@ -3445,7 +3445,7 @@ class TuckerTensorTrain:
         >>> result = x.probe(ww)
         >>> print(result[0].shape)             # probe stack (4,5,1) outer, T3 stack (2,3) inner, then N0=14
         (4, 5, 1, 2, 3, 14)
-        >>> ii, jj = 1, 2          # T3 (base) stack index
+        >>> ii, jj = 1, 2          # T3 (frame) stack index
         >>> ll, mm, nn =  3, 2, 0  # vector (probe) stack index
         >>> result_ij_lmn_0 = result[0][ll,mm,nn, ii,jj]
         >>> result_ij_lmn_1 = result[1][ll,mm,nn, ii,jj]
@@ -3476,10 +3476,10 @@ class TuckerTensorTrain:
         ``docs/transposes.md``). ``probe`` returns ``d`` vectors, so the residual ``ztildes`` is ``d``
         vectors; the back-projection is the **rank-``d``** tensor
         ``sum_i (w0 (x) ... (x) ztildes_i (x) ... (x) w_{d-1})`` (residual ``ztildes_i`` in slot ``i``,
-        probe vectors elsewhere), returned as **CP factors**. Base-free. Realize a ``TuckerTensorTrain``
+        probe vectors elsewhere), returned as **CP factors**. Frame-free. Realize a ``TuckerTensorTrain``
         with :py:meth:`from_canonical`.
 
-        The other two probe transposes are ``probe_corewise_transpose`` (gradient w.r.t. a base's cores,
+        The other two probe transposes are ``probe_corewise_transpose`` (gradient w.r.t. a frame's cores,
         for Adam / L-BFGS) and ``T3Tangent.probe_transpose`` (the Riemannian gradient).
 
         ``sum_over_probes=False`` keeps the probe stack ``W`` (a ``W (+ C)`` stack of rank-``d`` CPs);
@@ -3550,7 +3550,7 @@ class TuckerTensorTrain:
         taxonomy and costs in ``docs/transposes.md``):
 
         - **ambient** (this method): the literal adjoint of ``apply`` viewed as a linear map on the
-          *full tensor space*. Base-free; the back-projection ``c * (w0 (x) ... (x) w_{d-1})`` is
+          *full tensor space*. Frame-free; the back-projection ``c * (w0 (x) ... (x) w_{d-1})`` is
           rank-1, returned as **CP factors** -- the natural type, since ``apply`` consumes one vector
           per mode and its adjoint emits one scaled vector per mode. Convert to a ``TuckerTensorTrain``
           with :py:meth:`from_canonical` if you want T3 form.
@@ -3611,7 +3611,7 @@ class TuckerTensorTrain:
         vectors replaced by the unit vectors ``e_{index_k}``, so the CP factors are one-hots and the
         back-projection is ``c * e_{idx_0} (x) ... (x) e_{idx_{d-1}}``. See that method (and
         ``docs/transposes.md``) for the **ambient vs corewise vs tangent** distinction -- this is the
-        *ambient* one (the base-free adjoint on the full tensor space); the gradient-for-optimizers
+        *ambient* one (the frame-free adjoint on the full tensor space); the gradient-for-optimizers
         versions are ``entries_corewise_transpose`` and ``T3Tangent.entries_transpose``.
 
         ``sum_over_probes=True`` makes ``W`` the CP rank (scatter-adding colliding indices -- the
@@ -3666,7 +3666,7 @@ class TuckerTensorTrain:
           L-BFGS, SGD) needs. Returns a **raw tuple** ``(tucker_grads, tt_grads)`` whose arrays have the
           exact shapes of ``self.data``. It is a *gradient, not a tensor* -- do not do T3 arithmetic
           with it. No ``|W|`` blow-up: the probe stack collapses into the fixed-size cores.
-        - **ambient** (:py:meth:`apply_ambient_transpose`): the base-free adjoint, returned as the CP
+        - **ambient** (:py:meth:`apply_ambient_transpose`): the frame-free adjoint, returned as the CP
           factors of ``c * (w0 (x) ... (x) w_{d-1})``.
         - **tangent** (``T3Tangent.apply_transpose``): the Riemannian gradient, a tangent vector.
 

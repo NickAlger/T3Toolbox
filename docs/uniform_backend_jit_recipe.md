@@ -18,7 +18,7 @@ Jit the **whole per-step kernel once**, closing over the loop-invariant masks; t
 (+ minibatch):
 
 ```python
-shape, masks = base.shape, base.masks_data            # LOOP-INVARIANT at fixed rank -- built once
+shape, masks = frame.shape, frame.masks_data            # LOOP-INVARIANT at fixed rank -- built once
 @jax.jit
 def step(supercores, minibatch):
     data = (supercores[0], supercores[1], shape, masks)         # masks/shape CLOSED OVER (constants)
@@ -28,9 +28,9 @@ def step(supercores, minibatch):
 for it: supercores = step(supercores, draw())
 ```
 
-- The base masks are **closed over** → the kernel compiles once; no recompile.
+- The frame masks are **closed over** → the kernel compiles once; no recompile.
 - `ut3_orthogonal_representations` re-derives the **frame/variation masks inside the trace** from the
-  *concrete* base ranks → host-numpy constants, **constant-folded** into the compiled program. They are
+  *concrete* frame ranks → host-numpy constants, **constant-folded** into the compiled program. They are
   **not** part of the jit cache key (the key is the closure identity + the supercores' avals), so
   re-deriving them every step is free — it happens once, at trace time — and causes no recompile.
   Empirically: re-orthogonalizing every step with *changing* supercores → **1 compile**.
