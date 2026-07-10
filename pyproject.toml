@@ -2,6 +2,13 @@
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
 
+# Only the library package ships. Without this, setuptools' flat-layout auto-discovery finds every
+# top-level directory that looks like a package (dev/, paper_experiments/, ...) and aborts with
+# "Multiple top-level packages discovered in a flat-layout". Restrict discovery to t3toolbox (+ its
+# subpackages, e.g. t3toolbox.backend); dev/, docs/, examples/, tests/, paper_experiments/ are not packaged.
+[tool.setuptools.packages.find]
+include = ["t3toolbox*"]
+
 [project]
 name = "t3toolbox"
 version = "2026.0.0"
@@ -19,7 +26,7 @@ authors = [
 maintainers = [
   {name = "Nick Alger", email = "nalger225@gmail.com"}
 ]
-readme = "README.rst"
+readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 keywords = ["Tucker tensor train", "Tucker decomposition", "tensor train", "tensor"]
