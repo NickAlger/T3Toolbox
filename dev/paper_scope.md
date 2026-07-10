@@ -25,7 +25,7 @@ artifact. (JOSS is out until the repo has ~6 mo public open-dev history + extern
 chat thread that produced this doc.)
 
 **Scope of the sweep:** the *validated frontend* surface — every public method/property across
-`tucker_tensor_train.py`, `basis_variations_format.py`, `manifold.py`, `corewise.py`, `fitting.py`,
+`tucker_tensor_train.py`, `frame_variations_format.py`, `manifold.py`, `corewise.py`, `fitting.py`,
 `optimizers.py`, `safety.py`, and the three `uniform_*` files. **Excluded** (not validated / deferred):
 `OLD_orthogonalization.py`, `weighted_tucker_tensor_train.py`.
 
@@ -39,8 +39,8 @@ boxes / theorems) from **API/plumbing** (mentioned, not paper-central).
 ### Group 1 — Data structures & their invariants
 *The `TuckerTensorTrain` two-network object; and the **distinguished** frame/variation format — reusing
 the pure-TT format for frames/variations is mathematically wrong unless ranks are minimal.*
-- **Algorithm content:** `TuckerTensorTrain` (`.data=(tucker_cores, tt_cores)`); `T3Basis` (`U/O/P/Q`)
-  + `T3Variations` (`V/H`) as a distinct format + `check_bv_pair`; `T3Tangent=(basis,variations)`;
+- **Algorithm content:** `TuckerTensorTrain` (`.data=(tucker_cores, tt_cores)`); `T3Frame` (`U/O/P/Q`)
+  + `T3Variations` (`V/H`) as a distinct format + `check_fv_pair`; `T3Tangent=(frame,variations)`;
   structural derivation `structure`/`core_shapes`/`variation_shapes`/`minimal_ranks`/`manifold_dim`/
   `tangent_space_dimension`; the always-error structural contracts (`validate`/`__post_init__`).
 - **API/plumbing:** `randn/zeros/ones/unit`, `from_canonical`, `from/to_tensor_train`, `to/from_vector`,
@@ -60,7 +60,7 @@ the frame/variation representation (Alg. 11).*
 - **Algorithm content:** per-core `down_svd_tucker_core`, `{left,right,up}_svd_tt_core`,
   `orthogonalize_relative_to_{tucker,tt}_core`; sweeps `down_orthogonalize_tucker_cores`,
   `up_orthogonalize_tt_cores`, `{left,right}_orthogonalize_tt_cores`; **`t3_orthogonal_representations`**
-  (Alg. 11; note the code/paper sweep-order divergence); `T3Basis.orthogonalize`.
+  (Alg. 11; note the code/paper sweep-order divergence); `T3Frame.orthogonalize`.
 - **Checkers (→ Group 10):** `is_{left,right}_orthogonal`, `is_orthogonal`, `orthogonality_residual`,
   `is_consistent`.
 
@@ -77,9 +77,9 @@ correctness test (→ Group 11).*
 projection/gauge/retraction/transport; tangent↔ambient maps. **Contains the canonical-random-tangent
 theorem — see Addendum A.***
 - **Algorithm content:** tangent algebra `T3Tangent.{__add__,__sub__,__neg__,__mul__,sum_tangents,
-  normalized,corewise_inner,corewise_norm}` + same-tangent-space guard; `bv_to_t3` +
+  normalized,corewise_inner,corewise_norm}` + same-tangent-space guard; `fv_to_t3` +
   `T3Tangent.to_t3`/`to_dense` (embed in ambient); **`ManifoldGeometry`**: `project`/`project_oblique`/
-  `project_ambient`/`inner`/`norm`(HS)/`retract`/`transport`/`base`; **`CorewiseGeometry`**:
+  `project_ambient`/`inner`/`norm`(HS)/`retract`/`transport`/`frame`; **`CorewiseGeometry`**:
   `project`(=id)/`inner`/`norm`/`retract`(additive); gauge `gauge_residual`/`is_gauged`/`Π`; the
   `corewise.py` parameter-space vector algebra (`corewise_{add,sub,scale,dot,stack_dot,norm,...}`).
 
@@ -105,23 +105,23 @@ convention and **why**, heterogeneous stacks, the two batch machineries (leading
 grouped-block contractions). The base-inner convention + grouped-block contractions are the
 contribution.*
 - **Dedicated methods:** `stack`/`unstack` (every class), `stack_tangents`/`unstack_tangents`,
-  `stack_basis`/`unstack_basis`, `sum_stack`/`sum_tangents`, `{,base_,tangent_}stack_shape`;
+  `stack_frame`/`unstack_frame`, `sum_stack`/`sum_tangents`, `{,frame_,tangent_}stack_shape`;
   backend `stacking.{stack,unstack,tree_zip,apply_func_to_leaf_subtrees}`.
 
 ### Group 9 — The uniform layer (SIMD/vectorized representation) — a RATIONALE section
 *Mirrors Groups 1–7 on stacked supercores; the paper content is the **design rationale**, not a
 re-listing. (Confirmed framing: uniform is a faster ragged layer, `to_uniform → op → to_ragged ==
 op_ragged`.)*
-- **Objects (mirror the core):** `UniformTuckerTensorTrain`, `UT3Basis`/`UT3Variations`, `UT3Tangent`,
-  `UNIFORM_MANIFOLD`/`UNIFORM_COREWISE`; masks `UT3Masks`/`UT3BasisMasks`/`UT3VariationsMasks`;
-  converters `from/to_t3`, `from/to_t3basis`, `from/to_t3tangent`, `from/to_ut3`, `apply_masks`,
+- **Objects (mirror the core):** `UniformTuckerTensorTrain`, `UT3Frame`/`UT3Variations`, `UT3Tangent`,
+  `UNIFORM_MANIFOLD`/`UNIFORM_COREWISE`; masks `UT3Masks`/`UT3FrameMasks`/`UT3VariationsMasks`;
+  converters `from/to_t3`, `from/to_t3frame`, `from/to_t3tangent`, `from/to_ut3`, `apply_masks`,
   `squash_tails`.
 - **The design decisions (each a subsection):** (1) **mode-index-first** supercore layout
   `(d,)+stack_shape+(…)` — locality (cores touched one-at-a-time for `lax.scan`) + polymorphism;
   (2) **boolean rank masks** not integer ranks — closed under add=concat / multiply=Kronecker with no
   data movement; the **determinantal-variety** view; (3) *why* masks exist — enforce variable rank by
   zeroing variation padding (rank control); (4) **SVD-prefix orthogonalization** (masks stay a
-  deterministic prefix); (5) value-hashed masks as static pytree aux → **jit-compile-once** across base
+  deterministic prefix); (5) value-hashed masks as static pytree aux → **jit-compile-once** across frame
   changes; (6) masks-on-host-`np` / supercores-on-device-`xnp` (the jit story); (7) the **equivalence
   contract** (correctness *and* test strategy).
 
@@ -221,7 +221,7 @@ conventions / jax plumbing — exclude, implementation footnote at most).
 | `transposes.md` | CORE | 6 | Three-adjoint taxonomy (ambient/corewise/tangent) as a **projection hierarchy**; return ambient adjoint as CP to defer the `|W|²` blowup; transposes are `Ω(N)` (N lives in the output). |
 | `t3svd_minimal_ranks.md` | CORE | 4 | Minimal-rank inequalities = single-edge matricization ranks (T3 is a **tree** ⇒ clean bipartition); a hard rank cap in a sweep orphans upstream ranks. Paper-ready. |
 | `rank_continuation.md` | CORE | 4/7 | Edge-condition-number growth: equalize `κᵢ=σ₁/σ_last` across edges vs grow uniformly (~3.3× DOF savings). |
-| `uniform_ranks_and_varieties.md` | CORE | 9/4/5 | **Standout / near-theorem:** variable-rank stacked T3 = batch in the bounded-rank **determinantal variety** (closure of fixed-rank manifolds, stratified by them); mask = stratum label; rank varies across a base stack, shape locked. |
+| `uniform_ranks_and_varieties.md` | CORE | 9/4/5 | **Standout / near-theorem:** variable-rank stacked T3 = batch in the bounded-rank **determinantal variety** (closure of fixed-rank manifolds, stratified by them); mask = stratum label; rank varies across a frame stack, shape locked. |
 | `numerical_contract_catalog.md` | RATIONALE | 10 | **Precondition-vs-caveat** line + per-op requirement table (SF/ORTH/GAUGE/minimal). Headline: minimal rank is a precondition for *nothing*. De-tangle from safe-mode machinery. |
 | `uniform_masks_vs_ranks.md` | RATIONALE | 9/2/4 | Store rank as **boolean projector masks**, not integer prefixes — the unique form closed under ⊕=concat / ⊗=Kronecker with no data movement. |
 | `uniform_rank_masks_rationale.md` | RATIONALE | 9/5/7 | Masks are a **functional rank constraint**: inflate-equivalence holds for a *fixed* tangent, but a fresh gradient at a rank-deficient frame points into rank-growing directions — masks zero exactly those. |
@@ -229,7 +229,7 @@ conventions / jax plumbing — exclude, implementation footnote at most).
 | `uniform_equivalence_contract.md` | RATIONALE | 9/11 | Define the vectorized layer by a **round-trip equivalence** to the reference layer (real parts only) — simultaneously correctness spec + test oracle (ragged twin, not dense). |
 | `t3svd_design_rationale.md` | RATIONALE | 4/3 | **Gauge-parity:** truncation and lossless minimization each flip the orthogonality gauge → can't fuse into one gauge-predictable sweep; hence separate ops. |
 | `fitting_and_optimization.md` | RATIONALE | 7 | **Geometry-generic Gauss–Newton:** `J=𝒥∘Π`, `grad=Π𝒥ᵀr`; swap the single gauge `Π` → Riemannian (PD H) or raw-core Euclidean (gauge-singular H). Rest is plumbing. |
-| `batching_and_stacking.md` | RATIONALE | 8 | Batch taxonomy (`C`/`K`/`W` on different parts); **broadcast (aligned) vs multi-index contraction (independent on disjoint operands)**; transpose-of-a-broadcast-is-a-sum. **Reframe base-inner** as "base is outer-shared over its fiber" (right-aligned-broadcast is a 1-line artifact). ~30–40% paper-worthy. |
+| `batching_and_stacking.md` | RATIONALE | 8 | Batch taxonomy (`C`/`K`/`W` on different parts); **broadcast (aligned) vs multi-index contraction (independent on disjoint operands)**; transpose-of-a-broadcast-is-a-sum. **Reframe base-inner** as "frame is outer-shared over its fiber" (right-aligned-broadcast is a 1-line artifact). ~30–40% paper-worthy. |
 | `testing_strategy.md` | METHODOLOGY | 11 | **Phantom-rank blind spot** (dense tests can't see too-permissive masks), the **tautology trap**, cured by exact-mask assertions + garbage-padding (clean==dirty). |
 | `ambient_derivative_transpose_note.md` | METH. (appendix) | 6 | Derivative ambient adjoint has **intrinsically exponential CP rank** (`2^d` apply, `d·2^{d-1}` probe) — a property of the tensor, not the encoding; why derivative-fitting routes through tangent/corewise. |
 
@@ -255,7 +255,7 @@ harvest the recurrences + `J=𝒥∘Π` / §6.3-substitution from the paper's ow
 - **CLAUDE.md TODO is stale:** the flagged `entries_apply_probe.md` §4-table / derivative-dimension
   staleness was **already fixed** (commit `7c8d1818`, 2026-06-18). Strike "refresh
   docs/entries_apply_probe.md" from CLAUDE.md's doc-pass TODO.
-- **Cosmetic (pre-paper):** unify `base`/`basis` between `transposes.md` and `entries_apply_probe.md` §4;
+- **Cosmetic (pre-paper):** unify `frame`/`frame` between `transposes.md` and `entries_apply_probe.md` §4;
   strip hard-coded residual magnitudes from working docs.
 
 ### Merge plan for Group 9 (uniform rationale)
@@ -323,7 +323,7 @@ references still say `docs/<name>` for files the reorg moved to `dev/archive/`. 
   — during the paper write, not now.
 - [ ] Walk the 11 groups one-by-one: numbered-algorithm-box vs prose vs omit.
 - [ ] Decide "Design principles" (regular representation + explicit reduction): standalone or distributed.
-- [ ] Cosmetic doc cleanups (base/basis; strip captured residual numbers) before paper use.
+- [ ] Cosmetic doc cleanups (frame/frame; strip captured residual numbers) before paper use.
 - [ ] Move the two verification scripts to the research repo.
 - [ ] `method_porting_plan.md` deletion (your call).
 - [ ] Paper skeleton / section order (after the walkthrough).

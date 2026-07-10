@@ -14,7 +14,7 @@ Modules
 Tucker tensor trains:
 
 * :doc:`/autoapi/t3toolbox/tucker_tensor_train/index`
-* :doc:`/autoapi/t3toolbox/base_variation_format/index`
+* :doc:`/autoapi/t3toolbox/frame_variation_format/index`
 * :doc:`/autoapi/t3toolbox/orthogonalization/index`
 * :doc:`/autoapi/t3toolbox/t3svd/index`
 * :doc:`/autoapi/t3toolbox/manifold/index`
@@ -36,7 +36,7 @@ Utilities:
 Jax versions of all modules are available under t3toolbox.jax:
 
 - t3toolbox.jax.tucker_tensor_train
-- t3toolbox.jax.base_variation_format
+- t3toolbox.jax.frame_variation_format
 - t3toolbox.jax.orthogonalization
 - ...
 
@@ -176,10 +176,10 @@ Examples
 	>>> import t3toolbox.tucker_tensor_train as t3
 	>>> import t3toolbox.manifold as t3m
 	>>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1))) # tangent space base point
-	>>> base, _ = t3m.orthogonal_representations(p)
-	>>> v = t3m.tangent_randn(base) # Random tangent vector.
-	>>> ret_v = t3m.retract(v, base) # Retract tangent vector to manifold.
-	>>> v_as_t3 = t3m.tangent_to_t3(v, base) # Convert tangent vector to rank-2r T3
+	>>> frame, _ = t3m.orthogonal_representations(p)
+	>>> v = t3m.tangent_randn(frame) # Random tangent vector.
+	>>> ret_v = t3m.retract(v, frame) # Retract tangent vector to manifold.
+	>>> v_as_t3 = t3m.tangent_to_t3(v, frame) # Convert tangent vector to rank-2r T3
 	>>> p_plus_v = t3.t3_add(p, v_as_t3) # Shift tangent so its tail is at p instead of 0
 	>>> retracted_distance = t3.t3_norm(t3.t3_sub(p_plus_v, ret_v))
 	>>> print(retracted_distance)
@@ -425,12 +425,12 @@ Under the minimal rank conditions, the set of Tucker tensor trains with fixed ra
        +     V0  U1  U2    +    U0  V1  U2    +    U0  U1  V2
              |   |   |          |   |   |          |   |   | 
 
-- The following "base" cores are orthogonal representations of the base point where the tangent space is attached. When performing computations, these are computed once per tangent space, then fixed for all tangent vectors in the space:
+- The following "frame" cores are orthogonal representations of the base point where the tangent space is attached. When performing computations, these are computed once per tangent space, then fixed for all tangent vectors in the space:
 	- tucker_cores      = (U0,...,Ud), orthogonal
 	- left_tt_cores     = (L0,...Ld), left-orthogonal
 	- right_tt_cores    = (R0,...,Rd), right-orthogonal
 	- outer_tt_cores    = (O0,...,Od), outer-orthogonal
-- The following "variation" cores define the tangent vector w.r.t. the base cores:
+- The following "variation" cores define the tangent vector w.r.t. the frame cores:
 	- tucker_variations = (V0,...,Vd)
 	- tt_variations     = (H0,...,Hd)
 
@@ -464,7 +464,7 @@ Probing a tensor means contracting the tensor with vectors in all but one index,
 Batching and stacking
 ---------------------
 
-A single ``TuckerTensorTrain`` / ``T3Basis`` / ``T3Variations`` can hold a whole **batch** of objects
+A single ``TuckerTensorTrain`` / ``T3Frame`` / ``T3Variations`` can hold a whole **batch** of objects
 at once. Every core is stored as ``core.shape == stack_shape + (tensor/rank axes)``, so operations
 vectorize over the leading ``stack_shape``::
 
@@ -478,19 +478,19 @@ vectorize over the leading ``stack_shape``::
 
 There are **three kinds of batch** ("blocks"), which batch different things on different arrays:
 
-- ``C`` -- the **base/core stack**: a batch of T3s / base points, on every core (this *is* ``stack_shape``).
+- ``C`` -- the **frame/core stack**: a batch of T3s / base points, on every core (this *is* ``stack_shape``).
 - ``W`` -- the **probe stack**: a batch of probe-vector sets, on the probe vectors ``ww`` only.
 - ``K`` -- the **tangent stack**: a batch of tangent vectors at one base point, on the variation cores only.
 
 Axes are ordered **base-inner**: ``W + K + C + (tensor axes)``. For example, with 2 base points
 (``C``), 3 tangent vectors at each (``K``), probed by 4 probe-sets (``W``), every array's shape is::
 
-    base Tucker core  U_i   (T3Basis)        C            (2,)      + (n_i, N_i)
+    frame Tucker core  U_i   (T3Frame)        C            (2,)      + (n_i, N_i)
     variation core    dU_i  (T3Variations)   K + C        (3, 2)    + (n_i, N_i)
     probe vector      w_i   (ww)             W            (4,)      + (N_i,)
     forward probe     z_i   (tangent.probe)  W + K + C     (4, 3, 2) + (N_i,)
 
-The base frame ``C`` is *shared* across the ``K`` tangent vectors at it (never copied -- base-inner
+The frame frame ``C`` is *shared* across the ``K`` tangent vectors at it (never copied -- base-inner
 broadcasting handles that for free).
 
 The **transposes** (``probe_transpose``, ``apply_transpose``, ``entries_transpose``) take a
