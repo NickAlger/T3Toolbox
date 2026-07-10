@@ -4,15 +4,24 @@ _Updated 2026-07-10._
 
 ## Where we are
 
-**The uniform layer is CLOSED — backend, optimizers, AND the frontend (U7) are done and tested.** The four
-optimizers (`gradient_descent` / `mc_sgd` / `adam` / `newton_cg`) and the six `fitting.*_model` factories now
-accept a `UniformTuckerTensorTrain` — **inferring** ragged-vs-uniform from `x0`'s type, fully packed,
-**jit-compile-once**, verified against the ragged path. The roll-your-own surface
-(`fitting.UniformGaussNewtonModel`, UT3Tangent-valued gradient/Hessian) and two worked examples ship too.
-Branch `main`, direct commits (**not pushed** this session, per Nick). Full suite green (593 tests / 40 215
-subtests).
+**Two big things closed this session (2026-07-10): the uniform frontend (U7), and the `basis`/`base` →
+`frame` rename.**
 
-**→ The uniform 1.0 centerpiece is complete. Next: the naming pass, then the doc pass** (see "Next steps").
+1. **The uniform layer is CLOSED** — backend, optimizers, AND the frontend (U7). The four optimizers and the
+   six `fitting.*_model` factories accept a `UniformTuckerTensorTrain` (**inferring** ragged-vs-uniform from
+   `x0`, fully packed, **jit-compile-once**, verified == ragged); the roll-your-own surface
+   (`fitting.UniformGaussNewtonModel`) and two worked examples ship too.
+2. **The `basis`/`base` → `frame` rename is DONE** (`naming_review.md` §2): `T3Basis`→`T3Frame`,
+   `.basis`→`.frame`, `bv_`→`fv_`/`ubv_`→`ufv_`, module + file renames, and the `base`-half (frame accessors
+   + the **C stack → frame stack**). `T3Variations` and the math "basis" (Tucker factor matrices, vector-space
+   bases) preserved. Verified functionally (593 tests, twice) **and** semantically (a two-agent word-level
+   diff review — see the rename section below).
+
+Plus a **packaging fix** (`pip install -e .` now works: `[tool.setuptools.packages.find]` + `readme =
+README.md`). Branch `main`, direct commits, **pushed**. Full suite green (593 tests / 40,215 subtests).
+
+**→ Uniform + the frame rename are complete. Next: the rest of the naming pass (cross-class method sweep +
+small auto-fixes), then the doc pass** (see "Next steps").
 
 ## Done this session (2026-07-10) — U7: the uniform frontend surface
 
@@ -47,6 +56,41 @@ surface (`UniformGaussNewtonModel`), not defer it — the "support frontend AND 
 principle (a frontend user rolling manifold L-BFGS needs UT3Tangent gradient/Hessian + the geometry's
 inner/retract/transport); a **twin class** (not a polymorphic single class) — frontend precedent is distinct
 classes with identical method names, and two pytree registrations are cleaner for jit.
+
+**Architecture check (conceptual, no code):** confirmed the optimizer/fitting seams (`GeometryOps` /
+`SamplingKind` / `corewise`) would accommodate a future **manifold L-BFGS** (needs one additive
+`GeometryOps.transport` field, default `None`) and a **shared-core T3** (a new representation = new seam
+impls closing over a sharing map, like uniform's masks) — and both are **non-breaking minor releases** for
+users if seam fields are appended-with-defaults. Not built; recorded for when it comes up.
+
+## Done this session (2026-07-10) — the `basis`/`base` → `frame` rename
+
+Rationale: the orthogonal representation is overcomplete and doesn't require minimal rank, so "frame"
+(admits redundancy) is right where "basis" (implies minimality) was not. Four commits (`basis`-half,
+`base`-half, cross-line + doc fixes, doc reconciliation) + one review-fix commit.
+
+- **Scope done:** `T3Basis`→`T3Frame`, `UT3Basis`→`UT3Frame`, `.basis`→`.frame`, `basis_*`→`frame_*`, prefixes
+  `bv_`→`fv_` / `ubv_`→`ufv_`, module `basis_variations_format.py`→`frame_variations_format.py` (+ file
+  renames), and the `base`-half: frame accessors (`model.base`→`.frame`, `geometry.base(x)`→`.frame(x)`,
+  `_ragged_base`→`_ragged_frame`, …) and the **C stack → frame stack** (`base_stack_shape`→`frame_stack_shape`,
+  `n_base`→`n_frame`) — the C stack is structurally a batch of frames.
+- **Kept as `base` / `basis` (deliberate):** the plain manifold **point** (`base_point`, `base_masks`, "base
+  point(s)"); the math **basis** (Tucker factor matrices "Tucker basis"/"bases", "standard/orthonormal
+  basis", "basis vectors"); the named **`base-inner`** axis-ordering convention (could still → `frame-inner`
+  for full consistency — a flagged nicety). `T3Variations` kept ("variation" is paper-confirmed).
+
+> **METHODOLOGY LESSON (reuse for the cross-class sweep — it's another rename).** A big mechanical rename is
+> NOT a safe blind `sed`. What worked: (1) an up-front **exhaustive token/phrase inventory** to separate the
+> target sense from homonyms (`basis` = frame vs the math basis; `base` = frame-object vs C-stack vs plain
+> point vs math "bases"); (2) **placeholder-protected** substring transforms; (3) a **whitespace-normalized
+> (line-collapsed) audit** for corruption signatures — plain grep is line-based and misses phrases split
+> across a line break; (4) a **word-level semantic review** (here: one subagent per commit diff). Real traps
+> we hit and fixed: the "Tucker basis" factor-matrices (missed by the initial 3-phrase protection),
+> **line-split** protected phrases (`base\n> point` → `frame point`), and — the one the review caught — the
+> protection regex treating a **hyphen as a word boundary**, so `base-point`/`single-base-point` flipped to
+> `frame-point` (my verification only checked the space form). Net: functional correctness rode on the test
+> suite (loud failures); the *naming/prose* correctness rode on the audit + review, which found real defects
+> the suite structurally cannot.
 
 ## Active thread (2026-07-09): the T3Toolbox software reference paper
 
