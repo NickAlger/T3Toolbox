@@ -285,7 +285,7 @@ def t3m_form_then_round(
     Forms the full Khatri-Rao/Kronecker product (:py:func:`t3_mult`, multiplied ranks) and, if any
     truncation is requested, rounds it with :py:func:`t3svd`; with no truncation it returns the exact
     full product directly. The forming step is embarrassingly parallel (no sweep) but materializes the
-    whole product -- see ``docs/t3m_plan.md`` for the cost trade-off vs the fused / swap methods.
+    whole product -- see ``docs/ttm_t3m_ht_note.tex`` for the cost trade-off vs the fused / swap methods.
     Stack-aware with max-rank truncation; ``rtol``/``atol`` require unstacked.
     '''
     product = t3_mult(x, y)
@@ -310,7 +310,7 @@ def t3m_inplace_fused(
     typ.Tuple[NDArray, ...],  # x_times_y tt_cores
 ]:
     '''Elementwise product ``x ⊙ y`` -- method (b): a fused left-to-right sweep that truncates as it
-    goes, never materializing the full product (the workhorse; see ``docs/t3m_plan.md``).
+    goes, never materializing the full product (the workhorse; see ``docs/ttm_t3m_ht_note.tex``).
 
     Right-orthogonalizes the two central TTs separately (the Kronecker of right-canonical cores is
     right-canonical, so the product's central TT is right-canonical without being formed), then sweeps
@@ -490,7 +490,7 @@ def t3m_swap(
         rtol:               typ.Optional[float] = None,  # requires unstacked (enforced by the frontend)
         atol:               typ.Optional[float] = None,
 
-        oversample:         float = 1,  # >= 1; intermediate rank/tol relaxation factor (see docs/t3m_swap_plan.md)
+        oversample:         float = 1,  # >= 1; intermediate rank/tol relaxation factor (see docs/ttm_t3m_ht_note.tex)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # x_times_y tucker_cores
     typ.Tuple[NDArray, ...],  # x_times_y tt_cores

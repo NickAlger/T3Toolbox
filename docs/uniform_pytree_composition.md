@@ -82,7 +82,7 @@ and the sizes are not stored redundantly). The same mixin is reused by the frame
 ## Masks are numpy (host) — the jit story
 
 The masks are `aux_data`, i.e. *static structure*. The hard-won point (it cost a debugging session —
-see `uniform_slice_handoff.md`) is that **the masks must be stored *and computed* as numpy (host)
+see `dev/archive/uniform_slice_handoff.md`) is that **the masks must be stored *and computed* as numpy (host)
 arrays, even when the supercores are jax.** This is required for jit correctness; it is not a
 backend-agnosticism slip.
 

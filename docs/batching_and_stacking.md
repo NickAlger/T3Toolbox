@@ -365,7 +365,7 @@ can be `jit`/`vmap`/`grad`-ed:
     constant), a tangent or `GaussNewtonModel` crossing a `jit` boundary compiles **once across all
     bases** (`traces=1`) — you jit the frontend matvec directly. The old basis-as-aux design recompiled
     on every base change (a Newton step), which is exactly what the numericalized guard fixed. Full
-    story: `docs/safe_unsafe_mode_plan.md`. To grad *w.r.t. the variations only*, close the base over;
+    story: `dev/archive/safe_unsafe_mode_plan.md`. To grad *w.r.t. the variations only*, close the base over;
     grad-w.r.t.-the-basis is now also available (the basis is a leaf).
   - `T3Basis` / `T3Tangent` are `@dataclass(frozen=True, eq=False)`: value hash/eq on ndarray fields is
     ambiguous, so they stay identity-hashed — but the basis is now a **leaf-bearing pytree node**, not
@@ -489,7 +489,7 @@ an output stack; `True` sums `W` away; `K` and `C` always pass through.
 | `TuckerTensorTrain.apply_transpose` / `entries_transpose` | `c`: `W + C` | T3 `stack_shape = W + C` | T3 `stack_shape = C` |
 
 The `apply`/`entries` adjoints currently take a residual with no `K` block (`K`-stacked residuals are a
-deferred `probe_transpose`-style extension; see `docs/apply_entries_handoff.md`). Their forward outputs
+deferred `probe_transpose`-style extension; see `dev/archive/apply_entries_handoff.md`). Their forward outputs
 are `W + K + C` (tangent) and `W + C` (plain), so the residual-in column is just "the forward output,
 adjoint-mapped back."
 

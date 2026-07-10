@@ -755,7 +755,7 @@ class T3Tangent:
         + W + K + C`` (order outermost; sample stack ``W``, tangent stack ``K``, base stack ``C``). The
         points ``X`` (``ww``) and the perturbations ``P`` (``pp``) must share the sample stack ``W``.
 
-        See ``docs/symmetric_probe_derivatives.tex`` and ``docs/derivatives_mirror_plan.md``.
+        See ``docs/symmetric_probe_derivatives.tex``.
 
         See Also
         --------
@@ -1113,7 +1113,10 @@ class ManifoldGeometry:
         """Random tangent at ``basis``: a standard Gaussian on the tangent space ``T_xM``.
 
         Raw i.i.d. N(0, 1) variation cores, then the gauge projection :py:meth:`project` (``Pi``). For
-        an orthogonal, minimal-rank ``basis`` this is exactly the standard Gaussian on ``T_xM``.
+        an **orthogonal** ``basis`` this is exactly the standard Gaussian on ``T_xM`` -- equivalently the
+        orthogonal projection onto ``T_xM`` of the ambient standard normal. Minimal rank is **not**
+        required: the gauge projection absorbs any rank redundancy, so the draw lands in the true tangent
+        space regardless (verified against the ambient-normal projection on a non-minimal frame).
         ``stack_shape`` is the extra outer tangent stack ``K`` (default ``()``).
 
         Inherits :py:meth:`project`'s **safe-mode ORTH precondition**: a non-orthogonal ``basis`` raises
@@ -1427,7 +1430,7 @@ if has_jax:
     # of false-failing, and under a trace it simply skips. Two by-design consequences: autodiff/tree_map
     # now see the basis too -- to grad w.r.t. the variations only, close the basis over
     # (`g = lambda v: f(T3Tangent(b, v)); jax.grad(g)`), and grad-w.r.t.-the-basis is now available. Full
-    # rationale: docs/safe_unsafe_mode_plan.md.
+    # rationale: dev/archive/safe_unsafe_mode_plan.md.
     jax.tree_util.register_pytree_node(
         T3Tangent,
         lambda x: ((x.basis, x.variations), None),

@@ -4,8 +4,8 @@ How T3Toolbox fits a fixed-rank Tucker tensor train to **sampled** data — appl
 their symmetric directional derivatives — by minimizing the least-squares misfit `½‖S(x) − y‖²`. This is
 the reference for the *structure* (what the pieces are), the *usage* (how to drive it), and the *design
 decisions* (what we chose and **why**). It complements the per-feature plans
-([`optimizers_plan.md`](optimizers_plan.md), [`derivative_fitting_plan.md`](derivative_fitting_plan.md),
-[`geometry_refactor_plan.md`](geometry_refactor_plan.md)) — read this first for the whole picture.
+([`dev/archive/optimizers_plan.md`](../dev/archive/optimizers_plan.md), [`dev/archive/derivative_fitting_plan.md`](../dev/archive/derivative_fitting_plan.md),
+[`dev/archive/geometry_refactor_plan.md`](../dev/archive/geometry_refactor_plan.md)) — read this first for the whole picture.
 
 ---
 
@@ -240,11 +240,11 @@ order-combines; the fix is 11–19× on them, numerically identical.
   optimizer, supplies the geometry-correct `x0`, and runs **rank continuation** with validation. The
   current layer is a clean *mid-level toolkit*; the facade is what delivers "standard user, no fiddling".
   Rank continuation + validation currently live in the examples (the right defaults: manifold → zero start
-  + warm continuation; corewise → nonzero start + cold per level — see `optimizers_plan.md` §7).
+  + warm continuation; corewise → nonzero start + cold per level — see `dev/archive/optimizers_plan.md` §7).
 - **Order-slicing minibatches** (output-masking) and order/polynomial-degree continuation — research,
   likely outer loops.
 - **The example pass** — deciding which `examples/fit_hilbert_*` use the library optimizers vs keep inline
-  to illustrate the hidden hooks (`gn_hessian`, `gn_quadratic`, `corewise_map`); `optimizers_plan.md` §10.
+  to illustrate the hidden hooks (`gn_hessian`, `gn_quadratic`, `corewise_map`); `dev/archive/optimizers_plan.md` §10.
 - **Per-sample gradients / multi-source fits** (SVRG-style; fitting from applies *and* entries together) —
   reachable at the backend level (`sum_over_probes=False`; sum two local models), not packaged.
 
@@ -266,9 +266,9 @@ order-combines; the fix is 11–19× on them, numerically identical.
   rank-1-first) suffices; order continuation adds nothing. When the data only constrains a *symmetric*
   (or otherwise structured) subspace, the fit fills the unconstrained null space with a large "halo" —
   **project/symmetrize the fit** to read off the meaningful part.
-- **Plans:** `optimizers_plan.md` (the optimizers + example two-track plan), `derivative_fitting_plan.md`
-  (the D1–D4 derivative-fitting build), `geometry_refactor_plan.md` (the geometry abstraction).
+- **Plans:** `dev/archive/optimizers_plan.md` (the optimizers + example two-track plan), `dev/archive/derivative_fitting_plan.md`
+  (the D1–D4 derivative-fitting build), `dev/archive/geometry_refactor_plan.md` (the geometry abstraction).
 - **Adjacent:** `entries_apply_probe.md` (the three sampling ops + their transposes), `transposes.md`
   (ambient/corewise/tangent taxonomy), `batching_and_stacking.md` (the `W`/`K`/`C` stack design — read
   before touching anything with stack axes), `mcsgd_apply_derivatives.md` (the Cauchy step + minibatch
-  findings), `safe_unsafe_mode_plan.md` (the safe-mode preconditions the frontend enforces).
+  findings), `dev/archive/safe_unsafe_mode_plan.md` (the safe-mode preconditions the frontend enforces).

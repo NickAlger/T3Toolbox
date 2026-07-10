@@ -602,11 +602,11 @@ class UniformTuckerTensorTrain:
 
     def sum(self, axis=None) -> NDArray:
         """Sum the represented tensor over all physical modes (shape=stack_shape). Partial sums (``axis``
-        given) are deferred -- see docs/uniform_port_plan.md."""
+        given) are deferred -- see dev/archive/uniform_port_plan.md."""
         if axis is not None:
             raise NotImplementedError(
                 'Partial sum (axis given) is deferred for UniformTuckerTensorTrain; only the full sum '
-                '(axis=None) is implemented. See docs/uniform_port_plan.md.')
+                '(axis=None) is implemented. See dev/archive/uniform_port_plan.md.')
         return ut3_sampling.ut3_full_sum(self.data)
 
     # ----------------------------------------------------------------- orthogonalization

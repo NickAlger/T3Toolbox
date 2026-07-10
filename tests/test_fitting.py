@@ -9,7 +9,7 @@ dense(𝒥 Π p)`` -- and ``dense(𝒥 Π p)`` is just ``geometry.project(p).to_
 two-form consistency, the razor self-containment (raw ``p`` == projected ``Π p``), the matched pair
 (manifold gauges, corewise does not), GN symmetry, the ``J`` / ``Jᵀ`` adjoint, and -- as an independent
 cross-check -- agreement with the established ``T3Tangent`` / ``TuckerTensorTrain`` transpose operators.
-See ``docs/geometry_refactor_plan.md``.
+See ``dev/archive/geometry_refactor_plan.md``.
 '''
 
 import unittest

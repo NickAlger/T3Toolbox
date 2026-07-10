@@ -27,7 +27,7 @@ perturbation; see :py:class:`~t3toolbox.manifold.CorewiseGeometry`). Build trial
 The base sweep (the base-and-data edge variables) is computed once by the factory and stored as the
 ``sweep`` field, reused across every ``gradient`` / ``gn_hessian`` / ``evaluate`` -- in an inner CG the
 base is fixed, so the sweep is computed once, not once per matrix-vector product. See
-:py:mod:`t3toolbox.backend.fitting` and ``docs/geometry_refactor_plan.md``.
+:py:mod:`t3toolbox.backend.fitting` and ``dev/archive/geometry_refactor_plan.md``.
 
 Jitting an optimizer
 --------------------
@@ -274,7 +274,7 @@ def probe_model(
 # Derivative sampling models (the symmetric directional-derivative jets of apply/entries/probe). Same
 # GaussNewtonModel, a parameterized derivative kind (order + the per-order residual weight ω): the
 # measurement is a jet (a leading order axis), the sample is the paired (ww/index, pp), and `residual`
-# is RAW (r = S(x) − y); ω weights the objective ½‖ω⊙r‖² inside the kind. See docs/derivative_fitting_plan.md.
+# is RAW (r = S(x) − y); ω weights the objective ½‖ω⊙r‖² inside the kind. See dev/archive/derivative_fitting_plan.md.
 # --------------------------------------------------------------------------------------------------
 def apply_derivatives_model(
         geometry,                            # MANIFOLD / COREWISE

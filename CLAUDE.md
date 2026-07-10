@@ -37,6 +37,12 @@ Current-state pointer accurate.
 
 ## The paper (`t4s.pdf` in repo root)
 
+> **Two distinct papers — don't conflate them.** *This* section is about the **T4S paper** (the research
+> preprint below). A **separate** software / algorithms **reference paper for the toolbox itself** is being
+> scoped in **`dev/paper_scope.md`** (ACM TOMS target; consolidates the T3 algorithms + hard-won
+> implementation insights — a library reference, *not* a research contribution). When any note says "the
+> paper," check which: **T4S** = the research preprint here; the **toolbox paper** = the new library reference.
+
 **Status: a reference, not the goal.** The T4S paper is an **arXiv preprint** — not yet
 journal-published, and still getting minor revisions (an example, some added detail). It sits in the
 repo only as the reference for the *algorithms* and as context for why this code exists. It is **not**
@@ -386,8 +392,7 @@ Live roadmap + next steps: **`dev/HANDOFF.md`**. The durable open items:
 - **Redesign the weighted tensor-network** code structure (deferred past 1.0).
 - **Doc pass (Track B / release):** fold the design rationale from `docs/` into user-facing Sphinx
   docs; fix the docs build (`conf.py` autoapi excludes core modules; committed `_build`; `modules.rst`
-  still titled "TuckerTensorTrainTools"); refresh `docs/entries_apply_probe.md` (stale §4 table + the
-  derivative dimension).
+  still titled "TuckerTensorTrainTools").
 - **Public API + naming review** — curate `t3toolbox/__init__.py`; review class/function names and
   their file placement (cheap now, before release).
 - **Goal-1 `fit(...)` facade** — auto geometry/optimizer/ranks/`x0` + rank-continuation/validation

@@ -9,7 +9,7 @@ if a use case arises. It is **not** scheduled work.
 
 Companion docs: `docs/transposes.md` (the ambient/corewise/tangent taxonomy),
 `docs/symmetric_probe_derivatives.tex` (the forward + tangent-transpose math),
-`docs/derivatives_mirror_plan.md` (the overall plan/handoff). Backend home if built:
+`dev/archive/derivatives_mirror_plan.md` (the overall plan/handoff). Backend home if built:
 `backend/probe_derivatives.py`; the non-derivative versions to mirror are
 `probing.probe_ambient_transpose`, `apply.tucker_tensor_train_apply_ambient_transpose`,
 `entries.tucker_tensor_train_entries_ambient_transpose`.

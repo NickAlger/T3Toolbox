@@ -1,6 +1,6 @@
 # T3Toolbox — current handoff
 
-_Updated 2026-07-07._
+_Updated 2026-07-09._
 
 ## Where we are
 
@@ -12,6 +12,41 @@ optimizer. Increment 3b (the uniform tangent + probing + jets) closed 2026-07-01
 (speed). Branch `main`, direct commits, pushed; full suite green.
 
 **→ The one remaining slice is U7: the frontend surface + docs** (see "Next steps").
+
+## Active thread (2026-07-09): the T3Toolbox software reference paper
+
+A **new, separate** effort from the uniform work above — outlining a general-purpose **software /
+algorithms reference paper** for T3Toolbox (TOMS-style: the T3 algorithms + the hard-won implementation /
+correctness insights, consolidating the scattered tensor-train / hierarchical-Tucker literature and
+specializing it to T3). Scope + curation live in **`dev/paper_scope.md`** — the 11 operation groups, the
+`docs/` curation (which docs are paper-worthy), the archive scan, and two settled math findings.
+
+> **This is NOT the T4S paper — keep them straight when writing.** **T4S** = Alger, Christierson, Chen &
+> Ghattas (2026), *"Tucker Tensor Train Taylor Series"* (arXiv:2603.21141; local `t4s.pdf`) — the existing
+> research preprint, a historical algorithm reference. The **toolbox paper** is a distinct, not-yet-written
+> document: different purpose (a reusable **library reference**, *not* a research contribution), different
+> venue (ACM TOMS + a Zenodo release-DOI). Some material was *cut from* T4S and lands in the toolbox paper
+> (e.g. `docs/symmetric_probe_derivatives.tex`) — a relationship, not an identity.
+
+**Status:** scoping only — no paper drafted. Two settled findings (in `dev/paper_scope.md`): the
+**canonical-Gaussian-tangent** result (an orthonormal-gauged frame makes `MANIFOLD.randn` the standard
+Gaussian on `T_xM` = the projected ambient normal) and that **minimal rank is a correctness precondition
+for nothing**.
+
+### Repo changes made this session (committed)
+- **Restored** `dev/archive/t3svd_verification.md` → `docs/` — a proof-complete reference (generalized
+  Oseledets error bound + a projection-argument rank bound) the knowledge-reorg had misfiled; it is cited
+  by live code docstrings as the authority for "the bound and its proof."
+- **Repaired the reorg's dead-link cluster** — ~30 `docs/<name>` references across ~15 code/doc files that
+  pointed at files now in `dev/archive/`: the `t3m` plan refs → `docs/ttm_t3m_ht_note.tex` (the live theory
+  home); every history/plan pointer → `dev/archive/<name>`. (Asserted script; re-grep clean; all `.py`
+  recompile.)
+- **Tightened** the `MANIFOLD.randn` docstring — orthogonality suffices; minimal rank not required (verified).
+- **Struck** the already-resolved `entries_apply_probe.md` refresh line from CLAUDE.md's doc-pass TODO.
+
+**Next on this thread:** walk the 11 groups (start at **Group 6** — `symmetric_probe_derivatives.tex` is
+nearly a drop-in chapter), then the small nugget-extractions + cosmetic cleanups listed in
+`dev/paper_scope.md`. Independent of the U7 uniform-frontend work below.
 
 ## Done this session (2026-07-06 → 07) — optimizers/fitting on the uniform layer
 

@@ -7,7 +7,7 @@ These operate on **raw cores / tangent tuples** via backend functions only -- no
 (no ``TuckerTensorTrain`` / ``T3Tangent`` / ``GaussNewtonModel`` / geometry classes). A raw-``.data``
 user can call them directly; the frontend ``optimizers.py`` is a thin adapter that validates the input
 once and assembles the ``Problem`` oracle from the same backend functions (design:
-``docs/optimizers_plan.md``).
+``dev/archive/optimizers_plan.md``).
 
 Because the numerical safety preconditions live only in the frontend, this layer is **check-free** of
 them (structural shape guards inside the backend functions remain, and are jit-safe). So ``jit`` needs no

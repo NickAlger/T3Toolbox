@@ -3,7 +3,7 @@
 # https://github.com/NickAlger/T3Toolbox
 '''Safe / unsafe mode: numerical **precondition** checks gated by an ambient safety tolerance.
 
-The library distinguishes (see ``docs/safe_unsafe_mode_plan.md`` and ``docs/numerical_contract_catalog.md``):
+The library distinguishes (see ``dev/archive/safe_unsafe_mode_plan.md`` and ``docs/numerical_contract_catalog.md``):
 
 - **consistency / well-formedness** checks (shapes, ranks, ``check_bv_pair``) -- always run, in both
   modes, at construction. These are *not* governed by this module.

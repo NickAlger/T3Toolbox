@@ -1,4 +1,4 @@
-"""Tests for the backend-first optimizers (docs/optimizers_plan.md, G3).
+"""Tests for the backend-first optimizers (dev/archive/optimizers_plan.md, G3).
 
 Correctness gold standard: the check-free backend oracle (`backend.optimizers`) must reproduce the
 frontend `fitting.GaussNewtonModel` exactly (it is the same math through the same backend functions).

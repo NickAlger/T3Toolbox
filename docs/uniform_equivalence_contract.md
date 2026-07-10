@@ -109,4 +109,4 @@ over a packed array) are correct because the padding is inert zeros.
 
 See also `docs/uniform_ranks_and_varieties.md`, `docs/uniform_supercore_layout.md`,
 `docs/uniform_masks_vs_ranks.md`, `docs/uniform_pytree_composition.md`, and the running
-`docs/uniform_port_plan.md`.
+`dev/archive/uniform_port_plan.md`.

@@ -9,7 +9,7 @@ numerical preconditions in safe mode -- here the input is just a well-formed ``T
 the geometry re-builds/orthogonalizes the frame internally each step), (2) maps the frontend geometry
 singletons (``manifold.MANIFOLD`` / ``manifold.COREWISE``) and the sampling-kind name to the backend
 ``GeometryOps`` / ``SamplingKind``, (3) calls the backend optimizer on the raw cores, and (4) re-wraps the
-result as a ``TuckerTensorTrain``. Design: ``docs/optimizers_plan.md``.
+result as a ``TuckerTensorTrain``. Design: ``dev/archive/optimizers_plan.md``.
 
     >>> # x_opt, stats = optimizers.gradient_descent(MANIFOLD, 'probe', ww, data, x0)
 """

@@ -224,7 +224,7 @@ PROBE = SamplingKind(
 # weight `weight` (ω). `sample` is the paired `(ww, pp)` / `(index, pp)`; the data + outputs gain a
 # leading order axis, so `sumsq`/`w_axes` count it via `n_w + 1`. ω enters only `sumsq` (×ω) and
 # `transpose` (×ω²); `forward`/`point_forward` are raw (the user passes RAW data + ω). See
-# docs/derivative_fitting_plan.md §5.
+# dev/archive/derivative_fitting_plan.md §5.
 # --------------------------------------------------------------------------------------------------
 def apply_derivatives_kind(
         order:  int,                                # highest derivative order
