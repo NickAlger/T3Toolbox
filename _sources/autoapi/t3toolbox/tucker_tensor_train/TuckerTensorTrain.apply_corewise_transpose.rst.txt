@@ -13,7 +13,7 @@ TuckerTensorTrain.apply_corewise_transpose
      L-BFGS, SGD) needs. Returns a **raw tuple** ``(tucker_grads, tt_grads)`` whose arrays have the
      exact shapes of ``self.data``. It is a *gradient, not a tensor* -- do not do T3 arithmetic
      with it. No ``|W|`` blow-up: the probe stack collapses into the fixed-size cores.
-   - **ambient** (:py:meth:`apply_ambient_transpose`): the base-free adjoint, returned as the CP
+   - **ambient** (:py:meth:`apply_ambient_transpose`): the frame-free adjoint, returned as the CP
      factors of ``c * (w0 (x) ... (x) w_{d-1})``.
    - **tangent** (``T3Tangent.apply_transpose``): the Riemannian gradient, a tangent vector.
 

@@ -1,0 +1,4 @@
+UniformGaussNewtonModel._wrap
+=============================
+
+.. py:method:: t3toolbox.fitting.UniformGaussNewtonModel._wrap(bare)

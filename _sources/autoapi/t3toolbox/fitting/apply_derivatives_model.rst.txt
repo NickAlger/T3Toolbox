@@ -25,7 +25,7 @@ apply_derivatives_model
    >>> model = fitting.apply_derivatives_model(t3m.MANIFOLD, x, ww, pp, 3, r, weight=[1.0, 0.5, 0.3, 0.2])
    >>> print(model.gradient.is_gauged())
    True
-   >>> p = t3m.MANIFOLD.randn(model.base)
+   >>> p = t3m.MANIFOLD.randn(model.frame)
    >>> bool(np.allclose(float(model.gn_quadratic(p)), float(p.corewise_inner(model.gn_hessian(p)))))
    True
 

@@ -299,6 +299,18 @@
 <li class="toctree-l4"><a class="reference internal" href="../fitting/GaussNewtonModel.evaluate.html">GaussNewtonModel.evaluate</a></li>
 </ul>
 </details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.html">UniformGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.kind.html">UniformGaussNewtonModel.kind</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel._n_w.html">UniformGaussNewtonModel._n_w</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.objective_value.html">UniformGaussNewtonModel.objective_value</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel._wrap.html">UniformGaussNewtonModel._wrap</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.gradient.html">UniformGaussNewtonModel.gradient</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.jacobian.html">UniformGaussNewtonModel.jacobian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.gn_quadratic.html">UniformGaussNewtonModel.gn_quadratic</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.gn_hessian.html">UniformGaussNewtonModel.gn_hessian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.evaluate.html">UniformGaussNewtonModel.evaluate</a></li>
+</ul>
+</details></li>
 <li class="toctree-l3"><a class="reference internal" href="../fitting/apply_model.html">apply_model</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../fitting/entries_model.html">entries_model</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../fitting/probe_model.html">probe_model</a></li>
@@ -484,9 +496,9 @@ as a linear map on the full tensor space (one of <strong>three</strong> probe tr
 <code class="docutils literal notranslate"><span class="pre">docs/transposes.md</span></code>). <code class="docutils literal notranslate"><span class="pre">probe</span></code> returns <code class="docutils literal notranslate"><span class="pre">d</span></code> vectors, so the residual <code class="docutils literal notranslate"><span class="pre">ztildes</span></code> is <code class="docutils literal notranslate"><span class="pre">d</span></code>
 vectors; the back-projection is the <strong>rank-``d``</strong> tensor
 <code class="docutils literal notranslate"><span class="pre">sum_i</span> <span class="pre">(w0</span> <span class="pre">(x)</span> <span class="pre">...</span> <span class="pre">(x)</span> <span class="pre">ztildes_i</span> <span class="pre">(x)</span> <span class="pre">...</span> <span class="pre">(x)</span> <span class="pre">w_{d-1})</span></code> (residual <code class="docutils literal notranslate"><span class="pre">ztildes_i</span></code> in slot <code class="docutils literal notranslate"><span class="pre">i</span></code>,
-probe vectors elsewhere), returned as <strong>CP factors</strong>. Base-free. Realize a <code class="docutils literal notranslate"><span class="pre">TuckerTensorTrain</span></code>
+probe vectors elsewhere), returned as <strong>CP factors</strong>. Frame-free. Realize a <code class="docutils literal notranslate"><span class="pre">TuckerTensorTrain</span></code>
 with <a class="reference internal" href="TuckerTensorTrain.from_canonical.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain.from_canonical" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain.from_canonical"><code class="xref py py-meth docutils literal notranslate"><span class="pre">from_canonical()</span></code></a>.</p>
-<p>The other two probe transposes are <code class="docutils literal notranslate"><span class="pre">probe_corewise_transpose</span></code> (gradient w.r.t. a base’s cores,
+<p>The other two probe transposes are <code class="docutils literal notranslate"><span class="pre">probe_corewise_transpose</span></code> (gradient w.r.t. a frame’s cores,
 for Adam / L-BFGS) and <code class="docutils literal notranslate"><span class="pre">T3Tangent.probe_transpose</span></code> (the Riemannian gradient).</p>
 <p><code class="docutils literal notranslate"><span class="pre">sum_over_probes=False</span></code> keeps the probe stack <code class="docutils literal notranslate"><span class="pre">W</span></code> (a <code class="docutils literal notranslate"><span class="pre">W</span> <span class="pre">(+</span> <span class="pre">C)</span></code> stack of rank-<code class="docutils literal notranslate"><span class="pre">d</span></code> CPs);
 <code class="docutils literal notranslate"><span class="pre">True</span></code> folds <code class="docutils literal notranslate"><span class="pre">W</span></code> into the CP rank (one rank-<code class="docutils literal notranslate"><span class="pre">d|W|</span></code> CP, the ambient <code class="docutils literal notranslate"><span class="pre">J^T</span> <span class="pre">r</span></code>), cheap as CP.</p>

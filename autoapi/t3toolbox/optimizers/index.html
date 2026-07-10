@@ -299,6 +299,18 @@
 <li class="toctree-l4"><a class="reference internal" href="../fitting/GaussNewtonModel.evaluate.html">GaussNewtonModel.evaluate</a></li>
 </ul>
 </details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.html">UniformGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.kind.html">UniformGaussNewtonModel.kind</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel._n_w.html">UniformGaussNewtonModel._n_w</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.objective_value.html">UniformGaussNewtonModel.objective_value</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel._wrap.html">UniformGaussNewtonModel._wrap</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.gradient.html">UniformGaussNewtonModel.gradient</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.jacobian.html">UniformGaussNewtonModel.jacobian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.gn_quadratic.html">UniformGaussNewtonModel.gn_quadratic</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.gn_hessian.html">UniformGaussNewtonModel.gn_hessian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.evaluate.html">UniformGaussNewtonModel.evaluate</a></li>
+</ul>
+</details></li>
 <li class="toctree-l3"><a class="reference internal" href="../fitting/apply_model.html">apply_model</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../fitting/entries_model.html">entries_model</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../fitting/probe_model.html">probe_model</a></li>
@@ -471,13 +483,23 @@
 <span id="optimizers"></span><h1>optimizers<a class="headerlink" href="#module-t3toolbox.optimizers" title="Link to this heading">#</a></h1>
 <p>Frontend adapter for the geometry-agnostic optimizers.</p>
 <p>A thin wrapper over <code class="xref py py-mod docutils literal notranslate"><span class="pre">t3toolbox.backend.optimizers</span></code> (where the algorithms live – check-free, so a
-raw-<code class="docutils literal notranslate"><span class="pre">.data</span></code> user can call them directly). This layer (1) <strong>validates the input once</strong> (structural always;
-numerical preconditions in safe mode – here the input is just a well-formed <code class="docutils literal notranslate"><span class="pre">TuckerTensorTrain</span></code>, since
-the geometry re-builds/orthogonalizes the frame internally each step), (2) maps the frontend geometry
-singletons (<code class="docutils literal notranslate"><span class="pre">manifold.MANIFOLD</span></code> / <code class="docutils literal notranslate"><span class="pre">manifold.COREWISE</span></code>) and the sampling-kind name to the backend
-<code class="docutils literal notranslate"><span class="pre">GeometryOps</span></code> / <code class="docutils literal notranslate"><span class="pre">SamplingKind</span></code>, (3) calls the backend optimizer on the raw cores, and (4) re-wraps the
-result as a <code class="docutils literal notranslate"><span class="pre">TuckerTensorTrain</span></code>. Design: <code class="docutils literal notranslate"><span class="pre">dev/archive/optimizers_plan.md</span></code>.</p>
-<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># x_opt, stats = optimizers.gradient_descent(MANIFOLD, &#39;probe&#39;, ww, data, x0)</span>
+raw-<code class="docutils literal notranslate"><span class="pre">.data</span></code> user can call them directly). This layer (1) maps the frontend geometry singletons and the
+sampling-kind name to the backend <code class="docutils literal notranslate"><span class="pre">GeometryOps</span></code> / <code class="docutils literal notranslate"><span class="pre">SamplingKind</span></code>, (2) calls the backend optimizer on the
+raw cores, and (3) re-wraps the result. Design: <code class="docutils literal notranslate"><span class="pre">dev/archive/optimizers_plan.md</span></code>.</p>
+<p><strong>Two representations, inferred from</strong> <code class="docutils literal notranslate"><span class="pre">x0</span></code> (the library-wide ragged/uniform dispatch; <code class="docutils literal notranslate"><span class="pre">_setup</span></code>):</p>
+<ul class="simple">
+<li><p>a <strong>ragged</strong> <code class="docutils literal notranslate"><span class="pre">TuckerTensorTrain</span></code> x0 with a ragged geometry (<code class="docutils literal notranslate"><span class="pre">manifold.MANIFOLD</span></code> / <code class="docutils literal notranslate"><span class="pre">COREWISE</span></code>) –
+the optimizer runs on the raw cores; the frame is re-orthogonalized internally each step.</p></li>
+<li><p>a <strong>uniform</strong> <code class="docutils literal notranslate"><span class="pre">UniformTuckerTensorTrain</span></code> x0 with a uniform geometry
+(<code class="docutils literal notranslate"><span class="pre">uniform_manifold.UNIFORM_MANIFOLD</span></code> / <code class="docutils literal notranslate"><span class="pre">UNIFORM_COREWISE</span></code>) – the optimizer runs on the packed
+supercore pair (<code class="docutils literal notranslate"><span class="pre">lax.scan</span></code> over the mode axis; the speed path). The uniform path requires a
+<strong>minimal-rank frame</strong>; it calls <code class="xref py py-func docutils literal notranslate"><span class="pre">uniform_minimal()</span></code>
+transparently so a frontend user never meets that requirement.</p></li>
+</ul>
+<p>The geometry must match <code class="docutils literal notranslate"><span class="pre">x0</span></code>’s representation (a uniform x0 with a ragged geometry, or vice versa, is a
+structural error). The result is returned in the same representation as <code class="docutils literal notranslate"><span class="pre">x0</span></code>.</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># x_opt, stats = optimizers.gradient_descent(MANIFOLD, &#39;probe&#39;, ww, data, x0)           # ragged</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1"># x_opt, stats = optimizers.newton_cg(UNIFORM_MANIFOLD, &#39;probe&#39;, ww, data, ux0)         # uniform</span>
 </pre></div>
 </div>
 <section id="functions">
@@ -490,13 +512,13 @@ result as a <code class="docutils literal notranslate"><span class="pre">TuckerT
 <td><p>Fit <code class="docutils literal notranslate"><span class="pre">x</span></code> to <code class="docutils literal notranslate"><span class="pre">data</span></code> by steepest descent (Cauchy step + Armijo line search) on <code class="docutils literal notranslate"><span class="pre">geometry</span></code>.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="mc_sgd.html#t3toolbox.optimizers.mc_sgd" title="t3toolbox.optimizers.mc_sgd"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mc_sgd</span></code></a>(geometry, kind, sample, data, x0, rng, batch[, ...])</p></td>
-<td><p>Manifold Cauchy SGD -- minibatched, tuning-free Cauchy step.</p></td>
+<td><p>Manifold Cauchy SGD -- minibatched, tuning-free Cauchy step. Ragged or uniform <code class="docutils literal notranslate"><span class="pre">x0</span></code> (see</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="adam.html#t3toolbox.optimizers.adam" title="t3toolbox.optimizers.adam"><code class="xref py py-obj docutils literal notranslate"><span class="pre">adam</span></code></a>(geometry, kind, sample, data, x0, rng, batch[, ...])</p></td>
-<td><p>Adam over the cores -- the dependency-free first-order method for the corewise geometry.</p></td>
+<td><p>Adam over the cores -- the dependency-free first-order method for the corewise geometry. Ragged or</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="newton_cg.html#t3toolbox.optimizers.newton_cg" title="t3toolbox.optimizers.newton_cg"><code class="xref py py-obj docutils literal notranslate"><span class="pre">newton_cg</span></code></a>(geometry, kind, sample, data, x0[, order, ...])</p></td>
-<td><p>Inexact Riemannian Newton-CG with an Armijo line search -- the manifold workhorse.</p></td>
+<td><p>Inexact Riemannian Newton-CG with an Armijo line search -- the manifold workhorse. Ragged or uniform</p></td>
 </tr>
 </tbody>
 </table>

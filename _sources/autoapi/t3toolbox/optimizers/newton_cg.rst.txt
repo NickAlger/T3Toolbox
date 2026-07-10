@@ -3,6 +3,32 @@ newton_cg
 
 .. py:function:: t3toolbox.optimizers.newton_cg(geometry, kind, sample, data, x0, order = None, weight = None, **kwargs)
 
-   Inexact Riemannian Newton-CG with an Armijo line search -- the manifold workhorse.
-   See :py:func:`t3toolbox.backend.optimizers.newton_cg`.
+   Inexact Riemannian Newton-CG with an Armijo line search -- the manifold workhorse. Ragged or uniform
+   ``x0`` (see :py:func:`gradient_descent`). See :py:func:`t3toolbox.backend.optimizers.newton_cg`.
+
+   .. rubric:: Examples
+
+   Recover a low-rank tensor from noiseless ``apply`` measurements on the **uniform** layer -- a uniform
+   ``x0`` (with ``UNIFORM_MANIFOLD``) returns a ``UniformTuckerTensorTrain`` (a zero start is fine on the
+   manifold; unit-norm probe rows keep the least-squares well-conditioned):
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+   >>> import t3toolbox.uniform_manifold as ut3m
+   >>> import t3toolbox.optimizers as optimizers
+   >>> np.random.seed(0)
+   >>> A = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 2, 2), (1, 2, 2, 1))
+   >>> ww = [np.random.randn(120, N) for N in (6, 7, 8)]
+   >>> ww = [w / np.linalg.norm(w, axis=1, keepdims=True) for w in ww]   # unit-norm rows
+   >>> b = A.apply(ww)
+   >>> x0 = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.zeros((6, 7, 8), (2, 2, 2), (1, 2, 2, 1)))
+   >>> x_opt, stats = optimizers.newton_cg(ut3m.UNIFORM_MANIFOLD, 'apply', ww, b, x0, max_newton=30)
+   >>> type(x_opt).__name__                              # returned in the same (uniform) representation
+   'UniformTuckerTensorTrain'
+   >>> bool(np.linalg.norm(x_opt.to_dense() - A.to_dense()) / np.linalg.norm(A.to_dense()) < 1e-6)
+   True
+
+   For a **ragged** fit pass ``t3m.MANIFOLD`` and a ``TuckerTensorTrain`` ``x0`` instead; the call is
+   otherwise identical.
 

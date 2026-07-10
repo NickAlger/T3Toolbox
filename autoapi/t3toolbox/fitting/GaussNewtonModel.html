@@ -299,6 +299,18 @@
 <li class="toctree-l4"><a class="reference internal" href="GaussNewtonModel.evaluate.html">GaussNewtonModel.evaluate</a></li>
 </ul>
 </details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="UniformGaussNewtonModel.html">UniformGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.kind.html">UniformGaussNewtonModel.kind</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel._n_w.html">UniformGaussNewtonModel._n_w</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.objective_value.html">UniformGaussNewtonModel.objective_value</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel._wrap.html">UniformGaussNewtonModel._wrap</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.gradient.html">UniformGaussNewtonModel.gradient</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.jacobian.html">UniformGaussNewtonModel.jacobian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.gn_quadratic.html">UniformGaussNewtonModel.gn_quadratic</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.gn_hessian.html">UniformGaussNewtonModel.gn_hessian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.evaluate.html">UniformGaussNewtonModel.evaluate</a></li>
+</ul>
+</details></li>
 <li class="toctree-l3"><a class="reference internal" href="apply_model.html">apply_model</a></li>
 <li class="toctree-l3"><a class="reference internal" href="entries_model.html">entries_model</a></li>
 <li class="toctree-l3"><a class="reference internal" href="probe_model.html">probe_model</a></li>
@@ -477,11 +489,11 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="t3toolbox.fitting.GaussNewtonModel">
 <span class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></span><span class="sig-prename descclassname"><span class="pre">t3toolbox.fitting.</span></span><span class="sig-name descname"><span class="pre">GaussNewtonModel</span></span><a class="headerlink" href="#t3toolbox.fitting.GaussNewtonModel" title="Link to this definition">#</a></dt>
-<dd><p>The local Gauss-Newton model of a least-squares objective at <code class="docutils literal notranslate"><span class="pre">base</span></code>, generic over the geometry.</p>
+<dd><p>The local Gauss-Newton model of a least-squares objective at <code class="docutils literal notranslate"><span class="pre">frame</span></code>, generic over the geometry.</p>
 <p>Built by a sampling-kind factory (<code class="xref py py-func docutils literal notranslate"><span class="pre">apply_model()</span></code> / <code class="xref py py-func docutils literal notranslate"><span class="pre">entries_model()</span></code> /
-<code class="xref py py-func docutils literal notranslate"><span class="pre">probe_model()</span></code>), not directly. Holds the geometry, the frame <code class="docutils literal notranslate"><span class="pre">base</span> <span class="pre">=</span> <span class="pre">geometry.base(X)</span></code>, the
+<code class="xref py py-func docutils literal notranslate"><span class="pre">probe_model()</span></code>), not directly. Holds the geometry, the frame <code class="docutils literal notranslate"><span class="pre">frame</span> <span class="pre">=</span> <span class="pre">geometry.frame(X)</span></code>, the
 sampling <code class="docutils literal notranslate"><span class="pre">kind</span></code>, the measurement <code class="docutils literal notranslate"><span class="pre">sample</span></code> (the probe/apply vectors <code class="docutils literal notranslate"><span class="pre">ww</span></code> or the integer grid
-<code class="docutils literal notranslate"><span class="pre">index</span></code>), and the data residual <code class="docutils literal notranslate"><span class="pre">r</span> <span class="pre">=</span> <span class="pre">F(X)</span> <span class="pre">−</span> <span class="pre">y</span></code>. The base sweep, objective value, and gradient are
+<code class="docutils literal notranslate"><span class="pre">index</span></code>), and the data residual <code class="docutils literal notranslate"><span class="pre">r</span> <span class="pre">=</span> <span class="pre">F(X)</span> <span class="pre">−</span> <span class="pre">y</span></code>. The frame sweep, objective value, and gradient are
 cached on first use.</p>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
@@ -501,7 +513,7 @@ gauged tangent space:</p>
 <span class="go">8.295196</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">gradient</span><span class="o">.</span><span class="n">is_gauged</span><span class="p">())</span>
 <span class="go">True</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">MANIFOLD</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">base</span><span class="p">)</span>                  <span class="c1"># a gauged trial step at the model&#39;s base</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">p</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">MANIFOLD</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">frame</span><span class="p">)</span>                  <span class="c1"># a gauged trial step at the model&#39;s frame</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">model</span><span class="o">.</span><span class="n">gn_hessian</span><span class="p">(</span><span class="n">p</span><span class="p">)</span><span class="o">.</span><span class="n">is_gauged</span><span class="p">())</span>
 <span class="go">True</span>
 </pre></div>
@@ -525,18 +537,18 @@ raw <code class="docutils literal notranslate"><span class="pre">(U,G,G,G)</span
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">cmodel</span> <span class="o">=</span> <span class="n">fitting</span><span class="o">.</span><span class="n">apply_model</span><span class="p">(</span><span class="n">t3m</span><span class="o">.</span><span class="n">COREWISE</span><span class="p">,</span> <span class="n">x</span><span class="p">,</span> <span class="n">ww</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">cmodel</span><span class="o">.</span><span class="n">gradient</span><span class="o">.</span><span class="n">is_gauged</span><span class="p">())</span>
 <span class="go">False</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">cp</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">COREWISE</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">cmodel</span><span class="o">.</span><span class="n">base</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">cp</span> <span class="o">=</span> <span class="n">t3m</span><span class="o">.</span><span class="n">COREWISE</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">cmodel</span><span class="o">.</span><span class="n">frame</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">bool</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">cmodel</span><span class="o">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">cp</span><span class="p">)),</span>
 <span class="gp">... </span>                 <span class="nb">float</span><span class="p">(</span><span class="n">cmodel</span><span class="o">.</span><span class="n">objective_value</span> <span class="o">+</span> <span class="n">cmodel</span><span class="o">.</span><span class="n">gradient</span><span class="o">.</span><span class="n">corewise_inner</span><span class="p">(</span><span class="n">cp</span><span class="p">)</span>
 <span class="gp">... </span>                       <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">cp</span><span class="o">.</span><span class="n">corewise_inner</span><span class="p">(</span><span class="n">cmodel</span><span class="o">.</span><span class="n">gn_hessian</span><span class="p">(</span><span class="n">cp</span><span class="p">)))))</span>
 <span class="go">True</span>
 </pre></div>
 </div>
-<p>A trial step at a <em>different</em> base is a structural error (the model is tied to its base):</p>
+<p>A trial step at a <em>different</em> frame is a structural error (the model is tied to its frame):</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">other</span> <span class="o">=</span> <span class="n">t3</span><span class="o">.</span><span class="n">TuckerTensorTrain</span><span class="o">.</span><span class="n">randn</span><span class="p">((</span><span class="mi">6</span><span class="p">,</span> <span class="mi">7</span><span class="p">,</span> <span class="mi">8</span><span class="p">),</span> <span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">),</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">gn_hessian</span><span class="p">(</span><span class="n">t3m</span><span class="o">.</span><span class="n">MANIFOLD</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">t3m</span><span class="o">.</span><span class="n">MANIFOLD</span><span class="o">.</span><span class="n">base</span><span class="p">(</span><span class="n">other</span><span class="p">)))</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">model</span><span class="o">.</span><span class="n">gn_hessian</span><span class="p">(</span><span class="n">t3m</span><span class="o">.</span><span class="n">MANIFOLD</span><span class="o">.</span><span class="n">randn</span><span class="p">(</span><span class="n">t3m</span><span class="o">.</span><span class="n">MANIFOLD</span><span class="o">.</span><span class="n">frame</span><span class="p">(</span><span class="n">other</span><span class="p">)))</span>
 <span class="gt">Traceback (most recent call last):</span>
-<span class="gr">ValueError</span>: <span class="n">trial tangent must live at the model&#39;s base (it is at a different frame)</span>
+<span class="gr">ValueError</span>: <span class="n">trial tangent must live at the model&#39;s frame (it is at a different frame)</span>
 </pre></div>
 </div>
 <dl class="py attribute">
@@ -545,8 +557,8 @@ raw <code class="docutils literal notranslate"><span class="pre">(U,G,G,G)</span
 <dd></dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="t3toolbox.fitting.GaussNewtonModel.base">
-<span class="sig-name descname"><span class="pre">base</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">t3toolbox.basis_variations_format.T3Basis</span></span><a class="headerlink" href="#t3toolbox.fitting.GaussNewtonModel.base" title="Link to this definition">#</a></dt>
+<dt class="sig sig-object py" id="t3toolbox.fitting.GaussNewtonModel.frame">
+<span class="sig-name descname"><span class="pre">frame</span></span><span class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">t3toolbox.frame_variations_format.T3Frame</span></span><a class="headerlink" href="#t3toolbox.fitting.GaussNewtonModel.frame" title="Link to this definition">#</a></dt>
 <dd></dd></dl>
 
 <dl class="py attribute">
@@ -579,10 +591,10 @@ raw <code class="docutils literal notranslate"><span class="pre">(U,G,G,G)</span
 <td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="GaussNewtonModel.objective_value.html#t3toolbox.fitting.GaussNewtonModel.objective_value" title="t3toolbox.fitting.GaussNewtonModel.objective_value"><code class="xref py py-obj docutils literal notranslate"><span class="pre">objective_value</span></code></a>()</p></td>
-<td><p>The least-squares objective at the base, <code class="docutils literal notranslate"><span class="pre">c</span> <span class="pre">=</span> <span class="pre">½‖r‖²</span></code> (the model constant <code class="docutils literal notranslate"><span class="pre">m(0)</span></code>).</p></td>
+<td><p>The least-squares objective at the frame, <code class="docutils literal notranslate"><span class="pre">c</span> <span class="pre">=</span> <span class="pre">½‖r‖²</span></code> (the model constant <code class="docutils literal notranslate"><span class="pre">m(0)</span></code>).</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="GaussNewtonModel.gradient.html#t3toolbox.fitting.GaussNewtonModel.gradient" title="t3toolbox.fitting.GaussNewtonModel.gradient"><code class="xref py py-obj docutils literal notranslate"><span class="pre">gradient</span></code></a>()</p></td>
-<td><p>The gradient <code class="docutils literal notranslate"><span class="pre">g</span> <span class="pre">=</span> <span class="pre">geometry.project(𝒥ᵀ</span> <span class="pre">r)</span></code> (the Gauss-Newton <code class="docutils literal notranslate"><span class="pre">Jᵀr</span></code>), a tangent at base.</p></td>
+<td><p>The gradient <code class="docutils literal notranslate"><span class="pre">g</span> <span class="pre">=</span> <span class="pre">geometry.project(𝒥ᵀ</span> <span class="pre">r)</span></code> (the Gauss-Newton <code class="docutils literal notranslate"><span class="pre">Jᵀr</span></code>), a tangent at frame.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="GaussNewtonModel.jacobian.html#t3toolbox.fitting.GaussNewtonModel.jacobian" title="t3toolbox.fitting.GaussNewtonModel.jacobian"><code class="xref py py-obj docutils literal notranslate"><span class="pre">jacobian</span></code></a>(p)</p></td>
 <td><p>The linearized forward <code class="docutils literal notranslate"><span class="pre">J</span> <span class="pre">p</span> <span class="pre">=</span> <span class="pre">𝒥(Π</span> <span class="pre">p)</span></code> (the Gauss-Newton Jacobian-vector product).</p></td>
@@ -651,7 +663,7 @@ raw <code class="docutils literal notranslate"><span class="pre">(U,G,G,G)</span
     <ul class="pst-show_toc_level nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.fitting.GaussNewtonModel"><code class="docutils literal notranslate"><span class="pre">GaussNewtonModel</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.fitting.GaussNewtonModel.geometry"><code class="docutils literal notranslate"><span class="pre">geometry</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.fitting.GaussNewtonModel.base"><code class="docutils literal notranslate"><span class="pre">base</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.fitting.GaussNewtonModel.frame"><code class="docutils literal notranslate"><span class="pre">frame</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.fitting.GaussNewtonModel.kind"><code class="docutils literal notranslate"><span class="pre">kind</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.fitting.GaussNewtonModel.sample"><code class="docutils literal notranslate"><span class="pre">sample</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#t3toolbox.fitting.GaussNewtonModel.residual"><code class="docutils literal notranslate"><span class="pre">residual</span></code></a></li>

@@ -12,10 +12,10 @@ TuckerTensorTrain.probe_ambient_transpose
    ``docs/transposes.md``). ``probe`` returns ``d`` vectors, so the residual ``ztildes`` is ``d``
    vectors; the back-projection is the **rank-``d``** tensor
    ``sum_i (w0 (x) ... (x) ztildes_i (x) ... (x) w_{d-1})`` (residual ``ztildes_i`` in slot ``i``,
-   probe vectors elsewhere), returned as **CP factors**. Base-free. Realize a ``TuckerTensorTrain``
+   probe vectors elsewhere), returned as **CP factors**. Frame-free. Realize a ``TuckerTensorTrain``
    with :py:meth:`from_canonical`.
 
-   The other two probe transposes are ``probe_corewise_transpose`` (gradient w.r.t. a base's cores,
+   The other two probe transposes are ``probe_corewise_transpose`` (gradient w.r.t. a frame's cores,
    for Adam / L-BFGS) and ``T3Tangent.probe_transpose`` (the Riemannian gradient).
 
    ``sum_over_probes=False`` keeps the probe stack ``W`` (a ``W (+ C)`` stack of rank-``d`` CPs);

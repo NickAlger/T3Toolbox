@@ -11,7 +11,7 @@ TuckerTensorTrain.entries_ambient_transpose
    vectors replaced by the unit vectors ``e_{index_k}``, so the CP factors are one-hots and the
    back-projection is ``c * e_{idx_0} (x) ... (x) e_{idx_{d-1}}``. See that method (and
    ``docs/transposes.md``) for the **ambient vs corewise vs tangent** distinction -- this is the
-   *ambient* one (the base-free adjoint on the full tensor space); the gradient-for-optimizers
+   *ambient* one (the frame-free adjoint on the full tensor space); the gradient-for-optimizers
    versions are ``entries_corewise_transpose`` and ``T3Tangent.entries_transpose``.
 
    ``sum_over_probes=True`` makes ``W`` the CP rank (scatter-adding colliding indices -- the

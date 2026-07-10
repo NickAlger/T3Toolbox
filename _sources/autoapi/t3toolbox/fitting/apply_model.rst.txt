@@ -5,3 +5,7 @@ apply_model
 
    The Gauss-Newton model of an all-modes ``apply`` least-squares objective at ``x``, on ``geometry``.
 
+   Accepts a ragged ``TuckerTensorTrain`` (-> :py:class:`GaussNewtonModel`) or a uniform
+   ``UniformTuckerTensorTrain`` (-> :py:class:`UniformGaussNewtonModel`); the representation is inferred
+   from ``x`` and the geometry must match.
+

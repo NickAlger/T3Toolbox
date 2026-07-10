@@ -299,6 +299,18 @@
 <li class="toctree-l4"><a class="reference internal" href="GaussNewtonModel.evaluate.html">GaussNewtonModel.evaluate</a></li>
 </ul>
 </details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="UniformGaussNewtonModel.html">UniformGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.kind.html">UniformGaussNewtonModel.kind</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel._n_w.html">UniformGaussNewtonModel._n_w</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.objective_value.html">UniformGaussNewtonModel.objective_value</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel._wrap.html">UniformGaussNewtonModel._wrap</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.gradient.html">UniformGaussNewtonModel.gradient</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.jacobian.html">UniformGaussNewtonModel.jacobian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.gn_quadratic.html">UniformGaussNewtonModel.gn_quadratic</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.gn_hessian.html">UniformGaussNewtonModel.gn_hessian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.evaluate.html">UniformGaussNewtonModel.evaluate</a></li>
+</ul>
+</details></li>
 <li class="toctree-l3"><a class="reference internal" href="apply_model.html">apply_model</a></li>
 <li class="toctree-l3"><a class="reference internal" href="entries_model.html">entries_model</a></li>
 <li class="toctree-l3"><a class="reference internal" href="probe_model.html">probe_model</a></li>
@@ -479,7 +491,7 @@ quadratic-model value <code class="docutils literal notranslate"><span class="pr
 <li><p>the <strong>geometry</strong> – <code class="xref py py-data docutils literal notranslate"><span class="pre">MANIFOLD</span></code> (optimize on the fixed-rank manifold;
 the gauge projection <code class="docutils literal notranslate"><span class="pre">Π</span></code> makes <code class="docutils literal notranslate"><span class="pre">g</span></code> / <code class="docutils literal notranslate"><span class="pre">H</span></code> Riemannian) or
 <code class="xref py py-data docutils literal notranslate"><span class="pre">COREWISE</span></code> (optimize the raw cores; no <code class="docutils literal notranslate"><span class="pre">Π</span></code>). The geometry supplies the
-frame <code class="docutils literal notranslate"><span class="pre">base</span> <span class="pre">=</span> <span class="pre">geometry.base(X)</span></code> and the projection <code class="docutils literal notranslate"><span class="pre">Π</span> <span class="pre">=</span> <span class="pre">geometry.project</span></code>; the forward is
+frame <code class="docutils literal notranslate"><span class="pre">frame</span> <span class="pre">=</span> <span class="pre">geometry.frame(X)</span></code> and the projection <code class="docutils literal notranslate"><span class="pre">Π</span> <span class="pre">=</span> <span class="pre">geometry.project</span></code>; the forward is
 <code class="docutils literal notranslate"><span class="pre">J</span> <span class="pre">=</span> <span class="pre">𝒥∘Π</span></code> and the gradient is <code class="docutils literal notranslate"><span class="pre">Jᵀr</span> <span class="pre">=</span> <span class="pre">Π∘𝒥ᵀr</span></code>. <strong>Manifold ⟺ Π, corewise ⟺ no Π is structural</strong>
 (bundled in the geometry), never a flag – mixing the two silently corrupts the result.</p></li>
 <li><p>the <strong>sampling kind</strong> – bound by the factory <a class="reference internal" href="apply_model.html#t3toolbox.fitting.apply_model" title="t3toolbox.fitting.apply_model"><code class="xref py py-func docutils literal notranslate"><span class="pre">apply_model()</span></code></a> / <a class="reference internal" href="entries_model.html#t3toolbox.fitting.entries_model" title="t3toolbox.fitting.entries_model"><code class="xref py py-func docutils literal notranslate"><span class="pre">entries_model()</span></code></a> /
@@ -487,25 +499,25 @@ frame <code class="docutils literal notranslate"><span class="pre">base</span> <
 <code class="xref py py-mod docutils literal notranslate"><span class="pre">t3toolbox.backend.fitting</span></code>).</p></li>
 </ul>
 </div></blockquote>
-<p>Every input and output is a <code class="xref py py-class docutils literal notranslate"><span class="pre">T3Tangent</span></code> at <code class="docutils literal notranslate"><span class="pre">model.base</span></code> – including the
+<p>Every input and output is a <code class="xref py py-class docutils literal notranslate"><span class="pre">T3Tangent</span></code> at <code class="docutils literal notranslate"><span class="pre">model.frame</span></code> – including the
 <strong>corewise</strong> case, where the tangent lives at the non-orthonormal frame <code class="docutils literal notranslate"><span class="pre">(U,G,G,G)</span></code> (a core
-perturbation; see <code class="xref py py-class docutils literal notranslate"><span class="pre">CorewiseGeometry</span></code>). Build trial steps at <code class="docutils literal notranslate"><span class="pre">model.base</span></code>
-(e.g. <code class="docutils literal notranslate"><span class="pre">geometry.randn(model.base)</span></code>); a step at a different frame raises the numerical same-frame guard
+perturbation; see <code class="xref py py-class docutils literal notranslate"><span class="pre">CorewiseGeometry</span></code>). Build trial steps at <code class="docutils literal notranslate"><span class="pre">model.frame</span></code>
+(e.g. <code class="docutils literal notranslate"><span class="pre">geometry.randn(model.frame)</span></code>); a step at a different frame raises the numerical same-frame guard
 (skipped under <code class="docutils literal notranslate"><span class="pre">safety.unsafe()</span></code> / a jax trace), like <code class="xref py py-class docutils literal notranslate"><span class="pre">T3Tangent</span></code>.</p>
-<p>The base sweep (the base-and-data edge variables) is computed once by the factory and stored as the
+<p>The frame sweep (the frame-and-data edge variables) is computed once by the factory and stored as the
 <code class="docutils literal notranslate"><span class="pre">sweep</span></code> field, reused across every <code class="docutils literal notranslate"><span class="pre">gradient</span></code> / <code class="docutils literal notranslate"><span class="pre">gn_hessian</span></code> / <code class="docutils literal notranslate"><span class="pre">evaluate</span></code> – in an inner CG the
-base is fixed, so the sweep is computed once, not once per matrix-vector product. See
+frame is fixed, so the sweep is computed once, not once per matrix-vector product. See
 <code class="xref py py-mod docutils literal notranslate"><span class="pre">t3toolbox.backend.fitting</span></code> and <code class="docutils literal notranslate"><span class="pre">dev/archive/geometry_refactor_plan.md</span></code>.</p>
 <section id="jitting-an-optimizer">
 <h2>Jitting an optimizer<a class="headerlink" href="#jitting-an-optimizer" title="Link to this heading">#</a></h2>
-<p><code class="docutils literal notranslate"><span class="pre">GaussNewtonModel</span></code> <strong>is</strong> a registered jax pytree (the data – <code class="docutils literal notranslate"><span class="pre">base</span></code>, <code class="docutils literal notranslate"><span class="pre">sweep</span></code>, <code class="docutils literal notranslate"><span class="pre">sample</span></code>,
-<code class="docutils literal notranslate"><span class="pre">residual</span></code> – are leaves; <code class="docutils literal notranslate"><span class="pre">geometry</span></code> / <code class="docutils literal notranslate"><span class="pre">kind</span></code> are static aux). Crucially the base flows as a <em>leaf</em>,
-not aux (the same is true of <code class="xref py py-class docutils literal notranslate"><span class="pre">T3Tangent</span></code>’s basis), so a model or tangent
-that <strong>crosses a jit boundary does NOT recompile when the base changes</strong> – the per-base recompile that
-basis-as-aux used to force is gone. So you can jit the frontend matvec directly:</p>
+<p><code class="docutils literal notranslate"><span class="pre">GaussNewtonModel</span></code> <strong>is</strong> a registered jax pytree (the data – <code class="docutils literal notranslate"><span class="pre">frame</span></code>, <code class="docutils literal notranslate"><span class="pre">sweep</span></code>, <code class="docutils literal notranslate"><span class="pre">sample</span></code>,
+<code class="docutils literal notranslate"><span class="pre">residual</span></code> – are leaves; <code class="docutils literal notranslate"><span class="pre">geometry</span></code> / <code class="docutils literal notranslate"><span class="pre">kind</span></code> are static aux). Crucially the frame flows as a <em>leaf</em>,
+not aux (the same is true of <code class="xref py py-class docutils literal notranslate"><span class="pre">T3Tangent</span></code>’s frame), so a model or tangent
+that <strong>crosses a jit boundary does NOT recompile when the frame changes</strong> – the per-frame recompile that
+frame-as-aux used to force is gone. So you can jit the frontend matvec directly:</p>
 <ol class="arabic">
 <li><p><strong>Inner-solve jit (Newton-CG).</strong> Jit the matvec with the model <em>and</em> the tangent as arguments; it
-compiles <strong>once for the whole solve</strong> (the model’s base/sweep change as data, not as a recompile
+compiles <strong>once for the whole solve</strong> (the model’s frame/sweep change as data, not as a recompile
 trigger), reused across every outer step and CG iteration:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">Hmatvec</span> <span class="o">=</span> <span class="n">jax</span><span class="o">.</span><span class="n">jit</span><span class="p">(</span><span class="k">lambda</span> <span class="n">model</span><span class="p">,</span> <span class="n">p</span><span class="p">:</span> <span class="n">model</span><span class="o">.</span><span class="n">gn_hessian</span><span class="p">(</span><span class="n">p</span><span class="p">))</span>
 <span class="c1"># per outer step:  model = fitting.apply_model(geom, X, ww, r)</span>
@@ -537,7 +549,10 @@ a matvec output combines with the eager CG iterates freely. The geometry singlet
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="GaussNewtonModel.html#t3toolbox.fitting.GaussNewtonModel" title="t3toolbox.fitting.GaussNewtonModel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">GaussNewtonModel</span></code></a></p></td>
-<td><p>The local Gauss-Newton model of a least-squares objective at <code class="docutils literal notranslate"><span class="pre">base</span></code>, generic over the geometry.</p></td>
+<td><p>The local Gauss-Newton model of a least-squares objective at <code class="docutils literal notranslate"><span class="pre">frame</span></code>, generic over the geometry.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="UniformGaussNewtonModel.html#t3toolbox.fitting.UniformGaussNewtonModel" title="t3toolbox.fitting.UniformGaussNewtonModel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">UniformGaussNewtonModel</span></code></a></p></td>
+<td><p>The uniform-layer twin of <a class="reference internal" href="GaussNewtonModel.html#t3toolbox.fitting.GaussNewtonModel" title="t3toolbox.fitting.GaussNewtonModel"><code class="xref py py-class docutils literal notranslate"><span class="pre">GaussNewtonModel</span></code></a>: the local Gauss-Newton model at <code class="docutils literal notranslate"><span class="pre">frame</span></code>,</p></td>
 </tr>
 </tbody>
 </table>

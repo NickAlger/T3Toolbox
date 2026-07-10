@@ -16,34 +16,34 @@ fitting
      * the **geometry** -- :py:data:`~t3toolbox.manifold.MANIFOLD` (optimize on the fixed-rank manifold;
        the gauge projection ``Π`` makes ``g`` / ``H`` Riemannian) or
        :py:data:`~t3toolbox.manifold.COREWISE` (optimize the raw cores; no ``Π``). The geometry supplies the
-       frame ``base = geometry.base(X)`` and the projection ``Π = geometry.project``; the forward is
+       frame ``frame = geometry.frame(X)`` and the projection ``Π = geometry.project``; the forward is
        ``J = 𝒥∘Π`` and the gradient is ``Jᵀr = Π∘𝒥ᵀr``. **Manifold ⟺ Π, corewise ⟺ no Π is structural**
        (bundled in the geometry), never a flag -- mixing the two silently corrupts the result.
      * the **sampling kind** -- bound by the factory :py:func:`apply_model` / :py:func:`entries_model` /
        :py:func:`probe_model` (the bare ``𝒥`` / ``𝒥ᵀ`` from :py:mod:`t3toolbox.backend.probing`, bundled in
        :py:mod:`t3toolbox.backend.fitting`).
 
-   Every input and output is a :py:class:`~t3toolbox.manifold.T3Tangent` at ``model.base`` -- including the
+   Every input and output is a :py:class:`~t3toolbox.manifold.T3Tangent` at ``model.frame`` -- including the
    **corewise** case, where the tangent lives at the non-orthonormal frame ``(U,G,G,G)`` (a core
-   perturbation; see :py:class:`~t3toolbox.manifold.CorewiseGeometry`). Build trial steps at ``model.base``
-   (e.g. ``geometry.randn(model.base)``); a step at a different frame raises the numerical same-frame guard
+   perturbation; see :py:class:`~t3toolbox.manifold.CorewiseGeometry`). Build trial steps at ``model.frame``
+   (e.g. ``geometry.randn(model.frame)``); a step at a different frame raises the numerical same-frame guard
    (skipped under ``safety.unsafe()`` / a jax trace), like :py:class:`~t3toolbox.manifold.T3Tangent`.
 
-   The base sweep (the base-and-data edge variables) is computed once by the factory and stored as the
+   The frame sweep (the frame-and-data edge variables) is computed once by the factory and stored as the
    ``sweep`` field, reused across every ``gradient`` / ``gn_hessian`` / ``evaluate`` -- in an inner CG the
-   base is fixed, so the sweep is computed once, not once per matrix-vector product. See
+   frame is fixed, so the sweep is computed once, not once per matrix-vector product. See
    :py:mod:`t3toolbox.backend.fitting` and ``dev/archive/geometry_refactor_plan.md``.
 
    Jitting an optimizer
    --------------------
-   ``GaussNewtonModel`` **is** a registered jax pytree (the data -- ``base``, ``sweep``, ``sample``,
-   ``residual`` -- are leaves; ``geometry`` / ``kind`` are static aux). Crucially the base flows as a *leaf*,
-   not aux (the same is true of :py:class:`~t3toolbox.manifold.T3Tangent`'s basis), so a model or tangent
-   that **crosses a jit boundary does NOT recompile when the base changes** -- the per-base recompile that
-   basis-as-aux used to force is gone. So you can jit the frontend matvec directly:
+   ``GaussNewtonModel`` **is** a registered jax pytree (the data -- ``frame``, ``sweep``, ``sample``,
+   ``residual`` -- are leaves; ``geometry`` / ``kind`` are static aux). Crucially the frame flows as a *leaf*,
+   not aux (the same is true of :py:class:`~t3toolbox.manifold.T3Tangent`'s frame), so a model or tangent
+   that **crosses a jit boundary does NOT recompile when the frame changes** -- the per-frame recompile that
+   frame-as-aux used to force is gone. So you can jit the frontend matvec directly:
 
    1. **Inner-solve jit (Newton-CG).** Jit the matvec with the model *and* the tangent as arguments; it
-      compiles **once for the whole solve** (the model's base/sweep change as data, not as a recompile
+      compiles **once for the whole solve** (the model's frame/sweep change as data, not as a recompile
       trigger), reused across every outer step and CG iteration::
 
           Hmatvec = jax.jit(lambda model, p: model.gn_hessian(p))
@@ -74,10 +74,12 @@ Classes
    :hidden:
 
    /autoapi/t3toolbox/fitting/GaussNewtonModel
+   /autoapi/t3toolbox/fitting/UniformGaussNewtonModel
 
 .. autoapisummary::
 
    t3toolbox.fitting.GaussNewtonModel
+   t3toolbox.fitting.UniformGaussNewtonModel
 
 
 Functions

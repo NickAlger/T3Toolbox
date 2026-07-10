@@ -3,7 +3,7 @@ GaussNewtonModel.gradient
 
 .. py:method:: t3toolbox.fitting.GaussNewtonModel.gradient()
 
-   The gradient ``g = geometry.project(𝒥ᵀ r)`` (the Gauss-Newton ``Jᵀr``), a tangent at base.
+   The gradient ``g = geometry.project(𝒥ᵀ r)`` (the Gauss-Newton ``Jᵀr``), a tangent at frame.
 
    On the manifold geometry this is the gauged Riemannian gradient; on the corewise geometry it is
    the raw core gradient ``𝒥ᵀr`` (a tangent at ``(U,G,G,G)``, no ``Π``).

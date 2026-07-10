@@ -3,6 +3,6 @@ adam
 
 .. py:function:: t3toolbox.optimizers.adam(geometry, kind, sample, data, x0, rng, batch, order = None, weight = None, draw = None, **kwargs)
 
-   Adam over the cores -- the dependency-free first-order method for the corewise geometry.
-   See :py:func:`t3toolbox.backend.optimizers.adam`.
+   Adam over the cores -- the dependency-free first-order method for the corewise geometry. Ragged or
+   uniform ``x0`` (see :py:func:`gradient_descent`). See :py:func:`t3toolbox.backend.optimizers.adam`.
 

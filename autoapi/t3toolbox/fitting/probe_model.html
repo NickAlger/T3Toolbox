@@ -299,6 +299,18 @@
 <li class="toctree-l4"><a class="reference internal" href="GaussNewtonModel.evaluate.html">GaussNewtonModel.evaluate</a></li>
 </ul>
 </details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="UniformGaussNewtonModel.html">UniformGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.kind.html">UniformGaussNewtonModel.kind</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel._n_w.html">UniformGaussNewtonModel._n_w</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.objective_value.html">UniformGaussNewtonModel.objective_value</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel._wrap.html">UniformGaussNewtonModel._wrap</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.gradient.html">UniformGaussNewtonModel.gradient</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.jacobian.html">UniformGaussNewtonModel.jacobian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.gn_quadratic.html">UniformGaussNewtonModel.gn_quadratic</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.gn_hessian.html">UniformGaussNewtonModel.gn_hessian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="UniformGaussNewtonModel.evaluate.html">UniformGaussNewtonModel.evaluate</a></li>
+</ul>
+</details></li>
 <li class="toctree-l3"><a class="reference internal" href="apply_model.html">apply_model</a></li>
 <li class="toctree-l3"><a class="reference internal" href="entries_model.html">entries_model</a></li>
 <li class="toctree-l3 current active"><a class="current reference internal" href="#">probe_model</a></li>
@@ -481,13 +493,13 @@ so <code class="docutils literal notranslate"><span class="pre">residual</span><
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>x</strong> (<a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a>)</p></li>
+<li><p><strong>x</strong> (<em>Union</em><em>[</em><a class="reference internal" href="../tucker_tensor_train/TuckerTensorTrain.html#t3toolbox.tucker_tensor_train.TuckerTensorTrain" title="t3toolbox.tucker_tensor_train.TuckerTensorTrain"><em>TuckerTensorTrain</em></a><em>, </em><em>t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain</em><em>]</em>)</p></li>
 <li><p><strong>ww</strong> (<em>Sequence</em><em>[</em><em>NDArray</em><em>]</em>)</p></li>
 <li><p><strong>residual</strong> (<em>Sequence</em><em>[</em><em>NDArray</em><em>]</em>)</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference internal" href="GaussNewtonModel.html#t3toolbox.fitting.GaussNewtonModel" title="t3toolbox.fitting.GaussNewtonModel"><em>GaussNewtonModel</em></a></p>
+<dd class="field-even"><p><em>Union</em>[<a class="reference internal" href="GaussNewtonModel.html#t3toolbox.fitting.GaussNewtonModel" title="t3toolbox.fitting.GaussNewtonModel"><em>GaussNewtonModel</em></a>, <a class="reference internal" href="UniformGaussNewtonModel.html#t3toolbox.fitting.UniformGaussNewtonModel" title="t3toolbox.fitting.UniformGaussNewtonModel"><em>UniformGaussNewtonModel</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>

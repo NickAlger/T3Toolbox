@@ -1,0 +1,8 @@
+UniformGaussNewtonModel.gn_quadratic
+====================================
+
+.. py:method:: t3toolbox.fitting.UniformGaussNewtonModel.gn_quadratic(p)
+
+   The Gauss-Newton quadratic form ``pᵀHp = ‖J p‖²`` -- ONE forward sweep (the Cauchy / line-search
+   step-length denominator), not a Hessian apply.
+

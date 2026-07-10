@@ -9,14 +9,25 @@ optimizers
    Frontend adapter for the geometry-agnostic optimizers.
 
    A thin wrapper over :py:mod:`t3toolbox.backend.optimizers` (where the algorithms live -- check-free, so a
-   raw-``.data`` user can call them directly). This layer (1) **validates the input once** (structural always;
-   numerical preconditions in safe mode -- here the input is just a well-formed ``TuckerTensorTrain``, since
-   the geometry re-builds/orthogonalizes the frame internally each step), (2) maps the frontend geometry
-   singletons (``manifold.MANIFOLD`` / ``manifold.COREWISE``) and the sampling-kind name to the backend
-   ``GeometryOps`` / ``SamplingKind``, (3) calls the backend optimizer on the raw cores, and (4) re-wraps the
-   result as a ``TuckerTensorTrain``. Design: ``dev/archive/optimizers_plan.md``.
+   raw-``.data`` user can call them directly). This layer (1) maps the frontend geometry singletons and the
+   sampling-kind name to the backend ``GeometryOps`` / ``SamplingKind``, (2) calls the backend optimizer on the
+   raw cores, and (3) re-wraps the result. Design: ``dev/archive/optimizers_plan.md``.
 
-       >>> # x_opt, stats = optimizers.gradient_descent(MANIFOLD, 'probe', ww, data, x0)
+   **Two representations, inferred from** ``x0`` (the library-wide ragged/uniform dispatch; ``_setup``):
+
+   * a **ragged** ``TuckerTensorTrain`` x0 with a ragged geometry (``manifold.MANIFOLD`` / ``COREWISE``) --
+     the optimizer runs on the raw cores; the frame is re-orthogonalized internally each step.
+   * a **uniform** ``UniformTuckerTensorTrain`` x0 with a uniform geometry
+     (``uniform_manifold.UNIFORM_MANIFOLD`` / ``UNIFORM_COREWISE``) -- the optimizer runs on the packed
+     supercore pair (``lax.scan`` over the mode axis; the speed path). The uniform path requires a
+     **minimal-rank frame**; it calls :py:func:`~t3toolbox.backend.uniform_fitting.uniform_minimal`
+     transparently so a frontend user never meets that requirement.
+
+   The geometry must match ``x0``'s representation (a uniform x0 with a ragged geometry, or vice versa, is a
+   structural error). The result is returned in the same representation as ``x0``.
+
+       >>> # x_opt, stats = optimizers.gradient_descent(MANIFOLD, 'probe', ww, data, x0)           # ragged
+       >>> # x_opt, stats = optimizers.newton_cg(UNIFORM_MANIFOLD, 'probe', ww, data, ux0)         # uniform
 
 
 

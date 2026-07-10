@@ -1,0 +1,7 @@
+UniformGaussNewtonModel.gradient
+================================
+
+.. py:method:: t3toolbox.fitting.UniformGaussNewtonModel.gradient()
+
+   The gradient ``g = geometry.project(𝒥ᵀ r)`` -- gauged on the manifold, raw on corewise.
+

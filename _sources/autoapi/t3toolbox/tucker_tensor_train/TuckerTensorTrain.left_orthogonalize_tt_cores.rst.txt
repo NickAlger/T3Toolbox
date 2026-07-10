@@ -6,7 +6,7 @@ TuckerTensorTrain.left_orthogonalize_tt_cores
    Left orthogonalize the TT cores, possibly returning variation cores as well.
 
    :param return_variation_cores: If True, also return each TT core just before it is orthogonalized. Default: ``return_variation_cores=False``.
-                                  Used to construct variation cores when converting a TuckerTensorTrain to basis-variation format.
+                                  Used to construct variation cores when converting a TuckerTensorTrain to frame-variation format.
    :type return_variation_cores: bool, optional
 
    :returns: * **new_x** (*TuckerTensorTrain*) -- New TuckerTensorTrain representing the same tensor, but with all TT cores left orthogonal.

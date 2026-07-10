@@ -14,12 +14,12 @@ GaussNewtonModel
 
 .. py:class:: t3toolbox.fitting.GaussNewtonModel
 
-   The local Gauss-Newton model of a least-squares objective at ``base``, generic over the geometry.
+   The local Gauss-Newton model of a least-squares objective at ``frame``, generic over the geometry.
 
    Built by a sampling-kind factory (:py:func:`apply_model` / :py:func:`entries_model` /
-   :py:func:`probe_model`), not directly. Holds the geometry, the frame ``base = geometry.base(X)``, the
+   :py:func:`probe_model`), not directly. Holds the geometry, the frame ``frame = geometry.frame(X)``, the
    sampling ``kind``, the measurement ``sample`` (the probe/apply vectors ``ww`` or the integer grid
-   ``index``), and the data residual ``r = F(X) − y``. The base sweep, objective value, and gradient are
+   ``index``), and the data residual ``r = F(X) − y``. The frame sweep, objective value, and gradient are
    cached on first use.
 
    .. rubric:: Examples
@@ -41,7 +41,7 @@ GaussNewtonModel
    8.295196
    >>> print(model.gradient.is_gauged())
    True
-   >>> p = t3m.MANIFOLD.randn(model.base)                  # a gauged trial step at the model's base
+   >>> p = t3m.MANIFOLD.randn(model.frame)                  # a gauged trial step at the model's frame
    >>> print(model.gn_hessian(p).is_gauged())
    True
 
@@ -65,26 +65,26 @@ GaussNewtonModel
    >>> cmodel = fitting.apply_model(t3m.COREWISE, x, ww, r)
    >>> print(cmodel.gradient.is_gauged())
    False
-   >>> cp = t3m.COREWISE.randn(cmodel.base)
+   >>> cp = t3m.COREWISE.randn(cmodel.frame)
    >>> bool(np.allclose(float(cmodel.evaluate(cp)),
    ...                  float(cmodel.objective_value + cmodel.gradient.corewise_inner(cp)
    ...                        + 0.5 * cp.corewise_inner(cmodel.gn_hessian(cp)))))
    True
 
-   A trial step at a *different* base is a structural error (the model is tied to its base):
+   A trial step at a *different* frame is a structural error (the model is tied to its frame):
 
    >>> other = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
-   >>> model.gn_hessian(t3m.MANIFOLD.randn(t3m.MANIFOLD.base(other)))   # doctest: +IGNORE_EXCEPTION_DETAIL
+   >>> model.gn_hessian(t3m.MANIFOLD.randn(t3m.MANIFOLD.frame(other)))   # doctest: +IGNORE_EXCEPTION_DETAIL
    Traceback (most recent call last):
-   ValueError: trial tangent must live at the model's base (it is at a different frame)
+   ValueError: trial tangent must live at the model's frame (it is at a different frame)
 
 
    .. py:attribute:: geometry
       :type:  Any
 
 
-   .. py:attribute:: base
-      :type:  t3toolbox.basis_variations_format.T3Basis
+   .. py:attribute:: frame
+      :type:  t3toolbox.frame_variations_format.T3Frame
 
 
    .. py:attribute:: kind

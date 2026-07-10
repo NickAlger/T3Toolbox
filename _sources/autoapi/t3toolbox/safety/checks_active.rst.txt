@@ -8,6 +8,6 @@ checks_active
    Pass the operand arrays/trees so tracing is detected; a check site computes its (possibly expensive)
    numerical condition only when this returns True::
 
-       if safety.checks_active(basis.data):
-           safety.require(basis.is_orthogonal(atol=safety.effective_rtol(basis.data)).all(), 'basis not orthogonal')
+       if safety.checks_active(frame.data):
+           safety.require(frame.is_orthogonal(atol=safety.effective_rtol(frame.data)).all(), 'frame not orthogonal')
 

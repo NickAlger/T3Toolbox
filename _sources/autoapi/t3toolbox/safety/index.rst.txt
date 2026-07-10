@@ -10,7 +10,7 @@ safety
 
    The library distinguishes (see ``dev/archive/safe_unsafe_mode_plan.md`` and ``docs/numerical_contract_catalog.md``):
 
-   - **consistency / well-formedness** checks (shapes, ranks, ``check_bv_pair``) -- always run, in both
+   - **consistency / well-formedness** checks (shapes, ranks, ``check_fv_pair``) -- always run, in both
      modes, at construction. These are *not* governed by this module.
    - **preconditions** -- the operation is numerically wrong without them, but a violation is not
      *malformedness*. These run **only in safe mode**. Two flavours, distinguished by what the *check*

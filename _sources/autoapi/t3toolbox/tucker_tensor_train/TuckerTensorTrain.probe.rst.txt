@@ -47,7 +47,7 @@ TuckerTensorTrain.probe
    >>> result = x.probe(ww)
    >>> print(result[0].shape)             # probe stack (4,5,1) outer, T3 stack (2,3) inner, then N0=14
    (4, 5, 1, 2, 3, 14)
-   >>> ii, jj = 1, 2          # T3 (base) stack index
+   >>> ii, jj = 1, 2          # T3 (frame) stack index
    >>> ll, mm, nn =  3, 2, 0  # vector (probe) stack index
    >>> result_ij_lmn_0 = result[0][ll,mm,nn, ii,jj]
    >>> result_ij_lmn_1 = result[1][ll,mm,nn, ii,jj]

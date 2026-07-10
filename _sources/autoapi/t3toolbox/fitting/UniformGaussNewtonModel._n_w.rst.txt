@@ -1,0 +1,4 @@
+UniformGaussNewtonModel._n_w
+============================
+
+.. py:method:: t3toolbox.fitting.UniformGaussNewtonModel._n_w()

@@ -299,6 +299,18 @@
 <li class="toctree-l4"><a class="reference internal" href="../fitting/GaussNewtonModel.evaluate.html">GaussNewtonModel.evaluate</a></li>
 </ul>
 </details></li>
+<li class="toctree-l3 has-children"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.html">UniformGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.kind.html">UniformGaussNewtonModel.kind</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel._n_w.html">UniformGaussNewtonModel._n_w</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.objective_value.html">UniformGaussNewtonModel.objective_value</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel._wrap.html">UniformGaussNewtonModel._wrap</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.gradient.html">UniformGaussNewtonModel.gradient</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.jacobian.html">UniformGaussNewtonModel.jacobian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.gn_quadratic.html">UniformGaussNewtonModel.gn_quadratic</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.gn_hessian.html">UniformGaussNewtonModel.gn_hessian</a></li>
+<li class="toctree-l4"><a class="reference internal" href="../fitting/UniformGaussNewtonModel.evaluate.html">UniformGaussNewtonModel.evaluate</a></li>
+</ul>
+</details></li>
 <li class="toctree-l3"><a class="reference internal" href="../fitting/apply_model.html">apply_model</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../fitting/entries_model.html">entries_model</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../fitting/probe_model.html">probe_model</a></li>
@@ -472,7 +484,7 @@
 <p>Safe / unsafe mode: numerical <strong>precondition</strong> checks gated by an ambient safety tolerance.</p>
 <p>The library distinguishes (see <code class="docutils literal notranslate"><span class="pre">dev/archive/safe_unsafe_mode_plan.md</span></code> and <code class="docutils literal notranslate"><span class="pre">docs/numerical_contract_catalog.md</span></code>):</p>
 <ul>
-<li><p><strong>consistency / well-formedness</strong> checks (shapes, ranks, <code class="docutils literal notranslate"><span class="pre">check_bv_pair</span></code>) – always run, in both
+<li><p><strong>consistency / well-formedness</strong> checks (shapes, ranks, <code class="docutils literal notranslate"><span class="pre">check_fv_pair</span></code>) – always run, in both
 modes, at construction. These are <em>not</em> governed by this module.</p></li>
 <li><p><strong>preconditions</strong> – the operation is numerically wrong without them, but a violation is not
 <em>malformedness</em>. These run <strong>only in safe mode</strong>. Two flavours, distinguished by what the <em>check</em>
@@ -583,7 +595,7 @@ frames (a jit round-trip), unlike object identity:</p>
 <td><p>Raise <code class="docutils literal notranslate"><span class="pre">ValueError(message)</span></code> if <code class="docutils literal notranslate"><span class="pre">condition</span></code> is falsy. Call only inside a <a class="reference internal" href="checks_active.html#t3toolbox.safety.checks_active" title="t3toolbox.safety.checks_active"><code class="xref py py-func docutils literal notranslate"><span class="pre">checks_active()</span></code></a></p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="frames_equal.html#t3toolbox.safety.frames_equal" title="t3toolbox.safety.frames_equal"><code class="xref py py-obj docutils literal notranslate"><span class="pre">frames_equal</span></code></a>(data1, data2[, rtol])</p></td>
-<td><p>Numerical equality of two frames given as nested core tuples (e.g. <code class="docutils literal notranslate"><span class="pre">T3Basis.data</span></code>).</p></td>
+<td><p>Numerical equality of two frames given as nested core tuples (e.g. <code class="docutils literal notranslate"><span class="pre">T3Frame.data</span></code>).</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="frames_equal_or_skip.html#t3toolbox.safety.frames_equal_or_skip" title="t3toolbox.safety.frames_equal_or_skip"><code class="xref py py-obj docutils literal notranslate"><span class="pre">frames_equal_or_skip</span></code></a>(data1, data2)</p></td>
 <td><p>The convenience guard for &quot;same frame&quot;: <code class="docutils literal notranslate"><span class="pre">True</span></code> when checks are inactive (unsafe / under a trace)</p></td>
