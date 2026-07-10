@@ -51,6 +51,8 @@ __all__ = [
     'uniform_derivatives_kind',
     'uniform_minimal',
     'uniform_least_squares_problem',
+    'pack_sample',
+    'pack_data',
 ]
 
 
@@ -324,8 +326,13 @@ def uniform_derivatives_kind(
 # packing. The optimizer's state is the bare supercore pair (x0.data[0], x0.data[1]); the masks of x0's
 # fixed rank are captured by the geometry / kind factories (docs/uniform_backend_jit_recipe.md).
 # --------------------------------------------------------------------------------------------------
-def _pack_sample(name, sample, N):
-    """Pack the loop-invariant mode-vectors of ``sample`` once (mirror-tolerant: packed input is kept)."""
+def pack_sample(name, sample, N):
+    """Pack the loop-invariant mode-vectors of ``sample`` once (mirror-tolerant: packed input is kept).
+
+    A boundary helper (the uniform kinds run on packed vectors of width ``N``): dispatches
+    :py:func:`~t3toolbox.backend.ut3_operations.pack_if_ragged` per sampling-kind (``ww`` for apply/probe,
+    both ``ww``/``pp`` for the derivative kinds; the integer ``index`` is never packed). Used by
+    :py:func:`uniform_least_squares_problem` and the frontend :py:mod:`t3toolbox.fitting` uniform models."""
     pk = ut3_operations.pack_if_ragged
     if name in ('apply', 'probe'):
         return pk(sample, N)                                  # ww
@@ -340,9 +347,9 @@ def _pack_sample(name, sample, N):
     raise ValueError(f"unknown uniform sampling kind {name!r}")
 
 
-def _pack_data(name, data, N):
-    """Pack the observed data once: probe kinds -> a packed ``(d,)+...+(N,)`` array; apply/entries -> the
-    scalar data unchanged (mirror-tolerant)."""
+def pack_data(name, data, N):
+    """Pack the observed data (or a residual of the same shape) once: probe kinds -> a packed
+    ``(d,)+...+(N,)`` array; apply/entries -> the scalar data unchanged (mirror-tolerant)."""
     if name in ('probe', 'probe_derivatives'):
         return ut3_operations.pack_if_ragged(data, N)
     return data
@@ -464,4 +471,4 @@ def uniform_least_squares_problem(
     geom = uniform_geometry_ops(geometry, x0_data)
     kind = (uniform_sampling_kind(kind_name, x0_data) if kind_name in ('apply', 'entries', 'probe')
             else uniform_derivatives_kind(kind_name, x0_data, order, weight))
-    return bopt.least_squares_problem(geom, kind, _pack_sample(kind_name, sample, N), _pack_data(kind_name, data, N))
+    return bopt.least_squares_problem(geom, kind, pack_sample(kind_name, sample, N), pack_data(kind_name, data, N))

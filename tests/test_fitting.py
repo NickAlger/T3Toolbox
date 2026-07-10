@@ -300,5 +300,107 @@ class TestGaussNewtonModel(unittest.TestCase):
                     self.assertLess(relerr(fmodel.gn_hessian(pt).variations.data, lm.hvp(p)), 1e-10)
 
 
+class TestUniformGaussNewtonModel(unittest.TestCase):
+    '''U7b: the uniform roll-your-own surface. ``fitting.apply_model`` &c. dispatch a
+    ``UniformTuckerTensorTrain`` x to a ``UniformGaussNewtonModel`` (UT3Tangent-valued gradient / Hessian).
+    Oracle: the tested backend ``LocalModel`` (== ragged) -- objective / gradient / gn_quadratic /
+    gn_hessian agree to ~machine precision (both run the SAME packed kind + gauge projection). We feed the
+    backend model's exact packed residual to the frontend model so the residuals match by construction.'''
+
+    def _relerr(self, a, b):
+        return float(cw.corewise_norm(cw.corewise_sub(a, b)) / cw.corewise_norm(b))
+
+    def _cases(self):
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        rng = np.random.default_rng(0)
+        shape, order, NW = (5, 6, 7), 2, 15
+        omega = [1.0, 0.5, 0.3]
+        x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(shape, (2, 3, 2), (1, 2, 2, 1)))
+        ww = [rng.standard_normal((NW, N)) for N in shape]
+        pp = [rng.standard_normal((NW, N)) for N in shape]
+        index = np.stack([rng.integers(0, N, size=NW) for N in shape], axis=0)
+        scal = rng.standard_normal(NW)                                 # apply/entries observed data
+        vecs = [rng.standard_normal((NW, N)) for N in shape]           # probe observed data (ragged)
+        jet_s = rng.standard_normal((order + 1, NW))                   # apply/entries-deriv observed
+        jet_v = [rng.standard_normal((order + 1, NW, N)) for N in shape]  # probe-deriv observed
+        # (kind_name, frontend factory, factory sample-args, backend sample, backend data, order, weight)
+        return x, order, omega, [
+            ('apply',   fitting.apply_model,   (ww,),        ww,           scal,  None,  None),
+            ('entries', fitting.entries_model, (index,),     index,        scal,  None,  None),
+            ('probe',   fitting.probe_model,   (ww,),        ww,           vecs,  None,  None),
+            ('apply_derivatives',   fitting.apply_derivatives_model,   (ww, pp, order),    (ww, pp),    jet_s, order, omega),
+            ('entries_derivatives', fitting.entries_derivatives_model, (index, pp, order), (index, pp), jet_s, order, omega),
+            ('probe_derivatives',   fitting.probe_derivatives_model,   (ww, pp, order),    (ww, pp),    jet_v, order, omega),
+        ]
+
+    def test_matches_backend_local_model(self):
+        import t3toolbox.uniform_manifold as ut3m
+        import t3toolbox.backend.uniform_fitting as uf
+        x, order, omega, cases = self._cases()
+        geoms = [('manifold', ut3m.UNIFORM_MANIFOLD), ('corewise', ut3m.UNIFORM_COREWISE)]
+        for gname, geom in geoms:
+            for kind, factory, fargs, bsample, bdata, o, w in cases:
+                with self.subTest(geom=gname, kind=kind):
+                    prob = uf.uniform_least_squares_problem(gname, kind, x, bsample, bdata, o, w)
+                    lm = prob.local_model((x.data[0], x.data[1]))
+                    kw = {'weight': w} if w is not None else {}
+                    fmodel = factory(geom, x, *fargs, lm.residual, **kw)   # lm.residual is packed -> mirror no-op
+                    self.assertIsInstance(fmodel, fitting.UniformGaussNewtonModel)
+                    self.assertTrue(np.allclose(float(fmodel.objective_value), float(lm.objective)))
+                    self.assertLess(self._relerr(fmodel.gradient.variations.supercores, lm.gradient), 1e-10)
+                    pt = geom.randn(fmodel.base)
+                    p = pt.variations.supercores
+                    self.assertTrue(np.allclose(float(fmodel.gn_quadratic(pt)), float(lm.gn_quadratic(p)), rtol=1e-9))
+                    self.assertLess(self._relerr(fmodel.gn_hessian(pt).variations.supercores, lm.hvp(p)), 1e-10)
+
+    def test_gauged_gradient_and_self_consistency(self):
+        '''On the manifold the gradient is gauged and ``pᵀHp == ‖J p‖²`` (the GN quadratic form matches the
+        Hessian action); the corewise gradient is NOT gauged.'''
+        import t3toolbox.uniform_manifold as ut3m
+        import t3toolbox.backend.uniform_fitting as uf
+        x, order, omega, cases = self._cases()
+        for kind, factory, fargs, bsample, bdata, o, w in cases:
+            for gname, geom, want_gauged in [('manifold', ut3m.UNIFORM_MANIFOLD, True),
+                                             ('corewise', ut3m.UNIFORM_COREWISE, False)]:
+                with self.subTest(kind=kind, geom=gname):
+                    prob = uf.uniform_least_squares_problem(gname, kind, x, bsample, bdata, o, w)
+                    lm = prob.local_model((x.data[0], x.data[1]))
+                    kw = {'weight': w} if w is not None else {}
+                    m = factory(geom, x, *fargs, lm.residual, **kw)
+                    self.assertEqual(bool(m.gradient.is_gauged().all()), want_gauged)
+                    p = geom.randn(m.base)
+                    self.assertTrue(np.allclose(float(m.gn_quadratic(p)),
+                                                float(p.corewise_inner(m.gn_hessian(p))), rtol=1e-9))
+
+    def test_representation_geometry_must_match(self):
+        '''A uniform x with a ragged geometry (or a ragged x with a uniform geometry) is a structural error.'''
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        import t3toolbox.uniform_manifold as ut3m
+        rng = np.random.default_rng(0)
+        shape = (5, 6, 7)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(shape, (2, 3, 2), (1, 2, 2, 1)))
+        rx = t3.TuckerTensorTrain.randn(shape, (2, 3, 2), (1, 2, 2, 1))
+        ww = [rng.standard_normal((10, N)) for N in shape]
+        r = rng.standard_normal(10)
+        with self.assertRaises(ValueError):   # uniform x + ragged geometry
+            fitting.apply_model(t3m.MANIFOLD, ux, ww, r)
+        with self.assertRaises(ValueError):   # ragged x + uniform geometry
+            fitting.apply_model(ut3m.UNIFORM_MANIFOLD, rx, ww, r)
+
+    def test_same_base_guard(self):
+        '''A trial tangent at a different base is rejected (the numerical same-frame guard).'''
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        import t3toolbox.uniform_manifold as ut3m
+        rng = np.random.default_rng(0)
+        shape = (5, 6, 7)
+        x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(shape, (2, 3, 2), (1, 2, 2, 1)))
+        other = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(shape, (2, 3, 2), (1, 2, 2, 1)))
+        ww = [rng.standard_normal((10, N)) for N in shape]
+        m = fitting.apply_model(ut3m.UNIFORM_MANIFOLD, x, ww, rng.standard_normal(10))
+        p_other = ut3m.UNIFORM_MANIFOLD.randn(ut3m.UNIFORM_MANIFOLD.base(other))
+        with self.assertRaises(ValueError):
+            m.gn_hessian(p_other)
+
+
 if __name__ == '__main__':
     unittest.main()

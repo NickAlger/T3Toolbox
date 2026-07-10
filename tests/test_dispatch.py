@@ -381,6 +381,38 @@ class TestDispatch(unittest.TestCase):
         self.assertEqual(traces[0], 1, "uniform whole-step jit recompiled -- masks must be closed-over host np")
         self._leaves_all_jax(ut3.UniformTuckerTensorTrain(sc[0], sc[1], ux0.shape, ux0.masks))
 
+    def test_jit_uniform_gauss_newton_model(self):
+        # U7b (the roll-your-own surface): a UniformGaussNewtonModel matvec `jit(lambda m, p: m.gn_hessian(p))`
+        # -- model AS AN ARGUMENT -- must compile ONCE across REBUILT models of the same rank. This exercises
+        # the value-hashed aux design: the model's aux is (geometry, kind_name, x0_masks, order, weight) -- all
+        # value-hashable -- and the packed kind is rebuilt lazily from it (a fresh-closure kind stored as aux
+        # would recompile every rebuild). One clean trace also proves the matvec is jit-clean (UT3Tangent
+        # wrap/unwrap + gauge projection, no stray np on a tracer).
+        import t3toolbox.uniform_manifold as ut3m
+        SH, TK, TT = STRUCT
+        W = 12
+        ww = [np.random.randn(W, n) for n in SH]
+
+        def build(seed):
+            np.random.seed(seed)
+            x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(SH, TK, TT)).to_jax()
+            r = jnp.asarray(np.asarray(x.apply(ww)) - np.random.randn(W))
+            return fitting.apply_model(ut3m.UNIFORM_MANIFOLD, x, ww, r)
+
+        traces = [0]
+        @jax.jit
+        def Hmatvec(m, p):
+            traces[0] += 1                                  # +1 per TRACE (compile), not per call
+            return m.gn_hessian(p)
+        for seed in (1, 2, 3):
+            m = build(seed)                                 # rebuilt model (different base supercores, same rank)
+            p = ut3m.UNIFORM_MANIFOLD.randn(m.base)
+            hp = Hmatvec(m, p)
+            jax.block_until_ready(hp.variations.supercores)
+        self.assertEqual(traces[0], 1, "UniformGaussNewtonModel matvec recompiled -- aux must be value-hashed "
+                                       "(kind rebuilt lazily, not stored as a fresh closure)")
+        self._leaves_all_jax(hp)
+
     # ---------------------------------------------------- jit bucket: UniformTuckerTensorTrain
     def test_jit_uniform(self):
         # Slice 7: a jitted uniform op must (a) dispatch to pure jax on the supercores and (b) -- for ops
