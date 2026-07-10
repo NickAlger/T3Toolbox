@@ -33,9 +33,9 @@ Jitting an optimizer
 --------------------
 ``GaussNewtonModel`` **is** a registered jax pytree (the data -- ``base``, ``sweep``, ``sample``,
 ``residual`` -- are leaves; ``geometry`` / ``kind`` are static aux). Crucially the base flows as a *leaf*,
-not aux (the same is true of :py:class:`~t3toolbox.manifold.T3Tangent`'s basis), so a model or tangent
+not aux (the same is true of :py:class:`~t3toolbox.manifold.T3Tangent`'s frame), so a model or tangent
 that **crosses a jit boundary does NOT recompile when the base changes** -- the per-base recompile that
-basis-as-aux used to force is gone. So you can jit the frontend matvec directly:
+frame-as-aux used to force is gone. So you can jit the frontend matvec directly:
 
 1. **Inner-solve jit (Newton-CG).** Jit the matvec with the model *and* the tangent as arguments; it
    compiles **once for the whole solve** (the model's base/sweep change as data, not as a recompile
@@ -69,8 +69,8 @@ from dataclasses import dataclass
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform_tucker_tensor_train as ut3
-import t3toolbox.basis_variations_format as bvf
-import t3toolbox.uniform_basis_variations_format as ubv
+import t3toolbox.frame_variations_format as bvf
+import t3toolbox.uniform_frame_variations_format as ubv
 import t3toolbox.manifold as t3m
 import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.safety as safety
@@ -83,20 +83,20 @@ __all__ = ['GaussNewtonModel', 'UniformGaussNewtonModel',
            'apply_derivatives_model', 'entries_derivatives_model', 'probe_derivatives_model']
 
 
-def _require_at_base(base: bvf.T3Basis, p: t3m.T3Tangent) -> None:
+def _require_at_base(base: bvf.T3Frame, p: t3m.T3Tangent) -> None:
     '''Same-frame guard: a trial tangent must live at the model's base. The ``is`` fast-path, else a
     NUMERICAL frame compare (safe mode, eager-only; skips under ``safety.unsafe()`` / a jax trace), like
     ``T3Tangent``'s same-tangent-space guard.'''
-    if not (p.basis is base or safety.frames_equal_or_skip(base.data, p.basis.data)):
+    if not (p.frame is base or safety.frames_equal_or_skip(base.data, p.frame.data)):
         raise ValueError("trial tangent must live at the model's base (it is at a different frame); "
                          "run inside safety.unsafe() to skip this numerical check")
 
 
-def _require_at_base_uniform(base: ubv.UT3Basis, p: ut3m.UT3Tangent) -> None:
+def _require_at_base_uniform(base: ubv.UT3Frame, p: ut3m.UT3Tangent) -> None:
     '''Uniform twin of :py:func:`_require_at_base`: the frame compare is on the four supercores
     (``base.data[:4]`` -- the full ``.data`` carries the int-tuple ``shape`` that safety's array compare
     cannot take), mirroring ``UT3Tangent._check_same_tangent_space``.'''
-    if not (p.basis is base or safety.frames_equal_or_skip(base.data[:4], p.basis.data[:4])):
+    if not (p.frame is base or safety.frames_equal_or_skip(base.data[:4], p.frame.data[:4])):
         raise ValueError("trial tangent must live at the model's base (it is at a different frame); "
                          "run inside safety.unsafe() to skip this numerical check")
 
@@ -169,7 +169,7 @@ class GaussNewtonModel:
     '''
 
     geometry: typ.Any              # the geometry (MANIFOLD / COREWISE): supplies base & project (Π)
-    base:     bvf.T3Basis          # = geometry.base(X) -- the linearization frame
+    base:     bvf.T3Frame          # = geometry.base(X) -- the linearization frame
     kind:     fb.SamplingKind      # the sampling kind (APPLY / ENTRIES / PROBE)
     sample:   typ.Any              # ww (apply / probe; len=d, elm_shape=W+(Ni,)) or index (entries; (d,)+W)
     residual: typ.Any              # r = F(X) − y; shape W+C (apply / entries) or len=d, W+C+(Ni,) (probe)
@@ -287,7 +287,7 @@ class UniformGaussNewtonModel:
     True
     '''
     geometry:  typ.Any               # UNIFORM_MANIFOLD / UNIFORM_COREWISE
-    base:      ubv.UT3Basis          # = geometry.base(x); the linearization frame (a jax-leaf pytree)
+    base:      ubv.UT3Frame          # = geometry.base(x); the linearization frame (a jax-leaf pytree)
     kind_name: str                   # 'apply'/'entries'/'probe' (+'_derivatives') -- rebuilds the packed kind
     x0_masks:  ut3.UT3Masks          # x0's plain rank masks (value-hashed aux) -> rebuilds the kind
     order:     typ.Optional[int]                          # derivative kinds only (None for a plain kind)
@@ -348,7 +348,7 @@ class UniformGaussNewtonModel:
         return self.objective_value + self.gradient.corewise_inner(Pp) + 0.5 * self.kind.sumsq(Jp, self._n_w)
 
 
-def _ragged_base(geometry, x: t3.TuckerTensorTrain) -> bvf.T3Basis:
+def _ragged_base(geometry, x: t3.TuckerTensorTrain) -> bvf.T3Frame:
     '''Validate + build the frame for a ragged model: a ragged ``x`` needs a ragged geometry singleton.'''
     if geometry is not t3m.MANIFOLD and geometry is not t3m.COREWISE:
         raise ValueError("a ragged TuckerTensorTrain requires a ragged geometry (manifold.MANIFOLD / "
@@ -373,7 +373,7 @@ def _uniform_model(
         raise ValueError("a UniformTuckerTensorTrain requires a uniform geometry "
                          "(uniform_manifold.UNIFORM_MANIFOLD / UNIFORM_COREWISE).")
     N = x.N
-    base = geometry.base(x)                              # UT3Basis
+    base = geometry.base(x)                              # UT3Frame
     weight_t = tuple(weight) if weight is not None else None   # hashable aux (jit)
     packed_sample = ufit.pack_sample(kind_name, sample, N)
     packed_residual = ufit.pack_data(kind_name, residual, N)
@@ -522,7 +522,7 @@ if has_jax:
     import jax
 
     # Register GaussNewtonModel as a jax pytree: the data (base, sweep, sample, residual) are LEAVES, the
-    # statics (geometry, kind) are aux_data. Because T3Tangent's basis is now a leaf too (see manifold.py),
+    # statics (geometry, kind) are aux_data. Because T3Tangent's frame is now a leaf too (see manifold.py),
     # nothing carries a base as aux_data, so a model crossing a jit boundary does NOT recompile when the
     # base changes -- `jit(lambda model, p: model.gn_hessian(p))(model, p)` compiles once and reuses across
     # outer steps. The sweep is a stored field (a leaf) so it is carried/reused, not recomputed inside the

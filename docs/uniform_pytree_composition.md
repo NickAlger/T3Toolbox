@@ -64,7 +64,7 @@ flattened into children, so they cannot be traced or differentiated — precisel
 is also genuinely meaningful, not just a hashability wrapper: it *is* the rank-structure descriptor
 (`tucker_ranks`, `tt_ranks`, … derive from it), so the dataclass stays minimal (two rank masks; `shape`
 and the sizes are not stored redundantly). The same mixin is reused by the frame/variation holders
-(`UT3BasisMasks`, and the upcoming `UT3VariationsMasks`).
+(`UT3FrameMasks`, and the upcoming `UT3VariationsMasks`).
 
 ## Consequences worth knowing
 
@@ -148,15 +148,15 @@ mask recomputation fail. The backend **guards** this: a traced mask raises a cle
 instead of jax's cryptic `ConcretizationTypeError`. So the failure is self-explaining; the right and
 wrong forms are shown as a doctest.
 
-### Why `T3Basis` (jax arrays) is fine as aux, but masks aren't
+### Why `T3Frame` (jax arrays) is fine as aux, but masks aren't
 
-`T3Tangent`'s `T3Basis` may hold jax arrays as aux (its arrays are used only as data; in the current code
+`T3Tangent`'s `T3Frame` may hold jax arrays as aux (its arrays are used only as data; in the current code
 it actually flows as a pytree *leaf* via a numerical same-frame guard — see `manifold.py`). The UT3 masks
 cannot be jax — for reasons that are about *what the op does with the aux*, not the dtype label:
 
-- **`T3Basis` is aux used only as *data*.** Its cores feed contractions (`einsum`), whose tracer results
+- **`T3Frame` is aux used only as *data*.** Its cores feed contractions (`einsum`), whose tracer results
   flow on as data. It is never read as a host value (its *structure* is its array shape, which jax tracks
-  statically — no `int(basis…)`), and a tangent op at a fixed base **reuses the same input basis**
+  statically — no `int(frame…)`), and a tangent op at a fixed base **reuses the same input frame**
   unchanged as the output aux. Nothing forces it concrete → jax is fine.
 - **The masks' *values* ARE host-readable static structure — read, recomputed, AND now hashed.** A uniform
   op (a) pulls the real shape/ranks as host Python ints — `int(mask.sum())` — to slice the padded supercore
@@ -166,9 +166,9 @@ cannot be jax — for reasons that are about *what the op does with the aux*, no
   tracer on `.sum()`/`.tobytes()`, and recomputed jax masks would leak into aux). Value hashing actually
   *strengthens* this: a stray tracer mask now fails fast at hash time rather than leaking silently.
 
-One line: **basis = aux-used-as-data** (jax fine); **masks = aux whose values are host-readable structure
-and are recomputed** (must be numpy). (The basis *would* hit the same wall if you re-orthogonalized a base
-inside jit and wrapped a fresh tangent around it — which is why the convention is to hold the basis object
+One line: **frame = aux-used-as-data** (jax fine); **masks = aux whose values are host-readable structure
+and are recomputed** (must be numpy). (The frame *would* hit the same wall if you re-orthogonalized a base
+inside jit and wrapped a fresh tangent around it — which is why the convention is to hold the frame object
 stable; uniform can't sidestep it, because changing the structure *is* the op.)
 
 > **⚠️ Maintainers (human or AI): the `np.*` in the uniform mask code is INTENTIONAL.** Historically a

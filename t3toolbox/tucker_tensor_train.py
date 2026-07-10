@@ -701,7 +701,7 @@ class TuckerTensorTrain:
         -- an :py:meth:`t3svd` at relative tolerance ``rtol`` and a comparison of the truncated ranks to
         the stored ranks. The ``t3svd`` makes this O(tensor) -- a diagnostic, not a hot-path check.
 
-        For an **orthonormal frame** prefer :py:meth:`T3Basis.has_numerically_minimal_ranks`, which needs
+        For an **orthonormal frame** prefer :py:meth:`T3Frame.has_numerically_minimal_ranks`, which needs
         no SVD (orthonormal cores are full-rank, so structurally-minimal => numerically-minimal).
 
         Examples
@@ -3066,7 +3066,7 @@ class TuckerTensorTrain:
         ----------
         return_variation_cores: bool, optional
             If True, also return each TT core just before it is orthogonalized. Default: ``return_variation_cores=False``.
-            Used to construct variation cores when converting a TuckerTensorTrain to basis-variation format.
+            Used to construct variation cores when converting a TuckerTensorTrain to frame-variation format.
 
         Returns
         -------
@@ -3128,7 +3128,7 @@ class TuckerTensorTrain:
         ----------
         return_variation_cores: bool, optional
             If True, also return each TT core just before it is orthogonalized. Default: ``return_variation_cores=False``.
-            Used to construct variation cores when converting a TuckerTensorTrain to basis-variation format.
+            Used to construct variation cores when converting a TuckerTensorTrain to frame-variation format.
 
         Returns
         -------

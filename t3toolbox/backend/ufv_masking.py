@@ -8,13 +8,13 @@ import typing as typ
 from t3toolbox.backend.common import *
 
 __all__ = [
-    'make_basis_masks',
-    'apply_basis_masks',
+    'make_frame_masks',
+    'apply_frame_masks',
     'apply_variations_masks',
 ]
 
 
-def make_basis_masks(
+def make_frame_masks(
         up_ranks:    NDArray,   # HOST int, (d,)   + stack_shape
         down_ranks:  NDArray,   # HOST int, (d,)   + stack_shape
         left_ranks:  NDArray,   # HOST int, (d+1,) + stack_shape
@@ -29,7 +29,7 @@ def make_basis_masks(
     NDArray,  # left_mask,  HOST bool, (d+1,) + stack_shape + (rL,)
     NDArray,  # right_mask, HOST bool, (d+1,) + stack_shape + (rR,)
 ]:
-    """Build the prefix RANK edge masks for a uniform basis (frame). The physical ``shape`` is a separate
+    """Build the prefix RANK edge masks for a uniform frame. The physical ``shape`` is a separate
     int tuple (not a mask), so this returns only the four rank masks. HOST numpy (masks are static
     structure -- ``np``, not ``xnp``; see ``docs/uniform_pytree_composition.md``)."""
     up_mask    = np.arange(nU) < np.asarray(up_ranks)[..., None]
@@ -39,7 +39,7 @@ def make_basis_masks(
     return up_mask, down_mask, left_mask, right_mask
 
 
-def apply_basis_masks(
+def apply_frame_masks(
         data: typ.Tuple[
             NDArray,             # up_tucker_supercore,  (d,)+stack_shape+(nU, N)
             NDArray,             # down_tt_supercore,    (d,)+stack_shape+(rL, nD, rR)
@@ -49,8 +49,8 @@ def apply_basis_masks(
             typ.Tuple[
                 NDArray,  # up_mask,          dtype=bool, (d,)  +stack_shape+(nU,)
                 NDArray,  # down_mask,        dtype=bool, (d,)  +stack_shape+(nD,)
-                NDArray,  # basis_left_mask,  dtype=bool, (d+1,)+stack_shape+(rL,)
-                NDArray,  # basis_right_mask, dtype=bool, (d+1,)+stack_shape+(rR,)
+                NDArray,  # frame_left_mask,  dtype=bool, (d+1,)+stack_shape+(rL,)
+                NDArray,  # frame_right_mask, dtype=bool, (d+1,)+stack_shape+(rR,)
             ],
         ],
 ) -> typ.Tuple[
@@ -59,11 +59,11 @@ def apply_basis_masks(
     NDArray,  # masked_left_tt_supercore
     NDArray,  # masked_right_tt_supercore
 ]:
-    """Zero the padded ("garbage") regions of the basis supercores via the edge masks. The physical
+    """Zero the padded ("garbage") regions of the frame supercores via the edge masks. The physical
     ``shape_mask`` is reconstructed on the host from the static ``shape`` ints (``np``, never ``jnp`` --
     a traced mask breaks the layer; see ``docs/uniform_pytree_composition.md``)."""
     (up_tucker_supercore, down_tt_supercore, left_tt_supercore, right_tt_supercore,
-     shape, (up_mask, down_mask, basis_left_mask, basis_right_mask)) = data
+     shape, (up_mask, down_mask, frame_left_mask, frame_right_mask)) = data
 
     d = up_tucker_supercore.shape[0]
     ss = up_tucker_supercore.shape[1:-2]
@@ -79,10 +79,10 @@ def apply_basis_masks(
     UM_k = up_mask.reshape(              (d,) + ss           + (nU,) + (1,))
     UM_t = up_mask.reshape(              (d,) + ss           + (1,)  + (nU,) + (1,))
     DM_t = down_mask.reshape(            (d,) + ss           + (1,)  + (nD,) + (1,))
-    LM_l = basis_left_mask[:-1].reshape( (d,) + ss           + (rL,) + (1,)  + (1,))
-    LM_r = basis_left_mask[1:].reshape(  (d,) + ss           + (1,)  + (1,)  + (rL,))
-    RM_l = basis_right_mask[:-1].reshape((d,) + ss           + (rR,) + (1,)  + (1,))
-    RM_r = basis_right_mask[1:].reshape( (d,) + ss           + (1,)  + (1,)  + (rR,))
+    LM_l = frame_left_mask[:-1].reshape( (d,) + ss           + (rL,) + (1,)  + (1,))
+    LM_r = frame_left_mask[1:].reshape(  (d,) + ss           + (1,)  + (1,)  + (rL,))
+    RM_l = frame_right_mask[:-1].reshape((d,) + ss           + (rR,) + (1,)  + (1,))
+    RM_r = frame_right_mask[1:].reshape( (d,) + ss           + (1,)  + (1,)  + (rR,))
 
     masked_up_tucker_supercore = up_tucker_supercore * (SM_k * UM_k)
     masked_down_tt_supercore   = down_tt_supercore   * (LM_l * DM_t * RM_r)

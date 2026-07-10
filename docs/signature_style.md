@@ -143,5 +143,5 @@ pay it on purpose.
   if so, keep them consistent. (Whether docstrings should stop repeating shapes is a separate,
   undecided question — don't conflate it with signature cleanup.)
 - Applies to the **frontend** (`TuckerTensorTrain` & friends) too, not only the backend.
-- The deferred uniform/weighted layers (`ut3_*`, `ubv_*`, `wt3_*`, `OLD_*`) are not held to this until
+- The deferred uniform/weighted layers (`ut3_*`, `ufv_*`, `wt3_*`, `OLD_*`) are not held to this until
   they're repaired.

@@ -9,27 +9,27 @@ import functools as ft
 from dataclasses import dataclass
 
 import t3toolbox.backend.stacking as stacking
-import t3toolbox.backend.bv_conversions as bv_conversions
+import t3toolbox.backend.fv_conversions as fv_conversions
 import t3toolbox.backend.t3_operations as t3_operations
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.backend.orthogonal_representations as orth_reps
 import t3toolbox.backend.ranks as ranks
-import t3toolbox.backend.bv_operations as bv_operations
+import t3toolbox.backend.fv_operations as fv_operations
 import t3toolbox.corewise as cw
 from t3toolbox.backend.common import *
 
 
 __all__ = [
-    'T3Basis',
+    'T3Frame',
     'T3Variations',
-    'bv_to_t3',
+    'fv_to_t3',
     't3_orthogonal_representations',
 ]
 
 
-@dataclass(frozen=True, eq=False)  # eq=False -> identity __hash__/__eq__, so a T3Basis can be
-class T3Basis:                     # jax aux_data (it holds arrays; value hash/eq is impossible).
-    """Basis for basis-variations representation of TuckerTensorTrains
+@dataclass(frozen=True, eq=False)  # eq=False -> identity __hash__/__eq__, so a T3Frame can be
+class T3Frame:                     # jax aux_data (it holds arrays; value hash/eq is impossible).
+    """Frame for frame-variations representation of TuckerTensorTrains
 
     Often, one works with TuckerTensorTrains of the following forms::
 
@@ -43,9 +43,9 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
            (V0)  U1   U2            U0  (V1)  U2            U0   U1  (V2)
             |    |    |             |    |    |             |    |    |
 
-    In each of these, there is a special "variation" core, indicated by parentheses (X), surrounded by "basis" cores.
+    In each of these, there is a special "variation" core, indicated by parentheses (X), surrounded by "frame" cores.
 
-    The components of T3Basis are the "basis cores":
+    The components of T3Frame are the "frame cores":
         - up_tucker_cores   = (U0, ..., U(d-1)), elm_shape=(nUi, Ni)
         - down_tt_cores     = (D0, ..., D(d-1)), elm_shape=(rLi, nDi, rR(i+1))
         - left_tt_cores     = (L0, ..., L(d-1)), elm_shape=(rLi, ni, rL(i+1))
@@ -83,9 +83,9 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
 
 
     A tangent vector can be written as the sum of all the tensor diagrams above.
-    In this case, the basis cores are representations of the point where the
+    In this case, the frame cores are representations of the point where the
     tangent space attaches to the manifold, and the variation cores define the
-    tangent vector with respect to the basis.
+    tangent vector with respect to the frame.
 
     Often, it is desirable for the base cores to be **orthogonal** as follows:
         - up_tucker_cores   = (U0,...,U(d-1)), orthogonal:       U_ia U_ja = delta_ij
@@ -115,16 +115,16 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
     Examples
     --------
     >>> import numpy as np
-    >>> import t3toolbox.basis_variations_format as bvf
+    >>> import t3toolbox.frame_variations_format as bvf
     >>> ss = (2, 3)                                       # base/core stack C, shared by every core
     >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
     >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
     >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3, 12, 5)))
     >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-    >>> basis = bvf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
-    >>> print(basis.structure)   # (shape, up_ranks, down_ranks, left_ranks, right_ranks, stack_shape)
+    >>> frame = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+    >>> print(frame.structure)   # (shape, up_ranks, down_ranks, left_ranks, right_ranks, stack_shape)
     ((14, 15, 16), (10, 11, 12), (9, 8, 7), (1, 2, 3, 5), (2, 4, 5, 1), (2, 3))
-    >>> print(basis.variation_shapes)   # the (tucker, tt) holes a fitting T3Variations must fill
+    >>> print(frame.variation_shapes)   # the (tucker, tt) holes a fitting T3Variations must fill
     (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
     """
     up_tucker_cores:    typ.Tuple[NDArray,...]  # len=d. B_xo B_yo   = I_xy, Bi.shape = stack_shape+(nUi, Ni)
@@ -184,7 +184,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         typ.Tuple[typ.Tuple[int, ...], ...],  # tucker_variation_shapes. len=d. elm_len=2
         typ.Tuple[typ.Tuple[int, ...], ...],  # tt_variation_shapes. len=d. elm_len=3
     ]:
-        '''T3Variations shapes that fit with this T3Basis.
+        '''T3Variations shapes that fit with this T3Frame.
 
         Shapes of the "holes" in the following tensor diagrams::
 
@@ -201,14 +201,14 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         Examples
         --------
         >>> import numpy as np
-        >>> import t3toolbox.basis_variations_format as bvf
+        >>> import t3toolbox.frame_variations_format as bvf
         >>> ss = (2, 3)                                   # stack C -- NOT part of variation_shapes
         >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
         >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
         >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3, 12, 5)))
         >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-        >>> basis = bvf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
-        >>> tucker_holes, tt_holes = basis.variation_shapes   # (tucker hole shapes, tt hole shapes)
+        >>> frame = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+        >>> tucker_holes, tt_holes = frame.variation_shapes   # (tucker hole shapes, tt hole shapes)
         >>> print(tucker_holes)   # one (nDi, Ni) per mode
         ((9, 14), (8, 15), (7, 16))
         >>> print(tt_holes)       # one (rLi, nUi, rRi) per mode
@@ -230,21 +230,21 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
     ]:
         return self.up_tucker_cores, self.down_tt_cores, self.left_tt_cores, self.right_tt_cores
 
-    def to_jax(self) -> 'T3Basis':
-        """Copy with all basis cores converted to jax arrays."""
-        return T3Basis(*[tuple(to_jax(c) for c in fam) for fam in self.data])
+    def to_jax(self) -> 'T3Frame':
+        """Copy with all frame cores converted to jax arrays."""
+        return T3Frame(*[tuple(to_jax(c) for c in fam) for fam in self.data])
 
-    def to_numpy(self) -> 'T3Basis':
-        """Copy with all basis cores converted to numpy arrays."""
-        return T3Basis(*[tuple(to_numpy(c) for c in fam) for fam in self.data])
+    def to_numpy(self) -> 'T3Frame':
+        """Copy with all frame cores converted to numpy arrays."""
+        return T3Frame(*[tuple(to_numpy(c) for c in fam) for fam in self.data])
 
-    def copy(self) -> 'T3Basis':
-        """Deep copy (copies every basis core)."""
-        return T3Basis(*[tuple(c.copy() for c in fam) for fam in self.data])
+    def copy(self) -> 'T3Frame':
+        """Deep copy (copies every frame core)."""
+        return T3Frame(*[tuple(c.copy() for c in fam) for fam in self.data])
 
     @ft.cached_property
     def contains_jax(self) -> bool:
-        """True if any basis core is a jax array."""
+        """True if any frame core is a jax array."""
         return tree_contains_jax(self.data)
 
     @ft.cached_property
@@ -259,7 +259,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
 
     def __repr__(self) -> str:
         ss = f", stack_shape={self.stack_shape}" if self.stack_shape else ""
-        return (f"T3Basis(shape={self.shape}, up_ranks={self.up_ranks}, "
+        return (f"T3Frame(shape={self.shape}, up_ranks={self.up_ranks}, "
                 f"left_ranks={self.left_ranks}{ss})")
 
     @ft.cached_property
@@ -270,10 +270,10 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         The expensive part of :py:meth:`is_orthogonal` -- a fixed frame reused across an inner loop (e.g.
         the safe-mode ORTH precondition of :py:meth:`~t3toolbox.manifold.ManifoldGeometry.project` on the
         same base every matvec) is contracted **once**, not per call.'''
-        return orth_reps.basis_orthogonality_residual(self.data)
+        return orth_reps.frame_orthogonality_residual(self.data)
 
     def is_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape (scalar unstacked)
-        '''True (per stack element) if the basis cores are orthogonal in their respective senses.
+        '''True (per stack element) if the frame cores are orthogonal in their respective senses.
 
         Checks (each stacked block; max absolute deviation from identity <= atol):
             - up_tucker U_i (all i):    ``einsum('...io,...jo->...ij', U, U) = I``
@@ -282,7 +282,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
             - right R_i (i = 1..d-1):   ``einsum('...iaj,...kaj->...ik', R, R) = I``
 
         The last left core and the first right core are the (non-orthogonal) boundary remainders
-        and are not checked. This is a non-enforcing convenience checker; ``T3Basis`` does not
+        and are not checked. This is a non-enforcing convenience checker; ``T3Frame`` does not
         require orthogonality at construction. **Returns a per-stack-element bool array** (shape
         ``stack_shape``; a scalar when unstacked) -- different base points in a stack can differ; reduce
         with ``.all()`` for a single verdict.
@@ -294,7 +294,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.basis_variations_format as bvf
+        >>> import t3toolbox.frame_variations_format as bvf
         >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
         >>> base, _ = bvf.t3_orthogonal_representations(x)   # this base IS orthogonal by construction
@@ -305,9 +305,9 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         show the elements differ:
 
         >>> good, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn((5, 6), (2, 2), (1, 2, 1)))
-        >>> bad = bvf.T3Basis(tuple(np.ones_like(U) for U in good.up_tucker_cores),  # ones cores: not orthogonal
+        >>> bad = bvf.T3Frame(tuple(np.ones_like(U) for U in good.up_tucker_cores),  # ones cores: not orthogonal
         ...                   good.down_tt_cores, good.left_tt_cores, good.right_tt_cores)
-        >>> stacked = bvf.T3Basis.stack([good, bad])
+        >>> stacked = bvf.T3Frame.stack([good, bad])
         >>> print(stacked.is_orthogonal().shape, stacked.is_orthogonal())   # one bool per stack element
         (2,) [ True False]
         '''
@@ -315,7 +315,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
 
     @ft.cached_property
     def minimal_ranks(self) -> typ.Tuple[typ.Tuple[int, ...], typ.Tuple[int, ...]]:
-        """Structural minimal ranks ``(min_tucker_ranks, min_tt_ranks)`` for this basis's shape/ranks.
+        """Structural minimal ranks ``(min_tucker_ranks, min_tt_ranks)`` for this frame's shape/ranks.
 
         **Structural**: computed from the rank tuples + shape, not the numerical core values (see
         :py:meth:`TuckerTensorTrain.get_minimal_ranks`).
@@ -324,9 +324,9 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
 
     @ft.cached_property
     def has_minimal_ranks(self) -> bool:
-        '''True if the basis has minimal ranks.
+        '''True if the frame has minimal ranks.
 
-        Minimal-rank basis means:
+        Minimal-rank frame means:
             - ``left_ranks == right_ranks``,
             - ``up_ranks == down_ranks``, and
             - those ranks (tucker_ranks=up_ranks, tt_ranks=left_ranks) are minimal for a regular
@@ -338,7 +338,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         precondition for any verified operation -- ``inner``/``norm``-as-HS and ``manifold_dim`` are exact
         on a non-minimal orthonormal frame, and ``retract`` only loses *strict* rank preservation (it
         drops the redundant rank, staying a valid retraction). So this is a non-enforcing checker;
-        ``T3Basis`` does not require minimal ranks at construction.
+        ``T3Frame`` does not require minimal ranks at construction.
 
         Minimal (non-degenerate) ranks and their connection to matricizations and matrix unfoldings
         are discussed in Appendix A.2 of Alger et al. (2026), "Tucker Tensor Train Taylor Series"
@@ -348,7 +348,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.basis_variations_format as bvf
+        >>> import t3toolbox.frame_variations_format as bvf
         >>> np.random.seed(0)
         >>> x = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))  # minimal ranks
         >>> base, _ = bvf.t3_orthogonal_representations(x)
@@ -359,7 +359,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         >>> print(base2.has_minimal_ranks)
         False
         '''
-        return ranks.basis_has_minimal_ranks(
+        return ranks.frame_has_minimal_ranks(
             self.shape, self.up_ranks, self.down_ranks, self.left_ranks, self.right_ranks)
 
     def has_numerically_minimal_ranks(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape
@@ -377,7 +377,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         --------
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
-        >>> import t3toolbox.basis_variations_format as bvf
+        >>> import t3toolbox.frame_variations_format as bvf
         >>> np.random.seed(0)
         >>> base, _ = bvf.t3_orthogonal_representations(
         ...     t3.TuckerTensorTrain.randn((6, 7, 5), (2, 2, 2), (1, 2, 2, 1)))     # orthogonal + minimal
@@ -393,20 +393,20 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         return self.is_orthogonal(atol=atol) & self.has_minimal_ranks
 
     def validate(self) -> None:
-        '''Check rank and shape consistency of Tucker tensor train basis (`T3Basis`).
+        '''Check rank and shape consistency of Tucker tensor train frame (`T3Frame`).
 
         Parameters
         ----------
-        x : T3Basis
+        x : T3Frame
 
         Raises
         ------
         ValueError
-            Error raised if the cores of the T3Basis have inconsistent shapes.
+            Error raised if the cores of the T3Frame have inconsistent shapes.
 
         See Also
         --------
-        T3Basis
+        T3Frame
         T3Variations
         '''
         UU, DD, LL, RR = self.data
@@ -414,7 +414,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         d = len(UU)
         if not (len(LL) == d and len(RR) == d and len(DD) == d):
             raise ValueError(
-                'Inconsistent T3Basis.\n'
+                'Inconsistent T3Frame.\n'
                 + 'All core sequences must have length d=' + str(d) + '.\n'
                 + 'len(UU)=' + str(len(UU))
                 + ', len(DD)=' + str(len(DD))
@@ -426,7 +426,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         for ii, U in enumerate(UU):
             if len(U.shape) < 2:
                 raise ValueError(
-                    'Inconsistent T3Basis.\n'
+                    'Inconsistent T3Frame.\n'
                     + 'tucker_cores[' + str(ii) + '] is not a (stacked) matrix. shape=' + str(U.shape)
                 )
 
@@ -434,7 +434,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
             for ii, C in enumerate(CC):
                 if len(C.shape) < 3:
                     raise ValueError(
-                        'Inconsistent T3Basis.\n'
+                        'Inconsistent T3Frame.\n'
                         + name + '_cores[' + str(ii) + '] is not a (stacked) 3-tensor. '
                         + 'shape=' + str(C.shape)
                     )
@@ -452,7 +452,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
                 == (self.stack_shape,)*self.d
         ):
             raise ValueError(
-                'Inconsistent T3Basis.\n'
+                'Inconsistent T3Frame.\n'
                 + str(up_stack_shapes) + ' = up_stack_shapes.\n'
                 + str(down_stack_shapes) + ' = down_stack_shapes.\n'
                 + str(left_stack_shapes) + ' = left_stack_shapes.\n'
@@ -463,7 +463,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         rLr = tuple([int(L.shape[-3]) for L in LL] + [int(LL[-1].shape[-1])])
         if rLl != rLr:
             raise ValueError(
-                'Inconsistent T3Basis.\n'
+                'Inconsistent T3Frame.\n'
                 + str(rLl) + ' = rL_left != rL_right = ' + str(rLr)
             )
 
@@ -471,7 +471,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         rRr = tuple([int(R.shape[-3]) for R in RR] + [int(RR[-1].shape[-1])])
         if rRl != rRr:
             raise ValueError(
-                'Inconsistent T3Basis.\n'
+                'Inconsistent T3Frame.\n'
                 + str(rRl) + ' = rR_left != rR_right = ' + str(rRr)
             )
 
@@ -480,7 +480,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
 
             if not (U.shape[-2] == L.shape[-2] == R.shape[-2]):
                 raise ValueError(
-                    'Inconsistent T3Basis.\n'
+                    'Inconsistent T3Frame.\n'
                     + 'Tucker rank mismatch at index ' + str(ii)
                     + ': U.shape[-2]=' + str(U.shape[0])
                     + ', L.shape[-2]=' + str(L.shape[1])
@@ -489,7 +489,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
 
             if D.shape[-3] != L.shape[-3]:
                 raise ValueError(
-                    'Inconsistent T3Basis.\n'
+                    'Inconsistent T3Frame.\n'
                     + 'Down TT core left rank mismatch at index' + str(ii)
                     + ': D.shape[-3]=' + str(D.shape[-3])
                     + '!= L.shape[-3]=' + str(L.shape[-3])
@@ -512,7 +512,7 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         Examples
         --------
         >>> import numpy as np
-        >>> import t3toolbox.basis_variations_format as bvf
+        >>> import t3toolbox.frame_variations_format as bvf
         >>> import t3toolbox.corewise as cw
         >>> np.random.seed(0)
         >>> rnd = lambda x: np.random.randn(*x)
@@ -521,13 +521,13 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         >>> down_tt_cores = (rnd(ss+(1, 9, 4)), rnd(ss+(2, 8, 5)), rnd(ss+(3, 7, 1)))
         >>> left_tt_cores = (rnd(ss+(1, 10, 2)), rnd(ss+(2, 11, 3)), rnd(ss+(3, 12, 5)))
         >>> right_tt_cores = (rnd(ss+(2, 10, 4)), rnd(ss+(4, 11, 5)), rnd(ss+(5, 12, 1)))
-        >>> basis = bvf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
-        >>> S = basis.unstack()
+        >>> frame = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+        >>> S = frame.unstack()
         >>> print(len(S), len(S[0]))                      # nested tree shaped like the stack (2, 3)
         2 3
         >>> ii, jj = 1, 2                                 # the [ii][jj] leaf is just the cores sliced at [ii, jj]
         >>> Sij = S[ii][jj]
-        >>> sliced = bvf.T3Basis(
+        >>> sliced = bvf.T3Frame(
         ...     tuple(c[ii, jj] for c in up_tucker_cores), tuple(c[ii, jj] for c in down_tt_cores),
         ...     tuple(c[ii, jj] for c in left_tt_cores), tuple(c[ii, jj] for c in right_tt_cores))
         >>> print(np.allclose(cw.corewise_norm(cw.corewise_sub(Sij.data, sliced.data)), 0.0))
@@ -535,20 +535,20 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         """
         return stacking.apply_func_to_leaf_subtrees(
             stacking.basic_ragged_unstack(self.data, 2),
-            lambda x: T3Basis(*x),
+            lambda x: T3Frame(*x),
             self.data, # leaf_structure
         )
 
     @staticmethod
     def stack(
-            xx, # Array-like tree of T3Basis
+            xx, # Array-like tree of T3Frame
     ):
-        """Stack array-like tree of T3Basis into a single T3Basis.
+        """Stack array-like tree of T3Frame into a single T3Frame.
 
         Examples
         --------
         >>> import numpy as np
-        >>> import t3toolbox.basis_variations_format as bvf
+        >>> import t3toolbox.frame_variations_format as bvf
         >>> import t3toolbox.corewise as cw
         >>> np.random.seed(0)
         >>> rnd = lambda x: np.random.randn(*x)
@@ -557,8 +557,8 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
         >>> down_tt_cores = (rnd(ss+(1, 9, 4)), rnd(ss+(2, 8, 5)), rnd(ss+(3, 7, 1)))
         >>> left_tt_cores = (rnd(ss+(1, 10, 2)), rnd(ss+(2, 11, 3)), rnd(ss+(3, 12, 5)))
         >>> right_tt_cores = (rnd(ss+(2, 10, 4)), rnd(ss+(4, 11, 5)), rnd(ss+(5, 12, 1)))
-        >>> x = bvf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
-        >>> x2 = bvf.T3Basis.stack(x.unstack())           # stack is the inverse of unstack
+        >>> x = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+        >>> x2 = bvf.T3Frame.stack(x.unstack())           # stack is the inverse of unstack
         >>> print(np.allclose(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)), 0.0))
         True
         """
@@ -568,12 +568,12 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
             None,  # leaf_structure
         )
         result = stacking.basic_ragged_stack(xx_tuples)
-        return T3Basis(*result)
+        return T3Frame(*result)
 
     @staticmethod
-    def from_t3(x: 't3.TuckerTensorTrain') -> 'T3Basis':
-        """Orthogonal representation (basis) of a TuckerTensorTrain ``x`` -- the orthogonal frame at the
-        point ``x`` (the basis part of :py:func:`t3_orthogonal_representations`)."""
+    def from_t3(x: 't3.TuckerTensorTrain') -> 'T3Frame':
+        """Orthogonal representation (frame) of a TuckerTensorTrain ``x`` -- the orthogonal frame at the
+        point ``x`` (the frame part of :py:func:`t3_orthogonal_representations`)."""
         return t3_orthogonal_representations(x)[0]
 
     @staticmethod
@@ -583,79 +583,79 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
             tt_ranks:       typ.Sequence[int],              # (1,r1,...,r(d-1),1)
             stack_shape:    typ.Tuple[int, ...] = (),       # C (base/core stack)
             use_jax:        bool = False,
-    ) -> 'T3Basis':
+    ) -> 'T3Frame':
         """Orthogonal representation of a *random* T3 -- a genuine random base point (orthogonal,
         consistent), **not** iid-random cores. Equals ``from_t3(TuckerTensorTrain.randn(...))``."""
         x = t3.TuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks, stack_shape=stack_shape, use_jax=use_jax)
         return t3_orthogonal_representations(x)[0]
 
     @staticmethod
-    def random_orthogonal_like(basis: 'T3Basis') -> 'T3Basis':
-        """A random orthogonal basis with the same shape/ranks/stack as ``basis``."""
-        return T3Basis.random_orthogonal(basis.shape, basis.up_ranks, basis.left_ranks,
-                                         stack_shape=basis.stack_shape, use_jax=basis.contains_jax)
+    def random_orthogonal_like(frame: 'T3Frame') -> 'T3Frame':
+        """A random orthogonal frame with the same shape/ranks/stack as ``frame``."""
+        return T3Frame.random_orthogonal(frame.shape, frame.up_ranks, frame.left_ranks,
+                                         stack_shape=frame.stack_shape, use_jax=frame.contains_jax)
 
     def save(self, file) -> None:
-        """Save the basis cores to a ``.npz`` file (load with :py:meth:`load`)."""
+        """Save the frame cores to a ``.npz`` file (load with :py:meth:`load`)."""
         save_core_families(file, self.data)
 
     @staticmethod
     def load(
             file,                       # path or file-like (.npz saved by save)
             use_jax:    bool = False,
-    ) -> 'T3Basis':
-        """Load a basis saved by :py:meth:`save`."""
+    ) -> 'T3Frame':
+        """Load a frame saved by :py:meth:`save`."""
         f = load_core_families(file)
-        b = T3Basis(f[0], f[1], f[2], f[3])
+        b = T3Frame(f[0], f[1], f[2], f[3])
         return b.to_jax() if use_jax else b
 
-    def reverse(self) -> 'T3Basis':
+    def reverse(self) -> 'T3Frame':
         """Reverse the mode order. Left/right cores **swap roles** (reversing a left-orthogonal chain
         yields a right-orthogonal one), so ``new_left = reverse(old_right)`` and vice versa; the
         redundant L/R store makes this exact with no re-orthogonalization."""
-        return T3Basis(*bv_operations.reverse_basis(self.data))
+        return T3Frame(*fv_operations.reverse_frame(self.data))
 
     def to_t3(self) -> 't3.TuckerTensorTrain':
-        """The base point this basis represents, as a :py:class:`TuckerTensorTrain` (natural ranks).
+        """The base point this frame represents, as a :py:class:`TuckerTensorTrain` (natural ranks).
 
         Reconstructed in right-canonical form (the Tucker factors over the right-orthogonal core-TT).
-        For a **consistent** basis (e.g. from :py:func:`t3_orthogonal_representations`) this is the base
-        point and equals the left-canonical reconstruction; for a hand-built inconsistent basis it is
+        For a **consistent** frame (e.g. from :py:func:`t3_orthogonal_representations`) this is the base
+        point and equals the left-canonical reconstruction; for a hand-built inconsistent frame it is
         specifically this form. No consistency check is performed (verifying it would mean densifying
         multiple reconstructions -- the kind of expensive check the library avoids).
         """
         return t3.TuckerTensorTrain(self.up_tucker_cores, self.right_tt_cores)
 
     def to_dense(self) -> NDArray:
-        """Dense tensor of the base point this basis represents (``= to_t3().to_dense()``)."""
+        """Dense tensor of the base point this frame represents (``= to_t3().to_dense()``)."""
         return self.to_t3().to_dense()
 
-    def orthogonalize(self) -> 'T3Basis':
-        """Orthogonal, minimal-rank representation of the base point this basis reconstructs to.
+    def orthogonalize(self) -> 'T3Frame':
+        """Orthogonal, minimal-rank representation of the base point this frame reconstructs to.
 
-        Equivalent to ``T3Basis.from_t3(self.to_t3())``: reconstruct the base point (right-canonical,
+        Equivalent to ``T3Frame.from_t3(self.to_t3())``: reconstruct the base point (right-canonical,
         see :py:meth:`to_t3`) and recompute its orthogonal representation via
-        :py:func:`t3_orthogonal_representations`. For a basis that is already orthogonal and consistent
-        this returns an equivalent orthogonal basis; for a hand-built or drifted one it returns a
-        genuinely orthogonal, minimal-rank basis for the *right-canonical* base point.
+        :py:func:`t3_orthogonal_representations`. For a frame that is already orthogonal and consistent
+        this returns an equivalent orthogonal frame; for a hand-built or drifted one it returns a
+        genuinely orthogonal, minimal-rank frame for the *right-canonical* base point.
         """
-        return T3Basis.from_t3(self.to_t3())
+        return T3Frame.from_t3(self.to_t3())
 
     def is_consistent(self, rtol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape (scalar unstacked)
         """``True`` (per stack element) if the left- and right-canonical reconstructions of the base point agree.
 
-        A basis stores both the left- and right-orthogonal core-TTs (see :py:meth:`to_t3`); for a
-        **consistent** basis they reconstruct the same base point. This checks
+        A frame stores both the left- and right-orthogonal core-TTs (see :py:meth:`to_t3`); for a
+        **consistent** frame they reconstruct the same base point. This checks
         ``||left - right|| <= rtol * ||right||`` in the dense Frobenius norm.
 
         EXPENSIVE -- densifies both reconstructions. Deliberately **not** part of :py:meth:`validate`
-        (which is structural and cheap). For a basis from :py:func:`t3_orthogonal_representations` (or
+        (which is structural and cheap). For a frame from :py:func:`t3_orthogonal_representations` (or
         :py:meth:`from_t3`/:py:meth:`orthogonalize`) consistency holds by construction; this is for
         sanity-checking hand-built bases.
         """
-        return orth_reps.basis_consistency_residual(self.data) <= rtol
+        return orth_reps.frame_consistency_residual(self.data) <= rtol
 
-    def allclose(self, other: 'T3Basis', rtol: float = 1e-9, atol: float = 0.0) -> NDArray:  # bool array, stack_shape
+    def allclose(self, other: 'T3Frame', rtol: float = 1e-9, atol: float = 0.0) -> NDArray:  # bool array, stack_shape
         """``True`` (per stack element) if ``other`` represents the same base point as ``self`` (gauge-invariant).
 
         Compares the *represented* base points, not the cores: ``||self.to_t3() - other.to_t3()|| <=
@@ -674,30 +674,30 @@ class T3Basis:                     # jax aux_data (it holds arrays; value hash/e
 @dataclass(frozen=True)
 class T3Variations:
     """
-    Tuple containing variation cores for basis-variation representations of TuckerTensorTrains.
+    Tuple containing variation cores for frame-variation representations of TuckerTensorTrains.
 
     *Components*
         - tucker_variations    = (V0, ..., V(d-1)), elm_shape=stack_shape+(nDi, Ni)
         - tt_variations        = (H0, ..., H(d-1)), elm_shape=stack_shape+(rLi, nUi, rRi)
 
-    The variations should fit in the "holes" of a T3Basis.
+    The variations should fit in the "holes" of a T3Frame.
 
     See Also
     --------
-    T3Basis
+    T3Frame
 
     Examples
     --------
-    Build variations that fill the holes of a base point (so ``check_bv_pair`` accepts them):
+    Build variations that fill the holes of a base point (so ``check_fv_pair`` accepts them):
 
     >>> import numpy as np
-    >>> import t3toolbox.basis_variations_format as bvf
+    >>> import t3toolbox.frame_variations_format as bvf
     >>> ss = (2, 3)                                       # stack shape, shared by base and variations
     >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
     >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3, 12, 5)))
     >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
     >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-    >>> base = bvf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+    >>> base = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
     >>> tucker_shapes, tt_shapes = base.variation_shapes  # the holes to fill
     >>> tucker_variations = tuple(np.ones(ss + s) for s in tucker_shapes)
     >>> tt_variations = tuple(np.ones(ss + s) for s in tt_shapes)
@@ -721,7 +721,7 @@ class T3Variations:
         """The full leading stack ``K + C`` shared by every variation core.
 
         ``T3Variations`` is **split-agnostic**: the tangent-stack ``K`` vs base-stack ``C`` split is
-        fixed only when paired with a :py:class:`T3Basis` (``check_bv_pair`` requires ``C`` to be the
+        fixed only when paired with a :py:class:`T3Frame` (``check_fv_pair`` requires ``C`` to be the
         trailing/inner part of this stack; :py:class:`~t3toolbox.manifold.T3Tangent` then exposes the
         two parts). See ``docs/batching_and_stacking.md``.
         """
@@ -734,7 +734,7 @@ class T3Variations:
         typ.Tuple[typ.Tuple[int, ...], ...],  # tucker_variation_shapes. len=d. elm_len=2
         typ.Tuple[typ.Tuple[int, ...], ...],  # tt_variation_shapes. len=d. elm_len=3
     ]:
-        '''T3Variations shapes that fit with this T3Basis.
+        '''T3Variations shapes that fit with this T3Frame.
 
         Shapes of the "holes" in the following tensor diagrams::
 
@@ -804,7 +804,7 @@ class T3Variations:
 
         See Also
         --------
-        T3Basis
+        T3Frame
         T3Variations
         '''
         VV, HH = self.data
@@ -838,7 +838,7 @@ class T3Variations:
 
         if not (tucker_stack_shapes == tt_stack_shapes == (self.stack_shape,)*self.d):
             raise ValueError(
-                'Inconsistent T3Basis.\n'
+                'Inconsistent T3Frame.\n'
                 + str(tucker_stack_shapes) + ' = tucker_stack_shapes.\n'
                 + str(tt_stack_shapes) + ' = tt_stack_shapes.\n'
             )
@@ -852,7 +852,7 @@ class T3Variations:
         Examples
         --------
         >>> import numpy as np
-        >>> import t3toolbox.basis_variations_format as bvf
+        >>> import t3toolbox.frame_variations_format as bvf
         >>> import t3toolbox.corewise as cw
         >>> np.random.seed(0)
         >>> rnd = lambda x: np.random.randn(*x)
@@ -885,7 +885,7 @@ class T3Variations:
         Examples
         --------
         >>> import numpy as np
-        >>> import t3toolbox.basis_variations_format as bvf
+        >>> import t3toolbox.frame_variations_format as bvf
         >>> import t3toolbox.corewise as cw
         >>> np.random.seed(0)
         >>> rnd = lambda x: np.random.randn(*x)
@@ -914,10 +914,10 @@ class T3Variations:
     ) -> 'T3Variations':
         """Zero variations of the given structure (additive identity).
 
-        ``variation_shapes = (tucker_variation_shapes, tt_variation_shapes)`` -- e.g. a basis's
-        :py:attr:`T3Basis.variation_shapes`. (See :py:meth:`zeros_like` to take the structure from an object.)
+        ``variation_shapes = (tucker_variation_shapes, tt_variation_shapes)`` -- e.g. a frame's
+        :py:attr:`T3Frame.variation_shapes`. (See :py:meth:`zeros_like` to take the structure from an object.)
         """
-        return T3Variations(*bv_operations.zeros_variations(variation_shapes, stack_shape, use_jax))
+        return T3Variations(*fv_operations.zeros_variations(variation_shapes, stack_shape, use_jax))
 
     @staticmethod
     def randn(
@@ -926,7 +926,7 @@ class T3Variations:
             use_jax:        bool = False,
     ) -> 'T3Variations':
         """Variations with i.i.d. N(0,1) core entries (corewise, ungauged). See :py:meth:`randn_like`."""
-        return T3Variations(*bv_operations.randn_variations(variation_shapes, stack_shape, use_jax))
+        return T3Variations(*fv_operations.randn_variations(variation_shapes, stack_shape, use_jax))
 
     @staticmethod
     def unit(
@@ -942,16 +942,16 @@ class T3Variations:
         These units are the standard basis of the variation cores -- an **overcomplete, non-ambient-
         orthogonal** generating set of the tangent space, not an orthonormal basis.
         """
-        return T3Variations(*bv_operations.unit_variations(variation_shapes, index, stack_shape, use_jax))
+        return T3Variations(*fv_operations.unit_variations(variation_shapes, index, stack_shape, use_jax))
 
     @staticmethod
     def zeros_like(x) -> 'T3Variations':
-        """Zero variations matching the structure (shapes + stack) of ``x`` (a T3Basis or T3Variations)."""
+        """Zero variations matching the structure (shapes + stack) of ``x`` (a T3Frame or T3Variations)."""
         return T3Variations.zeros(x.variation_shapes, stack_shape=x.stack_shape, use_jax=x.contains_jax)
 
     @staticmethod
     def randn_like(x) -> 'T3Variations':
-        """Random variations matching the structure (shapes + stack) of ``x`` (a T3Basis or T3Variations)."""
+        """Random variations matching the structure (shapes + stack) of ``x`` (a T3Frame or T3Variations)."""
         return T3Variations.randn(x.variation_shapes, stack_shape=x.stack_shape, use_jax=x.contains_jax)
 
     def to_vector(self) -> NDArray:
@@ -966,10 +966,10 @@ class T3Variations:
     ) -> 'T3Variations':
         """Inverse of :py:meth:`to_vector`: rebuild variations of the given structure from a 1D vector.
 
-        ``variation_shapes = (tucker_variation_shapes, tt_variation_shapes)`` (e.g. a basis's
-        :py:attr:`T3Basis.variation_shapes`); ``stack_shape`` is the full leading stack ``K + C``.
+        ``variation_shapes = (tucker_variation_shapes, tt_variation_shapes)`` (e.g. a frame's
+        :py:attr:`T3Frame.variation_shapes`); ``stack_shape`` is the full leading stack ``K + C``.
         """
-        return T3Variations(*bv_operations.variations_from_vector(flat, variation_shapes, stack_shape))
+        return T3Variations(*fv_operations.variations_from_vector(flat, variation_shapes, stack_shape))
 
     def save(self, file) -> None:
         """Save the variation cores to a ``.npz`` file (load with :py:meth:`load`)."""
@@ -987,7 +987,7 @@ class T3Variations:
 
     def reverse(self) -> 'T3Variations':
         """Reverse the mode order (corewise): reverse the tucker-variation order and reverse+transpose
-        the tt-variations (bond swap), matching :py:meth:`T3Basis.reverse`."""
+        the tt-variations (bond swap), matching :py:meth:`T3Frame.reverse`."""
         return T3Variations(tuple(V.copy() for V in self.tucker_variations[::-1]),
                             t3_operations.reverse_tt(self.tt_variations))
 
@@ -1026,11 +1026,11 @@ class T3Variations:
         return dn <= atol + rtol * rn
 
 
-def check_bv_pair(
-        base:       T3Basis,        # stack_shape = C (base/core stack)
+def check_fv_pair(
+        base:       T3Frame,        # stack_shape = C (base/core stack)
         variations: T3Variations,   # stack_shape = K + C (base stack is its inner/trailing part)
 ) -> None:
-    """Check rank and shape consistency between T3Basis and T3Variations.
+    """Check rank and shape consistency between T3Frame and T3Variations.
 
     This ensures that the variation cores (V, H) have the correct dimensions to interface with the
     base cores (U, L, R, O), and that their stacks are compatible.
@@ -1044,20 +1044,20 @@ def check_bv_pair(
     Examples
     --------
     Variations whose stack matches the base and whose cores fill the base's holes are consistent
-    (``check_bv_pair`` returns ``None`` and raises nothing):
+    (``check_fv_pair`` returns ``None`` and raises nothing):
 
     >>> import numpy as np
-    >>> import t3toolbox.basis_variations_format as bvf
+    >>> import t3toolbox.frame_variations_format as bvf
     >>> ss = (2, 3)                                       # base stack shape C
     >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
     >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3, 12, 5)))
     >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
     >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-    >>> base = bvf.T3Basis(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+    >>> base = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
     >>> tucker_shapes, tt_shapes = base.variation_shapes
     >>> variations = bvf.T3Variations(tuple(np.ones(ss + s) for s in tucker_shapes),
     ...                               tuple(np.ones(ss + s) for s in tt_shapes))
-    >>> print(bvf.check_bv_pair(base, variations))   # consistent -> returns None
+    >>> print(bvf.check_fv_pair(base, variations))   # consistent -> returns None
     None
 
     A variation may carry extra *outer* tangent-stack axes ``K`` (here ``K = (4,)``, so its stack is
@@ -1066,7 +1066,7 @@ def check_bv_pair(
     >>> vss = (4,) + ss                                   # tangent_stack_shape K + base_stack_shape C
     >>> v_stacked = bvf.T3Variations(tuple(np.ones(vss + s) for s in tucker_shapes),
     ...                              tuple(np.ones(vss + s) for s in tt_shapes))
-    >>> print(bvf.check_bv_pair(base, v_stacked))
+    >>> print(bvf.check_fv_pair(base, v_stacked))
     None
 
     Gotcha -- variation cores that do not fit the base's holes raise (structural error):
@@ -1074,7 +1074,7 @@ def check_bv_pair(
     >>> bad_shapes = ((tucker_shapes[0][0] + 1, tucker_shapes[0][1]),) + tucker_shapes[1:]
     >>> bad = bvf.T3Variations(tuple(np.ones(ss + s) for s in bad_shapes),
     ...                        tuple(np.ones(ss + s) for s in tt_shapes))
-    >>> bvf.check_bv_pair(base, bad)                  # doctest: +IGNORE_EXCEPTION_DETAIL
+    >>> bvf.check_fv_pair(base, bad)                  # doctest: +IGNORE_EXCEPTION_DETAIL
     Traceback (most recent call last):
         ...
     ValueError
@@ -1085,7 +1085,7 @@ def check_bv_pair(
     # carry extra *outer* tangent-stack axes (variation stack = tangent_stack_shape + base_stack_shape).
     if var_stack[len(var_stack) - len(base_stack):] != base_stack:
         raise ValueError(
-            'Inconsistent (T3Basis, T3Variations) pair.\n'
+            'Inconsistent (T3Frame, T3Variations) pair.\n'
             'The base stack_shape must be the trailing (inner) part of the variation stack_shape.\n'
             + str(base_stack) + ' = base.stack_shape is not a suffix of '
             + str(var_stack) + ' = variations.stack_shape'
@@ -1111,15 +1111,15 @@ def check_bv_pair(
             )
 
 
-def bv_to_t3(
+def fv_to_t3(
         index:      typ.Tuple[
             bool,  # TT core (True) or Tucker core (False)
             int,   # number of the non-orthogonal core, 1...d-1
         ],
-        basis:      T3Basis,        # stack_shape = C (base/core stack)
+        frame:      T3Frame,        # stack_shape = C (base/core stack)
         variations: T3Variations,   # stack_shape = K + C (base stack is its inner/trailing part)
 ) -> t3.TuckerTensorTrain:
-    '''Convert basis-variations representation to TuckerTensorTrain.
+    '''Convert frame-variations representation to TuckerTensorTrain.
 
     If replacement_ind=1, replace_tt=True::
 
@@ -1144,20 +1144,20 @@ def bv_to_t3(
         Index of variation. 0 <= replacement_ind < num_cores
     replace_tt: bool
         Indicates whether to use TT variation (True) or a Tucker variation (False)
-    base: T3Basis
-        Basis cores
+    base: T3Frame
+        Frame cores
     variations: T3Variations
         Variation cores
 
     Raises
     ------
     RuntimeError
-        - Error raised if the basis and variations do not fit with each other
+        - Error raised if the frame and variations do not fit with each other
 
     Examples
     --------
     >>> import numpy as np
-    >>> import t3toolbox.basis_variations_format as bvf
+    >>> import t3toolbox.frame_variations_format as bvf
     >>> import t3toolbox.corewise as cw
     >>> np.random.seed(0)
     >>> randn = np.random.randn
@@ -1165,7 +1165,7 @@ def bv_to_t3(
     >>> (L0, L1, L2) = (randn(1, 10, 2), randn(2, 11, 3), randn(3, 12, 4))
     >>> (R0, R1, R2) = (randn(2, 10, 4), randn(4, 11, 5), randn(5, 12, 1))
     >>> (D0, D1, D2) = (randn(1, 9, 4), randn(2, 8, 5), randn(3, 7, 1))
-    >>> base = bvf.T3Basis((U0, U1, U2), (D0, D1, D2), (L0, L1, L2), (R0, R1, R2))
+    >>> base = bvf.T3Frame((U0, U1, U2), (D0, D1, D2), (L0, L1, L2), (R0, R1, R2))
     >>> (V0, V1, V2) = (randn(9, 14), randn(8, 15), randn(7, 16))
     >>> (H0, H1, H2) = (randn(1, 10, 4), randn(2, 11, 5), randn(3, 12, 1))
     >>> variations = bvf.T3Variations((V0, V1, V2), (H0, H1, H2))
@@ -1173,24 +1173,24 @@ def bv_to_t3(
     Replacing the index-1 TT-core swaps ``H1`` into the right-orthogonal chain ``L0, ?, R2``; the
     Tucker (up) cores are unchanged:
 
-    >>> tt_term = bvf.bv_to_t3((True, 1), base, variations)
+    >>> tt_term = bvf.fv_to_t3((True, 1), base, variations)
     >>> expected = ((U0, U1, U2), (L0, H1, R2))      # up cores untouched; TT chain = L0, H1, R2
     >>> print(np.allclose(cw.corewise_norm(cw.corewise_sub(tt_term.data, expected)), 0.0))
     True
 
     Replacing the index-1 Tucker core swaps ``V1`` into the up cores and the down core ``D1`` into the chain:
 
-    >>> tucker_term = bvf.bv_to_t3((False, 1), base, variations)
+    >>> tucker_term = bvf.fv_to_t3((False, 1), base, variations)
     >>> expected = ((U0, V1, U2), (L0, D1, R2))
     >>> print(np.allclose(cw.corewise_norm(cw.corewise_sub(tucker_term.data, expected)), 0.0))
     True
     '''
-    check_bv_pair(basis, variations)
+    check_fv_pair(frame, variations)
     # The term mixes a V+G-stacked variation core with G-stacked base cores (when the variation
     # carries an extra tangent stack K); broadcast all cores to the common K+C stack so the result is
     # a valid (uniform-stack) TuckerTensorTrain. A no-op when there is no tangent stack (K=()).
     cores = t3_operations.broadcast_t3_to_common_stack(
-        *bv_conversions.bv_to_t3(index, basis.data, variations.data)
+        *fv_conversions.fv_to_t3(index, frame.data, variations.data)
     )
     return t3.TuckerTensorTrain(*cores)
 
@@ -1200,7 +1200,7 @@ def t3_orthogonal_representations(
         already_left_orthogonal: bool = False,
         squash: bool = True,
 ) -> typ.Tuple[
-    T3Basis,  # orthogonal base
+    T3Frame,  # orthogonal base
     T3Variations,  # variations
 ]:
     '''Construct base-variation representations of TuckerTensorTrain with orthogonal base.
@@ -1263,18 +1263,18 @@ def t3_orthogonal_representations(
     --------
     Orthogonalize a (stacked) T3. The base reconstructs the *same* tensor x -- either by dropping the
     index-1 TT variation H1 into the chain, or the index-1 Tucker variation V1 (these are two of the
-    single-core terms of :py:func:`bv_to_t3`):
+    single-core terms of :py:func:`fv_to_t3`):
 
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.basis_variations_format as bvf
+    >>> import t3toolbox.frame_variations_format as bvf
     >>> np.random.seed(0)
     >>> x = t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (3, 3, 2, 1), stack_shape=(2, 3))
     >>> base, variations = bvf.t3_orthogonal_representations(x)
-    >>> x_tt = bvf.bv_to_t3((True, 1), base, variations)    # base with TT-variation H1 in the chain
+    >>> x_tt = bvf.fv_to_t3((True, 1), base, variations)    # base with TT-variation H1 in the chain
     >>> print(np.allclose(x.to_dense(), x_tt.to_dense()))   # still represents the original tensor
     True
-    >>> x_tk = bvf.bv_to_t3((False, 1), base, variations)   # base with Tucker-variation V1
+    >>> x_tk = bvf.fv_to_t3((False, 1), base, variations)   # base with Tucker-variation V1
     >>> print(np.allclose(x.to_dense(), x_tk.to_dense()))
     True
 
@@ -1289,7 +1289,7 @@ def t3_orthogonal_representations(
     result = orth_reps.orthogonal_representations(
         x.data, already_left_orthogonal=already_left_orthogonal, squash=squash,
     )
-    return T3Basis(*result[0]), T3Variations(*result[1])
+    return T3Frame(*result[0]), T3Variations(*result[1])
 
 
 if has_jax:
@@ -1297,9 +1297,9 @@ if has_jax:
 
     # Register as jax pytrees so they can be jit/vmap/grad-ed. Leaves = the cores (x.data); no aux.
     jax.tree_util.register_pytree_node(
-        T3Basis,
+        T3Frame,
         lambda x: (x.data, None),
-        lambda aux_data, children: T3Basis(*children),
+        lambda aux_data, children: T3Frame(*children),
     )
     jax.tree_util.register_pytree_node(
         T3Variations,

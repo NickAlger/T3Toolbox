@@ -8,7 +8,7 @@
 
 ## The contract
 
-`make_basis_masks` builds the frame masks from the structural ranks alone — `arange(pad) < rank` — and
+`make_frame_masks` builds the frame masks from the structural ranks alone — `arange(pad) < rank` — and
 **never inspects the core contents**. So the masks are correct iff the orthogonalization actually places
 the rank-many real content in the leading slots `[0, rank)`.
 

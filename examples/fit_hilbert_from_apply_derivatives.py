@@ -61,7 +61,7 @@ import time
 import numpy as np
 
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.basis_variations_format as bvf
+import t3toolbox.frame_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.probe_derivatives as pd
 

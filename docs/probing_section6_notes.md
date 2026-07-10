@@ -67,8 +67,8 @@ dual-use (manifold vs corewise) by substitution.
    "Formula (34)/(36)/(38)/(40)/(41)/(43)–(46)" — earlier-draft numbering. Current paper:
    **Section 6.2, Figure 7, Algorithms 5–8**. (Same kind of cross-ref pass we did for manifold.)
 2. **Base-core ordering**: `probe_tangent`/`probe_tangent_transpose` take
-   `base = (up, left, right, outer) = (U,P,Q,O)`, but `T3Basis.data = (up, down, left, right) =
-   (U,O,P,Q)`. Same reorder mismatch as manifold.py; not yet wired to `T3Basis`/`T3Tangent`.
+   `base = (up, left, right, outer) = (U,P,Q,O)`, but `T3Frame.data = (up, down, left, right) =
+   (U,O,P,Q)`. Same reorder mismatch as manifold.py; not yet wired to `T3Frame`/`T3Tangent`.
 3. **Factorization not assembled**: `probe_tangent` is `𝒥⁽ˢ⁾`, `orthogonal_gauge_projection` is `Π`,
    but the Riemannian `J = 𝒥∘Π` / `Jᵀ = Π∘𝒥ᵀ` aren't composed into a single callable yet.
 4. **Base edge-var caching**: `ξ̂,μ̂,ν̂,η̂` depend on `(p,s)` not on the tangent vector → can be

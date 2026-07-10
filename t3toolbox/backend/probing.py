@@ -549,7 +549,7 @@ def probe_jacobian_from_sweep(
         base:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = T3Basis.data = (U, O, P, Q)
+        ],                                  # = T3Frame.data = (U, O, P, Q)
         base_sweep: typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
@@ -602,7 +602,7 @@ def probe_tangent(
                 NDArray,  # left_tt_supercore.   shape=(d, rL, nU, rR), left orthogonal elements
                 NDArray,  # right_tt_supercore.  shape=(d, rL, nU, rR), right orthogonal elements
             ],
-        ], # base order = T3Basis.data = (up, down, left, right) = (U, O, P, Q)
+        ], # base order = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,Ni)
     '''Probe a tangent vector. Applies the (single-sample) least-squares Jacobian J^(s).
 
@@ -625,7 +625,7 @@ def probe_tangent(
         Tangent direction, as a (tucker_variations, tt_variations) data tuple.
     base: (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
         Orthogonal base for the point where the tangent space attaches to the manifold. This is
-        exactly ``T3Basis.data`` order (U, O, P, Q) -- pass ``basis.data`` directly, no reorder.
+        exactly ``T3Frame.data`` order (U, O, P, Q) -- pass ``frame.data`` directly, no reorder.
 
     Returns
     -------
@@ -649,13 +649,13 @@ def probe_tangent(
 
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.basis_variations_format as bvf
+    >>> import t3toolbox.frame_variations_format as bvf
     >>> import t3toolbox.manifold as t3m
     >>> import t3toolbox.backend.probing as t3p
     >>> np.random.seed(0)
     >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
     >>> base, variations = bvf.t3_orthogonal_representations(x)
-    >>> probe_base = base.data  # probing's base order == T3Basis.data, no reorder
+    >>> probe_base = base.data  # probing's base order == T3Frame.data, no reorder
     >>> v = t3m.T3Tangent(base, variations)
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> zz = t3p.probe_tangent(ww, variations.data, probe_base)
@@ -669,7 +669,7 @@ def probe_tangent(
 
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.basis_variations_format as bvf
+    >>> import t3toolbox.frame_variations_format as bvf
     >>> import t3toolbox.manifold as t3m
     >>> import t3toolbox.backend.probing as t3p
     >>> np.random.seed(0)
@@ -786,7 +786,7 @@ def precompute_apply_base_sweep(
             typ.Sequence[NDArray],          # down_tt_cores    O. len=d
             typ.Sequence[NDArray],          # left_tt_cores    P. len=d
             typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
-        ],                                  # base order = T3Basis.data = (up, down, left, right)
+        ],                                  # base order = T3Frame.data = (up, down, left, right)
         ww:     typ.Sequence[NDArray],      # apply vectors, len=d, elm_shape=W+(Ni,)
 ) -> typ.Tuple[
     typ.Sequence[NDArray],  # xis. len=d, elm_shape=W+C+(nUi,)
@@ -821,7 +821,7 @@ def precompute_probe_base_sweep(
             typ.Sequence[NDArray],          # down_tt_cores    O. len=d
             typ.Sequence[NDArray],          # left_tt_cores    P. len=d
             typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
-        ],                                  # base order = T3Basis.data = (up, down, left, right)
+        ],                                  # base order = T3Frame.data = (up, down, left, right)
         ww:     typ.Sequence[NDArray],      # probe vectors, len=d, elm_shape=W+(Ni,)
 ) -> typ.Tuple[
     typ.Sequence[NDArray],  # xis.  len=d, elm_shape=W+C+(nUi,)
@@ -861,7 +861,7 @@ def apply_jacobian_from_sweep(
             typ.Sequence[NDArray],          # down_tt_cores    O. len=d
             typ.Sequence[NDArray],          # left_tt_cores    P. len=d  (unused)
             typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
-        ],                                  # base order = T3Basis.data = (up, down, left, right)
+        ],                                  # base order = T3Frame.data = (up, down, left, right)
         base_sweep: typ.Tuple[
             typ.Sequence[NDArray],          # xis
             typ.Sequence[NDArray],          # mus
@@ -895,7 +895,7 @@ def apply_tangent(
             typ.Sequence[NDArray],          # down_tt_cores    O. len=d
             typ.Sequence[NDArray],          # left_tt_cores    P. len=d
             typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
-        ],                                  # base order = T3Basis.data = (up, down, left, right)
+        ],                                  # base order = T3Frame.data = (up, down, left, right)
 ) -> NDArray:                               # the scalar apply(v, ww), one per stack element; shape = W + K + C
     '''Apply a tangent vector in all modes: contract the dense tangent with ``ww`` in every index.
 
@@ -924,7 +924,7 @@ def precompute_entries_base_sweep(
             typ.Sequence[NDArray],          # down_tt_cores    O. len=d
             typ.Sequence[NDArray],          # left_tt_cores    P. len=d
             typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
-        ],                                  # base order = T3Basis.data = (up, down, left, right)
+        ],                                  # base order = T3Frame.data = (up, down, left, right)
         index:  NDArray,                    # int, shape=(d,)+W -- the grid points
 ) -> typ.Tuple[
     typ.Sequence[NDArray],  # xis. len=d, elm_shape=W+C+(nUi,) -- the FIBER-SLICED seed (not contracted)
@@ -957,7 +957,7 @@ def entries_jacobian_from_sweep(
         base:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = T3Basis.data = (U, O, P, Q); uses Q (right) and O (down)
+        ],                                  # = T3Frame.data = (U, O, P, Q); uses Q (right) and O (down)
         base_sweep: typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = precompute_entries_base_sweep(base, index)  (lean)
@@ -1101,7 +1101,7 @@ def apply_transpose_from_sweep(
             typ.Sequence[NDArray],          # down_tt_cores    O. len=d
             typ.Sequence[NDArray],          # left_tt_cores    P. len=d  (unused)
             typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
-        ],                                  # base order = T3Basis.data = (up, down, left, right)
+        ],                                  # base order = T3Frame.data = (up, down, left, right)
         base_sweep: typ.Tuple[
             typ.Sequence[NDArray],          # xis
             typ.Sequence[NDArray],          # mus
@@ -1154,7 +1154,7 @@ def entries_transpose_from_sweep(
         base:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = T3Basis.data = (U, O, P, Q); uses U (one-hot), O, Q
+        ],                                  # = T3Frame.data = (U, O, P, Q); uses U (one-hot), O, Q
         base_sweep: typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = precompute_entries_base_sweep(base, index)  (lean: no nu/eta)
@@ -1525,7 +1525,7 @@ def probe_transpose_from_sweep(
         base:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = T3Basis.data = (U, O, P, Q)
+        ],                                  # = T3Frame.data = (U, O, P, Q)
         base_sweep: typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
@@ -1572,7 +1572,7 @@ def probe_tangent_transpose(
                 NDArray,  # left_tt_supercore.   shape=(d, rL, nU, rR), left orthogonal elements
                 NDArray,  # right_tt_supercore.  shape=(d, rL, nU, rR), right orthogonal elements
             ],
-        ], # base order = T3Basis.data = (up, down, left, right) = (U, O, P, Q)
+        ], # base order = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
         sum_over_probes: bool = False,
 ) -> typ.Union[
     typ.Tuple[
@@ -1607,7 +1607,7 @@ def probe_tangent_transpose(
         input vectors that defined the (forward) probe map. len=d, elm_shape=(...,Ni)
     base: (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
         Orthogonal base for the point where the tangent space attaches to the manifold. This is
-        exactly ``T3Basis.data`` order (U, O, P, Q) -- pass ``basis.data`` directly, no reorder.
+        exactly ``T3Frame.data`` order (U, O, P, Q) -- pass ``frame.data`` directly, no reorder.
     sum_over_probes: bool
         Sum results over all probe residuals, rather than returning results for each probe residual.
 
@@ -1629,13 +1629,13 @@ def probe_tangent_transpose(
     >>> import numpy as np
     >>> import t3toolbox.corewise as cw
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.basis_variations_format as bvf
+    >>> import t3toolbox.frame_variations_format as bvf
     >>> import t3toolbox.manifold as t3m
     >>> import t3toolbox.backend.probing as t3p
     >>> np.random.seed(0)
     >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
     >>> base, _ = bvf.t3_orthogonal_representations(x)
-    >>> probe_base = base.data  # probing's base order == T3Basis.data, no reorder
+    >>> probe_base = base.data  # probing's base order == T3Frame.data, no reorder
     >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> v = t3m.MANIFOLD.randn(base)
     >>> z = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
@@ -1652,7 +1652,7 @@ def probe_tangent_transpose(
     >>> import numpy as np
     >>> import t3toolbox.corewise as cw
     >>> import t3toolbox.tucker_tensor_train as t3
-    >>> import t3toolbox.basis_variations_format as bvf
+    >>> import t3toolbox.frame_variations_format as bvf
     >>> import t3toolbox.manifold as t3m
     >>> import t3toolbox.backend.probing as t3p
     >>> np.random.seed(0)

@@ -1,7 +1,7 @@
 """Fit a Tucker tensor train to sampled "apply" probes of a Hilbert tensor.
 
 A worked example of Riemannian fixed-rank optimization with the *verified ragged* modules of
-T3Toolbox (``tucker_tensor_train``, ``basis_variations_format``, ``manifold`` + their backends).
+T3Toolbox (``tucker_tensor_train``, ``frame_variations_format``, ``manifold`` + their backends).
 
 The problem
 -----------
@@ -31,7 +31,7 @@ We fit a ``TuckerTensorTrain`` ``X`` of fixed rank by minimizing the training mi
 
 over the fixed-rank manifold, with **Riemannian inexact Newton-CG and an Armijo line search**:
 
-  * the orthogonal frame at ``X`` comes from ``t3_orthogonal_representations`` (a ``T3Basis``);
+  * the orthogonal frame at ``X`` comes from ``t3_orthogonal_representations`` (a ``T3Frame``);
   * the gradient and the Gauss-Newton Hessian-vector product come from a ``fitting.apply_model``
     built once per Newton step at the frame: ``model.gradient`` (the Riemannian ``Pi J^T r``) and
     ``model.gn_hessian(V)`` (``Pi J^T J Pi V``, symmetric PSD). The model **precomputes the base sweep
@@ -144,7 +144,7 @@ def apply_operator(ww):
 # Riemannian inexact Newton-CG with Armijo line search
 # --------------------------------------------------------------------------------------------------
 def _tangent_cg(H, rhs, base, tol, maxiter):
-    """Solve H x = rhs in the tangent space at ``base`` (all iterates share the one T3Basis object).
+    """Solve H x = rhs in the tangent space at ``base`` (all iterates share the one T3Frame object).
 
     H is symmetric positive-semidefinite (Gauss-Newton), so plain CG is safe; we stop early on the
     forcing-term tolerance ``tol`` (the "inexact" Newton solve)."""

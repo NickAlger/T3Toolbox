@@ -141,7 +141,7 @@ def uniform_t3_svd(
         skip_orthogonalization: bool = False,  # assume input already right-orthogonal (Tucker down + TT right)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, NDArray],  # (tucker_supercore, tt_supercore) at the INPUT padded (n, r)
-    NDArray,  # basis_singular_values, shape=(d,)+stack+(n,)
+    NDArray,  # frame_singular_values, shape=(d,)+stack+(n,)
     NDArray,  # tt_singular_values,    shape=(d+1,)+stack+(r,)
 ]:
     """The T3-SVD sweep: orthogonalize, then a left-to-right scan that SVDs each Tucker/TT edge, pads the
@@ -155,26 +155,26 @@ def uniform_t3_svd(
     use_jax = tree_contains_jax(cores)
     xnp, _, xscan = get_backend(True, use_jax)
 
-    basis_supercore, tt_supercore = cores
-    basis_masks, tt_masks = rank_truncation_masks
-    ut3_masking.require_concrete_masks(basis_masks, tt_masks)  # masks (constant operands) are host
+    frame_supercore, tt_supercore = cores
+    frame_masks, tt_masks = rank_truncation_masks
+    ut3_masking.require_concrete_masks(frame_masks, tt_masks)  # masks (constant operands) are host
 
     if squash_tails_first:
         tt_supercore = ut3_operations.uniform_squash_tt_tails(tt_supercore)
 
-    d = basis_supercore.shape[0]
-    stack_shape = basis_supercore.shape[1:-2]
-    n, N = basis_supercore.shape[-2:]
+    d = frame_supercore.shape[0]
+    stack_shape = frame_supercore.shape[1:-2]
+    n, N = frame_supercore.shape[-2:]
     r = tt_supercore.shape[-1]
 
     if not skip_orthogonalization:
-        basis_supercore, tt_supercore = ut3_orthogonalization.down_orthogonalize_tucker_supercores(
-            basis_supercore, tt_supercore)
+        frame_supercore, tt_supercore = ut3_orthogonalization.down_orthogonalize_tucker_supercores(
+            frame_supercore, tt_supercore)
         tt_supercore = orth.right_orthogonalize_tt_cores(tt_supercore)
 
     # keep everything the same shape, for consistency with masks
-    n2 = basis_supercore.shape[-2]
-    basis_supercore = xnp.concatenate([basis_supercore, xnp.zeros((d,) + stack_shape + (n - n2, N))], axis=-2)
+    n2 = frame_supercore.shape[-2]
+    frame_supercore = xnp.concatenate([frame_supercore, xnp.zeros((d,) + stack_shape + (n - n2, N))], axis=-2)
     tt_supercore = xnp.concatenate([tt_supercore, xnp.zeros((d,) + stack_shape + (r, n - n2, r))], axis=-2)
 
     _, ss_tt00, _ = xnp.linalg.svd(tt_supercore[0].reshape(stack_shape + (r, n * r)), full_matrices=False)
@@ -183,22 +183,22 @@ def uniform_t3_svd(
 
     def _step(carry, x):
         Y = carry  # (r, r)
-        B, G, basis_mask, tt_mask_i = x
+        B, G, frame_mask, tt_mask_i = x
 
         G = xnp.einsum('...ij,...jak->...iak', Y, G)
         M = G.swapaxes(-2, -1).reshape(stack_shape + (r * r, n))
-        U, ss_basis, Vt = xnp.linalg.svd(M, full_matrices=False)
-        nb = ss_basis.shape[-1]
+        U, ss_frame, Vt = xnp.linalg.svd(M, full_matrices=False)
+        nb = ss_frame.shape[-1]
         U = xnp.concatenate([U, xnp.zeros(stack_shape + (r * r, n - nb))], axis=-1)
-        ss_basis = xnp.concatenate([ss_basis, xnp.zeros(stack_shape + (n - nb,))], axis=-1)
+        ss_frame = xnp.concatenate([ss_frame, xnp.zeros(stack_shape + (n - nb,))], axis=-1)
         Vt = xnp.concatenate([Vt, xnp.zeros(stack_shape + (n - nb, n))], axis=-2)
-        U = U * basis_mask.reshape(stack_shape + (1, -1))
-        ss_basis = ss_basis * basis_mask
-        Vt = Vt * basis_mask.reshape(stack_shape + (-1, 1))
+        U = U * frame_mask.reshape(stack_shape + (1, -1))
+        ss_frame = ss_frame * frame_mask
+        Vt = Vt * frame_mask.reshape(stack_shape + (-1, 1))
 
         new_B = xnp.einsum('...ij,...jk->...ik', Vt, B)
 
-        M = xnp.einsum('...ij,...j->...ij', U, ss_basis).reshape(
+        M = xnp.einsum('...ij,...j->...ij', U, ss_frame).reshape(
             stack_shape + (r, r, n)).swapaxes(-1, -2).reshape(stack_shape + (r * n, r))
         U, ss_tt, Vt = xnp.linalg.svd(M, full_matrices=False)
         U = U * tt_mask_i.reshape(stack_shape + (1, -1))
@@ -207,17 +207,17 @@ def uniform_t3_svd(
 
         new_G = U.reshape(stack_shape + (r, n, r))
         Y_next = xnp.einsum('...i,...ij->...ij', ss_tt, Vt)
-        return Y_next, (new_B, new_G, ss_basis, ss_tt)
+        return Y_next, (new_B, new_G, ss_frame, ss_tt)
 
     Y0 = xnp.eye(r)
     if stack_shape:
         Y0 = xnp.tensordot(xnp.ones(stack_shape), Y0, axes=[(), ()])
 
-    Yf, (new_basis_cores, new_tt_cores, basis_singular_values, tt_singular_values0) = xscan(
-        _step, Y0, (basis_supercore, tt_supercore, basis_masks, tt_masks[1:]))
+    Yf, (new_frame_cores, new_tt_cores, frame_singular_values, tt_singular_values0) = xscan(
+        _step, Y0, (frame_supercore, tt_supercore, frame_masks, tt_masks[1:]))
 
     G_last = xnp.einsum('d...iaj,...jk->d...iak', new_tt_cores[-1:], Yf)
     new_tt_cores = xnp.concatenate([new_tt_cores[:-1], G_last], axis=0)
 
     tt_singular_values = xnp.concatenate([ss_tt0.reshape((1,) + stack_shape + (r,)), tt_singular_values0], axis=0)
-    return (new_basis_cores, new_tt_cores), basis_singular_values, tt_singular_values
+    return (new_frame_cores, new_tt_cores), frame_singular_values, tt_singular_values

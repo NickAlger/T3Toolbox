@@ -128,8 +128,8 @@ form the count suffices.)
 
 Everything above describes **tensor algebra** on a `UniformTuckerTensorTrain`: addition is the direct
 sum (⊕), multiplication the Kronecker product (⊗), and the masks *concatenate* / *Kronecker* precisely
-because the ranks genuinely change. The **basis-variations / tangent layer** (`UT3Variations`, and the
-tangent space of a `UT3Basis`) runs a **different algebra**, and the mask behavior is different —
+because the ranks genuinely change. The **frame-variations / tangent layer** (`UT3Variations`, and the
+tangent space of a `UT3Frame`) runs a **different algebra**, and the mask behavior is different —
 **identical, not combined.**
 
 A variation is a **tangent vector**: a point in the fixed-dimensional tangent space `T_B` at a base
@@ -148,7 +148,7 @@ The ⊕/⊗ closure argument above is about *tensors*; the tangent algebra never
 
 **Consequence — why the masks-as-`aux_data` worry does not bite here.** Because add/sub/scale **do not
 change the mask**, they create no new static structure: no fresh jit cache key, no recompile, and the
-result still pairs with its base (`check_ubv_pair`) since two tangents at one base share that base's
+result still pairs with its base (`check_ufv_pair`) since two tangents at one base share that base's
 mask. Mask *changes* are confined to the tensor layer — where a rank change is a real new structure, and
 `ValueHashedMasks` keeps a rebuilt-but-identical mask from recompiling anyway (see
 `uniform_pytree_composition.md`).

@@ -5,7 +5,7 @@ import numpy as np
 import unittest
 
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.basis_variations_format as bvf
+import t3toolbox.frame_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.corewise as cw
 import t3toolbox.safety as safety
@@ -32,11 +32,11 @@ def _random_tangent(t3_structure, stack_shape=()):
     return t3m.T3Tangent(base, _random_variations(base))
 
 
-def _slice_basis(base, idx):
-    """The unstacked T3Basis at stack index ``idx`` (idx=() returns the whole base)."""
+def _slice_frame(base, idx):
+    """The unstacked T3Frame at stack index ``idx`` (idx=() returns the whole base)."""
     s = lambda C: np.asarray(C)[idx]
     up, down, left, right = base.data
-    return bvf.T3Basis(tuple(map(s, up)), tuple(map(s, down)), tuple(map(s, left)), tuple(map(s, right)))
+    return bvf.T3Frame(tuple(map(s, up)), tuple(map(s, down)), tuple(map(s, left)), tuple(map(s, right)))
 
 
 def _slice_t3(x, idx):
@@ -47,15 +47,15 @@ def _slice_t3(x, idx):
 
 
 def _slice_tangent(base, var, idx, n_base):
-    """The unstacked (basis, variation) tangent at full K+C index ``idx``.
+    """The unstacked (frame, variation) tangent at full K+C index ``idx``.
 
-    The base point is shared across the tangent stack K: the basis is sliced at the trailing C part
+    The base point is shared across the tangent stack K: the frame is sliced at the trailing C part
     of ``idx`` while the variation is sliced at the full ``idx``.
     """
     g_idx = idx[len(idx) - n_base:] if n_base > 0 else ()
     sV = lambda C: np.asarray(C)[idx]
     vslice = bvf.T3Variations(tuple(map(sV, var.tucker_variations)), tuple(map(sV, var.tt_variations)))
-    return t3m.T3Tangent(_slice_basis(base, g_idx), vslice)
+    return t3m.T3Tangent(_slice_frame(base, g_idx), vslice)
 
 
 def _tree_get(tree, idx):
@@ -105,15 +105,15 @@ class TestManifold(unittest.TestCase):
                 base, _ = bvf.t3_orthogonal_representations(x)
                 v = t3m.COREWISE.randn(base, stack_shape=K)
                 self.assertEqual(int(np.prod(STRUCT[0])), v.size)                 # dense element count
-                self.assertEqual(v.basis.data_size + v.variations.data_size, v.data_size)
-                self.assertEqual(base.minimal_ranks, v.minimal_ranks)            # delegates to basis
+                self.assertEqual(v.frame.data_size + v.variations.data_size, v.data_size)
+                self.assertEqual(base.minimal_ranks, v.minimal_ranks)            # delegates to frame
                 self.assertEqual(t3m.manifold_dim((base.shape, base.up_ranks, base.left_ranks)),
                                  v.tangent_space_dimension)
                 cp = v.copy(); cp.variations.tucker_variations[0][...] = 9.0      # copy is independent
                 self.assertFalse(np.allclose(np.asarray(v.variations.tucker_variations[0]), 9.0))
                 self.assertIn("T3Tangent", repr(v)); self.assertNotIn("array", repr(v))
                 v.validate()   # valid tangent; also runs in __post_init__
-        # __post_init__ validate rejects an incompatible (basis, variations) pair
+        # __post_init__ validate rejects an incompatible (frame, variations) pair
         b1, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STRUCT))
         _, var2 = bvf.t3_orthogonal_representations(
             t3.TuckerTensorTrain.randn((5, 6, 4), (3, 3, 3), (1, 2, 2, 1)))
@@ -132,7 +132,7 @@ class TestManifold(unittest.TestCase):
         v = t3m.MANIFOLD.random_orthogonal(*STRUCT, stack_shape=(2,), tangent_stack_shape=(3,))
         self.assertEqual(((2,), (3,)), (v.base_stack_shape, v.tangent_stack_shape))
         self.assertTrue(v.is_orthogonal().all() and v.is_gauged().all())                   # gauged by default
-        base = bvf.T3Basis.random_orthogonal(*STRUCT)
+        base = bvf.T3Frame.random_orthogonal(*STRUCT)
         u = t3m.T3Tangent.unit(base, (True, 1, (0, 1, 0)))
         self.assertEqual(1, sum(int(np.count_nonzero(np.asarray(c)))
                                 for c in u.variations.tucker_variations + u.variations.tt_variations))
@@ -144,28 +144,28 @@ class TestManifold(unittest.TestCase):
 
     def test_to_from_vector(self):
         # T3Tangent.to_vector (variation DOF only) / from_vector round-trip.
-        base = bvf.T3Basis.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
+        base = bvf.T3Frame.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
         v = t3m.COREWISE.randn(base, stack_shape=(3,))
         flat = v.to_vector()
-        self.assertEqual((v.variations.data_size,), flat.shape)   # variation DOF; basis excluded
+        self.assertEqual((v.variations.data_size,), flat.shape)   # variation DOF; frame excluded
         v2 = t3m.T3Tangent.from_vector(flat, base, tangent_stack_shape=(3,))
         self.assertEqual(0.0, cw.corewise_relerr(v.variations.data, v2.variations.data))
 
     def test_save_load(self):
         import tempfile, os
-        base = bvf.T3Basis.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))
+        base = bvf.T3Frame.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1), stack_shape=(2,))
         v = t3m.COREWISE.randn(base, stack_shape=(3,))
         f = os.path.join(tempfile.mkdtemp(), 't.npz'); v.save(f)
         v2 = t3m.T3Tangent.load(f)
         self.assertEqual(0.0, cw.corewise_relerr(v.variations.data, v2.variations.data))
-        self.assertEqual(0.0, cw.corewise_relerr(v.basis.data, v2.basis.data))
+        self.assertEqual(0.0, cw.corewise_relerr(v.frame.data, v2.frame.data))
 
     def test_reverse(self):
         # T3Tangent.reverse commutes with to_dense (mode axes reversed); reverse is an involution.
         STRUCT = ((5, 6, 4), (2, 3, 2), (1, 2, 2, 1)); d = 3
         for C in [(), (2,)]:
             for K in [(), (3,)]:
-                base = bvf.T3Basis.random_orthogonal(*STRUCT, stack_shape=C)
+                base = bvf.T3Frame.random_orthogonal(*STRUCT, stack_shape=C)
                 v = t3m.COREWISE.randn(base, stack_shape=K)
                 D = np.asarray(v.to_dense()); ns = D.ndim - d
                 perm = tuple(range(ns)) + tuple(range(D.ndim - 1, ns - 1, -1))
@@ -174,7 +174,7 @@ class TestManifold(unittest.TestCase):
 
     def test_sum_tangents(self):
         # Summing over the tangent stack K commutes with to_dense (= the tensor sum, by linearity).
-        base = bvf.T3Basis.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
+        base = bvf.T3Frame.random_orthogonal((5, 6, 4), (2, 3, 2), (1, 2, 2, 1))
         v = t3m.COREWISE.randn(base, stack_shape=(3,))
         self.check_relerr(np.sum(np.asarray(v.to_dense()), axis=0), np.asarray(v.sum_tangents().to_dense()))
         self.assertEqual((), v.sum_tangents().tangent_stack_shape)
@@ -241,7 +241,7 @@ class TestManifold(unittest.TestCase):
         # (the jit-round-trip property), a genuinely different frame raises, and safety.unsafe() skips it.
         x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
         base_a, _ = bvf.t3_orthogonal_representations(x)
-        base_b = bvf.T3Basis(*base_a.data)               # value-equal cores, DIFFERENT object (jit round-trip)
+        base_b = bvf.T3Frame(*base_a.data)               # value-equal cores, DIFFERENT object (jit round-trip)
         va = t3m.T3Tangent(base_a, _random_variations(base_a))
         vb = t3m.T3Tangent(base_b, _random_variations(base_b))
         _ = va + t3m.T3Tangent(base_a, _random_variations(base_a))   # same object: OK
@@ -263,7 +263,7 @@ class TestManifold(unittest.TestCase):
         x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
         base_orth, _ = bvf.t3_orthogonal_representations(x)
         bad_cores = tuple(tuple(c + 0.3 * np.random.randn(*c.shape) for c in grp) for grp in base_orth.data)
-        base_bad = bvf.T3Basis(*bad_cores)
+        base_bad = bvf.T3Frame(*bad_cores)
         self.assertTrue(base_orth.is_orthogonal().all())
         self.assertFalse(base_bad.is_orthogonal().all())
 
@@ -324,7 +324,7 @@ class TestManifold(unittest.TestCase):
         self.assertTrue(t3m.T3Tangent.zeros(base).is_gauged().all())
 
     # ``stack_shapes`` for the two-axis stacking tests: (base_stack C, tangent_stack K) pairs.
-    bv_stack_shapes = [((), (3,)), ((2,), (3,)), ((2,), ()), ((2,), (2, 2)), ((2, 3), (2,))]
+    fv_stack_shapes = [((), (3,)), ((2,), (3,)), ((2,), ()), ((2,), (2, 2)), ((2, 3), (2,))]
 
     def _random_v_stacked(self, struct, base_stack, V):
         x = t3.TuckerTensorTrain.randn(*struct, stack_shape=base_stack)
@@ -333,9 +333,9 @@ class TestManifold(unittest.TestCase):
 
     def test_unstack_stack_tangents(self):
         # unstack_tangents peels the tangent stack K -> a K-shaped tree of tangents that SHARE the
-        # base (same T3Basis object, one tangent space). stack_tangents inverts it.
+        # base (same T3Frame object, one tangent space). stack_tangents inverts it.
         STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
-        for BASE_STACK, V in self.bv_stack_shapes:
+        for BASE_STACK, V in self.fv_stack_shapes:
             with self.subTest(BASE_STACK=BASE_STACK, V=V):
                 v = self._random_v_stacked(STRUCT, BASE_STACK, V)
                 dense = np.asarray(v.to_dense())  # K + C + (N...)
@@ -343,26 +343,26 @@ class TestManifold(unittest.TestCase):
 
                 for vidx in np.ndindex(*V):
                     leaf = _tree_get(tree, vidx)
-                    self.assertIs(leaf.basis, v.basis)  # shared base object
+                    self.assertIs(leaf.frame, v.frame)  # shared base object
                     self.assertEqual((), leaf.tangent_stack_shape)
                     self.assertEqual(BASE_STACK, leaf.base_stack_shape)
                     self.check_relerr(dense[vidx], leaf.to_dense())  # slice the leading V axes
 
                 rt = t3m.T3Tangent.stack_tangents(tree)  # round-trip
-                self.assertIs(rt.basis, v.basis)
+                self.assertIs(rt.frame, v.frame)
                 self.assertEqual(V, rt.tangent_stack_shape)
                 self.check_relerr(dense, rt.to_dense())
 
-    def test_unstack_stack_basis(self):
-        # unstack_basis peels the base stack C -> a C-shaped tree of single-base-point tangents (each
-        # at a DIFFERENT base point, still carrying its K batch). stack_basis inverts it.
+    def test_unstack_stack_frame(self):
+        # unstack_frame peels the base stack C -> a C-shaped tree of single-base-point tangents (each
+        # at a DIFFERENT base point, still carrying its K batch). stack_frame inverts it.
         STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
-        for BASE_STACK, V in self.bv_stack_shapes:
+        for BASE_STACK, V in self.fv_stack_shapes:
             with self.subTest(BASE_STACK=BASE_STACK, V=V):
                 v = self._random_v_stacked(STRUCT, BASE_STACK, V)
                 dense = np.asarray(v.to_dense())  # K + C + (N...)
                 nV = len(V)
-                tree = v.unstack_basis()
+                tree = v.unstack_frame()
 
                 for gidx in np.ndindex(*BASE_STACK):
                     leaf = _tree_get(tree, gidx)
@@ -371,7 +371,7 @@ class TestManifold(unittest.TestCase):
                     ref = dense[(slice(None),) * nV + gidx]  # slice the interior C axes
                     self.check_relerr(ref, leaf.to_dense())
 
-                rt = t3m.T3Tangent.stack_basis(tree)  # round-trip
+                rt = t3m.T3Tangent.stack_frame(tree)  # round-trip
                 self.assertEqual(BASE_STACK, rt.base_stack_shape)
                 self.assertEqual(V, rt.tangent_stack_shape)
                 self.check_relerr(dense, rt.to_dense())
@@ -381,7 +381,7 @@ class TestManifold(unittest.TestCase):
         # a genuinely different frame raises.
         x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
         base_a, _ = bvf.t3_orthogonal_representations(x)
-        base_b = bvf.T3Basis(*base_a.data)               # value-equal, different object
+        base_b = bvf.T3Frame(*base_a.data)               # value-equal, different object
         ta, ta2 = t3m.COREWISE.randn(base_a), t3m.COREWISE.randn(base_a)
         tb = t3m.COREWISE.randn(base_b)
 
@@ -806,7 +806,7 @@ class TestManifold(unittest.TestCase):
                 n_base = len(BASE_STACK)
                 for idx in np.ndindex(*full):
                     g_idx = idx[len(idx) - n_base:] if n_base > 0 else ()
-                    ref = t3m.MANIFOLD.project_ambient(_slice_basis(base, g_idx), _slice_t3(x, idx))
+                    ref = t3m.MANIFOLD.project_ambient(_slice_frame(base, g_idx), _slice_t3(x, idx))
                     self.check_relerr(ref.to_dense(), proj_dense[idx])
 
     def test_normalized(self):
@@ -848,7 +848,7 @@ class TestManifold(unittest.TestCase):
         F2.validate()
         self.assertEqual((2,), F2.stack_shape)
         for i in range(2):
-            Pri = _dense_tangent_projector(_slice_basis(base2, (i,)))
+            Pri = _dense_tangent_projector(_slice_frame(base2, (i,)))
             self.check_relerr((Pri @ Z2[i].reshape(-1)).reshape(STR_P[0]), np.asarray(F2.to_dense())[i])
 
         # both methods ('contraction' default, 't3svd') give the same projection.
@@ -861,7 +861,7 @@ class TestManifold(unittest.TestCase):
         # NON-minimal orthogonal base: still matches (orthogonality is required, minimal rank is NOT).
         x_pad = t3.TuckerTensorTrain.randn(STR_P[0], (2, 2, 2), (1, 2, 2, 1)).resize(
             new_shape=STR_P[0], new_tucker_ranks=(3, 4, 2), new_tt_ranks=(1, 3, 3, 1))
-        base_nm = bvf.T3Basis.from_t3(x_pad)
+        base_nm = bvf.T3Frame.from_t3(x_pad)
         self.assertFalse(base_nm.has_minimal_ranks)
         self.assertTrue(base_nm.is_orthogonal().all())
         # reference: orthonormal projector onto the span of all dense unit tangents (any rank).
@@ -901,14 +901,14 @@ class TestManifold(unittest.TestCase):
         Pr_new = _dense_tangent_projector(new_base)
         vt = t3m.MANIFOLD.transport(v, new_base)
         vt.validate()
-        self.assertIs(new_base, vt.basis)
+        self.assertIs(new_base, vt.frame)
         self.assertTrue(vt.is_gauged().all())
         self.check_relerr((Pr_new @ np.asarray(v.to_dense()).reshape(-1)).reshape(STR[0]), vt.to_dense())
 
 
     def test_derivative_methods(self):
         # T3Tangent.{probe,apply,entries}_derivatives + their transposes: order-0 == the plain op,
-        # the transpose returns a T3Tangent at the same basis satisfying the adjoint identity, and the
+        # the transpose returns a T3Tangent at the same frame satisfying the adjoint identity, and the
         # X/P sample-stack consistency check is a hard error.
         STR = ((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
         shapes = STR[0]
@@ -926,7 +926,7 @@ class TestManifold(unittest.TestCase):
         self.check_relerr(np.asarray(v.apply(ww)), np.asarray(v.apply_derivatives(ww, pp, ORDER))[0])
         self.check_relerr(np.asarray(v.entries(index)), np.asarray(v.entries_derivatives(index, pp, ORDER))[0])
 
-        # tangent transpose: returns a T3Tangent at the same basis; adjoint identity <r, J v> = <J^T r, v>
+        # tangent transpose: returns a T3Tangent at the same frame; adjoint identity <r, J v> = <J^T r, v>
         for kind in ['probe', 'apply', 'entries']:
             if kind == 'probe':
                 Jv = v.probe_derivatives(ww, pp, ORDER)
@@ -943,7 +943,7 @@ class TestManifold(unittest.TestCase):
                 r = np.random.randn(*np.asarray(Jv).shape)
                 JTr = t3m.T3Tangent.entries_derivatives_transpose(r, index, pp, base, ORDER, sum_over_probes=True)
                 lhs = float(np.sum(r * np.asarray(Jv)))
-            self.assertIs(base, JTr.basis)
+            self.assertIs(base, JTr.frame)
             self.assertLessEqual(abs(lhs - float(JTr.corewise_inner(v))) / abs(lhs), 1e-9)
 
         # X/P sample-stack consistency: hard error

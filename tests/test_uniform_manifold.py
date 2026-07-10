@@ -16,12 +16,12 @@ import numpy as np
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform_tucker_tensor_train as ut3
-import t3toolbox.uniform_basis_variations_format as ubv
+import t3toolbox.uniform_frame_variations_format as ubv
 import t3toolbox.uniform_manifold as ut3m
-import t3toolbox.basis_variations_format as bvf
+import t3toolbox.frame_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.safety as safety
-import t3toolbox.backend.ubv_tangent_operations as ubto
+import t3toolbox.backend.ufv_tangent_operations as ubto
 
 try:
     import jax
@@ -38,13 +38,13 @@ def _uniform_base(x):
     return ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
 
 
-def _K_variations(basis, K, seed=0):
-    """A random K-stacked variation at ``basis``: stack K + C, the base's gauge masks broadcast along K."""
+def _K_variations(frame, K, seed=0):
+    """A random K-stacked variation at ``frame``: stack K + C, the base's gauge masks broadcast along K."""
     np.random.seed(seed)
-    gauge = ubv.UT3Variations._variation_masks_of(basis)
+    gauge = ubv.UT3Variations._variation_masks_of(frame)
     masks = ut3m._broadcast_variation_masks_over_K(gauge, K)
-    return ubv.UT3Variations.randn(basis.uniform_variation_shapes, basis.shape,
-                                   stack_shape=tuple(K) + basis.stack_shape, masks=masks)
+    return ubv.UT3Variations.randn(frame.uniform_variation_shapes, frame.shape,
+                                   stack_shape=tuple(K) + frame.stack_shape, masks=masks)
 
 
 _HETERO = [((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)),     # two models of DIFFERENT base ranks (rank-sweep),
@@ -60,7 +60,7 @@ def _hetero_tangents(seed=0):
     for s in _HETERO:
         x = t3.TuckerTensorTrain.randn(*s)
         rb, rv = bvf.t3_orthogonal_representations(x)
-        ub = ubv.UT3Basis.from_t3basis(rb, **_HETERO_PAD)
+        ub = ubv.UT3Frame.from_t3frame(rb, **_HETERO_PAD)
         uv = ubv.UT3Variations.from_t3variations(rv, **_HETERO_PAD)
         us.append(ut3m.UT3Tangent(ub, uv))
         rs.append(t3m.T3Tangent(rb, rv))
@@ -71,7 +71,7 @@ def _hetero_tangents(seed=0):
 # Forced padding STRICTLY above the real max ranks of _STRUCT (nU=3, nD<=4, rL=rR=2; N=6) so EVERY core
 # has a padded region (default from_t3 pads to max(ranks), leaving the max-rank core unpadded).
 _PAD_T3   = dict(N=8, n=5, r=4)                                  # UniformTuckerTensorTrain.from_t3
-_PAD_BV   = dict(N=8, nU=5, nD=5, rL=4, rR=4)                    # from_t3basis / from_t3variations
+_PAD_BV   = dict(N=8, nU=5, nD=5, rL=4, rR=4)                    # from_t3frame / from_t3variations
 
 
 def _base(x, force_pad=False):
@@ -85,16 +85,16 @@ def _corrupt(obj, scale=1e3):
 
     The contract says padding is garbage-don't-care, so a correct (mask-once) op must be UNAFFECTED by
     this; an op that reads raw padding -- or whose output mask is too permissive -- will leak the garbage.
-    ``obj``: UT3Variations / UT3Basis / UniformTuckerTensorTrain (uses its own -- correct -- mask)."""
+    ``obj``: UT3Variations / UT3Frame / UniformTuckerTensorTrain (uses its own -- correct -- mask)."""
     scs = obj.supercores
     if isinstance(obj, ubv.UT3Variations):
         ind = ubv.UT3Variations(*[np.ones_like(s) for s in scs], obj.shape, obj.masks).apply_masks().supercores
         new = [sc + scale * (1.0 - i) for sc, i in zip(scs, ind)]
         return ubv.UT3Variations(new[0], new[1], obj.shape, obj.masks)
-    if isinstance(obj, ubv.UT3Basis):
-        ind = ubv.UT3Basis(*[np.ones_like(s) for s in scs], obj.shape, obj.masks).apply_masks().supercores
+    if isinstance(obj, ubv.UT3Frame):
+        ind = ubv.UT3Frame(*[np.ones_like(s) for s in scs], obj.shape, obj.masks).apply_masks().supercores
         new = [sc + scale * (1.0 - i) for sc, i in zip(scs, ind)]
-        return ubv.UT3Basis(new[0], new[1], new[2], new[3], obj.shape, obj.masks)
+        return ubv.UT3Frame(new[0], new[1], new[2], new[3], obj.shape, obj.masks)
     if isinstance(obj, ut3.UniformTuckerTensorTrain):
         ind = ut3.UniformTuckerTensorTrain(*[np.ones_like(s) for s in scs], obj.shape, obj.masks).apply_masks().supercores
         new = [sc + scale * (1.0 - i) for sc, i in zip(scs, ind)]
@@ -102,14 +102,14 @@ def _corrupt(obj, scale=1e3):
     raise TypeError(type(obj))
 
 
-def _expected_doubled_masks(basis):
+def _expected_doubled_masks(frame):
     """Independently build the doubled (tucker_edge_mask, tt_edge_mask) from the BASE ranks + the paper
     rule (eqs 50-53) -- a different derivation than tangent_to_ut3's concat, so the comparison is
     non-circular. Tucker = prefix-pair [up | down]; TT bond = [Q-block | P-block] with honest boundaries
     (Q0=0, Qi=right_rank_i; Pd=0, Pi=left_rank_i)."""
-    nU, nD, rL, rR = basis.nU, basis.nD, basis.rL, basis.rR
-    up_r, down_r = np.asarray(basis.up_ranks), np.asarray(basis.down_ranks)      # (d,)  +C
-    left_r, right_r = np.asarray(basis.left_ranks), np.asarray(basis.right_ranks)  # (d+1,)+C
+    nU, nD, rL, rR = frame.nU, frame.nD, frame.rL, frame.rR
+    up_r, down_r = np.asarray(frame.up_ranks), np.asarray(frame.down_ranks)      # (d,)  +C
+    left_r, right_r = np.asarray(frame.left_ranks), np.asarray(frame.right_ranks)  # (d+1,)+C
     tucker = np.concatenate([np.arange(nU) < up_r[..., None],
                              np.arange(nD) < down_r[..., None]], axis=-1)        # (d,)+C+(nU+nD,)
     q = right_r.copy(); q[0] = 0                                                 # Q honest at the left boundary
@@ -179,7 +179,7 @@ class TestStructureAndInference(unittest.TestCase):
         self.assertEqual(v.data, (B, V))
 
     def test_validate_rejects_incompatible_pair(self):
-        # variations whose tangent stack is fine but masks mismatch the base -> check_ubv_pair fails.
+        # variations whose tangent stack is fine but masks mismatch the base -> check_ufv_pair fails.
         x = t3.TuckerTensorTrain.randn(*_STRUCT)
         B, _ = _uniform_base(x)
         bad = ubv.UT3Variations.randn(B.uniform_variation_shapes, B.shape)   # default all-True masks
@@ -212,7 +212,7 @@ class TestVectorSpace(unittest.TestCase):
         B, V = _uniform_base(x1)
         v = ut3m.UT3Tangent(B, V)
         # a DIFFERENT frame with the SAME masks/shape (perturb the supercores, keep masks) -> frames differ.
-        B2 = ubv.UT3Basis(B.up_tucker_supercore + 0.1, B.down_tt_supercore + 0.1,
+        B2 = ubv.UT3Frame(B.up_tucker_supercore + 0.1, B.down_tt_supercore + 0.1,
                           B.left_tt_supercore + 0.1, B.right_tt_supercore + 0.1, B.shape, B.masks)
         v2 = ut3m.UT3Tangent(B2, V.copy())
         with self.assertRaises(ValueError):
@@ -282,38 +282,38 @@ class TestCoordinateMetricVsRagged(unittest.TestCase):
                                     ck_ttv + 100.0 * (1.0 - m_ttv), V.shape, V.masks)
         self.assertTrue(np.allclose(float(ut3m.UT3Tangent(B, corrupt).corewise_norm()), clean))
 
-    def test_ubv_corewise_inner_backend_entry_point(self):
-        # The raw-tuple backend twin `ubv_corewise_inner` (which `corewise_inner` delegates to) is a
+    def test_ufv_corewise_inner_backend_entry_point(self):
+        # The raw-tuple backend twin `ufv_corewise_inner` (which `corewise_inner` delegates to) is a
         # first-class capability for raw-.data users; pin it directly for the unstacked (n_stack=0 scalar)
         # and base-stacked (n_stack=1, keeps C) cases against the frontend delegate.
         for stack_shape in [(), (2,)]:
             with self.subTest(stack_shape=stack_shape):
                 uv, _ = self._pair(stack_shape)
-                back = np.asarray(ubto.ubv_corewise_inner(
+                back = np.asarray(ubto.ufv_corewise_inner(
                     uv.variations.data, uv.variations.data, len(stack_shape)))
                 front = np.asarray(uv.corewise_inner(uv))
                 self.assertEqual(back.shape, front.shape)          # () unstacked, (2,) base-stacked
                 self.assertTrue(np.allclose(back, front))
 
-    def test_ubv_corewise_inner_garbage_robust(self):
+    def test_ufv_corewise_inner_garbage_robust(self):
         # Raw-tuple garbage-robustness: the backend masks internally, so big finite garbage in the
         # masked-out padding leaves the coordinate dot unchanged (never summed).
         uv, _ = self._pair()
         V = uv.variations
-        clean = float(ubto.ubv_corewise_inner(V.data, V.data, 0))
+        clean = float(ubto.ufv_corewise_inner(V.data, V.data, 0))
         tkv, ttv = V.supercores
         m_tkv, m_ttv = ubv.UT3Variations(np.ones_like(tkv), np.ones_like(ttv),
                                          V.shape, V.masks).apply_masks().supercores
         ck_tkv, ck_ttv = V.apply_masks().supercores                # clean real content; padding already 0
         garb = (ck_tkv + 1e6 * (1.0 - m_tkv), ck_ttv + 1e6 * (1.0 - m_ttv), V.shape, V.masks.data)
-        self.assertTrue(np.allclose(float(ubto.ubv_corewise_inner(garb, V.data, 0)), clean))
+        self.assertTrue(np.allclose(float(ubto.ufv_corewise_inner(garb, V.data, 0)), clean))
 
 
 class TestCheckersAndDimension(unittest.TestCase):
     def setUp(self):
         np.random.seed(0)
 
-    def test_is_orthogonal_matches_basis(self):
+    def test_is_orthogonal_matches_frame(self):
         x = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=(2,))
         B, V = _uniform_base(x)
         v = ut3m.UT3Tangent(B, V)
@@ -371,7 +371,7 @@ class TestReverseAndDtype(unittest.TestCase):
         v = ut3m.UT3Tangent(*_uniform_base(x))
         c = v.copy()
         self.assertTrue(c.allclose(v).all())
-        self.assertIsNot(c.basis.up_tucker_supercore, v.basis.up_tucker_supercore)
+        self.assertIsNot(c.frame.up_tucker_supercore, v.frame.up_tucker_supercore)
 
     @unittest.skipUnless(HAS_JAX, "jax not installed")
     def test_to_jax_to_numpy_roundtrip(self):
@@ -405,7 +405,7 @@ class TestConstructors(unittest.TestCase):
         B, _ = _uniform_base(x)
         z = ut3m.UT3Tangent.zeros(B, stack_shape=(3,))
         self.assertEqual(z.stack_shape, (3, 2))
-        ubv.check_ubv_pair(z.basis, z.variations)              # masks broadcast over K stay consistent
+        ubv.check_ufv_pair(z.frame, z.variations)              # masks broadcast over K stay consistent
         self.assertTrue(np.allclose(np.asarray(z.corewise_norm()), 0.0))
 
     def test_zeros_like(self):
@@ -420,7 +420,7 @@ class TestConstructors(unittest.TestCase):
         x = t3.TuckerTensorTrain.randn(*_STRUCT)
         B, _ = _uniform_base(x)
         u = ut3m.UT3Tangent.unit(B, (False, 0, (0, 0)))        # one tucker-variation entry
-        ubv.check_ubv_pair(u.basis, u.variations)
+        ubv.check_ufv_pair(u.frame, u.variations)
         self.assertGreater(float(u.corewise_norm()), 0.0)
 
 
@@ -467,7 +467,7 @@ class TestStackUnstack(unittest.TestCase):
         leaves = v.unstack_tangents()
         self.assertEqual(len(leaves), 3)
         self.assertTrue(all(t.tangent_stack_shape == () and t.base_stack_shape == () for t in leaves))
-        self.assertTrue(all(t.basis is v.basis for t in leaves))            # one shared frame across K
+        self.assertTrue(all(t.frame is v.frame for t in leaves))            # one shared frame across K
         self.assertTrue(ut3m.UT3Tangent.stack_tangents(leaves).allclose(v).all())
 
     def test_unstack_stack_tangents_over_base_stack(self):
@@ -479,9 +479,9 @@ class TestStackUnstack(unittest.TestCase):
 
     def test_stack_tangents_requires_same_frame(self):
         v = self._v(K=())
-        B2 = ubv.UT3Basis(v.basis.up_tucker_supercore + 0.1, v.basis.down_tt_supercore + 0.1,
-                          v.basis.left_tt_supercore + 0.1, v.basis.right_tt_supercore + 0.1,
-                          v.basis.shape, v.basis.masks)
+        B2 = ubv.UT3Frame(v.frame.up_tucker_supercore + 0.1, v.frame.down_tt_supercore + 0.1,
+                          v.frame.left_tt_supercore + 0.1, v.frame.right_tt_supercore + 0.1,
+                          v.frame.shape, v.frame.masks)
         v2 = ut3m.UT3Tangent(B2, v.variations.copy())
         with self.assertRaises(ValueError):
             ut3m.UT3Tangent.stack_tangents((v, v2))
@@ -489,24 +489,24 @@ class TestStackUnstack(unittest.TestCase):
             self.assertEqual(ut3m.UT3Tangent.stack_tangents((v, v2)).tangent_stack_shape, (2,))
 
     # ------- base (C) stack -------
-    def test_unstack_stack_basis_roundtrip(self):
+    def test_unstack_stack_frame_roundtrip(self):
         v = self._v(stack_shape=(2,), K=(3,))
-        leaves = v.unstack_basis()                                          # peel C=2, each leaf tangent_stack=(3,)
+        leaves = v.unstack_frame()                                          # peel C=2, each leaf tangent_stack=(3,)
         self.assertEqual(len(leaves), 2)
         self.assertTrue(all(t.base_stack_shape == () and t.tangent_stack_shape == (3,) for t in leaves))
-        self.assertTrue(ut3m.UT3Tangent.stack_basis(leaves).allclose(v).all())
+        self.assertTrue(ut3m.UT3Tangent.stack_frame(leaves).allclose(v).all())
 
-    def test_stack_basis_requires_matching_padded_dims_and_K(self):
+    def test_stack_frame_requires_matching_padded_dims_and_K(self):
         a = self._v(stack_shape=(), K=())
         # different tangent stack K -> reject
         b = self._v(stack_shape=(), K=(2,))
         with self.assertRaises(ValueError):
-            ut3m.UT3Tangent.stack_basis((a, b))
+            ut3m.UT3Tangent.stack_frame((a, b))
 
     # ------- varying ranks across C (the rank-sweep use case) -------
-    def test_stack_basis_varying_C_ranks(self):
+    def test_stack_frame_varying_C_ranks(self):
         us, rs = _hetero_tangents()
-        stacked = ut3m.UT3Tangent.stack_basis(us)                          # different base ranks in one C batch
+        stacked = ut3m.UT3Tangent.stack_frame(us)                          # different base ranks in one C batch
         self.assertEqual(stacked.base_stack_shape, (2,))
         # per-element tangent-space dims differ and match the per-model ragged dims
         dims = np.asarray(stacked.tangent_space_dimension)
@@ -514,12 +514,12 @@ class TestStackUnstack(unittest.TestCase):
         self.assertEqual(list(dims), [rs[0].tangent_space_dimension, rs[1].tangent_space_dimension])
         self.assertNotEqual(dims[0], dims[1])                              # genuinely varying
         # unstack recovers each model
-        back = stacked.unstack_basis()
+        back = stacked.unstack_frame()
         self.assertTrue(back[0].allclose(us[0]).all() and back[1].allclose(us[1]).all())
 
     def test_varying_C_corewise_norm_per_element_vs_ragged(self):
         us, rs = _hetero_tangents()
-        stacked = ut3m.UT3Tangent.stack_basis(us)
+        stacked = ut3m.UT3Tangent.stack_frame(us)
         un = np.asarray(stacked.corewise_norm())
         self.assertTrue(np.allclose(un, [float(rs[0].corewise_norm()), float(rs[1].corewise_norm())]))
 
@@ -528,7 +528,7 @@ class TestStackUnstack(unittest.TestCase):
         v = self._v(K=(3,))
         un = np.asarray(v.corewise_norm())                                 # per-K uniform norms
         for k, leaf in enumerate(v.unstack_tangents()):
-            rt = t3m.T3Tangent(leaf.basis.to_t3basis(), leaf.variations.to_t3variations())
+            rt = t3m.T3Tangent(leaf.frame.to_t3frame(), leaf.variations.to_t3variations())
             self.assertTrue(np.allclose(float(un[k]), float(rt.corewise_norm())))
 
     # ------- sum over K -------
@@ -550,9 +550,9 @@ class TestStackUnstack(unittest.TestCase):
         self.assertTrue(np.allclose(np.asarray(s.variations.apply_masks().tucker_variations), tkv))
 
     @unittest.skipUnless(HAS_JAX, "jax not installed")
-    def test_stack_basis_jax_supercores_host_masks(self):
+    def test_stack_frame_jax_supercores_host_masks(self):
         us, _ = _hetero_tangents()
-        stacked = ut3m.UT3Tangent.stack_basis([t.to_jax() for t in us])
+        stacked = ut3m.UT3Tangent.stack_frame([t.to_jax() for t in us])
         import t3toolbox.backend.common as common
         self.assertTrue(stacked.contains_jax)
         self.assertTrue(all(common.is_jax_ndarray(sc) for sc in stacked.variations.supercores))
@@ -562,11 +562,11 @@ class TestStackUnstack(unittest.TestCase):
 def _full_unstack(v):
     """Fully unstack a UT3Tangent into a FLAT list of single-element (unstacked) tangents, K-major then C.
 
-    Handles multi-axis stacks: `unstack_tangents` / `unstack_basis` return a NESTED tree for a multi-axis
+    Handles multi-axis stacks: `unstack_tangents` / `unstack_frame` return a NESTED tree for a multi-axis
     stack, so flatten it (row-major, matching `reshape(d, -1)` order) before recursing."""
     if not v.stack_shape:
         return [v]
-    sub = v.unstack_tangents() if v.tangent_stack_shape else v.unstack_basis()
+    sub = v.unstack_tangents() if v.tangent_stack_shape else v.unstack_frame()
     out = []
     for leaf in ut3m._flatten_tangents(sub):        # flatten the (possibly nested) tree, row-major
         out.extend(_full_unstack(leaf))
@@ -611,7 +611,7 @@ class TestDoubledRankToDense(unittest.TestCase):
 
     def test_varying_C_ranks(self):
         us, _ = _hetero_tangents()
-        v = ut3m.UT3Tangent.stack_basis(us)                                # different ranks across C
+        v = ut3m.UT3Tangent.stack_frame(us)                                # different ranks across C
         for shift in (False, True):
             with self.subTest(shift=shift):
                 self._check(v, shift)
@@ -632,18 +632,18 @@ class TestDoubledRankToDense(unittest.TestCase):
                                        np.asarray(B.up_ranks) + np.asarray(B.down_ranks)))
 
     def test_d1_not_implemented(self):
-        import t3toolbox.backend.ubv_tangent_operations as ubvt
+        import t3toolbox.backend.ufv_tangent_operations as ubvt
         B, V = _uniform_base(t3.TuckerTensorTrain.randn(*_STRUCT))
         # call the backend with a faked d=1 by slicing to one core is fragile; instead assert the guard
         # message is reachable through a genuine d=1 build path is out of scope -- check the guard directly.
         with self.assertRaises(NotImplementedError):
             # craft a minimal d=1 .data pair (square bonds so shapes are valid) to hit the guard
-            d1_basis = (np.random.randn(1, 2, 5), np.random.randn(1, 1, 2, 1), np.random.randn(1, 1, 2, 1),
+            d1_frame = (np.random.randn(1, 2, 5), np.random.randn(1, 1, 2, 1), np.random.randn(1, 1, 2, 1),
                         np.random.randn(1, 1, 2, 1), (5,),
                         (np.ones((1, 2), bool), np.ones((1, 1), bool), np.ones((2, 1), bool), np.ones((2, 1), bool)))
             d1_var = (np.random.randn(1, 1, 5), np.random.randn(1, 1, 2, 1), (5,),
                       (np.ones((1, 2), bool), np.ones((1, 1), bool), np.ones((1, 1), bool), np.ones((1, 1), bool)))
-            ubvt.tangent_to_ut3(d1_basis, d1_var)
+            ubvt.tangent_to_ut3(d1_frame, d1_var)
 
     @unittest.skipUnless(HAS_JAX, "jax not installed")
     def test_jit_to_dense(self):
@@ -664,14 +664,14 @@ class TestExactMasks(unittest.TestCase):
     independently (base ranks + the paper rule), so the comparison is non-circular."""
     def setUp(self):
         np.random.seed(0)
-        import t3toolbox.backend.ubv_tangent_operations as ubvt
+        import t3toolbox.backend.ufv_tangent_operations as ubvt
         self.ubvt = ubvt
 
     def test_doubled_masks(self):
         for ss, K, fp in _CONFIGS:
             v = _make_tangent(ss, K, fp)
             du = v.to_ut3()
-            exp_tk, exp_tt = _expected_doubled_masks(v.basis)
+            exp_tk, exp_tt = _expected_doubled_masks(v.frame)
             with self.subTest(ss=ss, K=K, fp=fp):
                 self.assertTrue(np.array_equal(du.masks.tucker_edge_mask, _bc_over_K(exp_tk, K)))
                 self.assertTrue(np.array_equal(du.masks.tt_edge_mask, _bc_over_K(exp_tt, K)))
@@ -682,7 +682,7 @@ class TestExactMasks(unittest.TestCase):
         # Here we only assert the masks are canonical (prefix), which a garbage/non-prefix mask would fail.
         for ss, K, fp in _CONFIGS:
             v = _make_tangent(ss, K, fp)
-            ru = _wrap_ut3(self.ubvt.retract(v.basis.data, v.variations.data))
+            ru = _wrap_ut3(self.ubvt.retract(v.frame.data, v.variations.data))
             with self.subTest(ss=ss, K=K, fp=fp):
                 self.assertTrue(_is_prefix(ru.masks.tucker_edge_mask))
                 self.assertTrue(_is_prefix(ru.masks.tt_edge_mask))
@@ -691,7 +691,7 @@ class TestExactMasks(unittest.TestCase):
         for which in ('orthogonal_gauge_projection', 'oblique_gauge_projection'):
             for ss, K, fp in _CONFIGS:
                 v = _make_tangent(ss, K, fp)
-                gd = getattr(self.ubvt, which)(v.basis.data, v.variations.data)
+                gd = getattr(self.ubvt, which)(v.frame.data, v.variations.data)
                 with self.subTest(which=which, ss=ss, K=K, fp=fp):
                     self.assertEqual(_wrap_var(gd).masks, v.variations.masks)   # gauge must not change the masks
 
@@ -710,16 +710,16 @@ class TestExactMasks(unittest.TestCase):
         for leaf in _full_unstack(v):
             back = ut3m.UT3Tangent.from_t3tangent(leaf.to_t3tangent())
             self.assertEqual(back.variations.masks, leaf.variations.masks)
-        # varying-C stack_basis preserves each element's (different) masks
+        # varying-C stack_frame preserves each element's (different) masks
         us, _ = _hetero_tangents()
-        stacked = ut3m.UT3Tangent.stack_basis(us)
-        for i, leaf in enumerate(stacked.unstack_basis()):
+        stacked = ut3m.UT3Tangent.stack_frame(us)
+        for i, leaf in enumerate(stacked.unstack_frame()):
             self.assertEqual(leaf.variations.masks, us[i].variations.masks)
 
     def test_doubled_masks_varying_C(self):
         us, _ = _hetero_tangents()
-        v = ut3m.UT3Tangent.stack_basis(us)
-        exp_tk, exp_tt = _expected_doubled_masks(v.basis)
+        v = ut3m.UT3Tangent.stack_frame(us)
+        exp_tk, exp_tt = _expected_doubled_masks(v.frame)
         du = v.to_ut3()
         self.assertTrue(np.array_equal(du.masks.tucker_edge_mask, exp_tk))
         self.assertTrue(np.array_equal(du.masks.tt_edge_mask, exp_tt))
@@ -732,12 +732,12 @@ class TestGarbageInputRobustness(unittest.TestCase):
     mask that leaks the garbage."""
     def setUp(self):
         np.random.seed(0)
-        import t3toolbox.backend.ubv_tangent_operations as ubvt
+        import t3toolbox.backend.ufv_tangent_operations as ubvt
         self.ubvt = ubvt
 
     def _bv(self, ss, K, fp):
         v = _make_tangent(ss, K, fp)
-        return v.basis, v.variations
+        return v.frame, v.variations
 
     def test_tangent_to_ut3(self):
         for ss, K, fp in _CONFIGS:
@@ -791,15 +791,15 @@ class TestRetract(unittest.TestCase):
     verified per stack element against the ragged tangent_operations.retract."""
     def setUp(self):
         np.random.seed(0)
-        import t3toolbox.backend.ubv_tangent_operations as ubvt
+        import t3toolbox.backend.ufv_tangent_operations as ubvt
         import t3toolbox.backend.tangent_operations as tops
         self.ubvt, self.tops = ubvt, tops
 
     def _check(self, v):
-        ru = _wrap_ut3(self.ubvt.retract(v.basis.data, v.variations.data))
+        ru = _wrap_ut3(self.ubvt.retract(v.frame.data, v.variations.data))
         # retracted padded dims = max actual rank across the stack, never exceeding the base padding
-        self.assertLessEqual(ru.n, v.basis.nU)
-        self.assertLessEqual(ru.r, v.basis.rL)
+        self.assertLessEqual(ru.n, v.frame.nU)
+        self.assertLessEqual(ru.r, v.frame.rL)
         self.assertTrue(_is_prefix(ru.masks.tucker_edge_mask) and _is_prefix(ru.masks.tt_edge_mask))  # canonical
         dense = np.asarray(ru.to_dense())
         flat = _full_unstack(v)
@@ -808,7 +808,7 @@ class TestRetract(unittest.TestCase):
         utk = np.asarray(ru.tucker_ranks).reshape(ru.d, -1)
         utt = np.asarray(ru.tt_ranks).reshape(ru.d + 1, -1)
         for i, leaf in enumerate(flat):
-            rT = t3.TuckerTensorTrain(*self.tops.retract(leaf.basis.to_t3basis().data,
+            rT = t3.TuckerTensorTrain(*self.tops.retract(leaf.frame.to_t3frame().data,
                                                          leaf.variations.to_t3variations().data))
             rd = rT.to_dense()
             self.assertLess(float(np.linalg.norm(dflat[i] - rd)) / (float(np.linalg.norm(rd)) + 1e-30), 1e-9)
@@ -824,7 +824,7 @@ class TestRetract(unittest.TestCase):
 
     def test_varying_C_ranks(self):
         us, _ = _hetero_tangents()
-        self._check(ut3m.UT3Tangent.stack_basis(us))
+        self._check(ut3m.UT3Tangent.stack_frame(us))
 
     @unittest.skipUnless(HAS_JAX, "jax not installed")
     def test_jit_retract(self):
@@ -852,13 +852,13 @@ class TestGauge(unittest.TestCase):
     verified against the ragged tangent_operations (conditions (48)-(49), Appendix A.3)."""
     def setUp(self):
         np.random.seed(0)
-        import t3toolbox.backend.ubv_tangent_operations as ubvt
+        import t3toolbox.backend.ufv_tangent_operations as ubvt
         import t3toolbox.backend.tangent_operations as tops
         self.ubvt, self.tops = ubvt, tops
 
     def _gauged_tangent(self, v, which):  # apply a backend gauge projection -> a new UT3Tangent
         proj = getattr(self.ubvt, which)
-        return ut3m.UT3Tangent(v.basis, _wrap_var(proj(v.basis.data, v.variations.data)))
+        return ut3m.UT3Tangent(v.frame, _wrap_var(proj(v.frame.data, v.variations.data)))
 
     def _ragged(self, leaf):
         return leaf.to_t3tangent()
@@ -888,7 +888,7 @@ class TestGauge(unittest.TestCase):
             dense = np.asarray(ug.to_dense()); dflat = dense.reshape((-1,) + dense.shape[len(v.stack_shape):])
             for i, leaf in enumerate(_full_unstack(v)):
                 rt = self._ragged(leaf)
-                rg = t3m.T3Tangent(rt.basis, bvf.T3Variations(*self.tops.orthogonal_gauge_projection(rt.basis.data, rt.variations.data)))
+                rg = t3m.T3Tangent(rt.frame, bvf.T3Variations(*self.tops.orthogonal_gauge_projection(rt.frame.data, rt.variations.data)))
                 with self.subTest(ss=ss, K=K, fp=fp, i=i):
                     self.assertLess(float(np.linalg.norm(dflat[i] - rg.to_dense())) / (float(np.linalg.norm(rg.to_dense())) + 1e-30), 1e-10)
 
@@ -904,7 +904,7 @@ class TestGauge(unittest.TestCase):
 
     def test_varying_C(self):
         us, rs = _hetero_tangents()
-        v = ut3m.UT3Tangent.stack_basis(us)
+        v = ut3m.UT3Tangent.stack_frame(us)
         # per-element residual matches each ragged model
         ures = np.asarray(v.gauge_residual)
         self.assertTrue(np.allclose(ures, [float(np.asarray(r.gauge_residual)) for r in rs]))
@@ -933,7 +933,7 @@ class TestGauge(unittest.TestCase):
         def f(u, dn, lt, rt, tk, tt):
             bd = (u, dn, lt, rt, bsh, bmk)
             vd = self.ubvt.oblique_gauge_projection(bd, (tk, tt, vsh, vmk))
-            return ut3m.UT3Tangent(ut3m._ut3basis_from_data(bd), _wrap_var(vd)).to_dense()
+            return ut3m.UT3Tangent(ut3m._ut3frame_from_data(bd), _wrap_var(vd)).to_dense()
 
         dense = np.asarray(jax.jit(f)(Bj.data[0], Bj.data[1], Bj.data[2], Bj.data[3], Vj.data[0], Vj.data[1]))
         ref = np.asarray(ut3m.UT3Tangent(B, V).to_dense())                  # oblique preserves the tangent
@@ -945,7 +945,7 @@ class TestProjectOntoTangent(unittest.TestCase):
     at an orthogonal base), verified per element against ragged project_t3_onto_tangent_space."""
     def setUp(self):
         np.random.seed(0)
-        import t3toolbox.backend.ubv_tangent_operations as ubvt
+        import t3toolbox.backend.ufv_tangent_operations as ubvt
         import t3toolbox.backend.tangent_operations as tops
         self.ubvt, self.tops = ubvt, tops
 
@@ -953,7 +953,7 @@ class TestProjectOntoTangent(unittest.TestCase):
         B = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(p))[0]
         xu = ut3.UniformTuckerTensorTrain.from_t3(x)
         uv = ut3m.UT3Tangent(B, _wrap_var(self.ubvt.project_ut3_onto_tangent_space(B.data, xu.data)))
-        rb = B.to_t3basis()
+        rb = B.to_t3frame()
         rvar = self.tops.project_t3_onto_tangent_space(rb.data, x.data)
         rd = t3m.T3Tangent(rb, bvf.T3Variations(*rvar)).to_dense()
         self.assertLess(float(np.linalg.norm(np.asarray(uv.to_dense()) - np.asarray(rd))) / (float(np.linalg.norm(rd)) + 1e-30), 1e-10)
@@ -976,7 +976,7 @@ class TestProjectOntoTangent(unittest.TestCase):
         xu = ut3.UniformTuckerTensorTrain.from_t3(xs)
         uv = ut3m.UT3Tangent(B, _wrap_var(self.ubvt.project_ut3_onto_tangent_space(B.data, xu.data)))
         ud = np.asarray(uv.to_dense())
-        rb_tree, x_tree = B.to_t3basis(), xs.unstack()
+        rb_tree, x_tree = B.to_t3frame(), xs.unstack()
         for i in range(2):
             rvar = self.tops.project_t3_onto_tangent_space(rb_tree[i].data, x_tree[i].data)
             rd = t3m.T3Tangent(rb_tree[i], bvf.T3Variations(*rvar)).to_dense()
@@ -990,15 +990,15 @@ class TestProjectOntoTangent(unittest.TestCase):
         bases, xs = [], []
         for s in het:
             p = t3.TuckerTensorTrain.randn(*s); x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 1, 1))
-            bases.append(ubv.UT3Basis.from_t3basis(bvf.t3_orthogonal_representations(p)[0], **pad))
+            bases.append(ubv.UT3Frame.from_t3frame(bvf.t3_orthogonal_representations(p)[0], **pad))
             xs.append((ut3.UniformTuckerTensorTrain.from_t3(x, N=6, n=4, r=3), x))
-        B = ubv.UT3Basis.stack(bases)
+        B = ubv.UT3Frame.stack(bases)
         xu = ut3.UniformTuckerTensorTrain.stack([xe[0] for xe in xs])
         uv = ut3m.UT3Tangent(B, _wrap_var(self.ubvt.project_ut3_onto_tangent_space(B.data, xu.data)))
         ud = np.asarray(uv.to_dense())
         for i in range(2):
-            rvar = self.tops.project_t3_onto_tangent_space(bases[i].to_t3basis().data, xs[i][1].data)
-            rd = t3m.T3Tangent(bases[i].to_t3basis(), bvf.T3Variations(*rvar)).to_dense()
+            rvar = self.tops.project_t3_onto_tangent_space(bases[i].to_t3frame().data, xs[i][1].data)
+            rd = t3m.T3Tangent(bases[i].to_t3frame(), bvf.T3Variations(*rvar)).to_dense()
             self.assertLess(float(np.linalg.norm(ud[i] - rd)) / (float(np.linalg.norm(rd)) + 1e-30), 1e-10)
         self.assertTrue(bool(uv.is_gauged().all()))
 
@@ -1011,7 +1011,7 @@ class TestProjectOntoTangent(unittest.TestCase):
 
         def f(u, dn, lt, rt, xtk, xtt):
             vd = self.ubvt.project_ut3_onto_tangent_space((u, dn, lt, rt, bsh, bmk), (xtk, xtt, xsh, xmk))
-            return ut3m.UT3Tangent(ut3m._ut3basis_from_data((u, dn, lt, rt, bsh, bmk)), _wrap_var(vd)).to_dense()
+            return ut3m.UT3Tangent(ut3m._ut3frame_from_data((u, dn, lt, rt, bsh, bmk)), _wrap_var(vd)).to_dense()
 
         dense = np.asarray(jax.jit(f)(B.data[0], B.data[1], B.data[2], B.data[3], xu.data[0], xu.data[1]))
         ref = np.asarray(ut3m.UT3Tangent(B.to_numpy(), _wrap_var(self.ubvt.project_ut3_onto_tangent_space(
@@ -1063,7 +1063,7 @@ class TestCrossLayerConverters(unittest.TestCase):
 
     def test_varying_C_to_t3tangent_tree(self):
         us, rs = _hetero_tangents()
-        v = ut3m.UT3Tangent.stack_basis(us)
+        v = ut3m.UT3Tangent.stack_frame(us)
         tree = v.to_t3tangent()                                             # different ranks per element
         self.assertEqual(len(tree), 2)
         for i in range(2):
@@ -1116,7 +1116,7 @@ class TestUniformManifoldGeometry(unittest.TestCase):
         self.M, self.C, self.RM = ut3m.UNIFORM_MANIFOLD, ut3m.UNIFORM_COREWISE, t3m.MANIFOLD
 
     def _varying_C(self):
-        return ut3m.UT3Tangent.stack_basis(_hetero_tangents()[0])           # orthogonal frames, different ranks
+        return ut3m.UT3Tangent.stack_frame(_hetero_tangents()[0])           # orthogonal frames, different ranks
 
     def test_base(self):
         for ss in [(), (2,), (2, 3)]:
@@ -1229,8 +1229,8 @@ class TestUniformCorewiseGeometry(unittest.TestCase):
                 tkm, ttm = xu.masks.data
                 self.assertTrue(np.array_equal(cb.masks.up_mask, tkm))
                 self.assertTrue(np.array_equal(cb.masks.down_mask, tkm))
-                self.assertTrue(np.array_equal(cb.masks.basis_left_mask, ttm))
-                self.assertTrue(np.array_equal(cb.masks.basis_right_mask, ttm))
+                self.assertTrue(np.array_equal(cb.masks.frame_left_mask, ttm))
+                self.assertTrue(np.array_equal(cb.masks.frame_right_mask, ttm))
 
     def test_project_is_identity(self):
         v = _make_corewise_tangent()
@@ -1248,7 +1248,7 @@ class TestUniformCorewiseGeometry(unittest.TestCase):
             with self.subTest(ss=ss, K=K, fp=fp):
                 _per_element_dense(self, _make_corewise_tangent(ss, K, fp), self.C.retract, self.RC.retract)
         with self.subTest('varying_C'):
-            v = ut3m.UT3Tangent.stack_basis(_hetero_corewise())
+            v = ut3m.UT3Tangent.stack_frame(_hetero_corewise())
             _per_element_dense(self, v, self.C.retract, self.RC.retract)
 
 

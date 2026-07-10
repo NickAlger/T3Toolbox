@@ -7,29 +7,29 @@ import typing as typ
 import functools as ft
 from dataclasses import dataclass
 
-import t3toolbox.backend.bv_conversions
-import t3toolbox.backend.ubv_conversions as ubv_conversions
+import t3toolbox.backend.fv_conversions
+import t3toolbox.backend.ufv_conversions as ufv_conversions
 import t3toolbox.uniform_tucker_tensor_train as ut3
-import t3toolbox.basis_variations_format as bvf
+import t3toolbox.frame_variations_format as bvf
 import t3toolbox.corewise as cw
 import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.stacking as stacking
-import t3toolbox.backend.ubv_operations as ubv_operations
-import t3toolbox.backend.ubv_masking as masking
+import t3toolbox.backend.ufv_operations as ufv_operations
+import t3toolbox.backend.ufv_masking as masking
 import t3toolbox.backend.common as common
 from t3toolbox.backend.common import *
 
 
 __all__ = [
-    'UT3Basis',
+    'UT3Frame',
     'UT3Variations',
     'ut3_orthogonal_representations',
 ]
 
 
 @dataclass(frozen=True, eq=False)  # eq=False -> the mixin's VALUE-based __hash__/__eq__ stand
-class UT3BasisMasks(common.ValueHashedMasks):
-    """The static rank structure of a :py:class:`UT3Basis`: its four boolean edge masks.
+class UT3FrameMasks(common.ValueHashedMasks):
+    """The static rank structure of a :py:class:`UT3Frame`: its four boolean edge masks.
 
     Slot ``j`` of an edge is real iff its mask is ``True`` there (the prefix/canonical form). Held as a
     separate object so it can ride as jax ``aux_data``; hash/eq are **value-based** (the
@@ -37,31 +37,31 @@ class UT3BasisMasks(common.ValueHashedMasks):
     *same* jit cache key (no per-iteration recompile when the orthogonal frame is rebuilt in an
     optimization loop). The plain-layer :py:class:`~t3toolbox.uniform_tucker_tensor_train.UT3Masks`
     pattern; see ``docs/uniform_pytree_composition.md``. (The physical ``shape`` is a separate static int
-    tuple on :py:class:`UT3Basis` -- not a mask, and value-hashable.)
+    tuple on :py:class:`UT3Frame` -- not a mask, and value-hashable.)
     """
     up_mask:          NDArray  # dtype=bool, (d,)  +stack_shape+(nU,)
     down_mask:        NDArray  # dtype=bool, (d,)  +stack_shape+(nD,)
-    basis_left_mask:  NDArray  # dtype=bool, (d+1,)+stack_shape+(rL,)
-    basis_right_mask: NDArray  # dtype=bool, (d+1,)+stack_shape+(rR,)
+    frame_left_mask:  NDArray  # dtype=bool, (d+1,)+stack_shape+(rL,)
+    frame_right_mask: NDArray  # dtype=bool, (d+1,)+stack_shape+(rR,)
 
     @property
     def data(self) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray]:
-        """The four raw rank-mask arrays, ``(up_mask, down_mask, basis_left_mask, basis_right_mask)``."""
-        return self.up_mask, self.down_mask, self.basis_left_mask, self.basis_right_mask
+        """The four raw rank-mask arrays, ``(up_mask, down_mask, frame_left_mask, frame_right_mask)``."""
+        return self.up_mask, self.down_mask, self.frame_left_mask, self.frame_right_mask
 
 
 @dataclass(frozen=True)
-class UT3Basis:
-    """Basis (orthogonal frame) for the basis-variations representation of uniform Tucker tensor trains.
+class UT3Frame:
+    """Frame (orthogonal frame) for the frame-variations representation of uniform Tucker tensor trains.
 
-    Uniform analog of :py:class:`~t3toolbox.basis_variations_format.T3Basis`: four padded supercores
+    Uniform analog of :py:class:`~t3toolbox.frame_variations_format.T3Frame`: four padded supercores
     (``up_tucker``, ``down_tt``, ``left_tt``, ``right_tt``) + the static physical ``shape`` (an int tuple,
-    shared across the stack) + a :py:class:`UT3BasisMasks` holder (the four per-stack rank masks).
+    shared across the stack) + a :py:class:`UT3FrameMasks` holder (the four per-stack rank masks).
 
     Examples
     --------
     >>> import numpy as np
-    >>> import t3toolbox.uniform_basis_variations_format as ubcf
+    >>> import t3toolbox.uniform_frame_variations_format as ubcf
     >>> d, N, nU, nD, rL, rR = 3, 6, 4, 5, 3, 2
     >>> up    = np.random.randn(d, nU, N)
     >>> down  = np.random.randn(d, rL, nD, rR)
@@ -72,8 +72,8 @@ class UT3Basis:
     >>> down_mask  = np.arange(nD) < np.array([[3],[4],[5]])       # (d, nD)
     >>> left_mask  = np.arange(rL) < np.array([[1],[2],[3],[1]])   # (d+1, rL); boundary TT ranks
     >>> right_mask = np.arange(rR) < np.array([[1],[2],[2],[1]])   # (d+1, rR)
-    >>> masks = ubcf.UT3BasisMasks(up_mask, down_mask, left_mask, right_mask)
-    >>> B = ubcf.UT3Basis(up, down, left, right, shape, masks)
+    >>> masks = ubcf.UT3FrameMasks(up_mask, down_mask, left_mask, right_mask)
+    >>> B = ubcf.UT3Frame(up, down, left, right, shape, masks)
     >>> B.shape
     (4, 5, 6)
     >>> np.asarray(B.up_ranks).tolist()
@@ -86,7 +86,7 @@ class UT3Basis:
     left_tt_supercore:      NDArray              # P_diax P_diay = I_dxy, shape = (d,)+stack_shape+(rL, nU, rL)
     right_tt_supercore:     NDArray              # Q_dxaj Q_dyaj = I_dxy  shape = (d,)+stack_shape+(rR, nU, rR)
     shape:                  typ.Tuple[int, ...]  # len=d; (N0,...,N(d-1)) real mode dims, shared across the stack
-    masks:                  UT3BasisMasks        # static rank structure (the four edge masks)
+    masks:                  UT3FrameMasks        # static rank structure (the four edge masks)
 
     @ft.cached_property
     def data(self) -> typ.Tuple[
@@ -95,7 +95,7 @@ class UT3Basis:
         NDArray,                                   # left_tt_supercore
         NDArray,                                   # right_tt_supercore
         typ.Tuple[int, ...],                       # shape
-        typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (up_mask, down_mask, basis_left_mask, basis_right_mask)
+        typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (up_mask, down_mask, frame_left_mask, frame_right_mask)
     ]:
         return (
             self.up_tucker_supercore, self.down_tt_supercore,
@@ -164,11 +164,11 @@ class UT3Basis:
 
     @ft.cached_property
     def left_ranks(self) -> NDArray:
-        return self.masks.basis_left_mask.sum(axis=-1)
+        return self.masks.frame_left_mask.sum(axis=-1)
 
     @ft.cached_property
     def right_ranks(self) -> NDArray:
-        return self.masks.basis_right_mask.sum(axis=-1)
+        return self.masks.frame_right_mask.sum(axis=-1)
 
     @ft.cached_property
     def structure(self) -> typ.Tuple[
@@ -185,11 +185,11 @@ class UT3Basis:
             self.stack_shape,
         )
 
-    def apply_masks(self) -> 'UT3Basis':
-        """Apply masks to the basis supercores, zeroing out unmasked entries.
+    def apply_masks(self) -> 'UT3Frame':
+        """Apply masks to the frame supercores, zeroing out unmasked entries.
         """
-        up_sc, down_sc, left_sc, right_sc = masking.apply_basis_masks(self.data)
-        return UT3Basis(
+        up_sc, down_sc, left_sc, right_sc = masking.apply_frame_masks(self.data)
+        return UT3Frame(
             up_sc, down_sc, left_sc, right_sc,
             self.shape, self.masks,
         )
@@ -197,16 +197,16 @@ class UT3Basis:
     # ------------------------------------------------------------- validity checkers (per stack element)
     @ft.cached_property
     def orthogonality_residual(self) -> NDArray:  # shape = stack_shape (scalar/0-d when unstacked)
-        """Max deviation of the (masked) basis supercores from orthonormality, **per stack element**
-        (uniform analog of :py:attr:`~t3toolbox.basis_variations_format.T3Basis.orthogonality_residual`;
+        """Max deviation of the (masked) frame supercores from orthonormality, **per stack element**
+        (uniform analog of :py:attr:`~t3toolbox.frame_variations_format.T3Frame.orthogonality_residual`;
         masked-Gram over the four senses -- see
-        :py:func:`~t3toolbox.backend.ubv_operations.ubv_basis_orthogonality_residual`). **cached**."""
-        return ubv_operations.ubv_basis_orthogonality_residual(self.data)
+        :py:func:`~t3toolbox.backend.ufv_operations.ufv_frame_orthogonality_residual`). **cached**."""
+        return ufv_operations.ufv_frame_orthogonality_residual(self.data)
 
     def is_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape (scalar unstacked)
-        """True (per stack element) if the basis supercores are orthogonal in their respective senses on
+        """True (per stack element) if the frame supercores are orthogonal in their respective senses on
         the real (masked) content. Per-element bool array (reduce with ``.all()`` for a single verdict);
-        verified against the ragged oracle ``to_t3basis(self).is_orthogonal()``."""
+        verified against the ragged oracle ``to_t3frame(self).is_orthogonal()``."""
         return self.orthogonality_residual <= atol
 
     @ft.cached_property
@@ -229,7 +229,7 @@ class UT3Basis:
     def has_numerically_minimal_ranks(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape
         """True (per stack element) if the frame is **numerically** minimal -- ``is_orthogonal(atol) &
         has_minimal_ranks`` (orthonormal cores are full-rank, so orthogonal + structurally minimal =>
-        numerically minimal; no SVD). Mirrors ``T3Basis.has_numerically_minimal_ranks``."""
+        numerically minimal; no SVD). Mirrors ``T3Frame.has_numerically_minimal_ranks``."""
         return self.is_orthogonal(atol=atol) & self.has_minimal_ranks
 
     def is_consistent(self, rtol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape
@@ -238,11 +238,11 @@ class UT3Basis:
         (densifies both). Consistent by construction for a frame from :py:func:`ut3_orthogonal_representations`."""
         left_ut3 = ut3.UniformTuckerTensorTrain(
             self.up_tucker_supercore, self.left_tt_supercore, self.shape,
-            ut3.UT3Masks(self.masks.up_mask, self.masks.basis_left_mask))
+            ut3.UT3Masks(self.masks.up_mask, self.masks.frame_left_mask))
         right_ut3 = self.to_ut3()
         return (left_ut3 - right_ut3).norm() <= rtol * right_ut3.norm()
 
-    def allclose(self, other: 'UT3Basis', rtol: float = 1e-9, atol: float = 0.0) -> NDArray:  # bool array, stack
+    def allclose(self, other: 'UT3Frame', rtol: float = 1e-9, atol: float = 0.0) -> NDArray:  # bool array, stack
         """``True`` (per stack element) if ``other`` represents the same base point as ``self``
         (gauge-invariant): ``||self.to_ut3() - other.to_ut3()|| <= atol + rtol * ||other.to_ut3()||`` in
         the dense Frobenius norm. Reduce with ``.all()`` for a single verdict."""
@@ -252,66 +252,66 @@ class UT3Basis:
 
     # ------------------------------------------------------------- ragged <-> uniform conversions
     @staticmethod
-    def from_t3basis(
-            basis: bvf.T3Basis,
+    def from_t3frame(
+            frame: bvf.T3Frame,
             N:  typ.Optional[int] = None,   # padded mode dim   (default max(shape))
             nU: typ.Optional[int] = None,   # padded up rank    (default max(up_ranks))
             nD: typ.Optional[int] = None,   # padded down rank  (default max(down_ranks))
             rL: typ.Optional[int] = None,   # padded left rank  (default max(left_ranks))
             rR: typ.Optional[int] = None,   # padded right rank (default max(right_ranks))
-    ) -> 'UT3Basis':
-        """Pack a ragged :py:class:`~t3toolbox.basis_variations_format.T3Basis` into a uniform frame.
+    ) -> 'UT3Frame':
+        """Pack a ragged :py:class:`~t3toolbox.frame_variations_format.T3Frame` into a uniform frame.
 
         A single ragged frame has ranks shared across its ``C`` stack, so the masks come out **uniform
         across the stack** (varying-rank uniform batches arise only by ``stack``-ing a heterogeneous tree).
         """
-        uc, dc, lc, rc, shape, masks = ubv_conversions.t3basis_to_ut3basis(
-            basis.data, N=N, nU=nU, nD=nD, rL=rL, rR=rR)
-        return UT3Basis(uc, dc, lc, rc, shape, UT3BasisMasks(*masks))
+        uc, dc, lc, rc, shape, masks = ufv_conversions.t3frame_to_ut3frame(
+            frame.data, N=N, nU=nU, nD=nD, rL=rL, rR=rR)
+        return UT3Frame(uc, dc, lc, rc, shape, UT3FrameMasks(*masks))
 
-    def to_t3basis(self):  # -> bvf.T3Basis, or a nested tree (shaped like stack_shape) of them if stacked
-        """Convert to a ragged :py:class:`~t3toolbox.basis_variations_format.T3Basis` (or, if stacked, an
+    def to_t3frame(self):  # -> bvf.T3Frame, or a nested tree (shaped like stack_shape) of them if stacked
+        """Convert to a ragged :py:class:`~t3toolbox.frame_variations_format.T3Frame` (or, if stacked, an
         array-like tree of them)."""
         d = self.d
-        result = ubv_conversions.ut3basis_to_t3basis(self.apply_masks().data)
+        result = ufv_conversions.ut3frame_to_t3frame(self.apply_masks().data)
         return stacking.apply_func_to_leaf_subtrees(
             result,
-            lambda c: bvf.T3Basis(*c),
+            lambda c: bvf.T3Frame(*c),
             ((None,) * d,) * 4,  # leaf_structure: 4 core-families, each a length-d tuple
         )
 
     # ------------------------------------------------------------- base point / orthogonal frame
     @staticmethod
-    def from_ut3(x: ut3.UniformTuckerTensorTrain) -> 'UT3Basis':
+    def from_ut3(x: ut3.UniformTuckerTensorTrain) -> 'UT3Frame':
         """Orthogonal frame at the point ``x`` (the frame part of :py:func:`ut3_orthogonal_representations`).
-        Uniform analog of :py:meth:`~t3toolbox.basis_variations_format.T3Basis.from_t3`."""
+        Uniform analog of :py:meth:`~t3toolbox.frame_variations_format.T3Frame.from_t3`."""
         return ut3_orthogonal_representations(x)[0]
 
     def to_ut3(self) -> ut3.UniformTuckerTensorTrain:
         """The base point this frame represents, as a :py:class:`UniformTuckerTensorTrain` (right-canonical:
-        the Tucker supercore over the right-orthogonal TT supercore). Uniform analog of ``T3Basis.to_t3``;
-        the plain-UT3 tt edge mask is the frame's ``basis_right_mask`` (the right TT ranks)."""
+        the Tucker supercore over the right-orthogonal TT supercore). Uniform analog of ``T3Frame.to_t3``;
+        the plain-UT3 tt edge mask is the frame's ``frame_right_mask`` (the right TT ranks)."""
         return ut3.UniformTuckerTensorTrain(
             self.up_tucker_supercore, self.right_tt_supercore,
-            self.shape, ut3.UT3Masks(self.masks.up_mask, self.masks.basis_right_mask))
+            self.shape, ut3.UT3Masks(self.masks.up_mask, self.masks.frame_right_mask))
 
     def to_dense(self) -> NDArray:
         """Dense tensor of the base point this frame represents (``= to_ut3().to_dense()``)."""
         return self.to_ut3().to_dense()
 
-    def reverse(self) -> 'UT3Basis':
+    def reverse(self) -> 'UT3Frame':
         """Reverse the mode order. Left/right supercores (and masks) **swap roles** -- reversing a
         left-orthogonal chain yields a right-orthogonal one -- so the redundant L/R store makes this exact
-        with no re-orthogonalization. Commutes with conversion: ``B.reverse().to_t3basis() ==
-        B.to_t3basis().reverse()``."""
-        up, down, left, right, shape, masks = ubv_operations.ubv_reverse_basis(self.data)
-        return UT3Basis(up, down, left, right, shape, UT3BasisMasks(*masks))
+        with no re-orthogonalization. Commutes with conversion: ``B.reverse().to_t3frame() ==
+        B.to_t3frame().reverse()``."""
+        up, down, left, right, shape, masks = ufv_operations.ufv_reverse_frame(self.data)
+        return UT3Frame(up, down, left, right, shape, UT3FrameMasks(*masks))
 
-    def orthogonalize(self) -> 'UT3Basis':
+    def orthogonalize(self) -> 'UT3Frame':
         """Orthogonal representation of the base point this frame reconstructs to (``= from_ut3(to_ut3())``).
         For an already-orthogonal frame, an equivalent orthogonal frame; for a drifted one, a genuinely
         orthogonal (minimal-rank) frame for the right-canonical base point."""
-        return UT3Basis.from_ut3(self.to_ut3())
+        return UT3Frame.from_ut3(self.to_ut3())
 
     @staticmethod
     def random_orthogonal(
@@ -320,29 +320,29 @@ class UT3Basis:
             tt_ranks,                           # int | len-(d+1) seq | (d+1,)+stack array
             stack_shape:  typ.Tuple[int, ...] = (),
             use_jax:      bool = False,
-    ) -> 'UT3Basis':
+    ) -> 'UT3Frame':
         """Orthogonal representation of a *random* uniform T3 -- a genuine random base point (orthogonal,
         consistent), not iid-random supercores. Equals ``from_ut3(UniformTuckerTensorTrain.randn(...))``."""
         x = ut3.UniformTuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks,
                                                stack_shape=tuple(stack_shape), use_jax=use_jax)
-        return UT3Basis.from_ut3(x)
+        return UT3Frame.from_ut3(x)
 
     @staticmethod
-    def random_orthogonal_like(basis: 'UT3Basis') -> 'UT3Basis':
-        """A random orthogonal frame with the same shape / ranks / stack as ``basis``."""
-        return UT3Basis.random_orthogonal(basis.shape, basis.up_ranks, basis.left_ranks,
-                                          stack_shape=basis.stack_shape, use_jax=basis.contains_jax)
+    def random_orthogonal_like(frame: 'UT3Frame') -> 'UT3Frame':
+        """A random orthogonal frame with the same shape / ranks / stack as ``frame``."""
+        return UT3Frame.random_orthogonal(frame.shape, frame.up_ranks, frame.left_ranks,
+                                          stack_shape=frame.stack_shape, use_jax=frame.contains_jax)
 
     # ------------------------------------------------------------- save / load
     def save(self, file) -> None:
         """Save the four supercores + ``shape`` + masks to a ``.npz`` file (load with :py:meth:`load`)."""
-        ubv_operations.ubv_save(file, self.data)
+        ufv_operations.ufv_save(file, self.data)
 
     @staticmethod
-    def load(file, use_jax: bool = False) -> 'UT3Basis':
+    def load(file, use_jax: bool = False) -> 'UT3Frame':
         """Load a frame saved by :py:meth:`save`. Supercores follow ``use_jax``; masks stay host numpy."""
-        up, down, left, right, shape, masks = ubv_operations.ubv_load(file, use_jax=use_jax)
-        return UT3Basis(up, down, left, right, shape, UT3BasisMasks(*masks))
+        up, down, left, right, shape, masks = ufv_operations.ufv_load(file, use_jax=use_jax)
+        return UT3Frame(up, down, left, right, shape, UT3FrameMasks(*masks))
 
     # ------------------------------------------------------------- dtype / copy / repr
     @ft.cached_property
@@ -356,26 +356,26 @@ class UT3Basis:
         """True if any supercore is a jax array (the masks are always host numpy)."""
         return tree_contains_jax(self.supercores)
 
-    def to_jax(self) -> 'UT3Basis':
+    def to_jax(self) -> 'UT3Frame':
         # Supercores -> jax; masks stay host numpy (a jax mask is a tracer under jit). See docs/uniform_*.
-        return UT3Basis(*(to_jax(sc) for sc in self.supercores), self.shape, self.masks)
+        return UT3Frame(*(to_jax(sc) for sc in self.supercores), self.shape, self.masks)
 
-    def to_numpy(self) -> 'UT3Basis':
+    def to_numpy(self) -> 'UT3Frame':
         # Supercores -> numpy; the masks are already host numpy, so reuse the holder.
-        return UT3Basis(*(to_numpy(sc) for sc in self.supercores), self.shape, self.masks)
+        return UT3Frame(*(to_numpy(sc) for sc in self.supercores), self.shape, self.masks)
 
-    def copy(self) -> 'UT3Basis':
-        # Deep-copy the supercores (the data leaves), like ragged T3Basis.copy; the static aux (shape +
+    def copy(self) -> 'UT3Frame':
+        # Deep-copy the supercores (the data leaves), like ragged T3Frame.copy; the static aux (shape +
         # masks) is shared (immutable structure, the same way `shape` is not duplicated).
-        return UT3Basis(*(sc.copy() for sc in self.supercores), self.shape, self.masks)
+        return UT3Frame(*(sc.copy() for sc in self.supercores), self.shape, self.masks)
 
     def __repr__(self) -> str:
         ss = ', stack_shape=%s' % (self.stack_shape,) if self.stack_shape else ''
-        return ('UT3Basis(shape=%s, N=%d, nU=%d, nD=%d, rL=%d, rR=%d%s)'
+        return ('UT3Frame(shape=%s, N=%d, nU=%d, nD=%d, rL=%d, rR=%d%s)'
                 % (self.shape, self.N, self.nU, self.nD, self.rL, self.rR, ss))
 
     def validate(self) -> None:
-        '''Check rank and shape consistency of a uniform Tucker tensor train basis (`UT3Basis`).
+        '''Check rank and shape consistency of a uniform Tucker tensor train frame (`UT3Frame`).
 
         Raises
         ------
@@ -383,7 +383,7 @@ class UT3Basis:
             If the supercores / masks have inconsistent shapes, or `shape` is not a length-d tuple of
             mode dims within the padded N.
         '''
-        up_mask, down_mask, basis_left_mask, basis_right_mask = self.masks.data
+        up_mask, down_mask, frame_left_mask, frame_right_mask = self.masks.data
 
         UU_good = self.up_tucker_supercore.shape  == (self.d,) + self.stack_shape + (self.nU, self.N)
         DD_good = self.down_tt_supercore.shape    == (self.d,) + self.stack_shape + (self.rL, self.nD, self.rR)
@@ -392,8 +392,8 @@ class UT3Basis:
 
         UM_good = up_mask.shape          == (self.d,) + self.stack_shape + (self.nU,)
         DM_good = down_mask.shape        == (self.d,) + self.stack_shape + (self.nD,)
-        LM_good = basis_left_mask.shape  == (self.d + 1,) + self.stack_shape + (self.rL,)
-        RM_good = basis_right_mask.shape == (self.d + 1,) + self.stack_shape + (self.rR,)
+        LM_good = frame_left_mask.shape  == (self.d + 1,) + self.stack_shape + (self.rL,)
+        RM_good = frame_right_mask.shape == (self.d + 1,) + self.stack_shape + (self.rR,)
 
         SH_good = (len(self.shape) == self.d) and all(0 <= Ni <= self.N for Ni in self.shape)
 
@@ -406,13 +406,13 @@ class UT3Basis:
         shapes_string += 'right_tt_supercore.shape  = ' + str(self.right_tt_supercore.shape)    + ' =? (d,) + stack_shape + (rR, nU, rR)' + bad_str(RR_good) + '\n'
         shapes_string += 'up_mask.shape             = ' + str(up_mask.shape) + ' =? (d,) + stack_shape + (nU,)' + bad_str(UM_good) + '\n'
         shapes_string += 'down_mask.shape           = ' + str(down_mask.shape) + ' =? (d,) + stack_shape + (nD,)' + bad_str(DM_good) + '\n'
-        shapes_string += 'basis_left_mask.shape     = ' + str(basis_left_mask.shape) + ' =? (d+1,) + stack_shape + (rL,)' + bad_str(LM_good) + '\n'
-        shapes_string += 'basis_right_mask.shape    = ' + str(basis_right_mask.shape) + ' =? (d+1,) + stack_shape + (rR,)' + bad_str(RM_good) + '\n'
+        shapes_string += 'frame_left_mask.shape     = ' + str(frame_left_mask.shape) + ' =? (d+1,) + stack_shape + (rL,)' + bad_str(LM_good) + '\n'
+        shapes_string += 'frame_right_mask.shape    = ' + str(frame_right_mask.shape) + ' =? (d+1,) + stack_shape + (rR,)' + bad_str(RM_good) + '\n'
         shapes_string += 'shape                     = ' + str(self.shape) + ' =? length-d ints in [0, N]' + bad_str(SH_good)
 
         if not (UU_good and DD_good and LL_good and RR_good and UM_good and DM_good and LM_good and RM_good and SH_good):
             raise ValueError(
-                'Inconsistent shapes for UT3Basis.\n'
+                'Inconsistent shapes for UT3Frame.\n'
                 + shapes_string
             )
 
@@ -420,19 +420,19 @@ class UT3Basis:
         self.validate()
 
     def unstack(self):
-        """Unstack a stacked UT3Basis into an array-like tree (shaped like ``stack_shape``) of UT3Basis."""
+        """Unstack a stacked UT3Frame into an array-like tree (shaped like ``stack_shape``) of UT3Frame."""
         return stacking.apply_func_to_leaf_subtrees(
-            ubv_operations.ubv_unstack(self.data, 4),
-            lambda leaf: UT3Basis(leaf[0], leaf[1], leaf[2], leaf[3], leaf[4], UT3BasisMasks(*leaf[5])),
-            ubv_operations.ubv_leaf_structure(self.d, 4),
+            ufv_operations.ufv_unstack(self.data, 4),
+            lambda leaf: UT3Frame(leaf[0], leaf[1], leaf[2], leaf[3], leaf[4], UT3FrameMasks(*leaf[5])),
+            ufv_operations.ufv_leaf_structure(self.d, 4),
         )
 
     @staticmethod
-    def stack(xx):  # Array-like tree of UT3Basis
-        """Stack an array-like tree of UT3Basis into a single stacked UT3Basis."""
+    def stack(xx):  # Array-like tree of UT3Frame
+        """Stack an array-like tree of UT3Frame into a single stacked UT3Frame."""
         data_tree = stacking.apply_func_to_leaf_subtrees(xx, lambda b: b.data, None)
-        up, down, left, right, shape, masks = ubv_operations.ubv_stack(data_tree, 4)
-        return UT3Basis(up, down, left, right, shape, UT3BasisMasks(*masks))
+        up, down, left, right, shape, masks = ufv_operations.ufv_stack(data_tree, 4)
+        return UT3Frame(up, down, left, right, shape, UT3FrameMasks(*masks))
 
 
 @dataclass(frozen=True, eq=False)  # eq=False -> the mixin's VALUE-based __hash__/__eq__ stand
@@ -441,7 +441,7 @@ class UT3VariationsMasks(common.ValueHashedMasks):
 
     Value-hashed (the :py:class:`~t3toolbox.backend.common.ValueHashedMasks` mixin) so a rebuilt-but-
     identical holder is the same jit cache key. NOTE: the left/right masks are ``(d,)`` here (not
-    ``(d+1,)`` as on :py:class:`UT3BasisMasks`) -- a variation occupies one TT slot, not a boundary edge.
+    ``(d+1,)`` as on :py:class:`UT3FrameMasks`) -- a variation occupies one TT slot, not a boundary edge.
     """
     variations_up_mask:    NDArray  # dtype=bool, (d,)+stack_shape+(nU,)
     variations_down_mask:  NDArray  # dtype=bool, (d,)+stack_shape+(nD,)
@@ -457,17 +457,17 @@ class UT3VariationsMasks(common.ValueHashedMasks):
 
 @dataclass(frozen=True)
 class UT3Variations:
-    """Variation cores for the basis-variations representation of uniform Tucker tensor trains.
+    """Variation cores for the frame-variations representation of uniform Tucker tensor trains.
 
-    Uniform analog of :py:class:`~t3toolbox.basis_variations_format.T3Variations`: two padded supercores
+    Uniform analog of :py:class:`~t3toolbox.frame_variations_format.T3Variations`: two padded supercores
     (``tucker_variations``, ``tt_variations``) + the static physical ``shape`` (an int tuple, shared across
     the stack) + a :py:class:`UT3VariationsMasks` holder. The variations fit in the "holes" of a
-    :py:class:`UT3Basis`.
+    :py:class:`UT3Frame`.
 
     Examples
     --------
     >>> import numpy as np
-    >>> import t3toolbox.uniform_basis_variations_format as ubcf
+    >>> import t3toolbox.uniform_frame_variations_format as ubcf
     >>> d, N, nU, nD, rL, rR = 3, 6, 4, 5, 3, 2
     >>> tkv = np.random.randn(d, nD, N)
     >>> ttv = np.random.randn(d, rL, nU, rR)
@@ -594,16 +594,16 @@ class UT3Variations:
             rL: typ.Optional[int] = None,   # padded left rank  (default max(left_ranks))
             rR: typ.Optional[int] = None,   # padded right rank (default max(right_ranks))
     ) -> 'UT3Variations':
-        """Pack a ragged :py:class:`~t3toolbox.basis_variations_format.T3Variations` into uniform variations."""
-        tkv, ttv, shape, masks = ubv_conversions.t3variations_to_ut3variations(
+        """Pack a ragged :py:class:`~t3toolbox.frame_variations_format.T3Variations` into uniform variations."""
+        tkv, ttv, shape, masks = ufv_conversions.t3variations_to_ut3variations(
             variations.data, N=N, nU=nU, nD=nD, rL=rL, rR=rR)
         return UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*masks))
 
     def to_t3variations(self):  # -> bvf.T3Variations, or a nested tree (shaped like stack_shape) of them if stacked
-        """Convert to ragged :py:class:`~t3toolbox.basis_variations_format.T3Variations` (or, if stacked, an
+        """Convert to ragged :py:class:`~t3toolbox.frame_variations_format.T3Variations` (or, if stacked, an
         array-like tree of them)."""
         d = self.d
-        result = ubv_conversions.ut3variations_to_t3variations(self.apply_masks().data)
+        result = ufv_conversions.ut3variations_to_t3variations(self.apply_masks().data)
         return stacking.apply_func_to_leaf_subtrees(
             result,
             lambda c: bvf.T3Variations(*c),
@@ -672,16 +672,16 @@ class UT3Variations:
     def unstack(self):
         """Unstack a stacked UT3Variations into an array-like tree (shaped like ``stack_shape``) of them."""
         return stacking.apply_func_to_leaf_subtrees(
-            ubv_operations.ubv_unstack(self.data, 2),
+            ufv_operations.ufv_unstack(self.data, 2),
             lambda leaf: UT3Variations(leaf[0], leaf[1], leaf[2], UT3VariationsMasks(*leaf[3])),
-            ubv_operations.ubv_leaf_structure(self.d, 2),
+            ufv_operations.ufv_leaf_structure(self.d, 2),
         )
 
     @staticmethod
     def stack(xx):  # array-like tree of UT3Variations
         """Stack an array-like tree of UT3Variations into a single stacked UT3Variations."""
         data_tree = stacking.apply_func_to_leaf_subtrees(xx, lambda v: v.data, None)
-        tkv, ttv, shape, masks = ubv_operations.ubv_stack(data_tree, 2)
+        tkv, ttv, shape, masks = ufv_operations.ufv_stack(data_tree, 2)
         return UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*masks))
 
     # ------------------------------------------------------------- linear algebra (fixed-rank vector space)
@@ -727,25 +727,25 @@ class UT3Variations:
     def reverse(self) -> 'UT3Variations':
         """Reverse the mode order (corewise): the tucker-variation supercore reverses; the tt-variation
         supercore reverses with a bond swap; the per-slot left/right masks swap. Matches
-        :py:meth:`UT3Basis.reverse` so a tangent reverses by reversing both components."""
-        tkv, ttv, shape, masks = ubv_operations.ubv_reverse_variations(self.data)
+        :py:meth:`UT3Frame.reverse` so a tangent reverses by reversing both components."""
+        tkv, ttv, shape, masks = ufv_operations.ufv_reverse_variations(self.data)
         return UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*masks))
 
     def save(self, file) -> None:
         """Save the two supercores + ``shape`` + masks to a ``.npz`` file (load with :py:meth:`load`)."""
-        ubv_operations.ubv_save(file, self.data)
+        ufv_operations.ufv_save(file, self.data)
 
     @staticmethod
     def load(file, use_jax: bool = False) -> 'UT3Variations':
         """Load variations saved by :py:meth:`save`. Supercores follow ``use_jax``; masks stay host numpy."""
-        tkv, ttv, shape, masks = ubv_operations.ubv_load(file, use_jax=use_jax)
+        tkv, ttv, shape, masks = ufv_operations.ufv_load(file, use_jax=use_jax)
         return UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*masks))
 
     def sum_stack(self, axis=None) -> 'UT3Variations':
         """Corewise sum over stack axes (a batch of variations -> their sum; the tangent sum, by linearity).
         ``axis`` indexes the stack (default: the whole stack). The mask ORs over the summed axes -- a no-op
         for a same-mask (single-base) stack; see ``docs/uniform_masks_vs_ranks.md``."""
-        tkv, ttv, shape, masks = ubv_operations.ubv_variations_sum_stack(self.data, axis)
+        tkv, ttv, shape, masks = ufv_operations.ufv_variations_sum_stack(self.data, axis)
         return UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*masks))
 
     def allclose(self, other: 'UT3Variations', rtol: float = 1e-9, atol: float = 0.0) -> NDArray:  # bool array, stack
@@ -797,7 +797,7 @@ class UT3Variations:
     ) -> 'UT3Variations':
         """Zero variations filling the padded supercores completely (additive identity). ``masks`` optional;
         ``None`` -> all-True. (See :py:meth:`zeros_like` to take the structure -- incl. gauge masks -- from
-        a :py:class:`UT3Basis` / :py:class:`UT3Variations`.)"""
+        a :py:class:`UT3Frame` / :py:class:`UT3Variations`.)"""
         return UT3Variations._filled(uniform_variation_shapes, shape, stack_shape, masks, use_jax, 'zeros')
 
     @staticmethod
@@ -840,28 +840,28 @@ class UT3Variations:
 
     @staticmethod
     def _variation_masks_of(x) -> 'UT3VariationsMasks':
-        # x: UT3Basis (gauge-shift its frame masks -> left[:-1], right[1:]) or UT3Variations (its own masks).
-        if isinstance(x, UT3Basis):
+        # x: UT3Frame (gauge-shift its frame masks -> left[:-1], right[1:]) or UT3Variations (its own masks).
+        if isinstance(x, UT3Frame):
             bm = x.masks
-            return UT3VariationsMasks(bm.up_mask, bm.down_mask, bm.basis_left_mask[:-1], bm.basis_right_mask[1:])
+            return UT3VariationsMasks(bm.up_mask, bm.down_mask, bm.frame_left_mask[:-1], bm.frame_right_mask[1:])
         return x.masks
 
     @staticmethod
     def zeros_like(x) -> 'UT3Variations':
-        """Zero variations matching the structure of ``x`` (a :py:class:`UT3Basis` or :py:class:`UT3Variations`).
-        For a basis this is the zero tangent carrying the base's gauge masks."""
+        """Zero variations matching the structure of ``x`` (a :py:class:`UT3Frame` or :py:class:`UT3Variations`).
+        For a frame this is the zero tangent carrying the base's gauge masks."""
         return UT3Variations.zeros(x.uniform_variation_shapes, x.shape, stack_shape=x.stack_shape,
                                    masks=UT3Variations._variation_masks_of(x), use_jax=x.contains_jax)
 
     @staticmethod
     def randn_like(x) -> 'UT3Variations':
-        """Random variations matching the structure (incl. gauge masks) of ``x`` (a UT3Basis or UT3Variations)."""
+        """Random variations matching the structure (incl. gauge masks) of ``x`` (a UT3Frame or UT3Variations)."""
         return UT3Variations.randn(x.uniform_variation_shapes, x.shape, stack_shape=x.stack_shape,
                                    masks=UT3Variations._variation_masks_of(x), use_jax=x.contains_jax)
 
 
-def check_ubv_pair(base: UT3Basis, variations: UT3Variations) -> None:
-    """Check rank and shape consistency between UT3Basis and UT3Variations.
+def check_ufv_pair(base: UT3Frame, variations: UT3Variations) -> None:
+    """Check rank and shape consistency between UT3Frame and UT3Variations.
 
     This ensures that the variation cores (V, H) have the correct dimensions
      to interface with the base cores (U, L, R, O).
@@ -877,7 +877,7 @@ def check_ubv_pair(base: UT3Basis, variations: UT3Variations) -> None:
     Examples
     --------
     >>> import numpy as np
-    >>> import t3toolbox.uniform_basis_variations_format as ubcf
+    >>> import t3toolbox.uniform_frame_variations_format as ubcf
     >>> stack_shape = ()                                    # unstacked, for a small readable example
     >>> d, N, nU, nD, rL, rR = 3, 12, 7, 8, 5, 4
     >>> uc = np.random.randn(*((d,) + stack_shape + (nU, N)))
@@ -887,14 +887,14 @@ def check_ubv_pair(base: UT3Basis, variations: UT3Variations) -> None:
     >>> shape = (10, 11, 12)
     >>> up = np.arange(nU) < np.array([[2],[3],[4]])        # (d, nU)
     >>> dn = np.arange(nD) < np.array([[3],[4],[5]])        # (d, nD)
-    >>> bl = np.arange(rL) < np.array([[1],[2],[3],[1]])    # (d+1, rL) basis left
-    >>> br = np.arange(rR) < np.array([[1],[2],[2],[1]])    # (d+1, rR) basis right
-    >>> B = ubcf.UT3Basis(uc, dc, lc, rc, shape, ubcf.UT3BasisMasks(up, dn, bl, br))
+    >>> bl = np.arange(rL) < np.array([[1],[2],[3],[1]])    # (d+1, rL) frame left
+    >>> br = np.arange(rR) < np.array([[1],[2],[2],[1]])    # (d+1, rR) frame right
+    >>> B = ubcf.UT3Frame(uc, dc, lc, rc, shape, ubcf.UT3FrameMasks(up, dn, bl, br))
     >>> tkv = np.random.randn(*((d,) + stack_shape + (nD, N)))
     >>> ttv = np.random.randn(*((d,) + stack_shape + (rL, nU, rR)))
     >>> V = ubcf.UT3Variations(tkv, ttv, shape,
     ...                        ubcf.UT3VariationsMasks(up, dn, bl[:-1], br[1:]))
-    >>> ubcf.check_ubv_pair(B, V)   # consistent base/variations pair -> no error
+    >>> ubcf.check_ufv_pair(B, V)   # consistent base/variations pair -> no error
 
     A bundle of ``K`` tangent vectors at the SAME base carries an extra leading stack; the masks must
     be constant along it and equal the base's gauge-shifted masks:
@@ -904,18 +904,18 @@ def check_ubv_pair(base: UT3Basis, variations: UT3Variations) -> None:
     >>> VK = ubcf.UT3Variations(np.random.randn(*((d,) + K + (nD, N))),
     ...                         np.random.randn(*((d,) + K + (rL, nU, rR))), shape,
     ...                         ubcf.UT3VariationsMasks(bcast(up), bcast(dn), bcast(bl[:-1]), bcast(br[1:])))
-    >>> ubcf.check_ubv_pair(B, VK)   # base (C=()) vs K-stacked variations -> still consistent
+    >>> ubcf.check_ufv_pair(B, VK)   # base (C=()) vs K-stacked variations -> still consistent
     """
     # Compare the stack-free structure (d, N, nU, nD, rL, rR) -- NOT the full 7-tuple, whose trailing
     # stack_shape would wrongly reject a legitimate tangent (K) stack on the variations.
     if base.uniform_structure[:6] != variations.uniform_structure[:6]:
         raise ValueError(
-            'Inconsistent (UT3Basis, UT3Variations) pair: stack-free structures differ.\n'
+            'Inconsistent (UT3Frame, UT3Variations) pair: stack-free structures differ.\n'
             + str(base.uniform_structure[:6]) + ' (base) != '
             + str(variations.uniform_structure[:6]) + ' (variations)')
 
     if base.shape != variations.shape:
-        raise ValueError('Inconsistent (UT3Basis, UT3Variations) pair: shapes differ (%s vs %s).'
+        raise ValueError('Inconsistent (UT3Frame, UT3Variations) pair: shapes differ (%s vs %s).'
                          % (base.shape, variations.shape))
 
     # The base core (C) stack must be the trailing suffix of the variations (K+C) stack.
@@ -923,7 +923,7 @@ def check_ubv_pair(base: UT3Basis, variations: UT3Variations) -> None:
     n_K = len(var_stack) - len(base_stack)
     if n_K < 0 or var_stack[n_K:] != base_stack:
         raise ValueError(
-            'Inconsistent (UT3Basis, UT3Variations) pair: base stack_shape %s is not a trailing suffix '
+            'Inconsistent (UT3Frame, UT3Variations) pair: base stack_shape %s is not a trailing suffix '
             'of variations stack_shape %s (expected variations.stack_shape == K + base.stack_shape).'
             % (base_stack, var_stack))
 
@@ -934,13 +934,13 @@ def check_ubv_pair(base: UT3Basis, variations: UT3Variations) -> None:
     for a, b, name in (
             (bm.up_mask,              vm.variations_up_mask,    'up'),
             (bm.down_mask,            vm.variations_down_mask,  'down'),
-            (bm.basis_left_mask[:-1], vm.variations_left_mask,  'left'),
-            (bm.basis_right_mask[1:], vm.variations_right_mask, 'right'),
+            (bm.frame_left_mask[:-1], vm.variations_left_mask,  'left'),
+            (bm.frame_right_mask[1:], vm.variations_right_mask, 'right'),
     ):
         a_bcast = np.broadcast_to(a.reshape(a.shape[:1] + (1,) * n_K + a.shape[1:]), b.shape)
         if not np.array_equal(a_bcast, b):
             raise ValueError(
-                'Inconsistent (UT3Basis, UT3Variations) pair: %s rank masks differ '
+                'Inconsistent (UT3Frame, UT3Variations) pair: %s rank masks differ '
                 '(variation mask must be constant along the K stack and equal the base mask).' % name)
 
 
@@ -949,7 +949,7 @@ def ut3_orthogonal_representations(
         already_left_orthogonal: bool = False,
         squash: bool = True,
 ) -> typ.Tuple[
-    UT3Basis,  # orthogonal base
+    UT3Frame,  # orthogonal base
     UT3Variations,  # variations
 ]:
     '''Construct base-variation representations of UniformTuckerTensorTrain with orthogonal base.
@@ -1009,52 +1009,52 @@ def ut3_orthogonal_representations(
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
-    >>> import t3toolbox.uniform_basis_variations_format as ubvf
+    >>> import t3toolbox.uniform_frame_variations_format as ubvf
     >>> np.random.seed(0)
     >>> x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
     >>> base, variations = ubvf.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
     >>> type(base).__name__, type(variations).__name__
-    ('UT3Basis', 'UT3Variations')
+    ('UT3Frame', 'UT3Variations')
     >>> base.shape
     (4, 5, 6)
     >>> # the orthogonal frame still represents the original tensor:
-    >>> bool(np.allclose(base.to_t3basis().to_dense(), x.to_dense()))
+    >>> bool(np.allclose(base.to_t3frame().to_dense(), x.to_dense()))
     True
 
     '''
     # Thin wrapper: the backend twin carries the logic (orthogonalize + build the SVD-justified prefix
     # masks); this only wraps the raw frame/variation .data into the OO classes.
-    frame_data, variation_data = ubv_conversions.ut3_orthogonal_representations(
+    frame_data, variation_data = ufv_conversions.ut3_orthogonal_representations(
         x.data, already_left_orthogonal=already_left_orthogonal, squash=squash)
-    uc, dc, lc, rc, shape, basis_masks = frame_data
+    uc, dc, lc, rc, shape, frame_masks = frame_data
     tkv, ttv, _, variation_masks = variation_data
-    return (UT3Basis(uc, dc, lc, rc, shape, UT3BasisMasks(*basis_masks)),
+    return (UT3Frame(uc, dc, lc, rc, shape, UT3FrameMasks(*frame_masks)),
             UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*variation_masks)))
 
 
-# (`ubv_to_ut3` -- the uniform analog of `bv_to_t3`, substituting one variation core into the frame -- was
+# (`ufv_to_ut3` -- the uniform analog of `fv_to_t3`, substituting one variation core into the frame -- was
 # dropped: the left/right subchains become differently-shaped supercores glued by the variation, with no
 # clean single uniform supercore op. Low importance. See dev/uniform_fix_plan.md "Refinements (round 2)".)
 
 
 
 if common.has_jax:
-    # UT3Basis as a jax pytree: the four supercores are the (traced) children; the static aux_data is
-    # (shape, UT3BasisMasks). `shape` is a value-hashable int tuple (same shape -> same jit cache key);
-    # UT3BasisMasks is eq=False (identity hash/eq), valid hashable aux even though it holds bool arrays.
+    # UT3Frame as a jax pytree: the four supercores are the (traced) children; the static aux_data is
+    # (shape, UT3FrameMasks). `shape` is a value-hashable int tuple (same shape -> same jit cache key);
+    # UT3FrameMasks is eq=False (identity hash/eq), valid hashable aux even though it holds bool arrays.
     # Mirrors UniformTuckerTensorTrain. See docs/uniform_pytree_composition.md.
     import jax
     jax.tree_util.register_pytree_node(
-        UT3Basis,
+        UT3Frame,
         lambda x: ((x.up_tucker_supercore, x.down_tt_supercore,
                     x.left_tt_supercore, x.right_tt_supercore),
                    (x.shape, x.masks)),
-        lambda aux, children: UT3Basis(children[0], children[1], children[2], children[3],
+        lambda aux, children: UT3Frame(children[0], children[1], children[2], children[3],
                                        aux[0], aux[1]),
     )
 
     # UT3Variations: the two variation supercores are the (traced) children; (shape, UT3VariationsMasks)
-    # is the value-keyed static aux (same pattern as UT3Basis / the plain UT3).
+    # is the value-keyed static aux (same pattern as UT3Frame / the plain UT3).
     jax.tree_util.register_pytree_node(
         UT3Variations,
         lambda x: ((x.tucker_variations, x.tt_variations), (x.shape, x.masks)),

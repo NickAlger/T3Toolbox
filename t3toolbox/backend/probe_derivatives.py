@@ -392,7 +392,7 @@ def _apply_base_sweep_jets_from_xi(
         base:    typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                      # = T3Basis.data = (U, O, P, Q)
+        ],                                      # = T3Frame.data = (U, O, P, Q)
         xi_jets: typ.Sequence[NDArray],         # up-index jets, len=d, elm_shape=(2,)+W+C+(nUi,)
         order:   int,
 ) -> typ.Tuple[
@@ -411,7 +411,7 @@ def _probe_base_sweep_jets_from_xi(
         base:    typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                      # = T3Basis.data = (U, O, P, Q)
+        ],                                      # = T3Frame.data = (U, O, P, Q)
         xi_jets: typ.Sequence[NDArray],         # up-index jets, len=d, elm_shape=(2,)+W+C+(nUi,)
         order:   int,
 ) -> typ.Tuple[
@@ -435,7 +435,7 @@ def precompute_apply_base_sweep_jets(
         base:   typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                      # = T3Basis.data = (U, O, P, Q)
+        ],                                      # = T3Frame.data = (U, O, P, Q)
         ww:     typ.Sequence[NDArray],          # probe vectors X,        len=d, elm_shape=W+(Ni,)
         pp:     typ.Sequence[NDArray],          # perturbation vectors P, len=d, elm_shape=W+(Ni,)
         order:  int,                            # highest derivative order
@@ -457,7 +457,7 @@ def precompute_entries_base_sweep_jets(
         base:   typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                      # = T3Basis.data = (U, O, P, Q)
+        ],                                      # = T3Frame.data = (U, O, P, Q)
         index:  NDArray,                        # int, shape=(d,)+W -- the grid points
         pp:     typ.Sequence[NDArray],          # perturbation vectors P, len=d, elm_shape=W+(Ni,)
         order:  int,                            # highest derivative order
@@ -477,7 +477,7 @@ def precompute_probe_base_sweep_jets(
         base:   typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                      # = T3Basis.data = (U, O, P, Q)
+        ],                                      # = T3Frame.data = (U, O, P, Q)
         ww:     typ.Sequence[NDArray],          # probe vectors X,        len=d, elm_shape=W+(Ni,)
         pp:     typ.Sequence[NDArray],          # perturbation vectors P, len=d, elm_shape=W+(Ni,)
         order:  int,                            # highest derivative order
@@ -681,7 +681,7 @@ def probe_jacobian_derivatives_from_sweep(
         base:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = T3Basis.data = (U, O, P, Q)
+        ],                                  # = T3Frame.data = (U, O, P, Q)
         sweep:      typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
@@ -715,7 +715,7 @@ def probe_tangent_derivatives(
             typ.Sequence[NDArray],          # down_tt_cores    O. len=d
             typ.Sequence[NDArray],          # left_tt_cores    P. len=d
             typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
-        ],                                  # = T3Basis.data = (up, down, left, right) = (U, O, P, Q)
+        ],                                  # = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
         order:      int,                    # highest derivative order K
 ) -> typ.Tuple[NDArray, ...]:               # z_jets. len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
     '''Symmetric derivatives of probing a tangent vector, in one repeated direction (Riemannian J^(s)).
@@ -838,7 +838,7 @@ def apply_jacobian_derivatives_from_sweep(
         base:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = T3Basis.data = (U, O, P, Q)
+        ],                                  # = T3Frame.data = (U, O, P, Q)
         sweep:      typ.Tuple[
             typ.Sequence[NDArray],          # xi_jets
             typ.Sequence[NDArray],          # mu_jets
@@ -869,7 +869,7 @@ def apply_tangent_derivatives(
             typ.Sequence[NDArray],          # down_tt_cores    O. len=d
             typ.Sequence[NDArray],          # left_tt_cores    P. len=d
             typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
-        ],                                  # = T3Basis.data = (up, down, left, right) = (U, O, P, Q)
+        ],                                  # = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
         order:      int,                    # highest derivative order
 ) -> NDArray:                               # apply-derivative jets, shape=(order+1,)+W+K+C
     '''Symmetric derivatives of applying a tangent vector in all modes, in one repeated direction.
@@ -923,7 +923,7 @@ def entries_jacobian_derivatives_from_sweep(
         base:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = T3Basis.data = (U, O, P, Q)
+        ],                                  # = T3Frame.data = (U, O, P, Q)
         sweep:      typ.Tuple[
             typ.Sequence[NDArray],          # xi_jets
             typ.Sequence[NDArray],          # mu_jets
@@ -954,7 +954,7 @@ def entries_tangent_derivatives(
             typ.Sequence[NDArray],          # down_tt_cores    O. len=d
             typ.Sequence[NDArray],          # left_tt_cores    P. len=d
             typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
-        ],                                  # = T3Basis.data = (up, down, left, right) = (U, O, P, Q)
+        ],                                  # = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
         order:      int,                    # highest derivative order
 ) -> NDArray:                               # entries-derivative jets, shape=(order+1,)+W+K+C
     '''Symmetric derivatives of an entry of a tangent vector, in one repeated direction.
@@ -1196,7 +1196,7 @@ def probe_transpose_derivatives_from_sweep(
         base:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = T3Basis.data = (U, O, P, Q)
+        ],                                  # = T3Frame.data = (U, O, P, Q)
         sweep:      typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
@@ -1234,7 +1234,7 @@ def probe_tangent_derivatives_transpose(
         base:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = T3Basis.data = (U, O, P, Q)
+        ],                                  # = T3Frame.data = (U, O, P, Q)
         order:      int,                    # highest derivative order K
         sum_over_probes: bool = False,      # True: sum the sample stack W (the J^T r back-projection)
 ) -> typ.Tuple[
@@ -1354,7 +1354,7 @@ def apply_transpose_derivatives_from_sweep(
         base:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = T3Basis.data = (U, O, P, Q)
+        ],                                  # = T3Frame.data = (U, O, P, Q)
         sweep:      typ.Tuple[
             typ.Sequence[NDArray],          # xi_jets
             typ.Sequence[NDArray],          # mu_jets
@@ -1384,7 +1384,7 @@ def apply_tangent_derivatives_transpose(
         base:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = T3Basis.data = (U, O, P, Q)
+        ],                                  # = T3Frame.data = (U, O, P, Q)
         order:      int,                    # highest derivative order
         sum_over_probes: bool = False,      # True: sum the sample stack W (the J^T r back-projection)
 ) -> typ.Tuple[
@@ -1416,7 +1416,7 @@ def entries_transpose_derivatives_from_sweep(
         base:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = T3Basis.data = (U, O, P, Q)
+        ],                                  # = T3Frame.data = (U, O, P, Q)
         sweep:      typ.Tuple[
             typ.Sequence[NDArray],          # xi_jets
             typ.Sequence[NDArray],          # mu_jets
@@ -1447,7 +1447,7 @@ def entries_tangent_derivatives_transpose(
         base:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = T3Basis.data = (U, O, P, Q)
+        ],                                  # = T3Frame.data = (U, O, P, Q)
         order:      int,                    # highest derivative order
         sum_over_probes: bool = False,      # True: sum the sample stack W (the J^T r back-projection)
 ) -> typ.Tuple[

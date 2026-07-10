@@ -7,9 +7,9 @@
 The uniform mirror of the ragged ``tangent_operations`` stack/unstack helpers, for the ``.data`` layout
 ``(*supercores, shape, masks)`` with a leading mode index ``d`` and the stack at axes ``1 ..``. A uniform
 tangent's variations carry the full ``K + C`` stack (tangent stack ``K`` outermost, base stack ``C``
-inner); the basis carries only ``C``. These functions split that stack into a Python tree of per-element
+inner); the frame carries only ``C``. These functions split that stack into a Python tree of per-element
 objects and recombine -- a tree<->array conversion, NOT an axis permutation of the supercores. They are
-the backend the UT3Tangent ``unstack_tangents`` / ``unstack_basis`` / ``stack_tangents`` / ``stack_basis``
+the backend the UT3Tangent ``unstack_tangents`` / ``unstack_frame`` / ``stack_tangents`` / ``stack_frame``
 / ``sum_tangents`` methods delegate to.
 
 Varying ranks across the base ``C`` stack are first-class here (the rank-sweep use case): the per-element
@@ -22,8 +22,8 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.backend.stacking as stacking
-import t3toolbox.backend.ubv_operations as ubv_operations
-import t3toolbox.backend.ubv_masking as ubv_masking
+import t3toolbox.backend.ufv_operations as ufv_operations
+import t3toolbox.backend.ufv_masking as ufv_masking
 import t3toolbox.backend.ut3_masking as ut3_masking
 import t3toolbox.backend.ut3_svd as ut3_svd
 import t3toolbox.backend.tangent_operations as tangent_operations
@@ -33,7 +33,7 @@ __all__ = [
     'tangent_to_ut3',
     'retract',
     'corewise_retract',
-    'ubv_corewise_inner',
+    'ufv_corewise_inner',
     'orthogonal_gauge_projection',
     'oblique_gauge_projection',
     'gauge_residual',
@@ -47,43 +47,43 @@ __all__ = [
 
 
 def _tangent_stack_split(
-        basis_data,       # (up, down, left, right, shape, masks), each supercore stack = C
+        frame_data,       # (up, down, left, right, shape, masks), each supercore stack = C
         variations_data,  # (tkv, ttv, shape, masks),             each supercore stack = K + C
 ) -> typ.Tuple[int, int]:  # (|K|, |C|)
-    """Recover the tangent / base stack split (|K|, |C|) from a (basis, variations) ``.data`` pair.
+    """Recover the tangent / base stack split (|K|, |C|) from a (frame, variations) ``.data`` pair.
 
     The frame supercores carry only the base stack ``C`` (up: ``(d,)+C+(nU, N)``); the variation supercores
     carry the full ``K + C`` (tucker variation: ``(d,)+K+C+(nD, N)``). So ``|C|`` comes from a frame core
     and ``|K|`` is the remainder.
     """
-    n_base = basis_data[0].ndim - 3       # |C|   (up supercore: (d,) + C + (nU, N))
+    n_base = frame_data[0].ndim - 3       # |C|   (up supercore: (d,) + C + (nU, N))
     n_full = variations_data[0].ndim - 3  # |K+C| (tucker variation: (d,) + K + C + (nD, N))
     return n_full - n_base, n_base
 
 
-def _pair_leaves(basis_tree, variations_tree, n_base):  # mirror tangent_operations._pair_base_leaves
-    """Pair a basis-data tree and a variations-data tree (same ``C``-shaped outer structure, ``n_base``
-    levels deep) leaf-by-leaf into one tree of ``(basis_data, variations_data)`` pairs. NOT a
+def _pair_leaves(frame_tree, variations_tree, n_base):  # mirror tangent_operations._pair_base_leaves
+    """Pair a frame-data tree and a variations-data tree (same ``C``-shaped outer structure, ``n_base``
+    levels deep) leaf-by-leaf into one tree of ``(frame_data, variations_data)`` pairs. NOT a
     :py:func:`stacking.tree_zip`: the data-tuple leaves are themselves sequences (and carry the int-tuple
     ``shape``), so a generic zip would recurse into them -- we stop at the known base depth ``n_base``."""
     if n_base == 0:
-        return (basis_tree, variations_tree)  # both are single .data tuples -> one pair
-    return tuple(_pair_leaves(b, v, n_base - 1) for b, v in zip(basis_tree, variations_tree))
+        return (frame_tree, variations_tree)  # both are single .data tuples -> one pair
+    return tuple(_pair_leaves(b, v, n_base - 1) for b, v in zip(frame_tree, variations_tree))
 
 
 def _unpair_leaves(paired_tree, n_base):  # inverse of _pair_leaves
-    """Split a ``C``-shaped tree of ``(basis_data, variations_data)`` pairs back into
-    ``(basis_tree, variations_tree)``."""
+    """Split a ``C``-shaped tree of ``(frame_data, variations_data)`` pairs back into
+    ``(frame_tree, variations_tree)``."""
     if n_base == 0:
-        return paired_tree  # already a single (basis_data, variations_data) pair
+        return paired_tree  # already a single (frame_data, variations_data) pair
     split = [_unpair_leaves(p, n_base - 1) for p in paired_tree]
     return tuple(s[0] for s in split), tuple(s[1] for s in split)
 
 
-def _depth_to_pair(paired_tree) -> int:  # |C|: nesting levels above a (basis_data, variations_data) leaf
-    """Count the nesting depth of a ``C``-shaped tree of ``(basis_data, variations_data)`` pairs without
+def _depth_to_pair(paired_tree) -> int:  # |C|: nesting levels above a (frame_data, variations_data) leaf
+    """Count the nesting depth of a ``C``-shaped tree of ``(frame_data, variations_data)`` pairs without
     recursing into the data tuples (whose int-tuple ``shape`` would fool :py:func:`stacking.tree_depth`).
-    A leaf pair is reached when ``node[0][0]`` -- the first frame supercore of ``basis_data`` -- is an
+    A leaf pair is reached when ``node[0][0]`` -- the first frame supercore of ``frame_data`` -- is an
     ndarray; until then ``node[0]`` is a subtree."""
     depth, node = 0, paired_tree
     while not is_ndarray(node[0][0]):
@@ -92,15 +92,15 @@ def _depth_to_pair(paired_tree) -> int:  # |C|: nesting levels above a (basis_da
 
 
 def unstack_tangent_stack(
-        basis_data,       # frame .data,      supercore stack = C
+        frame_data,       # frame .data,      supercore stack = C
         variations_data,  # variations .data, supercore stack = K + C
 ):  # -> array-like tree (shape K) of variations .data tuples (each stack = C)
     """Peel the tangent stack ``K`` off the variations, returning a ``K``-shaped tree of variation-``.data``.
 
     The base is shared across ``K``, so the frame is untouched (the caller pairs the same base with every
     leaf). Inverse of :py:func:`stack_tangent_stack`."""
-    n_tangent, _ = _tangent_stack_split(basis_data, variations_data)
-    return ubv_operations.ubv_unstack_axes(variations_data, 2, range(1, 1 + n_tangent))
+    n_tangent, _ = _tangent_stack_split(frame_data, variations_data)
+    return ufv_operations.ufv_unstack_axes(variations_data, 2, range(1, 1 + n_tangent))
 
 
 def stack_tangent_stack(
@@ -109,43 +109,43 @@ def stack_tangent_stack(
     """Stack a ``K``-shaped tree of variation-``.data`` over the tangent stack ``K`` (outermost; ``C`` stays
     inner). Inverse of :py:func:`unstack_tangent_stack`. The leaves share one frame, so ranks are uniform
     across ``K`` (the masks, constant along ``K``, just replicate)."""
-    return ubv_operations.ubv_stack(variations_tree, 2)
+    return ufv_operations.ufv_stack(variations_tree, 2)
 
 
 def unstack_base_stack(
-        basis_data,       # frame .data,      supercore stack = C
+        frame_data,       # frame .data,      supercore stack = C
         variations_data,  # variations .data, supercore stack = K + C
-):  # -> array-like tree (shape C) of (basis_data, variations_data) pairs
+):  # -> array-like tree (shape C) of (frame_data, variations_data) pairs
     """Peel the base stack ``C`` off both the frame and the variations, returning a ``C``-shaped tree whose
-    leaves are ``(basis_data, variations_data)`` pairs -- one single-base-point tangent per leaf.
+    leaves are ``(frame_data, variations_data)`` pairs -- one single-base-point tangent per leaf.
 
     Each frame-``.data`` leaf has stack ``()`` (a single base); each variations-``.data`` leaf has stack
     ``K``. The base stack is the *inner* part of the ``K + C`` variation stack, so it is peeled from the
     interior axes ``1+|K| .. 1+|K|+|C|`` of the variation supercores; the frame's whole stack is ``C``. The
     leaves are paired for you (a plain :py:func:`stacking.tree_zip` would recurse into the data tuples).
     Inverse of :py:func:`stack_base_stack`."""
-    n_tangent, n_base = _tangent_stack_split(basis_data, variations_data)
-    basis_tree = ubv_operations.ubv_unstack(basis_data, 4)  # frame stack is all C
-    variations_tree = ubv_operations.ubv_unstack_axes(variations_data, 2,
+    n_tangent, n_base = _tangent_stack_split(frame_data, variations_data)
+    frame_tree = ufv_operations.ufv_unstack(frame_data, 4)  # frame stack is all C
+    variations_tree = ufv_operations.ufv_unstack_axes(variations_data, 2,
                                                       range(1 + n_tangent, 1 + n_tangent + n_base))
-    return _pair_leaves(basis_tree, variations_tree, n_base)
+    return _pair_leaves(frame_tree, variations_tree, n_base)
 
 
 def stack_base_stack(
-        paired_tree,  # array-like tree (shape C) of (basis_data, variations_data) pairs
-):  # -> (basis_data [stack C], variations_data [stack K + C])
-    """Stack a ``C``-shaped tree of ``(basis_data, variations_data)`` pairs over the base stack ``C``.
+        paired_tree,  # array-like tree (shape C) of (frame_data, variations_data) pairs
+):  # -> (frame_data [stack C], variations_data [stack K + C])
+    """Stack a ``C``-shaped tree of ``(frame_data, variations_data)`` pairs over the base stack ``C``.
 
     The base stack is placed *innermost* (the variation stack becomes ``K + C``), matching the base-inner
     convention. Frames of DIFFERENT ranks stack into one batch (varying-``C`` -- the per-element masks just
     ride along); the shared requirement is only matching padded dims and tangent stack ``K``. Takes exactly
     the layout :py:func:`unstack_base_stack` produces (its inverse)."""
     n_base = _depth_to_pair(paired_tree)
-    basis_tree, variations_tree = _unpair_leaves(paired_tree, n_base)
-    basis_data = ubv_operations.ubv_stack(basis_tree, 4)                 # C at axes 1.. (frame stack = C)
-    n_tangent = ubv_operations._first_data_leaf(variations_tree)[0].ndim - 3  # |K| of a variations leaf
-    variations_data = ubv_operations.ubv_stack_axes(variations_tree, 2, axes_start=1 + n_tangent)  # C after K
-    return basis_data, variations_data
+    frame_tree, variations_tree = _unpair_leaves(paired_tree, n_base)
+    frame_data = ufv_operations.ufv_stack(frame_tree, 4)                 # C at axes 1.. (frame stack = C)
+    n_tangent = ufv_operations._first_data_leaf(variations_tree)[0].ndim - 3  # |K| of a variations leaf
+    variations_data = ufv_operations.ufv_stack_axes(variations_tree, 2, axes_start=1 + n_tangent)  # C after K
+    return frame_data, variations_data
 
 
 def sum_tangent_stack(
@@ -170,11 +170,11 @@ def sum_tangent_stack(
 
 
 def tangent_to_ut3(
-        basis_data,       # UT3Basis .data:      (up, down, left, right, shape, (4 masks)),  supercore stack = C
+        frame_data,       # UT3Frame .data:      (up, down, left, right, shape, (4 masks)),  supercore stack = C
         variations_data,  # UT3Variations .data: (tkv, ttv, shape, (4 masks)),               supercore stack = K + C
         include_shift: bool = False,  # False: tangent vector v. True: base point + v.
 ):  # -> doubled-rank UniformTuckerTensorTrain .data: (tucker_supercore, tt_supercore, shape, (tucker_mask, tt_mask))
-    """Doubled-rank uniform Tucker tensor train representing a uniform basis-variations tangent vector.
+    """Doubled-rank uniform Tucker tensor train representing a uniform frame-variations tangent vector.
 
     The uniform mirror of :py:func:`tangent_operations.tangent_to_t3` (equations (50)-(53) / Figure 20,
     Appendix A.3.1 of Alger et al. 2026). The Tucker supercore becomes ``[U ; V]`` (concat along the
@@ -189,7 +189,7 @@ def tangent_to_ut3(
     up to ``K + C`` (mirror ragged ``bcast``), and the masks (host numpy, carrying ``K + C`` already from
     the variations) are concatenated on the host. With ``include_shift=True`` the base point is folded into
     the last core (``base point + v``)."""
-    up_sc, down_sc, left_sc, right_sc, shape, _base_masks = basis_data
+    up_sc, down_sc, left_sc, right_sc, shape, _base_masks = frame_data
     tkv, ttv, _shape_v, var_masks = variations_data
     var_up_mask, var_down_mask, var_left_mask, var_right_mask = var_masks
 
@@ -268,10 +268,10 @@ def tangent_to_ut3(
 
 
 def retract(
-        basis_data,       # UT3Basis .data:      supercore stack = C
+        frame_data,       # UT3Frame .data:      supercore stack = C
         variations_data,  # UT3Variations .data: supercore stack = K + C
 ):  # -> retracted UniformTuckerTensorTrain .data (at the BASE point's ranks; stack = K + C)
-    """Retract a uniform basis-variations tangent vector onto the fixed-rank manifold.
+    """Retract a uniform frame-variations tangent vector onto the fixed-rank manifold.
 
     Forms the shifted doubled-rank embedding ``base point + v`` (:py:func:`tangent_to_ut3` with
     ``include_shift=True``) and truncates it back to the **base point's own ranks** -- the Tucker ``up``
@@ -284,14 +284,14 @@ def retract(
     targets. **The ``K`` (tangent) stack:** the base ranks have stack ``C`` while the shifted UT3 has stack
     ``K + C``, so the base ranks are broadcast over ``K`` (the ``K`` tangents share the base, hence the same
     truncation targets)."""
-    doubled = tangent_to_ut3(basis_data, variations_data, include_shift=True)   # .data, stack K + C
+    doubled = tangent_to_ut3(frame_data, variations_data, include_shift=True)   # .data, stack K + C
     ss = doubled[0].shape[1:-2]                       # K + C (the shifted UT3 stack)
-    C = basis_data[0].shape[1:-2]                     # C (the base stack)
+    C = frame_data[0].shape[1:-2]                     # C (the base stack)
     n_K = len(ss) - len(C)
 
-    up_mask, _down_mask, basis_left_mask, _basis_right_mask = basis_data[5]
+    up_mask, _down_mask, frame_left_mask, _frame_right_mask = frame_data[5]
     up_ranks   = up_mask.sum(axis=-1)                 # (d,)   + C, HOST int
-    left_ranks = basis_left_mask.sum(axis=-1)         # (d+1,) + C, HOST int
+    left_ranks = frame_left_mask.sum(axis=-1)         # (d+1,) + C, HOST int
 
     def bcast_over_K(ranks):  # (L,)+C -> (L,)+K+C: the K tangents share the base point's truncation targets
         return np.broadcast_to(ranks.reshape(ranks.shape[:1] + (1,) * n_K + ranks.shape[1:]),
@@ -303,7 +303,7 @@ def retract(
 
 
 def corewise_retract(
-        basis_data,       # UT3Basis .data: the (U, G, G, G) corewise frame, supercore stack = C
+        frame_data,       # UT3Frame .data: the (U, G, G, G) corewise frame, supercore stack = C
         variations_data,  # UT3Variations .data: free core perturbations (dU, dG), stack = K + C
 ):  # -> retracted UniformTuckerTensorTrain .data (at the base point's ranks; stack = K + C)
     """Additive (corewise) retraction: ``cores += variations``.
@@ -316,12 +316,12 @@ def corewise_retract(
     ``d``-leading (stack interior), so a ``K`` tangent stack cannot be added by plain numpy broadcasting (it
     would misalign ``d`` with ``K``): the base point (stack ``C``) is broadcast up to ``K + C`` by inserting
     ``n_K`` size-1 axes *after* the leading mode axis -- the ``K`` perturbations share one base point. The
-    result masks are the base plain-UT3 masks (``up_mask``, ``basis_left_mask``) broadcast over ``K``.
+    result masks are the base plain-UT3 masks (``up_mask``, ``frame_left_mask``) broadcast over ``K``.
     """
-    up_sc = basis_data[0]       # (d,)   + C + (nU, N)        -- the point's Tucker core U
-    G_sc  = basis_data[2]       # (d,)   + C + (rL, nU, rR)   -- the point's TT core G (left == right == G)
-    shape = basis_data[4]
-    up_mask, _down_mask, basis_left_mask, _basis_right_mask = basis_data[5]
+    up_sc = frame_data[0]       # (d,)   + C + (nU, N)        -- the point's Tucker core U
+    G_sc  = frame_data[2]       # (d,)   + C + (rL, nU, rR)   -- the point's TT core G (left == right == G)
+    shape = frame_data[4]
+    up_mask, _down_mask, frame_left_mask, _frame_right_mask = frame_data[5]
 
     dU, dG = variations_data[0], variations_data[1]   # (d,) + K + C + (nD, N), (d,) + K + C + (rL, nU, rR)
     C  = up_sc.shape[1:-2]      # base stack C
@@ -337,10 +337,10 @@ def corewise_retract(
 
     new_tk = bcast_sc(up_sc) + dU
     new_tt = bcast_sc(G_sc) + dG
-    return (new_tk, new_tt, shape, (bcast_mask(up_mask), bcast_mask(basis_left_mask)))
+    return (new_tk, new_tt, shape, (bcast_mask(up_mask), bcast_mask(frame_left_mask)))
 
 
-def ubv_corewise_inner(
+def ufv_corewise_inner(
         variations_a:  typ.Tuple,  # UT3Variations .data: (tkv, ttv, shape, masks), supercore stack = K + C
         variations_b:  typ.Tuple,  # UT3Variations .data: same structure as variations_a
         n_stack:       int,        # number of leading stack axes (K + C) to keep; 0 -> a single scalar
@@ -360,8 +360,8 @@ def ubv_corewise_inner(
     """
     use_jax = tree_contains_jax((variations_a[0], variations_a[1], variations_b[0], variations_b[1]))
     xnp, _, _ = get_backend(True, use_jax)
-    masked_a = ubv_masking.apply_variations_masks(variations_a)   # (masked_tkv, masked_ttv), stack = K + C
-    masked_b = ubv_masking.apply_variations_masks(variations_b)
+    masked_a = ufv_masking.apply_variations_masks(variations_a)   # (masked_tkv, masked_ttv), stack = K + C
+    masked_b = ufv_masking.apply_variations_masks(variations_b)
     total = 0.0
     for sa, sb in zip(masked_a, masked_b):
         total = total + xnp.sum(sa * sb, axis=(0,) + tuple(range(1 + n_stack, sa.ndim)))
@@ -369,7 +369,7 @@ def ubv_corewise_inner(
 
 
 def orthogonal_gauge_projection(
-        basis_data,       # UT3Basis .data
+        frame_data,       # UT3Frame .data
         variations_data,  # UT3Variations .data
 ):  # -> gauged variations .data (same masks; the tangent VECTOR changes)
     """Orthogonally project the variations onto the gauge-satisfying subspace (the uniform mirror of
@@ -381,8 +381,8 @@ def orthogonal_gauge_projection(
     Mask-once up front (the frame and variation padding zeroed), then mask-agnostic einsums vectorized over
     the leading mode axis ``d`` (a per-core *map*); the last TT variation is left unchanged (the ``[:-1]``
     boundary). The output carries the variation's masks unchanged (gauge preserves the rank structure)."""
-    up_sc, _down, left_sc, _right = ubv_masking.apply_basis_masks(basis_data)
-    tkv, ttv = ubv_masking.apply_variations_masks(variations_data)
+    up_sc, _down, left_sc, _right = ufv_masking.apply_frame_masks(frame_data)
+    tkv, ttv = ufv_masking.apply_variations_masks(variations_data)
     _tkv0, _ttv0, shape, masks = variations_data
     xnp, _, _ = get_backend(True, tree_contains_jax((up_sc, left_sc, tkv, ttv)))
 
@@ -399,7 +399,7 @@ def orthogonal_gauge_projection(
 
 
 def oblique_gauge_projection(
-        basis_data,       # UT3Basis .data
+        frame_data,       # UT3Frame .data
         variations_data,  # UT3Variations .data
 ):  # -> gauged variations .data (same masks; the tangent VECTOR is PRESERVED)
     """Project the variations onto the gauge-satisfying subspace while PRESERVING the tangent vector (the
@@ -412,8 +412,8 @@ def oblique_gauge_projection(
     loop: an unrolled loop bakes ``d`` copies of the step into the jit graph (compile time superlinear in
     the tensor order ``d``), while a scan compiles the body once. Mask-once up front. Enforces the gauge
     conditions (48)-(49), Appendix A.3 of Alger et al. (2026)."""
-    up_sc, down_sc, left_sc, right_sc = ubv_masking.apply_basis_masks(basis_data)
-    tkv, ttv = ubv_masking.apply_variations_masks(variations_data)
+    up_sc, down_sc, left_sc, right_sc = ufv_masking.apply_frame_masks(frame_data)
+    tkv, ttv = ufv_masking.apply_variations_masks(variations_data)
     _tkv0, _ttv0, shape, masks = variations_data
     xnp, _, xscan = get_backend(True, tree_contains_jax((up_sc, down_sc, left_sc, right_sc, tkv, ttv)))
 
@@ -443,7 +443,7 @@ def oblique_gauge_projection(
 
 
 def gauge_residual(
-        basis_data,       # UT3Basis .data
+        frame_data,       # UT3Frame .data
         variations_data,  # UT3Variations .data
 ) -> NDArray:  # shape = variation stack (K+C); per stack element (scalar/0-d when unstacked)
     """Max violation of the gauge conditions for a uniform tangent vector, **per stack element** (the
@@ -453,8 +453,8 @@ def gauge_residual(
     variation orthogonal to its left-core (``(P^L)^T dG^L = 0``). Mask-once, then the gauge grams vectorized
     over ``d``, max-abs reduced over the gram axes (keeping the stack), then the max over all checks (the
     last TT core is excluded -- the ``[:-1]`` boundary). A caller thresholds it (``<= atol``)."""
-    up_sc, _down, left_sc, _right = ubv_masking.apply_basis_masks(basis_data)
-    tkv, ttv = ubv_masking.apply_variations_masks(variations_data)
+    up_sc, _down, left_sc, _right = ufv_masking.apply_frame_masks(frame_data)
+    tkv, ttv = ufv_masking.apply_variations_masks(variations_data)
     xnp, _, _ = get_backend(True, tree_contains_jax((up_sc, left_sc, tkv, ttv)))
 
     g_tk = xnp.einsum('d...ia,d...ja->d...ij', up_sc, tkv)                     # U^T dU,        (d,)+stack+(nU, nD)
@@ -467,7 +467,7 @@ def gauge_residual(
 
 
 def project_ut3_onto_tangent_space(
-        basis_data,  # UT3Basis .data (an orthogonal frame), supercore stack = C
+        frame_data,  # UT3Frame .data (an orthogonal frame), supercore stack = C
         x_data,      # UniformTuckerTensorTrain .data to project, supercore stack = C
 ):  # -> gauged variations .data (the orthogonal projection of x onto the tangent space at the base)
     """Orthogonal projection of a uniform Tucker tensor train onto the tangent space at an orthogonal base
@@ -479,10 +479,10 @@ def project_ut3_onto_tangent_space(
     vectorized over ``d``); accumulate the left/right TT environments with the polymorphic
     :py:func:`tangent_operations.tt_zipper_*` (uniform ``xscan``, mask-free since the operands are masked);
     contract each environment into the ungauged Tucker/TT variations (a ``d``-axis map); then gauge."""
-    up_sc, down_sc, left_sc, right_sc = ubv_masking.apply_basis_masks(basis_data)
+    up_sc, down_sc, left_sc, right_sc = ufv_masking.apply_frame_masks(frame_data)
     other_tk, other_tt = ut3_masking.apply_masks_to_cores(x_data)
-    shape = basis_data[4]
-    up_mask, down_mask, basis_left_mask, basis_right_mask = basis_data[5]
+    shape = frame_data[4]
+    up_mask, down_mask, frame_left_mask, frame_right_mask = frame_data[5]
     xnp, _, _ = get_backend(True, tree_contains_jax((up_sc, down_sc, left_sc, right_sc, other_tk, other_tt)))
 
     # Re-express x's TT cores in the base's up-Tucker basis (vectorized over d).
@@ -501,5 +501,5 @@ def project_ut3_onto_tangent_space(
     dB = xnp.einsum('d...ij,d...io->d...jo', M, other_tk)                      # tucker variation, (d,)+stack+(nD, N)
 
     # Gauge the ungauged variations (they carry the base's gauge-shifted masks).
-    gauge_masks = (up_mask, down_mask, basis_left_mask[:-1], basis_right_mask[1:])
-    return orthogonal_gauge_projection(basis_data, (dB, dG, shape, gauge_masks))
+    gauge_masks = (up_mask, down_mask, frame_left_mask[:-1], frame_right_mask[1:])
+    return orthogonal_gauge_projection(frame_data, (dB, dG, shape, gauge_masks))

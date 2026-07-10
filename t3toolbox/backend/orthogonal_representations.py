@@ -14,8 +14,8 @@ from t3toolbox.backend.common import *
 
 __all__ = [
     'orthogonal_representations',
-    'basis_orthogonality_residual',
-    'basis_consistency_residual',
+    'frame_orthogonality_residual',
+    'frame_consistency_residual',
 ]
 
 
@@ -104,15 +104,15 @@ def orthogonal_representations(
     return base, variation
 
 
-def basis_orthogonality_residual(
-        basis: typ.Tuple[
+def frame_orthogonality_residual(
+        frame: typ.Tuple[
             typ.Sequence[NDArray],  # up_tucker_cores
             typ.Sequence[NDArray],  # down_tt_cores
             typ.Sequence[NDArray],  # left_tt_cores
             typ.Sequence[NDArray],  # right_tt_cores
         ],
 ) -> NDArray:  # shape = stack_shape (per stack element; scalar/0-d when unstacked)
-    '''Max deviation from orthogonality of the four basis core families, **per stack element**.
+    '''Max deviation from orthogonality of the four frame core families, **per stack element**.
 
     Checks each stacked block's gram against the identity:
         - up_tucker U_i (all i), outer/down D_i (all i),
@@ -121,9 +121,9 @@ def basis_orthogonality_residual(
     absolute deviation reduced over the **non-stack** axes (shape ``stack_shape``); a caller thresholds it
     (``<= atol``) for a per-element boolean orthogonality test.
     '''
-    UU, DD, LL, RR = basis
+    UU, DD, LL, RR = frame
     d = len(UU)
-    xnp, _, _ = get_backend(False, tree_contains_jax(basis))
+    xnp, _, _ = get_backend(False, tree_contains_jax(frame))
 
     def _dev(gram, n):  # max over the two gram axes only -> keep stack (the leading '...')
         return xnp.max(xnp.abs(gram - xnp.eye(n)), axis=(-2, -1))
@@ -143,8 +143,8 @@ def basis_orthogonality_residual(
     return xnp.max(xnp.stack(devs), axis=0)   # max over the checks, keep stack_shape
 
 
-def basis_consistency_residual(
-        basis: typ.Tuple[
+def frame_consistency_residual(
+        frame: typ.Tuple[
             typ.Sequence[NDArray],  # up_tucker_cores
             typ.Sequence[NDArray],  # down_tt_cores
             typ.Sequence[NDArray],  # left_tt_cores
@@ -158,8 +158,8 @@ def basis_consistency_residual(
     the non-stack axes, so the result has shape ``stack_shape``); a caller thresholds it (``<= rtol``) for a
     per-element boolean consistency test. EXPENSIVE -- densifies both reconstructions.
     '''
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
-    xnp, _, _ = get_backend(False, tree_contains_jax(basis))
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+    xnp, _, _ = get_backend(False, tree_contains_jax(frame))
     d = len(up_tucker_cores)
     left = ragged_operations.to_dense((up_tucker_cores, left_tt_cores))
     right = ragged_operations.to_dense((up_tucker_cores, right_tt_cores))

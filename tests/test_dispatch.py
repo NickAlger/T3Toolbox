@@ -18,7 +18,7 @@ import unittest
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform_tucker_tensor_train as ut3
-import t3toolbox.basis_variations_format as bvf
+import t3toolbox.frame_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.common as common
 import t3toolbox.backend.contractions as contractions
@@ -294,7 +294,7 @@ class TestDispatch(unittest.TestCase):
         # one custom contraction (contractions.py)
         FGa = jnp.ones((2, 3)); Gaib = jnp.ones((3, 4, 5)); FGi = jnp.ones((2, 4))
         self.assert_jit_jax(lambda a, b, c: contractions.WCa_Caib_WCi_to_WCb(a, b, c), FGa, Gaib, FGi)
-        # orthogonal_representations (orthogonal_representations.py) -> returns (T3Basis, T3Variations)
+        # orthogonal_representations (orthogonal_representations.py) -> returns (T3Frame, T3Variations)
         self.assert_jit_jax(lambda a: bvf.t3_orthogonal_representations(a), self.x)
         # tangent backend (tangent_operations.py)
         self.assert_jit_jax(lambda b, v: tops.tangent_to_dense(b, v), self.base.data, self.var.data)
@@ -302,14 +302,14 @@ class TestDispatch(unittest.TestCase):
         dense = jnp.asarray(np.random.randn(*STRUCT[0]))
         self.assert_jit_jax(lambda b, z: tops.project_dense_onto_tangent_space(b, z), self.base.data, dense)
         # residual / checker backends -> jax scalar (raw-np dispatch fix)
-        self.assert_jit_jax(lambda b: orth_reps.basis_orthogonality_residual(b), self.base.data)
-        self.assert_jit_jax(lambda b: orth_reps.basis_consistency_residual(b), self.base.data)
+        self.assert_jit_jax(lambda b: orth_reps.frame_orthogonality_residual(b), self.base.data)
+        self.assert_jit_jax(lambda b: orth_reps.frame_consistency_residual(b), self.base.data)
         self.assert_jit_jax(lambda b, v: tops.gauge_residual(b, v), self.base.data, self.var.data)
 
     # ---------------------------------------------------- jit bucket: Gauss-Newton fitting (fitting.py)
     def test_jit_fitting(self):
         # the geometry-generic GN model, every (kind x geometry): cached sweep + base fold in as closure
-        # constants; the trial tangent pp is the traced input (basis survives jit as aux). evaluate exercises
+        # constants; the trial tangent pp is the traced input (frame survives jit as aux). evaluate exercises
         # the kind's sumsq reducer; gn_hessian exercises forward + transpose + geometry.project.
         index = jnp.array([[1, 2], [2, 3], [3, 0]])              # (d,)+W, W=(2,)
         probe_r = tuple(jnp.ones((2, N)) for N in STRUCT[0])     # d probe residual vectors, W=(2,)
@@ -451,22 +451,22 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_uniform(lambda x: ut3.UniformTuckerTensorTrain.from_t3(x), self.x_np.to_jax(), returns_ut3=True)
 
     # ---------------------------------------------------- jit bucket: ragged <-> uniform bv converters (2c-A)
-    def test_jit_cross_layer_bv_converters(self):
-        # from_t3basis / from_t3variations: jax ragged cores in -> jax supercores out, masks stay host
-        # (same pad+stack-via-xnp / np-host-mask machinery as from_t3). to_t3basis / to_t3variations:
+    def test_jit_cross_layer_fv_converters(self):
+        # from_t3frame / from_t3variations: jax ragged cores in -> jax supercores out, masks stay host
+        # (same pad+stack-via-xnp / np-host-mask machinery as from_t3). to_t3frame / to_t3variations:
         # argwhere on host masks indexes jax supercores -> jax ragged out.
-        import t3toolbox.uniform_basis_variations_format as ubv
-        self.assert_jit_uniform(lambda b: ubv.UT3Basis.from_t3basis(b), self.base, returns_ut3=True)
+        import t3toolbox.uniform_frame_variations_format as ubv
+        self.assert_jit_uniform(lambda b: ubv.UT3Frame.from_t3frame(b), self.base, returns_ut3=True)
         self.assert_jit_uniform(lambda v: ubv.UT3Variations.from_t3variations(v), self.var, returns_ut3=True)
-        UB = ubv.UT3Basis.from_t3basis(self.base)
+        UB = ubv.UT3Frame.from_t3frame(self.base)
         UV = ubv.UT3Variations.from_t3variations(self.var)
-        self.assert_jit_jax(lambda b: b.to_t3basis(), UB)
+        self.assert_jit_jax(lambda b: b.to_t3frame(), UB)
         self.assert_jit_jax(lambda v: v.to_t3variations(), UV)
         # 2c-B base-point conversions: to_ut3 returns a ut3 (masks must stay concrete); to_dense -> array;
         # from_ut3 runs the orthogonal-representation sweep under jit (its frame masks stay concrete too).
         self.assert_jit_uniform(lambda b: b.to_ut3(), UB, returns_ut3=True)
         self.assert_jit_uniform(lambda b: b.to_dense(), UB)
-        self.assert_jit_uniform(lambda u: ubv.UT3Basis.from_ut3(u).to_ut3(), self.ux, returns_ut3=True)
+        self.assert_jit_uniform(lambda u: ubv.UT3Frame.from_ut3(u).to_ut3(), self.ux, returns_ut3=True)
         # 2c-E: reverse (both classes) + orthogonalize -- masks reverse/rebuild on the host, stay concrete
         self.assert_jit_uniform(lambda b: b.reverse(), UB, returns_ut3=True)
         self.assert_jit_uniform(lambda v: v.reverse(), UV, returns_ut3=True)
@@ -474,7 +474,7 @@ class TestDispatch(unittest.TestCase):
         # 2c-G2: uniform-native per-element checkers jit to jax (masked-Gram residual; masks stay np const)
         self.assert_jit_jax(lambda b: b.is_orthogonal(), UB)
         self.assert_jit_jax(lambda b: b.is_consistent(), UB)
-        self.assert_jit_jax(lambda a, b: a.allclose(b), UB, ubv.UT3Basis.from_t3basis(self.base))
+        self.assert_jit_jax(lambda a, b: a.allclose(b), UB, ubv.UT3Frame.from_t3frame(self.base))
 
     # ---------------------------------------------------- jit bucket: the uniform geometries (3b-5)
     def test_jit_uniform_geometry(self):
@@ -487,19 +487,19 @@ class TestDispatch(unittest.TestCase):
         cv = C.randn(C.base(ux_np)).to_jax()
         base, g = M.base(ux_np).to_jax(), self.uy          # an orthogonal jax frame + a jax UniformTTT grad
 
-        # base returns a UT3Basis; retract a UniformTTT -- masks must stay concrete (the tracer-leak mode)
+        # base returns a UT3Frame; retract a UniformTTT -- masks must stay concrete (the tracer-leak mode)
         self.assert_jit_uniform(lambda u: M.base(u), self.ux, returns_ut3=True)
         self.assert_jit_uniform(lambda u: C.base(u), self.ux, returns_ut3=True)
         self.assert_jit_uniform(lambda t: M.retract(t), v, returns_ut3=True)
         self.assert_jit_uniform(lambda t: C.retract(t), cv, returns_ut3=True)
 
-        # tangent-returning ops: jit op().to_dense() (no numpy on a tracer) + the returned tangent's basis &
+        # tangent-returning ops: jit op().to_dense() (no numpy on a tracer) + the returned tangent's frame &
         # variations masks stay concrete (UT3Tangent has no .masks of its own -- check both sub-holders)
         for op in (M.project, M.project_oblique):
             self.assert_jit_jax(lambda t, o=op: o(t).to_dense(), v)
             gt = jax.jit(lambda t, o=op: o(t))(v)
             self._leaves_all_jax(gt)
-            self.assert_concrete_masks(gt.basis); self.assert_concrete_masks(gt.variations)
+            self.assert_concrete_masks(gt.frame); self.assert_concrete_masks(gt.variations)
 
         # scalar metrics + ambient projection + transport (all -> jax, preconditions skip under trace)
         self.assert_jit_jax(lambda a, b: M.inner(a, b), v, v)
@@ -523,8 +523,8 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda t, i: t.entries(i), v, idx)
 
         # 3b-6c transposes 𝒥ᵀ: residual -> UT3Tangent; jit the whole op + .to_dense() (supercores trace,
-        # the gauge masks stay host constants). The basis (jax frame, C=()) is closed over; residual traces.
-        bj = v.basis
+        # the gauge masks stay host constants). The frame (jax frame, C=()) is closed over; residual traces.
+        bj = v.frame
         rr = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])   # probe residual, W=(2,), K=C=()
         cc = jnp.array(np.random.randn(2))                               # scalar residual, W=(2,)
         self.assert_jit_jax(
@@ -571,7 +571,7 @@ class TestDispatch(unittest.TestCase):
 
         # 3b-6'c transpose derivatives 𝒥ᵀ: residual jets -> UT3Tangent (jit the whole op + .to_dense()); the
         # supercores trace through the d-prefixed JET adjoint contractions + scan sweeps, gauge masks host.
-        bj = v.basis                                                     # jax frame, C=()
+        bj = v.frame                                                     # jax frame, C=()
         rj = tuple(jnp.array(np.random.randn(3, 2, N)) for N in STRUCT[0])   # probe residual jets, (order+1,W,Ni)
         cj = jnp.array(np.random.randn(3, 2))                            # scalar residual jet, (order+1,W)
         self.assert_jit_jax(
@@ -598,20 +598,20 @@ class TestDispatch(unittest.TestCase):
         # stacking.stack infers ONE backend per call, so stacking a jax object's supercores together with
         # its host masks would promote the masks to jax. The uniform stack ops split the two calls; this
         # eager check (stack/unstack are tree ops, not jit targets) guards that masks stay host numpy.
-        import t3toolbox.uniform_basis_variations_format as ubv
+        import t3toolbox.uniform_frame_variations_format as ubv
         xs = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=(2,)).to_jax()
         ux = ut3.UniformTuckerTensorTrain.from_t3(xs)
         ru = ut3.UniformTuckerTensorTrain.stack(ux.unstack())          # plain UT3
         self._leaves_all_jax(ru); self.assert_concrete_masks(ru)
         base, var = ubv.ut3_orthogonal_representations(ux)             # bv frame + variations
-        for r in (ubv.UT3Basis.stack(base.unstack()), ubv.UT3Variations.stack(var.unstack())):
+        for r in (ubv.UT3Frame.stack(base.unstack()), ubv.UT3Variations.stack(var.unstack())):
             self._leaves_all_jax(r); self.assert_concrete_masks(r)
 
     # ---------------------------------------------------- jit bucket: UT3Variations vector-space ops (2c-D)
     def test_jit_variation_linear_algebra(self):
         # corewise ops return a UT3Variations with the SAME (unchanged) mask -> masks stay concrete; the
         # same-mask precondition runs on host-static structure (no tracer branch).
-        import t3toolbox.uniform_basis_variations_format as ubv
+        import t3toolbox.uniform_frame_variations_format as ubv
         UV = ubv.UT3Variations.from_t3variations(self.var)
         UW = ubv.UT3Variations.randn_like(UV)                          # same base -> same mask -> addable
         self.assert_jit_uniform(lambda a, b: a + b, UV, UW, returns_ut3=True)
@@ -628,7 +628,7 @@ class TestDispatch(unittest.TestCase):
         # every optimization step) must NOT recompile, or the loop pays a recompile every iteration. The
         # ValueHashedMasks mixin makes the key reflect rank STRUCTURE, not object identity. (The Python body
         # of a jitted fn runs once per TRACE, so the counter == number of compilations.)
-        import t3toolbox.uniform_basis_variations_format as ubv
+        import t3toolbox.uniform_frame_variations_format as ubv
 
         n_plain = [0]
         @jax.jit
@@ -639,7 +639,7 @@ class TestDispatch(unittest.TestCase):
             fn_plain(ut3.UniformTuckerTensorTrain.from_t3(self.x_np).to_jax())   # fresh UT3Masks each call, identical structure
         self.assertEqual(n_plain[0], 1, 'plain UT3 recompiled on mask rebuild (mask hash/eq not value-based)')
 
-        # same for the orthogonal frame's UT3BasisMasks (the optimization-loop case)
+        # same for the orthogonal frame's UT3FrameMasks (the optimization-loop case)
         d, N, nU, nD, rL, rR = 3, 6, 4, 5, 3, 2
         pm = lambda r, p: np.arange(p) < np.asarray(r)[..., None]
         def make_frame():
@@ -647,16 +647,16 @@ class TestDispatch(unittest.TestCase):
             down  = jnp.asarray(np.random.randn(d, rL, nD, rR))
             left  = jnp.asarray(np.random.randn(d, rL, nU, rL))
             right = jnp.asarray(np.random.randn(d, rR, nU, rR))
-            masks = ubv.UT3BasisMasks(pm([2,3,4],nU), pm([3,4,5],nD), pm([1,2,3,1],rL), pm([1,2,2,1],rR))
-            return ubv.UT3Basis(up, down, left, right, (4,5,6), masks)
+            masks = ubv.UT3FrameMasks(pm([2,3,4],nU), pm([3,4,5],nD), pm([1,2,3,1],rL), pm([1,2,2,1],rR))
+            return ubv.UT3Frame(up, down, left, right, (4,5,6), masks)
         n_frame = [0]
         @jax.jit
         def fn_frame(B):
             n_frame[0] += 1
             return sum(jnp.sum(c) for c in B.data[:4])
         for _ in range(4):
-            fn_frame(make_frame())                        # fresh UT3BasisMasks each call, identical structure
-        self.assertEqual(n_frame[0], 1, 'UT3Basis recompiled on frame rebuild (mask hash/eq not value-based)')
+            fn_frame(make_frame())                        # fresh UT3FrameMasks each call, identical structure
+        self.assertEqual(n_frame[0], 1, 'UT3Frame recompiled on frame rebuild (mask hash/eq not value-based)')
 
     # ---------------------------------------------------- jax-out bucket: pure uniform constructors
     def test_jax_out_uniform_ctors(self):
@@ -678,13 +678,13 @@ class TestDispatch(unittest.TestCase):
         self.assert_eager_jax(lambda m: linalg.truncated_svd(m, rtol=0.05), A)
         # MANIFOLD.project_ambient (dense grad, 'contraction'/'t3svd'): t3svd_dense picks ranks from the data
         # -> dynamic shapes. Dispatch is pushed down (no top-level jax check), so the output is jax
-        # whenever ANY input is jax. jax dense + jax basis:
+        # whenever ANY input is jax. jax dense + jax frame:
         dense = jnp.array(np.random.randn(*STRUCT[0]))
         self.assert_eager_jax(lambda z: t3m.MANIFOLD.project_ambient(self.base, z), dense)
         self.assert_eager_jax(lambda z: t3m.MANIFOLD.project_ambient(self.base, z), dense)
-        # jax dense + NUMPY basis: the COMPUTED variations must be jax (any input jax -> jax); the old
-        # code coerced the dense down to the basis's numpy here -- the regression this fix prevents. With
-        # basis-as-leaf the tangent also carries the (numpy) basis as leaves, so check the variations only.
+        # jax dense + NUMPY frame: the COMPUTED variations must be jax (any input jax -> jax); the old
+        # code coerced the dense down to the frame's numpy here -- the regression this fix prevents. With
+        # frame-as-leaf the tangent also carries the (numpy) frame as leaves, so check the variations only.
         base_np = self.base.to_numpy()
         self._leaves_all_jax(t3m.MANIFOLD.project_ambient(base_np, dense).variations)
 

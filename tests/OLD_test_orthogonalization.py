@@ -301,7 +301,7 @@ class Orthogonalization(unittest.TestCase):
                     x2 = ((U0, U1, V2), (L0, L1, O2))
                     self.check_relerr(t3.t3_to_dense(x), t3.t3_to_dense(x2))
 
-                    # Basis orthogonality
+                    # Frame orthogonality
                     for U in [U0, U1, U2]:
                         self.check_relerr(np.eye(U.shape[0]), U @ U.T)
 

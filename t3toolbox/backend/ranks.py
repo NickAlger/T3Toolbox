@@ -15,7 +15,7 @@ __all__ = [
     'compute_raw_sweep_ranks',
     'compute_orthogonal_representation_ranks',
     'compute_manifold_dim',
-    'basis_has_minimal_ranks',
+    'frame_has_minimal_ranks',
     'normalize_max_ranks',
 ]
 
@@ -446,14 +446,14 @@ def compute_manifold_dim(
     return int(manifold_dim)
 
 
-def basis_has_minimal_ranks(
+def frame_has_minimal_ranks(
         shape:          typ.Sequence[int],
         up_ranks:       typ.Sequence[int],
         down_ranks:     typ.Sequence[int],
         left_ranks:     typ.Sequence[int],
         right_ranks:    typ.Sequence[int],
 ) -> bool:
-    '''True if a T3Basis with these (redundant) ranks is structurally minimal.
+    '''True if a T3Frame with these (redundant) ranks is structurally minimal.
 
     Requires the left/right and up/down rank stores to agree, and the up/left ranks to equal the
     minimal ranks for the shape.

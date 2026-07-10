@@ -10,16 +10,16 @@ from t3toolbox.backend.common import *
 from t3toolbox.backend.common import NDArray, is_ndarray, get_backend
 
 __all__ = [
-    'bv_to_t3',
+    'fv_to_t3',
 ]
 
 
-def bv_to_t3(
+def fv_to_t3(
         index: typ.Tuple[
             bool, # If True, use TT coordinate. If False, use Tucker coordinate
             int, # index of coordinate
         ],
-        basis: typ.Union[
+        frame: typ.Union[
             typ.Tuple[
                 typ.Tuple[NDArray, ...],  # up_tucker_cores
                 typ.Tuple[NDArray, ...],  # down_tucker_cores
@@ -53,13 +53,13 @@ def bv_to_t3(
         NDArray, # tt_supercore
     ], # uniform
 ]:
-    '''Convert ith basis-variation representation to TuckerTensorTrain.
+    '''Convert ith frame-variation representation to TuckerTensorTrain.
     '''
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = basis
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
     tucker_variations, tt_variations = variations
 
     is_uniform = is_ndarray(up_tucker_cores)
-    xnp, _, _ = get_backend(True, tree_contains_jax((basis, variations)))
+    xnp, _, _ = get_backend(True, tree_contains_jax((frame, variations)))
 
     use_tt_coord, ii = index
 

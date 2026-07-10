@@ -93,7 +93,7 @@ the house "warn, don't enforce, but document the failure mode" philosophy). Two 
   ValueError
   ```
 - **Numerical violation → it warns (returns a wrong value)** → show the **wrong value next to the
-  right one**, with the cautionary line clearly labelled (`# WRONG: basis not orthogonal, so this is
+  right one**, with the cautionary line clearly labelled (`# WRONG: frame not orthogonal, so this is
   not the HS inner product`).
 
 A gotcha is usually its **own short block**.

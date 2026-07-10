@@ -137,10 +137,10 @@ class EdgeVectors:
 
     @staticmethod
     def stack(
-            xx, # Array-like tree of T3Basis
+            xx, # Array-like tree of T3Frame
             use_jax: bool = False,
     ):
-        """Stack array-like tree of T3Basis into a single T3Basis.
+        """Stack array-like tree of T3Frame into a single T3Frame.
 
         Examples
         --------

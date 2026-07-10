@@ -44,7 +44,7 @@ def broadcast_t3_to_common_stack(
     """Broadcast every core of a T3 up to the common (broadcast) stack of all its cores.
 
     Cores may carry different but broadcastable leading stack axes -- e.g. a single-core-replacement
-    term (``bv_to_t3``) or a tangent term mixes a V+G-stacked variation core with G-stacked base
+    term (``fv_to_t3``) or a tangent term mixes a V+G-stacked variation core with G-stacked base
     cores (the shared base point replicated over the tangent stack V). Returns the cores all stacked
     at the common ``np.broadcast_shapes`` stack, so the result is a valid uniform-stack T3. A no-op
     when every core already shares one stack.

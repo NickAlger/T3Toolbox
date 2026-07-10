@@ -1,7 +1,7 @@
 # S2 — Numerical-contract catalog (precondition vs caveat sweep)
 
 *The make-or-break input to [`dev/archive/safe_unsafe_mode_plan.md`](../dev/archive/safe_unsafe_mode_plan.md) §5. Sweep of the
-**verified** modules (`tucker_tensor_train`, `basis_variations_format`, `manifold`, `corewise`, `fitting` +
+**verified** modules (`tucker_tensor_train`, `frame_variations_format`, `manifold`, `corewise`, `fitting` +
 backend, `probing`) classifying each op's numerical assumptions as an enforceable **precondition** or a
 non-enforced **caveat**.*
 
@@ -34,20 +34,20 @@ those properties only make them *equal HS*), so it moves to the geometry's `inne
 | property | meaning | checker (exists) | cost | notes |
 |---|---|---|---|---|
 | **same-frame** | two tangents share one frame (= same tangent space) | *new* `same_frame(b1,b2)` | **O(1) common case** | `b1 is b2 or frames_equal(b1.data,b2.data, rtol)` — identity is the fast sufficient path; `frames_equal` (a value compare) is the complete fallback that also accepts the jit round-trip. |
-| **orthogonal** | the frame is orthonormal (U/O/L/R conditions) | `T3Basis.is_orthogonal()` | contractions | a `@cached_property` candidate (frame is frozen → check once). |
-| **gauged** | variations satisfy the gauge conditions (48)–(49) | `T3Tangent.is_gauged()` | contractions | per (basis,variations) pair; cacheable. |
+| **orthogonal** | the frame is orthonormal (U/O/L/R conditions) | `T3Frame.is_orthogonal()` | contractions | a `@cached_property` candidate (frame is frozen → check once). |
+| **gauged** | variations satisfy the gauge conditions (48)–(49) | `T3Tangent.is_gauged()` | contractions | per (frame,variations) pair; cacheable. |
 | **minimal rank** | structurally-and-numerically minimal ranks | `has_minimal_ranks` (structural) | SVD (numerical) | **numerical check intentionally skipped** (§ "Minimal ranks"). |
 
 > **Checkers are per-stack-element.** Every checker/residual above returns one verdict per stack element
 > (shape `stack_shape`, scalar when unstacked) — see `docs/batching_and_stacking.md` §9. So a safe-mode
-> precondition reduces with **`.all()`** at the call site (`safety.require(basis.is_orthogonal(atol).all(),
+> precondition reduces with **`.all()`** at the call site (`safety.require(frame.is_orthogonal(atol).all(),
 > …)`): it requires **all** stack elements to pass; `safety.require` itself stays a scalar gate. (The
 > *structural* `has_minimal_ranks` is the one scalar-in-ragged exception — see that §9 note.)
 
 ## Master table (by surface)
 
 `SF` = same-frame, `ORTH` = orthogonal base, `GAUGE` = variations gauged. "—" = no numerical precondition
-(structural checks like shapes/ranks/`check_bv_pair` still apply, always, in both modes).
+(structural checks like shapes/ranks/`check_fv_pair` still apply, always, in both modes).
 
 ### `T3Tangent` (after the §S3 rename)
 | op | precondition (checked in safe mode) | caveat (never checked) | note |
@@ -61,7 +61,7 @@ those properties only make them *equal HS*), so it moves to the geometry's `inne
 | `probe`/`apply`/`entries` (+transposes), `*_derivatives` (+transposes) | — | — | **bare 𝒥/𝒥ᵀ** — gauge-invariant, any frame; the Riemannian `Π` is the geometry's, applied separately |
 | `to_vector`/`from_vector`, `zeros`/`unit`/`zeros_like`, `reverse`, `sum_tangents` | — | — | structural / constructors |
 | `stack_tangents` | **SF** (all leaves) | — | today identity |
-| `stack_basis`, `unstack_*` | — | — | `stack_basis` deliberately stacks *different* bases |
+| `stack_frame`, `unstack_*` | — | — | `stack_frame` deliberately stacks *different* bases |
 | `is_orthogonal`/`is_gauged`/`has_minimal_ranks`, `minimal_ranks`, `tangent_space_dimension` | — | — | **checkers** — they *are* the checks; keep non-enforcing |
 
 ### Geometries (the semantic `inner`/`norm` live here — Nick's refinement)
@@ -73,9 +73,9 @@ those properties only make them *equal HS*), so it moves to the geometry's `inne
 | `COREWISE.norm(t)` | — | — | Euclidean, unary |
 | `MANIFOLD.project` (Π), `project_oblique` | **ORTH** | minimal (for oblique's HS-matching purpose) | the orthogonal-gauge projection needs an orthonormal frame to *be* the HS-orthogonal one |
 | `MANIFOLD.retract(p)` | **ORTH** | minimal (rank preservation) | precondition *implied, not currently documented* — confirm |
-| `MANIFOLD.project_ambient(basis,grad)` | **ORTH** | — | docstring already states "Requires orthogonal; minimal NOT required" ✓ |
-| `MANIFOLD.transport(v,new_basis)` | **ORTH** (new_basis) | — | = `project_ambient` onto the new frame |
-| `MANIFOLD.randn`/`random_orthogonal`/`randn_like` | **ORTH** (via `project`) | minimal (for a *true* Gaussian on `T_xM`) | docstring already careful: "for a non-orthogonal basis it is merely gauged" |
+| `MANIFOLD.project_ambient(frame,grad)` | **ORTH** | — | docstring already states "Requires orthogonal; minimal NOT required" ✓ |
+| `MANIFOLD.transport(v,new_frame)` | **ORTH** (new_frame) | — | = `project_ambient` onto the new frame |
+| `MANIFOLD.randn`/`random_orthogonal`/`randn_like` | **ORTH** (via `project`) | minimal (for a *true* Gaussian on `T_xM`) | docstring already careful: "for a non-orthogonal frame it is merely gauged" |
 | `MANIFOLD.base`, `COREWISE.base`, `COREWISE.{randn,project,retract,randn_like}` | — | — | `base` *produces* the frame; corewise ops are gauge-free by design |
 
 ### `GaussNewtonModel` (fitting)
@@ -90,13 +90,13 @@ those properties only make them *equal HS*), so it moves to the geometry's `inne
 | `TuckerTensorTrain.apply`/`entries`/`probe` (+ ambient/corewise transposes), `t3svd`/`t3svd_dense`, `t3m`/`__mul__`/`+`/`−`, `to_dense`/`from_canonical`/constructors | **—** | exact for any cores; only structural shape/rank checks |
 | `corewise.*` (`corewise_dot`/`norm`/`add`/`sub`/`scale`/`stack_*`) | **—** | the raw coordinate ("basic types") layer; structural shape-match only |
 | `probing.*` (`*_from_sweep`, `precompute_*`, `*_tangent`/`*_transpose`) | **—** | bare 𝒥/𝒥ᵀ contractions; gauge/frame-agnostic |
-| `basis_variations_format`: `t3_orthogonal_representations`, constructors, `check_bv_pair`, checkers | **—** (structural) | `check_bv_pair` is **structural** (shapes) → always enforced; orthogonal-rep *produces* an orthonormal (and squashed→minimal) frame |
+| `frame_variations_format`: `t3_orthogonal_representations`, constructors, `check_fv_pair`, checkers | **—** (structural) | `check_fv_pair` is **structural** (shapes) → always enforced; orthogonal-rep *produces* an orthonormal (and squashed→minimal) frame |
 
 ## The blurs this fixes (current code conflations)
 
 1. **The same-base guard is labelled "structural" but is numerical** (`fitting._require_at_base` docstring
    "Structural guard"; `T3Tangent._check_same_tangent_space` via `is`). **The root cause.** → `same_frame`
-   (identity fast-path + `frames_equal`), safe-mode, eager-only. *This is what unblocks basis-as-leaf.*
+   (identity fast-path + `frames_equal`), safe-mode, eager-only. *This is what unblocks frame-as-leaf.*
 2. **`T3Tangent.inner`/`norm` fold the HS caveat into the op** (`.. warning:: equals HS only when
    orthogonal and gauged`). → split: `MANIFOLD.inner`/`norm` (HS, *checks* ORTH+GAUGE+SF) vs
    `corewise_inner`/`corewise_norm` (raw, *checks* SF). The op no longer pretends to be HS.
@@ -129,7 +129,7 @@ guarantee structural minimality — e.g. `randn((10,11,12),(4,5,4),(1,2,3,1))` �
 Minimal rank lives on as a **caveat** (`retract` strict rank-preservation) and as **diagnostic checkers**
 (built, not wired into any op): structural `has_minimal_ranks` (existing); numerical
 `TuckerTensorTrain.has_numerically_minimal_ranks(rtol)` (structural-first → `t3svd` compare) and
-`T3Basis.has_numerically_minimal_ranks(atol)` (orthogonal + structurally-minimal ⟹ numerically-minimal, no
+`T3Frame.has_numerically_minimal_ranks(atol)` (orthogonal + structurally-minimal ⟹ numerically-minimal, no
 SVD; non-orthogonal frames return `False` — the SVD path for them is deferred, "maybe we don't need it").
 **Super-safe mode was considered and dropped** (no op needs it; it would be a ~no-op for orthogonal
 frames). Naming convention: bare `minimal_ranks` = structural; `numerically_minimal` = numerical.
@@ -144,10 +144,10 @@ frames). Naming convention: bare `minimal_ranks` = structural; `numerically_mini
 - **Where checks live (razor):** to serve raw-`.data` users, the ORTH/GAUGE checks belong at the **backend**
   functions that consume raw data (`tangent_operations.*`, which already have `is_orthogonal`-style
   residual helpers), with the frontend methods inheriting them. `same_frame` is a frontend concept (it
-  needs the two `T3Basis` objects); the backend's analogue is "the caller passed one shared base", so the
+  needs the two `T3Frame` objects); the backend's analogue is "the caller passed one shared base", so the
   same-frame check is naturally frontend-only.
 - **Cost mitigation (done in S5):** cache the atol-*independent* **residual**, not the atol-bool —
-  `T3Basis.orthogonality_residual` and `T3Tangent.gauge_residual` are `@cached_property`s, and
+  `T3Frame.orthogonality_residual` and `T3Tangent.gauge_residual` are `@cached_property`s, and
   `is_orthogonal(atol)`/`is_gauged(atol)` compare against them. A fixed base/tangent in an inner loop is
   contracted once; the atol stays a free parameter.
 - **Trace detection (done in S5):** the eager-only skip must fire even when the checked operand is a

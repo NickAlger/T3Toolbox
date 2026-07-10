@@ -2,7 +2,7 @@
 
 Correctness gold standard: the backend uniform ``GeometryOps`` factories (raw supercore pairs, masks
 closed over) must reproduce the already-verified frontend ``UNIFORM_MANIFOLD`` / ``UNIFORM_COREWISE``
-geometry ``.data`` path exactly (same math through the same ``ubv_tangent_operations`` primitives). The
+geometry ``.data`` path exactly (same math through the same ``ufv_tangent_operations`` primitives). The
 factory captures the loop-invariant masks at ``x0``'s fixed rank; a second test evaluates the ops at a
 DIFFERENT same-rank point to confirm the masks are correctly reused (the property the optimizer loop
 relies on). numpy-only (jit dispatch is covered in test_dispatch)."""
@@ -12,14 +12,14 @@ import numpy as np
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform_tucker_tensor_train as ut3
-import t3toolbox.uniform_basis_variations_format as ubv
+import t3toolbox.uniform_frame_variations_format as ubv
 import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.optimizers as bopt
 import t3toolbox.backend.apply as bapply
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.uniform_fitting as uf
-import t3toolbox.backend.ubv_tangent_operations as ubto
+import t3toolbox.backend.ufv_tangent_operations as ubto
 import t3toolbox.backend.ut3_operations as uops
 
 _STRUCT = ((10, 11, 12), (2, 4, 2), (1, 2, 2, 1))   # (shape, tucker, tt); MINIMAL ranks (tucker capped by
@@ -41,7 +41,7 @@ def _sc_close(a, b):   # two bare supercore pairs
     return all(np.allclose(np.asarray(ai), np.asarray(bi)) for ai, bi in zip(a, b))
 
 
-def _basis_close(front_data, back_data):   # UT3Basis.data vs raw frame .data: supercores + shape + masks
+def _frame_close(front_data, back_data):   # UT3Frame.data vs raw frame .data: supercores + shape + masks
     return (all(np.allclose(np.asarray(front_data[i]), np.asarray(back_data[i])) for i in range(4))
             and tuple(front_data[4]) == tuple(back_data[4])
             and all(np.array_equal(fm, bm) for fm, bm in zip(front_data[5], back_data[5])))
@@ -52,7 +52,7 @@ class TestUniformGeometryOps(unittest.TestCase):
         """Backend ops (on bare supercore pairs) vs the frontend geometry (on typed objects), at point x."""
         x_sc = (x.data[0], x.data[1])
         base_front, base_back = geom_front.base(x), ops.base(x_sc)
-        self.assertTrue(_basis_close(base_front.data, base_back), 'base')
+        self.assertTrue(_frame_close(base_front.data, base_back), 'base')
 
         v1 = ubv.UT3Variations.randn_like(base_front)     # ungauged variations at the base
         v2 = ubv.UT3Variations.randn_like(base_front)
@@ -95,7 +95,7 @@ class TestUniformSamplingKind(unittest.TestCase):
         self.x = _uniform_x(0)
         self.base = ut3m.UNIFORM_MANIFOLD.base(self.x)
         self.var = ubv.UT3Variations.randn_like(self.base)
-        self.base_r = self.base.to_t3basis()               # equivalent ragged frame
+        self.base_r = self.base.to_t3frame()               # equivalent ragged frame
         self.var_r = self.var.to_t3variations()            # equivalent ragged variation
         self.vmask = uf._var_masks_from_base(self.base.data)
 
@@ -144,7 +144,7 @@ class TestUniformSamplingKind(unittest.TestCase):
                 r = np.random.randn(*np.asarray(fwd).shape)
                 lhs = float(np.sum(r * np.asarray(fwd)))
                 jt = kind_u.transpose(r, sample, self.base.data, sw)     # bare (dU, dG)
-                rhs = float(ubto.ubv_corewise_inner(
+                rhs = float(ubto.ufv_corewise_inner(
                     (jt[0], jt[1], _STRUCT[0], self.vmask), self.var.data, 0))
                 self.assertTrue(np.isclose(lhs, rhs), f"{name}: {lhs} != {rhs}")
 
@@ -220,7 +220,7 @@ class TestUniformDerivativeSamplingKind(unittest.TestCase):
         self.x = _uniform_x(0)
         self.base = ut3m.UNIFORM_MANIFOLD.base(self.x)
         self.var = ubv.UT3Variations.randn_like(self.base)
-        self.base_r = self.base.to_t3basis()
+        self.base_r = self.base.to_t3frame()
         self.var_r = self.var.to_t3variations()
         self.vmask = uf._var_masks_from_base(self.base.data)
         self.aw = bfit._make_order_weight(self._WEIGHT, self._ORDER)                    # order-leading (apply/entries)
@@ -282,7 +282,7 @@ class TestUniformDerivativeSamplingKind(unittest.TestCase):
                     r = np.random.randn(*np.asarray(fwd).shape)
                     lhs = float(np.sum(np.asarray(self.aw(r, 2)) * np.asarray(fwd)))
                 jt = kind_u.transpose(r, sample, self.base.data, sw)
-                rhs = float(ubto.ubv_corewise_inner((jt[0], jt[1], _STRUCT[0], self.vmask), self.var.data, 0))
+                rhs = float(ubto.ufv_corewise_inner((jt[0], jt[1], _STRUCT[0], self.vmask), self.var.data, 0))
                 self.assertTrue(np.isclose(lhs, rhs), f"{name}: {lhs} != {rhs}")
 
     def test_forward_garbage_robust(self):

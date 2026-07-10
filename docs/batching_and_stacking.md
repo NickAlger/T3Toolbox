@@ -14,7 +14,7 @@
 below are the full reference for people **editing** it.*
 
 **Stacking = leading batch axes on the cores, so one object holds many.** Every `TuckerTensorTrain` /
-`T3Basis` / `T3Variations` stores its cores as `core.shape == stack_shape + (tensor/rank axes)`. With
+`T3Frame` / `T3Variations` stores its cores as `core.shape == stack_shape + (tensor/rank axes)`. With
 `stack_shape = (2, 3)` you carry a `2×3` grid of T3s/bases/variations in one object, and operations
 vectorize over them.
 
@@ -39,8 +39,8 @@ Take `d = 3` modes, a batch of **2 base points** (`C = (2,)`), with **3 tangent 
 
 | Array | Blocks | Shape |
 |---|---|---|
-| base Tucker core `Uᵢ` (`T3Basis`) | `C` | `(2,) + (nᵢ, Nᵢ)` |
-| base TT core `Pᵢ` (`T3Basis`) | `C` | `(2,) + (rᵢ, nᵢ, rᵢ₊₁)` |
+| base Tucker core `Uᵢ` (`T3Frame`) | `C` | `(2,) + (nᵢ, Nᵢ)` |
+| base TT core `Pᵢ` (`T3Frame`) | `C` | `(2,) + (rᵢ, nᵢ, rᵢ₊₁)` |
 | variation core `δUᵢ` (`T3Variations`) | `K + C` | `(3, 2) + (nᵢ, Nᵢ)` |
 | probe vector `wᵢ` (`ww`) | `W` | `(4,) + (Nᵢ,)` |
 | forward probe `zᵢ` (`tangent.probe(ww)`) | `W + K + C` | `(4, 3, 2) + (Nᵢ,)` |
@@ -80,7 +80,7 @@ The codebase annotates shapes in trailing comments and encodes them in names. Th
 | **probe stack `W`** | a batch of probe-vector sets, on `ww` only. (Was `F`.) |
 | **tangent stack `K`** | a batch of tangent vectors at one base, on the variation cores only; `T3Tangent.tangent_stack_shape`. (Was `V`.) |
 | **base-inner** | the ordering rule: `C` innermost, `W`/`K` outermost (`W + K + C`). |
-| **`base_stack_shape` / `tangent_stack_shape`** | a `T3Tangent`'s `C` and `K` parts, *derived* from the (basis, variations) pairing (§6), not stored. |
+| **`base_stack_shape` / `tangent_stack_shape`** | a `T3Tangent`'s `C` and `K` parts, *derived* from the (frame, variations) pairing (§6), not stored. |
 | **heterogeneous stack** | one T3 whose cores have different-but-broadcastable stacks (base `C`, variation `K+C`). First-class in the backend (§5). |
 | **"the split is recovered"** | `C`/`K`/`W` lengths are read off operand shapes, never threaded as parameters (§4, §6). |
 | **`sum_over_probes`** | transpose flag (§11): `False` (default, **primary**) keeps the probe stack `W` as an output stack — one tangent/tensor per probe; `True` sums `W` (`= Σ_W` of `False`) for the optimization `Jᵀr`. |
@@ -109,8 +109,8 @@ The codebase annotates shapes in trailing comments and encodes them in names. Th
 - Backend functions accept raw tuples and tolerate heterogeneous stacks; **frontend dataclasses
   (`validate`) require a uniform stack**. That asymmetry explains where broadcasting is lazy vs
   materialized (§5).
-- The `K`/`C` split is **not stored** — it is recovered from the `(basis, variations)` pairing (§6).
-- `jax` pytree registration makes `T3Tangent` `vmap`/`jit`-able; **the basis and variations are both
+- The `K`/`C` split is **not stored** — it is recovered from the `(frame, variations)` pairing (§6).
+- `jax` pytree registration makes `T3Tangent` `vmap`/`jit`-able; **the frame and variations are both
   leaves** (the same-frame guard is numerical, not identity), so the base flows as traced data with no
   per-base recompile (§7).
 
@@ -119,7 +119,7 @@ The codebase annotates shapes in trailing comments and encodes them in names. Th
 ## 1. "Stacking" means three different things
 
 1. **`stack_shape` — leading batch axes on ONE object's cores.** Every core of a `TuckerTensorTrain`
-   / `T3Basis` / `T3Variations` is `core.shape == stack_shape + (tensor/rank axes)`. A single leading
+   / `T3Frame` / `T3Variations` is `core.shape == stack_shape + (tensor/rank axes)`. A single leading
    `'...'` in an einsum rides these axes along for free. **This is the common case** and the meaning
    of "stacked" 95% of the time. Caveat: a plain `'...'` carries exactly **one** shared/broadcast
    prefix.
@@ -127,9 +127,9 @@ The codebase annotates shapes in trailing comments and encodes them in names. Th
 2. **`backend/stacking.py` — converting a Python *tree of separate objects* ↔ *one stacked object*.**
    `stack(tree, axes)` / `unstack(S, axes)` / `tree_zip` / `apply_func_to_leaf_subtrees`. This is its
    own tree machinery — **not** jax pytrees, and not the same as meaning (1). It is what
-   `T3Tangent.unstack_*` / `stack_*`, `T3Basis.stack`, etc. are built on.
+   `T3Tangent.unstack_*` / `stack_*`, `T3Frame.stack`, etc. are built on.
 
-3. **The uniform supercore (`ut3_*`, `ubv_*`, `uniform_*`) — a separate representation, currently
+3. **The uniform supercore (`ut3_*`, `ufv_*`, `uniform_*`) — a separate representation, currently
    deferred/broken.** One stacked supercore array + masks for `jax.lax.scan`. Ignore unless you are
    specifically repairing the uniform layer.
 
@@ -144,9 +144,9 @@ interchangeable, and a single object can carry more than one at once.
 
 | Block | Name | Batches… | Lives on… | Appears in |
 |------|------|----------|-----------|------------|
-| **`C`** | base / core stack | a batch of **T3 objects / base points** | **the cores** (every core) | everywhere; `= stack_shape` of a `TuckerTensorTrain`/`T3Basis` |
+| **`C`** | base / core stack | a batch of **T3 objects / base points** | **the cores** (every core) | everywhere; `= stack_shape` of a `TuckerTensorTrain`/`T3Frame` |
 | **`W`** | probe stack | a batch of **probe vectors** | **the probe vectors `ww` only** (not the cores) | probing (`probe_*`), `apply`/`entries` (there `W` = the vec/index batch) |
-| **`K`** | tangent stack | a batch of **tangent vectors sharing one base** | **the variations only** (not the basis cores) | `T3Tangent` (`tangent_stack_shape`) |
+| **`K`** | tangent stack | a batch of **tangent vectors sharing one base** | **the variations only** (not the frame cores) | `T3Tangent` (`tangent_stack_shape`) |
 
 Key facts:
 
@@ -289,11 +289,11 @@ This is *the* thing that decides where broadcasting is lazy vs materialized:
 - **Backend functions take raw `(tucker_cores, tt_cores)` tuples and tolerate heterogeneous stacks.**
   Heterogeneous-but-broadcastable tuples are first-class there.
 - **Frontend dataclasses validate a UNIFORM stack.** `TuckerTensorTrain.validate()` (and
-  `T3Basis`/`T3Variations`) *hard-require* every core to share one `stack_shape`. So **any builder that
+  `T3Frame`/`T3Variations`) *hard-require* every core to share one `stack_shape`. So **any builder that
   produces a class instance must materialize the broadcast to uniform**:
   - `tangent_to_t3` → must broadcast base→`K+C` before concatenating the doubled-rank cores (its output
     *is* a validated `TuckerTensorTrain`; `[U_i ; V_i]` is one array).
-  - frontend `bvf.bv_to_t3` → must `broadcast_t3_to_common_stack` the mixed-stack term before wrapping
+  - frontend `bvf.fv_to_t3` → must `broadcast_t3_to_common_stack` the mixed-stack term before wrapping
     in `TuckerTensorTrain`.
   - whereas `to_dense` produces a *bare array*, so it can broadcast lazily inside the contraction.
 
@@ -304,15 +304,15 @@ This is *the* thing that decides where broadcasting is lazy vs materialized:
 
 ## 6. The `K`/`C` split is recovered, not stored
 
-`T3Tangent` bundles a `T3Basis` (stack `C`) with a `T3Variations` (stack `K + C`). The split is
+`T3Tangent` bundles a `T3Frame` (stack `C`) with a `T3Variations` (stack `K + C`). The split is
 **derived**, never stored as a field (minimal dataclasses):
 
-- `base_stack_shape` (`C`) `= basis.stack_shape`
+- `base_stack_shape` (`C`) `= frame.stack_shape`
 - `stack_shape` (`K + C`) `= variations.stack_shape`
-- `tangent_stack_shape` (`K`) `=` the part of `variations.stack_shape` that *exceeds* `basis.stack_shape`
+- `tangent_stack_shape` (`K`) `=` the part of `variations.stack_shape` that *exceeds* `frame.stack_shape`
   — i.e. `C` is the **trailing suffix** of `K + C`, and `K` is the leading remainder.
 
-`check_bv_pair` enforces exactly this: *`base.stack_shape` must be the trailing (inner) suffix of
+`check_fv_pair` enforces exactly this: *`base.stack_shape` must be the trailing (inner) suffix of
 `variations.stack_shape`.* (It does **not** require equality — that was the pre-`K`-stack invariant.)
 
 Because the split is not recoverable from a *bare tree of objects*, the two-axis stack/unstack (§ below)
@@ -324,15 +324,15 @@ A single monolithic `stack`/`unstack` cannot faithfully invert two stacks (the `
 a bare tree). So `T3Tangent` has **two explicit pairs**, each peeling **one named stack**:
 
 - `unstack_tangents` / `stack_tangents` — peel the **tangent stack `K`**. Yields a `K`-shaped tree of
-  tangents that **share the base** (same `T3Basis` *object* → same tangent space → mutually
-  linalg-compatible). "For each vector within the basis." `stack_tangents` **guards** that all leaves
-  share the same basis object (structural identity, as in `inner`/`+`).
-- `unstack_basis` / `stack_basis` — peel the **base stack `C`**. Yields a `C`-shaped tree of
-  single-base-point tangents at **distinct** bases (distinct tangent spaces). "For each basis."
-  `stack_basis` places `C` **innermost** (variation stack → `K + C`), which needs *interior-axis*
+  tangents that **share the base** (same `T3Frame` *object* → same tangent space → mutually
+  linalg-compatible). "For each vector within the frame." `stack_tangents` **guards** that all leaves
+  share the same frame object (structural identity, as in `inner`/`+`).
+- `unstack_frame` / `stack_frame` — peel the **base stack `C`**. Yields a `C`-shaped tree of
+  single-base-point tangents at **distinct** bases (distinct tangent spaces). "For each frame."
+  `stack_frame` places `C` **innermost** (variation stack → `K + C`), which needs *interior-axis*
   stacking that the component `T3Variations.stack` can't do — hence it is a real op, not user-assembled.
 
-`T3Basis`/`T3Variations` keep their single plain `stack`/`unstack` (each is a single-stack object).
+`T3Frame`/`T3Variations` keep their single plain `stack`/`unstack` (each is a single-stack object).
 Backend functionals (`unstack_tangent_stack`/`stack_tangent_stack`/`unstack_base_stack`/
 `stack_base_stack` in `tangent_operations.py`) do the array/tree work; the `T3Tangent` methods are
 thin wrappers doing the compatibility checks.
@@ -344,10 +344,10 @@ thin wrappers doing the compatibility checks.
 The frozen dataclasses are registered jax pytrees (`if has_jax:` at the end of each module), so they
 can be `jit`/`vmap`/`grad`-ed:
 
-- `TuckerTensorTrain`, `T3Basis`, `T3Variations`: leaves = the cores (`x.data`), no aux.
-- **`T3Tangent`: the basis AND the variations are leaves** (no aux). Both the fixed frame and the moving
+- `TuckerTensorTrain`, `T3Frame`, `T3Variations`: leaves = the cores (`x.data`), no aux.
+- **`T3Tangent`: the frame AND the variations are leaves** (no aux). Both the fixed frame and the moving
   tangent vector flow as traced data. Consequences:
-  - **`vmap` over a `T3Tangent` maps over *both* the basis and variation leaves.** For the
+  - **`vmap` over a `T3Tangent` maps over *both* the frame and variation leaves.** For the
     batch-of-tangents-sharing-one-base picture (`vmap`-over-`K`, base fixed), close the base over and map
     a function of the variations: `vmap(lambda v: f(T3Tangent(base, v)))`. For 5c (forward-probe a
     `K`-stacked tangent) we deliberately did **not** use `vmap`: the probe instead grew genuine 3-block
@@ -358,17 +358,17 @@ can be `jit`/`vmap`/`grad`-ed:
   - **The same-frame guard is NUMERICAL (`safety.frames_equal`), not object identity.** Two tangents
     share a tangent space iff their frame cores are *value-equal* (with an `is`-identity fast path); the
     check is safe-mode + eager-only (skips under `safety.unsafe()` / any trace). So it survives a jit
-    round-trip (a reconstructed, value-equal basis passes instead of false-failing) and `inner`/`+` jit
-    cleanly. (This replaced the old `self.basis is other.basis` identity guard, which forced the basis to
+    round-trip (a reconstructed, value-equal frame passes instead of false-failing) and `inner`/`+` jit
+    cleanly. (This replaced the old `self.frame is other.frame` identity guard, which forced the frame to
     be `aux_data` — see below.)
-  - **Payoff: NO per-base recompile.** Because the basis is a leaf (traced data, not a compile-time aux
+  - **Payoff: NO per-base recompile.** Because the frame is a leaf (traced data, not a compile-time aux
     constant), a tangent or `GaussNewtonModel` crossing a `jit` boundary compiles **once across all
-    bases** (`traces=1`) — you jit the frontend matvec directly. The old basis-as-aux design recompiled
+    bases** (`traces=1`) — you jit the frontend matvec directly. The old frame-as-aux design recompiled
     on every base change (a Newton step), which is exactly what the numericalized guard fixed. Full
     story: `dev/archive/safe_unsafe_mode_plan.md`. To grad *w.r.t. the variations only*, close the base over;
-    grad-w.r.t.-the-basis is now also available (the basis is a leaf).
-  - `T3Basis` / `T3Tangent` are `@dataclass(frozen=True, eq=False)`: value hash/eq on ndarray fields is
-    ambiguous, so they stay identity-hashed — but the basis is now a **leaf-bearing pytree node**, not
+    grad-w.r.t.-the-frame is now also available (the frame is a leaf).
+  - `T3Frame` / `T3Tangent` are `@dataclass(frozen=True, eq=False)`: value hash/eq on ndarray fields is
+    ambiguous, so they stay identity-hashed — but the frame is now a **leaf-bearing pytree node**, not
     `aux_data`.
 
 `vmap`/`jit` invocation across the ops is checked cheaply in `tests/test_dispatch.py` (a `jit`-compile
@@ -414,8 +414,8 @@ The naming scheme encodes axis layout — once you know it, the einsums read the
 - **`apply`/`entries` are now `W+C`** (vec/index stack OUTER, T3 stack INNER) as of slice 5b — older
   code/notes may say `G+F` or `F+G`.
 - **Canonical core-tuple orderings (frontend takes precedence):** `TuckerTensorTrain.data =
-  (tucker_cores, tt_cores)`; `T3Basis.data = (up, down, left, right)`; `T3Variations.data =
-  (tucker_variations, tt_variations)`; `(basis, variations)` pairs are basis-first. Pass `.data`
+  (tucker_cores, tt_cores)`; `T3Frame.data = (up, down, left, right)`; `T3Variations.data =
+  (tucker_variations, tt_variations)`; `(frame, variations)` pairs are frame-first. Pass `.data`
   straight through; do not reorder.
 - **Tests are RNG-order sensitive** (one global seed at import) — a bug we hit. New numerical tests are
   numpy-only (jax is covered by `test_dispatch`); see `CLAUDE.md`.
@@ -433,10 +433,10 @@ The naming scheme encodes axis layout — once you know it, the einsums read the
 | The grouped-block contraction toolkit (`W`/`K`/`C` blocks) | `backend/contractions.py` |
 | Probing (2-block `W`,`C`; 3-block `W`,`K`,`C` for a tangent-stacked tangent — forward + transpose) | `backend/probing.py`, `manifold.py` (`T3Tangent.probe`/`probe_transpose`) |
 | Tree ↔ stacked-object (meaning 2) | `backend/stacking.py` |
-| Two-axis stack/unstack | `manifold.py` (`unstack_tangents`/`_basis`, `stack_*`) + `tangent_operations.py` (`*_stack` backend fns) |
-| The `K`/`C` split + bv-pair check | `basis_variations_format.py` (`check_bv_pair`), `manifold.py` (`base_stack_shape`/`tangent_stack_shape`/`stack_shape`) |
-| jax pytree registration + `vmap`/`jit` | bottom of `basis_variations_format.py` & `manifold.py`; `tests/test_dispatch.py` |
-| The validate/uniform-stack requirement | `tucker_tensor_train.py` (`validate`), `basis_variations_format.py` (`T3Basis.validate`/`T3Variations.validate`) |
+| Two-axis stack/unstack | `manifold.py` (`unstack_tangents`/`_frame`, `stack_*`) + `tangent_operations.py` (`*_stack` backend fns) |
+| The `K`/`C` split + bv-pair check | `frame_variations_format.py` (`check_fv_pair`), `manifold.py` (`base_stack_shape`/`tangent_stack_shape`/`stack_shape`) |
+| jax pytree registration + `vmap`/`jit` | bottom of `frame_variations_format.py` & `manifold.py`; `tests/test_dispatch.py` |
+| The validate/uniform-stack requirement | `tucker_tensor_train.py` (`validate`), `frame_variations_format.py` (`T3Frame.validate`/`T3Variations.validate`) |
 
 ---
 

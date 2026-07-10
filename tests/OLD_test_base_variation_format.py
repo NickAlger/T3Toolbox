@@ -4,7 +4,7 @@
 import numpy as np
 import unittest
 
-import t3toolbox.basis_variations_format as bvf
+import t3toolbox.frame_variations_format as bvf
 
 try:
     import jax
@@ -33,7 +33,7 @@ class TestBaseVariationFormat(unittest.TestCase):
         self.assertEqual(var_tucker_shapes, ((9, 14), (8, 15), (7, 16)))
         self.assertEqual(var_tt_shapes, ((5, 10, 4), (2, 11, 5), (3, 12, 4)))
 
-    def test_ith_bv_to_t3(self):
+    def test_ith_fv_to_t3(self):
         (U0, U1, U2) = (randn(10, 14), randn(11, 15), randn(12, 16))
         (L0, L1, L2) = (randn(5, 10, 2), randn(2, 11, 3), randn(3, 12, 2))
         (R0, R1, R2) = (randn(3,10,4), randn(4, 11, 5), randn(5, 12, 4))
@@ -45,24 +45,24 @@ class TestBaseVariationFormat(unittest.TestCase):
 
         # TT replacements
 
-        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_bv_to_t3(0, True, base, variation)
+        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_fv_to_t3(0, True, base, variation)
         self.assertEqual(((U0, U1, U2), (H0, R1, R2)), ((B0, B1, B2), (G0, G1, G2)))
 
-        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_bv_to_t3(1, True, base, variation)
+        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_fv_to_t3(1, True, base, variation)
         self.assertEqual(((U0, U1, U2), (L0, H1, R2)), ((B0, B1, B2), (G0, G1, G2)))
 
-        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_bv_to_t3(2, True, base, variation)
+        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_fv_to_t3(2, True, base, variation)
         self.assertEqual(((U0, U1, U2), (L0, L1, H2)), ((B0, B1, B2), (G0, G1, G2)))
 
-        # Basis replacements
+        # Frame replacements
 
-        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_bv_to_t3(0, False, base, variation)
+        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_fv_to_t3(0, False, base, variation)
         self.assertEqual(((V0, U1, U2), (O0, R1, R2)), ((B0, B1, B2), (G0, G1, G2)))
 
-        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_bv_to_t3(1, False, base, variation)
+        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_fv_to_t3(1, False, base, variation)
         self.assertEqual(((U0, V1, U2), (L0, O1, R2)), ((B0, B1, B2), (G0, G1, G2)))
 
-        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_bv_to_t3(2, False, base, variation)
+        ((B0, B1, B2), (G0, G1, G2)) = bvf.ith_fv_to_t3(2, False, base, variation)
         self.assertEqual(((U0, U1, V2), (L0, L1, O2)), ((B0, B1, B2), (G0, G1, G2)))
 
 

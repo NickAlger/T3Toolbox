@@ -390,7 +390,7 @@ def save_core_families(
     """Save a sequence of core-families (each a sequence of arrays) to a ``.npz`` file.
 
     Uses ``'f{family_index}_{core_index}'`` keys so :py:func:`load_core_families` can regroup them.
-    Shared by the frontend ``save`` methods (T3Basis, T3Variations, T3Tangent).
+    Shared by the frontend ``save`` methods (T3Frame, T3Variations, T3Tangent).
     """
     np.savez(file, **{'f%d_%d' % (fi, ci): np.asarray(c)
                       for fi, fam in enumerate(families) for ci, c in enumerate(fam)})

@@ -2,7 +2,7 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
-"""Stateless stack/unstack for the uniform basis-variations layer (UT3Basis / UT3Variations).
+"""Stateless stack/unstack for the uniform frame-variations layer (UT3Frame / UT3Variations).
 
 Mirror of ``ut3_operations.ut3_unstack`` / ``ut3_stack`` for the bv ``.data`` layout
 ``(*supercores, shape, masks)``, generic over the supercore count (4 for a frame, 2 for variations;
@@ -16,29 +16,29 @@ import typing as typ
 
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.ut3_operations as ut3_operations
-import t3toolbox.backend.ubv_masking as ubv_masking
+import t3toolbox.backend.ufv_masking as ufv_masking
 from t3toolbox.backend.common import *
 
 __all__ = [
-    'ubv_leaf_structure',
-    'ubv_unstack',
-    'ubv_stack',
-    'ubv_unstack_axes',
-    'ubv_stack_axes',
-    'ubv_variations_sum_stack',
-    'ubv_reverse_basis',
-    'ubv_reverse_variations',
-    'ubv_save',
-    'ubv_load',
-    'ubv_basis_orthogonality_residual',
+    'ufv_leaf_structure',
+    'ufv_unstack',
+    'ufv_stack',
+    'ufv_unstack_axes',
+    'ufv_stack_axes',
+    'ufv_variations_sum_stack',
+    'ufv_reverse_frame',
+    'ufv_reverse_variations',
+    'ufv_save',
+    'ufv_load',
+    'ufv_frame_orthogonality_residual',
 ]
 
-N_MASKS = 4  # both UT3Basis and UT3Variations hold four edge masks
+N_MASKS = 4  # both UT3Frame and UT3Variations hold four edge masks
 
 
-def ubv_leaf_structure(
+def ufv_leaf_structure(
         d:            int,  # number of modes (length of the int-tuple `shape`)
-        n_supercores: int,  # 4 for a UT3Basis .data leaf, 2 for a UT3Variations one
+        n_supercores: int,  # 4 for a UT3Frame .data leaf, 2 for a UT3Variations one
 ):  # -> leaf-structure template for stacking.apply_func_to_leaf_subtrees
     """Template marking one bv ``.data`` leaf ``(*supercores, shape, masks)`` for the tree machinery.
 
@@ -57,14 +57,14 @@ def _first_data_leaf(xx):  # drill to the first .data leaf without recursing int
     return xx
 
 
-def ubv_unstack_axes(
+def ufv_unstack_axes(
         data:         typ.Tuple,        # (*supercores, shape, masks): n_supercores arrays, int-tuple, 4-tuple of masks
         n_supercores: int,              # 4 (frame) or 2 (variations)
         axes:         typ.Sequence[int],  # the array axes to peel into tree levels (a CONTIGUOUS run within the stack)
 ):  # -> nested tuple (shaped like the peeled axes) of bv .data leaves carrying the remaining stack
     """Unstack a bv ``.data`` tuple along the GIVEN array axes (a sub-run of the stack), leaving the rest.
 
-    Generalizes :py:func:`ubv_unstack` (which peels the whole stack) to a contiguous sub-run -- the
+    Generalizes :py:func:`ufv_unstack` (which peels the whole stack) to a contiguous sub-run -- the
     primitive the tangent layer needs to split a ``K + C`` variation stack into just its ``K`` part or just
     its ``C`` part. The supercores and all four rank masks slice along ``axes`` (they share those stack-axis
     positions; the masks' leading ``d`` vs ``d+1`` is irrelevant since only ``axes`` are touched); ``shape``
@@ -83,15 +83,15 @@ def ubv_unstack_axes(
     )
 
 
-def ubv_stack_axes(
+def ufv_stack_axes(
         xx,                       # nested tuple (shaped like the stacked sub-run) of bv .data leaves
         n_supercores: int,        # 4 (frame) or 2 (variations)
         axes_start:   int,        # array axis the OUTERMOST new stack level lands on (others follow contiguously)
 ) -> typ.Tuple:                   # one stacked bv .data tuple (*supercores, shape, masks)
     """Stack an array-like tree of bv ``.data`` leaves onto a CONTIGUOUS run of array axes starting at
-    ``axes_start``. Inverse of :py:func:`ubv_unstack_axes`.
+    ``axes_start``. Inverse of :py:func:`ufv_unstack_axes`.
 
-    Generalizes :py:func:`ubv_stack` (which stacks onto axes ``1 ..``) so the tangent layer can slot a new
+    Generalizes :py:func:`ufv_stack` (which stacks onto axes ``1 ..``) so the tangent layer can slot a new
     stack run at the right place -- e.g. the base stack ``C`` *after* an existing tangent stack ``K`` (at
     ``axes_start = 1 + |K|``), keeping ``C`` inner. ``shape`` is read once (shared) and supercores/masks are
     stacked in SEPARATE :py:func:`stacking.stack` calls so the host-numpy masks are not promoted to jax.
@@ -99,7 +99,7 @@ def ubv_stack_axes(
     first = _first_data_leaf(xx)        # shape is shared across the stack -> read once (manual drill)
     shape = first[n_supercores]
     d     = first[0].shape[0]
-    template = ubv_leaf_structure(d, n_supercores)
+    template = ufv_leaf_structure(d, n_supercores)
 
     sc_tree   = stacking.apply_func_to_leaf_subtrees(xx, lambda leaf: tuple(leaf[:n_supercores]), template)
     mask_tree = stacking.apply_func_to_leaf_subtrees(xx, lambda leaf: tuple(leaf[n_supercores + 1]), template)
@@ -112,7 +112,7 @@ def ubv_stack_axes(
     return tuple(supercores) + (shape, tuple(masks))
 
 
-def ubv_unstack(
+def ufv_unstack(
         data:         typ.Tuple,  # (*supercores, shape, masks): n_supercores arrays, int-tuple, 4-tuple of masks
         n_supercores: int,        # 4 (frame) or 2 (variations)
 ):  # -> nested tuple (shaped like stack_shape) of unstacked bv .data leaves
@@ -120,22 +120,22 @@ def ubv_unstack(
 
     The supercores and the four rank masks unstack along the stack axes ``1 .. len(stack_shape)``;
     ``shape`` is shared and replicated onto every leaf. Mirrors :py:func:`ut3_operations.ut3_unstack`;
-    thin wrapper over :py:func:`ubv_unstack_axes` over the full stack.
+    thin wrapper over :py:func:`ufv_unstack_axes` over the full stack.
     """
     stack_shape = data[0].shape[1:-2]   # first supercore is the tucker one: (d,)+stack+(n, N)
-    return ubv_unstack_axes(data, n_supercores, tuple(range(1, 1 + len(stack_shape))))
+    return ufv_unstack_axes(data, n_supercores, tuple(range(1, 1 + len(stack_shape))))
 
 
-def ubv_stack(
+def ufv_stack(
         xx,                       # nested tuple (shaped like stack_shape) of unstacked bv .data leaves
         n_supercores: int,        # 4 (frame) or 2 (variations)
 ) -> typ.Tuple:                   # one stacked bv .data tuple (*supercores, shape, masks)
     """Stack an array-like tree of bv ``.data`` leaves into one (the WHOLE stack at axes ``1 ..``). Inverse
-    of :py:func:`ubv_unstack`; thin wrapper over :py:func:`ubv_stack_axes` with ``axes_start = 1``."""
-    return ubv_stack_axes(xx, n_supercores, axes_start=1)
+    of :py:func:`ufv_unstack`; thin wrapper over :py:func:`ufv_stack_axes` with ``axes_start = 1``."""
+    return ufv_stack_axes(xx, n_supercores, axes_start=1)
 
 
-def ubv_variations_sum_stack(
+def ufv_variations_sum_stack(
         data,             # UT3Variations .data: (tkv, ttv, shape, (4 masks))
         axis: typ.Optional[int] = None,  # stack axis to sum (None = whole stack); 0-based within the stack
 ):  # -> summed .data (the summed stack axes removed)
@@ -155,8 +155,8 @@ def ubv_variations_sum_stack(
     return new_tkv, new_ttv, shape, new_masks
 
 
-def ubv_reverse_basis(data):  # UT3Basis .data -> reversed UT3Basis .data
-    """Reverse the mode order of a UT3Basis ``.data``. The left/right supercores **and** their masks
+def ufv_reverse_frame(data):  # UT3Frame .data -> reversed UT3Frame .data
+    """Reverse the mode order of a UT3Frame ``.data``. The left/right supercores **and** their masks
     **swap roles** (reversing a left-orthogonal chain yields a right-orthogonal one) and reverse; up/down
     reverse (down with a bond swap, via :py:func:`ut3_operations.reverse_utt`). The redundant L/R store
     makes this exact -- no re-orthogonalization. Inverse of itself."""
@@ -172,7 +172,7 @@ def ubv_reverse_basis(data):  # UT3Basis .data -> reversed UT3Basis .data
     )
 
 
-def ubv_reverse_variations(data):  # UT3Variations .data -> reversed UT3Variations .data
+def ufv_reverse_variations(data):  # UT3Variations .data -> reversed UT3Variations .data
     """Reverse the mode order of a UT3Variations ``.data``: the tucker-variation supercore reverses; the
     tt-variation supercore reverses with a bond swap (:py:func:`ut3_operations.reverse_utt`). The per-slot
     left/right masks swap + reverse (a variation occupies one TT slot). Inverse of itself."""
@@ -185,16 +185,16 @@ def ubv_reverse_variations(data):  # UT3Variations .data -> reversed UT3Variatio
     )
 
 
-def ubv_save(file, data) -> None:  # data: (*supercores, shape, masks) for a UT3Basis or UT3Variations
+def ufv_save(file, data) -> None:  # data: (*supercores, shape, masks) for a UT3Frame or UT3Variations
     """Save a bv ``.data`` tuple to a ``.npz`` (3 families: the supercores, the rank masks, the ``shape``
     ints). Generic over the supercore count; mirrors :py:func:`ut3_constructors.ut3_save`. ``np.savez``
-    keeps the boolean mask dtype, so :py:func:`ubv_load` recovers host bool masks."""
+    keeps the boolean mask dtype, so :py:func:`ufv_load` recovers host bool masks."""
     *supercores, shape, masks = data
     save_core_families(file, (tuple(supercores), tuple(masks), (np.asarray(shape, dtype=int),)))
 
 
-def ubv_load(file, use_jax: bool = False):  # -> (*supercores, shape, masks)
-    """Load a bv ``.data`` tuple saved by :py:func:`ubv_save`. The supercores follow ``use_jax``; the
+def ufv_load(file, use_jax: bool = False):  # -> (*supercores, shape, masks)
+    """Load a bv ``.data`` tuple saved by :py:func:`ufv_save`. The supercores follow ``use_jax``; the
     masks always come back **numpy (host) bool** (a jax mask is a tracer under jit). The caller wraps the
     returned tuple into the OO class (the supercore count is fixed per class)."""
     supercores, masks, shape_family = load_core_families(file)
@@ -205,17 +205,17 @@ def ubv_load(file, use_jax: bool = False):  # -> (*supercores, shape, masks)
     return tuple(supercores) + (shape, masks)
 
 
-def ubv_basis_orthogonality_residual(data):  # UT3Basis .data -> max orthogonality deviation, per stack element
-    """Max deviation of the four masked basis supercores from orthonormality, **per stack element** (shape
+def ufv_frame_orthogonality_residual(data):  # UT3Frame .data -> max orthogonality deviation, per stack element
+    """Max deviation of the four masked frame supercores from orthonormality, **per stack element** (shape
     ``stack_shape``). Each masked supercore slice IS a hypothetical ragged core (mask the padding to zero);
     require its Gram == ``diag(outgoing_mask)`` -- the masked-Gram pattern, over the four senses (up ``U``,
     down/outer ``O``, left ``L``, right ``R``), with the correct outgoing mask per sense (left core ``i`` ->
-    ``basis_left_mask[i+1]``). The uniform analog of
-    :py:func:`orthogonal_representations.basis_orthogonality_residual`; the per-element oracle is the ragged
-    one via ``to_t3basis``. The boundary left/right cores are remainders and are not checked (so left
+    ``frame_left_mask[i+1]``). The uniform analog of
+    :py:func:`orthogonal_representations.frame_orthogonality_residual`; the per-element oracle is the ragged
+    one via ``to_t3frame``. The boundary left/right cores are remainders and are not checked (so left
     checks cores ``0..d-2``, right checks ``1..d-1``)."""
     up_sc, down_sc, left_sc, right_sc, shape, (um, dm, lm, rm) = data
-    mup, mdown, mleft, mright = ubv_masking.apply_basis_masks(data)   # zero the padding (mask-once)
+    mup, mdown, mleft, mright = ufv_masking.apply_frame_masks(data)   # zero the padding (mask-once)
     use_jax = tree_contains_jax((up_sc, down_sc, left_sc, right_sc))
     xnp, _, _ = get_backend(True, use_jax)
     d = up_sc.shape[0]

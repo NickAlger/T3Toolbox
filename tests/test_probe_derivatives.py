@@ -6,7 +6,7 @@ import numpy as np
 import unittest
 
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.basis_variations_format as bvf
+import t3toolbox.frame_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.probing as t3p
 import t3toolbox.backend.probe_derivatives as pd
@@ -105,7 +105,7 @@ class TestProbeDerivatives(unittest.TestCase):
                     ww = [np.random.randn(*(S + (N,))) for N in shapes]
                     pp = [np.random.randn(*(S + (N,))) for N in shapes]
 
-                    z_jets = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.basis.data, ORDER)
+                    z_jets = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.frame.data, ORDER)
                     for i in range(d):
                         self.assertEqual(np.asarray(z_jets[i]).shape, (ORDER + 1,) + S + C + (shapes[i],))
 
@@ -135,11 +135,11 @@ class TestProbeDerivatives(unittest.TestCase):
                     ww = [np.random.randn(*(S + (N,))) for N in shapes]
                     pp = [np.random.randn(*(S + (N,))) for N in shapes]
 
-                    z_jets = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.basis.data, K)
+                    z_jets = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.frame.data, K)
                     r = [np.random.randn(*np.asarray(zi).shape) for zi in z_jets]
 
                     dU, dG = pd.probe_tangent_derivatives_transpose(
-                        r, ww, pp, v.basis.data, K, sum_over_probes=True)
+                        r, ww, pp, v.frame.data, K, sum_over_probes=True)
                     lhs = sum(np.sum(r[i] * np.asarray(z_jets[i])) for i in range(d))
                     rhs = (sum(np.sum(np.asarray(dU[i]) * dU_v[i]) for i in range(d))
                            + sum(np.sum(np.asarray(dG[i]) * dG_v[i]) for i in range(d)))
@@ -148,7 +148,7 @@ class TestProbeDerivatives(unittest.TestCase):
                     # sum_over_probes=False keeps S; summing those axes recovers the True result
                     if S:
                         dU0, dG0 = pd.probe_tangent_derivatives_transpose(
-                            r, ww, pp, v.basis.data, K, sum_over_probes=False)
+                            r, ww, pp, v.frame.data, K, sum_over_probes=False)
                         ax = tuple(range(len(S)))
                         for a, b in zip(dU0, dU):
                             self.check_relerr(np.asarray(b), np.sum(np.asarray(a), axis=ax))
@@ -164,8 +164,8 @@ class TestProbeDerivatives(unittest.TestCase):
         ww = [np.random.randn(N) for N in STRUCT[0]]
         pp = [np.random.randn(N) for N in STRUCT[0]]
 
-        z_jets = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.basis.data, 3)
-        z_probe = t3p.probe_tangent(ww, v.variations.data, v.basis.data)
+        z_jets = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.frame.data, 3)
+        z_probe = t3p.probe_tangent(ww, v.variations.data, v.frame.data)
         for zj, zp in zip(z_jets, z_probe):
             self.check_relerr(zp, np.asarray(zj)[0])
 
@@ -219,7 +219,7 @@ class TestProbeDerivatives(unittest.TestCase):
                     Vd = v.to_dense()                              # K + C + (N...)
                     ww = [np.random.randn(*(W + (N,))) for N in shapes]
                     pp = [np.random.randn(*(W + (N,))) for N in shapes]
-                    z_jets = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.basis.data, ORDER)
+                    z_jets = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.frame.data, ORDER)
                     for i in range(d):
                         self.assertEqual(np.asarray(z_jets[i]).shape, (ORDER + 1,) + W + K + C + (shapes[i],))
                     for w_idx in itertools.product(*[range(n) for n in W]):
@@ -249,11 +249,11 @@ class TestProbeDerivatives(unittest.TestCase):
                     ww = [np.random.randn(*(W + (N,))) for N in shapes]
                     pp = [np.random.randn(*(W + (N,))) for N in shapes]
 
-                    Jv = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.basis.data, ORDER)
+                    Jv = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.frame.data, ORDER)
                     r = [np.random.randn(*np.asarray(z).shape) for z in Jv]
 
                     dU, dG = pd.probe_tangent_derivatives_transpose(
-                        r, ww, pp, v.basis.data, ORDER, sum_over_probes=True)
+                        r, ww, pp, v.frame.data, ORDER, sum_over_probes=True)
                     lhs = sum(np.sum(r[i] * np.asarray(Jv[i])) for i in range(d))
                     rhs = (sum(np.sum(np.asarray(dU[i]) * dU_v[i]) for i in range(d))
                            + sum(np.sum(np.asarray(dG[i]) * dG_v[i]) for i in range(d)))
@@ -261,7 +261,7 @@ class TestProbeDerivatives(unittest.TestCase):
 
                     if W:                                  # summing the kept-W result recovers the summed one
                         dU0, dG0 = pd.probe_tangent_derivatives_transpose(
-                            r, ww, pp, v.basis.data, ORDER, sum_over_probes=False)
+                            r, ww, pp, v.frame.data, ORDER, sum_over_probes=False)
                         ax = tuple(range(len(W)))
                         for a, b in zip(dU0, dU):
                             self.check_relerr(np.asarray(b), np.sum(np.asarray(a), axis=ax))
@@ -291,12 +291,12 @@ class TestProbeDerivatives(unittest.TestCase):
                     base, _ = bvf.t3_orthogonal_representations(x)  # Riemannian tangent apply
                     v = t3m.COREWISE.randn(base, stack_shape=K)
                     Vd = v.to_dense()
-                    yv = pd.apply_tangent_derivatives(ww, pp, v.variations.data, v.basis.data, ORDER)
+                    yv = pd.apply_tangent_derivatives(ww, pp, v.variations.data, v.frame.data, ORDER)
                     self.assertEqual(yv.shape, (ORDER + 1,) + W + K + C)
                     self._all_modes_check(
                         yv, lambda w, k, c: pd.apply_derivatives_dense([a[w] for a in ww], [a[w] for a in pp], Vd[k + c], ORDER),
                         W, K, C, ORDER)
-                    self.check_relerr(t3p.apply_tangent(ww, v.variations.data, v.basis.data), yv[0])
+                    self.check_relerr(t3p.apply_tangent(ww, v.variations.data, v.frame.data), yv[0])
 
     def test_entries_derivatives_match_dense(self):
         # entries derivatives (all modes, one-hot base + general P): Euclidean and Riemannian vs oracle.
@@ -322,12 +322,12 @@ class TestProbeDerivatives(unittest.TestCase):
                     base, _ = bvf.t3_orthogonal_representations(x)  # Riemannian
                     v = t3m.COREWISE.randn(base, stack_shape=K)
                     Vd = v.to_dense()
-                    yv = pd.entries_tangent_derivatives(index, pp, v.variations.data, v.basis.data, ORDER)
+                    yv = pd.entries_tangent_derivatives(index, pp, v.variations.data, v.frame.data, ORDER)
                     self.assertEqual(yv.shape, (ORDER + 1,) + W + K + C)
                     self._all_modes_check(
                         yv, lambda w, k, c: pd.entries_derivatives_dense(idx_s(w), [a[w] for a in pp], Vd[k + c], ORDER),
                         W, K, C, ORDER)
-                    self.check_relerr(t3p.entries_tangent(index, v.variations.data, v.basis.data), yv[0])
+                    self.check_relerr(t3p.entries_tangent(index, v.variations.data, v.frame.data), yv[0])
 
     def test_apply_entries_transpose_adjoint_identity(self):
         # adjoint identity <c, J v> = <J^T c, v> for the all-modes apply/entries derivative transposes
@@ -346,14 +346,14 @@ class TestProbeDerivatives(unittest.TestCase):
                         pp = [np.random.randn(*(W + (N,))) for N in shapes]
                         if kind == 'apply':
                             ww = [np.random.randn(*(W + (N,))) for N in shapes]
-                            Jv = pd.apply_tangent_derivatives(ww, pp, v.variations.data, v.basis.data, ORDER)
+                            Jv = pd.apply_tangent_derivatives(ww, pp, v.variations.data, v.frame.data, ORDER)
                             T = lambda cc, sop: pd.apply_tangent_derivatives_transpose(
-                                cc, ww, pp, v.basis.data, ORDER, sum_over_probes=sop)
+                                cc, ww, pp, v.frame.data, ORDER, sum_over_probes=sop)
                         else:
                             index = np.stack([np.random.randint(0, N, size=W) for N in shapes], axis=0)
-                            Jv = pd.entries_tangent_derivatives(index, pp, v.variations.data, v.basis.data, ORDER)
+                            Jv = pd.entries_tangent_derivatives(index, pp, v.variations.data, v.frame.data, ORDER)
                             T = lambda cc, sop: pd.entries_tangent_derivatives_transpose(
-                                cc, index, pp, v.basis.data, ORDER, sum_over_probes=sop)
+                                cc, index, pp, v.frame.data, ORDER, sum_over_probes=sop)
                         c = np.random.randn(*np.asarray(Jv).shape)
 
                         dU, dG = T(c, True)

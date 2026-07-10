@@ -5,7 +5,7 @@
 
 The library distinguishes (see ``dev/archive/safe_unsafe_mode_plan.md`` and ``docs/numerical_contract_catalog.md``):
 
-- **consistency / well-formedness** checks (shapes, ranks, ``check_bv_pair``) -- always run, in both
+- **consistency / well-formedness** checks (shapes, ranks, ``check_fv_pair``) -- always run, in both
   modes, at construction. These are *not* governed by this module.
 - **preconditions** -- the operation is numerically wrong without them, but a violation is not
   *malformedness*. These run **only in safe mode**. Two flavours, distinguished by what the *check*
@@ -132,7 +132,7 @@ def unsafe():
 
 def effective_rtol(*inputs):
     '''The tolerance to use for a check on these inputs (``rtol_jax`` if any input is a jax array, else
-    ``rtol_numpy``), or ``None`` in unsafe mode. Pass the operand data trees, e.g. ``effective_rtol(basis.data)``.'''
+    ``rtol_numpy``), or ``None`` in unsafe mode. Pass the operand data trees, e.g. ``effective_rtol(frame.data)``.'''
     tols = _safety.get()
     if tols is None:
         return None
@@ -182,8 +182,8 @@ def checks_active(*inputs):
     Pass the operand arrays/trees so tracing is detected; a check site computes its (possibly expensive)
     numerical condition only when this returns True::
 
-        if safety.checks_active(basis.data):
-            safety.require(basis.is_orthogonal(atol=safety.effective_rtol(basis.data)).all(), 'basis not orthogonal')
+        if safety.checks_active(frame.data):
+            safety.require(frame.is_orthogonal(atol=safety.effective_rtol(frame.data)).all(), 'frame not orthogonal')
     '''
     return _safety.get() is not None and not is_tracing(*_flatten_arrays(inputs))
 
@@ -196,7 +196,7 @@ def require(condition, message):
 
 
 def frames_equal(data1, data2, rtol=None):
-    '''Numerical equality of two frames given as nested core tuples (e.g. ``T3Basis.data``).
+    '''Numerical equality of two frames given as nested core tuples (e.g. ``T3Frame.data``).
 
     The honest "same tangent space" test: two frames are the same iff their cores are equal. It accepts
     the value-equal-but-different-object frames a jit round-trip produces, while rejecting a genuinely

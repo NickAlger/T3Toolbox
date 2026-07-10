@@ -7,14 +7,14 @@ import typing as typ
 
 import t3toolbox.backend.orthogonal_representations as orth_reps
 import t3toolbox.backend.ranks as ranks
-import t3toolbox.backend.ubv_masking as ubv_masking
+import t3toolbox.backend.ufv_masking as ufv_masking
 import t3toolbox.backend.ut3_masking as ut3_masking
 from t3toolbox.backend.common import *
 
 __all__ = [
     'ut3_orthogonal_representations',
-    'ut3basis_to_t3basis',
-    't3basis_to_ut3basis',
+    'ut3frame_to_t3frame',
+    't3frame_to_ut3frame',
     'ut3variations_to_t3variations',
     't3variations_to_ut3variations',
 ]
@@ -43,7 +43,7 @@ def _broadcast_ranks_over_stack(
         stack_shape: typ.Tuple[int, ...],    # C
 ) -> NDArray:                                # HOST int, (len,)+stack_shape
     """Broadcast a per-edge rank sequence (one ragged object -> ranks shared across its ``C`` stack) to the
-    ``(edge,)+stack_shape`` array ``make_basis_masks`` expects. HOST numpy -- masks are static structure."""
+    ``(edge,)+stack_shape`` array ``make_frame_masks`` expects. HOST numpy -- masks are static structure."""
     ones_stack = np.ones(stack_shape, dtype=int)
     return np.stack([r * ones_stack for r in ranks_seq])
 
@@ -61,7 +61,7 @@ def ut3_orthogonal_representations(
     typ.Tuple[                                # frame .data:
         NDArray, NDArray, NDArray, NDArray,   #   up_sc, down_sc, left_sc, right_sc
         typ.Tuple[int, ...],                  #   shape
-        typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (up, down, basis_left, basis_right) masks
+        typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (up, down, frame_left, frame_right) masks
     ],
     typ.Tuple[                                # variations .data:
         NDArray, NDArray,                     #   tucker_var_sc, tt_var_sc
@@ -72,11 +72,11 @@ def ut3_orthogonal_representations(
     '''Orthogonal (frame, variations) representation of a uniform Tucker tensor train, on raw ``.data``.
 
     Backend twin of the frontend ``ut3_orthogonal_representations`` (which wraps this into the OO
-    ``UT3Basis`` / ``UT3Variations``). Takes a plain ``UniformTuckerTensorTrain.data`` and returns the
+    ``UT3Frame`` / ``UT3Variations``). Takes a plain ``UniformTuckerTensorTrain.data`` and returns the
     **frame** and **variation** ``.data`` tuples (supercores + ``shape`` + the rank masks).
 
     WHY THIS IS A BACKEND FUNCTION (and not something to open-code): the output frame masks are **prefix**
-    masks built from the orthogonal-representation *ranks* (``make_basis_masks`` = ``arange < rank``) --
+    masks built from the orthogonal-representation *ranks* (``make_frame_masks`` = ``arange < rank``) --
     they assert the real orthonormal content sits in the **upper-left** ``[0, rank)`` slots of each
     supercore. That is correct ONLY because the orthogonalization is **SVD-based**: the SVD sorts content
     by singular value into the leading slots, with zeros / orthonormal completion trailing. A QR-based
@@ -85,7 +85,7 @@ def ut3_orthogonal_representations(
     from raw supercore magnitudes) is the easy mistake this function exists to prevent.
 
     The frame masks come from the orthogonal-representation ranks; the variation masks reuse the up/down
-    masks and the basis left/right masks shifted by one (a variation occupies one TT slot, not a boundary
+    masks and the frame left/right masks shifted by one (a variation occupies one TT slot, not a boundary
     edge -- hence ``left[:-1]`` / ``right[1:]``).
     '''
     tk_sc, tt_sc, shape, (tkm, ttm) = data
@@ -99,21 +99,21 @@ def ut3_orthogonal_representations(
         shape, tkm.sum(axis=-1), ttm.sum(axis=-1))
 
     nU, nD, rL, rR = uc.shape[-2], dc.shape[-2], lc.shape[-1], rc.shape[-1]
-    um, dm, lm, rm = ubv_masking.make_basis_masks(up_ranks, down_ranks, left_ranks, right_ranks, nU, nD, rL, rR)
+    um, dm, lm, rm = ufv_masking.make_frame_masks(up_ranks, down_ranks, left_ranks, right_ranks, nU, nD, rL, rR)
 
     frame_data     = (uc, dc, lc, rc, shape, (um, dm, lm, rm))
     variation_data = (tkv, ttv, shape, (um, dm, lm[:-1], rm[1:]))
     return frame_data, variation_data
 
 
-def ut3basis_to_t3basis(
+def ut3frame_to_t3frame(
         x: typ.Tuple[
             NDArray,                          # up_tucker_supercore
             NDArray,                          # down_tt_supercore
             NDArray,                          # left_tt_supercore
             NDArray,                          # right_tt_supercore
             typ.Tuple[int, ...],              # shape
-            typ.Tuple[                        # (up_mask, down_mask, basis_left_mask, basis_right_mask)
+            typ.Tuple[                        # (up_mask, down_mask, frame_left_mask, frame_right_mask)
                 NDArray, NDArray, NDArray, NDArray,
             ],
         ],
@@ -121,14 +121,14 @@ def ut3basis_to_t3basis(
     typ.Tuple[typ.Tuple[NDArray, ...], ...],  # (up_cores, down_cores, left_cores, right_cores), if unstacked
     typ.Tuple,                                # else a nested tree (shaped like stack_shape) of those
 ]:
-    '''Convert a uniform UT3Basis ``.data`` to ragged ``T3Basis`` core-tuples (or a nested tree, if stacked).
+    '''Convert a uniform UT3Frame ``.data`` to ragged ``T3Frame`` core-tuples (or a nested tree, if stacked).
 
     The physical mode dims are a contiguous prefix, so they slice ``[:Ni]`` (from the ``shape`` ints, no
     argwhere); only the *rank* masks scatter, so they are extracted with ``np.argwhere`` (HOST numpy --
     masks are host). The supercores may be jax; advanced-indexing them with the host int indices is fine.
     '''
     (up_supercore, down_supercore, left_supercore, right_supercore,
-     shape, (up_mask, down_mask, basis_left_mask, basis_right_mask)) = x
+     shape, (up_mask, down_mask, frame_left_mask, frame_right_mask)) = x
     stack_shape = up_supercore.shape[1:-2]
     d = up_supercore.shape[0]
 
@@ -137,10 +137,10 @@ def ut3basis_to_t3basis(
         for ind in range(d):
             up_inds   = np.argwhere(up_mask[ind]).reshape(-1)
             down_inds = np.argwhere(down_mask[ind]).reshape(-1)
-            left_a    = np.argwhere(basis_left_mask[ind]).reshape(-1)
-            left_b    = np.argwhere(basis_left_mask[ind + 1]).reshape(-1)
-            right_a   = np.argwhere(basis_right_mask[ind]).reshape(-1)
-            right_b   = np.argwhere(basis_right_mask[ind + 1]).reshape(-1)
+            left_a    = np.argwhere(frame_left_mask[ind]).reshape(-1)
+            left_b    = np.argwhere(frame_left_mask[ind + 1]).reshape(-1)
+            right_a   = np.argwhere(frame_right_mask[ind]).reshape(-1)
+            right_b   = np.argwhere(frame_right_mask[ind + 1]).reshape(-1)
             Ni = shape[ind]
 
             up_cores.append(   up_supercore[ind][up_inds, :][:, :Ni])
@@ -155,14 +155,14 @@ def ut3basis_to_t3basis(
         xi = (
             up_supercore[:, ii], down_supercore[:, ii], left_supercore[:, ii], right_supercore[:, ii],
             shape,
-            (up_mask[:, ii], down_mask[:, ii], basis_left_mask[:, ii], basis_right_mask[:, ii]),
+            (up_mask[:, ii], down_mask[:, ii], frame_left_mask[:, ii], frame_right_mask[:, ii]),
         )
-        all_T3Bs.append(ut3basis_to_t3basis(xi))
+        all_T3Bs.append(ut3frame_to_t3frame(xi))
     return tuple(all_T3Bs)
 
 
-def t3basis_to_ut3basis(
-        basis_data: typ.Tuple[
+def t3frame_to_ut3frame(
+        frame_data: typ.Tuple[
             typ.Tuple[NDArray, ...],  # up_tucker_cores,   len=d, elm_shape=C+(nUi, Ni)
             typ.Tuple[NDArray, ...],  # down_tt_cores,     len=d, elm_shape=C+(rLi, nDi, rR(i+1))
             typ.Tuple[NDArray, ...],  # left_tt_cores,     len=d, elm_shape=C+(rLi, nUi, rL(i+1))
@@ -179,19 +179,19 @@ def t3basis_to_ut3basis(
     NDArray,                          # left_tt_supercore,    (d,)+C+(rL, nU, rL)
     NDArray,                          # right_tt_supercore,   (d,)+C+(rR, nU, rR)
     typ.Tuple[int, ...],              # shape = (N0,...,N(d-1))
-    typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (up, down, basis_left, basis_right) masks
+    typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (up, down, frame_left, frame_right) masks
 ]:
-    '''Pack a ragged ``T3Basis`` core-tuple into uniform frame ``.data`` (supercores + shape + masks).
+    '''Pack a ragged ``T3Frame`` core-tuple into uniform frame ``.data`` (supercores + shape + masks).
 
-    Inverse of :py:func:`ut3basis_to_t3basis`. A *single* ragged basis has ranks shared across its ``C``
+    Inverse of :py:func:`ut3frame_to_t3frame`. A *single* ragged frame has ranks shared across its ``C``
     stack, so the masks come out **uniform across the stack** (varying-rank uniform batches arise only by
     ``stack``-ing a heterogeneous tree). Pads each family to common dims (default: max over modes; pass
     ``N``/``nU``/``nD``/``rL``/``rR`` to force larger) and records the real extents as prefix masks
-    (``make_basis_masks``; the real content lands in the upper-left, so the prefix masks are correct).
+    (``make_frame_masks``; the real content lands in the upper-left, so the prefix masks are correct).
     '''
-    up_cores, down_cores, left_cores, right_cores = basis_data
+    up_cores, down_cores, left_cores, right_cores = frame_data
     d = len(up_cores)
-    use_jax = tree_contains_jax(basis_data)
+    use_jax = tree_contains_jax(frame_data)
     stack_shape = up_cores[0].shape[:-2]
 
     shape       = tuple(int(U.shape[-1]) for U in up_cores)                                   # (N0,...,N(d-1))
@@ -211,7 +211,7 @@ def t3basis_to_ut3basis(
     left_sc  = _pad_stack(left_cores,  (rL, nU, rL), use_jax)
     right_sc = _pad_stack(right_cores, (rR, nU, rR), use_jax)
 
-    masks = ubv_masking.make_basis_masks(
+    masks = ufv_masking.make_frame_masks(
         _broadcast_ranks_over_stack(up_ranks,    stack_shape),
         _broadcast_ranks_over_stack(down_ranks,  stack_shape),
         _broadcast_ranks_over_stack(left_ranks,  stack_shape),
@@ -236,7 +236,7 @@ def ut3variations_to_t3variations(
 ]:
     '''Convert uniform ``UT3Variations`` ``.data`` to ragged ``T3Variations`` core-tuples (or a tree, if stacked).
 
-    Variations twin of :py:func:`ut3basis_to_t3basis`. The physical mode dim is a prefix (slices ``[:Ni]``
+    Variations twin of :py:func:`ut3frame_to_t3frame`. The physical mode dim is a prefix (slices ``[:Ni]``
     from ``shape``); the rank masks scatter, so they extract with ``np.argwhere`` (HOST numpy). The
     variation tt-core ``H_i`` has shape ``(rLi, nUi, rR(i+1))`` -- left/up/right masks index its three axes.
     '''
@@ -289,7 +289,7 @@ def t3variations_to_ut3variations(
 
     Inverse of :py:func:`ut3variations_to_t3variations`. The variation masks are all ``(d,)``-leading (a
     variation occupies one TT slot, not a boundary edge), so the left/right ranks are the per-slot bonds
-    ``rLi`` / ``rR(i+1)`` -- NOT a ``(d+1,)`` edge sequence. ``make_basis_masks`` builds the prefix masks
+    ``rLi`` / ``rR(i+1)`` -- NOT a ``(d+1,)`` edge sequence. ``make_frame_masks`` builds the prefix masks
     from whatever leading shape its rank args carry, so it serves here too.
     '''
     tucker_cores, tt_cores = variations_data
@@ -311,7 +311,7 @@ def t3variations_to_ut3variations(
     tkv = _pad_stack(tucker_cores, (nD, N),     use_jax)
     ttv = _pad_stack(tt_cores,     (rL, nU, rR), use_jax)
 
-    masks = ubv_masking.make_basis_masks(
+    masks = ufv_masking.make_frame_masks(
         _broadcast_ranks_over_stack(up_ranks,    stack_shape),
         _broadcast_ranks_over_stack(down_ranks,  stack_shape),
         _broadcast_ranks_over_stack(left_ranks,  stack_shape),
