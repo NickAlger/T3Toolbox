@@ -14,10 +14,10 @@ design rationale into user-facing docs. Then the rest of the release hygiene (R5
 
 ## Done this session (2026-07-11) — the naming pass + backend module reorg
 
-Plan + complete old→new token inventory + execution deltas: **`dev/naming_pass_plan.md`**. The
+Plan + complete old→new token inventory + execution deltas: **`dev/archive/naming_pass_plan.md`**. The
 **user-facing conventions catalog** (prefix grammar, module map, semantic markers, deliberate
 exceptions): **[`docs/naming_conventions.md`](../docs/naming_conventions.md)**. Decisions log:
-`dev/naming_review.md` (§1/§3/§4 now executed). Suite-gated per sub-slice; one commit each.
+`dev/archive/naming_review.md` (§1/§3/§4 now executed). Suite-gated per sub-slice; one commit each.
 
 **Governing principle (Nick):** naming exists to help the user — orient, find, understand
 inputs/outputs. When convention and clarity conflict, clarity wins. Corollary: parameter names
@@ -31,6 +31,11 @@ deliberately encode representation (`xx` ragged collection vs `uxx` uniform; `x`
   + sweeps moved OUT of `probing.py` into their type files; shared machinery stays in `probing.py` —
   containment `probe ⊃ apply ⊃ entries`, specializations import the general, never the reverse);
   `probe_derivatives.py` → **`sampling_derivatives.py`** (all jets together — shared machinery).
+  **Settled with Nick (2026-07-11, confirmed after reflection): the uniform sampling modules stay
+  grouped by OBJECT type (`ut3_sampling`/`utv_sampling`) — deliberately asymmetric.** The uniform
+  sampling functions are thin wrappers (mask-once / pack / delegate to the shared polymorphic ragged
+  machinery), not independent math, so they group by the object they wrap; the algorithm story lives
+  in the ragged type files. Rationale recorded in `docs/naming_conventions.md`.
   Function renames to grammar: `probe_t3`→`t3_probe`, `tucker_tensor_train_*`→`t3_*`,
   `*_tangent*`→`tv_*`, sweeps→`tv_*`, `*_dense`→`dense_*`, and the plural→singular helper chains
   (`compute_xis`→`compute_xi` etc.).
@@ -67,7 +72,7 @@ deliberately encode representation (`xx` ragged collection vs `uxx` uniform; `x`
 - Also: **deleted `OLD_orthogonalization.py`** (Nick confirmed superseded; suite-gated).
 
 **Kept/guarded during the pass (don't undo):**
-- The **A4 watchlist** (`dev/naming_pass_plan.md`): same-looking, different-math near-twins —
+- The **A4 watchlist** (`dev/archive/naming_pass_plan.md`): same-looking, different-math near-twins —
   `sum_stack` (rank-growing tensor sum) vs `sum_stack_corewise` (rank-preserving core sum);
   `fv_to_t3` (single term) vs `tv_to_t3` (sum); the HS-vs-coordinate inner-product family;
   "corewise"/"numerically_" are semantic markers no rename may add or drop.

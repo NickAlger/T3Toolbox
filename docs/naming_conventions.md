@@ -4,7 +4,7 @@ How things are named in T3Toolbox, so you can predict a name you have never seen
 function you want from the name alone. The conventions exist to help the reader; where a
 convention would have hurt more than helped, we broke it deliberately, and the exceptions are
 cataloged at the end. (Prefix grammar and module map settled in the 2026-07 naming pass;
-decisions log: `dev/naming_review.md`.)
+decisions log: `dev/archive/naming_review.md`.)
 
 ## The two layers
 
@@ -64,15 +64,22 @@ Outside the matrix: the unprefixed infrastructure (`common`, `contractions`, `st
 `linalg`, `ranks`) and the fitting/optimization stack (`fitting`, `optimizers`,
 `uniform_fitting`), which is organized by role, not by operand family.
 
-**Sampling is the deliberate exception** — grouped by **sampling type**, not by family:
-`apply.py`, `entries.py`, `probing.py` each hold their type's t3 + tv + dense ops, transposes,
-and frame sweeps, plus one `sampling_derivatives.py` for all the jet (derivative) machinery,
-and `ut3_sampling.py` / `utv_sampling.py` on the uniform side. Why: for one sampling type the
-t3 evaluation, the tangent 𝒥/𝒥ᵀ, and the sweeps form a single connected algorithm (presented
-together in the paper), and the containment **probe ⊃ apply ⊃ entries** gives the three files
-parallel structure — `apply.py` and `entries.py` import the general machinery from
-`probing.py`, never the reverse. The family axis survives inside each file through the
-function prefixes (`t3_apply`, `tv_apply`, `dense_apply_derivatives`, ...).
+**Sampling is the deliberate exception** — the *ragged* sampling modules are grouped by
+**sampling type**, not by family: `apply.py`, `entries.py`, `probing.py` each hold their type's
+t3 + tv + dense ops, transposes, and frame sweeps, plus one `sampling_derivatives.py` for all
+the jet (derivative) machinery. Why: for one sampling type the t3 evaluation, the tangent
+𝒥/𝒥ᵀ, and the sweeps form a single connected algorithm (presented together in the paper), and
+the containment **probe ⊃ apply ⊃ entries** gives the three files parallel structure —
+`apply.py` and `entries.py` import the general machinery from `probing.py`, never the reverse.
+The family axis survives inside each file through the function prefixes (`t3_apply`,
+`tv_apply`, `dense_apply_derivatives`, ...).
+
+The *uniform* sampling modules (`ut3_sampling.py`, `utv_sampling.py`) are instead grouped by
+**object type** — deliberately asymmetric. The uniform sampling functions are not independent
+mathematical algorithms: each is a thin wrapper (mask once, pack, delegate to the shared
+polymorphic ragged machinery, re-mask) whose few real operations are tied to its *object's*
+structure, not to the sampling math. Grouping wrappers by the object they wrap is what helps
+the reader; the algorithm story lives in the ragged type files they delegate to.
 
 ## Converters encode the operand type
 

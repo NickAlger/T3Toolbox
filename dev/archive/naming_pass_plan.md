@@ -7,7 +7,7 @@ sampling landed as **option C** (by-type files `apply`/`entries`/`probing` + one
 **tt/utt** family (`tt_operations.py` + `tt_orthogonalization.py`, with the polymorphic merges
 `tt_reverse` and `tt_squash_tails`; `utt_` reserved, no members); F7 became moot under option C
 (uniform sampling keeps plain+derivatives together); everything weighted untouched. The user-facing
-catalog is **`docs/naming_conventions.md`**. Companion decisions log: `dev/naming_review.md`._
+catalog is **`docs/naming_conventions.md`**. Companion decisions log: `dev/archive/naming_review.md`._
 
 ## 0. Scope decisions (settled with Nick, 2026-07-10; amended 2026-07-11)
 

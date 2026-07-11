@@ -15,7 +15,7 @@ _Started 2026-06-21._
 > module reorg (**un-deferred 2026-07-10** — file-level reorg only, polymorphism triage dropped).
 >
 > **§1/§3/§4 EXECUTED 2026-07-11** — the full naming pass + backend module reorg shipped (plan,
-> token inventory, and execution deltas: `dev/naming_pass_plan.md`; user-facing conventions catalog:
+> token inventory, and execution deltas: `dev/archive/naming_pass_plan.md`; user-facing conventions catalog:
 > `docs/naming_conventions.md`). Sampling grouped **by type** (Nick's call — option C); chains got
 > the **`tt`** family with the polymorphic `tt_reverse`/`tt_squash_tails` merges; `has_jax` →
 > `jax_available`; `t3toolbox/__init__.py` curated (R2). See `dev/HANDOFF.md`.

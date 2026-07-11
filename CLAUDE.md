@@ -406,8 +406,8 @@ Live roadmap + next steps: **`dev/HANDOFF.md`**. The durable open items:
   docs; fix the docs build (`conf.py` autoapi excludes core modules; committed `_build`; `modules.rst`
   still titled "TuckerTensorTrainTools").
 - **Public API + naming review — DONE (2026-07-11).** The `basis`/`base` → `frame` rename
-  (`dev/naming_review.md` §2), the full naming pass + backend module reorg (plan + inventory:
-  `dev/naming_pass_plan.md`; the sampling modules are grouped **by type** — Nick's call — with the
+  (`dev/archive/naming_review.md` §2), the full naming pass + backend module reorg (plan + inventory:
+  `dev/archive/naming_pass_plan.md`; the sampling modules are grouped **by type** — Nick's call — with the
   family carried by function prefixes), and the curated `t3toolbox/__init__.py` public surface.
   **The user-facing conventions catalog (grammar, module map, semantic markers, deliberate
   exceptions) is [`docs/naming_conventions.md`](docs/naming_conventions.md)** — read it before
